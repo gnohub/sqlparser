@@ -237,6 +237,8 @@ leaves room for:
 ## 9. Documents and Code Entry Points
 
 - API reference: [api_reference.en.md](./api_reference.en.md)
+- model JSON guide: [model_json.en.md](./model_json.en.md)
+- CLI guide: [cli_guide.en.md](./cli_guide.en.md)
 - `libpg_query` integration notes:
   [libpg_query_analysis.en.md](./libpg_query_analysis.en.md)
 - examples: `examples/*.c`

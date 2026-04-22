@@ -133,6 +133,7 @@ gcc -std=gnu11 demo.c $(pkg-config --cflags --libs sqlparser) -o demo
 - `06_ddl_inspect.c`
 - `07_multi_statement_walk.c`
 - `08_model_roundtrip.c`
+- `09_expression_rewrite.c`
 
 示例说明见 [examples/README.zh-CN.md](./examples/README.zh-CN.md)。
 
@@ -141,6 +142,8 @@ gcc -std=gnu11 demo.c $(pkg-config --cflags --libs sqlparser) -o demo
 - [文档目录](./doc/README.md)
 - [项目概览与架构](./doc/sqlparser_architecture.md)
 - [API 手册](./doc/api_reference.md)
+- [模型 JSON 手册](./doc/model_json.md)
+- [CLI 手册](./doc/cli_guide.md)
 - [libpg_query 集成说明](./doc/libpg_query_analysis.md)
 
 ## 测试与性能

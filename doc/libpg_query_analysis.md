@@ -165,3 +165,5 @@ SQL -> libpg_query protobuf AST -> sqlparser handle -> rewrite -> deparse -> SQL
 
 - 项目概览见 [sqlparser_architecture.md](./sqlparser_architecture.md)
 - API 使用说明见 [api_reference.md](./api_reference.md)
+- 模型 JSON 说明见 [model_json.md](./model_json.md)
+- CLI 使用说明见 [cli_guide.md](./cli_guide.md)

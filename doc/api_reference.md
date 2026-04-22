@@ -8,7 +8,7 @@
 
 1. 调用 `sqlparser_parse()` 解析 SQL，创建 `handle`
 2. 通过语句级接口、通用原子接口或 selector 接口读取结构信息
-3. 调用对应的改写接口修改表名、名称原子或字面量
+3. 调用对应的改写接口修改表名、名称原子、字面量或右值表达式
 4. 根据需要导出 `parse tree JSON`、`summary JSON` 或模型 JSON
 5. 调用 `sqlparser_deparse()` 生成改写后的 SQL
 6. 调用 `sqlparser_handle_destroy()` 释放 `handle`
@@ -282,12 +282,16 @@ void sqlparser_handle_destroy(sqlparser_handle_t *handle);
 | `sqlparser_insert_row_count()` | 返回 `VALUES` 行数 |
 | `sqlparser_insert_cell_literal()` | 读取指定单元格字面量 |
 | `sqlparser_insert_set_cell_literal()` | 改写指定单元格字面量 |
+| `sqlparser_insert_cell_sql()` | 读取指定单元格右值 SQL |
+| `sqlparser_insert_set_cell_sql()` | 改写指定单元格右值 SQL |
 
 说明：
 
 - `INSERT ... VALUES` 可通过行列坐标访问。
 - `INSERT ... SELECT` 不提供固定单元格模型，`row_count` 通常为 `0`。
 - 如果需要按列名定位，推荐先遍历目标列，再由调用方建立列名到 `column_index` 的映射。
+- `sqlparser_insert_cell_sql()` 可用于读取 `DEFAULT`、函数调用和其他表达式形态。
+- `sqlparser_insert_set_cell_sql()` 适用于需要保留单元格语义位置、但要替换为任意右值表达式的场景。
 
 ## UPDATE 与 WHERE 接口
 
@@ -298,6 +302,8 @@ void sqlparser_handle_destroy(sqlparser_handle_t *handle);
 | `sqlparser_update_assignment_count()` | 返回 `SET` 赋值项数量 |
 | `sqlparser_update_assignment()` | 读取指定赋值项 |
 | `sqlparser_update_set_assignment_literal()` | 改写赋值项右值 literal |
+| `sqlparser_update_assignment_sql()` | 读取赋值项右值 SQL |
+| `sqlparser_update_set_assignment_sql()` | 改写赋值项右值 SQL |
 
 ### WHERE literal
 
@@ -310,6 +316,9 @@ void sqlparser_handle_destroy(sqlparser_handle_t *handle);
 说明：
 
 - `sqlparser_assignment_view_t` 主要用于读取列名、值类型和右值 literal。
+- `sqlparser_assignment_view_t.value_kind` 可区分 `literal`、`default` 和 `expression`。
+- `sqlparser_update_assignment_sql()` 适用于读取 `DEFAULT` 或任意表达式右值。
+- `sqlparser_update_set_assignment_sql()` 适用于把赋值项替换为字面量之外的表达式。
 - `sqlparser_where_literal_view_t` 主要用于读取列名、运算符和条件 literal。
 - 如果需要按列名定位，建议先遍历，再记录目标索引后执行改写。
 
@@ -345,6 +354,8 @@ stmt[0].insert_cell[1][2]
 | `sqlparser_selector_where_literal()` | 通过 selector 读取 WHERE literal |
 | `sqlparser_selector_update_assignment()` | 通过 selector 读取 assignment |
 | `sqlparser_selector_insert_cell_literal()` | 通过 selector 读取 INSERT cell literal |
+| `sqlparser_selector_update_assignment_sql()` | 通过 selector 读取 assignment 右值 SQL |
+| `sqlparser_selector_insert_cell_sql()` | 通过 selector 读取 INSERT 单元格右值 SQL |
 
 ### selector 改写
 
@@ -356,6 +367,8 @@ stmt[0].insert_cell[1][2]
 | `sqlparser_selector_set_where_literal()` | 通过 selector 改 WHERE literal |
 | `sqlparser_selector_set_update_assignment_literal()` | 通过 selector 改 assignment 右值 |
 | `sqlparser_selector_set_insert_cell_literal()` | 通过 selector 改 INSERT 单元格 |
+| `sqlparser_selector_set_update_assignment_sql()` | 通过 selector 改 assignment 右值 SQL |
+| `sqlparser_selector_set_insert_cell_sql()` | 通过 selector 改 INSERT 单元格右值 SQL |
 
 说明：
 
@@ -417,10 +430,20 @@ stmt[0].insert_cell[1][2]
         "kind": "integer",
         "integer_value": 2
       }
+    },
+    {
+      "selector": "stmt[0].assignment[0]",
+      "sql": "lower(name)"
     }
   ]
 }
 ```
+
+说明：
+
+- 对通用 `literal`、`where_literal` 和字面量形态的赋值项，可使用 `literal`
+- 对 `assignment` 或 `insert_cell` 的 `DEFAULT` / 表达式改写，可使用 `sql`
+- 单个 change 条目建议只使用一种改写形式
 
 ## Deparse 与字符串释放
 
@@ -490,6 +513,12 @@ void sqlparser_string_free(char *text);
 4. 调用 `sqlparser_statement_where_set_literal()`
 5. 调用 `sqlparser_deparse()`
 
+### 表达式级改写
+
+1. 调用 `sqlparser_update_assignment_sql()` 或 `sqlparser_insert_cell_sql()` 读取当前右值
+2. 调用 `sqlparser_update_set_assignment_sql()` 或 `sqlparser_insert_set_cell_sql()` 写入新表达式
+3. 调用 `sqlparser_deparse()`
+
 ### selector 驱动改写
 
 1. 导出模型 JSON
@@ -510,3 +539,4 @@ void sqlparser_string_free(char *text);
 | `examples/06_ddl_inspect.c` | DDL 名称原子读取与改写 |
 | `examples/07_multi_statement_walk.c` | 多语句遍历 |
 | `examples/08_model_roundtrip.c` | 模型 JSON 导出、patch、回放 |
+| `examples/09_expression_rewrite.c` | assignment / insert cell 表达式级改写 |

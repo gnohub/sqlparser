@@ -221,6 +221,8 @@ selector 和模型接口用于把改写目标稳定地外部化。
 ## 9. 文档与代码入口
 
 - API 手册见 [api_reference.md](./api_reference.md)
+- 模型 JSON 手册见 [model_json.md](./model_json.md)
+- CLI 手册见 [cli_guide.md](./cli_guide.md)
 - `libpg_query` 集成说明见 [libpg_query_analysis.md](./libpg_query_analysis.md)
 - 示例程序见 `examples/*.c`
 - 公共头文件见 `include/sqlparser/sqlparser.h`

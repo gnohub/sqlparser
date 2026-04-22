@@ -175,3 +175,5 @@ When adding dialect syntax later, the usual areas to inspect are:
 - project overview:
   [sqlparser_architecture.en.md](./sqlparser_architecture.en.md)
 - API reference: [api_reference.en.md](./api_reference.en.md)
+- model JSON guide: [model_json.en.md](./model_json.en.md)
+- CLI guide: [cli_guide.en.md](./cli_guide.en.md)

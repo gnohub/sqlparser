@@ -133,6 +133,7 @@ Example programs are available under `examples/`:
 - `06_ddl_inspect.c`
 - `07_multi_statement_walk.c`
 - `08_model_roundtrip.c`
+- `09_expression_rewrite.c`
 
 See [examples/README.md](./examples/README.md) for details.
 
@@ -141,6 +142,8 @@ See [examples/README.md](./examples/README.md) for details.
 - [Documentation Index](./doc/README.en.md)
 - [Project Overview and Architecture](./doc/sqlparser_architecture.en.md)
 - [API Reference](./doc/api_reference.en.md)
+- [Model JSON Guide](./doc/model_json.en.md)
+- [CLI Guide](./doc/cli_guide.en.md)
 - [libpg_query Integration](./doc/libpg_query_analysis.en.md)
 
 ## Tests and Benchmarks

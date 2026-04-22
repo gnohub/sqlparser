@@ -10,7 +10,8 @@ handling model, and function groups exposed by `sqlparser`.
 1. Call `sqlparser_parse()` to parse SQL and create a handle.
 2. Read structure through statement-oriented APIs, generic atomic APIs, or
    selector APIs.
-3. Apply rewrites to relation names, name atoms, or literal values.
+3. Apply rewrites to relation names, name atoms, literal values, or right-hand
+   expressions.
 4. Export parse-tree JSON, summary JSON, or model JSON if needed.
 5. Call `sqlparser_deparse()` to generate the rewritten SQL.
 6. Call `sqlparser_handle_destroy()` to release the handle.
@@ -293,6 +294,8 @@ Notes:
 | `sqlparser_insert_row_count()` | returns the number of `VALUES` rows |
 | `sqlparser_insert_cell_literal()` | reads the literal at one cell |
 | `sqlparser_insert_set_cell_literal()` | rewrites the literal at one cell |
+| `sqlparser_insert_cell_sql()` | reads the right-hand SQL at one cell |
+| `sqlparser_insert_set_cell_sql()` | rewrites the right-hand SQL at one cell |
 
 Notes:
 
@@ -301,6 +304,10 @@ Notes:
   is typically `0`.
 - If column-name lookup is needed, first traverse the target columns and build
   a caller-side map from column name to `column_index`.
+- `sqlparser_insert_cell_sql()` can be used for `DEFAULT`, function calls, and
+  other expression-shaped cells.
+- `sqlparser_insert_set_cell_sql()` is suitable when the target cell position
+  stays the same but the right-hand expression must change.
 
 ## UPDATE and WHERE APIs
 
@@ -311,6 +318,8 @@ Notes:
 | `sqlparser_update_assignment_count()` | returns the number of `SET` assignments |
 | `sqlparser_update_assignment()` | reads one assignment |
 | `sqlparser_update_set_assignment_literal()` | rewrites the literal on the right side of an assignment |
+| `sqlparser_update_assignment_sql()` | reads the right-hand SQL of an assignment |
+| `sqlparser_update_set_assignment_sql()` | rewrites the right-hand SQL of an assignment |
 
 ### WHERE Literals
 
@@ -324,6 +333,12 @@ Notes:
 
 - `sqlparser_assignment_view_t` is mainly used to read the column name, value
   kind, and right-hand literal of an assignment.
+- `sqlparser_assignment_view_t.value_kind` distinguishes `literal`, `default`,
+  and `expression`.
+- `sqlparser_update_assignment_sql()` is suitable for reading `DEFAULT` or any
+  expression-valued assignment.
+- `sqlparser_update_set_assignment_sql()` is suitable for replacing an
+  assignment with a non-literal expression.
 - `sqlparser_where_literal_view_t` is mainly used to read the column name,
   operator, and condition literal.
 - If column-name lookup is needed, first traverse and record the target index,
@@ -362,6 +377,8 @@ stmt[0].insert_cell[1][2]
 | `sqlparser_selector_where_literal()` | reads a `WHERE` literal through a selector |
 | `sqlparser_selector_update_assignment()` | reads an assignment through a selector |
 | `sqlparser_selector_insert_cell_literal()` | reads an `INSERT` cell literal through a selector |
+| `sqlparser_selector_update_assignment_sql()` | reads assignment right-hand SQL through a selector |
+| `sqlparser_selector_insert_cell_sql()` | reads `INSERT` cell right-hand SQL through a selector |
 
 ### Selector Rewrite
 
@@ -373,6 +390,8 @@ stmt[0].insert_cell[1][2]
 | `sqlparser_selector_set_where_literal()` | rewrites a `WHERE` literal through a selector |
 | `sqlparser_selector_set_update_assignment_literal()` | rewrites an assignment right-hand literal through a selector |
 | `sqlparser_selector_set_insert_cell_literal()` | rewrites an `INSERT` cell through a selector |
+| `sqlparser_selector_set_update_assignment_sql()` | rewrites assignment right-hand SQL through a selector |
+| `sqlparser_selector_set_insert_cell_sql()` | rewrites `INSERT` cell right-hand SQL through a selector |
 
 Notes:
 
@@ -434,10 +453,22 @@ Example:
         "kind": "integer",
         "integer_value": 2
       }
+    },
+    {
+      "selector": "stmt[0].assignment[0]",
+      "sql": "lower(name)"
     }
   ]
 }
 ```
+
+Notes:
+
+- Use `literal` for generic literals, `WHERE` literals, and literal-valued
+  assignments or insert cells.
+- Use `sql` for `assignment` or `insert_cell` rewrites that involve `DEFAULT`
+  or arbitrary expressions.
+- It is best to use one rewrite form per change entry.
 
 ## Deparse and String Free
 
@@ -508,6 +539,14 @@ Notes:
 4. Call `sqlparser_statement_where_set_literal()`.
 5. Call `sqlparser_deparse()`.
 
+### Expression-Level Rewrite
+
+1. Call `sqlparser_update_assignment_sql()` or `sqlparser_insert_cell_sql()` to
+   read the current right-hand SQL.
+2. Call `sqlparser_update_set_assignment_sql()` or
+   `sqlparser_insert_set_cell_sql()` to write the new expression.
+3. Call `sqlparser_deparse()`.
+
 ### Selector-Driven Rewrite
 
 1. Export model JSON.
@@ -528,3 +567,4 @@ Notes:
 | `examples/06_ddl_inspect.c` | DDL name-atom inspection and rewrite |
 | `examples/07_multi_statement_walk.c` | multi-statement traversal |
 | `examples/08_model_roundtrip.c` | model JSON export, patch replay, and SQL regeneration |
+| `examples/09_expression_rewrite.c` | expression-level rewrite for assignments and insert cells |
