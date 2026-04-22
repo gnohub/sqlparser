@@ -77,8 +77,10 @@ endif
 
 ifeq ($(SHOW_WARNING),1)
 	BASE_CFLAGS += -Wall -Wextra -Wpedantic
+	VENDOR_PG_QUERY_BUILD_CFLAGS += -Wall -Wextra -Wpedantic
 else
 	BASE_CFLAGS += -w
+	VENDOR_PG_QUERY_BUILD_CFLAGS += -w
 endif
 
 CPPFLAGS := $(BASE_CPPFLAGS) $(EXTRA_CPPFLAGS)
