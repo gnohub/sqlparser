@@ -1,6 +1,7 @@
 PREFIX ?= /usr/local
 INCLUDEDIR ?= $(PREFIX)/include
 LIBDIR ?= $(PREFIX)/lib
+PKGCONFIGDIR ?= $(LIBDIR)/pkgconfig
 
 REMOTE_HOST ?=
 REMOTE_PORT ?= 22

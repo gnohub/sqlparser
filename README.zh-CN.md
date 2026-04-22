@@ -48,6 +48,7 @@ make all
 - `make examples`
 - `make test`
 - `make bench-build`
+- `make install PREFIX=/usr/local`
 
 ## 最小接入示例
 
@@ -84,6 +85,12 @@ int main(void)
 
 ```bash
 gcc -std=gnu11 demo.c -I./include -L./lib -lsqlparser -ljansson -o demo
+```
+
+如果已经安装到系统目录，也可以通过 `pkg-config` 获取编译参数：
+
+```bash
+gcc -std=gnu11 demo.c $(pkg-config --cflags --libs sqlparser) -o demo
 ```
 
 ## 命令行工具
@@ -140,3 +147,8 @@ gcc -std=gnu11 demo.c -I./include -L./lib -lsqlparser -ljansson -o demo
 
 - 测试说明见 [tests/README.md](./tests/README.md)
 - 基准测试说明见 [bench/README.md](./bench/README.md)
+
+## 许可证
+
+- 项目许可证见 [LICENSE](./LICENSE)
+- 第三方许可证说明见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)

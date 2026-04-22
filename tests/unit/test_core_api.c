@@ -392,9 +392,192 @@ static int test_update_assignment_literal_mutation(void)
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-
 	sqlparser_string_free(parse_tree_json);
 	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_update_assignment_sql_mutation(void)
+{
+	const char *sql;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_assignment_view_t assignment;
+	sqlparser_selector_t selector;
+	char *assignment_sql;
+	char *selector_sql;
+	char *deparsed_sql;
+	int rc;
+
+	sql = "UPDATE public.users SET name = upper(name), updated_at = DEFAULT WHERE id = 1";
+	handle = NULL;
+	assignment_sql = NULL;
+	selector_sql = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&assignment, 0, sizeof(assignment));
+	memset(&selector, 0, sizeof(selector));
+
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(rc, &error, "expression update parse should succeed") != 0) {
+		return 1;
+	}
+
+	rc = sqlparser_update_assignment(handle, 0U, 0U, &assignment, &error);
+	if (expect_status_ok(rc, &error, "expression assignment fetch should succeed") != 0 ||
+	    expect_true(strcmp(assignment.column_name, "name") == 0, "expression assignment column should be name") != 0 ||
+	    expect_true(assignment.value_kind == SQLPARSER_VALUE_KIND_EXPRESSION, "expression assignment should be expression") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_update_assignment_sql(handle, 0U, 0U, &assignment_sql, &error);
+	if (expect_status_ok(rc, &error, "expression assignment SQL fetch should succeed") != 0 ||
+	    expect_true(strcmp(assignment_sql, "upper(name)") == 0, "expression assignment SQL should be upper(name)") != 0) {
+		sqlparser_string_free(assignment_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_update_assignment(handle, 0U, 1U, &assignment, &error);
+	if (expect_status_ok(rc, &error, "default assignment fetch should succeed") != 0 ||
+	    expect_true(strcmp(assignment.column_name, "updated_at") == 0, "default assignment column should be updated_at") != 0 ||
+	    expect_true(assignment.value_kind == SQLPARSER_VALUE_KIND_DEFAULT, "default assignment should be DEFAULT") != 0) {
+		sqlparser_string_free(assignment_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
+	selector.statement_index = 0U;
+	selector.item_index = 1U;
+	rc = sqlparser_selector_update_assignment_sql(handle, &selector, &selector_sql, &error);
+	if (expect_status_ok(rc, &error, "selector assignment SQL fetch should succeed") != 0 ||
+	    expect_true(strcmp(selector_sql, "DEFAULT") == 0, "selector assignment SQL should be DEFAULT") != 0) {
+		sqlparser_string_free(selector_sql);
+		sqlparser_string_free(assignment_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_update_set_assignment_sql(handle, 0U, 0U, "lower(name)", &error);
+	if (expect_status_ok(rc, &error, "expression assignment SQL mutation should succeed") != 0) {
+		sqlparser_string_free(selector_sql);
+		sqlparser_string_free(assignment_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_selector_set_update_assignment_sql(
+		handle,
+		&selector,
+		"clock_timestamp()",
+		&error);
+	if (expect_status_ok(rc, &error, "selector assignment SQL mutation should succeed") != 0) {
+		sqlparser_string_free(selector_sql);
+		sqlparser_string_free(assignment_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "expression update deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "name = lower(name)") != NULL, "deparsed update should contain lower(name)") != 0 ||
+	    expect_true(strstr(deparsed_sql, "updated_at = clock_timestamp()") != NULL, "deparsed update should contain clock_timestamp()") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_string_free(selector_sql);
+		sqlparser_string_free(assignment_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_string_free(selector_sql);
+	sqlparser_string_free(assignment_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_insert_cell_sql_mutation(void)
+{
+	const char *sql;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_selector_t selector;
+	char *cell_sql;
+	char *selector_sql;
+	char *deparsed_sql;
+	int rc;
+
+	sql =
+		"INSERT INTO public.users (id, name, created_at, score) "
+		"VALUES (1, upper('bob'), DEFAULT, 10), (2, 'carol', DEFAULT, 20)";
+	handle = NULL;
+	cell_sql = NULL;
+	selector_sql = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&selector, 0, sizeof(selector));
+
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(rc, &error, "expression insert parse should succeed") != 0) {
+		return 1;
+	}
+
+	rc = sqlparser_insert_cell_sql(handle, 0U, 0U, 1U, &cell_sql, &error);
+	if (expect_status_ok(rc, &error, "expression insert cell SQL fetch should succeed") != 0 ||
+	    expect_true(strstr(cell_sql, "upper(") != NULL, "expression insert cell SQL should contain upper(") != 0 ||
+	    expect_true(strstr(cell_sql, "'bob'") != NULL, "expression insert cell SQL should contain 'bob'") != 0) {
+		sqlparser_string_free(cell_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	selector.kind = SQLPARSER_SELECTOR_KIND_INSERT_CELL;
+	selector.statement_index = 0U;
+	selector.row_index = 1U;
+	selector.column_index = 2U;
+	rc = sqlparser_selector_insert_cell_sql(handle, &selector, &selector_sql, &error);
+	if (expect_status_ok(rc, &error, "selector insert cell SQL fetch should succeed") != 0 ||
+	    expect_true(strcmp(selector_sql, "DEFAULT") == 0, "selector insert cell SQL should be DEFAULT") != 0) {
+		sqlparser_string_free(selector_sql);
+		sqlparser_string_free(cell_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_insert_set_cell_sql(handle, 0U, 0U, 1U, "lower('BOB')", &error);
+	if (expect_status_ok(rc, &error, "expression insert cell mutation should succeed") != 0) {
+		sqlparser_string_free(selector_sql);
+		sqlparser_string_free(cell_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_selector_set_insert_cell_sql(handle, &selector, "now()", &error);
+	if (expect_status_ok(rc, &error, "selector insert cell mutation should succeed") != 0) {
+		sqlparser_string_free(selector_sql);
+		sqlparser_string_free(cell_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "expression insert deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "lower(") != NULL, "deparsed insert should contain lower(") != 0 ||
+	    expect_true(strstr(deparsed_sql, "'BOB'") != NULL, "deparsed insert should contain 'BOB'") != 0 ||
+	    expect_true(strstr(deparsed_sql, "now()") != NULL, "deparsed insert should contain now()") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_string_free(selector_sql);
+		sqlparser_string_free(cell_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_string_free(selector_sql);
+	sqlparser_string_free(cell_sql);
 	sqlparser_handle_destroy(handle);
 	return 0;
 }
@@ -768,6 +951,91 @@ static int test_model_json_patch_roundtrip(void)
 	return 0;
 }
 
+static int test_model_json_sql_patch_roundtrip(void)
+{
+	const char *sql;
+	const char *patch_json;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	char *model_json;
+	char *deparsed_sql;
+	int rc;
+
+	sql =
+		"UPDATE public.users SET name = upper(name), updated_at = DEFAULT WHERE id = 1; "
+		"INSERT INTO public.audit_log (id, payload, created_at) "
+		"VALUES (1, json_build_object('k', 'v'), DEFAULT)";
+	patch_json =
+		"{\"changes\":["
+		"{\"selector\":\"stmt[0].assignment[0]\",\"sql\":\"lower(name)\"},"
+		"{\"selector\":\"stmt[1].insert_cell[0][2]\",\"sql\":\"clock_timestamp()\"}"
+		"]}";
+	handle = NULL;
+	model_json = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(rc, &error, "SQL model roundtrip parse should succeed") != 0) {
+		return 1;
+	}
+
+	rc = sqlparser_export_model_json(handle, 1, &model_json, &error);
+	if (expect_status_ok(rc, &error, "SQL model export should succeed") != 0 ||
+	    expect_true(strstr(model_json, "\"sql\": \"upper(name)\"") != NULL, "model export should contain expression assignment SQL") != 0 ||
+	    expect_true(strstr(model_json, "\"sql\": \"DEFAULT\"") != NULL, "model export should contain DEFAULT SQL") != 0 ||
+	    expect_true(strstr(model_json, "\"value_kind\": \"expression\"") != NULL, "model export should contain expression kind") != 0 ||
+	    expect_true(strstr(model_json, "\"value_kind\": \"default\"") != NULL, "model export should contain default kind") != 0) {
+		sqlparser_string_free(model_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_apply_model_json(handle, model_json, &error);
+	if (expect_status_ok(rc, &error, "applying unchanged SQL model should succeed") != 0) {
+		sqlparser_string_free(model_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "deparse after unchanged SQL model import should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "name = upper(name)") != NULL, "unchanged SQL model import should preserve upper(name)") != 0 ||
+	    expect_true(strstr(deparsed_sql, "INSERT INTO public.audit_log") != NULL, "unchanged SQL model import should preserve insert statement") != 0 ||
+	    expect_true(strstr(deparsed_sql, "json_build_object(") != NULL, "unchanged SQL model import should preserve JSON expression") != 0 ||
+	    expect_true(strstr(deparsed_sql, "DEFAULT") != NULL, "unchanged SQL model import should preserve DEFAULT") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_string_free(model_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+
+	rc = sqlparser_apply_model_json(handle, patch_json, &error);
+	if (expect_status_ok(rc, &error, "SQL model patch import should succeed") != 0) {
+		sqlparser_string_free(model_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "deparse after SQL model patch should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "name = lower(name)") != NULL, "SQL model patch should rewrite assignment expression") != 0 ||
+	    expect_true(strstr(deparsed_sql, "clock_timestamp()") != NULL, "SQL model patch should rewrite insert cell expression") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_string_free(model_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_string_free(model_json);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
 static int test_model_json_full_import(void)
 {
 	const char *sql;
@@ -932,6 +1200,12 @@ int main(void)
 	if (test_update_assignment_literal_mutation() != 0) {
 		return 1;
 	}
+	if (test_update_assignment_sql_mutation() != 0) {
+		return 1;
+	}
+	if (test_insert_cell_sql_mutation() != 0) {
+		return 1;
+	}
 	if (test_delete_where_literal_mutation() != 0) {
 		return 1;
 	}
@@ -945,6 +1219,9 @@ int main(void)
 		return 1;
 	}
 	if (test_model_json_patch_roundtrip() != 0) {
+		return 1;
+	}
+	if (test_model_json_sql_patch_roundtrip() != 0) {
 		return 1;
 	}
 	if (test_model_json_full_import() != 0) {

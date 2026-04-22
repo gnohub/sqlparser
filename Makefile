@@ -3,9 +3,13 @@ include $(CONFIG)
 
 .DEFAULT_GOAL := all
 
-VERSION_STRING := $(shell cat ./VERSION 2>/dev/null)
+VERSION_STRING := $(strip $(shell tr -d '\r\n' < ./VERSION 2>/dev/null))
 JANSSON_CFLAGS := $(shell $(PKG_CONFIG) --cflags jansson 2>/dev/null)
 JANSSON_LDLIBS := $(shell $(PKG_CONFIG) --libs jansson 2>/dev/null)
+
+ifeq ($(VERSION_STRING),)
+$(error VERSION file is missing or empty)
+endif
 
 rwildcard = $(strip \
 	$(foreach d,$(wildcard $(1)/*),$(call rwildcard,$(d),$(2))) \
@@ -42,14 +46,18 @@ SQLPARSER_BENCH_WRAP_LDFLAGS := \
 	-Wl,--wrap=strndup
 
 STATIC_LIB_PATH := $(LIB_PATH)/lib$(LIB_NAME).a
-SHARED_LIB_PATH := $(LIB_PATH)/lib$(LIB_NAME).so
 SHARED_LIB_SONAME := lib$(LIB_NAME).so.$(SONAME_MAJOR)
+SHARED_LIB_REAL_PATH := $(LIB_PATH)/$(SHARED_LIB_SONAME)
+SHARED_LIB_PATH := $(LIB_PATH)/lib$(LIB_NAME).so
+PKGCONFIG_FILE := $(PKGCONFIG_BUILD_DIR)/$(LIB_NAME).pc
 
 BASE_CPPFLAGS := \
 	-I./include \
 	-I./src/internal \
 	-I./vendor/libpg_query \
 	-I./vendor/libpg_query/vendor \
+	-DSQLPARSER_VERSION_TEXT=\"$(VERSION_STRING)\" \
+	-DSQLPARSER_LIBPG_QUERY_TAG_TEXT=\"$(VENDOR_PG_QUERY_TAG)\" \
 	$(JANSSON_CFLAGS) \
 	$(PTHREAD_CFLAGS)
 
@@ -84,7 +92,7 @@ all: prep static shared cli
 	@echo "Build finished: $(STATIC_LIB_PATH) $(SHARED_LIB_PATH) $(SQLPARSER_CLI_BIN)"
 
 prep:
-	@mkdir -p $(OBJ_PATH) $(BIN_PATH) $(LIB_PATH) $(VENDOR_PG_QUERY_MERGE_DIR)
+	@mkdir -p $(OBJ_PATH) $(BIN_PATH) $(LIB_PATH) $(PKGCONFIG_BUILD_DIR) $(VENDOR_PG_QUERY_MERGE_DIR)
 
 vendor: $(VENDOR_PG_QUERY_LIB)
 
@@ -130,11 +138,13 @@ test-cli-batch: $(SQLPARSER_CLI_BIN) $(SQLPARSER_CLI_BATCH_FIXTURE) | prep
 	@grep -q '"literal-semicolon"' $(SQLPARSER_CLI_BATCH_OUTPUT)
 	@grep -q '"parse-error"' $(SQLPARSER_CLI_BATCH_OUTPUT)
 
-install: all
-	@mkdir -p $(DESTDIR)$(INCLUDEDIR)/sqlparser $(DESTDIR)$(LIBDIR)
+install: all $(PKGCONFIG_FILE)
+	@mkdir -p $(DESTDIR)$(INCLUDEDIR)/sqlparser $(DESTDIR)$(LIBDIR) $(DESTDIR)$(PKGCONFIGDIR)
 	@cp include/sqlparser/*.h $(DESTDIR)$(INCLUDEDIR)/sqlparser/
 	@cp $(STATIC_LIB_PATH) $(DESTDIR)$(LIBDIR)/
-	@cp $(SHARED_LIB_PATH) $(DESTDIR)$(LIBDIR)/
+	@cp $(SHARED_LIB_REAL_PATH) $(DESTDIR)$(LIBDIR)/
+	@ln -sf $(notdir $(SHARED_LIB_REAL_PATH)) $(DESTDIR)$(LIBDIR)/$(notdir $(SHARED_LIB_PATH))
+	@cp $(PKGCONFIG_FILE) $(DESTDIR)$(PKGCONFIGDIR)/
 
 print-config:
 	@echo "PROJECT_NAME=$(PROJECT_NAME)"
@@ -146,6 +156,9 @@ print-config:
 	@echo "BUILD_PATH=$(BUILD_PATH)"
 	@echo "BIN_PATH=$(BIN_PATH)"
 	@echo "LIB_PATH=$(LIB_PATH)"
+	@echo "PKGCONFIG_BUILD_DIR=$(PKGCONFIG_BUILD_DIR)"
+	@echo "PKGCONFIGDIR=$(PKGCONFIGDIR)"
+	@echo "VENDOR_PG_QUERY_TAG=$(VENDOR_PG_QUERY_TAG)"
 	@echo "REMOTE_HOST=$(REMOTE_HOST)"
 	@echo "REMOTE_PORT=$(REMOTE_PORT)"
 	@echo "REMOTE_WORKDIR=$(REMOTE_WORKDIR)"
@@ -173,11 +186,22 @@ $(STATIC_LIB_PATH): $(OBJ_FILES) $(VENDOR_PG_QUERY_STAMP) | prep
 	@$(AR) rcs $@ $(OBJ_FILES) $(VENDOR_PG_QUERY_MERGE_DIR)/*.o
 	@$(RANLIB) $@
 
-$(SHARED_LIB_PATH): $(OBJ_FILES) $(VENDOR_PG_QUERY_LIB) | prep
+$(SHARED_LIB_REAL_PATH): $(OBJ_FILES) $(VENDOR_PG_QUERY_LIB) | prep
 	@$(CC) -shared \
 		-Wl,-soname,$(SHARED_LIB_SONAME) \
 		-Wl,--version-script=./config/sqlparser.map \
 		-o $@ $(OBJ_FILES) $(VENDOR_PG_QUERY_LIB) $(LDFLAGS) $(LDLIBS)
+
+$(SHARED_LIB_PATH): $(SHARED_LIB_REAL_PATH) | prep
+	@ln -sf $(notdir $(SHARED_LIB_REAL_PATH)) $@
+
+$(PKGCONFIG_FILE): config/sqlparser.pc.in | prep
+	@sed \
+		-e 's|@PREFIX@|$(PREFIX)|g' \
+		-e 's|@INCLUDEDIR@|$(INCLUDEDIR)|g' \
+		-e 's|@LIBDIR@|$(LIBDIR)|g' \
+		-e 's|@VERSION@|$(VERSION_STRING)|g' \
+		$< > $@
 
 $(OBJ_PATH)/%.o: src/%.c
 	@mkdir -p $(dir $@)

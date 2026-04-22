@@ -34,6 +34,7 @@ void sqlparser_error_from_pg(
 
 char *sqlparser_strdup(const char *text);
 char *sqlparser_strndup(const char *text, size_t len);
+void sqlparser_pg_query_prepare(void);
 
 sqlparser_status_t sqlparser_handle_ensure_ast(
 	sqlparser_handle_t *handle,

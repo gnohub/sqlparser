@@ -20,6 +20,8 @@
   展示多语句输入的遍历方式。
 - `examples/08_model_roundtrip.c`
   展示稳定模型 JSON 的导出、patch 应用和回写 SQL。
+- `examples/09_expression_rewrite.c`
+  展示如何读取和改写 `UPDATE assignment`、`INSERT cell` 的任意表达式或 `DEFAULT`。
 
 ## 构建
 

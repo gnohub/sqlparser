@@ -1,0 +1,12 @@
+prefix=@PREFIX@
+exec_prefix=${prefix}
+includedir=@INCLUDEDIR@
+libdir=@LIBDIR@
+
+Name: sqlparser
+Description: Generic SQL parse, rewrite, and deparse library
+Version: @VERSION@
+Requires.private: jansson
+Libs: -L${libdir} -lsqlparser
+Libs.private: -lpthread -lm
+Cflags: -I${includedir}

@@ -20,6 +20,8 @@ The `examples/` directory contains small programs built on top of the public hea
   Demonstrates traversal of multi-statement input.
 - `examples/08_model_roundtrip.c`
   Demonstrates model JSON export, patch application, and SQL regeneration.
+- `examples/09_expression_rewrite.c`
+  Demonstrates reading and rewriting arbitrary `UPDATE` assignment expressions and `INSERT` cell expressions, including `DEFAULT`.
 
 ## Build
 

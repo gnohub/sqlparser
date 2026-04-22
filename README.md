@@ -48,6 +48,7 @@ Common targets:
 - `make examples`
 - `make test`
 - `make bench-build`
+- `make install PREFIX=/usr/local`
 
 ## Minimal Integration Example
 
@@ -84,6 +85,12 @@ Compile the example with:
 
 ```bash
 gcc -std=gnu11 demo.c -I./include -L./lib -lsqlparser -ljansson -o demo
+```
+
+After installation, `pkg-config` can be used as well:
+
+```bash
+gcc -std=gnu11 demo.c $(pkg-config --cflags --libs sqlparser) -o demo
 ```
 
 ## CLI
@@ -140,3 +147,8 @@ See [examples/README.md](./examples/README.md) for details.
 
 - test notes: [tests/README.en.md](./tests/README.en.md)
 - benchmark notes: [bench/README.en.md](./bench/README.en.md)
+
+## License
+
+- project license: [LICENSE](./LICENSE)
+- third-party notices: [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)

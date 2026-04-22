@@ -11,8 +11,13 @@
 #include "protobuf/pg_query.pb-c.h"
 #include "sqlparser_internal.h"
 
+#ifndef SQLPARSER_VERSION_TEXT
 #define SQLPARSER_VERSION_TEXT "0.1.0-dev"
+#endif
+
+#ifndef SQLPARSER_LIBPG_QUERY_TAG_TEXT
 #define SQLPARSER_LIBPG_QUERY_TAG_TEXT "17-6.2.2"
+#endif
 
 extern __thread sig_atomic_t pg_query_initialized;
 
@@ -35,7 +40,7 @@ static void sqlparser_pg_query_register_exit_once(void)
 	(void)atexit(sqlparser_pg_query_shutdown);
 }
 
-static void sqlparser_pg_query_prepare(void)
+void sqlparser_pg_query_prepare(void)
 {
 	static pthread_once_t once_control = PTHREAD_ONCE_INIT;
 
@@ -458,6 +463,37 @@ static void sqlparser_json_object_set_nonempty_string(
 	}
 
 	(void)json_object_set_new(object, key, json_string(value));
+}
+
+static sqlparser_status_t sqlparser_json_object_set_string(
+	json_t *object,
+	const char *key,
+	const char *value,
+	sqlparser_error_t *out_error)
+{
+	json_t *string_value;
+
+	if (object == NULL || key == NULL || value == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"JSON string field requires non-NULL arguments");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	string_value = json_string(value);
+	if (string_value == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+
+	if (json_object_set_new(object, key, string_value) != 0) {
+		json_decref(string_value);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+
+	return SQLPARSER_STATUS_OK;
 }
 
 static void sqlparser_json_array_append_table(
@@ -1975,6 +2011,50 @@ sqlparser_status_t sqlparser_selector_set_update_assignment_literal(
 		out_error);
 }
 
+sqlparser_status_t sqlparser_selector_update_assignment_sql(
+	const sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"selector kind must be assignment");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_update_assignment_sql(
+		handle,
+		selector->statement_index,
+		selector->item_index,
+		out_sql,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_selector_set_update_assignment_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *sql_text,
+	sqlparser_error_t *out_error)
+{
+	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"selector kind must be assignment");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_update_set_assignment_sql(
+		handle,
+		selector->statement_index,
+		selector->item_index,
+		sql_text,
+		out_error);
+}
+
 sqlparser_status_t sqlparser_selector_insert_cell_literal(
 	const sqlparser_handle_t *handle,
 	const sqlparser_selector_t *selector,
@@ -2018,6 +2098,52 @@ sqlparser_status_t sqlparser_selector_set_insert_cell_literal(
 		selector->row_index,
 		selector->column_index,
 		value,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_selector_insert_cell_sql(
+	const sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_INSERT_CELL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"selector kind must be insert_cell");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_insert_cell_sql(
+		handle,
+		selector->statement_index,
+		selector->row_index,
+		selector->column_index,
+		out_sql,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_selector_set_insert_cell_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *sql_text,
+	sqlparser_error_t *out_error)
+{
+	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_INSERT_CELL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"selector kind must be insert_cell");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_insert_set_cell_sql(
+		handle,
+		selector->statement_index,
+		selector->row_index,
+		selector->column_index,
+		sql_text,
 		out_error);
 }
 
@@ -2443,8 +2569,14 @@ static sqlparser_status_t sqlparser_model_append_literals(
 			return SQLPARSER_STATUS_NO_MEMORY;
 		}
 
-		if (json_object_set_new(entry, "literal", literal_json) != 0 ||
-		    json_array_append_new(literals, entry) != 0) {
+		if (json_object_set_new(entry, "literal", literal_json) != 0) {
+			json_decref(literal_json);
+			json_decref(entry);
+			json_decref(literals);
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		if (json_array_append_new(literals, entry) != 0) {
 			json_decref(entry);
 			json_decref(literals);
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
@@ -2531,8 +2663,14 @@ static sqlparser_status_t sqlparser_model_append_where_literals(
 			return SQLPARSER_STATUS_NO_MEMORY;
 		}
 
-		if (json_object_set_new(entry, "literal", literal_json) != 0 ||
-		    json_array_append_new(where_literals, entry) != 0) {
+		if (json_object_set_new(entry, "literal", literal_json) != 0) {
+			json_decref(literal_json);
+			json_decref(entry);
+			json_decref(where_literals);
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		if (json_array_append_new(where_literals, entry) != 0) {
 			json_decref(entry);
 			json_decref(where_literals);
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
@@ -2580,9 +2718,22 @@ static sqlparser_status_t sqlparser_model_append_update_assignments(
 		sqlparser_selector_t selector;
 		json_t *entry;
 		json_t *literal_json;
+		char *assignment_sql;
 
 		memset(&assignment, 0, sizeof(assignment));
+		assignment_sql = NULL;
 		status = sqlparser_update_assignment(handle, statement_index, index, &assignment, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			json_decref(assignments);
+			return status;
+		}
+
+		status = sqlparser_update_assignment_sql(
+			handle,
+			statement_index,
+			index,
+			&assignment_sql,
+			out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			json_decref(assignments);
 			return status;
@@ -2590,6 +2741,7 @@ static sqlparser_status_t sqlparser_model_append_update_assignments(
 
 		entry = json_object();
 		if (entry == NULL) {
+			sqlparser_string_free(assignment_sql);
 			json_decref(assignments);
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 			return SQLPARSER_STATUS_NO_MEMORY;
@@ -2601,16 +2753,33 @@ static sqlparser_status_t sqlparser_model_append_update_assignments(
 		selector.item_index = index;
 		status = sqlparser_json_object_set_selector(entry, &selector, out_error);
 		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_string_free(assignment_sql);
 			json_decref(entry);
 			json_decref(assignments);
 			return status;
 		}
 
 		sqlparser_json_object_set_nonempty_string(entry, "column_name", assignment.column_name);
-		(void)json_object_set_new(
+		status = sqlparser_json_object_set_string(
 			entry,
 			"value_kind",
-			json_string(sqlparser_value_kind_name(assignment.value_kind)));
+			sqlparser_value_kind_name(assignment.value_kind),
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_string_free(assignment_sql);
+			json_decref(entry);
+			json_decref(assignments);
+			return status;
+		}
+
+		status = sqlparser_json_object_set_string(entry, "sql", assignment_sql, out_error);
+		sqlparser_string_free(assignment_sql);
+		assignment_sql = NULL;
+		if (status != SQLPARSER_STATUS_OK) {
+			json_decref(entry);
+			json_decref(assignments);
+			return status;
+		}
 
 		if (assignment.value_kind == SQLPARSER_VALUE_KIND_LITERAL) {
 			literal_json = sqlparser_literal_view_to_json(&assignment.literal);
@@ -2621,6 +2790,7 @@ static sqlparser_status_t sqlparser_model_append_update_assignments(
 				return SQLPARSER_STATUS_NO_MEMORY;
 			}
 			if (json_object_set_new(entry, "literal", literal_json) != 0) {
+				json_decref(literal_json);
 				json_decref(entry);
 				json_decref(assignments);
 				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
@@ -2764,6 +2934,8 @@ static sqlparser_status_t sqlparser_model_append_insert_model(
 			sqlparser_selector_t selector;
 			json_t *cell_object;
 			json_t *literal_json;
+			sqlparser_value_kind_t value_kind;
+			char *cell_sql;
 
 			cell_object = json_object();
 			if (cell_object == NULL) {
@@ -2787,6 +2959,31 @@ static sqlparser_status_t sqlparser_model_append_insert_model(
 			}
 
 			memset(&literal, 0, sizeof(literal));
+			value_kind = SQLPARSER_VALUE_KIND_UNKNOWN;
+			cell_sql = NULL;
+			status = sqlparser_insert_cell_sql(
+				handle,
+				statement_index,
+				row_index,
+				column_index,
+				&cell_sql,
+				out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				json_decref(cell_object);
+				json_decref(row_object);
+				json_decref(insert_object);
+				return status;
+			}
+
+			status = sqlparser_json_object_set_string(cell_object, "sql", cell_sql, out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				sqlparser_string_free(cell_sql);
+				json_decref(cell_object);
+				json_decref(row_object);
+				json_decref(insert_object);
+				return status;
+			}
+
 			status = sqlparser_insert_cell_literal(
 				handle,
 				statement_index,
@@ -2795,12 +2992,14 @@ static sqlparser_status_t sqlparser_model_append_insert_model(
 				&literal,
 				out_error);
 			if (status == SQLPARSER_STATUS_OK) {
+				value_kind = SQLPARSER_VALUE_KIND_LITERAL;
 				literal_json = sqlparser_literal_view_to_json(&literal);
 				if (literal_json == NULL ||
 				    json_object_set_new(cell_object, "literal", literal_json) != 0) {
 					if (literal_json != NULL) {
 						json_decref(literal_json);
 					}
+					sqlparser_string_free(cell_sql);
 					json_decref(cell_object);
 					json_decref(row_object);
 					json_decref(insert_object);
@@ -2809,13 +3008,34 @@ static sqlparser_status_t sqlparser_model_append_insert_model(
 				}
 			} else if (status == SQLPARSER_STATUS_UNSUPPORTED) {
 				sqlparser_error_clear(out_error);
-				(void)json_object_set_new(cell_object, "supported", json_false());
+				if (strcmp(cell_sql, "DEFAULT") == 0) {
+					value_kind = SQLPARSER_VALUE_KIND_DEFAULT;
+				} else {
+					value_kind = SQLPARSER_VALUE_KIND_EXPRESSION;
+				}
 			} else {
+				sqlparser_string_free(cell_sql);
 				json_decref(cell_object);
 				json_decref(row_object);
 				json_decref(insert_object);
 				return status;
 			}
+
+			status = sqlparser_json_object_set_string(
+				cell_object,
+				"value_kind",
+				sqlparser_value_kind_name(value_kind),
+				out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				sqlparser_string_free(cell_sql);
+				json_decref(cell_object);
+				json_decref(row_object);
+				json_decref(insert_object);
+				return status;
+			}
+
+			sqlparser_string_free(cell_sql);
+			cell_sql = NULL;
 
 			if (json_array_append_new(cells, cell_object) != 0) {
 				json_decref(cell_object);
@@ -3571,28 +3791,29 @@ static sqlparser_status_t sqlparser_apply_literal_like_change(
 {
 	sqlparser_literal_value_t target;
 	json_t *literal_json;
+	const char *sql_text;
 	sqlparser_status_t status;
 
 	memset(&target, 0, sizeof(target));
 	literal_json = json_object_get(change, "literal");
-	if (!json_is_object(literal_json)) {
-		sqlparser_error_set_message(
-			out_error,
-			SQLPARSER_STATUS_INVALID_ARGUMENT,
-			"literal change requires object field 'literal'");
-		return SQLPARSER_STATUS_INVALID_ARGUMENT;
-	}
-
-	status = sqlparser_literal_value_from_json(literal_json, &target, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		return status;
-	}
+	sql_text = sqlparser_json_string_or_null(json_object_get(change, "sql"));
 
 	switch (selector->kind) {
 		case SQLPARSER_SELECTOR_KIND_LITERAL:
 		{
 			sqlparser_literal_view_t current;
 
+			if (!json_is_object(literal_json)) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INVALID_ARGUMENT,
+					"literal change requires object field 'literal'");
+				return SQLPARSER_STATUS_INVALID_ARGUMENT;
+			}
+			status = sqlparser_literal_value_from_json(literal_json, &target, out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
 			memset(&current, 0, sizeof(current));
 			status = sqlparser_selector_literal(handle, selector, &current, out_error);
 			if (status != SQLPARSER_STATUS_OK) {
@@ -3607,6 +3828,17 @@ static sqlparser_status_t sqlparser_apply_literal_like_change(
 		{
 			sqlparser_where_literal_view_t current;
 
+			if (!json_is_object(literal_json)) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INVALID_ARGUMENT,
+					"literal change requires object field 'literal'");
+				return SQLPARSER_STATUS_INVALID_ARGUMENT;
+			}
+			status = sqlparser_literal_value_from_json(literal_json, &target, out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
 			memset(&current, 0, sizeof(current));
 			status = sqlparser_selector_where_literal(handle, selector, &current, out_error);
 			if (status != SQLPARSER_STATUS_OK) {
@@ -3622,39 +3854,124 @@ static sqlparser_status_t sqlparser_apply_literal_like_change(
 			sqlparser_assignment_view_t current;
 
 			memset(&current, 0, sizeof(current));
-			status = sqlparser_selector_update_assignment(handle, selector, &current, out_error);
-			if (status != SQLPARSER_STATUS_OK) {
-				return status;
-			}
-			if (current.value_kind != SQLPARSER_VALUE_KIND_LITERAL) {
+			if (json_is_object(literal_json)) {
+				status = sqlparser_literal_value_from_json(literal_json, &target, out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					return status;
+				}
+				status = sqlparser_selector_update_assignment(handle, selector, &current, out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					return status;
+				}
+				if (current.value_kind == SQLPARSER_VALUE_KIND_LITERAL) {
+					if (!sqlparser_literal_view_equals_value(&current.literal, &target)) {
+						return sqlparser_selector_set_update_assignment_literal(
+							handle,
+							selector,
+							&target,
+							out_error);
+					}
+					if (sql_text == NULL) {
+						return SQLPARSER_STATUS_OK;
+					}
+				} else if (sql_text == NULL) {
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_UNSUPPORTED,
+						"assignment selector does not point to a literal assignment");
+					return SQLPARSER_STATUS_UNSUPPORTED;
+				}
+			} else if (sql_text == NULL) {
 				sqlparser_error_set_message(
 					out_error,
-					SQLPARSER_STATUS_UNSUPPORTED,
-					"assignment selector does not point to a literal assignment");
-				return SQLPARSER_STATUS_UNSUPPORTED;
+					SQLPARSER_STATUS_INVALID_ARGUMENT,
+					"assignment change requires field 'sql' or object field 'literal'");
+				return SQLPARSER_STATUS_INVALID_ARGUMENT;
 			}
-			if (sqlparser_literal_view_equals_value(&current.literal, &target)) {
-				return SQLPARSER_STATUS_OK;
+			if (sql_text != NULL) {
+				char *current_sql;
+
+				current_sql = NULL;
+				status = sqlparser_selector_update_assignment_sql(
+					handle,
+					selector,
+					&current_sql,
+					out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					return status;
+				}
+				if (sqlparser_strings_equal_nullable(current_sql, sql_text)) {
+					sqlparser_string_free(current_sql);
+					return SQLPARSER_STATUS_OK;
+				}
+				sqlparser_string_free(current_sql);
+				return sqlparser_selector_set_update_assignment_sql(
+					handle,
+					selector,
+					sql_text,
+					out_error);
 			}
-			return sqlparser_selector_set_update_assignment_literal(
-				handle,
-				selector,
-				&target,
-				out_error);
+
+			return SQLPARSER_STATUS_OK;
 		}
 		case SQLPARSER_SELECTOR_KIND_INSERT_CELL:
 		{
 			sqlparser_literal_view_t current;
 
 			memset(&current, 0, sizeof(current));
-			status = sqlparser_selector_insert_cell_literal(handle, selector, &current, out_error);
-			if (status != SQLPARSER_STATUS_OK) {
-				return status;
+			if (json_is_object(literal_json)) {
+				status = sqlparser_literal_value_from_json(literal_json, &target, out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					return status;
+				}
+				status = sqlparser_selector_insert_cell_literal(handle, selector, &current, out_error);
+				if (status == SQLPARSER_STATUS_OK) {
+					if (!sqlparser_literal_view_equals_value(&current, &target)) {
+						return sqlparser_selector_set_insert_cell_literal(
+							handle,
+							selector,
+							&target,
+							out_error);
+					}
+					if (sql_text == NULL) {
+						return SQLPARSER_STATUS_OK;
+					}
+				} else if (status != SQLPARSER_STATUS_UNSUPPORTED || sql_text == NULL) {
+					return status;
+				}
+				sqlparser_error_clear(out_error);
+			} else if (sql_text == NULL) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INVALID_ARGUMENT,
+					"insert cell change requires field 'sql' or object field 'literal'");
+				return SQLPARSER_STATUS_INVALID_ARGUMENT;
 			}
-			if (sqlparser_literal_view_equals_value(&current, &target)) {
-				return SQLPARSER_STATUS_OK;
+			if (sql_text != NULL) {
+				char *current_sql;
+
+				current_sql = NULL;
+				status = sqlparser_selector_insert_cell_sql(
+					handle,
+					selector,
+					&current_sql,
+					out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					return status;
+				}
+				if (sqlparser_strings_equal_nullable(current_sql, sql_text)) {
+					sqlparser_string_free(current_sql);
+					return SQLPARSER_STATUS_OK;
+				}
+				sqlparser_string_free(current_sql);
+				return sqlparser_selector_set_insert_cell_sql(
+					handle,
+					selector,
+					sql_text,
+					out_error);
 			}
-			return sqlparser_selector_set_insert_cell_literal(handle, selector, &target, out_error);
+
+			return SQLPARSER_STATUS_OK;
 		}
 		case SQLPARSER_SELECTOR_KIND_UNKNOWN:
 		case SQLPARSER_SELECTOR_KIND_RELATION:

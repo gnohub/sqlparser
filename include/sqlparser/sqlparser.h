@@ -238,6 +238,22 @@ sqlparser_status_t sqlparser_insert_set_cell_literal(
 	const sqlparser_literal_value_t *value,
 	sqlparser_error_t *out_error);
 
+sqlparser_status_t sqlparser_insert_cell_sql(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t row_index,
+	size_t column_index,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_insert_set_cell_sql(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t row_index,
+	size_t column_index,
+	const char *sql_text,
+	sqlparser_error_t *out_error);
+
 sqlparser_status_t sqlparser_update_assignment_count(
 	const sqlparser_handle_t *handle,
 	size_t statement_index,
@@ -256,6 +272,20 @@ sqlparser_status_t sqlparser_update_set_assignment_literal(
 	size_t statement_index,
 	size_t assignment_index,
 	const sqlparser_literal_value_t *value,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_update_assignment_sql(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t assignment_index,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_update_set_assignment_sql(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t assignment_index,
+	const char *sql_text,
 	sqlparser_error_t *out_error);
 
 sqlparser_status_t sqlparser_statement_where_literal_count(
@@ -369,6 +399,18 @@ sqlparser_status_t sqlparser_selector_set_update_assignment_literal(
 	const sqlparser_literal_value_t *value,
 	sqlparser_error_t *out_error);
 
+sqlparser_status_t sqlparser_selector_update_assignment_sql(
+	const sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_selector_set_update_assignment_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *sql_text,
+	sqlparser_error_t *out_error);
+
 sqlparser_status_t sqlparser_selector_insert_cell_literal(
 	const sqlparser_handle_t *handle,
 	const sqlparser_selector_t *selector,
@@ -379,6 +421,18 @@ sqlparser_status_t sqlparser_selector_set_insert_cell_literal(
 	sqlparser_handle_t *handle,
 	const sqlparser_selector_t *selector,
 	const sqlparser_literal_value_t *value,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_selector_insert_cell_sql(
+	const sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_selector_set_insert_cell_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *sql_text,
 	sqlparser_error_t *out_error);
 
 sqlparser_status_t sqlparser_export_parse_tree_json(
