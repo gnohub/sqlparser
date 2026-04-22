@@ -1,0 +1,7 @@
+PREFIX ?= /usr/local
+INCLUDEDIR ?= $(PREFIX)/include
+LIBDIR ?= $(PREFIX)/lib
+
+REMOTE_HOST ?=
+REMOTE_PORT ?= 22
+REMOTE_WORKDIR ?=

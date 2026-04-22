@@ -1,0 +1,1 @@
+INSERT INTO public.bench_t (id, name) VALUES (1, 'seed'), (2, 'row2'), (3, 'row3'), (4, 'row4'), (5, 'row5'), (999999, 'iiiiii')

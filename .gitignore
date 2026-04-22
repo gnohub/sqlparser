@@ -1,0 +1,10 @@
+/build/
+/bin/
+/lib/
+.DS_Store
+/vendor/libpg_query/*.a
+/vendor/libpg_query/*.o
+/vendor/libpg_query/*.so
+/vendor/libpg_query/.deps/
+/vendor/libpg_query/tmp/
+/vendor/libpg_query/test/*.o

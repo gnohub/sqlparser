@@ -1,0 +1,10 @@
+timestamp=2026-04-22T07:19:43.129593Z
+platform=Linux-3.10.0-1160.el7.x86_64-x86_64-with-centos-7.9.2009-Core
+$ uname -a
+Linux DBCrypt2001 3.10.0-1160.el7.x86_64 #1 SMP Mon Oct 19 16:18:59 UTC 2020 x86_64 x86_64 x86_64 GNU/Linux
+$ bash -lc hostname
+DBCrypt2001
+$ bash -lc grep -m1 'model name' /proc/cpuinfo
+model name	: Intel(R) Xeon(R) Platinum 8168 CPU @ 2.70GHz
+$ bash -lc gcc --version | head -n 1
+gcc (GCC) 4.8.5 20150623 (Red Hat 4.8.5-44)

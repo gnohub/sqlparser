@@ -1,0 +1,6 @@
+SQLPARSER_0 {
+	global:
+		sqlparser_*;
+	local:
+		*;
+};

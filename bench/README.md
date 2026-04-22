@@ -1,0 +1,44 @@
+# 基准测试说明
+
+`bench/` 目录包含 `sqlparser` 的单线程基准测试程序、批量执行脚本和结果文件。
+
+## 相关文件
+
+- `tools/sqlparser_bench.c`
+  单次 API 调用 benchmark 二进制。
+- `bench/run_benchmarks.py`
+  批量执行器与 CSV、Markdown 报告生成脚本。
+
+## 主要输出
+
+- `bench/results/<timestamp>/single_call_parse_raw.csv`
+- `bench/results/<timestamp>/single_call_parse_median.csv`
+- `bench/results/<timestamp>/single_call_api_raw.csv`
+- `bench/results/<timestamp>/single_call_api_median.csv`
+- `bench/results/<timestamp>/benchmark_summary.md`
+- `bench/results/<timestamp>/system_info.txt`
+- `bench/results/<timestamp>/methodology.txt`
+
+## 统计口径
+
+- 单线程
+- 成功解析样本
+- SQL 长度按固定分档生成
+- 延迟以单次 API 调用为单位统计
+- 内存指标为单次调用期间的累计分配、峰值活跃和返回残留
+
+## 基本用法
+
+先构建 benchmark 程序：
+
+```bash
+make bench-build
+```
+
+然后执行批量测试：
+
+```bash
+python3 ./bench/run_benchmarks.py \
+  --output-dir ./bench/results/manual_run \
+  --bench-bin ./bin/sqlparser_bench
+```
