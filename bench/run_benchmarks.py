@@ -13,24 +13,35 @@ from datetime import datetime
 from pathlib import Path
 
 
-WORKLOAD = "insert-values"
+PARSE_WORKLOAD = "insert-values"
 
-PARSE_LENGTHS = [64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536]
+FULL_PARSE_LENGTHS = [64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536]
+SMOKE_PARSE_LENGTHS = [64, 1024, 8192]
 PARSE_MODES = [
     "native-parse",
     "sqlparser-parse",
 ]
-PARSE_REPEAT = 3
+FULL_PARSE_REPEAT = 3
+SMOKE_PARSE_REPEAT = 1
 
-API_LENGTHS = [1024, 8192, 65536]
-API_MODES = [
-    "native-summary",
-    "native-deparse",
-    "sqlparser-parse-tree-json",
-    "sqlparser-summary-json",
-    "sqlparser-deparse",
+FULL_API_LENGTHS = [1024, 8192, 65536]
+SMOKE_API_LENGTHS = [1024]
+FULL_API_REPEAT = 3
+SMOKE_API_REPEAT = 1
+
+API_CASES = [
+    {"section": "read", "mode": "native-summary", "workload": "insert-values"},
+    {"section": "read", "mode": "native-deparse", "workload": "insert-values"},
+    {"section": "read", "mode": "sqlparser-parse-tree-json", "workload": "insert-values"},
+    {"section": "read", "mode": "sqlparser-summary-json", "workload": "insert-values"},
+    {"section": "read", "mode": "sqlparser-deparse", "workload": "insert-values"},
+    {"section": "rewrite", "mode": "sqlparser-update-assignment-literal", "workload": "update-where"},
+    {"section": "rewrite", "mode": "sqlparser-update-assignment-sql", "workload": "update-where"},
+    {"section": "rewrite", "mode": "sqlparser-update-rewrite-deparse", "workload": "update-where"},
+    {"section": "rewrite", "mode": "sqlparser-insert-cell-literal", "workload": "insert-values"},
+    {"section": "rewrite", "mode": "sqlparser-insert-cell-sql", "workload": "insert-values"},
+    {"section": "rewrite", "mode": "sqlparser-insert-rewrite-deparse", "workload": "insert-values"},
 ]
-API_REPEAT = 3
 
 NUMERIC_FIELDS = [
     "target_sql_bytes",
@@ -89,6 +100,12 @@ def parse_args():
     parser.add_argument("--output-dir", required=True, help="Directory for benchmark outputs.")
     parser.add_argument("--bench-bin", default="./bin/sqlparser_bench", help="Path to benchmark binary.")
     parser.add_argument(
+        "--profile",
+        choices=("full", "smoke"),
+        default="full",
+        help="Benchmark profile. 'full' runs the complete matrix, 'smoke' runs a fast regression subset.",
+    )
+    parser.add_argument(
         "--stages",
         default="all",
         help="Comma-separated stages: parse,api,report or all",
@@ -139,6 +156,46 @@ def api_profile(length_bytes):
     if length_bytes <= 8192:
         return 1000, 100
     return 300, 30
+
+
+def smoke_parse_profile(length_bytes):
+    if length_bytes <= 1024:
+        return 200, 20
+    return 100, 10
+
+
+def smoke_api_profile(length_bytes):
+    if length_bytes <= 1024:
+        return 100, 10
+    return 50, 5
+
+
+def parse_lengths_for_profile(profile):
+    return FULL_PARSE_LENGTHS if profile == "full" else SMOKE_PARSE_LENGTHS
+
+
+def parse_repeat_for_profile(profile):
+    return FULL_PARSE_REPEAT if profile == "full" else SMOKE_PARSE_REPEAT
+
+
+def api_lengths_for_profile(profile):
+    return FULL_API_LENGTHS if profile == "full" else SMOKE_API_LENGTHS
+
+
+def api_repeat_for_profile(profile):
+    return FULL_API_REPEAT if profile == "full" else SMOKE_API_REPEAT
+
+
+def parse_profile_for_mode(profile, length_bytes):
+    if profile == "full":
+        return parse_profile(length_bytes)
+    return smoke_parse_profile(length_bytes)
+
+
+def api_profile_for_mode(profile, length_bytes):
+    if profile == "full":
+        return api_profile(length_bytes)
+    return smoke_api_profile(length_bytes)
 
 
 def parse_csv_row(output_text):
@@ -221,7 +278,7 @@ def aggregate_rows(rows, key_fields):
     return summary_rows
 
 
-def benchmark_case(bench_bin, mode, length_bytes, iterations, warmup, sample_sql_path=None):
+def benchmark_case(bench_bin, mode, workload, length_bytes, iterations, warmup, sample_sql_path=None):
     command = [
         "taskset",
         "-c",
@@ -231,7 +288,7 @@ def benchmark_case(bench_bin, mode, length_bytes, iterations, warmup, sample_sql
         "--mode",
         mode,
         "--workload",
-        WORKLOAD,
+        workload,
         "--length-bytes",
         str(length_bytes),
         "--iterations",
@@ -282,21 +339,36 @@ def write_system_info(output_dir):
     (output_dir / "system_info.txt").write_text("\n".join(system_info) + "\n")
 
 
-def write_methodology(output_dir):
+def write_methodology(output_dir, profile):
+    if profile == "full":
+        parse_text = "- `parse` 全长扫表：64B 到 64KB，3 次重复"
+        parse_scale = "- `parse` 采样规模：<=2KB 为 10000/1000 warmup；<=8KB 为 5000/500；<=16KB 为 2000/200；<=32KB 为 1000/100；64KB 为 500/50"
+        api_text = "- 其他单次 API 抽样：1KB 2000/200；8KB 1000/100；64KB 300/30，3 次重复"
+    else:
+        parse_text = "- `parse` 烟测：64B、1KB、8KB，1 次重复"
+        parse_scale = "- `parse` 采样规模：1KB 以内 200/20 warmup；8KB 100/10"
+        api_text = "- 其他单次 API 烟测：1KB，100/10，1 次重复"
+
     text = """基准测试方法
 - 构建模式：release（`DEBUG=0 SHOW_WARNING=0`）
 - 执行环境：以实际测试环境为准
 - 并发模型：单线程、单次 API 调用统计
-- 成功样本：仅统计可成功解析的 `insert-values` 语句，不包含解析失败场景
-- `parse` 全长扫表：64B 到 64KB，3 次重复
-- `parse` 采样规模：<=2KB 为 10000/1000 warmup；<=8KB 为 5000/500；<=16KB 为 2000/200；<=32KB 为 1000/100；64KB 为 500/50
-- 其他单次 API 抽样：1KB 2000/200；8KB 1000/100；64KB 300/30，3 次重复
+- 成功样本：仅统计可成功解析的 SQL，不包含解析失败场景；长度扫表使用 `insert-values`，改写抽样补充 `update-where`
+- profile：{profile}
+{parse_text}
+{parse_scale}
+{api_text}
 - 延迟统计：每次 API 调用用 `CLOCK_MONOTONIC` 单独计时
 - 内存统计：benchmark 二进制通过 `malloc/calloc/realloc/free/strdup/strndup` 链接包装，统计单次调用期间的累计分配字节数、峰值活跃字节数、返回时残留字节数
 - `avg_alloc_bytes`：单次调用内部累计申请的堆内存
 - `avg_peak_live_bytes`：单次调用内部同时存活的堆内存峰值
 - `avg_retained_bytes`：API 返回时仍归调用方持有、尚未释放的堆内存
-"""
+""".format(
+        profile=profile,
+        parse_text=parse_text,
+        parse_scale=parse_scale,
+        api_text=api_text,
+    )
     (output_dir / "methodology.txt").write_text(text)
 
 
@@ -320,7 +392,7 @@ def build_report(output_dir, parse_summary, api_summary):
     lines.append("# 基准测试汇总")
     lines.append("")
     lines.append("本轮 benchmark 统计的是单次 API 调用本身的延迟和内存损耗，不再使用进程 RSS 作为结论指标。")
-    lines.append("所有测试样本均为可成功解析的 `insert-values` 语句。")
+    lines.append("所有测试样本均为可成功解析的 SQL；长度扫表使用 `insert-values`，改写抽样补充 `update-where`。")
     lines.append("")
     lines.append("## 指标说明")
     lines.append("")
@@ -329,9 +401,9 @@ def build_report(output_dir, parse_summary, api_summary):
     lines.append("- 平均返回残留：API 返回时仍由调用方持有、尚未释放的堆内存。")
     lines.append("")
 
-    def find_row(rows, mode, length_bytes):
+    def find_row(rows, mode, workload, length_bytes):
         for row in rows:
-            if row["mode"] == mode and row["workload"] == WORKLOAD and row["target_sql_bytes"] == length_bytes:
+            if row["mode"] == mode and row["workload"] == workload and row["target_sql_bytes"] == length_bytes:
                 return row
         return None
 
@@ -340,8 +412,8 @@ def build_report(output_dir, parse_summary, api_summary):
     lines.append("| 模式 | SQL 长度（字节） | 平均耗时（ms） | P95（ms） | 平均分配 | 平均峰值活跃 | 平均返回残留 | 吞吐（ops/s） |")
     lines.append("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
     for mode in PARSE_MODES:
-        for length_bytes in PARSE_LENGTHS:
-            row = find_row(parse_summary, mode, length_bytes)
+        for length_bytes in FULL_PARSE_LENGTHS:
+            row = find_row(parse_summary, mode, PARSE_WORKLOAD, length_bytes)
             if row is None:
                 continue
             lines.append(
@@ -360,16 +432,41 @@ def build_report(output_dir, parse_summary, api_summary):
     lines.append("")
     lines.append("## 真实接口链路抽样")
     lines.append("")
-    lines.append("| 模式 | SQL 长度（字节） | 平均耗时（ms） | P95（ms） | 平均分配 | 平均峰值活跃 | 平均返回残留 | 吞吐（ops/s） |")
-    lines.append("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
-    for mode in API_MODES:
-        for length_bytes in API_LENGTHS:
-            row = find_row(api_summary, mode, length_bytes)
+    lines.append("| 模式 | workload | SQL 长度（字节） | 平均耗时（ms） | P95（ms） | 平均分配 | 平均峰值活跃 | 平均返回残留 | 吞吐（ops/s） |")
+    lines.append("| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
+    for case in [item for item in API_CASES if item["section"] == "read"]:
+        for length_bytes in FULL_API_LENGTHS:
+            row = find_row(api_summary, case["mode"], case["workload"], length_bytes)
             if row is None:
                 continue
             lines.append(
-                "| {} | {} | {:.3f} | {:.3f} | {} | {} | {} | {:.4f} |".format(
-                    mode,
+                "| {} | {} | {} | {:.3f} | {:.3f} | {} | {} | {} | {:.4f} |".format(
+                    case["mode"],
+                    case["workload"],
+                    length_bytes,
+                    us_to_ms(row["avg_us"]),
+                    us_to_ms(row["p95_us"]),
+                    format_bytes_human(row["avg_alloc_bytes"]),
+                    format_bytes_human(row["avg_peak_live_bytes"]),
+                    format_bytes_human(row["avg_retained_bytes"]),
+                    row["throughput_ops_s"],
+                )
+            )
+
+    lines.append("")
+    lines.append("## 真实接口改写链路抽样")
+    lines.append("")
+    lines.append("| 模式 | workload | SQL 长度（字节） | 平均耗时（ms） | P95（ms） | 平均分配 | 平均峰值活跃 | 平均返回残留 | 吞吐（ops/s） |")
+    lines.append("| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
+    for case in [item for item in API_CASES if item["section"] == "rewrite"]:
+        for length_bytes in FULL_API_LENGTHS:
+            row = find_row(api_summary, case["mode"], case["workload"], length_bytes)
+            if row is None:
+                continue
+            lines.append(
+                "| {} | {} | {} | {:.3f} | {:.3f} | {} | {} | {} | {:.4f} |".format(
+                    case["mode"],
+                    case["workload"],
                     length_bytes,
                     us_to_ms(row["avg_us"]),
                     us_to_ms(row["p95_us"]),
@@ -403,7 +500,7 @@ def main():
     if not (output_dir / "system_info.txt").exists():
         write_system_info(output_dir)
     if not (output_dir / "methodology.txt").exists():
-        write_methodology(output_dir)
+        write_methodology(output_dir, args.profile)
 
     common_fieldnames = ["series", "repeat_index", "mode", "workload"] + NUMERIC_FIELDS + ["error_message"]
     parse_summary_rows = []
@@ -411,14 +508,15 @@ def main():
 
     if "parse" in stages:
         parse_raw_rows = []
-        for length_bytes in PARSE_LENGTHS:
-            sample_path = samples_dir / "{}_{}.sql".format(WORKLOAD, length_bytes)
+        for length_bytes in parse_lengths_for_profile(args.profile):
+            sample_path = samples_dir / "{}_{}.sql".format(PARSE_WORKLOAD, length_bytes)
             for mode in PARSE_MODES:
-                iterations, warmup = parse_profile(length_bytes)
-                for repeat_index in range(1, PARSE_REPEAT + 1):
+                iterations, warmup = parse_profile_for_mode(args.profile, length_bytes)
+                for repeat_index in range(1, parse_repeat_for_profile(args.profile) + 1):
                     row = benchmark_case(
                         args.bench_bin,
                         mode,
+                        PARSE_WORKLOAD,
                         length_bytes,
                         iterations,
                         warmup,
@@ -431,11 +529,11 @@ def main():
 
         parse_summary_rows = []
         for mode in PARSE_MODES:
-            for length_bytes in PARSE_LENGTHS:
+            for length_bytes in parse_lengths_for_profile(args.profile):
                 group = [
                     row
                     for row in parse_raw_rows
-                    if row["mode"] == mode and row["workload"] == WORKLOAD and row["target_sql_bytes"] == length_bytes
+                    if row["mode"] == mode and row["workload"] == PARSE_WORKLOAD and row["target_sql_bytes"] == length_bytes
                 ]
                 if group:
                     parse_summary_rows.append(aggregate_rows(group, ["mode", "workload", "target_sql_bytes"])[0])
@@ -447,11 +545,11 @@ def main():
     elif parse_raw_path.exists():
         parse_raw_rows = read_csv_rows(parse_raw_path)
         for mode in PARSE_MODES:
-            for length_bytes in PARSE_LENGTHS:
+            for length_bytes in parse_lengths_for_profile(args.profile):
                 group = [
                     row
                     for row in parse_raw_rows
-                    if row["mode"] == mode and row["workload"] == WORKLOAD and row["target_sql_bytes"] == length_bytes
+                    if row["mode"] == mode and row["workload"] == PARSE_WORKLOAD and row["target_sql_bytes"] == length_bytes
                 ]
                 if group:
                     parse_summary_rows.append(aggregate_rows(group, ["mode", "workload", "target_sql_bytes"])[0])
@@ -465,18 +563,19 @@ def main():
 
     if "api" in stages:
         api_raw_rows = []
-        for length_bytes in API_LENGTHS:
-            sample_path = samples_dir / "api_{}_{}.sql".format(WORKLOAD, length_bytes)
-            for mode in API_MODES:
-                iterations, warmup = api_profile(length_bytes)
-                for repeat_index in range(1, API_REPEAT + 1):
+        for case in API_CASES:
+            for length_bytes in api_lengths_for_profile(args.profile):
+                sample_path = samples_dir / "api_{}_{}_{}.sql".format(case["workload"], case["mode"], length_bytes)
+                iterations, warmup = api_profile_for_mode(args.profile, length_bytes)
+                for repeat_index in range(1, api_repeat_for_profile(args.profile) + 1):
                     row = benchmark_case(
                         args.bench_bin,
-                        mode,
+                        case["mode"],
+                        case["workload"],
                         length_bytes,
                         iterations,
                         warmup,
-                        sample_sql_path=sample_path if mode == API_MODES[0] and repeat_index == 1 else None,
+                        sample_sql_path=sample_path if repeat_index == 1 else None,
                     )
                     row["repeat_index"] = repeat_index
                     row["series"] = "single_call_api"
@@ -484,12 +583,12 @@ def main():
         write_csv(api_raw_path, api_raw_rows, common_fieldnames)
 
         api_summary_rows = []
-        for mode in API_MODES:
-            for length_bytes in API_LENGTHS:
+        for case in API_CASES:
+            for length_bytes in api_lengths_for_profile(args.profile):
                 group = [
                     row
                     for row in api_raw_rows
-                    if row["mode"] == mode and row["workload"] == WORKLOAD and row["target_sql_bytes"] == length_bytes
+                    if row["mode"] == case["mode"] and row["workload"] == case["workload"] and row["target_sql_bytes"] == length_bytes
                 ]
                 if group:
                     api_summary_rows.append(aggregate_rows(group, ["mode", "workload", "target_sql_bytes"])[0])
@@ -500,12 +599,12 @@ def main():
         )
     elif api_raw_path.exists():
         api_raw_rows = read_csv_rows(api_raw_path)
-        for mode in API_MODES:
-            for length_bytes in API_LENGTHS:
+        for case in API_CASES:
+            for length_bytes in api_lengths_for_profile(args.profile):
                 group = [
                     row
                     for row in api_raw_rows
-                    if row["mode"] == mode and row["workload"] == WORKLOAD and row["target_sql_bytes"] == length_bytes
+                    if row["mode"] == case["mode"] and row["workload"] == case["workload"] and row["target_sql_bytes"] == length_bytes
                 ]
                 if group:
                     api_summary_rows.append(aggregate_rows(group, ["mode", "workload", "target_sql_bytes"])[0])

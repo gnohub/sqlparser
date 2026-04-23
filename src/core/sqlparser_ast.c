@@ -2134,7 +2134,7 @@ static sqlparser_status_t sqlparser_walk_expression_literals(
 				const char *right_column;
 				const char *operator_name;
 
-				left_context = context != NULL ? *context : (sqlparser_predicate_context_t){0};
+				left_context = context != NULL ? *context : (sqlparser_predicate_context_t){NULL, NULL, NULL};
 				right_context = left_context;
 				left_table = NULL;
 				left_column = NULL;

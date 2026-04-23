@@ -19,6 +19,10 @@
 #define SQLPARSER_LIBPG_QUERY_TAG_TEXT "17-6.2.2"
 #endif
 
+#ifndef SQLPARSER_MODEL_SCHEMA_TEXT
+#define SQLPARSER_MODEL_SCHEMA_TEXT "sqlparser.model/v1"
+#endif
+
 extern __thread sig_atomic_t pg_query_initialized;
 
 static void sqlparser_pg_query_shutdown(void)
@@ -1316,6 +1320,11 @@ const char *sqlparser_version_string(void)
 const char *sqlparser_libpg_query_tag(void)
 {
 	return SQLPARSER_LIBPG_QUERY_TAG_TEXT;
+}
+
+const char *sqlparser_model_schema_string(void)
+{
+	return SQLPARSER_MODEL_SCHEMA_TEXT;
 }
 
 const char *sqlparser_statement_kind_name(sqlparser_statement_kind_t kind)
@@ -3192,7 +3201,7 @@ static sqlparser_status_t sqlparser_ensure_model_json_text(
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
 
-	(void)json_object_set_new(root, "schema", json_string("sqlparser.model/v1"));
+	(void)json_object_set_new(root, "schema", json_string(SQLPARSER_MODEL_SCHEMA_TEXT));
 	(void)json_object_set_new(
 		root,
 		"source_sql",

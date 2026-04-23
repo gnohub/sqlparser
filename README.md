@@ -47,7 +47,10 @@ Common targets:
 - `make shared`
 - `make examples`
 - `make test`
+- `make test-loop LOOP=50`
+- `make verify`
 - `make bench-build`
+- `make bench-smoke`
 - `make install PREFIX=/usr/local`
 
 ## Minimal Integration Example
@@ -141,10 +144,12 @@ See [examples/README.md](./examples/README.md) for details.
 
 - [Documentation Index](./doc/README.en.md)
 - [Project Overview and Architecture](./doc/sqlparser_architecture.en.md)
+- [Compatibility Policy](./doc/compatibility_policy.en.md)
 - [API Reference](./doc/api_reference.en.md)
 - [Model JSON Guide](./doc/model_json.en.md)
 - [CLI Guide](./doc/cli_guide.en.md)
 - [libpg_query Integration](./doc/libpg_query_analysis.en.md)
+- [Changelog](./CHANGELOG.en.md)
 
 ## Tests and Benchmarks
 

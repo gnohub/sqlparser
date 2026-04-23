@@ -168,6 +168,7 @@ not be reused.
 | --- | --- |
 | `sqlparser_version_string()` | returns the library version string |
 | `sqlparser_libpg_query_tag()` | returns the pinned `libpg_query` tag |
+| `sqlparser_model_schema_string()` | returns the current model-JSON schema marker |
 | `sqlparser_statement_kind_name()` | returns the statement-kind name |
 | `sqlparser_insert_source_kind_name()` | returns the `INSERT` source-kind name |
 | `sqlparser_value_kind_name()` | returns the value-kind name |

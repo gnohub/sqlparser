@@ -6,6 +6,8 @@
 
 - [项目概览与架构](./sqlparser_architecture.md)
   说明项目定位、分层结构、数据模型和扩展边界。
+- [兼容性策略](./compatibility_policy.md)
+  说明公共 API、ABI、selector 与模型 JSON 的兼容性边界。
 - [API 手册](./api_reference.md)
   说明公共头文件中的主要类型、生命周期规则和函数分组。
 - [模型 JSON 手册](./model_json.md)
@@ -18,6 +20,7 @@
 ## 相关资料
 
 - [快速开始](../README.zh-CN.md)
+- [变更记录](../CHANGELOG.md)
 - [示例说明](../examples/README.zh-CN.md)
 - [测试说明](../tests/README.md)
 - [基准测试说明](../bench/README.md)

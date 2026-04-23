@@ -23,9 +23,18 @@
 
 - 单线程
 - 成功解析样本
-- SQL 长度按固定分档生成
+- 长度扫表使用 `insert-values`
+- 改写链路抽样补充 `update-where`
 - 延迟以单次 API 调用为单位统计
 - 内存指标为单次调用期间的累计分配、峰值活跃和返回残留
+
+## 覆盖范围
+
+- `parse` 长度扫表
+- 原生 `libpg_query` 读取链路对照
+- `sqlparser` 读取链路
+- `sqlparser` 改写链路
+- `sqlparser` 的 `rewrite + deparse` 单次调用开销
 
 ## 基本用法
 
@@ -42,3 +51,14 @@ python3 ./bench/run_benchmarks.py \
   --output-dir ./bench/results/manual_run \
   --bench-bin ./bin/sqlparser_bench
 ```
+
+快速烟测：
+
+```bash
+make bench-smoke
+```
+
+可选 profile：
+
+- `--profile full`
+- `--profile smoke`

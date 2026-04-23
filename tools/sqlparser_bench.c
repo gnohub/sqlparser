@@ -20,7 +20,13 @@ typedef enum {
 	BENCH_MODE_SQLPARSER_PARSE = 3,
 	BENCH_MODE_SQLPARSER_PARSE_TREE_JSON = 4,
 	BENCH_MODE_SQLPARSER_SUMMARY_JSON = 5,
-	BENCH_MODE_SQLPARSER_DEPARSE = 6
+	BENCH_MODE_SQLPARSER_DEPARSE = 6,
+	BENCH_MODE_SQLPARSER_UPDATE_ASSIGNMENT_LITERAL = 7,
+	BENCH_MODE_SQLPARSER_UPDATE_ASSIGNMENT_SQL = 8,
+	BENCH_MODE_SQLPARSER_UPDATE_REWRITE_DEPARSE = 9,
+	BENCH_MODE_SQLPARSER_INSERT_CELL_LITERAL = 10,
+	BENCH_MODE_SQLPARSER_INSERT_CELL_SQL = 11,
+	BENCH_MODE_SQLPARSER_INSERT_REWRITE_DEPARSE = 12
 } bench_mode_t;
 
 typedef enum {
@@ -360,6 +366,12 @@ static void print_usage(const char *program)
 	fprintf(stderr, "  sqlparser-parse-tree-json\n");
 	fprintf(stderr, "  sqlparser-summary-json\n");
 	fprintf(stderr, "  sqlparser-deparse\n");
+	fprintf(stderr, "  sqlparser-update-assignment-literal\n");
+	fprintf(stderr, "  sqlparser-update-assignment-sql\n");
+	fprintf(stderr, "  sqlparser-update-rewrite-deparse\n");
+	fprintf(stderr, "  sqlparser-insert-cell-literal\n");
+	fprintf(stderr, "  sqlparser-insert-cell-sql\n");
+	fprintf(stderr, "  sqlparser-insert-rewrite-deparse\n");
 	fprintf(stderr, "Workloads:\n");
 	fprintf(stderr, "  select-filter\n");
 	fprintf(stderr, "  select-join\n");
@@ -387,6 +399,18 @@ static const char *bench_mode_name(bench_mode_t mode)
 			return "sqlparser-summary-json";
 		case BENCH_MODE_SQLPARSER_DEPARSE:
 			return "sqlparser-deparse";
+		case BENCH_MODE_SQLPARSER_UPDATE_ASSIGNMENT_LITERAL:
+			return "sqlparser-update-assignment-literal";
+		case BENCH_MODE_SQLPARSER_UPDATE_ASSIGNMENT_SQL:
+			return "sqlparser-update-assignment-sql";
+		case BENCH_MODE_SQLPARSER_UPDATE_REWRITE_DEPARSE:
+			return "sqlparser-update-rewrite-deparse";
+		case BENCH_MODE_SQLPARSER_INSERT_CELL_LITERAL:
+			return "sqlparser-insert-cell-literal";
+		case BENCH_MODE_SQLPARSER_INSERT_CELL_SQL:
+			return "sqlparser-insert-cell-sql";
+		case BENCH_MODE_SQLPARSER_INSERT_REWRITE_DEPARSE:
+			return "sqlparser-insert-rewrite-deparse";
 		default:
 			return "unknown";
 	}
@@ -462,6 +486,30 @@ static int parse_mode(const char *value, bench_mode_t *out_mode)
 	}
 	if (strcmp(value, "sqlparser-deparse") == 0) {
 		*out_mode = BENCH_MODE_SQLPARSER_DEPARSE;
+		return 0;
+	}
+	if (strcmp(value, "sqlparser-update-assignment-literal") == 0) {
+		*out_mode = BENCH_MODE_SQLPARSER_UPDATE_ASSIGNMENT_LITERAL;
+		return 0;
+	}
+	if (strcmp(value, "sqlparser-update-assignment-sql") == 0) {
+		*out_mode = BENCH_MODE_SQLPARSER_UPDATE_ASSIGNMENT_SQL;
+		return 0;
+	}
+	if (strcmp(value, "sqlparser-update-rewrite-deparse") == 0) {
+		*out_mode = BENCH_MODE_SQLPARSER_UPDATE_REWRITE_DEPARSE;
+		return 0;
+	}
+	if (strcmp(value, "sqlparser-insert-cell-literal") == 0) {
+		*out_mode = BENCH_MODE_SQLPARSER_INSERT_CELL_LITERAL;
+		return 0;
+	}
+	if (strcmp(value, "sqlparser-insert-cell-sql") == 0) {
+		*out_mode = BENCH_MODE_SQLPARSER_INSERT_CELL_SQL;
+		return 0;
+	}
+	if (strcmp(value, "sqlparser-insert-rewrite-deparse") == 0) {
+		*out_mode = BENCH_MODE_SQLPARSER_INSERT_REWRITE_DEPARSE;
 		return 0;
 	}
 
@@ -1165,8 +1213,19 @@ static void operation_state_init(operation_state_t *state)
 	memset(state, 0, sizeof(*state));
 }
 
+static int workload_is_update_rewrite(workload_kind_t workload)
+{
+	return workload == WORKLOAD_UPDATE_WHERE;
+}
+
+static int workload_is_insert_rewrite(workload_kind_t workload)
+{
+	return workload == WORKLOAD_INSERT_VALUES;
+}
+
 static int prepare_operation(
 	bench_mode_t mode,
+	workload_kind_t workload,
 	const char *sql_text,
 	operation_state_t *state,
 	char *error_message,
@@ -1190,6 +1249,34 @@ static int prepare_operation(
 		case BENCH_MODE_SQLPARSER_PARSE_TREE_JSON:
 		case BENCH_MODE_SQLPARSER_SUMMARY_JSON:
 		case BENCH_MODE_SQLPARSER_DEPARSE:
+		case BENCH_MODE_SQLPARSER_UPDATE_ASSIGNMENT_LITERAL:
+		case BENCH_MODE_SQLPARSER_UPDATE_ASSIGNMENT_SQL:
+		case BENCH_MODE_SQLPARSER_UPDATE_REWRITE_DEPARSE:
+		case BENCH_MODE_SQLPARSER_INSERT_CELL_LITERAL:
+		case BENCH_MODE_SQLPARSER_INSERT_CELL_SQL:
+		case BENCH_MODE_SQLPARSER_INSERT_REWRITE_DEPARSE:
+			if ((mode == BENCH_MODE_SQLPARSER_UPDATE_ASSIGNMENT_LITERAL ||
+			     mode == BENCH_MODE_SQLPARSER_UPDATE_ASSIGNMENT_SQL ||
+			     mode == BENCH_MODE_SQLPARSER_UPDATE_REWRITE_DEPARSE) &&
+			    !workload_is_update_rewrite(workload)) {
+				(void)snprintf(
+					error_message,
+					error_message_size,
+					"mode %s requires workload update-where",
+					bench_mode_name(mode));
+				return -1;
+			}
+			if ((mode == BENCH_MODE_SQLPARSER_INSERT_CELL_LITERAL ||
+			     mode == BENCH_MODE_SQLPARSER_INSERT_CELL_SQL ||
+			     mode == BENCH_MODE_SQLPARSER_INSERT_REWRITE_DEPARSE) &&
+			    !workload_is_insert_rewrite(workload)) {
+				(void)snprintf(
+					error_message,
+					error_message_size,
+					"mode %s requires workload insert-values",
+					bench_mode_name(mode));
+				return -1;
+			}
 			memset(&error, 0, sizeof(error));
 			status = sqlparser_parse(sql_text, &state->handle, &error);
 			if (status != SQLPARSER_STATUS_OK) {
@@ -1207,6 +1294,7 @@ static int prepare_operation(
 
 static int invoke_operation(
 	bench_mode_t mode,
+	workload_kind_t workload,
 	const char *sql_text,
 	operation_state_t *state,
 	char *error_message,
@@ -1293,6 +1381,98 @@ static int invoke_operation(
 				return 0;
 			}
 
+		case BENCH_MODE_SQLPARSER_UPDATE_ASSIGNMENT_LITERAL:
+			{
+				sqlparser_literal_value_t value;
+
+				(void)workload;
+				memset(&error, 0, sizeof(error));
+				memset(&value, 0, sizeof(value));
+				value.kind = SQLPARSER_LITERAL_KIND_STRING;
+				value.string_value = "bench_rewrite";
+				status = sqlparser_update_set_assignment_literal(state->handle, 0U, 0U, &value, &error);
+				if (status != SQLPARSER_STATUS_OK) {
+					record_sqlparser_error(error_message, error_message_size, &error);
+					return -1;
+				}
+				return 0;
+			}
+
+		case BENCH_MODE_SQLPARSER_UPDATE_ASSIGNMENT_SQL:
+			{
+				(void)workload;
+				memset(&error, 0, sizeof(error));
+				status = sqlparser_update_set_assignment_sql(state->handle, 0U, 0U, "upper(name)", &error);
+				if (status != SQLPARSER_STATUS_OK) {
+					record_sqlparser_error(error_message, error_message_size, &error);
+					return -1;
+				}
+				return 0;
+			}
+
+		case BENCH_MODE_SQLPARSER_UPDATE_REWRITE_DEPARSE:
+			{
+				(void)workload;
+				memset(&error, 0, sizeof(error));
+				status = sqlparser_update_set_assignment_sql(state->handle, 0U, 0U, "upper(name)", &error);
+				if (status != SQLPARSER_STATUS_OK) {
+					record_sqlparser_error(error_message, error_message_size, &error);
+					return -1;
+				}
+				status = sqlparser_deparse(state->handle, &state->text_result, &error);
+				if (status != SQLPARSER_STATUS_OK) {
+					record_sqlparser_error(error_message, error_message_size, &error);
+					return -1;
+				}
+				return 0;
+			}
+
+		case BENCH_MODE_SQLPARSER_INSERT_CELL_LITERAL:
+			{
+				sqlparser_literal_value_t value;
+
+				(void)workload;
+				memset(&error, 0, sizeof(error));
+				memset(&value, 0, sizeof(value));
+				value.kind = SQLPARSER_LITERAL_KIND_STRING;
+				value.string_value = "bench_cell";
+				status = sqlparser_insert_set_cell_literal(state->handle, 0U, 0U, 1U, &value, &error);
+				if (status != SQLPARSER_STATUS_OK) {
+					record_sqlparser_error(error_message, error_message_size, &error);
+					return -1;
+				}
+				return 0;
+			}
+
+		case BENCH_MODE_SQLPARSER_INSERT_CELL_SQL:
+			{
+				(void)workload;
+				memset(&error, 0, sizeof(error));
+				status = sqlparser_insert_set_cell_sql(state->handle, 0U, 0U, 1U, "upper('bench')", &error);
+				if (status != SQLPARSER_STATUS_OK) {
+					record_sqlparser_error(error_message, error_message_size, &error);
+					return -1;
+				}
+				return 0;
+			}
+
+		case BENCH_MODE_SQLPARSER_INSERT_REWRITE_DEPARSE:
+			{
+				(void)workload;
+				memset(&error, 0, sizeof(error));
+				status = sqlparser_insert_set_cell_sql(state->handle, 0U, 0U, 1U, "upper('bench')", &error);
+				if (status != SQLPARSER_STATUS_OK) {
+					record_sqlparser_error(error_message, error_message_size, &error);
+					return -1;
+				}
+				status = sqlparser_deparse(state->handle, &state->text_result, &error);
+				if (status != SQLPARSER_STATUS_OK) {
+					record_sqlparser_error(error_message, error_message_size, &error);
+					return -1;
+				}
+				return 0;
+			}
+
 		default:
 			(void)snprintf(error_message, error_message_size, "unsupported mode");
 			return -1;
@@ -1340,7 +1520,14 @@ static void cleanup_operation(bench_mode_t mode, operation_state_t *state)
 		case BENCH_MODE_SQLPARSER_PARSE_TREE_JSON:
 		case BENCH_MODE_SQLPARSER_SUMMARY_JSON:
 		case BENCH_MODE_SQLPARSER_DEPARSE:
+		case BENCH_MODE_SQLPARSER_UPDATE_REWRITE_DEPARSE:
+		case BENCH_MODE_SQLPARSER_INSERT_REWRITE_DEPARSE:
 			sqlparser_string_free(state->text_result);
+			/* fall through */
+		case BENCH_MODE_SQLPARSER_UPDATE_ASSIGNMENT_LITERAL:
+		case BENCH_MODE_SQLPARSER_UPDATE_ASSIGNMENT_SQL:
+		case BENCH_MODE_SQLPARSER_INSERT_CELL_LITERAL:
+		case BENCH_MODE_SQLPARSER_INSERT_CELL_SQL:
 			sqlparser_handle_destroy(state->handle);
 			break;
 
@@ -1368,7 +1555,7 @@ static int execute_iteration(
 	operation_state_init(&state);
 	timed = sample != NULL;
 
-	if (prepare_operation(options->mode, sql_text, &state, error_message, error_message_size) != 0) {
+	if (prepare_operation(options->mode, options->workload, sql_text, &state, error_message, error_message_size) != 0) {
 		return -1;
 	}
 
@@ -1382,7 +1569,13 @@ static int execute_iteration(
 		alloc_tracker_begin(&tracker);
 	}
 
-	invoke_status = invoke_operation(options->mode, sql_text, &state, error_message, error_message_size);
+	invoke_status = invoke_operation(
+		options->mode,
+		options->workload,
+		sql_text,
+		&state,
+		error_message,
+		error_message_size);
 
 	if (timed) {
 		alloc_tracker_end(&tracker);

@@ -7,6 +7,9 @@ This directory contains the project documentation for `sqlparser`.
 - [Project Overview and Architecture](./sqlparser_architecture.en.md)
   Describes the project scope, layered structure, data model, and extension
   boundaries.
+- [Compatibility Policy](./compatibility_policy.en.md)
+  Describes compatibility boundaries for the public API, ABI, selectors, and
+  model JSON.
 - [API Reference](./api_reference.en.md)
   Describes the main public-header types, lifecycle rules, and function groups.
 - [Model JSON Guide](./model_json.en.md)
@@ -20,6 +23,7 @@ This directory contains the project documentation for `sqlparser`.
 ## Related Materials
 
 - [Quick Start](../README.md)
+- [Changelog](../CHANGELOG.en.md)
 - [Examples Guide](../examples/README.md)
 - [Test Guide](../tests/README.en.md)
 - [Benchmark Guide](../bench/README.en.md)

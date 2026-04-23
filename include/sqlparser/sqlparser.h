@@ -122,6 +122,7 @@ typedef struct {
 
 const char *sqlparser_version_string(void);
 const char *sqlparser_libpg_query_tag(void);
+const char *sqlparser_model_schema_string(void);
 const char *sqlparser_statement_kind_name(sqlparser_statement_kind_t kind);
 const char *sqlparser_insert_source_kind_name(sqlparser_insert_source_kind_t kind);
 const char *sqlparser_value_kind_name(sqlparser_value_kind_t kind);

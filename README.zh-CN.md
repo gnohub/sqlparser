@@ -47,7 +47,10 @@ make all
 - `make shared`
 - `make examples`
 - `make test`
+- `make test-loop LOOP=50`
+- `make verify`
 - `make bench-build`
+- `make bench-smoke`
 - `make install PREFIX=/usr/local`
 
 ## 最小接入示例
@@ -141,10 +144,12 @@ gcc -std=gnu11 demo.c $(pkg-config --cflags --libs sqlparser) -o demo
 
 - [文档目录](./doc/README.md)
 - [项目概览与架构](./doc/sqlparser_architecture.md)
+- [兼容性策略](./doc/compatibility_policy.md)
 - [API 手册](./doc/api_reference.md)
 - [模型 JSON 手册](./doc/model_json.md)
 - [CLI 手册](./doc/cli_guide.md)
 - [libpg_query 集成说明](./doc/libpg_query_analysis.md)
+- [变更记录](./CHANGELOG.md)
 
 ## 测试与性能
 

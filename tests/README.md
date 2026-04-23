@@ -16,6 +16,9 @@
 - 单元测试
 - 批量 SQL 夹具验证
 - 示例程序烟测
+- 安装态 API 烟测
+- 严格编译与 sanitizer 门禁
+- 长时间循环回归
 
 ## 执行方式
 
@@ -29,6 +32,15 @@ make test
 - CLI 批量夹具检查
 - `examples/` 下的示例程序
 
+常用质量门禁入口：
+
+- `make verify-release`
+- `make verify-debug`
+- `make verify-asan`
+- `make verify-ubsan`
+- `make test-loop LOOP=50`
+- `make verify`
+
 ## 用例文件
 
 常用测试文件包括：
@@ -36,8 +48,9 @@ make test
 - `tests/unit/test_api_smoke.c`
 - `tests/unit/test_api_case_matrix.c`
 - `tests/unit/test_core_api.c`
+- `tests/install/install_smoke.c`
 - `tests/cases/sql_batch_input.json`
-- `tests/cases/phase1_cases.md`
+- `tests/verify_cli_batch.py`
 
 ## 覆盖范围
 
@@ -45,8 +58,9 @@ make test
 
 - parse / deparse 基础链路
 - 语句类型与节点识别
-- `SELECT / INSERT / UPDATE / DELETE`
+- `SELECT / INSERT / UPDATE / DELETE / MERGE`
 - 多语句输入
-- 常见 DDL 语句
+- `ON CONFLICT`、`RETURNING`、`UPDATE ... FROM`、`DELETE ... USING`
+- 常见 DDL、事务控制、`GRANT / REVOKE` 与维护语句
 - JSON 导出
 - selector 与模型 JSON 回放

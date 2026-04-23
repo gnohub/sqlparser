@@ -159,6 +159,7 @@ int main(void)
 | --- | --- |
 | `sqlparser_version_string()` | 返回库版本字符串 |
 | `sqlparser_libpg_query_tag()` | 返回仓库内固定 `libpg_query` 版本 tag |
+| `sqlparser_model_schema_string()` | 返回当前模型 JSON schema 标识 |
 | `sqlparser_statement_kind_name()` | 返回语句类型名称 |
 | `sqlparser_insert_source_kind_name()` | 返回 `INSERT` 数据来源名称 |
 | `sqlparser_value_kind_name()` | 返回值类型名称 |

@@ -1186,6 +1186,216 @@ static int test_generic_literal_api_on_ddl(void)
 	return 0;
 }
 
+static int test_update_from_returning_sql_mutation(void)
+{
+	const char *sql;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_assignment_view_t assignment;
+	sqlparser_relation_view_t relation;
+	char *assignment_sql;
+	char *deparsed_sql;
+	size_t relation_count;
+	int rc;
+
+	sql =
+		"UPDATE public.users AS u "
+		"SET name = src.name, updated_at = clock_timestamp() "
+		"FROM public.user_stage AS src "
+		"WHERE u.id = src.id "
+		"RETURNING u.id, u.name";
+	handle = NULL;
+	assignment_sql = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&assignment, 0, sizeof(assignment));
+	memset(&relation, 0, sizeof(relation));
+
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(rc, &error, "update-from parse should succeed") != 0) {
+		return 1;
+	}
+
+	rc = sqlparser_statement_target_relation(handle, 0U, &relation, &error);
+	if (expect_status_ok(rc, &error, "update-from target relation should succeed") != 0 ||
+	    expect_true(strcmp(relation.schema_name, "public") == 0, "update-from target schema should be public") != 0 ||
+	    expect_true(strcmp(relation.table_name, "users") == 0, "update-from target table should be users") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_statement_relation_count(handle, 0U, &relation_count, &error);
+	if (expect_status_ok(rc, &error, "update-from relation count should succeed") != 0 ||
+	    expect_true(relation_count >= 2U, "update-from should expose both target and source relations") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_update_assignment(handle, 0U, 0U, &assignment, &error);
+	if (expect_status_ok(rc, &error, "update-from assignment should succeed") != 0 ||
+	    expect_true(strcmp(assignment.column_name, "name") == 0, "update-from first assignment should be name") != 0 ||
+	    expect_true(assignment.value_kind == SQLPARSER_VALUE_KIND_EXPRESSION, "update-from assignment should be expression") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_update_assignment_sql(handle, 0U, 0U, &assignment_sql, &error);
+	if (expect_status_ok(rc, &error, "update-from assignment SQL should succeed") != 0 ||
+	    expect_true(strcmp(assignment_sql, "src.name") == 0, "update-from assignment SQL should be src.name") != 0) {
+		sqlparser_string_free(assignment_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_update_set_assignment_sql(handle, 0U, 0U, "src.display_name", &error);
+	if (expect_status_ok(rc, &error, "update-from assignment mutation should succeed") != 0) {
+		sqlparser_string_free(assignment_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "update-from deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "src.display_name") != NULL, "update-from deparse should contain src.display_name") != 0 ||
+	    expect_true(strstr(deparsed_sql, "RETURNING u.id, u.name") != NULL, "update-from deparse should preserve returning") != 0 ||
+	    expect_true(strstr(deparsed_sql, "FROM public.user_stage src") != NULL, "update-from deparse should preserve source relation") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_string_free(assignment_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_string_free(assignment_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_insert_on_conflict_returning_sql_mutation(void)
+{
+	const char *sql;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_insert_source_kind_t source_kind;
+	char *cell_sql;
+	char *deparsed_sql;
+	size_t row_count;
+	int rc;
+
+	sql =
+		"INSERT INTO public.users (id, name, updated_at) "
+		"VALUES (1, 'alice', DEFAULT) "
+		"ON CONFLICT (id) DO UPDATE SET name = excluded.name, updated_at = now() "
+		"RETURNING id, name";
+	handle = NULL;
+	cell_sql = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(rc, &error, "insert-on-conflict parse should succeed") != 0) {
+		return 1;
+	}
+
+	rc = sqlparser_insert_source_kind(handle, 0U, &source_kind, &error);
+	if (expect_status_ok(rc, &error, "insert-on-conflict source kind should succeed") != 0 ||
+	    expect_true(source_kind == SQLPARSER_INSERT_SOURCE_VALUES, "insert-on-conflict should be VALUES source") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_insert_row_count(handle, 0U, &row_count, &error);
+	if (expect_status_ok(rc, &error, "insert-on-conflict row count should succeed") != 0 ||
+	    expect_true(row_count == 1U, "insert-on-conflict should expose one VALUES row") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_insert_cell_sql(handle, 0U, 0U, 2U, &cell_sql, &error);
+	if (expect_status_ok(rc, &error, "insert-on-conflict cell SQL should succeed") != 0 ||
+	    expect_true(strcmp(cell_sql, "DEFAULT") == 0, "insert-on-conflict third value should be DEFAULT") != 0) {
+		sqlparser_string_free(cell_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_insert_set_cell_sql(handle, 0U, 0U, 2U, "clock_timestamp()", &error);
+	if (expect_status_ok(rc, &error, "insert-on-conflict cell mutation should succeed") != 0) {
+		sqlparser_string_free(cell_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "insert-on-conflict deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "ON CONFLICT (id) DO UPDATE SET") != NULL, "insert-on-conflict deparse should preserve on conflict") != 0 ||
+	    expect_true(strstr(deparsed_sql, "clock_timestamp()") != NULL, "insert-on-conflict deparse should contain clock_timestamp()") != 0 ||
+	    expect_true(strstr(deparsed_sql, "RETURNING id, name") != NULL, "insert-on-conflict deparse should preserve returning") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_string_free(cell_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_string_free(cell_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_merge_statement_walk(void)
+{
+	const char *sql;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_statement_kind_t kind;
+	const char *node_name;
+	char *deparsed_sql;
+	int rc;
+
+	sql =
+		"MERGE INTO public.target_table AS t "
+		"USING public.source_table AS s "
+		"ON t.id = s.id "
+		"WHEN MATCHED THEN UPDATE SET name = s.name "
+		"WHEN NOT MATCHED THEN INSERT (id, name) VALUES (s.id, s.name)";
+	handle = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(rc, &error, "merge parse should succeed") != 0) {
+		return 1;
+	}
+
+	rc = sqlparser_statement_kind(handle, 0U, &kind, &error);
+	if (expect_status_ok(rc, &error, "merge kind should succeed") != 0 ||
+	    expect_true(kind == SQLPARSER_STATEMENT_KIND_MERGE, "statement should be MERGE") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_statement_node_name(handle, 0U, &node_name, &error);
+	if (expect_status_ok(rc, &error, "merge node name should succeed") != 0 ||
+	    expect_true(strcmp(node_name, "MergeStmt") == 0, "statement node should be MergeStmt") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "merge deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "MERGE INTO public.target_table t") != NULL, "merge deparse should preserve target relation") != 0 ||
+	    expect_true(strstr(deparsed_sql, "WHEN NOT MATCHED THEN INSERT") != NULL, "merge deparse should preserve insert branch") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
 int main(void)
 {
 	if (test_statement_kind_walk() != 0) {
@@ -1228,6 +1438,15 @@ int main(void)
 		return 1;
 	}
 	if (test_generic_literal_api_on_ddl() != 0) {
+		return 1;
+	}
+	if (test_update_from_returning_sql_mutation() != 0) {
+		return 1;
+	}
+	if (test_insert_on_conflict_returning_sql_mutation() != 0) {
+		return 1;
+	}
+	if (test_merge_statement_walk() != 0) {
 		return 1;
 	}
 

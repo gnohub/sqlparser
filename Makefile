@@ -28,6 +28,8 @@ VENDOR_PG_QUERY_DIR := ./vendor/libpg_query
 VENDOR_PG_QUERY_LIB := $(VENDOR_PG_QUERY_DIR)/libpg_query.a
 VENDOR_PG_QUERY_MERGE_DIR := $(BUILD_PATH)/vendor/libpg_query
 VENDOR_PG_QUERY_STAMP := $(VENDOR_PG_QUERY_MERGE_DIR)/.merged.stamp
+BUILD_SIGNATURE_FILE := $(BUILD_PATH)/.build_signature
+VENDOR_BUILD_SIGNATURE_FILE := $(BUILD_PATH)/vendor/.vendor_build_signature
 
 OBJ_FILES := $(foreach src,$(ALL_SRC),$(OBJ_PATH)/$(patsubst src/%,%,$(src:.c=.o)))
 DEP_FILES := $(OBJ_FILES:.o=.d)
@@ -37,6 +39,9 @@ SQLPARSER_CLI_BIN := $(BIN_PATH)/sqlparser_cli
 SQLPARSER_BENCH_BIN := $(BIN_PATH)/sqlparser_bench
 SQLPARSER_CLI_BATCH_FIXTURE := ./tests/cases/sql_batch_input.json
 SQLPARSER_CLI_BATCH_OUTPUT := $(BUILD_PATH)/tests/sqlparser_cli_batch_output.json
+SQLPARSER_CLI_BATCH_VERIFY := ./tests/verify_cli_batch.py
+INSTALL_SMOKE_SRC := ./tests/install/install_smoke.c
+INSTALL_SMOKE_BIN := $(BIN_PATH)/install_smoke
 SQLPARSER_BENCH_WRAP_LDFLAGS := \
 	-Wl,--wrap=malloc \
 	-Wl,--wrap=calloc \
@@ -44,6 +49,16 @@ SQLPARSER_BENCH_WRAP_LDFLAGS := \
 	-Wl,--wrap=free \
 	-Wl,--wrap=strdup \
 	-Wl,--wrap=strndup
+
+BENCH_PYTHON ?= python3
+BENCH_OUTPUT_DIR ?= $(BUILD_PATH)/bench
+BENCH_PROFILE ?= smoke
+BENCH_STAGES ?= all
+TEST_STAGE_DIR ?= $(BUILD_PATH)/stage
+LOOP ?= 50
+VERIFY_ASAN_CC ?= $(CC)
+VERIFY_UBSAN_CC ?= $(CC)
+SANITIZE_SUPPORT_CHECK := ./scripts/check_sanitize_support.sh
 
 STATIC_LIB_PATH := $(LIB_PATH)/lib$(LIB_NAME).a
 SHARED_LIB_SONAME := lib$(LIB_NAME).so.$(SONAME_MAJOR)
@@ -77,10 +92,26 @@ endif
 
 ifeq ($(SHOW_WARNING),1)
 	BASE_CFLAGS += -Wall -Wextra -Wpedantic
-	VENDOR_PG_QUERY_BUILD_CFLAGS += -Wall -Wextra -Wpedantic
 else
 	BASE_CFLAGS += -w
+endif
+
+SHOW_VENDOR_WARNING ?= $(SHOW_WARNING)
+
+ifeq ($(SHOW_VENDOR_WARNING),1)
+	VENDOR_PG_QUERY_BUILD_CFLAGS += -Wall -Wextra -Wpedantic
+else
 	VENDOR_PG_QUERY_BUILD_CFLAGS += -w
+endif
+
+ifeq ($(STRICT),1)
+	BASE_CFLAGS += -Werror
+endif
+
+ifneq ($(strip $(SANITIZE)),)
+	BASE_CFLAGS += -fno-omit-frame-pointer -fsanitize=$(SANITIZE)
+	BASE_LDFLAGS += -fno-omit-frame-pointer -fsanitize=$(SANITIZE)
+	VENDOR_PG_QUERY_BUILD_CFLAGS += -fno-omit-frame-pointer -fsanitize=$(SANITIZE)
 endif
 
 CPPFLAGS := $(BASE_CPPFLAGS) $(EXTRA_CPPFLAGS)
@@ -88,7 +119,10 @@ CFLAGS := $(BASE_CFLAGS) $(EXTRA_CFLAGS)
 LDFLAGS := $(BASE_LDFLAGS) $(EXTRA_LDFLAGS)
 LDLIBS := $(BASE_LDLIBS) $(EXTRA_LDLIBS)
 
-.PHONY: all prep vendor static shared clean vendor-clean print-config test install cli bench-build test-cli-batch examples
+.PHONY: \
+	all prep vendor static shared clean vendor-clean print-config test install cli bench-build \
+	test-cli-batch examples install-smoke bench-smoke test-loop verify verify-release verify-debug \
+	verify-asan verify-ubsan
 
 all: prep static shared cli
 	@echo "Build finished: $(STATIC_LIB_PATH) $(SHARED_LIB_PATH) $(SQLPARSER_CLI_BIN)"
@@ -114,31 +148,72 @@ test: cli $(UNIT_TEST_BINS) $(EXAMPLE_BINS) test-cli-batch
 		"$$test_bin"; \
 	done
 
-test-cli-batch: $(SQLPARSER_CLI_BIN) $(SQLPARSER_CLI_BATCH_FIXTURE) | prep
+test-cli-batch: $(SQLPARSER_CLI_BIN) $(SQLPARSER_CLI_BATCH_FIXTURE) $(SQLPARSER_CLI_BATCH_VERIFY) | prep
 	@mkdir -p $(BUILD_PATH)/tests
 	@$(SQLPARSER_CLI_BIN) --batch-file $(SQLPARSER_CLI_BATCH_FIXTURE) --output $(SQLPARSER_CLI_BATCH_OUTPUT)
-	@grep -q '"total": 31' $(SQLPARSER_CLI_BATCH_OUTPUT)
-	@grep -q '"succeeded": 30' $(SQLPARSER_CLI_BATCH_OUTPUT)
-	@grep -q '"failed": 1' $(SQLPARSER_CLI_BATCH_OUTPUT)
-	@grep -q '"parse_tree"' $(SQLPARSER_CLI_BATCH_OUTPUT)
-	@grep -q '"summary"' $(SQLPARSER_CLI_BATCH_OUTPUT)
-	@grep -q '"model"' $(SQLPARSER_CLI_BATCH_OUTPUT)
-	@grep -q '"sqlparser.model/v1"' $(SQLPARSER_CLI_BATCH_OUTPUT)
-	@grep -q '"selected_columns"' $(SQLPARSER_CLI_BATCH_OUTPUT)
-	@grep -q '"join_columns"' $(SQLPARSER_CLI_BATCH_OUTPUT)
-	@grep -q '"where_columns"' $(SQLPARSER_CLI_BATCH_OUTPUT)
-	@grep -q '"insert_columns"' $(SQLPARSER_CLI_BATCH_OUTPUT)
-	@grep -q '"update_columns"' $(SQLPARSER_CLI_BATCH_OUTPUT)
-	@grep -q '"all_referenced_columns"' $(SQLPARSER_CLI_BATCH_OUTPUT)
-	@grep -q '"TransactionStmt"' $(SQLPARSER_CLI_BATCH_OUTPUT)
-	@grep -q '"DropStmt"' $(SQLPARSER_CLI_BATCH_OUTPUT)
-	@grep -q '"ViewStmt"' $(SQLPARSER_CLI_BATCH_OUTPUT)
-	@grep -q '"select-cte"' $(SQLPARSER_CLI_BATCH_OUTPUT)
-	@grep -q '"insert-from-select"' $(SQLPARSER_CLI_BATCH_OUTPUT)
-	@grep -q '"drop-view"' $(SQLPARSER_CLI_BATCH_OUTPUT)
-	@grep -q '"quoted-identifiers"' $(SQLPARSER_CLI_BATCH_OUTPUT)
-	@grep -q '"literal-semicolon"' $(SQLPARSER_CLI_BATCH_OUTPUT)
-	@grep -q '"parse-error"' $(SQLPARSER_CLI_BATCH_OUTPUT)
+	@$(BENCH_PYTHON) $(SQLPARSER_CLI_BATCH_VERIFY) \
+		--fixture $(SQLPARSER_CLI_BATCH_FIXTURE) \
+		--output $(SQLPARSER_CLI_BATCH_OUTPUT)
+
+install-smoke: all $(PKGCONFIG_FILE) $(INSTALL_SMOKE_SRC) | prep
+	@rm -rf $(TEST_STAGE_DIR)
+	@$(MAKE) --no-print-directory install PREFIX=$(abspath $(TEST_STAGE_DIR)) DEBUG=$(DEBUG) SHOW_WARNING=$(SHOW_WARNING) STRICT=$(STRICT) SANITIZE="$(SANITIZE)" SHOW_VENDOR_WARNING=$(SHOW_VENDOR_WARNING)
+	@mkdir -p $(dir $(INSTALL_SMOKE_BIN))
+	@$(CC) -std=gnu11 $(PTHREAD_CFLAGS) \
+		-I$(abspath $(TEST_STAGE_DIR))/include \
+		$(INSTALL_SMOKE_SRC) \
+		-L$(abspath $(TEST_STAGE_DIR))/lib \
+		-Wl,-rpath,$(abspath $(TEST_STAGE_DIR))/lib \
+		-l$(LIB_NAME) $(JANSSON_LDLIBS) $(PTHREAD_LDLIBS) -lm \
+		-o $(INSTALL_SMOKE_BIN)
+	@$(INSTALL_SMOKE_BIN)
+
+bench-smoke: bench-build
+	@$(BENCH_PYTHON) ./bench/run_benchmarks.py \
+		--output-dir $(BENCH_OUTPUT_DIR) \
+		--bench-bin $(SQLPARSER_BENCH_BIN) \
+		--profile $(BENCH_PROFILE) \
+		--stages $(BENCH_STAGES)
+
+test-loop: cli $(UNIT_TEST_BINS) $(EXAMPLE_BINS) test-cli-batch
+	@./scripts/run_test_loop.sh \
+		--loops $(LOOP) \
+		--cli $(SQLPARSER_CLI_BIN) \
+		--fixture $(SQLPARSER_CLI_BATCH_FIXTURE) \
+		--output $(SQLPARSER_CLI_BATCH_OUTPUT) \
+		--verify $(SQLPARSER_CLI_BATCH_VERIFY) \
+		$(UNIT_TEST_BINS) \
+		$(EXAMPLE_BINS)
+
+verify-release:
+	@$(MAKE) --no-print-directory clean
+	@$(MAKE) --no-print-directory all test install-smoke DEBUG=0 SHOW_WARNING=0 SHOW_VENDOR_WARNING=0
+
+verify-debug:
+	@$(MAKE) --no-print-directory clean
+	@$(MAKE) --no-print-directory all test DEBUG=1 SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0
+
+verify-asan:
+	@$(MAKE) --no-print-directory clean
+	@if $(SANITIZE_SUPPORT_CHECK) "$(VERIFY_ASAN_CC)" address >/dev/null 2>&1; then \
+		$(MAKE) --no-print-directory all test CC="$(VERIFY_ASAN_CC)" DEBUG=1 SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0 SANITIZE=address; \
+	else \
+		echo "skip verify-asan: compiler/runtime does not support -fsanitize=address"; \
+	fi
+
+verify-ubsan:
+	@$(MAKE) --no-print-directory clean
+	@if $(SANITIZE_SUPPORT_CHECK) "$(VERIFY_UBSAN_CC)" undefined >/dev/null 2>&1; then \
+		$(MAKE) --no-print-directory all test CC="$(VERIFY_UBSAN_CC)" DEBUG=1 SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0 SANITIZE=undefined; \
+	else \
+		echo "skip verify-ubsan: compiler/runtime does not support -fsanitize=undefined"; \
+	fi
+
+verify: verify-release verify-debug verify-asan verify-ubsan
+	@$(MAKE) --no-print-directory clean
+	@$(MAKE) --no-print-directory test-loop LOOP=$(LOOP) DEBUG=0 SHOW_WARNING=0 SHOW_VENDOR_WARNING=0
+	@$(MAKE) --no-print-directory clean
+	@$(MAKE) --no-print-directory bench-smoke BENCH_PROFILE=smoke BENCH_STAGES=parse,api,report DEBUG=0 SHOW_WARNING=0 SHOW_VENDOR_WARNING=0
 
 install: all $(PKGCONFIG_FILE)
 	@mkdir -p $(DESTDIR)$(INCLUDEDIR)/sqlparser $(DESTDIR)$(LIBDIR) $(DESTDIR)$(PKGCONFIGDIR)
@@ -158,6 +233,11 @@ print-config:
 	@echo "BUILD_PATH=$(BUILD_PATH)"
 	@echo "BIN_PATH=$(BIN_PATH)"
 	@echo "LIB_PATH=$(LIB_PATH)"
+	@echo "STRICT=$(STRICT)"
+	@echo "SANITIZE=$(SANITIZE)"
+	@echo "SHOW_VENDOR_WARNING=$(SHOW_VENDOR_WARNING)"
+	@echo "TEST_STAGE_DIR=$(TEST_STAGE_DIR)"
+	@echo "BENCH_PROFILE=$(BENCH_PROFILE)"
 	@echo "PKGCONFIG_BUILD_DIR=$(PKGCONFIG_BUILD_DIR)"
 	@echo "PKGCONFIGDIR=$(PKGCONFIGDIR)"
 	@echo "VENDOR_PG_QUERY_TAG=$(VENDOR_PG_QUERY_TAG)"
@@ -174,8 +254,36 @@ vendor-clean:
 	@$(MAKE) -C $(VENDOR_PG_QUERY_DIR) clean >/dev/null 2>&1 || true
 	@rm -rf $(VENDOR_PG_QUERY_MERGE_DIR)
 
-$(VENDOR_PG_QUERY_LIB):
-	@$(MAKE) -C $(VENDOR_PG_QUERY_DIR) build CFLAGS="$(VENDOR_PG_QUERY_BUILD_CFLAGS)"
+$(BUILD_SIGNATURE_FILE): Makefile $(CONFIG) $(SQLPARSER_SITE_CONFIG) | prep
+	@tmp_file="$@.tmp"; \
+	printf '%s\n' \
+		"CC=$(CC)" \
+		"CPPFLAGS=$(CPPFLAGS)" \
+		"CFLAGS=$(CFLAGS)" \
+		"LDFLAGS=$(LDFLAGS)" \
+		"LDLIBS=$(LDLIBS)" > "$$tmp_file"; \
+	if [ ! -f "$@" ] || ! cmp -s "$$tmp_file" "$@"; then \
+		mv "$$tmp_file" "$@"; \
+	else \
+		rm -f "$$tmp_file"; \
+	fi
+
+$(VENDOR_BUILD_SIGNATURE_FILE): Makefile $(CONFIG) $(SQLPARSER_SITE_CONFIG) | prep
+	@tmp_file="$@.tmp"; \
+	printf '%s\n' \
+		"CC=$(CC)" \
+		"VENDOR_CFLAGS=$(VENDOR_PG_QUERY_BUILD_CFLAGS)" > "$$tmp_file"; \
+	if [ ! -f "$@" ] || ! cmp -s "$$tmp_file" "$@"; then \
+		$(MAKE) -C $(VENDOR_PG_QUERY_DIR) clean >/dev/null 2>&1 || true; \
+		mv "$$tmp_file" "$@"; \
+	else \
+		rm -f "$$tmp_file"; \
+	fi
+
+$(VENDOR_PG_QUERY_LIB): $(VENDOR_BUILD_SIGNATURE_FILE)
+	@$(MAKE) -C $(VENDOR_PG_QUERY_DIR) build \
+		CC="$(CC)" \
+		CFLAGS="$(VENDOR_PG_QUERY_BUILD_CFLAGS)"
 
 $(VENDOR_PG_QUERY_STAMP): $(VENDOR_PG_QUERY_LIB) | prep
 	@rm -rf $(VENDOR_PG_QUERY_MERGE_DIR)
@@ -205,7 +313,7 @@ $(PKGCONFIG_FILE): config/sqlparser.pc.in | prep
 		-e 's|@VERSION@|$(VERSION_STRING)|g' \
 		$< > $@
 
-$(OBJ_PATH)/%.o: src/%.c
+$(OBJ_PATH)/%.o: src/%.c $(BUILD_SIGNATURE_FILE)
 	@mkdir -p $(dir $@)
 	@$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -c $< -o $@
 

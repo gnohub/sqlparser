@@ -338,6 +338,214 @@
       }
     },
     {
+      "name": "select-subquery-exists",
+      "sql": "SELECT u.id, EXISTS (SELECT 1 FROM public.orders o WHERE o.user_id = u.id) AS has_orders FROM public.users u",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "keywords": ["select", "from", "where", "exists", "as"],
+        "tables": ["public.users", "public.orders"],
+        "selected_columns": ["id"],
+        "all_referenced_columns": ["id", "user_id"],
+        "deparse_contains": "EXISTS (SELECT 1 FROM public.orders o"
+      }
+    },
+    {
+      "name": "select-case-window",
+      "sql": "SELECT p.id, CASE WHEN p.status = 'paid' THEN p.order_no ELSE 'pending' END AS label, sum(p.amount) OVER (PARTITION BY p.user_id ORDER BY p.created_at) AS running_amount FROM public.payments p",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "keywords": ["select", "case", "when", "then", "else", "end", "as", "over", "partition", "order", "by", "from"],
+        "tables": ["public.payments"],
+        "selected_columns": ["id", "order_no", "amount", "user_id", "created_at"],
+        "all_referenced_columns": ["id", "status", "order_no", "amount", "user_id", "created_at"],
+        "deparse_contains": "sum(p.amount) OVER"
+      }
+    },
+    {
+      "name": "select-union-order-limit",
+      "sql": "SELECT id FROM public.users UNION ALL SELECT id FROM public.user_archive ORDER BY id LIMIT 10",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "keywords": ["select", "from", "union", "all", "order", "by", "limit"],
+        "tables": ["public.users", "public.user_archive"],
+        "deparse_contains": "UNION ALL SELECT id FROM public.user_archive"
+      }
+    },
+    {
+      "name": "insert-on-conflict-update",
+      "sql": "INSERT INTO public.users (id, name) VALUES (1, 'alice') ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name RETURNING id",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": ["InsertStmt", "SelectStmt"],
+        "keywords": ["insert", "into", "values", "on", "conflict", "do", "update", "set", "returning"],
+        "tables": ["public.users"],
+        "insert_columns": ["id", "name"],
+        "all_referenced_columns": ["id", "name"],
+        "deparse_contains": "ON CONFLICT (id) DO UPDATE SET"
+      }
+    },
+    {
+      "name": "insert-returning",
+      "sql": "INSERT INTO public.audit_log (id, action) VALUES (1, 'login') RETURNING id, action",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": ["InsertStmt", "SelectStmt"],
+        "keywords": ["insert", "into", "values", "returning"],
+        "tables": ["public.audit_log"],
+        "insert_columns": ["id", "action"],
+        "all_referenced_columns": ["id", "action"],
+        "deparse_contains": "RETURNING id, action"
+      }
+    },
+    {
+      "name": "update-from-returning",
+      "sql": "UPDATE public.users AS u SET status = src.status FROM public.user_stage AS src WHERE u.id = src.id RETURNING u.id",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": ["UpdateStmt"],
+        "keywords": ["update", "set", "from", "where", "returning"],
+        "tables": ["public.users", "public.user_stage"],
+        "update_columns": ["status"],
+        "all_referenced_columns": ["status", "id"],
+        "deparse_contains": "FROM public.user_stage src"
+      }
+    },
+    {
+      "name": "delete-using-returning",
+      "sql": "DELETE FROM public.users USING public.user_archive AS ua WHERE public.users.id = ua.id RETURNING public.users.id",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": ["DeleteStmt"],
+        "keywords": ["delete", "from", "using", "where", "returning"],
+        "tables": ["public.users", "public.user_archive"],
+        "all_referenced_columns": ["id"],
+        "deparse_contains": "USING public.user_archive ua"
+      }
+    },
+    {
+      "name": "merge-basic",
+      "sql": "MERGE INTO public.target_table AS t USING public.source_table AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET name = s.name WHEN NOT MATCHED THEN INSERT (id, name) VALUES (s.id, s.name)",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": ["MergeStmt"],
+        "keywords": ["merge", "into", "using", "on", "when", "matched", "then", "update", "set", "not", "insert", "values"],
+        "deparse_contains": "MERGE INTO public.target_table"
+      }
+    },
+    {
+      "name": "savepoint-release",
+      "sql": "BEGIN; SAVEPOINT sp1; RELEASE SAVEPOINT sp1; COMMIT;",
+      "expect": {
+        "statement_count": 4,
+        "statement_types": ["TransactionStmt"],
+        "keywords": ["begin", "savepoint", "release", "commit"],
+        "deparse_contains": "RELEASE sp1"
+      }
+    },
+    {
+      "name": "rollback-to-savepoint",
+      "sql": "BEGIN; SAVEPOINT sp1; INSERT INTO public.audit_log (id, action) VALUES (1, 'login'); ROLLBACK TO SAVEPOINT sp1; COMMIT;",
+      "expect": {
+        "statement_count": 5,
+        "statement_types": ["TransactionStmt", "InsertStmt", "SelectStmt"],
+        "keywords": ["begin", "savepoint", "insert", "into", "values", "rollback", "to", "commit"],
+        "tables": ["public.audit_log"],
+        "insert_columns": ["id", "action"],
+        "all_referenced_columns": ["id", "action"],
+        "deparse_contains": "ROLLBACK TO SAVEPOINT sp1"
+      }
+    },
+    {
+      "name": "create-materialized-view",
+      "sql": "CREATE MATERIALIZED VIEW public.mv_users AS SELECT id, name FROM public.users",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": ["CreateTableAsStmt", "SelectStmt"],
+        "keywords": ["create", "materialized", "view", "as", "select", "from"],
+        "tables": ["public.mv_users", "public.users"],
+        "selected_columns": ["id", "name"],
+        "all_referenced_columns": ["id", "name"],
+        "deparse_contains": "CREATE MATERIALIZED VIEW public.mv_users AS"
+      }
+    },
+    {
+      "name": "alter-table-drop-column",
+      "sql": "ALTER TABLE public.users DROP COLUMN age",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": ["AlterTableStmt"],
+        "keywords": ["alter", "table", "drop", "column"],
+        "deparse_contains": "DROP age"
+      }
+    },
+    {
+      "name": "create-schema",
+      "sql": "CREATE SCHEMA analytics",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": ["CreateSchemaStmt"],
+        "keywords": ["create", "schema"],
+        "deparse_contains": "CREATE SCHEMA analytics"
+      }
+    },
+    {
+      "name": "drop-schema",
+      "sql": "DROP SCHEMA analytics",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": ["DropStmt"],
+        "keywords": ["drop", "schema"],
+        "deparse_contains": "DROP SCHEMA analytics"
+      }
+    },
+    {
+      "name": "grant-select",
+      "sql": "GRANT SELECT ON TABLE public.users TO analyst",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": ["GrantStmt"],
+        "keywords": ["grant", "select", "on", "table", "to"],
+        "tables": ["public.users"],
+        "deparse_contains": "GRANT select ON public.users TO analyst"
+      }
+    },
+    {
+      "name": "revoke-select",
+      "sql": "REVOKE SELECT ON TABLE public.users FROM analyst",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": ["GrantStmt"],
+        "keywords": ["revoke", "select", "on", "table", "from"],
+        "tables": ["public.users"],
+        "deparse_contains": "REVOKE select ON public.users FROM analyst"
+      }
+    },
+    {
+      "name": "analyze-table",
+      "sql": "ANALYZE public.users",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": ["VacuumStmt"],
+        "keywords": ["analyze"],
+        "tables": ["public.users"],
+        "deparse_contains": "ANALYZE public.users"
+      }
+    },
+    {
+      "name": "vacuum-analyze-table",
+      "sql": "VACUUM ANALYZE public.users",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": ["VacuumStmt"],
+        "keywords": ["vacuum", "analyze"],
+        "tables": ["public.users"],
+        "deparse_contains": "VACUUM (ANALYZE) public.users"
+      }
+    },
+    {
       "name": "parse-error",
       "sql": "SELECT FROM",
       "expect": {
