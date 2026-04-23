@@ -14,13 +14,13 @@
 
 - 固定 vendored `libpg_query` 版本并纳入仓库
 - 统一发布公共头文件、静态库、动态库与 `pkg-config` 元数据
-- 新增严格构建、安装烟测、循环回归、benchmark smoke 与一键 `verify` 入口
+- 新增严格构建、安装烟测、`valgrind` 泄漏校验、循环回归、benchmark smoke 与一键 `verify` 入口
 - 构建系统按编译选项签名自动失效并重建本库对象和 vendor 产物
 
 ### 测试与性能
 
 - 扩充通用 SQL 批量夹具，覆盖子查询、`CASE`、窗口、`ON CONFLICT`、`RETURNING`、`UPDATE ... FROM`、`DELETE ... USING`、`MERGE`、事务控制、常见 DDL、`GRANT/REVOKE` 与维护语句
-- 增加安装态 API 烟测与表达式改写回归
+- 增加安装态 API 烟测、`valgrind` 泄漏校验与表达式改写回归
 - benchmark 增加读取链路、改写链路与 `rewrite + deparse` 单次调用统计
 
 ### 文档

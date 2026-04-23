@@ -18,8 +18,8 @@
 - Pinned vendored `libpg_query` version stored in the repository
 - Public release surface for the header, static library, shared library, and
   `pkg-config` metadata
-- Strict-build, install-smoke, loop-regression, benchmark-smoke, and one-shot
-  `verify` entry points
+- Strict-build, install-smoke, `valgrind` leak-check, loop-regression,
+  benchmark-smoke, and one-shot `verify` entry points
 - Build invalidation based on compiler-option signatures for project objects and
   vendored parser objects
 
@@ -28,7 +28,8 @@
 - Expanded SQL fixture coverage for subqueries, `CASE`, window functions,
   `ON CONFLICT`, `RETURNING`, `UPDATE ... FROM`, `DELETE ... USING`, `MERGE`,
   transaction control, common DDL, `GRANT/REVOKE`, and maintenance statements
-- Added installed-library API smoke coverage and expression-rewrite regression
+- Added installed-library API smoke coverage, `valgrind` leak checks, and
+  expression-rewrite regression
 - Extended benchmarks for read paths, rewrite paths, and `rewrite + deparse`
   single-call measurements
 

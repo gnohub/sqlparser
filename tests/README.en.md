@@ -18,6 +18,7 @@ The current test suite contains:
 - example smoke tests
 - installed-library API smoke tests
 - strict-build and sanitizer gates
+- `valgrind` leak checks
 - long-running loop regression
 
 ## Run
@@ -38,6 +39,7 @@ Common quality-gate entry points:
 - `make verify-debug`
 - `make verify-asan`
 - `make verify-ubsan`
+- `make verify-valgrind`
 - `make test-loop LOOP=50`
 - `make verify`
 

@@ -59,6 +59,9 @@ LOOP ?= 50
 VERIFY_ASAN_CC ?= $(CC)
 VERIFY_UBSAN_CC ?= $(CC)
 SANITIZE_SUPPORT_CHECK := ./scripts/check_sanitize_support.sh
+VERIFY_VALGRIND_TOOL ?= valgrind
+VALGRIND_RUNNER := ./scripts/run_valgrind.sh
+VALGRIND_LOG_DIR ?= $(BUILD_PATH)/valgrind
 
 STATIC_LIB_PATH := $(LIB_PATH)/lib$(LIB_NAME).a
 SHARED_LIB_SONAME := lib$(LIB_NAME).so.$(SONAME_MAJOR)
@@ -122,7 +125,7 @@ LDLIBS := $(BASE_LDLIBS) $(EXTRA_LDLIBS)
 .PHONY: \
 	all prep vendor static shared clean vendor-clean print-config test install cli bench-build \
 	test-cli-batch examples install-smoke bench-smoke test-loop verify verify-release verify-debug \
-	verify-asan verify-ubsan
+	verify-asan verify-ubsan verify-valgrind
 
 all: prep static shared cli
 	@echo "Build finished: $(STATIC_LIB_PATH) $(SHARED_LIB_PATH) $(SQLPARSER_CLI_BIN)"
@@ -209,7 +212,25 @@ verify-ubsan:
 		echo "skip verify-ubsan: compiler/runtime does not support -fsanitize=undefined"; \
 	fi
 
-verify: verify-release verify-debug verify-asan verify-ubsan
+verify-valgrind:
+	@$(MAKE) --no-print-directory clean
+	@if command -v "$(VERIFY_VALGRIND_TOOL)" >/dev/null 2>&1; then \
+		$(MAKE) --no-print-directory all test install-smoke DEBUG=0 SHOW_WARNING=0 SHOW_VENDOR_WARNING=0; \
+		for test_bin in $(UNIT_TEST_BINS) $(EXAMPLE_BINS); do \
+			$(VALGRIND_RUNNER) --tool "$(VERIFY_VALGRIND_TOOL)" --log-dir "$(VALGRIND_LOG_DIR)" --name "$$(basename "$$test_bin")" -- "$$test_bin"; \
+		done; \
+		$(VALGRIND_RUNNER) --tool "$(VERIFY_VALGRIND_TOOL)" --log-dir "$(VALGRIND_LOG_DIR)" --name "sqlparser_cli_batch" -- \
+			$(SQLPARSER_CLI_BIN) --batch-file $(SQLPARSER_CLI_BATCH_FIXTURE) --output $(SQLPARSER_CLI_BATCH_OUTPUT); \
+		$(BENCH_PYTHON) $(SQLPARSER_CLI_BATCH_VERIFY) \
+			--fixture $(SQLPARSER_CLI_BATCH_FIXTURE) \
+			--output $(SQLPARSER_CLI_BATCH_OUTPUT); \
+		$(VALGRIND_RUNNER) --tool "$(VERIFY_VALGRIND_TOOL)" --log-dir "$(VALGRIND_LOG_DIR)" --name "install_smoke" -- \
+			$(INSTALL_SMOKE_BIN); \
+	else \
+		echo "skip verify-valgrind: valgrind is not installed"; \
+	fi
+
+verify: verify-release verify-debug verify-asan verify-ubsan verify-valgrind
 	@$(MAKE) --no-print-directory clean
 	@$(MAKE) --no-print-directory test-loop LOOP=$(LOOP) DEBUG=0 SHOW_WARNING=0 SHOW_VENDOR_WARNING=0
 	@$(MAKE) --no-print-directory clean
@@ -238,6 +259,8 @@ print-config:
 	@echo "SHOW_VENDOR_WARNING=$(SHOW_VENDOR_WARNING)"
 	@echo "TEST_STAGE_DIR=$(TEST_STAGE_DIR)"
 	@echo "BENCH_PROFILE=$(BENCH_PROFILE)"
+	@echo "VERIFY_VALGRIND_TOOL=$(VERIFY_VALGRIND_TOOL)"
+	@echo "VALGRIND_LOG_DIR=$(VALGRIND_LOG_DIR)"
 	@echo "PKGCONFIG_BUILD_DIR=$(PKGCONFIG_BUILD_DIR)"
 	@echo "PKGCONFIGDIR=$(PKGCONFIGDIR)"
 	@echo "VENDOR_PG_QUERY_TAG=$(VENDOR_PG_QUERY_TAG)"

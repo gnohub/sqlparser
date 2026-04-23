@@ -18,6 +18,7 @@
 - 示例程序烟测
 - 安装态 API 烟测
 - 严格编译与 sanitizer 门禁
+- `valgrind` 泄漏校验
 - 长时间循环回归
 
 ## 执行方式
@@ -38,6 +39,7 @@ make test
 - `make verify-debug`
 - `make verify-asan`
 - `make verify-ubsan`
+- `make verify-valgrind`
 - `make test-loop LOOP=50`
 - `make verify`
 
