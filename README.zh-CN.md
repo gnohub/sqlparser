@@ -30,7 +30,8 @@
 
 ## 构建依赖
 
-- 支持 `gnu11` 的 C 编译器
+- Linux
+- GCC 8.3 或更新版本，并支持 `gnu11`
 - GNU Make
 - `pkg-config`
 - `jansson`
@@ -45,9 +46,11 @@ make all
 
 - `make static`
 - `make shared`
+- `make abi-check`
 - `make examples`
 - `make test`
 - `make test-loop LOOP=50`
+- `make verify-ci`
 - `make verify`
 - `make bench-build`
 - `make bench-smoke`

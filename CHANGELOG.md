@@ -16,6 +16,8 @@
 - 统一发布公共头文件、静态库、动态库与 `pkg-config` 元数据
 - 新增严格构建、安装烟测、`valgrind` 泄漏校验、循环回归、benchmark smoke 与一键 `verify` 入口
 - 构建系统按编译选项签名自动失效并重建本库对象和 vendor 产物
+- 新增 `make abi-check`，校验动态库导出符号与公共头文件一致
+- 新增 Linux/GCC GitHub Actions CI 门禁
 
 ### 测试与性能
 

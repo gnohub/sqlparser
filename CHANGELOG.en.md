@@ -22,6 +22,9 @@
   benchmark-smoke, and one-shot `verify` entry points
 - Build invalidation based on compiler-option signatures for project objects and
   vendored parser objects
+- Added `make abi-check` to verify shared-library exports against the public
+  header
+- Added Linux/GCC GitHub Actions CI gates
 
 ### Tests and Performance
 

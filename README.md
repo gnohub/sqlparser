@@ -30,7 +30,8 @@ The current release provides:
 
 ## Build Dependencies
 
-- a C compiler with `gnu11` support
+- Linux
+- GCC 8.3 or later with `gnu11` support
 - GNU Make
 - `pkg-config`
 - `jansson`
@@ -45,9 +46,11 @@ Common targets:
 
 - `make static`
 - `make shared`
+- `make abi-check`
 - `make examples`
 - `make test`
 - `make test-loop LOOP=50`
+- `make verify-ci`
 - `make verify`
 - `make bench-build`
 - `make bench-smoke`

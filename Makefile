@@ -62,6 +62,9 @@ SANITIZE_SUPPORT_CHECK := ./scripts/check_sanitize_support.sh
 VERIFY_VALGRIND_TOOL ?= valgrind
 VALGRIND_RUNNER := ./scripts/run_valgrind.sh
 VALGRIND_LOG_DIR ?= $(BUILD_PATH)/valgrind
+ABI_EXPORT_CHECKER := ./scripts/check_abi_exports.sh
+ABI_HEADER ?= ./include/sqlparser/sqlparser.h
+ABI_LIBRARY ?= $(SHARED_LIB_PATH)
 
 STATIC_LIB_PATH := $(LIB_PATH)/lib$(LIB_NAME).a
 SHARED_LIB_SONAME := lib$(LIB_NAME).so.$(SONAME_MAJOR)
@@ -125,7 +128,7 @@ LDLIBS := $(BASE_LDLIBS) $(EXTRA_LDLIBS)
 .PHONY: \
 	all prep vendor static shared clean vendor-clean print-config test install cli bench-build \
 	test-cli-batch examples install-smoke bench-smoke test-loop verify verify-release verify-debug \
-	verify-asan verify-ubsan verify-valgrind
+	verify-asan verify-ubsan verify-valgrind verify-ci abi-check
 
 all: prep static shared cli
 	@echo "Build finished: $(STATIC_LIB_PATH) $(SHARED_LIB_PATH) $(SQLPARSER_CLI_BIN)"
@@ -177,6 +180,9 @@ bench-smoke: bench-build
 		--bench-bin $(SQLPARSER_BENCH_BIN) \
 		--profile $(BENCH_PROFILE) \
 		--stages $(BENCH_STAGES)
+
+abi-check: shared
+	@$(ABI_EXPORT_CHECKER) --header $(ABI_HEADER) --library $(ABI_LIBRARY)
 
 test-loop: cli $(UNIT_TEST_BINS) $(EXAMPLE_BINS) test-cli-batch
 	@./scripts/run_test_loop.sh \
@@ -236,6 +242,11 @@ verify: verify-release verify-debug verify-asan verify-ubsan verify-valgrind
 	@$(MAKE) --no-print-directory clean
 	@$(MAKE) --no-print-directory bench-smoke BENCH_PROFILE=smoke BENCH_STAGES=parse,api,report DEBUG=0 SHOW_WARNING=0 SHOW_VENDOR_WARNING=0
 
+verify-ci:
+	@$(MAKE) --no-print-directory verify-release
+	@$(MAKE) --no-print-directory abi-check DEBUG=0 SHOW_WARNING=0 SHOW_VENDOR_WARNING=0
+	@$(MAKE) --no-print-directory verify-debug
+
 install: all $(PKGCONFIG_FILE)
 	@mkdir -p $(DESTDIR)$(INCLUDEDIR)/sqlparser $(DESTDIR)$(LIBDIR) $(DESTDIR)$(PKGCONFIGDIR)
 	@cp include/sqlparser/*.h $(DESTDIR)$(INCLUDEDIR)/sqlparser/
@@ -261,6 +272,8 @@ print-config:
 	@echo "BENCH_PROFILE=$(BENCH_PROFILE)"
 	@echo "VERIFY_VALGRIND_TOOL=$(VERIFY_VALGRIND_TOOL)"
 	@echo "VALGRIND_LOG_DIR=$(VALGRIND_LOG_DIR)"
+	@echo "ABI_HEADER=$(ABI_HEADER)"
+	@echo "ABI_LIBRARY=$(ABI_LIBRARY)"
 	@echo "PKGCONFIG_BUILD_DIR=$(PKGCONFIG_BUILD_DIR)"
 	@echo "PKGCONFIGDIR=$(PKGCONFIGDIR)"
 	@echo "VENDOR_PG_QUERY_TAG=$(VENDOR_PG_QUERY_TAG)"

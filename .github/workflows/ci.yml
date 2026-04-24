@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-gcc:
+    name: Linux GCC
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential gcc make pkg-config libjansson-dev python3
+
+      - name: Show toolchain
+        run: |
+          gcc --version
+          make print-config
+
+      - name: Check whitespace
+        run: git diff --check
+
+      - name: Build, test, install smoke, and ABI check
+        run: make verify-ci
+
+      - name: Benchmark smoke
+        run: |
+          make clean
+          make bench-smoke BENCH_PROFILE=smoke BENCH_STAGES=parse,api,report DEBUG=0 SHOW_WARNING=0 SHOW_VENDOR_WARNING=0
