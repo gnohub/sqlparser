@@ -8,7 +8,9 @@ SQLPARSER_0 {
 		sqlparser_value_kind_name;
 		sqlparser_literal_kind_name;
 		sqlparser_selector_kind_name;
+		sqlparser_limits_default;
 		sqlparser_parse;
+		sqlparser_parse_with_limits;
 		sqlparser_handle_destroy;
 		sqlparser_original_sql;
 		sqlparser_statement_count;
@@ -62,6 +64,7 @@ SQLPARSER_0 {
 		sqlparser_export_summary_json;
 		sqlparser_export_model_json;
 		sqlparser_apply_model_json;
+		sqlparser_apply_model_json_with_limits;
 		sqlparser_deparse;
 		sqlparser_string_free;
 	local:

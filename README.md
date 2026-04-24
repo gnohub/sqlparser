@@ -16,6 +16,7 @@ The current release provides:
 - statement-wide relation, name, and literal traversal and rewrite
 - `INSERT`, `UPDATE`, and `WHERE` structural views
 - stable selector parse / format / lookup
+- configurable resource limits for SQL input, model JSON input, generated output, and statement count
 - `parse tree JSON` export
 - `summary JSON` export
 - stable model JSON export and import
@@ -54,6 +55,7 @@ Common targets:
 - `make verify`
 - `make bench-build`
 - `make bench-smoke`
+- `make dist`
 - `make install PREFIX=/usr/local`
 
 ## Minimal Integration Example

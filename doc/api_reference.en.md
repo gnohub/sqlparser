@@ -87,6 +87,7 @@ Most APIs return `sqlparser_status_t`.
 | `SQLPARSER_STATUS_PARSE_ERROR` | SQL parse failure |
 | `SQLPARSER_STATUS_INTERNAL_ERROR` | Internal processing failure |
 | `SQLPARSER_STATUS_UNSUPPORTED` | The current statement shape is not supported by the requested operation |
+| `SQLPARSER_STATUS_RESOURCE_LIMIT` | Input, output, or statement count exceeds configured limits |
 
 Error details are returned through `sqlparser_error_t`:
 
@@ -114,6 +115,27 @@ stores the original SQL, the current syntax tree, and lazily derived results.
 | `sqlparser_value_kind_t` | value kind |
 | `sqlparser_literal_kind_t` | literal kind |
 | `sqlparser_selector_kind_t` | selector kind |
+
+### Resource Limits
+
+- `sqlparser_limits_t`
+
+`sqlparser_limits_t` constrains the resource scale allowed by one parse or model
+import operation:
+
+The default limits are: 4 MB SQL input, 16 MB model JSON input, 64 MB generated
+output, and 64 statements per parse call.
+
+| Field | Meaning |
+| --- | --- |
+| `struct_size` | structure size filled by `sqlparser_limits_default()` for future compatibility |
+| `max_sql_bytes` | maximum bytes for SQL input and expression SQL fragments |
+| `max_model_json_bytes` | maximum bytes for model JSON input |
+| `max_output_bytes` | maximum bytes for generated SQL or JSON output |
+| `max_statement_count` | maximum number of statements accepted by one parse |
+
+Call `sqlparser_limits_default()` to obtain the default limits. Callers only
+need to override fields they want to change; a field set to `0` uses the default.
 
 ### View Structures
 
@@ -207,6 +229,27 @@ Notes:
 
 - The input SQL must not be an empty string.
 - The caller owns the returned handle and must release it.
+- `sqlparser_parse()` uses the default resource limits.
+
+### `sqlparser_parse_with_limits`
+
+Prototype:
+
+```c
+sqlparser_status_t sqlparser_parse_with_limits(
+    const char *sql,
+    const sqlparser_limits_t *limits,
+    sqlparser_handle_t **out_handle,
+    sqlparser_error_t *out_error);
+```
+
+Notes:
+
+- Equivalent to `sqlparser_parse()`, but accepts caller-provided resource limits.
+- Passing `NULL` for `limits` uses the defaults.
+- On success, the limits are stored on the handle and apply to later rewrites,
+  exports, and deparse operations.
+- Returns `SQLPARSER_STATUS_RESOURCE_LIMIT` when a configured limit is exceeded.
 
 ### `sqlparser_handle_destroy`
 
@@ -470,6 +513,28 @@ Notes:
 - Use `sql` for `assignment` or `insert_cell` rewrites that involve `DEFAULT`
   or arbitrary expressions.
 - It is best to use one rewrite form per change entry.
+- Model JSON import uses the limits stored on the handle.
+
+### `sqlparser_apply_model_json_with_limits`
+
+Prototype:
+
+```c
+sqlparser_status_t sqlparser_apply_model_json_with_limits(
+    sqlparser_handle_t *handle,
+    const char *json_text,
+    const sqlparser_limits_t *limits,
+    sqlparser_error_t *out_error);
+```
+
+Notes:
+
+- Equivalent to `sqlparser_apply_model_json()`, but accepts new resource limits
+  for the import.
+- Passing `NULL` for `limits` uses the handle's current limits.
+- On success, the new limits are stored on the handle; on failure, the previous
+  limits are preserved.
+- Returns `SQLPARSER_STATUS_RESOURCE_LIMIT` when a configured limit is exceeded.
 
 ## Deparse and String Free
 

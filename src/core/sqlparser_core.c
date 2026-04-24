@@ -23,6 +23,22 @@
 #define SQLPARSER_MODEL_SCHEMA_TEXT "sqlparser.model/v1"
 #endif
 
+#ifndef SQLPARSER_DEFAULT_MAX_SQL_BYTES
+#define SQLPARSER_DEFAULT_MAX_SQL_BYTES (4U * 1024U * 1024U)
+#endif
+
+#ifndef SQLPARSER_DEFAULT_MAX_MODEL_JSON_BYTES
+#define SQLPARSER_DEFAULT_MAX_MODEL_JSON_BYTES (16U * 1024U * 1024U)
+#endif
+
+#ifndef SQLPARSER_DEFAULT_MAX_OUTPUT_BYTES
+#define SQLPARSER_DEFAULT_MAX_OUTPUT_BYTES (64U * 1024U * 1024U)
+#endif
+
+#ifndef SQLPARSER_DEFAULT_MAX_STATEMENT_COUNT
+#define SQLPARSER_DEFAULT_MAX_STATEMENT_COUNT 64U
+#endif
+
 extern __thread sig_atomic_t pg_query_initialized;
 
 static void sqlparser_pg_query_shutdown(void)
@@ -49,6 +65,174 @@ void sqlparser_pg_query_prepare(void)
 	static pthread_once_t once_control = PTHREAD_ONCE_INIT;
 
 	(void)pthread_once(&once_control, sqlparser_pg_query_register_exit_once);
+}
+
+static void sqlparser_limits_set_defaults(sqlparser_limits_t *out_limits)
+{
+	if (out_limits == NULL) {
+		return;
+	}
+
+	out_limits->max_sql_bytes = SQLPARSER_DEFAULT_MAX_SQL_BYTES;
+	out_limits->max_model_json_bytes = SQLPARSER_DEFAULT_MAX_MODEL_JSON_BYTES;
+	out_limits->max_output_bytes = SQLPARSER_DEFAULT_MAX_OUTPUT_BYTES;
+	out_limits->max_statement_count = SQLPARSER_DEFAULT_MAX_STATEMENT_COUNT;
+	out_limits->struct_size = sizeof(*out_limits);
+}
+
+void sqlparser_limits_default(sqlparser_limits_t *out_limits)
+{
+	sqlparser_limits_set_defaults(out_limits);
+}
+
+static void sqlparser_limits_normalize(
+	const sqlparser_limits_t *limits,
+	sqlparser_limits_t *out_limits)
+{
+	sqlparser_limits_t defaults;
+
+	if (out_limits == NULL) {
+		return;
+	}
+
+	sqlparser_limits_set_defaults(&defaults);
+	if (limits == NULL) {
+		*out_limits = defaults;
+		return;
+	}
+
+	*out_limits = *limits;
+	if (out_limits->struct_size == 0U) {
+		out_limits->struct_size = defaults.struct_size;
+	}
+	if (out_limits->max_sql_bytes == 0U) {
+		out_limits->max_sql_bytes = defaults.max_sql_bytes;
+	}
+	if (out_limits->max_model_json_bytes == 0U) {
+		out_limits->max_model_json_bytes = defaults.max_model_json_bytes;
+	}
+	if (out_limits->max_output_bytes == 0U) {
+		out_limits->max_output_bytes = defaults.max_output_bytes;
+	}
+	if (out_limits->max_statement_count == 0U) {
+		out_limits->max_statement_count = defaults.max_statement_count;
+	}
+}
+
+static sqlparser_status_t sqlparser_validate_text_limit(
+	const char *text,
+	size_t max_bytes,
+	const char *field_name,
+	size_t *out_len,
+	sqlparser_error_t *out_error)
+{
+	size_t len;
+	const char *name;
+
+	if (out_len != NULL) {
+		*out_len = 0U;
+	}
+	if (text == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"text must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	name = field_name != NULL ? field_name : "text";
+	len = 0U;
+	while (text[len] != '\0') {
+		if (max_bytes > 0U && len >= max_bytes) {
+			char message[256];
+
+			(void)snprintf(
+				message,
+				sizeof(message),
+				"%s exceeds configured byte limit (%lu bytes)",
+				name,
+				(unsigned long)max_bytes);
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, message);
+			return SQLPARSER_STATUS_RESOURCE_LIMIT;
+		}
+		len++;
+	}
+
+	if (out_len != NULL) {
+		*out_len = len;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_validate_handle_sql_input(
+	const sqlparser_handle_t *handle,
+	const char *text,
+	const char *field_name,
+	sqlparser_error_t *out_error)
+{
+	if (handle == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"handle must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_validate_text_limit(
+		text,
+		handle->limits.max_sql_bytes,
+		field_name,
+		NULL,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_validate_handle_output_text(
+	const sqlparser_handle_t *handle,
+	const char *text,
+	const char *field_name,
+	sqlparser_error_t *out_error)
+{
+	if (handle == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"handle must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_validate_text_limit(
+		text,
+		handle->limits.max_output_bytes,
+		field_name,
+		NULL,
+		out_error);
+}
+
+static sqlparser_status_t sqlparser_validate_statement_count_limit(
+	const sqlparser_limits_t *limits,
+	size_t statement_count,
+	sqlparser_error_t *out_error)
+{
+	size_t max_statement_count;
+
+	if (limits == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+
+	max_statement_count = limits->max_statement_count;
+	if (max_statement_count > 0U && statement_count > max_statement_count) {
+		char message[256];
+
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"statement count exceeds configured limit (%lu statements)",
+			(unsigned long)max_statement_count);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, message);
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+
+	return SQLPARSER_STATUS_OK;
 }
 
 static void sqlparser_fill_line_column(
@@ -348,6 +532,7 @@ static sqlparser_status_t sqlparser_handle_clone(
 
 	clone->sql_len = source->sql_len;
 	clone->statement_count = source->statement_count;
+	clone->limits = source->limits;
 	clone->generation = source->generation;
 	*out_handle = clone;
 	return SQLPARSER_STATUS_OK;
@@ -410,6 +595,13 @@ sqlparser_status_t sqlparser_handle_commit_ast(
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 
+	if (sqlparser_validate_statement_count_limit(&handle->limits, handle->ast->n_stmts, out_error) !=
+	    SQLPARSER_STATUS_OK) {
+		free(packed);
+		sqlparser_handle_clear_ast(handle);
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+
 	free(handle->parse_tree.data);
 	handle->parse_tree.data = packed;
 	handle->parse_tree.len = packed_len;
@@ -425,6 +617,7 @@ static sqlparser_status_t sqlparser_ensure_current_sql_text(
 {
 	PgQueryDeparseResult deparse_result;
 	sqlparser_handle_t *mutable_handle;
+	sqlparser_status_t status;
 
 	if (handle == NULL || handle->sql == NULL) {
 		sqlparser_error_set_message(
@@ -452,6 +645,12 @@ static sqlparser_status_t sqlparser_ensure_current_sql_text(
 			deparse_result.error);
 		pg_query_free_deparse_result(deparse_result);
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+
+	status = sqlparser_validate_handle_output_text(handle, deparse_result.query, "current SQL", out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		pg_query_free_deparse_result(deparse_result);
+		return status;
 	}
 
 	mutable_handle->current_sql = sqlparser_strdup(deparse_result.query);
@@ -804,6 +1003,12 @@ static sqlparser_status_t sqlparser_ensure_parse_tree_json_text(
 			parse_result.error);
 		pg_query_free_parse_result(parse_result);
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+
+	status = sqlparser_validate_handle_output_text(handle, parse_result.parse_tree, "parse tree JSON", out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		pg_query_free_parse_result(parse_result);
+		return status;
 	}
 
 	mutable_handle->parse_tree_json = sqlparser_strdup(parse_result.parse_tree);
@@ -1539,9 +1744,20 @@ sqlparser_status_t sqlparser_parse(
 	sqlparser_handle_t **out_handle,
 	sqlparser_error_t *out_error)
 {
+	return sqlparser_parse_with_limits(sql, NULL, out_handle, out_error);
+}
+
+sqlparser_status_t sqlparser_parse_with_limits(
+	const char *sql,
+	const sqlparser_limits_t *limits,
+	sqlparser_handle_t **out_handle,
+	sqlparser_error_t *out_error)
+{
 	PgQueryProtobufParseResult parse_result;
 	sqlparser_handle_t *handle;
 	sqlparser_status_t status;
+	sqlparser_limits_t effective_limits;
+	size_t sql_len;
 
 	if (out_handle == NULL) {
 		sqlparser_error_set_message(
@@ -1551,6 +1767,7 @@ sqlparser_status_t sqlparser_parse(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
+	sqlparser_limits_normalize(limits, &effective_limits);
 	*out_handle = NULL;
 	sqlparser_error_clear(out_error);
 
@@ -1560,6 +1777,15 @@ sqlparser_status_t sqlparser_parse(
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
 			"sql must not be NULL or empty");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	status = sqlparser_validate_text_limit(
+		sql,
+		effective_limits.max_sql_bytes,
+		"SQL input",
+		&sql_len,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
 	}
 
 	sqlparser_pg_query_prepare();
@@ -1585,7 +1811,8 @@ sqlparser_status_t sqlparser_parse(
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
 
-	handle->sql_len = strlen(sql);
+	handle->sql_len = sql_len;
+	handle->limits = effective_limits;
 	status = sqlparser_protobuf_copy(&handle->parse_tree, &parse_result.parse_tree, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		pg_query_free_protobuf_parse_result(parse_result);
@@ -1607,6 +1834,12 @@ sqlparser_status_t sqlparser_parse(
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 	handle->statement_count = handle->ast->n_stmts;
+	status = sqlparser_validate_statement_count_limit(&handle->limits, handle->statement_count, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		pg_query_free_protobuf_parse_result(parse_result);
+		sqlparser_handle_destroy(handle);
+		return status;
+	}
 
 	pg_query_free_protobuf_parse_result(parse_result);
 	*out_handle = handle;
@@ -3350,6 +3583,11 @@ static sqlparser_status_t sqlparser_ensure_model_json_text(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
+	status = sqlparser_validate_handle_output_text(handle, rendered, "model JSON", out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(rendered);
+		return status;
+	}
 
 	mutable_handle = (sqlparser_handle_t *)handle;
 	mutable_handle->model_json = rendered;
@@ -3410,6 +3648,11 @@ sqlparser_status_t sqlparser_export_parse_tree_json(
 		if (rendered == NULL) {
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		if (sqlparser_validate_handle_output_text(handle, rendered, "parse tree JSON", out_error) !=
+		    SQLPARSER_STATUS_OK) {
+			free(rendered);
+			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_RESOURCE_LIMIT;
 		}
 
 		*out_json = rendered;
@@ -3751,6 +3994,11 @@ sqlparser_status_t sqlparser_export_summary_json(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
+	status = sqlparser_validate_handle_output_text(handle, rendered, "summary JSON", out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(rendered);
+		return status;
+	}
 
 	*out_json = rendered;
 	return SQLPARSER_STATUS_OK;
@@ -3813,6 +4061,11 @@ sqlparser_status_t sqlparser_export_model_json(
 		if (rendered == NULL) {
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		if (sqlparser_validate_handle_output_text(handle, rendered, "model JSON", out_error) !=
+		    SQLPARSER_STATUS_OK) {
+			free(rendered);
+			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_RESOURCE_LIMIT;
 		}
 
 		*out_json = rendered;
@@ -4814,12 +5067,23 @@ sqlparser_status_t sqlparser_apply_model_json(
 	const char *json_text,
 	sqlparser_error_t *out_error)
 {
+	return sqlparser_apply_model_json_with_limits(handle, json_text, NULL, out_error);
+}
+
+sqlparser_status_t sqlparser_apply_model_json_with_limits(
+	sqlparser_handle_t *handle,
+	const char *json_text,
+	const sqlparser_limits_t *limits,
+	sqlparser_error_t *out_error)
+{
 	json_t *root;
 	json_t *changes;
 	json_t *statements;
 	json_t *changed_changes;
 	json_error_t json_error;
 	sqlparser_status_t status;
+	sqlparser_limits_t original_limits;
+	sqlparser_limits_t effective_limits;
 
 	sqlparser_error_clear(out_error);
 	if (handle == NULL || handle->sql == NULL) {
@@ -4837,8 +5101,27 @@ sqlparser_status_t sqlparser_apply_model_json(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
+	original_limits = handle->limits;
+	if (limits != NULL) {
+		sqlparser_limits_normalize(limits, &effective_limits);
+	} else {
+		effective_limits = handle->limits;
+	}
+	handle->limits = effective_limits;
+	status = sqlparser_validate_text_limit(
+		json_text,
+		effective_limits.max_model_json_bytes,
+		"model JSON input",
+		NULL,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		handle->limits = original_limits;
+		return status;
+	}
+
 	root = json_loads(json_text, 0, &json_error);
 	if (root == NULL) {
+		handle->limits = original_limits;
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -4847,6 +5130,7 @@ sqlparser_status_t sqlparser_apply_model_json(
 	}
 	if (!json_is_object(root)) {
 		json_decref(root);
+		handle->limits = original_limits;
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -4858,12 +5142,16 @@ sqlparser_status_t sqlparser_apply_model_json(
 	if (json_is_array(changes)) {
 		status = sqlparser_apply_change_array_transactional(handle, changes, out_error);
 		json_decref(root);
+		if (status != SQLPARSER_STATUS_OK) {
+			handle->limits = original_limits;
+		}
 		return status;
 	}
 
 	statements = json_object_get(root, "statements");
 	if (!json_is_array(statements)) {
 		json_decref(root);
+		handle->limits = original_limits;
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -4885,6 +5173,9 @@ sqlparser_status_t sqlparser_apply_model_json(
 		json_decref(changed_changes);
 	}
 	json_decref(root);
+	if (status != SQLPARSER_STATUS_OK) {
+		handle->limits = original_limits;
+	}
 	return status;
 }
 
@@ -4924,6 +5215,12 @@ sqlparser_status_t sqlparser_deparse(
 			deparse_result.error);
 		pg_query_free_deparse_result(deparse_result);
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+
+	if (sqlparser_validate_handle_output_text(handle, deparse_result.query, "deparse output", out_error) !=
+	    SQLPARSER_STATUS_OK) {
+		pg_query_free_deparse_result(deparse_result);
+		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_RESOURCE_LIMIT;
 	}
 
 	*out_sql = sqlparser_strdup(deparse_result.query);

@@ -83,6 +83,7 @@ int main(void)
 | `SQLPARSER_STATUS_PARSE_ERROR` | SQL 解析失败 |
 | `SQLPARSER_STATUS_INTERNAL_ERROR` | 内部处理失败 |
 | `SQLPARSER_STATUS_UNSUPPORTED` | 当前语句形态不支持该操作 |
+| `SQLPARSER_STATUS_RESOURCE_LIMIT` | 输入、输出或语句数量超过资源限制 |
 
 错误信息通过 `sqlparser_error_t` 返回：
 
@@ -109,6 +110,24 @@ int main(void)
 | `sqlparser_value_kind_t` | 值类型 |
 | `sqlparser_literal_kind_t` | 字面量类型 |
 | `sqlparser_selector_kind_t` | selector 类型 |
+
+### 资源限制
+
+- `sqlparser_limits_t`
+
+`sqlparser_limits_t` 用于限制单次解析或模型导入所允许的资源规模：
+
+默认限制为：SQL 输入 4MB、模型 JSON 输入 16MB、生成输出 64MB、单次解析 64 条语句。
+
+| 字段 | 说明 |
+| --- | --- |
+| `struct_size` | 结构体大小，由 `sqlparser_limits_default()` 填充，用于后续兼容扩展 |
+| `max_sql_bytes` | SQL 输入和表达式 SQL 片段最大字节数 |
+| `max_model_json_bytes` | 模型 JSON 输入最大字节数 |
+| `max_output_bytes` | 生成 SQL 或 JSON 输出最大字节数 |
+| `max_statement_count` | 单次解析允许的最大语句数量 |
+
+使用 `sqlparser_limits_default()` 可获得默认限制。调用方只需要覆盖需要调整的字段，字段为 `0` 时按默认值处理。
 
 ### 视图结构
 
@@ -198,6 +217,26 @@ sqlparser_status_t sqlparser_parse(
 
 - 输入 SQL 不能为空字符串。
 - 调用成功后，调用方负责释放 `handle`。
+- `sqlparser_parse()` 使用默认资源限制。
+
+### `sqlparser_parse_with_limits`
+
+函数原型：
+
+```c
+sqlparser_status_t sqlparser_parse_with_limits(
+    const char *sql,
+    const sqlparser_limits_t *limits,
+    sqlparser_handle_t **out_handle,
+    sqlparser_error_t *out_error);
+```
+
+说明：
+
+- 与 `sqlparser_parse()` 相同，但允许调用方传入资源限制。
+- `limits` 为 `NULL` 时使用默认限制。
+- 解析成功后，限制配置会随 `handle` 保存，并影响后续改写、导出和反解析。
+- 超出限制时返回 `SQLPARSER_STATUS_RESOURCE_LIMIT`。
 
 ### `sqlparser_handle_destroy`
 
@@ -445,6 +484,26 @@ stmt[0].insert_cell[1][2]
 - 对通用 `literal`、`where_literal` 和字面量形态的赋值项，可使用 `literal`
 - 对 `assignment` 或 `insert_cell` 的 `DEFAULT` / 表达式改写，可使用 `sql`
 - 单个 change 条目建议只使用一种改写形式
+- 模型 JSON 导入按 handle 中保存的资源限制执行。
+
+### `sqlparser_apply_model_json_with_limits`
+
+函数原型：
+
+```c
+sqlparser_status_t sqlparser_apply_model_json_with_limits(
+    sqlparser_handle_t *handle,
+    const char *json_text,
+    const sqlparser_limits_t *limits,
+    sqlparser_error_t *out_error);
+```
+
+说明：
+
+- 与 `sqlparser_apply_model_json()` 相同，但允许为本次导入传入新的资源限制。
+- `limits` 为 `NULL` 时使用 handle 当前限制。
+- 导入成功后，新的限制会保存到 handle；导入失败时保留原限制。
+- 超出限制时返回 `SQLPARSER_STATUS_RESOURCE_LIMIT`。
 
 ## Deparse 与字符串释放
 

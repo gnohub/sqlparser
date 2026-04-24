@@ -12,6 +12,8 @@
 - Expression-level rewrite support for `DEFAULT` and arbitrary SQL expressions
 - Export and import support for parse-tree JSON, summary JSON, and stable model
   JSON
+- Configurable resource limits for SQL input, model JSON input, generated
+  output, and statement count
 
 ### Packaging and Build
 
@@ -25,6 +27,7 @@
 - Added `make abi-check` to verify shared-library exports against the public
   header
 - Added Linux/GCC GitHub Actions CI gates
+- Added `make dist` for source release packages
 
 ### Tests and Performance
 
@@ -35,6 +38,8 @@
   expression-rewrite regression
 - Extended benchmarks for read paths, rewrite paths, and `rewrite + deparse`
   single-call measurements
+- Added capability-grouped test entry points for parse, inspect, rewrite,
+  deparse, model JSON, CLI, install smoke, and ABI
 
 ### Documentation
 

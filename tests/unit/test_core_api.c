@@ -1678,6 +1678,79 @@ static int test_merge_statement_walk(void)
 	return 0;
 }
 
+static int test_resource_limits(void)
+{
+	sqlparser_limits_t limits;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	char *json_text;
+	int rc;
+
+	handle = NULL;
+	json_text = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&limits, 0, sizeof(limits));
+
+	sqlparser_limits_default(&limits);
+	if (expect_true(limits.struct_size == sizeof(limits), "default limits should expose struct size") != 0 ||
+	    expect_true(limits.max_sql_bytes > 0U, "default SQL byte limit should be non-zero") != 0 ||
+	    expect_true(limits.max_model_json_bytes > 0U, "default model JSON byte limit should be non-zero") != 0 ||
+	    expect_true(limits.max_output_bytes > 0U, "default output byte limit should be non-zero") != 0 ||
+	    expect_true(limits.max_statement_count > 0U, "default statement count limit should be non-zero") != 0) {
+		return 1;
+	}
+
+	limits.max_sql_bytes = 8U;
+	rc = sqlparser_parse_with_limits("SELECT 123456789", &limits, &handle, &error);
+	if (expect_true(rc == SQLPARSER_STATUS_RESOURCE_LIMIT, "SQL byte limit should reject large input") != 0 ||
+	    expect_true(handle == NULL, "failed limited parse should not return a handle") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_limits_default(&limits);
+	limits.max_statement_count = 1U;
+	rc = sqlparser_parse_with_limits("SELECT 1; SELECT 2", &limits, &handle, &error);
+	if (expect_true(rc == SQLPARSER_STATUS_RESOURCE_LIMIT, "statement count limit should reject multi statement") != 0 ||
+	    expect_true(handle == NULL, "failed statement limit parse should not return a handle") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_limits_default(&limits);
+	limits.max_output_bytes = 16U;
+	rc = sqlparser_parse_with_limits("SELECT 1", &limits, &handle, &error);
+	if (expect_status_ok(rc, &error, "limited output parse should succeed") != 0) {
+		return 1;
+	}
+
+	rc = sqlparser_export_parse_tree_json(handle, 0, &json_text, &error);
+	if (expect_true(rc == SQLPARSER_STATUS_RESOURCE_LIMIT, "output byte limit should reject parse tree JSON") != 0 ||
+	    expect_true(json_text == NULL, "failed output export should not return JSON") != 0) {
+		sqlparser_string_free(json_text);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	sqlparser_limits_default(&limits);
+	rc = sqlparser_parse("SELECT 1", &handle, &error);
+	if (expect_status_ok(rc, &error, "default parse before model limit should succeed") != 0) {
+		return 1;
+	}
+
+	limits.max_model_json_bytes = 8U;
+	rc = sqlparser_apply_model_json_with_limits(handle, "{\"changes\":[]}", &limits, &error);
+	if (expect_true(rc == SQLPARSER_STATUS_RESOURCE_LIMIT, "model JSON byte limit should reject large patch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
 int main(void)
 {
 	if (test_statement_kind_walk() != 0) {
@@ -1713,27 +1786,27 @@ int main(void)
 	if (test_model_json_patch_roundtrip() != 0) {
 		return 1;
 	}
-		if (test_model_json_sql_patch_roundtrip() != 0) {
-			return 1;
-		}
-		if (test_model_json_full_import() != 0) {
-			return 1;
-		}
-		if (test_model_json_full_import_update_assignment_literal() != 0) {
-			return 1;
-		}
-		if (test_model_json_full_import_insert_cell_literal() != 0) {
-			return 1;
-		}
-		if (test_model_json_patch_is_transactional() != 0) {
-			return 1;
-		}
-		if (test_model_json_patch_keeps_original_literal_selector_order() != 0) {
-			return 1;
-		}
-		if (test_generic_literal_api_on_ddl() != 0) {
-			return 1;
-		}
+	if (test_model_json_sql_patch_roundtrip() != 0) {
+		return 1;
+	}
+	if (test_model_json_full_import() != 0) {
+		return 1;
+	}
+	if (test_model_json_full_import_update_assignment_literal() != 0) {
+		return 1;
+	}
+	if (test_model_json_full_import_insert_cell_literal() != 0) {
+		return 1;
+	}
+	if (test_model_json_patch_is_transactional() != 0) {
+		return 1;
+	}
+	if (test_model_json_patch_keeps_original_literal_selector_order() != 0) {
+		return 1;
+	}
+	if (test_generic_literal_api_on_ddl() != 0) {
+		return 1;
+	}
 	if (test_update_from_returning_sql_mutation() != 0) {
 		return 1;
 	}
@@ -1741,6 +1814,9 @@ int main(void)
 		return 1;
 	}
 	if (test_merge_statement_walk() != 0) {
+		return 1;
+	}
+	if (test_resource_limits() != 0) {
 		return 1;
 	}
 

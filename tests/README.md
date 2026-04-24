@@ -35,6 +35,14 @@ make test
 
 常用质量门禁入口：
 
+- `make test-parse`
+- `make test-inspect`
+- `make test-rewrite`
+- `make test-deparse`
+- `make test-model-json`
+- `make test-cli`
+- `make test-install`
+- `make test-abi`
 - `make verify-release`
 - `make verify-debug`
 - `make verify-asan`
@@ -59,6 +67,7 @@ make test
 当前测试覆盖的主要内容包括：
 
 - parse / deparse 基础链路
+- 资源限制，包括 SQL 输入、模型 JSON 输入、生成输出和语句数量
 - 语句类型与节点识别
 - `SELECT / INSERT / UPDATE / DELETE / MERGE`
 - 多语句输入

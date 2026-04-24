@@ -16,6 +16,7 @@
 - 表、名称原子、字面量的遍历与改写
 - `INSERT`、`UPDATE`、`WHERE` 结构读取与精确改写
 - `selector` 解析、格式化与定位
+- 可配置资源限制，覆盖 SQL 输入、模型 JSON 输入、生成输出与语句数量
 - `parse tree JSON` 导出
 - `summary JSON` 导出
 - 稳定模型 JSON 导出与导入
@@ -54,6 +55,7 @@ make all
 - `make verify`
 - `make bench-build`
 - `make bench-smoke`
+- `make dist`
 - `make install PREFIX=/usr/local`
 
 ## 最小接入示例

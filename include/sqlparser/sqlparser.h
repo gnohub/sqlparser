@@ -15,7 +15,8 @@ typedef enum {
 	SQLPARSER_STATUS_NO_MEMORY = 2,
 	SQLPARSER_STATUS_PARSE_ERROR = 3,
 	SQLPARSER_STATUS_INTERNAL_ERROR = 4,
-	SQLPARSER_STATUS_UNSUPPORTED = 5
+	SQLPARSER_STATUS_UNSUPPORTED = 5,
+	SQLPARSER_STATUS_RESOURCE_LIMIT = 6
 } sqlparser_status_t;
 
 typedef enum {
@@ -120,6 +121,14 @@ typedef struct {
 	size_t column_index;
 } sqlparser_selector_t;
 
+typedef struct {
+	size_t struct_size;
+	size_t max_sql_bytes;
+	size_t max_model_json_bytes;
+	size_t max_output_bytes;
+	size_t max_statement_count;
+} sqlparser_limits_t;
+
 const char *sqlparser_version_string(void);
 const char *sqlparser_libpg_query_tag(void);
 const char *sqlparser_model_schema_string(void);
@@ -129,8 +138,16 @@ const char *sqlparser_value_kind_name(sqlparser_value_kind_t kind);
 const char *sqlparser_literal_kind_name(sqlparser_literal_kind_t kind);
 const char *sqlparser_selector_kind_name(sqlparser_selector_kind_t kind);
 
+void sqlparser_limits_default(sqlparser_limits_t *out_limits);
+
 sqlparser_status_t sqlparser_parse(
 	const char *sql,
+	sqlparser_handle_t **out_handle,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_parse_with_limits(
+	const char *sql,
+	const sqlparser_limits_t *limits,
 	sqlparser_handle_t **out_handle,
 	sqlparser_error_t *out_error);
 
@@ -457,6 +474,12 @@ sqlparser_status_t sqlparser_export_model_json(
 sqlparser_status_t sqlparser_apply_model_json(
 	sqlparser_handle_t *handle,
 	const char *json_text,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_apply_model_json_with_limits(
+	sqlparser_handle_t *handle,
+	const char *json_text,
+	const sqlparser_limits_t *limits,
 	sqlparser_error_t *out_error);
 
 sqlparser_status_t sqlparser_deparse(

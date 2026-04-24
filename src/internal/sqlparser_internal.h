@@ -18,6 +18,7 @@ struct sqlparser_handle {
 	PgQueryProtobuf scan;
 	PgQueryProtobuf summary;
 	PgQuery__ParseResult *ast;
+	sqlparser_limits_t limits;
 	unsigned long generation;
 };
 
@@ -35,6 +36,16 @@ void sqlparser_error_from_pg(
 char *sqlparser_strdup(const char *text);
 char *sqlparser_strndup(const char *text, size_t len);
 void sqlparser_pg_query_prepare(void);
+sqlparser_status_t sqlparser_validate_handle_sql_input(
+	const sqlparser_handle_t *handle,
+	const char *text,
+	const char *field_name,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_validate_handle_output_text(
+	const sqlparser_handle_t *handle,
+	const char *text,
+	const char *field_name,
+	sqlparser_error_t *out_error);
 
 sqlparser_status_t sqlparser_handle_ensure_ast(
 	sqlparser_handle_t *handle,

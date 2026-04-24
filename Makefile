@@ -35,6 +35,9 @@ OBJ_FILES := $(foreach src,$(ALL_SRC),$(OBJ_PATH)/$(patsubst src/%,%,$(src:.c=.o
 DEP_FILES := $(OBJ_FILES:.o=.d)
 UNIT_TEST_BINS := $(foreach src,$(UNIT_TEST_SRC),$(BIN_PATH)/$(notdir $(src:.c=)))
 EXAMPLE_BINS := $(foreach src,$(EXAMPLE_SRC),$(BIN_PATH)/examples/$(notdir $(src:.c=)))
+TEST_API_SMOKE_BIN := $(BIN_PATH)/test_api_smoke
+TEST_CORE_API_BIN := $(BIN_PATH)/test_core_api
+TEST_CASE_MATRIX_BIN := $(BIN_PATH)/test_api_case_matrix
 SQLPARSER_CLI_BIN := $(BIN_PATH)/sqlparser_cli
 SQLPARSER_BENCH_BIN := $(BIN_PATH)/sqlparser_bench
 SQLPARSER_CLI_BATCH_FIXTURE := ./tests/cases/sql_batch_input.json
@@ -56,15 +59,47 @@ BENCH_PROFILE ?= smoke
 BENCH_STAGES ?= all
 TEST_STAGE_DIR ?= $(BUILD_PATH)/stage
 LOOP ?= 50
-VERIFY_ASAN_CC ?= $(CC)
-VERIFY_UBSAN_CC ?= $(CC)
+VERIFY_SANITIZE_CC_CANDIDATES ?= \
+	$(CC) \
+	gcc \
+	cc \
+	/opt/rh/devtoolset-11/root/usr/bin/gcc \
+	/opt/rh/devtoolset-10/root/usr/bin/gcc \
+	/opt/rh/devtoolset-9/root/usr/bin/gcc \
+	/opt/rh/devtoolset-8/root/usr/bin/gcc
+VERIFY_ASAN_CC ?=
+VERIFY_UBSAN_CC ?=
 SANITIZE_SUPPORT_CHECK := ./scripts/check_sanitize_support.sh
+SANITIZE_COMPILER_FIND := ./scripts/find_sanitize_compiler.sh
 VERIFY_VALGRIND_TOOL ?= valgrind
 VALGRIND_RUNNER := ./scripts/run_valgrind.sh
 VALGRIND_LOG_DIR ?= $(BUILD_PATH)/valgrind
 ABI_EXPORT_CHECKER := ./scripts/check_abi_exports.sh
 ABI_HEADER ?= ./include/sqlparser/sqlparser.h
 ABI_LIBRARY ?= $(SHARED_LIB_PATH)
+DIST_NAME := $(LIB_NAME)-$(VERSION_STRING)
+DIST_DIR := $(BUILD_PATH)/dist
+DIST_TARBALL := $(DIST_DIR)/$(DIST_NAME).tar.gz
+DIST_SOURCE_PATHS := \
+	./.github \
+	./bench \
+	./CHANGELOG.en.md \
+	./CHANGELOG.md \
+	./config \
+	./doc \
+	./examples \
+	./include \
+	./LICENSE \
+	./Makefile \
+	./README.md \
+	./README.zh-CN.md \
+	./scripts \
+	./src \
+	./tests \
+	./THIRD_PARTY_NOTICES.md \
+	./tools \
+	./vendor \
+	./VERSION
 
 STATIC_LIB_PATH := $(LIB_PATH)/lib$(LIB_NAME).a
 SHARED_LIB_SONAME := lib$(LIB_NAME).so.$(SONAME_MAJOR)
@@ -128,7 +163,9 @@ LDLIBS := $(BASE_LDLIBS) $(EXTRA_LDLIBS)
 .PHONY: \
 	all prep vendor static shared clean vendor-clean print-config test install cli bench-build \
 	test-cli-batch examples install-smoke bench-smoke test-loop verify verify-release verify-debug \
-	verify-asan verify-ubsan verify-valgrind verify-ci abi-check
+	verify-asan verify-ubsan verify-valgrind verify-ci abi-check test-unit test-examples \
+	test-parse test-inspect test-rewrite test-deparse test-model-json test-cli test-install \
+	test-abi dist
 
 all: prep static shared cli
 	@echo "Build finished: $(STATIC_LIB_PATH) $(SHARED_LIB_PATH) $(SQLPARSER_CLI_BIN)"
@@ -148,11 +185,44 @@ examples: $(EXAMPLE_BINS)
 
 bench-build: $(SQLPARSER_BENCH_BIN)
 
-test: cli $(UNIT_TEST_BINS) $(EXAMPLE_BINS) test-cli-batch
+test: cli test-unit test-examples test-cli
+
+test-unit: $(UNIT_TEST_BINS)
 	@set -e; \
-	for test_bin in $(UNIT_TEST_BINS) $(EXAMPLE_BINS); do \
+	for test_bin in $(UNIT_TEST_BINS); do \
 		"$$test_bin"; \
 	done
+
+test-examples: $(EXAMPLE_BINS)
+	@set -e; \
+	for test_bin in $(EXAMPLE_BINS); do \
+		"$$test_bin"; \
+	done
+
+test-cli: test-cli-batch
+
+test-parse: $(TEST_API_SMOKE_BIN) $(TEST_CASE_MATRIX_BIN)
+	@$(TEST_API_SMOKE_BIN)
+	@$(TEST_CASE_MATRIX_BIN)
+
+test-inspect: $(TEST_API_SMOKE_BIN) $(TEST_CORE_API_BIN) $(TEST_CASE_MATRIX_BIN)
+	@$(TEST_API_SMOKE_BIN)
+	@$(TEST_CORE_API_BIN)
+	@$(TEST_CASE_MATRIX_BIN)
+
+test-rewrite: $(TEST_CORE_API_BIN)
+	@$(TEST_CORE_API_BIN)
+
+test-deparse: $(TEST_CORE_API_BIN) $(TEST_CASE_MATRIX_BIN)
+	@$(TEST_CORE_API_BIN)
+	@$(TEST_CASE_MATRIX_BIN)
+
+test-model-json: $(TEST_CORE_API_BIN)
+	@$(TEST_CORE_API_BIN)
+
+test-install: install-smoke
+
+test-abi: abi-check
 
 test-cli-batch: $(SQLPARSER_CLI_BIN) $(SQLPARSER_CLI_BATCH_FIXTURE) $(SQLPARSER_CLI_BATCH_VERIFY) | prep
 	@mkdir -p $(BUILD_PATH)/tests
@@ -181,6 +251,21 @@ bench-smoke: bench-build
 		--profile $(BENCH_PROFILE) \
 		--stages $(BENCH_STAGES)
 
+dist:
+	@mkdir -p $(DIST_DIR)
+	@rm -f $(DIST_TARBALL)
+	@tar -czf $(DIST_TARBALL) \
+		--transform='s|^\./|$(DIST_NAME)/|' \
+		--exclude='*.a' \
+		--exclude='*.o' \
+		--exclude='*.so' \
+		--exclude='.DS_Store' \
+		--exclude='./bench/results' \
+		--exclude='./vendor/libpg_query/.deps' \
+		--exclude='./vendor/libpg_query/tmp' \
+		$(DIST_SOURCE_PATHS)
+	@echo "Source package: $(DIST_TARBALL)"
+
 abi-check: shared
 	@$(ABI_EXPORT_CHECKER) --header $(ABI_HEADER) --library $(ABI_LIBRARY)
 
@@ -204,16 +289,24 @@ verify-debug:
 
 verify-asan:
 	@$(MAKE) --no-print-directory clean
-	@if $(SANITIZE_SUPPORT_CHECK) "$(VERIFY_ASAN_CC)" address >/dev/null 2>&1; then \
-		$(MAKE) --no-print-directory all test CC="$(VERIFY_ASAN_CC)" DEBUG=1 SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0 SANITIZE=address; \
+	@verify_cc="$(VERIFY_ASAN_CC)"; \
+	if [ -z "$$verify_cc" ]; then \
+		verify_cc="$$($(SANITIZE_COMPILER_FIND) address $(VERIFY_SANITIZE_CC_CANDIDATES) 2>/dev/null || true)"; \
+	fi; \
+	if [ -n "$$verify_cc" ] && $(SANITIZE_SUPPORT_CHECK) "$$verify_cc" address >/dev/null 2>&1; then \
+		$(MAKE) --no-print-directory all test CC="$$verify_cc" DEBUG=1 SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0 SANITIZE=address; \
 	else \
 		echo "skip verify-asan: compiler/runtime does not support -fsanitize=address"; \
 	fi
 
 verify-ubsan:
 	@$(MAKE) --no-print-directory clean
-	@if $(SANITIZE_SUPPORT_CHECK) "$(VERIFY_UBSAN_CC)" undefined >/dev/null 2>&1; then \
-		$(MAKE) --no-print-directory all test CC="$(VERIFY_UBSAN_CC)" DEBUG=1 SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0 SANITIZE=undefined; \
+	@verify_cc="$(VERIFY_UBSAN_CC)"; \
+	if [ -z "$$verify_cc" ]; then \
+		verify_cc="$$($(SANITIZE_COMPILER_FIND) undefined $(VERIFY_SANITIZE_CC_CANDIDATES) 2>/dev/null || true)"; \
+	fi; \
+	if [ -n "$$verify_cc" ] && $(SANITIZE_SUPPORT_CHECK) "$$verify_cc" undefined >/dev/null 2>&1; then \
+		$(MAKE) --no-print-directory all test CC="$$verify_cc" DEBUG=1 SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0 SANITIZE=undefined; \
 	else \
 		echo "skip verify-ubsan: compiler/runtime does not support -fsanitize=undefined"; \
 	fi
@@ -274,6 +367,7 @@ print-config:
 	@echo "VALGRIND_LOG_DIR=$(VALGRIND_LOG_DIR)"
 	@echo "ABI_HEADER=$(ABI_HEADER)"
 	@echo "ABI_LIBRARY=$(ABI_LIBRARY)"
+	@echo "DIST_TARBALL=$(DIST_TARBALL)"
 	@echo "PKGCONFIG_BUILD_DIR=$(PKGCONFIG_BUILD_DIR)"
 	@echo "PKGCONFIGDIR=$(PKGCONFIGDIR)"
 	@echo "VENDOR_PG_QUERY_TAG=$(VENDOR_PG_QUERY_TAG)"

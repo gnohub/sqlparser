@@ -35,6 +35,14 @@ make test
 
 Common quality-gate entry points:
 
+- `make test-parse`
+- `make test-inspect`
+- `make test-rewrite`
+- `make test-deparse`
+- `make test-model-json`
+- `make test-cli`
+- `make test-install`
+- `make test-abi`
 - `make verify-release`
 - `make verify-debug`
 - `make verify-asan`
@@ -57,6 +65,8 @@ Common quality-gate entry points:
 The current test coverage includes:
 
 - parse and deparse baseline flow
+- resource limits for SQL input, model JSON input, generated output, and
+  statement count
 - statement kind and node recognition
 - `SELECT / INSERT / UPDATE / DELETE / MERGE`
 - multi-statement input

@@ -3228,7 +3228,18 @@ sqlparser_status_t sqlparser_insert_cell_sql(
 		return status;
 	}
 
-	return sqlparser_render_insert_cell_node_sql(value_node, out_sql, out_error);
+	status = sqlparser_render_insert_cell_node_sql(value_node, out_sql, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_validate_handle_output_text(handle, *out_sql, "insert cell SQL", out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(*out_sql);
+		*out_sql = NULL;
+		return status;
+	}
+
+	return SQLPARSER_STATUS_OK;
 }
 
 sqlparser_status_t sqlparser_insert_set_cell_sql(
@@ -3246,6 +3257,11 @@ sqlparser_status_t sqlparser_insert_set_cell_sql(
 	sqlparser_error_clear(out_error);
 	value_slot = NULL;
 	replacement = NULL;
+	status = sqlparser_validate_handle_sql_input(handle, sql_text, "insert cell SQL", out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+
 	status = sqlparser_parse_insert_cell_node_sql(sql_text, &replacement, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
@@ -3443,7 +3459,18 @@ sqlparser_status_t sqlparser_update_assignment_sql(
 		return SQLPARSER_STATUS_UNSUPPORTED;
 	}
 
-	return sqlparser_render_update_assignment_node_sql(target->val, out_sql, out_error);
+	status = sqlparser_render_update_assignment_node_sql(target->val, out_sql, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_validate_handle_output_text(handle, *out_sql, "update assignment SQL", out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(*out_sql);
+		*out_sql = NULL;
+		return status;
+	}
+
+	return SQLPARSER_STATUS_OK;
 }
 
 sqlparser_status_t sqlparser_update_set_assignment_sql(
@@ -3460,6 +3487,11 @@ sqlparser_status_t sqlparser_update_set_assignment_sql(
 
 	sqlparser_error_clear(out_error);
 	replacement = NULL;
+	status = sqlparser_validate_handle_sql_input(handle, sql_text, "update assignment SQL", out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+
 	status = sqlparser_get_update_stmt(handle, statement_index, &update_stmt, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
