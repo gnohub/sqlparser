@@ -174,6 +174,53 @@ char *sqlparser_strndup(const char *text, size_t len)
 	return copy;
 }
 
+static sqlparser_status_t sqlparser_protobuf_copy(
+	PgQueryProtobuf *dst,
+	const PgQueryProtobuf *src,
+	sqlparser_error_t *out_error)
+{
+	if (dst == NULL || src == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"protobuf copy requires non-NULL arguments");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	dst->data = NULL;
+	dst->len = 0U;
+	if (src->len == 0U) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (src->data == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"protobuf data is missing");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+
+	dst->data = (char *)malloc(src->len);
+	if (dst->data == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	memcpy(dst->data, src->data, src->len);
+	dst->len = src->len;
+	return SQLPARSER_STATUS_OK;
+}
+
+static void sqlparser_protobuf_release(PgQueryProtobuf *value)
+{
+	if (value == NULL) {
+		return;
+	}
+
+	free(value->data);
+	value->data = NULL;
+	value->len = 0U;
+}
+
 sqlparser_status_t sqlparser_handle_ensure_ast(
 	sqlparser_handle_t *handle,
 	sqlparser_error_t *out_error)
@@ -237,6 +284,86 @@ void sqlparser_handle_invalidate_derived(sqlparser_handle_t *handle)
 	free(handle->scan.data);
 	handle->scan.data = NULL;
 	handle->scan.len = 0U;
+}
+
+static void sqlparser_handle_release_contents(sqlparser_handle_t *handle)
+{
+	if (handle == NULL) {
+		return;
+	}
+
+	sqlparser_handle_clear_ast(handle);
+	sqlparser_handle_invalidate_derived(handle);
+	sqlparser_protobuf_release(&handle->parse_tree);
+	free(handle->sql);
+	handle->sql = NULL;
+	handle->sql_len = 0U;
+	handle->statement_count = 0U;
+	handle->generation = 0UL;
+}
+
+static sqlparser_status_t sqlparser_handle_clone(
+	const sqlparser_handle_t *source,
+	sqlparser_handle_t **out_handle,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_handle_t *clone;
+	sqlparser_status_t status;
+
+	if (out_handle == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"out_handle must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	*out_handle = NULL;
+	if (source == NULL || source->sql == NULL || source->parse_tree.data == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"source handle must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	clone = (sqlparser_handle_t *)calloc(1U, sizeof(*clone));
+	if (clone == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+
+	clone->sql = sqlparser_strdup(source->sql);
+	if (clone->sql == NULL) {
+		sqlparser_handle_destroy(clone);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+
+	status = sqlparser_protobuf_copy(&clone->parse_tree, &source->parse_tree, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_destroy(clone);
+		return status;
+	}
+
+	clone->sql_len = source->sql_len;
+	clone->statement_count = source->statement_count;
+	clone->generation = source->generation;
+	*out_handle = clone;
+	return SQLPARSER_STATUS_OK;
+}
+
+static void sqlparser_handle_replace_contents(
+	sqlparser_handle_t *target,
+	sqlparser_handle_t *source)
+{
+	if (target == NULL || source == NULL) {
+		return;
+	}
+
+	sqlparser_handle_release_contents(target);
+	*target = *source;
+	memset(source, 0, sizeof(*source));
 }
 
 sqlparser_status_t sqlparser_handle_commit_ast(
@@ -348,21 +475,6 @@ static const char *sqlparser_effective_sql(const sqlparser_handle_t *handle)
 	}
 
 	return handle->current_sql;
-}
-
-static size_t sqlparser_detect_statement_count(const char *sql)
-{
-	PgQuerySplitResult split_result;
-	size_t statement_count;
-
-	statement_count = 1U;
-	sqlparser_pg_query_prepare();
-	split_result = pg_query_split_with_parser(sql);
-	if (split_result.error == NULL && split_result.n_stmts > 0) {
-		statement_count = (size_t)split_result.n_stmts;
-	}
-	pg_query_free_split_result(split_result);
-	return statement_count;
 }
 
 static char *sqlparser_strndup_lower_ascii(const char *text, size_t len)
@@ -1429,6 +1541,7 @@ sqlparser_status_t sqlparser_parse(
 {
 	PgQueryProtobufParseResult parse_result;
 	sqlparser_handle_t *handle;
+	sqlparser_status_t status;
 
 	if (out_handle == NULL) {
 		sqlparser_error_set_message(
@@ -1473,17 +1586,27 @@ sqlparser_status_t sqlparser_parse(
 	}
 
 	handle->sql_len = strlen(sql);
-	handle->statement_count = sqlparser_detect_statement_count(sql);
-	handle->parse_tree.data = sqlparser_strndup(parse_result.parse_tree.data, parse_result.parse_tree.len);
-	handle->parse_tree.len = parse_result.parse_tree.len;
-
-	if (handle->parse_tree.data == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+	status = sqlparser_protobuf_copy(&handle->parse_tree, &parse_result.parse_tree, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
 		pg_query_free_protobuf_parse_result(parse_result);
-		free(handle->sql);
-		free(handle);
-		return SQLPARSER_STATUS_NO_MEMORY;
+		sqlparser_handle_destroy(handle);
+		return status;
 	}
+
+	handle->ast = pg_query__parse_result__unpack(
+		NULL,
+		handle->parse_tree.len,
+		(const uint8_t *)handle->parse_tree.data);
+	if (handle->ast == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"failed to unpack parse tree protobuf");
+		pg_query_free_protobuf_parse_result(parse_result);
+		sqlparser_handle_destroy(handle);
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	handle->statement_count = handle->ast->n_stmts;
 
 	pg_query_free_protobuf_parse_result(parse_result);
 	*out_handle = handle;
@@ -1496,10 +1619,7 @@ void sqlparser_handle_destroy(sqlparser_handle_t *handle)
 		return;
 	}
 
-	sqlparser_handle_clear_ast(handle);
-	sqlparser_handle_invalidate_derived(handle);
-	free(handle->parse_tree.data);
-	free(handle->sql);
+	sqlparser_handle_release_contents(handle);
 	free(handle);
 }
 
@@ -3710,6 +3830,458 @@ static const char *sqlparser_json_string_or_null(json_t *value)
 	return json_string_value(value);
 }
 
+static sqlparser_status_t sqlparser_model_entry_selector(
+	json_t *entry,
+	const char **out_selector,
+	sqlparser_error_t *out_error)
+{
+	const char *selector_text;
+
+	if (out_selector == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"out_selector must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	*out_selector = NULL;
+	if (!json_is_object(entry)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"model change entry must be an object");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	selector_text = sqlparser_json_string_or_null(json_object_get(entry, "selector"));
+	if (selector_text == NULL || selector_text[0] == '\0') {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"model change entry requires string field 'selector'");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	*out_selector = selector_text;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_model_index_entry(
+	json_t *index,
+	json_t *entry,
+	sqlparser_error_t *out_error)
+{
+	const char *selector_text;
+	sqlparser_status_t status;
+
+	if (index == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"model index must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	status = sqlparser_model_entry_selector(entry, &selector_text, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+
+	if (json_object_set(index, selector_text, entry) != 0) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_model_index_change_array(
+	json_t *index,
+	json_t *array,
+	sqlparser_error_t *out_error)
+{
+	size_t item_index;
+	json_t *entry;
+
+	if (array == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (!json_is_array(array)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"model change list must be an array");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	json_array_foreach(array, item_index, entry) {
+		sqlparser_status_t status;
+
+		status = sqlparser_model_index_entry(index, entry, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_model_index_insert_rows(
+	json_t *index,
+	json_t *insert_object,
+	sqlparser_error_t *out_error)
+{
+	size_t row_index;
+	json_t *rows;
+	json_t *row_object;
+
+	if (insert_object == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (!json_is_object(insert_object)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"insert model entry must be an object");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	rows = json_object_get(insert_object, "rows");
+	if (rows == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (!json_is_array(rows)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"insert rows must be an array");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	json_array_foreach(rows, row_index, row_object) {
+		sqlparser_status_t status;
+
+		if (!json_is_object(row_object)) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INVALID_ARGUMENT,
+				"insert row entry must be an object");
+			return SQLPARSER_STATUS_INVALID_ARGUMENT;
+		}
+
+		status = sqlparser_model_index_change_array(
+			index,
+			json_object_get(row_object, "cells"),
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_model_index_statement(
+	json_t *index,
+	json_t *statement_object,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_status_t status;
+
+	if (!json_is_object(statement_object)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"statement model entry must be an object");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	status = sqlparser_model_index_change_array(
+		index,
+		json_object_get(statement_object, "relations"),
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_model_index_change_array(
+			index,
+			json_object_get(statement_object, "names"),
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_model_index_change_array(
+			index,
+			json_object_get(statement_object, "literals"),
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_model_index_change_array(
+			index,
+			json_object_get(statement_object, "where_literals"),
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_model_index_change_array(
+			index,
+			json_object_get(statement_object, "update_assignments"),
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_model_index_insert_rows(
+			index,
+			json_object_get(statement_object, "insert"),
+			out_error);
+	}
+
+	return status;
+}
+
+static sqlparser_status_t sqlparser_model_build_selector_index(
+	json_t *root,
+	json_t **out_index,
+	sqlparser_error_t *out_error)
+{
+	json_t *index;
+	json_t *statements;
+	json_t *statement_object;
+	size_t statement_index;
+
+	if (out_index == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"out_index must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	*out_index = NULL;
+	if (!json_is_object(root)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"model root must be an object");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	statements = json_object_get(root, "statements");
+	if (!json_is_array(statements)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"model JSON must contain array field 'statements'");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	index = json_object();
+	if (index == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+
+	json_array_foreach(statements, statement_index, statement_object) {
+		sqlparser_status_t status;
+
+		status = sqlparser_model_index_statement(index, statement_object, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			json_decref(index);
+			return status;
+		}
+	}
+
+	*out_index = index;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_model_append_changed_entry(
+	json_t *changes,
+	json_t *entry,
+	json_t *baseline_index,
+	sqlparser_error_t *out_error)
+{
+	const char *selector_text;
+	json_t *baseline_entry;
+	json_t *entry_copy;
+	sqlparser_status_t status;
+
+	if (changes == NULL || baseline_index == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"change collection requires non-NULL arguments");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	status = sqlparser_model_entry_selector(entry, &selector_text, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+
+	baseline_entry = json_object_get(baseline_index, selector_text);
+	if (baseline_entry != NULL && json_equal(entry, baseline_entry)) {
+		return SQLPARSER_STATUS_OK;
+	}
+
+	entry_copy = json_deep_copy(entry);
+	if (entry_copy == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	if (json_array_append_new(changes, entry_copy) != 0) {
+		json_decref(entry_copy);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_model_append_changed_array(
+	json_t *changes,
+	json_t *array,
+	json_t *baseline_index,
+	sqlparser_error_t *out_error)
+{
+	size_t item_index;
+	json_t *entry;
+
+	if (array == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (!json_is_array(array)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"model change list must be an array");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	json_array_foreach(array, item_index, entry) {
+		sqlparser_status_t status;
+
+		status = sqlparser_model_append_changed_entry(changes, entry, baseline_index, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_model_append_changed_insert_rows(
+	json_t *changes,
+	json_t *insert_object,
+	json_t *baseline_index,
+	sqlparser_error_t *out_error)
+{
+	size_t row_index;
+	json_t *rows;
+	json_t *row_object;
+
+	if (insert_object == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (!json_is_object(insert_object)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"insert model entry must be an object");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	rows = json_object_get(insert_object, "rows");
+	if (rows == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (!json_is_array(rows)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"insert rows must be an array");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	json_array_foreach(rows, row_index, row_object) {
+		sqlparser_status_t status;
+
+		if (!json_is_object(row_object)) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INVALID_ARGUMENT,
+				"insert row entry must be an object");
+			return SQLPARSER_STATUS_INVALID_ARGUMENT;
+		}
+
+		status = sqlparser_model_append_changed_array(
+			changes,
+			json_object_get(row_object, "cells"),
+			baseline_index,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_model_collect_statement_changes(
+	json_t *changes,
+	json_t *statement_object,
+	json_t *baseline_index,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_status_t status;
+
+	if (!json_is_object(statement_object)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"statement model entry must be an object");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	status = sqlparser_model_append_changed_array(
+		changes,
+		json_object_get(statement_object, "relations"),
+		baseline_index,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_model_append_changed_array(
+			changes,
+			json_object_get(statement_object, "names"),
+			baseline_index,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_model_append_changed_array(
+			changes,
+			json_object_get(statement_object, "literals"),
+			baseline_index,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_model_append_changed_array(
+			changes,
+			json_object_get(statement_object, "where_literals"),
+			baseline_index,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_model_append_changed_array(
+			changes,
+			json_object_get(statement_object, "update_assignments"),
+			baseline_index,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_model_append_changed_insert_rows(
+			changes,
+			json_object_get(statement_object, "insert"),
+			baseline_index,
+			out_error);
+	}
+
+	return status;
+}
+
 static sqlparser_status_t sqlparser_apply_relation_change(
 	sqlparser_handle_t *handle,
 	const sqlparser_selector_t *selector,
@@ -4046,11 +4618,41 @@ static sqlparser_status_t sqlparser_apply_change_object(
 	}
 }
 
+static int sqlparser_change_is_structural_sql(json_t *change)
+{
+	sqlparser_selector_t selector;
+	sqlparser_error_t error;
+	const char *selector_text;
+
+	if (!json_is_object(change)) {
+		return 0;
+	}
+	if (!json_is_string(json_object_get(change, "sql")) ||
+	    json_is_object(json_object_get(change, "literal"))) {
+		return 0;
+	}
+
+	selector_text = sqlparser_json_string_or_null(json_object_get(change, "selector"));
+	if (selector_text == NULL) {
+		return 0;
+	}
+
+	memset(&selector, 0, sizeof(selector));
+	memset(&error, 0, sizeof(error));
+	if (sqlparser_selector_parse(selector_text, &selector, &error) != SQLPARSER_STATUS_OK) {
+		return 0;
+	}
+
+	return selector.kind == SQLPARSER_SELECTOR_KIND_ASSIGNMENT ||
+	       selector.kind == SQLPARSER_SELECTOR_KIND_INSERT_CELL;
+}
+
 static sqlparser_status_t sqlparser_apply_change_array(
 	sqlparser_handle_t *handle,
 	json_t *changes,
 	sqlparser_error_t *out_error)
 {
+	int pass;
 	size_t index;
 	json_t *change;
 
@@ -4058,89 +4660,153 @@ static sqlparser_status_t sqlparser_apply_change_array(
 		return SQLPARSER_STATUS_OK;
 	}
 
-	json_array_foreach(changes, index, change) {
-		sqlparser_status_t status;
+	for (pass = 0; pass < 2; pass++) {
+		json_array_foreach(changes, index, change) {
+			sqlparser_status_t status;
+			int structural_sql;
 
-		status = sqlparser_apply_change_object(handle, change, out_error);
-		if (status != SQLPARSER_STATUS_OK) {
-			return status;
+			structural_sql = sqlparser_change_is_structural_sql(change);
+			if ((pass == 0 && structural_sql) || (pass == 1 && !structural_sql)) {
+				continue;
+			}
+
+			status = sqlparser_apply_change_object(handle, change, out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
 		}
 	}
 
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_apply_statement_model_object(
+static sqlparser_status_t sqlparser_apply_change_array_transactional(
 	sqlparser_handle_t *handle,
-	json_t *statement_object,
+	json_t *changes,
 	sqlparser_error_t *out_error)
 {
-	json_t *insert_object;
-	json_t *rows;
-	size_t row_index;
-	json_t *row_object;
+	sqlparser_handle_t *clone;
 	sqlparser_status_t status;
 
-	if (!json_is_object(statement_object)) {
+	if (!json_is_array(changes)) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
-			"statement model entry must be an object");
+			"changes must be an array");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (json_array_size(changes) == 0U) {
+		return SQLPARSER_STATUS_OK;
+	}
+
+	clone = NULL;
+	status = sqlparser_handle_clone(handle, &clone, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+
+	status = sqlparser_apply_change_array(clone, changes, out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		sqlparser_handle_replace_contents(handle, clone);
+	}
+	sqlparser_handle_destroy(clone);
+	return status;
+}
+
+static sqlparser_status_t sqlparser_model_collect_changed_changes(
+	sqlparser_handle_t *handle,
+	json_t *root,
+	json_t **out_changes,
+	sqlparser_error_t *out_error)
+{
+	char *baseline_text;
+	json_t *baseline_root;
+	json_t *baseline_index;
+	json_t *changes;
+	json_t *statements;
+	json_t *statement_object;
+	json_error_t json_error;
+	size_t index;
+	sqlparser_status_t status;
+
+	if (out_changes == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"out_changes must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	status = sqlparser_apply_change_array(
-		handle,
-		json_object_get(statement_object, "relations"),
-		out_error);
+	*out_changes = NULL;
+	baseline_text = NULL;
+	baseline_root = NULL;
+	baseline_index = NULL;
+	changes = NULL;
+	memset(&json_error, 0, sizeof(json_error));
+
+	if (!json_is_object(root)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"model JSON root must be an object");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	statements = json_object_get(root, "statements");
+	if (!json_is_array(statements)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"model JSON must contain array field 'statements'");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	status = sqlparser_export_model_json(handle, 0, &baseline_text, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
 
-	status = sqlparser_apply_change_array(
-		handle,
-		json_object_get(statement_object, "names"),
-		out_error);
+	baseline_root = json_loads(baseline_text, 0, &json_error);
+	sqlparser_string_free(baseline_text);
+	baseline_text = NULL;
+	if (baseline_root == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"failed to parse current model JSON");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+
+	status = sqlparser_model_build_selector_index(baseline_root, &baseline_index, out_error);
+	json_decref(baseline_root);
+	baseline_root = NULL;
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
 
-	insert_object = json_object_get(statement_object, "insert");
-	if (json_is_object(insert_object)) {
-		rows = json_object_get(insert_object, "rows");
-		if (json_is_array(rows)) {
-			json_array_foreach(rows, row_index, row_object) {
-				status = sqlparser_apply_change_array(
-					handle,
-					json_object_get(row_object, "cells"),
-					out_error);
-				if (status != SQLPARSER_STATUS_OK) {
-					return status;
-				}
-			}
+	changes = json_array();
+	if (changes == NULL) {
+		json_decref(baseline_index);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+
+	json_array_foreach(statements, index, statement_object) {
+		status = sqlparser_model_collect_statement_changes(
+			changes,
+			statement_object,
+			baseline_index,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			json_decref(changes);
+			json_decref(baseline_index);
+			return status;
 		}
 	}
 
-	status = sqlparser_apply_change_array(
-		handle,
-		json_object_get(statement_object, "update_assignments"),
-		out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		return status;
-	}
-
-	status = sqlparser_apply_change_array(
-		handle,
-		json_object_get(statement_object, "where_literals"),
-		out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		return status;
-	}
-
-	return sqlparser_apply_change_array(
-		handle,
-		json_object_get(statement_object, "literals"),
-		out_error);
+	json_decref(baseline_index);
+	*out_changes = changes;
+	return SQLPARSER_STATUS_OK;
 }
 
 sqlparser_status_t sqlparser_apply_model_json(
@@ -4151,10 +4817,9 @@ sqlparser_status_t sqlparser_apply_model_json(
 	json_t *root;
 	json_t *changes;
 	json_t *statements;
+	json_t *changed_changes;
 	json_error_t json_error;
 	sqlparser_status_t status;
-	size_t index;
-	json_t *statement_object;
 
 	sqlparser_error_clear(out_error);
 	if (handle == NULL || handle->sql == NULL) {
@@ -4191,7 +4856,7 @@ sqlparser_status_t sqlparser_apply_model_json(
 
 	changes = json_object_get(root, "changes");
 	if (json_is_array(changes)) {
-		status = sqlparser_apply_change_array(handle, changes, out_error);
+		status = sqlparser_apply_change_array_transactional(handle, changes, out_error);
 		json_decref(root);
 		return status;
 	}
@@ -4206,16 +4871,21 @@ sqlparser_status_t sqlparser_apply_model_json(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	json_array_foreach(statements, index, statement_object) {
-		status = sqlparser_apply_statement_model_object(handle, statement_object, out_error);
-		if (status != SQLPARSER_STATUS_OK) {
-			json_decref(root);
-			return status;
-		}
+	changed_changes = NULL;
+	status = sqlparser_model_collect_changed_changes(
+		handle,
+		root,
+		&changed_changes,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_apply_change_array_transactional(handle, changed_changes, out_error);
 	}
 
+	if (changed_changes != NULL) {
+		json_decref(changed_changes);
+	}
 	json_decref(root);
-	return SQLPARSER_STATUS_OK;
+	return status;
 }
 
 sqlparser_status_t sqlparser_deparse(

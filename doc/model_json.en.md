@@ -185,6 +185,16 @@ matrix is exported.
 - a full model JSON document
 - a patch JSON document containing a `changes` array
 
+Import behavior:
+
+- Patch and full-model imports are atomic; if any change fails, the original
+  `handle` is left unchanged.
+- Full-model import applies only selectors that differ from the current model,
+  avoiding duplicate replay across multiple views of the same AST node.
+- SQL expression replacements are committed after ordinary field and literal
+  changes so later selectors remain anchored to the original structure as much
+  as possible.
+
 The patch top-level object looks like this:
 
 ```json

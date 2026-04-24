@@ -1128,6 +1128,288 @@ static int test_model_json_full_import(void)
 	return 0;
 }
 
+static int test_model_json_full_import_update_assignment_literal(void)
+{
+	const char *sql;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	char *model_json;
+	char *edited_model_json;
+	char *deparsed_sql;
+	json_t *root;
+	json_t *statement;
+	json_t *assignments;
+	json_t *assignment;
+	json_t *literal;
+	json_error_t json_error;
+	int rc;
+
+	sql = "UPDATE public.users SET name = 'bob' WHERE id = 1";
+	handle = NULL;
+	model_json = NULL;
+	edited_model_json = NULL;
+	deparsed_sql = NULL;
+	root = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&json_error, 0, sizeof(json_error));
+
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(rc, &error, "full update model parse should succeed") != 0) {
+		return 1;
+	}
+
+	rc = sqlparser_export_model_json(handle, 0, &model_json, &error);
+	if (expect_status_ok(rc, &error, "full update model export should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	root = json_loads(model_json, 0, &json_error);
+	if (expect_true(root != NULL, "full update model JSON should decode") != 0) {
+		sqlparser_string_free(model_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	statement = json_array_get(json_object_get(root, "statements"), 0);
+	assignments = json_object_get(statement, "update_assignments");
+	assignment = json_array_get(assignments, 0);
+	literal = json_object_get(assignment, "literal");
+	if (expect_true(json_is_object(literal), "update assignment literal should exist") != 0) {
+		json_decref(root);
+		sqlparser_string_free(model_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	(void)json_object_set_new(literal, "string_value", json_string("carol"));
+
+	edited_model_json = json_dumps(root, JSON_COMPACT | JSON_ENSURE_ASCII | JSON_SORT_KEYS);
+	json_decref(root);
+	root = NULL;
+	if (expect_true(edited_model_json != NULL, "edited update model should render") != 0) {
+		sqlparser_string_free(model_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_apply_model_json(handle, edited_model_json, &error);
+	if (expect_status_ok(rc, &error, "full update model import should succeed") != 0) {
+		free(edited_model_json);
+		sqlparser_string_free(model_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "full update model deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "name = 'carol'") != NULL, "full update model should keep assignment edit") != 0 ||
+	    expect_true(strstr(deparsed_sql, "name = 'bob'") == NULL, "full update model should not restore old assignment") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		free(edited_model_json);
+		sqlparser_string_free(model_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	free(edited_model_json);
+	sqlparser_string_free(model_json);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_model_json_full_import_insert_cell_literal(void)
+{
+	const char *sql;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	char *model_json;
+	char *edited_model_json;
+	char *deparsed_sql;
+	json_t *root;
+	json_t *statement;
+	json_t *insert_object;
+	json_t *row_object;
+	json_t *cell_object;
+	json_t *literal;
+	json_error_t json_error;
+	int rc;
+
+	sql = "INSERT INTO public.users (id, name) VALUES (1, 'bob')";
+	handle = NULL;
+	model_json = NULL;
+	edited_model_json = NULL;
+	deparsed_sql = NULL;
+	root = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&json_error, 0, sizeof(json_error));
+
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(rc, &error, "full insert model parse should succeed") != 0) {
+		return 1;
+	}
+
+	rc = sqlparser_export_model_json(handle, 0, &model_json, &error);
+	if (expect_status_ok(rc, &error, "full insert model export should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	root = json_loads(model_json, 0, &json_error);
+	if (expect_true(root != NULL, "full insert model JSON should decode") != 0) {
+		sqlparser_string_free(model_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	statement = json_array_get(json_object_get(root, "statements"), 0);
+	insert_object = json_object_get(statement, "insert");
+	row_object = json_array_get(json_object_get(insert_object, "rows"), 0);
+	cell_object = json_array_get(json_object_get(row_object, "cells"), 1);
+	literal = json_object_get(cell_object, "literal");
+	if (expect_true(json_is_object(literal), "insert cell literal should exist") != 0) {
+		json_decref(root);
+		sqlparser_string_free(model_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	(void)json_object_set_new(literal, "string_value", json_string("carol"));
+
+	edited_model_json = json_dumps(root, JSON_COMPACT | JSON_ENSURE_ASCII | JSON_SORT_KEYS);
+	json_decref(root);
+	root = NULL;
+	if (expect_true(edited_model_json != NULL, "edited insert model should render") != 0) {
+		sqlparser_string_free(model_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_apply_model_json(handle, edited_model_json, &error);
+	if (expect_status_ok(rc, &error, "full insert model import should succeed") != 0) {
+		free(edited_model_json);
+		sqlparser_string_free(model_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "full insert model deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "'carol'") != NULL, "full insert model should keep cell edit") != 0 ||
+	    expect_true(strstr(deparsed_sql, "'bob'") == NULL, "full insert model should not restore old cell") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		free(edited_model_json);
+		sqlparser_string_free(model_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	free(edited_model_json);
+	sqlparser_string_free(model_json);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_model_json_patch_is_transactional(void)
+{
+	const char *sql;
+	const char *patch_json;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	char *deparsed_sql;
+	int rc;
+
+	sql = "UPDATE public.users SET name = 'bob' WHERE id = 1";
+	patch_json =
+		"{\"changes\":["
+		"{\"selector\":\"stmt[0].assignment[0]\",\"literal\":{\"kind\":\"string\",\"string_value\":\"carol\"}},"
+		"{\"selector\":\"stmt[0].where_literal[99]\",\"literal\":{\"kind\":\"integer\",\"integer_value\":2}}"
+		"]}";
+	handle = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(rc, &error, "transactional patch parse should succeed") != 0) {
+		return 1;
+	}
+
+	rc = sqlparser_apply_model_json(handle, patch_json, &error);
+	if (expect_true(rc != SQLPARSER_STATUS_OK, "invalid patch should fail") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "deparse after failed patch should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "name = 'bob'") != NULL, "failed patch should preserve assignment") != 0 ||
+	    expect_true(strstr(deparsed_sql, "id = 1") != NULL, "failed patch should preserve where literal") != 0 ||
+	    expect_true(strstr(deparsed_sql, "carol") == NULL, "failed patch should not leak partial assignment") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_model_json_patch_keeps_original_literal_selector_order(void)
+{
+	const char *sql;
+	const char *patch_json;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_literal_view_t literal;
+	char *deparsed_sql;
+	int rc;
+
+	sql = "UPDATE public.users SET name = 'bob' WHERE id = 1 AND status = 'old'";
+	patch_json =
+		"{\"changes\":["
+		"{\"selector\":\"stmt[0].assignment[0]\",\"sql\":\"json_build_object('x', 1)\"},"
+		"{\"selector\":\"stmt[0].literal[2]\",\"literal\":{\"kind\":\"string\",\"string_value\":\"new\"}}"
+		"]}";
+	handle = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&literal, 0, sizeof(literal));
+
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(rc, &error, "selector order patch parse should succeed") != 0) {
+		return 1;
+	}
+
+	rc = sqlparser_statement_literal(handle, 0U, 2U, &literal, &error);
+	if (expect_status_ok(rc, &error, "literal[2] should be readable before patch") != 0 ||
+	    expect_true(literal.kind == SQLPARSER_LITERAL_KIND_STRING, "literal[2] should be status string") != 0 ||
+	    expect_true(strcmp(literal.string_value, "old") == 0, "literal[2] should be old") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_apply_model_json(handle, patch_json, &error);
+	if (expect_status_ok(rc, &error, "selector order patch should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "selector order patch deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "json_build_object(") != NULL, "selector order patch should rewrite assignment SQL") != 0 ||
+	    expect_true(strstr(deparsed_sql, "status = 'new'") != NULL, "selector order patch should target original status literal") != 0 ||
+	    expect_true(strstr(deparsed_sql, "status = 'old'") == NULL, "selector order patch should not leave old status") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
 static int test_generic_literal_api_on_ddl(void)
 {
 	const char *sql;
@@ -1431,15 +1713,27 @@ int main(void)
 	if (test_model_json_patch_roundtrip() != 0) {
 		return 1;
 	}
-	if (test_model_json_sql_patch_roundtrip() != 0) {
-		return 1;
-	}
-	if (test_model_json_full_import() != 0) {
-		return 1;
-	}
-	if (test_generic_literal_api_on_ddl() != 0) {
-		return 1;
-	}
+		if (test_model_json_sql_patch_roundtrip() != 0) {
+			return 1;
+		}
+		if (test_model_json_full_import() != 0) {
+			return 1;
+		}
+		if (test_model_json_full_import_update_assignment_literal() != 0) {
+			return 1;
+		}
+		if (test_model_json_full_import_insert_cell_literal() != 0) {
+			return 1;
+		}
+		if (test_model_json_patch_is_transactional() != 0) {
+			return 1;
+		}
+		if (test_model_json_patch_keeps_original_literal_selector_order() != 0) {
+			return 1;
+		}
+		if (test_generic_literal_api_on_ddl() != 0) {
+			return 1;
+		}
 	if (test_update_from_returning_sql_mutation() != 0) {
 		return 1;
 	}
