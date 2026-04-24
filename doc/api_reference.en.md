@@ -174,15 +174,15 @@ All indexes are zero-based:
 
 ### Rules After Mutation
 
-After a successful rewrite, callers should reacquire any view data or exported
-result they still need. Borrowed pointers obtained before the mutation should
+After a successful rewrite, reacquire any view data or exported result that is
+still needed. Borrowed pointers obtained before the mutation must
 not be reused.
 
 ### Thread Behavior
 
 - A single `handle` does not support concurrent read/write access.
 - A single `handle` is not guaranteed to be safe for concurrent read-only use.
-- The recommended usage model is one handle per owning thread.
+- The usage model is one handle per owning thread.
 
 ## Version and Name Helpers
 
@@ -247,7 +247,7 @@ Notes:
 
 - Equivalent to `sqlparser_parse()`, but accepts caller-provided resource limits.
 - Passing `NULL` for `limits` uses the defaults.
-- On success, the limits are stored on the handle and apply to later rewrites,
+- On success, the limits are stored on the handle and apply to rewrites,
   exports, and deparse operations.
 - Returns `SQLPARSER_STATUS_RESOURCE_LIMIT` when a configured limit is exceeded.
 
@@ -440,7 +440,7 @@ stmt[0].insert_cell[1][2]
 Notes:
 
 - Selectors are suited for external rule addressing and JSON patch replay.
-- A caller can persist selector text and parse it again in a later request.
+- A caller can persist selector text and parse it again in a separate request.
 
 ## JSON Export and Model Import
 
@@ -512,7 +512,7 @@ Notes:
   assignments or insert cells.
 - Use `sql` for `assignment` or `insert_cell` rewrites that involve `DEFAULT`
   or arbitrary expressions.
-- It is best to use one rewrite form per change entry.
+- Use one rewrite form per change entry.
 - Model JSON import uses the limits stored on the handle.
 
 ### `sqlparser_apply_model_json_with_limits`

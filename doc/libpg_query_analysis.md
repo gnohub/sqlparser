@@ -1,6 +1,6 @@
 # libpg_query 集成说明
 
-本文档说明 `sqlparser` 如何集成仓库内固定版本的 `libpg_query`，以及后续维护和方言扩展需要关注的边界。
+本文档说明 `sqlparser` 如何集成仓库内固定版本的 `libpg_query`，以及解析内核维护和方言扩展的边界。
 
 ## 1. 依赖角色
 
@@ -33,7 +33,7 @@
 - 版本升级由项目单独评估
 - 解析器、反解析器和方言相关维护由项目负责
 
-## 3. 当前复用的核心能力
+## 3. 复用的核心能力
 
 ### 3.1 解析
 
@@ -94,7 +94,7 @@
 - 反解析路径天然消费 protobuf AST
 - JSON 可以按需导出，不承担主表示职责
 
-当前链路如下：
+处理链路如下：
 
 ```text
 SQL -> libpg_query protobuf AST -> sqlparser handle -> rewrite -> deparse -> SQL
@@ -138,14 +138,14 @@ SQL -> libpg_query protobuf AST -> sqlparser handle -> rewrite -> deparse -> SQL
 
 ## 8. 方言扩展预留
 
-方言支持是后续扩展方向，当前架构已经为以下改动预留位置：
+方言适配通过以下扩展点接入：
 
 - SQL 预处理和后处理适配
 - 解析器和扫描器补丁
 - 新节点类型的 protobuf 描述
 - 读写函数和反解析器的同步维护
 
-如果后续需要新增方言语法，通常需要同步检查以下部分：
+新增方言语法时，同步检查以下部分：
 
 - 语法定义和扫描器
 - `srcdata/*` 中的节点和枚举描述
@@ -154,12 +154,12 @@ SQL -> libpg_query protobuf AST -> sqlparser handle -> rewrite -> deparse -> SQL
 - 反解析器对应分支
 - 回归测试与 benchmark
 
-## 9. 使用建议
+## 9. 使用方式
 
 - 把 `libpg_query` 视为固定版本内核，而不是对外公共接口
 - 对外接入统一走 `sqlparser` 头文件和库
 - 调试底层语法树时可导出 parse tree JSON
-- 做业务改写时优先使用 `sqlparser` 的原子级 API、selector 和模型 JSON
+- 业务改写使用 `sqlparser` 的原子级 API、selector 和模型 JSON
 
 ## 10. 相关文档
 

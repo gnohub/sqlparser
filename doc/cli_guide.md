@@ -219,6 +219,6 @@ cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
 
 ## 8. 相关文档
 
-- [快速开始](../README.zh-CN.md)
+- [快速开始](../README.md)
 - [API 手册](./api_reference.md)
 - [模型 JSON 手册](./model_json.md)

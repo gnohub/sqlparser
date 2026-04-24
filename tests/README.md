@@ -11,7 +11,7 @@
 
 ## 测试组成
 
-当前测试由以下部分组成：
+测试由以下部分组成：
 
 - 单元测试
 - 批量 SQL 夹具验证
@@ -64,7 +64,7 @@ make test
 
 ## 覆盖范围
 
-当前测试覆盖的主要内容包括：
+测试覆盖的主要内容包括：
 
 - parse / deparse 基础链路
 - 资源限制，包括 SQL 输入、模型 JSON 输入、生成输出和语句数量
@@ -75,3 +75,7 @@ make test
 - 常见 DDL、事务控制、`GRANT / REVOKE` 与维护语句
 - JSON 导出
 - selector 与模型 JSON 回放
+
+## 用例矩阵
+
+- [SQL 用例矩阵](./cases/sql_case_matrix.md)

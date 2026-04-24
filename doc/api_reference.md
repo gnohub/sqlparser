@@ -121,7 +121,7 @@ int main(void)
 
 | 字段 | 说明 |
 | --- | --- |
-| `struct_size` | 结构体大小，由 `sqlparser_limits_default()` 填充，用于后续兼容扩展 |
+| `struct_size` | 结构体大小，由 `sqlparser_limits_default()` 填充，用于兼容扩展 |
 | `max_sql_bytes` | SQL 输入和表达式 SQL 片段最大字节数 |
 | `max_model_json_bytes` | 模型 JSON 输入最大字节数 |
 | `max_output_bytes` | 生成 SQL 或 JSON 输出最大字节数 |
@@ -164,13 +164,13 @@ int main(void)
 
 ### 改写后的使用规则
 
-成功改写后，建议重新获取后续所需的视图或导出结果。调用方不应继续使用改写前取得的 borrowed pointer。
+成功改写后，重新获取仍需使用的视图或导出结果。调用方不应继续使用改写前取得的 borrowed pointer。
 
 ### 线程行为
 
 - 同一个 `handle` 不支持并发读写
 - 同一个 `handle` 不保证多线程只读并发安全
-- 推荐使用方式是一个线程独占一个 `handle`
+- 使用方式为一个线程独占一个 `handle`
 
 ## 版本与名称辅助函数
 
@@ -235,7 +235,7 @@ sqlparser_status_t sqlparser_parse_with_limits(
 
 - 与 `sqlparser_parse()` 相同，但允许调用方传入资源限制。
 - `limits` 为 `NULL` 时使用默认限制。
-- 解析成功后，限制配置会随 `handle` 保存，并影响后续改写、导出和反解析。
+- 解析成功后，限制配置会随 `handle` 保存，并影响改写、导出和反解析。
 - 超出限制时返回 `SQLPARSER_STATUS_RESOURCE_LIMIT`。
 
 ### `sqlparser_handle_destroy`
@@ -329,7 +329,7 @@ void sqlparser_handle_destroy(sqlparser_handle_t *handle);
 
 - `INSERT ... VALUES` 可通过行列坐标访问。
 - `INSERT ... SELECT` 不提供固定单元格模型，`row_count` 通常为 `0`。
-- 如果需要按列名定位，推荐先遍历目标列，再由调用方建立列名到 `column_index` 的映射。
+- 按列名定位时，先遍历目标列，再由调用方建立列名到 `column_index` 的映射。
 - `sqlparser_insert_cell_sql()` 可用于读取 `DEFAULT`、函数调用和其他表达式形态。
 - `sqlparser_insert_set_cell_sql()` 适用于需要保留单元格语义位置、但要替换为任意右值表达式的场景。
 
@@ -360,7 +360,7 @@ void sqlparser_handle_destroy(sqlparser_handle_t *handle);
 - `sqlparser_update_assignment_sql()` 适用于读取 `DEFAULT` 或任意表达式右值。
 - `sqlparser_update_set_assignment_sql()` 适用于把赋值项替换为字面量之外的表达式。
 - `sqlparser_where_literal_view_t` 主要用于读取列名、运算符和条件 literal。
-- 如果需要按列名定位，建议先遍历，再记录目标索引后执行改写。
+- 按列名定位时，先遍历并记录目标索引，再执行改写。
 
 ## Selector 接口
 
@@ -413,7 +413,7 @@ stmt[0].insert_cell[1][2]
 说明：
 
 - selector 适合做外部规则定位和 JSON patch 回放。
-- 调用方可以先保存 selector 文本，再在后续请求中重新解析并执行。
+- 调用方可以保存 selector 文本，并在新的请求中重新解析和执行。
 
 ## JSON 导出与模型导入
 
@@ -483,7 +483,7 @@ stmt[0].insert_cell[1][2]
 
 - 对通用 `literal`、`where_literal` 和字面量形态的赋值项，可使用 `literal`
 - 对 `assignment` 或 `insert_cell` 的 `DEFAULT` / 表达式改写，可使用 `sql`
-- 单个 change 条目建议只使用一种改写形式
+- 单个 change 条目只使用一种改写形式
 - 模型 JSON 导入按 handle 中保存的资源限制执行。
 
 ### `sqlparser_apply_model_json_with_limits`

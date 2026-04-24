@@ -16,7 +16,7 @@ The target capabilities of `sqlparser` are:
 5. Deparse the rewritten structure back into SQL text.
 6. Export a stable JSON work model.
 
-The current public deliverables are:
+The public deliverables are:
 
 - public header `include/sqlparser/sqlparser.h`
 - static library `lib/libsqlparser.a`
@@ -48,7 +48,7 @@ This flow covers two common categories of SQL processing:
 The public API layer is defined in `include/sqlparser/sqlparser.h`. All
 external interaction is centered on `sqlparser_handle_t`.
 
-The current API surface is organized into three groups:
+The public API surface is organized into three groups:
 
 - statement-oriented APIs: statement kind, node name, target relation,
   `INSERT`, `UPDATE`, and `WHERE`
@@ -62,7 +62,7 @@ syntax-tree representation.
 
 This layer is responsible for:
 
-- holding the current statement tree
+- holding the statement tree
 - acting as the single source of truth for all rewrites
 - driving summary extraction, scan results, JSON export, and deparse
 
@@ -74,7 +74,7 @@ instead of repeatedly parsing JSON as the primary state.
 The semantic analysis layer exposes information that is closer to SQL-level
 meaning than the raw syntax tree.
 
-Its current inputs are:
+Its inputs are:
 
 - `libpg_query` summary output
 - `libpg_query` scan output
@@ -98,7 +98,7 @@ Typical outputs include:
 The stable model layer exports the current syntax tree as an external work
 model that can be consumed by other programs.
 
-It currently provides:
+This layer provides:
 
 - `sqlparser_export_model_json()`
 - `sqlparser_apply_model_json()`
@@ -120,7 +120,7 @@ round-trip still relies on `libpg_query` deparse functionality.
 
 ## 4. Data Model and Caching
 
-A `sqlparser_handle_t` currently holds the following categories of data:
+A `sqlparser_handle_t` holds the following categories of data:
 
 - `source_sql`: the original input SQL
 - `current_sql`: the current SQL generated on demand after rewrites
@@ -170,7 +170,7 @@ Typical use cases include:
 
 - storing a modification point as a text path
 - serializing the full work model as JSON
-- replaying a patch in a later request
+- replaying a patch in a separate request
 
 ## 6. Memory and Thread Model
 
@@ -180,7 +180,7 @@ Typical use cases include:
 - exported strings are released with `sqlparser_string_free()`
 - strings inside view structures are borrowed pointers
 - the same `handle` does not support concurrent read/write access
-- the recommended usage model is one thread owning one handle
+- the usage model is one thread owning one handle
 
 This model prioritizes predictability and stability for proxy, middleware, and
 data-processing scenarios.
@@ -199,7 +199,7 @@ The public interface has the following properties:
 ### 7.2 Extensibility
 
 The public ABI does not expose `PgQuery*` types or PostgreSQL node structures.
-This keeps room for future extension:
+The extension points include:
 
 - maintaining parser-kernel patches
 - introducing SQL dialect adaptation layers
@@ -207,17 +207,16 @@ This keeps room for future extension:
 
 ### 7.3 Performance
 
-The current implementation is designed to minimize repeated parsing and
-serialization:
+The implementation minimizes repeated parsing and serialization:
 
 - parse once into a long-lived `handle`
 - derive secondary results lazily
 - load `summary`, `scan`, and model JSON only when requested
 - rewrite the AST directly instead of using JSON as the primary mutation path
 
-## 8. Current Scope and Future Extension
+## 8. Feature Scope and Extension Points
 
-The current release provides:
+This release provides:
 
 - `SELECT`
 - `INSERT`
@@ -227,8 +226,7 @@ The current release provides:
 - common DDL classification and object-name rewrite
 - selector-driven and model-driven precise rewrite
 
-Dialect support is a future extension area. The current architecture already
-leaves room for:
+Dialect adaptation can be added through these extension points:
 
 - SQL pre-processing and post-processing adaptation
 - parser-kernel patches

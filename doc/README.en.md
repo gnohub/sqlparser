@@ -22,7 +22,7 @@ This directory contains the project documentation for `sqlparser`.
 
 ## Related Materials
 
-- [Quick Start](../README.md)
+- [Quick Start](../README.en.md)
 - [Changelog](../CHANGELOG.en.md)
 - [Examples Guide](../examples/README.md)
 - [Test Guide](../tests/README.en.md)

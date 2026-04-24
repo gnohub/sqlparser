@@ -221,6 +221,6 @@ Successful items include mode-dependent fields such as:
 
 ## 8. Related Documents
 
-- [Quick Start](../README.md)
+- [Quick Start](../README.en.md)
 - [API Reference](./api_reference.en.md)
 - [Model JSON Guide](./model_json.en.md)

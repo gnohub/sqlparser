@@ -15,11 +15,11 @@
 - [CLI 手册](./cli_guide.md)
   说明命令行工具的运行方式、批量输入格式和输出结构。
 - [libpg_query 集成说明](./libpg_query_analysis.md)
-  说明解析内核的固定版本、集成方式和后续维护边界。
+  说明解析内核的固定版本、集成方式和维护边界。
 
 ## 相关资料
 
-- [快速开始](../README.zh-CN.md)
+- [快速开始](../README.md)
 - [变更记录](../CHANGELOG.md)
 - [示例说明](../examples/README.zh-CN.md)
 - [测试说明](../tests/README.md)

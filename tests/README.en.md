@@ -11,7 +11,7 @@ The `tests/` directory records functional coverage for `sqlparser`.
 
 ## Test Components
 
-The current test suite contains:
+The test suite contains:
 
 - unit tests
 - batch SQL fixture verification
@@ -62,7 +62,7 @@ Common quality-gate entry points:
 
 ## Coverage
 
-The current test coverage includes:
+The test coverage includes:
 
 - parse and deparse baseline flow
 - resource limits for SQL input, model JSON input, generated output, and
@@ -74,3 +74,7 @@ The current test coverage includes:
 - common DDL, transaction control, `GRANT / REVOKE`, and maintenance statements
 - JSON export
 - selector replay and model JSON replay
+
+## Case Matrix
+
+- [SQL Case Matrix](./cases/sql_case_matrix.en.md)

@@ -280,11 +280,11 @@ This form is suitable for:
 - JSON constructor expressions
 - other valid right-hand expressions accepted by the parser
 
-## 6. Usage Notes
+## 6. Usage Rules
 
 - Prefer `literal` for plain literal replacement.
 - Use `sql` for `DEFAULT` or arbitrary expressions.
-- It is best to use only one rewrite form per patch entry.
+- Use only one rewrite form per patch entry.
 - When editing a full model, keep `selector` values unchanged.
 - Call `sqlparser_deparse()` after applying the model to obtain the updated SQL.
 

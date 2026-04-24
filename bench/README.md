@@ -38,7 +38,7 @@
 
 ## 基本用法
 
-先构建 benchmark 程序：
+构建 benchmark 程序：
 
 ```bash
 make bench-build

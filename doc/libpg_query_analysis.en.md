@@ -1,8 +1,8 @@
 # libpg_query Integration
 
 This document describes how `sqlparser` integrates the pinned in-repository
-version of `libpg_query`, and which boundaries matter for maintenance and
-future dialect support.
+version of `libpg_query`, including parser-kernel maintenance and dialect
+extension boundaries.
 
 ## 1. Dependency Role
 
@@ -30,7 +30,7 @@ The project is pinned to:
 - tag: `17-6.2.2`
 - commit: `7be1aed1f1f968a36cf541319f71e845850f0381`
 
-The current policy is:
+The policy is:
 
 - `libpg_query` is stored as pinned source code inside the repository
 - version upgrades are evaluated explicitly by the project
@@ -143,17 +143,16 @@ The main maintenance points are:
 - keeping the public header and ABI compact and controlled
 - continuously validating behavior through examples, tests, and benchmarks
 
-## 8. Reserved Space for Dialect Extension
+## 8. Dialect Extension Points
 
-Dialect support is a future extension area. The current architecture already
-leaves room for:
+Dialect adaptation can be added through these extension points:
 
 - SQL pre-processing and post-processing adaptation
 - parser and scanner patches
 - new protobuf node descriptions
 - synchronized maintenance for read/write conversion and deparse logic
 
-When adding dialect syntax later, the usual areas to inspect are:
+When adding dialect syntax, inspect:
 
 - grammar and scanner definitions
 - node and enum descriptions under `srcdata/*`
@@ -162,12 +161,12 @@ When adding dialect syntax later, the usual areas to inspect are:
 - matching deparse branches
 - regression tests and benchmarks
 
-## 9. Usage Guidance
+## 9. Usage
 
 - Treat `libpg_query` as a pinned parser kernel, not as the public interface.
 - Integrate through the `sqlparser` header and libraries.
 - Export parse-tree JSON when debugging low-level syntax trees.
-- Prefer `sqlparser` atomic APIs, selectors, and model JSON for business-level
+- Use `sqlparser` atomic APIs, selectors, and model JSON for business-level
   rewrites.
 
 ## 10. Related Documents

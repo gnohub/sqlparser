@@ -91,8 +91,8 @@ DIST_SOURCE_PATHS := \
 	./include \
 	./LICENSE \
 	./Makefile \
+	./README.en.md \
 	./README.md \
-	./README.zh-CN.md \
 	./scripts \
 	./src \
 	./tests \
