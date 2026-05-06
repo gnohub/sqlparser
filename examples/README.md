@@ -22,6 +22,8 @@ The `examples/` directory contains small programs built on top of the public hea
   Demonstrates model JSON export, patch application, and SQL regeneration.
 - `examples/09_expression_rewrite.c`
   Demonstrates reading and rewriting arbitrary `UPDATE` assignment expressions and `INSERT` cell expressions, including `DEFAULT`.
+- `examples/10_mysql_dialect.c`
+  Demonstrates parsing MySQL SQL with explicit dialect options and rewriting an `INSERT ... VALUES` cell.
 
 ## Build
 

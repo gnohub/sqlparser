@@ -64,6 +64,13 @@ typedef enum {
 	SQLPARSER_SELECTOR_KIND_INSERT_CELL = 6
 } sqlparser_selector_kind_t;
 
+typedef enum {
+	SQLPARSER_DIALECT_POSTGRESQL = 0,
+	SQLPARSER_DIALECT_MYSQL = 1,
+	SQLPARSER_DIALECT_ORACLE = 2,
+	SQLPARSER_DIALECT_SQLSERVER = 3
+} sqlparser_dialect_t;
+
 typedef struct {
 	sqlparser_status_t code;
 	int cursor;
@@ -129,6 +136,13 @@ typedef struct {
 	size_t max_statement_count;
 } sqlparser_limits_t;
 
+typedef struct {
+	size_t struct_size;
+	sqlparser_dialect_t dialect;
+	sqlparser_limits_t limits;
+	unsigned int flags;
+} sqlparser_parse_options_t;
+
 const char *sqlparser_version_string(void);
 const char *sqlparser_libpg_query_tag(void);
 const char *sqlparser_model_schema_string(void);
@@ -137,8 +151,10 @@ const char *sqlparser_insert_source_kind_name(sqlparser_insert_source_kind_t kin
 const char *sqlparser_value_kind_name(sqlparser_value_kind_t kind);
 const char *sqlparser_literal_kind_name(sqlparser_literal_kind_t kind);
 const char *sqlparser_selector_kind_name(sqlparser_selector_kind_t kind);
+const char *sqlparser_dialect_name(sqlparser_dialect_t dialect);
 
 void sqlparser_limits_default(sqlparser_limits_t *out_limits);
+void sqlparser_parse_options_default(sqlparser_parse_options_t *out_options);
 
 sqlparser_status_t sqlparser_parse(
 	const char *sql,
@@ -151,9 +167,16 @@ sqlparser_status_t sqlparser_parse_with_limits(
 	sqlparser_handle_t **out_handle,
 	sqlparser_error_t *out_error);
 
+sqlparser_status_t sqlparser_parse_with_options(
+	const char *sql,
+	const sqlparser_parse_options_t *options,
+	sqlparser_handle_t **out_handle,
+	sqlparser_error_t *out_error);
+
 void sqlparser_handle_destroy(sqlparser_handle_t *handle);
 
 const char *sqlparser_original_sql(const sqlparser_handle_t *handle);
+sqlparser_dialect_t sqlparser_handle_dialect(const sqlparser_handle_t *handle);
 size_t sqlparser_statement_count(const sqlparser_handle_t *handle);
 
 sqlparser_status_t sqlparser_statement_kind(

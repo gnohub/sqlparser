@@ -22,6 +22,8 @@
   展示稳定模型 JSON 的导出、patch 应用和回写 SQL。
 - `examples/09_expression_rewrite.c`
   展示如何读取和改写 `UPDATE assignment`、`INSERT cell` 的任意表达式或 `DEFAULT`。
+- `examples/10_mysql_dialect.c`
+  展示如何显式指定 MySQL 方言，并改写 `INSERT ... VALUES` 的单元格。
 
 ## 构建
 

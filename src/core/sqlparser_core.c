@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <stdint.h>
 #include <signal.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,6 +10,7 @@
 #include <jansson.h>
 
 #include "protobuf/pg_query.pb-c.h"
+#include "../dialect/sqlparser_dialect_internal.h"
 #include "sqlparser_internal.h"
 
 #ifndef SQLPARSER_VERSION_TEXT
@@ -117,6 +119,53 @@ static void sqlparser_limits_normalize(
 	if (out_limits->max_statement_count == 0U) {
 		out_limits->max_statement_count = defaults.max_statement_count;
 	}
+}
+
+static void sqlparser_parse_options_set_defaults(sqlparser_parse_options_t *out_options)
+{
+	if (out_options == NULL) {
+		return;
+	}
+
+	memset(out_options, 0, sizeof(*out_options));
+	out_options->struct_size = sizeof(*out_options);
+	out_options->dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	sqlparser_limits_set_defaults(&out_options->limits);
+	out_options->flags = 0U;
+}
+
+void sqlparser_parse_options_default(sqlparser_parse_options_t *out_options)
+{
+	sqlparser_parse_options_set_defaults(out_options);
+}
+
+static void sqlparser_parse_options_normalize(
+	const sqlparser_parse_options_t *options,
+	sqlparser_parse_options_t *out_options)
+{
+	sqlparser_parse_options_t defaults;
+	size_t copy_size;
+
+	if (out_options == NULL) {
+		return;
+	}
+
+	sqlparser_parse_options_set_defaults(&defaults);
+	if (options == NULL) {
+		*out_options = defaults;
+		return;
+	}
+
+	*out_options = defaults;
+	copy_size = options->struct_size;
+	if (copy_size == 0U || copy_size > sizeof(*out_options)) {
+		copy_size = sizeof(*out_options);
+	}
+	memcpy(out_options, options, copy_size);
+	if (out_options->struct_size == 0U) {
+		out_options->struct_size = defaults.struct_size;
+	}
+	sqlparser_limits_normalize(&out_options->limits, &out_options->limits);
 }
 
 static sqlparser_status_t sqlparser_validate_text_limit(
@@ -455,6 +504,9 @@ void sqlparser_handle_invalidate_derived(sqlparser_handle_t *handle)
 	free(handle->current_sql);
 	handle->current_sql = NULL;
 
+	free(handle->current_parser_sql);
+	handle->current_parser_sql = NULL;
+
 	free(handle->parse_tree_json);
 	handle->parse_tree_json = NULL;
 
@@ -479,11 +531,20 @@ static void sqlparser_handle_release_contents(sqlparser_handle_t *handle)
 	sqlparser_handle_clear_ast(handle);
 	sqlparser_handle_invalidate_derived(handle);
 	sqlparser_protobuf_release(&handle->parse_tree);
+	if (handle->dialect_ops != NULL && handle->dialect_ops->destroy_state != NULL && handle->dialect_state != NULL) {
+		handle->dialect_ops->destroy_state(handle->dialect_state);
+	}
+	handle->dialect_state = NULL;
 	free(handle->sql);
+	free(handle->parser_sql);
 	handle->sql = NULL;
+	handle->parser_sql = NULL;
 	handle->sql_len = 0U;
+	handle->parser_sql_len = 0U;
 	handle->statement_count = 0U;
 	handle->generation = 0UL;
+	handle->dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	handle->dialect_ops = NULL;
 }
 
 static sqlparser_status_t sqlparser_handle_clone(
@@ -503,7 +564,7 @@ static sqlparser_status_t sqlparser_handle_clone(
 	}
 
 	*out_handle = NULL;
-	if (source == NULL || source->sql == NULL || source->parse_tree.data == NULL) {
+	if (source == NULL || source->sql == NULL || source->parser_sql == NULL || source->parse_tree.data == NULL) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -516,12 +577,37 @@ static sqlparser_status_t sqlparser_handle_clone(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
+	clone->dialect = source->dialect;
+	clone->dialect_ops = source->dialect_ops;
 
 	clone->sql = sqlparser_strdup(source->sql);
 	if (clone->sql == NULL) {
 		sqlparser_handle_destroy(clone);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+
+	clone->parser_sql = sqlparser_strdup(source->parser_sql);
+	if (clone->parser_sql == NULL) {
+		sqlparser_handle_destroy(clone);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+
+	if (source->dialect_state != NULL) {
+		if (source->dialect_ops == NULL || source->dialect_ops->clone_state == NULL) {
+			sqlparser_handle_destroy(clone);
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"dialect state cannot be cloned");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		status = source->dialect_ops->clone_state(source->dialect_state, &clone->dialect_state, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_handle_destroy(clone);
+			return status;
+		}
 	}
 
 	status = sqlparser_protobuf_copy(&clone->parse_tree, &source->parse_tree, out_error);
@@ -531,6 +617,7 @@ static sqlparser_status_t sqlparser_handle_clone(
 	}
 
 	clone->sql_len = source->sql_len;
+	clone->parser_sql_len = source->parser_sql_len;
 	clone->statement_count = source->statement_count;
 	clone->limits = source->limits;
 	clone->generation = source->generation;
@@ -618,8 +705,9 @@ static sqlparser_status_t sqlparser_ensure_current_sql_text(
 	PgQueryDeparseResult deparse_result;
 	sqlparser_handle_t *mutable_handle;
 	sqlparser_status_t status;
+	char *public_sql;
 
-	if (handle == NULL || handle->sql == NULL) {
+	if (handle == NULL || handle->sql == NULL || handle->parser_sql == NULL) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -630,18 +718,23 @@ static sqlparser_status_t sqlparser_ensure_current_sql_text(
 	if (handle->generation == 0UL) {
 		return SQLPARSER_STATUS_OK;
 	}
-	if (handle->current_sql != NULL) {
+	if (handle->current_sql != NULL && handle->current_parser_sql != NULL) {
 		return SQLPARSER_STATUS_OK;
 	}
 
 	mutable_handle = (sqlparser_handle_t *)handle;
+	free(mutable_handle->current_sql);
+	mutable_handle->current_sql = NULL;
+	free(mutable_handle->current_parser_sql);
+	mutable_handle->current_parser_sql = NULL;
+
 	sqlparser_pg_query_prepare();
 	deparse_result = pg_query_deparse_protobuf(handle->parse_tree);
 	if (deparse_result.error != NULL) {
 		sqlparser_error_from_pg(
 			out_error,
 			SQLPARSER_STATUS_INTERNAL_ERROR,
-			handle->sql,
+			handle->parser_sql,
 			deparse_result.error);
 		pg_query_free_deparse_result(deparse_result);
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
@@ -653,13 +746,37 @@ static sqlparser_status_t sqlparser_ensure_current_sql_text(
 		return status;
 	}
 
-	mutable_handle->current_sql = sqlparser_strdup(deparse_result.query);
-	pg_query_free_deparse_result(deparse_result);
-	if (mutable_handle->current_sql == NULL) {
+	mutable_handle->current_parser_sql = sqlparser_strdup(deparse_result.query);
+	if (mutable_handle->current_parser_sql == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		pg_query_free_deparse_result(deparse_result);
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
 
+	public_sql = NULL;
+	if (handle->dialect_ops != NULL && handle->dialect_ops->postprocess_deparse != NULL) {
+		status = handle->dialect_ops->postprocess_deparse(
+			deparse_result.query,
+			handle->dialect_state,
+			&public_sql,
+			out_error);
+	} else {
+		public_sql = sqlparser_strdup(deparse_result.query);
+		status = public_sql != NULL ? SQLPARSER_STATUS_OK : SQLPARSER_STATUS_NO_MEMORY;
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		}
+	}
+	pg_query_free_deparse_result(deparse_result);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_validate_handle_output_text(handle, public_sql, "deparse output", out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(public_sql);
+		return status;
+	}
+	mutable_handle->current_sql = public_sql;
 	return SQLPARSER_STATUS_OK;
 }
 
@@ -674,6 +791,19 @@ static const char *sqlparser_effective_sql(const sqlparser_handle_t *handle)
 	}
 
 	return handle->current_sql;
+}
+
+static const char *sqlparser_effective_parser_sql(const sqlparser_handle_t *handle)
+{
+	if (handle == NULL) {
+		return NULL;
+	}
+
+	if (handle->generation == 0UL || handle->current_parser_sql == NULL) {
+		return handle->parser_sql;
+	}
+
+	return handle->current_parser_sql;
 }
 
 static char *sqlparser_strndup_lower_ascii(const char *text, size_t len)
@@ -886,7 +1016,7 @@ static sqlparser_status_t sqlparser_ensure_summary(
 		return status;
 	}
 
-	effective_sql = sqlparser_effective_sql(handle);
+	effective_sql = sqlparser_effective_parser_sql(handle);
 	mutable_handle = (sqlparser_handle_t *)handle;
 	sqlparser_pg_query_prepare();
 	summary_result = pg_query_summary(effective_sql, 0, -1);
@@ -939,7 +1069,7 @@ static sqlparser_status_t sqlparser_ensure_scan(
 		return status;
 	}
 
-	effective_sql = sqlparser_effective_sql(handle);
+	effective_sql = sqlparser_effective_parser_sql(handle);
 	mutable_handle = (sqlparser_handle_t *)handle;
 	sqlparser_pg_query_prepare();
 	scan_result = pg_query_scan(effective_sql);
@@ -991,7 +1121,7 @@ static sqlparser_status_t sqlparser_ensure_parse_tree_json_text(
 		return status;
 	}
 
-	effective_sql = sqlparser_effective_sql(handle);
+	effective_sql = sqlparser_effective_parser_sql(handle);
 	mutable_handle = (sqlparser_handle_t *)handle;
 	sqlparser_pg_query_prepare();
 	parse_result = pg_query_parse(effective_sql);
@@ -1739,12 +1869,35 @@ const char *sqlparser_selector_kind_name(sqlparser_selector_kind_t kind)
 	}
 }
 
+const char *sqlparser_dialect_name(sqlparser_dialect_t dialect)
+{
+	const sqlparser_dialect_ops_t *ops;
+
+	ops = sqlparser_dialect_get_ops(dialect);
+	if (ops != NULL && ops->name != NULL) {
+		return ops->name;
+	}
+
+	switch (dialect) {
+		case SQLPARSER_DIALECT_ORACLE:
+			return "oracle";
+		case SQLPARSER_DIALECT_SQLSERVER:
+			return "sqlserver";
+		case SQLPARSER_DIALECT_MYSQL:
+			return "mysql";
+		case SQLPARSER_DIALECT_POSTGRESQL:
+			return "postgresql";
+		default:
+			return "unknown";
+	}
+}
+
 sqlparser_status_t sqlparser_parse(
 	const char *sql,
 	sqlparser_handle_t **out_handle,
 	sqlparser_error_t *out_error)
 {
-	return sqlparser_parse_with_limits(sql, NULL, out_handle, out_error);
+	return sqlparser_parse_with_options(sql, NULL, out_handle, out_error);
 }
 
 sqlparser_status_t sqlparser_parse_with_limits(
@@ -1753,11 +1906,28 @@ sqlparser_status_t sqlparser_parse_with_limits(
 	sqlparser_handle_t **out_handle,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_parse_options_t options;
+
+	sqlparser_parse_options_set_defaults(&options);
+	sqlparser_limits_normalize(limits, &options.limits);
+	return sqlparser_parse_with_options(sql, &options, out_handle, out_error);
+}
+
+sqlparser_status_t sqlparser_parse_with_options(
+	const char *sql,
+	const sqlparser_parse_options_t *options,
+	sqlparser_handle_t **out_handle,
+	sqlparser_error_t *out_error)
+{
 	PgQueryProtobufParseResult parse_result;
 	sqlparser_handle_t *handle;
 	sqlparser_status_t status;
-	sqlparser_limits_t effective_limits;
+	sqlparser_parse_options_t effective_options;
+	const sqlparser_dialect_ops_t *dialect_ops;
 	size_t sql_len;
+	size_t parser_sql_len;
+	char *parser_sql;
+	void *dialect_state;
 
 	if (out_handle == NULL) {
 		sqlparser_error_set_message(
@@ -1767,9 +1937,11 @@ sqlparser_status_t sqlparser_parse_with_limits(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	sqlparser_limits_normalize(limits, &effective_limits);
+	sqlparser_parse_options_normalize(options, &effective_options);
 	*out_handle = NULL;
 	sqlparser_error_clear(out_error);
+	parser_sql = NULL;
+	dialect_state = NULL;
 
 	if (sql == NULL || sql[0] == '\0') {
 		sqlparser_error_set_message(
@@ -1780,7 +1952,7 @@ sqlparser_status_t sqlparser_parse_with_limits(
 	}
 	status = sqlparser_validate_text_limit(
 		sql,
-		effective_limits.max_sql_bytes,
+		effective_options.limits.max_sql_bytes,
 		"SQL input",
 		&sql_len,
 		out_error);
@@ -1788,11 +1960,46 @@ sqlparser_status_t sqlparser_parse_with_limits(
 		return status;
 	}
 
+	dialect_ops = sqlparser_dialect_get_ops(effective_options.dialect);
+	if (dialect_ops == NULL || dialect_ops->preprocess == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"SQL dialect is not supported");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+
+	status = dialect_ops->preprocess(sql, &effective_options.limits, &parser_sql, &dialect_state, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		if (dialect_ops->destroy_state != NULL && dialect_state != NULL) {
+			dialect_ops->destroy_state(dialect_state);
+		}
+		free(parser_sql);
+		return status;
+	}
+	status = sqlparser_validate_text_limit(
+		parser_sql,
+		effective_options.limits.max_sql_bytes,
+		"parser SQL input",
+		&parser_sql_len,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		if (dialect_ops->destroy_state != NULL && dialect_state != NULL) {
+			dialect_ops->destroy_state(dialect_state);
+		}
+		free(parser_sql);
+		return status;
+	}
+
 	sqlparser_pg_query_prepare();
-	parse_result = pg_query_parse_protobuf(sql);
+	parse_result = pg_query_parse_protobuf(parser_sql);
 	if (parse_result.error != NULL) {
-		sqlparser_error_from_pg(out_error, SQLPARSER_STATUS_PARSE_ERROR, sql, parse_result.error);
+		sqlparser_error_from_pg(out_error, SQLPARSER_STATUS_PARSE_ERROR, parser_sql, parse_result.error);
 		pg_query_free_protobuf_parse_result(parse_result);
+		if (dialect_ops->destroy_state != NULL && dialect_state != NULL) {
+			dialect_ops->destroy_state(dialect_state);
+		}
+		free(parser_sql);
 		return SQLPARSER_STATUS_PARSE_ERROR;
 	}
 
@@ -1800,6 +2007,10 @@ sqlparser_status_t sqlparser_parse_with_limits(
 	if (handle == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		pg_query_free_protobuf_parse_result(parse_result);
+		if (dialect_ops->destroy_state != NULL && dialect_state != NULL) {
+			dialect_ops->destroy_state(dialect_state);
+		}
+		free(parser_sql);
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
 
@@ -1807,12 +2018,23 @@ sqlparser_status_t sqlparser_parse_with_limits(
 	if (handle->sql == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		pg_query_free_protobuf_parse_result(parse_result);
+		if (dialect_ops->destroy_state != NULL && dialect_state != NULL) {
+			dialect_ops->destroy_state(dialect_state);
+		}
+		free(parser_sql);
 		free(handle);
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
 
+	handle->parser_sql = parser_sql;
+	parser_sql = NULL;
 	handle->sql_len = sql_len;
-	handle->limits = effective_limits;
+	handle->parser_sql_len = parser_sql_len;
+	handle->limits = effective_options.limits;
+	handle->dialect = effective_options.dialect;
+	handle->dialect_ops = dialect_ops;
+	handle->dialect_state = dialect_state;
+	dialect_state = NULL;
 	status = sqlparser_protobuf_copy(&handle->parse_tree, &parse_result.parse_tree, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		pg_query_free_protobuf_parse_result(parse_result);
@@ -1863,6 +2085,15 @@ const char *sqlparser_original_sql(const sqlparser_handle_t *handle)
 	}
 
 	return handle->sql;
+}
+
+sqlparser_dialect_t sqlparser_handle_dialect(const sqlparser_handle_t *handle)
+{
+	if (handle == NULL) {
+		return SQLPARSER_DIALECT_POSTGRESQL;
+	}
+
+	return handle->dialect;
 }
 
 size_t sqlparser_statement_count(const sqlparser_handle_t *handle)
@@ -3540,7 +3771,7 @@ static sqlparser_status_t sqlparser_ensure_model_json_text(
 		return status;
 	}
 
-	effective_sql = sqlparser_effective_sql(handle);
+	effective_sql = sqlparser_effective_parser_sql(handle);
 	root = json_object();
 	statements = json_array();
 	if (root == NULL || statements == NULL) {
@@ -5185,6 +5416,8 @@ sqlparser_status_t sqlparser_deparse(
 	sqlparser_error_t *out_error)
 {
 	PgQueryDeparseResult deparse_result;
+	char *public_sql;
+	sqlparser_status_t status;
 
 	if (out_sql == NULL) {
 		sqlparser_error_set_message(
@@ -5211,25 +5444,44 @@ sqlparser_status_t sqlparser_deparse(
 		sqlparser_error_from_pg(
 			out_error,
 			SQLPARSER_STATUS_INTERNAL_ERROR,
-			handle->sql,
+			handle->parser_sql != NULL ? handle->parser_sql : handle->sql,
 			deparse_result.error);
 		pg_query_free_deparse_result(deparse_result);
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 
-	if (sqlparser_validate_handle_output_text(handle, deparse_result.query, "deparse output", out_error) !=
-	    SQLPARSER_STATUS_OK) {
+	status = sqlparser_validate_handle_output_text(handle, deparse_result.query, "deparse output", out_error);
+	if (status != SQLPARSER_STATUS_OK) {
 		pg_query_free_deparse_result(deparse_result);
-		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_RESOURCE_LIMIT;
+		return status;
 	}
 
-	*out_sql = sqlparser_strdup(deparse_result.query);
-	if (*out_sql == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+	public_sql = NULL;
+	if (handle->dialect_ops != NULL && handle->dialect_ops->postprocess_deparse != NULL) {
+		status = handle->dialect_ops->postprocess_deparse(
+			deparse_result.query,
+			handle->dialect_state,
+			&public_sql,
+			out_error);
+	} else {
+		public_sql = sqlparser_strdup(deparse_result.query);
+		status = public_sql != NULL ? SQLPARSER_STATUS_OK : SQLPARSER_STATUS_NO_MEMORY;
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		}
+	}
+	if (status != SQLPARSER_STATUS_OK) {
 		pg_query_free_deparse_result(deparse_result);
-		return SQLPARSER_STATUS_NO_MEMORY;
+		return status;
+	}
+	status = sqlparser_validate_handle_output_text(handle, public_sql, "deparse output", out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(public_sql);
+		pg_query_free_deparse_result(deparse_result);
+		return status;
 	}
 
+	*out_sql = public_sql;
 	pg_query_free_deparse_result(deparse_result);
 	return SQLPARSER_STATUS_OK;
 }

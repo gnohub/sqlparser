@@ -7,10 +7,15 @@
 #include "protobuf/pg_query.pb-c.h"
 #include "sqlparser/sqlparser.h"
 
+typedef struct sqlparser_dialect_ops sqlparser_dialect_ops_t;
+
 struct sqlparser_handle {
 	char *sql;
+	char *parser_sql;
 	char *current_sql;
+	char *current_parser_sql;
 	size_t sql_len;
+	size_t parser_sql_len;
 	size_t statement_count;
 	PgQueryProtobuf parse_tree;
 	char *parse_tree_json;
@@ -20,6 +25,9 @@ struct sqlparser_handle {
 	PgQuery__ParseResult *ast;
 	sqlparser_limits_t limits;
 	unsigned long generation;
+	sqlparser_dialect_t dialect;
+	const sqlparser_dialect_ops_t *dialect_ops;
+	void *dialect_state;
 };
 
 void sqlparser_error_clear(sqlparser_error_t *out_error);

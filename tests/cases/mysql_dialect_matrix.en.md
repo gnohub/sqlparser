@@ -1,0 +1,50 @@
+# MySQL Dialect Case Matrix
+
+This file records regression cases for the MySQL dialect conversion layer. `tests/cases/mysql_dialect_input.json` is the executable test source; `tests/unit/test_mysql_dialect_case_matrix.c` reads it and verifies parsing, summary JSON, deparse output, and error codes.
+
+## Validated Supported Statements
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| M001 | `mysql-select-limit-comma` | `SELECT ... FROM ... WHERE ... LIMIT offset,count` | backtick identifiers, double-quoted strings, table extraction, selected columns, WHERE literal, MySQL comma-limit deparse |
+| M002 | `mysql-select-join` | `SELECT ... JOIN ... ON ... WHERE ...` | multi-table join, selected columns, join columns, where columns |
+| M003 | `mysql-hash-comment` | `SELECT ... # comment` | MySQL `#` line-comment preprocessing |
+| M004 | `mysql-insert-values-multi-row` | `INSERT ... VALUES (...), (...)` | multi-row insert, insert columns, double-quoted string normalization |
+| M005 | `mysql-insert-select` | `INSERT ... SELECT ... FROM ... WHERE ...` | insert columns, inner selected columns, WHERE columns |
+| M006 | `mysql-update-basic` | `UPDATE ... SET ... WHERE ...` | updated columns, where columns, backtick identifiers |
+| M007 | `mysql-delete-conditional` | `DELETE FROM ... WHERE ... AND ...` | conditional delete and multi-condition column extraction |
+| M008 | `mysql-create-table-basic` | `CREATE TABLE ... (...)` | basic create-table statement and column-definition parsing |
+| M009 | `mysql-alter-table-add-column` | `ALTER TABLE ... ADD COLUMN ...` | alter-table parsing and column-definition deparse |
+| M010 | `mysql-create-view` | `CREATE VIEW ... AS SELECT ...` | view definition and inner SELECT extraction |
+| M011 | `mysql-drop-table` | `DROP TABLE ...` | drop-table parsing and table extraction |
+| M012 | `mysql-start-transaction` | `START TRANSACTION; COMMIT` | MySQL transaction start and multi-statement counting |
+
+## Explicitly Unsupported Statements
+
+The following syntax has MySQL-specific semantics or structures that cannot be safely represented by the current AST. Parsing returns `SQLPARSER_STATUS_UNSUPPORTED`.
+
+| Case ID | Case Name | Statement Shape | Reason |
+| --- | --- | --- | --- |
+| MU001 | `mysql-insert-ignore` | `INSERT IGNORE ...` | error-ignoring semantics cannot be safely downgraded to ordinary `INSERT` |
+| MU002 | `mysql-insert-delayed` | `INSERT DELAYED ...` | delayed-insert semantics require MySQL-specific execution semantics |
+| MU003 | `mysql-insert-low-priority` | `INSERT LOW_PRIORITY ...` | priority semantics cannot be mapped to the generic AST |
+| MU004 | `mysql-insert-high-priority` | `INSERT HIGH_PRIORITY ...` | priority semantics cannot be mapped to the generic AST |
+| MU005 | `mysql-on-duplicate-key` | `ON DUPLICATE KEY UPDATE ...` | conflict-handling semantics cannot be safely represented by the current AST |
+| MU006 | `mysql-replace-into` | `REPLACE INTO ...` | delete-then-insert semantics differ from ordinary `INSERT` |
+| MU007 | `mysql-update-ignore` | `UPDATE IGNORE ...` | error-ignoring semantics require MySQL-specific execution semantics |
+| MU008 | `mysql-delete-ignore` | `DELETE IGNORE ...` | error-ignoring semantics require MySQL-specific execution semantics |
+| MU009 | `mysql-auto-increment` | `AUTO_INCREMENT` | column attributes require MySQL DDL semantic extensions |
+| MU010 | `mysql-unsigned` | `UNSIGNED` | type attributes require MySQL type-system extensions |
+| MU011 | `mysql-zerofill` | `ZEROFILL` | type attributes require MySQL type-system extensions |
+| MU012 | `mysql-table-engine` | `ENGINE=...` | table options require MySQL DDL semantic extensions |
+| MU013 | `mysql-table-charset` | `DEFAULT CHARSET=...` | table charset options require MySQL DDL semantic extensions |
+| MU014 | `mysql-table-character-set` | `CHARACTER SET=...` | table charset options require MySQL DDL semantic extensions |
+| MU015 | `mysql-table-collate` | `COLLATE=...` | table collation options require MySQL DDL semantic extensions |
+
+## Rules
+
+- The default dialect is `SQLPARSER_DIALECT_POSTGRESQL`.
+- MySQL statements must be parsed through `sqlparser_parse_with_options` with `SQLPARSER_DIALECT_MYSQL`.
+- Safely mappable syntax is handled in dialect preprocess / postprocess.
+- MySQL-specific semantics that cannot be safely mapped return `SQLPARSER_STATUS_UNSUPPORTED`.
+- New MySQL support must update `tests/cases/mysql_dialect_input.json`, this matrix, and executable regression tests.

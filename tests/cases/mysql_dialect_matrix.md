@@ -1,0 +1,50 @@
+# MySQL 方言用例矩阵
+
+本文件记录 MySQL 方言转换层的回归用例。`tests/cases/mysql_dialect_input.json` 是可执行测试源，`tests/unit/test_mysql_dialect_case_matrix.c` 会逐条读取该文件并验证解析、summary JSON、deparse 和错误码。
+
+## 已验证支持语句
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| M001 | `mysql-select-limit-comma` | `SELECT ... FROM ... WHERE ... LIMIT offset,count` | 反引号标识符、双引号字符串、表名、查询列、WHERE literal、MySQL comma limit deparse |
+| M002 | `mysql-select-join` | `SELECT ... JOIN ... ON ... WHERE ...` | 多表 JOIN、查询列、关联列、条件列 |
+| M003 | `mysql-hash-comment` | `SELECT ... # comment` | MySQL `#` 行注释预处理 |
+| M004 | `mysql-insert-values-multi-row` | `INSERT ... VALUES (...), (...)` | 多行插入、插入列、双引号字符串归一化 |
+| M005 | `mysql-insert-select` | `INSERT ... SELECT ... FROM ... WHERE ...` | 插入列、内层查询列、WHERE 条件列 |
+| M006 | `mysql-update-basic` | `UPDATE ... SET ... WHERE ...` | 更新列、条件列、反引号标识符 |
+| M007 | `mysql-delete-conditional` | `DELETE FROM ... WHERE ... AND ...` | 条件删除、多条件列提取 |
+| M008 | `mysql-create-table-basic` | `CREATE TABLE ... (...)` | 基础建表语句、列定义解析 |
+| M009 | `mysql-alter-table-add-column` | `ALTER TABLE ... ADD COLUMN ...` | alter table 解析、列定义 deparse |
+| M010 | `mysql-create-view` | `CREATE VIEW ... AS SELECT ...` | view 定义、内层 SELECT 提取 |
+| M011 | `mysql-drop-table` | `DROP TABLE ...` | drop table 解析、表名提取 |
+| M012 | `mysql-start-transaction` | `START TRANSACTION; COMMIT` | MySQL 事务起始语句、多语句计数 |
+
+## 明确不支持语句
+
+以下语法具有 MySQL 专有语义或当前 AST 无法安全表达的结构，解析时返回 `SQLPARSER_STATUS_UNSUPPORTED`。
+
+| 用例 ID | 用例名称 | 语句形态 | 原因 |
+| --- | --- | --- | --- |
+| MU001 | `mysql-insert-ignore` | `INSERT IGNORE ...` | 忽略错误的语义不能安全降级为普通 `INSERT` |
+| MU002 | `mysql-insert-delayed` | `INSERT DELAYED ...` | 延迟插入语义需要 MySQL 专用执行语义 |
+| MU003 | `mysql-insert-low-priority` | `INSERT LOW_PRIORITY ...` | 优先级语义无法映射到通用 AST |
+| MU004 | `mysql-insert-high-priority` | `INSERT HIGH_PRIORITY ...` | 优先级语义无法映射到通用 AST |
+| MU005 | `mysql-on-duplicate-key` | `ON DUPLICATE KEY UPDATE ...` | 冲突处理语义不能安全映射到现有 AST |
+| MU006 | `mysql-replace-into` | `REPLACE INTO ...` | 删除再插入的语义不同于普通 `INSERT` |
+| MU007 | `mysql-update-ignore` | `UPDATE IGNORE ...` | 忽略错误语义需要 MySQL 专用执行语义 |
+| MU008 | `mysql-delete-ignore` | `DELETE IGNORE ...` | 忽略错误语义需要 MySQL 专用执行语义 |
+| MU009 | `mysql-auto-increment` | `AUTO_INCREMENT` | 列属性需要 MySQL DDL 语义扩展 |
+| MU010 | `mysql-unsigned` | `UNSIGNED` | 类型属性需要 MySQL 类型系统扩展 |
+| MU011 | `mysql-zerofill` | `ZEROFILL` | 类型属性需要 MySQL 类型系统扩展 |
+| MU012 | `mysql-table-engine` | `ENGINE=...` | 表选项需要 MySQL DDL 语义扩展 |
+| MU013 | `mysql-table-charset` | `DEFAULT CHARSET=...` | 表字符集选项需要 MySQL DDL 语义扩展 |
+| MU014 | `mysql-table-character-set` | `CHARACTER SET=...` | 表字符集选项需要 MySQL DDL 语义扩展 |
+| MU015 | `mysql-table-collate` | `COLLATE=...` | 表排序规则选项需要 MySQL DDL 语义扩展 |
+
+## 处理规则
+
+- 默认方言是 `SQLPARSER_DIALECT_POSTGRESQL`。
+- MySQL 语句必须通过 `sqlparser_parse_with_options` 显式传入 `SQLPARSER_DIALECT_MYSQL`。
+- 可安全映射的语法在 dialect preprocess / postprocess 层处理。
+- 不能安全映射的 MySQL 专有语义返回 `SQLPARSER_STATUS_UNSUPPORTED`。
+- 新增 MySQL 支持项必须同步更新 `tests/cases/mysql_dialect_input.json`、本矩阵和可执行回归测试。

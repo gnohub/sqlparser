@@ -115,6 +115,7 @@ stores the original SQL, the current syntax tree, and lazily derived results.
 | `sqlparser_value_kind_t` | value kind |
 | `sqlparser_literal_kind_t` | literal kind |
 | `sqlparser_selector_kind_t` | selector kind |
+| `sqlparser_dialect_t` | SQL dialect |
 
 ### Resource Limits
 
@@ -136,6 +137,28 @@ output, and 64 statements per parse call.
 
 Call `sqlparser_limits_default()` to obtain the default limits. Callers only
 need to override fields they want to change; a field set to `0` uses the default.
+
+### Parse Options
+
+- `sqlparser_parse_options_t`
+
+`sqlparser_parse_options_t` configures parse behavior:
+
+| Field | Meaning |
+| --- | --- |
+| `struct_size` | structure size filled by `sqlparser_parse_options_default()` |
+| `dialect` | SQL dialect; defaults to `SQLPARSER_DIALECT_POSTGRESQL` |
+| `limits` | resource limits |
+| `flags` | reserved field; keep as `0` |
+
+Defined dialects:
+
+| Dialect | Meaning |
+| --- | --- |
+| `SQLPARSER_DIALECT_POSTGRESQL` | default dialect, preserving existing behavior |
+| `SQLPARSER_DIALECT_MYSQL` | MySQL dialect conversion layer for syntax that can be safely mapped to the current AST |
+| `SQLPARSER_DIALECT_ORACLE` | reserved dialect enum, currently returns `SQLPARSER_STATUS_UNSUPPORTED` |
+| `SQLPARSER_DIALECT_SQLSERVER` | reserved dialect enum, currently returns `SQLPARSER_STATUS_UNSUPPORTED` |
 
 ### View Structures
 
@@ -196,6 +219,7 @@ not be reused.
 | `sqlparser_value_kind_name()` | returns the value-kind name |
 | `sqlparser_literal_kind_name()` | returns the literal-kind name |
 | `sqlparser_selector_kind_name()` | returns the selector-kind name |
+| `sqlparser_dialect_name()` | returns the dialect name |
 
 ## Parse and Handle Management
 
@@ -251,6 +275,25 @@ Notes:
   exports, and deparse operations.
 - Returns `SQLPARSER_STATUS_RESOURCE_LIMIT` when a configured limit is exceeded.
 
+### `sqlparser_parse_with_options`
+
+Prototype:
+
+```c
+sqlparser_status_t sqlparser_parse_with_options(
+    const char *sql,
+    const sqlparser_parse_options_t *options,
+    sqlparser_handle_t **out_handle,
+    sqlparser_error_t *out_error);
+```
+
+Notes:
+
+- Behaves like `sqlparser_parse()`, with dialect and resource-limit configuration.
+- Passing `NULL` for `options` uses PostgreSQL dialect and default resource limits.
+- MySQL dialect input is first converted into parser-compatible SQL, then processed through the unified AST path.
+- Reserved but unimplemented dialects return `SQLPARSER_STATUS_UNSUPPORTED`.
+
 ### `sqlparser_handle_destroy`
 
 Prototype:
@@ -269,6 +312,7 @@ Notes:
 | Function | Summary |
 | --- | --- |
 | `sqlparser_original_sql()` | returns the original input SQL |
+| `sqlparser_handle_dialect()` | returns the dialect used by the handle |
 | `sqlparser_statement_count()` | returns the number of statements |
 
 ## Statement-Level Access

@@ -14,6 +14,7 @@
   JSON
 - Configurable resource limits for SQL input, model JSON input, generated
   output, and statement count
+- Dialect framework with PostgreSQL as the default and a MySQL dialect conversion layer
 
 ### Packaging and Build
 
@@ -34,6 +35,8 @@
 - Expanded SQL fixture coverage for subqueries, `CASE`, window functions,
   `ON CONFLICT`, `RETURNING`, `UPDATE ... FROM`, `DELETE ... USING`, `MERGE`,
   transaction control, common DDL, `GRANT/REVOKE`, and maintenance statements
+- Added a MySQL dialect case matrix covering supported statement shapes and
+  explicitly unsupported syntax
 - Added installed-library API smoke coverage, `valgrind` leak checks, and
   expression-rewrite regression
 - Extended benchmarks for read paths, rewrite paths, and `rewrite + deparse`

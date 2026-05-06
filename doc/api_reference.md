@@ -110,6 +110,7 @@ int main(void)
 | `sqlparser_value_kind_t` | 值类型 |
 | `sqlparser_literal_kind_t` | 字面量类型 |
 | `sqlparser_selector_kind_t` | selector 类型 |
+| `sqlparser_dialect_t` | SQL 方言类型 |
 
 ### 资源限制
 
@@ -128,6 +129,28 @@ int main(void)
 | `max_statement_count` | 单次解析允许的最大语句数量 |
 
 使用 `sqlparser_limits_default()` 可获得默认限制。调用方只需要覆盖需要调整的字段，字段为 `0` 时按默认值处理。
+
+### 解析选项
+
+- `sqlparser_parse_options_t`
+
+`sqlparser_parse_options_t` 用于配置解析行为：
+
+| 字段 | 说明 |
+| --- | --- |
+| `struct_size` | 结构体大小，由 `sqlparser_parse_options_default()` 填充 |
+| `dialect` | SQL 方言，不设置时默认为 `SQLPARSER_DIALECT_POSTGRESQL` |
+| `limits` | 资源限制 |
+| `flags` | 保留字段，当前应保持为 `0` |
+
+已定义方言：
+
+| 方言 | 说明 |
+| --- | --- |
+| `SQLPARSER_DIALECT_POSTGRESQL` | 默认方言，保持原有解析行为 |
+| `SQLPARSER_DIALECT_MYSQL` | MySQL 方言转换层，支持可安全映射到现有 AST 的语法 |
+| `SQLPARSER_DIALECT_ORACLE` | 预留方言枚举，当前返回 `SQLPARSER_STATUS_UNSUPPORTED` |
+| `SQLPARSER_DIALECT_SQLSERVER` | 预留方言枚举，当前返回 `SQLPARSER_STATUS_UNSUPPORTED` |
 
 ### 视图结构
 
@@ -184,6 +207,7 @@ int main(void)
 | `sqlparser_value_kind_name()` | 返回值类型名称 |
 | `sqlparser_literal_kind_name()` | 返回字面量类型名称 |
 | `sqlparser_selector_kind_name()` | 返回 selector 类型名称 |
+| `sqlparser_dialect_name()` | 返回方言名称 |
 
 ## 解析与句柄管理
 
@@ -238,6 +262,25 @@ sqlparser_status_t sqlparser_parse_with_limits(
 - 解析成功后，限制配置会随 `handle` 保存，并影响改写、导出和反解析。
 - 超出限制时返回 `SQLPARSER_STATUS_RESOURCE_LIMIT`。
 
+### `sqlparser_parse_with_options`
+
+函数原型：
+
+```c
+sqlparser_status_t sqlparser_parse_with_options(
+    const char *sql,
+    const sqlparser_parse_options_t *options,
+    sqlparser_handle_t **out_handle,
+    sqlparser_error_t *out_error);
+```
+
+说明：
+
+- 与 `sqlparser_parse()` 相同，但允许传入方言和资源限制。
+- `options` 为 `NULL` 时使用默认选项，即 PostgreSQL 方言和默认资源限制。
+- MySQL 方言先转换为解析内核可接受的 SQL，再进入统一 AST 链路。
+- 预留但未实现的方言返回 `SQLPARSER_STATUS_UNSUPPORTED`。
+
 ### `sqlparser_handle_destroy`
 
 函数原型：
@@ -256,6 +299,7 @@ void sqlparser_handle_destroy(sqlparser_handle_t *handle);
 | 函数 | 摘要 |
 | --- | --- |
 | `sqlparser_original_sql()` | 返回原始输入 SQL |
+| `sqlparser_handle_dialect()` | 返回 `handle` 使用的方言 |
 | `sqlparser_statement_count()` | 返回语句数量 |
 
 ## 语句级访问

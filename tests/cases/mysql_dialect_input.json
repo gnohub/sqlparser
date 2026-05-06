@@ -1,0 +1,307 @@
+{
+  "items": [
+    {
+      "id": "M001",
+      "name": "mysql-select-limit-comma",
+      "sql": "SELECT `u`.`id`, \"hello\" AS `label` FROM `users` AS `u` WHERE `u`.`id` = 1 LIMIT 5, 10",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["id"],
+        "where_columns": ["id"],
+        "deparse_contains": "LIMIT 5, 10"
+      }
+    },
+    {
+      "id": "M002",
+      "name": "mysql-select-join",
+      "sql": "SELECT `u`.`id`, `u`.`name`, `o`.`order_no` FROM `users` `u` JOIN `orders` `o` ON `u`.`id` = `o`.`user_id` WHERE `o`.`status` = \"paid\"",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users", "orders"],
+        "selected_columns": ["id", "name", "order_no"],
+        "join_columns": ["id", "user_id"],
+        "where_columns": ["status"],
+        "deparse_contains": "JOIN orders o"
+      }
+    },
+    {
+      "id": "M003",
+      "name": "mysql-hash-comment",
+      "sql": "SELECT 1 # mysql line comment\n",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "SELECT 1"
+      }
+    },
+    {
+      "id": "M004",
+      "name": "mysql-insert-values-multi-row",
+      "sql": "INSERT INTO `users` (`id`, `name`) VALUES (1, \"bob\"), (2, 'alice')",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt", "SelectStmt"],
+        "tables": ["users"],
+        "insert_columns": ["id", "name"],
+        "deparse_contains": "VALUES (1, 'bob'), (2, 'alice')"
+      }
+    },
+    {
+      "id": "M005",
+      "name": "mysql-insert-select",
+      "sql": "INSERT INTO `archive_users` (`id`, `name`) SELECT `id`, `name` FROM `users` WHERE `status` = \"inactive\"",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt", "SelectStmt"],
+        "tables": ["archive_users", "users"],
+        "selected_columns": ["id", "name"],
+        "where_columns": ["status"],
+        "insert_columns": ["id", "name"],
+        "deparse_contains": "INSERT INTO archive_users"
+      }
+    },
+    {
+      "id": "M006",
+      "name": "mysql-update-basic",
+      "sql": "UPDATE `users` SET `name` = \"carol\", `status` = 'active' WHERE `id` = 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["UpdateStmt"],
+        "tables": ["users"],
+        "update_columns": ["name", "status"],
+        "where_columns": ["id"],
+        "deparse_contains": "UPDATE users SET"
+      }
+    },
+    {
+      "id": "M007",
+      "name": "mysql-delete-conditional",
+      "sql": "DELETE FROM `users` WHERE `id` = 1 AND `status` = \"inactive\"",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["DeleteStmt"],
+        "tables": ["users"],
+        "where_columns": ["id", "status"],
+        "deparse_contains": "DELETE FROM users"
+      }
+    },
+    {
+      "id": "M008",
+      "name": "mysql-create-table-basic",
+      "sql": "CREATE TABLE `users` (`id` INT, `name` VARCHAR(64))",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["CreateStmt"],
+        "deparse_contains": "CREATE TABLE users"
+      }
+    },
+    {
+      "id": "M009",
+      "name": "mysql-alter-table-add-column",
+      "sql": "ALTER TABLE `users` ADD COLUMN `age` INT",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["AlterTableStmt"],
+        "deparse_contains": "ADD COLUMN age int"
+      }
+    },
+    {
+      "id": "M010",
+      "name": "mysql-create-view",
+      "sql": "CREATE VIEW `v_users` AS SELECT `id`, `name` FROM `users`",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["ViewStmt", "SelectStmt"],
+        "tables": ["v_users", "users"],
+        "selected_columns": ["id", "name"],
+        "deparse_contains": "CREATE VIEW v_users AS"
+      }
+    },
+    {
+      "id": "M011",
+      "name": "mysql-drop-table",
+      "sql": "DROP TABLE `users`",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["DropStmt"],
+        "tables": ["users"],
+        "deparse_contains": "DROP TABLE users"
+      }
+    },
+    {
+      "id": "M012",
+      "name": "mysql-start-transaction",
+      "sql": "START TRANSACTION; COMMIT",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": ["TransactionStmt"],
+        "deparse_contains": "COMMIT"
+      }
+    },
+    {
+      "id": "MU001",
+      "name": "mysql-insert-ignore",
+      "sql": "INSERT IGNORE INTO `users` (`id`) VALUES (1)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "MU002",
+      "name": "mysql-insert-delayed",
+      "sql": "INSERT DELAYED INTO `users` (`id`) VALUES (1)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "MU003",
+      "name": "mysql-insert-low-priority",
+      "sql": "INSERT LOW_PRIORITY INTO `users` (`id`) VALUES (1)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "MU004",
+      "name": "mysql-insert-high-priority",
+      "sql": "INSERT HIGH_PRIORITY INTO `users` (`id`) VALUES (1)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "MU005",
+      "name": "mysql-on-duplicate-key",
+      "sql": "INSERT INTO `users` (`id`) VALUES (1) ON DUPLICATE KEY UPDATE `id` = 2",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "MU006",
+      "name": "mysql-replace-into",
+      "sql": "REPLACE INTO `users` (`id`) VALUES (1)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "MU007",
+      "name": "mysql-update-ignore",
+      "sql": "UPDATE IGNORE `users` SET `id` = 2 WHERE `id` = 1",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "MU008",
+      "name": "mysql-delete-ignore",
+      "sql": "DELETE IGNORE FROM `users` WHERE `id` = 1",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "MU009",
+      "name": "mysql-auto-increment",
+      "sql": "CREATE TABLE `users` (`id` INT AUTO_INCREMENT)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "MU010",
+      "name": "mysql-unsigned",
+      "sql": "CREATE TABLE `users` (`id` INT UNSIGNED)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "MU011",
+      "name": "mysql-zerofill",
+      "sql": "CREATE TABLE `users` (`id` INT ZEROFILL)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "MU012",
+      "name": "mysql-table-engine",
+      "sql": "CREATE TABLE `users` (`id` INT) ENGINE=InnoDB",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "MU013",
+      "name": "mysql-table-charset",
+      "sql": "CREATE TABLE `users` (`id` INT) DEFAULT CHARSET=utf8mb4",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "MU014",
+      "name": "mysql-table-character-set",
+      "sql": "CREATE TABLE `users` (`id` INT) CHARACTER SET=utf8mb4",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "MU015",
+      "name": "mysql-table-collate",
+      "sql": "CREATE TABLE `users` (`id` INT) COLLATE=utf8mb4_bin",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    }
+  ]
+}

@@ -1751,6 +1751,210 @@ static int test_resource_limits(void)
 	return 0;
 }
 
+static int test_mysql_dialect_select_rewrite(void)
+{
+	const char *sql;
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_relation_view_t relation;
+	sqlparser_where_literal_view_t where_literal;
+	sqlparser_literal_value_t replacement;
+	char *deparsed_sql;
+	int rc;
+
+	sql = "SELECT `u`.`id`, \"hello\" AS `label` FROM `users` AS `u` "
+	      "WHERE `u`.`id` = 1 LIMIT 5, 10";
+	handle = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&relation, 0, sizeof(relation));
+	memset(&where_literal, 0, sizeof(where_literal));
+	memset(&replacement, 0, sizeof(replacement));
+
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_MYSQL;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "mysql select parse should succeed") != 0) {
+		return 1;
+	}
+
+	if (expect_true(sqlparser_handle_dialect(handle) == SQLPARSER_DIALECT_MYSQL, "handle dialect should be mysql") != 0 ||
+	    expect_true(strcmp(sqlparser_original_sql(handle), sql) == 0, "original SQL should be preserved") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_statement_relation(handle, 0U, 0U, &relation, &error);
+	if (expect_status_ok(rc, &error, "mysql select relation should succeed") != 0 ||
+	    expect_true(strcmp(relation.table_name, "users") == 0, "mysql relation should be users") != 0 ||
+	    expect_true(strcmp(relation.alias_name, "u") == 0, "mysql alias should be u") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_statement_where_literal(handle, 0U, 0U, &where_literal, &error);
+	if (expect_status_ok(rc, &error, "mysql where literal should succeed") != 0 ||
+	    expect_true(where_literal.literal.kind == SQLPARSER_LITERAL_KIND_INTEGER, "mysql where literal should be integer") != 0 ||
+	    expect_true(where_literal.literal.integer_value == 1, "mysql where literal should be 1") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	replacement.kind = SQLPARSER_LITERAL_KIND_INTEGER;
+	replacement.integer_value = 2;
+	rc = sqlparser_statement_where_set_literal(handle, 0U, 0U, &replacement, &error);
+	if (expect_status_ok(rc, &error, "mysql where rewrite should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "mysql select deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "LIMIT 5, 10") != NULL, "mysql deparse should use offset,count LIMIT") != 0 ||
+	    expect_true(strstr(deparsed_sql, "OFFSET") == NULL, "mysql deparse should not expose OFFSET for comma LIMIT") != 0 ||
+	    expect_true(strstr(deparsed_sql, "2") != NULL, "mysql deparse should contain rewritten literal") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_mysql_dialect_insert_rewrite(void)
+{
+	const char *sql;
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_insert_source_kind_t source_kind;
+	sqlparser_literal_view_t literal;
+	sqlparser_literal_value_t replacement;
+	char *deparsed_sql;
+	const char *column_name;
+	size_t row_count;
+	int rc;
+
+	sql = "INSERT INTO `users` (`id`, `name`) VALUES (1, \"bob\"), (2, 'alice')";
+	handle = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&literal, 0, sizeof(literal));
+	memset(&replacement, 0, sizeof(replacement));
+
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_MYSQL;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "mysql insert parse should succeed") != 0) {
+		return 1;
+	}
+
+	rc = sqlparser_insert_source_kind(handle, 0U, &source_kind, &error);
+	if (expect_status_ok(rc, &error, "mysql insert source kind should succeed") != 0 ||
+	    expect_true(source_kind == SQLPARSER_INSERT_SOURCE_VALUES, "mysql insert source should be VALUES") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_insert_column_name(handle, 0U, 1U, &column_name, &error);
+	if (expect_status_ok(rc, &error, "mysql insert column name should succeed") != 0 ||
+	    expect_true(strcmp(column_name, "name") == 0, "mysql insert column should be name") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_insert_row_count(handle, 0U, &row_count, &error);
+	if (expect_status_ok(rc, &error, "mysql insert row count should succeed") != 0 ||
+	    expect_true(row_count == 2U, "mysql insert row count should be 2") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_insert_cell_literal(handle, 0U, 0U, 1U, &literal, &error);
+	if (expect_status_ok(rc, &error, "mysql insert cell literal should succeed") != 0 ||
+	    expect_true(literal.kind == SQLPARSER_LITERAL_KIND_STRING, "mysql insert cell should be string") != 0 ||
+	    expect_true(strcmp(literal.string_value, "bob") == 0, "mysql double string should normalize to string literal") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	replacement.kind = SQLPARSER_LITERAL_KIND_STRING;
+	replacement.string_value = "carol";
+	rc = sqlparser_insert_set_cell_literal(handle, 0U, 0U, 1U, &replacement, &error);
+	if (expect_status_ok(rc, &error, "mysql insert rewrite should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "mysql insert deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "carol") != NULL, "mysql insert deparse should contain rewritten value") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_mysql_dialect_unsupported(void)
+{
+	const char *sqls[] = {
+		"INSERT IGNORE INTO `users` (`id`) VALUES (1)",
+		"INSERT INTO users(id) VALUES(1) ON DUPLICATE KEY UPDATE id = 2",
+		"REPLACE INTO users(id) VALUES(1)",
+		"CREATE TABLE `users` (`id` INT AUTO_INCREMENT)"
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	size_t index;
+	int rc;
+
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_MYSQL;
+
+	for (index = 0U; index < sizeof(sqls) / sizeof(sqls[0]); index++) {
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(sqls[index], &options, &handle, &error);
+		if (expect_true(rc == SQLPARSER_STATUS_UNSUPPORTED, "unsupported mysql syntax should return UNSUPPORTED") != 0 ||
+		    expect_true(handle == NULL, "unsupported mysql syntax should not return handle") != 0 ||
+		    expect_true(error.message[0] != '\0', "unsupported mysql syntax should provide error message") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+static int test_unsupported_dialect_option(void)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	rc = sqlparser_parse_with_options("SELECT 1", &options, &handle, &error);
+	if (expect_true(rc == SQLPARSER_STATUS_UNSUPPORTED, "oracle placeholder should be unsupported") != 0 ||
+	    expect_true(handle == NULL, "unsupported dialect should not return handle") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	return 0;
+}
+
 int main(void)
 {
 	if (test_statement_kind_walk() != 0) {
@@ -1817,6 +2021,18 @@ int main(void)
 		return 1;
 	}
 	if (test_resource_limits() != 0) {
+		return 1;
+	}
+	if (test_mysql_dialect_select_rewrite() != 0) {
+		return 1;
+	}
+	if (test_mysql_dialect_insert_rewrite() != 0) {
+		return 1;
+	}
+	if (test_mysql_dialect_unsupported() != 0) {
+		return 1;
+	}
+	if (test_unsupported_dialect_option() != 0) {
 		return 1;
 	}
 

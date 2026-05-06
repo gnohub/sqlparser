@@ -18,6 +18,7 @@ This release provides:
 - statement-wide relation, name, and literal traversal and rewrite
 - `INSERT`, `UPDATE`, and `WHERE` structural views
 - stable selector parse / format / lookup
+- dialect options with PostgreSQL as the default and a MySQL dialect conversion layer
 - configurable resource limits for SQL input, model JSON input, generated output, and statement count
 - `parse tree JSON` export
 - `summary JSON` export
@@ -91,6 +92,15 @@ int main(void)
 }
 ```
 
+Use `sqlparser_parse_with_options()` to select the MySQL dialect:
+
+```c
+sqlparser_parse_options_t options;
+
+sqlparser_parse_options_default(&options);
+options.dialect = SQLPARSER_DIALECT_MYSQL;
+```
+
 Compile the example with:
 
 ```bash
@@ -144,6 +154,7 @@ Example programs are available under `examples/`:
 - `07_multi_statement_walk.c`
 - `08_model_roundtrip.c`
 - `09_expression_rewrite.c`
+- `10_mysql_dialect.c`
 
 See [examples/README.md](./examples/README.md) for details.
 

@@ -18,6 +18,7 @@
 - 表、名称原子、字面量的遍历与改写
 - `INSERT`、`UPDATE`、`WHERE` 结构读取与精确改写
 - `selector` 解析、格式化与定位
+- 方言选项，默认 PostgreSQL，并提供 MySQL 方言转换层
 - 可配置资源限制，覆盖 SQL 输入、模型 JSON 输入、生成输出与语句数量
 - `parse tree JSON` 导出
 - `summary JSON` 导出
@@ -91,6 +92,15 @@ int main(void)
 }
 ```
 
+指定 MySQL 方言时使用 `sqlparser_parse_with_options()`：
+
+```c
+sqlparser_parse_options_t options;
+
+sqlparser_parse_options_default(&options);
+options.dialect = SQLPARSER_DIALECT_MYSQL;
+```
+
 示例编译方式：
 
 ```bash
@@ -144,6 +154,7 @@ gcc -std=gnu11 demo.c $(pkg-config --cflags --libs sqlparser) -o demo
 - `07_multi_statement_walk.c`
 - `08_model_roundtrip.c`
 - `09_expression_rewrite.c`
+- `10_mysql_dialect.c`
 
 示例说明见 [examples/README.zh-CN.md](./examples/README.zh-CN.md)。
 
