@@ -384,7 +384,7 @@ vendor-clean:
 	@$(MAKE) -C $(VENDOR_PG_QUERY_DIR) clean >/dev/null 2>&1 || true
 	@rm -rf $(VENDOR_PG_QUERY_MERGE_DIR)
 
-$(BUILD_SIGNATURE_FILE): Makefile $(CONFIG) $(SQLPARSER_SITE_CONFIG) | prep
+$(BUILD_SIGNATURE_FILE): Makefile $(CONFIG) $(SQLPARSER_SITE_CONFIG) VERSION | prep
 	@tmp_file="$@.tmp"; \
 	printf '%s\n' \
 		"CC=$(CC)" \
@@ -435,7 +435,7 @@ $(SHARED_LIB_REAL_PATH): $(OBJ_FILES) $(VENDOR_PG_QUERY_LIB) | prep
 $(SHARED_LIB_PATH): $(SHARED_LIB_REAL_PATH) | prep
 	@ln -sf $(notdir $(SHARED_LIB_REAL_PATH)) $@
 
-$(PKGCONFIG_FILE): config/sqlparser.pc.in | prep
+$(PKGCONFIG_FILE): config/sqlparser.pc.in VERSION | prep
 	@sed \
 		-e 's|@PREFIX@|$(PREFIX)|g' \
 		-e 's|@INCLUDEDIR@|$(INCLUDEDIR)|g' \
