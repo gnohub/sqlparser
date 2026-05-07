@@ -20,6 +20,7 @@
 - 严格编译与 sanitizer 门禁
 - `valgrind` 泄漏校验
 - 长时间循环回归
+- 稳定性与异常输入回归
 
 ## 执行方式
 
@@ -60,6 +61,7 @@ make test
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_oracle_dialect_case_matrix.c`
+- `tests/unit/test_stability.c`
 - `tests/install/install_smoke.c`
 - `tests/cases/sql_batch_input.json`
 - `tests/cases/mysql_dialect_input.json`
@@ -81,6 +83,7 @@ make test
 - selector 与模型 JSON 回放
 - MySQL 方言转换层的解析、反解析和明确不支持语法返回码
 - Oracle 方言转换层的解析、反解析和明确不支持语法返回码
+- 参数校验、资源限制、畸形 SQL、失败改写回滚和方言公共输出稳定性
 
 ## 用例矩阵
 

@@ -82,7 +82,8 @@ UNIT_TEST_BINS = \
 	$(BIN_DIR)\test_api_case_matrix.exe \
 	$(BIN_DIR)\test_core_api.exe \
 	$(BIN_DIR)\test_mysql_dialect_case_matrix.exe \
-	$(BIN_DIR)\test_oracle_dialect_case_matrix.exe
+	$(BIN_DIR)\test_oracle_dialect_case_matrix.exe \
+	$(BIN_DIR)\test_stability.exe
 
 EXAMPLE_BINS = \
 	$(BIN_DIR)\01_select_inspect.exe \
@@ -124,6 +125,7 @@ test: all $(UNIT_TEST_BINS) examples
 	$(BIN_DIR)\test_core_api.exe
 	$(BIN_DIR)\test_mysql_dialect_case_matrix.exe
 	$(BIN_DIR)\test_oracle_dialect_case_matrix.exe
+	$(BIN_DIR)\test_stability.exe
 	$(BIN_DIR)\01_select_inspect.exe
 	$(BIN_DIR)\02_insert_values_replace_literal.exe
 	$(BIN_DIR)\03_insert_select_inspect.exe
@@ -253,6 +255,9 @@ $(BIN_DIR)\test_mysql_dialect_case_matrix.exe: tests\unit\test_mysql_dialect_cas
 
 $(BIN_DIR)\test_oracle_dialect_case_matrix.exe: tests\unit\test_oracle_dialect_case_matrix.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_oracle_dialect_case_matrix.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_stability.exe: tests\unit\test_stability.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_stability.c /link $(LDFLAGS) $(LDLIBS)
 
 $(BIN_DIR)\01_select_inspect.exe: examples\01_select_inspect.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ examples\01_select_inspect.c /link $(LDFLAGS) $(LDLIBS)

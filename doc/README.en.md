@@ -10,6 +10,9 @@ This directory contains the project documentation for `sqlparser`.
 - [Compatibility Policy](./compatibility_policy.en.md)
   Describes compatibility boundaries for the public API, ABI, selectors, and
   model JSON.
+- [Oracle Dialect Support](./oracle_dialect_support.en.md)
+  Describes Oracle dialect support, explicitly unsupported syntax, and output
+  rules.
 - [API Reference](./api_reference.en.md)
   Describes the main public-header types, lifecycle rules, and function groups.
 - [Model JSON Guide](./model_json.en.md)
@@ -23,6 +26,7 @@ This directory contains the project documentation for `sqlparser`.
 ## Related Materials
 
 - [Quick Start](../README.en.md)
+- [Release Notes](../RELEASE_NOTES.en.md)
 - [Changelog](../CHANGELOG.en.md)
 - [Examples Guide](../examples/README.md)
 - [Test Guide](../tests/README.en.md)

@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential gcc make pkg-config libjansson-dev python3
+          sudo apt-get install -y build-essential gcc make pkg-config libjansson-dev python3 jq
 
       - name: Show toolchain
         run: |
@@ -33,6 +33,9 @@ jobs:
       - name: Check whitespace
         run: git diff --check
 
+      - name: Validate JSON fixtures
+        run: jq empty tests/cases/*.json
+
       - name: Build, test, install smoke, and ABI check
         run: make verify-ci
 
@@ -40,3 +43,14 @@ jobs:
         run: |
           make clean
           make bench-smoke BENCH_PROFILE=smoke BENCH_STAGES=parse,api,report DEBUG=0 SHOW_WARNING=0 SHOW_VENDOR_WARNING=0
+
+      - name: Source package smoke
+        run: |
+          make dist
+          version="$(tr -d '\r\n' < VERSION)"
+          tarball="build/dist/sqlparser-${version}.tar.gz"
+          test -f "${tarball}"
+          tar -tzf "${tarball}" > /tmp/sqlparser_dist.list
+          grep -q "sqlparser-${version}/include/sqlparser/sqlparser.h" /tmp/sqlparser_dist.list
+          grep -q "sqlparser-${version}/src/dialect/sqlparser_dialect_oracle.c" /tmp/sqlparser_dist.list
+          ! grep -E '(^|/)(build|tmp)/|\.DS_Store$|/\._|\.o$|\.a$|\.so$|\.exe$|\.dll$|\.obj$|\.pdb$' /tmp/sqlparser_dist.list

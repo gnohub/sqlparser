@@ -20,6 +20,7 @@ The test suite contains:
 - strict-build and sanitizer gates
 - `valgrind` leak checks
 - long-running loop regression
+- stability and malformed-input regression
 
 ## Run
 
@@ -58,6 +59,7 @@ Common quality-gate entry points:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_oracle_dialect_case_matrix.c`
+- `tests/unit/test_stability.c`
 - `tests/install/install_smoke.c`
 - `tests/cases/sql_batch_input.json`
 - `tests/cases/mysql_dialect_input.json`
@@ -80,6 +82,8 @@ The test coverage includes:
 - selector replay and model JSON replay
 - MySQL dialect conversion, deparse output, and explicit unsupported-syntax return codes
 - Oracle dialect conversion, deparse output, and explicit unsupported-syntax return codes
+- argument validation, resource limits, malformed SQL, failed-rewrite rollback,
+  and dialect public-output stability
 
 ## Case Matrix
 

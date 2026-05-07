@@ -21,6 +21,23 @@ selectors, and model JSON exposed by `sqlparser`.
   structure fields remain compatible.
 - Breaking API changes are introduced only with a new major version.
 
+## v0.2 Public Surface
+
+The `v0.2.0-dev` public surface includes:
+
+- `sqlparser_parse()`, `sqlparser_parse_with_limits()`, and
+  `sqlparser_parse_with_options()`
+- `sqlparser_handle_t` lifecycle management
+- statement, relation, name-atom, literal, `WHERE` literal, `UPDATE assignment`,
+  and `INSERT cell` access APIs
+- selector parsing, formatting, read, and rewrite APIs
+- parse-tree JSON, summary JSON, model JSON, and deparse output APIs
+- resource limits, version string, model schema, and dialect-name helper APIs
+
+`SQLPARSER_DIALECT_SQLSERVER` is a reserved enum and currently returns
+`SQLPARSER_STATUS_UNSUPPORTED`. MySQL and Oracle support boundaries are defined
+by their case matrices.
+
 ## ABI and Shared Library
 
 - The shared library is published as `libsqlparser.so.<major>`.

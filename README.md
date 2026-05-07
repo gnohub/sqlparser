@@ -194,10 +194,12 @@ gcc -std=gnu11 demo.c $(pkg-config --cflags --libs sqlparser) -o demo
 - [文档目录](./doc/README.md)
 - [项目概览与架构](./doc/sqlparser_architecture.md)
 - [兼容性策略](./doc/compatibility_policy.md)
+- [Oracle 方言支持](./doc/oracle_dialect_support.md)
 - [API 手册](./doc/api_reference.md)
 - [模型 JSON 手册](./doc/model_json.md)
 - [CLI 手册](./doc/cli_guide.md)
 - [libpg_query 集成说明](./doc/libpg_query_analysis.md)
+- [发布说明](./RELEASE_NOTES.md)
 - [变更记录](./CHANGELOG.md)
 
 ## 测试与性能

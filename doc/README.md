@@ -8,6 +8,8 @@
   说明项目定位、分层结构、数据模型和扩展边界。
 - [兼容性策略](./compatibility_policy.md)
   说明公共 API、ABI、selector 与模型 JSON 的兼容性边界。
+- [Oracle 方言支持](./oracle_dialect_support.md)
+  说明 Oracle 方言转换层的支持范围、明确不支持范围和输出规则。
 - [API 手册](./api_reference.md)
   说明公共头文件中的主要类型、生命周期规则和函数分组。
 - [模型 JSON 手册](./model_json.md)
@@ -20,6 +22,7 @@
 ## 相关资料
 
 - [快速开始](../README.md)
+- [发布说明](../RELEASE_NOTES.md)
 - [变更记录](../CHANGELOG.md)
 - [示例说明](../examples/README.zh-CN.md)
 - [测试说明](../tests/README.md)

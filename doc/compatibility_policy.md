@@ -16,6 +16,19 @@
 - 同一主版本内，已发布函数、枚举值和结构体字段保持兼容
 - 需要破坏兼容性的调整通过提升主版本处理
 
+## v0.2 公共面
+
+`v0.2.0-dev` 的公共面包括：
+
+- `sqlparser_parse()`、`sqlparser_parse_with_limits()`、`sqlparser_parse_with_options()`
+- `sqlparser_handle_t` 生命周期管理
+- 语句、关系、名称原子、字面量、`WHERE` 字面量、`UPDATE assignment` 和 `INSERT cell` 访问接口
+- selector 解析、格式化、读取与改写接口
+- `parse tree JSON`、`summary JSON`、模型 JSON 和 deparse 输出接口
+- 资源限制、版本字符串、模型 schema 和方言名称辅助接口
+
+`SQLPARSER_DIALECT_SQLSERVER` 是保留枚举，当前返回 `SQLPARSER_STATUS_UNSUPPORTED`。MySQL 与 Oracle 方言按各自用例矩阵定义支持边界。
+
 ## ABI 与动态库
 
 - 动态库以 `libsqlparser.so.<major>` 发布
