@@ -2,6 +2,7 @@
 /bin/
 /lib/
 .DS_Store
+._*
 /vendor/libpg_query/*.a
 /vendor/libpg_query/*.o
 /vendor/libpg_query/*.so

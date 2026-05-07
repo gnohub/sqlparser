@@ -31,16 +31,27 @@ This release provides:
 - static library: `lib/libsqlparser.a`
 - shared library: `lib/libsqlparser.so`
 - CLI: `bin/sqlparser_cli`
+- Windows MSVC static library: `build\msvc\lib\sqlparser.lib`
+- Windows MSVC CLI: `build\msvc\bin\sqlparser_cli.exe`
 
 ## Build Dependencies
 
-- Linux
+Linux:
+
 - GCC 8.3 or later with `gnu11` support
 - GNU Make
 - `pkg-config`
 - `jansson`
 
-## Build
+Windows:
+
+- Visual Studio 2022 x64
+- MSVC 19.39 or later
+- NMake
+
+The Windows build uses the vendored Jansson source included in this repository.
+
+## Linux Build
 
 ```bash
 make all
@@ -60,6 +71,23 @@ Common targets:
 - `make bench-smoke`
 - `make dist`
 - `make install PREFIX=/usr/local`
+
+## Windows Build
+
+Run from an x64 Native Tools Command Prompt for VS 2022:
+
+```bat
+nmake /F Makefile.msvc test
+```
+
+Common targets:
+
+- `nmake /F Makefile.msvc all`
+- `nmake /F Makefile.msvc static`
+- `nmake /F Makefile.msvc cli`
+- `nmake /F Makefile.msvc examples`
+- `nmake /F Makefile.msvc test`
+- `nmake /F Makefile.msvc clean`
 
 ## Minimal Integration Example
 

@@ -29,6 +29,10 @@
   header
 - Added Linux/GCC GitHub Actions CI gates
 - Added `make dist` for source release packages
+- Added a Windows/MSVC NMake build entry point for the static library, CLI, unit
+  tests, and examples
+- The Windows/MSVC build uses the vendored Jansson source and does not require an
+  external package manager
 
 ### Tests and Performance
 

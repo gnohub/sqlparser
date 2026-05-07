@@ -31,16 +31,27 @@
 - 静态库：`lib/libsqlparser.a`
 - 动态库：`lib/libsqlparser.so`
 - CLI：`bin/sqlparser_cli`
+- Windows MSVC 静态库：`build\msvc\lib\sqlparser.lib`
+- Windows MSVC CLI：`build\msvc\bin\sqlparser_cli.exe`
 
 ## 构建依赖
 
-- Linux
+Linux:
+
 - GCC 8.3 或更新版本，并支持 `gnu11`
 - GNU Make
 - `pkg-config`
 - `jansson`
 
-## 构建
+Windows:
+
+- Visual Studio 2022 x64
+- MSVC 19.39 或更新版本
+- NMake
+
+Windows 构建使用仓库内的 vendored Jansson，不需要额外安装 JSON 库。
+
+## Linux 构建
 
 ```bash
 make all
@@ -60,6 +71,23 @@ make all
 - `make bench-smoke`
 - `make dist`
 - `make install PREFIX=/usr/local`
+
+## Windows 构建
+
+在 x64 Native Tools Command Prompt for VS 2022 中执行：
+
+```bat
+nmake /F Makefile.msvc test
+```
+
+常用目标：
+
+- `nmake /F Makefile.msvc all`
+- `nmake /F Makefile.msvc static`
+- `nmake /F Makefile.msvc cli`
+- `nmake /F Makefile.msvc examples`
+- `nmake /F Makefile.msvc test`
+- `nmake /F Makefile.msvc clean`
 
 ## 最小接入示例
 

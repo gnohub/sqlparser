@@ -14,9 +14,13 @@ The original license text is available at:
 
 ## 2. jansson
 
+- Location: `vendor/jansson/`
 - Purpose: JSON encoding and decoding
-- Integration model: external dependency provided by the build environment or
-  system package manager
+- License: MIT
 
-`jansson` is not distributed as vendored source code in this repository. Its
-license terms depend on the installed version used in the target environment.
+The vendored source is used by the MSVC Windows build. Linux builds continue to
+use the system-provided Jansson package through `pkg-config`.
+
+The original license text is available at:
+
+- `vendor/jansson/LICENSE`

@@ -21,6 +21,8 @@
 - 新增 `make abi-check`，校验动态库导出符号与公共头文件一致
 - 新增 Linux/GCC GitHub Actions CI 门禁
 - 新增 `make dist` 源码发布包目标
+- 新增 Windows/MSVC NMake 构建入口，支持生成静态库、CLI、单元测试与示例程序
+- Windows/MSVC 构建使用仓库内 vendored Jansson，避免依赖外部包管理器
 
 ### 测试与性能
 

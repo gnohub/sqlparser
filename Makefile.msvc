@@ -1,0 +1,274 @@
+# NMake build file for Microsoft Visual Studio 2022 x64.
+#
+# Usage from a VS Developer Command Prompt:
+#   nmake /F Makefile.msvc test
+
+LIB_NAME = sqlparser
+VERSION_STRING = 0.1.0-dev
+LIBPG_QUERY_TAG = 17-6.2.2
+MODEL_SCHEMA = sqlparser.model/v1
+
+BUILD_DIR = build\msvc
+OBJ_DIR = $(BUILD_DIR)\obj
+JANSSON_OBJ_DIR = $(OBJ_DIR)\jansson
+BIN_DIR = $(BUILD_DIR)\bin
+LIB_DIR = $(BUILD_DIR)\lib
+
+JANSSON_DIR = vendor\jansson
+JANSSON_INCLUDE = $(JANSSON_DIR)\src
+JANSSON_LIB = $(LIB_DIR)\jansson.lib
+
+PG_QUERY_DIR = vendor\libpg_query
+PG_QUERY_LIB = $(PG_QUERY_DIR)\pg_query.lib
+PG_QUERY_CFLAGS = /nologo /MD /utf-8 /I. /I.\vendor /I.\src\postgres\include /I.\src\include /I.\src\postgres\include\port\win32 /I.\src\postgres\include\port\win32_msvc
+
+STATIC_LIB = $(LIB_DIR)\$(LIB_NAME).lib
+CLI_BIN = $(BIN_DIR)\sqlparser_cli.exe
+
+BASE_DEFINES = \
+	/D_CRT_SECURE_NO_WARNINGS \
+	/DSQLPARSER_VERSION_TEXT=\"$(VERSION_STRING)\" \
+	/DSQLPARSER_LIBPG_QUERY_TAG_TEXT=\"$(LIBPG_QUERY_TAG)\" \
+	/DSQLPARSER_MODEL_SCHEMA_TEXT=\"$(MODEL_SCHEMA)\"
+
+BASE_INCLUDES = \
+	/Iinclude \
+	/Isrc\internal \
+	/I$(PG_QUERY_DIR) \
+	/I$(PG_QUERY_DIR)\vendor \
+	/I$(JANSSON_INCLUDE)
+
+CFLAGS = /nologo /std:c11 /utf-8 /O2 /MD $(BASE_DEFINES) $(BASE_INCLUDES)
+JANSSON_CFLAGS = $(CFLAGS) /DHAVE_CONFIG_H
+LDFLAGS = /nologo
+LDLIBS = $(STATIC_LIB) $(PG_QUERY_LIB) $(JANSSON_LIB)
+
+JANSSON_OBJS = \
+	$(JANSSON_OBJ_DIR)\dtoa.obj \
+	$(JANSSON_OBJ_DIR)\dump.obj \
+	$(JANSSON_OBJ_DIR)\error.obj \
+	$(JANSSON_OBJ_DIR)\hashtable.obj \
+	$(JANSSON_OBJ_DIR)\hashtable_seed.obj \
+	$(JANSSON_OBJ_DIR)\load.obj \
+	$(JANSSON_OBJ_DIR)\memory.obj \
+	$(JANSSON_OBJ_DIR)\pack_unpack.obj \
+	$(JANSSON_OBJ_DIR)\strbuffer.obj \
+	$(JANSSON_OBJ_DIR)\strconv.obj \
+	$(JANSSON_OBJ_DIR)\utf.obj \
+	$(JANSSON_OBJ_DIR)\value.obj \
+	$(JANSSON_OBJ_DIR)\version.obj
+
+CORE_OBJS = \
+	$(OBJ_DIR)\sqlparser_ast.obj \
+	$(OBJ_DIR)\sqlparser_ast_expr.obj \
+	$(OBJ_DIR)\sqlparser_ast_insert.obj \
+	$(OBJ_DIR)\sqlparser_ast_literal.obj \
+	$(OBJ_DIR)\sqlparser_ast_statement.obj \
+	$(OBJ_DIR)\sqlparser_ast_update.obj \
+	$(OBJ_DIR)\sqlparser_core.obj \
+	$(OBJ_DIR)\sqlparser_inspect.obj \
+	$(OBJ_DIR)\sqlparser_json.obj \
+	$(OBJ_DIR)\sqlparser_model.obj \
+	$(OBJ_DIR)\sqlparser_model_apply.obj \
+	$(OBJ_DIR)\sqlparser_model_export.obj \
+	$(OBJ_DIR)\sqlparser_selector.obj \
+	$(OBJ_DIR)\sqlparser_dialect_mysql.obj \
+	$(OBJ_DIR)\sqlparser_dialect_postgresql.obj \
+	$(OBJ_DIR)\sqlparser_dialect_registry.obj
+
+UNIT_TEST_BINS = \
+	$(BIN_DIR)\test_api_smoke.exe \
+	$(BIN_DIR)\test_api_case_matrix.exe \
+	$(BIN_DIR)\test_core_api.exe \
+	$(BIN_DIR)\test_mysql_dialect_case_matrix.exe
+
+EXAMPLE_BINS = \
+	$(BIN_DIR)\01_select_inspect.exe \
+	$(BIN_DIR)\02_insert_values_replace_literal.exe \
+	$(BIN_DIR)\03_insert_select_inspect.exe \
+	$(BIN_DIR)\04_update_replace_assignment.exe \
+	$(BIN_DIR)\05_delete_inspect.exe \
+	$(BIN_DIR)\06_ddl_inspect.exe \
+	$(BIN_DIR)\07_multi_statement_walk.exe \
+	$(BIN_DIR)\08_model_roundtrip.exe \
+	$(BIN_DIR)\09_expression_rewrite.exe \
+	$(BIN_DIR)\10_mysql_dialect.exe
+
+all: static cli
+
+prep:
+	@if not exist $(OBJ_DIR) mkdir $(OBJ_DIR)
+	@if not exist $(JANSSON_OBJ_DIR) mkdir $(JANSSON_OBJ_DIR)
+	@if not exist $(BIN_DIR) mkdir $(BIN_DIR)
+	@if not exist $(LIB_DIR) mkdir $(LIB_DIR)
+
+jansson: prep $(JANSSON_LIB)
+
+vendor: $(PG_QUERY_LIB)
+
+$(PG_QUERY_LIB):
+	cd $(PG_QUERY_DIR) && $(MAKE) /F Makefile.msvc build CFLAGS="$(PG_QUERY_CFLAGS)"
+
+static: prep jansson $(PG_QUERY_LIB) $(STATIC_LIB)
+
+cli: $(CLI_BIN)
+
+examples: $(EXAMPLE_BINS)
+
+test: all $(UNIT_TEST_BINS) examples
+	$(BIN_DIR)\test_api_smoke.exe
+	$(BIN_DIR)\test_api_case_matrix.exe
+	$(BIN_DIR)\test_core_api.exe
+	$(BIN_DIR)\test_mysql_dialect_case_matrix.exe
+	$(BIN_DIR)\01_select_inspect.exe
+	$(BIN_DIR)\02_insert_values_replace_literal.exe
+	$(BIN_DIR)\03_insert_select_inspect.exe
+	$(BIN_DIR)\04_update_replace_assignment.exe
+	$(BIN_DIR)\05_delete_inspect.exe
+	$(BIN_DIR)\06_ddl_inspect.exe
+	$(BIN_DIR)\07_multi_statement_walk.exe
+	$(BIN_DIR)\08_model_roundtrip.exe
+	$(BIN_DIR)\09_expression_rewrite.exe
+	$(BIN_DIR)\10_mysql_dialect.exe
+
+clean:
+	@if exist $(BUILD_DIR) rmdir /S /Q $(BUILD_DIR)
+	@cd $(PG_QUERY_DIR) && $(MAKE) /F Makefile.msvc clean
+
+$(JANSSON_LIB): $(JANSSON_OBJS)
+	lib /nologo /OUT:$@ $(JANSSON_OBJS)
+
+$(JANSSON_OBJ_DIR)\dtoa.obj: $(JANSSON_DIR)\src\dtoa.c
+	$(CC) $(JANSSON_CFLAGS) /Fo$@ /c $(JANSSON_DIR)\src\dtoa.c
+
+$(JANSSON_OBJ_DIR)\dump.obj: $(JANSSON_DIR)\src\dump.c
+	$(CC) $(JANSSON_CFLAGS) /Fo$@ /c $(JANSSON_DIR)\src\dump.c
+
+$(JANSSON_OBJ_DIR)\error.obj: $(JANSSON_DIR)\src\error.c
+	$(CC) $(JANSSON_CFLAGS) /Fo$@ /c $(JANSSON_DIR)\src\error.c
+
+$(JANSSON_OBJ_DIR)\hashtable.obj: $(JANSSON_DIR)\src\hashtable.c
+	$(CC) $(JANSSON_CFLAGS) /Fo$@ /c $(JANSSON_DIR)\src\hashtable.c
+
+$(JANSSON_OBJ_DIR)\hashtable_seed.obj: $(JANSSON_DIR)\src\hashtable_seed.c
+	$(CC) $(JANSSON_CFLAGS) /Fo$@ /c $(JANSSON_DIR)\src\hashtable_seed.c
+
+$(JANSSON_OBJ_DIR)\load.obj: $(JANSSON_DIR)\src\load.c
+	$(CC) $(JANSSON_CFLAGS) /Fo$@ /c $(JANSSON_DIR)\src\load.c
+
+$(JANSSON_OBJ_DIR)\memory.obj: $(JANSSON_DIR)\src\memory.c
+	$(CC) $(JANSSON_CFLAGS) /Fo$@ /c $(JANSSON_DIR)\src\memory.c
+
+$(JANSSON_OBJ_DIR)\pack_unpack.obj: $(JANSSON_DIR)\src\pack_unpack.c
+	$(CC) $(JANSSON_CFLAGS) /Fo$@ /c $(JANSSON_DIR)\src\pack_unpack.c
+
+$(JANSSON_OBJ_DIR)\strbuffer.obj: $(JANSSON_DIR)\src\strbuffer.c
+	$(CC) $(JANSSON_CFLAGS) /Fo$@ /c $(JANSSON_DIR)\src\strbuffer.c
+
+$(JANSSON_OBJ_DIR)\strconv.obj: $(JANSSON_DIR)\src\strconv.c
+	$(CC) $(JANSSON_CFLAGS) /Fo$@ /c $(JANSSON_DIR)\src\strconv.c
+
+$(JANSSON_OBJ_DIR)\utf.obj: $(JANSSON_DIR)\src\utf.c
+	$(CC) $(JANSSON_CFLAGS) /Fo$@ /c $(JANSSON_DIR)\src\utf.c
+
+$(JANSSON_OBJ_DIR)\value.obj: $(JANSSON_DIR)\src\value.c
+	$(CC) $(JANSSON_CFLAGS) /Fo$@ /c $(JANSSON_DIR)\src\value.c
+
+$(JANSSON_OBJ_DIR)\version.obj: $(JANSSON_DIR)\src\version.c
+	$(CC) $(JANSSON_CFLAGS) /Fo$@ /c $(JANSSON_DIR)\src\version.c
+
+$(STATIC_LIB): prep jansson $(PG_QUERY_LIB) $(CORE_OBJS)
+	lib /nologo /OUT:$@ $(CORE_OBJS)
+
+$(OBJ_DIR)\sqlparser_ast.obj: src\core\sqlparser_ast.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast.c
+
+$(OBJ_DIR)\sqlparser_ast_expr.obj: src\core\sqlparser_ast_expr.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_expr.c
+
+$(OBJ_DIR)\sqlparser_ast_insert.obj: src\core\sqlparser_ast_insert.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_insert.c
+
+$(OBJ_DIR)\sqlparser_ast_literal.obj: src\core\sqlparser_ast_literal.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_literal.c
+
+$(OBJ_DIR)\sqlparser_ast_statement.obj: src\core\sqlparser_ast_statement.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_statement.c
+
+$(OBJ_DIR)\sqlparser_ast_update.obj: src\core\sqlparser_ast_update.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_update.c
+
+$(OBJ_DIR)\sqlparser_core.obj: src\core\sqlparser_core.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_core.c
+
+$(OBJ_DIR)\sqlparser_inspect.obj: src\core\sqlparser_inspect.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_inspect.c
+
+$(OBJ_DIR)\sqlparser_json.obj: src\core\sqlparser_json.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_json.c
+
+$(OBJ_DIR)\sqlparser_model.obj: src\core\sqlparser_model.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_model.c
+
+$(OBJ_DIR)\sqlparser_model_apply.obj: src\core\sqlparser_model_apply.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_model_apply.c
+
+$(OBJ_DIR)\sqlparser_model_export.obj: src\core\sqlparser_model_export.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_model_export.c
+
+$(OBJ_DIR)\sqlparser_selector.obj: src\core\sqlparser_selector.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_selector.c
+
+$(OBJ_DIR)\sqlparser_dialect_mysql.obj: src\dialect\sqlparser_dialect_mysql.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_mysql.c
+
+$(OBJ_DIR)\sqlparser_dialect_postgresql.obj: src\dialect\sqlparser_dialect_postgresql.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_postgresql.c
+
+$(OBJ_DIR)\sqlparser_dialect_registry.obj: src\dialect\sqlparser_dialect_registry.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_registry.c
+
+$(CLI_BIN): tools\sqlparser_cli.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tools\sqlparser_cli.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_api_smoke.exe: tests\unit\test_api_smoke.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_api_smoke.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_api_case_matrix.exe: tests\unit\test_api_case_matrix.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_api_case_matrix.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_core_api.exe: tests\unit\test_core_api.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_core_api.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_mysql_dialect_case_matrix.exe: tests\unit\test_mysql_dialect_case_matrix.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_mysql_dialect_case_matrix.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\01_select_inspect.exe: examples\01_select_inspect.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ examples\01_select_inspect.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\02_insert_values_replace_literal.exe: examples\02_insert_values_replace_literal.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ examples\02_insert_values_replace_literal.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\03_insert_select_inspect.exe: examples\03_insert_select_inspect.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ examples\03_insert_select_inspect.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\04_update_replace_assignment.exe: examples\04_update_replace_assignment.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ examples\04_update_replace_assignment.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\05_delete_inspect.exe: examples\05_delete_inspect.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ examples\05_delete_inspect.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\06_ddl_inspect.exe: examples\06_ddl_inspect.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ examples\06_ddl_inspect.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\07_multi_statement_walk.exe: examples\07_multi_statement_walk.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ examples\07_multi_statement_walk.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\08_model_roundtrip.exe: examples\08_model_roundtrip.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ examples\08_model_roundtrip.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\09_expression_rewrite.exe: examples\09_expression_rewrite.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ examples\09_expression_rewrite.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\10_mysql_dialect.exe: examples\10_mysql_dialect.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ examples\10_mysql_dialect.c /link $(LDFLAGS) $(LDLIBS)
