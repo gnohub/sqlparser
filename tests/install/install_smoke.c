@@ -39,7 +39,7 @@ int main(void)
 		return 1;
 	}
 
-	if (expect_true(strcmp(sqlparser_version_string(), "0.1.0-dev") == 0, "version string should be exported") != 0) {
+	if (expect_true(strcmp(sqlparser_version_string(), "0.2.0-dev") == 0, "version string should be exported") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
