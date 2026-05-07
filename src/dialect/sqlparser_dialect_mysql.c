@@ -1167,6 +1167,33 @@ static sqlparser_status_t sqlparser_mysql_preprocess(
 	return SQLPARSER_STATUS_OK;
 }
 
+static sqlparser_status_t sqlparser_mysql_preprocess_fragment(
+	const char *input_sql,
+	void *state,
+	char **out_parser_sql,
+	sqlparser_error_t *out_error)
+{
+	(void)state;
+
+	if (out_parser_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"dialect fragment output must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_parser_sql = NULL;
+	if (input_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"SQL fragment must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_mysql_preprocess_quotes(input_sql, out_parser_sql, out_error);
+}
+
 static sqlparser_status_t sqlparser_mysql_postprocess_deparse(
 	const char *core_sql,
 	const void *state,
@@ -1202,7 +1229,9 @@ static const sqlparser_dialect_ops_t SQLPARSER_MYSQL_OPS = {
 	SQLPARSER_DIALECT_MYSQL,
 	"mysql",
 	sqlparser_mysql_preprocess,
+	sqlparser_mysql_preprocess_fragment,
 	sqlparser_mysql_postprocess_deparse,
+	NULL,
 	NULL,
 	NULL
 };

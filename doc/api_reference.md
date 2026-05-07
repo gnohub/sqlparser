@@ -149,7 +149,7 @@ int main(void)
 | --- | --- |
 | `SQLPARSER_DIALECT_POSTGRESQL` | 默认方言，保持原有解析行为 |
 | `SQLPARSER_DIALECT_MYSQL` | MySQL 方言转换层，支持可安全映射到现有 AST 的语法 |
-| `SQLPARSER_DIALECT_ORACLE` | 预留方言枚举，当前返回 `SQLPARSER_STATUS_UNSUPPORTED` |
+| `SQLPARSER_DIALECT_ORACLE` | Oracle 方言转换层，支持可安全映射到现有 AST 的常用 SQL 子集 |
 | `SQLPARSER_DIALECT_SQLSERVER` | 预留方言枚举，当前返回 `SQLPARSER_STATUS_UNSUPPORTED` |
 
 ### 视图结构
@@ -278,8 +278,8 @@ sqlparser_status_t sqlparser_parse_with_options(
 
 - 与 `sqlparser_parse()` 相同，但允许传入方言和资源限制。
 - `options` 为 `NULL` 时使用默认选项，即 PostgreSQL 方言和默认资源限制。
-- MySQL 方言先转换为解析内核可接受的 SQL，再进入统一 AST 链路。
-- 预留但未实现的方言返回 `SQLPARSER_STATUS_UNSUPPORTED`。
+- MySQL、Oracle 方言先转换为解析内核可接受的 SQL，再进入统一 AST 链路。
+- 已定义但未实现的方言返回 `SQLPARSER_STATUS_UNSUPPORTED`。
 
 ### `sqlparser_handle_destroy`
 

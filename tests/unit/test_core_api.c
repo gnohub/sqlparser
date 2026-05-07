@@ -1944,9 +1944,9 @@ static int test_unsupported_dialect_option(void)
 	handle = NULL;
 	memset(&error, 0, sizeof(error));
 	sqlparser_parse_options_default(&options);
-	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	options.dialect = SQLPARSER_DIALECT_SQLSERVER;
 	rc = sqlparser_parse_with_options("SELECT 1", &options, &handle, &error);
-	if (expect_true(rc == SQLPARSER_STATUS_UNSUPPORTED, "oracle placeholder should be unsupported") != 0 ||
+	if (expect_true(rc == SQLPARSER_STATUS_UNSUPPORTED, "sqlserver placeholder should be unsupported") != 0 ||
 	    expect_true(handle == NULL, "unsupported dialect should not return handle") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;

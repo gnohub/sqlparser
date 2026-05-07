@@ -74,7 +74,9 @@ static const sqlparser_dialect_ops_t SQLPARSER_POSTGRESQL_OPS = {
 	SQLPARSER_DIALECT_POSTGRESQL,
 	"postgresql",
 	sqlparser_postgresql_preprocess,
+	NULL,
 	sqlparser_postgresql_postprocess_deparse,
+	NULL,
 	NULL,
 	NULL
 };

@@ -87,6 +87,25 @@ sqlparser_status_t sqlparser_ensure_current_sql_text(
 	sqlparser_error_t *out_error);
 const char *sqlparser_effective_sql(const sqlparser_handle_t *handle);
 const char *sqlparser_effective_parser_sql(const sqlparser_handle_t *handle);
+sqlparser_status_t sqlparser_postprocess_handle_sql_fragment(
+	const sqlparser_handle_t *handle,
+	const char *core_sql,
+	const char *field_name,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_preprocess_handle_sql_fragment(
+	const sqlparser_handle_t *handle,
+	const char *public_sql,
+	const char *field_name,
+	char **out_parser_sql,
+	void **out_dialect_state,
+	sqlparser_error_t *out_error);
+void sqlparser_handle_discard_dialect_state(
+	const sqlparser_handle_t *handle,
+	void *state);
+void sqlparser_handle_adopt_dialect_state(
+	sqlparser_handle_t *handle,
+	void *state);
 
 int sqlparser_json_array_contains_string(json_t *array, const char *value);
 void sqlparser_json_object_set_nonempty_string(

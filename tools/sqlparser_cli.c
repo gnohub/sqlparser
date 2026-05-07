@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -57,15 +58,32 @@ static void sqlparser_cli_print_usage(const char *program)
 {
 	fprintf(
 		stderr,
-		"Usage: %s [--mode parse-tree|summary|deparse|model|all] [--compact] [--file PATH] [SQL]\n",
+		"Usage: %s [--mode parse-tree|summary|deparse|model|all] [--dialect postgresql|mysql|oracle|sqlserver] [--compact] [--file PATH] [SQL]\n",
 		program);
 	fprintf(
 		stderr,
-		"       %s --batch-file PATH [--output PATH] [--mode parse-tree|summary|deparse|model|all] [--compact]\n",
+		"       %s --batch-file PATH [--output PATH] [--mode parse-tree|summary|deparse|model|all] [--dialect postgresql|mysql|oracle|sqlserver] [--compact]\n",
 		program);
 	fprintf(stderr, "       %s --file ./tests/cases/sample.sql\n", program);
 	fprintf(stderr, "       %s --batch-file ./tests/cases/sql_batch_input.json --output /tmp/out.json\n", program);
 	fprintf(stderr, "       echo \"SELECT 1\" | %s --mode summary\n", program);
+}
+
+static int sqlparser_cli_ascii_equal_ci(const char *left, const char *right)
+{
+	size_t index;
+
+	if (left == NULL || right == NULL) {
+		return 0;
+	}
+
+	for (index = 0U; left[index] != '\0' || right[index] != '\0'; index++) {
+		if (tolower((unsigned char)left[index]) != tolower((unsigned char)right[index])) {
+			return 0;
+		}
+	}
+
+	return 1;
 }
 
 static int sqlparser_cli_append(char **buffer, size_t *len, size_t *capacity, const char *data, size_t data_len)
@@ -227,6 +245,35 @@ static int sqlparser_cli_parse_mode(const char *value, sqlparser_cli_mode_t *mod
 	return -1;
 }
 
+static int sqlparser_cli_parse_dialect(const char *value, sqlparser_dialect_t *dialect_out)
+{
+	if (value == NULL || dialect_out == NULL) {
+		return -1;
+	}
+
+	if (sqlparser_cli_ascii_equal_ci(value, "postgresql") ||
+	    sqlparser_cli_ascii_equal_ci(value, "postgres") ||
+	    sqlparser_cli_ascii_equal_ci(value, "pg")) {
+		*dialect_out = SQLPARSER_DIALECT_POSTGRESQL;
+		return 0;
+	}
+	if (sqlparser_cli_ascii_equal_ci(value, "mysql")) {
+		*dialect_out = SQLPARSER_DIALECT_MYSQL;
+		return 0;
+	}
+	if (sqlparser_cli_ascii_equal_ci(value, "oracle")) {
+		*dialect_out = SQLPARSER_DIALECT_ORACLE;
+		return 0;
+	}
+	if (sqlparser_cli_ascii_equal_ci(value, "sqlserver") ||
+	    sqlparser_cli_ascii_equal_ci(value, "mssql")) {
+		*dialect_out = SQLPARSER_DIALECT_SQLSERVER;
+		return 0;
+	}
+
+	return -1;
+}
+
 static int sqlparser_cli_print_json_section(
 	const char *title,
 	sqlparser_status_t (*export_fn)(
@@ -345,13 +392,17 @@ static int sqlparser_cli_extract_batch_item(
 	json_t *item,
 	const char **name_out,
 	const char **sql_out,
+	sqlparser_dialect_t default_dialect,
+	sqlparser_dialect_t *dialect_out,
 	sqlparser_error_t *error)
 {
+	json_t *dialect_json;
 	json_t *name_json;
 	json_t *sql_json;
 
 	*name_out = NULL;
 	*sql_out = NULL;
+	*dialect_out = default_dialect;
 	sqlparser_cli_error_clear(error);
 
 	if (json_is_string(item)) {
@@ -369,6 +420,7 @@ static int sqlparser_cli_extract_batch_item(
 
 	name_json = json_object_get(item, "name");
 	sql_json = json_object_get(item, "sql");
+	dialect_json = json_object_get(item, "dialect");
 
 	if (name_json != NULL && !json_is_string(name_json)) {
 		sqlparser_cli_error_set(
@@ -385,6 +437,22 @@ static int sqlparser_cli_extract_batch_item(
 			"batch item field 'sql' must be a string");
 		return -1;
 	}
+	if (dialect_json != NULL) {
+		if (!json_is_string(dialect_json)) {
+			sqlparser_cli_error_set(
+				error,
+				SQLPARSER_STATUS_INVALID_ARGUMENT,
+				"batch item field 'dialect' must be a string");
+			return -1;
+		}
+		if (sqlparser_cli_parse_dialect(json_string_value(dialect_json), dialect_out) != 0) {
+			sqlparser_cli_error_set(
+				error,
+				SQLPARSER_STATUS_INVALID_ARGUMENT,
+				"batch item field 'dialect' is not supported");
+			return -1;
+		}
+	}
 
 	*name_out = name_json != NULL ? json_string_value(name_json) : NULL;
 	*sql_out = json_string_value(sql_json);
@@ -395,12 +463,14 @@ static json_t *sqlparser_cli_process_batch_entry(
 	size_t index,
 	const char *name,
 	const char *sql,
+	sqlparser_dialect_t dialect,
 	sqlparser_cli_mode_t mode,
 	int pretty,
 	int *ok_out)
 {
 	json_t *entry;
 	sqlparser_handle_t *handle;
+	sqlparser_parse_options_t options;
 	sqlparser_error_t error;
 	int status;
 
@@ -420,8 +490,11 @@ static json_t *sqlparser_cli_process_batch_entry(
 	if (sql != NULL) {
 		(void)json_object_set_new(entry, "sql", json_string(sql));
 	}
+	(void)json_object_set_new(entry, "dialect", json_string(sqlparser_dialect_name(dialect)));
 
-	status = sqlparser_parse(sql, &handle, &error);
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	status = sqlparser_parse_with_options(sql, &options, &handle, &error);
 	if (status != SQLPARSER_STATUS_OK) {
 		(void)json_object_set_new(entry, "ok", json_false());
 		(void)json_object_set_new(entry, "error", sqlparser_cli_error_to_json("parse", &error));
@@ -599,6 +672,7 @@ static json_t *sqlparser_cli_find_batch_items(json_t *root)
 static int sqlparser_cli_run_batch(
 	const char *batch_file_path,
 	const char *output_path,
+	sqlparser_dialect_t default_dialect,
 	sqlparser_cli_mode_t mode,
 	int pretty)
 {
@@ -611,6 +685,7 @@ static int sqlparser_cli_run_batch(
 	size_t total;
 	size_t succeeded;
 	size_t failed;
+	sqlparser_dialect_t batch_dialect;
 	char *rendered;
 	size_t flags;
 
@@ -649,8 +724,24 @@ static int sqlparser_cli_run_batch(
 	total = json_array_size(items);
 	succeeded = 0U;
 	failed = 0U;
+	batch_dialect = default_dialect;
+	if (json_is_object(input_root)) {
+		json_t *dialect_json;
+
+		dialect_json = json_object_get(input_root, "dialect");
+		if (dialect_json != NULL) {
+			if (!json_is_string(dialect_json) ||
+			    sqlparser_cli_parse_dialect(json_string_value(dialect_json), &batch_dialect) != 0) {
+				json_decref(input_root);
+				json_decref(output_root);
+				fprintf(stderr, "batch field 'dialect' must be one of postgresql/mysql/oracle/sqlserver\n");
+				return 1;
+			}
+		}
+	}
 
 	(void)json_object_set_new(output_root, "mode", json_string(sqlparser_cli_mode_name(mode)));
+	(void)json_object_set_new(output_root, "dialect", json_string(sqlparser_dialect_name(batch_dialect)));
 	(void)json_object_set_new(output_root, "source_file", json_string(batch_file_path));
 	(void)json_object_set_new(output_root, "items", output_items);
 
@@ -659,15 +750,17 @@ static int sqlparser_cli_run_batch(
 		json_t *entry;
 		const char *name;
 		const char *sql;
+		sqlparser_dialect_t item_dialect;
 		sqlparser_error_t error;
 		int ok;
 
 		item = json_array_get(items, index);
 		name = NULL;
 		sql = NULL;
+		item_dialect = batch_dialect;
 		sqlparser_cli_error_clear(&error);
 
-		if (sqlparser_cli_extract_batch_item(item, &name, &sql, &error) != 0) {
+		if (sqlparser_cli_extract_batch_item(item, &name, &sql, batch_dialect, &item_dialect, &error) != 0) {
 			entry = json_object();
 			if (entry == NULL) {
 				json_decref(input_root);
@@ -684,7 +777,7 @@ static int sqlparser_cli_run_batch(
 			continue;
 		}
 
-		entry = sqlparser_cli_process_batch_entry(index, name, sql, mode, pretty, &ok);
+		entry = sqlparser_cli_process_batch_entry(index, name, sql, item_dialect, mode, pretty, &ok);
 		if (entry == NULL) {
 			json_decref(input_root);
 			json_decref(output_root);
@@ -737,6 +830,7 @@ static int sqlparser_cli_run_batch(
 int main(int argc, char **argv)
 {
 	sqlparser_cli_mode_t mode;
+	sqlparser_dialect_t dialect;
 	const char *file_path;
 	const char *batch_file_path;
 	const char *output_path;
@@ -749,6 +843,7 @@ int main(int argc, char **argv)
 	int status;
 
 	mode = SQLPARSER_CLI_MODE_ALL;
+	dialect = SQLPARSER_DIALECT_POSTGRESQL;
 	file_path = NULL;
 	batch_file_path = NULL;
 	output_path = NULL;
@@ -772,6 +867,18 @@ int main(int argc, char **argv)
 		}
 		if (strcmp(argv[index], "--compact") == 0) {
 			pretty = 0;
+			continue;
+		}
+		if (strcmp(argv[index], "--dialect") == 0) {
+			if (index + 1 >= argc) {
+				sqlparser_cli_print_usage(argv[0]);
+				return 2;
+			}
+			if (sqlparser_cli_parse_dialect(argv[index + 1], &dialect) != 0) {
+				fprintf(stderr, "unsupported dialect: %s\n", argv[index + 1]);
+				return 2;
+			}
+			index++;
 			continue;
 		}
 		if (strcmp(argv[index], "--file") == 0) {
@@ -818,7 +925,7 @@ int main(int argc, char **argv)
 			fprintf(stderr, "--batch-file cannot be combined with --file or inline SQL\n");
 			return 2;
 		}
-		return sqlparser_cli_run_batch(batch_file_path, output_path, mode, pretty);
+		return sqlparser_cli_run_batch(batch_file_path, output_path, dialect, mode, pretty);
 	}
 
 	if (output_path != NULL) {
@@ -851,7 +958,13 @@ int main(int argc, char **argv)
 		}
 	}
 
-	status = sqlparser_parse(sql_text, &handle, &error);
+	{
+		sqlparser_parse_options_t options;
+
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialect;
+		status = sqlparser_parse_with_options(sql_text, &options, &handle, &error);
+	}
 	if (status != SQLPARSER_STATUS_OK) {
 		fprintf(
 			stderr,

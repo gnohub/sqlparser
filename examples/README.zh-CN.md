@@ -24,6 +24,8 @@
   展示如何读取和改写 `UPDATE assignment`、`INSERT cell` 的任意表达式或 `DEFAULT`。
 - `examples/10_mysql_dialect.c`
   展示如何显式指定 MySQL 方言，并改写 `INSERT ... VALUES` 的单元格。
+- `examples/11_oracle_dialect.c`
+  展示如何显式指定 Oracle 方言，导出 summary JSON，并在反解析时还原 Oracle bind 占位符。
 
 ## 构建
 

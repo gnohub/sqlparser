@@ -29,6 +29,43 @@ static const char *json_string_or_null(json_t *value)
 	return json_string_value(value);
 }
 
+static int parse_dialect_or_default(json_t *value, sqlparser_dialect_t *out_dialect)
+{
+	const char *dialect;
+
+	if (out_dialect == NULL) {
+		return -1;
+	}
+
+	*out_dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	if (value == NULL) {
+		return 0;
+	}
+	if (!json_is_string(value)) {
+		return -1;
+	}
+
+	dialect = json_string_value(value);
+	if (strcmp(dialect, "postgresql") == 0 || strcmp(dialect, "postgres") == 0 || strcmp(dialect, "pg") == 0) {
+		*out_dialect = SQLPARSER_DIALECT_POSTGRESQL;
+		return 0;
+	}
+	if (strcmp(dialect, "mysql") == 0) {
+		*out_dialect = SQLPARSER_DIALECT_MYSQL;
+		return 0;
+	}
+	if (strcmp(dialect, "oracle") == 0) {
+		*out_dialect = SQLPARSER_DIALECT_ORACLE;
+		return 0;
+	}
+	if (strcmp(dialect, "sqlserver") == 0 || strcmp(dialect, "mssql") == 0) {
+		*out_dialect = SQLPARSER_DIALECT_SQLSERVER;
+		return 0;
+	}
+
+	return -1;
+}
+
 static int json_array_contains_string(json_t *array, const char *expected)
 {
 	size_t index;
@@ -156,8 +193,13 @@ static int verify_summary_object_array(
 	return 0;
 }
 
-static int verify_failure_case(const char *case_name, const char *sql, json_t *expect_root)
+static int verify_failure_case(
+	const char *case_name,
+	const char *sql,
+	sqlparser_dialect_t dialect,
+	json_t *expect_root)
 {
+	sqlparser_parse_options_t options;
 	sqlparser_error_t error;
 	sqlparser_handle_t *handle;
 	json_t *value;
@@ -166,7 +208,9 @@ static int verify_failure_case(const char *case_name, const char *sql, json_t *e
 
 	handle = NULL;
 	memset(&error, 0, sizeof(error));
-	status = sqlparser_parse(sql, &handle, &error);
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	status = sqlparser_parse_with_options(sql, &options, &handle, &error);
 	if (status == SQLPARSER_STATUS_OK) {
 		sqlparser_handle_destroy(handle);
 		return fail_case(case_name, "parse was expected to fail");
@@ -194,8 +238,13 @@ static int verify_failure_case(const char *case_name, const char *sql, json_t *e
 	return 0;
 }
 
-static int verify_success_case(const char *case_name, const char *sql, json_t *expect_root)
+static int verify_success_case(
+	const char *case_name,
+	const char *sql,
+	sqlparser_dialect_t dialect,
+	json_t *expect_root)
 {
+	sqlparser_parse_options_t options;
 	sqlparser_error_t error;
 	sqlparser_handle_t *handle;
 	char *parse_tree_json;
@@ -214,7 +263,9 @@ static int verify_success_case(const char *case_name, const char *sql, json_t *e
 	summary_root = NULL;
 	memset(&error, 0, sizeof(error));
 
-	status = sqlparser_parse(sql, &handle, &error);
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	status = sqlparser_parse_with_options(sql, &options, &handle, &error);
 	if (status != SQLPARSER_STATUS_OK) {
 		fprintf(stderr, "FAIL [%s]: parse failed: %s\n", case_name, error.message);
 		return 1;
@@ -414,6 +465,7 @@ int main(void)
 		json_t *ok_value;
 		const char *case_name;
 		const char *sql;
+		sqlparser_dialect_t dialect;
 		int expected_ok;
 
 		case_name = json_string_or_null(json_object_get(item, "name"));
@@ -424,15 +476,20 @@ int main(void)
 			fprintf(stderr, "FAIL: case %lu is missing name/sql/expect\n", (unsigned long)index);
 			return 1;
 		}
+		if (parse_dialect_or_default(json_object_get(item, "dialect"), &dialect) != 0) {
+			json_decref(root);
+			fprintf(stderr, "FAIL: case %lu has invalid dialect\n", (unsigned long)index);
+			return 1;
+		}
 
 		ok_value = json_object_get(expect_root, "ok");
 		expected_ok = ok_value == NULL ? 1 : json_is_true(ok_value);
 		if (expected_ok) {
-			if (verify_success_case(case_name, sql, expect_root) != 0) {
+			if (verify_success_case(case_name, sql, dialect, expect_root) != 0) {
 				json_decref(root);
 				return 1;
 			}
-		} else if (verify_failure_case(case_name, sql, expect_root) != 0) {
+		} else if (verify_failure_case(case_name, sql, dialect, expect_root) != 0) {
 			json_decref(root);
 			return 1;
 		}

@@ -59,9 +59,11 @@ make test
 - `tests/unit/test_api_case_matrix.c`
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_mysql_dialect_case_matrix.c`
+- `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/install/install_smoke.c`
 - `tests/cases/sql_batch_input.json`
 - `tests/cases/mysql_dialect_input.json`
+- `tests/cases/oracle_dialect_input.json`
 - `tests/verify_cli_batch.py`
 
 ## 覆盖范围
@@ -78,8 +80,10 @@ make test
 - JSON 导出
 - selector 与模型 JSON 回放
 - MySQL 方言转换层的解析、反解析和明确不支持语法返回码
+- Oracle 方言转换层的解析、反解析和明确不支持语法返回码
 
 ## 用例矩阵
 
 - [SQL 用例矩阵](./cases/sql_case_matrix.md)
 - [MySQL 方言用例矩阵](./cases/mysql_dialect_matrix.md)
+- [Oracle 方言用例矩阵](./cases/oracle_dialect_matrix.md)

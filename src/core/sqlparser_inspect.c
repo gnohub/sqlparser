@@ -5,6 +5,7 @@
 
 #include <jansson.h>
 
+#include "../dialect/sqlparser_dialect_internal.h"
 #include "sqlparser_internal.h"
 
 static const char *sqlparser_summary_context_name(PgQuery__SummaryResult__Context context)
@@ -628,6 +629,98 @@ static void sqlparser_extract_delete_stmt(json_t *delete_stmt, sqlparser_column_
 		views->all_referenced_columns);
 }
 
+static void sqlparser_extract_merge_when_clause(json_t *merge_when_clause, sqlparser_column_views_t *views)
+{
+	json_t *command_type_json;
+	json_t *target_list;
+	json_t *values;
+	const char *command_type;
+	size_t index;
+
+	if (!json_is_object(merge_when_clause)) {
+		return;
+	}
+
+	command_type_json = json_object_get(merge_when_clause, "commandType");
+	command_type = json_is_string(command_type_json) ? json_string_value(command_type_json) : NULL;
+
+	target_list = json_object_get(merge_when_clause, "targetList");
+	if (json_is_array(target_list)) {
+		for (index = 0; index < json_array_size(target_list); index++) {
+			json_t *entry;
+			json_t *res_target;
+			json_t *name_json;
+
+			entry = json_array_get(target_list, index);
+			res_target = json_object_get(entry, "ResTarget");
+			if (!json_is_object(res_target)) {
+				continue;
+			}
+
+			name_json = json_object_get(res_target, "name");
+			if (json_is_string(name_json)) {
+				if (command_type != NULL && strcmp(command_type, "CMD_UPDATE") == 0) {
+					sqlparser_collect_named_column(
+						views->update_columns,
+						views->all_referenced_columns,
+						json_string_value(name_json));
+				} else if (command_type != NULL && strcmp(command_type, "CMD_INSERT") == 0) {
+					sqlparser_collect_named_column(
+						views->insert_columns,
+						views->all_referenced_columns,
+						json_string_value(name_json));
+				}
+			}
+
+			sqlparser_walk_column_refs(
+				json_object_get(res_target, "val"),
+				NULL,
+				views->all_referenced_columns);
+		}
+	}
+
+	values = json_object_get(merge_when_clause, "values");
+	if (json_is_array(values)) {
+		sqlparser_walk_column_refs(values, NULL, views->all_referenced_columns);
+	}
+
+	sqlparser_walk_column_refs(
+		json_object_get(merge_when_clause, "condition"),
+		views->where_columns,
+		views->all_referenced_columns);
+}
+
+static void sqlparser_extract_merge_stmt(json_t *merge_stmt, sqlparser_column_views_t *views)
+{
+	json_t *when_clauses;
+	size_t index;
+
+	if (!json_is_object(merge_stmt)) {
+		return;
+	}
+
+	sqlparser_walk_column_refs(
+		json_object_get(merge_stmt, "joinCondition"),
+		views->join_columns,
+		views->all_referenced_columns);
+
+	when_clauses = json_object_get(merge_stmt, "mergeWhenClauses");
+	if (!json_is_array(when_clauses)) {
+		return;
+	}
+
+	for (index = 0; index < json_array_size(when_clauses); index++) {
+		json_t *entry;
+		json_t *merge_when_clause;
+
+		entry = json_array_get(when_clauses, index);
+		merge_when_clause = json_object_get(entry, "MergeWhenClause");
+		if (json_is_object(merge_when_clause)) {
+			sqlparser_extract_merge_when_clause(merge_when_clause, views);
+		}
+	}
+}
+
 static void sqlparser_extract_drop_stmt_tables(json_t *drop_stmt, json_t *tables)
 {
 	json_t *objects;
@@ -711,6 +804,12 @@ static void sqlparser_extract_statement_columns(json_t *stmt_node, sqlparser_col
 		return;
 	}
 
+	statement = json_object_get(stmt_node, "MergeStmt");
+	if (json_is_object(statement)) {
+		sqlparser_extract_merge_stmt(statement, views);
+		return;
+	}
+
 	statement = json_object_get(stmt_node, "ViewStmt");
 	if (json_is_object(statement)) {
 		sqlparser_extract_statement_columns(json_object_get(statement, "query"), views);
@@ -721,6 +820,40 @@ static void sqlparser_extract_statement_columns(json_t *stmt_node, sqlparser_col
 	if (json_is_object(statement)) {
 		sqlparser_extract_statement_columns(json_object_get(statement, "query"), views);
 	}
+}
+
+static void sqlparser_extract_range_var_table(json_t *node, json_t *tables, const char *context)
+{
+	json_t *range_var;
+	json_t *schema_name_json;
+	json_t *table_name_json;
+	const char *schema_name;
+	const char *table_name;
+
+	if (!json_is_object(node) || !json_is_array(tables)) {
+		return;
+	}
+
+	range_var = json_object_get(node, "RangeVar");
+	if (json_is_object(range_var)) {
+		node = range_var;
+	}
+
+	schema_name_json = json_object_get(node, "schemaname");
+	table_name_json = json_object_get(node, "relname");
+	schema_name = json_is_string(schema_name_json) ? json_string_value(schema_name_json) : NULL;
+	table_name = json_is_string(table_name_json) ? json_string_value(table_name_json) : NULL;
+	sqlparser_json_array_append_table(tables, schema_name, table_name, context);
+}
+
+static void sqlparser_extract_merge_stmt_tables(json_t *merge_stmt, json_t *tables)
+{
+	if (!json_is_object(merge_stmt) || !json_is_array(tables)) {
+		return;
+	}
+
+	sqlparser_extract_range_var_table(json_object_get(merge_stmt, "relation"), tables, "dml");
+	sqlparser_extract_range_var_table(json_object_get(merge_stmt, "sourceRelation"), tables, "dml");
 }
 
 static void sqlparser_extract_additional_tables_from_statement(json_t *stmt_node, json_t *tables)
@@ -734,6 +867,11 @@ static void sqlparser_extract_additional_tables_from_statement(json_t *stmt_node
 	statement = json_object_get(stmt_node, "DropStmt");
 	if (json_is_object(statement)) {
 		sqlparser_extract_drop_stmt_tables(statement, tables);
+	}
+
+	statement = json_object_get(stmt_node, "MergeStmt");
+	if (json_is_object(statement)) {
+		sqlparser_extract_merge_stmt_tables(statement, tables);
 	}
 }
 
@@ -914,7 +1052,7 @@ sqlparser_status_t sqlparser_export_summary_json(
 		return status;
 	}
 
-	effective_sql = sqlparser_effective_sql(handle);
+	effective_sql = sqlparser_effective_parser_sql(handle);
 	effective_sql_len = effective_sql != NULL ? strlen(effective_sql) : 0U;
 
 	status = sqlparser_ensure_scan(handle, out_error);
@@ -1092,6 +1230,21 @@ sqlparser_status_t sqlparser_export_summary_json(
 		keyword = sqlparser_strndup_lower_ascii(effective_sql + start, len);
 		if (keyword == NULL) {
 			continue;
+		}
+		if (handle->dialect_ops != NULL && handle->dialect_ops->summary_keyword != NULL) {
+			const char *dialect_keyword;
+			char *normalized_keyword;
+
+			dialect_keyword = handle->dialect_ops->summary_keyword(keyword, handle->dialect_state);
+			if (dialect_keyword != NULL) {
+				normalized_keyword = sqlparser_strdup(dialect_keyword);
+				if (normalized_keyword == NULL) {
+					free(keyword);
+					continue;
+				}
+				free(keyword);
+				keyword = normalized_keyword;
+			}
 		}
 
 		if (!sqlparser_json_array_contains_string(keywords, keyword)) {

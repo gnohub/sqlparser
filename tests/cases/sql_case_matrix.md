@@ -60,11 +60,12 @@
 | P046 | `revoke-select` | `REVOKE SELECT ON TABLE ... FROM ...` | revoke 节点识别、对象名提取 |
 | P047 | `analyze-table` | `ANALYZE ...` | analyze 节点识别、表名提取 |
 | P048 | `vacuum-analyze-table` | `VACUUM ANALYZE ...` | vacuum/analyze 组合节点识别 |
+| P049 | `oracle-cli-dialect-q-quote` | Oracle `q'[...]'` | CLI `dialect` 字段和 Oracle q-quoted 字符串处理 |
 
 ## 负向用例
 
 | 用例 ID | 用例名称 | 输入 | 验证重点 |
 | --- | --- | --- | --- |
-| P049 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
+| P050 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
 
 新增回归用例必须同步更新 `tests/cases/sql_batch_input.json` 和本矩阵。

@@ -433,6 +433,7 @@ sqlparser_status_t sqlparser_insert_cell_sql(
 	PgQuery__Node *value_node;
 	sqlparser_status_t status;
 	sqlparser_handle_t *mutable_handle;
+	char *core_sql;
 
 	if (out_sql == NULL) {
 		sqlparser_error_set_message(
@@ -443,6 +444,7 @@ sqlparser_status_t sqlparser_insert_cell_sql(
 	}
 
 	*out_sql = NULL;
+	core_sql = NULL;
 	sqlparser_error_clear(out_error);
 	mutable_handle = (sqlparser_handle_t *)handle;
 	status = sqlparser_get_insert_cell_node(
@@ -456,14 +458,18 @@ sqlparser_status_t sqlparser_insert_cell_sql(
 		return status;
 	}
 
-	status = sqlparser_render_insert_cell_node_sql(value_node, out_sql, out_error);
+	status = sqlparser_render_insert_cell_node_sql(value_node, &core_sql, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	status = sqlparser_validate_handle_output_text(handle, *out_sql, "insert cell SQL", out_error);
+	status = sqlparser_postprocess_handle_sql_fragment(
+		handle,
+		core_sql,
+		"insert cell SQL",
+		out_sql,
+		out_error);
+	free(core_sql);
 	if (status != SQLPARSER_STATUS_OK) {
-		free(*out_sql);
-		*out_sql = NULL;
 		return status;
 	}
 
@@ -481,17 +487,30 @@ sqlparser_status_t sqlparser_insert_set_cell_sql(
 	PgQuery__Node **value_slot;
 	PgQuery__Node *replacement;
 	sqlparser_status_t status;
+	char *parser_sql;
+	void *dialect_state;
 
 	sqlparser_error_clear(out_error);
+	parser_sql = NULL;
+	dialect_state = NULL;
 	value_slot = NULL;
 	replacement = NULL;
-	status = sqlparser_validate_handle_sql_input(handle, sql_text, "insert cell SQL", out_error);
+	status = sqlparser_preprocess_handle_sql_fragment(
+		handle,
+		sql_text,
+		"insert cell SQL",
+		&parser_sql,
+		&dialect_state,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
 
-	status = sqlparser_parse_insert_cell_node_sql(sql_text, &replacement, out_error);
+	status = sqlparser_parse_insert_cell_node_sql(parser_sql, &replacement, out_error);
+	free(parser_sql);
+	parser_sql = NULL;
 	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_discard_dialect_state(handle, dialect_state);
 		return status;
 	}
 
@@ -504,6 +523,7 @@ sqlparser_status_t sqlparser_insert_set_cell_sql(
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_free_proto_node(replacement);
+		sqlparser_handle_discard_dialect_state(handle, dialect_state);
 		return status;
 	}
 
@@ -513,8 +533,10 @@ sqlparser_status_t sqlparser_insert_set_cell_sql(
 	status = sqlparser_handle_commit_ast(handle, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_free_proto_node(replacement);
+		sqlparser_handle_discard_dialect_state(handle, dialect_state);
 		return status;
 	}
 
+	sqlparser_handle_adopt_dialect_state(handle, dialect_state);
 	return SQLPARSER_STATUS_OK;
 }

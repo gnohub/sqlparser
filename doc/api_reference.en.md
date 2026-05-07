@@ -157,7 +157,7 @@ Defined dialects:
 | --- | --- |
 | `SQLPARSER_DIALECT_POSTGRESQL` | default dialect, preserving existing behavior |
 | `SQLPARSER_DIALECT_MYSQL` | MySQL dialect conversion layer for syntax that can be safely mapped to the current AST |
-| `SQLPARSER_DIALECT_ORACLE` | reserved dialect enum, currently returns `SQLPARSER_STATUS_UNSUPPORTED` |
+| `SQLPARSER_DIALECT_ORACLE` | Oracle dialect conversion layer for common SQL syntax that can be safely mapped to the current AST |
 | `SQLPARSER_DIALECT_SQLSERVER` | reserved dialect enum, currently returns `SQLPARSER_STATUS_UNSUPPORTED` |
 
 ### View Structures
@@ -291,8 +291,8 @@ Notes:
 
 - Behaves like `sqlparser_parse()`, with dialect and resource-limit configuration.
 - Passing `NULL` for `options` uses PostgreSQL dialect and default resource limits.
-- MySQL dialect input is first converted into parser-compatible SQL, then processed through the unified AST path.
-- Reserved but unimplemented dialects return `SQLPARSER_STATUS_UNSUPPORTED`.
+- MySQL and Oracle dialect input is first converted into parser-compatible SQL, then processed through the unified AST path.
+- Defined but unimplemented dialects return `SQLPARSER_STATUS_UNSUPPORTED`.
 
 ### `sqlparser_handle_destroy`
 

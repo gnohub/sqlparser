@@ -30,7 +30,7 @@ make all
 命令格式：
 
 ```bash
-./bin/sqlparser_cli [--mode parse-tree|summary|deparse|model|all] [--compact] [--file PATH] [SQL]
+./bin/sqlparser_cli [--mode parse-tree|summary|deparse|model|all] [--dialect postgresql|mysql|oracle|sqlserver] [--compact] [--file PATH] [SQL]
 ```
 
 也可以从标准输入读取 SQL：
@@ -86,7 +86,30 @@ cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
 ./bin/sqlparser_cli --mode deparse "SELECT 1"
 ```
 
-## 5. JSON 格式控制
+## 5. 方言选择
+
+默认方言为 `postgresql`。需要解析其他方言时，通过 `--dialect` 指定：
+
+```bash
+./bin/sqlparser_cli --dialect oracle --mode summary \
+  "SELECT q'[Bob's order]' AS label FROM dual"
+```
+
+批量 JSON 可以在顶层设置默认方言，也可以在单条 SQL 上覆盖：
+
+```json
+{
+  "dialect": "oracle",
+  "items": [
+    {
+      "name": "oracle-q-string",
+      "sql": "SELECT q'[Bob's order]' AS label FROM dual"
+    }
+  ]
+}
+```
+
+## 6. JSON 格式控制
 
 默认输出格式化 JSON。
 
@@ -96,7 +119,7 @@ cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
 ./bin/sqlparser_cli --mode model --compact "SELECT 1"
 ```
 
-## 6. 批量处理
+## 7. 批量处理
 
 批量模式用于把一个 JSON 文件中的多条 SQL 依次处理并输出聚合结果。
 
@@ -113,7 +136,7 @@ cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
 - `--batch-file` 与 `--file`、内联 SQL 不能同时使用
 - `--output` 当前只在 `--batch-file` 模式下可用
 
-### 6.1 支持的批量输入结构
+### 7.1 支持的批量输入结构
 
 批量输入 JSON 支持三种顶层形式：
 
@@ -124,7 +147,7 @@ cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
 数组元素支持两种写法：
 
 - 直接写 SQL 字符串
-- 写成对象：`{"name":"case-name","sql":"..."}`
+- 写成对象：`{"name":"case-name","dialect":"oracle","sql":"..."}`
 
 示例：
 
@@ -155,13 +178,14 @@ cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
 }
 ```
 
-### 6.2 批量输出结构
+### 7.2 批量输出结构
 
 批量结果 JSON 顶层字段包括：
 
 | 字段 | 说明 |
 | --- | --- |
 | `mode` | 当前执行模式 |
+| `dialect` | 批量默认方言 |
 | `source_file` | 输入文件路径 |
 | `total` | 总条目数 |
 | `succeeded` | 成功条目数 |
@@ -175,6 +199,7 @@ cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
 | --- | --- |
 | `index` | 1 基序号 |
 | `name` | 可选，用例名称 |
+| `dialect` | 当前条目实际使用的方言 |
 | `sql` | 原始 SQL |
 | `ok` | 是否成功 |
 
@@ -194,30 +219,30 @@ cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
 - `model`
 - `deparse_sql`
 
-## 7. 常见用途
+## 8. 常见用途
 
-### 7.1 快速看多表查询摘要
+### 8.1 快速看多表查询摘要
 
 ```bash
 ./bin/sqlparser_cli --mode summary \
   "SELECT u.id, o.order_no FROM public.users u JOIN public.orders o ON u.id = o.user_id WHERE o.status = 'paid'"
 ```
 
-### 7.2 导出稳定模型 JSON
+### 8.2 导出稳定模型 JSON
 
 ```bash
 ./bin/sqlparser_cli --mode model \
   "UPDATE public.users SET name = upper(name), updated_at = DEFAULT WHERE id = 1"
 ```
 
-### 7.3 检查反解析结果
+### 8.3 检查反解析结果
 
 ```bash
 ./bin/sqlparser_cli --mode deparse \
   "INSERT INTO public.users (id, name) VALUES (1, 'bob')"
 ```
 
-## 8. 相关文档
+## 9. 相关文档
 
 - [快速开始](../README.md)
 - [API 手册](./api_reference.md)

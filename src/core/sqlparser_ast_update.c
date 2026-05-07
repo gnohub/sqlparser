@@ -185,6 +185,7 @@ sqlparser_status_t sqlparser_update_assignment_sql(
 	PgQuery__ResTarget *target;
 	sqlparser_status_t status;
 	sqlparser_handle_t *mutable_handle;
+	char *core_sql;
 
 	if (out_sql == NULL) {
 		sqlparser_error_set_message(
@@ -195,6 +196,7 @@ sqlparser_status_t sqlparser_update_assignment_sql(
 	}
 
 	*out_sql = NULL;
+	core_sql = NULL;
 	sqlparser_error_clear(out_error);
 	mutable_handle = (sqlparser_handle_t *)handle;
 	status = sqlparser_get_update_stmt(mutable_handle, statement_index, &update_stmt, out_error);
@@ -219,14 +221,18 @@ sqlparser_status_t sqlparser_update_assignment_sql(
 		return SQLPARSER_STATUS_UNSUPPORTED;
 	}
 
-	status = sqlparser_render_update_assignment_node_sql(target->val, out_sql, out_error);
+	status = sqlparser_render_update_assignment_node_sql(target->val, &core_sql, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	status = sqlparser_validate_handle_output_text(handle, *out_sql, "update assignment SQL", out_error);
+	status = sqlparser_postprocess_handle_sql_fragment(
+		handle,
+		core_sql,
+		"update assignment SQL",
+		out_sql,
+		out_error);
+	free(core_sql);
 	if (status != SQLPARSER_STATUS_OK) {
-		free(*out_sql);
-		*out_sql = NULL;
 		return status;
 	}
 
@@ -244,16 +250,28 @@ sqlparser_status_t sqlparser_update_set_assignment_sql(
 	PgQuery__ResTarget *target;
 	PgQuery__Node *replacement;
 	sqlparser_status_t status;
+	char *parser_sql;
+	void *dialect_state;
 
 	sqlparser_error_clear(out_error);
+	parser_sql = NULL;
+	dialect_state = NULL;
 	replacement = NULL;
-	status = sqlparser_validate_handle_sql_input(handle, sql_text, "update assignment SQL", out_error);
+	status = sqlparser_preprocess_handle_sql_fragment(
+		handle,
+		sql_text,
+		"update assignment SQL",
+		&parser_sql,
+		&dialect_state,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
 
 	status = sqlparser_get_update_stmt(handle, statement_index, &update_stmt, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
+		free(parser_sql);
+		sqlparser_handle_discard_dialect_state(handle, dialect_state);
 		return status;
 	}
 
@@ -263,15 +281,28 @@ sqlparser_status_t sqlparser_update_set_assignment_sql(
 		&target,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
+		free(parser_sql);
+		sqlparser_handle_discard_dialect_state(handle, dialect_state);
 		return status;
 	}
 
-	status = sqlparser_parse_update_assignment_node_sql(sql_text, &replacement, out_error);
+	status = sqlparser_parse_update_assignment_node_sql(parser_sql, &replacement, out_error);
+	free(parser_sql);
+	parser_sql = NULL;
 	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_discard_dialect_state(handle, dialect_state);
 		return status;
 	}
 
 	sqlparser_free_proto_node(target->val);
 	target->val = replacement;
-	return sqlparser_handle_commit_ast(handle, out_error);
+	replacement = NULL;
+	status = sqlparser_handle_commit_ast(handle, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_discard_dialect_state(handle, dialect_state);
+		return status;
+	}
+
+	sqlparser_handle_adopt_dialect_state(handle, dialect_state);
+	return SQLPARSER_STATUS_OK;
 }

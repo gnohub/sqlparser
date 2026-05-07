@@ -73,6 +73,7 @@ CORE_OBJS = \
 	$(OBJ_DIR)\sqlparser_model_export.obj \
 	$(OBJ_DIR)\sqlparser_selector.obj \
 	$(OBJ_DIR)\sqlparser_dialect_mysql.obj \
+	$(OBJ_DIR)\sqlparser_dialect_oracle.obj \
 	$(OBJ_DIR)\sqlparser_dialect_postgresql.obj \
 	$(OBJ_DIR)\sqlparser_dialect_registry.obj
 
@@ -80,7 +81,8 @@ UNIT_TEST_BINS = \
 	$(BIN_DIR)\test_api_smoke.exe \
 	$(BIN_DIR)\test_api_case_matrix.exe \
 	$(BIN_DIR)\test_core_api.exe \
-	$(BIN_DIR)\test_mysql_dialect_case_matrix.exe
+	$(BIN_DIR)\test_mysql_dialect_case_matrix.exe \
+	$(BIN_DIR)\test_oracle_dialect_case_matrix.exe
 
 EXAMPLE_BINS = \
 	$(BIN_DIR)\01_select_inspect.exe \
@@ -92,7 +94,8 @@ EXAMPLE_BINS = \
 	$(BIN_DIR)\07_multi_statement_walk.exe \
 	$(BIN_DIR)\08_model_roundtrip.exe \
 	$(BIN_DIR)\09_expression_rewrite.exe \
-	$(BIN_DIR)\10_mysql_dialect.exe
+	$(BIN_DIR)\10_mysql_dialect.exe \
+	$(BIN_DIR)\11_oracle_dialect.exe
 
 all: static cli
 
@@ -120,6 +123,7 @@ test: all $(UNIT_TEST_BINS) examples
 	$(BIN_DIR)\test_api_case_matrix.exe
 	$(BIN_DIR)\test_core_api.exe
 	$(BIN_DIR)\test_mysql_dialect_case_matrix.exe
+	$(BIN_DIR)\test_oracle_dialect_case_matrix.exe
 	$(BIN_DIR)\01_select_inspect.exe
 	$(BIN_DIR)\02_insert_values_replace_literal.exe
 	$(BIN_DIR)\03_insert_select_inspect.exe
@@ -130,6 +134,7 @@ test: all $(UNIT_TEST_BINS) examples
 	$(BIN_DIR)\08_model_roundtrip.exe
 	$(BIN_DIR)\09_expression_rewrite.exe
 	$(BIN_DIR)\10_mysql_dialect.exe
+	$(BIN_DIR)\11_oracle_dialect.exe
 
 clean:
 	@if exist $(BUILD_DIR) rmdir /S /Q $(BUILD_DIR)
@@ -222,6 +227,9 @@ $(OBJ_DIR)\sqlparser_selector.obj: src\core\sqlparser_selector.c
 $(OBJ_DIR)\sqlparser_dialect_mysql.obj: src\dialect\sqlparser_dialect_mysql.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_mysql.c
 
+$(OBJ_DIR)\sqlparser_dialect_oracle.obj: src\dialect\sqlparser_dialect_oracle.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_oracle.c
+
 $(OBJ_DIR)\sqlparser_dialect_postgresql.obj: src\dialect\sqlparser_dialect_postgresql.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_postgresql.c
 
@@ -242,6 +250,9 @@ $(BIN_DIR)\test_core_api.exe: tests\unit\test_core_api.c $(STATIC_LIB)
 
 $(BIN_DIR)\test_mysql_dialect_case_matrix.exe: tests\unit\test_mysql_dialect_case_matrix.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_mysql_dialect_case_matrix.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_oracle_dialect_case_matrix.exe: tests\unit\test_oracle_dialect_case_matrix.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_oracle_dialect_case_matrix.c /link $(LDFLAGS) $(LDLIBS)
 
 $(BIN_DIR)\01_select_inspect.exe: examples\01_select_inspect.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ examples\01_select_inspect.c /link $(LDFLAGS) $(LDLIBS)
@@ -272,3 +283,6 @@ $(BIN_DIR)\09_expression_rewrite.exe: examples\09_expression_rewrite.c $(STATIC_
 
 $(BIN_DIR)\10_mysql_dialect.exe: examples\10_mysql_dialect.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ examples\10_mysql_dialect.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\11_oracle_dialect.exe: examples\11_oracle_dialect.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ examples\11_oracle_dialect.c /link $(LDFLAGS) $(LDLIBS)

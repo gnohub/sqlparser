@@ -1,0 +1,696 @@
+{
+  "items": [
+    {
+      "id": "O001",
+      "name": "oracle-select-bind-nvl",
+      "sql": "SELECT NVL(u.name, 'N/A') AS label FROM users u WHERE u.id = :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "where_columns": ["id"],
+        "deparse_contains": ":id"
+      }
+    },
+    {
+      "id": "O002",
+      "name": "oracle-q-quoted-string",
+      "sql": "SELECT q'[Bob's order]' AS label FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dual"],
+        "deparse_contains": "'Bob''s order'"
+      }
+    },
+    {
+      "id": "O003",
+      "name": "oracle-national-q-quoted-string-unsupported",
+      "sql": "SELECT nq'{Alice's order}' AS label FROM dual",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "O004",
+      "name": "oracle-minus-set-operator",
+      "sql": "SELECT id FROM active_users MINUS SELECT id FROM archived_users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "keywords": ["select", "from", "minus"],
+        "tables": ["active_users", "archived_users"],
+        "deparse_contains": "MINUS",
+        "model_contains": "MINUS",
+        "model_not_contains": "EXCEPT"
+      }
+    },
+    {
+      "id": "O005",
+      "name": "oracle-offset-fetch",
+      "sql": "SELECT id FROM users ORDER BY id OFFSET 5 ROWS FETCH NEXT 10 ROWS ONLY",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["id"],
+        "deparse_contains": "OFFSET 5"
+      }
+    },
+    {
+      "id": "O006",
+      "name": "oracle-rownum-filter",
+      "sql": "SELECT id FROM users WHERE ROWNUM <= 10",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["id"],
+        "where_columns": ["rownum"],
+        "deparse_contains": "rownum <= 10"
+      }
+    },
+    {
+      "id": "O007",
+      "name": "oracle-join-bind",
+      "sql": "SELECT u.id, u.name, o.order_no FROM users u JOIN orders o ON u.id = o.user_id WHERE o.status = :status",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users", "orders"],
+        "selected_columns": ["id", "name", "order_no"],
+        "join_columns": ["id", "user_id"],
+        "where_columns": ["status"],
+        "deparse_contains": ":status"
+      }
+    },
+    {
+      "id": "O008",
+      "name": "oracle-insert-values-bind",
+      "sql": "INSERT INTO users (id, name) VALUES (:id, 'bob')",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt", "SelectStmt"],
+        "tables": ["users"],
+        "insert_columns": ["id", "name"],
+        "deparse_contains": ":id",
+        "model_contains": ":id",
+        "model_not_contains": "$1"
+      }
+    },
+    {
+      "id": "O009",
+      "name": "oracle-insert-values-multi-row",
+      "sql": "INSERT INTO users (id, name) VALUES (1, 'bob'), (2, 'alice')",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt", "SelectStmt"],
+        "tables": ["users"],
+        "insert_columns": ["id", "name"],
+        "deparse_contains": "VALUES (1, 'bob'), (2, 'alice')"
+      }
+    },
+    {
+      "id": "O010",
+      "name": "oracle-insert-select",
+      "sql": "INSERT INTO archive_users (id, name) SELECT id, name FROM users WHERE status = :status",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt", "SelectStmt"],
+        "tables": ["archive_users", "users"],
+        "selected_columns": ["id", "name"],
+        "where_columns": ["status"],
+        "insert_columns": ["id", "name"],
+        "deparse_contains": ":status"
+      }
+    },
+    {
+      "id": "O011",
+      "name": "oracle-update-bind",
+      "sql": "UPDATE users SET name = :name, status = 'active' WHERE id = :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["UpdateStmt"],
+        "tables": ["users"],
+        "update_columns": ["name", "status"],
+        "where_columns": ["id"],
+        "deparse_contains": ":name",
+        "model_contains": ":name",
+        "model_not_contains": "$1"
+      }
+    },
+    {
+      "id": "O012",
+      "name": "oracle-delete-conditional",
+      "sql": "DELETE FROM users WHERE id = :id AND status = 'inactive'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["DeleteStmt"],
+        "tables": ["users"],
+        "where_columns": ["id", "status"],
+        "deparse_contains": ":id"
+      }
+    },
+    {
+      "id": "O013",
+      "name": "oracle-repeated-bind",
+      "sql": "SELECT id FROM users WHERE id = :id OR manager_id = :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["id"],
+        "where_columns": ["id", "manager_id"],
+        "deparse_contains": ":id OR"
+      }
+    },
+    {
+      "id": "O014",
+      "name": "oracle-positional-binds",
+      "sql": "SELECT id FROM users WHERE id = :1 AND status = :2",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "where_columns": ["id", "status"],
+        "deparse_contains": ":2"
+      }
+    },
+    {
+      "id": "O015",
+      "name": "oracle-date-literal",
+      "sql": "SELECT DATE '2024-01-01' AS created_on FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dual"],
+        "deparse_contains": "DATE '2024-01-01'"
+      }
+    },
+    {
+      "id": "O016",
+      "name": "oracle-case-expression",
+      "sql": "SELECT CASE WHEN status = 'A' THEN 'active' ELSE 'inactive' END AS status_name FROM users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "deparse_contains": "CASE WHEN"
+      }
+    },
+    {
+      "id": "O017",
+      "name": "oracle-exists-subquery",
+      "sql": "SELECT id FROM users u WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users", "orders"],
+        "selected_columns": ["id"],
+        "where_columns": ["user_id", "id"],
+        "deparse_contains": "EXISTS"
+      }
+    },
+    {
+      "id": "O018",
+      "name": "oracle-group-having",
+      "sql": "SELECT status, COUNT(*) AS cnt FROM users GROUP BY status HAVING COUNT(*) > 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["status"],
+        "deparse_contains": "HAVING"
+      }
+    },
+    {
+      "id": "O019",
+      "name": "oracle-union-all",
+      "sql": "SELECT id FROM active_users UNION ALL SELECT id FROM archived_users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["active_users", "archived_users"],
+        "deparse_contains": "UNION ALL"
+      }
+    },
+    {
+      "id": "O020",
+      "name": "oracle-intersect",
+      "sql": "SELECT id FROM active_users INTERSECT SELECT id FROM archived_users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["active_users", "archived_users"],
+        "deparse_contains": "INTERSECT"
+      }
+    },
+    {
+      "id": "O021",
+      "name": "oracle-merge-basic",
+      "sql": "MERGE INTO users u USING staging_users s ON (u.id = s.id) WHEN MATCHED THEN UPDATE SET name = s.name WHEN NOT MATCHED THEN INSERT (id, name) VALUES (s.id, s.name)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["MergeStmt"],
+        "tables": ["users", "staging_users"],
+        "join_columns": ["id"],
+        "insert_columns": ["id", "name"],
+        "update_columns": ["name"],
+        "deparse_contains": "MERGE INTO"
+      }
+    },
+    {
+      "id": "O022",
+      "name": "oracle-create-table",
+      "sql": "CREATE TABLE users (id NUMBER(10), name VARCHAR2(64), created_at DATE)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["CreateStmt"],
+        "deparse_contains": "CREATE TABLE users"
+      }
+    },
+    {
+      "id": "O023",
+      "name": "oracle-create-sequence",
+      "sql": "CREATE SEQUENCE user_seq START WITH 1 INCREMENT BY 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["CreateSeqStmt"],
+        "deparse_contains": "CREATE SEQUENCE"
+      }
+    },
+    {
+      "id": "O024",
+      "name": "oracle-create-view",
+      "sql": "CREATE OR REPLACE VIEW v_users AS SELECT id, name FROM users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["ViewStmt", "SelectStmt"],
+        "tables": ["v_users", "users"],
+        "selected_columns": ["id", "name"],
+        "deparse_contains": "CREATE OR REPLACE VIEW"
+      }
+    },
+    {
+      "id": "O025",
+      "name": "oracle-drop-table",
+      "sql": "DROP TABLE users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["DropStmt"],
+        "tables": ["users"],
+        "deparse_contains": "DROP TABLE users"
+      }
+    },
+    {
+      "id": "O026",
+      "name": "oracle-truncate-table",
+      "sql": "TRUNCATE TABLE users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["TruncateStmt"],
+        "tables": ["users"],
+        "deparse_contains": "TRUNCATE TABLE users"
+      }
+    },
+    {
+      "id": "O027",
+      "name": "oracle-transaction-control",
+      "sql": "SAVEPOINT s1; ROLLBACK TO SAVEPOINT s1; COMMIT",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "statement_types": ["TransactionStmt"],
+        "deparse_contains": "COMMIT"
+      }
+    },
+    {
+      "id": "O028",
+      "name": "oracle-grant-revoke",
+      "sql": "GRANT SELECT ON users TO app_user; REVOKE SELECT ON users FROM app_user",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": ["GrantStmt"],
+        "deparse_contains": "REVOKE"
+      }
+    },
+    {
+      "id": "O029",
+      "name": "oracle-comment-on-table",
+      "sql": "COMMENT ON TABLE users IS 'user table'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["CommentStmt"],
+        "deparse_contains": "COMMENT ON TABLE"
+      }
+    },
+    {
+      "id": "O030",
+      "name": "oracle-for-update-nowait",
+      "sql": "SELECT id FROM users WHERE id = :id FOR UPDATE NOWAIT",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "where_columns": ["id"],
+        "deparse_contains": "NOWAIT"
+      }
+    },
+    {
+      "id": "O031",
+      "name": "oracle-decode-sysdate",
+      "sql": "SELECT DECODE(status, 'A', 'active', 'inactive') AS status_name, SYSDATE AS now_value FROM users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["status", "sysdate"],
+        "deparse_contains": "decode"
+      }
+    },
+    {
+      "id": "O032",
+      "name": "oracle-analytic-row-number",
+      "sql": "SELECT id, ROW_NUMBER() OVER (PARTITION BY status ORDER BY created_at) AS rn FROM users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["id", "status", "created_at"],
+        "deparse_contains": "row_number"
+      }
+    },
+    {
+      "id": "O033",
+      "name": "oracle-timestamp-literal",
+      "sql": "SELECT TIMESTAMP '2024-01-01 12:30:00' AS ts FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dual"],
+        "deparse_contains": "TIMESTAMP '2024-01-01 12:30:00'"
+      }
+    },
+    {
+      "id": "O034",
+      "name": "oracle-quoted-identifiers",
+      "sql": "SELECT \"Name\" FROM \"Users\" WHERE \"Id\" = :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["\"Users\""],
+        "selected_columns": ["Name"],
+        "where_columns": ["Id"],
+        "deparse_contains": ":id"
+      }
+    },
+    {
+      "id": "O035",
+      "name": "oracle-alter-table-add-column",
+      "sql": "ALTER TABLE users ADD age NUMBER(3)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["AlterTableStmt"],
+        "deparse_contains": "ALTER TABLE users"
+      }
+    },
+    {
+      "id": "O036",
+      "name": "oracle-create-index",
+      "sql": "CREATE INDEX idx_users_name ON users (name)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["IndexStmt"],
+        "tables": ["users"],
+        "deparse_contains": "CREATE INDEX"
+      }
+    },
+    {
+      "id": "O037",
+      "name": "oracle-drop-index",
+      "sql": "DROP INDEX idx_users_name",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["DropStmt"],
+        "deparse_contains": "DROP INDEX"
+      }
+    },
+    {
+      "id": "O038",
+      "name": "oracle-in-list-binds",
+      "sql": "SELECT id FROM users WHERE status IN (:status1, :status2)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["id"],
+        "where_columns": ["status"],
+        "deparse_contains": ":status2"
+      }
+    },
+    {
+      "id": "O039",
+      "name": "oracle-delete-date-literal",
+      "sql": "DELETE FROM users WHERE created_at < DATE '2020-01-01'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["DeleteStmt"],
+        "tables": ["users"],
+        "where_columns": ["created_at"],
+        "deparse_contains": "DATE '2020-01-01'"
+      }
+    },
+    {
+      "id": "O040",
+      "name": "oracle-create-materialized-view-compatible-form",
+      "sql": "CREATE MATERIALIZED VIEW mv_users AS SELECT id, name FROM users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["CreateTableAsStmt", "SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["id", "name"],
+        "deparse_contains": "CREATE MATERIALIZED VIEW"
+      }
+    },
+    {
+      "id": "OU001",
+      "name": "oracle-connect-by",
+      "sql": "SELECT id FROM users START WITH manager_id IS NULL CONNECT BY PRIOR id = manager_id",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "OU002",
+      "name": "oracle-legacy-outer-join",
+      "sql": "SELECT u.id, o.id FROM users u, orders o WHERE u.id = o.user_id(+)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "OU003",
+      "name": "oracle-insert-all",
+      "sql": "INSERT ALL INTO users (id) VALUES (1) INTO users (id) VALUES (2) SELECT 1 FROM dual",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "OU004",
+      "name": "oracle-returning-into",
+      "sql": "INSERT INTO users (id) VALUES (1) RETURNING id INTO :id",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "OU005",
+      "name": "oracle-plsql-block",
+      "sql": "BEGIN NULL; END;",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "OU006",
+      "name": "oracle-create-procedure",
+      "sql": "CREATE OR REPLACE PROCEDURE p AS BEGIN NULL; END;",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "OU007",
+      "name": "oracle-create-package",
+      "sql": "CREATE OR REPLACE PACKAGE p AS PROCEDURE x; END p;",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "OU008",
+      "name": "oracle-pivot",
+      "sql": "SELECT * FROM sales PIVOT (SUM(amount) FOR quarter IN ('Q1' AS q1))",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "OU009",
+      "name": "oracle-unpivot",
+      "sql": "SELECT * FROM sales UNPIVOT (amount FOR quarter IN (q1, q2))",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "OU010",
+      "name": "oracle-model-clause",
+      "sql": "SELECT * FROM sales MODEL DIMENSION BY (id) MEASURES (amount) RULES (amount[1] = 1)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "OU011",
+      "name": "oracle-flashback-query",
+      "sql": "SELECT * FROM users AS OF SCN 12345",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "OU012",
+      "name": "oracle-match-recognize",
+      "sql": "SELECT * FROM trades MATCH_RECOGNIZE (ORDER BY trade_time PATTERN (A) DEFINE A AS price > 0)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "OU013",
+      "name": "oracle-alter-session",
+      "sql": "ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD'",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "OU014",
+      "name": "oracle-create-synonym",
+      "sql": "CREATE SYNONYM u FOR users",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "OU015",
+      "name": "oracle-database-link",
+      "sql": "SELECT * FROM users@remote_db",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "OU016",
+      "name": "oracle-explain-plan",
+      "sql": "EXPLAIN PLAN FOR SELECT * FROM users",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "OU017",
+      "name": "oracle-connect-by-root",
+      "sql": "SELECT CONNECT_BY_ROOT name FROM users CONNECT BY PRIOR id = manager_id",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "OU018",
+      "name": "oracle-insert-first",
+      "sql": "INSERT FIRST WHEN 1 = 1 THEN INTO users (id) VALUES (1) SELECT 1 FROM dual",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    }
+  ]
+}

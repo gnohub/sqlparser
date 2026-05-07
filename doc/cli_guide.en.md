@@ -31,7 +31,7 @@ make all
 Command form:
 
 ```bash
-./bin/sqlparser_cli [--mode parse-tree|summary|deparse|model|all] [--compact] [--file PATH] [SQL]
+./bin/sqlparser_cli [--mode parse-tree|summary|deparse|model|all] [--dialect postgresql|mysql|oracle|sqlserver] [--compact] [--file PATH] [SQL]
 ```
 
 It can also read SQL from standard input:
@@ -87,7 +87,30 @@ Examples:
 ./bin/sqlparser_cli --mode deparse "SELECT 1"
 ```
 
-## 5. JSON Formatting
+## 5. Dialect Selection
+
+The default dialect is `postgresql`. Use `--dialect` for other dialects:
+
+```bash
+./bin/sqlparser_cli --dialect oracle --mode summary \
+  "SELECT q'[Bob's order]' AS label FROM dual"
+```
+
+Batch JSON can set a default dialect at the root or override it per item:
+
+```json
+{
+  "dialect": "oracle",
+  "items": [
+    {
+      "name": "oracle-q-string",
+      "sql": "SELECT q'[Bob's order]' AS label FROM dual"
+    }
+  ]
+}
+```
+
+## 6. JSON Formatting
 
 Pretty JSON is the default.
 
@@ -97,7 +120,7 @@ Use `--compact` for compact JSON:
 ./bin/sqlparser_cli --mode model --compact "SELECT 1"
 ```
 
-## 6. Batch Processing
+## 7. Batch Processing
 
 Batch mode processes a JSON file containing multiple SQL entries and emits one
 aggregated result document.
@@ -115,7 +138,7 @@ Notes:
 - `--batch-file` cannot be combined with `--file` or inline SQL.
 - `--output` currently requires `--batch-file`.
 
-### 6.1 Supported Batch Input Shapes
+### 7.1 Supported Batch Input Shapes
 
 The batch input JSON can be:
 
@@ -126,7 +149,7 @@ The batch input JSON can be:
 Array items can be either:
 
 - a raw SQL string
-- an object: `{"name":"case-name","sql":"..."}`
+- an object: `{"name":"case-name","dialect":"oracle","sql":"..."}`
 
 Example:
 
@@ -157,13 +180,14 @@ Or:
 }
 ```
 
-### 6.2 Batch Output Shape
+### 7.2 Batch Output Shape
 
 The batch result JSON contains:
 
 | Field | Meaning |
 | --- | --- |
 | `mode` | selected execution mode |
+| `dialect` | default batch dialect |
 | `source_file` | input file path |
 | `total` | total item count |
 | `succeeded` | successful item count |
@@ -177,6 +201,7 @@ Each result item contains at least:
 | --- | --- |
 | `index` | 1-based item index |
 | `name` | optional case name |
+| `dialect` | dialect used for this item |
 | `sql` | original SQL |
 | `ok` | success flag |
 
@@ -196,30 +221,30 @@ Successful items include mode-dependent fields such as:
 - `model`
 - `deparse_sql`
 
-## 7. Common Uses
+## 8. Common Uses
 
-### 7.1 Inspect the Summary of a Multi-Table Query
+### 8.1 Inspect the Summary of a Multi-Table Query
 
 ```bash
 ./bin/sqlparser_cli --mode summary \
   "SELECT u.id, o.order_no FROM public.users u JOIN public.orders o ON u.id = o.user_id WHERE o.status = 'paid'"
 ```
 
-### 7.2 Export Stable Model JSON
+### 8.2 Export Stable Model JSON
 
 ```bash
 ./bin/sqlparser_cli --mode model \
   "UPDATE public.users SET name = upper(name), updated_at = DEFAULT WHERE id = 1"
 ```
 
-### 7.3 Check Deparse Output
+### 8.3 Check Deparse Output
 
 ```bash
 ./bin/sqlparser_cli --mode deparse \
   "INSERT INTO public.users (id, name) VALUES (1, 'bob')"
 ```
 
-## 8. Related Documents
+## 9. Related Documents
 
 - [Quick Start](../README.en.md)
 - [API Reference](./api_reference.en.md)

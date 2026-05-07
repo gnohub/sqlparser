@@ -546,6 +546,18 @@
       }
     },
     {
+      "name": "oracle-cli-dialect-q-quote",
+      "dialect": "oracle",
+      "sql": "SELECT q'[Bob's order]' AS label FROM dual",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "keywords": ["select", "as", "from"],
+        "tables": ["dual"],
+        "deparse_contains": "'Bob''s order'"
+      }
+    },
+    {
       "name": "parse-error",
       "sql": "SELECT FROM",
       "expect": {

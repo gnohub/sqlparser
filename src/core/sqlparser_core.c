@@ -839,6 +839,172 @@ const char *sqlparser_effective_parser_sql(const sqlparser_handle_t *handle)
 	return handle->current_parser_sql;
 }
 
+sqlparser_status_t sqlparser_postprocess_handle_sql_fragment(
+	const sqlparser_handle_t *handle,
+	const char *core_sql,
+	const char *field_name,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_status_t status;
+	char *public_sql;
+
+	if (out_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"out_sql must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_sql = NULL;
+
+	if (handle == NULL || core_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"handle and core SQL must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	public_sql = NULL;
+	if (handle->dialect_ops != NULL && handle->dialect_ops->postprocess_deparse != NULL) {
+		status = handle->dialect_ops->postprocess_deparse(
+			core_sql,
+			handle->dialect_state,
+			&public_sql,
+			out_error);
+	} else {
+		public_sql = sqlparser_strdup(core_sql);
+		status = public_sql != NULL ? SQLPARSER_STATUS_OK : SQLPARSER_STATUS_NO_MEMORY;
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		}
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+
+	status = sqlparser_validate_handle_output_text(
+		handle,
+		public_sql,
+		field_name != NULL ? field_name : "SQL fragment",
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(public_sql);
+		return status;
+	}
+
+	*out_sql = public_sql;
+	return SQLPARSER_STATUS_OK;
+}
+
+void sqlparser_handle_discard_dialect_state(
+	const sqlparser_handle_t *handle,
+	void *state)
+{
+	if (state == NULL || handle == NULL || state == handle->dialect_state) {
+		return;
+	}
+	if (handle->dialect_ops != NULL && handle->dialect_ops->destroy_state != NULL) {
+		handle->dialect_ops->destroy_state(state);
+	}
+}
+
+void sqlparser_handle_adopt_dialect_state(
+	sqlparser_handle_t *handle,
+	void *state)
+{
+	if (handle == NULL || state == NULL || state == handle->dialect_state) {
+		return;
+	}
+
+	if (handle->dialect_ops != NULL && handle->dialect_ops->destroy_state != NULL) {
+		handle->dialect_ops->destroy_state(handle->dialect_state);
+	}
+	handle->dialect_state = state;
+}
+
+sqlparser_status_t sqlparser_preprocess_handle_sql_fragment(
+	const sqlparser_handle_t *handle,
+	const char *public_sql,
+	const char *field_name,
+	char **out_parser_sql,
+	void **out_dialect_state,
+	sqlparser_error_t *out_error)
+{
+	void *candidate_state;
+	sqlparser_status_t status;
+
+	if (out_parser_sql == NULL || out_dialect_state == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"fragment output must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_parser_sql = NULL;
+	*out_dialect_state = NULL;
+
+	status = sqlparser_validate_handle_sql_input(
+		handle,
+		public_sql,
+		field_name != NULL ? field_name : "SQL fragment",
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+
+	if (handle->dialect_ops == NULL || handle->dialect_ops->preprocess_fragment == NULL) {
+		*out_parser_sql = sqlparser_strdup(public_sql);
+		if (*out_parser_sql == NULL) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		return SQLPARSER_STATUS_OK;
+	}
+
+	candidate_state = NULL;
+	if (handle->dialect_ops->clone_state != NULL) {
+		status = handle->dialect_ops->clone_state(handle->dialect_state, &candidate_state, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+
+	status = handle->dialect_ops->preprocess_fragment(
+		public_sql,
+		candidate_state,
+		out_parser_sql,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_discard_dialect_state(handle, candidate_state);
+		return status;
+	}
+	if (*out_parser_sql == NULL) {
+		sqlparser_handle_discard_dialect_state(handle, candidate_state);
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"dialect fragment output is missing");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+
+	status = sqlparser_validate_text_limit(
+		*out_parser_sql,
+		handle->limits.max_sql_bytes,
+		"parser SQL fragment",
+		NULL,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(*out_parser_sql);
+		*out_parser_sql = NULL;
+		sqlparser_handle_discard_dialect_state(handle, candidate_state);
+		return status;
+	}
+
+	*out_dialect_state = candidate_state;
+	return SQLPARSER_STATUS_OK;
+}
 
 const char *sqlparser_version_string(void)
 {

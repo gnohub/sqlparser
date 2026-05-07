@@ -824,7 +824,7 @@ static sqlparser_status_t sqlparser_ensure_model_json_text(
 		return status;
 	}
 
-	effective_sql = sqlparser_effective_parser_sql(handle);
+	effective_sql = sqlparser_effective_sql(handle);
 	root = json_object();
 	statements = json_array();
 	if (root == NULL || statements == NULL) {
