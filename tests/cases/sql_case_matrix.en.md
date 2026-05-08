@@ -12,7 +12,7 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 
 | Case ID | Case Name | Statement Shape | Validation Focus |
 | --- | --- | --- | --- |
-| P001 | `select-basic` | `SELECT 1` | parse, parse-tree JSON, summary JSON, deparse |
+| P001 | `select-basic` | `SELECT 1` | parse, SQL View JSON, SQL View JSON, deparse |
 | P002 | `select-filter` | `SELECT ... FROM ... WHERE ...` | selected columns, filter columns, table extraction |
 | P003 | `select-join` | `SELECT ... JOIN ... ON ... WHERE ...` | multi-table join, selected columns, join columns, where columns |
 | P004 | `select-cte` | `WITH ... SELECT ...` | CTE name, outer selected columns, upstream filter columns |
@@ -61,11 +61,12 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 | P047 | `analyze-table` | `ANALYZE ...` | analyze node recognition and table extraction |
 | P048 | `vacuum-analyze-table` | `VACUUM ANALYZE ...` | combined vacuum/analyze node recognition |
 | P049 | `oracle-cli-dialect-q-quote` | Oracle `q'[...]'` | CLI `dialect` field and Oracle q-quoted string handling |
+| P050 | `sqlserver-cli-dialect-top-param` | SQL Server `TOP` + `@` parameter | CLI `dialect` field and SQL Server dialect output handling |
 
 ## Negative Case
 
 | Case ID | Case Name | Input | Validation Focus |
 | --- | --- | --- | --- |
-| P050 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
+| P051 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
 
 New regression cases must update both `tests/cases/sql_batch_input.json` and this matrix.

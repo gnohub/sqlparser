@@ -4,9 +4,12 @@
 used to:
 
 - quickly inspect how one SQL statement parses
-- export parse-tree, summary, or model JSON
+- export SQL View JSON
 - check single-statement deparse output
 - process a JSON file containing multiple SQL statements
+
+Regular integrations should use `view`, which reports statements, objects,
+columns, value fragments, and selectors.
 
 The binary is generated at:
 
@@ -31,13 +34,13 @@ make all
 Command form:
 
 ```bash
-./bin/sqlparser_cli [--mode parse-tree|summary|deparse|model|all] [--dialect postgresql|mysql|oracle|sqlserver] [--compact] [--file PATH] [SQL]
+./bin/sqlparser_cli [--mode view|deparse|all] [--dialect postgresql|mysql|oracle|sqlserver] [--compact] [--file PATH] [SQL]
 ```
 
 It can also read SQL from standard input:
 
 ```bash
-echo "SELECT 1" | ./bin/sqlparser_cli --mode summary
+echo "SELECT 1" | ./bin/sqlparser_cli --mode view
 ```
 
 Show help:
@@ -72,18 +75,14 @@ cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
 
 | Mode | Output |
 | --- | --- |
-| `parse-tree` | parse-tree JSON |
-| `summary` | summary JSON |
-| `model` | model JSON |
+| `view` | SQL View JSON |
 | `deparse` | deparsed SQL |
-| `all` | all of the above in order |
+| `all` | SQL View JSON and deparsed SQL |
 
 Examples:
 
 ```bash
-./bin/sqlparser_cli --mode parse-tree "SELECT 1"
-./bin/sqlparser_cli --mode summary "SELECT 1"
-./bin/sqlparser_cli --mode model "SELECT 1"
+./bin/sqlparser_cli --mode view "SELECT 1"
 ./bin/sqlparser_cli --mode deparse "SELECT 1"
 ```
 
@@ -92,7 +91,7 @@ Examples:
 The default dialect is `postgresql`. Use `--dialect` for other dialects:
 
 ```bash
-./bin/sqlparser_cli --dialect oracle --mode summary \
+./bin/sqlparser_cli --dialect oracle --mode view \
   "SELECT q'[Bob's order]' AS label FROM dual"
 ```
 
@@ -117,7 +116,7 @@ Pretty JSON is the default.
 Use `--compact` for compact JSON:
 
 ```bash
-./bin/sqlparser_cli --mode model --compact "SELECT 1"
+./bin/sqlparser_cli --mode view --compact "SELECT 1"
 ```
 
 ## 7. Batch Processing
@@ -216,24 +215,22 @@ Failed items include an `error` object with:
 
 Successful items include mode-dependent fields such as:
 
-- `parse_tree`
-- `summary`
-- `model`
+- `view`
 - `deparse_sql`
 
 ## 8. Common Uses
 
-### 8.1 Inspect the Summary of a Multi-Table Query
+### 8.1 Inspect the SQL View of a Multi-Table Query
 
 ```bash
-./bin/sqlparser_cli --mode summary \
+./bin/sqlparser_cli --mode view \
   "SELECT u.id, o.order_no FROM public.users u JOIN public.orders o ON u.id = o.user_id WHERE o.status = 'paid'"
 ```
 
-### 8.2 Export Stable Model JSON
+### 8.2 Export SQL View JSON
 
 ```bash
-./bin/sqlparser_cli --mode model \
+./bin/sqlparser_cli --mode view \
   "UPDATE public.users SET name = upper(name), updated_at = DEFAULT WHERE id = 1"
 ```
 
@@ -248,4 +245,4 @@ Successful items include mode-dependent fields such as:
 
 - [Quick Start](../README.en.md)
 - [API Reference](./api_reference.en.md)
-- [Model JSON Guide](./model_json.en.md)
+- [SQL View JSON Guide](./view_json.en.md)

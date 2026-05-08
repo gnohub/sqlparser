@@ -18,11 +18,9 @@
 - 表、名称原子、字面量的遍历与改写
 - `INSERT`、`UPDATE`、`WHERE` 结构读取与精确改写
 - `selector` 解析、格式化与定位
-- 方言选项，默认 PostgreSQL，并提供 MySQL、Oracle 方言转换层
-- 可配置资源限制，覆盖 SQL 输入、模型 JSON 输入、生成输出与语句数量
-- `parse tree JSON` 导出
-- `summary JSON` 导出
-- 稳定模型 JSON 导出与导入
+- 方言选项，默认 PostgreSQL，并提供 MySQL、Oracle、SQL Server 方言转换层
+- 可配置资源限制，覆盖 SQL 输入、生成输出与语句数量
+- SQL View JSON 导出、C 结构化遍历与结构体 patch 写回
 - `handle -> sql`
 
 ## 公共产物
@@ -129,7 +127,12 @@ sqlparser_parse_options_default(&options);
 options.dialect = SQLPARSER_DIALECT_MYSQL;
 ```
 
-Oracle 方言同样通过 `options.dialect = SQLPARSER_DIALECT_ORACLE` 指定。
+Oracle 与 SQL Server 方言同样通过 `options.dialect` 显式指定：
+
+```c
+options.dialect = SQLPARSER_DIALECT_ORACLE;
+options.dialect = SQLPARSER_DIALECT_SQLSERVER;
+```
 
 示例编译方式：
 
@@ -151,16 +154,10 @@ gcc -std=gnu11 demo.c $(pkg-config --cflags --libs sqlparser) -o demo
 ./bin/sqlparser_cli "SELECT id, name FROM public.users WHERE id = 42"
 ```
 
-导出摘要 JSON：
+导出 SQL View JSON：
 
 ```bash
-./bin/sqlparser_cli --mode summary "SELECT id, name FROM public.users WHERE id = 42"
-```
-
-导出稳定模型 JSON：
-
-```bash
-./bin/sqlparser_cli --mode model "SELECT id, name FROM public.users WHERE id = 42"
+./bin/sqlparser_cli --mode view "SELECT id, name FROM public.users WHERE id = 42"
 ```
 
 批量处理 JSON 文件中的 SQL 列表：
@@ -182,10 +179,11 @@ gcc -std=gnu11 demo.c $(pkg-config --cflags --libs sqlparser) -o demo
 - `05_delete_inspect.c`
 - `06_ddl_inspect.c`
 - `07_multi_statement_walk.c`
-- `08_model_roundtrip.c`
+- `08_view_patch.c`
 - `09_expression_rewrite.c`
 - `10_mysql_dialect.c`
 - `11_oracle_dialect.c`
+- `12_sqlserver_dialect.c`
 
 示例说明见 [examples/README.zh-CN.md](./examples/README.zh-CN.md)。
 
@@ -193,10 +191,13 @@ gcc -std=gnu11 demo.c $(pkg-config --cflags --libs sqlparser) -o demo
 
 - [文档目录](./doc/README.md)
 - [项目概览与架构](./doc/sqlparser_architecture.md)
-- [兼容性策略](./doc/compatibility_policy.md)
+- [PostgreSQL 方言支持](./doc/postgresql_dialect_support.md)
+- [MySQL 方言支持](./doc/mysql_dialect_support.md)
 - [Oracle 方言支持](./doc/oracle_dialect_support.md)
+- [SQL Server 方言支持](./doc/sqlserver_dialect_support.md)
+- [方言覆盖统计](./doc/dialect_coverage.md)
 - [API 手册](./doc/api_reference.md)
-- [模型 JSON 手册](./doc/model_json.md)
+- [SQL View JSON 手册](./doc/view_json.md)
 - [CLI 手册](./doc/cli_guide.md)
 - [libpg_query 集成说明](./doc/libpg_query_analysis.md)
 - [发布说明](./RELEASE_NOTES.md)

@@ -59,7 +59,7 @@
       "sql": "INSERT INTO public.users (id, name) VALUES (1, 'alice')",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["InsertStmt", "SelectStmt"],
+        "statement_types": ["InsertStmt"],
         "keywords": ["insert", "into", "values"],
         "tables": ["public.users"],
         "insert_columns": ["id", "name"],
@@ -72,7 +72,7 @@
       "sql": "INSERT INTO public.users (id, name) VALUES (1, 'alice'), (2, 'bob')",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["InsertStmt", "SelectStmt"],
+        "statement_types": ["InsertStmt"],
         "keywords": ["insert", "into", "values"],
         "tables": ["public.users"],
         "insert_columns": ["id", "name"],
@@ -85,7 +85,7 @@
       "sql": "INSERT INTO public.user_archive (id, name) SELECT id, name FROM public.users WHERE status = 'inactive'",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["InsertStmt", "SelectStmt"],
+        "statement_types": ["InsertStmt"],
         "keywords": ["insert", "into", "select", "from", "where"],
         "tables": ["public.user_archive", "public.users"],
         "selected_columns": ["id", "name"],
@@ -162,7 +162,7 @@
       "sql": "CREATE VIEW public.v_users AS SELECT id, name FROM public.users",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["ViewStmt", "SelectStmt"],
+        "statement_types": ["ViewStmt"],
         "keywords": ["create", "view", "as", "select", "from"],
         "tables": ["public.v_users", "public.users"],
         "selected_columns": ["id", "name"],
@@ -274,7 +274,7 @@
       "sql": "CREATE TABLE public.active_users AS SELECT id FROM public.users WHERE status = 'active'",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["CreateTableAsStmt", "SelectStmt"],
+        "statement_types": ["CreateTableAsStmt"],
         "deparse_contains": "CREATE TABLE public.active_users AS"
       }
     },
@@ -293,7 +293,7 @@
       "sql": "BEGIN; INSERT INTO public.users (id, name) VALUES (1, 'alice'); ROLLBACK;",
       "expect": {
         "statement_count": 3,
-        "statement_types": ["TransactionStmt", "InsertStmt", "SelectStmt"],
+        "statement_types": ["TransactionStmt", "InsertStmt"],
         "keywords": ["begin", "insert", "into", "values", "rollback"],
         "tables": ["public.users"],
         "insert_columns": ["id", "name"],
@@ -379,7 +379,7 @@
       "sql": "INSERT INTO public.users (id, name) VALUES (1, 'alice') ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name RETURNING id",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["InsertStmt", "SelectStmt"],
+        "statement_types": ["InsertStmt"],
         "keywords": ["insert", "into", "values", "on", "conflict", "do", "update", "set", "returning"],
         "tables": ["public.users"],
         "insert_columns": ["id", "name"],
@@ -392,7 +392,7 @@
       "sql": "INSERT INTO public.audit_log (id, action) VALUES (1, 'login') RETURNING id, action",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["InsertStmt", "SelectStmt"],
+        "statement_types": ["InsertStmt"],
         "keywords": ["insert", "into", "values", "returning"],
         "tables": ["public.audit_log"],
         "insert_columns": ["id", "action"],
@@ -450,7 +450,7 @@
       "sql": "BEGIN; SAVEPOINT sp1; INSERT INTO public.audit_log (id, action) VALUES (1, 'login'); ROLLBACK TO SAVEPOINT sp1; COMMIT;",
       "expect": {
         "statement_count": 5,
-        "statement_types": ["TransactionStmt", "InsertStmt", "SelectStmt"],
+        "statement_types": ["TransactionStmt", "InsertStmt"],
         "keywords": ["begin", "savepoint", "insert", "into", "values", "rollback", "to", "commit"],
         "tables": ["public.audit_log"],
         "insert_columns": ["id", "action"],
@@ -463,7 +463,7 @@
       "sql": "CREATE MATERIALIZED VIEW public.mv_users AS SELECT id, name FROM public.users",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["CreateTableAsStmt", "SelectStmt"],
+        "statement_types": ["CreateTableAsStmt"],
         "keywords": ["create", "materialized", "view", "as", "select", "from"],
         "tables": ["public.mv_users", "public.users"],
         "selected_columns": ["id", "name"],
@@ -555,6 +555,21 @@
         "keywords": ["select", "as", "from"],
         "tables": ["dual"],
         "deparse_contains": "'Bob''s order'"
+      }
+    },
+    {
+      "name": "sqlserver-cli-dialect-top-param",
+      "dialect": "sqlserver",
+      "sql": "SELECT TOP (3) [id], [name] FROM [dbo].[users] WHERE [id] = @id ORDER BY [id]",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "keywords": ["select", "from", "where", "order", "by"],
+        "tables": ["dbo.users"],
+        "selected_columns": ["id", "name"],
+        "where_columns": ["id"],
+        "all_referenced_columns": ["id", "name"],
+        "deparse_contains": "TOP (3)"
       }
     },
     {

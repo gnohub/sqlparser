@@ -40,7 +40,7 @@ make test
 - `make test-inspect`
 - `make test-rewrite`
 - `make test-deparse`
-- `make test-model-json`
+- `make test-view-json`
 - `make test-cli`
 - `make test-install`
 - `make test-abi`
@@ -61,11 +61,13 @@ make test
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_oracle_dialect_case_matrix.c`
+- `tests/unit/test_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 - `tests/install/install_smoke.c`
 - `tests/cases/sql_batch_input.json`
 - `tests/cases/mysql_dialect_input.json`
 - `tests/cases/oracle_dialect_input.json`
+- `tests/cases/sqlserver_dialect_input.json`
 - `tests/verify_cli_batch.py`
 
 ## 覆盖范围
@@ -73,16 +75,17 @@ make test
 测试覆盖的主要内容包括：
 
 - parse / deparse 基础链路
-- 资源限制，包括 SQL 输入、模型 JSON 输入、生成输出和语句数量
+- 资源限制，包括 SQL 输入、生成输出和语句数量
 - 语句类型与节点识别
 - `SELECT / INSERT / UPDATE / DELETE / MERGE`
 - 多语句输入
 - `ON CONFLICT`、`RETURNING`、`UPDATE ... FROM`、`DELETE ... USING`
 - 常见 DDL、事务控制、`GRANT / REVOKE` 与维护语句
 - JSON 导出
-- selector 与模型 JSON 回放
+- selector 与结构体 patch 回放
 - MySQL 方言转换层的解析、反解析和明确不支持语法返回码
 - Oracle 方言转换层的解析、反解析和明确不支持语法返回码
+- SQL Server 方言转换层的解析、反解析和明确不支持语法返回码
 - 参数校验、资源限制、畸形 SQL、失败改写回滚和方言公共输出稳定性
 
 ## 用例矩阵
@@ -90,3 +93,4 @@ make test
 - [SQL 用例矩阵](./cases/sql_case_matrix.md)
 - [MySQL 方言用例矩阵](./cases/mysql_dialect_matrix.md)
 - [Oracle 方言用例矩阵](./cases/oracle_dialect_matrix.md)
+- [SQL Server 方言用例矩阵](./cases/sqlserver_dialect_matrix.md)

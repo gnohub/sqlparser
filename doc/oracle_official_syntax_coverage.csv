@@ -1,0 +1,45 @@
+category,item,status,reason,official_url
+query,SELECT,CURRENT,"已覆盖 SELECT、别名、子查询、JOIN、WHERE、GROUP BY 和 HAVING",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
+query,MINUS,CURRENT,"已覆盖 Oracle MINUS 与核心集合运算双向转换",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/The-UNION-ALL-INTERSECT-MINUS-Operators.html
+query,UNION_INTERSECT,CURRENT,"已覆盖 UNION ALL 和 INTERSECT",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/The-UNION-ALL-INTERSECT-MINUS-Operators.html
+query,OFFSET_FETCH,CURRENT,"已覆盖 OFFSET FETCH 分页",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
+query,ROWNUM,CURRENT,"已覆盖 ROWNUM 条件过滤",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/ROWNUM-Pseudocolumn.html
+query,FOR_UPDATE_NOWAIT,CURRENT,"已覆盖 FOR UPDATE NOWAIT",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
+expressions,BIND_VARIABLES,CURRENT,"已覆盖 :name 和 :1 形式 bind 占位符",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Comments.html
+expressions,Q_QUOTED_STRING,CURRENT,"已覆盖 q-quoted 字符串",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Literals.html
+expressions,DATE_TIMESTAMP_LITERAL,CURRENT,"已覆盖 DATE 和 TIMESTAMP 字面量",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Literals.html
+expressions,CASE_EXISTS,CURRENT,"已覆盖 CASE 和 EXISTS 子查询",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CASE-Expressions.html
+expressions,COMMON_FUNCTIONS,CURRENT,"已覆盖 DECODE、NVL、SYSDATE 等常见函数和伪列",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Single-Row-Functions.html
+expressions,ANALYTIC_FUNCTIONS,CURRENT,"已覆盖 ROW_NUMBER() OVER 代表性分析函数",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Analytic-Functions.html
+dml,INSERT_VALUES,CURRENT,"已覆盖 INSERT VALUES 和多行 VALUES",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/INSERT.html
+dml,INSERT_SELECT,CURRENT,"已覆盖 INSERT SELECT",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/INSERT.html
+dml,UPDATE,CURRENT,"已覆盖 UPDATE SET WHERE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/UPDATE.html
+dml,DELETE,CURRENT,"已覆盖 DELETE WHERE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/DELETE.html
+dml,MERGE,CURRENT,"已覆盖可映射 MERGE 基础结构",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/MERGE.html
+ddl,CREATE_TABLE,CURRENT,"已覆盖常见类型名的 CREATE TABLE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-TABLE.html
+ddl,CREATE_SEQUENCE,CURRENT,"已覆盖 CREATE SEQUENCE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-SEQUENCE.html
+ddl,CREATE_VIEW,CURRENT,"已覆盖 CREATE OR REPLACE VIEW",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-VIEW.html
+ddl,CREATE_MATERIALIZED_VIEW,CURRENT,"已覆盖兼容形态的物化视图创建语句",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-MATERIALIZED-VIEW.html
+ddl,ALTER_TABLE_ADD,CURRENT,"已覆盖 ALTER TABLE ADD",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/ALTER-TABLE.html
+ddl,CREATE_INDEX,CURRENT,"已覆盖 CREATE INDEX",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-INDEX.html
+ddl,DROP_INDEX,CURRENT,"已覆盖 DROP INDEX",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/DROP-INDEX.html
+ddl,DROP_TABLE,CURRENT,"已覆盖 DROP TABLE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/DROP-TABLE.html
+ddl,TRUNCATE_TABLE,CURRENT,"已覆盖 TRUNCATE TABLE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/TRUNCATE-TABLE.html
+transaction,SAVEPOINT_ROLLBACK_COMMIT,CURRENT,"已覆盖 SAVEPOINT、ROLLBACK TO SAVEPOINT 和 COMMIT",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Types-of-SQL-Statements.html
+privileges,GRANT_REVOKE,CURRENT,"已覆盖 GRANT 和 REVOKE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/GRANT.html
+utility,COMMENT_ON,CURRENT,"已覆盖 COMMENT ON TABLE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/COMMENT.html
+expressions,NATIONAL_Q_QUOTED_STRING,MODEL_REQUIRED,"national 字符集语义不能安全降级为普通字符串",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Literals.html
+query,CONNECT_BY,MODEL_REQUIRED,"层级查询语义需要 Oracle 专用查询模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Hierarchical-Queries.html
+query,LEGACY_OUTER_JOIN,MODEL_REQUIRED,"(+) 旧式外连接语义不做静默降级",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Joins.html
+dml,INSERT_ALL_FIRST,MODEL_REQUIRED,"多表插入语义需要 Oracle 专用 DML 模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/INSERT.html
+dml,RETURNING_INTO,MODEL_REQUIRED,"RETURNING INTO 涉及宿主变量语义，需要专用模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/RETURNING-INTO-Clause.html
+program,PLSQL_BLOCK,MODEL_REQUIRED,"PL/SQL block 超出当前 SQL 语句模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/lnpls/plsql-language-fundamentals.html
+program,CREATE_PROCEDURE_PACKAGE,MODEL_REQUIRED,"procedure 和 package 属于 PL/SQL 程序单元",https://docs.oracle.com/en/database/oracle/oracle-database/23/lnpls/overview.html
+query,PIVOT_UNPIVOT,MODEL_REQUIRED,"表变换语义需要 Oracle 专用查询模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
+query,MODEL_CLAUSE,MODEL_REQUIRED,"MODEL clause 需要 Oracle 专用查询模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
+query,FLASHBACK_QUERY,MODEL_REQUIRED,"闪回查询语义需要 Oracle 专用查询模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
+query,MATCH_RECOGNIZE,MODEL_REQUIRED,"行模式识别语义需要 Oracle 专用查询模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
+session,ALTER_SESSION,MODEL_REQUIRED,"会话级语义不属于当前语句 AST 改写范围",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/ALTER-SESSION.html
+ddl,SYNONYM,MODEL_REQUIRED,"synonym 对象需要 Oracle 专用对象模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-SYNONYM.html
+schema,DATABASE_LINK,MODEL_REQUIRED,"database link 远程对象引用需要 Oracle 专用命名模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-DATABASE-LINK.html
+utility,EXPLAIN_PLAN_FOR,MODEL_REQUIRED,"Oracle explain plan 输出和计划表语义需要专用模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/EXPLAIN-PLAN.html

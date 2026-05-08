@@ -14,7 +14,7 @@ The target capabilities of `sqlparser` are:
 3. Extract relations, columns, aliases, keywords, and literal values.
 4. Provide precise rewrite entry points.
 5. Deparse the rewritten structure back into SQL text.
-6. Export a stable JSON work model.
+6. Export a stable SQL view as JSON.
 
 The public deliverables are:
 
@@ -31,7 +31,7 @@ The standard `sqlparser` workflow is:
 2. Call `sqlparser_parse()` to create a `sqlparser_handle_t`.
 3. Read structural data through statement-level APIs, generic atomic APIs, or
    semantic APIs.
-4. Apply precise rewrites by index, selector, or model patch.
+4. Apply precise rewrites by index, selector, or structured patch.
 5. Call `sqlparser_deparse()` to produce the final SQL text.
 
 This flow covers two common categories of SQL processing:
@@ -53,7 +53,7 @@ The public API surface is organized into three groups:
 - statement-oriented APIs: statement kind, node name, target relation,
   `INSERT`, `UPDATE`, and `WHERE`
 - generic atomic APIs: `relation`, `name`, and `literal`
-- externally addressable rewrite APIs: `selector` and model JSON
+- externally addressable rewrite APIs: `selector`, SQL View JSON, and structured patch
 
 ### 3.2 Canonical Syntax Tree Layer
 
@@ -64,7 +64,7 @@ This layer is responsible for:
 
 - holding the statement tree
 - acting as the single source of truth for all rewrites
-- driving summary extraction, scan results, JSON export, and deparse
+- driving structured view export and deparse
 
 This keeps the rewrite path centered on a single structural representation
 instead of repeatedly parsing JSON as the primary state.
@@ -74,11 +74,7 @@ instead of repeatedly parsing JSON as the primary state.
 The semantic analysis layer exposes information that is closer to SQL-level
 meaning than the raw syntax tree.
 
-Its inputs are:
-
-- `libpg_query` summary output
-- `libpg_query` scan output
-- `sqlparser`'s own AST traversal
+Its input is `sqlparser`'s own traversal of the canonical syntax tree.
 
 Typical outputs include:
 
@@ -93,15 +89,15 @@ Typical outputs include:
 - `update_columns`
 - `all_referenced_columns`
 
-### 3.4 Stable Model Layer
+### 3.4 SQL View Layer
 
-The stable model layer exports the current syntax tree as an external work
-model that can be consumed by other programs.
+The SQL View layer exports the current syntax tree on demand as a structured
+view for external programs.
 
 This layer provides:
 
-- `sqlparser_export_model_json()`
-- `sqlparser_apply_model_json()`
+- `sqlparser_export_view_json()`
+- `sqlparser_apply_patch()`
 - `sqlparser_selector_parse()`
 - `sqlparser_selector_format()`
 
@@ -109,7 +105,7 @@ This layer is suitable for:
 
 - storing stable target paths in rule systems
 - replaying rewrite patches from external programs
-- using JSON as an audit or debugging representation
+- using JSON as a structured output and debugging representation
 
 ### 3.5 Deparse Layer
 
@@ -122,18 +118,15 @@ round-trip still relies on `libpg_query` deparse functionality.
 
 A `sqlparser_handle_t` holds the following categories of data:
 
-- `source_sql`: the original input SQL
-- `current_sql`: the current SQL generated on demand after rewrites
+- original SQL and internal parser SQL
+- current SQL generated on demand after rewrites
 - `parse_tree`: protobuf AST
-- `parse_tree_json`: lazily generated parse-tree JSON
-- `summary`: lazily generated summary protobuf
-- `scan`: lazily generated lexical-scan protobuf
-- `model_json`: lazily generated stable model JSON
+- SQL View JSON: structured JSON exported on demand
 
 Caching behavior is:
 
 - only the required canonical syntax tree is created during the initial parse
-- JSON, summary, scan, and other derived data are generated on demand
+- SQL View JSON and other derived outputs are generated on demand
 - a successful rewrite invalidates the derived caches
 - subsequent reads regenerate those derived results from the latest AST
 
@@ -162,14 +155,14 @@ The current atomic objects are:
 
 These APIs work for DML, DDL, and multi-statement input.
 
-### 5.3 Selector and Model APIs
+### 5.3 Selector and View APIs
 
-Selector and model APIs make rewrite targets stable and externally addressable.
+Selector and view APIs make rewrite targets stable and externally addressable.
 
 Typical use cases include:
 
 - storing a modification point as a text path
-- serializing the full work model as JSON
+- serializing the SQL view as JSON
 - replaying a patch in a separate request
 
 ## 6. Memory and Thread Model
@@ -211,7 +204,7 @@ The implementation minimizes repeated parsing and serialization:
 
 - parse once into a long-lived `handle`
 - derive secondary results lazily
-- load `summary`, `scan`, and model JSON only when requested
+- generate SQL View JSON only when requested
 - rewrite the AST directly instead of using JSON as the primary mutation path
 
 ## 8. Feature Scope and Extension Points
@@ -224,7 +217,8 @@ This release provides:
 - `DELETE`
 - multi-statement input
 - common DDL classification and object-name rewrite
-- selector-driven and model-driven precise rewrite
+- MySQL, Oracle, and SQL Server dialect conversion layers
+- selector-driven and structured patch driven precise rewrite
 
 Dialect adaptation can be added through these extension points:
 
@@ -235,7 +229,7 @@ Dialect adaptation can be added through these extension points:
 ## 9. Documents and Code Entry Points
 
 - API reference: [api_reference.en.md](./api_reference.en.md)
-- model JSON guide: [model_json.en.md](./model_json.en.md)
+- SQL View JSON guide: [view_json.en.md](./view_json.en.md)
 - CLI guide: [cli_guide.en.md](./cli_guide.en.md)
 - `libpg_query` integration notes:
   [libpg_query_analysis.en.md](./libpg_query_analysis.en.md)

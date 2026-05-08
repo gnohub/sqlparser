@@ -46,8 +46,8 @@
         "keywords": ["select", "from", "minus"],
         "tables": ["active_users", "archived_users"],
         "deparse_contains": "MINUS",
-        "model_contains": "MINUS",
-        "model_not_contains": "EXCEPT"
+        "view_contains": "minus",
+        "view_not_contains": "except"
       }
     },
     {
@@ -89,7 +89,9 @@
         "selected_columns": ["id", "name", "order_no"],
         "join_columns": ["id", "user_id"],
         "where_columns": ["status"],
-        "deparse_contains": ":status"
+        "deparse_contains": ":status",
+        "view_contains": "\"sql\":\":status\",\"selector\":\"stmt[0].value",
+        "view_not_contains": "$1"
       }
     },
     {
@@ -99,12 +101,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["InsertStmt", "SelectStmt"],
+        "statement_types": ["InsertStmt"],
         "tables": ["users"],
         "insert_columns": ["id", "name"],
         "deparse_contains": ":id",
-        "model_contains": ":id",
-        "model_not_contains": "$1"
+        "view_contains": ":id",
+        "view_not_contains": "$1"
       }
     },
     {
@@ -114,7 +116,7 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["InsertStmt", "SelectStmt"],
+        "statement_types": ["InsertStmt"],
         "tables": ["users"],
         "insert_columns": ["id", "name"],
         "deparse_contains": "VALUES (1, 'bob'), (2, 'alice')"
@@ -127,7 +129,7 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["InsertStmt", "SelectStmt"],
+        "statement_types": ["InsertStmt"],
         "tables": ["archive_users", "users"],
         "selected_columns": ["id", "name"],
         "where_columns": ["status"],
@@ -147,8 +149,8 @@
         "update_columns": ["name", "status"],
         "where_columns": ["id"],
         "deparse_contains": ":name",
-        "model_contains": ":name",
-        "model_not_contains": "$1"
+        "view_contains": ":name",
+        "view_not_contains": "$1"
       }
     },
     {
@@ -310,7 +312,7 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["ViewStmt", "SelectStmt"],
+        "statement_types": ["ViewStmt"],
         "tables": ["v_users", "users"],
         "selected_columns": ["id", "name"],
         "deparse_contains": "CREATE OR REPLACE VIEW"
@@ -506,10 +508,36 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["CreateTableAsStmt", "SelectStmt"],
+        "statement_types": ["CreateTableAsStmt"],
         "tables": ["users"],
         "selected_columns": ["id", "name"],
         "deparse_contains": "CREATE MATERIALIZED VIEW"
+      }
+    },
+    {
+      "id": "O041",
+      "name": "oracle-unsupported-keywords-in-string",
+      "sql": "SELECT 'RETURNING @ (+)' AS label FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dual"],
+        "deparse_contains": "'RETURNING @ (+)'"
+      }
+    },
+    {
+      "id": "O042",
+      "name": "oracle-unsupported-keywords-in-comment",
+      "sql": "SELECT id FROM users /* CONNECT BY PRIOR id = manager_id */ WHERE id = :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["id"],
+        "where_columns": ["id"],
+        "deparse_contains": ":id"
       }
     },
     {

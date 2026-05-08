@@ -1,0 +1,711 @@
+{
+  "items": [
+    {
+      "id": "S001",
+      "name": "sqlserver-select-bracket-param",
+      "sql": "SELECT [u].[id], [u].[name] FROM [dbo].[users] AS [u] WHERE [u].[id] = @id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users"],
+        "selected_columns": ["id", "name"],
+        "where_columns": ["id"],
+        "deparse_contains": "@id",
+        "view_contains": "\"sql\":\"@id\",\"selector\":\"stmt[0].value",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S002",
+      "name": "sqlserver-select-top",
+      "sql": "SELECT TOP (5) [id], [name] FROM [dbo].[users] ORDER BY [id]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users"],
+        "selected_columns": ["id", "name"],
+        "keywords": ["top"],
+        "deparse_contains": "TOP (5)",
+        "deparse_not_contains": "LIMIT"
+      }
+    },
+    {
+      "id": "S003",
+      "name": "sqlserver-offset-fetch",
+      "sql": "SELECT [id] FROM [dbo].[users] ORDER BY [id] OFFSET 10 ROWS FETCH NEXT 5 ROWS ONLY",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users"],
+        "selected_columns": ["id"],
+        "keywords": ["offset", "fetch"],
+        "deparse_contains": "OFFSET 10 ROWS FETCH NEXT 5 ROWS ONLY",
+        "deparse_not_contains": "LIMIT"
+      }
+    },
+    {
+      "id": "S004",
+      "name": "sqlserver-cte",
+      "sql": "WITH active_users AS (SELECT [id], [name] FROM [dbo].[users] WHERE [status] = 'active') SELECT [id], [name] FROM active_users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users"],
+        "cte_names": ["active_users"],
+        "selected_columns": ["id", "name"],
+        "filter_columns": ["status"],
+        "deparse_contains": "WITH active_users AS"
+      }
+    },
+    {
+      "id": "S005",
+      "name": "sqlserver-join",
+      "sql": "SELECT [u].[id], [o].[order_no] FROM [dbo].[users] [u] JOIN [dbo].[orders] [o] ON [u].[id] = [o].[user_id] WHERE [o].[status] = @status",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users", "dbo.orders"],
+        "selected_columns": ["id", "order_no"],
+        "join_columns": ["id", "user_id"],
+        "where_columns": ["status"],
+        "deparse_contains": "@status"
+      }
+    },
+    {
+      "id": "S006",
+      "name": "sqlserver-left-join",
+      "sql": "SELECT [u].[id], [p].[phone] FROM [dbo].[users] AS [u] LEFT JOIN [dbo].[phones] AS [p] ON [u].[id] = [p].[user_id]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users", "dbo.phones"],
+        "selected_columns": ["id", "phone"],
+        "join_columns": ["id", "user_id"],
+        "deparse_contains": "LEFT JOIN"
+      }
+    },
+    {
+      "id": "S007",
+      "name": "sqlserver-insert-values-param",
+      "sql": "INSERT INTO [dbo].[users] ([id], [name]) VALUES (@id, @name)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "tables": ["dbo.users"],
+        "insert_columns": ["id", "name"],
+        "deparse_contains": "@name",
+        "view_not_contains": "$2"
+      }
+    },
+    {
+      "id": "S008",
+      "name": "sqlserver-insert-values-multi-row",
+      "sql": "INSERT INTO [dbo].[users] ([id], [name]) VALUES (1, 'bob'), (2, 'alice')",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "tables": ["dbo.users"],
+        "insert_columns": ["id", "name"],
+        "deparse_contains": "VALUES (1, 'bob'), (2, 'alice')"
+      }
+    },
+    {
+      "id": "S009",
+      "name": "sqlserver-insert-select",
+      "sql": "INSERT INTO [dbo].[archive_users] ([id], [name]) SELECT [id], [name] FROM [dbo].[users] WHERE [status] = 'inactive'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "tables": ["dbo.archive_users", "dbo.users"],
+        "selected_columns": ["id", "name"],
+        "where_columns": ["status"],
+        "insert_columns": ["id", "name"],
+        "deparse_contains": "INSERT INTO dbo.archive_users"
+      }
+    },
+    {
+      "id": "S010",
+      "name": "sqlserver-update-basic",
+      "sql": "UPDATE [dbo].[users] SET [name] = @name, [status] = 'active' WHERE [id] = @id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["UpdateStmt"],
+        "tables": ["dbo.users"],
+        "update_columns": ["name", "status"],
+        "where_columns": ["id"],
+        "deparse_contains": "@name"
+      }
+    },
+    {
+      "id": "S011",
+      "name": "sqlserver-delete-conditional",
+      "sql": "DELETE FROM [dbo].[users] WHERE [id] = @id AND [status] = 'inactive'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["DeleteStmt"],
+        "tables": ["dbo.users"],
+        "where_columns": ["id", "status"],
+        "deparse_contains": "@id"
+      }
+    },
+    {
+      "id": "S012",
+      "name": "sqlserver-unicode-string",
+      "sql": "SELECT N'Bob''s order' AS label FROM [dbo].[orders] WHERE [customer_name] = N'Alice'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.orders"],
+        "where_columns": ["customer_name"],
+        "deparse_contains": "N'Alice'",
+        "view_contains": "N'Alice'"
+      }
+    },
+    {
+      "id": "S013",
+      "name": "sqlserver-jdbc-question-params",
+      "sql": "SELECT [id] FROM [dbo].[users] WHERE [id] = ? AND [status] = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users"],
+        "where_columns": ["id", "status"],
+        "deparse_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S014",
+      "name": "sqlserver-temp-table",
+      "sql": "SELECT [id] FROM #active_users WHERE [status] = 'active'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["#active_users"],
+        "selected_columns": ["id"],
+        "where_columns": ["status"],
+        "deparse_contains": "#active_users"
+      }
+    },
+    {
+      "id": "S015",
+      "name": "sqlserver-functions",
+      "sql": "SELECT ISNULL([name], 'unknown') AS [name], GETDATE() AS [now_value], NEWID() AS [row_id] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users"],
+        "selected_columns": ["name"],
+        "deparse_contains": "getdate()"
+      }
+    },
+    {
+      "id": "S016",
+      "name": "sqlserver-row-number",
+      "sql": "SELECT ROW_NUMBER() OVER (PARTITION BY [status] ORDER BY [id]) AS rn, [id] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users"],
+        "selected_columns": ["id"],
+        "deparse_contains": "row_number() OVER"
+      }
+    },
+    {
+      "id": "S017",
+      "name": "sqlserver-case-expression",
+      "sql": "SELECT CASE WHEN [status] = 'active' THEN 1 ELSE 0 END AS active_flag FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users"],
+        "where_columns": [],
+        "deparse_contains": "CASE"
+      }
+    },
+    {
+      "id": "S018",
+      "name": "sqlserver-union-all",
+      "sql": "SELECT [id] FROM [dbo].[users] UNION ALL SELECT [id] FROM [dbo].[archive_users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users", "dbo.archive_users"],
+        "deparse_contains": "UNION ALL"
+      }
+    },
+    {
+      "id": "S019",
+      "name": "sqlserver-except",
+      "sql": "SELECT [id] FROM [dbo].[users] EXCEPT SELECT [id] FROM [dbo].[archive_users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users", "dbo.archive_users"],
+        "deparse_contains": "EXCEPT"
+      }
+    },
+    {
+      "id": "S020",
+      "name": "sqlserver-intersect",
+      "sql": "SELECT [id] FROM [dbo].[users] INTERSECT SELECT [id] FROM [dbo].[active_users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users", "dbo.active_users"],
+        "deparse_contains": "INTERSECT"
+      }
+    },
+    {
+      "id": "S021",
+      "name": "sqlserver-create-table-identity",
+      "sql": "CREATE TABLE [dbo].[users] ([id] INT IDENTITY(1,1) PRIMARY KEY, [name] NVARCHAR(64), [active] BIT)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["CreateStmt"],
+        "deparse_contains": "GENERATED BY DEFAULT AS IDENTITY"
+      }
+    },
+    {
+      "id": "S022",
+      "name": "sqlserver-create-view",
+      "sql": "CREATE VIEW [dbo].[v_users] AS SELECT [id], [name] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["ViewStmt"],
+        "tables": ["dbo.v_users", "dbo.users"],
+        "selected_columns": ["id", "name"],
+        "deparse_contains": "CREATE VIEW dbo.v_users AS"
+      }
+    },
+    {
+      "id": "S023",
+      "name": "sqlserver-alter-table-add",
+      "sql": "ALTER TABLE [dbo].[users] ADD [age] INT",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["AlterTableStmt"],
+        "deparse_contains": "ADD COLUMN age int"
+      }
+    },
+    {
+      "id": "S024",
+      "name": "sqlserver-create-index",
+      "sql": "CREATE INDEX [ix_users_name] ON [dbo].[users] ([name])",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["IndexStmt"],
+        "deparse_contains": "CREATE INDEX ix_users_name"
+      }
+    },
+    {
+      "id": "S025",
+      "name": "sqlserver-drop-table",
+      "sql": "DROP TABLE IF EXISTS [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["DropStmt"],
+        "deparse_contains": "DROP TABLE IF EXISTS dbo.users"
+      }
+    },
+    {
+      "id": "S026",
+      "name": "sqlserver-truncate-table",
+      "sql": "TRUNCATE TABLE [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["TruncateStmt"],
+        "tables": ["dbo.users"],
+        "deparse_contains": "TRUNCATE dbo.users"
+      }
+    },
+    {
+      "id": "S027",
+      "name": "sqlserver-transaction",
+      "sql": "BEGIN TRANSACTION; UPDATE [dbo].[users] SET [status] = 'active' WHERE [id] = @id; COMMIT TRANSACTION",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "statement_types": ["TransactionStmt", "UpdateStmt"],
+        "tables": ["dbo.users"],
+        "update_columns": ["status"],
+        "where_columns": ["id"],
+        "deparse_contains": "COMMIT"
+      }
+    },
+    {
+      "id": "S028",
+      "name": "sqlserver-save-transaction",
+      "sql": "SAVE TRANSACTION sp1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["TransactionStmt"],
+        "deparse_contains": "SAVEPOINT sp1"
+      }
+    },
+    {
+      "id": "S029",
+      "name": "sqlserver-grant-revoke",
+      "sql": "GRANT SELECT ON [dbo].[users] TO [app_role]; REVOKE SELECT ON [dbo].[users] FROM [app_role]",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": ["GrantStmt"],
+        "deparse_contains": "REVOKE"
+      }
+    },
+    {
+      "id": "S030",
+      "name": "sqlserver-go-separator",
+      "sql": "SELECT [id] FROM [dbo].[users]\nGO\nSELECT [id] FROM [dbo].[orders]",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users", "dbo.orders"],
+        "deparse_contains": "SELECT id FROM dbo.orders"
+      }
+    },
+    {
+      "id": "S031",
+      "name": "sqlserver-numeric-types",
+      "sql": "CREATE TABLE [dbo].[payments] ([id] BIGINT IDENTITY, [amount] DECIMAL(18,2), [created_at] DATETIME2)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["CreateStmt"],
+        "deparse_contains": "datetime2"
+      }
+    },
+    {
+      "id": "S032",
+      "name": "sqlserver-in-list-params",
+      "sql": "SELECT [id] FROM [dbo].[users] WHERE [id] IN (@id1, @id2, @id3)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users"],
+        "where_columns": ["id"],
+        "deparse_contains": "@id3"
+      }
+    },
+    {
+      "id": "S033",
+      "name": "sqlserver-cast-date",
+      "sql": "SELECT CAST('2024-01-01' AS DATE) AS created_date FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users"],
+        "deparse_contains": "date"
+      }
+    },
+    {
+      "id": "S034",
+      "name": "sqlserver-quoted-identifier",
+      "sql": "SELECT [Order Detail].[Order ID] FROM [dbo].[Order Detail] WHERE [Order Detail].[Order ID] = @order_id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.\"Order Detail\""],
+        "selected_columns": ["Order ID"],
+        "where_columns": ["Order ID"],
+        "deparse_contains": "@order_id"
+      }
+    },
+    {
+      "id": "S035",
+      "name": "sqlserver-merge-basic",
+      "sql": "MERGE INTO [dbo].[users] AS [t] USING [dbo].[staging_users] AS [s] ON [t].[id] = [s].[id] WHEN MATCHED THEN UPDATE SET [name] = [s].[name] WHEN NOT MATCHED BY TARGET THEN INSERT ([id], [name]) VALUES ([s].[id], [s].[name]);",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["MergeStmt"],
+        "tables": ["dbo.users", "dbo.staging_users"],
+        "deparse_contains": "MERGE INTO dbo.users"
+      }
+    },
+    {
+      "id": "S036",
+      "name": "sqlserver-top-parameter",
+      "sql": "SELECT TOP (@row_count) [id] FROM [dbo].[users] ORDER BY [id]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users"],
+        "selected_columns": ["id"],
+        "deparse_contains": "TOP (@row_count)",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S037",
+      "name": "sqlserver-cte-top-main-select",
+      "sql": "WITH latest_users AS (SELECT [id] FROM [dbo].[users] WHERE [status] = 'active') SELECT TOP (3) [id] FROM latest_users ORDER BY [id]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users"],
+        "cte_names": ["latest_users"],
+        "selected_columns": ["id"],
+        "filter_columns": ["status"],
+        "deparse_contains": "SELECT TOP (3) id FROM latest_users"
+      }
+    },
+    {
+      "id": "S038",
+      "name": "sqlserver-unicode-duplicate-literal",
+      "sql": "SELECT 'same' AS ascii_value, N'same' AS unicode_value FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users"],
+        "deparse_contains": "N'same'"
+      }
+    },
+    {
+      "id": "S042",
+      "name": "sqlserver-unsupported-keywords-in-string",
+      "sql": "SELECT 'OUTPUT @table EXEC' AS label FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users"],
+        "deparse_contains": "'OUTPUT @table EXEC'"
+      }
+    },
+    {
+      "id": "S043",
+      "name": "sqlserver-unsupported-keywords-in-comment",
+      "sql": "SELECT [id] FROM [dbo].[users] /* OUTPUT inserted.id */ WHERE [id] = @id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users"],
+        "where_columns": ["id"],
+        "deparse_contains": "@id"
+      }
+    },
+    {
+      "id": "SU001",
+      "name": "sqlserver-top-percent-unsupported",
+      "sql": "SELECT TOP (10) PERCENT [id] FROM [dbo].[users]",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported SQL Server syntax"
+      }
+    },
+    {
+      "id": "SU002",
+      "name": "sqlserver-top-with-ties-unsupported",
+      "sql": "SELECT TOP (10) WITH TIES [id] FROM [dbo].[users] ORDER BY [score]",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported SQL Server syntax"
+      }
+    },
+    {
+      "id": "SU003",
+      "name": "sqlserver-output-unsupported",
+      "sql": "INSERT INTO [dbo].[users] ([id]) OUTPUT inserted.[id] VALUES (1)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported SQL Server syntax"
+      }
+    },
+    {
+      "id": "SU004",
+      "name": "sqlserver-table-hint-unsupported",
+      "sql": "SELECT [id] FROM [dbo].[users] WITH (NOLOCK)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported SQL Server syntax"
+      }
+    },
+    {
+      "id": "SU005",
+      "name": "sqlserver-cross-apply-unsupported",
+      "sql": "SELECT [u].[id] FROM [dbo].[users] [u] CROSS APPLY [dbo].[fn_orders]([u].[id]) [o]",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported SQL Server syntax"
+      }
+    },
+    {
+      "id": "SU006",
+      "name": "sqlserver-pivot-unsupported",
+      "sql": "SELECT * FROM [dbo].[sales] PIVOT (SUM([amount]) FOR [month] IN ([Jan], [Feb])) AS [p]",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported SQL Server syntax"
+      }
+    },
+    {
+      "id": "SU007",
+      "name": "sqlserver-for-json-unsupported",
+      "sql": "SELECT [id] FROM [dbo].[users] FOR JSON PATH",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported SQL Server syntax"
+      }
+    },
+    {
+      "id": "SU008",
+      "name": "sqlserver-query-hint-unsupported",
+      "sql": "SELECT [id] FROM [dbo].[users] OPTION (RECOMPILE)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported SQL Server syntax"
+      }
+    },
+    {
+      "id": "SU009",
+      "name": "sqlserver-declare-unsupported",
+      "sql": "DECLARE @id INT = 1; SELECT @id",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported SQL Server syntax"
+      }
+    },
+    {
+      "id": "SU010",
+      "name": "sqlserver-exec-unsupported",
+      "sql": "EXEC [dbo].[rebuild_user_cache]",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported SQL Server syntax"
+      }
+    },
+    {
+      "id": "SU011",
+      "name": "sqlserver-create-procedure-unsupported",
+      "sql": "CREATE PROCEDURE [dbo].[p] AS SELECT 1",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported SQL Server syntax"
+      }
+    },
+    {
+      "id": "S039",
+      "name": "sqlserver-system-variable",
+      "sql": "SELECT @@ROWCOUNT",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "@@ROWCOUNT",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S040",
+      "name": "sqlserver-binary-literal",
+      "sql": "SELECT 0xDEADBEEF AS payload",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "0xDEADBEEF",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S041",
+      "name": "sqlserver-convert-style",
+      "sql": "SELECT CONVERT(VARCHAR(10), [created_at], 120) FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users"],
+        "deparse_contains": "CONVERT("
+      }
+    },
+    {
+      "id": "SU015",
+      "name": "sqlserver-table-variable-unsupported",
+      "sql": "SELECT [id] FROM @users",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported SQL Server syntax"
+      }
+    },
+    {
+      "id": "SU016",
+      "name": "sqlserver-merge-by-source-unsupported",
+      "sql": "MERGE INTO [dbo].[users] AS [t] USING [dbo].[staging_users] AS [s] ON [t].[id] = [s].[id] WHEN NOT MATCHED BY SOURCE THEN DELETE;",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported SQL Server syntax"
+      }
+    },
+    {
+      "id": "SU017",
+      "name": "sqlserver-top-offset-fetch-unsupported",
+      "sql": "SELECT TOP (10) [id] FROM [dbo].[users] ORDER BY [id] OFFSET 20 ROWS FETCH NEXT 10 ROWS ONLY",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported SQL Server syntax"
+      }
+    },
+    {
+      "id": "SU018",
+      "name": "sqlserver-nested-top-unsupported",
+      "sql": "SELECT [id] FROM (SELECT TOP (2) [id] FROM [dbo].[users]) AS [u]",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported SQL Server syntax"
+      }
+    }
+  ]
+}

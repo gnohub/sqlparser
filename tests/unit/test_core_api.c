@@ -298,7 +298,7 @@ static int test_update_assignment_literal_mutation(void)
 	sqlparser_literal_value_t where_replacement;
 	sqlparser_relation_view_t relation;
 	char *deparsed_sql;
-	char *parse_tree_json;
+	char *view_json;
 	size_t assignment_count;
 	size_t where_count;
 	int rc;
@@ -306,7 +306,7 @@ static int test_update_assignment_literal_mutation(void)
 	sql = "UPDATE public.users SET name = 'bob', age = 18 WHERE id = 1 AND status = 'active'";
 	handle = NULL;
 	deparsed_sql = NULL;
-	parse_tree_json = NULL;
+	view_json = NULL;
 	memset(&error, 0, sizeof(error));
 	memset(&assignment, 0, sizeof(assignment));
 	memset(&where_literal, 0, sizeof(where_literal));
@@ -383,16 +383,17 @@ static int test_update_assignment_literal_mutation(void)
 		return 1;
 	}
 
-	rc = sqlparser_export_parse_tree_json(handle, 0, &parse_tree_json, &error);
-	if (expect_status_ok(rc, &error, "update parse tree export should succeed") != 0 ||
-	    expect_true(strstr(parse_tree_json, "carol") != NULL, "parse tree JSON should contain carol") != 0 ||
-	    expect_true(strstr(parse_tree_json, "\"ival\":{\"ival\":2}") != NULL, "parse tree JSON should contain updated where integer") != 0) {
-		sqlparser_string_free(parse_tree_json);
+	rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
+	if (expect_status_ok(rc, &error, "update view export should succeed") != 0 ||
+	    expect_true(strstr(view_json, "carol") != NULL, "view JSON should contain carol") != 0 ||
+	    expect_true(strstr(view_json, "\"operator\":\"=\"") != NULL, "view JSON should contain where operator") != 0 ||
+	    expect_true(strstr(view_json, "\"sql\":\"2\"") != NULL, "view JSON should contain updated where value") != 0) {
+		sqlparser_string_free(view_json);
 		sqlparser_string_free(deparsed_sql);
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-	sqlparser_string_free(parse_tree_json);
+	sqlparser_string_free(view_json);
 	sqlparser_string_free(deparsed_sql);
 	sqlparser_handle_destroy(handle);
 	return 0;
@@ -870,545 +871,65 @@ static int test_selector_parse_and_format(void)
 	}
 
 	sqlparser_string_free(selector_text);
+	selector_text = NULL;
+	memset(&selector, 0, sizeof(selector));
+
+	rc = sqlparser_selector_parse("stmt[1].value[7]", &selector, &error);
+	if (expect_status_ok(rc, &error, "selector parse for value should succeed") != 0 ||
+	    expect_true(selector.kind == SQLPARSER_SELECTOR_KIND_VALUE, "selector kind should be value") != 0 ||
+	    expect_true(selector.statement_index == 1U, "selector statement index should be 1") != 0 ||
+	    expect_true(selector.item_index == 7U, "selector item index should be 7") != 0) {
+		return 1;
+	}
+
+	rc = sqlparser_selector_format(&selector, &selector_text, &error);
+	if (expect_status_ok(rc, &error, "value selector format should succeed") != 0 ||
+	    expect_true(strcmp(selector_text, "stmt[1].value[7]") == 0, "value selector text should round-trip") != 0) {
+		sqlparser_string_free(selector_text);
+		return 1;
+	}
+
+	sqlparser_string_free(selector_text);
+	selector_text = NULL;
+	memset(&selector, 0, sizeof(selector));
+
+	rc = sqlparser_selector_parse("stmt[2].insert_columns", &selector, &error);
+	if (expect_status_ok(rc, &error, "selector parse for insert columns should succeed") != 0 ||
+	    expect_true(selector.kind == SQLPARSER_SELECTOR_KIND_INSERT_COLUMNS, "selector kind should be insert_columns") != 0 ||
+	    expect_true(selector.statement_index == 2U, "selector statement index should be 2") != 0) {
+		return 1;
+	}
+
+	rc = sqlparser_selector_format(&selector, &selector_text, &error);
+	if (expect_status_ok(rc, &error, "insert columns selector format should succeed") != 0 ||
+	    expect_true(strcmp(selector_text, "stmt[2].insert_columns") == 0, "insert columns selector text should round-trip") != 0) {
+		sqlparser_string_free(selector_text);
+		return 1;
+	}
+
+	sqlparser_string_free(selector_text);
+	selector_text = NULL;
+	memset(&selector, 0, sizeof(selector));
+
+	rc = sqlparser_selector_parse("stmt[2].insert_row[1]", &selector, &error);
+	if (expect_status_ok(rc, &error, "selector parse for insert row should succeed") != 0 ||
+	    expect_true(selector.kind == SQLPARSER_SELECTOR_KIND_INSERT_ROW, "selector kind should be insert_row") != 0 ||
+	    expect_true(selector.statement_index == 2U, "selector statement index should be 2") != 0 ||
+	    expect_true(selector.row_index == 1U, "selector row index should be 1") != 0) {
+		return 1;
+	}
+
+	rc = sqlparser_selector_format(&selector, &selector_text, &error);
+	if (expect_status_ok(rc, &error, "insert row selector format should succeed") != 0 ||
+	    expect_true(strcmp(selector_text, "stmt[2].insert_row[1]") == 0, "insert row selector text should round-trip") != 0) {
+		sqlparser_string_free(selector_text);
+		return 1;
+	}
+
+	sqlparser_string_free(selector_text);
 	return 0;
 }
 
-static int test_model_json_patch_roundtrip(void)
-{
-	const char *sql;
-	const char *patch_json;
-	sqlparser_handle_t *handle;
-	sqlparser_error_t error;
-	char *model_json;
-	char *deparsed_sql;
-	int rc;
-
-	sql = "UPDATE public.users SET name = 'bob' WHERE id = 1";
-	patch_json =
-		"{\"changes\":["
-		"{\"selector\":\"stmt[0].assignment[0]\",\"literal\":{\"kind\":\"string\",\"string_value\":\"carol\"}},"
-		"{\"selector\":\"stmt[0].where_literal[0]\",\"literal\":{\"kind\":\"integer\",\"integer_value\":2}}"
-		"]}";
-	handle = NULL;
-	model_json = NULL;
-	deparsed_sql = NULL;
-	memset(&error, 0, sizeof(error));
-
-	rc = sqlparser_parse(sql, &handle, &error);
-	if (expect_status_ok(rc, &error, "model roundtrip parse should succeed") != 0) {
-		return 1;
-	}
-
-	rc = sqlparser_export_model_json(handle, 1, &model_json, &error);
-	if (expect_status_ok(rc, &error, "model export should succeed") != 0 ||
-	    expect_true(strstr(model_json, "sqlparser.model/v1") != NULL, "model export should contain schema") != 0 ||
-	    expect_true(strstr(model_json, "stmt[0].assignment[0]") != NULL, "model export should contain assignment selector") != 0) {
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	rc = sqlparser_apply_model_json(handle, model_json, &error);
-	if (expect_status_ok(rc, &error, "applying unchanged model should succeed") != 0) {
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
-	if (expect_status_ok(rc, &error, "deparse after unchanged model import should succeed") != 0 ||
-	    expect_true(strstr(deparsed_sql, "name = 'bob'") != NULL, "unchanged model import should preserve bob") != 0 ||
-	    expect_true(strstr(deparsed_sql, "id = 1") != NULL, "unchanged model import should preserve id = 1") != 0) {
-		sqlparser_string_free(deparsed_sql);
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	sqlparser_string_free(deparsed_sql);
-	deparsed_sql = NULL;
-
-	rc = sqlparser_apply_model_json(handle, patch_json, &error);
-	if (expect_status_ok(rc, &error, "model patch import should succeed") != 0) {
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
-	if (expect_status_ok(rc, &error, "deparse after model patch should succeed") != 0 ||
-	    expect_true(strstr(deparsed_sql, "name = 'carol'") != NULL, "patched model should rewrite assignment") != 0 ||
-	    expect_true(strstr(deparsed_sql, "id = 2") != NULL, "patched model should rewrite where literal") != 0) {
-		sqlparser_string_free(deparsed_sql);
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	sqlparser_string_free(deparsed_sql);
-	sqlparser_string_free(model_json);
-	sqlparser_handle_destroy(handle);
-	return 0;
-}
-
-static int test_model_json_sql_patch_roundtrip(void)
-{
-	const char *sql;
-	const char *patch_json;
-	sqlparser_handle_t *handle;
-	sqlparser_error_t error;
-	char *model_json;
-	char *deparsed_sql;
-	int rc;
-
-	sql =
-		"UPDATE public.users SET name = upper(name), updated_at = DEFAULT WHERE id = 1; "
-		"INSERT INTO public.audit_log (id, payload, created_at) "
-		"VALUES (1, json_build_object('k', 'v'), DEFAULT)";
-	patch_json =
-		"{\"changes\":["
-		"{\"selector\":\"stmt[0].assignment[0]\",\"sql\":\"lower(name)\"},"
-		"{\"selector\":\"stmt[1].insert_cell[0][2]\",\"sql\":\"clock_timestamp()\"}"
-		"]}";
-	handle = NULL;
-	model_json = NULL;
-	deparsed_sql = NULL;
-	memset(&error, 0, sizeof(error));
-
-	rc = sqlparser_parse(sql, &handle, &error);
-	if (expect_status_ok(rc, &error, "SQL model roundtrip parse should succeed") != 0) {
-		return 1;
-	}
-
-	rc = sqlparser_export_model_json(handle, 1, &model_json, &error);
-	if (expect_status_ok(rc, &error, "SQL model export should succeed") != 0 ||
-	    expect_true(strstr(model_json, "\"sql\": \"upper(name)\"") != NULL, "model export should contain expression assignment SQL") != 0 ||
-	    expect_true(strstr(model_json, "\"sql\": \"DEFAULT\"") != NULL, "model export should contain DEFAULT SQL") != 0 ||
-	    expect_true(strstr(model_json, "\"value_kind\": \"expression\"") != NULL, "model export should contain expression kind") != 0 ||
-	    expect_true(strstr(model_json, "\"value_kind\": \"default\"") != NULL, "model export should contain default kind") != 0) {
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	rc = sqlparser_apply_model_json(handle, model_json, &error);
-	if (expect_status_ok(rc, &error, "applying unchanged SQL model should succeed") != 0) {
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
-	if (expect_status_ok(rc, &error, "deparse after unchanged SQL model import should succeed") != 0 ||
-	    expect_true(strstr(deparsed_sql, "name = upper(name)") != NULL, "unchanged SQL model import should preserve upper(name)") != 0 ||
-	    expect_true(strstr(deparsed_sql, "INSERT INTO public.audit_log") != NULL, "unchanged SQL model import should preserve insert statement") != 0 ||
-	    expect_true(strstr(deparsed_sql, "json_build_object(") != NULL, "unchanged SQL model import should preserve JSON expression") != 0 ||
-	    expect_true(strstr(deparsed_sql, "DEFAULT") != NULL, "unchanged SQL model import should preserve DEFAULT") != 0) {
-		sqlparser_string_free(deparsed_sql);
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	sqlparser_string_free(deparsed_sql);
-	deparsed_sql = NULL;
-
-	rc = sqlparser_apply_model_json(handle, patch_json, &error);
-	if (expect_status_ok(rc, &error, "SQL model patch import should succeed") != 0) {
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
-	if (expect_status_ok(rc, &error, "deparse after SQL model patch should succeed") != 0 ||
-	    expect_true(strstr(deparsed_sql, "name = lower(name)") != NULL, "SQL model patch should rewrite assignment expression") != 0 ||
-	    expect_true(strstr(deparsed_sql, "clock_timestamp()") != NULL, "SQL model patch should rewrite insert cell expression") != 0) {
-		sqlparser_string_free(deparsed_sql);
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	sqlparser_string_free(deparsed_sql);
-	sqlparser_string_free(model_json);
-	sqlparser_handle_destroy(handle);
-	return 0;
-}
-
-static int test_model_json_full_import(void)
-{
-	const char *sql;
-	sqlparser_handle_t *handle;
-	sqlparser_error_t error;
-	char *model_json;
-	char *edited_model_json;
-	char *deparsed_sql;
-	json_t *root;
-	json_t *statements;
-	json_t *statement;
-	json_t *names;
-	json_t *name_entry;
-	json_error_t json_error;
-	size_t index;
-	int rc;
-
-	sql = "DROP VIEW IF EXISTS public.v_orders";
-	handle = NULL;
-	model_json = NULL;
-	edited_model_json = NULL;
-	deparsed_sql = NULL;
-	root = NULL;
-	memset(&error, 0, sizeof(error));
-	memset(&json_error, 0, sizeof(json_error));
-
-	rc = sqlparser_parse(sql, &handle, &error);
-	if (expect_status_ok(rc, &error, "full model import parse should succeed") != 0) {
-		return 1;
-	}
-
-	rc = sqlparser_export_model_json(handle, 0, &model_json, &error);
-	if (expect_status_ok(rc, &error, "full model export should succeed") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	root = json_loads(model_json, 0, &json_error);
-	if (expect_true(root != NULL, "model JSON should decode") != 0) {
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	statements = json_object_get(root, "statements");
-	statement = json_array_get(statements, 0);
-	names = json_object_get(statement, "names");
-	json_array_foreach(names, index, name_entry) {
-		json_t *value_json;
-		const char *value;
-
-		value_json = json_object_get(name_entry, "value");
-		value = json_is_string(value_json) ? json_string_value(value_json) : NULL;
-		if (value != NULL && strcmp(value, "v_orders") == 0) {
-			(void)json_object_set_new(name_entry, "value", json_string("v_orders_archive"));
-		}
-	}
-
-	edited_model_json = json_dumps(root, JSON_COMPACT | JSON_ENSURE_ASCII | JSON_SORT_KEYS);
-	json_decref(root);
-	root = NULL;
-	if (expect_true(edited_model_json != NULL, "edited model JSON should render") != 0) {
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	rc = sqlparser_apply_model_json(handle, edited_model_json, &error);
-	if (expect_status_ok(rc, &error, "full model import should succeed") != 0) {
-		free(edited_model_json);
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
-	if (expect_status_ok(rc, &error, "deparse after full model import should succeed") != 0 ||
-	    expect_true(strstr(deparsed_sql, "v_orders_archive") != NULL, "full model import should rewrite ddl object name") != 0) {
-		sqlparser_string_free(deparsed_sql);
-		free(edited_model_json);
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	sqlparser_string_free(deparsed_sql);
-	free(edited_model_json);
-	sqlparser_string_free(model_json);
-	sqlparser_handle_destroy(handle);
-	return 0;
-}
-
-static int test_model_json_full_import_update_assignment_literal(void)
-{
-	const char *sql;
-	sqlparser_handle_t *handle;
-	sqlparser_error_t error;
-	char *model_json;
-	char *edited_model_json;
-	char *deparsed_sql;
-	json_t *root;
-	json_t *statement;
-	json_t *assignments;
-	json_t *assignment;
-	json_t *literal;
-	json_error_t json_error;
-	int rc;
-
-	sql = "UPDATE public.users SET name = 'bob' WHERE id = 1";
-	handle = NULL;
-	model_json = NULL;
-	edited_model_json = NULL;
-	deparsed_sql = NULL;
-	root = NULL;
-	memset(&error, 0, sizeof(error));
-	memset(&json_error, 0, sizeof(json_error));
-
-	rc = sqlparser_parse(sql, &handle, &error);
-	if (expect_status_ok(rc, &error, "full update model parse should succeed") != 0) {
-		return 1;
-	}
-
-	rc = sqlparser_export_model_json(handle, 0, &model_json, &error);
-	if (expect_status_ok(rc, &error, "full update model export should succeed") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	root = json_loads(model_json, 0, &json_error);
-	if (expect_true(root != NULL, "full update model JSON should decode") != 0) {
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	statement = json_array_get(json_object_get(root, "statements"), 0);
-	assignments = json_object_get(statement, "update_assignments");
-	assignment = json_array_get(assignments, 0);
-	literal = json_object_get(assignment, "literal");
-	if (expect_true(json_is_object(literal), "update assignment literal should exist") != 0) {
-		json_decref(root);
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	(void)json_object_set_new(literal, "string_value", json_string("carol"));
-
-	edited_model_json = json_dumps(root, JSON_COMPACT | JSON_ENSURE_ASCII | JSON_SORT_KEYS);
-	json_decref(root);
-	root = NULL;
-	if (expect_true(edited_model_json != NULL, "edited update model should render") != 0) {
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	rc = sqlparser_apply_model_json(handle, edited_model_json, &error);
-	if (expect_status_ok(rc, &error, "full update model import should succeed") != 0) {
-		free(edited_model_json);
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
-	if (expect_status_ok(rc, &error, "full update model deparse should succeed") != 0 ||
-	    expect_true(strstr(deparsed_sql, "name = 'carol'") != NULL, "full update model should keep assignment edit") != 0 ||
-	    expect_true(strstr(deparsed_sql, "name = 'bob'") == NULL, "full update model should not restore old assignment") != 0) {
-		sqlparser_string_free(deparsed_sql);
-		free(edited_model_json);
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	sqlparser_string_free(deparsed_sql);
-	free(edited_model_json);
-	sqlparser_string_free(model_json);
-	sqlparser_handle_destroy(handle);
-	return 0;
-}
-
-static int test_model_json_full_import_insert_cell_literal(void)
-{
-	const char *sql;
-	sqlparser_handle_t *handle;
-	sqlparser_error_t error;
-	char *model_json;
-	char *edited_model_json;
-	char *deparsed_sql;
-	json_t *root;
-	json_t *statement;
-	json_t *insert_object;
-	json_t *row_object;
-	json_t *cell_object;
-	json_t *literal;
-	json_error_t json_error;
-	int rc;
-
-	sql = "INSERT INTO public.users (id, name) VALUES (1, 'bob')";
-	handle = NULL;
-	model_json = NULL;
-	edited_model_json = NULL;
-	deparsed_sql = NULL;
-	root = NULL;
-	memset(&error, 0, sizeof(error));
-	memset(&json_error, 0, sizeof(json_error));
-
-	rc = sqlparser_parse(sql, &handle, &error);
-	if (expect_status_ok(rc, &error, "full insert model parse should succeed") != 0) {
-		return 1;
-	}
-
-	rc = sqlparser_export_model_json(handle, 0, &model_json, &error);
-	if (expect_status_ok(rc, &error, "full insert model export should succeed") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	root = json_loads(model_json, 0, &json_error);
-	if (expect_true(root != NULL, "full insert model JSON should decode") != 0) {
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	statement = json_array_get(json_object_get(root, "statements"), 0);
-	insert_object = json_object_get(statement, "insert");
-	row_object = json_array_get(json_object_get(insert_object, "rows"), 0);
-	cell_object = json_array_get(json_object_get(row_object, "cells"), 1);
-	literal = json_object_get(cell_object, "literal");
-	if (expect_true(json_is_object(literal), "insert cell literal should exist") != 0) {
-		json_decref(root);
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	(void)json_object_set_new(literal, "string_value", json_string("carol"));
-
-	edited_model_json = json_dumps(root, JSON_COMPACT | JSON_ENSURE_ASCII | JSON_SORT_KEYS);
-	json_decref(root);
-	root = NULL;
-	if (expect_true(edited_model_json != NULL, "edited insert model should render") != 0) {
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	rc = sqlparser_apply_model_json(handle, edited_model_json, &error);
-	if (expect_status_ok(rc, &error, "full insert model import should succeed") != 0) {
-		free(edited_model_json);
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
-	if (expect_status_ok(rc, &error, "full insert model deparse should succeed") != 0 ||
-	    expect_true(strstr(deparsed_sql, "'carol'") != NULL, "full insert model should keep cell edit") != 0 ||
-	    expect_true(strstr(deparsed_sql, "'bob'") == NULL, "full insert model should not restore old cell") != 0) {
-		sqlparser_string_free(deparsed_sql);
-		free(edited_model_json);
-		sqlparser_string_free(model_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	sqlparser_string_free(deparsed_sql);
-	free(edited_model_json);
-	sqlparser_string_free(model_json);
-	sqlparser_handle_destroy(handle);
-	return 0;
-}
-
-static int test_model_json_patch_is_transactional(void)
-{
-	const char *sql;
-	const char *patch_json;
-	sqlparser_handle_t *handle;
-	sqlparser_error_t error;
-	char *deparsed_sql;
-	int rc;
-
-	sql = "UPDATE public.users SET name = 'bob' WHERE id = 1";
-	patch_json =
-		"{\"changes\":["
-		"{\"selector\":\"stmt[0].assignment[0]\",\"literal\":{\"kind\":\"string\",\"string_value\":\"carol\"}},"
-		"{\"selector\":\"stmt[0].where_literal[99]\",\"literal\":{\"kind\":\"integer\",\"integer_value\":2}}"
-		"]}";
-	handle = NULL;
-	deparsed_sql = NULL;
-	memset(&error, 0, sizeof(error));
-
-	rc = sqlparser_parse(sql, &handle, &error);
-	if (expect_status_ok(rc, &error, "transactional patch parse should succeed") != 0) {
-		return 1;
-	}
-
-	rc = sqlparser_apply_model_json(handle, patch_json, &error);
-	if (expect_true(rc != SQLPARSER_STATUS_OK, "invalid patch should fail") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
-	if (expect_status_ok(rc, &error, "deparse after failed patch should succeed") != 0 ||
-	    expect_true(strstr(deparsed_sql, "name = 'bob'") != NULL, "failed patch should preserve assignment") != 0 ||
-	    expect_true(strstr(deparsed_sql, "id = 1") != NULL, "failed patch should preserve where literal") != 0 ||
-	    expect_true(strstr(deparsed_sql, "carol") == NULL, "failed patch should not leak partial assignment") != 0) {
-		sqlparser_string_free(deparsed_sql);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	sqlparser_string_free(deparsed_sql);
-	sqlparser_handle_destroy(handle);
-	return 0;
-}
-
-static int test_model_json_patch_keeps_original_literal_selector_order(void)
-{
-	const char *sql;
-	const char *patch_json;
-	sqlparser_handle_t *handle;
-	sqlparser_error_t error;
-	sqlparser_literal_view_t literal;
-	char *deparsed_sql;
-	int rc;
-
-	sql = "UPDATE public.users SET name = 'bob' WHERE id = 1 AND status = 'old'";
-	patch_json =
-		"{\"changes\":["
-		"{\"selector\":\"stmt[0].assignment[0]\",\"sql\":\"json_build_object('x', 1)\"},"
-		"{\"selector\":\"stmt[0].literal[2]\",\"literal\":{\"kind\":\"string\",\"string_value\":\"new\"}}"
-		"]}";
-	handle = NULL;
-	deparsed_sql = NULL;
-	memset(&error, 0, sizeof(error));
-	memset(&literal, 0, sizeof(literal));
-
-	rc = sqlparser_parse(sql, &handle, &error);
-	if (expect_status_ok(rc, &error, "selector order patch parse should succeed") != 0) {
-		return 1;
-	}
-
-	rc = sqlparser_statement_literal(handle, 0U, 2U, &literal, &error);
-	if (expect_status_ok(rc, &error, "literal[2] should be readable before patch") != 0 ||
-	    expect_true(literal.kind == SQLPARSER_LITERAL_KIND_STRING, "literal[2] should be status string") != 0 ||
-	    expect_true(strcmp(literal.string_value, "old") == 0, "literal[2] should be old") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	rc = sqlparser_apply_model_json(handle, patch_json, &error);
-	if (expect_status_ok(rc, &error, "selector order patch should succeed") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
-	if (expect_status_ok(rc, &error, "selector order patch deparse should succeed") != 0 ||
-	    expect_true(strstr(deparsed_sql, "json_build_object(") != NULL, "selector order patch should rewrite assignment SQL") != 0 ||
-	    expect_true(strstr(deparsed_sql, "status = 'new'") != NULL, "selector order patch should target original status literal") != 0 ||
-	    expect_true(strstr(deparsed_sql, "status = 'old'") == NULL, "selector order patch should not leave old status") != 0) {
-		sqlparser_string_free(deparsed_sql);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	sqlparser_string_free(deparsed_sql);
-	sqlparser_handle_destroy(handle);
-	return 0;
-}
 
 static int test_generic_literal_api_on_ddl(void)
 {
@@ -1694,7 +1215,6 @@ static int test_resource_limits(void)
 	sqlparser_limits_default(&limits);
 	if (expect_true(limits.struct_size == sizeof(limits), "default limits should expose struct size") != 0 ||
 	    expect_true(limits.max_sql_bytes > 0U, "default SQL byte limit should be non-zero") != 0 ||
-	    expect_true(limits.max_model_json_bytes > 0U, "default model JSON byte limit should be non-zero") != 0 ||
 	    expect_true(limits.max_output_bytes > 0U, "default output byte limit should be non-zero") != 0 ||
 	    expect_true(limits.max_statement_count > 0U, "default statement count limit should be non-zero") != 0) {
 		return 1;
@@ -1724,25 +1244,10 @@ static int test_resource_limits(void)
 		return 1;
 	}
 
-	rc = sqlparser_export_parse_tree_json(handle, 0, &json_text, &error);
-	if (expect_true(rc == SQLPARSER_STATUS_RESOURCE_LIMIT, "output byte limit should reject parse tree JSON") != 0 ||
+	rc = sqlparser_export_view_json(handle, 0, &json_text, &error);
+	if (expect_true(rc == SQLPARSER_STATUS_RESOURCE_LIMIT, "output byte limit should reject view JSON") != 0 ||
 	    expect_true(json_text == NULL, "failed output export should not return JSON") != 0) {
 		sqlparser_string_free(json_text);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	sqlparser_handle_destroy(handle);
-	handle = NULL;
-
-	sqlparser_limits_default(&limits);
-	rc = sqlparser_parse("SELECT 1", &handle, &error);
-	if (expect_status_ok(rc, &error, "default parse before model limit should succeed") != 0) {
-		return 1;
-	}
-
-	limits.max_model_json_bytes = 8U;
-	rc = sqlparser_apply_model_json_with_limits(handle, "{\"changes\":[]}", &limits, &error);
-	if (expect_true(rc == SQLPARSER_STATUS_RESOURCE_LIMIT, "model JSON byte limit should reject large patch") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -1934,24 +1439,492 @@ static int test_mysql_dialect_unsupported(void)
 	return 0;
 }
 
-static int test_unsupported_dialect_option(void)
+static int test_sqlserver_dialect_option(void)
 {
 	sqlparser_parse_options_t options;
 	sqlparser_handle_t *handle;
 	sqlparser_error_t error;
+	char *deparsed_sql;
 	int rc;
 
 	handle = NULL;
+	deparsed_sql = NULL;
 	memset(&error, 0, sizeof(error));
 	sqlparser_parse_options_default(&options);
 	options.dialect = SQLPARSER_DIALECT_SQLSERVER;
-	rc = sqlparser_parse_with_options("SELECT 1", &options, &handle, &error);
-	if (expect_true(rc == SQLPARSER_STATUS_UNSUPPORTED, "sqlserver placeholder should be unsupported") != 0 ||
-	    expect_true(handle == NULL, "unsupported dialect should not return handle") != 0) {
+	rc = sqlparser_parse_with_options(
+		"SELECT TOP (3) [id], [name] FROM [dbo].[users] WHERE [id] = @id",
+		&options,
+		&handle,
+		&error);
+	if (expect_true(rc == SQLPARSER_STATUS_OK, "sqlserver dialect should parse supported input") != 0 ||
+	    expect_true(handle != NULL, "supported sqlserver parse should return handle") != 0 ||
+	    expect_true(sqlparser_handle_dialect(handle) == SQLPARSER_DIALECT_SQLSERVER, "handle dialect should be sqlserver") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_true(rc == SQLPARSER_STATUS_OK, "sqlserver deparse should succeed") != 0 ||
+	    expect_true(deparsed_sql != NULL && strstr(deparsed_sql, "TOP (3)") != NULL, "sqlserver deparse should restore TOP") != 0 ||
+	    expect_true(deparsed_sql != NULL && strstr(deparsed_sql, "@id") != NULL, "sqlserver deparse should restore @ parameter") != 0 ||
+	    expect_true(deparsed_sql != NULL && strstr(deparsed_sql, "$1") == NULL, "sqlserver deparse should not expose internal parameter") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_sql_view_json_and_patch_api(void)
+{
+	const char *sql;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	char *view_json;
+	char *deparsed_sql;
+	json_error_t json_error;
+	json_t *root;
+	json_t *statements;
+	json_t *objects;
+	json_t *rows;
+	json_t *cells;
+	sqlparser_view_t view;
+	sqlparser_statement_view_t statement;
+	sqlparser_object_view_t object;
+	sqlparser_column_view_t column;
+	sqlparser_row_view_t row;
+	sqlparser_cell_view_t cell;
+	sqlparser_patch_t patches[2];
+	sqlparser_patch_list_t patch_list;
+	char *cell_sql;
+	int rc;
+
+	sql = "INSERT INTO public.users (id, name) VALUES (1, 'bob'), (2, 'alice')";
+	handle = NULL;
+	view_json = NULL;
+	deparsed_sql = NULL;
+	cell_sql = NULL;
+	root = NULL;
+	memset(&error, 0, sizeof(error));
+
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(rc, &error, "sql view parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_export_view_json(handle, 1, &view_json, &error);
+	if (expect_status_ok(rc, &error, "sql view export should succeed") != 0 ||
+	    expect_true(view_json != NULL && strstr(view_json, "\"statements\"") != NULL, "sql view should contain statements") != 0 ||
+	    expect_true(strstr(view_json, "\"source_sql\"") == NULL, "sql view should not contain source_sql") != 0 ||
+	    expect_true(strstr(view_json, "\"literal\"") == NULL, "sql view should not contain literal typing") != 0 ||
+	    expect_true(strstr(view_json, "\"values\":") == NULL, "sql view should not contain unused values arrays") != 0 ||
+	    expect_true(strstr(view_json, "stmt[0].insert_cell[1][1]") != NULL, "sql view should contain insert cell selector") != 0) {
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	root = json_loads(view_json, 0, &json_error);
+	if (expect_true(root != NULL, "sql view JSON should decode") != 0) {
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	statements = json_object_get(root, "statements");
+	objects = json_object_get(json_array_get(statements, 0), "objects");
+	rows = json_object_get(json_array_get(objects, 0), "rows");
+	cells = json_object_get(json_array_get(rows, 1), "cells");
+	if (expect_true(json_array_size(statements) == 1U, "sql view statement count should be 1") != 0 ||
+	    expect_true(strcmp(json_string_value(json_object_get(json_array_get(objects, 0), "table")), "users") == 0, "sql view table should be users") != 0 ||
+	    expect_true(json_array_size(rows) == 2U, "sql view row count should be 2") != 0 ||
+	    expect_true(strcmp(json_string_value(json_object_get(json_array_get(cells, 1), "sql")), "'alice'") == 0, "sql view cell should expose SQL text") != 0) {
+		json_decref(root);
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	json_decref(root);
+	sqlparser_string_free(view_json);
+	view_json = NULL;
+
+	rc = sqlparser_get_view(handle, &view, &error);
+	if (expect_status_ok(rc, &error, "sql view should be available") != 0 ||
+	    expect_true(view.statement_count == 1U, "sql view statement count should be 1") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_view_statement_at(&view, 0U, &statement, &error);
+	if (expect_status_ok(rc, &error, "sql view statement should be available") != 0 ||
+	    expect_true(statement.keyword_count >= 3U, "insert statement should expose keywords") != 0 ||
+	    expect_true(statement.object_count == 1U, "insert statement should expose target object") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_object_at(&statement, 0U, &object, &error);
+	if (expect_status_ok(rc, &error, "sql view object should be available") != 0 ||
+	    expect_true(strcmp(object.table_name, "users") == 0, "sql view object table should be users") != 0 ||
+	    expect_true(object.column_count == 2U, "insert object should expose two columns") != 0 ||
+	    expect_true(object.row_count == 2U, "insert object should expose two rows") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_object_column_at(&object, 1U, &column, &error);
+	if (expect_status_ok(rc, &error, "sql view column should be available") != 0 ||
+	    expect_true(strcmp(column.name, "name") == 0, "second insert column should be name") != 0 ||
+	    expect_true(column.has_selector != 0, "insert column should expose selector") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_object_row_at(&object, 1U, &row, &error);
+	if (expect_status_ok(rc, &error, "sql view row should be available") != 0 ||
+	    expect_true(row.cell_count == 2U, "insert row should expose two cells") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_row_cell_at(&row, 1U, &cell, &error);
+	if (expect_status_ok(rc, &error, "sql view cell should be available") != 0 ||
+	    expect_true(strcmp(cell.column_name, "name") == 0, "cell should carry column name") != 0 ||
+	    expect_true(cell.has_selector != 0, "cell should expose selector") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_cell_sql(&cell, &cell_sql, &error);
+	if (expect_status_ok(rc, &error, "sql view cell SQL should be available") != 0 ||
+	    expect_true(strcmp(cell_sql, "'alice'") == 0, "cell SQL should preserve original value SQL") != 0) {
+		sqlparser_string_free(cell_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(cell_sql);
+	cell_sql = NULL;
+
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_REPLACE;
+	patches[0].selector = "stmt[0].insert_cell[1][1]";
+	patches[0].sql = "'carol'";
+	patches[1].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[1].selector = "stmt[0].insert_columns";
+	patches[1].index = 2U;
+	patches[1].name = "age";
+	patches[1].default_sql = "18";
+	patch_list.items = patches;
+	patch_list.count = 2U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "sql view patch should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "sql view patched deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "'carol'") != NULL, "patched SQL should contain carol") != 0 ||
+	    expect_true(strstr(deparsed_sql, "age") != NULL, "patched SQL should contain added column") != 0 ||
+	    expect_true(strstr(deparsed_sql, "18") != NULL, "patched SQL should contain default value") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_DELETE_ROW;
+	patches[0].selector = "stmt[0].insert_row[0]";
+	patch_list.items = patches;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "sql view delete row patch should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "sql view delete row deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "'bob'") == NULL, "delete row should remove first row") != 0 ||
+	    expect_true(strstr(deparsed_sql, "'carol'") != NULL, "delete row should keep remaining row") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_DELETE_COLUMN;
+	patches[0].selector = "stmt[0].insert_columns";
+	patches[0].index = 2U;
+	patch_list.items = patches;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "sql view delete column patch should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "sql view delete column deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "age") == NULL, "delete column should remove added column") != 0 ||
+	    expect_true(strstr(deparsed_sql, "18") == NULL, "delete column should remove added value") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_sql_view_attribution_and_values(void)
+{
+	const char *sql;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_view_t view;
+	sqlparser_statement_view_t statement;
+	sqlparser_object_view_t users_object;
+	sqlparser_object_view_t orders_object;
+	sqlparser_column_view_t column;
+	sqlparser_value_view_t value;
+	char *value_sql;
+	char *selector_text;
+	char *deparsed_sql;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patch_list;
+	size_t index;
+	int saw_users_id;
+	int saw_order_no;
+	int saw_order_status;
+	int rc;
+
+	sql = "SELECT u.id, o.order_no FROM app.users u JOIN sales.orders o ON u.id = o.user_id WHERE o.status = 'paid'";
+	handle = NULL;
+	value_sql = NULL;
+	selector_text = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(rc, &error, "sql view attribution parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_get_view(handle, &view, &error);
+	if (expect_status_ok(rc, &error, "sql view attribution should be available") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_view_statement_at(&view, 0U, &statement, &error);
+	if (expect_status_ok(rc, &error, "sql view attribution statement should be available") != 0 ||
+	    expect_true(statement.object_count == 2U, "join should expose two table objects") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_object_at(&statement, 0U, &users_object, &error);
+	if (expect_status_ok(rc, &error, "users object should be available") != 0 ||
+	    expect_true(strcmp(users_object.schema_name, "app") == 0, "users schema should be app") != 0 ||
+	    expect_true(strcmp(users_object.table_name, "users") == 0, "users table should be users") != 0 ||
+	    expect_true(strcmp(users_object.alias_name, "u") == 0, "users alias should be u") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_object_at(&statement, 1U, &orders_object, &error);
+	if (expect_status_ok(rc, &error, "orders object should be available") != 0 ||
+	    expect_true(strcmp(orders_object.schema_name, "sales") == 0, "orders schema should be sales") != 0 ||
+	    expect_true(strcmp(orders_object.table_name, "orders") == 0, "orders table should be orders") != 0 ||
+	    expect_true(strcmp(orders_object.alias_name, "o") == 0, "orders alias should be o") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	saw_users_id = 0;
+	for (index = 0U; index < users_object.column_count; index++) {
+		rc = sqlparser_object_column_at(&users_object, index, &column, &error);
+		if (expect_status_ok(rc, &error, "users column should be available") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (strcmp(column.name, "id") == 0) {
+			saw_users_id = 1;
+		}
+	}
+	saw_order_no = 0;
+	saw_order_status = 0;
+	for (index = 0U; index < orders_object.column_count; index++) {
+		rc = sqlparser_object_column_at(&orders_object, index, &column, &error);
+		if (expect_status_ok(rc, &error, "orders column should be available") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (strcmp(column.name, "order_no") == 0) {
+			saw_order_no = 1;
+		}
+		if (strcmp(column.name, "status") == 0) {
+			saw_order_status = 1;
+			if (expect_true(column.value_count == 1U, "where column should carry one value") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			rc = sqlparser_column_value_at(&column, 0U, &value, &error);
+			if (expect_status_ok(rc, &error, "where column value should be available") != 0 ||
+			    expect_true(value.has_selector != 0, "where value should expose patch selector") != 0 ||
+			    expect_true(value.selector.kind == SQLPARSER_SELECTOR_KIND_VALUE, "where value selector should be value") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			rc = sqlparser_value_sql(handle, &value, &value_sql, &error);
+			if (expect_status_ok(rc, &error, "where value SQL should be available") != 0 ||
+			    expect_true(strcmp(value_sql, "'paid'") == 0, "where value SQL should preserve literal SQL") != 0) {
+				sqlparser_string_free(value_sql);
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			sqlparser_string_free(value_sql);
+			value_sql = NULL;
+			rc = sqlparser_selector_format(&value.selector, &selector_text, &error);
+			if (expect_status_ok(rc, &error, "where value selector should format") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		}
+	}
+	if (expect_true(saw_users_id != 0, "users object should include id column") != 0 ||
+	    expect_true(saw_order_no != 0, "orders object should include order_no column") != 0 ||
+	    expect_true(saw_order_status != 0, "orders object should include status column") != 0) {
+		sqlparser_string_free(selector_text);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = selector_text;
+	patch.sql = "'done'";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "where value patch should succeed") != 0) {
+		sqlparser_string_free(selector_text);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "where value patched deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "'done'") != NULL, "where value patch should appear in deparse") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_string_free(selector_text);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_string_free(selector_text);
+	deparsed_sql = NULL;
+	selector_text = NULL;
+	sqlparser_handle_destroy(handle);
+
+	sql = "UPDATE users SET name = 'bob' WHERE id = 1";
+	handle = NULL;
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(rc, &error, "sql view update parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_get_view(handle, &view, &error);
+	if (expect_status_ok(rc, &error, "sql view update should be available") != 0 ||
+	    expect_status_ok(sqlparser_view_statement_at(&view, 0U, &statement, &error), &error, "sql view update statement should be available") != 0 ||
+	    expect_status_ok(sqlparser_statement_object_at(&statement, 0U, &users_object, &error), &error, "sql view update object should be available") != 0 ||
+	    expect_true(users_object.column_count >= 2U, "update object should expose set and where columns") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_object_column_at(&users_object, 0U, &column, &error);
+	if (expect_status_ok(rc, &error, "update set column should be available") != 0 ||
+	    expect_true(strcmp(column.name, "name") == 0, "update set column should be name") != 0 ||
+	    expect_true(column.value_count == 1U, "update set column should carry value") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_column_value_at(&column, 0U, &value, &error);
+	if (expect_status_ok(rc, &error, "update value should be available") != 0 ||
+	    expect_true(value.has_selector != 0, "update value should expose patch selector") != 0 ||
+	    expect_true(value.selector.kind == SQLPARSER_SELECTOR_KIND_ASSIGNMENT, "update value selector should replace assignment") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_value_sql(handle, &value, &value_sql, &error);
+	if (expect_status_ok(rc, &error, "update value SQL should be available") != 0 ||
+	    expect_true(strcmp(value_sql, "'bob'") == 0, "update value SQL should preserve assignment SQL") != 0) {
+		sqlparser_string_free(value_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(value_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_sql_view_set_operation_attribution(void)
+{
+	const char *sql;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_view_t view;
+	sqlparser_statement_view_t statement;
+	sqlparser_object_view_t users_object;
+	sqlparser_object_view_t archive_object;
+	sqlparser_column_view_t column;
+	char *view_json;
+	int rc;
+
+	sql = "SELECT u.id FROM users u UNION ALL SELECT a.id FROM archived_users a ORDER BY id";
+	handle = NULL;
+	view_json = NULL;
+	memset(&error, 0, sizeof(error));
+
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(rc, &error, "set operation parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_get_view(handle, &view, &error);
+	if (expect_status_ok(rc, &error, "set operation view should be available") != 0 ||
+	    expect_status_ok(sqlparser_view_statement_at(&view, 0U, &statement, &error), &error, "set operation statement should be available") != 0 ||
+	    expect_true(statement.object_count == 2U, "set operation should expose both table objects") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_object_at(&statement, 0U, &users_object, &error);
+	if (expect_status_ok(rc, &error, "set operation users object should be available") != 0 ||
+	    expect_true(users_object.column_count > 0U, "set operation users object should expose columns") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_object_column_at(&users_object, 0U, &column, &error);
+	if (expect_status_ok(rc, &error, "set operation users column should be available") != 0 ||
+	    expect_true(strcmp(column.name, "id") == 0, "set operation users column should be id") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_object_at(&statement, 1U, &archive_object, &error);
+	if (expect_status_ok(rc, &error, "set operation archive object should be available") != 0 ||
+	    expect_true(archive_object.column_count > 0U, "set operation archive object should expose columns") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_object_column_at(&archive_object, 0U, &column, &error);
+	if (expect_status_ok(rc, &error, "set operation archive column should be available") != 0 ||
+	    expect_true(strcmp(column.name, "id") == 0, "set operation archive column should be id") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
+	if (expect_status_ok(rc, &error, "set operation view export should succeed") != 0 ||
+	    expect_true(strstr(view_json, "\"table\":\"users\"") != NULL, "set operation view should include users") != 0 ||
+	    expect_true(strstr(view_json, "\"table\":\"archived_users\"") != NULL, "set operation view should include archived_users") != 0 ||
+	    expect_true(strstr(view_json, "\"name\":\"id\"") != NULL, "set operation view should include id columns") != 0) {
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(view_json);
+	sqlparser_handle_destroy(handle);
 	return 0;
 }
 
@@ -1987,25 +1960,13 @@ int main(void)
 	if (test_selector_parse_and_format() != 0) {
 		return 1;
 	}
-	if (test_model_json_patch_roundtrip() != 0) {
+	if (test_sql_view_json_and_patch_api() != 0) {
 		return 1;
 	}
-	if (test_model_json_sql_patch_roundtrip() != 0) {
+	if (test_sql_view_attribution_and_values() != 0) {
 		return 1;
 	}
-	if (test_model_json_full_import() != 0) {
-		return 1;
-	}
-	if (test_model_json_full_import_update_assignment_literal() != 0) {
-		return 1;
-	}
-	if (test_model_json_full_import_insert_cell_literal() != 0) {
-		return 1;
-	}
-	if (test_model_json_patch_is_transactional() != 0) {
-		return 1;
-	}
-	if (test_model_json_patch_keeps_original_literal_selector_order() != 0) {
+	if (test_sql_view_set_operation_attribution() != 0) {
 		return 1;
 	}
 	if (test_generic_literal_api_on_ddl() != 0) {
@@ -2032,7 +1993,7 @@ int main(void)
 	if (test_mysql_dialect_unsupported() != 0) {
 		return 1;
 	}
-	if (test_unsupported_dialect_option() != 0) {
+	if (test_sqlserver_dialect_option() != 0) {
 		return 1;
 	}
 

@@ -1,6 +1,6 @@
 # MySQL Dialect Case Matrix
 
-This file records regression cases for the MySQL dialect conversion layer. `tests/cases/mysql_dialect_input.json` is the executable test source; `tests/unit/test_mysql_dialect_case_matrix.c` reads it and verifies parsing, summary JSON, deparse output, and error codes.
+This file records regression cases for the MySQL dialect conversion layer. `tests/cases/mysql_dialect_input.json` is the executable test source; `tests/unit/test_mysql_dialect_case_matrix.c` reads it and verifies parsing, SQL View JSON, deparse output, and error codes.
 
 ## Validated Supported Statements
 
@@ -18,6 +18,8 @@ This file records regression cases for the MySQL dialect conversion layer. `test
 | M010 | `mysql-create-view` | `CREATE VIEW ... AS SELECT ...` | view definition and inner SELECT extraction |
 | M011 | `mysql-drop-table` | `DROP TABLE ...` | drop-table parsing and table extraction |
 | M012 | `mysql-start-transaction` | `START TRANSACTION; COMMIT` | MySQL transaction start and multi-statement counting |
+| M013 | `mysql-unsupported-keywords-in-string` | `SELECT 'INSERT IGNORE' ...` | unsupported prefilter does not reject string content |
+| M014 | `mysql-unsupported-keywords-in-comment` | `SELECT ... /* ON DUPLICATE KEY UPDATE */ ...` | unsupported prefilter does not reject comment content |
 
 ## Explicitly Unsupported Statements
 

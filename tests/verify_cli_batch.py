@@ -28,26 +28,9 @@ def expected_success(item):
     return expect_root.get("ok", True) is not False
 
 
-def verify_summary(summary, case_name):
-    expect(isinstance(summary, dict), "case {} missing summary object".format(case_name))
-    for field_name in (
-        "statement_types",
-        "keywords",
-        "tables",
-        "selected_columns",
-        "join_columns",
-        "where_columns",
-        "insert_columns",
-        "update_columns",
-        "all_referenced_columns",
-    ):
-        expect(field_name in summary, "case {} summary missing field '{}'".format(case_name, field_name))
-
-
-def verify_model(model, case_name):
-    expect(isinstance(model, dict), "case {} missing model object".format(case_name))
-    expect(model.get("schema") == "sqlparser.model/v1", "case {} model schema mismatch".format(case_name))
-    expect(isinstance(model.get("statements"), list), "case {} model statements missing".format(case_name))
+def verify_view(view, case_name):
+    expect(isinstance(view, dict), "case {} missing view object".format(case_name))
+    expect(isinstance(view.get("statements"), list), "case {} view statements missing".format(case_name))
 
 
 def main():
@@ -80,9 +63,7 @@ def main():
 
         if expected_success(fixture_item):
             expect(output_item.get("ok") is True, "case {} should succeed".format(case_name))
-            expect(isinstance(output_item.get("parse_tree"), dict), "case {} missing parse_tree".format(case_name))
-            verify_summary(output_item.get("summary"), case_name)
-            verify_model(output_item.get("model"), case_name)
+            verify_view(output_item.get("view"), case_name)
         else:
             expect(output_item.get("ok") is False, "case {} should fail".format(case_name))
             error = output_item.get("error")

@@ -15,18 +15,16 @@
 
 typedef enum {
 	BENCH_MODE_NATIVE_PARSE = 0,
-	BENCH_MODE_NATIVE_SUMMARY = 1,
-	BENCH_MODE_NATIVE_DEPARSE = 2,
-	BENCH_MODE_SQLPARSER_PARSE = 3,
-	BENCH_MODE_SQLPARSER_PARSE_TREE_JSON = 4,
-	BENCH_MODE_SQLPARSER_SUMMARY_JSON = 5,
-	BENCH_MODE_SQLPARSER_DEPARSE = 6,
-	BENCH_MODE_SQLPARSER_UPDATE_ASSIGNMENT_LITERAL = 7,
-	BENCH_MODE_SQLPARSER_UPDATE_ASSIGNMENT_SQL = 8,
-	BENCH_MODE_SQLPARSER_UPDATE_REWRITE_DEPARSE = 9,
-	BENCH_MODE_SQLPARSER_INSERT_CELL_LITERAL = 10,
-	BENCH_MODE_SQLPARSER_INSERT_CELL_SQL = 11,
-	BENCH_MODE_SQLPARSER_INSERT_REWRITE_DEPARSE = 12
+	BENCH_MODE_NATIVE_DEPARSE = 1,
+	BENCH_MODE_SQLPARSER_PARSE = 2,
+	BENCH_MODE_SQLPARSER_VIEW_JSON = 3,
+	BENCH_MODE_SQLPARSER_DEPARSE = 4,
+	BENCH_MODE_SQLPARSER_UPDATE_ASSIGNMENT_LITERAL = 5,
+	BENCH_MODE_SQLPARSER_UPDATE_ASSIGNMENT_SQL = 6,
+	BENCH_MODE_SQLPARSER_UPDATE_REWRITE_DEPARSE = 7,
+	BENCH_MODE_SQLPARSER_INSERT_CELL_LITERAL = 8,
+	BENCH_MODE_SQLPARSER_INSERT_CELL_SQL = 9,
+	BENCH_MODE_SQLPARSER_INSERT_REWRITE_DEPARSE = 10
 } bench_mode_t;
 
 typedef enum {
@@ -86,7 +84,6 @@ struct alloc_tracker {
 
 typedef struct {
 	PgQueryProtobufParseResult native_parse_result;
-	PgQuerySummaryParseResult native_summary_result;
 	PgQueryDeparseResult native_deparse_result;
 	sqlparser_handle_t *handle;
 	char *text_result;
@@ -360,11 +357,9 @@ static void print_usage(const char *program)
 	fprintf(stderr, "  --csv-header             print CSV header before the result row\n");
 	fprintf(stderr, "Modes:\n");
 	fprintf(stderr, "  native-parse\n");
-	fprintf(stderr, "  native-summary\n");
 	fprintf(stderr, "  native-deparse\n");
 	fprintf(stderr, "  sqlparser-parse\n");
-	fprintf(stderr, "  sqlparser-parse-tree-json\n");
-	fprintf(stderr, "  sqlparser-summary-json\n");
+	fprintf(stderr, "  sqlparser-view-json\n");
 	fprintf(stderr, "  sqlparser-deparse\n");
 	fprintf(stderr, "  sqlparser-update-assignment-literal\n");
 	fprintf(stderr, "  sqlparser-update-assignment-sql\n");
@@ -387,16 +382,12 @@ static const char *bench_mode_name(bench_mode_t mode)
 	switch (mode) {
 		case BENCH_MODE_NATIVE_PARSE:
 			return "native-parse";
-		case BENCH_MODE_NATIVE_SUMMARY:
-			return "native-summary";
 		case BENCH_MODE_NATIVE_DEPARSE:
 			return "native-deparse";
 		case BENCH_MODE_SQLPARSER_PARSE:
 			return "sqlparser-parse";
-		case BENCH_MODE_SQLPARSER_PARSE_TREE_JSON:
-			return "sqlparser-parse-tree-json";
-		case BENCH_MODE_SQLPARSER_SUMMARY_JSON:
-			return "sqlparser-summary-json";
+		case BENCH_MODE_SQLPARSER_VIEW_JSON:
+			return "sqlparser-view-json";
 		case BENCH_MODE_SQLPARSER_DEPARSE:
 			return "sqlparser-deparse";
 		case BENCH_MODE_SQLPARSER_UPDATE_ASSIGNMENT_LITERAL:
@@ -464,10 +455,6 @@ static int parse_mode(const char *value, bench_mode_t *out_mode)
 		*out_mode = BENCH_MODE_NATIVE_PARSE;
 		return 0;
 	}
-	if (strcmp(value, "native-summary") == 0) {
-		*out_mode = BENCH_MODE_NATIVE_SUMMARY;
-		return 0;
-	}
 	if (strcmp(value, "native-deparse") == 0) {
 		*out_mode = BENCH_MODE_NATIVE_DEPARSE;
 		return 0;
@@ -476,12 +463,8 @@ static int parse_mode(const char *value, bench_mode_t *out_mode)
 		*out_mode = BENCH_MODE_SQLPARSER_PARSE;
 		return 0;
 	}
-	if (strcmp(value, "sqlparser-parse-tree-json") == 0) {
-		*out_mode = BENCH_MODE_SQLPARSER_PARSE_TREE_JSON;
-		return 0;
-	}
-	if (strcmp(value, "sqlparser-summary-json") == 0) {
-		*out_mode = BENCH_MODE_SQLPARSER_SUMMARY_JSON;
+	if (strcmp(value, "sqlparser-view-json") == 0) {
+		*out_mode = BENCH_MODE_SQLPARSER_VIEW_JSON;
 		return 0;
 	}
 	if (strcmp(value, "sqlparser-deparse") == 0) {
@@ -1246,8 +1229,7 @@ static int prepare_operation(
 			}
 			return 0;
 
-		case BENCH_MODE_SQLPARSER_PARSE_TREE_JSON:
-		case BENCH_MODE_SQLPARSER_SUMMARY_JSON:
+		case BENCH_MODE_SQLPARSER_VIEW_JSON:
 		case BENCH_MODE_SQLPARSER_DEPARSE:
 		case BENCH_MODE_SQLPARSER_UPDATE_ASSIGNMENT_LITERAL:
 		case BENCH_MODE_SQLPARSER_UPDATE_ASSIGNMENT_SQL:
@@ -1315,17 +1297,6 @@ static int invoke_operation(
 				return 0;
 			}
 
-		case BENCH_MODE_NATIVE_SUMMARY:
-			{
-				bench_pg_query_prepare();
-				state->native_summary_result = pg_query_summary(sql_text, 0, -1);
-				if (state->native_summary_result.error != NULL) {
-					record_pg_error(error_message, error_message_size, state->native_summary_result.error);
-					return -1;
-				}
-				return 0;
-			}
-
 		case BENCH_MODE_NATIVE_DEPARSE:
 			{
 				bench_pg_query_prepare();
@@ -1348,21 +1319,10 @@ static int invoke_operation(
 				return 0;
 			}
 
-		case BENCH_MODE_SQLPARSER_PARSE_TREE_JSON:
+		case BENCH_MODE_SQLPARSER_VIEW_JSON:
 			{
 				memset(&error, 0, sizeof(error));
-				status = sqlparser_export_parse_tree_json(state->handle, 0, &state->text_result, &error);
-				if (status != SQLPARSER_STATUS_OK) {
-					record_sqlparser_error(error_message, error_message_size, &error);
-					return -1;
-				}
-				return 0;
-			}
-
-		case BENCH_MODE_SQLPARSER_SUMMARY_JSON:
-			{
-				memset(&error, 0, sizeof(error));
-				status = sqlparser_export_summary_json(state->handle, 0, &state->text_result, &error);
+				status = sqlparser_export_view_json(state->handle, 0, &state->text_result, &error);
 				if (status != SQLPARSER_STATUS_OK) {
 					record_sqlparser_error(error_message, error_message_size, &error);
 					return -1;
@@ -1494,14 +1454,6 @@ static void cleanup_operation(bench_mode_t mode, operation_state_t *state)
 			}
 			break;
 
-		case BENCH_MODE_NATIVE_SUMMARY:
-			if (state->native_summary_result.summary.data != NULL ||
-			    state->native_summary_result.stderr_buffer != NULL ||
-			    state->native_summary_result.error != NULL) {
-				pg_query_free_summary_parse_result(state->native_summary_result);
-			}
-			break;
-
 		case BENCH_MODE_NATIVE_DEPARSE:
 			if (state->native_deparse_result.query != NULL || state->native_deparse_result.error != NULL) {
 				pg_query_free_deparse_result(state->native_deparse_result);
@@ -1517,8 +1469,7 @@ static void cleanup_operation(bench_mode_t mode, operation_state_t *state)
 			sqlparser_handle_destroy(state->handle);
 			break;
 
-		case BENCH_MODE_SQLPARSER_PARSE_TREE_JSON:
-		case BENCH_MODE_SQLPARSER_SUMMARY_JSON:
+		case BENCH_MODE_SQLPARSER_VIEW_JSON:
 		case BENCH_MODE_SQLPARSER_DEPARSE:
 		case BENCH_MODE_SQLPARSER_UPDATE_REWRITE_DEPARSE:
 		case BENCH_MODE_SQLPARSER_INSERT_REWRITE_DEPARSE:

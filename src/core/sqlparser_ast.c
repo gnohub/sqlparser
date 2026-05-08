@@ -93,6 +93,12 @@ const char *sqlparser_statement_node_name_from_case(PgQuery__Node__NodeCase node
 			return "CommentStmt";
 		case PG_QUERY__NODE__NODE_VACUUM_STMT:
 			return "VacuumStmt";
+		case PG_QUERY__NODE__NODE_INDEX_STMT:
+			return "IndexStmt";
+		case PG_QUERY__NODE__NODE_CREATE_SCHEMA_STMT:
+			return "CreateSchemaStmt";
+		case PG_QUERY__NODE__NODE_GRANT_STMT:
+			return "GrantStmt";
 		case PG_QUERY__NODE__NODE_LOCK_STMT:
 			return "LockStmt";
 		case PG_QUERY__NODE__NODE_RENAME_STMT:
@@ -123,8 +129,11 @@ sqlparser_statement_kind_t sqlparser_statement_kind_from_case(PgQuery__Node__Nod
 		case PG_QUERY__NODE__NODE_VIEW_STMT:
 		case PG_QUERY__NODE__NODE_CREATE_STMT:
 		case PG_QUERY__NODE__NODE_CREATE_TABLE_AS_STMT:
+		case PG_QUERY__NODE__NODE_CREATE_SCHEMA_STMT:
 		case PG_QUERY__NODE__NODE_ALTER_TABLE_STMT:
 		case PG_QUERY__NODE__NODE_TRUNCATE_STMT:
+		case PG_QUERY__NODE__NODE_INDEX_STMT:
+		case PG_QUERY__NODE__NODE_GRANT_STMT:
 		case PG_QUERY__NODE__NODE_COMMENT_STMT:
 		case PG_QUERY__NODE__NODE_RENAME_STMT:
 			return SQLPARSER_STATEMENT_KIND_DDL;
@@ -430,6 +439,10 @@ void sqlparser_fill_relation_view(
 		relation->schemaname != NULL && relation->schemaname[0] != '\0'
 			? relation->schemaname
 			: NULL;
+	out_relation->database_name =
+		relation->catalogname != NULL && relation->catalogname[0] != '\0'
+			? relation->catalogname
+			: NULL;
 	out_relation->table_name =
 		relation->relname != NULL && relation->relname[0] != '\0' ? relation->relname : NULL;
 	out_relation->alias_name =
@@ -589,6 +602,20 @@ static sqlparser_status_t sqlparser_record_name_atom(
 	}
 
 	if (owner_type == NULL || field_name == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+
+	if (search->match_slot != NULL) {
+		if (slot == search->match_slot) {
+			if (search->name_view != NULL) {
+				search->name_view->owner_type = owner_type;
+				search->name_view->field_name = field_name;
+				search->name_view->value = *slot;
+			}
+			search->target_slot = slot;
+			search->target_index = search->seen;
+		}
+		search->seen++;
 		return SQLPARSER_STATUS_OK;
 	}
 
@@ -830,6 +857,266 @@ sqlparser_status_t sqlparser_walk_message_names(
 		}
 	}
 
+	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_find_statement_name_index_by_slot(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	char **slot,
+	size_t *out_index,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__Node *statement;
+	sqlparser_name_search_t search;
+	sqlparser_status_t status;
+
+	if (out_index == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"out_index must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_index = 0U;
+	if (slot == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"name slot must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	status = sqlparser_get_statement_node(handle, statement_index, &statement, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+
+	memset(&search, 0, sizeof(search));
+	search.match_slot = slot;
+	status = sqlparser_walk_message_names((ProtobufCMessage *)statement, NULL, &search);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (search.target_slot == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"name slot is not part of the statement");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	*out_index = search.target_index;
+	return SQLPARSER_STATUS_OK;
+}
+
+static int sqlparser_descriptor_is_node(const ProtobufCMessageDescriptor *descriptor)
+{
+	return descriptor != NULL &&
+		descriptor->short_name != NULL &&
+		strcmp(descriptor->short_name, "Node") == 0;
+}
+
+static sqlparser_status_t sqlparser_record_node_slot(
+	PgQuery__Node **slot,
+	sqlparser_node_slot_search_t *search)
+{
+	if (slot == NULL || search == NULL || *slot == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (search->match_node != NULL) {
+		if (*slot == search->match_node) {
+			search->target_slot = slot;
+			search->target_index = search->seen;
+		}
+		search->seen++;
+		return SQLPARSER_STATUS_OK;
+	}
+	if (!search->want_target) {
+		search->seen++;
+		return SQLPARSER_STATUS_OK;
+	}
+	if (search->seen == search->target_index) {
+		search->target_slot = slot;
+	}
+	search->seen++;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_walk_message_node_slots(
+	ProtobufCMessage *message,
+	sqlparser_node_slot_search_t *search)
+{
+	const ProtobufCMessageDescriptor *descriptor;
+	uint8_t *base;
+	unsigned index;
+
+	if (message == NULL || search == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if ((search->want_target || search->match_node != NULL) && search->target_slot != NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+
+	descriptor = message->descriptor;
+	if (descriptor == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+
+	base = (uint8_t *)message;
+	for (index = 0U; index < descriptor->n_fields; index++) {
+		const ProtobufCFieldDescriptor *field;
+
+		field = &descriptor->fields[index];
+		if (field->type != PROTOBUF_C_TYPE_MESSAGE) {
+			continue;
+		}
+		if ((field->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) != 0U) {
+			const int case_value = *(const int *)(base + field->quantifier_offset);
+
+			if (case_value != (int)field->id) {
+				continue;
+			}
+		}
+
+		if (field->label == PROTOBUF_C_LABEL_REPEATED) {
+			size_t item_count;
+			ProtobufCMessage **items;
+			size_t item_index;
+
+			item_count = *(const size_t *)(base + field->quantifier_offset);
+			items = *(ProtobufCMessage ***)(base + field->offset);
+			for (item_index = 0U; item_index < item_count; item_index++) {
+				ProtobufCMessage *child;
+				sqlparser_status_t status;
+
+				child = items != NULL ? items[item_index] : NULL;
+				if (child == NULL) {
+					continue;
+				}
+				if (sqlparser_descriptor_is_node(child->descriptor)) {
+					status = sqlparser_record_node_slot((PgQuery__Node **)&items[item_index], search);
+					if (status != SQLPARSER_STATUS_OK) {
+						return status;
+					}
+					if ((search->want_target || search->match_node != NULL) && search->target_slot != NULL) {
+						return SQLPARSER_STATUS_OK;
+					}
+				}
+				status = sqlparser_walk_message_node_slots(child, search);
+				if (status != SQLPARSER_STATUS_OK) {
+					return status;
+				}
+				if ((search->want_target || search->match_node != NULL) && search->target_slot != NULL) {
+					return SQLPARSER_STATUS_OK;
+				}
+			}
+			continue;
+		}
+
+		{
+			ProtobufCMessage **child_slot;
+			ProtobufCMessage *child;
+			sqlparser_status_t status;
+
+			child_slot = (ProtobufCMessage **)(base + field->offset);
+			child = child_slot != NULL ? *child_slot : NULL;
+			if (child == NULL) {
+				continue;
+			}
+			if (sqlparser_descriptor_is_node(child->descriptor)) {
+				status = sqlparser_record_node_slot((PgQuery__Node **)child_slot, search);
+				if (status != SQLPARSER_STATUS_OK) {
+					return status;
+				}
+				if ((search->want_target || search->match_node != NULL) && search->target_slot != NULL) {
+					return SQLPARSER_STATUS_OK;
+				}
+			}
+			status = sqlparser_walk_message_node_slots(child, search);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+			if ((search->want_target || search->match_node != NULL) && search->target_slot != NULL) {
+				return SQLPARSER_STATUS_OK;
+			}
+		}
+	}
+
+	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_find_statement_node_index_by_node(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	PgQuery__Node *node,
+	size_t *out_index,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__Node *statement;
+	sqlparser_node_slot_search_t search;
+	sqlparser_status_t status;
+
+	if (out_index == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "out_index must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_index = 0U;
+	if (node == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "node must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	status = sqlparser_get_statement_node(handle, statement_index, &statement, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	memset(&search, 0, sizeof(search));
+	search.match_node = node;
+	status = sqlparser_walk_message_node_slots((ProtobufCMessage *)statement, &search);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (search.target_slot == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "node is not part of the statement");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_index = search.target_index;
+	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_get_statement_node_slot_by_index(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t node_index,
+	PgQuery__Node ***out_slot,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__Node *statement;
+	sqlparser_node_slot_search_t search;
+	sqlparser_status_t status;
+
+	if (out_slot == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "out_slot must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_slot = NULL;
+	status = sqlparser_get_statement_node(handle, statement_index, &statement, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	memset(&search, 0, sizeof(search));
+	search.want_target = 1;
+	search.target_index = node_index;
+	status = sqlparser_walk_message_node_slots((ProtobufCMessage *)statement, &search);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (search.target_slot == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "node_index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_slot = search.target_slot;
 	return SQLPARSER_STATUS_OK;
 }
 

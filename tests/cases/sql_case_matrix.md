@@ -12,7 +12,7 @@
 
 | 用例 ID | 用例名称 | 语句形态 | 验证重点 |
 | --- | --- | --- | --- |
-| P001 | `select-basic` | `SELECT 1` | parse、parse-tree JSON、summary JSON、deparse |
+| P001 | `select-basic` | `SELECT 1` | parse、SQL View JSON、SQL View JSON、deparse |
 | P002 | `select-filter` | `SELECT ... FROM ... WHERE ...` | 查询列、过滤列、表名提取 |
 | P003 | `select-join` | `SELECT ... JOIN ... ON ... WHERE ...` | 多表 JOIN、查询列、关联列、条件列 |
 | P004 | `select-cte` | `WITH ... SELECT ...` | CTE 名称、外层查询列、上游过滤列 |
@@ -61,11 +61,12 @@
 | P047 | `analyze-table` | `ANALYZE ...` | analyze 节点识别、表名提取 |
 | P048 | `vacuum-analyze-table` | `VACUUM ANALYZE ...` | vacuum/analyze 组合节点识别 |
 | P049 | `oracle-cli-dialect-q-quote` | Oracle `q'[...]'` | CLI `dialect` 字段和 Oracle q-quoted 字符串处理 |
+| P050 | `sqlserver-cli-dialect-top-param` | SQL Server `TOP` + `@` 参数 | CLI `dialect` 字段和 SQL Server 方言输出处理 |
 
 ## 负向用例
 
 | 用例 ID | 用例名称 | 输入 | 验证重点 |
 | --- | --- | --- | --- |
-| P050 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
+| P051 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
 
 新增回归用例必须同步更新 `tests/cases/sql_batch_input.json` 和本矩阵。

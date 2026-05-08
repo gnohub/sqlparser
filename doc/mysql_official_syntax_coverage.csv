@@ -1,0 +1,40 @@
+category,item,status,reason,official_url
+query,SELECT,CURRENT,"已覆盖基础 SELECT、JOIN、WHERE 和查询列归属",https://dev.mysql.com/doc/refman/8.4/en/select.html
+query,LIMIT_OFFSET_COUNT,CURRENT,"已覆盖 MySQL LIMIT offset,count",https://dev.mysql.com/doc/refman/8.4/en/select.html
+query,BACKTICK_IDENTIFIERS,CURRENT,"已覆盖反引号标识符",https://dev.mysql.com/doc/refman/8.4/en/identifiers.html
+query,HASH_COMMENTS,CURRENT,"已覆盖 MySQL # 行注释",https://dev.mysql.com/doc/refman/8.4/en/comments.html
+query,DOUBLE_QUOTED_STRINGS,CURRENT,"已覆盖兼容双引号字符串输入",https://dev.mysql.com/doc/refman/8.4/en/string-literals.html
+dml,INSERT_VALUES,CURRENT,"已覆盖 INSERT VALUES 和多行 VALUES",https://dev.mysql.com/doc/refman/8.4/en/insert.html
+dml,INSERT_SELECT,CURRENT,"已覆盖 INSERT SELECT",https://dev.mysql.com/doc/refman/8.4/en/insert-select.html
+dml,UPDATE,CURRENT,"已覆盖 UPDATE SET WHERE",https://dev.mysql.com/doc/refman/8.4/en/update.html
+dml,DELETE,CURRENT,"已覆盖 DELETE FROM WHERE",https://dev.mysql.com/doc/refman/8.4/en/delete.html
+ddl,CREATE_TABLE_BASIC,CURRENT,"已覆盖基础 CREATE TABLE",https://dev.mysql.com/doc/refman/8.4/en/create-table.html
+ddl,ALTER_TABLE_ADD_COLUMN,CURRENT,"已覆盖 ALTER TABLE ADD COLUMN",https://dev.mysql.com/doc/refman/8.4/en/alter-table.html
+ddl,CREATE_VIEW,CURRENT,"已覆盖 CREATE VIEW AS SELECT",https://dev.mysql.com/doc/refman/8.4/en/create-view.html
+ddl,DROP_TABLE,CURRENT,"已覆盖 DROP TABLE",https://dev.mysql.com/doc/refman/8.4/en/drop-table.html
+transaction,START_TRANSACTION,CURRENT,"已覆盖 START TRANSACTION",https://dev.mysql.com/doc/refman/8.4/en/commit.html
+transaction,COMMIT,CURRENT,"已覆盖 COMMIT",https://dev.mysql.com/doc/refman/8.4/en/commit.html
+query,CTE_WITH,HOOK_ONLY,"MySQL WITH 可由查询 AST 承载，当前 MySQL 方言矩阵未单独覆盖",https://dev.mysql.com/doc/refman/8.4/en/with.html
+query,WINDOW_FUNCTIONS,HOOK_ONLY,"窗口函数可由表达式 AST 承载，当前 MySQL 方言矩阵未单独覆盖",https://dev.mysql.com/doc/refman/8.4/en/window-functions.html
+query,GROUP_BY_HAVING,HOOK_ONLY,"GROUP BY 和 HAVING 可由查询 AST 承载，当前 MySQL 方言矩阵未单独覆盖",https://dev.mysql.com/doc/refman/8.4/en/group-by-handling.html
+query,ORDER_BY,HOOK_ONLY,"ORDER BY 可由查询 AST 承载，当前 MySQL 方言矩阵未单独覆盖",https://dev.mysql.com/doc/refman/8.4/en/order-by-optimization.html
+expressions,COMMON_FUNCTIONS,HOOK_ONLY,"普通标量函数可由表达式 AST 承载，函数语义不在解析层求值",https://dev.mysql.com/doc/refman/8.4/en/functions.html
+types,COMMON_DATA_TYPES,HOOK_ONLY,"通用类型名可由核心类型节点承载，MySQL 类型属性另行统计",https://dev.mysql.com/doc/refman/8.4/en/data-types.html
+transaction,ROLLBACK,HOOK_ONLY,"事务语句可由核心事务节点承载，当前 MySQL 矩阵未单独覆盖",https://dev.mysql.com/doc/refman/8.4/en/commit.html
+dml,INSERT_IGNORE,MODEL_REQUIRED,"IGNORE 错误处理语义不能安全降级为普通 INSERT",https://dev.mysql.com/doc/refman/8.4/en/insert.html
+dml,INSERT_DELAYED,MODEL_REQUIRED,"DELAYED 插入语义需要 MySQL 专用模型",https://dev.mysql.com/doc/refman/8.4/en/insert-delayed.html
+dml,INSERT_PRIORITY,MODEL_REQUIRED,"LOW_PRIORITY/HIGH_PRIORITY 优先级语义需要 MySQL 专用模型",https://dev.mysql.com/doc/refman/8.4/en/insert.html
+dml,ON_DUPLICATE_KEY_UPDATE,MODEL_REQUIRED,"冲突更新语义不能映射为 PostgreSQL ON CONFLICT 而不改变语义",https://dev.mysql.com/doc/refman/8.4/en/insert-on-duplicate.html
+dml,REPLACE,MODEL_REQUIRED,"REPLACE 删除再插入语义不同于普通 INSERT",https://dev.mysql.com/doc/refman/8.4/en/replace.html
+dml,UPDATE_IGNORE,MODEL_REQUIRED,"IGNORE 错误处理语义需要 MySQL 专用模型",https://dev.mysql.com/doc/refman/8.4/en/update.html
+dml,DELETE_IGNORE,MODEL_REQUIRED,"IGNORE 错误处理语义需要 MySQL 专用模型",https://dev.mysql.com/doc/refman/8.4/en/delete.html
+ddl,AUTO_INCREMENT,MODEL_REQUIRED,"自增列属性需要 MySQL 类型和 DDL 选项模型",https://dev.mysql.com/doc/refman/8.4/en/example-auto-increment.html
+types,UNSIGNED,MODEL_REQUIRED,"UNSIGNED 类型属性需要 MySQL 类型系统扩展",https://dev.mysql.com/doc/refman/8.4/en/numeric-type-attributes.html
+types,ZEROFILL,MODEL_REQUIRED,"ZEROFILL 类型属性需要 MySQL 类型系统扩展",https://dev.mysql.com/doc/refman/8.4/en/numeric-type-attributes.html
+ddl,TABLE_ENGINE_OPTIONS,MODEL_REQUIRED,"ENGINE 表选项需要 MySQL DDL 选项模型",https://dev.mysql.com/doc/refman/8.4/en/create-table.html
+ddl,TABLE_CHARSET_COLLATION,MODEL_REQUIRED,"字符集和排序规则表选项需要 MySQL DDL 选项模型",https://dev.mysql.com/doc/refman/8.4/en/create-table.html
+program,CREATE_PROCEDURE_FUNCTION,MODEL_REQUIRED,"存储过程和函数体超出当前 SQL 语句模型",https://dev.mysql.com/doc/refman/8.4/en/create-procedure.html
+program,CREATE_TRIGGER,MODEL_REQUIRED,"触发器定义需要 MySQL 程序单元模型",https://dev.mysql.com/doc/refman/8.4/en/create-trigger.html
+program,CREATE_EVENT,MODEL_REQUIRED,"事件调度对象需要 MySQL 专用 DDL 模型",https://dev.mysql.com/doc/refman/8.4/en/create-event.html
+admin,LOAD_DATA,MODEL_REQUIRED,"LOAD DATA 包含文件、字段和导入控制语义，需要专用模型",https://dev.mysql.com/doc/refman/8.4/en/load-data.html
+admin,LOCK_TABLES,MODEL_REQUIRED,"LOCK TABLES 的锁模式和表列表需要 MySQL 专用语义",https://dev.mysql.com/doc/refman/8.4/en/lock-tables.html

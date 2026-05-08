@@ -8,7 +8,6 @@
 
 - SQL 解析
 - 词法扫描
-- 语句摘要提取
 - protobuf AST 与 PostgreSQL 节点之间的转换
 - SQL 反解析
 
@@ -17,7 +16,7 @@
 - 公共 ABI 封装
 - 语义提取
 - 稳定 selector
-- 稳定模型 JSON
+- SQL View JSON
 - 统一错误与生命周期管理
 
 ## 2. 固定版本
@@ -55,21 +54,7 @@
 - 关键字辅助分析
 - 与语句文本相关的补充提取
 
-### 3.3 摘要
-
-`sqlparser` 复用：
-
-- `pg_query_summary()`
-
-这条路径主要用于快速提取：
-
-- `statement_types`
-- `tables`
-- `aliases`
-- `functions`
-- `filter_columns`
-
-### 3.4 反解析
+### 3.3 反解析
 
 `sqlparser` 复用：
 
@@ -77,7 +62,7 @@
 
 `sqlparser` 对 AST 的所有改写最终都通过这条路径重新生成 SQL。
 
-### 3.5 分段
+### 3.4 分段
 
 `sqlparser` 复用：
 
@@ -158,12 +143,12 @@ SQL -> libpg_query protobuf AST -> sqlparser handle -> rewrite -> deparse -> SQL
 
 - 把 `libpg_query` 视为固定版本内核，而不是对外公共接口
 - 对外接入统一走 `sqlparser` 头文件和库
-- 调试底层语法树时可导出 parse tree JSON
-- 业务改写使用 `sqlparser` 的原子级 API、selector 和模型 JSON
+- 调试底层语法树时可导出 SQL View JSON
+- 业务改写使用 `sqlparser` 的原子级 API、selector 和 structured patch
 
 ## 10. 相关文档
 
 - 项目概览见 [sqlparser_architecture.md](./sqlparser_architecture.md)
 - API 使用说明见 [api_reference.md](./api_reference.md)
-- 模型 JSON 说明见 [model_json.md](./model_json.md)
+- SQL View JSON 说明见 [view_json.md](./view_json.md)
 - CLI 使用说明见 [cli_guide.md](./cli_guide.md)

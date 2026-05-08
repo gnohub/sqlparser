@@ -1,6 +1,6 @@
 # Oracle 方言用例矩阵
 
-本文件记录 Oracle 方言转换层的回归用例。可执行夹具为 `tests/cases/oracle_dialect_input.json`，单元测试 `tests/unit/test_oracle_dialect_case_matrix.c` 会逐条验证解析结果、summary JSON、反解析输出和错误码。
+本文件记录 Oracle 方言转换层的回归用例。可执行夹具为 `tests/cases/oracle_dialect_input.json`，单元测试 `tests/unit/test_oracle_dialect_case_matrix.c` 会逐条验证解析结果、SQL View JSON、反解析输出和错误码。
 
 ## 支持用例
 
@@ -45,6 +45,8 @@
 | O038 | `IN` + 多 bind | 条件列表中的多个 bind |
 | O039 | `DELETE` + `DATE` literal | 条件删除和日期字面量 |
 | O040 | materialized view | 物化视图兼容语法 |
+| O041 | unsupported 关键字字符串 | 字符串中的 `RETURNING`、`@`、`(+)` 不触发 unsupported |
+| O042 | unsupported 关键字注释 | 注释中的 `CONNECT BY` 不触发 unsupported |
 
 ## 明确不支持用例
 

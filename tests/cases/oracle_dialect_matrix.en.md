@@ -1,6 +1,6 @@
 # Oracle Dialect Case Matrix
 
-This file records regression cases for the Oracle dialect conversion layer. The executable fixture is `tests/cases/oracle_dialect_input.json`; `tests/unit/test_oracle_dialect_case_matrix.c` verifies parsing, summary JSON, deparse output, and error codes.
+This file records regression cases for the Oracle dialect conversion layer. The executable fixture is `tests/cases/oracle_dialect_input.json`; `tests/unit/test_oracle_dialect_case_matrix.c` verifies parsing, SQL View JSON, deparse output, and error codes.
 
 ## Supported Cases
 
@@ -45,6 +45,8 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 | O038 | `IN` + multiple binds | multiple binds in a predicate list |
 | O039 | `DELETE` + `DATE` literal | conditional delete and date literal |
 | O040 | materialized view | compatible materialized-view syntax |
+| O041 | unsupported keywords in string | `RETURNING`, `@`, and `(+)` inside strings do not trigger unsupported |
+| O042 | unsupported keywords in comment | `CONNECT BY` inside comments does not trigger unsupported |
 
 ## Explicitly Unsupported Cases
 

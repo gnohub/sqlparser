@@ -12,7 +12,7 @@ int main(void)
 	sqlparser_name_view_t name;
 	const char *node_name;
 	sqlparser_where_literal_view_t where_literal;
-	char *summary_json;
+	char *view_json;
 	size_t name_count;
 	size_t name_index;
 	size_t where_count;
@@ -23,7 +23,7 @@ int main(void)
 	      "JOIN public.orders o ON u.id = o.user_id "
 	      "WHERE o.status = 'paid'";
 	handle = NULL;
-	summary_json = NULL;
+	view_json = NULL;
 	memset(&err, 0, sizeof(err));
 	memset(&name, 0, sizeof(name));
 	memset(&where_literal, 0, sizeof(where_literal));
@@ -121,18 +121,17 @@ int main(void)
 	}
 
 	/*
-	 * 这一步导出的 summary JSON 仍然很有价值。
-	 * 它适合直接做“关键词 / 表 / 列”的只读分析。
+	 * view JSON 是按表、列和值片段组织后的结构化输出。
 	 */
-	status = sqlparser_export_summary_json(handle, 1, &summary_json, &err);
+	status = sqlparser_export_view_json(handle, 1, &view_json, &err);
 	if (status != SQLPARSER_STATUS_OK) {
-		fprintf(stderr, "export_summary_json failed: %s\n", err.message);
+		fprintf(stderr, "export_view_json failed: %s\n", err.message);
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 
-	printf("%s\n", summary_json);
-	sqlparser_string_free(summary_json);
+	printf("%s\n", view_json);
+	sqlparser_string_free(view_json);
 	sqlparser_handle_destroy(handle);
 	return 0;
 }

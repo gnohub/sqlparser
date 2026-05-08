@@ -13,7 +13,7 @@
 3. 提取表、列、别名、关键字和字面量等信息
 4. 提供精确的改写入口
 5. 把改写结果重新生成 SQL
-6. 以稳定 JSON 形式导出工作模型
+6. 以稳定 JSON 形式导出 SQL 视图
 
 对外交付产物包括：
 
@@ -29,7 +29,7 @@
 1. 输入完整 SQL 文本
 2. 调用 `sqlparser_parse()` 得到 `sqlparser_handle_t`
 3. 通过语句级 API、通用原子级 API 或语义级 API 读取结构信息
-4. 按索引、selector 或 model patch 执行精确改写
+4. 按索引、selector 或结构体 patch 执行精确改写
 5. 调用 `sqlparser_deparse()` 输出最终 SQL
 
 这个链路覆盖了 SQL 处理中常见的两类场景：
@@ -47,7 +47,7 @@
 
 - 语句级接口：语句类型、节点名称、目标表、`INSERT`、`UPDATE`、`WHERE`
 - 通用原子接口：`relation`、`name`、`literal`
-- 外部化改写接口：`selector`、模型 JSON
+- 外部化改写接口：`selector`、SQL View JSON、structured patch
 
 ### 3.2 规范语法树层
 
@@ -57,7 +57,7 @@
 
 - 持有语句树
 - 作为所有改写的唯一真源
-- 驱动摘要提取、扫描、JSON 导出和反解析
+- 驱动结构化视图导出和反解析
 
 这样可以保证改写链路始终围绕同一份结构数据进行，不需要把 JSON 作为主表示反复解析。
 
@@ -65,11 +65,7 @@
 
 语义分析层在统一语法树之上提供更接近 SQL 语义的信息。
 
-输入来源包括：
-
-- `libpg_query` 摘要信息
-- `libpg_query` 扫描结果
-- `sqlparser` 自身的语法树遍历
+输入来源是 `sqlparser` 对统一语法树的遍历结果。
 
 这一层输出的典型信息有：
 
@@ -84,14 +80,14 @@
 - `update_columns`
 - `all_referenced_columns`
 
-### 3.4 稳定模型层
+### 3.4 SQL View 层
 
-稳定模型层用于把语句树导出为可供外部程序消费的工作模型。
+SQL View 层用于把语句树按需导出为可供外部程序消费的结构化视图。
 
 该层提供：
 
-- `sqlparser_export_model_json()`
-- `sqlparser_apply_model_json()`
+- `sqlparser_export_view_json()`
+- `sqlparser_apply_patch()`
 - `sqlparser_selector_parse()`
 - `sqlparser_selector_format()`
 
@@ -99,7 +95,7 @@
 
 - 规则系统保存定位路径
 - 外部程序执行补丁回放
-- 以 JSON 作为审计和调试载体
+- 以 JSON 作为结构化输出和调试载体
 
 ### 3.5 反解析层
 
@@ -111,18 +107,15 @@
 
 一个 `sqlparser_handle_t` 持有以下几类数据：
 
-- `source_sql`：最初输入 SQL
-- `current_sql`：在发生改写后按需生成的当前 SQL
+- 原始 SQL 与内部解析 SQL
+- 发生改写后按需生成的当前 SQL
 - `parse_tree`：protobuf AST
-- `parse_tree_json`：懒加载 parse tree JSON
-- `summary`：懒加载摘要 protobuf
-- `scan`：懒加载词法扫描 protobuf
-- `model_json`：懒加载稳定模型 JSON
+- SQL View JSON：按需导出结构化 JSON
 
 缓存行为如下：
 
 - 初次解析时只建立必要的统一语法树
-- JSON、summary、scan 等派生数据按需生成
+- SQL View JSON 等派生输出按需生成
 - 成功改写后，派生缓存会统一失效
 - 再次访问时，会基于最新 AST 重新生成
 
@@ -150,14 +143,14 @@
 
 这组接口既可用于 DML，也可用于 DDL 和多语句输入。
 
-### 5.3 selector 与模型接口
+### 5.3 selector 与视图接口
 
-selector 和模型接口用于把改写目标稳定地外部化。
+selector 和视图接口用于把改写目标稳定地外部化。
 
 典型用途包括：
 
 - 把修改点保存为文本路径
-- 把完整工作模型保存为 JSON
+- 把 SQL 视图保存为 JSON
 - 在新的请求中用 patch 回放改写
 
 ## 6. 内存与线程模型
@@ -197,7 +190,7 @@ selector 和模型接口用于把改写目标稳定地外部化。
 
 - 解析一次得到长生命周期 `handle`
 - 派生结果按需生成
-- `summary`、`scan`、模型 JSON 懒加载
+- SQL View JSON 按需生成
 - 改写直接作用于 AST，而不是把 JSON 作为主修改路径
 
 ## 8. 功能范围与扩展点
@@ -210,7 +203,8 @@ selector 和模型接口用于把改写目标稳定地外部化。
 - `DELETE`
 - 多语句输入
 - 常见 DDL 分类与名称改写
-- `selector` 和模型 JSON 驱动的精确改写
+- MySQL、Oracle、SQL Server 方言转换层
+- `selector` 和 structured patch 驱动的精确改写
 
 方言适配可通过以下扩展点接入：
 
@@ -221,7 +215,7 @@ selector 和模型接口用于把改写目标稳定地外部化。
 ## 9. 文档与代码入口
 
 - API 手册见 [api_reference.md](./api_reference.md)
-- 模型 JSON 手册见 [model_json.md](./model_json.md)
+- SQL View JSON 手册见 [view_json.md](./view_json.md)
 - CLI 手册见 [cli_guide.md](./cli_guide.md)
 - `libpg_query` 集成说明见 [libpg_query_analysis.md](./libpg_query_analysis.md)
 - 示例程序见 `examples/*.c`

@@ -37,9 +37,18 @@ typedef struct {
 	size_t seen;
 	size_t target_index;
 	int want_target;
+	char **match_slot;
 	char **target_slot;
 	sqlparser_name_view_t *name_view;
 } sqlparser_name_search_t;
+
+typedef struct {
+	size_t seen;
+	size_t target_index;
+	int want_target;
+	PgQuery__Node *match_node;
+	PgQuery__Node **target_slot;
+} sqlparser_node_slot_search_t;
 
 void sqlparser_relation_view_clear(sqlparser_relation_view_t *view);
 void sqlparser_literal_view_clear(sqlparser_literal_view_t *view);
@@ -105,6 +114,24 @@ sqlparser_status_t sqlparser_walk_message_names(
 	ProtobufCMessage *message,
 	const sqlparser_name_context_t *context,
 	sqlparser_name_search_t *search);
+sqlparser_status_t sqlparser_find_statement_name_index_by_slot(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	char **slot,
+	size_t *out_index,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_find_statement_node_index_by_node(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	PgQuery__Node *node,
+	size_t *out_index,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_get_statement_node_slot_by_index(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t node_index,
+	PgQuery__Node ***out_slot,
+	sqlparser_error_t *out_error);
 
 int sqlparser_node_string_value(const PgQuery__Node *node, const char **out_text);
 int sqlparser_try_extract_column_ref(

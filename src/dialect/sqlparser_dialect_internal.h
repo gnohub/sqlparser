@@ -22,12 +22,17 @@ struct sqlparser_dialect_ops {
 		const void *state,
 		char **out_sql,
 		sqlparser_error_t *out_error);
-	const char *(*summary_keyword)(const char *core_keyword, const void *state);
 	sqlparser_status_t (*clone_state)(
 		const void *state,
 		void **out_state,
 		sqlparser_error_t *out_error);
 	void (*destroy_state)(void *state);
+	sqlparser_status_t (*postprocess_literal_fragment)(
+		const char *core_sql,
+		const void *state,
+		size_t literal_index,
+		char **out_sql,
+		sqlparser_error_t *out_error);
 };
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_get_ops(sqlparser_dialect_t dialect);
@@ -36,5 +41,6 @@ int sqlparser_dialect_is_supported(sqlparser_dialect_t dialect);
 const sqlparser_dialect_ops_t *sqlparser_dialect_postgresql_ops(void);
 const sqlparser_dialect_ops_t *sqlparser_dialect_mysql_ops(void);
 const sqlparser_dialect_ops_t *sqlparser_dialect_oracle_ops(void);
+const sqlparser_dialect_ops_t *sqlparser_dialect_sqlserver_ops(void);
 
 #endif

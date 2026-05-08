@@ -11,7 +11,6 @@ following base capabilities:
 
 - SQL parsing
 - lexical scanning
-- statement summary extraction
 - conversion between protobuf AST and PostgreSQL nodes
 - SQL deparse
 
@@ -20,7 +19,7 @@ following base capabilities:
 - public ABI packaging
 - semantic extraction
 - stable selectors
-- stable model JSON
+- SQL View JSON
 - unified error handling and lifecycle management
 
 ## 2. Pinned Version
@@ -59,21 +58,7 @@ This path is mainly used for:
 - keyword-assisted analysis
 - supplemental extraction that depends on the statement text
 
-### 3.3 Summary
-
-`sqlparser` reuses:
-
-- `pg_query_summary()`
-
-This path is mainly used to extract:
-
-- `statement_types`
-- `tables`
-- `aliases`
-- `functions`
-- `filter_columns`
-
-### 3.4 Deparse
+### 3.3 Deparse
 
 `sqlparser` reuses:
 
@@ -82,7 +67,7 @@ This path is mainly used to extract:
 All AST rewrites performed by `sqlparser` are turned back into SQL through this
 path.
 
-### 3.5 Split
+### 3.4 Split
 
 `sqlparser` reuses:
 
@@ -165,8 +150,8 @@ When adding dialect syntax, inspect:
 
 - Treat `libpg_query` as a pinned parser kernel, not as the public interface.
 - Integrate through the `sqlparser` header and libraries.
-- Export parse-tree JSON when debugging low-level syntax trees.
-- Use `sqlparser` atomic APIs, selectors, and model JSON for business-level
+- Export SQL View JSON when debugging low-level syntax trees.
+- Use `sqlparser` atomic APIs, selectors, and structured patch for business-level
   rewrites.
 
 ## 10. Related Documents
@@ -174,5 +159,5 @@ When adding dialect syntax, inspect:
 - project overview:
   [sqlparser_architecture.en.md](./sqlparser_architecture.en.md)
 - API reference: [api_reference.en.md](./api_reference.en.md)
-- model JSON guide: [model_json.en.md](./model_json.en.md)
+- SQL View JSON guide: [view_json.en.md](./view_json.en.md)
 - CLI guide: [cli_guide.en.md](./cli_guide.en.md)

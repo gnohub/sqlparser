@@ -1,0 +1,42 @@
+category,item,status,reason,official_url
+query,SELECT,CURRENT,"已覆盖 SELECT、FROM、JOIN、WHERE、GROUP BY、HAVING、ORDER BY 和 LIMIT 的代表性形态",https://www.postgresql.org/docs/17/sql-select.html
+query,WITH,CURRENT,"已覆盖 CTE 查询和外层查询归属",https://www.postgresql.org/docs/17/queries-with.html
+query,set-operations,CURRENT,"已覆盖 UNION ALL、EXCEPT 和 INTERSECT",https://www.postgresql.org/docs/17/queries-union.html
+query,VALUES,CURRENT,"VALUES 可由当前 AST 承载，并在 INSERT VALUES 中验证",https://www.postgresql.org/docs/17/sql-values.html
+query,window-functions,CURRENT,"已覆盖窗口函数表达式",https://www.postgresql.org/docs/17/tutorial-window.html
+dml,INSERT,CURRENT,"已覆盖单行、多行、INSERT SELECT、ON CONFLICT 和 RETURNING",https://www.postgresql.org/docs/17/sql-insert.html
+dml,UPDATE,CURRENT,"已覆盖 UPDATE、UPDATE FROM 和 RETURNING",https://www.postgresql.org/docs/17/sql-update.html
+dml,DELETE,CURRENT,"已覆盖 DELETE、DELETE USING 和 RETURNING",https://www.postgresql.org/docs/17/sql-delete.html
+dml,MERGE,CURRENT,"已覆盖 MERGE 基础结构",https://www.postgresql.org/docs/17/sql-merge.html
+dml,CALL,CURRENT,"已覆盖 CALL 语句解析",https://www.postgresql.org/docs/17/sql-call.html
+ddl,CREATE_TABLE,CURRENT,"已覆盖基础 CREATE TABLE 和列定义",https://www.postgresql.org/docs/17/sql-createtable.html
+ddl,CREATE_TABLE_AS,CURRENT,"已覆盖 CREATE TABLE AS SELECT",https://www.postgresql.org/docs/17/sql-createtableas.html
+ddl,CREATE_VIEW,CURRENT,"已覆盖 CREATE VIEW AS SELECT",https://www.postgresql.org/docs/17/sql-createview.html
+ddl,CREATE_MATERIALIZED_VIEW,CURRENT,"已覆盖 CREATE MATERIALIZED VIEW AS SELECT",https://www.postgresql.org/docs/17/sql-creatematerializedview.html
+ddl,ALTER_TABLE,CURRENT,"已覆盖 RENAME、ADD COLUMN 和 DROP COLUMN 代表性形态",https://www.postgresql.org/docs/17/sql-altertable.html
+ddl,CREATE_INDEX,CURRENT,"已覆盖 CREATE INDEX",https://www.postgresql.org/docs/17/sql-createindex.html
+ddl,DROP_INDEX,CURRENT,"已覆盖 DROP INDEX",https://www.postgresql.org/docs/17/sql-dropindex.html
+ddl,DROP_TABLE,CURRENT,"已覆盖 DROP TABLE",https://www.postgresql.org/docs/17/sql-droptable.html
+ddl,DROP_VIEW,CURRENT,"已覆盖 DROP VIEW",https://www.postgresql.org/docs/17/sql-dropview.html
+ddl,CREATE_SCHEMA,CURRENT,"已覆盖 CREATE SCHEMA",https://www.postgresql.org/docs/17/sql-createschema.html
+ddl,DROP_SCHEMA,CURRENT,"已覆盖 DROP SCHEMA",https://www.postgresql.org/docs/17/sql-dropschema.html
+utility,EXPLAIN,CURRENT,"已覆盖 EXPLAIN SELECT",https://www.postgresql.org/docs/17/sql-explain.html
+utility,COPY,CURRENT,"已覆盖 COPY FROM STDIN 代表性形态",https://www.postgresql.org/docs/17/sql-copy.html
+utility,LOCK,CURRENT,"已覆盖 LOCK TABLE",https://www.postgresql.org/docs/17/sql-lock.html
+utility,ANALYZE,CURRENT,"已覆盖 ANALYZE",https://www.postgresql.org/docs/17/sql-analyze.html
+utility,VACUUM,CURRENT,"已覆盖 VACUUM ANALYZE",https://www.postgresql.org/docs/17/sql-vacuum.html
+utility,COMMENT,CURRENT,"已覆盖 COMMENT ON TABLE",https://www.postgresql.org/docs/17/sql-comment.html
+privileges,GRANT,CURRENT,"已覆盖 GRANT SELECT ON TABLE",https://www.postgresql.org/docs/17/sql-grant.html
+privileges,REVOKE,CURRENT,"已覆盖 REVOKE SELECT ON TABLE",https://www.postgresql.org/docs/17/sql-revoke.html
+transaction,BEGIN,CURRENT,"已覆盖 BEGIN",https://www.postgresql.org/docs/17/sql-begin.html
+transaction,COMMIT,CURRENT,"已覆盖 COMMIT",https://www.postgresql.org/docs/17/sql-commit.html
+transaction,ROLLBACK,CURRENT,"已覆盖 ROLLBACK",https://www.postgresql.org/docs/17/sql-rollback.html
+transaction,SAVEPOINT,CURRENT,"已覆盖 SAVEPOINT",https://www.postgresql.org/docs/17/sql-savepoint.html
+transaction,ROLLBACK_TO_SAVEPOINT,CURRENT,"已覆盖 ROLLBACK TO SAVEPOINT",https://www.postgresql.org/docs/17/sql-rollback-to.html
+transaction,RELEASE_SAVEPOINT,CURRENT,"已覆盖 RELEASE SAVEPOINT",https://www.postgresql.org/docs/17/sql-release-savepoint.html
+procedural,DO,CURRENT,"已覆盖 DO block",https://www.postgresql.org/docs/17/sql-do.html
+session,SET_SHOW_RESET,HOOK_ONLY,"解析内核可承载，公共 SQL View 尚未维护专用归属输出",https://www.postgresql.org/docs/17/sql-set.html
+notification,LISTEN_NOTIFY_UNLISTEN,HOOK_ONLY,"解析内核可承载，当前回归矩阵未覆盖通知语句",https://www.postgresql.org/docs/17/sql-listen.html
+prepared,PREPARE_EXECUTE_DEALLOCATE,HOOK_ONLY,"解析内核可承载，当前回归矩阵未覆盖 prepared statement 生命周期",https://www.postgresql.org/docs/17/sql-prepare.html
+extension,CREATE_EXTENSION_DROP_EXTENSION,HOOK_ONLY,"解析内核可承载，公共 SQL View 未维护 extension 对象专用归属",https://www.postgresql.org/docs/17/sql-createextension.html
+security,ROLE_USER_DATABASE,MIXED_MODEL,"部分 DDL 可解析，完整对象级归属和选项需要扩展公共模型",https://www.postgresql.org/docs/17/sql-createrole.html

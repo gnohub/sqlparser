@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.0-dev
+## 0.2.0
 
 ### Core Capabilities
 
@@ -10,12 +10,15 @@
 - Precise rewrites for relation names, name atoms, literals, `WHERE` literals,
   `UPDATE` assignments, and `INSERT` cells
 - Expression-level rewrite support for `DEFAULT` and arbitrary SQL expressions
-- Export and import support for parse-tree JSON, summary JSON, and stable model
-  JSON
-- Configurable resource limits for SQL input, model JSON input, generated
-  output, and statement count
-- Dialect framework with PostgreSQL as the default and MySQL / Oracle dialect
-  conversion layers
+- SQL View JSON export, SQL View C structured traversal, and structured patch
+  write-back
+- Diagnostic SQL View JSON export on demand
+- Configurable resource limits for SQL input, expression SQL fragments,
+  generated output, and statement count
+- Dialect framework with PostgreSQL as the default and MySQL / Oracle /
+  SQL Server dialect conversion layers
+- Reduced the default generated-output limit to 4 MB and removed avoidable
+  resident AST and string copies from parse/deparse paths
 
 ### Packaging and Build
 
@@ -45,6 +48,8 @@
   explicitly unsupported syntax
 - Added an Oracle dialect case matrix covering supported statement shapes,
   public output rules, and explicitly unsupported syntax
+- Added a SQL Server dialect case matrix covering supported T-SQL statement
+  shapes, public output rules, and explicitly unsupported syntax
 - Added installed-library API smoke coverage, `valgrind` leak checks, and
   expression-rewrite regression
 - Added stability regression for malformed SQL, argument validation, resource
@@ -52,11 +57,11 @@
 - Extended benchmarks for read paths, rewrite paths, and `rewrite + deparse`
   single-call measurements
 - Added capability-grouped test entry points for parse, inspect, rewrite,
-  deparse, model JSON, CLI, install smoke, and ABI
+  deparse, SQL View JSON, CLI, install smoke, and ABI
 
 ### Documentation
 
-- Chinese and English quick-start guides, API reference, model JSON guide, CLI
+- Chinese and English quick-start guides, API reference, SQL View JSON guide, CLI
   guide, and architecture guide
-- Added Oracle dialect support notes and `v0.2.0-dev` release notes
-- Added compatibility policy and public changelog
+- Added Oracle and SQL Server dialect support notes and `v0.2.0` release notes
+- Added public changelog

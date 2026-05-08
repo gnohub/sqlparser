@@ -12,7 +12,7 @@ int main(void)
 	sqlparser_name_view_t name;
 	const char *node_name;
 	char *deparsed_sql;
-	char *parse_tree_json;
+	char *view_json;
 	size_t name_count;
 	size_t index;
 	size_t view_name_index;
@@ -21,7 +21,7 @@ int main(void)
 	sql = "DROP VIEW IF EXISTS public.v_orders";
 	handle = NULL;
 	deparsed_sql = NULL;
-	parse_tree_json = NULL;
+	view_json = NULL;
 	view_name_index = (size_t)-1;
 	memset(&err, 0, sizeof(err));
 	memset(&name, 0, sizeof(name));
@@ -103,15 +103,15 @@ int main(void)
 	printf("rewritten sql: %s\n", deparsed_sql);
 	sqlparser_string_free(deparsed_sql);
 
-	status = sqlparser_export_parse_tree_json(handle, 1, &parse_tree_json, &err);
+	status = sqlparser_export_view_json(handle, 1, &view_json, &err);
 	if (status != SQLPARSER_STATUS_OK) {
-		fprintf(stderr, "export_parse_tree_json failed: %s\n", err.message);
+		fprintf(stderr, "export_view_json failed: %s\n", err.message);
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 
-	printf("%s\n", parse_tree_json);
-	sqlparser_string_free(parse_tree_json);
+	printf("%s\n", view_json);
+	sqlparser_string_free(view_json);
 	sqlparser_handle_destroy(handle);
 	return 0;
 }

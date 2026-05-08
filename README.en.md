@@ -18,11 +18,9 @@ This release provides:
 - statement-wide relation, name, and literal traversal and rewrite
 - `INSERT`, `UPDATE`, and `WHERE` structural views
 - stable selector parse / format / lookup
-- dialect options with PostgreSQL as the default and MySQL / Oracle conversion layers
-- configurable resource limits for SQL input, model JSON input, generated output, and statement count
-- `parse tree JSON` export
-- `summary JSON` export
-- stable model JSON export and import
+- dialect options with PostgreSQL as the default and MySQL / Oracle / SQL Server conversion layers
+- configurable resource limits for SQL input, generated output, and statement count
+- SQL View JSON export, C structured traversal, and structured patch write-back
 - `handle -> sql`
 
 ## Public Artifacts
@@ -129,7 +127,12 @@ sqlparser_parse_options_default(&options);
 options.dialect = SQLPARSER_DIALECT_MYSQL;
 ```
 
-Oracle SQL can be selected with `options.dialect = SQLPARSER_DIALECT_ORACLE`.
+Oracle and SQL Server SQL can be selected explicitly through `options.dialect`:
+
+```c
+options.dialect = SQLPARSER_DIALECT_ORACLE;
+options.dialect = SQLPARSER_DIALECT_SQLSERVER;
+```
 
 Compile the example with:
 
@@ -151,16 +154,10 @@ Parse a single SQL statement:
 ./bin/sqlparser_cli "SELECT id, name FROM public.users WHERE id = 42"
 ```
 
-Export summary JSON:
+Export SQL View JSON:
 
 ```bash
-./bin/sqlparser_cli --mode summary "SELECT id, name FROM public.users WHERE id = 42"
-```
-
-Export stable model JSON:
-
-```bash
-./bin/sqlparser_cli --mode model "SELECT id, name FROM public.users WHERE id = 42"
+./bin/sqlparser_cli --mode view "SELECT id, name FROM public.users WHERE id = 42"
 ```
 
 Process a JSON file containing multiple SQL statements:
@@ -182,10 +179,11 @@ Example programs are available under `examples/`:
 - `05_delete_inspect.c`
 - `06_ddl_inspect.c`
 - `07_multi_statement_walk.c`
-- `08_model_roundtrip.c`
+- `08_view_patch.c`
 - `09_expression_rewrite.c`
 - `10_mysql_dialect.c`
 - `11_oracle_dialect.c`
+- `12_sqlserver_dialect.c`
 
 See [examples/README.md](./examples/README.md) for details.
 
@@ -193,10 +191,13 @@ See [examples/README.md](./examples/README.md) for details.
 
 - [Documentation Index](./doc/README.en.md)
 - [Project Overview and Architecture](./doc/sqlparser_architecture.en.md)
-- [Compatibility Policy](./doc/compatibility_policy.en.md)
+- [PostgreSQL Dialect Support](./doc/postgresql_dialect_support.en.md)
+- [MySQL Dialect Support](./doc/mysql_dialect_support.en.md)
 - [Oracle Dialect Support](./doc/oracle_dialect_support.en.md)
+- [SQL Server Dialect Support](./doc/sqlserver_dialect_support.en.md)
+- [Dialect Coverage](./doc/dialect_coverage.en.md)
 - [API Reference](./doc/api_reference.en.md)
-- [Model JSON Guide](./doc/model_json.en.md)
+- [SQL View JSON Guide](./doc/view_json.en.md)
 - [CLI Guide](./doc/cli_guide.en.md)
 - [libpg_query Integration](./doc/libpg_query_analysis.en.md)
 - [Release Notes](./RELEASE_NOTES.en.md)

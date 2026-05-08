@@ -20,10 +20,6 @@ struct sqlparser_handle {
 	size_t parser_sql_len;
 	size_t statement_count;
 	PgQueryProtobuf parse_tree;
-	char *parse_tree_json;
-	char *model_json;
-	PgQueryProtobuf scan;
-	PgQueryProtobuf summary;
 	PgQuery__ParseResult *ast;
 	sqlparser_limits_t limits;
 	unsigned long generation;

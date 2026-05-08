@@ -164,7 +164,7 @@ LDLIBS := $(BASE_LDLIBS) $(EXTRA_LDLIBS)
 	all prep vendor static shared clean vendor-clean print-config test install cli bench-build \
 	test-cli-batch examples install-smoke bench-smoke test-loop verify verify-release verify-debug \
 	verify-asan verify-ubsan verify-valgrind verify-ci abi-check test-unit test-examples \
-	test-parse test-inspect test-rewrite test-deparse test-model-json test-cli test-install \
+	test-parse test-inspect test-rewrite test-deparse test-view-json test-cli test-install \
 	test-abi dist
 
 all: prep static shared cli
@@ -217,7 +217,7 @@ test-deparse: $(TEST_CORE_API_BIN) $(TEST_CASE_MATRIX_BIN)
 	@$(TEST_CORE_API_BIN)
 	@$(TEST_CASE_MATRIX_BIN)
 
-test-model-json: $(TEST_CORE_API_BIN)
+test-view-json: $(TEST_CORE_API_BIN)
 	@$(TEST_CORE_API_BIN)
 
 test-install: install-smoke

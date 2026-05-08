@@ -18,14 +18,16 @@
   展示 DDL 语句的节点识别、名称原子遍历和对象名改写。
 - `examples/07_multi_statement_walk.c`
   展示多语句输入的遍历方式。
-- `examples/08_model_roundtrip.c`
-  展示稳定模型 JSON 的导出、patch 应用和回写 SQL。
+- `examples/08_view_patch.c`
+  展示 SQL View JSON 的导出、结构体 patch 应用和回写 SQL。
 - `examples/09_expression_rewrite.c`
   展示如何读取和改写 `UPDATE assignment`、`INSERT cell` 的任意表达式或 `DEFAULT`。
 - `examples/10_mysql_dialect.c`
   展示如何显式指定 MySQL 方言，并改写 `INSERT ... VALUES` 的单元格。
 - `examples/11_oracle_dialect.c`
-  展示如何显式指定 Oracle 方言，导出 summary JSON，并在反解析时还原 Oracle bind 占位符。
+  展示如何显式指定 Oracle 方言，导出 SQL View JSON，并在反解析时还原 Oracle bind 占位符。
+- `examples/12_sqlserver_dialect.c`
+  展示如何显式指定 SQL Server 方言，导出 SQL View JSON，并在反解析时还原 SQL Server 参数和 `TOP` 语法。
 
 ## 构建
 

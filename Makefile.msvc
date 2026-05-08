@@ -4,9 +4,8 @@
 #   nmake /F Makefile.msvc test
 
 LIB_NAME = sqlparser
-VERSION_STRING = 0.2.0-dev
+VERSION_STRING = 0.2.0
 LIBPG_QUERY_TAG = 17-6.2.2
-MODEL_SCHEMA = sqlparser.model/v1
 
 BUILD_DIR = build\msvc
 OBJ_DIR = $(BUILD_DIR)\obj
@@ -28,8 +27,7 @@ CLI_BIN = $(BIN_DIR)\sqlparser_cli.exe
 BASE_DEFINES = \
 	/D_CRT_SECURE_NO_WARNINGS \
 	/DSQLPARSER_VERSION_TEXT=\"$(VERSION_STRING)\" \
-	/DSQLPARSER_LIBPG_QUERY_TAG_TEXT=\"$(LIBPG_QUERY_TAG)\" \
-	/DSQLPARSER_MODEL_SCHEMA_TEXT=\"$(MODEL_SCHEMA)\"
+	/DSQLPARSER_LIBPG_QUERY_TAG_TEXT=\"$(LIBPG_QUERY_TAG)\"
 
 BASE_INCLUDES = \
 	/Iinclude \
@@ -66,15 +64,14 @@ CORE_OBJS = \
 	$(OBJ_DIR)\sqlparser_ast_statement.obj \
 	$(OBJ_DIR)\sqlparser_ast_update.obj \
 	$(OBJ_DIR)\sqlparser_core.obj \
-	$(OBJ_DIR)\sqlparser_inspect.obj \
 	$(OBJ_DIR)\sqlparser_json.obj \
-	$(OBJ_DIR)\sqlparser_model.obj \
-	$(OBJ_DIR)\sqlparser_model_apply.obj \
-	$(OBJ_DIR)\sqlparser_model_export.obj \
+	$(OBJ_DIR)\sqlparser_patch.obj \
 	$(OBJ_DIR)\sqlparser_selector.obj \
+	$(OBJ_DIR)\sqlparser_view.obj \
 	$(OBJ_DIR)\sqlparser_dialect_mysql.obj \
 	$(OBJ_DIR)\sqlparser_dialect_oracle.obj \
 	$(OBJ_DIR)\sqlparser_dialect_postgresql.obj \
+	$(OBJ_DIR)\sqlparser_dialect_sqlserver.obj \
 	$(OBJ_DIR)\sqlparser_dialect_registry.obj
 
 UNIT_TEST_BINS = \
@@ -83,6 +80,7 @@ UNIT_TEST_BINS = \
 	$(BIN_DIR)\test_core_api.exe \
 	$(BIN_DIR)\test_mysql_dialect_case_matrix.exe \
 	$(BIN_DIR)\test_oracle_dialect_case_matrix.exe \
+	$(BIN_DIR)\test_sqlserver_dialect_case_matrix.exe \
 	$(BIN_DIR)\test_stability.exe
 
 EXAMPLE_BINS = \
@@ -93,10 +91,11 @@ EXAMPLE_BINS = \
 	$(BIN_DIR)\05_delete_inspect.exe \
 	$(BIN_DIR)\06_ddl_inspect.exe \
 	$(BIN_DIR)\07_multi_statement_walk.exe \
-	$(BIN_DIR)\08_model_roundtrip.exe \
+	$(BIN_DIR)\08_view_patch.exe \
 	$(BIN_DIR)\09_expression_rewrite.exe \
 	$(BIN_DIR)\10_mysql_dialect.exe \
-	$(BIN_DIR)\11_oracle_dialect.exe
+	$(BIN_DIR)\11_oracle_dialect.exe \
+	$(BIN_DIR)\12_sqlserver_dialect.exe
 
 all: static cli
 
@@ -125,6 +124,7 @@ test: all $(UNIT_TEST_BINS) examples
 	$(BIN_DIR)\test_core_api.exe
 	$(BIN_DIR)\test_mysql_dialect_case_matrix.exe
 	$(BIN_DIR)\test_oracle_dialect_case_matrix.exe
+	$(BIN_DIR)\test_sqlserver_dialect_case_matrix.exe
 	$(BIN_DIR)\test_stability.exe
 	$(BIN_DIR)\01_select_inspect.exe
 	$(BIN_DIR)\02_insert_values_replace_literal.exe
@@ -133,10 +133,11 @@ test: all $(UNIT_TEST_BINS) examples
 	$(BIN_DIR)\05_delete_inspect.exe
 	$(BIN_DIR)\06_ddl_inspect.exe
 	$(BIN_DIR)\07_multi_statement_walk.exe
-	$(BIN_DIR)\08_model_roundtrip.exe
+	$(BIN_DIR)\08_view_patch.exe
 	$(BIN_DIR)\09_expression_rewrite.exe
 	$(BIN_DIR)\10_mysql_dialect.exe
 	$(BIN_DIR)\11_oracle_dialect.exe
+	$(BIN_DIR)\12_sqlserver_dialect.exe
 
 clean:
 	@if exist $(BUILD_DIR) rmdir /S /Q $(BUILD_DIR)
@@ -208,23 +209,17 @@ $(OBJ_DIR)\sqlparser_ast_update.obj: src\core\sqlparser_ast_update.c
 $(OBJ_DIR)\sqlparser_core.obj: src\core\sqlparser_core.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_core.c
 
-$(OBJ_DIR)\sqlparser_inspect.obj: src\core\sqlparser_inspect.c
-	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_inspect.c
-
 $(OBJ_DIR)\sqlparser_json.obj: src\core\sqlparser_json.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_json.c
 
-$(OBJ_DIR)\sqlparser_model.obj: src\core\sqlparser_model.c
-	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_model.c
-
-$(OBJ_DIR)\sqlparser_model_apply.obj: src\core\sqlparser_model_apply.c
-	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_model_apply.c
-
-$(OBJ_DIR)\sqlparser_model_export.obj: src\core\sqlparser_model_export.c
-	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_model_export.c
+$(OBJ_DIR)\sqlparser_patch.obj: src\core\sqlparser_patch.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_patch.c
 
 $(OBJ_DIR)\sqlparser_selector.obj: src\core\sqlparser_selector.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_selector.c
+
+$(OBJ_DIR)\sqlparser_view.obj: src\core\sqlparser_view.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_view.c
 
 $(OBJ_DIR)\sqlparser_dialect_mysql.obj: src\dialect\sqlparser_dialect_mysql.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_mysql.c
@@ -234,6 +229,9 @@ $(OBJ_DIR)\sqlparser_dialect_oracle.obj: src\dialect\sqlparser_dialect_oracle.c
 
 $(OBJ_DIR)\sqlparser_dialect_postgresql.obj: src\dialect\sqlparser_dialect_postgresql.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_postgresql.c
+
+$(OBJ_DIR)\sqlparser_dialect_sqlserver.obj: src\dialect\sqlparser_dialect_sqlserver.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_sqlserver.c
 
 $(OBJ_DIR)\sqlparser_dialect_registry.obj: src\dialect\sqlparser_dialect_registry.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_registry.c
@@ -255,6 +253,9 @@ $(BIN_DIR)\test_mysql_dialect_case_matrix.exe: tests\unit\test_mysql_dialect_cas
 
 $(BIN_DIR)\test_oracle_dialect_case_matrix.exe: tests\unit\test_oracle_dialect_case_matrix.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_oracle_dialect_case_matrix.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_sqlserver_dialect_case_matrix.exe: tests\unit\test_sqlserver_dialect_case_matrix.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_sqlserver_dialect_case_matrix.c /link $(LDFLAGS) $(LDLIBS)
 
 $(BIN_DIR)\test_stability.exe: tests\unit\test_stability.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_stability.c /link $(LDFLAGS) $(LDLIBS)
@@ -280,8 +281,8 @@ $(BIN_DIR)\06_ddl_inspect.exe: examples\06_ddl_inspect.c $(STATIC_LIB)
 $(BIN_DIR)\07_multi_statement_walk.exe: examples\07_multi_statement_walk.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ examples\07_multi_statement_walk.c /link $(LDFLAGS) $(LDLIBS)
 
-$(BIN_DIR)\08_model_roundtrip.exe: examples\08_model_roundtrip.c $(STATIC_LIB)
-	$(CC) $(CFLAGS) /Fe$@ examples\08_model_roundtrip.c /link $(LDFLAGS) $(LDLIBS)
+$(BIN_DIR)\08_view_patch.exe: examples\08_view_patch.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ examples\08_view_patch.c /link $(LDFLAGS) $(LDLIBS)
 
 $(BIN_DIR)\09_expression_rewrite.exe: examples\09_expression_rewrite.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ examples\09_expression_rewrite.c /link $(LDFLAGS) $(LDLIBS)
@@ -291,3 +292,6 @@ $(BIN_DIR)\10_mysql_dialect.exe: examples\10_mysql_dialect.c $(STATIC_LIB)
 
 $(BIN_DIR)\11_oracle_dialect.exe: examples\11_oracle_dialect.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ examples\11_oracle_dialect.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\12_sqlserver_dialect.exe: examples\12_sqlserver_dialect.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ examples\12_sqlserver_dialect.c /link $(LDFLAGS) $(LDLIBS)

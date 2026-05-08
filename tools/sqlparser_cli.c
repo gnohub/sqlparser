@@ -9,10 +9,8 @@
 
 typedef enum {
 	SQLPARSER_CLI_MODE_ALL = 0,
-	SQLPARSER_CLI_MODE_PARSE_TREE = 1,
-	SQLPARSER_CLI_MODE_SUMMARY = 2,
-	SQLPARSER_CLI_MODE_DEPARSE = 3,
-	SQLPARSER_CLI_MODE_MODEL = 4
+	SQLPARSER_CLI_MODE_DEPARSE = 1,
+	SQLPARSER_CLI_MODE_VIEW = 2
 } sqlparser_cli_mode_t;
 
 static void sqlparser_cli_error_clear(sqlparser_error_t *error)
@@ -40,14 +38,10 @@ static void sqlparser_cli_error_set(
 static const char *sqlparser_cli_mode_name(sqlparser_cli_mode_t mode)
 {
 	switch (mode) {
-		case SQLPARSER_CLI_MODE_PARSE_TREE:
-			return "parse-tree";
-		case SQLPARSER_CLI_MODE_SUMMARY:
-			return "summary";
 		case SQLPARSER_CLI_MODE_DEPARSE:
 			return "deparse";
-		case SQLPARSER_CLI_MODE_MODEL:
-			return "model";
+		case SQLPARSER_CLI_MODE_VIEW:
+			return "view";
 		case SQLPARSER_CLI_MODE_ALL:
 		default:
 			return "all";
@@ -58,15 +52,15 @@ static void sqlparser_cli_print_usage(const char *program)
 {
 	fprintf(
 		stderr,
-		"Usage: %s [--mode parse-tree|summary|deparse|model|all] [--dialect postgresql|mysql|oracle|sqlserver] [--compact] [--file PATH] [SQL]\n",
+		"Usage: %s [--mode view|deparse|all] [--dialect postgresql|mysql|oracle|sqlserver] [--compact] [--file PATH] [SQL]\n",
 		program);
 	fprintf(
 		stderr,
-		"       %s --batch-file PATH [--output PATH] [--mode parse-tree|summary|deparse|model|all] [--dialect postgresql|mysql|oracle|sqlserver] [--compact]\n",
+		"       %s --batch-file PATH [--output PATH] [--mode view|deparse|all] [--dialect postgresql|mysql|oracle|sqlserver] [--compact]\n",
 		program);
 	fprintf(stderr, "       %s --file ./tests/cases/sample.sql\n", program);
 	fprintf(stderr, "       %s --batch-file ./tests/cases/sql_batch_input.json --output /tmp/out.json\n", program);
-	fprintf(stderr, "       echo \"SELECT 1\" | %s --mode summary\n", program);
+	fprintf(stderr, "       echo \"SELECT 1\" | %s --mode view\n", program);
 }
 
 static int sqlparser_cli_ascii_equal_ci(const char *left, const char *right)
@@ -225,20 +219,12 @@ static int sqlparser_cli_parse_mode(const char *value, sqlparser_cli_mode_t *mod
 		*mode_out = SQLPARSER_CLI_MODE_ALL;
 		return 0;
 	}
-	if (strcmp(value, "parse-tree") == 0) {
-		*mode_out = SQLPARSER_CLI_MODE_PARSE_TREE;
-		return 0;
-	}
-	if (strcmp(value, "summary") == 0) {
-		*mode_out = SQLPARSER_CLI_MODE_SUMMARY;
-		return 0;
-	}
 	if (strcmp(value, "deparse") == 0) {
 		*mode_out = SQLPARSER_CLI_MODE_DEPARSE;
 		return 0;
 	}
-	if (strcmp(value, "model") == 0) {
-		*mode_out = SQLPARSER_CLI_MODE_MODEL;
+	if (strcmp(value, "view") == 0) {
+		*mode_out = SQLPARSER_CLI_MODE_VIEW;
 		return 0;
 	}
 
@@ -502,42 +488,6 @@ static json_t *sqlparser_cli_process_batch_entry(
 	}
 
 	switch (mode) {
-		case SQLPARSER_CLI_MODE_PARSE_TREE:
-		{
-			json_t *parse_tree;
-
-			parse_tree = sqlparser_cli_export_json_value(
-				handle,
-				sqlparser_export_parse_tree_json,
-				pretty,
-				&error);
-			if (parse_tree == NULL) {
-				(void)json_object_set_new(entry, "ok", json_false());
-				(void)json_object_set_new(entry, "error", sqlparser_cli_error_to_json("parse-tree", &error));
-				sqlparser_handle_destroy(handle);
-				return entry;
-			}
-			(void)json_object_set_new(entry, "parse_tree", parse_tree);
-			break;
-		}
-		case SQLPARSER_CLI_MODE_SUMMARY:
-		{
-			json_t *summary;
-
-			summary = sqlparser_cli_export_json_value(
-				handle,
-				sqlparser_export_summary_json,
-				pretty,
-				&error);
-			if (summary == NULL) {
-				(void)json_object_set_new(entry, "ok", json_false());
-				(void)json_object_set_new(entry, "error", sqlparser_cli_error_to_json("summary", &error));
-				sqlparser_handle_destroy(handle);
-				return entry;
-			}
-			(void)json_object_set_new(entry, "summary", summary);
-			break;
-		}
 		case SQLPARSER_CLI_MODE_DEPARSE:
 		{
 			char *deparse_sql;
@@ -553,87 +503,42 @@ static json_t *sqlparser_cli_process_batch_entry(
 			sqlparser_string_free(deparse_sql);
 			break;
 		}
-		case SQLPARSER_CLI_MODE_MODEL:
+		case SQLPARSER_CLI_MODE_VIEW:
 		{
-			json_t *model;
+			json_t *view;
 
-			model = sqlparser_cli_export_json_value(
+			view = sqlparser_cli_export_json_value(
 				handle,
-				sqlparser_export_model_json,
+				sqlparser_export_view_json,
 				pretty,
 				&error);
-			if (model == NULL) {
+			if (view == NULL) {
 				(void)json_object_set_new(entry, "ok", json_false());
-				(void)json_object_set_new(entry, "error", sqlparser_cli_error_to_json("model", &error));
+				(void)json_object_set_new(entry, "error", sqlparser_cli_error_to_json("view", &error));
 				sqlparser_handle_destroy(handle);
 				return entry;
 			}
-			(void)json_object_set_new(entry, "model", model);
+			(void)json_object_set_new(entry, "view", view);
 			break;
 		}
 		case SQLPARSER_CLI_MODE_ALL:
 		default:
 		{
-			json_t *parse_tree;
-			json_t *summary;
-			json_t *model;
-			char *deparse_sql;
+			json_t *view;
 
-			parse_tree = sqlparser_cli_export_json_value(
+			view = sqlparser_cli_export_json_value(
 				handle,
-				sqlparser_export_parse_tree_json,
+				sqlparser_export_view_json,
 				pretty,
 				&error);
-			if (parse_tree == NULL) {
+			if (view == NULL) {
 				(void)json_object_set_new(entry, "ok", json_false());
-				(void)json_object_set_new(entry, "error", sqlparser_cli_error_to_json("parse-tree", &error));
+				(void)json_object_set_new(entry, "error", sqlparser_cli_error_to_json("view", &error));
 				sqlparser_handle_destroy(handle);
 				return entry;
 			}
 
-			summary = sqlparser_cli_export_json_value(
-				handle,
-				sqlparser_export_summary_json,
-				pretty,
-				&error);
-			if (summary == NULL) {
-				json_decref(parse_tree);
-				(void)json_object_set_new(entry, "ok", json_false());
-				(void)json_object_set_new(entry, "error", sqlparser_cli_error_to_json("summary", &error));
-				sqlparser_handle_destroy(handle);
-				return entry;
-			}
-
-			deparse_sql = sqlparser_cli_export_deparse_text(handle, &error);
-			if (deparse_sql == NULL) {
-				json_decref(parse_tree);
-				json_decref(summary);
-				(void)json_object_set_new(entry, "ok", json_false());
-				(void)json_object_set_new(entry, "error", sqlparser_cli_error_to_json("deparse", &error));
-				sqlparser_handle_destroy(handle);
-				return entry;
-			}
-
-			model = sqlparser_cli_export_json_value(
-				handle,
-				sqlparser_export_model_json,
-				pretty,
-				&error);
-			if (model == NULL) {
-				json_decref(parse_tree);
-				json_decref(summary);
-				sqlparser_string_free(deparse_sql);
-				(void)json_object_set_new(entry, "ok", json_false());
-				(void)json_object_set_new(entry, "error", sqlparser_cli_error_to_json("model", &error));
-				sqlparser_handle_destroy(handle);
-				return entry;
-			}
-
-			(void)json_object_set_new(entry, "parse_tree", parse_tree);
-			(void)json_object_set_new(entry, "summary", summary);
-			(void)json_object_set_new(entry, "model", model);
-			(void)json_object_set_new(entry, "deparse_sql", json_string(deparse_sql));
-			sqlparser_string_free(deparse_sql);
+			(void)json_object_set_new(entry, "view", view);
 			break;
 		}
 	}
@@ -979,59 +884,23 @@ int main(int argc, char **argv)
 	}
 
 	switch (mode) {
-		case SQLPARSER_CLI_MODE_PARSE_TREE:
-			status = sqlparser_cli_print_json_section(
-				"parse_tree_json",
-				sqlparser_export_parse_tree_json,
-				handle,
-				pretty);
-			break;
-		case SQLPARSER_CLI_MODE_SUMMARY:
-			status = sqlparser_cli_print_json_section(
-				"summary_json",
-				sqlparser_export_summary_json,
-				handle,
-				pretty);
-			break;
 		case SQLPARSER_CLI_MODE_DEPARSE:
 			status = sqlparser_cli_print_deparse(handle);
 			break;
-		case SQLPARSER_CLI_MODE_MODEL:
+		case SQLPARSER_CLI_MODE_VIEW:
 			status = sqlparser_cli_print_json_section(
-				"model_json",
-				sqlparser_export_model_json,
+				"view_json",
+				sqlparser_export_view_json,
 				handle,
 				pretty);
 			break;
 		case SQLPARSER_CLI_MODE_ALL:
 		default:
-			status = 0;
-			if (sqlparser_cli_print_json_section(
-					"parse_tree_json",
-					sqlparser_export_parse_tree_json,
-					handle,
-					pretty) != 0) {
-				status = 1;
-			}
-			if (status == 0 &&
-				sqlparser_cli_print_json_section(
-					"summary_json",
-					sqlparser_export_summary_json,
-					handle,
-					pretty) != 0) {
-				status = 1;
-			}
-			if (status == 0 &&
-				sqlparser_cli_print_json_section(
-					"model_json",
-					sqlparser_export_model_json,
-					handle,
-					pretty) != 0) {
-				status = 1;
-			}
-			if (status == 0 && sqlparser_cli_print_deparse(handle) != 0) {
-				status = 1;
-			}
+			status = sqlparser_cli_print_json_section(
+				"view_json",
+				sqlparser_export_view_json,
+				handle,
+				pretty);
 			break;
 	}
 

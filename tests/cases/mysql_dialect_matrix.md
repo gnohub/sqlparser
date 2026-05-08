@@ -1,6 +1,6 @@
 # MySQL 方言用例矩阵
 
-本文件记录 MySQL 方言转换层的回归用例。`tests/cases/mysql_dialect_input.json` 是可执行测试源，`tests/unit/test_mysql_dialect_case_matrix.c` 会逐条读取该文件并验证解析、summary JSON、deparse 和错误码。
+本文件记录 MySQL 方言转换层的回归用例。`tests/cases/mysql_dialect_input.json` 是可执行测试源，`tests/unit/test_mysql_dialect_case_matrix.c` 会逐条读取该文件并验证解析、SQL View JSON、deparse 和错误码。
 
 ## 已验证支持语句
 
@@ -18,6 +18,8 @@
 | M010 | `mysql-create-view` | `CREATE VIEW ... AS SELECT ...` | view 定义、内层 SELECT 提取 |
 | M011 | `mysql-drop-table` | `DROP TABLE ...` | drop table 解析、表名提取 |
 | M012 | `mysql-start-transaction` | `START TRANSACTION; COMMIT` | MySQL 事务起始语句、多语句计数 |
+| M013 | `mysql-unsupported-keywords-in-string` | `SELECT 'INSERT IGNORE' ...` | unsupported 预筛选不会误伤字符串内容 |
+| M014 | `mysql-unsupported-keywords-in-comment` | `SELECT ... /* ON DUPLICATE KEY UPDATE */ ...` | unsupported 预筛选不会误伤注释内容 |
 
 ## 明确不支持语句
 

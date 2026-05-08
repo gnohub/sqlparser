@@ -3,9 +3,11 @@
 `sqlparser_cli` 是仓库内提供的命令行工具，用于：
 
 - 快速验证一条 SQL 的解析结果
-- 导出 parse tree / summary / model JSON
+- 导出 SQL View JSON
 - 做单条 SQL 反解析检查
 - 批量处理 JSON 文件中的 SQL 列表
+
+常规接入优先使用 `view`，该模式输出语句、对象、字段、值片段和 selector。
 
 可执行文件默认位于：
 
@@ -30,13 +32,13 @@ make all
 命令格式：
 
 ```bash
-./bin/sqlparser_cli [--mode parse-tree|summary|deparse|model|all] [--dialect postgresql|mysql|oracle|sqlserver] [--compact] [--file PATH] [SQL]
+./bin/sqlparser_cli [--mode view|deparse|all] [--dialect postgresql|mysql|oracle|sqlserver] [--compact] [--file PATH] [SQL]
 ```
 
 也可以从标准输入读取 SQL：
 
 ```bash
-echo "SELECT 1" | ./bin/sqlparser_cli --mode summary
+echo "SELECT 1" | ./bin/sqlparser_cli --mode view
 ```
 
 查看帮助：
@@ -71,18 +73,14 @@ cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
 
 | mode | 输出内容 |
 | --- | --- |
-| `parse-tree` | parse tree JSON |
-| `summary` | summary JSON |
-| `model` | 模型 JSON |
+| `view` | SQL View JSON |
 | `deparse` | 反解析 SQL |
-| `all` | 依次输出以上全部内容 |
+| `all` | 输出 SQL View JSON 和反解析 SQL |
 
 示例：
 
 ```bash
-./bin/sqlparser_cli --mode parse-tree "SELECT 1"
-./bin/sqlparser_cli --mode summary "SELECT 1"
-./bin/sqlparser_cli --mode model "SELECT 1"
+./bin/sqlparser_cli --mode view "SELECT 1"
 ./bin/sqlparser_cli --mode deparse "SELECT 1"
 ```
 
@@ -91,7 +89,7 @@ cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
 默认方言为 `postgresql`。需要解析其他方言时，通过 `--dialect` 指定：
 
 ```bash
-./bin/sqlparser_cli --dialect oracle --mode summary \
+./bin/sqlparser_cli --dialect oracle --mode view \
   "SELECT q'[Bob's order]' AS label FROM dual"
 ```
 
@@ -116,7 +114,7 @@ cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
 如果需要紧凑 JSON，可加 `--compact`：
 
 ```bash
-./bin/sqlparser_cli --mode model --compact "SELECT 1"
+./bin/sqlparser_cli --mode view --compact "SELECT 1"
 ```
 
 ## 7. 批量处理
@@ -214,24 +212,22 @@ cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
 
 成功项会根据 `mode` 带不同字段，例如：
 
-- `parse_tree`
-- `summary`
-- `model`
+- `view`
 - `deparse_sql`
 
 ## 8. 常见用途
 
-### 8.1 快速看多表查询摘要
+### 8.1 快速查看多表查询视图
 
 ```bash
-./bin/sqlparser_cli --mode summary \
+./bin/sqlparser_cli --mode view \
   "SELECT u.id, o.order_no FROM public.users u JOIN public.orders o ON u.id = o.user_id WHERE o.status = 'paid'"
 ```
 
-### 8.2 导出稳定模型 JSON
+### 8.2 导出 SQL View JSON
 
 ```bash
-./bin/sqlparser_cli --mode model \
+./bin/sqlparser_cli --mode view \
   "UPDATE public.users SET name = upper(name), updated_at = DEFAULT WHERE id = 1"
 ```
 
@@ -246,4 +242,4 @@ cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
 
 - [快速开始](../README.md)
 - [API 手册](./api_reference.md)
-- [模型 JSON 手册](./model_json.md)
+- [SQL View JSON 手册](./view_json.md)

@@ -1,0 +1,3824 @@
+{
+  "items": [
+    {
+      "id": "SH001",
+      "name": "sqlserver-hook-constants-transact-sql",
+      "official_item": "docs/t-sql/data-types/constants-transact-sql.md",
+      "sql": "INSERT INTO [dbo].[binlog] ([payload]) VALUES (0xDEADBEEF)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "tables": [
+          "dbo.binlog"
+        ],
+        "deparse_contains": "0xDEADBEEF",
+        "view_contains": "0xDEADBEEF",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "SH002",
+      "name": "sqlserver-hook-datetimeoffset-transact-sql",
+      "official_item": "docs/t-sql/data-types/datetimeoffset-transact-sql.md",
+      "sql": "CREATE TABLE [dbo].[events] ([created_at] DATETIMEOFFSET(7))",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "CreateStmt"
+        ],
+        "deparse_contains": "datetimeoffset"
+      }
+    },
+    {
+      "id": "SH003",
+      "name": "sqlserver-hook-nondeterministic-convert-date-literals",
+      "official_item": "docs/t-sql/data-types/nondeterministic-convert-date-literals.md",
+      "sql": "SELECT CONVERT(DATETIME, '01-02-2024', 101) AS [converted_at] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "CONVERT("
+      }
+    },
+    {
+      "id": "SH004",
+      "name": "sqlserver-hook-ai-functions-transact-sql",
+      "official_item": "docs/t-sql/functions/ai-functions-transact-sql.md",
+      "sql": "SELECT AI_FUNCTIONS(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH005",
+      "name": "sqlserver-hook-any-value-transact-sql",
+      "official_item": "docs/t-sql/functions/any-value-transact-sql.md",
+      "sql": "SELECT ANY_VALUE(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH006",
+      "name": "sqlserver-hook-app-name-transact-sql",
+      "official_item": "docs/t-sql/functions/app-name-transact-sql.md",
+      "sql": "SELECT APP_NAME(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH007",
+      "name": "sqlserver-hook-applock-mode-transact-sql",
+      "official_item": "docs/t-sql/functions/applock-mode-transact-sql.md",
+      "sql": "SELECT APPLOCK_MODE(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH008",
+      "name": "sqlserver-hook-applock-test-transact-sql",
+      "official_item": "docs/t-sql/functions/applock-test-transact-sql.md",
+      "sql": "SELECT APPLOCK_TEST(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH009",
+      "name": "sqlserver-hook-approx-percentile-cont-transact-sql",
+      "official_item": "docs/t-sql/functions/approx-percentile-cont-transact-sql.md",
+      "sql": "SELECT APPROX_PERCENTILE_CONT(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH010",
+      "name": "sqlserver-hook-approx-percentile-disc-transact-sql",
+      "official_item": "docs/t-sql/functions/approx-percentile-disc-transact-sql.md",
+      "sql": "SELECT APPROX_PERCENTILE_DISC(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH011",
+      "name": "sqlserver-hook-assemblyproperty-transact-sql",
+      "official_item": "docs/t-sql/functions/assemblyproperty-transact-sql.md",
+      "sql": "SELECT ASSEMBLYPROPERTY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH012",
+      "name": "sqlserver-hook-asymkey-id-transact-sql",
+      "official_item": "docs/t-sql/functions/asymkey-id-transact-sql.md",
+      "sql": "SELECT ASYMKEY_ID(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH013",
+      "name": "sqlserver-hook-asymkeyproperty-transact-sql",
+      "official_item": "docs/t-sql/functions/asymkeyproperty-transact-sql.md",
+      "sql": "SELECT ASYMKEYPROPERTY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH014",
+      "name": "sqlserver-hook-base64-decode-transact-sql",
+      "official_item": "docs/t-sql/functions/base64-decode-transact-sql.md",
+      "sql": "SELECT BASE64_DECODE(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH015",
+      "name": "sqlserver-hook-base64-encode-transact-sql",
+      "official_item": "docs/t-sql/functions/base64-encode-transact-sql.md",
+      "sql": "SELECT BASE64_ENCODE(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH016",
+      "name": "sqlserver-hook-binary-checksum-transact-sql",
+      "official_item": "docs/t-sql/functions/binary-checksum-transact-sql.md",
+      "sql": "SELECT BINARY_CHECKSUM(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH017",
+      "name": "sqlserver-hook-bit-count-transact-sql",
+      "official_item": "docs/t-sql/functions/bit-count-transact-sql.md",
+      "sql": "SELECT BIT_COUNT(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH018",
+      "name": "sqlserver-hook-cast-and-convert-transact-sql",
+      "official_item": "docs/t-sql/functions/cast-and-convert-transact-sql.md",
+      "sql": "SELECT CONVERT(INT, '42', 0) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "CONVERT("
+      }
+    },
+    {
+      "id": "SH019",
+      "name": "sqlserver-hook-cert-id-transact-sql",
+      "official_item": "docs/t-sql/functions/cert-id-transact-sql.md",
+      "sql": "SELECT CERT_ID(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH020",
+      "name": "sqlserver-hook-certencoded-transact-sql",
+      "official_item": "docs/t-sql/functions/certencoded-transact-sql.md",
+      "sql": "SELECT CERTENCODED(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH021",
+      "name": "sqlserver-hook-certprivatekey-transact-sql",
+      "official_item": "docs/t-sql/functions/certprivatekey-transact-sql.md",
+      "sql": "SELECT CERTPRIVATEKEY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH022",
+      "name": "sqlserver-hook-certproperty-transact-sql",
+      "official_item": "docs/t-sql/functions/certproperty-transact-sql.md",
+      "sql": "SELECT CERTPROPERTY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH023",
+      "name": "sqlserver-hook-checksum-transact-sql",
+      "official_item": "docs/t-sql/functions/checksum-transact-sql.md",
+      "sql": "SELECT CHECKSUM(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH024",
+      "name": "sqlserver-hook-col-length-transact-sql",
+      "official_item": "docs/t-sql/functions/col-length-transact-sql.md",
+      "sql": "SELECT COL_LENGTH(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH025",
+      "name": "sqlserver-hook-col-name-transact-sql",
+      "official_item": "docs/t-sql/functions/col-name-transact-sql.md",
+      "sql": "SELECT COL_NAME(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH026",
+      "name": "sqlserver-hook-collation-functions-collationproperty-transact-sql",
+      "official_item": "docs/t-sql/functions/collation-functions-collationproperty-transact-sql.md",
+      "sql": "SELECT COLLATIONPROPERTY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH027",
+      "name": "sqlserver-hook-collation-functions-tertiary-weights-transact-sql",
+      "official_item": "docs/t-sql/functions/collation-functions-tertiary-weights-transact-sql.md",
+      "sql": "SELECT TERTIARY_WEIGHTS(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH028",
+      "name": "sqlserver-hook-columnproperty-transact-sql",
+      "official_item": "docs/t-sql/functions/columnproperty-transact-sql.md",
+      "sql": "SELECT COLUMNPROPERTY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH029",
+      "name": "sqlserver-hook-columns-updated-transact-sql",
+      "official_item": "docs/t-sql/functions/columns-updated-transact-sql.md",
+      "sql": "SELECT COLUMNS_UPDATED(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH030",
+      "name": "sqlserver-hook-compress-transact-sql",
+      "official_item": "docs/t-sql/functions/compress-transact-sql.md",
+      "sql": "SELECT COMPRESS(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH031",
+      "name": "sqlserver-hook-connectionproperty-transact-sql",
+      "official_item": "docs/t-sql/functions/connectionproperty-transact-sql.md",
+      "sql": "SELECT CONNECTIONPROPERTY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH032",
+      "name": "sqlserver-hook-connections-transact-sql",
+      "official_item": "docs/t-sql/functions/connections-transact-sql.md",
+      "sql": "SELECT @@CONNECTIONS AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@CONNECTIONS",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH033",
+      "name": "sqlserver-hook-context-info-transact-sql",
+      "official_item": "docs/t-sql/functions/context-info-transact-sql.md",
+      "sql": "SELECT CONTEXT_INFO(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH034",
+      "name": "sqlserver-hook-cpu-busy-transact-sql",
+      "official_item": "docs/t-sql/functions/cpu-busy-transact-sql.md",
+      "sql": "SELECT @@CPU_BUSY AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@CPU_BUSY",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH035",
+      "name": "sqlserver-hook-crypt-gen-random-transact-sql",
+      "official_item": "docs/t-sql/functions/crypt-gen-random-transact-sql.md",
+      "sql": "SELECT CRYPT_GEN_RANDOM(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH036",
+      "name": "sqlserver-hook-current-date-transact-sql",
+      "official_item": "docs/t-sql/functions/current-date-transact-sql.md",
+      "sql": "SELECT CURRENT_DATE AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH037",
+      "name": "sqlserver-hook-current-request-id-transact-sql",
+      "official_item": "docs/t-sql/functions/current-request-id-transact-sql.md",
+      "sql": "SELECT CURRENT_REQUEST_ID() AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH038",
+      "name": "sqlserver-hook-current-timestamp-transact-sql",
+      "official_item": "docs/t-sql/functions/current-timestamp-transact-sql.md",
+      "sql": "SELECT CURRENT_TIMESTAMP AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH039",
+      "name": "sqlserver-hook-current-timezone-id-transact-sql",
+      "official_item": "docs/t-sql/functions/current-timezone-id-transact-sql.md",
+      "sql": "SELECT CURRENT_TIMEZONE_ID() AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH040",
+      "name": "sqlserver-hook-current-timezone-transact-sql",
+      "official_item": "docs/t-sql/functions/current-timezone-transact-sql.md",
+      "sql": "SELECT CURRENT_TIMEZONE() AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH041",
+      "name": "sqlserver-hook-current-transaction-id-transact-sql",
+      "official_item": "docs/t-sql/functions/current-transaction-id-transact-sql.md",
+      "sql": "SELECT CURRENT_TRANSACTION_ID() AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH042",
+      "name": "sqlserver-hook-current-user-transact-sql",
+      "official_item": "docs/t-sql/functions/current-user-transact-sql.md",
+      "sql": "SELECT CURRENT_USER AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH043",
+      "name": "sqlserver-hook-cursor-rows-transact-sql",
+      "official_item": "docs/t-sql/functions/cursor-rows-transact-sql.md",
+      "sql": "SELECT CURSOR_ROWS(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH044",
+      "name": "sqlserver-hook-cursor-status-transact-sql",
+      "official_item": "docs/t-sql/functions/cursor-status-transact-sql.md",
+      "sql": "SELECT CURSOR_STATUS(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH045",
+      "name": "sqlserver-hook-database-principal-id-transact-sql",
+      "official_item": "docs/t-sql/functions/database-principal-id-transact-sql.md",
+      "sql": "SELECT DATABASE_PRINCIPAL_ID(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH046",
+      "name": "sqlserver-hook-databasepropertyex-transact-sql",
+      "official_item": "docs/t-sql/functions/databasepropertyex-transact-sql.md",
+      "sql": "SELECT DATABASEPROPERTYEX(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH047",
+      "name": "sqlserver-hook-date-bucket-transact-sql",
+      "official_item": "docs/t-sql/functions/date-bucket-transact-sql.md",
+      "sql": "SELECT DATE_BUCKET(day, 1, [created_at]) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH048",
+      "name": "sqlserver-hook-datefirst-transact-sql",
+      "official_item": "docs/t-sql/functions/datefirst-transact-sql.md",
+      "sql": "SELECT @@DATEFIRST AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@DATEFIRST",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH049",
+      "name": "sqlserver-hook-datefromparts-transact-sql",
+      "official_item": "docs/t-sql/functions/datefromparts-transact-sql.md",
+      "sql": "SELECT DATEFROMPARTS(2024, 1, 2) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH050",
+      "name": "sqlserver-hook-datetime2fromparts-transact-sql",
+      "official_item": "docs/t-sql/functions/datetime2fromparts-transact-sql.md",
+      "sql": "SELECT DATETIME2FROMPARTS(2024, 1, 2, 3, 4, 5, 0, 7) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH051",
+      "name": "sqlserver-hook-datetimefromparts-transact-sql",
+      "official_item": "docs/t-sql/functions/datetimefromparts-transact-sql.md",
+      "sql": "SELECT DATETIMEFROMPARTS(2024, 1, 2, 3, 4, 5, 0) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH052",
+      "name": "sqlserver-hook-datetimeoffsetfromparts-transact-sql",
+      "official_item": "docs/t-sql/functions/datetimeoffsetfromparts-transact-sql.md",
+      "sql": "SELECT DATETIMEOFFSETFROMPARTS(2024, 1, 2, 3, 4, 5, 0, -8, 0, 7) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH053",
+      "name": "sqlserver-hook-datetrunc-transact-sql",
+      "official_item": "docs/t-sql/functions/datetrunc-transact-sql.md",
+      "sql": "SELECT DATETRUNC(day, [created_at]) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH054",
+      "name": "sqlserver-hook-db-id-transact-sql",
+      "official_item": "docs/t-sql/functions/db-id-transact-sql.md",
+      "sql": "SELECT DB_ID(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH055",
+      "name": "sqlserver-hook-db-name-transact-sql",
+      "official_item": "docs/t-sql/functions/db-name-transact-sql.md",
+      "sql": "SELECT DB_NAME(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH056",
+      "name": "sqlserver-hook-dbts-transact-sql",
+      "official_item": "docs/t-sql/functions/dbts-transact-sql.md",
+      "sql": "SELECT @@DBTS AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@DBTS",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH057",
+      "name": "sqlserver-hook-decompress-transact-sql",
+      "official_item": "docs/t-sql/functions/decompress-transact-sql.md",
+      "sql": "SELECT DECOMPRESS(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH058",
+      "name": "sqlserver-hook-decryptbyasymkey-transact-sql",
+      "official_item": "docs/t-sql/functions/decryptbyasymkey-transact-sql.md",
+      "sql": "SELECT DECRYPTBYASYMKEY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH059",
+      "name": "sqlserver-hook-decryptbycert-transact-sql",
+      "official_item": "docs/t-sql/functions/decryptbycert-transact-sql.md",
+      "sql": "SELECT DECRYPTBYCERT(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH060",
+      "name": "sqlserver-hook-decryptbykey-transact-sql",
+      "official_item": "docs/t-sql/functions/decryptbykey-transact-sql.md",
+      "sql": "SELECT DECRYPTBYKEY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH061",
+      "name": "sqlserver-hook-decryptbykeyautoasymkey-transact-sql",
+      "official_item": "docs/t-sql/functions/decryptbykeyautoasymkey-transact-sql.md",
+      "sql": "SELECT DECRYPTBYKEYAUTOASYMKEY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH062",
+      "name": "sqlserver-hook-decryptbykeyautocert-transact-sql",
+      "official_item": "docs/t-sql/functions/decryptbykeyautocert-transact-sql.md",
+      "sql": "SELECT DECRYPTBYKEYAUTOCERT(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH063",
+      "name": "sqlserver-hook-decryptbypassphrase-transact-sql",
+      "official_item": "docs/t-sql/functions/decryptbypassphrase-transact-sql.md",
+      "sql": "SELECT DECRYPTBYPASSPHRASE(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH064",
+      "name": "sqlserver-hook-edge-id-from-parts-transact-sql",
+      "official_item": "docs/t-sql/functions/edge-id-from-parts-transact-sql.md",
+      "sql": "SELECT EDGE_ID_FROM_PARTS(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH065",
+      "name": "sqlserver-hook-edit-distance-similarity-transact-sql",
+      "official_item": "docs/t-sql/functions/edit-distance-similarity-transact-sql.md",
+      "sql": "SELECT EDIT_DISTANCE_SIMILARITY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH066",
+      "name": "sqlserver-hook-edit-distance-transact-sql",
+      "official_item": "docs/t-sql/functions/edit-distance-transact-sql.md",
+      "sql": "SELECT EDIT_DISTANCE(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH067",
+      "name": "sqlserver-hook-encryptbyasymkey-transact-sql",
+      "official_item": "docs/t-sql/functions/encryptbyasymkey-transact-sql.md",
+      "sql": "SELECT ENCRYPTBYASYMKEY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH068",
+      "name": "sqlserver-hook-encryptbycert-transact-sql",
+      "official_item": "docs/t-sql/functions/encryptbycert-transact-sql.md",
+      "sql": "SELECT ENCRYPTBYCERT(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH069",
+      "name": "sqlserver-hook-encryptbykey-transact-sql",
+      "official_item": "docs/t-sql/functions/encryptbykey-transact-sql.md",
+      "sql": "SELECT ENCRYPTBYKEY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH070",
+      "name": "sqlserver-hook-encryptbypassphrase-transact-sql",
+      "official_item": "docs/t-sql/functions/encryptbypassphrase-transact-sql.md",
+      "sql": "SELECT ENCRYPTBYPASSPHRASE(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH071",
+      "name": "sqlserver-hook-eomonth-transact-sql",
+      "official_item": "docs/t-sql/functions/eomonth-transact-sql.md",
+      "sql": "SELECT EOMONTH(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH072",
+      "name": "sqlserver-hook-error-line-transact-sql",
+      "official_item": "docs/t-sql/functions/error-line-transact-sql.md",
+      "sql": "SELECT ERROR_LINE(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH073",
+      "name": "sqlserver-hook-error-message-transact-sql",
+      "official_item": "docs/t-sql/functions/error-message-transact-sql.md",
+      "sql": "SELECT ERROR_MESSAGE(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH074",
+      "name": "sqlserver-hook-error-number-transact-sql",
+      "official_item": "docs/t-sql/functions/error-number-transact-sql.md",
+      "sql": "SELECT ERROR_NUMBER(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH075",
+      "name": "sqlserver-hook-error-procedure-transact-sql",
+      "official_item": "docs/t-sql/functions/error-procedure-transact-sql.md",
+      "sql": "SELECT ERROR_PROCEDURE(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH076",
+      "name": "sqlserver-hook-error-severity-transact-sql",
+      "official_item": "docs/t-sql/functions/error-severity-transact-sql.md",
+      "sql": "SELECT ERROR_SEVERITY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH077",
+      "name": "sqlserver-hook-error-state-transact-sql",
+      "official_item": "docs/t-sql/functions/error-state-transact-sql.md",
+      "sql": "SELECT ERROR_STATE(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH078",
+      "name": "sqlserver-hook-eventdata-transact-sql",
+      "official_item": "docs/t-sql/functions/eventdata-transact-sql.md",
+      "sql": "SELECT EVENTDATA(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH079",
+      "name": "sqlserver-hook-fetch-status-transact-sql",
+      "official_item": "docs/t-sql/functions/fetch-status-transact-sql.md",
+      "sql": "SELECT @@FETCH_STATUS AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@FETCH_STATUS",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH080",
+      "name": "sqlserver-hook-file-id-transact-sql",
+      "official_item": "docs/t-sql/functions/file-id-transact-sql.md",
+      "sql": "SELECT FILE_ID(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH081",
+      "name": "sqlserver-hook-file-idex-transact-sql",
+      "official_item": "docs/t-sql/functions/file-idex-transact-sql.md",
+      "sql": "SELECT FILE_IDEX(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH082",
+      "name": "sqlserver-hook-file-name-transact-sql",
+      "official_item": "docs/t-sql/functions/file-name-transact-sql.md",
+      "sql": "SELECT FILE_NAME(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH083",
+      "name": "sqlserver-hook-filegroup-id-transact-sql",
+      "official_item": "docs/t-sql/functions/filegroup-id-transact-sql.md",
+      "sql": "SELECT FILEGROUP_ID(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH084",
+      "name": "sqlserver-hook-filegroup-name-transact-sql",
+      "official_item": "docs/t-sql/functions/filegroup-name-transact-sql.md",
+      "sql": "SELECT FILEGROUP_NAME(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH085",
+      "name": "sqlserver-hook-filegroupproperty-transact-sql",
+      "official_item": "docs/t-sql/functions/filegroupproperty-transact-sql.md",
+      "sql": "SELECT FILEGROUPPROPERTY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH086",
+      "name": "sqlserver-hook-fileproperty-transact-sql",
+      "official_item": "docs/t-sql/functions/fileproperty-transact-sql.md",
+      "sql": "SELECT FILEPROPERTY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH087",
+      "name": "sqlserver-hook-filepropertyex-transact-sql",
+      "official_item": "docs/t-sql/functions/filepropertyex-transact-sql.md",
+      "sql": "SELECT FILEPROPERTYEX(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH088",
+      "name": "sqlserver-hook-format-transact-sql",
+      "official_item": "docs/t-sql/functions/format-transact-sql.md",
+      "sql": "SELECT FORMAT(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH089",
+      "name": "sqlserver-hook-formatmessage-transact-sql",
+      "official_item": "docs/t-sql/functions/formatmessage-transact-sql.md",
+      "sql": "SELECT FORMATMESSAGE(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH090",
+      "name": "sqlserver-hook-fulltextcatalogproperty-transact-sql",
+      "official_item": "docs/t-sql/functions/fulltextcatalogproperty-transact-sql.md",
+      "sql": "SELECT FULLTEXTCATALOGPROPERTY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH091",
+      "name": "sqlserver-hook-fulltextserviceproperty-transact-sql",
+      "official_item": "docs/t-sql/functions/fulltextserviceproperty-transact-sql.md",
+      "sql": "SELECT FULLTEXTSERVICEPROPERTY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH092",
+      "name": "sqlserver-hook-get-bit-transact-sql",
+      "official_item": "docs/t-sql/functions/get-bit-transact-sql.md",
+      "sql": "SELECT GET_BIT(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH093",
+      "name": "sqlserver-hook-get-filestream-transaction-context-transact-sql",
+      "official_item": "docs/t-sql/functions/get-filestream-transaction-context-transact-sql.md",
+      "sql": "SELECT GET_FILESTREAM_TRANSACTION_CONTEXT(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH094",
+      "name": "sqlserver-hook-getansinull-transact-sql",
+      "official_item": "docs/t-sql/functions/getansinull-transact-sql.md",
+      "sql": "SELECT GETANSINULL(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH095",
+      "name": "sqlserver-hook-graph-id-from-edge-id-transact-sql",
+      "official_item": "docs/t-sql/functions/graph-id-from-edge-id-transact-sql.md",
+      "sql": "SELECT GRAPH_ID_FROM_EDGE_ID(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH096",
+      "name": "sqlserver-hook-graph-id-from-node-id-transact-sql",
+      "official_item": "docs/t-sql/functions/graph-id-from-node-id-transact-sql.md",
+      "sql": "SELECT GRAPH_ID_FROM_NODE_ID(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH097",
+      "name": "sqlserver-hook-has-dbaccess-transact-sql",
+      "official_item": "docs/t-sql/functions/has-dbaccess-transact-sql.md",
+      "sql": "SELECT HAS_DBACCESS(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH098",
+      "name": "sqlserver-hook-has-perms-by-name-transact-sql",
+      "official_item": "docs/t-sql/functions/has-perms-by-name-transact-sql.md",
+      "sql": "SELECT HAS_PERMS_BY_NAME(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH099",
+      "name": "sqlserver-hook-hashbytes-transact-sql",
+      "official_item": "docs/t-sql/functions/hashbytes-transact-sql.md",
+      "sql": "SELECT HASHBYTES(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH100",
+      "name": "sqlserver-hook-host-id-transact-sql",
+      "official_item": "docs/t-sql/functions/host-id-transact-sql.md",
+      "sql": "SELECT HOST_ID(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH101",
+      "name": "sqlserver-hook-host-name-transact-sql",
+      "official_item": "docs/t-sql/functions/host-name-transact-sql.md",
+      "sql": "SELECT HOST_NAME(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH102",
+      "name": "sqlserver-hook-ident-current-transact-sql",
+      "official_item": "docs/t-sql/functions/ident-current-transact-sql.md",
+      "sql": "SELECT IDENT_CURRENT(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH103",
+      "name": "sqlserver-hook-ident-incr-transact-sql",
+      "official_item": "docs/t-sql/functions/ident-incr-transact-sql.md",
+      "sql": "SELECT IDENT_INCR(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH104",
+      "name": "sqlserver-hook-ident-seed-transact-sql",
+      "official_item": "docs/t-sql/functions/ident-seed-transact-sql.md",
+      "sql": "SELECT IDENT_SEED(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH105",
+      "name": "sqlserver-hook-idle-transact-sql",
+      "official_item": "docs/t-sql/functions/idle-transact-sql.md",
+      "sql": "SELECT @@IDLE AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@IDLE",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH106",
+      "name": "sqlserver-hook-index-col-transact-sql",
+      "official_item": "docs/t-sql/functions/index-col-transact-sql.md",
+      "sql": "SELECT INDEX_COL(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH107",
+      "name": "sqlserver-hook-indexkey-property-transact-sql",
+      "official_item": "docs/t-sql/functions/indexkey-property-transact-sql.md",
+      "sql": "SELECT INDEXKEY_PROPERTY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH108",
+      "name": "sqlserver-hook-indexproperty-transact-sql",
+      "official_item": "docs/t-sql/functions/indexproperty-transact-sql.md",
+      "sql": "SELECT INDEXPROPERTY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH109",
+      "name": "sqlserver-hook-io-busy-transact-sql",
+      "official_item": "docs/t-sql/functions/io-busy-transact-sql.md",
+      "sql": "SELECT @@IO_BUSY AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@IO_BUSY",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH110",
+      "name": "sqlserver-hook-is-member-transact-sql",
+      "official_item": "docs/t-sql/functions/is-member-transact-sql.md",
+      "sql": "SELECT IS_MEMBER(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH111",
+      "name": "sqlserver-hook-is-objectsigned-transact-sql",
+      "official_item": "docs/t-sql/functions/is-objectsigned-transact-sql.md",
+      "sql": "SELECT IS_OBJECTSIGNED(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH112",
+      "name": "sqlserver-hook-is-rolemember-transact-sql",
+      "official_item": "docs/t-sql/functions/is-rolemember-transact-sql.md",
+      "sql": "SELECT IS_ROLEMEMBER(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH113",
+      "name": "sqlserver-hook-is-srvrolemember-transact-sql",
+      "official_item": "docs/t-sql/functions/is-srvrolemember-transact-sql.md",
+      "sql": "SELECT IS_SRVROLEMEMBER(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH114",
+      "name": "sqlserver-hook-isdate-transact-sql",
+      "official_item": "docs/t-sql/functions/isdate-transact-sql.md",
+      "sql": "SELECT ISDATE(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH115",
+      "name": "sqlserver-hook-jaro-winkler-distance-transact-sql",
+      "official_item": "docs/t-sql/functions/jaro-winkler-distance-transact-sql.md",
+      "sql": "SELECT JARO_WINKLER_DISTANCE(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH116",
+      "name": "sqlserver-hook-jaro-winkler-similarity-transact-sql",
+      "official_item": "docs/t-sql/functions/jaro-winkler-similarity-transact-sql.md",
+      "sql": "SELECT JARO_WINKLER_SIMILARITY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH117",
+      "name": "sqlserver-hook-json-array-transact-sql",
+      "official_item": "docs/t-sql/functions/json-array-transact-sql.md",
+      "sql": "SELECT JSON_ARRAY(1, 2) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH118",
+      "name": "sqlserver-hook-json-arrayagg-transact-sql",
+      "official_item": "docs/t-sql/functions/json-arrayagg-transact-sql.md",
+      "sql": "SELECT JSON_ARRAYAGG([id]) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH119",
+      "name": "sqlserver-hook-json-contains-transact-sql",
+      "official_item": "docs/t-sql/functions/json-contains-transact-sql.md",
+      "sql": "SELECT JSON_CONTAINS('{\"a\":1}', '1', '$.a') AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH120",
+      "name": "sqlserver-hook-json-modify-transact-sql",
+      "official_item": "docs/t-sql/functions/json-modify-transact-sql.md",
+      "sql": "SELECT JSON_MODIFY('{\"a\":1}', '$.a', 2) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH121",
+      "name": "sqlserver-hook-json-object-transact-sql",
+      "official_item": "docs/t-sql/functions/json-object-transact-sql.md",
+      "sql": "SELECT JSON_OBJECT('id', [id]) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH122",
+      "name": "sqlserver-hook-json-objectagg-transact-sql",
+      "official_item": "docs/t-sql/functions/json-objectagg-transact-sql.md",
+      "sql": "SELECT JSON_OBJECTAGG([name]: [id]) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH123",
+      "name": "sqlserver-hook-json-path-exists-transact-sql",
+      "official_item": "docs/t-sql/functions/json-path-exists-transact-sql.md",
+      "sql": "SELECT JSON_PATH_EXISTS('{\"a\":1}', '$.a') AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH124",
+      "name": "sqlserver-hook-json-query-transact-sql",
+      "official_item": "docs/t-sql/functions/json-query-transact-sql.md",
+      "sql": "SELECT JSON_QUERY('{\"a\":1}', '$') AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH125",
+      "name": "sqlserver-hook-json-value-transact-sql",
+      "official_item": "docs/t-sql/functions/json-value-transact-sql.md",
+      "sql": "SELECT JSON_VALUE('{\"a\":1}', '$.a') AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH126",
+      "name": "sqlserver-hook-key-guid-transact-sql",
+      "official_item": "docs/t-sql/functions/key-guid-transact-sql.md",
+      "sql": "SELECT KEY_GUID(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH127",
+      "name": "sqlserver-hook-key-id-transact-sql",
+      "official_item": "docs/t-sql/functions/key-id-transact-sql.md",
+      "sql": "SELECT KEY_ID(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH128",
+      "name": "sqlserver-hook-key-name-transact-sql",
+      "official_item": "docs/t-sql/functions/key-name-transact-sql.md",
+      "sql": "SELECT KEY_NAME(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH129",
+      "name": "sqlserver-hook-langid-transact-sql",
+      "official_item": "docs/t-sql/functions/langid-transact-sql.md",
+      "sql": "SELECT LANGID(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH130",
+      "name": "sqlserver-hook-language-transact-sql",
+      "official_item": "docs/t-sql/functions/language-transact-sql.md",
+      "sql": "SELECT LANGUAGE(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH131",
+      "name": "sqlserver-hook-left-shift-transact-sql",
+      "official_item": "docs/t-sql/functions/left-shift-transact-sql.md",
+      "sql": "SELECT LEFT_SHIFT(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH132",
+      "name": "sqlserver-hook-lock-timeout-transact-sql",
+      "official_item": "docs/t-sql/functions/lock-timeout-transact-sql.md",
+      "sql": "SELECT @@LOCK_TIMEOUT AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@LOCK_TIMEOUT",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH133",
+      "name": "sqlserver-hook-logical-functions-choose-transact-sql",
+      "official_item": "docs/t-sql/functions/logical-functions-choose-transact-sql.md",
+      "sql": "SELECT CHOOSE(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH134",
+      "name": "sqlserver-hook-logical-functions-greatest-transact-sql",
+      "official_item": "docs/t-sql/functions/logical-functions-greatest-transact-sql.md",
+      "sql": "SELECT GREATEST(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH135",
+      "name": "sqlserver-hook-logical-functions-iif-transact-sql",
+      "official_item": "docs/t-sql/functions/logical-functions-iif-transact-sql.md",
+      "sql": "SELECT IIF(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH136",
+      "name": "sqlserver-hook-logical-functions-least-transact-sql",
+      "official_item": "docs/t-sql/functions/logical-functions-least-transact-sql.md",
+      "sql": "SELECT LEAST(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH137",
+      "name": "sqlserver-hook-loginproperty-transact-sql",
+      "official_item": "docs/t-sql/functions/loginproperty-transact-sql.md",
+      "sql": "SELECT LOGINPROPERTY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH138",
+      "name": "sqlserver-hook-max-connections-transact-sql",
+      "official_item": "docs/t-sql/functions/max-connections-transact-sql.md",
+      "sql": "SELECT @@MAX_CONNECTIONS AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@MAX_CONNECTIONS",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH139",
+      "name": "sqlserver-hook-max-precision-transact-sql",
+      "official_item": "docs/t-sql/functions/max-precision-transact-sql.md",
+      "sql": "SELECT @@MAX_PRECISION AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@MAX_PRECISION",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH140",
+      "name": "sqlserver-hook-min-active-rowversion-transact-sql",
+      "official_item": "docs/t-sql/functions/min-active-rowversion-transact-sql.md",
+      "sql": "SELECT MIN_ACTIVE_ROWVERSION(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH141",
+      "name": "sqlserver-hook-nestlevel-transact-sql",
+      "official_item": "docs/t-sql/functions/nestlevel-transact-sql.md",
+      "sql": "SELECT NESTLEVEL(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH142",
+      "name": "sqlserver-hook-newsequentialid-transact-sql",
+      "official_item": "docs/t-sql/functions/newsequentialid-transact-sql.md",
+      "sql": "SELECT NEWSEQUENTIALID(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH143",
+      "name": "sqlserver-hook-node-id-from-parts-transact-sql",
+      "official_item": "docs/t-sql/functions/node-id-from-parts-transact-sql.md",
+      "sql": "SELECT NODE_ID_FROM_PARTS(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH144",
+      "name": "sqlserver-hook-object-definition-transact-sql",
+      "official_item": "docs/t-sql/functions/object-definition-transact-sql.md",
+      "sql": "SELECT OBJECT_DEFINITION(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH145",
+      "name": "sqlserver-hook-object-id-from-edge-id-transact-sql",
+      "official_item": "docs/t-sql/functions/object-id-from-edge-id-transact-sql.md",
+      "sql": "SELECT OBJECT_ID_FROM_EDGE_ID(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH146",
+      "name": "sqlserver-hook-object-id-from-node-id-transact-sql",
+      "official_item": "docs/t-sql/functions/object-id-from-node-id-transact-sql.md",
+      "sql": "SELECT OBJECT_ID_FROM_NODE_ID(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH147",
+      "name": "sqlserver-hook-object-id-transact-sql",
+      "official_item": "docs/t-sql/functions/object-id-transact-sql.md",
+      "sql": "SELECT OBJECT_ID(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH148",
+      "name": "sqlserver-hook-object-name-transact-sql",
+      "official_item": "docs/t-sql/functions/object-name-transact-sql.md",
+      "sql": "SELECT OBJECT_NAME(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH149",
+      "name": "sqlserver-hook-object-schema-name-transact-sql",
+      "official_item": "docs/t-sql/functions/object-schema-name-transact-sql.md",
+      "sql": "SELECT OBJECT_SCHEMA_NAME(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH150",
+      "name": "sqlserver-hook-objectproperty-transact-sql",
+      "official_item": "docs/t-sql/functions/objectproperty-transact-sql.md",
+      "sql": "SELECT OBJECTPROPERTY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH151",
+      "name": "sqlserver-hook-objectpropertyex-transact-sql",
+      "official_item": "docs/t-sql/functions/objectpropertyex-transact-sql.md",
+      "sql": "SELECT OBJECTPROPERTYEX(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH152",
+      "name": "sqlserver-hook-odbc-scalar-functions-transact-sql",
+      "official_item": "docs/t-sql/functions/odbc-scalar-functions-transact-sql.md",
+      "sql": "SELECT {fn NOW()} AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH153",
+      "name": "sqlserver-hook-options-transact-sql",
+      "official_item": "docs/t-sql/functions/options-transact-sql.md",
+      "sql": "SELECT @@OPTIONS AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@OPTIONS",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH154",
+      "name": "sqlserver-hook-original-db-name-transact-sql",
+      "official_item": "docs/t-sql/functions/original-db-name-transact-sql.md",
+      "sql": "SELECT ORIGINAL_DB_NAME(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH155",
+      "name": "sqlserver-hook-original-login-transact-sql",
+      "official_item": "docs/t-sql/functions/original-login-transact-sql.md",
+      "sql": "SELECT ORIGINAL_LOGIN(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH156",
+      "name": "sqlserver-hook-pack-received-transact-sql",
+      "official_item": "docs/t-sql/functions/pack-received-transact-sql.md",
+      "sql": "SELECT @@PACK_RECEIVED AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@PACK_RECEIVED",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH157",
+      "name": "sqlserver-hook-pack-sent-transact-sql",
+      "official_item": "docs/t-sql/functions/pack-sent-transact-sql.md",
+      "sql": "SELECT @@PACK_SENT AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@PACK_SENT",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH158",
+      "name": "sqlserver-hook-packet-errors-transact-sql",
+      "official_item": "docs/t-sql/functions/packet-errors-transact-sql.md",
+      "sql": "SELECT @@PACKET_ERRORS AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@PACKET_ERRORS",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH159",
+      "name": "sqlserver-hook-parse-transact-sql",
+      "official_item": "docs/t-sql/functions/parse-transact-sql.md",
+      "sql": "SELECT PARSE('42' AS INT USING 'en-US') AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "PARSE("
+      }
+    },
+    {
+      "id": "SH160",
+      "name": "sqlserver-hook-parsename-transact-sql",
+      "official_item": "docs/t-sql/functions/parsename-transact-sql.md",
+      "sql": "SELECT PARSENAME(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH161",
+      "name": "sqlserver-hook-partition-transact-sql",
+      "official_item": "docs/t-sql/functions/partition-transact-sql.md",
+      "sql": "SELECT PARTITION(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH162",
+      "name": "sqlserver-hook-permissions-transact-sql",
+      "official_item": "docs/t-sql/functions/permissions-transact-sql.md",
+      "sql": "SELECT PERMISSIONS(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH163",
+      "name": "sqlserver-hook-procid-transact-sql",
+      "official_item": "docs/t-sql/functions/procid-transact-sql.md",
+      "sql": "SELECT @@PROCID AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@PROCID",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH164",
+      "name": "sqlserver-hook-product-aggregate-transact-sql",
+      "official_item": "docs/t-sql/functions/product-aggregate-transact-sql.md",
+      "sql": "SELECT PRODUCT_AGGREGATE(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH165",
+      "name": "sqlserver-hook-pwdcompare-transact-sql",
+      "official_item": "docs/t-sql/functions/pwdcompare-transact-sql.md",
+      "sql": "SELECT PWDCOMPARE(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH166",
+      "name": "sqlserver-hook-pwdencrypt-transact-sql",
+      "official_item": "docs/t-sql/functions/pwdencrypt-transact-sql.md",
+      "sql": "SELECT PWDENCRYPT(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH167",
+      "name": "sqlserver-hook-regexp-count-transact-sql",
+      "official_item": "docs/t-sql/functions/regexp-count-transact-sql.md",
+      "sql": "SELECT REGEXP_COUNT([name], 'a') AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH168",
+      "name": "sqlserver-hook-regexp-instr-transact-sql",
+      "official_item": "docs/t-sql/functions/regexp-instr-transact-sql.md",
+      "sql": "SELECT REGEXP_INSTR([name], 'a') AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH169",
+      "name": "sqlserver-hook-regexp-like-transact-sql",
+      "official_item": "docs/t-sql/functions/regexp-like-transact-sql.md",
+      "sql": "SELECT REGEXP_LIKE([name], 'a') AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH170",
+      "name": "sqlserver-hook-regexp-matches-transact-sql",
+      "official_item": "docs/t-sql/functions/regexp-matches-transact-sql.md",
+      "sql": "SELECT REGEXP_MATCHES([name], 'a') AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH171",
+      "name": "sqlserver-hook-regexp-replace-transact-sql",
+      "official_item": "docs/t-sql/functions/regexp-replace-transact-sql.md",
+      "sql": "SELECT REGEXP_REPLACE([name], 'a', 'b') AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH172",
+      "name": "sqlserver-hook-regexp-substr-transact-sql",
+      "official_item": "docs/t-sql/functions/regexp-substr-transact-sql.md",
+      "sql": "SELECT REGEXP_SUBSTR([name], 'a') AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH173",
+      "name": "sqlserver-hook-remserver-transact-sql",
+      "official_item": "docs/t-sql/functions/remserver-transact-sql.md",
+      "sql": "SELECT @@REMSERVER AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@REMSERVER",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH174",
+      "name": "sqlserver-hook-replication-functions-publishingservername",
+      "official_item": "docs/t-sql/functions/replication-functions-publishingservername.md",
+      "sql": "SELECT PUBLISHINGSERVERNAME(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH175",
+      "name": "sqlserver-hook-right-shift-transact-sql",
+      "official_item": "docs/t-sql/functions/right-shift-transact-sql.md",
+      "sql": "SELECT RIGHT_SHIFT(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH176",
+      "name": "sqlserver-hook-rowcount-big-transact-sql",
+      "official_item": "docs/t-sql/functions/rowcount-big-transact-sql.md",
+      "sql": "SELECT ROWCOUNT_BIG(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH177",
+      "name": "sqlserver-hook-rowcount-transact-sql",
+      "official_item": "docs/t-sql/functions/rowcount-transact-sql.md",
+      "sql": "SELECT @@ROWCOUNT AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@ROWCOUNT",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH178",
+      "name": "sqlserver-hook-schema-id-transact-sql",
+      "official_item": "docs/t-sql/functions/schema-id-transact-sql.md",
+      "sql": "SELECT SCHEMA_ID(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH179",
+      "name": "sqlserver-hook-schema-name-transact-sql",
+      "official_item": "docs/t-sql/functions/schema-name-transact-sql.md",
+      "sql": "SELECT SCHEMA_NAME(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH180",
+      "name": "sqlserver-hook-servername-transact-sql",
+      "official_item": "docs/t-sql/functions/servername-transact-sql.md",
+      "sql": "SELECT SERVERNAME(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH181",
+      "name": "sqlserver-hook-serverproperty-transact-sql",
+      "official_item": "docs/t-sql/functions/serverproperty-transact-sql.md",
+      "sql": "SELECT SERVERPROPERTY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH182",
+      "name": "sqlserver-hook-servicename-transact-sql",
+      "official_item": "docs/t-sql/functions/servicename-transact-sql.md",
+      "sql": "SELECT SERVICENAME(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH183",
+      "name": "sqlserver-hook-session-context-transact-sql",
+      "official_item": "docs/t-sql/functions/session-context-transact-sql.md",
+      "sql": "SELECT SESSION_CONTEXT(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH184",
+      "name": "sqlserver-hook-session-id-transact-sql",
+      "official_item": "docs/t-sql/functions/session-id-transact-sql.md",
+      "sql": "SELECT SESSION_ID(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH185",
+      "name": "sqlserver-hook-session-user-transact-sql",
+      "official_item": "docs/t-sql/functions/session-user-transact-sql.md",
+      "sql": "SELECT SESSION_USER AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH186",
+      "name": "sqlserver-hook-sessionproperty-transact-sql",
+      "official_item": "docs/t-sql/functions/sessionproperty-transact-sql.md",
+      "sql": "SELECT SESSIONPROPERTY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH187",
+      "name": "sqlserver-hook-set-bit-transact-sql",
+      "official_item": "docs/t-sql/functions/set-bit-transact-sql.md",
+      "sql": "SELECT SET_BIT(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH188",
+      "name": "sqlserver-hook-signbyasymkey-transact-sql",
+      "official_item": "docs/t-sql/functions/signbyasymkey-transact-sql.md",
+      "sql": "SELECT SIGNBYASYMKEY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH189",
+      "name": "sqlserver-hook-signbycert-transact-sql",
+      "official_item": "docs/t-sql/functions/signbycert-transact-sql.md",
+      "sql": "SELECT SIGNBYCERT(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH190",
+      "name": "sqlserver-hook-smalldatetimefromparts-transact-sql",
+      "official_item": "docs/t-sql/functions/smalldatetimefromparts-transact-sql.md",
+      "sql": "SELECT SMALLDATETIMEFROMPARTS(2024, 1, 2, 3, 4) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH191",
+      "name": "sqlserver-hook-spid-transact-sql",
+      "official_item": "docs/t-sql/functions/spid-transact-sql.md",
+      "sql": "SELECT @@SPID AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@SPID",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH192",
+      "name": "sqlserver-hook-sql-variant-property-transact-sql",
+      "official_item": "docs/t-sql/functions/sql-variant-property-transact-sql.md",
+      "sql": "SELECT SQL_VARIANT_PROPERTY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH193",
+      "name": "sqlserver-hook-stats-date-transact-sql",
+      "official_item": "docs/t-sql/functions/stats-date-transact-sql.md",
+      "sql": "SELECT STATS_DATE(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH194",
+      "name": "sqlserver-hook-string-escape-transact-sql",
+      "official_item": "docs/t-sql/functions/string-escape-transact-sql.md",
+      "sql": "SELECT STRING_ESCAPE(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH195",
+      "name": "sqlserver-hook-suser-id-transact-sql",
+      "official_item": "docs/t-sql/functions/suser-id-transact-sql.md",
+      "sql": "SELECT SUSER_ID(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH196",
+      "name": "sqlserver-hook-suser-name-transact-sql",
+      "official_item": "docs/t-sql/functions/suser-name-transact-sql.md",
+      "sql": "SELECT SUSER_NAME(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH197",
+      "name": "sqlserver-hook-suser-sid-transact-sql",
+      "official_item": "docs/t-sql/functions/suser-sid-transact-sql.md",
+      "sql": "SELECT SUSER_SID(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH198",
+      "name": "sqlserver-hook-suser-sname-transact-sql",
+      "official_item": "docs/t-sql/functions/suser-sname-transact-sql.md",
+      "sql": "SELECT SUSER_SNAME(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH199",
+      "name": "sqlserver-hook-switchoffset-transact-sql",
+      "official_item": "docs/t-sql/functions/switchoffset-transact-sql.md",
+      "sql": "SELECT SWITCHOFFSET(SYSDATETIMEOFFSET(), '-08:00') AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH200",
+      "name": "sqlserver-hook-symkeyproperty-transact-sql",
+      "official_item": "docs/t-sql/functions/symkeyproperty-transact-sql.md",
+      "sql": "SELECT SYMKEYPROPERTY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH201",
+      "name": "sqlserver-hook-system-user-transact-sql",
+      "official_item": "docs/t-sql/functions/system-user-transact-sql.md",
+      "sql": "SELECT SYSTEM_USER AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH202",
+      "name": "sqlserver-hook-textsize-transact-sql",
+      "official_item": "docs/t-sql/functions/textsize-transact-sql.md",
+      "sql": "SELECT @@TEXTSIZE AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@TEXTSIZE",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH203",
+      "name": "sqlserver-hook-timefromparts-transact-sql",
+      "official_item": "docs/t-sql/functions/timefromparts-transact-sql.md",
+      "sql": "SELECT TIMEFROMPARTS(3, 4, 5, 0, 7) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH204",
+      "name": "sqlserver-hook-timeticks-transact-sql",
+      "official_item": "docs/t-sql/functions/timeticks-transact-sql.md",
+      "sql": "SELECT @@TIMETICKS AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@TIMETICKS",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH205",
+      "name": "sqlserver-hook-todatetimeoffset-transact-sql",
+      "official_item": "docs/t-sql/functions/todatetimeoffset-transact-sql.md",
+      "sql": "SELECT TODATETIMEOFFSET(GETDATE(), '-08:00') AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH206",
+      "name": "sqlserver-hook-total-errors-transact-sql",
+      "official_item": "docs/t-sql/functions/total-errors-transact-sql.md",
+      "sql": "SELECT @@TOTAL_ERRORS AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@TOTAL_ERRORS",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH207",
+      "name": "sqlserver-hook-total-read-transact-sql",
+      "official_item": "docs/t-sql/functions/total-read-transact-sql.md",
+      "sql": "SELECT @@TOTAL_READ AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@TOTAL_READ",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH208",
+      "name": "sqlserver-hook-total-write-transact-sql",
+      "official_item": "docs/t-sql/functions/total-write-transact-sql.md",
+      "sql": "SELECT @@TOTAL_WRITE AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@TOTAL_WRITE",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH209",
+      "name": "sqlserver-hook-trancount-transact-sql",
+      "official_item": "docs/t-sql/functions/trancount-transact-sql.md",
+      "sql": "SELECT @@TRANCOUNT AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@TRANCOUNT",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH210",
+      "name": "sqlserver-hook-translate-transact-sql",
+      "official_item": "docs/t-sql/functions/translate-transact-sql.md",
+      "sql": "SELECT TRANSLATE(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH211",
+      "name": "sqlserver-hook-trigger-nestlevel-transact-sql",
+      "official_item": "docs/t-sql/functions/trigger-nestlevel-transact-sql.md",
+      "sql": "SELECT TRIGGER_NESTLEVEL(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH212",
+      "name": "sqlserver-hook-try-cast-transact-sql",
+      "official_item": "docs/t-sql/functions/try-cast-transact-sql.md",
+      "sql": "SELECT TRY_CAST('42' AS INT) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "TRY_CAST("
+      }
+    },
+    {
+      "id": "SH213",
+      "name": "sqlserver-hook-try-convert-transact-sql",
+      "official_item": "docs/t-sql/functions/try-convert-transact-sql.md",
+      "sql": "SELECT TRY_CONVERT(INT, '42', 0) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "TRY_CONVERT("
+      }
+    },
+    {
+      "id": "SH214",
+      "name": "sqlserver-hook-try-parse-transact-sql",
+      "official_item": "docs/t-sql/functions/try-parse-transact-sql.md",
+      "sql": "SELECT TRY_PARSE('42' AS INT USING 'en-US') AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "TRY_PARSE("
+      }
+    },
+    {
+      "id": "SH215",
+      "name": "sqlserver-hook-type-id-transact-sql",
+      "official_item": "docs/t-sql/functions/type-id-transact-sql.md",
+      "sql": "SELECT TYPE_ID(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH216",
+      "name": "sqlserver-hook-type-name-transact-sql",
+      "official_item": "docs/t-sql/functions/type-name-transact-sql.md",
+      "sql": "SELECT TYPE_NAME(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH217",
+      "name": "sqlserver-hook-typeproperty-transact-sql",
+      "official_item": "docs/t-sql/functions/typeproperty-transact-sql.md",
+      "sql": "SELECT TYPEPROPERTY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH218",
+      "name": "sqlserver-hook-unistr-transact-sql",
+      "official_item": "docs/t-sql/functions/unistr-transact-sql.md",
+      "sql": "SELECT UNISTR('abc') AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH219",
+      "name": "sqlserver-hook-user-id-transact-sql",
+      "official_item": "docs/t-sql/functions/user-id-transact-sql.md",
+      "sql": "SELECT USER_ID(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH220",
+      "name": "sqlserver-hook-user-name-transact-sql",
+      "official_item": "docs/t-sql/functions/user-name-transact-sql.md",
+      "sql": "SELECT USER_NAME(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH221",
+      "name": "sqlserver-hook-user-transact-sql",
+      "official_item": "docs/t-sql/functions/user-transact-sql.md",
+      "sql": "SELECT USER AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH222",
+      "name": "sqlserver-hook-vector-distance-transact-sql",
+      "official_item": "docs/t-sql/functions/vector-distance-transact-sql.md",
+      "sql": "SELECT VECTOR_DISTANCE('[1,2]', '[2,3]') AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH223",
+      "name": "sqlserver-hook-vector-norm-transact-sql",
+      "official_item": "docs/t-sql/functions/vector-norm-transact-sql.md",
+      "sql": "SELECT VECTOR_NORM('[1,2]') AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH224",
+      "name": "sqlserver-hook-vector-normalize-transact-sql",
+      "official_item": "docs/t-sql/functions/vector-normalize-transact-sql.md",
+      "sql": "SELECT VECTOR_NORMALIZE('[1,2]') AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH225",
+      "name": "sqlserver-hook-vectorproperty-transact-sql",
+      "official_item": "docs/t-sql/functions/vectorproperty-transact-sql.md",
+      "sql": "SELECT VECTORPROPERTY('[1,2]', 'dimensions') AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH226",
+      "name": "sqlserver-hook-verifysignedbyasymkey-transact-sql",
+      "official_item": "docs/t-sql/functions/verifysignedbyasymkey-transact-sql.md",
+      "sql": "SELECT VERIFYSIGNEDBYASYMKEY(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH227",
+      "name": "sqlserver-hook-verifysignedbycert-transact-sql",
+      "official_item": "docs/t-sql/functions/verifysignedbycert-transact-sql.md",
+      "sql": "SELECT VERIFYSIGNEDBYCERT(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH228",
+      "name": "sqlserver-hook-version-transact-sql-configuration-functions",
+      "official_item": "docs/t-sql/functions/version-transact-sql-configuration-functions.md",
+      "sql": "SELECT @@VERSION AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "deparse_contains": "@@VERSION",
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "SH229",
+      "name": "sqlserver-hook-version-transact-sql-metadata-functions",
+      "official_item": "docs/t-sql/functions/version-transact-sql-metadata-functions.md",
+      "sql": "SELECT VERSION_TRANSACT_SQL(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH230",
+      "name": "sqlserver-hook-xact-state-transact-sql",
+      "official_item": "docs/t-sql/functions/xact-state-transact-sql.md",
+      "sql": "SELECT XACT_STATE(1) AS [v] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH231",
+      "name": "sqlserver-hook-collation-precedence-transact-sql",
+      "official_item": "docs/t-sql/statements/collation-precedence-transact-sql.md",
+      "sql": "SELECT [name] COLLATE Latin1_General_CI_AS AS [name] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH232",
+      "name": "sqlserver-hook-collations",
+      "official_item": "docs/t-sql/statements/collations.md",
+      "sql": "SELECT [name] COLLATE Latin1_General_CI_AS AS [name] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH233",
+      "name": "sqlserver-hook-rename-transact-sql",
+      "official_item": "docs/t-sql/statements/rename-transact-sql.md",
+      "sql": "RENAME OBJECT [dbo].[old_users] TO [new_users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "RenameStmt"
+        ],
+        "keywords": [
+          "rename",
+          "object",
+          "to"
+        ],
+        "deparse_contains": "RENAME OBJECT"
+      }
+    },
+    {
+      "id": "SH234",
+      "name": "sqlserver-hook-sql-server-collation-name-transact-sql",
+      "official_item": "docs/t-sql/statements/sql-server-collation-name-transact-sql.md",
+      "sql": "SELECT [name] COLLATE Latin1_General_CI_AS AS [name] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    },
+    {
+      "id": "SH235",
+      "name": "sqlserver-hook-windows-collation-name-transact-sql",
+      "official_item": "docs/t-sql/statements/windows-collation-name-transact-sql.md",
+      "sql": "SELECT [name] COLLATE Latin1_General_CI_AS AS [name] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ]
+      }
+    }
+  ]
+}

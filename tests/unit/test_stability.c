@@ -67,14 +67,12 @@ static int verify_roundtrip_case(const sqlparser_stability_case_t *test_case)
 {
 	sqlparser_handle_t *handle;
 	sqlparser_error_t error;
-	char *summary_json;
-	char *model_json;
+	char *view_json;
 	char *deparsed_sql;
 	sqlparser_status_t status;
 
 	handle = NULL;
-	summary_json = NULL;
-	model_json = NULL;
+	view_json = NULL;
 	deparsed_sql = NULL;
 	memset(&error, 0, sizeof(error));
 
@@ -85,19 +83,10 @@ static int verify_roundtrip_case(const sqlparser_stability_case_t *test_case)
 		return 1;
 	}
 
-	status = sqlparser_export_summary_json(handle, 0, &summary_json, &error);
-	if (expect_status(status, SQLPARSER_STATUS_OK, &error, "summary export should succeed") != 0 ||
-	    expect_true(summary_json != NULL && summary_json[0] != '\0', "summary JSON should be non-empty") != 0) {
-		sqlparser_string_free(summary_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	status = sqlparser_export_model_json(handle, 0, &model_json, &error);
-	if (expect_status(status, SQLPARSER_STATUS_OK, &error, "model export should succeed") != 0 ||
-	    expect_true(model_json != NULL && strstr(model_json, "sqlparser.model/v1") != NULL, "model JSON should carry schema") != 0) {
-		sqlparser_string_free(model_json);
-		sqlparser_string_free(summary_json);
+	status = sqlparser_export_view_json(handle, 0, &view_json, &error);
+	if (expect_status(status, SQLPARSER_STATUS_OK, &error, "view export should succeed") != 0 ||
+	    expect_true(view_json != NULL && strstr(view_json, "\"statements\"") != NULL, "view JSON should carry statements") != 0) {
+		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -106,8 +95,7 @@ static int verify_roundtrip_case(const sqlparser_stability_case_t *test_case)
 	if (expect_status(status, SQLPARSER_STATUS_OK, &error, "deparse should succeed") != 0 ||
 	    expect_true(deparsed_sql != NULL && deparsed_sql[0] != '\0', "deparse output should be non-empty") != 0) {
 		sqlparser_string_free(deparsed_sql);
-		sqlparser_string_free(model_json);
-		sqlparser_string_free(summary_json);
+		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -115,15 +103,22 @@ static int verify_roundtrip_case(const sqlparser_stability_case_t *test_case)
 	if (test_case->dialect == SQLPARSER_DIALECT_ORACLE &&
 	    expect_true(strstr(deparsed_sql, "$1") == NULL, "Oracle deparse should not expose internal bind names") != 0) {
 		sqlparser_string_free(deparsed_sql);
-		sqlparser_string_free(model_json);
-		sqlparser_string_free(summary_json);
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	if (test_case->dialect == SQLPARSER_DIALECT_SQLSERVER &&
+	    (expect_true(strstr(deparsed_sql, "$1") == NULL, "SQL Server deparse should not expose internal parameter names") != 0 ||
+	     expect_true(strstr(view_json, "$1") == NULL, "SQL Server view JSON should not expose internal parameter names") != 0)) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 
 	sqlparser_string_free(deparsed_sql);
-	sqlparser_string_free(model_json);
-	sqlparser_string_free(summary_json);
+	sqlparser_string_free(view_json);
 	sqlparser_handle_destroy(handle);
 	return 0;
 }
@@ -134,8 +129,8 @@ static int test_generated_success_corpus(void)
 	sqlparser_stability_case_t test_case;
 	size_t index;
 
-	for (index = 0U; index < 96U; index++) {
-		if ((index % 6U) == 0U) {
+	for (index = 0U; index < 112U; index++) {
+		if ((index % 7U) == 0U) {
 			(void)snprintf(
 				sql_buffer,
 				sizeof(sql_buffer),
@@ -143,7 +138,7 @@ static int test_generated_success_corpus(void)
 				(unsigned long)index,
 				(unsigned long)index);
 			test_case.dialect = SQLPARSER_DIALECT_POSTGRESQL;
-		} else if ((index % 6U) == 1U) {
+		} else if ((index % 7U) == 1U) {
 			(void)snprintf(
 				sql_buffer,
 				sizeof(sql_buffer),
@@ -151,7 +146,7 @@ static int test_generated_success_corpus(void)
 				(unsigned long)index,
 				(unsigned long)index);
 			test_case.dialect = SQLPARSER_DIALECT_POSTGRESQL;
-		} else if ((index % 6U) == 2U) {
+		} else if ((index % 7U) == 2U) {
 			(void)snprintf(
 				sql_buffer,
 				sizeof(sql_buffer),
@@ -159,7 +154,7 @@ static int test_generated_success_corpus(void)
 				(unsigned long)index,
 				(unsigned long)index);
 			test_case.dialect = SQLPARSER_DIALECT_POSTGRESQL;
-		} else if ((index % 6U) == 3U) {
+		} else if ((index % 7U) == 3U) {
 			(void)snprintf(
 				sql_buffer,
 				sizeof(sql_buffer),
@@ -167,7 +162,7 @@ static int test_generated_success_corpus(void)
 				(unsigned long)index,
 				(unsigned long)index);
 			test_case.dialect = SQLPARSER_DIALECT_MYSQL;
-		} else if ((index % 6U) == 4U) {
+		} else if ((index % 7U) == 4U) {
 			(void)snprintf(
 				sql_buffer,
 				sizeof(sql_buffer),
@@ -175,7 +170,7 @@ static int test_generated_success_corpus(void)
 				(unsigned long)index,
 				(unsigned long)index);
 			test_case.dialect = SQLPARSER_DIALECT_ORACLE;
-		} else {
+		} else if ((index % 7U) == 5U) {
 			(void)snprintf(
 				sql_buffer,
 				sizeof(sql_buffer),
@@ -183,6 +178,13 @@ static int test_generated_success_corpus(void)
 				(unsigned long)index,
 				(unsigned long)index);
 			test_case.dialect = SQLPARSER_DIALECT_ORACLE;
+		} else {
+			(void)snprintf(
+				sql_buffer,
+				sizeof(sql_buffer),
+				"SELECT TOP (5) [u].[id], [u].[name] FROM [dbo].[users] AS [u] WHERE [u].[id] = @id_%lu ORDER BY [u].[id]",
+				(unsigned long)index);
+			test_case.dialect = SQLPARSER_DIALECT_SQLSERVER;
 		}
 
 		test_case.sql = sql_buffer;
@@ -202,7 +204,8 @@ static int test_malformed_inputs_do_not_return_handles(void)
 		{SQLPARSER_DIALECT_POSTGRESQL, "INSERT INTO t (id) VALUES ("},
 		{SQLPARSER_DIALECT_MYSQL, "SELECT * FROM `unterminated"},
 		{SQLPARSER_DIALECT_ORACLE, "SELECT q'[unterminated' FROM dual"},
-		{SQLPARSER_DIALECT_ORACLE, "BEGIN NULL; END;"}
+		{SQLPARSER_DIALECT_ORACLE, "BEGIN NULL; END;"},
+		{SQLPARSER_DIALECT_SQLSERVER, "SELECT [unterminated"}
 	};
 	sqlparser_handle_t *handle;
 	sqlparser_error_t error;
@@ -266,9 +269,9 @@ static int test_argument_validation(void)
 		return 1;
 	}
 
-	status = sqlparser_export_model_json(NULL, 0, &json_text, &error);
-	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL handle model export should be rejected") != 0 ||
-	    expect_true(json_text == NULL, "failed model export should not return text") != 0) {
+	status = sqlparser_export_view_json(NULL, 0, &json_text, &error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL handle view export should be rejected") != 0 ||
+	    expect_true(json_text == NULL, "failed view export should not return text") != 0) {
 		sqlparser_string_free(json_text);
 		sqlparser_handle_destroy(handle);
 		return 1;
@@ -283,12 +286,12 @@ static int test_resource_limits(void)
 	sqlparser_handle_t *handle;
 	sqlparser_error_t error;
 	sqlparser_limits_t limits;
-	char *model_json;
+	char *view_json;
 	char *deparsed_sql;
 	sqlparser_status_t status;
 
 	handle = NULL;
-	model_json = NULL;
+	view_json = NULL;
 	deparsed_sql = NULL;
 	memset(&error, 0, sizeof(error));
 
@@ -310,37 +313,32 @@ static int test_resource_limits(void)
 		return 1;
 	}
 
-	status = sqlparser_parse("UPDATE public.users SET name = 'bob' WHERE id = 1", &handle, &error);
-	if (expect_status(status, SQLPARSER_STATUS_OK, &error, "parse for model limit should succeed") != 0) {
-		return 1;
-	}
-
-	status = sqlparser_export_model_json(handle, 0, &model_json, &error);
-	if (expect_status(status, SQLPARSER_STATUS_OK, &error, "model export for limit test should succeed") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
 	sqlparser_limits_default(&limits);
-	limits.max_model_json_bytes = 8U;
-	status = sqlparser_apply_model_json_with_limits(handle, model_json, &limits, &error);
-	if (expect_status(status, SQLPARSER_STATUS_RESOURCE_LIMIT, &error, "model JSON byte limit should be enforced") != 0) {
-		sqlparser_string_free(model_json);
+	limits.max_output_bytes = 16U;
+	status = sqlparser_parse_with_limits("SELECT 1", &limits, &handle, &error);
+	if (expect_status(status, SQLPARSER_STATUS_OK, &error, "parse for view output limit should succeed") != 0) {
+		return 1;
+	}
+
+	status = sqlparser_export_view_json(handle, 0, &view_json, &error);
+	if (expect_status(status, SQLPARSER_STATUS_RESOURCE_LIMIT, &error, "view output byte limit should be enforced") != 0 ||
+	    expect_true(view_json == NULL, "failed view export should not return text") != 0) {
+		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 
 	status = sqlparser_deparse(handle, &deparsed_sql, &error);
-	if (expect_status(status, SQLPARSER_STATUS_OK, &error, "handle should remain usable after model limit failure") != 0 ||
-	    expect_true(deparsed_sql != NULL && strstr(deparsed_sql, "bob") != NULL, "deparse should preserve original value after model limit failure") != 0) {
+	if (expect_status(status, SQLPARSER_STATUS_OK, &error, "handle should remain usable after view limit failure") != 0 ||
+	    expect_true(deparsed_sql != NULL && strstr(deparsed_sql, "SELECT 1") != NULL, "deparse should preserve original value after view limit failure") != 0) {
 		sqlparser_string_free(deparsed_sql);
-		sqlparser_string_free(model_json);
+		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 
 	sqlparser_string_free(deparsed_sql);
-	sqlparser_string_free(model_json);
+	sqlparser_string_free(view_json);
 	sqlparser_handle_destroy(handle);
 	return 0;
 }

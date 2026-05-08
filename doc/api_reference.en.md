@@ -12,7 +12,7 @@ handling model, and function groups exposed by `sqlparser`.
    selector APIs.
 3. Apply rewrites to relation names, name atoms, literal values, or right-hand
    expressions.
-4. Export parse-tree JSON, summary JSON, or model JSON if needed.
+4. Export SQL View JSON or traverse the C view if needed.
 5. Call `sqlparser_deparse()` to generate the rewritten SQL.
 6. Call `sqlparser_handle_destroy()` to release the handle.
 
@@ -121,17 +121,16 @@ stores the original SQL, the current syntax tree, and lazily derived results.
 
 - `sqlparser_limits_t`
 
-`sqlparser_limits_t` constrains the resource scale allowed by one parse or model
-import operation:
+`sqlparser_limits_t` constrains the resource scale allowed by one parse and
+generated output:
 
-The default limits are: 4 MB SQL input, 16 MB model JSON input, 64 MB generated
-output, and 64 statements per parse call.
+The default limits are: 4 MB SQL input, 4 MB generated output, and 64
+statements per parse call.
 
 | Field | Meaning |
 | --- | --- |
-| `struct_size` | structure size filled by `sqlparser_limits_default()` for future compatibility |
+| `struct_size` | structure size filled by `sqlparser_limits_default()` |
 | `max_sql_bytes` | maximum bytes for SQL input and expression SQL fragments |
-| `max_model_json_bytes` | maximum bytes for model JSON input |
 | `max_output_bytes` | maximum bytes for generated SQL or JSON output |
 | `max_statement_count` | maximum number of statements accepted by one parse |
 
@@ -158,7 +157,7 @@ Defined dialects:
 | `SQLPARSER_DIALECT_POSTGRESQL` | default dialect, preserving existing behavior |
 | `SQLPARSER_DIALECT_MYSQL` | MySQL dialect conversion layer for syntax that can be safely mapped to the current AST |
 | `SQLPARSER_DIALECT_ORACLE` | Oracle dialect conversion layer for common SQL syntax that can be safely mapped to the current AST |
-| `SQLPARSER_DIALECT_SQLSERVER` | reserved dialect enum, currently returns `SQLPARSER_STATUS_UNSUPPORTED` |
+| `SQLPARSER_DIALECT_SQLSERVER` | SQL Server dialect conversion layer for common T-SQL syntax that can be safely mapped to the current AST |
 
 ### View Structures
 
@@ -213,7 +212,6 @@ not be reused.
 | --- | --- |
 | `sqlparser_version_string()` | returns the library version string |
 | `sqlparser_libpg_query_tag()` | returns the pinned `libpg_query` tag |
-| `sqlparser_model_schema_string()` | returns the current model-JSON schema marker |
 | `sqlparser_statement_kind_name()` | returns the statement-kind name |
 | `sqlparser_insert_source_kind_name()` | returns the `INSERT` source-kind name |
 | `sqlparser_value_kind_name()` | returns the value-kind name |
@@ -291,8 +289,8 @@ Notes:
 
 - Behaves like `sqlparser_parse()`, with dialect and resource-limit configuration.
 - Passing `NULL` for `options` uses PostgreSQL dialect and default resource limits.
-- MySQL and Oracle dialect input is first converted into parser-compatible SQL, then processed through the unified AST path.
-- Defined but unimplemented dialects return `SQLPARSER_STATUS_UNSUPPORTED`.
+- MySQL, Oracle, and SQL Server dialect input is first converted into parser-compatible SQL, then processed through the unified AST path.
+- Dialect syntax that cannot be safely mapped to the current AST returns `SQLPARSER_STATUS_UNSUPPORTED`.
 
 ### `sqlparser_handle_destroy`
 
@@ -442,6 +440,7 @@ Supported selector forms include:
 ```text
 stmt[0].relation[0]
 stmt[0].name[3]
+stmt[0].value[4]
 stmt[0].literal[1]
 stmt[0].where_literal[0]
 stmt[0].assignment[0]
@@ -483,102 +482,83 @@ stmt[0].insert_cell[1][2]
 
 Notes:
 
-- Selectors are suited for external rule addressing and JSON patch replay.
+- Selectors are suited for external rule addressing and structured patch replay.
 - A caller can persist selector text and parse it again in a separate request.
 
-## JSON Export and Model Import
+## SQL View Structured Traversal
+
+The SQL View can also be traversed through C views without exporting JSON
+first. Strings returned through the views are borrowed from the `handle` and
+become invalid after the handle is destroyed or rewritten.
 
 | Function | Summary |
 | --- | --- |
-| `sqlparser_export_parse_tree_json()` | exports parse-tree JSON |
-| `sqlparser_export_summary_json()` | exports summary JSON |
-| `sqlparser_export_model_json()` | exports stable model JSON |
-| `sqlparser_apply_model_json()` | imports a full model or a patch JSON |
+| `sqlparser_get_view()` | obtains a read-only statement view |
+| `sqlparser_view_statement_at()` | reads one statement |
+| `sqlparser_statement_keyword_at()` | reads a statement keyword |
+| `sqlparser_statement_object_at()` | reads a table, view, or attributable object |
+| `sqlparser_object_column_at()` | reads a column attributed to an object |
+| `sqlparser_column_value_at()` | reads a value fragment related to a column |
+| `sqlparser_object_row_at()` | reads an `INSERT ... VALUES` row |
+| `sqlparser_row_cell_at()` | reads an `INSERT ... VALUES` cell |
+| `sqlparser_value_sql()` | renders a column value fragment as SQL |
+| `sqlparser_cell_sql()` | renders an `INSERT` cell as SQL |
+
+Notes:
+
+- `sqlparser_view_t`, `sqlparser_statement_view_t`,
+  `sqlparser_object_view_t`, and related structs do not own memory.
+- `sqlparser_value_sql()` and `sqlparser_cell_sql()` return new strings that
+  must be released with `sqlparser_string_free()`.
+- Column attribution uses only qualified names, aliases, and objects present
+  in the SQL statement. It does not read database metadata and does not infer
+  unique ownership.
+- Selectors can be used for later patches. If no writable node is available,
+  `has_selector` is `0`.
+
+## JSON Export and Patch
+
+| Function | Summary |
+| --- | --- |
+| `sqlparser_export_view_json()` | exports SQL View JSON |
+| `sqlparser_apply_patch()` | applies structured patches |
 
 ### `pretty` Parameter
 
-The following functions accept a `pretty` parameter:
-
-- `sqlparser_export_parse_tree_json()`
-- `sqlparser_export_summary_json()`
-- `sqlparser_export_model_json()`
+`sqlparser_export_view_json()` accepts a `pretty` parameter:
 
 Meaning:
 
 - `0`: compact JSON
 - non-zero: formatted JSON
 
-### JSON Types
+### `sqlparser_apply_patch`
 
-| JSON Type | Purpose |
-| --- | --- |
-| parse-tree JSON | low-level syntax-tree debugging |
-| summary JSON | extraction of tables, columns, keywords, and statement kinds |
-| model JSON | stable working model, selector patch, and controlled editing |
-
-### `sqlparser_apply_model_json`
-
-`sqlparser_apply_model_json()` accepts two forms of input:
-
-- a full model exported by `sqlparser_export_model_json()`
-- a patch JSON containing a `changes` array
+`sqlparser_apply_patch()` accepts `sqlparser_patch_list_t`. Each patch uses a
+selector to address a writable node.
 
 Example:
 
-```json
-{
-  "changes": [
-    {
-      "selector": "stmt[0].assignment[0]",
-      "literal": {
-        "kind": "string",
-        "string_value": "carol"
-      }
-    },
-    {
-      "selector": "stmt[0].where_literal[0]",
-      "literal": {
-        "kind": "integer",
-        "integer_value": 2
-      }
-    },
-    {
-      "selector": "stmt[0].assignment[0]",
-      "sql": "lower(name)"
-    }
-  ]
-}
-```
-
-Notes:
-
-- Use `literal` for generic literals, `WHERE` literals, and literal-valued
-  assignments or insert cells.
-- Use `sql` for `assignment` or `insert_cell` rewrites that involve `DEFAULT`
-  or arbitrary expressions.
-- Use one rewrite form per change entry.
-- Model JSON import uses the limits stored on the handle.
-
-### `sqlparser_apply_model_json_with_limits`
-
-Prototype:
-
 ```c
-sqlparser_status_t sqlparser_apply_model_json_with_limits(
-    sqlparser_handle_t *handle,
-    const char *json_text,
-    const sqlparser_limits_t *limits,
-    sqlparser_error_t *out_error);
+sqlparser_patch_t patch;
+sqlparser_patch_list_t patches;
+
+memset(&patch, 0, sizeof(patch));
+patch.op = SQLPARSER_PATCH_REPLACE;
+patch.selector = "stmt[0].assignment[0]";
+patch.sql = "'carol'";
+
+patches.items = &patch;
+patches.count = 1;
+sqlparser_apply_patch(handle, &patches, &err);
 ```
 
 Notes:
 
-- Equivalent to `sqlparser_apply_model_json()`, but accepts new resource limits
-  for the import.
-- Passing `NULL` for `limits` uses the handle's current limits.
-- On success, the new limits are stored on the handle; on failure, the previous
-  limits are preserved.
-- Returns `SQLPARSER_STATUS_RESOURCE_LIMIT` when a configured limit is exceeded.
+- `replace` can rewrite a relation, name, value, assignment, literal, where_literal, or insert_cell.
+- `insert_column`, `delete_column`, and `delete_row` target `INSERT ... VALUES`.
+- `delete_column` does not delete the last cell, and `delete_row` does not delete the last row.
+- Patches run in array order and return an error code plus message on failure.
 
 ## Deparse and String Free
 
@@ -659,10 +639,10 @@ Notes:
 
 ### Selector-Driven Rewrite
 
-1. Export model JSON.
+1. Export SQL View JSON or traverse the C view.
 2. Persist selector text.
-3. Generate patch JSON.
-4. Call `sqlparser_apply_model_json()`.
+3. Build `sqlparser_patch_t`.
+4. Call `sqlparser_apply_patch()`.
 5. Call `sqlparser_deparse()`.
 
 ## Related Examples
@@ -676,5 +656,5 @@ Notes:
 | `examples/05_delete_inspect.c` | `DELETE` condition inspection and rewrite |
 | `examples/06_ddl_inspect.c` | DDL name-atom inspection and rewrite |
 | `examples/07_multi_statement_walk.c` | multi-statement traversal |
-| `examples/08_model_roundtrip.c` | model JSON export, patch replay, and SQL regeneration |
+| `examples/08_view_patch.c` | SQL View JSON export, patch replay, and SQL regeneration |
 | `examples/09_expression_rewrite.c` | expression-level rewrite for assignments and insert cells |

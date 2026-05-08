@@ -2,7 +2,6 @@ SQLPARSER_0 {
 	global:
 		sqlparser_version_string;
 		sqlparser_libpg_query_tag;
-		sqlparser_model_schema_string;
 		sqlparser_statement_kind_name;
 		sqlparser_insert_source_kind_name;
 		sqlparser_value_kind_name;
@@ -64,11 +63,18 @@ SQLPARSER_0 {
 		sqlparser_selector_set_insert_cell_literal;
 		sqlparser_selector_insert_cell_sql;
 		sqlparser_selector_set_insert_cell_sql;
-		sqlparser_export_parse_tree_json;
-		sqlparser_export_summary_json;
-		sqlparser_export_model_json;
-		sqlparser_apply_model_json;
-		sqlparser_apply_model_json_with_limits;
+		sqlparser_get_view;
+		sqlparser_view_statement_at;
+		sqlparser_statement_keyword_at;
+		sqlparser_statement_object_at;
+		sqlparser_object_column_at;
+		sqlparser_column_value_at;
+		sqlparser_object_row_at;
+		sqlparser_row_cell_at;
+		sqlparser_value_sql;
+		sqlparser_cell_sql;
+		sqlparser_export_view_json;
+		sqlparser_apply_patch;
 		sqlparser_deparse;
 		sqlparser_string_free;
 	local:

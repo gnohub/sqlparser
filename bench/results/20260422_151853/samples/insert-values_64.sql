@@ -1,1 +1,0 @@
-INSERT INTO public.bench_t (id, name) VALUES (1, 'seed')        

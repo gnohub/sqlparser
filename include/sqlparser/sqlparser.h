@@ -61,7 +61,10 @@ typedef enum {
 	SQLPARSER_SELECTOR_KIND_LITERAL = 3,
 	SQLPARSER_SELECTOR_KIND_WHERE_LITERAL = 4,
 	SQLPARSER_SELECTOR_KIND_ASSIGNMENT = 5,
-	SQLPARSER_SELECTOR_KIND_INSERT_CELL = 6
+	SQLPARSER_SELECTOR_KIND_INSERT_CELL = 6,
+	SQLPARSER_SELECTOR_KIND_INSERT_COLUMNS = 7,
+	SQLPARSER_SELECTOR_KIND_INSERT_ROW = 8,
+	SQLPARSER_SELECTOR_KIND_VALUE = 9
 } sqlparser_selector_kind_t;
 
 typedef enum {
@@ -80,6 +83,7 @@ typedef struct {
 } sqlparser_error_t;
 
 typedef struct {
+	const char *database_name;
 	const char *schema_name;
 	const char *table_name;
 	const char *alias_name;
@@ -129,9 +133,101 @@ typedef struct {
 } sqlparser_selector_t;
 
 typedef struct {
+	const sqlparser_handle_t *handle;
+	size_t statement_count;
+} sqlparser_view_t;
+
+enum {
+	SQLPARSER_STATEMENT_KEYWORD_CAPACITY = 32
+};
+
+typedef struct {
+	const sqlparser_handle_t *handle;
+	size_t index;
+	const char *keyword;
+	size_t keyword_count;
+	const char *keywords[SQLPARSER_STATEMENT_KEYWORD_CAPACITY];
+	size_t object_count;
+} sqlparser_statement_view_t;
+
+typedef struct {
+	const sqlparser_handle_t *handle;
+	size_t statement_index;
+	size_t object_index;
+	const char *database_name;
+	const char *schema_name;
+	const char *table_name;
+	const char *alias_name;
+	sqlparser_selector_t selector;
+	int has_selector;
+	size_t column_count;
+	size_t row_count;
+} sqlparser_object_view_t;
+
+typedef struct {
+	sqlparser_selector_t selector;
+	int has_selector;
+	size_t statement_index;
+} sqlparser_value_view_t;
+
+typedef struct {
+	const sqlparser_handle_t *handle;
+	size_t statement_index;
+	size_t object_index;
+	size_t column_index;
+	const char *name;
+	const char *keyword;
+	sqlparser_selector_t selector;
+	int has_selector;
+	const char *operator_name;
+	sqlparser_value_view_t value;
+	size_t value_count;
+} sqlparser_column_view_t;
+
+typedef struct {
+	const sqlparser_handle_t *handle;
+	size_t statement_index;
+	size_t object_index;
+	size_t row_index;
+	size_t cell_count;
+} sqlparser_row_view_t;
+
+typedef struct {
+	const sqlparser_handle_t *handle;
+	size_t statement_index;
+	size_t object_index;
+	size_t row_index;
+	size_t cell_index;
+	const char *column_name;
+	size_t column_index;
+	sqlparser_selector_t selector;
+	int has_selector;
+} sqlparser_cell_view_t;
+
+typedef enum {
+	SQLPARSER_PATCH_REPLACE = 1,
+	SQLPARSER_PATCH_INSERT_COLUMN = 2,
+	SQLPARSER_PATCH_DELETE_COLUMN = 3,
+	SQLPARSER_PATCH_DELETE_ROW = 4
+} sqlparser_patch_op_t;
+
+typedef struct {
+	sqlparser_patch_op_t op;
+	const char *selector;
+	size_t index;
+	const char *name;
+	const char *sql;
+	const char *default_sql;
+} sqlparser_patch_t;
+
+typedef struct {
+	const sqlparser_patch_t *items;
+	size_t count;
+} sqlparser_patch_list_t;
+
+typedef struct {
 	size_t struct_size;
 	size_t max_sql_bytes;
-	size_t max_model_json_bytes;
 	size_t max_output_bytes;
 	size_t max_statement_count;
 } sqlparser_limits_t;
@@ -145,7 +241,6 @@ typedef struct {
 
 const char *sqlparser_version_string(void);
 const char *sqlparser_libpg_query_tag(void);
-const char *sqlparser_model_schema_string(void);
 const char *sqlparser_statement_kind_name(sqlparser_statement_kind_t kind);
 const char *sqlparser_insert_source_kind_name(sqlparser_insert_source_kind_t kind);
 const char *sqlparser_value_kind_name(sqlparser_value_kind_t kind);
@@ -476,33 +571,73 @@ sqlparser_status_t sqlparser_selector_set_insert_cell_sql(
 	const char *sql_text,
 	sqlparser_error_t *out_error);
 
-sqlparser_status_t sqlparser_export_parse_tree_json(
+sqlparser_status_t sqlparser_get_view(
+	const sqlparser_handle_t *handle,
+	sqlparser_view_t *out_view,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_view_statement_at(
+	const sqlparser_view_t *view,
+	size_t statement_index,
+	sqlparser_statement_view_t *out_statement,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_statement_keyword_at(
+	const sqlparser_statement_view_t *statement,
+	size_t keyword_index,
+	const char **out_keyword,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_statement_object_at(
+	const sqlparser_statement_view_t *statement,
+	size_t object_index,
+	sqlparser_object_view_t *out_object,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_object_column_at(
+	const sqlparser_object_view_t *object,
+	size_t column_index,
+	sqlparser_column_view_t *out_column,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_column_value_at(
+	const sqlparser_column_view_t *column,
+	size_t value_index,
+	sqlparser_value_view_t *out_value,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_object_row_at(
+	const sqlparser_object_view_t *object,
+	size_t row_index,
+	sqlparser_row_view_t *out_row,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_row_cell_at(
+	const sqlparser_row_view_t *row,
+	size_t cell_index,
+	sqlparser_cell_view_t *out_cell,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_value_sql(
+	const sqlparser_handle_t *handle,
+	const sqlparser_value_view_t *value,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_cell_sql(
+	const sqlparser_cell_view_t *cell,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_export_view_json(
 	const sqlparser_handle_t *handle,
 	int pretty,
 	char **out_json,
 	sqlparser_error_t *out_error);
 
-sqlparser_status_t sqlparser_export_summary_json(
-	const sqlparser_handle_t *handle,
-	int pretty,
-	char **out_json,
-	sqlparser_error_t *out_error);
-
-sqlparser_status_t sqlparser_export_model_json(
-	const sqlparser_handle_t *handle,
-	int pretty,
-	char **out_json,
-	sqlparser_error_t *out_error);
-
-sqlparser_status_t sqlparser_apply_model_json(
+sqlparser_status_t sqlparser_apply_patch(
 	sqlparser_handle_t *handle,
-	const char *json_text,
-	sqlparser_error_t *out_error);
-
-sqlparser_status_t sqlparser_apply_model_json_with_limits(
-	sqlparser_handle_t *handle,
-	const char *json_text,
-	const sqlparser_limits_t *limits,
+	const sqlparser_patch_list_t *patches,
 	sqlparser_error_t *out_error);
 
 sqlparser_status_t sqlparser_deparse(

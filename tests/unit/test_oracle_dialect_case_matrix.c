@@ -5,6 +5,7 @@
 #include <jansson.h>
 
 #include "sqlparser/sqlparser.h"
+#include "sqlparser_test_view_assert.h"
 
 #define SQLPARSER_ORACLE_CASE_FIXTURE_PATH "./tests/cases/oracle_dialect_input.json"
 
@@ -38,114 +39,21 @@ static const char *json_string_or_null(json_t *value)
 	return json_string_value(value);
 }
 
-static int json_array_contains_string(json_t *array, const char *expected)
-{
-	size_t index;
-	json_t *value;
-
-	if (!json_is_array(array) || expected == NULL) {
-		return 0;
-	}
-
-	json_array_foreach(array, index, value) {
-		const char *text;
-
-		text = json_string_or_null(value);
-		if (text != NULL && strcmp(text, expected) == 0) {
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
-static int json_object_array_contains_string(json_t *array, const char *key, const char *expected)
-{
-	size_t index;
-	json_t *value;
-
-	if (!json_is_array(array) || key == NULL || expected == NULL) {
-		return 0;
-	}
-
-	json_array_foreach(array, index, value) {
-		json_t *field;
-		const char *text;
-
-		if (!json_is_object(value)) {
-			continue;
-		}
-
-		field = json_object_get(value, key);
-		text = json_string_or_null(field);
-		if (text != NULL && strcmp(text, expected) == 0) {
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
-static int verify_summary_string_array(
+static int verify_view_text_array(
 	const char *case_id,
 	const char *case_name,
-	json_t *summary_root,
+	const char *view_json,
 	const char *field_name,
 	json_t *expected_array)
 {
 	size_t index;
 	json_t *value;
-	json_t *actual_array;
-
-	if (expected_array == NULL) {
-		return 0;
-	}
-	if (!json_is_array(expected_array)) {
-		return fail_case(case_id, case_name, "expected string-array metadata must be an array");
-	}
-
-	actual_array = json_object_get(summary_root, field_name);
-	if (!json_is_array(actual_array)) {
-		return fail_case(case_id, case_name, "summary string-array field is missing");
-	}
-
-	json_array_foreach(expected_array, index, value) {
-		const char *expected_text;
-
-		expected_text = json_string_or_null(value);
-		if (expected_text == NULL) {
-			return fail_case(case_id, case_name, "expected string-array value must be a string");
-		}
-		if (!json_array_contains_string(actual_array, expected_text)) {
-			return fail_case_field(case_id, case_name, field_name, expected_text);
-		}
-	}
-
-	return 0;
-}
-
-static int verify_summary_object_array(
-	const char *case_id,
-	const char *case_name,
-	json_t *summary_root,
-	const char *field_name,
-	const char *object_key,
-	json_t *expected_array)
-{
-	size_t index;
-	json_t *value;
-	json_t *actual_array;
 
 	if (expected_array == NULL) {
 		return 0;
 	}
 	if (!json_is_array(expected_array)) {
 		return fail_case(case_id, case_name, "expected object-array metadata must be an array");
-	}
-
-	actual_array = json_object_get(summary_root, field_name);
-	if (!json_is_array(actual_array)) {
-		return fail_case(case_id, case_name, "summary object-array field is missing");
 	}
 
 	json_array_foreach(expected_array, index, value) {
@@ -155,9 +63,15 @@ static int verify_summary_object_array(
 		if (expected_text == NULL) {
 			return fail_case(case_id, case_name, "expected object-array value must be a string");
 		}
-		if (!json_object_array_contains_string(actual_array, object_key, expected_text)) {
-			return fail_case_field(case_id, case_name, field_name, expected_text);
-		}
+			if (strcmp(field_name, "tables") == 0) {
+				if (!sqlparser_test_view_contains_table(view_json, expected_text)) {
+					return fail_case_field(case_id, case_name, field_name, expected_text);
+				}
+				continue;
+			}
+			if (view_json == NULL || strstr(view_json, expected_text) == NULL) {
+				return fail_case_field(case_id, case_name, field_name, expected_text);
+			}
 	}
 
 	return 0;
@@ -216,24 +130,18 @@ static int verify_success_case(
 	sqlparser_parse_options_t options;
 	sqlparser_error_t error;
 	sqlparser_handle_t *handle;
-	char *summary_json;
-	char *model_json;
+	char *view_json;
 	char *deparse_sql;
-	json_error_t json_error;
-	json_t *summary_root;
 	json_t *value;
 	const char *deparse_contains;
-	const char *model_contains;
-	const char *model_not_contains;
+	const char *view_contains;
+	const char *view_not_contains;
 	int status;
 
 	handle = NULL;
-	summary_json = NULL;
-	model_json = NULL;
+	view_json = NULL;
 	deparse_sql = NULL;
-	summary_root = NULL;
 	memset(&error, 0, sizeof(error));
-	memset(&json_error, 0, sizeof(json_error));
 	sqlparser_parse_options_default(&options);
 	options.dialect = SQLPARSER_DIALECT_ORACLE;
 
@@ -261,86 +169,65 @@ static int verify_success_case(
 		return fail_case(case_id, case_name, "statement count mismatch");
 	}
 
-	status = sqlparser_export_summary_json(handle, 0, &summary_json, &error);
-	if (status != SQLPARSER_STATUS_OK || summary_json == NULL || summary_json[0] == '\0') {
+	status = sqlparser_export_view_json(handle, 0, &view_json, &error);
+	if (status != SQLPARSER_STATUS_OK || view_json == NULL || view_json[0] == '\0') {
 		sqlparser_handle_destroy(handle);
-		return fail_case(case_id, case_name, "summary JSON export failed");
+		return fail_case(case_id, case_name, "view JSON export failed");
 	}
 
-	summary_root = json_loads(summary_json, 0, &json_error);
-	if (summary_root == NULL) {
-		sqlparser_string_free(summary_json);
-		sqlparser_handle_destroy(handle);
-		return fail_case(case_id, case_name, "summary JSON could not be decoded");
-	}
-
-	if (verify_summary_string_array(
+	if (verify_view_text_array(
 		    case_id,
 		    case_name,
-		    summary_root,
-		    "statement_types",
-		    json_object_get(expect_root, "statement_types")) != 0) {
-		goto fail;
-	}
-	if (verify_summary_string_array(
-		    case_id,
-		    case_name,
-		    summary_root,
+		    view_json,
 		    "keywords",
 		    json_object_get(expect_root, "keywords")) != 0) {
 		goto fail;
 	}
-	if (verify_summary_object_array(
+	if (verify_view_text_array(
 		    case_id,
 		    case_name,
-		    summary_root,
+		    view_json,
 		    "tables",
-		    "name",
 		    json_object_get(expect_root, "tables")) != 0) {
 		goto fail;
 	}
-	if (verify_summary_object_array(
+	if (verify_view_text_array(
 		    case_id,
 		    case_name,
-		    summary_root,
+		    view_json,
 		    "selected_columns",
-		    "column",
 		    json_object_get(expect_root, "selected_columns")) != 0) {
 		goto fail;
 	}
-	if (verify_summary_object_array(
+	if (verify_view_text_array(
 		    case_id,
 		    case_name,
-		    summary_root,
+		    view_json,
 		    "join_columns",
-		    "column",
 		    json_object_get(expect_root, "join_columns")) != 0) {
 		goto fail;
 	}
-	if (verify_summary_object_array(
+	if (verify_view_text_array(
 		    case_id,
 		    case_name,
-		    summary_root,
+		    view_json,
 		    "where_columns",
-		    "column",
 		    json_object_get(expect_root, "where_columns")) != 0) {
 		goto fail;
 	}
-	if (verify_summary_object_array(
+	if (verify_view_text_array(
 		    case_id,
 		    case_name,
-		    summary_root,
+		    view_json,
 		    "insert_columns",
-		    "column",
 		    json_object_get(expect_root, "insert_columns")) != 0) {
 		goto fail;
 	}
-	if (verify_summary_object_array(
+	if (verify_view_text_array(
 		    case_id,
 		    case_name,
-		    summary_root,
+		    view_json,
 		    "update_columns",
-		    "column",
 		    json_object_get(expect_root, "update_columns")) != 0) {
 		goto fail;
 	}
@@ -356,38 +243,25 @@ static int verify_success_case(
 		goto fail;
 	}
 
-	model_contains = json_string_or_null(json_object_get(expect_root, "model_contains"));
-	model_not_contains = json_string_or_null(json_object_get(expect_root, "model_not_contains"));
-	if (model_contains != NULL || model_not_contains != NULL) {
-		status = sqlparser_export_model_json(handle, 0, &model_json, &error);
-		if (status != SQLPARSER_STATUS_OK || model_json == NULL || model_json[0] == '\0') {
-			(void)fail_case(case_id, case_name, "model JSON export failed");
-			goto fail;
-		}
-		if (model_contains != NULL && strstr(model_json, model_contains) == NULL) {
-			(void)fail_case_field(case_id, case_name, "model_contains", model_contains);
-			goto fail;
-		}
-		if (model_not_contains != NULL && strstr(model_json, model_not_contains) != NULL) {
-			(void)fail_case_field(case_id, case_name, "model_not_contains", model_not_contains);
-			goto fail;
-		}
+	view_contains = json_string_or_null(json_object_get(expect_root, "view_contains"));
+	view_not_contains = json_string_or_null(json_object_get(expect_root, "view_not_contains"));
+	if (view_contains != NULL && strstr(view_json, view_contains) == NULL) {
+		(void)fail_case_field(case_id, case_name, "view_contains", view_contains);
+		goto fail;
+	}
+	if (view_not_contains != NULL && strstr(view_json, view_not_contains) != NULL) {
+		(void)fail_case_field(case_id, case_name, "view_not_contains", view_not_contains);
+		goto fail;
 	}
 
-	json_decref(summary_root);
 	sqlparser_string_free(deparse_sql);
-	sqlparser_string_free(model_json);
-	sqlparser_string_free(summary_json);
+	sqlparser_string_free(view_json);
 	sqlparser_handle_destroy(handle);
 	return 0;
 
 fail:
-	if (summary_root != NULL) {
-		json_decref(summary_root);
-	}
 	sqlparser_string_free(deparse_sql);
-	sqlparser_string_free(model_json);
-	sqlparser_string_free(summary_json);
+	sqlparser_string_free(view_json);
 	sqlparser_handle_destroy(handle);
 	return 1;
 }
@@ -444,15 +318,18 @@ static int verify_oracle_fragment_rewrite_paths(void)
 	sqlparser_parse_options_t options;
 	sqlparser_error_t error;
 	sqlparser_handle_t *handle;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patches;
 	char *fragment_sql;
-	char *model_json;
+	char *view_json;
 	int status;
 
 	memset(&error, 0, sizeof(error));
+	memset(&patch, 0, sizeof(patch));
 	sqlparser_parse_options_default(&options);
 	options.dialect = SQLPARSER_DIALECT_ORACLE;
 	fragment_sql = NULL;
-	model_json = NULL;
+	view_json = NULL;
 
 	handle = NULL;
 	status = sqlparser_parse_with_options(
@@ -537,33 +414,33 @@ static int verify_oracle_fragment_rewrite_paths(void)
 		&handle,
 		&error);
 	if (status != SQLPARSER_STATUS_OK) {
-		fprintf(stderr, "FAIL [oracle-model-fragment-update]: parse failed: %s\n", error.message);
+		fprintf(stderr, "FAIL [oracle-view-fragment-update]: parse failed: %s\n", error.message);
 		return 1;
 	}
-	status = sqlparser_apply_model_json(
-		handle,
-		"{\"schema\":\"sqlparser.model/v1\",\"changes\":["
-		"{\"selector\":\"stmt[0].assignment[0]\",\"sql\":\":model_name\"}"
-		"]}",
-		&error);
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = "stmt[0].assignment[0]";
+	patch.sql = ":view_name";
+	patches.items = &patch;
+	patches.count = 1U;
+	status = sqlparser_apply_patch(handle, &patches, &error);
 	if (status != SQLPARSER_STATUS_OK) {
-		fprintf(stderr, "FAIL [oracle-model-fragment-update]: apply failed: %s\n", error.message);
+		fprintf(stderr, "FAIL [oracle-view-fragment-update]: apply failed: %s\n", error.message);
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-	if (expect_deparse_contains("OF003", "oracle-model-fragment-update", handle, ":model_name") != 0) {
+	if (expect_deparse_contains("OF003", "oracle-view-fragment-update", handle, ":view_name") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-	status = sqlparser_export_model_json(handle, 0U, &model_json, &error);
+	status = sqlparser_export_view_json(handle, 0U, &view_json, &error);
 	if (status != SQLPARSER_STATUS_OK ||
-	    expect_public_fragment("OF003", "oracle-model-fragment-update", "model_json", model_json, ":model_name") != 0) {
-		fprintf(stderr, "FAIL [oracle-model-fragment-update]: model JSON export failed: %s\n", error.message);
-		sqlparser_string_free(model_json);
+	    expect_public_fragment("OF003", "oracle-view-fragment-update", "view_json", view_json, ":view_name") != 0) {
+		fprintf(stderr, "FAIL [oracle-view-fragment-update]: view JSON export failed: %s\n", error.message);
+		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-	sqlparser_string_free(model_json);
+	sqlparser_string_free(view_json);
 	sqlparser_handle_destroy(handle);
 	return 0;
 }

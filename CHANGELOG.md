@@ -1,6 +1,6 @@
 # 变更记录
 
-## 0.2.0-dev
+## 0.2.0
 
 ### 核心能力
 
@@ -8,9 +8,11 @@
 - 支持 `SELECT / INSERT / UPDATE / DELETE / MERGE / TRANSACTION / 常见 DDL` 的解析与结构读取
 - 支持关系名、名称原子、字面量、`WHERE` 字面量、`UPDATE assignment` 和 `INSERT cell` 的精确改写
 - 支持右值表达式级改写，包括 `DEFAULT` 与任意表达式 SQL
-- 支持 `parse tree JSON`、`summary JSON` 与稳定模型 JSON 的导出与导入
-- 支持可配置资源限制，覆盖 SQL 输入、模型 JSON 输入、生成输出和语句数量
-- 增加方言公共框架，默认 PostgreSQL，并提供 MySQL 与 Oracle 方言转换层
+- 支持 SQL View JSON、SQL View C 结构化遍历和 structured patch 写回
+- 提供 SQL View JSON 作为按需诊断导出
+- 支持可配置资源限制，覆盖 SQL 输入、表达式 SQL 片段、生成输出和语句数量
+- 增加方言公共框架，默认 PostgreSQL，并提供 MySQL、Oracle 与 SQL Server 方言转换层
+- 收敛默认输出上限到 4MB，并减少 parse/deparse 路径中的常驻 AST 和字符串拷贝
 
 ### 发布与构建
 
@@ -30,13 +32,14 @@
 - 扩充通用 SQL 批量夹具，覆盖子查询、`CASE`、窗口、`ON CONFLICT`、`RETURNING`、`UPDATE ... FROM`、`DELETE ... USING`、`MERGE`、事务控制、常见 DDL、`GRANT/REVOKE` 与维护语句
 - 增加 MySQL 方言用例矩阵，覆盖已支持语句形态和明确不支持语法
 - 增加 Oracle 方言用例矩阵，覆盖已支持语句形态、公共输出规则和明确不支持语法
+- 增加 SQL Server 方言用例矩阵，覆盖已支持 T-SQL 语句形态、公共输出规则和明确不支持语法
 - 增加安装态 API 烟测、`valgrind` 泄漏校验与表达式改写回归
 - 增加稳定性回归，覆盖畸形 SQL、参数校验、资源限制和失败改写回滚
 - benchmark 增加读取链路、改写链路与 `rewrite + deparse` 单次调用统计
-- 增加按能力分类的测试入口，覆盖 parse、inspect、rewrite、deparse、model JSON、CLI、install smoke 和 ABI
+- 增加按能力分类的测试入口，覆盖 parse、inspect、rewrite、deparse、SQL View JSON、CLI、install smoke 和 ABI
 
 ### 文档
 
-- 提供中英文快速开始、API 手册、模型 JSON 手册、CLI 手册与架构文档
-- 增加 Oracle 方言支持说明和 `v0.2.0-dev` 发布说明
-- 增加兼容性策略与公开变更记录
+- 提供中英文快速开始、API 手册、SQL View JSON 手册、CLI 手册与架构文档
+- 增加 Oracle、SQL Server 方言支持说明和 `v0.2.0` 发布说明
+- 增加公开变更记录

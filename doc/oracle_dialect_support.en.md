@@ -56,10 +56,10 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
   internal conversion details.
 - Oracle binds remain in `:name` or `:1` form; internal `$1` / `$2` names are
   not emitted.
-- `MINUS` remains visible as the Oracle semantic keyword in summary and deparse
-  output.
-- Model JSON `source_sql`, `current_sql`, and expression fragments use the
-  public Oracle form.
+- `MINUS` remains visible as the Oracle semantic keyword in SQL View JSON and
+  deparse output.
+- Attributable expression fragments in SQL View JSON use the public Oracle
+  form.
 - Failed expression-fragment rewrites are not committed to the handle; the
   previous AST, bind mapping, and deparse output remain usable.
 

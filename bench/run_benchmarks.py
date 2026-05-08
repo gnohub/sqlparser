@@ -30,10 +30,8 @@ FULL_API_REPEAT = 3
 SMOKE_API_REPEAT = 1
 
 API_CASES = [
-    {"section": "read", "mode": "native-summary", "workload": "insert-values"},
     {"section": "read", "mode": "native-deparse", "workload": "insert-values"},
-    {"section": "read", "mode": "sqlparser-parse-tree-json", "workload": "insert-values"},
-    {"section": "read", "mode": "sqlparser-summary-json", "workload": "insert-values"},
+    {"section": "read", "mode": "sqlparser-view-json", "workload": "insert-values"},
     {"section": "read", "mode": "sqlparser-deparse", "workload": "insert-values"},
     {"section": "rewrite", "mode": "sqlparser-update-assignment-literal", "workload": "update-where"},
     {"section": "rewrite", "mode": "sqlparser-update-assignment-sql", "workload": "update-where"},

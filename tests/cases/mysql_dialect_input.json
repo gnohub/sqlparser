@@ -47,7 +47,7 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["InsertStmt", "SelectStmt"],
+        "statement_types": ["InsertStmt"],
         "tables": ["users"],
         "insert_columns": ["id", "name"],
         "deparse_contains": "VALUES (1, 'bob'), (2, 'alice')"
@@ -60,7 +60,7 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["InsertStmt", "SelectStmt"],
+        "statement_types": ["InsertStmt"],
         "tables": ["archive_users", "users"],
         "selected_columns": ["id", "name"],
         "where_columns": ["status"],
@@ -124,7 +124,7 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["ViewStmt", "SelectStmt"],
+        "statement_types": ["ViewStmt"],
         "tables": ["v_users", "users"],
         "selected_columns": ["id", "name"],
         "deparse_contains": "CREATE VIEW v_users AS"
@@ -151,6 +151,31 @@
         "statement_count": 2,
         "statement_types": ["TransactionStmt"],
         "deparse_contains": "COMMIT"
+      }
+    },
+    {
+      "id": "M013",
+      "name": "mysql-unsupported-keywords-in-string",
+      "sql": "SELECT 'INSERT IGNORE' AS msg FROM `users`",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "deparse_contains": "'INSERT IGNORE'"
+      }
+    },
+    {
+      "id": "M014",
+      "name": "mysql-unsupported-keywords-in-comment",
+      "sql": "SELECT `id` FROM `users` /* ON DUPLICATE KEY UPDATE */ WHERE `id` = 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "where_columns": ["id"],
+        "deparse_contains": "WHERE id = 1"
       }
     },
     {

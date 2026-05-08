@@ -139,6 +139,10 @@ sqlparser_status_t sqlparser_selector_parse(
 		offset += 7U;
 		out_selector->kind = SQLPARSER_SELECTOR_KIND_LITERAL;
 		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
+	} else if (strncmp(text + offset, "value", 5) == 0) {
+		offset += 5U;
+		out_selector->kind = SQLPARSER_SELECTOR_KIND_VALUE;
+		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
 	} else if (strncmp(text + offset, "where_literal", 13) == 0) {
 		offset += 13U;
 		out_selector->kind = SQLPARSER_SELECTOR_KIND_WHERE_LITERAL;
@@ -158,6 +162,14 @@ sqlparser_status_t sqlparser_selector_parse(
 				&out_selector->column_index,
 				out_error);
 		}
+	} else if (strncmp(text + offset, "insert_columns", 14) == 0) {
+		offset += 14U;
+		out_selector->kind = SQLPARSER_SELECTOR_KIND_INSERT_COLUMNS;
+		status = SQLPARSER_STATUS_OK;
+	} else if (strncmp(text + offset, "insert_row", 10) == 0) {
+		offset += 10U;
+		out_selector->kind = SQLPARSER_SELECTOR_KIND_INSERT_ROW;
+		status = sqlparser_selector_parse_index(text, &offset, &out_selector->row_index, out_error);
 	} else {
 		sqlparser_error_set_message(
 			out_error,
@@ -231,6 +243,14 @@ sqlparser_status_t sqlparser_selector_format(
 				(unsigned long)selector->statement_index,
 				(unsigned long)selector->item_index);
 			break;
+		case SQLPARSER_SELECTOR_KIND_VALUE:
+			length = snprintf(
+				buffer,
+				sizeof(buffer),
+				"stmt[%lu].value[%lu]",
+				(unsigned long)selector->statement_index,
+				(unsigned long)selector->item_index);
+			break;
 		case SQLPARSER_SELECTOR_KIND_WHERE_LITERAL:
 			length = snprintf(
 				buffer,
@@ -255,6 +275,21 @@ sqlparser_status_t sqlparser_selector_format(
 				(unsigned long)selector->statement_index,
 				(unsigned long)selector->row_index,
 				(unsigned long)selector->column_index);
+			break;
+		case SQLPARSER_SELECTOR_KIND_INSERT_COLUMNS:
+			length = snprintf(
+				buffer,
+				sizeof(buffer),
+				"stmt[%lu].insert_columns",
+				(unsigned long)selector->statement_index);
+			break;
+		case SQLPARSER_SELECTOR_KIND_INSERT_ROW:
+			length = snprintf(
+				buffer,
+				sizeof(buffer),
+				"stmt[%lu].insert_row[%lu]",
+				(unsigned long)selector->statement_index,
+				(unsigned long)selector->row_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_UNKNOWN:
 		default:

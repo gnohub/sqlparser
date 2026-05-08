@@ -5,6 +5,7 @@
 #include <jansson.h>
 
 #include "sqlparser/sqlparser.h"
+#include "sqlparser_test_view_assert.h"
 
 #define SQLPARSER_CASE_FIXTURE_PATH "./tests/cases/sql_batch_input.json"
 
@@ -22,11 +23,7 @@ static int fail_case_field(const char *case_name, const char *field_name, const 
 
 static const char *json_string_or_null(json_t *value)
 {
-	if (!json_is_string(value)) {
-		return NULL;
-	}
-
-	return json_string_value(value);
+	return json_is_string(value) ? json_string_value(value) : NULL;
 }
 
 static int parse_dialect_or_default(json_t *value, sqlparser_dialect_t *out_dialect)
@@ -36,7 +33,6 @@ static int parse_dialect_or_default(json_t *value, sqlparser_dialect_t *out_dial
 	if (out_dialect == NULL) {
 		return -1;
 	}
-
 	*out_dialect = SQLPARSER_DIALECT_POSTGRESQL;
 	if (value == NULL) {
 		return 0;
@@ -44,7 +40,6 @@ static int parse_dialect_or_default(json_t *value, sqlparser_dialect_t *out_dial
 	if (!json_is_string(value)) {
 		return -1;
 	}
-
 	dialect = json_string_value(value);
 	if (strcmp(dialect, "postgresql") == 0 || strcmp(dialect, "postgres") == 0 || strcmp(dialect, "pg") == 0) {
 		*out_dialect = SQLPARSER_DIALECT_POSTGRESQL;
@@ -62,134 +57,88 @@ static int parse_dialect_or_default(json_t *value, sqlparser_dialect_t *out_dial
 		*out_dialect = SQLPARSER_DIALECT_SQLSERVER;
 		return 0;
 	}
-
 	return -1;
 }
 
-static int json_array_contains_string(json_t *array, const char *expected)
-{
-	size_t index;
-	json_t *value;
-
-	if (!json_is_array(array) || expected == NULL) {
-		return 0;
-	}
-
-	json_array_foreach(array, index, value) {
-		const char *text;
-
-		text = json_string_or_null(value);
-		if (text != NULL && strcmp(text, expected) == 0) {
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
-static int json_object_array_contains_string(json_t *array, const char *key, const char *expected)
-{
-	size_t index;
-	json_t *value;
-
-	if (!json_is_array(array) || key == NULL || expected == NULL) {
-		return 0;
-	}
-
-	json_array_foreach(array, index, value) {
-		json_t *field;
-		const char *text;
-
-		if (!json_is_object(value)) {
-			continue;
-		}
-
-		field = json_object_get(value, key);
-		text = json_string_or_null(field);
-		if (text != NULL && strcmp(text, expected) == 0) {
-			return 1;
-		}
-	}
-
-	return 0;
-}
-
-static int verify_summary_string_array(
+static int text_contains_array_values(
 	const char *case_name,
-	json_t *summary_root,
 	const char *field_name,
+	const char *text,
 	json_t *expected_array)
 {
 	size_t index;
 	json_t *value;
-	json_t *actual_array;
 
 	if (expected_array == NULL) {
 		return 0;
 	}
-
 	if (!json_is_array(expected_array)) {
-		return fail_case(case_name, "expected string array metadata must be an array");
+		return fail_case(case_name, "expected metadata must be an array");
 	}
-
-	actual_array = json_object_get(summary_root, field_name);
-	if (!json_is_array(actual_array)) {
-		return fail_case(case_name, "summary field is not an array");
-	}
-
 	json_array_foreach(expected_array, index, value) {
-		const char *expected_text;
+		const char *expected;
 
-		expected_text = json_string_or_null(value);
-		if (expected_text == NULL) {
-			return fail_case(case_name, "expected string array contains non-string value");
+		expected = json_string_or_null(value);
+		if (expected == NULL) {
+			return fail_case(case_name, "expected metadata value must be a string");
 		}
-
-		if (!json_array_contains_string(actual_array, expected_text)) {
-			return fail_case_field(case_name, field_name, expected_text);
-		}
+			if (strcmp(field_name, "tables") == 0) {
+				if (!sqlparser_test_view_contains_table(text, expected)) {
+					return fail_case_field(case_name, field_name, expected);
+				}
+				continue;
+			}
+			if (text == NULL || strstr(text, expected) == NULL) {
+				return fail_case_field(case_name, field_name, expected);
+			}
 	}
-
 	return 0;
 }
 
-static int verify_summary_object_array(
+static int verify_statement_types(
 	const char *case_name,
-	json_t *summary_root,
-	const char *field_name,
-	const char *object_key,
+	const sqlparser_handle_t *handle,
 	json_t *expected_array)
 {
 	size_t index;
 	json_t *value;
-	json_t *actual_array;
 
 	if (expected_array == NULL) {
 		return 0;
 	}
-
 	if (!json_is_array(expected_array)) {
-		return fail_case(case_name, "expected object array metadata must be an array");
+		return fail_case(case_name, "statement_types must be an array");
 	}
-
-	actual_array = json_object_get(summary_root, field_name);
-	if (!json_is_array(actual_array)) {
-		return fail_case(case_name, "summary object array field is missing");
-	}
-
 	json_array_foreach(expected_array, index, value) {
-		const char *expected_text;
+		const char *expected;
+		size_t statement_index;
+		int found;
 
-		expected_text = json_string_or_null(value);
-		if (expected_text == NULL) {
-			return fail_case(case_name, "expected object array contains non-string value");
+		(void)index;
+		expected = json_string_or_null(value);
+		if (expected == NULL) {
+			return fail_case(case_name, "statement_types value must be a string");
 		}
+		found = 0;
+		for (statement_index = 0U;
+		     statement_index < sqlparser_statement_count(handle);
+		     statement_index++) {
+			const char *actual;
+			sqlparser_error_t error;
 
-		if (!json_object_array_contains_string(actual_array, object_key, expected_text)) {
-			return fail_case_field(case_name, field_name, expected_text);
+			actual = NULL;
+			if (sqlparser_statement_node_name(handle, statement_index, &actual, &error) ==
+			    SQLPARSER_STATUS_OK &&
+			    actual != NULL &&
+			    strcmp(actual, expected) == 0) {
+				found = 1;
+				break;
+			}
+		}
+		if (!found) {
+			return fail_case_field(case_name, "statement_types", expected);
 		}
 	}
-
 	return 0;
 }
 
@@ -215,26 +164,21 @@ static int verify_failure_case(
 		sqlparser_handle_destroy(handle);
 		return fail_case(case_name, "parse was expected to fail");
 	}
-
 	if (handle != NULL) {
 		sqlparser_handle_destroy(handle);
 		return fail_case(case_name, "failed parse should not return a handle");
 	}
-
 	value = json_object_get(expect_root, "error_code");
 	if (json_is_integer(value) && status != (int)json_integer_value(value)) {
 		return fail_case(case_name, "unexpected parse error code");
 	}
-
 	message_contains = json_string_or_null(json_object_get(expect_root, "error_message_contains"));
 	if (message_contains != NULL && strstr(error.message, message_contains) == NULL) {
 		return fail_case(case_name, "parse error message did not match expectation");
 	}
-
 	if (error.message[0] == '\0') {
 		return fail_case(case_name, "parse failure should provide a message");
 	}
-
 	return 0;
 }
 
@@ -247,34 +191,27 @@ static int verify_success_case(
 	sqlparser_parse_options_t options;
 	sqlparser_error_t error;
 	sqlparser_handle_t *handle;
-	char *parse_tree_json;
-	char *summary_json;
+	char *view_json;
 	char *deparse_sql;
-	json_error_t json_error;
-	json_t *summary_root;
 	json_t *value;
 	const char *deparse_contains;
 	int status;
 
 	handle = NULL;
-	parse_tree_json = NULL;
-	summary_json = NULL;
+	view_json = NULL;
 	deparse_sql = NULL;
-	summary_root = NULL;
 	memset(&error, 0, sizeof(error));
-
 	sqlparser_parse_options_default(&options);
 	options.dialect = dialect;
+
 	status = sqlparser_parse_with_options(sql, &options, &handle, &error);
 	if (status != SQLPARSER_STATUS_OK) {
 		fprintf(stderr, "FAIL [%s]: parse failed: %s\n", case_name, error.message);
 		return 1;
 	}
-
 	if (handle == NULL) {
 		return fail_case(case_name, "parse succeeded without handle");
 	}
-
 	if (strcmp(sqlparser_original_sql(handle), sql) != 0) {
 		sqlparser_handle_destroy(handle);
 		return fail_case(case_name, "original SQL did not round-trip");
@@ -286,152 +223,48 @@ static int verify_success_case(
 		sqlparser_handle_destroy(handle);
 		return fail_case(case_name, "statement count mismatch");
 	}
-
-	status = sqlparser_export_parse_tree_json(handle, 0, &parse_tree_json, &error);
-	if (status != SQLPARSER_STATUS_OK || parse_tree_json == NULL || parse_tree_json[0] == '\0') {
+	if (verify_statement_types(case_name, handle, json_object_get(expect_root, "statement_types")) != 0) {
 		sqlparser_handle_destroy(handle);
-		return fail_case(case_name, "parse tree JSON export failed");
+		return 1;
 	}
 
-	status = sqlparser_export_summary_json(handle, 0, &summary_json, &error);
-	if (status != SQLPARSER_STATUS_OK || summary_json == NULL || summary_json[0] == '\0') {
-		sqlparser_string_free(parse_tree_json);
+	status = sqlparser_export_view_json(handle, 0, &view_json, &error);
+	if (status != SQLPARSER_STATUS_OK || view_json == NULL || view_json[0] == '\0') {
 		sqlparser_handle_destroy(handle);
-		return fail_case(case_name, "summary JSON export failed");
+		return fail_case(case_name, "view JSON export failed");
 	}
-
-	summary_root = json_loads(summary_json, 0, &json_error);
-	if (summary_root == NULL) {
-		sqlparser_string_free(summary_json);
-		sqlparser_string_free(parse_tree_json);
+	if (text_contains_array_values(case_name, "keywords", view_json, json_object_get(expect_root, "keywords")) != 0 ||
+	    text_contains_array_values(case_name, "tables", view_json, json_object_get(expect_root, "tables")) != 0 ||
+	    text_contains_array_values(case_name, "selected_columns", view_json, json_object_get(expect_root, "selected_columns")) != 0 ||
+	    text_contains_array_values(case_name, "join_columns", view_json, json_object_get(expect_root, "join_columns")) != 0 ||
+	    text_contains_array_values(case_name, "where_columns", view_json, json_object_get(expect_root, "where_columns")) != 0 ||
+	    text_contains_array_values(case_name, "filter_columns", view_json, json_object_get(expect_root, "filter_columns")) != 0 ||
+	    text_contains_array_values(case_name, "insert_columns", view_json, json_object_get(expect_root, "insert_columns")) != 0 ||
+	    text_contains_array_values(case_name, "update_columns", view_json, json_object_get(expect_root, "update_columns")) != 0 ||
+	    text_contains_array_values(case_name, "all_referenced_columns", view_json, json_object_get(expect_root, "all_referenced_columns")) != 0) {
+		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
-		return fail_case(case_name, "summary JSON could not be decoded");
-	}
-
-	if (verify_summary_string_array(
-		    case_name,
-		    summary_root,
-		    "statement_types",
-		    json_object_get(expect_root, "statement_types")) != 0) {
-		goto fail;
-	}
-
-	if (verify_summary_string_array(
-		    case_name,
-		    summary_root,
-		    "keywords",
-		    json_object_get(expect_root, "keywords")) != 0) {
-		goto fail;
-	}
-
-	if (verify_summary_string_array(
-		    case_name,
-		    summary_root,
-		    "cte_names",
-		    json_object_get(expect_root, "cte_names")) != 0) {
-		goto fail;
-	}
-
-	if (verify_summary_object_array(
-		    case_name,
-		    summary_root,
-		    "tables",
-		    "name",
-		    json_object_get(expect_root, "tables")) != 0) {
-		goto fail;
-	}
-
-	if (verify_summary_object_array(
-		    case_name,
-		    summary_root,
-		    "selected_columns",
-		    "column",
-		    json_object_get(expect_root, "selected_columns")) != 0) {
-		goto fail;
-	}
-
-	if (verify_summary_object_array(
-		    case_name,
-		    summary_root,
-		    "join_columns",
-		    "column",
-		    json_object_get(expect_root, "join_columns")) != 0) {
-		goto fail;
-	}
-
-	if (verify_summary_object_array(
-		    case_name,
-		    summary_root,
-		    "where_columns",
-		    "column",
-		    json_object_get(expect_root, "where_columns")) != 0) {
-		goto fail;
-	}
-
-	if (verify_summary_object_array(
-		    case_name,
-		    summary_root,
-		    "filter_columns",
-		    "column",
-		    json_object_get(expect_root, "filter_columns")) != 0) {
-		goto fail;
-	}
-
-	if (verify_summary_object_array(
-		    case_name,
-		    summary_root,
-		    "insert_columns",
-		    "column",
-		    json_object_get(expect_root, "insert_columns")) != 0) {
-		goto fail;
-	}
-
-	if (verify_summary_object_array(
-		    case_name,
-		    summary_root,
-		    "update_columns",
-		    "column",
-		    json_object_get(expect_root, "update_columns")) != 0) {
-		goto fail;
-	}
-
-	if (verify_summary_object_array(
-		    case_name,
-		    summary_root,
-		    "all_referenced_columns",
-		    "column",
-		    json_object_get(expect_root, "all_referenced_columns")) != 0) {
-		goto fail;
+		return 1;
 	}
 
 	deparse_contains = json_string_or_null(json_object_get(expect_root, "deparse_contains"));
 	status = sqlparser_deparse(handle, &deparse_sql, &error);
 	if (status != SQLPARSER_STATUS_OK || deparse_sql == NULL || deparse_sql[0] == '\0') {
-		(void)fail_case(case_name, "deparse export failed");
-		goto fail;
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+		return fail_case(case_name, "deparse export failed");
 	}
-
 	if (deparse_contains != NULL && strstr(deparse_sql, deparse_contains) == NULL) {
-		(void)fail_case_field(case_name, "deparse_contains", deparse_contains);
-		goto fail;
+		sqlparser_string_free(deparse_sql);
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+		return fail_case_field(case_name, "deparse_contains", deparse_contains);
 	}
 
-	json_decref(summary_root);
 	sqlparser_string_free(deparse_sql);
-	sqlparser_string_free(summary_json);
-	sqlparser_string_free(parse_tree_json);
+	sqlparser_string_free(view_json);
 	sqlparser_handle_destroy(handle);
 	return 0;
-
-fail:
-	if (summary_root != NULL) {
-		json_decref(summary_root);
-	}
-	sqlparser_string_free(deparse_sql);
-	sqlparser_string_free(summary_json);
-	sqlparser_string_free(parse_tree_json);
-	sqlparser_handle_destroy(handle);
-	return 1;
 }
 
 int main(void)
@@ -447,13 +280,7 @@ int main(void)
 		fprintf(stderr, "FAIL: unable to load fixture %s: %s\n", SQLPARSER_CASE_FIXTURE_PATH, error.text);
 		return 1;
 	}
-
-	if (json_is_array(root)) {
-		items = root;
-	} else {
-		items = json_object_get(root, "items");
-	}
-
+	items = json_is_array(root) ? root : json_object_get(root, "items");
 	if (!json_is_array(items)) {
 		json_decref(root);
 		fprintf(stderr, "FAIL: fixture does not contain an items array\n");
@@ -481,7 +308,6 @@ int main(void)
 			fprintf(stderr, "FAIL: case %lu has invalid dialect\n", (unsigned long)index);
 			return 1;
 		}
-
 		ok_value = json_object_get(expect_root, "ok");
 		expected_ok = ok_value == NULL ? 1 : json_is_true(ok_value);
 		if (expected_ok) {

@@ -18,14 +18,16 @@ The `examples/` directory contains small programs built on top of the public hea
   Demonstrates DDL node inspection, name traversal, and object-name rewrite.
 - `examples/07_multi_statement_walk.c`
   Demonstrates traversal of multi-statement input.
-- `examples/08_model_roundtrip.c`
-  Demonstrates model JSON export, patch application, and SQL regeneration.
+- `examples/08_view_patch.c`
+  Demonstrates SQL View JSON export, structured patch application, and SQL regeneration.
 - `examples/09_expression_rewrite.c`
   Demonstrates reading and rewriting arbitrary `UPDATE` assignment expressions and `INSERT` cell expressions, including `DEFAULT`.
 - `examples/10_mysql_dialect.c`
   Demonstrates parsing MySQL SQL with explicit dialect options and rewriting an `INSERT ... VALUES` cell.
 - `examples/11_oracle_dialect.c`
-  Demonstrates parsing Oracle SQL with explicit dialect options, exporting summary JSON, and restoring Oracle bind placeholders during deparse.
+  Demonstrates parsing Oracle SQL with explicit dialect options, exporting SQL View JSON, and restoring Oracle bind placeholders during deparse.
+- `examples/12_sqlserver_dialect.c`
+  Demonstrates parsing SQL Server SQL with explicit dialect options, exporting SQL View JSON, and restoring SQL Server parameters and `TOP` during deparse.
 
 ## Build
 

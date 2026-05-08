@@ -153,6 +153,44 @@ static sqlparser_status_t sqlparser_oracle_buffer_finish(
 	return sqlparser_oracle_buffer_reserve(buffer, 0U, out_error);
 }
 
+static sqlparser_status_t sqlparser_oracle_buffer_reserve_input(
+	sqlparser_oracle_buffer_t *buffer,
+	const char *input,
+	sqlparser_error_t *out_error)
+{
+	char *next;
+	size_t input_len;
+	size_t required;
+
+	if (buffer == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"buffer must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	input_len = input != NULL ? strlen(input) : 0U;
+	if (input_len == (size_t)-1) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	required = input_len + 1U;
+	if (required <= buffer->capacity) {
+		return SQLPARSER_STATUS_OK;
+	}
+
+	next = (char *)realloc(buffer->data, required);
+	if (next == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+
+	buffer->data = next;
+	buffer->capacity = required;
+	buffer->data[buffer->len] = '\0';
+	return SQLPARSER_STATUS_OK;
+}
+
 static void sqlparser_oracle_state_destroy(void *state)
 {
 	sqlparser_oracle_state_t *oracle_state;
@@ -518,6 +556,82 @@ static int sqlparser_oracle_contains_phrase(const char *masked, const char *phra
 	return 0;
 }
 
+static int sqlparser_oracle_raw_contains_word_span(const char *sql, const char *word, size_t word_len)
+{
+	size_t pos;
+
+	if (sql == NULL || word == NULL || word_len == 0U) {
+		return 0;
+	}
+
+	for (pos = 0U; sql[pos] != '\0'; pos++) {
+		size_t index;
+
+		if (pos > 0U && sqlparser_oracle_is_ident_char((unsigned char)sql[pos - 1U])) {
+			continue;
+		}
+
+		for (index = 0U; index < word_len; index++) {
+			if (sql[pos + index] == '\0') {
+				break;
+			}
+			if (tolower((unsigned char)sql[pos + index]) !=
+			    tolower((unsigned char)word[index])) {
+				break;
+			}
+		}
+		if (index == word_len &&
+		    !sqlparser_oracle_is_ident_char((unsigned char)sql[pos + word_len])) {
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+static int sqlparser_oracle_raw_contains_word(const char *sql, const char *word)
+{
+	return sqlparser_oracle_raw_contains_word_span(sql, word, word != NULL ? strlen(word) : 0U);
+}
+
+static int sqlparser_oracle_raw_may_contain_phrase(const char *sql, const char *phrase)
+{
+	size_t pos;
+	int saw_token;
+
+	if (sql == NULL || phrase == NULL) {
+		return 0;
+	}
+
+	pos = 0U;
+	saw_token = 0;
+	while (phrase[pos] != '\0') {
+		size_t start;
+		size_t len;
+
+		while (phrase[pos] != '\0' &&
+		       !sqlparser_oracle_is_ident_char((unsigned char)phrase[pos])) {
+			pos++;
+		}
+		start = pos;
+		while (phrase[pos] != '\0' &&
+		       sqlparser_oracle_is_ident_char((unsigned char)phrase[pos])) {
+			pos++;
+		}
+		len = pos - start;
+		if (len == 0U) {
+			continue;
+		}
+
+		saw_token = 1;
+		if (!sqlparser_oracle_raw_contains_word_span(sql, phrase + start, len)) {
+			return 0;
+		}
+	}
+
+	return saw_token;
+}
+
 static int sqlparser_oracle_starts_with_word(const char *masked, const char *word)
 {
 	size_t pos;
@@ -573,6 +687,22 @@ static sqlparser_status_t sqlparser_oracle_reject_unsupported(
 	char *masked;
 	sqlparser_status_t status;
 	size_t index;
+	int needs_mask;
+
+	needs_mask =
+		sqlparser_oracle_raw_contains_word(sql, "begin") ||
+		sqlparser_oracle_raw_contains_word(sql, "declare") ||
+		strstr(sql, "(+)") != NULL ||
+		strchr(sql, '@') != NULL;
+	for (index = 0U; !needs_mask &&
+	     index < sizeof(unsupported_phrases) / sizeof(unsupported_phrases[0]); index++) {
+		if (sqlparser_oracle_raw_may_contain_phrase(sql, unsupported_phrases[index])) {
+			needs_mask = 1;
+		}
+	}
+	if (!needs_mask) {
+		return SQLPARSER_STATUS_OK;
+	}
 
 	masked = NULL;
 	status = sqlparser_oracle_mask_non_code(sql, &masked, out_error);
@@ -840,6 +970,10 @@ static sqlparser_status_t sqlparser_oracle_preprocess_text(
 	size_t index;
 
 	memset(&out, 0, sizeof(out));
+	status = sqlparser_oracle_buffer_reserve_input(&out, input_sql, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
 	index = 0U;
 	while (input_sql[index] != '\0') {
 		int copied;
@@ -1064,6 +1198,10 @@ static sqlparser_status_t sqlparser_oracle_postprocess_text(
 	size_t index;
 
 	memset(&out, 0, sizeof(out));
+	status = sqlparser_oracle_buffer_reserve_input(&out, core_sql, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
 	index = 0U;
 	while (core_sql[index] != '\0') {
 		int copied;
@@ -1299,30 +1437,15 @@ static sqlparser_status_t sqlparser_oracle_clone_state(
 	return SQLPARSER_STATUS_OK;
 }
 
-static const char *sqlparser_oracle_summary_keyword(const char *core_keyword, const void *state)
-{
-	const sqlparser_oracle_state_t *oracle_state;
-
-	oracle_state = (const sqlparser_oracle_state_t *)state;
-	if (oracle_state != NULL &&
-	    oracle_state->saw_minus &&
-	    core_keyword != NULL &&
-	    strcmp(core_keyword, "except") == 0) {
-		return "minus";
-	}
-
-	return core_keyword;
-}
-
 static const sqlparser_dialect_ops_t SQLPARSER_ORACLE_OPS = {
 	SQLPARSER_DIALECT_ORACLE,
 	"oracle",
 	sqlparser_oracle_preprocess,
 	sqlparser_oracle_preprocess_fragment,
 	sqlparser_oracle_postprocess_deparse,
-	sqlparser_oracle_summary_keyword,
 	sqlparser_oracle_clone_state,
-	sqlparser_oracle_state_destroy
+	sqlparser_oracle_state_destroy,
+	NULL
 };
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_oracle_ops(void)
