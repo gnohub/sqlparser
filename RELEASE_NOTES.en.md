@@ -1,60 +1,50 @@
-# v0.2.0 Release Notes
+# v0.3.0 Release Notes
 
-`v0.2.0` is a stable release of `sqlparser` for SQL parsing,
-structured inspection, controlled rewrite, and deparse workflows.
+`v0.3.0` is a minor dialect-capability release for `sqlparser`. It adds
+database, schema, and session-context switching support across parsing,
+structured inspection, rewrite, and deparse workflows.
 
 ## Highlights
 
-- Added an Oracle dialect conversion layer for common Oracle SQL that can be
-  safely mapped to the current AST.
-- Added a SQL Server dialect conversion layer for common T-SQL that can be
-  safely mapped to the current AST.
-- Added Oracle and SQL Server examples, CLI dialect option, batch JSON dialect
-  field, and full regression matrices.
-- Kept dialect public output stable: deparse and SQL View JSON do not expose
-  internal `$N`, `EXCEPT`, or other conversion details.
-- SQL View can be consumed as JSON or through C structured traversal APIs;
-  structured patch accepts only an explicit `patches` array.
-- Extended expression-fragment rewrite support for Oracle binds and preserved
-  handle state on failed rewrites.
-- Reduced the default generated-output limit to 4 MB and removed avoidable
-  resident AST and string copies from parse/deparse paths.
-- Added stability tests for malformed SQL, argument validation, resource
-  limits, failed-rewrite rollback, and multi-dialect public-output stability.
-- Extended CI release gates with JSON fixture validation, Linux GCC
-  verification, ABI checking, benchmark smoke, and source-package smoke.
-- Fixed incremental rebuild invalidation for version-file changes so runtime
-  version output stays aligned with `VERSION`.
+- PostgreSQL exposes SQL View output for `SET search_path`,
+  `SET LOCAL search_path`, and `SET SCHEMA`.
+- MySQL supports `USE db_name` default-database switching, including
+  backtick-delimited database names.
+- SQL Server supports `USE database_name` database-context switching and
+  preserves bracket-delimited public output in deparse.
+- Oracle supports `ALTER SESSION SET CURRENT_SCHEMA`,
+  `ALTER SESSION SET CONTAINER`, and
+  `ALTER SESSION SET CONTAINER ... SERVICE ...`.
+- Context-switching statements reuse the existing SQL View JSON structure; no
+  separate JSON format is introduced.
+- `stmt[n].value[m]` selectors can rewrite context-switch targets and deparse
+  back to the corresponding dialect SQL.
+- Fixed parse/deparse boundaries for context switching in multi-statement
+  inputs, avoiding exposure of internal `sqlparser_current_*` sentinel names.
+- Updated dialect support docs, official syntax coverage checklists, and
+  executable coverage summaries.
 
 ## Dialect Support Boundary
 
-See [Oracle Dialect Support](./doc/oracle_dialect_support.en.md).
+Current executable case matrices:
 
-The current Oracle matrix contains 58 cases: 39 supported paths and 19 explicit
-unsupported paths. Explicitly unsupported Oracle-specific constructs return
-`SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle.
-
-See [SQL Server Dialect Support](./doc/sqlserver_dialect_support.en.md).
-
-The current SQL Server matrix contains 56 cases: 41 supported paths and 15
-explicit unsupported paths. Explicitly unsupported SQL Server-specific
-constructs return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable
-handle.
+- PostgreSQL: 54 cases, 53 supported paths, and 1 invalid-SQL negative path.
+- MySQL: 32 cases, 17 supported paths, and 15 explicit unsupported paths.
+- Oracle: 65 cases, 46 supported paths, and 19 explicit unsupported paths.
+- SQL Server: 61 base cases, 46 supported paths, and 15 explicit unsupported
+  paths; the official `HOOK_ONLY` coverage matrix contains 235 cases.
 
 ## Release Validation
 
 This release gate includes:
 
 - `git diff --check`
-- `jq empty tests/cases/*.json`
-- `make verify LOOP=5`
-- `make install-smoke`
-- `make abi-check`
-- `make dist`
-- Windows MSVC: `nmake /F Makefile.msvc test`
-
-Linux release validation covers release/debug builds, sanitizers, valgrind,
-loop regression, CLI batch, installed-library API smoke, and benchmark smoke.
+- JSON fixture validation
+- Linux GCC 8.3: `make test`
+- Linux GCC 8.3: `make verify-ci`
+- ABI export-symbol check
+- CLI parse/deparse smoke coverage for MySQL, Oracle, and SQL Server
+  multi-statement context switching
 
 ## Release Boundary
 

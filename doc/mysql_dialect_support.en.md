@@ -22,6 +22,7 @@ current AST. The executable case matrix defines the support boundary:
 - `CREATE VIEW`
 - `DROP TABLE`
 - `START TRANSACTION` and `COMMIT`
+- `USE db_name` default database switching
 
 ## Explicitly Unsupported Scope
 
@@ -62,5 +63,5 @@ The MySQL support boundary is defined by:
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current MySQL matrix contains 27 cases: 12 supported paths and 15 explicit
+The current MySQL matrix contains 32 cases: 17 supported paths and 15 explicit
 unsupported paths.

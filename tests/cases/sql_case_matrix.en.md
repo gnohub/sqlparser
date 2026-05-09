@@ -60,13 +60,16 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 | P046 | `revoke-select` | `REVOKE SELECT ON TABLE ... FROM ...` | revoke node recognition and object extraction |
 | P047 | `analyze-table` | `ANALYZE ...` | analyze node recognition and table extraction |
 | P048 | `vacuum-analyze-table` | `VACUUM ANALYZE ...` | combined vacuum/analyze node recognition |
-| P049 | `oracle-cli-dialect-q-quote` | Oracle `q'[...]'` | CLI `dialect` field and Oracle q-quoted string handling |
-| P050 | `sqlserver-cli-dialect-top-param` | SQL Server `TOP` + `@` parameter | CLI `dialect` field and SQL Server dialect output handling |
+| P049 | `postgresql-set-search-path` | `SET search_path TO ...` | session schema search-path output and value selector |
+| P050 | `postgresql-set-schema` | `SET SCHEMA ...` | `SET SCHEMA` alias deparses as `search_path` |
+| P051 | `postgresql-set-local-search-path` | `SET LOCAL search_path = ...` | local transaction-level schema search path |
+| P052 | `oracle-cli-dialect-q-quote` | Oracle `q'[...]'` | CLI `dialect` field and Oracle q-quoted string handling |
+| P053 | `sqlserver-cli-dialect-top-param` | SQL Server `TOP` + `@` parameter | CLI `dialect` field and SQL Server dialect output handling |
 
 ## Negative Case
 
 | Case ID | Case Name | Input | Validation Focus |
 | --- | --- | --- | --- |
-| P051 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
+| P054 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
 
 New regression cases must update both `tests/cases/sql_batch_input.json` and this matrix.

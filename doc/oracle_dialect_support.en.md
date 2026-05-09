@@ -29,6 +29,9 @@ current AST. The executable case matrix defines the support boundary:
   `ROW_NUMBER() OVER (...)`
 - quoted identifiers, `ALTER TABLE ADD`, `CREATE INDEX`, and `DROP INDEX`
 - compatible materialized-view creation forms
+- session context switching: `ALTER SESSION SET CURRENT_SCHEMA = ...`,
+  `ALTER SESSION SET CONTAINER = ...`, and
+  `ALTER SESSION SET CONTAINER = ... SERVICE = ...`
 
 ## Explicitly Unsupported Scope
 
@@ -44,7 +47,8 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
 - `MODEL` clause
 - flashback query
 - `MATCH_RECOGNIZE`
-- `ALTER SESSION`
+- `ALTER SESSION` parameters other than `CURRENT_SCHEMA` and
+  `CONTAINER/SERVICE`
 - synonyms
 - database links
 - `EXPLAIN PLAN FOR`
@@ -72,5 +76,5 @@ The Oracle support boundary is defined by:
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current Oracle matrix contains 58 cases: 39 supported paths and 19 explicit
+The current Oracle matrix contains 65 cases: 46 supported paths and 19 explicit
 unsupported paths.

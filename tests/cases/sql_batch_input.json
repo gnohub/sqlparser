@@ -546,6 +546,36 @@
       }
     },
     {
+      "name": "postgresql-set-search-path",
+      "sql": "SET search_path TO app_schema, public",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["set"],
+        "deparse_contains": "SET search_path TO app_schema, public"
+      }
+    },
+    {
+      "name": "postgresql-set-schema",
+      "sql": "SET SCHEMA 'app_schema'",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["set"],
+        "deparse_contains": "SET search_path TO app_schema"
+      }
+    },
+    {
+      "name": "postgresql-set-local-search-path",
+      "sql": "SET LOCAL search_path = app_schema",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["set"],
+        "deparse_contains": "SET LOCAL search_path TO app_schema"
+      }
+    },
+    {
       "name": "oracle-cli-dialect-q-quote",
       "dialect": "oracle",
       "sql": "SELECT q'[Bob's order]' AS label FROM dual",

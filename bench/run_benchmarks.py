@@ -323,8 +323,7 @@ def write_system_info(output_dir):
     system_info.append("timestamp={}".format(datetime.utcnow().isoformat() + "Z"))
     system_info.append("platform={}".format(platform.platform()))
     for command in [
-        ["uname", "-a"],
-        ["bash", "-lc", "hostname"],
+        ["uname", "-srm"],
         ["bash", "-lc", "grep -m1 'model name' /proc/cpuinfo"],
         ["bash", "-lc", "gcc --version | head -n 1"],
     ]:

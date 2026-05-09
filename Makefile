@@ -40,6 +40,7 @@ TEST_CORE_API_BIN := $(BIN_PATH)/test_core_api
 TEST_CASE_MATRIX_BIN := $(BIN_PATH)/test_api_case_matrix
 SQLPARSER_CLI_BIN := $(BIN_PATH)/sqlparser_cli
 SQLPARSER_BENCH_BIN := $(BIN_PATH)/sqlparser_bench
+LIBPG_QUERY_BASELINE_BIN := $(BIN_PATH)/libpg_query_baseline
 SQLPARSER_CLI_BATCH_FIXTURE := ./tests/cases/sql_batch_input.json
 SQLPARSER_CLI_BATCH_OUTPUT := $(BUILD_PATH)/tests/sqlparser_cli_batch_output.json
 SQLPARSER_CLI_BATCH_VERIFY := ./tests/verify_cli_batch.py
@@ -162,6 +163,7 @@ LDLIBS := $(BASE_LDLIBS) $(EXTRA_LDLIBS)
 
 .PHONY: \
 	all prep vendor static shared clean vendor-clean print-config test install cli bench-build \
+	libpg-query-baseline-build libpg-query-baseline \
 	test-cli-batch examples install-smoke bench-smoke test-loop verify verify-release verify-debug \
 	verify-asan verify-ubsan verify-valgrind verify-ci abi-check test-unit test-examples \
 	test-parse test-inspect test-rewrite test-deparse test-view-json test-cli test-install \
@@ -184,6 +186,8 @@ cli: $(SQLPARSER_CLI_BIN)
 examples: $(EXAMPLE_BINS)
 
 bench-build: $(SQLPARSER_BENCH_BIN)
+
+libpg-query-baseline-build: $(LIBPG_QUERY_BASELINE_BIN)
 
 test: cli test-unit test-examples test-cli
 
@@ -236,6 +240,7 @@ install-smoke: all $(PKGCONFIG_FILE) $(INSTALL_SMOKE_SRC) | prep
 	@$(MAKE) --no-print-directory install PREFIX=$(abspath $(TEST_STAGE_DIR)) DEBUG=$(DEBUG) SHOW_WARNING=$(SHOW_WARNING) STRICT=$(STRICT) SANITIZE="$(SANITIZE)" SHOW_VENDOR_WARNING=$(SHOW_VENDOR_WARNING)
 	@mkdir -p $(dir $(INSTALL_SMOKE_BIN))
 	@$(CC) -std=gnu11 $(PTHREAD_CFLAGS) \
+		-DSQLPARSER_EXPECTED_VERSION_TEXT=\"$(VERSION_STRING)\" \
 		-I$(abspath $(TEST_STAGE_DIR))/include \
 		$(INSTALL_SMOKE_SRC) \
 		-L$(abspath $(TEST_STAGE_DIR))/lib \
@@ -250,6 +255,13 @@ bench-smoke: bench-build
 		--bench-bin $(SQLPARSER_BENCH_BIN) \
 		--profile $(BENCH_PROFILE) \
 		--stages $(BENCH_STAGES)
+
+libpg-query-baseline: libpg-query-baseline-build
+	@$(BENCH_PYTHON) ./bench/run_libpg_query_baseline.py \
+		--output-dir $(BENCH_OUTPUT_DIR)/libpg_query_baseline \
+		--baseline-bin $(LIBPG_QUERY_BASELINE_BIN) \
+		--cc "$(CC)" \
+		--profile $(BENCH_PROFILE)
 
 dist:
 	@mkdir -p $(DIST_DIR)
@@ -462,5 +474,9 @@ $(SQLPARSER_CLI_BIN): tools/sqlparser_cli.c $(STATIC_LIB_PATH) | prep
 $(SQLPARSER_BENCH_BIN): tools/sqlparser_bench.c $(STATIC_LIB_PATH) | prep
 	@mkdir -p $(dir $@)
 	@$(CC) $(CPPFLAGS) $(CFLAGS) $< $(STATIC_LIB_PATH) $(SQLPARSER_BENCH_WRAP_LDFLAGS) $(LDFLAGS) $(LDLIBS) -o $@
+
+$(LIBPG_QUERY_BASELINE_BIN): tools/libpg_query_baseline.c $(VENDOR_PG_QUERY_LIB) | prep
+	@mkdir -p $(dir $@)
+	@$(CC) $(CPPFLAGS) $(CFLAGS) $< $(VENDOR_PG_QUERY_LIB) $(SQLPARSER_BENCH_WRAP_LDFLAGS) $(LDFLAGS) $(LDLIBS) -o $@
 
 -include $(DEP_FILES)

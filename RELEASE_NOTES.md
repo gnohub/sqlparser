@@ -1,43 +1,37 @@
-# v0.2.0 发布说明
+# v0.3.0 发布说明
 
-`v0.2.0` 是 `sqlparser` 的正式发布版本，面向 SQL 解析、结构化读取、受控改写和反解析链路。
+`v0.3.0` 是 `sqlparser` 的方言能力小版本更新，重点补齐数据库、schema 和会话上下文切换语句的解析、结构化读取、改写和反解析链路。
 
 ## 主要变化
 
-- 增加 Oracle 方言转换层，覆盖可安全映射到当前 AST 的常用 Oracle SQL。
-- 增加 SQL Server 方言转换层，覆盖可安全映射到当前 AST 的常用 T-SQL。
-- 增加 Oracle 和 SQL Server 示例、CLI 方言参数、批量 JSON 方言字段和完整回归矩阵。
-- 保持方言公共输出形态，deparse 和 SQL View JSON 不暴露内部 `$N`、`EXCEPT` 等转换细节。
-- SQL View 提供 JSON 导出和 C 结构化遍历两种读取方式，structured patch 只接受明确的 `patches` 数组。
-- 增强表达式片段改写，支持 Oracle bind 写回，并保证失败改写不提交到 handle。
-- 收敛默认输出上限到 4MB，并减少 parse/deparse 路径中的常驻 AST 和字符串拷贝。
-- 增加稳定性测试，覆盖畸形 SQL、参数校验、资源限制、失败改写回滚和多方言公共输出稳定性。
-- 增强 CI 发布门禁，覆盖 JSON fixture 校验、Linux GCC 验证、ABI 检查、benchmark smoke 和源码包 smoke。
-- 修复版本文件变更后的增量构建失效问题，确保运行期版本字符串与 `VERSION` 一致。
+- PostgreSQL 支持 `SET search_path`、`SET LOCAL search_path` 和 `SET SCHEMA` 的 SQL View 输出。
+- MySQL 支持 `USE db_name` 默认数据库切换，包含反引号数据库名。
+- SQL Server 支持 `USE database_name` 数据库上下文切换，deparse 保持方括号公共形态。
+- Oracle 支持 `ALTER SESSION SET CURRENT_SCHEMA`、`ALTER SESSION SET CONTAINER` 和 `ALTER SESSION SET CONTAINER ... SERVICE ...`。
+- 上下文切换语句复用现有 SQL View JSON 结构，不新增独立 JSON 格式。
+- 支持通过 `stmt[n].value[m]` selector 改写上下文切换目标并还原为对应方言 SQL。
+- 修复多语句输入中上下文切换语句的 parse/deparse 边界，避免输出内部 `sqlparser_current_*` 哨兵名。
+- 更新方言支持文档、官方语法覆盖清单和可执行用例覆盖统计。
 
 ## 方言支持边界
 
-Oracle 方言支持范围见 [Oracle 方言支持](./doc/oracle_dialect_support.md)。
+当前可执行用例矩阵：
 
-当前 Oracle 矩阵包含 58 条用例：39 条支持路径，19 条明确不支持路径。明确不支持的 Oracle 专属语义返回 `SQLPARSER_STATUS_UNSUPPORTED`，不会返回可用 handle。
-
-SQL Server 方言支持范围见 [SQL Server 方言支持](./doc/sqlserver_dialect_support.md)。
-
-当前 SQL Server 矩阵包含 56 条用例：41 条支持路径，15 条明确不支持路径。明确不支持的 SQL Server 专属语义返回 `SQLPARSER_STATUS_UNSUPPORTED`，不会返回可用 handle。
+- PostgreSQL：54 条用例，53 条支持路径，1 条非法 SQL 负向路径。
+- MySQL：32 条用例，17 条支持路径，15 条明确不支持路径。
+- Oracle：65 条用例，46 条支持路径，19 条明确不支持路径。
+- SQL Server：61 条基础用例，46 条支持路径，15 条明确不支持路径；官方 `HOOK_ONLY` 覆盖矩阵包含 235 条用例。
 
 ## 发布验证
 
 本版本的发布门禁包括：
 
 - `git diff --check`
-- `jq empty tests/cases/*.json`
-- `make verify LOOP=5`
-- `make install-smoke`
-- `make abi-check`
-- `make dist`
-- Windows MSVC：`nmake /F Makefile.msvc test`
-
-Linux 发布验证包含 release/debug 构建、sanitizer、valgrind、循环回归、CLI batch、安装态 API smoke 和 benchmark smoke。
+- JSON fixture 格式校验
+- Linux GCC 8.3：`make test`
+- Linux GCC 8.3：`make verify-ci`
+- ABI 导出符号检查
+- CLI parse/deparse 抽样，覆盖 MySQL、Oracle、SQL Server 多语句上下文切换
 
 ## 发布边界
 

@@ -8,6 +8,11 @@ The `bench/` directory contains the single-thread benchmark program, the batch r
   Benchmark binary for single API-call measurements.
 - `bench/run_benchmarks.py`
   Batch runner that produces CSV and Markdown reports.
+- `tools/libpg_query_baseline.c`
+  Pre-patch baseline binary for the vendored `libpg_query`, including
+  first-parse and concurrent-parse measurements.
+- `bench/run_libpg_query_baseline.py`
+  Batch runner and report generator for the `libpg_query` baseline.
 
 ## Main Outputs
 
@@ -56,6 +61,12 @@ Quick smoke run:
 
 ```bash
 make bench-smoke
+```
+
+Generate the pre-patch `libpg_query` baseline:
+
+```bash
+make libpg-query-baseline BENCH_PROFILE=full
 ```
 
 Available profiles:

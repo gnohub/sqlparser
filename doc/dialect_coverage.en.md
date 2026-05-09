@@ -8,10 +8,10 @@ coverage is tracked in each dialect's `*_official_syntax_coverage.en.md` file.
 
 | Dialect | Source | Supported Cases | Explicitly Unsupported Cases | Total | Supported Ratio |
 | --- | --- | ---: | ---: | ---: | ---: |
-| PostgreSQL | `tests/cases/sql_batch_input.json` | 48 | 1 | 49 | 97.96% |
-| MySQL | `tests/cases/mysql_dialect_input.json` | 12 | 15 | 27 | 44.44% |
-| Oracle | `tests/cases/oracle_dialect_input.json` | 39 | 19 | 58 | 67.24% |
-| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 41 | 15 | 56 | 73.21% |
+| PostgreSQL | `tests/cases/sql_batch_input.json` | 53 | 1 | 54 | 98.15% |
+| MySQL | `tests/cases/mysql_dialect_input.json` | 17 | 15 | 32 | 53.13% |
+| Oracle | `tests/cases/oracle_dialect_input.json` | 46 | 19 | 65 | 70.77% |
+| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 46 | 15 | 61 | 75.41% |
 
 ## Counting Rules
 

@@ -49,6 +49,9 @@
 | S041 | `CONVERT(..., style)` | SQL Server 风格转换函数双向映射 |
 | S042 | unsupported 关键字字符串 | 字符串中的 `OUTPUT`、`@table`、`EXEC` 不触发 unsupported |
 | S043 | unsupported 关键字注释 | 注释中的 `OUTPUT` 不触发 unsupported |
+| S044 | `USE [database]` | 数据库上下文切换、方括号数据库名和公开 value 片段 |
+| S045 | `USE database` | 官方 `USE database_name` 基础形态 |
+| S046 | `USE ...; SELECT ...` | 多语句中的数据库切换和后续查询保持独立输出 |
 
 ## 明确不支持用例
 

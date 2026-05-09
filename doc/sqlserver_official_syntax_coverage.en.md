@@ -33,21 +33,21 @@ The audit uses these official documentation directories:
 
 | Status | Items | Share of all 929 items |
 | --- | ---: | ---: |
-| `CURRENT` | 186 | 20.02% |
+| `CURRENT` | 187 | 20.13% |
 | `HOOK_ONLY` | 235 | 25.30% |
 | `MIXED_MODEL` | 82 | 8.83% |
-| `MODEL_REQUIRED` | 387 | 41.66% |
+| `MODEL_REQUIRED` | 386 | 41.55% |
 | `REFERENCE_ONLY` | 39 | 4.20% |
 
-Excluding `REFERENCE_ONLY`, there are 890 implementation items. The current implementation covers 186 items and leaves 704 items uncovered.
+Excluding `REFERENCE_ONLY`, there are 890 implementation items. The current implementation covers 187 items and leaves 703 items uncovered.
 
-| Uncovered class | Items | Share of 704 uncovered items |
+| Uncovered class | Items | Share of 703 uncovered items |
 | --- | ---: | ---: |
-| `HOOK_ONLY` | 235 | 33.38% |
-| `MIXED_MODEL` | 82 | 11.65% |
-| `MODEL_REQUIRED` | 387 | 54.97% |
+| `HOOK_ONLY` | 235 | 33.43% |
+| `MIXED_MODEL` | 82 | 11.66% |
+| `MODEL_REQUIRED` | 386 | 54.91% |
 
-For full official syntax coverage, `MIXED_MODEL + MODEL_REQUIRED` is 469 items, or 66.62% of uncovered items. Items that can be completed using only the existing AST and dialect hooks account for 235 items, or 33.38%.
+For full official syntax coverage, `MIXED_MODEL + MODEL_REQUIRED` is 468 items, or 66.57% of uncovered items. Items that can be completed using only the existing AST and dialect hooks account for 235 items, or 33.43%.
 
 ## By Directory
 
@@ -55,7 +55,7 @@ For full official syntax coverage, `MIXED_MODEL + MODEL_REQUIRED` is 469 items, 
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | `statements` | 12 | 5 | 59 | 291 | 1 | 368 |
 | `queries` | 15 | 0 | 10 | 13 | 3 | 41 |
-| `language-elements` | 51 | 0 | 13 | 48 | 3 | 115 |
+| `language-elements` | 52 | 0 | 13 | 47 | 3 | 115 |
 | `functions` | 94 | 227 | 0 | 16 | 24 | 361 |
 | `data-types` | 14 | 3 | 0 | 19 | 8 | 44 |
 

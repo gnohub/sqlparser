@@ -26,16 +26,16 @@ privilege statements, and Oracle-specific semantics.
 
 ## Results
 
-| Status | Syntax Groups | Share of 44 Groups |
+| Status | Syntax Groups | Share of 45 Groups |
 | --- | ---: | ---: |
-| `CURRENT` | 29 | 65.91% |
+| `CURRENT` | 30 | 66.67% |
 | `HOOK_ONLY` | 0 | 0.00% |
 | `MIXED_MODEL` | 0 | 0.00% |
-| `MODEL_REQUIRED` | 15 | 34.09% |
+| `MODEL_REQUIRED` | 15 | 33.33% |
 | `REFERENCE_ONLY` | 0 | 0.00% |
 
-After excluding `REFERENCE_ONLY`, there are 44 implementable syntax groups.
-The current implementation covers 29 groups and leaves 15 groups uncovered.
+After excluding `REFERENCE_ONLY`, there are 45 implementable syntax groups.
+The current implementation covers 30 groups and leaves 15 groups uncovered.
 
 | Uncovered Class | Syntax Groups | Share of 15 Uncovered Groups |
 | --- | ---: | ---: |

@@ -1928,6 +1928,270 @@ static int test_sql_view_set_operation_attribution(void)
 	return 0;
 }
 
+static int test_session_context_view_and_patch(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *keyword;
+		const char *column_name;
+		const char *initial_value;
+		const char *replacement_sql;
+		const char *deparse_contains;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SET search_path TO app_schema",
+			"set",
+			"search_path",
+			"app_schema",
+			"next_schema",
+			"SET search_path TO next_schema"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"USE analytics",
+			"use",
+			"DATABASE",
+			"analytics",
+			"warehouse",
+			"USE warehouse"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"USE [AdventureWorks2022]",
+			"use",
+			"DATABASE",
+			"[AdventureWorks2022]",
+			"[ReportingDB]",
+			"USE [ReportingDB]"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"ALTER SESSION SET CURRENT_SCHEMA=KDES",
+			"alter_session",
+			"CURRENT_SCHEMA",
+			"kdes",
+			"APP",
+			"ALTER SESSION SET CURRENT_SCHEMA = app"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"ALTER SESSION SET CONTAINER=PDB1",
+			"alter_session",
+			"CONTAINER",
+			"pdb1",
+			"PDB2",
+			"ALTER SESSION SET CONTAINER = pdb2"
+		}
+	};
+	size_t index;
+
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		sqlparser_parse_options_t options;
+		sqlparser_error_t error;
+		sqlparser_handle_t *handle;
+		sqlparser_view_t view;
+		sqlparser_statement_view_t statement;
+		sqlparser_object_view_t object;
+		sqlparser_column_view_t column;
+		sqlparser_value_view_t value;
+		sqlparser_patch_t patch;
+		sqlparser_patch_list_t patch_list;
+		char *value_sql;
+		char *selector_text;
+		char *deparsed_sql;
+		int rc;
+
+		handle = NULL;
+		value_sql = NULL;
+		selector_text = NULL;
+		deparsed_sql = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[index].dialect;
+		rc = sqlparser_parse_with_options(cases[index].sql, &options, &handle, &error);
+		if (expect_status_ok(rc, &error, "session context parse should succeed") != 0) {
+			return 1;
+		}
+
+		rc = sqlparser_get_view(handle, &view, &error);
+		if (expect_status_ok(rc, &error, "session context view should be available") != 0 ||
+		    expect_true(view.statement_count == 1U, "session context statement count should be 1") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_view_statement_at(&view, 0U, &statement, &error);
+		if (expect_status_ok(rc, &error, "session context statement should be available") != 0 ||
+		    expect_true(strcmp(statement.keyword, cases[index].keyword) == 0, "session context keyword mismatch") != 0 ||
+		    expect_true(statement.object_count == 1U, "session context should expose one object") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_statement_object_at(&statement, 0U, &object, &error);
+		if (expect_status_ok(rc, &error, "session context object should be available") != 0 ||
+		    expect_true(object.table_name == NULL, "session context object table should be NULL") != 0 ||
+		    expect_true(object.column_count == 1U, "session context should expose one parameter") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_object_column_at(&object, 0U, &column, &error);
+		if (expect_status_ok(rc, &error, "session context column should be available") != 0 ||
+		    expect_true(strcmp(column.name, cases[index].column_name) == 0, "session context column name mismatch") != 0 ||
+		    expect_true(column.value_count == 1U, "session context column should expose one value") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_column_value_at(&column, 0U, &value, &error);
+		if (expect_status_ok(rc, &error, "session context value should be available") != 0 ||
+		    expect_true(value.has_selector != 0, "session context value should expose selector") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_value_sql(handle, &value, &value_sql, &error);
+		if (expect_status_ok(rc, &error, "session context value SQL should be available") != 0 ||
+		    expect_true(strcmp(value_sql, cases[index].initial_value) == 0, "session context value SQL mismatch") != 0) {
+			sqlparser_string_free(value_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(value_sql);
+		value_sql = NULL;
+
+		rc = sqlparser_selector_format(&value.selector, &selector_text, &error);
+		if (expect_status_ok(rc, &error, "session context selector format should succeed") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_REPLACE;
+		patch.selector = selector_text;
+		patch.sql = cases[index].replacement_sql;
+		patch_list.items = &patch;
+		patch_list.count = 1U;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		sqlparser_string_free(selector_text);
+		selector_text = NULL;
+		if (expect_status_ok(rc, &error, "session context patch should succeed") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+		if (expect_status_ok(rc, &error, "session context deparse should succeed") != 0 ||
+		    expect_true(strstr(deparsed_sql, cases[index].deparse_contains) != NULL, "session context deparse mismatch") != 0) {
+			sqlparser_string_free(deparsed_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+	}
+
+	return 0;
+}
+
+static int test_oracle_container_service_view_and_patch(void)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_view_t view;
+	sqlparser_statement_view_t statement;
+	sqlparser_object_view_t object;
+	sqlparser_column_view_t column;
+	sqlparser_value_view_t value;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patch_list;
+	char *value_sql;
+	char *selector_text;
+	char *deparsed_sql;
+	int rc;
+
+	handle = NULL;
+	value_sql = NULL;
+	selector_text = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+
+	rc = sqlparser_parse_with_options(
+		"ALTER SESSION SET CONTAINER=PDB1 SERVICE=APP_SVC",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "oracle container service parse should succeed") != 0) {
+		return 1;
+	}
+
+	rc = sqlparser_get_view(handle, &view, &error);
+	if (expect_status_ok(rc, &error, "oracle container service view should be available") != 0 ||
+	    expect_status_ok(sqlparser_view_statement_at(&view, 0U, &statement, &error), &error, "oracle container service statement should be available") != 0 ||
+	    expect_status_ok(sqlparser_statement_object_at(&statement, 0U, &object, &error), &error, "oracle container service object should be available") != 0 ||
+	    expect_true(object.column_count == 2U, "oracle container service should expose CONTAINER and SERVICE") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_object_column_at(&object, 0U, &column, &error);
+	if (expect_status_ok(rc, &error, "oracle container column should be available") != 0 ||
+	    expect_true(strcmp(column.name, "CONTAINER") == 0, "oracle container column name mismatch") != 0 ||
+	    expect_true(column.value_count == 1U, "oracle container should expose one value") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_object_column_at(&object, 1U, &column, &error);
+	if (expect_status_ok(rc, &error, "oracle service column should be available") != 0 ||
+	    expect_true(strcmp(column.name, "SERVICE") == 0, "oracle service column name mismatch") != 0 ||
+	    expect_true(column.value_count == 1U, "oracle service should expose one value") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_column_value_at(&column, 0U, &value, &error);
+	if (expect_status_ok(rc, &error, "oracle service value should be available") != 0 ||
+	    expect_true(value.has_selector != 0, "oracle service value should expose selector") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_value_sql(handle, &value, &value_sql, &error);
+	if (expect_status_ok(rc, &error, "oracle service value SQL should be available") != 0 ||
+	    expect_true(strcmp(value_sql, "app_svc") == 0, "oracle service value SQL mismatch") != 0) {
+		sqlparser_string_free(value_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(value_sql);
+
+	rc = sqlparser_selector_format(&value.selector, &selector_text, &error);
+	if (expect_status_ok(rc, &error, "oracle service selector format should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = selector_text;
+	patch.sql = "REPORT_SVC";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	sqlparser_string_free(selector_text);
+	if (expect_status_ok(rc, &error, "oracle service patch should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "oracle service deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "ALTER SESSION SET CONTAINER = pdb1 SERVICE = report_svc") != NULL,
+	                "oracle service deparse mismatch") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
 int main(void)
 {
 	if (test_statement_kind_walk() != 0) {
@@ -1994,6 +2258,12 @@ int main(void)
 		return 1;
 	}
 	if (test_sqlserver_dialect_option() != 0) {
+		return 1;
+	}
+	if (test_session_context_view_and_patch() != 0) {
+		return 1;
+	}
+	if (test_oracle_container_service_view_and_patch() != 0) {
 		return 1;
 	}
 

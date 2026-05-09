@@ -23,6 +23,7 @@ Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范
 - 常见函数与分析函数，例如 `DECODE`、`SYSDATE`、`ROW_NUMBER() OVER (...)`
 - 引号标识符、`ALTER TABLE ADD`、`CREATE INDEX`、`DROP INDEX`
 - 兼容形态的物化视图创建语句
+- 会话上下文切换：`ALTER SESSION SET CURRENT_SCHEMA = ...`、`ALTER SESSION SET CONTAINER = ...`、`ALTER SESSION SET CONTAINER = ... SERVICE = ...`
 
 ## 明确不支持范围
 
@@ -37,7 +38,7 @@ Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范
 - `MODEL` clause
 - flashback query
 - `MATCH_RECOGNIZE`
-- `ALTER SESSION`
+- 除 `CURRENT_SCHEMA` 和 `CONTAINER/SERVICE` 外的其他 `ALTER SESSION` 参数
 - synonym
 - database link
 - `EXPLAIN PLAN FOR`
@@ -60,4 +61,4 @@ Oracle 支持范围以以下文件为准：
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 Oracle 方言矩阵包含 58 条用例：39 条支持路径，19 条明确不支持路径。
+当前 Oracle 方言矩阵包含 65 条用例：46 条支持路径，19 条明确不支持路径。

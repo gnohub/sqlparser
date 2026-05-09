@@ -103,6 +103,8 @@ const char *sqlparser_statement_node_name_from_case(PgQuery__Node__NodeCase node
 			return "LockStmt";
 		case PG_QUERY__NODE__NODE_RENAME_STMT:
 			return "RenameStmt";
+		case PG_QUERY__NODE__NODE_VARIABLE_SET_STMT:
+			return "VariableSetStmt";
 		default:
 			return "OtherStmt";
 	}

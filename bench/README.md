@@ -8,6 +8,10 @@
   单次 API 调用 benchmark 二进制。
 - `bench/run_benchmarks.py`
   批量执行器与 CSV、Markdown 报告生成脚本。
+- `tools/libpg_query_baseline.c`
+  vendored `libpg_query` 修改前基线二进制，覆盖线程首次解析和并发解析。
+- `bench/run_libpg_query_baseline.py`
+  `libpg_query` 基线批量执行器与报告生成脚本。
 
 ## 主要输出
 
@@ -56,6 +60,12 @@ python3 ./bench/run_benchmarks.py \
 
 ```bash
 make bench-smoke
+```
+
+生成 `libpg_query` 修改前基线：
+
+```bash
+make libpg-query-baseline BENCH_PROFILE=full
 ```
 
 可选 profile：

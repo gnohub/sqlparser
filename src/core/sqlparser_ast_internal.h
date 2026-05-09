@@ -162,11 +162,19 @@ sqlparser_status_t sqlparser_parse_update_assignment_node_sql(
 	const char *sql_text,
 	PgQuery__Node **out_node,
 	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_parse_variable_set_arg_node_sql(
+	const char *sql_text,
+	PgQuery__Node **out_node,
+	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_render_insert_cell_node_sql(
 	const PgQuery__Node *node,
 	char **out_sql,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_render_update_assignment_node_sql(
+	const PgQuery__Node *node,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_render_variable_set_arg_node_sql(
 	const PgQuery__Node *node,
 	char **out_sql,
 	sqlparser_error_t *out_error);

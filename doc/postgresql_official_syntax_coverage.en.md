@@ -27,19 +27,19 @@ to the public API, SQL View JSON, deparse, and executable regression tests.
 
 | Status | Syntax Groups | Share of 41 Groups |
 | --- | ---: | ---: |
-| `CURRENT` | 36 | 87.80% |
-| `HOOK_ONLY` | 4 | 9.76% |
+| `CURRENT` | 37 | 90.24% |
+| `HOOK_ONLY` | 3 | 7.32% |
 | `MIXED_MODEL` | 1 | 2.44% |
 | `MODEL_REQUIRED` | 0 | 0.00% |
 | `REFERENCE_ONLY` | 0 | 0.00% |
 
 After excluding `REFERENCE_ONLY`, there are 41 implementable syntax groups.
-The current implementation covers 36 groups and leaves 5 groups uncovered.
+The current implementation covers 37 groups and leaves 4 groups uncovered.
 
-| Uncovered Class | Syntax Groups | Share of 5 Uncovered Groups |
+| Uncovered Class | Syntax Groups | Share of 4 Uncovered Groups |
 | --- | ---: | ---: |
-| `HOOK_ONLY` | 4 | 80.00% |
-| `MIXED_MODEL` | 1 | 20.00% |
+| `HOOK_ONLY` | 3 | 75.00% |
+| `MIXED_MODEL` | 1 | 25.00% |
 | `MODEL_REQUIRED` | 0 | 0.00% |
 
 ## Conclusion

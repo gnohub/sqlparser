@@ -29,6 +29,8 @@ current parser kernel. The executable case matrix defines the support boundary:
   `RELEASE SAVEPOINT`
 - `CALL` and `DO`
 - multi-statement parsing and deparsing
+- session schema context: `SET search_path`, `SET LOCAL search_path`, and
+  `SET SCHEMA`
 
 ## Explicitly Unsupported Scope
 
@@ -54,5 +56,5 @@ The PostgreSQL support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current PostgreSQL matrix contains 49 cases: 48 supported paths and 1
+The current PostgreSQL matrix contains 54 cases: 53 supported paths and 1
 negative invalid-SQL path.

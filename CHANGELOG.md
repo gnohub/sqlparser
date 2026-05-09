@@ -1,5 +1,26 @@
 # 变更记录
 
+## 0.3.0
+
+### 方言能力
+
+- 增加 PostgreSQL 会话 schema 上下文输出，覆盖 `SET search_path`、`SET LOCAL search_path` 和 `SET SCHEMA`
+- 增加 MySQL `USE db_name` 默认数据库切换支持
+- 增加 SQL Server `USE database_name` 数据库上下文切换支持
+- 增加 Oracle `ALTER SESSION SET CURRENT_SCHEMA`、`ALTER SESSION SET CONTAINER` 和 `ALTER SESSION SET CONTAINER ... SERVICE ...` 支持
+- 修复多语句输入中的上下文切换语句处理，确保 parse、SQL View JSON 和 deparse 均保持公共 SQL 形态
+
+### SQL View 与改写
+
+- 会话上下文切换语句复用现有 `statements[].objects[].columns[].value` 结构，不新增独立 JSON 格式
+- 支持通过 `stmt[n].value[m]` selector 改写上下文切换目标并还原为对应方言 SQL
+- 修复 SQL Server、MySQL 和 Oracle deparse 中内部 `sqlparser_current_*` 哨兵泄露的边界问题
+
+### 测试与文档
+
+- 增加 MySQL、Oracle 和 SQL Server 多语句上下文切换回归用例
+- 同步更新方言支持文档、官方语法覆盖清单和可执行用例覆盖统计
+
 ## 0.2.0
 
 ### 核心能力

@@ -4,6 +4,10 @@
 
 #include "sqlparser/sqlparser.h"
 
+#ifndef SQLPARSER_EXPECTED_VERSION_TEXT
+#define SQLPARSER_EXPECTED_VERSION_TEXT "0.3.0"
+#endif
+
 static int expect_true(int condition, const char *message)
 {
 	if (!condition) {
@@ -39,7 +43,9 @@ int main(void)
 		return 1;
 	}
 
-	if (expect_true(strcmp(sqlparser_version_string(), "0.2.0") == 0, "version string should be exported") != 0) {
+	if (expect_true(
+		    strcmp(sqlparser_version_string(), SQLPARSER_EXPECTED_VERSION_TEXT) == 0,
+		    "version string should be exported") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}

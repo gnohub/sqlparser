@@ -11,6 +11,9 @@
 
 typedef struct sqlparser_dialect_ops sqlparser_dialect_ops_t;
 
+#define SQLPARSER_INTERNAL_CURRENT_DATABASE "sqlparser_current_database"
+#define SQLPARSER_INTERNAL_CURRENT_SCHEMA "sqlparser_current_schema"
+
 struct sqlparser_handle {
 	char *sql;
 	char *parser_sql;

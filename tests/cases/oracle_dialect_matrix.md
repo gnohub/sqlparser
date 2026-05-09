@@ -47,6 +47,11 @@
 | O040 | materialized view | 物化视图兼容语法 |
 | O041 | unsupported 关键字字符串 | 字符串中的 `RETURNING`、`@`、`(+)` 不触发 unsupported |
 | O042 | unsupported 关键字注释 | 注释中的 `CONNECT BY` 不触发 unsupported |
+| O043 | `ALTER SESSION SET CURRENT_SCHEMA` | 当前 schema 会话上下文切换 |
+| O044 | `ALTER SESSION SET CONTAINER` | 当前 container 会话上下文切换 |
+| O045 | `ALTER SESSION SET CONTAINER=CDB$ROOT` | 官方 root container 名称 |
+| O046 | `ALTER SESSION SET CONTAINER ... SERVICE ...` | container 切换和 service 子句 |
+| O047 | `SELECT ...; ALTER SESSION SET CURRENT_SCHEMA` | 多语句中的查询和 schema 切换保持独立输出 |
 
 ## 明确不支持用例
 
@@ -67,7 +72,7 @@
 | OU010 | `MODEL` | Oracle model clause |
 | OU011 | flashback query | Oracle 闪回查询语义 |
 | OU012 | `MATCH_RECOGNIZE` | 行模式识别语义 |
-| OU013 | `ALTER SESSION` | 会话级语义 |
+| OU013 | 其他 `ALTER SESSION` 参数 | 除 `CURRENT_SCHEMA` 和 `CONTAINER/SERVICE` 外的会话参数 |
 | OU014 | `CREATE SYNONYM` | Oracle 同义词对象 |
 | OU015 | database link | 远程对象引用语义 |
 | OU016 | `EXPLAIN PLAN FOR` | Oracle explain plan 输出语义 |

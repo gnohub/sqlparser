@@ -22,6 +22,7 @@ PostgreSQL 方言支持当前解析内核可表达的 PostgreSQL 语句形态，
 - 事务控制、`SAVEPOINT`、`ROLLBACK TO SAVEPOINT`、`RELEASE SAVEPOINT`
 - `CALL`、`DO`
 - 多语句解析和反解析
+- 会话 schema 上下文：`SET search_path`、`SET LOCAL search_path`、`SET SCHEMA`
 
 ## 明确不支持范围
 
@@ -43,4 +44,4 @@ PostgreSQL 默认方言支持范围以以下文件为准：
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-当前 PostgreSQL 矩阵包含 49 条用例：48 条支持路径，1 条非法 SQL 负向路径。
+当前 PostgreSQL 矩阵包含 54 条用例：53 条支持路径，1 条非法 SQL 负向路径。

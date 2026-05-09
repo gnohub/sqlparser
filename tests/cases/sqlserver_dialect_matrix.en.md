@@ -49,6 +49,9 @@ This file records regression cases for the SQL Server dialect conversion layer. 
 | S041 | `CONVERT(..., style)` | bidirectional mapping for SQL Server conversion functions |
 | S042 | unsupported keywords in string | `OUTPUT`, `@table`, and `EXEC` inside strings do not trigger unsupported |
 | S043 | unsupported keywords in comment | `OUTPUT` inside comments does not trigger unsupported |
+| S044 | `USE [database]` | database context switching, bracket-delimited database name, and public value fragment |
+| S045 | `USE database` | official basic `USE database_name` form |
+| S046 | `USE ...; SELECT ...` | database switching and following query remain separate in multi-statement input |
 
 ## Explicitly Unsupported Cases
 

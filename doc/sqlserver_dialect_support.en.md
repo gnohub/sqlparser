@@ -33,6 +33,7 @@ the current AST. The executable case matrix defines the support boundary:
 - simple `RENAME OBJECT ... TO ...`
 - common type names and functions such as `NVARCHAR`, `BIT`, `DATETIME2`,
   `ISNULL`, `GETDATE`, and `NEWID`
+- `USE database_name` database context switching
 
 ## Explicitly Unsupported Scope
 
@@ -84,6 +85,6 @@ The SQL Server support boundary is defined by:
 - `tests/unit/test_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The base SQL Server matrix contains 56 cases: 41 supported paths and 15
+The base SQL Server matrix contains 61 cases: 46 supported paths and 15
 explicit unsupported paths. The official `HOOK_ONLY` coverage matrix contains
 235 cases.

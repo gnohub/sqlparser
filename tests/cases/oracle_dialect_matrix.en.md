@@ -47,6 +47,11 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 | O040 | materialized view | compatible materialized-view syntax |
 | O041 | unsupported keywords in string | `RETURNING`, `@`, and `(+)` inside strings do not trigger unsupported |
 | O042 | unsupported keywords in comment | `CONNECT BY` inside comments does not trigger unsupported |
+| O043 | `ALTER SESSION SET CURRENT_SCHEMA` | current-schema session context switching |
+| O044 | `ALTER SESSION SET CONTAINER` | current-container session context switching |
+| O045 | `ALTER SESSION SET CONTAINER=CDB$ROOT` | official root container name |
+| O046 | `ALTER SESSION SET CONTAINER ... SERVICE ...` | container switching with the `SERVICE` clause |
+| O047 | `SELECT ...; ALTER SESSION SET CURRENT_SCHEMA` | query and schema switching remain separate in multi-statement input |
 
 ## Explicitly Unsupported Cases
 
@@ -67,7 +72,7 @@ The following constructs have Oracle-specific semantics. The conversion layer re
 | OU010 | `MODEL` | Oracle model clause |
 | OU011 | flashback query | Oracle flashback query semantics |
 | OU012 | `MATCH_RECOGNIZE` | row pattern recognition semantics |
-| OU013 | `ALTER SESSION` | session-level semantics |
+| OU013 | other `ALTER SESSION` parameters | session parameters other than `CURRENT_SCHEMA` and `CONTAINER/SERVICE` |
 | OU014 | `CREATE SYNONYM` | Oracle synonym object |
 | OU015 | database link | remote object reference semantics |
 | OU016 | `EXPLAIN PLAN FOR` | Oracle explain plan output semantics |

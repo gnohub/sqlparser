@@ -60,13 +60,16 @@
 | P046 | `revoke-select` | `REVOKE SELECT ON TABLE ... FROM ...` | revoke 节点识别、对象名提取 |
 | P047 | `analyze-table` | `ANALYZE ...` | analyze 节点识别、表名提取 |
 | P048 | `vacuum-analyze-table` | `VACUUM ANALYZE ...` | vacuum/analyze 组合节点识别 |
-| P049 | `oracle-cli-dialect-q-quote` | Oracle `q'[...]'` | CLI `dialect` 字段和 Oracle q-quoted 字符串处理 |
-| P050 | `sqlserver-cli-dialect-top-param` | SQL Server `TOP` + `@` 参数 | CLI `dialect` 字段和 SQL Server 方言输出处理 |
+| P049 | `postgresql-set-search-path` | `SET search_path TO ...` | 会话 schema 搜索路径输出和 value selector |
+| P050 | `postgresql-set-schema` | `SET SCHEMA ...` | `SET SCHEMA` alias 反解析为 `search_path` |
+| P051 | `postgresql-set-local-search-path` | `SET LOCAL search_path = ...` | 本地事务级 schema 搜索路径 |
+| P052 | `oracle-cli-dialect-q-quote` | Oracle `q'[...]'` | CLI `dialect` 字段和 Oracle q-quoted 字符串处理 |
+| P053 | `sqlserver-cli-dialect-top-param` | SQL Server `TOP` + `@` 参数 | CLI `dialect` 字段和 SQL Server 方言输出处理 |
 
 ## 负向用例
 
 | 用例 ID | 用例名称 | 输入 | 验证重点 |
 | --- | --- | --- | --- |
-| P051 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
+| P054 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
 
 新增回归用例必须同步更新 `tests/cases/sql_batch_input.json` 和本矩阵。

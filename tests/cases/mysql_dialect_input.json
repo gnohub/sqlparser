@@ -179,6 +179,46 @@
       }
     },
     {
+      "id": "M015",
+      "name": "mysql-use-database",
+      "sql": "USE analytics",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["use"],
+        "deparse_contains": "USE analytics",
+        "view_contains": "\"name\":\"DATABASE\""
+      }
+    },
+    {
+      "id": "M016",
+      "name": "mysql-use-quoted-database",
+      "sql": "USE `analytics-prod`",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["use"],
+        "deparse_contains": "USE `analytics-prod`",
+        "view_contains": "\"sql\":\"`analytics-prod`\""
+      }
+    },
+    {
+      "id": "M017",
+      "name": "mysql-use-database-in-multi-statement",
+      "sql": "USE `analytics-prod`; SELECT * FROM `users`",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": ["VariableSetStmt", "SelectStmt"],
+        "keywords": ["use", "select"],
+        "tables": ["users"],
+        "deparse_contains": "USE `analytics-prod`; SELECT * FROM users",
+        "view_contains": "\"sql\":\"`analytics-prod`\""
+      }
+    },
+    {
       "id": "MU001",
       "name": "mysql-insert-ignore",
       "sql": "INSERT IGNORE INTO `users` (`id`) VALUES (1)",

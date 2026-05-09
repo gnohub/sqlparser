@@ -541,6 +541,72 @@
       }
     },
     {
+      "id": "O043",
+      "name": "oracle-alter-session-current-schema",
+      "sql": "ALTER SESSION SET CURRENT_SCHEMA=KDES",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["alter", "session", "set"],
+        "deparse_contains": "ALTER SESSION SET CURRENT_SCHEMA",
+        "view_contains": "\"name\":\"CURRENT_SCHEMA\""
+      }
+    },
+    {
+      "id": "O044",
+      "name": "oracle-alter-session-container",
+      "sql": "ALTER SESSION SET CONTAINER=PDB1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["alter", "session", "set"],
+        "deparse_contains": "ALTER SESSION SET CONTAINER",
+        "view_contains": "\"name\":\"CONTAINER\""
+      }
+    },
+    {
+      "id": "O045",
+      "name": "oracle-alter-session-container-root",
+      "sql": "ALTER SESSION SET CONTAINER=CDB$ROOT",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["alter", "session", "set"],
+        "deparse_contains": "ALTER SESSION SET CONTAINER = cdb$root",
+        "view_contains": "\"sql\":\"cdb$root\""
+      }
+    },
+    {
+      "id": "O046",
+      "name": "oracle-alter-session-container-service",
+      "sql": "ALTER SESSION SET CONTAINER=PDB1 SERVICE=APP_SVC",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["alter", "session", "set"],
+        "deparse_contains": "ALTER SESSION SET CONTAINER = pdb1 SERVICE = app_svc",
+        "view_contains": "\"name\":\"SERVICE\""
+      }
+    },
+    {
+      "id": "O047",
+      "name": "oracle-alter-session-current-schema-in-multi-statement",
+      "sql": "SELECT * FROM users; ALTER SESSION SET CURRENT_SCHEMA=KDES",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": ["SelectStmt", "VariableSetStmt"],
+        "keywords": ["select", "alter", "session", "set"],
+        "tables": ["users"],
+        "deparse_contains": "ALTER SESSION SET CURRENT_SCHEMA = kdes",
+        "view_contains": "\"name\":\"CURRENT_SCHEMA\""
+      }
+    },
+    {
       "id": "OU001",
       "name": "oracle-connect-by",
       "sql": "SELECT id FROM users START WITH manager_id IS NULL CONNECT BY PRIOR id = manager_id",

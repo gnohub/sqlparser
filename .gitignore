@@ -1,6 +1,7 @@
 /build/
 /bin/
 /lib/
+/bench/results/
 .DS_Store
 ._*
 /vendor/libpg_query/*.a

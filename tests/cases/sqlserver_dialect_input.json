@@ -668,6 +668,46 @@
       }
     },
     {
+      "id": "S044",
+      "name": "sqlserver-use-database",
+      "sql": "USE [AdventureWorks2022]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["use"],
+        "deparse_contains": "USE [AdventureWorks2022]",
+        "view_contains": "\"name\":\"DATABASE\""
+      }
+    },
+    {
+      "id": "S045",
+      "name": "sqlserver-use-database-official-example",
+      "sql": "USE AdventureWorks2022",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["use"],
+        "deparse_contains": "USE [AdventureWorks2022]",
+        "view_contains": "\"sql\":\"[AdventureWorks2022]\""
+      }
+    },
+    {
+      "id": "S046",
+      "name": "sqlserver-use-database-in-multi-statement",
+      "sql": "USE [AdventureWorks2022]; SELECT * FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": ["VariableSetStmt", "SelectStmt"],
+        "keywords": ["use", "select"],
+        "tables": ["dbo.users"],
+        "deparse_contains": "USE [AdventureWorks2022]; SELECT * FROM dbo.users",
+        "view_contains": "\"sql\":\"[AdventureWorks2022]\""
+      }
+    },
+    {
       "id": "SU015",
       "name": "sqlserver-table-variable-unsupported",
       "sql": "SELECT [id] FROM @users",

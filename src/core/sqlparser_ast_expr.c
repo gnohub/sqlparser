@@ -346,6 +346,57 @@ static sqlparser_status_t sqlparser_get_wrapper_update_assignment_slot(
 	return SQLPARSER_STATUS_OK;
 }
 
+static sqlparser_status_t sqlparser_get_wrapper_variable_set_arg_slot(
+	PgQuery__ParseResult *ast,
+	PgQuery__Node ***out_slot,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__RawStmt *raw_stmt;
+	PgQuery__Node *statement;
+	PgQuery__VariableSetStmt *set_stmt;
+
+	if (ast == NULL || out_slot == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"wrapped SET slot lookup requires non-NULL arguments");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	*out_slot = NULL;
+	if (ast->n_stmts != 1U || ast->stmts == NULL || ast->stmts[0] == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"wrapped SET parse tree is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+
+	raw_stmt = ast->stmts[0];
+	statement = raw_stmt->stmt;
+	if (statement == NULL ||
+	    statement->node_case != PG_QUERY__NODE__NODE_VARIABLE_SET_STMT ||
+	    statement->variable_set_stmt == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"wrapped parse tree does not contain SET");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+
+	set_stmt = statement->variable_set_stmt;
+	if (set_stmt->n_args != 1U || set_stmt->args == NULL || set_stmt->args[0] == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"wrapped SET parse tree does not contain one argument");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+
+	*out_slot = &set_stmt->args[0];
+	return SQLPARSER_STATUS_OK;
+}
+
 sqlparser_status_t sqlparser_parse_insert_cell_node_sql(
 	const char *sql_text,
 	PgQuery__Node **out_node,
@@ -432,6 +483,48 @@ sqlparser_status_t sqlparser_parse_update_assignment_node_sql(
 	return status;
 }
 
+sqlparser_status_t sqlparser_parse_variable_set_arg_node_sql(
+	const char *sql_text,
+	PgQuery__Node **out_node,
+	sqlparser_error_t *out_error)
+{
+	const char *prefix;
+	char *wrapped_sql;
+	PgQuery__ParseResult *ast;
+	PgQuery__Node **slot;
+	sqlparser_status_t status;
+
+	if (sql_text == NULL || sql_text[0] == '\0' || out_node == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"SET argument SQL must not be NULL or empty");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	*out_node = NULL;
+	prefix = "SET __sqlparser_session_parameter__ = ";
+	wrapped_sql = NULL;
+	ast = NULL;
+	slot = NULL;
+	status = sqlparser_build_wrapped_sql(prefix, sql_text, NULL, &wrapped_sql, out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_parse_wrapper_ast(wrapped_sql, &ast, out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_get_wrapper_variable_set_arg_slot(ast, &slot, out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_clone_proto_node(*slot, out_node, out_error);
+	}
+
+	if (ast != NULL) {
+		pg_query__parse_result__free_unpacked(ast, NULL);
+	}
+	free(wrapped_sql);
+	return status;
+}
+
 sqlparser_status_t sqlparser_render_insert_cell_node_sql(
 	const PgQuery__Node *node,
 	char **out_sql,
@@ -480,6 +573,65 @@ sqlparser_status_t sqlparser_render_insert_cell_node_sql(
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_extract_wrapped_value_sql(deparsed_sql, prefix, suffix, out_sql, out_error);
+	}
+
+	sqlparser_free_proto_node(replacement);
+	if (ast != NULL) {
+		pg_query__parse_result__free_unpacked(ast, NULL);
+	}
+	free(wrapped_sql);
+	free(deparsed_sql);
+	return status;
+}
+
+sqlparser_status_t sqlparser_render_variable_set_arg_node_sql(
+	const PgQuery__Node *node,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	const char *prefix;
+	const char *deparse_prefix;
+	char *wrapped_sql;
+	char *deparsed_sql;
+	PgQuery__ParseResult *ast;
+	PgQuery__Node **slot;
+	PgQuery__Node *replacement;
+	sqlparser_status_t status;
+
+	if (node == NULL || out_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"SET argument render requires non-NULL arguments");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	*out_sql = NULL;
+	prefix = "SET __sqlparser_session_parameter__ = ";
+	deparse_prefix = "SET __sqlparser_session_parameter__ TO ";
+	wrapped_sql = NULL;
+	deparsed_sql = NULL;
+	ast = NULL;
+	slot = NULL;
+	replacement = NULL;
+	status = sqlparser_build_wrapped_sql(prefix, "__sqlparser_placeholder__", NULL, &wrapped_sql, out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_parse_wrapper_ast(wrapped_sql, &ast, out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_get_wrapper_variable_set_arg_slot(ast, &slot, out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_clone_proto_node(node, &replacement, out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		sqlparser_free_proto_node(*slot);
+		*slot = replacement;
+		replacement = NULL;
+		status = sqlparser_deparse_wrapper_ast(ast, &deparsed_sql, out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_extract_wrapped_value_sql(deparsed_sql, deparse_prefix, NULL, out_sql, out_error);
 	}
 
 	sqlparser_free_proto_node(replacement);

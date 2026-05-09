@@ -14,6 +14,7 @@ ddl,CREATE_VIEW,CURRENT,"已覆盖 CREATE VIEW AS SELECT",https://dev.mysql.com/
 ddl,DROP_TABLE,CURRENT,"已覆盖 DROP TABLE",https://dev.mysql.com/doc/refman/8.4/en/drop-table.html
 transaction,START_TRANSACTION,CURRENT,"已覆盖 START TRANSACTION",https://dev.mysql.com/doc/refman/8.4/en/commit.html
 transaction,COMMIT,CURRENT,"已覆盖 COMMIT",https://dev.mysql.com/doc/refman/8.4/en/commit.html
+session,USE_DATABASE,CURRENT,"已覆盖 USE db_name 默认数据库切换语句",https://dev.mysql.com/doc/refman/8.4/en/use.html
 query,CTE_WITH,HOOK_ONLY,"MySQL WITH 可由查询 AST 承载，当前 MySQL 方言矩阵未单独覆盖",https://dev.mysql.com/doc/refman/8.4/en/with.html
 query,WINDOW_FUNCTIONS,HOOK_ONLY,"窗口函数可由表达式 AST 承载，当前 MySQL 方言矩阵未单独覆盖",https://dev.mysql.com/doc/refman/8.4/en/window-functions.html
 query,GROUP_BY_HAVING,HOOK_ONLY,"GROUP BY 和 HAVING 可由查询 AST 承载，当前 MySQL 方言矩阵未单独覆盖",https://dev.mysql.com/doc/refman/8.4/en/group-by-handling.html

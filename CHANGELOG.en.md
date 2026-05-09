@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.3.0
+
+### Dialect Capabilities
+
+- Added PostgreSQL session-schema context output for `SET search_path`,
+  `SET LOCAL search_path`, and `SET SCHEMA`
+- Added MySQL `USE db_name` default-database switching
+- Added SQL Server `USE database_name` database-context switching
+- Added Oracle `ALTER SESSION SET CURRENT_SCHEMA`, `ALTER SESSION SET
+  CONTAINER`, and `ALTER SESSION SET CONTAINER ... SERVICE ...`
+- Fixed context-switch handling in multi-statement input so parse, SQL View
+  JSON, and deparse stay in the public dialect form
+
+### SQL View and Rewrite
+
+- Session-context statements reuse the existing
+  `statements[].objects[].columns[].value` structure; no separate JSON format is
+  introduced
+- `stmt[n].value[m]` selectors can rewrite context-switch targets and deparse
+  back to the corresponding dialect SQL
+- Fixed edge cases where SQL Server, MySQL, and Oracle deparse could expose
+  internal `sqlparser_current_*` sentinel names
+
+### Tests and Documentation
+
+- Added multi-statement context-switch regression cases for MySQL, Oracle, and
+  SQL Server
+- Updated dialect support docs, official syntax coverage checklists, and
+  executable coverage summaries
+
 ## 0.2.0
 
 ### Core Capabilities

@@ -186,17 +186,42 @@ static int sqlparser_patch_node_is_value_expression(const PgQuery__Node *node)
 	}
 }
 
+static int sqlparser_patch_value_slot_is_variable_set_arg(
+	const PgQuery__Node *statement,
+	PgQuery__Node **value_slot)
+{
+	PgQuery__VariableSetStmt *set_stmt;
+	size_t index;
+
+	if (statement == NULL ||
+	    statement->node_case != PG_QUERY__NODE__NODE_VARIABLE_SET_STMT ||
+	    statement->variable_set_stmt == NULL ||
+	    value_slot == NULL) {
+		return 0;
+	}
+
+	set_stmt = statement->variable_set_stmt;
+	for (index = 0U; index < set_stmt->n_args; index++) {
+		if (&set_stmt->args[index] == value_slot) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
 static sqlparser_status_t sqlparser_patch_set_value_sql(
 	sqlparser_handle_t *handle,
 	const sqlparser_selector_t *selector,
 	const char *sql_text,
 	sqlparser_error_t *out_error)
 {
+	PgQuery__Node *statement;
 	PgQuery__Node **value_slot;
 	PgQuery__Node *replacement;
 	sqlparser_status_t status;
 	char *parser_sql;
 	void *dialect_state;
+	int variable_set_arg;
 
 	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_VALUE) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "selector kind must be value");
@@ -206,7 +231,27 @@ static sqlparser_status_t sqlparser_patch_set_value_sql(
 	parser_sql = NULL;
 	dialect_state = NULL;
 	replacement = NULL;
+	statement = NULL;
 	value_slot = NULL;
+	variable_set_arg = 0;
+	status = sqlparser_get_statement_node(handle, selector->statement_index, &statement, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_get_statement_node_slot_by_index(
+		handle,
+		selector->statement_index,
+		selector->item_index,
+		&value_slot,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (value_slot == NULL || *value_slot == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "value selector node is missing");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	variable_set_arg = sqlparser_patch_value_slot_is_variable_set_arg(statement, value_slot);
 	status = sqlparser_preprocess_handle_sql_fragment(
 		handle,
 		sql_text,
@@ -217,31 +262,18 @@ static sqlparser_status_t sqlparser_patch_set_value_sql(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	status = sqlparser_parse_update_assignment_node_sql(parser_sql, &replacement, out_error);
+	if (variable_set_arg) {
+		status = sqlparser_parse_variable_set_arg_node_sql(parser_sql, &replacement, out_error);
+	} else {
+		status = sqlparser_parse_update_assignment_node_sql(parser_sql, &replacement, out_error);
+	}
 	free(parser_sql);
 	parser_sql = NULL;
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_handle_discard_dialect_state(handle, dialect_state);
 		return status;
 	}
-	status = sqlparser_get_statement_node_slot_by_index(
-		handle,
-		selector->statement_index,
-		selector->item_index,
-		&value_slot,
-		out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_free_proto_node(replacement);
-		sqlparser_handle_discard_dialect_state(handle, dialect_state);
-		return status;
-	}
-	if (value_slot == NULL || *value_slot == NULL) {
-		sqlparser_free_proto_node(replacement);
-		sqlparser_handle_discard_dialect_state(handle, dialect_state);
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "value selector node is missing");
-		return SQLPARSER_STATUS_INTERNAL_ERROR;
-	}
-	if (!sqlparser_patch_node_is_value_expression(*value_slot)) {
+	if (!variable_set_arg && !sqlparser_patch_node_is_value_expression(*value_slot)) {
 		sqlparser_free_proto_node(replacement);
 		sqlparser_handle_discard_dialect_state(handle, dialect_state);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "value selector does not target an expression node");
