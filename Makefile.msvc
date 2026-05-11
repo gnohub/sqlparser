@@ -84,6 +84,7 @@ UNIT_TEST_BINS = \
 	$(BIN_DIR)\test_mysql_dialect_case_matrix.exe \
 	$(BIN_DIR)\test_oracle_dialect_case_matrix.exe \
 	$(BIN_DIR)\test_sqlserver_dialect_case_matrix.exe \
+	$(BIN_DIR)\test_robustness.exe \
 	$(BIN_DIR)\test_stability.exe
 
 EXAMPLE_BINS = \
@@ -134,6 +135,7 @@ test: all $(UNIT_TEST_BINS) examples
 	$(BIN_DIR)\test_mysql_dialect_case_matrix.exe
 	$(BIN_DIR)\test_oracle_dialect_case_matrix.exe
 	$(BIN_DIR)\test_sqlserver_dialect_case_matrix.exe
+	$(BIN_DIR)\test_robustness.exe
 	$(BIN_DIR)\test_stability.exe
 	$(BIN_DIR)\examples\inspect\01_select_inspect.exe
 	$(BIN_DIR)\examples\convenience\02_insert_values_replace_literal.exe
@@ -280,6 +282,9 @@ $(BIN_DIR)\test_oracle_dialect_case_matrix.exe: tests\unit\test_oracle_dialect_c
 
 $(BIN_DIR)\test_sqlserver_dialect_case_matrix.exe: tests\unit\test_sqlserver_dialect_case_matrix.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_sqlserver_dialect_case_matrix.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_robustness.exe: tests\unit\test_robustness.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_robustness.c /link $(LDFLAGS) $(LDLIBS)
 
 $(BIN_DIR)\test_stability.exe: tests\unit\test_stability.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_stability.c /link $(LDFLAGS) $(LDLIBS)
