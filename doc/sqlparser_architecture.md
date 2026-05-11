@@ -218,5 +218,5 @@ selector 和视图接口用于把改写目标稳定地外部化。
 - SQL View JSON 手册见 [view_json.md](./view_json.md)
 - CLI 手册见 [cli_guide.md](./cli_guide.md)
 - `libpg_query` 集成说明见 [libpg_query_analysis.md](./libpg_query_analysis.md)
-- 示例程序见 `examples/*.c`
+- 示例程序见 `examples/*/*.c`
 - 公共头文件见 `include/sqlparser/sqlparser.h`

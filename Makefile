@@ -34,7 +34,7 @@ VENDOR_BUILD_SIGNATURE_FILE := $(BUILD_PATH)/vendor/.vendor_build_signature
 OBJ_FILES := $(foreach src,$(ALL_SRC),$(OBJ_PATH)/$(patsubst src/%,%,$(src:.c=.o)))
 DEP_FILES := $(OBJ_FILES:.o=.d)
 UNIT_TEST_BINS := $(foreach src,$(UNIT_TEST_SRC),$(BIN_PATH)/$(notdir $(src:.c=)))
-EXAMPLE_BINS := $(foreach src,$(EXAMPLE_SRC),$(BIN_PATH)/examples/$(notdir $(src:.c=)))
+EXAMPLE_BINS := $(patsubst examples/%.c,$(BIN_PATH)/examples/%,$(EXAMPLE_SRC))
 TEST_API_SMOKE_BIN := $(BIN_PATH)/test_api_smoke
 TEST_CORE_API_BIN := $(BIN_PATH)/test_core_api
 TEST_CASE_MATRIX_BIN := $(BIN_PATH)/test_api_case_matrix

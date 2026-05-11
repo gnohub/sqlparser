@@ -64,8 +64,19 @@ typedef enum {
 	SQLPARSER_SELECTOR_KIND_INSERT_CELL = 6,
 	SQLPARSER_SELECTOR_KIND_INSERT_COLUMNS = 7,
 	SQLPARSER_SELECTOR_KIND_INSERT_ROW = 8,
-	SQLPARSER_SELECTOR_KIND_VALUE = 9
+	SQLPARSER_SELECTOR_KIND_VALUE = 9,
+	SQLPARSER_SELECTOR_KIND_SELECT_TARGETS = 10,
+	SQLPARSER_SELECTOR_KIND_SELECT_TARGET = 11,
+	SQLPARSER_SELECTOR_KIND_WHERE = 12,
+	SQLPARSER_SELECTOR_KIND_CLAUSE = 13
 } sqlparser_selector_kind_t;
+
+typedef enum {
+	SQLPARSER_CLAUSE_KIND_UNKNOWN = 0,
+	SQLPARSER_CLAUSE_KIND_SELECT_LIST = 1,
+	SQLPARSER_CLAUSE_KIND_WHERE = 2,
+	SQLPARSER_CLAUSE_KIND_ORDER_BY = 3
+} sqlparser_clause_kind_t;
 
 typedef enum {
 	SQLPARSER_DIALECT_POSTGRESQL = 0,
@@ -73,6 +84,11 @@ typedef enum {
 	SQLPARSER_DIALECT_ORACLE = 2,
 	SQLPARSER_DIALECT_SQLSERVER = 3
 } sqlparser_dialect_t;
+
+typedef enum {
+	SQLPARSER_BOOL_OPERATOR_AND = 1,
+	SQLPARSER_BOOL_OPERATOR_OR = 2
+} sqlparser_bool_operator_t;
 
 typedef struct {
 	sqlparser_status_t code;
@@ -148,7 +164,18 @@ typedef struct {
 	size_t keyword_count;
 	const char *keywords[SQLPARSER_STATEMENT_KEYWORD_CAPACITY];
 	size_t object_count;
+	size_t clause_count;
+	size_t where_count;
 } sqlparser_statement_view_t;
+
+typedef struct {
+	const sqlparser_handle_t *handle;
+	size_t statement_index;
+	size_t clause_index;
+	sqlparser_clause_kind_t kind;
+	sqlparser_selector_t selector;
+	int has_selector;
+} sqlparser_clause_view_t;
 
 typedef struct {
 	const sqlparser_handle_t *handle;
@@ -179,6 +206,10 @@ typedef struct {
 	const char *keyword;
 	sqlparser_selector_t selector;
 	int has_selector;
+	sqlparser_selector_t target_list_selector;
+	int has_target_list_selector;
+	sqlparser_selector_t target_selector;
+	int has_target_selector;
 	const char *operator_name;
 	sqlparser_value_view_t value;
 	size_t value_count;
@@ -208,7 +239,8 @@ typedef enum {
 	SQLPARSER_PATCH_REPLACE = 1,
 	SQLPARSER_PATCH_INSERT_COLUMN = 2,
 	SQLPARSER_PATCH_DELETE_COLUMN = 3,
-	SQLPARSER_PATCH_DELETE_ROW = 4
+	SQLPARSER_PATCH_DELETE_ROW = 4,
+	SQLPARSER_PATCH_APPEND_CONDITION = 5
 } sqlparser_patch_op_t;
 
 typedef struct {
@@ -218,6 +250,7 @@ typedef struct {
 	const char *name;
 	const char *sql;
 	const char *default_sql;
+	sqlparser_bool_operator_t bool_operator;
 } sqlparser_patch_t;
 
 typedef struct {
@@ -247,6 +280,8 @@ const char *sqlparser_value_kind_name(sqlparser_value_kind_t kind);
 const char *sqlparser_literal_kind_name(sqlparser_literal_kind_t kind);
 const char *sqlparser_selector_kind_name(sqlparser_selector_kind_t kind);
 const char *sqlparser_dialect_name(sqlparser_dialect_t dialect);
+const char *sqlparser_bool_operator_name(sqlparser_bool_operator_t bool_operator);
+const char *sqlparser_clause_kind_name(sqlparser_clause_kind_t kind);
 
 void sqlparser_limits_default(sqlparser_limits_t *out_limits);
 void sqlparser_parse_options_default(sqlparser_parse_options_t *out_options);
@@ -390,6 +425,57 @@ sqlparser_status_t sqlparser_insert_set_cell_sql(
 	const char *sql_text,
 	sqlparser_error_t *out_error);
 
+sqlparser_status_t sqlparser_select_target_list_count(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t *out_count,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_select_target_count(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t target_list_index,
+	size_t *out_count,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_select_target_sql(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t target_list_index,
+	size_t target_index,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_select_set_target_sql(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t target_list_index,
+	size_t target_index,
+	const char *sql_text,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_select_set_targets_sql(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t target_list_index,
+	const char *sql_text,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_select_insert_target_sql(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t target_list_index,
+	size_t target_index,
+	const char *sql_text,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_select_delete_target(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t target_list_index,
+	size_t target_index,
+	sqlparser_error_t *out_error);
+
 sqlparser_status_t sqlparser_update_assignment_count(
 	const sqlparser_handle_t *handle,
 	size_t statement_index,
@@ -442,6 +528,69 @@ sqlparser_status_t sqlparser_statement_where_set_literal(
 	size_t statement_index,
 	size_t literal_index,
 	const sqlparser_literal_value_t *value,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_statement_where_count(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t *out_count,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_statement_clause_count(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t *out_count,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_statement_clause(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t clause_index,
+	sqlparser_clause_view_t *out_clause,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_statement_clause_sql(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t clause_index,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_statement_set_clause_sql(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t clause_index,
+	const char *sql_text,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_statement_append_clause_condition(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t clause_index,
+	sqlparser_bool_operator_t bool_operator,
+	const char *sql_text,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_statement_where_sql(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t where_index,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_statement_set_where_sql(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t where_index,
+	const char *sql_text,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_statement_append_where_sql(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t where_index,
+	sqlparser_bool_operator_t bool_operator,
+	const char *sql_text,
 	sqlparser_error_t *out_error);
 
 sqlparser_status_t sqlparser_statement_literal_count(
@@ -523,6 +672,50 @@ sqlparser_status_t sqlparser_selector_set_where_literal(
 	const sqlparser_literal_value_t *value,
 	sqlparser_error_t *out_error);
 
+sqlparser_status_t sqlparser_selector_where_sql(
+	const sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_selector_set_where_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *sql_text,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_selector_append_where_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	sqlparser_bool_operator_t bool_operator,
+	const char *sql_text,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_selector_clause(
+	const sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	sqlparser_clause_view_t *out_clause,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_selector_clause_sql(
+	const sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_selector_set_clause_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *sql_text,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_selector_append_clause_condition(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	sqlparser_bool_operator_t bool_operator,
+	const char *sql_text,
+	sqlparser_error_t *out_error);
+
 sqlparser_status_t sqlparser_selector_update_assignment(
 	const sqlparser_handle_t *handle,
 	const sqlparser_selector_t *selector,
@@ -566,6 +759,24 @@ sqlparser_status_t sqlparser_selector_insert_cell_sql(
 	sqlparser_error_t *out_error);
 
 sqlparser_status_t sqlparser_selector_set_insert_cell_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *sql_text,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_selector_select_target_sql(
+	const sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_selector_set_select_target_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *sql_text,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_selector_set_select_targets_sql(
 	sqlparser_handle_t *handle,
 	const sqlparser_selector_t *selector,
 	const char *sql_text,

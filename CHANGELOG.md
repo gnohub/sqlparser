@@ -1,5 +1,21 @@
 # 变更记录
 
+## 未发布
+
+### SQL View 与改写
+
+- 增加通用 `SELECT` 输出列表读取、替换、插入和删除接口
+- 增加通用 `WHERE` 条件读取、设置和 `AND` / `OR` 追加接口
+- 增加通用 statement 级 `clause` selector，支持通过 `stmt[n].clause[m]` 改写 `select_list`、`where` 和 `order_by`
+- SQL View JSON 增加 `statements[].clauses[]`，用于暴露可写语句级子句槽位
+
+### 测试与文档
+
+- 增加 `SELECT` 输出列表和 `WHERE` 条件改写示例
+- 增加通用 `clause` patch 示例，覆盖 SELECT 输出列表、WHERE 条件和 ORDER BY 新增
+- 示例目录按 `patch`、`convenience`、`inspect`、`dialect` 分类，推荐接入方优先使用 `patch` 示例
+- 增加 PostgreSQL、MySQL、Oracle 和 SQL Server 的 WHERE 改写回归用例，覆盖全部已暴露 `where_clause` 的 PostgreSQL AST 类型
+
 ## 0.3.0
 
 ### 方言能力

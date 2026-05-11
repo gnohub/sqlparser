@@ -147,6 +147,14 @@ sqlparser_status_t sqlparser_selector_parse(
 		offset += 13U;
 		out_selector->kind = SQLPARSER_SELECTOR_KIND_WHERE_LITERAL;
 		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
+	} else if (strncmp(text + offset, "where", 5) == 0) {
+		offset += 5U;
+		out_selector->kind = SQLPARSER_SELECTOR_KIND_WHERE;
+		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
+	} else if (strncmp(text + offset, "clause", 6) == 0) {
+		offset += 6U;
+		out_selector->kind = SQLPARSER_SELECTOR_KIND_CLAUSE;
+		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
 	} else if (strncmp(text + offset, "assignment", 10) == 0) {
 		offset += 10U;
 		out_selector->kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
@@ -170,6 +178,21 @@ sqlparser_status_t sqlparser_selector_parse(
 		offset += 10U;
 		out_selector->kind = SQLPARSER_SELECTOR_KIND_INSERT_ROW;
 		status = sqlparser_selector_parse_index(text, &offset, &out_selector->row_index, out_error);
+	} else if (strncmp(text + offset, "select_targets", 14) == 0) {
+		offset += 14U;
+		out_selector->kind = SQLPARSER_SELECTOR_KIND_SELECT_TARGETS;
+		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
+	} else if (strncmp(text + offset, "select_target", 13) == 0) {
+		offset += 13U;
+		out_selector->kind = SQLPARSER_SELECTOR_KIND_SELECT_TARGET;
+		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_selector_parse_index(
+				text,
+				&offset,
+				&out_selector->column_index,
+				out_error);
+		}
 	} else {
 		sqlparser_error_set_message(
 			out_error,
@@ -259,6 +282,22 @@ sqlparser_status_t sqlparser_selector_format(
 				(unsigned long)selector->statement_index,
 				(unsigned long)selector->item_index);
 			break;
+		case SQLPARSER_SELECTOR_KIND_WHERE:
+			length = snprintf(
+				buffer,
+				sizeof(buffer),
+				"stmt[%lu].where[%lu]",
+				(unsigned long)selector->statement_index,
+				(unsigned long)selector->item_index);
+			break;
+		case SQLPARSER_SELECTOR_KIND_CLAUSE:
+			length = snprintf(
+				buffer,
+				sizeof(buffer),
+				"stmt[%lu].clause[%lu]",
+				(unsigned long)selector->statement_index,
+				(unsigned long)selector->item_index);
+			break;
 		case SQLPARSER_SELECTOR_KIND_ASSIGNMENT:
 			length = snprintf(
 				buffer,
@@ -290,6 +329,23 @@ sqlparser_status_t sqlparser_selector_format(
 				"stmt[%lu].insert_row[%lu]",
 				(unsigned long)selector->statement_index,
 				(unsigned long)selector->row_index);
+			break;
+		case SQLPARSER_SELECTOR_KIND_SELECT_TARGETS:
+			length = snprintf(
+				buffer,
+				sizeof(buffer),
+				"stmt[%lu].select_targets[%lu]",
+				(unsigned long)selector->statement_index,
+				(unsigned long)selector->item_index);
+			break;
+		case SQLPARSER_SELECTOR_KIND_SELECT_TARGET:
+			length = snprintf(
+				buffer,
+				sizeof(buffer),
+				"stmt[%lu].select_target[%lu][%lu]",
+				(unsigned long)selector->statement_index,
+				(unsigned long)selector->item_index,
+				(unsigned long)selector->column_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_UNKNOWN:
 		default:
@@ -495,6 +551,164 @@ sqlparser_status_t sqlparser_selector_set_where_literal(
 		out_error);
 }
 
+sqlparser_status_t sqlparser_selector_where_sql(
+	const sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_WHERE) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"selector kind must be where");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_statement_where_sql(
+		handle,
+		selector->statement_index,
+		selector->item_index,
+		out_sql,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_selector_set_where_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *sql_text,
+	sqlparser_error_t *out_error)
+{
+	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_WHERE) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"selector kind must be where");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_statement_set_where_sql(
+		handle,
+		selector->statement_index,
+		selector->item_index,
+		sql_text,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_selector_append_where_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	sqlparser_bool_operator_t bool_operator,
+	const char *sql_text,
+	sqlparser_error_t *out_error)
+{
+	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_WHERE) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"selector kind must be where");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_statement_append_where_sql(
+		handle,
+		selector->statement_index,
+		selector->item_index,
+		bool_operator,
+		sql_text,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_selector_clause(
+	const sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	sqlparser_clause_view_t *out_clause,
+	sqlparser_error_t *out_error)
+{
+	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_CLAUSE) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"selector kind must be clause");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_statement_clause(
+		handle,
+		selector->statement_index,
+		selector->item_index,
+		out_clause,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_selector_clause_sql(
+	const sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_CLAUSE) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"selector kind must be clause");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_statement_clause_sql(
+		handle,
+		selector->statement_index,
+		selector->item_index,
+		out_sql,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_selector_set_clause_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *sql_text,
+	sqlparser_error_t *out_error)
+{
+	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_CLAUSE) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"selector kind must be clause");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_statement_set_clause_sql(
+		handle,
+		selector->statement_index,
+		selector->item_index,
+		sql_text,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_selector_append_clause_condition(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	sqlparser_bool_operator_t bool_operator,
+	const char *sql_text,
+	sqlparser_error_t *out_error)
+{
+	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_CLAUSE) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"selector kind must be clause");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_statement_append_clause_condition(
+		handle,
+		selector->statement_index,
+		selector->item_index,
+		bool_operator,
+		sql_text,
+		out_error);
+}
+
 sqlparser_status_t sqlparser_selector_update_assignment(
 	const sqlparser_handle_t *handle,
 	const sqlparser_selector_t *selector,
@@ -671,6 +885,74 @@ sqlparser_status_t sqlparser_selector_set_insert_cell_sql(
 		selector->statement_index,
 		selector->row_index,
 		selector->column_index,
+		sql_text,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_selector_select_target_sql(
+	const sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_SELECT_TARGET) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"selector kind must be select_target");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_select_target_sql(
+		handle,
+		selector->statement_index,
+		selector->item_index,
+		selector->column_index,
+		out_sql,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_selector_set_select_target_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *sql_text,
+	sqlparser_error_t *out_error)
+{
+	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_SELECT_TARGET) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"selector kind must be select_target");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_select_set_target_sql(
+		handle,
+		selector->statement_index,
+		selector->item_index,
+		selector->column_index,
+		sql_text,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_selector_set_select_targets_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *sql_text,
+	sqlparser_error_t *out_error)
+{
+	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_SELECT_TARGETS) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"selector kind must be select_targets");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_select_set_targets_sql(
+		handle,
+		selector->statement_index,
+		selector->item_index,
 		sql_text,
 		out_error);
 }

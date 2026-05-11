@@ -233,5 +233,5 @@ Dialect adaptation can be added through these extension points:
 - CLI guide: [cli_guide.en.md](./cli_guide.en.md)
 - `libpg_query` integration notes:
   [libpg_query_analysis.en.md](./libpg_query_analysis.en.md)
-- examples: `examples/*.c`
+- examples: `examples/*/*.c`
 - public header: `include/sqlparser/sqlparser.h`

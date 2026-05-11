@@ -381,6 +381,14 @@ static sqlparser_status_t sqlparser_patch_replace(
 			return sqlparser_selector_set_update_assignment_sql(handle, &selector, patch->sql, out_error);
 		case SQLPARSER_SELECTOR_KIND_INSERT_CELL:
 			return sqlparser_selector_set_insert_cell_sql(handle, &selector, patch->sql, out_error);
+		case SQLPARSER_SELECTOR_KIND_SELECT_TARGETS:
+			return sqlparser_selector_set_select_targets_sql(handle, &selector, patch->sql, out_error);
+		case SQLPARSER_SELECTOR_KIND_SELECT_TARGET:
+			return sqlparser_selector_set_select_target_sql(handle, &selector, patch->sql, out_error);
+		case SQLPARSER_SELECTOR_KIND_WHERE:
+			return sqlparser_selector_set_where_sql(handle, &selector, patch->sql, out_error);
+		case SQLPARSER_SELECTOR_KIND_CLAUSE:
+			return sqlparser_selector_set_clause_sql(handle, &selector, patch->sql, out_error);
 		case SQLPARSER_SELECTOR_KIND_LITERAL:
 		case SQLPARSER_SELECTOR_KIND_WHERE_LITERAL:
 		{
@@ -401,6 +409,37 @@ static sqlparser_status_t sqlparser_patch_replace(
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "selector kind cannot be replaced");
 			return SQLPARSER_STATUS_UNSUPPORTED;
 	}
+}
+
+static sqlparser_status_t sqlparser_patch_append_condition(
+	sqlparser_handle_t *handle,
+	const sqlparser_patch_t *patch,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_selector_t selector;
+	sqlparser_bool_operator_t bool_operator;
+	sqlparser_status_t status;
+
+	if (patch == NULL || patch->selector == NULL || patch->sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "append_condition requires selector and sql");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	status = sqlparser_patch_parse_selector(patch->selector, &selector, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (selector.kind != SQLPARSER_SELECTOR_KIND_WHERE && selector.kind != SQLPARSER_SELECTOR_KIND_CLAUSE) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "append_condition selector must be where or clause");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	bool_operator = patch->bool_operator != 0 ?
+		patch->bool_operator :
+		SQLPARSER_BOOL_OPERATOR_AND;
+	if (selector.kind == SQLPARSER_SELECTOR_KIND_CLAUSE) {
+		return sqlparser_selector_append_clause_condition(handle, &selector, bool_operator, patch->sql, out_error);
+	}
+	return sqlparser_selector_append_where_sql(handle, &selector, bool_operator, patch->sql, out_error);
 }
 
 static PgQuery__Node *sqlparser_patch_new_insert_column_node(const char *name, sqlparser_error_t *out_error)
@@ -546,16 +585,33 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 	size_t insert_index;
 	size_t row_count;
 
-	if (patch == NULL || patch->selector == NULL || patch->name == NULL || patch->default_sql == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "insert_column requires selector, name and default_sql");
+	if (patch == NULL || patch->selector == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "insert_column requires selector");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	status = sqlparser_patch_parse_selector(patch->selector, &selector, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
+	if (selector.kind == SQLPARSER_SELECTOR_KIND_SELECT_TARGETS) {
+		if (patch->sql == NULL) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "select target insert requires sql");
+			return SQLPARSER_STATUS_INVALID_ARGUMENT;
+		}
+		return sqlparser_select_insert_target_sql(
+			handle,
+			selector.statement_index,
+			selector.item_index,
+			patch->index,
+			patch->sql,
+			out_error);
+	}
 	if (selector.kind != SQLPARSER_SELECTOR_KIND_INSERT_COLUMNS) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "insert_column selector must be insert_columns");
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "insert_column selector must be insert_columns or select_targets");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (patch->name == NULL || patch->default_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "insert_column requires name and default_sql");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	status = sqlparser_get_insert_values_stmt(handle, selector.statement_index, &stmt, &values_stmt, out_error);
@@ -690,8 +746,16 @@ static sqlparser_status_t sqlparser_patch_delete_column(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
+	if (selector.kind == SQLPARSER_SELECTOR_KIND_SELECT_TARGETS) {
+		return sqlparser_select_delete_target(
+			handle,
+			selector.statement_index,
+			selector.item_index,
+			patch->index,
+			out_error);
+	}
 	if (selector.kind != SQLPARSER_SELECTOR_KIND_INSERT_COLUMNS) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "delete_column selector must be insert_columns");
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "delete_column selector must be insert_columns or select_targets");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	status = sqlparser_get_insert_values_stmt(handle, selector.statement_index, &stmt, &values_stmt, out_error);
@@ -856,6 +920,9 @@ sqlparser_status_t sqlparser_apply_patch(
 				break;
 			case SQLPARSER_PATCH_DELETE_ROW:
 				status = sqlparser_patch_delete_row(handle, patch, out_error);
+				break;
+			case SQLPARSER_PATCH_APPEND_CONDITION:
+				status = sqlparser_patch_append_condition(handle, patch, out_error);
 				break;
 			default:
 				status = SQLPARSER_STATUS_UNSUPPORTED;

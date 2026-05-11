@@ -16,7 +16,8 @@
 - `sql -> handle`
 - 语句类型与节点名称识别
 - 表、名称原子、字面量的遍历与改写
-- `INSERT`、`UPDATE`、`WHERE` 结构读取与精确改写
+- `INSERT`、`UPDATE`、`WHERE` 结构读取与精确改写，支持新增 WHERE 与追加条件
+- `SELECT` 输出列表读取、替换、插入与删除
 - `selector` 解析、格式化与定位
 - 方言选项，默认 PostgreSQL，并提供 MySQL、Oracle、SQL Server 方言转换层
 - 可配置资源限制，覆盖 SQL 输入、生成输出与语句数量
@@ -172,18 +173,10 @@ gcc -std=gnu11 demo.c $(pkg-config --cflags --libs sqlparser) -o demo
 
 示例程序位于 `examples/`：
 
-- `01_select_inspect.c`
-- `02_insert_values_replace_literal.c`
-- `03_insert_select_inspect.c`
-- `04_update_replace_assignment.c`
-- `05_delete_inspect.c`
-- `06_ddl_inspect.c`
-- `07_multi_statement_walk.c`
-- `08_view_patch.c`
-- `09_expression_rewrite.c`
-- `10_mysql_dialect.c`
-- `11_oracle_dialect.c`
-- `12_sqlserver_dialect.c`
+- `examples/patch/`：推荐接入方式，统一使用 `sqlparser_apply_patch()`。
+- `examples/convenience/`：便捷接口示例。
+- `examples/inspect/`：结构读取和遍历示例。
+- `examples/dialect/`：方言调用示例。
 
 示例说明见 [examples/README.zh-CN.md](./examples/README.zh-CN.md)。
 

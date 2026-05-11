@@ -50,6 +50,26 @@ typedef struct {
 	PgQuery__Node **target_slot;
 } sqlparser_node_slot_search_t;
 
+typedef struct {
+	size_t seen;
+	size_t target_index;
+	int want_target;
+	PgQuery__Node **target_slot;
+} sqlparser_where_clause_search_t;
+
+typedef struct {
+	size_t seen;
+	size_t target_index;
+	int want_target;
+	sqlparser_clause_kind_t target_kind;
+	size_t target_internal_index;
+	PgQuery__SelectStmt *target_select_stmt;
+	size_t select_list_seen;
+	size_t where_seen;
+	size_t order_by_seen;
+	size_t set_operand_depth;
+} sqlparser_clause_search_t;
+
 void sqlparser_relation_view_clear(sqlparser_relation_view_t *view);
 void sqlparser_literal_view_clear(sqlparser_literal_view_t *view);
 void sqlparser_assignment_view_clear(sqlparser_assignment_view_t *view);
@@ -74,10 +94,33 @@ sqlparser_status_t sqlparser_get_update_stmt(
 	size_t statement_index,
 	PgQuery__UpdateStmt **out_stmt,
 	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_get_select_stmt_by_target_list_index(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t target_list_index,
+	PgQuery__SelectStmt **out_stmt,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_find_select_target_list_index_by_stmt(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	const PgQuery__SelectStmt *stmt,
+	size_t *out_index,
+	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_get_statement_where_clause(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
 	PgQuery__Node **out_where_clause,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_get_statement_where_clause_slot(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t where_index,
+	PgQuery__Node ***out_slot,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_count_statement_where_clauses(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t *out_count,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_search_statement_messages(
 	sqlparser_handle_t *handle,
@@ -154,7 +197,47 @@ sqlparser_status_t sqlparser_clone_proto_node(
 	PgQuery__Node **out_node,
 	sqlparser_error_t *out_error);
 
+sqlparser_status_t sqlparser_build_wrapped_sql(
+	const char *prefix,
+	const char *sql_text,
+	const char *suffix,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_parse_wrapper_ast(
+	const char *wrapped_sql,
+	PgQuery__ParseResult **out_ast,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_deparse_wrapper_ast(
+	const PgQuery__ParseResult *ast,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_extract_wrapped_value_sql(
+	const char *wrapped_sql,
+	const char *prefix,
+	const char *suffix,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+
 sqlparser_status_t sqlparser_parse_insert_cell_node_sql(
+	const char *sql_text,
+	PgQuery__Node **out_node,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_parse_select_target_nodes_sql(
+	const char *sql_text,
+	PgQuery__Node ***out_nodes,
+	size_t *out_count,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_render_select_targets_sql(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t target_list_index,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_parse_select_target_node_sql(
+	const char *sql_text,
+	PgQuery__Node **out_node,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_parse_where_node_sql(
 	const char *sql_text,
 	PgQuery__Node **out_node,
 	sqlparser_error_t *out_error);
@@ -167,6 +250,14 @@ sqlparser_status_t sqlparser_parse_variable_set_arg_node_sql(
 	PgQuery__Node **out_node,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_render_insert_cell_node_sql(
+	const PgQuery__Node *node,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_render_select_target_node_sql(
+	const PgQuery__Node *node,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_render_where_node_sql(
 	const PgQuery__Node *node,
 	char **out_sql,
 	sqlparser_error_t *out_error);

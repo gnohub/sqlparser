@@ -45,6 +45,7 @@ sqlparser_object_column_at(&object, 0, &column, &err);
       "index": 0,
       "keyword": "insert",
       "keywords": ["insert", "into", "values"],
+      "clauses": [],
       "objects": []
     }
   ]
@@ -58,7 +59,30 @@ sqlparser_object_column_at(&object, 0, &column, &err);
 | `index` | 语句索引，0 基 |
 | `keyword` | 当前语句的主关键字 |
 | `keywords` | 当前语句中识别到的关键字集合 |
+| `clauses` | 可写语句级子句数组；槽位为空时 `sql` 为 `null` |
 | `objects` | SQL 中出现的表、视图或可归属对象 |
+
+## 子句结构
+
+`clauses` 表示 statement 级可改写结构，不表示字段归属。当前可写子句包括 `select_list`、`where` 和 `order_by`。
+
+```json
+{
+  "kind": "where",
+  "selector": "stmt[0].clause[1]",
+  "sql": "status = 'active'"
+}
+```
+
+字段说明：
+
+| 字段 | 说明 |
+| --- | --- |
+| `kind` | 子句类型，例如 `select_list`、`where`、`order_by` |
+| `selector` | 可用于 patch 的子句 selector |
+| `sql` | 子句内容；当前语句可新增该子句但尚未出现时为 `null` |
+
+`clauses` 负责结构级改写，例如替换 SELECT 输出列表、新增 WHERE、追加 WHERE 条件或新增 ORDER BY。`objects[].columns[]` 负责字段和值归属，两者粒度不同。
 
 ## 对象结构
 
@@ -98,6 +122,8 @@ sqlparser_object_column_at(&object, 0, &column, &err);
   "keyword": "where",
   "operator": "=",
   "selector": "stmt[0].name[3]",
+  "target_list_selector": null,
+  "target_selector": null,
   "value": {
     "sql": "'active'",
     "selector": "stmt[0].value[7]"
@@ -113,6 +139,8 @@ sqlparser_object_column_at(&object, 0, &column, &err);
 | `keyword` | 字段出现的 SQL 子句，例如 `select`、`where`、`set`、`on` |
 | `operator` | 与字段关联的操作符；没有时为 `null` |
 | `selector` | 字段名 selector；没有可写节点时为 `null` |
+| `target_list_selector` | 字段位于 SELECT 输出列表时，指向整个 target list；否则为 `null` |
+| `target_selector` | 字段位于 SELECT 输出列表时，指向单个输出项；否则为 `null` |
 | `value` | 与字段直接关联的 SQL 值片段；没有时为 `null` |
 
 `value.sql` 是可回写的 SQL 片段，不做类型推断。无法安全渲染为独立 SQL 片段的复杂表达式会保持 `value: null`，字段本身仍会输出。
@@ -161,10 +189,11 @@ sqlparser_status_t sqlparser_apply_patch(
 
 | `op` | 说明 |
 | --- | --- |
-| `replace` | 替换 relation、name、value、assignment、literal、where_literal 或 insert_cell |
-| `insert_column` | 为 `INSERT ... VALUES` 增加一列，并为每行写入默认 SQL |
-| `delete_column` | 删除 `INSERT ... VALUES` 的一列 |
+| `replace` | 替换 relation、name、value、assignment、literal、where_literal、clause、insert_cell、select_target 或 select_targets |
+| `insert_column` | 为 `INSERT ... VALUES` 增加一列，或向 `select_targets` 插入一个 SELECT 输出项 |
+| `delete_column` | 删除 `INSERT ... VALUES` 的一列，或删除 `select_targets` 中的一个 SELECT 输出项 |
 | `delete_row` | 删除 `INSERT ... VALUES` 的一行 |
+| `append_condition` | 按 `AND` 或 `OR` 向 `where` 类型的 `clause` 追加条件 |
 
 `delete_column` 不会生成空 `VALUES` 行；删除最后一个单元格会返回 `SQLPARSER_STATUS_UNSUPPORTED`。`delete_row` 不会删除最后一行。
 
@@ -202,6 +231,22 @@ patches.count = 1;
 sqlparser_apply_patch(handle, &patches, &err);
 ```
 
+结构级子句示例：
+
+```c
+sqlparser_patch_t patch;
+sqlparser_patch_list_t patches;
+
+memset(&patch, 0, sizeof(patch));
+patch.op = SQLPARSER_PATCH_REPLACE;
+patch.selector = "stmt[0].clause[2]";
+patch.sql = "name DESC, id ASC";
+
+patches.items = &patch;
+patches.count = 1;
+sqlparser_apply_patch(handle, &patches, &err);
+```
+
 删除行示例：
 
 ```c
@@ -211,6 +256,22 @@ sqlparser_patch_list_t patches;
 memset(&patch, 0, sizeof(patch));
 patch.op = SQLPARSER_PATCH_DELETE_ROW;
 patch.selector = "stmt[0].insert_row[1]";
+
+patches.items = &patch;
+patches.count = 1;
+sqlparser_apply_patch(handle, &patches, &err);
+```
+
+替换 `SELECT *` 示例：
+
+```c
+sqlparser_patch_t patch;
+sqlparser_patch_list_t patches;
+
+memset(&patch, 0, sizeof(patch));
+patch.op = SQLPARSER_PATCH_REPLACE;
+patch.selector = "stmt[0].select_targets[0]";
+patch.sql = "id, name, upper(name) AS normalized_name";
 
 patches.items = &patch;
 patches.count = 1;
@@ -234,6 +295,7 @@ INSERT INTO users (id, name) VALUES (1, 'xiaohong'), (2, 'xiaoming')
       "index": 0,
       "keyword": "insert",
       "keywords": ["insert", "into", "values"],
+      "clauses": [],
       "objects": [
         {
           "database": null,

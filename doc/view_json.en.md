@@ -48,6 +48,7 @@ The top-level object contains only `statements`:
       "index": 0,
       "keyword": "insert",
       "keywords": ["insert", "into", "values"],
+      "clauses": [],
       "objects": []
     }
   ]
@@ -61,7 +62,30 @@ Fields:
 | `index` | zero-based statement index |
 | `keyword` | main statement keyword |
 | `keywords` | recognized keyword set for the statement |
+| `clauses` | writable statement-level clause array; `sql` is `null` when a slot is empty |
 | `objects` | tables, views, or other attributable objects in the SQL |
+
+## Clause Layout
+
+`clauses` describes statement-level rewrite slots, not column attribution. The currently writable clause kinds are `select_list`, `where`, and `order_by`.
+
+```json
+{
+  "kind": "where",
+  "selector": "stmt[0].clause[1]",
+  "sql": "status = 'active'"
+}
+```
+
+Fields:
+
+| Field | Description |
+| --- | --- |
+| `kind` | clause kind, such as `select_list`, `where`, or `order_by` |
+| `selector` | clause selector for patching |
+| `sql` | clause content, or `null` when the statement can add the clause but it is not present yet |
+
+Use `clauses` for structural rewrites such as replacing the SELECT output list, adding WHERE, appending WHERE conditions, or adding ORDER BY. Use `objects[].columns[]` for table, column, and value attribution.
 
 ## Object Layout
 
@@ -101,6 +125,8 @@ Only columns that appear in SQL are reported. An unqualified column is attached 
   "keyword": "where",
   "operator": "=",
   "selector": "stmt[0].name[3]",
+  "target_list_selector": null,
+  "target_selector": null,
   "value": {
     "sql": "'active'",
     "selector": "stmt[0].value[7]"
@@ -116,6 +142,8 @@ Fields:
 | `keyword` | clause where the column appears, such as `select`, `where`, `set`, or `on` |
 | `operator` | related operator, or `null` |
 | `selector` | column-name selector, or `null` when not writable |
+| `target_list_selector` | whole target-list selector when the column appears in a SELECT output list, otherwise `null` |
+| `target_selector` | single-output-target selector when the column appears in a SELECT output list, otherwise `null` |
 | `value` | directly related SQL value fragment, or `null` |
 
 `value.sql` is an editable SQL fragment. The model does not infer a database type for the value. Complex expressions that cannot be rendered safely as standalone SQL fragments keep `value: null`; the column entry is still reported.
@@ -166,10 +194,11 @@ Supported operations:
 
 | `op` | Description |
 | --- | --- |
-| `replace` | replaces a relation, name, value, assignment, literal, where_literal, or insert_cell |
-| `insert_column` | adds a column to `INSERT ... VALUES` and writes a default SQL fragment to each row |
-| `delete_column` | deletes one column from `INSERT ... VALUES` |
+| `replace` | replaces a relation, name, value, assignment, literal, where_literal, clause, insert_cell, select_target, or select_targets |
+| `insert_column` | adds a column to `INSERT ... VALUES`, or inserts one SELECT output target into `select_targets` |
+| `delete_column` | deletes one column from `INSERT ... VALUES`, or deletes one SELECT output target from `select_targets` |
 | `delete_row` | deletes one row from `INSERT ... VALUES` |
+| `append_condition` | appends a condition to a `where` clause with `AND` or `OR` |
 
 `delete_column` never produces an empty `VALUES` row; deleting the last cell
 returns `SQLPARSER_STATUS_UNSUPPORTED`. `delete_row` does not delete the last row.
@@ -208,6 +237,22 @@ patches.count = 1;
 sqlparser_apply_patch(handle, &patches, &err);
 ```
 
+Statement-clause example:
+
+```c
+sqlparser_patch_t patch;
+sqlparser_patch_list_t patches;
+
+memset(&patch, 0, sizeof(patch));
+patch.op = SQLPARSER_PATCH_REPLACE;
+patch.selector = "stmt[0].clause[2]";
+patch.sql = "name DESC, id ASC";
+
+patches.items = &patch;
+patches.count = 1;
+sqlparser_apply_patch(handle, &patches, &err);
+```
+
 Delete-row example:
 
 ```c
@@ -217,6 +262,22 @@ sqlparser_patch_list_t patches;
 memset(&patch, 0, sizeof(patch));
 patch.op = SQLPARSER_PATCH_DELETE_ROW;
 patch.selector = "stmt[0].insert_row[1]";
+
+patches.items = &patch;
+patches.count = 1;
+sqlparser_apply_patch(handle, &patches, &err);
+```
+
+Replace `SELECT *` example:
+
+```c
+sqlparser_patch_t patch;
+sqlparser_patch_list_t patches;
+
+memset(&patch, 0, sizeof(patch));
+patch.op = SQLPARSER_PATCH_REPLACE;
+patch.selector = "stmt[0].select_targets[0]";
+patch.sql = "id, name, upper(name) AS normalized_name";
 
 patches.items = &patch;
 patches.count = 1;
@@ -240,6 +301,7 @@ Output:
       "index": 0,
       "keyword": "insert",
       "keywords": ["insert", "into", "values"],
+      "clauses": [],
       "objects": [
         {
           "database": null,

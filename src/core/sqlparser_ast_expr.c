@@ -4,7 +4,7 @@
 
 #include "sqlparser_ast_internal.h"
 
-static sqlparser_status_t sqlparser_build_wrapped_sql(
+sqlparser_status_t sqlparser_build_wrapped_sql(
 	const char *prefix,
 	const char *sql_text,
 	const char *suffix,
@@ -46,7 +46,7 @@ static sqlparser_status_t sqlparser_build_wrapped_sql(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_parse_wrapper_ast(
+sqlparser_status_t sqlparser_parse_wrapper_ast(
 	const char *wrapped_sql,
 	PgQuery__ParseResult **out_ast,
 	sqlparser_error_t *out_error)
@@ -92,7 +92,7 @@ static sqlparser_status_t sqlparser_parse_wrapper_ast(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_deparse_wrapper_ast(
+sqlparser_status_t sqlparser_deparse_wrapper_ast(
 	const PgQuery__ParseResult *ast,
 	char **out_sql,
 	sqlparser_error_t *out_error)
@@ -161,7 +161,7 @@ static sqlparser_status_t sqlparser_deparse_wrapper_ast(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_extract_wrapped_value_sql(
+sqlparser_status_t sqlparser_extract_wrapped_value_sql(
 	const char *wrapped_sql,
 	const char *prefix,
 	const char *suffix,

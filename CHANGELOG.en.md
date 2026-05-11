@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+### SQL View and Rewrite
+
+- Added generic `SELECT` output-list read, replace, insert, and delete APIs
+- Added generic `WHERE` condition read, set, and `AND` / `OR` append APIs
+- Added generic statement-level `clause` selectors for rewriting `select_list`,
+  `where`, and `order_by` through `stmt[n].clause[m]`
+- Added `statements[].clauses[]` to SQL View JSON for writable
+  statement-level clause slots
+
+### Tests and Documentation
+
+- Added examples for `SELECT` output-list and `WHERE` condition rewrites
+- Added a generic `clause` patch example covering SELECT output lists, WHERE
+  conditions, and ORDER BY insertion
+- Grouped examples into `patch`, `convenience`, `inspect`, and `dialect`;
+  integration code should start with the `patch` examples
+- Added WHERE rewrite regression coverage for PostgreSQL, MySQL, Oracle, and
+  SQL Server, covering every PostgreSQL AST type that exposes `where_clause`
+
 ## 0.3.0
 
 ### Dialect Capabilities

@@ -206,6 +206,7 @@ int main(void)
 | `sqlparser_literal_kind_name()` | 返回字面量类型名称 |
 | `sqlparser_selector_kind_name()` | 返回 selector 类型名称 |
 | `sqlparser_dialect_name()` | 返回方言名称 |
+| `sqlparser_bool_operator_name()` | 返回布尔连接符名称 |
 
 ## 解析与句柄管理
 
@@ -375,6 +376,28 @@ void sqlparser_handle_destroy(sqlparser_handle_t *handle);
 - `sqlparser_insert_cell_sql()` 可用于读取 `DEFAULT`、函数调用和其他表达式形态。
 - `sqlparser_insert_set_cell_sql()` 适用于需要保留单元格语义位置、但要替换为任意右值表达式的场景。
 
+## SELECT 列表接口
+
+SELECT target list 表示 `SELECT` 后面的输出列表。该接口直接作用在通用 AST 的 `SelectStmt.target_list` 上，可用于替换 `*`、增加输出列、删除输出列或替换单个输出表达式。
+
+| 函数 | 摘要 |
+| --- | --- |
+| `sqlparser_select_target_list_count()` | 返回语句中的 SELECT target list 数量 |
+| `sqlparser_select_target_count()` | 返回指定 target list 的输出项数量 |
+| `sqlparser_select_target_sql()` | 读取指定输出项 SQL |
+| `sqlparser_select_set_target_sql()` | 替换指定输出项 SQL |
+| `sqlparser_select_set_targets_sql()` | 替换整个 SELECT 输出列表 |
+| `sqlparser_select_insert_target_sql()` | 在 SELECT 输出列表中插入一个输出项 |
+| `sqlparser_select_delete_target()` | 删除 SELECT 输出列表中的一个输出项 |
+
+说明：
+
+- `target_list_index` 用于区分同一语句中的多个 `SelectStmt`，例如子查询、CTE 或集合运算分支。
+- `target_index` 是指定 target list 内部的 0 基输出项索引。
+- `sqlparser_select_set_targets_sql()` 接收逗号分隔的输出列表，例如 `"id, name, upper(name) AS label"`。
+- 方言模式下，输入 SQL 片段会先经过对应方言 hook，再写入 AST。
+- 改写后可通过 `sqlparser_deparse()` 输出 SQL；需要验证生成 SQL 时，使用同一方言再次调用 `sqlparser_parse_with_options()`。
+
 ## UPDATE 与 WHERE 接口
 
 ### UPDATE assignment
@@ -395,6 +418,15 @@ void sqlparser_handle_destroy(sqlparser_handle_t *handle);
 | `sqlparser_statement_where_literal()` | 读取指定 WHERE literal |
 | `sqlparser_statement_where_set_literal()` | 改写指定 WHERE literal |
 
+### WHERE 条件表达式
+
+| 函数 | 摘要 |
+| --- | --- |
+| `sqlparser_statement_where_count()` | 返回语句中的可写 `WHERE` 槽位数量 |
+| `sqlparser_statement_where_sql()` | 读取指定 `WHERE` 条件 SQL；槽位为空时返回 `NULL` |
+| `sqlparser_statement_set_where_sql()` | 设置或替换指定 `WHERE` 条件 SQL |
+| `sqlparser_statement_append_where_sql()` | 按 `AND` 或 `OR` 向指定 `WHERE` 追加条件 |
+
 说明：
 
 - `sqlparser_assignment_view_t` 主要用于读取列名、值类型和右值 literal。
@@ -403,6 +435,29 @@ void sqlparser_handle_destroy(sqlparser_handle_t *handle);
 - `sqlparser_update_set_assignment_sql()` 适用于把赋值项替换为字面量之外的表达式。
 - `sqlparser_where_literal_view_t` 主要用于读取列名、运算符和条件 literal。
 - 按列名定位时，先遍历并记录目标索引，再执行改写。
+- `where_index` 定位 AST 中真实存在的 `where_clause` 槽位；`INSERT ... VALUES` 不会生成虚拟 WHERE。
+- `sqlparser_statement_set_where_sql()` 可用于给 `SELECT`、`UPDATE`、`DELETE`、`INSERT ... SELECT` 以及支持 `WHERE` 的 DDL 或工具语句新增缺失的 WHERE，例如 `CREATE VIEW AS SELECT`、partial index、`COPY FROM`、`CREATE RULE`、`CREATE PUBLICATION` 和排他约束。
+- `sqlparser_statement_append_where_sql()` 在目标槽位为空时等价于新增 WHERE；已有 WHERE 时会保留原条件并追加新条件。
+
+### 通用子句接口
+
+| 函数 | 摘要 |
+| --- | --- |
+| `sqlparser_statement_clause_count()` | 返回语句中的可写 statement 级子句数量 |
+| `sqlparser_statement_clause()` | 读取指定子句视图 |
+| `sqlparser_statement_clause_sql()` | 读取指定子句 SQL；槽位为空时返回 `NULL` |
+| `sqlparser_statement_set_clause_sql()` | 设置或替换指定子句 SQL |
+| `sqlparser_statement_append_clause_condition()` | 按 `AND` 或 `OR` 向 `where` 子句追加条件 |
+
+当前支持的 `sqlparser_clause_kind_t`：
+
+| 枚举 | JSON 名称 | 说明 |
+| --- | --- | --- |
+| `SQLPARSER_CLAUSE_KIND_SELECT_LIST` | `select_list` | SELECT 输出列表 |
+| `SQLPARSER_CLAUSE_KIND_WHERE` | `where` | WHERE 条件表达式 |
+| `SQLPARSER_CLAUSE_KIND_ORDER_BY` | `order_by` | ORDER BY 排序表达式列表 |
+
+通用子句接口用于结构级改写。字段和值归属仍通过 SQL View 的 `objects[].columns[]` 读取。
 
 ## Selector 接口
 
@@ -416,8 +471,11 @@ stmt[0].name[3]
 stmt[0].value[4]
 stmt[0].literal[1]
 stmt[0].where_literal[0]
+stmt[0].clause[0]
 stmt[0].assignment[0]
 stmt[0].insert_cell[1][2]
+stmt[0].select_targets[0]
+stmt[0].select_target[0][1]
 ```
 
 ### selector 解析与格式化
@@ -435,10 +493,14 @@ stmt[0].insert_cell[1][2]
 | `sqlparser_selector_name()` | 通过 selector 读取 name |
 | `sqlparser_selector_literal()` | 通过 selector 读取 literal |
 | `sqlparser_selector_where_literal()` | 通过 selector 读取 WHERE literal |
+| `sqlparser_selector_where_sql()` | 通过 selector 读取 WHERE 条件 SQL |
+| `sqlparser_selector_clause()` | 通过 selector 读取通用子句视图 |
+| `sqlparser_selector_clause_sql()` | 通过 selector 读取通用子句 SQL |
 | `sqlparser_selector_update_assignment()` | 通过 selector 读取 assignment |
 | `sqlparser_selector_insert_cell_literal()` | 通过 selector 读取 INSERT cell literal |
 | `sqlparser_selector_update_assignment_sql()` | 通过 selector 读取 assignment 右值 SQL |
 | `sqlparser_selector_insert_cell_sql()` | 通过 selector 读取 INSERT 单元格右值 SQL |
+| `sqlparser_selector_select_target_sql()` | 通过 selector 读取 SELECT 输出项 SQL |
 
 ### selector 改写
 
@@ -448,10 +510,16 @@ stmt[0].insert_cell[1][2]
 | `sqlparser_selector_set_name()` | 通过 selector 改名称原子 |
 | `sqlparser_selector_set_literal()` | 通过 selector 改通用 literal |
 | `sqlparser_selector_set_where_literal()` | 通过 selector 改 WHERE literal |
+| `sqlparser_selector_set_where_sql()` | 通过 selector 设置或替换 WHERE 条件 SQL |
+| `sqlparser_selector_append_where_sql()` | 通过 selector 向 WHERE 追加条件 |
+| `sqlparser_selector_set_clause_sql()` | 通过 selector 设置或替换通用子句 SQL |
+| `sqlparser_selector_append_clause_condition()` | 通过 selector 向 `where` 类型子句追加条件 |
 | `sqlparser_selector_set_update_assignment_literal()` | 通过 selector 改 assignment 右值 |
 | `sqlparser_selector_set_insert_cell_literal()` | 通过 selector 改 INSERT 单元格 |
 | `sqlparser_selector_set_update_assignment_sql()` | 通过 selector 改 assignment 右值 SQL |
 | `sqlparser_selector_set_insert_cell_sql()` | 通过 selector 改 INSERT 单元格右值 SQL |
+| `sqlparser_selector_set_select_target_sql()` | 通过 selector 改 SELECT 单个输出项 SQL |
+| `sqlparser_selector_set_select_targets_sql()` | 通过 selector 改 SELECT 整个输出列表 |
 
 说明：
 
@@ -489,6 +557,8 @@ SQL View 可以通过 C 结构直接遍历，不需要先导出 JSON。视图中
 | `sqlparser_export_view_json()` | 导出 SQL View JSON |
 | `sqlparser_apply_patch()` | 应用结构体 patch |
 
+接入层通常可以把改写流程统一收敛到 `sqlparser_apply_patch()`。更细粒度的 statement / selector 改写函数适合在调用方已经持有具体索引或 selector 结构体时直接调用。
+
 ### `pretty` 参数
 
 `sqlparser_export_view_json()` 带 `pretty` 参数：
@@ -520,8 +590,11 @@ sqlparser_apply_patch(handle, &patches, &err);
 
 说明：
 
-- `replace` 可替换 relation、name、value、assignment、literal、where_literal 或 insert_cell。
-- `insert_column`、`delete_column`、`delete_row` 用于 `INSERT ... VALUES` 的结构化修改。
+- `replace` 可替换 relation、name、value、assignment、literal、where_literal、clause、insert_cell、select_target 或 select_targets。
+- `insert_column` 可用于 `INSERT ... VALUES` 增加列，也可用于 `select_targets` 插入 SELECT 输出项。
+- `delete_column` 可用于 `INSERT ... VALUES` 删除列，也可用于 `select_targets` 删除 SELECT 输出项。
+- `delete_row` 用于 `INSERT ... VALUES` 的行删除。
+- `append_condition` 可按 `AND` 或 `OR` 向 `where` 类型的 `clause` 追加条件；未设置 `bool_operator` 时默认使用 `AND`。
 - `delete_column` 不会删除最后一个单元格，`delete_row` 不会删除最后一行。
 - patch 按数组顺序执行；失败时返回错误码和错误信息。
 
@@ -599,6 +672,13 @@ void sqlparser_string_free(char *text);
 2. 调用 `sqlparser_update_set_assignment_sql()` 或 `sqlparser_insert_set_cell_sql()` 写入新表达式
 3. 调用 `sqlparser_deparse()`
 
+### SELECT 列表改写
+
+1. 调用 `sqlparser_select_target_count()` 或读取 SQL View 中的 `target_list_selector`
+2. 调用 `sqlparser_select_set_targets_sql()` 替换整个输出列表，或调用 `sqlparser_select_insert_target_sql()` / `sqlparser_select_delete_target()` 增删输出项
+3. 调用 `sqlparser_deparse()`
+4. 需要验证生成 SQL 时，使用同一方言再次调用 `sqlparser_parse_with_options()`
+
 ### selector 驱动改写
 
 1. 导出 SQL View JSON 或遍历 C 结构视图
@@ -611,12 +691,21 @@ void sqlparser_string_free(char *text);
 
 | 示例 | 说明 |
 | --- | --- |
-| `examples/01_select_inspect.c` | SELECT 读取与多表关联信息 |
-| `examples/02_insert_values_replace_literal.c` | `INSERT ... VALUES` 字面量替换 |
-| `examples/03_insert_select_inspect.c` | `INSERT ... SELECT` 检查 |
-| `examples/04_update_replace_assignment.c` | UPDATE 赋值与 WHERE 同时改写 |
-| `examples/05_delete_inspect.c` | DELETE 条件检查与改写 |
-| `examples/06_ddl_inspect.c` | DDL 名称原子读取与改写 |
-| `examples/07_multi_statement_walk.c` | 多语句遍历 |
-| `examples/08_view_patch.c` | SQL View JSON 导出、patch、回放 |
-| `examples/09_expression_rewrite.c` | assignment / insert cell 表达式级改写 |
+| `examples/patch/08_view_patch.c` | SQL View JSON 导出、patch、回放 |
+| `examples/patch/13_select_target_patch.c` | 通过 patch 展开 `SELECT *`、插入输出列和删除输出列 |
+| `examples/patch/14_where_patch.c` | 通过 patch 新增 WHERE 并追加条件 |
+| `examples/patch/15_insert_columns_patch.c` | 通过 patch 增加和删除 `INSERT ... VALUES` 字段 |
+| `examples/patch/16_clause_patch.c` | 通过通用 clause patch 改写 SELECT 输出列表、WHERE 和 ORDER BY |
+| `examples/convenience/02_insert_values_replace_literal.c` | `INSERT ... VALUES` 字面量替换便捷接口 |
+| `examples/convenience/04_update_replace_assignment.c` | UPDATE 赋值与 WHERE 便捷接口 |
+| `examples/convenience/05_delete_inspect.c` | DELETE 目标表读取和条件字面量改写 |
+| `examples/convenience/06_ddl_inspect.c` | DDL 节点识别、名称遍历和对象名改写 |
+| `examples/convenience/09_expression_rewrite.c` | assignment 和 insert cell 表达式级改写 |
+| `examples/convenience/13_select_target_rewrite.c` | SELECT 输出列表便捷接口 |
+| `examples/convenience/14_where_convenience.c` | WHERE 条件便捷接口 |
+| `examples/inspect/01_select_inspect.c` | SELECT 读取与多表关联信息 |
+| `examples/inspect/03_insert_select_inspect.c` | `INSERT ... SELECT` 结构读取 |
+| `examples/inspect/07_multi_statement_walk.c` | 多语句输入遍历 |
+| `examples/dialect/10_mysql_dialect.c` | MySQL 方言解析与 patch 改写 |
+| `examples/dialect/11_oracle_dialect.c` | Oracle 方言解析与改写 |
+| `examples/dialect/12_sqlserver_dialect.c` | SQL Server 方言解析与反解析 |

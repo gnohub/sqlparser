@@ -218,6 +218,7 @@ not be reused.
 | `sqlparser_literal_kind_name()` | returns the literal-kind name |
 | `sqlparser_selector_kind_name()` | returns the selector-kind name |
 | `sqlparser_dialect_name()` | returns the dialect name |
+| `sqlparser_bool_operator_name()` | returns the boolean-operator name |
 
 ## Parse and Handle Management
 
@@ -395,6 +396,35 @@ Notes:
 - `sqlparser_insert_set_cell_sql()` is suitable when the target cell position
   stays the same but the right-hand expression must change.
 
+## SELECT Target-List APIs
+
+A SELECT target list is the output list after `SELECT`. These APIs operate on
+the generic AST `SelectStmt.target_list` and can replace `*`, add an output
+target, delete an output target, or replace one output expression.
+
+| Function | Summary |
+| --- | --- |
+| `sqlparser_select_target_list_count()` | returns the number of SELECT target lists in a statement |
+| `sqlparser_select_target_count()` | returns the number of output targets in one target list |
+| `sqlparser_select_target_sql()` | reads one output target as SQL |
+| `sqlparser_select_set_target_sql()` | replaces one output target SQL |
+| `sqlparser_select_set_targets_sql()` | replaces the whole SELECT output list |
+| `sqlparser_select_insert_target_sql()` | inserts one output target into a SELECT output list |
+| `sqlparser_select_delete_target()` | deletes one output target from a SELECT output list |
+
+Notes:
+
+- `target_list_index` distinguishes multiple `SelectStmt` nodes in one
+  statement, such as subqueries, CTEs, or set-operation branches.
+- `target_index` is the zero-based output-target index inside one target list.
+- `sqlparser_select_set_targets_sql()` accepts a comma-separated output list,
+  for example `"id, name, upper(name) AS label"`.
+- In dialect mode, input fragments are first processed by the dialect hook
+  before they are written into the AST.
+- After rewriting, call `sqlparser_deparse()` to generate SQL. To validate the
+  generated SQL, parse it again with the same dialect using
+  `sqlparser_parse_with_options()`.
+
 ## UPDATE and WHERE APIs
 
 ### UPDATE Assignments
@@ -415,6 +445,15 @@ Notes:
 | `sqlparser_statement_where_literal()` | reads one `WHERE` literal |
 | `sqlparser_statement_where_set_literal()` | rewrites one `WHERE` literal |
 
+### WHERE Conditions
+
+| Function | Summary |
+| --- | --- |
+| `sqlparser_statement_where_count()` | returns the number of writable `WHERE` slots in a statement |
+| `sqlparser_statement_where_sql()` | reads one `WHERE` condition SQL; returns `NULL` for an empty slot |
+| `sqlparser_statement_set_where_sql()` | sets or replaces one `WHERE` condition SQL |
+| `sqlparser_statement_append_where_sql()` | appends a condition to a `WHERE` slot with `AND` or `OR` |
+
 Notes:
 
 - `sqlparser_assignment_view_t` is mainly used to read the column name, value
@@ -429,6 +468,36 @@ Notes:
   operator, and condition literal.
 - If column-name lookup is needed, first traverse and record the target index,
   then perform the rewrite.
+- `where_index` addresses real AST `where_clause` slots. `INSERT ... VALUES`
+  does not expose a synthetic `WHERE` slot.
+- `sqlparser_statement_set_where_sql()` can add a missing `WHERE` to `SELECT`,
+  `UPDATE`, `DELETE`, `INSERT ... SELECT`, and DDL or utility statements that
+  support `WHERE`, including `CREATE VIEW AS SELECT`, partial indexes,
+  `COPY FROM`, `CREATE RULE`, `CREATE PUBLICATION`, and exclusion constraints.
+- `sqlparser_statement_append_where_sql()` adds a condition when the slot is
+  empty, or preserves the existing condition and appends a new one when it is
+  present.
+
+### Generic Clause APIs
+
+| Function | Summary |
+| --- | --- |
+| `sqlparser_statement_clause_count()` | returns the number of writable statement-level clauses |
+| `sqlparser_statement_clause()` | reads one clause view |
+| `sqlparser_statement_clause_sql()` | reads one clause SQL; returns `NULL` for an empty slot |
+| `sqlparser_statement_set_clause_sql()` | sets or replaces one clause SQL |
+| `sqlparser_statement_append_clause_condition()` | appends a condition to a `where` clause with `AND` or `OR` |
+
+Supported `sqlparser_clause_kind_t` values:
+
+| Enum | JSON name | Description |
+| --- | --- | --- |
+| `SQLPARSER_CLAUSE_KIND_SELECT_LIST` | `select_list` | SELECT output list |
+| `SQLPARSER_CLAUSE_KIND_WHERE` | `where` | WHERE condition expression |
+| `SQLPARSER_CLAUSE_KIND_ORDER_BY` | `order_by` | ORDER BY expression list |
+
+Generic clause APIs are for structural rewrites. Table, column, and value
+attribution remains available through SQL View `objects[].columns[]`.
 
 ## Selector APIs
 
@@ -443,8 +512,11 @@ stmt[0].name[3]
 stmt[0].value[4]
 stmt[0].literal[1]
 stmt[0].where_literal[0]
+stmt[0].clause[0]
 stmt[0].assignment[0]
 stmt[0].insert_cell[1][2]
+stmt[0].select_targets[0]
+stmt[0].select_target[0][1]
 ```
 
 ### Selector Parse and Format
@@ -462,10 +534,14 @@ stmt[0].insert_cell[1][2]
 | `sqlparser_selector_name()` | reads a name atom through a selector |
 | `sqlparser_selector_literal()` | reads a literal through a selector |
 | `sqlparser_selector_where_literal()` | reads a `WHERE` literal through a selector |
+| `sqlparser_selector_where_sql()` | reads `WHERE` condition SQL through a selector |
+| `sqlparser_selector_clause()` | reads a generic clause view through a selector |
+| `sqlparser_selector_clause_sql()` | reads generic clause SQL through a selector |
 | `sqlparser_selector_update_assignment()` | reads an assignment through a selector |
 | `sqlparser_selector_insert_cell_literal()` | reads an `INSERT` cell literal through a selector |
 | `sqlparser_selector_update_assignment_sql()` | reads assignment right-hand SQL through a selector |
 | `sqlparser_selector_insert_cell_sql()` | reads `INSERT` cell right-hand SQL through a selector |
+| `sqlparser_selector_select_target_sql()` | reads a SELECT output target SQL through a selector |
 
 ### Selector Rewrite
 
@@ -475,10 +551,16 @@ stmt[0].insert_cell[1][2]
 | `sqlparser_selector_set_name()` | rewrites a name atom through a selector |
 | `sqlparser_selector_set_literal()` | rewrites a generic literal through a selector |
 | `sqlparser_selector_set_where_literal()` | rewrites a `WHERE` literal through a selector |
+| `sqlparser_selector_set_where_sql()` | sets or replaces `WHERE` condition SQL through a selector |
+| `sqlparser_selector_append_where_sql()` | appends a condition to `WHERE` through a selector |
+| `sqlparser_selector_set_clause_sql()` | sets or replaces generic clause SQL through a selector |
+| `sqlparser_selector_append_clause_condition()` | appends a condition to a `where` clause through a selector |
 | `sqlparser_selector_set_update_assignment_literal()` | rewrites an assignment right-hand literal through a selector |
 | `sqlparser_selector_set_insert_cell_literal()` | rewrites an `INSERT` cell through a selector |
 | `sqlparser_selector_set_update_assignment_sql()` | rewrites assignment right-hand SQL through a selector |
 | `sqlparser_selector_set_insert_cell_sql()` | rewrites `INSERT` cell right-hand SQL through a selector |
+| `sqlparser_selector_set_select_target_sql()` | rewrites one SELECT output target SQL through a selector |
+| `sqlparser_selector_set_select_targets_sql()` | rewrites the whole SELECT output list through a selector |
 
 Notes:
 
@@ -523,6 +605,11 @@ Notes:
 | `sqlparser_export_view_json()` | exports SQL View JSON |
 | `sqlparser_apply_patch()` | applies structured patches |
 
+Integration code can usually use `sqlparser_apply_patch()` as the unified
+rewrite entry point. The fine-grained statement and selector rewrite functions
+are available when the caller already holds exact indexes or structured
+selectors.
+
 ### `pretty` Parameter
 
 `sqlparser_export_view_json()` accepts a `pretty` parameter:
@@ -555,8 +642,15 @@ sqlparser_apply_patch(handle, &patches, &err);
 
 Notes:
 
-- `replace` can rewrite a relation, name, value, assignment, literal, where_literal, or insert_cell.
-- `insert_column`, `delete_column`, and `delete_row` target `INSERT ... VALUES`.
+- `replace` can rewrite a relation, name, value, assignment, literal,
+  where_literal, clause, insert_cell, select_target, or select_targets.
+- `insert_column` can add a column to `INSERT ... VALUES` or insert an output
+  target into `select_targets`.
+- `delete_column` can delete a column from `INSERT ... VALUES` or delete an
+  output target from `select_targets`.
+- `delete_row` deletes an `INSERT ... VALUES` row.
+- `append_condition` appends a condition to a `where` clause with `AND` or
+  `OR`; when `bool_operator` is unset, it defaults to `AND`.
 - `delete_column` does not delete the last cell, and `delete_row` does not delete the last row.
 - Patches run in array order and return an error code plus message on failure.
 
@@ -637,6 +731,17 @@ Notes:
    `sqlparser_insert_set_cell_sql()` to write the new expression.
 3. Call `sqlparser_deparse()`.
 
+### SELECT Target-List Rewrite
+
+1. Call `sqlparser_select_target_count()` or read `target_list_selector` from
+   SQL View.
+2. Call `sqlparser_select_set_targets_sql()` to replace the whole output list,
+   or call `sqlparser_select_insert_target_sql()` /
+   `sqlparser_select_delete_target()` to add or remove output targets.
+3. Call `sqlparser_deparse()`.
+4. To validate generated SQL, parse it again with the same dialect through
+   `sqlparser_parse_with_options()`.
+
 ### Selector-Driven Rewrite
 
 1. Export SQL View JSON or traverse the C view.
@@ -649,12 +754,21 @@ Notes:
 
 | Example | Description |
 | --- | --- |
-| `examples/01_select_inspect.c` | `SELECT` inspection and multi-relation extraction |
-| `examples/02_insert_values_replace_literal.c` | literal replacement for `INSERT ... VALUES` |
-| `examples/03_insert_select_inspect.c` | inspection of `INSERT ... SELECT` |
-| `examples/04_update_replace_assignment.c` | simultaneous rewrite of `UPDATE` assignments and `WHERE` |
-| `examples/05_delete_inspect.c` | `DELETE` condition inspection and rewrite |
-| `examples/06_ddl_inspect.c` | DDL name-atom inspection and rewrite |
-| `examples/07_multi_statement_walk.c` | multi-statement traversal |
-| `examples/08_view_patch.c` | SQL View JSON export, patch replay, and SQL regeneration |
-| `examples/09_expression_rewrite.c` | expression-level rewrite for assignments and insert cells |
+| `examples/patch/08_view_patch.c` | SQL View JSON export, patch replay, and SQL regeneration |
+| `examples/patch/13_select_target_patch.c` | `SELECT *` expansion, output-target insertion, and output-target deletion through patches |
+| `examples/patch/14_where_patch.c` | WHERE insertion and condition append through patches |
+| `examples/patch/15_insert_columns_patch.c` | `INSERT ... VALUES` column insertion and deletion through patches |
+| `examples/patch/16_clause_patch.c` | SELECT output-list, WHERE, and ORDER BY rewrite through generic clause patches |
+| `examples/convenience/02_insert_values_replace_literal.c` | fine-grained literal replacement for `INSERT ... VALUES` |
+| `examples/convenience/04_update_replace_assignment.c` | fine-grained rewrite of UPDATE assignments and WHERE literals |
+| `examples/convenience/05_delete_inspect.c` | DELETE target inspection and conditional literal rewrite |
+| `examples/convenience/06_ddl_inspect.c` | DDL node inspection, name traversal, and object-name rewrite |
+| `examples/convenience/09_expression_rewrite.c` | expression-level rewrite for assignments and insert cells |
+| `examples/convenience/13_select_target_rewrite.c` | fine-grained SELECT output-list rewrite APIs |
+| `examples/convenience/14_where_convenience.c` | fine-grained WHERE condition rewrite APIs |
+| `examples/inspect/01_select_inspect.c` | `SELECT` inspection and multi-relation extraction |
+| `examples/inspect/03_insert_select_inspect.c` | structural inspection for `INSERT ... SELECT` |
+| `examples/inspect/07_multi_statement_walk.c` | traversal of multi-statement input |
+| `examples/dialect/10_mysql_dialect.c` | MySQL dialect parsing and patch-based rewrite |
+| `examples/dialect/11_oracle_dialect.c` | Oracle dialect parsing and rewrite |
+| `examples/dialect/12_sqlserver_dialect.c` | SQL Server dialect parsing and deparse |

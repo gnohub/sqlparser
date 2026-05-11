@@ -16,7 +16,8 @@ This release provides:
 - `sql -> handle`
 - statement kind and node-name inspection
 - statement-wide relation, name, and literal traversal and rewrite
-- `INSERT`, `UPDATE`, and `WHERE` structural views
+- `INSERT`, `UPDATE`, and `WHERE` structural views, including WHERE insertion and condition append
+- `SELECT` output-list read, replace, insert, and delete operations
 - stable selector parse / format / lookup
 - dialect options with PostgreSQL as the default and MySQL / Oracle / SQL Server conversion layers
 - configurable resource limits for SQL input, generated output, and statement count
@@ -172,18 +173,10 @@ Process a JSON file containing multiple SQL statements:
 
 Example programs are available under `examples/`:
 
-- `01_select_inspect.c`
-- `02_insert_values_replace_literal.c`
-- `03_insert_select_inspect.c`
-- `04_update_replace_assignment.c`
-- `05_delete_inspect.c`
-- `06_ddl_inspect.c`
-- `07_multi_statement_walk.c`
-- `08_view_patch.c`
-- `09_expression_rewrite.c`
-- `10_mysql_dialect.c`
-- `11_oracle_dialect.c`
-- `12_sqlserver_dialect.c`
+- `examples/patch/`: recommended integration style through `sqlparser_apply_patch()`.
+- `examples/convenience/`: fine-grained convenience API examples.
+- `examples/inspect/`: structural inspection and traversal examples.
+- `examples/dialect/`: dialect usage examples.
 
 See [examples/README.md](./examples/README.md) for details.
 

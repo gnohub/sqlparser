@@ -26,6 +26,41 @@ static int expect_status_ok(sqlparser_status_t status, const sqlparser_error_t *
 	return 0;
 }
 
+static int expect_deparse_reparse_ok(const sqlparser_handle_t *handle, const char *message)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *reparsed;
+	sqlparser_error_t error;
+	char *sql;
+	int rc;
+
+	if (handle == NULL) {
+		fprintf(stderr, "FAIL: %s: handle is NULL\n", message);
+		return 1;
+	}
+
+	sql = NULL;
+	reparsed = NULL;
+	memset(&error, 0, sizeof(error));
+
+	rc = sqlparser_deparse(handle, &sql, &error);
+	if (expect_status_ok(rc, &error, message) != 0) {
+		return 1;
+	}
+
+	sqlparser_parse_options_default(&options);
+	options.dialect = sqlparser_handle_dialect(handle);
+	rc = sqlparser_parse_with_options(sql, &options, &reparsed, &error);
+	if (expect_status_ok(rc, &error, message) != 0) {
+		sqlparser_string_free(sql);
+		return 1;
+	}
+
+	sqlparser_handle_destroy(reparsed);
+	sqlparser_string_free(sql);
+	return 0;
+}
+
 static int find_name_index(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
@@ -927,6 +962,534 @@ static int test_selector_parse_and_format(void)
 	}
 
 	sqlparser_string_free(selector_text);
+	selector_text = NULL;
+	memset(&selector, 0, sizeof(selector));
+
+	rc = sqlparser_selector_parse("stmt[0].select_targets[1]", &selector, &error);
+	if (expect_status_ok(rc, &error, "selector parse for select targets should succeed") != 0 ||
+	    expect_true(selector.kind == SQLPARSER_SELECTOR_KIND_SELECT_TARGETS, "selector kind should be select_targets") != 0 ||
+	    expect_true(selector.statement_index == 0U, "selector statement index should be 0") != 0 ||
+	    expect_true(selector.item_index == 1U, "selector target list index should be 1") != 0) {
+		return 1;
+	}
+
+	rc = sqlparser_selector_format(&selector, &selector_text, &error);
+	if (expect_status_ok(rc, &error, "select targets selector format should succeed") != 0 ||
+	    expect_true(strcmp(selector_text, "stmt[0].select_targets[1]") == 0, "select targets selector text should round-trip") != 0) {
+		sqlparser_string_free(selector_text);
+		return 1;
+	}
+
+	sqlparser_string_free(selector_text);
+	selector_text = NULL;
+	memset(&selector, 0, sizeof(selector));
+
+	rc = sqlparser_selector_parse("stmt[0].select_target[1][2]", &selector, &error);
+	if (expect_status_ok(rc, &error, "selector parse for select target should succeed") != 0 ||
+	    expect_true(selector.kind == SQLPARSER_SELECTOR_KIND_SELECT_TARGET, "selector kind should be select_target") != 0 ||
+	    expect_true(selector.statement_index == 0U, "selector statement index should be 0") != 0 ||
+	    expect_true(selector.item_index == 1U, "selector target list index should be 1") != 0 ||
+	    expect_true(selector.column_index == 2U, "selector select target index should be 2") != 0) {
+		return 1;
+	}
+
+	rc = sqlparser_selector_format(&selector, &selector_text, &error);
+	if (expect_status_ok(rc, &error, "select target selector format should succeed") != 0 ||
+	    expect_true(strcmp(selector_text, "stmt[0].select_target[1][2]") == 0, "select target selector text should round-trip") != 0) {
+		sqlparser_string_free(selector_text);
+		return 1;
+	}
+
+	sqlparser_string_free(selector_text);
+	return 0;
+}
+
+static int test_where_clause_sql_rewrite_api(void)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_selector_t selector;
+	sqlparser_patch_t patches[2];
+	sqlparser_patch_list_t patch_list;
+	char *where_sql;
+	char *clause_sql;
+	char *deparsed_sql;
+	char *view_json;
+	size_t clause_count;
+	size_t where_count;
+	int rc;
+
+	handle = NULL;
+	where_sql = NULL;
+	clause_sql = NULL;
+	deparsed_sql = NULL;
+	view_json = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&selector, 0, sizeof(selector));
+	memset(patches, 0, sizeof(patches));
+
+	rc = sqlparser_parse("SELECT id, name FROM public.users", &handle, &error);
+	if (expect_status_ok(rc, &error, "select without where parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_where_count(handle, 0U, &where_count, &error);
+	if (expect_status_ok(rc, &error, "select where count should succeed") != 0 ||
+	    expect_true(where_count == 1U, "select should expose one writable where slot") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_where_sql(handle, 0U, 0U, &where_sql, &error);
+	if (expect_status_ok(rc, &error, "empty select where SQL should succeed") != 0 ||
+	    expect_true(where_sql == NULL, "empty select where SQL should be NULL") != 0) {
+		sqlparser_string_free(where_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_set_where_sql(handle, 0U, 0U, "id = 1", &error);
+	if (expect_status_ok(rc, &error, "select where set should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_append_where_sql(
+		handle,
+		0U,
+		0U,
+		SQLPARSER_BOOL_OPERATOR_AND,
+		"status = 'active'",
+		&error);
+	if (expect_status_ok(rc, &error, "select where append should succeed") != 0 ||
+	    expect_deparse_reparse_ok(handle, "select where append should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_where_sql(handle, 0U, 0U, &where_sql, &error);
+	if (expect_status_ok(rc, &error, "rewritten select where SQL should succeed") != 0 ||
+	    expect_true(where_sql != NULL && strstr(where_sql, "id = 1") != NULL, "select where should contain id condition") != 0 ||
+	    expect_true(strstr(where_sql, "status = 'active'") != NULL, "select where should contain appended condition") != 0) {
+		sqlparser_string_free(where_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(where_sql);
+	where_sql = NULL;
+	rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
+	if (expect_status_ok(rc, &error, "where view JSON should export") != 0 ||
+	    expect_true(strstr(view_json, "\"clauses\":[") != NULL,
+	                "view JSON should expose clause array") != 0 ||
+	    expect_true(strstr(view_json, "\"kind\":\"select_list\"") != NULL,
+	                "view JSON should expose select_list clause") != 0 ||
+	    expect_true(strstr(view_json, "\"kind\":\"where\",\"selector\":\"stmt[0].clause[1]\"") != NULL,
+	                "view JSON should expose where clause selector") != 0 ||
+	    expect_true(strstr(view_json, "\"kind\":\"order_by\"") != NULL,
+	                "view JSON should expose order_by clause") != 0) {
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(view_json);
+	view_json = NULL;
+	rc = sqlparser_statement_clause_count(handle, 0U, &clause_count, &error);
+	if (expect_status_ok(rc, &error, "select clause count should succeed") != 0 ||
+	    expect_true(clause_count == 3U, "select should expose select_list, where, and order_by clauses") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_clause_sql(handle, 0U, 0U, &clause_sql, &error);
+	if (expect_status_ok(rc, &error, "select_list clause SQL should succeed") != 0 ||
+	    expect_true(clause_sql != NULL && strstr(clause_sql, "id") != NULL && strstr(clause_sql, "name") != NULL,
+	                "select_list clause should contain selected columns") != 0) {
+		sqlparser_string_free(clause_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(clause_sql);
+	clause_sql = NULL;
+	rc = sqlparser_statement_clause_sql(handle, 0U, 2U, &clause_sql, &error);
+	if (expect_status_ok(rc, &error, "empty order_by clause SQL should succeed") != 0 ||
+	    expect_true(clause_sql == NULL, "empty order_by clause should be NULL") != 0) {
+		sqlparser_string_free(clause_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_set_clause_sql(handle, 0U, 2U, "name DESC", &error);
+	if (expect_status_ok(rc, &error, "order_by clause set should succeed") != 0 ||
+	    expect_deparse_reparse_ok(handle, "order_by clause set should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "order_by clause deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "ORDER BY") != NULL, "deparse should contain ORDER BY") != 0 ||
+	    expect_true(strstr(deparsed_sql, "name DESC") != NULL, "deparse should contain order expression") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	rc = sqlparser_parse("UPDATE public.users SET name = 'bob'", &handle, &error);
+	if (expect_status_ok(rc, &error, "update without where parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_selector_parse("stmt[0].clause[0]", &selector, &error);
+	if (expect_status_ok(rc, &error, "clause selector parse should succeed") != 0 ||
+	    expect_true(selector.kind == SQLPARSER_SELECTOR_KIND_CLAUSE, "selector kind should be clause") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_selector_append_clause_condition(
+		handle,
+		&selector,
+		SQLPARSER_BOOL_OPERATOR_AND,
+		"id = 10",
+		&error);
+	if (expect_status_ok(rc, &error, "update where append on empty slot should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_selector_append_clause_condition(
+		handle,
+		&selector,
+		SQLPARSER_BOOL_OPERATOR_OR,
+		"external_id = 'u-10'",
+		&error);
+	if (expect_status_ok(rc, &error, "update where OR append should succeed") != 0 ||
+	    expect_deparse_reparse_ok(handle, "update where append should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "update where deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "WHERE") != NULL, "update deparse should contain WHERE") != 0 ||
+	    expect_true(strstr(deparsed_sql, "external_id") != NULL, "update deparse should contain OR condition") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	rc = sqlparser_parse("DELETE FROM public.users WHERE status = 'inactive'", &handle, &error);
+	if (expect_status_ok(rc, &error, "delete with where parse should succeed") != 0) {
+		return 1;
+	}
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_REPLACE;
+	patches[0].selector = "stmt[0].clause[0]";
+	patches[0].sql = "deleted_at IS NULL";
+	patches[1].op = SQLPARSER_PATCH_APPEND_CONDITION;
+	patches[1].selector = "stmt[0].clause[0]";
+	patches[1].bool_operator = SQLPARSER_BOOL_OPERATOR_AND;
+	patches[1].sql = "status IN ('inactive', 'blocked')";
+	patch_list.items = patches;
+	patch_list.count = 2U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "delete where patch list should succeed") != 0 ||
+	    expect_deparse_reparse_ok(handle, "delete where patch should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "delete where deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "deleted_at IS NULL") != NULL, "delete where should contain replacement") != 0 ||
+	    expect_true(strstr(deparsed_sql, "blocked") != NULL, "delete where should contain appended condition") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	rc = sqlparser_parse("INSERT INTO public.archive_users SELECT id, name FROM public.users", &handle, &error);
+	if (expect_status_ok(rc, &error, "insert select without where parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_where_count(handle, 0U, &where_count, &error);
+	if (expect_status_ok(rc, &error, "insert select where count should succeed") != 0 ||
+	    expect_true(where_count == 1U, "insert select should expose one select where slot") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_set_where_sql(handle, 0U, 0U, "active = TRUE", &error);
+	if (expect_status_ok(rc, &error, "insert select where set should succeed") != 0 ||
+	    expect_deparse_reparse_ok(handle, "insert select where set should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	rc = sqlparser_parse("INSERT INTO public.users (id, name) VALUES (1, 'bob')", &handle, &error);
+	if (expect_status_ok(rc, &error, "insert values parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_where_count(handle, 0U, &where_count, &error);
+	if (expect_status_ok(rc, &error, "insert values where count should succeed") != 0 ||
+	    expect_true(where_count == 0U, "insert values should not expose synthetic where slot") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	rc = sqlparser_parse(
+		"INSERT INTO public.users (id, name) VALUES (1, 'bob') "
+		"ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name",
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "insert on conflict parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_where_count(handle, 0U, &where_count, &error);
+	if (expect_status_ok(rc, &error, "on conflict where count should succeed") != 0 ||
+	    expect_true(where_count == 2U, "on conflict should expose infer and update where slots") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_set_where_sql(handle, 0U, 0U, "id > 0", &error);
+	if (expect_status_ok(rc, &error, "on conflict infer where set should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_set_where_sql(handle, 0U, 1U, "EXCLUDED.name IS NOT NULL", &error);
+	if (expect_status_ok(rc, &error, "on conflict update where set should succeed") != 0 ||
+	    expect_deparse_reparse_ok(handle, "on conflict where set should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	rc = sqlparser_parse("CREATE VIEW public.v_users AS SELECT id FROM public.users", &handle, &error);
+	if (expect_status_ok(rc, &error, "create view parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_set_where_sql(handle, 0U, 0U, "status = 'active'", &error);
+	if (expect_status_ok(rc, &error, "create view select where set should succeed") != 0 ||
+	    expect_deparse_reparse_ok(handle, "create view where set should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	rc = sqlparser_parse("CREATE INDEX idx_users_name ON public.users (name)", &handle, &error);
+	if (expect_status_ok(rc, &error, "create index parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_set_where_sql(handle, 0U, 0U, "active = TRUE", &error);
+	if (expect_status_ok(rc, &error, "partial index where set should succeed") != 0 ||
+	    expect_deparse_reparse_ok(handle, "partial index where set should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	rc = sqlparser_parse("COPY public.users (id, name) FROM STDIN", &handle, &error);
+	if (expect_status_ok(rc, &error, "copy from parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_where_count(handle, 0U, &where_count, &error);
+	if (expect_status_ok(rc, &error, "copy from where count should succeed") != 0 ||
+	    expect_true(where_count == 1U, "copy from should expose one writable where slot") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_set_where_sql(handle, 0U, 0U, "active IS TRUE", &error);
+	if (expect_status_ok(rc, &error, "copy from where set should succeed") != 0 ||
+	    expect_deparse_reparse_ok(handle, "copy from where set should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	rc = sqlparser_parse("COPY public.users TO STDOUT", &handle, &error);
+	if (expect_status_ok(rc, &error, "copy to parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_where_count(handle, 0U, &where_count, &error);
+	if (expect_status_ok(rc, &error, "copy to where count should succeed") != 0 ||
+	    expect_true(where_count == 0U, "copy to should not expose unsupported where slot") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	rc = sqlparser_parse("CREATE RULE users_update_rule AS ON UPDATE TO public.users DO ALSO SELECT 1", &handle, &error);
+	if (expect_status_ok(rc, &error, "create rule parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_where_count(handle, 0U, &where_count, &error);
+	if (expect_status_ok(rc, &error, "create rule where count should succeed") != 0 ||
+	    expect_true(where_count == 2U, "create rule should expose rule and action where slots") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_set_where_sql(handle, 0U, 0U, "NEW.active IS TRUE", &error);
+	if (expect_status_ok(rc, &error, "create rule condition where set should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_set_where_sql(handle, 0U, 1U, "1 = 1", &error);
+	if (expect_status_ok(rc, &error, "create rule action where set should succeed") != 0 ||
+	    expect_deparse_reparse_ok(handle, "create rule where set should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	rc = sqlparser_parse("CREATE PUBLICATION pub_users FOR TABLE public.users", &handle, &error);
+	if (expect_status_ok(rc, &error, "create publication parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_where_count(handle, 0U, &where_count, &error);
+	if (expect_status_ok(rc, &error, "create publication where count should succeed") != 0 ||
+	    expect_true(where_count == 1U, "create publication should expose one writable where slot") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_set_where_sql(handle, 0U, 0U, "active IS TRUE", &error);
+	if (expect_status_ok(rc, &error, "create publication where set should succeed") != 0 ||
+	    expect_deparse_reparse_ok(handle, "create publication where set should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	rc = sqlparser_parse(
+		"CREATE TABLE public.room_booking ("
+		"room_id integer, "
+		"during tsrange, "
+		"EXCLUDE USING gist (room_id WITH =, during WITH &&)"
+		")",
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "create table exclusion constraint parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_where_count(handle, 0U, &where_count, &error);
+	if (expect_status_ok(rc, &error, "exclusion constraint where count should succeed") != 0 ||
+	    expect_true(where_count == 1U, "exclusion constraint should expose one writable where slot") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_set_where_sql(handle, 0U, 0U, "room_id IS NOT NULL", &error);
+	if (expect_status_ok(rc, &error, "exclusion constraint where set should succeed") != 0 ||
+	    expect_deparse_reparse_ok(handle, "exclusion constraint where set should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_MYSQL;
+	rc = sqlparser_parse_with_options("SELECT * FROM `users`", &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "mysql where parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_set_where_sql(handle, 0U, 0U, "`id` = 1", &error);
+	if (expect_status_ok(rc, &error, "mysql where set should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_append_where_sql(
+		handle,
+		0U,
+		0U,
+		SQLPARSER_BOOL_OPERATOR_AND,
+		"`name` LIKE 'b%'",
+		&error);
+	if (expect_status_ok(rc, &error, "mysql where append should succeed") != 0 ||
+	    expect_deparse_reparse_ok(handle, "mysql where rewrite should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	rc = sqlparser_parse_with_options("SELECT * FROM users", &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "oracle where parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_set_where_sql(handle, 0U, 0U, "id = :id", &error);
+	if (expect_status_ok(rc, &error, "oracle where set should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_append_where_sql(
+		handle,
+		0U,
+		0U,
+		SQLPARSER_BOOL_OPERATOR_AND,
+		"name = q'[Bob's order]'",
+		&error);
+	if (expect_status_ok(rc, &error, "oracle where append should succeed") != 0 ||
+	    expect_deparse_reparse_ok(handle, "oracle where rewrite should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "oracle where deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, ":id") != NULL, "oracle where should restore bind name") != 0 ||
+	    expect_true(strstr(deparsed_sql, "$1") == NULL, "oracle where should not expose internal bind") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_SQLSERVER;
+	rc = sqlparser_parse_with_options("DELETE FROM [dbo].[users]", &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "sqlserver where parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_set_where_sql(handle, 0U, 0U, "[id] = @id", &error);
+	if (expect_status_ok(rc, &error, "sqlserver where set should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_append_where_sql(
+		handle,
+		0U,
+		0U,
+		SQLPARSER_BOOL_OPERATOR_AND,
+		"[name] = N'bob'",
+		&error);
+	if (expect_status_ok(rc, &error, "sqlserver where append should succeed") != 0 ||
+	    expect_deparse_reparse_ok(handle, "sqlserver where rewrite should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "sqlserver where deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "$") == NULL, "sqlserver where should not expose internal bind markers") != 0 ||
+	    expect_true(strstr(deparsed_sql, "bob") != NULL, "sqlserver where should contain string literal") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
 	return 0;
 }
 
@@ -1860,6 +2423,290 @@ static int test_sql_view_attribution_and_values(void)
 	return 0;
 }
 
+static int test_select_target_list_patch_api(void)
+{
+	const char *sql;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_view_t view;
+	sqlparser_statement_view_t statement;
+	sqlparser_object_view_t object;
+	sqlparser_column_view_t column;
+	sqlparser_selector_t selector;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patch_list;
+	sqlparser_parse_options_t options;
+	char *target_sql;
+	char *selector_text;
+	char *view_json;
+	char *deparsed_sql;
+	size_t list_count;
+	size_t target_count;
+	int rc;
+
+	sql = "SELECT * FROM public.users";
+	handle = NULL;
+	target_sql = NULL;
+	selector_text = NULL;
+	view_json = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&selector, 0, sizeof(selector));
+
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(rc, &error, "select target parse should succeed") != 0) {
+		return 1;
+	}
+
+	rc = sqlparser_select_target_list_count(handle, 0U, &list_count, &error);
+	if (expect_status_ok(rc, &error, "select target list count should succeed") != 0 ||
+	    expect_true(list_count == 1U, "select should expose one target list") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_select_target_count(handle, 0U, 0U, &target_count, &error);
+	if (expect_status_ok(rc, &error, "select target count should succeed") != 0 ||
+	    expect_true(target_count == 1U, "select star should expose one target") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_select_target_sql(handle, 0U, 0U, 0U, &target_sql, &error);
+	if (expect_status_ok(rc, &error, "select target SQL should succeed") != 0 ||
+	    expect_true(strcmp(target_sql, "*") == 0, "select star target SQL should be *") != 0) {
+		sqlparser_string_free(target_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(target_sql);
+	target_sql = NULL;
+
+	rc = sqlparser_get_view(handle, &view, &error);
+	if (expect_status_ok(rc, &error, "select view should be available") != 0 ||
+	    expect_status_ok(sqlparser_view_statement_at(&view, 0U, &statement, &error), &error, "select statement view should be available") != 0 ||
+	    expect_status_ok(sqlparser_statement_object_at(&statement, 0U, &object, &error), &error, "select object should be available") != 0 ||
+	    expect_status_ok(sqlparser_object_column_at(&object, 0U, &column, &error), &error, "select star column should be available") != 0 ||
+	    expect_true(strcmp(column.name, "*") == 0, "select star column should be *") != 0 ||
+	    expect_true(column.has_target_list_selector != 0, "select star should expose target list selector") != 0 ||
+	    expect_true(column.has_target_selector != 0, "select star should expose target selector") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_selector_format(&column.target_list_selector, &selector_text, &error);
+	if (expect_status_ok(rc, &error, "select target list selector should format") != 0 ||
+	    expect_true(strcmp(selector_text, "stmt[0].select_targets[0]") == 0, "select target list selector mismatch") != 0) {
+		sqlparser_string_free(selector_text);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(selector_text);
+	selector_text = NULL;
+
+	rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
+	if (expect_status_ok(rc, &error, "select view JSON should export") != 0 ||
+	    expect_true(strstr(view_json, "\"target_list_selector\":\"stmt[0].select_targets[0]\"") != NULL,
+	                "select view JSON should expose target list selector") != 0 ||
+	    expect_true(strstr(view_json, "\"target_selector\":\"stmt[0].select_target[0][0]\"") != NULL,
+	                "select view JSON should expose target selector") != 0) {
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(view_json);
+	view_json = NULL;
+
+	rc = sqlparser_select_set_targets_sql(handle, 0U, 0U, "id, name, created_at", &error);
+	if (expect_status_ok(rc, &error, "select target list replace should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	if (expect_deparse_reparse_ok(handle, "select target list replace should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_select_insert_target_sql(handle, 0U, 0U, 2U, "upper(name) AS upper_name", &error);
+	if (expect_status_ok(rc, &error, "select target insert should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	if (expect_deparse_reparse_ok(handle, "select target insert should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_select_delete_target(handle, 0U, 0U, 3U, &error);
+	if (expect_status_ok(rc, &error, "select target delete should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	if (expect_deparse_reparse_ok(handle, "select target delete should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_select_set_target_sql(handle, 0U, 0U, 0U, "users.id AS user_id", &error);
+	if (expect_status_ok(rc, &error, "select single target replace should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	if (expect_deparse_reparse_ok(handle, "select single target replace should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_select_target_count(handle, 0U, 0U, &target_count, &error);
+	if (expect_status_ok(rc, &error, "patched select target count should succeed") != 0 ||
+	    expect_true(target_count == 3U, "patched select should expose three targets") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_select_target_sql(handle, 0U, 0U, 1U, &target_sql, &error);
+	if (expect_status_ok(rc, &error, "patched select target SQL should succeed") != 0 ||
+	    expect_true(strstr(target_sql, "name") != NULL, "patched select target should contain name") != 0) {
+		sqlparser_string_free(target_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(target_sql);
+	target_sql = NULL;
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "patched select deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "users.id AS user_id") != NULL, "patched select should contain user_id target") != 0 ||
+	    expect_true(strstr(deparsed_sql, "upper(name) AS upper_name") != NULL, "patched select should contain inserted expression") != 0 ||
+	    expect_true(strstr(deparsed_sql, "created_at") == NULL, "patched select should remove created_at") != 0 ||
+	    expect_true(strstr(deparsed_sql, "SELECT *") == NULL, "patched select should remove star") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+	sqlparser_handle_destroy(handle);
+
+	sql = "SELECT u.* FROM public.users u";
+	handle = NULL;
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(rc, &error, "qualified star parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_select_target_sql(handle, 0U, 0U, 0U, &target_sql, &error);
+	if (expect_status_ok(rc, &error, "qualified star SQL should succeed") != 0 ||
+	    expect_true(strcmp(target_sql, "u.*") == 0, "qualified star SQL should be u.*") != 0) {
+		sqlparser_string_free(target_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(target_sql);
+	target_sql = NULL;
+	sqlparser_handle_destroy(handle);
+
+	sql = "SELECT * FROM `users`";
+	handle = NULL;
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_MYSQL;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "mysql select target parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_select_set_targets_sql(handle, 0U, 0U, "`id`, `name`", &error);
+	if (expect_status_ok(rc, &error, "mysql select target replace should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	if (expect_deparse_reparse_ok(handle, "mysql select target replace should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "mysql select target deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "id, name") != NULL, "mysql deparse should contain rewritten targets") != 0 ||
+	    expect_true(strstr(deparsed_sql, "$1") == NULL, "mysql deparse should not expose internal state") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+	sqlparser_handle_destroy(handle);
+
+	sql = "SELECT * FROM users";
+	handle = NULL;
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "oracle select target parse should succeed") != 0) {
+		return 1;
+	}
+	selector.kind = SQLPARSER_SELECTOR_KIND_SELECT_TARGETS;
+	selector.statement_index = 0U;
+	selector.item_index = 0U;
+	rc = sqlparser_selector_format(&selector, &selector_text, &error);
+	if (expect_status_ok(rc, &error, "oracle select targets selector should format") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = selector_text;
+	patch.sql = ":id AS id, q'[Bob's order]' AS label";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	sqlparser_string_free(selector_text);
+	selector_text = NULL;
+	if (expect_status_ok(rc, &error, "oracle select target patch should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	if (expect_deparse_reparse_ok(handle, "oracle select target patch should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "oracle select target deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, ":id AS id") != NULL, "oracle deparse should restore named bind") != 0 ||
+	    expect_true(strstr(deparsed_sql, "$1") == NULL, "oracle deparse should not expose internal bind") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+	sqlparser_handle_destroy(handle);
+
+	sql = "SELECT * FROM [dbo].[users]";
+	handle = NULL;
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_SQLSERVER;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "sqlserver select target parse should succeed") != 0) {
+		return 1;
+	}
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patch.selector = "stmt[0].select_targets[0]";
+	patch.index = 1U;
+	patch.sql = "[name] AS [display_name]";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "sqlserver select target insert patch should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	if (expect_deparse_reparse_ok(handle, "sqlserver select target patch should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "sqlserver select target deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "name AS display_name") != NULL, "sqlserver deparse should contain inserted target") != 0 ||
+	    expect_true(strstr(deparsed_sql, "$") == NULL, "sqlserver deparse should not expose internal bind markers") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
 static int test_sql_view_set_operation_attribution(void)
 {
 	const char *sql;
@@ -1885,7 +2732,8 @@ static int test_sql_view_set_operation_attribution(void)
 	rc = sqlparser_get_view(handle, &view, &error);
 	if (expect_status_ok(rc, &error, "set operation view should be available") != 0 ||
 	    expect_status_ok(sqlparser_view_statement_at(&view, 0U, &statement, &error), &error, "set operation statement should be available") != 0 ||
-	    expect_true(statement.object_count == 2U, "set operation should expose both table objects") != 0) {
+	    expect_true(statement.object_count == 2U, "set operation should expose both table objects") != 0 ||
+	    expect_true(statement.clause_count == 5U, "set operation should expose operand clauses and one top-level order_by") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -1917,6 +2765,8 @@ static int test_sql_view_set_operation_attribution(void)
 	if (expect_status_ok(rc, &error, "set operation view export should succeed") != 0 ||
 	    expect_true(strstr(view_json, "\"table\":\"users\"") != NULL, "set operation view should include users") != 0 ||
 	    expect_true(strstr(view_json, "\"table\":\"archived_users\"") != NULL, "set operation view should include archived_users") != 0 ||
+	    expect_true(strstr(view_json, "\"selector\":\"stmt[0].clause[4]\",\"sql\":\"id\"") != NULL,
+	                "set operation view should expose top-level order_by") != 0 ||
 	    expect_true(strstr(view_json, "\"name\":\"id\"") != NULL, "set operation view should include id columns") != 0) {
 		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
@@ -2224,10 +3074,16 @@ int main(void)
 	if (test_selector_parse_and_format() != 0) {
 		return 1;
 	}
+	if (test_where_clause_sql_rewrite_api() != 0) {
+		return 1;
+	}
 	if (test_sql_view_json_and_patch_api() != 0) {
 		return 1;
 	}
 	if (test_sql_view_attribution_and_values() != 0) {
+		return 1;
+	}
+	if (test_select_target_list_patch_api() != 0) {
 		return 1;
 	}
 	if (test_sql_view_set_operation_attribution() != 0) {

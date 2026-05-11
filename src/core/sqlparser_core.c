@@ -1113,7 +1113,42 @@ const char *sqlparser_selector_kind_name(sqlparser_selector_kind_t kind)
 			return "insert_columns";
 		case SQLPARSER_SELECTOR_KIND_INSERT_ROW:
 			return "insert_row";
+		case SQLPARSER_SELECTOR_KIND_SELECT_TARGETS:
+			return "select_targets";
+		case SQLPARSER_SELECTOR_KIND_SELECT_TARGET:
+			return "select_target";
+		case SQLPARSER_SELECTOR_KIND_WHERE:
+			return "where";
+		case SQLPARSER_SELECTOR_KIND_CLAUSE:
+			return "clause";
 		case SQLPARSER_SELECTOR_KIND_UNKNOWN:
+		default:
+			return "unknown";
+	}
+}
+
+const char *sqlparser_bool_operator_name(sqlparser_bool_operator_t bool_operator)
+{
+	switch (bool_operator) {
+		case SQLPARSER_BOOL_OPERATOR_AND:
+			return "and";
+		case SQLPARSER_BOOL_OPERATOR_OR:
+			return "or";
+		default:
+			return "unknown";
+	}
+}
+
+const char *sqlparser_clause_kind_name(sqlparser_clause_kind_t kind)
+{
+	switch (kind) {
+		case SQLPARSER_CLAUSE_KIND_SELECT_LIST:
+			return "select_list";
+		case SQLPARSER_CLAUSE_KIND_WHERE:
+			return "where";
+		case SQLPARSER_CLAUSE_KIND_ORDER_BY:
+			return "order_by";
+		case SQLPARSER_CLAUSE_KIND_UNKNOWN:
 		default:
 			return "unknown";
 	}

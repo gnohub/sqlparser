@@ -4,7 +4,7 @@
 #   nmake /F Makefile.msvc test
 
 LIB_NAME = sqlparser
-VERSION_STRING = 0.2.0
+VERSION_STRING = 0.3.0
 LIBPG_QUERY_TAG = 17-6.2.2
 
 BUILD_DIR = build\msvc
@@ -58,11 +58,14 @@ JANSSON_OBJS = \
 
 CORE_OBJS = \
 	$(OBJ_DIR)\sqlparser_ast.obj \
+	$(OBJ_DIR)\sqlparser_ast_clause.obj \
 	$(OBJ_DIR)\sqlparser_ast_expr.obj \
 	$(OBJ_DIR)\sqlparser_ast_insert.obj \
 	$(OBJ_DIR)\sqlparser_ast_literal.obj \
+	$(OBJ_DIR)\sqlparser_ast_select.obj \
 	$(OBJ_DIR)\sqlparser_ast_statement.obj \
 	$(OBJ_DIR)\sqlparser_ast_update.obj \
+	$(OBJ_DIR)\sqlparser_ast_where.obj \
 	$(OBJ_DIR)\sqlparser_core.obj \
 	$(OBJ_DIR)\sqlparser_json.obj \
 	$(OBJ_DIR)\sqlparser_patch.obj \
@@ -84,18 +87,24 @@ UNIT_TEST_BINS = \
 	$(BIN_DIR)\test_stability.exe
 
 EXAMPLE_BINS = \
-	$(BIN_DIR)\01_select_inspect.exe \
-	$(BIN_DIR)\02_insert_values_replace_literal.exe \
-	$(BIN_DIR)\03_insert_select_inspect.exe \
-	$(BIN_DIR)\04_update_replace_assignment.exe \
-	$(BIN_DIR)\05_delete_inspect.exe \
-	$(BIN_DIR)\06_ddl_inspect.exe \
-	$(BIN_DIR)\07_multi_statement_walk.exe \
-	$(BIN_DIR)\08_view_patch.exe \
-	$(BIN_DIR)\09_expression_rewrite.exe \
-	$(BIN_DIR)\10_mysql_dialect.exe \
-	$(BIN_DIR)\11_oracle_dialect.exe \
-	$(BIN_DIR)\12_sqlserver_dialect.exe
+	$(BIN_DIR)\examples\inspect\01_select_inspect.exe \
+	$(BIN_DIR)\examples\convenience\02_insert_values_replace_literal.exe \
+	$(BIN_DIR)\examples\inspect\03_insert_select_inspect.exe \
+	$(BIN_DIR)\examples\convenience\04_update_replace_assignment.exe \
+	$(BIN_DIR)\examples\convenience\05_delete_inspect.exe \
+	$(BIN_DIR)\examples\convenience\06_ddl_inspect.exe \
+	$(BIN_DIR)\examples\inspect\07_multi_statement_walk.exe \
+	$(BIN_DIR)\examples\patch\08_view_patch.exe \
+	$(BIN_DIR)\examples\convenience\09_expression_rewrite.exe \
+	$(BIN_DIR)\examples\dialect\10_mysql_dialect.exe \
+	$(BIN_DIR)\examples\dialect\11_oracle_dialect.exe \
+	$(BIN_DIR)\examples\dialect\12_sqlserver_dialect.exe \
+	$(BIN_DIR)\examples\convenience\13_select_target_rewrite.exe \
+	$(BIN_DIR)\examples\patch\13_select_target_patch.exe \
+	$(BIN_DIR)\examples\convenience\14_where_convenience.exe \
+	$(BIN_DIR)\examples\patch\14_where_patch.exe \
+	$(BIN_DIR)\examples\patch\15_insert_columns_patch.exe \
+	$(BIN_DIR)\examples\patch\16_clause_patch.exe
 
 all: static cli
 
@@ -126,18 +135,24 @@ test: all $(UNIT_TEST_BINS) examples
 	$(BIN_DIR)\test_oracle_dialect_case_matrix.exe
 	$(BIN_DIR)\test_sqlserver_dialect_case_matrix.exe
 	$(BIN_DIR)\test_stability.exe
-	$(BIN_DIR)\01_select_inspect.exe
-	$(BIN_DIR)\02_insert_values_replace_literal.exe
-	$(BIN_DIR)\03_insert_select_inspect.exe
-	$(BIN_DIR)\04_update_replace_assignment.exe
-	$(BIN_DIR)\05_delete_inspect.exe
-	$(BIN_DIR)\06_ddl_inspect.exe
-	$(BIN_DIR)\07_multi_statement_walk.exe
-	$(BIN_DIR)\08_view_patch.exe
-	$(BIN_DIR)\09_expression_rewrite.exe
-	$(BIN_DIR)\10_mysql_dialect.exe
-	$(BIN_DIR)\11_oracle_dialect.exe
-	$(BIN_DIR)\12_sqlserver_dialect.exe
+	$(BIN_DIR)\examples\inspect\01_select_inspect.exe
+	$(BIN_DIR)\examples\convenience\02_insert_values_replace_literal.exe
+	$(BIN_DIR)\examples\inspect\03_insert_select_inspect.exe
+	$(BIN_DIR)\examples\convenience\04_update_replace_assignment.exe
+	$(BIN_DIR)\examples\convenience\05_delete_inspect.exe
+	$(BIN_DIR)\examples\convenience\06_ddl_inspect.exe
+	$(BIN_DIR)\examples\inspect\07_multi_statement_walk.exe
+	$(BIN_DIR)\examples\patch\08_view_patch.exe
+	$(BIN_DIR)\examples\convenience\09_expression_rewrite.exe
+	$(BIN_DIR)\examples\dialect\10_mysql_dialect.exe
+	$(BIN_DIR)\examples\dialect\11_oracle_dialect.exe
+	$(BIN_DIR)\examples\dialect\12_sqlserver_dialect.exe
+	$(BIN_DIR)\examples\convenience\13_select_target_rewrite.exe
+	$(BIN_DIR)\examples\patch\13_select_target_patch.exe
+	$(BIN_DIR)\examples\convenience\14_where_convenience.exe
+	$(BIN_DIR)\examples\patch\14_where_patch.exe
+	$(BIN_DIR)\examples\patch\15_insert_columns_patch.exe
+	$(BIN_DIR)\examples\patch\16_clause_patch.exe
 
 clean:
 	@if exist $(BUILD_DIR) rmdir /S /Q $(BUILD_DIR)
@@ -191,6 +206,9 @@ $(STATIC_LIB): prep jansson $(PG_QUERY_LIB) $(CORE_OBJS)
 $(OBJ_DIR)\sqlparser_ast.obj: src\core\sqlparser_ast.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast.c
 
+$(OBJ_DIR)\sqlparser_ast_clause.obj: src\core\sqlparser_ast_clause.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_clause.c
+
 $(OBJ_DIR)\sqlparser_ast_expr.obj: src\core\sqlparser_ast_expr.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_expr.c
 
@@ -200,11 +218,17 @@ $(OBJ_DIR)\sqlparser_ast_insert.obj: src\core\sqlparser_ast_insert.c
 $(OBJ_DIR)\sqlparser_ast_literal.obj: src\core\sqlparser_ast_literal.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_literal.c
 
+$(OBJ_DIR)\sqlparser_ast_select.obj: src\core\sqlparser_ast_select.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_select.c
+
 $(OBJ_DIR)\sqlparser_ast_statement.obj: src\core\sqlparser_ast_statement.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_statement.c
 
 $(OBJ_DIR)\sqlparser_ast_update.obj: src\core\sqlparser_ast_update.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_update.c
+
+$(OBJ_DIR)\sqlparser_ast_where.obj: src\core\sqlparser_ast_where.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_where.c
 
 $(OBJ_DIR)\sqlparser_core.obj: src\core\sqlparser_core.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_core.c
@@ -260,38 +284,74 @@ $(BIN_DIR)\test_sqlserver_dialect_case_matrix.exe: tests\unit\test_sqlserver_dia
 $(BIN_DIR)\test_stability.exe: tests\unit\test_stability.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_stability.c /link $(LDFLAGS) $(LDLIBS)
 
-$(BIN_DIR)\01_select_inspect.exe: examples\01_select_inspect.c $(STATIC_LIB)
-	$(CC) $(CFLAGS) /Fe$@ examples\01_select_inspect.c /link $(LDFLAGS) $(LDLIBS)
+$(BIN_DIR)\examples\inspect\01_select_inspect.exe: examples\inspect\01_select_inspect.c $(STATIC_LIB)
+	@if not exist $(BIN_DIR)\examples\inspect mkdir $(BIN_DIR)\examples\inspect
+	$(CC) $(CFLAGS) /Fe$@ examples\inspect\01_select_inspect.c /link $(LDFLAGS) $(LDLIBS)
 
-$(BIN_DIR)\02_insert_values_replace_literal.exe: examples\02_insert_values_replace_literal.c $(STATIC_LIB)
-	$(CC) $(CFLAGS) /Fe$@ examples\02_insert_values_replace_literal.c /link $(LDFLAGS) $(LDLIBS)
+$(BIN_DIR)\examples\convenience\02_insert_values_replace_literal.exe: examples\convenience\02_insert_values_replace_literal.c $(STATIC_LIB)
+	@if not exist $(BIN_DIR)\examples\convenience mkdir $(BIN_DIR)\examples\convenience
+	$(CC) $(CFLAGS) /Fe$@ examples\convenience\02_insert_values_replace_literal.c /link $(LDFLAGS) $(LDLIBS)
 
-$(BIN_DIR)\03_insert_select_inspect.exe: examples\03_insert_select_inspect.c $(STATIC_LIB)
-	$(CC) $(CFLAGS) /Fe$@ examples\03_insert_select_inspect.c /link $(LDFLAGS) $(LDLIBS)
+$(BIN_DIR)\examples\inspect\03_insert_select_inspect.exe: examples\inspect\03_insert_select_inspect.c $(STATIC_LIB)
+	@if not exist $(BIN_DIR)\examples\inspect mkdir $(BIN_DIR)\examples\inspect
+	$(CC) $(CFLAGS) /Fe$@ examples\inspect\03_insert_select_inspect.c /link $(LDFLAGS) $(LDLIBS)
 
-$(BIN_DIR)\04_update_replace_assignment.exe: examples\04_update_replace_assignment.c $(STATIC_LIB)
-	$(CC) $(CFLAGS) /Fe$@ examples\04_update_replace_assignment.c /link $(LDFLAGS) $(LDLIBS)
+$(BIN_DIR)\examples\convenience\04_update_replace_assignment.exe: examples\convenience\04_update_replace_assignment.c $(STATIC_LIB)
+	@if not exist $(BIN_DIR)\examples\convenience mkdir $(BIN_DIR)\examples\convenience
+	$(CC) $(CFLAGS) /Fe$@ examples\convenience\04_update_replace_assignment.c /link $(LDFLAGS) $(LDLIBS)
 
-$(BIN_DIR)\05_delete_inspect.exe: examples\05_delete_inspect.c $(STATIC_LIB)
-	$(CC) $(CFLAGS) /Fe$@ examples\05_delete_inspect.c /link $(LDFLAGS) $(LDLIBS)
+$(BIN_DIR)\examples\convenience\05_delete_inspect.exe: examples\convenience\05_delete_inspect.c $(STATIC_LIB)
+	@if not exist $(BIN_DIR)\examples\convenience mkdir $(BIN_DIR)\examples\convenience
+	$(CC) $(CFLAGS) /Fe$@ examples\convenience\05_delete_inspect.c /link $(LDFLAGS) $(LDLIBS)
 
-$(BIN_DIR)\06_ddl_inspect.exe: examples\06_ddl_inspect.c $(STATIC_LIB)
-	$(CC) $(CFLAGS) /Fe$@ examples\06_ddl_inspect.c /link $(LDFLAGS) $(LDLIBS)
+$(BIN_DIR)\examples\convenience\06_ddl_inspect.exe: examples\convenience\06_ddl_inspect.c $(STATIC_LIB)
+	@if not exist $(BIN_DIR)\examples\convenience mkdir $(BIN_DIR)\examples\convenience
+	$(CC) $(CFLAGS) /Fe$@ examples\convenience\06_ddl_inspect.c /link $(LDFLAGS) $(LDLIBS)
 
-$(BIN_DIR)\07_multi_statement_walk.exe: examples\07_multi_statement_walk.c $(STATIC_LIB)
-	$(CC) $(CFLAGS) /Fe$@ examples\07_multi_statement_walk.c /link $(LDFLAGS) $(LDLIBS)
+$(BIN_DIR)\examples\inspect\07_multi_statement_walk.exe: examples\inspect\07_multi_statement_walk.c $(STATIC_LIB)
+	@if not exist $(BIN_DIR)\examples\inspect mkdir $(BIN_DIR)\examples\inspect
+	$(CC) $(CFLAGS) /Fe$@ examples\inspect\07_multi_statement_walk.c /link $(LDFLAGS) $(LDLIBS)
 
-$(BIN_DIR)\08_view_patch.exe: examples\08_view_patch.c $(STATIC_LIB)
-	$(CC) $(CFLAGS) /Fe$@ examples\08_view_patch.c /link $(LDFLAGS) $(LDLIBS)
+$(BIN_DIR)\examples\patch\08_view_patch.exe: examples\patch\08_view_patch.c $(STATIC_LIB)
+	@if not exist $(BIN_DIR)\examples\patch mkdir $(BIN_DIR)\examples\patch
+	$(CC) $(CFLAGS) /Fe$@ examples\patch\08_view_patch.c /link $(LDFLAGS) $(LDLIBS)
 
-$(BIN_DIR)\09_expression_rewrite.exe: examples\09_expression_rewrite.c $(STATIC_LIB)
-	$(CC) $(CFLAGS) /Fe$@ examples\09_expression_rewrite.c /link $(LDFLAGS) $(LDLIBS)
+$(BIN_DIR)\examples\convenience\09_expression_rewrite.exe: examples\convenience\09_expression_rewrite.c $(STATIC_LIB)
+	@if not exist $(BIN_DIR)\examples\convenience mkdir $(BIN_DIR)\examples\convenience
+	$(CC) $(CFLAGS) /Fe$@ examples\convenience\09_expression_rewrite.c /link $(LDFLAGS) $(LDLIBS)
 
-$(BIN_DIR)\10_mysql_dialect.exe: examples\10_mysql_dialect.c $(STATIC_LIB)
-	$(CC) $(CFLAGS) /Fe$@ examples\10_mysql_dialect.c /link $(LDFLAGS) $(LDLIBS)
+$(BIN_DIR)\examples\dialect\10_mysql_dialect.exe: examples\dialect\10_mysql_dialect.c $(STATIC_LIB)
+	@if not exist $(BIN_DIR)\examples\dialect mkdir $(BIN_DIR)\examples\dialect
+	$(CC) $(CFLAGS) /Fe$@ examples\dialect\10_mysql_dialect.c /link $(LDFLAGS) $(LDLIBS)
 
-$(BIN_DIR)\11_oracle_dialect.exe: examples\11_oracle_dialect.c $(STATIC_LIB)
-	$(CC) $(CFLAGS) /Fe$@ examples\11_oracle_dialect.c /link $(LDFLAGS) $(LDLIBS)
+$(BIN_DIR)\examples\dialect\11_oracle_dialect.exe: examples\dialect\11_oracle_dialect.c $(STATIC_LIB)
+	@if not exist $(BIN_DIR)\examples\dialect mkdir $(BIN_DIR)\examples\dialect
+	$(CC) $(CFLAGS) /Fe$@ examples\dialect\11_oracle_dialect.c /link $(LDFLAGS) $(LDLIBS)
 
-$(BIN_DIR)\12_sqlserver_dialect.exe: examples\12_sqlserver_dialect.c $(STATIC_LIB)
-	$(CC) $(CFLAGS) /Fe$@ examples\12_sqlserver_dialect.c /link $(LDFLAGS) $(LDLIBS)
+$(BIN_DIR)\examples\dialect\12_sqlserver_dialect.exe: examples\dialect\12_sqlserver_dialect.c $(STATIC_LIB)
+	@if not exist $(BIN_DIR)\examples\dialect mkdir $(BIN_DIR)\examples\dialect
+	$(CC) $(CFLAGS) /Fe$@ examples\dialect\12_sqlserver_dialect.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\examples\convenience\13_select_target_rewrite.exe: examples\convenience\13_select_target_rewrite.c $(STATIC_LIB)
+	@if not exist $(BIN_DIR)\examples\convenience mkdir $(BIN_DIR)\examples\convenience
+	$(CC) $(CFLAGS) /Fe$@ examples\convenience\13_select_target_rewrite.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\examples\patch\13_select_target_patch.exe: examples\patch\13_select_target_patch.c $(STATIC_LIB)
+	@if not exist $(BIN_DIR)\examples\patch mkdir $(BIN_DIR)\examples\patch
+	$(CC) $(CFLAGS) /Fe$@ examples\patch\13_select_target_patch.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\examples\convenience\14_where_convenience.exe: examples\convenience\14_where_convenience.c $(STATIC_LIB)
+	@if not exist $(BIN_DIR)\examples\convenience mkdir $(BIN_DIR)\examples\convenience
+	$(CC) $(CFLAGS) /Fe$@ examples\convenience\14_where_convenience.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\examples\patch\14_where_patch.exe: examples\patch\14_where_patch.c $(STATIC_LIB)
+	@if not exist $(BIN_DIR)\examples\patch mkdir $(BIN_DIR)\examples\patch
+	$(CC) $(CFLAGS) /Fe$@ examples\patch\14_where_patch.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\examples\patch\15_insert_columns_patch.exe: examples\patch\15_insert_columns_patch.c $(STATIC_LIB)
+	@if not exist $(BIN_DIR)\examples\patch mkdir $(BIN_DIR)\examples\patch
+	$(CC) $(CFLAGS) /Fe$@ examples\patch\15_insert_columns_patch.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\examples\patch\16_clause_patch.exe: examples\patch\16_clause_patch.c $(STATIC_LIB)
+	@if not exist $(BIN_DIR)\examples\patch mkdir $(BIN_DIR)\examples\patch
+	$(CC) $(CFLAGS) /Fe$@ examples\patch\16_clause_patch.c /link $(LDFLAGS) $(LDLIBS)
