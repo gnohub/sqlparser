@@ -11,6 +11,8 @@ const sqlparser_dialect_ops_t *sqlparser_dialect_get_ops(sqlparser_dialect_t dia
 			return sqlparser_dialect_oracle_ops();
 		case SQLPARSER_DIALECT_SQLSERVER:
 			return sqlparser_dialect_sqlserver_ops();
+		case SQLPARSER_DIALECT_DAMENG:
+			return sqlparser_dialect_dameng_ops();
 		default:
 			return NULL;
 	}

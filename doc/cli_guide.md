@@ -32,7 +32,7 @@ make all
 命令格式：
 
 ```bash
-./bin/sqlparser_cli [--mode view|deparse|all] [--dialect postgresql|mysql|oracle|sqlserver] [--compact] [--file PATH] [SQL]
+./bin/sqlparser_cli [--mode view|deparse|all] [--dialect postgresql|mysql|oracle|sqlserver|dameng] [--compact] [--file PATH] [SQL]
 ```
 
 也可以从标准输入读取 SQL：
@@ -93,6 +93,11 @@ cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
   "SELECT q'[Bob's order]' AS label FROM dual"
 ```
 
+```bash
+./bin/sqlparser_cli --dialect dameng --mode view \
+  "SET SCHEMA KDES; SELECT TOP 2 id, name FROM users WHERE id = :id"
+```
+
 批量 JSON 可以在顶层设置默认方言，也可以在单条 SQL 上覆盖：
 
 ```json
@@ -146,6 +151,8 @@ cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
 
 - 直接写 SQL 字符串
 - 写成对象：`{"name":"case-name","dialect":"oracle","sql":"..."}`
+
+`dialect` 支持 `postgresql`、`mysql`、`oracle`、`sqlserver`、`dameng`。
 
 示例：
 

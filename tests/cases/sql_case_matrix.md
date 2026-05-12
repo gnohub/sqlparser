@@ -12,7 +12,7 @@
 
 | 用例 ID | 用例名称 | 语句形态 | 验证重点 |
 | --- | --- | --- | --- |
-| P001 | `select-basic` | `SELECT 1` | parse、SQL View JSON、SQL View JSON、deparse |
+| P001 | `select-basic` | `SELECT 1` | parse、SQL View JSON、deparse |
 | P002 | `select-filter` | `SELECT ... FROM ... WHERE ...` | 查询列、过滤列、表名提取 |
 | P003 | `select-join` | `SELECT ... JOIN ... ON ... WHERE ...` | 多表 JOIN、查询列、关联列、条件列 |
 | P004 | `select-cte` | `WITH ... SELECT ...` | CTE 名称、外层查询列、上游过滤列 |
@@ -63,13 +63,29 @@
 | P049 | `postgresql-set-search-path` | `SET search_path TO ...` | 会话 schema 搜索路径输出和 value selector |
 | P050 | `postgresql-set-schema` | `SET SCHEMA ...` | `SET SCHEMA` alias 反解析为 `search_path` |
 | P051 | `postgresql-set-local-search-path` | `SET LOCAL search_path = ...` | 本地事务级 schema 搜索路径 |
-| P052 | `oracle-cli-dialect-q-quote` | Oracle `q'[...]'` | CLI `dialect` 字段和 Oracle q-quoted 字符串处理 |
-| P053 | `sqlserver-cli-dialect-top-param` | SQL Server `TOP` + `@` 参数 | CLI `dialect` 字段和 SQL Server 方言输出处理 |
+| P052 | `postgresql-prepare-select` | `PREPARE ... AS SELECT ... $1` | PostgreSQL SQL 级 prepared statement、参数和查询对象提取 |
+| P053 | `postgresql-execute-prepared` | `EXECUTE ...(...)` | PostgreSQL prepared statement 执行语句 |
+| P054 | `postgresql-deallocate-prepare` | `DEALLOCATE PREPARE ...` | PostgreSQL prepared statement 释放语句 |
+| P055 | `oracle-cli-dialect-q-quote` | Oracle `q'[...]'` | CLI `dialect` 字段和 Oracle q-quoted 字符串处理 |
+| P056 | `sqlserver-cli-dialect-top-param` | SQL Server `TOP` + `@` 参数 | CLI `dialect` 字段和 SQL Server 方言输出处理 |
+| P057 | `dameng-cli-dialect-set-schema-top` | 达梦 `SET SCHEMA` + `TOP` + bind | CLI `dialect` 字段和达梦方言输出处理 |
+| P058 | `postgresql-select-dollar-params` | `SELECT ... WHERE ... = $1` | PostgreSQL `$n` 参数在查询条件中的解析、View 输出和反解析 |
+| P059 | `postgresql-select-in-dollar-params` | `SELECT ... IN ($1, $2, $3)` | `IN` 条件中的多个 `$n` 参数 |
+| P060 | `postgresql-select-limit-dollar-params` | `LIMIT $2 OFFSET $3` | 分页子句中的 `$n` 参数 |
+| P061 | `postgresql-insert-dollar-params` | `INSERT ... VALUES ($1, $2, $3)` | 插入列和 `$n` 参数值列表 |
+| P062 | `postgresql-insert-multi-row-dollar-params` | 多行 `INSERT ... VALUES` + `$n` | 多行参数化插入 |
+| P063 | `postgresql-update-dollar-params` | `UPDATE ... SET ... WHERE ... = $n` | 更新列、条件列和 `$n` 参数 |
+| P064 | `postgresql-delete-dollar-params` | `DELETE ... WHERE ... = $n` | 条件删除和 `$n` 参数 |
+| P065 | `postgresql-prepare-insert` | `PREPARE ... AS INSERT ...` | prepared insert 语句和参数化值列表 |
+| P066 | `postgresql-prepare-update` | `PREPARE ... AS UPDATE ...` | prepared update 语句和条件参数 |
+| P067 | `postgresql-prepare-delete` | `PREPARE ... AS DELETE ...` | prepared delete 语句和条件参数 |
+| P068 | `postgresql-execute-prepared-with-args` | `EXECUTE ...(...)` | prepared statement 执行参数 |
+| P069 | `postgresql-deallocate-all` | `DEALLOCATE ALL` | 释放所有 prepared statements |
 
 ## 负向用例
 
 | 用例 ID | 用例名称 | 输入 | 验证重点 |
 | --- | --- | --- | --- |
-| P054 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
+| P070 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
 
 新增回归用例必须同步更新 `tests/cases/sql_batch_input.json` 和本矩阵。

@@ -52,11 +52,11 @@ static void sqlparser_cli_print_usage(const char *program)
 {
 	fprintf(
 		stderr,
-		"Usage: %s [--mode view|deparse|all] [--dialect postgresql|mysql|oracle|sqlserver] [--compact] [--file PATH] [SQL]\n",
+		"Usage: %s [--mode view|deparse|all] [--dialect postgresql|mysql|oracle|sqlserver|dameng] [--compact] [--file PATH] [--] [SQL]\n",
 		program);
 	fprintf(
 		stderr,
-		"       %s --batch-file PATH [--output PATH] [--mode view|deparse|all] [--dialect postgresql|mysql|oracle|sqlserver] [--compact]\n",
+		"       %s --batch-file PATH [--output PATH] [--mode view|deparse|all] [--dialect postgresql|mysql|oracle|sqlserver|dameng] [--compact]\n",
 		program);
 	fprintf(stderr, "       %s --file ./tests/cases/sample.sql\n", program);
 	fprintf(stderr, "       %s --batch-file ./tests/cases/sql_batch_input.json --output /tmp/out.json\n", program);
@@ -254,6 +254,11 @@ static int sqlparser_cli_parse_dialect(const char *value, sqlparser_dialect_t *d
 	if (sqlparser_cli_ascii_equal_ci(value, "sqlserver") ||
 	    sqlparser_cli_ascii_equal_ci(value, "mssql")) {
 		*dialect_out = SQLPARSER_DIALECT_SQLSERVER;
+		return 0;
+	}
+	if (sqlparser_cli_ascii_equal_ci(value, "dameng") ||
+	    sqlparser_cli_ascii_equal_ci(value, "dm")) {
+		*dialect_out = SQLPARSER_DIALECT_DAMENG;
 		return 0;
 	}
 
@@ -639,7 +644,7 @@ static int sqlparser_cli_run_batch(
 			    sqlparser_cli_parse_dialect(json_string_value(dialect_json), &batch_dialect) != 0) {
 				json_decref(input_root);
 				json_decref(output_root);
-				fprintf(stderr, "batch field 'dialect' must be one of postgresql/mysql/oracle/sqlserver\n");
+				fprintf(stderr, "batch field 'dialect' must be one of postgresql/mysql/oracle/sqlserver/dameng\n");
 				return 1;
 			}
 		}
@@ -745,6 +750,7 @@ int main(int argc, char **argv)
 	sqlparser_error_t error;
 	int pretty;
 	int index;
+	int option_end;
 	int status;
 
 	mode = SQLPARSER_CLI_MODE_ALL;
@@ -756,9 +762,14 @@ int main(int argc, char **argv)
 	sql_text = NULL;
 	handle = NULL;
 	pretty = 1;
+	option_end = 0;
 
 	for (index = 1; index < argc; index++) {
-		if (strcmp(argv[index], "--mode") == 0) {
+		if (!option_end && strcmp(argv[index], "--") == 0) {
+			option_end = 1;
+			continue;
+		}
+		if (!option_end && strcmp(argv[index], "--mode") == 0) {
 			if (index + 1 >= argc) {
 				sqlparser_cli_print_usage(argv[0]);
 				return 2;
@@ -770,11 +781,11 @@ int main(int argc, char **argv)
 			index++;
 			continue;
 		}
-		if (strcmp(argv[index], "--compact") == 0) {
+		if (!option_end && strcmp(argv[index], "--compact") == 0) {
 			pretty = 0;
 			continue;
 		}
-		if (strcmp(argv[index], "--dialect") == 0) {
+		if (!option_end && strcmp(argv[index], "--dialect") == 0) {
 			if (index + 1 >= argc) {
 				sqlparser_cli_print_usage(argv[0]);
 				return 2;
@@ -786,7 +797,7 @@ int main(int argc, char **argv)
 			index++;
 			continue;
 		}
-		if (strcmp(argv[index], "--file") == 0) {
+		if (!option_end && strcmp(argv[index], "--file") == 0) {
 			if (index + 1 >= argc) {
 				sqlparser_cli_print_usage(argv[0]);
 				return 2;
@@ -795,7 +806,7 @@ int main(int argc, char **argv)
 			index++;
 			continue;
 		}
-		if (strcmp(argv[index], "--batch-file") == 0) {
+		if (!option_end && strcmp(argv[index], "--batch-file") == 0) {
 			if (index + 1 >= argc) {
 				sqlparser_cli_print_usage(argv[0]);
 				return 2;
@@ -804,7 +815,7 @@ int main(int argc, char **argv)
 			index++;
 			continue;
 		}
-		if (strcmp(argv[index], "--output") == 0) {
+		if (!option_end && strcmp(argv[index], "--output") == 0) {
 			if (index + 1 >= argc) {
 				sqlparser_cli_print_usage(argv[0]);
 				return 2;
@@ -813,16 +824,19 @@ int main(int argc, char **argv)
 			index++;
 			continue;
 		}
-		if (strcmp(argv[index], "--help") == 0 || strcmp(argv[index], "-h") == 0) {
+		if (!option_end && (strcmp(argv[index], "--help") == 0 || strcmp(argv[index], "-h") == 0)) {
 			sqlparser_cli_print_usage(argv[0]);
 			return 0;
 		}
-		if (argv[index][0] == '-' && argv[index][1] != '\0') {
+		if (!option_end && argv[index][0] == '-' && argv[index][1] != '\0') {
 			fprintf(stderr, "unsupported option: %s\n", argv[index]);
 			return 2;
 		}
+		if (sql_arg != NULL) {
+			fprintf(stderr, "multiple inline SQL arguments are not supported\n");
+			return 2;
+		}
 		sql_arg = argv[index];
-		break;
 	}
 
 	if (batch_file_path != NULL) {

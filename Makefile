@@ -165,7 +165,7 @@ LDLIBS := $(BASE_LDLIBS) $(EXTRA_LDLIBS)
 	all prep vendor static shared clean vendor-clean print-config test install cli bench-build \
 	libpg-query-baseline-build libpg-query-baseline \
 	test-cli-batch examples install-smoke bench-smoke test-loop verify verify-release verify-debug \
-	verify-asan verify-ubsan verify-valgrind verify-ci abi-check test-unit test-examples \
+	verify-asan verify-ubsan verify-valgrind verify-ci abi-check test-unit test-examples test-cli-arg-order \
 	test-parse test-inspect test-rewrite test-deparse test-view-json test-cli test-install \
 	test-abi dist
 
@@ -203,7 +203,7 @@ test-examples: $(EXAMPLE_BINS)
 		"$$test_bin"; \
 	done
 
-test-cli: test-cli-batch
+test-cli: test-cli-batch test-cli-arg-order
 
 test-parse: $(TEST_API_SMOKE_BIN) $(TEST_CASE_MATRIX_BIN)
 	@$(TEST_API_SMOKE_BIN)
@@ -234,6 +234,9 @@ test-cli-batch: $(SQLPARSER_CLI_BIN) $(SQLPARSER_CLI_BATCH_FIXTURE) $(SQLPARSER_
 	@$(BENCH_PYTHON) $(SQLPARSER_CLI_BATCH_VERIFY) \
 		--fixture $(SQLPARSER_CLI_BATCH_FIXTURE) \
 		--output $(SQLPARSER_CLI_BATCH_OUTPUT)
+
+test-cli-arg-order: $(SQLPARSER_CLI_BIN)
+	@$(SQLPARSER_CLI_BIN) --mode view "INSERT INTO users (username, email, age) VALUES (?, ?, ?);" --dialect oracle >/dev/null
 
 install-smoke: all $(PKGCONFIG_FILE) $(INSTALL_SMOKE_SRC) | prep
 	@rm -rf $(TEST_STAGE_DIR)

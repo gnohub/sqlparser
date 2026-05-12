@@ -1,0 +1,36 @@
+category,item,status,reason,official_url
+query,SELECT_CORE,CURRENT,"已覆盖 SELECT、别名、子查询和基本查询结构",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
+query,SELECT_JOIN_WHERE,CURRENT,"已覆盖 JOIN、ON、WHERE 条件和表归属输出",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
+query,SET_OPERATORS_MINUS,CURRENT,"已覆盖 MINUS 集合运算并在公共输出中保留 MINUS",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
+query,LIMIT_OFFSET,CURRENT,"已覆盖 LIMIT n、LIMIT offset,n 和 LIMIT n OFFSET offset",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
+query,TOP_N,CURRENT,"已覆盖 SELECT TOP n 基础形态",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
+query,ROWNUM,CURRENT,"已覆盖 ROWNUM 条件过滤",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
+query,FOR_UPDATE_NOWAIT,CURRENT,"已覆盖 FOR UPDATE NOWAIT",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
+query,GROUP_BY_HAVING_WINDOW,CURRENT,"已覆盖 GROUP BY、HAVING 和代表性窗口函数",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
+expressions,BIND_VARIABLES,CURRENT,"已覆盖 :name 和 JDBC 风格 ? 位置参数",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
+expressions,DATE_TIMESTAMP_LITERAL,CURRENT,"已覆盖 DATE 和 TIMESTAMP 字面量",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
+expressions,COMMON_FUNCTIONS,CURRENT,"已覆盖 NVL 等常见函数和代表性分析函数",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
+embedded-sql,EXEC_SQL_PREPARE_EXECUTE_DEALLOCATE,CURRENT,"已覆盖 EXEC SQL PREPARE、EXECUTE 和 DEALLOCATE PREPARE",https://eco.dameng.com/document/dm/zh-cn/pm/dm8_sql-sql-statement
+dml,INSERT_VALUES,CURRENT,"已覆盖 INSERT VALUES 和多行 VALUES",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
+dml,INSERT_SELECT,CURRENT,"已覆盖 INSERT SELECT",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
+dml,UPDATE,CURRENT,"已覆盖 UPDATE SET WHERE",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
+dml,DELETE,CURRENT,"已覆盖 DELETE WHERE",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
+dml,MERGE,CURRENT,"已覆盖可映射 MERGE 基础结构",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
+ddl,CREATE_TABLE,CURRENT,"已覆盖 CREATE TABLE 基础形态",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
+ddl,CREATE_VIEW,CURRENT,"已覆盖 CREATE OR REPLACE VIEW",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
+ddl,CREATE_SEQUENCE,CURRENT,"已覆盖 CREATE SEQUENCE",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
+ddl,ALTER_TABLE_ADD,CURRENT,"已覆盖 ALTER TABLE ADD",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
+ddl,CREATE_INDEX,CURRENT,"已覆盖 CREATE INDEX",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
+ddl,DROP_TRUNCATE_TABLE,CURRENT,"已覆盖 DROP TABLE 和 TRUNCATE TABLE",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
+transaction,TRANSACTION_CONTROL,CURRENT,"已覆盖 BEGIN、COMMIT 和 ROLLBACK 代表性事务控制语句",https://eco.dameng.com/document/dm/zh-cn/pm/dm8_sql-sql-statement
+privileges,GRANT_REVOKE,CURRENT,"已覆盖 GRANT 和 REVOKE",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
+session,SET_SCHEMA,CURRENT,"已覆盖 SET SCHEMA 当前模式切换",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
+query,TOP_PERCENT_WITH_TIES,MIXED_MODEL,"TOP n 已覆盖；PERCENT 和 WITH TIES 需要保留专属语义",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
+query,CONNECT_BY,MODEL_REQUIRED,"层级查询语义需要专用查询模型",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
+query,PIVOT_UNPIVOT,MODEL_REQUIRED,"表变换语义需要专用查询模型",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
+query,FLASHBACK_QUERY,MODEL_REQUIRED,"闪回查询涉及达梦专属时间点/版本语义",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
+query,SAMPLE_PARTITION_APPLY,MODEL_REQUIRED,"SAMPLE、PARTITION 和 APPLY 完整语义需要专用表引用模型",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
+dml,RETURNING_INTO,MODEL_REQUIRED,"RETURNING INTO 涉及返回目标和宿主变量语义",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
+program,DMSQL_BLOCK,MODEL_REQUIRED,"DMSQL block 超出当前 SQL 语句模型",https://eco.dameng.com/document/dm/zh-cn/pm/dm8_sql-sql-statement
+program,CREATE_PROCEDURE_PACKAGE,MODEL_REQUIRED,"procedure 和 package 属于 DMSQL 程序单元",https://eco.dameng.com/document/dm/zh-cn/pm/dm8_sql-sql-statement
+remote,DATABASE_LINK,MODEL_REQUIRED,"数据库链路涉及远程对象引用语义",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html

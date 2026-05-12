@@ -1,0 +1,699 @@
+{
+  "items": [
+    {
+      "id": "D001",
+      "name": "dameng-select-bind-nvl",
+      "sql": "SELECT NVL(u.name, 'N/A') AS label FROM users u WHERE u.id = :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "where_columns": ["id"],
+        "deparse_contains": ":id",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "D002",
+      "name": "dameng-set-schema",
+      "sql": "SET SCHEMA KDES",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["alter", "session", "set"],
+        "deparse_contains": "ALTER SESSION SET CURRENT_SCHEMA",
+        "view_contains": "\"name\":\"CURRENT_SCHEMA\""
+      }
+    },
+    {
+      "id": "D003",
+      "name": "dameng-alter-session-current-schema",
+      "sql": "ALTER SESSION SET CURRENT_SCHEMA=KDES",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["alter", "session", "set"],
+        "deparse_contains": "ALTER SESSION SET CURRENT_SCHEMA",
+        "view_contains": "\"name\":\"CURRENT_SCHEMA\""
+      }
+    },
+    {
+      "id": "D004",
+      "name": "dameng-minus-set-operator",
+      "sql": "SELECT id FROM active_users MINUS SELECT id FROM archived_users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "keywords": ["select", "from", "minus"],
+        "tables": ["active_users", "archived_users"],
+        "deparse_contains": "MINUS",
+        "view_contains": "minus",
+        "view_not_contains": "except"
+      }
+    },
+    {
+      "id": "D005",
+      "name": "dameng-limit-offset",
+      "sql": "SELECT id, name FROM users ORDER BY id LIMIT 2 OFFSET 2",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["id", "name"],
+        "deparse_contains": "LIMIT 2 OFFSET 2"
+      }
+    },
+    {
+      "id": "D006",
+      "name": "dameng-limit-comma",
+      "sql": "SELECT id, name FROM users ORDER BY id LIMIT 2,3",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["id", "name"],
+        "deparse_contains": "LIMIT 3 OFFSET 2"
+      }
+    },
+    {
+      "id": "D007",
+      "name": "dameng-top-limit",
+      "sql": "SELECT TOP 2 id, name FROM users ORDER BY id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["id", "name"],
+        "deparse_contains": "LIMIT 2"
+      }
+    },
+    {
+      "id": "D008",
+      "name": "dameng-join-bind",
+      "sql": "SELECT u.id, u.name, o.order_no FROM users u JOIN orders o ON u.id = o.user_id WHERE o.status = :status",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users", "orders"],
+        "selected_columns": ["id", "name", "order_no"],
+        "join_columns": ["id", "user_id"],
+        "where_columns": ["status"],
+        "deparse_contains": ":status",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "D009",
+      "name": "dameng-insert-values-bind",
+      "sql": "INSERT INTO users (id, name) VALUES (:id, 'bob')",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "tables": ["users"],
+        "insert_columns": ["id", "name"],
+        "deparse_contains": ":id",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "D010",
+      "name": "dameng-insert-values-multi-row",
+      "sql": "INSERT INTO users (id, name) VALUES (1, 'bob'), (2, 'alice')",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "tables": ["users"],
+        "insert_columns": ["id", "name"],
+        "deparse_contains": "VALUES (1, 'bob'), (2, 'alice')"
+      }
+    },
+    {
+      "id": "D011",
+      "name": "dameng-insert-select",
+      "sql": "INSERT INTO archive_users (id, name) SELECT id, name FROM users WHERE status = :status",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "tables": ["archive_users", "users"],
+        "selected_columns": ["id", "name"],
+        "where_columns": ["status"],
+        "insert_columns": ["id", "name"],
+        "deparse_contains": ":status"
+      }
+    },
+    {
+      "id": "D012",
+      "name": "dameng-update-bind",
+      "sql": "UPDATE users SET name = :name, status = 'active' WHERE id = :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["UpdateStmt"],
+        "tables": ["users"],
+        "update_columns": ["name", "status"],
+        "where_columns": ["id"],
+        "deparse_contains": ":name",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "D013",
+      "name": "dameng-delete-conditional",
+      "sql": "DELETE FROM users WHERE id = :id AND status = 'inactive'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["DeleteStmt"],
+        "tables": ["users"],
+        "where_columns": ["id", "status"],
+        "deparse_contains": ":id"
+      }
+    },
+    {
+      "id": "D014",
+      "name": "dameng-merge-basic",
+      "sql": "MERGE INTO users u USING staging_users s ON (u.id = s.id) WHEN MATCHED THEN UPDATE SET name = s.name WHEN NOT MATCHED THEN INSERT (id, name) VALUES (s.id, s.name)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["MergeStmt"],
+        "tables": ["users", "staging_users"],
+        "join_columns": ["id"],
+        "insert_columns": ["id", "name"],
+        "update_columns": ["name"],
+        "deparse_contains": "MERGE INTO"
+      }
+    },
+    {
+      "id": "D015",
+      "name": "dameng-create-table",
+      "sql": "CREATE TABLE users (id INT, name VARCHAR(64), created_at DATE)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["CreateStmt"],
+        "deparse_contains": "CREATE TABLE users"
+      }
+    },
+    {
+      "id": "D016",
+      "name": "dameng-create-view",
+      "sql": "CREATE OR REPLACE VIEW v_users AS SELECT id, name FROM users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["ViewStmt"],
+        "tables": ["v_users", "users"],
+        "selected_columns": ["id", "name"],
+        "deparse_contains": "CREATE OR REPLACE VIEW"
+      }
+    },
+    {
+      "id": "D017",
+      "name": "dameng-create-sequence",
+      "sql": "CREATE SEQUENCE user_seq START WITH 1 INCREMENT BY 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["CreateSeqStmt"],
+        "deparse_contains": "CREATE SEQUENCE"
+      }
+    },
+    {
+      "id": "D018",
+      "name": "dameng-alter-table-add-column",
+      "sql": "ALTER TABLE users ADD age INT",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["AlterTableStmt"],
+        "deparse_contains": "ALTER TABLE users"
+      }
+    },
+    {
+      "id": "D019",
+      "name": "dameng-create-index",
+      "sql": "CREATE INDEX idx_users_name ON users (name)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["IndexStmt"],
+        "tables": ["users"],
+        "deparse_contains": "CREATE INDEX"
+      }
+    },
+    {
+      "id": "D020",
+      "name": "dameng-drop-truncate-table",
+      "sql": "DROP TABLE old_users; TRUNCATE TABLE users",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": ["DropStmt", "TruncateStmt"],
+        "tables": ["old_users", "users"],
+        "deparse_contains": "TRUNCATE TABLE users"
+      }
+    },
+    {
+      "id": "D021",
+      "name": "dameng-transaction-control",
+      "sql": "SAVEPOINT s1; ROLLBACK TO SAVEPOINT s1; COMMIT",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "statement_types": ["TransactionStmt"],
+        "deparse_contains": "COMMIT"
+      }
+    },
+    {
+      "id": "D022",
+      "name": "dameng-grant-revoke",
+      "sql": "GRANT SELECT ON users TO app_user; REVOKE SELECT ON users FROM app_user",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": ["GrantStmt"],
+        "deparse_contains": "REVOKE"
+      }
+    },
+    {
+      "id": "D023",
+      "name": "dameng-rownum-filter",
+      "sql": "SELECT id FROM users WHERE ROWNUM <= 10",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["id"],
+        "where_columns": ["rownum"],
+        "deparse_contains": "rownum <= 10"
+      }
+    },
+    {
+      "id": "D024",
+      "name": "dameng-for-update-nowait",
+      "sql": "SELECT id FROM users WHERE id = :id FOR UPDATE NOWAIT",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "where_columns": ["id"],
+        "deparse_contains": "NOWAIT"
+      }
+    },
+    {
+      "id": "D025",
+      "name": "dameng-q-quoted-string",
+      "sql": "SELECT q'[Bob's order]' AS label FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dual"],
+        "deparse_contains": "'Bob''s order'"
+      }
+    },
+    {
+      "id": "D026",
+      "name": "dameng-set-schema-in-multi-statement",
+      "sql": "SET SCHEMA KDES; SELECT * FROM users",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": ["VariableSetStmt", "SelectStmt"],
+        "keywords": ["alter", "session", "set", "select"],
+        "tables": ["users"],
+        "deparse_contains": "ALTER SESSION SET CURRENT_SCHEMA = kdes; SELECT * FROM users",
+        "view_contains": "\"name\":\"CURRENT_SCHEMA\""
+      }
+    },
+    {
+      "id": "D027",
+      "name": "dameng-date-timestamp-literals",
+      "sql": "SELECT DATE '2024-01-01' AS d, TIMESTAMP '2024-01-01 12:30:00' AS ts FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dual"],
+        "deparse_contains": "TIMESTAMP '2024-01-01 12:30:00'"
+      }
+    },
+    {
+      "id": "D028",
+      "name": "dameng-group-having-window",
+      "sql": "SELECT status, COUNT(*) AS cnt, ROW_NUMBER() OVER (ORDER BY status) AS rn FROM users GROUP BY status HAVING COUNT(*) > 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["status"],
+        "deparse_contains": "HAVING"
+      }
+    },
+    {
+      "id": "D029",
+      "name": "dameng-top-offset-count",
+      "sql": "SELECT TOP 2,3 id, name FROM users ORDER BY id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["id", "name"],
+        "deparse_contains": "LIMIT 3 OFFSET 2"
+      }
+    },
+    {
+      "id": "D030",
+      "name": "dameng-insert-question-params",
+      "sql": "INSERT INTO users (username, email, age) VALUES (?, ?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "tables": ["users"],
+        "insert_columns": ["username", "email", "age"],
+        "deparse_contains": "VALUES (?, ?, ?)",
+        "view_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "D031",
+      "name": "dameng-update-question-params",
+      "sql": "UPDATE users SET email = ? WHERE username = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["UpdateStmt"],
+        "tables": ["users"],
+        "update_columns": ["email"],
+        "where_columns": ["username"],
+        "deparse_contains": "email = ?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "D032",
+      "name": "dameng-exec-sql-prepare",
+      "sql": "EXEC SQL PREPARE stmt FROM 'SELECT * FROM users WHERE id = ?'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["prepare"],
+        "deparse_contains": "EXEC SQL PREPARE stmt FROM 'SELECT * FROM users WHERE id = ?'",
+        "view_contains": "\"sql\":\"'SELECT * FROM users WHERE id = ?'\"",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "D033",
+      "name": "dameng-exec-sql-execute",
+      "sql": "EXEC SQL EXECUTE stmt USING ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["execute"],
+        "deparse_contains": "EXEC SQL EXECUTE stmt USING ?",
+        "view_contains": "\"sql\":\"?\"",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "D034",
+      "name": "dameng-exec-sql-deallocate-prepare",
+      "sql": "EXEC SQL DEALLOCATE PREPARE stmt",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["deallocate"],
+        "deparse_contains": "EXEC SQL DEALLOCATE PREPARE stmt",
+        "view_contains": "\"name\":\"name\""
+      }
+    },
+    {
+      "id": "D035",
+      "name": "dameng-select-multiple-named-binds",
+      "sql": "SELECT id, name FROM users WHERE id = :id AND status = :status",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["id", "name"],
+        "where_columns": ["id", "status"],
+        "deparse_contains": ":status",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "D036",
+      "name": "dameng-select-in-named-binds",
+      "sql": "SELECT id FROM users WHERE status IN (:status1, :status2, :status3)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["id"],
+        "where_columns": ["status"],
+        "deparse_contains": ":status3",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "D037",
+      "name": "dameng-insert-multiple-named-binds",
+      "sql": "INSERT INTO users (id, name, status) VALUES (:id, :name, :status)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "tables": ["users"],
+        "insert_columns": ["id", "name", "status"],
+        "deparse_contains": ":status",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "D038",
+      "name": "dameng-insert-multi-row-question-params",
+      "sql": "INSERT INTO users (id, name) VALUES (?, ?), (?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "tables": ["users"],
+        "insert_columns": ["id", "name"],
+        "deparse_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "D039",
+      "name": "dameng-update-question-params-expanded",
+      "sql": "UPDATE users SET name = ?, status = ? WHERE id = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["UpdateStmt"],
+        "tables": ["users"],
+        "update_columns": ["name", "status"],
+        "where_columns": ["id"],
+        "deparse_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "D040",
+      "name": "dameng-delete-question-params",
+      "sql": "DELETE FROM users WHERE id = ? AND status = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["DeleteStmt"],
+        "tables": ["users"],
+        "where_columns": ["id", "status"],
+        "deparse_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "D041",
+      "name": "dameng-exec-sql-prepare-insert",
+      "sql": "EXEC SQL PREPARE stmt FROM 'INSERT INTO users (id, name) VALUES (?, ?)'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["prepare"],
+        "deparse_contains": "EXEC SQL PREPARE stmt FROM 'INSERT INTO users (id, name) VALUES (?, ?)'",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "D042",
+      "name": "dameng-exec-sql-execute-named-binds",
+      "sql": "EXEC SQL EXECUTE stmt USING :id, :name",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["execute"],
+        "deparse_contains": "EXEC SQL EXECUTE stmt USING :id, :name",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "D043",
+      "name": "dameng-exec-sql-execute-question-params",
+      "sql": "EXEC SQL EXECUTE stmt USING ?, ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["execute"],
+        "deparse_contains": "EXEC SQL EXECUTE stmt USING ?, ?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "DU001",
+      "name": "dameng-connect-by",
+      "sql": "SELECT id FROM users START WITH manager_id IS NULL CONNECT BY PRIOR id = manager_id",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Dameng syntax"
+      }
+    },
+    {
+      "id": "DU002",
+      "name": "dameng-pivot",
+      "sql": "SELECT * FROM sales PIVOT (SUM(amount) FOR quarter IN ('Q1' AS q1))",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Dameng syntax"
+      }
+    },
+    {
+      "id": "DU003",
+      "name": "dameng-returning-into",
+      "sql": "INSERT INTO users (id) VALUES (1) RETURNING id INTO :id",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Dameng syntax"
+      }
+    },
+    {
+      "id": "DU004",
+      "name": "dameng-dmsql-block",
+      "sql": "BEGIN NULL; END;",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Dameng syntax"
+      }
+    },
+    {
+      "id": "DU005",
+      "name": "dameng-top-percent",
+      "sql": "SELECT TOP 10 PERCENT id FROM users ORDER BY id",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Dameng syntax"
+      }
+    },
+    {
+      "id": "DU006",
+      "name": "dameng-insert-all",
+      "sql": "INSERT ALL INTO users (id) VALUES (1) INTO users (id) VALUES (2) SELECT 1 FROM dual",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Dameng syntax"
+      }
+    },
+    {
+      "id": "DU007",
+      "name": "dameng-database-link",
+      "sql": "SELECT * FROM users@remote_db",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Dameng syntax"
+      }
+    },
+    {
+      "id": "DU008",
+      "name": "dameng-national-q-quoted-string",
+      "sql": "SELECT nq'{Alice's order}' AS label FROM dual",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Dameng syntax"
+      }
+    },
+    {
+      "id": "DU009",
+      "name": "dameng-alter-session-other-parameter",
+      "sql": "ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD'",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Dameng syntax"
+      }
+    },
+    {
+      "id": "DU010",
+      "name": "dameng-create-procedure",
+      "sql": "CREATE OR REPLACE PROCEDURE p AS BEGIN NULL; END;",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Dameng syntax"
+      }
+    },
+    {
+      "id": "DU011",
+      "name": "dameng-top-with-ties",
+      "sql": "SELECT TOP 2 WITH TIES id FROM users ORDER BY id",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Dameng syntax"
+      }
+    },
+    {
+      "id": "DU012",
+      "name": "dameng-alter-session-container",
+      "sql": "ALTER SESSION SET CONTAINER = CDB$ROOT",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Dameng syntax"
+      }
+    }
+  ]
+}

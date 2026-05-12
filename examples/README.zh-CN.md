@@ -57,6 +57,8 @@
   展示如何显式指定 Oracle 方言，导出 SQL View JSON，并在反解析时还原 Oracle bind 占位符。
 - `examples/dialect/12_sqlserver_dialect.c`
   展示如何显式指定 SQL Server 方言，导出 SQL View JSON，并在反解析时还原 SQL Server 参数和 `TOP` 语法。
+- `examples/dialect/17_dameng_dialect.c`
+  展示如何显式指定达梦方言，导出 SQL View JSON，并在反解析时还原 bind、`SET SCHEMA` 和 `TOP` 语法。
 
 ## 构建
 

@@ -19,7 +19,8 @@ This release provides:
 - `INSERT`, `UPDATE`, and `WHERE` structural views, including WHERE insertion and condition append
 - `SELECT` output-list read, replace, insert, and delete operations
 - stable selector parse / format / lookup
-- dialect options with PostgreSQL as the default and MySQL / Oracle / SQL Server conversion layers
+- dialect options with PostgreSQL as the default and MySQL / Oracle / SQL Server / Dameng conversion layers
+- common prepared / parameterized SQL statement parsing, SQL View JSON, and deparse output
 - configurable resource limits for SQL input, generated output, and statement count
 - SQL View JSON export, C structured traversal, and structured patch write-back
 - `handle -> sql`
@@ -128,11 +129,12 @@ sqlparser_parse_options_default(&options);
 options.dialect = SQLPARSER_DIALECT_MYSQL;
 ```
 
-Oracle and SQL Server SQL can be selected explicitly through `options.dialect`:
+Oracle, SQL Server, and Dameng SQL can be selected explicitly through `options.dialect`:
 
 ```c
 options.dialect = SQLPARSER_DIALECT_ORACLE;
 options.dialect = SQLPARSER_DIALECT_SQLSERVER;
+options.dialect = SQLPARSER_DIALECT_DAMENG;
 ```
 
 Compile the example with:
@@ -188,6 +190,7 @@ See [examples/README.md](./examples/README.md) for details.
 - [MySQL Dialect Support](./doc/mysql_dialect_support.en.md)
 - [Oracle Dialect Support](./doc/oracle_dialect_support.en.md)
 - [SQL Server Dialect Support](./doc/sqlserver_dialect_support.en.md)
+- [Dameng Dialect Support](./doc/dameng_dialect_support.en.md)
 - [Dialect Coverage](./doc/dialect_coverage.en.md)
 - [API Reference](./doc/api_reference.en.md)
 - [SQL View JSON Guide](./doc/view_json.en.md)

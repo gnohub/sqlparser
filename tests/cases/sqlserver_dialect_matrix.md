@@ -52,6 +52,21 @@
 | S044 | `USE [database]` | 数据库上下文切换、方括号数据库名和公开 value 片段 |
 | S045 | `USE database` | 官方 `USE database_name` 基础形态 |
 | S046 | `USE ...; SELECT ...` | 多语句中的数据库切换和后续查询保持独立输出 |
+| S047 | `EXEC sp_prepare` | 预编译参数化语句，保留 handle、参数定义和 SQL 文本 |
+| S048 | `EXEC sp_execute` | 通过 prepared handle 执行并保留绑定参数 |
+| S049 | `EXEC sp_prepexec` | prepare + execute 合并调用，保留 SQL 文本和绑定参数 |
+| S050 | `EXEC sp_unprepare` | prepared handle 释放语句 |
+| S051 | `EXEC sp_executesql` | 参数化动态 SQL 执行，保留 SQL 文本、参数定义和参数值 |
+| S052 | 多 `@` 参数查询 | 查询条件中的多个命名参数 |
+| S053 | `IN` + 多 `@` 参数 | 条件列表中的多个命名参数 |
+| S054 | `TOP (@param)` + `LIKE @param` | TOP 和条件表达式中的参数还原 |
+| S055 | `INSERT ... VALUES` + 多 `@` 参数 | 插入列和命名参数值列表 |
+| S056 | 多行 `INSERT ... VALUES` + `?` | 多行 JDBC 风格参数化插入 |
+| S057 | `UPDATE ... SET ... WHERE ... = ?` | 更新列、条件列和位置参数 |
+| S058 | `DELETE ... WHERE ... = ?` | 条件删除和位置参数 |
+| S059 | `EXEC sp_prepare` + INSERT | prepared insert SQL 文本和参数定义 |
+| S060 | `EXEC sp_execute` + 命名值 | prepared handle 执行和命名参数值 |
+| S061 | `EXEC sp_executesql` + UPDATE | 参数化动态 UPDATE SQL 文本和参数值 |
 
 ## 明确不支持用例
 
@@ -68,7 +83,7 @@
 | SU007 | `FOR JSON` | 结果格式化语义不属于当前结构模型 |
 | SU008 | `OPTION (...)` | 查询提示不能安全降级 |
 | SU009 | `DECLARE` | 变量声明属于 T-SQL 批处理语义 |
-| SU010 | `EXEC` | 过程执行超出 SQL 结构改写范围 |
+| SU010 | 普通过程 `EXEC` | 非 prepared/dynamic SQL 系统过程调用超出 SQL 结构改写范围 |
 | SU011 | `CREATE PROCEDURE` | 过程定义需要 T-SQL 程序单元模型 |
 | SU015 | 表变量 | 表变量作用域属于 T-SQL 批处理语义 |
 | SU016 | `MERGE ... BY SOURCE` | SQL Server 专属 merge 分支语义 |

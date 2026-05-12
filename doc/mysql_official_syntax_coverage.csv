@@ -4,6 +4,8 @@ query,LIMIT_OFFSET_COUNT,CURRENT,"已覆盖 MySQL LIMIT offset,count",https://de
 query,BACKTICK_IDENTIFIERS,CURRENT,"已覆盖反引号标识符",https://dev.mysql.com/doc/refman/8.4/en/identifiers.html
 query,HASH_COMMENTS,CURRENT,"已覆盖 MySQL # 行注释",https://dev.mysql.com/doc/refman/8.4/en/comments.html
 query,DOUBLE_QUOTED_STRINGS,CURRENT,"已覆盖兼容双引号字符串输入",https://dev.mysql.com/doc/refman/8.4/en/string-literals.html
+expressions,PARAMETER_MARKERS,CURRENT,"已覆盖 JDBC 风格 ? 位置参数",https://dev.mysql.com/doc/refman/8.4/en/sql-prepared-statements.html
+prepared,PREPARE_EXECUTE_DEALLOCATE,CURRENT,"已覆盖 PREPARE、EXECUTE、DEALLOCATE PREPARE 和 DROP PREPARE",https://dev.mysql.com/doc/refman/8.4/en/sql-prepared-statements.html
 dml,INSERT_VALUES,CURRENT,"已覆盖 INSERT VALUES 和多行 VALUES",https://dev.mysql.com/doc/refman/8.4/en/insert.html
 dml,INSERT_SELECT,CURRENT,"已覆盖 INSERT SELECT",https://dev.mysql.com/doc/refman/8.4/en/insert-select.html
 dml,UPDATE,CURRENT,"已覆盖 UPDATE SET WHERE",https://dev.mysql.com/doc/refman/8.4/en/update.html

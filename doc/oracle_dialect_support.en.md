@@ -11,7 +11,8 @@ The Oracle dialect supports common SQL forms that can be safely mapped to the
 current AST. The executable case matrix defines the support boundary:
 
 - `SELECT`, aliases, subqueries, joins, `WHERE`, `GROUP BY`, and `HAVING`
-- Oracle bind placeholders such as `:id` and `:name`
+- Oracle bind placeholders such as `:id` and `:name`, plus JDBC-style `?`
+  positional parameters
 - `q'[...]'` strings
 - `MINUS` set operator
 - `OFFSET ... FETCH`
@@ -32,6 +33,7 @@ current AST. The executable case matrix defines the support boundary:
 - session context switching: `ALTER SESSION SET CURRENT_SCHEMA = ...`,
   `ALTER SESSION SET CONTAINER = ...`, and
   `ALTER SESSION SET CONTAINER = ... SERVICE = ...`
+- dynamic SQL execution through `EXECUTE IMMEDIATE ... USING ...`
 
 ## Explicitly Unsupported Scope
 
@@ -58,8 +60,8 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
 
 - `sqlparser_deparse()` emits the public Oracle form and does not expose
   internal conversion details.
-- Oracle binds remain in `:name` or `:1` form; internal `$1` / `$2` names are
-  not emitted.
+- Oracle binds remain in `:name`, `:1`, or `?` form; internal `$1` / `$2`
+  names are not emitted.
 - `MINUS` remains visible as the Oracle semantic keyword in SQL View JSON and
   deparse output.
 - Attributable expression fragments in SQL View JSON use the public Oracle
@@ -76,5 +78,5 @@ The Oracle support boundary is defined by:
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current Oracle matrix contains 65 cases: 46 supported paths and 19 explicit
+The current Oracle matrix contains 78 cases: 59 supported paths and 19 explicit
 unsupported paths.

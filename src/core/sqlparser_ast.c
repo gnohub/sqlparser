@@ -97,6 +97,10 @@ const char *sqlparser_statement_node_name_from_case(PgQuery__Node__NodeCase node
 			return "IndexStmt";
 		case PG_QUERY__NODE__NODE_CREATE_SCHEMA_STMT:
 			return "CreateSchemaStmt";
+		case PG_QUERY__NODE__NODE_CREATE_SEQ_STMT:
+			return "CreateSeqStmt";
+		case PG_QUERY__NODE__NODE_ALTER_SEQ_STMT:
+			return "AlterSeqStmt";
 		case PG_QUERY__NODE__NODE_GRANT_STMT:
 			return "GrantStmt";
 		case PG_QUERY__NODE__NODE_LOCK_STMT:
@@ -105,6 +109,12 @@ const char *sqlparser_statement_node_name_from_case(PgQuery__Node__NodeCase node
 			return "RenameStmt";
 		case PG_QUERY__NODE__NODE_VARIABLE_SET_STMT:
 			return "VariableSetStmt";
+		case PG_QUERY__NODE__NODE_PREPARE_STMT:
+			return "PrepareStmt";
+		case PG_QUERY__NODE__NODE_EXECUTE_STMT:
+			return "ExecuteStmt";
+		case PG_QUERY__NODE__NODE_DEALLOCATE_STMT:
+			return "DeallocateStmt";
 		default:
 			return "OtherStmt";
 	}
@@ -132,6 +142,8 @@ sqlparser_statement_kind_t sqlparser_statement_kind_from_case(PgQuery__Node__Nod
 		case PG_QUERY__NODE__NODE_CREATE_STMT:
 		case PG_QUERY__NODE__NODE_CREATE_TABLE_AS_STMT:
 		case PG_QUERY__NODE__NODE_CREATE_SCHEMA_STMT:
+		case PG_QUERY__NODE__NODE_CREATE_SEQ_STMT:
+		case PG_QUERY__NODE__NODE_ALTER_SEQ_STMT:
 		case PG_QUERY__NODE__NODE_ALTER_TABLE_STMT:
 		case PG_QUERY__NODE__NODE_TRUNCATE_STMT:
 		case PG_QUERY__NODE__NODE_INDEX_STMT:
@@ -139,6 +151,10 @@ sqlparser_statement_kind_t sqlparser_statement_kind_from_case(PgQuery__Node__Nod
 		case PG_QUERY__NODE__NODE_COMMENT_STMT:
 		case PG_QUERY__NODE__NODE_RENAME_STMT:
 			return SQLPARSER_STATEMENT_KIND_DDL;
+		case PG_QUERY__NODE__NODE_PREPARE_STMT:
+		case PG_QUERY__NODE__NODE_EXECUTE_STMT:
+		case PG_QUERY__NODE__NODE_DEALLOCATE_STMT:
+			return SQLPARSER_STATEMENT_KIND_OTHER;
 		case PG_QUERY__NODE__NODE__NOT_SET:
 			return SQLPARSER_STATEMENT_KIND_UNKNOWN;
 		default:

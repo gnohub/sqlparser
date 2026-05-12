@@ -37,6 +37,6 @@ transaction,RELEASE_SAVEPOINT,CURRENT,"已覆盖 RELEASE SAVEPOINT",https://www.
 procedural,DO,CURRENT,"已覆盖 DO block",https://www.postgresql.org/docs/17/sql-do.html
 session,SET_SHOW_RESET,CURRENT,"已覆盖 SET search_path、SET LOCAL search_path 和 SET SCHEMA 的会话 schema 上下文输出",https://www.postgresql.org/docs/17/sql-set.html
 notification,LISTEN_NOTIFY_UNLISTEN,HOOK_ONLY,"解析内核可承载，当前回归矩阵未覆盖通知语句",https://www.postgresql.org/docs/17/sql-listen.html
-prepared,PREPARE_EXECUTE_DEALLOCATE,HOOK_ONLY,"解析内核可承载，当前回归矩阵未覆盖 prepared statement 生命周期",https://www.postgresql.org/docs/17/sql-prepare.html
+prepared,PREPARE_EXECUTE_DEALLOCATE,CURRENT,"已覆盖 PREPARE、EXECUTE 和 DEALLOCATE prepared statement 生命周期",https://www.postgresql.org/docs/17/sql-prepare.html
 extension,CREATE_EXTENSION_DROP_EXTENSION,HOOK_ONLY,"解析内核可承载，公共 SQL View 未维护 extension 对象专用归属",https://www.postgresql.org/docs/17/sql-createextension.html
 security,ROLE_USER_DATABASE,MIXED_MODEL,"部分 DDL 可解析，完整对象级归属和选项需要扩展公共模型",https://www.postgresql.org/docs/17/sql-createrole.html

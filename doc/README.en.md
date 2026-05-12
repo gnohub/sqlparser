@@ -19,9 +19,12 @@ This directory contains the project documentation for `sqlparser`.
 - [SQL Server Dialect Support](./sqlserver_dialect_support.en.md)
   Describes SQL Server dialect support, explicitly unsupported syntax, and
   output rules.
+- [Dameng Dialect Support](./dameng_dialect_support.en.md)
+  Describes Dameng dialect support, explicitly unsupported syntax, and output
+  rules.
 - [Dialect Coverage](./dialect_coverage.en.md)
-  Summarizes executable regression coverage for PostgreSQL, MySQL, Oracle, and
-  SQL Server.
+  Summarizes executable regression coverage for PostgreSQL, MySQL, Oracle,
+  SQL Server, and Dameng.
 - [PostgreSQL Official Syntax Coverage](./postgresql_official_syntax_coverage.en.md)
   Tracks PostgreSQL default-dialect coverage against the official SQL Commands
   documentation.
@@ -33,6 +36,8 @@ This directory contains the project documentation for `sqlparser`.
 - [SQL Server Official Syntax Coverage](./sqlserver_official_syntax_coverage.en.md)
   Tracks SQL Server dialect coverage against the Microsoft Transact-SQL
   Reference.
+- [Dameng Official Syntax Coverage](./dameng_official_syntax_coverage.en.md)
+  Tracks Dameng dialect coverage against the official DM_SQL documentation.
 - [API Reference](./api_reference.en.md)
   Describes the main public-header types, lifecycle rules, and function groups.
 - [SQL View JSON Guide](./view_json.en.md)

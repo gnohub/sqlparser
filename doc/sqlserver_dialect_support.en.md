@@ -34,6 +34,8 @@ the current AST. The executable case matrix defines the support boundary:
 - common type names and functions such as `NVARCHAR`, `BIT`, `DATETIME2`,
   `ISNULL`, `GETDATE`, and `NEWID`
 - `USE database_name` database context switching
+- parameterized dynamic SQL through `sp_prepare`, `sp_execute`, `sp_prepexec`,
+  `sp_unprepare`, and `sp_executesql`
 
 ## Explicitly Unsupported Scope
 
@@ -49,7 +51,7 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
 - `CROSS APPLY` and `OUTER APPLY`
 - `PIVOT` and `UNPIVOT`
 - `FOR XML` and `FOR JSON`
-- `DECLARE`, `EXEC`, and `EXECUTE`
+- `DECLARE` and ordinary `EXEC` / `EXECUTE` procedure calls
 - procedure, function, and trigger definitions
 - `BEGIN TRY` / `BEGIN CATCH`
 - `OPENQUERY`, `OPENROWSET`, `OPENDATASOURCE`, `OPENJSON`, and `OPENXML`
@@ -85,6 +87,6 @@ The SQL Server support boundary is defined by:
 - `tests/unit/test_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The base SQL Server matrix contains 61 cases: 46 supported paths and 15
+The base SQL Server matrix contains 76 cases: 61 supported paths and 15
 explicit unsupported paths. The official `HOOK_ONLY` coverage matrix contains
 235 cases.

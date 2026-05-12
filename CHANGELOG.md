@@ -2,6 +2,14 @@
 
 ## 未发布
 
+## 0.4.0
+
+### 方言能力
+
+- 增加达梦 `SQLPARSER_DIALECT_DAMENG` 方言转换层，覆盖 `SET SCHEMA`、`MINUS`、`LIMIT`、`TOP`、bind、常见 DML/DDL、事务和权限语句
+- 增加达梦公共输出规则，反解析和 SQL View JSON 不暴露内部参数名或内部转换 SQL
+- 增加 PostgreSQL、MySQL、Oracle、SQL Server 和达梦的预编译 / 参数化 SQL 语句覆盖，包含 SQL Server `sp_executesql` 与达梦 `EXEC SQL PREPARE`
+
 ### SQL View 与改写
 
 - 增加通用 `SELECT` 输出列表读取、替换、插入和删除接口
@@ -15,6 +23,8 @@
 - 增加通用 `clause` patch 示例，覆盖 SELECT 输出列表、WHERE 条件和 ORDER BY 新增
 - 示例目录按 `patch`、`convenience`、`inspect`、`dialect` 分类，推荐接入方优先使用 `patch` 示例
 - 增加 PostgreSQL、MySQL、Oracle 和 SQL Server 的 WHERE 改写回归用例，覆盖全部已暴露 `where_clause` 的 PostgreSQL AST 类型
+- 增加达梦方言用例矩阵、官方语法覆盖统计、CLI 批量夹具和方言示例
+- 同步更新 prepared / bind 相关用例矩阵、方言覆盖统计和官方语法覆盖统计
 
 ## 0.3.0
 

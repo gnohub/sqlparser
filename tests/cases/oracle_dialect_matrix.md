@@ -52,6 +52,19 @@
 | O045 | `ALTER SESSION SET CONTAINER=CDB$ROOT` | 官方 root container 名称 |
 | O046 | `ALTER SESSION SET CONTAINER ... SERVICE ...` | container 切换和 service 子句 |
 | O047 | `SELECT ...; ALTER SESSION SET CURRENT_SCHEMA` | 多语句中的查询和 schema 切换保持独立输出 |
+| O048 | `INSERT ... VALUES (?, ?, ?)` | JDBC 风格位置参数转换、插入列识别和公开形态还原 |
+| O049 | `UPDATE ... SET ... WHERE ... = ?` | SET/WHERE 中的位置参数转换和公开形态还原 |
+| O050 | `EXECUTE IMMEDIATE ... USING ...` | Oracle 动态 SQL 执行语句、SQL 文本和 bind 参数公开形态还原 |
+| O051 | 多命名 bind 查询 | `SELECT` 条件中的多个 `:name` bind |
+| O052 | `IN` + 多命名 bind | `IN (:a, :b, :c)` 条件中的 bind 还原 |
+| O053 | `FETCH FIRST` + bind | 分页限制中的 bind 还原 |
+| O054 | `INSERT ... VALUES` + 多命名 bind | 插入列和命名 bind 值列表 |
+| O055 | `UPDATE` + 多命名 bind | 更新列、条件列和命名 bind |
+| O056 | `DELETE` + 多命名 bind | 条件删除和命名 bind |
+| O057 | 位置 bind 对 | `:1`、`:2` 条件参数 |
+| O058 | `INSERT ... VALUES (?, ?, ?)` 扩展 | 插入列和 JDBC 风格位置参数 |
+| O059 | `DELETE ... WHERE ... = ?` | 条件删除中的 JDBC 风格位置参数 |
+| O060 | `EXECUTE IMMEDIATE` 更新语句 | 动态 UPDATE SQL 文本和多个 USING bind |
 
 ## 明确不支持用例
 

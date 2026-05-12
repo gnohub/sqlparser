@@ -1,37 +1,35 @@
-# v0.3.0 发布说明
+# v0.4.0 发布说明
 
-`v0.3.0` 是 `sqlparser` 的方言能力小版本更新，重点补齐数据库、schema 和会话上下文切换语句的解析、结构化读取、改写和反解析链路。
+`v0.4.0` 是 `sqlparser` 的方言能力与结构化改写小版本更新，重点补齐达梦方言、预编译 / 参数化 SQL 覆盖，以及通用子句级改写能力。
 
 ## 主要变化
 
-- PostgreSQL 支持 `SET search_path`、`SET LOCAL search_path` 和 `SET SCHEMA` 的 SQL View 输出。
-- MySQL 支持 `USE db_name` 默认数据库切换，包含反引号数据库名。
-- SQL Server 支持 `USE database_name` 数据库上下文切换，deparse 保持方括号公共形态。
-- Oracle 支持 `ALTER SESSION SET CURRENT_SCHEMA`、`ALTER SESSION SET CONTAINER` 和 `ALTER SESSION SET CONTAINER ... SERVICE ...`。
-- 上下文切换语句复用现有 SQL View JSON 结构，不新增独立 JSON 格式。
-- 支持通过 `stmt[n].value[m]` selector 改写上下文切换目标并还原为对应方言 SQL。
-- 修复多语句输入中上下文切换语句的 parse/deparse 边界，避免输出内部 `sqlparser_current_*` 哨兵名。
-- 更新方言支持文档、官方语法覆盖清单和可执行用例覆盖统计。
+- 增加达梦 `SQLPARSER_DIALECT_DAMENG` 方言转换层，覆盖 `SET SCHEMA`、`MINUS`、`LIMIT`、`TOP`、bind、常见 DML/DDL、事务和权限语句。
+- 增加 PostgreSQL、MySQL、Oracle、SQL Server 和达梦的预编译 / 参数化 SQL 用例覆盖，包含 PostgreSQL `$n`、JDBC `?`、Oracle `:name` / `:1`、SQL Server `@name` 和达梦 bind。
+- 增加通用 `SELECT` 输出列表读取、替换、插入和删除能力。
+- 增加通用 `WHERE` 条件读取、设置和 `AND` / `OR` 追加能力。
+- 增加 statement 级 `clause` selector，支持通过 `stmt[n].clause[m]` 改写 `select_list`、`where` 和 `order_by`。
+- CLI 支持达梦方言，并修复参数顺序问题，`--dialect`、`--mode` 等选项可放在 SQL 前后。
 
 ## 方言支持边界
 
 当前可执行用例矩阵：
 
-- PostgreSQL：54 条用例，53 条支持路径，1 条非法 SQL 负向路径。
-- MySQL：32 条用例，17 条支持路径，15 条明确不支持路径。
-- Oracle：65 条用例，46 条支持路径，19 条明确不支持路径。
-- SQL Server：61 条基础用例，46 条支持路径，15 条明确不支持路径；官方 `HOOK_ONLY` 覆盖矩阵包含 235 条用例。
+- PostgreSQL：70 条用例，69 条支持路径，1 条非法 SQL 负向路径。
+- MySQL：48 条用例，33 条支持路径，15 条明确不支持路径。
+- Oracle：78 条用例，59 条支持路径，19 条明确不支持路径。
+- SQL Server：76 条基础用例，61 条支持路径，15 条明确不支持路径；官方 `HOOK_ONLY` 覆盖矩阵包含 235 条用例。
+- 达梦：55 条用例，43 条支持路径，12 条明确不支持路径。
 
 ## 发布验证
 
-本版本的发布门禁包括：
+本版本的发布验证包括：
 
 - `git diff --check`
 - JSON fixture 格式校验
-- Linux GCC 8.3：`make test`
-- Linux GCC 8.3：`make verify-ci`
-- ABI 导出符号检查
-- CLI parse/deparse 抽样，覆盖 MySQL、Oracle、SQL Server 多语句上下文切换
+- Linux `make test`
+- Windows MSVC `nmake /F Makefile.msvc test`
+- 覆盖统计与可执行 fixture 数量一致性校验
 
 ## 发布边界
 

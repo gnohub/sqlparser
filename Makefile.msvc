@@ -4,7 +4,7 @@
 #   nmake /F Makefile.msvc test
 
 LIB_NAME = sqlparser
-VERSION_STRING = 0.3.0
+VERSION_STRING = 0.4.0
 LIBPG_QUERY_TAG = 17-6.2.2
 
 BUILD_DIR = build\msvc
@@ -71,6 +71,7 @@ CORE_OBJS = \
 	$(OBJ_DIR)\sqlparser_patch.obj \
 	$(OBJ_DIR)\sqlparser_selector.obj \
 	$(OBJ_DIR)\sqlparser_view.obj \
+	$(OBJ_DIR)\sqlparser_dialect_dameng.obj \
 	$(OBJ_DIR)\sqlparser_dialect_mysql.obj \
 	$(OBJ_DIR)\sqlparser_dialect_oracle.obj \
 	$(OBJ_DIR)\sqlparser_dialect_postgresql.obj \
@@ -84,6 +85,7 @@ UNIT_TEST_BINS = \
 	$(BIN_DIR)\test_mysql_dialect_case_matrix.exe \
 	$(BIN_DIR)\test_oracle_dialect_case_matrix.exe \
 	$(BIN_DIR)\test_sqlserver_dialect_case_matrix.exe \
+	$(BIN_DIR)\test_dameng_dialect_case_matrix.exe \
 	$(BIN_DIR)\test_robustness.exe \
 	$(BIN_DIR)\test_stability.exe
 
@@ -100,6 +102,7 @@ EXAMPLE_BINS = \
 	$(BIN_DIR)\examples\dialect\10_mysql_dialect.exe \
 	$(BIN_DIR)\examples\dialect\11_oracle_dialect.exe \
 	$(BIN_DIR)\examples\dialect\12_sqlserver_dialect.exe \
+	$(BIN_DIR)\examples\dialect\17_dameng_dialect.exe \
 	$(BIN_DIR)\examples\convenience\13_select_target_rewrite.exe \
 	$(BIN_DIR)\examples\patch\13_select_target_patch.exe \
 	$(BIN_DIR)\examples\convenience\14_where_convenience.exe \
@@ -135,6 +138,7 @@ test: all $(UNIT_TEST_BINS) examples
 	$(BIN_DIR)\test_mysql_dialect_case_matrix.exe
 	$(BIN_DIR)\test_oracle_dialect_case_matrix.exe
 	$(BIN_DIR)\test_sqlserver_dialect_case_matrix.exe
+	$(BIN_DIR)\test_dameng_dialect_case_matrix.exe
 	$(BIN_DIR)\test_robustness.exe
 	$(BIN_DIR)\test_stability.exe
 	$(BIN_DIR)\examples\inspect\01_select_inspect.exe
@@ -149,12 +153,14 @@ test: all $(UNIT_TEST_BINS) examples
 	$(BIN_DIR)\examples\dialect\10_mysql_dialect.exe
 	$(BIN_DIR)\examples\dialect\11_oracle_dialect.exe
 	$(BIN_DIR)\examples\dialect\12_sqlserver_dialect.exe
+	$(BIN_DIR)\examples\dialect\17_dameng_dialect.exe
 	$(BIN_DIR)\examples\convenience\13_select_target_rewrite.exe
 	$(BIN_DIR)\examples\patch\13_select_target_patch.exe
 	$(BIN_DIR)\examples\convenience\14_where_convenience.exe
 	$(BIN_DIR)\examples\patch\14_where_patch.exe
 	$(BIN_DIR)\examples\patch\15_insert_columns_patch.exe
 	$(BIN_DIR)\examples\patch\16_clause_patch.exe
+	$(BIN_DIR)\sqlparser_cli.exe --mode view "INSERT INTO users (username, email, age) VALUES (?, ?, ?);" --dialect oracle >NUL
 
 clean:
 	@if exist $(BUILD_DIR) rmdir /S /Q $(BUILD_DIR)
@@ -250,6 +256,9 @@ $(OBJ_DIR)\sqlparser_view.obj: src\core\sqlparser_view.c
 $(OBJ_DIR)\sqlparser_dialect_mysql.obj: src\dialect\sqlparser_dialect_mysql.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_mysql.c
 
+$(OBJ_DIR)\sqlparser_dialect_dameng.obj: src\dialect\sqlparser_dialect_dameng.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_dameng.c
+
 $(OBJ_DIR)\sqlparser_dialect_oracle.obj: src\dialect\sqlparser_dialect_oracle.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_oracle.c
 
@@ -282,6 +291,9 @@ $(BIN_DIR)\test_oracle_dialect_case_matrix.exe: tests\unit\test_oracle_dialect_c
 
 $(BIN_DIR)\test_sqlserver_dialect_case_matrix.exe: tests\unit\test_sqlserver_dialect_case_matrix.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_sqlserver_dialect_case_matrix.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_dameng_dialect_case_matrix.exe: tests\unit\test_dameng_dialect_case_matrix.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_dameng_dialect_case_matrix.c /link $(LDFLAGS) $(LDLIBS)
 
 $(BIN_DIR)\test_robustness.exe: tests\unit\test_robustness.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_robustness.c /link $(LDFLAGS) $(LDLIBS)
@@ -336,6 +348,10 @@ $(BIN_DIR)\examples\dialect\11_oracle_dialect.exe: examples\dialect\11_oracle_di
 $(BIN_DIR)\examples\dialect\12_sqlserver_dialect.exe: examples\dialect\12_sqlserver_dialect.c $(STATIC_LIB)
 	@if not exist $(BIN_DIR)\examples\dialect mkdir $(BIN_DIR)\examples\dialect
 	$(CC) $(CFLAGS) /Fe$@ examples\dialect\12_sqlserver_dialect.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\examples\dialect\17_dameng_dialect.exe: examples\dialect\17_dameng_dialect.c $(STATIC_LIB)
+	@if not exist $(BIN_DIR)\examples\dialect mkdir $(BIN_DIR)\examples\dialect
+	$(CC) $(CFLAGS) /Fe$@ examples\dialect\17_dameng_dialect.c /link $(LDFLAGS) $(LDLIBS)
 
 $(BIN_DIR)\examples\convenience\13_select_target_rewrite.exe: examples\convenience\13_select_target_rewrite.c $(STATIC_LIB)
 	@if not exist $(BIN_DIR)\examples\convenience mkdir $(BIN_DIR)\examples\convenience

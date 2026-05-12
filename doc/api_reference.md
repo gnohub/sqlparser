@@ -150,6 +150,7 @@ int main(void)
 | `SQLPARSER_DIALECT_MYSQL` | MySQL 方言转换层，支持可安全映射到现有 AST 的语法 |
 | `SQLPARSER_DIALECT_ORACLE` | Oracle 方言转换层，支持可安全映射到现有 AST 的常用 SQL 子集 |
 | `SQLPARSER_DIALECT_SQLSERVER` | SQL Server 方言转换层，支持可安全映射到现有 AST 的常用 T-SQL 子集 |
+| `SQLPARSER_DIALECT_DAMENG` | 达梦方言转换层，支持可安全映射到现有 AST 的 DM_SQL 子集 |
 
 ### 视图结构
 
@@ -277,7 +278,7 @@ sqlparser_status_t sqlparser_parse_with_options(
 
 - 与 `sqlparser_parse()` 相同，但允许传入方言和资源限制。
 - `options` 为 `NULL` 时使用默认选项，即 PostgreSQL 方言和默认资源限制。
-- MySQL、Oracle、SQL Server 方言先转换为解析内核可接受的 SQL，再进入统一 AST 链路。
+- MySQL、Oracle、SQL Server、达梦方言先转换为解析内核可接受的 SQL，再进入统一 AST 链路。
 - 方言语法无法安全映射到当前 AST 时返回 `SQLPARSER_STATUS_UNSUPPORTED`。
 
 ### `sqlparser_handle_destroy`
@@ -709,3 +710,4 @@ void sqlparser_string_free(char *text);
 | `examples/dialect/10_mysql_dialect.c` | MySQL 方言解析与 patch 改写 |
 | `examples/dialect/11_oracle_dialect.c` | Oracle 方言解析与改写 |
 | `examples/dialect/12_sqlserver_dialect.c` | SQL Server 方言解析与反解析 |
+| `examples/dialect/17_dameng_dialect.c` | 达梦方言解析与反解析 |

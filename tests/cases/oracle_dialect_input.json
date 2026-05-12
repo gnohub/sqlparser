@@ -607,6 +607,194 @@
       }
     },
     {
+      "id": "O048",
+      "name": "oracle-insert-question-params",
+      "sql": "INSERT INTO users (username, email, age) VALUES (?, ?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "tables": ["users"],
+        "insert_columns": ["username", "email", "age"],
+        "deparse_contains": "VALUES (?, ?, ?)",
+        "view_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "O049",
+      "name": "oracle-update-question-params",
+      "sql": "UPDATE users SET email = ? WHERE username = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["UpdateStmt"],
+        "tables": ["users"],
+        "update_columns": ["email"],
+        "where_columns": ["username"],
+        "deparse_contains": "email = ?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "O050",
+      "name": "oracle-execute-immediate",
+      "sql": "EXECUTE IMMEDIATE 'SELECT * FROM users WHERE id = :id' USING :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["execute"],
+        "deparse_contains": "EXECUTE IMMEDIATE 'SELECT * FROM users WHERE id = :id' USING :id",
+        "view_contains": "\"sql\":\"'SELECT * FROM users WHERE id = :id' USING :id\"",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "O051",
+      "name": "oracle-select-multiple-named-binds",
+      "sql": "SELECT id, name FROM users WHERE id = :id AND status = :status",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["id", "name"],
+        "where_columns": ["id", "status"],
+        "deparse_contains": ":status",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "O052",
+      "name": "oracle-select-in-named-binds",
+      "sql": "SELECT id FROM users WHERE status IN (:status1, :status2, :status3)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["id"],
+        "where_columns": ["status"],
+        "deparse_contains": ":status3",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "O053",
+      "name": "oracle-select-fetch-bind",
+      "sql": "SELECT id FROM users WHERE name LIKE :pattern ORDER BY id FETCH FIRST :limit ROWS ONLY",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["id"],
+        "where_columns": ["name"],
+        "deparse_contains": ":limit",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "O054",
+      "name": "oracle-insert-multiple-named-binds",
+      "sql": "INSERT INTO users (id, name, status) VALUES (:id, :name, :status)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "tables": ["users"],
+        "insert_columns": ["id", "name", "status"],
+        "deparse_contains": ":status",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "O055",
+      "name": "oracle-update-multiple-named-binds",
+      "sql": "UPDATE users SET name = :name, status = :status WHERE id = :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["UpdateStmt"],
+        "tables": ["users"],
+        "update_columns": ["name", "status"],
+        "where_columns": ["id"],
+        "deparse_contains": ":status",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "O056",
+      "name": "oracle-delete-multiple-named-binds",
+      "sql": "DELETE FROM users WHERE id = :id AND status = :status",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["DeleteStmt"],
+        "tables": ["users"],
+        "where_columns": ["id", "status"],
+        "deparse_contains": ":status",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "O057",
+      "name": "oracle-select-positional-bind-pair",
+      "sql": "SELECT id FROM users WHERE id = :1 AND status = :2",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["id"],
+        "where_columns": ["id", "status"],
+        "deparse_contains": ":2",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "O058",
+      "name": "oracle-insert-question-params-expanded",
+      "sql": "INSERT INTO users (id, name, status) VALUES (?, ?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "tables": ["users"],
+        "insert_columns": ["id", "name", "status"],
+        "deparse_contains": "VALUES (?, ?, ?)",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "O059",
+      "name": "oracle-delete-question-params",
+      "sql": "DELETE FROM users WHERE id = ? AND status = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["DeleteStmt"],
+        "tables": ["users"],
+        "where_columns": ["id", "status"],
+        "deparse_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "O060",
+      "name": "oracle-execute-immediate-update-using",
+      "sql": "EXECUTE IMMEDIATE 'UPDATE users SET name = :name WHERE id = :id' USING :name, :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["execute"],
+        "deparse_contains": "EXECUTE IMMEDIATE 'UPDATE users SET name = :name WHERE id = :id' USING :name, :id",
+        "view_not_contains": "$1"
+      }
+    },
+    {
       "id": "OU001",
       "name": "oracle-connect-by",
       "sql": "SELECT id FROM users START WITH manager_id IS NULL CONNECT BY PRIOR id = manager_id",

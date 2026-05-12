@@ -12,7 +12,7 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 
 | Case ID | Case Name | Statement Shape | Validation Focus |
 | --- | --- | --- | --- |
-| P001 | `select-basic` | `SELECT 1` | parse, SQL View JSON, SQL View JSON, deparse |
+| P001 | `select-basic` | `SELECT 1` | parse, SQL View JSON, deparse |
 | P002 | `select-filter` | `SELECT ... FROM ... WHERE ...` | selected columns, filter columns, table extraction |
 | P003 | `select-join` | `SELECT ... JOIN ... ON ... WHERE ...` | multi-table join, selected columns, join columns, where columns |
 | P004 | `select-cte` | `WITH ... SELECT ...` | CTE name, outer selected columns, upstream filter columns |
@@ -63,13 +63,29 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 | P049 | `postgresql-set-search-path` | `SET search_path TO ...` | session schema search-path output and value selector |
 | P050 | `postgresql-set-schema` | `SET SCHEMA ...` | `SET SCHEMA` alias deparses as `search_path` |
 | P051 | `postgresql-set-local-search-path` | `SET LOCAL search_path = ...` | local transaction-level schema search path |
-| P052 | `oracle-cli-dialect-q-quote` | Oracle `q'[...]'` | CLI `dialect` field and Oracle q-quoted string handling |
-| P053 | `sqlserver-cli-dialect-top-param` | SQL Server `TOP` + `@` parameter | CLI `dialect` field and SQL Server dialect output handling |
+| P052 | `postgresql-prepare-select` | `PREPARE ... AS SELECT ... $1` | PostgreSQL SQL-level prepared statement, parameters, and query-object extraction |
+| P053 | `postgresql-execute-prepared` | `EXECUTE ...(...)` | PostgreSQL prepared statement execution |
+| P054 | `postgresql-deallocate-prepare` | `DEALLOCATE PREPARE ...` | PostgreSQL prepared statement deallocation |
+| P055 | `oracle-cli-dialect-q-quote` | Oracle `q'[...]'` | CLI `dialect` field and Oracle q-quoted string handling |
+| P056 | `sqlserver-cli-dialect-top-param` | SQL Server `TOP` + `@` parameter | CLI `dialect` field and SQL Server dialect output handling |
+| P057 | `dameng-cli-dialect-set-schema-top` | Dameng `SET SCHEMA` + `TOP` + bind | CLI `dialect` field and Dameng dialect output handling |
+| P058 | `postgresql-select-dollar-params` | `SELECT ... WHERE ... = $1` | PostgreSQL `$n` parameters in query predicates, View output, and deparse |
+| P059 | `postgresql-select-in-dollar-params` | `SELECT ... IN ($1, $2, $3)` | multiple `$n` parameters in `IN` predicates |
+| P060 | `postgresql-select-limit-dollar-params` | `LIMIT $2 OFFSET $3` | `$n` parameters in pagination clauses |
+| P061 | `postgresql-insert-dollar-params` | `INSERT ... VALUES ($1, $2, $3)` | insert columns and `$n` parameter value lists |
+| P062 | `postgresql-insert-multi-row-dollar-params` | multi-row `INSERT ... VALUES` + `$n` | multi-row parameterized insert |
+| P063 | `postgresql-update-dollar-params` | `UPDATE ... SET ... WHERE ... = $n` | updated columns, predicate columns, and `$n` parameters |
+| P064 | `postgresql-delete-dollar-params` | `DELETE ... WHERE ... = $n` | conditional delete and `$n` parameters |
+| P065 | `postgresql-prepare-insert` | `PREPARE ... AS INSERT ...` | prepared insert statement and parameterized value list |
+| P066 | `postgresql-prepare-update` | `PREPARE ... AS UPDATE ...` | prepared update statement and predicate parameters |
+| P067 | `postgresql-prepare-delete` | `PREPARE ... AS DELETE ...` | prepared delete statement and predicate parameters |
+| P068 | `postgresql-execute-prepared-with-args` | `EXECUTE ...(...)` | prepared statement execution arguments |
+| P069 | `postgresql-deallocate-all` | `DEALLOCATE ALL` | deallocating all prepared statements |
 
 ## Negative Case
 
 | Case ID | Case Name | Input | Validation Focus |
 | --- | --- | --- | --- |
-| P054 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
+| P070 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
 
 New regression cases must update both `tests/cases/sql_batch_input.json` and this matrix.

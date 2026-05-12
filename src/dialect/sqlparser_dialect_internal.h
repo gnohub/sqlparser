@@ -42,5 +42,6 @@ const sqlparser_dialect_ops_t *sqlparser_dialect_postgresql_ops(void);
 const sqlparser_dialect_ops_t *sqlparser_dialect_mysql_ops(void);
 const sqlparser_dialect_ops_t *sqlparser_dialect_oracle_ops(void);
 const sqlparser_dialect_ops_t *sqlparser_dialect_sqlserver_ops(void);
+const sqlparser_dialect_ops_t *sqlparser_dialect_dameng_ops(void);
 
 #endif

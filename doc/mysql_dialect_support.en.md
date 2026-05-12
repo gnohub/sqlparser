@@ -14,6 +14,7 @@ current AST. The executable case matrix defines the support boundary:
 - backtick-delimited identifiers
 - MySQL `#` line comments
 - compatible double-quoted string handling
+- JDBC-style `?` positional parameters
 - `LIMIT offset,count`
 - `INSERT VALUES`, multi-row `INSERT`, and `INSERT SELECT`
 - `UPDATE` and `DELETE`
@@ -23,6 +24,7 @@ current AST. The executable case matrix defines the support boundary:
 - `DROP TABLE`
 - `START TRANSACTION` and `COMMIT`
 - `USE db_name` default database switching
+- `PREPARE`, `EXECUTE`, `DEALLOCATE PREPARE`, and `DROP PREPARE`
 
 ## Explicitly Unsupported Scope
 
@@ -63,5 +65,5 @@ The MySQL support boundary is defined by:
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current MySQL matrix contains 32 cases: 17 supported paths and 15 explicit
+The current MySQL matrix contains 48 cases: 33 supported paths and 15 explicit
 unsupported paths.

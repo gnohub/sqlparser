@@ -60,6 +60,8 @@ unified patch-based rewrite, fine-grained convenience APIs, and dialect usage.
   Demonstrates parsing Oracle SQL with explicit dialect options, exporting SQL View JSON, and restoring Oracle bind placeholders during deparse.
 - `examples/dialect/12_sqlserver_dialect.c`
   Demonstrates parsing SQL Server SQL with explicit dialect options, exporting SQL View JSON, and restoring SQL Server parameters and `TOP` during deparse.
+- `examples/dialect/17_dameng_dialect.c`
+  Demonstrates parsing Dameng SQL with explicit dialect options, exporting SQL View JSON, and restoring binds, `SET SCHEMA`, and `TOP` during deparse.
 
 ## Build
 

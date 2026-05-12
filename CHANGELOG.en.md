@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 0.4.0
+
+### Dialect Capabilities
+
+- Added the Dameng `SQLPARSER_DIALECT_DAMENG` conversion layer, covering
+  `SET SCHEMA`, `MINUS`, `LIMIT`, `TOP`, binds, common DML/DDL, transactions,
+  and privilege statements
+- Added Dameng public-output rules so deparse and SQL View JSON do not expose
+  internal parameter names or internal conversion SQL
+- Added prepared / parameterized SQL coverage for PostgreSQL, MySQL, Oracle,
+  SQL Server, and Dameng, including SQL Server `sp_executesql` and Dameng
+  `EXEC SQL PREPARE`
+
 ### SQL View and Rewrite
 
 - Added generic `SELECT` output-list read, replace, insert, and delete APIs
@@ -20,6 +33,10 @@
   integration code should start with the `patch` examples
 - Added WHERE rewrite regression coverage for PostgreSQL, MySQL, Oracle, and
   SQL Server, covering every PostgreSQL AST type that exposes `where_clause`
+- Added the Dameng dialect case matrix, official syntax coverage summary, CLI
+  batch fixture coverage, and dialect example
+- Updated prepared / bind case matrices, dialect coverage summaries, and
+  official syntax coverage summaries
 
 ## 0.3.0
 

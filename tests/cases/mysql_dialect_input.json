@@ -219,6 +219,229 @@
       }
     },
     {
+      "id": "M018",
+      "name": "mysql-insert-question-params",
+      "sql": "INSERT INTO users (username, email, age) VALUES (?, ?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "tables": ["users"],
+        "insert_columns": ["username", "email", "age"],
+        "deparse_contains": "VALUES (?, ?, ?)",
+        "view_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "M019",
+      "name": "mysql-update-question-params",
+      "sql": "UPDATE users SET email = ? WHERE username = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["UpdateStmt"],
+        "tables": ["users"],
+        "update_columns": ["email"],
+        "where_columns": ["username"],
+        "deparse_contains": "email = ?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "M020",
+      "name": "mysql-prepare-from-literal",
+      "sql": "PREPARE stmt FROM 'SELECT * FROM users WHERE id = ?'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["prepare"],
+        "deparse_contains": "PREPARE stmt FROM 'SELECT * FROM users WHERE id = ?'",
+        "view_contains": "\"sql\":\"'SELECT * FROM users WHERE id = ?'\""
+      }
+    },
+    {
+      "id": "M021",
+      "name": "mysql-execute-using",
+      "sql": "EXECUTE stmt USING @user_id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["execute"],
+        "deparse_contains": "EXECUTE stmt USING @user_id",
+        "view_contains": "\"sql\":\"@user_id\""
+      }
+    },
+    {
+      "id": "M022",
+      "name": "mysql-deallocate-prepare",
+      "sql": "DEALLOCATE PREPARE stmt",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["deallocate"],
+        "deparse_contains": "DEALLOCATE PREPARE stmt",
+        "view_contains": "\"name\":\"name\""
+      }
+    },
+    {
+      "id": "M023",
+      "name": "mysql-drop-prepare",
+      "sql": "DROP PREPARE stmt",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["deallocate"],
+        "deparse_contains": "DROP PREPARE stmt",
+        "view_contains": "\"name\":\"name\""
+      }
+    },
+    {
+      "id": "M024",
+      "name": "mysql-select-question-params",
+      "sql": "SELECT id, name FROM users WHERE id = ? AND status = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["id", "name"],
+        "where_columns": ["id", "status"],
+        "deparse_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "M025",
+      "name": "mysql-select-in-question-params",
+      "sql": "SELECT id FROM users WHERE status IN (?, ?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["id"],
+        "where_columns": ["status"],
+        "deparse_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "M026",
+      "name": "mysql-select-limit-question-params",
+      "sql": "SELECT id FROM users WHERE name LIKE ? ORDER BY id LIMIT ? OFFSET ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["users"],
+        "selected_columns": ["id"],
+        "where_columns": ["name"],
+        "deparse_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "M027",
+      "name": "mysql-insert-named-columns-question-params",
+      "sql": "INSERT INTO users (id, name, status) VALUES (?, ?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "tables": ["users"],
+        "insert_columns": ["id", "name", "status"],
+        "deparse_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "M028",
+      "name": "mysql-insert-multi-row-question-params",
+      "sql": "INSERT INTO users (id, name) VALUES (?, ?), (?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "tables": ["users"],
+        "insert_columns": ["id", "name"],
+        "deparse_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "M029",
+      "name": "mysql-update-multi-question-params",
+      "sql": "UPDATE users SET name = ?, status = ? WHERE id = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["UpdateStmt"],
+        "tables": ["users"],
+        "update_columns": ["name", "status"],
+        "where_columns": ["id"],
+        "deparse_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "M030",
+      "name": "mysql-delete-question-params",
+      "sql": "DELETE FROM users WHERE id = ? AND status = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["DeleteStmt"],
+        "tables": ["users"],
+        "where_columns": ["id", "status"],
+        "deparse_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "M031",
+      "name": "mysql-prepare-insert-literal",
+      "sql": "PREPARE stmt FROM 'INSERT INTO users (id, name) VALUES (?, ?)'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["prepare"],
+        "deparse_contains": "PREPARE stmt FROM 'INSERT INTO users (id, name) VALUES (?, ?)'",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "M032",
+      "name": "mysql-prepare-from-user-variable",
+      "sql": "PREPARE stmt FROM @sql_text",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["prepare"],
+        "deparse_contains": "PREPARE stmt FROM @sql_text",
+        "view_contains": "\"sql\":\"@sql_text\""
+      }
+    },
+    {
+      "id": "M033",
+      "name": "mysql-execute-using-multiple-vars",
+      "sql": "EXECUTE stmt USING @id, @name",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["execute"],
+        "deparse_contains": "EXECUTE stmt USING @id, @name",
+        "view_contains": "\"sql\":\"@id, @name\""
+      }
+    },
+    {
       "id": "MU001",
       "name": "mysql-insert-ignore",
       "sql": "INSERT IGNORE INTO `users` (`id`) VALUES (1)",

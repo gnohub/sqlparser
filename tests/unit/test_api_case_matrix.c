@@ -57,6 +57,10 @@ static int parse_dialect_or_default(json_t *value, sqlparser_dialect_t *out_dial
 		*out_dialect = SQLPARSER_DIALECT_SQLSERVER;
 		return 0;
 	}
+	if (strcmp(dialect, "dameng") == 0 || strcmp(dialect, "dm") == 0) {
+		*out_dialect = SQLPARSER_DIALECT_DAMENG;
+		return 0;
+	}
 	return -1;
 }
 

@@ -108,6 +108,15 @@ static int verify_roundtrip_case(const sqlparser_stability_case_t *test_case)
 		return 1;
 	}
 
+	if (test_case->dialect == SQLPARSER_DIALECT_DAMENG &&
+	    (expect_true(strstr(deparsed_sql, "$1") == NULL, "Dameng deparse should not expose internal bind names") != 0 ||
+	     expect_true(strstr(view_json, "$1") == NULL, "Dameng view JSON should not expose internal bind names") != 0)) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
 	if (test_case->dialect == SQLPARSER_DIALECT_SQLSERVER &&
 	    (expect_true(strstr(deparsed_sql, "$1") == NULL, "SQL Server deparse should not expose internal parameter names") != 0 ||
 	     expect_true(strstr(view_json, "$1") == NULL, "SQL Server view JSON should not expose internal parameter names") != 0)) {
@@ -130,7 +139,7 @@ static int test_generated_success_corpus(void)
 	size_t index;
 
 	for (index = 0U; index < 112U; index++) {
-		if ((index % 7U) == 0U) {
+		if ((index % 8U) == 0U) {
 			(void)snprintf(
 				sql_buffer,
 				sizeof(sql_buffer),
@@ -138,7 +147,7 @@ static int test_generated_success_corpus(void)
 				(unsigned long)index,
 				(unsigned long)index);
 			test_case.dialect = SQLPARSER_DIALECT_POSTGRESQL;
-		} else if ((index % 7U) == 1U) {
+		} else if ((index % 8U) == 1U) {
 			(void)snprintf(
 				sql_buffer,
 				sizeof(sql_buffer),
@@ -146,7 +155,7 @@ static int test_generated_success_corpus(void)
 				(unsigned long)index,
 				(unsigned long)index);
 			test_case.dialect = SQLPARSER_DIALECT_POSTGRESQL;
-		} else if ((index % 7U) == 2U) {
+		} else if ((index % 8U) == 2U) {
 			(void)snprintf(
 				sql_buffer,
 				sizeof(sql_buffer),
@@ -154,7 +163,7 @@ static int test_generated_success_corpus(void)
 				(unsigned long)index,
 				(unsigned long)index);
 			test_case.dialect = SQLPARSER_DIALECT_POSTGRESQL;
-		} else if ((index % 7U) == 3U) {
+		} else if ((index % 8U) == 3U) {
 			(void)snprintf(
 				sql_buffer,
 				sizeof(sql_buffer),
@@ -162,7 +171,7 @@ static int test_generated_success_corpus(void)
 				(unsigned long)index,
 				(unsigned long)index);
 			test_case.dialect = SQLPARSER_DIALECT_MYSQL;
-		} else if ((index % 7U) == 4U) {
+		} else if ((index % 8U) == 4U) {
 			(void)snprintf(
 				sql_buffer,
 				sizeof(sql_buffer),
@@ -170,7 +179,7 @@ static int test_generated_success_corpus(void)
 				(unsigned long)index,
 				(unsigned long)index);
 			test_case.dialect = SQLPARSER_DIALECT_ORACLE;
-		} else if ((index % 7U) == 5U) {
+		} else if ((index % 8U) == 5U) {
 			(void)snprintf(
 				sql_buffer,
 				sizeof(sql_buffer),
@@ -178,13 +187,20 @@ static int test_generated_success_corpus(void)
 				(unsigned long)index,
 				(unsigned long)index);
 			test_case.dialect = SQLPARSER_DIALECT_ORACLE;
-		} else {
+		} else if ((index % 8U) == 6U) {
 			(void)snprintf(
 				sql_buffer,
 				sizeof(sql_buffer),
 				"SELECT TOP (5) [u].[id], [u].[name] FROM [dbo].[users] AS [u] WHERE [u].[id] = @id_%lu ORDER BY [u].[id]",
 				(unsigned long)index);
 			test_case.dialect = SQLPARSER_DIALECT_SQLSERVER;
+		} else {
+			(void)snprintf(
+				sql_buffer,
+				sizeof(sql_buffer),
+				"SELECT TOP 5 u.id, u.name FROM users u WHERE u.id = :id_%lu ORDER BY u.id",
+				(unsigned long)index);
+			test_case.dialect = SQLPARSER_DIALECT_DAMENG;
 		}
 
 		test_case.sql = sql_buffer;
@@ -205,7 +221,8 @@ static int test_malformed_inputs_do_not_return_handles(void)
 		{SQLPARSER_DIALECT_MYSQL, "SELECT * FROM `unterminated"},
 		{SQLPARSER_DIALECT_ORACLE, "SELECT q'[unterminated' FROM dual"},
 		{SQLPARSER_DIALECT_ORACLE, "BEGIN NULL; END;"},
-		{SQLPARSER_DIALECT_SQLSERVER, "SELECT [unterminated"}
+		{SQLPARSER_DIALECT_SQLSERVER, "SELECT [unterminated"},
+		{SQLPARSER_DIALECT_DAMENG, "SELECT q'[unterminated' FROM dual"}
 	};
 	sqlparser_handle_t *handle;
 	sqlparser_error_t error;

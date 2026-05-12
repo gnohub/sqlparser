@@ -5,7 +5,7 @@
 #include "sqlparser/sqlparser.h"
 
 #ifndef SQLPARSER_EXPECTED_VERSION_TEXT
-#define SQLPARSER_EXPECTED_VERSION_TEXT "0.3.0"
+#define SQLPARSER_EXPECTED_VERSION_TEXT "0.4.0"
 #endif
 
 static int expect_true(int condition, const char *message)

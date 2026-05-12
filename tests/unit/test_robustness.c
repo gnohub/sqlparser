@@ -1033,7 +1033,9 @@ static int test_malformed_and_stress_inputs(void)
 		{SQLPARSER_DIALECT_ORACLE, "SELECT q'[unterminated' FROM dual"},
 		{SQLPARSER_DIALECT_ORACLE, "ALTER SESSION SET"},
 		{SQLPARSER_DIALECT_SQLSERVER, "SELECT [unterminated"},
-		{SQLPARSER_DIALECT_SQLSERVER, "UPDATE [dbo].[t] SET WHERE [id] = 1"}
+		{SQLPARSER_DIALECT_SQLSERVER, "UPDATE [dbo].[t] SET WHERE [id] = 1"},
+		{SQLPARSER_DIALECT_DAMENG, "SELECT q'[unterminated' FROM dual"},
+		{SQLPARSER_DIALECT_DAMENG, "SET SCHEMA"}
 	};
 	char invalid_utf8[] = {'S', 'E', 'L', 'E', 'C', 'T', ' ', (char)0xff, 0};
 	char *long_unclosed_quote;

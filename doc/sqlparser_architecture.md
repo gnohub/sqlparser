@@ -203,7 +203,7 @@ selector 和视图接口用于把改写目标稳定地外部化。
 - `DELETE`
 - 多语句输入
 - 常见 DDL 分类与名称改写
-- MySQL、Oracle、SQL Server 方言转换层
+- MySQL、Oracle、SQL Server、达梦方言转换层
 - `selector` 和 structured patch 驱动的精确改写
 
 方言适配可通过以下扩展点接入：

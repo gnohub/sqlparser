@@ -22,7 +22,7 @@
 #include "sqlparser_internal.h"
 
 #ifndef SQLPARSER_VERSION_TEXT
-#define SQLPARSER_VERSION_TEXT "0.3.0"
+#define SQLPARSER_VERSION_TEXT "0.4.0"
 #endif
 
 #ifndef SQLPARSER_LIBPG_QUERY_TAG_TEXT
@@ -1168,6 +1168,8 @@ const char *sqlparser_dialect_name(sqlparser_dialect_t dialect)
 			return "oracle";
 		case SQLPARSER_DIALECT_SQLSERVER:
 			return "sqlserver";
+		case SQLPARSER_DIALECT_DAMENG:
+			return "dameng";
 		case SQLPARSER_DIALECT_MYSQL:
 			return "mysql";
 		case SQLPARSER_DIALECT_POSTGRESQL:

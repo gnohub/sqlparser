@@ -708,6 +708,212 @@
       }
     },
     {
+      "id": "S047",
+      "name": "sqlserver-sp-prepare",
+      "sql": "EXEC sp_prepare @handle OUTPUT, N'@p1 int', N'SELECT * FROM users WHERE id=@p1'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["sp_prepare"],
+        "deparse_contains": "EXEC sp_prepare @handle OUTPUT, N'@p1 int', N'SELECT * FROM users WHERE id=@p1'",
+        "view_contains": "\"sql\":\"N'SELECT * FROM users WHERE id=@p1'\""
+      }
+    },
+    {
+      "id": "S048",
+      "name": "sqlserver-sp-execute",
+      "sql": "EXEC sp_execute @handle, 42",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["sp_execute"],
+        "deparse_contains": "EXEC sp_execute @handle, 42",
+        "view_contains": "\"keyword\":\"sp_execute\""
+      }
+    },
+    {
+      "id": "S049",
+      "name": "sqlserver-sp-prepexec",
+      "sql": "EXEC sp_prepexec @handle OUTPUT, N'@p1 int', N'SELECT * FROM users WHERE id=@p1', 42",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["sp_prepexec"],
+        "deparse_contains": "EXEC sp_prepexec @handle OUTPUT, N'@p1 int', N'SELECT * FROM users WHERE id=@p1', 42",
+        "view_contains": "\"keyword\":\"sp_prepexec\""
+      }
+    },
+    {
+      "id": "S050",
+      "name": "sqlserver-sp-unprepare",
+      "sql": "EXEC sp_unprepare @handle",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["sp_unprepare"],
+        "deparse_contains": "EXEC sp_unprepare @handle",
+        "view_contains": "\"keyword\":\"sp_unprepare\""
+      }
+    },
+    {
+      "id": "S051",
+      "name": "sqlserver-sp-executesql",
+      "sql": "EXEC sp_executesql N'SELECT * FROM users WHERE id=@p1', N'@p1 int', @p1=42",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["sp_executesql"],
+        "deparse_contains": "EXEC sp_executesql N'SELECT * FROM users WHERE id=@p1', N'@p1 int', @p1=42",
+        "view_contains": "\"sql\":\"@p1=42\""
+      }
+    },
+    {
+      "id": "S052",
+      "name": "sqlserver-select-multiple-named-params",
+      "sql": "SELECT [id], [name] FROM [dbo].[users] WHERE [id] = @id AND [status] = @status",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users"],
+        "selected_columns": ["id", "name"],
+        "where_columns": ["id", "status"],
+        "deparse_contains": "@status",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S053",
+      "name": "sqlserver-select-in-named-params",
+      "sql": "SELECT [id] FROM [dbo].[users] WHERE [status] IN (@s1, @s2, @s3)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users"],
+        "selected_columns": ["id"],
+        "where_columns": ["status"],
+        "deparse_contains": "@s3",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S054",
+      "name": "sqlserver-top-named-param-like",
+      "sql": "SELECT TOP (@limit) [id] FROM [dbo].[users] WHERE [name] LIKE @pattern ORDER BY [id]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "tables": ["dbo.users"],
+        "selected_columns": ["id"],
+        "where_columns": ["name"],
+        "deparse_contains": "TOP (@limit)",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S055",
+      "name": "sqlserver-insert-multiple-named-params",
+      "sql": "INSERT INTO [dbo].[users] ([id], [name], [status]) VALUES (@id, @name, @status)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "tables": ["dbo.users"],
+        "insert_columns": ["id", "name", "status"],
+        "deparse_contains": "@status",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S056",
+      "name": "sqlserver-insert-multi-row-question-params",
+      "sql": "INSERT INTO [dbo].[users] ([id], [name]) VALUES (?, ?), (?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "tables": ["dbo.users"],
+        "insert_columns": ["id", "name"],
+        "deparse_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S057",
+      "name": "sqlserver-update-question-params-expanded",
+      "sql": "UPDATE [dbo].[users] SET [name] = ?, [status] = ? WHERE [id] = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["UpdateStmt"],
+        "tables": ["dbo.users"],
+        "update_columns": ["name", "status"],
+        "where_columns": ["id"],
+        "deparse_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S058",
+      "name": "sqlserver-delete-question-params",
+      "sql": "DELETE FROM [dbo].[users] WHERE [id] = ? AND [status] = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["DeleteStmt"],
+        "tables": ["dbo.users"],
+        "where_columns": ["id", "status"],
+        "deparse_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S059",
+      "name": "sqlserver-sp-prepare-insert",
+      "sql": "EXEC sp_prepare @handle OUTPUT, N'@id int, @name nvarchar(50)', N'INSERT INTO users(id, name) VALUES(@id, @name)'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["sp_prepare"],
+        "deparse_contains": "EXEC sp_prepare @handle OUTPUT, N'@id int, @name nvarchar(50)', N'INSERT INTO users(id, name) VALUES(@id, @name)'",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S060",
+      "name": "sqlserver-sp-execute-named-values",
+      "sql": "EXEC sp_execute @handle, @id = 1, @name = N'bob'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["sp_execute"],
+        "deparse_contains": "EXEC sp_execute @handle, @id = 1, @name = N'bob'",
+        "view_contains": "\"sql\":\"@name = N'bob'\""
+      }
+    },
+    {
+      "id": "S061",
+      "name": "sqlserver-sp-executesql-update",
+      "sql": "EXEC sp_executesql N'UPDATE users SET name=@name WHERE id=@id', N'@name nvarchar(50), @id int', @name=N'bob', @id=1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["VariableSetStmt"],
+        "keywords": ["sp_executesql"],
+        "deparse_contains": "EXEC sp_executesql N'UPDATE users SET name=@name WHERE id=@id', N'@name nvarchar(50), @id int', @name=N'bob', @id=1",
+        "view_contains": "\"sql\":\"@id=1\""
+      }
+    },
+    {
       "id": "SU015",
       "name": "sqlserver-table-variable-unsupported",
       "sql": "SELECT [id] FROM @users",

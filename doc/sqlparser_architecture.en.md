@@ -217,7 +217,7 @@ This release provides:
 - `DELETE`
 - multi-statement input
 - common DDL classification and object-name rewrite
-- MySQL, Oracle, and SQL Server dialect conversion layers
+- MySQL, Oracle, SQL Server, and Dameng dialect conversion layers
 - selector-driven and structured patch driven precise rewrite
 
 Dialect adaptation can be added through these extension points:

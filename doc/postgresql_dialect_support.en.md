@@ -31,6 +31,8 @@ current parser kernel. The executable case matrix defines the support boundary:
 - multi-statement parsing and deparsing
 - session schema context: `SET search_path`, `SET LOCAL search_path`, and
   `SET SCHEMA`
+- PostgreSQL `$n` parameter placeholders
+- `PREPARE`, `EXECUTE`, and `DEALLOCATE`
 
 ## Explicitly Unsupported Scope
 
@@ -44,7 +46,7 @@ exposed by the public SQL View.
 - `sqlparser_deparse()` emits PostgreSQL-compatible SQL.
 - SQL View JSON emits statements, objects, columns, value fragments, and
   selectors. It does not keep a copy of the input SQL.
-- `SQL View JSON` and `SQL View JSON` remain available for diagnostics.
+- SQL View JSON remains available for diagnostics.
 
 ## Regression Cases
 
@@ -56,5 +58,5 @@ The PostgreSQL support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current PostgreSQL matrix contains 54 cases: 53 supported paths and 1
+The current PostgreSQL matrix contains 70 cases: 69 supported paths and 1
 negative invalid-SQL path.

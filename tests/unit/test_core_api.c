@@ -1970,6 +1970,122 @@ static int test_mysql_dialect_insert_rewrite(void)
 	return 0;
 }
 
+static int test_dialect_insert_column_patch_with_question_param(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *name;
+	} cases[] = {
+		{SQLPARSER_DIALECT_MYSQL, "mysql"},
+		{SQLPARSER_DIALECT_ORACLE, "oracle"},
+		{SQLPARSER_DIALECT_SQLSERVER, "sqlserver"},
+		{SQLPARSER_DIALECT_DAMENG, "dameng"}
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patch_list;
+	sqlparser_view_t view;
+	sqlparser_statement_view_t statement;
+	sqlparser_object_view_t object;
+	sqlparser_row_view_t row;
+	sqlparser_cell_view_t cell;
+	char *deparsed_sql;
+	char *cell_sql;
+	size_t index;
+	int rc;
+
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		handle = NULL;
+		deparsed_sql = NULL;
+		cell_sql = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[index].dialect;
+		rc = sqlparser_parse_with_options(
+			"INSERT INTO users (username, email, age) VALUES (?, ?, ?), (?, ?, ?)",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "dialect question insert parse should succeed") != 0) {
+			return 1;
+		}
+
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patch.selector = "stmt[0].insert_columns";
+		patch.index = 3U;
+		patch.name = "created_at";
+		patch.default_sql = "?";
+		patch_list.items = &patch;
+		patch_list.count = 1U;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		if (expect_status_ok(rc, &error, "insert column question patch should succeed") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		if (expect_deparse_reparse_ok(handle, "insert column question patch should reparse") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+		if (expect_status_ok(rc, &error, "insert column question deparse should succeed") != 0 ||
+		    expect_true(strstr(deparsed_sql, "created_at") != NULL, "patched insert should contain new column") != 0 ||
+		    expect_true(strstr(deparsed_sql, "$") == NULL, "patched insert should not expose internal params") != 0) {
+			sqlparser_string_free(deparsed_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(deparsed_sql);
+		deparsed_sql = NULL;
+
+		rc = sqlparser_get_view(handle, &view, &error);
+		if (expect_status_ok(rc, &error, "patched insert view should succeed") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_view_statement_at(&view, 0U, &statement, &error);
+		if (expect_status_ok(rc, &error, "patched insert statement should be available") != 0 ||
+		    expect_true(statement.object_count == 1U, "patched insert should expose one object") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_statement_object_at(&statement, 0U, &object, &error);
+		if (expect_status_ok(rc, &error, "patched insert object should be available") != 0 ||
+		    expect_true(object.column_count == 4U, "patched insert should expose four columns") != 0 ||
+		    expect_true(object.row_count == 2U, "patched insert should keep two rows") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_object_row_at(&object, 1U, &row, &error);
+		if (expect_status_ok(rc, &error, "patched insert row should be available") != 0 ||
+		    expect_true(row.cell_count == 4U, "patched insert row should expose four cells") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_row_cell_at(&row, 3U, &cell, &error);
+		if (expect_status_ok(rc, &error, "patched insert cell should be available") != 0 ||
+		    expect_true(strcmp(cell.column_name, "created_at") == 0, "patched cell should belong to created_at") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_cell_sql(&cell, &cell_sql, &error);
+		if (expect_status_ok(rc, &error, "patched insert cell SQL should succeed") != 0 ||
+		    expect_true(strcmp(cell_sql, "?") == 0, "patched insert cell should expose question param") != 0) {
+			sqlparser_string_free(cell_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		sqlparser_string_free(cell_sql);
+		sqlparser_handle_destroy(handle);
+	}
+
+	return 0;
+}
+
 static int test_mysql_dialect_unsupported(void)
 {
 	const char *sqls[] = {
@@ -2833,6 +2949,24 @@ static int test_session_context_view_and_patch(void)
 			"pdb1",
 			"PDB2",
 			"ALTER SESSION SET CONTAINER = pdb2"
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"SET SCHEMA KDES",
+			"alter_session",
+			"CURRENT_SCHEMA",
+			"kdes",
+			"APP",
+			"ALTER SESSION SET CURRENT_SCHEMA = app"
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"ALTER SESSION SET CURRENT_SCHEMA=KDES",
+			"alter_session",
+			"CURRENT_SCHEMA",
+			"kdes",
+			"APP",
+			"ALTER SESSION SET CURRENT_SCHEMA = app"
 		}
 	};
 	size_t index;
@@ -3108,6 +3242,9 @@ int main(void)
 		return 1;
 	}
 	if (test_mysql_dialect_insert_rewrite() != 0) {
+		return 1;
+	}
+	if (test_dialect_insert_column_patch_with_question_param() != 0) {
 		return 1;
 	}
 	if (test_mysql_dialect_unsupported() != 0) {

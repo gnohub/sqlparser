@@ -52,6 +52,19 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 | O045 | `ALTER SESSION SET CONTAINER=CDB$ROOT` | official root container name |
 | O046 | `ALTER SESSION SET CONTAINER ... SERVICE ...` | container switching with the `SERVICE` clause |
 | O047 | `SELECT ...; ALTER SESSION SET CURRENT_SCHEMA` | query and schema switching remain separate in multi-statement input |
+| O048 | `INSERT ... VALUES (?, ?, ?)` | JDBC-style positional parameter conversion, inserted-column extraction, and public-form restoration |
+| O049 | `UPDATE ... SET ... WHERE ... = ?` | positional parameter conversion and public-form restoration in SET/WHERE clauses |
+| O050 | `EXECUTE IMMEDIATE ... USING ...` | Oracle dynamic SQL execution with SQL text and bind arguments restored in public form |
+| O051 | multiple named-bind query | multiple `:name` binds in `SELECT` predicates |
+| O052 | `IN` + multiple named binds | bind restoration in `IN (:a, :b, :c)` predicates |
+| O053 | `FETCH FIRST` + bind | bind restoration in pagination limits |
+| O054 | `INSERT ... VALUES` + multiple named binds | insert columns and named-bind value lists |
+| O055 | `UPDATE` + multiple named binds | updated columns, predicate columns, and named binds |
+| O056 | `DELETE` + multiple named binds | conditional delete and named binds |
+| O057 | positional bind pair | `:1` and `:2` predicate parameters |
+| O058 | expanded `INSERT ... VALUES (?, ?, ?)` | insert columns and JDBC-style positional parameters |
+| O059 | `DELETE ... WHERE ... = ?` | JDBC-style positional parameters in conditional delete |
+| O060 | `EXECUTE IMMEDIATE` update statement | dynamic UPDATE SQL text and multiple USING binds |
 
 ## Explicitly Unsupported Cases
 

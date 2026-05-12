@@ -7,7 +7,7 @@
 Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范围由可执行用例矩阵定义：
 
 - `SELECT`、别名、子查询、连接、`WHERE`、`GROUP BY`、`HAVING`
-- Oracle bind 占位符，例如 `:id`、`:name`
+- Oracle bind 占位符，例如 `:id`、`:name`，以及 JDBC 风格 `?` 位置参数
 - `q'[...]'` 字符串
 - `MINUS` 集合运算
 - `OFFSET ... FETCH`
@@ -24,6 +24,7 @@ Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范
 - 引号标识符、`ALTER TABLE ADD`、`CREATE INDEX`、`DROP INDEX`
 - 兼容形态的物化视图创建语句
 - 会话上下文切换：`ALTER SESSION SET CURRENT_SCHEMA = ...`、`ALTER SESSION SET CONTAINER = ...`、`ALTER SESSION SET CONTAINER = ... SERVICE = ...`
+- `EXECUTE IMMEDIATE ... USING ...` 动态 SQL 执行语句
 
 ## 明确不支持范围
 
@@ -47,7 +48,7 @@ Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范
 ## 对外输出规则
 
 - `sqlparser_deparse()` 输出 Oracle 公共形态，不暴露内部转换细节。
-- Oracle bind 保持 `:name` 或 `:1` 形态，不输出内部 `$1`、`$2`。
+- Oracle bind 保持 `:name`、`:1` 或 `?` 形态，不输出内部 `$1`、`$2`。
 - `MINUS` 在 SQL View JSON 和 deparse 输出中保持 Oracle 语义名称。
 - SQL View JSON 中可归属的表达式片段使用公共 Oracle 形态。
 - 失败的表达式片段改写不会提交到 handle；原有 AST、bind 映射和 deparse 输出保持可用。
@@ -61,4 +62,4 @@ Oracle 支持范围以以下文件为准：
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 Oracle 方言矩阵包含 65 条用例：46 条支持路径，19 条明确不支持路径。
+当前 Oracle 方言矩阵包含 78 条用例：59 条支持路径，19 条明确不支持路径。

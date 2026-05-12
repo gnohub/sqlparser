@@ -23,6 +23,22 @@
 | M015 | `mysql-use-database` | `USE analytics` | 默认数据库切换语句、SQL View value selector |
 | M016 | `mysql-use-quoted-database` | `USE \`analytics-prod\`` | 反引号数据库名和公开 value 片段 |
 | M017 | `mysql-use-database-in-multi-statement` | `USE ...; SELECT ...` | 多语句中的数据库切换和后续查询保持独立输出 |
+| M018 | `mysql-insert-question-params` | `INSERT ... VALUES (?, ?, ?)` | JDBC 风格位置参数转换、插入列识别和公开形态还原 |
+| M019 | `mysql-update-question-params` | `UPDATE ... SET ... WHERE ... = ?` | SET/WHERE 中的位置参数转换和公开形态还原 |
+| M020 | `mysql-prepare-from-literal` | `PREPARE stmt FROM 'SELECT ... ?'` | MySQL SQL 级 prepared statement、`?` 占位符和公开 SQL 还原 |
+| M021 | `mysql-execute-using` | `EXECUTE stmt USING @var` | prepared statement 执行和用户变量参数 |
+| M022 | `mysql-deallocate-prepare` | `DEALLOCATE PREPARE stmt` | prepared statement 释放语句 |
+| M023 | `mysql-drop-prepare` | `DROP PREPARE stmt` | MySQL `DROP PREPARE` alias 释放语句 |
+| M024 | `mysql-select-question-params` | `SELECT ... WHERE ... = ?` | 查询条件中的 JDBC 风格位置参数 |
+| M025 | `mysql-select-in-question-params` | `SELECT ... IN (?, ?, ?)` | `IN` 条件中的多个位置参数 |
+| M026 | `mysql-select-limit-question-params` | `LIMIT ? OFFSET ?` | 分页子句中的位置参数 |
+| M027 | `mysql-insert-named-columns-question-params` | `INSERT ... VALUES (?, ?, ?)` | 插入列和位置参数值列表 |
+| M028 | `mysql-insert-multi-row-question-params` | 多行 `INSERT ... VALUES` + `?` | 多行参数化插入 |
+| M029 | `mysql-update-multi-question-params` | `UPDATE ... SET ... WHERE ... = ?` | 更新列、条件列和位置参数 |
+| M030 | `mysql-delete-question-params` | `DELETE ... WHERE ... = ?` | 条件删除和位置参数 |
+| M031 | `mysql-prepare-insert-literal` | `PREPARE stmt FROM 'INSERT ... ?'` | prepared insert SQL 文本和 `?` 占位符 |
+| M032 | `mysql-prepare-from-user-variable` | `PREPARE stmt FROM @var` | 用户变量来源的 prepared SQL 文本 |
+| M033 | `mysql-execute-using-multiple-vars` | `EXECUTE stmt USING @id, @name` | 多个用户变量绑定参数 |
 
 ## 明确不支持语句
 

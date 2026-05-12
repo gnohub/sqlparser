@@ -34,7 +34,7 @@ make all
 Command form:
 
 ```bash
-./bin/sqlparser_cli [--mode view|deparse|all] [--dialect postgresql|mysql|oracle|sqlserver] [--compact] [--file PATH] [SQL]
+./bin/sqlparser_cli [--mode view|deparse|all] [--dialect postgresql|mysql|oracle|sqlserver|dameng] [--compact] [--file PATH] [SQL]
 ```
 
 It can also read SQL from standard input:
@@ -95,6 +95,11 @@ The default dialect is `postgresql`. Use `--dialect` for other dialects:
   "SELECT q'[Bob's order]' AS label FROM dual"
 ```
 
+```bash
+./bin/sqlparser_cli --dialect dameng --mode view \
+  "SET SCHEMA KDES; SELECT TOP 2 id, name FROM users WHERE id = :id"
+```
+
 Batch JSON can set a default dialect at the root or override it per item:
 
 ```json
@@ -149,6 +154,8 @@ Array items can be either:
 
 - a raw SQL string
 - an object: `{"name":"case-name","dialect":"oracle","sql":"..."}`
+
+`dialect` accepts `postgresql`, `mysql`, `oracle`, `sqlserver`, and `dameng`.
 
 Example:
 

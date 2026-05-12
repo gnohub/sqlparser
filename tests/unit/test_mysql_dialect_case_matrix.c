@@ -160,6 +160,8 @@ static int verify_success_case(const char *case_id, const char *case_name, const
 	char *deparse_sql;
 	json_t *value;
 	const char *deparse_contains;
+	const char *view_contains;
+	const char *view_not_contains;
 	int status;
 
 	handle = NULL;
@@ -208,6 +210,18 @@ static int verify_success_case(const char *case_id, const char *case_name, const
 		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
 		return 1;
+	}
+	view_contains = json_string_or_null(json_object_get(expect_root, "view_contains"));
+	view_not_contains = json_string_or_null(json_object_get(expect_root, "view_not_contains"));
+	if (view_contains != NULL && strstr(view_json, view_contains) == NULL) {
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+		return fail_case_field(case_id, case_name, "view_contains", view_contains);
+	}
+	if (view_not_contains != NULL && strstr(view_json, view_not_contains) != NULL) {
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+		return fail_case_field(case_id, case_name, "view_not_contains", view_not_contains);
 	}
 	deparse_contains = json_string_or_null(json_object_get(expect_root, "deparse_contains"));
 	status = sqlparser_deparse(handle, &deparse_sql, &error);

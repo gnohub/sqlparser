@@ -23,6 +23,22 @@ This file records regression cases for the MySQL dialect conversion layer. `test
 | M015 | `mysql-use-database` | `USE analytics` | default database switching and SQL View value selector |
 | M016 | `mysql-use-quoted-database` | `USE \`analytics-prod\`` | backtick-delimited database name and public value fragment |
 | M017 | `mysql-use-database-in-multi-statement` | `USE ...; SELECT ...` | database switching and following query remain separate in multi-statement input |
+| M018 | `mysql-insert-question-params` | `INSERT ... VALUES (?, ?, ?)` | JDBC-style positional parameter conversion, inserted-column extraction, and public-form restoration |
+| M019 | `mysql-update-question-params` | `UPDATE ... SET ... WHERE ... = ?` | positional parameter conversion and public-form restoration in SET/WHERE clauses |
+| M020 | `mysql-prepare-from-literal` | `PREPARE stmt FROM 'SELECT ... ?'` | MySQL SQL-level prepared statement, `?` placeholder, and public-form restoration |
+| M021 | `mysql-execute-using` | `EXECUTE stmt USING @var` | prepared statement execution with user-variable arguments |
+| M022 | `mysql-deallocate-prepare` | `DEALLOCATE PREPARE stmt` | prepared statement deallocation |
+| M023 | `mysql-drop-prepare` | `DROP PREPARE stmt` | MySQL `DROP PREPARE` deallocation alias |
+| M024 | `mysql-select-question-params` | `SELECT ... WHERE ... = ?` | JDBC-style positional parameters in query predicates |
+| M025 | `mysql-select-in-question-params` | `SELECT ... IN (?, ?, ?)` | multiple positional parameters in `IN` predicates |
+| M026 | `mysql-select-limit-question-params` | `LIMIT ? OFFSET ?` | positional parameters in pagination clauses |
+| M027 | `mysql-insert-named-columns-question-params` | `INSERT ... VALUES (?, ?, ?)` | insert columns and positional parameter value lists |
+| M028 | `mysql-insert-multi-row-question-params` | multi-row `INSERT ... VALUES` + `?` | multi-row parameterized insert |
+| M029 | `mysql-update-multi-question-params` | `UPDATE ... SET ... WHERE ... = ?` | updated columns, predicate columns, and positional parameters |
+| M030 | `mysql-delete-question-params` | `DELETE ... WHERE ... = ?` | conditional delete and positional parameters |
+| M031 | `mysql-prepare-insert-literal` | `PREPARE stmt FROM 'INSERT ... ?'` | prepared insert SQL text and `?` placeholders |
+| M032 | `mysql-prepare-from-user-variable` | `PREPARE stmt FROM @var` | prepared SQL text from a user variable |
+| M033 | `mysql-execute-using-multiple-vars` | `EXECUTE stmt USING @id, @name` | multiple user-variable bind arguments |
 
 ## Explicitly Unsupported Statements
 

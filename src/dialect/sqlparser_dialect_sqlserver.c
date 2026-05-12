@@ -647,6 +647,165 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_use_statement(
 	return SQLPARSER_STATUS_OK;
 }
 
+static sqlparser_status_t sqlparser_sqlserver_append_internal_string_literal(
+	sqlparser_sqlserver_buffer_t *out,
+	const char *text,
+	size_t start,
+	size_t end,
+	sqlparser_error_t *out_error)
+{
+	size_t pos;
+	sqlparser_status_t status;
+
+	status = sqlparser_sqlserver_buffer_append_char(out, '\'', out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	for (pos = start; pos < end; pos++) {
+		if (text[pos] == '\'') {
+			status = sqlparser_sqlserver_buffer_append_cstr(out, "''", out_error);
+		} else {
+			status = sqlparser_sqlserver_buffer_append_char(out, text[pos], out_error);
+		}
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+	return sqlparser_sqlserver_buffer_append_char(out, '\'', out_error);
+}
+
+static sqlparser_status_t sqlparser_sqlserver_preprocess_prepared_statement(
+	const char *input_sql,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	static const struct {
+		const char *proc_name;
+		const char *internal_name;
+	} specs[] = {
+		{"sp_prepare", SQLPARSER_INTERNAL_SQLSERVER_SP_PREPARE},
+		{"sp_execute", SQLPARSER_INTERNAL_SQLSERVER_SP_EXECUTE},
+		{"sp_prepexec", SQLPARSER_INTERNAL_SQLSERVER_SP_PREPEXEC},
+		{"sp_unprepare", SQLPARSER_INTERNAL_SQLSERVER_SP_UNPREPARE},
+		{"sp_executesql", SQLPARSER_INTERNAL_SQLSERVER_SP_EXECUTESQL}
+	};
+	sqlparser_sqlserver_buffer_t out;
+	size_t start;
+	size_t end;
+	size_t pos;
+	size_t args_start;
+	size_t args_end;
+	size_t arg_start;
+	size_t arg_end;
+	size_t scan;
+	size_t skipped;
+	size_t paren_depth;
+	size_t index;
+	const char *internal_name;
+	int appended_arg;
+	sqlparser_status_t status;
+
+	if (out_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "out_sql must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_sql = NULL;
+	if (input_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "SQL input must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	start = sqlparser_sqlserver_trim_left(input_sql, 0U, strlen(input_sql));
+	end = sqlparser_sqlserver_trim_right(input_sql, start, strlen(input_sql));
+	if (end > start && input_sql[end - 1U] == ';') {
+		end--;
+		end = sqlparser_sqlserver_trim_right(input_sql, start, end);
+	}
+	if (!sqlparser_sqlserver_ascii_word_equal(input_sql, start, "exec") &&
+	    !sqlparser_sqlserver_ascii_word_equal(input_sql, start, "execute")) {
+		return SQLPARSER_STATUS_OK;
+	}
+	pos = start + (sqlparser_sqlserver_ascii_word_equal(input_sql, start, "execute") ? strlen("execute") : strlen("exec"));
+	pos = sqlparser_sqlserver_skip_space(input_sql, pos);
+	internal_name = NULL;
+	for (index = 0U; index < sizeof(specs) / sizeof(specs[0]); index++) {
+		if (sqlparser_sqlserver_ascii_word_equal(input_sql, pos, specs[index].proc_name)) {
+			pos += strlen(specs[index].proc_name);
+			internal_name = specs[index].internal_name;
+			break;
+		}
+	}
+	if (internal_name == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	args_start = sqlparser_sqlserver_skip_space(input_sql, pos);
+	args_end = sqlparser_sqlserver_trim_right(input_sql, args_start, end);
+	if (args_start >= args_end) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "SQL Server prepared procedure requires arguments");
+		return SQLPARSER_STATUS_PARSE_ERROR;
+	}
+
+	memset(&out, 0, sizeof(out));
+	status = sqlparser_sqlserver_buffer_append_cstr(&out, "SET ", out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_sqlserver_buffer_append_cstr(&out, internal_name, out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_sqlserver_buffer_append_cstr(&out, " TO ", out_error);
+	}
+	appended_arg = 0;
+	arg_start = args_start;
+	scan = args_start;
+	paren_depth = 0U;
+	while (status == SQLPARSER_STATUS_OK && scan <= args_end) {
+		if (scan < args_end) {
+			skipped = sqlparser_sqlserver_skip_quoted_or_comment_span(input_sql, scan);
+			if (skipped > scan) {
+				scan = skipped;
+				continue;
+			}
+			if (input_sql[scan] == '(') {
+				paren_depth++;
+			} else if (input_sql[scan] == ')' && paren_depth > 0U) {
+				paren_depth--;
+			} else if (input_sql[scan] != ',' || paren_depth != 0U) {
+				scan++;
+				continue;
+			}
+		}
+
+		arg_end = sqlparser_sqlserver_trim_right(input_sql, arg_start, scan);
+		arg_start = sqlparser_sqlserver_trim_left(input_sql, arg_start, arg_end);
+		if (arg_start >= arg_end) {
+			sqlparser_sqlserver_buffer_release(&out);
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "SQL Server prepared procedure has an empty argument");
+			return SQLPARSER_STATUS_PARSE_ERROR;
+		}
+		if (appended_arg) {
+			status = sqlparser_sqlserver_buffer_append_cstr(&out, ", ", out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_sqlserver_append_internal_string_literal(&out, input_sql, arg_start, arg_end, out_error);
+		}
+		appended_arg = 1;
+		scan++;
+		arg_start = scan;
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_sqlserver_buffer_finish(&out, out_error);
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_sqlserver_buffer_release(&out);
+		return status;
+	}
+	*out_sql = sqlparser_sqlserver_buffer_take(&out);
+	if (*out_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
 static size_t sqlparser_sqlserver_statement_end(const char *sql, size_t start)
 {
 	size_t index;
@@ -704,6 +863,9 @@ static sqlparser_status_t sqlparser_sqlserver_rewrite_use_statements(
 		}
 		rewritten_sql = NULL;
 		status = sqlparser_sqlserver_preprocess_use_statement(statement_sql, &rewritten_sql, out_error);
+		if (status == SQLPARSER_STATUS_OK && rewritten_sql == NULL) {
+			status = sqlparser_sqlserver_preprocess_prepared_statement(statement_sql, &rewritten_sql, out_error);
+		}
 		free(statement_sql);
 		if (status != SQLPARSER_STATUS_OK) {
 			free(rewritten_sql);
@@ -3168,6 +3330,201 @@ static sqlparser_status_t sqlparser_sqlserver_rewrite_internal_use_statement(
 	return SQLPARSER_STATUS_OK;
 }
 
+static sqlparser_status_t sqlparser_sqlserver_read_internal_string_arg(
+	const char *sql,
+	size_t *index,
+	char **out_value,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_sqlserver_buffer_t out;
+	size_t pos;
+	size_t token_start;
+	size_t token_end;
+	char quote;
+	sqlparser_status_t status;
+
+	if (sql == NULL || index == NULL || out_value == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "internal argument output must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_value = NULL;
+	pos = sqlparser_sqlserver_skip_space(sql, *index);
+	if (sql[pos] == '\'' || sql[pos] == '"') {
+		quote = sql[pos];
+		pos++;
+		memset(&out, 0, sizeof(out));
+		while (sql[pos] != '\0') {
+			if (sql[pos] == quote) {
+				if (sql[pos + 1U] == quote) {
+					status = sqlparser_sqlserver_buffer_append_char(&out, quote, out_error);
+					if (status != SQLPARSER_STATUS_OK) {
+						sqlparser_sqlserver_buffer_release(&out);
+						return status;
+					}
+					pos += 2U;
+					continue;
+				}
+				pos++;
+				*index = pos;
+				*out_value = sqlparser_sqlserver_buffer_take(&out);
+				if (*out_value == NULL) {
+					*out_value = sqlparser_strdup("");
+					if (*out_value == NULL) {
+						sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+						return SQLPARSER_STATUS_NO_MEMORY;
+					}
+				}
+				return SQLPARSER_STATUS_OK;
+			}
+			status = sqlparser_sqlserver_buffer_append_char(&out, sql[pos], out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				sqlparser_sqlserver_buffer_release(&out);
+				return status;
+			}
+			pos++;
+		}
+		sqlparser_sqlserver_buffer_release(&out);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "unterminated internal SQL Server prepared argument");
+		return SQLPARSER_STATUS_PARSE_ERROR;
+	}
+
+	token_start = pos;
+	while (sql[pos] != '\0' && sql[pos] != ',') {
+		pos++;
+	}
+	token_end = sqlparser_sqlserver_trim_right(sql, token_start, pos);
+	if (token_start >= token_end) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "missing internal SQL Server prepared argument");
+		return SQLPARSER_STATUS_PARSE_ERROR;
+	}
+	*out_value = sqlparser_strndup(sql + token_start, token_end - token_start);
+	if (*out_value == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	*index = pos;
+	return SQLPARSER_STATUS_OK;
+}
+
+static int sqlparser_sqlserver_internal_set_prefix(
+	const char *sql,
+	const char *internal_name,
+	size_t *out_pos)
+{
+	size_t pos;
+	size_t len;
+
+	pos = sqlparser_sqlserver_skip_space(sql, 0U);
+	if (!sqlparser_sqlserver_ascii_word_equal(sql, pos, "set")) {
+		return 0;
+	}
+	pos = sqlparser_sqlserver_skip_space(sql, pos + strlen("set"));
+	len = strlen(internal_name);
+	if (strncmp(sql + pos, internal_name, len) != 0 ||
+	    sqlparser_sqlserver_is_ident_char((unsigned char)sql[pos + len])) {
+		return 0;
+	}
+	pos = sqlparser_sqlserver_skip_space(sql, pos + len);
+	if (!sqlparser_sqlserver_ascii_word_equal(sql, pos, "to") && sql[pos] != '=') {
+		return 0;
+	}
+	pos = sql[pos] == '=' ? pos + 1U : pos + strlen("to");
+	*out_pos = pos;
+	return 1;
+}
+
+static sqlparser_status_t sqlparser_sqlserver_rewrite_internal_prepared_statement(
+	char **io_sql,
+	sqlparser_error_t *out_error)
+{
+	static const struct {
+		const char *internal_name;
+		const char *proc_name;
+	} specs[] = {
+		{SQLPARSER_INTERNAL_SQLSERVER_SP_PREPARE, "sp_prepare"},
+		{SQLPARSER_INTERNAL_SQLSERVER_SP_EXECUTE, "sp_execute"},
+		{SQLPARSER_INTERNAL_SQLSERVER_SP_PREPEXEC, "sp_prepexec"},
+		{SQLPARSER_INTERNAL_SQLSERVER_SP_UNPREPARE, "sp_unprepare"},
+		{SQLPARSER_INTERNAL_SQLSERVER_SP_EXECUTESQL, "sp_executesql"}
+	};
+	sqlparser_sqlserver_buffer_t out;
+	const char *sql;
+	char *args;
+	size_t index;
+	size_t pos;
+	size_t spec_index;
+	int appended_arg;
+	sqlparser_status_t status;
+
+	if (io_sql == NULL || *io_sql == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+
+	sql = *io_sql;
+	for (spec_index = 0U; spec_index < sizeof(specs) / sizeof(specs[0]); spec_index++) {
+		if (!sqlparser_sqlserver_internal_set_prefix(sql, specs[spec_index].internal_name, &pos)) {
+			continue;
+		}
+		index = pos;
+		memset(&out, 0, sizeof(out));
+		status = sqlparser_sqlserver_buffer_append_cstr(&out, "EXEC ", out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_sqlserver_buffer_append_cstr(&out, specs[spec_index].proc_name, out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_sqlserver_buffer_append_char(&out, ' ', out_error);
+		}
+		appended_arg = 0;
+		while (status == SQLPARSER_STATUS_OK) {
+			args = NULL;
+			status = sqlparser_sqlserver_read_internal_string_arg(sql, &index, &args, out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				free(args);
+				sqlparser_sqlserver_buffer_release(&out);
+				return status;
+			}
+			if (appended_arg) {
+				status = sqlparser_sqlserver_buffer_append_cstr(&out, ", ", out_error);
+			}
+			if (status == SQLPARSER_STATUS_OK) {
+				status = sqlparser_sqlserver_buffer_append_cstr(&out, args, out_error);
+			}
+			free(args);
+			args = NULL;
+			if (status != SQLPARSER_STATUS_OK) {
+				break;
+			}
+			appended_arg = 1;
+			index = sqlparser_sqlserver_skip_space(sql, index);
+			if (sql[index] != ',') {
+				break;
+			}
+			index++;
+			index = sqlparser_sqlserver_skip_space(sql, index);
+		}
+		if (status == SQLPARSER_STATUS_OK && sql[index] != '\0') {
+			sqlparser_sqlserver_buffer_release(&out);
+			return SQLPARSER_STATUS_OK;
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_sqlserver_buffer_finish(&out, out_error);
+		}
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_sqlserver_buffer_release(&out);
+			return status;
+		}
+		free(*io_sql);
+		*io_sql = sqlparser_sqlserver_buffer_take(&out);
+		if (*io_sql == NULL) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		return SQLPARSER_STATUS_OK;
+	}
+
+	return SQLPARSER_STATUS_OK;
+}
+
 static sqlparser_status_t sqlparser_sqlserver_rewrite_internal_use(
 	char **io_sql,
 	sqlparser_error_t *out_error)
@@ -3204,6 +3561,9 @@ static sqlparser_status_t sqlparser_sqlserver_rewrite_internal_use(
 		}
 		original_statement_sql = statement_sql;
 		status = sqlparser_sqlserver_rewrite_internal_use_statement(&statement_sql, out_error);
+		if (status == SQLPARSER_STATUS_OK && statement_sql == original_statement_sql) {
+			status = sqlparser_sqlserver_rewrite_internal_prepared_statement(&statement_sql, out_error);
+		}
 		if (status != SQLPARSER_STATUS_OK) {
 			free(statement_sql);
 			sqlparser_sqlserver_buffer_release(&out);

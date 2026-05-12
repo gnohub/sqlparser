@@ -14,8 +14,10 @@
   说明 Oracle 方言转换层的支持范围、明确不支持范围和输出规则。
 - [SQL Server 方言支持](./sqlserver_dialect_support.md)
   说明 SQL Server 方言转换层的支持范围、明确不支持范围和输出规则。
+- [达梦方言支持](./dameng_dialect_support.md)
+  说明达梦方言转换层的支持范围、明确不支持范围和输出规则。
 - [方言覆盖统计](./dialect_coverage.md)
-  汇总 PostgreSQL、MySQL、Oracle 和 SQL Server 的可执行回归覆盖情况。
+  汇总 PostgreSQL、MySQL、Oracle、SQL Server 和达梦的可执行回归覆盖情况。
 - [PostgreSQL 官方语法覆盖统计](./postgresql_official_syntax_coverage.md)
   记录 PostgreSQL 默认方言相对于官方 SQL Commands 的覆盖情况。
 - [MySQL 官方语法覆盖统计](./mysql_official_syntax_coverage.md)
@@ -24,6 +26,8 @@
   记录 Oracle 方言相对于 Oracle Database SQL Language Reference 的覆盖情况。
 - [SQL Server 官方语法覆盖统计](./sqlserver_official_syntax_coverage.md)
   记录 SQL Server 方言相对于 Microsoft Transact-SQL Reference 的覆盖情况。
+- [达梦官方语法覆盖统计](./dameng_official_syntax_coverage.md)
+  记录达梦方言相对于达梦官方 DM_SQL 文档的覆盖情况。
 - [API 手册](./api_reference.md)
   说明公共头文件中的主要类型、生命周期规则和函数分组。
 - [SQL View JSON 手册](./view_json.md)

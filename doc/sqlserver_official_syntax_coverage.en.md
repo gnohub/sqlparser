@@ -31,15 +31,15 @@ The audit uses these official documentation directories:
 
 ## Results
 
-| Status | Items | Share of all 929 items |
+| Status | Items | Share of all 934 items |
 | --- | ---: | ---: |
-| `CURRENT` | 187 | 20.13% |
-| `HOOK_ONLY` | 235 | 25.30% |
-| `MIXED_MODEL` | 82 | 8.83% |
-| `MODEL_REQUIRED` | 386 | 41.55% |
-| `REFERENCE_ONLY` | 39 | 4.20% |
+| `CURRENT` | 192 | 20.56% |
+| `HOOK_ONLY` | 235 | 25.16% |
+| `MIXED_MODEL` | 82 | 8.78% |
+| `MODEL_REQUIRED` | 386 | 41.33% |
+| `REFERENCE_ONLY` | 39 | 4.18% |
 
-Excluding `REFERENCE_ONLY`, there are 890 implementation items. The current implementation covers 187 items and leaves 703 items uncovered.
+Excluding `REFERENCE_ONLY`, there are 895 implementation items. The current implementation covers 192 items and leaves 703 items uncovered.
 
 | Uncovered class | Items | Share of 703 uncovered items |
 | --- | ---: | ---: |
@@ -58,7 +58,8 @@ For full official syntax coverage, `MIXED_MODEL + MODEL_REQUIRED` is 468 items, 
 | `language-elements` | 52 | 0 | 13 | 47 | 3 | 115 |
 | `functions` | 94 | 227 | 0 | 16 | 24 | 361 |
 | `data-types` | 14 | 3 | 0 | 19 | 8 | 44 |
+| `system-stored-procedures` | 5 | 0 | 0 | 0 | 0 | 5 |
 
 ## Conclusion
 
-Among the currently uncovered SQL Server items, 387 items cannot be solved by the existing AST alone, which is 54.97%. Another 82 items are partially hookable but require a dedicated SQL Server model for complete official syntax coverage. Under the full-syntax criterion, 469 uncovered items require a SQL Server-specific model, which is 66.62%.
+Among the currently uncovered SQL Server items, 386 items cannot be solved by the existing AST alone, which is 54.91%. Another 82 items are partially hookable but require a dedicated SQL Server model for complete official syntax coverage. Under the full-syntax criterion, 468 uncovered items require a SQL Server-specific model, which is 66.57%.

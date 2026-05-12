@@ -1,50 +1,45 @@
-# v0.3.0 Release Notes
+# v0.4.0 Release Notes
 
-`v0.3.0` is a minor dialect-capability release for `sqlparser`. It adds
-database, schema, and session-context switching support across parsing,
-structured inspection, rewrite, and deparse workflows.
+`v0.4.0` is a minor dialect-capability and structured-rewrite release for
+`sqlparser`. It adds Dameng dialect support, expanded prepared / parameterized
+SQL coverage, and generic clause-level rewrite support.
 
 ## Highlights
 
-- PostgreSQL exposes SQL View output for `SET search_path`,
-  `SET LOCAL search_path`, and `SET SCHEMA`.
-- MySQL supports `USE db_name` default-database switching, including
-  backtick-delimited database names.
-- SQL Server supports `USE database_name` database-context switching and
-  preserves bracket-delimited public output in deparse.
-- Oracle supports `ALTER SESSION SET CURRENT_SCHEMA`,
-  `ALTER SESSION SET CONTAINER`, and
-  `ALTER SESSION SET CONTAINER ... SERVICE ...`.
-- Context-switching statements reuse the existing SQL View JSON structure; no
-  separate JSON format is introduced.
-- `stmt[n].value[m]` selectors can rewrite context-switch targets and deparse
-  back to the corresponding dialect SQL.
-- Fixed parse/deparse boundaries for context switching in multi-statement
-  inputs, avoiding exposure of internal `sqlparser_current_*` sentinel names.
-- Updated dialect support docs, official syntax coverage checklists, and
-  executable coverage summaries.
+- Added the Dameng `SQLPARSER_DIALECT_DAMENG` conversion layer for `SET
+  SCHEMA`, `MINUS`, `LIMIT`, `TOP`, binds, common DML/DDL, transactions, and
+  privilege statements.
+- Expanded prepared / parameterized SQL coverage for PostgreSQL, MySQL, Oracle,
+  SQL Server, and Dameng, including PostgreSQL `$n`, JDBC `?`, Oracle `:name` /
+  `:1`, SQL Server `@name`, and Dameng binds.
+- Added generic `SELECT` output-list read, replace, insert, and delete support.
+- Added generic `WHERE` condition read, set, and `AND` / `OR` append support.
+- Added statement-level `clause` selectors for rewriting `select_list`,
+  `where`, and `order_by` through `stmt[n].clause[m]`.
+- Added Dameng CLI dialect support and fixed CLI argument-order handling so
+  options such as `--dialect` and `--mode` can appear before or after inline
+  SQL.
 
 ## Dialect Support Boundary
 
 Current executable case matrices:
 
-- PostgreSQL: 54 cases, 53 supported paths, and 1 invalid-SQL negative path.
-- MySQL: 32 cases, 17 supported paths, and 15 explicit unsupported paths.
-- Oracle: 65 cases, 46 supported paths, and 19 explicit unsupported paths.
-- SQL Server: 61 base cases, 46 supported paths, and 15 explicit unsupported
+- PostgreSQL: 70 cases, 69 supported paths, and 1 invalid-SQL negative path.
+- MySQL: 48 cases, 33 supported paths, and 15 explicit unsupported paths.
+- Oracle: 78 cases, 59 supported paths, and 19 explicit unsupported paths.
+- SQL Server: 76 base cases, 61 supported paths, and 15 explicit unsupported
   paths; the official `HOOK_ONLY` coverage matrix contains 235 cases.
+- Dameng: 55 cases, 43 supported paths, and 12 explicit unsupported paths.
 
 ## Release Validation
 
-This release gate includes:
+This release validation includes:
 
 - `git diff --check`
 - JSON fixture validation
-- Linux GCC 8.3: `make test`
-- Linux GCC 8.3: `make verify-ci`
-- ABI export-symbol check
-- CLI parse/deparse smoke coverage for MySQL, Oracle, and SQL Server
-  multi-statement context switching
+- Linux `make test`
+- Windows MSVC `nmake /F Makefile.msvc test`
+- Consistency checks between coverage summaries and executable fixtures
 
 ## Release Boundary
 

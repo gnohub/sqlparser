@@ -5,12 +5,13 @@ query,UNION_INTERSECT,CURRENT,"已覆盖 UNION ALL 和 INTERSECT",https://docs.o
 query,OFFSET_FETCH,CURRENT,"已覆盖 OFFSET FETCH 分页",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
 query,ROWNUM,CURRENT,"已覆盖 ROWNUM 条件过滤",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/ROWNUM-Pseudocolumn.html
 query,FOR_UPDATE_NOWAIT,CURRENT,"已覆盖 FOR UPDATE NOWAIT",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
-expressions,BIND_VARIABLES,CURRENT,"已覆盖 :name 和 :1 形式 bind 占位符",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Comments.html
+expressions,BIND_VARIABLES,CURRENT,"已覆盖 :name、:1 和 JDBC 风格 ? 位置参数",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Comments.html
 expressions,Q_QUOTED_STRING,CURRENT,"已覆盖 q-quoted 字符串",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Literals.html
 expressions,DATE_TIMESTAMP_LITERAL,CURRENT,"已覆盖 DATE 和 TIMESTAMP 字面量",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Literals.html
 expressions,CASE_EXISTS,CURRENT,"已覆盖 CASE 和 EXISTS 子查询",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CASE-Expressions.html
 expressions,COMMON_FUNCTIONS,CURRENT,"已覆盖 DECODE、NVL、SYSDATE 等常见函数和伪列",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Single-Row-Functions.html
 expressions,ANALYTIC_FUNCTIONS,CURRENT,"已覆盖 ROW_NUMBER() OVER 代表性分析函数",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Analytic-Functions.html
+dynamic-sql,EXECUTE_IMMEDIATE,CURRENT,"已覆盖 EXECUTE IMMEDIATE 动态 SQL 和 USING bind 参数",https://docs.oracle.com/en/database/oracle/oracle-database/18/lnpls/EXECUTE-IMMEDIATE-statement.html
 dml,INSERT_VALUES,CURRENT,"已覆盖 INSERT VALUES 和多行 VALUES",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/INSERT.html
 dml,INSERT_SELECT,CURRENT,"已覆盖 INSERT SELECT",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/INSERT.html
 dml,UPDATE,CURRENT,"已覆盖 UPDATE SET WHERE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/UPDATE.html

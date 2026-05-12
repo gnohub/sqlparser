@@ -1,5 +1,6 @@
 dialect,coverage_source,supported_cases,unsupported_cases,total_cases,supported_ratio,notes
-postgresql,tests/cases/sql_batch_input.json,53,1,54,98.15%,"Default dialect coverage is measured by executable regression cases that use PostgreSQL-compatible SQL. Official syntax coverage is tracked in postgresql_official_syntax_coverage.csv."
-mysql,tests/cases/mysql_dialect_input.json,17,15,32,53.13%,"MySQL coverage is measured by executable dialect cases. Official syntax coverage is tracked in mysql_official_syntax_coverage.csv."
-oracle,tests/cases/oracle_dialect_input.json,46,19,65,70.77%,"Oracle coverage is measured by executable dialect cases. Official syntax coverage is tracked in oracle_official_syntax_coverage.csv."
-sqlserver,tests/cases/sqlserver_dialect_input.json,46,15,61,75.41%,"SQL Server coverage is measured by executable dialect cases. Official syntax coverage is tracked in sqlserver_official_syntax_coverage.csv."
+postgresql,tests/cases/sql_batch_input.json,69,1,70,98.57%,"Default dialect coverage is measured by executable regression cases that use PostgreSQL-compatible SQL. Official syntax coverage is tracked in postgresql_official_syntax_coverage.csv."
+mysql,tests/cases/mysql_dialect_input.json,33,15,48,68.75%,"MySQL coverage is measured by executable dialect cases. Official syntax coverage is tracked in mysql_official_syntax_coverage.csv."
+oracle,tests/cases/oracle_dialect_input.json,59,19,78,75.64%,"Oracle coverage is measured by executable dialect cases. Official syntax coverage is tracked in oracle_official_syntax_coverage.csv."
+sqlserver,tests/cases/sqlserver_dialect_input.json,61,15,76,80.26%,"SQL Server coverage is measured by executable dialect cases. Official syntax coverage is tracked in sqlserver_official_syntax_coverage.csv."
+dameng,tests/cases/dameng_dialect_input.json,43,12,55,78.18%,"Dameng coverage is measured by executable dialect cases. Official syntax coverage is tracked in dameng_official_syntax_coverage.csv."

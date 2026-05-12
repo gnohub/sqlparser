@@ -581,6 +581,8 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 	PgQuery__Node **next_cols;
 	sqlparser_patch_insert_column_row_plan_t *plans;
 	sqlparser_status_t status;
+	char *parser_default_sql;
+	void *dialect_state;
 	size_t row_index;
 	size_t insert_index;
 	size_t row_count;
@@ -623,6 +625,8 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 	default_node = NULL;
 	next_cols = NULL;
 	plans = NULL;
+	parser_default_sql = NULL;
+	dialect_state = NULL;
 	row_count = values_stmt->n_values_lists;
 	insert_index = patch->index > stmt->n_cols ? stmt->n_cols : patch->index;
 	if (stmt->n_cols == SIZE_MAX) {
@@ -633,15 +637,30 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 	if (column_node == NULL) {
 		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
 	}
-	status = sqlparser_parse_insert_cell_node_sql(patch->default_sql, &default_node, out_error);
+	status = sqlparser_preprocess_handle_sql_fragment(
+		handle,
+		patch->default_sql,
+		"insert column default SQL",
+		&parser_default_sql,
+		&dialect_state,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_free_proto_node(column_node);
+		return status;
+	}
+	status = sqlparser_parse_insert_cell_node_sql(parser_default_sql, &default_node, out_error);
+	free(parser_default_sql);
+	parser_default_sql = NULL;
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_free_proto_node(column_node);
+		sqlparser_handle_discard_dialect_state(handle, dialect_state);
 		return status;
 	}
 	next_cols = sqlparser_patch_alloc_node_array(stmt->n_cols + 1U, out_error);
 	if (next_cols == NULL) {
 		sqlparser_free_proto_node(column_node);
 		sqlparser_free_proto_node(default_node);
+		sqlparser_handle_discard_dialect_state(handle, dialect_state);
 		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
 	}
 	sqlparser_patch_copy_with_insert(next_cols, stmt->cols, stmt->n_cols, insert_index, column_node);
@@ -651,6 +670,7 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 		free(next_cols);
 		sqlparser_free_proto_node(column_node);
 		sqlparser_free_proto_node(default_node);
+		sqlparser_handle_discard_dialect_state(handle, dialect_state);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
@@ -666,6 +686,7 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 			sqlparser_free_proto_node(column_node);
 			sqlparser_free_proto_node(default_node);
 			sqlparser_patch_insert_column_plan_clear(plans, row_count);
+			sqlparser_handle_discard_dialect_state(handle, dialect_state);
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "insert row node is invalid");
 			return SQLPARSER_STATUS_INTERNAL_ERROR;
 		}
@@ -676,6 +697,7 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 			sqlparser_free_proto_node(column_node);
 			sqlparser_free_proto_node(default_node);
 			sqlparser_patch_insert_column_plan_clear(plans, row_count);
+			sqlparser_handle_discard_dialect_state(handle, dialect_state);
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "insert row cell count is too large");
 			return SQLPARSER_STATUS_RESOURCE_LIMIT;
 		}
@@ -685,6 +707,7 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 			sqlparser_free_proto_node(column_node);
 			sqlparser_free_proto_node(default_node);
 			sqlparser_patch_insert_column_plan_clear(plans, row_count);
+			sqlparser_handle_discard_dialect_state(handle, dialect_state);
 			return status;
 		}
 		plans[row_index].next_items = sqlparser_patch_alloc_node_array(row_list->n_items + 1U, out_error);
@@ -693,6 +716,7 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 			sqlparser_free_proto_node(column_node);
 			sqlparser_free_proto_node(default_node);
 			sqlparser_patch_insert_column_plan_clear(plans, row_count);
+			sqlparser_handle_discard_dialect_state(handle, dialect_state);
 			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
 		}
 		sqlparser_patch_copy_with_insert(
@@ -720,7 +744,13 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 
 	sqlparser_free_proto_node(default_node);
 	sqlparser_patch_insert_column_plan_clear(plans, row_count);
-	return sqlparser_handle_commit_ast(handle, out_error);
+	status = sqlparser_handle_commit_ast(handle, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_discard_dialect_state(handle, dialect_state);
+		return status;
+	}
+	sqlparser_handle_adopt_dialect_state(handle, dialect_state);
+	return SQLPARSER_STATUS_OK;
 }
 
 static sqlparser_status_t sqlparser_patch_delete_column(

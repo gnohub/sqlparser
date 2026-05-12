@@ -26,16 +26,16 @@ type attributes, and MySQL-specific semantics.
 
 ## Results
 
-| Status | Syntax Groups | Share of 40 Groups |
+| Status | Syntax Groups | Share of 42 Groups |
 | --- | ---: | ---: |
-| `CURRENT` | 16 | 40.00% |
-| `HOOK_ONLY` | 7 | 17.50% |
+| `CURRENT` | 18 | 42.86% |
+| `HOOK_ONLY` | 7 | 16.67% |
 | `MIXED_MODEL` | 0 | 0.00% |
-| `MODEL_REQUIRED` | 17 | 42.50% |
+| `MODEL_REQUIRED` | 17 | 40.48% |
 | `REFERENCE_ONLY` | 0 | 0.00% |
 
-After excluding `REFERENCE_ONLY`, there are 40 implementable syntax groups.
-The current implementation covers 16 groups and leaves 24 groups uncovered.
+After excluding `REFERENCE_ONLY`, there are 42 implementable syntax groups.
+The current implementation covers 18 groups and leaves 24 groups uncovered.
 
 | Uncovered Class | Syntax Groups | Share of 24 Uncovered Groups |
 | --- | ---: | ---: |

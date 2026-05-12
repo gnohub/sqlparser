@@ -52,6 +52,21 @@ This file records regression cases for the SQL Server dialect conversion layer. 
 | S044 | `USE [database]` | database context switching, bracket-delimited database name, and public value fragment |
 | S045 | `USE database` | official basic `USE database_name` form |
 | S046 | `USE ...; SELECT ...` | database switching and following query remain separate in multi-statement input |
+| S047 | `EXEC sp_prepare` | parameterized statement preparation with handle, parameter definition, and SQL text preserved |
+| S048 | `EXEC sp_execute` | prepared-handle execution with bound arguments preserved |
+| S049 | `EXEC sp_prepexec` | combined prepare + execute call with SQL text and bound arguments preserved |
+| S050 | `EXEC sp_unprepare` | prepared-handle release |
+| S051 | `EXEC sp_executesql` | parameterized dynamic SQL execution with SQL text, parameter definition, and values preserved |
+| S052 | query with multiple `@` parameters | multiple named parameters in query predicates |
+| S053 | `IN` + multiple `@` parameters | multiple named parameters in predicate lists |
+| S054 | `TOP (@param)` + `LIKE @param` | parameter restoration in TOP and predicate expressions |
+| S055 | `INSERT ... VALUES` + multiple `@` parameters | insert columns and named-parameter value lists |
+| S056 | multi-row `INSERT ... VALUES` + `?` | multi-row JDBC-style parameterized insert |
+| S057 | `UPDATE ... SET ... WHERE ... = ?` | updated columns, predicate columns, and positional parameters |
+| S058 | `DELETE ... WHERE ... = ?` | conditional delete and positional parameters |
+| S059 | `EXEC sp_prepare` + INSERT | prepared insert SQL text and parameter definition |
+| S060 | `EXEC sp_execute` + named values | prepared handle execution and named argument values |
+| S061 | `EXEC sp_executesql` + UPDATE | parameterized dynamic UPDATE SQL text and argument values |
 
 ## Explicitly Unsupported Cases
 
@@ -68,7 +83,7 @@ The following constructs have SQL Server-specific semantics. The conversion laye
 | SU007 | `FOR JSON` | result formatting is outside the current structural model |
 | SU008 | `OPTION (...)` | query hints cannot be safely downgraded |
 | SU009 | `DECLARE` | variable declarations belong to T-SQL batch semantics |
-| SU010 | `EXEC` | procedure execution is outside SQL structure rewrite scope |
+| SU010 | ordinary procedure `EXEC` | non-prepared/dynamic-SQL system procedure execution is outside SQL structure rewrite scope |
 | SU011 | `CREATE PROCEDURE` | procedure definitions require a T-SQL program-unit model |
 | SU015 | table variable | table-variable scope belongs to T-SQL batch semantics |
 | SU016 | `MERGE ... BY SOURCE` | SQL Server-specific merge branch semantics |

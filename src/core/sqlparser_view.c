@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -268,6 +269,10 @@ static const char *sqlparser_statement_keyword_from_node(const PgQuery__Node *st
 				"create_table_as";
 		case PG_QUERY__NODE__NODE_CREATE_SCHEMA_STMT:
 			return "create_schema";
+		case PG_QUERY__NODE__NODE_CREATE_SEQ_STMT:
+			return "create_sequence";
+		case PG_QUERY__NODE__NODE_ALTER_SEQ_STMT:
+			return "alter_sequence";
 		case PG_QUERY__NODE__NODE_INDEX_STMT:
 			return "create_index";
 		case PG_QUERY__NODE__NODE_DROP_STMT:
@@ -284,6 +289,12 @@ static const char *sqlparser_statement_keyword_from_node(const PgQuery__Node *st
 			return sqlparser_transaction_keyword(statement->transaction_stmt);
 		case PG_QUERY__NODE__NODE_VARIABLE_SET_STMT:
 			return "set";
+		case PG_QUERY__NODE__NODE_PREPARE_STMT:
+			return "prepare";
+		case PG_QUERY__NODE__NODE_EXECUTE_STMT:
+			return "execute";
+		case PG_QUERY__NODE__NODE_DEALLOCATE_STMT:
+			return "deallocate";
 		default:
 			return sqlparser_statement_kind_name(sqlparser_statement_kind_from_case(statement->node_case));
 	}
@@ -301,7 +312,71 @@ static int sqlparser_variable_set_is_session_context(const PgQuery__VariableSetS
 {
 	return sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_CURRENT_DATABASE) ||
 		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_CURRENT_SCHEMA) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_MYSQL_PREPARE) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_MYSQL_EXECUTE) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_MYSQL_DEALLOCATE_PREPARE) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_MYSQL_DROP_PREPARE) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_SQLSERVER_SP_PREPARE) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_SQLSERVER_SP_EXECUTE) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_SQLSERVER_SP_PREPEXEC) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_SQLSERVER_SP_UNPREPARE) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_SQLSERVER_SP_EXECUTESQL) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_ORACLE_EXECUTE_IMMEDIATE) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_DAMENG_EXEC_SQL_PREPARE) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_DAMENG_EXEC_SQL_EXECUTE) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_DAMENG_EXEC_SQL_DEALLOCATE_PREPARE) ||
 		sqlparser_variable_set_name_is(stmt, "search_path");
+}
+
+static int sqlparser_variable_set_is_prepared_statement(const PgQuery__VariableSetStmt *stmt)
+{
+	return sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_MYSQL_PREPARE) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_MYSQL_EXECUTE) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_MYSQL_DEALLOCATE_PREPARE) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_MYSQL_DROP_PREPARE) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_SQLSERVER_SP_PREPARE) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_SQLSERVER_SP_EXECUTE) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_SQLSERVER_SP_PREPEXEC) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_SQLSERVER_SP_UNPREPARE) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_SQLSERVER_SP_EXECUTESQL) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_ORACLE_EXECUTE_IMMEDIATE) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_DAMENG_EXEC_SQL_PREPARE) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_DAMENG_EXEC_SQL_EXECUTE) ||
+		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_DAMENG_EXEC_SQL_DEALLOCATE_PREPARE);
+}
+
+static const char *sqlparser_variable_set_prepared_arg_name(
+	const PgQuery__VariableSetStmt *stmt,
+	size_t arg_index)
+{
+	if (sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_ORACLE_EXECUTE_IMMEDIATE)) {
+		return arg_index == 0U ? "sql" : "params";
+	}
+	if (arg_index == 0U) {
+		if (sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_SQLSERVER_SP_EXECUTESQL)) {
+			return "sql";
+		}
+		if (sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_SQLSERVER_SP_PREPARE) ||
+		    sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_SQLSERVER_SP_EXECUTE) ||
+		    sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_SQLSERVER_SP_PREPEXEC) ||
+		    sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_SQLSERVER_SP_UNPREPARE)) {
+			return "handle";
+		}
+		return "name";
+	}
+	if (sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_MYSQL_PREPARE) ||
+	    sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_ORACLE_EXECUTE_IMMEDIATE) ||
+	    sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_DAMENG_EXEC_SQL_PREPARE)) {
+		return arg_index == 1U ? "sql" : "params";
+	}
+	if (sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_SQLSERVER_SP_PREPARE) ||
+	    sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_SQLSERVER_SP_PREPEXEC)) {
+		return arg_index == 1U ? "params" : (arg_index == 2U ? "sql" : "params");
+	}
+	if (sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_SQLSERVER_SP_EXECUTESQL)) {
+		return "params";
+	}
+	return "params";
 }
 
 static const char *sqlparser_variable_set_public_name(
@@ -312,7 +387,11 @@ static const char *sqlparser_variable_set_public_name(
 		return handle != NULL && handle->dialect == SQLPARSER_DIALECT_ORACLE ? "CONTAINER" : "DATABASE";
 	}
 	if (sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_CURRENT_SCHEMA)) {
-		return handle != NULL && handle->dialect == SQLPARSER_DIALECT_ORACLE ? "CURRENT_SCHEMA" : "SCHEMA";
+		return handle != NULL &&
+			       (handle->dialect == SQLPARSER_DIALECT_ORACLE ||
+			        handle->dialect == SQLPARSER_DIALECT_DAMENG) ?
+			"CURRENT_SCHEMA" :
+			"SCHEMA";
 	}
 	if (sqlparser_variable_set_name_is(stmt, "search_path")) {
 		return "search_path";
@@ -335,6 +414,9 @@ static const char *sqlparser_variable_set_operator(
 	if (sqlparser_variable_set_name_is(stmt, "search_path")) {
 		return "to";
 	}
+	if (sqlparser_variable_set_is_prepared_statement(stmt)) {
+		return NULL;
+	}
 	return "=";
 }
 
@@ -346,6 +428,35 @@ static const char *sqlparser_variable_set_column_keyword(
 	    handle != NULL &&
 	    (handle->dialect == SQLPARSER_DIALECT_MYSQL || handle->dialect == SQLPARSER_DIALECT_SQLSERVER)) {
 		return "use";
+	}
+	if (sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_MYSQL_PREPARE) ||
+	    sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_DAMENG_EXEC_SQL_PREPARE)) {
+		return "prepare";
+	}
+	if (sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_MYSQL_EXECUTE) ||
+	    sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_ORACLE_EXECUTE_IMMEDIATE) ||
+	    sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_DAMENG_EXEC_SQL_EXECUTE)) {
+		return "execute";
+	}
+	if (sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_MYSQL_DEALLOCATE_PREPARE) ||
+	    sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_MYSQL_DROP_PREPARE) ||
+	    sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_DAMENG_EXEC_SQL_DEALLOCATE_PREPARE)) {
+		return "deallocate";
+	}
+	if (sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_SQLSERVER_SP_PREPARE)) {
+		return "sp_prepare";
+	}
+	if (sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_SQLSERVER_SP_EXECUTE)) {
+		return "sp_execute";
+	}
+	if (sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_SQLSERVER_SP_PREPEXEC)) {
+		return "sp_prepexec";
+	}
+	if (sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_SQLSERVER_SP_UNPREPARE)) {
+		return "sp_unprepare";
+	}
+	if (sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_SQLSERVER_SP_EXECUTESQL)) {
+		return "sp_executesql";
 	}
 	return "set";
 }
@@ -414,8 +525,12 @@ static const char *sqlparser_statement_keyword_for_handle(
 	}
 	if (sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_CURRENT_SCHEMA) &&
 	    handle != NULL &&
-	    handle->dialect == SQLPARSER_DIALECT_ORACLE) {
+	    (handle->dialect == SQLPARSER_DIALECT_ORACLE ||
+	     handle->dialect == SQLPARSER_DIALECT_DAMENG)) {
 		return "alter_session";
+	}
+	if (sqlparser_variable_set_is_prepared_statement(stmt)) {
+		return sqlparser_variable_set_column_keyword(handle, stmt);
 	}
 	return "set";
 }
@@ -430,6 +545,9 @@ static const char *sqlparser_variable_set_public_name_at(
 	    handle->dialect == SQLPARSER_DIALECT_ORACLE &&
 	    arg_index == 1U) {
 		return "SERVICE";
+	}
+	if (sqlparser_variable_set_is_prepared_statement(stmt)) {
+		return sqlparser_variable_set_prepared_arg_name(stmt, arg_index);
 	}
 	return sqlparser_variable_set_public_name(handle, stmt);
 }
@@ -447,7 +565,8 @@ static int sqlparser_variable_set_arg_needs_statement_postprocess(
 			handle->dialect == SQLPARSER_DIALECT_SQLSERVER ||
 			handle->dialect == SQLPARSER_DIALECT_ORACLE;
 	}
-	return handle->dialect == SQLPARSER_DIALECT_ORACLE &&
+	return (handle->dialect == SQLPARSER_DIALECT_ORACLE ||
+	        handle->dialect == SQLPARSER_DIALECT_DAMENG) &&
 		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_CURRENT_SCHEMA);
 }
 
@@ -538,6 +657,89 @@ static sqlparser_status_t sqlparser_extract_after_prefix(
 	return SQLPARSER_STATUS_OK;
 }
 
+static sqlparser_status_t sqlparser_decode_variable_set_internal_arg_sql(
+	const char *core_sql,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	char *decoded;
+	char quote;
+	size_t len;
+	size_t pos;
+	size_t end;
+	size_t out_len;
+
+	if (core_sql == NULL || out_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"internal SET argument decoder requires non-NULL arguments");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_sql = NULL;
+	len = strlen(core_sql);
+	pos = 0U;
+	while (pos < len && isspace((unsigned char)core_sql[pos])) {
+		pos++;
+	}
+	if (pos >= len) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "missing internal SET argument");
+		return SQLPARSER_STATUS_PARSE_ERROR;
+	}
+
+	if (core_sql[pos] != '\'' && core_sql[pos] != '"') {
+		end = len;
+		while (end > pos && isspace((unsigned char)core_sql[end - 1U])) {
+			end--;
+		}
+		if (pos >= end) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "missing internal SET argument");
+			return SQLPARSER_STATUS_PARSE_ERROR;
+		}
+		*out_sql = sqlparser_strndup(core_sql + pos, end - pos);
+		if (*out_sql == NULL) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		return SQLPARSER_STATUS_OK;
+	}
+
+	quote = core_sql[pos];
+	pos++;
+	decoded = (char *)malloc(len + 1U);
+	if (decoded == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	out_len = 0U;
+	while (pos < len) {
+		if (core_sql[pos] == quote) {
+			if (pos + 1U < len && core_sql[pos + 1U] == quote) {
+				decoded[out_len++] = quote;
+				pos += 2U;
+				continue;
+			}
+			pos++;
+			while (pos < len && isspace((unsigned char)core_sql[pos])) {
+				pos++;
+			}
+			if (pos != len) {
+				free(decoded);
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "invalid internal SET argument");
+				return SQLPARSER_STATUS_PARSE_ERROR;
+			}
+			decoded[out_len] = '\0';
+			*out_sql = decoded;
+			return SQLPARSER_STATUS_OK;
+		}
+		decoded[out_len++] = core_sql[pos++];
+	}
+
+	free(decoded);
+	sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "unterminated internal SET argument");
+	return SQLPARSER_STATUS_PARSE_ERROR;
+}
+
 static sqlparser_status_t sqlparser_postprocess_variable_set_arg_sql(
 	const sqlparser_handle_t *handle,
 	const PgQuery__VariableSetStmt *stmt,
@@ -557,6 +759,9 @@ static sqlparser_status_t sqlparser_postprocess_variable_set_arg_sql(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	*out_sql = NULL;
+	if (sqlparser_variable_set_is_prepared_statement(stmt)) {
+		return sqlparser_decode_variable_set_internal_arg_sql(core_sql, out_sql, out_error);
+	}
 	if (!sqlparser_variable_set_arg_needs_statement_postprocess(handle, stmt, arg_index)) {
 		return sqlparser_postprocess_handle_sql_fragment(handle, core_sql, field_name, out_sql, out_error);
 	}
@@ -581,6 +786,9 @@ static sqlparser_status_t sqlparser_postprocess_variable_set_arg_sql(
 		prefix = sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_CURRENT_SCHEMA) ?
 			"ALTER SESSION SET CURRENT_SCHEMA = " :
 			"ALTER SESSION SET CONTAINER = ";
+	} else if (handle->dialect == SQLPARSER_DIALECT_DAMENG &&
+	           sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_CURRENT_SCHEMA)) {
+		prefix = "ALTER SESSION SET CURRENT_SCHEMA = ";
 	} else {
 		prefix = "USE ";
 	}
@@ -621,7 +829,8 @@ static const char *sqlparser_select_set_operator_keyword(
 		case PG_QUERY__SET_OPERATION__SETOP_EXCEPT:
 			return build != NULL &&
 				build->handle != NULL &&
-				build->handle->dialect == SQLPARSER_DIALECT_ORACLE ?
+				(build->handle->dialect == SQLPARSER_DIALECT_ORACLE ||
+				 build->handle->dialect == SQLPARSER_DIALECT_DAMENG) ?
 				"minus" :
 				"except";
 		default:

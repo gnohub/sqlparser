@@ -158,6 +158,7 @@ Defined dialects:
 | `SQLPARSER_DIALECT_MYSQL` | MySQL dialect conversion layer for syntax that can be safely mapped to the current AST |
 | `SQLPARSER_DIALECT_ORACLE` | Oracle dialect conversion layer for common SQL syntax that can be safely mapped to the current AST |
 | `SQLPARSER_DIALECT_SQLSERVER` | SQL Server dialect conversion layer for common T-SQL syntax that can be safely mapped to the current AST |
+| `SQLPARSER_DIALECT_DAMENG` | Dameng dialect conversion layer for DM_SQL syntax that can be safely mapped to the current AST |
 
 ### View Structures
 
@@ -290,7 +291,7 @@ Notes:
 
 - Behaves like `sqlparser_parse()`, with dialect and resource-limit configuration.
 - Passing `NULL` for `options` uses PostgreSQL dialect and default resource limits.
-- MySQL, Oracle, and SQL Server dialect input is first converted into parser-compatible SQL, then processed through the unified AST path.
+- MySQL, Oracle, SQL Server, and Dameng dialect input is first converted into parser-compatible SQL, then processed through the unified AST path.
 - Dialect syntax that cannot be safely mapped to the current AST returns `SQLPARSER_STATUS_UNSUPPORTED`.
 
 ### `sqlparser_handle_destroy`
@@ -772,3 +773,4 @@ Notes:
 | `examples/dialect/10_mysql_dialect.c` | MySQL dialect parsing and patch-based rewrite |
 | `examples/dialect/11_oracle_dialect.c` | Oracle dialect parsing and rewrite |
 | `examples/dialect/12_sqlserver_dialect.c` | SQL Server dialect parsing and deparse |
+| `examples/dialect/17_dameng_dialect.c` | Dameng dialect parsing and deparse |
