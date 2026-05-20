@@ -206,7 +206,8 @@ static int verify_success_case(const char *case_id, const char *case_name, const
 	    text_contains_array_values(case_id, case_name, "join_columns", view_json, json_object_get(expect_root, "join_columns")) != 0 ||
 	    text_contains_array_values(case_id, case_name, "where_columns", view_json, json_object_get(expect_root, "where_columns")) != 0 ||
 	    text_contains_array_values(case_id, case_name, "insert_columns", view_json, json_object_get(expect_root, "insert_columns")) != 0 ||
-	    text_contains_array_values(case_id, case_name, "update_columns", view_json, json_object_get(expect_root, "update_columns")) != 0) {
+	    text_contains_array_values(case_id, case_name, "update_columns", view_json, json_object_get(expect_root, "update_columns")) != 0 ||
+	    sqlparser_test_verify_view_expectations(case_id, case_name, view_json, expect_root) != 0) {
 		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
 		return 1;

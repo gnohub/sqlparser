@@ -31,18 +31,19 @@ int main(void)
 	/*
 	 * 第二步：组装统一 patch 列表。
 	 * selector 可以来自 SQL View JSON/C View，也可以由调用方自己的规则生成。
+	 * 对 UPDATE 而言，clause[0] 是 SET 列表，clause[1] 是 WHERE 槽位。
 	 */
 	patch_items[0].op = SQLPARSER_PATCH_REPLACE;
-	patch_items[0].selector = "stmt[0].clause[0]";
+	patch_items[0].selector = "stmt[0].clause[1]";
 	patch_items[0].sql = "id = 1";
 
 	patch_items[1].op = SQLPARSER_PATCH_APPEND_CONDITION;
-	patch_items[1].selector = "stmt[0].clause[0]";
+	patch_items[1].selector = "stmt[0].clause[1]";
 	patch_items[1].bool_operator = SQLPARSER_BOOL_OPERATOR_AND;
 	patch_items[1].sql = "status = 'active'";
 
 	patch_items[2].op = SQLPARSER_PATCH_APPEND_CONDITION;
-	patch_items[2].selector = "stmt[0].clause[0]";
+	patch_items[2].selector = "stmt[0].clause[1]";
 	patch_items[2].bool_operator = SQLPARSER_BOOL_OPERATOR_OR;
 	patch_items[2].sql = "external_id = 'u-1'";
 

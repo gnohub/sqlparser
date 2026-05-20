@@ -457,6 +457,7 @@ SELECT target list 表示 `SELECT` 后面的输出列表。该接口直接作用
 | `SQLPARSER_CLAUSE_KIND_SELECT_LIST` | `select_list` | SELECT 输出列表 |
 | `SQLPARSER_CLAUSE_KIND_WHERE` | `where` | WHERE 条件表达式 |
 | `SQLPARSER_CLAUSE_KIND_ORDER_BY` | `order_by` | ORDER BY 排序表达式列表 |
+| `SQLPARSER_CLAUSE_KIND_SET_LIST` | `set_list` | UPDATE SET 赋值列表 |
 
 通用子句接口用于结构级改写。字段和值归属仍通过 SQL View 的 `objects[].columns[]` 读取。
 

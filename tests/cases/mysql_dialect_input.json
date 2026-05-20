@@ -7,10 +7,18 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users"],
-        "selected_columns": ["id"],
-        "where_columns": ["id"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "id"
+        ],
         "deparse_contains": "LIMIT 5, 10"
       }
     },
@@ -21,11 +29,25 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users", "orders"],
-        "selected_columns": ["id", "name", "order_no"],
-        "join_columns": ["id", "user_id"],
-        "where_columns": ["status"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users",
+          "orders"
+        ],
+        "selected_columns": [
+          "id",
+          "name",
+          "order_no"
+        ],
+        "join_columns": [
+          "id",
+          "user_id"
+        ],
+        "where_columns": [
+          "status"
+        ],
         "deparse_contains": "JOIN orders o"
       }
     },
@@ -36,7 +58,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
+        "statement_types": [
+          "SelectStmt"
+        ],
         "deparse_contains": "SELECT 1"
       }
     },
@@ -47,9 +71,16 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "tables": ["users"],
-        "insert_columns": ["id", "name"],
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "insert_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": "VALUES (1, 'bob'), (2, 'alice')"
       }
     },
@@ -60,11 +91,24 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "tables": ["archive_users", "users"],
-        "selected_columns": ["id", "name"],
-        "where_columns": ["status"],
-        "insert_columns": ["id", "name"],
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "tables": [
+          "archive_users",
+          "users"
+        ],
+        "selected_columns": [
+          "id",
+          "name"
+        ],
+        "where_columns": [
+          "status"
+        ],
+        "insert_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": "INSERT INTO archive_users"
       }
     },
@@ -75,10 +119,19 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["UpdateStmt"],
-        "tables": ["users"],
-        "update_columns": ["name", "status"],
-        "where_columns": ["id"],
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "update_columns": [
+          "name",
+          "status"
+        ],
+        "where_columns": [
+          "id"
+        ],
         "deparse_contains": "UPDATE users SET"
       }
     },
@@ -89,9 +142,16 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["DeleteStmt"],
-        "tables": ["users"],
-        "where_columns": ["id", "status"],
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "where_columns": [
+          "id",
+          "status"
+        ],
         "deparse_contains": "DELETE FROM users"
       }
     },
@@ -102,7 +162,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["CreateStmt"],
+        "statement_types": [
+          "CreateStmt"
+        ],
         "deparse_contains": "CREATE TABLE users"
       }
     },
@@ -113,7 +175,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["AlterTableStmt"],
+        "statement_types": [
+          "AlterTableStmt"
+        ],
         "deparse_contains": "ADD COLUMN age int"
       }
     },
@@ -124,9 +188,17 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["ViewStmt"],
-        "tables": ["v_users", "users"],
-        "selected_columns": ["id", "name"],
+        "statement_types": [
+          "ViewStmt"
+        ],
+        "tables": [
+          "v_users",
+          "users"
+        ],
+        "selected_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": "CREATE VIEW v_users AS"
       }
     },
@@ -137,8 +209,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["DropStmt"],
-        "tables": ["users"],
+        "statement_types": [
+          "DropStmt"
+        ],
+        "tables": [
+          "users"
+        ],
         "deparse_contains": "DROP TABLE users"
       }
     },
@@ -149,7 +225,9 @@
       "expect": {
         "ok": true,
         "statement_count": 2,
-        "statement_types": ["TransactionStmt"],
+        "statement_types": [
+          "TransactionStmt"
+        ],
         "deparse_contains": "COMMIT"
       }
     },
@@ -160,8 +238,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
         "deparse_contains": "'INSERT IGNORE'"
       }
     },
@@ -172,9 +254,15 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users"],
-        "where_columns": ["id"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "where_columns": [
+          "id"
+        ],
         "deparse_contains": "WHERE id = 1"
       }
     },
@@ -185,8 +273,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["use"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "use"
+        ],
         "deparse_contains": "USE analytics",
         "view_contains": "\"name\":\"DATABASE\""
       }
@@ -198,8 +290,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["use"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "use"
+        ],
         "deparse_contains": "USE `analytics-prod`",
         "view_contains": "\"sql\":\"`analytics-prod`\""
       }
@@ -211,9 +307,17 @@
       "expect": {
         "ok": true,
         "statement_count": 2,
-        "statement_types": ["VariableSetStmt", "SelectStmt"],
-        "keywords": ["use", "select"],
-        "tables": ["users"],
+        "statement_types": [
+          "VariableSetStmt",
+          "SelectStmt"
+        ],
+        "keywords": [
+          "use",
+          "select"
+        ],
+        "tables": [
+          "users"
+        ],
         "deparse_contains": "USE `analytics-prod`; SELECT * FROM users",
         "view_contains": "\"sql\":\"`analytics-prod`\""
       }
@@ -225,9 +329,17 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "tables": ["users"],
-        "insert_columns": ["username", "email", "age"],
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "insert_columns": [
+          "username",
+          "email",
+          "age"
+        ],
         "deparse_contains": "VALUES (?, ?, ?)",
         "view_contains": "?",
         "view_not_contains": "$1"
@@ -240,10 +352,18 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["UpdateStmt"],
-        "tables": ["users"],
-        "update_columns": ["email"],
-        "where_columns": ["username"],
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "update_columns": [
+          "email"
+        ],
+        "where_columns": [
+          "username"
+        ],
         "deparse_contains": "email = ?",
         "view_not_contains": "$1"
       }
@@ -255,8 +375,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["prepare"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "prepare"
+        ],
         "deparse_contains": "PREPARE stmt FROM 'SELECT * FROM users WHERE id = ?'",
         "view_contains": "\"sql\":\"'SELECT * FROM users WHERE id = ?'\""
       }
@@ -268,8 +392,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["execute"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "execute"
+        ],
         "deparse_contains": "EXECUTE stmt USING @user_id",
         "view_contains": "\"sql\":\"@user_id\""
       }
@@ -281,8 +409,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["deallocate"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "deallocate"
+        ],
         "deparse_contains": "DEALLOCATE PREPARE stmt",
         "view_contains": "\"name\":\"name\""
       }
@@ -294,8 +426,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["deallocate"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "deallocate"
+        ],
         "deparse_contains": "DROP PREPARE stmt",
         "view_contains": "\"name\":\"name\""
       }
@@ -307,10 +443,20 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users"],
-        "selected_columns": ["id", "name"],
-        "where_columns": ["id", "status"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id",
+          "name"
+        ],
+        "where_columns": [
+          "id",
+          "status"
+        ],
         "deparse_contains": "?",
         "view_not_contains": "$1"
       }
@@ -322,10 +468,18 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users"],
-        "selected_columns": ["id"],
-        "where_columns": ["status"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "status"
+        ],
         "deparse_contains": "?",
         "view_not_contains": "$1"
       }
@@ -337,10 +491,18 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users"],
-        "selected_columns": ["id"],
-        "where_columns": ["name"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "name"
+        ],
         "deparse_contains": "?",
         "view_not_contains": "$1"
       }
@@ -352,9 +514,17 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "tables": ["users"],
-        "insert_columns": ["id", "name", "status"],
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "insert_columns": [
+          "id",
+          "name",
+          "status"
+        ],
         "deparse_contains": "?",
         "view_not_contains": "$1"
       }
@@ -366,9 +536,16 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "tables": ["users"],
-        "insert_columns": ["id", "name"],
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "insert_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": "?",
         "view_not_contains": "$1"
       }
@@ -380,10 +557,19 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["UpdateStmt"],
-        "tables": ["users"],
-        "update_columns": ["name", "status"],
-        "where_columns": ["id"],
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "update_columns": [
+          "name",
+          "status"
+        ],
+        "where_columns": [
+          "id"
+        ],
         "deparse_contains": "?",
         "view_not_contains": "$1"
       }
@@ -395,9 +581,16 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["DeleteStmt"],
-        "tables": ["users"],
-        "where_columns": ["id", "status"],
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "where_columns": [
+          "id",
+          "status"
+        ],
         "deparse_contains": "?",
         "view_not_contains": "$1"
       }
@@ -409,8 +602,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["prepare"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "prepare"
+        ],
         "deparse_contains": "PREPARE stmt FROM 'INSERT INTO users (id, name) VALUES (?, ?)'",
         "view_not_contains": "$1"
       }
@@ -422,8 +619,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["prepare"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "prepare"
+        ],
         "deparse_contains": "PREPARE stmt FROM @sql_text",
         "view_contains": "\"sql\":\"@sql_text\""
       }
@@ -435,10 +636,220 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["execute"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "execute"
+        ],
         "deparse_contains": "EXECUTE stmt USING @id, @name",
         "view_contains": "\"sql\":\"@id, @name\""
+      }
+    },
+    {
+      "id": "M034",
+      "name": "mysql-view-concat-function",
+      "sql": "SELECT CONCAT(first_name, last_name) FROM users WHERE id = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "first_name",
+            "keyword": "select",
+            "clause_kind": "select_list",
+            "target_path": [
+              {
+                "kind": "function",
+                "name": "CONCAT",
+                "arg_index": 0
+              }
+            ]
+          },
+          {
+            "table": "users",
+            "name": "last_name",
+            "keyword": "select",
+            "clause_kind": "select_list",
+            "target_path": [
+              {
+                "kind": "function",
+                "name": "CONCAT",
+                "arg_index": 1
+              }
+            ]
+          },
+          {
+            "table": "users",
+            "name": "id",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "1",
+            "value_is_null": true
+          }
+        ],
+        "view_not_contains": [
+          "\"sql\":\"?\""
+        ]
+      }
+    },
+    {
+      "id": "M035",
+      "name": "mysql-view-case-expression",
+      "sql": "SELECT CASE WHEN state = 1 THEN name ELSE fallback_name END FROM users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "state",
+            "keyword": "select",
+            "clause_kind": "select_list"
+          },
+          {
+            "table": "users",
+            "name": "name",
+            "keyword": "select",
+            "clause_kind": "select_list"
+          }
+        ]
+      }
+    },
+    {
+      "id": "M036",
+      "name": "mysql-view-group-having-order",
+      "sql": "SELECT dept, COUNT(id) FROM users GROUP BY dept HAVING COUNT(id) > 1 ORDER BY dept",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "clauses": [
+          {
+            "kind": "group_by",
+            "selector_is_null": true
+          },
+          {
+            "kind": "having",
+            "selector_is_null": true
+          }
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "dept",
+            "keyword": "group",
+            "clause_kind": "group_by"
+          },
+          {
+            "table": "users",
+            "name": "id",
+            "keyword": "having",
+            "clause_kind": "having"
+          },
+          {
+            "table": "users",
+            "name": "dept",
+            "keyword": "order",
+            "clause_kind": "order_by"
+          }
+        ]
+      }
+    },
+    {
+      "id": "M037",
+      "name": "mysql-view-update-question-binds",
+      "sql": "UPDATE users SET ip = ? WHERE id = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "ip",
+            "keyword": "set",
+            "clause_kind": "set_list",
+            "bind": "1",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "id",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "2",
+            "value_is_null": true
+          }
+        ],
+        "view_not_contains": [
+          "\"sql\":\"?\""
+        ]
+      }
+    },
+    {
+      "id": "M038",
+      "name": "mysql-view-join-on",
+      "sql": "SELECT u.name FROM users u JOIN orders o ON u.id = o.user_id WHERE o.status = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users",
+          "orders"
+        ],
+        "clauses": [
+          {
+            "kind": "on",
+            "selector_is_null": true
+          }
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "id",
+            "keyword": "on",
+            "clause_kind": "on",
+            "operator": "="
+          },
+          {
+            "table": "orders",
+            "name": "user_id",
+            "keyword": "on",
+            "clause_kind": "on"
+          },
+          {
+            "table": "orders",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "1",
+            "value_is_null": true
+          }
+        ]
       }
     },
     {

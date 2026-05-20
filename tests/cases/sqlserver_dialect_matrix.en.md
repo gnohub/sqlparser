@@ -67,6 +67,11 @@ This file records regression cases for the SQL Server dialect conversion layer. 
 | S059 | `EXEC sp_prepare` + INSERT | prepared insert SQL text and parameter definition |
 | S060 | `EXEC sp_execute` + named values | prepared handle execution and named argument values |
 | S061 | `EXEC sp_executesql` + UPDATE | parameterized dynamic UPDATE SQL text and argument values |
+| S062 | `TOP` + direct column + `@` parameter | TOP query, direct output field, WHERE bind, and ORDER BY attribution |
+| S063 | `+` expression output | ordinary expression `target_path`, operator name, and output-item attribution |
+| S064 | `CASE` expression output | `target_path` attribution for fields inside `CASE WHEN` |
+| S065 | `GROUP BY` + `HAVING` + `ORDER BY` | aggregate output and non-output clause attribution |
+| S066 | `UPDATE` + multiple `@` parameters | update/where clauses, bind fields, and null values |
 
 ## Explicitly Unsupported Cases
 

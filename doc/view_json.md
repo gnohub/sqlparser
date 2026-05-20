@@ -59,15 +59,16 @@ sqlparser_object_column_at(&object, 0, &column, &err);
 | `index` | 语句索引，0 基 |
 | `keyword` | 当前语句的主关键字 |
 | `keywords` | 当前语句中识别到的关键字集合 |
-| `clauses` | 可写语句级子句数组；槽位为空时 `sql` 为 `null` |
+| `clauses` | 语句级子句数组；可写子句带 selector，只读归属子句的 selector 为 `null` |
 | `objects` | SQL 中出现的表、视图或可归属对象 |
 
 ## 子句结构
 
-`clauses` 表示 statement 级可改写结构，不表示字段归属。当前可写子句包括 `select_list`、`where` 和 `order_by`。
+`clauses` 表示 statement 级结构。当前可写子句包括 `select_list`、`set_list`、`where` 和 `order_by`。`on`、`group_by`、`having` 等只读子句用于字段归属，`selector` 为 `null`，不能直接作为 patch 目标。
 
 ```json
 {
+  "id": 2,
   "kind": "where",
   "selector": "stmt[0].clause[1]",
   "sql": "status = 'active'"
@@ -78,11 +79,12 @@ sqlparser_object_column_at(&object, 0, &column, &err);
 
 | 字段 | 说明 |
 | --- | --- |
-| `kind` | 子句类型，例如 `select_list`、`where`、`order_by` |
-| `selector` | 可用于 patch 的子句 selector |
+| `id` | 子句编号，1 基；`objects[].columns[].clause_id` 使用该编号引用子句 |
+| `kind` | 子句类型，例如 `select_list`、`set_list`、`where`、`order_by`、`on` |
+| `selector` | 可用于 patch 的子句 selector；只读子句为 `null` |
 | `sql` | 子句内容；当前语句可新增该子句但尚未出现时为 `null` |
 
-`clauses` 负责结构级改写，例如替换 SELECT 输出列表、新增 WHERE、追加 WHERE 条件或新增 ORDER BY。`objects[].columns[]` 负责字段和值归属，两者粒度不同。
+可写 `clauses` 负责结构级改写，例如替换 SELECT 输出列表、替换 UPDATE SET 列表、新增 WHERE、追加 WHERE 条件或新增 ORDER BY。`objects[].columns[]` 通过 `clause_id` 指向 `clauses[].id`。
 
 ## 对象结构
 
@@ -121,9 +123,13 @@ sqlparser_object_column_at(&object, 0, &column, &err);
   "name": "status",
   "keyword": "where",
   "operator": "=",
+  "bind": null,
+  "bind_selector": null,
   "selector": "stmt[0].name[3]",
   "target_list_selector": null,
   "target_selector": null,
+  "clause_id": 2,
+  "target_path": [],
   "value": {
     "sql": "'active'",
     "selector": "stmt[0].value[7]"
@@ -138,13 +144,45 @@ sqlparser_object_column_at(&object, 0, &column, &err);
 | `name` | 字段名；`SELECT *` 时为 `"*"` |
 | `keyword` | 字段出现的 SQL 子句，例如 `select`、`where`、`set`、`on` |
 | `operator` | 与字段关联的操作符；没有时为 `null` |
+| `bind` | 字段值是预编译占位符时输出归一化 bind 名称；否则为 `null` |
+| `bind_selector` | bind 对应值表达式的 selector；没有 bind 时为 `null` |
 | `selector` | 字段名 selector；没有可写节点时为 `null` |
 | `target_list_selector` | 字段位于 SELECT 输出列表时，指向整个 target list；否则为 `null` |
 | `target_selector` | 字段位于 SELECT 输出列表时，指向单个输出项；否则为 `null` |
+| `clause_id` | 字段所在 `clauses[]` 子句编号，1 基；无法稳定归属时为 `null` |
+| `target_path` | 字段在 SELECT 输出项中的函数或表达式包裹路径；非 SELECT 输出字段为 `[]` |
 | `value` | 与字段直接关联的 SQL 值片段；没有时为 `null` |
 
 `value.sql` 是可回写的 SQL 片段，不做类型推断。无法安全渲染为独立 SQL 片段的复杂表达式会保持 `value: null`，字段本身仍会输出。
 `value.selector` 定位的是整个值表达式，可用于把字面量、bind 参数或表达式替换为新的 SQL 片段。
+
+预编译占位符会输出结构化 `bind`，并保持 `value: null`。例如 Oracle `IP = :aaa` 输出 `bind: "aaa"`；SQL Server `@aaa` 输出 `bind: "aaa"`；PostgreSQL `$1` 输出 `bind: "1"`；JDBC 风格 `?` 按出现顺序输出 `bind: "1"`、`bind: "2"`。需要改写 bind 时使用 `bind_selector`。
+
+`target_path` 是有序数组，按从外到内的层级排列。数组顺序就是层级关系，不需要额外的排序字段。
+
+每个元素包含：
+
+| 字段 | 说明 |
+| --- | --- |
+| `kind` | `function` 或 `expression` |
+| `name` | 函数名、操作符或表达式类别；无法稳定命名时为 `null` |
+| `arg_index` | 当前层中下一层表达式所在的 0 基参数或操作数序号 |
+
+示例：
+
+| SQL 片段 | 字段 | `target_path` |
+| --- | --- | --- |
+| `SELECT name FROM users` | `name` | `[]` |
+| `SELECT * FROM users` | `*` | `[]` |
+| `SELECT UPPER(name) FROM users` | `name` | `[{"kind":"function","name":"UPPER","arg_index":0}]` |
+| `SELECT LOW(UPPER(name)) FROM users` | `name` | `[{"kind":"function","name":"LOW","arg_index":0},{"kind":"function","name":"UPPER","arg_index":0}]` |
+| `SELECT CONCAT(UPPER(first_name), last_name) FROM users` | `first_name` | `[{"kind":"function","name":"CONCAT","arg_index":0},{"kind":"function","name":"UPPER","arg_index":0}]` |
+| `SELECT CONCAT(UPPER(first_name), last_name) FROM users` | `last_name` | `[{"kind":"function","name":"CONCAT","arg_index":1}]` |
+| `SELECT first_name || last_name FROM users` | `first_name` | `[{"kind":"expression","name":"||","arg_index":0}]` |
+| `SELECT first_name || last_name FROM users` | `last_name` | `[{"kind":"expression","name":"||","arg_index":1}]` |
+| `SELECT SUM(amount) OVER (PARTITION BY dept ORDER BY created_at) FROM users` | `amount` | `[{"kind":"function","name":"SUM","arg_index":0}]` |
+| `SELECT SUM(amount) OVER (PARTITION BY dept ORDER BY created_at) FROM users` | `dept` | `[{"kind":"expression","name":"window_partition","arg_index":0}]` |
+| `SELECT SUM(amount) OVER (PARTITION BY dept ORDER BY created_at) FROM users` | `created_at` | `[{"kind":"expression","name":"window_order","arg_index":0}]` |
 
 ## INSERT 行数据
 
@@ -158,12 +196,16 @@ sqlparser_object_column_at(&object, 0, &column, &err);
       "column": "id",
       "column_index": 0,
       "sql": "1",
+      "bind": null,
+      "bind_selector": null,
       "selector": "stmt[0].insert_cell[0][0]"
     },
     {
       "column": "name",
       "column_index": 1,
       "sql": "'bob'",
+      "bind": null,
+      "bind_selector": null,
       "selector": "stmt[0].insert_cell[0][1]"
     }
   ]
@@ -308,14 +350,26 @@ INSERT INTO users (id, name) VALUES (1, 'xiaohong'), (2, 'xiaoming')
               "name": "id",
               "keyword": "insert",
               "operator": null,
+              "bind": null,
+              "bind_selector": null,
               "selector": "stmt[0].name[0]",
+              "target_list_selector": null,
+              "target_selector": null,
+              "clause_id": null,
+              "target_path": [],
               "value": null
             },
             {
               "name": "name",
               "keyword": "insert",
               "operator": null,
+              "bind": null,
+              "bind_selector": null,
               "selector": "stmt[0].name[1]",
+              "target_list_selector": null,
+              "target_selector": null,
+              "clause_id": null,
+              "target_path": [],
               "value": null
             }
           ],
@@ -327,12 +381,16 @@ INSERT INTO users (id, name) VALUES (1, 'xiaohong'), (2, 'xiaoming')
                   "column": "id",
                   "column_index": 0,
                   "sql": "1",
+                  "bind": null,
+                  "bind_selector": null,
                   "selector": "stmt[0].insert_cell[0][0]"
                 },
                 {
                   "column": "name",
                   "column_index": 1,
                   "sql": "'xiaohong'",
+                  "bind": null,
+                  "bind_selector": null,
                   "selector": "stmt[0].insert_cell[0][1]"
                 }
               ]
@@ -344,12 +402,16 @@ INSERT INTO users (id, name) VALUES (1, 'xiaohong'), (2, 'xiaoming')
                   "column": "id",
                   "column_index": 0,
                   "sql": "2",
+                  "bind": null,
+                  "bind_selector": null,
                   "selector": "stmt[0].insert_cell[1][0]"
                 },
                 {
                   "column": "name",
                   "column_index": 1,
                   "sql": "'xiaoming'",
+                  "bind": null,
+                  "bind_selector": null,
                   "selector": "stmt[0].insert_cell[1][1]"
                 }
               ]

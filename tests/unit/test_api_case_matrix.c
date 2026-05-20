@@ -245,7 +245,8 @@ static int verify_success_case(
 	    text_contains_array_values(case_name, "filter_columns", view_json, json_object_get(expect_root, "filter_columns")) != 0 ||
 	    text_contains_array_values(case_name, "insert_columns", view_json, json_object_get(expect_root, "insert_columns")) != 0 ||
 	    text_contains_array_values(case_name, "update_columns", view_json, json_object_get(expect_root, "update_columns")) != 0 ||
-	    text_contains_array_values(case_name, "all_referenced_columns", view_json, json_object_get(expect_root, "all_referenced_columns")) != 0) {
+	    text_contains_array_values(case_name, "all_referenced_columns", view_json, json_object_get(expect_root, "all_referenced_columns")) != 0 ||
+	    sqlparser_test_verify_view_expectations(NULL, case_name, view_json, expect_root) != 0) {
 		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
 		return 1;

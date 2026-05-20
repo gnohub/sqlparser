@@ -1135,7 +1135,35 @@ static int test_where_clause_sql_rewrite_api(void)
 	if (expect_status_ok(rc, &error, "update without where parse should succeed") != 0) {
 		return 1;
 	}
+	rc = sqlparser_statement_clause_count(handle, 0U, &clause_count, &error);
+	if (expect_status_ok(rc, &error, "update clause count should succeed") != 0 ||
+	    expect_true(clause_count == 2U, "update should expose set_list and where clauses") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_clause_sql(handle, 0U, 0U, &clause_sql, &error);
+	if (expect_status_ok(rc, &error, "update set_list clause SQL should succeed") != 0 ||
+	    expect_true(clause_sql != NULL && strstr(clause_sql, "name") != NULL && strstr(clause_sql, "'bob'") != NULL,
+	                "update set_list clause should contain assignment") != 0) {
+		sqlparser_string_free(clause_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(clause_sql);
+	clause_sql = NULL;
+	rc = sqlparser_statement_set_clause_sql(handle, 0U, 0U, "name = 'bob', age = 18", &error);
+	if (expect_status_ok(rc, &error, "update set_list replacement should succeed") != 0 ||
+	    expect_deparse_reparse_ok(handle, "update set_list replacement should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
 	rc = sqlparser_selector_parse("stmt[0].clause[0]", &selector, &error);
+	if (expect_status_ok(rc, &error, "set_list clause selector parse should succeed") != 0 ||
+	    expect_true(selector.kind == SQLPARSER_SELECTOR_KIND_CLAUSE, "set_list selector kind should be clause") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_selector_parse("stmt[0].clause[1]", &selector, &error);
 	if (expect_status_ok(rc, &error, "clause selector parse should succeed") != 0 ||
 	    expect_true(selector.kind == SQLPARSER_SELECTOR_KIND_CLAUSE, "selector kind should be clause") != 0) {
 		sqlparser_handle_destroy(handle);
@@ -1164,6 +1192,7 @@ static int test_where_clause_sql_rewrite_api(void)
 	}
 	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
 	if (expect_status_ok(rc, &error, "update where deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "age = 18") != NULL, "update deparse should contain added SET assignment") != 0 ||
 	    expect_true(strstr(deparsed_sql, "WHERE") != NULL, "update deparse should contain WHERE") != 0 ||
 	    expect_true(strstr(deparsed_sql, "external_id") != NULL, "update deparse should contain OR condition") != 0) {
 		sqlparser_string_free(deparsed_sql);
@@ -2355,6 +2384,857 @@ static int test_sql_view_json_and_patch_api(void)
 	return 0;
 }
 
+static int json_string_is(json_t *object, const char *key, const char *expected)
+{
+	const char *value;
+
+	if (!json_is_object(object) || key == NULL || expected == NULL) {
+		return 0;
+	}
+	value = json_string_value(json_object_get(object, key));
+	return value != NULL && strcmp(value, expected) == 0;
+}
+
+static int json_integer_is(json_t *object, const char *key, json_int_t expected)
+{
+	json_t *value;
+
+	if (!json_is_object(object) || key == NULL) {
+		return 0;
+	}
+	value = json_object_get(object, key);
+	return json_is_integer(value) && json_integer_value(value) == expected;
+}
+
+static int json_key_is_null(json_t *object, const char *key)
+{
+	return json_is_object(object) && json_is_null(json_object_get(object, key));
+}
+
+static int json_array_length_is(json_t *object, const char *key, size_t expected)
+{
+	json_t *value;
+
+	if (!json_is_object(object) || key == NULL) {
+		return 0;
+	}
+	value = json_object_get(object, key);
+	return json_is_array(value) && json_array_size(value) == expected;
+}
+
+static int json_target_path_entry_is(
+	json_t *column,
+	size_t index,
+	const char *kind,
+	const char *name,
+	json_int_t arg_index)
+{
+	json_t *path;
+	json_t *entry;
+
+	if (!json_is_object(column) || kind == NULL) {
+		return 0;
+	}
+	path = json_object_get(column, "target_path");
+	if (!json_is_array(path) || index >= json_array_size(path)) {
+		return 0;
+	}
+	entry = json_array_get(path, index);
+	if (!json_string_is(entry, "kind", kind)) {
+		return 0;
+	}
+	if (name != NULL) {
+		if (!json_string_is(entry, "name", name)) {
+			return 0;
+		}
+	} else if (!json_key_is_null(entry, "name")) {
+		return 0;
+	}
+	return json_integer_is(entry, "arg_index", arg_index);
+}
+
+static int json_array_contains_string_value(json_t *array, const char *expected)
+{
+	json_t *item;
+	size_t index;
+
+	if (!json_is_array(array) || expected == NULL) {
+		return 0;
+	}
+	json_array_foreach(array, index, item)
+	{
+		if (json_is_string(item) && strcmp(json_string_value(item), expected) == 0) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static int expect_view_clause_ids(json_t *statement)
+{
+	json_t *clauses;
+	json_t *clause;
+	size_t index;
+
+	clauses = json_object_get(statement, "clauses");
+	if (expect_true(json_is_array(clauses), "view clauses should be an array") != 0) {
+		return 1;
+	}
+	json_array_foreach(clauses, index, clause)
+	{
+		if (expect_true(json_integer_is(clause, "id", (json_int_t)index + 1), "view clause id should match clause_id numbering") != 0) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static json_t *find_view_column_json(
+	json_t *statement,
+	const char *table_name,
+	const char *column_name,
+	const char *keyword,
+	size_t skip)
+{
+	json_t *objects;
+	json_t *object;
+	size_t object_index;
+
+	if (!json_is_object(statement) || column_name == NULL) {
+		return NULL;
+	}
+	objects = json_object_get(statement, "objects");
+	json_array_foreach(objects, object_index, object)
+	{
+		json_t *columns;
+		json_t *column;
+		const char *object_table;
+		size_t column_index;
+
+		object_table = json_string_value(json_object_get(object, "table"));
+		if (table_name != NULL && (object_table == NULL || strcmp(object_table, table_name) != 0)) {
+			continue;
+		}
+		columns = json_object_get(object, "columns");
+		json_array_foreach(columns, column_index, column)
+		{
+			if (!json_string_is(column, "name", column_name)) {
+				continue;
+			}
+			if (keyword != NULL && !json_string_is(column, "keyword", keyword)) {
+				continue;
+			}
+			if (skip > 0U) {
+				skip--;
+				continue;
+			}
+			return column;
+		}
+	}
+	return NULL;
+}
+
+static int view_json_parse_statement(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	json_t **out_root,
+	json_t **out_statement)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	json_error_t json_error;
+	char *view_json;
+	int rc;
+
+	if (out_root == NULL || out_statement == NULL) {
+		fprintf(stderr, "FAIL: output JSON arguments must not be NULL\n");
+		return 1;
+	}
+	*out_root = NULL;
+	*out_statement = NULL;
+	handle = NULL;
+	view_json = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "view semantics parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
+	sqlparser_handle_destroy(handle);
+	if (expect_status_ok(rc, &error, "view semantics JSON export should succeed") != 0) {
+		return 1;
+	}
+	*out_root = json_loads(view_json, 0, &json_error);
+	sqlparser_string_free(view_json);
+	if (expect_true(*out_root != NULL, "view semantics JSON should decode") != 0) {
+		return 1;
+	}
+	*out_statement = json_array_get(json_object_get(*out_root, "statements"), 0U);
+	if (expect_true(json_is_object(*out_statement), "view semantics statement should exist") != 0) {
+		json_decref(*out_root);
+		*out_root = NULL;
+		*out_statement = NULL;
+		return 1;
+	}
+	if (expect_view_clause_ids(*out_statement) != 0) {
+		json_decref(*out_root);
+		*out_root = NULL;
+		*out_statement = NULL;
+		return 1;
+	}
+	return 0;
+}
+
+static int expect_view_column_shape(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	const char *table_name,
+	const char *column_name,
+	const char *keyword,
+	const char *path_kind,
+	const char *path_name,
+	int has_path_arg_index,
+	json_int_t path_arg_index)
+{
+	json_t *root;
+	json_t *statement;
+	json_t *column;
+	int failed;
+
+	root = NULL;
+	statement = NULL;
+	if (view_json_parse_statement(dialect, sql, &root, &statement) != 0) {
+		return 1;
+	}
+	column = find_view_column_json(statement, table_name, column_name, keyword, 0U);
+	failed = expect_true(column != NULL, "view column shape should exist") != 0;
+	if (!failed && path_kind != NULL &&
+	    strcmp(path_kind, "direct_column") != 0 &&
+	    strcmp(path_kind, "qualified_star") != 0 &&
+	    strcmp(path_kind, "star") != 0 &&
+	    strcmp(path_kind, "not_output") != 0) {
+		failed = expect_true(
+			json_target_path_entry_is(column, 0U, path_kind, path_name, has_path_arg_index ? path_arg_index : 0),
+			"view column target_path mismatch") != 0;
+	} else if (!failed) {
+		failed = expect_true(json_array_length_is(column, "target_path", 0U), "view column target_path should be empty") != 0;
+	}
+	json_decref(root);
+	return failed ? 1 : 0;
+}
+
+static int test_sql_view_bind_fields(void)
+{
+	struct bind_case {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *set_bind;
+		const char *where_bind;
+		const char *set_value_sql;
+	};
+	static const struct bind_case cases[] = {
+		{ SQLPARSER_DIALECT_POSTGRESQL, "UPDATE servers SET ip = $1 WHERE id = $2", "\"bind\":\"1\"", "\"bind\":\"2\"", "\"sql\":\"$1\"" },
+		{ SQLPARSER_DIALECT_MYSQL, "UPDATE servers SET ip = ? WHERE id = ?", "\"bind\":\"1\"", "\"bind\":\"2\"", "\"sql\":\"?\"" },
+		{ SQLPARSER_DIALECT_ORACLE, "UPDATE SERVERS SET IP = :aaa WHERE ID = :id", "\"bind\":\"aaa\"", "\"bind\":\"id\"", "\"sql\":\":aaa\"" },
+		{ SQLPARSER_DIALECT_SQLSERVER, "UPDATE dbo.servers SET ip = @aaa WHERE id = @id", "\"bind\":\"aaa\"", "\"bind\":\"id\"", "\"sql\":\"@aaa\"" },
+		{ SQLPARSER_DIALECT_DAMENG, "UPDATE servers SET ip = :aaa WHERE id = :id", "\"bind\":\"aaa\"", "\"bind\":\"id\"", "\"sql\":\":aaa\"" }
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	size_t index;
+
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		sqlparser_handle_t *handle;
+		char *view_json;
+		char *deparsed_sql;
+		const char *replacement_set_list;
+		int rc;
+
+		handle = NULL;
+		view_json = NULL;
+		deparsed_sql = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[index].dialect;
+		rc = sqlparser_parse_with_options(cases[index].sql, &options, &handle, &error);
+		if (expect_status_ok(rc, &error, "bind field parse should succeed") != 0) {
+			return 1;
+		}
+		rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
+		if (expect_status_ok(rc, &error, "bind field view JSON should export") != 0 ||
+		    expect_true(strstr(view_json, "\"kind\":\"set_list\"") != NULL, "UPDATE should expose set_list clause") != 0 ||
+		    expect_true(strstr(view_json, cases[index].set_bind) != NULL, "SET bind should be exposed without marker") != 0 ||
+		    expect_true(strstr(view_json, cases[index].where_bind) != NULL, "WHERE bind should be exposed without marker") != 0 ||
+		    expect_true(strstr(view_json, "\"bind_selector\":\"stmt[0].assignment[0]\"") != NULL, "SET bind selector should target assignment") != 0 ||
+		    expect_true(strstr(view_json, cases[index].set_value_sql) == NULL, "bind columns should not expose placeholder as value SQL") != 0) {
+			sqlparser_string_free(view_json);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(view_json);
+		view_json = NULL;
+
+		replacement_set_list = "ip = :aaa, host = :host";
+		if (cases[index].dialect == SQLPARSER_DIALECT_POSTGRESQL) {
+			replacement_set_list = "ip = $1, host = $3";
+		} else if (cases[index].dialect == SQLPARSER_DIALECT_MYSQL) {
+			replacement_set_list = "ip = ?, host = ?";
+		} else if (cases[index].dialect == SQLPARSER_DIALECT_SQLSERVER) {
+			replacement_set_list = "ip = @aaa, host = @host";
+		}
+		rc = sqlparser_statement_set_clause_sql(handle, 0U, 0U, replacement_set_list, &error);
+		if (expect_status_ok(rc, &error, "bind SET list replacement should succeed") != 0 ||
+		    expect_deparse_reparse_ok(handle, "bind SET list replacement should produce parseable SQL") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+		if (expect_status_ok(rc, &error, "bind SET list deparse should succeed") != 0 ||
+		    expect_true(strstr(deparsed_sql, "host") != NULL, "bind SET list deparse should contain added assignment") != 0) {
+			sqlparser_string_free(deparsed_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+	}
+
+	{
+		const char *sql =
+			"SELECT IP, AREACODE, AREANAME, STATE, MSTSCPORT, NTUID, NTPWD,WORKER, "
+			"WEBSITE,MSDEPLOYPORT, \"UID\", PWD, KEY_ENCRYPTION, MODIFYTIME "
+			"FROM (SELECT a.*, ROWNUM RN FROM SERVERS a WHERE ROWNUM <= :endRow) "
+			"WHERE RN > :startRow";
+		sqlparser_handle_t *handle;
+		char *view_json;
+		int rc;
+
+		handle = NULL;
+		view_json = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = SQLPARSER_DIALECT_ORACLE;
+		rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+		if (expect_status_ok(rc, &error, "oracle rownum pagination bind parse should succeed") != 0) {
+			return 1;
+		}
+		rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
+		if (expect_status_ok(rc, &error, "oracle rownum pagination bind view JSON should export") != 0 ||
+		    expect_true(strstr(view_json, "\"table\":\"servers\"") != NULL, "oracle rownum pagination should expose base table") != 0 ||
+		    expect_true(strstr(view_json, "\"name\":\"UID\"") != NULL, "oracle rownum pagination should preserve quoted identifier case") != 0 ||
+		    expect_true(strstr(view_json, "\"name\":\"*\"") != NULL, "oracle rownum pagination should expose scoped star") != 0 ||
+		    expect_true(strstr(view_json, "\"bind\":\"endRow\"") != NULL, "oracle rownum pagination should expose endRow bind") != 0 ||
+		    expect_true(strstr(view_json, "\"bind\":\"startRow\"") != NULL, "oracle rownum pagination should expose startRow bind") != 0 ||
+		    expect_true(strstr(view_json, "\"sql\":\":endRow\"") == NULL, "oracle rownum bind should not be exposed as value SQL") != 0 ||
+		    expect_true(strstr(view_json, "\"sql\":\":startRow\"") == NULL, "oracle rownum bind should not be exposed as value SQL") != 0) {
+			sqlparser_string_free(view_json);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+	}
+
+	return 0;
+}
+
+static int test_sql_view_column_semantics_json(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *table_name;
+		const char *bind_name;
+	} dialect_cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT name, UPPER(name), first_name || last_name FROM users WHERE id = 1 ORDER BY created_at",
+			"users",
+			NULL
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"SELECT name, UPPER(name), CONCAT(first_name, last_name) FROM users WHERE id = ? ORDER BY created_at",
+			"users",
+			"1"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"SELECT name, UPPER(name), first_name || last_name FROM KDES.USERS WHERE id = :id ORDER BY created_at",
+			"users",
+			"id"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"SELECT [name], UPPER([name]), [first_name] + [last_name] FROM [dbo].[users] WHERE [id] = @id ORDER BY [created_at]",
+			"users",
+			"id"
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"SELECT name, UPPER(name), first_name || last_name FROM KDES.USERS WHERE id = :id ORDER BY created_at",
+			"users",
+			"id"
+		}
+	};
+	json_t *root;
+	json_t *statement;
+	json_t *column;
+	json_t *clauses;
+	json_t *on_clause;
+	size_t index;
+
+	root = NULL;
+	statement = NULL;
+	if (view_json_parse_statement(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "SELECT name, UPPER(name), first_name || last_name, CASE WHEN state = 1 THEN name END, * "
+		    "FROM users WHERE id = 1 ORDER BY created_at",
+		    &root,
+		    &statement) != 0) {
+		return 1;
+	}
+	column = find_view_column_json(statement, "users", "name", "select", 0U);
+	if (expect_true(column != NULL, "direct SELECT column should exist") != 0 ||
+	    expect_true(json_integer_is(column, "clause_id", 1), "direct SELECT column clause_id should be 1") != 0 ||
+	    expect_true(json_array_length_is(column, "target_path", 0U), "direct SELECT column target_path should be empty") != 0) {
+		json_decref(root);
+		return 1;
+	}
+	column = find_view_column_json(statement, "users", "name", "select", 1U);
+	if (expect_true(column != NULL, "function SELECT column should exist") != 0 ||
+	    expect_true(json_array_length_is(column, "target_path", 1U), "function target_path should contain one entry") != 0 ||
+	    expect_true(json_target_path_entry_is(column, 0U, "function", "UPPER", 0), "function target_path should be UPPER") != 0) {
+		json_decref(root);
+		return 1;
+	}
+	column = find_view_column_json(statement, "users", "first_name", "select", 0U);
+	if (expect_true(column != NULL, "expression first column should exist") != 0 ||
+	    expect_true(json_target_path_entry_is(column, 0U, "expression", "||", 0), "expression first target_path should be || arg 0") != 0) {
+		json_decref(root);
+		return 1;
+	}
+	column = find_view_column_json(statement, "users", "last_name", "select", 0U);
+	if (expect_true(column != NULL, "expression second column should exist") != 0 ||
+	    expect_true(json_target_path_entry_is(column, 0U, "expression", "||", 1), "expression second target_path should be || arg 1") != 0) {
+		json_decref(root);
+		return 1;
+	}
+	column = find_view_column_json(statement, "users", "state", "select", 0U);
+	if (expect_true(column != NULL, "CASE expression condition column should exist") != 0 ||
+	    expect_true(json_target_path_entry_is(column, 0U, "expression", "case_when", 0), "CASE target_path should start with case_when") != 0) {
+		json_decref(root);
+		return 1;
+	}
+	column = find_view_column_json(statement, "users", "*", "select", 0U);
+	if (expect_true(column != NULL, "unqualified star column should exist") != 0 ||
+	    expect_true(json_array_length_is(column, "target_path", 0U), "star target_path should be empty") != 0) {
+		json_decref(root);
+		return 1;
+	}
+	column = find_view_column_json(statement, "users", "id", "where", 0U);
+	if (expect_true(column != NULL, "WHERE column should exist") != 0 ||
+	    expect_true(json_integer_is(column, "clause_id", 2), "WHERE column clause_id should be 2") != 0 ||
+	    expect_true(json_array_length_is(column, "target_path", 0U), "WHERE target_path should be empty") != 0) {
+		json_decref(root);
+		return 1;
+	}
+	column = find_view_column_json(statement, "users", "created_at", "order", 0U);
+	if (expect_true(column != NULL, "ORDER BY column should exist") != 0 ||
+	    expect_true(json_integer_is(column, "clause_id", 3), "ORDER BY column clause_id should be 3") != 0) {
+		json_decref(root);
+		return 1;
+	}
+	json_decref(root);
+
+	root = NULL;
+	statement = NULL;
+	if (view_json_parse_statement(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "SELECT u.* FROM public.users u",
+		    &root,
+		    &statement) != 0) {
+		return 1;
+	}
+	column = find_view_column_json(statement, "users", "*", "select", 0U);
+	if (expect_true(column != NULL, "qualified star column should exist") != 0) {
+		json_decref(root);
+		return 1;
+	}
+	json_decref(root);
+
+	root = NULL;
+	statement = NULL;
+	if (view_json_parse_statement(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "SELECT name FROM (SELECT name FROM users WHERE id = 1) x",
+		    &root,
+		    &statement) != 0) {
+		return 1;
+	}
+	column = find_view_column_json(statement, "users", "name", "select", 0U);
+	if (expect_true(column != NULL, "outer direct column should exist") != 0 ||
+	    expect_true(json_is_integer(json_object_get(column, "clause_id")), "outer direct column clause_id should be set") != 0) {
+		json_decref(root);
+		return 1;
+	}
+	column = find_view_column_json(statement, "users", "name", "select", 1U);
+	if (expect_true(column != NULL, "inner direct column should exist") != 0 ||
+	    expect_true(json_is_integer(json_object_get(column, "clause_id")), "inner direct column clause_id should be set") != 0) {
+		json_decref(root);
+		return 1;
+	}
+	json_decref(root);
+
+	root = NULL;
+	statement = NULL;
+	if (view_json_parse_statement(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "SELECT u.name FROM users u JOIN orders o ON u.id = o.user_id WHERE o.status = 'paid'",
+		    &root,
+		    &statement) != 0) {
+		return 1;
+	}
+	clauses = json_object_get(statement, "clauses");
+	on_clause = NULL;
+	json_array_foreach(clauses, index, on_clause)
+	{
+		if (json_string_is(on_clause, "kind", "on")) {
+			break;
+		}
+		on_clause = NULL;
+	}
+	if (expect_true(on_clause != NULL, "JOIN ON clause should be exposed in JSON") != 0 ||
+	    expect_true(json_key_is_null(on_clause, "selector"), "JOIN ON clause selector should be null") != 0 ||
+	    expect_true(json_string_value(json_object_get(on_clause, "sql")) != NULL, "JOIN ON clause SQL should be available") != 0) {
+		json_decref(root);
+		return 1;
+	}
+	column = find_view_column_json(statement, "users", "id", "on", 0U);
+	if (expect_true(column != NULL, "JOIN ON left column should exist") != 0 ||
+	    expect_true(json_is_integer(json_object_get(column, "clause_id")), "JOIN ON left column clause_id should be set") != 0) {
+		json_decref(root);
+		return 1;
+	}
+	column = find_view_column_json(statement, "orders", "user_id", "on", 0U);
+	if (expect_true(column != NULL, "JOIN ON right column should exist") != 0 ||
+	    expect_true(json_is_integer(json_object_get(column, "clause_id")), "JOIN ON right column clause_id should be set") != 0) {
+		json_decref(root);
+		return 1;
+	}
+	json_decref(root);
+
+	root = NULL;
+	statement = NULL;
+	if (view_json_parse_statement(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "SELECT dept, COUNT(id) FROM users GROUP BY dept HAVING COUNT(id) > 1",
+		    &root,
+		    &statement) != 0) {
+		return 1;
+	}
+	column = find_view_column_json(statement, "users", "dept", "group", 0U);
+	if (expect_true(column != NULL, "GROUP BY column should exist") != 0 ||
+	    expect_true(json_is_integer(json_object_get(column, "clause_id")), "GROUP BY clause_id should be set") != 0) {
+		json_decref(root);
+		return 1;
+	}
+	column = find_view_column_json(statement, "users", "id", "having", 0U);
+	if (expect_true(column != NULL, "HAVING column should exist") != 0 ||
+	    expect_true(json_is_integer(json_object_get(column, "clause_id")), "HAVING clause_id should be set") != 0) {
+		json_decref(root);
+		return 1;
+	}
+	json_decref(root);
+
+	root = NULL;
+	statement = NULL;
+	if (view_json_parse_statement(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "SELECT CONCAT(UPPER(first_name), last_name) FROM users",
+		    &root,
+		    &statement) != 0) {
+		return 1;
+	}
+	column = find_view_column_json(statement, "users", "first_name", "select", 0U);
+	if (expect_true(column != NULL, "nested function first arg should exist") != 0 ||
+	    expect_true(json_array_length_is(column, "target_path", 2U), "nested function should expose full target_path") != 0 ||
+	    expect_true(json_target_path_entry_is(column, 0U, "function", "CONCAT", 0), "nested function outer path should be CONCAT arg 0") != 0 ||
+	    expect_true(json_target_path_entry_is(column, 1U, "function", "UPPER", 0), "nested function inner path should be UPPER arg 0") != 0) {
+		json_decref(root);
+		return 1;
+	}
+	column = find_view_column_json(statement, "users", "last_name", "select", 0U);
+	if (expect_true(column != NULL, "function second arg should exist") != 0 ||
+	    expect_true(json_array_length_is(column, "target_path", 1U), "second arg should expose one target_path entry") != 0 ||
+	    expect_true(json_target_path_entry_is(column, 0U, "function", "CONCAT", 1), "second arg path should be CONCAT arg 1") != 0) {
+		json_decref(root);
+		return 1;
+	}
+	json_decref(root);
+
+	root = NULL;
+	statement = NULL;
+	if (view_json_parse_statement(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "SELECT DISTINCT LOW(UPPER(name)) FROM table1",
+		    &root,
+		    &statement) != 0) {
+		return 1;
+	}
+	if (expect_true(
+		    json_array_contains_string_value(json_object_get(statement, "keywords"), "distinct"),
+		    "SELECT DISTINCT should expose distinct keyword") != 0) {
+		json_decref(root);
+		return 1;
+	}
+	column = find_view_column_json(statement, "table1", "name", "select", 0U);
+	if (expect_true(column != NULL, "distinct nested function column should exist") != 0 ||
+	    expect_true(json_array_length_is(column, "target_path", 2U), "distinct nested function should expose full target_path") != 0 ||
+	    expect_true(json_target_path_entry_is(column, 0U, "function", "LOW", 0), "distinct nested function outer path should be LOW") != 0 ||
+	    expect_true(json_target_path_entry_is(column, 1U, "function", "UPPER", 0), "distinct nested function inner path should be UPPER") != 0) {
+		json_decref(root);
+		return 1;
+	}
+	json_decref(root);
+
+	if (expect_view_column_shape(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "SELECT UPPER(name) || '_x' FROM users",
+		    "users",
+		    "name",
+		    "select",
+		    "expression",
+		    "||",
+		    0,
+		    0) != 0 ||
+	    expect_view_column_shape(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "SELECT COALESCE(name, fallback_name) FROM users",
+		    "users",
+		    "name",
+		    "select",
+		    "function",
+		    "COALESCE",
+		    1,
+		    0) != 0 ||
+	    expect_view_column_shape(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "SELECT COALESCE(name, fallback_name) FROM users",
+		    "users",
+		    "fallback_name",
+		    "select",
+		    "function",
+		    "COALESCE",
+		    1,
+		    1) != 0 ||
+	    expect_view_column_shape(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "SELECT CAST(age AS text) FROM users",
+		    "users",
+		    "age",
+		    "select",
+		    "function",
+		    "CAST",
+		    1,
+		    0) != 0 ||
+	    expect_view_column_shape(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "SELECT GREATEST(age, score) FROM users",
+		    "users",
+		    "score",
+		    "select",
+		    "function",
+		    "GREATEST",
+		    1,
+		    1) != 0 ||
+	    expect_view_column_shape(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "SELECT name COLLATE \"C\" FROM users",
+		    "users",
+		    "name",
+		    "select",
+		    "expression",
+		    "collate",
+		    0,
+		    0) != 0 ||
+	    expect_view_column_shape(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "SELECT ARRAY[id, age] FROM users",
+		    "users",
+		    "id",
+		    "select",
+		    "expression",
+		    "array",
+		    0,
+		    0) != 0 ||
+	    expect_view_column_shape(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "SELECT ROW(id, age) FROM users",
+		    "users",
+		    "age",
+		    "select",
+		    "expression",
+		    "row",
+		    1,
+		    1) != 0 ||
+	    expect_view_column_shape(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "SELECT name IS NULL FROM users",
+		    "users",
+		    "name",
+		    "select",
+		    "expression",
+		    "is_null",
+		    0,
+		    0) != 0 ||
+	    expect_view_column_shape(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "SELECT active IS TRUE FROM users",
+		    "users",
+		    "active",
+		    "select",
+		    "expression",
+		    "boolean_test",
+		    0,
+		    0) != 0 ||
+	    expect_view_column_shape(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "SELECT COUNT(id) FILTER (WHERE status = 'paid') FROM users",
+		    "users",
+		    "id",
+		    "select",
+		    "function",
+		    "COUNT",
+		    1,
+		    0) != 0 ||
+	    expect_view_column_shape(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "SELECT SUM(amount) OVER (PARTITION BY dept ORDER BY created_at) FROM users",
+		    "users",
+		    "amount",
+		    "select",
+		    "function",
+		    "SUM",
+		    1,
+		    0) != 0) {
+		return 1;
+	}
+
+	if (expect_view_column_shape(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "UPDATE users SET name = 'bob', age = age + 1 WHERE id = 1",
+		    "users",
+		    "name",
+		    "set",
+		    "not_output",
+		    NULL,
+		    0,
+		    0) != 0 ||
+	    expect_view_column_shape(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "UPDATE users SET name = 'bob', age = age + 1 WHERE id = 1",
+		    "users",
+		    "age",
+		    "set",
+		    "not_output",
+		    NULL,
+		    0,
+		    0) != 0 ||
+	    expect_view_column_shape(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "UPDATE users SET name = 'bob', age = age + 1 WHERE id = 1",
+		    "users",
+		    "id",
+		    "where",
+		    "not_output",
+		    NULL,
+		    0,
+		    0) != 0 ||
+	    expect_view_column_shape(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "DELETE FROM users WHERE status = 'inactive' AND age > 30",
+		    "users",
+		    "status",
+		    "where",
+		    "not_output",
+		    NULL,
+		    0,
+		    0) != 0 ||
+	    expect_view_column_shape(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "INSERT INTO users (id, name, age) VALUES (1, 'bob', 18)",
+		    "users",
+		    "id",
+		    "insert",
+		    "not_output",
+		    NULL,
+		    0,
+		    0) != 0 ||
+	    expect_view_column_shape(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "CREATE VIEW active_users AS SELECT id, name FROM users WHERE status = 'active'",
+		    "users",
+		    "status",
+		    "where",
+		    "not_output",
+		    NULL,
+		    0,
+		    0) != 0 ||
+	    expect_view_column_shape(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "INSERT INTO audit_users (id, name) SELECT id, name FROM users WHERE status = 'active'",
+		    "users",
+		    "name",
+		    "select",
+		    "direct_column",
+		    NULL,
+		    0,
+		    0) != 0) {
+		return 1;
+	}
+
+	for (index = 0U; index < sizeof(dialect_cases) / sizeof(dialect_cases[0]); index++) {
+		root = NULL;
+		statement = NULL;
+		if (view_json_parse_statement(
+			    dialect_cases[index].dialect,
+			    dialect_cases[index].sql,
+			    &root,
+			    &statement) != 0) {
+			return 1;
+		}
+		column = find_view_column_json(statement, dialect_cases[index].table_name, "name", "select", 0U);
+		if (expect_true(column != NULL, "dialect direct column should exist") != 0) {
+			json_decref(root);
+			return 1;
+		}
+		column = find_view_column_json(statement, dialect_cases[index].table_name, "name", "select", 1U);
+		if (expect_true(column != NULL, "dialect function column should exist") != 0 ||
+		    expect_true(json_target_path_entry_is(column, 0U, "function", "UPPER", 0), "dialect function target_path should be UPPER") != 0) {
+			json_decref(root);
+			return 1;
+		}
+		column = find_view_column_json(statement, dialect_cases[index].table_name, "id", "where", 0U);
+		if (expect_true(column != NULL, "dialect WHERE column should exist") != 0) {
+			json_decref(root);
+			return 1;
+		}
+		if (dialect_cases[index].bind_name != NULL &&
+		    (expect_true(json_string_is(column, "bind", dialect_cases[index].bind_name), "dialect bind should be exposed without marker") != 0 ||
+		     expect_true(json_key_is_null(column, "value"), "dialect bind value should be null") != 0)) {
+			json_decref(root);
+			return 1;
+		}
+		json_decref(root);
+	}
+
+	return 0;
+}
+
 static int test_sql_view_attribution_and_values(void)
 {
 	const char *sql;
@@ -3212,6 +4092,12 @@ int main(void)
 		return 1;
 	}
 	if (test_sql_view_json_and_patch_api() != 0) {
+		return 1;
+	}
+	if (test_sql_view_bind_fields() != 0) {
+		return 1;
+	}
+	if (test_sql_view_column_semantics_json() != 0) {
 		return 1;
 	}
 	if (test_sql_view_attribution_and_values() != 0) {

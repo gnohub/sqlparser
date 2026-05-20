@@ -168,6 +168,9 @@ static sqlparser_status_t sqlparser_clause_record(
 		case SQLPARSER_CLAUSE_KIND_ORDER_BY:
 			internal_index = search->order_by_seen++;
 			break;
+		case SQLPARSER_CLAUSE_KIND_SET_LIST:
+			internal_index = search->set_list_seen++;
+			break;
 		default:
 			return SQLPARSER_STATUS_OK;
 	}
@@ -229,6 +232,17 @@ static sqlparser_status_t sqlparser_clause_walk_message(
 			(void)sqlparser_clause_record(search, SQLPARSER_CLAUSE_KIND_SELECT_LIST, select_stmt);
 			if (search->want_target && search->target_kind != SQLPARSER_CLAUSE_KIND_UNKNOWN) {
 				return SQLPARSER_STATUS_OK;
+			}
+		}
+		if (message->descriptor == &pg_query__update_stmt__descriptor &&
+		    sqlparser_clause_field_name_is(field, "target_list")) {
+			const PgQuery__UpdateStmt *update_stmt = (const PgQuery__UpdateStmt *)message;
+
+			if (update_stmt->n_target_list > 0U && update_stmt->target_list != NULL) {
+				(void)sqlparser_clause_record(search, SQLPARSER_CLAUSE_KIND_SET_LIST, NULL);
+				if (search->want_target && search->target_kind != SQLPARSER_CLAUSE_KIND_UNKNOWN) {
+					return SQLPARSER_STATUS_OK;
+				}
 			}
 		}
 		if (sqlparser_clause_field_is_where(field) &&
@@ -741,6 +755,8 @@ sqlparser_status_t sqlparser_statement_clause_sql(
 			return sqlparser_statement_where_sql(handle, statement_index, internal_index, out_sql, out_error);
 		case SQLPARSER_CLAUSE_KIND_ORDER_BY:
 			return sqlparser_statement_order_by_sql(handle, select_stmt, out_sql, out_error);
+		case SQLPARSER_CLAUSE_KIND_SET_LIST:
+			return sqlparser_render_update_assignments_sql(handle, statement_index, internal_index, out_sql, out_error);
 		default:
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "clause kind is not readable");
 			return SQLPARSER_STATUS_UNSUPPORTED;
@@ -786,6 +802,8 @@ sqlparser_status_t sqlparser_statement_set_clause_sql(
 			return sqlparser_statement_set_where_sql(handle, statement_index, internal_index, sql_text, out_error);
 		case SQLPARSER_CLAUSE_KIND_ORDER_BY:
 			return sqlparser_statement_set_order_by_sql(handle, select_stmt, sql_text, out_error);
+		case SQLPARSER_CLAUSE_KIND_SET_LIST:
+			return sqlparser_update_set_assignments_sql(handle, statement_index, internal_index, sql_text, out_error);
 		default:
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "clause kind is not writable");
 			return SQLPARSER_STATUS_UNSUPPORTED;

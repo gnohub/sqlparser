@@ -49,6 +49,12 @@ This file records regression cases for the Dameng dialect conversion layer. The 
 | D041 | `EXEC SQL PREPARE` + INSERT | embedded-SQL prepared insert text |
 | D042 | `EXEC SQL EXECUTE` + named binds | prepared statement execution with named bind arguments |
 | D043 | `EXEC SQL EXECUTE` + `?` parameters | prepared statement execution with positional parameters |
+| D044 | `TOP` + direct column + named bind | TOP query, direct output field, WHERE bind, and ORDER BY attribution |
+| D045 | `CASE` expression output | `target_path` attribution for fields inside `CASE WHEN` |
+| D046 | `GROUP BY` + `HAVING` + `ORDER BY` | aggregate output and non-output clause attribution |
+| D047 | `UPDATE` + multiple named binds | update/where clauses, bind fields, and null values |
+| D048 | `JOIN ... ON` + bind | JOIN/ON fields, WHERE bind, and table-column attribution |
+| D049 | `NVL` function output | function `target_path`, argument index, and WHERE bind |
 
 ## Explicitly Unsupported Cases
 

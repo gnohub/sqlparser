@@ -9,13 +9,41 @@
 #include "sqlparser_ast_internal.h"
 
 typedef struct {
+	const char *kind;
+	const char *name;
+	size_t arg_index;
+} sqlparser_view_target_path_entry_t;
+
+typedef struct {
 	json_t *objects;
+	json_t *clauses;
 	sqlparser_handle_t *handle;
 	size_t statement_index;
 	int has_select_target_context;
 	sqlparser_selector_t select_target_list_selector;
 	sqlparser_selector_t select_target_selector;
+	size_t select_list_seen;
+	size_t where_seen;
+	size_t order_by_seen;
+	size_t set_list_seen;
+	size_t current_clause_id;
+	int has_current_clause_id;
+	sqlparser_view_target_path_entry_t *target_path;
+	size_t target_path_count;
+	size_t target_path_capacity;
 } sqlparser_view_build_t;
+
+typedef struct {
+	size_t current_clause_id;
+	int has_current_clause_id;
+} sqlparser_view_clause_context_t;
+
+typedef struct {
+	int has_select_target_context;
+	sqlparser_selector_t select_target_list_selector;
+	sqlparser_selector_t select_target_selector;
+	size_t target_path_count;
+} sqlparser_view_target_context_t;
 
 static int sqlparser_text_equal(const char *left, const char *right)
 {
@@ -53,6 +81,16 @@ static int sqlparser_json_set_string_or_null(json_t *object, const char *key, co
 static int sqlparser_json_set_size(json_t *object, const char *key, size_t value)
 {
 	return json_object_set_new(object, key, json_integer((json_int_t)value));
+}
+
+static int sqlparser_json_set_size_or_null(json_t *object, const char *key, int has_value, size_t value)
+{
+	if (object == NULL || key == NULL) {
+		return -1;
+	}
+	return has_value ?
+		json_object_set_new(object, key, json_integer((json_int_t)value)) :
+		json_object_set_new(object, key, json_null());
 }
 
 static int sqlparser_json_set_selector_or_null(
@@ -93,6 +131,251 @@ static int sqlparser_json_set_owned_string_or_null(json_t *object, const char *k
 		return -1;
 	}
 	return json_object_set_new(object, key, item);
+}
+
+static void sqlparser_view_save_clause_context(
+	const sqlparser_view_build_t *build,
+	sqlparser_view_clause_context_t *saved)
+{
+	if (build == NULL || saved == NULL) {
+		return;
+	}
+	saved->current_clause_id = build->current_clause_id;
+	saved->has_current_clause_id = build->has_current_clause_id;
+}
+
+static void sqlparser_view_restore_clause_context(
+	sqlparser_view_build_t *build,
+	const sqlparser_view_clause_context_t *saved)
+{
+	if (build == NULL || saved == NULL) {
+		return;
+	}
+	build->current_clause_id = saved->current_clause_id;
+	build->has_current_clause_id = saved->has_current_clause_id;
+}
+
+static void sqlparser_view_save_target_context(
+	const sqlparser_view_build_t *build,
+	sqlparser_view_target_context_t *saved)
+{
+	if (build == NULL || saved == NULL) {
+		return;
+	}
+	saved->has_select_target_context = build->has_select_target_context;
+	saved->select_target_list_selector = build->select_target_list_selector;
+	saved->select_target_selector = build->select_target_selector;
+	saved->target_path_count = build->target_path_count;
+}
+
+static void sqlparser_view_restore_target_context(
+	sqlparser_view_build_t *build,
+	const sqlparser_view_target_context_t *saved)
+{
+	if (build == NULL || saved == NULL) {
+		return;
+	}
+	build->has_select_target_context = saved->has_select_target_context;
+	build->select_target_list_selector = saved->select_target_list_selector;
+	build->select_target_selector = saved->select_target_selector;
+	build->target_path_count = saved->target_path_count;
+}
+
+static void sqlparser_view_clear_target_shape(sqlparser_view_build_t *build)
+{
+	if (build == NULL) {
+		return;
+	}
+	build->target_path_count = 0U;
+}
+
+static void sqlparser_view_build_cleanup(sqlparser_view_build_t *build)
+{
+	if (build == NULL) {
+		return;
+	}
+	free(build->target_path);
+	build->target_path = NULL;
+	build->target_path_count = 0U;
+	build->target_path_capacity = 0U;
+}
+
+static int sqlparser_view_target_path_last_is(
+	const sqlparser_view_build_t *build,
+	const char *kind,
+	const char *name)
+{
+	const sqlparser_view_target_path_entry_t *entry;
+
+	if (build == NULL || build->target_path_count == 0U || kind == NULL || name == NULL) {
+		return 0;
+	}
+	entry = &build->target_path[build->target_path_count - 1U];
+	return entry->kind != NULL &&
+		entry->name != NULL &&
+		strcmp(entry->kind, kind) == 0 &&
+		strcmp(entry->name, name) == 0;
+}
+
+static int sqlparser_view_push_target_path(
+	sqlparser_view_build_t *build,
+	const char *kind,
+	const char *name,
+	size_t arg_index,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_view_target_path_entry_t *entries;
+	size_t new_capacity;
+
+	if (build == NULL) {
+		return 0;
+	}
+	if (kind == NULL || kind[0] == '\0') {
+		return 0;
+	}
+	if (name == NULL) {
+		name = "";
+	}
+	if (strcmp(kind, "expression") == 0 &&
+	    strcmp(name, "case_when") == 0 &&
+	    sqlparser_view_target_path_last_is(build, kind, name)) {
+		return 0;
+	}
+	if (build->target_path_count == build->target_path_capacity) {
+		new_capacity = build->target_path_capacity == 0U ? 8U : build->target_path_capacity * 2U;
+		entries = (sqlparser_view_target_path_entry_t *)realloc(
+			build->target_path,
+			new_capacity * sizeof(*entries));
+		if (entries == NULL) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			return -1;
+		}
+		build->target_path = entries;
+		build->target_path_capacity = new_capacity;
+	}
+	build->target_path[build->target_path_count].kind = kind;
+	build->target_path[build->target_path_count].name = name;
+	build->target_path[build->target_path_count].arg_index = arg_index;
+	build->target_path_count++;
+	return 0;
+}
+
+static int sqlparser_view_clause_kind_matches(json_t *item, const char *kind)
+{
+	const char *item_kind;
+
+	if (!json_is_object(item) || kind == NULL) {
+		return 0;
+	}
+	item_kind = json_string_value(json_object_get(item, "kind"));
+	return item_kind != NULL && strcmp(item_kind, kind) == 0;
+}
+
+static void sqlparser_view_enter_existing_clause(
+	sqlparser_view_build_t *build,
+	const char *kind,
+	size_t *seen,
+	sqlparser_view_clause_context_t *saved)
+{
+	size_t index;
+	size_t occurrence;
+	size_t target_occurrence;
+	json_t *item;
+
+	sqlparser_view_save_clause_context(build, saved);
+	if (build == NULL || seen == NULL || !json_is_array(build->clauses)) {
+		if (build != NULL) {
+			build->current_clause_id = 0U;
+			build->has_current_clause_id = 0;
+		}
+		return;
+	}
+
+	target_occurrence = *seen;
+	(*seen)++;
+	occurrence = 0U;
+	json_array_foreach(build->clauses, index, item)
+	{
+		if (!sqlparser_view_clause_kind_matches(item, kind)) {
+			continue;
+		}
+		if (occurrence == target_occurrence) {
+			build->current_clause_id = index + 1U;
+			build->has_current_clause_id = 1;
+			return;
+		}
+		occurrence++;
+	}
+	build->current_clause_id = 0U;
+	build->has_current_clause_id = 0;
+}
+
+static int sqlparser_view_select_has_base_slot(const PgQuery__SelectStmt *stmt)
+{
+	if (stmt == NULL || stmt->n_values_lists > 0U) {
+		return 0;
+	}
+	if (stmt->op != PG_QUERY__SET_OPERATION__SET_OPERATION_UNDEFINED &&
+	    stmt->op != PG_QUERY__SET_OPERATION__SETOP_NONE &&
+	    stmt->n_target_list == 0U &&
+	    stmt->n_from_clause == 0U &&
+	    stmt->where_clause == NULL &&
+	    stmt->n_sort_clause == 0U) {
+		return stmt->larg != NULL || stmt->rarg != NULL;
+	}
+	return stmt->n_target_list > 0U ||
+		stmt->n_from_clause > 0U ||
+		stmt->where_clause != NULL ||
+		stmt->having_clause != NULL ||
+		stmt->with_clause != NULL ||
+		stmt->n_group_clause > 0U ||
+		stmt->n_sort_clause > 0U ||
+		stmt->limit_offset != NULL ||
+		stmt->limit_count != NULL;
+}
+
+static int sqlparser_view_select_allows_where_slot(const PgQuery__SelectStmt *stmt)
+{
+	if (stmt == NULL || stmt->n_values_lists > 0U) {
+		return 0;
+	}
+	if (stmt->op != PG_QUERY__SET_OPERATION__SET_OPERATION_UNDEFINED &&
+	    stmt->op != PG_QUERY__SET_OPERATION__SETOP_NONE &&
+	    stmt->n_target_list == 0U &&
+	    stmt->n_from_clause == 0U &&
+	    stmt->where_clause == NULL) {
+		return 0;
+	}
+	return stmt->n_target_list > 0U ||
+		stmt->n_from_clause > 0U ||
+		stmt->where_clause != NULL ||
+		stmt->having_clause != NULL ||
+		stmt->with_clause != NULL ||
+		stmt->n_group_clause > 0U ||
+		stmt->n_sort_clause > 0U ||
+		stmt->limit_offset != NULL ||
+		stmt->limit_count != NULL;
+}
+
+static char *sqlparser_view_ascii_upper_dup(const char *text)
+{
+	char *copy;
+	size_t index;
+	size_t len;
+
+	if (text == NULL || text[0] == '\0') {
+		return NULL;
+	}
+	len = strlen(text);
+	copy = (char *)malloc(len + 1U);
+	if (copy == NULL) {
+		return NULL;
+	}
+	for (index = 0U; index < len; index++) {
+		copy[index] = (char)toupper((unsigned char)text[index]);
+	}
+	copy[len] = '\0';
+	return copy;
 }
 
 static sqlparser_status_t sqlparser_view_build_clause_array(
@@ -151,7 +434,8 @@ static sqlparser_status_t sqlparser_view_build_clause_array(
 			json_decref(array);
 			return status;
 		}
-		if (json_object_set_new(item, "kind", json_string(sqlparser_clause_kind_name(clause.kind))) != 0) {
+		if (sqlparser_json_set_size(item, "id", clause_index + 1U) != 0 ||
+		    json_object_set_new(item, "kind", json_string(sqlparser_clause_kind_name(clause.kind))) != 0) {
 			free(clause_sql);
 			json_decref(item);
 			json_decref(array);
@@ -929,6 +1213,9 @@ static void sqlparser_keywords_from_expr(const PgQuery__Node *node, json_t *keyw
 			break;
 		case PG_QUERY__NODE__NODE_FUNC_CALL:
 			if (node->func_call != NULL) {
+				if (node->func_call->agg_distinct) {
+					(void)sqlparser_keywords_add(keywords, "distinct");
+				}
 				sqlparser_keywords_from_expr_array(node->func_call->args, node->func_call->n_args, keywords);
 				if (node->func_call->over != NULL) {
 					(void)sqlparser_keywords_add(keywords, "over");
@@ -1071,6 +1358,9 @@ static void sqlparser_keywords_from_select(
 		(void)sqlparser_keywords_add(keywords, "with");
 	}
 	(void)sqlparser_keywords_add(keywords, "select");
+	if (stmt->n_distinct_clause > 0U) {
+		(void)sqlparser_keywords_add(keywords, "distinct");
+	}
 	sqlparser_keywords_from_expr_array(stmt->target_list, stmt->n_target_list, keywords);
 	if (stmt->n_from_clause > 0U) {
 		(void)sqlparser_keywords_add(keywords, "from");
@@ -1654,6 +1944,186 @@ static const char *sqlparser_column_ref_part(PgQuery__ColumnRef *column_ref, siz
 	return NULL;
 }
 
+static char *sqlparser_view_func_call_name_dup(const PgQuery__FuncCall *func_call)
+{
+	const char *name;
+	size_t index;
+
+	if (func_call == NULL || func_call->n_funcname == 0U) {
+		return NULL;
+	}
+	name = NULL;
+	for (index = func_call->n_funcname; index > 0U; index--) {
+		if (sqlparser_node_string_value(func_call->funcname[index - 1U], &name)) {
+			break;
+		}
+	}
+	return sqlparser_view_ascii_upper_dup(name);
+}
+
+static const char *sqlparser_view_bool_expr_name(const PgQuery__BoolExpr *expr)
+{
+	if (expr == NULL) {
+		return NULL;
+	}
+	switch (expr->boolop) {
+		case PG_QUERY__BOOL_EXPR_TYPE__AND_EXPR:
+			return "AND";
+		case PG_QUERY__BOOL_EXPR_TYPE__OR_EXPR:
+			return "OR";
+		case PG_QUERY__BOOL_EXPR_TYPE__NOT_EXPR:
+			return "NOT";
+		default:
+			return NULL;
+	}
+}
+
+static const char *sqlparser_view_min_max_name(const PgQuery__MinMaxExpr *expr)
+{
+	if (expr == NULL) {
+		return NULL;
+	}
+	switch (expr->op) {
+		case PG_QUERY__MIN_MAX_OP__IS_GREATEST:
+			return "GREATEST";
+		case PG_QUERY__MIN_MAX_OP__IS_LEAST:
+			return "LEAST";
+		default:
+			return NULL;
+	}
+}
+
+static int sqlparser_view_json_set_target_path(
+	sqlparser_view_build_t *build,
+	json_t *column,
+	const char *keyword)
+{
+	json_t *path;
+	size_t index;
+
+	path = json_array();
+	if (path == NULL) {
+		return -1;
+	}
+	if (keyword != NULL &&
+	    strcmp(keyword, "select") == 0 &&
+	    build != NULL &&
+	    build->has_select_target_context) {
+		for (index = 0U; index < build->target_path_count; index++) {
+			json_t *entry;
+
+			entry = json_object();
+			if (entry == NULL ||
+			    json_object_set_new(entry, "kind", json_string(build->target_path[index].kind)) != 0 ||
+			    sqlparser_json_set_string_or_null(entry, "name", build->target_path[index].name) != 0 ||
+			    sqlparser_json_set_size(entry, "arg_index", build->target_path[index].arg_index) != 0 ||
+			    json_array_append_new(path, entry) != 0) {
+				json_decref(entry);
+				json_decref(path);
+				return -1;
+			}
+		}
+	}
+	if (json_object_set_new(column, "target_path", path) != 0) {
+		json_decref(path);
+		return -1;
+	}
+	return 0;
+}
+
+static int sqlparser_view_json_set_column_semantics(
+	sqlparser_view_build_t *build,
+	json_t *column,
+	const char *keyword)
+{
+	return sqlparser_json_set_size_or_null(
+		       column,
+		       "clause_id",
+		       build != NULL && build->has_current_clause_id,
+		       build != NULL ? build->current_clause_id : 0U) != 0 ||
+		sqlparser_view_json_set_target_path(build, column, keyword) != 0 ?
+		-1 :
+		0;
+}
+
+static int sqlparser_view_append_readonly_expr_clause(
+	sqlparser_view_build_t *build,
+	const char *kind,
+	PgQuery__Node *expr,
+	sqlparser_view_clause_context_t *saved,
+	sqlparser_error_t *out_error)
+{
+	json_t *item;
+	char *core_sql;
+	char *public_sql;
+	sqlparser_status_t status;
+	sqlparser_error_t render_error;
+
+	sqlparser_view_save_clause_context(build, saved);
+	if (build == NULL || expr == NULL || !json_is_array(build->clauses)) {
+		if (build != NULL) {
+			build->current_clause_id = 0U;
+			build->has_current_clause_id = 0;
+		}
+		return 0;
+	}
+
+	item = json_object();
+	if (item == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return -1;
+	}
+
+	core_sql = NULL;
+	public_sql = NULL;
+	memset(&render_error, 0, sizeof(render_error));
+	status = sqlparser_render_update_assignment_node_sql(expr, &core_sql, &render_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_postprocess_handle_sql_fragment(
+			build->handle,
+			core_sql,
+			"SQL view clause",
+			&public_sql,
+			out_error);
+	} else if (status == SQLPARSER_STATUS_NO_MEMORY || status == SQLPARSER_STATUS_RESOURCE_LIMIT) {
+		json_decref(item);
+		sqlparser_error_set_message(out_error, status, render_error.message);
+		return -1;
+	}
+	free(core_sql);
+	if (status != SQLPARSER_STATUS_OK &&
+	    (status == SQLPARSER_STATUS_NO_MEMORY || status == SQLPARSER_STATUS_RESOURCE_LIMIT)) {
+		json_decref(item);
+		return -1;
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_error_clear(out_error);
+	}
+
+	if (sqlparser_json_set_size(item, "id", json_array_size(build->clauses) + 1U) != 0 ||
+	    json_object_set_new(item, "kind", json_string(kind != NULL ? kind : "")) != 0 ||
+	    json_object_set_new(item, "selector", json_null()) != 0) {
+		free(public_sql);
+		json_decref(item);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return -1;
+	}
+	if (sqlparser_json_set_owned_string_or_null(item, "sql", public_sql) != 0) {
+		json_decref(item);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return -1;
+	}
+	public_sql = NULL;
+	if (json_array_append_new(build->clauses, item) != 0) {
+		json_decref(item);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return -1;
+	}
+	build->current_clause_id = json_array_size(build->clauses);
+	build->has_current_clause_id = 1;
+	return 0;
+}
+
 static size_t sqlparser_view_find_name_selector_index(
 	sqlparser_view_build_t *build,
 	char **slot)
@@ -1740,6 +2210,91 @@ static size_t sqlparser_view_find_value_index(
 	return index;
 }
 
+static char *sqlparser_view_bind_name_from_value(
+	const char *public_sql,
+	const PgQuery__Node *value_node,
+	sqlparser_error_t *out_error)
+{
+	char buffer[32];
+	const char *start;
+	size_t index;
+
+	if (public_sql == NULL ||
+	    value_node == NULL ||
+	    value_node->node_case != PG_QUERY__NODE__NODE_PARAM_REF ||
+	    value_node->param_ref == NULL) {
+		return NULL;
+	}
+
+	if (strcmp(public_sql, "?") == 0) {
+		char *copy;
+
+		if (value_node->param_ref->number <= 0) {
+			return NULL;
+		}
+		(void)snprintf(buffer, sizeof(buffer), "%ld", (long)value_node->param_ref->number);
+		copy = sqlparser_strdup(buffer);
+		if (copy == NULL) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		}
+		return copy;
+	}
+
+	if (public_sql[0] != ':' && public_sql[0] != '@' && public_sql[0] != '$') {
+		return NULL;
+	}
+	start = public_sql + 1U;
+	while (*start == public_sql[0]) {
+		start++;
+	}
+	if (*start == '\0') {
+		return NULL;
+	}
+	for (index = 0U; start[index] != '\0'; index++) {
+		if (isspace((unsigned char)start[index])) {
+			return NULL;
+		}
+	}
+	(void)out_error;
+	{
+		char *copy = sqlparser_strdup(start);
+
+		if (copy == NULL) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		}
+		return copy;
+	}
+}
+
+static int sqlparser_view_set_bind_fields(
+	json_t *object,
+	const char *public_sql,
+	const PgQuery__Node *value_node,
+	const sqlparser_selector_t *selector,
+	sqlparser_error_t *out_error)
+{
+	char *bind_name;
+
+	if (!json_is_object(object)) {
+		return 0;
+	}
+	bind_name = sqlparser_view_bind_name_from_value(public_sql, value_node, out_error);
+	if (bind_name == NULL) {
+		if (out_error != NULL && out_error->code != SQLPARSER_STATUS_OK) {
+			return -1;
+		}
+		return 0;
+	}
+	if (json_object_set_new(object, "bind", json_string(bind_name)) != 0 ||
+	    sqlparser_json_set_selector_or_null(object, "bind_selector", selector, out_error) != 0) {
+		free(bind_name);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return -1;
+	}
+	free(bind_name);
+	return 1;
+}
+
 static int sqlparser_view_set_column_value(
 	json_t *column,
 	sqlparser_view_build_t *build,
@@ -1754,6 +2309,7 @@ static int sqlparser_view_set_column_value(
 	sqlparser_status_t status;
 	size_t literal_index;
 	size_t value_index;
+	int bind_status;
 	sqlparser_error_t render_error;
 
 	if (!json_is_object(column) || value_node == NULL) {
@@ -1812,6 +2368,16 @@ static int sqlparser_view_set_column_value(
 		return -1;
 	}
 
+	bind_status = sqlparser_view_set_bind_fields(column, public_sql, value_node, &selector, out_error);
+	if (bind_status < 0) {
+		free(public_sql);
+		return -1;
+	}
+	if (bind_status > 0) {
+		free(public_sql);
+		return 0;
+	}
+
 	value = json_object();
 	if (value == NULL ||
 	    json_object_set_new(value, "sql", json_string(public_sql)) != 0) {
@@ -1820,11 +2386,12 @@ static int sqlparser_view_set_column_value(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return -1;
 	}
-	free(public_sql);
 	if (sqlparser_json_set_selector_or_null(value, "selector", &selector, out_error) != 0) {
+		free(public_sql);
 		json_decref(value);
 		return -1;
 	}
+	free(public_sql);
 
 	if (json_object_set_new(column, "value", value) != 0) {
 		json_decref(value);
@@ -1864,6 +2431,8 @@ static int sqlparser_view_append_column_to_object(
 	if (json_object_set_new(column, "name", json_string(name)) != 0 ||
 	    json_object_set_new(column, "keyword", json_string(keyword != NULL ? keyword : "")) != 0 ||
 	    sqlparser_json_set_string_or_null(column, "operator", operator_name) != 0 ||
+	    json_object_set_new(column, "bind", json_null()) != 0 ||
+	    json_object_set_new(column, "bind_selector", json_null()) != 0 ||
 	    json_object_set_new(column, "value", json_null()) != 0) {
 		json_decref(column);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
@@ -1899,6 +2468,11 @@ static int sqlparser_view_append_column_to_object(
 		json_decref(column);
 		return -1;
 	}
+	if (sqlparser_view_json_set_column_semantics(build, column, keyword) != 0) {
+		json_decref(column);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return -1;
+	}
 
 	if (value_node != NULL &&
 	    sqlparser_view_set_column_value(column, build, value_node, forced_value_selector, out_error) != 0) {
@@ -1926,6 +2500,7 @@ static int sqlparser_view_set_variable_arg_value(
 	char *core_sql;
 	char *public_sql;
 	sqlparser_status_t status;
+	int bind_status;
 	size_t value_index;
 	size_t arg_index;
 
@@ -1962,6 +2537,16 @@ static int sqlparser_view_set_variable_arg_value(
 		return -1;
 	}
 
+	bind_status = sqlparser_view_set_bind_fields(column, public_sql, value_node, &selector, out_error);
+	if (bind_status < 0) {
+		free(public_sql);
+		return -1;
+	}
+	if (bind_status > 0) {
+		free(public_sql);
+		return 0;
+	}
+
 	value = json_object();
 	if (value == NULL ||
 	    json_object_set_new(value, "sql", json_string(public_sql)) != 0) {
@@ -1970,11 +2555,12 @@ static int sqlparser_view_set_variable_arg_value(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return -1;
 	}
-	free(public_sql);
 	if (sqlparser_json_set_selector_or_null(value, "selector", &selector, out_error) != 0) {
+		free(public_sql);
 		json_decref(value);
 		return -1;
 	}
+	free(public_sql);
 	if (json_object_set_new(column, "value", value) != 0) {
 		json_decref(value);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
@@ -2010,6 +2596,8 @@ static int sqlparser_view_append_variable_set_column(
 	if (json_object_set_new(column, "name", json_string(name)) != 0 ||
 	    json_object_set_new(column, "keyword", json_string(keyword != NULL ? keyword : "")) != 0 ||
 	    sqlparser_json_set_string_or_null(column, "operator", operator_name) != 0 ||
+	    json_object_set_new(column, "bind", json_null()) != 0 ||
+	    json_object_set_new(column, "bind_selector", json_null()) != 0 ||
 	    json_object_set_new(column, "value", json_null()) != 0) {
 		json_decref(column);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
@@ -2021,6 +2609,7 @@ static int sqlparser_view_append_variable_set_column(
 	if (sqlparser_json_set_selector_or_null(column, "selector", &selector, out_error) != 0 ||
 	    sqlparser_json_set_selector_or_null(column, "target_list_selector", NULL, out_error) != 0 ||
 	    sqlparser_json_set_selector_or_null(column, "target_selector", NULL, out_error) != 0 ||
+	    sqlparser_view_json_set_column_semantics(build, column, keyword) != 0 ||
 	    sqlparser_view_set_variable_arg_value(column, build, stmt, value_node, out_error) != 0) {
 		json_decref(column);
 		return -1;
@@ -2208,11 +2797,10 @@ static int sqlparser_view_walk_select_targets(
 	PgQuery__SelectStmt *stmt,
 	sqlparser_error_t *out_error)
 {
-	sqlparser_selector_t saved_list_selector;
-	sqlparser_selector_t saved_target_selector;
+	sqlparser_view_clause_context_t saved_clause;
+	sqlparser_view_target_context_t saved_target;
 	size_t target_list_index;
 	size_t index;
-	int saved_has_context;
 	sqlparser_status_t status;
 
 	if (stmt == NULL || stmt->n_target_list == 0U || stmt->target_list == NULL) {
@@ -2230,9 +2818,8 @@ static int sqlparser_view_walk_select_targets(
 		return -1;
 	}
 
-	saved_has_context = build->has_select_target_context;
-	saved_list_selector = build->select_target_list_selector;
-	saved_target_selector = build->select_target_selector;
+	sqlparser_view_save_target_context(build, &saved_target);
+	sqlparser_view_enter_existing_clause(build, "select_list", &build->select_list_seen, &saved_clause);
 
 	memset(&build->select_target_list_selector, 0, sizeof(build->select_target_list_selector));
 	build->select_target_list_selector.kind = SQLPARSER_SELECTOR_KIND_SELECT_TARGETS;
@@ -2246,17 +2833,16 @@ static int sqlparser_view_walk_select_targets(
 		build->select_target_selector.item_index = target_list_index;
 		build->select_target_selector.column_index = index;
 		build->has_select_target_context = 1;
+		sqlparser_view_clear_target_shape(build);
 		if (sqlparser_view_walk_expr(build, stmt->target_list[index], "select", out_error) != 0) {
-			build->has_select_target_context = saved_has_context;
-			build->select_target_list_selector = saved_list_selector;
-			build->select_target_selector = saved_target_selector;
+			sqlparser_view_restore_clause_context(build, &saved_clause);
+			sqlparser_view_restore_target_context(build, &saved_target);
 			return -1;
 		}
 	}
 
-	build->has_select_target_context = saved_has_context;
-	build->select_target_list_selector = saved_list_selector;
-	build->select_target_selector = saved_target_selector;
+	sqlparser_view_restore_clause_context(build, &saved_clause);
+	sqlparser_view_restore_target_context(build, &saved_target);
 	return 0;
 }
 
@@ -2277,6 +2863,40 @@ static int sqlparser_view_walk_node_array(
 	return 0;
 }
 
+static int sqlparser_view_walk_node_array_with_target_path(
+	sqlparser_view_build_t *build,
+	PgQuery__Node **items,
+	size_t count,
+	const char *keyword,
+	const char *path_kind,
+	const char *path_name,
+	int use_arg_index,
+	sqlparser_error_t *out_error)
+{
+	size_t index;
+
+	for (index = 0U; index < count; index++) {
+		sqlparser_view_target_context_t saved_target;
+
+		sqlparser_view_save_target_context(build, &saved_target);
+		if (sqlparser_view_push_target_path(
+			    build,
+			    path_kind,
+			    path_name,
+			    use_arg_index ? index : 0U,
+			    out_error) != 0) {
+			sqlparser_view_restore_target_context(build, &saved_target);
+			return -1;
+		}
+		if (sqlparser_view_walk_expr(build, items[index], keyword, out_error) != 0) {
+			sqlparser_view_restore_target_context(build, &saved_target);
+			return -1;
+		}
+		sqlparser_view_restore_target_context(build, &saved_target);
+	}
+	return 0;
+}
+
 static int sqlparser_view_walk_a_expr(
 	sqlparser_view_build_t *build,
 	PgQuery__AExpr *a_expr,
@@ -2288,6 +2908,8 @@ static int sqlparser_view_walk_a_expr(
 	const char *left_column;
 	const char *right_table;
 	const char *right_column;
+	sqlparser_view_target_context_t saved_target;
+	sqlparser_view_target_context_t side_target;
 
 	if (a_expr == NULL) {
 		return 0;
@@ -2300,9 +2922,16 @@ static int sqlparser_view_walk_a_expr(
 	(void)left_table;
 	(void)right_table;
 
+	sqlparser_view_save_target_context(build, &saved_target);
 	if (sqlparser_try_extract_column_ref(a_expr->lexpr, &left_table, &left_column) &&
 	    left_column != NULL) {
 		if (a_expr->lexpr != NULL && a_expr->lexpr->node_case == PG_QUERY__NODE__NODE_COLUMN_REF) {
+			sqlparser_view_save_target_context(build, &side_target);
+			if (sqlparser_view_push_target_path(build, "expression", operator_name, 0U, out_error) != 0) {
+				sqlparser_view_restore_target_context(build, &side_target);
+				sqlparser_view_restore_target_context(build, &saved_target);
+				return -1;
+			}
 			if (sqlparser_view_append_column_ref(
 				    build,
 				    a_expr->lexpr->column_ref,
@@ -2310,17 +2939,36 @@ static int sqlparser_view_walk_a_expr(
 				    operator_name,
 				    a_expr->rexpr,
 				    out_error) != 0) {
+				sqlparser_view_restore_target_context(build, &side_target);
+				sqlparser_view_restore_target_context(build, &saved_target);
 				return -1;
 			}
+			sqlparser_view_restore_target_context(build, &side_target);
 		}
-		if (sqlparser_view_walk_expr(build, a_expr->rexpr, keyword, out_error) != 0) {
+		sqlparser_view_save_target_context(build, &side_target);
+		if (sqlparser_view_push_target_path(build, "expression", operator_name, 1U, out_error) != 0) {
+			sqlparser_view_restore_target_context(build, &side_target);
+			sqlparser_view_restore_target_context(build, &saved_target);
 			return -1;
 		}
+		if (sqlparser_view_walk_expr(build, a_expr->rexpr, keyword, out_error) != 0) {
+			sqlparser_view_restore_target_context(build, &side_target);
+			sqlparser_view_restore_target_context(build, &saved_target);
+			return -1;
+		}
+		sqlparser_view_restore_target_context(build, &side_target);
+		sqlparser_view_restore_target_context(build, &saved_target);
 		return 0;
 	}
 	if (sqlparser_try_extract_column_ref(a_expr->rexpr, &right_table, &right_column) &&
 	    right_column != NULL) {
 		if (a_expr->rexpr != NULL && a_expr->rexpr->node_case == PG_QUERY__NODE__NODE_COLUMN_REF) {
+			sqlparser_view_save_target_context(build, &side_target);
+			if (sqlparser_view_push_target_path(build, "expression", operator_name, 1U, out_error) != 0) {
+				sqlparser_view_restore_target_context(build, &side_target);
+				sqlparser_view_restore_target_context(build, &saved_target);
+				return -1;
+			}
 			if (sqlparser_view_append_column_ref(
 				    build,
 				    a_expr->rexpr->column_ref,
@@ -2328,19 +2976,45 @@ static int sqlparser_view_walk_a_expr(
 				    operator_name,
 				    a_expr->lexpr,
 				    out_error) != 0) {
+				sqlparser_view_restore_target_context(build, &side_target);
+				sqlparser_view_restore_target_context(build, &saved_target);
 				return -1;
 			}
+			sqlparser_view_restore_target_context(build, &side_target);
 		}
-		if (sqlparser_view_walk_expr(build, a_expr->lexpr, keyword, out_error) != 0) {
+		sqlparser_view_save_target_context(build, &side_target);
+		if (sqlparser_view_push_target_path(build, "expression", operator_name, 0U, out_error) != 0) {
+			sqlparser_view_restore_target_context(build, &side_target);
+			sqlparser_view_restore_target_context(build, &saved_target);
 			return -1;
 		}
+		if (sqlparser_view_walk_expr(build, a_expr->lexpr, keyword, out_error) != 0) {
+			sqlparser_view_restore_target_context(build, &side_target);
+			sqlparser_view_restore_target_context(build, &saved_target);
+			return -1;
+		}
+		sqlparser_view_restore_target_context(build, &side_target);
+		sqlparser_view_restore_target_context(build, &saved_target);
 		return 0;
 	}
 
-	if (sqlparser_view_walk_expr(build, a_expr->lexpr, keyword, out_error) != 0 ||
-	    sqlparser_view_walk_expr(build, a_expr->rexpr, keyword, out_error) != 0) {
+	sqlparser_view_save_target_context(build, &side_target);
+	if (sqlparser_view_push_target_path(build, "expression", operator_name, 0U, out_error) != 0 ||
+	    sqlparser_view_walk_expr(build, a_expr->lexpr, keyword, out_error) != 0) {
+		sqlparser_view_restore_target_context(build, &side_target);
+		sqlparser_view_restore_target_context(build, &saved_target);
 		return -1;
 	}
+	sqlparser_view_restore_target_context(build, &side_target);
+	sqlparser_view_save_target_context(build, &side_target);
+	if (sqlparser_view_push_target_path(build, "expression", operator_name, 1U, out_error) != 0 ||
+	    sqlparser_view_walk_expr(build, a_expr->rexpr, keyword, out_error) != 0) {
+		sqlparser_view_restore_target_context(build, &side_target);
+		sqlparser_view_restore_target_context(build, &saved_target);
+		return -1;
+	}
+	sqlparser_view_restore_target_context(build, &side_target);
+	sqlparser_view_restore_target_context(build, &saved_target);
 	return 0;
 }
 
@@ -2371,72 +3045,145 @@ static int sqlparser_view_walk_expr(
 			return sqlparser_view_walk_a_expr(build, node->a_expr, keyword, out_error);
 		case PG_QUERY__NODE__NODE_BOOL_EXPR:
 			if (node->bool_expr != NULL) {
-				return sqlparser_view_walk_node_array(
+				return sqlparser_view_walk_node_array_with_target_path(
 					build,
 					node->bool_expr->args,
 					node->bool_expr->n_args,
 					keyword,
+					"expression",
+					sqlparser_view_bool_expr_name(node->bool_expr),
+					1,
 					out_error);
 			}
 			return 0;
 		case PG_QUERY__NODE__NODE_FUNC_CALL:
 			if (node->func_call != NULL) {
-				if (sqlparser_view_walk_node_array(
+				char *func_name;
+				int rc;
+
+				func_name = sqlparser_view_func_call_name_dup(node->func_call);
+				rc = sqlparser_view_walk_node_array_with_target_path(
 					    build,
 					    node->func_call->args,
 					    node->func_call->n_args,
 					    keyword,
-					    out_error) != 0) {
+					    "function",
+					    func_name,
+					    1,
+					    out_error);
+				if (rc != 0) {
+					free(func_name);
 					return -1;
 				}
 				if (node->func_call->over != NULL &&
-				    (sqlparser_view_walk_node_array(
+				    (sqlparser_view_walk_node_array_with_target_path(
 					     build,
 					     node->func_call->over->partition_clause,
 					     node->func_call->over->n_partition_clause,
 					     keyword,
+					     "expression",
+					     "window_partition",
+					     1,
 					     out_error) != 0 ||
-				     sqlparser_view_walk_node_array(
+				     sqlparser_view_walk_node_array_with_target_path(
 					     build,
 					     node->func_call->over->order_clause,
 					     node->func_call->over->n_order_clause,
 					     keyword,
+					     "expression",
+					     "window_order",
+					     1,
 					     out_error) != 0 ||
-				     sqlparser_view_walk_expr(build, node->func_call->over->start_offset, keyword, out_error) != 0 ||
-				     sqlparser_view_walk_expr(build, node->func_call->over->end_offset, keyword, out_error) != 0)) {
+				     sqlparser_view_walk_node_array_with_target_path(
+					     build,
+					     &node->func_call->over->start_offset,
+					     node->func_call->over->start_offset != NULL ? 1U : 0U,
+					     keyword,
+					     "expression",
+					     "window_frame_start",
+					     0,
+					     out_error) != 0 ||
+				     sqlparser_view_walk_node_array_with_target_path(
+					     build,
+					     &node->func_call->over->end_offset,
+					     node->func_call->over->end_offset != NULL ? 1U : 0U,
+					     keyword,
+					     "expression",
+					     "window_frame_end",
+					     0,
+					     out_error) != 0)) {
+					free(func_name);
 					return -1;
 				}
+				free(func_name);
 				return 0;
 			}
 			return 0;
 		case PG_QUERY__NODE__NODE_TYPE_CAST:
-			return node->type_cast != NULL ?
-				sqlparser_view_walk_expr(build, node->type_cast->arg, keyword, out_error) :
-				0;
+			if (node->type_cast != NULL) {
+				return sqlparser_view_walk_node_array_with_target_path(
+					build,
+					&node->type_cast->arg,
+					node->type_cast->arg != NULL ? 1U : 0U,
+					keyword,
+					"function",
+					"CAST",
+					1,
+					out_error);
+			}
+			return 0;
 		case PG_QUERY__NODE__NODE_COLLATE_CLAUSE:
-			return node->collate_clause != NULL ?
-				sqlparser_view_walk_expr(build, node->collate_clause->arg, keyword, out_error) :
-				0;
+			if (node->collate_clause != NULL) {
+				sqlparser_view_target_context_t saved_target;
+				int rc;
+
+				sqlparser_view_save_target_context(build, &saved_target);
+				if (sqlparser_view_push_target_path(build, "expression", "collate", 0U, out_error) != 0) {
+					sqlparser_view_restore_target_context(build, &saved_target);
+					return -1;
+				}
+				rc = sqlparser_view_walk_expr(build, node->collate_clause->arg, keyword, out_error);
+				sqlparser_view_restore_target_context(build, &saved_target);
+				return rc;
+			}
+			return 0;
 		case PG_QUERY__NODE__NODE_A_INDIRECTION:
-			return node->a_indirection != NULL ?
-				sqlparser_view_walk_expr(build, node->a_indirection->arg, keyword, out_error) :
-				0;
+			if (node->a_indirection != NULL) {
+				sqlparser_view_target_context_t saved_target;
+				int rc;
+
+				sqlparser_view_save_target_context(build, &saved_target);
+				if (sqlparser_view_push_target_path(build, "expression", "indirection", 0U, out_error) != 0) {
+					sqlparser_view_restore_target_context(build, &saved_target);
+					return -1;
+				}
+				rc = sqlparser_view_walk_expr(build, node->a_indirection->arg, keyword, out_error);
+				sqlparser_view_restore_target_context(build, &saved_target);
+				return rc;
+			}
+			return 0;
 		case PG_QUERY__NODE__NODE_A_ARRAY_EXPR:
 			return node->a_array_expr != NULL ?
-				sqlparser_view_walk_node_array(
+				sqlparser_view_walk_node_array_with_target_path(
 					build,
 					node->a_array_expr->elements,
 					node->a_array_expr->n_elements,
-					keyword,
+						keyword,
+						"expression",
+						"array",
+						1,
 					out_error) :
 				0;
 		case PG_QUERY__NODE__NODE_ARRAY_EXPR:
 			return node->array_expr != NULL ?
-				sqlparser_view_walk_node_array(
+				sqlparser_view_walk_node_array_with_target_path(
 					build,
 					node->array_expr->elements,
 					node->array_expr->n_elements,
-					keyword,
+						keyword,
+						"expression",
+						"array",
+						1,
 					out_error) :
 				0;
 		case PG_QUERY__NODE__NODE_SORT_BY:
@@ -2464,23 +3211,61 @@ static int sqlparser_view_walk_expr(
 			}
 			return 0;
 		case PG_QUERY__NODE__NODE_NULL_TEST:
-			return node->null_test != NULL ?
-				sqlparser_view_walk_expr(build, node->null_test->arg, keyword, out_error) :
-				0;
-		case PG_QUERY__NODE__NODE_BOOLEAN_TEST:
-			return node->boolean_test != NULL ?
-				sqlparser_view_walk_expr(build, node->boolean_test->arg, keyword, out_error) :
-				0;
-		case PG_QUERY__NODE__NODE_SUB_LINK:
-			if (node->sub_link != NULL) {
-				if (sqlparser_view_walk_expr(build, node->sub_link->testexpr, keyword, out_error) != 0 ||
-				    sqlparser_view_walk_expr(build, node->sub_link->subselect, keyword, out_error) != 0) {
+			if (node->null_test != NULL) {
+				sqlparser_view_target_context_t saved_target;
+				int rc;
+
+				sqlparser_view_save_target_context(build, &saved_target);
+				if (sqlparser_view_push_target_path(build, "expression", "is_null", 0U, out_error) != 0) {
+					sqlparser_view_restore_target_context(build, &saved_target);
 					return -1;
 				}
+				rc = sqlparser_view_walk_expr(build, node->null_test->arg, keyword, out_error);
+				sqlparser_view_restore_target_context(build, &saved_target);
+				return rc;
+			}
+			return 0;
+		case PG_QUERY__NODE__NODE_BOOLEAN_TEST:
+			if (node->boolean_test != NULL) {
+				sqlparser_view_target_context_t saved_target;
+				int rc;
+
+				sqlparser_view_save_target_context(build, &saved_target);
+				if (sqlparser_view_push_target_path(build, "expression", "boolean_test", 0U, out_error) != 0) {
+					sqlparser_view_restore_target_context(build, &saved_target);
+					return -1;
+				}
+				rc = sqlparser_view_walk_expr(build, node->boolean_test->arg, keyword, out_error);
+				sqlparser_view_restore_target_context(build, &saved_target);
+				return rc;
+			}
+			return 0;
+		case PG_QUERY__NODE__NODE_SUB_LINK:
+			if (node->sub_link != NULL) {
+				sqlparser_view_target_context_t saved_target;
+
+				sqlparser_view_save_target_context(build, &saved_target);
+				if (sqlparser_view_push_target_path(build, "expression", "subquery", 0U, out_error) != 0) {
+					sqlparser_view_restore_target_context(build, &saved_target);
+					return -1;
+				}
+				if (sqlparser_view_walk_expr(build, node->sub_link->testexpr, keyword, out_error) != 0 ||
+				    sqlparser_view_walk_expr(build, node->sub_link->subselect, keyword, out_error) != 0) {
+					sqlparser_view_restore_target_context(build, &saved_target);
+					return -1;
+				}
+				sqlparser_view_restore_target_context(build, &saved_target);
 			}
 			return 0;
 		case PG_QUERY__NODE__NODE_CASE_EXPR:
 			if (node->case_expr != NULL) {
+				sqlparser_view_target_context_t saved_target;
+
+				sqlparser_view_save_target_context(build, &saved_target);
+				if (sqlparser_view_push_target_path(build, "expression", "case_when", 0U, out_error) != 0) {
+					sqlparser_view_restore_target_context(build, &saved_target);
+					return -1;
+				}
 				if (sqlparser_view_walk_expr(build, node->case_expr->arg, keyword, out_error) != 0 ||
 				    sqlparser_view_walk_node_array(
 					    build,
@@ -2489,40 +3274,60 @@ static int sqlparser_view_walk_expr(
 					    keyword,
 					    out_error) != 0 ||
 				    sqlparser_view_walk_expr(build, node->case_expr->defresult, keyword, out_error) != 0) {
+					sqlparser_view_restore_target_context(build, &saved_target);
 					return -1;
 				}
+				sqlparser_view_restore_target_context(build, &saved_target);
 			}
 			return 0;
 		case PG_QUERY__NODE__NODE_CASE_WHEN:
 			if (node->case_when != NULL) {
-				if (sqlparser_view_walk_expr(build, node->case_when->expr, keyword, out_error) != 0 ||
-				    sqlparser_view_walk_expr(build, node->case_when->result, keyword, out_error) != 0) {
+				sqlparser_view_target_context_t saved_target;
+
+				sqlparser_view_save_target_context(build, &saved_target);
+				if (sqlparser_view_push_target_path(build, "expression", "case_when", 0U, out_error) != 0) {
+					sqlparser_view_restore_target_context(build, &saved_target);
 					return -1;
 				}
+				if (sqlparser_view_walk_expr(build, node->case_when->expr, keyword, out_error) != 0 ||
+				    sqlparser_view_walk_expr(build, node->case_when->result, keyword, out_error) != 0) {
+					sqlparser_view_restore_target_context(build, &saved_target);
+					return -1;
+				}
+				sqlparser_view_restore_target_context(build, &saved_target);
 			}
 			return 0;
 		case PG_QUERY__NODE__NODE_ROW_EXPR:
 			return node->row_expr != NULL ?
-				sqlparser_view_walk_node_array(
+				sqlparser_view_walk_node_array_with_target_path(
 					build,
 					node->row_expr->args,
 					node->row_expr->n_args,
-					keyword,
+						keyword,
+						"expression",
+						"row",
+						1,
 					out_error) :
 				0;
 		case PG_QUERY__NODE__NODE_ROW_COMPARE_EXPR:
 			if (node->row_compare_expr != NULL) {
-				if (sqlparser_view_walk_node_array(
+				if (sqlparser_view_walk_node_array_with_target_path(
 					    build,
 					    node->row_compare_expr->largs,
 					    node->row_compare_expr->n_largs,
-					    keyword,
+						    keyword,
+						    "expression",
+						    "row_compare",
+						    1,
 					    out_error) != 0 ||
-				    sqlparser_view_walk_node_array(
+				    sqlparser_view_walk_node_array_with_target_path(
 					    build,
 					    node->row_compare_expr->rargs,
 					    node->row_compare_expr->n_rargs,
-					    keyword,
+						    keyword,
+						    "expression",
+						    "row_compare",
+						    1,
 					    out_error) != 0) {
 					return -1;
 				}
@@ -2530,20 +3335,26 @@ static int sqlparser_view_walk_expr(
 			return 0;
 		case PG_QUERY__NODE__NODE_COALESCE_EXPR:
 			return node->coalesce_expr != NULL ?
-				sqlparser_view_walk_node_array(
+				sqlparser_view_walk_node_array_with_target_path(
 					build,
 					node->coalesce_expr->args,
 					node->coalesce_expr->n_args,
 					keyword,
+					"function",
+					"COALESCE",
+					1,
 					out_error) :
 				0;
 		case PG_QUERY__NODE__NODE_MIN_MAX_EXPR:
 			return node->min_max_expr != NULL ?
-				sqlparser_view_walk_node_array(
+				sqlparser_view_walk_node_array_with_target_path(
 					build,
 					node->min_max_expr->args,
 					node->min_max_expr->n_args,
 					keyword,
+					"function",
+					sqlparser_view_min_max_name(node->min_max_expr),
+					1,
 					out_error) :
 				0;
 		case PG_QUERY__NODE__NODE_LIST:
@@ -2756,13 +3567,21 @@ static int sqlparser_view_process_merge_stmt(
 	PgQuery__MergeStmt *stmt,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_view_clause_context_t saved_clause;
 	size_t index;
 
 	if (stmt == NULL) {
 		return 0;
 	}
-	if (sqlparser_view_walk_expr(build, stmt->join_condition, "on", out_error) != 0 ||
-	    sqlparser_view_process_from_item(build, stmt->source_relation, out_error) != 0) {
+	if (sqlparser_view_append_readonly_expr_clause(build, "on", stmt->join_condition, &saved_clause, out_error) != 0) {
+		return -1;
+	}
+	if (sqlparser_view_walk_expr(build, stmt->join_condition, "on", out_error) != 0) {
+		sqlparser_view_restore_clause_context(build, &saved_clause);
+		return -1;
+	}
+	sqlparser_view_restore_clause_context(build, &saved_clause);
+	if (sqlparser_view_process_from_item(build, stmt->source_relation, out_error) != 0) {
 		return -1;
 	}
 	for (index = 0U; index < stmt->n_merge_when_clauses; index++) {
@@ -2874,9 +3693,11 @@ static int sqlparser_view_append_insert_rows(
 			sqlparser_selector_t selector;
 			char *cell_sql;
 			const char *column_name;
+			PgQuery__Node *cell_node;
 			sqlparser_status_t status;
 
 			cell_sql = NULL;
+			cell_node = row_list->items[cell_index];
 			status = sqlparser_insert_cell_sql(
 				build->handle,
 				build->statement_index,
@@ -2907,7 +3728,10 @@ static int sqlparser_view_append_insert_rows(
 			    sqlparser_json_set_string_or_null(cell, "column", column_name) != 0 ||
 			    sqlparser_json_set_size(cell, "column_index", cell_index) != 0 ||
 			    json_object_set_new(cell, "sql", json_string(cell_sql)) != 0 ||
+			    json_object_set_new(cell, "bind", json_null()) != 0 ||
+			    json_object_set_new(cell, "bind_selector", json_null()) != 0 ||
 			    sqlparser_json_set_selector_or_null(cell, "selector", &selector, out_error) != 0 ||
+			    sqlparser_view_set_bind_fields(cell, cell_sql, cell_node, &selector, out_error) < 0 ||
 			    json_array_append_new(json_object_get(row, "cells"), cell) != 0) {
 				json_decref(cell);
 				sqlparser_string_free(cell_sql);
@@ -2945,11 +3769,25 @@ static int sqlparser_view_process_from_item(
 	switch (node->node_case) {
 		case PG_QUERY__NODE__NODE_JOIN_EXPR:
 			if (node->join_expr != NULL) {
+				sqlparser_view_clause_context_t saved_clause;
+
 				if (sqlparser_view_process_from_item(build, node->join_expr->larg, out_error) != 0 ||
-				    sqlparser_view_process_from_item(build, node->join_expr->rarg, out_error) != 0 ||
-				    sqlparser_view_walk_expr(build, node->join_expr->quals, "on", out_error) != 0) {
+				    sqlparser_view_process_from_item(build, node->join_expr->rarg, out_error) != 0) {
 					return -1;
 				}
+				if (sqlparser_view_append_readonly_expr_clause(
+					    build,
+					    "on",
+					    node->join_expr->quals,
+					    &saved_clause,
+					    out_error) != 0) {
+					return -1;
+				}
+				if (sqlparser_view_walk_expr(build, node->join_expr->quals, "on", out_error) != 0) {
+					sqlparser_view_restore_clause_context(build, &saved_clause);
+					return -1;
+				}
+				sqlparser_view_restore_clause_context(build, &saved_clause);
 			}
 			return 0;
 		case PG_QUERY__NODE__NODE_RANGE_SUBSELECT:
@@ -2983,6 +3821,8 @@ static int sqlparser_view_process_select_stmt(
 	PgQuery__SelectStmt *stmt,
 	sqlparser_error_t *out_error)
 {
+	size_t index;
+
 	if (stmt == NULL) {
 		return 0;
 	}
@@ -3006,19 +3846,79 @@ static int sqlparser_view_process_select_stmt(
 		}
 	}
 	if (stmt->larg != NULL || stmt->rarg != NULL) {
+		sqlparser_view_clause_context_t saved_clause;
+
 		if (sqlparser_view_process_select_stmt(build, stmt->larg, out_error) != 0 ||
-		    sqlparser_view_process_select_stmt(build, stmt->rarg, out_error) != 0 ||
-		    sqlparser_view_walk_node_array(build, stmt->sort_clause, stmt->n_sort_clause, "order", out_error) != 0) {
+		    sqlparser_view_process_select_stmt(build, stmt->rarg, out_error) != 0) {
+			return -1;
+		}
+		if (sqlparser_view_select_has_base_slot(stmt)) {
+			sqlparser_view_enter_existing_clause(build, "order_by", &build->order_by_seen, &saved_clause);
+			if (sqlparser_view_walk_node_array(build, stmt->sort_clause, stmt->n_sort_clause, "order", out_error) != 0) {
+				sqlparser_view_restore_clause_context(build, &saved_clause);
+				return -1;
+			}
+			sqlparser_view_restore_clause_context(build, &saved_clause);
+		} else if (sqlparser_view_walk_node_array(build, stmt->sort_clause, stmt->n_sort_clause, "order", out_error) != 0) {
 			return -1;
 		}
 		return 0;
 	}
 	if (sqlparser_view_walk_select_targets(build, stmt, out_error) != 0 ||
-	    sqlparser_view_process_from_clause(build, stmt->from_clause, stmt->n_from_clause, out_error) != 0 ||
-	    sqlparser_view_walk_expr(build, stmt->where_clause, "where", out_error) != 0 ||
-	    sqlparser_view_walk_node_array(build, stmt->group_clause, stmt->n_group_clause, "group", out_error) != 0 ||
-	    sqlparser_view_walk_expr(build, stmt->having_clause, "having", out_error) != 0 ||
-	    sqlparser_view_walk_node_array(build, stmt->sort_clause, stmt->n_sort_clause, "order", out_error) != 0) {
+	    sqlparser_view_process_from_clause(build, stmt->from_clause, stmt->n_from_clause, out_error) != 0) {
+		return -1;
+	}
+	if (sqlparser_view_select_allows_where_slot(stmt)) {
+		sqlparser_view_clause_context_t saved_clause;
+
+		sqlparser_view_enter_existing_clause(build, "where", &build->where_seen, &saved_clause);
+		if (sqlparser_view_walk_expr(build, stmt->where_clause, "where", out_error) != 0) {
+			sqlparser_view_restore_clause_context(build, &saved_clause);
+			return -1;
+		}
+		sqlparser_view_restore_clause_context(build, &saved_clause);
+	} else if (sqlparser_view_walk_expr(build, stmt->where_clause, "where", out_error) != 0) {
+		return -1;
+	}
+	for (index = 0U; index < stmt->n_group_clause; index++) {
+		sqlparser_view_clause_context_t saved_clause;
+
+		if (sqlparser_view_append_readonly_expr_clause(
+			    build,
+			    "group_by",
+			    stmt->group_clause[index],
+			    &saved_clause,
+			    out_error) != 0) {
+			return -1;
+		}
+		if (sqlparser_view_walk_expr(build, stmt->group_clause[index], "group", out_error) != 0) {
+			sqlparser_view_restore_clause_context(build, &saved_clause);
+			return -1;
+		}
+		sqlparser_view_restore_clause_context(build, &saved_clause);
+	}
+	if (stmt->having_clause != NULL) {
+		sqlparser_view_clause_context_t saved_clause;
+
+		if (sqlparser_view_append_readonly_expr_clause(build, "having", stmt->having_clause, &saved_clause, out_error) != 0) {
+			return -1;
+		}
+		if (sqlparser_view_walk_expr(build, stmt->having_clause, "having", out_error) != 0) {
+			sqlparser_view_restore_clause_context(build, &saved_clause);
+			return -1;
+		}
+		sqlparser_view_restore_clause_context(build, &saved_clause);
+	}
+	if (sqlparser_view_select_has_base_slot(stmt)) {
+		sqlparser_view_clause_context_t saved_clause;
+
+		sqlparser_view_enter_existing_clause(build, "order_by", &build->order_by_seen, &saved_clause);
+		if (sqlparser_view_walk_node_array(build, stmt->sort_clause, stmt->n_sort_clause, "order", out_error) != 0) {
+			sqlparser_view_restore_clause_context(build, &saved_clause);
+			return -1;
+		}
+		sqlparser_view_restore_clause_context(build, &saved_clause);
+	} else if (sqlparser_view_walk_node_array(build, stmt->sort_clause, stmt->n_sort_clause, "order", out_error) != 0) {
 		return -1;
 	}
 	return 0;
@@ -3034,48 +3934,64 @@ static int sqlparser_view_process_update_stmt(
 	if (stmt == NULL || json_array_size(build->objects) == 0U) {
 		return 0;
 	}
-	for (index = 0U; index < stmt->n_target_list; index++) {
-		PgQuery__Node *node;
-		PgQuery__ResTarget *target;
-		sqlparser_selector_t selector;
-		sqlparser_selector_t value_selector;
-		size_t name_index;
+	if (stmt->n_target_list > 0U) {
+		sqlparser_view_clause_context_t saved_clause;
 
-		node = stmt->target_list[index];
-		if (node == NULL || node->node_case != PG_QUERY__NODE__NODE_RES_TARGET || node->res_target == NULL) {
-			continue;
+		sqlparser_view_enter_existing_clause(build, "set_list", &build->set_list_seen, &saved_clause);
+		for (index = 0U; index < stmt->n_target_list; index++) {
+			PgQuery__Node *node;
+			PgQuery__ResTarget *target;
+			sqlparser_selector_t selector;
+			sqlparser_selector_t value_selector;
+			size_t name_index;
+
+			node = stmt->target_list[index];
+			if (node == NULL || node->node_case != PG_QUERY__NODE__NODE_RES_TARGET || node->res_target == NULL) {
+				continue;
+			}
+			target = node->res_target;
+			memset(&selector, 0, sizeof(selector));
+			selector.kind = SQLPARSER_SELECTOR_KIND_UNKNOWN;
+			name_index = sqlparser_view_find_name_selector_index(build, &target->name);
+			if (name_index != (size_t)-1) {
+				selector.kind = SQLPARSER_SELECTOR_KIND_NAME;
+				selector.statement_index = build->statement_index;
+				selector.item_index = name_index;
+			}
+			memset(&value_selector, 0, sizeof(value_selector));
+			value_selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
+			value_selector.statement_index = build->statement_index;
+			value_selector.item_index = index;
+			if (sqlparser_view_append_column_to_object(
+				    build,
+				    json_array_get(build->objects, 0U),
+				    target->name,
+				    "set",
+				    "=",
+				    NULL,
+				    target->val,
+				    &selector,
+				    &value_selector,
+				    out_error) != 0 ||
+			    sqlparser_view_walk_expr(build, target->val, "set", out_error) != 0) {
+				sqlparser_view_restore_clause_context(build, &saved_clause);
+				return -1;
+			}
 		}
-		target = node->res_target;
-		memset(&selector, 0, sizeof(selector));
-		selector.kind = SQLPARSER_SELECTOR_KIND_UNKNOWN;
-		name_index = sqlparser_view_find_name_selector_index(build, &target->name);
-		if (name_index != (size_t)-1) {
-			selector.kind = SQLPARSER_SELECTOR_KIND_NAME;
-			selector.statement_index = build->statement_index;
-			selector.item_index = name_index;
-		}
-		memset(&value_selector, 0, sizeof(value_selector));
-		value_selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
-		value_selector.statement_index = build->statement_index;
-		value_selector.item_index = index;
-		if (sqlparser_view_append_column_to_object(
-			    build,
-			    json_array_get(build->objects, 0U),
-			    target->name,
-			    "set",
-			    "=",
-			    NULL,
-			    target->val,
-			    &selector,
-			    &value_selector,
-			    out_error) != 0 ||
-		    sqlparser_view_walk_expr(build, target->val, "set", out_error) != 0) {
+		sqlparser_view_restore_clause_context(build, &saved_clause);
+	}
+	if (sqlparser_view_process_from_clause(build, stmt->from_clause, stmt->n_from_clause, out_error) != 0) {
+		return -1;
+	}
+	{
+		sqlparser_view_clause_context_t saved_clause;
+
+		sqlparser_view_enter_existing_clause(build, "where", &build->where_seen, &saved_clause);
+		if (sqlparser_view_walk_expr(build, stmt->where_clause, "where", out_error) != 0) {
+			sqlparser_view_restore_clause_context(build, &saved_clause);
 			return -1;
 		}
-	}
-	if (sqlparser_view_process_from_clause(build, stmt->from_clause, stmt->n_from_clause, out_error) != 0 ||
-	    sqlparser_view_walk_expr(build, stmt->where_clause, "where", out_error) != 0) {
-		return -1;
+		sqlparser_view_restore_clause_context(build, &saved_clause);
 	}
 	return 0;
 }
@@ -3112,14 +4028,21 @@ static int sqlparser_view_process_statement(
 			return sqlparser_view_process_update_stmt(build, statement->update_stmt, out_error);
 		case PG_QUERY__NODE__NODE_DELETE_STMT:
 			if (statement->delete_stmt != NULL) {
+				sqlparser_view_clause_context_t saved_clause;
+
 				if (sqlparser_view_process_from_clause(
 					    build,
 					    statement->delete_stmt->using_clause,
 					    statement->delete_stmt->n_using_clause,
-					    out_error) != 0 ||
-				    sqlparser_view_walk_expr(build, statement->delete_stmt->where_clause, "where", out_error) != 0) {
+					    out_error) != 0) {
 					return -1;
 				}
+				sqlparser_view_enter_existing_clause(build, "where", &build->where_seen, &saved_clause);
+				if (sqlparser_view_walk_expr(build, statement->delete_stmt->where_clause, "where", out_error) != 0) {
+					sqlparser_view_restore_clause_context(build, &saved_clause);
+					return -1;
+				}
+				sqlparser_view_restore_clause_context(build, &saved_clause);
 			}
 			return 0;
 		case PG_QUERY__NODE__NODE_MERGE_STMT:
@@ -3188,6 +4111,9 @@ static void sqlparser_view_keyword_view_from_select(
 		return;
 	}
 	sqlparser_view_keyword_view_add(keywords, "select");
+	if (stmt->n_distinct_clause > 0U) {
+		sqlparser_view_keyword_view_add(keywords, "distinct");
+	}
 	if (stmt->n_from_clause > 0U) {
 		sqlparser_view_keyword_view_add(keywords, "from");
 	}
@@ -4190,6 +5116,7 @@ sqlparser_status_t sqlparser_export_view_json(
 			json_decref(statement_json);
 			json_decref(keywords);
 			json_decref(build.objects);
+			sqlparser_view_build_cleanup(&build);
 			json_decref(root);
 			if (!ast_was_loaded) {
 				sqlparser_handle_clear_ast(mutable_handle);
@@ -4207,6 +5134,7 @@ sqlparser_status_t sqlparser_export_view_json(
 		    json_object_set_new(statement_json, "keywords", keywords) != 0) {
 			json_decref(keywords);
 			json_decref(build.objects);
+			sqlparser_view_build_cleanup(&build);
 			json_decref(statement_json);
 			json_decref(root);
 			if (!ast_was_loaded) {
@@ -4220,6 +5148,7 @@ sqlparser_status_t sqlparser_export_view_json(
 		status = sqlparser_view_build_clause_array(handle, statement_index, &clauses, out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			json_decref(build.objects);
+			sqlparser_view_build_cleanup(&build);
 			json_decref(statement_json);
 			json_decref(root);
 			if (!ast_was_loaded) {
@@ -4230,6 +5159,7 @@ sqlparser_status_t sqlparser_export_view_json(
 		if (json_object_set_new(statement_json, "clauses", clauses) != 0) {
 			json_decref(clauses);
 			json_decref(build.objects);
+			sqlparser_view_build_cleanup(&build);
 			json_decref(statement_json);
 			json_decref(root);
 			if (!ast_was_loaded) {
@@ -4238,11 +5168,13 @@ sqlparser_status_t sqlparser_export_view_json(
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 			return SQLPARSER_STATUS_NO_MEMORY;
 		}
+		build.clauses = json_object_get(statement_json, "clauses");
 		clauses = NULL;
 
 		if (sqlparser_view_process_statement(&build, statement, out_error) != 0 ||
 		    json_object_set_new(statement_json, "objects", build.objects) != 0) {
 			json_decref(build.objects);
+			sqlparser_view_build_cleanup(&build);
 			json_decref(statement_json);
 			json_decref(root);
 			if (!ast_was_loaded) {
@@ -4254,6 +5186,7 @@ sqlparser_status_t sqlparser_export_view_json(
 			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
 		}
 		build.objects = NULL;
+		sqlparser_view_build_cleanup(&build);
 
 		if (json_array_append_new(json_object_get(root, "statements"), statement_json) != 0) {
 			json_decref(statement_json);

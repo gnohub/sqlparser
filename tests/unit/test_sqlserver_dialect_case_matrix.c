@@ -343,6 +343,9 @@ static int verify_success_case(
 		    json_object_get(expect_root, "update_columns")) != 0) {
 		goto fail;
 	}
+	if (sqlparser_test_verify_view_expectations(case_id, case_name, view_json, expect_root) != 0) {
+		goto fail;
+	}
 
 	status = sqlparser_deparse(handle, &deparse_sql, &error);
 	if (status != SQLPARSER_STATUS_OK || deparse_sql == NULL || deparse_sql[0] == '\0') {

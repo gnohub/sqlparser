@@ -39,6 +39,11 @@
 | M031 | `mysql-prepare-insert-literal` | `PREPARE stmt FROM 'INSERT ... ?'` | prepared insert SQL 文本和 `?` 占位符 |
 | M032 | `mysql-prepare-from-user-variable` | `PREPARE stmt FROM @var` | 用户变量来源的 prepared SQL 文本 |
 | M033 | `mysql-execute-using-multiple-vars` | `EXECUTE stmt USING @id, @name` | 多个用户变量绑定参数 |
+| M034 | `mysql-view-concat-function` | `SELECT CONCAT(UPPER(...), ...) ...` | 函数 `target_path`、嵌套函数、参数序号和 WHERE bind |
+| M035 | `mysql-view-case-expression` | `SELECT CASE WHEN ... THEN ... END ...` | `CASE` 表达式中的输出字段归属 |
+| M036 | `mysql-view-group-having-order` | `GROUP BY ... HAVING ... ORDER BY ...` | 聚合输出和非输出子句字段归属 |
+| M037 | `mysql-view-update-question-binds` | `UPDATE ... SET ... WHERE ... = ?` | 位置参数 bind、空 value、update/where 子句归属 |
+| M038 | `mysql-view-join-on` | `JOIN ... ON ... WHERE ... = ?` | JOIN/ON 字段、WHERE bind 和表字段归属 |
 
 ## 明确不支持语句
 

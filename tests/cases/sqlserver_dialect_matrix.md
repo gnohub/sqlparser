@@ -67,6 +67,11 @@
 | S059 | `EXEC sp_prepare` + INSERT | prepared insert SQL 文本和参数定义 |
 | S060 | `EXEC sp_execute` + 命名值 | prepared handle 执行和命名参数值 |
 | S061 | `EXEC sp_executesql` + UPDATE | 参数化动态 UPDATE SQL 文本和参数值 |
+| S062 | `TOP` + 直接字段 + `@` 参数 | TOP 查询、直接输出字段、WHERE bind 和 ORDER BY 归属 |
+| S063 | `+` 表达式输出 | 普通表达式 `target_path`、操作符和输出项归属 |
+| S064 | `CASE` 表达式输出 | `CASE WHEN` 中字段的 `target_path` 归属 |
+| S065 | `GROUP BY` + `HAVING` + `ORDER BY` | 聚合输出和非输出子句字段归属 |
+| S066 | `UPDATE` + 多 `@` 参数 | update/where 子句、bind 字段和空 value |
 
 ## 明确不支持用例
 

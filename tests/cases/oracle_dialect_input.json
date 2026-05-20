@@ -7,9 +7,15 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users"],
-        "where_columns": ["id"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "where_columns": [
+          "id"
+        ],
         "deparse_contains": ":id"
       }
     },
@@ -20,8 +26,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dual"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dual"
+        ],
         "deparse_contains": "'Bob''s order'"
       }
     },
@@ -42,9 +52,18 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "keywords": ["select", "from", "minus"],
-        "tables": ["active_users", "archived_users"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "keywords": [
+          "select",
+          "from",
+          "minus"
+        ],
+        "tables": [
+          "active_users",
+          "archived_users"
+        ],
         "deparse_contains": "MINUS",
         "view_contains": "minus",
         "view_not_contains": "except"
@@ -57,9 +76,15 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users"],
-        "selected_columns": ["id"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
         "deparse_contains": "OFFSET 5"
       }
     },
@@ -70,10 +95,18 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users"],
-        "selected_columns": ["id"],
-        "where_columns": ["rownum"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "rownum"
+        ],
         "deparse_contains": "rownum <= 10"
       }
     },
@@ -84,13 +117,27 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users", "orders"],
-        "selected_columns": ["id", "name", "order_no"],
-        "join_columns": ["id", "user_id"],
-        "where_columns": ["status"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users",
+          "orders"
+        ],
+        "selected_columns": [
+          "id",
+          "name",
+          "order_no"
+        ],
+        "join_columns": [
+          "id",
+          "user_id"
+        ],
+        "where_columns": [
+          "status"
+        ],
         "deparse_contains": ":status",
-        "view_contains": "\"sql\":\":status\",\"selector\":\"stmt[0].value",
+        "view_contains": "\"bind\":\"status\"",
         "view_not_contains": "$1"
       }
     },
@@ -101,9 +148,16 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "tables": ["users"],
-        "insert_columns": ["id", "name"],
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "insert_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": ":id",
         "view_contains": ":id",
         "view_not_contains": "$1"
@@ -116,9 +170,16 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "tables": ["users"],
-        "insert_columns": ["id", "name"],
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "insert_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": "VALUES (1, 'bob'), (2, 'alice')"
       }
     },
@@ -129,11 +190,24 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "tables": ["archive_users", "users"],
-        "selected_columns": ["id", "name"],
-        "where_columns": ["status"],
-        "insert_columns": ["id", "name"],
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "tables": [
+          "archive_users",
+          "users"
+        ],
+        "selected_columns": [
+          "id",
+          "name"
+        ],
+        "where_columns": [
+          "status"
+        ],
+        "insert_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": ":status"
       }
     },
@@ -144,10 +218,19 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["UpdateStmt"],
-        "tables": ["users"],
-        "update_columns": ["name", "status"],
-        "where_columns": ["id"],
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "update_columns": [
+          "name",
+          "status"
+        ],
+        "where_columns": [
+          "id"
+        ],
         "deparse_contains": ":name",
         "view_contains": ":name",
         "view_not_contains": "$1"
@@ -160,9 +243,16 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["DeleteStmt"],
-        "tables": ["users"],
-        "where_columns": ["id", "status"],
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "where_columns": [
+          "id",
+          "status"
+        ],
         "deparse_contains": ":id"
       }
     },
@@ -173,10 +263,19 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users"],
-        "selected_columns": ["id"],
-        "where_columns": ["id", "manager_id"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "id",
+          "manager_id"
+        ],
         "deparse_contains": ":id OR"
       }
     },
@@ -187,9 +286,16 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users"],
-        "where_columns": ["id", "status"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "where_columns": [
+          "id",
+          "status"
+        ],
         "deparse_contains": ":2"
       }
     },
@@ -200,8 +306,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dual"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dual"
+        ],
         "deparse_contains": "DATE '2024-01-01'"
       }
     },
@@ -212,8 +322,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
         "deparse_contains": "CASE WHEN"
       }
     },
@@ -224,10 +338,20 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users", "orders"],
-        "selected_columns": ["id"],
-        "where_columns": ["user_id", "id"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users",
+          "orders"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "user_id",
+          "id"
+        ],
         "deparse_contains": "EXISTS"
       }
     },
@@ -238,9 +362,15 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users"],
-        "selected_columns": ["status"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "status"
+        ],
         "deparse_contains": "HAVING"
       }
     },
@@ -251,8 +381,13 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["active_users", "archived_users"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "active_users",
+          "archived_users"
+        ],
         "deparse_contains": "UNION ALL"
       }
     },
@@ -263,8 +398,13 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["active_users", "archived_users"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "active_users",
+          "archived_users"
+        ],
         "deparse_contains": "INTERSECT"
       }
     },
@@ -275,11 +415,23 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["MergeStmt"],
-        "tables": ["users", "staging_users"],
-        "join_columns": ["id"],
-        "insert_columns": ["id", "name"],
-        "update_columns": ["name"],
+        "statement_types": [
+          "MergeStmt"
+        ],
+        "tables": [
+          "users",
+          "staging_users"
+        ],
+        "join_columns": [
+          "id"
+        ],
+        "insert_columns": [
+          "id",
+          "name"
+        ],
+        "update_columns": [
+          "name"
+        ],
         "deparse_contains": "MERGE INTO"
       }
     },
@@ -290,7 +442,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["CreateStmt"],
+        "statement_types": [
+          "CreateStmt"
+        ],
         "deparse_contains": "CREATE TABLE users"
       }
     },
@@ -301,7 +455,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["CreateSeqStmt"],
+        "statement_types": [
+          "CreateSeqStmt"
+        ],
         "deparse_contains": "CREATE SEQUENCE"
       }
     },
@@ -312,9 +468,17 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["ViewStmt"],
-        "tables": ["v_users", "users"],
-        "selected_columns": ["id", "name"],
+        "statement_types": [
+          "ViewStmt"
+        ],
+        "tables": [
+          "v_users",
+          "users"
+        ],
+        "selected_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": "CREATE OR REPLACE VIEW"
       }
     },
@@ -325,8 +489,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["DropStmt"],
-        "tables": ["users"],
+        "statement_types": [
+          "DropStmt"
+        ],
+        "tables": [
+          "users"
+        ],
         "deparse_contains": "DROP TABLE users"
       }
     },
@@ -337,8 +505,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["TruncateStmt"],
-        "tables": ["users"],
+        "statement_types": [
+          "TruncateStmt"
+        ],
+        "tables": [
+          "users"
+        ],
         "deparse_contains": "TRUNCATE TABLE users"
       }
     },
@@ -349,7 +521,9 @@
       "expect": {
         "ok": true,
         "statement_count": 3,
-        "statement_types": ["TransactionStmt"],
+        "statement_types": [
+          "TransactionStmt"
+        ],
         "deparse_contains": "COMMIT"
       }
     },
@@ -360,7 +534,9 @@
       "expect": {
         "ok": true,
         "statement_count": 2,
-        "statement_types": ["GrantStmt"],
+        "statement_types": [
+          "GrantStmt"
+        ],
         "deparse_contains": "REVOKE"
       }
     },
@@ -371,7 +547,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["CommentStmt"],
+        "statement_types": [
+          "CommentStmt"
+        ],
         "deparse_contains": "COMMENT ON TABLE"
       }
     },
@@ -382,9 +560,15 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users"],
-        "where_columns": ["id"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "where_columns": [
+          "id"
+        ],
         "deparse_contains": "NOWAIT"
       }
     },
@@ -395,9 +579,16 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users"],
-        "selected_columns": ["status", "sysdate"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "status",
+          "sysdate"
+        ],
         "deparse_contains": "decode"
       }
     },
@@ -408,9 +599,17 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users"],
-        "selected_columns": ["id", "status", "created_at"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id",
+          "status",
+          "created_at"
+        ],
         "deparse_contains": "row_number"
       }
     },
@@ -421,8 +620,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dual"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dual"
+        ],
         "deparse_contains": "TIMESTAMP '2024-01-01 12:30:00'"
       }
     },
@@ -433,10 +636,18 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["\"Users\""],
-        "selected_columns": ["Name"],
-        "where_columns": ["Id"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "\"Users\""
+        ],
+        "selected_columns": [
+          "Name"
+        ],
+        "where_columns": [
+          "Id"
+        ],
         "deparse_contains": ":id"
       }
     },
@@ -447,7 +658,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["AlterTableStmt"],
+        "statement_types": [
+          "AlterTableStmt"
+        ],
         "deparse_contains": "ALTER TABLE users"
       }
     },
@@ -458,8 +671,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["IndexStmt"],
-        "tables": ["users"],
+        "statement_types": [
+          "IndexStmt"
+        ],
+        "tables": [
+          "users"
+        ],
         "deparse_contains": "CREATE INDEX"
       }
     },
@@ -470,7 +687,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["DropStmt"],
+        "statement_types": [
+          "DropStmt"
+        ],
         "deparse_contains": "DROP INDEX"
       }
     },
@@ -481,10 +700,18 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users"],
-        "selected_columns": ["id"],
-        "where_columns": ["status"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "status"
+        ],
         "deparse_contains": ":status2"
       }
     },
@@ -495,9 +722,15 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["DeleteStmt"],
-        "tables": ["users"],
-        "where_columns": ["created_at"],
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "where_columns": [
+          "created_at"
+        ],
         "deparse_contains": "DATE '2020-01-01'"
       }
     },
@@ -508,9 +741,16 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["CreateTableAsStmt"],
-        "tables": ["users"],
-        "selected_columns": ["id", "name"],
+        "statement_types": [
+          "CreateTableAsStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": "CREATE MATERIALIZED VIEW"
       }
     },
@@ -521,8 +761,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dual"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dual"
+        ],
         "deparse_contains": "'RETURNING @ (+)'"
       }
     },
@@ -533,10 +777,18 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users"],
-        "selected_columns": ["id"],
-        "where_columns": ["id"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "id"
+        ],
         "deparse_contains": ":id"
       }
     },
@@ -547,8 +799,14 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["alter", "session", "set"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "alter",
+          "session",
+          "set"
+        ],
         "deparse_contains": "ALTER SESSION SET CURRENT_SCHEMA",
         "view_contains": "\"name\":\"CURRENT_SCHEMA\""
       }
@@ -560,8 +818,14 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["alter", "session", "set"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "alter",
+          "session",
+          "set"
+        ],
         "deparse_contains": "ALTER SESSION SET CONTAINER",
         "view_contains": "\"name\":\"CONTAINER\""
       }
@@ -573,8 +837,14 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["alter", "session", "set"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "alter",
+          "session",
+          "set"
+        ],
         "deparse_contains": "ALTER SESSION SET CONTAINER = cdb$root",
         "view_contains": "\"sql\":\"cdb$root\""
       }
@@ -586,8 +856,14 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["alter", "session", "set"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "alter",
+          "session",
+          "set"
+        ],
         "deparse_contains": "ALTER SESSION SET CONTAINER = pdb1 SERVICE = app_svc",
         "view_contains": "\"name\":\"SERVICE\""
       }
@@ -599,9 +875,19 @@
       "expect": {
         "ok": true,
         "statement_count": 2,
-        "statement_types": ["SelectStmt", "VariableSetStmt"],
-        "keywords": ["select", "alter", "session", "set"],
-        "tables": ["users"],
+        "statement_types": [
+          "SelectStmt",
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "select",
+          "alter",
+          "session",
+          "set"
+        ],
+        "tables": [
+          "users"
+        ],
         "deparse_contains": "ALTER SESSION SET CURRENT_SCHEMA = kdes",
         "view_contains": "\"name\":\"CURRENT_SCHEMA\""
       }
@@ -613,9 +899,17 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "tables": ["users"],
-        "insert_columns": ["username", "email", "age"],
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "insert_columns": [
+          "username",
+          "email",
+          "age"
+        ],
         "deparse_contains": "VALUES (?, ?, ?)",
         "view_contains": "?",
         "view_not_contains": "$1"
@@ -628,10 +922,18 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["UpdateStmt"],
-        "tables": ["users"],
-        "update_columns": ["email"],
-        "where_columns": ["username"],
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "update_columns": [
+          "email"
+        ],
+        "where_columns": [
+          "username"
+        ],
         "deparse_contains": "email = ?",
         "view_not_contains": "$1"
       }
@@ -643,8 +945,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["execute"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "execute"
+        ],
         "deparse_contains": "EXECUTE IMMEDIATE 'SELECT * FROM users WHERE id = :id' USING :id",
         "view_contains": "\"sql\":\"'SELECT * FROM users WHERE id = :id' USING :id\"",
         "view_not_contains": "$1"
@@ -657,10 +963,20 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users"],
-        "selected_columns": ["id", "name"],
-        "where_columns": ["id", "status"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id",
+          "name"
+        ],
+        "where_columns": [
+          "id",
+          "status"
+        ],
         "deparse_contains": ":status",
         "view_not_contains": "$1"
       }
@@ -672,10 +988,18 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users"],
-        "selected_columns": ["id"],
-        "where_columns": ["status"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "status"
+        ],
         "deparse_contains": ":status3",
         "view_not_contains": "$1"
       }
@@ -687,10 +1011,18 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users"],
-        "selected_columns": ["id"],
-        "where_columns": ["name"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "name"
+        ],
         "deparse_contains": ":limit",
         "view_not_contains": "$1"
       }
@@ -702,9 +1034,17 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "tables": ["users"],
-        "insert_columns": ["id", "name", "status"],
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "insert_columns": [
+          "id",
+          "name",
+          "status"
+        ],
         "deparse_contains": ":status",
         "view_not_contains": "$1"
       }
@@ -716,10 +1056,19 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["UpdateStmt"],
-        "tables": ["users"],
-        "update_columns": ["name", "status"],
-        "where_columns": ["id"],
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "update_columns": [
+          "name",
+          "status"
+        ],
+        "where_columns": [
+          "id"
+        ],
         "deparse_contains": ":status",
         "view_not_contains": "$1"
       }
@@ -731,9 +1080,16 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["DeleteStmt"],
-        "tables": ["users"],
-        "where_columns": ["id", "status"],
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "where_columns": [
+          "id",
+          "status"
+        ],
         "deparse_contains": ":status",
         "view_not_contains": "$1"
       }
@@ -745,10 +1101,19 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["users"],
-        "selected_columns": ["id"],
-        "where_columns": ["id", "status"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "id",
+          "status"
+        ],
         "deparse_contains": ":2",
         "view_not_contains": "$1"
       }
@@ -760,9 +1125,17 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "tables": ["users"],
-        "insert_columns": ["id", "name", "status"],
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "insert_columns": [
+          "id",
+          "name",
+          "status"
+        ],
         "deparse_contains": "VALUES (?, ?, ?)",
         "view_not_contains": "$1"
       }
@@ -774,9 +1147,16 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["DeleteStmt"],
-        "tables": ["users"],
-        "where_columns": ["id", "status"],
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "where_columns": [
+          "id",
+          "status"
+        ],
         "deparse_contains": "?",
         "view_not_contains": "$1"
       }
@@ -788,10 +1168,245 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["execute"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "execute"
+        ],
         "deparse_contains": "EXECUTE IMMEDIATE 'UPDATE users SET name = :name WHERE id = :id' USING :name, :id",
         "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "O061",
+      "name": "oracle-rownum-pagination-nested-bind",
+      "sql": "SELECT IP, AREACODE, AREANAME, STATE, MSTSCPORT, NTUID, NTPWD,WORKER, WEBSITE,MSDEPLOYPORT, \"UID\", PWD, KEY_ENCRYPTION, MODIFYTIME FROM (SELECT a.*, ROWNUM RN FROM SERVERS a WHERE ROWNUM <= :endRow) WHERE RN > :startRow",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "servers"
+        ],
+        "selected_columns": [
+          "ip",
+          "areacode",
+          "UID",
+          "*",
+          "rownum"
+        ],
+        "where_columns": [
+          "rownum",
+          "rn"
+        ],
+        "deparse_contains": ":startRow",
+        "view_contains": "\"bind\":\"endRow\"",
+        "view_not_contains": "\"sql\":\":endRow\""
+      }
+    },
+    {
+      "id": "O062",
+      "name": "oracle-view-nvl-upper-functions",
+      "sql": "SELECT NVL(TO_CHAR(commission_pct), 'Not Applicable') commission, UPPER(last_name) FROM employees WHERE employee_id = :employee_id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "employees"
+        ],
+        "columns": [
+          {
+            "table": "employees",
+            "name": "commission_pct",
+            "keyword": "select",
+            "clause_kind": "select_list",
+            "target_path": [
+              {
+                "kind": "function",
+                "name": "NVL",
+                "arg_index": 0
+              },
+              {
+                "kind": "function",
+                "name": "TO_CHAR",
+                "arg_index": 0
+              }
+            ]
+          },
+          {
+            "table": "employees",
+            "name": "last_name",
+            "keyword": "select",
+            "clause_kind": "select_list",
+            "target_path": [
+              {
+                "kind": "function",
+                "name": "UPPER",
+                "arg_index": 0
+              }
+            ]
+          },
+          {
+            "table": "employees",
+            "name": "employee_id",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "employee_id",
+            "value_is_null": true
+          }
+        ],
+        "view_not_contains": [
+          "\"sql\":\":employee_id\""
+        ]
+      }
+    },
+    {
+      "id": "O063",
+      "name": "oracle-view-case-expression",
+      "sql": "SELECT CASE WHEN state = 1 THEN name ELSE fallback_name END FROM users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "state",
+            "keyword": "select",
+            "clause_kind": "select_list"
+          },
+          {
+            "table": "users",
+            "name": "name",
+            "keyword": "select",
+            "clause_kind": "select_list"
+          }
+        ]
+      }
+    },
+    {
+      "id": "O064",
+      "name": "oracle-view-group-having-order",
+      "sql": "SELECT department_id, COUNT(employee_id) FROM employees GROUP BY department_id HAVING COUNT(employee_id) > 1 ORDER BY department_id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "employees"
+        ],
+        "clauses": [
+          {
+            "kind": "group_by",
+            "selector_is_null": true
+          },
+          {
+            "kind": "having",
+            "selector_is_null": true
+          }
+        ],
+        "columns": [
+          {
+            "table": "employees",
+            "name": "department_id",
+            "keyword": "group",
+            "clause_kind": "group_by"
+          },
+          {
+            "table": "employees",
+            "name": "employee_id",
+            "keyword": "having",
+            "clause_kind": "having"
+          },
+          {
+            "table": "employees",
+            "name": "department_id",
+            "keyword": "order",
+            "clause_kind": "order_by"
+          }
+        ]
+      }
+    },
+    {
+      "id": "O065",
+      "name": "oracle-view-update-named-binds",
+      "sql": "UPDATE SERVERS SET IP = :aaa WHERE ID = :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "tables": [
+          "servers"
+        ],
+        "columns": [
+          {
+            "table": "servers",
+            "name": "ip",
+            "keyword": "set",
+            "clause_kind": "set_list",
+            "bind": "aaa",
+            "value_is_null": true
+          },
+          {
+            "table": "servers",
+            "name": "id",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "id",
+            "value_is_null": true
+          }
+        ],
+        "view_not_contains": [
+          "\"sql\":\":aaa\"",
+          "\"sql\":\":id\""
+        ]
+      }
+    },
+    {
+      "id": "O066",
+      "name": "oracle-view-rownum-pagination-attribution",
+      "sql": "SELECT IP, AREACODE, \"UID\" FROM (SELECT a.*, ROWNUM RN FROM SERVERS a WHERE ROWNUM <= :endRow) WHERE RN > :startRow",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "servers"
+        ],
+        "columns": [
+          {
+            "table": "servers",
+            "name": "*",
+            "keyword": "select",
+            "clause_kind": "select_list"
+          }
+        ],
+        "view_contains": [
+          "\"bind\":\"endRow\"",
+          "\"bind\":\"startRow\"",
+          "\"name\":\"UID\""
+        ],
+        "view_not_contains": [
+          "\"sql\":\":endRow\"",
+          "\"sql\":\":startRow\""
+        ]
       }
     },
     {

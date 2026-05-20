@@ -81,11 +81,20 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 | P067 | `postgresql-prepare-delete` | `PREPARE ... AS DELETE ...` | prepared delete statement and predicate parameters |
 | P068 | `postgresql-execute-prepared-with-args` | `EXECUTE ...(...)` | prepared statement execution arguments |
 | P069 | `postgresql-deallocate-all` | `DEALLOCATE ALL` | deallocating all prepared statements |
+| P070 | `postgresql-view-direct-column` | `SELECT name FROM ...` | direct SELECT output column, `clause_id`, and empty `target_path` |
+| P071 | `postgresql-view-star-qualified-star` | `SELECT *, alias.* FROM ...` | unqualified star, qualified star, and output-item ownership |
+| P072 | `postgresql-view-functions-and-args` | `SELECT function(column, ...) FROM ...` | function `target_path`, function name, and argument index |
+| P073 | `postgresql-view-expressions-and-case` | `SELECT expression, CASE ... FROM ...` | expression `target_path`, operator name, and `CASE` ownership |
+| P074 | `postgresql-view-group-having-order` | `GROUP BY ... HAVING ... ORDER BY ...` | non-output clause fields with `clause_id` and empty `target_path` |
+| P075 | `postgresql-view-distinct-nested-functions` | `SELECT DISTINCT LOW(UPPER(...)) FROM ...` | `DISTINCT` keyword and outer-to-inner nested function `target_path` |
+| P076 | `postgresql-view-join-on` | `JOIN ... ON ... WHERE ...` | JOIN/ON fields, WHERE binds, and table-column attribution |
+| P077 | `postgresql-view-window-array-row-tests` | window, array, ROW, boolean/NULL expressions | `target_path` for window functions, compound expressions, and read-only clauses |
+| P078 | `postgresql-view-bind-values` | `UPDATE ... SET ... WHERE ... = $n` | PostgreSQL bind fields, null values, and update/where clause ownership |
 
 ## Negative Case
 
 | Case ID | Case Name | Input | Validation Focus |
 | --- | --- | --- | --- |
-| P070 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
+| P079 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
 
 New regression cases must update both `tests/cases/sql_batch_input.json` and this matrix.

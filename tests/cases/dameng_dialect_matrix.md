@@ -49,6 +49,12 @@
 | D041 | `EXEC SQL PREPARE` + INSERT | 嵌入式 SQL prepared insert 文本 |
 | D042 | `EXEC SQL EXECUTE` + 命名 bind | prepared statement 执行和命名 bind 参数 |
 | D043 | `EXEC SQL EXECUTE` + `?` 参数 | prepared statement 执行和位置参数 |
+| D044 | `TOP` + 直接字段 + 命名 bind | TOP 查询、直接输出字段、WHERE bind 和 ORDER BY 归属 |
+| D045 | `CASE` 表达式输出 | `CASE WHEN` 中字段的 `target_path` 归属 |
+| D046 | `GROUP BY` + `HAVING` + `ORDER BY` | 聚合输出和非输出子句字段归属 |
+| D047 | `UPDATE` + 多命名 bind | update/where 子句、bind 字段和空 value |
+| D048 | `JOIN ... ON` + bind | JOIN/ON 字段、WHERE bind 和表字段归属 |
+| D049 | `NVL` 函数输出 | 函数 `target_path`、参数序号和 WHERE bind |
 
 ## 明确不支持用例
 

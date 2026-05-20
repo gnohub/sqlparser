@@ -496,6 +496,7 @@ Supported `sqlparser_clause_kind_t` values:
 | `SQLPARSER_CLAUSE_KIND_SELECT_LIST` | `select_list` | SELECT output list |
 | `SQLPARSER_CLAUSE_KIND_WHERE` | `where` | WHERE condition expression |
 | `SQLPARSER_CLAUSE_KIND_ORDER_BY` | `order_by` | ORDER BY expression list |
+| `SQLPARSER_CLAUSE_KIND_SET_LIST` | `set_list` | UPDATE SET assignment list |
 
 Generic clause APIs are for structural rewrites. Table, column, and value
 attribution remains available through SQL View `objects[].columns[]`.

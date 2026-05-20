@@ -65,6 +65,12 @@
 | O058 | `INSERT ... VALUES (?, ?, ?)` 扩展 | 插入列和 JDBC 风格位置参数 |
 | O059 | `DELETE ... WHERE ... = ?` | 条件删除中的 JDBC 风格位置参数 |
 | O060 | `EXECUTE IMMEDIATE` 更新语句 | 动态 UPDATE SQL 文本和多个 USING bind |
+| O061 | ROWNUM 嵌套分页 + bind | 嵌套查询、`a.*`、伪列别名和命名 bind |
+| O062 | `NVL` + `TO_CHAR` + `UPPER` | 函数 `target_path`、嵌套函数、参数序号和 WHERE bind |
+| O063 | `CASE` 表达式输出 | `CASE WHEN` 中字段的 `target_path` 归属 |
+| O064 | `GROUP BY` + `HAVING` + `ORDER BY` | 聚合输出和非输出子句字段归属 |
+| O065 | `UPDATE` + 多命名 bind | update/where 子句、bind 字段和空 value |
+| O066 | ROWNUM 分页字段归属 | 嵌套查询、`a.*`、ROWNUM 条件和外层条件归属 |
 
 ## 明确不支持用例
 

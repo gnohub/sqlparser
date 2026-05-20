@@ -39,6 +39,11 @@ This file records regression cases for the MySQL dialect conversion layer. `test
 | M031 | `mysql-prepare-insert-literal` | `PREPARE stmt FROM 'INSERT ... ?'` | prepared insert SQL text and `?` placeholders |
 | M032 | `mysql-prepare-from-user-variable` | `PREPARE stmt FROM @var` | prepared SQL text from a user variable |
 | M033 | `mysql-execute-using-multiple-vars` | `EXECUTE stmt USING @id, @name` | multiple user-variable bind arguments |
+| M034 | `mysql-view-concat-function` | `SELECT CONCAT(UPPER(...), ...) ...` | function `target_path`, nested function, argument index, and WHERE bind |
+| M035 | `mysql-view-case-expression` | `SELECT CASE WHEN ... THEN ... END ...` | output-field attribution inside `CASE` expressions |
+| M036 | `mysql-view-group-having-order` | `GROUP BY ... HAVING ... ORDER BY ...` | aggregate output and non-output clause attribution |
+| M037 | `mysql-view-update-question-binds` | `UPDATE ... SET ... WHERE ... = ?` | positional bind, null value, and update/where clause attribution |
+| M038 | `mysql-view-join-on` | `JOIN ... ON ... WHERE ... = ?` | JOIN/ON fields, WHERE bind, and table-column attribution |
 
 ## Explicitly Unsupported Statements
 

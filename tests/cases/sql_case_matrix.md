@@ -81,11 +81,20 @@
 | P067 | `postgresql-prepare-delete` | `PREPARE ... AS DELETE ...` | prepared delete 语句和条件参数 |
 | P068 | `postgresql-execute-prepared-with-args` | `EXECUTE ...(...)` | prepared statement 执行参数 |
 | P069 | `postgresql-deallocate-all` | `DEALLOCATE ALL` | 释放所有 prepared statements |
+| P070 | `postgresql-view-direct-column` | `SELECT name FROM ...` | SELECT 直接输出列、`clause_id` 和空 `target_path` |
+| P071 | `postgresql-view-star-qualified-star` | `SELECT *, alias.* FROM ...` | 未限定星号、限定星号和输出项归属 |
+| P072 | `postgresql-view-functions-and-args` | `SELECT function(column, ...) FROM ...` | 函数输出 `target_path`、函数名和参数序号 |
+| P073 | `postgresql-view-expressions-and-case` | `SELECT expression, CASE ... FROM ...` | 表达式输出 `target_path`、操作符和 `CASE` 输出归属 |
+| P074 | `postgresql-view-group-having-order` | `GROUP BY ... HAVING ... ORDER BY ...` | 非输出子句字段的 `clause_id` 和空 `target_path` |
+| P075 | `postgresql-view-distinct-nested-functions` | `SELECT DISTINCT LOW(UPPER(...)) FROM ...` | `DISTINCT` 关键字和从外到内的嵌套函数 `target_path` |
+| P076 | `postgresql-view-join-on` | `JOIN ... ON ... WHERE ...` | JOIN/ON 字段、WHERE bind 和表字段归属 |
+| P077 | `postgresql-view-window-array-row-tests` | 窗口、数组、ROW、布尔/NULL 表达式 | 窗口函数、复合表达式和只读子句的 `target_path` |
+| P078 | `postgresql-view-bind-values` | `UPDATE ... SET ... WHERE ... = $n` | PostgreSQL bind 字段、空 value 和 update/where 子句归属 |
 
 ## 负向用例
 
 | 用例 ID | 用例名称 | 输入 | 验证重点 |
 | --- | --- | --- | --- |
-| P070 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
+| P079 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
 
 新增回归用例必须同步更新 `tests/cases/sql_batch_input.json` 和本矩阵。

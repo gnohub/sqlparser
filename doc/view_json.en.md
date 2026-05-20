@@ -62,15 +62,16 @@ Fields:
 | `index` | zero-based statement index |
 | `keyword` | main statement keyword |
 | `keywords` | recognized keyword set for the statement |
-| `clauses` | writable statement-level clause array; `sql` is `null` when a slot is empty |
+| `clauses` | statement-level clause array; writable clauses have selectors, read-only attribution clauses use `null` selectors |
 | `objects` | tables, views, or other attributable objects in the SQL |
 
 ## Clause Layout
 
-`clauses` describes statement-level rewrite slots, not column attribution. The currently writable clause kinds are `select_list`, `where`, and `order_by`.
+`clauses` describes statement-level structure. The currently writable clause kinds are `select_list`, `set_list`, `where`, and `order_by`. Read-only attribution clauses such as `on`, `group_by`, and `having` use `selector: null` and are not direct patch targets.
 
 ```json
 {
+  "id": 2,
   "kind": "where",
   "selector": "stmt[0].clause[1]",
   "sql": "status = 'active'"
@@ -81,11 +82,12 @@ Fields:
 
 | Field | Description |
 | --- | --- |
-| `kind` | clause kind, such as `select_list`, `where`, or `order_by` |
-| `selector` | clause selector for patching |
+| `id` | one-based clause id; `objects[].columns[].clause_id` references this id |
+| `kind` | clause kind, such as `select_list`, `set_list`, `where`, `order_by`, or `on` |
+| `selector` | clause selector for patching; `null` for read-only clauses |
 | `sql` | clause content, or `null` when the statement can add the clause but it is not present yet |
 
-Use `clauses` for structural rewrites such as replacing the SELECT output list, adding WHERE, appending WHERE conditions, or adding ORDER BY. Use `objects[].columns[]` for table, column, and value attribution.
+Use writable `clauses` for structural rewrites such as replacing the SELECT output list, replacing the UPDATE SET list, adding WHERE, appending WHERE conditions, or adding ORDER BY. `objects[].columns[]` links each attributed field to `clauses[].id` through `clause_id`.
 
 ## Object Layout
 
@@ -124,9 +126,13 @@ Only columns that appear in SQL are reported. An unqualified column is attached 
   "name": "status",
   "keyword": "where",
   "operator": "=",
+  "bind": null,
+  "bind_selector": null,
   "selector": "stmt[0].name[3]",
   "target_list_selector": null,
   "target_selector": null,
+  "clause_id": 2,
+  "target_path": [],
   "value": {
     "sql": "'active'",
     "selector": "stmt[0].value[7]"
@@ -141,14 +147,52 @@ Fields:
 | `name` | column name; `SELECT *` is reported as `"*"` |
 | `keyword` | clause where the column appears, such as `select`, `where`, `set`, or `on` |
 | `operator` | related operator, or `null` |
+| `bind` | normalized bind name when the field value is a prepared-statement placeholder, otherwise `null` |
+| `bind_selector` | selector for the bind value expression, otherwise `null` |
 | `selector` | column-name selector, or `null` when not writable |
 | `target_list_selector` | whole target-list selector when the column appears in a SELECT output list, otherwise `null` |
 | `target_selector` | single-output-target selector when the column appears in a SELECT output list, otherwise `null` |
+| `clause_id` | one-based `clauses[]` id for the clause containing the field, or `null` when not stable |
+| `target_path` | ordered function or expression wrapper path when the field appears in a SELECT output item; non-output fields use `[]` |
 | `value` | directly related SQL value fragment, or `null` |
 
 `value.sql` is an editable SQL fragment. The model does not infer a database type for the value. Complex expressions that cannot be rendered safely as standalone SQL fragments keep `value: null`; the column entry is still reported.
 `value.selector` addresses the whole value expression and can replace a literal,
 bind parameter, or expression with a new SQL fragment.
+
+Prepared-statement placeholders export structured `bind` and keep `value:
+null`. For example, Oracle `IP = :aaa` exports `bind: "aaa"`; SQL Server
+`@aaa` exports `bind: "aaa"`; PostgreSQL `$1` exports `bind: "1"`;
+JDBC-style `?` placeholders are numbered by occurrence as `bind: "1"`,
+`bind: "2"`, and so on. Use `bind_selector` to rewrite the bind expression.
+
+`target_path` is an ordered array from the outermost wrapper to the innermost
+wrapper. The array order is the hierarchy; no additional ordering field is
+needed.
+
+Each entry contains:
+
+| Field | Description |
+| --- | --- |
+| `kind` | `function` or `expression` |
+| `name` | function name, operator, or expression category; `null` when not stable |
+| `arg_index` | zero-based argument or operand index where the next inner expression appears |
+
+Examples:
+
+| SQL fragment | Field | `target_path` |
+| --- | --- | --- |
+| `SELECT name FROM users` | `name` | `[]` |
+| `SELECT * FROM users` | `*` | `[]` |
+| `SELECT UPPER(name) FROM users` | `name` | `[{"kind":"function","name":"UPPER","arg_index":0}]` |
+| `SELECT LOW(UPPER(name)) FROM users` | `name` | `[{"kind":"function","name":"LOW","arg_index":0},{"kind":"function","name":"UPPER","arg_index":0}]` |
+| `SELECT CONCAT(UPPER(first_name), last_name) FROM users` | `first_name` | `[{"kind":"function","name":"CONCAT","arg_index":0},{"kind":"function","name":"UPPER","arg_index":0}]` |
+| `SELECT CONCAT(UPPER(first_name), last_name) FROM users` | `last_name` | `[{"kind":"function","name":"CONCAT","arg_index":1}]` |
+| `SELECT first_name || last_name FROM users` | `first_name` | `[{"kind":"expression","name":"||","arg_index":0}]` |
+| `SELECT first_name || last_name FROM users` | `last_name` | `[{"kind":"expression","name":"||","arg_index":1}]` |
+| `SELECT SUM(amount) OVER (PARTITION BY dept ORDER BY created_at) FROM users` | `amount` | `[{"kind":"function","name":"SUM","arg_index":0}]` |
+| `SELECT SUM(amount) OVER (PARTITION BY dept ORDER BY created_at) FROM users` | `dept` | `[{"kind":"expression","name":"window_partition","arg_index":0}]` |
+| `SELECT SUM(amount) OVER (PARTITION BY dept ORDER BY created_at) FROM users` | `created_at` | `[{"kind":"expression","name":"window_order","arg_index":0}]` |
 
 ## INSERT Rows
 
@@ -162,12 +206,16 @@ bind parameter, or expression with a new SQL fragment.
       "column": "id",
       "column_index": 0,
       "sql": "1",
+      "bind": null,
+      "bind_selector": null,
       "selector": "stmt[0].insert_cell[0][0]"
     },
     {
       "column": "name",
       "column_index": 1,
       "sql": "'bob'",
+      "bind": null,
+      "bind_selector": null,
       "selector": "stmt[0].insert_cell[0][1]"
     }
   ]
@@ -314,14 +362,26 @@ Output:
               "name": "id",
               "keyword": "insert",
               "operator": null,
+              "bind": null,
+              "bind_selector": null,
               "selector": "stmt[0].name[0]",
+              "target_list_selector": null,
+              "target_selector": null,
+              "clause_id": null,
+              "target_path": [],
               "value": null
             },
             {
               "name": "name",
               "keyword": "insert",
               "operator": null,
+              "bind": null,
+              "bind_selector": null,
               "selector": "stmt[0].name[1]",
+              "target_list_selector": null,
+              "target_selector": null,
+              "clause_id": null,
+              "target_path": [],
               "value": null
             }
           ],
@@ -333,12 +393,16 @@ Output:
                   "column": "id",
                   "column_index": 0,
                   "sql": "1",
+                  "bind": null,
+                  "bind_selector": null,
                   "selector": "stmt[0].insert_cell[0][0]"
                 },
                 {
                   "column": "name",
                   "column_index": 1,
                   "sql": "'xiaohong'",
+                  "bind": null,
+                  "bind_selector": null,
                   "selector": "stmt[0].insert_cell[0][1]"
                 }
               ]
@@ -350,12 +414,16 @@ Output:
                   "column": "id",
                   "column_index": 0,
                   "sql": "2",
+                  "bind": null,
+                  "bind_selector": null,
                   "selector": "stmt[0].insert_cell[1][0]"
                 },
                 {
                   "column": "name",
                   "column_index": 1,
                   "sql": "'xiaoming'",
+                  "bind": null,
+                  "bind_selector": null,
                   "selector": "stmt[0].insert_cell[1][1]"
                 }
               ]

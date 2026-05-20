@@ -65,6 +65,12 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 | O058 | expanded `INSERT ... VALUES (?, ?, ?)` | insert columns and JDBC-style positional parameters |
 | O059 | `DELETE ... WHERE ... = ?` | JDBC-style positional parameters in conditional delete |
 | O060 | `EXECUTE IMMEDIATE` update statement | dynamic UPDATE SQL text and multiple USING binds |
+| O061 | nested ROWNUM pagination with bind | nested query, `a.*`, pseudo-column alias, and named binds |
+| O062 | `NVL` + `TO_CHAR` + `UPPER` | function `target_path`, nested function, argument index, and WHERE bind |
+| O063 | `CASE` expression output | `target_path` attribution for fields inside `CASE WHEN` |
+| O064 | `GROUP BY` + `HAVING` + `ORDER BY` | aggregate output and non-output clause attribution |
+| O065 | `UPDATE` + multiple named binds | update/where clauses, bind fields, and null values |
+| O066 | ROWNUM pagination attribution | nested query, `a.*`, ROWNUM predicate, and outer predicate attribution |
 
 ## Explicitly Unsupported Cases
 

@@ -268,6 +268,7 @@ static int verify_success_case(
 	    verify_text_array(case_id, case_name, view_json, "update_columns", json_object_get(expect_root, "update_columns")) != 0 ||
 	    verify_contains(case_id, case_name, view_json, "view_contains", json_object_get(expect_root, "view_contains")) != 0 ||
 	    verify_not_contains(case_id, case_name, view_json, "view_not_contains", json_object_get(expect_root, "view_not_contains")) != 0 ||
+	    sqlparser_test_verify_view_expectations(case_id, case_name, view_json, expect_root) != 0 ||
 	    verify_contains(case_id, case_name, deparse_sql, "deparse_contains", json_object_get(expect_root, "deparse_contains")) != 0 ||
 	    verify_not_contains(case_id, case_name, deparse_sql, "deparse_not_contains", json_object_get(expect_root, "deparse_not_contains")) != 0) {
 		sqlparser_string_free(deparse_sql);

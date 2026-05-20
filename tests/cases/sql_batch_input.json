@@ -5,8 +5,12 @@
       "sql": "SELECT 1",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "keywords": ["select"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "keywords": [
+          "select"
+        ],
         "deparse_contains": "SELECT 1"
       }
     },
@@ -15,12 +19,28 @@
       "sql": "SELECT id, name FROM public.users WHERE id = 42",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "keywords": ["select", "from", "where"],
-        "tables": ["public.users"],
-        "selected_columns": ["id", "name"],
-        "where_columns": ["id"],
-        "all_referenced_columns": ["id", "name"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "keywords": [
+          "select",
+          "from",
+          "where"
+        ],
+        "tables": [
+          "public.users"
+        ],
+        "selected_columns": [
+          "id",
+          "name"
+        ],
+        "where_columns": [
+          "id"
+        ],
+        "all_referenced_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": "FROM public.users"
       }
     },
@@ -29,13 +49,39 @@
       "sql": "SELECT u.id, u.name, o.order_no FROM public.users u JOIN public.orders o ON u.id = o.user_id WHERE o.status = 'paid'",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "keywords": ["select", "from", "join", "on", "where"],
-        "tables": ["public.users", "public.orders"],
-        "selected_columns": ["id", "name", "order_no"],
-        "join_columns": ["id", "user_id"],
-        "where_columns": ["status"],
-        "all_referenced_columns": ["id", "name", "order_no", "user_id", "status"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "keywords": [
+          "select",
+          "from",
+          "join",
+          "on",
+          "where"
+        ],
+        "tables": [
+          "public.users",
+          "public.orders"
+        ],
+        "selected_columns": [
+          "id",
+          "name",
+          "order_no"
+        ],
+        "join_columns": [
+          "id",
+          "user_id"
+        ],
+        "where_columns": [
+          "status"
+        ],
+        "all_referenced_columns": [
+          "id",
+          "name",
+          "order_no",
+          "user_id",
+          "status"
+        ],
         "deparse_contains": "SELECT u.id, u.name, o.order_no"
       }
     },
@@ -44,13 +90,32 @@
       "sql": "WITH active_users AS (SELECT id, name FROM public.users WHERE status = 'active') SELECT au.id, au.name FROM active_users au",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "keywords": ["with", "select", "from", "where"],
-        "tables": ["public.users"],
-        "cte_names": ["active_users"],
-        "selected_columns": ["id", "name"],
-        "filter_columns": ["status"],
-        "all_referenced_columns": ["id", "name"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "keywords": [
+          "with",
+          "select",
+          "from",
+          "where"
+        ],
+        "tables": [
+          "public.users"
+        ],
+        "cte_names": [
+          "active_users"
+        ],
+        "selected_columns": [
+          "id",
+          "name"
+        ],
+        "filter_columns": [
+          "status"
+        ],
+        "all_referenced_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": "WITH active_users AS"
       }
     },
@@ -59,11 +124,25 @@
       "sql": "INSERT INTO public.users (id, name) VALUES (1, 'alice')",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "keywords": ["insert", "into", "values"],
-        "tables": ["public.users"],
-        "insert_columns": ["id", "name"],
-        "all_referenced_columns": ["id", "name"],
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "keywords": [
+          "insert",
+          "into",
+          "values"
+        ],
+        "tables": [
+          "public.users"
+        ],
+        "insert_columns": [
+          "id",
+          "name"
+        ],
+        "all_referenced_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": "VALUES (1, 'alice')"
       }
     },
@@ -72,11 +151,25 @@
       "sql": "INSERT INTO public.users (id, name) VALUES (1, 'alice'), (2, 'bob')",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "keywords": ["insert", "into", "values"],
-        "tables": ["public.users"],
-        "insert_columns": ["id", "name"],
-        "all_referenced_columns": ["id", "name"],
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "keywords": [
+          "insert",
+          "into",
+          "values"
+        ],
+        "tables": [
+          "public.users"
+        ],
+        "insert_columns": [
+          "id",
+          "name"
+        ],
+        "all_referenced_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": "VALUES (1, 'alice'), (2, 'bob')"
       }
     },
@@ -85,13 +178,36 @@
       "sql": "INSERT INTO public.user_archive (id, name) SELECT id, name FROM public.users WHERE status = 'inactive'",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "keywords": ["insert", "into", "select", "from", "where"],
-        "tables": ["public.user_archive", "public.users"],
-        "selected_columns": ["id", "name"],
-        "where_columns": ["status"],
-        "insert_columns": ["id", "name"],
-        "all_referenced_columns": ["id", "name", "status"],
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "keywords": [
+          "insert",
+          "into",
+          "select",
+          "from",
+          "where"
+        ],
+        "tables": [
+          "public.user_archive",
+          "public.users"
+        ],
+        "selected_columns": [
+          "id",
+          "name"
+        ],
+        "where_columns": [
+          "status"
+        ],
+        "insert_columns": [
+          "id",
+          "name"
+        ],
+        "all_referenced_columns": [
+          "id",
+          "name",
+          "status"
+        ],
         "deparse_contains": "INSERT INTO public.user_archive"
       }
     },
@@ -100,12 +216,29 @@
       "sql": "UPDATE public.users SET name = 'alice', status = 'active' WHERE id = 1",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["UpdateStmt"],
-        "keywords": ["update", "set", "where"],
-        "tables": ["public.users"],
-        "update_columns": ["name", "status"],
-        "where_columns": ["id"],
-        "all_referenced_columns": ["name", "status", "id"],
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "keywords": [
+          "update",
+          "set",
+          "where"
+        ],
+        "tables": [
+          "public.users"
+        ],
+        "update_columns": [
+          "name",
+          "status"
+        ],
+        "where_columns": [
+          "id"
+        ],
+        "all_referenced_columns": [
+          "name",
+          "status",
+          "id"
+        ],
         "deparse_contains": "UPDATE public.users SET"
       }
     },
@@ -114,11 +247,26 @@
       "sql": "DELETE FROM public.users WHERE id = 1 AND status = 'active'",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["DeleteStmt"],
-        "keywords": ["delete", "from", "where", "and"],
-        "tables": ["public.users"],
-        "where_columns": ["id", "status"],
-        "all_referenced_columns": ["id", "status"],
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "keywords": [
+          "delete",
+          "from",
+          "where",
+          "and"
+        ],
+        "tables": [
+          "public.users"
+        ],
+        "where_columns": [
+          "id",
+          "status"
+        ],
+        "all_referenced_columns": [
+          "id",
+          "status"
+        ],
         "deparse_contains": "DELETE FROM public.users"
       }
     },
@@ -127,11 +275,27 @@
       "sql": "DELETE FROM public.users WHERE id IN (1, 2, 3) AND status = 'active'",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["DeleteStmt"],
-        "keywords": ["delete", "from", "where", "in", "and"],
-        "tables": ["public.users"],
-        "where_columns": ["id", "status"],
-        "all_referenced_columns": ["id", "status"],
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "keywords": [
+          "delete",
+          "from",
+          "where",
+          "in",
+          "and"
+        ],
+        "tables": [
+          "public.users"
+        ],
+        "where_columns": [
+          "id",
+          "status"
+        ],
+        "all_referenced_columns": [
+          "id",
+          "status"
+        ],
         "deparse_contains": "id IN (1, 2, 3)"
       }
     },
@@ -140,9 +304,16 @@
       "sql": "DROP TABLE public.users",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["DropStmt"],
-        "keywords": ["drop", "table"],
-        "tables": ["public.users"],
+        "statement_types": [
+          "DropStmt"
+        ],
+        "keywords": [
+          "drop",
+          "table"
+        ],
+        "tables": [
+          "public.users"
+        ],
         "deparse_contains": "DROP TABLE public.users"
       }
     },
@@ -151,9 +322,16 @@
       "sql": "DROP VIEW public.v_users",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["DropStmt"],
-        "keywords": ["drop", "view"],
-        "tables": ["public.v_users"],
+        "statement_types": [
+          "DropStmt"
+        ],
+        "keywords": [
+          "drop",
+          "view"
+        ],
+        "tables": [
+          "public.v_users"
+        ],
         "deparse_contains": "DROP VIEW public.v_users"
       }
     },
@@ -162,11 +340,28 @@
       "sql": "CREATE VIEW public.v_users AS SELECT id, name FROM public.users",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["ViewStmt"],
-        "keywords": ["create", "view", "as", "select", "from"],
-        "tables": ["public.v_users", "public.users"],
-        "selected_columns": ["id", "name"],
-        "all_referenced_columns": ["id", "name"],
+        "statement_types": [
+          "ViewStmt"
+        ],
+        "keywords": [
+          "create",
+          "view",
+          "as",
+          "select",
+          "from"
+        ],
+        "tables": [
+          "public.v_users",
+          "public.users"
+        ],
+        "selected_columns": [
+          "id",
+          "name"
+        ],
+        "all_referenced_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": "CREATE VIEW public.v_users AS"
       }
     },
@@ -175,7 +370,9 @@
       "sql": "TRUNCATE TABLE public.users",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["TruncateStmt"],
+        "statement_types": [
+          "TruncateStmt"
+        ],
         "deparse_contains": "TRUNCATE public.users"
       }
     },
@@ -184,7 +381,9 @@
       "sql": "COMMENT ON TABLE public.users IS 'hot'",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["CommentStmt"],
+        "statement_types": [
+          "CommentStmt"
+        ],
         "deparse_contains": "COMMENT ON TABLE public.users"
       }
     },
@@ -193,7 +392,9 @@
       "sql": "ALTER TABLE public.users RENAME TO users_archive",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["RenameStmt"],
+        "statement_types": [
+          "RenameStmt"
+        ],
         "deparse_contains": "RENAME TO users_archive"
       }
     },
@@ -202,7 +403,9 @@
       "sql": "ALTER TABLE public.users ADD COLUMN age integer",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["AlterTableStmt"],
+        "statement_types": [
+          "AlterTableStmt"
+        ],
         "deparse_contains": "ADD COLUMN age int"
       }
     },
@@ -211,7 +414,9 @@
       "sql": "CREATE INDEX idx_users_name ON public.users (name)",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["IndexStmt"],
+        "statement_types": [
+          "IndexStmt"
+        ],
         "deparse_contains": "CREATE INDEX idx_users_name"
       }
     },
@@ -220,7 +425,9 @@
       "sql": "DROP INDEX public.idx_users_name",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["DropStmt"],
+        "statement_types": [
+          "DropStmt"
+        ],
         "deparse_contains": "DROP INDEX public.idx_users_name"
       }
     },
@@ -229,7 +436,9 @@
       "sql": "EXPLAIN SELECT id FROM public.users",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["ExplainStmt"],
+        "statement_types": [
+          "ExplainStmt"
+        ],
         "deparse_contains": "EXPLAIN SELECT id FROM public.users"
       }
     },
@@ -238,7 +447,9 @@
       "sql": "COPY public.users (id, name) FROM STDIN",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["CopyStmt"],
+        "statement_types": [
+          "CopyStmt"
+        ],
         "deparse_contains": "COPY public.users(id, name) FROM STDIN"
       }
     },
@@ -247,7 +458,9 @@
       "sql": "LOCK TABLE public.users IN ACCESS EXCLUSIVE MODE",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["LockStmt"],
+        "statement_types": [
+          "LockStmt"
+        ],
         "deparse_contains": "LOCK TABLE public.users"
       }
     },
@@ -256,7 +469,9 @@
       "sql": "CALL public.refresh_users()",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["CallStmt"],
+        "statement_types": [
+          "CallStmt"
+        ],
         "deparse_contains": "CALL public.refresh_users()"
       }
     },
@@ -265,7 +480,9 @@
       "sql": "DO $$ BEGIN NULL; END $$",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["DoStmt"],
+        "statement_types": [
+          "DoStmt"
+        ],
         "deparse_contains": "DO $$ BEGIN NULL; END $$"
       }
     },
@@ -274,7 +491,9 @@
       "sql": "CREATE TABLE public.active_users AS SELECT id FROM public.users WHERE status = 'active'",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["CreateTableAsStmt"],
+        "statement_types": [
+          "CreateTableAsStmt"
+        ],
         "deparse_contains": "CREATE TABLE public.active_users AS"
       }
     },
@@ -283,8 +502,13 @@
       "sql": "BEGIN; COMMIT;",
       "expect": {
         "statement_count": 2,
-        "statement_types": ["TransactionStmt"],
-        "keywords": ["begin", "commit"],
+        "statement_types": [
+          "TransactionStmt"
+        ],
+        "keywords": [
+          "begin",
+          "commit"
+        ],
         "deparse_contains": "BEGIN; COMMIT"
       }
     },
@@ -293,11 +517,28 @@
       "sql": "BEGIN; INSERT INTO public.users (id, name) VALUES (1, 'alice'); ROLLBACK;",
       "expect": {
         "statement_count": 3,
-        "statement_types": ["TransactionStmt", "InsertStmt"],
-        "keywords": ["begin", "insert", "into", "values", "rollback"],
-        "tables": ["public.users"],
-        "insert_columns": ["id", "name"],
-        "all_referenced_columns": ["id", "name"],
+        "statement_types": [
+          "TransactionStmt",
+          "InsertStmt"
+        ],
+        "keywords": [
+          "begin",
+          "insert",
+          "into",
+          "values",
+          "rollback"
+        ],
+        "tables": [
+          "public.users"
+        ],
+        "insert_columns": [
+          "id",
+          "name"
+        ],
+        "all_referenced_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": "ROLLBACK"
       }
     },
@@ -306,11 +547,27 @@
       "sql": "SELECT 1; INSERT INTO public.audit_log (id, action) VALUES (1, 'login')",
       "expect": {
         "statement_count": 2,
-        "statement_types": ["SelectStmt", "InsertStmt"],
-        "keywords": ["select", "insert", "into", "values"],
-        "tables": ["public.audit_log"],
-        "insert_columns": ["id", "action"],
-        "all_referenced_columns": ["id", "action"],
+        "statement_types": [
+          "SelectStmt",
+          "InsertStmt"
+        ],
+        "keywords": [
+          "select",
+          "insert",
+          "into",
+          "values"
+        ],
+        "tables": [
+          "public.audit_log"
+        ],
+        "insert_columns": [
+          "id",
+          "action"
+        ],
+        "all_referenced_columns": [
+          "id",
+          "action"
+        ],
         "deparse_contains": "INSERT INTO public.audit_log"
       }
     },
@@ -319,11 +576,22 @@
       "sql": "SELECT \"User\".\"Name\" FROM \"User\"",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "keywords": ["select", "from"],
-        "tables": ["\"User\""],
-        "selected_columns": ["Name"],
-        "all_referenced_columns": ["Name"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "keywords": [
+          "select",
+          "from"
+        ],
+        "tables": [
+          "\"User\""
+        ],
+        "selected_columns": [
+          "Name"
+        ],
+        "all_referenced_columns": [
+          "Name"
+        ],
         "deparse_contains": "SELECT \"User\".\"Name\" FROM \"User\""
       }
     },
@@ -332,8 +600,13 @@
       "sql": "SELECT ';' AS token",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "keywords": ["select", "as"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "keywords": [
+          "select",
+          "as"
+        ],
         "deparse_contains": "AS token"
       }
     },
@@ -342,11 +615,27 @@
       "sql": "SELECT u.id, EXISTS (SELECT 1 FROM public.orders o WHERE o.user_id = u.id) AS has_orders FROM public.users u",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "keywords": ["select", "from", "where", "exists", "as"],
-        "tables": ["public.users", "public.orders"],
-        "selected_columns": ["id"],
-        "all_referenced_columns": ["id", "user_id"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "keywords": [
+          "select",
+          "from",
+          "where",
+          "exists",
+          "as"
+        ],
+        "tables": [
+          "public.users",
+          "public.orders"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "all_referenced_columns": [
+          "id",
+          "user_id"
+        ],
         "deparse_contains": "EXISTS (SELECT 1 FROM public.orders o"
       }
     },
@@ -355,11 +644,41 @@
       "sql": "SELECT p.id, CASE WHEN p.status = 'paid' THEN p.order_no ELSE 'pending' END AS label, sum(p.amount) OVER (PARTITION BY p.user_id ORDER BY p.created_at) AS running_amount FROM public.payments p",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "keywords": ["select", "case", "when", "then", "else", "end", "as", "over", "partition", "order", "by", "from"],
-        "tables": ["public.payments"],
-        "selected_columns": ["id", "order_no", "amount", "user_id", "created_at"],
-        "all_referenced_columns": ["id", "status", "order_no", "amount", "user_id", "created_at"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "keywords": [
+          "select",
+          "case",
+          "when",
+          "then",
+          "else",
+          "end",
+          "as",
+          "over",
+          "partition",
+          "order",
+          "by",
+          "from"
+        ],
+        "tables": [
+          "public.payments"
+        ],
+        "selected_columns": [
+          "id",
+          "order_no",
+          "amount",
+          "user_id",
+          "created_at"
+        ],
+        "all_referenced_columns": [
+          "id",
+          "status",
+          "order_no",
+          "amount",
+          "user_id",
+          "created_at"
+        ],
         "deparse_contains": "sum(p.amount) OVER"
       }
     },
@@ -368,9 +687,22 @@
       "sql": "SELECT id FROM public.users UNION ALL SELECT id FROM public.user_archive ORDER BY id LIMIT 10",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "keywords": ["select", "from", "union", "all", "order", "by", "limit"],
-        "tables": ["public.users", "public.user_archive"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "keywords": [
+          "select",
+          "from",
+          "union",
+          "all",
+          "order",
+          "by",
+          "limit"
+        ],
+        "tables": [
+          "public.users",
+          "public.user_archive"
+        ],
         "deparse_contains": "UNION ALL SELECT id FROM public.user_archive"
       }
     },
@@ -379,11 +711,31 @@
       "sql": "INSERT INTO public.users (id, name) VALUES (1, 'alice') ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name RETURNING id",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "keywords": ["insert", "into", "values", "on", "conflict", "do", "update", "set", "returning"],
-        "tables": ["public.users"],
-        "insert_columns": ["id", "name"],
-        "all_referenced_columns": ["id", "name"],
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "keywords": [
+          "insert",
+          "into",
+          "values",
+          "on",
+          "conflict",
+          "do",
+          "update",
+          "set",
+          "returning"
+        ],
+        "tables": [
+          "public.users"
+        ],
+        "insert_columns": [
+          "id",
+          "name"
+        ],
+        "all_referenced_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": "ON CONFLICT (id) DO UPDATE SET"
       }
     },
@@ -392,11 +744,26 @@
       "sql": "INSERT INTO public.audit_log (id, action) VALUES (1, 'login') RETURNING id, action",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "keywords": ["insert", "into", "values", "returning"],
-        "tables": ["public.audit_log"],
-        "insert_columns": ["id", "action"],
-        "all_referenced_columns": ["id", "action"],
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "keywords": [
+          "insert",
+          "into",
+          "values",
+          "returning"
+        ],
+        "tables": [
+          "public.audit_log"
+        ],
+        "insert_columns": [
+          "id",
+          "action"
+        ],
+        "all_referenced_columns": [
+          "id",
+          "action"
+        ],
         "deparse_contains": "RETURNING id, action"
       }
     },
@@ -405,11 +772,27 @@
       "sql": "UPDATE public.users AS u SET status = src.status FROM public.user_stage AS src WHERE u.id = src.id RETURNING u.id",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["UpdateStmt"],
-        "keywords": ["update", "set", "from", "where", "returning"],
-        "tables": ["public.users", "public.user_stage"],
-        "update_columns": ["status"],
-        "all_referenced_columns": ["status", "id"],
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "keywords": [
+          "update",
+          "set",
+          "from",
+          "where",
+          "returning"
+        ],
+        "tables": [
+          "public.users",
+          "public.user_stage"
+        ],
+        "update_columns": [
+          "status"
+        ],
+        "all_referenced_columns": [
+          "status",
+          "id"
+        ],
         "deparse_contains": "FROM public.user_stage src"
       }
     },
@@ -418,10 +801,23 @@
       "sql": "DELETE FROM public.users USING public.user_archive AS ua WHERE public.users.id = ua.id RETURNING public.users.id",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["DeleteStmt"],
-        "keywords": ["delete", "from", "using", "where", "returning"],
-        "tables": ["public.users", "public.user_archive"],
-        "all_referenced_columns": ["id"],
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "keywords": [
+          "delete",
+          "from",
+          "using",
+          "where",
+          "returning"
+        ],
+        "tables": [
+          "public.users",
+          "public.user_archive"
+        ],
+        "all_referenced_columns": [
+          "id"
+        ],
         "deparse_contains": "USING public.user_archive ua"
       }
     },
@@ -430,8 +826,23 @@
       "sql": "MERGE INTO public.target_table AS t USING public.source_table AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET name = s.name WHEN NOT MATCHED THEN INSERT (id, name) VALUES (s.id, s.name)",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["MergeStmt"],
-        "keywords": ["merge", "into", "using", "on", "when", "matched", "then", "update", "set", "not", "insert", "values"],
+        "statement_types": [
+          "MergeStmt"
+        ],
+        "keywords": [
+          "merge",
+          "into",
+          "using",
+          "on",
+          "when",
+          "matched",
+          "then",
+          "update",
+          "set",
+          "not",
+          "insert",
+          "values"
+        ],
         "deparse_contains": "MERGE INTO public.target_table"
       }
     },
@@ -440,8 +851,15 @@
       "sql": "BEGIN; SAVEPOINT sp1; RELEASE SAVEPOINT sp1; COMMIT;",
       "expect": {
         "statement_count": 4,
-        "statement_types": ["TransactionStmt"],
-        "keywords": ["begin", "savepoint", "release", "commit"],
+        "statement_types": [
+          "TransactionStmt"
+        ],
+        "keywords": [
+          "begin",
+          "savepoint",
+          "release",
+          "commit"
+        ],
         "deparse_contains": "RELEASE sp1"
       }
     },
@@ -450,11 +868,31 @@
       "sql": "BEGIN; SAVEPOINT sp1; INSERT INTO public.audit_log (id, action) VALUES (1, 'login'); ROLLBACK TO SAVEPOINT sp1; COMMIT;",
       "expect": {
         "statement_count": 5,
-        "statement_types": ["TransactionStmt", "InsertStmt"],
-        "keywords": ["begin", "savepoint", "insert", "into", "values", "rollback", "to", "commit"],
-        "tables": ["public.audit_log"],
-        "insert_columns": ["id", "action"],
-        "all_referenced_columns": ["id", "action"],
+        "statement_types": [
+          "TransactionStmt",
+          "InsertStmt"
+        ],
+        "keywords": [
+          "begin",
+          "savepoint",
+          "insert",
+          "into",
+          "values",
+          "rollback",
+          "to",
+          "commit"
+        ],
+        "tables": [
+          "public.audit_log"
+        ],
+        "insert_columns": [
+          "id",
+          "action"
+        ],
+        "all_referenced_columns": [
+          "id",
+          "action"
+        ],
         "deparse_contains": "ROLLBACK TO SAVEPOINT sp1"
       }
     },
@@ -463,11 +901,29 @@
       "sql": "CREATE MATERIALIZED VIEW public.mv_users AS SELECT id, name FROM public.users",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["CreateTableAsStmt"],
-        "keywords": ["create", "materialized", "view", "as", "select", "from"],
-        "tables": ["public.mv_users", "public.users"],
-        "selected_columns": ["id", "name"],
-        "all_referenced_columns": ["id", "name"],
+        "statement_types": [
+          "CreateTableAsStmt"
+        ],
+        "keywords": [
+          "create",
+          "materialized",
+          "view",
+          "as",
+          "select",
+          "from"
+        ],
+        "tables": [
+          "public.mv_users",
+          "public.users"
+        ],
+        "selected_columns": [
+          "id",
+          "name"
+        ],
+        "all_referenced_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": "CREATE MATERIALIZED VIEW public.mv_users AS"
       }
     },
@@ -476,8 +932,15 @@
       "sql": "ALTER TABLE public.users DROP COLUMN age",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["AlterTableStmt"],
-        "keywords": ["alter", "table", "drop", "column"],
+        "statement_types": [
+          "AlterTableStmt"
+        ],
+        "keywords": [
+          "alter",
+          "table",
+          "drop",
+          "column"
+        ],
         "deparse_contains": "DROP age"
       }
     },
@@ -486,8 +949,13 @@
       "sql": "CREATE SCHEMA analytics",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["CreateSchemaStmt"],
-        "keywords": ["create", "schema"],
+        "statement_types": [
+          "CreateSchemaStmt"
+        ],
+        "keywords": [
+          "create",
+          "schema"
+        ],
         "deparse_contains": "CREATE SCHEMA analytics"
       }
     },
@@ -496,8 +964,13 @@
       "sql": "DROP SCHEMA analytics",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["DropStmt"],
-        "keywords": ["drop", "schema"],
+        "statement_types": [
+          "DropStmt"
+        ],
+        "keywords": [
+          "drop",
+          "schema"
+        ],
         "deparse_contains": "DROP SCHEMA analytics"
       }
     },
@@ -506,9 +979,19 @@
       "sql": "GRANT SELECT ON TABLE public.users TO analyst",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["GrantStmt"],
-        "keywords": ["grant", "select", "on", "table", "to"],
-        "tables": ["public.users"],
+        "statement_types": [
+          "GrantStmt"
+        ],
+        "keywords": [
+          "grant",
+          "select",
+          "on",
+          "table",
+          "to"
+        ],
+        "tables": [
+          "public.users"
+        ],
         "deparse_contains": "GRANT select ON public.users TO analyst"
       }
     },
@@ -517,9 +1000,19 @@
       "sql": "REVOKE SELECT ON TABLE public.users FROM analyst",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["GrantStmt"],
-        "keywords": ["revoke", "select", "on", "table", "from"],
-        "tables": ["public.users"],
+        "statement_types": [
+          "GrantStmt"
+        ],
+        "keywords": [
+          "revoke",
+          "select",
+          "on",
+          "table",
+          "from"
+        ],
+        "tables": [
+          "public.users"
+        ],
         "deparse_contains": "REVOKE select ON public.users FROM analyst"
       }
     },
@@ -528,9 +1021,15 @@
       "sql": "ANALYZE public.users",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["VacuumStmt"],
-        "keywords": ["analyze"],
-        "tables": ["public.users"],
+        "statement_types": [
+          "VacuumStmt"
+        ],
+        "keywords": [
+          "analyze"
+        ],
+        "tables": [
+          "public.users"
+        ],
         "deparse_contains": "ANALYZE public.users"
       }
     },
@@ -539,9 +1038,16 @@
       "sql": "VACUUM ANALYZE public.users",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["VacuumStmt"],
-        "keywords": ["vacuum", "analyze"],
-        "tables": ["public.users"],
+        "statement_types": [
+          "VacuumStmt"
+        ],
+        "keywords": [
+          "vacuum",
+          "analyze"
+        ],
+        "tables": [
+          "public.users"
+        ],
         "deparse_contains": "VACUUM (ANALYZE) public.users"
       }
     },
@@ -550,8 +1056,12 @@
       "sql": "SET search_path TO app_schema, public",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["set"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "set"
+        ],
         "deparse_contains": "SET search_path TO app_schema, public"
       }
     },
@@ -560,8 +1070,12 @@
       "sql": "SET SCHEMA 'app_schema'",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["set"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "set"
+        ],
         "deparse_contains": "SET search_path TO app_schema"
       }
     },
@@ -570,8 +1084,12 @@
       "sql": "SET LOCAL search_path = app_schema",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["set"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "set"
+        ],
         "deparse_contains": "SET LOCAL search_path TO app_schema"
       }
     },
@@ -580,10 +1098,18 @@
       "sql": "PREPARE user_by_id(int) AS SELECT * FROM users WHERE id = $1",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["PrepareStmt"],
-        "keywords": ["prepare"],
-        "tables": ["users"],
-        "where_columns": ["id"],
+        "statement_types": [
+          "PrepareStmt"
+        ],
+        "keywords": [
+          "prepare"
+        ],
+        "tables": [
+          "users"
+        ],
+        "where_columns": [
+          "id"
+        ],
         "deparse_contains": "PREPARE user_by_id"
       }
     },
@@ -592,8 +1118,12 @@
       "sql": "EXECUTE user_by_id(42)",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["ExecuteStmt"],
-        "keywords": ["execute"],
+        "statement_types": [
+          "ExecuteStmt"
+        ],
+        "keywords": [
+          "execute"
+        ],
         "deparse_contains": "EXECUTE user_by_id(42)"
       }
     },
@@ -602,8 +1132,12 @@
       "sql": "DEALLOCATE PREPARE user_by_id",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["DeallocateStmt"],
-        "keywords": ["deallocate"],
+        "statement_types": [
+          "DeallocateStmt"
+        ],
+        "keywords": [
+          "deallocate"
+        ],
         "deparse_contains": "DEALLOCATE user_by_id"
       }
     },
@@ -613,9 +1147,17 @@
       "sql": "SELECT q'[Bob's order]' AS label FROM dual",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "keywords": ["select", "as", "from"],
-        "tables": ["dual"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "keywords": [
+          "select",
+          "as",
+          "from"
+        ],
+        "tables": [
+          "dual"
+        ],
         "deparse_contains": "'Bob''s order'"
       }
     },
@@ -625,12 +1167,30 @@
       "sql": "SELECT TOP (3) [id], [name] FROM [dbo].[users] WHERE [id] = @id ORDER BY [id]",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "keywords": ["select", "from", "where", "order", "by"],
-        "tables": ["dbo.users"],
-        "selected_columns": ["id", "name"],
-        "where_columns": ["id"],
-        "all_referenced_columns": ["id", "name"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "keywords": [
+          "select",
+          "from",
+          "where",
+          "order",
+          "by"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "selected_columns": [
+          "id",
+          "name"
+        ],
+        "where_columns": [
+          "id"
+        ],
+        "all_referenced_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": "TOP (3)"
       }
     },
@@ -640,12 +1200,35 @@
       "sql": "SET SCHEMA KDES; SELECT TOP 2 id, name FROM users WHERE id = :id ORDER BY id",
       "expect": {
         "statement_count": 2,
-        "statement_types": ["VariableSetStmt", "SelectStmt"],
-        "keywords": ["alter", "session", "set", "select", "from", "where", "order", "by", "limit"],
-        "tables": ["users"],
-        "selected_columns": ["id", "name"],
-        "where_columns": ["id"],
-        "all_referenced_columns": ["id", "name"],
+        "statement_types": [
+          "VariableSetStmt",
+          "SelectStmt"
+        ],
+        "keywords": [
+          "alter",
+          "session",
+          "set",
+          "select",
+          "from",
+          "where",
+          "order",
+          "by",
+          "limit"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id",
+          "name"
+        ],
+        "where_columns": [
+          "id"
+        ],
+        "all_referenced_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": ":id"
       }
     },
@@ -654,11 +1237,25 @@
       "sql": "SELECT id, name FROM users WHERE id = $1 AND status = $2",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "keywords": ["select", "from", "where"],
-        "tables": ["users"],
-        "selected_columns": ["id", "name"],
-        "where_columns": ["id", "status"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "keywords": [
+          "select",
+          "from",
+          "where"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id",
+          "name"
+        ],
+        "where_columns": [
+          "id",
+          "status"
+        ],
         "deparse_contains": "$2"
       }
     },
@@ -667,11 +1264,23 @@
       "sql": "SELECT id FROM users WHERE status IN ($1, $2, $3)",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "keywords": ["select", "from", "where"],
-        "tables": ["users"],
-        "selected_columns": ["id"],
-        "where_columns": ["status"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "keywords": [
+          "select",
+          "from",
+          "where"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "status"
+        ],
         "deparse_contains": "$3"
       }
     },
@@ -680,11 +1289,26 @@
       "sql": "SELECT id FROM users WHERE name LIKE $1 ORDER BY id LIMIT $2 OFFSET $3",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "keywords": ["select", "from", "where", "order", "by", "limit"],
-        "tables": ["users"],
-        "selected_columns": ["id"],
-        "where_columns": ["name"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "keywords": [
+          "select",
+          "from",
+          "where",
+          "order",
+          "by",
+          "limit"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "name"
+        ],
         "deparse_contains": "$3"
       }
     },
@@ -693,10 +1317,22 @@
       "sql": "INSERT INTO users (id, name, status) VALUES ($1, $2, $3)",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "keywords": ["insert", "into", "values"],
-        "tables": ["users"],
-        "insert_columns": ["id", "name", "status"],
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "keywords": [
+          "insert",
+          "into",
+          "values"
+        ],
+        "tables": [
+          "users"
+        ],
+        "insert_columns": [
+          "id",
+          "name",
+          "status"
+        ],
         "deparse_contains": "$3"
       }
     },
@@ -705,10 +1341,21 @@
       "sql": "INSERT INTO users (id, name) VALUES ($1, $2), ($3, $4)",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "keywords": ["insert", "into", "values"],
-        "tables": ["users"],
-        "insert_columns": ["id", "name"],
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "keywords": [
+          "insert",
+          "into",
+          "values"
+        ],
+        "tables": [
+          "users"
+        ],
+        "insert_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": "$4"
       }
     },
@@ -717,11 +1364,24 @@
       "sql": "UPDATE users SET name = $1, status = $2 WHERE id = $3",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["UpdateStmt"],
-        "keywords": ["update", "set", "where"],
-        "tables": ["users"],
-        "update_columns": ["name", "status"],
-        "where_columns": ["id"],
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "keywords": [
+          "update",
+          "set",
+          "where"
+        ],
+        "tables": [
+          "users"
+        ],
+        "update_columns": [
+          "name",
+          "status"
+        ],
+        "where_columns": [
+          "id"
+        ],
         "deparse_contains": "$3"
       }
     },
@@ -730,10 +1390,21 @@
       "sql": "DELETE FROM users WHERE id = $1 AND status = $2",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["DeleteStmt"],
-        "keywords": ["delete", "from", "where"],
-        "tables": ["users"],
-        "where_columns": ["id", "status"],
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "keywords": [
+          "delete",
+          "from",
+          "where"
+        ],
+        "tables": [
+          "users"
+        ],
+        "where_columns": [
+          "id",
+          "status"
+        ],
         "deparse_contains": "$2"
       }
     },
@@ -742,9 +1413,15 @@
       "sql": "PREPARE insert_user(int, text) AS INSERT INTO users (id, name) VALUES ($1, $2)",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["PrepareStmt"],
-        "keywords": ["prepare"],
-        "tables": ["users"],
+        "statement_types": [
+          "PrepareStmt"
+        ],
+        "keywords": [
+          "prepare"
+        ],
+        "tables": [
+          "users"
+        ],
         "deparse_contains": "PREPARE insert_user"
       }
     },
@@ -753,10 +1430,18 @@
       "sql": "PREPARE update_user(text, int) AS UPDATE users SET name = $1 WHERE id = $2",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["PrepareStmt"],
-        "keywords": ["prepare"],
-        "tables": ["users"],
-        "where_columns": ["id"],
+        "statement_types": [
+          "PrepareStmt"
+        ],
+        "keywords": [
+          "prepare"
+        ],
+        "tables": [
+          "users"
+        ],
+        "where_columns": [
+          "id"
+        ],
         "deparse_contains": "PREPARE update_user"
       }
     },
@@ -765,10 +1450,18 @@
       "sql": "PREPARE delete_user(int) AS DELETE FROM users WHERE id = $1",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["PrepareStmt"],
-        "keywords": ["prepare"],
-        "tables": ["users"],
-        "where_columns": ["id"],
+        "statement_types": [
+          "PrepareStmt"
+        ],
+        "keywords": [
+          "prepare"
+        ],
+        "tables": [
+          "users"
+        ],
+        "where_columns": [
+          "id"
+        ],
         "deparse_contains": "PREPARE delete_user"
       }
     },
@@ -777,8 +1470,12 @@
       "sql": "EXECUTE insert_user(1, 'bob')",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["ExecuteStmt"],
-        "keywords": ["execute"],
+        "statement_types": [
+          "ExecuteStmt"
+        ],
+        "keywords": [
+          "execute"
+        ],
         "deparse_contains": "EXECUTE insert_user(1, 'bob')"
       }
     },
@@ -787,9 +1484,407 @@
       "sql": "DEALLOCATE ALL",
       "expect": {
         "statement_count": 1,
-        "statement_types": ["DeallocateStmt"],
-        "keywords": ["deallocate"],
+        "statement_types": [
+          "DeallocateStmt"
+        ],
+        "keywords": [
+          "deallocate"
+        ],
         "deparse_contains": "DEALLOCATE ALL"
+      }
+    },
+    {
+      "name": "postgresql-view-direct-column",
+      "sql": "SELECT name FROM users",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "name",
+            "keyword": "select",
+            "clause_kind": "select_list",
+            "target_path": [],
+            "value_is_null": true
+          }
+        ]
+      }
+    },
+    {
+      "name": "postgresql-view-star-qualified-star",
+      "sql": "SELECT u.*, u.id FROM public.users u",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "public.users"
+        ],
+        "columns": [
+          {
+            "table": "public.users",
+            "name": "*",
+            "keyword": "select",
+            "clause_kind": "select_list"
+          },
+          {
+            "table": "public.users",
+            "name": "id",
+            "keyword": "select",
+            "clause_kind": "select_list"
+          }
+        ]
+      }
+    },
+    {
+      "name": "postgresql-view-functions-and-args",
+      "sql": "SELECT CONCAT(UPPER(first_name), last_name), COALESCE(nickname, name), CAST(age AS text) FROM users",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "first_name",
+            "keyword": "select",
+            "clause_kind": "select_list",
+            "target_path": [
+              {
+                "kind": "function",
+                "name": "CONCAT",
+                "arg_index": 0
+              },
+              {
+                "kind": "function",
+                "name": "UPPER",
+                "arg_index": 0
+              }
+            ]
+          },
+          {
+            "table": "users",
+            "name": "last_name",
+            "keyword": "select",
+            "clause_kind": "select_list",
+            "target_path": [
+              {
+                "kind": "function",
+                "name": "CONCAT",
+                "arg_index": 1
+              }
+            ]
+          },
+          {
+            "table": "users",
+            "name": "nickname",
+            "keyword": "select",
+            "clause_kind": "select_list",
+            "target_path": [
+              {
+                "kind": "function",
+                "name": "COALESCE",
+                "arg_index": 0
+              }
+            ]
+          },
+          {
+            "table": "users",
+            "name": "age",
+            "keyword": "select",
+            "clause_kind": "select_list",
+            "target_path": [
+              {
+                "kind": "function",
+                "name": "CAST",
+                "arg_index": 0
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "postgresql-view-distinct-nested-functions",
+      "sql": "SELECT DISTINCT LOW(UPPER(name)) FROM table1",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "keywords": [
+          "select",
+          "distinct",
+          "from"
+        ],
+        "tables": [
+          "table1"
+        ],
+        "columns": [
+          {
+            "table": "table1",
+            "name": "name",
+            "keyword": "select",
+            "clause_kind": "select_list",
+            "target_path": [
+              {
+                "kind": "function",
+                "name": "LOW",
+                "arg_index": 0
+              },
+              {
+                "kind": "function",
+                "name": "UPPER",
+                "arg_index": 0
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "postgresql-view-expressions-and-case",
+      "sql": "SELECT first_name || last_name, UPPER(name) || '_x', CASE WHEN state = 1 THEN name ELSE fallback_name END FROM users",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "first_name",
+            "keyword": "select",
+            "clause_kind": "select_list",
+            "target_path": [
+              {
+                "kind": "expression",
+                "name": "||",
+                "arg_index": 0
+              }
+            ]
+          },
+          {
+            "table": "users",
+            "name": "name",
+            "keyword": "select",
+            "clause_kind": "select_list",
+            "target_path": [
+              {
+                "kind": "expression",
+                "name": "||",
+                "arg_index": 0
+              },
+              {
+                "kind": "function",
+                "name": "UPPER",
+                "arg_index": 0
+              }
+            ]
+          },
+          {
+            "table": "users",
+            "name": "state",
+            "keyword": "select",
+            "clause_kind": "select_list"
+          },
+          {
+            "table": "users",
+            "name": "fallback_name",
+            "keyword": "select",
+            "clause_kind": "select_list"
+          }
+        ]
+      }
+    },
+    {
+      "name": "postgresql-view-group-having-order",
+      "sql": "SELECT dept, COUNT(id) FROM users GROUP BY dept HAVING COUNT(id) > 1 ORDER BY dept",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "clauses": [
+          {
+            "kind": "group_by",
+            "selector_is_null": true
+          },
+          {
+            "kind": "having",
+            "selector_is_null": true
+          }
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "dept",
+            "keyword": "group",
+            "clause_kind": "group_by"
+          },
+          {
+            "table": "users",
+            "name": "id",
+            "keyword": "having",
+            "clause_kind": "having"
+          },
+          {
+            "table": "users",
+            "name": "dept",
+            "keyword": "order",
+            "clause_kind": "order_by"
+          }
+        ]
+      }
+    },
+    {
+      "name": "postgresql-view-join-on",
+      "sql": "SELECT u.name FROM users u JOIN orders o ON u.id = o.user_id WHERE o.status = 'paid'",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "clauses": [
+          {
+            "kind": "on",
+            "selector_is_null": true
+          }
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "id",
+            "keyword": "on",
+            "clause_kind": "on",
+            "operator": "="
+          },
+          {
+            "table": "orders",
+            "name": "user_id",
+            "keyword": "on",
+            "clause_kind": "on"
+          },
+          {
+            "table": "orders",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "="
+          }
+        ]
+      }
+    },
+    {
+      "name": "postgresql-view-window-array-row-tests",
+      "sql": "SELECT SUM(amount) OVER (PARTITION BY dept ORDER BY created_at), ARRAY[id, age], ROW(id, age), name IS NULL, active IS TRUE FROM users",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "amount",
+            "keyword": "select",
+            "clause_kind": "select_list",
+            "target_path": [
+              {
+                "kind": "function",
+                "name": "SUM",
+                "arg_index": 0
+              }
+            ]
+          },
+          {
+            "table": "users",
+            "name": "dept",
+            "keyword": "select",
+            "clause_kind": "select_list",
+            "target_path": [
+              {
+                "kind": "expression",
+                "name": "window_partition",
+                "arg_index": 0
+              }
+            ]
+          },
+          {
+            "table": "users",
+            "name": "created_at",
+            "keyword": "select",
+            "clause_kind": "select_list",
+            "target_path": [
+              {
+                "kind": "expression",
+                "name": "window_order",
+                "arg_index": 0
+              }
+            ]
+          },
+          {
+            "table": "users",
+            "name": "id",
+            "keyword": "select",
+            "clause_kind": "select_list"
+          },
+          {
+            "table": "users",
+            "name": "age",
+            "keyword": "select",
+            "clause_kind": "select_list"
+          },
+          {
+            "table": "users",
+            "name": "name",
+            "keyword": "select",
+            "clause_kind": "select_list"
+          },
+          {
+            "table": "users",
+            "name": "active",
+            "keyword": "select",
+            "clause_kind": "select_list"
+          }
+        ]
+      }
+    },
+    {
+      "name": "postgresql-view-bind-values",
+      "sql": "UPDATE servers SET ip = $1 WHERE id = $2",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "columns": [
+          {
+            "table": "servers",
+            "name": "ip",
+            "keyword": "set",
+            "clause_kind": "set_list",
+            "bind": "1",
+            "value_is_null": true
+          },
+          {
+            "table": "servers",
+            "name": "id",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "2",
+            "value_is_null": true
+          }
+        ],
+        "view_not_contains": [
+          "\"sql\":\"$1\"",
+          "\"sql\":\"$2\""
+        ]
       }
     },
     {

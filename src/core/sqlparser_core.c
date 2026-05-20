@@ -22,7 +22,7 @@
 #include "sqlparser_internal.h"
 
 #ifndef SQLPARSER_VERSION_TEXT
-#define SQLPARSER_VERSION_TEXT "0.4.0"
+#define SQLPARSER_VERSION_TEXT "0.5.0"
 #endif
 
 #ifndef SQLPARSER_LIBPG_QUERY_TAG_TEXT
@@ -1148,6 +1148,8 @@ const char *sqlparser_clause_kind_name(sqlparser_clause_kind_t kind)
 			return "where";
 		case SQLPARSER_CLAUSE_KIND_ORDER_BY:
 			return "order_by";
+		case SQLPARSER_CLAUSE_KIND_SET_LIST:
+			return "set_list";
 		case SQLPARSER_CLAUSE_KIND_UNKNOWN:
 		default:
 			return "unknown";

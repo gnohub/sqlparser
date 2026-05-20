@@ -67,6 +67,7 @@ typedef struct {
 	size_t select_list_seen;
 	size_t where_seen;
 	size_t order_by_seen;
+	size_t set_list_seen;
 	size_t set_operand_depth;
 } sqlparser_clause_search_t;
 
@@ -232,6 +233,18 @@ sqlparser_status_t sqlparser_render_select_targets_sql(
 	size_t statement_index,
 	size_t target_list_index,
 	char **out_sql,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_render_update_assignments_sql(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t target_list_index,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_update_set_assignments_sql(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t target_list_index,
+	const char *sql_text,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_parse_select_target_node_sql(
 	const char *sql_text,

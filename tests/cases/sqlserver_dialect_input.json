@@ -7,12 +7,21 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users"],
-        "selected_columns": ["id", "name"],
-        "where_columns": ["id"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "selected_columns": [
+          "id",
+          "name"
+        ],
+        "where_columns": [
+          "id"
+        ],
         "deparse_contains": "@id",
-        "view_contains": "\"sql\":\"@id\",\"selector\":\"stmt[0].value",
+        "view_contains": "\"bind\":\"id\"",
         "view_not_contains": "$1"
       }
     },
@@ -23,10 +32,19 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users"],
-        "selected_columns": ["id", "name"],
-        "keywords": ["top"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "selected_columns": [
+          "id",
+          "name"
+        ],
+        "keywords": [
+          "top"
+        ],
         "deparse_contains": "TOP (5)",
         "deparse_not_contains": "LIMIT"
       }
@@ -38,10 +56,19 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users"],
-        "selected_columns": ["id"],
-        "keywords": ["offset", "fetch"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "keywords": [
+          "offset",
+          "fetch"
+        ],
         "deparse_contains": "OFFSET 10 ROWS FETCH NEXT 5 ROWS ONLY",
         "deparse_not_contains": "LIMIT"
       }
@@ -53,11 +80,22 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users"],
-        "cte_names": ["active_users"],
-        "selected_columns": ["id", "name"],
-        "filter_columns": ["status"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "cte_names": [
+          "active_users"
+        ],
+        "selected_columns": [
+          "id",
+          "name"
+        ],
+        "filter_columns": [
+          "status"
+        ],
         "deparse_contains": "WITH active_users AS"
       }
     },
@@ -68,11 +106,24 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users", "dbo.orders"],
-        "selected_columns": ["id", "order_no"],
-        "join_columns": ["id", "user_id"],
-        "where_columns": ["status"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users",
+          "dbo.orders"
+        ],
+        "selected_columns": [
+          "id",
+          "order_no"
+        ],
+        "join_columns": [
+          "id",
+          "user_id"
+        ],
+        "where_columns": [
+          "status"
+        ],
         "deparse_contains": "@status"
       }
     },
@@ -83,10 +134,21 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users", "dbo.phones"],
-        "selected_columns": ["id", "phone"],
-        "join_columns": ["id", "user_id"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users",
+          "dbo.phones"
+        ],
+        "selected_columns": [
+          "id",
+          "phone"
+        ],
+        "join_columns": [
+          "id",
+          "user_id"
+        ],
         "deparse_contains": "LEFT JOIN"
       }
     },
@@ -97,9 +159,16 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "tables": ["dbo.users"],
-        "insert_columns": ["id", "name"],
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "insert_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": "@name",
         "view_not_contains": "$2"
       }
@@ -111,9 +180,16 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "tables": ["dbo.users"],
-        "insert_columns": ["id", "name"],
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "insert_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": "VALUES (1, 'bob'), (2, 'alice')"
       }
     },
@@ -124,11 +200,24 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "tables": ["dbo.archive_users", "dbo.users"],
-        "selected_columns": ["id", "name"],
-        "where_columns": ["status"],
-        "insert_columns": ["id", "name"],
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "tables": [
+          "dbo.archive_users",
+          "dbo.users"
+        ],
+        "selected_columns": [
+          "id",
+          "name"
+        ],
+        "where_columns": [
+          "status"
+        ],
+        "insert_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": "INSERT INTO dbo.archive_users"
       }
     },
@@ -139,10 +228,19 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["UpdateStmt"],
-        "tables": ["dbo.users"],
-        "update_columns": ["name", "status"],
-        "where_columns": ["id"],
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "update_columns": [
+          "name",
+          "status"
+        ],
+        "where_columns": [
+          "id"
+        ],
         "deparse_contains": "@name"
       }
     },
@@ -153,9 +251,16 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["DeleteStmt"],
-        "tables": ["dbo.users"],
-        "where_columns": ["id", "status"],
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "where_columns": [
+          "id",
+          "status"
+        ],
         "deparse_contains": "@id"
       }
     },
@@ -166,9 +271,15 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.orders"],
-        "where_columns": ["customer_name"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.orders"
+        ],
+        "where_columns": [
+          "customer_name"
+        ],
         "deparse_contains": "N'Alice'",
         "view_contains": "N'Alice'"
       }
@@ -180,9 +291,16 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users"],
-        "where_columns": ["id", "status"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "where_columns": [
+          "id",
+          "status"
+        ],
         "deparse_contains": "?",
         "view_not_contains": "$1"
       }
@@ -194,10 +312,18 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["#active_users"],
-        "selected_columns": ["id"],
-        "where_columns": ["status"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "#active_users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "status"
+        ],
         "deparse_contains": "#active_users"
       }
     },
@@ -208,9 +334,15 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users"],
-        "selected_columns": ["name"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "selected_columns": [
+          "name"
+        ],
         "deparse_contains": "getdate()"
       }
     },
@@ -221,9 +353,15 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users"],
-        "selected_columns": ["id"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
         "deparse_contains": "row_number() OVER"
       }
     },
@@ -234,8 +372,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
         "where_columns": [],
         "deparse_contains": "CASE"
       }
@@ -247,8 +389,13 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users", "dbo.archive_users"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users",
+          "dbo.archive_users"
+        ],
         "deparse_contains": "UNION ALL"
       }
     },
@@ -259,8 +406,13 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users", "dbo.archive_users"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users",
+          "dbo.archive_users"
+        ],
         "deparse_contains": "EXCEPT"
       }
     },
@@ -271,8 +423,13 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users", "dbo.active_users"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users",
+          "dbo.active_users"
+        ],
         "deparse_contains": "INTERSECT"
       }
     },
@@ -283,7 +440,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["CreateStmt"],
+        "statement_types": [
+          "CreateStmt"
+        ],
         "deparse_contains": "GENERATED BY DEFAULT AS IDENTITY"
       }
     },
@@ -294,9 +453,17 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["ViewStmt"],
-        "tables": ["dbo.v_users", "dbo.users"],
-        "selected_columns": ["id", "name"],
+        "statement_types": [
+          "ViewStmt"
+        ],
+        "tables": [
+          "dbo.v_users",
+          "dbo.users"
+        ],
+        "selected_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": "CREATE VIEW dbo.v_users AS"
       }
     },
@@ -307,7 +474,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["AlterTableStmt"],
+        "statement_types": [
+          "AlterTableStmt"
+        ],
         "deparse_contains": "ADD COLUMN age int"
       }
     },
@@ -318,7 +487,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["IndexStmt"],
+        "statement_types": [
+          "IndexStmt"
+        ],
         "deparse_contains": "CREATE INDEX ix_users_name"
       }
     },
@@ -329,7 +500,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["DropStmt"],
+        "statement_types": [
+          "DropStmt"
+        ],
         "deparse_contains": "DROP TABLE IF EXISTS dbo.users"
       }
     },
@@ -340,8 +513,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["TruncateStmt"],
-        "tables": ["dbo.users"],
+        "statement_types": [
+          "TruncateStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
         "deparse_contains": "TRUNCATE dbo.users"
       }
     },
@@ -352,10 +529,19 @@
       "expect": {
         "ok": true,
         "statement_count": 3,
-        "statement_types": ["TransactionStmt", "UpdateStmt"],
-        "tables": ["dbo.users"],
-        "update_columns": ["status"],
-        "where_columns": ["id"],
+        "statement_types": [
+          "TransactionStmt",
+          "UpdateStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "update_columns": [
+          "status"
+        ],
+        "where_columns": [
+          "id"
+        ],
         "deparse_contains": "COMMIT"
       }
     },
@@ -366,7 +552,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["TransactionStmt"],
+        "statement_types": [
+          "TransactionStmt"
+        ],
         "deparse_contains": "SAVEPOINT sp1"
       }
     },
@@ -377,7 +565,9 @@
       "expect": {
         "ok": true,
         "statement_count": 2,
-        "statement_types": ["GrantStmt"],
+        "statement_types": [
+          "GrantStmt"
+        ],
         "deparse_contains": "REVOKE"
       }
     },
@@ -388,8 +578,13 @@
       "expect": {
         "ok": true,
         "statement_count": 2,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users", "dbo.orders"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users",
+          "dbo.orders"
+        ],
         "deparse_contains": "SELECT id FROM dbo.orders"
       }
     },
@@ -400,7 +595,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["CreateStmt"],
+        "statement_types": [
+          "CreateStmt"
+        ],
         "deparse_contains": "datetime2"
       }
     },
@@ -411,9 +608,15 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users"],
-        "where_columns": ["id"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "where_columns": [
+          "id"
+        ],
         "deparse_contains": "@id3"
       }
     },
@@ -424,8 +627,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
         "deparse_contains": "date"
       }
     },
@@ -436,10 +643,18 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.\"Order Detail\""],
-        "selected_columns": ["Order ID"],
-        "where_columns": ["Order ID"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.\"Order Detail\""
+        ],
+        "selected_columns": [
+          "Order ID"
+        ],
+        "where_columns": [
+          "Order ID"
+        ],
         "deparse_contains": "@order_id"
       }
     },
@@ -450,8 +665,13 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["MergeStmt"],
-        "tables": ["dbo.users", "dbo.staging_users"],
+        "statement_types": [
+          "MergeStmt"
+        ],
+        "tables": [
+          "dbo.users",
+          "dbo.staging_users"
+        ],
         "deparse_contains": "MERGE INTO dbo.users"
       }
     },
@@ -462,9 +682,15 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users"],
-        "selected_columns": ["id"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
         "deparse_contains": "TOP (@row_count)",
         "view_not_contains": "$1"
       }
@@ -476,11 +702,21 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users"],
-        "cte_names": ["latest_users"],
-        "selected_columns": ["id"],
-        "filter_columns": ["status"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "cte_names": [
+          "latest_users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "filter_columns": [
+          "status"
+        ],
         "deparse_contains": "SELECT TOP (3) id FROM latest_users"
       }
     },
@@ -491,8 +727,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
         "deparse_contains": "N'same'"
       }
     },
@@ -503,8 +743,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
         "deparse_contains": "'OUTPUT @table EXEC'"
       }
     },
@@ -515,9 +759,15 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users"],
-        "where_columns": ["id"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "where_columns": [
+          "id"
+        ],
         "deparse_contains": "@id"
       }
     },
@@ -638,7 +888,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
+        "statement_types": [
+          "SelectStmt"
+        ],
         "deparse_contains": "@@ROWCOUNT",
         "view_not_contains": "$1"
       }
@@ -650,7 +902,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
+        "statement_types": [
+          "SelectStmt"
+        ],
         "deparse_contains": "0xDEADBEEF",
         "view_not_contains": "$1"
       }
@@ -662,8 +916,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
         "deparse_contains": "CONVERT("
       }
     },
@@ -674,8 +932,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["use"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "use"
+        ],
         "deparse_contains": "USE [AdventureWorks2022]",
         "view_contains": "\"name\":\"DATABASE\""
       }
@@ -687,8 +949,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["use"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "use"
+        ],
         "deparse_contains": "USE [AdventureWorks2022]",
         "view_contains": "\"sql\":\"[AdventureWorks2022]\""
       }
@@ -700,9 +966,17 @@
       "expect": {
         "ok": true,
         "statement_count": 2,
-        "statement_types": ["VariableSetStmt", "SelectStmt"],
-        "keywords": ["use", "select"],
-        "tables": ["dbo.users"],
+        "statement_types": [
+          "VariableSetStmt",
+          "SelectStmt"
+        ],
+        "keywords": [
+          "use",
+          "select"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
         "deparse_contains": "USE [AdventureWorks2022]; SELECT * FROM dbo.users",
         "view_contains": "\"sql\":\"[AdventureWorks2022]\""
       }
@@ -714,8 +988,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["sp_prepare"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "sp_prepare"
+        ],
         "deparse_contains": "EXEC sp_prepare @handle OUTPUT, N'@p1 int', N'SELECT * FROM users WHERE id=@p1'",
         "view_contains": "\"sql\":\"N'SELECT * FROM users WHERE id=@p1'\""
       }
@@ -727,8 +1005,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["sp_execute"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "sp_execute"
+        ],
         "deparse_contains": "EXEC sp_execute @handle, 42",
         "view_contains": "\"keyword\":\"sp_execute\""
       }
@@ -740,8 +1022,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["sp_prepexec"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "sp_prepexec"
+        ],
         "deparse_contains": "EXEC sp_prepexec @handle OUTPUT, N'@p1 int', N'SELECT * FROM users WHERE id=@p1', 42",
         "view_contains": "\"keyword\":\"sp_prepexec\""
       }
@@ -753,8 +1039,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["sp_unprepare"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "sp_unprepare"
+        ],
         "deparse_contains": "EXEC sp_unprepare @handle",
         "view_contains": "\"keyword\":\"sp_unprepare\""
       }
@@ -766,8 +1056,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["sp_executesql"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "sp_executesql"
+        ],
         "deparse_contains": "EXEC sp_executesql N'SELECT * FROM users WHERE id=@p1', N'@p1 int', @p1=42",
         "view_contains": "\"sql\":\"@p1=42\""
       }
@@ -779,10 +1073,20 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users"],
-        "selected_columns": ["id", "name"],
-        "where_columns": ["id", "status"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "selected_columns": [
+          "id",
+          "name"
+        ],
+        "where_columns": [
+          "id",
+          "status"
+        ],
         "deparse_contains": "@status",
         "view_not_contains": "$1"
       }
@@ -794,10 +1098,18 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users"],
-        "selected_columns": ["id"],
-        "where_columns": ["status"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "status"
+        ],
         "deparse_contains": "@s3",
         "view_not_contains": "$1"
       }
@@ -809,10 +1121,18 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "tables": ["dbo.users"],
-        "selected_columns": ["id"],
-        "where_columns": ["name"],
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "name"
+        ],
         "deparse_contains": "TOP (@limit)",
         "view_not_contains": "$1"
       }
@@ -824,9 +1144,17 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "tables": ["dbo.users"],
-        "insert_columns": ["id", "name", "status"],
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "insert_columns": [
+          "id",
+          "name",
+          "status"
+        ],
         "deparse_contains": "@status",
         "view_not_contains": "$1"
       }
@@ -838,9 +1166,16 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "tables": ["dbo.users"],
-        "insert_columns": ["id", "name"],
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "insert_columns": [
+          "id",
+          "name"
+        ],
         "deparse_contains": "?",
         "view_not_contains": "$1"
       }
@@ -852,10 +1187,19 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["UpdateStmt"],
-        "tables": ["dbo.users"],
-        "update_columns": ["name", "status"],
-        "where_columns": ["id"],
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "update_columns": [
+          "name",
+          "status"
+        ],
+        "where_columns": [
+          "id"
+        ],
         "deparse_contains": "?",
         "view_not_contains": "$1"
       }
@@ -867,9 +1211,16 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["DeleteStmt"],
-        "tables": ["dbo.users"],
-        "where_columns": ["id", "status"],
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "where_columns": [
+          "id",
+          "status"
+        ],
         "deparse_contains": "?",
         "view_not_contains": "$1"
       }
@@ -881,8 +1232,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["sp_prepare"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "sp_prepare"
+        ],
         "deparse_contains": "EXEC sp_prepare @handle OUTPUT, N'@id int, @name nvarchar(50)', N'INSERT INTO users(id, name) VALUES(@id, @name)'",
         "view_not_contains": "$1"
       }
@@ -894,8 +1249,12 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["sp_execute"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "sp_execute"
+        ],
         "deparse_contains": "EXEC sp_execute @handle, @id = 1, @name = N'bob'",
         "view_contains": "\"sql\":\"@name = N'bob'\""
       }
@@ -907,10 +1266,202 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["VariableSetStmt"],
-        "keywords": ["sp_executesql"],
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "sp_executesql"
+        ],
         "deparse_contains": "EXEC sp_executesql N'UPDATE users SET name=@name WHERE id=@id', N'@name nvarchar(50), @id int', @name=N'bob', @id=1",
         "view_contains": "\"sql\":\"@id=1\""
+      }
+    },
+    {
+      "id": "S062",
+      "name": "sqlserver-view-top-direct-and-bind",
+      "sql": "SELECT TOP (@limit) [id], [name] FROM [dbo].[users] WHERE [id] = @id ORDER BY [id]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "columns": [
+          {
+            "table": "dbo.users",
+            "name": "id",
+            "keyword": "select",
+            "clause_kind": "select_list"
+          },
+          {
+            "table": "dbo.users",
+            "name": "id",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "id",
+            "value_is_null": true
+          },
+          {
+            "table": "dbo.users",
+            "name": "id",
+            "keyword": "order",
+            "clause_kind": "order_by"
+          }
+        ],
+        "view_not_contains": [
+          "\"sql\":\"@id\""
+        ]
+      }
+    },
+    {
+      "id": "S063",
+      "name": "sqlserver-view-plus-expression",
+      "sql": "SELECT [first_name] + [last_name] FROM [dbo].[users] WHERE [id] = @id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "columns": [
+          {
+            "table": "dbo.users",
+            "name": "first_name",
+            "keyword": "select",
+            "clause_kind": "select_list",
+            "target_path": [
+              {
+                "kind": "expression",
+                "name": "+",
+                "arg_index": 0
+              }
+            ]
+          },
+          {
+            "table": "dbo.users",
+            "name": "last_name",
+            "keyword": "select",
+            "clause_kind": "select_list",
+            "target_path": [
+              {
+                "kind": "expression",
+                "name": "+",
+                "arg_index": 1
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "S064",
+      "name": "sqlserver-view-case-expression",
+      "sql": "SELECT CASE WHEN [state] = 1 THEN [name] ELSE [fallback_name] END FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "columns": [
+          {
+            "table": "dbo.users",
+            "name": "state",
+            "keyword": "select",
+            "clause_kind": "select_list"
+          },
+          {
+            "table": "dbo.users",
+            "name": "name",
+            "keyword": "select",
+            "clause_kind": "select_list"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S065",
+      "name": "sqlserver-view-group-having-order",
+      "sql": "SELECT [dept], COUNT([id]) FROM [dbo].[users] GROUP BY [dept] HAVING COUNT([id]) > 1 ORDER BY [dept]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "clauses": [
+          {
+            "kind": "group_by",
+            "selector_is_null": true
+          },
+          {
+            "kind": "having",
+            "selector_is_null": true
+          }
+        ],
+        "columns": [
+          {
+            "table": "dbo.users",
+            "name": "dept",
+            "keyword": "group",
+            "clause_kind": "group_by"
+          },
+          {
+            "table": "dbo.users",
+            "name": "id",
+            "keyword": "having",
+            "clause_kind": "having"
+          }
+        ]
+      }
+    },
+    {
+      "id": "S066",
+      "name": "sqlserver-view-update-at-binds",
+      "sql": "UPDATE [dbo].[servers] SET [ip] = @aaa WHERE [id] = @id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "tables": [
+          "dbo.servers"
+        ],
+        "columns": [
+          {
+            "table": "dbo.servers",
+            "name": "ip",
+            "keyword": "set",
+            "clause_kind": "set_list",
+            "bind": "aaa",
+            "value_is_null": true
+          },
+          {
+            "table": "dbo.servers",
+            "name": "id",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "id",
+            "value_is_null": true
+          }
+        ],
+        "view_not_contains": [
+          "\"sql\":\"@aaa\"",
+          "\"sql\":\"@id\""
+        ]
       }
     },
     {
