@@ -44,6 +44,10 @@ This file records regression cases for the MySQL dialect conversion layer. `test
 | M036 | `mysql-view-group-having-order` | `GROUP BY ... HAVING ... ORDER BY ...` | aggregate output and non-output clause attribution |
 | M037 | `mysql-view-update-question-binds` | `UPDATE ... SET ... WHERE ... = ?` | positional bind, null value, and update/where clause attribution |
 | M038 | `mysql-view-join-on` | `JOIN ... ON ... WHERE ... = ?` | JOIN/ON fields, WHERE bind, and table-column attribution |
+| M039 | `mysql-select-between-question-params` | `BETWEEN ? AND ?` | multiple positional parameters and field-value attribution in `BETWEEN` predicates |
+| M040 | `mysql-select-not-in-question-params` | `NOT IN (?, ?)` | multiple positional parameters and field-value attribution in negated `IN` predicates |
+| M041 | `mysql-select-not-between-question-params` | `NOT BETWEEN ? AND ?` | multiple positional parameters and field-value attribution in negated `BETWEEN` predicates |
+| M042 | `mysql-select-not-like-question-param` | `NOT LIKE ?` | positional parameter, field-level operator, and keyword attribution in negated `LIKE` predicates |
 
 ## Explicitly Unsupported Statements
 

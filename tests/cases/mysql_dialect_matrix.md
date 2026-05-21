@@ -44,6 +44,10 @@
 | M036 | `mysql-view-group-having-order` | `GROUP BY ... HAVING ... ORDER BY ...` | 聚合输出和非输出子句字段归属 |
 | M037 | `mysql-view-update-question-binds` | `UPDATE ... SET ... WHERE ... = ?` | 位置参数 bind、空 value、update/where 子句归属 |
 | M038 | `mysql-view-join-on` | `JOIN ... ON ... WHERE ... = ?` | JOIN/ON 字段、WHERE bind 和表字段归属 |
+| M039 | `mysql-select-between-question-params` | `BETWEEN ? AND ?` | `BETWEEN` 条件中的多个位置参数和字段值关联 |
+| M040 | `mysql-select-not-in-question-params` | `NOT IN (?, ?)` | 否定 `IN` 条件中的多个位置参数和字段值关联 |
+| M041 | `mysql-select-not-between-question-params` | `NOT BETWEEN ? AND ?` | 否定 `BETWEEN` 条件中的多个位置参数和字段值关联 |
+| M042 | `mysql-select-not-like-question-param` | `NOT LIKE ?` | 否定 `LIKE` 条件中的位置参数、字段级 operator 和关键字归属 |
 
 ## 明确不支持语句
 

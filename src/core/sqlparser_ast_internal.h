@@ -182,6 +182,10 @@ int sqlparser_try_extract_column_ref(
 	const PgQuery__Node *node,
 	const char **table_name_out,
 	const char **column_name_out);
+int sqlparser_a_expr_is_not_in(const PgQuery__AExpr *a_expr);
+int sqlparser_a_expr_is_not_like(const PgQuery__AExpr *a_expr);
+int sqlparser_a_expr_is_not_ilike(const PgQuery__AExpr *a_expr);
+int sqlparser_a_expr_is_not_similar(const PgQuery__AExpr *a_expr);
 const char *sqlparser_a_expr_operator_name(const PgQuery__AExpr *a_expr);
 
 sqlparser_status_t sqlparser_replace_proto_string(

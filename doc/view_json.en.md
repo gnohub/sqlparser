@@ -1,6 +1,6 @@
 # SQL View JSON Guide
 
-SQL View JSON is the structured SQL view exported by `sqlparser`. It reports statements, objects, columns, and value fragments that appear in the SQL text. It does not keep a copy of the input SQL and does not expose the underlying parser JSON.
+SQL View JSON is the structured SQL view exported by `sqlparser`. It is serialized on demand from the SQL View C structs and reports statements, objects, columns, and value fragments that appear in the SQL text. It does not keep a copy of the input SQL and does not expose the underlying parser JSON.
 
 ## Export API
 
@@ -127,6 +127,8 @@ Only columns that appear in SQL are reported. An unqualified column is attached 
   "keyword": "where",
   "operator": "=",
   "bind": null,
+  "bind_kind": 0,
+  "bind_sql": null,
   "bind_selector": null,
   "selector": "stmt[0].name[3]",
   "target_list_selector": null,
@@ -148,6 +150,8 @@ Fields:
 | `keyword` | clause where the column appears, such as `select`, `where`, `set`, or `on` |
 | `operator` | related operator, or `null` |
 | `bind` | normalized bind name when the field value is a prepared-statement placeholder, otherwise `null` |
+| `bind_kind` | bind type enum: `0` means no bind, `1` means positional bind, and `2` means named bind |
+| `bind_sql` | original placeholder text in SQL, such as `"?"`, `":1"`, `":id"`, `"@id"`, or `"$1"`; `null` when there is no bind |
 | `bind_selector` | selector for the bind value expression, otherwise `null` |
 | `selector` | column-name selector, or `null` when not writable |
 | `target_list_selector` | whole target-list selector when the column appears in a SELECT output list, otherwise `null` |
@@ -160,11 +164,20 @@ Fields:
 `value.selector` addresses the whole value expression and can replace a literal,
 bind parameter, or expression with a new SQL fragment.
 
-Prepared-statement placeholders export structured `bind` and keep `value:
-null`. For example, Oracle `IP = :aaa` exports `bind: "aaa"`; SQL Server
-`@aaa` exports `bind: "aaa"`; PostgreSQL `$1` exports `bind: "1"`;
-JDBC-style `?` placeholders are numbered by occurrence as `bind: "1"`,
-`bind: "2"`, and so on. Use `bind_selector` to rewrite the bind expression.
+Prepared-statement placeholders export structured bind fields and keep
+`value: null`. `bind` is the normalized name or position, `bind_kind`
+identifies named versus positional binding, and `bind_sql` preserves the
+placeholder text as it appeared in SQL. Oracle `:1` and JDBC-style `?` are both
+positional binds, but `bind_sql` preserves them as `":1"` and `"?"`, so callers
+can distinguish the source form. Use `bind_selector` to rewrite the bind
+expression.
+
+When one field is associated with multiple condition values, the view exports
+one column entry per value. For example, `status IN (:s1, :s2, :s3)` produces
+three `name: "status"` and `operator: "IN"` entries, each carrying the bind
+information for one placeholder. `NOT IN`, `NOT BETWEEN`, `NOT LIKE`,
+`NOT ILIKE`, and `NOT SIMILAR TO` preserve the negated operator text in
+`operator`.
 
 `target_path` is an ordered array from the outermost wrapper to the innermost
 wrapper. The array order is the hierarchy; no additional ordering field is
@@ -207,6 +220,8 @@ Examples:
       "column_index": 0,
       "sql": "1",
       "bind": null,
+      "bind_kind": 0,
+      "bind_sql": null,
       "bind_selector": null,
       "selector": "stmt[0].insert_cell[0][0]"
     },
@@ -215,6 +230,8 @@ Examples:
       "column_index": 1,
       "sql": "'bob'",
       "bind": null,
+      "bind_kind": 0,
+      "bind_sql": null,
       "bind_selector": null,
       "selector": "stmt[0].insert_cell[0][1]"
     }
@@ -363,6 +380,8 @@ Output:
               "keyword": "insert",
               "operator": null,
               "bind": null,
+              "bind_kind": 0,
+              "bind_sql": null,
               "bind_selector": null,
               "selector": "stmt[0].name[0]",
               "target_list_selector": null,
@@ -376,6 +395,8 @@ Output:
               "keyword": "insert",
               "operator": null,
               "bind": null,
+              "bind_kind": 0,
+              "bind_sql": null,
               "bind_selector": null,
               "selector": "stmt[0].name[1]",
               "target_list_selector": null,
@@ -394,6 +415,8 @@ Output:
                   "column_index": 0,
                   "sql": "1",
                   "bind": null,
+                  "bind_kind": 0,
+                  "bind_sql": null,
                   "bind_selector": null,
                   "selector": "stmt[0].insert_cell[0][0]"
                 },
@@ -402,6 +425,8 @@ Output:
                   "column_index": 1,
                   "sql": "'xiaohong'",
                   "bind": null,
+                  "bind_kind": 0,
+                  "bind_sql": null,
                   "bind_selector": null,
                   "selector": "stmt[0].insert_cell[0][1]"
                 }
@@ -415,6 +440,8 @@ Output:
                   "column_index": 0,
                   "sql": "2",
                   "bind": null,
+                  "bind_kind": 0,
+                  "bind_sql": null,
                   "bind_selector": null,
                   "selector": "stmt[0].insert_cell[1][0]"
                 },
@@ -423,6 +450,8 @@ Output:
                   "column_index": 1,
                   "sql": "'xiaoming'",
                   "bind": null,
+                  "bind_kind": 0,
+                  "bind_sql": null,
                   "bind_selector": null,
                   "selector": "stmt[0].insert_cell[1][1]"
                 }

@@ -2,6 +2,38 @@
 
 ## 未发布
 
+## 0.6.0
+
+### SQL View 结构
+
+- 将 SQL View C 结构作为结构化输出的主数据源，`sqlparser_export_view_json()` 改为按需从 SQL View C 结构序列化 JSON
+- 扩展 `sqlparser_column_view_t` 和 `sqlparser_cell_view_t`，输出 bind 名称、bind 类型、原始 bind SQL、bind selector、子句编号和 SELECT 输出路径
+- 增加 `sqlparser_bind_kind_t`、`sqlparser_bind_kind_name()`、`sqlparser_statement_clause_at()` 和 `sqlparser_clause_sql()` 公共接口
+- 扩展 `sqlparser_clause_kind_t`，增加 `on`、`group_by` 和 `having` 子句类型
+- SQL View JSON 移除旧的 `target_kind`、`target_name`、`target_arg_index` 字段，统一使用有序 `target_path` 表达 SELECT 输出层级
+
+### 语义与方言
+
+- bind 输出区分 positional 和 named 两类，保留 `bind_sql` 用于区分 `?`、`:1`、`:name`、`$1`、`@name` 等原始 SQL 形态
+- bind 右值不再重复暴露为普通 `value`，避免调用方把占位符误判为字面量值
+- SELECT 输出表达式列不再暴露条件运算符和值，输出形态通过 `target_path` 表示
+- `NOT IN`、`NOT LIKE`、`NOT ILIKE` 和 `NOT SIMILAR TO` 运算符保持完整公共 SQL 语义
+
+### 测试与文档
+
+- 扩充 PostgreSQL、MySQL、Oracle、SQL Server 和达梦用例矩阵，覆盖更多 SELECT、INSERT、UPDATE、DELETE、JOIN、函数、表达式和 bind 场景
+- 增加 SQL View 公共 C 结构语义测试，验证结构体字段和 View JSON 输出一致
+- 增加 bind 字段、cell bind、`clause_id` 和 `target_path` 的通用断言
+- 更新中英文 API 手册和 SQL View JSON 手册
+
+## 0.5.0
+
+### SQL View 语义
+
+- 增加 SELECT 输出项语义路径，使用 `target_path` 表达函数、表达式、CASE 和嵌套输出层级
+- 为 SQL View JSON 增加字段归属子句编号，便于区分 SELECT、WHERE、JOIN/ON、ORDER BY 等位置的字段引用
+- 扩充各方言的 View JSON 语义用例，覆盖函数输出、表达式输出、星号输出、多层 SELECT 和 bind 条件
+
 ## 0.4.0
 
 ### 方言能力

@@ -72,6 +72,10 @@ This file records regression cases for the SQL Server dialect conversion layer. 
 | S064 | `CASE` expression output | `target_path` attribution for fields inside `CASE WHEN` |
 | S065 | `GROUP BY` + `HAVING` + `ORDER BY` | aggregate output and non-output clause attribution |
 | S066 | `UPDATE` + multiple `@` parameters | update/where clauses, bind fields, and null values |
+| S067 | `BETWEEN` + multiple `@` parameters | multiple named parameters and field-value attribution in `BETWEEN` predicates |
+| S068 | `NOT IN` + multiple `@` parameters | multiple named parameters and field-value attribution in negated `IN` predicates |
+| S069 | `NOT BETWEEN` + multiple `@` parameters | multiple named parameters and field-value attribution in negated `BETWEEN` predicates |
+| S070 | `NOT LIKE` + multiple `@` parameters | named parameter, field-level operator, and keyword attribution in negated `LIKE` predicates |
 
 ## Explicitly Unsupported Cases
 

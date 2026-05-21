@@ -22,7 +22,7 @@
 #include "sqlparser_internal.h"
 
 #ifndef SQLPARSER_VERSION_TEXT
-#define SQLPARSER_VERSION_TEXT "0.5.0"
+#define SQLPARSER_VERSION_TEXT "0.6.0"
 #endif
 
 #ifndef SQLPARSER_LIBPG_QUERY_TAG_TEXT
@@ -1073,6 +1073,19 @@ const char *sqlparser_value_kind_name(sqlparser_value_kind_t kind)
 	}
 }
 
+const char *sqlparser_bind_kind_name(sqlparser_bind_kind_t kind)
+{
+	switch (kind) {
+		case SQLPARSER_BIND_KIND_POSITIONAL:
+			return "positional";
+		case SQLPARSER_BIND_KIND_NAMED:
+			return "named";
+		case SQLPARSER_BIND_KIND_NONE:
+		default:
+			return "none";
+	}
+}
+
 const char *sqlparser_literal_kind_name(sqlparser_literal_kind_t kind)
 {
 	switch (kind) {
@@ -1150,6 +1163,12 @@ const char *sqlparser_clause_kind_name(sqlparser_clause_kind_t kind)
 			return "order_by";
 		case SQLPARSER_CLAUSE_KIND_SET_LIST:
 			return "set_list";
+		case SQLPARSER_CLAUSE_KIND_ON:
+			return "on";
+		case SQLPARSER_CLAUSE_KIND_GROUP_BY:
+			return "group_by";
+		case SQLPARSER_CLAUSE_KIND_HAVING:
+			return "having";
 		case SQLPARSER_CLAUSE_KIND_UNKNOWN:
 		default:
 			return "unknown";

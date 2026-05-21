@@ -5,6 +5,7 @@ SQLPARSER_0 {
 		sqlparser_statement_kind_name;
 		sqlparser_insert_source_kind_name;
 		sqlparser_value_kind_name;
+		sqlparser_bind_kind_name;
 		sqlparser_literal_kind_name;
 		sqlparser_selector_kind_name;
 		sqlparser_dialect_name;
@@ -94,6 +95,8 @@ SQLPARSER_0 {
 		sqlparser_get_view;
 		sqlparser_view_statement_at;
 		sqlparser_statement_keyword_at;
+		sqlparser_statement_clause_at;
+		sqlparser_clause_sql;
 		sqlparser_statement_object_at;
 		sqlparser_object_column_at;
 		sqlparser_column_value_at;

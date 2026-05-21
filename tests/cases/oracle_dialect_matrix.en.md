@@ -71,6 +71,11 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 | O064 | `GROUP BY` + `HAVING` + `ORDER BY` | aggregate output and non-output clause attribution |
 | O065 | `UPDATE` + multiple named binds | update/where clauses, bind fields, and null values |
 | O066 | ROWNUM pagination attribution | nested query, `a.*`, ROWNUM predicate, and outer predicate attribution |
+| O067 | mixed `:1` and `?` positional binds | `bind_kind` and `bind_sql` distinguish Oracle positional binds from JDBC positional markers |
+| O068 | `BETWEEN` + multiple named binds | multiple named binds and field-value attribution in `BETWEEN` predicates |
+| O069 | `NOT IN` + multiple named binds | multiple named binds and field-value attribution in negated `IN` predicates |
+| O070 | `NOT BETWEEN` + multiple named binds | multiple named binds and field-value attribution in negated `BETWEEN` predicates |
+| O071 | `NOT LIKE` + named bind | named bind, field-level operator, and keyword attribution in negated `LIKE` predicates |
 
 ## Explicitly Unsupported Cases
 

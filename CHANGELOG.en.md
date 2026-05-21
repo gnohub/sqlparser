@@ -2,6 +2,38 @@
 
 ## Unreleased
 
+## 0.6.0
+
+### SQL View Structures
+
+- Made SQL View C structures the canonical structured-output source; `sqlparser_export_view_json()` now serializes JSON on demand from those structures
+- Extended `sqlparser_column_view_t` and `sqlparser_cell_view_t` with bind name, bind kind, original bind SQL, bind selector, clause id, and SELECT target path fields
+- Added the public `sqlparser_bind_kind_t`, `sqlparser_bind_kind_name()`, `sqlparser_statement_clause_at()`, and `sqlparser_clause_sql()` APIs
+- Extended `sqlparser_clause_kind_t` with `on`, `group_by`, and `having` clause kinds
+- Removed the old `target_kind`, `target_name`, and `target_arg_index` JSON fields in favor of ordered `target_path` entries for SELECT output hierarchy
+
+### Semantics and Dialects
+
+- Classify binds as positional or named while preserving `bind_sql` for original forms such as `?`, `:1`, `:name`, `$1`, and `@name`
+- Stop exposing bind placeholders as ordinary `value` payloads, so callers do not confuse placeholders with literal values
+- Stop exposing SELECT output expression operators and values as condition metadata; output shape is represented through `target_path`
+- Preserve complete public SQL operator text for `NOT IN`, `NOT LIKE`, `NOT ILIKE`, and `NOT SIMILAR TO`
+
+### Tests and Documentation
+
+- Expanded PostgreSQL, MySQL, Oracle, SQL Server, and Dameng case matrices for additional SELECT, INSERT, UPDATE, DELETE, JOIN, function, expression, and bind scenarios
+- Added SQL View public C-structure semantic tests to verify consistency between the public structs and View JSON
+- Added generic assertions for bind fields, cell binds, `clause_id`, and `target_path`
+- Updated the Chinese and English API reference and SQL View JSON guide
+
+## 0.5.0
+
+### SQL View Semantics
+
+- Added SELECT target semantic paths through `target_path` for functions, expressions, CASE, and nested output hierarchy
+- Added clause attribution ids to SQL View JSON so field references can be associated with SELECT, WHERE, JOIN/ON, ORDER BY, and related locations
+- Expanded dialect View JSON semantic coverage for function outputs, expression outputs, star outputs, nested SELECT, and bind predicates
+
 ## 0.4.0
 
 ### Dialect Capabilities

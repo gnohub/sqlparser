@@ -1254,6 +1254,55 @@ int sqlparser_try_extract_column_ref(
 	}
 }
 
+static int sqlparser_a_expr_name_is(const PgQuery__AExpr *a_expr, const char *expected)
+{
+	const char *text;
+	size_t index;
+
+	if (a_expr == NULL || expected == NULL) {
+		return 0;
+	}
+	for (index = 0U; index < a_expr->n_name; index++) {
+		if (sqlparser_node_string_value(a_expr->name[index], &text) &&
+		    strcmp(text, expected) == 0) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int sqlparser_a_expr_is_not_in(const PgQuery__AExpr *a_expr)
+{
+	if (a_expr == NULL || a_expr->kind != PG_QUERY__A__EXPR__KIND__AEXPR_IN) {
+		return 0;
+	}
+	return sqlparser_a_expr_name_is(a_expr, "<>") || sqlparser_a_expr_name_is(a_expr, "!=");
+}
+
+int sqlparser_a_expr_is_not_like(const PgQuery__AExpr *a_expr)
+{
+	if (a_expr == NULL || a_expr->kind != PG_QUERY__A__EXPR__KIND__AEXPR_LIKE) {
+		return 0;
+	}
+	return sqlparser_a_expr_name_is(a_expr, "!~~");
+}
+
+int sqlparser_a_expr_is_not_ilike(const PgQuery__AExpr *a_expr)
+{
+	if (a_expr == NULL || a_expr->kind != PG_QUERY__A__EXPR__KIND__AEXPR_ILIKE) {
+		return 0;
+	}
+	return sqlparser_a_expr_name_is(a_expr, "!~~*");
+}
+
+int sqlparser_a_expr_is_not_similar(const PgQuery__AExpr *a_expr)
+{
+	if (a_expr == NULL || a_expr->kind != PG_QUERY__A__EXPR__KIND__AEXPR_SIMILAR) {
+		return 0;
+	}
+	return sqlparser_a_expr_name_is(a_expr, "!~");
+}
+
 const char *sqlparser_a_expr_operator_name(const PgQuery__AExpr *a_expr)
 {
 	const char *text;
@@ -1265,13 +1314,13 @@ const char *sqlparser_a_expr_operator_name(const PgQuery__AExpr *a_expr)
 
 	switch (a_expr->kind) {
 		case PG_QUERY__A__EXPR__KIND__AEXPR_IN:
-			return "IN";
+			return sqlparser_a_expr_is_not_in(a_expr) ? "NOT IN" : "IN";
 		case PG_QUERY__A__EXPR__KIND__AEXPR_LIKE:
-			return "LIKE";
+			return sqlparser_a_expr_is_not_like(a_expr) ? "NOT LIKE" : "LIKE";
 		case PG_QUERY__A__EXPR__KIND__AEXPR_ILIKE:
-			return "ILIKE";
+			return sqlparser_a_expr_is_not_ilike(a_expr) ? "NOT ILIKE" : "ILIKE";
 		case PG_QUERY__A__EXPR__KIND__AEXPR_SIMILAR:
-			return "SIMILAR";
+			return sqlparser_a_expr_is_not_similar(a_expr) ? "NOT SIMILAR TO" : "SIMILAR TO";
 		case PG_QUERY__A__EXPR__KIND__AEXPR_BETWEEN:
 			return "BETWEEN";
 		case PG_QUERY__A__EXPR__KIND__AEXPR_NOT_BETWEEN:

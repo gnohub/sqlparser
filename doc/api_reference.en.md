@@ -113,9 +113,32 @@ stores the original SQL, the current syntax tree, and lazily derived results.
 | `sqlparser_statement_kind_t` | statement kind |
 | `sqlparser_insert_source_kind_t` | `INSERT` source kind |
 | `sqlparser_value_kind_t` | value kind |
+| `sqlparser_bind_kind_t` | prepared-statement placeholder kind |
 | `sqlparser_literal_kind_t` | literal kind |
+| `sqlparser_clause_kind_t` | SQL View clause kind |
 | `sqlparser_selector_kind_t` | selector kind |
 | `sqlparser_dialect_t` | SQL dialect |
+
+`sqlparser_bind_kind_t` is used by the SQL View JSON `bind_kind` field:
+
+| Enum | Value | Meaning |
+| --- | --- | --- |
+| `SQLPARSER_BIND_KIND_NONE` | `0` | the field has no bind |
+| `SQLPARSER_BIND_KIND_POSITIONAL` | `1` | positional bind, such as `?`, `:1`, or `$1` |
+| `SQLPARSER_BIND_KIND_NAMED` | `2` | named bind, such as `:name` or `@name` |
+
+`sqlparser_clause_kind_t` is used by SQL View `clauses[]` entries and column
+`clause_id` attribution:
+
+| Enum | Meaning |
+| --- | --- |
+| `SQLPARSER_CLAUSE_KIND_SELECT_LIST` | SELECT output list |
+| `SQLPARSER_CLAUSE_KIND_WHERE` | WHERE condition |
+| `SQLPARSER_CLAUSE_KIND_ORDER_BY` | ORDER BY list |
+| `SQLPARSER_CLAUSE_KIND_SET_LIST` | UPDATE SET list |
+| `SQLPARSER_CLAUSE_KIND_ON` | JOIN or MERGE ON condition |
+| `SQLPARSER_CLAUSE_KIND_GROUP_BY` | GROUP BY list |
+| `SQLPARSER_CLAUSE_KIND_HAVING` | HAVING condition |
 
 ### Resource Limits
 
@@ -216,10 +239,12 @@ not be reused.
 | `sqlparser_statement_kind_name()` | returns the statement-kind name |
 | `sqlparser_insert_source_kind_name()` | returns the `INSERT` source-kind name |
 | `sqlparser_value_kind_name()` | returns the value-kind name |
+| `sqlparser_bind_kind_name()` | returns the prepared-statement placeholder-kind name |
 | `sqlparser_literal_kind_name()` | returns the literal-kind name |
 | `sqlparser_selector_kind_name()` | returns the selector-kind name |
 | `sqlparser_dialect_name()` | returns the dialect name |
 | `sqlparser_bool_operator_name()` | returns the boolean-operator name |
+| `sqlparser_clause_kind_name()` | returns the SQL View clause-kind name |
 
 ## Parse and Handle Management
 
@@ -580,6 +605,8 @@ become invalid after the handle is destroyed or rewritten.
 | `sqlparser_get_view()` | obtains a read-only statement view |
 | `sqlparser_view_statement_at()` | reads one statement |
 | `sqlparser_statement_keyword_at()` | reads a statement keyword |
+| `sqlparser_statement_clause_at()` | reads one clause view |
+| `sqlparser_clause_sql()` | renders a clause view as SQL |
 | `sqlparser_statement_object_at()` | reads a table, view, or attributable object |
 | `sqlparser_object_column_at()` | reads a column attributed to an object |
 | `sqlparser_column_value_at()` | reads a value fragment related to a column |
@@ -592,8 +619,9 @@ Notes:
 
 - `sqlparser_view_t`, `sqlparser_statement_view_t`,
   `sqlparser_object_view_t`, and related structs do not own memory.
-- `sqlparser_value_sql()` and `sqlparser_cell_sql()` return new strings that
-  must be released with `sqlparser_string_free()`.
+- `sqlparser_clause_sql()`, `sqlparser_value_sql()`, and
+  `sqlparser_cell_sql()` return new strings that must be released with
+  `sqlparser_string_free()`.
 - Column attribution uses only qualified names, aliases, and objects present
   in the SQL statement. It does not read database metadata and does not infer
   unique ownership.

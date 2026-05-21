@@ -140,6 +140,15 @@ static int test_statement_kind_walk(void)
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
+	if (expect_true(strcmp(sqlparser_bind_kind_name(SQLPARSER_BIND_KIND_POSITIONAL), "positional") == 0,
+	                "bind kind name should be positional") != 0 ||
+	    expect_true(strcmp(sqlparser_bind_kind_name(SQLPARSER_BIND_KIND_NAMED), "named") == 0,
+	                "bind kind name should be named") != 0 ||
+	    expect_true(strcmp(sqlparser_clause_kind_name(SQLPARSER_CLAUSE_KIND_GROUP_BY), "group_by") == 0,
+	                "clause kind name should be group_by") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
 
 	rc = sqlparser_statement_node_name(handle, 1U, &node_name, &error);
 	if (expect_status_ok(rc, &error, "statement 1 node name should succeed") != 0 ||
@@ -2633,14 +2642,68 @@ static int test_sql_view_bind_fields(void)
 		const char *sql;
 		const char *set_bind;
 		const char *where_bind;
+		const char *set_bind_kind;
+		const char *where_bind_kind;
+		const char *set_bind_sql;
+		const char *where_bind_sql;
 		const char *set_value_sql;
 	};
 	static const struct bind_case cases[] = {
-		{ SQLPARSER_DIALECT_POSTGRESQL, "UPDATE servers SET ip = $1 WHERE id = $2", "\"bind\":\"1\"", "\"bind\":\"2\"", "\"sql\":\"$1\"" },
-		{ SQLPARSER_DIALECT_MYSQL, "UPDATE servers SET ip = ? WHERE id = ?", "\"bind\":\"1\"", "\"bind\":\"2\"", "\"sql\":\"?\"" },
-		{ SQLPARSER_DIALECT_ORACLE, "UPDATE SERVERS SET IP = :aaa WHERE ID = :id", "\"bind\":\"aaa\"", "\"bind\":\"id\"", "\"sql\":\":aaa\"" },
-		{ SQLPARSER_DIALECT_SQLSERVER, "UPDATE dbo.servers SET ip = @aaa WHERE id = @id", "\"bind\":\"aaa\"", "\"bind\":\"id\"", "\"sql\":\"@aaa\"" },
-		{ SQLPARSER_DIALECT_DAMENG, "UPDATE servers SET ip = :aaa WHERE id = :id", "\"bind\":\"aaa\"", "\"bind\":\"id\"", "\"sql\":\":aaa\"" }
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"UPDATE servers SET ip = $1 WHERE id = $2",
+			"\"bind\":\"1\"",
+			"\"bind\":\"2\"",
+			"\"bind_kind\":1",
+			"\"bind_kind\":1",
+			"\"bind_sql\":\"$1\"",
+			"\"bind_sql\":\"$2\"",
+			"\"sql\":\"$1\""
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"UPDATE servers SET ip = ? WHERE id = ?",
+			"\"bind\":\"1\"",
+			"\"bind\":\"2\"",
+			"\"bind_kind\":1",
+			"\"bind_kind\":1",
+			"\"bind_sql\":\"?\"",
+			"\"bind_sql\":\"?\"",
+			"\"sql\":\"?\""
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"UPDATE SERVERS SET IP = :aaa WHERE ID = :id",
+			"\"bind\":\"aaa\"",
+			"\"bind\":\"id\"",
+			"\"bind_kind\":2",
+			"\"bind_kind\":2",
+			"\"bind_sql\":\":aaa\"",
+			"\"bind_sql\":\":id\"",
+			"\"sql\":\":aaa\""
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"UPDATE dbo.servers SET ip = @aaa WHERE id = @id",
+			"\"bind\":\"aaa\"",
+			"\"bind\":\"id\"",
+			"\"bind_kind\":2",
+			"\"bind_kind\":2",
+			"\"bind_sql\":\"@aaa\"",
+			"\"bind_sql\":\"@id\"",
+			"\"sql\":\"@aaa\""
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"UPDATE servers SET ip = :aaa WHERE id = :id",
+			"\"bind\":\"aaa\"",
+			"\"bind\":\"id\"",
+			"\"bind_kind\":2",
+			"\"bind_kind\":2",
+			"\"bind_sql\":\":aaa\"",
+			"\"bind_sql\":\":id\"",
+			"\"sql\":\":aaa\""
+		}
 	};
 	sqlparser_parse_options_t options;
 	sqlparser_error_t error;
@@ -2668,6 +2731,10 @@ static int test_sql_view_bind_fields(void)
 		    expect_true(strstr(view_json, "\"kind\":\"set_list\"") != NULL, "UPDATE should expose set_list clause") != 0 ||
 		    expect_true(strstr(view_json, cases[index].set_bind) != NULL, "SET bind should be exposed without marker") != 0 ||
 		    expect_true(strstr(view_json, cases[index].where_bind) != NULL, "WHERE bind should be exposed without marker") != 0 ||
+		    expect_true(strstr(view_json, cases[index].set_bind_kind) != NULL, "SET bind kind should be exposed") != 0 ||
+		    expect_true(strstr(view_json, cases[index].where_bind_kind) != NULL, "WHERE bind kind should be exposed") != 0 ||
+		    expect_true(strstr(view_json, cases[index].set_bind_sql) != NULL, "SET bind original SQL should be exposed") != 0 ||
+		    expect_true(strstr(view_json, cases[index].where_bind_sql) != NULL, "WHERE bind original SQL should be exposed") != 0 ||
 		    expect_true(strstr(view_json, "\"bind_selector\":\"stmt[0].assignment[0]\"") != NULL, "SET bind selector should target assignment") != 0 ||
 		    expect_true(strstr(view_json, cases[index].set_value_sql) == NULL, "bind columns should not expose placeholder as value SQL") != 0) {
 			sqlparser_string_free(view_json);
@@ -2703,6 +2770,38 @@ static int test_sql_view_bind_fields(void)
 	}
 
 	{
+		const char *sql = "SELECT abc FROM table1 WHERE abc LIKE :1 AND def LIKE ?";
+		sqlparser_handle_t *handle;
+		char *view_json;
+		int rc;
+
+		handle = NULL;
+		view_json = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = SQLPARSER_DIALECT_ORACLE;
+		rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+		if (expect_status_ok(rc, &error, "oracle mixed bind parse should succeed") != 0) {
+			return 1;
+		}
+		rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
+		if (expect_status_ok(rc, &error, "oracle mixed bind view JSON should export") != 0 ||
+		    expect_true(strstr(view_json, "\"bind\":\"1\"") != NULL, "oracle :1 bind should expose normalized positional name") != 0 ||
+		    expect_true(strstr(view_json, "\"bind_sql\":\":1\"") != NULL, "oracle :1 bind should preserve original SQL") != 0 ||
+		    expect_true(strstr(view_json, "\"bind\":\"2\"") != NULL, "oracle ? bind should expose occurrence position") != 0 ||
+		    expect_true(strstr(view_json, "\"bind_sql\":\"?\"") != NULL, "oracle ? bind should preserve original SQL") != 0 ||
+		    expect_true(strstr(view_json, "\"bind_kind\":1") != NULL, "oracle mixed binds should be positional") != 0 ||
+		    expect_true(strstr(view_json, "\"sql\":\":1\"") == NULL, "oracle :1 should not be exposed as value SQL") != 0 ||
+		    expect_true(strstr(view_json, "\"sql\":\"?\"") == NULL, "oracle ? should not be exposed as value SQL") != 0) {
+			sqlparser_string_free(view_json);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+	}
+
+	{
 		const char *sql =
 			"SELECT IP, AREACODE, AREANAME, STATE, MSTSCPORT, NTUID, NTPWD,WORKER, "
 			"WEBSITE,MSDEPLOYPORT, \"UID\", PWD, KEY_ENCRYPTION, MODIFYTIME "
@@ -2728,6 +2827,9 @@ static int test_sql_view_bind_fields(void)
 		    expect_true(strstr(view_json, "\"name\":\"*\"") != NULL, "oracle rownum pagination should expose scoped star") != 0 ||
 		    expect_true(strstr(view_json, "\"bind\":\"endRow\"") != NULL, "oracle rownum pagination should expose endRow bind") != 0 ||
 		    expect_true(strstr(view_json, "\"bind\":\"startRow\"") != NULL, "oracle rownum pagination should expose startRow bind") != 0 ||
+		    expect_true(strstr(view_json, "\"bind_kind\":2") != NULL, "oracle rownum binds should be named") != 0 ||
+		    expect_true(strstr(view_json, "\"bind_sql\":\":endRow\"") != NULL, "oracle rownum endRow bind SQL should be exposed") != 0 ||
+		    expect_true(strstr(view_json, "\"bind_sql\":\":startRow\"") != NULL, "oracle rownum startRow bind SQL should be exposed") != 0 ||
 		    expect_true(strstr(view_json, "\"sql\":\":endRow\"") == NULL, "oracle rownum bind should not be exposed as value SQL") != 0 ||
 		    expect_true(strstr(view_json, "\"sql\":\":startRow\"") == NULL, "oracle rownum bind should not be exposed as value SQL") != 0) {
 			sqlparser_string_free(view_json);
@@ -2813,7 +2915,9 @@ static int test_sql_view_column_semantics_json(void)
 	}
 	column = find_view_column_json(statement, "users", "first_name", "select", 0U);
 	if (expect_true(column != NULL, "expression first column should exist") != 0 ||
-	    expect_true(json_target_path_entry_is(column, 0U, "expression", "||", 0), "expression first target_path should be || arg 0") != 0) {
+	    expect_true(json_target_path_entry_is(column, 0U, "expression", "||", 0), "expression first target_path should be || arg 0") != 0 ||
+	    expect_true(json_key_is_null(column, "operator"), "SELECT expression column operator should be null") != 0 ||
+	    expect_true(json_key_is_null(column, "value"), "SELECT expression column value should be null") != 0) {
 		json_decref(root);
 		return 1;
 	}
@@ -2825,7 +2929,9 @@ static int test_sql_view_column_semantics_json(void)
 	}
 	column = find_view_column_json(statement, "users", "state", "select", 0U);
 	if (expect_true(column != NULL, "CASE expression condition column should exist") != 0 ||
-	    expect_true(json_target_path_entry_is(column, 0U, "expression", "case_when", 0), "CASE target_path should start with case_when") != 0) {
+	    expect_true(json_target_path_entry_is(column, 0U, "expression", "case_when", 0), "CASE target_path should start with case_when") != 0 ||
+	    expect_true(json_key_is_null(column, "operator"), "SELECT CASE condition operator should be null") != 0 ||
+	    expect_true(json_key_is_null(column, "value"), "SELECT CASE condition value should be null") != 0) {
 		json_decref(root);
 		return 1;
 	}
@@ -3232,6 +3338,135 @@ static int test_sql_view_column_semantics_json(void)
 		json_decref(root);
 	}
 
+	return 0;
+}
+
+static int test_sql_view_public_struct_semantics(void)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_view_t view;
+	sqlparser_statement_view_t statement;
+	sqlparser_clause_view_t clause;
+	sqlparser_object_view_t object;
+	sqlparser_column_view_t column;
+	sqlparser_row_view_t row;
+	sqlparser_cell_view_t cell;
+	char *clause_sql;
+	size_t index;
+	int saw_select_name;
+	int saw_where_id;
+	int rc;
+
+	handle = NULL;
+	clause_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	rc = sqlparser_parse_with_options(
+		"SELECT UPPER(name) FROM users WHERE id = :id",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "public view struct semantic parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_get_view(handle, &view, &error);
+	if (expect_status_ok(rc, &error, "public view should be available") != 0 ||
+	    expect_status_ok(sqlparser_view_statement_at(&view, 0U, &statement, &error), &error, "public statement should be available") != 0 ||
+	    expect_true(statement.clause_count >= 2U, "public statement should expose clauses") != 0 ||
+	    expect_status_ok(sqlparser_statement_clause_at(&statement, 0U, &clause, &error), &error, "public select clause should be available") != 0 ||
+	    expect_true(clause.kind == SQLPARSER_CLAUSE_KIND_SELECT_LIST, "public select clause kind mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_clause_sql(&clause, &clause_sql, &error);
+	if (expect_status_ok(rc, &error, "public select clause SQL should be available") != 0 ||
+	    expect_true(clause_sql != NULL && strstr(clause_sql, "upper") != NULL, "public select clause SQL mismatch") != 0) {
+		sqlparser_string_free(clause_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(clause_sql);
+	clause_sql = NULL;
+	rc = sqlparser_statement_object_at(&statement, 0U, &object, &error);
+	if (expect_status_ok(rc, &error, "public object should be available") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	saw_select_name = 0;
+	saw_where_id = 0;
+	for (index = 0U; index < object.column_count; index++) {
+		rc = sqlparser_object_column_at(&object, index, &column, &error);
+		if (expect_status_ok(rc, &error, "public column should be available") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (strcmp(column.name, "name") == 0 && strcmp(column.keyword, "select") == 0) {
+			saw_select_name = 1;
+			if (expect_true(column.has_clause_id != 0 && column.clause_id == 1U, "public select column clause_id mismatch") != 0 ||
+			    expect_true(column.target_path_count == 1U, "public select column target_path count mismatch") != 0 ||
+			    expect_true(strcmp(column.target_path[0].kind, "function") == 0, "public target_path kind mismatch") != 0 ||
+			    expect_true(strcmp(column.target_path[0].name, "UPPER") == 0, "public target_path name mismatch") != 0 ||
+			    expect_true(column.target_path[0].arg_index == 0U, "public target_path arg index mismatch") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		}
+		if (strcmp(column.name, "id") == 0 && strcmp(column.keyword, "where") == 0) {
+			saw_where_id = 1;
+			if (expect_true(column.has_clause_id != 0 && column.clause_id == 2U, "public where column clause_id mismatch") != 0 ||
+			    expect_true(column.has_bind != 0, "public where bind should be set") != 0 ||
+			    expect_true(strcmp(column.bind, "id") == 0, "public where bind name mismatch") != 0 ||
+			    expect_true(column.bind_kind == SQLPARSER_BIND_KIND_NAMED, "public where bind kind mismatch") != 0 ||
+			    expect_true(column.has_bind_sql != 0 && strcmp(column.bind_sql, ":id") == 0, "public where bind SQL mismatch") != 0 ||
+			    expect_true(column.has_bind_selector != 0, "public where bind selector should be set") != 0 ||
+			    expect_true(column.value_count == 0U, "public bind column should not expose value") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		}
+	}
+	if (expect_true(saw_select_name != 0, "public select column should be found") != 0 ||
+	    expect_true(saw_where_id != 0, "public where column should be found") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse_with_options(
+		"INSERT INTO users (id, name) VALUES (:id, ?)",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "public insert bind parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_get_view(handle, &view, &error);
+	if (expect_status_ok(rc, &error, "public insert view should be available") != 0 ||
+	    expect_status_ok(sqlparser_view_statement_at(&view, 0U, &statement, &error), &error, "public insert statement should be available") != 0 ||
+	    expect_status_ok(sqlparser_statement_object_at(&statement, 0U, &object, &error), &error, "public insert object should be available") != 0 ||
+	    expect_status_ok(sqlparser_object_row_at(&object, 0U, &row, &error), &error, "public insert row should be available") != 0 ||
+	    expect_status_ok(sqlparser_row_cell_at(&row, 0U, &cell, &error), &error, "public insert cell should be available") != 0 ||
+	    expect_true(cell.has_bind != 0 && strcmp(cell.bind, "id") == 0, "public insert named bind mismatch") != 0 ||
+	    expect_true(cell.bind_kind == SQLPARSER_BIND_KIND_NAMED, "public insert named bind kind mismatch") != 0 ||
+	    expect_true(cell.has_bind_sql != 0 && strcmp(cell.bind_sql, ":id") == 0, "public insert named bind SQL mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_row_cell_at(&row, 1U, &cell, &error);
+	if (expect_status_ok(rc, &error, "public insert positional cell should be available") != 0 ||
+	    expect_true(cell.has_bind != 0, "public insert positional bind should be set") != 0 ||
+	    expect_true(cell.bind_kind == SQLPARSER_BIND_KIND_POSITIONAL, "public insert positional bind kind mismatch") != 0 ||
+	    expect_true(cell.has_bind_sql != 0 && strcmp(cell.bind_sql, "?") == 0, "public insert positional bind SQL mismatch") != 0 ||
+	    expect_true(cell.has_bind_selector != 0, "public insert bind selector should be set") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
 	return 0;
 }
 
@@ -4098,6 +4333,9 @@ int main(void)
 		return 1;
 	}
 	if (test_sql_view_column_semantics_json() != 0) {
+		return 1;
+	}
+	if (test_sql_view_public_struct_semantics() != 0) {
 		return 1;
 	}
 	if (test_sql_view_attribution_and_values() != 0) {

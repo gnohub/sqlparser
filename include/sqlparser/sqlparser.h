@@ -46,6 +46,12 @@ typedef enum {
 } sqlparser_value_kind_t;
 
 typedef enum {
+	SQLPARSER_BIND_KIND_NONE = 0,
+	SQLPARSER_BIND_KIND_POSITIONAL = 1,
+	SQLPARSER_BIND_KIND_NAMED = 2
+} sqlparser_bind_kind_t;
+
+typedef enum {
 	SQLPARSER_LITERAL_KIND_UNKNOWN = 0,
 	SQLPARSER_LITERAL_KIND_NULL = 1,
 	SQLPARSER_LITERAL_KIND_STRING = 2,
@@ -76,7 +82,10 @@ typedef enum {
 	SQLPARSER_CLAUSE_KIND_SELECT_LIST = 1,
 	SQLPARSER_CLAUSE_KIND_WHERE = 2,
 	SQLPARSER_CLAUSE_KIND_ORDER_BY = 3,
-	SQLPARSER_CLAUSE_KIND_SET_LIST = 4
+	SQLPARSER_CLAUSE_KIND_SET_LIST = 4,
+	SQLPARSER_CLAUSE_KIND_ON = 5,
+	SQLPARSER_CLAUSE_KIND_GROUP_BY = 6,
+	SQLPARSER_CLAUSE_KIND_HAVING = 7
 } sqlparser_clause_kind_t;
 
 typedef enum {
@@ -150,6 +159,21 @@ typedef struct {
 	size_t column_index;
 } sqlparser_selector_t;
 
+enum {
+	SQLPARSER_BIND_TEXT_CAPACITY = 128,
+	SQLPARSER_BIND_SQL_CAPACITY = 128,
+	SQLPARSER_TARGET_PATH_CAPACITY = 64,
+	SQLPARSER_TARGET_PATH_NAME_CAPACITY = 128
+};
+
+typedef struct {
+	const char *kind;
+	char name[SQLPARSER_TARGET_PATH_NAME_CAPACITY];
+	int has_name;
+	int name_truncated;
+	size_t arg_index;
+} sqlparser_target_path_entry_t;
+
 typedef struct {
 	const sqlparser_handle_t *handle;
 	size_t statement_count;
@@ -213,6 +237,20 @@ typedef struct {
 	sqlparser_selector_t target_selector;
 	int has_target_selector;
 	const char *operator_name;
+	char bind[SQLPARSER_BIND_TEXT_CAPACITY];
+	int has_bind;
+	sqlparser_bind_kind_t bind_kind;
+	char bind_sql[SQLPARSER_BIND_SQL_CAPACITY];
+	int has_bind_sql;
+	int bind_truncated;
+	int bind_sql_truncated;
+	sqlparser_selector_t bind_selector;
+	int has_bind_selector;
+	size_t clause_id;
+	int has_clause_id;
+	size_t target_path_count;
+	int target_path_truncated;
+	sqlparser_target_path_entry_t target_path[SQLPARSER_TARGET_PATH_CAPACITY];
 	sqlparser_value_view_t value;
 	size_t value_count;
 } sqlparser_column_view_t;
@@ -235,6 +273,15 @@ typedef struct {
 	size_t column_index;
 	sqlparser_selector_t selector;
 	int has_selector;
+	char bind[SQLPARSER_BIND_TEXT_CAPACITY];
+	int has_bind;
+	sqlparser_bind_kind_t bind_kind;
+	char bind_sql[SQLPARSER_BIND_SQL_CAPACITY];
+	int has_bind_sql;
+	int bind_truncated;
+	int bind_sql_truncated;
+	sqlparser_selector_t bind_selector;
+	int has_bind_selector;
 } sqlparser_cell_view_t;
 
 typedef enum {
@@ -279,6 +326,7 @@ const char *sqlparser_libpg_query_tag(void);
 const char *sqlparser_statement_kind_name(sqlparser_statement_kind_t kind);
 const char *sqlparser_insert_source_kind_name(sqlparser_insert_source_kind_t kind);
 const char *sqlparser_value_kind_name(sqlparser_value_kind_t kind);
+const char *sqlparser_bind_kind_name(sqlparser_bind_kind_t kind);
 const char *sqlparser_literal_kind_name(sqlparser_literal_kind_t kind);
 const char *sqlparser_selector_kind_name(sqlparser_selector_kind_t kind);
 const char *sqlparser_dialect_name(sqlparser_dialect_t dialect);
@@ -805,6 +853,17 @@ sqlparser_status_t sqlparser_statement_object_at(
 	const sqlparser_statement_view_t *statement,
 	size_t object_index,
 	sqlparser_object_view_t *out_object,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_statement_clause_at(
+	const sqlparser_statement_view_t *statement,
+	size_t clause_index,
+	sqlparser_clause_view_t *out_clause,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_clause_sql(
+	const sqlparser_clause_view_t *clause,
+	char **out_sql,
 	sqlparser_error_t *out_error);
 
 sqlparser_status_t sqlparser_object_column_at(

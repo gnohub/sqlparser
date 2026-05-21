@@ -71,6 +71,9 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 | P057 | `dameng-cli-dialect-set-schema-top` | Dameng `SET SCHEMA` + `TOP` + bind | CLI `dialect` field and Dameng dialect output handling |
 | P058 | `postgresql-select-dollar-params` | `SELECT ... WHERE ... = $1` | PostgreSQL `$n` parameters in query predicates, View output, and deparse |
 | P059 | `postgresql-select-in-dollar-params` | `SELECT ... IN ($1, $2, $3)` | multiple `$n` parameters in `IN` predicates |
+| P059A | `postgresql-select-between-dollar-params` | `BETWEEN $1 AND $2` | multiple `$n` parameters and field-value attribution in `BETWEEN` predicates |
+| P059B | `postgresql-select-not-in-dollar-params` | `NOT IN ($1, $2)` | multiple `$n` parameters and field-value attribution in negated `IN` predicates |
+| P059C | `postgresql-select-not-between-dollar-params` | `NOT BETWEEN $1 AND $2` | multiple `$n` parameters and field-value attribution in negated `BETWEEN` predicates |
 | P060 | `postgresql-select-limit-dollar-params` | `LIMIT $2 OFFSET $3` | `$n` parameters in pagination clauses |
 | P061 | `postgresql-insert-dollar-params` | `INSERT ... VALUES ($1, $2, $3)` | insert columns and `$n` parameter value lists |
 | P062 | `postgresql-insert-multi-row-dollar-params` | multi-row `INSERT ... VALUES` + `$n` | multi-row parameterized insert |
@@ -90,11 +93,14 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 | P076 | `postgresql-view-join-on` | `JOIN ... ON ... WHERE ...` | JOIN/ON fields, WHERE binds, and table-column attribution |
 | P077 | `postgresql-view-window-array-row-tests` | window, array, ROW, boolean/NULL expressions | `target_path` for window functions, compound expressions, and read-only clauses |
 | P078 | `postgresql-view-bind-values` | `UPDATE ... SET ... WHERE ... = $n` | PostgreSQL bind fields, null values, and update/where clause ownership |
+| P079 | `postgresql-view-not-like-bind` | `NOT LIKE $n` | field-level operator, keyword, and bind attribution for negated LIKE |
+| P080 | `postgresql-view-not-ilike-bind` | `NOT ILIKE $n` | field-level operator, keyword, and bind attribution for negated ILIKE |
+| P081 | `postgresql-view-not-similar-bind` | `NOT SIMILAR TO $n` | field-level operator, keyword, and bind attribution for negated SIMILAR TO |
 
 ## Negative Case
 
 | Case ID | Case Name | Input | Validation Focus |
 | --- | --- | --- | --- |
-| P079 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
+| P082 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
 
 New regression cases must update both `tests/cases/sql_batch_input.json` and this matrix.

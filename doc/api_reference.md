@@ -108,9 +108,31 @@ int main(void)
 | `sqlparser_statement_kind_t` | 语句类型 |
 | `sqlparser_insert_source_kind_t` | `INSERT` 数据来源 |
 | `sqlparser_value_kind_t` | 值类型 |
+| `sqlparser_bind_kind_t` | 预编译占位符类型 |
 | `sqlparser_literal_kind_t` | 字面量类型 |
+| `sqlparser_clause_kind_t` | SQL View 子句类型 |
 | `sqlparser_selector_kind_t` | selector 类型 |
 | `sqlparser_dialect_t` | SQL 方言类型 |
+
+`sqlparser_bind_kind_t` 用于 SQL View JSON 的 `bind_kind` 字段：
+
+| 枚举 | 数值 | 说明 |
+| --- | --- | --- |
+| `SQLPARSER_BIND_KIND_NONE` | `0` | 当前字段没有 bind |
+| `SQLPARSER_BIND_KIND_POSITIONAL` | `1` | 位置 bind，例如 `?`、`:1`、`$1` |
+| `SQLPARSER_BIND_KIND_NAMED` | `2` | 命名 bind，例如 `:name`、`@name` |
+
+`sqlparser_clause_kind_t` 用于 SQL View 的 `clauses[]` 和字段 `clause_id` 归属：
+
+| 枚举 | 说明 |
+| --- | --- |
+| `SQLPARSER_CLAUSE_KIND_SELECT_LIST` | SELECT 输出列表 |
+| `SQLPARSER_CLAUSE_KIND_WHERE` | WHERE 条件 |
+| `SQLPARSER_CLAUSE_KIND_ORDER_BY` | ORDER BY 排序 |
+| `SQLPARSER_CLAUSE_KIND_SET_LIST` | UPDATE SET 列表 |
+| `SQLPARSER_CLAUSE_KIND_ON` | JOIN 或 MERGE 的 ON 条件 |
+| `SQLPARSER_CLAUSE_KIND_GROUP_BY` | GROUP BY 分组 |
+| `SQLPARSER_CLAUSE_KIND_HAVING` | HAVING 条件 |
 
 ### 资源限制
 
@@ -204,10 +226,12 @@ int main(void)
 | `sqlparser_statement_kind_name()` | 返回语句类型名称 |
 | `sqlparser_insert_source_kind_name()` | 返回 `INSERT` 数据来源名称 |
 | `sqlparser_value_kind_name()` | 返回值类型名称 |
+| `sqlparser_bind_kind_name()` | 返回预编译占位符类型名称 |
 | `sqlparser_literal_kind_name()` | 返回字面量类型名称 |
 | `sqlparser_selector_kind_name()` | 返回 selector 类型名称 |
 | `sqlparser_dialect_name()` | 返回方言名称 |
 | `sqlparser_bool_operator_name()` | 返回布尔连接符名称 |
+| `sqlparser_clause_kind_name()` | 返回 SQL View 子句类型名称 |
 
 ## 解析与句柄管理
 
@@ -537,6 +561,8 @@ SQL View 可以通过 C 结构直接遍历，不需要先导出 JSON。视图中
 | `sqlparser_get_view()` | 获取语句级只读视图 |
 | `sqlparser_view_statement_at()` | 读取指定语句 |
 | `sqlparser_statement_keyword_at()` | 读取语句关键字 |
+| `sqlparser_statement_clause_at()` | 读取指定子句视图 |
+| `sqlparser_clause_sql()` | 把子句视图渲染成 SQL |
 | `sqlparser_statement_object_at()` | 读取语句中的表、视图或可归属对象 |
 | `sqlparser_object_column_at()` | 读取归属到对象的字段 |
 | `sqlparser_column_value_at()` | 读取字段关联的值片段 |
@@ -548,7 +574,7 @@ SQL View 可以通过 C 结构直接遍历，不需要先导出 JSON。视图中
 说明：
 
 - `sqlparser_view_t`、`sqlparser_statement_view_t`、`sqlparser_object_view_t` 等结构不拥有内存。
-- `sqlparser_value_sql()` 和 `sqlparser_cell_sql()` 返回新字符串，调用方使用 `sqlparser_string_free()` 释放。
+- `sqlparser_clause_sql()`、`sqlparser_value_sql()` 和 `sqlparser_cell_sql()` 返回新字符串，调用方使用 `sqlparser_string_free()` 释放。
 - 字段归属只基于 SQL 中出现的限定名、别名和当前语句对象；不访问数据库元数据，也不做唯一性推断。
 - `selector` 可用于后续 patch；没有可写节点时 `has_selector` 为 0。
 

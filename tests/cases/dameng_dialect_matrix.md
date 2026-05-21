@@ -55,6 +55,10 @@
 | D047 | `UPDATE` + 多命名 bind | update/where 子句、bind 字段和空 value |
 | D048 | `JOIN ... ON` + bind | JOIN/ON 字段、WHERE bind 和表字段归属 |
 | D049 | `NVL` 函数输出 | 函数 `target_path`、参数序号和 WHERE bind |
+| D050 | `BETWEEN` + 多命名 bind | `BETWEEN` 条件中的多个命名 bind 和字段值关联 |
+| D051 | `NOT IN` + 多命名 bind | 否定 `IN` 条件中的多个命名 bind 和字段值关联 |
+| D052 | `NOT BETWEEN` + 多命名 bind | 否定 `BETWEEN` 条件中的多个命名 bind 和字段值关联 |
+| D053 | `NOT LIKE` + 命名 bind | 否定 `LIKE` 条件中的命名 bind、字段级 operator 和关键字归属 |
 
 ## 明确不支持用例
 

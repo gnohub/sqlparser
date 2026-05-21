@@ -910,6 +910,35 @@
           "email",
           "age"
         ],
+        "cells": [
+          {
+            "table": "users",
+            "row_index": 0,
+            "column_index": 0,
+            "column": "username",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "?"
+          },
+          {
+            "table": "users",
+            "row_index": 0,
+            "column_index": 1,
+            "column": "email",
+            "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "?"
+          },
+          {
+            "table": "users",
+            "row_index": 0,
+            "column_index": 2,
+            "column": "age",
+            "bind": "3",
+            "bind_kind": 1,
+            "bind_sql": "?"
+          }
+        ],
         "deparse_contains": "VALUES (?, ?, ?)",
         "view_contains": "?",
         "view_not_contains": "$1"
@@ -933,6 +962,28 @@
         ],
         "where_columns": [
           "username"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "email",
+            "keyword": "set",
+            "clause_kind": "set_list",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "username",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          }
         ],
         "deparse_contains": "email = ?",
         "view_not_contains": "$1"
@@ -977,6 +1028,28 @@
           "id",
           "status"
         ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "id",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "id",
+            "bind_kind": 2,
+            "bind_sql": ":id",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "status",
+            "bind_kind": 2,
+            "bind_sql": ":status",
+            "value_is_null": true
+          }
+        ],
         "deparse_contains": ":status",
         "view_not_contains": "$1"
       }
@@ -999,6 +1072,38 @@
         ],
         "where_columns": [
           "status"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "status1",
+            "bind_kind": 2,
+            "bind_sql": ":status1",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "status2",
+            "bind_kind": 2,
+            "bind_sql": ":status2",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "status3",
+            "bind_kind": 2,
+            "bind_sql": ":status3",
+            "value_is_null": true
+          }
         ],
         "deparse_contains": ":status3",
         "view_not_contains": "$1"
@@ -1023,6 +1128,18 @@
         "where_columns": [
           "name"
         ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "name",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "pattern",
+            "bind_kind": 2,
+            "bind_sql": ":pattern",
+            "value_is_null": true
+          }
+        ],
         "deparse_contains": ":limit",
         "view_not_contains": "$1"
       }
@@ -1044,6 +1161,35 @@
           "id",
           "name",
           "status"
+        ],
+        "cells": [
+          {
+            "table": "users",
+            "row_index": 0,
+            "column_index": 0,
+            "column": "id",
+            "bind": "id",
+            "bind_kind": 2,
+            "bind_sql": ":id"
+          },
+          {
+            "table": "users",
+            "row_index": 0,
+            "column_index": 1,
+            "column": "name",
+            "bind": "name",
+            "bind_kind": 2,
+            "bind_sql": ":name"
+          },
+          {
+            "table": "users",
+            "row_index": 0,
+            "column_index": 2,
+            "column": "status",
+            "bind": "status",
+            "bind_kind": 2,
+            "bind_sql": ":status"
+          }
         ],
         "deparse_contains": ":status",
         "view_not_contains": "$1"
@@ -1069,6 +1215,38 @@
         "where_columns": [
           "id"
         ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "name",
+            "keyword": "set",
+            "clause_kind": "set_list",
+            "bind": "name",
+            "bind_kind": 2,
+            "bind_sql": ":name",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "status",
+            "keyword": "set",
+            "clause_kind": "set_list",
+            "bind": "status",
+            "bind_kind": 2,
+            "bind_sql": ":status",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "id",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "id",
+            "bind_kind": 2,
+            "bind_sql": ":id",
+            "value_is_null": true
+          }
+        ],
         "deparse_contains": ":status",
         "view_not_contains": "$1"
       }
@@ -1089,6 +1267,28 @@
         "where_columns": [
           "id",
           "status"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "id",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "id",
+            "bind_kind": 2,
+            "bind_sql": ":id",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "status",
+            "bind_kind": 2,
+            "bind_sql": ":status",
+            "value_is_null": true
+          }
         ],
         "deparse_contains": ":status",
         "view_not_contains": "$1"
@@ -1114,6 +1314,28 @@
           "id",
           "status"
         ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "id",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": ":1",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": ":2",
+            "value_is_null": true
+          }
+        ],
         "deparse_contains": ":2",
         "view_not_contains": "$1"
       }
@@ -1136,6 +1358,35 @@
           "name",
           "status"
         ],
+        "cells": [
+          {
+            "table": "users",
+            "row_index": 0,
+            "column_index": 0,
+            "column": "id",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "?"
+          },
+          {
+            "table": "users",
+            "row_index": 0,
+            "column_index": 1,
+            "column": "name",
+            "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "?"
+          },
+          {
+            "table": "users",
+            "row_index": 0,
+            "column_index": 2,
+            "column": "status",
+            "bind": "3",
+            "bind_kind": 1,
+            "bind_sql": "?"
+          }
+        ],
         "deparse_contains": "VALUES (?, ?, ?)",
         "view_not_contains": "$1"
       }
@@ -1156,6 +1407,28 @@
         "where_columns": [
           "id",
           "status"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "id",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          }
         ],
         "deparse_contains": "?",
         "view_not_contains": "$1"
@@ -1258,6 +1531,8 @@
             "keyword": "where",
             "clause_kind": "where",
             "bind": "employee_id",
+            "bind_kind": 2,
+            "bind_sql": ":employee_id",
             "value_is_null": true
           }
         ],
@@ -1360,6 +1635,8 @@
             "keyword": "set",
             "clause_kind": "set_list",
             "bind": "aaa",
+            "bind_kind": 2,
+            "bind_sql": ":aaa",
             "value_is_null": true
           },
           {
@@ -1368,6 +1645,8 @@
             "keyword": "where",
             "clause_kind": "where",
             "bind": "id",
+            "bind_kind": 2,
+            "bind_sql": ":id",
             "value_is_null": true
           }
         ],
@@ -1400,13 +1679,242 @@
         ],
         "view_contains": [
           "\"bind\":\"endRow\"",
+          "\"bind_kind\":2",
+          "\"bind_sql\":\":endRow\"",
           "\"bind\":\"startRow\"",
+          "\"bind_sql\":\":startRow\"",
           "\"name\":\"UID\""
         ],
         "view_not_contains": [
           "\"sql\":\":endRow\"",
           "\"sql\":\":startRow\""
         ]
+      }
+    },
+    {
+      "id": "O067",
+      "name": "oracle-view-mixed-positional-binds",
+      "sql": "SELECT abc FROM table1 WHERE abc LIKE :1 AND def LIKE ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "table1"
+        ],
+        "columns": [
+          {
+            "table": "table1",
+            "name": "abc",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": ":1",
+            "value_is_null": true
+          },
+          {
+            "table": "table1",
+            "name": "def",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          }
+        ],
+        "view_contains": [
+          "\"bind_sql\":\":1\"",
+          "\"bind_sql\":\"?\""
+        ],
+        "view_not_contains": [
+          "\"sql\":\":1\"",
+          "\"sql\":\"?\""
+        ]
+      }
+    },
+    {
+      "id": "O068",
+      "name": "oracle-select-between-named-binds",
+      "sql": "SELECT id FROM users WHERE age BETWEEN :min_age AND :max_age",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "age"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "age",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "BETWEEN",
+            "bind": "min_age",
+            "bind_kind": 2,
+            "bind_sql": ":min_age",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "age",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "BETWEEN",
+            "bind": "max_age",
+            "bind_kind": 2,
+            "bind_sql": ":max_age",
+            "value_is_null": true
+          }
+        ],
+        "deparse_contains": ":max_age",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "O069",
+      "name": "oracle-select-not-in-named-binds",
+      "sql": "SELECT id FROM users WHERE status NOT IN (:status1, :status2)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "status"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "NOT IN",
+            "bind": "status1",
+            "bind_kind": 2,
+            "bind_sql": ":status1",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "NOT IN",
+            "bind": "status2",
+            "bind_kind": 2,
+            "bind_sql": ":status2",
+            "value_is_null": true
+          }
+        ],
+        "deparse_contains": ":status2",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "O070",
+      "name": "oracle-select-not-between-named-binds",
+      "sql": "SELECT id FROM users WHERE age NOT BETWEEN :min_age AND :max_age",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "age"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "age",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "NOT BETWEEN",
+            "bind": "min_age",
+            "bind_kind": 2,
+            "bind_sql": ":min_age",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "age",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "NOT BETWEEN",
+            "bind": "max_age",
+            "bind_kind": 2,
+            "bind_sql": ":max_age",
+            "value_is_null": true
+          }
+        ],
+        "deparse_contains": ":max_age",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "O071",
+      "name": "oracle-select-not-like-named-bind",
+      "sql": "SELECT id FROM users WHERE name NOT LIKE :name_pattern",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "name"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "name",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "NOT LIKE",
+            "bind": "name_pattern",
+            "bind_kind": 2,
+            "bind_sql": ":name_pattern",
+            "value_is_null": true
+          }
+        ],
+        "keywords": [
+          "not",
+          "like"
+        ],
+        "deparse_contains": ":name_pattern",
+        "view_not_contains": "$1"
       }
     },
     {

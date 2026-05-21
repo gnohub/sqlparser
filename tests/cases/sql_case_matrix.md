@@ -71,6 +71,9 @@
 | P057 | `dameng-cli-dialect-set-schema-top` | 达梦 `SET SCHEMA` + `TOP` + bind | CLI `dialect` 字段和达梦方言输出处理 |
 | P058 | `postgresql-select-dollar-params` | `SELECT ... WHERE ... = $1` | PostgreSQL `$n` 参数在查询条件中的解析、View 输出和反解析 |
 | P059 | `postgresql-select-in-dollar-params` | `SELECT ... IN ($1, $2, $3)` | `IN` 条件中的多个 `$n` 参数 |
+| P059A | `postgresql-select-between-dollar-params` | `BETWEEN $1 AND $2` | `BETWEEN` 条件中的多个 `$n` 参数和字段值关联 |
+| P059B | `postgresql-select-not-in-dollar-params` | `NOT IN ($1, $2)` | 否定 `IN` 条件中的多个 `$n` 参数和字段值关联 |
+| P059C | `postgresql-select-not-between-dollar-params` | `NOT BETWEEN $1 AND $2` | 否定 `BETWEEN` 条件中的多个 `$n` 参数和字段值关联 |
 | P060 | `postgresql-select-limit-dollar-params` | `LIMIT $2 OFFSET $3` | 分页子句中的 `$n` 参数 |
 | P061 | `postgresql-insert-dollar-params` | `INSERT ... VALUES ($1, $2, $3)` | 插入列和 `$n` 参数值列表 |
 | P062 | `postgresql-insert-multi-row-dollar-params` | 多行 `INSERT ... VALUES` + `$n` | 多行参数化插入 |
@@ -90,11 +93,14 @@
 | P076 | `postgresql-view-join-on` | `JOIN ... ON ... WHERE ...` | JOIN/ON 字段、WHERE bind 和表字段归属 |
 | P077 | `postgresql-view-window-array-row-tests` | 窗口、数组、ROW、布尔/NULL 表达式 | 窗口函数、复合表达式和只读子句的 `target_path` |
 | P078 | `postgresql-view-bind-values` | `UPDATE ... SET ... WHERE ... = $n` | PostgreSQL bind 字段、空 value 和 update/where 子句归属 |
+| P079 | `postgresql-view-not-like-bind` | `NOT LIKE $n` | 否定 LIKE 的字段级 operator、关键字和 bind 归属 |
+| P080 | `postgresql-view-not-ilike-bind` | `NOT ILIKE $n` | 否定 ILIKE 的字段级 operator、关键字和 bind 归属 |
+| P081 | `postgresql-view-not-similar-bind` | `NOT SIMILAR TO $n` | 否定 SIMILAR TO 的字段级 operator、关键字和 bind 归属 |
 
 ## 负向用例
 
 | 用例 ID | 用例名称 | 输入 | 验证重点 |
 | --- | --- | --- | --- |
-| P079 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
+| P082 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
 
 新增回归用例必须同步更新 `tests/cases/sql_batch_input.json` 和本矩阵。

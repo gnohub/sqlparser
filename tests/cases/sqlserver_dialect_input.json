@@ -1087,6 +1087,28 @@
           "id",
           "status"
         ],
+        "columns": [
+          {
+            "table": "dbo.users",
+            "name": "id",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "id",
+            "bind_kind": 2,
+            "bind_sql": "@id",
+            "value_is_null": true
+          },
+          {
+            "table": "dbo.users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "status",
+            "bind_kind": 2,
+            "bind_sql": "@status",
+            "value_is_null": true
+          }
+        ],
         "deparse_contains": "@status",
         "view_not_contains": "$1"
       }
@@ -1109,6 +1131,38 @@
         ],
         "where_columns": [
           "status"
+        ],
+        "columns": [
+          {
+            "table": "dbo.users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "s1",
+            "bind_kind": 2,
+            "bind_sql": "@s1",
+            "value_is_null": true
+          },
+          {
+            "table": "dbo.users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "s2",
+            "bind_kind": 2,
+            "bind_sql": "@s2",
+            "value_is_null": true
+          },
+          {
+            "table": "dbo.users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "s3",
+            "bind_kind": 2,
+            "bind_sql": "@s3",
+            "value_is_null": true
+          }
         ],
         "deparse_contains": "@s3",
         "view_not_contains": "$1"
@@ -1133,6 +1187,18 @@
         "where_columns": [
           "name"
         ],
+        "columns": [
+          {
+            "table": "dbo.users",
+            "name": "name",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "pattern",
+            "bind_kind": 2,
+            "bind_sql": "@pattern",
+            "value_is_null": true
+          }
+        ],
         "deparse_contains": "TOP (@limit)",
         "view_not_contains": "$1"
       }
@@ -1155,6 +1221,35 @@
           "name",
           "status"
         ],
+        "cells": [
+          {
+            "table": "dbo.users",
+            "row_index": 0,
+            "column_index": 0,
+            "column": "id",
+            "bind": "id",
+            "bind_kind": 2,
+            "bind_sql": "@id"
+          },
+          {
+            "table": "dbo.users",
+            "row_index": 0,
+            "column_index": 1,
+            "column": "name",
+            "bind": "name",
+            "bind_kind": 2,
+            "bind_sql": "@name"
+          },
+          {
+            "table": "dbo.users",
+            "row_index": 0,
+            "column_index": 2,
+            "column": "status",
+            "bind": "status",
+            "bind_kind": 2,
+            "bind_sql": "@status"
+          }
+        ],
         "deparse_contains": "@status",
         "view_not_contains": "$1"
       }
@@ -1175,6 +1270,44 @@
         "insert_columns": [
           "id",
           "name"
+        ],
+        "cells": [
+          {
+            "table": "dbo.users",
+            "row_index": 0,
+            "column_index": 0,
+            "column": "id",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "?"
+          },
+          {
+            "table": "dbo.users",
+            "row_index": 0,
+            "column_index": 1,
+            "column": "name",
+            "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "?"
+          },
+          {
+            "table": "dbo.users",
+            "row_index": 1,
+            "column_index": 0,
+            "column": "id",
+            "bind": "3",
+            "bind_kind": 1,
+            "bind_sql": "?"
+          },
+          {
+            "table": "dbo.users",
+            "row_index": 1,
+            "column_index": 1,
+            "column": "name",
+            "bind": "4",
+            "bind_kind": 1,
+            "bind_sql": "?"
+          }
         ],
         "deparse_contains": "?",
         "view_not_contains": "$1"
@@ -1200,6 +1333,38 @@
         "where_columns": [
           "id"
         ],
+        "columns": [
+          {
+            "table": "dbo.users",
+            "name": "name",
+            "keyword": "set",
+            "clause_kind": "set_list",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          },
+          {
+            "table": "dbo.users",
+            "name": "status",
+            "keyword": "set",
+            "clause_kind": "set_list",
+            "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          },
+          {
+            "table": "dbo.users",
+            "name": "id",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "3",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          }
+        ],
         "deparse_contains": "?",
         "view_not_contains": "$1"
       }
@@ -1220,6 +1385,28 @@
         "where_columns": [
           "id",
           "status"
+        ],
+        "columns": [
+          {
+            "table": "dbo.users",
+            "name": "id",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          },
+          {
+            "table": "dbo.users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          }
         ],
         "deparse_contains": "?",
         "view_not_contains": "$1"
@@ -1302,6 +1489,8 @@
             "keyword": "where",
             "clause_kind": "where",
             "bind": "id",
+            "bind_kind": 2,
+            "bind_sql": "@id",
             "value_is_null": true
           },
           {
@@ -1447,6 +1636,8 @@
             "keyword": "set",
             "clause_kind": "set_list",
             "bind": "aaa",
+            "bind_kind": 2,
+            "bind_sql": "@aaa",
             "value_is_null": true
           },
           {
@@ -1455,6 +1646,8 @@
             "keyword": "where",
             "clause_kind": "where",
             "bind": "id",
+            "bind_kind": 2,
+            "bind_sql": "@id",
             "value_is_null": true
           }
         ],
@@ -1462,6 +1655,187 @@
           "\"sql\":\"@aaa\"",
           "\"sql\":\"@id\""
         ]
+      }
+    },
+    {
+      "id": "S067",
+      "name": "sqlserver-select-between-named-params",
+      "sql": "SELECT [id] FROM [dbo].[users] WHERE [age] BETWEEN @min_age AND @max_age",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "age"
+        ],
+        "columns": [
+          {
+            "table": "dbo.users",
+            "name": "age",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "BETWEEN",
+            "bind": "min_age",
+            "bind_kind": 2,
+            "bind_sql": "@min_age",
+            "value_is_null": true
+          },
+          {
+            "table": "dbo.users",
+            "name": "age",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "BETWEEN",
+            "bind": "max_age",
+            "bind_kind": 2,
+            "bind_sql": "@max_age",
+            "value_is_null": true
+          }
+        ],
+        "deparse_contains": "@max_age",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S068",
+      "name": "sqlserver-select-not-in-named-params",
+      "sql": "SELECT [id] FROM [dbo].[users] WHERE [status] NOT IN (@s1, @s2)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "status"
+        ],
+        "columns": [
+          {
+            "table": "dbo.users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "NOT IN",
+            "bind": "s1",
+            "bind_kind": 2,
+            "bind_sql": "@s1",
+            "value_is_null": true
+          },
+          {
+            "table": "dbo.users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "NOT IN",
+            "bind": "s2",
+            "bind_kind": 2,
+            "bind_sql": "@s2",
+            "value_is_null": true
+          }
+        ],
+        "deparse_contains": "@s2",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S069",
+      "name": "sqlserver-select-not-between-named-params",
+      "sql": "SELECT [id] FROM [dbo].[users] WHERE [age] NOT BETWEEN @min_age AND @max_age",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "age"
+        ],
+        "columns": [
+          {
+            "table": "dbo.users",
+            "name": "age",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "NOT BETWEEN",
+            "bind": "min_age",
+            "bind_kind": 2,
+            "bind_sql": "@min_age",
+            "value_is_null": true
+          },
+          {
+            "table": "dbo.users",
+            "name": "age",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "NOT BETWEEN",
+            "bind": "max_age",
+            "bind_kind": 2,
+            "bind_sql": "@max_age",
+            "value_is_null": true
+          }
+        ],
+        "deparse_contains": "@max_age",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S070",
+      "name": "sqlserver-select-not-like-named-param",
+      "sql": "SELECT [id] FROM [dbo].[users] WHERE [name] NOT LIKE @name_pattern",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "name"
+        ],
+        "columns": [
+          {
+            "table": "dbo.users",
+            "name": "name",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "NOT LIKE",
+            "bind": "name_pattern",
+            "bind_kind": 2,
+            "bind_sql": "@name_pattern",
+            "value_is_null": true
+          }
+        ],
+        "keywords": [
+          "not",
+          "like"
+        ],
+        "deparse_contains": "@name_pattern",
+        "view_not_contains": "$1"
       }
     },
     {

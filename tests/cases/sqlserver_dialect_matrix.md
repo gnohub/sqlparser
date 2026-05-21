@@ -72,6 +72,10 @@
 | S064 | `CASE` 表达式输出 | `CASE WHEN` 中字段的 `target_path` 归属 |
 | S065 | `GROUP BY` + `HAVING` + `ORDER BY` | 聚合输出和非输出子句字段归属 |
 | S066 | `UPDATE` + 多 `@` 参数 | update/where 子句、bind 字段和空 value |
+| S067 | `BETWEEN` + 多 `@` 参数 | `BETWEEN` 条件中的多个命名参数和字段值关联 |
+| S068 | `NOT IN` + 多 `@` 参数 | 否定 `IN` 条件中的多个命名参数和字段值关联 |
+| S069 | `NOT BETWEEN` + 多 `@` 参数 | 否定 `BETWEEN` 条件中的多个命名参数和字段值关联 |
+| S070 | `NOT LIKE` + 多 `@` 参数 | 否定 `LIKE` 条件中的命名参数、字段级 operator 和关键字归属 |
 
 ## 明确不支持用例
 

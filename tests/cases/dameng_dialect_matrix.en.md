@@ -55,6 +55,10 @@ This file records regression cases for the Dameng dialect conversion layer. The 
 | D047 | `UPDATE` + multiple named binds | update/where clauses, bind fields, and null values |
 | D048 | `JOIN ... ON` + bind | JOIN/ON fields, WHERE bind, and table-column attribution |
 | D049 | `NVL` function output | function `target_path`, argument index, and WHERE bind |
+| D050 | `BETWEEN` + multiple named binds | multiple named binds and field-value attribution in `BETWEEN` predicates |
+| D051 | `NOT IN` + multiple named binds | multiple named binds and field-value attribution in negated `IN` predicates |
+| D052 | `NOT BETWEEN` + multiple named binds | multiple named binds and field-value attribution in negated `BETWEEN` predicates |
+| D053 | `NOT LIKE` + named bind | named bind, field-level operator, and keyword attribution in negated `LIKE` predicates |
 
 ## Explicitly Unsupported Cases
 

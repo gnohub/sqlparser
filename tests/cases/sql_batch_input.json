@@ -1256,6 +1256,28 @@
           "id",
           "status"
         ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "id",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "$1",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "$2",
+            "value_is_null": true
+          }
+        ],
         "deparse_contains": "$2"
       }
     },
@@ -1281,12 +1303,196 @@
         "where_columns": [
           "status"
         ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "$1",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "$2",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "3",
+            "bind_kind": 1,
+            "bind_sql": "$3",
+            "value_is_null": true
+          }
+        ],
         "deparse_contains": "$3"
       }
     },
-    {
-      "name": "postgresql-select-limit-dollar-params",
-      "sql": "SELECT id FROM users WHERE name LIKE $1 ORDER BY id LIMIT $2 OFFSET $3",
+	    {
+	      "name": "postgresql-select-between-dollar-params",
+	      "sql": "SELECT id FROM users WHERE age BETWEEN $1 AND $2",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "keywords": [
+          "select",
+          "from",
+          "where",
+          "between"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "age"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "age",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "BETWEEN",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "$1",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "age",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "BETWEEN",
+            "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "$2",
+            "value_is_null": true
+          }
+        ],
+	        "deparse_contains": "$2"
+	      }
+	    },
+	    {
+	      "name": "postgresql-select-not-in-dollar-params",
+	      "sql": "SELECT id FROM users WHERE status NOT IN ($1, $2)",
+	      "expect": {
+	        "statement_count": 1,
+	        "statement_types": [
+	          "SelectStmt"
+	        ],
+	        "keywords": [
+	          "select",
+	          "from",
+	          "where",
+	          "not",
+	          "in"
+	        ],
+	        "tables": [
+	          "users"
+	        ],
+	        "selected_columns": [
+	          "id"
+	        ],
+	        "where_columns": [
+	          "status"
+	        ],
+	        "columns": [
+	          {
+	            "table": "users",
+	            "name": "status",
+	            "keyword": "where",
+	            "clause_kind": "where",
+	            "operator": "NOT IN",
+	            "bind": "1",
+	            "bind_kind": 1,
+	            "bind_sql": "$1",
+	            "value_is_null": true
+	          },
+	          {
+	            "table": "users",
+	            "name": "status",
+	            "keyword": "where",
+	            "clause_kind": "where",
+	            "operator": "NOT IN",
+	            "bind": "2",
+	            "bind_kind": 1,
+	            "bind_sql": "$2",
+	            "value_is_null": true
+	          }
+	        ],
+	        "deparse_contains": "$2"
+	      }
+	    },
+	    {
+	      "name": "postgresql-select-not-between-dollar-params",
+	      "sql": "SELECT id FROM users WHERE age NOT BETWEEN $1 AND $2",
+	      "expect": {
+	        "statement_count": 1,
+	        "statement_types": [
+	          "SelectStmt"
+	        ],
+	        "keywords": [
+	          "select",
+	          "from",
+	          "where",
+	          "not",
+	          "between"
+	        ],
+	        "tables": [
+	          "users"
+	        ],
+	        "selected_columns": [
+	          "id"
+	        ],
+	        "where_columns": [
+	          "age"
+	        ],
+	        "columns": [
+	          {
+	            "table": "users",
+	            "name": "age",
+	            "keyword": "where",
+	            "clause_kind": "where",
+	            "operator": "NOT BETWEEN",
+	            "bind": "1",
+	            "bind_kind": 1,
+	            "bind_sql": "$1",
+	            "value_is_null": true
+	          },
+	          {
+	            "table": "users",
+	            "name": "age",
+	            "keyword": "where",
+	            "clause_kind": "where",
+	            "operator": "NOT BETWEEN",
+	            "bind": "2",
+	            "bind_kind": 1,
+	            "bind_sql": "$2",
+	            "value_is_null": true
+	          }
+	        ],
+	        "deparse_contains": "$2"
+	      }
+	    },
+	    {
+	      "name": "postgresql-select-limit-dollar-params",
+	      "sql": "SELECT id FROM users WHERE name LIKE $1 ORDER BY id LIMIT $2 OFFSET $3",
       "expect": {
         "statement_count": 1,
         "statement_types": [
@@ -1308,6 +1514,18 @@
         ],
         "where_columns": [
           "name"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "name",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "$1",
+            "value_is_null": true
+          }
         ],
         "deparse_contains": "$3"
       }
@@ -1333,6 +1551,35 @@
           "name",
           "status"
         ],
+        "cells": [
+          {
+            "table": "users",
+            "row_index": 0,
+            "column_index": 0,
+            "column": "id",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "$1"
+          },
+          {
+            "table": "users",
+            "row_index": 0,
+            "column_index": 1,
+            "column": "name",
+            "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "$2"
+          },
+          {
+            "table": "users",
+            "row_index": 0,
+            "column_index": 2,
+            "column": "status",
+            "bind": "3",
+            "bind_kind": 1,
+            "bind_sql": "$3"
+          }
+        ],
         "deparse_contains": "$3"
       }
     },
@@ -1355,6 +1602,44 @@
         "insert_columns": [
           "id",
           "name"
+        ],
+        "cells": [
+          {
+            "table": "users",
+            "row_index": 0,
+            "column_index": 0,
+            "column": "id",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "$1"
+          },
+          {
+            "table": "users",
+            "row_index": 0,
+            "column_index": 1,
+            "column": "name",
+            "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "$2"
+          },
+          {
+            "table": "users",
+            "row_index": 1,
+            "column_index": 0,
+            "column": "id",
+            "bind": "3",
+            "bind_kind": 1,
+            "bind_sql": "$3"
+          },
+          {
+            "table": "users",
+            "row_index": 1,
+            "column_index": 1,
+            "column": "name",
+            "bind": "4",
+            "bind_kind": 1,
+            "bind_sql": "$4"
+          }
         ],
         "deparse_contains": "$4"
       }
@@ -1382,6 +1667,38 @@
         "where_columns": [
           "id"
         ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "name",
+            "keyword": "set",
+            "clause_kind": "set_list",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "$1",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "status",
+            "keyword": "set",
+            "clause_kind": "set_list",
+            "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "$2",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "id",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "3",
+            "bind_kind": 1,
+            "bind_sql": "$3",
+            "value_is_null": true
+          }
+        ],
         "deparse_contains": "$3"
       }
     },
@@ -1404,6 +1721,28 @@
         "where_columns": [
           "id",
           "status"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "id",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "$1",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "$2",
+            "value_is_null": true
+          }
         ],
         "deparse_contains": "$2"
       }
@@ -1870,6 +2209,8 @@
             "keyword": "set",
             "clause_kind": "set_list",
             "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "$1",
             "value_is_null": true
           },
           {
@@ -1878,12 +2219,113 @@
             "keyword": "where",
             "clause_kind": "where",
             "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "$2",
             "value_is_null": true
           }
         ],
         "view_not_contains": [
           "\"sql\":\"$1\"",
           "\"sql\":\"$2\""
+        ]
+      }
+    },
+    {
+      "name": "postgresql-view-not-like-bind",
+      "sql": "SELECT id FROM users WHERE name NOT LIKE $1",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "name",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "NOT LIKE",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "$1",
+            "value_is_null": true
+          }
+        ],
+        "keywords": [
+          "not",
+          "like"
+        ],
+        "view_not_contains": [
+          "\"sql\":\"$1\""
+        ]
+      }
+    },
+    {
+      "name": "postgresql-view-not-ilike-bind",
+      "sql": "SELECT id FROM users WHERE name NOT ILIKE $1",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "name",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "NOT ILIKE",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "$1",
+            "value_is_null": true
+          }
+        ],
+        "keywords": [
+          "not",
+          "ilike"
+        ],
+        "view_not_contains": [
+          "\"sql\":\"$1\""
+        ]
+      }
+    },
+    {
+      "name": "postgresql-view-not-similar-bind",
+      "sql": "SELECT id FROM users WHERE name NOT SIMILAR TO $1",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "name",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "NOT SIMILAR TO",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "$1",
+            "value_is_null": true
+          }
+        ],
+        "keywords": [
+          "not",
+          "similar"
+        ],
+        "view_not_contains": [
+          "\"sql\":\"$1\""
         ]
       }
     },

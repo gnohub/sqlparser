@@ -525,6 +525,35 @@
           "name",
           "status"
         ],
+        "cells": [
+          {
+            "table": "users",
+            "row_index": 0,
+            "column_index": 0,
+            "column": "id",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "?"
+          },
+          {
+            "table": "users",
+            "row_index": 0,
+            "column_index": 1,
+            "column": "name",
+            "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "?"
+          },
+          {
+            "table": "users",
+            "row_index": 0,
+            "column_index": 2,
+            "column": "status",
+            "bind": "3",
+            "bind_kind": 1,
+            "bind_sql": "?"
+          }
+        ],
         "deparse_contains": "?",
         "view_not_contains": "$1"
       }
@@ -545,6 +574,44 @@
         "insert_columns": [
           "id",
           "name"
+        ],
+        "cells": [
+          {
+            "table": "users",
+            "row_index": 0,
+            "column_index": 0,
+            "column": "id",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "?"
+          },
+          {
+            "table": "users",
+            "row_index": 0,
+            "column_index": 1,
+            "column": "name",
+            "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "?"
+          },
+          {
+            "table": "users",
+            "row_index": 1,
+            "column_index": 0,
+            "column": "id",
+            "bind": "3",
+            "bind_kind": 1,
+            "bind_sql": "?"
+          },
+          {
+            "table": "users",
+            "row_index": 1,
+            "column_index": 1,
+            "column": "name",
+            "bind": "4",
+            "bind_kind": 1,
+            "bind_sql": "?"
+          }
         ],
         "deparse_contains": "?",
         "view_not_contains": "$1"
@@ -570,6 +637,38 @@
         "where_columns": [
           "id"
         ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "name",
+            "keyword": "set",
+            "clause_kind": "set_list",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "status",
+            "keyword": "set",
+            "clause_kind": "set_list",
+            "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "id",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "3",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          }
+        ],
         "deparse_contains": "?",
         "view_not_contains": "$1"
       }
@@ -590,6 +689,28 @@
         "where_columns": [
           "id",
           "status"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "id",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          }
         ],
         "deparse_contains": "?",
         "view_not_contains": "$1"
@@ -692,6 +813,8 @@
             "keyword": "where",
             "clause_kind": "where",
             "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "?",
             "value_is_null": true
           }
         ],
@@ -791,6 +914,8 @@
             "keyword": "set",
             "clause_kind": "set_list",
             "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "?",
             "value_is_null": true
           },
           {
@@ -799,6 +924,8 @@
             "keyword": "where",
             "clause_kind": "where",
             "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "?",
             "value_is_null": true
           }
         ],
@@ -847,9 +974,192 @@
             "keyword": "where",
             "clause_kind": "where",
             "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "?",
             "value_is_null": true
           }
         ]
+      }
+    },
+    {
+      "id": "M039",
+      "name": "mysql-select-between-question-params",
+      "sql": "SELECT id FROM users WHERE age BETWEEN ? AND ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "age"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "age",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "BETWEEN",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "age",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "BETWEEN",
+            "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          }
+        ],
+        "deparse_contains": "BETWEEN ? AND ?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "M040",
+      "name": "mysql-select-not-in-question-params",
+      "sql": "SELECT id FROM users WHERE status NOT IN (?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "status"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "NOT IN",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "status",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "NOT IN",
+            "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          }
+        ],
+        "deparse_contains": "NOT IN (?, ?)",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "M041",
+      "name": "mysql-select-not-between-question-params",
+      "sql": "SELECT id FROM users WHERE age NOT BETWEEN ? AND ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "age"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "age",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "NOT BETWEEN",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "age",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "NOT BETWEEN",
+            "bind": "2",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          }
+        ],
+        "deparse_contains": "NOT BETWEEN ? AND ?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "M042",
+      "name": "mysql-select-not-like-question-param",
+      "sql": "SELECT id FROM users WHERE name NOT LIKE ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "where_columns": [
+          "name"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "name",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "NOT LIKE",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          }
+        ],
+        "keywords": [
+          "not",
+          "like"
+        ],
+        "deparse_contains": "NOT LIKE ?",
+        "view_not_contains": "$1"
       }
     },
     {

@@ -71,6 +71,11 @@
 | O064 | `GROUP BY` + `HAVING` + `ORDER BY` | 聚合输出和非输出子句字段归属 |
 | O065 | `UPDATE` + 多命名 bind | update/where 子句、bind 字段和空 value |
 | O066 | ROWNUM 分页字段归属 | 嵌套查询、`a.*`、ROWNUM 条件和外层条件归属 |
+| O067 | `:1` 与 `?` 位置 bind 混用 | `bind_kind`、`bind_sql` 区分 Oracle 位置 bind 和 JDBC 位置参数 |
+| O068 | `BETWEEN` + 多命名 bind | `BETWEEN` 条件中的多个命名 bind 和字段值关联 |
+| O069 | `NOT IN` + 多命名 bind | 否定 `IN` 条件中的多个命名 bind 和字段值关联 |
+| O070 | `NOT BETWEEN` + 多命名 bind | 否定 `BETWEEN` 条件中的多个命名 bind 和字段值关联 |
+| O071 | `NOT LIKE` + 命名 bind | 否定 `LIKE` 条件中的命名 bind、字段级 operator 和关键字归属 |
 
 ## 明确不支持用例
 
