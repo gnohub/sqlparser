@@ -264,9 +264,13 @@ Supported operations:
 | `delete_column` | deletes one column from `INSERT ... VALUES`, or deletes one SELECT output target from `select_targets` |
 | `delete_row` | deletes one row from `INSERT ... VALUES` |
 | `append_condition` | appends a condition to a `where` clause with `AND` or `OR` |
+| `insert_assignment` | inserts a full `UPDATE SET` assignment through a `stmt[n].assignment[i]` selector |
+| `delete_assignment` | deletes one `UPDATE SET` assignment through a `stmt[n].assignment[i]` selector |
+| `replace_assignment` | replaces a full `UPDATE SET` assignment through a `stmt[n].assignment[i]` selector |
 
 `delete_column` never produces an empty `VALUES` row; deleting the last cell
-returns `SQLPARSER_STATUS_UNSUPPORTED`. `delete_row` does not delete the last row.
+returns `SQLPARSER_STATUS_UNSUPPORTED`. `delete_row` does not delete the last
+row. `delete_assignment` does not delete the last `UPDATE SET` assignment.
 
 Replace-value example:
 
@@ -300,6 +304,25 @@ patch.default_sql = "18";
 patches.items = &patch;
 patches.count = 1;
 sqlparser_apply_patch(handle, &patches, &err);
+```
+
+Rewrite `UPDATE SET` example:
+
+```c
+sqlparser_patch_t patches[2];
+sqlparser_patch_list_t patch_list;
+
+memset(patches, 0, sizeof(patches));
+patches[0].op = SQLPARSER_PATCH_INSERT_ASSIGNMENT;
+patches[0].selector = "stmt[0].assignment[1]";
+patches[0].sql = "secret_orig = 'abc'";
+patches[1].op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+patches[1].selector = "stmt[0].assignment[0]";
+patches[1].sql = "secret = 'masked'";
+
+patch_list.items = patches;
+patch_list.count = 2;
+sqlparser_apply_patch(handle, &patch_list, &err);
 ```
 
 Statement-clause example:

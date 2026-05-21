@@ -2,6 +2,21 @@
 
 ## 未发布
 
+## 0.7.0
+
+### UPDATE SET 改写
+
+- 增加 `UPDATE SET` 赋值项级 patch 能力，支持通过 `stmt[n].assignment[i]` 追加、删除和整项替换赋值项
+- 新增 `SQLPARSER_PATCH_INSERT_ASSIGNMENT`、`SQLPARSER_PATCH_DELETE_ASSIGNMENT` 和 `SQLPARSER_PATCH_REPLACE_ASSIGNMENT`
+- 新增 `sqlparser_update_insert_assignment_sql()`、`sqlparser_update_delete_assignment()`、`sqlparser_update_set_assignment_full_sql()` 及对应 selector API
+- 保持既有 `SQLPARSER_PATCH_REPLACE` 对 assignment 的右值改写语义不变
+
+### 测试与文档
+
+- 增加 `examples/patch/17_update_set_patch.c`，展示通过 `sqlparser_apply_patch()` 追加、删除和整项替换 `UPDATE SET` 赋值项
+- 扩充核心 API 和健壮性回归测试，覆盖 Oracle bind 片段、非法 selector、越界索引、空 `SET` 保护和失败后 handle 可用性
+- 更新中英文 API 手册、SQL View JSON 手册、示例说明和 MSVC 示例构建清单
+
 ## 0.6.0
 
 ### SQL View 结构

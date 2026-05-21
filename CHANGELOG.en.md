@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## 0.7.0
+
+### UPDATE SET Rewrite
+
+- Added assignment-level patch support for `UPDATE SET`, allowing callers to append, delete, and replace full assignments through `stmt[n].assignment[i]` selectors
+- Added `SQLPARSER_PATCH_INSERT_ASSIGNMENT`, `SQLPARSER_PATCH_DELETE_ASSIGNMENT`, and `SQLPARSER_PATCH_REPLACE_ASSIGNMENT`
+- Added `sqlparser_update_insert_assignment_sql()`, `sqlparser_update_delete_assignment()`, `sqlparser_update_set_assignment_full_sql()`, and the corresponding selector APIs
+- Preserved the existing RHS-only assignment behavior of `SQLPARSER_PATCH_REPLACE`
+
+### Tests and Documentation
+
+- Added `examples/patch/17_update_set_patch.c` to demonstrate `UPDATE SET` assignment append, delete, and full replacement through `sqlparser_apply_patch()`
+- Expanded core API and robustness tests for Oracle bind fragments, invalid selectors, out-of-range indexes, empty-`SET` protection, and handle usability after failures
+- Updated the Chinese and English API reference, SQL View JSON guide, examples guide, and MSVC example build list
+
 ## 0.6.0
 
 ### SQL View Structures

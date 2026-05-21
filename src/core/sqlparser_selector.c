@@ -797,6 +797,70 @@ sqlparser_status_t sqlparser_selector_set_update_assignment_sql(
 		out_error);
 }
 
+sqlparser_status_t sqlparser_selector_insert_update_assignment_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *assignment_sql,
+	sqlparser_error_t *out_error)
+{
+	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"selector kind must be assignment");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_update_insert_assignment_sql(
+		handle,
+		selector->statement_index,
+		selector->item_index,
+		assignment_sql,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_selector_delete_update_assignment(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	sqlparser_error_t *out_error)
+{
+	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"selector kind must be assignment");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_update_delete_assignment(
+		handle,
+		selector->statement_index,
+		selector->item_index,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_selector_set_update_assignment_full_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *assignment_sql,
+	sqlparser_error_t *out_error)
+{
+	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"selector kind must be assignment");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_update_set_assignment_full_sql(
+		handle,
+		selector->statement_index,
+		selector->item_index,
+		assignment_sql,
+		out_error);
+}
+
 sqlparser_status_t sqlparser_selector_insert_cell_literal(
 	const sqlparser_handle_t *handle,
 	const sqlparser_selector_t *selector,

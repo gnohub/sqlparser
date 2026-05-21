@@ -289,7 +289,10 @@ typedef enum {
 	SQLPARSER_PATCH_INSERT_COLUMN = 2,
 	SQLPARSER_PATCH_DELETE_COLUMN = 3,
 	SQLPARSER_PATCH_DELETE_ROW = 4,
-	SQLPARSER_PATCH_APPEND_CONDITION = 5
+	SQLPARSER_PATCH_APPEND_CONDITION = 5,
+	SQLPARSER_PATCH_INSERT_ASSIGNMENT = 6,
+	SQLPARSER_PATCH_DELETE_ASSIGNMENT = 7,
+	SQLPARSER_PATCH_REPLACE_ASSIGNMENT = 8
 } sqlparser_patch_op_t;
 
 typedef struct {
@@ -560,6 +563,26 @@ sqlparser_status_t sqlparser_update_set_assignment_sql(
 	const char *sql_text,
 	sqlparser_error_t *out_error);
 
+sqlparser_status_t sqlparser_update_insert_assignment_sql(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t assignment_index,
+	const char *assignment_sql,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_update_delete_assignment(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t assignment_index,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_update_set_assignment_full_sql(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t assignment_index,
+	const char *assignment_sql,
+	sqlparser_error_t *out_error);
+
 sqlparser_status_t sqlparser_statement_where_literal_count(
 	const sqlparser_handle_t *handle,
 	size_t statement_index,
@@ -788,6 +811,23 @@ sqlparser_status_t sqlparser_selector_set_update_assignment_sql(
 	sqlparser_handle_t *handle,
 	const sqlparser_selector_t *selector,
 	const char *sql_text,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_selector_insert_update_assignment_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *assignment_sql,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_selector_delete_update_assignment(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_selector_set_update_assignment_full_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *assignment_sql,
 	sqlparser_error_t *out_error);
 
 sqlparser_status_t sqlparser_selector_insert_cell_literal(

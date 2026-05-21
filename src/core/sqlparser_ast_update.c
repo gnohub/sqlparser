@@ -215,6 +215,41 @@ done:
 	return status;
 }
 
+static sqlparser_status_t sqlparser_parse_single_update_assignment_sql(
+	const char *sql_text,
+	PgQuery__Node **out_node,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__Node **nodes;
+	size_t count;
+	sqlparser_status_t status;
+
+	if (out_node == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "out_node must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_node = NULL;
+	nodes = NULL;
+	count = 0U;
+	status = sqlparser_parse_update_assignment_nodes_sql(sql_text, &nodes, &count, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (count != 1U) {
+		sqlparser_update_free_node_array(nodes, count);
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"update assignment patch expects exactly one assignment");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+
+	*out_node = nodes[0];
+	nodes[0] = NULL;
+	sqlparser_update_free_node_array(nodes, count);
+	return SQLPARSER_STATUS_OK;
+}
+
 static sqlparser_status_t sqlparser_get_update_assignment_res_target(
 	PgQuery__UpdateStmt *stmt,
 	size_t assignment_index,
@@ -248,6 +283,14 @@ static sqlparser_status_t sqlparser_get_update_assignment_res_target(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
+	if (stmt->target_list == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"update assignment list is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+
 	target_node = stmt->target_list[assignment_index];
 	if (target_node == NULL ||
 	    target_node->node_case != PG_QUERY__NODE__NODE_RES_TARGET ||
@@ -260,6 +303,37 @@ static sqlparser_status_t sqlparser_get_update_assignment_res_target(
 	}
 
 	*out_target = target_node->res_target;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_validate_update_assignment_nodes(
+	const PgQuery__UpdateStmt *stmt,
+	sqlparser_error_t *out_error)
+{
+	size_t index;
+
+	if (stmt == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "statement must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (stmt->n_target_list == 0U) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (stmt->target_list == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "update assignment list is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	for (index = 0U; index < stmt->n_target_list; index++) {
+		PgQuery__Node *node;
+
+		node = stmt->target_list[index];
+		if (node == NULL ||
+		    node->node_case != PG_QUERY__NODE__NODE_RES_TARGET ||
+		    node->res_target == NULL) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "update assignment node is invalid");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+	}
 	return SQLPARSER_STATUS_OK;
 }
 
@@ -510,6 +584,231 @@ sqlparser_status_t sqlparser_update_set_assignment_sql(
 	sqlparser_free_proto_node(target->val);
 	target->val = replacement;
 	replacement = NULL;
+	status = sqlparser_handle_commit_ast(handle, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_discard_dialect_state(handle, dialect_state);
+		return status;
+	}
+
+	sqlparser_handle_adopt_dialect_state(handle, dialect_state);
+	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_update_insert_assignment_sql(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t assignment_index,
+	const char *assignment_sql,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__UpdateStmt *update_stmt;
+	PgQuery__Node **next_nodes;
+	PgQuery__Node **old_nodes;
+	PgQuery__Node *new_node;
+	size_t old_count;
+	size_t index;
+	char *parser_sql;
+	void *dialect_state;
+	sqlparser_status_t status;
+
+	sqlparser_error_clear(out_error);
+	update_stmt = NULL;
+	next_nodes = NULL;
+	old_nodes = NULL;
+	new_node = NULL;
+	parser_sql = NULL;
+	dialect_state = NULL;
+
+	status = sqlparser_get_update_stmt(handle, statement_index, &update_stmt, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	old_count = update_stmt->n_target_list;
+	if (assignment_index > old_count) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "assignment_index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (old_count == ((size_t)-1)) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "update SET list is too large");
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+	status = sqlparser_validate_update_assignment_nodes(update_stmt, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+
+	status = sqlparser_preprocess_handle_sql_fragment(
+		handle,
+		assignment_sql,
+		"update assignment SQL",
+		&parser_sql,
+		&dialect_state,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_parse_single_update_assignment_sql(parser_sql, &new_node, out_error);
+	free(parser_sql);
+	parser_sql = NULL;
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_discard_dialect_state(handle, dialect_state);
+		return status;
+	}
+
+	next_nodes = sqlparser_update_alloc_node_array(old_count + 1U, out_error);
+	if (next_nodes == NULL) {
+		sqlparser_free_proto_node(new_node);
+		sqlparser_handle_discard_dialect_state(handle, dialect_state);
+		return out_error != NULL && out_error->code != SQLPARSER_STATUS_OK ?
+			out_error->code :
+			SQLPARSER_STATUS_NO_MEMORY;
+	}
+
+	for (index = 0U; index < assignment_index; index++) {
+		next_nodes[index] = update_stmt->target_list[index];
+	}
+	next_nodes[assignment_index] = new_node;
+	for (index = assignment_index; index < old_count; index++) {
+		next_nodes[index + 1U] = update_stmt->target_list[index];
+	}
+	new_node = NULL;
+	old_nodes = update_stmt->target_list;
+	update_stmt->target_list = next_nodes;
+	update_stmt->n_target_list = old_count + 1U;
+	next_nodes = NULL;
+	free(old_nodes);
+
+	status = sqlparser_handle_commit_ast(handle, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_discard_dialect_state(handle, dialect_state);
+		return status;
+	}
+
+	sqlparser_handle_adopt_dialect_state(handle, dialect_state);
+	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_update_delete_assignment(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t assignment_index,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__UpdateStmt *update_stmt;
+	PgQuery__Node **next_nodes;
+	PgQuery__Node **old_nodes;
+	PgQuery__Node *deleted_node;
+	size_t old_count;
+	size_t index;
+	size_t next_index;
+	sqlparser_status_t status;
+
+	sqlparser_error_clear(out_error);
+	update_stmt = NULL;
+	next_nodes = NULL;
+	old_nodes = NULL;
+	deleted_node = NULL;
+
+	status = sqlparser_get_update_stmt(handle, statement_index, &update_stmt, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	old_count = update_stmt->n_target_list;
+	if (assignment_index >= old_count) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "assignment_index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (old_count <= 1U) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "update SET list cannot be empty");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	status = sqlparser_validate_update_assignment_nodes(update_stmt, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+
+	next_nodes = sqlparser_update_alloc_node_array(old_count - 1U, out_error);
+	if (next_nodes == NULL) {
+		return out_error != NULL && out_error->code != SQLPARSER_STATUS_OK ?
+			out_error->code :
+			SQLPARSER_STATUS_NO_MEMORY;
+	}
+
+	next_index = 0U;
+	for (index = 0U; index < old_count; index++) {
+		if (index == assignment_index) {
+			deleted_node = update_stmt->target_list[index];
+			continue;
+		}
+		next_nodes[next_index] = update_stmt->target_list[index];
+		next_index++;
+	}
+	old_nodes = update_stmt->target_list;
+	update_stmt->target_list = next_nodes;
+	update_stmt->n_target_list = old_count - 1U;
+	next_nodes = NULL;
+	free(old_nodes);
+	sqlparser_free_proto_node(deleted_node);
+
+	return sqlparser_handle_commit_ast(handle, out_error);
+}
+
+sqlparser_status_t sqlparser_update_set_assignment_full_sql(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t assignment_index,
+	const char *assignment_sql,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__UpdateStmt *update_stmt;
+	PgQuery__ResTarget *target;
+	PgQuery__Node *replacement;
+	PgQuery__Node *old_node;
+	char *parser_sql;
+	void *dialect_state;
+	sqlparser_status_t status;
+
+	sqlparser_error_clear(out_error);
+	update_stmt = NULL;
+	target = NULL;
+	replacement = NULL;
+	old_node = NULL;
+	parser_sql = NULL;
+	dialect_state = NULL;
+
+	status = sqlparser_get_update_stmt(handle, statement_index, &update_stmt, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_get_update_assignment_res_target(update_stmt, assignment_index, &target, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+
+	status = sqlparser_preprocess_handle_sql_fragment(
+		handle,
+		assignment_sql,
+		"update assignment SQL",
+		&parser_sql,
+		&dialect_state,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_parse_single_update_assignment_sql(parser_sql, &replacement, out_error);
+	free(parser_sql);
+	parser_sql = NULL;
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_discard_dialect_state(handle, dialect_state);
+		return status;
+	}
+
+	(void)target;
+	old_node = update_stmt->target_list[assignment_index];
+	update_stmt->target_list[assignment_index] = replacement;
+	replacement = NULL;
+	sqlparser_free_proto_node(old_node);
+
 	status = sqlparser_handle_commit_ast(handle, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_handle_discard_dialect_state(handle, dialect_state);

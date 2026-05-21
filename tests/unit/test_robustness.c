@@ -669,6 +669,41 @@ static int test_patch_and_clause_validation(void)
 	}
 
 	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_INSERT_ASSIGNMENT;
+	patch.selector = "stmt[0].select_targets[0]";
+	patch.sql = "name = 'bob'";
+	patches.items = &patch;
+	status = sqlparser_apply_patch(handle, &patches, &error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "insert assignment with wrong selector should be rejected") != 0 ||
+	    verify_patch_failure_preserves_handle(handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+	patch.selector = "stmt[0].select_targets[0]";
+	patch.sql = "name = 'bob'";
+	patches.items = &patch;
+	status = sqlparser_apply_patch(handle, &patches, &error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "replace assignment with wrong selector should be rejected") != 0 ||
+	    verify_patch_failure_preserves_handle(handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_DELETE_ASSIGNMENT;
+	patch.selector = "stmt[0].select_targets[0]";
+	patches.items = &patch;
+	status = sqlparser_apply_patch(handle, &patches, &error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "delete assignment with wrong selector should be rejected") != 0 ||
+	    verify_patch_failure_preserves_handle(handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	memset(&patch, 0, sizeof(patch));
 	patch.op = (sqlparser_patch_op_t)999;
 	patch.selector = "stmt[0].select_targets[0]";
 	patch.sql = "id";
@@ -877,6 +912,26 @@ static int test_statement_api_validation(void)
 	}
 	status = sqlparser_update_set_assignment_sql(update_handle, 0U, 0U, NULL, &error);
 	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL update assignment replacement SQL should be rejected") != 0 ||
+	    verify_patch_failure_preserves_handle(update_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+		goto fail;
+	}
+	status = sqlparser_update_insert_assignment_sql(update_handle, 0U, 99U, "nickname = 'bob'", &error);
+	if (expect_not_ok(status, "out-of-range update assignment insert should be rejected") != 0 ||
+	    verify_patch_failure_preserves_handle(update_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+		goto fail;
+	}
+	status = sqlparser_update_insert_assignment_sql(update_handle, 0U, 1U, NULL, &error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL update assignment insert SQL should be rejected") != 0 ||
+	    verify_patch_failure_preserves_handle(update_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+		goto fail;
+	}
+	status = sqlparser_update_set_assignment_full_sql(update_handle, 0U, 0U, "name = 'alice', nickname = 'ally'", &error);
+	if (expect_status(status, SQLPARSER_STATUS_UNSUPPORTED, &error, "multi-assignment full replacement should be rejected") != 0 ||
+	    verify_patch_failure_preserves_handle(update_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+		goto fail;
+	}
+	status = sqlparser_update_delete_assignment(update_handle, 0U, 99U, &error);
+	if (expect_not_ok(status, "out-of-range update assignment delete should be rejected") != 0 ||
 	    verify_patch_failure_preserves_handle(update_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}

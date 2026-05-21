@@ -544,6 +544,180 @@ static int test_update_assignment_sql_mutation(void)
 	return 0;
 }
 
+static int test_update_assignment_list_patch_api(void)
+{
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *guard_handle;
+	sqlparser_error_t error;
+	sqlparser_assignment_view_t assignment;
+	char *deparsed_sql;
+	size_t assignment_count;
+	int rc;
+
+	handle = NULL;
+	guard_handle = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&assignment, 0, sizeof(assignment));
+
+	rc = sqlparser_parse(
+		"UPDATE public.users SET secret = 'qz$...', status = 'old' WHERE id = 1",
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "update assignment-list parse should succeed") != 0) {
+		return 1;
+	}
+
+	rc = sqlparser_update_insert_assignment_sql(handle, 0U, 1U, "secret_orig = 'abc'", &error);
+	if (expect_status_ok(rc, &error, "update assignment insert should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_update_assignment_count(handle, 0U, &assignment_count, &error);
+	if (expect_status_ok(rc, &error, "update assignment count after insert should succeed") != 0 ||
+	    expect_true(assignment_count == 3U, "update assignment insert should add one item") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_update_assignment(handle, 0U, 1U, &assignment, &error);
+	if (expect_status_ok(rc, &error, "inserted update assignment fetch should succeed") != 0 ||
+	    expect_true(strcmp(assignment.column_name, "secret_orig") == 0, "inserted assignment column should match") != 0 ||
+	    expect_true(assignment.value_kind == SQLPARSER_VALUE_KIND_LITERAL, "inserted assignment should be literal") != 0 ||
+	    expect_true(strcmp(assignment.literal.string_value, "abc") == 0, "inserted assignment value should match") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_update_set_assignment_full_sql(handle, 0U, 2U, "status_text = 'active'", &error);
+	if (expect_status_ok(rc, &error, "update assignment full replace should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_update_assignment(handle, 0U, 2U, &assignment, &error);
+	if (expect_status_ok(rc, &error, "replaced update assignment fetch should succeed") != 0 ||
+	    expect_true(strcmp(assignment.column_name, "status_text") == 0, "replaced assignment column should match") != 0 ||
+	    expect_true(strcmp(assignment.literal.string_value, "active") == 0, "replaced assignment value should match") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_update_delete_assignment(handle, 0U, 2U, &error);
+	if (expect_status_ok(rc, &error, "update assignment delete should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_update_assignment_count(handle, 0U, &assignment_count, &error);
+	if (expect_status_ok(rc, &error, "update assignment count after delete should succeed") != 0 ||
+	    expect_true(assignment_count == 2U, "update assignment delete should remove one item") != 0 ||
+	    expect_deparse_reparse_ok(handle, "update assignment-list mutation should reparse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "update assignment-list deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "secret_orig = 'abc'") != NULL, "deparse should contain inserted assignment") != 0 ||
+	    expect_true(strstr(deparsed_sql, "status_text") == NULL, "deparse should not contain deleted assignment") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	rc = sqlparser_parse("UPDATE t SET only_col = 1 WHERE id = 1", &guard_handle, &error);
+	if (expect_status_ok(rc, &error, "single assignment update parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_update_delete_assignment(guard_handle, 0U, 0U, &error);
+	if (expect_true(rc == SQLPARSER_STATUS_UNSUPPORTED, "delete last update assignment should be rejected") != 0) {
+		sqlparser_handle_destroy(guard_handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(guard_handle);
+	return 0;
+}
+
+static int test_update_assignment_list_apply_patch(void)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_patch_t patches[3];
+	sqlparser_patch_list_t patch_list;
+	sqlparser_assignment_view_t assignment;
+	char *deparsed_sql;
+	size_t assignment_count;
+	int rc;
+
+	handle = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&assignment, 0, sizeof(assignment));
+	memset(patches, 0, sizeof(patches));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+
+	rc = sqlparser_parse_with_options(
+		"UPDATE SERVERS SET IP = :ip, STATUS = :status WHERE ID = :id",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "oracle update assignment-list parse should succeed") != 0) {
+		return 1;
+	}
+
+	patches[0].op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+	patches[0].selector = "stmt[0].assignment[1]";
+	patches[0].sql = "HOST = :host";
+	patches[1].op = SQLPARSER_PATCH_INSERT_ASSIGNMENT;
+	patches[1].selector = "stmt[0].assignment[2]";
+	patches[1].sql = "PORT = :port";
+	patches[2].op = SQLPARSER_PATCH_DELETE_ASSIGNMENT;
+	patches[2].selector = "stmt[0].assignment[0]";
+	patch_list.items = patches;
+	patch_list.count = 3U;
+
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "update assignment-list patch should succeed") != 0 ||
+	    expect_deparse_reparse_ok(handle, "update assignment-list patch should reparse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_update_assignment_count(handle, 0U, &assignment_count, &error);
+	if (expect_status_ok(rc, &error, "patched update assignment count should succeed") != 0 ||
+	    expect_true(assignment_count == 2U, "patched update should contain two assignments") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_update_assignment(handle, 0U, 0U, &assignment, &error);
+	if (expect_status_ok(rc, &error, "patched first update assignment should be readable") != 0 ||
+	    expect_true(assignment.column_name != NULL, "patched first assignment column should be present") != 0 ||
+	    expect_true(strcmp(assignment.column_name, "HOST") == 0 || strcmp(assignment.column_name, "host") == 0,
+	                "patched first assignment column should match") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "patched oracle update deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "HOST = :host") != NULL || strstr(deparsed_sql, "host = :host") != NULL,
+	                "patched update should contain HOST bind") != 0 ||
+	    expect_true(strstr(deparsed_sql, "PORT = :port") != NULL || strstr(deparsed_sql, "port = :port") != NULL,
+	                "patched update should contain PORT bind") != 0 ||
+	    expect_true(strstr(deparsed_sql, "IP = :ip") == NULL && strstr(deparsed_sql, "ip = :ip") == NULL,
+	                "patched update should remove IP assignment") != 0 ||
+	    expect_true(strstr(deparsed_sql, "$") == NULL, "patched update should not expose parser binds") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
 static int test_insert_cell_sql_mutation(void)
 {
 	const char *sql;
@@ -4306,6 +4480,12 @@ int main(void)
 		return 1;
 	}
 	if (test_update_assignment_sql_mutation() != 0) {
+		return 1;
+	}
+	if (test_update_assignment_list_patch_api() != 0) {
+		return 1;
+	}
+	if (test_update_assignment_list_apply_patch() != 0) {
 		return 1;
 	}
 	if (test_insert_cell_sql_mutation() != 0) {

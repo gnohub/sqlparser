@@ -462,6 +462,9 @@ Notes:
 | `sqlparser_update_set_assignment_literal()` | rewrites the literal on the right side of an assignment |
 | `sqlparser_update_assignment_sql()` | reads the right-hand SQL of an assignment |
 | `sqlparser_update_set_assignment_sql()` | rewrites the right-hand SQL of an assignment |
+| `sqlparser_update_insert_assignment_sql()` | inserts a full `SET` assignment, for example `secret_orig = 'abc'` |
+| `sqlparser_update_delete_assignment()` | deletes one `SET` assignment |
+| `sqlparser_update_set_assignment_full_sql()` | replaces a full `SET` assignment, including the left-hand column and right-hand expression |
 
 ### WHERE Literals
 
@@ -488,8 +491,15 @@ Notes:
   and `expression`.
 - `sqlparser_update_assignment_sql()` is suitable for reading `DEFAULT` or any
   expression-valued assignment.
-- `sqlparser_update_set_assignment_sql()` is suitable for replacing an
-  assignment with a non-literal expression.
+- `sqlparser_update_set_assignment_sql()` is suitable for replacing the
+  right-hand side of an assignment with a non-literal expression.
+- `sqlparser_update_insert_assignment_sql()` inserts before `assignment_index`;
+  passing the current assignment count appends to the `SET` list.
+- `sqlparser_update_delete_assignment()` rejects deletion of the last assignment
+  to avoid producing invalid `UPDATE SET` SQL.
+- `sqlparser_update_set_assignment_full_sql()` accepts a complete assignment
+  such as `name = 'alice'`; use `sqlparser_update_set_assignment_sql()` when only
+  the right-hand expression changes.
 - `sqlparser_where_literal_view_t` is mainly used to read the column name,
   operator, and condition literal.
 - If column-name lookup is needed, first traverse and record the target index,
@@ -585,6 +595,9 @@ stmt[0].select_target[0][1]
 | `sqlparser_selector_set_update_assignment_literal()` | rewrites an assignment right-hand literal through a selector |
 | `sqlparser_selector_set_insert_cell_literal()` | rewrites an `INSERT` cell through a selector |
 | `sqlparser_selector_set_update_assignment_sql()` | rewrites assignment right-hand SQL through a selector |
+| `sqlparser_selector_insert_update_assignment_sql()` | inserts a full `SET` assignment through an assignment selector |
+| `sqlparser_selector_delete_update_assignment()` | deletes a `SET` assignment through an assignment selector |
+| `sqlparser_selector_set_update_assignment_full_sql()` | replaces a full `SET` assignment through an assignment selector |
 | `sqlparser_selector_set_insert_cell_sql()` | rewrites `INSERT` cell right-hand SQL through a selector |
 | `sqlparser_selector_set_select_target_sql()` | rewrites one SELECT output target SQL through a selector |
 | `sqlparser_selector_set_select_targets_sql()` | rewrites the whole SELECT output list through a selector |
@@ -681,6 +694,9 @@ Notes:
 - `delete_row` deletes an `INSERT ... VALUES` row.
 - `append_condition` appends a condition to a `where` clause with `AND` or
   `OR`; when `bool_operator` is unset, it defaults to `AND`.
+- `insert_assignment`, `delete_assignment`, and `replace_assignment` insert,
+  delete, and replace full `UPDATE SET` assignments through
+  `stmt[n].assignment[i]` selectors.
 - `delete_column` does not delete the last cell, and `delete_row` does not delete the last row.
 - Patches run in array order and return an error code plus message on failure.
 
@@ -789,6 +805,7 @@ Notes:
 | `examples/patch/14_where_patch.c` | WHERE insertion and condition append through patches |
 | `examples/patch/15_insert_columns_patch.c` | `INSERT ... VALUES` column insertion and deletion through patches |
 | `examples/patch/16_clause_patch.c` | SELECT output-list, WHERE, and ORDER BY rewrite through generic clause patches |
+| `examples/patch/17_update_set_patch.c` | `UPDATE SET` assignment append, delete, and full-assignment replacement through patches |
 | `examples/convenience/02_insert_values_replace_literal.c` | fine-grained literal replacement for `INSERT ... VALUES` |
 | `examples/convenience/04_update_replace_assignment.c` | fine-grained rewrite of UPDATE assignments and WHERE literals |
 | `examples/convenience/05_delete_inspect.c` | DELETE target inspection and conditional literal rewrite |

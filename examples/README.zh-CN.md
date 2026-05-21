@@ -25,6 +25,8 @@
   展示通过 `sqlparser_apply_patch()` 增加和删除 `INSERT ... VALUES` 字段。
 - `examples/patch/16_clause_patch.c`
   展示通过通用 `clause` patch 改写 SELECT 输出列表、WHERE 条件和 ORDER BY。
+- `examples/patch/17_update_set_patch.c`
+  展示通过 `sqlparser_apply_patch()` 追加、删除和整项替换 `UPDATE SET` 赋值项。
 
 ## 便捷接口示例
 
@@ -68,10 +70,10 @@ make examples
 
 ## 运行
 
-例如运行通用 clause patch 改写示例：
+例如运行 `UPDATE SET` patch 改写示例：
 
 ```bash
-./bin/examples/patch/16_clause_patch
+./bin/examples/patch/17_update_set_patch
 ```
 
 ## 说明

@@ -28,6 +28,8 @@ unified patch-based rewrite, fine-grained convenience APIs, and dialect usage.
   Demonstrates adding and deleting `INSERT ... VALUES` columns through `sqlparser_apply_patch()`.
 - `examples/patch/16_clause_patch.c`
   Demonstrates SELECT output-list, WHERE condition, and ORDER BY rewrites through generic `clause` patches.
+- `examples/patch/17_update_set_patch.c`
+  Demonstrates appending, deleting, and replacing full `UPDATE SET` assignments through `sqlparser_apply_patch()`.
 
 ## Convenience API Examples
 
@@ -74,7 +76,7 @@ make examples
 Example:
 
 ```bash
-./bin/examples/patch/16_clause_patch
+./bin/examples/patch/17_update_set_patch
 ```
 
 ## Notes

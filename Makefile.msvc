@@ -4,7 +4,7 @@
 #   nmake /F Makefile.msvc test
 
 LIB_NAME = sqlparser
-VERSION_STRING = 0.6.0
+VERSION_STRING = 0.7.0
 LIBPG_QUERY_TAG = 17-6.2.2
 
 BUILD_DIR = build\msvc
@@ -108,7 +108,8 @@ EXAMPLE_BINS = \
 	$(BIN_DIR)\examples\convenience\14_where_convenience.exe \
 	$(BIN_DIR)\examples\patch\14_where_patch.exe \
 	$(BIN_DIR)\examples\patch\15_insert_columns_patch.exe \
-	$(BIN_DIR)\examples\patch\16_clause_patch.exe
+	$(BIN_DIR)\examples\patch\16_clause_patch.exe \
+	$(BIN_DIR)\examples\patch\17_update_set_patch.exe
 
 all: static cli
 
@@ -160,6 +161,7 @@ test: all $(UNIT_TEST_BINS) examples
 	$(BIN_DIR)\examples\patch\14_where_patch.exe
 	$(BIN_DIR)\examples\patch\15_insert_columns_patch.exe
 	$(BIN_DIR)\examples\patch\16_clause_patch.exe
+	$(BIN_DIR)\examples\patch\17_update_set_patch.exe
 	$(BIN_DIR)\sqlparser_cli.exe --mode view "INSERT INTO users (username, email, age) VALUES (?, ?, ?);" --dialect oracle >NUL
 
 clean:
@@ -376,3 +378,7 @@ $(BIN_DIR)\examples\patch\15_insert_columns_patch.exe: examples\patch\15_insert_
 $(BIN_DIR)\examples\patch\16_clause_patch.exe: examples\patch\16_clause_patch.c $(STATIC_LIB)
 	@if not exist $(BIN_DIR)\examples\patch mkdir $(BIN_DIR)\examples\patch
 	$(CC) $(CFLAGS) /Fe$@ examples\patch\16_clause_patch.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\examples\patch\17_update_set_patch.exe: examples\patch\17_update_set_patch.c $(STATIC_LIB)
+	@if not exist $(BIN_DIR)\examples\patch mkdir $(BIN_DIR)\examples\patch
+	$(CC) $(CFLAGS) /Fe$@ examples\patch\17_update_set_patch.c /link $(LDFLAGS) $(LDLIBS)

@@ -442,6 +442,78 @@ static sqlparser_status_t sqlparser_patch_append_condition(
 	return sqlparser_selector_append_where_sql(handle, &selector, bool_operator, patch->sql, out_error);
 }
 
+static sqlparser_status_t sqlparser_patch_insert_assignment(
+	sqlparser_handle_t *handle,
+	const sqlparser_patch_t *patch,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_selector_t selector;
+	sqlparser_status_t status;
+
+	if (patch == NULL || patch->selector == NULL || patch->sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "insert_assignment requires selector and sql");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	status = sqlparser_patch_parse_selector(patch->selector, &selector, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (selector.kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "insert_assignment selector must be assignment");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_selector_insert_update_assignment_sql(handle, &selector, patch->sql, out_error);
+}
+
+static sqlparser_status_t sqlparser_patch_delete_assignment(
+	sqlparser_handle_t *handle,
+	const sqlparser_patch_t *patch,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_selector_t selector;
+	sqlparser_status_t status;
+
+	if (patch == NULL || patch->selector == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "delete_assignment requires selector");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	status = sqlparser_patch_parse_selector(patch->selector, &selector, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (selector.kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "delete_assignment selector must be assignment");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_selector_delete_update_assignment(handle, &selector, out_error);
+}
+
+static sqlparser_status_t sqlparser_patch_replace_assignment(
+	sqlparser_handle_t *handle,
+	const sqlparser_patch_t *patch,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_selector_t selector;
+	sqlparser_status_t status;
+
+	if (patch == NULL || patch->selector == NULL || patch->sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "replace_assignment requires selector and sql");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	status = sqlparser_patch_parse_selector(patch->selector, &selector, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (selector.kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "replace_assignment selector must be assignment");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_selector_set_update_assignment_full_sql(handle, &selector, patch->sql, out_error);
+}
+
 static PgQuery__Node *sqlparser_patch_new_insert_column_node(const char *name, sqlparser_error_t *out_error)
 {
 	PgQuery__Node *node;
@@ -953,6 +1025,15 @@ sqlparser_status_t sqlparser_apply_patch(
 				break;
 			case SQLPARSER_PATCH_APPEND_CONDITION:
 				status = sqlparser_patch_append_condition(handle, patch, out_error);
+				break;
+			case SQLPARSER_PATCH_INSERT_ASSIGNMENT:
+				status = sqlparser_patch_insert_assignment(handle, patch, out_error);
+				break;
+			case SQLPARSER_PATCH_DELETE_ASSIGNMENT:
+				status = sqlparser_patch_delete_assignment(handle, patch, out_error);
+				break;
+			case SQLPARSER_PATCH_REPLACE_ASSIGNMENT:
+				status = sqlparser_patch_replace_assignment(handle, patch, out_error);
 				break;
 			default:
 				status = SQLPARSER_STATUS_UNSUPPORTED;

@@ -1,26 +1,22 @@
-# v0.6.0 发布说明
+# v0.7.0 发布说明
 
-`v0.6.0` 是 `sqlparser` 的 SQL View 结构化输出更新，重点是让公共 C 结构成为稳定的数据访问入口，并让 View JSON 只作为按需导出的可视化结果。
+`v0.7.0` 增加 `UPDATE SET` 赋值项级 patch 能力，让调用方可以通过统一的 `sqlparser_apply_patch()` 完成赋值项追加、删除和整项替换，同时保持既有右值改写接口语义不变。
 
 ## 主要变化
 
-- SQL View JSON 现在从 SQL View C 结构按需序列化，解析和结构遍历路径不默认生成 JSON。
-- `sqlparser_column_view_t` 和 `sqlparser_cell_view_t` 增加 bind、bind 类型、原始 bind SQL、bind selector、子句编号和 SELECT 输出路径字段。
-- 新增 `sqlparser_bind_kind_t`、`sqlparser_bind_kind_name()`、`sqlparser_statement_clause_at()` 和 `sqlparser_clause_sql()` 公共接口。
-- `sqlparser_clause_kind_t` 增加 `on`、`group_by` 和 `having` 子句类型。
-- View JSON 移除 `target_kind`、`target_name`、`target_arg_index`，统一使用有序 `target_path` 表达函数、表达式、CASE 和嵌套 SELECT 输出层级。
-- bind 占位符不再重复暴露为普通 `value`，避免调用方把 `?`、`:1`、`:name`、`$1`、`@name` 等占位符误判为字面量值。
-- `NOT IN`、`NOT LIKE`、`NOT ILIKE` 和 `NOT SIMILAR TO` 运算符保持完整公共 SQL 语义。
+- 新增 `SQLPARSER_PATCH_INSERT_ASSIGNMENT`、`SQLPARSER_PATCH_DELETE_ASSIGNMENT` 和 `SQLPARSER_PATCH_REPLACE_ASSIGNMENT`。
+- 新增 `sqlparser_update_insert_assignment_sql()`、`sqlparser_update_delete_assignment()`、`sqlparser_update_set_assignment_full_sql()` 及对应 selector API。
+- `stmt[n].assignment[i]` 可定位 `UPDATE SET` 赋值项；插入时 `i` 等于当前赋值项数量表示追加。
+- `delete_assignment` 不允许删除最后一个赋值项，避免生成非法 `UPDATE SET`。
+- 既有 `SQLPARSER_PATCH_REPLACE` 对 assignment 的语义保持不变，仍用于改写右值 SQL。
+- 新增 `examples/patch/17_update_set_patch.c`，展示完整 patch 工作流。
+- MSVC NMake 示例清单同步包含新增 example。
 
 ## 测试覆盖
 
-当前可执行用例矩阵：
-
-- PostgreSQL 通用批量夹具：85 条语句。
-- MySQL：57 条用例，42 条支持路径，15 条明确不支持路径。
-- Oracle：89 条用例，70 条支持路径，19 条明确不支持路径。
-- SQL Server：85 条基础用例，70 条支持路径，15 条明确不支持路径；官方 `HOOK_ONLY` 覆盖矩阵包含 235 条用例。
-- 达梦：65 条用例，53 条支持路径，12 条明确不支持路径。
+- 核心 API 覆盖 assignment 插入、删除、整项替换和反解析后重解析。
+- patch API 覆盖 Oracle bind 片段，验证不会暴露内部参数。
+- 健壮性测试覆盖非法 selector、越界索引、多赋值项 full replacement、空 `SET` 保护和失败后 handle 可用性。
 
 ## 发布验证
 
@@ -38,7 +34,5 @@
 ## 发布边界
 
 - 公共头文件：`include/sqlparser/sqlparser.h`
-- SQL View C 结构化遍历：通过 `sqlparser_get_view()` 和相关 view API 按需读取
-- SQL View JSON：通过 `sqlparser_export_view_json()` 按需导出
 - 动态库 ABI 主版本：`libsqlparser.so.0`
 - vendored `libpg_query` tag：`17-6.2.2`

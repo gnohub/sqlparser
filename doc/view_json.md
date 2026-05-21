@@ -246,8 +246,11 @@ sqlparser_status_t sqlparser_apply_patch(
 | `delete_column` | 删除 `INSERT ... VALUES` 的一列，或删除 `select_targets` 中的一个 SELECT 输出项 |
 | `delete_row` | 删除 `INSERT ... VALUES` 的一行 |
 | `append_condition` | 按 `AND` 或 `OR` 向 `where` 类型的 `clause` 追加条件 |
+| `insert_assignment` | 向 `UPDATE SET` 插入完整赋值项，selector 使用 `stmt[n].assignment[i]` |
+| `delete_assignment` | 删除 `UPDATE SET` 中的指定赋值项，selector 使用 `stmt[n].assignment[i]` |
+| `replace_assignment` | 整项替换 `UPDATE SET` 赋值项，selector 使用 `stmt[n].assignment[i]` |
 
-`delete_column` 不会生成空 `VALUES` 行；删除最后一个单元格会返回 `SQLPARSER_STATUS_UNSUPPORTED`。`delete_row` 不会删除最后一行。
+`delete_column` 不会生成空 `VALUES` 行；删除最后一个单元格会返回 `SQLPARSER_STATUS_UNSUPPORTED`。`delete_row` 不会删除最后一行。`delete_assignment` 不会删除最后一个 `UPDATE SET` 赋值项。
 
 替换值示例：
 
@@ -297,6 +300,25 @@ patch.sql = "name DESC, id ASC";
 patches.items = &patch;
 patches.count = 1;
 sqlparser_apply_patch(handle, &patches, &err);
+```
+
+改写 `UPDATE SET` 示例：
+
+```c
+sqlparser_patch_t patches[2];
+sqlparser_patch_list_t patch_list;
+
+memset(patches, 0, sizeof(patches));
+patches[0].op = SQLPARSER_PATCH_INSERT_ASSIGNMENT;
+patches[0].selector = "stmt[0].assignment[1]";
+patches[0].sql = "secret_orig = 'abc'";
+patches[1].op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+patches[1].selector = "stmt[0].assignment[0]";
+patches[1].sql = "secret = 'masked'";
+
+patch_list.items = patches;
+patch_list.count = 2;
+sqlparser_apply_patch(handle, &patch_list, &err);
 ```
 
 删除行示例：

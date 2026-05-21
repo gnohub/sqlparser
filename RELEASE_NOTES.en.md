@@ -1,26 +1,22 @@
-# v0.6.0 Release Notes
+# v0.7.0 Release Notes
 
-`v0.6.0` is a SQL View structured-output release for `sqlparser`. It makes the public C structures the stable data access surface and keeps View JSON as an on-demand visualization format.
+`v0.7.0` adds assignment-level `UPDATE SET` patch support. Callers can now append, delete, and replace full assignments through the unified `sqlparser_apply_patch()` path while preserving the existing RHS-only assignment rewrite behavior.
 
 ## Highlights
 
-- SQL View JSON is now serialized on demand from SQL View C structures; parse and structured traversal paths do not generate JSON by default.
-- `sqlparser_column_view_t` and `sqlparser_cell_view_t` now expose bind text, bind kind, original bind SQL, bind selector, clause id, and SELECT target path fields.
-- Added the public `sqlparser_bind_kind_t`, `sqlparser_bind_kind_name()`, `sqlparser_statement_clause_at()`, and `sqlparser_clause_sql()` APIs.
-- Extended `sqlparser_clause_kind_t` with `on`, `group_by`, and `having` clause kinds.
-- Replaced `target_kind`, `target_name`, and `target_arg_index` in View JSON with ordered `target_path` entries for functions, expressions, CASE, and nested SELECT output hierarchy.
-- Bind placeholders are no longer duplicated as ordinary `value` payloads, so callers do not confuse `?`, `:1`, `:name`, `$1`, or `@name` with literal values.
-- `NOT IN`, `NOT LIKE`, `NOT ILIKE`, and `NOT SIMILAR TO` preserve complete public SQL operator text.
+- Added `SQLPARSER_PATCH_INSERT_ASSIGNMENT`, `SQLPARSER_PATCH_DELETE_ASSIGNMENT`, and `SQLPARSER_PATCH_REPLACE_ASSIGNMENT`.
+- Added `sqlparser_update_insert_assignment_sql()`, `sqlparser_update_delete_assignment()`, `sqlparser_update_set_assignment_full_sql()`, and the corresponding selector APIs.
+- `stmt[n].assignment[i]` addresses `UPDATE SET` assignments; inserting at `i == assignment_count` appends a new assignment.
+- `delete_assignment` rejects deletion of the last assignment to avoid generating invalid `UPDATE SET` SQL.
+- The existing `SQLPARSER_PATCH_REPLACE` assignment behavior is unchanged and still rewrites only the RHS SQL.
+- Added `examples/patch/17_update_set_patch.c` to demonstrate the complete patch workflow.
+- The MSVC NMake example list now includes the new example.
 
 ## Test Coverage
 
-Current executable case matrices:
-
-- PostgreSQL generic batch fixture: 85 statements.
-- MySQL: 57 cases, 42 supported paths, and 15 explicit unsupported paths.
-- Oracle: 89 cases, 70 supported paths, and 19 explicit unsupported paths.
-- SQL Server: 85 base cases, 70 supported paths, and 15 explicit unsupported paths; the official `HOOK_ONLY` coverage matrix contains 235 cases.
-- Dameng: 65 cases, 53 supported paths, and 12 explicit unsupported paths.
+- Core API coverage includes assignment insertion, deletion, full replacement, deparse, and reparse.
+- Patch API coverage includes Oracle bind fragments and verifies that internal parameters are not exposed.
+- Robustness tests cover invalid selectors, out-of-range indexes, multi-assignment full replacement rejection, empty-`SET` protection, and handle usability after failures.
 
 ## Release Validation
 
@@ -38,7 +34,5 @@ This release validation includes:
 ## Release Boundary
 
 - Public header: `include/sqlparser/sqlparser.h`
-- SQL View C structured traversal: read on demand through `sqlparser_get_view()` and related view APIs
-- SQL View JSON: exported on demand through `sqlparser_export_view_json()`
 - Shared-library ABI major: `libsqlparser.so.0`
 - Vendored `libpg_query` tag: `17-6.2.2`

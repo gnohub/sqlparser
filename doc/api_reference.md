@@ -434,6 +434,9 @@ SELECT target list 表示 `SELECT` 后面的输出列表。该接口直接作用
 | `sqlparser_update_set_assignment_literal()` | 改写赋值项右值 literal |
 | `sqlparser_update_assignment_sql()` | 读取赋值项右值 SQL |
 | `sqlparser_update_set_assignment_sql()` | 改写赋值项右值 SQL |
+| `sqlparser_update_insert_assignment_sql()` | 插入完整 `SET` 赋值项，例如 `secret_orig = 'abc'` |
+| `sqlparser_update_delete_assignment()` | 删除指定 `SET` 赋值项 |
+| `sqlparser_update_set_assignment_full_sql()` | 整项替换指定 `SET` 赋值项，包括左侧列名和右侧表达式 |
 
 ### WHERE literal
 
@@ -457,7 +460,10 @@ SELECT target list 表示 `SELECT` 后面的输出列表。该接口直接作用
 - `sqlparser_assignment_view_t` 主要用于读取列名、值类型和右值 literal。
 - `sqlparser_assignment_view_t.value_kind` 可区分 `literal`、`default` 和 `expression`。
 - `sqlparser_update_assignment_sql()` 适用于读取 `DEFAULT` 或任意表达式右值。
-- `sqlparser_update_set_assignment_sql()` 适用于把赋值项替换为字面量之外的表达式。
+- `sqlparser_update_set_assignment_sql()` 适用于把赋值项右值替换为字面量之外的表达式。
+- `sqlparser_update_insert_assignment_sql()` 的 `assignment_index` 表示插入位置；等于当前赋值项数量时表示追加。
+- `sqlparser_update_delete_assignment()` 不会删除最后一个赋值项，避免生成非法 `UPDATE SET`。
+- `sqlparser_update_set_assignment_full_sql()` 接收完整赋值项 SQL，例如 `name = 'alice'`；如果只修改右值，继续使用 `sqlparser_update_set_assignment_sql()`。
 - `sqlparser_where_literal_view_t` 主要用于读取列名、运算符和条件 literal。
 - 按列名定位时，先遍历并记录目标索引，再执行改写。
 - `where_index` 定位 AST 中真实存在的 `where_clause` 槽位；`INSERT ... VALUES` 不会生成虚拟 WHERE。
@@ -543,6 +549,9 @@ stmt[0].select_target[0][1]
 | `sqlparser_selector_set_update_assignment_literal()` | 通过 selector 改 assignment 右值 |
 | `sqlparser_selector_set_insert_cell_literal()` | 通过 selector 改 INSERT 单元格 |
 | `sqlparser_selector_set_update_assignment_sql()` | 通过 selector 改 assignment 右值 SQL |
+| `sqlparser_selector_insert_update_assignment_sql()` | 通过 assignment selector 插入完整 `SET` 赋值项 |
+| `sqlparser_selector_delete_update_assignment()` | 通过 assignment selector 删除 `SET` 赋值项 |
+| `sqlparser_selector_set_update_assignment_full_sql()` | 通过 assignment selector 整项替换 `SET` 赋值项 |
 | `sqlparser_selector_set_insert_cell_sql()` | 通过 selector 改 INSERT 单元格右值 SQL |
 | `sqlparser_selector_set_select_target_sql()` | 通过 selector 改 SELECT 单个输出项 SQL |
 | `sqlparser_selector_set_select_targets_sql()` | 通过 selector 改 SELECT 整个输出列表 |
@@ -623,6 +632,7 @@ sqlparser_apply_patch(handle, &patches, &err);
 - `delete_column` 可用于 `INSERT ... VALUES` 删除列，也可用于 `select_targets` 删除 SELECT 输出项。
 - `delete_row` 用于 `INSERT ... VALUES` 的行删除。
 - `append_condition` 可按 `AND` 或 `OR` 向 `where` 类型的 `clause` 追加条件；未设置 `bool_operator` 时默认使用 `AND`。
+- `insert_assignment`、`delete_assignment` 和 `replace_assignment` 分别用于插入、删除和整项替换 `UPDATE SET` 赋值项，selector 使用 `stmt[n].assignment[i]`。
 - `delete_column` 不会删除最后一个单元格，`delete_row` 不会删除最后一行。
 - patch 按数组顺序执行；失败时返回错误码和错误信息。
 
@@ -724,6 +734,7 @@ void sqlparser_string_free(char *text);
 | `examples/patch/14_where_patch.c` | 通过 patch 新增 WHERE 并追加条件 |
 | `examples/patch/15_insert_columns_patch.c` | 通过 patch 增加和删除 `INSERT ... VALUES` 字段 |
 | `examples/patch/16_clause_patch.c` | 通过通用 clause patch 改写 SELECT 输出列表、WHERE 和 ORDER BY |
+| `examples/patch/17_update_set_patch.c` | 通过 patch 追加、删除和整项替换 `UPDATE SET` 赋值项 |
 | `examples/convenience/02_insert_values_replace_literal.c` | `INSERT ... VALUES` 字面量替换便捷接口 |
 | `examples/convenience/04_update_replace_assignment.c` | UPDATE 赋值与 WHERE 便捷接口 |
 | `examples/convenience/05_delete_inspect.c` | DELETE 目标表读取和条件字面量改写 |
