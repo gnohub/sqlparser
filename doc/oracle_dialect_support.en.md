@@ -30,9 +30,11 @@ current AST. The executable case matrix defines the support boundary:
   `ROW_NUMBER() OVER (...)`
 - quoted identifiers, `ALTER TABLE ADD`, `CREATE INDEX`, and `DROP INDEX`
 - compatible materialized-view creation forms
-- session context switching: `ALTER SESSION SET CURRENT_SCHEMA = ...`,
-  `ALTER SESSION SET CONTAINER = ...`, and
-  `ALTER SESSION SET CONTAINER = ... SERVICE = ...`
+- session statements: `ALTER SESSION SET CURRENT_SCHEMA = ...`,
+  `ALTER SESSION SET CONTAINER = ...`,
+  `ALTER SESSION SET CONTAINER = ... SERVICE = ...`, and ordinary parameter
+  assignments such as `NLS_DATE_FORMAT`, `NLS_DATE_LANGUAGE`,
+  `NLS_NUMERIC_CHARACTERS`, `INSTANCE`, and `ERROR_ON_OVERLAP_TIME`
 - dynamic SQL execution through `EXECUTE IMMEDIATE ... USING ...`
 
 ## Explicitly Unsupported Scope
@@ -49,8 +51,6 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
 - `MODEL` clause
 - flashback query
 - `MATCH_RECOGNIZE`
-- `ALTER SESSION` parameters other than `CURRENT_SCHEMA` and
-  `CONTAINER/SERVICE`
 - synonyms
 - database links
 - `EXPLAIN PLAN FOR`

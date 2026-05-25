@@ -1839,6 +1839,269 @@
       }
     },
     {
+      "id": "S071",
+      "name": "sqlserver-select-distinct-like-param",
+      "sql": "SELECT DISTINCT [name] FROM [dbo].[table1] WHERE [name] LIKE @name",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.table1"
+        ],
+        "selected_columns": [
+          "name"
+        ],
+        "where_columns": [
+          "name"
+        ],
+        "columns": [
+          {
+            "table": "dbo.table1",
+            "name": "name",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "LIKE",
+            "bind": "name",
+            "bind_kind": 2,
+            "bind_sql": "@name",
+            "value_is_null": true
+          }
+        ],
+        "deparse_contains": "@name",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S072",
+      "name": "sqlserver-delete-in-named-params",
+      "sql": "DELETE FROM [dbo].[users] WHERE [email] IN (@email1, @email2)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "where_columns": [
+          "email"
+        ],
+        "columns": [
+          {
+            "table": "dbo.users",
+            "name": "email",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "IN"
+          }
+        ],
+        "deparse_contains": "@email1"
+      }
+    },
+    {
+      "id": "S073",
+      "name": "sqlserver-update-exists-subquery",
+      "sql": "UPDATE [dbo].[users] SET [status] = @status WHERE EXISTS (SELECT 1 FROM [dbo].[orders] o WHERE o.[user_id] = [users].[id] AND o.[phone] = @phone)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "tables": [
+          "dbo.users",
+          "dbo.orders"
+        ],
+        "update_columns": [
+          "status"
+        ],
+        "where_columns": [
+          "user_id",
+          "id",
+          "phone"
+        ],
+        "deparse_contains": "@phone"
+      }
+    },
+    {
+      "id": "S074",
+      "name": "sqlserver-insert-without-column-list",
+      "sql": "INSERT INTO [dbo].[users] VALUES (?, ?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "cells": [
+          {
+            "table": "dbo.users",
+            "row_index": 0,
+            "column_index": 0,
+            "column": null,
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "?"
+          },
+          {
+            "table": "dbo.users",
+            "row_index": 0,
+            "column_index": 2,
+            "column": null,
+            "bind": "3",
+            "bind_kind": 1,
+            "bind_sql": "?"
+          }
+        ],
+        "deparse_contains": "VALUES (?, ?, ?)"
+      }
+    },
+    {
+      "id": "S075",
+      "name": "sqlserver-select-derived-table-filter",
+      "sql": "SELECT t.[id], t.[phone] FROM (SELECT [id], [phone] FROM [dbo].[users] WHERE [status] = @status) t WHERE t.[phone] = @phone",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "selected_columns": [
+          "id",
+          "phone"
+        ],
+        "where_columns": [
+          "status",
+          "phone"
+        ],
+        "deparse_contains": "@phone"
+      }
+    },
+    {
+      "id": "S076",
+      "name": "sqlserver-select-json-value",
+      "sql": "SELECT JSON_VALUE([extra], '$.phone') AS [phone_json] FROM [dbo].[users] WHERE [id] = @id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "selected_columns": [
+          "extra"
+        ],
+        "where_columns": [
+          "id"
+        ],
+        "deparse_contains": "JSON_VALUE"
+      }
+    },
+    {
+      "id": "S077",
+      "name": "sqlserver-select-order-by-ordinal",
+      "sql": "SELECT [id], [phone] FROM [dbo].[users] ORDER BY 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "selected_columns": [
+          "id",
+          "phone"
+        ],
+        "deparse_contains": "ORDER BY 1"
+      }
+    },
+    {
+      "id": "S078",
+      "name": "sqlserver-offset-fetch-named-params",
+      "sql": "SELECT [id] FROM [dbo].[users] ORDER BY [id] OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "deparse_contains": "@offset"
+      }
+    },
+    {
+      "id": "S079",
+      "name": "sqlserver-select-left-join-alias-star",
+      "sql": "SELECT u.*, o.[order_no] FROM [dbo].[users] u LEFT JOIN [dbo].[orders] o ON u.[id] = o.[user_id] WHERE o.[status] = @status",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users",
+          "dbo.orders"
+        ],
+        "selected_columns": [
+          "*",
+          "order_no"
+        ],
+        "join_columns": [
+          "id",
+          "user_id"
+        ],
+        "where_columns": [
+          "status"
+        ],
+        "deparse_contains": "LEFT JOIN"
+      }
+    },
+    {
+      "id": "S080",
+      "name": "sqlserver-create-view-join-aggregate",
+      "sql": "CREATE VIEW [dbo].[v_user_orders] AS SELECT u.[id], COUNT(o.[id]) AS [order_count] FROM [dbo].[users] u JOIN [dbo].[orders] o ON u.[id] = o.[user_id] GROUP BY u.[id]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "ViewStmt"
+        ],
+        "tables": [
+          "dbo.v_user_orders",
+          "dbo.users",
+          "dbo.orders"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "join_columns": [
+          "id",
+          "user_id"
+        ],
+        "deparse_contains": "CREATE VIEW dbo.v_user_orders AS"
+      }
+    },
+    {
       "id": "SU015",
       "name": "sqlserver-table-variable-unsupported",
       "sql": "SELECT [id] FROM @users",

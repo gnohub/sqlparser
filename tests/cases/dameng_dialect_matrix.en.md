@@ -59,6 +59,16 @@ This file records regression cases for the Dameng dialect conversion layer. The 
 | D051 | `NOT IN` + multiple named binds | multiple named binds and field-value attribution in negated `IN` predicates |
 | D052 | `NOT BETWEEN` + multiple named binds | multiple named binds and field-value attribution in negated `BETWEEN` predicates |
 | D053 | `NOT LIKE` + named bind | named bind, field-level operator, and keyword attribution in negated `LIKE` predicates |
+| D054 | `DISTINCT` + `LIKE` bind | DISTINCT projection, LIKE named bind, and field attribution |
+| D055 | nested function projection | ordered `target_path` for `LOWER(UPPER(...))` |
+| D056 | `DELETE ... IN` + named bind | conditional delete, collection parameters, and field operator |
+| D057 | `UPDATE ... EXISTS` | subquery predicate, correlated fields, and SET bind |
+| D058 | columnless `INSERT` | columnless insert, row cells, named binds, and null column names |
+| D059 | `CREATE OR REPLACE VIEW` + aggregate JOIN | view creation, JOIN predicates, and GROUP BY aggregation |
+| D060 | realistic nested ROWNUM pagination field set | multi-field projection, `a.*`, ROWNUM predicates, and pagination binds |
+| D061 | `LEFT JOIN` + `alias.*` | qualified star, JOIN/ON fields, and WHERE bind |
+| D062 | `LIMIT/OFFSET` + `?` parameters | positional parameters in pagination clauses |
+| D063 | `SELECT :bind FROM dual` | DUAL query and named bind in the SELECT list |
 
 ## Explicitly Unsupported Cases
 

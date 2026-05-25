@@ -1918,6 +1918,287 @@
       }
     },
     {
+      "id": "O072",
+      "name": "oracle-select-distinct-like-bind",
+      "sql": "SELECT DISTINCT name FROM table1 WHERE name LIKE :name",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "table1"
+        ],
+        "selected_columns": [
+          "name"
+        ],
+        "where_columns": [
+          "name"
+        ],
+        "columns": [
+          {
+            "table": "table1",
+            "name": "name",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "LIKE",
+            "bind": "name",
+            "bind_kind": 2,
+            "bind_sql": ":name",
+            "value_is_null": true
+          }
+        ],
+        "deparse_contains": ":name",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "O073",
+      "name": "oracle-select-distinct-nested-functions",
+      "sql": "SELECT DISTINCT LOWER(UPPER(name)) FROM table1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "table1"
+        ],
+        "selected_columns": [
+          "name"
+        ],
+        "columns": [
+          {
+            "table": "table1",
+            "name": "name",
+            "keyword": "select",
+            "clause_kind": "select_list",
+            "target_path": [
+              {
+                "kind": "function",
+                "name": "LOWER",
+                "arg_index": 0
+              },
+              {
+                "kind": "function",
+                "name": "UPPER",
+                "arg_index": 0
+              }
+            ]
+          }
+        ],
+        "deparse_contains": "DISTINCT"
+      }
+    },
+    {
+      "id": "O074",
+      "name": "oracle-delete-in-named-binds",
+      "sql": "DELETE FROM users WHERE email IN (:email1, :email2)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "where_columns": [
+          "email"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "email",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "IN"
+          }
+        ],
+        "deparse_contains": ":email1"
+      }
+    },
+    {
+      "id": "O075",
+      "name": "oracle-update-exists-subquery",
+      "sql": "UPDATE users u SET status = :status WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id AND o.phone = :phone)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "tables": [
+          "users",
+          "orders"
+        ],
+        "update_columns": [
+          "status"
+        ],
+        "where_columns": [
+          "user_id",
+          "id",
+          "phone"
+        ],
+        "deparse_contains": ":phone"
+      }
+    },
+    {
+      "id": "O076",
+      "name": "oracle-insert-without-column-list",
+      "sql": "INSERT INTO users VALUES (:id, :name, :age)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "cells": [
+          {
+            "table": "users",
+            "row_index": 0,
+            "column_index": 0,
+            "column": null,
+            "bind": "id",
+            "bind_kind": 2,
+            "bind_sql": ":id"
+          },
+          {
+            "table": "users",
+            "row_index": 0,
+            "column_index": 2,
+            "column": null,
+            "bind": "age",
+            "bind_kind": 2,
+            "bind_sql": ":age"
+          }
+        ],
+        "deparse_contains": "VALUES (:id, :name, :age)"
+      }
+    },
+    {
+      "id": "O077",
+      "name": "oracle-create-or-replace-view",
+      "sql": "CREATE OR REPLACE VIEW v_user_orders AS SELECT u.id, COUNT(o.id) AS order_count FROM users u JOIN orders o ON u.id = o.user_id GROUP BY u.id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "ViewStmt"
+        ],
+        "tables": [
+          "v_user_orders",
+          "users",
+          "orders"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "join_columns": [
+          "id",
+          "user_id"
+        ],
+        "deparse_contains": "CREATE OR REPLACE VIEW"
+      }
+    },
+    {
+      "id": "O078",
+      "name": "oracle-rownum-pagination-realistic",
+      "sql": "SELECT IP, AREACODE, AREANAME, STATE, MSTSCPORT, NTUID, NTPWD, WORKER, WEBSITE, MSDEPLOYPORT, \"UID\", PWD, KEY_ENCRYPTION, MODIFYTIME FROM (SELECT a.*, ROWNUM RN FROM SERVERS a WHERE ROWNUM <= :endRow) WHERE RN > :startRow",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "servers"
+        ],
+        "selected_columns": [
+          "ip",
+          "areacode",
+          "UID",
+          "key_encryption"
+        ],
+        "where_columns": [
+          "rownum",
+          "rn"
+        ],
+        "deparse_contains": ":startRow",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "O079",
+      "name": "oracle-select-alias-star",
+      "sql": "SELECT u.*, o.order_no FROM users u LEFT JOIN orders o ON u.id = o.user_id WHERE o.status = :status",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users",
+          "orders"
+        ],
+        "selected_columns": [
+          "*",
+          "order_no"
+        ],
+        "join_columns": [
+          "id",
+          "user_id"
+        ],
+        "where_columns": [
+          "status"
+        ],
+        "deparse_contains": ":status"
+      }
+    },
+    {
+      "id": "O080",
+      "name": "oracle-select-order-by-ordinal",
+      "sql": "SELECT id, phone FROM users ORDER BY 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id",
+          "phone"
+        ],
+        "deparse_contains": "ORDER BY 1"
+      }
+    },
+    {
+      "id": "O081",
+      "name": "oracle-select-from-dual-bind",
+      "sql": "SELECT :value FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dual"
+        ],
+        "deparse_contains": ":value",
+        "view_not_contains": "$1"
+      }
+    },
+    {
       "id": "OU001",
       "name": "oracle-connect-by",
       "sql": "SELECT id FROM users START WITH manager_id IS NULL CONNECT BY PRIOR id = manager_id",
@@ -2038,13 +2319,98 @@
       }
     },
     {
-      "id": "OU013",
-      "name": "oracle-alter-session",
+      "id": "O082",
+      "name": "oracle-alter-session-nls-date-format",
       "sql": "ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD'",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported Oracle syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "alter",
+          "session",
+          "set"
+        ],
+        "deparse_contains": "ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD'",
+        "view_contains": "\"name\":\"NLS_DATE_FORMAT\""
+      }
+    },
+    {
+      "id": "O083",
+      "name": "oracle-alter-session-nls-language",
+      "sql": "ALTER SESSION SET NLS_DATE_LANGUAGE = French",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "alter",
+          "session",
+          "set"
+        ],
+        "deparse_contains": "ALTER SESSION SET NLS_DATE_LANGUAGE = french",
+        "view_contains": "\"name\":\"NLS_DATE_LANGUAGE\""
+      }
+    },
+    {
+      "id": "O084",
+      "name": "oracle-alter-session-numeric-parameter",
+      "sql": "ALTER SESSION SET INSTANCE = 2",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "alter",
+          "session",
+          "set"
+        ],
+        "deparse_contains": "ALTER SESSION SET INSTANCE = 2",
+        "view_contains": "\"name\":\"INSTANCE\""
+      }
+    },
+    {
+      "id": "O085",
+      "name": "oracle-alter-session-boolean-parameter",
+      "sql": "ALTER SESSION SET ERROR_ON_OVERLAP_TIME = TRUE",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "alter",
+          "session",
+          "set"
+        ],
+        "deparse_contains": "ALTER SESSION SET ERROR_ON_OVERLAP_TIME = TRUE",
+        "view_contains": "\"name\":\"ERROR_ON_OVERLAP_TIME\""
+      }
+    },
+    {
+      "id": "O086",
+      "name": "oracle-alter-session-nls-numeric-characters",
+      "sql": "ALTER SESSION SET NLS_NUMERIC_CHARACTERS = '.,'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "keywords": [
+          "alter",
+          "session",
+          "set"
+        ],
+        "deparse_contains": "ALTER SESSION SET NLS_NUMERIC_CHARACTERS = '.,'",
+        "view_contains": "\"name\":\"NLS_NUMERIC_CHARACTERS\""
       }
     },
     {

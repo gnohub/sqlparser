@@ -96,11 +96,21 @@
 | P079 | `postgresql-view-not-like-bind` | `NOT LIKE $n` | 否定 LIKE 的字段级 operator、关键字和 bind 归属 |
 | P080 | `postgresql-view-not-ilike-bind` | `NOT ILIKE $n` | 否定 ILIKE 的字段级 operator、关键字和 bind 归属 |
 | P081 | `postgresql-view-not-similar-bind` | `NOT SIMILAR TO $n` | 否定 SIMILAR TO 的字段级 operator、关键字和 bind 归属 |
+| P082 | `postgresql-create-table-if-not-exists-types` | `CREATE TABLE IF NOT EXISTS ...` | 条件建表、常见数据类型和表名提取 |
+| P083 | `postgresql-insert-without-column-list` | `INSERT INTO ... VALUES ($1, $2, $3)` | 无列名插入、行 cell、位置 bind 和空列名输出 |
+| P084 | `postgresql-update-in-not-in-conditions` | `UPDATE ... SET ... WHERE ... IN ... NOT IN ...` | SET bind、集合条件和否定集合条件 |
+| P085 | `postgresql-select-rich-where` | `IS NOT NULL` + `BETWEEN` + `LIKE` | 复杂 WHERE 条件、范围参数和模式匹配参数 |
+| P086 | `postgresql-select-derived-table-filter` | 派生表 + 外层过滤 | 派生表字段、内外层 WHERE 和 bind 归属 |
+| P087 | `postgresql-select-scalar-subquery` | SELECT 标量子查询 | 投影子查询、相关字段和外层 WHERE bind |
+| P088 | `postgresql-select-intersect` | `INTERSECT` | 集合操作、两侧表名和输出列 |
+| P089 | `postgresql-create-view-join-aggregate` | JOIN 聚合视图 | 视图定义、JOIN 条件和 GROUP BY 聚合 |
+| P090 | `postgresql-select-order-by-ordinal` | `ORDER BY 1` | 数字排序项和投影顺序相关语法 |
+| P091 | `postgresql-select-quoted-mixed-identifiers` | 双引号混合大小写 / 空格标识符 | 特殊标识符、查询列和 WHERE bind |
 
 ## 负向用例
 
 | 用例 ID | 用例名称 | 输入 | 验证重点 |
 | --- | --- | --- | --- |
-| P082 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
+| P092 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
 
 新增回归用例必须同步更新 `tests/cases/sql_batch_input.json` 和本矩阵。

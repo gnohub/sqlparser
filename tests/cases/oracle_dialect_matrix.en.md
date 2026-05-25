@@ -76,6 +76,21 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 | O069 | `NOT IN` + multiple named binds | multiple named binds and field-value attribution in negated `IN` predicates |
 | O070 | `NOT BETWEEN` + multiple named binds | multiple named binds and field-value attribution in negated `BETWEEN` predicates |
 | O071 | `NOT LIKE` + named bind | named bind, field-level operator, and keyword attribution in negated `LIKE` predicates |
+| O072 | `DISTINCT` + `LIKE` bind | DISTINCT projection, LIKE named bind, and field attribution |
+| O073 | nested function projection | ordered `target_path` for `LOWER(UPPER(...))` |
+| O074 | `DELETE ... IN` + named bind | conditional delete, collection parameters, and field operator |
+| O075 | `UPDATE ... EXISTS` | subquery predicate, correlated fields, and SET bind |
+| O076 | columnless `INSERT` | columnless insert, row cells, named binds, and null column names |
+| O077 | `CREATE OR REPLACE VIEW` + aggregate JOIN | view creation, JOIN predicates, and GROUP BY aggregation |
+| O078 | realistic nested ROWNUM pagination field set | multi-field projection, `a.*`, ROWNUM predicates, and pagination binds |
+| O079 | `LEFT JOIN` + `alias.*` | qualified star, JOIN/ON fields, and WHERE bind |
+| O080 | `ORDER BY 1` | ordinal sort item and projection-order related syntax |
+| O081 | `SELECT :bind FROM dual` | DUAL query and named bind in the SELECT list |
+| O082 | `ALTER SESSION SET NLS_DATE_FORMAT` | string-valued ordinary session parameter |
+| O083 | `ALTER SESSION SET NLS_DATE_LANGUAGE` | identifier-valued ordinary session parameter |
+| O084 | `ALTER SESSION SET INSTANCE` | numeric ordinary session parameter |
+| O085 | `ALTER SESSION SET ERROR_ON_OVERLAP_TIME` | boolean/enumerated ordinary session parameter |
+| O086 | `ALTER SESSION SET NLS_NUMERIC_CHARACTERS` | punctuation-bearing string session parameter |
 
 ## Explicitly Unsupported Cases
 
@@ -96,7 +111,6 @@ The following constructs have Oracle-specific semantics. The conversion layer re
 | OU010 | `MODEL` | Oracle model clause |
 | OU011 | flashback query | Oracle flashback query semantics |
 | OU012 | `MATCH_RECOGNIZE` | row pattern recognition semantics |
-| OU013 | other `ALTER SESSION` parameters | session parameters other than `CURRENT_SCHEMA` and `CONTAINER/SERVICE` |
 | OU014 | `CREATE SYNONYM` | Oracle synonym object |
 | OU015 | database link | remote object reference semantics |
 | OU016 | `EXPLAIN PLAN FOR` | Oracle explain plan output semantics |

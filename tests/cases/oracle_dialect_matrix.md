@@ -76,6 +76,21 @@
 | O069 | `NOT IN` + 多命名 bind | 否定 `IN` 条件中的多个命名 bind 和字段值关联 |
 | O070 | `NOT BETWEEN` + 多命名 bind | 否定 `BETWEEN` 条件中的多个命名 bind 和字段值关联 |
 | O071 | `NOT LIKE` + 命名 bind | 否定 `LIKE` 条件中的命名 bind、字段级 operator 和关键字归属 |
+| O072 | `DISTINCT` + `LIKE` bind | DISTINCT 投影、LIKE 命名 bind 和字段归属 |
+| O073 | 嵌套函数投影 | `LOWER(UPPER(...))` 的有序 `target_path` |
+| O074 | `DELETE ... IN` + 命名 bind | 条件删除、集合参数和字段 operator |
+| O075 | `UPDATE ... EXISTS` | 子查询条件、相关字段和 SET bind |
+| O076 | 无列名 `INSERT` | 无列名插入、行 cell、命名 bind 和空列名输出 |
+| O077 | `CREATE OR REPLACE VIEW` + JOIN 聚合 | 视图创建、JOIN 条件和 GROUP BY 聚合 |
+| O078 | ROWNUM 嵌套分页真实字段集 | 多字段投影、`a.*`、ROWNUM 条件和分页 bind |
+| O079 | `LEFT JOIN` + `alias.*` | 限定星号、JOIN/ON 字段和 WHERE bind |
+| O080 | `ORDER BY 1` | 数字排序项和投影顺序相关语法 |
+| O081 | `SELECT :bind FROM dual` | DUAL 查询和 SELECT 列表中的命名 bind |
+| O082 | `ALTER SESSION SET NLS_DATE_FORMAT` | 字符串型普通 session 参数 |
+| O083 | `ALTER SESSION SET NLS_DATE_LANGUAGE` | 标识符型普通 session 参数 |
+| O084 | `ALTER SESSION SET INSTANCE` | 数字型普通 session 参数 |
+| O085 | `ALTER SESSION SET ERROR_ON_OVERLAP_TIME` | 布尔/枚举型普通 session 参数 |
+| O086 | `ALTER SESSION SET NLS_NUMERIC_CHARACTERS` | 带标点字符串的普通 session 参数 |
 
 ## 明确不支持用例
 
@@ -96,7 +111,6 @@
 | OU010 | `MODEL` | Oracle model clause |
 | OU011 | flashback query | Oracle 闪回查询语义 |
 | OU012 | `MATCH_RECOGNIZE` | 行模式识别语义 |
-| OU013 | 其他 `ALTER SESSION` 参数 | 除 `CURRENT_SCHEMA` 和 `CONTAINER/SERVICE` 外的会话参数 |
 | OU014 | `CREATE SYNONYM` | Oracle 同义词对象 |
 | OU015 | database link | 远程对象引用语义 |
 | OU016 | `EXPLAIN PLAN FOR` | Oracle explain plan 输出语义 |

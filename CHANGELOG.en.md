@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 0.8.0
+
+### Dialect Capabilities
+
+- Added Oracle ordinary `ALTER SESSION SET <parameter> = <value>` session parameter assignments for string, identifier, numeric, and boolean/enumerated values
+- Kept Oracle `ALTER SESSION` public output in the original parameter/value form without exposing internal conversion prefixes
+- Fixed MySQL parameterized comma pagination for `LIMIT ?, ?` while preserving the public MySQL deparse form
+
+### Tests and Coverage
+
+- Expanded the existing PostgreSQL, MySQL, Oracle, SQL Server, and Dameng case matrices for additional DDL, DML, JOIN, function, expression, bind, pagination, and context-switching scenarios
+- Added Oracle regression coverage for `ALTER SESSION SET NLS_DATE_FORMAT`, `NLS_DATE_LANGUAGE`, `NLS_NUMERIC_CHARACTERS`, `INSTANCE`, and `ERROR_ON_OVERLAP_TIME`
+- Updated the Chinese and English case matrices, dialect coverage summary, and Oracle official syntax coverage summary
+
 ## 0.7.0
 
 ### UPDATE SET Rewrite

@@ -718,10 +718,22 @@ static int sqlparser_variable_set_name_is(const PgQuery__VariableSetStmt *stmt, 
 		strcmp(stmt->name, name) == 0;
 }
 
+static int sqlparser_variable_set_name_has_prefix(const PgQuery__VariableSetStmt *stmt, const char *prefix)
+{
+	size_t prefix_len;
+
+	if (stmt == NULL || stmt->name == NULL || prefix == NULL) {
+		return 0;
+	}
+	prefix_len = strlen(prefix);
+	return strncmp(stmt->name, prefix, prefix_len) == 0;
+}
+
 static int sqlparser_variable_set_is_session_context(const PgQuery__VariableSetStmt *stmt)
 {
 	return sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_CURRENT_DATABASE) ||
 		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_CURRENT_SCHEMA) ||
+		sqlparser_variable_set_name_has_prefix(stmt, SQLPARSER_INTERNAL_ORACLE_SESSION_PARAM_PREFIX) ||
 		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_MYSQL_PREPARE) ||
 		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_MYSQL_EXECUTE) ||
 		sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_MYSQL_DEALLOCATE_PREPARE) ||
@@ -802,6 +814,9 @@ static const char *sqlparser_variable_set_public_name(
 			        handle->dialect == SQLPARSER_DIALECT_DAMENG) ?
 			"CURRENT_SCHEMA" :
 			"SCHEMA";
+	}
+	if (sqlparser_variable_set_name_has_prefix(stmt, SQLPARSER_INTERNAL_ORACLE_SESSION_PARAM_PREFIX)) {
+		return stmt->name + strlen(SQLPARSER_INTERNAL_ORACLE_SESSION_PARAM_PREFIX);
 	}
 	if (sqlparser_variable_set_name_is(stmt, "search_path")) {
 		return "search_path";
@@ -939,6 +954,11 @@ static const char *sqlparser_statement_keyword_for_handle(
 	     handle->dialect == SQLPARSER_DIALECT_DAMENG)) {
 		return "alter_session";
 	}
+	if (handle != NULL &&
+	    handle->dialect == SQLPARSER_DIALECT_ORACLE &&
+	    sqlparser_variable_set_name_has_prefix(stmt, SQLPARSER_INTERNAL_ORACLE_SESSION_PARAM_PREFIX)) {
+		return "alter_session";
+	}
 	if (sqlparser_variable_set_is_prepared_statement(stmt)) {
 		return sqlparser_variable_set_column_keyword(handle, stmt);
 	}
@@ -974,6 +994,10 @@ static int sqlparser_variable_set_arg_needs_statement_postprocess(
 		return handle->dialect == SQLPARSER_DIALECT_MYSQL ||
 			handle->dialect == SQLPARSER_DIALECT_SQLSERVER ||
 			handle->dialect == SQLPARSER_DIALECT_ORACLE;
+	}
+	if (handle->dialect == SQLPARSER_DIALECT_ORACLE &&
+	    sqlparser_variable_set_name_has_prefix(stmt, SQLPARSER_INTERNAL_ORACLE_SESSION_PARAM_PREFIX)) {
+		return 1;
 	}
 	return (handle->dialect == SQLPARSER_DIALECT_ORACLE ||
 	        handle->dialect == SQLPARSER_DIALECT_DAMENG) &&
@@ -1160,6 +1184,8 @@ static sqlparser_status_t sqlparser_postprocess_variable_set_arg_sql(
 	sqlparser_error_t *out_error)
 {
 	const char *prefix;
+	const char *public_name;
+	char *dynamic_prefix;
 	char *statement_sql;
 	char *public_statement_sql;
 	sqlparser_status_t status;
@@ -1169,6 +1195,7 @@ static sqlparser_status_t sqlparser_postprocess_variable_set_arg_sql(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	*out_sql = NULL;
+	dynamic_prefix = NULL;
 	if (sqlparser_variable_set_is_prepared_statement(stmt)) {
 		return sqlparser_decode_variable_set_internal_arg_sql(core_sql, out_sql, out_error);
 	}
@@ -1193,9 +1220,41 @@ static sqlparser_status_t sqlparser_postprocess_variable_set_arg_sql(
 	}
 
 	if (handle->dialect == SQLPARSER_DIALECT_ORACLE) {
-		prefix = sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_CURRENT_SCHEMA) ?
-			"ALTER SESSION SET CURRENT_SCHEMA = " :
-			"ALTER SESSION SET CONTAINER = ";
+		if (sqlparser_variable_set_name_has_prefix(stmt, SQLPARSER_INTERNAL_ORACLE_SESSION_PARAM_PREFIX)) {
+			size_t prefix_len;
+			size_t name_len;
+			static const char oracle_prefix[] = "ALTER SESSION SET ";
+			static const char oracle_suffix[] = " = ";
+
+			public_name = sqlparser_variable_set_public_name(handle, stmt);
+			if (public_name == NULL) {
+				free(public_statement_sql);
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INTERNAL_ERROR,
+					"Oracle session parameter name is missing");
+				return SQLPARSER_STATUS_INTERNAL_ERROR;
+			}
+			name_len = strlen(public_name);
+			prefix_len = (sizeof(oracle_prefix) - 1U) + name_len + (sizeof(oracle_suffix) - 1U);
+			dynamic_prefix = (char *)malloc(prefix_len + 1U);
+			if (dynamic_prefix == NULL) {
+				free(public_statement_sql);
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+				return SQLPARSER_STATUS_NO_MEMORY;
+			}
+			memcpy(dynamic_prefix, oracle_prefix, sizeof(oracle_prefix) - 1U);
+			memcpy(dynamic_prefix + sizeof(oracle_prefix) - 1U, public_name, name_len);
+			memcpy(
+				dynamic_prefix + sizeof(oracle_prefix) - 1U + name_len,
+				oracle_suffix,
+				sizeof(oracle_suffix));
+			prefix = dynamic_prefix;
+		} else {
+			prefix = sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_CURRENT_SCHEMA) ?
+				"ALTER SESSION SET CURRENT_SCHEMA = " :
+				"ALTER SESSION SET CONTAINER = ";
+		}
 	} else if (handle->dialect == SQLPARSER_DIALECT_DAMENG &&
 	           sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_CURRENT_SCHEMA)) {
 		prefix = "ALTER SESSION SET CURRENT_SCHEMA = ";
@@ -1203,6 +1262,7 @@ static sqlparser_status_t sqlparser_postprocess_variable_set_arg_sql(
 		prefix = "USE ";
 	}
 	status = sqlparser_extract_after_prefix(public_statement_sql, prefix, out_sql, out_error);
+	free(dynamic_prefix);
 	free(public_statement_sql);
 	return status;
 }

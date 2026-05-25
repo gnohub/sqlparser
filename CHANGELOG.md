@@ -2,6 +2,20 @@
 
 ## 未发布
 
+## 0.8.0
+
+### 方言能力
+
+- 支持 Oracle 普通 `ALTER SESSION SET <parameter> = <value>` 会话参数赋值，覆盖字符串、标识符、数字和布尔/枚举值
+- 保持 Oracle `ALTER SESSION` 公开输出为原始参数名和值，不暴露内部适配前缀
+- 修复 MySQL `LIMIT ?, ?` 参数化分页语句，公开反解析保持 MySQL 逗号分页形态
+
+### 测试与覆盖
+
+- 扩充 PostgreSQL、MySQL、Oracle、SQL Server 和达梦现有 case matrix，覆盖更多 DDL、DML、JOIN、函数、表达式、bind、分页和上下文切换场景
+- 新增 Oracle `ALTER SESSION SET NLS_DATE_FORMAT`、`NLS_DATE_LANGUAGE`、`NLS_NUMERIC_CHARACTERS`、`INSTANCE`、`ERROR_ON_OVERLAP_TIME` 回归用例
+- 同步更新中英文 case matrix、方言覆盖统计和 Oracle 官方语法覆盖统计
+
 ## 0.7.0
 
 ### UPDATE SET 改写

@@ -22,7 +22,7 @@
 #include "sqlparser_internal.h"
 
 #ifndef SQLPARSER_VERSION_TEXT
-#define SQLPARSER_VERSION_TEXT "0.7.0"
+#define SQLPARSER_VERSION_TEXT "0.8.0"
 #endif
 
 #ifndef SQLPARSER_LIBPG_QUERY_TAG_TEXT

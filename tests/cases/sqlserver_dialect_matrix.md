@@ -76,6 +76,16 @@
 | S068 | `NOT IN` + 多 `@` 参数 | 否定 `IN` 条件中的多个命名参数和字段值关联 |
 | S069 | `NOT BETWEEN` + 多 `@` 参数 | 否定 `BETWEEN` 条件中的多个命名参数和字段值关联 |
 | S070 | `NOT LIKE` + 多 `@` 参数 | 否定 `LIKE` 条件中的命名参数、字段级 operator 和关键字归属 |
+| S071 | `DISTINCT` + `LIKE` 参数 | DISTINCT 投影、LIKE 命名参数和字段归属 |
+| S072 | `DELETE ... IN` + 多 `@` 参数 | 条件删除、集合参数和字段 operator |
+| S073 | `UPDATE ... EXISTS` | 子查询条件、相关字段和 SET 参数 |
+| S074 | 无列名 `INSERT` | 无列名插入、行 cell、位置参数和空列名输出 |
+| S075 | 派生表过滤 | 内外层 WHERE、派生表 alias 和命名参数 |
+| S076 | `JSON_VALUE` 投影 | SQL Server JSON 函数和 WHERE 参数 |
+| S077 | `ORDER BY 1` | 数字排序项和投影顺序相关语法 |
+| S078 | `OFFSET/FETCH` + `@` 参数 | 分页子句中的命名参数 |
+| S079 | `LEFT JOIN` + `alias.*` | 限定星号、JOIN/ON 字段和 WHERE 参数 |
+| S080 | `CREATE VIEW` + JOIN 聚合 | 视图创建、JOIN 条件和 GROUP BY 聚合 |
 
 ## 明确不支持用例
 

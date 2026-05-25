@@ -29,7 +29,8 @@ ddl,TRUNCATE_TABLE,CURRENT,"已覆盖 TRUNCATE TABLE",https://docs.oracle.com/en
 transaction,SAVEPOINT_ROLLBACK_COMMIT,CURRENT,"已覆盖 SAVEPOINT、ROLLBACK TO SAVEPOINT 和 COMMIT",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Types-of-SQL-Statements.html
 privileges,GRANT_REVOKE,CURRENT,"已覆盖 GRANT 和 REVOKE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/GRANT.html
 utility,COMMENT_ON,CURRENT,"已覆盖 COMMENT ON TABLE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/COMMENT.html
-session,ALTER_SESSION_CONTEXT,CURRENT,"已覆盖 CURRENT_SCHEMA 和 CONTAINER/SERVICE 会话上下文切换语句",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/ALTER-SESSION.html
+session,ALTER_SESSION_CONTEXT,CURRENT,"已覆盖 CURRENT_SCHEMA、CONTAINER/SERVICE 和普通 ALTER SESSION SET 参数赋值",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/ALTER-SESSION.html
+session,ALTER_SESSION_OTHER,CURRENT,"已覆盖普通 ALTER SESSION SET 参数赋值，包含字符串、标识符、数字和布尔/枚举值",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/ALTER-SESSION.html
 expressions,NATIONAL_Q_QUOTED_STRING,MODEL_REQUIRED,"national 字符集语义不能安全降级为普通字符串",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Literals.html
 query,CONNECT_BY,MODEL_REQUIRED,"层级查询语义需要 Oracle 专用查询模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Hierarchical-Queries.html
 query,LEGACY_OUTER_JOIN,MODEL_REQUIRED,"(+) 旧式外连接语义不做静默降级",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Joins.html
@@ -41,7 +42,6 @@ query,PIVOT_UNPIVOT,MODEL_REQUIRED,"表变换语义需要 Oracle 专用查询模
 query,MODEL_CLAUSE,MODEL_REQUIRED,"MODEL clause 需要 Oracle 专用查询模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
 query,FLASHBACK_QUERY,MODEL_REQUIRED,"闪回查询语义需要 Oracle 专用查询模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
 query,MATCH_RECOGNIZE,MODEL_REQUIRED,"行模式识别语义需要 Oracle 专用查询模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
-session,ALTER_SESSION_OTHER,MODEL_REQUIRED,"除 CURRENT_SCHEMA 和 CONTAINER/SERVICE 外的 ALTER SESSION 参数仍需要专用会话模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/ALTER-SESSION.html
 ddl,SYNONYM,MODEL_REQUIRED,"synonym 对象需要 Oracle 专用对象模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-SYNONYM.html
 schema,DATABASE_LINK,MODEL_REQUIRED,"database link 远程对象引用需要 Oracle 专用命名模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-DATABASE-LINK.html
 utility,EXPLAIN_PLAN_FOR,MODEL_REQUIRED,"Oracle explain plan 输出和计划表语义需要专用模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/EXPLAIN-PLAN.html

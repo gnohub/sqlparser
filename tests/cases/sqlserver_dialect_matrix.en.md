@@ -76,6 +76,16 @@ This file records regression cases for the SQL Server dialect conversion layer. 
 | S068 | `NOT IN` + multiple `@` parameters | multiple named parameters and field-value attribution in negated `IN` predicates |
 | S069 | `NOT BETWEEN` + multiple `@` parameters | multiple named parameters and field-value attribution in negated `BETWEEN` predicates |
 | S070 | `NOT LIKE` + multiple `@` parameters | named parameter, field-level operator, and keyword attribution in negated `LIKE` predicates |
+| S071 | `DISTINCT` + `LIKE` parameter | DISTINCT projection, LIKE named parameter, and field attribution |
+| S072 | `DELETE ... IN` + multiple `@` parameters | conditional delete, collection parameters, and field operator |
+| S073 | `UPDATE ... EXISTS` | subquery predicate, correlated fields, and SET parameter |
+| S074 | columnless `INSERT` | columnless insert, row cells, positional parameters, and null column names |
+| S075 | derived-table filter | inner/outer WHERE clauses, derived-table alias, and named parameters |
+| S076 | `JSON_VALUE` projection | SQL Server JSON function and WHERE parameter |
+| S077 | `ORDER BY 1` | ordinal sort item and projection-order related syntax |
+| S078 | `OFFSET/FETCH` + `@` parameters | named parameters in pagination clauses |
+| S079 | `LEFT JOIN` + `alias.*` | qualified star, JOIN/ON fields, and WHERE parameter |
+| S080 | `CREATE VIEW` + aggregate JOIN | view creation, JOIN predicates, and GROUP BY aggregation |
 
 ## Explicitly Unsupported Cases
 

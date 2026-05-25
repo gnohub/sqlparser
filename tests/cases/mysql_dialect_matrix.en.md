@@ -48,6 +48,16 @@ This file records regression cases for the MySQL dialect conversion layer. `test
 | M040 | `mysql-select-not-in-question-params` | `NOT IN (?, ?)` | multiple positional parameters and field-value attribution in negated `IN` predicates |
 | M041 | `mysql-select-not-between-question-params` | `NOT BETWEEN ? AND ?` | multiple positional parameters and field-value attribution in negated `BETWEEN` predicates |
 | M042 | `mysql-select-not-like-question-param` | `NOT LIKE ?` | positional parameter, field-level operator, and keyword attribution in negated `LIKE` predicates |
+| M043 | `mysql-select-distinct-like-param` | `SELECT DISTINCT ... WHERE ... LIKE ?` | DISTINCT projection, LIKE positional parameter, and field attribution |
+| M044 | `mysql-select-left-join-alias-star` | `LEFT JOIN` + `alias.*` | qualified star, JOIN/ON fields, and WHERE bind |
+| M045 | `mysql-delete-in-question-params` | `DELETE ... WHERE ... IN (?, ?)` | conditional delete, collection parameters, and field operator |
+| M046 | `mysql-update-in-question-params` | `UPDATE ... SET ? WHERE ... IN (?, ?)` | SET bind, WHERE collection predicate, and parameter order |
+| M047 | `mysql-select-derived-table-filter` | derived table + outer filter | inner/outer WHERE clauses, derived-table alias, and bind attribution |
+| M048 | `mysql-select-json-extract` | `JSON_EXTRACT(...)` | dialect function projection and WHERE bind |
+| M049 | `mysql-create-table-if-not-exists` | `CREATE TABLE IF NOT EXISTS ...` | conditional table creation and common column types |
+| M050 | `mysql-drop-view-if-exists` | `DROP VIEW IF EXISTS ...` | view drop and object-name extraction |
+| M051 | `mysql-select-order-by-ordinal` | `ORDER BY 1` | ordinal sort item and projection-order related syntax |
+| M052 | `mysql-limit-comma-question-params` | `LIMIT ?, ?` | positional parameters in MySQL comma-limit syntax, with public SQL preserved in comma-limit form |
 
 ## Explicitly Unsupported Statements
 

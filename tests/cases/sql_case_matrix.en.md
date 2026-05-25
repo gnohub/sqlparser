@@ -96,11 +96,21 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 | P079 | `postgresql-view-not-like-bind` | `NOT LIKE $n` | field-level operator, keyword, and bind attribution for negated LIKE |
 | P080 | `postgresql-view-not-ilike-bind` | `NOT ILIKE $n` | field-level operator, keyword, and bind attribution for negated ILIKE |
 | P081 | `postgresql-view-not-similar-bind` | `NOT SIMILAR TO $n` | field-level operator, keyword, and bind attribution for negated SIMILAR TO |
+| P082 | `postgresql-create-table-if-not-exists-types` | `CREATE TABLE IF NOT EXISTS ...` | conditional table creation, common data types, and table extraction |
+| P083 | `postgresql-insert-without-column-list` | `INSERT INTO ... VALUES ($1, $2, $3)` | columnless insert, row cells, positional binds, and null column names |
+| P084 | `postgresql-update-in-not-in-conditions` | `UPDATE ... SET ... WHERE ... IN ... NOT IN ...` | SET bind, collection predicates, and negated collection predicates |
+| P085 | `postgresql-select-rich-where` | `IS NOT NULL` + `BETWEEN` + `LIKE` | complex WHERE predicates, range parameters, and pattern-match parameters |
+| P086 | `postgresql-select-derived-table-filter` | derived table + outer filter | derived-table fields, inner/outer WHERE clauses, and bind attribution |
+| P087 | `postgresql-select-scalar-subquery` | scalar subquery in SELECT output | projection subquery, correlated fields, and outer WHERE bind |
+| P088 | `postgresql-select-intersect` | `INTERSECT` | set operation, both input tables, and output columns |
+| P089 | `postgresql-create-view-join-aggregate` | aggregate JOIN view | view definition, JOIN predicates, and GROUP BY aggregation |
+| P090 | `postgresql-select-order-by-ordinal` | `ORDER BY 1` | ordinal sort item and projection-order related syntax |
+| P091 | `postgresql-select-quoted-mixed-identifiers` | quoted mixed-case / spaced identifiers | special identifiers, selected columns, and WHERE bind |
 
 ## Negative Case
 
 | Case ID | Case Name | Input | Validation Focus |
 | --- | --- | --- | --- |
-| P082 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
+| P092 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
 
 New regression cases must update both `tests/cases/sql_batch_input.json` and this matrix.

@@ -1163,6 +1163,257 @@
       }
     },
     {
+      "id": "M043",
+      "name": "mysql-select-distinct-like-param",
+      "sql": "SELECT DISTINCT `name` FROM `table1` WHERE `name` LIKE ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "table1"
+        ],
+        "selected_columns": [
+          "name"
+        ],
+        "where_columns": [
+          "name"
+        ],
+        "columns": [
+          {
+            "table": "table1",
+            "name": "name",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "LIKE",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          }
+        ],
+        "deparse_contains": "DISTINCT",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "M044",
+      "name": "mysql-select-left-join-alias-star",
+      "sql": "SELECT u.*, o.`order_no` FROM `users` u LEFT JOIN `orders` o ON u.`id` = o.`user_id` WHERE o.`status` = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users",
+          "orders"
+        ],
+        "selected_columns": [
+          "*",
+          "order_no"
+        ],
+        "join_columns": [
+          "id",
+          "user_id"
+        ],
+        "where_columns": [
+          "status"
+        ],
+        "deparse_contains": "LEFT JOIN"
+      }
+    },
+    {
+      "id": "M045",
+      "name": "mysql-delete-in-question-params",
+      "sql": "DELETE FROM `users` WHERE `email` IN (?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "where_columns": [
+          "email"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "email",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "IN"
+          }
+        ],
+        "deparse_contains": "IN (?, ?)"
+      }
+    },
+    {
+      "id": "M046",
+      "name": "mysql-update-in-question-params",
+      "sql": "UPDATE `users` SET `note` = ? WHERE `phone` IN (?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "update_columns": [
+          "note"
+        ],
+        "where_columns": [
+          "phone"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "note",
+            "keyword": "set",
+            "clause_kind": "set_list",
+            "bind": "1",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true
+          },
+          {
+            "table": "users",
+            "name": "phone",
+            "keyword": "where",
+            "clause_kind": "where",
+            "operator": "IN"
+          }
+        ],
+        "deparse_contains": "WHERE phone IN (?, ?)"
+      }
+    },
+    {
+      "id": "M047",
+      "name": "mysql-select-derived-table-filter",
+      "sql": "SELECT t.`id`, t.`phone` FROM (SELECT `id`, `phone` FROM `users` WHERE `status` = ?) t WHERE t.`phone` = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id",
+          "phone"
+        ],
+        "where_columns": [
+          "status",
+          "phone"
+        ],
+        "deparse_contains": "FROM (SELECT id, phone FROM users"
+      }
+    },
+    {
+      "id": "M048",
+      "name": "mysql-select-json-extract",
+      "sql": "SELECT JSON_EXTRACT(`extra`, '$.phone') AS phone_json FROM `users` WHERE `id` = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "extra"
+        ],
+        "where_columns": [
+          "id"
+        ],
+        "deparse_contains": "json_extract"
+      }
+    },
+    {
+      "id": "M049",
+      "name": "mysql-create-table-if-not-exists",
+      "sql": "CREATE TABLE IF NOT EXISTS `users` (`id` INT, `name` VARCHAR(64), `phone` TEXT)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "CreateStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "deparse_contains": "CREATE TABLE IF NOT EXISTS users"
+      }
+    },
+    {
+      "id": "M050",
+      "name": "mysql-drop-view-if-exists",
+      "sql": "DROP VIEW IF EXISTS `user_view`",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DropStmt"
+        ],
+        "tables": [
+          "user_view"
+        ],
+        "deparse_contains": "DROP VIEW IF EXISTS user_view"
+      }
+    },
+    {
+      "id": "M051",
+      "name": "mysql-select-order-by-ordinal",
+      "sql": "SELECT `id`, `phone` FROM `users` ORDER BY 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id",
+          "phone"
+        ],
+        "deparse_contains": "ORDER BY 1"
+      }
+    },
+    {
+      "id": "M052",
+      "name": "mysql-limit-comma-question-params",
+      "sql": "SELECT `id` FROM `users` ORDER BY `id` LIMIT ?, ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "selected_columns": [
+          "id"
+        ],
+        "deparse_contains": "LIMIT ?, ?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
       "id": "MU001",
       "name": "mysql-insert-ignore",
       "sql": "INSERT IGNORE INTO `users` (`id`) VALUES (1)",

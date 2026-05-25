@@ -797,6 +797,7 @@ static sqlparser_status_t sqlparser_oracle_preprocess_alter_session_switch(
 	size_t service_start;
 	size_t service_end;
 	int has_service;
+	int is_generic_session_param;
 	sqlparser_status_t status;
 
 	if (out_sql == NULL) {
@@ -838,6 +839,7 @@ static sqlparser_status_t sqlparser_oracle_preprocess_alter_session_switch(
 	}
 
 	sentinel_name = NULL;
+	is_generic_session_param = 0;
 	if (param_end - param_start == strlen("current_schema") &&
 	    sqlparser_oracle_ascii_word_equal(input_sql, param_start, "current_schema")) {
 		sentinel_name = SQLPARSER_INTERNAL_CURRENT_SCHEMA;
@@ -845,7 +847,7 @@ static sqlparser_status_t sqlparser_oracle_preprocess_alter_session_switch(
 	           sqlparser_oracle_ascii_word_equal(input_sql, param_start, "container")) {
 		sentinel_name = SQLPARSER_INTERNAL_CURRENT_DATABASE;
 	} else {
-		return SQLPARSER_STATUS_OK;
+		is_generic_session_param = 1;
 	}
 
 	pos = sqlparser_oracle_trim_left(input_sql, pos, end);
@@ -867,7 +869,8 @@ static sqlparser_status_t sqlparser_oracle_preprocess_alter_session_switch(
 	service_end = 0U;
 	pos = sqlparser_oracle_trim_left(input_sql, value_end, end);
 	if (pos < end) {
-		if (strcmp(sentinel_name, SQLPARSER_INTERNAL_CURRENT_DATABASE) != 0 ||
+		if (is_generic_session_param ||
+		    strcmp(sentinel_name, SQLPARSER_INTERNAL_CURRENT_DATABASE) != 0 ||
 		    !sqlparser_oracle_ascii_word_equal(input_sql, pos, "service")) {
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "unsupported ALTER SESSION SET suffix");
 			return SQLPARSER_STATUS_PARSE_ERROR;
@@ -897,7 +900,26 @@ static sqlparser_status_t sqlparser_oracle_preprocess_alter_session_switch(
 
 	memset(&out, 0, sizeof(out));
 	status = sqlparser_oracle_buffer_append_cstr(&out, "SET ", out_error);
-	if (status == SQLPARSER_STATUS_OK) {
+	if (status == SQLPARSER_STATUS_OK && is_generic_session_param) {
+		status = sqlparser_oracle_buffer_append_char(&out, '"', out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK && is_generic_session_param) {
+		status = sqlparser_oracle_buffer_append_cstr(
+			&out,
+			SQLPARSER_INTERNAL_ORACLE_SESSION_PARAM_PREFIX,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK && is_generic_session_param) {
+		status = sqlparser_oracle_buffer_append_mem(
+			&out,
+			input_sql + param_start,
+			param_end - param_start,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK && is_generic_session_param) {
+		status = sqlparser_oracle_buffer_append_char(&out, '"', out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK && !is_generic_session_param) {
 		status = sqlparser_oracle_buffer_append_cstr(&out, sentinel_name, out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
@@ -1918,6 +1940,42 @@ static sqlparser_status_t sqlparser_oracle_buffer_append_session_value(
 	return status;
 }
 
+static sqlparser_status_t sqlparser_oracle_buffer_append_session_parameter_value(
+	sqlparser_oracle_buffer_t *out,
+	const char *value_start,
+	const char *value_end,
+	sqlparser_error_t *out_error)
+{
+	const char *pos;
+	sqlparser_status_t status;
+
+	if (value_start < value_end && *value_start == '"' && *(value_end - 1) == '"') {
+		status = sqlparser_oracle_buffer_append_char(out, '\'', out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		pos = value_start + 1;
+		while (pos < value_end - 1) {
+			if (*pos == '"' && pos + 1 < value_end - 1 && *(pos + 1) == '"') {
+				status = sqlparser_oracle_buffer_append_char(out, '"', out_error);
+				pos += 2;
+			} else if (*pos == '\'') {
+				status = sqlparser_oracle_buffer_append_cstr(out, "''", out_error);
+				pos++;
+			} else {
+				status = sqlparser_oracle_buffer_append_char(out, *pos, out_error);
+				pos++;
+			}
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+		}
+		return sqlparser_oracle_buffer_append_char(out, '\'', out_error);
+	}
+
+	return sqlparser_oracle_buffer_append_session_value(out, value_start, value_end, out_error);
+}
+
 static sqlparser_status_t sqlparser_oracle_postprocess_session_switch(
 	const char *core_sql,
 	char **out_sql,
@@ -1926,6 +1984,8 @@ static sqlparser_status_t sqlparser_oracle_postprocess_session_switch(
 	sqlparser_oracle_buffer_t out;
 	const char *parameter_name;
 	const char *prefix;
+	const char *name_start;
+	const char *name_end;
 	const char *value_start;
 	const char *value_end;
 	const char *service_start;
@@ -1934,7 +1994,10 @@ static sqlparser_status_t sqlparser_oracle_postprocess_session_switch(
 	size_t start;
 	size_t end;
 	size_t prefix_len;
+	size_t pos;
+	size_t parameter_name_len;
 	int has_service;
+	int is_generic_session_param;
 	sqlparser_status_t status;
 
 	if (out_sql == NULL) {
@@ -1949,19 +2012,75 @@ static sqlparser_status_t sqlparser_oracle_postprocess_session_switch(
 	start = sqlparser_oracle_trim_left(core_sql, 0U, strlen(core_sql));
 	end = sqlparser_oracle_trim_right(core_sql, start, strlen(core_sql));
 	parameter_name = NULL;
+	parameter_name_len = 0U;
+	is_generic_session_param = 0;
 	prefix = "SET " SQLPARSER_INTERNAL_CURRENT_SCHEMA " TO ";
 	prefix_len = strlen(prefix);
 	if (end - start >= prefix_len && strncmp(core_sql + start, prefix, prefix_len) == 0) {
 		parameter_name = "CURRENT_SCHEMA";
+		parameter_name_len = strlen(parameter_name);
 		value_start = core_sql + start + prefix_len;
 	} else {
 		prefix = "SET " SQLPARSER_INTERNAL_CURRENT_DATABASE " TO ";
 		prefix_len = strlen(prefix);
-		if (end - start < prefix_len || strncmp(core_sql + start, prefix, prefix_len) != 0) {
-			return SQLPARSER_STATUS_OK;
+		if (end - start >= prefix_len && strncmp(core_sql + start, prefix, prefix_len) == 0) {
+			parameter_name = "CONTAINER";
+			parameter_name_len = strlen(parameter_name);
+			value_start = core_sql + start + prefix_len;
+		} else {
+			prefix = "SET ";
+			prefix_len = strlen(prefix);
+			if (end - start < prefix_len || strncmp(core_sql + start, prefix, prefix_len) != 0) {
+				return SQLPARSER_STATUS_OK;
+			}
+			pos = sqlparser_oracle_trim_left(core_sql, start + prefix_len, end);
+			if (pos >= end) {
+				return SQLPARSER_STATUS_OK;
+			}
+			if (core_sql[pos] == '"') {
+				name_start = core_sql + pos + 1U;
+				pos++;
+				while (pos < end) {
+					if (core_sql[pos] == '"') {
+						if (pos + 1U < end && core_sql[pos + 1U] == '"') {
+							pos += 2U;
+							continue;
+						}
+						break;
+					}
+					pos++;
+				}
+				if (pos >= end) {
+					return SQLPARSER_STATUS_OK;
+				}
+				name_end = core_sql + pos;
+				pos++;
+			} else {
+				name_start = core_sql + pos;
+				while (pos < end && !isspace((unsigned char)core_sql[pos])) {
+					pos++;
+				}
+				name_end = core_sql + pos;
+			}
+			prefix = SQLPARSER_INTERNAL_ORACLE_SESSION_PARAM_PREFIX;
+			prefix_len = strlen(prefix);
+			if ((size_t)(name_end - name_start) <= prefix_len ||
+			    strncmp(name_start, prefix, prefix_len) != 0) {
+				return SQLPARSER_STATUS_OK;
+			}
+			pos = sqlparser_oracle_trim_left(core_sql, pos, end);
+			if (!sqlparser_oracle_ascii_word_equal(core_sql, pos, "to")) {
+				return SQLPARSER_STATUS_OK;
+			}
+			pos = sqlparser_oracle_trim_left(core_sql, pos + strlen("to"), end);
+			if (pos >= end) {
+				return SQLPARSER_STATUS_OK;
+			}
+			parameter_name = name_start + prefix_len;
+			parameter_name_len = (size_t)(name_end - parameter_name);
+			value_start = core_sql + pos;
+			is_generic_session_param = 1;
 		}
-		parameter_name = "CONTAINER";
-		value_start = core_sql + start + prefix_len;
 	}
 
 	value_end = core_sql + end;
@@ -1986,17 +2105,23 @@ static sqlparser_status_t sqlparser_oracle_postprocess_session_switch(
 	memset(&out, 0, sizeof(out));
 	status = sqlparser_oracle_buffer_append_cstr(&out, "ALTER SESSION SET ", out_error);
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_oracle_buffer_append_cstr(&out, parameter_name, out_error);
+		status = sqlparser_oracle_buffer_append_mem(&out, parameter_name, parameter_name_len, out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_oracle_buffer_append_cstr(&out, " = ", out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_oracle_buffer_append_session_value(
-			&out,
-			value_start,
-			value_end,
-			out_error);
+		status = is_generic_session_param ?
+			sqlparser_oracle_buffer_append_session_parameter_value(
+				&out,
+				value_start,
+				value_end,
+				out_error) :
+			sqlparser_oracle_buffer_append_session_value(
+				&out,
+				value_start,
+				value_end,
+				out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK && has_service) {
 		status = sqlparser_oracle_buffer_append_cstr(&out, " SERVICE = ", out_error);

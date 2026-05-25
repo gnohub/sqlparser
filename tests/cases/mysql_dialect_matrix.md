@@ -48,6 +48,16 @@
 | M040 | `mysql-select-not-in-question-params` | `NOT IN (?, ?)` | 否定 `IN` 条件中的多个位置参数和字段值关联 |
 | M041 | `mysql-select-not-between-question-params` | `NOT BETWEEN ? AND ?` | 否定 `BETWEEN` 条件中的多个位置参数和字段值关联 |
 | M042 | `mysql-select-not-like-question-param` | `NOT LIKE ?` | 否定 `LIKE` 条件中的位置参数、字段级 operator 和关键字归属 |
+| M043 | `mysql-select-distinct-like-param` | `SELECT DISTINCT ... WHERE ... LIKE ?` | DISTINCT 投影、LIKE 位置参数和字段归属 |
+| M044 | `mysql-select-left-join-alias-star` | `LEFT JOIN` + `alias.*` | 限定星号、JOIN/ON 字段和 WHERE bind |
+| M045 | `mysql-delete-in-question-params` | `DELETE ... WHERE ... IN (?, ?)` | 条件删除、集合参数和字段 operator |
+| M046 | `mysql-update-in-question-params` | `UPDATE ... SET ? WHERE ... IN (?, ?)` | SET bind、WHERE 集合条件和参数序号 |
+| M047 | `mysql-select-derived-table-filter` | 派生表 + 外层过滤 | 内外层 WHERE、派生表 alias 和 bind 归属 |
+| M048 | `mysql-select-json-extract` | `JSON_EXTRACT(...)` | 方言函数投影和 WHERE bind |
+| M049 | `mysql-create-table-if-not-exists` | `CREATE TABLE IF NOT EXISTS ...` | 条件建表和常见列类型 |
+| M050 | `mysql-drop-view-if-exists` | `DROP VIEW IF EXISTS ...` | 视图删除和对象名提取 |
+| M051 | `mysql-select-order-by-ordinal` | `ORDER BY 1` | 数字排序项和投影顺序相关语法 |
+| M052 | `mysql-limit-comma-question-params` | `LIMIT ?, ?` | MySQL 逗号分页中的位置参数，公开 SQL 保持逗号分页形态 |
 
 ## 明确不支持语句
 

@@ -59,6 +59,16 @@
 | D051 | `NOT IN` + 多命名 bind | 否定 `IN` 条件中的多个命名 bind 和字段值关联 |
 | D052 | `NOT BETWEEN` + 多命名 bind | 否定 `BETWEEN` 条件中的多个命名 bind 和字段值关联 |
 | D053 | `NOT LIKE` + 命名 bind | 否定 `LIKE` 条件中的命名 bind、字段级 operator 和关键字归属 |
+| D054 | `DISTINCT` + `LIKE` bind | DISTINCT 投影、LIKE 命名 bind 和字段归属 |
+| D055 | 嵌套函数投影 | `LOWER(UPPER(...))` 的有序 `target_path` |
+| D056 | `DELETE ... IN` + 命名 bind | 条件删除、集合参数和字段 operator |
+| D057 | `UPDATE ... EXISTS` | 子查询条件、相关字段和 SET bind |
+| D058 | 无列名 `INSERT` | 无列名插入、行 cell、命名 bind 和空列名输出 |
+| D059 | `CREATE OR REPLACE VIEW` + JOIN 聚合 | 视图创建、JOIN 条件和 GROUP BY 聚合 |
+| D060 | ROWNUM 嵌套分页真实字段集 | 多字段投影、`a.*`、ROWNUM 条件和分页 bind |
+| D061 | `LEFT JOIN` + `alias.*` | 限定星号、JOIN/ON 字段和 WHERE bind |
+| D062 | `LIMIT/OFFSET` + `?` 参数 | 分页子句中的位置参数 |
+| D063 | `SELECT :bind FROM dual` | DUAL 查询和 SELECT 列表中的命名 bind |
 
 ## 明确不支持用例
 

@@ -1417,21 +1417,38 @@ static sqlparser_status_t sqlparser_mysql_rewrite_use_statements(
 static int sqlparser_mysql_simple_limit_operand(const char *start, const char *end)
 {
 	const char *pos;
-	int has_digit;
 
-	has_digit = 0;
-	for (pos = start; pos < end; pos++) {
-		if (isdigit((unsigned char)*pos)) {
-			has_digit = 1;
-			continue;
-		}
-		if (isspace((unsigned char)*pos)) {
-			continue;
-		}
+	while (start < end && isspace((unsigned char)*start)) {
+		start++;
+	}
+	while (end > start && isspace((unsigned char)*(end - 1))) {
+		end--;
+	}
+	if (start >= end) {
 		return 0;
 	}
 
-	return has_digit;
+	if (*start == '?') {
+		return start + 1 == end;
+	}
+
+	if (*start == '$') {
+		pos = start + 1;
+		if (pos >= end || !isdigit((unsigned char)*pos)) {
+			return 0;
+		}
+		while (pos < end && isdigit((unsigned char)*pos)) {
+			pos++;
+		}
+		return pos == end;
+	}
+
+	pos = start;
+	while (pos < end && isdigit((unsigned char)*pos)) {
+		pos++;
+	}
+
+	return pos == end;
 }
 
 static sqlparser_status_t sqlparser_mysql_rewrite_limit_offset_count(

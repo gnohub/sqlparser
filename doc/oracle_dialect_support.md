@@ -23,7 +23,7 @@ Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范
 - 常见函数与分析函数，例如 `DECODE`、`SYSDATE`、`ROW_NUMBER() OVER (...)`
 - 引号标识符、`ALTER TABLE ADD`、`CREATE INDEX`、`DROP INDEX`
 - 兼容形态的物化视图创建语句
-- 会话上下文切换：`ALTER SESSION SET CURRENT_SCHEMA = ...`、`ALTER SESSION SET CONTAINER = ...`、`ALTER SESSION SET CONTAINER = ... SERVICE = ...`
+- 会话语句：`ALTER SESSION SET CURRENT_SCHEMA = ...`、`ALTER SESSION SET CONTAINER = ...`、`ALTER SESSION SET CONTAINER = ... SERVICE = ...`，以及普通参数赋值，例如 `NLS_DATE_FORMAT`、`NLS_DATE_LANGUAGE`、`NLS_NUMERIC_CHARACTERS`、`INSTANCE`、`ERROR_ON_OVERLAP_TIME`
 - `EXECUTE IMMEDIATE ... USING ...` 动态 SQL 执行语句
 
 ## 明确不支持范围
@@ -39,7 +39,6 @@ Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范
 - `MODEL` clause
 - flashback query
 - `MATCH_RECOGNIZE`
-- 除 `CURRENT_SCHEMA` 和 `CONTAINER/SERVICE` 外的其他 `ALTER SESSION` 参数
 - synonym
 - database link
 - `EXPLAIN PLAN FOR`
