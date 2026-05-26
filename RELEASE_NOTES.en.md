@@ -1,23 +1,22 @@
-# v0.8.0 Release Notes
+# v0.9.0 Release Notes
 
-`v0.8.0` expands executable dialect coverage and adds Oracle ordinary `ALTER SESSION SET` session parameter assignments plus MySQL parameterized `LIMIT ?, ?` pagination.
+`v0.9.0` refines prepared-statement placeholder output in SQL View. Public C structures and JSON View now consistently expose `bind_key`, `bind_kind`, `bind_position`, `bind_sql`, and `bind_selector`.
 
 ## Highlights
 
-- Oracle now supports ordinary `ALTER SESSION SET <parameter> = <value>` session parameter assignments.
-- Oracle coverage now includes `NLS_DATE_FORMAT`, `NLS_DATE_LANGUAGE`, `NLS_NUMERIC_CHARACTERS`, `INSTANCE`, and `ERROR_ON_OVERLAP_TIME`.
-- Oracle public deparse and SQL View output preserve the original parameter/value form and do not expose internal conversion prefixes.
-- MySQL now supports parameterized comma pagination through `LIMIT ?, ?` while preserving the MySQL public deparse form.
-- The existing PostgreSQL, MySQL, Oracle, SQL Server, and Dameng case matrices were expanded.
+- Removed the old `bind` output field in favor of the clearer `bind_key`.
+- `sqlparser_column_view_t` and `sqlparser_cell_view_t` expose structured bind fields directly; JSON is only the on-demand view output.
+- `bind_position` is the one-based bind occurrence in the full input SQL text and does not restart for each statement in multi-statement SQL.
+- Anonymous `?`, explicitly numbered positional binds such as `:1` and `$1`, and named binds such as `:name` and `@name` all expose `bind_kind`, `bind_key`, and `bind_sql`.
+- Placeholder-like text inside PostgreSQL dollar-quoted strings is excluded from global bind counting.
 
 ## Test Coverage
 
-- PostgreSQL executable cases: 95.
-- MySQL executable cases: 67, with 52 supported.
-- Oracle executable cases: 103, with 85 supported.
-- SQL Server executable cases: 95, with 80 supported.
-- Dameng executable cases: 75, with 63 supported.
-- Oracle official syntax coverage now reports 32 `CURRENT` groups and 14 `MODEL_REQUIRED` groups out of 46 syntax groups.
+- PostgreSQL executable cases: 97, with 96 supported.
+- MySQL executable cases: 68, with 53 supported.
+- Oracle executable cases: 104, with 86 supported.
+- SQL Server executable cases: 97, with 82 supported.
+- Dameng executable cases: 76, with 64 supported.
 
 ## Release Validation
 
@@ -25,11 +24,14 @@ This release validation includes:
 
 - `git diff --check`
 - JSON case file validation
-- Linux `make test SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0`
-- Linux Oracle targeted case matrix and CLI deparse / view validation
-- Linux `make verify-asan`
-- Linux `make verify-ubsan`
-- Linux `make verify-valgrind`
+- removed `bind` field residue scan
+- Linux `make clean && make test SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0`
+- Linux targeted CLI validation for multi-statement global bind positions and dollar-quoted string counting
+- Linux `make verify-valgrind SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0`
+- Linux `make verify-asan SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0`
+- Linux `make verify-ubsan SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0`
+- Linux `make abi-check DEBUG=0 SHOW_WARNING=0 SHOW_VENDOR_WARNING=0`
+- Windows VS 2022 x64 + MSVC `nmake /F Makefile.msvc clean && nmake /F Makefile.msvc test`
 
 ## Release Boundary
 

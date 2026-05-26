@@ -91,6 +91,7 @@
 | O084 | `ALTER SESSION SET INSTANCE` | 数字型普通 session 参数 |
 | O085 | `ALTER SESSION SET ERROR_ON_OVERLAP_TIME` | 布尔/枚举型普通 session 参数 |
 | O086 | `ALTER SESSION SET NLS_NUMERIC_CHARACTERS` | 带标点字符串的普通 session 参数 |
+| O087 | 多语句命名 bind | 多语句输入中命名 bind 的 `bind_position` 按整条 SQL 全局递增 |
 
 ## 明确不支持用例
 

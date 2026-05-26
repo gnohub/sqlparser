@@ -106,11 +106,13 @@
 | P089 | `postgresql-create-view-join-aggregate` | JOIN 聚合视图 | 视图定义、JOIN 条件和 GROUP BY 聚合 |
 | P090 | `postgresql-select-order-by-ordinal` | `ORDER BY 1` | 数字排序项和投影顺序相关语法 |
 | P091 | `postgresql-select-quoted-mixed-identifiers` | 双引号混合大小写 / 空格标识符 | 特殊标识符、查询列和 WHERE bind |
+| P092 | `postgresql-dollar-quoted-string-global-bind-position` | dollar-quoted 字符串 + `$n` 参数 | dollar-quoted 字符串内部占位符样式文本不参与 bind 全局计数 |
+| P093 | `postgresql-multi-statement-global-bind-position` | 多语句 `$n` 参数 | 多语句输入中位置参数 `bind_position` 按整条 SQL 全局递增 |
 
 ## 负向用例
 
 | 用例 ID | 用例名称 | 输入 | 验证重点 |
 | --- | --- | --- | --- |
-| P092 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
+| P094 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
 
 新增回归用例必须同步更新 `tests/cases/sql_batch_input.json` 和本矩阵。

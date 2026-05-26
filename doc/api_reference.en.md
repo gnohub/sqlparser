@@ -127,6 +127,22 @@ stores the original SQL, the current syntax tree, and lazily derived results.
 | `SQLPARSER_BIND_KIND_POSITIONAL` | `1` | positional bind, such as `?`, `:1`, or `$1` |
 | `SQLPARSER_BIND_KIND_NAMED` | `2` | named bind, such as `:name` or `@name` |
 
+SQL View describes prepared-statement placeholders through `bind_key`,
+`bind_kind`, `bind_position`, `bind_sql`, and `bind_selector`:
+
+- `bind_key` is interpreted by `bind_kind`; named binds use the name,
+  anonymous `?` uses the global sequence string, and explicitly numbered
+  positional binds such as `:1` or `$1` use the number written in SQL.
+- `bind_position` is the one-based bind occurrence in the full input SQL text;
+  it is `0` when there is no bind.
+- `bind_sql` preserves the original placeholder text, such as `?`, `:1`,
+  `:name`, `$1`, or `@name`.
+- `bind_selector` can be used as a later patch target.
+
+For multi-statement SQL, `bind_position` increases globally across the full
+input SQL text and does not restart per statement, while `bind_key` keeps the
+placeholder key assigned by dialect preprocessing.
+
 `sqlparser_clause_kind_t` is used by SQL View `clauses[]` entries and column
 `clause_id` attribution:
 
@@ -638,6 +654,9 @@ Notes:
 - Column attribution uses only qualified names, aliases, and objects present
   in the SQL statement. It does not read database metadata and does not infer
   unique ownership.
+- `sqlparser_column_view_t` and `sqlparser_cell_view_t` expose `bind_key`,
+  `bind_kind`, `bind_position`, `bind_sql`, and `bind_selector` directly; JSON
+  export is only an on-demand serialization of these structures.
 - Selectors can be used for later patches. If no writable node is available,
   `has_selector` is `0`.
 

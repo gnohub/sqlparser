@@ -126,8 +126,9 @@ Only columns that appear in SQL are reported. An unqualified column is attached 
   "name": "status",
   "keyword": "where",
   "operator": "=",
-  "bind": null,
+  "bind_key": null,
   "bind_kind": 0,
+  "bind_position": 0,
   "bind_sql": null,
   "bind_selector": null,
   "selector": "stmt[0].name[3]",
@@ -149,8 +150,9 @@ Fields:
 | `name` | column name; `SELECT *` is reported as `"*"` |
 | `keyword` | clause where the column appears, such as `select`, `where`, `set`, or `on` |
 | `operator` | related operator, or `null` |
-| `bind` | normalized bind name when the field value is a prepared-statement placeholder, otherwise `null` |
+| `bind_key` | key interpreted by `bind_kind` when the field value is a prepared-statement placeholder; named binds use the name, anonymous `?` uses the global sequence string, and explicitly numbered positional binds such as `:1` or `$1` use the number written in SQL; otherwise `null` |
 | `bind_kind` | bind type enum: `0` means no bind, `1` means positional bind, and `2` means named bind |
+| `bind_position` | one-based bind occurrence in the full input SQL text, or `0` when there is no bind |
 | `bind_sql` | original placeholder text in SQL, such as `"?"`, `":1"`, `":id"`, `"@id"`, or `"$1"`; `null` when there is no bind |
 | `bind_selector` | selector for the bind value expression, otherwise `null` |
 | `selector` | column-name selector, or `null` when not writable |
@@ -165,12 +167,16 @@ Fields:
 bind parameter, or expression with a new SQL fragment.
 
 Prepared-statement placeholders export structured bind fields and keep
-`value: null`. `bind` is the normalized name or position, `bind_kind`
-identifies named versus positional binding, and `bind_sql` preserves the
-placeholder text as it appeared in SQL. Oracle `:1` and JDBC-style `?` are both
-positional binds, but `bind_sql` preserves them as `":1"` and `"?"`, so callers
-can distinguish the source form. Use `bind_selector` to rewrite the bind
-expression.
+`value: null`. `bind_key` is interpreted by `bind_kind`: named binds use the
+name, anonymous `?` uses the global sequence string, and explicitly numbered
+positional binds such as `:1` or `$1` use the number written in SQL.
+`bind_position` is the one-based occurrence of the bind in the full input SQL
+text. For multi-statement SQL, `bind_position` does not restart per statement;
+it increases globally across the input SQL text. `bind_key` keeps the
+placeholder key assigned by dialect preprocessing. Oracle `:1` and JDBC-style
+`?` are both positional binds, but `bind_sql` preserves them as `":1"` and
+`"?"`, so callers can distinguish the source form. Use `bind_selector` to
+rewrite the bind expression.
 
 When one field is associated with multiple condition values, the view exports
 one column entry per value. For example, `status IN (:s1, :s2, :s3)` produces
@@ -219,8 +225,9 @@ Examples:
       "column": "id",
       "column_index": 0,
       "sql": "1",
-      "bind": null,
+      "bind_key": null,
       "bind_kind": 0,
+      "bind_position": 0,
       "bind_sql": null,
       "bind_selector": null,
       "selector": "stmt[0].insert_cell[0][0]"
@@ -229,8 +236,9 @@ Examples:
       "column": "name",
       "column_index": 1,
       "sql": "'bob'",
-      "bind": null,
+      "bind_key": null,
       "bind_kind": 0,
+      "bind_position": 0,
       "bind_sql": null,
       "bind_selector": null,
       "selector": "stmt[0].insert_cell[0][1]"
@@ -402,8 +410,9 @@ Output:
               "name": "id",
               "keyword": "insert",
               "operator": null,
-              "bind": null,
+              "bind_key": null,
               "bind_kind": 0,
+              "bind_position": 0,
               "bind_sql": null,
               "bind_selector": null,
               "selector": "stmt[0].name[0]",
@@ -417,8 +426,9 @@ Output:
               "name": "name",
               "keyword": "insert",
               "operator": null,
-              "bind": null,
+              "bind_key": null,
               "bind_kind": 0,
+              "bind_position": 0,
               "bind_sql": null,
               "bind_selector": null,
               "selector": "stmt[0].name[1]",
@@ -437,8 +447,9 @@ Output:
                   "column": "id",
                   "column_index": 0,
                   "sql": "1",
-                  "bind": null,
+                  "bind_key": null,
                   "bind_kind": 0,
+                  "bind_position": 0,
                   "bind_sql": null,
                   "bind_selector": null,
                   "selector": "stmt[0].insert_cell[0][0]"
@@ -447,8 +458,9 @@ Output:
                   "column": "name",
                   "column_index": 1,
                   "sql": "'xiaohong'",
-                  "bind": null,
+                  "bind_key": null,
                   "bind_kind": 0,
+                  "bind_position": 0,
                   "bind_sql": null,
                   "bind_selector": null,
                   "selector": "stmt[0].insert_cell[0][1]"
@@ -462,8 +474,9 @@ Output:
                   "column": "id",
                   "column_index": 0,
                   "sql": "2",
-                  "bind": null,
+                  "bind_key": null,
                   "bind_kind": 0,
+                  "bind_position": 0,
                   "bind_sql": null,
                   "bind_selector": null,
                   "selector": "stmt[0].insert_cell[1][0]"
@@ -472,8 +485,9 @@ Output:
                   "column": "name",
                   "column_index": 1,
                   "sql": "'xiaoming'",
-                  "bind": null,
+                  "bind_key": null,
                   "bind_kind": 0,
+                  "bind_position": 0,
                   "bind_sql": null,
                   "bind_selector": null,
                   "selector": "stmt[0].insert_cell[1][1]"

@@ -106,11 +106,13 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 | P089 | `postgresql-create-view-join-aggregate` | aggregate JOIN view | view definition, JOIN predicates, and GROUP BY aggregation |
 | P090 | `postgresql-select-order-by-ordinal` | `ORDER BY 1` | ordinal sort item and projection-order related syntax |
 | P091 | `postgresql-select-quoted-mixed-identifiers` | quoted mixed-case / spaced identifiers | special identifiers, selected columns, and WHERE bind |
+| P092 | `postgresql-dollar-quoted-string-global-bind-position` | dollar-quoted string plus `$n` parameters | placeholder-like text inside dollar-quoted strings is excluded from global bind counting |
+| P093 | `postgresql-multi-statement-global-bind-position` | multi-statement `$n` parameters | positional `bind_position` increases globally across the full input SQL |
 
 ## Negative Case
 
 | Case ID | Case Name | Input | Validation Focus |
 | --- | --- | --- | --- |
-| P092 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
+| P094 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
 
 New regression cases must update both `tests/cases/sql_batch_input.json` and this matrix.

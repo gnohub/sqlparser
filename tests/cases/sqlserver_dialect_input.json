@@ -21,7 +21,7 @@
           "id"
         ],
         "deparse_contains": "@id",
-        "view_contains": "\"bind\":\"id\"",
+        "view_contains": "\"bind_key\":\"id\"",
         "view_not_contains": "$1"
       }
     },
@@ -1093,20 +1093,22 @@
             "name": "id",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "id",
             "bind_kind": 2,
             "bind_sql": "@id",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "id",
+            "bind_position": 1
           },
           {
             "table": "dbo.users",
             "name": "status",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "status",
             "bind_kind": 2,
             "bind_sql": "@status",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "status",
+            "bind_position": 2
           }
         ],
         "deparse_contains": "@status",
@@ -1138,30 +1140,33 @@
             "name": "status",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "s1",
             "bind_kind": 2,
             "bind_sql": "@s1",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "s1",
+            "bind_position": 1
           },
           {
             "table": "dbo.users",
             "name": "status",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "s2",
             "bind_kind": 2,
             "bind_sql": "@s2",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "s2",
+            "bind_position": 2
           },
           {
             "table": "dbo.users",
             "name": "status",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "s3",
             "bind_kind": 2,
             "bind_sql": "@s3",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "s3",
+            "bind_position": 3
           }
         ],
         "deparse_contains": "@s3",
@@ -1193,10 +1198,11 @@
             "name": "name",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "pattern",
             "bind_kind": 2,
             "bind_sql": "@pattern",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "pattern",
+            "bind_position": 2
           }
         ],
         "deparse_contains": "TOP (@limit)",
@@ -1227,27 +1233,30 @@
             "row_index": 0,
             "column_index": 0,
             "column": "id",
-            "bind": "id",
             "bind_kind": 2,
-            "bind_sql": "@id"
+            "bind_sql": "@id",
+            "bind_key": "id",
+            "bind_position": 1
           },
           {
             "table": "dbo.users",
             "row_index": 0,
             "column_index": 1,
             "column": "name",
-            "bind": "name",
             "bind_kind": 2,
-            "bind_sql": "@name"
+            "bind_sql": "@name",
+            "bind_key": "name",
+            "bind_position": 2
           },
           {
             "table": "dbo.users",
             "row_index": 0,
             "column_index": 2,
             "column": "status",
-            "bind": "status",
             "bind_kind": 2,
-            "bind_sql": "@status"
+            "bind_sql": "@status",
+            "bind_key": "status",
+            "bind_position": 3
           }
         ],
         "deparse_contains": "@status",
@@ -1277,36 +1286,40 @@
             "row_index": 0,
             "column_index": 0,
             "column": "id",
-            "bind": "1",
             "bind_kind": 1,
-            "bind_sql": "?"
+            "bind_sql": "?",
+            "bind_key": "1",
+            "bind_position": 1
           },
           {
             "table": "dbo.users",
             "row_index": 0,
             "column_index": 1,
             "column": "name",
-            "bind": "2",
             "bind_kind": 1,
-            "bind_sql": "?"
+            "bind_sql": "?",
+            "bind_key": "2",
+            "bind_position": 2
           },
           {
             "table": "dbo.users",
             "row_index": 1,
             "column_index": 0,
             "column": "id",
-            "bind": "3",
             "bind_kind": 1,
-            "bind_sql": "?"
+            "bind_sql": "?",
+            "bind_key": "3",
+            "bind_position": 3
           },
           {
             "table": "dbo.users",
             "row_index": 1,
             "column_index": 1,
             "column": "name",
-            "bind": "4",
             "bind_kind": 1,
-            "bind_sql": "?"
+            "bind_sql": "?",
+            "bind_key": "4",
+            "bind_position": 4
           }
         ],
         "deparse_contains": "?",
@@ -1339,30 +1352,33 @@
             "name": "name",
             "keyword": "set",
             "clause_kind": "set_list",
-            "bind": "1",
             "bind_kind": 1,
             "bind_sql": "?",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "1",
+            "bind_position": 1
           },
           {
             "table": "dbo.users",
             "name": "status",
             "keyword": "set",
             "clause_kind": "set_list",
-            "bind": "2",
             "bind_kind": 1,
             "bind_sql": "?",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "2",
+            "bind_position": 2
           },
           {
             "table": "dbo.users",
             "name": "id",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "3",
             "bind_kind": 1,
             "bind_sql": "?",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "3",
+            "bind_position": 3
           }
         ],
         "deparse_contains": "?",
@@ -1392,20 +1408,22 @@
             "name": "id",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "1",
             "bind_kind": 1,
             "bind_sql": "?",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "1",
+            "bind_position": 1
           },
           {
             "table": "dbo.users",
             "name": "status",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "2",
             "bind_kind": 1,
             "bind_sql": "?",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "2",
+            "bind_position": 2
           }
         ],
         "deparse_contains": "?",
@@ -1488,10 +1506,11 @@
             "name": "id",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "id",
             "bind_kind": 2,
             "bind_sql": "@id",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "id",
+            "bind_position": 2
           },
           {
             "table": "dbo.users",
@@ -1635,20 +1654,22 @@
             "name": "ip",
             "keyword": "set",
             "clause_kind": "set_list",
-            "bind": "aaa",
             "bind_kind": 2,
             "bind_sql": "@aaa",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "aaa",
+            "bind_position": 1
           },
           {
             "table": "dbo.servers",
             "name": "id",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "id",
             "bind_kind": 2,
             "bind_sql": "@id",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "id",
+            "bind_position": 2
           }
         ],
         "view_not_contains": [
@@ -1683,10 +1704,11 @@
             "keyword": "where",
             "clause_kind": "where",
             "operator": "BETWEEN",
-            "bind": "min_age",
             "bind_kind": 2,
             "bind_sql": "@min_age",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "min_age",
+            "bind_position": 1
           },
           {
             "table": "dbo.users",
@@ -1694,10 +1716,11 @@
             "keyword": "where",
             "clause_kind": "where",
             "operator": "BETWEEN",
-            "bind": "max_age",
             "bind_kind": 2,
             "bind_sql": "@max_age",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "max_age",
+            "bind_position": 2
           }
         ],
         "deparse_contains": "@max_age",
@@ -1730,10 +1753,11 @@
             "keyword": "where",
             "clause_kind": "where",
             "operator": "NOT IN",
-            "bind": "s1",
             "bind_kind": 2,
             "bind_sql": "@s1",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "s1",
+            "bind_position": 1
           },
           {
             "table": "dbo.users",
@@ -1741,10 +1765,11 @@
             "keyword": "where",
             "clause_kind": "where",
             "operator": "NOT IN",
-            "bind": "s2",
             "bind_kind": 2,
             "bind_sql": "@s2",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "s2",
+            "bind_position": 2
           }
         ],
         "deparse_contains": "@s2",
@@ -1777,10 +1802,11 @@
             "keyword": "where",
             "clause_kind": "where",
             "operator": "NOT BETWEEN",
-            "bind": "min_age",
             "bind_kind": 2,
             "bind_sql": "@min_age",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "min_age",
+            "bind_position": 1
           },
           {
             "table": "dbo.users",
@@ -1788,10 +1814,11 @@
             "keyword": "where",
             "clause_kind": "where",
             "operator": "NOT BETWEEN",
-            "bind": "max_age",
             "bind_kind": 2,
             "bind_sql": "@max_age",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "max_age",
+            "bind_position": 2
           }
         ],
         "deparse_contains": "@max_age",
@@ -1824,10 +1851,11 @@
             "keyword": "where",
             "clause_kind": "where",
             "operator": "NOT LIKE",
-            "bind": "name_pattern",
             "bind_kind": 2,
             "bind_sql": "@name_pattern",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "name_pattern",
+            "bind_position": 1
           }
         ],
         "keywords": [
@@ -1864,10 +1892,11 @@
             "keyword": "where",
             "clause_kind": "where",
             "operator": "LIKE",
-            "bind": "name",
             "bind_kind": 2,
             "bind_sql": "@name",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "name",
+            "bind_position": 1
           }
         ],
         "deparse_contains": "@name",
@@ -1946,18 +1975,20 @@
             "row_index": 0,
             "column_index": 0,
             "column": null,
-            "bind": "1",
             "bind_kind": 1,
-            "bind_sql": "?"
+            "bind_sql": "?",
+            "bind_key": "1",
+            "bind_position": 1
           },
           {
             "table": "dbo.users",
             "row_index": 0,
             "column_index": 2,
             "column": null,
-            "bind": "3",
             "bind_kind": 1,
-            "bind_sql": "?"
+            "bind_sql": "?",
+            "bind_key": "3",
+            "bind_position": 3
           }
         ],
         "deparse_contains": "VALUES (?, ?, ?)"
@@ -2099,6 +2130,113 @@
           "user_id"
         ],
         "deparse_contains": "CREATE VIEW dbo.v_user_orders AS"
+      }
+    },
+    {
+      "id": "S081",
+      "name": "sqlserver-top-question-bind-order",
+      "sql": "SELECT TOP (?) [id] FROM [dbo].[users] WHERE [name] LIKE ? ORDER BY [id]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "columns": [
+          {
+            "table": "dbo.users",
+            "name": "id",
+            "keyword": "select",
+            "clause_kind": "select_list"
+          },
+          {
+            "table": "dbo.users",
+            "name": "name",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true,
+            "bind_key": "2",
+            "bind_position": 2
+          },
+          {
+            "table": "dbo.users",
+            "name": "id",
+            "keyword": "order",
+            "clause_kind": "order_by"
+          }
+        ],
+        "deparse_contains": "TOP (?)",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S082",
+      "name": "sqlserver-multi-statement-global-bind-position",
+      "sql": "UPDATE [dbo].[users] SET [a] = ? WHERE [b] = ?; UPDATE [dbo].[users] SET [c] = ? WHERE [d] = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": [
+          "UpdateStmt",
+          "UpdateStmt"
+        ],
+        "tables": [
+          "dbo.users"
+        ],
+        "columns": [
+          {
+            "table": "dbo.users",
+            "name": "a",
+            "keyword": "set",
+            "clause_kind": "set_list",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true,
+            "bind_key": "1",
+            "bind_position": 1
+          },
+          {
+            "table": "dbo.users",
+            "name": "b",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true,
+            "bind_key": "2",
+            "bind_position": 2
+          },
+          {
+            "statement_index": 1,
+            "table": "dbo.users",
+            "name": "c",
+            "keyword": "set",
+            "clause_kind": "set_list",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true,
+            "bind_key": "3",
+            "bind_position": 3
+          },
+          {
+            "statement_index": 1,
+            "table": "dbo.users",
+            "name": "d",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind_kind": 1,
+            "bind_sql": "?",
+            "value_is_null": true,
+            "bind_key": "4",
+            "bind_position": 4
+          }
+        ],
+        "view_not_contains": "$1"
       }
     },
     {

@@ -1,6 +1,14 @@
 # 变更记录
 
-## 未发布
+## 0.9.0
+
+### SQL View
+
+- 将预编译占位符输出从 `bind` 收敛为 `bind_key`，并新增 `bind_position` 表示整条输入 SQL 中的 bind 出现序号
+- `sqlparser_column_view_t` 和 `sqlparser_cell_view_t` 同步暴露 `bind_key`、`bind_position` 与对应截断标记，并移除旧字段
+- SQL View JSON、C 结构遍历和 case matrix 统一校验 `bind_key`、`bind_kind`、`bind_position`、`bind_sql` 与 `bind_selector`
+- 多语句 SQL 中 `bind_position` 按整条输入 SQL 全局递增，`bind_key` 保留方言预处理后的占位符 key
+- PostgreSQL dollar-quoted 字符串内部的占位符样式文本不会参与 bind 全局计数
 
 ## 0.8.0
 

@@ -58,6 +58,7 @@ This file records regression cases for the MySQL dialect conversion layer. `test
 | M050 | `mysql-drop-view-if-exists` | `DROP VIEW IF EXISTS ...` | view drop and object-name extraction |
 | M051 | `mysql-select-order-by-ordinal` | `ORDER BY 1` | ordinal sort item and projection-order related syntax |
 | M052 | `mysql-limit-comma-question-params` | `LIMIT ?, ?` | positional parameters in MySQL comma-limit syntax, with public SQL preserved in comma-limit form |
+| M053 | `mysql-multi-statement-global-bind-position` | multi-statement `UPDATE ... ?` | positional `bind_position` increases globally across the full input SQL |
 
 ## Explicitly Unsupported Statements
 

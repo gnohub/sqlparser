@@ -58,6 +58,7 @@
 | M050 | `mysql-drop-view-if-exists` | `DROP VIEW IF EXISTS ...` | 视图删除和对象名提取 |
 | M051 | `mysql-select-order-by-ordinal` | `ORDER BY 1` | 数字排序项和投影顺序相关语法 |
 | M052 | `mysql-limit-comma-question-params` | `LIMIT ?, ?` | MySQL 逗号分页中的位置参数，公开 SQL 保持逗号分页形态 |
+| M053 | `mysql-multi-statement-global-bind-position` | 多语句 `UPDATE ... ?` | 多语句输入中位置参数 `bind_position` 按整条 SQL 全局递增 |
 
 ## 明确不支持语句
 

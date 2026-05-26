@@ -4,7 +4,7 @@
 #   nmake /F Makefile.msvc test
 
 LIB_NAME = sqlparser
-VERSION_STRING = 0.8.0
+VERSION_STRING = 0.9.0
 LIBPG_QUERY_TAG = 17-6.2.2
 
 BUILD_DIR = build\msvc

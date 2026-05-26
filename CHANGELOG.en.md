@@ -1,6 +1,21 @@
 # Changelog
 
-## Unreleased
+## 0.9.0
+
+### SQL View
+
+- Replaced the prepared-statement placeholder output field `bind` with
+  `bind_key`, and added `bind_position` for the bind occurrence number inside
+  the full input SQL text
+- Updated `sqlparser_column_view_t` and `sqlparser_cell_view_t` to expose
+  `bind_key`, `bind_position`, and the corresponding truncation flag, and
+  removed the old field
+- Unified SQL View JSON, C structured traversal, and case matrix checks around
+  `bind_key`, `bind_kind`, `bind_position`, `bind_sql`, and `bind_selector`
+- `bind_position` now increases globally across the full input SQL text, while
+  `bind_key` keeps the placeholder key assigned by dialect preprocessing
+- Placeholder-like text inside PostgreSQL dollar-quoted strings is excluded
+  from global bind counting
 
 ## 0.8.0
 

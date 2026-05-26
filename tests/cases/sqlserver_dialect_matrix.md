@@ -86,6 +86,8 @@
 | S078 | `OFFSET/FETCH` + `@` 参数 | 分页子句中的命名参数 |
 | S079 | `LEFT JOIN` + `alias.*` | 限定星号、JOIN/ON 字段和 WHERE 参数 |
 | S080 | `CREATE VIEW` + JOIN 聚合 | 视图创建、JOIN 条件和 GROUP BY 聚合 |
+| S081 | `TOP (?)` + WHERE `?` | `TOP` 中的位置参数计入全局 bind 序号 |
+| S082 | 多语句 `?` 参数 | 多语句输入中位置参数 `bind_position` 按整条 SQL 全局递增 |
 
 ## 明确不支持用例
 

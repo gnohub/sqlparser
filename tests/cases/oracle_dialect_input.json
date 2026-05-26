@@ -137,7 +137,7 @@
           "status"
         ],
         "deparse_contains": ":status",
-        "view_contains": "\"bind\":\"status\"",
+        "view_contains": "\"bind_key\":\"status\"",
         "view_not_contains": "$1"
       }
     },
@@ -916,27 +916,30 @@
             "row_index": 0,
             "column_index": 0,
             "column": "username",
-            "bind": "1",
             "bind_kind": 1,
-            "bind_sql": "?"
+            "bind_sql": "?",
+            "bind_key": "1",
+            "bind_position": 1
           },
           {
             "table": "users",
             "row_index": 0,
             "column_index": 1,
             "column": "email",
-            "bind": "2",
             "bind_kind": 1,
-            "bind_sql": "?"
+            "bind_sql": "?",
+            "bind_key": "2",
+            "bind_position": 2
           },
           {
             "table": "users",
             "row_index": 0,
             "column_index": 2,
             "column": "age",
-            "bind": "3",
             "bind_kind": 1,
-            "bind_sql": "?"
+            "bind_sql": "?",
+            "bind_key": "3",
+            "bind_position": 3
           }
         ],
         "deparse_contains": "VALUES (?, ?, ?)",
@@ -969,20 +972,22 @@
             "name": "email",
             "keyword": "set",
             "clause_kind": "set_list",
-            "bind": "1",
             "bind_kind": 1,
             "bind_sql": "?",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "1",
+            "bind_position": 1
           },
           {
             "table": "users",
             "name": "username",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "2",
             "bind_kind": 1,
             "bind_sql": "?",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "2",
+            "bind_position": 2
           }
         ],
         "deparse_contains": "email = ?",
@@ -1034,20 +1039,22 @@
             "name": "id",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "id",
             "bind_kind": 2,
             "bind_sql": ":id",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "id",
+            "bind_position": 1
           },
           {
             "table": "users",
             "name": "status",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "status",
             "bind_kind": 2,
             "bind_sql": ":status",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "status",
+            "bind_position": 2
           }
         ],
         "deparse_contains": ":status",
@@ -1079,30 +1086,33 @@
             "name": "status",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "status1",
             "bind_kind": 2,
             "bind_sql": ":status1",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "status1",
+            "bind_position": 1
           },
           {
             "table": "users",
             "name": "status",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "status2",
             "bind_kind": 2,
             "bind_sql": ":status2",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "status2",
+            "bind_position": 2
           },
           {
             "table": "users",
             "name": "status",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "status3",
             "bind_kind": 2,
             "bind_sql": ":status3",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "status3",
+            "bind_position": 3
           }
         ],
         "deparse_contains": ":status3",
@@ -1134,10 +1144,11 @@
             "name": "name",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "pattern",
             "bind_kind": 2,
             "bind_sql": ":pattern",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "pattern",
+            "bind_position": 1
           }
         ],
         "deparse_contains": ":limit",
@@ -1168,27 +1179,30 @@
             "row_index": 0,
             "column_index": 0,
             "column": "id",
-            "bind": "id",
             "bind_kind": 2,
-            "bind_sql": ":id"
+            "bind_sql": ":id",
+            "bind_key": "id",
+            "bind_position": 1
           },
           {
             "table": "users",
             "row_index": 0,
             "column_index": 1,
             "column": "name",
-            "bind": "name",
             "bind_kind": 2,
-            "bind_sql": ":name"
+            "bind_sql": ":name",
+            "bind_key": "name",
+            "bind_position": 2
           },
           {
             "table": "users",
             "row_index": 0,
             "column_index": 2,
             "column": "status",
-            "bind": "status",
             "bind_kind": 2,
-            "bind_sql": ":status"
+            "bind_sql": ":status",
+            "bind_key": "status",
+            "bind_position": 3
           }
         ],
         "deparse_contains": ":status",
@@ -1221,30 +1235,33 @@
             "name": "name",
             "keyword": "set",
             "clause_kind": "set_list",
-            "bind": "name",
             "bind_kind": 2,
             "bind_sql": ":name",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "name",
+            "bind_position": 1
           },
           {
             "table": "users",
             "name": "status",
             "keyword": "set",
             "clause_kind": "set_list",
-            "bind": "status",
             "bind_kind": 2,
             "bind_sql": ":status",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "status",
+            "bind_position": 2
           },
           {
             "table": "users",
             "name": "id",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "id",
             "bind_kind": 2,
             "bind_sql": ":id",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "id",
+            "bind_position": 3
           }
         ],
         "deparse_contains": ":status",
@@ -1274,20 +1291,22 @@
             "name": "id",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "id",
             "bind_kind": 2,
             "bind_sql": ":id",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "id",
+            "bind_position": 1
           },
           {
             "table": "users",
             "name": "status",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "status",
             "bind_kind": 2,
             "bind_sql": ":status",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "status",
+            "bind_position": 2
           }
         ],
         "deparse_contains": ":status",
@@ -1320,20 +1339,22 @@
             "name": "id",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "1",
             "bind_kind": 1,
             "bind_sql": ":1",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "1",
+            "bind_position": 1
           },
           {
             "table": "users",
             "name": "status",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "2",
             "bind_kind": 1,
             "bind_sql": ":2",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "2",
+            "bind_position": 2
           }
         ],
         "deparse_contains": ":2",
@@ -1364,27 +1385,30 @@
             "row_index": 0,
             "column_index": 0,
             "column": "id",
-            "bind": "1",
             "bind_kind": 1,
-            "bind_sql": "?"
+            "bind_sql": "?",
+            "bind_key": "1",
+            "bind_position": 1
           },
           {
             "table": "users",
             "row_index": 0,
             "column_index": 1,
             "column": "name",
-            "bind": "2",
             "bind_kind": 1,
-            "bind_sql": "?"
+            "bind_sql": "?",
+            "bind_key": "2",
+            "bind_position": 2
           },
           {
             "table": "users",
             "row_index": 0,
             "column_index": 2,
             "column": "status",
-            "bind": "3",
             "bind_kind": 1,
-            "bind_sql": "?"
+            "bind_sql": "?",
+            "bind_key": "3",
+            "bind_position": 3
           }
         ],
         "deparse_contains": "VALUES (?, ?, ?)",
@@ -1414,20 +1438,22 @@
             "name": "id",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "1",
             "bind_kind": 1,
             "bind_sql": "?",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "1",
+            "bind_position": 1
           },
           {
             "table": "users",
             "name": "status",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "2",
             "bind_kind": 1,
             "bind_sql": "?",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "2",
+            "bind_position": 2
           }
         ],
         "deparse_contains": "?",
@@ -1476,7 +1502,7 @@
           "rn"
         ],
         "deparse_contains": ":startRow",
-        "view_contains": "\"bind\":\"endRow\"",
+        "view_contains": "\"bind_key\":\"endRow\"",
         "view_not_contains": "\"sql\":\":endRow\""
       }
     },
@@ -1530,10 +1556,11 @@
             "name": "employee_id",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "employee_id",
             "bind_kind": 2,
             "bind_sql": ":employee_id",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "employee_id",
+            "bind_position": 1
           }
         ],
         "view_not_contains": [
@@ -1634,20 +1661,22 @@
             "name": "ip",
             "keyword": "set",
             "clause_kind": "set_list",
-            "bind": "aaa",
             "bind_kind": 2,
             "bind_sql": ":aaa",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "aaa",
+            "bind_position": 1
           },
           {
             "table": "servers",
             "name": "id",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "id",
             "bind_kind": 2,
             "bind_sql": ":id",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "id",
+            "bind_position": 2
           }
         ],
         "view_not_contains": [
@@ -1678,10 +1707,10 @@
           }
         ],
         "view_contains": [
-          "\"bind\":\"endRow\"",
+          "\"bind_key\":\"endRow\"",
           "\"bind_kind\":2",
           "\"bind_sql\":\":endRow\"",
-          "\"bind\":\"startRow\"",
+          "\"bind_key\":\"startRow\"",
           "\"bind_sql\":\":startRow\"",
           "\"name\":\"UID\""
         ],
@@ -1710,20 +1739,22 @@
             "name": "abc",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "1",
             "bind_kind": 1,
             "bind_sql": ":1",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "1",
+            "bind_position": 1
           },
           {
             "table": "table1",
             "name": "def",
             "keyword": "where",
             "clause_kind": "where",
-            "bind": "2",
             "bind_kind": 1,
             "bind_sql": "?",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "2",
+            "bind_position": 2
           }
         ],
         "view_contains": [
@@ -1762,10 +1793,11 @@
             "keyword": "where",
             "clause_kind": "where",
             "operator": "BETWEEN",
-            "bind": "min_age",
             "bind_kind": 2,
             "bind_sql": ":min_age",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "min_age",
+            "bind_position": 1
           },
           {
             "table": "users",
@@ -1773,10 +1805,11 @@
             "keyword": "where",
             "clause_kind": "where",
             "operator": "BETWEEN",
-            "bind": "max_age",
             "bind_kind": 2,
             "bind_sql": ":max_age",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "max_age",
+            "bind_position": 2
           }
         ],
         "deparse_contains": ":max_age",
@@ -1809,10 +1842,11 @@
             "keyword": "where",
             "clause_kind": "where",
             "operator": "NOT IN",
-            "bind": "status1",
             "bind_kind": 2,
             "bind_sql": ":status1",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "status1",
+            "bind_position": 1
           },
           {
             "table": "users",
@@ -1820,10 +1854,11 @@
             "keyword": "where",
             "clause_kind": "where",
             "operator": "NOT IN",
-            "bind": "status2",
             "bind_kind": 2,
             "bind_sql": ":status2",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "status2",
+            "bind_position": 2
           }
         ],
         "deparse_contains": ":status2",
@@ -1856,10 +1891,11 @@
             "keyword": "where",
             "clause_kind": "where",
             "operator": "NOT BETWEEN",
-            "bind": "min_age",
             "bind_kind": 2,
             "bind_sql": ":min_age",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "min_age",
+            "bind_position": 1
           },
           {
             "table": "users",
@@ -1867,10 +1903,11 @@
             "keyword": "where",
             "clause_kind": "where",
             "operator": "NOT BETWEEN",
-            "bind": "max_age",
             "bind_kind": 2,
             "bind_sql": ":max_age",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "max_age",
+            "bind_position": 2
           }
         ],
         "deparse_contains": ":max_age",
@@ -1903,10 +1940,11 @@
             "keyword": "where",
             "clause_kind": "where",
             "operator": "NOT LIKE",
-            "bind": "name_pattern",
             "bind_kind": 2,
             "bind_sql": ":name_pattern",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "name_pattern",
+            "bind_position": 1
           }
         ],
         "keywords": [
@@ -1943,10 +1981,11 @@
             "keyword": "where",
             "clause_kind": "where",
             "operator": "LIKE",
-            "bind": "name",
             "bind_kind": 2,
             "bind_sql": ":name",
-            "value_is_null": true
+            "value_is_null": true,
+            "bind_key": "name",
+            "bind_position": 1
           }
         ],
         "deparse_contains": ":name",
@@ -2064,18 +2103,20 @@
             "row_index": 0,
             "column_index": 0,
             "column": null,
-            "bind": "id",
             "bind_kind": 2,
-            "bind_sql": ":id"
+            "bind_sql": ":id",
+            "bind_key": "id",
+            "bind_position": 1
           },
           {
             "table": "users",
             "row_index": 0,
             "column_index": 2,
             "column": null,
-            "bind": "age",
             "bind_kind": 2,
-            "bind_sql": ":age"
+            "bind_sql": ":age",
+            "bind_key": "age",
+            "bind_position": 3
           }
         ],
         "deparse_contains": "VALUES (:id, :name, :age)"
@@ -2411,6 +2452,70 @@
         ],
         "deparse_contains": "ALTER SESSION SET NLS_NUMERIC_CHARACTERS = '.,'",
         "view_contains": "\"name\":\"NLS_NUMERIC_CHARACTERS\""
+      }
+    },
+    {
+      "id": "O087",
+      "name": "oracle-multi-statement-global-bind-position",
+      "sql": "UPDATE users SET a = :same WHERE b = :b; UPDATE users SET c = :same WHERE d = :d",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": [
+          "UpdateStmt",
+          "UpdateStmt"
+        ],
+        "tables": [
+          "users"
+        ],
+        "columns": [
+          {
+            "table": "users",
+            "name": "a",
+            "keyword": "set",
+            "clause_kind": "set_list",
+            "bind_kind": 2,
+            "bind_sql": ":same",
+            "value_is_null": true,
+            "bind_key": "same",
+            "bind_position": 1
+          },
+          {
+            "table": "users",
+            "name": "b",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind_kind": 2,
+            "bind_sql": ":b",
+            "value_is_null": true,
+            "bind_key": "b",
+            "bind_position": 2
+          },
+          {
+            "statement_index": 1,
+            "table": "users",
+            "name": "c",
+            "keyword": "set",
+            "clause_kind": "set_list",
+            "bind_kind": 2,
+            "bind_sql": ":same",
+            "value_is_null": true,
+            "bind_key": "same",
+            "bind_position": 3
+          },
+          {
+            "statement_index": 1,
+            "table": "users",
+            "name": "d",
+            "keyword": "where",
+            "clause_kind": "where",
+            "bind_kind": 2,
+            "bind_sql": ":d",
+            "value_is_null": true,
+            "bind_key": "d",
+            "bind_position": 4
+          }
+        ]
       }
     },
     {

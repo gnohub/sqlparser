@@ -346,7 +346,7 @@ static json_t *sqlparser_test_find_expected_column(json_t *statement, json_t *ex
 	const char *expected_table;
 	const char *expected_name;
 	const char *expected_keyword;
-	const char *expected_bind;
+	const char *expected_bind_key;
 
 	if (!json_is_object(statement) || !json_is_object(expected_column)) {
 		return NULL;
@@ -354,7 +354,7 @@ static json_t *sqlparser_test_find_expected_column(json_t *statement, json_t *ex
 	expected_table = sqlparser_test_string_value(json_object_get(expected_column, "table"));
 	expected_name = sqlparser_test_string_value(json_object_get(expected_column, "name"));
 	expected_keyword = sqlparser_test_string_value(json_object_get(expected_column, "keyword"));
-	expected_bind = sqlparser_test_string_value(json_object_get(expected_column, "bind"));
+	expected_bind_key = sqlparser_test_string_value(json_object_get(expected_column, "bind_key"));
 	objects = json_object_get(statement, "objects");
 	json_array_foreach(objects, object_index, object) {
 		json_t *columns;
@@ -372,7 +372,7 @@ static json_t *sqlparser_test_find_expected_column(json_t *statement, json_t *ex
 			if (expected_keyword != NULL && !sqlparser_test_json_string_equals(column, "keyword", expected_keyword)) {
 				continue;
 			}
-			if (expected_bind != NULL && !sqlparser_test_json_string_equals(column, "bind", expected_bind)) {
+			if (expected_bind_key != NULL && !sqlparser_test_json_string_equals(column, "bind_key", expected_bind_key)) {
 				continue;
 			}
 			return column;
@@ -395,12 +395,13 @@ static int sqlparser_test_cell_matches_expected(
 	}
 	if (!sqlparser_test_json_expected_string_or_null_matches(cell, "column", json_object_get(expected_cell, "column")) ||
 	    !sqlparser_test_json_expected_string_or_null_matches(cell, "sql", json_object_get(expected_cell, "sql")) ||
-	    !sqlparser_test_json_expected_string_or_null_matches(cell, "bind", json_object_get(expected_cell, "bind")) ||
+	    !sqlparser_test_json_expected_string_or_null_matches(cell, "bind_key", json_object_get(expected_cell, "bind_key")) ||
 	    !sqlparser_test_json_expected_string_or_null_matches(cell, "bind_sql", json_object_get(expected_cell, "bind_sql")) ||
 	    !sqlparser_test_json_expected_string_or_null_matches(cell, "bind_selector", json_object_get(expected_cell, "bind_selector"))) {
 		return 0;
 	}
-	if (!sqlparser_test_json_expected_integer_matches(cell, "bind_kind", json_object_get(expected_cell, "bind_kind"))) {
+	if (!sqlparser_test_json_expected_integer_matches(cell, "bind_kind", json_object_get(expected_cell, "bind_kind")) ||
+	    !sqlparser_test_json_expected_integer_matches(cell, "bind_position", json_object_get(expected_cell, "bind_position"))) {
 		return 0;
 	}
 	return 1;
@@ -590,15 +591,21 @@ static int sqlparser_test_verify_expected_column(
 	if (expected != NULL && !sqlparser_test_json_string_equals(column, "operator", expected)) {
 		return sqlparser_test_fail_case_field(case_id, case_name, "operator", expected);
 	}
-	expected = sqlparser_test_string_value(json_object_get(expected_column, "bind"));
-	if (expected != NULL && !sqlparser_test_json_string_equals(column, "bind", expected)) {
-		return sqlparser_test_fail_case_field(case_id, case_name, "bind", expected);
+	expected = sqlparser_test_string_value(json_object_get(expected_column, "bind_key"));
+	if (expected != NULL && !sqlparser_test_json_string_equals(column, "bind_key", expected)) {
+		return sqlparser_test_fail_case_field(case_id, case_name, "bind_key", expected);
 	}
 	value = json_object_get(expected_column, "bind_kind");
 	if (value != NULL &&
 	    (!json_is_integer(value) ||
 	     !sqlparser_test_json_integer_equals(column, "bind_kind", json_integer_value(value)))) {
 		return sqlparser_test_fail_case(case_id, case_name, "bind_kind mismatch");
+	}
+	value = json_object_get(expected_column, "bind_position");
+	if (value != NULL &&
+	    (!json_is_integer(value) ||
+	     !sqlparser_test_json_integer_equals(column, "bind_position", json_integer_value(value)))) {
+		return sqlparser_test_fail_case(case_id, case_name, "bind_position mismatch");
 	}
 	expected = sqlparser_test_string_value(json_object_get(expected_column, "bind_sql"));
 	if (expected != NULL && !sqlparser_test_json_string_equals(column, "bind_sql", expected)) {
@@ -626,21 +633,27 @@ static int sqlparser_test_verify_expected_cell(
 	}
 	cell = sqlparser_test_find_expected_cell(statement, expected_cell);
 	if (cell == NULL) {
-		expected = sqlparser_test_string_value(json_object_get(expected_cell, "bind"));
+		expected = sqlparser_test_string_value(json_object_get(expected_cell, "bind_key"));
 		if (expected == NULL) {
 			expected = sqlparser_test_string_value(json_object_get(expected_cell, "sql"));
 		}
 		return sqlparser_test_fail_case_field(case_id, case_name, "cells", expected);
 	}
-	expected = sqlparser_test_string_value(json_object_get(expected_cell, "bind"));
-	if (expected != NULL && !sqlparser_test_json_string_equals(cell, "bind", expected)) {
-		return sqlparser_test_fail_case_field(case_id, case_name, "cell bind", expected);
+	expected = sqlparser_test_string_value(json_object_get(expected_cell, "bind_key"));
+	if (expected != NULL && !sqlparser_test_json_string_equals(cell, "bind_key", expected)) {
+		return sqlparser_test_fail_case_field(case_id, case_name, "cell bind_key", expected);
 	}
 	value = json_object_get(expected_cell, "bind_kind");
 	if (value != NULL &&
 	    (!json_is_integer(value) ||
 	     !sqlparser_test_json_integer_equals(cell, "bind_kind", json_integer_value(value)))) {
 		return sqlparser_test_fail_case(case_id, case_name, "cell bind_kind mismatch");
+	}
+	value = json_object_get(expected_cell, "bind_position");
+	if (value != NULL &&
+	    (!json_is_integer(value) ||
+	     !sqlparser_test_json_integer_equals(cell, "bind_position", json_integer_value(value)))) {
+		return sqlparser_test_fail_case(case_id, case_name, "cell bind_position mismatch");
 	}
 	expected = sqlparser_test_string_value(json_object_get(expected_cell, "bind_sql"));
 	if (expected != NULL && !sqlparser_test_json_string_equals(cell, "bind_sql", expected)) {
@@ -657,21 +670,33 @@ static int sqlparser_test_verify_actual_column_shape(
 	if (!json_is_array(json_object_get(column, "target_path"))) {
 		return sqlparser_test_fail_case(case_id, case_name, "column target_path must be an array");
 	}
-	if (!sqlparser_test_json_string_or_null_field(column, "bind") ||
+	if (!sqlparser_test_json_string_or_null_field(column, "bind_key") ||
 	    !json_is_integer(json_object_get(column, "bind_kind")) ||
+	    !json_is_integer(json_object_get(column, "bind_position")) ||
 	    !sqlparser_test_json_string_or_null_field(column, "bind_sql") ||
 	    !sqlparser_test_json_string_or_null_field(column, "bind_selector")) {
 		return sqlparser_test_fail_case(case_id, case_name, "column bind fields have invalid shape");
 	}
-	if (json_is_null(json_object_get(column, "bind")) &&
+	if (json_object_get(column, "bind") != NULL) {
+		return sqlparser_test_fail_case(case_id, case_name, "column contains removed bind field");
+	}
+	if (json_is_null(json_object_get(column, "bind_key")) &&
 	    !sqlparser_test_json_integer_equals(column, "bind_kind", 0)) {
 		return sqlparser_test_fail_case(case_id, case_name, "non-bind column bind_kind should be 0");
 	}
-	if (!json_is_null(json_object_get(column, "bind")) &&
+	if (json_is_null(json_object_get(column, "bind_key")) &&
+	    !sqlparser_test_json_integer_equals(column, "bind_position", 0)) {
+		return sqlparser_test_fail_case(case_id, case_name, "non-bind column bind_position should be 0");
+	}
+	if (!json_is_null(json_object_get(column, "bind_key")) &&
 	    json_integer_value(json_object_get(column, "bind_kind")) == 0) {
 		return sqlparser_test_fail_case(case_id, case_name, "bind column bind_kind should not be 0");
 	}
-	if (json_is_null(json_object_get(column, "bind")) &&
+	if (!json_is_null(json_object_get(column, "bind_key")) &&
+	    json_integer_value(json_object_get(column, "bind_position")) <= 0) {
+		return sqlparser_test_fail_case(case_id, case_name, "bind column bind_position should be positive");
+	}
+	if (json_is_null(json_object_get(column, "bind_key")) &&
 	    !json_is_null(json_object_get(column, "bind_sql"))) {
 		return sqlparser_test_fail_case(case_id, case_name, "non-bind column bind_sql should be null");
 	}
@@ -688,21 +713,33 @@ static int sqlparser_test_verify_actual_cell_shape(
 	const char *case_name,
 	json_t *cell)
 {
-	if (!sqlparser_test_json_string_or_null_field(cell, "bind") ||
+	if (!sqlparser_test_json_string_or_null_field(cell, "bind_key") ||
 	    !json_is_integer(json_object_get(cell, "bind_kind")) ||
+	    !json_is_integer(json_object_get(cell, "bind_position")) ||
 	    !sqlparser_test_json_string_or_null_field(cell, "bind_sql") ||
 	    !sqlparser_test_json_string_or_null_field(cell, "bind_selector")) {
 		return sqlparser_test_fail_case(case_id, case_name, "cell bind fields have invalid shape");
 	}
-	if (json_is_null(json_object_get(cell, "bind")) &&
+	if (json_object_get(cell, "bind") != NULL) {
+		return sqlparser_test_fail_case(case_id, case_name, "cell contains removed bind field");
+	}
+	if (json_is_null(json_object_get(cell, "bind_key")) &&
 	    !sqlparser_test_json_integer_equals(cell, "bind_kind", 0)) {
 		return sqlparser_test_fail_case(case_id, case_name, "non-bind cell bind_kind should be 0");
 	}
-	if (!json_is_null(json_object_get(cell, "bind")) &&
+	if (json_is_null(json_object_get(cell, "bind_key")) &&
+	    !sqlparser_test_json_integer_equals(cell, "bind_position", 0)) {
+		return sqlparser_test_fail_case(case_id, case_name, "non-bind cell bind_position should be 0");
+	}
+	if (!json_is_null(json_object_get(cell, "bind_key")) &&
 	    json_integer_value(json_object_get(cell, "bind_kind")) == 0) {
 		return sqlparser_test_fail_case(case_id, case_name, "bind cell bind_kind should not be 0");
 	}
-	if (json_is_null(json_object_get(cell, "bind")) &&
+	if (!json_is_null(json_object_get(cell, "bind_key")) &&
+	    json_integer_value(json_object_get(cell, "bind_position")) <= 0) {
+		return sqlparser_test_fail_case(case_id, case_name, "bind cell bind_position should be positive");
+	}
+	if (json_is_null(json_object_get(cell, "bind_key")) &&
 	    !json_is_null(json_object_get(cell, "bind_sql"))) {
 		return sqlparser_test_fail_case(case_id, case_name, "non-bind cell bind_sql should be null");
 	}
@@ -795,27 +832,58 @@ static int sqlparser_test_verify_expected_clause(
 	return 0;
 }
 
+static json_t *sqlparser_test_statement_for_expectation(json_t *statements, json_t *expect_item)
+{
+	json_t *value;
+	json_int_t index;
+
+	if (!json_is_array(statements)) {
+		return NULL;
+	}
+	index = 0;
+	value = json_is_object(expect_item) ? json_object_get(expect_item, "statement_index") : NULL;
+	if (value != NULL) {
+		if (!json_is_integer(value) || json_integer_value(value) < 0) {
+			return NULL;
+		}
+		index = json_integer_value(value);
+	}
+	return json_array_get(statements, (size_t)index);
+}
+
 static int sqlparser_test_verify_statement_semantics(
 	const char *case_id,
 	const char *case_name,
-	json_t *statement,
+	json_t *statements,
 	json_t *expect_root)
 {
+	json_t *statement;
 	json_t *items;
 	json_t *item;
 	size_t index;
 
-	if (sqlparser_test_verify_actual_columns_shape(case_id, case_name, statement) != 0) {
-		return 1;
+	if (!json_is_array(statements)) {
+		return sqlparser_test_fail_case(case_id, case_name, "view JSON statements should be an array");
 	}
+	json_array_foreach(statements, index, statement) {
+		size_t clause_index;
+		json_t *clause;
 
-	items = json_object_get(statement, "clauses");
-	if (items != NULL) {
+		if (!json_is_object(statement)) {
+			return sqlparser_test_fail_case(case_id, case_name, "view JSON statement should exist");
+		}
+		if (sqlparser_test_verify_actual_columns_shape(case_id, case_name, statement) != 0) {
+			return 1;
+		}
+		items = json_object_get(statement, "clauses");
+		if (items == NULL) {
+			continue;
+		}
 		if (!json_is_array(items)) {
 			return sqlparser_test_fail_case(case_id, case_name, "statement clauses must be an array");
 		}
-		json_array_foreach(items, index, item) {
-			if (!sqlparser_test_json_integer_equals(item, "id", (json_int_t)index + 1)) {
+		json_array_foreach(items, clause_index, clause) {
+			if (!sqlparser_test_json_integer_equals(clause, "id", (json_int_t)clause_index + 1)) {
 				return sqlparser_test_fail_case(case_id, case_name, "clause id mismatch");
 			}
 		}
@@ -827,6 +895,10 @@ static int sqlparser_test_verify_statement_semantics(
 			return sqlparser_test_fail_case(case_id, case_name, "clauses expectation must be an array");
 		}
 		json_array_foreach(items, index, item) {
+			statement = sqlparser_test_statement_for_expectation(statements, item);
+			if (!json_is_object(statement)) {
+				return sqlparser_test_fail_case(case_id, case_name, "expected clause statement should exist");
+			}
 			if (sqlparser_test_verify_expected_clause(case_id, case_name, statement, item) != 0) {
 				return 1;
 			}
@@ -839,6 +911,10 @@ static int sqlparser_test_verify_statement_semantics(
 			return sqlparser_test_fail_case(case_id, case_name, "columns expectation must be an array");
 		}
 		json_array_foreach(items, index, item) {
+			statement = sqlparser_test_statement_for_expectation(statements, item);
+			if (!json_is_object(statement)) {
+				return sqlparser_test_fail_case(case_id, case_name, "expected column statement should exist");
+			}
 			if (sqlparser_test_verify_expected_column(case_id, case_name, statement, item) != 0) {
 				return 1;
 			}
@@ -851,6 +927,10 @@ static int sqlparser_test_verify_statement_semantics(
 			return sqlparser_test_fail_case(case_id, case_name, "cells expectation must be an array");
 		}
 		json_array_foreach(items, index, item) {
+			statement = sqlparser_test_statement_for_expectation(statements, item);
+			if (!json_is_object(statement)) {
+				return sqlparser_test_fail_case(case_id, case_name, "expected cell statement should exist");
+			}
 			if (sqlparser_test_verify_expected_cell(case_id, case_name, statement, item) != 0) {
 				return 1;
 			}
@@ -868,7 +948,6 @@ static int sqlparser_test_verify_view_expectations(
 	json_error_t error;
 	json_t *root;
 	json_t *statements;
-	json_t *statement;
 	int rc;
 
 	if (expect_root == NULL) {
@@ -899,10 +978,7 @@ static int sqlparser_test_verify_view_expectations(
 		return sqlparser_test_fail_case(case_id, case_name, "view JSON should decode");
 	}
 	statements = json_object_get(root, "statements");
-	statement = json_is_array(statements) ? json_array_get(statements, 0U) : NULL;
-	rc = json_is_object(statement) ?
-		sqlparser_test_verify_statement_semantics(case_id, case_name, statement, expect_root) :
-		sqlparser_test_fail_case(case_id, case_name, "view JSON statement should exist");
+	rc = sqlparser_test_verify_statement_semantics(case_id, case_name, statements, expect_root);
 	json_decref(root);
 	return rc;
 }

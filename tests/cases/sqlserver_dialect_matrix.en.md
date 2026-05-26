@@ -86,6 +86,8 @@ This file records regression cases for the SQL Server dialect conversion layer. 
 | S078 | `OFFSET/FETCH` + `@` parameters | named parameters in pagination clauses |
 | S079 | `LEFT JOIN` + `alias.*` | qualified star, JOIN/ON fields, and WHERE parameter |
 | S080 | `CREATE VIEW` + aggregate JOIN | view creation, JOIN predicates, and GROUP BY aggregation |
+| S081 | `TOP (?)` + WHERE `?` | positional parameter in `TOP` participates in the global bind sequence |
+| S082 | multi-statement `?` parameters | positional `bind_position` increases globally across the full input SQL |
 
 ## Explicitly Unsupported Cases
 

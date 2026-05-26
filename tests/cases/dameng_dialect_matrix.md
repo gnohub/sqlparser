@@ -69,6 +69,7 @@
 | D061 | `LEFT JOIN` + `alias.*` | 限定星号、JOIN/ON 字段和 WHERE bind |
 | D062 | `LIMIT/OFFSET` + `?` 参数 | 分页子句中的位置参数 |
 | D063 | `SELECT :bind FROM dual` | DUAL 查询和 SELECT 列表中的命名 bind |
+| D064 | 多语句 `?` 参数 | 多语句输入中位置参数 `bind_position` 按整条 SQL 全局递增 |
 
 ## 明确不支持用例
 

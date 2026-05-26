@@ -122,6 +122,15 @@ int main(void)
 | `SQLPARSER_BIND_KIND_POSITIONAL` | `1` | 位置 bind，例如 `?`、`:1`、`$1` |
 | `SQLPARSER_BIND_KIND_NAMED` | `2` | 命名 bind，例如 `:name`、`@name` |
 
+SQL View 使用 `bind_key`、`bind_kind`、`bind_position`、`bind_sql` 和 `bind_selector` 描述预编译占位符：
+
+- `bind_key` 是按 `bind_kind` 解释的 key；命名 bind 为名称，匿名 `?` 为全局序号字符串，`:1`、`$1` 等显式编号位置 bind 为 SQL 中的编号字符串。
+- `bind_position` 是整条输入 SQL 中的 bind 出现序号，从 1 开始；没有 bind 时为 0。
+- `bind_sql` 保留 SQL 中的原始占位符文本，例如 `?`、`:1`、`:name`、`$1` 或 `@name`。
+- `bind_selector` 可用于后续 patch 定位。
+
+多语句 SQL 中，`bind_position` 按整条输入 SQL 全局递增，不按 statement 重置；`bind_key` 保留方言预处理后的占位符 key。
+
 `sqlparser_clause_kind_t` 用于 SQL View 的 `clauses[]` 和字段 `clause_id` 归属：
 
 | 枚举 | 说明 |
@@ -585,6 +594,7 @@ SQL View 可以通过 C 结构直接遍历，不需要先导出 JSON。视图中
 - `sqlparser_view_t`、`sqlparser_statement_view_t`、`sqlparser_object_view_t` 等结构不拥有内存。
 - `sqlparser_clause_sql()`、`sqlparser_value_sql()` 和 `sqlparser_cell_sql()` 返回新字符串，调用方使用 `sqlparser_string_free()` 释放。
 - 字段归属只基于 SQL 中出现的限定名、别名和当前语句对象；不访问数据库元数据，也不做唯一性推断。
+- `sqlparser_column_view_t` 和 `sqlparser_cell_view_t` 直接暴露 `bind_key`、`bind_kind`、`bind_position`、`bind_sql` 和 `bind_selector`；JSON 只是这些结构的按需序列化结果。
 - `selector` 可用于后续 patch；没有可写节点时 `has_selector` 为 0。
 
 ## JSON 导出与 Patch

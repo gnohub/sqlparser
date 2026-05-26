@@ -91,6 +91,7 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 | O084 | `ALTER SESSION SET INSTANCE` | numeric ordinary session parameter |
 | O085 | `ALTER SESSION SET ERROR_ON_OVERLAP_TIME` | boolean/enumerated ordinary session parameter |
 | O086 | `ALTER SESSION SET NLS_NUMERIC_CHARACTERS` | punctuation-bearing string session parameter |
+| O087 | multi-statement named binds | named-bind `bind_position` increases globally across the full input SQL |
 
 ## Explicitly Unsupported Cases
 

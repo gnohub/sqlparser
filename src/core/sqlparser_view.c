@@ -11,7 +11,14 @@
 typedef struct {
 	char *name;
 	sqlparser_bind_kind_t kind;
+	size_t position;
 } sqlparser_view_bind_info_t;
+
+typedef struct {
+	PgQuery__ParamRef *param_ref;
+	size_t traversal_index;
+	int location;
+} sqlparser_view_bind_position_entry_t;
 
 typedef struct {
 	sqlparser_handle_t *handle;
@@ -1503,6 +1510,34 @@ static int sqlparser_view_text_is_digits(const char *text)
 	return 1;
 }
 
+static int sqlparser_view_parse_positive_size(const char *text, size_t *out_value)
+{
+	size_t index;
+	size_t value;
+
+	if (text == NULL || out_value == NULL || text[0] == '\0') {
+		return 0;
+	}
+	value = 0U;
+	for (index = 0U; text[index] != '\0'; index++) {
+		unsigned int digit;
+
+		if (!isdigit((unsigned char)text[index])) {
+			return 0;
+		}
+		digit = (unsigned int)(text[index] - '0');
+		if (value > (((size_t)-1) - digit) / 10U) {
+			return 0;
+		}
+		value = value * 10U + (size_t)digit;
+	}
+	if (value == 0U) {
+		return 0;
+	}
+	*out_value = value;
+	return 1;
+}
+
 static sqlparser_bind_kind_t sqlparser_view_bind_kind_from_public_sql(
 	const char *public_sql,
 	const char *normalized_name)
@@ -1531,9 +1566,361 @@ static void sqlparser_view_bind_info_release(sqlparser_view_bind_info_t *info)
 	free(info->name);
 	info->name = NULL;
 	info->kind = SQLPARSER_BIND_KIND_NONE;
+	info->position = 0U;
+}
+
+static int sqlparser_view_bind_position_entry_compare(const void *left, const void *right)
+{
+	const sqlparser_view_bind_position_entry_t *a;
+	const sqlparser_view_bind_position_entry_t *b;
+
+	a = (const sqlparser_view_bind_position_entry_t *)left;
+	b = (const sqlparser_view_bind_position_entry_t *)right;
+	if (a->location < b->location) {
+		return -1;
+	}
+	if (a->location > b->location) {
+		return 1;
+	}
+	if (a->traversal_index < b->traversal_index) {
+		return -1;
+	}
+	if (a->traversal_index > b->traversal_index) {
+		return 1;
+	}
+	return 0;
+}
+
+static int sqlparser_view_bind_public_char_is_ident(unsigned char ch)
+{
+	return isalnum(ch) || ch == '_' || ch == '$' || ch == '#';
+}
+
+static int sqlparser_view_bind_dollar_tag_char_is_ident(unsigned char ch)
+{
+	return isalnum(ch) || ch == '_';
+}
+
+static size_t sqlparser_view_bind_public_skip_dollar_quote(const char *sql, size_t index)
+{
+	size_t tag_end;
+	size_t body;
+	size_t delimiter_len;
+
+	if (sql == NULL || sql[index] != '$') {
+		return index;
+	}
+	tag_end = index + 1U;
+	while (sqlparser_view_bind_dollar_tag_char_is_ident((unsigned char)sql[tag_end])) {
+		tag_end++;
+	}
+	if (sql[tag_end] != '$') {
+		return index;
+	}
+	delimiter_len = tag_end - index + 1U;
+	body = tag_end + 1U;
+	while (sql[body] != '\0') {
+		if (strncmp(sql + body, sql + index, delimiter_len) == 0) {
+			return body + delimiter_len;
+		}
+		body++;
+	}
+	return index;
+}
+
+static size_t sqlparser_view_bind_public_skip_quoted_or_comment(const char *sql, size_t index)
+{
+	char quote;
+	size_t pos;
+
+	if (sql == NULL || sql[index] == '\0') {
+		return index;
+	}
+	pos = sqlparser_view_bind_public_skip_dollar_quote(sql, index);
+	if (pos != index) {
+		return pos;
+	}
+	if (sql[index] == '-' && sql[index + 1U] == '-') {
+		pos = index + 2U;
+		while (sql[pos] != '\0' && sql[pos] != '\n') {
+			pos++;
+		}
+		return pos;
+	}
+	if (sql[index] == '/' && sql[index + 1U] == '*') {
+		pos = index + 2U;
+		while (sql[pos] != '\0') {
+			if (sql[pos] == '*' && sql[pos + 1U] == '/') {
+				return pos + 2U;
+			}
+			pos++;
+		}
+		return pos;
+	}
+	if (sql[index] == '[') {
+		pos = index + 1U;
+		while (sql[pos] != '\0') {
+			if (sql[pos] == ']') {
+				return pos + 1U;
+			}
+			pos++;
+		}
+		return pos;
+	}
+	if (sql[index] != '\'' && sql[index] != '"' && sql[index] != '`') {
+		return index;
+	}
+
+	quote = sql[index];
+	pos = index + 1U;
+	while (sql[pos] != '\0') {
+		if (sql[pos] == quote) {
+			if (quote == '\'' && sql[pos + 1U] == '\'') {
+				pos += 2U;
+				continue;
+			}
+			return pos + 1U;
+		}
+		pos++;
+	}
+	return pos;
+}
+
+static int sqlparser_view_bind_public_token_matches(const char *sql, size_t pos, const char *public_sql)
+{
+	size_t len;
+
+	if (sql == NULL || public_sql == NULL || public_sql[0] == '\0') {
+		return 0;
+	}
+	len = strlen(public_sql);
+	if (strncmp(sql + pos, public_sql, len) != 0) {
+		return 0;
+	}
+	if (public_sql[0] == ':' && pos > 0U && sql[pos - 1U] == ':') {
+		return 0;
+	}
+	if ((public_sql[0] == ':' || public_sql[0] == '@' || public_sql[0] == '$') &&
+	    sqlparser_view_bind_public_char_is_ident((unsigned char)sql[pos + len])) {
+		return 0;
+	}
+	return 1;
+}
+
+static int sqlparser_view_bind_info_set_public_position(
+	sqlparser_handle_t *handle,
+	const char *public_sql,
+	size_t same_bind_ordinal,
+	sqlparser_view_bind_info_t *out_info)
+{
+	const char *sql;
+	size_t index;
+	size_t position;
+	size_t same_seen;
+	size_t question_seen;
+	size_t question_target;
+	sqlparser_error_t error;
+
+	if (handle == NULL || public_sql == NULL || public_sql[0] == '\0' || out_info == NULL || same_bind_ordinal == 0U) {
+		return 0;
+	}
+	memset(&error, 0, sizeof(error));
+	if (sqlparser_ensure_current_sql_text(handle, &error) != SQLPARSER_STATUS_OK) {
+		return 0;
+	}
+	sql = sqlparser_effective_sql(handle);
+	if (sql == NULL) {
+		return 0;
+	}
+
+	position = 0U;
+	same_seen = 0U;
+	question_seen = 0U;
+	question_target = 0U;
+	if (strcmp(public_sql, "?") == 0 &&
+	    !sqlparser_view_parse_positive_size(out_info->name, &question_target)) {
+		return 0;
+	}
+	for (index = 0U; sql[index] != '\0';) {
+		size_t skipped;
+		int is_bind_token;
+
+		skipped = sqlparser_view_bind_public_skip_quoted_or_comment(sql, index);
+		if (skipped != index) {
+			index = skipped;
+			continue;
+		}
+		is_bind_token =
+			sql[index] == '?' ||
+			(sql[index] == '$' && isdigit((unsigned char)sql[index + 1U])) ||
+			(sql[index] == ':' && sql[index + 1U] != ':' &&
+			 (isalnum((unsigned char)sql[index + 1U]) || sql[index + 1U] == '_')) ||
+			(sql[index] == '@' &&
+			 (isalnum((unsigned char)sql[index + 1U]) || sql[index + 1U] == '_'));
+		if (is_bind_token) {
+			position++;
+			if (public_sql[0] == '?' && sql[index] == '?') {
+				question_seen++;
+				if (question_seen == question_target) {
+					out_info->position = position;
+					return 1;
+				}
+			}
+		}
+		if (public_sql[0] != '?' && is_bind_token) {
+			if (sqlparser_view_bind_public_token_matches(sql, index, public_sql)) {
+				same_seen++;
+				if (same_seen == same_bind_ordinal) {
+					out_info->position = position;
+					return 1;
+				}
+			}
+		}
+		index++;
+	}
+	return 0;
+}
+
+static int sqlparser_view_bind_info_set_position(
+	sqlparser_handle_t *handle,
+	const char *public_sql,
+	const PgQuery__Node *value_node,
+	sqlparser_view_bind_info_t *out_info,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_view_bind_position_entry_t *entries;
+	ProtobufCMessage *message;
+	size_t statement_index;
+	size_t statement_bind_count;
+	size_t count;
+	size_t index;
+	size_t local_index;
+	size_t entry_index;
+	size_t ast_position;
+	size_t same_bind_ordinal;
+	int use_location_order;
+	int found;
+	sqlparser_status_t status;
+
+	if (handle == NULL || value_node == NULL || out_info == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "bind position arguments are missing");
+		return -1;
+	}
+	if (value_node->node_case != PG_QUERY__NODE__NODE_PARAM_REF || value_node->param_ref == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "bind position requires a ParamRef node");
+		return -1;
+	}
+
+	count = 0U;
+	for (statement_index = 0U; statement_index < handle->statement_count; statement_index++) {
+		statement_bind_count = 0U;
+		status = sqlparser_search_statement_messages(
+			handle,
+			statement_index,
+			&pg_query__param_ref__descriptor,
+			NULL,
+			0,
+			0U,
+			&statement_bind_count,
+			NULL,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return -1;
+		}
+		count += statement_bind_count;
+	}
+	if (count == 0U) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "bind position could not be resolved");
+		return -1;
+	}
+	entries = (sqlparser_view_bind_position_entry_t *)calloc(count, sizeof(*entries));
+	if (entries == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return -1;
+	}
+
+	use_location_order = value_node->param_ref->location >= 0;
+	found = 0;
+	entry_index = 0U;
+	for (statement_index = 0U; statement_index < handle->statement_count; statement_index++) {
+		statement_bind_count = 0U;
+		status = sqlparser_search_statement_messages(
+			handle,
+			statement_index,
+			&pg_query__param_ref__descriptor,
+			NULL,
+			0,
+			0U,
+			&statement_bind_count,
+			NULL,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			free(entries);
+			return -1;
+		}
+		for (local_index = 0U; local_index < statement_bind_count; local_index++) {
+			message = NULL;
+			status = sqlparser_search_statement_messages(
+				handle,
+				statement_index,
+				&pg_query__param_ref__descriptor,
+				NULL,
+				1,
+				local_index,
+				NULL,
+				&message,
+				out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				free(entries);
+				return -1;
+			}
+			if (message == NULL || entry_index >= count) {
+				free(entries);
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "bind position traversal failed");
+				return -1;
+			}
+			entries[entry_index].param_ref = (PgQuery__ParamRef *)message;
+			entries[entry_index].traversal_index = entry_index;
+			entries[entry_index].location = entries[entry_index].param_ref->location;
+			if (entries[entry_index].param_ref->location < 0) {
+				use_location_order = 0;
+			}
+			if (entries[entry_index].param_ref == value_node->param_ref) {
+				found = 1;
+			}
+			entry_index++;
+		}
+	}
+	if (!found) {
+		free(entries);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "bind position could not be resolved");
+		return -1;
+	}
+	if (use_location_order) {
+		qsort(entries, count, sizeof(*entries), sqlparser_view_bind_position_entry_compare);
+	}
+	ast_position = 0U;
+	same_bind_ordinal = 0U;
+	for (index = 0U; index < count; index++) {
+		if (entries[index].param_ref->number == value_node->param_ref->number) {
+			same_bind_ordinal++;
+		}
+		if (entries[index].param_ref == value_node->param_ref) {
+			ast_position = index + 1U;
+			free(entries);
+			out_info->position = ast_position;
+			(void)sqlparser_view_bind_info_set_public_position(handle, public_sql, same_bind_ordinal, out_info);
+			return 1;
+		}
+	}
+
+	free(entries);
+	sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "bind position could not be resolved");
+	return -1;
 }
 
 static int sqlparser_view_bind_info_from_value(
+	sqlparser_handle_t *handle,
 	const char *public_sql,
 	const PgQuery__Node *value_node,
 	sqlparser_view_bind_info_t *out_info,
@@ -1550,6 +1937,7 @@ static int sqlparser_view_bind_info_from_value(
 	memset(out_info, 0, sizeof(*out_info));
 	out_info->kind = SQLPARSER_BIND_KIND_NONE;
 	if (public_sql == NULL ||
+	    handle == NULL ||
 	    value_node == NULL ||
 	    value_node->node_case != PG_QUERY__NODE__NODE_PARAM_REF ||
 	    value_node->param_ref == NULL) {
@@ -1567,7 +1955,7 @@ static int sqlparser_view_bind_info_from_value(
 			return -1;
 		}
 		out_info->kind = SQLPARSER_BIND_KIND_POSITIONAL;
-		return 1;
+		return sqlparser_view_bind_info_set_position(handle, public_sql, value_node, out_info, out_error);
 	}
 
 	if (public_sql[0] != ':' && public_sql[0] != '@' && public_sql[0] != '$') {
@@ -1595,7 +1983,7 @@ static int sqlparser_view_bind_info_from_value(
 		sqlparser_view_bind_info_release(out_info);
 		return 0;
 	}
-	return 1;
+	return sqlparser_view_bind_info_set_position(handle, public_sql, value_node, out_info, out_error);
 }
 
 static sqlparser_status_t sqlparser_view_render_value_node_public_sql(
@@ -1690,24 +2078,30 @@ static int sqlparser_view_fill_column_bind_view(
 		return 0;
 	}
 
-	bind_status = sqlparser_view_bind_info_from_value(public_sql, value_node, &bind_info, out_error);
+	bind_status = sqlparser_view_bind_info_from_value(
+		handle,
+		public_sql,
+		value_node,
+		&bind_info,
+		out_error);
 	if (bind_status <= 0) {
 		free(public_sql);
 		return bind_status;
 	}
 
 	sqlparser_view_copy_public_text(
-		column->bind,
-		sizeof(column->bind),
+		column->bind_key,
+		sizeof(column->bind_key),
 		bind_info.name,
-		&column->bind_truncated);
+		&column->bind_key_truncated);
 	sqlparser_view_copy_public_text(
 		column->bind_sql,
 		sizeof(column->bind_sql),
 		public_sql,
 		&column->bind_sql_truncated);
-	column->has_bind = column->bind[0] != '\0';
+	column->has_bind_key = column->bind_key[0] != '\0';
 	column->bind_kind = bind_info.kind;
+	column->bind_position = bind_info.position;
 	column->has_bind_sql = column->bind_sql[0] != '\0';
 	if (selector != NULL && selector->kind != SQLPARSER_SELECTOR_KIND_UNKNOWN) {
 		column->bind_selector = *selector;
@@ -1722,7 +2116,6 @@ static int sqlparser_view_fill_column_bind_view(
 static int sqlparser_view_fill_cell_bind_view(
 	sqlparser_cell_view_t *cell,
 	sqlparser_handle_t *handle,
-	size_t statement_index,
 	PgQuery__Node *value_node,
 	const char *public_sql,
 	const sqlparser_selector_t *selector,
@@ -1734,24 +2127,28 @@ static int sqlparser_view_fill_cell_bind_view(
 	if (cell == NULL || public_sql == NULL || value_node == NULL) {
 		return 0;
 	}
-	bind_status = sqlparser_view_bind_info_from_value(public_sql, value_node, &bind_info, out_error);
+	bind_status = sqlparser_view_bind_info_from_value(
+		handle,
+		public_sql,
+		value_node,
+		&bind_info,
+		out_error);
 	if (bind_status <= 0) {
 		return bind_status;
 	}
-	(void)handle;
-	(void)statement_index;
 	sqlparser_view_copy_public_text(
-		cell->bind,
-		sizeof(cell->bind),
+		cell->bind_key,
+		sizeof(cell->bind_key),
 		bind_info.name,
-		&cell->bind_truncated);
+		&cell->bind_key_truncated);
 	sqlparser_view_copy_public_text(
 		cell->bind_sql,
 		sizeof(cell->bind_sql),
 		public_sql,
 		&cell->bind_sql_truncated);
-	cell->has_bind = cell->bind[0] != '\0';
+	cell->has_bind_key = cell->bind_key[0] != '\0';
 	cell->bind_kind = bind_info.kind;
+	cell->bind_position = bind_info.position;
 	cell->has_bind_sql = cell->bind_sql[0] != '\0';
 	if (selector != NULL && selector->kind != SQLPARSER_SELECTOR_KIND_UNKNOWN) {
 		cell->bind_selector = *selector;
@@ -4256,8 +4653,9 @@ static int sqlparser_view_json_set_bind_from_column(json_t *object, const sqlpar
 	if (object == NULL || column == NULL) {
 		return -1;
 	}
-	if (sqlparser_json_set_string_or_null(object, "bind", column->has_bind ? column->bind : NULL) != 0 ||
+	if (sqlparser_json_set_string_or_null(object, "bind_key", column->has_bind_key ? column->bind_key : NULL) != 0 ||
 	    json_object_set_new(object, "bind_kind", json_integer(column->bind_kind)) != 0 ||
+	    json_object_set_new(object, "bind_position", json_integer((json_int_t)column->bind_position)) != 0 ||
 	    sqlparser_json_set_string_or_null(object, "bind_sql", column->has_bind_sql ? column->bind_sql : NULL) != 0 ||
 	    sqlparser_json_set_selector_or_null(
 		    object,
@@ -4274,8 +4672,9 @@ static int sqlparser_view_json_set_bind_from_cell(json_t *object, const sqlparse
 	if (object == NULL || cell == NULL) {
 		return -1;
 	}
-	if (sqlparser_json_set_string_or_null(object, "bind", cell->has_bind ? cell->bind : NULL) != 0 ||
+	if (sqlparser_json_set_string_or_null(object, "bind_key", cell->has_bind_key ? cell->bind_key : NULL) != 0 ||
 	    json_object_set_new(object, "bind_kind", json_integer(cell->bind_kind)) != 0 ||
+	    json_object_set_new(object, "bind_position", json_integer((json_int_t)cell->bind_position)) != 0 ||
 	    sqlparser_json_set_string_or_null(object, "bind_sql", cell->has_bind_sql ? cell->bind_sql : NULL) != 0 ||
 	    sqlparser_json_set_selector_or_null(
 		    object,
@@ -5247,7 +5646,6 @@ sqlparser_status_t sqlparser_row_cell_at(
 		if (sqlparser_view_fill_cell_bind_view(
 			    out_cell,
 			    (sqlparser_handle_t *)row->handle,
-			    row->statement_index,
 			    cell_node,
 			    cell_sql,
 			    &selector,

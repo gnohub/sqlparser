@@ -123,8 +123,9 @@ sqlparser_object_column_at(&object, 0, &column, &err);
   "name": "status",
   "keyword": "where",
   "operator": "=",
-  "bind": null,
+  "bind_key": null,
   "bind_kind": 0,
+  "bind_position": 0,
   "bind_sql": null,
   "bind_selector": null,
   "selector": "stmt[0].name[3]",
@@ -146,8 +147,9 @@ sqlparser_object_column_at(&object, 0, &column, &err);
 | `name` | 字段名；`SELECT *` 时为 `"*"` |
 | `keyword` | 字段出现的 SQL 子句，例如 `select`、`where`、`set`、`on` |
 | `operator` | 与字段关联的操作符；没有时为 `null` |
-| `bind` | 字段值是预编译占位符时输出归一化 bind 名称；否则为 `null` |
+| `bind_key` | 字段值是预编译占位符时输出按 `bind_kind` 解释的 key；命名 bind 为名称，匿名 `?` 为全局序号字符串，`:1`、`$1` 等显式编号位置 bind 为 SQL 中的编号字符串；否则为 `null` |
 | `bind_kind` | bind 类型枚举：`0` 表示无 bind，`1` 表示位置 bind，`2` 表示命名 bind |
+| `bind_position` | 整条输入 SQL 中第几个 bind occurrence，1 基；没有 bind 时为 `0` |
 | `bind_sql` | SQL 中出现的原始占位符文本，例如 `"?"`、`":1"`、`":id"`、`"@id"`、`"$1"`；没有 bind 时为 `null` |
 | `bind_selector` | bind 对应值表达式的 selector；没有 bind 时为 `null` |
 | `selector` | 字段名 selector；没有可写节点时为 `null` |
@@ -160,7 +162,7 @@ sqlparser_object_column_at(&object, 0, &column, &err);
 `value.sql` 是可回写的 SQL 片段，不做类型推断。无法安全渲染为独立 SQL 片段的复杂表达式会保持 `value: null`，字段本身仍会输出。
 `value.selector` 定位的是整个值表达式，可用于把字面量、bind 参数或表达式替换为新的 SQL 片段。
 
-预编译占位符会输出结构化 bind 字段，并保持 `value: null`。`bind` 是归一化后的名称或序号，`bind_kind` 表示命名或位置类型，`bind_sql` 保留 SQL 中的原始占位符文本。Oracle `:1` 和 JDBC 风格 `?` 都是位置 bind，但 `bind_sql` 分别保留为 `":1"` 和 `"?"`，调用方可以稳定区分来源形态。需要改写 bind 时使用 `bind_selector`。
+预编译占位符会输出结构化 bind 字段，并保持 `value: null`。`bind_key` 是按 `bind_kind` 解释的 key：命名 bind 为名称，匿名 `?` 为全局序号字符串，`:1`、`$1` 等显式编号位置 bind 为 SQL 中的编号字符串。`bind_position` 是整条输入 SQL 中第几个 bind occurrence，从 1 开始。多语句 SQL 中，`bind_position` 不按 statement 重置，而是按输入 SQL 文本全局递增；`bind_key` 保留方言预处理后的占位符 key。Oracle `:1` 和 JDBC 风格 `?` 都是位置 bind，但 `bind_sql` 分别保留为 `":1"` 和 `"?"`，调用方可以稳定区分来源形态。需要改写 bind 时使用 `bind_selector`。
 
 当一个字段对应多个条件值时，会输出多条同名字段记录，每条记录关联一个具体值。例如 `status IN (:s1, :s2, :s3)` 会输出三条 `name: "status"`、`operator: "IN"` 的记录，并分别携带 `:s1`、`:s2`、`:s3` 的 bind 信息；`NOT IN`、`NOT BETWEEN`、`NOT LIKE`、`NOT ILIKE` 和 `NOT SIMILAR TO` 会在 `operator` 中保留否定语义。
 
@@ -202,8 +204,9 @@ sqlparser_object_column_at(&object, 0, &column, &err);
       "column": "id",
       "column_index": 0,
       "sql": "1",
-      "bind": null,
+      "bind_key": null,
       "bind_kind": 0,
+      "bind_position": 0,
       "bind_sql": null,
       "bind_selector": null,
       "selector": "stmt[0].insert_cell[0][0]"
@@ -212,8 +215,9 @@ sqlparser_object_column_at(&object, 0, &column, &err);
       "column": "name",
       "column_index": 1,
       "sql": "'bob'",
-      "bind": null,
+      "bind_key": null,
       "bind_kind": 0,
+      "bind_position": 0,
       "bind_sql": null,
       "bind_selector": null,
       "selector": "stmt[0].insert_cell[0][1]"
@@ -382,8 +386,9 @@ INSERT INTO users (id, name) VALUES (1, 'xiaohong'), (2, 'xiaoming')
               "name": "id",
               "keyword": "insert",
               "operator": null,
-              "bind": null,
+              "bind_key": null,
               "bind_kind": 0,
+              "bind_position": 0,
               "bind_sql": null,
               "bind_selector": null,
               "selector": "stmt[0].name[0]",
@@ -397,8 +402,9 @@ INSERT INTO users (id, name) VALUES (1, 'xiaohong'), (2, 'xiaoming')
               "name": "name",
               "keyword": "insert",
               "operator": null,
-              "bind": null,
+              "bind_key": null,
               "bind_kind": 0,
+              "bind_position": 0,
               "bind_sql": null,
               "bind_selector": null,
               "selector": "stmt[0].name[1]",
@@ -417,8 +423,9 @@ INSERT INTO users (id, name) VALUES (1, 'xiaohong'), (2, 'xiaoming')
                   "column": "id",
                   "column_index": 0,
                   "sql": "1",
-                  "bind": null,
+                  "bind_key": null,
                   "bind_kind": 0,
+                  "bind_position": 0,
                   "bind_sql": null,
                   "bind_selector": null,
                   "selector": "stmt[0].insert_cell[0][0]"
@@ -427,8 +434,9 @@ INSERT INTO users (id, name) VALUES (1, 'xiaohong'), (2, 'xiaoming')
                   "column": "name",
                   "column_index": 1,
                   "sql": "'xiaohong'",
-                  "bind": null,
+                  "bind_key": null,
                   "bind_kind": 0,
+                  "bind_position": 0,
                   "bind_sql": null,
                   "bind_selector": null,
                   "selector": "stmt[0].insert_cell[0][1]"
@@ -442,8 +450,9 @@ INSERT INTO users (id, name) VALUES (1, 'xiaohong'), (2, 'xiaoming')
                   "column": "id",
                   "column_index": 0,
                   "sql": "2",
-                  "bind": null,
+                  "bind_key": null,
                   "bind_kind": 0,
+                  "bind_position": 0,
                   "bind_sql": null,
                   "bind_selector": null,
                   "selector": "stmt[0].insert_cell[1][0]"
@@ -452,8 +461,9 @@ INSERT INTO users (id, name) VALUES (1, 'xiaohong'), (2, 'xiaoming')
                   "column": "name",
                   "column_index": 1,
                   "sql": "'xiaoming'",
-                  "bind": null,
+                  "bind_key": null,
                   "bind_kind": 0,
+                  "bind_position": 0,
                   "bind_sql": null,
                   "bind_selector": null,
                   "selector": "stmt[0].insert_cell[1][1]"

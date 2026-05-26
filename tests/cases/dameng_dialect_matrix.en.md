@@ -69,6 +69,7 @@ This file records regression cases for the Dameng dialect conversion layer. The 
 | D061 | `LEFT JOIN` + `alias.*` | qualified star, JOIN/ON fields, and WHERE bind |
 | D062 | `LIMIT/OFFSET` + `?` parameters | positional parameters in pagination clauses |
 | D063 | `SELECT :bind FROM dual` | DUAL query and named bind in the SELECT list |
+| D064 | multi-statement `?` parameters | positional `bind_position` increases globally across the full input SQL |
 
 ## Explicitly Unsupported Cases
 
