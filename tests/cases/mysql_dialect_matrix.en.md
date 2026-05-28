@@ -81,6 +81,10 @@ This file records regression cases for the MySQL dialect conversion layer. `test
 | MU010A | `mysql-update-join-on-bind` | `UPDATE ... JOIN ... ON ... ? SET ... WHERE ...` | JOIN `ON` parameters in multi-table UPDATE are attributed to `on`; later `WHERE` parameters remain attributed to `where` |
 | MU010B | `mysql-delete-join-on-bind` | `DELETE u FROM ... JOIN ... ON ... ? WHERE ...` | JOIN `ON` parameters in multi-table DELETE are attributed to `on`; later `WHERE` parameters remain attributed to `where` |
 | M069 | `mysql-field-match-kind-direct-and-expression` | direct-field predicate plus function-wrapped field predicate | `query_graph.values[].field_match_kind` distinguishes `direct_field` from `expression_field` |
+| M070 | `mysql-expression-field-case-expression-value` | CASE returns a field and compares with `?` | CASE expression fields emit `expression_field` value relations |
+| M071 | `mysql-expression-field-multi-field-expression-value` | `CONCAT(secret, id)` and `secret + id` compared with `?` | Fields inside the expression keep separate `expression_field` value relations |
+| M072 | `mysql-expression-field-value-side-expression` | field compared with function, CONCAT, and CAST value-side expressions | value-side expressions emit `kind=expression` instead of direct binds |
+| M073 | `mysql-expression-field-dml-expression-values` | INSERT/UPDATE expression assignments | DML cells and assignments emit `kind=expression` |
 
 ## Explicitly Unsupported Statements
 

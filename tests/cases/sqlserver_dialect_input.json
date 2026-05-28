@@ -1319,6 +1319,78 @@
       }
     },
     {
+      "id": "S086",
+      "name": "sqlserver-expression-field-case-expression-value",
+      "sql": "SELECT [id] FROM [dbo].[users] WHERE CASE WHEN [id] = 1 THEN [secret] ELSE [backup_secret] END = @v",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"column\":\"secret\"",
+          "\"field_match_kind\":\"expression_field\",\"kind\":\"bind\""
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S087",
+      "name": "sqlserver-expression-field-multi-field-expression-value",
+      "sql": "SELECT [id] FROM [dbo].[users] WHERE CONCAT([secret], [id]) = @v1 AND [secret] + [id] = @v2",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"column\":\"secret\"",
+          "\"column\":\"id\"",
+          "\"field_match_kind\":\"expression_field\",\"kind\":\"bind\""
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S088",
+      "name": "sqlserver-expression-field-value-side-expression",
+      "sql": "SELECT [id] FROM [dbo].[users] WHERE [secret] = UPPER(@v1) AND [secret] = @v2 + 'x' AND [secret] = CAST(@v3 AS VARCHAR(32))",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"column\":\"secret\"",
+          "\"field_match_kind\":\"direct_field\",\"kind\":\"expression\""
+        ],
+        "view_not_contains": [
+          "\"field_match_kind\":\"direct_field\",\"kind\":\"bind\",\"bind_key\":\"v1\"",
+          "$1"
+        ]
+      }
+    },
+    {
+      "id": "S089",
+      "name": "sqlserver-expression-field-dml-expression-values",
+      "sql": "INSERT INTO [dbo].[users] ([id], [secret]) VALUES (1, UPPER(@v1)); UPDATE [dbo].[users] SET [secret] = @v2 + 'x' WHERE [id] = 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": [
+          "InsertStmt",
+          "UpdateStmt"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":1,\"kind\":\"expression\""
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
       "id": "SU015",
       "name": "sqlserver-table-variable-unsupported",
       "sql": "SELECT [id] FROM @users",

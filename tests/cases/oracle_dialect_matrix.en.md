@@ -106,6 +106,10 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 | O098 | `oracle-select-reference-047` | SELECT reference case 047 | Oracle UNION plus complex derived-table subquery parsing and View JSON shape |
 | O099 | `oracle-select-nested-star-query-graph` | nested derived tables, ROWNUM, and `SELECT *` | `query_graph` represents the derived-table `*` chain and UNION branches |
 | O100 | `oracle-field-match-kind-direct-and-expression` | direct-field predicate plus function-wrapped field predicate | `query_graph.values[].field_match_kind` distinguishes `direct_field` from `expression_field` |
+| O101 | `oracle-expression-field-case-expression-value` | CASE returns a field and compares with a bind | CASE expression fields emit `expression_field` value relations |
+| O102 | `oracle-expression-field-multi-field-expression-value` | `NVL(SECRET, ID)` and `SECRET || ID` compared with binds | Fields inside the expression keep separate `expression_field` value relations |
+| O103 | `oracle-expression-field-value-side-expression` | field compared with function, concatenation, and CAST value-side expressions | value-side expressions emit `kind=expression` instead of direct binds |
+| O104 | `oracle-expression-field-dml-expression-values` | INSERT/UPDATE expression assignments | DML cells and assignments emit `kind=expression` |
 
 ## Explicitly Unsupported Cases
 

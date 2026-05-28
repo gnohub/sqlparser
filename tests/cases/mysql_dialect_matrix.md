@@ -81,6 +81,10 @@
 | MU010A | `mysql-update-join-on-bind` | `UPDATE ... JOIN ... ON ... ? SET ... WHERE ...` | 多表 UPDATE 中 JOIN `ON` 参数归属为 `on`，后续 `WHERE` 参数仍归属为 `where` |
 | MU010B | `mysql-delete-join-on-bind` | `DELETE u FROM ... JOIN ... ON ... ? WHERE ...` | 多表 DELETE 中 JOIN `ON` 参数归属为 `on`，后续 `WHERE` 参数仍归属为 `where` |
 | M069 | `mysql-field-match-kind-direct-and-expression` | 直接字段条件 + 函数包裹字段条件 | `query_graph.values[].field_match_kind` 区分 `direct_field` 和 `expression_field` |
+| M070 | `mysql-expression-field-case-expression-value` | CASE 返回字段再与 `?` 比较 | CASE 表达式字段输出 `expression_field` value 关系 |
+| M071 | `mysql-expression-field-multi-field-expression-value` | `CONCAT(secret, id)`、`secret + id` 与 `?` 比较 | 表达式内字段分别保留 `expression_field` value 关系 |
+| M072 | `mysql-expression-field-value-side-expression` | 字段与值侧函数、CONCAT、CAST 比较 | 值侧表达式输出 `kind=expression`，不暴露 direct bind |
+| M073 | `mysql-expression-field-dml-expression-values` | INSERT/UPDATE 表达式赋值 | DML cell/assignment 输出 `kind=expression` |
 
 ## 明确不支持语句
 

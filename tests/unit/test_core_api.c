@@ -3554,6 +3554,513 @@ static int test_query_graph_field_match_kind_semantics(void)
 	return 0;
 }
 
+static int expect_query_graph_column_value(
+	const sqlparser_query_graph_view_t *graph,
+	const char *column_name,
+	sqlparser_graph_value_kind_t value_kind,
+	sqlparser_graph_field_match_kind_t field_match_kind,
+	int require_no_direct_bind)
+{
+	sqlparser_error_t error;
+	size_t index;
+
+	memset(&error, 0, sizeof(error));
+	for (index = 0U; index < graph->value_count; index++) {
+		sqlparser_graph_value_t value;
+		sqlparser_graph_field_t field;
+		int rc;
+
+		rc = sqlparser_query_graph_value_at(graph, index, &value, &error);
+		if (expect_status_ok(rc, &error, "query graph value scan should succeed") != 0) {
+			return 1;
+		}
+		if (!value.has_field ||
+		    value.kind != value_kind ||
+		    value.field_match_kind != field_match_kind) {
+			continue;
+		}
+		rc = sqlparser_query_graph_field_at(graph, value.field_index, &field, &error);
+		if (expect_status_ok(rc, &error, "query graph value field scan should succeed") != 0) {
+			return 1;
+		}
+		if (field.column_name == NULL || strcmp(field.column_name, column_name) != 0) {
+			continue;
+		}
+		if (require_no_direct_bind &&
+		    (value.has_bind || value.has_bind_sql || value.has_bind_position || value.has_selector)) {
+			fprintf(stderr, "FAIL: expression value for %s must not expose direct bind or selector\n", column_name);
+			return 1;
+		}
+		return 0;
+	}
+	fprintf(stderr,
+	        "FAIL: query graph value not found: column=%s kind=%s field_match_kind=%s\n",
+	        column_name,
+	        sqlparser_graph_value_kind_name(value_kind),
+	        sqlparser_graph_field_match_kind_name(field_match_kind));
+	return 1;
+}
+
+static int expect_query_graph_column_value_absent(
+	const sqlparser_query_graph_view_t *graph,
+	const char *column_name,
+	sqlparser_graph_value_kind_t value_kind,
+	sqlparser_graph_field_match_kind_t field_match_kind)
+{
+	sqlparser_error_t error;
+	size_t index;
+
+	memset(&error, 0, sizeof(error));
+	for (index = 0U; index < graph->value_count; index++) {
+		sqlparser_graph_value_t value;
+		sqlparser_graph_field_t field;
+		int rc;
+
+		rc = sqlparser_query_graph_value_at(graph, index, &value, &error);
+		if (expect_status_ok(rc, &error, "query graph value scan should succeed") != 0) {
+			return 1;
+		}
+		if (!value.has_field ||
+		    value.kind != value_kind ||
+		    value.field_match_kind != field_match_kind) {
+			continue;
+		}
+		rc = sqlparser_query_graph_field_at(graph, value.field_index, &field, &error);
+		if (expect_status_ok(rc, &error, "query graph value field scan should succeed") != 0) {
+			return 1;
+		}
+		if (field.column_name != NULL && strcmp(field.column_name, column_name) == 0) {
+			fprintf(stderr,
+			        "FAIL: unexpected query graph value: column=%s kind=%s field_match_kind=%s\n",
+			        column_name,
+			        sqlparser_graph_value_kind_name(value_kind),
+			        sqlparser_graph_field_match_kind_name(field_match_kind));
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static int expect_query_graph_condition_value_kind(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	const char *column_name,
+	sqlparser_graph_value_kind_t value_kind,
+	sqlparser_graph_field_match_kind_t field_match_kind,
+	int require_no_direct_bind)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "query graph condition parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "query graph condition graph should be available") != 0 ||
+	    expect_query_graph_column_value(
+		    &graph,
+		    column_name,
+		    value_kind,
+		    field_match_kind,
+		    require_no_direct_bind) != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int expect_query_graph_condition_value_absent(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	const char *column_name,
+	sqlparser_graph_value_kind_t value_kind,
+	sqlparser_graph_field_match_kind_t field_match_kind)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "query graph condition parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "query graph condition graph should be available") != 0 ||
+	    expect_query_graph_column_value_absent(&graph, column_name, value_kind, field_match_kind) != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int expect_query_graph_insert_cell_kind(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	const char *column_name,
+	size_t fallback_column_ordinal,
+	sqlparser_graph_value_kind_t value_kind)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	size_t column_ordinal;
+	size_t index;
+	int found_column;
+	int found_cell;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "query graph insert parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "query graph insert graph should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "query graph insert dml should be available") != 0 ||
+	    expect_true(dml.kind == SQLPARSER_GRAPH_DML_INSERT, "query graph dml should be insert") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	column_ordinal = fallback_column_ordinal;
+	found_column = column_name == NULL ? 1 : 0;
+	for (index = 0U; !found_column && index < dml.target_columns.count; index++) {
+		size_t column_index;
+		sqlparser_graph_dml_column_t column;
+
+		if (expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.target_columns, index, &column_index, &error),
+		                     &error,
+		                     "query graph insert column span should be readable") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml_column_at(&graph, column_index, &column, &error),
+		                     &error,
+		                     "query graph insert column should be readable") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (column.column_name != NULL && strcmp(column.column_name, column_name) == 0) {
+			column_ordinal = column.ordinal;
+			found_column = 1;
+		}
+	}
+	if (!found_column) {
+		fprintf(stderr, "FAIL: insert target column not found: %s\n", column_name);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	found_cell = 0;
+	for (index = 0U; index < dml.rows.count; index++) {
+		size_t cell_index;
+		sqlparser_graph_dml_cell_t cell;
+
+		if (expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.rows, index, &cell_index, &error),
+		                     &error,
+		                     "query graph insert row span should be readable") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml_cell_at(&graph, cell_index, &cell, &error),
+		                     &error,
+		                     "query graph insert cell should be readable") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (cell.column_ordinal == column_ordinal) {
+			if (cell.kind != value_kind) {
+				fprintf(stderr,
+				        "FAIL: insert cell kind mismatch: expected=%s actual=%s\n",
+				        sqlparser_graph_value_kind_name(value_kind),
+				        sqlparser_graph_value_kind_name(cell.kind));
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			if (value_kind == SQLPARSER_GRAPH_VALUE_EXPRESSION &&
+			    (cell.has_bind || cell.has_bind_sql || cell.has_bind_position)) {
+				fprintf(stderr, "FAIL: expression insert cell must not expose direct bind\n");
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			found_cell = 1;
+		}
+	}
+	if (!found_cell) {
+		fprintf(stderr, "FAIL: insert cell ordinal not found: %zu\n", column_ordinal);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int expect_query_graph_update_assignment_kind(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	const char *column_name,
+	sqlparser_graph_value_kind_t value_kind)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	size_t index;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "query graph update parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "query graph update graph should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "query graph update dml should be available") != 0 ||
+	    expect_true(dml.kind == SQLPARSER_GRAPH_DML_UPDATE, "query graph dml should be update") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	for (index = 0U; index < dml.assignments.count; index++) {
+		size_t assignment_index;
+		sqlparser_graph_dml_assignment_t assignment;
+		sqlparser_graph_field_t field;
+
+		if (expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.assignments, index, &assignment_index, &error),
+		                     &error,
+		                     "query graph update assignment span should be readable") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml_assignment_at(&graph, assignment_index, &assignment, &error),
+		                     &error,
+		                     "query graph update assignment should be readable") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_field_at(&graph, assignment.target_field_index, &field, &error),
+		                     &error,
+		                     "query graph update target field should be readable") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (field.column_name == NULL || strcmp(field.column_name, column_name) != 0) {
+			continue;
+		}
+		if (assignment.value_kind != value_kind) {
+			fprintf(stderr,
+			        "FAIL: update assignment kind mismatch: expected=%s actual=%s\n",
+			        sqlparser_graph_value_kind_name(value_kind),
+			        sqlparser_graph_value_kind_name(assignment.value_kind));
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (value_kind == SQLPARSER_GRAPH_VALUE_EXPRESSION &&
+		    (assignment.has_bind || assignment.has_bind_sql || assignment.has_bind_position)) {
+			fprintf(stderr, "FAIL: expression update assignment must not expose direct bind\n");
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	fprintf(stderr, "FAIL: update target column not found: %s\n", column_name);
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+static int test_query_graph_expression_field_value_semantics(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *field_case_sql;
+		const char *field_multi_func_sql;
+		const char *field_multi_operator_sql;
+		const char *nested_field_sql;
+		const char *value_func_sql;
+		const char *value_operator_sql;
+		const char *value_cast_sql;
+		const char *value_case_sql;
+		const char *insert_expr_sql;
+		const char *insert_no_column_expr_sql;
+		const char *update_expr_sql;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT id FROM public.users WHERE CASE WHEN id = 1 THEN secret ELSE backup_secret END = $1",
+			"SELECT id FROM public.users WHERE COALESCE(secret, id) = $1",
+			"SELECT id FROM public.users WHERE secret || id = $1",
+			"SELECT id FROM (SELECT id, secret FROM public.users) s WHERE UPPER(s.secret) = $1",
+			"SELECT id FROM public.users WHERE secret = UPPER($1)",
+			"SELECT id FROM public.users WHERE secret = $1 || 'x'",
+			"SELECT id FROM public.users WHERE secret = CAST($1 AS text)",
+			"SELECT id FROM public.users WHERE secret = CASE WHEN id = 1 THEN $1 END",
+			"INSERT INTO public.users (id, secret) VALUES (1, UPPER($1))",
+			"INSERT INTO public.users VALUES (1, UPPER($1))",
+			"UPDATE public.users SET secret = UPPER($1) WHERE id = 1"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"SELECT id FROM users WHERE CASE WHEN id = 1 THEN secret ELSE backup_secret END = ?",
+			"SELECT id FROM users WHERE CONCAT(secret, id) = ?",
+			"SELECT id FROM users WHERE secret + id = ?",
+			"SELECT id FROM (SELECT id, secret FROM users) s WHERE UPPER(s.secret) = ?",
+			"SELECT id FROM users WHERE secret = UPPER(?)",
+			"SELECT id FROM users WHERE secret = CONCAT(?, 'x')",
+			"SELECT id FROM users WHERE secret = CAST(? AS CHAR)",
+			"SELECT id FROM users WHERE secret = CASE WHEN id = 1 THEN ? END",
+			"INSERT INTO users (id, secret) VALUES (1, UPPER(?))",
+			"INSERT INTO users VALUES (1, UPPER(?))",
+			"UPDATE users SET secret = UPPER(?) WHERE id = 1"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE CASE WHEN ID = 1 THEN SECRET ELSE BACKUP_SECRET END = :v",
+			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE NVL(SECRET, ID) = :v",
+			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET || ID = :v",
+			"SELECT ID FROM (SELECT ID, SECRET FROM KDES.DBP_CRYPTO_TEST) s WHERE UPPER(s.SECRET) = :v",
+			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = UPPER(:v)",
+			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = :v || 'x'",
+			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = CAST(:v AS VARCHAR(32))",
+			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = CASE WHEN ID = 1 THEN :v END",
+			"INSERT INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (1, UPPER(:v))",
+			"INSERT INTO KDES.DBP_CRYPTO_TEST VALUES (1, UPPER(:v))",
+			"UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = UPPER(:v) WHERE ID = 1"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"SELECT [id] FROM [dbo].[users] WHERE CASE WHEN [id] = 1 THEN [secret] ELSE [backup_secret] END = @v",
+			"SELECT [id] FROM [dbo].[users] WHERE CONCAT([secret], [id]) = @v",
+			"SELECT [id] FROM [dbo].[users] WHERE [secret] + [id] = @v",
+			"SELECT [id] FROM (SELECT [id], [secret] FROM [dbo].[users]) [s] WHERE UPPER([s].[secret]) = @v",
+			"SELECT [id] FROM [dbo].[users] WHERE [secret] = UPPER(@v)",
+			"SELECT [id] FROM [dbo].[users] WHERE [secret] = @v + 'x'",
+			"SELECT [id] FROM [dbo].[users] WHERE [secret] = CAST(@v AS VARCHAR(32))",
+			"SELECT [id] FROM [dbo].[users] WHERE [secret] = CASE WHEN [id] = 1 THEN @v END",
+			"INSERT INTO [dbo].[users] ([id], [secret]) VALUES (1, UPPER(@v))",
+			"INSERT INTO [dbo].[users] VALUES (1, UPPER(@v))",
+			"UPDATE [dbo].[users] SET [secret] = UPPER(@v) WHERE [id] = 1"
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE CASE WHEN id = 1 THEN secret ELSE backup_secret END = :v",
+			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE NVL(secret, id) = :v",
+			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE secret || id = :v",
+			"SELECT id FROM (SELECT id, secret FROM KDES.DBP_CRYPTO_TEST) s WHERE UPPER(s.secret) = :v",
+			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE secret = UPPER(:v)",
+			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE secret = :v || 'x'",
+			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE secret = CAST(:v AS VARCHAR(32))",
+			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE secret = CASE WHEN id = 1 THEN :v END",
+			"INSERT INTO KDES.DBP_CRYPTO_TEST (id, secret) VALUES (1, UPPER(:v))",
+			"INSERT INTO KDES.DBP_CRYPTO_TEST VALUES (1, UPPER(:v))",
+			"UPDATE KDES.DBP_CRYPTO_TEST SET secret = UPPER(:v) WHERE id = 1"
+		}
+	};
+	size_t index;
+
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		if (expect_query_graph_condition_value_kind(
+			    cases[index].dialect,
+			    cases[index].field_case_sql,
+			    "secret",
+			    SQLPARSER_GRAPH_VALUE_BIND,
+			    SQLPARSER_GRAPH_FIELD_MATCH_EXPRESSION_FIELD,
+			    0) != 0 ||
+		    expect_query_graph_condition_value_absent(
+			    cases[index].dialect,
+			    cases[index].field_case_sql,
+			    "id",
+			    SQLPARSER_GRAPH_VALUE_BIND,
+			    SQLPARSER_GRAPH_FIELD_MATCH_EXPRESSION_FIELD) != 0 ||
+		    expect_query_graph_condition_value_kind(
+			    cases[index].dialect,
+			    cases[index].field_multi_func_sql,
+			    "secret",
+			    SQLPARSER_GRAPH_VALUE_BIND,
+			    SQLPARSER_GRAPH_FIELD_MATCH_EXPRESSION_FIELD,
+			    0) != 0 ||
+		    expect_query_graph_condition_value_kind(
+			    cases[index].dialect,
+			    cases[index].field_multi_func_sql,
+			    "id",
+			    SQLPARSER_GRAPH_VALUE_BIND,
+			    SQLPARSER_GRAPH_FIELD_MATCH_EXPRESSION_FIELD,
+			    0) != 0 ||
+		    expect_query_graph_condition_value_kind(
+			    cases[index].dialect,
+			    cases[index].field_multi_operator_sql,
+			    "secret",
+			    SQLPARSER_GRAPH_VALUE_BIND,
+			    SQLPARSER_GRAPH_FIELD_MATCH_EXPRESSION_FIELD,
+			    0) != 0 ||
+		    expect_query_graph_condition_value_kind(
+			    cases[index].dialect,
+			    cases[index].nested_field_sql,
+			    "secret",
+			    SQLPARSER_GRAPH_VALUE_BIND,
+			    SQLPARSER_GRAPH_FIELD_MATCH_EXPRESSION_FIELD,
+			    0) != 0 ||
+		    expect_query_graph_condition_value_kind(
+			    cases[index].dialect,
+			    cases[index].value_func_sql,
+			    "secret",
+			    SQLPARSER_GRAPH_VALUE_EXPRESSION,
+			    SQLPARSER_GRAPH_FIELD_MATCH_DIRECT_FIELD,
+			    1) != 0 ||
+		    expect_query_graph_condition_value_kind(
+			    cases[index].dialect,
+			    cases[index].value_operator_sql,
+			    "secret",
+			    SQLPARSER_GRAPH_VALUE_EXPRESSION,
+			    SQLPARSER_GRAPH_FIELD_MATCH_DIRECT_FIELD,
+			    1) != 0 ||
+		    expect_query_graph_condition_value_kind(
+			    cases[index].dialect,
+			    cases[index].value_cast_sql,
+			    "secret",
+			    SQLPARSER_GRAPH_VALUE_EXPRESSION,
+			    SQLPARSER_GRAPH_FIELD_MATCH_DIRECT_FIELD,
+			    1) != 0 ||
+		    expect_query_graph_condition_value_kind(
+			    cases[index].dialect,
+			    cases[index].value_case_sql,
+			    "secret",
+			    SQLPARSER_GRAPH_VALUE_EXPRESSION,
+			    SQLPARSER_GRAPH_FIELD_MATCH_DIRECT_FIELD,
+			    1) != 0 ||
+		    expect_query_graph_insert_cell_kind(
+			    cases[index].dialect,
+			    cases[index].insert_expr_sql,
+			    "secret",
+			    1U,
+			    SQLPARSER_GRAPH_VALUE_EXPRESSION) != 0 ||
+		    expect_query_graph_insert_cell_kind(
+			    cases[index].dialect,
+			    cases[index].insert_no_column_expr_sql,
+			    NULL,
+			    1U,
+			    SQLPARSER_GRAPH_VALUE_EXPRESSION) != 0 ||
+		    expect_query_graph_update_assignment_kind(
+			    cases[index].dialect,
+			    cases[index].update_expr_sql,
+			    "secret",
+			    SQLPARSER_GRAPH_VALUE_EXPRESSION) != 0) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
 static int test_query_graph_column_semantics_json(void)
 {
 	static const struct {
@@ -4875,6 +5382,9 @@ int main(void)
 		return 1;
 	}
 	if (test_query_graph_field_match_kind_semantics() != 0) {
+		return 1;
+	}
+	if (test_query_graph_expression_field_value_semantics() != 0) {
 		return 1;
 	}
 	if (test_query_graph_column_semantics_json() != 0) {

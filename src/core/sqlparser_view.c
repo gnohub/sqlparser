@@ -1853,6 +1853,19 @@ static int sqlparser_graph_add_field(
 	return 0;
 }
 
+static int sqlparser_graph_selector_equal(
+	const sqlparser_selector_t *left,
+	const sqlparser_selector_t *right)
+{
+	return left != NULL &&
+		right != NULL &&
+		left->kind == right->kind &&
+		left->statement_index == right->statement_index &&
+		left->item_index == right->item_index &&
+		left->row_index == right->row_index &&
+		left->column_index == right->column_index;
+}
+
 static int sqlparser_graph_add_value(
 	sqlparser_graph_build_t *build,
 	const sqlparser_graph_value_t *source,
@@ -2291,6 +2304,23 @@ static int sqlparser_graph_add_column_ref_field(
 		field.selector.item_index = name_index;
 		field.has_selector = 1;
 	}
+	if (field.has_selector) {
+		size_t index;
+
+		for (index = 0U; index < build->cache->field_count; index++) {
+			sqlparser_graph_field_t *existing;
+
+			existing = &build->cache->fields[index];
+			if (existing->statement_index == build->statement_index &&
+			    existing->has_selector &&
+			    sqlparser_graph_selector_equal(&existing->selector, &field.selector)) {
+				if (out_field_index != NULL) {
+					*out_field_index = existing->index;
+				}
+				return 0;
+			}
+		}
+	}
 	return sqlparser_graph_add_field(build, &field, out_field_index, out_error);
 }
 
@@ -2408,6 +2438,31 @@ static int sqlparser_graph_node_is_recordable_value(PgQuery__Node *node)
 
 static int sqlparser_graph_node_has_recordable_value(PgQuery__Node *node);
 
+static int sqlparser_graph_node_records_as_expression_value(PgQuery__Node *node)
+{
+	if (node == NULL) {
+		return 0;
+	}
+	switch (node->node_case) {
+		case PG_QUERY__NODE__NODE_A_EXPR:
+		case PG_QUERY__NODE__NODE_TYPE_CAST:
+		case PG_QUERY__NODE__NODE_COLLATE_CLAUSE:
+		case PG_QUERY__NODE__NODE_FUNC_CALL:
+		case PG_QUERY__NODE__NODE_COALESCE_EXPR:
+		case PG_QUERY__NODE__NODE_MIN_MAX_EXPR:
+		case PG_QUERY__NODE__NODE_NULL_TEST:
+		case PG_QUERY__NODE__NODE_BOOLEAN_TEST:
+		case PG_QUERY__NODE__NODE_CASE_EXPR:
+		case PG_QUERY__NODE__NODE_CASE_WHEN:
+		case PG_QUERY__NODE__NODE_ROW_EXPR:
+		case PG_QUERY__NODE__NODE_A_ARRAY_EXPR:
+		case PG_QUERY__NODE__NODE_ARRAY_EXPR:
+			return 1;
+		default:
+			return 0;
+	}
+}
+
 static int sqlparser_graph_node_array_has_recordable_value(PgQuery__Node **items, size_t count)
 {
 	size_t index;
@@ -2506,169 +2561,6 @@ static int sqlparser_graph_node_has_recordable_value(PgQuery__Node *node)
 	}
 }
 
-static int sqlparser_graph_count_column_refs(
-	PgQuery__Node *node,
-	PgQuery__ColumnRef **out_column_ref);
-
-static int sqlparser_graph_count_column_refs_in_array(
-	PgQuery__Node **items,
-	size_t count,
-	PgQuery__ColumnRef **out_column_ref)
-{
-	size_t index;
-	int total;
-
-	total = 0;
-	for (index = 0U; index < count; index++) {
-		int item_count;
-
-		item_count = sqlparser_graph_count_column_refs(items[index], out_column_ref);
-		if (item_count >= 2 || total + item_count >= 2) {
-			return 2;
-		}
-		total += item_count;
-	}
-	return total;
-}
-
-static int sqlparser_graph_count_column_refs(
-	PgQuery__Node *node,
-	PgQuery__ColumnRef **out_column_ref)
-{
-	int left_count;
-	int right_count;
-
-	if (node == NULL) {
-		return 0;
-	}
-	switch (node->node_case) {
-		case PG_QUERY__NODE__NODE_COLUMN_REF:
-			if (node->column_ref == NULL || sqlparser_graph_column_ref_is_pseudo(node->column_ref)) {
-				return 0;
-			}
-			if (out_column_ref != NULL && *out_column_ref == NULL) {
-				*out_column_ref = node->column_ref;
-			}
-			return 1;
-		case PG_QUERY__NODE__NODE_A_EXPR:
-			if (node->a_expr == NULL) {
-				return 0;
-			}
-			left_count = sqlparser_graph_count_column_refs(node->a_expr->lexpr, out_column_ref);
-			if (left_count >= 2) {
-				return 2;
-			}
-			right_count = sqlparser_graph_count_column_refs(node->a_expr->rexpr, out_column_ref);
-			return left_count + right_count >= 2 ? 2 : left_count + right_count;
-		case PG_QUERY__NODE__NODE_FUNC_CALL:
-			return node->func_call != NULL ?
-				sqlparser_graph_count_column_refs_in_array(
-					node->func_call->args,
-					node->func_call->n_args,
-					out_column_ref) :
-				0;
-		case PG_QUERY__NODE__NODE_TYPE_CAST:
-			return node->type_cast != NULL ?
-				sqlparser_graph_count_column_refs(node->type_cast->arg, out_column_ref) :
-				0;
-		case PG_QUERY__NODE__NODE_COLLATE_CLAUSE:
-			return node->collate_clause != NULL ?
-				sqlparser_graph_count_column_refs(node->collate_clause->arg, out_column_ref) :
-				0;
-		case PG_QUERY__NODE__NODE_A_ARRAY_EXPR:
-			return node->a_array_expr != NULL ?
-				sqlparser_graph_count_column_refs_in_array(
-					node->a_array_expr->elements,
-					node->a_array_expr->n_elements,
-					out_column_ref) :
-				0;
-		case PG_QUERY__NODE__NODE_ARRAY_EXPR:
-			return node->array_expr != NULL ?
-				sqlparser_graph_count_column_refs_in_array(
-					node->array_expr->elements,
-					node->array_expr->n_elements,
-					out_column_ref) :
-				0;
-		case PG_QUERY__NODE__NODE_COALESCE_EXPR:
-			return node->coalesce_expr != NULL ?
-				sqlparser_graph_count_column_refs_in_array(
-					node->coalesce_expr->args,
-					node->coalesce_expr->n_args,
-					out_column_ref) :
-				0;
-		case PG_QUERY__NODE__NODE_NULL_TEST:
-			return node->null_test != NULL ?
-				sqlparser_graph_count_column_refs(node->null_test->arg, out_column_ref) :
-				0;
-		case PG_QUERY__NODE__NODE_BOOLEAN_TEST:
-			return node->boolean_test != NULL ?
-				sqlparser_graph_count_column_refs(node->boolean_test->arg, out_column_ref) :
-				0;
-		case PG_QUERY__NODE__NODE_CASE_EXPR:
-			if (node->case_expr == NULL) {
-				return 0;
-			}
-			left_count = sqlparser_graph_count_column_refs(node->case_expr->arg, out_column_ref);
-			if (left_count >= 2) {
-				return 2;
-			}
-			right_count = sqlparser_graph_count_column_refs_in_array(
-				node->case_expr->args,
-				node->case_expr->n_args,
-				out_column_ref);
-			if (left_count + right_count >= 2) {
-				return 2;
-			}
-			right_count += sqlparser_graph_count_column_refs(node->case_expr->defresult, out_column_ref);
-			return left_count + right_count >= 2 ? 2 : left_count + right_count;
-		case PG_QUERY__NODE__NODE_CASE_WHEN:
-			if (node->case_when == NULL) {
-				return 0;
-			}
-			left_count = sqlparser_graph_count_column_refs(node->case_when->expr, out_column_ref);
-			if (left_count >= 2) {
-				return 2;
-			}
-			right_count = sqlparser_graph_count_column_refs(node->case_when->result, out_column_ref);
-			return left_count + right_count >= 2 ? 2 : left_count + right_count;
-		case PG_QUERY__NODE__NODE_ROW_EXPR:
-			return node->row_expr != NULL ?
-				sqlparser_graph_count_column_refs_in_array(
-					node->row_expr->args,
-					node->row_expr->n_args,
-					out_column_ref) :
-				0;
-		case PG_QUERY__NODE__NODE_MIN_MAX_EXPR:
-			return node->min_max_expr != NULL ?
-				sqlparser_graph_count_column_refs_in_array(
-					node->min_max_expr->args,
-					node->min_max_expr->n_args,
-					out_column_ref) :
-				0;
-		case PG_QUERY__NODE__NODE_SORT_BY:
-			return node->sort_by != NULL ?
-				sqlparser_graph_count_column_refs(node->sort_by->node, out_column_ref) :
-				0;
-		case PG_QUERY__NODE__NODE_LIST:
-			return node->list != NULL ?
-				sqlparser_graph_count_column_refs_in_array(
-					node->list->items,
-					node->list->n_items,
-					out_column_ref) :
-				0;
-		default:
-			return 0;
-	}
-}
-
-static PgQuery__ColumnRef *sqlparser_graph_single_column_ref(PgQuery__Node *node)
-{
-	PgQuery__ColumnRef *column_ref;
-
-	column_ref = NULL;
-	return sqlparser_graph_count_column_refs(node, &column_ref) == 1 ? column_ref : NULL;
-}
-
 static sqlparser_graph_field_match_kind_t sqlparser_graph_field_match_kind_from_expr(PgQuery__Node *node)
 {
 	if (node == NULL) {
@@ -2765,6 +2657,32 @@ static int sqlparser_graph_record_value_node(
 	return value_status > 0 ? 1 : 0;
 }
 
+static int sqlparser_graph_record_expression_value_node(
+	sqlparser_graph_build_t *build,
+	size_t block_index,
+	sqlparser_clause_kind_t clause,
+	const char *operator_name,
+	size_t field_index,
+	int has_field,
+	sqlparser_graph_field_match_kind_t field_match_kind,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_graph_value_t value;
+
+	if (!has_field) {
+		return 0;
+	}
+	memset(&value, 0, sizeof(value));
+	value.block_index = block_index;
+	value.clause = clause;
+	value.operator_name = operator_name;
+	value.field_index = field_index;
+	value.has_field = 1;
+	value.field_match_kind = field_match_kind;
+	value.kind = SQLPARSER_GRAPH_VALUE_EXPRESSION;
+	return sqlparser_graph_add_value(build, &value, NULL, out_error) == 0 ? 1 : -1;
+}
+
 static int sqlparser_graph_record_value_nodes(
 	sqlparser_graph_build_t *build,
 	size_t block_index,
@@ -2829,6 +2747,17 @@ static int sqlparser_graph_record_value_nodes(
 {
 	if (node == NULL) {
 		return 0;
+	}
+	if (has_field && sqlparser_graph_node_records_as_expression_value(node)) {
+		return sqlparser_graph_record_expression_value_node(
+			build,
+			block_index,
+			clause,
+			operator_name,
+			field_index,
+			has_field,
+			field_match_kind,
+			out_error);
 	}
 	switch (node->node_case) {
 		case PG_QUERY__NODE__NODE_LIST:
@@ -3118,40 +3047,22 @@ static int sqlparser_graph_record_value_nodes(
 	}
 }
 
-static int sqlparser_graph_record_predicate_value(
+static int sqlparser_graph_record_column_ref_match(
 	sqlparser_graph_build_t *build,
 	size_t block_index,
 	sqlparser_clause_kind_t clause,
 	const char *operator_name,
-	PgQuery__Node *left,
-	PgQuery__Node *right,
+	PgQuery__ColumnRef *column_ref,
+	PgQuery__Node *value_node,
 	size_t target_index,
 	int has_target,
-	const PgQuery__AExpr *a_expr,
+	sqlparser_graph_field_match_kind_t field_match_kind,
 	sqlparser_error_t *out_error)
 {
 	size_t field_index;
 	size_t field_count_before;
-	PgQuery__ColumnRef *column_ref;
-	int has_field;
-	sqlparser_graph_field_match_kind_t field_match_kind;
 
-	if (!sqlparser_graph_clause_records_field_values(clause, a_expr) ||
-	    left == NULL ||
-	    right == NULL ||
-	    !sqlparser_graph_node_has_recordable_value(right)) {
-		return 0;
-	}
-	if (sqlparser_graph_count_column_refs(right, NULL) != 0) {
-		return 0;
-	}
-	column_ref = sqlparser_graph_single_column_ref(left);
-	if (column_ref == NULL) {
-		return 0;
-	}
-	field_match_kind = sqlparser_graph_field_match_kind_from_expr(left);
 	field_index = 0U;
-	has_field = 0;
 	field_count_before = sqlparser_graph_local_field_count(build);
 	if (sqlparser_graph_add_column_ref_field(
 		    build,
@@ -3167,17 +3078,451 @@ static int sqlparser_graph_record_predicate_value(
 	if (sqlparser_graph_local_field_count(build) == field_count_before) {
 		return 0;
 	}
-	has_field = 1;
 	return sqlparser_graph_record_value_nodes(
 		build,
 		block_index,
 		clause,
 		operator_name,
 		field_index,
-		has_field,
+		1,
 		field_match_kind,
-		right,
+		value_node,
 		out_error);
+}
+
+static int sqlparser_graph_record_column_ref_matches_in_array(
+	sqlparser_graph_build_t *build,
+	size_t block_index,
+	sqlparser_clause_kind_t clause,
+	const char *operator_name,
+	PgQuery__Node **items,
+	size_t count,
+	PgQuery__Node *value_node,
+	size_t target_index,
+	int has_target,
+	sqlparser_graph_field_match_kind_t field_match_kind,
+	sqlparser_error_t *out_error);
+
+static int sqlparser_graph_record_column_ref_matches(
+	sqlparser_graph_build_t *build,
+	size_t block_index,
+	sqlparser_clause_kind_t clause,
+	const char *operator_name,
+	PgQuery__Node *node,
+	PgQuery__Node *value_node,
+	size_t target_index,
+	int has_target,
+	sqlparser_graph_field_match_kind_t field_match_kind,
+	sqlparser_error_t *out_error)
+{
+	int left_status;
+	int right_status;
+
+	if (node == NULL) {
+		return 0;
+	}
+	switch (node->node_case) {
+		case PG_QUERY__NODE__NODE_COLUMN_REF:
+			return sqlparser_graph_record_column_ref_match(
+				build,
+				block_index,
+				clause,
+				operator_name,
+				node->column_ref,
+				value_node,
+				target_index,
+				has_target,
+				field_match_kind,
+				out_error);
+		case PG_QUERY__NODE__NODE_A_EXPR:
+			if (node->a_expr == NULL) {
+				return 0;
+			}
+			left_status = sqlparser_graph_record_column_ref_matches(
+				build,
+				block_index,
+				clause,
+				operator_name,
+				node->a_expr->lexpr,
+				value_node,
+				target_index,
+				has_target,
+				field_match_kind,
+				out_error);
+			if (left_status < 0) {
+				return -1;
+			}
+			right_status = sqlparser_graph_record_column_ref_matches(
+				build,
+				block_index,
+				clause,
+				operator_name,
+				node->a_expr->rexpr,
+				value_node,
+				target_index,
+				has_target,
+				field_match_kind,
+				out_error);
+			return right_status < 0 ? -1 : (left_status > 0 || right_status > 0 ? 1 : 0);
+		case PG_QUERY__NODE__NODE_BOOL_EXPR:
+			return node->bool_expr != NULL ?
+				sqlparser_graph_record_column_ref_matches_in_array(
+					build,
+					block_index,
+					clause,
+					operator_name,
+					node->bool_expr->args,
+					node->bool_expr->n_args,
+					value_node,
+					target_index,
+					has_target,
+					field_match_kind,
+					out_error) :
+				0;
+		case PG_QUERY__NODE__NODE_FUNC_CALL:
+			return node->func_call != NULL ?
+				sqlparser_graph_record_column_ref_matches_in_array(
+					build,
+					block_index,
+					clause,
+					operator_name,
+					node->func_call->args,
+					node->func_call->n_args,
+					value_node,
+					target_index,
+					has_target,
+					field_match_kind,
+					out_error) :
+				0;
+		case PG_QUERY__NODE__NODE_TYPE_CAST:
+			return node->type_cast != NULL ?
+				sqlparser_graph_record_column_ref_matches(
+					build,
+					block_index,
+					clause,
+					operator_name,
+					node->type_cast->arg,
+					value_node,
+					target_index,
+					has_target,
+					field_match_kind,
+					out_error) :
+				0;
+		case PG_QUERY__NODE__NODE_COLLATE_CLAUSE:
+			return node->collate_clause != NULL ?
+				sqlparser_graph_record_column_ref_matches(
+					build,
+					block_index,
+					clause,
+					operator_name,
+					node->collate_clause->arg,
+					value_node,
+					target_index,
+					has_target,
+					field_match_kind,
+					out_error) :
+				0;
+		case PG_QUERY__NODE__NODE_A_ARRAY_EXPR:
+			return node->a_array_expr != NULL ?
+				sqlparser_graph_record_column_ref_matches_in_array(
+					build,
+					block_index,
+					clause,
+					operator_name,
+					node->a_array_expr->elements,
+					node->a_array_expr->n_elements,
+					value_node,
+					target_index,
+					has_target,
+					field_match_kind,
+					out_error) :
+				0;
+		case PG_QUERY__NODE__NODE_ARRAY_EXPR:
+			return node->array_expr != NULL ?
+				sqlparser_graph_record_column_ref_matches_in_array(
+					build,
+					block_index,
+					clause,
+					operator_name,
+					node->array_expr->elements,
+					node->array_expr->n_elements,
+					value_node,
+					target_index,
+					has_target,
+					field_match_kind,
+					out_error) :
+				0;
+		case PG_QUERY__NODE__NODE_COALESCE_EXPR:
+			return node->coalesce_expr != NULL ?
+				sqlparser_graph_record_column_ref_matches_in_array(
+					build,
+					block_index,
+					clause,
+					operator_name,
+					node->coalesce_expr->args,
+					node->coalesce_expr->n_args,
+					value_node,
+					target_index,
+					has_target,
+					field_match_kind,
+					out_error) :
+				0;
+		case PG_QUERY__NODE__NODE_MIN_MAX_EXPR:
+			return node->min_max_expr != NULL ?
+				sqlparser_graph_record_column_ref_matches_in_array(
+					build,
+					block_index,
+					clause,
+					operator_name,
+					node->min_max_expr->args,
+					node->min_max_expr->n_args,
+					value_node,
+					target_index,
+					has_target,
+					field_match_kind,
+					out_error) :
+				0;
+		case PG_QUERY__NODE__NODE_NULL_TEST:
+			return node->null_test != NULL ?
+				sqlparser_graph_record_column_ref_matches(
+					build,
+					block_index,
+					clause,
+					operator_name,
+					node->null_test->arg,
+					value_node,
+					target_index,
+					has_target,
+					field_match_kind,
+					out_error) :
+				0;
+		case PG_QUERY__NODE__NODE_BOOLEAN_TEST:
+			return node->boolean_test != NULL ?
+				sqlparser_graph_record_column_ref_matches(
+					build,
+					block_index,
+					clause,
+					operator_name,
+					node->boolean_test->arg,
+					value_node,
+					target_index,
+					has_target,
+					field_match_kind,
+					out_error) :
+				0;
+		case PG_QUERY__NODE__NODE_CASE_EXPR:
+			if (node->case_expr == NULL) {
+				return 0;
+			}
+			left_status = sqlparser_graph_record_column_ref_matches(
+				build,
+				block_index,
+				clause,
+				operator_name,
+				node->case_expr->arg,
+				value_node,
+				target_index,
+				has_target,
+				field_match_kind,
+				out_error);
+			if (left_status < 0) {
+				return -1;
+			}
+			right_status = sqlparser_graph_record_column_ref_matches_in_array(
+				build,
+				block_index,
+				clause,
+				operator_name,
+				node->case_expr->args,
+				node->case_expr->n_args,
+				value_node,
+				target_index,
+				has_target,
+				field_match_kind,
+				out_error);
+			if (right_status < 0) {
+				return -1;
+			}
+			left_status = left_status > 0 || right_status > 0 ? 1 : 0;
+			right_status = sqlparser_graph_record_column_ref_matches(
+				build,
+				block_index,
+				clause,
+				operator_name,
+				node->case_expr->defresult,
+				value_node,
+				target_index,
+				has_target,
+				field_match_kind,
+				out_error);
+			return right_status < 0 ? -1 : (left_status > 0 || right_status > 0 ? 1 : 0);
+		case PG_QUERY__NODE__NODE_CASE_WHEN:
+			if (node->case_when == NULL) {
+				return 0;
+			}
+			return sqlparser_graph_record_column_ref_matches(
+				build,
+				block_index,
+				clause,
+				operator_name,
+				node->case_when->result,
+				value_node,
+				target_index,
+				has_target,
+				field_match_kind,
+				out_error);
+		case PG_QUERY__NODE__NODE_ROW_EXPR:
+			return node->row_expr != NULL ?
+				sqlparser_graph_record_column_ref_matches_in_array(
+					build,
+					block_index,
+					clause,
+					operator_name,
+					node->row_expr->args,
+					node->row_expr->n_args,
+					value_node,
+					target_index,
+					has_target,
+					field_match_kind,
+					out_error) :
+				0;
+		case PG_QUERY__NODE__NODE_SORT_BY:
+			return node->sort_by != NULL ?
+				sqlparser_graph_record_column_ref_matches(
+					build,
+					block_index,
+					clause,
+					operator_name,
+					node->sort_by->node,
+					value_node,
+					target_index,
+					has_target,
+					field_match_kind,
+					out_error) :
+				0;
+		case PG_QUERY__NODE__NODE_LIST:
+			return node->list != NULL ?
+				sqlparser_graph_record_column_ref_matches_in_array(
+					build,
+					block_index,
+					clause,
+					operator_name,
+					node->list->items,
+					node->list->n_items,
+					value_node,
+					target_index,
+					has_target,
+					field_match_kind,
+					out_error) :
+				0;
+		default:
+			return 0;
+	}
+}
+
+static int sqlparser_graph_record_column_ref_matches_in_array(
+	sqlparser_graph_build_t *build,
+	size_t block_index,
+	sqlparser_clause_kind_t clause,
+	const char *operator_name,
+	PgQuery__Node **items,
+	size_t count,
+	PgQuery__Node *value_node,
+	size_t target_index,
+	int has_target,
+	sqlparser_graph_field_match_kind_t field_match_kind,
+	sqlparser_error_t *out_error)
+{
+	size_t index;
+	int matched;
+
+	if (items == NULL) {
+		return 0;
+	}
+	matched = 0;
+	for (index = 0U; index < count; index++) {
+		int item_status;
+
+		item_status = sqlparser_graph_record_column_ref_matches(
+			build,
+			block_index,
+			clause,
+			operator_name,
+			items[index],
+			value_node,
+			target_index,
+			has_target,
+			field_match_kind,
+			out_error);
+		if (item_status < 0) {
+			return -1;
+		}
+		if (item_status > 0) {
+			matched = 1;
+		}
+	}
+	return matched;
+}
+
+static int sqlparser_graph_record_predicate_field_values(
+	sqlparser_graph_build_t *build,
+	size_t block_index,
+	sqlparser_clause_kind_t clause,
+	const char *operator_name,
+	PgQuery__Node *field_node,
+	PgQuery__Node *value_node,
+	size_t target_index,
+	int has_target,
+	sqlparser_graph_field_match_kind_t field_match_kind,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_graph_record_column_ref_matches(
+		build,
+		block_index,
+		clause,
+			operator_name,
+			field_node,
+			value_node,
+			target_index,
+			has_target,
+			field_match_kind,
+			out_error);
+}
+
+static int sqlparser_graph_record_predicate_value(
+	sqlparser_graph_build_t *build,
+	size_t block_index,
+	sqlparser_clause_kind_t clause,
+	const char *operator_name,
+	PgQuery__Node *left,
+	PgQuery__Node *right,
+	size_t target_index,
+	int has_target,
+	const PgQuery__AExpr *a_expr,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_graph_field_match_kind_t field_match_kind;
+	int value_status;
+
+	if (!sqlparser_graph_clause_records_field_values(clause, a_expr) ||
+	    left == NULL ||
+	    right == NULL ||
+	    !sqlparser_graph_node_has_recordable_value(right)) {
+		return 0;
+	}
+	field_match_kind = sqlparser_graph_field_match_kind_from_expr(left);
+	value_status = sqlparser_graph_record_predicate_field_values(
+		build,
+		block_index,
+		clause,
+		operator_name,
+		left,
+		right,
+		target_index,
+		has_target,
+		field_match_kind,
+		out_error);
+	return value_status;
 }
 
 static int sqlparser_graph_walk_node_array(
@@ -3323,24 +3668,47 @@ static int sqlparser_graph_walk_expr(
 			if (has_target) {
 				(void)sqlparser_graph_target_path_push(build, "expression", operator_name, 1U);
 			}
-			right_value_status = sqlparser_graph_record_predicate_value(
-				    build,
-				    block_index,
-				    clause,
+				right_value_status = sqlparser_graph_record_predicate_value(
+					    build,
+					    block_index,
+					    clause,
 				    operator_name,
 				    node->a_expr->rexpr,
 				    node->a_expr->lexpr,
 				    target_index,
 				    has_target,
-				    node->a_expr,
-				    out_error);
-			sqlparser_graph_target_path_restore(build, saved_count);
-			if (right_value_status < 0) {
-				return -1;
-			}
-			if (left_value_status > 0 || right_value_status > 0) {
-				return 0;
-			}
+					    node->a_expr,
+					    out_error);
+				sqlparser_graph_target_path_restore(build, saved_count);
+				if (right_value_status < 0) {
+					return -1;
+				}
+				if (left_value_status > 0 || right_value_status > 0) {
+					if (sqlparser_graph_walk_expr_with_target_path(
+						    build,
+						    block_index,
+						    clause,
+						    node->a_expr->lexpr,
+						    target_index,
+						    has_target,
+						    "expression",
+						    operator_name,
+						    0U,
+						    out_error) != 0) {
+						return -1;
+					}
+					return sqlparser_graph_walk_expr_with_target_path(
+						build,
+						block_index,
+						clause,
+						node->a_expr->rexpr,
+						target_index,
+						has_target,
+						"expression",
+						operator_name,
+						1U,
+						out_error);
+				}
 			if (sqlparser_graph_walk_expr_with_target_path(
 				    build,
 				    block_index,

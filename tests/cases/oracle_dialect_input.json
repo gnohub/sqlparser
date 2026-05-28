@@ -1544,6 +1544,74 @@
       }
     },
     {
+      "id": "O101",
+      "name": "oracle-expression-field-case-expression-value",
+      "sql": "SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE CASE WHEN ID = 1 THEN SECRET ELSE BACKUP_SECRET END = :v",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"column\":\"secret\"",
+          "\"field_match_kind\":\"expression_field\",\"kind\":\"bind\""
+        ]
+      }
+    },
+    {
+      "id": "O102",
+      "name": "oracle-expression-field-multi-field-expression-value",
+      "sql": "SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE NVL(SECRET, ID) = :v1 AND SECRET || ID = :v2",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"column\":\"secret\"",
+          "\"column\":\"id\"",
+          "\"field_match_kind\":\"expression_field\",\"kind\":\"bind\""
+        ]
+      }
+    },
+    {
+      "id": "O103",
+      "name": "oracle-expression-field-value-side-expression",
+      "sql": "SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = UPPER(:v1) AND SECRET = :v2 || 'x' AND SECRET = CAST(:v3 AS VARCHAR(32))",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"column\":\"secret\"",
+          "\"field_match_kind\":\"direct_field\",\"kind\":\"expression\""
+        ],
+        "view_not_contains": [
+          "\"field_match_kind\":\"direct_field\",\"kind\":\"bind\",\"bind_key\":\"v1\""
+        ]
+      }
+    },
+    {
+      "id": "O104",
+      "name": "oracle-expression-field-dml-expression-values",
+      "sql": "INSERT INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (1, UPPER(:v1)); UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :v2 || 'x' WHERE ID = 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": [
+          "InsertStmt",
+          "UpdateStmt"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":1,\"kind\":\"expression\""
+        ]
+      }
+    },
+    {
       "id": "OU014",
       "name": "oracle-create-synonym",
       "sql": "CREATE SYNONYM u FOR users",

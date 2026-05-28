@@ -437,6 +437,8 @@ sqlparser_status_t sqlparser_statement_query_graph(
 - 未限定字段如果不能仅凭 SQL 唯一归属，`has_relation` 为 0，`candidate_relations` 给出当前 scope 候选 relation。
 - `values[]` 只记录与字段关联的应用侧值；`LIMIT/OFFSET`、`ROWNUM` 等分页或伪列 bind 不进入 `values[]`。
 - `sqlparser_graph_value_t.field_match_kind` 仅在 `has_field` 为真时有效，用于区分 `secret = ?` 这类直接字段匹配和 `UPPER(secret) = ?` 这类表达式字段匹配。
+- 字段侧表达式包含多个字段时，每个可定位字段各输出一条 `expression_field` value 关系。
+- 值侧是函数、CAST、运算符、数组、ROW 或 CASE 表达式时，关联字段的 value 使用 `SQLPARSER_GRAPH_VALUE_EXPRESSION`，不会把内部 bind/literal 当作 direct value 暴露。
 
 ## JSON 导出与 Patch
 

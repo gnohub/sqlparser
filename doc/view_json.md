@@ -239,7 +239,9 @@ FROM (
 
 多语句 SQL 中，`bind_position` 按整条输入 SQL 全局递增，不按 statement 重置。
 
-`WHERE`、`JOIN ... ON`、`HAVING` 以及 SELECT 投影内部的条件表达式中，可稳定归属到单个字段的 `IN`、`NOT IN`、`BETWEEN`、普通比较和单字段函数包裹条件会输出字段关联值。`field_match_kind` 用于区分 `secret = ?` 这类直接字段匹配和 `UPPER(secret) = ?`、`CAST(secret AS ...) = ?`、`secret || 'x' = ?`、`CASE ... THEN secret END = ?` 这类表达式字段匹配。右侧表达式包含其他字段引用时不会强行归属，避免产生错误字段和值关系。
+`WHERE`、`JOIN ... ON`、`HAVING` 以及 SELECT 投影内部的条件表达式中，`IN`、`NOT IN`、`BETWEEN` 和普通比较会输出字段关联值。`field_match_kind` 用于区分 `secret = ?` 这类直接字段匹配和 `UPPER(secret) = ?`、`CAST(secret AS ...) = ?`、`secret || id = ?`、`CASE ... THEN secret END = ?` 这类表达式字段匹配。字段侧表达式包含多个字段时，每个可定位字段各输出一条 `expression_field` 关系。
+
+如果值侧本身是函数、类型转换、运算符、数组、ROW 或 CASE 表达式，例如 `secret = UPPER(?)`、`secret = ? || 'x'`、`secret = CAST(? AS CHAR)`，`values[]` 输出关联到 `secret` 的 `kind=expression`，不会把表达式内部的 bind 或 literal 暴露成 direct value。
 
 ## 改写
 

@@ -141,11 +141,15 @@
 | P124 | `postgresql-select-unqualified-multi-table-scope` | 多表作用域中的未限定字段 | 未限定字段只输出一次，并归属到 `statement` 对象，避免多个表下出现相同 selector |
 | P125 | `postgresql-select-union-derived-scope` | UNION 两侧派生表 + `SELECT *` | 派生表字段 occurrence 唯一输出，`query_graph` 来源链路 分别指向对应内层 `*` 来源 |
 | P126 | `postgresql-field-match-kind-direct-and-expression` | 直接字段条件 + 函数包裹字段条件 | `query_graph.values[].field_match_kind` 区分 `direct_field` 和 `expression_field` |
+| P127 | `postgresql-expression-field-case-expression-value` | CASE 返回字段再与参数比较 | CASE 表达式字段输出 `expression_field` value 关系 |
+| P128 | `postgresql-expression-field-multi-field-expression-value` | 多字段表达式与参数比较 | 表达式内字段分别保留 `expression_field` value 关系 |
+| P129 | `postgresql-expression-field-value-side-expression` | 字段与值侧表达式比较 | 值侧函数、运算、CAST 输出 `kind=expression`，不暴露 direct bind |
+| P130 | `postgresql-expression-field-dml-expression-values` | INSERT/UPDATE 表达式赋值 | DML cell/assignment 输出 `kind=expression` |
 
 ## 负向用例
 
 | 用例 ID | 用例名称 | 输入 | 验证重点 |
 | --- | --- | --- | --- |
-| P127 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
+| P131 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
 
 新增回归用例必须同步更新 `tests/cases/sql_batch_input.json` 和本矩阵。

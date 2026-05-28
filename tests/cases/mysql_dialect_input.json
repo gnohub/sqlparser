@@ -985,6 +985,78 @@
       }
     },
     {
+      "id": "M070",
+      "name": "mysql-expression-field-case-expression-value",
+      "sql": "SELECT id FROM users WHERE CASE WHEN id = 1 THEN secret ELSE backup_secret END = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"column\":\"secret\"",
+          "\"field_match_kind\":\"expression_field\",\"kind\":\"bind\""
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "M071",
+      "name": "mysql-expression-field-multi-field-expression-value",
+      "sql": "SELECT id FROM users WHERE CONCAT(secret, id) = ? AND secret + id = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"column\":\"secret\"",
+          "\"column\":\"id\"",
+          "\"field_match_kind\":\"expression_field\",\"kind\":\"bind\""
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "M072",
+      "name": "mysql-expression-field-value-side-expression",
+      "sql": "SELECT id FROM users WHERE secret = UPPER(?) AND secret = CONCAT(?, 'x') AND secret = CAST(? AS CHAR)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"column\":\"secret\"",
+          "\"field_match_kind\":\"direct_field\",\"kind\":\"expression\""
+        ],
+        "view_not_contains": [
+          "\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "$1"
+        ]
+      }
+    },
+    {
+      "id": "M073",
+      "name": "mysql-expression-field-dml-expression-values",
+      "sql": "INSERT INTO users (id, secret) VALUES (1, UPPER(?)); UPDATE users SET secret = CONCAT(?, 'x') WHERE id = 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": [
+          "InsertStmt",
+          "UpdateStmt"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":1,\"kind\":\"expression\""
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
       "id": "MU001",
       "name": "mysql-insert-ignore",
       "sql": "INSERT IGNORE INTO `users` (`id`) VALUES (1)",

@@ -83,6 +83,10 @@ This file records regression cases for the Dameng dialect conversion layer. The 
 | D074 | `dameng-select-reference-046` | SELECT reference case 046 | Dameng complex derived-table and multi-JOIN subquery parsing and View JSON shape |
 | D075 | `dameng-select-reference-047` | SELECT reference case 047 | Dameng UNION plus complex derived-table subquery parsing and View JSON shape |
 | D076 | `dameng-field-match-kind-direct-and-expression` | direct-field predicate plus function-wrapped field predicate | `query_graph.values[].field_match_kind` distinguishes `direct_field` from `expression_field` |
+| D077 | `dameng-expression-field-case-expression-value` | CASE returns a field and compares with a bind | CASE expression fields emit `expression_field` value relations |
+| D078 | `dameng-expression-field-multi-field-expression-value` | `NVL(secret, id)` and `secret || id` compared with binds | Fields inside the expression keep separate `expression_field` value relations |
+| D079 | `dameng-expression-field-value-side-expression` | field compared with function, concatenation, and CAST value-side expressions | value-side expressions emit `kind=expression` instead of direct binds |
+| D080 | `dameng-expression-field-dml-expression-values` | INSERT/UPDATE expression assignments | DML cells and assignments emit `kind=expression` |
 
 ## Explicitly Unsupported Cases
 

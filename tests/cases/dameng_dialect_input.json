@@ -1095,6 +1095,74 @@
       }
     },
     {
+      "id": "D077",
+      "name": "dameng-expression-field-case-expression-value",
+      "sql": "SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE CASE WHEN id = 1 THEN secret ELSE backup_secret END = :v",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"column\":\"secret\"",
+          "\"field_match_kind\":\"expression_field\",\"kind\":\"bind\""
+        ]
+      }
+    },
+    {
+      "id": "D078",
+      "name": "dameng-expression-field-multi-field-expression-value",
+      "sql": "SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE NVL(secret, id) = :v1 AND secret || id = :v2",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"column\":\"secret\"",
+          "\"column\":\"id\"",
+          "\"field_match_kind\":\"expression_field\",\"kind\":\"bind\""
+        ]
+      }
+    },
+    {
+      "id": "D079",
+      "name": "dameng-expression-field-value-side-expression",
+      "sql": "SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE secret = UPPER(:v1) AND secret = :v2 || 'x' AND secret = CAST(:v3 AS VARCHAR(32))",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"column\":\"secret\"",
+          "\"field_match_kind\":\"direct_field\",\"kind\":\"expression\""
+        ],
+        "view_not_contains": [
+          "\"field_match_kind\":\"direct_field\",\"kind\":\"bind\",\"bind_key\":\"v1\""
+        ]
+      }
+    },
+    {
+      "id": "D080",
+      "name": "dameng-expression-field-dml-expression-values",
+      "sql": "INSERT INTO KDES.DBP_CRYPTO_TEST (id, secret) VALUES (1, UPPER(:v1)); UPDATE KDES.DBP_CRYPTO_TEST SET secret = :v2 || 'x' WHERE id = 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": [
+          "InsertStmt",
+          "UpdateStmt"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":1,\"kind\":\"expression\""
+        ]
+      }
+    },
+    {
       "id": "DU001",
       "name": "dameng-connect-by",
       "sql": "SELECT id FROM users START WITH manager_id IS NULL CONNECT BY PRIOR id = manager_id",

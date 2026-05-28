@@ -141,11 +141,15 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 | P124 | `postgresql-select-unqualified-multi-table-scope` | unqualified fields in a multi-table scope | Unqualified fields are reported once under a `statement` object, avoiding the same selector under multiple tables |
 | P125 | `postgresql-select-union-derived-scope` | derived tables on both sides of UNION with `SELECT *` | Unique occurrence output for derived fields, with `query_graph` lineage pointing to the matching inner `*` source |
 | P126 | `postgresql-field-match-kind-direct-and-expression` | direct-field predicate plus function-wrapped field predicate | `query_graph.values[].field_match_kind` distinguishes `direct_field` from `expression_field` |
+| P127 | `postgresql-expression-field-case-expression-value` | CASE returns a field and compares with a bind | CASE expression fields emit `expression_field` value relations |
+| P128 | `postgresql-expression-field-multi-field-expression-value` | multi-field expression compared with binds | Fields inside the expression keep separate `expression_field` value relations |
+| P129 | `postgresql-expression-field-value-side-expression` | field compared with value-side expressions | function, operator, and CAST value-side expressions emit `kind=expression` instead of direct binds |
+| P130 | `postgresql-expression-field-dml-expression-values` | INSERT/UPDATE expression assignments | DML cells and assignments emit `kind=expression` |
 
 ## Negative Case
 
 | Case ID | Case Name | Input | Validation Focus |
 | --- | --- | --- | --- |
-| P127 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
+| P131 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
 
 New regression cases must update both `tests/cases/sql_batch_input.json` and this matrix.

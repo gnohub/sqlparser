@@ -239,7 +239,9 @@ When a string literal comes from a quoted-identifier token, the `literal` object
 
 For multi-statement input, `bind_position` is global across the whole SQL text and does not reset per statement.
 
-For `WHERE`, `JOIN ... ON`, `HAVING`, and predicate expressions inside SELECT projections, field-bound values are emitted for `IN`, `NOT IN`, `BETWEEN`, ordinary comparisons, and single-column function-wrapped predicates when the predicate can be attributed to one field. `field_match_kind` distinguishes direct-field predicates such as `secret = ?` from expression-field predicates such as `UPPER(secret) = ?`, `CAST(secret AS ...) = ?`, `secret || 'x' = ?`, or `CASE ... THEN secret END = ?`. Predicates whose value side also contains field references are not force-attributed.
+For `WHERE`, `JOIN ... ON`, `HAVING`, and predicate expressions inside SELECT projections, field-bound values are emitted for `IN`, `NOT IN`, `BETWEEN`, and ordinary comparisons. `field_match_kind` distinguishes direct-field predicates such as `secret = ?` from expression-field predicates such as `UPPER(secret) = ?`, `CAST(secret AS ...) = ?`, `secret || id = ?`, or `CASE ... THEN secret END = ?`. If the field side contains multiple attributable fields, each field gets a separate `expression_field` relation.
+
+If the value side is a function, cast, operator, array, row, or CASE expression, such as `secret = UPPER(?)`, `secret = ? || 'x'`, or `secret = CAST(? AS CHAR)`, `values[]` emits `kind=expression` attached to `secret` and does not expose inner binds or literals as direct values.
 
 ## Rewriting
 

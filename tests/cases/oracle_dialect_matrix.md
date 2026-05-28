@@ -106,6 +106,10 @@
 | O098 | `oracle-select-reference-047` | SELECT 参考用例 047 | Oracle UNION + 复杂派生表子查询解析和 View JSON 结构 |
 | O099 | `oracle-select-nested-star-query-graph` | 多层派生表 + ROWNUM + `SELECT *` | `query_graph` 表达派生表 `*` 链路和 UNION 分支 |
 | O100 | `oracle-field-match-kind-direct-and-expression` | 直接字段条件 + 函数包裹字段条件 | `query_graph.values[].field_match_kind` 区分 `direct_field` 和 `expression_field` |
+| O101 | `oracle-expression-field-case-expression-value` | CASE 返回字段再与 bind 比较 | CASE 表达式字段输出 `expression_field` value 关系 |
+| O102 | `oracle-expression-field-multi-field-expression-value` | `NVL(SECRET, ID)`、`SECRET || ID` 与 bind 比较 | 表达式内字段分别保留 `expression_field` value 关系 |
+| O103 | `oracle-expression-field-value-side-expression` | 字段与值侧函数、拼接、CAST 比较 | 值侧表达式输出 `kind=expression`，不暴露 direct bind |
+| O104 | `oracle-expression-field-dml-expression-values` | INSERT/UPDATE 表达式赋值 | DML cell/assignment 输出 `kind=expression` |
 
 ## 明确不支持用例
 

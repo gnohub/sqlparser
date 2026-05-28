@@ -471,6 +471,11 @@ from which it was read.
 - `sqlparser_graph_value_t.field_match_kind` is meaningful only when
   `has_field` is true. It distinguishes direct-field predicates such as
   `secret = ?` from expression-field predicates such as `UPPER(secret) = ?`.
+- If the field side contains multiple attributable fields, each field gets a
+  separate `expression_field` value relation.
+- If the value side is a function, cast, operator, array, row, or CASE
+  expression, the related field value uses `SQLPARSER_GRAPH_VALUE_EXPRESSION`;
+  inner binds and literals are not exposed as direct values.
 
 ## JSON Export and Patch
 

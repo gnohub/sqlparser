@@ -91,6 +91,10 @@
 | S083 | `sqlserver-select-derived-query-graph` | 派生表字段向内层真实表字段的 `query_graph` 来源链路映射和 `output_name` |
 | S084 | `MERGE` + `?` 参数 | MERGE 的 target/source relation、UPDATE assignment、INSERT values 和 bind 映射 |
 | S085 | `sqlserver-field-match-kind-direct-and-expression` | 直接字段条件 + 函数包裹字段条件 | `query_graph.values[].field_match_kind` 区分 `direct_field` 和 `expression_field` |
+| S086 | `sqlserver-expression-field-case-expression-value` | CASE 返回字段再与 bind 比较 | CASE 表达式字段输出 `expression_field` value 关系 |
+| S087 | `sqlserver-expression-field-multi-field-expression-value` | `CONCAT(secret, id)`、`secret + id` 与 bind 比较 | 表达式内字段分别保留 `expression_field` value 关系 |
+| S088 | `sqlserver-expression-field-value-side-expression` | 字段与值侧函数、拼接、CAST 比较 | 值侧表达式输出 `kind=expression`，不暴露 direct bind |
+| S089 | `sqlserver-expression-field-dml-expression-values` | INSERT/UPDATE 表达式赋值 | DML cell/assignment 输出 `kind=expression` |
 
 ## 明确不支持用例
 

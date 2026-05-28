@@ -8,11 +8,11 @@ coverage is tracked in each dialect's `*_official_syntax_coverage.en.md` file.
 
 | Dialect | Source | Supported Cases | Explicitly Unsupported Cases | Total | Supported Ratio |
 | --- | --- | ---: | ---: | ---: | ---: |
-| PostgreSQL | `tests/cases/sql_batch_input.json` | 129 | 1 | 130 | 99.23% |
-| MySQL | `tests/cases/mysql_dialect_input.json` | 75 | 18 | 93 | 80.65% |
-| Oracle | `tests/cases/oracle_dialect_input.json` | 100 | 18 | 118 | 84.75% |
-| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 320 | 15 | 335 | 95.52% |
-| Dameng | `tests/cases/dameng_dialect_input.json` | 77 | 12 | 89 | 86.52% |
+| PostgreSQL | `tests/cases/sql_batch_input.json` | 133 | 1 | 134 | 99.25% |
+| MySQL | `tests/cases/mysql_dialect_input.json` | 79 | 18 | 97 | 81.44% |
+| Oracle | `tests/cases/oracle_dialect_input.json` | 104 | 18 | 122 | 85.25% |
+| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 324 | 15 | 339 | 95.58% |
+| Dameng | `tests/cases/dameng_dialect_input.json` | 81 | 12 | 93 | 87.10% |
 
 ## Counting Rules
 
