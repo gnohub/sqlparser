@@ -2301,6 +2301,7 @@ static int sqlparser_graph_value_from_node(
 	const char *operator_name,
 	size_t field_index,
 	int has_field,
+	sqlparser_graph_field_match_kind_t field_match_kind,
 	PgQuery__Node *value_node,
 	sqlparser_graph_value_t *out_value,
 	sqlparser_error_t *out_error)
@@ -2324,6 +2325,7 @@ static int sqlparser_graph_value_from_node(
 	out_value->operator_name = operator_name;
 	out_value->field_index = field_index;
 	out_value->has_field = has_field;
+	out_value->field_match_kind = has_field ? field_match_kind : SQLPARSER_GRAPH_FIELD_MATCH_UNKNOWN;
 	if (value_node->node_case == PG_QUERY__NODE__NODE_A_CONST && value_node->a_const != NULL) {
 		out_value->kind = SQLPARSER_GRAPH_VALUE_LITERAL;
 		(void)sqlparser_fill_literal_view_from_a_const_with_sql(
@@ -2667,6 +2669,16 @@ static PgQuery__ColumnRef *sqlparser_graph_single_column_ref(PgQuery__Node *node
 	return sqlparser_graph_count_column_refs(node, &column_ref) == 1 ? column_ref : NULL;
 }
 
+static sqlparser_graph_field_match_kind_t sqlparser_graph_field_match_kind_from_expr(PgQuery__Node *node)
+{
+	if (node == NULL) {
+		return SQLPARSER_GRAPH_FIELD_MATCH_UNKNOWN;
+	}
+	return node->node_case == PG_QUERY__NODE__NODE_COLUMN_REF ?
+		SQLPARSER_GRAPH_FIELD_MATCH_DIRECT_FIELD :
+		SQLPARSER_GRAPH_FIELD_MATCH_EXPRESSION_FIELD;
+}
+
 static int sqlparser_graph_a_expr_is_select_predicate(const PgQuery__AExpr *a_expr)
 {
 	const char *operator_name;
@@ -2725,6 +2737,7 @@ static int sqlparser_graph_record_value_node(
 	const char *operator_name,
 	size_t field_index,
 	int has_field,
+	sqlparser_graph_field_match_kind_t field_match_kind,
 	PgQuery__Node *node,
 	sqlparser_error_t *out_error)
 {
@@ -2738,6 +2751,7 @@ static int sqlparser_graph_record_value_node(
 		operator_name,
 		field_index,
 		has_field,
+		field_match_kind,
 		node,
 		&value,
 		out_error);
@@ -2758,6 +2772,7 @@ static int sqlparser_graph_record_value_nodes(
 	const char *operator_name,
 	size_t field_index,
 	int has_field,
+	sqlparser_graph_field_match_kind_t field_match_kind,
 	PgQuery__Node *node,
 	sqlparser_error_t *out_error);
 
@@ -2768,6 +2783,7 @@ static int sqlparser_graph_record_value_node_array(
 	const char *operator_name,
 	size_t field_index,
 	int has_field,
+	sqlparser_graph_field_match_kind_t field_match_kind,
 	PgQuery__Node **items,
 	size_t count,
 	sqlparser_error_t *out_error)
@@ -2789,6 +2805,7 @@ static int sqlparser_graph_record_value_node_array(
 			operator_name,
 			field_index,
 			has_field,
+			field_match_kind,
 			items[index],
 			out_error);
 		if (item_status < 0) {
@@ -2806,6 +2823,7 @@ static int sqlparser_graph_record_value_nodes(
 	const char *operator_name,
 	size_t field_index,
 	int has_field,
+	sqlparser_graph_field_match_kind_t field_match_kind,
 	PgQuery__Node *node,
 	sqlparser_error_t *out_error)
 {
@@ -2822,6 +2840,7 @@ static int sqlparser_graph_record_value_nodes(
 					operator_name,
 					field_index,
 					has_field,
+					field_match_kind,
 					node->list->items,
 					node->list->n_items,
 					out_error) :
@@ -2835,6 +2854,7 @@ static int sqlparser_graph_record_value_nodes(
 					operator_name,
 					field_index,
 					has_field,
+					field_match_kind,
 					node->a_array_expr->elements,
 					node->a_array_expr->n_elements,
 					out_error) :
@@ -2848,6 +2868,7 @@ static int sqlparser_graph_record_value_nodes(
 					operator_name,
 					field_index,
 					has_field,
+					field_match_kind,
 					node->array_expr->elements,
 					node->array_expr->n_elements,
 					out_error) :
@@ -2861,6 +2882,7 @@ static int sqlparser_graph_record_value_nodes(
 					operator_name,
 					field_index,
 					has_field,
+					field_match_kind,
 					node->row_expr->args,
 					node->row_expr->n_args,
 					out_error) :
@@ -2880,6 +2902,7 @@ static int sqlparser_graph_record_value_nodes(
 				operator_name,
 				field_index,
 				has_field,
+				field_match_kind,
 				node->a_expr->lexpr,
 				out_error);
 			if (left_status < 0) {
@@ -2892,6 +2915,7 @@ static int sqlparser_graph_record_value_nodes(
 				operator_name,
 				field_index,
 				has_field,
+				field_match_kind,
 				node->a_expr->rexpr,
 				out_error);
 			if (right_status < 0) {
@@ -2908,6 +2932,7 @@ static int sqlparser_graph_record_value_nodes(
 					operator_name,
 					field_index,
 					has_field,
+					field_match_kind,
 					node->type_cast->arg,
 					out_error) :
 				0;
@@ -2920,6 +2945,7 @@ static int sqlparser_graph_record_value_nodes(
 					operator_name,
 					field_index,
 					has_field,
+					field_match_kind,
 					node->collate_clause->arg,
 					out_error) :
 				0;
@@ -2932,6 +2958,7 @@ static int sqlparser_graph_record_value_nodes(
 					operator_name,
 					field_index,
 					has_field,
+					field_match_kind,
 					node->func_call->args,
 					node->func_call->n_args,
 					out_error) :
@@ -2945,6 +2972,7 @@ static int sqlparser_graph_record_value_nodes(
 					operator_name,
 					field_index,
 					has_field,
+					field_match_kind,
 					node->coalesce_expr->args,
 					node->coalesce_expr->n_args,
 					out_error) :
@@ -2958,6 +2986,7 @@ static int sqlparser_graph_record_value_nodes(
 					operator_name,
 					field_index,
 					has_field,
+					field_match_kind,
 					node->min_max_expr->args,
 					node->min_max_expr->n_args,
 					out_error) :
@@ -2971,6 +3000,7 @@ static int sqlparser_graph_record_value_nodes(
 					operator_name,
 					field_index,
 					has_field,
+					field_match_kind,
 					node->null_test->arg,
 					out_error) :
 				0;
@@ -2983,6 +3013,7 @@ static int sqlparser_graph_record_value_nodes(
 					operator_name,
 					field_index,
 					has_field,
+					field_match_kind,
 					node->boolean_test->arg,
 					out_error) :
 				0;
@@ -3002,6 +3033,7 @@ static int sqlparser_graph_record_value_nodes(
 				operator_name,
 				field_index,
 				has_field,
+				field_match_kind,
 				node->case_expr->arg,
 				out_error);
 			if (arg_status < 0) {
@@ -3014,6 +3046,7 @@ static int sqlparser_graph_record_value_nodes(
 				operator_name,
 				field_index,
 				has_field,
+				field_match_kind,
 				node->case_expr->args,
 				node->case_expr->n_args,
 				out_error);
@@ -3027,6 +3060,7 @@ static int sqlparser_graph_record_value_nodes(
 				operator_name,
 				field_index,
 				has_field,
+				field_match_kind,
 				node->case_expr->defresult,
 				out_error);
 			if (def_status < 0) {
@@ -3049,6 +3083,7 @@ static int sqlparser_graph_record_value_nodes(
 				operator_name,
 				field_index,
 				has_field,
+				field_match_kind,
 				node->case_when->expr,
 				out_error);
 			if (expr_status < 0) {
@@ -3061,6 +3096,7 @@ static int sqlparser_graph_record_value_nodes(
 				operator_name,
 				field_index,
 				has_field,
+				field_match_kind,
 				node->case_when->result,
 				out_error);
 			if (result_status < 0) {
@@ -3076,6 +3112,7 @@ static int sqlparser_graph_record_value_nodes(
 				operator_name,
 				field_index,
 				has_field,
+				field_match_kind,
 				node,
 				out_error);
 	}
@@ -3097,6 +3134,7 @@ static int sqlparser_graph_record_predicate_value(
 	size_t field_count_before;
 	PgQuery__ColumnRef *column_ref;
 	int has_field;
+	sqlparser_graph_field_match_kind_t field_match_kind;
 
 	if (!sqlparser_graph_clause_records_field_values(clause, a_expr) ||
 	    left == NULL ||
@@ -3111,6 +3149,7 @@ static int sqlparser_graph_record_predicate_value(
 	if (column_ref == NULL) {
 		return 0;
 	}
+	field_match_kind = sqlparser_graph_field_match_kind_from_expr(left);
 	field_index = 0U;
 	has_field = 0;
 	field_count_before = sqlparser_graph_local_field_count(build);
@@ -3136,6 +3175,7 @@ static int sqlparser_graph_record_predicate_value(
 		operator_name,
 		field_index,
 		has_field,
+		field_match_kind,
 		right,
 		out_error);
 }
@@ -4273,6 +4313,7 @@ static int sqlparser_graph_fill_dml_value_fields(
 		NULL,
 		0U,
 		0,
+		SQLPARSER_GRAPH_FIELD_MATCH_UNKNOWN,
 		value_node,
 		&value,
 		out_error);
@@ -5506,8 +5547,13 @@ static json_t *sqlparser_graph_value_json(
 {
 	json_t *object;
 	json_t *literal;
+	const char *field_match_kind_name;
 
 	(void)graph;
+	field_match_kind_name = value->has_field &&
+			value->field_match_kind != SQLPARSER_GRAPH_FIELD_MATCH_UNKNOWN ?
+		sqlparser_graph_field_match_kind_name(value->field_match_kind) :
+		NULL;
 	object = json_object();
 	literal = sqlparser_graph_literal_json(&value->literal, value->kind);
 	if (object == NULL || literal == NULL ||
@@ -5515,6 +5561,7 @@ static json_t *sqlparser_graph_value_json(
 	    json_object_set_new(object, "clause", json_string(sqlparser_clause_kind_name(value->clause))) != 0 ||
 	    sqlparser_json_set_optional_string(object, "operator", value->operator_name) != 0 ||
 	    sqlparser_json_set_optional_size(object, "field", value->has_field, value->field_index) != 0 ||
+	    sqlparser_json_set_optional_string(object, "field_match_kind", field_match_kind_name) != 0 ||
 	    json_object_set_new(object, "kind", json_string(sqlparser_graph_value_kind_name(value->kind))) != 0 ||
 	    sqlparser_json_set_optional_string(object, "bind_key", value->has_bind ? value->bind : NULL) != 0 ||
 	    json_object_set_new(object, "bind_kind", json_integer(value->bind_kind)) != 0 ||

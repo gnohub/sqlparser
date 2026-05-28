@@ -1,6 +1,6 @@
 # SQL Server 方言用例矩阵
 
-本文件记录 SQL Server 方言转换层的回归用例。可执行夹具为 `tests/cases/sqlserver_dialect_input.json`，单元测试 `tests/unit/test_sqlserver_dialect_case_matrix.c` 会逐条验证解析结果、View JSON、反解析输出和错误码。当前夹具包含 334 条用例：319 条支持路径，15 条明确不支持路径。
+本文件记录 SQL Server 方言转换层的回归用例。可执行夹具为 `tests/cases/sqlserver_dialect_input.json`，单元测试 `tests/unit/test_sqlserver_dialect_case_matrix.c` 会逐条验证解析结果、View JSON、反解析输出和错误码。当前夹具包含 335 条用例：320 条支持路径，15 条明确不支持路径。
 
 ## 支持用例
 
@@ -90,6 +90,7 @@
 | S082 | 多语句 `?` 参数 | 多语句输入中位置参数 `bind_position` 按整条 SQL 全局递增 |
 | S083 | `sqlserver-select-derived-query-graph` | 派生表字段向内层真实表字段的 `query_graph` 来源链路映射和 `output_name` |
 | S084 | `MERGE` + `?` 参数 | MERGE 的 target/source relation、UPDATE assignment、INSERT values 和 bind 映射 |
+| S085 | `sqlserver-field-match-kind-direct-and-expression` | 直接字段条件 + 函数包裹字段条件 | `query_graph.values[].field_match_kind` 区分 `direct_field` 和 `expression_field` |
 
 ## 明确不支持用例
 

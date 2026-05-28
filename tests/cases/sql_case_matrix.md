@@ -140,11 +140,12 @@
 | P123 | `postgresql-select-nested-join-derived-query-graph` | 嵌套 JOIN 中的派生表 | 复杂 FROM/JOIN 下派生表对象枚举、`query_graph` 来源链路 和 `output_name` |
 | P124 | `postgresql-select-unqualified-multi-table-scope` | 多表作用域中的未限定字段 | 未限定字段只输出一次，并归属到 `statement` 对象，避免多个表下出现相同 selector |
 | P125 | `postgresql-select-union-derived-scope` | UNION 两侧派生表 + `SELECT *` | 派生表字段 occurrence 唯一输出，`query_graph` 来源链路 分别指向对应内层 `*` 来源 |
+| P126 | `postgresql-field-match-kind-direct-and-expression` | 直接字段条件 + 函数包裹字段条件 | `query_graph.values[].field_match_kind` 区分 `direct_field` 和 `expression_field` |
 
 ## 负向用例
 
 | 用例 ID | 用例名称 | 输入 | 验证重点 |
 | --- | --- | --- | --- |
-| P126 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
+| P127 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
 
 新增回归用例必须同步更新 `tests/cases/sql_batch_input.json` 和本矩阵。

@@ -82,6 +82,7 @@ This file records regression cases for the Dameng dialect conversion layer. The 
 | D073 | `dameng-select-reference-049` | SELECT reference case 049 | `query_graph` coverage for Dameng/ROWNUM complex derived-table `*` chains and UNION branches |
 | D074 | `dameng-select-reference-046` | SELECT reference case 046 | Dameng complex derived-table and multi-JOIN subquery parsing and View JSON shape |
 | D075 | `dameng-select-reference-047` | SELECT reference case 047 | Dameng UNION plus complex derived-table subquery parsing and View JSON shape |
+| D076 | `dameng-field-match-kind-direct-and-expression` | direct-field predicate plus function-wrapped field predicate | `query_graph.values[].field_match_kind` distinguishes `direct_field` from `expression_field` |
 
 ## Explicitly Unsupported Cases
 

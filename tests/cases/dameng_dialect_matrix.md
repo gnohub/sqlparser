@@ -82,6 +82,7 @@
 | D073 | `dameng-select-reference-049` | SELECT 参考用例 049 | 达梦/ROWNUM/复杂派生表 `*` 链路和 UNION 分支的 `query_graph` 表达 |
 | D074 | `dameng-select-reference-046` | SELECT 参考用例 046 | 达梦复杂派生表和多 JOIN 子查询解析和 View JSON 结构 |
 | D075 | `dameng-select-reference-047` | SELECT 参考用例 047 | 达梦 UNION + 复杂派生表子查询解析和 View JSON 结构 |
+| D076 | `dameng-field-match-kind-direct-and-expression` | 直接字段条件 + 函数包裹字段条件 | `query_graph.values[].field_match_kind` 区分 `direct_field` 和 `expression_field` |
 
 ## 明确不支持用例
 

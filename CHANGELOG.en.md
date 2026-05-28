@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.0.2
+
+### View JSON
+
+- Added `field_match_kind` to `query_graph.values[]` to distinguish values
+  bound to direct fields from values bound to function-, cast-, expression-, or
+  `CASE`-wrapped fields
+- Exposed the same field through `sqlparser_graph_value_t` and added the
+  `sqlparser_graph_field_match_kind_name()` helper
+- Added direct-field and expression-field matching regressions for PostgreSQL,
+  MySQL, Oracle, SQL Server, and Dameng
+
 ## 2.0.0
 
 ### View JSON

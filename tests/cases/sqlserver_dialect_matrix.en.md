@@ -1,6 +1,6 @@
 # SQL Server Dialect Case Matrix
 
-This file records regression cases for the SQL Server dialect conversion layer. The executable fixture is `tests/cases/sqlserver_dialect_input.json`; `tests/unit/test_sqlserver_dialect_case_matrix.c` verifies parsing, View JSON, deparse output, and error codes. The current fixture contains 334 cases: 319 supported paths and 15 explicit unsupported paths.
+This file records regression cases for the SQL Server dialect conversion layer. The executable fixture is `tests/cases/sqlserver_dialect_input.json`; `tests/unit/test_sqlserver_dialect_case_matrix.c` verifies parsing, View JSON, deparse output, and error codes. The current fixture contains 335 cases: 320 supported paths and 15 explicit unsupported paths.
 
 ## Supported Cases
 
@@ -90,6 +90,7 @@ This file records regression cases for the SQL Server dialect conversion layer. 
 | S082 | multi-statement `?` parameters | positional `bind_position` increases globally across the full input SQL |
 | S083 | `sqlserver-select-derived-query-graph` | `query_graph` lineage mapping from derived-table fields to inner base-table fields and `output_name` |
 | S084 | `MERGE` + `?` parameters | MERGE target/source relations, UPDATE assignment, INSERT values, and bind mapping |
+| S085 | `sqlserver-field-match-kind-direct-and-expression` | direct-field predicate plus function-wrapped field predicate | `query_graph.values[].field_match_kind` distinguishes `direct_field` from `expression_field` |
 
 ## Explicitly Unsupported Cases
 

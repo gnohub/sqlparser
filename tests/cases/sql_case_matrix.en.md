@@ -140,11 +140,12 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 | P123 | `postgresql-select-nested-join-derived-query-graph` | derived table inside nested JOIN | Derived-object enumeration, `query_graph` lineage, and `output_name` under complex FROM/JOIN nesting |
 | P124 | `postgresql-select-unqualified-multi-table-scope` | unqualified fields in a multi-table scope | Unqualified fields are reported once under a `statement` object, avoiding the same selector under multiple tables |
 | P125 | `postgresql-select-union-derived-scope` | derived tables on both sides of UNION with `SELECT *` | Unique occurrence output for derived fields, with `query_graph` lineage pointing to the matching inner `*` source |
+| P126 | `postgresql-field-match-kind-direct-and-expression` | direct-field predicate plus function-wrapped field predicate | `query_graph.values[].field_match_kind` distinguishes `direct_field` from `expression_field` |
 
 ## Negative Case
 
 | Case ID | Case Name | Input | Validation Focus |
 | --- | --- | --- | --- |
-| P126 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
+| P127 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
 
 New regression cases must update both `tests/cases/sql_batch_input.json` and this matrix.

@@ -118,6 +118,7 @@ original SQL, the current syntax tree, dialect state, and lazily derived caches.
 | `sqlparser_insert_source_kind_t` | `INSERT` source kind |
 | `sqlparser_value_kind_t` | value kind used by fine-grained value APIs |
 | `sqlparser_bind_kind_t` | prepared-statement placeholder kind |
+| `sqlparser_graph_field_match_kind_t` | query graph field-match kind for condition values |
 | `sqlparser_literal_kind_t` | literal kind |
 | `sqlparser_selector_kind_t` | selector kind |
 | `sqlparser_clause_kind_t` | clause kind used by query graph and clause patches |
@@ -139,6 +140,14 @@ Bind-field rules:
 - `bind_position` is the one-based bind occurrence across the full input SQL;
   it does not restart per statement.
 - `bind_sql` preserves the original placeholder text as written in SQL.
+
+`sqlparser_graph_field_match_kind_t`:
+
+| Enum | Value | Meaning |
+| --- | --- | --- |
+| `SQLPARSER_GRAPH_FIELD_MATCH_UNKNOWN` | `0` | no field association or no stable classification |
+| `SQLPARSER_GRAPH_FIELD_MATCH_DIRECT_FIELD` | `1` | the predicate left side is a direct field, such as `secret = ?` |
+| `SQLPARSER_GRAPH_FIELD_MATCH_EXPRESSION_FIELD` | `2` | the field is inside a function, cast, expression, or `CASE`, such as `UPPER(secret) = ?` |
 
 `sqlparser_clause_kind_t`:
 
@@ -214,6 +223,7 @@ Defined dialects:
 | `sqlparser_graph_relation_kind_name()` | returns the query graph relation-kind name |
 | `sqlparser_graph_target_kind_name()` | returns the query graph target-kind name |
 | `sqlparser_graph_value_kind_name()` | returns the query graph value-kind name |
+| `sqlparser_graph_field_match_kind_name()` | returns the query graph field-match kind name |
 | `sqlparser_graph_set_kind_name()` | returns the query graph set-kind name |
 | `sqlparser_graph_dml_kind_name()` | returns the query graph DML-kind name |
 | `sqlparser_dialect_name()` | returns the dialect name |
@@ -458,6 +468,9 @@ from which it was read.
 - `values[]` contains only application-side values associated with fields.
   `LIMIT/OFFSET`, `ROWNUM`, and other pagination or pseudo-column binds are
   intentionally excluded.
+- `sqlparser_graph_value_t.field_match_kind` is meaningful only when
+  `has_field` is true. It distinguishes direct-field predicates such as
+  `secret = ?` from expression-field predicates such as `UPPER(secret) = ?`.
 
 ## JSON Export and Patch
 

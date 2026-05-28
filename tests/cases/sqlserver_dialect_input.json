@@ -1013,7 +1013,7 @@
         "deparse_contains": "@max_age",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
-          "\"operator\":\"BETWEEN\",\"field\":1,\"kind\":\"bind\"",
+          "\"operator\":\"BETWEEN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"min_age\"",
           "\"bind_sql\":\"@min_age\"",
           "\"bind_position\":1",
@@ -1037,7 +1037,7 @@
         "deparse_contains": "@s2",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"status\"",
-          "\"operator\":\"NOT IN\",\"field\":1,\"kind\":\"bind\"",
+          "\"operator\":\"NOT IN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"s1\"",
           "\"bind_position\":1",
           "\"bind_key\":\"s2\"",
@@ -1059,7 +1059,7 @@
         "deparse_contains": "@max_age",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
-          "\"operator\":\"NOT BETWEEN\",\"field\":1,\"kind\":\"bind\"",
+          "\"operator\":\"NOT BETWEEN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"min_age\"",
           "\"bind_position\":1",
           "\"bind_key\":\"max_age\"",
@@ -1081,7 +1081,7 @@
         "deparse_contains": "@name_pattern",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"name\"",
-          "\"operator\":\"NOT LIKE\",\"field\":1,\"kind\":\"bind\"",
+          "\"operator\":\"NOT LIKE\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"name_pattern\"",
           "\"bind_sql\":\"@name_pattern\"",
           "\"bind_position\":1"
@@ -1103,7 +1103,7 @@
         "view_contains": [
           "\"clause\":\"select_list\",\"relation\":0,\"column\":\"name\"",
           "\"clause\":\"where\",\"relation\":0,\"column\":\"name\"",
-          "\"operator\":\"LIKE\",\"field\":1,\"kind\":\"bind\"",
+          "\"operator\":\"LIKE\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"name\"",
           "\"bind_sql\":\"@name\"",
           "\"bind_position\":1"
@@ -1125,7 +1125,7 @@
         "view_contains": [
           "\"kind\":\"delete\"",
           "\"clause\":\"where\",\"relation\":0,\"column\":\"email\"",
-          "\"operator\":\"IN\",\"field\":0,\"kind\":\"bind\"",
+          "\"operator\":\"IN\",\"field\":0,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"email1\"",
           "\"bind_position\":1",
           "\"bind_key\":\"email2\"",
@@ -1300,6 +1300,22 @@
           "\"bind_position\":3"
         ],
         "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S085",
+      "name": "sqlserver-field-match-kind-direct-and-expression",
+      "sql": "SELECT [id] FROM [dbo].[users] WHERE [secret] = @plain_secret AND UPPER([secret]) = @upper_secret",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"field_match_kind\":\"direct_field\"",
+          "\"field_match_kind\":\"expression_field\""
+        ]
       }
     },
     {

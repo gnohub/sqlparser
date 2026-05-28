@@ -3399,6 +3399,161 @@ static int test_query_graph_condition_value_lists(void)
 	return 0;
 }
 
+static int expect_query_graph_single_value_match_kind(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	const char *column_name,
+	sqlparser_graph_field_match_kind_t expected_kind)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_value_t value;
+	sqlparser_graph_field_t field;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "query graph field-match parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "query graph field-match graph should be available") != 0 ||
+	    expect_true(graph.value_count == 1U, "query graph field-match should expose one value") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_value_at(&graph, 0U, &value, &error), &error, "query graph field-match value should be available") != 0 ||
+	    expect_true(value.has_field != 0, "query graph field-match value should be attached to a field") != 0 ||
+	    expect_true(value.field_match_kind == expected_kind, "query graph field-match kind mismatch") != 0 ||
+	    expect_true(strcmp(sqlparser_graph_field_match_kind_name(value.field_match_kind),
+	                       sqlparser_graph_field_match_kind_name(expected_kind)) == 0,
+	                "query graph field-match name mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_field_at(&graph, value.field_index, &field, &error), &error, "query graph field-match field should be available") != 0 ||
+	    expect_true(field.column_name != NULL && strcmp(field.column_name, column_name) == 0, "query graph field-match column mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_query_graph_field_match_kind_semantics(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *direct_sql;
+		const char *function_sql;
+		const char *cast_sql;
+		const char *expression_sql;
+		const char *case_sql;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT id FROM public.users WHERE secret = $1",
+			"SELECT id FROM public.users WHERE UPPER(secret) = $1",
+			"SELECT id FROM public.users WHERE CAST(secret AS text) = $1",
+			"SELECT id FROM public.users WHERE secret || 'x' = $1",
+			"SELECT id FROM public.users WHERE CASE WHEN 1 = 1 THEN secret END = $1"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"SELECT id FROM users WHERE secret = ?",
+			"SELECT id FROM users WHERE UPPER(secret) = ?",
+			"SELECT id FROM users WHERE CAST(secret AS CHAR) = ?",
+			"SELECT id FROM users WHERE CONCAT(secret, 'x') = ?",
+			"SELECT id FROM users WHERE CASE WHEN 1 = 1 THEN secret END = ?"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = :secret",
+			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE UPPER(SECRET) = :secret",
+			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE CAST(SECRET AS VARCHAR(32)) = :secret",
+			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET || 'x' = :secret",
+			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE CASE WHEN 1 = 1 THEN SECRET END = :secret"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"SELECT [id] FROM [dbo].[users] WHERE [secret] = @secret",
+			"SELECT [id] FROM [dbo].[users] WHERE UPPER([secret]) = @secret",
+			"SELECT [id] FROM [dbo].[users] WHERE CAST([secret] AS VARCHAR(32)) = @secret",
+			"SELECT [id] FROM [dbo].[users] WHERE [secret] + 'x' = @secret",
+			"SELECT [id] FROM [dbo].[users] WHERE CASE WHEN 1 = 1 THEN [secret] END = @secret"
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE secret = :secret",
+			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE UPPER(secret) = :secret",
+			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE CAST(secret AS VARCHAR(32)) = :secret",
+			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE secret || 'x' = :secret",
+			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE CASE WHEN 1 = 1 THEN secret END = :secret"
+		}
+	};
+	size_t index;
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	char *view_json;
+	int rc;
+
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		if (expect_query_graph_single_value_match_kind(
+			    cases[index].dialect,
+			    cases[index].direct_sql,
+			    "secret",
+			    SQLPARSER_GRAPH_FIELD_MATCH_DIRECT_FIELD) != 0 ||
+		    expect_query_graph_single_value_match_kind(
+			    cases[index].dialect,
+			    cases[index].function_sql,
+			    "secret",
+			    SQLPARSER_GRAPH_FIELD_MATCH_EXPRESSION_FIELD) != 0 ||
+		    expect_query_graph_single_value_match_kind(
+			    cases[index].dialect,
+			    cases[index].cast_sql,
+			    "secret",
+			    SQLPARSER_GRAPH_FIELD_MATCH_EXPRESSION_FIELD) != 0 ||
+		    expect_query_graph_single_value_match_kind(
+			    cases[index].dialect,
+			    cases[index].expression_sql,
+			    "secret",
+			    SQLPARSER_GRAPH_FIELD_MATCH_EXPRESSION_FIELD) != 0 ||
+		    expect_query_graph_single_value_match_kind(
+			    cases[index].dialect,
+			    cases[index].case_sql,
+			    "secret",
+			    SQLPARSER_GRAPH_FIELD_MATCH_EXPRESSION_FIELD) != 0) {
+			return 1;
+		}
+	}
+	handle = NULL;
+	view_json = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	rc = sqlparser_parse_with_options(
+		"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = :plain_secret AND UPPER(SECRET) = :upper_secret",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "query graph field-match JSON parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
+	if (expect_status_ok(rc, &error, "query graph field-match JSON export should succeed") != 0 ||
+	    expect_true(view_json != NULL && strstr(view_json, "\"field_match_kind\":\"direct_field\"") != NULL,
+	                "view JSON should expose direct field match") != 0 ||
+	    expect_true(view_json != NULL && strstr(view_json, "\"field_match_kind\":\"expression_field\"") != NULL,
+	                "view JSON should expose expression field match") != 0) {
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(view_json);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
 static int test_query_graph_column_semantics_json(void)
 {
 	static const struct {
@@ -4717,6 +4872,9 @@ int main(void)
 		return 1;
 	}
 	if (test_query_graph_condition_value_lists() != 0) {
+		return 1;
+	}
+	if (test_query_graph_field_match_kind_semantics() != 0) {
 		return 1;
 	}
 	if (test_query_graph_column_semantics_json() != 0) {

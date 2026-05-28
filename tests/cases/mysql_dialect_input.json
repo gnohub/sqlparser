@@ -532,7 +532,7 @@
         "deparse_contains": "BETWEEN ? AND ?",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
-          "\"operator\":\"BETWEEN\",\"field\":1,\"kind\":\"bind\"",
+          "\"operator\":\"BETWEEN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"1\"",
           "\"bind_position\":1",
           "\"bind_key\":\"2\"",
@@ -554,7 +554,7 @@
         "deparse_contains": "NOT IN (?, ?)",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"status\"",
-          "\"operator\":\"NOT IN\",\"field\":1,\"kind\":\"bind\"",
+          "\"operator\":\"NOT IN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"1\"",
           "\"bind_position\":1",
           "\"bind_key\":\"2\"",
@@ -576,7 +576,7 @@
         "deparse_contains": "NOT BETWEEN ? AND ?",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
-          "\"operator\":\"NOT BETWEEN\",\"field\":1,\"kind\":\"bind\"",
+          "\"operator\":\"NOT BETWEEN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"1\"",
           "\"bind_position\":1",
           "\"bind_key\":\"2\"",
@@ -598,7 +598,7 @@
         "deparse_contains": "NOT LIKE ?",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"name\"",
-          "\"operator\":\"NOT LIKE\",\"field\":1,\"kind\":\"bind\"",
+          "\"operator\":\"NOT LIKE\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"1\"",
           "\"bind_position\":1"
         ],
@@ -619,7 +619,7 @@
         "view_contains": [
           "\"clause\":\"select_list\",\"relation\":0,\"column\":\"name\"",
           "\"clause\":\"where\",\"relation\":0,\"column\":\"name\"",
-          "\"operator\":\"LIKE\",\"field\":1,\"kind\":\"bind\"",
+          "\"operator\":\"LIKE\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"1\"",
           "\"bind_position\":1"
         ],
@@ -653,7 +653,7 @@
         "view_contains": [
           "\"kind\":\"delete\"",
           "\"clause\":\"where\",\"relation\":0,\"column\":\"email\"",
-          "\"operator\":\"IN\",\"field\":0,\"kind\":\"bind\"",
+          "\"operator\":\"IN\",\"field\":0,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"1\"",
           "\"bind_position\":1",
           "\"bind_key\":\"2\"",
@@ -676,7 +676,7 @@
           "\"kind\":\"update\"",
           "\"clause\":\"set_list\",\"relation\":0,\"column\":\"note\"",
           "\"clause\":\"where\",\"relation\":0,\"column\":\"phone\"",
-          "\"operator\":\"IN\",\"field\":1,\"kind\":\"bind\"",
+          "\"operator\":\"IN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_position\":1",
           "\"bind_position\":2",
           "\"bind_position\":3"
@@ -969,6 +969,22 @@
       }
     },
     {
+      "id": "M069",
+      "name": "mysql-field-match-kind-direct-and-expression",
+      "sql": "SELECT id FROM users WHERE secret = ? AND UPPER(secret) = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"field_match_kind\":\"direct_field\"",
+          "\"field_match_kind\":\"expression_field\""
+        ]
+      }
+    },
+    {
       "id": "MU001",
       "name": "mysql-insert-ignore",
       "sql": "INSERT IGNORE INTO `users` (`id`) VALUES (1)",
@@ -1127,7 +1143,7 @@
           "\"clause\":\"set_list\",\"relation\":0,\"column\":\"name\"",
           "\"clause\":\"on\",\"relation\":0,\"column\":\"phone\"",
           "\"clause\":\"where\",\"relation\":1,\"column\":\"id\"",
-          "\"clause\":\"on\",\"operator\":\"=\",\"field\":1,\"kind\":\"bind\"",
+          "\"clause\":\"on\",\"operator\":\"=\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"1\"",
           "\"bind_position\":1",
           "\"bind_key\":\"2\"",
@@ -1161,7 +1177,7 @@
           "\"table\":\"orders\"",
           "\"clause\":\"on\",\"relation\":0,\"column\":\"phone\"",
           "\"clause\":\"where\",\"relation\":1,\"column\":\"id\"",
-          "\"clause\":\"on\",\"operator\":\"=\",\"field\":0,\"kind\":\"bind\"",
+          "\"clause\":\"on\",\"operator\":\"=\",\"field\":0,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"1\"",
           "\"bind_position\":1",
           "\"bind_key\":\"2\"",

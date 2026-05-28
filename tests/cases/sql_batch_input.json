@@ -656,7 +656,7 @@
         "deparse_contains": "$3",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"status\"",
-          "\"operator\":\"IN\",\"field\":1,\"kind\":\"bind\"",
+          "\"operator\":\"IN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_sql\":\"$1\"",
           "\"bind_position\":1",
           "\"bind_sql\":\"$2\"",
@@ -677,7 +677,7 @@
         "deparse_contains": "$2",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
-          "\"operator\":\"BETWEEN\",\"field\":1,\"kind\":\"bind\"",
+          "\"operator\":\"BETWEEN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_sql\":\"$1\"",
           "\"bind_position\":1",
           "\"bind_sql\":\"$2\"",
@@ -696,7 +696,7 @@
         "deparse_contains": "$2",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"status\"",
-          "\"operator\":\"NOT IN\",\"field\":1,\"kind\":\"bind\"",
+          "\"operator\":\"NOT IN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_sql\":\"$1\"",
           "\"bind_position\":1",
           "\"bind_sql\":\"$2\"",
@@ -715,7 +715,7 @@
         "deparse_contains": "$2",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
-          "\"operator\":\"NOT BETWEEN\",\"field\":1,\"kind\":\"bind\"",
+          "\"operator\":\"NOT BETWEEN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_sql\":\"$1\"",
           "\"bind_position\":1",
           "\"bind_sql\":\"$2\"",
@@ -1467,6 +1467,21 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-field-match-kind-direct-and-expression",
+      "sql": "SELECT id FROM public.users WHERE secret = $1 AND UPPER(secret) = $2",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"field_match_kind\":\"direct_field\"",
+          "\"field_match_kind\":\"expression_field\""
         ]
       }
     },

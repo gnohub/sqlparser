@@ -1,5 +1,13 @@
 # 变更记录
 
+## 2.0.2
+
+### View JSON
+
+- `query_graph.values[]` 新增 `field_match_kind`，用于区分条件值绑定的是直接字段还是函数、类型转换、表达式或 `CASE` 包裹字段
+- 公共 C 结构 `sqlparser_graph_value_t` 同步暴露 `field_match_kind`，并新增 `sqlparser_graph_field_match_kind_name()` 名称辅助函数
+- PostgreSQL、MySQL、Oracle、SQL Server 和达梦用例矩阵新增直接字段与表达式字段匹配回归
+
 ## 2.0.0
 
 ### View JSON

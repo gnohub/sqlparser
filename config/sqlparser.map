@@ -15,6 +15,7 @@ SQLPARSER_0 {
 		sqlparser_graph_relation_kind_name;
 		sqlparser_graph_target_kind_name;
 		sqlparser_graph_value_kind_name;
+		sqlparser_graph_field_match_kind_name;
 		sqlparser_graph_set_kind_name;
 		sqlparser_graph_dml_kind_name;
 		sqlparser_limits_default;

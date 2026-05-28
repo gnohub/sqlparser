@@ -120,6 +120,12 @@ typedef enum {
 } sqlparser_graph_value_kind_t;
 
 typedef enum {
+	SQLPARSER_GRAPH_FIELD_MATCH_UNKNOWN = 0,
+	SQLPARSER_GRAPH_FIELD_MATCH_DIRECT_FIELD = 1,
+	SQLPARSER_GRAPH_FIELD_MATCH_EXPRESSION_FIELD = 2
+} sqlparser_graph_field_match_kind_t;
+
+typedef enum {
 	SQLPARSER_GRAPH_SET_UNION = 1,
 	SQLPARSER_GRAPH_SET_UNION_ALL = 2,
 	SQLPARSER_GRAPH_SET_INTERSECT = 3,
@@ -306,6 +312,7 @@ typedef struct {
 	const char *operator_name;
 	size_t field_index;
 	int has_field;
+	sqlparser_graph_field_match_kind_t field_match_kind;
 	sqlparser_graph_value_kind_t kind;
 	sqlparser_literal_view_t literal;
 	char bind[SQLPARSER_BIND_TEXT_CAPACITY];
@@ -452,6 +459,7 @@ const char *sqlparser_graph_block_kind_name(sqlparser_graph_block_kind_t kind);
 const char *sqlparser_graph_relation_kind_name(sqlparser_graph_relation_kind_t kind);
 const char *sqlparser_graph_target_kind_name(sqlparser_graph_target_kind_t kind);
 const char *sqlparser_graph_value_kind_name(sqlparser_graph_value_kind_t kind);
+const char *sqlparser_graph_field_match_kind_name(sqlparser_graph_field_match_kind_t kind);
 const char *sqlparser_graph_set_kind_name(sqlparser_graph_set_kind_t kind);
 const char *sqlparser_graph_dml_kind_name(sqlparser_graph_dml_kind_t kind);
 

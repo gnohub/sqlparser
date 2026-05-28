@@ -110,6 +110,7 @@ int main(void)
 | `sqlparser_insert_source_kind_t` | `INSERT` 数据来源 |
 | `sqlparser_value_kind_t` | 精细值读取接口中的值类型 |
 | `sqlparser_bind_kind_t` | 预编译占位符类型 |
+| `sqlparser_graph_field_match_kind_t` | query graph 条件值的字段匹配形态 |
 | `sqlparser_literal_kind_t` | 字面量类型 |
 | `sqlparser_selector_kind_t` | selector 类型 |
 | `sqlparser_clause_kind_t` | query graph 与 clause patch 使用的子句类型 |
@@ -128,6 +129,14 @@ bind 字段规则：
 - `bind_key` 按 `bind_kind` 解释；命名 bind 为名称，匿名 `?` 为全局序号字符串，显式编号 bind 保留 SQL 中的编号字符串。
 - `bind_position` 是整条输入 SQL 中的 bind 出现序号，从 1 开始；多语句输入不按 statement 重置。
 - `bind_sql` 保留 SQL 中的原始占位符文本。
+
+`sqlparser_graph_field_match_kind_t`：
+
+| 枚举 | 数值 | 说明 |
+| --- | --- | --- |
+| `SQLPARSER_GRAPH_FIELD_MATCH_UNKNOWN` | `0` | 未关联字段或无法稳定判断 |
+| `SQLPARSER_GRAPH_FIELD_MATCH_DIRECT_FIELD` | `1` | 条件左侧是直接字段，例如 `secret = ?` |
+| `SQLPARSER_GRAPH_FIELD_MATCH_EXPRESSION_FIELD` | `2` | 条件左侧字段位于函数、类型转换、表达式或 `CASE` 中，例如 `UPPER(secret) = ?` |
 
 `sqlparser_clause_kind_t`：
 
@@ -196,6 +205,7 @@ bind 字段规则：
 | `sqlparser_graph_relation_kind_name()` | 返回 query graph relation 类型名称 |
 | `sqlparser_graph_target_kind_name()` | 返回 query graph target 类型名称 |
 | `sqlparser_graph_value_kind_name()` | 返回 query graph value 类型名称 |
+| `sqlparser_graph_field_match_kind_name()` | 返回 query graph 字段匹配形态名称 |
 | `sqlparser_graph_set_kind_name()` | 返回 query graph set 类型名称 |
 | `sqlparser_graph_dml_kind_name()` | 返回 query graph DML 类型名称 |
 | `sqlparser_dialect_name()` | 返回方言名称 |
@@ -426,6 +436,7 @@ sqlparser_status_t sqlparser_statement_query_graph(
 - `sets[].branch_blocks` 表达集合运算左右分支。
 - 未限定字段如果不能仅凭 SQL 唯一归属，`has_relation` 为 0，`candidate_relations` 给出当前 scope 候选 relation。
 - `values[]` 只记录与字段关联的应用侧值；`LIMIT/OFFSET`、`ROWNUM` 等分页或伪列 bind 不进入 `values[]`。
+- `sqlparser_graph_value_t.field_match_kind` 仅在 `has_field` 为真时有效，用于区分 `secret = ?` 这类直接字段匹配和 `UPPER(secret) = ?` 这类表达式字段匹配。
 
 ## JSON 导出与 Patch
 

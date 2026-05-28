@@ -6,11 +6,11 @@
 
 | 方言 | 统计来源 | 支持用例 | 明确不支持用例 | 合计 | 支持占比 |
 | --- | --- | ---: | ---: | ---: | ---: |
-| PostgreSQL | `tests/cases/sql_batch_input.json` | 128 | 1 | 129 | 99.22% |
-| MySQL | `tests/cases/mysql_dialect_input.json` | 74 | 18 | 92 | 80.43% |
-| Oracle | `tests/cases/oracle_dialect_input.json` | 99 | 18 | 117 | 84.62% |
-| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 319 | 15 | 334 | 95.51% |
-| 达梦 | `tests/cases/dameng_dialect_input.json` | 76 | 12 | 88 | 86.36% |
+| PostgreSQL | `tests/cases/sql_batch_input.json` | 129 | 1 | 130 | 99.23% |
+| MySQL | `tests/cases/mysql_dialect_input.json` | 75 | 18 | 93 | 80.65% |
+| Oracle | `tests/cases/oracle_dialect_input.json` | 100 | 18 | 118 | 84.75% |
+| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 320 | 15 | 335 | 95.52% |
+| 达梦 | `tests/cases/dameng_dialect_input.json` | 77 | 12 | 89 | 86.52% |
 
 ## 口径
 

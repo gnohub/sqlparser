@@ -80,6 +80,7 @@
 | MU010 | `mysql-delete-join` | `DELETE u FROM ... JOIN ...` | 带 `ON` 条件的普通/INNER/CROSS 多表 DELETE 的目标表、来源表和条件参数映射 |
 | MU010A | `mysql-update-join-on-bind` | `UPDATE ... JOIN ... ON ... ? SET ... WHERE ...` | 多表 UPDATE 中 JOIN `ON` 参数归属为 `on`，后续 `WHERE` 参数仍归属为 `where` |
 | MU010B | `mysql-delete-join-on-bind` | `DELETE u FROM ... JOIN ... ON ... ? WHERE ...` | 多表 DELETE 中 JOIN `ON` 参数归属为 `on`，后续 `WHERE` 参数仍归属为 `where` |
+| M069 | `mysql-field-match-kind-direct-and-expression` | 直接字段条件 + 函数包裹字段条件 | `query_graph.values[].field_match_kind` 区分 `direct_field` 和 `expression_field` |
 
 ## 明确不支持语句
 

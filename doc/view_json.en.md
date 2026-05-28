@@ -210,6 +210,7 @@ Function calls are not emitted as a separate target kind. For `SELECT UPPER(name
   "clause": "where",
   "operator": "=",
   "field": 1,
+  "field_match_kind": "direct_field",
   "kind": "bind",
   "bind_key": "id",
   "bind_kind": 2,
@@ -225,6 +226,7 @@ Function calls are not emitted as a separate target kind. For `SELECT UPPER(name
 | `clause` | Clause containing the value |
 | `operator` | Associated operator; omitted when absent |
 | `field` | Related field index; pagination or pseudo-column values without a related field are not emitted in `values[]` |
+| `field_match_kind` | Field-match shape; `direct_field` for a direct field and `expression_field` when the field is inside a function, cast, expression, or `CASE` |
 | `kind` | `literal`, `bind`, `default`, or `expression` |
 | `bind_key` | Bind key; omitted when no bind exists |
 | `bind_kind` | `0` none, `1` positional, `2` named |
@@ -237,7 +239,7 @@ When a string literal comes from a quoted-identifier token, the `literal` object
 
 For multi-statement input, `bind_position` is global across the whole SQL text and does not reset per statement.
 
-For `WHERE`, `JOIN ... ON`, `HAVING`, and predicate expressions inside SELECT projections, field-bound values are emitted for `IN`, `NOT IN`, `BETWEEN`, ordinary comparisons, and single-column function-wrapped predicates when the predicate can be attributed to one field. Predicates whose value side also contains field references are not force-attributed.
+For `WHERE`, `JOIN ... ON`, `HAVING`, and predicate expressions inside SELECT projections, field-bound values are emitted for `IN`, `NOT IN`, `BETWEEN`, ordinary comparisons, and single-column function-wrapped predicates when the predicate can be attributed to one field. `field_match_kind` distinguishes direct-field predicates such as `secret = ?` from expression-field predicates such as `UPPER(secret) = ?`, `CAST(secret AS ...) = ?`, `secret || 'x' = ?`, or `CASE ... THEN secret END = ?`. Predicates whose value side also contains field references are not force-attributed.
 
 ## Rewriting
 

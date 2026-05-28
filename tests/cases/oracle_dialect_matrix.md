@@ -105,6 +105,7 @@
 | O097 | `oracle-select-reference-046` | SELECT 参考用例 046 | Oracle 复杂派生表和多 JOIN 子查询解析和 View JSON 结构 |
 | O098 | `oracle-select-reference-047` | SELECT 参考用例 047 | Oracle UNION + 复杂派生表子查询解析和 View JSON 结构 |
 | O099 | `oracle-select-nested-star-query-graph` | 多层派生表 + ROWNUM + `SELECT *` | `query_graph` 表达派生表 `*` 链路和 UNION 分支 |
+| O100 | `oracle-field-match-kind-direct-and-expression` | 直接字段条件 + 函数包裹字段条件 | `query_graph.values[].field_match_kind` 区分 `direct_field` 和 `expression_field` |
 
 ## 明确不支持用例
 

@@ -1255,6 +1255,19 @@ const char *sqlparser_graph_value_kind_name(sqlparser_graph_value_kind_t kind)
 	}
 }
 
+const char *sqlparser_graph_field_match_kind_name(sqlparser_graph_field_match_kind_t kind)
+{
+	switch (kind) {
+		case SQLPARSER_GRAPH_FIELD_MATCH_DIRECT_FIELD:
+			return "direct_field";
+		case SQLPARSER_GRAPH_FIELD_MATCH_EXPRESSION_FIELD:
+			return "expression_field";
+		case SQLPARSER_GRAPH_FIELD_MATCH_UNKNOWN:
+		default:
+			return "unknown";
+	}
+}
+
 const char *sqlparser_graph_set_kind_name(sqlparser_graph_set_kind_t kind)
 {
 	switch (kind) {

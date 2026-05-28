@@ -105,6 +105,7 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 | O097 | `oracle-select-reference-046` | SELECT reference case 046 | Oracle complex derived-table and multi-JOIN subquery parsing and View JSON shape |
 | O098 | `oracle-select-reference-047` | SELECT reference case 047 | Oracle UNION plus complex derived-table subquery parsing and View JSON shape |
 | O099 | `oracle-select-nested-star-query-graph` | nested derived tables, ROWNUM, and `SELECT *` | `query_graph` represents the derived-table `*` chain and UNION branches |
+| O100 | `oracle-field-match-kind-direct-and-expression` | direct-field predicate plus function-wrapped field predicate | `query_graph.values[].field_match_kind` distinguishes `direct_field` from `expression_field` |
 
 ## Explicitly Unsupported Cases
 

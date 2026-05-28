@@ -70,4 +70,4 @@ SQL Server 支持范围以以下文件为准：
 - `tests/unit/test_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 SQL Server 矩阵包含 334 条用例：319 条支持路径，15 条明确不支持路径。其中 235 条来自官方 `HOOK_ONLY` 覆盖项。
+当前 SQL Server 矩阵包含 335 条用例：320 条支持路径，15 条明确不支持路径。其中 235 条来自官方 `HOOK_ONLY` 覆盖项。
