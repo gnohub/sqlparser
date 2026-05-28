@@ -48,6 +48,7 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 | O041 | unsupported keywords in string | `RETURNING`, `@`, and `(+)` inside strings do not trigger unsupported |
 | O042 | unsupported keywords in comment | `CONNECT BY` inside comments does not trigger unsupported |
 | O043 | `ALTER SESSION SET CURRENT_SCHEMA` | current-schema session context switching |
+| O043Q | `ALTER SESSION SET CURRENT_SCHEMA="..."` | quoted schema identifier with public literal-view quoted-identifier semantics |
 | O044 | `ALTER SESSION SET CONTAINER` | current-container session context switching |
 | O045 | `ALTER SESSION SET CONTAINER=CDB$ROOT` | official root container name |
 | O046 | `ALTER SESSION SET CONTAINER ... SERVICE ...` | container switching with the `SERVICE` clause |

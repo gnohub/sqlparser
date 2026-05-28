@@ -14,6 +14,8 @@ current AST. The executable case matrix defines the support boundary:
 - Dameng-compatible bind placeholders such as `:id` and `:name`, plus
   JDBC-style `?` positional parameters
 - `SET SCHEMA <schema>` and `ALTER SESSION SET CURRENT_SCHEMA = ...`
+- quoted schema identifiers in `CURRENT_SCHEMA` are marked as quoted
+  identifiers in the public literal view
 - `MINUS` set operator
 - `LIMIT n`, `LIMIT offset,n`, and `LIMIT n OFFSET offset`
 - `SELECT TOP n ...`

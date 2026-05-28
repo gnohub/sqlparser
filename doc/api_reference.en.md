@@ -267,6 +267,8 @@ Defined dialects:
 | `sqlparser_statement_literal()` | reads one literal |
 | `sqlparser_statement_set_literal()` | rewrites one literal |
 
+`sqlparser_literal_view_t.quoted_identifier` is `1` when a string literal came from a quoted-identifier token, such as the schema value in `ALTER SESSION SET CURRENT_SCHEMA="KdesMixed"`. Ordinary string literals and unquoted identifiers report `0`.
+
 ### INSERT
 
 | Function | Summary |

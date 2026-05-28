@@ -9,6 +9,7 @@ This file records regression cases for the Dameng dialect conversion layer. The 
 | D001 | `SELECT` + `NVL` + named bind | Dameng-compatible `:name` bind conversion and restoration |
 | D002 | `SET SCHEMA` | current-schema session context switching |
 | D003 | `ALTER SESSION SET CURRENT_SCHEMA` | schema session switching |
+| D003Q | `ALTER SESSION SET CURRENT_SCHEMA="..."` | quoted schema identifier with public literal-view quoted-identifier semantics |
 | D004 | `MINUS` | bidirectional Dameng `MINUS` and core set-operator conversion |
 | D005 | `LIMIT n OFFSET n` | basic Dameng pagination |
 | D006 | `LIMIT offset,n` | comma pagination conversion to the core pagination structure |

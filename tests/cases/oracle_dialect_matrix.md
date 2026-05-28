@@ -48,6 +48,7 @@
 | O041 | unsupported 关键字字符串 | 字符串中的 `RETURNING`、`@`、`(+)` 不触发 unsupported |
 | O042 | unsupported 关键字注释 | 注释中的 `CONNECT BY` 不触发 unsupported |
 | O043 | `ALTER SESSION SET CURRENT_SCHEMA` | 当前 schema 会话上下文切换 |
+| O043Q | `ALTER SESSION SET CURRENT_SCHEMA="..."` | 带引号 schema 标识符，公共 literal view 暴露 quoted identifier 语义 |
 | O044 | `ALTER SESSION SET CONTAINER` | 当前 container 会话上下文切换 |
 | O045 | `ALTER SESSION SET CONTAINER=CDB$ROOT` | 官方 root container 名称 |
 | O046 | `ALTER SESSION SET CONTAINER ... SERVICE ...` | container 切换和 service 子句 |

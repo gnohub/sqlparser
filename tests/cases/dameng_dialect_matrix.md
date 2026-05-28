@@ -9,6 +9,7 @@
 | D001 | `SELECT` + `NVL` + 命名 bind | 达梦兼容 `:name` bind 转换与还原 |
 | D002 | `SET SCHEMA` | 当前 schema 会话上下文切换 |
 | D003 | `ALTER SESSION SET CURRENT_SCHEMA` | schema 会话切换语句 |
+| D003Q | `ALTER SESSION SET CURRENT_SCHEMA="..."` | 带引号 schema 标识符，公共 literal view 暴露 quoted identifier 语义 |
 | D004 | `MINUS` | 达梦 `MINUS` 与核心集合运算双向转换 |
 | D005 | `LIMIT n OFFSET n` | 达梦分页基础形态 |
 | D006 | `LIMIT offset,n` | 逗号分页转换为核心分页结构 |

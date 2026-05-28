@@ -388,7 +388,11 @@ sqlparser_status_t sqlparser_insert_cell_literal(
 		return status;
 	}
 
-	return sqlparser_fill_literal_view_from_a_const(literal, out_literal, out_error);
+	return sqlparser_fill_literal_view_from_a_const_with_sql(
+		literal,
+		sqlparser_effective_parser_sql(handle),
+		out_literal,
+		out_error);
 }
 
 sqlparser_status_t sqlparser_insert_set_cell_literal(

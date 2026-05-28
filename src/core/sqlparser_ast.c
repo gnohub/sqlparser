@@ -54,6 +54,52 @@ void sqlparser_name_view_clear(sqlparser_name_view_t *view)
 	memset(view, 0, sizeof(*view));
 }
 
+static int sqlparser_quoted_identifier_token_matches(
+	const char *parser_sql,
+	int32_t location,
+	const char *value)
+{
+	size_t pos;
+	size_t len;
+	size_t value_pos;
+
+	if (parser_sql == NULL || location < 0 || value == NULL) {
+		return 0;
+	}
+
+	pos = (size_t)location;
+	len = strlen(parser_sql);
+	if (pos >= len) {
+		return 0;
+	}
+	if (parser_sql[pos] != '"') {
+		return 0;
+	}
+
+	pos++;
+	value_pos = 0U;
+	while (pos < len) {
+		if (parser_sql[pos] == '"') {
+			if (pos + 1U < len && parser_sql[pos + 1U] == '"') {
+				if (value[value_pos] != '"') {
+					return 0;
+				}
+				value_pos++;
+				pos += 2U;
+				continue;
+			}
+			return value[value_pos] == '\0';
+		}
+		if (value[value_pos] == '\0' || parser_sql[pos] != value[value_pos]) {
+			return 0;
+		}
+		value_pos++;
+		pos++;
+	}
+
+	return 0;
+}
+
 const char *sqlparser_statement_node_name_from_case(PgQuery__Node__NodeCase node_case)
 {
 	switch (node_case) {
@@ -476,6 +522,15 @@ sqlparser_status_t sqlparser_fill_literal_view_from_a_const(
 	sqlparser_literal_view_t *out_literal,
 	sqlparser_error_t *out_error)
 {
+	return sqlparser_fill_literal_view_from_a_const_with_sql(a_const, NULL, out_literal, out_error);
+}
+
+sqlparser_status_t sqlparser_fill_literal_view_from_a_const_with_sql(
+	const PgQuery__AConst *a_const,
+	const char *parser_sql,
+	sqlparser_literal_view_t *out_literal,
+	sqlparser_error_t *out_error)
+{
 	if (out_literal == NULL) {
 		sqlparser_error_set_message(
 			out_error,
@@ -503,6 +558,11 @@ sqlparser_status_t sqlparser_fill_literal_view_from_a_const(
 			out_literal->kind = SQLPARSER_LITERAL_KIND_STRING;
 			out_literal->string_value =
 				a_const->sval != NULL ? a_const->sval->sval : NULL;
+			out_literal->quoted_identifier =
+				sqlparser_quoted_identifier_token_matches(
+					parser_sql,
+					a_const->location,
+					out_literal->string_value);
 			return SQLPARSER_STATUS_OK;
 		case PG_QUERY__A__CONST__VAL_IVAL:
 			out_literal->kind = SQLPARSER_LITERAL_KIND_INTEGER;

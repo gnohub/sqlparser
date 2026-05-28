@@ -167,6 +167,7 @@ typedef struct {
 	const char *float_value;
 	long long integer_value;
 	int boolean_value;
+	int quoted_identifier;
 } sqlparser_literal_view_t;
 
 typedef struct {

@@ -2326,7 +2326,11 @@ static int sqlparser_graph_value_from_node(
 	out_value->has_field = has_field;
 	if (value_node->node_case == PG_QUERY__NODE__NODE_A_CONST && value_node->a_const != NULL) {
 		out_value->kind = SQLPARSER_GRAPH_VALUE_LITERAL;
-		(void)sqlparser_fill_literal_view_from_a_const(value_node->a_const, &out_value->literal, NULL);
+		(void)sqlparser_fill_literal_view_from_a_const_with_sql(
+			value_node->a_const,
+			build != NULL && build->handle != NULL ? sqlparser_effective_parser_sql(build->handle) : NULL,
+			&out_value->literal,
+			NULL);
 	} else if (value_node->node_case == PG_QUERY__NODE__NODE_PARAM_REF && value_node->param_ref != NULL) {
 		out_value->kind = SQLPARSER_GRAPH_VALUE_BIND;
 		public_sql = NULL;
@@ -5460,6 +5464,11 @@ static json_t *sqlparser_graph_literal_json(
 	switch (literal->kind) {
 		case SQLPARSER_LITERAL_KIND_STRING:
 			if (json_object_set_new(object, "string_value", json_string(literal->string_value != NULL ? literal->string_value : "")) != 0) {
+				json_decref(object);
+				return NULL;
+			}
+			if (literal->quoted_identifier &&
+			    json_object_set_new(object, "quoted_identifier", json_boolean(1)) != 0) {
 				json_decref(object);
 				return NULL;
 			}

@@ -78,8 +78,9 @@ static sqlparser_status_t sqlparser_record_where_literal(
 		search->literal_view->table_name = context != NULL ? context->table_name : NULL;
 		search->literal_view->column_name = context != NULL ? context->column_name : NULL;
 		search->literal_view->operator_name = context != NULL ? context->operator_name : NULL;
-		status = sqlparser_fill_literal_view_from_a_const(
+		status = sqlparser_fill_literal_view_from_a_const_with_sql(
 			a_const,
+			search->parser_sql,
 			&search->literal_view->literal,
 			out_error);
 		if (status != SQLPARSER_STATUS_OK) {
@@ -500,6 +501,7 @@ sqlparser_status_t sqlparser_statement_where_literal(
 	memset(&search, 0, sizeof(search));
 	search.want_target = 1;
 	search.target_index = literal_index;
+	search.parser_sql = sqlparser_effective_parser_sql(handle);
 	search.literal_view = out_literal;
 	status = sqlparser_walk_expression_literals(where_clause, NULL, &search, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
@@ -645,7 +647,11 @@ sqlparser_status_t sqlparser_statement_literal(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_fill_literal_view_from_a_const((PgQuery__AConst *)message, out_literal, out_error);
+	return sqlparser_fill_literal_view_from_a_const_with_sql(
+		(PgQuery__AConst *)message,
+		sqlparser_effective_parser_sql(handle),
+		out_literal,
+		out_error);
 }
 
 sqlparser_status_t sqlparser_statement_set_literal(

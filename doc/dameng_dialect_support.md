@@ -9,6 +9,7 @@
 - `SELECT`、别名、子查询、连接、`WHERE`、`GROUP BY`、`HAVING`
 - 达梦兼容 bind 占位符，例如 `:id`、`:name`，以及 JDBC 风格 `?` 位置参数
 - `SET SCHEMA <模式名>` 和 `ALTER SESSION SET CURRENT_SCHEMA = ...`
+- `CURRENT_SCHEMA` 的带引号 schema 标识符会在公共 literal view 中标记为 quoted identifier
 - `MINUS` 集合运算
 - `LIMIT n`、`LIMIT offset,n`、`LIMIT n OFFSET offset`
 - `SELECT TOP n ...`

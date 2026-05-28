@@ -35,6 +35,8 @@ current AST. The executable case matrix defines the support boundary:
   `ALTER SESSION SET CONTAINER = ... SERVICE = ...`, and ordinary parameter
   assignments such as `NLS_DATE_FORMAT`, `NLS_DATE_LANGUAGE`,
   `NLS_NUMERIC_CHARACTERS`, `INSTANCE`, and `ERROR_ON_OVERLAP_TIME`
+- quoted schema identifiers in `CURRENT_SCHEMA` are marked as quoted
+  identifiers in the public literal view
 - dynamic SQL execution through `EXECUTE IMMEDIATE ... USING ...`
 
 ## Explicitly Unsupported Scope

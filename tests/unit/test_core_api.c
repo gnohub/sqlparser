@@ -4534,6 +4534,92 @@ static int test_session_context_patch_api(void)
 	return 0;
 }
 
+static int test_session_context_quoted_identifier_literal_api(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *expected_value;
+		int expected_quoted_identifier;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"ALTER SESSION SET CURRENT_SCHEMA=KDES",
+			"kdes",
+			0
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"ALTER SESSION SET CURRENT_SCHEMA=\"KdesMixed\"",
+			"KdesMixed",
+			1
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD'",
+			"YYYY-MM-DD",
+			0
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"ALTER SESSION SET CURRENT_SCHEMA=KDES",
+			"kdes",
+			0
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"ALTER SESSION SET CURRENT_SCHEMA=\"KdesMixed\"",
+			"KdesMixed",
+			1
+		}
+	};
+	size_t index;
+
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		sqlparser_parse_options_t options;
+		sqlparser_error_t error;
+		sqlparser_handle_t *handle;
+		sqlparser_literal_view_t literal;
+		size_t literal_count;
+		int rc;
+
+		handle = NULL;
+		literal_count = 0U;
+		memset(&error, 0, sizeof(error));
+		memset(&literal, 0, sizeof(literal));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[index].dialect;
+		rc = sqlparser_parse_with_options(cases[index].sql, &options, &handle, &error);
+		if (expect_status_ok(rc, &error, "session context quoted identifier parse should succeed") != 0) {
+			return 1;
+		}
+		rc = sqlparser_statement_literal_count(handle, 0U, &literal_count, &error);
+		if (expect_status_ok(rc, &error, "session context literal count should succeed") != 0 ||
+		    expect_true(literal_count == 1U, "session context should expose one literal") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_statement_literal(handle, 0U, 0U, &literal, &error);
+		if (expect_status_ok(rc, &error, "session context literal read should succeed") != 0 ||
+		    expect_true(literal.kind == SQLPARSER_LITERAL_KIND_STRING, "session context literal should be string") != 0 ||
+		    expect_true(literal.string_value != NULL, "session context string value should be present") != 0 ||
+		    expect_true(literal.quoted_identifier == cases[index].expected_quoted_identifier,
+		                "session context quoted identifier flag mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (cases[index].expected_value != NULL &&
+		    expect_true(strcmp(literal.string_value, cases[index].expected_value) == 0,
+		                "session context literal value mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+
+	return 0;
+}
+
 static int test_oracle_container_service_patch_api(void)
 {
 	sqlparser_parse_options_t options;
@@ -4682,6 +4768,9 @@ int main(void)
 		return 1;
 	}
 	if (test_session_context_patch_api() != 0) {
+		return 1;
+	}
+	if (test_session_context_quoted_identifier_literal_api() != 0) {
 		return 1;
 	}
 	if (test_oracle_container_service_patch_api() != 0) {

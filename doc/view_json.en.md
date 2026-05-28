@@ -233,6 +233,8 @@ Function calls are not emitted as a separate target kind. For `SELECT UPPER(name
 | `selector` | Value selector; omitted when no writable node exists |
 | `literal` | Literal object; omitted for non-literals |
 
+When a string literal comes from a quoted-identifier token, the `literal` object emits `quoted_identifier: true`. Ordinary string literals and unquoted identifiers omit this field.
+
 For multi-statement input, `bind_position` is global across the whole SQL text and does not reset per statement.
 
 For `WHERE`, `JOIN ... ON`, `HAVING`, and predicate expressions inside SELECT projections, field-bound values are emitted for `IN`, `NOT IN`, `BETWEEN`, ordinary comparisons, and single-column function-wrapped predicates when the predicate can be attributed to one field. Predicates whose value side also contains field references are not force-attributed.

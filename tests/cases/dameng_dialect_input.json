@@ -44,6 +44,19 @@
       }
     },
     {
+      "id": "D003Q",
+      "name": "dameng-alter-session-current-schema-quoted-identifier",
+      "sql": "ALTER SESSION SET CURRENT_SCHEMA=\"KdesMixed\"",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "ALTER SESSION SET CURRENT_SCHEMA = \"KdesMixed\""
+      }
+    },
+    {
       "id": "D004",
       "name": "dameng-minus-set-operator",
       "sql": "SELECT id FROM active_users MINUS SELECT id FROM archived_users",

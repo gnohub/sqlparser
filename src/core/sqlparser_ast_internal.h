@@ -16,6 +16,7 @@ typedef struct {
 	size_t target_index;
 	int want_target;
 	PgQuery__AConst *literal_node;
+	const char *parser_sql;
 	sqlparser_where_literal_view_t *literal_view;
 } sqlparser_where_literal_search_t;
 
@@ -147,6 +148,11 @@ void sqlparser_fill_relation_view(
 	sqlparser_relation_view_t *out_relation);
 sqlparser_status_t sqlparser_fill_literal_view_from_a_const(
 	const PgQuery__AConst *a_const,
+	sqlparser_literal_view_t *out_literal,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_fill_literal_view_from_a_const_with_sql(
+	const PgQuery__AConst *a_const,
+	const char *parser_sql,
 	sqlparser_literal_view_t *out_literal,
 	sqlparser_error_t *out_error);
 

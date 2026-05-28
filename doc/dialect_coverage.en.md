@@ -10,9 +10,9 @@ coverage is tracked in each dialect's `*_official_syntax_coverage.en.md` file.
 | --- | --- | ---: | ---: | ---: | ---: |
 | PostgreSQL | `tests/cases/sql_batch_input.json` | 128 | 1 | 129 | 99.22% |
 | MySQL | `tests/cases/mysql_dialect_input.json` | 74 | 18 | 92 | 80.43% |
-| Oracle | `tests/cases/oracle_dialect_input.json` | 98 | 18 | 116 | 84.48% |
+| Oracle | `tests/cases/oracle_dialect_input.json` | 99 | 18 | 117 | 84.62% |
 | SQL Server | `tests/cases/sqlserver_dialect_input.json` | 319 | 15 | 334 | 95.51% |
-| Dameng | `tests/cases/dameng_dialect_input.json` | 75 | 12 | 87 | 86.21% |
+| Dameng | `tests/cases/dameng_dialect_input.json` | 76 | 12 | 88 | 86.36% |
 
 ## Counting Rules
 

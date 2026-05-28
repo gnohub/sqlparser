@@ -24,6 +24,7 @@ Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范
 - 引号标识符、`ALTER TABLE ADD`、`CREATE INDEX`、`DROP INDEX`
 - 兼容形态的物化视图创建语句
 - 会话语句：`ALTER SESSION SET CURRENT_SCHEMA = ...`、`ALTER SESSION SET CONTAINER = ...`、`ALTER SESSION SET CONTAINER = ... SERVICE = ...`，以及普通参数赋值，例如 `NLS_DATE_FORMAT`、`NLS_DATE_LANGUAGE`、`NLS_NUMERIC_CHARACTERS`、`INSTANCE`、`ERROR_ON_OVERLAP_TIME`
+- `CURRENT_SCHEMA` 的带引号 schema 标识符会在公共 literal view 中标记为 quoted identifier
 - `EXECUTE IMMEDIATE ... USING ...` 动态 SQL 执行语句
 
 ## 明确不支持范围

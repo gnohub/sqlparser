@@ -564,6 +564,19 @@
       }
     },
     {
+      "id": "O043Q",
+      "name": "oracle-alter-session-current-schema-quoted-identifier",
+      "sql": "ALTER SESSION SET CURRENT_SCHEMA=\"KdesMixed\"",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "ALTER SESSION SET CURRENT_SCHEMA = \"KdesMixed\""
+      }
+    },
+    {
       "id": "O044",
       "name": "oracle-alter-session-container",
       "sql": "ALTER SESSION SET CONTAINER=PDB1",

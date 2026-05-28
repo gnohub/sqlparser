@@ -408,8 +408,9 @@ sqlparser_status_t sqlparser_update_assignment(
 	out_assignment->column_name = target->name != NULL ? target->name : NULL;
 	out_assignment->value_kind = sqlparser_node_value_kind(target->val);
 	if (out_assignment->value_kind == SQLPARSER_VALUE_KIND_LITERAL) {
-		return sqlparser_fill_literal_view_from_a_const(
+		return sqlparser_fill_literal_view_from_a_const_with_sql(
 			target->val->a_const,
+			sqlparser_effective_parser_sql(handle),
 			&out_assignment->literal,
 			out_error);
 	}

@@ -249,6 +249,8 @@ bind 字段规则：
 | `sqlparser_statement_literal()` | 读取指定 literal |
 | `sqlparser_statement_set_literal()` | 改写指定 literal |
 
+`sqlparser_literal_view_t.quoted_identifier` 为 `1` 时，表示字符串 literal 来源于带引号标识符 token，例如 `ALTER SESSION SET CURRENT_SCHEMA="KdesMixed"` 中的 schema 值。普通字符串字面量和未加引号标识符该字段为 `0`。
+
 ### INSERT
 
 | 函数 | 摘要 |

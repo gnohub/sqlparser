@@ -233,6 +233,8 @@ FROM (
 | `selector` | 值 selector；没有可写节点时省略 |
 | `literal` | 字面量结构；非字面量时省略 |
 
+字符串 literal 来源于带引号标识符 token 时，`literal` 对象会输出 `quoted_identifier: true`。普通字符串字面量和未加引号标识符不输出该字段。
+
 多语句 SQL 中，`bind_position` 按整条输入 SQL 全局递增，不按 statement 重置。
 
 `WHERE`、`JOIN ... ON`、`HAVING` 以及 SELECT 投影内部的条件表达式中，可稳定归属到单个字段的 `IN`、`NOT IN`、`BETWEEN`、普通比较和单字段函数包裹条件会输出字段关联值。右侧表达式包含其他字段引用时不会强行归属，避免产生错误字段和值关系。
