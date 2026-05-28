@@ -14,12 +14,12 @@ unified patch-based rewrite, fine-grained convenience APIs, and dialect usage.
 - `examples/inspect/`
   Read-only structural inspection and traversal examples.
 - `examples/dialect/`
-  Dialect parsing, SQL View JSON, patch-based rewrite, and deparse examples.
+  Dialect parsing, View JSON, patch-based rewrite, and deparse examples.
 
 ## Recommended Rewrite Examples
 
 - `examples/patch/08_view_patch.c`
-  Demonstrates SQL View JSON export, structured patch application, and SQL regeneration.
+  Demonstrates View JSON export, structured patch application, and SQL regeneration.
 - `examples/patch/13_select_target_patch.c`
   Demonstrates expanding `SELECT *`, inserting an output target, and deleting an output target through `sqlparser_apply_patch()`.
 - `examples/patch/14_where_patch.c`
@@ -59,11 +59,11 @@ unified patch-based rewrite, fine-grained convenience APIs, and dialect usage.
 - `examples/dialect/10_mysql_dialect.c`
   Demonstrates parsing MySQL SQL with explicit dialect options and rewriting an `INSERT ... VALUES` cell.
 - `examples/dialect/11_oracle_dialect.c`
-  Demonstrates parsing Oracle SQL with explicit dialect options, exporting SQL View JSON, and restoring Oracle bind placeholders during deparse.
+  Demonstrates parsing Oracle SQL with explicit dialect options, exporting View JSON, and restoring Oracle bind placeholders during deparse.
 - `examples/dialect/12_sqlserver_dialect.c`
-  Demonstrates parsing SQL Server SQL with explicit dialect options, exporting SQL View JSON, and restoring SQL Server parameters and `TOP` during deparse.
+  Demonstrates parsing SQL Server SQL with explicit dialect options, exporting View JSON, and restoring SQL Server parameters and `TOP` during deparse.
 - `examples/dialect/17_dameng_dialect.c`
-  Demonstrates parsing Dameng SQL with explicit dialect options, exporting SQL View JSON, and restoring binds, `SET SCHEMA`, and `TOP` during deparse.
+  Demonstrates parsing Dameng SQL with explicit dialect options, exporting View JSON, and restoring binds, `SET SCHEMA`, and `TOP` during deparse.
 
 ## Build
 

@@ -1,6 +1,6 @@
 # Oracle Dialect Case Matrix
 
-This file records regression cases for the Oracle dialect conversion layer. The executable fixture is `tests/cases/oracle_dialect_input.json`; `tests/unit/test_oracle_dialect_case_matrix.c` verifies parsing, SQL View JSON, deparse output, and error codes.
+This file records regression cases for the Oracle dialect conversion layer. The executable fixture is `tests/cases/oracle_dialect_input.json`; `tests/unit/test_oracle_dialect_case_matrix.c` verifies parsing, View JSON, deparse output, and error codes.
 
 ## Supported Cases
 
@@ -92,6 +92,18 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 | O085 | `ALTER SESSION SET ERROR_ON_OVERLAP_TIME` | boolean/enumerated ordinary session parameter |
 | O086 | `ALTER SESSION SET NLS_NUMERIC_CHARACTERS` | punctuation-bearing string session parameter |
 | O087 | multi-statement named binds | named-bind `bind_position` increases globally across the full input SQL |
+| O088 | `oracle-select-derived-query-graph` | derived table with output alias and named binds | `query_graph` representation for derived-table fields, output alias, and predicate binds |
+| O089 | `oracle-select-reference-024` | SELECT reference case 024 | Oracle/ROWNUM/complex derived SELECT example parsing and View JSON shape |
+| O090 | `oracle-select-reference-026` | SELECT reference case 026 | Oracle/ROWNUM/complex derived SELECT example parsing and View JSON shape |
+| O091 | `oracle-select-reference-028` | SELECT reference case 028 | Oracle/ROWNUM/complex derived SELECT example parsing and View JSON shape |
+| O092 | `oracle-select-reference-033` | SELECT reference case 033 | Oracle/ROWNUM/complex derived SELECT example parsing and View JSON shape |
+| O093 | `oracle-select-reference-044` | SELECT reference case 044 | Oracle/ROWNUM/complex derived SELECT example parsing and View JSON shape |
+| O094 | `oracle-select-reference-045` | SELECT reference case 045 | Oracle/ROWNUM/complex derived SELECT example parsing and View JSON shape |
+| O095 | `oracle-select-reference-048` | SELECT reference case 048 | Oracle/ROWNUM/complex derived SELECT example parsing and View JSON shape |
+| O096 | `oracle-select-reference-049` | SELECT reference case 049 | Oracle/ROWNUM/complex derived SELECT parsing, `d.* -> b.* -> o.*` lineage, and View JSON shape |
+| O097 | `oracle-select-reference-046` | SELECT reference case 046 | Oracle complex derived-table and multi-JOIN subquery parsing and View JSON shape |
+| O098 | `oracle-select-reference-047` | SELECT reference case 047 | Oracle UNION plus complex derived-table subquery parsing and View JSON shape |
+| O099 | `oracle-select-nested-star-query-graph` | nested derived tables, ROWNUM, and `SELECT *` | `query_graph` represents the derived-table `*` chain and UNION branches |
 
 ## Explicitly Unsupported Cases
 

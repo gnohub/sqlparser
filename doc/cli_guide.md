@@ -3,11 +3,11 @@
 `sqlparser_cli` 是仓库内提供的命令行工具，用于：
 
 - 快速验证一条 SQL 的解析结果
-- 导出 SQL View JSON
+- 导出 View JSON
 - 做单条 SQL 反解析检查
 - 批量处理 JSON 文件中的 SQL 列表
 
-常规接入优先使用 `view`，该模式输出语句、对象、字段、值片段和 selector。
+常规接入优先使用 `view`，该模式输出语句和最小 `query_graph`，包括查询块、关系、输出项、字段 occurrence、字段关联值和 selector。
 
 可执行文件默认位于：
 
@@ -32,7 +32,7 @@ make all
 命令格式：
 
 ```bash
-./bin/sqlparser_cli [--mode view|deparse|all] [--dialect postgresql|mysql|oracle|sqlserver|dameng] [--compact] [--file PATH] [SQL]
+./bin/sqlparser_cli [--mode view|deparse] [--dialect postgresql|mysql|oracle|sqlserver|dameng] [--compact] [--file PATH] [SQL]
 ```
 
 也可以从标准输入读取 SQL：
@@ -58,13 +58,13 @@ echo "SELECT 1" | ./bin/sqlparser_cli --mode view
 ### 3.2 通过文件读取
 
 ```bash
-./bin/sqlparser_cli --file ./tests/cases/sample.sql
+./bin/sqlparser_cli --file ./input.sql
 ```
 
 ### 3.3 通过标准输入读取
 
 ```bash
-cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
+cat ./input.sql | ./bin/sqlparser_cli --mode deparse
 ```
 
 ## 4. 输出模式
@@ -73,9 +73,8 @@ cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
 
 | mode | 输出内容 |
 | --- | --- |
-| `view` | SQL View JSON |
+| `view` | View JSON |
 | `deparse` | 反解析 SQL |
-| `all` | 输出 SQL View JSON 和反解析 SQL |
 
 示例：
 
@@ -130,8 +129,8 @@ cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
 
 ```bash
 ./bin/sqlparser_cli \
-  --batch-file ./tests/cases/sql_batch_input.json \
-  --output /tmp/sqlparser_batch_result.json
+  --batch-file ./sql_batch.json \
+  --output ./sqlparser_batch_result.json
 ```
 
 说明：
@@ -141,11 +140,10 @@ cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
 
 ### 7.1 支持的批量输入结构
 
-批量输入 JSON 支持三种顶层形式：
+批量输入 JSON 支持两种顶层形式：
 
 1. 顶层数组
 2. 顶层对象，包含 `items` 数组
-3. 顶层对象，包含 `sqls` 数组
 
 数组元素支持两种写法：
 
@@ -191,7 +189,6 @@ cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
 | --- | --- |
 | `mode` | 当前执行模式 |
 | `dialect` | 批量默认方言 |
-| `source_file` | 输入文件路径 |
 | `total` | 总条目数 |
 | `succeeded` | 成功条目数 |
 | `failed` | 失败条目数 |
@@ -231,7 +228,7 @@ cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
   "SELECT u.id, o.order_no FROM public.users u JOIN public.orders o ON u.id = o.user_id WHERE o.status = 'paid'"
 ```
 
-### 8.2 导出 SQL View JSON
+### 8.2 导出 View JSON
 
 ```bash
 ./bin/sqlparser_cli --mode view \
@@ -249,4 +246,4 @@ cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
 
 - [快速开始](../README.md)
 - [API 手册](./api_reference.md)
-- [SQL View JSON 手册](./view_json.md)
+- [View JSON 手册](./view_json.md)

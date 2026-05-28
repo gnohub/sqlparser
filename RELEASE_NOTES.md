@@ -1,22 +1,22 @@
-# v0.9.0 发布说明
+# v2.0.0 发布说明
 
-`v0.9.0` 收敛 SQL View 的预编译占位符输出，公共 C 结构和 JSON View 统一使用 `bind_key`、`bind_kind`、`bind_position`、`bind_sql` 和 `bind_selector`。
+`v2.0.0` 是 `sqlparser` 的稳定接口版本，面向 C 语言调用方提供 SQL 解析、结构化遍历、按 selector 改写以及反解析能力。本版本继续以 `query_graph` 作为结构化输出主数据源，View JSON 仅在调用导出接口时按需生成。
 
 ## 主要变化
 
-- 移除旧 `bind` 输出字段，改为更明确的 `bind_key`。
-- `sqlparser_column_view_t` 和 `sqlparser_cell_view_t` 直接暴露 bind 结构化字段，JSON 仅作为按需 view 输出。
+- 公共版本号更新为 `2.0.0`。
+- View JSON 和公共 C 结构统一使用 `bind_key`、`bind_kind`、`bind_position`、`bind_sql` 和 `selector` 表达预编译占位符。
 - `bind_position` 表示整条输入 SQL 中第几个 bind occurrence，从 1 开始，多语句 SQL 中不会按 statement 重置。
-- 匿名 `?`、显式编号位置 bind（如 `:1`、`$1`）和命名 bind（如 `:name`、`@name`）统一输出 `bind_kind`、`bind_key` 和 `bind_sql`。
-- PostgreSQL dollar-quoted 字符串内部的占位符样式文本不会参与 bind 全局计数。
+- 匿名 `?`、显式编号位置 bind（如 `:1`、`$1`）和命名 bind（如 `:name`、`@name`）统一输出结构化 bind 字段。
+- SELECT 输出层级使用有序 `target_path` 表达函数、表达式、CASE 和嵌套输出路径。
+- View JSON 不输出 `query_graph` 与 DML 结构中的空数组，公共 C 结构仍通过 `count` 或 `has_*` 字段表达空集合。
+- PostgreSQL、MySQL、Oracle、SQL Server 和达梦方言测试矩阵继续覆盖 DDL、DML、JOIN、函数、表达式、bind、分页和上下文切换场景。
+- CLI batch 输入仅支持顶层数组或 `items` 数组。
+- `libpg_query` baseline 保留单线程成功解析和线程首次解析口径。
 
-## 测试覆盖
+## 健壮性修复
 
-- PostgreSQL 可执行用例：97 条，支持 96 条。
-- MySQL 可执行用例：68 条，支持 53 条。
-- Oracle 可执行用例：104 条，支持 86 条。
-- SQL Server 可执行用例：97 条，支持 82 条。
-- 达梦可执行用例：76 条，支持 64 条。
+- 修复 View JSON 序列化过程中 Jansson `_new` 接口失败路径的所有权处理，避免低内存场景下重复释放中间 JSON 节点。
 
 ## 发布验证
 
@@ -24,14 +24,12 @@
 
 - `git diff --check`
 - JSON case 文件合法性校验
-- 旧 `bind` 字段残留扫描
 - Linux `make clean && make test SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0`
-- Linux 定向 CLI 验证多语句 bind 全局序号和 dollar-quoted 字符串计数
+- Linux 全量 View JSON CLI 用例扫描
 - Linux `make verify-valgrind SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0`
 - Linux `make verify-asan SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0`
 - Linux `make verify-ubsan SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0`
 - Linux `make abi-check DEBUG=0 SHOW_WARNING=0 SHOW_VENDOR_WARNING=0`
-- Windows VS 2022 x64 + MSVC `nmake /F Makefile.msvc clean && nmake /F Makefile.msvc test`
 
 ## 发布边界
 

@@ -30,7 +30,7 @@ int main(void)
 
 	/*
 	 * 第二步：组装统一 patch 列表。
-	 * selector 可以来自 SQL View JSON/C View，也可以由调用方自己的规则生成。
+	 * selector 可以来自 View JSON/C View，也可以由调用方自己的规则生成。
 	 * 对 UPDATE 而言，clause[0] 是 SET 列表，clause[1] 是 WHERE 槽位。
 	 */
 	patch_items[0].op = SQLPARSER_PATCH_REPLACE;

@@ -89,6 +89,51 @@ typedef enum {
 } sqlparser_clause_kind_t;
 
 typedef enum {
+	SQLPARSER_GRAPH_BLOCK_SELECT = 1,
+	SQLPARSER_GRAPH_BLOCK_SCALAR_SUBQUERY = 2,
+	SQLPARSER_GRAPH_BLOCK_CTE = 3,
+	SQLPARSER_GRAPH_BLOCK_SET = 4
+} sqlparser_graph_block_kind_t;
+
+typedef enum {
+	SQLPARSER_GRAPH_REL_BASE = 1,
+	SQLPARSER_GRAPH_REL_DERIVED = 2,
+	SQLPARSER_GRAPH_REL_CTE = 3,
+	SQLPARSER_GRAPH_REL_DUAL = 4
+} sqlparser_graph_relation_kind_t;
+
+typedef enum {
+	SQLPARSER_GRAPH_TARGET_FIELD = 1,
+	SQLPARSER_GRAPH_TARGET_STAR = 2,
+	SQLPARSER_GRAPH_TARGET_QUALIFIED_STAR = 3,
+	SQLPARSER_GRAPH_TARGET_LITERAL = 4,
+	SQLPARSER_GRAPH_TARGET_PSEUDO = 5,
+	SQLPARSER_GRAPH_TARGET_SUBQUERY = 6,
+	SQLPARSER_GRAPH_TARGET_EXPRESSION = 7
+} sqlparser_graph_target_kind_t;
+
+typedef enum {
+	SQLPARSER_GRAPH_VALUE_LITERAL = 1,
+	SQLPARSER_GRAPH_VALUE_BIND = 2,
+	SQLPARSER_GRAPH_VALUE_DEFAULT = 3,
+	SQLPARSER_GRAPH_VALUE_EXPRESSION = 4
+} sqlparser_graph_value_kind_t;
+
+typedef enum {
+	SQLPARSER_GRAPH_SET_UNION = 1,
+	SQLPARSER_GRAPH_SET_UNION_ALL = 2,
+	SQLPARSER_GRAPH_SET_INTERSECT = 3,
+	SQLPARSER_GRAPH_SET_EXCEPT = 4
+} sqlparser_graph_set_kind_t;
+
+typedef enum {
+	SQLPARSER_GRAPH_DML_INSERT = 1,
+	SQLPARSER_GRAPH_DML_UPDATE = 2,
+	SQLPARSER_GRAPH_DML_DELETE = 3,
+	SQLPARSER_GRAPH_DML_MERGE = 4
+} sqlparser_graph_dml_kind_t;
+
+typedef enum {
 	SQLPARSER_DIALECT_POSTGRESQL = 0,
 	SQLPARSER_DIALECT_MYSQL = 1,
 	SQLPARSER_DIALECT_ORACLE = 2,
@@ -159,10 +204,15 @@ typedef struct {
 	size_t column_index;
 } sqlparser_selector_t;
 
+typedef struct {
+	size_t offset;
+	size_t count;
+} sqlparser_index_span_t;
+
 enum {
 	SQLPARSER_BIND_TEXT_CAPACITY = 128,
 	SQLPARSER_BIND_SQL_CAPACITY = 128,
-	SQLPARSER_TARGET_PATH_CAPACITY = 64,
+	SQLPARSER_TARGET_PATH_CAPACITY = 16,
 	SQLPARSER_TARGET_PATH_NAME_CAPACITY = 128
 };
 
@@ -176,23 +226,166 @@ typedef struct {
 
 typedef struct {
 	const sqlparser_handle_t *handle;
-	size_t statement_count;
-} sqlparser_view_t;
-
-enum {
-	SQLPARSER_STATEMENT_KEYWORD_CAPACITY = 32
-};
+	size_t statement_index;
+	unsigned long generation;
+	size_t root_block_index;
+	int has_root_block;
+	size_t block_count;
+	size_t relation_count;
+	size_t target_count;
+	size_t field_count;
+	size_t value_count;
+	size_t set_count;
+	int has_dml;
+} sqlparser_query_graph_view_t;
 
 typedef struct {
-	const sqlparser_handle_t *handle;
 	size_t index;
-	const char *keyword;
-	size_t keyword_count;
-	const char *keywords[SQLPARSER_STATEMENT_KEYWORD_CAPACITY];
-	size_t object_count;
-	size_t clause_count;
-	size_t where_count;
-} sqlparser_statement_view_t;
+	size_t statement_index;
+	sqlparser_graph_block_kind_t kind;
+	sqlparser_index_span_t relations;
+	sqlparser_index_span_t targets;
+} sqlparser_graph_block_t;
+
+typedef struct {
+	size_t index;
+	size_t statement_index;
+	size_t block_index;
+	sqlparser_graph_relation_kind_t kind;
+	const char *database_name;
+	const char *schema_name;
+	const char *object_name;
+	const char *alias_name;
+	size_t source_block_index;
+	int has_source_block;
+	sqlparser_selector_t selector;
+	int has_selector;
+} sqlparser_graph_relation_t;
+
+typedef struct {
+	size_t index;
+	size_t statement_index;
+	size_t block_index;
+	size_t ordinal;
+	sqlparser_graph_target_kind_t kind;
+	const char *output_name;
+	size_t field_index;
+	int has_field;
+	sqlparser_index_span_t star_relations;
+	size_t source_block_index;
+	int has_source_block;
+	sqlparser_selector_t selector;
+	int has_selector;
+	sqlparser_selector_t target_list_selector;
+	int has_target_list_selector;
+} sqlparser_graph_target_t;
+
+typedef struct {
+	size_t index;
+	size_t statement_index;
+	size_t block_index;
+	sqlparser_clause_kind_t clause;
+	size_t relation_index;
+	int has_relation;
+	sqlparser_index_span_t candidate_relations;
+	const char *column_name;
+	size_t target_index;
+	int has_target;
+	sqlparser_target_path_entry_t target_path[SQLPARSER_TARGET_PATH_CAPACITY];
+	size_t target_path_count;
+	sqlparser_selector_t selector;
+	int has_selector;
+} sqlparser_graph_field_t;
+
+typedef struct {
+	size_t index;
+	size_t statement_index;
+	size_t block_index;
+	sqlparser_clause_kind_t clause;
+	const char *operator_name;
+	size_t field_index;
+	int has_field;
+	sqlparser_graph_value_kind_t kind;
+	sqlparser_literal_view_t literal;
+	char bind[SQLPARSER_BIND_TEXT_CAPACITY];
+	int has_bind;
+	sqlparser_bind_kind_t bind_kind;
+	char bind_sql[SQLPARSER_BIND_SQL_CAPACITY];
+	int has_bind_sql;
+	size_t bind_position;
+	int has_bind_position;
+	sqlparser_selector_t selector;
+	int has_selector;
+} sqlparser_graph_value_t;
+
+typedef struct {
+	size_t index;
+	size_t statement_index;
+	sqlparser_graph_set_kind_t kind;
+	size_t result_block_index;
+	sqlparser_index_span_t branch_blocks;
+} sqlparser_graph_set_t;
+
+typedef struct {
+	size_t index;
+	size_t statement_index;
+	sqlparser_graph_dml_kind_t kind;
+	size_t target_relation_index;
+	int has_target_relation;
+	sqlparser_index_span_t target_columns;
+	sqlparser_index_span_t rows;
+	sqlparser_index_span_t assignments;
+	sqlparser_index_span_t delete_targets;
+	size_t source_block_index;
+	int has_source_block;
+} sqlparser_graph_dml_t;
+
+typedef struct {
+	size_t index;
+	size_t statement_index;
+	size_t dml_index;
+	size_t ordinal;
+	const char *column_name;
+	sqlparser_selector_t selector;
+	int has_selector;
+} sqlparser_graph_dml_column_t;
+
+typedef struct {
+	size_t index;
+	size_t statement_index;
+	size_t dml_index;
+	size_t row_index;
+	size_t column_ordinal;
+	sqlparser_graph_value_kind_t kind;
+	sqlparser_literal_view_t literal;
+	char bind[SQLPARSER_BIND_TEXT_CAPACITY];
+	int has_bind;
+	sqlparser_bind_kind_t bind_kind;
+	char bind_sql[SQLPARSER_BIND_SQL_CAPACITY];
+	int has_bind_sql;
+	size_t bind_position;
+	int has_bind_position;
+	sqlparser_selector_t selector;
+	int has_selector;
+} sqlparser_graph_dml_cell_t;
+
+typedef struct {
+	size_t index;
+	size_t statement_index;
+	size_t dml_index;
+	size_t target_field_index;
+	sqlparser_graph_value_kind_t value_kind;
+	sqlparser_literal_view_t literal;
+	char bind[SQLPARSER_BIND_TEXT_CAPACITY];
+	int has_bind;
+	sqlparser_bind_kind_t bind_kind;
+	char bind_sql[SQLPARSER_BIND_SQL_CAPACITY];
+	int has_bind_sql;
+	size_t bind_position;
+	int has_bind_position;
+	sqlparser_selector_t selector;
+	int has_selector;
+} sqlparser_graph_dml_assignment_t;
 
 typedef struct {
 	const sqlparser_handle_t *handle;
@@ -202,89 +395,6 @@ typedef struct {
 	sqlparser_selector_t selector;
 	int has_selector;
 } sqlparser_clause_view_t;
-
-typedef struct {
-	const sqlparser_handle_t *handle;
-	size_t statement_index;
-	size_t object_index;
-	const char *database_name;
-	const char *schema_name;
-	const char *table_name;
-	const char *alias_name;
-	sqlparser_selector_t selector;
-	int has_selector;
-	size_t column_count;
-	size_t row_count;
-} sqlparser_object_view_t;
-
-typedef struct {
-	sqlparser_selector_t selector;
-	int has_selector;
-	size_t statement_index;
-} sqlparser_value_view_t;
-
-typedef struct {
-	const sqlparser_handle_t *handle;
-	size_t statement_index;
-	size_t object_index;
-	size_t column_index;
-	const char *name;
-	const char *keyword;
-	sqlparser_selector_t selector;
-	int has_selector;
-	sqlparser_selector_t target_list_selector;
-	int has_target_list_selector;
-	sqlparser_selector_t target_selector;
-	int has_target_selector;
-	const char *operator_name;
-	char bind_key[SQLPARSER_BIND_TEXT_CAPACITY];
-	int has_bind_key;
-	sqlparser_bind_kind_t bind_kind;
-	size_t bind_position;
-	char bind_sql[SQLPARSER_BIND_SQL_CAPACITY];
-	int has_bind_sql;
-	int bind_key_truncated;
-	int bind_sql_truncated;
-	sqlparser_selector_t bind_selector;
-	int has_bind_selector;
-	size_t clause_id;
-	int has_clause_id;
-	size_t target_path_count;
-	int target_path_truncated;
-	sqlparser_target_path_entry_t target_path[SQLPARSER_TARGET_PATH_CAPACITY];
-	sqlparser_value_view_t value;
-	size_t value_count;
-} sqlparser_column_view_t;
-
-typedef struct {
-	const sqlparser_handle_t *handle;
-	size_t statement_index;
-	size_t object_index;
-	size_t row_index;
-	size_t cell_count;
-} sqlparser_row_view_t;
-
-typedef struct {
-	const sqlparser_handle_t *handle;
-	size_t statement_index;
-	size_t object_index;
-	size_t row_index;
-	size_t cell_index;
-	const char *column_name;
-	size_t column_index;
-	sqlparser_selector_t selector;
-	int has_selector;
-	char bind_key[SQLPARSER_BIND_TEXT_CAPACITY];
-	int has_bind_key;
-	sqlparser_bind_kind_t bind_kind;
-	size_t bind_position;
-	char bind_sql[SQLPARSER_BIND_SQL_CAPACITY];
-	int has_bind_sql;
-	int bind_key_truncated;
-	int bind_sql_truncated;
-	sqlparser_selector_t bind_selector;
-	int has_bind_selector;
-} sqlparser_cell_view_t;
 
 typedef enum {
 	SQLPARSER_PATCH_REPLACE = 1,
@@ -337,6 +447,12 @@ const char *sqlparser_selector_kind_name(sqlparser_selector_kind_t kind);
 const char *sqlparser_dialect_name(sqlparser_dialect_t dialect);
 const char *sqlparser_bool_operator_name(sqlparser_bool_operator_t bool_operator);
 const char *sqlparser_clause_kind_name(sqlparser_clause_kind_t kind);
+const char *sqlparser_graph_block_kind_name(sqlparser_graph_block_kind_t kind);
+const char *sqlparser_graph_relation_kind_name(sqlparser_graph_relation_kind_t kind);
+const char *sqlparser_graph_target_kind_name(sqlparser_graph_target_kind_t kind);
+const char *sqlparser_graph_value_kind_name(sqlparser_graph_value_kind_t kind);
+const char *sqlparser_graph_set_kind_name(sqlparser_graph_set_kind_t kind);
+const char *sqlparser_graph_dml_kind_name(sqlparser_graph_dml_kind_t kind);
 
 void sqlparser_limits_default(sqlparser_limits_t *out_limits);
 void sqlparser_parse_options_default(sqlparser_parse_options_t *out_options);
@@ -874,72 +990,80 @@ sqlparser_status_t sqlparser_selector_set_select_targets_sql(
 	const char *sql_text,
 	sqlparser_error_t *out_error);
 
-sqlparser_status_t sqlparser_get_view(
+sqlparser_status_t sqlparser_statement_query_graph(
 	const sqlparser_handle_t *handle,
-	sqlparser_view_t *out_view,
-	sqlparser_error_t *out_error);
-
-sqlparser_status_t sqlparser_view_statement_at(
-	const sqlparser_view_t *view,
 	size_t statement_index,
-	sqlparser_statement_view_t *out_statement,
+	sqlparser_query_graph_view_t *out_graph,
 	sqlparser_error_t *out_error);
 
-sqlparser_status_t sqlparser_statement_keyword_at(
-	const sqlparser_statement_view_t *statement,
-	size_t keyword_index,
-	const char **out_keyword,
+sqlparser_status_t sqlparser_query_graph_span_index_at(
+	const sqlparser_query_graph_view_t *graph,
+	sqlparser_index_span_t span,
+	size_t item_index,
+	size_t *out_index,
 	sqlparser_error_t *out_error);
 
-sqlparser_status_t sqlparser_statement_object_at(
-	const sqlparser_statement_view_t *statement,
-	size_t object_index,
-	sqlparser_object_view_t *out_object,
+sqlparser_status_t sqlparser_query_graph_block_at(
+	const sqlparser_query_graph_view_t *graph,
+	size_t block_index,
+	sqlparser_graph_block_t *out_block,
 	sqlparser_error_t *out_error);
 
-sqlparser_status_t sqlparser_statement_clause_at(
-	const sqlparser_statement_view_t *statement,
-	size_t clause_index,
-	sqlparser_clause_view_t *out_clause,
+sqlparser_status_t sqlparser_query_graph_relation_at(
+	const sqlparser_query_graph_view_t *graph,
+	size_t relation_index,
+	sqlparser_graph_relation_t *out_relation,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_query_graph_target_at(
+	const sqlparser_query_graph_view_t *graph,
+	size_t target_index,
+	sqlparser_graph_target_t *out_target,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_query_graph_field_at(
+	const sqlparser_query_graph_view_t *graph,
+	size_t field_index,
+	sqlparser_graph_field_t *out_field,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_query_graph_value_at(
+	const sqlparser_query_graph_view_t *graph,
+	size_t value_index,
+	sqlparser_graph_value_t *out_value,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_query_graph_set_at(
+	const sqlparser_query_graph_view_t *graph,
+	size_t set_index,
+	sqlparser_graph_set_t *out_set,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_query_graph_dml(
+	const sqlparser_query_graph_view_t *graph,
+	sqlparser_graph_dml_t *out_dml,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_query_graph_dml_column_at(
+	const sqlparser_query_graph_view_t *graph,
+	size_t column_index,
+	sqlparser_graph_dml_column_t *out_column,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_query_graph_dml_cell_at(
+	const sqlparser_query_graph_view_t *graph,
+	size_t cell_index,
+	sqlparser_graph_dml_cell_t *out_cell,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_query_graph_dml_assignment_at(
+	const sqlparser_query_graph_view_t *graph,
+	size_t assignment_index,
+	sqlparser_graph_dml_assignment_t *out_assignment,
 	sqlparser_error_t *out_error);
 
 sqlparser_status_t sqlparser_clause_sql(
 	const sqlparser_clause_view_t *clause,
-	char **out_sql,
-	sqlparser_error_t *out_error);
-
-sqlparser_status_t sqlparser_object_column_at(
-	const sqlparser_object_view_t *object,
-	size_t column_index,
-	sqlparser_column_view_t *out_column,
-	sqlparser_error_t *out_error);
-
-sqlparser_status_t sqlparser_column_value_at(
-	const sqlparser_column_view_t *column,
-	size_t value_index,
-	sqlparser_value_view_t *out_value,
-	sqlparser_error_t *out_error);
-
-sqlparser_status_t sqlparser_object_row_at(
-	const sqlparser_object_view_t *object,
-	size_t row_index,
-	sqlparser_row_view_t *out_row,
-	sqlparser_error_t *out_error);
-
-sqlparser_status_t sqlparser_row_cell_at(
-	const sqlparser_row_view_t *row,
-	size_t cell_index,
-	sqlparser_cell_view_t *out_cell,
-	sqlparser_error_t *out_error);
-
-sqlparser_status_t sqlparser_value_sql(
-	const sqlparser_handle_t *handle,
-	const sqlparser_value_view_t *value,
-	char **out_sql,
-	sqlparser_error_t *out_error);
-
-sqlparser_status_t sqlparser_cell_sql(
-	const sqlparser_cell_view_t *cell,
 	char **out_sql,
 	sqlparser_error_t *out_error);
 

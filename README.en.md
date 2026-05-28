@@ -20,9 +20,9 @@ This release provides:
 - `SELECT` output-list read, replace, insert, and delete operations
 - stable selector parse / format / lookup
 - dialect options with PostgreSQL as the default and MySQL / Oracle / SQL Server / Dameng conversion layers
-- common prepared / parameterized SQL statement parsing, SQL View JSON, and deparse output
+- common prepared / parameterized SQL statement parsing, View JSON, and deparse output
 - configurable resource limits for SQL input, generated output, and statement count
-- SQL View JSON export, C structured traversal, and structured patch write-back
+- View JSON export, C structured traversal, and structured patch write-back
 - `handle -> sql`
 
 ## Public Artifacts
@@ -157,7 +157,7 @@ Parse a single SQL statement:
 ./bin/sqlparser_cli "SELECT id, name FROM public.users WHERE id = 42"
 ```
 
-Export SQL View JSON:
+Export View JSON:
 
 ```bash
 ./bin/sqlparser_cli --mode view "SELECT id, name FROM public.users WHERE id = 42"
@@ -167,8 +167,8 @@ Process a JSON file containing multiple SQL statements:
 
 ```bash
 ./bin/sqlparser_cli \
-  --batch-file ./tests/cases/sql_batch_input.json \
-  --output /tmp/sqlparser_batch_result.json
+  --batch-file ./sql_batch.json \
+  --output ./sqlparser_batch_result.json
 ```
 
 ## Examples
@@ -193,7 +193,7 @@ See [examples/README.md](./examples/README.md) for details.
 - [Dameng Dialect Support](./doc/dameng_dialect_support.en.md)
 - [Dialect Coverage](./doc/dialect_coverage.en.md)
 - [API Reference](./doc/api_reference.en.md)
-- [SQL View JSON Guide](./doc/view_json.en.md)
+- [View JSON Guide](./doc/view_json.en.md)
 - [CLI Guide](./doc/cli_guide.en.md)
 - [libpg_query Integration](./doc/libpg_query_analysis.en.md)
 - [Release Notes](./RELEASE_NOTES.en.md)

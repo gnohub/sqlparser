@@ -17,7 +17,10 @@ current AST. The executable case matrix defines the support boundary:
 - JDBC-style `?` positional parameters
 - `LIMIT offset,count`
 - `INSERT VALUES`, multi-row `INSERT`, and `INSERT SELECT`
+- `INSERT ... ON DUPLICATE KEY UPDATE`
 - `UPDATE` and `DELETE`
+- ordinary/INNER/CROSS `UPDATE ... JOIN ... SET ...` forms with `ON` conditions
+- ordinary/INNER/CROSS `DELETE u FROM ... JOIN ...` forms with `ON` conditions
 - basic `CREATE TABLE`
 - `ALTER TABLE ADD COLUMN`
 - `CREATE VIEW`
@@ -34,10 +37,11 @@ The following MySQL-specific constructs are not silently downgraded. They return
 - `INSERT IGNORE`
 - `INSERT DELAYED`
 - `INSERT LOW_PRIORITY` and `INSERT HIGH_PRIORITY`
-- `ON DUPLICATE KEY UPDATE`
 - `REPLACE INTO`
 - `UPDATE IGNORE`
 - `DELETE IGNORE`
+- `UPDATE ... LEFT/RIGHT JOIN ... SET ...`
+- `DELETE u FROM ... LEFT/RIGHT JOIN ...`
 - `AUTO_INCREMENT`
 - `UNSIGNED`
 - `ZEROFILL`
@@ -51,7 +55,7 @@ The following MySQL-specific constructs are not silently downgraded. They return
   conversion details.
 - Backtick-delimited identifiers and MySQL string compatibility rules are
   handled by the dialect layer.
-- Attributable expression fragments in SQL View JSON use the public MySQL
+- Attributable expression fragments in View JSON use the public MySQL
   form.
 - MySQL-specific semantics that cannot be represented safely are not downgraded
   to PostgreSQL semantics.
@@ -65,5 +69,5 @@ The MySQL support boundary is defined by:
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current MySQL matrix contains 48 cases: 33 supported paths and 15 explicit
+The current MySQL matrix contains 92 cases: 74 supported paths and 18 explicit
 unsupported paths.

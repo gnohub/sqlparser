@@ -39,14 +39,14 @@ current parser kernel. The executable case matrix defines the support boundary:
 The PostgreSQL default dialect does not maintain a separate feature-level
 negative list. Parse failures normally come from invalid SQL, PostgreSQL version
 differences outside the pinned parser kernel, or specialized structures not yet
-exposed by the public SQL View.
+exposed by the public query graph.
 
 ## Public Output Rules
 
 - `sqlparser_deparse()` emits PostgreSQL-compatible SQL.
-- SQL View JSON emits statements, objects, columns, value fragments, and
-  selectors. It does not keep a copy of the input SQL.
-- SQL View JSON remains available for diagnostics.
+- View JSON emits statements and the minimal `query_graph`. It does not keep a
+  copy of the input SQL, expand `*`, or store per-node SQL text.
+- View JSON remains available as a structured inspection interface.
 
 ## Regression Cases
 
@@ -58,5 +58,5 @@ The PostgreSQL support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current PostgreSQL matrix contains 70 cases: 69 supported paths and 1
+The current PostgreSQL matrix contains 129 cases: 128 supported paths and 1
 negative invalid-SQL path.

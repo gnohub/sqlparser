@@ -1,6 +1,6 @@
 # 达梦方言用例矩阵
 
-本文件记录达梦方言转换层的回归用例。可执行夹具为 `tests/cases/dameng_dialect_input.json`，单元测试 `tests/unit/test_dameng_dialect_case_matrix.c` 会逐条验证解析结果、SQL View JSON、反解析输出和错误码。
+本文件记录达梦方言转换层的回归用例。可执行夹具为 `tests/cases/dameng_dialect_input.json`，单元测试 `tests/unit/test_dameng_dialect_case_matrix.c` 会逐条验证解析结果、View JSON、反解析输出和错误码。
 
 ## 支持用例
 
@@ -70,6 +70,17 @@
 | D062 | `LIMIT/OFFSET` + `?` 参数 | 分页子句中的位置参数 |
 | D063 | `SELECT :bind FROM dual` | DUAL 查询和 SELECT 列表中的命名 bind |
 | D064 | 多语句 `?` 参数 | 多语句输入中位置参数 `bind_position` 按整条 SQL 全局递增 |
+| D065 | `dameng-select-derived-query-graph` | 派生表 + 输出别名 + 命名 bind | 派生表字段向内层真实表字段的 `query_graph` 来源链路 映射和 `output_name` |
+| D066 | `dameng-select-reference-024` | SELECT 参考用例 024 | 达梦/ROWNUM/复杂派生表 SELECT 示例解析和 View JSON 结构 |
+| D067 | `dameng-select-reference-026` | SELECT 参考用例 026 | 达梦/ROWNUM/复杂派生表 SELECT 示例解析和 View JSON 结构 |
+| D068 | `dameng-select-reference-028` | SELECT 参考用例 028 | 达梦/ROWNUM/复杂派生表 SELECT 示例解析和 View JSON 结构 |
+| D069 | `dameng-select-reference-033` | SELECT 参考用例 033 | 达梦/ROWNUM/复杂派生表 SELECT 示例解析和 View JSON 结构 |
+| D070 | `dameng-select-reference-044` | SELECT 参考用例 044 | 达梦/ROWNUM/复杂派生表 SELECT 示例解析和 View JSON 结构 |
+| D071 | `dameng-select-reference-045` | SELECT 参考用例 045 | 达梦/ROWNUM/复杂派生表 SELECT 示例解析和 View JSON 结构 |
+| D072 | `dameng-select-reference-048` | SELECT 参考用例 048 | 达梦/ROWNUM/复杂派生表 SELECT 示例解析和 View JSON 结构 |
+| D073 | `dameng-select-reference-049` | SELECT 参考用例 049 | 达梦/ROWNUM/复杂派生表 `*` 链路和 UNION 分支的 `query_graph` 表达 |
+| D074 | `dameng-select-reference-046` | SELECT 参考用例 046 | 达梦复杂派生表和多 JOIN 子查询解析和 View JSON 结构 |
+| D075 | `dameng-select-reference-047` | SELECT 参考用例 047 | 达梦 UNION + 复杂派生表子查询解析和 View JSON 结构 |
 
 ## 明确不支持用例
 

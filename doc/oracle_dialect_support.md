@@ -48,8 +48,8 @@ Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范
 
 - `sqlparser_deparse()` 输出 Oracle 公共形态，不暴露内部转换细节。
 - Oracle bind 保持 `:name`、`:1` 或 `?` 形态，不输出内部 `$1`、`$2`。
-- `MINUS` 在 SQL View JSON 和 deparse 输出中保持 Oracle 语义名称。
-- SQL View JSON 中可归属的表达式片段使用公共 Oracle 形态。
+- `MINUS` 在 View JSON 和 deparse 输出中保持 Oracle 语义名称。
+- View JSON 中可归属的表达式片段使用公共 Oracle 形态。
 - 失败的表达式片段改写不会提交到 handle；原有 AST、bind 映射和 deparse 输出保持可用。
 
 ## 回归用例
@@ -61,4 +61,4 @@ Oracle 支持范围以以下文件为准：
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 Oracle 方言矩阵包含 78 条用例：59 条支持路径，19 条明确不支持路径。
+当前 Oracle 方言矩阵包含 116 条用例：98 条支持路径，18 条明确不支持路径。

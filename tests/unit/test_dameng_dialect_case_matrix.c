@@ -35,43 +35,6 @@ static const char *json_string_or_null(json_t *value)
 	return json_is_string(value) ? json_string_value(value) : NULL;
 }
 
-static int verify_text_array(
-	const char *case_id,
-	const char *case_name,
-	const char *view_json,
-	const char *field_name,
-	json_t *expected_array)
-{
-	size_t index;
-	json_t *value;
-
-	if (expected_array == NULL) {
-		return 0;
-	}
-	if (!json_is_array(expected_array)) {
-		return fail_case(case_id, case_name, "expected string-array metadata must be an array");
-	}
-
-	json_array_foreach(expected_array, index, value) {
-		const char *expected;
-
-		expected = json_string_or_null(value);
-		if (expected == NULL) {
-			return fail_case(case_id, case_name, "expected string-array value must be a string");
-		}
-		if (strcmp(field_name, "tables") == 0) {
-			if (!sqlparser_test_view_contains_table(view_json, expected)) {
-				return fail_case_field(case_id, case_name, field_name, expected);
-			}
-			continue;
-		}
-		if (view_json == NULL || strstr(view_json, expected) == NULL) {
-			return fail_case_field(case_id, case_name, field_name, expected);
-		}
-	}
-	return 0;
-}
-
 static int verify_statement_types(
 	const char *case_id,
 	const char *case_name,
@@ -259,13 +222,6 @@ static int verify_success_case(
 	}
 
 	if (verify_statement_types(case_id, case_name, handle, json_object_get(expect_root, "statement_types")) != 0 ||
-	    verify_text_array(case_id, case_name, view_json, "keywords", json_object_get(expect_root, "keywords")) != 0 ||
-	    verify_text_array(case_id, case_name, view_json, "tables", json_object_get(expect_root, "tables")) != 0 ||
-	    verify_text_array(case_id, case_name, view_json, "selected_columns", json_object_get(expect_root, "selected_columns")) != 0 ||
-	    verify_text_array(case_id, case_name, view_json, "join_columns", json_object_get(expect_root, "join_columns")) != 0 ||
-	    verify_text_array(case_id, case_name, view_json, "where_columns", json_object_get(expect_root, "where_columns")) != 0 ||
-	    verify_text_array(case_id, case_name, view_json, "insert_columns", json_object_get(expect_root, "insert_columns")) != 0 ||
-	    verify_text_array(case_id, case_name, view_json, "update_columns", json_object_get(expect_root, "update_columns")) != 0 ||
 	    verify_contains(case_id, case_name, view_json, "view_contains", json_object_get(expect_root, "view_contains")) != 0 ||
 	    verify_not_contains(case_id, case_name, view_json, "view_not_contains", json_object_get(expect_root, "view_not_contains")) != 0 ||
 	    sqlparser_test_verify_view_expectations(case_id, case_name, view_json, expect_root) != 0 ||

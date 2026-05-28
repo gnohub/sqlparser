@@ -62,9 +62,9 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
   internal conversion details.
 - Oracle binds remain in `:name`, `:1`, or `?` form; internal `$1` / `$2`
   names are not emitted.
-- `MINUS` remains visible as the Oracle semantic keyword in SQL View JSON and
+- `MINUS` remains visible as the Oracle semantic keyword in View JSON and
   deparse output.
-- Attributable expression fragments in SQL View JSON use the public Oracle
+- Attributable expression fragments in View JSON use the public Oracle
   form.
 - Failed expression-fragment rewrites are not committed to the handle; the
   previous AST, bind mapping, and deparse output remain usable.
@@ -78,5 +78,5 @@ The Oracle support boundary is defined by:
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current Oracle matrix contains 78 cases: 59 supported paths and 19 explicit
+The current Oracle matrix contains 116 cases: 98 supported paths and 18 explicit
 unsupported paths.

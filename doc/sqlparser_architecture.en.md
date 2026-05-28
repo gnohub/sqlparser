@@ -14,7 +14,7 @@ The target capabilities of `sqlparser` are:
 3. Extract relations, columns, aliases, keywords, and literal values.
 4. Provide precise rewrite entry points.
 5. Deparse the rewritten structure back into SQL text.
-6. Export a stable SQL view as JSON.
+6. Export a stable View JSON.
 
 The public deliverables are:
 
@@ -53,7 +53,7 @@ The public API surface is organized into three groups:
 - statement-oriented APIs: statement kind, node name, target relation,
   `INSERT`, `UPDATE`, and `WHERE`
 - generic atomic APIs: `relation`, `name`, and `literal`
-- externally addressable rewrite APIs: `selector`, SQL View JSON, and structured patch
+- externally addressable rewrite APIs: `selector`, View JSON, and structured patch
 
 ### 3.2 Canonical Syntax Tree Layer
 
@@ -80,18 +80,17 @@ Typical outputs include:
 
 - `statement_types`
 - `keywords`
-- `tables`
-- `aliases`
-- `selected_columns`
-- `join_columns`
-- `where_columns`
-- `insert_columns`
-- `update_columns`
-- `all_referenced_columns`
+- `query_graph.blocks`
+- `query_graph.relations`
+- `query_graph.targets`
+- `query_graph.fields`
+- `query_graph.values`
+- `query_graph.sets`
+- `query_graph.dml`
 
-### 3.4 SQL View Layer
+### 3.4 View Layer
 
-The SQL View layer exports the current syntax tree on demand as a structured
+The View layer exports the current syntax tree on demand as a structured
 view for external programs.
 
 This layer provides:
@@ -105,7 +104,7 @@ This layer is suitable for:
 
 - storing stable target paths in rule systems
 - replaying rewrite patches from external programs
-- using JSON as a structured output and debugging representation
+- using JSON as a structured output and regression-validation representation
 
 ### 3.5 Deparse Layer
 
@@ -121,12 +120,12 @@ A `sqlparser_handle_t` holds the following categories of data:
 - original SQL and internal parser SQL
 - current SQL generated on demand after rewrites
 - `parse_tree`: protobuf AST
-- SQL View JSON: structured JSON exported on demand
+- View JSON: structured JSON exported on demand
 
 Caching behavior is:
 
 - only the required canonical syntax tree is created during the initial parse
-- SQL View JSON and other derived outputs are generated on demand
+- View JSON and other derived outputs are generated on demand
 - a successful rewrite invalidates the derived caches
 - subsequent reads regenerate those derived results from the latest AST
 
@@ -162,7 +161,7 @@ Selector and view APIs make rewrite targets stable and externally addressable.
 Typical use cases include:
 
 - storing a modification point as a text path
-- serializing the SQL view as JSON
+- serializing the View as JSON
 - replaying a patch in a separate request
 
 ## 6. Memory and Thread Model
@@ -204,7 +203,7 @@ The implementation minimizes repeated parsing and serialization:
 
 - parse once into a long-lived `handle`
 - derive secondary results lazily
-- generate SQL View JSON only when requested
+- generate View JSON only when requested
 - rewrite the AST directly instead of using JSON as the primary mutation path
 
 ## 8. Feature Scope and Extension Points
@@ -229,7 +228,7 @@ Dialect adaptation can be added through these extension points:
 ## 9. Documents and Code Entry Points
 
 - API reference: [api_reference.en.md](./api_reference.en.md)
-- SQL View JSON guide: [view_json.en.md](./view_json.en.md)
+- View JSON guide: [view_json.en.md](./view_json.en.md)
 - CLI guide: [cli_guide.en.md](./cli_guide.en.md)
 - `libpg_query` integration notes:
   [libpg_query_analysis.en.md](./libpg_query_analysis.en.md)

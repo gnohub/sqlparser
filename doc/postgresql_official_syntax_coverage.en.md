@@ -11,14 +11,14 @@ PostgreSQL SQL Commands documentation. The complete checklist is
 - Counting date: 2026-05-08
 
 The scope is the set of official SQL command groups that are directly relevant
-to the public API, SQL View JSON, deparse, and executable regression tests.
+to the public API, View JSON, deparse, and executable regression tests.
 
 ## Status Definitions
 
 | Status | Meaning |
 | --- | --- |
 | `CURRENT` | The default dialect has representative executable coverage, or the pinned PostgreSQL parser kernel directly represents the syntax. |
-| `HOOK_ONLY` | The parser kernel can represent the syntax, but the public SQL View or regression matrix does not yet provide dedicated coverage. |
+| `HOOK_ONLY` | The parser kernel can represent the syntax, but the public query graph or regression matrix does not yet provide dedicated coverage. |
 | `MIXED_MODEL` | The basic statement can be parsed, but complete object attribution, options, or structured editing requires public model extensions. |
 | `MODEL_REQUIRED` | Full support requires a new public model or dedicated structure. |
 | `REFERENCE_ONLY` | An official index, category, or explanatory page that is not counted as an implementation unit. |
@@ -45,6 +45,6 @@ The current implementation covers 38 groups and leaves 3 groups uncovered.
 ## Conclusion
 
 PostgreSQL is the default parser-kernel dialect. The remaining gaps are mostly
-dedicated public SQL View, selector, or regression coverage rather than basic
+dedicated public query graph, selector, or regression coverage rather than basic
 parse capability. One syntax group requires public model extension for complete
 coverage.

@@ -1,6 +1,6 @@
 # MySQL Dialect Case Matrix
 
-This file records regression cases for the MySQL dialect conversion layer. `tests/cases/mysql_dialect_input.json` is the executable test source; `tests/unit/test_mysql_dialect_case_matrix.c` reads it and verifies parsing, SQL View JSON, deparse output, and error codes.
+This file records regression cases for the MySQL dialect conversion layer. `tests/cases/mysql_dialect_input.json` is the executable test source; `tests/unit/test_mysql_dialect_case_matrix.c` reads it and verifies parsing, View JSON, deparse output, and error codes.
 
 ## Validated Supported Statements
 
@@ -20,7 +20,7 @@ This file records regression cases for the MySQL dialect conversion layer. `test
 | M012 | `mysql-start-transaction` | `START TRANSACTION; COMMIT` | MySQL transaction start and multi-statement counting |
 | M013 | `mysql-unsupported-keywords-in-string` | `SELECT 'INSERT IGNORE' ...` | unsupported prefilter does not reject string content |
 | M014 | `mysql-unsupported-keywords-in-comment` | `SELECT ... /* ON DUPLICATE KEY UPDATE */ ...` | unsupported prefilter does not reject comment content |
-| M015 | `mysql-use-database` | `USE analytics` | default database switching and SQL View value selector |
+| M015 | `mysql-use-database` | `USE analytics` | default database switching and View JSON value selector |
 | M016 | `mysql-use-quoted-database` | `USE \`analytics-prod\`` | backtick-delimited database name and public value fragment |
 | M017 | `mysql-use-database-in-multi-statement` | `USE ...; SELECT ...` | database switching and following query remain separate in multi-statement input |
 | M018 | `mysql-insert-question-params` | `INSERT ... VALUES (?, ?, ?)` | JDBC-style positional parameter conversion, inserted-column extraction, and public-form restoration |
@@ -41,6 +41,7 @@ This file records regression cases for the MySQL dialect conversion layer. `test
 | M033 | `mysql-execute-using-multiple-vars` | `EXECUTE stmt USING @id, @name` | multiple user-variable bind arguments |
 | M034 | `mysql-view-concat-function` | `SELECT CONCAT(UPPER(...), ...) ...` | function `target_path`, nested function, argument index, and WHERE bind |
 | M035 | `mysql-view-case-expression` | `SELECT CASE WHEN ... THEN ... END ...` | output-field attribution inside `CASE` expressions |
+| M035A | `mysql-view-case-predicate-bind` | `CASE WHEN column = ? THEN ...` | field-bound bind attribution for predicates inside SELECT projections |
 | M036 | `mysql-view-group-having-order` | `GROUP BY ... HAVING ... ORDER BY ...` | aggregate output and non-output clause attribution |
 | M037 | `mysql-view-update-question-binds` | `UPDATE ... SET ... WHERE ... = ?` | positional bind, null value, and update/where clause attribution |
 | M038 | `mysql-view-join-on` | `JOIN ... ON ... WHERE ... = ?` | JOIN/ON fields, WHERE bind, and table-column attribution |
@@ -59,6 +60,26 @@ This file records regression cases for the MySQL dialect conversion layer. `test
 | M051 | `mysql-select-order-by-ordinal` | `ORDER BY 1` | ordinal sort item and projection-order related syntax |
 | M052 | `mysql-limit-comma-question-params` | `LIMIT ?, ?` | positional parameters in MySQL comma-limit syntax, with public SQL preserved in comma-limit form |
 | M053 | `mysql-multi-statement-global-bind-position` | multi-statement `UPDATE ... ?` | positional `bind_position` increases globally across the full input SQL |
+| M054 | `mysql-select-derived-query-graph` | derived table with output alias and `?` parameters | `query_graph` lineage mapping from derived-table fields to inner base-table fields and `output_name` |
+| M055 | `mysql-select-reference-002` | SELECT reference case 002 | MySQL-valid SELECT example parsing and View JSON shape |
+| M056 | `mysql-select-reference-003` | SELECT reference case 003 | MySQL-valid SELECT example parsing and View JSON shape |
+| M057 | `mysql-select-reference-006` | SELECT reference case 006 | MySQL-valid SELECT example parsing and View JSON shape |
+| M058 | `mysql-select-reference-008` | SELECT reference case 008 | MySQL-valid SELECT example parsing and View JSON shape |
+| M059 | `mysql-select-reference-010` | SELECT reference case 010 | MySQL-valid SELECT example parsing and View JSON shape |
+| M060 | `mysql-select-reference-012` | SELECT reference case 012 | MySQL-valid SELECT example parsing and View JSON shape |
+| M061 | `mysql-select-reference-014` | SELECT reference case 014 | MySQL-valid SELECT example parsing and View JSON shape |
+| M062 | `mysql-select-reference-016` | SELECT reference case 016 | MySQL-valid SELECT example parsing and View JSON shape |
+| M063 | `mysql-select-reference-022` | SELECT reference case 022 | MySQL-valid SELECT example parsing and View JSON shape |
+| M064 | `mysql-select-reference-023` | SELECT reference case 023 | MySQL-valid SELECT example parsing and View JSON shape |
+| M065 | `mysql-select-reference-025` | SELECT reference case 025 | MySQL-valid SELECT example parsing and View JSON shape |
+| M066 | `mysql-select-reference-027` | SELECT reference case 027 | MySQL-valid SELECT example parsing and View JSON shape |
+| M067 | `mysql-select-reference-029` | SELECT reference case 029 | MySQL-valid SELECT example parsing and View JSON shape |
+| M068 | `mysql-update-join-target-table-qualified` | `UPDATE users JOIN ... SET users.phone = ?` | target-table qualified assignment still maps to the target relation when no alias is used |
+| MU005 | `mysql-on-duplicate-key` | `INSERT ... ON DUPLICATE KEY UPDATE ...` | MySQL upsert mapped to DML inserted values and update assignments |
+| MU009 | `mysql-update-join` | `UPDATE ... JOIN ... SET ...` | ordinary/INNER/CROSS multi-table UPDATE with `ON`, including target relation, source relation, assignments, and predicate parameters |
+| MU010 | `mysql-delete-join` | `DELETE u FROM ... JOIN ...` | ordinary/INNER/CROSS multi-table DELETE with `ON`, including target relation, source relation, and predicate parameters |
+| MU010A | `mysql-update-join-on-bind` | `UPDATE ... JOIN ... ON ... ? SET ... WHERE ...` | JOIN `ON` parameters in multi-table UPDATE are attributed to `on`; later `WHERE` parameters remain attributed to `where` |
+| MU010B | `mysql-delete-join-on-bind` | `DELETE u FROM ... JOIN ... ON ... ? WHERE ...` | JOIN `ON` parameters in multi-table DELETE are attributed to `on`; later `WHERE` parameters remain attributed to `where` |
 
 ## Explicitly Unsupported Statements
 
@@ -70,17 +91,20 @@ The following syntax has MySQL-specific semantics or structures that cannot be s
 | MU002 | `mysql-insert-delayed` | `INSERT DELAYED ...` | delayed-insert semantics require MySQL-specific execution semantics |
 | MU003 | `mysql-insert-low-priority` | `INSERT LOW_PRIORITY ...` | priority semantics cannot be mapped to the generic AST |
 | MU004 | `mysql-insert-high-priority` | `INSERT HIGH_PRIORITY ...` | priority semantics cannot be mapped to the generic AST |
-| MU005 | `mysql-on-duplicate-key` | `ON DUPLICATE KEY UPDATE ...` | conflict-handling semantics cannot be safely represented by the current AST |
 | MU006 | `mysql-replace-into` | `REPLACE INTO ...` | delete-then-insert semantics differ from ordinary `INSERT` |
 | MU007 | `mysql-update-ignore` | `UPDATE IGNORE ...` | error-ignoring semantics require MySQL-specific execution semantics |
 | MU008 | `mysql-delete-ignore` | `DELETE IGNORE ...` | error-ignoring semantics require MySQL-specific execution semantics |
-| MU009 | `mysql-auto-increment` | `AUTO_INCREMENT` | column attributes require MySQL DDL semantic extensions |
-| MU010 | `mysql-unsigned` | `UNSIGNED` | type attributes require MySQL type-system extensions |
-| MU011 | `mysql-zerofill` | `ZEROFILL` | type attributes require MySQL type-system extensions |
-| MU012 | `mysql-table-engine` | `ENGINE=...` | table options require MySQL DDL semantic extensions |
-| MU013 | `mysql-table-charset` | `DEFAULT CHARSET=...` | table charset options require MySQL DDL semantic extensions |
-| MU014 | `mysql-table-character-set` | `CHARACTER SET=...` | table charset options require MySQL DDL semantic extensions |
-| MU015 | `mysql-table-collate` | `COLLATE=...` | table collation options require MySQL DDL semantic extensions |
+| MU011 | `mysql-auto-increment` | `AUTO_INCREMENT` | column attributes require MySQL DDL semantic extensions |
+| MU012 | `mysql-unsigned` | `UNSIGNED` | type attributes require MySQL type-system extensions |
+| MU013 | `mysql-zerofill` | `ZEROFILL` | type attributes require MySQL type-system extensions |
+| MU014 | `mysql-table-engine` | `ENGINE=...` | table options require MySQL DDL semantic extensions |
+| MU015 | `mysql-table-charset` | `DEFAULT CHARSET=...` | table charset options require MySQL DDL semantic extensions |
+| MU016 | `mysql-table-character-set` | `CHARACTER SET=...` | table charset options require MySQL DDL semantic extensions |
+| MU017 | `mysql-table-collate` | `COLLATE=...` | table collation options require MySQL DDL semantic extensions |
+| MU018 | `mysql-update-left-join` | `UPDATE ... LEFT JOIN ... SET ...` | outer-join UPDATE affected-row semantics cannot be downgraded to ordinary `UPDATE FROM` |
+| MU019 | `mysql-delete-left-join` | `DELETE u FROM ... LEFT JOIN ...` | outer-join DELETE affected-row semantics cannot be downgraded to ordinary `DELETE USING` |
+| MU020 | `mysql-update-join-source-assignment` | `UPDATE ... JOIN ... SET source_alias.column = ...` | multi-table UPDATE that modifies the joined source relation cannot be downgraded to single-target `UPDATE FROM` |
+| MU021 | `mysql-delete-join-source-target` | `DELETE source_alias FROM target JOIN source_alias ...` | multi-table DELETE that deletes the joined source relation cannot be downgraded to single-target `DELETE USING` |
 
 ## Rules
 

@@ -28,13 +28,13 @@ PostgreSQL 方言支持当前解析内核可表达的 PostgreSQL 语句形态，
 
 ## 明确不支持范围
 
-PostgreSQL 默认方言当前没有单独维护负向功能清单。解析失败通常来自非法 SQL、解析内核不支持的 PostgreSQL 版本差异，或公共 SQL View 尚未暴露的专用结构。
+PostgreSQL 默认方言当前没有单独维护负向功能清单。解析失败通常来自非法 SQL、解析内核不支持的 PostgreSQL 版本差异，或公共 query_graph 尚未暴露的专用结构。
 
 ## 对外输出规则
 
 - `sqlparser_deparse()` 输出 PostgreSQL 兼容 SQL。
-- SQL View JSON 只输出语句、对象、字段、值片段和 selector，不保存输入 SQL 副本。
-- SQL View JSON 作为诊断接口保留。
+- View JSON 只输出语句和最小 `query_graph`，不保存输入 SQL 副本，不展开 `*`，不保存节点级 SQL 文本。
+- View JSON 作为结构化查看接口保留。
 
 ## 回归用例
 
@@ -46,4 +46,4 @@ PostgreSQL 默认方言支持范围以以下文件为准：
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-当前 PostgreSQL 矩阵包含 70 条用例：69 条支持路径，1 条非法 SQL 负向路径。
+当前 PostgreSQL 矩阵包含 129 条用例：128 条支持路径，1 条非法 SQL 负向路径。

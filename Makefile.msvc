@@ -4,7 +4,6 @@
 #   nmake /F Makefile.msvc test
 
 LIB_NAME = sqlparser
-VERSION_STRING = 0.9.0
 LIBPG_QUERY_TAG = 17-6.2.2
 
 BUILD_DIR = build\msvc
@@ -12,6 +11,11 @@ OBJ_DIR = $(BUILD_DIR)\obj
 JANSSON_OBJ_DIR = $(OBJ_DIR)\jansson
 BIN_DIR = $(BUILD_DIR)\bin
 LIB_DIR = $(BUILD_DIR)\lib
+
+!IF [powershell -NoProfile -ExecutionPolicy Bypass -Command "$$v=(Get-Content -Raw VERSION).Trim(); New-Item -ItemType Directory -Force build\msvc | Out-Null; Set-Content -NoNewline -Encoding ASCII -Path build\msvc\version.nmake -Value ('VERSION_STRING = ' + $$v)"] != 0
+!ERROR Failed to read VERSION
+!ENDIF
+!INCLUDE build\msvc\version.nmake
 
 JANSSON_DIR = vendor\jansson
 JANSSON_INCLUDE = $(JANSSON_DIR)\src
@@ -67,7 +71,6 @@ CORE_OBJS = \
 	$(OBJ_DIR)\sqlparser_ast_update.obj \
 	$(OBJ_DIR)\sqlparser_ast_where.obj \
 	$(OBJ_DIR)\sqlparser_core.obj \
-	$(OBJ_DIR)\sqlparser_json.obj \
 	$(OBJ_DIR)\sqlparser_patch.obj \
 	$(OBJ_DIR)\sqlparser_selector.obj \
 	$(OBJ_DIR)\sqlparser_view.obj \
@@ -242,9 +245,6 @@ $(OBJ_DIR)\sqlparser_ast_where.obj: src\core\sqlparser_ast_where.c
 
 $(OBJ_DIR)\sqlparser_core.obj: src\core\sqlparser_core.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_core.c
-
-$(OBJ_DIR)\sqlparser_json.obj: src\core\sqlparser_json.c
-	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_json.c
 
 $(OBJ_DIR)\sqlparser_patch.obj: src\core\sqlparser_patch.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_patch.c

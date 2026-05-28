@@ -12,7 +12,7 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 
 | Case ID | Case Name | Statement Shape | Validation Focus |
 | --- | --- | --- | --- |
-| P001 | `select-basic` | `SELECT 1` | parse, SQL View JSON, deparse |
+| P001 | `select-basic` | `SELECT 1` | parse, View JSON, deparse |
 | P002 | `select-filter` | `SELECT ... FROM ... WHERE ...` | selected columns, filter columns, table extraction |
 | P003 | `select-join` | `SELECT ... JOIN ... ON ... WHERE ...` | multi-table join, selected columns, join columns, where columns |
 | P004 | `select-cte` | `WITH ... SELECT ...` | CTE name, outer selected columns, upstream filter columns |
@@ -84,11 +84,11 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 | P067 | `postgresql-prepare-delete` | `PREPARE ... AS DELETE ...` | prepared delete statement and predicate parameters |
 | P068 | `postgresql-execute-prepared-with-args` | `EXECUTE ...(...)` | prepared statement execution arguments |
 | P069 | `postgresql-deallocate-all` | `DEALLOCATE ALL` | deallocating all prepared statements |
-| P070 | `postgresql-view-direct-column` | `SELECT name FROM ...` | direct SELECT output column, `clause_id`, and empty `target_path` |
+| P070 | `postgresql-view-direct-column` | `SELECT name FROM ...` | direct SELECT output column, `query_graph` target, and empty `target_path` |
 | P071 | `postgresql-view-star-qualified-star` | `SELECT *, alias.* FROM ...` | unqualified star, qualified star, and output-item ownership |
 | P072 | `postgresql-view-functions-and-args` | `SELECT function(column, ...) FROM ...` | function `target_path`, function name, and argument index |
 | P073 | `postgresql-view-expressions-and-case` | `SELECT expression, CASE ... FROM ...` | expression `target_path`, operator name, and `CASE` ownership |
-| P074 | `postgresql-view-group-having-order` | `GROUP BY ... HAVING ... ORDER BY ...` | non-output clause fields with `clause_id` and empty `target_path` |
+| P074 | `postgresql-view-group-having-order` | `GROUP BY ... HAVING ... ORDER BY ...` | non-output clause fields with `query_graph` clause and empty `target_path` |
 | P075 | `postgresql-view-distinct-nested-functions` | `SELECT DISTINCT LOW(UPPER(...)) FROM ...` | `DISTINCT` keyword and outer-to-inner nested function `target_path` |
 | P076 | `postgresql-view-join-on` | `JOIN ... ON ... WHERE ...` | JOIN/ON fields, WHERE binds, and table-column attribution |
 | P077 | `postgresql-view-window-array-row-tests` | window, array, ROW, boolean/NULL expressions | `target_path` for window functions, compound expressions, and read-only clauses |
@@ -108,11 +108,43 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 | P091 | `postgresql-select-quoted-mixed-identifiers` | quoted mixed-case / spaced identifiers | special identifiers, selected columns, and WHERE bind |
 | P092 | `postgresql-dollar-quoted-string-global-bind-position` | dollar-quoted string plus `$n` parameters | placeholder-like text inside dollar-quoted strings is excluded from global bind counting |
 | P093 | `postgresql-multi-statement-global-bind-position` | multi-statement `$n` parameters | positional `bind_position` increases globally across the full input SQL |
+| P094 | `postgresql-select-nested-derived-query-graph` | nested derived tables with output alias | `query_graph` lineage mapping from derived-table fields to inner base-table fields and `output_name` |
+| P095 | `postgresql-select-reference-001` | SELECT reference case 001 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P096 | `postgresql-select-reference-004` | SELECT reference case 004 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P097 | `postgresql-select-reference-005` | SELECT reference case 005 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P098 | `postgresql-select-reference-007` | SELECT reference case 007 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P099 | `postgresql-select-reference-009` | SELECT reference case 009 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P100 | `postgresql-select-reference-011` | SELECT reference case 011 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P101 | `postgresql-select-reference-013` | SELECT reference case 013 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P102 | `postgresql-select-reference-015` | SELECT reference case 015 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P103 | `postgresql-select-reference-017` | SELECT reference case 017 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P104 | `postgresql-select-reference-018` | SELECT reference case 018 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P105 | `postgresql-select-reference-019` | SELECT reference case 019 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P106 | `postgresql-select-reference-020` | SELECT reference case 020 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P107 | `postgresql-select-reference-021` | SELECT reference case 021 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P108 | `postgresql-select-reference-030` | SELECT reference case 030 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P109 | `postgresql-select-reference-031` | SELECT reference case 031 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P110 | `postgresql-select-reference-032` | SELECT reference case 032 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P111 | `postgresql-select-reference-034` | SELECT reference case 034 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P112 | `postgresql-select-reference-035` | SELECT reference case 035 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P113 | `postgresql-select-reference-036` | SELECT reference case 036 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P114 | `postgresql-select-reference-037` | SELECT reference case 037 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P115 | `postgresql-select-reference-038` | SELECT reference case 038 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P116 | `postgresql-select-reference-039` | SELECT reference case 039 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P117 | `postgresql-select-reference-040` | SELECT reference case 040 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P118 | `postgresql-select-reference-041` | SELECT reference case 041 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P119 | `postgresql-select-reference-042` | SELECT reference case 042 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P120 | `postgresql-select-reference-043` | SELECT reference case 043 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P121 | `postgresql-select-reference-046` | SELECT reference case 046 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P122 | `postgresql-select-reference-047` | SELECT reference case 047 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
+| P123 | `postgresql-select-nested-join-derived-query-graph` | derived table inside nested JOIN | Derived-object enumeration, `query_graph` lineage, and `output_name` under complex FROM/JOIN nesting |
+| P124 | `postgresql-select-unqualified-multi-table-scope` | unqualified fields in a multi-table scope | Unqualified fields are reported once under a `statement` object, avoiding the same selector under multiple tables |
+| P125 | `postgresql-select-union-derived-scope` | derived tables on both sides of UNION with `SELECT *` | Unique occurrence output for derived fields, with `query_graph` lineage pointing to the matching inner `*` source |
 
 ## Negative Case
 
 | Case ID | Case Name | Input | Validation Focus |
 | --- | --- | --- | --- |
-| P094 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
+| P126 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
 
 New regression cases must update both `tests/cases/sql_batch_input.json` and this matrix.

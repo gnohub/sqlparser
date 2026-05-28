@@ -8,7 +8,6 @@
 #include "sqlparser/sqlparser.h"
 
 typedef enum {
-	SQLPARSER_CLI_MODE_ALL = 0,
 	SQLPARSER_CLI_MODE_DEPARSE = 1,
 	SQLPARSER_CLI_MODE_VIEW = 2
 } sqlparser_cli_mode_t;
@@ -42,9 +41,8 @@ static const char *sqlparser_cli_mode_name(sqlparser_cli_mode_t mode)
 			return "deparse";
 		case SQLPARSER_CLI_MODE_VIEW:
 			return "view";
-		case SQLPARSER_CLI_MODE_ALL:
 		default:
-			return "all";
+			return "view";
 	}
 }
 
@@ -52,14 +50,14 @@ static void sqlparser_cli_print_usage(const char *program)
 {
 	fprintf(
 		stderr,
-		"Usage: %s [--mode view|deparse|all] [--dialect postgresql|mysql|oracle|sqlserver|dameng] [--compact] [--file PATH] [--] [SQL]\n",
+		"Usage: %s [--mode view|deparse] [--dialect postgresql|mysql|oracle|sqlserver|dameng] [--compact] [--file PATH] [--] [SQL]\n",
 		program);
 	fprintf(
 		stderr,
-		"       %s --batch-file PATH [--output PATH] [--mode view|deparse|all] [--dialect postgresql|mysql|oracle|sqlserver|dameng] [--compact]\n",
+		"       %s --batch-file PATH [--output PATH] [--mode view|deparse] [--dialect postgresql|mysql|oracle|sqlserver|dameng] [--compact]\n",
 		program);
-	fprintf(stderr, "       %s --file ./tests/cases/sample.sql\n", program);
-	fprintf(stderr, "       %s --batch-file ./tests/cases/sql_batch_input.json --output /tmp/out.json\n", program);
+	fprintf(stderr, "       %s --file ./input.sql\n", program);
+	fprintf(stderr, "       %s --batch-file ./sql_batch.json --output ./out.json\n", program);
 	fprintf(stderr, "       echo \"SELECT 1\" | %s --mode view\n", program);
 }
 
@@ -215,10 +213,6 @@ static char *sqlparser_cli_strdup(const char *text)
 
 static int sqlparser_cli_parse_mode(const char *value, sqlparser_cli_mode_t *mode_out)
 {
-	if (strcmp(value, "all") == 0) {
-		*mode_out = SQLPARSER_CLI_MODE_ALL;
-		return 0;
-	}
 	if (strcmp(value, "deparse") == 0) {
 		*mode_out = SQLPARSER_CLI_MODE_DEPARSE;
 		return 0;
@@ -265,28 +259,20 @@ static int sqlparser_cli_parse_dialect(const char *value, sqlparser_dialect_t *d
 	return -1;
 }
 
-static int sqlparser_cli_print_json_section(
-	const char *title,
-	sqlparser_status_t (*export_fn)(
-		const sqlparser_handle_t *handle,
-		int pretty,
-		char **out_json,
-		sqlparser_error_t *out_error),
-	const sqlparser_handle_t *handle,
-	int pretty)
+static int sqlparser_cli_print_view_json(const sqlparser_handle_t *handle, int pretty)
 {
 	sqlparser_error_t error;
 	char *json_text;
 	int status;
 
 	json_text = NULL;
-	status = export_fn(handle, pretty, &json_text, &error);
+	status = sqlparser_export_view_json(handle, pretty, &json_text, &error);
 	if (status != SQLPARSER_STATUS_OK) {
-		fprintf(stderr, "%s failed: %s\n", title, error.message);
+		fprintf(stderr, "view export failed: %s\n", error.message);
 		return 1;
 	}
 
-	printf("== %s ==\n%s\n", title, json_text);
+	printf("%s\n", json_text);
 	sqlparser_string_free(json_text);
 	return 0;
 }
@@ -304,7 +290,7 @@ static int sqlparser_cli_print_deparse(const sqlparser_handle_t *handle)
 		return 1;
 	}
 
-	printf("== deparse ==\n%s\n", sql_text);
+	printf("%s\n", sql_text);
 	sqlparser_string_free(sql_text);
 	return 0;
 }
@@ -329,13 +315,8 @@ static json_t *sqlparser_cli_error_to_json(const char *stage, const sqlparser_er
 	return object;
 }
 
-static json_t *sqlparser_cli_export_json_value(
+static json_t *sqlparser_cli_export_view_json_value(
 	const sqlparser_handle_t *handle,
-	sqlparser_status_t (*export_fn)(
-		const sqlparser_handle_t *handle,
-		int pretty,
-		char **out_json,
-		sqlparser_error_t *out_error),
 	int pretty,
 	sqlparser_error_t *error)
 {
@@ -345,7 +326,7 @@ static json_t *sqlparser_cli_export_json_value(
 	int status;
 
 	json_text = NULL;
-	status = export_fn(handle, pretty, &json_text, error);
+	status = sqlparser_export_view_json(handle, pretty, &json_text, error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return NULL;
 	}
@@ -512,11 +493,7 @@ static json_t *sqlparser_cli_process_batch_entry(
 		{
 			json_t *view;
 
-			view = sqlparser_cli_export_json_value(
-				handle,
-				sqlparser_export_view_json,
-				pretty,
-				&error);
+			view = sqlparser_cli_export_view_json_value(handle, pretty, &error);
 			if (view == NULL) {
 				(void)json_object_set_new(entry, "ok", json_false());
 				(void)json_object_set_new(entry, "error", sqlparser_cli_error_to_json("view", &error));
@@ -526,26 +503,12 @@ static json_t *sqlparser_cli_process_batch_entry(
 			(void)json_object_set_new(entry, "view", view);
 			break;
 		}
-		case SQLPARSER_CLI_MODE_ALL:
 		default:
-		{
-			json_t *view;
-
-			view = sqlparser_cli_export_json_value(
-				handle,
-				sqlparser_export_view_json,
-				pretty,
-				&error);
-			if (view == NULL) {
-				(void)json_object_set_new(entry, "ok", json_false());
-				(void)json_object_set_new(entry, "error", sqlparser_cli_error_to_json("view", &error));
-				sqlparser_handle_destroy(handle);
-				return entry;
-			}
-
-			(void)json_object_set_new(entry, "view", view);
-			break;
-		}
+			(void)json_object_set_new(entry, "ok", json_false());
+			sqlparser_cli_error_set(&error, SQLPARSER_STATUS_INVALID_ARGUMENT, "unsupported output mode");
+			(void)json_object_set_new(entry, "error", sqlparser_cli_error_to_json("mode", &error));
+			sqlparser_handle_destroy(handle);
+			return entry;
 	}
 
 	(void)json_object_set_new(entry, "ok", json_true());
@@ -567,11 +530,6 @@ static json_t *sqlparser_cli_find_batch_items(json_t *root)
 	}
 
 	items = json_object_get(root, "items");
-	if (json_is_array(items)) {
-		return items;
-	}
-
-	items = json_object_get(root, "sqls");
 	if (json_is_array(items)) {
 		return items;
 	}
@@ -613,7 +571,7 @@ static int sqlparser_cli_run_batch(
 	items = sqlparser_cli_find_batch_items(input_root);
 	if (items == NULL) {
 		json_decref(input_root);
-		fprintf(stderr, "batch JSON must be an array or an object with 'items'/'sqls' array\n");
+		fprintf(stderr, "batch JSON must be an array or an object with 'items' array\n");
 		return 1;
 	}
 
@@ -652,7 +610,6 @@ static int sqlparser_cli_run_batch(
 
 	(void)json_object_set_new(output_root, "mode", json_string(sqlparser_cli_mode_name(mode)));
 	(void)json_object_set_new(output_root, "dialect", json_string(sqlparser_dialect_name(batch_dialect)));
-	(void)json_object_set_new(output_root, "source_file", json_string(batch_file_path));
 	(void)json_object_set_new(output_root, "items", output_items);
 
 	for (index = 0; index < total; index++) {
@@ -753,7 +710,7 @@ int main(int argc, char **argv)
 	int option_end;
 	int status;
 
-	mode = SQLPARSER_CLI_MODE_ALL;
+	mode = SQLPARSER_CLI_MODE_VIEW;
 	dialect = SQLPARSER_DIALECT_POSTGRESQL;
 	file_path = NULL;
 	batch_file_path = NULL;
@@ -902,19 +859,10 @@ int main(int argc, char **argv)
 			status = sqlparser_cli_print_deparse(handle);
 			break;
 		case SQLPARSER_CLI_MODE_VIEW:
-			status = sqlparser_cli_print_json_section(
-				"view_json",
-				sqlparser_export_view_json,
-				handle,
-				pretty);
+			status = sqlparser_cli_print_view_json(handle, pretty);
 			break;
-		case SQLPARSER_CLI_MODE_ALL:
 		default:
-			status = sqlparser_cli_print_json_section(
-				"view_json",
-				sqlparser_export_view_json,
-				handle,
-				pretty);
+			status = sqlparser_cli_print_view_json(handle, pretty);
 			break;
 	}
 

@@ -19,7 +19,7 @@ following base capabilities:
 - public ABI packaging
 - semantic extraction
 - stable selectors
-- SQL View JSON
+- View JSON
 - unified error handling and lifecycle management
 
 ## 2. Pinned Version
@@ -150,7 +150,7 @@ When adding dialect syntax, inspect:
 
 - Treat `libpg_query` as a pinned parser kernel, not as the public interface.
 - Integrate through the `sqlparser` header and libraries.
-- Export SQL View JSON when debugging low-level syntax trees.
+- Export View JSON when low-level syntax-tree inspection is needed.
 - Use `sqlparser` atomic APIs, selectors, and structured patch for business-level
   rewrites.
 
@@ -159,5 +159,5 @@ When adding dialect syntax, inspect:
 - project overview:
   [sqlparser_architecture.en.md](./sqlparser_architecture.en.md)
 - API reference: [api_reference.en.md](./api_reference.en.md)
-- SQL View JSON guide: [view_json.en.md](./view_json.en.md)
+- View JSON guide: [view_json.en.md](./view_json.en.md)
 - CLI guide: [cli_guide.en.md](./cli_guide.en.md)

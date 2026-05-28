@@ -1,21 +1,47 @@
 # Changelog
 
-## 0.9.0
+## 2.0.0
 
-### SQL View
+### View JSON
 
+- Uses `query_graph` as the canonical structured-output source; View JSON is
+  generated on demand only when callers request a JSON export
 - Replaced the prepared-statement placeholder output field `bind` with
   `bind_key`, and added `bind_position` for the bind occurrence number inside
   the full input SQL text
-- Updated `sqlparser_column_view_t` and `sqlparser_cell_view_t` to expose
-  `bind_key`, `bind_position`, and the corresponding truncation flag, and
-  removed the old field
-- Unified SQL View JSON, C structured traversal, and case matrix checks around
-  `bind_key`, `bind_kind`, `bind_position`, `bind_sql`, and `bind_selector`
+- Updated `sqlparser_graph_value_t`, `sqlparser_graph_dml_cell_t`, and
+  `sqlparser_graph_dml_assignment_t` to expose `bind_key`, `bind_kind`,
+  `bind_position`, and `bind_sql`
+- Unified View JSON, C structured traversal, and case matrix checks around
+  `bind_key`, `bind_kind`, `bind_position`, `bind_sql`, and `selector`
 - `bind_position` now increases globally across the full input SQL text, while
   `bind_key` keeps the placeholder key assigned by dialect preprocessing
 - Placeholder-like text inside PostgreSQL dollar-quoted strings is excluded
   from global bind counting
+- `IN`, `NOT IN`, `BETWEEN`, and single-column function-wrapped predicates now
+  emit field-bound `values[]`
+- Predicate expressions inside SELECT projections now emit field-bound
+  `values[]`, such as `CASE WHEN phone = ? THEN ...`
+- View JSON omits empty arrays from `query_graph` and DML structures, while the
+  public C structs still represent empty collections through `count` or `has_*`
+  fields
+- MySQL `INSERT ... ON DUPLICATE KEY UPDATE` and ordinary/INNER/CROSS
+  multi-table `UPDATE ... JOIN` / `DELETE ... JOIN` forms with `ON`
+  conditions are covered by the supported matrix, with View JSON exposing DML
+  targets, sources, assignments, values, and bind mapping
+
+### Tooling and Baselines
+
+- CLI batch input is limited to a top-level array or an `items` array; the old
+  `sqls` alias is no longer accepted
+- The `libpg_query` baseline now covers single-thread successful parsing and
+  first-parse samples only, without error-path or concurrent-path baselines
+
+### Robustness
+
+- Fixed ownership handling for Jansson `_new` APIs on View JSON serialization
+  failure paths, avoiding duplicate releases of intermediate JSON nodes under
+  low-memory conditions
 
 ## 0.8.0
 
@@ -44,15 +70,15 @@
 
 - Added `examples/patch/17_update_set_patch.c` to demonstrate `UPDATE SET` assignment append, delete, and full replacement through `sqlparser_apply_patch()`
 - Expanded core API and robustness tests for Oracle bind fragments, invalid selectors, out-of-range indexes, empty-`SET` protection, and handle usability after failures
-- Updated the Chinese and English API reference, SQL View JSON guide, examples guide, and MSVC example build list
+- Updated the Chinese and English API reference, View JSON guide, examples guide, and MSVC example build list
 
 ## 0.6.0
 
-### SQL View Structures
+### View JSON Structures
 
-- Made SQL View C structures the canonical structured-output source; `sqlparser_export_view_json()` now serializes JSON on demand from those structures
-- Extended `sqlparser_column_view_t` and `sqlparser_cell_view_t` with bind name, bind kind, original bind SQL, bind selector, clause id, and SELECT target path fields
-- Added the public `sqlparser_bind_kind_t`, `sqlparser_bind_kind_name()`, `sqlparser_statement_clause_at()`, and `sqlparser_clause_sql()` APIs
+- Made the `query_graph` C structures the canonical structured-output source; `sqlparser_export_view_json()` now serializes JSON on demand from `query_graph`
+- Extended `sqlparser_graph_field_t` and `sqlparser_graph_dml_cell_t` with bind name, bind kind, original bind SQL, bind selector, clause id, and SELECT target path fields
+- Added the public `sqlparser_bind_kind_t`, `sqlparser_bind_kind_name()`, `sqlparser_statement_clause()`, and `sqlparser_clause_sql()` APIs
 - Extended `sqlparser_clause_kind_t` with `on`, `group_by`, and `having` clause kinds
 - Removed the old `target_kind`, `target_name`, and `target_arg_index` JSON fields in favor of ordered `target_path` entries for SELECT output hierarchy
 
@@ -66,16 +92,16 @@
 ### Tests and Documentation
 
 - Expanded PostgreSQL, MySQL, Oracle, SQL Server, and Dameng case matrices for additional SELECT, INSERT, UPDATE, DELETE, JOIN, function, expression, and bind scenarios
-- Added SQL View public C-structure semantic tests to verify consistency between the public structs and View JSON
+- Added View JSON public C-structure semantic tests to verify consistency between the public structs and View JSON
 - Added generic assertions for bind fields, cell binds, `clause_id`, and `target_path`
-- Updated the Chinese and English API reference and SQL View JSON guide
+- Updated the Chinese and English API reference and View JSON guide
 
 ## 0.5.0
 
-### SQL View Semantics
+### View JSON Semantics
 
 - Added SELECT target semantic paths through `target_path` for functions, expressions, CASE, and nested output hierarchy
-- Added clause attribution ids to SQL View JSON so field references can be associated with SELECT, WHERE, JOIN/ON, ORDER BY, and related locations
+- Added clause attribution ids to View JSON so field references can be associated with SELECT, WHERE, JOIN/ON, ORDER BY, and related locations
 - Expanded dialect View JSON semantic coverage for function outputs, expression outputs, star outputs, nested SELECT, and bind predicates
 
 ## 0.4.0
@@ -85,19 +111,19 @@
 - Added the Dameng `SQLPARSER_DIALECT_DAMENG` conversion layer, covering
   `SET SCHEMA`, `MINUS`, `LIMIT`, `TOP`, binds, common DML/DDL, transactions,
   and privilege statements
-- Added Dameng public-output rules so deparse and SQL View JSON do not expose
+- Added Dameng public-output rules so deparse and View JSON do not expose
   internal parameter names or internal conversion SQL
 - Added prepared / parameterized SQL coverage for PostgreSQL, MySQL, Oracle,
   SQL Server, and Dameng, including SQL Server `sp_executesql` and Dameng
   `EXEC SQL PREPARE`
 
-### SQL View and Rewrite
+### View JSON and Rewrite
 
 - Added generic `SELECT` output-list read, replace, insert, and delete APIs
 - Added generic `WHERE` condition read, set, and `AND` / `OR` append APIs
 - Added generic statement-level `clause` selectors for rewriting `select_list`,
   `where`, and `order_by` through `stmt[n].clause[m]`
-- Added `statements[].clauses[]` to SQL View JSON for writable
+- Added `query_graph` to View JSON for writable
   statement-level clause slots
 
 ### Tests and Documentation
@@ -124,13 +150,13 @@
 - Added SQL Server `USE database_name` database-context switching
 - Added Oracle `ALTER SESSION SET CURRENT_SCHEMA`, `ALTER SESSION SET
   CONTAINER`, and `ALTER SESSION SET CONTAINER ... SERVICE ...`
-- Fixed context-switch handling in multi-statement input so parse, SQL View
+- Fixed context-switch handling in multi-statement input so parse, View JSON
   JSON, and deparse stay in the public dialect form
 
-### SQL View and Rewrite
+### View JSON and Rewrite
 
 - Session-context statements reuse the existing
-  `statements[].objects[].columns[].value` structure; no separate JSON format is
+  `query_graph values` structure; no separate JSON format is
   introduced
 - `stmt[n].value[m]` selectors can rewrite context-switch targets and deparse
   back to the corresponding dialect SQL
@@ -154,9 +180,9 @@
 - Precise rewrites for relation names, name atoms, literals, `WHERE` literals,
   `UPDATE` assignments, and `INSERT` cells
 - Expression-level rewrite support for `DEFAULT` and arbitrary SQL expressions
-- SQL View JSON export, SQL View C structured traversal, and structured patch
+- View JSON export, `query_graph` C structured traversal, and structured patch
   write-back
-- Diagnostic SQL View JSON export on demand
+- On-demand structured View JSON export
 - Configurable resource limits for SQL input, expression SQL fragments,
   generated output, and statement count
 - Dialect framework with PostgreSQL as the default and MySQL / Oracle /
@@ -201,11 +227,11 @@
 - Extended benchmarks for read paths, rewrite paths, and `rewrite + deparse`
   single-call measurements
 - Added capability-grouped test entry points for parse, inspect, rewrite,
-  deparse, SQL View JSON, CLI, install smoke, and ABI
+  deparse, View JSON, CLI, install smoke, and ABI
 
 ### Documentation
 
-- Chinese and English quick-start guides, API reference, SQL View JSON guide, CLI
+- Chinese and English quick-start guides, API reference, View JSON guide, CLI
   guide, and architecture guide
 - Added Oracle and SQL Server dialect support notes and `v0.2.0` release notes
 - Added public changelog

@@ -48,10 +48,12 @@ int main(void)
 	    expect_true(strstr(view_json, "\"statements\"") != NULL, "view JSON should include statements") != 0 ||
 	    expect_true(strstr(view_json, "\"table\":\"users\"") != NULL, "view JSON should include users table") != 0 ||
 	    expect_true(strstr(view_json, "\"table\":\"orders\"") != NULL, "view JSON should include orders table") != 0 ||
-	    expect_true(strstr(view_json, "\"name\":\"order_no\"") != NULL, "view JSON should include selected join target column") != 0 ||
-	    expect_true(strstr(view_json, "\"name\":\"user_id\"") != NULL, "view JSON should include join predicate column") != 0 ||
-	    expect_true(strstr(view_json, "\"name\":\"status\"") != NULL, "view JSON should include where predicate column") != 0 ||
-	    expect_true(strstr(view_json, "\"keyword\":\"where\"") != NULL, "view JSON should include where keyword") != 0) {
+	    expect_true(strstr(view_json, "\"query_graph\"") != NULL, "view JSON should include query_graph") != 0 ||
+	    expect_true(strstr(view_json, "\"column\":\"order_no\"") != NULL, "view JSON should include selected join target column") != 0 ||
+	    expect_true(strstr(view_json, "\"column\":\"user_id\"") != NULL, "view JSON should include join predicate column") != 0 ||
+	    expect_true(strstr(view_json, "\"column\":\"status\"") != NULL, "view JSON should include where predicate column") != 0 ||
+	    expect_true(strstr(view_json, "\"clause\":\"where\"") != NULL, "view JSON should include where clause") != 0 ||
+	    expect_true(strstr(view_json, "\"objects\"") == NULL, "view JSON should not include old objects") != 0) {
 		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
 		return 1;

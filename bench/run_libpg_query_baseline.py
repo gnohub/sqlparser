@@ -14,8 +14,6 @@ from pathlib import Path
 
 FULL_LENGTHS = [64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536]
 SMOKE_LENGTHS = [64, 1024, 8192]
-FULL_CONCURRENCY = [1, 2, 4, 8, 16, 32]
-SMOKE_CONCURRENCY = [1, 4]
 
 
 def parse_args():
@@ -100,7 +98,7 @@ def parse_profile(length_bytes, profile):
     return 500, 50
 
 
-def run_baseline_row(binary, mode, length_bytes, iterations, warmup=0, threads=1):
+def run_baseline_row(binary, mode, length_bytes, iterations, warmup=0):
     command = [
         binary,
         "--mode",
@@ -109,8 +107,6 @@ def run_baseline_row(binary, mode, length_bytes, iterations, warmup=0, threads=1
         str(length_bytes),
         "--iterations",
         str(iterations),
-        "--threads",
-        str(threads),
         "--csv-header",
     ]
     if warmup > 0:
@@ -159,8 +155,6 @@ def write_methodology(path, profile):
                 "- 成功解析样本使用 `INSERT ... VALUES`，按 SQL 字节长度扫表。",
                 "- 单线程基线统计单次 `pg_query_parse_protobuf()` 加结果释放的成本。",
                 "- 线程首次基线在新线程内连续解析两次，分别记录第一次和第二次调用成本。",
-                "- 并发成功基线使用多个线程同时解析同一条只读 SQL。",
-                "- 并发错误基线使用多个线程同时解析语法错误 SQL，校验错误路径稳定性。",
                 "- 内存统计来自链接器 `--wrap` 包装的 malloc/calloc/realloc/free/strdup/strndup。",
                 "- 延迟单位为毫秒；内存 CSV 使用字节，Markdown 汇总转换为 KB/MB。",
                 "- profile: `{}`。".format(profile),
@@ -170,7 +164,7 @@ def write_methodology(path, profile):
     )
 
 
-def write_summary(path, single_rows, thread_rows, concurrent_rows, error_rows):
+def write_summary(path, single_rows, thread_rows):
     lines = [
         "# libpg_query 当前基线汇总",
         "",
@@ -218,55 +212,10 @@ def write_summary(path, single_rows, thread_rows, concurrent_rows, error_rows):
     lines.extend(
         [
             "",
-            "## 多线程成功解析基线",
-            "",
-            "| 线程数 | 吞吐(ops/s) | 平均耗时(ms) | P95(ms) | P99(ms) | 异常次数 |",
-            "|---:|---:|---:|---:|---:|---:|",
-        ]
-    )
-    for row in concurrent_rows:
-        lines.append(
-            "| {} | {:.2f} | {} | {} | {} | {} |".format(
-                as_int(row, "threads"),
-                as_float(row, "throughput_ops_s"),
-                fmt_ms(row, "avg_ms"),
-                fmt_ms(row, "p95_ms"),
-                fmt_ms(row, "p99_ms"),
-                as_int(row, "unexpected_operations"),
-            )
-        )
-
-    lines.extend(
-        [
-            "",
-            "## 多线程错误路径基线",
-            "",
-            "| 线程数 | 吞吐(ops/s) | 平均耗时(ms) | P95(ms) | 实际 parse error 次数 | 错误信息异常次数 | 异常次数 |",
-            "|---:|---:|---:|---:|---:|---:|---:|",
-        ]
-    )
-    for row in error_rows:
-        lines.append(
-            "| {} | {:.2f} | {} | {} | {} | {} | {} |".format(
-                as_int(row, "threads"),
-                as_float(row, "throughput_ops_s"),
-                fmt_ms(row, "avg_ms"),
-                fmt_ms(row, "p95_ms"),
-                as_int(row, "actual_parse_errors"),
-                as_int(row, "bad_error_messages"),
-                as_int(row, "unexpected_operations"),
-            )
-        )
-
-    lines.extend(
-        [
-            "",
             "## 后续对比口径",
             "",
             "- 单线程 P95 不应退化。",
             "- 线程首次解析耗时和返回残留应下降或保持稳定。",
-            "- 多线程错误路径不能出现错误信息异常或 unexpected operation。",
-            "- 多线程吞吐不应因为修复进程级副作用而明显下降。",
             "",
         ]
     )
@@ -281,10 +230,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     lengths = FULL_LENGTHS if args.profile == "full" else SMOKE_LENGTHS
-    concurrency = FULL_CONCURRENCY if args.profile == "full" else SMOKE_CONCURRENCY
     thread_samples = 200 if args.profile == "full" else 20
-    concurrent_iterations = 1000 if args.profile == "full" else 100
-    error_iterations = 200 if args.profile == "full" else 20
 
     single_rows = []
     for length in lengths:
@@ -296,7 +242,6 @@ def main():
                 length,
                 iterations,
                 warmup=warmup,
-                threads=1,
             )
         )
 
@@ -306,40 +251,13 @@ def main():
         1024,
         thread_samples,
         warmup=0,
-        threads=1,
     )
-
-    concurrent_rows = []
-    error_rows = []
-    for threads in concurrency:
-        concurrent_rows.extend(
-            run_baseline_row(
-                args.baseline_bin,
-                "concurrent-success",
-                1024,
-                concurrent_iterations,
-                warmup=0,
-                threads=threads,
-            )
-        )
-        error_rows.extend(
-            run_baseline_row(
-                args.baseline_bin,
-                "concurrent-error",
-                1024,
-                error_iterations,
-                warmup=0,
-                threads=threads,
-            )
-        )
 
     write_csv(output_dir / "single_success.csv", single_rows)
     write_csv(output_dir / "thread_init.csv", thread_rows)
-    write_csv(output_dir / "concurrent_success.csv", concurrent_rows)
-    write_csv(output_dir / "concurrent_error.csv", error_rows)
     write_system_info(output_dir / "system_info.txt", args.cc)
     write_methodology(output_dir / "methodology.md", args.profile)
-    write_summary(output_dir / "summary.md", single_rows, thread_rows, concurrent_rows, error_rows)
+    write_summary(output_dir / "summary.md", single_rows, thread_rows)
     print("libpg_query baseline written to {}".format(output_dir))
 
 

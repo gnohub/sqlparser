@@ -1,6 +1,6 @@
 # SQL Server Dialect Case Matrix
 
-This file records regression cases for the SQL Server dialect conversion layer. The executable fixture is `tests/cases/sqlserver_dialect_input.json`; `tests/unit/test_sqlserver_dialect_case_matrix.c` verifies parsing, SQL View JSON, deparse output, and error codes.
+This file records regression cases for the SQL Server dialect conversion layer. The executable fixture is `tests/cases/sqlserver_dialect_input.json`; `tests/unit/test_sqlserver_dialect_case_matrix.c` verifies parsing, View JSON, deparse output, and error codes. The current fixture contains 334 cases: 319 supported paths and 15 explicit unsupported paths.
 
 ## Supported Cases
 
@@ -88,6 +88,8 @@ This file records regression cases for the SQL Server dialect conversion layer. 
 | S080 | `CREATE VIEW` + aggregate JOIN | view creation, JOIN predicates, and GROUP BY aggregation |
 | S081 | `TOP (?)` + WHERE `?` | positional parameter in `TOP` participates in the global bind sequence |
 | S082 | multi-statement `?` parameters | positional `bind_position` increases globally across the full input SQL |
+| S083 | `sqlserver-select-derived-query-graph` | `query_graph` lineage mapping from derived-table fields to inner base-table fields and `output_name` |
+| S084 | `MERGE` + `?` parameters | MERGE target/source relations, UPDATE assignment, INSERT values, and bind mapping |
 
 ## Explicitly Unsupported Cases
 
@@ -113,13 +115,13 @@ The following constructs have SQL Server-specific semantics. The conversion laye
 
 ## Official `HOOK_ONLY` Coverage Cases
 
-`tests/cases/sqlserver_hook_coverage_input.json` is generated from `HOOK_ONLY`
-entries in `doc/sqlserver_official_syntax_coverage.csv` and currently contains
-235 cases. It covers official items that can be represented by the existing AST
-and dialect hooks, including functions, types/constants, collations, and simple
-`RENAME OBJECT` forms.
+`tests/cases/sqlserver_dialect_input.json` includes 235 cases generated from
+`HOOK_ONLY` entries in `doc/sqlserver_official_syntax_coverage.csv`. These cases
+cover official items that can be represented by the existing AST and dialect
+hooks, including functions, types/constants, collations, and simple `RENAME
+OBJECT` forms.
 
 ## Maintenance
 
-- New SQL Server support must update `tests/cases/sqlserver_dialect_input.json`, `tests/cases/sqlserver_hook_coverage_input.json`, this matrix, and executable regression tests.
+- New SQL Server support must update `tests/cases/sqlserver_dialect_input.json`, this matrix, and executable regression tests.
 - SQL Server-only syntax that cannot be mapped with equivalent semantics must return `SQLPARSER_STATUS_UNSUPPORTED`.

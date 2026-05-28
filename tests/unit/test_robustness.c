@@ -239,22 +239,14 @@ static int test_view_access_validation(void)
 	sqlparser_handle_t *handle;
 	sqlparser_error_t error;
 	sqlparser_status_t status;
-	sqlparser_view_t view;
-	sqlparser_statement_view_t statement;
-	sqlparser_object_view_t object;
-	sqlparser_object_view_t temp_object;
-	sqlparser_column_view_t column;
-	sqlparser_column_view_t temp_column;
-	sqlparser_row_view_t row;
-	sqlparser_row_view_t temp_row;
-	sqlparser_cell_view_t cell;
-	sqlparser_cell_view_t temp_cell;
-	const char *keyword;
-	char *cell_sql;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_column_t column;
+	sqlparser_graph_dml_cell_t cell;
+	sqlparser_graph_block_t block;
+	size_t span_index;
 
 	handle = NULL;
-	keyword = NULL;
-	cell_sql = NULL;
 	memset(&error, 0, sizeof(error));
 
 	status = sqlparser_parse(
@@ -267,169 +259,66 @@ static int test_view_access_validation(void)
 		return 1;
 	}
 
-	status = sqlparser_get_view(NULL, &view, &error);
-	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL handle view should be rejected") != 0) {
+	status = sqlparser_statement_query_graph(NULL, 0U, &graph, &error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL handle query graph should be rejected") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 
-	status = sqlparser_get_view(handle, NULL, &error);
-	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL view output should be rejected") != 0) {
+	status = sqlparser_statement_query_graph(handle, 0U, NULL, &error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL query graph output should be rejected") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 
-	status = sqlparser_get_view(handle, &view, &error);
-	if (expect_ok(status, &error, "view should be created") != 0 ||
-	    expect_true(view.statement_count == 1U, "view should expose one statement") != 0) {
+	status = sqlparser_statement_query_graph(handle, 9U, &graph, &error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "out-of-range query graph should be rejected") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 
-	status = sqlparser_view_statement_at(NULL, 0U, &statement, &error);
-	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL view statement lookup should be rejected") != 0) {
+	status = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_ok(status, &error, "query graph should be readable") != 0 ||
+	    expect_true(graph.has_dml, "insert graph should expose DML") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 
-	status = sqlparser_view_statement_at(&view, 9U, &statement, &error);
-	if (expect_not_ok(status, "out-of-range statement lookup should be rejected") != 0) {
+	status = sqlparser_query_graph_dml(&graph, &dml, &error);
+	if (expect_ok(status, &error, "insert dml graph should be readable") != 0 ||
+	    expect_true(dml.kind == SQLPARSER_GRAPH_DML_INSERT, "DML kind should be insert") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-
-	status = sqlparser_view_statement_at(&view, 0U, &statement, &error);
-	if (expect_ok(status, &error, "statement view should be created") != 0) {
+	status = sqlparser_query_graph_dml_column_at(&graph, 0U, &column, &error);
+	if (expect_ok(status, &error, "DML column should be readable") != 0 ||
+	    expect_true(column.column_name != NULL && strcmp(column.column_name, "id") == 0, "first DML column should be id") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-
-	status = sqlparser_statement_keyword_at(&statement, 0U, &keyword, &error);
-	if (expect_ok(status, &error, "keyword lookup should succeed") != 0 ||
-	    expect_true(keyword != NULL && strcmp(keyword, "insert") == 0, "keyword should be insert") != 0) {
+	status = sqlparser_query_graph_dml_cell_at(&graph, 0U, &cell, &error);
+	if (expect_ok(status, &error, "DML cell should be readable") != 0 ||
+	    expect_true(cell.has_selector, "DML cell should expose selector") != 0 ||
+	    expect_true(cell.kind == SQLPARSER_GRAPH_VALUE_LITERAL, "first DML cell should be literal") != 0 ||
+	    expect_true(cell.literal.kind == SQLPARSER_LITERAL_KIND_INTEGER && cell.literal.integer_value == 1, "first DML cell literal should be 1") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-
-	status = sqlparser_statement_keyword_at(NULL, 0U, &keyword, &error);
-	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL statement keyword lookup should be rejected") != 0) {
+	status = sqlparser_query_graph_block_at(NULL, 0U, &block, &error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL graph block lookup should be rejected") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-
-	status = sqlparser_statement_keyword_at(&statement, 99U, &keyword, &error);
-	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "out-of-range keyword lookup should be rejected") != 0) {
+	status = sqlparser_query_graph_block_at(&graph, 99U, &block, &error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "out-of-range graph block lookup should be rejected") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-
-	status = sqlparser_statement_keyword_at(&statement, 0U, NULL, &error);
-	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL keyword output should be rejected") != 0) {
+	status = sqlparser_query_graph_span_index_at(&graph, dml.target_columns, 99U, &span_index, &error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "out-of-range graph span lookup should be rejected") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-
-	status = sqlparser_statement_object_at(&statement, 0U, &object, &error);
-	if (expect_ok(status, &error, "object lookup should succeed") != 0 ||
-	    expect_true(object.column_count == 2U, "insert object should expose two columns") != 0 ||
-	    expect_true(object.row_count == 2U, "insert object should expose two rows") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	status = sqlparser_statement_object_at(NULL, 0U, &temp_object, &error);
-	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL statement object lookup should be rejected") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	status = sqlparser_statement_object_at(&statement, 9U, &temp_object, &error);
-	if (expect_not_ok(status, "out-of-range object lookup should be rejected") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	status = sqlparser_object_column_at(&object, 0U, &column, &error);
-	if (expect_ok(status, &error, "column lookup should succeed") != 0 ||
-	    expect_true(column.name != NULL && strcmp(column.name, "id") == 0, "first column should be id") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	status = sqlparser_object_column_at(NULL, 0U, &temp_column, &error);
-	if (expect_not_ok(status, "NULL object column lookup should be rejected") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	status = sqlparser_object_column_at(&object, 99U, &temp_column, &error);
-	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "out-of-range column lookup should be rejected") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	status = sqlparser_object_row_at(&object, 0U, &row, &error);
-	if (expect_ok(status, &error, "row lookup should succeed") != 0 ||
-	    expect_true(row.cell_count == 2U, "insert row should expose two cells") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	status = sqlparser_object_row_at(NULL, 0U, &temp_row, &error);
-	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL object row lookup should be rejected") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	status = sqlparser_object_row_at(&object, 99U, &temp_row, &error);
-	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "out-of-range row lookup should be rejected") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	status = sqlparser_row_cell_at(&row, 0U, &cell, &error);
-	if (expect_ok(status, &error, "cell lookup should succeed") != 0 ||
-	    expect_true(cell.has_selector, "cell should expose selector") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	status = sqlparser_row_cell_at(NULL, 0U, &temp_cell, &error);
-	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL row cell lookup should be rejected") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	status = sqlparser_row_cell_at(&row, 99U, &temp_cell, &error);
-	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "out-of-range cell lookup should be rejected") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	status = sqlparser_cell_sql(&cell, &cell_sql, &error);
-	if (expect_ok(status, &error, "cell SQL should be readable") != 0 ||
-	    expect_true(cell_sql != NULL && strcmp(cell_sql, "1") == 0, "first cell SQL should be 1") != 0) {
-		sqlparser_string_free(cell_sql);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	sqlparser_string_free(cell_sql);
-	cell_sql = NULL;
-
-	status = sqlparser_cell_sql(NULL, &cell_sql, &error);
-	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL cell SQL lookup should be rejected") != 0 ||
-	    expect_true(cell_sql == NULL, "failed cell SQL lookup should not return text") != 0) {
-		sqlparser_string_free(cell_sql);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	status = sqlparser_cell_sql(&cell, NULL, &error);
-	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL cell SQL output should be rejected") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
 	sqlparser_handle_destroy(handle);
 	return 0;
 }

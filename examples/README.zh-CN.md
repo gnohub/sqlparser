@@ -11,12 +11,12 @@
 - `examples/inspect/`
   结构读取和遍历示例。
 - `examples/dialect/`
-  方言解析、SQL View JSON、patch 改写和反解析示例。
+  方言解析、View JSON、patch 改写和反解析示例。
 
 ## 推荐改写示例
 
 - `examples/patch/08_view_patch.c`
-  展示 SQL View JSON 的导出、结构体 patch 应用和回写 SQL。
+  展示 View JSON 的导出、结构体 patch 应用和回写 SQL。
 - `examples/patch/13_select_target_patch.c`
   展示通过 `sqlparser_apply_patch()` 展开 `SELECT *`、插入输出列和删除输出列。
 - `examples/patch/14_where_patch.c`
@@ -56,11 +56,11 @@
 - `examples/dialect/10_mysql_dialect.c`
   展示如何显式指定 MySQL 方言，并改写 `INSERT ... VALUES` 的单元格。
 - `examples/dialect/11_oracle_dialect.c`
-  展示如何显式指定 Oracle 方言，导出 SQL View JSON，并在反解析时还原 Oracle bind 占位符。
+  展示如何显式指定 Oracle 方言，导出 View JSON，并在反解析时还原 Oracle bind 占位符。
 - `examples/dialect/12_sqlserver_dialect.c`
-  展示如何显式指定 SQL Server 方言，导出 SQL View JSON，并在反解析时还原 SQL Server 参数和 `TOP` 语法。
+  展示如何显式指定 SQL Server 方言，导出 View JSON，并在反解析时还原 SQL Server 参数和 `TOP` 语法。
 - `examples/dialect/17_dameng_dialect.c`
-  展示如何显式指定达梦方言，导出 SQL View JSON，并在反解析时还原 bind、`SET SCHEMA` 和 `TOP` 语法。
+  展示如何显式指定达梦方言，导出 View JSON，并在反解析时还原 bind、`SET SCHEMA` 和 `TOP` 语法。
 
 ## 构建
 

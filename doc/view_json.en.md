@@ -1,6 +1,6 @@
-# SQL View JSON Guide
+# View JSON Guide
 
-SQL View JSON is the structured SQL view exported by `sqlparser`. It is serialized on demand from the SQL View C structs and reports statements, objects, columns, and value fragments that appear in the SQL text. It does not keep a copy of the input SQL and does not expose the underlying parser JSON.
+View JSON is the on-demand JSON serialization of the `sqlparser` query graph. It is intended for regression tests, integration checks, and language-neutral inspection. Production code should prefer the public C query graph structs and does not need to generate JSON before rewriting SQL.
 
 ## Export API
 
@@ -13,507 +13,230 @@ sqlparser_status_t sqlparser_export_view_json(
 ```
 
 - `handle` must come from a successful parse.
-- `pretty != 0` emits formatted JSON; `pretty == 0` emits compact JSON.
+- `pretty != 0` produces formatted JSON; `pretty == 0` produces compact JSON.
 - `out_json` is allocated by the library and must be released with `sqlparser_string_free()`.
+- JSON is generated only when this function is called. Parsing does not build a JSON string by default.
 
-## C View API
-
-Callers can traverse the SQL View directly without exporting JSON:
-
-```c
-sqlparser_view_t view;
-sqlparser_statement_view_t statement;
-sqlparser_object_view_t object;
-sqlparser_column_view_t column;
-
-sqlparser_get_view(handle, &view, &err);
-sqlparser_view_statement_at(&view, 0, &statement, &err);
-sqlparser_statement_object_at(&statement, 0, &object, &err);
-sqlparser_object_column_at(&object, 0, &column, &err);
-```
-
-These view structs do not copy the AST and do not keep SQL string copies.
-When a field value or `INSERT` cell needs SQL text, call
-`sqlparser_value_sql()` or `sqlparser_cell_sql()` on demand, then release the
-returned string with `sqlparser_string_free()`.
-
-## Top-Level Layout
-
-The top-level object contains only `statements`:
+## Top-Level Shape
 
 ```json
 {
   "statements": [
     {
       "index": 0,
-      "keyword": "insert",
-      "keywords": ["insert", "into", "values"],
-      "clauses": [],
-      "objects": []
+      "keyword": "select",
+      "query_graph": {
+        "root": 0,
+        "blocks": [
+          {
+            "kind": "select",
+            "relations": [0],
+            "targets": [0]
+          }
+        ],
+        "relations": [
+          {
+            "block": 0,
+            "kind": "base",
+            "table": "users"
+          }
+        ],
+        "targets": [
+          {
+            "block": 0,
+            "ordinal": 0,
+            "kind": "field",
+            "name": "id",
+            "field": 0
+          }
+        ],
+        "fields": [
+          {
+            "block": 0,
+            "clause": "select_list",
+            "relation": 0,
+            "column": "id",
+            "target": 0
+          }
+        ]
+      }
     }
-  ]
+	  ]
 }
 ```
 
-Fields:
+Each statement contains:
 
 | Field | Description |
 | --- | --- |
-| `index` | zero-based statement index |
-| `keyword` | main statement keyword |
-| `keywords` | recognized keyword set for the statement |
-| `clauses` | statement-level clause array; writable clauses have selectors, read-only attribution clauses use `null` selectors |
-| `objects` | tables, views, or other attributable objects in the SQL |
+| `index` | Zero-based statement index |
+| `keyword` | Main statement keyword |
+| `query_graph` | Structured graph for this statement |
 
-## Clause Layout
+The query graph does not expand database metadata and does not infer fields that are not present in the SQL text. It only reports SQL-visible query blocks, relations, targets, field references, values, set operations, and DML write structures.
 
-`clauses` describes statement-level structure. The currently writable clause kinds are `select_list`, `set_list`, `where`, and `order_by`. Read-only attribution clauses such as `on`, `group_by`, and `having` use `selector: null` and are not direct patch targets.
+JSON only emits meaningful optional fields. Public C structs represent absence through `has_*` flags or zero counts; the JSON view omits those fields instead of emitting `null` or empty arrays.
 
-```json
-{
-  "id": 2,
-  "kind": "where",
-  "selector": "stmt[0].clause[1]",
-  "sql": "status = 'active'"
-}
+## query_graph
+
+| Field | Description |
+| --- | --- |
+| `root` | Root query block index; omitted for statements without a query block |
+| `blocks` | Query blocks, including SELECT blocks, derived tables, CTEs, set operations, and scalar subqueries; present when non-empty |
+| `relations` | Base tables, derived tables, and CTE references visible in the SQL; present when non-empty |
+| `targets` | SELECT output items, star targets, and DML output sources; present when non-empty |
+| `fields` | Field-reference occurrences visible in the SQL text; present when non-empty |
+| `values` | Literals, binds, and DEFAULT values associated with fields; pagination and pseudo-column binds are excluded; present when non-empty |
+| `sets` | `UNION`, `UNION ALL`, `INTERSECT`, and `EXCEPT/MINUS` operations; present when non-empty |
+| `dml` | `INSERT`, `UPDATE`, and `DELETE` write shape; present only for DML statements |
+
+All indexes are zero-based within the current statement. `relations[].source_block`, `targets[].source_block`, `targets[].star_relations`, and `sets[].branches` together describe derived-table, star, and set-operation lineage.
+
+## Derived Tables And Stars
+
+Example:
+
+```sql
+SELECT *
+FROM (
+  SELECT ROWNUM, *
+  FROM (
+    SELECT *
+    FROM (
+      SELECT o.*, ROWNUM AS rnum
+      FROM (
+        SELECT x.id FROM users x
+        UNION
+        SELECT y.id FROM archived_users y
+      ) o
+    )
+  ) b
+) d
 ```
 
-Fields:
+The graph expresses the lineage as:
 
-| Field | Description |
-| --- | --- |
-| `id` | one-based clause id; `objects[].columns[].clause_id` references this id |
-| `kind` | clause kind, such as `select_list`, `set_list`, `where`, `order_by`, or `on` |
-| `selector` | clause selector for patching; `null` for read-only clauses |
-| `sql` | clause content, or `null` when the statement can add the clause but it is not present yet |
+- the relation with `alias = "d"` points to its inner block through `source_block`;
+- the relation with `alias = "b"` points to the next inner block;
+- the relation with `alias = "o"` points to the set-operation result block;
+- the outer `SELECT *` is a `targets[]` entry with `kind = "star"` and `star_relations` pointing at `d`;
+- the `b` layer star points at `b` and continues through `source_block`;
+- `o.*` is represented as `kind = "qualified_star"` and points to the `UNION` result block.
 
-Use writable `clauses` for structural rewrites such as replacing the SELECT output list, replacing the UPDATE SET list, adding WHERE, appending WHERE conditions, or adding ORDER BY. `objects[].columns[]` links each attributed field to `clauses[].id` through `clause_id`.
+The graph does not expand `*` into real table fields and does not duplicate a single SQL occurrence under multiple objects. Callers that need lineage should follow `relation -> source_block -> target -> set branch`.
 
-## Object Layout
-
-Each item in `objects` represents an attributable SQL object:
+## relation
 
 ```json
 {
-  "database": null,
+  "block": 0,
+  "kind": "base",
   "schema": "public",
   "table": "users",
   "alias": "u",
-  "selector": "stmt[0].relation[0]",
-  "columns": [],
-  "rows": []
+  "selector": "stmt[0].relation[0]"
 }
 ```
 
-Fields:
-
 | Field | Description |
 | --- | --- |
-| `database` | database name, or `null` when absent |
-| `schema` | schema name, or `null` when absent |
-| `table` | table or view name, or `null` when absent |
-| `alias` | alias, or `null` when absent |
-| `selector` | object selector for patching, or `null` when not writable |
-| `columns` | columns attributed to the object |
-| `rows` | row data for `INSERT ... VALUES` |
+| `block` | Query block that owns the relation |
+| `kind` | `base`, `derived`, `cte`, or another relation kind |
+| `database` | Database name if present in SQL; omitted otherwise |
+| `schema` | Schema name if present in SQL; omitted otherwise |
+| `table` | Table name if present in SQL; omitted for derived relations without a table name |
+| `alias` | Alias if present in SQL; omitted otherwise |
+| `source_block` | Source query block for derived tables or CTEs; omitted otherwise |
+| `selector` | Relation selector for patching; omitted when no writable node exists |
 
-## Column Layout
-
-Only columns that appear in SQL are reported. An unqualified column is attached to all matching objects in the statement; attribution is not a uniqueness check.
+## target
 
 ```json
 {
-  "name": "status",
-  "keyword": "where",
+  "block": 0,
+  "ordinal": 0,
+  "kind": "field",
+  "name": "id",
+  "field": 2,
+  "selector": "stmt[0].select_target[0][0]",
+  "target_list_selector": "stmt[0].select_targets[0]"
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `block` | Query block that owns the target |
+| `ordinal` | Target ordinal in the SELECT list |
+| `kind` | `field`, `star`, `qualified_star`, `literal`, `subquery`, `pseudo`, or `expression` |
+| `name` | Output name or alias; omitted when absent |
+| `field` | Related `fields[]` index for direct field output; omitted otherwise |
+| `star_relations` | Relation indexes covered by `*` or `alias.*`; omitted for non-star targets |
+| `source_block` | Source query block for derived output; omitted otherwise |
+| `selector` | Single target selector; omitted when no writable node exists |
+| `target_list_selector` | SELECT target-list selector; omitted when no writable node exists |
+
+## field
+
+```json
+{
+  "block": 0,
+  "clause": "where",
+  "relation": 0,
+  "column": "status",
+  "selector": "stmt[0].name[5]"
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `block` | Query block containing the field occurrence |
+| `clause` | Clause name, such as `select_list`, `where`, `on`, or `order_by` |
+| `relation` | Stable relation index; omitted when not uniquely attributable |
+| `candidate_relations` | Candidate relation indexes for unqualified fields in multi-relation scopes; omitted when empty |
+| `column` | Column name; `*` is represented by `targets[]` instead |
+| `target` | Related SELECT target index; omitted outside output targets |
+| `selector` | Name selector; omitted when no writable node exists |
+| `target_path` | Ordered output-expression path; omitted for direct fields and non-output fields |
+
+`target_path` is ordered from outer to inner. For `LOWER(UPPER(name))`, the path for `name` is `LOWER -> UPPER`. For `CONCAT(a, b)`, `a` and `b` have distinct `arg_index` values.
+
+Function calls are not emitted as a separate target kind. For `SELECT UPPER(name)`, the target kind is `expression`, and the function nesting for `name` is represented by `fields[].target_path`.
+
+## value
+
+```json
+{
+  "block": 0,
+  "clause": "where",
   "operator": "=",
-  "bind_key": null,
-  "bind_kind": 0,
-  "bind_position": 0,
-  "bind_sql": null,
-  "bind_selector": null,
-  "selector": "stmt[0].name[3]",
-  "target_list_selector": null,
-  "target_selector": null,
-  "clause_id": 2,
-  "target_path": [],
-  "value": {
-    "sql": "'active'",
-    "selector": "stmt[0].value[7]"
-  }
+  "field": 1,
+  "kind": "bind",
+  "bind_key": "id",
+  "bind_kind": 2,
+  "bind_sql": ":id",
+  "bind_position": 1,
+  "selector": "stmt[0].value[6]"
 }
 ```
-
-Fields:
 
 | Field | Description |
 | --- | --- |
-| `name` | column name; `SELECT *` is reported as `"*"` |
-| `keyword` | clause where the column appears, such as `select`, `where`, `set`, or `on` |
-| `operator` | related operator, or `null` |
-| `bind_key` | key interpreted by `bind_kind` when the field value is a prepared-statement placeholder; named binds use the name, anonymous `?` uses the global sequence string, and explicitly numbered positional binds such as `:1` or `$1` use the number written in SQL; otherwise `null` |
-| `bind_kind` | bind type enum: `0` means no bind, `1` means positional bind, and `2` means named bind |
-| `bind_position` | one-based bind occurrence in the full input SQL text, or `0` when there is no bind |
-| `bind_sql` | original placeholder text in SQL, such as `"?"`, `":1"`, `":id"`, `"@id"`, or `"$1"`; `null` when there is no bind |
-| `bind_selector` | selector for the bind value expression, otherwise `null` |
-| `selector` | column-name selector, or `null` when not writable |
-| `target_list_selector` | whole target-list selector when the column appears in a SELECT output list, otherwise `null` |
-| `target_selector` | single-output-target selector when the column appears in a SELECT output list, otherwise `null` |
-| `clause_id` | one-based `clauses[]` id for the clause containing the field, or `null` when not stable |
-| `target_path` | ordered function or expression wrapper path when the field appears in a SELECT output item; non-output fields use `[]` |
-| `value` | directly related SQL value fragment, or `null` |
+| `block` | Query block containing the value |
+| `clause` | Clause containing the value |
+| `operator` | Associated operator; omitted when absent |
+| `field` | Related field index; pagination or pseudo-column values without a related field are not emitted in `values[]` |
+| `kind` | `literal`, `bind`, `default`, or `expression` |
+| `bind_key` | Bind key; omitted when no bind exists |
+| `bind_kind` | `0` none, `1` positional, `2` named |
+| `bind_sql` | Original placeholder text as written in SQL; omitted when no bind exists |
+| `bind_position` | One-based bind occurrence position across the full input SQL; omitted when no bind exists |
+| `selector` | Value selector; omitted when no writable node exists |
+| `literal` | Literal object; omitted for non-literals |
 
-`value.sql` is an editable SQL fragment. The model does not infer a database type for the value. Complex expressions that cannot be rendered safely as standalone SQL fragments keep `value: null`; the column entry is still reported.
-`value.selector` addresses the whole value expression and can replace a literal,
-bind parameter, or expression with a new SQL fragment.
+For multi-statement input, `bind_position` is global across the whole SQL text and does not reset per statement.
 
-Prepared-statement placeholders export structured bind fields and keep
-`value: null`. `bind_key` is interpreted by `bind_kind`: named binds use the
-name, anonymous `?` uses the global sequence string, and explicitly numbered
-positional binds such as `:1` or `$1` use the number written in SQL.
-`bind_position` is the one-based occurrence of the bind in the full input SQL
-text. For multi-statement SQL, `bind_position` does not restart per statement;
-it increases globally across the input SQL text. `bind_key` keeps the
-placeholder key assigned by dialect preprocessing. Oracle `:1` and JDBC-style
-`?` are both positional binds, but `bind_sql` preserves them as `":1"` and
-`"?"`, so callers can distinguish the source form. Use `bind_selector` to
-rewrite the bind expression.
+For `WHERE`, `JOIN ... ON`, `HAVING`, and predicate expressions inside SELECT projections, field-bound values are emitted for `IN`, `NOT IN`, `BETWEEN`, ordinary comparisons, and single-column function-wrapped predicates when the predicate can be attributed to one field. Predicates whose value side also contains field references are not force-attributed.
 
-When one field is associated with multiple condition values, the view exports
-one column entry per value. For example, `status IN (:s1, :s2, :s3)` produces
-three `name: "status"` and `operator: "IN"` entries, each carrying the bind
-information for one placeholder. `NOT IN`, `NOT BETWEEN`, `NOT LIKE`,
-`NOT ILIKE`, and `NOT SIMILAR TO` preserve the negated operator text in
-`operator`.
+## Rewriting
 
-`target_path` is an ordered array from the outermost wrapper to the innermost
-wrapper. The array order is the hierarchy; no additional ordering field is
-needed.
-
-Each entry contains:
-
-| Field | Description |
-| --- | --- |
-| `kind` | `function` or `expression` |
-| `name` | function name, operator, or expression category; `null` when not stable |
-| `arg_index` | zero-based argument or operand index where the next inner expression appears |
-
-Examples:
-
-| SQL fragment | Field | `target_path` |
-| --- | --- | --- |
-| `SELECT name FROM users` | `name` | `[]` |
-| `SELECT * FROM users` | `*` | `[]` |
-| `SELECT UPPER(name) FROM users` | `name` | `[{"kind":"function","name":"UPPER","arg_index":0}]` |
-| `SELECT LOW(UPPER(name)) FROM users` | `name` | `[{"kind":"function","name":"LOW","arg_index":0},{"kind":"function","name":"UPPER","arg_index":0}]` |
-| `SELECT CONCAT(UPPER(first_name), last_name) FROM users` | `first_name` | `[{"kind":"function","name":"CONCAT","arg_index":0},{"kind":"function","name":"UPPER","arg_index":0}]` |
-| `SELECT CONCAT(UPPER(first_name), last_name) FROM users` | `last_name` | `[{"kind":"function","name":"CONCAT","arg_index":1}]` |
-| `SELECT first_name || last_name FROM users` | `first_name` | `[{"kind":"expression","name":"||","arg_index":0}]` |
-| `SELECT first_name || last_name FROM users` | `last_name` | `[{"kind":"expression","name":"||","arg_index":1}]` |
-| `SELECT SUM(amount) OVER (PARTITION BY dept ORDER BY created_at) FROM users` | `amount` | `[{"kind":"function","name":"SUM","arg_index":0}]` |
-| `SELECT SUM(amount) OVER (PARTITION BY dept ORDER BY created_at) FROM users` | `dept` | `[{"kind":"expression","name":"window_partition","arg_index":0}]` |
-| `SELECT SUM(amount) OVER (PARTITION BY dept ORDER BY created_at) FROM users` | `created_at` | `[{"kind":"expression","name":"window_order","arg_index":0}]` |
-
-## INSERT Rows
-
-`INSERT ... VALUES` exports rows and cells on the target object:
-
-```json
-{
-  "index": 0,
-  "cells": [
-    {
-      "column": "id",
-      "column_index": 0,
-      "sql": "1",
-      "bind_key": null,
-      "bind_kind": 0,
-      "bind_position": 0,
-      "bind_sql": null,
-      "bind_selector": null,
-      "selector": "stmt[0].insert_cell[0][0]"
-    },
-    {
-      "column": "name",
-      "column_index": 1,
-      "sql": "'bob'",
-      "bind_key": null,
-      "bind_kind": 0,
-      "bind_position": 0,
-      "bind_sql": null,
-      "bind_selector": null,
-      "selector": "stmt[0].insert_cell[0][1]"
-    }
-  ]
-}
-```
-
-When the `INSERT` statement omits explicit column names, `column` is `null` and `column_index` still records the cell position.
-
-## Structured Patch
-
-Structured patches write changes back into the same `handle`.
-
-```c
-sqlparser_status_t sqlparser_apply_patch(
-    sqlparser_handle_t *handle,
-    const sqlparser_patch_list_t *patches,
-    sqlparser_error_t *out_error);
-```
-
-After obtaining a selector from SQL View JSON or the C view API, fill an array
-of `sqlparser_patch_t` and pass it to `sqlparser_apply_patch()`.
-
-Supported operations:
-
-| `op` | Description |
-| --- | --- |
-| `replace` | replaces a relation, name, value, assignment, literal, where_literal, clause, insert_cell, select_target, or select_targets |
-| `insert_column` | adds a column to `INSERT ... VALUES`, or inserts one SELECT output target into `select_targets` |
-| `delete_column` | deletes one column from `INSERT ... VALUES`, or deletes one SELECT output target from `select_targets` |
-| `delete_row` | deletes one row from `INSERT ... VALUES` |
-| `append_condition` | appends a condition to a `where` clause with `AND` or `OR` |
-| `insert_assignment` | inserts a full `UPDATE SET` assignment through a `stmt[n].assignment[i]` selector |
-| `delete_assignment` | deletes one `UPDATE SET` assignment through a `stmt[n].assignment[i]` selector |
-| `replace_assignment` | replaces a full `UPDATE SET` assignment through a `stmt[n].assignment[i]` selector |
-
-`delete_column` never produces an empty `VALUES` row; deleting the last cell
-returns `SQLPARSER_STATUS_UNSUPPORTED`. `delete_row` does not delete the last
-row. `delete_assignment` does not delete the last `UPDATE SET` assignment.
-
-Replace-value example:
-
-```c
-sqlparser_patch_t patch;
-sqlparser_patch_list_t patches;
-
-memset(&patch, 0, sizeof(patch));
-patch.op = SQLPARSER_PATCH_REPLACE;
-patch.selector = "stmt[0].insert_cell[1][1]";
-patch.sql = "'lisi'";
-
-patches.items = &patch;
-patches.count = 1;
-sqlparser_apply_patch(handle, &patches, &err);
-```
-
-Add-column example:
-
-```c
-sqlparser_patch_t patch;
-sqlparser_patch_list_t patches;
-
-memset(&patch, 0, sizeof(patch));
-patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
-patch.selector = "stmt[0].insert_columns";
-patch.index = 2;
-patch.name = "age";
-patch.default_sql = "18";
-
-patches.items = &patch;
-patches.count = 1;
-sqlparser_apply_patch(handle, &patches, &err);
-```
-
-Rewrite `UPDATE SET` example:
-
-```c
-sqlparser_patch_t patches[2];
-sqlparser_patch_list_t patch_list;
-
-memset(patches, 0, sizeof(patches));
-patches[0].op = SQLPARSER_PATCH_INSERT_ASSIGNMENT;
-patches[0].selector = "stmt[0].assignment[1]";
-patches[0].sql = "secret_orig = 'abc'";
-patches[1].op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
-patches[1].selector = "stmt[0].assignment[0]";
-patches[1].sql = "secret = 'masked'";
-
-patch_list.items = patches;
-patch_list.count = 2;
-sqlparser_apply_patch(handle, &patch_list, &err);
-```
-
-Statement-clause example:
-
-```c
-sqlparser_patch_t patch;
-sqlparser_patch_list_t patches;
-
-memset(&patch, 0, sizeof(patch));
-patch.op = SQLPARSER_PATCH_REPLACE;
-patch.selector = "stmt[0].clause[2]";
-patch.sql = "name DESC, id ASC";
-
-patches.items = &patch;
-patches.count = 1;
-sqlparser_apply_patch(handle, &patches, &err);
-```
-
-Delete-row example:
-
-```c
-sqlparser_patch_t patch;
-sqlparser_patch_list_t patches;
-
-memset(&patch, 0, sizeof(patch));
-patch.op = SQLPARSER_PATCH_DELETE_ROW;
-patch.selector = "stmt[0].insert_row[1]";
-
-patches.items = &patch;
-patches.count = 1;
-sqlparser_apply_patch(handle, &patches, &err);
-```
-
-Replace `SELECT *` example:
-
-```c
-sqlparser_patch_t patch;
-sqlparser_patch_list_t patches;
-
-memset(&patch, 0, sizeof(patch));
-patch.op = SQLPARSER_PATCH_REPLACE;
-patch.selector = "stmt[0].select_targets[0]";
-patch.sql = "id, name, upper(name) AS normalized_name";
-
-patches.items = &patch;
-patches.count = 1;
-sqlparser_apply_patch(handle, &patches, &err);
-```
-
-## Example
-
-SQL:
-
-```sql
-INSERT INTO users (id, name) VALUES (1, 'xiaohong'), (2, 'xiaoming')
-```
-
-Output:
-
-```json
-{
-  "statements": [
-    {
-      "index": 0,
-      "keyword": "insert",
-      "keywords": ["insert", "into", "values"],
-      "clauses": [],
-      "objects": [
-        {
-          "database": null,
-          "schema": null,
-          "table": "users",
-          "alias": null,
-          "selector": "stmt[0].relation[0]",
-          "columns": [
-            {
-              "name": "id",
-              "keyword": "insert",
-              "operator": null,
-              "bind_key": null,
-              "bind_kind": 0,
-              "bind_position": 0,
-              "bind_sql": null,
-              "bind_selector": null,
-              "selector": "stmt[0].name[0]",
-              "target_list_selector": null,
-              "target_selector": null,
-              "clause_id": null,
-              "target_path": [],
-              "value": null
-            },
-            {
-              "name": "name",
-              "keyword": "insert",
-              "operator": null,
-              "bind_key": null,
-              "bind_kind": 0,
-              "bind_position": 0,
-              "bind_sql": null,
-              "bind_selector": null,
-              "selector": "stmt[0].name[1]",
-              "target_list_selector": null,
-              "target_selector": null,
-              "clause_id": null,
-              "target_path": [],
-              "value": null
-            }
-          ],
-          "rows": [
-            {
-              "index": 0,
-              "cells": [
-                {
-                  "column": "id",
-                  "column_index": 0,
-                  "sql": "1",
-                  "bind_key": null,
-                  "bind_kind": 0,
-                  "bind_position": 0,
-                  "bind_sql": null,
-                  "bind_selector": null,
-                  "selector": "stmt[0].insert_cell[0][0]"
-                },
-                {
-                  "column": "name",
-                  "column_index": 1,
-                  "sql": "'xiaohong'",
-                  "bind_key": null,
-                  "bind_kind": 0,
-                  "bind_position": 0,
-                  "bind_sql": null,
-                  "bind_selector": null,
-                  "selector": "stmt[0].insert_cell[0][1]"
-                }
-              ]
-            },
-            {
-              "index": 1,
-              "cells": [
-                {
-                  "column": "id",
-                  "column_index": 0,
-                  "sql": "2",
-                  "bind_key": null,
-                  "bind_kind": 0,
-                  "bind_position": 0,
-                  "bind_sql": null,
-                  "bind_selector": null,
-                  "selector": "stmt[0].insert_cell[1][0]"
-                },
-                {
-                  "column": "name",
-                  "column_index": 1,
-                  "sql": "'xiaoming'",
-                  "bind_key": null,
-                  "bind_kind": 0,
-                  "bind_position": 0,
-                  "bind_sql": null,
-                  "bind_selector": null,
-                  "selector": "stmt[0].insert_cell[1][1]"
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    }
-  ]
-}
-```
-
-Replace the second-row `name` value:
-
-```c
-sqlparser_patch_t patch;
-sqlparser_patch_list_t patches;
-
-memset(&patch, 0, sizeof(patch));
-patch.op = SQLPARSER_PATCH_REPLACE;
-patch.selector = "stmt[0].insert_cell[1][1]";
-patch.sql = "'lisi'";
-
-patches.items = &patch;
-patches.count = 1;
-sqlparser_apply_patch(handle, &patches, &err);
-```
+Selectors from View JSON can be used to populate `sqlparser_patch_t` and passed to `sqlparser_apply_patch()`. After a rewrite, call `sqlparser_deparse()` and reparse the generated SQL to verify that the result is still syntactically valid.

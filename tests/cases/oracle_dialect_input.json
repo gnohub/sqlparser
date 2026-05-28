@@ -10,12 +10,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "where_columns": [
-          "id"
-        ],
         "deparse_contains": ":id"
       }
     },
@@ -28,9 +22,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "tables": [
-          "dual"
         ],
         "deparse_contains": "'Bob''s order'"
       }
@@ -55,18 +46,9 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "keywords": [
-          "select",
-          "from",
-          "minus"
-        ],
-        "tables": [
-          "active_users",
-          "archived_users"
-        ],
         "deparse_contains": "MINUS",
         "view_contains": "minus",
-        "view_not_contains": "except"
+        "deparse_not_contains": "except"
       }
     },
     {
@@ -78,12 +60,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "id"
         ],
         "deparse_contains": "OFFSET 5"
       }
@@ -98,15 +74,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "id"
-        ],
-        "where_columns": [
-          "rownum"
-        ],
         "deparse_contains": "rownum <= 10"
       }
     },
@@ -120,24 +87,7 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "users",
-          "orders"
-        ],
-        "selected_columns": [
-          "id",
-          "name",
-          "order_no"
-        ],
-        "join_columns": [
-          "id",
-          "user_id"
-        ],
-        "where_columns": [
-          "status"
-        ],
         "deparse_contains": ":status",
-        "view_contains": "\"bind_key\":\"status\"",
         "view_not_contains": "$1"
       }
     },
@@ -150,13 +100,6 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "tables": [
-          "users"
-        ],
-        "insert_columns": [
-          "id",
-          "name"
         ],
         "deparse_contains": ":id",
         "view_contains": ":id",
@@ -173,13 +116,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "insert_columns": [
-          "id",
-          "name"
-        ],
         "deparse_contains": "VALUES (1, 'bob'), (2, 'alice')"
       }
     },
@@ -193,21 +129,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "tables": [
-          "archive_users",
-          "users"
-        ],
-        "selected_columns": [
-          "id",
-          "name"
-        ],
-        "where_columns": [
-          "status"
-        ],
-        "insert_columns": [
-          "id",
-          "name"
-        ],
         "deparse_contains": ":status"
       }
     },
@@ -220,16 +141,6 @@
         "statement_count": 1,
         "statement_types": [
           "UpdateStmt"
-        ],
-        "tables": [
-          "users"
-        ],
-        "update_columns": [
-          "name",
-          "status"
-        ],
-        "where_columns": [
-          "id"
         ],
         "deparse_contains": ":name",
         "view_contains": ":name",
@@ -246,13 +157,6 @@
         "statement_types": [
           "DeleteStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "where_columns": [
-          "id",
-          "status"
-        ],
         "deparse_contains": ":id"
       }
     },
@@ -265,16 +169,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "id"
-        ],
-        "where_columns": [
-          "id",
-          "manager_id"
         ],
         "deparse_contains": ":id OR"
       }
@@ -289,13 +183,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "where_columns": [
-          "id",
-          "status"
-        ],
         "deparse_contains": ":2"
       }
     },
@@ -308,9 +195,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "tables": [
-          "dual"
         ],
         "deparse_contains": "DATE '2024-01-01'"
       }
@@ -325,9 +209,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "users"
-        ],
         "deparse_contains": "CASE WHEN"
       }
     },
@@ -340,17 +221,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "tables": [
-          "users",
-          "orders"
-        ],
-        "selected_columns": [
-          "id"
-        ],
-        "where_columns": [
-          "user_id",
-          "id"
         ],
         "deparse_contains": "EXISTS"
       }
@@ -365,12 +235,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "status"
-        ],
         "deparse_contains": "HAVING"
       }
     },
@@ -383,10 +247,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "tables": [
-          "active_users",
-          "archived_users"
         ],
         "deparse_contains": "UNION ALL"
       }
@@ -401,10 +261,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "active_users",
-          "archived_users"
-        ],
         "deparse_contains": "INTERSECT"
       }
     },
@@ -417,20 +273,6 @@
         "statement_count": 1,
         "statement_types": [
           "MergeStmt"
-        ],
-        "tables": [
-          "users",
-          "staging_users"
-        ],
-        "join_columns": [
-          "id"
-        ],
-        "insert_columns": [
-          "id",
-          "name"
-        ],
-        "update_columns": [
-          "name"
         ],
         "deparse_contains": "MERGE INTO"
       }
@@ -471,14 +313,6 @@
         "statement_types": [
           "ViewStmt"
         ],
-        "tables": [
-          "v_users",
-          "users"
-        ],
-        "selected_columns": [
-          "id",
-          "name"
-        ],
         "deparse_contains": "CREATE OR REPLACE VIEW"
       }
     },
@@ -492,9 +326,6 @@
         "statement_types": [
           "DropStmt"
         ],
-        "tables": [
-          "users"
-        ],
         "deparse_contains": "DROP TABLE users"
       }
     },
@@ -507,9 +338,6 @@
         "statement_count": 1,
         "statement_types": [
           "TruncateStmt"
-        ],
-        "tables": [
-          "users"
         ],
         "deparse_contains": "TRUNCATE TABLE users"
       }
@@ -563,12 +391,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "where_columns": [
-          "id"
-        ],
         "deparse_contains": "NOWAIT"
       }
     },
@@ -581,13 +403,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "status",
-          "sysdate"
         ],
         "deparse_contains": "decode"
       }
@@ -602,14 +417,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "id",
-          "status",
-          "created_at"
-        ],
         "deparse_contains": "row_number"
       }
     },
@@ -623,9 +430,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "dual"
-        ],
         "deparse_contains": "TIMESTAMP '2024-01-01 12:30:00'"
       }
     },
@@ -638,15 +442,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "tables": [
-          "\"Users\""
-        ],
-        "selected_columns": [
-          "Name"
-        ],
-        "where_columns": [
-          "Id"
         ],
         "deparse_contains": ":id"
       }
@@ -674,9 +469,6 @@
         "statement_types": [
           "IndexStmt"
         ],
-        "tables": [
-          "users"
-        ],
         "deparse_contains": "CREATE INDEX"
       }
     },
@@ -703,15 +495,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "id"
-        ],
-        "where_columns": [
-          "status"
-        ],
         "deparse_contains": ":status2"
       }
     },
@@ -724,12 +507,6 @@
         "statement_count": 1,
         "statement_types": [
           "DeleteStmt"
-        ],
-        "tables": [
-          "users"
-        ],
-        "where_columns": [
-          "created_at"
         ],
         "deparse_contains": "DATE '2020-01-01'"
       }
@@ -744,13 +521,6 @@
         "statement_types": [
           "CreateTableAsStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "id",
-          "name"
-        ],
         "deparse_contains": "CREATE MATERIALIZED VIEW"
       }
     },
@@ -763,9 +533,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "tables": [
-          "dual"
         ],
         "deparse_contains": "'RETURNING @ (+)'"
       }
@@ -780,15 +547,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "id"
-        ],
-        "where_columns": [
-          "id"
-        ],
         "deparse_contains": ":id"
       }
     },
@@ -802,13 +560,7 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "keywords": [
-          "alter",
-          "session",
-          "set"
-        ],
-        "deparse_contains": "ALTER SESSION SET CURRENT_SCHEMA",
-        "view_contains": "\"name\":\"CURRENT_SCHEMA\""
+        "deparse_contains": "ALTER SESSION SET CURRENT_SCHEMA"
       }
     },
     {
@@ -821,13 +573,7 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "keywords": [
-          "alter",
-          "session",
-          "set"
-        ],
-        "deparse_contains": "ALTER SESSION SET CONTAINER",
-        "view_contains": "\"name\":\"CONTAINER\""
+        "deparse_contains": "ALTER SESSION SET CONTAINER"
       }
     },
     {
@@ -840,13 +586,7 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "keywords": [
-          "alter",
-          "session",
-          "set"
-        ],
-        "deparse_contains": "ALTER SESSION SET CONTAINER = cdb$root",
-        "view_contains": "\"sql\":\"cdb$root\""
+        "deparse_contains": "ALTER SESSION SET CONTAINER = cdb$root"
       }
     },
     {
@@ -859,13 +599,7 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "keywords": [
-          "alter",
-          "session",
-          "set"
-        ],
-        "deparse_contains": "ALTER SESSION SET CONTAINER = pdb1 SERVICE = app_svc",
-        "view_contains": "\"name\":\"SERVICE\""
+        "deparse_contains": "ALTER SESSION SET CONTAINER = pdb1 SERVICE = app_svc"
       }
     },
     {
@@ -879,17 +613,7 @@
           "SelectStmt",
           "VariableSetStmt"
         ],
-        "keywords": [
-          "select",
-          "alter",
-          "session",
-          "set"
-        ],
-        "tables": [
-          "users"
-        ],
-        "deparse_contains": "ALTER SESSION SET CURRENT_SCHEMA = kdes",
-        "view_contains": "\"name\":\"CURRENT_SCHEMA\""
+        "deparse_contains": "ALTER SESSION SET CURRENT_SCHEMA = kdes"
       }
     },
     {
@@ -901,46 +625,6 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "tables": [
-          "users"
-        ],
-        "insert_columns": [
-          "username",
-          "email",
-          "age"
-        ],
-        "cells": [
-          {
-            "table": "users",
-            "row_index": 0,
-            "column_index": 0,
-            "column": "username",
-            "bind_kind": 1,
-            "bind_sql": "?",
-            "bind_key": "1",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "row_index": 0,
-            "column_index": 1,
-            "column": "email",
-            "bind_kind": 1,
-            "bind_sql": "?",
-            "bind_key": "2",
-            "bind_position": 2
-          },
-          {
-            "table": "users",
-            "row_index": 0,
-            "column_index": 2,
-            "column": "age",
-            "bind_kind": 1,
-            "bind_sql": "?",
-            "bind_key": "3",
-            "bind_position": 3
-          }
         ],
         "deparse_contains": "VALUES (?, ?, ?)",
         "view_contains": "?",
@@ -957,39 +641,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "update_columns": [
-          "email"
-        ],
-        "where_columns": [
-          "username"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "email",
-            "keyword": "set",
-            "clause_kind": "set_list",
-            "bind_kind": 1,
-            "bind_sql": "?",
-            "value_is_null": true,
-            "bind_key": "1",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "name": "username",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 1,
-            "bind_sql": "?",
-            "value_is_null": true,
-            "bind_key": "2",
-            "bind_position": 2
-          }
-        ],
         "deparse_contains": "email = ?",
         "view_not_contains": "$1"
       }
@@ -1004,11 +655,7 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "keywords": [
-          "execute"
-        ],
         "deparse_contains": "EXECUTE IMMEDIATE 'SELECT * FROM users WHERE id = :id' USING :id",
-        "view_contains": "\"sql\":\"'SELECT * FROM users WHERE id = :id' USING :id\"",
         "view_not_contains": "$1"
       }
     },
@@ -1021,41 +668,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "id",
-          "name"
-        ],
-        "where_columns": [
-          "id",
-          "status"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "id",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 2,
-            "bind_sql": ":id",
-            "value_is_null": true,
-            "bind_key": "id",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "name": "status",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 2,
-            "bind_sql": ":status",
-            "value_is_null": true,
-            "bind_key": "status",
-            "bind_position": 2
-          }
         ],
         "deparse_contains": ":status",
         "view_not_contains": "$1"
@@ -1071,50 +683,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "id"
-        ],
-        "where_columns": [
-          "status"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "status",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 2,
-            "bind_sql": ":status1",
-            "value_is_null": true,
-            "bind_key": "status1",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "name": "status",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 2,
-            "bind_sql": ":status2",
-            "value_is_null": true,
-            "bind_key": "status2",
-            "bind_position": 2
-          },
-          {
-            "table": "users",
-            "name": "status",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 2,
-            "bind_sql": ":status3",
-            "value_is_null": true,
-            "bind_key": "status3",
-            "bind_position": 3
-          }
-        ],
         "deparse_contains": ":status3",
         "view_not_contains": "$1"
       }
@@ -1128,28 +696,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "id"
-        ],
-        "where_columns": [
-          "name"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "name",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 2,
-            "bind_sql": ":pattern",
-            "value_is_null": true,
-            "bind_key": "pattern",
-            "bind_position": 1
-          }
         ],
         "deparse_contains": ":limit",
         "view_not_contains": "$1"
@@ -1165,46 +711,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "insert_columns": [
-          "id",
-          "name",
-          "status"
-        ],
-        "cells": [
-          {
-            "table": "users",
-            "row_index": 0,
-            "column_index": 0,
-            "column": "id",
-            "bind_kind": 2,
-            "bind_sql": ":id",
-            "bind_key": "id",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "row_index": 0,
-            "column_index": 1,
-            "column": "name",
-            "bind_kind": 2,
-            "bind_sql": ":name",
-            "bind_key": "name",
-            "bind_position": 2
-          },
-          {
-            "table": "users",
-            "row_index": 0,
-            "column_index": 2,
-            "column": "status",
-            "bind_kind": 2,
-            "bind_sql": ":status",
-            "bind_key": "status",
-            "bind_position": 3
-          }
-        ],
         "deparse_contains": ":status",
         "view_not_contains": "$1"
       }
@@ -1218,51 +724,6 @@
         "statement_count": 1,
         "statement_types": [
           "UpdateStmt"
-        ],
-        "tables": [
-          "users"
-        ],
-        "update_columns": [
-          "name",
-          "status"
-        ],
-        "where_columns": [
-          "id"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "name",
-            "keyword": "set",
-            "clause_kind": "set_list",
-            "bind_kind": 2,
-            "bind_sql": ":name",
-            "value_is_null": true,
-            "bind_key": "name",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "name": "status",
-            "keyword": "set",
-            "clause_kind": "set_list",
-            "bind_kind": 2,
-            "bind_sql": ":status",
-            "value_is_null": true,
-            "bind_key": "status",
-            "bind_position": 2
-          },
-          {
-            "table": "users",
-            "name": "id",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 2,
-            "bind_sql": ":id",
-            "value_is_null": true,
-            "bind_key": "id",
-            "bind_position": 3
-          }
         ],
         "deparse_contains": ":status",
         "view_not_contains": "$1"
@@ -1278,37 +739,6 @@
         "statement_types": [
           "DeleteStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "where_columns": [
-          "id",
-          "status"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "id",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 2,
-            "bind_sql": ":id",
-            "value_is_null": true,
-            "bind_key": "id",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "name": "status",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 2,
-            "bind_sql": ":status",
-            "value_is_null": true,
-            "bind_key": "status",
-            "bind_position": 2
-          }
-        ],
         "deparse_contains": ":status",
         "view_not_contains": "$1"
       }
@@ -1322,40 +752,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "id"
-        ],
-        "where_columns": [
-          "id",
-          "status"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "id",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 1,
-            "bind_sql": ":1",
-            "value_is_null": true,
-            "bind_key": "1",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "name": "status",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 1,
-            "bind_sql": ":2",
-            "value_is_null": true,
-            "bind_key": "2",
-            "bind_position": 2
-          }
         ],
         "deparse_contains": ":2",
         "view_not_contains": "$1"
@@ -1371,46 +767,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "insert_columns": [
-          "id",
-          "name",
-          "status"
-        ],
-        "cells": [
-          {
-            "table": "users",
-            "row_index": 0,
-            "column_index": 0,
-            "column": "id",
-            "bind_kind": 1,
-            "bind_sql": "?",
-            "bind_key": "1",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "row_index": 0,
-            "column_index": 1,
-            "column": "name",
-            "bind_kind": 1,
-            "bind_sql": "?",
-            "bind_key": "2",
-            "bind_position": 2
-          },
-          {
-            "table": "users",
-            "row_index": 0,
-            "column_index": 2,
-            "column": "status",
-            "bind_kind": 1,
-            "bind_sql": "?",
-            "bind_key": "3",
-            "bind_position": 3
-          }
-        ],
         "deparse_contains": "VALUES (?, ?, ?)",
         "view_not_contains": "$1"
       }
@@ -1424,37 +780,6 @@
         "statement_count": 1,
         "statement_types": [
           "DeleteStmt"
-        ],
-        "tables": [
-          "users"
-        ],
-        "where_columns": [
-          "id",
-          "status"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "id",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 1,
-            "bind_sql": "?",
-            "value_is_null": true,
-            "bind_key": "1",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "name": "status",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 1,
-            "bind_sql": "?",
-            "value_is_null": true,
-            "bind_key": "2",
-            "bind_position": 2
-          }
         ],
         "deparse_contains": "?",
         "view_not_contains": "$1"
@@ -1470,9 +795,6 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "keywords": [
-          "execute"
-        ],
         "deparse_contains": "EXECUTE IMMEDIATE 'UPDATE users SET name = :name WHERE id = :id' USING :name, :id",
         "view_not_contains": "$1"
       }
@@ -1487,23 +809,11 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "servers"
-        ],
-        "selected_columns": [
-          "ip",
-          "areacode",
-          "UID",
-          "*",
-          "rownum"
-        ],
-        "where_columns": [
-          "rownum",
-          "rn"
-        ],
         "deparse_contains": ":startRow",
-        "view_contains": "\"bind_key\":\"endRow\"",
-        "view_not_contains": "\"sql\":\":endRow\""
+        "view_not_contains": [
+          "\"sql\":\":endRow\"",
+          "\"bind_sql\":\":endRow\""
+        ]
       }
     },
     {
@@ -1515,53 +825,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "tables": [
-          "employees"
-        ],
-        "columns": [
-          {
-            "table": "employees",
-            "name": "commission_pct",
-            "keyword": "select",
-            "clause_kind": "select_list",
-            "target_path": [
-              {
-                "kind": "function",
-                "name": "NVL",
-                "arg_index": 0
-              },
-              {
-                "kind": "function",
-                "name": "TO_CHAR",
-                "arg_index": 0
-              }
-            ]
-          },
-          {
-            "table": "employees",
-            "name": "last_name",
-            "keyword": "select",
-            "clause_kind": "select_list",
-            "target_path": [
-              {
-                "kind": "function",
-                "name": "UPPER",
-                "arg_index": 0
-              }
-            ]
-          },
-          {
-            "table": "employees",
-            "name": "employee_id",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 2,
-            "bind_sql": ":employee_id",
-            "value_is_null": true,
-            "bind_key": "employee_id",
-            "bind_position": 1
-          }
         ],
         "view_not_contains": [
           "\"sql\":\":employee_id\""
@@ -1577,23 +840,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "tables": [
-          "users"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "state",
-            "keyword": "select",
-            "clause_kind": "select_list"
-          },
-          {
-            "table": "users",
-            "name": "name",
-            "keyword": "select",
-            "clause_kind": "select_list"
-          }
         ]
       }
     },
@@ -1606,39 +852,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "tables": [
-          "employees"
-        ],
-        "clauses": [
-          {
-            "kind": "group_by",
-            "selector_is_null": true
-          },
-          {
-            "kind": "having",
-            "selector_is_null": true
-          }
-        ],
-        "columns": [
-          {
-            "table": "employees",
-            "name": "department_id",
-            "keyword": "group",
-            "clause_kind": "group_by"
-          },
-          {
-            "table": "employees",
-            "name": "employee_id",
-            "keyword": "having",
-            "clause_kind": "having"
-          },
-          {
-            "table": "employees",
-            "name": "department_id",
-            "keyword": "order",
-            "clause_kind": "order_by"
-          }
         ]
       }
     },
@@ -1651,33 +864,6 @@
         "statement_count": 1,
         "statement_types": [
           "UpdateStmt"
-        ],
-        "tables": [
-          "servers"
-        ],
-        "columns": [
-          {
-            "table": "servers",
-            "name": "ip",
-            "keyword": "set",
-            "clause_kind": "set_list",
-            "bind_kind": 2,
-            "bind_sql": ":aaa",
-            "value_is_null": true,
-            "bind_key": "aaa",
-            "bind_position": 1
-          },
-          {
-            "table": "servers",
-            "name": "id",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 2,
-            "bind_sql": ":id",
-            "value_is_null": true,
-            "bind_key": "id",
-            "bind_position": 2
-          }
         ],
         "view_not_contains": [
           "\"sql\":\":aaa\"",
@@ -1695,28 +881,14 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "servers"
-        ],
-        "columns": [
-          {
-            "table": "servers",
-            "name": "*",
-            "keyword": "select",
-            "clause_kind": "select_list"
-          }
-        ],
         "view_contains": [
-          "\"bind_key\":\"endRow\"",
           "\"bind_kind\":2",
-          "\"bind_sql\":\":endRow\"",
-          "\"bind_key\":\"startRow\"",
-          "\"bind_sql\":\":startRow\"",
-          "\"name\":\"UID\""
+          "\"bind_sql\":\":startRow\""
         ],
         "view_not_contains": [
           "\"sql\":\":endRow\"",
-          "\"sql\":\":startRow\""
+          "\"sql\":\":startRow\"",
+          "\"bind_sql\":\":endRow\""
         ]
       }
     },
@@ -1729,33 +901,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "tables": [
-          "table1"
-        ],
-        "columns": [
-          {
-            "table": "table1",
-            "name": "abc",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 1,
-            "bind_sql": ":1",
-            "value_is_null": true,
-            "bind_key": "1",
-            "bind_position": 1
-          },
-          {
-            "table": "table1",
-            "name": "def",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 1,
-            "bind_sql": "?",
-            "value_is_null": true,
-            "bind_key": "2",
-            "bind_position": 2
-          }
         ],
         "view_contains": [
           "\"bind_sql\":\":1\"",
@@ -1777,42 +922,17 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "id"
-        ],
-        "where_columns": [
-          "age"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "age",
-            "keyword": "where",
-            "clause_kind": "where",
-            "operator": "BETWEEN",
-            "bind_kind": 2,
-            "bind_sql": ":min_age",
-            "value_is_null": true,
-            "bind_key": "min_age",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "name": "age",
-            "keyword": "where",
-            "clause_kind": "where",
-            "operator": "BETWEEN",
-            "bind_kind": 2,
-            "bind_sql": ":max_age",
-            "value_is_null": true,
-            "bind_key": "max_age",
-            "bind_position": 2
-          }
-        ],
         "deparse_contains": ":max_age",
+        "view_contains": [
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
+          "\"operator\":\"BETWEEN\",\"field\":1,\"kind\":\"bind\"",
+          "\"bind_key\":\"min_age\"",
+          "\"bind_sql\":\":min_age\"",
+          "\"bind_position\":1",
+          "\"bind_key\":\"max_age\"",
+          "\"bind_sql\":\":max_age\"",
+          "\"bind_position\":2"
+        ],
         "view_not_contains": "$1"
       }
     },
@@ -1826,42 +946,15 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "id"
-        ],
-        "where_columns": [
-          "status"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "status",
-            "keyword": "where",
-            "clause_kind": "where",
-            "operator": "NOT IN",
-            "bind_kind": 2,
-            "bind_sql": ":status1",
-            "value_is_null": true,
-            "bind_key": "status1",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "name": "status",
-            "keyword": "where",
-            "clause_kind": "where",
-            "operator": "NOT IN",
-            "bind_kind": 2,
-            "bind_sql": ":status2",
-            "value_is_null": true,
-            "bind_key": "status2",
-            "bind_position": 2
-          }
-        ],
         "deparse_contains": ":status2",
+        "view_contains": [
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"status\"",
+          "\"operator\":\"NOT IN\",\"field\":1,\"kind\":\"bind\"",
+          "\"bind_key\":\"status1\"",
+          "\"bind_position\":1",
+          "\"bind_key\":\"status2\"",
+          "\"bind_position\":2"
+        ],
         "view_not_contains": "$1"
       }
     },
@@ -1875,42 +968,15 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "id"
-        ],
-        "where_columns": [
-          "age"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "age",
-            "keyword": "where",
-            "clause_kind": "where",
-            "operator": "NOT BETWEEN",
-            "bind_kind": 2,
-            "bind_sql": ":min_age",
-            "value_is_null": true,
-            "bind_key": "min_age",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "name": "age",
-            "keyword": "where",
-            "clause_kind": "where",
-            "operator": "NOT BETWEEN",
-            "bind_kind": 2,
-            "bind_sql": ":max_age",
-            "value_is_null": true,
-            "bind_key": "max_age",
-            "bind_position": 2
-          }
-        ],
         "deparse_contains": ":max_age",
+        "view_contains": [
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
+          "\"operator\":\"NOT BETWEEN\",\"field\":1,\"kind\":\"bind\"",
+          "\"bind_key\":\"min_age\"",
+          "\"bind_position\":1",
+          "\"bind_key\":\"max_age\"",
+          "\"bind_position\":2"
+        ],
         "view_not_contains": "$1"
       }
     },
@@ -1924,34 +990,14 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "id"
-        ],
-        "where_columns": [
-          "name"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "name",
-            "keyword": "where",
-            "clause_kind": "where",
-            "operator": "NOT LIKE",
-            "bind_kind": 2,
-            "bind_sql": ":name_pattern",
-            "value_is_null": true,
-            "bind_key": "name_pattern",
-            "bind_position": 1
-          }
-        ],
-        "keywords": [
-          "not",
-          "like"
-        ],
         "deparse_contains": ":name_pattern",
+        "view_contains": [
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"name\"",
+          "\"operator\":\"NOT LIKE\",\"field\":1,\"kind\":\"bind\"",
+          "\"bind_key\":\"name_pattern\"",
+          "\"bind_sql\":\":name_pattern\"",
+          "\"bind_position\":1"
+        ],
         "view_not_contains": "$1"
       }
     },
@@ -1965,30 +1011,15 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "table1"
-        ],
-        "selected_columns": [
-          "name"
-        ],
-        "where_columns": [
-          "name"
-        ],
-        "columns": [
-          {
-            "table": "table1",
-            "name": "name",
-            "keyword": "where",
-            "clause_kind": "where",
-            "operator": "LIKE",
-            "bind_kind": 2,
-            "bind_sql": ":name",
-            "value_is_null": true,
-            "bind_key": "name",
-            "bind_position": 1
-          }
-        ],
         "deparse_contains": ":name",
+        "view_contains": [
+          "\"clause\":\"select_list\",\"relation\":0,\"column\":\"name\"",
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"name\"",
+          "\"operator\":\"LIKE\",\"field\":1,\"kind\":\"bind\"",
+          "\"bind_key\":\"name\"",
+          "\"bind_sql\":\":name\"",
+          "\"bind_position\":1"
+        ],
         "view_not_contains": "$1"
       }
     },
@@ -2001,32 +1032,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "tables": [
-          "table1"
-        ],
-        "selected_columns": [
-          "name"
-        ],
-        "columns": [
-          {
-            "table": "table1",
-            "name": "name",
-            "keyword": "select",
-            "clause_kind": "select_list",
-            "target_path": [
-              {
-                "kind": "function",
-                "name": "LOWER",
-                "arg_index": 0
-              },
-              {
-                "kind": "function",
-                "name": "UPPER",
-                "arg_index": 0
-              }
-            ]
-          }
         ],
         "deparse_contains": "DISTINCT"
       }
@@ -2041,22 +1046,16 @@
         "statement_types": [
           "DeleteStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "where_columns": [
-          "email"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "email",
-            "keyword": "where",
-            "clause_kind": "where",
-            "operator": "IN"
-          }
-        ],
-        "deparse_contains": ":email1"
+        "deparse_contains": ":email1",
+        "view_contains": [
+          "\"kind\":\"delete\"",
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"email\"",
+          "\"operator\":\"IN\",\"field\":0,\"kind\":\"bind\"",
+          "\"bind_key\":\"email1\"",
+          "\"bind_position\":1",
+          "\"bind_key\":\"email2\"",
+          "\"bind_position\":2"
+        ]
       }
     },
     {
@@ -2068,18 +1067,6 @@
         "statement_count": 1,
         "statement_types": [
           "UpdateStmt"
-        ],
-        "tables": [
-          "users",
-          "orders"
-        ],
-        "update_columns": [
-          "status"
-        ],
-        "where_columns": [
-          "user_id",
-          "id",
-          "phone"
         ],
         "deparse_contains": ":phone"
       }
@@ -2094,31 +1081,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "cells": [
-          {
-            "table": "users",
-            "row_index": 0,
-            "column_index": 0,
-            "column": null,
-            "bind_kind": 2,
-            "bind_sql": ":id",
-            "bind_key": "id",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "row_index": 0,
-            "column_index": 2,
-            "column": null,
-            "bind_kind": 2,
-            "bind_sql": ":age",
-            "bind_key": "age",
-            "bind_position": 3
-          }
-        ],
         "deparse_contains": "VALUES (:id, :name, :age)"
       }
     },
@@ -2132,18 +1094,6 @@
         "statement_types": [
           "ViewStmt"
         ],
-        "tables": [
-          "v_user_orders",
-          "users",
-          "orders"
-        ],
-        "selected_columns": [
-          "id"
-        ],
-        "join_columns": [
-          "id",
-          "user_id"
-        ],
         "deparse_contains": "CREATE OR REPLACE VIEW"
       }
     },
@@ -2156,19 +1106,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "tables": [
-          "servers"
-        ],
-        "selected_columns": [
-          "ip",
-          "areacode",
-          "UID",
-          "key_encryption"
-        ],
-        "where_columns": [
-          "rownum",
-          "rn"
         ],
         "deparse_contains": ":startRow",
         "view_not_contains": "$1"
@@ -2184,21 +1121,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "users",
-          "orders"
-        ],
-        "selected_columns": [
-          "*",
-          "order_no"
-        ],
-        "join_columns": [
-          "id",
-          "user_id"
-        ],
-        "where_columns": [
-          "status"
-        ],
         "deparse_contains": ":status"
       }
     },
@@ -2211,13 +1133,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "id",
-          "phone"
         ],
         "deparse_contains": "ORDER BY 1"
       }
@@ -2232,11 +1147,138 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "dual"
-        ],
         "deparse_contains": ":value",
         "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "O089",
+      "name": "oracle-select-reference-024",
+      "sql": "select * from (select id as aa, name as bb, department as cc FROM (select e.*,rownum as row_num from employees_uuid e where rownum <= 100) where row_num >= 1 and (id = 1 or id=2)) where aa = 1;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "O090",
+      "name": "oracle-select-reference-026",
+      "sql": "select b.* from (select id as aa, department as cc, name as bb FROM (select e.*,rownum as row_num from employees_uuid e where rownum <= 100) a where row_num >= 1 and (id = 1 or id=2)) b where aa = 1;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "O091",
+      "name": "oracle-select-reference-028",
+      "sql": "SELECT * FROM (SELECT e.*, ROWNUM rn FROM employees e WHERE ROWNUM <= 100) WHERE rn > 50;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "O092",
+      "name": "oracle-select-reference-033",
+      "sql": "select * from (select rownum as num, * from (select * from ( select b.*, rownum autorowno, c.* from PERSON b left join XQGL_XQBC c on b.ID = c.xqgl_id ) a) ) d;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "O093",
+      "name": "oracle-select-reference-044",
+      "sql": "select * from ( select /*+first_rows*/ z_results.*,rownum autorowno from ( select t.XQGL_ID xqdh, t.XQGL_BT xqbt, t.xqgl_lx xqlx, (select dict_name from xggl_dict c where trim(t.XQGL_LX) = c.dict_id and c.dict_type='4') xqlxmc, t.XQGL_CJRDM xqcjrdm, t.XQGL_CJRME xqcjr, t.XQGL_LXDH lxdh, t.XQGL_SWJGDM swjgdm, t.XQGL_SWJGMC swjgmc, to_char(t.XQGL_XQCJRQ,'yyyy-MM-dd') xqcjrq, to_char(t.XQGL_XQWCRQ,'yyyy-MM-dd') xqwcrq, t.XQGL_GJGQ gjgq, t.XQGL_CONTENT content, t.XQGL_FLAG flag, t.XQGL_XQQR xqqr, t.XQGL_XQFK xqfk, t.XQGL_REMARK mark, t.XQGL_REMARK1 mgzd, case when t.XQGL_REMARK1 = '1' then '是' else '否' end as mgzdmc, t.XQGL_REMARK2 mark2, t.XQGL_REMARK3 mark3, t.xqgl_zt xqzt, t.XQGL_ZTMC xqztmc, t.xqgl_ywlx ywlx, t.XQGL_YWLXMC ywlxmc, t.xqgl_fzlx fzlx, t.XQGL_FZLXMC fzlxmc, t.XQGL_QRRQ qrrq, t.XQGL_FKRQ fkrq, t.xqgl_fk_xs fkxs, case when t.XQGL_FK_XS ='1' then '书面' when t.XQGL_FK_XS ='2' then '线上' end as fkxsmc, t.XQGL_XQFK_CONTENT fkcontent, t.xqgl_xqff_zygs_id zygs, t.xqgl_xqff_xzgs_id xzgs, t.XQGL_XQFF_ZYGS zygsmc, t.XQGL_XQFF_XZGS xzgsmc, t.xqgl_xbrq xbrq, b.xqgl_bccontent bccontent, b.xqgl_bcfkcontent bcfkcontent from xqgl t left join (select * from xqgl_xqbc where xqgl_type = 'bc') b on t.xqgl_id = b.xqgl_id where t.XQGL_DELETE !='Y' and t.XQGL_CJRDM = '110' and t.XQGL_SWJGDM = '110' order by t.XQGL_XQCJRQ desc ) z_results where rownum<=20 ) where autorowno>= 1;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "O094",
+      "name": "oracle-select-reference-045",
+      "sql": "select * from (select /*+first_rows*/ z_results.*,rownum autorowno from ( select t.fxpcbh \"XXPC_BH\", decode(fa.fa_mc,'','','[' || fa.fa_mc ||'] ')||t.fxpcmc \"XXPC_MC\", t.fxpczt \"XXPCZT_DM\", (select dm.mc from rwtc_dm dm where dm.lx_dm = 'RWTCFXSCFS' and dm.dm = t.fxscfs) \"FXSCFS\", (select dm.mc from rwtc_dm dm where dm.lx_dm = 'RWTCFXPCZT' and dm.dm = t.fxpczt) \"XXPCZT_MC\", to_char(t.cjsj,'yyy-mm-dd') \"LRSJ\", (select c.swjgmc from wd_swjg c where c.swjg_dm = t.cjsscsdm) \"LYCS\", (select c.swjgmc from wd_swig c where c.swjg_dm= t.cjswjgdm) \"SWJG\", nv1(t.fxxxsl,0) \"FXXXS\", nv1(t.shtgsl,0) \"FXTGSL\", nv1(t.shbtgsl,0) \"FXBTGSL\", (select c.czry_mc from dm_czry c where c.swry_dm = t.sprdm) spr, to_char(nv1(t.cjsj,t.tssj),'yyyy-m-dd') tssj, to_char(t.spsj,'yyyy-mm-dd') spsj, t.spsm, decode(t.spyj,'Y','通过','不通过') spyj, n.file_name fileName, n.file_path filePath, n.complete_date completeDate, n.remark from rwtc_fxpc t left join rwtc_fxpc_ydzn n on t.fxpcbh = n.fxpcbh left join fxfx_sm_slb sl on sl.smsl_bh=t.fxpcbh left join fxfx_fxfa fa on sl.fa_bh=fa.fa_bh where 1=1 and t.cjswjgdm = '110' and (t.fxpczt in ('02') or t.fxxxsl = (t.shtgsl+ t.shbtgsl)) order by fxpczt asc, t.spsj desc ) z_results where rownum<=20 ) aaa where autorowno>= 1;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "O095",
+      "name": "oracle-select-reference-048",
+      "sql": "select * from (select * from (select CONCAT(filePath, fxpczt) as path, b.* from (select * from (select /*+first_rows*/ z_results.*, rownum autorowno from ( select t.fxpcbh \"XXPC_BH\", decode(fa.fa_mc,'','','[' || fa.fa_mc ||'] ')||t.fxpcmc \"XXPC_MC\", t.fxpczt \"XXPCZT_DM\", (select dm.mc from rwtc_dm dm where dm.lx_dm = 'RWTCFXSCFS' and dm.dm = t.fxscfs) \"FXSCFS\", (select dm.mc from rwtc_dm dm where dm.lx_dm = 'RWTCFXPCZT' and dm.dm = t.fxpczt) \"XXPCZT_MC\", to_char(t.cjsj,'yyy-mm-dd') \"LRSJ\", (select c.swjgmc from wd_swjg c where c.swjg_dm = t.cjsscsdm) \"LYCS\", (select c.swjgmc from wd_swig c where c.swjg_dm= t.cjswjgdm) \"SWJG\", nv1(t.fxxxsl,0) \"FXXXS\", nv1(t.shtgsl,0) \"FXTGSL\", nv1(t.shbtgsl,0) \"FXBTGSL\", (select c.czry_mc from dm_czry c where c.swry_dm = t.sprdm) spr, to_char(nv1(t.cjsj,t.tssj),'yyyy-m-dd') tssj, to_char(t.spsj,'yyyy-mm-dd') spsj, t.spsm, decode(t.spyj,'Y','通过','不通过') spyj, n.file_name fileName, n.file_path filePath, n.complete_date completeDate, n.remark from rwtc_fxpc t left join rwtc_fxpc_ydzn n on t.fxpcbh = n.fxpcbh left join fxfx_sm_slb sl on sl.smsl_bh=t.fxpcbh left join fxfx_fxfa fa on sl.fa_bh=fa.fa_bh where 1=1 and t.cjswjgdm = '110' and (t.fxpczt in ('02') or t.fxxxsl = (t.shtgsl+ t.shbtgsl)) order by fxpczt asc, t.spsj desc ) z_results where rownum<=20 ) a1 where autorowno>= 1) b));",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "O096",
+      "name": "oracle-select-reference-049",
+      "sql": "select * from (select rownum,* from (select * from (select o.*, rownum as rnum from ( SELECT a.*, b.wenjiansxmc FROM ( SELECT x.zxsq_wj_xxgx_t_rid, x.zxsq_zmwj_t_rid AS zmwj_key, (select dm.mc from rwtc_dm dm where dm.lx_dm = 'RWTCFXSCFS' and dm.dm = x.fxscfs) fxscfs, (select dm.mc from rwtc_dm dm where dm.lx_dm = 'RWTCFXPCZT' and dm.dm = x.fxpczt) xxpczt, x.zhengmingwjdm, x.wenjiansxbm, x.fujiawjmc AS wenjianysmc, x.fujianwjsm AS wenjiansm, x.wenjianlybj, x.create_time AS chuangjiansj, z.wenjianfwqlj, z.futubj, x.yewulxbm, x.wenjianywbm FROM zxsq_wj_xxgx_t x LEFT JOIN zxsq_zmwj_t z ON x.zhengmingwjid = z.zxsq_zmwj_t_rid LEFT JOIN zxsq_dzsqqqjl_cg_t c ON x.dianzisqajbh = c.dianzisqajbh WHERE x.del_flag = '0' AND (z.del_flag = '0' OR z.del_flag IS NULL) AND x.zhengmingwjbm != '123456' AND x.zhubiaom = '789' AND x.yewulxbm = '1011' AND c.create_user_jgdm = '1213' AND x.wenjianywbm = '11' ) a LEFT JOIN zxsq_fjwjywdz_t b ON a.wenjiansxbm = b.wenjiansxbm AND a.yewulxbm = b.yewulxbm UNION SELECT NULL AS zxsq_wj_xxgx_t_rid, z.zxsq_zmwj_t_rid AS zmwj_key, NULL AS fxscfs, NULL AS xxpczt, z.zhengmingwjdm, z.wenjiansxbm, z.wenjianysmc, z.wenjiansm, z.wenjianscfs AS wenjianlybj, NULL AS chuangjiansj, z.wenjianfwqlj, z.futubj, NULL AS yewulxbm, NULL AS wenjianywbm, NULL AS wenjiansxmc FROM zxsq_zmwj_t z WHERE z.del_flag = '0' and z.test_column = '1' AND z.zxsq_zmwj_t_rid = '1' ) o )) b) d;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"alias\":\"d\",\"source_block\":1",
+          "\"alias\":\"b\",\"source_block\":2",
+          "\"alias\":\"o\",\"source_block\":4",
+          "\"sets\":[{\"kind\":\"union\",\"result_block\":4,\"branches\":[5,9]}]",
+          "\"block\":0,\"ordinal\":0,\"kind\":\"star\",\"star_relations\":[0],\"source_block\":1",
+          "\"block\":1,\"ordinal\":1,\"kind\":\"star\",\"star_relations\":[1],\"source_block\":2",
+          "\"block\":2,\"ordinal\":0,\"kind\":\"star\",\"star_relations\":[2],\"source_block\":3",
+          "\"block\":3,\"ordinal\":0,\"kind\":\"qualified_star\",\"star_relations\":[3],\"source_block\":4"
+        ]
+      }
+    },
+    {
+      "id": "O097",
+      "name": "oracle-select-reference-046",
+      "sql": "SELECT a.*, b.wenjiansxmc FROM ( SELECT x.zxsq_wj_xxgx_t_rid, x.zhengmingwjid AS zmwj_key, x.zhengmingwjdm, x.wenjiansxbm, x.fujiawjmc AS wenjianysmc, x.fujianwjsm AS wenjiansm, x.wenjianlybj, x.create_time AS chuangjiansj, z.wenjianfwqlj, z.futubj, x.yewulxbm, x.wenjianywbm FROM zxsq_wj_xxgx_t x LEFT JOIN zxsq_zmwj_t z ON x.zhengmingwjid = z.zxsq_zmwj_t_rid LEFT JOIN zxsq_dzsqqqjl_cg_t c ON x.dianzisqajbh = c.dianzisqajbh WHERE x.del_flag = '0' AND (z.del_flag = '0' OR z.del_flag IS NULL) AND x.zhengmingwjbm != '123456' AND x.zhubiaom = '789' AND x.yewulxbm = '1011' AND c.create_user_jgdm = '1213' AND x.wenjianywbm = '11' ) a LEFT JOIN zxsq_fjwjywdz_t b ON a.wenjiansxbm = b.wenjiansxbm AND a.yewulxbm = b.yewulxbm;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "O098",
+      "name": "oracle-select-reference-047",
+      "sql": "SELECT a.*, b.wenjiansxmc FROM ( SELECT x.zxsq_wj_xxgx_t_rid, x.zxsq_zmwj_t_rid AS zmwj_key, x.zhengmingwjdm, x.wenjiansxbm, x.fujiawjmc AS wenjianysmc, x.fujianwjsm AS wenjiansm, x.wenjianlybj, x.create_time AS chuangjiansj, z.wenjianfwqlj, z.futubj, x.yewulxbm, x.wenjianywbm FROM zxsq_wj_xxgx_t x LEFT JOIN zxsq_zmwj_t z ON x.zhengmingwjid = z.zxsq_zmwj_t_rid LEFT JOIN zxsq_dzsqqqjl_cg_t c ON x.dianzisqajbh = c.dianzisqajbh WHERE x.del_flag = '0' AND (z.del_flag = '0' OR z.del_flag IS NULL) AND x.zhengmingwjbm != '123456' AND x.zhubiaom = '789' AND x.yewulxbm = '1011' AND c.create_user_jgdm = '1213' AND x.wenjianywbm = '11' ) a LEFT JOIN zxsq_fjwjywdz_t b ON a.wenjiansxbm = b.wenjiansxbm AND a.yewulxbm = b.yewulxbm UNION SELECT NULL AS zxsq_wj_xxgx_t_rid, z.zxsq_zmwj_t_rid AS zmwj_key, z.zhengmingwjdm, z.wenjiansxbm, z.wenjianysmc, z.wenjiansm, z.wenjianscfs AS wenjianlybj, NULL AS chuangjiansj, z.wenjianfwqlj, z.futubj, NULL AS yewulxbm, NULL AS wenjianywbm, NULL AS wenjiansxmc FROM zxsq_zmwj_t z WHERE z.del_flag = '0' AND z.zxsq_zmwj_t_rid = '';",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
       }
     },
     {
@@ -2369,13 +1411,7 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "keywords": [
-          "alter",
-          "session",
-          "set"
-        ],
-        "deparse_contains": "ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD'",
-        "view_contains": "\"name\":\"NLS_DATE_FORMAT\""
+        "deparse_contains": "ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD'"
       }
     },
     {
@@ -2388,13 +1424,7 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "keywords": [
-          "alter",
-          "session",
-          "set"
-        ],
-        "deparse_contains": "ALTER SESSION SET NLS_DATE_LANGUAGE = french",
-        "view_contains": "\"name\":\"NLS_DATE_LANGUAGE\""
+        "deparse_contains": "ALTER SESSION SET NLS_DATE_LANGUAGE = french"
       }
     },
     {
@@ -2407,13 +1437,7 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "keywords": [
-          "alter",
-          "session",
-          "set"
-        ],
-        "deparse_contains": "ALTER SESSION SET INSTANCE = 2",
-        "view_contains": "\"name\":\"INSTANCE\""
+        "deparse_contains": "ALTER SESSION SET INSTANCE = 2"
       }
     },
     {
@@ -2426,13 +1450,7 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "keywords": [
-          "alter",
-          "session",
-          "set"
-        ],
-        "deparse_contains": "ALTER SESSION SET ERROR_ON_OVERLAP_TIME = TRUE",
-        "view_contains": "\"name\":\"ERROR_ON_OVERLAP_TIME\""
+        "deparse_contains": "ALTER SESSION SET ERROR_ON_OVERLAP_TIME = TRUE"
       }
     },
     {
@@ -2445,13 +1463,7 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "keywords": [
-          "alter",
-          "session",
-          "set"
-        ],
-        "deparse_contains": "ALTER SESSION SET NLS_NUMERIC_CHARACTERS = '.,'",
-        "view_contains": "\"name\":\"NLS_NUMERIC_CHARACTERS\""
+        "deparse_contains": "ALTER SESSION SET NLS_NUMERIC_CHARACTERS = '.,'"
       }
     },
     {
@@ -2464,57 +1476,41 @@
         "statement_types": [
           "UpdateStmt",
           "UpdateStmt"
+        ]
+      }
+    },
+    {
+      "id": "O088",
+      "name": "oracle-select-derived-query-graph",
+      "sql": "SELECT s.name AS outer_name FROM (SELECT id, name FROM KDES.USERS WHERE age <= :age) s WHERE s.name LIKE :name",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
         ],
-        "tables": [
-          "users"
+        "deparse_contains": "outer_name"
+      }
+    },
+    {
+      "id": "O099",
+      "name": "oracle-select-nested-star-query-graph",
+      "sql": "SELECT * FROM (SELECT ROWNUM, * FROM (SELECT * FROM (SELECT o.*, ROWNUM AS rnum FROM (SELECT x.id FROM users x UNION SELECT y.id FROM archived_users y) o)) b) d",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
         ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "a",
-            "keyword": "set",
-            "clause_kind": "set_list",
-            "bind_kind": 2,
-            "bind_sql": ":same",
-            "value_is_null": true,
-            "bind_key": "same",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "name": "b",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 2,
-            "bind_sql": ":b",
-            "value_is_null": true,
-            "bind_key": "b",
-            "bind_position": 2
-          },
-          {
-            "statement_index": 1,
-            "table": "users",
-            "name": "c",
-            "keyword": "set",
-            "clause_kind": "set_list",
-            "bind_kind": 2,
-            "bind_sql": ":same",
-            "value_is_null": true,
-            "bind_key": "same",
-            "bind_position": 3
-          },
-          {
-            "statement_index": 1,
-            "table": "users",
-            "name": "d",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 2,
-            "bind_sql": ":d",
-            "value_is_null": true,
-            "bind_key": "d",
-            "bind_position": 4
-          }
+        "view_contains": [
+          "\"alias\":\"d\",\"source_block\":1",
+          "\"alias\":\"b\",\"source_block\":2",
+          "\"alias\":\"o\",\"source_block\":4",
+          "\"sets\":[{\"kind\":\"union\",\"result_block\":4,\"branches\":[5,6]}]",
+          "\"block\":0,\"ordinal\":0,\"kind\":\"star\",\"star_relations\":[0],\"source_block\":1",
+          "\"block\":1,\"ordinal\":1,\"kind\":\"star\",\"star_relations\":[1],\"source_block\":2",
+          "\"block\":2,\"ordinal\":0,\"kind\":\"star\",\"star_relations\":[2],\"source_block\":3",
+          "\"block\":3,\"ordinal\":0,\"kind\":\"qualified_star\",\"star_relations\":[3],\"source_block\":4"
         ]
       }
     },

@@ -8,9 +8,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "keywords": [
-          "select"
-        ],
         "deparse_contains": "SELECT 1"
       }
     },
@@ -21,25 +18,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "keywords": [
-          "select",
-          "from",
-          "where"
-        ],
-        "tables": [
-          "public.users"
-        ],
-        "selected_columns": [
-          "id",
-          "name"
-        ],
-        "where_columns": [
-          "id"
-        ],
-        "all_referenced_columns": [
-          "id",
-          "name"
         ],
         "deparse_contains": "FROM public.users"
       }
@@ -52,36 +30,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "keywords": [
-          "select",
-          "from",
-          "join",
-          "on",
-          "where"
-        ],
-        "tables": [
-          "public.users",
-          "public.orders"
-        ],
-        "selected_columns": [
-          "id",
-          "name",
-          "order_no"
-        ],
-        "join_columns": [
-          "id",
-          "user_id"
-        ],
-        "where_columns": [
-          "status"
-        ],
-        "all_referenced_columns": [
-          "id",
-          "name",
-          "order_no",
-          "user_id",
-          "status"
-        ],
         "deparse_contains": "SELECT u.id, u.name, o.order_no"
       }
     },
@@ -92,29 +40,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "keywords": [
-          "with",
-          "select",
-          "from",
-          "where"
-        ],
-        "tables": [
-          "public.users"
-        ],
-        "cte_names": [
-          "active_users"
-        ],
-        "selected_columns": [
-          "id",
-          "name"
-        ],
-        "filter_columns": [
-          "status"
-        ],
-        "all_referenced_columns": [
-          "id",
-          "name"
         ],
         "deparse_contains": "WITH active_users AS"
       }
@@ -127,22 +52,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "keywords": [
-          "insert",
-          "into",
-          "values"
-        ],
-        "tables": [
-          "public.users"
-        ],
-        "insert_columns": [
-          "id",
-          "name"
-        ],
-        "all_referenced_columns": [
-          "id",
-          "name"
-        ],
         "deparse_contains": "VALUES (1, 'alice')"
       }
     },
@@ -153,22 +62,6 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "keywords": [
-          "insert",
-          "into",
-          "values"
-        ],
-        "tables": [
-          "public.users"
-        ],
-        "insert_columns": [
-          "id",
-          "name"
-        ],
-        "all_referenced_columns": [
-          "id",
-          "name"
         ],
         "deparse_contains": "VALUES (1, 'alice'), (2, 'bob')"
       }
@@ -181,33 +74,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "keywords": [
-          "insert",
-          "into",
-          "select",
-          "from",
-          "where"
-        ],
-        "tables": [
-          "public.user_archive",
-          "public.users"
-        ],
-        "selected_columns": [
-          "id",
-          "name"
-        ],
-        "where_columns": [
-          "status"
-        ],
-        "insert_columns": [
-          "id",
-          "name"
-        ],
-        "all_referenced_columns": [
-          "id",
-          "name",
-          "status"
-        ],
         "deparse_contains": "INSERT INTO public.user_archive"
       }
     },
@@ -218,26 +84,6 @@
         "statement_count": 1,
         "statement_types": [
           "UpdateStmt"
-        ],
-        "keywords": [
-          "update",
-          "set",
-          "where"
-        ],
-        "tables": [
-          "public.users"
-        ],
-        "update_columns": [
-          "name",
-          "status"
-        ],
-        "where_columns": [
-          "id"
-        ],
-        "all_referenced_columns": [
-          "name",
-          "status",
-          "id"
         ],
         "deparse_contains": "UPDATE public.users SET"
       }
@@ -250,23 +96,6 @@
         "statement_types": [
           "DeleteStmt"
         ],
-        "keywords": [
-          "delete",
-          "from",
-          "where",
-          "and"
-        ],
-        "tables": [
-          "public.users"
-        ],
-        "where_columns": [
-          "id",
-          "status"
-        ],
-        "all_referenced_columns": [
-          "id",
-          "status"
-        ],
         "deparse_contains": "DELETE FROM public.users"
       }
     },
@@ -277,24 +106,6 @@
         "statement_count": 1,
         "statement_types": [
           "DeleteStmt"
-        ],
-        "keywords": [
-          "delete",
-          "from",
-          "where",
-          "in",
-          "and"
-        ],
-        "tables": [
-          "public.users"
-        ],
-        "where_columns": [
-          "id",
-          "status"
-        ],
-        "all_referenced_columns": [
-          "id",
-          "status"
         ],
         "deparse_contains": "id IN (1, 2, 3)"
       }
@@ -307,13 +118,6 @@
         "statement_types": [
           "DropStmt"
         ],
-        "keywords": [
-          "drop",
-          "table"
-        ],
-        "tables": [
-          "public.users"
-        ],
         "deparse_contains": "DROP TABLE public.users"
       }
     },
@@ -325,13 +129,6 @@
         "statement_types": [
           "DropStmt"
         ],
-        "keywords": [
-          "drop",
-          "view"
-        ],
-        "tables": [
-          "public.v_users"
-        ],
         "deparse_contains": "DROP VIEW public.v_users"
       }
     },
@@ -342,25 +139,6 @@
         "statement_count": 1,
         "statement_types": [
           "ViewStmt"
-        ],
-        "keywords": [
-          "create",
-          "view",
-          "as",
-          "select",
-          "from"
-        ],
-        "tables": [
-          "public.v_users",
-          "public.users"
-        ],
-        "selected_columns": [
-          "id",
-          "name"
-        ],
-        "all_referenced_columns": [
-          "id",
-          "name"
         ],
         "deparse_contains": "CREATE VIEW public.v_users AS"
       }
@@ -505,10 +283,6 @@
         "statement_types": [
           "TransactionStmt"
         ],
-        "keywords": [
-          "begin",
-          "commit"
-        ],
         "deparse_contains": "BEGIN; COMMIT"
       }
     },
@@ -520,24 +294,6 @@
         "statement_types": [
           "TransactionStmt",
           "InsertStmt"
-        ],
-        "keywords": [
-          "begin",
-          "insert",
-          "into",
-          "values",
-          "rollback"
-        ],
-        "tables": [
-          "public.users"
-        ],
-        "insert_columns": [
-          "id",
-          "name"
-        ],
-        "all_referenced_columns": [
-          "id",
-          "name"
         ],
         "deparse_contains": "ROLLBACK"
       }
@@ -551,23 +307,6 @@
           "SelectStmt",
           "InsertStmt"
         ],
-        "keywords": [
-          "select",
-          "insert",
-          "into",
-          "values"
-        ],
-        "tables": [
-          "public.audit_log"
-        ],
-        "insert_columns": [
-          "id",
-          "action"
-        ],
-        "all_referenced_columns": [
-          "id",
-          "action"
-        ],
         "deparse_contains": "INSERT INTO public.audit_log"
       }
     },
@@ -578,19 +317,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "keywords": [
-          "select",
-          "from"
-        ],
-        "tables": [
-          "\"User\""
-        ],
-        "selected_columns": [
-          "Name"
-        ],
-        "all_referenced_columns": [
-          "Name"
         ],
         "deparse_contains": "SELECT \"User\".\"Name\" FROM \"User\""
       }
@@ -603,10 +329,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "keywords": [
-          "select",
-          "as"
-        ],
         "deparse_contains": "AS token"
       }
     },
@@ -617,24 +339,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "keywords": [
-          "select",
-          "from",
-          "where",
-          "exists",
-          "as"
-        ],
-        "tables": [
-          "public.users",
-          "public.orders"
-        ],
-        "selected_columns": [
-          "id"
-        ],
-        "all_referenced_columns": [
-          "id",
-          "user_id"
         ],
         "deparse_contains": "EXISTS (SELECT 1 FROM public.orders o"
       }
@@ -647,38 +351,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "keywords": [
-          "select",
-          "case",
-          "when",
-          "then",
-          "else",
-          "end",
-          "as",
-          "over",
-          "partition",
-          "order",
-          "by",
-          "from"
-        ],
-        "tables": [
-          "public.payments"
-        ],
-        "selected_columns": [
-          "id",
-          "order_no",
-          "amount",
-          "user_id",
-          "created_at"
-        ],
-        "all_referenced_columns": [
-          "id",
-          "status",
-          "order_no",
-          "amount",
-          "user_id",
-          "created_at"
-        ],
         "deparse_contains": "sum(p.amount) OVER"
       }
     },
@@ -689,19 +361,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "keywords": [
-          "select",
-          "from",
-          "union",
-          "all",
-          "order",
-          "by",
-          "limit"
-        ],
-        "tables": [
-          "public.users",
-          "public.user_archive"
         ],
         "deparse_contains": "UNION ALL SELECT id FROM public.user_archive"
       }
@@ -714,28 +373,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "keywords": [
-          "insert",
-          "into",
-          "values",
-          "on",
-          "conflict",
-          "do",
-          "update",
-          "set",
-          "returning"
-        ],
-        "tables": [
-          "public.users"
-        ],
-        "insert_columns": [
-          "id",
-          "name"
-        ],
-        "all_referenced_columns": [
-          "id",
-          "name"
-        ],
         "deparse_contains": "ON CONFLICT (id) DO UPDATE SET"
       }
     },
@@ -746,23 +383,6 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "keywords": [
-          "insert",
-          "into",
-          "values",
-          "returning"
-        ],
-        "tables": [
-          "public.audit_log"
-        ],
-        "insert_columns": [
-          "id",
-          "action"
-        ],
-        "all_referenced_columns": [
-          "id",
-          "action"
         ],
         "deparse_contains": "RETURNING id, action"
       }
@@ -775,24 +395,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "keywords": [
-          "update",
-          "set",
-          "from",
-          "where",
-          "returning"
-        ],
-        "tables": [
-          "public.users",
-          "public.user_stage"
-        ],
-        "update_columns": [
-          "status"
-        ],
-        "all_referenced_columns": [
-          "status",
-          "id"
-        ],
         "deparse_contains": "FROM public.user_stage src"
       }
     },
@@ -803,20 +405,6 @@
         "statement_count": 1,
         "statement_types": [
           "DeleteStmt"
-        ],
-        "keywords": [
-          "delete",
-          "from",
-          "using",
-          "where",
-          "returning"
-        ],
-        "tables": [
-          "public.users",
-          "public.user_archive"
-        ],
-        "all_referenced_columns": [
-          "id"
         ],
         "deparse_contains": "USING public.user_archive ua"
       }
@@ -829,20 +417,6 @@
         "statement_types": [
           "MergeStmt"
         ],
-        "keywords": [
-          "merge",
-          "into",
-          "using",
-          "on",
-          "when",
-          "matched",
-          "then",
-          "update",
-          "set",
-          "not",
-          "insert",
-          "values"
-        ],
         "deparse_contains": "MERGE INTO public.target_table"
       }
     },
@@ -853,12 +427,6 @@
         "statement_count": 4,
         "statement_types": [
           "TransactionStmt"
-        ],
-        "keywords": [
-          "begin",
-          "savepoint",
-          "release",
-          "commit"
         ],
         "deparse_contains": "RELEASE sp1"
       }
@@ -872,27 +440,6 @@
           "TransactionStmt",
           "InsertStmt"
         ],
-        "keywords": [
-          "begin",
-          "savepoint",
-          "insert",
-          "into",
-          "values",
-          "rollback",
-          "to",
-          "commit"
-        ],
-        "tables": [
-          "public.audit_log"
-        ],
-        "insert_columns": [
-          "id",
-          "action"
-        ],
-        "all_referenced_columns": [
-          "id",
-          "action"
-        ],
         "deparse_contains": "ROLLBACK TO SAVEPOINT sp1"
       }
     },
@@ -903,26 +450,6 @@
         "statement_count": 1,
         "statement_types": [
           "CreateTableAsStmt"
-        ],
-        "keywords": [
-          "create",
-          "materialized",
-          "view",
-          "as",
-          "select",
-          "from"
-        ],
-        "tables": [
-          "public.mv_users",
-          "public.users"
-        ],
-        "selected_columns": [
-          "id",
-          "name"
-        ],
-        "all_referenced_columns": [
-          "id",
-          "name"
         ],
         "deparse_contains": "CREATE MATERIALIZED VIEW public.mv_users AS"
       }
@@ -935,12 +462,6 @@
         "statement_types": [
           "AlterTableStmt"
         ],
-        "keywords": [
-          "alter",
-          "table",
-          "drop",
-          "column"
-        ],
         "deparse_contains": "DROP age"
       }
     },
@@ -951,10 +472,6 @@
         "statement_count": 1,
         "statement_types": [
           "CreateSchemaStmt"
-        ],
-        "keywords": [
-          "create",
-          "schema"
         ],
         "deparse_contains": "CREATE SCHEMA analytics"
       }
@@ -967,10 +484,6 @@
         "statement_types": [
           "DropStmt"
         ],
-        "keywords": [
-          "drop",
-          "schema"
-        ],
         "deparse_contains": "DROP SCHEMA analytics"
       }
     },
@@ -981,16 +494,6 @@
         "statement_count": 1,
         "statement_types": [
           "GrantStmt"
-        ],
-        "keywords": [
-          "grant",
-          "select",
-          "on",
-          "table",
-          "to"
-        ],
-        "tables": [
-          "public.users"
         ],
         "deparse_contains": "GRANT select ON public.users TO analyst"
       }
@@ -1003,16 +506,6 @@
         "statement_types": [
           "GrantStmt"
         ],
-        "keywords": [
-          "revoke",
-          "select",
-          "on",
-          "table",
-          "from"
-        ],
-        "tables": [
-          "public.users"
-        ],
         "deparse_contains": "REVOKE select ON public.users FROM analyst"
       }
     },
@@ -1023,12 +516,6 @@
         "statement_count": 1,
         "statement_types": [
           "VacuumStmt"
-        ],
-        "keywords": [
-          "analyze"
-        ],
-        "tables": [
-          "public.users"
         ],
         "deparse_contains": "ANALYZE public.users"
       }
@@ -1041,13 +528,6 @@
         "statement_types": [
           "VacuumStmt"
         ],
-        "keywords": [
-          "vacuum",
-          "analyze"
-        ],
-        "tables": [
-          "public.users"
-        ],
         "deparse_contains": "VACUUM (ANALYZE) public.users"
       }
     },
@@ -1058,9 +538,6 @@
         "statement_count": 1,
         "statement_types": [
           "VariableSetStmt"
-        ],
-        "keywords": [
-          "set"
         ],
         "deparse_contains": "SET search_path TO app_schema, public"
       }
@@ -1073,9 +550,6 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "keywords": [
-          "set"
-        ],
         "deparse_contains": "SET search_path TO app_schema"
       }
     },
@@ -1086,9 +560,6 @@
         "statement_count": 1,
         "statement_types": [
           "VariableSetStmt"
-        ],
-        "keywords": [
-          "set"
         ],
         "deparse_contains": "SET LOCAL search_path TO app_schema"
       }
@@ -1101,15 +572,6 @@
         "statement_types": [
           "PrepareStmt"
         ],
-        "keywords": [
-          "prepare"
-        ],
-        "tables": [
-          "users"
-        ],
-        "where_columns": [
-          "id"
-        ],
         "deparse_contains": "PREPARE user_by_id"
       }
     },
@@ -1121,9 +583,6 @@
         "statement_types": [
           "ExecuteStmt"
         ],
-        "keywords": [
-          "execute"
-        ],
         "deparse_contains": "EXECUTE user_by_id(42)"
       }
     },
@@ -1134,9 +593,6 @@
         "statement_count": 1,
         "statement_types": [
           "DeallocateStmt"
-        ],
-        "keywords": [
-          "deallocate"
         ],
         "deparse_contains": "DEALLOCATE user_by_id"
       }
@@ -1150,14 +606,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "keywords": [
-          "select",
-          "as",
-          "from"
-        ],
-        "tables": [
-          "dual"
-        ],
         "deparse_contains": "'Bob''s order'"
       }
     },
@@ -1169,27 +617,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "keywords": [
-          "select",
-          "from",
-          "where",
-          "order",
-          "by"
-        ],
-        "tables": [
-          "dbo.users"
-        ],
-        "selected_columns": [
-          "id",
-          "name"
-        ],
-        "where_columns": [
-          "id"
-        ],
-        "all_referenced_columns": [
-          "id",
-          "name"
         ],
         "deparse_contains": "TOP (3)"
       }
@@ -1204,31 +631,6 @@
           "VariableSetStmt",
           "SelectStmt"
         ],
-        "keywords": [
-          "alter",
-          "session",
-          "set",
-          "select",
-          "from",
-          "where",
-          "order",
-          "by",
-          "limit"
-        ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "id",
-          "name"
-        ],
-        "where_columns": [
-          "id"
-        ],
-        "all_referenced_columns": [
-          "id",
-          "name"
-        ],
         "deparse_contains": ":id"
       }
     },
@@ -1239,46 +641,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "keywords": [
-          "select",
-          "from",
-          "where"
-        ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "id",
-          "name"
-        ],
-        "where_columns": [
-          "id",
-          "status"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "id",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 1,
-            "bind_sql": "$1",
-            "value_is_null": true,
-            "bind_key": "1",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "name": "status",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 1,
-            "bind_sql": "$2",
-            "value_is_null": true,
-            "bind_key": "2",
-            "bind_position": 2
-          }
         ],
         "deparse_contains": "$2"
       }
@@ -1291,56 +653,17 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "keywords": [
-          "select",
-          "from",
-          "where"
-        ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "id"
-        ],
-        "where_columns": [
-          "status"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "status",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 1,
-            "bind_sql": "$1",
-            "value_is_null": true,
-            "bind_key": "1",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "name": "status",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 1,
-            "bind_sql": "$2",
-            "value_is_null": true,
-            "bind_key": "2",
-            "bind_position": 2
-          },
-          {
-            "table": "users",
-            "name": "status",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 1,
-            "bind_sql": "$3",
-            "value_is_null": true,
-            "bind_key": "3",
-            "bind_position": 3
-          }
-        ],
-        "deparse_contains": "$3"
+        "deparse_contains": "$3",
+        "view_contains": [
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"status\"",
+          "\"operator\":\"IN\",\"field\":1,\"kind\":\"bind\"",
+          "\"bind_sql\":\"$1\"",
+          "\"bind_position\":1",
+          "\"bind_sql\":\"$2\"",
+          "\"bind_position\":2",
+          "\"bind_sql\":\"$3\"",
+          "\"bind_position\":3"
+        ]
       }
     },
     {
@@ -1351,48 +674,15 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "keywords": [
-          "select",
-          "from",
-          "where",
-          "between"
-        ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "id"
-        ],
-        "where_columns": [
-          "age"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "age",
-            "keyword": "where",
-            "clause_kind": "where",
-            "operator": "BETWEEN",
-            "bind_kind": 1,
-            "bind_sql": "$1",
-            "value_is_null": true,
-            "bind_key": "1",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "name": "age",
-            "keyword": "where",
-            "clause_kind": "where",
-            "operator": "BETWEEN",
-            "bind_kind": 1,
-            "bind_sql": "$2",
-            "value_is_null": true,
-            "bind_key": "2",
-            "bind_position": 2
-          }
-        ],
-        "deparse_contains": "$2"
+        "deparse_contains": "$2",
+        "view_contains": [
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
+          "\"operator\":\"BETWEEN\",\"field\":1,\"kind\":\"bind\"",
+          "\"bind_sql\":\"$1\"",
+          "\"bind_position\":1",
+          "\"bind_sql\":\"$2\"",
+          "\"bind_position\":2"
+        ]
       }
     },
     {
@@ -1403,49 +693,15 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "keywords": [
-          "select",
-          "from",
-          "where",
-          "not",
-          "in"
-        ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "id"
-        ],
-        "where_columns": [
-          "status"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "status",
-            "keyword": "where",
-            "clause_kind": "where",
-            "operator": "NOT IN",
-            "bind_kind": 1,
-            "bind_sql": "$1",
-            "value_is_null": true,
-            "bind_key": "1",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "name": "status",
-            "keyword": "where",
-            "clause_kind": "where",
-            "operator": "NOT IN",
-            "bind_kind": 1,
-            "bind_sql": "$2",
-            "value_is_null": true,
-            "bind_key": "2",
-            "bind_position": 2
-          }
-        ],
-        "deparse_contains": "$2"
+        "deparse_contains": "$2",
+        "view_contains": [
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"status\"",
+          "\"operator\":\"NOT IN\",\"field\":1,\"kind\":\"bind\"",
+          "\"bind_sql\":\"$1\"",
+          "\"bind_position\":1",
+          "\"bind_sql\":\"$2\"",
+          "\"bind_position\":2"
+        ]
       }
     },
     {
@@ -1456,49 +712,15 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "keywords": [
-          "select",
-          "from",
-          "where",
-          "not",
-          "between"
-        ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "id"
-        ],
-        "where_columns": [
-          "age"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "age",
-            "keyword": "where",
-            "clause_kind": "where",
-            "operator": "NOT BETWEEN",
-            "bind_kind": 1,
-            "bind_sql": "$1",
-            "value_is_null": true,
-            "bind_key": "1",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "name": "age",
-            "keyword": "where",
-            "clause_kind": "where",
-            "operator": "NOT BETWEEN",
-            "bind_kind": 1,
-            "bind_sql": "$2",
-            "value_is_null": true,
-            "bind_key": "2",
-            "bind_position": 2
-          }
-        ],
-        "deparse_contains": "$2"
+        "deparse_contains": "$2",
+        "view_contains": [
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
+          "\"operator\":\"NOT BETWEEN\",\"field\":1,\"kind\":\"bind\"",
+          "\"bind_sql\":\"$1\"",
+          "\"bind_position\":1",
+          "\"bind_sql\":\"$2\"",
+          "\"bind_position\":2"
+        ]
       }
     },
     {
@@ -1508,36 +730,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "keywords": [
-          "select",
-          "from",
-          "where",
-          "order",
-          "by",
-          "limit"
-        ],
-        "tables": [
-          "users"
-        ],
-        "selected_columns": [
-          "id"
-        ],
-        "where_columns": [
-          "name"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "name",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 1,
-            "bind_sql": "$1",
-            "value_is_null": true,
-            "bind_key": "1",
-            "bind_position": 1
-          }
         ],
         "deparse_contains": "$3"
       }
@@ -1550,51 +742,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "keywords": [
-          "insert",
-          "into",
-          "values"
-        ],
-        "tables": [
-          "users"
-        ],
-        "insert_columns": [
-          "id",
-          "name",
-          "status"
-        ],
-        "cells": [
-          {
-            "table": "users",
-            "row_index": 0,
-            "column_index": 0,
-            "column": "id",
-            "bind_kind": 1,
-            "bind_sql": "$1",
-            "bind_key": "1",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "row_index": 0,
-            "column_index": 1,
-            "column": "name",
-            "bind_kind": 1,
-            "bind_sql": "$2",
-            "bind_key": "2",
-            "bind_position": 2
-          },
-          {
-            "table": "users",
-            "row_index": 0,
-            "column_index": 2,
-            "column": "status",
-            "bind_kind": 1,
-            "bind_sql": "$3",
-            "bind_key": "3",
-            "bind_position": 3
-          }
-        ],
         "deparse_contains": "$3"
       }
     },
@@ -1605,60 +752,6 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "keywords": [
-          "insert",
-          "into",
-          "values"
-        ],
-        "tables": [
-          "users"
-        ],
-        "insert_columns": [
-          "id",
-          "name"
-        ],
-        "cells": [
-          {
-            "table": "users",
-            "row_index": 0,
-            "column_index": 0,
-            "column": "id",
-            "bind_kind": 1,
-            "bind_sql": "$1",
-            "bind_key": "1",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "row_index": 0,
-            "column_index": 1,
-            "column": "name",
-            "bind_kind": 1,
-            "bind_sql": "$2",
-            "bind_key": "2",
-            "bind_position": 2
-          },
-          {
-            "table": "users",
-            "row_index": 1,
-            "column_index": 0,
-            "column": "id",
-            "bind_kind": 1,
-            "bind_sql": "$3",
-            "bind_key": "3",
-            "bind_position": 3
-          },
-          {
-            "table": "users",
-            "row_index": 1,
-            "column_index": 1,
-            "column": "name",
-            "bind_kind": 1,
-            "bind_sql": "$4",
-            "bind_key": "4",
-            "bind_position": 4
-          }
         ],
         "deparse_contains": "$4"
       }
@@ -1671,57 +764,19 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "keywords": [
-          "update",
-          "set",
-          "where"
-        ],
-        "tables": [
-          "users"
-        ],
-        "update_columns": [
-          "name",
-          "status"
-        ],
-        "where_columns": [
-          "id"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "name",
-            "keyword": "set",
-            "clause_kind": "set_list",
-            "bind_kind": 1,
-            "bind_sql": "$1",
-            "value_is_null": true,
-            "bind_key": "1",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "name": "status",
-            "keyword": "set",
-            "clause_kind": "set_list",
-            "bind_kind": 1,
-            "bind_sql": "$2",
-            "value_is_null": true,
-            "bind_key": "2",
-            "bind_position": 2
-          },
-          {
-            "table": "users",
-            "name": "id",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 1,
-            "bind_sql": "$3",
-            "value_is_null": true,
-            "bind_key": "3",
-            "bind_position": 3
-          }
-        ],
-        "deparse_contains": "$3"
+        "deparse_contains": "$3",
+        "view_contains": [
+          "\"kind\":\"update\"",
+          "\"clause\":\"set_list\",\"relation\":0,\"column\":\"name\"",
+          "\"clause\":\"set_list\",\"relation\":0,\"column\":\"status\"",
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"id\"",
+          "\"bind_sql\":\"$1\"",
+          "\"bind_position\":1",
+          "\"bind_sql\":\"$2\"",
+          "\"bind_position\":2",
+          "\"bind_sql\":\"$3\"",
+          "\"bind_position\":3"
+        ]
       }
     },
     {
@@ -1732,43 +787,16 @@
         "statement_types": [
           "DeleteStmt"
         ],
-        "keywords": [
-          "delete",
-          "from",
-          "where"
-        ],
-        "tables": [
-          "users"
-        ],
-        "where_columns": [
-          "id",
-          "status"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "id",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 1,
-            "bind_sql": "$1",
-            "value_is_null": true,
-            "bind_key": "1",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "name": "status",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 1,
-            "bind_sql": "$2",
-            "value_is_null": true,
-            "bind_key": "2",
-            "bind_position": 2
-          }
-        ],
-        "deparse_contains": "$2"
+        "deparse_contains": "$2",
+        "view_contains": [
+          "\"kind\":\"delete\"",
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"id\"",
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"status\"",
+          "\"bind_sql\":\"$1\"",
+          "\"bind_position\":1",
+          "\"bind_sql\":\"$2\"",
+          "\"bind_position\":2"
+        ]
       }
     },
     {
@@ -1778,12 +806,6 @@
         "statement_count": 1,
         "statement_types": [
           "PrepareStmt"
-        ],
-        "keywords": [
-          "prepare"
-        ],
-        "tables": [
-          "users"
         ],
         "deparse_contains": "PREPARE insert_user"
       }
@@ -1796,15 +818,6 @@
         "statement_types": [
           "PrepareStmt"
         ],
-        "keywords": [
-          "prepare"
-        ],
-        "tables": [
-          "users"
-        ],
-        "where_columns": [
-          "id"
-        ],
         "deparse_contains": "PREPARE update_user"
       }
     },
@@ -1815,15 +828,6 @@
         "statement_count": 1,
         "statement_types": [
           "PrepareStmt"
-        ],
-        "keywords": [
-          "prepare"
-        ],
-        "tables": [
-          "users"
-        ],
-        "where_columns": [
-          "id"
         ],
         "deparse_contains": "PREPARE delete_user"
       }
@@ -1836,9 +840,6 @@
         "statement_types": [
           "ExecuteStmt"
         ],
-        "keywords": [
-          "execute"
-        ],
         "deparse_contains": "EXECUTE insert_user(1, 'bob')"
       }
     },
@@ -1850,9 +851,6 @@
         "statement_types": [
           "DeallocateStmt"
         ],
-        "keywords": [
-          "deallocate"
-        ],
         "deparse_contains": "DEALLOCATE ALL"
       }
     },
@@ -1863,16 +861,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "name",
-            "keyword": "select",
-            "clause_kind": "select_list",
-            "target_path": [],
-            "value_is_null": true
-          }
         ]
       }
     },
@@ -1883,23 +871,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "tables": [
-          "public.users"
-        ],
-        "columns": [
-          {
-            "table": "public.users",
-            "name": "*",
-            "keyword": "select",
-            "clause_kind": "select_list"
-          },
-          {
-            "table": "public.users",
-            "name": "id",
-            "keyword": "select",
-            "clause_kind": "select_list"
-          }
         ]
       }
     },
@@ -1910,65 +881,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "first_name",
-            "keyword": "select",
-            "clause_kind": "select_list",
-            "target_path": [
-              {
-                "kind": "function",
-                "name": "CONCAT",
-                "arg_index": 0
-              },
-              {
-                "kind": "function",
-                "name": "UPPER",
-                "arg_index": 0
-              }
-            ]
-          },
-          {
-            "table": "users",
-            "name": "last_name",
-            "keyword": "select",
-            "clause_kind": "select_list",
-            "target_path": [
-              {
-                "kind": "function",
-                "name": "CONCAT",
-                "arg_index": 1
-              }
-            ]
-          },
-          {
-            "table": "users",
-            "name": "nickname",
-            "keyword": "select",
-            "clause_kind": "select_list",
-            "target_path": [
-              {
-                "kind": "function",
-                "name": "COALESCE",
-                "arg_index": 0
-              }
-            ]
-          },
-          {
-            "table": "users",
-            "name": "age",
-            "keyword": "select",
-            "clause_kind": "select_list",
-            "target_path": [
-              {
-                "kind": "function",
-                "name": "CAST",
-                "arg_index": 0
-              }
-            ]
-          }
         ]
       }
     },
@@ -1979,34 +891,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "keywords": [
-          "select",
-          "distinct",
-          "from"
-        ],
-        "tables": [
-          "table1"
-        ],
-        "columns": [
-          {
-            "table": "table1",
-            "name": "name",
-            "keyword": "select",
-            "clause_kind": "select_list",
-            "target_path": [
-              {
-                "kind": "function",
-                "name": "LOW",
-                "arg_index": 0
-              },
-              {
-                "kind": "function",
-                "name": "UPPER",
-                "arg_index": 0
-              }
-            ]
-          }
         ]
       }
     },
@@ -2017,51 +901,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "first_name",
-            "keyword": "select",
-            "clause_kind": "select_list",
-            "target_path": [
-              {
-                "kind": "expression",
-                "name": "||",
-                "arg_index": 0
-              }
-            ]
-          },
-          {
-            "table": "users",
-            "name": "name",
-            "keyword": "select",
-            "clause_kind": "select_list",
-            "target_path": [
-              {
-                "kind": "expression",
-                "name": "||",
-                "arg_index": 0
-              },
-              {
-                "kind": "function",
-                "name": "UPPER",
-                "arg_index": 0
-              }
-            ]
-          },
-          {
-            "table": "users",
-            "name": "state",
-            "keyword": "select",
-            "clause_kind": "select_list"
-          },
-          {
-            "table": "users",
-            "name": "fallback_name",
-            "keyword": "select",
-            "clause_kind": "select_list"
-          }
         ]
       }
     },
@@ -2072,36 +911,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "clauses": [
-          {
-            "kind": "group_by",
-            "selector_is_null": true
-          },
-          {
-            "kind": "having",
-            "selector_is_null": true
-          }
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "dept",
-            "keyword": "group",
-            "clause_kind": "group_by"
-          },
-          {
-            "table": "users",
-            "name": "id",
-            "keyword": "having",
-            "clause_kind": "having"
-          },
-          {
-            "table": "users",
-            "name": "dept",
-            "keyword": "order",
-            "clause_kind": "order_by"
-          }
         ]
       }
     },
@@ -2112,34 +921,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "clauses": [
-          {
-            "kind": "on",
-            "selector_is_null": true
-          }
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "id",
-            "keyword": "on",
-            "clause_kind": "on",
-            "operator": "="
-          },
-          {
-            "table": "orders",
-            "name": "user_id",
-            "keyword": "on",
-            "clause_kind": "on"
-          },
-          {
-            "table": "orders",
-            "name": "status",
-            "keyword": "where",
-            "clause_kind": "where",
-            "operator": "="
-          }
         ]
       }
     },
@@ -2150,71 +931,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "amount",
-            "keyword": "select",
-            "clause_kind": "select_list",
-            "target_path": [
-              {
-                "kind": "function",
-                "name": "SUM",
-                "arg_index": 0
-              }
-            ]
-          },
-          {
-            "table": "users",
-            "name": "dept",
-            "keyword": "select",
-            "clause_kind": "select_list",
-            "target_path": [
-              {
-                "kind": "expression",
-                "name": "window_partition",
-                "arg_index": 0
-              }
-            ]
-          },
-          {
-            "table": "users",
-            "name": "created_at",
-            "keyword": "select",
-            "clause_kind": "select_list",
-            "target_path": [
-              {
-                "kind": "expression",
-                "name": "window_order",
-                "arg_index": 0
-              }
-            ]
-          },
-          {
-            "table": "users",
-            "name": "id",
-            "keyword": "select",
-            "clause_kind": "select_list"
-          },
-          {
-            "table": "users",
-            "name": "age",
-            "keyword": "select",
-            "clause_kind": "select_list"
-          },
-          {
-            "table": "users",
-            "name": "name",
-            "keyword": "select",
-            "clause_kind": "select_list"
-          },
-          {
-            "table": "users",
-            "name": "active",
-            "keyword": "select",
-            "clause_kind": "select_list"
-          }
         ]
       }
     },
@@ -2225,30 +941,6 @@
         "statement_count": 1,
         "statement_types": [
           "UpdateStmt"
-        ],
-        "columns": [
-          {
-            "table": "servers",
-            "name": "ip",
-            "keyword": "set",
-            "clause_kind": "set_list",
-            "bind_kind": 1,
-            "bind_sql": "$1",
-            "value_is_null": true,
-            "bind_key": "1",
-            "bind_position": 1
-          },
-          {
-            "table": "servers",
-            "name": "id",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 1,
-            "bind_sql": "$2",
-            "value_is_null": true,
-            "bind_key": "2",
-            "bind_position": 2
-          }
         ],
         "view_not_contains": [
           "\"sql\":\"$1\"",
@@ -2264,27 +956,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "name",
-            "keyword": "where",
-            "clause_kind": "where",
-            "operator": "NOT LIKE",
-            "bind_kind": 1,
-            "bind_sql": "$1",
-            "value_is_null": true,
-            "bind_key": "1",
-            "bind_position": 1
-          }
-        ],
-        "keywords": [
-          "not",
-          "like"
-        ],
         "view_not_contains": [
           "\"sql\":\"$1\""
         ]
@@ -2297,27 +968,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "tables": [
-          "users"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "name",
-            "keyword": "where",
-            "clause_kind": "where",
-            "operator": "NOT ILIKE",
-            "bind_kind": 1,
-            "bind_sql": "$1",
-            "value_is_null": true,
-            "bind_key": "1",
-            "bind_position": 1
-          }
-        ],
-        "keywords": [
-          "not",
-          "ilike"
         ],
         "view_not_contains": [
           "\"sql\":\"$1\""
@@ -2332,27 +982,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "tables": [
-          "users"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "name",
-            "keyword": "where",
-            "clause_kind": "where",
-            "operator": "NOT SIMILAR TO",
-            "bind_kind": 1,
-            "bind_sql": "$1",
-            "value_is_null": true,
-            "bind_key": "1",
-            "bind_position": 1
-          }
-        ],
-        "keywords": [
-          "not",
-          "similar"
-        ],
         "view_not_contains": [
           "\"sql\":\"$1\""
         ]
@@ -2366,13 +995,6 @@
         "statement_types": [
           "CreateStmt"
         ],
-        "keywords": [
-          "create",
-          "table"
-        ],
-        "tables": [
-          "public.secure_users"
-        ],
         "deparse_contains": "CREATE TABLE IF NOT EXISTS public.secure_users"
       }
     },
@@ -2383,36 +1005,6 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "keywords": [
-          "insert",
-          "into",
-          "values"
-        ],
-        "tables": [
-          "public.users"
-        ],
-        "cells": [
-          {
-            "table": "public.users",
-            "row_index": 0,
-            "column_index": 0,
-            "column": null,
-            "bind_kind": 1,
-            "bind_sql": "$1",
-            "bind_key": "1",
-            "bind_position": 1
-          },
-          {
-            "table": "public.users",
-            "row_index": 0,
-            "column_index": 2,
-            "column": null,
-            "bind_kind": 1,
-            "bind_sql": "$3",
-            "bind_key": "3",
-            "bind_position": 3
-          }
         ],
         "deparse_contains": "VALUES ($1, $2, $3)"
       }
@@ -2425,43 +1017,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "keywords": [
-          "update",
-          "set",
-          "where",
-          "in",
-          "not"
-        ],
-        "tables": [
-          "public.users"
-        ],
-        "update_columns": [
-          "status"
-        ],
-        "where_columns": [
-          "phone",
-          "email"
-        ],
-        "columns": [
-          {
-            "table": "public.users",
-            "name": "status",
-            "keyword": "set",
-            "clause_kind": "set_list",
-            "bind_kind": 1,
-            "bind_sql": "$1",
-            "value_is_null": true,
-            "bind_key": "1",
-            "bind_position": 1
-          },
-          {
-            "table": "public.users",
-            "name": "email",
-            "keyword": "where",
-            "clause_kind": "where",
-            "operator": "NOT IN"
-          }
-        ],
         "deparse_contains": "NOT IN ($4, $5)"
       }
     },
@@ -2472,25 +1027,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "keywords": [
-          "select",
-          "from",
-          "where",
-          "between",
-          "like"
-        ],
-        "tables": [
-          "public.users"
-        ],
-        "selected_columns": [
-          "id",
-          "phone"
-        ],
-        "where_columns": [
-          "phone",
-          "amount",
-          "name"
         ],
         "deparse_contains": "BETWEEN $1 AND $2"
       }
@@ -2503,23 +1039,18 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "keywords": [
-          "select",
-          "from",
-          "where"
-        ],
-        "tables": [
-          "public.users"
-        ],
-        "selected_columns": [
-          "id",
-          "phone"
-        ],
-        "where_columns": [
-          "status",
-          "phone"
-        ],
         "deparse_contains": "FROM (SELECT id, phone FROM public.users"
+      }
+    },
+    {
+      "name": "postgresql-select-nested-derived-query-graph",
+      "sql": "SELECT s.name AS outer_name FROM (SELECT x.name FROM (SELECT name FROM public.aaa WHERE age <= 18) x WHERE x.name IS NOT NULL) s",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "outer_name"
       }
     },
     {
@@ -2529,22 +1060,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "keywords": [
-          "select",
-          "from",
-          "where"
-        ],
-        "tables": [
-          "public.users",
-          "public.orders"
-        ],
-        "selected_columns": [
-          "id"
-        ],
-        "where_columns": [
-          "user_id",
-          "phone"
         ],
         "deparse_contains": "SELECT count(*)"
       }
@@ -2557,18 +1072,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "keywords": [
-          "select",
-          "from",
-          "intersect"
-        ],
-        "tables": [
-          "public.users",
-          "public.contacts"
-        ],
-        "selected_columns": [
-          "phone"
-        ],
         "deparse_contains": "INTERSECT"
       }
     },
@@ -2579,26 +1082,6 @@
         "statement_count": 1,
         "statement_types": [
           "ViewStmt"
-        ],
-        "keywords": [
-          "create",
-          "view",
-          "select",
-          "join",
-          "group",
-          "by"
-        ],
-        "tables": [
-          "public.v_user_order_count",
-          "public.users",
-          "public.orders"
-        ],
-        "selected_columns": [
-          "id"
-        ],
-        "join_columns": [
-          "id",
-          "user_id"
         ],
         "deparse_contains": "CREATE VIEW public.v_user_order_count AS"
       }
@@ -2611,19 +1094,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "keywords": [
-          "select",
-          "from",
-          "order",
-          "by"
-        ],
-        "tables": [
-          "public.users"
-        ],
-        "selected_columns": [
-          "id",
-          "phone"
-        ],
         "deparse_contains": "ORDER BY 1"
       }
     },
@@ -2635,21 +1105,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "keywords": [
-          "select",
-          "from",
-          "where"
-        ],
-        "tables": [
-          "User Info"
-        ],
-        "selected_columns": [
-          "IdCard",
-          "Phone Number"
-        ],
-        "where_columns": [
-          "Phone Number"
-        ],
         "deparse_contains": "\"Phone Number\" = $1"
       }
     },
@@ -2660,38 +1115,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "keywords": [
-          "select",
-          "from",
-          "where"
-        ],
-        "tables": [
-          "public.users"
-        ],
-        "columns": [
-          {
-            "table": "public.users",
-            "name": "id",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 1,
-            "bind_sql": "$1",
-            "value_is_null": true,
-            "bind_key": "1",
-            "bind_position": 1
-          },
-          {
-            "table": "public.users",
-            "name": "name",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 1,
-            "bind_sql": "$2",
-            "value_is_null": true,
-            "bind_key": "2",
-            "bind_position": 2
-          }
         ]
       }
     },
@@ -2703,57 +1126,347 @@
         "statement_types": [
           "UpdateStmt",
           "UpdateStmt"
-        ],
-        "tables": [
-          "users"
-        ],
-        "columns": [
-          {
-            "table": "users",
-            "name": "a",
-            "keyword": "set",
-            "clause_kind": "set_list",
-            "bind_kind": 1,
-            "bind_sql": "$1",
-            "value_is_null": true,
-            "bind_key": "1",
-            "bind_position": 1
-          },
-          {
-            "table": "users",
-            "name": "b",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 1,
-            "bind_sql": "$2",
-            "value_is_null": true,
-            "bind_key": "2",
-            "bind_position": 2
-          },
-          {
-            "statement_index": 1,
-            "table": "users",
-            "name": "c",
-            "keyword": "set",
-            "clause_kind": "set_list",
-            "bind_kind": 1,
-            "bind_sql": "$3",
-            "value_is_null": true,
-            "bind_key": "3",
-            "bind_position": 3
-          },
-          {
-            "statement_index": 1,
-            "table": "users",
-            "name": "d",
-            "keyword": "where",
-            "clause_kind": "where",
-            "bind_kind": 1,
-            "bind_sql": "$4",
-            "value_is_null": true,
-            "bind_key": "4",
-            "bind_position": 4
-          }
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-001",
+      "sql": "SELECT id, name, age FROM users;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-004",
+      "sql": "SELECT * FROM employees;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-005",
+      "sql": "SELECT u.id AS user_id, u.name AS user_name FROM users u;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-007",
+      "sql": "SELECT * FROM products WHERE price > 100 AND category = 'Electronics';",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-009",
+      "sql": "SELECT name, price FROM products ORDER BY price DESC, name ASC;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-011",
+      "sql": "SELECT DISTINCT department FROM employees;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-013",
+      "sql": "SELECT a.id, a.name FROM (SELECT id, name FROM users WHERE active = 1) a;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-015",
+      "sql": "SELECT id, name FROM (SELECT name, id, age FROM users);",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-017",
+      "sql": "SELECT * FROM orders o WHERE EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id = o.id);",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-018",
+      "sql": "SELECT * FROM products WHERE category_id IN (SELECT id FROM categories WHERE active = 1);",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-019",
+      "sql": "SELECT id, name, (SELECT COUNT(*) FROM orders WHERE user_id = u.id) AS order_count FROM users u;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-020",
+      "sql": "SELECT id, name, (SELECT product_id FROM orders WHERE user_id = u.id) AS product_id FROM users u;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-021",
+      "sql": "SELECT b.* FROM (SELECT a.* FROM (SELECT id, name FROM users) a WHERE id > 10) b WHERE name LIKE 'A%';",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-030",
+      "sql": "SELECT * FROM ( SELECT t1.*, (SELECT COUNT(*) FROM table2 t2 WHERE t2.id = t1.id AND t2.col = (SELECT MAX(col) FROM table3 WHERE table3.ref = t1.ref) ) as cnt FROM table1 t1 ) sub;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-031",
+      "sql": "SELECT u.name, o.order_date FROM users u INNER JOIN orders o ON u.id = o.user_id;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-032",
+      "sql": "SELECT d.name, COUNT(e.id) FROM departments d LEFT JOIN employees e ON d.id = e.dept_id GROUP BY d.name;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-034",
+      "sql": "SELECT c.name, o.amount FROM customers c RIGHT JOIN orders o ON c.id = o.customer_id;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-035",
+      "sql": "SELECT a.id, b.value FROM table_a a LEFT JOIN table_b b ON a.key = b.key;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-036",
+      "sql": "SELECT u.name, p.product_name, o.quantity FROM users u JOIN orders o ON u.id = o.user_id JOIN products p ON o.product_id = p.id;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-037",
+      "sql": "SELECT * FROM table1 t1 JOIN table2 t2 ON t1.id = t2.ref_id AND t1.status = 'active';",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-038",
+      "sql": "SELECT u.name, sq.user_id, sq.total FROM users u JOIN (SELECT user_id, SUM(amount) as total FROM orders GROUP BY user_id) sq ON u.id = sq.user_id;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-039",
+      "sql": "SELECT id, name FROM active_users UNION ALL SELECT NULL as id, name FROM inactive_users;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-040",
+      "sql": "SELECT u1.id, u1.name FROM active_users u1 UNION ALL SELECT NULL as id, name FROM inactive_users;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-041",
+      "sql": "SELECT product_id FROM orders_2023 UNION SELECT product_id FROM orders_2024;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-042",
+      "sql": "SELECT id, name, status FROM users WHERE active = 1 UNION SELECT id, name, 'inactive' as status FROM user WHERE active = 0 ORDER BY name;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-043",
+      "sql": "SELECT * FROM table_a UNION ALL SELECT * FROM table_b UNION ALL SELECT * FROM table_c;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-046",
+      "sql": "SELECT a.*, b.wenjiansxmc FROM ( SELECT x.zxsq_wj_xxgx_t_rid, x.zhengmingwjid AS zmwj_key, x.zhengmingwjdm, x.wenjiansxbm, x.fujiawjmc AS wenjianysmc, x.fujianwjsm AS wenjiansm, x.wenjianlybj, x.create_time AS chuangjiansj, z.wenjianfwqlj, z.futubj, x.yewulxbm, x.wenjianywbm FROM zxsq_wj_xxgx_t x LEFT JOIN zxsq_zmwj_t z ON x.zhengmingwjid = z.zxsq_zmwj_t_rid LEFT JOIN zxsq_dzsqqqjl_cg_t c ON x.dianzisqajbh = c.dianzisqajbh WHERE x.del_flag = '0' AND (z.del_flag = '0' OR z.del_flag IS NULL) AND x.zhengmingwjbm != '123456' AND x.zhubiaom = '789' AND x.yewulxbm = '1011' AND c.create_user_jgdm = '1213' AND x.wenjianywbm = '11' ) a LEFT JOIN zxsq_fjwjywdz_t b ON a.wenjiansxbm = b.wenjiansxbm AND a.yewulxbm = b.yewulxbm;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-reference-047",
+      "sql": "SELECT a.*, b.wenjiansxmc FROM ( SELECT x.zxsq_wj_xxgx_t_rid, x.zxsq_zmwj_t_rid AS zmwj_key, x.zhengmingwjdm, x.wenjiansxbm, x.fujiawjmc AS wenjianysmc, x.fujianwjsm AS wenjiansm, x.wenjianlybj, x.create_time AS chuangjiansj, z.wenjianfwqlj, z.futubj, x.yewulxbm, x.wenjianywbm FROM zxsq_wj_xxgx_t x LEFT JOIN zxsq_zmwj_t z ON x.zhengmingwjid = z.zxsq_zmwj_t_rid LEFT JOIN zxsq_dzsqqqjl_cg_t c ON x.dianzisqajbh = c.dianzisqajbh WHERE x.del_flag = '0' AND (z.del_flag = '0' OR z.del_flag IS NULL) AND x.zhengmingwjbm != '123456' AND x.zhubiaom = '789' AND x.yewulxbm = '1011' AND c.create_user_jgdm = '1213' AND x.wenjianywbm = '11' ) a LEFT JOIN zxsq_fjwjywdz_t b ON a.wenjiansxbm = b.wenjiansxbm AND a.yewulxbm = b.yewulxbm UNION SELECT NULL AS zxsq_wj_xxgx_t_rid, z.zxsq_zmwj_t_rid AS zmwj_key, z.zhengmingwjdm, z.wenjiansxbm, z.wenjianysmc, z.wenjiansm, z.wenjianscfs AS wenjianlybj, NULL AS chuangjiansj, z.wenjianfwqlj, z.futubj, NULL AS yewulxbm, NULL AS wenjianywbm, NULL AS wenjiansxmc FROM zxsq_zmwj_t z WHERE z.del_flag = '0' AND z.zxsq_zmwj_t_rid = '';",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-nested-join-derived-query-graph",
+      "sql": "SELECT s.name AS outer_name FROM public.left_t l JOIN (public.mid_t m JOIN (SELECT id, name FROM public.aaa WHERE age <= 18) s ON s.id = m.id) ON m.id = l.id WHERE s.name IS NOT NULL",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-union-derived-scope",
+      "sql": "SELECT a FROM (SELECT * FROM abc) UNION ALL SELECT b FROM (SELECT * FROM ttt)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-unqualified-multi-table-scope",
+      "sql": "SELECT id FROM users u JOIN orders o ON u.id = o.user_id WHERE id = 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
         ]
       }
     },

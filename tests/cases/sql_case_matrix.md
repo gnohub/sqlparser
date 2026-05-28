@@ -12,7 +12,7 @@
 
 | 用例 ID | 用例名称 | 语句形态 | 验证重点 |
 | --- | --- | --- | --- |
-| P001 | `select-basic` | `SELECT 1` | parse、SQL View JSON、deparse |
+| P001 | `select-basic` | `SELECT 1` | parse、View JSON、deparse |
 | P002 | `select-filter` | `SELECT ... FROM ... WHERE ...` | 查询列、过滤列、表名提取 |
 | P003 | `select-join` | `SELECT ... JOIN ... ON ... WHERE ...` | 多表 JOIN、查询列、关联列、条件列 |
 | P004 | `select-cte` | `WITH ... SELECT ...` | CTE 名称、外层查询列、上游过滤列 |
@@ -84,11 +84,11 @@
 | P067 | `postgresql-prepare-delete` | `PREPARE ... AS DELETE ...` | prepared delete 语句和条件参数 |
 | P068 | `postgresql-execute-prepared-with-args` | `EXECUTE ...(...)` | prepared statement 执行参数 |
 | P069 | `postgresql-deallocate-all` | `DEALLOCATE ALL` | 释放所有 prepared statements |
-| P070 | `postgresql-view-direct-column` | `SELECT name FROM ...` | SELECT 直接输出列、`clause_id` 和空 `target_path` |
+| P070 | `postgresql-view-direct-column` | `SELECT name FROM ...` | SELECT 直接输出列、`query_graph` target 和空 `target_path` |
 | P071 | `postgresql-view-star-qualified-star` | `SELECT *, alias.* FROM ...` | 未限定星号、限定星号和输出项归属 |
 | P072 | `postgresql-view-functions-and-args` | `SELECT function(column, ...) FROM ...` | 函数输出 `target_path`、函数名和参数序号 |
 | P073 | `postgresql-view-expressions-and-case` | `SELECT expression, CASE ... FROM ...` | 表达式输出 `target_path`、操作符和 `CASE` 输出归属 |
-| P074 | `postgresql-view-group-having-order` | `GROUP BY ... HAVING ... ORDER BY ...` | 非输出子句字段的 `clause_id` 和空 `target_path` |
+| P074 | `postgresql-view-group-having-order` | `GROUP BY ... HAVING ... ORDER BY ...` | 非输出子句字段的 `query_graph` clause 和空 `target_path` |
 | P075 | `postgresql-view-distinct-nested-functions` | `SELECT DISTINCT LOW(UPPER(...)) FROM ...` | `DISTINCT` 关键字和从外到内的嵌套函数 `target_path` |
 | P076 | `postgresql-view-join-on` | `JOIN ... ON ... WHERE ...` | JOIN/ON 字段、WHERE bind 和表字段归属 |
 | P077 | `postgresql-view-window-array-row-tests` | 窗口、数组、ROW、布尔/NULL 表达式 | 窗口函数、复合表达式和只读子句的 `target_path` |
@@ -108,11 +108,43 @@
 | P091 | `postgresql-select-quoted-mixed-identifiers` | 双引号混合大小写 / 空格标识符 | 特殊标识符、查询列和 WHERE bind |
 | P092 | `postgresql-dollar-quoted-string-global-bind-position` | dollar-quoted 字符串 + `$n` 参数 | dollar-quoted 字符串内部占位符样式文本不参与 bind 全局计数 |
 | P093 | `postgresql-multi-statement-global-bind-position` | 多语句 `$n` 参数 | 多语句输入中位置参数 `bind_position` 按整条 SQL 全局递增 |
+| P094 | `postgresql-select-nested-derived-query-graph` | 嵌套派生表 + 输出别名 | 派生表字段向内层真实表字段的 `query_graph` 来源链路 映射和 `output_name` |
+| P095 | `postgresql-select-reference-001` | SELECT 参考用例 001 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P096 | `postgresql-select-reference-004` | SELECT 参考用例 004 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P097 | `postgresql-select-reference-005` | SELECT 参考用例 005 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P098 | `postgresql-select-reference-007` | SELECT 参考用例 007 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P099 | `postgresql-select-reference-009` | SELECT 参考用例 009 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P100 | `postgresql-select-reference-011` | SELECT 参考用例 011 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P101 | `postgresql-select-reference-013` | SELECT 参考用例 013 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P102 | `postgresql-select-reference-015` | SELECT 参考用例 015 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P103 | `postgresql-select-reference-017` | SELECT 参考用例 017 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P104 | `postgresql-select-reference-018` | SELECT 参考用例 018 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P105 | `postgresql-select-reference-019` | SELECT 参考用例 019 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P106 | `postgresql-select-reference-020` | SELECT 参考用例 020 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P107 | `postgresql-select-reference-021` | SELECT 参考用例 021 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P108 | `postgresql-select-reference-030` | SELECT 参考用例 030 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P109 | `postgresql-select-reference-031` | SELECT 参考用例 031 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P110 | `postgresql-select-reference-032` | SELECT 参考用例 032 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P111 | `postgresql-select-reference-034` | SELECT 参考用例 034 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P112 | `postgresql-select-reference-035` | SELECT 参考用例 035 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P113 | `postgresql-select-reference-036` | SELECT 参考用例 036 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P114 | `postgresql-select-reference-037` | SELECT 参考用例 037 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P115 | `postgresql-select-reference-038` | SELECT 参考用例 038 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P116 | `postgresql-select-reference-039` | SELECT 参考用例 039 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P117 | `postgresql-select-reference-040` | SELECT 参考用例 040 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P118 | `postgresql-select-reference-041` | SELECT 参考用例 041 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P119 | `postgresql-select-reference-042` | SELECT 参考用例 042 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P120 | `postgresql-select-reference-043` | SELECT 参考用例 043 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P121 | `postgresql-select-reference-046` | SELECT 参考用例 046 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P122 | `postgresql-select-reference-047` | SELECT 参考用例 047 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
+| P123 | `postgresql-select-nested-join-derived-query-graph` | 嵌套 JOIN 中的派生表 | 复杂 FROM/JOIN 下派生表对象枚举、`query_graph` 来源链路 和 `output_name` |
+| P124 | `postgresql-select-unqualified-multi-table-scope` | 多表作用域中的未限定字段 | 未限定字段只输出一次，并归属到 `statement` 对象，避免多个表下出现相同 selector |
+| P125 | `postgresql-select-union-derived-scope` | UNION 两侧派生表 + `SELECT *` | 派生表字段 occurrence 唯一输出，`query_graph` 来源链路 分别指向对应内层 `*` 来源 |
 
 ## 负向用例
 
 | 用例 ID | 用例名称 | 输入 | 验证重点 |
 | --- | --- | --- | --- |
-| P094 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
+| P126 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
 
 新增回归用例必须同步更新 `tests/cases/sql_batch_input.json` 和本矩阵。

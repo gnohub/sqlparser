@@ -10,6 +10,8 @@ dml,INSERT_VALUES,CURRENT,"已覆盖 INSERT VALUES 和多行 VALUES",https://dev
 dml,INSERT_SELECT,CURRENT,"已覆盖 INSERT SELECT",https://dev.mysql.com/doc/refman/8.4/en/insert-select.html
 dml,UPDATE,CURRENT,"已覆盖 UPDATE SET WHERE",https://dev.mysql.com/doc/refman/8.4/en/update.html
 dml,DELETE,CURRENT,"已覆盖 DELETE FROM WHERE",https://dev.mysql.com/doc/refman/8.4/en/delete.html
+dml,UPDATE_JOIN,MIXED_MODEL,"已覆盖普通/INNER/CROSS 多表 UPDATE；LEFT/RIGHT JOIN 的受影响行语义需要专用模型",https://dev.mysql.com/doc/refman/8.4/en/update.html
+dml,DELETE_JOIN,MIXED_MODEL,"已覆盖普通/INNER/CROSS 多表 DELETE；LEFT/RIGHT JOIN 的受影响行语义需要专用模型",https://dev.mysql.com/doc/refman/8.4/en/delete.html
 ddl,CREATE_TABLE_BASIC,CURRENT,"已覆盖基础 CREATE TABLE",https://dev.mysql.com/doc/refman/8.4/en/create-table.html
 ddl,ALTER_TABLE_ADD_COLUMN,CURRENT,"已覆盖 ALTER TABLE ADD COLUMN",https://dev.mysql.com/doc/refman/8.4/en/alter-table.html
 ddl,CREATE_VIEW,CURRENT,"已覆盖 CREATE VIEW AS SELECT",https://dev.mysql.com/doc/refman/8.4/en/create-view.html
@@ -19,15 +21,15 @@ transaction,COMMIT,CURRENT,"已覆盖 COMMIT",https://dev.mysql.com/doc/refman/8
 session,USE_DATABASE,CURRENT,"已覆盖 USE db_name 默认数据库切换语句",https://dev.mysql.com/doc/refman/8.4/en/use.html
 query,CTE_WITH,HOOK_ONLY,"MySQL WITH 可由查询 AST 承载，当前 MySQL 方言矩阵未单独覆盖",https://dev.mysql.com/doc/refman/8.4/en/with.html
 query,WINDOW_FUNCTIONS,HOOK_ONLY,"窗口函数可由表达式 AST 承载，当前 MySQL 方言矩阵未单独覆盖",https://dev.mysql.com/doc/refman/8.4/en/window-functions.html
-query,GROUP_BY_HAVING,HOOK_ONLY,"GROUP BY 和 HAVING 可由查询 AST 承载，当前 MySQL 方言矩阵未单独覆盖",https://dev.mysql.com/doc/refman/8.4/en/group-by-handling.html
-query,ORDER_BY,HOOK_ONLY,"ORDER BY 可由查询 AST 承载，当前 MySQL 方言矩阵未单独覆盖",https://dev.mysql.com/doc/refman/8.4/en/order-by-optimization.html
+query,GROUP_BY_HAVING,CURRENT,"已覆盖 GROUP BY、HAVING 和 ORDER BY 组合查询",https://dev.mysql.com/doc/refman/8.4/en/group-by-handling.html
+query,ORDER_BY,CURRENT,"已覆盖 ORDER BY 字段排序和序号排序",https://dev.mysql.com/doc/refman/8.4/en/order-by-optimization.html
 expressions,COMMON_FUNCTIONS,HOOK_ONLY,"普通标量函数可由表达式 AST 承载，函数语义不在解析层求值",https://dev.mysql.com/doc/refman/8.4/en/functions.html
 types,COMMON_DATA_TYPES,HOOK_ONLY,"通用类型名可由核心类型节点承载，MySQL 类型属性另行统计",https://dev.mysql.com/doc/refman/8.4/en/data-types.html
 transaction,ROLLBACK,HOOK_ONLY,"事务语句可由核心事务节点承载，当前 MySQL 矩阵未单独覆盖",https://dev.mysql.com/doc/refman/8.4/en/commit.html
 dml,INSERT_IGNORE,MODEL_REQUIRED,"IGNORE 错误处理语义不能安全降级为普通 INSERT",https://dev.mysql.com/doc/refman/8.4/en/insert.html
 dml,INSERT_DELAYED,MODEL_REQUIRED,"DELAYED 插入语义需要 MySQL 专用模型",https://dev.mysql.com/doc/refman/8.4/en/insert-delayed.html
 dml,INSERT_PRIORITY,MODEL_REQUIRED,"LOW_PRIORITY/HIGH_PRIORITY 优先级语义需要 MySQL 专用模型",https://dev.mysql.com/doc/refman/8.4/en/insert.html
-dml,ON_DUPLICATE_KEY_UPDATE,MODEL_REQUIRED,"冲突更新语义不能映射为 PostgreSQL ON CONFLICT 而不改变语义",https://dev.mysql.com/doc/refman/8.4/en/insert-on-duplicate.html
+dml,ON_DUPLICATE_KEY_UPDATE,CURRENT,"已覆盖 INSERT ... ON DUPLICATE KEY UPDATE 的插入值、更新赋值和参数映射",https://dev.mysql.com/doc/refman/8.4/en/insert-on-duplicate.html
 dml,REPLACE,MODEL_REQUIRED,"REPLACE 删除再插入语义不同于普通 INSERT",https://dev.mysql.com/doc/refman/8.4/en/replace.html
 dml,UPDATE_IGNORE,MODEL_REQUIRED,"IGNORE 错误处理语义需要 MySQL 专用模型",https://dev.mysql.com/doc/refman/8.4/en/update.html
 dml,DELETE_IGNORE,MODEL_REQUIRED,"IGNORE 错误处理语义需要 MySQL 专用模型",https://dev.mysql.com/doc/refman/8.4/en/delete.html

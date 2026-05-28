@@ -3,13 +3,12 @@
 
 #include <stddef.h>
 
-#include <jansson.h>
-
 #include "pg_query.h"
 #include "protobuf/pg_query.pb-c.h"
 #include "sqlparser/sqlparser.h"
 
 typedef struct sqlparser_dialect_ops sqlparser_dialect_ops_t;
+typedef struct sqlparser_query_graph_cache sqlparser_query_graph_cache_t;
 
 #define SQLPARSER_INTERNAL_CURRENT_DATABASE "sqlparser_current_database"
 #define SQLPARSER_INTERNAL_CURRENT_SCHEMA "sqlparser_current_schema"
@@ -17,6 +16,7 @@ typedef struct sqlparser_dialect_ops sqlparser_dialect_ops_t;
 #define SQLPARSER_INTERNAL_MYSQL_EXECUTE "sqlparser_mysql_execute"
 #define SQLPARSER_INTERNAL_MYSQL_DEALLOCATE_PREPARE "sqlparser_mysql_deallocate_prepare"
 #define SQLPARSER_INTERNAL_MYSQL_DROP_PREPARE "sqlparser_mysql_drop_prepare"
+#define SQLPARSER_INTERNAL_MYSQL_JOIN_ON "sqlparser_mysql_join_on"
 #define SQLPARSER_INTERNAL_SQLSERVER_SP_PREPARE "sqlparser_sqlserver_sp_prepare"
 #define SQLPARSER_INTERNAL_SQLSERVER_SP_EXECUTE "sqlparser_sqlserver_sp_execute"
 #define SQLPARSER_INTERNAL_SQLSERVER_SP_PREPEXEC "sqlparser_sqlserver_sp_prepexec"
@@ -43,6 +43,8 @@ struct sqlparser_handle {
 	sqlparser_dialect_t dialect;
 	const sqlparser_dialect_ops_t *dialect_ops;
 	void *dialect_state;
+	sqlparser_query_graph_cache_t *query_graph;
+	unsigned long query_graph_generation;
 };
 
 void sqlparser_error_clear(sqlparser_error_t *out_error);
@@ -58,7 +60,6 @@ void sqlparser_error_from_pg(
 
 char *sqlparser_strdup(const char *text);
 char *sqlparser_strndup(const char *text, size_t len);
-char *sqlparser_strndup_lower_ascii(const char *text, size_t len);
 void sqlparser_pg_query_prepare(void);
 void sqlparser_limits_normalize(
 	const sqlparser_limits_t *limits,
@@ -85,6 +86,8 @@ sqlparser_status_t sqlparser_handle_ensure_ast(
 	sqlparser_error_t *out_error);
 void sqlparser_handle_clear_ast(sqlparser_handle_t *handle);
 void sqlparser_handle_invalidate_derived(sqlparser_handle_t *handle);
+void sqlparser_query_graph_cache_release(sqlparser_query_graph_cache_t *cache);
+void sqlparser_handle_clear_query_graph(sqlparser_handle_t *handle);
 sqlparser_status_t sqlparser_handle_commit_ast(
 	sqlparser_handle_t *handle,
 	sqlparser_error_t *out_error);
@@ -119,21 +122,5 @@ void sqlparser_handle_discard_dialect_state(
 void sqlparser_handle_adopt_dialect_state(
 	sqlparser_handle_t *handle,
 	void *state);
-
-int sqlparser_json_array_contains_string(json_t *array, const char *value);
-void sqlparser_json_object_set_nonempty_string(
-	json_t *object,
-	const char *key,
-	const char *value);
-sqlparser_status_t sqlparser_json_object_set_string(
-	json_t *object,
-	const char *key,
-	const char *value,
-	sqlparser_error_t *out_error);
-void sqlparser_json_array_append_table(
-	json_t *array,
-	const char *schema_name,
-	const char *table_name,
-	const char *context);
 
 #endif

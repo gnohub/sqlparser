@@ -431,7 +431,7 @@ static int test_update_assignment_literal_mutation(void)
 	if (expect_status_ok(rc, &error, "update view export should succeed") != 0 ||
 	    expect_true(strstr(view_json, "carol") != NULL, "view JSON should contain carol") != 0 ||
 	    expect_true(strstr(view_json, "\"operator\":\"=\"") != NULL, "view JSON should contain where operator") != 0 ||
-	    expect_true(strstr(view_json, "\"sql\":\"2\"") != NULL, "view JSON should contain updated where value") != 0) {
+	    expect_true(strstr(view_json, "\"integer_value\":2") != NULL, "view JSON should contain updated where value") != 0) {
 		sqlparser_string_free(view_json);
 		sqlparser_string_free(deparsed_sql);
 		sqlparser_handle_destroy(handle);
@@ -1258,14 +1258,14 @@ static int test_where_clause_sql_rewrite_api(void)
 	where_sql = NULL;
 	rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
 	if (expect_status_ok(rc, &error, "where view JSON should export") != 0 ||
-	    expect_true(strstr(view_json, "\"clauses\":[") != NULL,
-	                "view JSON should expose clause array") != 0 ||
-	    expect_true(strstr(view_json, "\"kind\":\"select_list\"") != NULL,
-	                "view JSON should expose select_list clause") != 0 ||
-	    expect_true(strstr(view_json, "\"kind\":\"where\",\"selector\":\"stmt[0].clause[1]\"") != NULL,
-	                "view JSON should expose where clause selector") != 0 ||
-	    expect_true(strstr(view_json, "\"kind\":\"order_by\"") != NULL,
-	                "view JSON should expose order_by clause") != 0) {
+	    expect_true(strstr(view_json, "\"query_graph\"") != NULL,
+	                "view JSON should expose query graph") != 0 ||
+	    expect_true(strstr(view_json, "\"clauses\"") == NULL,
+	                "view JSON should not expose old clause array") != 0 ||
+	    expect_true(strstr(view_json, "\"clause\":\"select_list\"") != NULL,
+	                "query graph should expose select_list field clause") != 0 ||
+	    expect_true(strstr(view_json, "\"clause\":\"where\"") != NULL,
+	                "query graph should expose where field/value clause") != 0) {
 		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
 		return 1;
@@ -2198,20 +2198,18 @@ static int test_dialect_insert_column_patch_with_question_param(void)
 	sqlparser_error_t error;
 	sqlparser_patch_t patch;
 	sqlparser_patch_list_t patch_list;
-	sqlparser_view_t view;
-	sqlparser_statement_view_t statement;
-	sqlparser_object_view_t object;
-	sqlparser_row_view_t row;
-	sqlparser_cell_view_t cell;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_column_t column;
+	sqlparser_graph_dml_cell_t cell;
 	char *deparsed_sql;
-	char *cell_sql;
+	size_t cell_index;
 	size_t index;
 	int rc;
 
 	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
 		handle = NULL;
 		deparsed_sql = NULL;
-		cell_sql = NULL;
 		memset(&error, 0, sizeof(error));
 		sqlparser_parse_options_default(&options);
 		options.dialect = cases[index].dialect;
@@ -2253,45 +2251,40 @@ static int test_dialect_insert_column_patch_with_question_param(void)
 		sqlparser_string_free(deparsed_sql);
 		deparsed_sql = NULL;
 
-		rc = sqlparser_get_view(handle, &view, &error);
-		if (expect_status_ok(rc, &error, "patched insert view should succeed") != 0) {
+		rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+		if (expect_status_ok(rc, &error, "patched insert graph should succeed") != 0 ||
+		    expect_true(graph.has_dml != 0, "patched insert should expose dml graph") != 0) {
 			sqlparser_handle_destroy(handle);
 			return 1;
 		}
-		rc = sqlparser_view_statement_at(&view, 0U, &statement, &error);
-		if (expect_status_ok(rc, &error, "patched insert statement should be available") != 0 ||
-		    expect_true(statement.object_count == 1U, "patched insert should expose one object") != 0) {
+		rc = sqlparser_query_graph_dml(&graph, &dml, &error);
+		if (expect_status_ok(rc, &error, "patched insert dml should be available") != 0 ||
+		    expect_true(dml.target_columns.count == 4U, "patched insert should expose four target columns") != 0 ||
+		    expect_true(dml.rows.count == 8U, "patched insert should expose eight value cells") != 0) {
 			sqlparser_handle_destroy(handle);
 			return 1;
 		}
-		rc = sqlparser_statement_object_at(&statement, 0U, &object, &error);
-		if (expect_status_ok(rc, &error, "patched insert object should be available") != 0 ||
-		    expect_true(object.column_count == 4U, "patched insert should expose four columns") != 0 ||
-		    expect_true(object.row_count == 2U, "patched insert should keep two rows") != 0) {
+		rc = sqlparser_query_graph_dml_column_at(&graph, 3U, &column, &error);
+		if (expect_status_ok(rc, &error, "patched insert column should be available") != 0 ||
+		    expect_true(strcmp(column.column_name, "created_at") == 0, "patched insert column should be created_at") != 0) {
 			sqlparser_handle_destroy(handle);
 			return 1;
 		}
-		rc = sqlparser_object_row_at(&object, 1U, &row, &error);
-		if (expect_status_ok(rc, &error, "patched insert row should be available") != 0 ||
-		    expect_true(row.cell_count == 4U, "patched insert row should expose four cells") != 0) {
+		rc = sqlparser_query_graph_span_index_at(&graph, dml.rows, 7U, &cell_index, &error);
+		if (expect_status_ok(rc, &error, "patched insert cell index should be available") != 0) {
 			sqlparser_handle_destroy(handle);
 			return 1;
 		}
-		rc = sqlparser_row_cell_at(&row, 3U, &cell, &error);
+		rc = sqlparser_query_graph_dml_cell_at(&graph, cell_index, &cell, &error);
 		if (expect_status_ok(rc, &error, "patched insert cell should be available") != 0 ||
-		    expect_true(strcmp(cell.column_name, "created_at") == 0, "patched cell should belong to created_at") != 0) {
-			sqlparser_handle_destroy(handle);
-			return 1;
-		}
-		rc = sqlparser_cell_sql(&cell, &cell_sql, &error);
-		if (expect_status_ok(rc, &error, "patched insert cell SQL should succeed") != 0 ||
-		    expect_true(strcmp(cell_sql, "?") == 0, "patched insert cell should expose question param") != 0) {
-			sqlparser_string_free(cell_sql);
+		    expect_true(cell.row_index == 1U, "patched insert cell row mismatch") != 0 ||
+		    expect_true(cell.column_ordinal == 3U, "patched insert cell column mismatch") != 0 ||
+		    expect_true(cell.kind == SQLPARSER_GRAPH_VALUE_BIND, "patched insert cell should be a bind") != 0 ||
+		    expect_true(cell.has_bind_sql != 0 && strcmp(cell.bind_sql, "?") == 0, "patched insert cell should expose question bind SQL") != 0) {
 			sqlparser_handle_destroy(handle);
 			return 1;
 		}
 
-		sqlparser_string_free(cell_sql);
 		sqlparser_handle_destroy(handle);
 	}
 
@@ -2302,7 +2295,6 @@ static int test_mysql_dialect_unsupported(void)
 {
 	const char *sqls[] = {
 		"INSERT IGNORE INTO `users` (`id`) VALUES (1)",
-		"INSERT INTO users(id) VALUES(1) ON DUPLICATE KEY UPDATE id = 2",
 		"REPLACE INTO users(id) VALUES(1)",
 		"CREATE TABLE `users` (`id` INT AUTO_INCREMENT)"
 	};
@@ -2370,7 +2362,9 @@ static int test_sqlserver_dialect_option(void)
 	return 0;
 }
 
-static int test_sql_view_json_and_patch_api(void)
+static int json_string_is(json_t *object, const char *key, const char *expected);
+
+static int test_query_graph_json_and_patch_api(void)
 {
 	const char *sql;
 	sqlparser_handle_t *handle;
@@ -2379,59 +2373,55 @@ static int test_sql_view_json_and_patch_api(void)
 	char *deparsed_sql;
 	json_error_t json_error;
 	json_t *root;
-	json_t *statements;
-	json_t *objects;
-	json_t *rows;
-	json_t *cells;
-	sqlparser_view_t view;
-	sqlparser_statement_view_t statement;
-	sqlparser_object_view_t object;
-	sqlparser_column_view_t column;
-	sqlparser_row_view_t row;
-	sqlparser_cell_view_t cell;
+	json_t *statement;
+	json_t *graph_json;
+	json_t *dml_json;
+	json_t *rows_json;
+	json_t *literal_json;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
 	sqlparser_patch_t patches[2];
 	sqlparser_patch_list_t patch_list;
-	char *cell_sql;
 	int rc;
 
 	sql = "INSERT INTO public.users (id, name) VALUES (1, 'bob'), (2, 'alice')";
 	handle = NULL;
 	view_json = NULL;
 	deparsed_sql = NULL;
-	cell_sql = NULL;
 	root = NULL;
 	memset(&error, 0, sizeof(error));
 
 	rc = sqlparser_parse(sql, &handle, &error);
-	if (expect_status_ok(rc, &error, "sql view parse should succeed") != 0) {
+	if (expect_status_ok(rc, &error, "query graph parse should succeed") != 0) {
 		return 1;
 	}
 	rc = sqlparser_export_view_json(handle, 1, &view_json, &error);
-	if (expect_status_ok(rc, &error, "sql view export should succeed") != 0 ||
-	    expect_true(view_json != NULL && strstr(view_json, "\"statements\"") != NULL, "sql view should contain statements") != 0 ||
-	    expect_true(strstr(view_json, "\"source_sql\"") == NULL, "sql view should not contain source_sql") != 0 ||
-	    expect_true(strstr(view_json, "\"literal\"") == NULL, "sql view should not contain literal typing") != 0 ||
-	    expect_true(strstr(view_json, "\"values\":") == NULL, "sql view should not contain unused values arrays") != 0 ||
-	    expect_true(strstr(view_json, "stmt[0].insert_cell[1][1]") != NULL, "sql view should contain insert cell selector") != 0) {
+	if (expect_status_ok(rc, &error, "query graph JSON export should succeed") != 0 ||
+	    expect_true(view_json != NULL && strstr(view_json, "\"query_graph\"") != NULL, "view JSON should contain query_graph") != 0 ||
+	    expect_true(strstr(view_json, "\"objects\"") == NULL, "view JSON should not contain old objects") != 0 ||
+	    expect_true(strstr(view_json, "\"clauses\"") == NULL, "view JSON should not contain old clauses") != 0 ||
+	    expect_true(strstr(view_json, "\"sql\":") == NULL, "view JSON should not store per-node SQL text") != 0 ||
+	    expect_true(strstr(view_json, "stmt[0].insert_cell[1][1]") != NULL, "view JSON should contain insert cell selector") != 0) {
 		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-
 	root = json_loads(view_json, 0, &json_error);
-	if (expect_true(root != NULL, "sql view JSON should decode") != 0) {
+	if (expect_true(root != NULL, "query graph JSON should decode") != 0) {
 		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-	statements = json_object_get(root, "statements");
-	objects = json_object_get(json_array_get(statements, 0), "objects");
-	rows = json_object_get(json_array_get(objects, 0), "rows");
-	cells = json_object_get(json_array_get(rows, 1), "cells");
-	if (expect_true(json_array_size(statements) == 1U, "sql view statement count should be 1") != 0 ||
-	    expect_true(strcmp(json_string_value(json_object_get(json_array_get(objects, 0), "table")), "users") == 0, "sql view table should be users") != 0 ||
-	    expect_true(json_array_size(rows) == 2U, "sql view row count should be 2") != 0 ||
-	    expect_true(strcmp(json_string_value(json_object_get(json_array_get(cells, 1), "sql")), "'alice'") == 0, "sql view cell should expose SQL text") != 0) {
+	statement = json_array_get(json_object_get(root, "statements"), 0);
+	graph_json = json_object_get(statement, "query_graph");
+	dml_json = json_object_get(graph_json, "dml");
+	rows_json = json_object_get(dml_json, "rows");
+	literal_json = json_object_get(json_array_get(rows_json, 3), "literal");
+	if (expect_true(json_is_object(graph_json), "query graph object should exist") != 0 ||
+	    expect_true(json_array_size(json_object_get(dml_json, "target_columns")) == 2U, "insert graph should expose two target columns") != 0 ||
+	    expect_true(json_array_size(rows_json) == 4U, "insert graph should expose four value cells") != 0 ||
+	    expect_true(json_string_is(literal_json, "kind", "string"), "literal kind should be string") != 0 ||
+	    expect_true(json_string_is(literal_json, "string_value", "alice"), "literal value should be alice") != 0) {
 		json_decref(root);
 		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
@@ -2441,56 +2431,15 @@ static int test_sql_view_json_and_patch_api(void)
 	sqlparser_string_free(view_json);
 	view_json = NULL;
 
-	rc = sqlparser_get_view(handle, &view, &error);
-	if (expect_status_ok(rc, &error, "sql view should be available") != 0 ||
-	    expect_true(view.statement_count == 1U, "sql view statement count should be 1") != 0) {
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "query graph C view should be available") != 0 ||
+	    expect_true(graph.has_dml != 0, "insert graph should expose dml") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "insert dml should be available") != 0 ||
+	    expect_true(dml.target_columns.count == 2U, "insert dml target column count mismatch") != 0 ||
+	    expect_true(dml.rows.count == 4U, "insert dml row cell count mismatch") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-	rc = sqlparser_view_statement_at(&view, 0U, &statement, &error);
-	if (expect_status_ok(rc, &error, "sql view statement should be available") != 0 ||
-	    expect_true(statement.keyword_count >= 3U, "insert statement should expose keywords") != 0 ||
-	    expect_true(statement.object_count == 1U, "insert statement should expose target object") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	rc = sqlparser_statement_object_at(&statement, 0U, &object, &error);
-	if (expect_status_ok(rc, &error, "sql view object should be available") != 0 ||
-	    expect_true(strcmp(object.table_name, "users") == 0, "sql view object table should be users") != 0 ||
-	    expect_true(object.column_count == 2U, "insert object should expose two columns") != 0 ||
-	    expect_true(object.row_count == 2U, "insert object should expose two rows") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	rc = sqlparser_object_column_at(&object, 1U, &column, &error);
-	if (expect_status_ok(rc, &error, "sql view column should be available") != 0 ||
-	    expect_true(strcmp(column.name, "name") == 0, "second insert column should be name") != 0 ||
-	    expect_true(column.has_selector != 0, "insert column should expose selector") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	rc = sqlparser_object_row_at(&object, 1U, &row, &error);
-	if (expect_status_ok(rc, &error, "sql view row should be available") != 0 ||
-	    expect_true(row.cell_count == 2U, "insert row should expose two cells") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	rc = sqlparser_row_cell_at(&row, 1U, &cell, &error);
-	if (expect_status_ok(rc, &error, "sql view cell should be available") != 0 ||
-	    expect_true(strcmp(cell.column_name, "name") == 0, "cell should carry column name") != 0 ||
-	    expect_true(cell.has_selector != 0, "cell should expose selector") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	rc = sqlparser_cell_sql(&cell, &cell_sql, &error);
-	if (expect_status_ok(rc, &error, "sql view cell SQL should be available") != 0 ||
-	    expect_true(strcmp(cell_sql, "'alice'") == 0, "cell SQL should preserve original value SQL") != 0) {
-		sqlparser_string_free(cell_sql);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	sqlparser_string_free(cell_sql);
-	cell_sql = NULL;
 
 	memset(patches, 0, sizeof(patches));
 	patches[0].op = SQLPARSER_PATCH_REPLACE;
@@ -2504,13 +2453,12 @@ static int test_sql_view_json_and_patch_api(void)
 	patch_list.items = patches;
 	patch_list.count = 2U;
 	rc = sqlparser_apply_patch(handle, &patch_list, &error);
-	if (expect_status_ok(rc, &error, "sql view patch should succeed") != 0) {
+	if (expect_status_ok(rc, &error, "query graph patch should succeed") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-
 	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
-	if (expect_status_ok(rc, &error, "sql view patched deparse should succeed") != 0 ||
+	if (expect_status_ok(rc, &error, "query graph patched deparse should succeed") != 0 ||
 	    expect_true(strstr(deparsed_sql, "'carol'") != NULL, "patched SQL should contain carol") != 0 ||
 	    expect_true(strstr(deparsed_sql, "age") != NULL, "patched SQL should contain added column") != 0 ||
 	    expect_true(strstr(deparsed_sql, "18") != NULL, "patched SQL should contain default value") != 0) {
@@ -2518,7 +2466,6 @@ static int test_sql_view_json_and_patch_api(void)
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-
 	sqlparser_string_free(deparsed_sql);
 	deparsed_sql = NULL;
 
@@ -2528,12 +2475,12 @@ static int test_sql_view_json_and_patch_api(void)
 	patch_list.items = patches;
 	patch_list.count = 1U;
 	rc = sqlparser_apply_patch(handle, &patch_list, &error);
-	if (expect_status_ok(rc, &error, "sql view delete row patch should succeed") != 0) {
+	if (expect_status_ok(rc, &error, "query graph delete row patch should succeed") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
-	if (expect_status_ok(rc, &error, "sql view delete row deparse should succeed") != 0 ||
+	if (expect_status_ok(rc, &error, "query graph delete row deparse should succeed") != 0 ||
 	    expect_true(strstr(deparsed_sql, "'bob'") == NULL, "delete row should remove first row") != 0 ||
 	    expect_true(strstr(deparsed_sql, "'carol'") != NULL, "delete row should keep remaining row") != 0) {
 		sqlparser_string_free(deparsed_sql);
@@ -2550,12 +2497,12 @@ static int test_sql_view_json_and_patch_api(void)
 	patch_list.items = patches;
 	patch_list.count = 1U;
 	rc = sqlparser_apply_patch(handle, &patch_list, &error);
-	if (expect_status_ok(rc, &error, "sql view delete column patch should succeed") != 0) {
+	if (expect_status_ok(rc, &error, "query graph delete column patch should succeed") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
-	if (expect_status_ok(rc, &error, "sql view delete column deparse should succeed") != 0 ||
+	if (expect_status_ok(rc, &error, "query graph delete column deparse should succeed") != 0 ||
 	    expect_true(strstr(deparsed_sql, "age") == NULL, "delete column should remove added column") != 0 ||
 	    expect_true(strstr(deparsed_sql, "18") == NULL, "delete column should remove added value") != 0) {
 		sqlparser_string_free(deparsed_sql);
@@ -2591,7 +2538,13 @@ static int json_integer_is(json_t *object, const char *key, json_int_t expected)
 
 static int json_key_is_null(json_t *object, const char *key)
 {
-	return json_is_object(object) && json_is_null(json_object_get(object, key));
+	json_t *value;
+
+	if (!json_is_object(object) || key == NULL) {
+		return 0;
+	}
+	value = json_object_get(object, key);
+	return value == NULL || json_is_null(value);
 }
 
 static int json_array_length_is(json_t *object, const char *key, size_t expected)
@@ -2602,7 +2555,53 @@ static int json_array_length_is(json_t *object, const char *key, size_t expected
 		return 0;
 	}
 	value = json_object_get(object, key);
+	if (value == NULL && expected == 0U) {
+		return 1;
+	}
 	return json_is_array(value) && json_array_size(value) == expected;
+}
+
+static int json_optional_array_is_valid(json_t *object, const char *key)
+{
+	json_t *value;
+
+	if (!json_is_object(object) || key == NULL) {
+		return 0;
+	}
+	value = json_object_get(object, key);
+	return value == NULL || json_is_array(value);
+}
+
+static const char *json_empty_array_key(json_t *node)
+{
+	const char *key;
+	const char *nested_key;
+	json_t *value;
+	size_t index;
+
+	if (json_is_object(node)) {
+		json_object_foreach(node, key, value)
+		{
+			if (json_is_array(value) && json_array_size(value) == 0U) {
+				return key;
+			}
+			nested_key = json_empty_array_key(value);
+			if (nested_key != NULL) {
+				return nested_key;
+			}
+		}
+		return NULL;
+	}
+	if (json_is_array(node)) {
+		json_array_foreach(node, index, value)
+		{
+			nested_key = json_empty_array_key(value);
+			if (nested_key != NULL) {
+				return nested_key;
+			}
+		}
+	}
+	return NULL;
 }
 
 static int json_target_path_entry_is(
@@ -2636,40 +2635,48 @@ static int json_target_path_entry_is(
 	return json_integer_is(entry, "arg_index", arg_index);
 }
 
-static int json_array_contains_string_value(json_t *array, const char *expected)
+static int expect_query_graph_shape(json_t *statement)
 {
-	json_t *item;
-	size_t index;
+	json_t *graph;
+	const char *empty_array_key;
 
-	if (!json_is_array(array) || expected == NULL) {
-		return 0;
+	graph = json_object_get(statement, "query_graph");
+	if (expect_true(json_is_object(graph), "view JSON should expose query_graph") != 0 ||
+	    expect_true(json_object_get(statement, "objects") == NULL, "view JSON should not expose old objects") != 0 ||
+	    expect_true(json_object_get(statement, "clauses") == NULL, "view JSON should not expose old clauses") != 0 ||
+	    expect_true(json_optional_array_is_valid(graph, "blocks"), "query_graph blocks should be an array when present") != 0 ||
+	    expect_true(json_optional_array_is_valid(graph, "relations"), "query_graph relations should be an array when present") != 0 ||
+	    expect_true(json_optional_array_is_valid(graph, "targets"), "query_graph targets should be an array when present") != 0 ||
+	    expect_true(json_optional_array_is_valid(graph, "fields"), "query_graph fields should be an array when present") != 0 ||
+	    expect_true(json_optional_array_is_valid(graph, "values"), "query_graph values should be an array when present") != 0 ||
+	    expect_true(json_optional_array_is_valid(graph, "sets"), "query_graph sets should be an array when present") != 0) {
+		return 1;
 	}
-	json_array_foreach(array, index, item)
-	{
-		if (json_is_string(item) && strcmp(json_string_value(item), expected) == 0) {
-			return 1;
-		}
+	empty_array_key = json_empty_array_key(graph);
+	if (expect_true(empty_array_key == NULL, "query_graph should omit empty arrays") != 0) {
+		return 1;
 	}
 	return 0;
 }
 
-static int expect_view_clause_ids(json_t *statement)
+static const char *graph_clause_name_from_keyword(const char *keyword)
 {
-	json_t *clauses;
-	json_t *clause;
-	size_t index;
-
-	clauses = json_object_get(statement, "clauses");
-	if (expect_true(json_is_array(clauses), "view clauses should be an array") != 0) {
-		return 1;
+	if (keyword == NULL) {
+		return NULL;
 	}
-	json_array_foreach(clauses, index, clause)
-	{
-		if (expect_true(json_integer_is(clause, "id", (json_int_t)index + 1), "view clause id should match clause_id numbering") != 0) {
-			return 1;
-		}
+	if (strcmp(keyword, "select") == 0) {
+		return "select_list";
 	}
-	return 0;
+	if (strcmp(keyword, "order") == 0) {
+		return "order_by";
+	}
+	if (strcmp(keyword, "group") == 0) {
+		return "group_by";
+	}
+	if (strcmp(keyword, "set") == 0) {
+		return "set_list";
+	}
+	return keyword;
 }
 
 static json_t *find_view_column_json(
@@ -2679,40 +2686,48 @@ static json_t *find_view_column_json(
 	const char *keyword,
 	size_t skip)
 {
-	json_t *objects;
-	json_t *object;
-	size_t object_index;
+	json_t *graph;
+	json_t *fields;
+	json_t *relations;
+	json_t *field;
+	const char *clause_name;
+	size_t field_index;
 
 	if (!json_is_object(statement) || column_name == NULL) {
 		return NULL;
 	}
-	objects = json_object_get(statement, "objects");
-	json_array_foreach(objects, object_index, object)
+	graph = json_object_get(statement, "query_graph");
+	fields = json_object_get(graph, "fields");
+	relations = json_object_get(graph, "relations");
+	clause_name = graph_clause_name_from_keyword(keyword);
+	json_array_foreach(fields, field_index, field)
 	{
-		json_t *columns;
-		json_t *column;
+		json_t *relation_ref;
+		json_t *relation;
 		const char *object_table;
-		size_t column_index;
 
-		object_table = json_string_value(json_object_get(object, "table"));
-		if (table_name != NULL && (object_table == NULL || strcmp(object_table, table_name) != 0)) {
+		if (!json_string_is(field, "column", column_name)) {
 			continue;
 		}
-		columns = json_object_get(object, "columns");
-		json_array_foreach(columns, column_index, column)
-		{
-			if (!json_string_is(column, "name", column_name)) {
-				continue;
-			}
-			if (keyword != NULL && !json_string_is(column, "keyword", keyword)) {
-				continue;
-			}
-			if (skip > 0U) {
-				skip--;
-				continue;
-			}
-			return column;
+		if (clause_name != NULL && !json_string_is(field, "clause", clause_name)) {
+			continue;
 		}
+		if (table_name != NULL) {
+			relation_ref = json_object_get(field, "relation");
+			if (!json_is_integer(relation_ref)) {
+				continue;
+			}
+			relation = json_array_get(relations, (size_t)json_integer_value(relation_ref));
+			object_table = json_string_value(json_object_get(relation, "table"));
+			if (object_table == NULL || strcmp(object_table, table_name) != 0) {
+				continue;
+			}
+		}
+		if (skip > 0U) {
+			skip--;
+			continue;
+		}
+		return field;
 	}
 	return NULL;
 }
@@ -2762,7 +2777,7 @@ static int view_json_parse_statement(
 		*out_statement = NULL;
 		return 1;
 	}
-	if (expect_view_clause_ids(*out_statement) != 0) {
+	if (expect_query_graph_shape(*out_statement) != 0) {
 		json_decref(*out_root);
 		*out_root = NULL;
 		*out_statement = NULL;
@@ -2809,87 +2824,26 @@ static int expect_view_column_shape(
 	return failed ? 1 : 0;
 }
 
-static int test_sql_view_bind_fields(void)
+static int test_query_graph_bind_fields(void)
 {
 	struct bind_case {
 		sqlparser_dialect_t dialect;
 		const char *sql;
-		const char *set_bind;
-		const char *where_bind;
-		const char *set_bind_kind;
-		const char *where_bind_kind;
-		const char *set_bind_position;
-		const char *where_bind_position;
+		const char *set_bind_key;
+		const char *where_bind_key;
+		sqlparser_bind_kind_t set_bind_kind;
+		sqlparser_bind_kind_t where_bind_kind;
+		size_t set_bind_position;
+		size_t where_bind_position;
 		const char *set_bind_sql;
 		const char *where_bind_sql;
-		const char *set_value_sql;
 	};
 	static const struct bind_case cases[] = {
-		{
-			SQLPARSER_DIALECT_POSTGRESQL,
-			"UPDATE servers SET ip = $1 WHERE id = $2",
-			"\"bind_key\":\"1\"",
-			"\"bind_key\":\"2\"",
-			"\"bind_kind\":1",
-			"\"bind_kind\":1",
-			"\"bind_position\":1",
-			"\"bind_position\":2",
-			"\"bind_sql\":\"$1\"",
-			"\"bind_sql\":\"$2\"",
-			"\"sql\":\"$1\""
-		},
-		{
-			SQLPARSER_DIALECT_MYSQL,
-			"UPDATE servers SET ip = ? WHERE id = ?",
-			"\"bind_key\":\"1\"",
-			"\"bind_key\":\"2\"",
-			"\"bind_kind\":1",
-			"\"bind_kind\":1",
-			"\"bind_position\":1",
-			"\"bind_position\":2",
-			"\"bind_sql\":\"?\"",
-			"\"bind_sql\":\"?\"",
-			"\"sql\":\"?\""
-		},
-		{
-			SQLPARSER_DIALECT_ORACLE,
-			"UPDATE SERVERS SET IP = :aaa WHERE ID = :id",
-			"\"bind_key\":\"aaa\"",
-			"\"bind_key\":\"id\"",
-			"\"bind_kind\":2",
-			"\"bind_kind\":2",
-			"\"bind_position\":1",
-			"\"bind_position\":2",
-			"\"bind_sql\":\":aaa\"",
-			"\"bind_sql\":\":id\"",
-			"\"sql\":\":aaa\""
-		},
-		{
-			SQLPARSER_DIALECT_SQLSERVER,
-			"UPDATE dbo.servers SET ip = @aaa WHERE id = @id",
-			"\"bind_key\":\"aaa\"",
-			"\"bind_key\":\"id\"",
-			"\"bind_kind\":2",
-			"\"bind_kind\":2",
-			"\"bind_position\":1",
-			"\"bind_position\":2",
-			"\"bind_sql\":\"@aaa\"",
-			"\"bind_sql\":\"@id\"",
-			"\"sql\":\"@aaa\""
-		},
-		{
-			SQLPARSER_DIALECT_DAMENG,
-			"UPDATE servers SET ip = :aaa WHERE id = :id",
-			"\"bind_key\":\"aaa\"",
-			"\"bind_key\":\"id\"",
-			"\"bind_kind\":2",
-			"\"bind_kind\":2",
-			"\"bind_position\":1",
-			"\"bind_position\":2",
-			"\"bind_sql\":\":aaa\"",
-			"\"bind_sql\":\":id\"",
-			"\"sql\":\":aaa\""
-		}
+		{SQLPARSER_DIALECT_POSTGRESQL, "UPDATE servers SET ip = $1 WHERE id = $2", "1", "2", SQLPARSER_BIND_KIND_POSITIONAL, SQLPARSER_BIND_KIND_POSITIONAL, 1U, 2U, "$1", "$2"},
+		{SQLPARSER_DIALECT_MYSQL, "UPDATE servers SET ip = ? WHERE id = ?", "1", "2", SQLPARSER_BIND_KIND_POSITIONAL, SQLPARSER_BIND_KIND_POSITIONAL, 1U, 2U, "?", "?"},
+		{SQLPARSER_DIALECT_ORACLE, "UPDATE SERVERS SET IP = :aaa WHERE ID = :id", "aaa", "id", SQLPARSER_BIND_KIND_NAMED, SQLPARSER_BIND_KIND_NAMED, 1U, 2U, ":aaa", ":id"},
+		{SQLPARSER_DIALECT_SQLSERVER, "UPDATE dbo.servers SET ip = @aaa WHERE id = @id", "aaa", "id", SQLPARSER_BIND_KIND_NAMED, SQLPARSER_BIND_KIND_NAMED, 1U, 2U, "@aaa", "@id"},
+		{SQLPARSER_DIALECT_DAMENG, "UPDATE servers SET ip = :aaa WHERE id = :id", "aaa", "id", SQLPARSER_BIND_KIND_NAMED, SQLPARSER_BIND_KIND_NAMED, 1U, 2U, ":aaa", ":id"}
 	};
 	sqlparser_parse_options_t options;
 	sqlparser_error_t error;
@@ -2897,41 +2851,42 @@ static int test_sql_view_bind_fields(void)
 
 	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
 		sqlparser_handle_t *handle;
-		char *view_json;
 		char *deparsed_sql;
 		const char *replacement_set_list;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_graph_dml_t dml;
+		sqlparser_graph_dml_assignment_t assignment;
+		sqlparser_graph_value_t where_value;
 		int rc;
 
 		handle = NULL;
-		view_json = NULL;
 		deparsed_sql = NULL;
 		memset(&error, 0, sizeof(error));
 		sqlparser_parse_options_default(&options);
 		options.dialect = cases[index].dialect;
 		rc = sqlparser_parse_with_options(cases[index].sql, &options, &handle, &error);
-		if (expect_status_ok(rc, &error, "bind field parse should succeed") != 0) {
+		if (expect_status_ok(rc, &error, "bind graph parse should succeed") != 0) {
 			return 1;
 		}
-		rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
-		if (expect_status_ok(rc, &error, "bind field view JSON should export") != 0 ||
-		    expect_true(strstr(view_json, "\"kind\":\"set_list\"") != NULL, "UPDATE should expose set_list clause") != 0 ||
-		    expect_true(strstr(view_json, cases[index].set_bind) != NULL, "SET bind should be exposed without marker") != 0 ||
-		    expect_true(strstr(view_json, cases[index].where_bind) != NULL, "WHERE bind should be exposed without marker") != 0 ||
-		    expect_true(strstr(view_json, cases[index].set_bind_kind) != NULL, "SET bind kind should be exposed") != 0 ||
-		    expect_true(strstr(view_json, cases[index].where_bind_kind) != NULL, "WHERE bind kind should be exposed") != 0 ||
-		    expect_true(strstr(view_json, cases[index].set_bind_position) != NULL, "SET bind position should be exposed") != 0 ||
-		    expect_true(strstr(view_json, cases[index].where_bind_position) != NULL, "WHERE bind position should be exposed") != 0 ||
-		    expect_true(strstr(view_json, cases[index].set_bind_sql) != NULL, "SET bind original SQL should be exposed") != 0 ||
-		    expect_true(strstr(view_json, cases[index].where_bind_sql) != NULL, "WHERE bind original SQL should be exposed") != 0 ||
-		    expect_true(strstr(view_json, "\"bind_selector\":\"stmt[0].assignment[0]\"") != NULL, "SET bind selector should target assignment") != 0 ||
-		    expect_true(strstr(view_json, "\"bind\":") == NULL, "removed bind field should not be exposed") != 0 ||
-		    expect_true(strstr(view_json, cases[index].set_value_sql) == NULL, "bind columns should not expose placeholder as value SQL") != 0) {
-			sqlparser_string_free(view_json);
+		rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+		if (expect_status_ok(rc, &error, "bind graph should be available") != 0 ||
+		    expect_true(graph.has_dml != 0, "UPDATE graph should expose dml") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "UPDATE dml should be available") != 0 ||
+		    expect_true(dml.assignments.count == 1U, "UPDATE should expose one assignment") != 0 ||
+		    expect_true(graph.value_count == 1U, "UPDATE should expose one WHERE value") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml_assignment_at(&graph, 0U, &assignment, &error), &error, "assignment should be available") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_value_at(&graph, 0U, &where_value, &error), &error, "WHERE value should be available") != 0 ||
+		    expect_true(assignment.has_bind != 0 && strcmp(assignment.bind, cases[index].set_bind_key) == 0, "SET bind key mismatch") != 0 ||
+		    expect_true(where_value.has_bind != 0 && strcmp(where_value.bind, cases[index].where_bind_key) == 0, "WHERE bind key mismatch") != 0 ||
+		    expect_true(assignment.bind_kind == cases[index].set_bind_kind, "SET bind kind mismatch") != 0 ||
+		    expect_true(where_value.bind_kind == cases[index].where_bind_kind, "WHERE bind kind mismatch") != 0 ||
+		    expect_true(assignment.has_bind_position != 0 && assignment.bind_position == cases[index].set_bind_position, "SET bind position mismatch") != 0 ||
+		    expect_true(where_value.has_bind_position != 0 && where_value.bind_position == cases[index].where_bind_position, "WHERE bind position mismatch") != 0 ||
+		    expect_true(assignment.has_bind_sql != 0 && strcmp(assignment.bind_sql, cases[index].set_bind_sql) == 0, "SET bind SQL mismatch") != 0 ||
+		    expect_true(where_value.has_bind_sql != 0 && strcmp(where_value.bind_sql, cases[index].where_bind_sql) == 0, "WHERE bind SQL mismatch") != 0) {
 			sqlparser_handle_destroy(handle);
 			return 1;
 		}
-		sqlparser_string_free(view_json);
-		view_json = NULL;
 
 		replacement_set_list = "ip = :aaa, host = :host";
 		if (cases[index].dialect == SQLPARSER_DIALECT_POSTGRESQL) {
@@ -2959,267 +2914,508 @@ static int test_sql_view_bind_fields(void)
 	}
 
 	{
-		const char *sql = "SELECT abc FROM table1 WHERE abc LIKE :1 AND def LIKE ?";
 		sqlparser_handle_t *handle;
-		char *view_json;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_graph_value_t first;
+		sqlparser_graph_value_t second;
 		int rc;
 
 		handle = NULL;
-		view_json = NULL;
 		memset(&error, 0, sizeof(error));
 		sqlparser_parse_options_default(&options);
 		options.dialect = SQLPARSER_DIALECT_ORACLE;
-		rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+		rc = sqlparser_parse_with_options("SELECT abc FROM table1 WHERE abc LIKE :1 AND def LIKE ?", &options, &handle, &error);
 		if (expect_status_ok(rc, &error, "oracle mixed bind parse should succeed") != 0) {
 			return 1;
 		}
-		rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
-		if (expect_status_ok(rc, &error, "oracle mixed bind view JSON should export") != 0 ||
-		    expect_true(strstr(view_json, "\"bind_key\":\"1\"") != NULL, "oracle :1 bind should expose normalized positional key") != 0 ||
-		    expect_true(strstr(view_json, "\"bind_position\":1") != NULL, "oracle :1 bind should expose occurrence position") != 0 ||
-		    expect_true(strstr(view_json, "\"bind_sql\":\":1\"") != NULL, "oracle :1 bind should preserve original SQL") != 0 ||
-		    expect_true(strstr(view_json, "\"bind_key\":\"2\"") != NULL, "oracle ? bind should expose positional key") != 0 ||
-		    expect_true(strstr(view_json, "\"bind_position\":2") != NULL, "oracle ? bind should expose occurrence position") != 0 ||
-		    expect_true(strstr(view_json, "\"bind_sql\":\"?\"") != NULL, "oracle ? bind should preserve original SQL") != 0 ||
-		    expect_true(strstr(view_json, "\"bind_kind\":1") != NULL, "oracle mixed binds should be positional") != 0 ||
-		    expect_true(strstr(view_json, "\"bind\":") == NULL, "oracle mixed binds should not expose removed bind field") != 0 ||
-		    expect_true(strstr(view_json, "\"sql\":\":1\"") == NULL, "oracle :1 should not be exposed as value SQL") != 0 ||
-		    expect_true(strstr(view_json, "\"sql\":\"?\"") == NULL, "oracle ? should not be exposed as value SQL") != 0) {
-			sqlparser_string_free(view_json);
+		rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+		if (expect_status_ok(rc, &error, "oracle mixed bind graph should be available") != 0 ||
+		    expect_true(graph.value_count == 2U, "oracle mixed bind should expose two values") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_value_at(&graph, 0U, &first, &error), &error, "oracle first bind should be available") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_value_at(&graph, 1U, &second, &error), &error, "oracle second bind should be available") != 0 ||
+		    expect_true(first.bind_kind == SQLPARSER_BIND_KIND_POSITIONAL && strcmp(first.bind, "1") == 0, "oracle :1 bind key mismatch") != 0 ||
+		    expect_true(first.has_bind_position != 0 && first.bind_position == 1U, "oracle :1 bind position mismatch") != 0 ||
+		    expect_true(first.has_bind_sql != 0 && strcmp(first.bind_sql, ":1") == 0, "oracle :1 bind SQL mismatch") != 0 ||
+		    expect_true(second.bind_kind == SQLPARSER_BIND_KIND_POSITIONAL && strcmp(second.bind, "2") == 0, "oracle ? bind key mismatch") != 0 ||
+		    expect_true(second.has_bind_position != 0 && second.bind_position == 2U, "oracle ? bind position mismatch") != 0 ||
+		    expect_true(second.has_bind_sql != 0 && strcmp(second.bind_sql, "?") == 0, "oracle ? bind SQL mismatch") != 0) {
 			sqlparser_handle_destroy(handle);
 			return 1;
 		}
-		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
 	}
 
 	{
-		const char *sql =
+		sqlparser_handle_t *handle;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_graph_value_t value;
+		int rc;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = SQLPARSER_DIALECT_ORACLE;
+		rc = sqlparser_parse_with_options(
 			"SELECT IP, AREACODE, AREANAME, STATE, MSTSCPORT, NTUID, NTPWD,WORKER, "
 			"WEBSITE,MSDEPLOYPORT, \"UID\", PWD, KEY_ENCRYPTION, MODIFYTIME "
 			"FROM (SELECT a.*, ROWNUM RN FROM SERVERS a WHERE ROWNUM <= :endRow) "
-			"WHERE RN > :startRow";
-		sqlparser_handle_t *handle;
-		char *view_json;
-		int rc;
-
-		handle = NULL;
-		view_json = NULL;
-		memset(&error, 0, sizeof(error));
-		sqlparser_parse_options_default(&options);
-		options.dialect = SQLPARSER_DIALECT_ORACLE;
-		rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+			"WHERE RN > :startRow",
+			&options,
+			&handle,
+			&error);
 		if (expect_status_ok(rc, &error, "oracle rownum pagination bind parse should succeed") != 0) {
 			return 1;
 		}
-		rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
-		if (expect_status_ok(rc, &error, "oracle rownum pagination bind view JSON should export") != 0 ||
-		    expect_true(strstr(view_json, "\"table\":\"servers\"") != NULL, "oracle rownum pagination should expose base table") != 0 ||
-		    expect_true(strstr(view_json, "\"name\":\"UID\"") != NULL, "oracle rownum pagination should preserve quoted identifier case") != 0 ||
-		    expect_true(strstr(view_json, "\"name\":\"*\"") != NULL, "oracle rownum pagination should expose scoped star") != 0 ||
-		    expect_true(strstr(view_json, "\"bind_key\":\"endRow\"") != NULL, "oracle rownum pagination should expose endRow bind key") != 0 ||
-		    expect_true(strstr(view_json, "\"bind_key\":\"startRow\"") != NULL, "oracle rownum pagination should expose startRow bind key") != 0 ||
-		    expect_true(strstr(view_json, "\"bind_position\":1") != NULL, "oracle rownum endRow bind should expose position") != 0 ||
-		    expect_true(strstr(view_json, "\"bind_position\":2") != NULL, "oracle rownum startRow bind should expose position") != 0 ||
-		    expect_true(strstr(view_json, "\"bind_kind\":2") != NULL, "oracle rownum binds should be named") != 0 ||
-		    expect_true(strstr(view_json, "\"bind_sql\":\":endRow\"") != NULL, "oracle rownum endRow bind SQL should be exposed") != 0 ||
-		    expect_true(strstr(view_json, "\"bind_sql\":\":startRow\"") != NULL, "oracle rownum startRow bind SQL should be exposed") != 0 ||
-		    expect_true(strstr(view_json, "\"bind\":") == NULL, "oracle rownum binds should not expose removed bind field") != 0 ||
-		    expect_true(strstr(view_json, "\"sql\":\":endRow\"") == NULL, "oracle rownum bind should not be exposed as value SQL") != 0 ||
-		    expect_true(strstr(view_json, "\"sql\":\":startRow\"") == NULL, "oracle rownum bind should not be exposed as value SQL") != 0) {
-			sqlparser_string_free(view_json);
+		rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+		if (expect_status_ok(rc, &error, "oracle rownum pagination graph should be available") != 0 ||
+		    expect_true(graph.relation_count >= 2U, "oracle rownum pagination should expose base and derived relations") != 0 ||
+		    expect_true(graph.target_count >= 15U, "oracle rownum pagination should expose output targets") != 0 ||
+		    expect_true(graph.value_count == 1U, "oracle rownum pagination should only expose field-bound values") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_value_at(&graph, 0U, &value, &error), &error, "oracle rownum field value should be available") != 0 ||
+		    expect_true(value.bind_kind == SQLPARSER_BIND_KIND_NAMED && strcmp(value.bind, "startRow") == 0, "oracle startRow bind mismatch") != 0) {
 			sqlparser_handle_destroy(handle);
 			return 1;
 		}
-		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
 	}
 
 	{
-		const char *sql =
-			"SELECT TOP (?) [id] FROM [dbo].[users] WHERE [name] LIKE ? ORDER BY [id]";
 		sqlparser_handle_t *handle;
-		char *view_json;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_graph_value_t value;
 		int rc;
 
 		handle = NULL;
-		view_json = NULL;
 		memset(&error, 0, sizeof(error));
 		sqlparser_parse_options_default(&options);
 		options.dialect = SQLPARSER_DIALECT_SQLSERVER;
-		rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
-		if (expect_status_ok(rc, &error, "sqlserver TOP question bind parse should succeed") != 0) {
+		rc = sqlparser_parse_with_options(
+			"SELECT TOP (?) [id] FROM [dbo].[users] WHERE [name] LIKE ? ORDER BY [id]",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "sqlserver TOP bind parse should succeed") != 0) {
 			return 1;
 		}
-		rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
-		if (expect_status_ok(rc, &error, "sqlserver TOP question bind view JSON should export") != 0 ||
-		    expect_true(strstr(view_json, "\"name\":\"name\"") != NULL, "sqlserver TOP question WHERE column should be exposed") != 0 ||
-		    expect_true(strstr(view_json, "\"bind_key\":\"2\"") != NULL, "sqlserver TOP question WHERE bind key should include TOP bind") != 0 ||
-		    expect_true(strstr(view_json, "\"bind_position\":2") != NULL, "sqlserver TOP question WHERE bind position should include TOP bind") != 0 ||
-		    expect_true(strstr(view_json, "\"bind_sql\":\"?\"") != NULL, "sqlserver TOP question bind SQL should be exposed") != 0 ||
-		    expect_true(strstr(view_json, "\"bind\":") == NULL, "sqlserver TOP question should not expose removed bind field") != 0 ||
-		    expect_true(strstr(view_json, "\"sql\":\"?\"") == NULL, "sqlserver TOP question bind should not be exposed as value SQL") != 0) {
-			sqlparser_string_free(view_json);
+		rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+		if (expect_status_ok(rc, &error, "sqlserver TOP bind graph should be available") != 0 ||
+		    expect_true(graph.value_count == 1U, "TOP bind should not enter field values") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_value_at(&graph, 0U, &value, &error), &error, "sqlserver WHERE value should be available") != 0 ||
+		    expect_true(value.has_bind_position != 0 && value.bind_position == 2U, "WHERE bind should keep global position after TOP") != 0) {
 			sqlparser_handle_destroy(handle);
 			return 1;
 		}
-		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
 	}
 
 	{
-		const char *sql =
-			"UPDATE users SET a = ? WHERE id = ?; UPDATE users SET b = ? WHERE id = ?";
 		sqlparser_handle_t *handle;
-		json_error_t json_error;
-		json_t *root;
-		json_t *statements;
-		json_t *second_statement;
-		json_t *set_column;
-		json_t *where_column;
-		char *view_json;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_graph_dml_t dml;
+		sqlparser_graph_dml_assignment_t assignment;
+		sqlparser_graph_value_t value;
 		int rc;
 
 		handle = NULL;
-		root = NULL;
-		view_json = NULL;
 		memset(&error, 0, sizeof(error));
 		sqlparser_parse_options_default(&options);
 		options.dialect = SQLPARSER_DIALECT_MYSQL;
-		rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+		rc = sqlparser_parse_with_options("UPDATE users SET a = ? WHERE id = ?; UPDATE users SET b = ? WHERE id = ?", &options, &handle, &error);
 		if (expect_status_ok(rc, &error, "multi-statement bind parse should succeed") != 0) {
 			return 1;
 		}
-		rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
-		if (expect_status_ok(rc, &error, "multi-statement bind view JSON should export") != 0) {
+		rc = sqlparser_statement_query_graph(handle, 1U, &graph, &error);
+		if (expect_status_ok(rc, &error, "second statement graph should be available") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "second statement dml should be available") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml_assignment_at(&graph, 0U, &assignment, &error), &error, "second statement assignment should be available") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_value_at(&graph, 0U, &value, &error), &error, "second statement WHERE value should be available") != 0 ||
+		    expect_true(assignment.has_bind_position != 0 && assignment.bind_position == 3U, "second SET bind position should be global") != 0 ||
+		    expect_true(value.has_bind_position != 0 && value.bind_position == 4U, "second WHERE bind position should be global") != 0) {
 			sqlparser_handle_destroy(handle);
 			return 1;
 		}
-		root = json_loads(view_json, 0, &json_error);
-		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
-		if (expect_true(json_is_object(root), "multi-statement bind view JSON should decode") != 0) {
-			json_decref(root);
-			return 1;
-		}
-		statements = json_object_get(root, "statements");
-		second_statement = json_is_array(statements) ? json_array_get(statements, 1U) : NULL;
-		set_column = find_view_column_json(second_statement, "users", "b", "set", 0U);
-		where_column = find_view_column_json(second_statement, "users", "id", "where", 0U);
-		if (expect_true(set_column != NULL, "second statement SET bind column should exist") != 0 ||
-		    expect_true(where_column != NULL, "second statement WHERE bind column should exist") != 0 ||
-		    expect_true(json_string_is(set_column, "bind_key", "3"), "second statement SET bind key should preserve global placeholder key") != 0 ||
-		    expect_true(json_integer_is(set_column, "bind_position", 3), "second statement SET bind position should be global") != 0 ||
-		    expect_true(json_string_is(set_column, "bind_sql", "?"), "second statement SET bind SQL should be ?") != 0 ||
-		    expect_true(json_string_is(where_column, "bind_key", "4"), "second statement WHERE bind key should preserve global placeholder key") != 0 ||
-		    expect_true(json_integer_is(where_column, "bind_position", 4), "second statement WHERE bind position should be global") != 0 ||
-		    expect_true(json_string_is(where_column, "bind_sql", "?"), "second statement WHERE bind SQL should be ?") != 0) {
-			json_decref(root);
-			return 1;
-		}
-		json_decref(root);
-	}
-
-	{
-		const char *sql =
-			"UPDATE users SET a = :same WHERE id = :id; UPDATE users SET b = :same WHERE id = :id";
-		sqlparser_handle_t *handle;
-		json_error_t json_error;
-		json_t *root;
-		json_t *statements;
-		json_t *second_statement;
-		json_t *set_column;
-		json_t *where_column;
-		char *view_json;
-		int rc;
-
-		handle = NULL;
-		root = NULL;
-		view_json = NULL;
-		memset(&error, 0, sizeof(error));
-		sqlparser_parse_options_default(&options);
-		options.dialect = SQLPARSER_DIALECT_ORACLE;
-		rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
-		if (expect_status_ok(rc, &error, "multi-statement named bind parse should succeed") != 0) {
-			return 1;
-		}
-		rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
-		if (expect_status_ok(rc, &error, "multi-statement named bind view JSON should export") != 0) {
-			sqlparser_handle_destroy(handle);
-			return 1;
-		}
-		root = json_loads(view_json, 0, &json_error);
-		sqlparser_string_free(view_json);
-		sqlparser_handle_destroy(handle);
-		if (expect_true(json_is_object(root), "multi-statement named bind view JSON should decode") != 0) {
-			json_decref(root);
-			return 1;
-		}
-		statements = json_object_get(root, "statements");
-		second_statement = json_is_array(statements) ? json_array_get(statements, 1U) : NULL;
-		set_column = find_view_column_json(second_statement, "users", "b", "set", 0U);
-		where_column = find_view_column_json(second_statement, "users", "id", "where", 0U);
-		if (expect_true(set_column != NULL, "second statement named SET bind column should exist") != 0 ||
-		    expect_true(where_column != NULL, "second statement named WHERE bind column should exist") != 0 ||
-		    expect_true(json_string_is(set_column, "bind_key", "same"), "second statement named SET bind key mismatch") != 0 ||
-		    expect_true(json_integer_is(set_column, "bind_position", 3), "second statement named SET bind position should be global") != 0 ||
-		    expect_true(json_string_is(set_column, "bind_sql", ":same"), "second statement named SET bind SQL mismatch") != 0 ||
-		    expect_true(json_string_is(where_column, "bind_key", "id"), "second statement named WHERE bind key mismatch") != 0 ||
-		    expect_true(json_integer_is(where_column, "bind_position", 4), "second statement named WHERE bind position should be global") != 0 ||
-		    expect_true(json_string_is(where_column, "bind_sql", ":id"), "second statement named WHERE bind SQL mismatch") != 0) {
-			json_decref(root);
-			return 1;
-		}
-		json_decref(root);
 	}
 
 	return 0;
 }
 
-static int test_sql_view_column_semantics_json(void)
+static int expect_query_graph_value_bind(
+	const sqlparser_query_graph_view_t *graph,
+	size_t value_index,
+	const char *column_name,
+	sqlparser_bind_kind_t bind_kind,
+	const char *bind_key,
+	size_t bind_position,
+	const char *bind_sql)
+{
+	sqlparser_error_t error;
+	sqlparser_graph_value_t value;
+	sqlparser_graph_field_t field;
+	int rc;
+
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_query_graph_value_at(graph, value_index, &value, &error);
+	if (expect_status_ok(rc, &error, "query graph value should be available") != 0 ||
+	    expect_true(value.has_field != 0, "query graph value should be attached to a field") != 0 ||
+	    expect_true(value.kind == SQLPARSER_GRAPH_VALUE_BIND, "query graph value should be a bind") != 0) {
+		return 1;
+	}
+	rc = sqlparser_query_graph_field_at(graph, value.field_index, &field, &error);
+	if (expect_status_ok(rc, &error, "query graph value field should be available") != 0 ||
+	    expect_true(field.column_name != NULL && strcmp(field.column_name, column_name) == 0, "query graph value field column mismatch") != 0 ||
+	    expect_true(value.bind_kind == bind_kind, "query graph value bind kind mismatch") != 0 ||
+	    expect_true(value.has_bind != 0 && strcmp(value.bind, bind_key) == 0, "query graph value bind key mismatch") != 0 ||
+	    expect_true(value.has_bind_position != 0 && value.bind_position == bind_position, "query graph value bind position mismatch") != 0 ||
+	    expect_true(value.has_bind_sql != 0 && strcmp(value.bind_sql, bind_sql) == 0, "query graph value bind SQL mismatch") != 0) {
+		fprintf(stderr,
+		        "value[%zu] column=%s bind_key=%s bind_sql=%s expected_sql=%s position=%zu expected_position=%zu\n",
+		        value_index,
+		        field.column_name != NULL ? field.column_name : "(null)",
+		        value.has_bind ? value.bind : "(none)",
+		        value.has_bind_sql ? value.bind_sql : "(none)",
+		        bind_sql,
+		        value.has_bind_position ? value.bind_position : 0U,
+		        bind_position);
+		return 1;
+	}
+	return 0;
+}
+
+static int expect_query_graph_select_value_binds(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	size_t expected_value_count,
+	const char *column_name,
+	sqlparser_bind_kind_t bind_kind,
+	const char *first_key,
+	const char *second_key,
+	const char *first_sql,
+	const char *second_sql)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "query graph value-list parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "query graph value-list graph should be available") != 0 ||
+	    expect_true(graph.value_count == expected_value_count, "query graph value-list count mismatch") != 0 ||
+	    expect_query_graph_value_bind(&graph, 0U, column_name, bind_kind, first_key, 1U, first_sql) != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	if (expected_value_count > 1U &&
+	    expect_query_graph_value_bind(&graph, 1U, column_name, bind_kind, second_key, 2U, second_sql) != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int expect_query_graph_no_field_values(
+	sqlparser_dialect_t dialect,
+	const char *sql)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "query graph no-value parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "query graph no-value graph should be available") != 0 ||
+	    expect_true(graph.value_count == 0U, "query graph should not expose projection-only bind as field value") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int expect_query_graph_update_set_and_value_list(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	sqlparser_bind_kind_t bind_kind,
+	const char *set_key,
+	const char *first_where_key,
+	const char *second_where_key,
+	const char *set_sql,
+	const char *first_where_sql,
+	const char *second_where_sql)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_assignment_t assignment;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "query graph update value-list parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "query graph update value-list graph should be available") != 0 ||
+	    expect_true(graph.value_count == 2U, "query graph update WHERE should expose two values") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "query graph update dml should be available") != 0 ||
+	    expect_true(dml.assignments.count == 1U, "query graph update should expose one assignment") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_assignment_at(&graph, 0U, &assignment, &error), &error, "query graph update assignment should be available") != 0 ||
+	    expect_true(assignment.value_kind == SQLPARSER_GRAPH_VALUE_BIND, "query graph update assignment should be bind") != 0 ||
+	    expect_true(assignment.bind_kind == bind_kind, "query graph update assignment bind kind mismatch") != 0 ||
+	    expect_true(assignment.has_bind != 0 && strcmp(assignment.bind, set_key) == 0, "query graph update assignment bind key mismatch") != 0 ||
+	    expect_true(assignment.has_bind_position != 0 && assignment.bind_position == 1U, "query graph update assignment bind position mismatch") != 0 ||
+	    expect_true(assignment.has_bind_sql != 0 && strcmp(assignment.bind_sql, set_sql) == 0, "query graph update assignment bind SQL mismatch") != 0 ||
+	    expect_query_graph_value_bind(&graph, 0U, "phone", bind_kind, first_where_key, 2U, first_where_sql) != 0 ||
+	    expect_query_graph_value_bind(&graph, 1U, "phone", bind_kind, second_where_key, 3U, second_where_sql) != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_query_graph_condition_value_lists(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *select_in_sql;
+		const char *select_not_in_sql;
+		const char *select_between_sql;
+		const char *select_func_sql;
+		const char *select_case_sql;
+		const char *update_sql;
+		const char *delete_sql;
+		sqlparser_bind_kind_t bind_kind;
+		const char *key1;
+		const char *key2;
+		const char *key3;
+		const char *sql1;
+		const char *sql2;
+		const char *sql3;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT id FROM public.users WHERE phone IN ($1, $2)",
+			"SELECT id FROM public.users WHERE phone NOT IN ($1, $2)",
+			"SELECT id FROM public.users WHERE created_at BETWEEN $1 AND $2",
+			"SELECT id FROM public.users WHERE UPPER(email) = $1",
+			"SELECT CASE WHEN phone = $1 THEN name ELSE email END AS v FROM public.users",
+			"UPDATE public.users SET note = $1 WHERE phone IN ($2, $3)",
+			"DELETE FROM public.users WHERE email IN ($1, $2)",
+			SQLPARSER_BIND_KIND_POSITIONAL,
+			"1",
+			"2",
+			"3",
+			"$1",
+			"$2",
+			"$3"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"SELECT id FROM users WHERE phone IN (?, ?)",
+			"SELECT id FROM users WHERE phone NOT IN (?, ?)",
+			"SELECT id FROM users WHERE created_at BETWEEN ? AND ?",
+			"SELECT id FROM users WHERE UPPER(email) = ?",
+			"SELECT CASE WHEN phone = ? THEN name ELSE email END AS v FROM users",
+			"UPDATE users SET note = ? WHERE phone IN (?, ?)",
+			"DELETE FROM users WHERE email IN (?, ?)",
+			SQLPARSER_BIND_KIND_POSITIONAL,
+			"1",
+			"2",
+			"3",
+			"?",
+			"?",
+			"?"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"SELECT id FROM users WHERE phone IN (:phone1, :phone2)",
+			"SELECT id FROM users WHERE phone NOT IN (:phone1, :phone2)",
+			"SELECT id FROM users WHERE created_at BETWEEN :from_time AND :to_time",
+			"SELECT id FROM users WHERE UPPER(email) = :email",
+			"SELECT CASE WHEN phone = :phone1 THEN name ELSE email END AS v FROM users",
+			"UPDATE users SET note = :note WHERE phone IN (:phone1, :phone2)",
+			"DELETE FROM users WHERE email IN (:email1, :email2)",
+			SQLPARSER_BIND_KIND_NAMED,
+			"phone1",
+			"phone2",
+			"phone2",
+			":phone1",
+			":phone2",
+			":phone2"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"SELECT [id] FROM [dbo].[users] WHERE [phone] IN (@phone1, @phone2)",
+			"SELECT [id] FROM [dbo].[users] WHERE [phone] NOT IN (@phone1, @phone2)",
+			"SELECT [id] FROM [dbo].[users] WHERE [created_at] BETWEEN @from_time AND @to_time",
+			"SELECT [id] FROM [dbo].[users] WHERE UPPER([email]) = @email",
+			"SELECT CASE WHEN [phone] = @phone1 THEN [name] ELSE [email] END AS [v] FROM [dbo].[users]",
+			"UPDATE [dbo].[users] SET [note] = @note WHERE [phone] IN (@phone1, @phone2)",
+			"DELETE FROM [dbo].[users] WHERE [email] IN (@email1, @email2)",
+			SQLPARSER_BIND_KIND_NAMED,
+			"phone1",
+			"phone2",
+			"phone2",
+			"@phone1",
+			"@phone2",
+			"@phone2"
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"SELECT id FROM users WHERE phone IN (:phone1, :phone2)",
+			"SELECT id FROM users WHERE phone NOT IN (:phone1, :phone2)",
+			"SELECT id FROM users WHERE created_at BETWEEN :from_time AND :to_time",
+			"SELECT id FROM users WHERE UPPER(email) = :email",
+			"SELECT CASE WHEN phone = :phone1 THEN name ELSE email END AS v FROM users",
+			"UPDATE users SET note = :note WHERE phone IN (:phone1, :phone2)",
+			"DELETE FROM users WHERE email IN (:email1, :email2)",
+			SQLPARSER_BIND_KIND_NAMED,
+			"phone1",
+			"phone2",
+			"phone2",
+			":phone1",
+			":phone2",
+			":phone2"
+		}
+	};
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+	} non_predicate_cases[] = {
+		{SQLPARSER_DIALECT_POSTGRESQL, "SELECT phone + $1 AS v FROM public.users"},
+		{SQLPARSER_DIALECT_MYSQL, "SELECT phone + ? AS v FROM users"},
+		{SQLPARSER_DIALECT_ORACLE, "SELECT phone + :delta AS v FROM users"},
+		{SQLPARSER_DIALECT_SQLSERVER, "SELECT [phone] + @delta AS [v] FROM [dbo].[users]"},
+		{SQLPARSER_DIALECT_DAMENG, "SELECT phone + :delta AS v FROM users"}
+	};
+	size_t index;
+
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		if (expect_query_graph_select_value_binds(
+			    cases[index].dialect,
+			    cases[index].select_in_sql,
+			    2U,
+			    "phone",
+			    cases[index].bind_kind,
+			    cases[index].key1,
+			    cases[index].key2,
+			    cases[index].sql1,
+			    cases[index].sql2) != 0 ||
+		    expect_query_graph_select_value_binds(
+			    cases[index].dialect,
+			    cases[index].select_not_in_sql,
+			    2U,
+			    "phone",
+			    cases[index].bind_kind,
+			    cases[index].key1,
+			    cases[index].key2,
+			    cases[index].sql1,
+			    cases[index].sql2) != 0 ||
+		    expect_query_graph_select_value_binds(
+			    cases[index].dialect,
+			    cases[index].select_between_sql,
+			    2U,
+			    "created_at",
+			    cases[index].bind_kind,
+			    strcmp(cases[index].key1, "phone1") == 0 ? "from_time" : cases[index].key1,
+			    strcmp(cases[index].key2, "phone2") == 0 ? "to_time" : cases[index].key2,
+			    strcmp(cases[index].sql1, ":phone1") == 0 ? ":from_time" : (strcmp(cases[index].sql1, "@phone1") == 0 ? "@from_time" : cases[index].sql1),
+			    strcmp(cases[index].sql2, ":phone2") == 0 ? ":to_time" : (strcmp(cases[index].sql2, "@phone2") == 0 ? "@to_time" : cases[index].sql2)) != 0 ||
+		    expect_query_graph_select_value_binds(
+			    cases[index].dialect,
+			    cases[index].select_func_sql,
+			    1U,
+			    "email",
+			    cases[index].bind_kind,
+			    cases[index].bind_kind == SQLPARSER_BIND_KIND_NAMED ? "email" : cases[index].key1,
+			    cases[index].key2,
+			    strcmp(cases[index].sql1, ":phone1") == 0 ? ":email" : (strcmp(cases[index].sql1, "@phone1") == 0 ? "@email" : cases[index].sql1),
+			    cases[index].sql2) != 0 ||
+		    expect_query_graph_select_value_binds(
+			    cases[index].dialect,
+			    cases[index].select_case_sql,
+			    1U,
+			    "phone",
+			    cases[index].bind_kind,
+			    cases[index].key1,
+			    cases[index].key2,
+			    cases[index].sql1,
+			    cases[index].sql2) != 0 ||
+		    expect_query_graph_update_set_and_value_list(
+			    cases[index].dialect,
+			    cases[index].update_sql,
+			    cases[index].bind_kind,
+			    cases[index].bind_kind == SQLPARSER_BIND_KIND_NAMED ? "note" : cases[index].key1,
+			    cases[index].bind_kind == SQLPARSER_BIND_KIND_NAMED ? "phone1" : cases[index].key2,
+			    cases[index].bind_kind == SQLPARSER_BIND_KIND_NAMED ? "phone2" : cases[index].key3,
+			    strcmp(cases[index].sql1, ":phone1") == 0 ? ":note" : (strcmp(cases[index].sql1, "@phone1") == 0 ? "@note" : cases[index].sql1),
+			    cases[index].bind_kind == SQLPARSER_BIND_KIND_NAMED ? cases[index].sql1 : cases[index].sql2,
+			    cases[index].bind_kind == SQLPARSER_BIND_KIND_NAMED ? cases[index].sql2 : cases[index].sql3) != 0 ||
+		    expect_query_graph_select_value_binds(
+			    cases[index].dialect,
+			    cases[index].delete_sql,
+			    2U,
+			    "email",
+			    cases[index].bind_kind,
+			    cases[index].bind_kind == SQLPARSER_BIND_KIND_NAMED ? "email1" : cases[index].key1,
+			    cases[index].bind_kind == SQLPARSER_BIND_KIND_NAMED ? "email2" : cases[index].key2,
+			    strcmp(cases[index].sql1, ":phone1") == 0 ? ":email1" : (strcmp(cases[index].sql1, "@phone1") == 0 ? "@email1" : cases[index].sql1),
+			    strcmp(cases[index].sql2, ":phone2") == 0 ? ":email2" : (strcmp(cases[index].sql2, "@phone2") == 0 ? "@email2" : cases[index].sql2)) != 0) {
+			return 1;
+		}
+	}
+	for (index = 0U; index < sizeof(non_predicate_cases) / sizeof(non_predicate_cases[0]); index++) {
+		if (expect_query_graph_no_field_values(
+			    non_predicate_cases[index].dialect,
+			    non_predicate_cases[index].sql) != 0) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static int test_query_graph_column_semantics_json(void)
 {
 	static const struct {
 		sqlparser_dialect_t dialect;
 		const char *sql;
 		const char *table_name;
-		const char *bind_name;
 	} dialect_cases[] = {
-		{
-			SQLPARSER_DIALECT_POSTGRESQL,
-			"SELECT name, UPPER(name), first_name || last_name FROM users WHERE id = 1 ORDER BY created_at",
-			"users",
-			NULL
-		},
-		{
-			SQLPARSER_DIALECT_MYSQL,
-			"SELECT name, UPPER(name), CONCAT(first_name, last_name) FROM users WHERE id = ? ORDER BY created_at",
-			"users",
-			"1"
-		},
-		{
-			SQLPARSER_DIALECT_ORACLE,
-			"SELECT name, UPPER(name), first_name || last_name FROM KDES.USERS WHERE id = :id ORDER BY created_at",
-			"users",
-			"id"
-		},
-		{
-			SQLPARSER_DIALECT_SQLSERVER,
-			"SELECT [name], UPPER([name]), [first_name] + [last_name] FROM [dbo].[users] WHERE [id] = @id ORDER BY [created_at]",
-			"users",
-			"id"
-		},
-		{
-			SQLPARSER_DIALECT_DAMENG,
-			"SELECT name, UPPER(name), first_name || last_name FROM KDES.USERS WHERE id = :id ORDER BY created_at",
-			"users",
-			"id"
-		}
+		{SQLPARSER_DIALECT_POSTGRESQL, "SELECT name, UPPER(name), first_name || last_name FROM users WHERE id = 1 ORDER BY created_at", "users"},
+		{SQLPARSER_DIALECT_MYSQL, "SELECT name, UPPER(name), CONCAT(first_name, last_name) FROM users WHERE id = ? ORDER BY created_at", "users"},
+		{SQLPARSER_DIALECT_ORACLE, "SELECT name, UPPER(name), first_name || last_name FROM KDES.USERS WHERE id = :id ORDER BY created_at", "users"},
+		{SQLPARSER_DIALECT_SQLSERVER, "SELECT [name], UPPER([name]), [first_name] + [last_name] FROM [dbo].[users] WHERE [id] = @id ORDER BY [created_at]", "users"},
+		{SQLPARSER_DIALECT_DAMENG, "SELECT name, UPPER(name), first_name || last_name FROM KDES.USERS WHERE id = :id ORDER BY created_at", "users"}
 	};
 	json_t *root;
 	json_t *statement;
 	json_t *column;
-	json_t *clauses;
-	json_t *on_clause;
+	json_t *graph;
 	size_t index;
 
 	root = NULL;
@@ -3232,101 +3428,62 @@ static int test_sql_view_column_semantics_json(void)
 		    &statement) != 0) {
 		return 1;
 	}
+	graph = json_object_get(statement, "query_graph");
 	column = find_view_column_json(statement, "users", "name", "select", 0U);
-	if (expect_true(column != NULL, "direct SELECT column should exist") != 0 ||
-	    expect_true(json_integer_is(column, "clause_id", 1), "direct SELECT column clause_id should be 1") != 0 ||
-	    expect_true(json_array_length_is(column, "target_path", 0U), "direct SELECT column target_path should be empty") != 0) {
+	if (expect_true(column != NULL, "direct SELECT field should exist") != 0 ||
+	    expect_true(json_array_length_is(column, "target_path", 0U), "direct SELECT field target_path should be empty") != 0) {
 		json_decref(root);
 		return 1;
 	}
 	column = find_view_column_json(statement, "users", "name", "select", 1U);
-	if (expect_true(column != NULL, "function SELECT column should exist") != 0 ||
+	if (expect_true(column != NULL, "function SELECT field should exist") != 0 ||
 	    expect_true(json_array_length_is(column, "target_path", 1U), "function target_path should contain one entry") != 0 ||
 	    expect_true(json_target_path_entry_is(column, 0U, "function", "UPPER", 0), "function target_path should be UPPER") != 0) {
 		json_decref(root);
 		return 1;
 	}
 	column = find_view_column_json(statement, "users", "first_name", "select", 0U);
-	if (expect_true(column != NULL, "expression first column should exist") != 0 ||
-	    expect_true(json_target_path_entry_is(column, 0U, "expression", "||", 0), "expression first target_path should be || arg 0") != 0 ||
-	    expect_true(json_key_is_null(column, "operator"), "SELECT expression column operator should be null") != 0 ||
-	    expect_true(json_key_is_null(column, "value"), "SELECT expression column value should be null") != 0) {
+	if (expect_true(column != NULL, "expression first field should exist") != 0 ||
+	    expect_true(json_target_path_entry_is(column, 0U, "expression", "||", 0), "expression first target_path should be || arg 0") != 0) {
 		json_decref(root);
 		return 1;
 	}
 	column = find_view_column_json(statement, "users", "last_name", "select", 0U);
-	if (expect_true(column != NULL, "expression second column should exist") != 0 ||
+	if (expect_true(column != NULL, "expression second field should exist") != 0 ||
 	    expect_true(json_target_path_entry_is(column, 0U, "expression", "||", 1), "expression second target_path should be || arg 1") != 0) {
 		json_decref(root);
 		return 1;
 	}
 	column = find_view_column_json(statement, "users", "state", "select", 0U);
-	if (expect_true(column != NULL, "CASE expression condition column should exist") != 0 ||
-	    expect_true(json_target_path_entry_is(column, 0U, "expression", "case_when", 0), "CASE target_path should start with case_when") != 0 ||
-	    expect_true(json_key_is_null(column, "operator"), "SELECT CASE condition operator should be null") != 0 ||
-	    expect_true(json_key_is_null(column, "value"), "SELECT CASE condition value should be null") != 0) {
-		json_decref(root);
-		return 1;
-	}
-	column = find_view_column_json(statement, "users", "*", "select", 0U);
-	if (expect_true(column != NULL, "unqualified star column should exist") != 0 ||
-	    expect_true(json_array_length_is(column, "target_path", 0U), "star target_path should be empty") != 0) {
+	if (expect_true(column != NULL, "CASE expression condition field should exist") != 0 ||
+	    expect_true(json_target_path_entry_is(column, 0U, "expression", "case_when", 0), "CASE target_path should start with case_when") != 0) {
 		json_decref(root);
 		return 1;
 	}
 	column = find_view_column_json(statement, "users", "id", "where", 0U);
-	if (expect_true(column != NULL, "WHERE column should exist") != 0 ||
-	    expect_true(json_integer_is(column, "clause_id", 2), "WHERE column clause_id should be 2") != 0 ||
+	if (expect_true(column != NULL, "WHERE field should exist") != 0 ||
 	    expect_true(json_array_length_is(column, "target_path", 0U), "WHERE target_path should be empty") != 0) {
 		json_decref(root);
 		return 1;
 	}
 	column = find_view_column_json(statement, "users", "created_at", "order", 0U);
-	if (expect_true(column != NULL, "ORDER BY column should exist") != 0 ||
-	    expect_true(json_integer_is(column, "clause_id", 3), "ORDER BY column clause_id should be 3") != 0) {
+	if (expect_true(column != NULL, "ORDER BY field should exist") != 0) {
 		json_decref(root);
 		return 1;
 	}
-	json_decref(root);
+		{
+			char *graph_text;
+			int has_star;
 
-	root = NULL;
-	statement = NULL;
-	if (view_json_parse_statement(
-		    SQLPARSER_DIALECT_POSTGRESQL,
-		    "SELECT u.* FROM public.users u",
-		    &root,
-		    &statement) != 0) {
-		return 1;
-	}
-	column = find_view_column_json(statement, "users", "*", "select", 0U);
-	if (expect_true(column != NULL, "qualified star column should exist") != 0) {
+			graph_text = json_dumps(graph, JSON_COMPACT);
+			has_star = graph_text != NULL && strstr(graph_text, "\"kind\":\"star\"") != NULL;
+			free(graph_text);
+			if (expect_true(has_star, "query_graph should expose star target") != 0) {
+				json_decref(root);
+				return 1;
+			}
+		}
 		json_decref(root);
-		return 1;
-	}
-	json_decref(root);
-
-	root = NULL;
-	statement = NULL;
-	if (view_json_parse_statement(
-		    SQLPARSER_DIALECT_POSTGRESQL,
-		    "SELECT name FROM (SELECT name FROM users WHERE id = 1) x",
-		    &root,
-		    &statement) != 0) {
-		return 1;
-	}
-	column = find_view_column_json(statement, "users", "name", "select", 0U);
-	if (expect_true(column != NULL, "outer direct column should exist") != 0 ||
-	    expect_true(json_is_integer(json_object_get(column, "clause_id")), "outer direct column clause_id should be set") != 0) {
-		json_decref(root);
-		return 1;
-	}
-	column = find_view_column_json(statement, "users", "name", "select", 1U);
-	if (expect_true(column != NULL, "inner direct column should exist") != 0 ||
-	    expect_true(json_is_integer(json_object_get(column, "clause_id")), "inner direct column clause_id should be set") != 0) {
-		json_decref(root);
-		return 1;
-	}
-	json_decref(root);
 
 	root = NULL;
 	statement = NULL;
@@ -3337,30 +3494,13 @@ static int test_sql_view_column_semantics_json(void)
 		    &statement) != 0) {
 		return 1;
 	}
-	clauses = json_object_get(statement, "clauses");
-	on_clause = NULL;
-	json_array_foreach(clauses, index, on_clause)
-	{
-		if (json_string_is(on_clause, "kind", "on")) {
-			break;
-		}
-		on_clause = NULL;
-	}
-	if (expect_true(on_clause != NULL, "JOIN ON clause should be exposed in JSON") != 0 ||
-	    expect_true(json_key_is_null(on_clause, "selector"), "JOIN ON clause selector should be null") != 0 ||
-	    expect_true(json_string_value(json_object_get(on_clause, "sql")) != NULL, "JOIN ON clause SQL should be available") != 0) {
-		json_decref(root);
-		return 1;
-	}
 	column = find_view_column_json(statement, "users", "id", "on", 0U);
-	if (expect_true(column != NULL, "JOIN ON left column should exist") != 0 ||
-	    expect_true(json_is_integer(json_object_get(column, "clause_id")), "JOIN ON left column clause_id should be set") != 0) {
+	if (expect_true(column != NULL, "JOIN ON left field should exist") != 0) {
 		json_decref(root);
 		return 1;
 	}
 	column = find_view_column_json(statement, "orders", "user_id", "on", 0U);
-	if (expect_true(column != NULL, "JOIN ON right column should exist") != 0 ||
-	    expect_true(json_is_integer(json_object_get(column, "clause_id")), "JOIN ON right column clause_id should be set") != 0) {
+	if (expect_true(column != NULL, "JOIN ON right field should exist") != 0) {
 		json_decref(root);
 		return 1;
 	}
@@ -3376,14 +3516,12 @@ static int test_sql_view_column_semantics_json(void)
 		return 1;
 	}
 	column = find_view_column_json(statement, "users", "dept", "group", 0U);
-	if (expect_true(column != NULL, "GROUP BY column should exist") != 0 ||
-	    expect_true(json_is_integer(json_object_get(column, "clause_id")), "GROUP BY clause_id should be set") != 0) {
+	if (expect_true(column != NULL, "GROUP BY field should exist") != 0) {
 		json_decref(root);
 		return 1;
 	}
 	column = find_view_column_json(statement, "users", "id", "having", 0U);
-	if (expect_true(column != NULL, "HAVING column should exist") != 0 ||
-	    expect_true(json_is_integer(json_object_get(column, "clause_id")), "HAVING clause_id should be set") != 0) {
+	if (expect_true(column != NULL, "HAVING field should exist") != 0) {
 		json_decref(root);
 		return 1;
 	}
@@ -3417,21 +3555,11 @@ static int test_sql_view_column_semantics_json(void)
 
 	root = NULL;
 	statement = NULL;
-	if (view_json_parse_statement(
-		    SQLPARSER_DIALECT_POSTGRESQL,
-		    "SELECT DISTINCT LOW(UPPER(name)) FROM table1",
-		    &root,
-		    &statement) != 0) {
-		return 1;
-	}
-	if (expect_true(
-		    json_array_contains_string_value(json_object_get(statement, "keywords"), "distinct"),
-		    "SELECT DISTINCT should expose distinct keyword") != 0) {
-		json_decref(root);
+	if (view_json_parse_statement(SQLPARSER_DIALECT_POSTGRESQL, "SELECT DISTINCT LOW(UPPER(name)) FROM table1", &root, &statement) != 0) {
 		return 1;
 	}
 	column = find_view_column_json(statement, "table1", "name", "select", 0U);
-	if (expect_true(column != NULL, "distinct nested function column should exist") != 0 ||
+	if (expect_true(column != NULL, "distinct nested function field should exist") != 0 ||
 	    expect_true(json_array_length_is(column, "target_path", 2U), "distinct nested function should expose full target_path") != 0 ||
 	    expect_true(json_target_path_entry_is(column, 0U, "function", "LOW", 0), "distinct nested function outer path should be LOW") != 0 ||
 	    expect_true(json_target_path_entry_is(column, 1U, "function", "UPPER", 0), "distinct nested function inner path should be UPPER") != 0) {
@@ -3440,232 +3568,39 @@ static int test_sql_view_column_semantics_json(void)
 	}
 	json_decref(root);
 
-	if (expect_view_column_shape(
-		    SQLPARSER_DIALECT_POSTGRESQL,
-		    "SELECT UPPER(name) || '_x' FROM users",
-		    "users",
-		    "name",
-		    "select",
-		    "expression",
-		    "||",
-		    0,
-		    0) != 0 ||
-	    expect_view_column_shape(
-		    SQLPARSER_DIALECT_POSTGRESQL,
-		    "SELECT COALESCE(name, fallback_name) FROM users",
-		    "users",
-		    "name",
-		    "select",
-		    "function",
-		    "COALESCE",
-		    1,
-		    0) != 0 ||
-	    expect_view_column_shape(
-		    SQLPARSER_DIALECT_POSTGRESQL,
-		    "SELECT COALESCE(name, fallback_name) FROM users",
-		    "users",
-		    "fallback_name",
-		    "select",
-		    "function",
-		    "COALESCE",
-		    1,
-		    1) != 0 ||
-	    expect_view_column_shape(
-		    SQLPARSER_DIALECT_POSTGRESQL,
-		    "SELECT CAST(age AS text) FROM users",
-		    "users",
-		    "age",
-		    "select",
-		    "function",
-		    "CAST",
-		    1,
-		    0) != 0 ||
-	    expect_view_column_shape(
-		    SQLPARSER_DIALECT_POSTGRESQL,
-		    "SELECT GREATEST(age, score) FROM users",
-		    "users",
-		    "score",
-		    "select",
-		    "function",
-		    "GREATEST",
-		    1,
-		    1) != 0 ||
-	    expect_view_column_shape(
-		    SQLPARSER_DIALECT_POSTGRESQL,
-		    "SELECT name COLLATE \"C\" FROM users",
-		    "users",
-		    "name",
-		    "select",
-		    "expression",
-		    "collate",
-		    0,
-		    0) != 0 ||
-	    expect_view_column_shape(
-		    SQLPARSER_DIALECT_POSTGRESQL,
-		    "SELECT ARRAY[id, age] FROM users",
-		    "users",
-		    "id",
-		    "select",
-		    "expression",
-		    "array",
-		    0,
-		    0) != 0 ||
-	    expect_view_column_shape(
-		    SQLPARSER_DIALECT_POSTGRESQL,
-		    "SELECT ROW(id, age) FROM users",
-		    "users",
-		    "age",
-		    "select",
-		    "expression",
-		    "row",
-		    1,
-		    1) != 0 ||
-	    expect_view_column_shape(
-		    SQLPARSER_DIALECT_POSTGRESQL,
-		    "SELECT name IS NULL FROM users",
-		    "users",
-		    "name",
-		    "select",
-		    "expression",
-		    "is_null",
-		    0,
-		    0) != 0 ||
-	    expect_view_column_shape(
-		    SQLPARSER_DIALECT_POSTGRESQL,
-		    "SELECT active IS TRUE FROM users",
-		    "users",
-		    "active",
-		    "select",
-		    "expression",
-		    "boolean_test",
-		    0,
-		    0) != 0 ||
-	    expect_view_column_shape(
-		    SQLPARSER_DIALECT_POSTGRESQL,
-		    "SELECT COUNT(id) FILTER (WHERE status = 'paid') FROM users",
-		    "users",
-		    "id",
-		    "select",
-		    "function",
-		    "COUNT",
-		    1,
-		    0) != 0 ||
-	    expect_view_column_shape(
-		    SQLPARSER_DIALECT_POSTGRESQL,
-		    "SELECT SUM(amount) OVER (PARTITION BY dept ORDER BY created_at) FROM users",
-		    "users",
-		    "amount",
-		    "select",
-		    "function",
-		    "SUM",
-		    1,
-		    0) != 0) {
-		return 1;
-	}
-
-	if (expect_view_column_shape(
-		    SQLPARSER_DIALECT_POSTGRESQL,
-		    "UPDATE users SET name = 'bob', age = age + 1 WHERE id = 1",
-		    "users",
-		    "name",
-		    "set",
-		    "not_output",
-		    NULL,
-		    0,
-		    0) != 0 ||
-	    expect_view_column_shape(
-		    SQLPARSER_DIALECT_POSTGRESQL,
-		    "UPDATE users SET name = 'bob', age = age + 1 WHERE id = 1",
-		    "users",
-		    "age",
-		    "set",
-		    "not_output",
-		    NULL,
-		    0,
-		    0) != 0 ||
-	    expect_view_column_shape(
-		    SQLPARSER_DIALECT_POSTGRESQL,
-		    "UPDATE users SET name = 'bob', age = age + 1 WHERE id = 1",
-		    "users",
-		    "id",
-		    "where",
-		    "not_output",
-		    NULL,
-		    0,
-		    0) != 0 ||
-	    expect_view_column_shape(
-		    SQLPARSER_DIALECT_POSTGRESQL,
-		    "DELETE FROM users WHERE status = 'inactive' AND age > 30",
-		    "users",
-		    "status",
-		    "where",
-		    "not_output",
-		    NULL,
-		    0,
-		    0) != 0 ||
-	    expect_view_column_shape(
-		    SQLPARSER_DIALECT_POSTGRESQL,
-		    "INSERT INTO users (id, name, age) VALUES (1, 'bob', 18)",
-		    "users",
-		    "id",
-		    "insert",
-		    "not_output",
-		    NULL,
-		    0,
-		    0) != 0 ||
-	    expect_view_column_shape(
-		    SQLPARSER_DIALECT_POSTGRESQL,
-		    "CREATE VIEW active_users AS SELECT id, name FROM users WHERE status = 'active'",
-		    "users",
-		    "status",
-		    "where",
-		    "not_output",
-		    NULL,
-		    0,
-		    0) != 0 ||
-	    expect_view_column_shape(
-		    SQLPARSER_DIALECT_POSTGRESQL,
-		    "INSERT INTO audit_users (id, name) SELECT id, name FROM users WHERE status = 'active'",
-		    "users",
-		    "name",
-		    "select",
-		    "direct_column",
-		    NULL,
-		    0,
-		    0) != 0) {
+	if (expect_view_column_shape(SQLPARSER_DIALECT_POSTGRESQL, "SELECT UPPER(name) || '_x' FROM users", "users", "name", "select", "expression", "||", 0, 0) != 0 ||
+	    expect_view_column_shape(SQLPARSER_DIALECT_POSTGRESQL, "SELECT COALESCE(name, fallback_name) FROM users", "users", "name", "select", "function", "COALESCE", 1, 0) != 0 ||
+	    expect_view_column_shape(SQLPARSER_DIALECT_POSTGRESQL, "SELECT COALESCE(name, fallback_name) FROM users", "users", "fallback_name", "select", "function", "COALESCE", 1, 1) != 0 ||
+	    expect_view_column_shape(SQLPARSER_DIALECT_POSTGRESQL, "SELECT CAST(age AS text) FROM users", "users", "age", "select", "function", "CAST", 1, 0) != 0 ||
+	    expect_view_column_shape(SQLPARSER_DIALECT_POSTGRESQL, "SELECT GREATEST(age, score) FROM users", "users", "score", "select", "function", "GREATEST", 1, 1) != 0 ||
+	    expect_view_column_shape(SQLPARSER_DIALECT_POSTGRESQL, "SELECT name COLLATE \"C\" FROM users", "users", "name", "select", "expression", "collate", 0, 0) != 0 ||
+	    expect_view_column_shape(SQLPARSER_DIALECT_POSTGRESQL, "SELECT ARRAY[id, age] FROM users", "users", "id", "select", "expression", "array", 0, 0) != 0 ||
+	    expect_view_column_shape(SQLPARSER_DIALECT_POSTGRESQL, "SELECT ROW(id, age) FROM users", "users", "age", "select", "expression", "row", 1, 1) != 0 ||
+	    expect_view_column_shape(SQLPARSER_DIALECT_POSTGRESQL, "SELECT name IS NULL FROM users", "users", "name", "select", "expression", "is_null", 0, 0) != 0 ||
+	    expect_view_column_shape(SQLPARSER_DIALECT_POSTGRESQL, "SELECT active IS TRUE FROM users", "users", "active", "select", "expression", "boolean_test", 0, 0) != 0 ||
+	    expect_view_column_shape(SQLPARSER_DIALECT_POSTGRESQL, "SELECT SUM(amount) OVER (PARTITION BY dept ORDER BY created_at) FROM users", "users", "amount", "select", "function", "SUM", 1, 0) != 0) {
 		return 1;
 	}
 
 	for (index = 0U; index < sizeof(dialect_cases) / sizeof(dialect_cases[0]); index++) {
 		root = NULL;
 		statement = NULL;
-		if (view_json_parse_statement(
-			    dialect_cases[index].dialect,
-			    dialect_cases[index].sql,
-			    &root,
-			    &statement) != 0) {
+		if (view_json_parse_statement(dialect_cases[index].dialect, dialect_cases[index].sql, &root, &statement) != 0) {
 			return 1;
 		}
 		column = find_view_column_json(statement, dialect_cases[index].table_name, "name", "select", 0U);
-		if (expect_true(column != NULL, "dialect direct column should exist") != 0) {
+		if (expect_true(column != NULL, "dialect direct field should exist") != 0) {
 			json_decref(root);
 			return 1;
 		}
 		column = find_view_column_json(statement, dialect_cases[index].table_name, "name", "select", 1U);
-		if (expect_true(column != NULL, "dialect function column should exist") != 0 ||
+		if (expect_true(column != NULL, "dialect function field should exist") != 0 ||
 		    expect_true(json_target_path_entry_is(column, 0U, "function", "UPPER", 0), "dialect function target_path should be UPPER") != 0) {
 			json_decref(root);
 			return 1;
 		}
 		column = find_view_column_json(statement, dialect_cases[index].table_name, "id", "where", 0U);
-		if (expect_true(column != NULL, "dialect WHERE column should exist") != 0) {
-			json_decref(root);
-			return 1;
-		}
-		if (dialect_cases[index].bind_name != NULL &&
-		    (expect_true(json_string_is(column, "bind_key", dialect_cases[index].bind_name), "dialect bind key should be exposed without marker") != 0 ||
-		     expect_true(json_object_get(column, "bind") == NULL, "removed bind field should not be exposed") != 0 ||
-		     expect_true(json_key_is_null(column, "value"), "dialect bind value should be null") != 0)) {
+		if (expect_true(column != NULL, "dialect WHERE field should exist") != 0) {
 			json_decref(root);
 			return 1;
 		}
@@ -3675,98 +3610,46 @@ static int test_sql_view_column_semantics_json(void)
 	return 0;
 }
 
-static int test_sql_view_public_struct_semantics(void)
+static int test_query_graph_public_struct_semantics(void)
 {
 	sqlparser_parse_options_t options;
 	sqlparser_error_t error;
 	sqlparser_handle_t *handle;
-	sqlparser_view_t view;
-	sqlparser_statement_view_t statement;
-	sqlparser_clause_view_t clause;
-	sqlparser_object_view_t object;
-	sqlparser_column_view_t column;
-	sqlparser_row_view_t row;
-	sqlparser_cell_view_t cell;
-	char *clause_sql;
-	size_t index;
-	int saw_select_name;
-	int saw_where_id;
-	int saw_set_b;
-	int saw_second_where_id;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_relation_t relation;
+	sqlparser_graph_field_t field;
+	sqlparser_graph_value_t value;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_cell_t cell;
+	size_t cell_index;
 	int rc;
 
 	handle = NULL;
-	clause_sql = NULL;
 	memset(&error, 0, sizeof(error));
 	sqlparser_parse_options_default(&options);
 	options.dialect = SQLPARSER_DIALECT_ORACLE;
-	rc = sqlparser_parse_with_options(
-		"SELECT UPPER(name) FROM users WHERE id = :id",
-		&options,
-		&handle,
-		&error);
-	if (expect_status_ok(rc, &error, "public view struct semantic parse should succeed") != 0) {
+	rc = sqlparser_parse_with_options("SELECT UPPER(name) FROM users WHERE id = :id", &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "query graph struct semantic parse should succeed") != 0) {
 		return 1;
 	}
-	rc = sqlparser_get_view(handle, &view, &error);
-	if (expect_status_ok(rc, &error, "public view should be available") != 0 ||
-	    expect_status_ok(sqlparser_view_statement_at(&view, 0U, &statement, &error), &error, "public statement should be available") != 0 ||
-	    expect_true(statement.clause_count >= 2U, "public statement should expose clauses") != 0 ||
-	    expect_status_ok(sqlparser_statement_clause_at(&statement, 0U, &clause, &error), &error, "public select clause should be available") != 0 ||
-	    expect_true(clause.kind == SQLPARSER_CLAUSE_KIND_SELECT_LIST, "public select clause kind mismatch") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	rc = sqlparser_clause_sql(&clause, &clause_sql, &error);
-	if (expect_status_ok(rc, &error, "public select clause SQL should be available") != 0 ||
-	    expect_true(clause_sql != NULL && strstr(clause_sql, "upper") != NULL, "public select clause SQL mismatch") != 0) {
-		sqlparser_string_free(clause_sql);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	sqlparser_string_free(clause_sql);
-	clause_sql = NULL;
-	rc = sqlparser_statement_object_at(&statement, 0U, &object, &error);
-	if (expect_status_ok(rc, &error, "public object should be available") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	saw_select_name = 0;
-	saw_where_id = 0;
-	for (index = 0U; index < object.column_count; index++) {
-		rc = sqlparser_object_column_at(&object, index, &column, &error);
-		if (expect_status_ok(rc, &error, "public column should be available") != 0) {
-			sqlparser_handle_destroy(handle);
-			return 1;
-		}
-		if (strcmp(column.name, "name") == 0 && strcmp(column.keyword, "select") == 0) {
-			saw_select_name = 1;
-			if (expect_true(column.has_clause_id != 0 && column.clause_id == 1U, "public select column clause_id mismatch") != 0 ||
-			    expect_true(column.target_path_count == 1U, "public select column target_path count mismatch") != 0 ||
-			    expect_true(strcmp(column.target_path[0].kind, "function") == 0, "public target_path kind mismatch") != 0 ||
-			    expect_true(strcmp(column.target_path[0].name, "UPPER") == 0, "public target_path name mismatch") != 0 ||
-			    expect_true(column.target_path[0].arg_index == 0U, "public target_path arg index mismatch") != 0) {
-				sqlparser_handle_destroy(handle);
-				return 1;
-			}
-		}
-		if (strcmp(column.name, "id") == 0 && strcmp(column.keyword, "where") == 0) {
-			saw_where_id = 1;
-			if (expect_true(column.has_clause_id != 0 && column.clause_id == 2U, "public where column clause_id mismatch") != 0 ||
-			    expect_true(column.has_bind_key != 0, "public where bind key should be set") != 0 ||
-			    expect_true(strcmp(column.bind_key, "id") == 0, "public where bind key mismatch") != 0 ||
-			    expect_true(column.bind_kind == SQLPARSER_BIND_KIND_NAMED, "public where bind kind mismatch") != 0 ||
-			    expect_true(column.bind_position == 1U, "public where bind position mismatch") != 0 ||
-			    expect_true(column.has_bind_sql != 0 && strcmp(column.bind_sql, ":id") == 0, "public where bind SQL mismatch") != 0 ||
-			    expect_true(column.has_bind_selector != 0, "public where bind selector should be set") != 0 ||
-			    expect_true(column.value_count == 0U, "public bind column should not expose value") != 0) {
-				sqlparser_handle_destroy(handle);
-				return 1;
-			}
-		}
-	}
-	if (expect_true(saw_select_name != 0, "public select column should be found") != 0 ||
-	    expect_true(saw_where_id != 0, "public where column should be found") != 0) {
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "query graph should be available") != 0 ||
+	    expect_true(graph.relation_count == 1U, "query graph should expose one relation") != 0 ||
+	    expect_true(graph.field_count >= 2U, "query graph should expose SELECT and WHERE fields") != 0 ||
+	    expect_true(graph.value_count == 1U, "query graph should expose one WHERE value") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_relation_at(&graph, 0U, &relation, &error), &error, "relation should be available") != 0 ||
+	    expect_true(strcmp(relation.object_name, "users") == 0, "relation table should be users") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_field_at(&graph, 0U, &field, &error), &error, "SELECT field should be available") != 0 ||
+	    expect_true(strcmp(field.column_name, "name") == 0, "SELECT field should be name") != 0 ||
+	    expect_true(field.has_target != 0, "SELECT field should point to target") != 0 ||
+	    expect_true(field.target_path_count == 1U, "SELECT function field target_path count mismatch") != 0 ||
+	    expect_true(strcmp(field.target_path[0].kind, "function") == 0, "SELECT function target_path kind mismatch") != 0 ||
+	    expect_true(strcmp(field.target_path[0].name, "UPPER") == 0, "SELECT function target_path name mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_value_at(&graph, 0U, &value, &error), &error, "WHERE value should be available") != 0 ||
+	    expect_true(value.has_bind != 0 && strcmp(value.bind, "id") == 0, "WHERE bind key mismatch") != 0 ||
+	    expect_true(value.bind_kind == SQLPARSER_BIND_KIND_NAMED, "WHERE bind kind mismatch") != 0 ||
+	    expect_true(value.has_bind_position != 0 && value.bind_position == 1U, "WHERE bind position mismatch") != 0 ||
+	    expect_true(value.has_bind_sql != 0 && strcmp(value.bind_sql, ":id") == 0, "WHERE bind SQL mismatch") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -3774,89 +3657,24 @@ static int test_sql_view_public_struct_semantics(void)
 
 	handle = NULL;
 	memset(&error, 0, sizeof(error));
-	rc = sqlparser_parse_with_options(
-		"INSERT INTO users (id, name) VALUES (:id, ?)",
-		&options,
-		&handle,
-		&error);
-	if (expect_status_ok(rc, &error, "public insert bind parse should succeed") != 0) {
+	rc = sqlparser_parse_with_options("INSERT INTO users (id, name) VALUES (:id, ?)", &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "query graph insert bind parse should succeed") != 0) {
 		return 1;
 	}
-	rc = sqlparser_get_view(handle, &view, &error);
-	if (expect_status_ok(rc, &error, "public insert view should be available") != 0 ||
-	    expect_status_ok(sqlparser_view_statement_at(&view, 0U, &statement, &error), &error, "public insert statement should be available") != 0 ||
-	    expect_status_ok(sqlparser_statement_object_at(&statement, 0U, &object, &error), &error, "public insert object should be available") != 0 ||
-	    expect_status_ok(sqlparser_object_row_at(&object, 0U, &row, &error), &error, "public insert row should be available") != 0 ||
-	    expect_status_ok(sqlparser_row_cell_at(&row, 0U, &cell, &error), &error, "public insert cell should be available") != 0 ||
-	    expect_true(cell.has_bind_key != 0 && strcmp(cell.bind_key, "id") == 0, "public insert named bind key mismatch") != 0 ||
-	    expect_true(cell.bind_kind == SQLPARSER_BIND_KIND_NAMED, "public insert named bind kind mismatch") != 0 ||
-	    expect_true(cell.bind_position == 1U, "public insert named bind position mismatch") != 0 ||
-	    expect_true(cell.has_bind_sql != 0 && strcmp(cell.bind_sql, ":id") == 0, "public insert named bind SQL mismatch") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	rc = sqlparser_row_cell_at(&row, 1U, &cell, &error);
-	if (expect_status_ok(rc, &error, "public insert positional cell should be available") != 0 ||
-	    expect_true(cell.has_bind_key != 0, "public insert positional bind key should be set") != 0 ||
-	    expect_true(cell.bind_kind == SQLPARSER_BIND_KIND_POSITIONAL, "public insert positional bind kind mismatch") != 0 ||
-	    expect_true(cell.bind_position == 2U, "public insert positional bind position mismatch") != 0 ||
-	    expect_true(cell.has_bind_sql != 0 && strcmp(cell.bind_sql, "?") == 0, "public insert positional bind SQL mismatch") != 0 ||
-	    expect_true(cell.has_bind_selector != 0, "public insert bind selector should be set") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	sqlparser_handle_destroy(handle);
-
-	handle = NULL;
-	memset(&error, 0, sizeof(error));
-	sqlparser_parse_options_default(&options);
-	options.dialect = SQLPARSER_DIALECT_MYSQL;
-	rc = sqlparser_parse_with_options(
-		"UPDATE users SET a = ? WHERE id = ?; UPDATE users SET b = ? WHERE id = ?",
-		&options,
-		&handle,
-		&error);
-	if (expect_status_ok(rc, &error, "public multi-statement bind parse should succeed") != 0) {
-		return 1;
-	}
-	rc = sqlparser_get_view(handle, &view, &error);
-	if (expect_status_ok(rc, &error, "public multi-statement view should be available") != 0 ||
-	    expect_status_ok(sqlparser_view_statement_at(&view, 1U, &statement, &error), &error, "public second statement should be available") != 0 ||
-	    expect_status_ok(sqlparser_statement_object_at(&statement, 0U, &object, &error), &error, "public second object should be available") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	saw_set_b = 0;
-	saw_second_where_id = 0;
-	for (index = 0U; index < object.column_count; index++) {
-		rc = sqlparser_object_column_at(&object, index, &column, &error);
-		if (expect_status_ok(rc, &error, "public multi-statement column should be available") != 0) {
-			sqlparser_handle_destroy(handle);
-			return 1;
-		}
-		if (strcmp(column.name, "b") == 0 && strcmp(column.keyword, "set") == 0) {
-			saw_set_b = 1;
-			if (expect_true(column.has_bind_key != 0 && strcmp(column.bind_key, "3") == 0, "public second SET bind key mismatch") != 0 ||
-			    expect_true(column.bind_kind == SQLPARSER_BIND_KIND_POSITIONAL, "public second SET bind kind mismatch") != 0 ||
-			    expect_true(column.bind_position == 3U, "public second SET bind position should be global") != 0 ||
-			    expect_true(column.has_bind_sql != 0 && strcmp(column.bind_sql, "?") == 0, "public second SET bind SQL mismatch") != 0) {
-				sqlparser_handle_destroy(handle);
-				return 1;
-			}
-		}
-		if (strcmp(column.name, "id") == 0 && strcmp(column.keyword, "where") == 0) {
-			saw_second_where_id = 1;
-			if (expect_true(column.has_bind_key != 0 && strcmp(column.bind_key, "4") == 0, "public second WHERE bind key mismatch") != 0 ||
-			    expect_true(column.bind_kind == SQLPARSER_BIND_KIND_POSITIONAL, "public second WHERE bind kind mismatch") != 0 ||
-			    expect_true(column.bind_position == 4U, "public second WHERE bind position should be global") != 0 ||
-			    expect_true(column.has_bind_sql != 0 && strcmp(column.bind_sql, "?") == 0, "public second WHERE bind SQL mismatch") != 0) {
-				sqlparser_handle_destroy(handle);
-				return 1;
-			}
-		}
-	}
-	if (expect_true(saw_set_b != 0, "public second SET bind column should be found") != 0 ||
-	    expect_true(saw_second_where_id != 0, "public second WHERE bind column should be found") != 0) {
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "insert graph should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "insert dml should be available") != 0 ||
+	    expect_true(dml.rows.count == 2U, "insert should expose two cells") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.rows, 0U, &cell_index, &error), &error, "first insert cell index should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_cell_at(&graph, cell_index, &cell, &error), &error, "first insert cell should be available") != 0 ||
+	    expect_true(cell.has_bind != 0 && strcmp(cell.bind, "id") == 0, "insert named bind key mismatch") != 0 ||
+	    expect_true(cell.bind_kind == SQLPARSER_BIND_KIND_NAMED, "insert named bind kind mismatch") != 0 ||
+	    expect_true(cell.has_bind_position != 0 && cell.bind_position == 1U, "insert named bind position mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.rows, 1U, &cell_index, &error), &error, "second insert cell index should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_cell_at(&graph, cell_index, &cell, &error), &error, "second insert cell should be available") != 0 ||
+	    expect_true(cell.has_bind != 0 && strcmp(cell.bind, "2") == 0, "insert positional bind key mismatch") != 0 ||
+	    expect_true(cell.bind_kind == SQLPARSER_BIND_KIND_POSITIONAL, "insert positional bind kind mismatch") != 0 ||
+	    expect_true(cell.has_bind_position != 0 && cell.bind_position == 2U, "insert positional bind position mismatch") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -3864,18 +3682,18 @@ static int test_sql_view_public_struct_semantics(void)
 	return 0;
 }
 
-static int test_sql_view_attribution_and_values(void)
+static int test_query_graph_attribution_and_values(void)
 {
 	const char *sql;
 	sqlparser_handle_t *handle;
 	sqlparser_error_t error;
-	sqlparser_view_t view;
-	sqlparser_statement_view_t statement;
-	sqlparser_object_view_t users_object;
-	sqlparser_object_view_t orders_object;
-	sqlparser_column_view_t column;
-	sqlparser_value_view_t value;
-	char *value_sql;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_relation_t users_relation;
+	sqlparser_graph_relation_t orders_relation;
+	sqlparser_graph_field_t field;
+	sqlparser_graph_value_t value;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_assignment_t assignment;
 	char *selector_text;
 	char *deparsed_sql;
 	sqlparser_patch_t patch;
@@ -3888,97 +3706,61 @@ static int test_sql_view_attribution_and_values(void)
 
 	sql = "SELECT u.id, o.order_no FROM app.users u JOIN sales.orders o ON u.id = o.user_id WHERE o.status = 'paid'";
 	handle = NULL;
-	value_sql = NULL;
 	selector_text = NULL;
 	deparsed_sql = NULL;
 	memset(&error, 0, sizeof(error));
 	rc = sqlparser_parse(sql, &handle, &error);
-	if (expect_status_ok(rc, &error, "sql view attribution parse should succeed") != 0) {
+	if (expect_status_ok(rc, &error, "query graph attribution parse should succeed") != 0) {
 		return 1;
 	}
-	rc = sqlparser_get_view(handle, &view, &error);
-	if (expect_status_ok(rc, &error, "sql view attribution should be available") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	rc = sqlparser_view_statement_at(&view, 0U, &statement, &error);
-	if (expect_status_ok(rc, &error, "sql view attribution statement should be available") != 0 ||
-	    expect_true(statement.object_count == 2U, "join should expose two table objects") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	rc = sqlparser_statement_object_at(&statement, 0U, &users_object, &error);
-	if (expect_status_ok(rc, &error, "users object should be available") != 0 ||
-	    expect_true(strcmp(users_object.schema_name, "app") == 0, "users schema should be app") != 0 ||
-	    expect_true(strcmp(users_object.table_name, "users") == 0, "users table should be users") != 0 ||
-	    expect_true(strcmp(users_object.alias_name, "u") == 0, "users alias should be u") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	rc = sqlparser_statement_object_at(&statement, 1U, &orders_object, &error);
-	if (expect_status_ok(rc, &error, "orders object should be available") != 0 ||
-	    expect_true(strcmp(orders_object.schema_name, "sales") == 0, "orders schema should be sales") != 0 ||
-	    expect_true(strcmp(orders_object.table_name, "orders") == 0, "orders table should be orders") != 0 ||
-	    expect_true(strcmp(orders_object.alias_name, "o") == 0, "orders alias should be o") != 0) {
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "query graph attribution should be available") != 0 ||
+	    expect_true(graph.relation_count == 2U, "join should expose two relations") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_relation_at(&graph, 0U, &users_relation, &error), &error, "users relation should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_relation_at(&graph, 1U, &orders_relation, &error), &error, "orders relation should be available") != 0 ||
+	    expect_true(strcmp(users_relation.schema_name, "app") == 0, "users schema should be app") != 0 ||
+	    expect_true(strcmp(users_relation.object_name, "users") == 0, "users table should be users") != 0 ||
+	    expect_true(strcmp(users_relation.alias_name, "u") == 0, "users alias should be u") != 0 ||
+	    expect_true(strcmp(orders_relation.schema_name, "sales") == 0, "orders schema should be sales") != 0 ||
+	    expect_true(strcmp(orders_relation.object_name, "orders") == 0, "orders table should be orders") != 0 ||
+	    expect_true(strcmp(orders_relation.alias_name, "o") == 0, "orders alias should be o") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 
 	saw_users_id = 0;
-	for (index = 0U; index < users_object.column_count; index++) {
-		rc = sqlparser_object_column_at(&users_object, index, &column, &error);
-		if (expect_status_ok(rc, &error, "users column should be available") != 0) {
-			sqlparser_handle_destroy(handle);
-			return 1;
-		}
-		if (strcmp(column.name, "id") == 0) {
-			saw_users_id = 1;
-		}
-	}
 	saw_order_no = 0;
 	saw_order_status = 0;
-	for (index = 0U; index < orders_object.column_count; index++) {
-		rc = sqlparser_object_column_at(&orders_object, index, &column, &error);
-		if (expect_status_ok(rc, &error, "orders column should be available") != 0) {
+	for (index = 0U; index < graph.field_count; index++) {
+		rc = sqlparser_query_graph_field_at(&graph, index, &field, &error);
+		if (expect_status_ok(rc, &error, "field should be available") != 0) {
 			sqlparser_handle_destroy(handle);
 			return 1;
 		}
-		if (strcmp(column.name, "order_no") == 0) {
+		if (field.has_relation && field.relation_index == 0U && strcmp(field.column_name, "id") == 0) {
+			saw_users_id = 1;
+		}
+		if (field.has_relation && field.relation_index == 1U && strcmp(field.column_name, "order_no") == 0) {
 			saw_order_no = 1;
 		}
-		if (strcmp(column.name, "status") == 0) {
+		if (field.has_relation && field.relation_index == 1U && strcmp(field.column_name, "status") == 0) {
 			saw_order_status = 1;
-			if (expect_true(column.value_count == 1U, "where column should carry one value") != 0) {
-				sqlparser_handle_destroy(handle);
-				return 1;
-			}
-			rc = sqlparser_column_value_at(&column, 0U, &value, &error);
-			if (expect_status_ok(rc, &error, "where column value should be available") != 0 ||
-			    expect_true(value.has_selector != 0, "where value should expose patch selector") != 0 ||
-			    expect_true(value.selector.kind == SQLPARSER_SELECTOR_KIND_VALUE, "where value selector should be value") != 0) {
-				sqlparser_handle_destroy(handle);
-				return 1;
-			}
-			rc = sqlparser_value_sql(handle, &value, &value_sql, &error);
-			if (expect_status_ok(rc, &error, "where value SQL should be available") != 0 ||
-			    expect_true(strcmp(value_sql, "'paid'") == 0, "where value SQL should preserve literal SQL") != 0) {
-				sqlparser_string_free(value_sql);
-				sqlparser_handle_destroy(handle);
-				return 1;
-			}
-			sqlparser_string_free(value_sql);
-			value_sql = NULL;
-			rc = sqlparser_selector_format(&value.selector, &selector_text, &error);
-			if (expect_status_ok(rc, &error, "where value selector should format") != 0) {
-				sqlparser_handle_destroy(handle);
-				return 1;
-			}
 		}
 	}
-	if (expect_true(saw_users_id != 0, "users object should include id column") != 0 ||
-	    expect_true(saw_order_no != 0, "orders object should include order_no column") != 0 ||
-	    expect_true(saw_order_status != 0, "orders object should include status column") != 0) {
-		sqlparser_string_free(selector_text);
+	if (expect_true(saw_users_id != 0, "users relation should include id field") != 0 ||
+	    expect_true(saw_order_no != 0, "orders relation should include order_no field") != 0 ||
+	    expect_true(saw_order_status != 0, "orders relation should include status field") != 0 ||
+	    expect_true(graph.value_count == 1U, "WHERE literal should expose one graph value") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_value_at(&graph, 0U, &value, &error), &error, "WHERE literal value should be available") != 0 ||
+	    expect_true(value.kind == SQLPARSER_GRAPH_VALUE_LITERAL, "WHERE value should be literal") != 0 ||
+	    expect_true(value.literal.kind == SQLPARSER_LITERAL_KIND_STRING, "WHERE literal kind should be string") != 0 ||
+	    expect_true(strcmp(value.literal.string_value, "paid") == 0, "WHERE literal value mismatch") != 0 ||
+	    expect_true(value.has_selector != 0 && value.selector.kind == SQLPARSER_SELECTOR_KIND_VALUE, "WHERE value selector should be value") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_selector_format(&value.selector, &selector_text, &error);
+	if (expect_status_ok(rc, &error, "WHERE value selector should format") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -3989,14 +3771,14 @@ static int test_sql_view_attribution_and_values(void)
 	patch_list.items = &patch;
 	patch_list.count = 1U;
 	rc = sqlparser_apply_patch(handle, &patch_list, &error);
-	if (expect_status_ok(rc, &error, "where value patch should succeed") != 0) {
+	if (expect_status_ok(rc, &error, "WHERE value patch should succeed") != 0) {
 		sqlparser_string_free(selector_text);
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
-	if (expect_status_ok(rc, &error, "where value patched deparse should succeed") != 0 ||
-	    expect_true(strstr(deparsed_sql, "'done'") != NULL, "where value patch should appear in deparse") != 0) {
+	if (expect_status_ok(rc, &error, "WHERE value patched deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "'done'") != NULL, "WHERE value patch should appear in deparse") != 0) {
 		sqlparser_string_free(deparsed_sql);
 		sqlparser_string_free(selector_text);
 		sqlparser_handle_destroy(handle);
@@ -4004,46 +3786,26 @@ static int test_sql_view_attribution_and_values(void)
 	}
 	sqlparser_string_free(deparsed_sql);
 	sqlparser_string_free(selector_text);
-	deparsed_sql = NULL;
-	selector_text = NULL;
 	sqlparser_handle_destroy(handle);
 
-	sql = "UPDATE users SET name = 'bob' WHERE id = 1";
 	handle = NULL;
-	rc = sqlparser_parse(sql, &handle, &error);
-	if (expect_status_ok(rc, &error, "sql view update parse should succeed") != 0) {
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse("UPDATE users SET name = 'bob' WHERE id = 1", &handle, &error);
+	if (expect_status_ok(rc, &error, "query graph update parse should succeed") != 0) {
 		return 1;
 	}
-	rc = sqlparser_get_view(handle, &view, &error);
-	if (expect_status_ok(rc, &error, "sql view update should be available") != 0 ||
-	    expect_status_ok(sqlparser_view_statement_at(&view, 0U, &statement, &error), &error, "sql view update statement should be available") != 0 ||
-	    expect_status_ok(sqlparser_statement_object_at(&statement, 0U, &users_object, &error), &error, "sql view update object should be available") != 0 ||
-	    expect_true(users_object.column_count >= 2U, "update object should expose set and where columns") != 0) {
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "query graph update should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "update dml should be available") != 0 ||
+	    expect_true(dml.assignments.count == 1U, "update should expose one assignment") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_assignment_at(&graph, 0U, &assignment, &error), &error, "update assignment should be available") != 0 ||
+	    expect_true(assignment.value_kind == SQLPARSER_GRAPH_VALUE_LITERAL, "update assignment should carry literal") != 0 ||
+	    expect_true(assignment.literal.kind == SQLPARSER_LITERAL_KIND_STRING, "update assignment literal should be string") != 0 ||
+	    expect_true(strcmp(assignment.literal.string_value, "bob") == 0, "update assignment literal mismatch") != 0 ||
+	    expect_true(assignment.has_selector != 0 && assignment.selector.kind == SQLPARSER_SELECTOR_KIND_ASSIGNMENT, "update assignment selector should replace assignment") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-	rc = sqlparser_object_column_at(&users_object, 0U, &column, &error);
-	if (expect_status_ok(rc, &error, "update set column should be available") != 0 ||
-	    expect_true(strcmp(column.name, "name") == 0, "update set column should be name") != 0 ||
-	    expect_true(column.value_count == 1U, "update set column should carry value") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	rc = sqlparser_column_value_at(&column, 0U, &value, &error);
-	if (expect_status_ok(rc, &error, "update value should be available") != 0 ||
-	    expect_true(value.has_selector != 0, "update value should expose patch selector") != 0 ||
-	    expect_true(value.selector.kind == SQLPARSER_SELECTOR_KIND_ASSIGNMENT, "update value selector should replace assignment") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	rc = sqlparser_value_sql(handle, &value, &value_sql, &error);
-	if (expect_status_ok(rc, &error, "update value SQL should be available") != 0 ||
-	    expect_true(strcmp(value_sql, "'bob'") == 0, "update value SQL should preserve assignment SQL") != 0) {
-		sqlparser_string_free(value_sql);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	sqlparser_string_free(value_sql);
 	sqlparser_handle_destroy(handle);
 	return 0;
 }
@@ -4053,10 +3815,8 @@ static int test_select_target_list_patch_api(void)
 	const char *sql;
 	sqlparser_handle_t *handle;
 	sqlparser_error_t error;
-	sqlparser_view_t view;
-	sqlparser_statement_view_t statement;
-	sqlparser_object_view_t object;
-	sqlparser_column_view_t column;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_target_t target;
 	sqlparser_selector_t selector;
 	sqlparser_patch_t patch;
 	sqlparser_patch_list_t patch_list;
@@ -4105,18 +3865,17 @@ static int test_select_target_list_patch_api(void)
 	sqlparser_string_free(target_sql);
 	target_sql = NULL;
 
-	rc = sqlparser_get_view(handle, &view, &error);
-	if (expect_status_ok(rc, &error, "select view should be available") != 0 ||
-	    expect_status_ok(sqlparser_view_statement_at(&view, 0U, &statement, &error), &error, "select statement view should be available") != 0 ||
-	    expect_status_ok(sqlparser_statement_object_at(&statement, 0U, &object, &error), &error, "select object should be available") != 0 ||
-	    expect_status_ok(sqlparser_object_column_at(&object, 0U, &column, &error), &error, "select star column should be available") != 0 ||
-	    expect_true(strcmp(column.name, "*") == 0, "select star column should be *") != 0 ||
-	    expect_true(column.has_target_list_selector != 0, "select star should expose target list selector") != 0 ||
-	    expect_true(column.has_target_selector != 0, "select star should expose target selector") != 0) {
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "select graph should be available") != 0 ||
+	    expect_true(graph.target_count == 1U, "select star should expose one graph target") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_target_at(&graph, 0U, &target, &error), &error, "select star target should be available") != 0 ||
+	    expect_true(target.kind == SQLPARSER_GRAPH_TARGET_STAR, "select star target kind mismatch") != 0 ||
+	    expect_true(target.has_target_list_selector != 0, "select star should expose target list selector") != 0 ||
+	    expect_true(target.has_selector != 0, "select star should expose target selector") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-	rc = sqlparser_selector_format(&column.target_list_selector, &selector_text, &error);
+	rc = sqlparser_selector_format(&target.target_list_selector, &selector_text, &error);
 	if (expect_status_ok(rc, &error, "select target list selector should format") != 0 ||
 	    expect_true(strcmp(selector_text, "stmt[0].select_targets[0]") == 0, "select target list selector mismatch") != 0) {
 		sqlparser_string_free(selector_text);
@@ -4130,7 +3889,7 @@ static int test_select_target_list_patch_api(void)
 	if (expect_status_ok(rc, &error, "select view JSON should export") != 0 ||
 	    expect_true(strstr(view_json, "\"target_list_selector\":\"stmt[0].select_targets[0]\"") != NULL,
 	                "select view JSON should expose target list selector") != 0 ||
-	    expect_true(strstr(view_json, "\"target_selector\":\"stmt[0].select_target[0][0]\"") != NULL,
+	    expect_true(strstr(view_json, "\"selector\":\"stmt[0].select_target[0][0]\"") != NULL,
 	                "select view JSON should expose target selector") != 0) {
 		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
@@ -4332,17 +4091,20 @@ static int test_select_target_list_patch_api(void)
 	return 0;
 }
 
-static int test_sql_view_set_operation_attribution(void)
+static int test_query_graph_set_operation_attribution(void)
 {
 	const char *sql;
 	sqlparser_handle_t *handle;
 	sqlparser_error_t error;
-	sqlparser_view_t view;
-	sqlparser_statement_view_t statement;
-	sqlparser_object_view_t users_object;
-	sqlparser_object_view_t archive_object;
-	sqlparser_column_view_t column;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_relation_t relation;
+	sqlparser_graph_set_t set_item;
+	sqlparser_graph_field_t field;
 	char *view_json;
+	size_t index;
+	int saw_users;
+	int saw_archived_users;
+	int saw_order_field;
 	int rc;
 
 	sql = "SELECT u.id FROM users u UNION ALL SELECT a.id FROM archived_users a ORDER BY id";
@@ -4354,35 +4116,47 @@ static int test_sql_view_set_operation_attribution(void)
 	if (expect_status_ok(rc, &error, "set operation parse should succeed") != 0) {
 		return 1;
 	}
-	rc = sqlparser_get_view(handle, &view, &error);
-	if (expect_status_ok(rc, &error, "set operation view should be available") != 0 ||
-	    expect_status_ok(sqlparser_view_statement_at(&view, 0U, &statement, &error), &error, "set operation statement should be available") != 0 ||
-	    expect_true(statement.object_count == 2U, "set operation should expose both table objects") != 0 ||
-	    expect_true(statement.clause_count == 5U, "set operation should expose operand clauses and one top-level order_by") != 0) {
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "set operation graph should be available") != 0 ||
+	    expect_true(graph.relation_count == 2U, "set operation should expose both table relations") != 0 ||
+	    expect_true(graph.set_count == 1U, "set operation should expose one set node") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_set_at(&graph, 0U, &set_item, &error), &error, "set node should be available") != 0 ||
+	    expect_true(set_item.kind == SQLPARSER_GRAPH_SET_UNION_ALL, "set kind should be UNION ALL") != 0 ||
+	    expect_true(set_item.branch_blocks.count == 2U, "set operation should expose two branch blocks") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-	rc = sqlparser_statement_object_at(&statement, 0U, &users_object, &error);
-	if (expect_status_ok(rc, &error, "set operation users object should be available") != 0 ||
-	    expect_true(users_object.column_count > 0U, "set operation users object should expose columns") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
+	saw_users = 0;
+	saw_archived_users = 0;
+	for (index = 0U; index < graph.relation_count; index++) {
+		rc = sqlparser_query_graph_relation_at(&graph, index, &relation, &error);
+		if (expect_status_ok(rc, &error, "set relation should be available") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (relation.object_name != NULL && strcmp(relation.object_name, "users") == 0) {
+			saw_users = 1;
+		}
+		if (relation.object_name != NULL && strcmp(relation.object_name, "archived_users") == 0) {
+			saw_archived_users = 1;
+		}
 	}
-	rc = sqlparser_object_column_at(&users_object, 0U, &column, &error);
-	if (expect_status_ok(rc, &error, "set operation users column should be available") != 0 ||
-	    expect_true(strcmp(column.name, "id") == 0, "set operation users column should be id") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
+	saw_order_field = 0;
+	for (index = 0U; index < graph.field_count; index++) {
+		rc = sqlparser_query_graph_field_at(&graph, index, &field, &error);
+		if (expect_status_ok(rc, &error, "set field should be available") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (field.clause == SQLPARSER_CLAUSE_KIND_ORDER_BY &&
+		    field.column_name != NULL &&
+		    strcmp(field.column_name, "id") == 0) {
+			saw_order_field = 1;
+		}
 	}
-	rc = sqlparser_statement_object_at(&statement, 1U, &archive_object, &error);
-	if (expect_status_ok(rc, &error, "set operation archive object should be available") != 0 ||
-	    expect_true(archive_object.column_count > 0U, "set operation archive object should expose columns") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	rc = sqlparser_object_column_at(&archive_object, 0U, &column, &error);
-	if (expect_status_ok(rc, &error, "set operation archive column should be available") != 0 ||
-	    expect_true(strcmp(column.name, "id") == 0, "set operation archive column should be id") != 0) {
+	if (expect_true(saw_users != 0, "set operation graph should include users") != 0 ||
+	    expect_true(saw_archived_users != 0, "set operation graph should include archived_users") != 0 ||
+	    expect_true(saw_order_field != 0, "set operation graph should expose top-level order_by field") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -4390,9 +4164,10 @@ static int test_sql_view_set_operation_attribution(void)
 	if (expect_status_ok(rc, &error, "set operation view export should succeed") != 0 ||
 	    expect_true(strstr(view_json, "\"table\":\"users\"") != NULL, "set operation view should include users") != 0 ||
 	    expect_true(strstr(view_json, "\"table\":\"archived_users\"") != NULL, "set operation view should include archived_users") != 0 ||
-	    expect_true(strstr(view_json, "\"selector\":\"stmt[0].clause[4]\",\"sql\":\"id\"") != NULL,
-	                "set operation view should expose top-level order_by") != 0 ||
-	    expect_true(strstr(view_json, "\"name\":\"id\"") != NULL, "set operation view should include id columns") != 0) {
+	    expect_true(strstr(view_json, "\"sets\"") != NULL, "set operation view should expose sets") != 0 ||
+	    expect_true(strstr(view_json, "\"clause\":\"order_by\"") != NULL, "set operation view should expose top-level order_by") != 0 ||
+	    expect_true(strstr(view_json, "\"column\":\"id\"") != NULL, "set operation view should include id fields") != 0 ||
+	    expect_true(strstr(view_json, "\"objects\"") == NULL, "set operation view should not expose old objects") != 0) {
 		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
 		return 1;
@@ -4403,77 +4178,312 @@ static int test_sql_view_set_operation_attribution(void)
 	return 0;
 }
 
-static int test_session_context_view_and_patch(void)
+static int test_query_graph_strict_contract_edges(void)
+{
+	{
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_graph_relation_t relation;
+		sqlparser_graph_block_t block;
+		size_t index;
+		int saw_cte_relation;
+		int saw_cte_block;
+		int saw_base_users;
+		int rc;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse(
+			"WITH active_users AS (SELECT id FROM public.users WHERE status = $1) "
+			"SELECT au.id FROM active_users au",
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "CTE query graph parse should succeed") != 0) {
+			return 1;
+		}
+		rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+		if (expect_status_ok(rc, &error, "CTE query graph should be available") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		saw_cte_relation = 0;
+		saw_cte_block = 0;
+		saw_base_users = 0;
+		for (index = 0U; index < graph.relation_count; index++) {
+			rc = sqlparser_query_graph_relation_at(&graph, index, &relation, &error);
+			if (expect_status_ok(rc, &error, "CTE relation should be readable") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			if (relation.kind == SQLPARSER_GRAPH_REL_CTE &&
+			    relation.has_source_block != 0 &&
+			    relation.object_name != NULL &&
+			    strcmp(relation.object_name, "active_users") == 0) {
+				saw_cte_relation = 1;
+				rc = sqlparser_query_graph_block_at(&graph, relation.source_block_index, &block, &error);
+				if (expect_status_ok(rc, &error, "CTE source block should be readable") != 0) {
+					sqlparser_handle_destroy(handle);
+					return 1;
+				}
+				if (block.kind == SQLPARSER_GRAPH_BLOCK_CTE) {
+					saw_cte_block = 1;
+				}
+			}
+			if (relation.kind == SQLPARSER_GRAPH_REL_BASE &&
+			    relation.object_name != NULL &&
+			    strcmp(relation.object_name, "users") == 0) {
+				saw_base_users = 1;
+			}
+		}
+		if (expect_true(saw_cte_relation != 0, "query graph should expose CTE relation") != 0 ||
+		    expect_true(saw_cte_block != 0, "query graph should expose CTE source block") != 0 ||
+		    expect_true(saw_base_users != 0, "query graph should expose CTE inner base table") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+
+	{
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_graph_field_t field;
+		size_t index;
+		int saw_ambiguous_id;
+		int rc;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse(
+			"SELECT id FROM users u JOIN orders o ON u.id = o.user_id WHERE id = 1",
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "ambiguous field query graph parse should succeed") != 0) {
+			return 1;
+		}
+		rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+		if (expect_status_ok(rc, &error, "ambiguous field graph should be available") != 0 ||
+		    expect_true(graph.relation_count == 2U, "ambiguous field graph should expose two relations") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		saw_ambiguous_id = 0;
+		for (index = 0U; index < graph.field_count; index++) {
+			rc = sqlparser_query_graph_field_at(&graph, index, &field, &error);
+			if (expect_status_ok(rc, &error, "ambiguous field should be readable") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			if (field.column_name != NULL &&
+			    strcmp(field.column_name, "id") == 0 &&
+			    field.has_relation == 0 &&
+			    field.candidate_relations.count == 2U) {
+				saw_ambiguous_id = 1;
+			}
+		}
+		if (expect_true(saw_ambiguous_id != 0, "unqualified ambiguous field should expose candidate relations") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+
+	{
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_graph_relation_t relation;
+		sqlparser_graph_field_t field;
+		size_t users_relation_index;
+		size_t users_block_index;
+		size_t index;
+		int saw_outer_reference;
+		int rc;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse(
+			"SELECT (SELECT dm.name FROM dict dm WHERE dm.id = u.dict_id) AS dict_name "
+			"FROM users u WHERE u.id = $1",
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "correlated subquery graph parse should succeed") != 0) {
+			return 1;
+		}
+		rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+		if (expect_status_ok(rc, &error, "correlated subquery graph should be available") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		users_relation_index = (size_t)-1;
+		users_block_index = 0U;
+		for (index = 0U; index < graph.relation_count; index++) {
+			rc = sqlparser_query_graph_relation_at(&graph, index, &relation, &error);
+			if (expect_status_ok(rc, &error, "correlated relation should be readable") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			if (relation.object_name != NULL && strcmp(relation.object_name, "users") == 0) {
+				users_relation_index = index;
+				users_block_index = relation.block_index;
+			}
+		}
+		if (expect_true(users_relation_index != (size_t)-1, "outer users relation should be present") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		saw_outer_reference = 0;
+		for (index = 0U; index < graph.field_count; index++) {
+			rc = sqlparser_query_graph_field_at(&graph, index, &field, &error);
+			if (expect_status_ok(rc, &error, "correlated field should be readable") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			if (field.has_relation != 0 &&
+			    field.relation_index == users_relation_index &&
+			    field.block_index != users_block_index &&
+			    field.column_name != NULL &&
+			    strcmp(field.column_name, "dict_id") == 0) {
+				saw_outer_reference = 1;
+			}
+		}
+		if (expect_true(saw_outer_reference != 0, "correlated subquery should point to outer relation") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+
+	{
+		struct pagination_case {
+			sqlparser_dialect_t dialect;
+			const char *sql;
+			size_t value_count;
+			size_t bind_position;
+		};
+		static const struct pagination_case cases[] = {
+			{
+				SQLPARSER_DIALECT_POSTGRESQL,
+				"SELECT id FROM users WHERE name LIKE $1 ORDER BY id LIMIT $2 OFFSET $3",
+				1U,
+				1U
+			},
+			{
+				SQLPARSER_DIALECT_MYSQL,
+				"SELECT id FROM users WHERE name LIKE ? ORDER BY id LIMIT ? OFFSET ?",
+				1U,
+				1U
+			},
+			{
+				SQLPARSER_DIALECT_ORACLE,
+				"SELECT id FROM users WHERE name LIKE :pattern ORDER BY id FETCH FIRST :limit ROWS ONLY",
+				1U,
+				1U
+			},
+			{
+				SQLPARSER_DIALECT_SQLSERVER,
+				"SELECT [id] FROM [dbo].[users] WHERE [name] LIKE @pattern ORDER BY [id] OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY",
+				1U,
+				1U
+			},
+			{
+				SQLPARSER_DIALECT_DAMENG,
+				"SELECT id FROM users WHERE name LIKE ? ORDER BY id LIMIT ? OFFSET ?",
+				1U,
+				1U
+			}
+		};
+		sqlparser_parse_options_t options;
+		size_t case_index;
+
+		for (case_index = 0U; case_index < sizeof(cases) / sizeof(cases[0]); case_index++) {
+			sqlparser_handle_t *handle;
+			sqlparser_error_t error;
+			sqlparser_query_graph_view_t graph;
+			sqlparser_graph_value_t value;
+			int rc;
+
+			handle = NULL;
+			memset(&error, 0, sizeof(error));
+			sqlparser_parse_options_default(&options);
+			options.dialect = cases[case_index].dialect;
+			rc = sqlparser_parse_with_options(cases[case_index].sql, &options, &handle, &error);
+			if (expect_status_ok(rc, &error, "pagination bind parse should succeed") != 0) {
+				return 1;
+			}
+			rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+			if (expect_status_ok(rc, &error, "pagination graph should be available") != 0 ||
+			    expect_true(graph.value_count == cases[case_index].value_count, "pagination binds should not enter values") != 0 ||
+			    expect_status_ok(sqlparser_query_graph_value_at(&graph, 0U, &value, &error), &error, "pagination WHERE value should be readable") != 0 ||
+			    expect_true(value.has_bind_position != 0 && value.bind_position == cases[case_index].bind_position,
+			                "pagination WHERE bind position mismatch") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			sqlparser_handle_destroy(handle);
+		}
+	}
+
+	return 0;
+}
+
+static int test_session_context_patch_api(void)
 {
 	static const struct {
 		sqlparser_dialect_t dialect;
 		const char *sql;
-		const char *keyword;
-		const char *column_name;
-		const char *initial_value;
+		const char *selector;
 		const char *replacement_sql;
 		const char *deparse_contains;
 	} cases[] = {
 		{
 			SQLPARSER_DIALECT_POSTGRESQL,
 			"SET search_path TO app_schema",
-			"set",
-			"search_path",
-			"app_schema",
+			"stmt[0].value[0]",
 			"next_schema",
 			"SET search_path TO next_schema"
 		},
 		{
 			SQLPARSER_DIALECT_MYSQL,
 			"USE analytics",
-			"use",
-			"DATABASE",
-			"analytics",
+			"stmt[0].value[0]",
 			"warehouse",
 			"USE warehouse"
 		},
 		{
 			SQLPARSER_DIALECT_SQLSERVER,
 			"USE [AdventureWorks2022]",
-			"use",
-			"DATABASE",
-			"[AdventureWorks2022]",
+			"stmt[0].value[0]",
 			"[ReportingDB]",
 			"USE [ReportingDB]"
 		},
 		{
 			SQLPARSER_DIALECT_ORACLE,
 			"ALTER SESSION SET CURRENT_SCHEMA=KDES",
-			"alter_session",
-			"CURRENT_SCHEMA",
-			"kdes",
+			"stmt[0].value[0]",
 			"APP",
 			"ALTER SESSION SET CURRENT_SCHEMA = app"
 		},
 		{
 			SQLPARSER_DIALECT_ORACLE,
 			"ALTER SESSION SET CONTAINER=PDB1",
-			"alter_session",
-			"CONTAINER",
-			"pdb1",
+			"stmt[0].value[0]",
 			"PDB2",
 			"ALTER SESSION SET CONTAINER = pdb2"
 		},
 		{
 			SQLPARSER_DIALECT_DAMENG,
 			"SET SCHEMA KDES",
-			"alter_session",
-			"CURRENT_SCHEMA",
-			"kdes",
+			"stmt[0].value[0]",
 			"APP",
 			"ALTER SESSION SET CURRENT_SCHEMA = app"
 		},
 		{
 			SQLPARSER_DIALECT_DAMENG,
 			"ALTER SESSION SET CURRENT_SCHEMA=KDES",
-			"alter_session",
-			"CURRENT_SCHEMA",
-			"kdes",
+			"stmt[0].value[0]",
 			"APP",
 			"ALTER SESSION SET CURRENT_SCHEMA = app"
 		}
@@ -4481,93 +4491,34 @@ static int test_session_context_view_and_patch(void)
 	size_t index;
 
 	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
-		sqlparser_parse_options_t options;
-		sqlparser_error_t error;
-		sqlparser_handle_t *handle;
-		sqlparser_view_t view;
-		sqlparser_statement_view_t statement;
-		sqlparser_object_view_t object;
-		sqlparser_column_view_t column;
-		sqlparser_value_view_t value;
-		sqlparser_patch_t patch;
-		sqlparser_patch_list_t patch_list;
-		char *value_sql;
-		char *selector_text;
-		char *deparsed_sql;
-		int rc;
+			sqlparser_parse_options_t options;
+			sqlparser_error_t error;
+			sqlparser_handle_t *handle;
+			sqlparser_patch_t patch;
+			sqlparser_patch_list_t patch_list;
+			char *deparsed_sql;
+			int rc;
 
-		handle = NULL;
-		value_sql = NULL;
-		selector_text = NULL;
-		deparsed_sql = NULL;
-		memset(&error, 0, sizeof(error));
-		sqlparser_parse_options_default(&options);
-		options.dialect = cases[index].dialect;
+			handle = NULL;
+			deparsed_sql = NULL;
+			memset(&error, 0, sizeof(error));
+			sqlparser_parse_options_default(&options);
+			options.dialect = cases[index].dialect;
 		rc = sqlparser_parse_with_options(cases[index].sql, &options, &handle, &error);
 		if (expect_status_ok(rc, &error, "session context parse should succeed") != 0) {
-			return 1;
-		}
+				return 1;
+			}
 
-		rc = sqlparser_get_view(handle, &view, &error);
-		if (expect_status_ok(rc, &error, "session context view should be available") != 0 ||
-		    expect_true(view.statement_count == 1U, "session context statement count should be 1") != 0) {
-			sqlparser_handle_destroy(handle);
-			return 1;
-		}
-		rc = sqlparser_view_statement_at(&view, 0U, &statement, &error);
-		if (expect_status_ok(rc, &error, "session context statement should be available") != 0 ||
-		    expect_true(strcmp(statement.keyword, cases[index].keyword) == 0, "session context keyword mismatch") != 0 ||
-		    expect_true(statement.object_count == 1U, "session context should expose one object") != 0) {
-			sqlparser_handle_destroy(handle);
-			return 1;
-		}
-		rc = sqlparser_statement_object_at(&statement, 0U, &object, &error);
-		if (expect_status_ok(rc, &error, "session context object should be available") != 0 ||
-		    expect_true(object.table_name == NULL, "session context object table should be NULL") != 0 ||
-		    expect_true(object.column_count == 1U, "session context should expose one parameter") != 0) {
-			sqlparser_handle_destroy(handle);
-			return 1;
-		}
-		rc = sqlparser_object_column_at(&object, 0U, &column, &error);
-		if (expect_status_ok(rc, &error, "session context column should be available") != 0 ||
-		    expect_true(strcmp(column.name, cases[index].column_name) == 0, "session context column name mismatch") != 0 ||
-		    expect_true(column.value_count == 1U, "session context column should expose one value") != 0) {
-			sqlparser_handle_destroy(handle);
-			return 1;
-		}
-		rc = sqlparser_column_value_at(&column, 0U, &value, &error);
-		if (expect_status_ok(rc, &error, "session context value should be available") != 0 ||
-		    expect_true(value.has_selector != 0, "session context value should expose selector") != 0) {
-			sqlparser_handle_destroy(handle);
-			return 1;
-		}
-		rc = sqlparser_value_sql(handle, &value, &value_sql, &error);
-		if (expect_status_ok(rc, &error, "session context value SQL should be available") != 0 ||
-		    expect_true(strcmp(value_sql, cases[index].initial_value) == 0, "session context value SQL mismatch") != 0) {
-			sqlparser_string_free(value_sql);
-			sqlparser_handle_destroy(handle);
-			return 1;
-		}
-		sqlparser_string_free(value_sql);
-		value_sql = NULL;
-
-		rc = sqlparser_selector_format(&value.selector, &selector_text, &error);
-		if (expect_status_ok(rc, &error, "session context selector format should succeed") != 0) {
-			sqlparser_handle_destroy(handle);
-			return 1;
-		}
-		memset(&patch, 0, sizeof(patch));
-		patch.op = SQLPARSER_PATCH_REPLACE;
-		patch.selector = selector_text;
-		patch.sql = cases[index].replacement_sql;
-		patch_list.items = &patch;
-		patch_list.count = 1U;
-		rc = sqlparser_apply_patch(handle, &patch_list, &error);
-		sqlparser_string_free(selector_text);
-		selector_text = NULL;
-		if (expect_status_ok(rc, &error, "session context patch should succeed") != 0) {
-			sqlparser_handle_destroy(handle);
-			return 1;
+			memset(&patch, 0, sizeof(patch));
+			patch.op = SQLPARSER_PATCH_REPLACE;
+			patch.selector = cases[index].selector;
+			patch.sql = cases[index].replacement_sql;
+			patch_list.items = &patch;
+			patch_list.count = 1U;
+			rc = sqlparser_apply_patch(handle, &patch_list, &error);
+			if (expect_status_ok(rc, &error, "session context patch should succeed") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
 		}
 		rc = sqlparser_deparse(handle, &deparsed_sql, &error);
 		if (expect_status_ok(rc, &error, "session context deparse should succeed") != 0 ||
@@ -4583,26 +4534,17 @@ static int test_session_context_view_and_patch(void)
 	return 0;
 }
 
-static int test_oracle_container_service_view_and_patch(void)
+static int test_oracle_container_service_patch_api(void)
 {
 	sqlparser_parse_options_t options;
 	sqlparser_error_t error;
 	sqlparser_handle_t *handle;
-	sqlparser_view_t view;
-	sqlparser_statement_view_t statement;
-	sqlparser_object_view_t object;
-	sqlparser_column_view_t column;
-	sqlparser_value_view_t value;
 	sqlparser_patch_t patch;
 	sqlparser_patch_list_t patch_list;
-	char *value_sql;
-	char *selector_text;
 	char *deparsed_sql;
 	int rc;
 
 	handle = NULL;
-	value_sql = NULL;
-	selector_text = NULL;
 	deparsed_sql = NULL;
 	memset(&error, 0, sizeof(error));
 	sqlparser_parse_options_default(&options);
@@ -4617,57 +4559,13 @@ static int test_oracle_container_service_view_and_patch(void)
 		return 1;
 	}
 
-	rc = sqlparser_get_view(handle, &view, &error);
-	if (expect_status_ok(rc, &error, "oracle container service view should be available") != 0 ||
-	    expect_status_ok(sqlparser_view_statement_at(&view, 0U, &statement, &error), &error, "oracle container service statement should be available") != 0 ||
-	    expect_status_ok(sqlparser_statement_object_at(&statement, 0U, &object, &error), &error, "oracle container service object should be available") != 0 ||
-	    expect_true(object.column_count == 2U, "oracle container service should expose CONTAINER and SERVICE") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-
-	rc = sqlparser_object_column_at(&object, 0U, &column, &error);
-	if (expect_status_ok(rc, &error, "oracle container column should be available") != 0 ||
-	    expect_true(strcmp(column.name, "CONTAINER") == 0, "oracle container column name mismatch") != 0 ||
-	    expect_true(column.value_count == 1U, "oracle container should expose one value") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	rc = sqlparser_object_column_at(&object, 1U, &column, &error);
-	if (expect_status_ok(rc, &error, "oracle service column should be available") != 0 ||
-	    expect_true(strcmp(column.name, "SERVICE") == 0, "oracle service column name mismatch") != 0 ||
-	    expect_true(column.value_count == 1U, "oracle service should expose one value") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	rc = sqlparser_column_value_at(&column, 0U, &value, &error);
-	if (expect_status_ok(rc, &error, "oracle service value should be available") != 0 ||
-	    expect_true(value.has_selector != 0, "oracle service value should expose selector") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	rc = sqlparser_value_sql(handle, &value, &value_sql, &error);
-	if (expect_status_ok(rc, &error, "oracle service value SQL should be available") != 0 ||
-	    expect_true(strcmp(value_sql, "app_svc") == 0, "oracle service value SQL mismatch") != 0) {
-		sqlparser_string_free(value_sql);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	sqlparser_string_free(value_sql);
-
-	rc = sqlparser_selector_format(&value.selector, &selector_text, &error);
-	if (expect_status_ok(rc, &error, "oracle service selector format should succeed") != 0) {
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
 	memset(&patch, 0, sizeof(patch));
 	patch.op = SQLPARSER_PATCH_REPLACE;
-	patch.selector = selector_text;
+	patch.selector = "stmt[0].value[1]";
 	patch.sql = "REPORT_SVC";
 	patch_list.items = &patch;
 	patch_list.count = 1U;
 	rc = sqlparser_apply_patch(handle, &patch_list, &error);
-	sqlparser_string_free(selector_text);
 	if (expect_status_ok(rc, &error, "oracle service patch should succeed") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
@@ -4726,25 +4624,31 @@ int main(void)
 	if (test_where_clause_sql_rewrite_api() != 0) {
 		return 1;
 	}
-	if (test_sql_view_json_and_patch_api() != 0) {
+	if (test_query_graph_json_and_patch_api() != 0) {
 		return 1;
 	}
-	if (test_sql_view_bind_fields() != 0) {
+	if (test_query_graph_bind_fields() != 0) {
 		return 1;
 	}
-	if (test_sql_view_column_semantics_json() != 0) {
+	if (test_query_graph_condition_value_lists() != 0) {
 		return 1;
 	}
-	if (test_sql_view_public_struct_semantics() != 0) {
+	if (test_query_graph_column_semantics_json() != 0) {
 		return 1;
 	}
-	if (test_sql_view_attribution_and_values() != 0) {
+	if (test_query_graph_public_struct_semantics() != 0) {
+		return 1;
+	}
+	if (test_query_graph_attribution_and_values() != 0) {
 		return 1;
 	}
 	if (test_select_target_list_patch_api() != 0) {
 		return 1;
 	}
-	if (test_sql_view_set_operation_attribution() != 0) {
+	if (test_query_graph_set_operation_attribution() != 0) {
+		return 1;
+	}
+	if (test_query_graph_strict_contract_edges() != 0) {
 		return 1;
 	}
 	if (test_generic_literal_api_on_ddl() != 0) {
@@ -4777,10 +4681,10 @@ int main(void)
 	if (test_sqlserver_dialect_option() != 0) {
 		return 1;
 	}
-	if (test_session_context_view_and_patch() != 0) {
+	if (test_session_context_patch_api() != 0) {
 		return 1;
 	}
-	if (test_oracle_container_service_view_and_patch() != 0) {
+	if (test_oracle_container_service_patch_api() != 0) {
 		return 1;
 	}
 

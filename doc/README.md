@@ -30,8 +30,8 @@
   记录达梦方言相对于达梦官方 DM_SQL 文档的覆盖情况。
 - [API 手册](./api_reference.md)
   说明公共头文件中的主要类型、生命周期规则和函数分组。
-- [SQL View JSON 手册](./view_json.md)
-  说明 SQL View JSON 的结构、结构体 patch 形式和编辑规则。
+- [View JSON 手册](./view_json.md)
+  说明 View JSON 的结构、结构体 patch 形式和编辑规则。
 - [CLI 手册](./cli_guide.md)
   说明命令行工具的运行方式、批量输入格式和输出结构。
 - [libpg_query 集成说明](./libpg_query_analysis.md)

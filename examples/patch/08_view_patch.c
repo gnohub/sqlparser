@@ -33,7 +33,7 @@ int main(void)
 
 	/*
 	 * 第二步：导出 view JSON。
-	 * 这不是 libpg_query 原始 JSON，而是按表、列、值组织后的结构化视图。
+	 * 这不是 libpg_query 原始 JSON，而是 query_graph 的按需 JSON 视图。
 	 */
 	status = sqlparser_export_view_json(handle, 1, &view_json, &err);
 	if (status != SQLPARSER_STATUS_OK) {

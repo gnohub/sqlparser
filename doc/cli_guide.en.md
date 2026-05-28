@@ -4,12 +4,13 @@
 used to:
 
 - quickly inspect how one SQL statement parses
-- export SQL View JSON
+- export View JSON
 - check single-statement deparse output
 - process a JSON file containing multiple SQL statements
 
-Regular integrations should use `view`, which reports statements, objects,
-columns, value fragments, and selectors.
+Regular integrations should use `view`, which reports statements and the
+minimal `query_graph`: query blocks, relations, output targets, field
+occurrences, field-bound values, and selectors.
 
 The binary is generated at:
 
@@ -34,7 +35,7 @@ make all
 Command form:
 
 ```bash
-./bin/sqlparser_cli [--mode view|deparse|all] [--dialect postgresql|mysql|oracle|sqlserver|dameng] [--compact] [--file PATH] [SQL]
+./bin/sqlparser_cli [--mode view|deparse] [--dialect postgresql|mysql|oracle|sqlserver|dameng] [--compact] [--file PATH] [SQL]
 ```
 
 It can also read SQL from standard input:
@@ -60,13 +61,13 @@ Show help:
 ### 3.2 SQL from a File
 
 ```bash
-./bin/sqlparser_cli --file ./tests/cases/sample.sql
+./bin/sqlparser_cli --file ./input.sql
 ```
 
 ### 3.3 SQL from Standard Input
 
 ```bash
-cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
+cat ./input.sql | ./bin/sqlparser_cli --mode deparse
 ```
 
 ## 4. Output Modes
@@ -75,9 +76,8 @@ cat ./tests/cases/sample.sql | ./bin/sqlparser_cli --mode deparse
 
 | Mode | Output |
 | --- | --- |
-| `view` | SQL View JSON |
+| `view` | View JSON |
 | `deparse` | deparsed SQL |
-| `all` | SQL View JSON and deparsed SQL |
 
 Examples:
 
@@ -133,8 +133,8 @@ Command form:
 
 ```bash
 ./bin/sqlparser_cli \
-  --batch-file ./tests/cases/sql_batch_input.json \
-  --output /tmp/sqlparser_batch_result.json
+  --batch-file ./sql_batch.json \
+  --output ./sqlparser_batch_result.json
 ```
 
 Notes:
@@ -148,7 +148,6 @@ The batch input JSON can be:
 
 1. a top-level array
 2. a top-level object with an `items` array
-3. a top-level object with a `sqls` array
 
 Array items can be either:
 
@@ -194,7 +193,6 @@ The batch result JSON contains:
 | --- | --- |
 | `mode` | selected execution mode |
 | `dialect` | default batch dialect |
-| `source_file` | input file path |
 | `total` | total item count |
 | `succeeded` | successful item count |
 | `failed` | failed item count |
@@ -227,14 +225,14 @@ Successful items include mode-dependent fields such as:
 
 ## 8. Common Uses
 
-### 8.1 Inspect the SQL View of a Multi-Table Query
+### 8.1 Inspect the View of a Multi-Table Query
 
 ```bash
 ./bin/sqlparser_cli --mode view \
   "SELECT u.id, o.order_no FROM public.users u JOIN public.orders o ON u.id = o.user_id WHERE o.status = 'paid'"
 ```
 
-### 8.2 Export SQL View JSON
+### 8.2 Export View JSON
 
 ```bash
 ./bin/sqlparser_cli --mode view \
@@ -252,4 +250,4 @@ Successful items include mode-dependent fields such as:
 
 - [Quick Start](../README.en.md)
 - [API Reference](./api_reference.en.md)
-- [SQL View JSON Guide](./view_json.en.md)
+- [View JSON Guide](./view_json.en.md)

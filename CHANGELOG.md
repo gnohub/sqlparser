@@ -1,14 +1,28 @@
 # 变更记录
 
-## 0.9.0
+## 2.0.0
 
-### SQL View
+### View JSON
 
+- `query_graph` 作为结构化输出主数据源，View JSON 仅在调用导出接口时按需生成
 - 将预编译占位符输出从 `bind` 收敛为 `bind_key`，并新增 `bind_position` 表示整条输入 SQL 中的 bind 出现序号
-- `sqlparser_column_view_t` 和 `sqlparser_cell_view_t` 同步暴露 `bind_key`、`bind_position` 与对应截断标记，并移除旧字段
-- SQL View JSON、C 结构遍历和 case matrix 统一校验 `bind_key`、`bind_kind`、`bind_position`、`bind_sql` 与 `bind_selector`
+- `sqlparser_graph_value_t`、`sqlparser_graph_dml_cell_t` 和 `sqlparser_graph_dml_assignment_t` 同步暴露 `bind_key`、`bind_kind`、`bind_position` 与 `bind_sql`
+- View JSON、C 结构遍历和 case matrix 统一校验 `bind_key`、`bind_kind`、`bind_position`、`bind_sql` 与 `selector`
 - 多语句 SQL 中 `bind_position` 按整条输入 SQL 全局递增，`bind_key` 保留方言预处理后的占位符 key
 - PostgreSQL dollar-quoted 字符串内部的占位符样式文本不会参与 bind 全局计数
+- `IN`、`NOT IN`、`BETWEEN` 和单字段函数包裹条件会输出字段关联的 `values[]`
+- SELECT 投影内部的条件表达式会输出字段关联的 `values[]`，例如 `CASE WHEN phone = ? THEN ...`
+- View JSON 省略 `query_graph` 与 DML 结构中的空数组，公共 C 结构仍通过 `count` 或 `has_*` 字段表达空集合
+- MySQL `INSERT ... ON DUPLICATE KEY UPDATE`、带 ON 条件的普通/INNER/CROSS 多表 `UPDATE ... JOIN` 和 `DELETE ... JOIN` 纳入支持矩阵，View JSON 输出 DML 目标、来源、赋值和值参数映射
+
+### 工具与基线
+
+- CLI batch 输入收敛为顶层数组或 `items` 数组，不再保留旧 `sqls` 别名
+- `libpg_query` baseline 收敛为单线程成功解析和线程首次解析，不再生成错误路径或并发路径基线
+
+### 健壮性
+
+- 修复 View JSON 序列化过程中 Jansson `_new` 接口失败路径的所有权处理，避免低内存场景下重复释放中间 JSON 节点
 
 ## 0.8.0
 
@@ -37,17 +51,17 @@
 
 - 增加 `examples/patch/17_update_set_patch.c`，展示通过 `sqlparser_apply_patch()` 追加、删除和整项替换 `UPDATE SET` 赋值项
 - 扩充核心 API 和健壮性回归测试，覆盖 Oracle bind 片段、非法 selector、越界索引、空 `SET` 保护和失败后 handle 可用性
-- 更新中英文 API 手册、SQL View JSON 手册、示例说明和 MSVC 示例构建清单
+- 更新中英文 API 手册、View JSON 手册、示例说明和 MSVC 示例构建清单
 
 ## 0.6.0
 
-### SQL View 结构
+### View JSON 结构
 
-- 将 SQL View C 结构作为结构化输出的主数据源，`sqlparser_export_view_json()` 改为按需从 SQL View C 结构序列化 JSON
-- 扩展 `sqlparser_column_view_t` 和 `sqlparser_cell_view_t`，输出 bind 名称、bind 类型、原始 bind SQL、bind selector、子句编号和 SELECT 输出路径
-- 增加 `sqlparser_bind_kind_t`、`sqlparser_bind_kind_name()`、`sqlparser_statement_clause_at()` 和 `sqlparser_clause_sql()` 公共接口
+- 将 `query_graph` C 结构作为结构化输出的主数据源，`sqlparser_export_view_json()` 改为按需从 `query_graph` 序列化 JSON
+- 扩展 `sqlparser_graph_field_t` 和 `sqlparser_graph_dml_cell_t`，输出 bind 名称、bind 类型、原始 bind SQL、bind selector、子句编号和 SELECT 输出路径
+- 增加 `sqlparser_bind_kind_t`、`sqlparser_bind_kind_name()`、`sqlparser_statement_clause()` 和 `sqlparser_clause_sql()` 公共接口
 - 扩展 `sqlparser_clause_kind_t`，增加 `on`、`group_by` 和 `having` 子句类型
-- SQL View JSON 移除旧的 `target_kind`、`target_name`、`target_arg_index` 字段，统一使用有序 `target_path` 表达 SELECT 输出层级
+- View JSON 移除旧的 `target_kind`、`target_name`、`target_arg_index` 字段，统一使用有序 `target_path` 表达 SELECT 输出层级
 
 ### 语义与方言
 
@@ -59,16 +73,16 @@
 ### 测试与文档
 
 - 扩充 PostgreSQL、MySQL、Oracle、SQL Server 和达梦用例矩阵，覆盖更多 SELECT、INSERT、UPDATE、DELETE、JOIN、函数、表达式和 bind 场景
-- 增加 SQL View 公共 C 结构语义测试，验证结构体字段和 View JSON 输出一致
+- 增加 View JSON 公共 C 结构语义测试，验证结构体字段和 View JSON 输出一致
 - 增加 bind 字段、cell bind、`clause_id` 和 `target_path` 的通用断言
-- 更新中英文 API 手册和 SQL View JSON 手册
+- 更新中英文 API 手册和 View JSON 手册
 
 ## 0.5.0
 
-### SQL View 语义
+### View JSON 语义
 
 - 增加 SELECT 输出项语义路径，使用 `target_path` 表达函数、表达式、CASE 和嵌套输出层级
-- 为 SQL View JSON 增加字段归属子句编号，便于区分 SELECT、WHERE、JOIN/ON、ORDER BY 等位置的字段引用
+- 为 View JSON 增加字段归属子句编号，便于区分 SELECT、WHERE、JOIN/ON、ORDER BY 等位置的字段引用
 - 扩充各方言的 View JSON 语义用例，覆盖函数输出、表达式输出、星号输出、多层 SELECT 和 bind 条件
 
 ## 0.4.0
@@ -76,15 +90,15 @@
 ### 方言能力
 
 - 增加达梦 `SQLPARSER_DIALECT_DAMENG` 方言转换层，覆盖 `SET SCHEMA`、`MINUS`、`LIMIT`、`TOP`、bind、常见 DML/DDL、事务和权限语句
-- 增加达梦公共输出规则，反解析和 SQL View JSON 不暴露内部参数名或内部转换 SQL
+- 增加达梦公共输出规则，反解析和 View JSON 不暴露内部参数名或内部转换 SQL
 - 增加 PostgreSQL、MySQL、Oracle、SQL Server 和达梦的预编译 / 参数化 SQL 语句覆盖，包含 SQL Server `sp_executesql` 与达梦 `EXEC SQL PREPARE`
 
-### SQL View 与改写
+### View JSON 与改写
 
 - 增加通用 `SELECT` 输出列表读取、替换、插入和删除接口
 - 增加通用 `WHERE` 条件读取、设置和 `AND` / `OR` 追加接口
 - 增加通用 statement 级 `clause` selector，支持通过 `stmt[n].clause[m]` 改写 `select_list`、`where` 和 `order_by`
-- SQL View JSON 增加 `statements[].clauses[]`，用于暴露可写语句级子句槽位
+- View JSON 增加 `query_graph`，用于暴露可写语句级子句槽位
 
 ### 测试与文档
 
@@ -103,11 +117,11 @@
 - 增加 MySQL `USE db_name` 默认数据库切换支持
 - 增加 SQL Server `USE database_name` 数据库上下文切换支持
 - 增加 Oracle `ALTER SESSION SET CURRENT_SCHEMA`、`ALTER SESSION SET CONTAINER` 和 `ALTER SESSION SET CONTAINER ... SERVICE ...` 支持
-- 修复多语句输入中的上下文切换语句处理，确保 parse、SQL View JSON 和 deparse 均保持公共 SQL 形态
+- 修复多语句输入中的上下文切换语句处理，确保 parse、View JSON 和 deparse 均保持公共 SQL 形态
 
-### SQL View 与改写
+### View JSON 与改写
 
-- 会话上下文切换语句复用现有 `statements[].objects[].columns[].value` 结构，不新增独立 JSON 格式
+- 会话上下文切换语句复用现有 `query_graph values` 结构，不新增独立 JSON 格式
 - 支持通过 `stmt[n].value[m]` selector 改写上下文切换目标并还原为对应方言 SQL
 - 修复 SQL Server、MySQL 和 Oracle deparse 中内部 `sqlparser_current_*` 哨兵泄露的边界问题
 
@@ -124,8 +138,8 @@
 - 支持 `SELECT / INSERT / UPDATE / DELETE / MERGE / TRANSACTION / 常见 DDL` 的解析与结构读取
 - 支持关系名、名称原子、字面量、`WHERE` 字面量、`UPDATE assignment` 和 `INSERT cell` 的精确改写
 - 支持右值表达式级改写，包括 `DEFAULT` 与任意表达式 SQL
-- 支持 SQL View JSON、SQL View C 结构化遍历和 structured patch 写回
-- 提供 SQL View JSON 作为按需诊断导出
+- 支持 View JSON、`query_graph` C 结构化遍历和 structured patch 写回
+- 提供 View JSON 作为按需结构化导出
 - 支持可配置资源限制，覆盖 SQL 输入、表达式 SQL 片段、生成输出和语句数量
 - 增加方言公共框架，默认 PostgreSQL，并提供 MySQL、Oracle 与 SQL Server 方言转换层
 - 收敛默认输出上限到 4MB，并减少 parse/deparse 路径中的常驻 AST 和字符串拷贝
@@ -152,10 +166,10 @@
 - 增加安装态 API 烟测、`valgrind` 泄漏校验与表达式改写回归
 - 增加稳定性回归，覆盖畸形 SQL、参数校验、资源限制和失败改写回滚
 - benchmark 增加读取链路、改写链路与 `rewrite + deparse` 单次调用统计
-- 增加按能力分类的测试入口，覆盖 parse、inspect、rewrite、deparse、SQL View JSON、CLI、install smoke 和 ABI
+- 增加按能力分类的测试入口，覆盖 parse、inspect、rewrite、deparse、View JSON、CLI、install smoke 和 ABI
 
 ### 文档
 
-- 提供中英文快速开始、API 手册、SQL View JSON 手册、CLI 手册与架构文档
+- 提供中英文快速开始、API 手册、View JSON 手册、CLI 手册与架构文档
 - 增加 Oracle、SQL Server 方言支持说明和 `v0.2.0` 发布说明
 - 增加公开变更记录

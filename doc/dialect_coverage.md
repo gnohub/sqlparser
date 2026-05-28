@@ -6,15 +6,15 @@
 
 | 方言 | 统计来源 | 支持用例 | 明确不支持用例 | 合计 | 支持占比 |
 | --- | --- | ---: | ---: | ---: | ---: |
-| PostgreSQL | `tests/cases/sql_batch_input.json` | 96 | 1 | 97 | 98.97% |
-| MySQL | `tests/cases/mysql_dialect_input.json` | 53 | 15 | 68 | 77.94% |
-| Oracle | `tests/cases/oracle_dialect_input.json` | 86 | 18 | 104 | 82.69% |
-| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 82 | 15 | 97 | 84.54% |
-| 达梦 | `tests/cases/dameng_dialect_input.json` | 64 | 12 | 76 | 84.21% |
+| PostgreSQL | `tests/cases/sql_batch_input.json` | 128 | 1 | 129 | 99.22% |
+| MySQL | `tests/cases/mysql_dialect_input.json` | 74 | 18 | 92 | 80.43% |
+| Oracle | `tests/cases/oracle_dialect_input.json` | 98 | 18 | 116 | 84.48% |
+| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 319 | 15 | 334 | 95.51% |
+| 达梦 | `tests/cases/dameng_dialect_input.json` | 75 | 12 | 87 | 86.21% |
 
 ## 口径
 
-- `支持用例` 表示当前方言已经通过解析、SQL View JSON、deparse 或错误路径的可执行回归验证。
+- `支持用例` 表示当前方言已经通过解析、View JSON、deparse 或错误路径的可执行回归验证。
 - `明确不支持用例` 表示当前实现主动返回 `SQLPARSER_STATUS_UNSUPPORTED` 或解析错误，不返回可用 handle。
 - PostgreSQL 默认方言的负向用例为故意构造的非法 SQL，不计为功能缺口。
 - MySQL、Oracle、SQL Server、达梦的明确不支持用例主要来自数据库专属语义，无法在不扩展共享 AST 的前提下安全表达。

@@ -1,22 +1,22 @@
-# v0.9.0 Release Notes
+# v2.0.0 Release Notes
 
-`v0.9.0` refines prepared-statement placeholder output in SQL View. Public C structures and JSON View now consistently expose `bind_key`, `bind_kind`, `bind_position`, `bind_sql`, and `bind_selector`.
+`v2.0.0` is the stable interface release for `sqlparser`. It provides C callers with SQL parsing, structured traversal, selector-based rewriting, and deparsing. This release keeps `query_graph` as the canonical structured-output source, while View JSON is generated only when callers request a JSON export.
 
 ## Highlights
 
-- Removed the old `bind` output field in favor of the clearer `bind_key`.
-- `sqlparser_column_view_t` and `sqlparser_cell_view_t` expose structured bind fields directly; JSON is only the on-demand view output.
+- Updated the public version to `2.0.0`.
+- View JSON and public C structures consistently expose `bind_key`, `bind_kind`, `bind_position`, `bind_sql`, and `selector` for prepared-statement placeholders.
 - `bind_position` is the one-based bind occurrence in the full input SQL text and does not restart for each statement in multi-statement SQL.
-- Anonymous `?`, explicitly numbered positional binds such as `:1` and `$1`, and named binds such as `:name` and `@name` all expose `bind_kind`, `bind_key`, and `bind_sql`.
-- Placeholder-like text inside PostgreSQL dollar-quoted strings is excluded from global bind counting.
+- Anonymous `?`, explicitly numbered positional binds such as `:1` and `$1`, and named binds such as `:name` and `@name` expose the same structured bind fields.
+- SELECT output hierarchy is represented by ordered `target_path` entries for functions, expressions, CASE forms, and nested output paths.
+- View JSON omits empty arrays from `query_graph` and DML structures, while the public C structs still represent empty collections through `count` or `has_*` fields.
+- PostgreSQL, MySQL, Oracle, SQL Server, and Dameng dialect matrices continue to cover DDL, DML, JOIN, functions, expressions, binds, pagination, and context-switching scenarios.
+- CLI batch input accepts only a top-level array or an `items` array.
+- The `libpg_query` baseline keeps single-thread successful parsing and first-parse measurements.
 
-## Test Coverage
+## Robustness Fixes
 
-- PostgreSQL executable cases: 97, with 96 supported.
-- MySQL executable cases: 68, with 53 supported.
-- Oracle executable cases: 104, with 86 supported.
-- SQL Server executable cases: 97, with 82 supported.
-- Dameng executable cases: 76, with 64 supported.
+- Fixed ownership handling for Jansson `_new` APIs on View JSON serialization failure paths, avoiding duplicate releases of intermediate JSON nodes under low-memory conditions.
 
 ## Release Validation
 
@@ -24,14 +24,12 @@ This release validation includes:
 
 - `git diff --check`
 - JSON case file validation
-- removed `bind` field residue scan
 - Linux `make clean && make test SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0`
-- Linux targeted CLI validation for multi-statement global bind positions and dollar-quoted string counting
+- Linux full View JSON CLI case sweep
 - Linux `make verify-valgrind SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0`
 - Linux `make verify-asan SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0`
 - Linux `make verify-ubsan SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0`
 - Linux `make abi-check DEBUG=0 SHOW_WARNING=0 SHOW_VENDOR_WARNING=0`
-- Windows VS 2022 x64 + MSVC `nmake /F Makefile.msvc clean && nmake /F Makefile.msvc test`
 
 ## Release Boundary
 

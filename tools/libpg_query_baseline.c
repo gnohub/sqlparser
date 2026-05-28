@@ -14,9 +14,7 @@
 
 typedef enum {
 	BASELINE_MODE_SINGLE_SUCCESS = 0,
-	BASELINE_MODE_THREAD_INIT = 1,
-	BASELINE_MODE_CONCURRENT_SUCCESS = 2,
-	BASELINE_MODE_CONCURRENT_ERROR = 3
+	BASELINE_MODE_THREAD_INIT = 1
 } baseline_mode_t;
 
 typedef struct alloc_tracker alloc_tracker_t;
@@ -48,7 +46,6 @@ typedef struct {
 	uint64_t retained_bytes;
 	int ok;
 	int actual_parse_error;
-	int bad_error_message;
 } baseline_sample_t;
 
 typedef struct {
@@ -56,23 +53,11 @@ typedef struct {
 	size_t target_bytes;
 	size_t iterations;
 	size_t warmup;
-	size_t threads;
 	int print_header;
 } baseline_options_t;
 
 typedef struct {
-	pthread_mutex_t mutex;
-	pthread_cond_t cond;
-	size_t ready;
-	size_t threads;
-	int go;
-} start_gate_t;
-
-typedef struct {
 	const char *sql;
-	int expect_error;
-	size_t iterations;
-	start_gate_t *gate;
 	baseline_sample_t *samples;
 } worker_args_t;
 
@@ -300,11 +285,10 @@ char *__wrap_strndup(const char *text, size_t len)
 static void print_usage(const char *program)
 {
 	fprintf(stderr, "Usage: %s --mode MODE --length-bytes N [options]\n", program);
-	fprintf(stderr, "Modes: single-success, thread-init, concurrent-success, concurrent-error\n");
+	fprintf(stderr, "Modes: single-success, thread-init\n");
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "  --iterations N   measured iterations or thread samples\n");
 	fprintf(stderr, "  --warmup N       warmup iterations for single-success\n");
-	fprintf(stderr, "  --threads N      worker threads for concurrent modes\n");
 	fprintf(stderr, "  --csv-header     print CSV header\n");
 }
 
@@ -338,14 +322,6 @@ static int parse_mode(const char *value, baseline_mode_t *out_mode)
 		*out_mode = BASELINE_MODE_THREAD_INIT;
 		return 0;
 	}
-	if (strcmp(value, "concurrent-success") == 0) {
-		*out_mode = BASELINE_MODE_CONCURRENT_SUCCESS;
-		return 0;
-	}
-	if (strcmp(value, "concurrent-error") == 0) {
-		*out_mode = BASELINE_MODE_CONCURRENT_ERROR;
-		return 0;
-	}
 	return -1;
 }
 
@@ -356,10 +332,6 @@ static const char *mode_name(baseline_mode_t mode)
 			return "single-success";
 		case BASELINE_MODE_THREAD_INIT:
 			return "thread-init";
-		case BASELINE_MODE_CONCURRENT_SUCCESS:
-			return "concurrent-success";
-		case BASELINE_MODE_CONCURRENT_ERROR:
-			return "concurrent-error";
 		default:
 			return "unknown";
 	}
@@ -374,7 +346,6 @@ static int parse_args(int argc, char **argv, baseline_options_t *options)
 	options->target_bytes = 1024U;
 	options->iterations = 1000U;
 	options->warmup = 100U;
-	options->threads = 1U;
 
 	for (index = 1; index < argc; index++) {
 		if (strcmp(argv[index], "--mode") == 0 && index + 1 < argc) {
@@ -391,10 +362,6 @@ static int parse_args(int argc, char **argv, baseline_options_t *options)
 			}
 		} else if (strcmp(argv[index], "--warmup") == 0 && index + 1 < argc) {
 			if (parse_positive_size(argv[++index], &options->warmup) != 0) {
-				return -1;
-			}
-		} else if (strcmp(argv[index], "--threads") == 0 && index + 1 < argc) {
-			if (parse_positive_size(argv[++index], &options->threads) != 0) {
 				return -1;
 			}
 		} else if (strcmp(argv[index], "--csv-header") == 0) {
@@ -472,29 +439,6 @@ static char *generate_insert_values_sql(size_t target_bytes)
 	return buffer;
 }
 
-static char *generate_invalid_sql(size_t target_bytes)
-{
-	char *buffer;
-	size_t len;
-	const char *base = "SELECT FROM bench_t WHERE id =";
-
-	len = strlen(base);
-	if (target_bytes < len) {
-		target_bytes = len;
-	}
-
-	buffer = (char *)malloc(target_bytes + 1U);
-	if (buffer == NULL) {
-		return NULL;
-	}
-	memcpy(buffer, base, len);
-	if (len < target_bytes) {
-		memset(buffer + len, ' ', target_bytes - len);
-	}
-	buffer[target_bytes] = '\0';
-	return buffer;
-}
-
 static uint64_t now_ns(void)
 {
 	struct timespec ts;
@@ -503,15 +447,7 @@ static uint64_t now_ns(void)
 	return ((uint64_t)ts.tv_sec * 1000000000ULL) + (uint64_t)ts.tv_nsec;
 }
 
-static int error_message_is_expected(const PgQueryError *error)
-{
-	if (error == NULL || error->message == NULL) {
-		return 0;
-	}
-	return strstr(error->message, "syntax error") != NULL;
-}
-
-static baseline_sample_t parse_once(const char *sql, int expect_error)
+static baseline_sample_t parse_once(const char *sql)
 {
 	PgQueryProtobufParseResult result;
 	alloc_tracker_t tracker;
@@ -526,15 +462,7 @@ static baseline_sample_t parse_once(const char *sql, int expect_error)
 	if (result.error != NULL) {
 		sample.actual_parse_error = 1;
 	}
-	if (expect_error) {
-		sample.ok = sample.actual_parse_error;
-		sample.bad_error_message = sample.actual_parse_error && !error_message_is_expected(result.error);
-		if (sample.bad_error_message) {
-			sample.ok = 0;
-		}
-	} else {
-		sample.ok = !sample.actual_parse_error;
-	}
+	sample.ok = !sample.actual_parse_error;
 	pg_query_free_protobuf_parse_result(result);
 	end_ns = now_ns();
 	alloc_tracker_end(&tracker);
@@ -592,7 +520,7 @@ static void print_header(void)
 {
 	printf(
 		"mode,target_sql_bytes,actual_sql_bytes,threads,iterations,warmup,total_operations,"
-		"ok_operations,unexpected_operations,actual_parse_errors,bad_error_messages,"
+		"ok_operations,unexpected_operations,actual_parse_errors,"
 		"wall_total_s,throughput_ops_s,avg_ms,min_ms,p50_ms,p95_ms,p99_ms,max_ms,"
 		"avg_alloc_bytes,p50_alloc_bytes,p95_alloc_bytes,max_alloc_bytes,"
 		"avg_peak_live_bytes,p50_peak_live_bytes,p95_peak_live_bytes,max_peak_live_bytes,"
@@ -618,7 +546,6 @@ static int print_summary_row(
 	size_t ok_count;
 	size_t unexpected_count;
 	size_t parse_error_count;
-	size_t bad_error_count;
 	long double total_latency_ns;
 	long double total_alloc_bytes;
 	long double total_peak_live_bytes;
@@ -657,7 +584,6 @@ static int print_summary_row(
 	ok_count = 0U;
 	unexpected_count = 0U;
 	parse_error_count = 0U;
-	bad_error_count = 0U;
 	total_latency_ns = 0.0L;
 	total_alloc_bytes = 0.0L;
 	total_peak_live_bytes = 0.0L;
@@ -673,9 +599,6 @@ static int print_summary_row(
 		}
 		if (samples[index].actual_parse_error) {
 			parse_error_count++;
-		}
-		if (samples[index].bad_error_message) {
-			bad_error_count++;
 		}
 		total_latency_ns += (long double)samples[index].latency_ns;
 		total_alloc_bytes += (long double)samples[index].alloc_bytes;
@@ -700,7 +623,7 @@ static int print_summary_row(
 	max_retained_bytes = retained_values[count - 1U];
 
 	printf(
-		"%s,%zu,%zu,%zu,%zu,%zu,%zu,%zu,%zu,%zu,%zu,"
+		"%s,%zu,%zu,%zu,%zu,%zu,%zu,%zu,%zu,%zu,"
 		"%.9f,%.4f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,"
 		"%.4Lf,%" PRIu64 ",%" PRIu64 ",%" PRIu64 ","
 		"%.4Lf,%" PRIu64 ",%" PRIu64 ",%" PRIu64 ","
@@ -715,7 +638,6 @@ static int print_summary_row(
 		ok_count,
 		unexpected_count,
 		parse_error_count,
-		bad_error_count,
 		(double)wall_ns / 1000000000.0,
 		wall_ns > 0U ? ((double)count * 1000000000.0) / (double)wall_ns : 0.0,
 		ns_to_ms((uint64_t)(total_latency_ns / (long double)count)),
@@ -753,7 +675,7 @@ static int run_single_success(const baseline_options_t *options, const char *sql
 	int status;
 
 	for (index = 0U; index < options->warmup; index++) {
-		baseline_sample_t sample = parse_once(sql, 0);
+		baseline_sample_t sample = parse_once(sql);
 		if (!sample.ok) {
 			return 1;
 		}
@@ -766,7 +688,7 @@ static int run_single_success(const baseline_options_t *options, const char *sql
 
 	start_ns = now_ns();
 	for (index = 0U; index < options->iterations; index++) {
-		samples[index] = parse_once(sql, 0);
+		samples[index] = parse_once(sql);
 	}
 	end_ns = now_ns();
 
@@ -788,8 +710,8 @@ static void *thread_init_worker(void *arg)
 {
 	worker_args_t *worker = (worker_args_t *)arg;
 
-	worker->samples[0] = parse_once(worker->sql, 0);
-	worker->samples[1] = parse_once(worker->sql, 0);
+	worker->samples[0] = parse_once(worker->sql);
+	worker->samples[1] = parse_once(worker->sql);
 	return NULL;
 }
 
@@ -815,9 +737,6 @@ static int run_thread_init(const baseline_options_t *options, const char *sql)
 
 		memset(samples, 0, sizeof(samples));
 		args.sql = sql;
-		args.expect_error = 0;
-		args.iterations = 2U;
-		args.gate = NULL;
 		args.samples = samples;
 		if (pthread_create(&thread, NULL, thread_init_worker, &args) != 0) {
 			free(first_samples);
@@ -859,161 +778,6 @@ static int run_thread_init(const baseline_options_t *options, const char *sql)
 	return status;
 }
 
-static int start_gate_init(start_gate_t *gate, size_t threads)
-{
-	if (pthread_mutex_init(&gate->mutex, NULL) != 0) {
-		return -1;
-	}
-	if (pthread_cond_init(&gate->cond, NULL) != 0) {
-		pthread_mutex_destroy(&gate->mutex);
-		return -1;
-	}
-	gate->ready = 0U;
-	gate->threads = threads;
-	gate->go = 0;
-	return 0;
-}
-
-static void start_gate_destroy(start_gate_t *gate)
-{
-	pthread_cond_destroy(&gate->cond);
-	pthread_mutex_destroy(&gate->mutex);
-}
-
-static int start_gate_wait_ready(start_gate_t *gate)
-{
-	if (pthread_mutex_lock(&gate->mutex) != 0) {
-		return -1;
-	}
-	while (gate->ready < gate->threads) {
-		if (pthread_cond_wait(&gate->cond, &gate->mutex) != 0) {
-			pthread_mutex_unlock(&gate->mutex);
-			return -1;
-		}
-	}
-	pthread_mutex_unlock(&gate->mutex);
-	return 0;
-}
-
-static int start_gate_release(start_gate_t *gate)
-{
-	if (pthread_mutex_lock(&gate->mutex) != 0) {
-		return -1;
-	}
-	gate->go = 1;
-	pthread_cond_broadcast(&gate->cond);
-	pthread_mutex_unlock(&gate->mutex);
-	return 0;
-}
-
-static int start_gate_worker_wait(start_gate_t *gate)
-{
-	if (pthread_mutex_lock(&gate->mutex) != 0) {
-		return -1;
-	}
-	gate->ready++;
-	pthread_cond_broadcast(&gate->cond);
-	while (!gate->go) {
-		if (pthread_cond_wait(&gate->cond, &gate->mutex) != 0) {
-			pthread_mutex_unlock(&gate->mutex);
-			return -1;
-		}
-	}
-	pthread_mutex_unlock(&gate->mutex);
-	return 0;
-}
-
-static void *concurrent_worker(void *arg)
-{
-	worker_args_t *worker = (worker_args_t *)arg;
-	size_t index;
-
-	if (start_gate_worker_wait(worker->gate) != 0) {
-		return NULL;
-	}
-
-	for (index = 0U; index < worker->iterations; index++) {
-		worker->samples[index] = parse_once(worker->sql, worker->expect_error);
-	}
-	return NULL;
-}
-
-static int run_concurrent(const baseline_options_t *options, const char *sql, int expect_error)
-{
-	pthread_t *threads;
-	worker_args_t *args;
-	baseline_sample_t *samples;
-	start_gate_t gate;
-	size_t total_operations;
-	size_t index;
-	int status;
-	uint64_t start_ns;
-	uint64_t end_ns;
-
-	total_operations = options->threads * options->iterations;
-	threads = (pthread_t *)calloc(options->threads, sizeof(*threads));
-	args = (worker_args_t *)calloc(options->threads, sizeof(*args));
-	samples = (baseline_sample_t *)calloc(total_operations, sizeof(*samples));
-	if (threads == NULL || args == NULL || samples == NULL) {
-		free(threads);
-		free(args);
-		free(samples);
-		return 1;
-	}
-	if (start_gate_init(&gate, options->threads) != 0) {
-		free(threads);
-		free(args);
-		free(samples);
-		return 1;
-	}
-
-	for (index = 0U; index < options->threads; index++) {
-		args[index].sql = sql;
-		args[index].expect_error = expect_error;
-		args[index].iterations = options->iterations;
-		args[index].gate = &gate;
-		args[index].samples = samples + (index * options->iterations);
-		if (pthread_create(&threads[index], NULL, concurrent_worker, &args[index]) != 0) {
-			start_gate_destroy(&gate);
-			free(threads);
-			free(args);
-			free(samples);
-			return 1;
-		}
-	}
-
-	if (start_gate_wait_ready(&gate) != 0) {
-		start_gate_destroy(&gate);
-		free(threads);
-		free(args);
-		free(samples);
-		return 1;
-	}
-	start_ns = now_ns();
-	(void)start_gate_release(&gate);
-	for (index = 0U; index < options->threads; index++) {
-		(void)pthread_join(threads[index], NULL);
-	}
-	end_ns = now_ns();
-
-	status = print_summary_row(
-		mode_name(options->mode),
-		options->target_bytes,
-		strlen(sql),
-		options->threads,
-		options->iterations,
-		0U,
-		samples,
-		total_operations,
-		end_ns - start_ns);
-
-	start_gate_destroy(&gate);
-	free(threads);
-	free(args);
-	free(samples);
-	return status;
-}
-
 int main(int argc, char **argv)
 {
 	baseline_options_t options;
@@ -1026,11 +790,7 @@ int main(int argc, char **argv)
 	}
 
 	baseline_pg_query_prepare();
-	if (options.mode == BASELINE_MODE_CONCURRENT_ERROR) {
-		sql = generate_invalid_sql(options.target_bytes);
-	} else {
-		sql = generate_insert_values_sql(options.target_bytes);
-	}
+	sql = generate_insert_values_sql(options.target_bytes);
 	if (sql == NULL) {
 		fprintf(stderr, "failed to generate SQL with target length %zu\n", options.target_bytes);
 		return 2;
@@ -1046,12 +806,6 @@ int main(int argc, char **argv)
 			break;
 		case BASELINE_MODE_THREAD_INIT:
 			status = run_thread_init(&options, sql);
-			break;
-		case BASELINE_MODE_CONCURRENT_SUCCESS:
-			status = run_concurrent(&options, sql, 0);
-			break;
-		case BASELINE_MODE_CONCURRENT_ERROR:
-			status = run_concurrent(&options, sql, 1);
 			break;
 		default:
 			status = 2;

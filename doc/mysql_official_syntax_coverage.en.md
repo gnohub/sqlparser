@@ -26,26 +26,27 @@ type attributes, and MySQL-specific semantics.
 
 ## Results
 
-| Status | Syntax Groups | Share of 42 Groups |
+| Status | Syntax Groups | Share of 44 Groups |
 | --- | ---: | ---: |
-| `CURRENT` | 18 | 42.86% |
-| `HOOK_ONLY` | 7 | 16.67% |
-| `MIXED_MODEL` | 0 | 0.00% |
-| `MODEL_REQUIRED` | 17 | 40.48% |
+| `CURRENT` | 21 | 47.73% |
+| `HOOK_ONLY` | 5 | 11.36% |
+| `MIXED_MODEL` | 2 | 4.55% |
+| `MODEL_REQUIRED` | 16 | 36.36% |
 | `REFERENCE_ONLY` | 0 | 0.00% |
 
-After excluding `REFERENCE_ONLY`, there are 42 implementable syntax groups.
-The current implementation covers 18 groups and leaves 24 groups uncovered.
+After excluding `REFERENCE_ONLY`, there are 44 implementable syntax groups.
+The current implementation covers 21 groups and leaves 23 groups uncovered.
 
-| Uncovered Class | Syntax Groups | Share of 24 Uncovered Groups |
+| Uncovered Class | Syntax Groups | Share of 23 Uncovered Groups |
 | --- | ---: | ---: |
-| `HOOK_ONLY` | 7 | 29.17% |
-| `MIXED_MODEL` | 0 | 0.00% |
-| `MODEL_REQUIRED` | 17 | 70.83% |
+| `HOOK_ONLY` | 5 | 21.74% |
+| `MIXED_MODEL` | 2 | 8.70% |
+| `MODEL_REQUIRED` | 16 | 69.57% |
 
 ## Conclusion
 
-The remaining MySQL gaps are concentrated in MySQL-specific DML semantics,
-table options, type attributes, and program objects. Seven uncovered groups can
-be implemented with the current AST and hooks; seventeen groups require a
+The remaining MySQL gaps are concentrated in outer-join DML, table options,
+type attributes, and program objects. Five uncovered groups can be implemented
+with the current AST and hooks; two groups have basic coverage but need a
+dedicated model for full official semantics; sixteen groups require a
 MySQL-specific model.

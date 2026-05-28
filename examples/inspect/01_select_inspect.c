@@ -121,7 +121,7 @@ int main(void)
 	}
 
 	/*
-	 * view JSON 是按表、列和值片段组织后的结构化输出。
+	 * view JSON 是 query_graph 的按需序列化，便于观察查询块、关系、字段和值。
 	 */
 	status = sqlparser_export_view_json(handle, 1, &view_json, &err);
 	if (status != SQLPARSER_STATUS_OK) {

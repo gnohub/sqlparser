@@ -15,14 +15,12 @@
 #include <windows.h>
 #endif
 
-#include <jansson.h>
-
 #include "protobuf/pg_query.pb-c.h"
 #include "../dialect/sqlparser_dialect_internal.h"
 #include "sqlparser_internal.h"
 
 #ifndef SQLPARSER_VERSION_TEXT
-#define SQLPARSER_VERSION_TEXT "0.9.0"
+#define SQLPARSER_VERSION_TEXT "2.0.0"
 #endif
 
 #ifndef SQLPARSER_LIBPG_QUERY_TAG_TEXT
@@ -534,6 +532,17 @@ void sqlparser_handle_invalidate_derived(sqlparser_handle_t *handle)
 		free(current_parser_sql);
 	}
 	handle->current_parser_sql = NULL;
+	sqlparser_handle_clear_query_graph(handle);
+}
+
+void sqlparser_handle_clear_query_graph(sqlparser_handle_t *handle)
+{
+	if (handle == NULL) {
+		return;
+	}
+	sqlparser_query_graph_cache_release(handle->query_graph);
+	handle->query_graph = NULL;
+	handle->query_graph_generation = 0UL;
 }
 
 static void sqlparser_handle_release_contents(sqlparser_handle_t *handle)
@@ -564,6 +573,7 @@ static void sqlparser_handle_release_contents(sqlparser_handle_t *handle)
 	handle->parser_sql_len = 0U;
 	handle->statement_count = 0U;
 	handle->generation = 0UL;
+	handle->query_graph_generation = 0UL;
 	handle->dialect = SQLPARSER_DIALECT_POSTGRESQL;
 	handle->dialect_ops = NULL;
 }
@@ -1170,6 +1180,108 @@ const char *sqlparser_clause_kind_name(sqlparser_clause_kind_t kind)
 		case SQLPARSER_CLAUSE_KIND_HAVING:
 			return "having";
 		case SQLPARSER_CLAUSE_KIND_UNKNOWN:
+		default:
+			return "unknown";
+	}
+}
+
+const char *sqlparser_graph_block_kind_name(sqlparser_graph_block_kind_t kind)
+{
+	switch (kind) {
+		case SQLPARSER_GRAPH_BLOCK_SELECT:
+			return "select";
+		case SQLPARSER_GRAPH_BLOCK_SCALAR_SUBQUERY:
+			return "scalar_subquery";
+		case SQLPARSER_GRAPH_BLOCK_CTE:
+			return "cte";
+		case SQLPARSER_GRAPH_BLOCK_SET:
+			return "set";
+		default:
+			return "unknown";
+	}
+}
+
+const char *sqlparser_graph_relation_kind_name(sqlparser_graph_relation_kind_t kind)
+{
+	switch (kind) {
+		case SQLPARSER_GRAPH_REL_BASE:
+			return "base";
+		case SQLPARSER_GRAPH_REL_DERIVED:
+			return "derived";
+		case SQLPARSER_GRAPH_REL_CTE:
+			return "cte";
+		case SQLPARSER_GRAPH_REL_DUAL:
+			return "dual";
+		default:
+			return "unknown";
+	}
+}
+
+const char *sqlparser_graph_target_kind_name(sqlparser_graph_target_kind_t kind)
+{
+	switch (kind) {
+		case SQLPARSER_GRAPH_TARGET_FIELD:
+			return "field";
+		case SQLPARSER_GRAPH_TARGET_STAR:
+			return "star";
+		case SQLPARSER_GRAPH_TARGET_QUALIFIED_STAR:
+			return "qualified_star";
+		case SQLPARSER_GRAPH_TARGET_LITERAL:
+			return "literal";
+		case SQLPARSER_GRAPH_TARGET_PSEUDO:
+			return "pseudo";
+		case SQLPARSER_GRAPH_TARGET_SUBQUERY:
+			return "subquery";
+		case SQLPARSER_GRAPH_TARGET_EXPRESSION:
+			return "expression";
+		default:
+			return "unknown";
+	}
+}
+
+const char *sqlparser_graph_value_kind_name(sqlparser_graph_value_kind_t kind)
+{
+	switch (kind) {
+		case SQLPARSER_GRAPH_VALUE_LITERAL:
+			return "literal";
+		case SQLPARSER_GRAPH_VALUE_BIND:
+			return "bind";
+		case SQLPARSER_GRAPH_VALUE_DEFAULT:
+			return "default";
+		case SQLPARSER_GRAPH_VALUE_EXPRESSION:
+			return "expression";
+		default:
+			return "unknown";
+	}
+}
+
+const char *sqlparser_graph_set_kind_name(sqlparser_graph_set_kind_t kind)
+{
+	switch (kind) {
+		case SQLPARSER_GRAPH_SET_UNION:
+			return "union";
+		case SQLPARSER_GRAPH_SET_UNION_ALL:
+			return "union_all";
+		case SQLPARSER_GRAPH_SET_INTERSECT:
+			return "intersect";
+		case SQLPARSER_GRAPH_SET_EXCEPT:
+			return "except";
+		default:
+			return "unknown";
+	}
+}
+
+const char *sqlparser_graph_dml_kind_name(sqlparser_graph_dml_kind_t kind)
+{
+	switch (kind) {
+		case SQLPARSER_GRAPH_DML_INSERT:
+			return "insert";
+		case SQLPARSER_GRAPH_DML_UPDATE:
+			return "update";
+		case SQLPARSER_GRAPH_DML_DELETE:
+			return "delete";
+		case SQLPARSER_GRAPH_DML_MERGE:
+			return "merge";
 		default:
 			return "unknown";
 	}

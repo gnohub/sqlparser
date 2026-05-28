@@ -1,6 +1,6 @@
 # MySQL 方言用例矩阵
 
-本文件记录 MySQL 方言转换层的回归用例。`tests/cases/mysql_dialect_input.json` 是可执行测试源，`tests/unit/test_mysql_dialect_case_matrix.c` 会逐条读取该文件并验证解析、SQL View JSON、deparse 和错误码。
+本文件记录 MySQL 方言转换层的回归用例。`tests/cases/mysql_dialect_input.json` 是可执行测试源，`tests/unit/test_mysql_dialect_case_matrix.c` 会逐条读取该文件并验证解析、View JSON、deparse 和错误码。
 
 ## 已验证支持语句
 
@@ -20,7 +20,7 @@
 | M012 | `mysql-start-transaction` | `START TRANSACTION; COMMIT` | MySQL 事务起始语句、多语句计数 |
 | M013 | `mysql-unsupported-keywords-in-string` | `SELECT 'INSERT IGNORE' ...` | unsupported 预筛选不会误伤字符串内容 |
 | M014 | `mysql-unsupported-keywords-in-comment` | `SELECT ... /* ON DUPLICATE KEY UPDATE */ ...` | unsupported 预筛选不会误伤注释内容 |
-| M015 | `mysql-use-database` | `USE analytics` | 默认数据库切换语句、SQL View value selector |
+| M015 | `mysql-use-database` | `USE analytics` | 默认数据库切换语句、View JSON value selector |
 | M016 | `mysql-use-quoted-database` | `USE \`analytics-prod\`` | 反引号数据库名和公开 value 片段 |
 | M017 | `mysql-use-database-in-multi-statement` | `USE ...; SELECT ...` | 多语句中的数据库切换和后续查询保持独立输出 |
 | M018 | `mysql-insert-question-params` | `INSERT ... VALUES (?, ?, ?)` | JDBC 风格位置参数转换、插入列识别和公开形态还原 |
@@ -41,6 +41,7 @@
 | M033 | `mysql-execute-using-multiple-vars` | `EXECUTE stmt USING @id, @name` | 多个用户变量绑定参数 |
 | M034 | `mysql-view-concat-function` | `SELECT CONCAT(UPPER(...), ...) ...` | 函数 `target_path`、嵌套函数、参数序号和 WHERE bind |
 | M035 | `mysql-view-case-expression` | `SELECT CASE WHEN ... THEN ... END ...` | `CASE` 表达式中的输出字段归属 |
+| M035A | `mysql-view-case-predicate-bind` | `CASE WHEN column = ? THEN ...` | SELECT 投影内条件表达式的字段级 bind 归属 |
 | M036 | `mysql-view-group-having-order` | `GROUP BY ... HAVING ... ORDER BY ...` | 聚合输出和非输出子句字段归属 |
 | M037 | `mysql-view-update-question-binds` | `UPDATE ... SET ... WHERE ... = ?` | 位置参数 bind、空 value、update/where 子句归属 |
 | M038 | `mysql-view-join-on` | `JOIN ... ON ... WHERE ... = ?` | JOIN/ON 字段、WHERE bind 和表字段归属 |
@@ -59,6 +60,26 @@
 | M051 | `mysql-select-order-by-ordinal` | `ORDER BY 1` | 数字排序项和投影顺序相关语法 |
 | M052 | `mysql-limit-comma-question-params` | `LIMIT ?, ?` | MySQL 逗号分页中的位置参数，公开 SQL 保持逗号分页形态 |
 | M053 | `mysql-multi-statement-global-bind-position` | 多语句 `UPDATE ... ?` | 多语句输入中位置参数 `bind_position` 按整条 SQL 全局递增 |
+| M054 | `mysql-select-derived-query-graph` | 派生表 + 输出别名 + `?` 参数 | 派生表字段向内层真实表字段的 `query_graph` 来源链路 映射和 `output_name` |
+| M055 | `mysql-select-reference-002` | SELECT 参考用例 002 | MySQL 合法 SELECT 示例解析和 View JSON 结构 |
+| M056 | `mysql-select-reference-003` | SELECT 参考用例 003 | MySQL 合法 SELECT 示例解析和 View JSON 结构 |
+| M057 | `mysql-select-reference-006` | SELECT 参考用例 006 | MySQL 合法 SELECT 示例解析和 View JSON 结构 |
+| M058 | `mysql-select-reference-008` | SELECT 参考用例 008 | MySQL 合法 SELECT 示例解析和 View JSON 结构 |
+| M059 | `mysql-select-reference-010` | SELECT 参考用例 010 | MySQL 合法 SELECT 示例解析和 View JSON 结构 |
+| M060 | `mysql-select-reference-012` | SELECT 参考用例 012 | MySQL 合法 SELECT 示例解析和 View JSON 结构 |
+| M061 | `mysql-select-reference-014` | SELECT 参考用例 014 | MySQL 合法 SELECT 示例解析和 View JSON 结构 |
+| M062 | `mysql-select-reference-016` | SELECT 参考用例 016 | MySQL 合法 SELECT 示例解析和 View JSON 结构 |
+| M063 | `mysql-select-reference-022` | SELECT 参考用例 022 | MySQL 合法 SELECT 示例解析和 View JSON 结构 |
+| M064 | `mysql-select-reference-023` | SELECT 参考用例 023 | MySQL 合法 SELECT 示例解析和 View JSON 结构 |
+| M065 | `mysql-select-reference-025` | SELECT 参考用例 025 | MySQL 合法 SELECT 示例解析和 View JSON 结构 |
+| M066 | `mysql-select-reference-027` | SELECT 参考用例 027 | MySQL 合法 SELECT 示例解析和 View JSON 结构 |
+| M067 | `mysql-select-reference-029` | SELECT 参考用例 029 | MySQL 合法 SELECT 示例解析和 View JSON 结构 |
+| M068 | `mysql-update-join-target-table-qualified` | `UPDATE users JOIN ... SET users.phone = ?` | 未使用别名时，目标表限定赋值仍映射到目标表字段 |
+| MU005 | `mysql-on-duplicate-key` | `INSERT ... ON DUPLICATE KEY UPDATE ...` | MySQL upsert 映射到 DML 插入值和更新赋值 |
+| MU009 | `mysql-update-join` | `UPDATE ... JOIN ... SET ...` | 带 `ON` 条件的普通/INNER/CROSS 多表 UPDATE 的目标表、来源表、赋值和条件参数映射 |
+| MU010 | `mysql-delete-join` | `DELETE u FROM ... JOIN ...` | 带 `ON` 条件的普通/INNER/CROSS 多表 DELETE 的目标表、来源表和条件参数映射 |
+| MU010A | `mysql-update-join-on-bind` | `UPDATE ... JOIN ... ON ... ? SET ... WHERE ...` | 多表 UPDATE 中 JOIN `ON` 参数归属为 `on`，后续 `WHERE` 参数仍归属为 `where` |
+| MU010B | `mysql-delete-join-on-bind` | `DELETE u FROM ... JOIN ... ON ... ? WHERE ...` | 多表 DELETE 中 JOIN `ON` 参数归属为 `on`，后续 `WHERE` 参数仍归属为 `where` |
 
 ## 明确不支持语句
 
@@ -70,17 +91,20 @@
 | MU002 | `mysql-insert-delayed` | `INSERT DELAYED ...` | 延迟插入语义需要 MySQL 专用执行语义 |
 | MU003 | `mysql-insert-low-priority` | `INSERT LOW_PRIORITY ...` | 优先级语义无法映射到通用 AST |
 | MU004 | `mysql-insert-high-priority` | `INSERT HIGH_PRIORITY ...` | 优先级语义无法映射到通用 AST |
-| MU005 | `mysql-on-duplicate-key` | `ON DUPLICATE KEY UPDATE ...` | 冲突处理语义不能安全映射到现有 AST |
 | MU006 | `mysql-replace-into` | `REPLACE INTO ...` | 删除再插入的语义不同于普通 `INSERT` |
 | MU007 | `mysql-update-ignore` | `UPDATE IGNORE ...` | 忽略错误语义需要 MySQL 专用执行语义 |
 | MU008 | `mysql-delete-ignore` | `DELETE IGNORE ...` | 忽略错误语义需要 MySQL 专用执行语义 |
-| MU009 | `mysql-auto-increment` | `AUTO_INCREMENT` | 列属性需要 MySQL DDL 语义扩展 |
-| MU010 | `mysql-unsigned` | `UNSIGNED` | 类型属性需要 MySQL 类型系统扩展 |
-| MU011 | `mysql-zerofill` | `ZEROFILL` | 类型属性需要 MySQL 类型系统扩展 |
-| MU012 | `mysql-table-engine` | `ENGINE=...` | 表选项需要 MySQL DDL 语义扩展 |
-| MU013 | `mysql-table-charset` | `DEFAULT CHARSET=...` | 表字符集选项需要 MySQL DDL 语义扩展 |
-| MU014 | `mysql-table-character-set` | `CHARACTER SET=...` | 表字符集选项需要 MySQL DDL 语义扩展 |
-| MU015 | `mysql-table-collate` | `COLLATE=...` | 表排序规则选项需要 MySQL DDL 语义扩展 |
+| MU011 | `mysql-auto-increment` | `AUTO_INCREMENT` | 列属性需要 MySQL DDL 语义扩展 |
+| MU012 | `mysql-unsigned` | `UNSIGNED` | 类型属性需要 MySQL 类型系统扩展 |
+| MU013 | `mysql-zerofill` | `ZEROFILL` | 类型属性需要 MySQL 类型系统扩展 |
+| MU014 | `mysql-table-engine` | `ENGINE=...` | 表选项需要 MySQL DDL 语义扩展 |
+| MU015 | `mysql-table-charset` | `DEFAULT CHARSET=...` | 表字符集选项需要 MySQL DDL 语义扩展 |
+| MU016 | `mysql-table-character-set` | `CHARACTER SET=...` | 表字符集选项需要 MySQL DDL 语义扩展 |
+| MU017 | `mysql-table-collate` | `COLLATE=...` | 表排序规则选项需要 MySQL DDL 语义扩展 |
+| MU018 | `mysql-update-left-join` | `UPDATE ... LEFT JOIN ... SET ...` | 外连接 UPDATE 的受影响行语义不能降级为普通 `UPDATE FROM` |
+| MU019 | `mysql-delete-left-join` | `DELETE u FROM ... LEFT JOIN ...` | 外连接 DELETE 的受影响行语义不能降级为普通 `DELETE USING` |
+| MU020 | `mysql-update-join-source-assignment` | `UPDATE ... JOIN ... SET source_alias.column = ...` | 多表 UPDATE 修改 JOIN 来源表时不能降级为单目标表 `UPDATE FROM` |
+| MU021 | `mysql-delete-join-source-target` | `DELETE source_alias FROM target JOIN source_alias ...` | 多表 DELETE 删除 JOIN 来源表时不能降级为单目标表 `DELETE USING` |
 
 ## 处理规则
 

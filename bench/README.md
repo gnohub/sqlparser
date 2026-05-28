@@ -9,7 +9,7 @@
 - `bench/run_benchmarks.py`
   批量执行器与 CSV、Markdown 报告生成脚本。
 - `tools/libpg_query_baseline.c`
-  vendored `libpg_query` 修改前基线二进制，覆盖线程首次解析和并发解析。
+  vendored `libpg_query` 修改前基线二进制，覆盖单线程成功解析和线程首次解析。
 - `bench/run_libpg_query_baseline.py`
   `libpg_query` 基线批量执行器与报告生成脚本。
 

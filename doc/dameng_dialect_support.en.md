@@ -54,11 +54,11 @@ handle:
   internal conversion details.
 - Binds remain in `:name`, `:1`, or `?` form; internal `$1` / `$2` names are
   not emitted.
-- `MINUS` remains visible as the Dameng semantic keyword in SQL View JSON and
+- `MINUS` remains visible as the Dameng semantic keyword in View JSON and
   deparse output.
-- `SET SCHEMA` is exposed as session context; SQL View JSON uses the
+- `SET SCHEMA` is exposed as session context; View JSON uses the
   `CURRENT_SCHEMA` field name.
-- Attributable expression fragments in SQL View JSON use the public Dameng
+- Attributable expression fragments in View JSON use the public Dameng
   form.
 - Failed expression-fragment rewrites are not committed to the handle; the
   previous AST, bind mapping, and deparse output remain usable.
@@ -73,5 +73,5 @@ The Dameng support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current Dameng matrix contains 55 cases: 43 supported paths and 12 explicit
+The current Dameng matrix contains 87 cases: 75 supported paths and 12 explicit
 unsupported paths.

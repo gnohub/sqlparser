@@ -42,9 +42,9 @@
 
 - `sqlparser_deparse()` 输出达梦公共形态，不暴露内部转换细节。
 - bind 保持 `:name`、`:1` 或 `?` 形态，不输出内部 `$1`、`$2`。
-- `MINUS` 在 SQL View JSON 和 deparse 输出中保持达梦语义名称。
-- `SET SCHEMA` 会以会话上下文结构输出，SQL View JSON 中字段名为 `CURRENT_SCHEMA`。
-- SQL View JSON 中可归属的表达式片段使用达梦公共形态。
+- `MINUS` 在 View JSON 和 deparse 输出中保持达梦语义名称。
+- `SET SCHEMA` 会以会话上下文结构输出，View JSON 中字段名为 `CURRENT_SCHEMA`。
+- View JSON 中可归属的表达式片段使用达梦公共形态。
 - 失败的表达式片段改写不会提交到 handle；原有 AST、bind 映射和 deparse 输出保持可用。
 
 ## 回归用例
@@ -57,4 +57,4 @@
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-当前达梦方言矩阵包含 55 条用例：43 条支持路径，12 条明确不支持路径。
+当前达梦方言矩阵包含 87 条用例：75 条支持路径，12 条明确不支持路径。

@@ -31,42 +31,6 @@ static const char *json_string_or_null(json_t *value)
 	return json_is_string(value) ? json_string_value(value) : NULL;
 }
 
-static int text_contains_array_values(
-	const char *case_id,
-	const char *case_name,
-	const char *field_name,
-	const char *text,
-	json_t *expected_array)
-{
-	size_t index;
-	json_t *value;
-
-	if (expected_array == NULL) {
-		return 0;
-	}
-	if (!json_is_array(expected_array)) {
-		return fail_case(case_id, case_name, "expected metadata must be an array");
-	}
-	json_array_foreach(expected_array, index, value) {
-		const char *expected;
-
-		expected = json_string_or_null(value);
-		if (expected == NULL) {
-			return fail_case(case_id, case_name, "expected metadata value must be a string");
-		}
-			if (strcmp(field_name, "tables") == 0) {
-				if (!sqlparser_test_view_contains_table(text, expected)) {
-					return fail_case_field(case_id, case_name, field_name, expected);
-				}
-				continue;
-			}
-			if (text == NULL || strstr(text, expected) == NULL) {
-				return fail_case_field(case_id, case_name, field_name, expected);
-			}
-	}
-	return 0;
-}
-
 static int verify_statement_types(
 	const char *case_id,
 	const char *case_name,
@@ -162,6 +126,7 @@ static int verify_success_case(const char *case_id, const char *case_name, const
 	const char *deparse_contains;
 	const char *view_contains;
 	const char *view_not_contains;
+	json_t *deparse_not_contains;
 	int status;
 
 	handle = NULL;
@@ -201,13 +166,7 @@ static int verify_success_case(const char *case_id, const char *case_name, const
 		sqlparser_handle_destroy(handle);
 		return fail_case(case_id, case_name, "view JSON export failed");
 	}
-	if (text_contains_array_values(case_id, case_name, "tables", view_json, json_object_get(expect_root, "tables")) != 0 ||
-	    text_contains_array_values(case_id, case_name, "selected_columns", view_json, json_object_get(expect_root, "selected_columns")) != 0 ||
-	    text_contains_array_values(case_id, case_name, "join_columns", view_json, json_object_get(expect_root, "join_columns")) != 0 ||
-	    text_contains_array_values(case_id, case_name, "where_columns", view_json, json_object_get(expect_root, "where_columns")) != 0 ||
-	    text_contains_array_values(case_id, case_name, "insert_columns", view_json, json_object_get(expect_root, "insert_columns")) != 0 ||
-	    text_contains_array_values(case_id, case_name, "update_columns", view_json, json_object_get(expect_root, "update_columns")) != 0 ||
-	    sqlparser_test_verify_view_expectations(case_id, case_name, view_json, expect_root) != 0) {
+	if (sqlparser_test_verify_view_expectations(case_id, case_name, view_json, expect_root) != 0) {
 		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
 		return 1;
@@ -236,6 +195,18 @@ static int verify_success_case(const char *case_id, const char *case_name, const
 		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
 		return fail_case_field(case_id, case_name, "deparse_contains", deparse_contains);
+	}
+	deparse_not_contains = json_object_get(expect_root, "deparse_not_contains");
+	if (sqlparser_test_text_not_contains_expected(
+		    case_id,
+		    case_name,
+		    deparse_sql,
+		    "deparse_not_contains",
+		    deparse_not_contains) != 0) {
+		sqlparser_string_free(deparse_sql);
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
 	}
 	sqlparser_string_free(deparse_sql);
 	sqlparser_string_free(view_json);

@@ -20,9 +20,9 @@
 - `SELECT` 输出列表读取、替换、插入与删除
 - `selector` 解析、格式化与定位
 - 方言选项，默认 PostgreSQL，并提供 MySQL、Oracle、SQL Server、达梦方言转换层
-- 常见预编译 / 参数化 SQL 语句解析、SQL View JSON 和反解析
+- 常见预编译 / 参数化 SQL 语句解析、View JSON 和反解析
 - 可配置资源限制，覆盖 SQL 输入、生成输出与语句数量
-- SQL View JSON 导出、C 结构化遍历与结构体 patch 写回
+- View JSON 导出、C 结构化遍历与结构体 patch 写回
 - `handle -> sql`
 
 ## 公共产物
@@ -157,7 +157,7 @@ gcc -std=gnu11 demo.c $(pkg-config --cflags --libs sqlparser) -o demo
 ./bin/sqlparser_cli "SELECT id, name FROM public.users WHERE id = 42"
 ```
 
-导出 SQL View JSON：
+导出 View JSON：
 
 ```bash
 ./bin/sqlparser_cli --mode view "SELECT id, name FROM public.users WHERE id = 42"
@@ -167,8 +167,8 @@ gcc -std=gnu11 demo.c $(pkg-config --cflags --libs sqlparser) -o demo
 
 ```bash
 ./bin/sqlparser_cli \
-  --batch-file ./tests/cases/sql_batch_input.json \
-  --output /tmp/sqlparser_batch_result.json
+  --batch-file ./sql_batch.json \
+  --output ./sqlparser_batch_result.json
 ```
 
 ## 示例
@@ -193,7 +193,7 @@ gcc -std=gnu11 demo.c $(pkg-config --cflags --libs sqlparser) -o demo
 - [达梦方言支持](./doc/dameng_dialect_support.md)
 - [方言覆盖统计](./doc/dialect_coverage.md)
 - [API 手册](./doc/api_reference.md)
-- [SQL View JSON 手册](./doc/view_json.md)
+- [View JSON 手册](./doc/view_json.md)
 - [CLI 手册](./doc/cli_guide.md)
 - [libpg_query 集成说明](./doc/libpg_query_analysis.md)
 - [发布说明](./RELEASE_NOTES.md)

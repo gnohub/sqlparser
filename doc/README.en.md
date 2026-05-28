@@ -40,8 +40,8 @@ This directory contains the project documentation for `sqlparser`.
   Tracks Dameng dialect coverage against the official DM_SQL documentation.
 - [API Reference](./api_reference.en.md)
   Describes the main public-header types, lifecycle rules, and function groups.
-- [SQL View JSON Guide](./view_json.en.md)
-  Describes the SQL View JSON layout, structured patch form, and editing rules.
+- [View JSON Guide](./view_json.en.md)
+  Describes the View JSON layout, structured patch form, and editing rules.
 - [CLI Guide](./cli_guide.en.md)
   Describes the command-line tool, batch input format, and output shape.
 - [libpg_query Integration](./libpg_query_analysis.en.md)

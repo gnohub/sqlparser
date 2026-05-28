@@ -1,6 +1,6 @@
 # Oracle 方言用例矩阵
 
-本文件记录 Oracle 方言转换层的回归用例。可执行夹具为 `tests/cases/oracle_dialect_input.json`，单元测试 `tests/unit/test_oracle_dialect_case_matrix.c` 会逐条验证解析结果、SQL View JSON、反解析输出和错误码。
+本文件记录 Oracle 方言转换层的回归用例。可执行夹具为 `tests/cases/oracle_dialect_input.json`，单元测试 `tests/unit/test_oracle_dialect_case_matrix.c` 会逐条验证解析结果、View JSON、反解析输出和错误码。
 
 ## 支持用例
 
@@ -92,6 +92,18 @@
 | O085 | `ALTER SESSION SET ERROR_ON_OVERLAP_TIME` | 布尔/枚举型普通 session 参数 |
 | O086 | `ALTER SESSION SET NLS_NUMERIC_CHARACTERS` | 带标点字符串的普通 session 参数 |
 | O087 | 多语句命名 bind | 多语句输入中命名 bind 的 `bind_position` 按整条 SQL 全局递增 |
+| O088 | `oracle-select-derived-query-graph` | 派生表 + 输出别名 + 命名 bind | 派生表字段、输出别名和条件 bind 的 `query_graph` 表达 |
+| O089 | `oracle-select-reference-024` | SELECT 参考用例 024 | Oracle/ROWNUM/复杂派生表 SELECT 示例解析和 View JSON 结构 |
+| O090 | `oracle-select-reference-026` | SELECT 参考用例 026 | Oracle/ROWNUM/复杂派生表 SELECT 示例解析和 View JSON 结构 |
+| O091 | `oracle-select-reference-028` | SELECT 参考用例 028 | Oracle/ROWNUM/复杂派生表 SELECT 示例解析和 View JSON 结构 |
+| O092 | `oracle-select-reference-033` | SELECT 参考用例 033 | Oracle/ROWNUM/复杂派生表 SELECT 示例解析和 View JSON 结构 |
+| O093 | `oracle-select-reference-044` | SELECT 参考用例 044 | Oracle/ROWNUM/复杂派生表 SELECT 示例解析和 View JSON 结构 |
+| O094 | `oracle-select-reference-045` | SELECT 参考用例 045 | Oracle/ROWNUM/复杂派生表 SELECT 示例解析和 View JSON 结构 |
+| O095 | `oracle-select-reference-048` | SELECT 参考用例 048 | Oracle/ROWNUM/复杂派生表 SELECT 示例解析和 View JSON 结构 |
+| O096 | `oracle-select-reference-049` | SELECT 参考用例 049 | Oracle/ROWNUM/复杂派生表 SELECT 示例解析、`d.* -> b.* -> o.*` 链路和 View JSON 结构 |
+| O097 | `oracle-select-reference-046` | SELECT 参考用例 046 | Oracle 复杂派生表和多 JOIN 子查询解析和 View JSON 结构 |
+| O098 | `oracle-select-reference-047` | SELECT 参考用例 047 | Oracle UNION + 复杂派生表子查询解析和 View JSON 结构 |
+| O099 | `oracle-select-nested-star-query-graph` | 多层派生表 + ROWNUM + `SELECT *` | `query_graph` 表达派生表 `*` 链路和 UNION 分支 |
 
 ## 明确不支持用例
 

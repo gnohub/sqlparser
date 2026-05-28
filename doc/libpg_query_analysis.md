@@ -16,7 +16,7 @@
 - 公共 ABI 封装
 - 语义提取
 - 稳定 selector
-- SQL View JSON
+- View JSON
 - 统一错误与生命周期管理
 
 ## 2. 固定版本
@@ -143,12 +143,12 @@ SQL -> libpg_query protobuf AST -> sqlparser handle -> rewrite -> deparse -> SQL
 
 - 把 `libpg_query` 视为固定版本内核，而不是对外公共接口
 - 对外接入统一走 `sqlparser` 头文件和库
-- 调试底层语法树时可导出 SQL View JSON
+- 需要查看底层语法树时可导出 View JSON
 - 业务改写使用 `sqlparser` 的原子级 API、selector 和 structured patch
 
 ## 10. 相关文档
 
 - 项目概览见 [sqlparser_architecture.md](./sqlparser_architecture.md)
 - API 使用说明见 [api_reference.md](./api_reference.md)
-- SQL View JSON 说明见 [view_json.md](./view_json.md)
+- View JSON 说明见 [view_json.md](./view_json.md)
 - CLI 使用说明见 [cli_guide.md](./cli_guide.md)

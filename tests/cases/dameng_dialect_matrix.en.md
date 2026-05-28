@@ -1,6 +1,6 @@
 # Dameng Dialect Case Matrix
 
-This file records regression cases for the Dameng dialect conversion layer. The executable fixture is `tests/cases/dameng_dialect_input.json`; `tests/unit/test_dameng_dialect_case_matrix.c` verifies parsing, SQL View JSON, deparse output, and error codes.
+This file records regression cases for the Dameng dialect conversion layer. The executable fixture is `tests/cases/dameng_dialect_input.json`; `tests/unit/test_dameng_dialect_case_matrix.c` verifies parsing, View JSON, deparse output, and error codes.
 
 ## Supported Cases
 
@@ -70,6 +70,17 @@ This file records regression cases for the Dameng dialect conversion layer. The 
 | D062 | `LIMIT/OFFSET` + `?` parameters | positional parameters in pagination clauses |
 | D063 | `SELECT :bind FROM dual` | DUAL query and named bind in the SELECT list |
 | D064 | multi-statement `?` parameters | positional `bind_position` increases globally across the full input SQL |
+| D065 | `dameng-select-derived-query-graph` | derived table with output alias and named binds | `query_graph` lineage mapping from derived-table fields to inner base-table fields and `output_name` |
+| D066 | `dameng-select-reference-024` | SELECT reference case 024 | Dameng/ROWNUM/complex derived SELECT example parsing and View JSON shape |
+| D067 | `dameng-select-reference-026` | SELECT reference case 026 | Dameng/ROWNUM/complex derived SELECT example parsing and View JSON shape |
+| D068 | `dameng-select-reference-028` | SELECT reference case 028 | Dameng/ROWNUM/complex derived SELECT example parsing and View JSON shape |
+| D069 | `dameng-select-reference-033` | SELECT reference case 033 | Dameng/ROWNUM/complex derived SELECT example parsing and View JSON shape |
+| D070 | `dameng-select-reference-044` | SELECT reference case 044 | Dameng/ROWNUM/complex derived SELECT example parsing and View JSON shape |
+| D071 | `dameng-select-reference-045` | SELECT reference case 045 | Dameng/ROWNUM/complex derived SELECT example parsing and View JSON shape |
+| D072 | `dameng-select-reference-048` | SELECT reference case 048 | Dameng/ROWNUM/complex derived SELECT example parsing and View JSON shape |
+| D073 | `dameng-select-reference-049` | SELECT reference case 049 | `query_graph` coverage for Dameng/ROWNUM complex derived-table `*` chains and UNION branches |
+| D074 | `dameng-select-reference-046` | SELECT reference case 046 | Dameng complex derived-table and multi-JOIN subquery parsing and View JSON shape |
+| D075 | `dameng-select-reference-047` | SELECT reference case 047 | Dameng UNION plus complex derived-table subquery parsing and View JSON shape |
 
 ## Explicitly Unsupported Cases
 

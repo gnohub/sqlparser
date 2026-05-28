@@ -10,7 +10,7 @@ The `bench/` directory contains the single-thread benchmark program, the batch r
   Batch runner that produces CSV and Markdown reports.
 - `tools/libpg_query_baseline.c`
   Pre-patch baseline binary for the vendored `libpg_query`, including
-  first-parse and concurrent-parse measurements.
+  single-thread success and first-parse measurements.
 - `bench/run_libpg_query_baseline.py`
   Batch runner and report generator for the `libpg_query` baseline.
 

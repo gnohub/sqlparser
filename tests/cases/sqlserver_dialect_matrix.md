@@ -1,6 +1,6 @@
 # SQL Server 方言用例矩阵
 
-本文件记录 SQL Server 方言转换层的回归用例。可执行夹具为 `tests/cases/sqlserver_dialect_input.json`，单元测试 `tests/unit/test_sqlserver_dialect_case_matrix.c` 会逐条验证解析结果、SQL View JSON、反解析输出和错误码。
+本文件记录 SQL Server 方言转换层的回归用例。可执行夹具为 `tests/cases/sqlserver_dialect_input.json`，单元测试 `tests/unit/test_sqlserver_dialect_case_matrix.c` 会逐条验证解析结果、View JSON、反解析输出和错误码。当前夹具包含 334 条用例：319 条支持路径，15 条明确不支持路径。
 
 ## 支持用例
 
@@ -88,6 +88,8 @@
 | S080 | `CREATE VIEW` + JOIN 聚合 | 视图创建、JOIN 条件和 GROUP BY 聚合 |
 | S081 | `TOP (?)` + WHERE `?` | `TOP` 中的位置参数计入全局 bind 序号 |
 | S082 | 多语句 `?` 参数 | 多语句输入中位置参数 `bind_position` 按整条 SQL 全局递增 |
+| S083 | `sqlserver-select-derived-query-graph` | 派生表字段向内层真实表字段的 `query_graph` 来源链路映射和 `output_name` |
+| S084 | `MERGE` + `?` 参数 | MERGE 的 target/source relation、UPDATE assignment、INSERT values 和 bind 映射 |
 
 ## 明确不支持用例
 
@@ -113,9 +115,9 @@
 
 ## 官方 `HOOK_ONLY` 覆盖用例
 
-`tests/cases/sqlserver_hook_coverage_input.json` 按 `doc/sqlserver_official_syntax_coverage.csv` 中的 `HOOK_ONLY` 条目生成，当前包含 235 条用例。该夹具覆盖函数、类型/常量、排序规则和简单 `RENAME OBJECT` 等可通过现有 AST 与方言 hook 承载的官方条目。
+`tests/cases/sqlserver_dialect_input.json` 已包含 235 条按 `doc/sqlserver_official_syntax_coverage.csv` 中 `HOOK_ONLY` 条目生成的用例。该部分覆盖函数、类型/常量、排序规则和简单 `RENAME OBJECT` 等可通过现有 AST 与方言 hook 承载的官方条目。
 
 ## 维护要求
 
-- 新增 SQL Server 支持项必须同步更新 `tests/cases/sqlserver_dialect_input.json`、`tests/cases/sqlserver_hook_coverage_input.json`、本矩阵和可执行回归测试。
+- 新增 SQL Server 支持项必须同步更新 `tests/cases/sqlserver_dialect_input.json`、本矩阵和可执行回归测试。
 - 无法保证语义等价的 SQL Server 专有语法必须返回 `SQLPARSER_STATUS_UNSUPPORTED`。

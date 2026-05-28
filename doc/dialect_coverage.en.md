@@ -8,15 +8,15 @@ coverage is tracked in each dialect's `*_official_syntax_coverage.en.md` file.
 
 | Dialect | Source | Supported Cases | Explicitly Unsupported Cases | Total | Supported Ratio |
 | --- | --- | ---: | ---: | ---: | ---: |
-| PostgreSQL | `tests/cases/sql_batch_input.json` | 96 | 1 | 97 | 98.97% |
-| MySQL | `tests/cases/mysql_dialect_input.json` | 53 | 15 | 68 | 77.94% |
-| Oracle | `tests/cases/oracle_dialect_input.json` | 86 | 18 | 104 | 82.69% |
-| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 82 | 15 | 97 | 84.54% |
-| Dameng | `tests/cases/dameng_dialect_input.json` | 64 | 12 | 76 | 84.21% |
+| PostgreSQL | `tests/cases/sql_batch_input.json` | 128 | 1 | 129 | 99.22% |
+| MySQL | `tests/cases/mysql_dialect_input.json` | 74 | 18 | 92 | 80.43% |
+| Oracle | `tests/cases/oracle_dialect_input.json` | 98 | 18 | 116 | 84.48% |
+| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 319 | 15 | 334 | 95.51% |
+| Dameng | `tests/cases/dameng_dialect_input.json` | 75 | 12 | 87 | 86.21% |
 
 ## Counting Rules
 
-- `Supported Cases` means the dialect is covered by executable regression checks for parsing, SQL View JSON, deparse, or expected error behavior.
+- `Supported Cases` means the dialect is covered by executable regression checks for parsing, View JSON, deparse, or expected error behavior.
 - `Explicitly Unsupported Cases` means the implementation deliberately returns `SQLPARSER_STATUS_UNSUPPORTED` or a parse error and does not return a usable handle.
 - The PostgreSQL negative case is an intentionally invalid SQL input and is not counted as a feature gap.
 - MySQL, Oracle, SQL Server, and Dameng unsupported cases are database-specific semantics that cannot be safely represented without extending the shared AST.

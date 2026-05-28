@@ -167,7 +167,7 @@ LDLIBS := $(BASE_LDLIBS) $(EXTRA_LDLIBS)
 	test-cli-batch examples install-smoke bench-smoke test-loop verify verify-release verify-debug \
 	verify-asan verify-ubsan verify-valgrind verify-ci abi-check test-unit test-examples test-cli-arg-order \
 	test-parse test-inspect test-rewrite test-deparse test-view-json test-cli test-install \
-	test-abi dist
+	test-abi dist FORCE
 
 all: prep static shared cli
 	@echo "Build finished: $(STATIC_LIB_PATH) $(SHARED_LIB_PATH) $(SQLPARSER_CLI_BIN)"
@@ -234,9 +234,25 @@ test-cli-batch: $(SQLPARSER_CLI_BIN) $(SQLPARSER_CLI_BATCH_FIXTURE) $(SQLPARSER_
 	@$(BENCH_PYTHON) $(SQLPARSER_CLI_BATCH_VERIFY) \
 		--fixture $(SQLPARSER_CLI_BATCH_FIXTURE) \
 		--output $(SQLPARSER_CLI_BATCH_OUTPUT)
+	@printf '%s\n' '{"sqls":["SELECT 1"]}' > $(BUILD_PATH)/tests/cli_batch_sqls_rejected.json
+	@if $(SQLPARSER_CLI_BIN) --batch-file $(BUILD_PATH)/tests/cli_batch_sqls_rejected.json > $(BUILD_PATH)/tests/cli_batch_sqls_rejected.out 2> $(BUILD_PATH)/tests/cli_batch_sqls_rejected.err; then \
+		echo "cli batch must reject obsolete sqls root"; \
+		exit 1; \
+	fi
 
 test-cli-arg-order: $(SQLPARSER_CLI_BIN)
-	@$(SQLPARSER_CLI_BIN) --mode view "INSERT INTO users (username, email, age) VALUES (?, ?, ?);" --dialect oracle >/dev/null
+	@mkdir -p $(BUILD_PATH)/tests
+	@$(SQLPARSER_CLI_BIN) --mode view "INSERT INTO users (username, email, age) VALUES (?, ?, ?);" --dialect oracle > $(BUILD_PATH)/tests/cli_arg_order_view.json
+	@$(BENCH_PYTHON) -m json.tool < $(BUILD_PATH)/tests/cli_arg_order_view.json >/dev/null
+	@if grep -q '^==' $(BUILD_PATH)/tests/cli_arg_order_view.json; then \
+		echo "cli view output must be plain JSON"; \
+		exit 1; \
+	fi
+	@$(SQLPARSER_CLI_BIN) --mode deparse "SELECT 1" > $(BUILD_PATH)/tests/cli_deparse.txt
+	@if grep -q '^==' $(BUILD_PATH)/tests/cli_deparse.txt; then \
+		echo "cli deparse output must be plain SQL"; \
+		exit 1; \
+	fi
 
 install-smoke: all $(PKGCONFIG_FILE) $(INSTALL_SMOKE_SRC) | prep
 	@rm -rf $(TEST_STAGE_DIR)
@@ -396,7 +412,9 @@ vendor-clean:
 	@$(MAKE) -C $(VENDOR_PG_QUERY_DIR) clean >/dev/null 2>&1 || true
 	@rm -rf $(VENDOR_PG_QUERY_MERGE_DIR)
 
-$(BUILD_SIGNATURE_FILE): Makefile $(CONFIG) $(SQLPARSER_SITE_CONFIG) VERSION | prep
+FORCE:
+
+$(BUILD_SIGNATURE_FILE): FORCE Makefile $(CONFIG) $(SQLPARSER_SITE_CONFIG) VERSION | prep
 	@tmp_file="$@.tmp"; \
 	printf '%s\n' \
 		"CC=$(CC)" \
@@ -410,7 +428,7 @@ $(BUILD_SIGNATURE_FILE): Makefile $(CONFIG) $(SQLPARSER_SITE_CONFIG) VERSION | p
 		rm -f "$$tmp_file"; \
 	fi
 
-$(VENDOR_BUILD_SIGNATURE_FILE): Makefile $(CONFIG) $(SQLPARSER_SITE_CONFIG) | prep
+$(VENDOR_BUILD_SIGNATURE_FILE): FORCE Makefile $(CONFIG) $(SQLPARSER_SITE_CONFIG) | prep
 	@tmp_file="$@.tmp"; \
 	printf '%s\n' \
 		"CC=$(CC)" \

@@ -36,7 +36,7 @@ int main(void)
 
 	printf("dialect: %s\n", sqlparser_dialect_name(sqlparser_handle_dialect(handle)));
 
-	/* view JSON 用于读取表、列、值片段和可回写 selector。 */
+	/* view JSON 用于查看 query_graph、字段关联值和可回写 selector。 */
 	status = sqlparser_export_view_json(handle, 1, &view_json, &err);
 	if (status != SQLPARSER_STATUS_OK) {
 		fprintf(stderr, "view export failed: %s\n", err.message);

@@ -62,7 +62,7 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
 
 - `sqlparser_deparse()` emits the public SQL Server form and does not expose
   internal conversion details.
-- `@name` and `?` parameters remain in public form in deparse and SQL View
+- `@name` and `?` parameters remain in public form in deparse and View
   JSON; internal `$1` / `$2` names are not emitted.
 - `@@` system variables and `0x...` binary literals remain in SQL Server
   public form in deparse.
@@ -72,7 +72,7 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
   deparse output.
 - `N'...'` Unicode strings keep the `N` prefix when the semantics can be
   preserved.
-- Attributable expression fragments in SQL View JSON use the public SQL Server
+- Attributable expression fragments in View JSON use the public SQL Server
   form.
 - Failed expression-fragment rewrites are not committed to the handle; the
   previous AST, parameter mapping, and deparse output remain usable.
@@ -82,11 +82,10 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
 The SQL Server support boundary is defined by:
 
 - `tests/cases/sqlserver_dialect_input.json`
-- `tests/cases/sqlserver_hook_coverage_input.json`
 - `tests/cases/sqlserver_dialect_matrix.en.md`
 - `tests/unit/test_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The base SQL Server matrix contains 76 cases: 61 supported paths and 15
-explicit unsupported paths. The official `HOOK_ONLY` coverage matrix contains
-235 cases.
+The SQL Server matrix contains 334 cases: 319 supported paths and 15 explicit
+unsupported paths. Of these, 235 cases come from official `HOOK_ONLY` coverage
+items.
