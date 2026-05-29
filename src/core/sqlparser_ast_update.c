@@ -689,6 +689,107 @@ sqlparser_status_t sqlparser_update_insert_assignment_sql(
 	return SQLPARSER_STATUS_OK;
 }
 
+sqlparser_status_t sqlparser_update_insert_assignment_from_assignment_value(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t insert_assignment_index,
+	const sqlparser_identifier_path_view_t *target,
+	size_t source_assignment_index,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__UpdateStmt *update_stmt;
+	PgQuery__ResTarget *source_target;
+	PgQuery__Node **next_nodes;
+	PgQuery__Node **old_nodes;
+	PgQuery__Node *cloned_value;
+	PgQuery__Node *new_node;
+	size_t old_count;
+	size_t index;
+	sqlparser_status_t status;
+
+	sqlparser_error_clear(out_error);
+	update_stmt = NULL;
+	source_target = NULL;
+	next_nodes = NULL;
+	old_nodes = NULL;
+	cloned_value = NULL;
+	new_node = NULL;
+
+	if (handle == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "handle must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	status = sqlparser_get_update_stmt(handle, statement_index, &update_stmt, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	old_count = update_stmt->n_target_list;
+	if (insert_assignment_index > old_count || source_assignment_index >= old_count) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "assignment index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (old_count == ((size_t)-1)) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "update SET list is too large");
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+	status = sqlparser_validate_update_assignment_nodes(update_stmt, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_get_update_assignment_res_target(
+		update_stmt,
+		source_assignment_index,
+		&source_target,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (source_target->val == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "source assignment value is missing");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+
+	status = sqlparser_clone_proto_node(source_target->val, &cloned_value, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_build_update_assignment_identifier_node(target, cloned_value, &new_node, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_free_proto_node(cloned_value);
+		return status;
+	}
+	cloned_value = NULL;
+
+	next_nodes = sqlparser_update_alloc_node_array(old_count + 1U, out_error);
+	if (next_nodes == NULL) {
+		sqlparser_free_proto_node(new_node);
+		return out_error != NULL && out_error->code != SQLPARSER_STATUS_OK ?
+			out_error->code :
+			SQLPARSER_STATUS_NO_MEMORY;
+	}
+
+	for (index = 0U; index < insert_assignment_index; index++) {
+		next_nodes[index] = update_stmt->target_list[index];
+	}
+	next_nodes[insert_assignment_index] = new_node;
+	for (index = insert_assignment_index; index < old_count; index++) {
+		next_nodes[index + 1U] = update_stmt->target_list[index];
+	}
+	new_node = NULL;
+	old_nodes = update_stmt->target_list;
+	update_stmt->target_list = next_nodes;
+	update_stmt->n_target_list = old_count + 1U;
+	next_nodes = NULL;
+	free(old_nodes);
+
+	status = sqlparser_handle_commit_ast(handle, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
 sqlparser_status_t sqlparser_update_delete_assignment(
 	sqlparser_handle_t *handle,
 	size_t statement_index,

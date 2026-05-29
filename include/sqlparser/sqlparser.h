@@ -9,6 +9,11 @@ extern "C" {
 
 typedef struct sqlparser_handle sqlparser_handle_t;
 
+typedef struct {
+	const char * const *parts;
+	size_t part_count;
+} sqlparser_identifier_path_view_t;
+
 typedef enum {
 	SQLPARSER_STATUS_OK = 0,
 	SQLPARSER_STATUS_INVALID_ARGUMENT = 1,
@@ -946,6 +951,13 @@ sqlparser_status_t sqlparser_selector_insert_update_assignment_sql(
 	const char *assignment_sql,
 	sqlparser_error_t *out_error);
 
+sqlparser_status_t sqlparser_selector_insert_update_assignment_from_assignment_value(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *insert_selector,
+	const sqlparser_identifier_path_view_t *target,
+	const sqlparser_selector_t *source_assignment_selector,
+	sqlparser_error_t *out_error);
+
 sqlparser_status_t sqlparser_selector_delete_update_assignment(
 	sqlparser_handle_t *handle,
 	const sqlparser_selector_t *selector,
@@ -997,6 +1009,13 @@ sqlparser_status_t sqlparser_selector_set_select_targets_sql(
 	sqlparser_handle_t *handle,
 	const sqlparser_selector_t *selector,
 	const char *sql_text,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_selector_replace_select_target_with_columns(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *target_selector,
+	const sqlparser_identifier_path_view_t *columns,
+	size_t column_count,
 	sqlparser_error_t *out_error);
 
 sqlparser_status_t sqlparser_statement_query_graph(

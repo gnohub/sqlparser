@@ -44,6 +44,8 @@
   展示 SELECT 输出列表的便捷接口改写。
 - `examples/convenience/14_where_convenience.c`
   展示 WHERE 条件的便捷接口改写。
+- `examples/convenience/18_structured_fragment_rewrite.c`
+  展示结构化 identifier path 改写：克隆 UPDATE assignment 右值插入备份列，以及将 `SELECT *` 替换为调用方给定的列列表。
 
 ## 读取与方言示例
 
@@ -74,6 +76,12 @@ make examples
 
 ```bash
 ./bin/examples/patch/17_update_set_patch
+```
+
+运行结构化 SQL 片段改写示例：
+
+```bash
+./bin/examples/convenience/18_structured_fragment_rewrite
 ```
 
 ## 说明

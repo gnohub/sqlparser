@@ -96,6 +96,7 @@ SQLPARSER_0 {
 		sqlparser_selector_update_assignment_sql;
 		sqlparser_selector_set_update_assignment_sql;
 		sqlparser_selector_insert_update_assignment_sql;
+		sqlparser_selector_insert_update_assignment_from_assignment_value;
 		sqlparser_selector_delete_update_assignment;
 		sqlparser_selector_set_update_assignment_full_sql;
 		sqlparser_selector_insert_cell_literal;
@@ -105,6 +106,7 @@ SQLPARSER_0 {
 		sqlparser_selector_select_target_sql;
 		sqlparser_selector_set_select_target_sql;
 		sqlparser_selector_set_select_targets_sql;
+		sqlparser_selector_replace_select_target_with_columns;
 		sqlparser_statement_query_graph;
 		sqlparser_query_graph_span_index_at;
 		sqlparser_query_graph_block_at;

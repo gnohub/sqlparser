@@ -87,6 +87,7 @@ make test
 - JSON 导出
 - selector 与结构体 patch 回放
 - `SELECT` 输出列表替换、插入、删除和改写后二次解析校验
+- 结构化 SQL 片段改写，包括克隆 UPDATE assignment 右值插入新赋值项，以及用结构化列列表替换 SELECT 输出项
 - `WHERE` 条件新增、替换、AND/OR 追加和改写后二次解析校验，覆盖 `SELECT`、`UPDATE`、`DELETE`、`INSERT ... SELECT`、`ON CONFLICT`、`VIEW`、`INDEX`、`COPY FROM`、`CREATE RULE`、`CREATE PUBLICATION` 和排他约束
 - MySQL 方言转换层的解析、反解析和明确不支持语法返回码
 - Oracle 方言转换层的解析、反解析和明确不支持语法返回码

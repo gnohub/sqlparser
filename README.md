@@ -18,6 +18,7 @@
 - 表、名称原子、字面量的遍历与改写
 - `INSERT`、`UPDATE`、`WHERE` 结构读取与精确改写，支持新增 WHERE 与追加条件
 - `SELECT` 输出列表读取、替换、插入与删除
+- 结构化 SQL 片段改写，支持用 identifier path 插入 UPDATE 赋值项和展开 SELECT 输出列
 - `selector` 解析、格式化与定位
 - 方言选项，默认 PostgreSQL，并提供 MySQL、Oracle、SQL Server、达梦方言转换层
 - 常见预编译 / 参数化 SQL 语句解析、View JSON 和反解析

@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "sqlparser_internal.h"
+#include "sqlparser_ast_internal.h"
 
 static void sqlparser_selector_clear(sqlparser_selector_t *selector)
 {
@@ -13,6 +13,52 @@ static void sqlparser_selector_clear(sqlparser_selector_t *selector)
 
 	memset(selector, 0, sizeof(*selector));
 	selector->kind = SQLPARSER_SELECTOR_KIND_UNKNOWN;
+}
+
+static sqlparser_status_t sqlparser_selector_validate_identifier_path(
+	const sqlparser_identifier_path_view_t *path,
+	sqlparser_error_t *out_error)
+{
+	size_t index;
+
+	if (path == NULL || path->parts == NULL || path->part_count == 0U) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"identifier path must not be NULL or empty");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	for (index = 0U; index < path->part_count; index++) {
+		if (path->parts[index] == NULL || path->parts[index][0] == '\0') {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INVALID_ARGUMENT,
+				"identifier path part must not be NULL or empty");
+			return SQLPARSER_STATUS_INVALID_ARGUMENT;
+		}
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_selector_validate_identifier_path_array(
+	const sqlparser_identifier_path_view_t *paths,
+	size_t count,
+	sqlparser_error_t *out_error)
+{
+	size_t index;
+	sqlparser_status_t status;
+
+	if (paths == NULL || count == 0U) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "columns must not be NULL or empty");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	for (index = 0U; index < count; index++) {
+		status = sqlparser_selector_validate_identifier_path(&paths[index], out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+	return SQLPARSER_STATUS_OK;
 }
 
 static sqlparser_status_t sqlparser_selector_parse_index(
@@ -819,6 +865,62 @@ sqlparser_status_t sqlparser_selector_insert_update_assignment_sql(
 		out_error);
 }
 
+sqlparser_status_t sqlparser_selector_insert_update_assignment_from_assignment_value(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *insert_selector,
+	const sqlparser_identifier_path_view_t *target,
+	const sqlparser_selector_t *source_assignment_selector,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_handle_t *candidate;
+	sqlparser_status_t status;
+
+	if (handle == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "handle must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (insert_selector == NULL || insert_selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT ||
+	    source_assignment_selector == NULL || source_assignment_selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"selectors must be assignment selectors");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (insert_selector->statement_index != source_assignment_selector->statement_index) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"assignment value clone across statements is not supported");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	status = sqlparser_selector_validate_identifier_path(target, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+
+	candidate = NULL;
+	status = sqlparser_handle_clone(handle, &candidate, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_update_insert_assignment_from_assignment_value(
+		candidate,
+		insert_selector->statement_index,
+		insert_selector->item_index,
+		target,
+		source_assignment_selector->item_index,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_destroy(candidate);
+		return status;
+	}
+
+	sqlparser_handle_replace_contents(handle, candidate);
+	sqlparser_handle_destroy(candidate);
+	return SQLPARSER_STATUS_OK;
+}
+
 sqlparser_status_t sqlparser_selector_delete_update_assignment(
 	sqlparser_handle_t *handle,
 	const sqlparser_selector_t *selector,
@@ -1019,4 +1121,53 @@ sqlparser_status_t sqlparser_selector_set_select_targets_sql(
 		selector->item_index,
 		sql_text,
 		out_error);
+}
+
+sqlparser_status_t sqlparser_selector_replace_select_target_with_columns(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *target_selector,
+	const sqlparser_identifier_path_view_t *columns,
+	size_t column_count,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_handle_t *candidate;
+	sqlparser_status_t status;
+
+	if (handle == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "handle must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (target_selector == NULL || target_selector->kind != SQLPARSER_SELECTOR_KIND_SELECT_TARGET) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"selector kind must be select_target");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	status = sqlparser_selector_validate_identifier_path_array(columns, column_count, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+
+	candidate = NULL;
+	status = sqlparser_handle_clone(handle, &candidate, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_select_replace_target_with_columns(
+		candidate,
+		target_selector->statement_index,
+		target_selector->item_index,
+		target_selector->column_index,
+		columns,
+		column_count,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_destroy(candidate);
+		return status;
+	}
+
+	sqlparser_handle_replace_contents(handle, candidate);
+	sqlparser_handle_destroy(candidate);
+	return SQLPARSER_STATUS_OK;
 }

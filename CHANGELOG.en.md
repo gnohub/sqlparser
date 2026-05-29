@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.2.0
+
+### Structured SQL Fragment Rewrite
+
+- Added `sqlparser_identifier_path_view_t` for passing dialect-neutral
+  identifier paths to public rewrite APIs.
+- Added structured `UPDATE SET` assignment builders so callers can generate,
+  append, or replace assignments from a column path and value SQL.
+- Added structured `SELECT` target replacement APIs so callers can replace one
+  output item with a list of column paths.
+- Added `examples/convenience/18_structured_fragment_rewrite.c` to demonstrate
+  structured rewrites without assembling full SQL text by hand.
+
+### Tests and Release Validation
+
+- Expanded core API and robustness tests for structured identifier paths,
+  invalid arguments, assignment append, target replacement, and deparse checks.
+- Updated Linux and Windows/MSVC build manifests so the new source file and
+  example are built.
+- Release validation covers Linux unit tests, leak checks, ASan, UBSan, ABI
+  export checks, and Windows/MSVC tests.
+
 ## 2.0.2
 
 ### View JSON

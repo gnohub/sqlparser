@@ -630,7 +630,12 @@ static int test_statement_api_validation(void)
 	sqlparser_literal_value_t value;
 	sqlparser_assignment_view_t assignment;
 	sqlparser_insert_source_kind_t insert_source_kind;
+	sqlparser_selector_t selector;
+	sqlparser_selector_t source_selector;
+	sqlparser_identifier_path_view_t identifier_path;
 	const char *name;
+	const char *valid_parts[1];
+	const char *empty_parts[1];
 	char *sql_text;
 	size_t count;
 
@@ -640,9 +645,14 @@ static int test_statement_api_validation(void)
 	name = NULL;
 	sql_text = NULL;
 	memset(&error, 0, sizeof(error));
+	memset(&selector, 0, sizeof(selector));
+	memset(&source_selector, 0, sizeof(source_selector));
+	memset(&identifier_path, 0, sizeof(identifier_path));
 	memset(&value, 0, sizeof(value));
 	value.kind = SQLPARSER_LITERAL_KIND_INTEGER;
 	value.integer_value = 7;
+	valid_parts[0] = "id";
+	empty_parts[0] = "";
 
 	status = sqlparser_parse("SELECT id, name FROM users WHERE id = 1", &select_handle, &error);
 	if (expect_ok(status, &error, "select should parse") != 0) {
@@ -767,6 +777,35 @@ static int test_statement_api_validation(void)
 	    verify_patch_failure_preserves_handle(select_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
+	selector.kind = SQLPARSER_SELECTOR_KIND_SELECT_TARGET;
+	selector.statement_index = 0U;
+	selector.item_index = 0U;
+	selector.column_index = 0U;
+	identifier_path.parts = valid_parts;
+	identifier_path.part_count = 1U;
+	status = sqlparser_selector_replace_select_target_with_columns(NULL, &selector, &identifier_path, 1U, &error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL handle structured select replacement should be rejected") != 0) {
+		goto fail;
+	}
+	selector.kind = SQLPARSER_SELECTOR_KIND_SELECT_TARGETS;
+	status = sqlparser_selector_replace_select_target_with_columns(select_handle, &selector, &identifier_path, 1U, &error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "wrong selector structured select replacement should be rejected") != 0 ||
+	    verify_patch_failure_preserves_handle(select_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+		goto fail;
+	}
+	selector.kind = SQLPARSER_SELECTOR_KIND_SELECT_TARGET;
+	status = sqlparser_selector_replace_select_target_with_columns(select_handle, &selector, NULL, 1U, &error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL columns structured select replacement should be rejected") != 0 ||
+	    verify_patch_failure_preserves_handle(select_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+		goto fail;
+	}
+	identifier_path.parts = empty_parts;
+	identifier_path.part_count = 1U;
+	status = sqlparser_selector_replace_select_target_with_columns(select_handle, &selector, &identifier_path, 1U, &error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "empty identifier structured select replacement should be rejected") != 0 ||
+	    verify_patch_failure_preserves_handle(select_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+		goto fail;
+	}
 	status = sqlparser_select_delete_target(select_handle, 0U, 0U, 99U, &error);
 	if (expect_not_ok(status, "out-of-range select target delete should be rejected") != 0 ||
 	    verify_patch_failure_preserves_handle(select_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
@@ -811,6 +850,57 @@ static int test_statement_api_validation(void)
 	}
 	status = sqlparser_update_insert_assignment_sql(update_handle, 0U, 1U, NULL, &error);
 	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL update assignment insert SQL should be rejected") != 0 ||
+	    verify_patch_failure_preserves_handle(update_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+		goto fail;
+	}
+	selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
+	selector.statement_index = 0U;
+	selector.item_index = 0U;
+	source_selector = selector;
+	identifier_path.parts = valid_parts;
+	identifier_path.part_count = 1U;
+	status = sqlparser_selector_insert_update_assignment_from_assignment_value(
+		NULL,
+		&selector,
+		&identifier_path,
+		&source_selector,
+		&error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "NULL handle structured update insert should be rejected") != 0) {
+		goto fail;
+	}
+	selector.kind = SQLPARSER_SELECTOR_KIND_SELECT_TARGET;
+	status = sqlparser_selector_insert_update_assignment_from_assignment_value(
+		update_handle,
+		&selector,
+		&identifier_path,
+		&source_selector,
+		&error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "wrong insert selector structured update insert should be rejected") != 0 ||
+	    verify_patch_failure_preserves_handle(update_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+		goto fail;
+	}
+	selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
+	source_selector.statement_index = 1U;
+	status = sqlparser_selector_insert_update_assignment_from_assignment_value(
+		update_handle,
+		&selector,
+		&identifier_path,
+		&source_selector,
+		&error);
+	if (expect_status(status, SQLPARSER_STATUS_UNSUPPORTED, &error, "cross-statement structured update insert should be rejected") != 0 ||
+	    verify_patch_failure_preserves_handle(update_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+		goto fail;
+	}
+	source_selector.statement_index = 0U;
+	identifier_path.parts = empty_parts;
+	identifier_path.part_count = 1U;
+	status = sqlparser_selector_insert_update_assignment_from_assignment_value(
+		update_handle,
+		&selector,
+		&identifier_path,
+		&source_selector,
+		&error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "empty identifier structured update insert should be rejected") != 0 ||
 	    verify_patch_failure_preserves_handle(update_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}

@@ -47,6 +47,8 @@ unified patch-based rewrite, fine-grained convenience APIs, and dialect usage.
   Demonstrates fine-grained SELECT output-list rewrite APIs.
 - `examples/convenience/14_where_convenience.c`
   Demonstrates fine-grained WHERE condition rewrite APIs.
+- `examples/convenience/18_structured_fragment_rewrite.c`
+  Demonstrates structured identifier-path rewrites: cloning an UPDATE assignment value into a backup column and replacing `SELECT *` with a caller-provided column list.
 
 ## Inspection and Dialect Examples
 
@@ -77,6 +79,12 @@ Example:
 
 ```bash
 ./bin/examples/patch/17_update_set_patch
+```
+
+Run the structured SQL fragment rewrite example:
+
+```bash
+./bin/examples/convenience/18_structured_fragment_rewrite
 ```
 
 ## Notes

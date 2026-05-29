@@ -18,6 +18,7 @@ This release provides:
 - statement-wide relation, name, and literal traversal and rewrite
 - `INSERT`, `UPDATE`, and `WHERE` structural views, including WHERE insertion and condition append
 - `SELECT` output-list read, replace, insert, and delete operations
+- structured SQL fragment rewrites for UPDATE assignment insertion and SELECT output-column expansion from identifier paths
 - stable selector parse / format / lookup
 - dialect options with PostgreSQL as the default and MySQL / Oracle / SQL Server / Dameng conversion layers
 - common prepared / parameterized SQL statement parsing, View JSON, and deparse output

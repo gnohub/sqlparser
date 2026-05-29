@@ -207,6 +207,19 @@ sqlparser_status_t sqlparser_clone_proto_node(
 	const PgQuery__Node *source,
 	PgQuery__Node **out_node,
 	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_build_identifier_path_node(
+	const sqlparser_identifier_path_view_t *path,
+	PgQuery__Node **out_node,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_build_select_target_identifier_node(
+	const sqlparser_identifier_path_view_t *path,
+	PgQuery__Node **out_node,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_build_update_assignment_identifier_node(
+	const sqlparser_identifier_path_view_t *target,
+	PgQuery__Node *value_node,
+	PgQuery__Node **out_node,
+	sqlparser_error_t *out_error);
 
 sqlparser_status_t sqlparser_build_wrapped_sql(
 	const char *prefix,
@@ -256,9 +269,24 @@ sqlparser_status_t sqlparser_update_set_assignments_sql(
 	size_t target_list_index,
 	const char *sql_text,
 	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_update_insert_assignment_from_assignment_value(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t insert_assignment_index,
+	const sqlparser_identifier_path_view_t *target,
+	size_t source_assignment_index,
+	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_parse_select_target_node_sql(
 	const char *sql_text,
 	PgQuery__Node **out_node,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_select_replace_target_with_columns(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t target_list_index,
+	size_t target_index,
+	const sqlparser_identifier_path_view_t *columns,
+	size_t column_count,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_parse_where_node_sql(
 	const char *sql_text,

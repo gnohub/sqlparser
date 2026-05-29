@@ -124,6 +124,19 @@ original SQL, the current syntax tree, dialect state, and lazily derived caches.
 | `sqlparser_clause_kind_t` | clause kind used by query graph and clause patches |
 | `sqlparser_dialect_t` | SQL dialect |
 
+`sqlparser_identifier_path_view_t` passes an identifier path into structured
+rewrite APIs.
+
+| Field | Meaning |
+| --- | --- |
+| `parts` | identifier parts owned by the caller and read only during the call |
+| `part_count` | number of identifier parts; must be greater than `0` |
+
+`part_count = 1` means a single column name, such as `phone_backup`;
+`part_count = 2` means a qualified column name, such as `u.phone`; longer paths
+are deparsed according to the current handle dialect. Each part must be
+non-empty, and callers do not pass quote characters.
+
 `sqlparser_bind_kind_t`:
 
 | Enum | Value | Meaning |
@@ -395,12 +408,73 @@ stmt[0].select_target[0][1]
 | `sqlparser_selector_set_update_assignment_literal()` | rewrites assignment right-hand literal |
 | `sqlparser_selector_set_update_assignment_sql()` | rewrites assignment right-hand SQL |
 | `sqlparser_selector_insert_update_assignment_sql()` | inserts a full `SET` assignment |
+| `sqlparser_selector_insert_update_assignment_from_assignment_value()` | inserts a `SET` assignment from a structured target and a cloned assignment value |
 | `sqlparser_selector_delete_update_assignment()` | deletes a `SET` assignment |
 | `sqlparser_selector_set_update_assignment_full_sql()` | replaces a full `SET` assignment |
 | `sqlparser_selector_set_insert_cell_literal()` | rewrites INSERT cell literal |
 | `sqlparser_selector_set_insert_cell_sql()` | rewrites INSERT cell right-hand SQL |
 | `sqlparser_selector_set_select_target_sql()` | rewrites one SELECT output target |
 | `sqlparser_selector_set_select_targets_sql()` | rewrites a full SELECT output list |
+| `sqlparser_selector_replace_select_target_with_columns()` | replaces one SELECT output target with structured column targets |
+
+### Structured SQL Fragment Rewrite
+
+Structured rewrite APIs take selectors and `sqlparser_identifier_path_view_t`
+values and build or clone AST nodes directly. Callers provide identifier parts
+and source selectors; they do not build SQL fragments or pass quote characters.
+The dialect is taken from `sqlparser_handle_t`.
+
+`sqlparser_selector_insert_update_assignment_from_assignment_value()` inserts a
+new `UPDATE SET` assignment. It clones the right-hand value of the assignment
+pointed to by `source_assignment_selector` and uses `target` as the new
+assignment left side:
+
+```c
+const char *backup_parts[] = {"phone_backup"};
+sqlparser_identifier_path_view_t target;
+sqlparser_selector_t insert_selector;
+sqlparser_selector_t source_selector;
+
+target.parts = backup_parts;
+target.part_count = 1;
+
+sqlparser_selector_parse("stmt[0].assignment[0]", &insert_selector, &err);
+sqlparser_selector_parse("stmt[0].assignment[0]", &source_selector, &err);
+sqlparser_selector_insert_update_assignment_from_assignment_value(
+    handle,
+    &insert_selector,
+    &target,
+    &source_selector,
+    &err);
+```
+
+`sqlparser_selector_replace_select_target_with_columns()` replaces one SELECT
+output target with multiple structured column targets. It is intended for
+replacing `*` or `alias.*` with a caller-provided column list:
+
+```c
+const char *id_parts[] = {"u", "id"};
+const char *name_parts[] = {"u", "name"};
+sqlparser_identifier_path_view_t columns[2];
+sqlparser_selector_t target_selector;
+
+columns[0].parts = id_parts;
+columns[0].part_count = 2;
+columns[1].parts = name_parts;
+columns[1].part_count = 2;
+
+sqlparser_selector_parse("stmt[0].select_target[0][0]", &target_selector, &err);
+sqlparser_selector_replace_select_target_with_columns(
+    handle,
+    &target_selector,
+    columns,
+    2,
+    &err);
+```
+
+The input arrays are borrowed views. The library does not store caller pointers
+inside the handle. On failure, these APIs return an error status and preserve
+the original handle.
 
 ## query_graph C Traversal
 
@@ -562,6 +636,7 @@ graph view becomes invalid.
 | `examples/patch/15_insert_columns_patch.c` | `INSERT ... VALUES` column insertion and deletion through patches |
 | `examples/patch/16_clause_patch.c` | SELECT output-list, WHERE, and ORDER BY rewrite through generic clause patches |
 | `examples/patch/17_update_set_patch.c` | `UPDATE SET` assignment append, delete, and full-assignment replacement through patches |
+| `examples/convenience/18_structured_fragment_rewrite.c` | structured UPDATE assignment insertion and SELECT `*` expansion |
 | `examples/inspect/01_select_inspect.c` | `SELECT` inspection and multi-relation extraction |
 | `examples/inspect/03_insert_select_inspect.c` | structural inspection for `INSERT ... SELECT` |
 | `examples/inspect/07_multi_statement_walk.c` | traversal of multi-statement input |

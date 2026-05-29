@@ -777,6 +777,100 @@ sqlparser_status_t sqlparser_select_set_target_sql(
 	return SQLPARSER_STATUS_OK;
 }
 
+sqlparser_status_t sqlparser_select_replace_target_with_columns(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t target_list_index,
+	size_t target_index,
+	const sqlparser_identifier_path_view_t *columns,
+	size_t column_count,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__SelectStmt *stmt;
+	PgQuery__Node **column_nodes;
+	PgQuery__Node **next_targets;
+	PgQuery__Node *removed_node;
+	size_t old_count;
+	size_t next_count;
+	size_t index;
+	size_t next_index;
+	sqlparser_status_t status;
+
+	sqlparser_error_clear(out_error);
+	stmt = NULL;
+	column_nodes = NULL;
+	next_targets = NULL;
+	removed_node = NULL;
+
+	if (handle == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "handle must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (columns == NULL || column_count == 0U) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "columns must not be NULL or empty");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	status = sqlparser_get_select_stmt_by_target_list_index(handle, statement_index, target_list_index, &stmt, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	old_count = stmt->n_target_list;
+	if (target_index >= old_count || stmt->target_list == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "select target index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (column_count > ((size_t)-1) - old_count + 1U) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "select target count is too large");
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+
+	column_nodes = sqlparser_select_alloc_node_array(column_count, out_error);
+	if (column_nodes == NULL) {
+		return out_error != NULL && out_error->code != SQLPARSER_STATUS_OK ?
+			out_error->code :
+			SQLPARSER_STATUS_NO_MEMORY;
+	}
+	for (index = 0U; index < column_count; index++) {
+		status = sqlparser_build_select_target_identifier_node(&columns[index], &column_nodes[index], out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_select_free_node_array(column_nodes, column_count);
+			return status;
+		}
+	}
+
+	next_count = old_count - 1U + column_count;
+	next_targets = sqlparser_select_alloc_node_array(next_count, out_error);
+	if (next_targets == NULL) {
+		sqlparser_select_free_node_array(column_nodes, column_count);
+		return out_error != NULL && out_error->code != SQLPARSER_STATUS_OK ?
+			out_error->code :
+			SQLPARSER_STATUS_NO_MEMORY;
+	}
+
+	next_index = 0U;
+	for (index = 0U; index < target_index; index++) {
+		next_targets[next_index++] = stmt->target_list[index];
+	}
+	for (index = 0U; index < column_count; index++) {
+		next_targets[next_index++] = column_nodes[index];
+		column_nodes[index] = NULL;
+	}
+	removed_node = stmt->target_list[target_index];
+	for (index = target_index + 1U; index < old_count; index++) {
+		next_targets[next_index++] = stmt->target_list[index];
+	}
+	free(column_nodes);
+	column_nodes = NULL;
+	free(stmt->target_list);
+	stmt->target_list = next_targets;
+	stmt->n_target_list = next_count;
+	next_targets = NULL;
+	sqlparser_free_proto_node(removed_node);
+
+	return sqlparser_handle_commit_ast(handle, out_error);
+}
+
 sqlparser_status_t sqlparser_select_insert_target_sql(
 	sqlparser_handle_t *handle,
 	size_t statement_index,

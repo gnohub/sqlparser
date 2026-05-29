@@ -1,5 +1,20 @@
 # 变更记录
 
+## 2.2.0
+
+### 结构化 SQL 片段改写
+
+- 增加 `sqlparser_identifier_path_view_t`，用于向公共改写接口传入方言无关的标识符路径。
+- 增加结构化 `UPDATE SET` 赋值构造接口，支持通过列路径和右值 SQL 生成、追加或替换赋值项。
+- 增加结构化 `SELECT` 输出项替换接口，支持把单个输出项替换为一组列路径。
+- 新增 `examples/convenience/18_structured_fragment_rewrite.c`，展示不拼接完整 SQL 文本的结构化改写流程。
+
+### 测试与发布验证
+
+- 扩充核心 API 和健壮性测试，覆盖结构化标识符路径、非法参数、追加赋值、替换输出项和反解析校验。
+- 更新 Linux 与 Windows/MSVC 构建清单，确保新增源文件和示例参与构建。
+- 发布验证覆盖 Linux 单元测试、内存泄漏检查、ASan、UBSan、ABI 导出检查以及 Windows/MSVC 测试。
+
 ## 2.0.2
 
 ### View JSON

@@ -64,6 +64,7 @@ CORE_OBJS = \
 	$(OBJ_DIR)\sqlparser_ast.obj \
 	$(OBJ_DIR)\sqlparser_ast_clause.obj \
 	$(OBJ_DIR)\sqlparser_ast_expr.obj \
+	$(OBJ_DIR)\sqlparser_ast_identifier.obj \
 	$(OBJ_DIR)\sqlparser_ast_insert.obj \
 	$(OBJ_DIR)\sqlparser_ast_literal.obj \
 	$(OBJ_DIR)\sqlparser_ast_select.obj \
@@ -112,7 +113,8 @@ EXAMPLE_BINS = \
 	$(BIN_DIR)\examples\patch\14_where_patch.exe \
 	$(BIN_DIR)\examples\patch\15_insert_columns_patch.exe \
 	$(BIN_DIR)\examples\patch\16_clause_patch.exe \
-	$(BIN_DIR)\examples\patch\17_update_set_patch.exe
+	$(BIN_DIR)\examples\patch\17_update_set_patch.exe \
+	$(BIN_DIR)\examples\convenience\18_structured_fragment_rewrite.exe
 
 all: static cli
 
@@ -165,6 +167,7 @@ test: all $(UNIT_TEST_BINS) examples
 	$(BIN_DIR)\examples\patch\15_insert_columns_patch.exe
 	$(BIN_DIR)\examples\patch\16_clause_patch.exe
 	$(BIN_DIR)\examples\patch\17_update_set_patch.exe
+	$(BIN_DIR)\examples\convenience\18_structured_fragment_rewrite.exe
 	$(BIN_DIR)\sqlparser_cli.exe --mode view "INSERT INTO users (username, email, age) VALUES (?, ?, ?);" --dialect oracle >NUL
 
 clean:
@@ -224,6 +227,9 @@ $(OBJ_DIR)\sqlparser_ast_clause.obj: src\core\sqlparser_ast_clause.c
 
 $(OBJ_DIR)\sqlparser_ast_expr.obj: src\core\sqlparser_ast_expr.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_expr.c
+
+$(OBJ_DIR)\sqlparser_ast_identifier.obj: src\core\sqlparser_ast_identifier.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_identifier.c
 
 $(OBJ_DIR)\sqlparser_ast_insert.obj: src\core\sqlparser_ast_insert.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_insert.c
@@ -382,3 +388,7 @@ $(BIN_DIR)\examples\patch\16_clause_patch.exe: examples\patch\16_clause_patch.c 
 $(BIN_DIR)\examples\patch\17_update_set_patch.exe: examples\patch\17_update_set_patch.c $(STATIC_LIB)
 	@if not exist $(BIN_DIR)\examples\patch mkdir $(BIN_DIR)\examples\patch
 	$(CC) $(CFLAGS) /Fe$@ examples\patch\17_update_set_patch.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\examples\convenience\18_structured_fragment_rewrite.exe: examples\convenience\18_structured_fragment_rewrite.c $(STATIC_LIB)
+	@if not exist $(BIN_DIR)\examples\convenience mkdir $(BIN_DIR)\examples\convenience
+	$(CC) $(CFLAGS) /Fe$@ examples\convenience\18_structured_fragment_rewrite.c /link $(LDFLAGS) $(LDLIBS)

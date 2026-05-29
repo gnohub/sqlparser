@@ -718,6 +718,200 @@ static int test_update_assignment_list_apply_patch(void)
 	return 0;
 }
 
+static int test_structured_update_assignment_from_assignment_value(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *name;
+		const char *sql;
+		const char *insert_selector_text;
+		const char *source_selector_text;
+		const char *target_part0;
+		const char *target_part1;
+		const char *expect_column;
+		const char *expect_value_sql;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"postgresql-literal",
+			"UPDATE public.users SET phone = '13800000000' WHERE id = 1",
+			"stmt[0].assignment[0]",
+			"stmt[0].assignment[0]",
+			"phone_backup",
+			NULL,
+			"phone_backup",
+			"'13800000000'"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"postgresql-subquery",
+			"UPDATE public.users SET phone = (SELECT phone FROM backup WHERE id = 1) WHERE id = 2",
+			"stmt[0].assignment[1]",
+			"stmt[0].assignment[0]",
+			"phone_backup",
+			NULL,
+			"phone_backup",
+			"SELECT phone"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"mysql-question",
+			"UPDATE users SET name = ?, phone = ?, email = ? WHERE id = ?",
+			"stmt[0].assignment[1]",
+			"stmt[0].assignment[1]",
+			"phone_backup",
+			NULL,
+			"phone_backup",
+			"?"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"mysql-update-join-question",
+			"UPDATE users u JOIN profiles p ON u.id = p.user_id SET u.phone = ? WHERE p.id = ?",
+			"stmt[0].assignment[0]",
+			"stmt[0].assignment[0]",
+			"phone_backup",
+			NULL,
+			"phone_backup",
+			"?"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"oracle-named-bind",
+			"UPDATE users SET phone = :phone WHERE id = :id",
+			"stmt[0].assignment[0]",
+			"stmt[0].assignment[0]",
+			"phone_backup",
+			NULL,
+			"phone_backup",
+			":phone"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"sqlserver-named-bind",
+			"UPDATE dbo.users SET phone = @phone WHERE id = @id",
+			"stmt[0].assignment[0]",
+			"stmt[0].assignment[0]",
+			"phone_backup",
+			NULL,
+			"phone_backup",
+			"@phone"
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"dameng-question",
+			"UPDATE users SET phone = ? WHERE id = ?",
+			"stmt[0].assignment[0]",
+			"stmt[0].assignment[0]",
+			"phone_backup",
+			NULL,
+			"phone_backup",
+			"?"
+		}
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_selector_t insert_selector;
+	sqlparser_selector_t source_selector;
+	sqlparser_identifier_path_view_t target;
+	sqlparser_assignment_view_t assignment;
+	char *assignment_sql;
+	char *deparsed_sql;
+	size_t assignment_count;
+	size_t index;
+	int rc;
+
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		const char *target_parts[2];
+		size_t target_part_count;
+
+		handle = NULL;
+		assignment_sql = NULL;
+		deparsed_sql = NULL;
+		memset(&error, 0, sizeof(error));
+		memset(&insert_selector, 0, sizeof(insert_selector));
+		memset(&source_selector, 0, sizeof(source_selector));
+		memset(&target, 0, sizeof(target));
+		memset(&assignment, 0, sizeof(assignment));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[index].dialect;
+		rc = sqlparser_parse_with_options(cases[index].sql, &options, &handle, &error);
+		if (expect_status_ok(rc, &error, "structured update parse should succeed") != 0) {
+			return 1;
+		}
+
+		rc = sqlparser_selector_parse(cases[index].insert_selector_text, &insert_selector, &error);
+		if (expect_status_ok(rc, &error, "structured update insert selector should parse") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_selector_parse(cases[index].source_selector_text, &source_selector, &error);
+		if (expect_status_ok(rc, &error, "structured update source selector should parse") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		target_parts[0] = cases[index].target_part0;
+		target_parts[1] = cases[index].target_part1;
+		target_part_count = cases[index].target_part1 != NULL ? 2U : 1U;
+		target.parts = target_parts;
+		target.part_count = target_part_count;
+		rc = sqlparser_selector_insert_update_assignment_from_assignment_value(
+			handle,
+			&insert_selector,
+			&target,
+			&source_selector,
+			&error);
+		if (expect_status_ok(rc, &error, "structured update assignment insert should succeed") != 0 ||
+		    expect_deparse_reparse_ok(handle, "structured update assignment insert should reparse") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		rc = sqlparser_update_assignment_count(handle, 0U, &assignment_count, &error);
+		if (expect_status_ok(rc, &error, "structured update assignment count should succeed") != 0 ||
+		    expect_true(assignment_count >= 2U, "structured update should insert an assignment") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_update_assignment(handle, 0U, insert_selector.item_index, &assignment, &error);
+		if (expect_status_ok(rc, &error, "structured inserted assignment should be readable") != 0 ||
+		    expect_true(assignment.column_name != NULL &&
+		                strcmp(assignment.column_name, cases[index].expect_column) == 0,
+		                "structured inserted assignment column mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_update_assignment_sql(handle, 0U, insert_selector.item_index, &assignment_sql, &error);
+		if (expect_status_ok(rc, &error, "structured inserted assignment SQL should be readable") != 0 ||
+		    expect_true(assignment_sql != NULL &&
+		                strstr(assignment_sql, cases[index].expect_value_sql) != NULL,
+		                "structured inserted assignment value should match source RHS") != 0) {
+			sqlparser_string_free(assignment_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(assignment_sql);
+		assignment_sql = NULL;
+
+		rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+		if (expect_status_ok(rc, &error, "structured update deparse should succeed") != 0 ||
+		    expect_true(strstr(deparsed_sql, cases[index].expect_column) != NULL,
+		                "structured update deparse should contain target column") != 0 ||
+		    expect_true(strstr(deparsed_sql, "$") == NULL,
+		                "structured update deparse should not expose internal bind markers") != 0) {
+			sqlparser_string_free(deparsed_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+	}
+
+	return 0;
+}
+
 static int test_insert_cell_sql_mutation(void)
 {
 	const char *sql;
@@ -4753,6 +4947,197 @@ static int test_select_target_list_patch_api(void)
 	return 0;
 }
 
+static int test_structured_select_target_column_replacement(void)
+{
+	static const char *pg_id[] = {"id"};
+	static const char *pg_name[] = {"name"};
+	static const char *pg_phone[] = {"phone"};
+	static const char *qualified_id[] = {"u", "id"};
+	static const char *qualified_name[] = {"u", "name"};
+	static const char *qualified_phone[] = {"u", "phone"};
+	static const char *mysql_reserved[] = {"select"};
+	static const char *mysql_cn[] = {"中文列"};
+	static const char *mysql_space[] = {"has space"};
+	static const char *mysql_case[] = {"CaseSensitive"};
+	static const char *sqlserver_schema_id[] = {"dbo", "users", "id"};
+	static const char *sqlserver_schema_phone[] = {"dbo", "users", "phone"};
+	static const char *oracle_outer_id[] = {"d", "id"};
+	static const char *oracle_outer_phone[] = {"d", "phone"};
+	static const char *view_id[] = {"id"};
+	static const char *view_phone[] = {"phone"};
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *name;
+		const char *sql;
+		sqlparser_identifier_path_view_t columns[4];
+		size_t column_count;
+		size_t expected_target_count;
+		const char *must_contain;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"postgresql-star",
+			"SELECT * FROM public.users",
+			{{pg_id, 1U}, {pg_name, 1U}, {pg_phone, 1U}, {NULL, 0U}},
+			3U,
+			3U,
+			"phone"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"postgresql-qualified-star",
+			"SELECT u.* FROM public.users u",
+			{{qualified_id, 2U}, {qualified_name, 2U}, {qualified_phone, 2U}, {NULL, 0U}},
+			3U,
+			3U,
+			"u.phone"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"postgresql-join-qualified-star",
+			"SELECT u.*, o.order_no FROM public.users u JOIN public.orders o ON u.id = o.user_id",
+			{{qualified_id, 2U}, {qualified_name, 2U}, {qualified_phone, 2U}, {NULL, 0U}},
+			3U,
+			4U,
+			"o.order_no"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"postgresql-derived-nested-star",
+			"SELECT * FROM (SELECT * FROM (SELECT id, phone FROM users) x) y",
+			{{pg_id, 1U}, {pg_phone, 1U}, {NULL, 0U}, {NULL, 0U}},
+			2U,
+			2U,
+			"phone"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"postgresql-union-wrapper-star",
+			"SELECT * FROM (SELECT id, phone FROM users UNION ALL SELECT id, phone FROM archived_users) u",
+			{{pg_id, 1U}, {pg_phone, 1U}, {NULL, 0U}, {NULL, 0U}},
+			2U,
+			2U,
+			"UNION ALL"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"postgresql-view-star",
+			"SELECT * FROM user_view",
+			{{view_id, 1U}, {view_phone, 1U}, {NULL, 0U}, {NULL, 0U}},
+			2U,
+			2U,
+			"phone"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"mysql-identifier-boundaries",
+			"SELECT * FROM `users`",
+			{{mysql_reserved, 1U}, {mysql_cn, 1U}, {mysql_space, 1U}, {mysql_case, 1U}},
+			4U,
+			4U,
+			"CaseSensitive"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"oracle-rownum-wrapper-star",
+			"SELECT * FROM (SELECT ROWNUM rn, u.* FROM users u) d",
+			{{oracle_outer_id, 2U}, {oracle_outer_phone, 2U}, {NULL, 0U}, {NULL, 0U}},
+			2U,
+			2U,
+			"d.phone"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"sqlserver-schema-qualified",
+			"SELECT * FROM [dbo].[users] ORDER BY [id] OFFSET 0 ROWS",
+			{{sqlserver_schema_id, 3U}, {sqlserver_schema_phone, 3U}, {NULL, 0U}, {NULL, 0U}},
+			2U,
+			2U,
+			"phone"
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"dameng-star",
+			"SELECT * FROM users",
+			{{pg_id, 1U}, {pg_phone, 1U}, {NULL, 0U}, {NULL, 0U}},
+			2U,
+			2U,
+			"phone"
+		}
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_selector_t selector;
+	char *deparsed_sql;
+	char *target_sql;
+	size_t target_count;
+	size_t index;
+	int rc;
+
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		handle = NULL;
+		deparsed_sql = NULL;
+		target_sql = NULL;
+		memset(&error, 0, sizeof(error));
+		memset(&selector, 0, sizeof(selector));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[index].dialect;
+		rc = sqlparser_parse_with_options(cases[index].sql, &options, &handle, &error);
+		if (expect_status_ok(rc, &error, "structured select parse should succeed") != 0) {
+			return 1;
+		}
+		rc = sqlparser_selector_parse("stmt[0].select_target[0][0]", &selector, &error);
+		if (expect_status_ok(rc, &error, "structured select target selector should parse") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		rc = sqlparser_selector_replace_select_target_with_columns(
+			handle,
+			&selector,
+			cases[index].columns,
+			cases[index].column_count,
+			&error);
+		if (expect_status_ok(rc, &error, "structured select replacement should succeed") != 0 ||
+		    expect_deparse_reparse_ok(handle, "structured select replacement should reparse") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		rc = sqlparser_select_target_count(handle, 0U, 0U, &target_count, &error);
+		if (expect_status_ok(rc, &error, "structured select target count should succeed") != 0 ||
+		    expect_true(target_count == cases[index].expected_target_count,
+		                "structured select target count mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_select_target_sql(handle, 0U, 0U, 0U, &target_sql, &error);
+		if (expect_status_ok(rc, &error, "structured select first target SQL should succeed") != 0 ||
+		    expect_true(target_sql != NULL && strcmp(target_sql, "*") != 0,
+		                "structured select first target should not remain star") != 0) {
+			sqlparser_string_free(target_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(target_sql);
+		target_sql = NULL;
+
+		rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+		if (expect_status_ok(rc, &error, "structured select deparse should succeed") != 0 ||
+		    expect_true(strstr(deparsed_sql, cases[index].must_contain) != NULL,
+		                "structured select deparse should contain expected text") != 0) {
+			sqlparser_string_free(deparsed_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+	}
+
+	return 0;
+}
+
 static int test_query_graph_set_operation_attribution(void)
 {
 	const char *sql;
@@ -5354,6 +5739,9 @@ int main(void)
 	if (test_update_assignment_list_apply_patch() != 0) {
 		return 1;
 	}
+	if (test_structured_update_assignment_from_assignment_value() != 0) {
+		return 1;
+	}
 	if (test_insert_cell_sql_mutation() != 0) {
 		return 1;
 	}
@@ -5397,6 +5785,9 @@ int main(void)
 		return 1;
 	}
 	if (test_select_target_list_patch_api() != 0) {
+		return 1;
+	}
+	if (test_structured_select_target_column_replacement() != 0) {
 		return 1;
 	}
 	if (test_query_graph_set_operation_attribution() != 0) {

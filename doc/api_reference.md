@@ -116,6 +116,15 @@ int main(void)
 | `sqlparser_clause_kind_t` | query graph 与 clause patch 使用的子句类型 |
 | `sqlparser_dialect_t` | SQL 方言类型 |
 
+`sqlparser_identifier_path_view_t` 用于向结构化改写接口传入标识符路径。
+
+| 字段 | 说明 |
+| --- | --- |
+| `parts` | 标识符分段数组，由调用方持有，库只在调用期间读取 |
+| `part_count` | 标识符分段数量，必须大于 `0` |
+
+`part_count = 1` 表示单列名，例如 `phone_backup`；`part_count = 2` 表示限定列名，例如 `u.phone`；更长路径按当前 handle 的方言规则反解析。每个分段必须非空，调用方不需要传入引号字符。
+
 `sqlparser_bind_kind_t`：
 
 | 枚举 | 数值 | 说明 |
@@ -374,12 +383,63 @@ stmt[0].select_target[0][1]
 | `sqlparser_selector_set_update_assignment_literal()` | 改写 assignment 右值 literal |
 | `sqlparser_selector_set_update_assignment_sql()` | 改写 assignment 右值 SQL |
 | `sqlparser_selector_insert_update_assignment_sql()` | 插入完整 `SET` 赋值项 |
+| `sqlparser_selector_insert_update_assignment_from_assignment_value()` | 用结构化目标列和已有 assignment 右值克隆插入 `SET` 赋值项 |
 | `sqlparser_selector_delete_update_assignment()` | 删除 `SET` 赋值项 |
 | `sqlparser_selector_set_update_assignment_full_sql()` | 整项替换 `SET` 赋值项 |
 | `sqlparser_selector_set_insert_cell_literal()` | 改写 INSERT 单元格 literal |
 | `sqlparser_selector_set_insert_cell_sql()` | 改写 INSERT 单元格右值 SQL |
 | `sqlparser_selector_set_select_target_sql()` | 改写 SELECT 单个输出项 |
 | `sqlparser_selector_set_select_targets_sql()` | 改写 SELECT 整个输出列表 |
+| `sqlparser_selector_replace_select_target_with_columns()` | 用结构化列列表替换一个 SELECT 输出项 |
+
+### 结构化 SQL 片段改写
+
+结构化改写接口接收 selector 和 `sqlparser_identifier_path_view_t`，直接构造或克隆 AST 节点。调用方只提供标识符分段和源 selector，不需要拼接 SQL 片段，也不需要传入 quote 字符。方言由 `sqlparser_handle_t` 决定。
+
+`sqlparser_selector_insert_update_assignment_from_assignment_value()` 用于插入新的 `UPDATE SET` 赋值项。函数会克隆 `source_assignment_selector` 指向的 assignment 右值，并以 `target` 作为新 assignment 左侧：
+
+```c
+const char *backup_parts[] = {"phone_backup"};
+sqlparser_identifier_path_view_t target;
+sqlparser_selector_t insert_selector;
+sqlparser_selector_t source_selector;
+
+target.parts = backup_parts;
+target.part_count = 1;
+
+sqlparser_selector_parse("stmt[0].assignment[0]", &insert_selector, &err);
+sqlparser_selector_parse("stmt[0].assignment[0]", &source_selector, &err);
+sqlparser_selector_insert_update_assignment_from_assignment_value(
+    handle,
+    &insert_selector,
+    &target,
+    &source_selector,
+    &err);
+```
+
+`sqlparser_selector_replace_select_target_with_columns()` 用于把一个 SELECT 输出项替换为多个结构化列 target，常用于将 `*` 或 `alias.*` 展开为调用方已经计算好的列列表：
+
+```c
+const char *id_parts[] = {"u", "id"};
+const char *name_parts[] = {"u", "name"};
+sqlparser_identifier_path_view_t columns[2];
+sqlparser_selector_t target_selector;
+
+columns[0].parts = id_parts;
+columns[0].part_count = 2;
+columns[1].parts = name_parts;
+columns[1].part_count = 2;
+
+sqlparser_selector_parse("stmt[0].select_target[0][0]", &target_selector, &err);
+sqlparser_selector_replace_select_target_with_columns(
+    handle,
+    &target_selector,
+    columns,
+    2,
+    &err);
+```
+
+两个接口的输入数组均为 borrowed view，库不会在 handle 中保存调用方指针。失败时返回错误状态，并保持原 handle 不变。
 
 ## query_graph C 结构化遍历
 
@@ -522,6 +582,7 @@ patch 成功后 handle generation 递增，旧 query graph view 失效。
 | `examples/patch/15_insert_columns_patch.c` | 通过 patch 增加和删除 `INSERT ... VALUES` 字段 |
 | `examples/patch/16_clause_patch.c` | 通过通用 clause patch 改写 SELECT 输出列表、WHERE 和 ORDER BY |
 | `examples/patch/17_update_set_patch.c` | 通过 patch 追加、删除和整项替换 `UPDATE SET` 赋值项 |
+| `examples/convenience/18_structured_fragment_rewrite.c` | 结构化 UPDATE assignment 插入和 SELECT `*` 展开 |
 | `examples/inspect/01_select_inspect.c` | SELECT 读取与多表关联信息 |
 | `examples/inspect/03_insert_select_inspect.c` | `INSERT ... SELECT` 结构读取 |
 | `examples/inspect/07_multi_statement_walk.c` | 多语句输入遍历 |

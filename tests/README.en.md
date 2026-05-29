@@ -85,6 +85,7 @@ The test coverage includes:
 - JSON export
 - selector replay and structured patch replay
 - `SELECT` output-list replacement, insertion, deletion, and post-rewrite reparse validation
+- structured SQL fragment rewrites, including cloning an UPDATE assignment value into a new assignment and replacing a SELECT target with structured column targets
 - `WHERE` condition insertion, replacement, AND/OR append, and post-rewrite reparse validation for `SELECT`, `UPDATE`, `DELETE`, `INSERT ... SELECT`, `ON CONFLICT`, `VIEW`, `INDEX`, `COPY FROM`, `CREATE RULE`, `CREATE PUBLICATION`, and exclusion constraints
 - MySQL dialect conversion, deparse output, and explicit unsupported-syntax return codes
 - Oracle dialect conversion, deparse output, and explicit unsupported-syntax return codes
