@@ -34,7 +34,7 @@ session,ALTER_SESSION_OTHER,CURRENT,"已覆盖普通 ALTER SESSION SET 参数赋
 expressions,NATIONAL_Q_QUOTED_STRING,MODEL_REQUIRED,"national 字符集语义不能安全降级为普通字符串",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Literals.html
 query,CONNECT_BY,MODEL_REQUIRED,"层级查询语义需要 Oracle 专用查询模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Hierarchical-Queries.html
 query,LEGACY_OUTER_JOIN,MODEL_REQUIRED,"(+) 旧式外连接语义不做静默降级",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Joins.html
-dml,INSERT_ALL_FIRST,MODEL_REQUIRED,"多表插入语义需要 Oracle 专用 DML 模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/INSERT.html
+dml,INSERT_ALL_FIRST,CURRENT,"已覆盖 INSERT ALL 和 INSERT FIRST 的分支、条件、目标表、目标列和值 cell 结构",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/INSERT.html
 dml,RETURNING_INTO,MODEL_REQUIRED,"RETURNING INTO 涉及宿主变量语义，需要专用模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/RETURNING-INTO-Clause.html
 program,PLSQL_BLOCK,MODEL_REQUIRED,"PL/SQL block 超出当前 SQL 语句模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/lnpls/plsql-language-fundamentals.html
 program,CREATE_PROCEDURE_PACKAGE,MODEL_REQUIRED,"procedure 和 package 属于 PL/SQL 程序单元",https://docs.oracle.com/en/database/oracle/oracle-database/23/lnpls/overview.html

@@ -1,6 +1,6 @@
 dialect,coverage_source,supported_cases,unsupported_cases,total_cases,supported_ratio,notes
 postgresql,tests/cases/sql_batch_input.json,133,1,134,99.25%,"Default dialect coverage is measured by executable regression cases that use PostgreSQL-compatible SQL. Official syntax coverage is tracked in postgresql_official_syntax_coverage.csv."
 mysql,tests/cases/mysql_dialect_input.json,79,18,97,81.44%,"MySQL coverage is measured by executable dialect cases. Official syntax coverage is tracked in mysql_official_syntax_coverage.csv."
-oracle,tests/cases/oracle_dialect_input.json,104,18,122,85.25%,"Oracle coverage is measured by executable dialect cases. Official syntax coverage is tracked in oracle_official_syntax_coverage.csv."
+oracle,tests/cases/oracle_dialect_input.json,121,16,137,88.32%,"Oracle coverage is measured by executable dialect cases. Official syntax coverage is tracked in oracle_official_syntax_coverage.csv."
 sqlserver,tests/cases/sqlserver_dialect_input.json,324,15,339,95.58%,"SQL Server coverage is measured by executable dialect cases, including official HOOK_ONLY cases. Official syntax coverage is tracked in sqlserver_official_syntax_coverage.csv."
 dameng,tests/cases/dameng_dialect_input.json,81,12,93,87.10%,"Dameng coverage is measured by executable dialect cases. Official syntax coverage is tracked in dameng_official_syntax_coverage.csv."

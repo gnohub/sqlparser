@@ -1144,6 +1144,10 @@ const char *sqlparser_selector_kind_name(sqlparser_selector_kind_t kind)
 			return "where";
 		case SQLPARSER_SELECTOR_KIND_CLAUSE:
 			return "clause";
+		case SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS:
+			return "insert_branch_columns";
+		case SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_CONDITION:
+			return "insert_branch_condition";
 		case SQLPARSER_SELECTOR_KIND_UNKNOWN:
 		default:
 			return "unknown";
@@ -1234,6 +1238,8 @@ const char *sqlparser_graph_target_kind_name(sqlparser_graph_target_kind_t kind)
 			return "subquery";
 		case SQLPARSER_GRAPH_TARGET_EXPRESSION:
 			return "expression";
+		case SQLPARSER_GRAPH_TARGET_BIND:
+			return "bind";
 		default:
 			return "unknown";
 	}
@@ -1250,6 +1256,8 @@ const char *sqlparser_graph_value_kind_name(sqlparser_graph_value_kind_t kind)
 			return "default";
 		case SQLPARSER_GRAPH_VALUE_EXPRESSION:
 			return "expression";
+		case SQLPARSER_GRAPH_VALUE_FIELD:
+			return "field";
 		default:
 			return "unknown";
 	}
@@ -1295,6 +1303,23 @@ const char *sqlparser_graph_dml_kind_name(sqlparser_graph_dml_kind_t kind)
 			return "delete";
 		case SQLPARSER_GRAPH_DML_MERGE:
 			return "merge";
+		default:
+			return "unknown";
+	}
+}
+
+const char *sqlparser_graph_insert_mode_name(sqlparser_graph_insert_mode_t mode)
+{
+	switch (mode) {
+		case SQLPARSER_GRAPH_INSERT_MODE_VALUES:
+			return "values";
+		case SQLPARSER_GRAPH_INSERT_MODE_SELECT:
+			return "select";
+		case SQLPARSER_GRAPH_INSERT_MODE_ALL:
+			return "all";
+		case SQLPARSER_GRAPH_INSERT_MODE_FIRST:
+			return "first";
+		case SQLPARSER_GRAPH_INSERT_MODE_UNKNOWN:
 		default:
 			return "unknown";
 	}

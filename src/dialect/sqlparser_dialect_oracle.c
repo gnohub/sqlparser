@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "sqlparser_dialect_internal.h"
+#include "sqlparser_dialect_oracle_internal.h"
 
 typedef struct {
 	char *data;
@@ -15,7 +16,9 @@ typedef struct {
 	char **bind_names;
 	size_t bind_count;
 	size_t bind_capacity;
+	size_t bind_occurrence_count;
 	int saw_minus;
+	sqlparser_oracle_multi_insert_t *multi_insert;
 } sqlparser_oracle_state_t;
 
 static void sqlparser_oracle_buffer_release(sqlparser_oracle_buffer_t *buffer)
@@ -138,6 +141,77 @@ static char *sqlparser_oracle_buffer_take(sqlparser_oracle_buffer_t *buffer)
 	return data;
 }
 
+static void sqlparser_oracle_relation_clear(sqlparser_oracle_relation_t *relation)
+{
+	if (relation == NULL) {
+		return;
+	}
+	free(relation->database_name);
+	free(relation->schema_name);
+	free(relation->table_name);
+	free(relation->sql);
+	memset(relation, 0, sizeof(*relation));
+}
+
+static void sqlparser_oracle_column_clear(sqlparser_oracle_column_t *column)
+{
+	if (column == NULL) {
+		return;
+	}
+	free(column->name);
+	free(column->sql);
+	memset(column, 0, sizeof(*column));
+}
+
+static void sqlparser_oracle_value_clear(sqlparser_oracle_value_t *value)
+{
+	if (value == NULL) {
+		return;
+	}
+	free(value->public_sql);
+	free(value->parser_sql);
+	free(value->literal_string_value);
+	free(value->literal_float_value);
+	memset(value, 0, sizeof(*value));
+}
+
+static void sqlparser_oracle_multi_insert_branch_clear(sqlparser_oracle_multi_insert_branch_t *branch)
+{
+	size_t index;
+
+	if (branch == NULL) {
+		return;
+	}
+	sqlparser_oracle_relation_clear(&branch->relation);
+	for (index = 0U; index < branch->column_count; index++) {
+		sqlparser_oracle_column_clear(&branch->columns[index]);
+	}
+	free(branch->columns);
+	for (index = 0U; index < branch->cell_count; index++) {
+		sqlparser_oracle_value_clear(&branch->cells[index]);
+	}
+	free(branch->cells);
+	free(branch->condition_public_sql);
+	free(branch->condition_parser_sql);
+	memset(branch, 0, sizeof(*branch));
+}
+
+static void sqlparser_oracle_multi_insert_destroy(sqlparser_oracle_multi_insert_t *multi)
+{
+	size_t branch_index;
+
+	if (multi == NULL) {
+		return;
+	}
+	for (branch_index = 0U; branch_index < multi->branch_count; branch_index++) {
+		sqlparser_oracle_multi_insert_branch_clear(&multi->branches[branch_index]);
+	}
+	free(multi->branches);
+	free(multi->source_public_sql);
+	free(multi->source_parser_sql);
+	free(multi);
+}
+
 static sqlparser_status_t sqlparser_oracle_buffer_finish(
 	sqlparser_oracle_buffer_t *buffer,
 	sqlparser_error_t *out_error)
@@ -205,6 +279,7 @@ static void sqlparser_oracle_state_destroy(void *state)
 		free(oracle_state->bind_names[index]);
 	}
 	free(oracle_state->bind_names);
+	sqlparser_oracle_multi_insert_destroy(oracle_state->multi_insert);
 	free(oracle_state);
 }
 
@@ -230,6 +305,24 @@ static sqlparser_status_t sqlparser_oracle_state_new(
 
 	*out_state = state;
 	return SQLPARSER_STATUS_OK;
+}
+
+int sqlparser_oracle_state_has_multi_insert(const void *state)
+{
+	const sqlparser_oracle_state_t *oracle_state;
+
+	oracle_state = (const sqlparser_oracle_state_t *)state;
+	return oracle_state != NULL &&
+		oracle_state->multi_insert != NULL &&
+		oracle_state->multi_insert->mode != SQLPARSER_ORACLE_MULTI_INSERT_NONE;
+}
+
+const sqlparser_oracle_multi_insert_t *sqlparser_oracle_state_multi_insert(const void *state)
+{
+	const sqlparser_oracle_state_t *oracle_state;
+
+	oracle_state = (const sqlparser_oracle_state_t *)state;
+	return oracle_state != NULL ? oracle_state->multi_insert : NULL;
 }
 
 static int sqlparser_oracle_is_ident_start(unsigned char c)
@@ -674,8 +767,6 @@ static sqlparser_status_t sqlparser_oracle_reject_unsupported(
 		"connect_by_root",
 		"connect_by_iscycle",
 		"connect_by_isleaf",
-		"insert all",
-		"insert first",
 		"returning",
 		"log errors",
 		"pivot",
@@ -1524,6 +1615,7 @@ static sqlparser_status_t sqlparser_oracle_copy_bind_placeholder(
 		return status;
 	}
 
+	state->bind_occurrence_count++;
 	*index = end;
 	return SQLPARSER_STATUS_OK;
 }
@@ -1547,6 +1639,7 @@ static sqlparser_status_t sqlparser_oracle_copy_question_placeholder(
 		return status;
 	}
 
+	state->bind_occurrence_count++;
 	(*index)++;
 	return SQLPARSER_STATUS_OK;
 }
@@ -1633,6 +1726,1066 @@ static sqlparser_status_t sqlparser_oracle_preprocess_text(
 	}
 
 	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_oracle_trimmed_slice_dup(
+	const char *sql,
+	size_t start,
+	size_t end,
+	char **out_text,
+	sqlparser_error_t *out_error)
+{
+	if (out_text == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "slice output must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_text = NULL;
+	start = sqlparser_oracle_trim_left(sql, start, end);
+	end = sqlparser_oracle_trim_right(sql, start, end);
+	*out_text = sqlparser_strndup(sql + start, end - start);
+	if (*out_text == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static int sqlparser_oracle_find_matching_paren(
+	const char *sql,
+	size_t open_pos,
+	size_t end,
+	size_t *out_close)
+{
+	size_t pos;
+	size_t depth;
+
+	if (sql == NULL || out_close == NULL || open_pos >= end || sql[open_pos] != '(') {
+		return 0;
+	}
+	pos = open_pos + 1U;
+	depth = 1U;
+	while (pos < end) {
+		size_t skipped;
+
+		skipped = sqlparser_oracle_skip_quoted_or_comment_span(sql, pos);
+		if (skipped > pos) {
+			pos = skipped;
+			continue;
+		}
+		if (sql[pos] == '(') {
+			depth++;
+		} else if (sql[pos] == ')') {
+			depth--;
+			if (depth == 0U) {
+				*out_close = pos;
+				return 1;
+			}
+		}
+		pos++;
+	}
+	return 0;
+}
+
+static int sqlparser_oracle_find_top_level_word(
+	const char *sql,
+	size_t start,
+	size_t end,
+	const char *word,
+	size_t *out_pos)
+{
+	size_t pos;
+	size_t depth;
+
+	if (sql == NULL || word == NULL || out_pos == NULL) {
+		return 0;
+	}
+	pos = start;
+	depth = 0U;
+	while (pos < end) {
+		size_t skipped;
+
+		skipped = sqlparser_oracle_skip_quoted_or_comment_span(sql, pos);
+		if (skipped > pos) {
+			pos = skipped;
+			continue;
+		}
+		if (sql[pos] == '(') {
+			depth++;
+			pos++;
+			continue;
+		}
+		if (sql[pos] == ')') {
+			if (depth > 0U) {
+				depth--;
+			}
+			pos++;
+			continue;
+		}
+		if (depth == 0U && sqlparser_oracle_ascii_word_equal(sql, pos, word)) {
+			*out_pos = pos;
+			return 1;
+		}
+		pos++;
+	}
+	return 0;
+}
+
+static sqlparser_status_t sqlparser_oracle_identifier_from_sql(
+	const char *sql,
+	size_t start,
+	size_t end,
+	char **out_name,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_oracle_buffer_t out;
+	size_t pos;
+
+	if (out_name == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "identifier output must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_name = NULL;
+	start = sqlparser_oracle_trim_left(sql, start, end);
+	end = sqlparser_oracle_trim_right(sql, start, end);
+	if (start >= end) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "identifier must not be empty");
+		return SQLPARSER_STATUS_PARSE_ERROR;
+	}
+	if (sql[start] != '"') {
+		return sqlparser_oracle_trimmed_slice_dup(sql, start, end, out_name, out_error);
+	}
+
+	memset(&out, 0, sizeof(out));
+	pos = start + 1U;
+	while (pos < end) {
+		if (sql[pos] == '"') {
+			if (pos + 1U < end && sql[pos + 1U] == '"') {
+				if (sqlparser_oracle_buffer_append_char(&out, '"', out_error) != SQLPARSER_STATUS_OK) {
+					sqlparser_oracle_buffer_release(&out);
+					return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+				}
+				pos += 2U;
+				continue;
+			}
+			break;
+		}
+		if (sqlparser_oracle_buffer_append_char(&out, sql[pos], out_error) != SQLPARSER_STATUS_OK) {
+			sqlparser_oracle_buffer_release(&out);
+			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+		}
+		pos++;
+	}
+	if (sqlparser_oracle_buffer_finish(&out, out_error) != SQLPARSER_STATUS_OK) {
+		sqlparser_oracle_buffer_release(&out);
+		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+	}
+	*out_name = sqlparser_oracle_buffer_take(&out);
+	return *out_name != NULL ? SQLPARSER_STATUS_OK : SQLPARSER_STATUS_NO_MEMORY;
+}
+
+static sqlparser_status_t sqlparser_oracle_relation_from_sql(
+	const char *sql,
+	size_t start,
+	size_t end,
+	sqlparser_oracle_relation_t *relation,
+	sqlparser_error_t *out_error)
+{
+	size_t part_start[3];
+	size_t part_end[3];
+	size_t count;
+	size_t pos;
+
+	if (relation == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "relation must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	memset(relation, 0, sizeof(*relation));
+	start = sqlparser_oracle_trim_left(sql, start, end);
+	end = sqlparser_oracle_trim_right(sql, start, end);
+	if (start >= end) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "INSERT target relation must not be empty");
+		return SQLPARSER_STATUS_PARSE_ERROR;
+	}
+	if (sqlparser_oracle_trimmed_slice_dup(sql, start, end, &relation->sql, out_error) != SQLPARSER_STATUS_OK) {
+		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+	}
+
+	count = 0U;
+	part_start[count] = start;
+	pos = start;
+	while (pos < end) {
+		size_t skipped;
+
+		skipped = sqlparser_oracle_skip_quoted_or_comment_span(sql, pos);
+		if (skipped > pos) {
+			pos = skipped;
+			continue;
+		}
+		if (sql[pos] == '.') {
+			if (count >= 2U) {
+				sqlparser_oracle_relation_clear(relation);
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "Oracle relation has too many name parts");
+				return SQLPARSER_STATUS_UNSUPPORTED;
+			}
+			part_end[count] = pos;
+			count++;
+			part_start[count] = pos + 1U;
+		}
+		pos++;
+	}
+	part_end[count] = end;
+	count++;
+
+	if (count == 1U) {
+		return sqlparser_oracle_identifier_from_sql(sql, part_start[0], part_end[0], &relation->table_name, out_error);
+	}
+	if (count == 2U) {
+		if (sqlparser_oracle_identifier_from_sql(sql, part_start[0], part_end[0], &relation->schema_name, out_error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_oracle_identifier_from_sql(sql, part_start[1], part_end[1], &relation->table_name, out_error) != SQLPARSER_STATUS_OK) {
+			sqlparser_oracle_relation_clear(relation);
+			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+		}
+		return SQLPARSER_STATUS_OK;
+	}
+	if (sqlparser_oracle_identifier_from_sql(sql, part_start[0], part_end[0], &relation->database_name, out_error) != SQLPARSER_STATUS_OK ||
+	    sqlparser_oracle_identifier_from_sql(sql, part_start[1], part_end[1], &relation->schema_name, out_error) != SQLPARSER_STATUS_OK ||
+	    sqlparser_oracle_identifier_from_sql(sql, part_start[2], part_end[2], &relation->table_name, out_error) != SQLPARSER_STATUS_OK) {
+		sqlparser_oracle_relation_clear(relation);
+		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_oracle_parse_column_list(
+	const char *sql,
+	size_t start,
+	size_t end,
+	sqlparser_oracle_column_t **out_columns,
+	size_t *out_count,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_oracle_column_t *columns;
+	size_t count;
+	size_t capacity;
+	size_t item_start;
+	size_t pos;
+
+	if (out_columns == NULL || out_count == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "column list outputs must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_columns = NULL;
+	*out_count = 0U;
+	columns = NULL;
+	count = 0U;
+	capacity = 0U;
+	item_start = start;
+	pos = start;
+	while (pos <= end) {
+		int at_end;
+		size_t skipped;
+
+		at_end = pos == end;
+		skipped = !at_end ? sqlparser_oracle_skip_quoted_or_comment_span(sql, pos) : pos;
+		if (skipped > pos) {
+			pos = skipped;
+			continue;
+		}
+		if (at_end || sql[pos] == ',') {
+			size_t item_end;
+			sqlparser_oracle_column_t *next;
+
+			if (count == capacity) {
+				size_t next_capacity;
+
+				next_capacity = capacity == 0U ? 4U : capacity * 2U;
+				if (next_capacity < capacity) {
+					sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+					goto fail;
+				}
+				next = (sqlparser_oracle_column_t *)realloc(columns, next_capacity * sizeof(*next));
+				if (next == NULL) {
+					sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+					goto fail;
+				}
+				columns = next;
+				capacity = next_capacity;
+			}
+			memset(&columns[count], 0, sizeof(columns[count]));
+			item_end = sqlparser_oracle_trim_right(sql, item_start, pos);
+			item_start = sqlparser_oracle_trim_left(sql, item_start, item_end);
+			if (item_start >= item_end) {
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "column list contains an empty item");
+				goto fail;
+			}
+			if (sqlparser_oracle_trimmed_slice_dup(sql, item_start, item_end, &columns[count].sql, out_error) != SQLPARSER_STATUS_OK ||
+			    sqlparser_oracle_identifier_from_sql(sql, item_start, item_end, &columns[count].name, out_error) != SQLPARSER_STATUS_OK) {
+				goto fail;
+			}
+			count++;
+			item_start = pos + 1U;
+		}
+		pos++;
+	}
+
+	*out_columns = columns;
+	*out_count = count;
+	return SQLPARSER_STATUS_OK;
+
+fail:
+	if (columns != NULL) {
+		size_t index;
+
+		for (index = 0U; index < count; index++) {
+			free(columns[index].name);
+			free(columns[index].sql);
+		}
+		free(columns);
+	}
+	return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+}
+
+static int sqlparser_oracle_public_bind_token(
+	const char *sql,
+	sqlparser_bind_kind_t *out_kind,
+	const char **out_key_start,
+	size_t *out_key_len,
+	const char **out_sql_start,
+	size_t *out_sql_len)
+{
+	size_t len;
+
+	if (sql == NULL || out_kind == NULL || out_key_start == NULL || out_key_len == NULL ||
+	    out_sql_start == NULL || out_sql_len == NULL) {
+		return 0;
+	}
+	len = strlen(sql);
+	if (len == 1U && sql[0] == '?') {
+		*out_kind = SQLPARSER_BIND_KIND_POSITIONAL;
+		*out_key_start = NULL;
+		*out_key_len = 0U;
+		*out_sql_start = sql;
+		*out_sql_len = 1U;
+		return 1;
+	}
+	if (len > 1U && sql[0] == ':' && sql[1] != '=' && sql[1] != ':') {
+		size_t pos;
+
+		pos = 1U;
+		if (isdigit((unsigned char)sql[pos])) {
+			while (isdigit((unsigned char)sql[pos])) {
+				pos++;
+			}
+			if (pos == len) {
+				*out_kind = SQLPARSER_BIND_KIND_POSITIONAL;
+				*out_key_start = sql + 1U;
+				*out_key_len = len - 1U;
+				*out_sql_start = sql;
+				*out_sql_len = len;
+				return 1;
+			}
+		} else if (sqlparser_oracle_is_ident_start((unsigned char)sql[pos])) {
+			pos++;
+			while (sqlparser_oracle_is_ident_char((unsigned char)sql[pos])) {
+				pos++;
+			}
+			if (pos == len) {
+				*out_kind = SQLPARSER_BIND_KIND_NAMED;
+				*out_key_start = sql + 1U;
+				*out_key_len = len - 1U;
+				*out_sql_start = sql;
+				*out_sql_len = len;
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+static int sqlparser_oracle_text_is_integer_literal(const char *text)
+{
+	size_t pos;
+
+	if (text == NULL || text[0] == '\0') {
+		return 0;
+	}
+	pos = (text[0] == '+' || text[0] == '-') ? 1U : 0U;
+	if (!isdigit((unsigned char)text[pos])) {
+		return 0;
+	}
+	while (isdigit((unsigned char)text[pos])) {
+		pos++;
+	}
+	return text[pos] == '\0';
+}
+
+static int sqlparser_oracle_text_is_float_literal(const char *text)
+{
+	size_t pos;
+	int saw_digit;
+	int saw_dot;
+
+	if (text == NULL || text[0] == '\0') {
+		return 0;
+	}
+	pos = (text[0] == '+' || text[0] == '-') ? 1U : 0U;
+	saw_digit = 0;
+	saw_dot = 0;
+	while (text[pos] != '\0') {
+		if (isdigit((unsigned char)text[pos])) {
+			saw_digit = 1;
+			pos++;
+			continue;
+		}
+		if (text[pos] == '.' && !saw_dot) {
+			saw_dot = 1;
+			pos++;
+			continue;
+		}
+		return 0;
+	}
+	return saw_digit && saw_dot;
+}
+
+static int sqlparser_oracle_ascii_text_equal(const char *left, const char *right)
+{
+	size_t index;
+
+	if (left == NULL || right == NULL) {
+		return 0;
+	}
+	for (index = 0U; left[index] != '\0' && right[index] != '\0'; index++) {
+		if (tolower((unsigned char)left[index]) != tolower((unsigned char)right[index])) {
+			return 0;
+		}
+	}
+	return left[index] == '\0' && right[index] == '\0';
+}
+
+static sqlparser_status_t sqlparser_oracle_unquote_string_literal(
+	const char *text,
+	char **out_value,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_oracle_buffer_t out;
+	size_t len;
+	size_t pos;
+
+	if (out_value == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "literal output must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_value = NULL;
+	len = text != NULL ? strlen(text) : 0U;
+	if (len < 2U || text[0] != '\'' || text[len - 1U] != '\'') {
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	memset(&out, 0, sizeof(out));
+	pos = 1U;
+	while (pos + 1U < len) {
+		if (text[pos] == '\'' && pos + 1U < len - 1U && text[pos + 1U] == '\'') {
+			if (sqlparser_oracle_buffer_append_char(&out, '\'', out_error) != SQLPARSER_STATUS_OK) {
+				sqlparser_oracle_buffer_release(&out);
+				return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+			}
+			pos += 2U;
+			continue;
+		}
+		if (sqlparser_oracle_buffer_append_char(&out, text[pos], out_error) != SQLPARSER_STATUS_OK) {
+			sqlparser_oracle_buffer_release(&out);
+			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+		}
+		pos++;
+	}
+	if (sqlparser_oracle_buffer_finish(&out, out_error) != SQLPARSER_STATUS_OK) {
+		sqlparser_oracle_buffer_release(&out);
+		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+	}
+	*out_value = sqlparser_oracle_buffer_take(&out);
+	return *out_value != NULL ? SQLPARSER_STATUS_OK : SQLPARSER_STATUS_NO_MEMORY;
+}
+
+static sqlparser_status_t sqlparser_oracle_value_fill_literal(
+	sqlparser_oracle_value_t *value,
+	sqlparser_error_t *out_error)
+{
+	long long integer_value;
+	char *endptr;
+
+	if (value == NULL || value->public_sql == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (sqlparser_oracle_ascii_text_equal(value->public_sql, "null")) {
+		value->has_literal = 1;
+		value->literal.kind = SQLPARSER_LITERAL_KIND_NULL;
+		return SQLPARSER_STATUS_OK;
+	}
+	if (value->public_sql[0] == '\'') {
+		if (sqlparser_oracle_unquote_string_literal(value->public_sql, &value->literal_string_value, out_error) != SQLPARSER_STATUS_OK) {
+			return SQLPARSER_STATUS_OK;
+		}
+		value->has_literal = 1;
+		value->literal.kind = SQLPARSER_LITERAL_KIND_STRING;
+		value->literal.string_value = value->literal_string_value;
+		return SQLPARSER_STATUS_OK;
+	}
+	if (sqlparser_oracle_text_is_integer_literal(value->public_sql)) {
+		endptr = NULL;
+		integer_value = strtoll(value->public_sql, &endptr, 10);
+		if (endptr != NULL && *endptr == '\0') {
+			value->has_literal = 1;
+			value->literal.kind = SQLPARSER_LITERAL_KIND_INTEGER;
+			value->literal.integer_value = integer_value;
+		}
+		return SQLPARSER_STATUS_OK;
+	}
+	if (sqlparser_oracle_text_is_float_literal(value->public_sql)) {
+		value->literal_float_value = sqlparser_strdup(value->public_sql);
+		if (value->literal_float_value == NULL) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		value->has_literal = 1;
+		value->literal.kind = SQLPARSER_LITERAL_KIND_FLOAT;
+		value->literal.float_value = value->literal_float_value;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_oracle_parse_value_item(
+	const char *sql,
+	size_t start,
+	size_t end,
+	sqlparser_oracle_state_t *state,
+	sqlparser_oracle_value_t *out_value,
+	sqlparser_error_t *out_error)
+{
+	const char *key_start;
+	const char *sql_start;
+	size_t key_len;
+	size_t sql_len;
+	sqlparser_bind_kind_t bind_kind;
+	size_t bind_before;
+	size_t occurrence_before;
+	sqlparser_status_t status;
+
+	if (out_value == NULL || state == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "value arguments must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	memset(out_value, 0, sizeof(*out_value));
+	status = sqlparser_oracle_trimmed_slice_dup(sql, start, end, &out_value->public_sql, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	bind_before = state->bind_count;
+	occurrence_before = state->bind_occurrence_count;
+	status = sqlparser_oracle_preprocess_text(out_value->public_sql, state, &out_value->parser_sql, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_oracle_value_clear(out_value);
+		return status;
+	}
+	if (sqlparser_oracle_public_bind_token(
+		    out_value->public_sql,
+		    &bind_kind,
+		    &key_start,
+		    &key_len,
+		    &sql_start,
+		    &sql_len) &&
+	    state->bind_occurrence_count == occurrence_before + 1U) {
+		out_value->has_bind = 1;
+		out_value->bind_kind = bind_kind;
+		if (bind_kind == SQLPARSER_BIND_KIND_POSITIONAL && key_start == NULL) {
+			(void)snprintf(out_value->bind, sizeof(out_value->bind), "%lu", (unsigned long)(occurrence_before + 1U));
+		} else {
+			if (key_len >= sizeof(out_value->bind)) {
+				sqlparser_oracle_value_clear(out_value);
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "bind key is too long");
+				return SQLPARSER_STATUS_RESOURCE_LIMIT;
+			}
+			memcpy(out_value->bind, key_start, key_len);
+			out_value->bind[key_len] = '\0';
+		}
+		if (sql_len >= sizeof(out_value->bind_sql)) {
+			sqlparser_oracle_value_clear(out_value);
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "bind SQL is too long");
+			return SQLPARSER_STATUS_RESOURCE_LIMIT;
+		}
+		memcpy(out_value->bind_sql, sql_start, sql_len);
+		out_value->bind_sql[sql_len] = '\0';
+		out_value->bind_position = occurrence_before + 1U;
+		out_value->has_bind_position = 1;
+		(void)bind_before;
+	} else {
+		status = sqlparser_oracle_value_fill_literal(out_value, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_oracle_value_clear(out_value);
+			return status;
+		}
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_oracle_parse_value_list(
+	const char *sql,
+	size_t start,
+	size_t end,
+	sqlparser_oracle_state_t *state,
+	sqlparser_oracle_value_t **out_values,
+	size_t *out_count,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_oracle_value_t *values;
+	size_t count;
+	size_t capacity;
+	size_t item_start;
+	size_t pos;
+	size_t depth;
+
+	if (out_values == NULL || out_count == NULL || state == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "value list arguments must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_values = NULL;
+	*out_count = 0U;
+	values = NULL;
+	count = 0U;
+	capacity = 0U;
+	item_start = start;
+	pos = start;
+	depth = 0U;
+	while (pos <= end) {
+		int at_end;
+		size_t skipped;
+
+		at_end = pos == end;
+		skipped = !at_end ? sqlparser_oracle_skip_quoted_or_comment_span(sql, pos) : pos;
+		if (skipped > pos) {
+			pos = skipped;
+			continue;
+		}
+		if (!at_end && sql[pos] == '(') {
+			depth++;
+			pos++;
+			continue;
+		}
+		if (!at_end && sql[pos] == ')') {
+			if (depth > 0U) {
+				depth--;
+			}
+			pos++;
+			continue;
+		}
+		if (at_end || (depth == 0U && sql[pos] == ',')) {
+			sqlparser_oracle_value_t *next;
+
+			if (count == capacity) {
+				size_t next_capacity;
+
+				next_capacity = capacity == 0U ? 4U : capacity * 2U;
+				if (next_capacity < capacity) {
+					sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+					goto fail;
+				}
+				next = (sqlparser_oracle_value_t *)realloc(values, next_capacity * sizeof(*next));
+				if (next == NULL) {
+					sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+					goto fail;
+				}
+				values = next;
+				capacity = next_capacity;
+			}
+			if (sqlparser_oracle_parse_value_item(sql, item_start, pos, state, &values[count], out_error) != SQLPARSER_STATUS_OK) {
+				goto fail;
+			}
+			count++;
+			item_start = pos + 1U;
+		}
+		pos++;
+	}
+
+	*out_values = values;
+	*out_count = count;
+	return SQLPARSER_STATUS_OK;
+
+fail:
+	if (values != NULL) {
+		size_t index;
+
+		for (index = 0U; index < count; index++) {
+			sqlparser_oracle_value_clear(&values[index]);
+		}
+		free(values);
+	}
+	return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+}
+
+static sqlparser_status_t sqlparser_oracle_multi_insert_add_branch(
+	sqlparser_oracle_multi_insert_t *multi,
+	const sqlparser_oracle_multi_insert_branch_t *source,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_oracle_multi_insert_branch_t *next;
+
+	if (multi == NULL || source == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "multi insert branch arguments must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (multi->branch_count == SIZE_MAX) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "too many INSERT branches");
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+	next = (sqlparser_oracle_multi_insert_branch_t *)realloc(
+		multi->branches,
+		(multi->branch_count + 1U) * sizeof(*next));
+	if (next == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	multi->branches = next;
+	multi->branches[multi->branch_count] = *source;
+	multi->branches[multi->branch_count].ordinal = multi->branch_count;
+	multi->branch_count++;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_oracle_parse_multi_insert_into(
+	const char *sql,
+	size_t *io_pos,
+	size_t end,
+	sqlparser_oracle_state_t *state,
+	sqlparser_oracle_multi_insert_t *multi,
+	const char *condition_public_sql,
+	const char *condition_parser_sql,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_oracle_multi_insert_branch_t branch;
+	size_t pos;
+	size_t relation_start;
+	size_t relation_end;
+	size_t columns_open;
+	size_t columns_close;
+	size_t values_pos;
+	size_t values_open;
+	size_t values_close;
+	sqlparser_status_t status;
+
+	memset(&branch, 0, sizeof(branch));
+	pos = sqlparser_oracle_trim_left(sql, *io_pos, end);
+	if (!sqlparser_oracle_ascii_word_equal(sql, pos, "into")) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "Oracle multi-table INSERT expected INTO");
+		return SQLPARSER_STATUS_PARSE_ERROR;
+	}
+	pos = sqlparser_oracle_trim_left(sql, pos + strlen("into"), end);
+	relation_start = pos;
+	columns_open = end;
+	values_pos = end;
+	while (pos < end) {
+		size_t skipped;
+
+		skipped = sqlparser_oracle_skip_quoted_or_comment_span(sql, pos);
+		if (skipped > pos) {
+			pos = skipped;
+			continue;
+		}
+		if (sql[pos] == '(') {
+			columns_open = pos;
+			break;
+		}
+		if (sqlparser_oracle_ascii_word_equal(sql, pos, "values")) {
+			values_pos = pos;
+			break;
+		}
+		pos++;
+	}
+	if (columns_open == end && values_pos == end) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "Oracle multi-table INSERT expected VALUES");
+		return SQLPARSER_STATUS_PARSE_ERROR;
+	}
+	relation_end = columns_open != end ? columns_open : values_pos;
+	status = sqlparser_oracle_relation_from_sql(sql, relation_start, relation_end, &branch.relation, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (columns_open != end) {
+		if (!sqlparser_oracle_find_matching_paren(sql, columns_open, end, &columns_close)) {
+			sqlparser_oracle_multi_insert_branch_clear(&branch);
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "Oracle multi-table INSERT column list is not closed");
+			return SQLPARSER_STATUS_PARSE_ERROR;
+		}
+		status = sqlparser_oracle_parse_column_list(
+			sql,
+			columns_open + 1U,
+			columns_close,
+			&branch.columns,
+			&branch.column_count,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_oracle_multi_insert_branch_clear(&branch);
+			return status;
+		}
+		pos = sqlparser_oracle_trim_left(sql, columns_close + 1U, end);
+	} else {
+		pos = values_pos;
+	}
+	if (!sqlparser_oracle_ascii_word_equal(sql, pos, "values")) {
+		sqlparser_oracle_multi_insert_branch_clear(&branch);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "Oracle multi-table INSERT expected VALUES");
+		return SQLPARSER_STATUS_PARSE_ERROR;
+	}
+	pos = sqlparser_oracle_trim_left(sql, pos + strlen("values"), end);
+	if (pos >= end || sql[pos] != '(') {
+		sqlparser_oracle_multi_insert_branch_clear(&branch);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "Oracle multi-table INSERT VALUES list expected '('");
+		return SQLPARSER_STATUS_PARSE_ERROR;
+	}
+	values_open = pos;
+	if (!sqlparser_oracle_find_matching_paren(sql, values_open, end, &values_close)) {
+		sqlparser_oracle_multi_insert_branch_clear(&branch);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "Oracle multi-table INSERT VALUES list is not closed");
+		return SQLPARSER_STATUS_PARSE_ERROR;
+	}
+	status = sqlparser_oracle_parse_value_list(
+		sql,
+		values_open + 1U,
+		values_close,
+		state,
+		&branch.cells,
+		&branch.cell_count,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_oracle_multi_insert_branch_clear(&branch);
+		return status;
+	}
+	if (condition_public_sql != NULL) {
+		branch.condition_public_sql = sqlparser_strdup(condition_public_sql);
+		branch.condition_parser_sql = sqlparser_strdup(condition_parser_sql != NULL ? condition_parser_sql : condition_public_sql);
+		if (branch.condition_public_sql == NULL || branch.condition_parser_sql == NULL) {
+			sqlparser_oracle_multi_insert_branch_clear(&branch);
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		branch.has_condition = 1;
+	}
+	status = sqlparser_oracle_multi_insert_add_branch(multi, &branch, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_oracle_multi_insert_branch_clear(&branch);
+		return status;
+	}
+	*io_pos = values_close + 1U;
+	return SQLPARSER_STATUS_OK;
+}
+
+static int sqlparser_oracle_is_multi_insert_start(
+	const char *sql,
+	sqlparser_oracle_multi_insert_mode_t *out_mode)
+{
+	size_t len;
+	size_t pos;
+
+	if (out_mode != NULL) {
+		*out_mode = SQLPARSER_ORACLE_MULTI_INSERT_NONE;
+	}
+	if (sql == NULL) {
+		return 0;
+	}
+	len = strlen(sql);
+	pos = sqlparser_oracle_trim_left(sql, 0U, len);
+	if (!sqlparser_oracle_ascii_word_equal(sql, pos, "insert")) {
+		return 0;
+	}
+	pos = sqlparser_oracle_trim_left(sql, pos + strlen("insert"), len);
+	if (sqlparser_oracle_ascii_word_equal(sql, pos, "all")) {
+		if (out_mode != NULL) {
+			*out_mode = SQLPARSER_ORACLE_MULTI_INSERT_ALL;
+		}
+		return 1;
+	}
+	if (sqlparser_oracle_ascii_word_equal(sql, pos, "first")) {
+		if (out_mode != NULL) {
+			*out_mode = SQLPARSER_ORACLE_MULTI_INSERT_FIRST;
+		}
+		return 1;
+	}
+	return 0;
+}
+
+static sqlparser_status_t sqlparser_oracle_parse_multi_insert(
+	const char *input_sql,
+	sqlparser_oracle_state_t *state,
+	char **out_parser_sql,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_oracle_multi_insert_t *multi;
+	sqlparser_oracle_multi_insert_mode_t mode;
+	sqlparser_oracle_buffer_t parser;
+	size_t len;
+	size_t end;
+	size_t pos;
+	sqlparser_status_t status;
+
+	if (out_parser_sql == NULL || state == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "multi insert parser arguments must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_parser_sql = NULL;
+	if (!sqlparser_oracle_is_multi_insert_start(input_sql, &mode)) {
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	len = strlen(input_sql);
+	pos = sqlparser_oracle_trim_left(input_sql, 0U, len);
+	end = sqlparser_oracle_trim_right(input_sql, pos, len);
+	if (end > pos && input_sql[end - 1U] == ';') {
+		end = sqlparser_oracle_trim_right(input_sql, pos, end - 1U);
+	}
+	pos = sqlparser_oracle_trim_left(input_sql, pos + strlen("insert"), end);
+	pos = sqlparser_oracle_trim_left(
+		input_sql,
+		pos + (mode == SQLPARSER_ORACLE_MULTI_INSERT_ALL ? strlen("all") : strlen("first")),
+		end);
+
+	multi = (sqlparser_oracle_multi_insert_t *)calloc(1U, sizeof(*multi));
+	if (multi == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	multi->mode = mode;
+
+	while (pos < end) {
+		pos = sqlparser_oracle_trim_left(input_sql, pos, end);
+		if (pos >= end) {
+			break;
+		}
+		if (sqlparser_oracle_ascii_word_equal(input_sql, pos, "select")) {
+			break;
+		}
+		if (sqlparser_oracle_ascii_word_equal(input_sql, pos, "when")) {
+			size_t condition_start;
+			size_t then_pos;
+			char *condition_public;
+			char *condition_parser;
+
+			condition_start = sqlparser_oracle_trim_left(input_sql, pos + strlen("when"), end);
+			if (!sqlparser_oracle_find_top_level_word(input_sql, condition_start, end, "then", &then_pos)) {
+				sqlparser_oracle_multi_insert_destroy(multi);
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "Oracle multi-table INSERT WHEN is missing THEN");
+				return SQLPARSER_STATUS_PARSE_ERROR;
+			}
+			condition_public = NULL;
+			condition_parser = NULL;
+			status = sqlparser_oracle_trimmed_slice_dup(
+				input_sql,
+				condition_start,
+				then_pos,
+				&condition_public,
+				out_error);
+			if (status == SQLPARSER_STATUS_OK) {
+				status = sqlparser_oracle_preprocess_text(condition_public, state, &condition_parser, out_error);
+			}
+			if (status != SQLPARSER_STATUS_OK) {
+				free(condition_public);
+				free(condition_parser);
+				sqlparser_oracle_multi_insert_destroy(multi);
+				return status;
+			}
+			pos = sqlparser_oracle_trim_left(input_sql, then_pos + strlen("then"), end);
+			do {
+				status = sqlparser_oracle_parse_multi_insert_into(
+					input_sql,
+					&pos,
+					end,
+					state,
+					multi,
+					condition_public,
+					condition_parser,
+					out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					free(condition_public);
+					free(condition_parser);
+					sqlparser_oracle_multi_insert_destroy(multi);
+					return status;
+				}
+				pos = sqlparser_oracle_trim_left(input_sql, pos, end);
+			} while (pos < end &&
+			         sqlparser_oracle_ascii_word_equal(input_sql, pos, "into"));
+			free(condition_public);
+			free(condition_parser);
+			continue;
+		}
+		if (sqlparser_oracle_ascii_word_equal(input_sql, pos, "else")) {
+			pos = sqlparser_oracle_trim_left(input_sql, pos + strlen("else"), end);
+			while (pos < end && sqlparser_oracle_ascii_word_equal(input_sql, pos, "into")) {
+				status = sqlparser_oracle_parse_multi_insert_into(
+					input_sql,
+					&pos,
+					end,
+					state,
+					multi,
+					NULL,
+					NULL,
+					out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					sqlparser_oracle_multi_insert_destroy(multi);
+					return status;
+				}
+				pos = sqlparser_oracle_trim_left(input_sql, pos, end);
+			}
+			continue;
+		}
+		if (sqlparser_oracle_ascii_word_equal(input_sql, pos, "into")) {
+			status = sqlparser_oracle_parse_multi_insert_into(
+				input_sql,
+				&pos,
+				end,
+				state,
+				multi,
+				NULL,
+				NULL,
+				out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				sqlparser_oracle_multi_insert_destroy(multi);
+				return status;
+			}
+			continue;
+		}
+		sqlparser_oracle_multi_insert_destroy(multi);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "Oracle multi-table INSERT expected INTO, WHEN, ELSE, or SELECT");
+		return SQLPARSER_STATUS_PARSE_ERROR;
+	}
+
+	pos = sqlparser_oracle_trim_left(input_sql, pos, end);
+	if (multi->branch_count == 0U || pos >= end || !sqlparser_oracle_ascii_word_equal(input_sql, pos, "select")) {
+		sqlparser_oracle_multi_insert_destroy(multi);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "Oracle multi-table INSERT requires branches and a source SELECT");
+		return SQLPARSER_STATUS_PARSE_ERROR;
+	}
+	status = sqlparser_oracle_trimmed_slice_dup(input_sql, pos, end, &multi->source_public_sql, out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_oracle_preprocess_text(multi->source_public_sql, state, &multi->source_parser_sql, out_error);
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_oracle_multi_insert_destroy(multi);
+		return status;
+	}
+
+	memset(&parser, 0, sizeof(parser));
+	status = sqlparser_oracle_buffer_append_cstr(&parser, "INSERT INTO sqlparser_oracle_multi_insert_source ", out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_oracle_buffer_append_cstr(&parser, multi->source_parser_sql, out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_oracle_buffer_finish(&parser, out_error);
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_oracle_buffer_release(&parser);
+		sqlparser_oracle_multi_insert_destroy(multi);
+		return status;
+	}
+
+	sqlparser_oracle_multi_insert_destroy(state->multi_insert);
+	state->multi_insert = multi;
+	*out_parser_sql = sqlparser_oracle_buffer_take(&parser);
+	return *out_parser_sql != NULL ? SQLPARSER_STATUS_OK : SQLPARSER_STATUS_NO_MEMORY;
 }
 
 static sqlparser_status_t sqlparser_oracle_param_to_bind(
@@ -1862,6 +3015,105 @@ static sqlparser_status_t sqlparser_oracle_postprocess_text(
 	}
 
 	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_oracle_render_multi_insert(
+	const sqlparser_oracle_multi_insert_t *multi,
+	const char *postprocessed_core_sql,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_oracle_buffer_t out;
+	size_t source_pos;
+	size_t core_len;
+	size_t branch_index;
+	sqlparser_status_t status;
+
+	if (multi == NULL || out_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "multi insert render arguments must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_sql = NULL;
+	core_len = postprocessed_core_sql != NULL ? strlen(postprocessed_core_sql) : 0U;
+	if (postprocessed_core_sql == NULL ||
+	    !sqlparser_oracle_find_top_level_word(postprocessed_core_sql, 0U, core_len, "select", &source_pos)) {
+		postprocessed_core_sql = multi->source_public_sql;
+		source_pos = 0U;
+	}
+
+	memset(&out, 0, sizeof(out));
+	status = sqlparser_oracle_buffer_append_cstr(&out, "INSERT ", out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_oracle_buffer_append_cstr(
+			&out,
+			multi->mode == SQLPARSER_ORACLE_MULTI_INSERT_FIRST ? "FIRST" : "ALL",
+			out_error);
+	}
+	for (branch_index = 0U; status == SQLPARSER_STATUS_OK && branch_index < multi->branch_count; branch_index++) {
+		const sqlparser_oracle_multi_insert_branch_t *branch;
+		size_t index;
+
+		branch = &multi->branches[branch_index];
+		status = sqlparser_oracle_buffer_append_char(&out, ' ', out_error);
+		if (status == SQLPARSER_STATUS_OK && branch->has_condition) {
+			status = sqlparser_oracle_buffer_append_cstr(&out, "WHEN ", out_error);
+			if (status == SQLPARSER_STATUS_OK) {
+				status = sqlparser_oracle_buffer_append_cstr(&out, branch->condition_public_sql, out_error);
+			}
+			if (status == SQLPARSER_STATUS_OK) {
+				status = sqlparser_oracle_buffer_append_cstr(&out, " THEN ", out_error);
+			}
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_oracle_buffer_append_cstr(&out, "INTO ", out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_oracle_buffer_append_cstr(&out, branch->relation.sql, out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK && branch->column_count > 0U) {
+			status = sqlparser_oracle_buffer_append_cstr(&out, " (", out_error);
+			for (index = 0U; status == SQLPARSER_STATUS_OK && index < branch->column_count; index++) {
+				if (index > 0U) {
+					status = sqlparser_oracle_buffer_append_cstr(&out, ", ", out_error);
+				}
+				if (status == SQLPARSER_STATUS_OK) {
+					status = sqlparser_oracle_buffer_append_cstr(&out, branch->columns[index].sql, out_error);
+				}
+			}
+			if (status == SQLPARSER_STATUS_OK) {
+				status = sqlparser_oracle_buffer_append_char(&out, ')', out_error);
+			}
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_oracle_buffer_append_cstr(&out, " VALUES (", out_error);
+		}
+		for (index = 0U; status == SQLPARSER_STATUS_OK && index < branch->cell_count; index++) {
+			if (index > 0U) {
+				status = sqlparser_oracle_buffer_append_cstr(&out, ", ", out_error);
+			}
+			if (status == SQLPARSER_STATUS_OK) {
+				status = sqlparser_oracle_buffer_append_cstr(&out, branch->cells[index].public_sql, out_error);
+			}
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_oracle_buffer_append_char(&out, ')', out_error);
+		}
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_oracle_buffer_append_char(&out, ' ', out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_oracle_buffer_append_cstr(&out, postprocessed_core_sql + source_pos, out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_oracle_buffer_finish(&out, out_error);
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_oracle_buffer_release(&out);
+		return status;
+	}
+	*out_sql = sqlparser_oracle_buffer_take(&out);
+	return *out_sql != NULL ? SQLPARSER_STATUS_OK : SQLPARSER_STATUS_NO_MEMORY;
 }
 
 static const char *sqlparser_oracle_find_top_level_comma(const char *start, const char *end)
@@ -2428,6 +3680,17 @@ static sqlparser_status_t sqlparser_oracle_preprocess(
 	}
 	preprocess_input = rewritten_sql != NULL ? rewritten_sql : input_sql;
 
+	if (sqlparser_oracle_is_multi_insert_start(preprocess_input, NULL)) {
+		status = sqlparser_oracle_parse_multi_insert(preprocess_input, state, out_parser_sql, out_error);
+		free(rewritten_sql);
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_oracle_state_destroy(state);
+			return status;
+		}
+		*out_state = state;
+		return SQLPARSER_STATUS_OK;
+	}
+
 	status = sqlparser_oracle_reject_unsupported(preprocess_input, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		free(rewritten_sql);
@@ -2482,6 +3745,22 @@ static sqlparser_status_t sqlparser_oracle_postprocess_deparse(
 		return status;
 	}
 
+	if (sqlparser_oracle_state_has_multi_insert(state)) {
+		char *multi_sql;
+
+		multi_sql = NULL;
+		status = sqlparser_oracle_render_multi_insert(
+			sqlparser_oracle_state_multi_insert(state),
+			public_sql,
+			&multi_sql,
+			out_error);
+		free(public_sql);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		public_sql = multi_sql;
+	}
+
 	status = sqlparser_oracle_rewrite_session_switches(&public_sql, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		free(public_sql);
@@ -2527,6 +3806,663 @@ static sqlparser_status_t sqlparser_oracle_preprocess_fragment(
 		out_error);
 }
 
+static sqlparser_status_t sqlparser_oracle_value_clone(
+	const sqlparser_oracle_value_t *source,
+	sqlparser_oracle_value_t *target,
+	sqlparser_error_t *out_error)
+{
+	if (source == NULL || target == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "value clone arguments must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	memset(target, 0, sizeof(*target));
+	*target = *source;
+	target->public_sql = sqlparser_strdup(source->public_sql);
+	target->parser_sql = sqlparser_strdup(source->parser_sql);
+	target->literal_string_value = sqlparser_strdup(source->literal_string_value);
+	target->literal_float_value = sqlparser_strdup(source->literal_float_value);
+	if ((source->public_sql != NULL && target->public_sql == NULL) ||
+	    (source->parser_sql != NULL && target->parser_sql == NULL) ||
+	    (source->literal_string_value != NULL && target->literal_string_value == NULL) ||
+	    (source->literal_float_value != NULL && target->literal_float_value == NULL)) {
+		sqlparser_oracle_value_clear(target);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	if (target->literal.kind == SQLPARSER_LITERAL_KIND_STRING) {
+		target->literal.string_value = target->literal_string_value;
+	} else if (target->literal.kind == SQLPARSER_LITERAL_KIND_FLOAT) {
+		target->literal.float_value = target->literal_float_value;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_oracle_multi_insert_clone(
+	const sqlparser_oracle_multi_insert_t *source,
+	sqlparser_oracle_multi_insert_t **out_clone,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_oracle_multi_insert_t *clone;
+	size_t branch_index;
+
+	if (out_clone == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "multi insert clone output must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_clone = NULL;
+	if (source == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	clone = (sqlparser_oracle_multi_insert_t *)calloc(1U, sizeof(*clone));
+	if (clone == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	clone->mode = source->mode;
+	clone->source_public_sql = sqlparser_strdup(source->source_public_sql);
+	clone->source_parser_sql = sqlparser_strdup(source->source_parser_sql);
+	if ((source->source_public_sql != NULL && clone->source_public_sql == NULL) ||
+	    (source->source_parser_sql != NULL && clone->source_parser_sql == NULL)) {
+		sqlparser_oracle_multi_insert_destroy(clone);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	if (source->branch_count > 0U) {
+		clone->branches = (sqlparser_oracle_multi_insert_branch_t *)calloc(source->branch_count, sizeof(*clone->branches));
+		if (clone->branches == NULL) {
+			sqlparser_oracle_multi_insert_destroy(clone);
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		clone->branch_count = source->branch_count;
+	}
+	for (branch_index = 0U; branch_index < source->branch_count; branch_index++) {
+		const sqlparser_oracle_multi_insert_branch_t *src_branch;
+		sqlparser_oracle_multi_insert_branch_t *dst_branch;
+		size_t index;
+
+		src_branch = &source->branches[branch_index];
+		dst_branch = &clone->branches[branch_index];
+		dst_branch->ordinal = src_branch->ordinal;
+		dst_branch->relation.database_name = sqlparser_strdup(src_branch->relation.database_name);
+		dst_branch->relation.schema_name = sqlparser_strdup(src_branch->relation.schema_name);
+		dst_branch->relation.table_name = sqlparser_strdup(src_branch->relation.table_name);
+		dst_branch->relation.sql = sqlparser_strdup(src_branch->relation.sql);
+		if ((src_branch->relation.database_name != NULL && dst_branch->relation.database_name == NULL) ||
+		    (src_branch->relation.schema_name != NULL && dst_branch->relation.schema_name == NULL) ||
+		    (src_branch->relation.table_name != NULL && dst_branch->relation.table_name == NULL) ||
+		    (src_branch->relation.sql != NULL && dst_branch->relation.sql == NULL)) {
+			sqlparser_oracle_multi_insert_destroy(clone);
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		if (src_branch->column_count > 0U) {
+			dst_branch->columns = (sqlparser_oracle_column_t *)calloc(src_branch->column_count, sizeof(*dst_branch->columns));
+			if (dst_branch->columns == NULL) {
+				sqlparser_oracle_multi_insert_destroy(clone);
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+				return SQLPARSER_STATUS_NO_MEMORY;
+			}
+			dst_branch->column_count = src_branch->column_count;
+			for (index = 0U; index < src_branch->column_count; index++) {
+				dst_branch->columns[index].name = sqlparser_strdup(src_branch->columns[index].name);
+				dst_branch->columns[index].sql = sqlparser_strdup(src_branch->columns[index].sql);
+				if ((src_branch->columns[index].name != NULL && dst_branch->columns[index].name == NULL) ||
+				    (src_branch->columns[index].sql != NULL && dst_branch->columns[index].sql == NULL)) {
+					sqlparser_oracle_multi_insert_destroy(clone);
+					sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+					return SQLPARSER_STATUS_NO_MEMORY;
+				}
+			}
+		}
+		if (src_branch->cell_count > 0U) {
+			dst_branch->cells = (sqlparser_oracle_value_t *)calloc(src_branch->cell_count, sizeof(*dst_branch->cells));
+			if (dst_branch->cells == NULL) {
+				sqlparser_oracle_multi_insert_destroy(clone);
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+				return SQLPARSER_STATUS_NO_MEMORY;
+			}
+			dst_branch->cell_count = src_branch->cell_count;
+			for (index = 0U; index < src_branch->cell_count; index++) {
+				if (sqlparser_oracle_value_clone(&src_branch->cells[index], &dst_branch->cells[index], out_error) != SQLPARSER_STATUS_OK) {
+					sqlparser_oracle_multi_insert_destroy(clone);
+					return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+				}
+			}
+		}
+		dst_branch->has_condition = src_branch->has_condition;
+		dst_branch->condition_public_sql = sqlparser_strdup(src_branch->condition_public_sql);
+		dst_branch->condition_parser_sql = sqlparser_strdup(src_branch->condition_parser_sql);
+		if ((src_branch->condition_public_sql != NULL && dst_branch->condition_public_sql == NULL) ||
+		    (src_branch->condition_parser_sql != NULL && dst_branch->condition_parser_sql == NULL)) {
+			sqlparser_oracle_multi_insert_destroy(clone);
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+	}
+	*out_clone = clone;
+	return SQLPARSER_STATUS_OK;
+}
+
+static int sqlparser_oracle_bind_key_is_digits(const char *key)
+{
+	size_t index;
+
+	if (key == NULL || key[0] == '\0') {
+		return 0;
+	}
+	for (index = 0U; key[index] != '\0'; index++) {
+		if (!isdigit((unsigned char)key[index])) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static int sqlparser_oracle_bind_key_is_identifier(const char *key)
+{
+	size_t index;
+
+	if (key == NULL || key[0] == '\0') {
+		return 0;
+	}
+	if (!sqlparser_oracle_is_ident_start((unsigned char)key[0])) {
+		return 0;
+	}
+	for (index = 1U; key[index] != '\0'; index++) {
+		if (!sqlparser_oracle_is_ident_char((unsigned char)key[index])) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static sqlparser_status_t sqlparser_oracle_render_bind_value(
+	const sqlparser_bind_value_t *bind,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	char buffer[SQLPARSER_BIND_SQL_CAPACITY];
+
+	if (out_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "bind SQL output must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_sql = NULL;
+	if (bind == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "bind must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (bind->kind == SQLPARSER_BIND_KIND_POSITIONAL) {
+		if (bind->key == NULL || bind->key[0] == '\0') {
+			*out_sql = sqlparser_strdup("?");
+		} else {
+			if (!sqlparser_oracle_bind_key_is_digits(bind->key)) {
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "positional bind key must be numeric");
+				return SQLPARSER_STATUS_INVALID_ARGUMENT;
+			}
+			if (snprintf(buffer, sizeof(buffer), ":%s", bind->key) >= (int)sizeof(buffer)) {
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "bind SQL is too long");
+				return SQLPARSER_STATUS_RESOURCE_LIMIT;
+			}
+			*out_sql = sqlparser_strdup(buffer);
+		}
+	} else if (bind->kind == SQLPARSER_BIND_KIND_NAMED) {
+		if (!sqlparser_oracle_bind_key_is_identifier(bind->key)) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "named bind key is invalid");
+			return SQLPARSER_STATUS_INVALID_ARGUMENT;
+		}
+		if (snprintf(buffer, sizeof(buffer), ":%s", bind->key) >= (int)sizeof(buffer)) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "bind SQL is too long");
+			return SQLPARSER_STATUS_RESOURCE_LIMIT;
+		}
+		*out_sql = sqlparser_strdup(buffer);
+	} else {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "bind kind must be positional or named");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (*out_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_oracle_render_literal_value(
+	const sqlparser_literal_value_t *value,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_oracle_buffer_t out;
+	char buffer[64];
+	const char *text;
+	size_t index;
+	sqlparser_status_t status;
+
+	if (out_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "literal SQL output must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_sql = NULL;
+	if (value == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "literal must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (value->kind == SQLPARSER_LITERAL_KIND_NULL) {
+		*out_sql = sqlparser_strdup("NULL");
+	} else if (value->kind == SQLPARSER_LITERAL_KIND_INTEGER) {
+		(void)snprintf(buffer, sizeof(buffer), "%lld", value->integer_value);
+		*out_sql = sqlparser_strdup(buffer);
+	} else if (value->kind == SQLPARSER_LITERAL_KIND_FLOAT) {
+		if (value->float_value == NULL || value->float_value[0] == '\0') {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "float literal value must not be empty");
+			return SQLPARSER_STATUS_INVALID_ARGUMENT;
+		}
+		*out_sql = sqlparser_strdup(value->float_value);
+	} else if (value->kind == SQLPARSER_LITERAL_KIND_BOOLEAN) {
+		*out_sql = sqlparser_strdup(value->boolean_value ? "TRUE" : "FALSE");
+	} else if (value->kind == SQLPARSER_LITERAL_KIND_STRING) {
+		text = value->string_value != NULL ? value->string_value : "";
+		memset(&out, 0, sizeof(out));
+		status = sqlparser_oracle_buffer_append_char(&out, '\'', out_error);
+		for (index = 0U; status == SQLPARSER_STATUS_OK && text[index] != '\0'; index++) {
+			if (text[index] == '\'') {
+				status = sqlparser_oracle_buffer_append_cstr(&out, "''", out_error);
+			} else {
+				status = sqlparser_oracle_buffer_append_char(&out, text[index], out_error);
+			}
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_oracle_buffer_append_char(&out, '\'', out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_oracle_buffer_finish(&out, out_error);
+		}
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_oracle_buffer_release(&out);
+			return status;
+		}
+		*out_sql = sqlparser_oracle_buffer_take(&out);
+	} else {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "literal kind is not supported");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	if (*out_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_oracle_multi_insert_replace_cell_public_sql(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t branch_index,
+	size_t column_index,
+	const char *sql_text,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_handle_t *candidate;
+	sqlparser_handle_t *replacement;
+	sqlparser_oracle_state_t *state;
+	sqlparser_oracle_multi_insert_t *multi;
+	sqlparser_oracle_multi_insert_branch_t *branch;
+	sqlparser_parse_options_t options;
+	char *public_sql;
+	sqlparser_status_t status;
+
+	if (handle == NULL || sql_text == NULL || sql_text[0] == '\0') {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "multi insert cell replacement arguments are invalid");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (statement_index != 0U || !sqlparser_oracle_state_has_multi_insert(handle->dialect_state)) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "selector is not an Oracle multi-table INSERT cell");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	candidate = NULL;
+	replacement = NULL;
+	public_sql = NULL;
+	status = sqlparser_handle_clone(handle, &candidate, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	state = (sqlparser_oracle_state_t *)candidate->dialect_state;
+	multi = state != NULL ? state->multi_insert : NULL;
+	if (multi == NULL || branch_index >= multi->branch_count) {
+		sqlparser_handle_destroy(candidate);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "branch index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	branch = &multi->branches[branch_index];
+	if (column_index >= branch->cell_count) {
+		sqlparser_handle_destroy(candidate);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "cell index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	free(branch->cells[column_index].public_sql);
+	branch->cells[column_index].public_sql = sqlparser_strdup(sql_text);
+	if (branch->cells[column_index].public_sql == NULL) {
+		sqlparser_handle_destroy(candidate);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	status = sqlparser_deparse(candidate, &public_sql, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_destroy(candidate);
+		return status;
+	}
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	options.limits = handle->limits;
+	status = sqlparser_parse_with_options(public_sql, &options, &replacement, out_error);
+	free(public_sql);
+	sqlparser_handle_destroy(candidate);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	sqlparser_handle_replace_contents(handle, replacement);
+	sqlparser_handle_destroy(replacement);
+	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_oracle_multi_insert_set_cell_sql(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t branch_index,
+	size_t column_index,
+	const char *sql_text,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_error_clear(out_error);
+	return sqlparser_oracle_multi_insert_replace_cell_public_sql(
+		handle,
+		statement_index,
+		branch_index,
+		column_index,
+		sql_text,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_oracle_multi_insert_cell_sql(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t branch_index,
+	size_t column_index,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	const sqlparser_oracle_state_t *state;
+	const sqlparser_oracle_multi_insert_t *multi;
+	const sqlparser_oracle_multi_insert_branch_t *branch;
+
+	sqlparser_error_clear(out_error);
+	if (out_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "out_sql must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_sql = NULL;
+	if (handle == NULL || statement_index != 0U || !sqlparser_oracle_state_has_multi_insert(handle->dialect_state)) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "selector is not an Oracle multi-table INSERT cell");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	state = (const sqlparser_oracle_state_t *)handle->dialect_state;
+	multi = state != NULL ? state->multi_insert : NULL;
+	if (multi == NULL || branch_index >= multi->branch_count) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "branch index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	branch = &multi->branches[branch_index];
+	if (column_index >= branch->cell_count) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "cell index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_sql = sqlparser_strdup(branch->cells[column_index].public_sql);
+	if (*out_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_oracle_multi_insert_condition_sql(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t branch_index,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	const sqlparser_oracle_state_t *state;
+	const sqlparser_oracle_multi_insert_t *multi;
+	const sqlparser_oracle_multi_insert_branch_t *branch;
+
+	sqlparser_error_clear(out_error);
+	if (out_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "out_sql must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_sql = NULL;
+	if (handle == NULL || statement_index != 0U || !sqlparser_oracle_state_has_multi_insert(handle->dialect_state)) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "selector is not an Oracle multi-table INSERT condition");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	state = (const sqlparser_oracle_state_t *)handle->dialect_state;
+	multi = state != NULL ? state->multi_insert : NULL;
+	if (multi == NULL || branch_index >= multi->branch_count) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "branch index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	branch = &multi->branches[branch_index];
+	if (!branch->has_condition || branch->condition_public_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "branch has no condition");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_sql = sqlparser_strdup(branch->condition_public_sql);
+	if (*out_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_oracle_multi_insert_set_cell_literal(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t branch_index,
+	size_t column_index,
+	const sqlparser_literal_value_t *value,
+	sqlparser_error_t *out_error)
+{
+	char *literal_sql;
+	sqlparser_status_t status;
+
+	literal_sql = NULL;
+	sqlparser_error_clear(out_error);
+	status = sqlparser_oracle_render_literal_value(value, &literal_sql, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_oracle_multi_insert_replace_cell_public_sql(
+		handle,
+		statement_index,
+		branch_index,
+		column_index,
+		literal_sql,
+		out_error);
+	free(literal_sql);
+	return status;
+}
+
+sqlparser_status_t sqlparser_oracle_multi_insert_set_cell_bind(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t branch_index,
+	size_t column_index,
+	const sqlparser_bind_value_t *bind,
+	sqlparser_error_t *out_error)
+{
+	char *bind_sql;
+	sqlparser_status_t status;
+
+	bind_sql = NULL;
+	sqlparser_error_clear(out_error);
+	status = sqlparser_oracle_render_bind_value(bind, &bind_sql, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_oracle_multi_insert_replace_cell_public_sql(
+		handle,
+		statement_index,
+		branch_index,
+		column_index,
+		bind_sql,
+		out_error);
+	free(bind_sql);
+	return status;
+}
+
+sqlparser_status_t sqlparser_oracle_multi_insert_insert_column_sql(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t branch_index,
+	size_t column_index,
+	const char *column_sql,
+	const char *cell_sql,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_handle_t *candidate;
+	sqlparser_handle_t *replacement;
+	sqlparser_oracle_state_t *state;
+	sqlparser_oracle_multi_insert_t *multi;
+	sqlparser_oracle_multi_insert_branch_t *branch;
+	sqlparser_oracle_column_t new_column;
+	sqlparser_oracle_value_t new_cell;
+	sqlparser_oracle_column_t *next_columns;
+	sqlparser_oracle_value_t *next_cells;
+	sqlparser_parse_options_t options;
+	char *public_sql;
+	size_t column_insert_index;
+	size_t cell_insert_index;
+	size_t index;
+	sqlparser_status_t status;
+
+	sqlparser_error_clear(out_error);
+	if (handle == NULL || column_sql == NULL || column_sql[0] == '\0' ||
+	    cell_sql == NULL || cell_sql[0] == '\0') {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "multi insert column insertion arguments are invalid");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (statement_index != 0U || !sqlparser_oracle_state_has_multi_insert(handle->dialect_state)) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "selector is not an Oracle multi-table INSERT branch");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	memset(&new_column, 0, sizeof(new_column));
+	memset(&new_cell, 0, sizeof(new_cell));
+	candidate = NULL;
+	replacement = NULL;
+	next_columns = NULL;
+	next_cells = NULL;
+	public_sql = NULL;
+
+	status = sqlparser_handle_clone(handle, &candidate, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	state = (sqlparser_oracle_state_t *)candidate->dialect_state;
+	multi = state != NULL ? state->multi_insert : NULL;
+	if (multi == NULL || branch_index >= multi->branch_count) {
+		sqlparser_handle_destroy(candidate);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "branch index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	branch = &multi->branches[branch_index];
+	if (branch->column_count == SIZE_MAX || branch->cell_count == SIZE_MAX) {
+		sqlparser_handle_destroy(candidate);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "multi insert branch is too large");
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+
+	status = sqlparser_oracle_trimmed_slice_dup(column_sql, 0U, strlen(column_sql), &new_column.sql, out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_oracle_identifier_from_sql(
+			column_sql,
+			0U,
+			strlen(column_sql),
+			&new_column.name,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_oracle_parse_value_item(
+			cell_sql,
+			0U,
+			strlen(cell_sql),
+			state,
+			&new_cell,
+			out_error);
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_oracle_column_clear(&new_column);
+		sqlparser_oracle_value_clear(&new_cell);
+		sqlparser_handle_destroy(candidate);
+		return status;
+	}
+
+	next_columns = (sqlparser_oracle_column_t *)calloc(branch->column_count + 1U, sizeof(*next_columns));
+	next_cells = (sqlparser_oracle_value_t *)calloc(branch->cell_count + 1U, sizeof(*next_cells));
+	if (next_columns == NULL || next_cells == NULL) {
+		free(next_columns);
+		free(next_cells);
+		sqlparser_oracle_column_clear(&new_column);
+		sqlparser_oracle_value_clear(&new_cell);
+		sqlparser_handle_destroy(candidate);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+
+	column_insert_index = column_index > branch->column_count ? branch->column_count : column_index;
+	cell_insert_index = column_index > branch->cell_count ? branch->cell_count : column_index;
+	for (index = 0U; index < column_insert_index; index++) {
+		next_columns[index] = branch->columns[index];
+	}
+	next_columns[column_insert_index] = new_column;
+	memset(&new_column, 0, sizeof(new_column));
+	for (index = column_insert_index; index < branch->column_count; index++) {
+		next_columns[index + 1U] = branch->columns[index];
+	}
+	for (index = 0U; index < cell_insert_index; index++) {
+		next_cells[index] = branch->cells[index];
+	}
+	next_cells[cell_insert_index] = new_cell;
+	memset(&new_cell, 0, sizeof(new_cell));
+	for (index = cell_insert_index; index < branch->cell_count; index++) {
+		next_cells[index + 1U] = branch->cells[index];
+	}
+	free(branch->columns);
+	free(branch->cells);
+	branch->columns = next_columns;
+	branch->column_count++;
+	branch->cells = next_cells;
+	branch->cell_count++;
+	next_columns = NULL;
+	next_cells = NULL;
+
+	status = sqlparser_deparse(candidate, &public_sql, out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		sqlparser_parse_options_default(&options);
+		options.dialect = SQLPARSER_DIALECT_ORACLE;
+		options.limits = handle->limits;
+		status = sqlparser_parse_with_options(public_sql, &options, &replacement, out_error);
+	}
+	free(public_sql);
+	sqlparser_handle_destroy(candidate);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	sqlparser_handle_replace_contents(handle, replacement);
+	sqlparser_handle_destroy(replacement);
+	return SQLPARSER_STATUS_OK;
+}
+
 static sqlparser_status_t sqlparser_oracle_clone_state(
 	const void *state,
 	void **out_state,
@@ -2556,6 +4492,7 @@ static sqlparser_status_t sqlparser_oracle_clone_state(
 		return status;
 	}
 	clone->saw_minus = source->saw_minus;
+	clone->bind_occurrence_count = source->bind_occurrence_count;
 
 	for (index = 0U; index < source->bind_count; index++) {
 		size_t param_index;
@@ -2571,6 +4508,12 @@ static sqlparser_status_t sqlparser_oracle_clone_state(
 			return status;
 		}
 		(void)param_index;
+	}
+
+	status = sqlparser_oracle_multi_insert_clone(source->multi_insert, &clone->multi_insert, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_oracle_state_destroy(clone);
+		return status;
 	}
 
 	*out_state = clone;

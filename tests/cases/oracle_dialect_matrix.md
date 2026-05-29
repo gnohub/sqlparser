@@ -110,6 +110,23 @@
 | O102 | `oracle-expression-field-multi-field-expression-value` | `NVL(SECRET, ID)`、`SECRET || ID` 与 bind 比较 | 表达式内字段分别保留 `expression_field` value 关系 |
 | O103 | `oracle-expression-field-value-side-expression` | 字段与值侧函数、拼接、CAST 比较 | 值侧表达式输出 `kind=expression`，不暴露 direct bind |
 | O104 | `oracle-expression-field-dml-expression-values` | INSERT/UPDATE 表达式赋值 | DML cell/assignment 输出 `kind=expression` |
+| O132 | `oracle-insert-all-bind-branches` | `INSERT ALL` 多分支 bind | 分支 cell 暴露 bind key、bind kind、bind SQL 和全局 bind 序号 |
+| O133 | `oracle-insert-all-multi-target` | `INSERT ALL` 多目标表 | 每个 INTO 分支保留独立 target relation、target columns 和 rows |
+| O134 | `oracle-insert-select-union-literals` | `INSERT ... SELECT ... UNION ALL` literal 来源 | source target 通过 value index 暴露 literal |
+| O135 | `oracle-insert-select-union-positional-binds` | `INSERT ... SELECT ... UNION ALL` 位置 bind 来源 | source target 通过 value index 暴露位置 bind |
+| O136 | `oracle-insert-select-union-named-binds` | `INSERT ... SELECT ... UNION ALL` 命名 bind 来源 | source target 通过 value index 暴露命名 bind |
+| O137 | `INSERT ALL` | Oracle 多表插入 | `insert_mode=all`、分支 target relation、target columns、rows 和 deparse |
+| O138 | `INSERT FIRST` | 条件多表插入 | `insert_mode=first` 和 branch condition selector |
+| O139 | `oracle-insert-first-direct-source-fields` | `INSERT FIRST` branch cell 引用 source query 字段 | branch cell 输出 `kind=field` 并通过 `source_target` 指向 source query 输出项 |
+| O140 | `oracle-insert-all-conditional` | 条件 `INSERT ALL WHEN ... THEN` | `insert_mode=all`、branch condition selector、bind 序号和 source target 关联 |
+| O141 | `oracle-insert-all-multiple-into-per-when` | 单个 WHEN 下多个 INTO 分支 | 同一 WHEN 下多个 branch 保留独立分支和 condition selector，ELSE 分支可解析 |
+| O142 | `oracle-insert-select-source-fields` | `INSERT ... SELECT` 直接字段来源 | source query 输出字段保持 `kind=field` 和字段归属 |
+| O143 | `oracle-insert-select-expression-targets` | `INSERT ... SELECT` 表达式来源 | source query 表达式 target 保持 `kind=expression`，字段路径可见 |
+| O144 | `oracle-insert-all-source-field-and-expression-cells` | `INSERT ALL` branch cell 混合 source field 与 expression | direct field cell 使用 `source_target`，表达式 cell 不误标成 field/literal/bind |
+| O145 | `oracle-insert-select-union-distinct-literals` | `INSERT ... SELECT ... UNION` literal 来源 | set kind、branch targets、literal values 和 target ordinal 保持稳定 |
+| O146 | `oracle-insert-select-intersect-binds` | `INSERT ... SELECT ... INTERSECT` 位置 bind 来源 | set kind、branch targets、bind key/SQL/全局序号保持稳定 |
+| O147 | `oracle-insert-select-minus-named-binds` | `INSERT ... SELECT ... MINUS` 命名 bind 来源 | Oracle `MINUS` 公共形态、branch targets、bind key/SQL/全局序号保持稳定 |
+| O148 | `oracle-insert-all-schema-qualified-targets` | schema-qualified `INSERT ALL` 目标表 | 每个 branch target relation 保留 schema/table，bind key/SQL/全局序号保持稳定 |
 
 ## 明确不支持用例
 
@@ -120,7 +137,6 @@
 | O003 | national q-quoted 字符串 | national 字符集语义当前不做静默降级 |
 | OU001 | `CONNECT BY` | 层级查询语义不等价 |
 | OU002 | `(+)` | 旧式外连接语义不等价 |
-| OU003 | `INSERT ALL` | 多表插入语义不等价 |
 | OU004 | `RETURNING ... INTO` | 返回目标和宿主变量语义不等价 |
 | OU005 | PL/SQL block | 超出 SQL 语句转换范围 |
 | OU006 | `CREATE PROCEDURE` | PL/SQL 单元 |
@@ -134,7 +150,6 @@
 | OU015 | database link | 远程对象引用语义 |
 | OU016 | `EXPLAIN PLAN FOR` | Oracle explain plan 输出语义 |
 | OU017 | `CONNECT_BY_ROOT` | 层级查询相关表达式 |
-| OU018 | `INSERT FIRST` | 条件多表插入语义 |
 
 ## 维护要求
 

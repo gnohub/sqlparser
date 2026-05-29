@@ -139,6 +139,16 @@ bind 字段规则：
 - `bind_position` 是整条输入 SQL 中的 bind 出现序号，从 1 开始；多语句输入不按 statement 重置。
 - `bind_sql` 保留 SQL 中的原始占位符文本。
 
+`sqlparser_graph_value_kind_t`：
+
+| 枚举 | 数值 | 说明 |
+| --- | --- | --- |
+| `SQLPARSER_GRAPH_VALUE_LITERAL` | `1` | 字面量值 |
+| `SQLPARSER_GRAPH_VALUE_BIND` | `2` | 预编译占位符 |
+| `SQLPARSER_GRAPH_VALUE_DEFAULT` | `3` | `DEFAULT` |
+| `SQLPARSER_GRAPH_VALUE_EXPRESSION` | `4` | 函数、运算符、`CASE` 等表达式 |
+| `SQLPARSER_GRAPH_VALUE_FIELD` | `5` | Oracle multi-table INSERT branch cell 直接引用 source query 输出字段 |
+
 `sqlparser_graph_field_match_kind_t`：
 
 | 枚举 | 数值 | 说明 |
@@ -345,6 +355,8 @@ stmt[0].where_literal[0]
 stmt[0].clause[0]
 stmt[0].assignment[0]
 stmt[0].insert_cell[1][2]
+stmt[0].insert_branch_columns[0]
+stmt[0].insert_branch_condition[0]
 stmt[0].select_targets[0]
 stmt[0].select_target[0][1]
 ```
@@ -361,7 +373,7 @@ stmt[0].select_target[0][1]
 | `sqlparser_selector_where_literal()` | 通过 selector 读取 WHERE literal |
 | `sqlparser_selector_where_sql()` | 通过 selector 读取 WHERE 条件 SQL |
 | `sqlparser_selector_clause()` | 通过 selector 读取通用子句视图 |
-| `sqlparser_selector_clause_sql()` | 通过 selector 读取通用子句 SQL |
+| `sqlparser_selector_clause_sql()` | 通过 selector 读取通用子句 SQL；也可读取 Oracle `INSERT ALL/FIRST` branch condition SQL |
 | `sqlparser_selector_update_assignment()` | 通过 selector 读取 assignment |
 | `sqlparser_selector_update_assignment_sql()` | 通过 selector 读取 assignment 右值 SQL |
 | `sqlparser_selector_insert_cell_literal()` | 通过 selector 读取 INSERT cell literal |
@@ -469,6 +481,7 @@ sqlparser_status_t sqlparser_statement_query_graph(
 | `sqlparser_query_graph_value_at()` | 读取字段关联值 |
 | `sqlparser_query_graph_set_at()` | 读取集合运算节点 |
 | `sqlparser_query_graph_dml()` | 读取 DML 写入结构 |
+| `sqlparser_query_graph_dml_branch_at()` | 读取 Oracle multi-table INSERT 分支 |
 | `sqlparser_query_graph_dml_column_at()` | 读取 INSERT 目标列 |
 | `sqlparser_query_graph_dml_cell_at()` | 读取 INSERT VALUES 单元格 |
 | `sqlparser_query_graph_dml_assignment_at()` | 读取 UPDATE/MERGE 赋值项 |
@@ -484,8 +497,9 @@ sqlparser_status_t sqlparser_statement_query_graph(
 | `sqlparser_graph_value_t` | 与字段关联的 literal、bind、default 或 expression 值 |
 | `sqlparser_graph_set_t` | `UNION`、`UNION ALL`、`INTERSECT`、`EXCEPT/MINUS` 分支关系 |
 | `sqlparser_graph_dml_t` | INSERT、UPDATE、DELETE、MERGE 写入结构 |
+| `sqlparser_graph_dml_branch_t` | Oracle multi-table INSERT 的单个 INTO 分支 |
 | `sqlparser_graph_dml_column_t` | INSERT 显式目标列 |
-| `sqlparser_graph_dml_cell_t` | INSERT VALUES 单元格 |
+| `sqlparser_graph_dml_cell_t` | INSERT VALUES 单元格；Oracle multi-table INSERT 中可通过 `source_target_index` 关联末尾 source query 输出项 |
 | `sqlparser_graph_dml_assignment_t` | UPDATE/MERGE 赋值项 |
 
 ### 归属规则
@@ -495,7 +509,10 @@ sqlparser_status_t sqlparser_statement_query_graph(
 - `targets[].source_block_index` 表达星号或子查询 target 的来源 block。
 - `sets[].branch_blocks` 表达集合运算左右分支。
 - 未限定字段如果不能仅凭 SQL 唯一归属，`has_relation` 为 0，`candidate_relations` 给出当前 scope 候选 relation。
-- `values[]` 只记录与字段关联的应用侧值；`LIMIT/OFFSET`、`ROWNUM` 等分页或伪列 bind 不进入 `values[]`。
+- `sqlparser_graph_dml_t.insert_mode` 区分 `VALUES`、`SELECT`、`INSERT ALL` 和 `INSERT FIRST`。
+- `sqlparser_graph_dml_t.branches` 仅用于 Oracle multi-table INSERT；每个 branch 持有独立 target relation、target columns、rows 和可选 condition selector。condition selector 可通过 `sqlparser_selector_clause_sql()` 读取原始条件 SQL。
+- Oracle multi-table INSERT branch cell 如果直接引用末尾 source query 输出字段，`sqlparser_graph_dml_cell_t.kind` 为 `SQLPARSER_GRAPH_VALUE_FIELD`，并通过 `has_source_target/source_target_index` 指向对应 `targets[]` 项。
+- `values[]` 只记录与字段或 SELECT target 关联的应用侧值；`LIMIT/OFFSET`、`ROWNUM` 等分页或伪列 bind 不进入 `values[]`。
 - `sqlparser_graph_value_t.field_match_kind` 仅在 `has_field` 为真时有效，用于区分 `secret = ?` 这类直接字段匹配和 `UPPER(secret) = ?` 这类表达式字段匹配。
 - 字段侧表达式包含多个字段时，每个可定位字段各输出一条 `expression_field` value 关系。
 - 值侧是函数、CAST、运算符、数组、ROW 或 CASE 表达式时，关联字段的 value 使用 `SQLPARSER_GRAPH_VALUE_EXPRESSION`，不会把内部 bind/literal 当作 direct value 暴露。
@@ -533,8 +550,8 @@ sqlparser_apply_patch(handle, &patches, &err);
 | 操作 | 说明 |
 | --- | --- |
 | `SQLPARSER_PATCH_REPLACE` | 替换 relation、name、value、assignment、literal、where_literal、clause、insert_cell、select_target 或 select_targets |
-| `SQLPARSER_PATCH_INSERT_COLUMN` | 给 `INSERT ... VALUES` 增加列，或向 `select_targets` 插入 SELECT 输出项 |
-| `SQLPARSER_PATCH_DELETE_COLUMN` | 删除 `INSERT ... VALUES` 列，或删除 SELECT 输出项 |
+| `SQLPARSER_PATCH_INSERT_COLUMN` | 给 `INSERT ... VALUES` 增加列、给 `INSERT ... SELECT` 增加目标列、给 Oracle `INSERT ALL/FIRST` branch 增加目标列，或向 `select_targets` 插入 SELECT 输出项 |
+| `SQLPARSER_PATCH_DELETE_COLUMN` | 删除 `INSERT ... VALUES` 列、删除 `INSERT ... SELECT` 目标列，或删除 SELECT 输出项 |
 | `SQLPARSER_PATCH_DELETE_ROW` | 删除 `INSERT ... VALUES` 行 |
 | `SQLPARSER_PATCH_APPEND_CONDITION` | 按 `AND` 或 `OR` 向 `where` 子句追加条件 |
 | `SQLPARSER_PATCH_INSERT_ASSIGNMENT` | 插入 `UPDATE SET` 赋值项 |
@@ -542,6 +559,8 @@ sqlparser_apply_patch(handle, &patches, &err);
 | `SQLPARSER_PATCH_REPLACE_ASSIGNMENT` | 整项替换 `UPDATE SET` 赋值项 |
 
 patch 成功后 handle generation 递增，旧 query graph view 失效。
+
+`sqlparser_patch_t` 的值来源字段互斥：`sql`、`default_sql`、`source_selector`、`literal`、`bind` 中同一位置只能提供一种。`source_selector` 支持克隆已有 `insert_cell`、`select_target` 或 `assignment` 的 SQL 片段；`literal` 和 `bind` 由库按当前方言渲染，调用方不需要拼接占位符文本。
 
 ## Deparse 与字符串释放
 
@@ -582,6 +601,7 @@ patch 成功后 handle generation 递增，旧 query graph view 失效。
 | `examples/patch/15_insert_columns_patch.c` | 通过 patch 增加和删除 `INSERT ... VALUES` 字段 |
 | `examples/patch/16_clause_patch.c` | 通过通用 clause patch 改写 SELECT 输出列表、WHERE 和 ORDER BY |
 | `examples/patch/17_update_set_patch.c` | 通过 patch 追加、删除和整项替换 `UPDATE SET` 赋值项 |
+| `examples/patch/19_oracle_multi_insert_patch.c` | 通过 patch 改写 Oracle `INSERT ALL` 分支列和值 |
 | `examples/convenience/18_structured_fragment_rewrite.c` | 结构化 UPDATE assignment 插入和 SELECT `*` 展开 |
 | `examples/inspect/01_select_inspect.c` | SELECT 读取与多表关联信息 |
 | `examples/inspect/03_insert_select_inspect.c` | `INSERT ... SELECT` 结构读取 |

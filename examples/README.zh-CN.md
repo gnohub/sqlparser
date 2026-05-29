@@ -27,6 +27,8 @@
   展示通过通用 `clause` patch 改写 SELECT 输出列表、WHERE 条件和 ORDER BY。
 - `examples/patch/17_update_set_patch.c`
   展示通过 `sqlparser_apply_patch()` 追加、删除和整项替换 `UPDATE SET` 赋值项。
+- `examples/patch/19_oracle_multi_insert_patch.c`
+  展示通过 `sqlparser_apply_patch()` 改写 Oracle `INSERT ALL` 分支：插入目标列、结构化 bind cell，以及从已有 cell 克隆新增 cell。
 
 ## 便捷接口示例
 
@@ -84,9 +86,15 @@ make examples
 ./bin/examples/convenience/18_structured_fragment_rewrite
 ```
 
+运行 Oracle 多表插入 patch 示例：
+
+```bash
+./bin/examples/patch/19_oracle_multi_insert_patch
+```
+
 ## 说明
 
 - 示例程序使用公共 API，不依赖私有头文件。
-- 接入层建议优先参考 `examples/patch/`。
+- `examples/patch/` 展示主要结构化改写流程。
 - 示例代码中的中文注释用于说明关键调用步骤和资源释放顺序。
 - 需要更完整的接口说明时，请参考 [API 手册](../doc/api_reference.md)。

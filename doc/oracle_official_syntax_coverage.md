@@ -18,26 +18,26 @@
 | `CURRENT` | 当前 Oracle 方言已有代表性可执行覆盖，或可由当前 AST 安全表达。 |
 | `HOOK_ONLY` | 当前尚未覆盖，但可以通过方言 hook、预处理、后处理或类型/函数映射完成。 |
 | `MIXED_MODEL` | 基础形态可以通过现有 AST 和 hook 支持，但完整官方语法需要 Oracle 专用模型。 |
-| `MODEL_REQUIRED` | 需要 Oracle 专用模型，通常涉及层级查询、多表插入、PL/SQL、表变换、闪回或远程对象引用。 |
+| `MODEL_REQUIRED` | 需要 Oracle 专用模型，通常涉及层级查询、PL/SQL、表变换、闪回或远程对象引用。 |
 | `REFERENCE_ONLY` | 官方索引页、分类页或说明页，不作为独立实现单元统计支持率。 |
 
 ## 统计结果
 
 | 状态 | 语法组数 | 占全部 46 组 |
 | --- | ---: | ---: |
-| `CURRENT` | 32 | 69.57% |
+| `CURRENT` | 33 | 71.74% |
 | `HOOK_ONLY` | 0 | 0.00% |
 | `MIXED_MODEL` | 0 | 0.00% |
-| `MODEL_REQUIRED` | 14 | 30.43% |
+| `MODEL_REQUIRED` | 13 | 28.26% |
 | `REFERENCE_ONLY` | 0 | 0.00% |
 
-剔除 `REFERENCE_ONLY` 后，官方可实现语法组为 46 组。其中当前已覆盖 32 组，未覆盖 14 组。
+剔除 `REFERENCE_ONLY` 后，官方可实现语法组为 46 组。其中当前已覆盖 33 组，未覆盖 13 组。
 
-| 未覆盖分类 | 语法组数 | 占未覆盖 14 组 |
+| 未覆盖分类 | 语法组数 | 占未覆盖 13 组 |
 | --- | ---: | ---: |
 | `HOOK_ONLY` | 0 | 0.00% |
 | `MIXED_MODEL` | 0 | 0.00% |
-| `MODEL_REQUIRED` | 14 | 100.00% |
+| `MODEL_REQUIRED` | 13 | 100.00% |
 
 ## 结论
 

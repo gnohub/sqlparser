@@ -8,7 +8,7 @@
 | --- | --- | ---: | ---: | ---: | ---: |
 | PostgreSQL | `tests/cases/sql_batch_input.json` | 133 | 1 | 134 | 99.25% |
 | MySQL | `tests/cases/mysql_dialect_input.json` | 79 | 18 | 97 | 81.44% |
-| Oracle | `tests/cases/oracle_dialect_input.json` | 104 | 18 | 122 | 85.25% |
+| Oracle | `tests/cases/oracle_dialect_input.json` | 121 | 16 | 137 | 88.32% |
 | SQL Server | `tests/cases/sqlserver_dialect_input.json` | 324 | 15 | 339 | 95.58% |
 | 达梦 | `tests/cases/dameng_dialect_input.json` | 81 | 12 | 93 | 87.10% |
 

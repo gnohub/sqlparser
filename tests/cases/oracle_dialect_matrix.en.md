@@ -110,6 +110,23 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 | O102 | `oracle-expression-field-multi-field-expression-value` | `NVL(SECRET, ID)` and `SECRET || ID` compared with binds | Fields inside the expression keep separate `expression_field` value relations |
 | O103 | `oracle-expression-field-value-side-expression` | field compared with function, concatenation, and CAST value-side expressions | value-side expressions emit `kind=expression` instead of direct binds |
 | O104 | `oracle-expression-field-dml-expression-values` | INSERT/UPDATE expression assignments | DML cells and assignments emit `kind=expression` |
+| O132 | `oracle-insert-all-bind-branches` | `INSERT ALL` bind branches | branch cells expose bind key, bind kind, bind SQL, and global bind position |
+| O133 | `oracle-insert-all-multi-target` | `INSERT ALL` multiple target tables | each INTO branch keeps its own target relation, target columns, and rows |
+| O134 | `oracle-insert-select-union-literals` | `INSERT ... SELECT ... UNION ALL` literal sources | source targets expose literals through value indexes |
+| O135 | `oracle-insert-select-union-positional-binds` | `INSERT ... SELECT ... UNION ALL` positional bind sources | source targets expose positional binds through value indexes |
+| O136 | `oracle-insert-select-union-named-binds` | `INSERT ... SELECT ... UNION ALL` named bind sources | source targets expose named binds through value indexes |
+| O137 | `INSERT ALL` | Oracle multi-table insert | `insert_mode=all`, branch target relations, target columns, rows, and deparse |
+| O138 | `INSERT FIRST` | conditional multi-table insert | `insert_mode=first` and branch condition selectors |
+| O139 | `oracle-insert-first-direct-source-fields` | `INSERT FIRST` branch cells reference source-query fields | branch cells emit `kind=field` and point to source-query outputs through `source_target` |
+| O140 | `oracle-insert-all-conditional` | conditional `INSERT ALL WHEN ... THEN` | `insert_mode=all`, branch condition selectors, bind positions, and source-target links |
+| O141 | `oracle-insert-all-multiple-into-per-when` | multiple INTO branches under one WHEN | multiple branches under the same WHEN keep independent spans and condition selectors; ELSE branches parse correctly |
+| O142 | `oracle-insert-select-source-fields` | direct-field `INSERT ... SELECT` source targets | source-query output fields keep `kind=field` and field attribution |
+| O143 | `oracle-insert-select-expression-targets` | expression `INSERT ... SELECT` source targets | source-query expression targets keep `kind=expression`; field target paths remain visible |
+| O144 | `oracle-insert-all-source-field-and-expression-cells` | mixed source-field and expression branch cells | direct-field cells use `source_target`; expression cells are not misclassified as field, literal, or bind |
+| O145 | `oracle-insert-select-union-distinct-literals` | literal `INSERT ... SELECT ... UNION` sources | set kind, branch targets, literal values, and target ordinals remain stable |
+| O146 | `oracle-insert-select-intersect-binds` | positional-bind `INSERT ... SELECT ... INTERSECT` sources | set kind, branch targets, bind key/SQL/global positions remain stable |
+| O147 | `oracle-insert-select-minus-named-binds` | named-bind `INSERT ... SELECT ... MINUS` sources | public Oracle `MINUS`, branch targets, bind key/SQL/global positions remain stable |
+| O148 | `oracle-insert-all-schema-qualified-targets` | schema-qualified `INSERT ALL` targets | each branch target relation keeps schema/table; bind key/SQL/global positions remain stable |
 
 ## Explicitly Unsupported Cases
 
@@ -120,7 +137,6 @@ The following constructs have Oracle-specific semantics. The conversion layer re
 | O003 | national q-quoted string | national character-set semantics are not silently downgraded |
 | OU001 | `CONNECT BY` | non-equivalent hierarchical query semantics |
 | OU002 | `(+)` | non-equivalent legacy outer join semantics |
-| OU003 | `INSERT ALL` | non-equivalent multi-table insert semantics |
 | OU004 | `RETURNING ... INTO` | non-equivalent host-variable return target |
 | OU005 | PL/SQL block | outside SQL statement conversion scope |
 | OU006 | `CREATE PROCEDURE` | PL/SQL unit |
@@ -134,7 +150,6 @@ The following constructs have Oracle-specific semantics. The conversion layer re
 | OU015 | database link | remote object reference semantics |
 | OU016 | `EXPLAIN PLAN FOR` | Oracle explain plan output semantics |
 | OU017 | `CONNECT_BY_ROOT` | hierarchical-query expression |
-| OU018 | `INSERT FIRST` | conditional multi-table insert semantics |
 
 ## Maintenance
 

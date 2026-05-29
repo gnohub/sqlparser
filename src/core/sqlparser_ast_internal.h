@@ -202,6 +202,11 @@ sqlparser_status_t sqlparser_a_const_set_literal(
 	PgQuery__AConst *a_const,
 	const sqlparser_literal_value_t *value,
 	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_render_bind_value_sql(
+	const sqlparser_handle_t *handle,
+	const sqlparser_bind_value_t *bind,
+	char **out_sql,
+	sqlparser_error_t *out_error);
 void sqlparser_free_proto_node(PgQuery__Node *node);
 sqlparser_status_t sqlparser_clone_proto_node(
 	const PgQuery__Node *source,

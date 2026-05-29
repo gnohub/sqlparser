@@ -133,6 +133,62 @@
       }
     },
     {
+      "id": "O134",
+      "name": "oracle-insert-select-union-literals",
+      "sql": "INSERT INTO users (id, name) SELECT 1, 'a' FROM dual UNION ALL SELECT 2, 'b' FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "UNION ALL",
+        "view_contains": [
+          "\"kind\":\"literal\"",
+          "\"value\":",
+          "\"string_value\":\"b\""
+        ]
+      }
+    },
+    {
+      "id": "O135",
+      "name": "oracle-insert-select-union-positional-binds",
+      "sql": "INSERT INTO users (id, name) SELECT :1, :2 FROM dual UNION ALL SELECT :3, :4 FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": ":4",
+        "view_contains": [
+          "\"kind\":\"bind\"",
+          "\"bind_key\":\"1\"",
+          "\"bind_position\":4"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "O136",
+      "name": "oracle-insert-select-union-named-binds",
+      "sql": "INSERT INTO users (id, name) SELECT :id1, :name1 FROM dual UNION ALL SELECT :id2, :name2 FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": ":name2",
+        "view_contains": [
+          "\"kind\":\"bind\"",
+          "\"bind_key\":\"id1\"",
+          "\"bind_key\":\"name2\""
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
       "id": "O011",
       "name": "oracle-update-bind",
       "sql": "UPDATE users SET name = :name, status = 'active' WHERE id = :id",
@@ -1315,13 +1371,61 @@
       }
     },
     {
-      "id": "OU003",
+      "id": "O137",
       "name": "oracle-insert-all",
       "sql": "INSERT ALL INTO users (id) VALUES (1) INTO users (id) VALUES (2) SELECT 1 FROM dual",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported Oracle syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT ALL",
+        "view_contains": [
+          "\"insert_mode\":\"all\"",
+          "\"branches\"",
+          "\"target_columns\"",
+          "\"rows\""
+        ]
+      }
+    },
+    {
+      "id": "O132",
+      "name": "oracle-insert-all-bind-branches",
+      "sql": "INSERT ALL INTO users (id, name) VALUES (:1, :2) INTO users (id, name) VALUES (:3, :name4) SELECT 1 FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": ":name4",
+        "view_contains": [
+          "\"insert_mode\":\"all\"",
+          "\"bind_key\":\"1\"",
+          "\"bind_key\":\"name4\"",
+          "\"bind_position\":4"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "O133",
+      "name": "oracle-insert-all-multi-target",
+      "sql": "INSERT ALL INTO users (id, name) VALUES (1, 'a') INTO phones (id, phone) VALUES (2, '13800138000') SELECT 1 FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "phones",
+        "view_contains": [
+          "\"insert_mode\":\"all\"",
+          "\"table\":\"users\"",
+          "\"table\":\"phones\"",
+          "\"string_value\":\"13800138000\""
+        ]
       }
     },
     {
@@ -1652,13 +1756,210 @@
       }
     },
     {
-      "id": "OU018",
+      "id": "O138",
       "name": "oracle-insert-first",
       "sql": "INSERT FIRST WHEN 1 = 1 THEN INTO users (id) VALUES (1) SELECT 1 FROM dual",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported Oracle syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT FIRST",
+        "view_contains": [
+          "\"insert_mode\":\"first\"",
+          "\"condition_selector\":\"stmt[0].insert_branch_condition[0]\""
+        ]
+      }
+    },
+    {
+      "id": "O139",
+      "name": "oracle-insert-first-direct-source-fields",
+      "sql": "INSERT FIRST WHEN amount > 100 THEN INTO big_orders (id, amount) VALUES (order_id, amount) ELSE INTO small_orders (id, amount) VALUES (order_id, amount) SELECT id AS order_id, amount FROM orders",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT FIRST",
+        "view_contains": [
+          "\"insert_mode\":\"first\"",
+          "\"kind\":\"field\"",
+          "\"source_target\"",
+          "\"name\":\"order_id\"",
+          "\"table\":\"orders\""
+        ]
+      }
+    },
+    {
+      "id": "O140",
+      "name": "oracle-insert-all-conditional",
+      "sql": "INSERT ALL WHEN flag = 1 THEN INTO users (id, flag_copy) VALUES (:1, flag) WHEN flag = 2 THEN INTO audit_users (id, flag_copy) VALUES (:2, flag) SELECT flag FROM source_table",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT ALL",
+        "view_contains": [
+          "\"insert_mode\":\"all\"",
+          "\"condition_selector\":\"stmt[0].insert_branch_condition[0]\"",
+          "\"condition_selector\":\"stmt[0].insert_branch_condition[1]\"",
+          "\"bind_position\":2",
+          "\"source_target\""
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "O141",
+      "name": "oracle-insert-all-multiple-into-per-when",
+      "sql": "INSERT ALL WHEN flag = 1 THEN INTO users (id) VALUES (:1) INTO audit_users (id) VALUES (:2) ELSE INTO rejected_users (id) VALUES (:3) SELECT flag FROM source_table",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "rejected_users",
+        "view_contains": [
+          "\"insert_mode\":\"all\"",
+          "\"condition_selector\":\"stmt[0].insert_branch_condition[0]\"",
+          "\"condition_selector\":\"stmt[0].insert_branch_condition[1]\"",
+          "\"bind_position\":3"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "O142",
+      "name": "oracle-insert-select-source-fields",
+      "sql": "INSERT INTO users (id, name) SELECT src_id, src_name FROM source_users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_contains": [
+          "\"kind\":\"field\"",
+          "\"column\":\"src_id\"",
+          "\"column\":\"src_name\""
+        ]
+      }
+    },
+    {
+      "id": "O143",
+      "name": "oracle-insert-select-expression-targets",
+      "sql": "INSERT INTO users (id, name) SELECT src_id + 1, UPPER(src_name) FROM source_users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_contains": [
+          "\"kind\":\"expression\"",
+          "\"target_path\"",
+          "\"name\":\"UPPER\""
+        ]
+      }
+    },
+    {
+      "id": "O144",
+      "name": "oracle-insert-all-source-field-and-expression-cells",
+      "sql": "INSERT ALL INTO users (id, name, name_upper) VALUES (src_id, src_name, UPPER(src_name)) SELECT src_id, src_name FROM source_users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_contains": [
+          "\"insert_mode\":\"all\"",
+          "\"source_target\"",
+          "\"column\":2,\"kind\":\"expression\""
+        ]
+      }
+    },
+    {
+      "id": "O145",
+      "name": "oracle-insert-select-union-distinct-literals",
+      "sql": "INSERT INTO users (id, name) SELECT 1, 'a' FROM dual UNION SELECT 2, 'b' FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "UNION",
+        "view_contains": [
+          "\"sets\":[{\"kind\":\"union\"",
+          "\"kind\":\"literal\"",
+          "\"string_value\":\"b\""
+        ]
+      }
+    },
+    {
+      "id": "O146",
+      "name": "oracle-insert-select-intersect-binds",
+      "sql": "INSERT INTO users (id, name) SELECT :1, :2 FROM dual INTERSECT SELECT :3, :4 FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INTERSECT",
+        "view_contains": [
+          "\"sets\":[{\"kind\":\"intersect\"",
+          "\"bind_key\":\"4\"",
+          "\"bind_position\":4"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "O147",
+      "name": "oracle-insert-select-minus-named-binds",
+      "sql": "INSERT INTO users (id, name) SELECT :id1, :name1 FROM dual MINUS SELECT :id2, :name2 FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "MINUS",
+        "view_contains": [
+          "\"sets\":[{\"kind\":\"minus\"",
+          "\"bind_key\":\"name2\"",
+          "\"bind_position\":4"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "O148",
+      "name": "oracle-insert-all-schema-qualified-targets",
+      "sql": "INSERT ALL INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (950001, 'a') INTO KDES.DBP_PHONE_TEST (ID, PHONE) VALUES (:2, :phone) SELECT 1 FROM DUAL",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT ALL",
+        "view_contains": [
+          "\"insert_mode\":\"all\"",
+          "\"schema\":\"KDES\"",
+          "\"table\":\"DBP_CRYPTO_TEST\"",
+          "\"table\":\"DBP_PHONE_TEST\"",
+          "\"bind_key\":\"phone\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$"
       }
     }
   ]

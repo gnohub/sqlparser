@@ -18,6 +18,7 @@ SQLPARSER_0 {
 		sqlparser_graph_field_match_kind_name;
 		sqlparser_graph_set_kind_name;
 		sqlparser_graph_dml_kind_name;
+		sqlparser_graph_insert_mode_name;
 		sqlparser_limits_default;
 		sqlparser_parse_options_default;
 		sqlparser_parse;
@@ -44,6 +45,7 @@ SQLPARSER_0 {
 		sqlparser_insert_set_cell_literal;
 		sqlparser_insert_cell_sql;
 		sqlparser_insert_set_cell_sql;
+		sqlparser_insert_set_cell_bind;
 		sqlparser_select_target_list_count;
 		sqlparser_select_target_count;
 		sqlparser_select_target_sql;
@@ -103,6 +105,7 @@ SQLPARSER_0 {
 		sqlparser_selector_set_insert_cell_literal;
 		sqlparser_selector_insert_cell_sql;
 		sqlparser_selector_set_insert_cell_sql;
+		sqlparser_selector_set_insert_cell_bind;
 		sqlparser_selector_select_target_sql;
 		sqlparser_selector_set_select_target_sql;
 		sqlparser_selector_set_select_targets_sql;
@@ -116,6 +119,7 @@ SQLPARSER_0 {
 		sqlparser_query_graph_value_at;
 		sqlparser_query_graph_set_at;
 		sqlparser_query_graph_dml;
+		sqlparser_query_graph_dml_branch_at;
 		sqlparser_query_graph_dml_column_at;
 		sqlparser_query_graph_dml_cell_at;
 		sqlparser_query_graph_dml_assignment_at;

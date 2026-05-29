@@ -154,6 +154,16 @@ Bind-field rules:
   it does not restart per statement.
 - `bind_sql` preserves the original placeholder text as written in SQL.
 
+`sqlparser_graph_value_kind_t`:
+
+| Enum | Value | Meaning |
+| --- | --- | --- |
+| `SQLPARSER_GRAPH_VALUE_LITERAL` | `1` | literal value |
+| `SQLPARSER_GRAPH_VALUE_BIND` | `2` | prepared-statement placeholder |
+| `SQLPARSER_GRAPH_VALUE_DEFAULT` | `3` | `DEFAULT` |
+| `SQLPARSER_GRAPH_VALUE_EXPRESSION` | `4` | function, operator, `CASE`, or other expression |
+| `SQLPARSER_GRAPH_VALUE_FIELD` | `5` | Oracle multi-table INSERT branch cell that directly references source-query output |
+
 `sqlparser_graph_field_match_kind_t`:
 
 | Enum | Value | Meaning |
@@ -370,6 +380,8 @@ stmt[0].where_literal[0]
 stmt[0].clause[0]
 stmt[0].assignment[0]
 stmt[0].insert_cell[1][2]
+stmt[0].insert_branch_columns[0]
+stmt[0].insert_branch_condition[0]
 stmt[0].select_targets[0]
 stmt[0].select_target[0][1]
 ```
@@ -386,7 +398,7 @@ stmt[0].select_target[0][1]
 | `sqlparser_selector_where_literal()` | reads a WHERE literal |
 | `sqlparser_selector_where_sql()` | reads WHERE condition SQL |
 | `sqlparser_selector_clause()` | reads a generic clause view |
-| `sqlparser_selector_clause_sql()` | reads generic clause SQL |
+| `sqlparser_selector_clause_sql()` | reads generic clause SQL; also reads Oracle `INSERT ALL/FIRST` branch condition SQL |
 | `sqlparser_selector_update_assignment()` | reads an assignment |
 | `sqlparser_selector_update_assignment_sql()` | reads assignment right-hand SQL |
 | `sqlparser_selector_insert_cell_literal()` | reads INSERT cell literal |
@@ -508,6 +520,7 @@ from which it was read.
 | `sqlparser_query_graph_value_at()` | reads a field-bound value |
 | `sqlparser_query_graph_set_at()` | reads a set-operation node |
 | `sqlparser_query_graph_dml()` | reads DML write shape |
+| `sqlparser_query_graph_dml_branch_at()` | reads an Oracle multi-table INSERT branch |
 | `sqlparser_query_graph_dml_column_at()` | reads one INSERT target column |
 | `sqlparser_query_graph_dml_cell_at()` | reads one INSERT VALUES cell |
 | `sqlparser_query_graph_dml_assignment_at()` | reads one UPDATE/MERGE assignment |
@@ -523,8 +536,9 @@ from which it was read.
 | `sqlparser_graph_value_t` | literal, bind, default, or expression associated with a field |
 | `sqlparser_graph_set_t` | `UNION`, `UNION ALL`, `INTERSECT`, or `EXCEPT/MINUS` branches |
 | `sqlparser_graph_dml_t` | INSERT, UPDATE, DELETE, or MERGE write shape |
+| `sqlparser_graph_dml_branch_t` | one INTO branch in an Oracle multi-table INSERT |
 | `sqlparser_graph_dml_column_t` | explicit INSERT target column |
-| `sqlparser_graph_dml_cell_t` | INSERT VALUES cell |
+| `sqlparser_graph_dml_cell_t` | INSERT VALUES cell; Oracle multi-table INSERT cells can link to trailing source-query output through `source_target_index` |
 | `sqlparser_graph_dml_assignment_t` | UPDATE/MERGE assignment |
 
 ### Attribution Rules
@@ -539,7 +553,18 @@ from which it was read.
 - If an unqualified field cannot be uniquely attributed from SQL text alone,
   `has_relation` is `0` and `candidate_relations` lists relation candidates in
   the current scope.
-- `values[]` contains only application-side values associated with fields.
+- `sqlparser_graph_dml_t.insert_mode` distinguishes `VALUES`, `SELECT`,
+  `INSERT ALL`, and `INSERT FIRST`.
+- `sqlparser_graph_dml_t.branches` is used only for Oracle multi-table INSERT;
+  each branch owns its target relation, target columns, rows, and optional
+  condition selector. The condition selector can be passed to
+  `sqlparser_selector_clause_sql()` to read the original predicate SQL.
+- For an Oracle multi-table INSERT branch cell that directly references an
+  output field from the trailing source query, `sqlparser_graph_dml_cell_t.kind`
+  is `SQLPARSER_GRAPH_VALUE_FIELD`, and
+  `has_source_target/source_target_index` points to the related `targets[]`
+  entry.
+- `values[]` contains only application-side values associated with fields or SELECT targets.
   `LIMIT/OFFSET`, `ROWNUM`, and other pagination or pseudo-column binds are
   intentionally excluded.
 - `sqlparser_graph_value_t.field_match_kind` is meaningful only when
@@ -585,8 +610,8 @@ Patch operations:
 | Operation | Meaning |
 | --- | --- |
 | `SQLPARSER_PATCH_REPLACE` | replaces a relation, name, value, assignment, literal, where literal, clause, insert cell, select target, or select target list |
-| `SQLPARSER_PATCH_INSERT_COLUMN` | adds an `INSERT ... VALUES` column or inserts a SELECT output target |
-| `SQLPARSER_PATCH_DELETE_COLUMN` | deletes an `INSERT ... VALUES` column or deletes a SELECT output target |
+| `SQLPARSER_PATCH_INSERT_COLUMN` | adds an `INSERT ... VALUES` column, adds an `INSERT ... SELECT` target column, adds an Oracle `INSERT ALL/FIRST` branch target column, or inserts a SELECT output target |
+| `SQLPARSER_PATCH_DELETE_COLUMN` | deletes an `INSERT ... VALUES` column, deletes an `INSERT ... SELECT` target column, or deletes a SELECT output target |
 | `SQLPARSER_PATCH_DELETE_ROW` | deletes an `INSERT ... VALUES` row |
 | `SQLPARSER_PATCH_APPEND_CONDITION` | appends a condition to a `where` clause with `AND` or `OR` |
 | `SQLPARSER_PATCH_INSERT_ASSIGNMENT` | inserts an `UPDATE SET` assignment |
@@ -595,6 +620,12 @@ Patch operations:
 
 After a patch succeeds, the handle generation increases and any previous query
 graph view becomes invalid.
+
+The value-source fields in `sqlparser_patch_t` are mutually exclusive for one
+rewrite position: provide only one of `sql`, `default_sql`, `source_selector`,
+`literal`, or `bind`. `source_selector` clones SQL from an existing
+`insert_cell`, `select_target`, or `assignment`; `literal` and `bind` are
+rendered by the library according to the handle dialect.
 
 ## Deparse and String Free
 
@@ -636,6 +667,7 @@ graph view becomes invalid.
 | `examples/patch/15_insert_columns_patch.c` | `INSERT ... VALUES` column insertion and deletion through patches |
 | `examples/patch/16_clause_patch.c` | SELECT output-list, WHERE, and ORDER BY rewrite through generic clause patches |
 | `examples/patch/17_update_set_patch.c` | `UPDATE SET` assignment append, delete, and full-assignment replacement through patches |
+| `examples/patch/19_oracle_multi_insert_patch.c` | Oracle `INSERT ALL` branch column and value rewrites through patches |
 | `examples/convenience/18_structured_fragment_rewrite.c` | structured UPDATE assignment insertion and SELECT `*` expansion |
 | `examples/inspect/01_select_inspect.c` | `SELECT` inspection and multi-relation extraction |
 | `examples/inspect/03_insert_select_inspect.c` | structural inspection for `INSERT ... SELECT` |

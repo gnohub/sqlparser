@@ -167,9 +167,10 @@ FROM (
 | --- | --- |
 | `block` | 输出项所在查询块 |
 | `ordinal` | 输出项在当前 SELECT 列表中的序号 |
-| `kind` | `field`、`star`、`qualified_star`、`literal`、`subquery`、`pseudo`、`expression` |
+| `kind` | `field`、`star`、`qualified_star`、`literal`、`bind`、`subquery`、`pseudo`、`expression` |
 | `name` | 输出名或别名；没有时省略 |
 | `field` | 直接字段输出对应的 `fields[]` 索引；不适用时省略 |
+| `value` | literal 或 bind 输出项对应的 `values[]` 索引；不适用时省略 |
 | `star_relations` | `*` 或 `alias.*` 覆盖的 relation 索引；非星号输出时省略 |
 | `source_block` | 派生输出进入的来源查询块；没有时省略 |
 | `selector` | 单个输出项 selector；没有可写节点时省略 |
@@ -242,6 +243,26 @@ FROM (
 `WHERE`、`JOIN ... ON`、`HAVING` 以及 SELECT 投影内部的条件表达式中，`IN`、`NOT IN`、`BETWEEN` 和普通比较会输出字段关联值。`field_match_kind` 用于区分 `secret = ?` 这类直接字段匹配和 `UPPER(secret) = ?`、`CAST(secret AS ...) = ?`、`secret || id = ?`、`CASE ... THEN secret END = ?` 这类表达式字段匹配。字段侧表达式包含多个字段时，每个可定位字段各输出一条 `expression_field` 关系。
 
 如果值侧本身是函数、类型转换、运算符、数组、ROW 或 CASE 表达式，例如 `secret = UPPER(?)`、`secret = ? || 'x'`、`secret = CAST(? AS CHAR)`，`values[]` 输出关联到 `secret` 的 `kind=expression`，不会把表达式内部的 bind 或 literal 暴露成 direct value。
+
+## DML
+
+`query_graph.dml` 表达写入语句的目标关系、目标列、行值、赋值项和来源查询。
+
+常见字段：
+
+| 字段 | 说明 |
+| --- | --- |
+| `kind` | `insert`、`update`、`delete`、`merge` |
+| `insert_mode` | INSERT 写入形态：`values`、`select`、`all`、`first` |
+| `target_relation` | 写入目标 relation 索引；没有稳定目标时省略 |
+| `target_columns` | INSERT 显式目标列索引数组；没有列列表时省略 |
+| `rows` | `INSERT ... VALUES` 或 Oracle multi-table INSERT branch 的 cell 索引数组 |
+| `source_block` | `INSERT ... SELECT` 或 Oracle multi-table INSERT 末尾 source query 的 block 索引 |
+| `branches` | Oracle `INSERT ALL/FIRST` 的 INTO 分支数组；非 multi-table INSERT 时省略 |
+
+Oracle multi-table INSERT 的每个 branch 包含独立的 `target_relation`、`target_columns`、`rows`，`INSERT ALL/FIRST` 的 `WHEN` 条件通过 `condition_selector` 定位；该 selector 可通过 `sqlparser_selector_clause_sql()` 读取原始条件 SQL。
+
+branch cell 的 `kind` 可为 `literal`、`bind`、`default`、`expression` 或 `field`。当 `VALUES (id)` 这类 cell 直接引用末尾 source query 的输出字段时，`kind` 为 `field`，并通过 `source_target` 指向 `targets[]` 中对应的 source query 输出项；如果该 target 是直接字段，调用方可继续读取 `targets[].field` 定位到 `fields[]`。
 
 ## 改写
 

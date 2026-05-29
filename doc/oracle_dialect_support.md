@@ -12,7 +12,8 @@ Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范
 - `MINUS` 集合运算
 - `OFFSET ... FETCH`
 - `ROWNUM` 过滤
-- `INSERT VALUES`、多行 `INSERT`、`INSERT SELECT`
+- `INSERT VALUES`、多行 `INSERT`、`INSERT SELECT`，包括 `UNION`、`UNION ALL`、`INTERSECT`、`MINUS` 来源查询
+- Oracle 多表插入：`INSERT ALL`、`INSERT FIRST`，包括 `WHEN ... THEN` 条件分支
 - `UPDATE`、`DELETE`
 - `DATE`、`TIMESTAMP` 字面量
 - `CASE`、`EXISTS`、`UNION ALL`、`INTERSECT`
@@ -33,7 +34,6 @@ Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范
 
 - `CONNECT BY`、`CONNECT_BY_ROOT`
 - 旧式外连接 `(+)`
-- `INSERT ALL`、`INSERT FIRST`
 - `RETURNING ... INTO`
 - PL/SQL block、procedure、package
 - `PIVOT`、`UNPIVOT`
@@ -62,4 +62,4 @@ Oracle 支持范围以以下文件为准：
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 Oracle 方言矩阵包含 116 条用例：98 条支持路径，18 条明确不支持路径。
+当前 Oracle 方言矩阵包含 136 条用例：120 条支持路径，16 条明确不支持路径。

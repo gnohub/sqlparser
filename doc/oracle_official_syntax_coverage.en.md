@@ -22,27 +22,27 @@ privilege statements, and Oracle-specific semantics.
 | `CURRENT` | The Oracle dialect has representative executable coverage, or the current AST can safely represent the syntax. |
 | `HOOK_ONLY` | Not covered yet, but implementable through dialect hooks, preprocessing, postprocessing, or type/function mapping. |
 | `MIXED_MODEL` | The basic form can use the current AST and hooks, but full official syntax needs an Oracle-specific model. |
-| `MODEL_REQUIRED` | Requires an Oracle-specific model, usually for hierarchical queries, multi-table insert, PL/SQL, table transformations, flashback, or remote object references. |
+| `MODEL_REQUIRED` | Requires an Oracle-specific model, usually for hierarchical queries, PL/SQL, table transformations, flashback, or remote object references. |
 | `REFERENCE_ONLY` | An official index, category, or explanatory page that is not counted as an implementation unit. |
 
 ## Results
 
 | Status | Syntax Groups | Share of 46 Groups |
 | --- | ---: | ---: |
-| `CURRENT` | 32 | 69.57% |
+| `CURRENT` | 33 | 71.74% |
 | `HOOK_ONLY` | 0 | 0.00% |
 | `MIXED_MODEL` | 0 | 0.00% |
-| `MODEL_REQUIRED` | 14 | 30.43% |
+| `MODEL_REQUIRED` | 13 | 28.26% |
 | `REFERENCE_ONLY` | 0 | 0.00% |
 
 After excluding `REFERENCE_ONLY`, there are 46 implementable syntax groups.
-The current implementation covers 32 groups and leaves 14 groups uncovered.
+The current implementation covers 33 groups and leaves 13 groups uncovered.
 
-| Uncovered Class | Syntax Groups | Share of 14 Uncovered Groups |
+| Uncovered Class | Syntax Groups | Share of 13 Uncovered Groups |
 | --- | ---: | ---: |
 | `HOOK_ONLY` | 0 | 0.00% |
 | `MIXED_MODEL` | 0 | 0.00% |
-| `MODEL_REQUIRED` | 14 | 100.00% |
+| `MODEL_REQUIRED` | 13 | 100.00% |
 
 ## Conclusion
 

@@ -1,8 +1,10 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "sqlparser_ast_internal.h"
+#include "../dialect/sqlparser_dialect_oracle_internal.h"
 
 static sqlparser_status_t sqlparser_patch_parse_selector(
 	const char *selector_text,
@@ -353,6 +355,179 @@ static void sqlparser_patch_literal_value_clear(sqlparser_literal_value_t *value
 	memset(value, 0, sizeof(*value));
 }
 
+static sqlparser_status_t sqlparser_patch_render_string_literal_sql(
+	const char *value,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	char *sql;
+	size_t len;
+	size_t quote_count;
+	size_t index;
+	size_t out_index;
+
+	if (value == NULL || out_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "string literal arguments must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	len = strlen(value);
+	quote_count = 0U;
+	for (index = 0U; index < len; index++) {
+		if (value[index] == '\'') {
+			quote_count++;
+		}
+	}
+	if (len > SIZE_MAX - quote_count - 3U) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "literal SQL is too large");
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+	sql = (char *)malloc(len + quote_count + 3U);
+	if (sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	out_index = 0U;
+	sql[out_index++] = '\'';
+	for (index = 0U; index < len; index++) {
+		sql[out_index++] = value[index];
+		if (value[index] == '\'') {
+			sql[out_index++] = '\'';
+		}
+	}
+	sql[out_index++] = '\'';
+	sql[out_index] = '\0';
+	*out_sql = sql;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_patch_render_literal_sql(
+	const sqlparser_literal_value_t *value,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	char buffer[64];
+
+	if (out_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "literal SQL output must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_sql = NULL;
+	if (value == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "literal must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	switch (value->kind) {
+		case SQLPARSER_LITERAL_KIND_NULL:
+			*out_sql = sqlparser_strdup("NULL");
+			break;
+		case SQLPARSER_LITERAL_KIND_STRING:
+			return sqlparser_patch_render_string_literal_sql(value->string_value, out_sql, out_error);
+		case SQLPARSER_LITERAL_KIND_INTEGER:
+			(void)snprintf(buffer, sizeof(buffer), "%lld", value->integer_value);
+			*out_sql = sqlparser_strdup(buffer);
+			break;
+		case SQLPARSER_LITERAL_KIND_FLOAT:
+			if (value->float_value == NULL || value->float_value[0] == '\0') {
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "float literal requires float_value");
+				return SQLPARSER_STATUS_INVALID_ARGUMENT;
+			}
+			*out_sql = sqlparser_strdup(value->float_value);
+			break;
+		case SQLPARSER_LITERAL_KIND_BOOLEAN:
+			*out_sql = sqlparser_strdup(value->boolean_value ? "TRUE" : "FALSE");
+			break;
+		case SQLPARSER_LITERAL_KIND_UNKNOWN:
+		default:
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "literal kind is invalid");
+			return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (*out_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_patch_render_source_selector_sql(
+	const sqlparser_handle_t *handle,
+	const char *selector_text,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_selector_t selector;
+	sqlparser_status_t status;
+
+	if (handle == NULL || selector_text == NULL || out_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "source selector arguments must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_sql = NULL;
+	status = sqlparser_patch_parse_selector(selector_text, &selector, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	switch (selector.kind) {
+		case SQLPARSER_SELECTOR_KIND_INSERT_CELL:
+			return sqlparser_selector_insert_cell_sql(handle, &selector, out_sql, out_error);
+		case SQLPARSER_SELECTOR_KIND_SELECT_TARGET:
+			return sqlparser_selector_select_target_sql(handle, &selector, out_sql, out_error);
+		case SQLPARSER_SELECTOR_KIND_ASSIGNMENT:
+			return sqlparser_selector_update_assignment_sql(handle, &selector, out_sql, out_error);
+		default:
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "source_selector kind cannot be cloned");
+			return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+}
+
+static sqlparser_status_t sqlparser_patch_render_structured_sql(
+	const sqlparser_handle_t *handle,
+	const sqlparser_patch_t *patch,
+	const char *text_sql,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	int source_count;
+
+	if (patch == NULL || out_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "patch SQL arguments must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_sql = NULL;
+	source_count = 0;
+	if (text_sql != NULL) {
+		source_count++;
+	}
+	if (patch->source_selector != NULL) {
+		source_count++;
+	}
+	if (patch->literal != NULL) {
+		source_count++;
+	}
+	if (patch->bind != NULL) {
+		source_count++;
+	}
+	if (source_count != 1) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "patch must provide exactly one SQL, literal, or bind value");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (text_sql != NULL) {
+		*out_sql = sqlparser_strdup(text_sql);
+		if (*out_sql == NULL) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		return SQLPARSER_STATUS_OK;
+	}
+	if (patch->source_selector != NULL) {
+		return sqlparser_patch_render_source_selector_sql(handle, patch->source_selector, out_sql, out_error);
+	}
+	if (patch->literal != NULL) {
+		return sqlparser_patch_render_literal_sql(patch->literal, out_sql, out_error);
+	}
+	return sqlparser_render_bind_value_sql(handle, patch->bind, out_sql, out_error);
+}
+
 static sqlparser_status_t sqlparser_patch_replace(
 	sqlparser_handle_t *handle,
 	const sqlparser_patch_t *patch,
@@ -361,8 +536,8 @@ static sqlparser_status_t sqlparser_patch_replace(
 	sqlparser_selector_t selector;
 	sqlparser_status_t status;
 
-	if (patch == NULL || patch->selector == NULL || patch->sql == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "replace patch requires selector and sql");
+	if (patch == NULL || patch->selector == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "replace patch requires selector");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	status = sqlparser_patch_parse_selector(patch->selector, &selector, out_error);
@@ -372,27 +547,87 @@ static sqlparser_status_t sqlparser_patch_replace(
 
 	switch (selector.kind) {
 		case SQLPARSER_SELECTOR_KIND_RELATION:
+			if (patch->sql == NULL) {
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "relation replacement requires sql");
+				return SQLPARSER_STATUS_INVALID_ARGUMENT;
+			}
 			return sqlparser_patch_set_relation_sql(handle, &selector, patch->sql, out_error);
 		case SQLPARSER_SELECTOR_KIND_NAME:
+			if (patch->sql == NULL) {
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "name replacement requires sql");
+				return SQLPARSER_STATUS_INVALID_ARGUMENT;
+			}
 			return sqlparser_selector_set_name(handle, &selector, patch->sql, out_error);
 		case SQLPARSER_SELECTOR_KIND_VALUE:
-			return sqlparser_patch_set_value_sql(handle, &selector, patch->sql, out_error);
+		{
+			char *value_sql;
+
+			value_sql = NULL;
+			status = sqlparser_patch_render_structured_sql(handle, patch, patch->sql, &value_sql, out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+			status = sqlparser_patch_set_value_sql(handle, &selector, value_sql, out_error);
+			free(value_sql);
+			return status;
+		}
 		case SQLPARSER_SELECTOR_KIND_ASSIGNMENT:
+			if (patch->sql == NULL) {
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "assignment replacement requires sql");
+				return SQLPARSER_STATUS_INVALID_ARGUMENT;
+			}
 			return sqlparser_selector_set_update_assignment_sql(handle, &selector, patch->sql, out_error);
 		case SQLPARSER_SELECTOR_KIND_INSERT_CELL:
-			return sqlparser_selector_set_insert_cell_sql(handle, &selector, patch->sql, out_error);
+		{
+			char *cell_sql;
+
+			cell_sql = NULL;
+			status = sqlparser_patch_render_structured_sql(handle, patch, patch->sql, &cell_sql, out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+			status = sqlparser_selector_set_insert_cell_sql(handle, &selector, cell_sql, out_error);
+			free(cell_sql);
+			return status;
+		}
 		case SQLPARSER_SELECTOR_KIND_SELECT_TARGETS:
-			return sqlparser_selector_set_select_targets_sql(handle, &selector, patch->sql, out_error);
 		case SQLPARSER_SELECTOR_KIND_SELECT_TARGET:
-			return sqlparser_selector_set_select_target_sql(handle, &selector, patch->sql, out_error);
+		{
+			char *target_sql;
+
+			target_sql = NULL;
+			status = sqlparser_patch_render_structured_sql(handle, patch, patch->sql, &target_sql, out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+			if (selector.kind == SQLPARSER_SELECTOR_KIND_SELECT_TARGETS) {
+				status = sqlparser_selector_set_select_targets_sql(handle, &selector, target_sql, out_error);
+			} else {
+				status = sqlparser_selector_set_select_target_sql(handle, &selector, target_sql, out_error);
+			}
+			free(target_sql);
+			return status;
+		}
 		case SQLPARSER_SELECTOR_KIND_WHERE:
+			if (patch->sql == NULL) {
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "where replacement requires sql");
+				return SQLPARSER_STATUS_INVALID_ARGUMENT;
+			}
 			return sqlparser_selector_set_where_sql(handle, &selector, patch->sql, out_error);
 		case SQLPARSER_SELECTOR_KIND_CLAUSE:
+			if (patch->sql == NULL) {
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "clause replacement requires sql");
+				return SQLPARSER_STATUS_INVALID_ARGUMENT;
+			}
 			return sqlparser_selector_set_clause_sql(handle, &selector, patch->sql, out_error);
 		case SQLPARSER_SELECTOR_KIND_LITERAL:
 		case SQLPARSER_SELECTOR_KIND_WHERE_LITERAL:
 		{
 			sqlparser_literal_value_t value;
+			if (patch->sql == NULL) {
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "literal replacement requires sql");
+				return SQLPARSER_STATUS_INVALID_ARGUMENT;
+			}
 			status = sqlparser_patch_literal_value_from_sql(patch->sql, &value, out_error);
 			if (status != SQLPARSER_STATUS_OK) {
 				return status;
@@ -654,6 +889,7 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 	sqlparser_patch_insert_column_row_plan_t *plans;
 	sqlparser_status_t status;
 	char *parser_default_sql;
+	char *rendered_default_sql;
 	void *dialect_state;
 	size_t row_index;
 	size_t insert_index;
@@ -668,27 +904,55 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 		return status;
 	}
 	if (selector.kind == SQLPARSER_SELECTOR_KIND_SELECT_TARGETS) {
-		if (patch->sql == NULL) {
-			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "select target insert requires sql");
-			return SQLPARSER_STATUS_INVALID_ARGUMENT;
+		char *target_sql;
+
+		target_sql = NULL;
+		status = sqlparser_patch_render_structured_sql(handle, patch, patch->sql, &target_sql, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
 		}
-		return sqlparser_select_insert_target_sql(
+		status = sqlparser_select_insert_target_sql(
 			handle,
 			selector.statement_index,
 			selector.item_index,
 			patch->index,
-			patch->sql,
+			target_sql,
 			out_error);
+		free(target_sql);
+		return status;
+	}
+	if (selector.kind == SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS) {
+		char *branch_cell_sql;
+
+		if (patch->name == NULL) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "insert branch column requires name");
+			return SQLPARSER_STATUS_INVALID_ARGUMENT;
+		}
+		branch_cell_sql = NULL;
+		status = sqlparser_patch_render_structured_sql(handle, patch, patch->default_sql, &branch_cell_sql, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		status = sqlparser_oracle_multi_insert_insert_column_sql(
+			handle,
+			selector.statement_index,
+			selector.item_index,
+			patch->index,
+			patch->name,
+			branch_cell_sql,
+			out_error);
+		free(branch_cell_sql);
+		return status;
 	}
 	if (selector.kind != SQLPARSER_SELECTOR_KIND_INSERT_COLUMNS) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "insert_column selector must be insert_columns or select_targets");
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "insert_column selector must be insert_columns, insert_branch_columns, or select_targets");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	if (patch->name == NULL || patch->default_sql == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "insert_column requires name and default_sql");
+	if (patch->name == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "insert_column requires name");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	status = sqlparser_get_insert_values_stmt(handle, selector.statement_index, &stmt, &values_stmt, out_error);
+	status = sqlparser_get_insert_stmt(handle, selector.statement_index, &stmt, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
@@ -698,8 +962,8 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 	next_cols = NULL;
 	plans = NULL;
 	parser_default_sql = NULL;
+	rendered_default_sql = NULL;
 	dialect_state = NULL;
-	row_count = values_stmt->n_values_lists;
 	insert_index = patch->index > stmt->n_cols ? stmt->n_cols : patch->index;
 	if (stmt->n_cols == SIZE_MAX) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "insert column count is too large");
@@ -709,13 +973,40 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 	if (column_node == NULL) {
 		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
 	}
+	if (sqlparser_insert_source_from_stmt(stmt) == SQLPARSER_INSERT_SOURCE_QUERY) {
+		next_cols = sqlparser_patch_alloc_node_array(stmt->n_cols + 1U, out_error);
+		if (next_cols == NULL) {
+			sqlparser_free_proto_node(column_node);
+			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+		}
+		sqlparser_patch_copy_with_insert(next_cols, stmt->cols, stmt->n_cols, insert_index, column_node);
+		free(stmt->cols);
+		stmt->cols = next_cols;
+		stmt->n_cols++;
+		column_node = NULL;
+		next_cols = NULL;
+		return sqlparser_handle_commit_ast(handle, out_error);
+	}
+	status = sqlparser_get_insert_values_stmt(handle, selector.statement_index, &stmt, &values_stmt, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_free_proto_node(column_node);
+		return status;
+	}
+	row_count = values_stmt->n_values_lists;
+	status = sqlparser_patch_render_structured_sql(handle, patch, patch->default_sql, &rendered_default_sql, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_free_proto_node(column_node);
+		return status;
+	}
 	status = sqlparser_preprocess_handle_sql_fragment(
 		handle,
-		patch->default_sql,
+		rendered_default_sql,
 		"insert column default SQL",
 		&parser_default_sql,
 		&dialect_state,
 		out_error);
+	free(rendered_default_sql);
+	rendered_default_sql = NULL;
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_free_proto_node(column_node);
 		return status;
@@ -860,13 +1151,34 @@ static sqlparser_status_t sqlparser_patch_delete_column(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "delete_column selector must be insert_columns or select_targets");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	status = sqlparser_get_insert_values_stmt(handle, selector.statement_index, &stmt, &values_stmt, out_error);
+	status = sqlparser_get_insert_stmt(handle, selector.statement_index, &stmt, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
 	next_cols = NULL;
 	removed_column = NULL;
 	plans = NULL;
+	if (sqlparser_insert_source_from_stmt(stmt) == SQLPARSER_INSERT_SOURCE_QUERY) {
+		if (stmt->n_cols == 0U || patch->index >= stmt->n_cols) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "delete_column index is out of range");
+			return SQLPARSER_STATUS_INVALID_ARGUMENT;
+		}
+		next_cols = sqlparser_patch_alloc_node_array(stmt->n_cols - 1U, out_error);
+		if (stmt->n_cols > 1U && next_cols == NULL) {
+			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+		}
+		sqlparser_patch_copy_with_delete(next_cols, stmt->cols, stmt->n_cols, patch->index);
+		removed_column = stmt->cols[patch->index];
+		free(stmt->cols);
+		stmt->cols = next_cols;
+		stmt->n_cols--;
+		sqlparser_free_proto_node(removed_column);
+		return sqlparser_handle_commit_ast(handle, out_error);
+	}
+	status = sqlparser_get_insert_values_stmt(handle, selector.statement_index, &stmt, &values_stmt, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
 	row_count = values_stmt->n_values_lists;
 	if (stmt->n_cols > 0U) {
 		if (patch->index >= stmt->n_cols) {

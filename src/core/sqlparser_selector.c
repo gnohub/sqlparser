@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "sqlparser_ast_internal.h"
+#include "../dialect/sqlparser_dialect_oracle_internal.h"
 
 static void sqlparser_selector_clear(sqlparser_selector_t *selector)
 {
@@ -220,6 +221,14 @@ sqlparser_status_t sqlparser_selector_parse(
 		offset += 14U;
 		out_selector->kind = SQLPARSER_SELECTOR_KIND_INSERT_COLUMNS;
 		status = SQLPARSER_STATUS_OK;
+	} else if (strncmp(text + offset, "insert_branch_columns", 21) == 0) {
+		offset += 21U;
+		out_selector->kind = SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS;
+		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
+	} else if (strncmp(text + offset, "insert_branch_condition", 23) == 0) {
+		offset += 23U;
+		out_selector->kind = SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_CONDITION;
+		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
 	} else if (strncmp(text + offset, "insert_row", 10) == 0) {
 		offset += 10U;
 		out_selector->kind = SQLPARSER_SELECTOR_KIND_INSERT_ROW;
@@ -367,6 +376,22 @@ sqlparser_status_t sqlparser_selector_format(
 				sizeof(buffer),
 				"stmt[%lu].insert_columns",
 				(unsigned long)selector->statement_index);
+			break;
+		case SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS:
+			length = snprintf(
+				buffer,
+				sizeof(buffer),
+				"stmt[%lu].insert_branch_columns[%lu]",
+				(unsigned long)selector->statement_index,
+				(unsigned long)selector->item_index);
+			break;
+		case SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_CONDITION:
+			length = snprintf(
+				buffer,
+				sizeof(buffer),
+				"stmt[%lu].insert_branch_condition[%lu]",
+				(unsigned long)selector->statement_index,
+				(unsigned long)selector->item_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_INSERT_ROW:
 			length = snprintf(
@@ -693,6 +718,14 @@ sqlparser_status_t sqlparser_selector_clause_sql(
 	char **out_sql,
 	sqlparser_error_t *out_error)
 {
+	if (selector != NULL && selector->kind == SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_CONDITION) {
+		return sqlparser_oracle_multi_insert_condition_sql(
+			handle,
+			selector->statement_index,
+			selector->item_index,
+			out_sql,
+			out_error);
+	}
 	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_CLAUSE) {
 		sqlparser_error_set_message(
 			out_error,
@@ -1052,6 +1085,29 @@ sqlparser_status_t sqlparser_selector_set_insert_cell_sql(
 		selector->row_index,
 		selector->column_index,
 		sql_text,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_selector_set_insert_cell_bind(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const sqlparser_bind_value_t *bind,
+	sqlparser_error_t *out_error)
+{
+	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_INSERT_CELL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"selector kind must be insert_cell");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	return sqlparser_insert_set_cell_bind(
+		handle,
+		selector->statement_index,
+		selector->row_index,
+		selector->column_index,
+		bind,
 		out_error);
 }
 

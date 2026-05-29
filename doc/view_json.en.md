@@ -167,9 +167,10 @@ The graph does not expand `*` into real table fields and does not duplicate a si
 | --- | --- |
 | `block` | Query block that owns the target |
 | `ordinal` | Target ordinal in the SELECT list |
-| `kind` | `field`, `star`, `qualified_star`, `literal`, `subquery`, `pseudo`, or `expression` |
+| `kind` | `field`, `star`, `qualified_star`, `literal`, `bind`, `subquery`, `pseudo`, or `expression` |
 | `name` | Output name or alias; omitted when absent |
 | `field` | Related `fields[]` index for direct field output; omitted otherwise |
+| `value` | Related `values[]` index for literal or bind output targets; omitted otherwise |
 | `star_relations` | Relation indexes covered by `*` or `alias.*`; omitted for non-star targets |
 | `source_block` | Source query block for derived output; omitted otherwise |
 | `selector` | Single target selector; omitted when no writable node exists |
@@ -242,6 +243,35 @@ For multi-statement input, `bind_position` is global across the whole SQL text a
 For `WHERE`, `JOIN ... ON`, `HAVING`, and predicate expressions inside SELECT projections, field-bound values are emitted for `IN`, `NOT IN`, `BETWEEN`, and ordinary comparisons. `field_match_kind` distinguishes direct-field predicates such as `secret = ?` from expression-field predicates such as `UPPER(secret) = ?`, `CAST(secret AS ...) = ?`, `secret || id = ?`, or `CASE ... THEN secret END = ?`. If the field side contains multiple attributable fields, each field gets a separate `expression_field` relation.
 
 If the value side is a function, cast, operator, array, row, or CASE expression, such as `secret = UPPER(?)`, `secret = ? || 'x'`, or `secret = CAST(? AS CHAR)`, `values[]` emits `kind=expression` attached to `secret` and does not expose inner binds or literals as direct values.
+
+## DML
+
+`query_graph.dml` describes write targets, target columns, row values,
+assignments, and source queries.
+
+Common fields:
+
+| Field | Description |
+| --- | --- |
+| `kind` | `insert`, `update`, `delete`, or `merge` |
+| `insert_mode` | INSERT shape: `values`, `select`, `all`, or `first` |
+| `target_relation` | Target relation index; omitted when no stable target exists |
+| `target_columns` | Explicit INSERT target-column indexes; omitted when no column list exists |
+| `rows` | Cell indexes for `INSERT ... VALUES` or an Oracle multi-table INSERT branch |
+| `source_block` | Source query block for `INSERT ... SELECT` or Oracle multi-table INSERT source query |
+| `branches` | INTO branches for Oracle `INSERT ALL/FIRST`; omitted for non multi-table INSERT |
+
+Each Oracle multi-table INSERT branch owns its `target_relation`,
+`target_columns`, and `rows`. `INSERT ALL/FIRST` branch predicates are
+addressable through `condition_selector`; pass that selector to
+`sqlparser_selector_clause_sql()` to read the original predicate SQL.
+
+Branch cell `kind` can be `literal`, `bind`, `default`, `expression`, or
+`field`. For a cell such as `VALUES (id)` that directly references an output
+field from the trailing source query, `kind` is `field` and `source_target`
+points to the related source-query entry in `targets[]`. If that target is a
+direct field, callers can follow `targets[].field` to the corresponding
+`fields[]` entry.
 
 ## Rewriting
 

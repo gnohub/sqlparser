@@ -995,6 +995,86 @@ static int test_insert_cell_sql_mutation(void)
 	return 0;
 }
 
+static int test_insert_cell_bind_mutation(void)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_selector_t selector;
+	sqlparser_bind_value_t bind;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_cell_t cell;
+	char *deparsed_sql;
+	size_t cell_index;
+	int rc;
+
+	handle = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&selector, 0, sizeof(selector));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+
+	rc = sqlparser_parse_with_options(
+		"INSERT INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (:1, :2)",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "insert bind mutation parse should succeed") != 0) {
+		return 1;
+	}
+
+	bind.kind = SQLPARSER_BIND_KIND_NAMED;
+	bind.key = "secret_new";
+	rc = sqlparser_insert_set_cell_bind(handle, 0U, 0U, 1U, &bind, &error);
+	if (expect_status_ok(rc, &error, "insert set cell bind should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	selector.kind = SQLPARSER_SELECTOR_KIND_INSERT_CELL;
+	selector.statement_index = 0U;
+	selector.row_index = 0U;
+	selector.column_index = 0U;
+	bind.kind = SQLPARSER_BIND_KIND_POSITIONAL;
+	bind.key = "3";
+	rc = sqlparser_selector_set_insert_cell_bind(handle, &selector, &bind, &error);
+	if (expect_status_ok(rc, &error, "selector set insert cell bind should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "insert bind mutation deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, ":3") != NULL, "deparsed insert should contain positional bind") != 0 ||
+	    expect_true(strstr(deparsed_sql, ":secret_new") != NULL, "deparsed insert should contain named bind") != 0 ||
+	    expect_true(strstr(deparsed_sql, "$") == NULL, "deparsed insert should not expose internal bind markers") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "insert bind mutation graph should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "insert bind mutation dml should be available") != 0 ||
+	    expect_true(dml.rows.count == 2U, "insert bind mutation should expose two cells") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.rows, 0U, &cell_index, &error), &error, "first bind cell index should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_cell_at(&graph, cell_index, &cell, &error), &error, "first bind cell should be available") != 0 ||
+	    expect_true(cell.bind_kind == SQLPARSER_BIND_KIND_POSITIONAL && cell.has_bind != 0 && strcmp(cell.bind, "3") == 0, "first bind cell key mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.rows, 1U, &cell_index, &error), &error, "second bind cell index should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_cell_at(&graph, cell_index, &cell, &error), &error, "second bind cell should be available") != 0 ||
+	    expect_true(cell.bind_kind == SQLPARSER_BIND_KIND_NAMED && cell.has_bind != 0 && strcmp(cell.bind, "secret_new") == 0, "second bind cell key mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
 static int test_delete_where_literal_mutation(void)
 {
 	const char *sql;
@@ -4538,6 +4618,614 @@ static int test_query_graph_public_struct_semantics(void)
 	return 0;
 }
 
+static int expect_query_graph_target_value(
+	const sqlparser_query_graph_view_t *graph,
+	size_t target_index,
+	sqlparser_graph_target_kind_t target_kind,
+	sqlparser_graph_value_kind_t value_kind,
+	const char *bind_key,
+	sqlparser_bind_kind_t bind_kind,
+	size_t bind_position,
+	const char *bind_sql,
+	sqlparser_literal_kind_t literal_kind,
+	const char *literal_string,
+	long long literal_integer)
+{
+	sqlparser_error_t error;
+	sqlparser_graph_target_t target;
+	sqlparser_graph_value_t value;
+	int rc;
+
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_query_graph_target_at(graph, target_index, &target, &error);
+	if (expect_status_ok(rc, &error, "target should be available") != 0 ||
+	    expect_true(target.kind == target_kind, "target kind mismatch") != 0 ||
+	    expect_true(target.has_value != 0, "target should reference a value") != 0) {
+		return 1;
+	}
+	rc = sqlparser_query_graph_value_at(graph, target.value_index, &value, &error);
+	if (expect_status_ok(rc, &error, "target value should be available") != 0 ||
+	    expect_true(value.kind == value_kind, "target value kind mismatch") != 0 ||
+	    expect_true(value.clause == SQLPARSER_CLAUSE_KIND_SELECT_LIST, "target value clause mismatch") != 0 ||
+	    expect_true(value.has_field == 0, "target value should not be field-bound") != 0) {
+		return 1;
+	}
+	if (value_kind == SQLPARSER_GRAPH_VALUE_BIND) {
+		if (expect_true(value.has_bind != 0 && strcmp(value.bind, bind_key) == 0, "target bind key mismatch") != 0 ||
+		    expect_true(value.bind_kind == bind_kind, "target bind kind mismatch") != 0 ||
+		    expect_true(value.has_bind_position != 0 && value.bind_position == bind_position, "target bind position mismatch") != 0 ||
+		    expect_true(value.has_bind_sql != 0 && strcmp(value.bind_sql, bind_sql) == 0, "target bind SQL mismatch") != 0) {
+			return 1;
+		}
+	} else if (value_kind == SQLPARSER_GRAPH_VALUE_LITERAL) {
+		if (expect_true(value.literal.kind == literal_kind, "target literal kind mismatch") != 0) {
+			return 1;
+		}
+		if (literal_kind == SQLPARSER_LITERAL_KIND_STRING &&
+		    expect_true(value.literal.string_value != NULL && strcmp(value.literal.string_value, literal_string) == 0, "target literal string mismatch") != 0) {
+			return 1;
+		}
+		if (literal_kind == SQLPARSER_LITERAL_KIND_INTEGER &&
+		    expect_true(value.literal.integer_value == literal_integer, "target literal integer mismatch") != 0) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static int test_insert_select_target_values(void)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *verify_handle;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_set_t set_item;
+	sqlparser_bind_value_t bind;
+	sqlparser_literal_value_t literal;
+	sqlparser_patch_t patches[3];
+	sqlparser_patch_list_t patch_list;
+	char *sql;
+	int rc;
+
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	verify_handle = NULL;
+	sql = NULL;
+
+	handle = NULL;
+	rc = sqlparser_parse_with_options(
+		"INSERT INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) "
+		"SELECT 960001, 'a' FROM DUAL UNION ALL SELECT 960002, 'b' FROM DUAL",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "insert-select literal parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "insert-select literal graph should be available") != 0 ||
+	    expect_true(graph.target_count == 4U, "insert-select literal should expose four source targets") != 0 ||
+	    expect_true(graph.value_count == 4U, "insert-select literal should expose four target values") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "insert-select literal dml should be available") != 0 ||
+	    expect_true(dml.has_source_block != 0, "insert-select literal should expose source block") != 0 ||
+	    expect_query_graph_target_value(&graph, 0U, SQLPARSER_GRAPH_TARGET_LITERAL, SQLPARSER_GRAPH_VALUE_LITERAL, NULL, SQLPARSER_BIND_KIND_NONE, 0U, NULL, SQLPARSER_LITERAL_KIND_INTEGER, NULL, 960001LL) != 0 ||
+	    expect_query_graph_target_value(&graph, 1U, SQLPARSER_GRAPH_TARGET_LITERAL, SQLPARSER_GRAPH_VALUE_LITERAL, NULL, SQLPARSER_BIND_KIND_NONE, 0U, NULL, SQLPARSER_LITERAL_KIND_STRING, "a", 0LL) != 0 ||
+	    expect_query_graph_target_value(&graph, 2U, SQLPARSER_GRAPH_TARGET_LITERAL, SQLPARSER_GRAPH_VALUE_LITERAL, NULL, SQLPARSER_BIND_KIND_NONE, 0U, NULL, SQLPARSER_LITERAL_KIND_INTEGER, NULL, 960002LL) != 0 ||
+	    expect_query_graph_target_value(&graph, 3U, SQLPARSER_GRAPH_TARGET_LITERAL, SQLPARSER_GRAPH_VALUE_LITERAL, NULL, SQLPARSER_BIND_KIND_NONE, 0U, NULL, SQLPARSER_LITERAL_KIND_STRING, "b", 0LL) != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	rc = sqlparser_parse_with_options(
+		"INSERT INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) "
+		"SELECT 960001, 'a' FROM DUAL UNION SELECT 960002, 'b' FROM DUAL",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "insert-select UNION parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "insert-select UNION graph should be available") != 0 ||
+	    expect_true(graph.set_count == 1U, "insert-select UNION should expose one set") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_set_at(&graph, 0U, &set_item, &error), &error, "insert-select UNION set should be available") != 0 ||
+	    expect_true(set_item.kind == SQLPARSER_GRAPH_SET_UNION, "insert-select UNION set kind mismatch") != 0 ||
+	    expect_true(set_item.branch_blocks.count == 2U, "insert-select UNION branch count mismatch") != 0 ||
+	    expect_true(graph.target_count == 4U, "insert-select UNION source target count mismatch") != 0 ||
+	    expect_true(graph.value_count == 4U, "insert-select UNION source value count mismatch") != 0 ||
+	    expect_query_graph_target_value(&graph, 3U, SQLPARSER_GRAPH_TARGET_LITERAL, SQLPARSER_GRAPH_VALUE_LITERAL, NULL, SQLPARSER_BIND_KIND_NONE, 0U, NULL, SQLPARSER_LITERAL_KIND_STRING, "b", 0LL) != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	rc = sqlparser_parse_with_options(
+		"INSERT INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) "
+		"SELECT :1, :2 FROM DUAL INTERSECT SELECT :3, :4 FROM DUAL",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "insert-select INTERSECT parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "insert-select INTERSECT graph should be available") != 0 ||
+	    expect_true(graph.set_count == 1U, "insert-select INTERSECT should expose one set") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_set_at(&graph, 0U, &set_item, &error), &error, "insert-select INTERSECT set should be available") != 0 ||
+	    expect_true(set_item.kind == SQLPARSER_GRAPH_SET_INTERSECT, "insert-select INTERSECT set kind mismatch") != 0 ||
+	    expect_true(set_item.branch_blocks.count == 2U, "insert-select INTERSECT branch count mismatch") != 0 ||
+	    expect_true(graph.target_count == 4U, "insert-select INTERSECT source target count mismatch") != 0 ||
+	    expect_true(graph.value_count == 4U, "insert-select INTERSECT source value count mismatch") != 0 ||
+	    expect_query_graph_target_value(&graph, 3U, SQLPARSER_GRAPH_TARGET_BIND, SQLPARSER_GRAPH_VALUE_BIND, "4", SQLPARSER_BIND_KIND_POSITIONAL, 4U, ":4", SQLPARSER_LITERAL_KIND_UNKNOWN, NULL, 0LL) != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	rc = sqlparser_parse_with_options(
+		"INSERT INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) "
+		"SELECT :id1, :secret1 FROM DUAL MINUS SELECT :id2, :secret2 FROM DUAL",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "insert-select MINUS parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "insert-select MINUS graph should be available") != 0 ||
+	    expect_true(graph.set_count == 1U, "insert-select MINUS should expose one set") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_set_at(&graph, 0U, &set_item, &error), &error, "insert-select MINUS set should be available") != 0 ||
+	    expect_true(set_item.kind == SQLPARSER_GRAPH_SET_EXCEPT, "insert-select MINUS set kind mismatch") != 0 ||
+	    expect_true(set_item.branch_blocks.count == 2U, "insert-select MINUS branch count mismatch") != 0 ||
+	    expect_true(graph.target_count == 4U, "insert-select MINUS source target count mismatch") != 0 ||
+	    expect_true(graph.value_count == 4U, "insert-select MINUS source value count mismatch") != 0 ||
+	    expect_query_graph_target_value(&graph, 3U, SQLPARSER_GRAPH_TARGET_BIND, SQLPARSER_GRAPH_VALUE_BIND, "secret2", SQLPARSER_BIND_KIND_NAMED, 4U, ":secret2", SQLPARSER_LITERAL_KIND_UNKNOWN, NULL, 0LL) != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&patches, 0, sizeof(patches));
+	memset(&bind, 0, sizeof(bind));
+	memset(&literal, 0, sizeof(literal));
+	bind.kind = SQLPARSER_BIND_KIND_NAMED;
+	bind.key = "name_copy_right";
+	literal.kind = SQLPARSER_LITERAL_KIND_STRING;
+	literal.string_value = "left-copy";
+	patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[0].selector = "stmt[0].insert_columns";
+	patches[0].index = 2U;
+	patches[0].name = "NAME_COPY";
+	patches[1].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[1].selector = "stmt[0].select_targets[0]";
+	patches[1].index = 2U;
+	patches[1].literal = &literal;
+	patches[2].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[2].selector = "stmt[0].select_targets[1]";
+	patches[2].index = 2U;
+	patches[2].bind = &bind;
+	patch_list.items = patches;
+	patch_list.count = 3U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "insert-select MINUS structured target patch should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &sql, &error);
+	if (expect_status_ok(rc, &error, "insert-select MINUS structured target deparse should succeed") != 0 ||
+	    expect_true(strstr(sql, "MINUS") != NULL, "insert-select MINUS should remain MINUS after patch") != 0 ||
+	    expect_true(strstr(sql, "'left-copy'") != NULL, "insert-select MINUS patched literal missing") != 0 ||
+	    expect_true(strstr(sql, ":name_copy_right") != NULL, "insert-select MINUS patched bind missing") != 0) {
+		sqlparser_string_free(sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_parse_with_options(sql, &options, &verify_handle, &error);
+	sqlparser_string_free(sql);
+	sql = NULL;
+	if (expect_status_ok(rc, &error, "insert-select MINUS patched SQL should reparse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(verify_handle);
+	verify_handle = NULL;
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "insert-select MINUS patched graph should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "insert-select MINUS patched dml should be available") != 0 ||
+	    expect_true(dml.target_columns.count == 3U, "insert-select MINUS patched target column count mismatch") != 0 ||
+	    expect_true(graph.target_count == 6U, "insert-select MINUS patched source target count mismatch") != 0 ||
+	    expect_true(graph.value_count == 6U, "insert-select MINUS patched source value count mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	rc = sqlparser_parse_with_options(
+		"INSERT INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) "
+		"SELECT :1, :2 FROM DUAL UNION ALL SELECT :id2, :secret2 FROM DUAL",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "insert-select bind parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "insert-select bind graph should be available") != 0 ||
+	    expect_true(graph.target_count == 4U, "insert-select bind should expose four source targets") != 0 ||
+	    expect_true(graph.value_count == 4U, "insert-select bind should expose four target values") != 0 ||
+	    expect_query_graph_target_value(&graph, 0U, SQLPARSER_GRAPH_TARGET_BIND, SQLPARSER_GRAPH_VALUE_BIND, "1", SQLPARSER_BIND_KIND_POSITIONAL, 1U, ":1", SQLPARSER_LITERAL_KIND_UNKNOWN, NULL, 0LL) != 0 ||
+	    expect_query_graph_target_value(&graph, 1U, SQLPARSER_GRAPH_TARGET_BIND, SQLPARSER_GRAPH_VALUE_BIND, "2", SQLPARSER_BIND_KIND_POSITIONAL, 2U, ":2", SQLPARSER_LITERAL_KIND_UNKNOWN, NULL, 0LL) != 0 ||
+	    expect_query_graph_target_value(&graph, 2U, SQLPARSER_GRAPH_TARGET_BIND, SQLPARSER_GRAPH_VALUE_BIND, "id2", SQLPARSER_BIND_KIND_NAMED, 3U, ":id2", SQLPARSER_LITERAL_KIND_UNKNOWN, NULL, 0LL) != 0 ||
+	    expect_query_graph_target_value(&graph, 3U, SQLPARSER_GRAPH_TARGET_BIND, SQLPARSER_GRAPH_VALUE_BIND, "secret2", SQLPARSER_BIND_KIND_NAMED, 4U, ":secret2", SQLPARSER_LITERAL_KIND_UNKNOWN, NULL, 0LL) != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&patches, 0, sizeof(patches));
+	memset(&bind, 0, sizeof(bind));
+	memset(&literal, 0, sizeof(literal));
+	bind.kind = SQLPARSER_BIND_KIND_NAMED;
+	bind.key = "secret_copy1";
+	literal.kind = SQLPARSER_LITERAL_KIND_STRING;
+	literal.string_value = "copy2";
+	patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[0].selector = "stmt[0].insert_columns";
+	patches[0].index = 2U;
+	patches[0].name = "SECRET_COPY";
+	patches[1].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[1].selector = "stmt[0].select_targets[0]";
+	patches[1].index = 2U;
+	patches[1].bind = &bind;
+	patches[2].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[2].selector = "stmt[0].select_targets[1]";
+	patches[2].index = 2U;
+	patches[2].literal = &literal;
+	patch_list.items = patches;
+	patch_list.count = 3U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "insert-select structured target patch should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &sql, &error);
+	if (expect_status_ok(rc, &error, "insert-select structured target deparse should succeed") != 0 ||
+	    expect_true(strstr(sql, "secret_copy") != NULL || strstr(sql, "SECRET_COPY") != NULL, "insert-select patched target column missing") != 0 ||
+	    expect_true(strstr(sql, ":secret_copy1") != NULL, "insert-select patched bind missing") != 0 ||
+	    expect_true(strstr(sql, "'copy2'") != NULL, "insert-select patched literal missing") != 0) {
+		sqlparser_string_free(sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_parse_with_options(sql, &options, &verify_handle, &error);
+	sqlparser_string_free(sql);
+	sql = NULL;
+	if (expect_status_ok(rc, &error, "insert-select patched SQL should reparse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(verify_handle);
+	verify_handle = NULL;
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "insert-select patched graph should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "insert-select patched dml should be available") != 0 ||
+	    expect_true(dml.target_columns.count == 3U, "insert-select patched target column count mismatch") != 0 ||
+	    expect_true(graph.target_count == 6U, "insert-select patched source target count mismatch") != 0 ||
+	    expect_true(graph.value_count == 6U, "insert-select patched source value count mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[0].selector = "stmt[0].insert_columns";
+	patches[0].index = 3U;
+	patches[0].name = "ID_COPY";
+	patches[1].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[1].selector = "stmt[0].select_targets[0]";
+	patches[1].index = 3U;
+	patches[1].source_selector = "stmt[0].select_target[0][0]";
+	patches[2].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[2].selector = "stmt[0].select_targets[1]";
+	patches[2].index = 3U;
+	patches[2].source_selector = "stmt[0].select_target[1][0]";
+	patch_list.items = patches;
+	patch_list.count = 3U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "insert-select source target clone patch should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "insert-select cloned graph should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "insert-select cloned dml should be available") != 0 ||
+	    expect_true(dml.target_columns.count == 4U, "insert-select cloned target column count mismatch") != 0 ||
+	    expect_true(graph.target_count == 8U, "insert-select cloned source target count mismatch") != 0 ||
+	    expect_true(graph.value_count == 8U, "insert-select cloned source value count mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_oracle_multi_insert_query_graph_and_patch(void)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_branch_t branch;
+	sqlparser_graph_dml_cell_t cell;
+	sqlparser_graph_relation_t relation;
+	sqlparser_graph_target_t target;
+	sqlparser_graph_field_t field;
+	sqlparser_bind_value_t bind;
+	sqlparser_literal_value_t literal;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patch_list;
+	char *sql;
+	size_t index;
+	int rc;
+
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	handle = NULL;
+	rc = sqlparser_parse_with_options(
+		"INSERT ALL "
+		"INTO KDES.t1 (id, secret) VALUES (1, 'a') "
+		"INTO KDES.t2 (id, phone) VALUES (2, :phone2) "
+		"SELECT 1 FROM dual",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "Oracle INSERT ALL parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "Oracle INSERT ALL graph should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "Oracle INSERT ALL dml should be available") != 0 ||
+	    expect_true(dml.insert_mode == SQLPARSER_GRAPH_INSERT_MODE_ALL, "Oracle INSERT ALL mode mismatch") != 0 ||
+	    expect_true(dml.branches.count == 2U, "Oracle INSERT ALL branch count mismatch") != 0 ||
+	    expect_true(dml.has_source_block != 0, "Oracle INSERT ALL source block missing") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_query_graph_span_index_at(&graph, dml.branches, 1U, &index, &error);
+	if (expect_status_ok(rc, &error, "Oracle INSERT ALL second branch span should resolve") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_branch_at(&graph, index, &branch, &error), &error, "Oracle INSERT ALL second branch should be available") != 0 ||
+	    expect_true(branch.ordinal == 1U, "Oracle INSERT ALL second branch ordinal mismatch") != 0 ||
+	    expect_true(branch.target_columns.count == 2U, "Oracle INSERT ALL second branch column count mismatch") != 0 ||
+	    expect_true(branch.rows.count == 2U, "Oracle INSERT ALL second branch cell count mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_relation_at(&graph, branch.target_relation_index, &relation, &error), &error, "Oracle INSERT ALL second relation should be available") != 0 ||
+	    expect_true(relation.schema_name != NULL && strcmp(relation.schema_name, "KDES") == 0, "Oracle INSERT ALL second relation schema mismatch") != 0 ||
+	    expect_true(relation.object_name != NULL && strcmp(relation.object_name, "t2") == 0, "Oracle INSERT ALL second relation mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_query_graph_span_index_at(&graph, branch.rows, 1U, &index, &error);
+	if (expect_status_ok(rc, &error, "Oracle INSERT ALL bind cell span should resolve") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_cell_at(&graph, index, &cell, &error), &error, "Oracle INSERT ALL bind cell should be available") != 0 ||
+	    expect_true(cell.kind == SQLPARSER_GRAPH_VALUE_BIND, "Oracle INSERT ALL bind cell kind mismatch") != 0 ||
+	    expect_true(cell.has_bind != 0 && strcmp(cell.bind, "phone2") == 0, "Oracle INSERT ALL named bind key mismatch") != 0 ||
+	    expect_true(cell.bind_kind == SQLPARSER_BIND_KIND_NAMED, "Oracle INSERT ALL named bind kind mismatch") != 0 ||
+	    expect_true(cell.has_bind_position != 0 && cell.bind_position == 1U, "Oracle INSERT ALL bind position mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	memset(&bind, 0, sizeof(bind));
+	bind.kind = SQLPARSER_BIND_KIND_NAMED;
+	bind.key = "secret_new";
+	rc = sqlparser_insert_set_cell_bind(handle, 0U, 0U, 1U, &bind, &error);
+	if (expect_status_ok(rc, &error, "Oracle INSERT ALL branch bind replacement should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&literal, 0, sizeof(literal));
+	literal.kind = SQLPARSER_LITERAL_KIND_STRING;
+	literal.string_value = "phone-new";
+	rc = sqlparser_insert_set_cell_literal(handle, 0U, 1U, 1U, &literal, &error);
+	if (expect_status_ok(rc, &error, "Oracle INSERT ALL branch literal replacement should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sql = NULL;
+	rc = sqlparser_deparse(handle, &sql, &error);
+	if (expect_status_ok(rc, &error, "Oracle INSERT ALL patched deparse should succeed") != 0 ||
+	    expect_true(strstr(sql, ":secret_new") != NULL, "Oracle INSERT ALL patched bind missing") != 0 ||
+	    expect_true(strstr(sql, "'phone-new'") != NULL, "Oracle INSERT ALL patched literal missing") != 0) {
+		sqlparser_string_free(sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(sql);
+	memset(&patch, 0, sizeof(patch));
+	memset(&patch_list, 0, sizeof(patch_list));
+	patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patch.selector = "stmt[0].insert_branch_columns[0]";
+	patch.index = 2U;
+	patch.name = "secret_copy";
+	bind.kind = SQLPARSER_BIND_KIND_NAMED;
+	bind.key = "secret_copy";
+	patch.bind = &bind;
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "Oracle INSERT ALL branch column insertion should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sql = NULL;
+	rc = sqlparser_deparse(handle, &sql, &error);
+	if (expect_status_ok(rc, &error, "Oracle INSERT ALL branch column deparse should succeed") != 0 ||
+	    expect_true(strstr(sql, "secret_copy") != NULL, "Oracle INSERT ALL inserted branch column missing") != 0 ||
+	    expect_true(strstr(sql, ":secret_copy") != NULL, "Oracle INSERT ALL inserted branch bind missing") != 0) {
+		sqlparser_string_free(sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(sql);
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "Oracle INSERT ALL patched graph should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "Oracle INSERT ALL patched dml should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.branches, 0U, &index, &error), &error, "Oracle INSERT ALL patched first branch span should resolve") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_branch_at(&graph, index, &branch, &error), &error, "Oracle INSERT ALL patched first branch should be available") != 0 ||
+	    expect_true(branch.target_columns.count == 3U, "Oracle INSERT ALL patched branch column count mismatch") != 0 ||
+	    expect_true(branch.rows.count == 3U, "Oracle INSERT ALL patched branch cell count mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patch.selector = "stmt[0].insert_branch_columns[0]";
+	patch.index = 3U;
+	patch.name = "secret_clone";
+	patch.source_selector = "stmt[0].insert_cell[0][1]";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "Oracle INSERT ALL branch cell clone should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "Oracle INSERT ALL cloned graph should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "Oracle INSERT ALL cloned dml should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.branches, 0U, &index, &error), &error, "Oracle INSERT ALL cloned first branch span should resolve") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_branch_at(&graph, index, &branch, &error), &error, "Oracle INSERT ALL cloned first branch should be available") != 0 ||
+	    expect_true(branch.target_columns.count == 4U, "Oracle INSERT ALL cloned branch column count mismatch") != 0 ||
+	    expect_true(branch.rows.count == 4U, "Oracle INSERT ALL cloned branch cell count mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	rc = sqlparser_parse_with_options(
+		"INSERT ALL "
+		"WHEN flag = 1 THEN INTO t1 (id, flag_copy) VALUES (:1, flag) "
+		"WHEN flag = 2 THEN INTO t2 (id, flag_copy) VALUES (:2, flag) "
+		"SELECT flag FROM src",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "Oracle conditional INSERT ALL parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "Oracle conditional INSERT ALL graph should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "Oracle conditional INSERT ALL dml should be available") != 0 ||
+	    expect_true(dml.insert_mode == SQLPARSER_GRAPH_INSERT_MODE_ALL, "Oracle conditional INSERT ALL mode mismatch") != 0 ||
+	    expect_true(dml.branches.count == 2U, "Oracle conditional INSERT ALL branch count mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.branches, 0U, &index, &error), &error, "Oracle conditional INSERT ALL first branch span should resolve") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_branch_at(&graph, index, &branch, &error), &error, "Oracle conditional INSERT ALL first branch should be available") != 0 ||
+	    expect_true(branch.has_condition_selector != 0, "Oracle conditional INSERT ALL condition selector missing") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, branch.rows, 0U, &index, &error), &error, "Oracle conditional INSERT ALL bind cell span should resolve") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_cell_at(&graph, index, &cell, &error), &error, "Oracle conditional INSERT ALL bind cell should be available") != 0 ||
+	    expect_true(cell.kind == SQLPARSER_GRAPH_VALUE_BIND, "Oracle conditional INSERT ALL bind cell kind mismatch") != 0 ||
+	    expect_true(cell.has_bind_position != 0 && cell.bind_position == 1U, "Oracle conditional INSERT ALL bind position mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, branch.rows, 1U, &index, &error), &error, "Oracle conditional INSERT ALL source cell span should resolve") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_cell_at(&graph, index, &cell, &error), &error, "Oracle conditional INSERT ALL source cell should be available") != 0 ||
+	    expect_true(cell.kind == SQLPARSER_GRAPH_VALUE_FIELD, "Oracle conditional INSERT ALL source cell kind mismatch") != 0 ||
+	    expect_true(cell.has_source_target != 0, "Oracle conditional INSERT ALL source target missing") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sql = NULL;
+	rc = sqlparser_selector_clause_sql(handle, &branch.condition_selector, &sql, &error);
+	if (expect_status_ok(rc, &error, "Oracle conditional INSERT ALL condition selector should read SQL") != 0 ||
+	    expect_true(sql != NULL && strcmp(sql, "flag = 1") == 0, "Oracle conditional INSERT ALL condition SQL mismatch") != 0) {
+		sqlparser_string_free(sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(sql);
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	rc = sqlparser_parse_with_options(
+		"INSERT FIRST "
+		"WHEN amount > 100 THEN INTO big_orders (id, amount) VALUES (order_id, amount) "
+		"ELSE INTO small_orders (id, amount) VALUES (order_id, amount) "
+		"SELECT id AS order_id, amount FROM orders",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "Oracle INSERT FIRST direct source fields should parse") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "Oracle INSERT FIRST direct source graph should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "Oracle INSERT FIRST direct source dml should be available") != 0 ||
+	    expect_true(dml.has_source_block != 0, "Oracle INSERT FIRST direct source block missing") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.branches, 0U, &index, &error), &error, "Oracle INSERT FIRST direct source branch span should resolve") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_branch_at(&graph, index, &branch, &error), &error, "Oracle INSERT FIRST direct source branch should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, branch.rows, 0U, &index, &error), &error, "Oracle INSERT FIRST direct source first cell span should resolve") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_cell_at(&graph, index, &cell, &error), &error, "Oracle INSERT FIRST direct source first cell should be available") != 0 ||
+	    expect_true(cell.kind == SQLPARSER_GRAPH_VALUE_FIELD, "Oracle INSERT FIRST direct source first cell kind mismatch") != 0 ||
+	    expect_true(cell.has_source_target != 0, "Oracle INSERT FIRST direct source first cell target missing") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_target_at(&graph, cell.source_target_index, &target, &error), &error, "Oracle INSERT FIRST direct source first target should be available") != 0 ||
+	    expect_true(target.kind == SQLPARSER_GRAPH_TARGET_FIELD, "Oracle INSERT FIRST direct source first target kind mismatch") != 0 ||
+	    expect_true(target.output_name != NULL && strcmp(target.output_name, "order_id") == 0, "Oracle INSERT FIRST direct source first target name mismatch") != 0 ||
+	    expect_true(target.has_field != 0, "Oracle INSERT FIRST direct source first target field missing") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_field_at(&graph, target.field_index, &field, &error), &error, "Oracle INSERT FIRST direct source first field should be available") != 0 ||
+	    expect_true(field.column_name != NULL && strcmp(field.column_name, "id") == 0, "Oracle INSERT FIRST direct source first field mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, branch.rows, 1U, &index, &error), &error, "Oracle INSERT FIRST direct source second cell span should resolve") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_cell_at(&graph, index, &cell, &error), &error, "Oracle INSERT FIRST direct source second cell should be available") != 0 ||
+	    expect_true(cell.kind == SQLPARSER_GRAPH_VALUE_FIELD, "Oracle INSERT FIRST direct source second cell kind mismatch") != 0 ||
+	    expect_true(cell.has_source_target != 0, "Oracle INSERT FIRST direct source second cell target missing") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_target_at(&graph, cell.source_target_index, &target, &error), &error, "Oracle INSERT FIRST direct source second target should be available") != 0 ||
+	    expect_true(target.has_field != 0, "Oracle INSERT FIRST direct source second target field missing") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_field_at(&graph, target.field_index, &field, &error), &error, "Oracle INSERT FIRST direct source second field should be available") != 0 ||
+	    expect_true(field.column_name != NULL && strcmp(field.column_name, "amount") == 0, "Oracle INSERT FIRST direct source second field mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	rc = sqlparser_parse_with_options(
+		"INSERT FIRST "
+		"WHEN flag = 1 THEN INTO t1 (id, secret) VALUES (:1, :2) "
+		"WHEN flag = 2 THEN INTO t2 (id, phone) VALUES (:3, :4) "
+		"SELECT flag FROM src",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "Oracle INSERT FIRST parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "Oracle INSERT FIRST graph should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "Oracle INSERT FIRST dml should be available") != 0 ||
+	    expect_true(dml.insert_mode == SQLPARSER_GRAPH_INSERT_MODE_FIRST, "Oracle INSERT FIRST mode mismatch") != 0 ||
+	    expect_true(dml.branches.count == 2U, "Oracle INSERT FIRST branch count mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.branches, 0U, &index, &error), &error, "Oracle INSERT FIRST first branch span should resolve") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_branch_at(&graph, index, &branch, &error), &error, "Oracle INSERT FIRST first branch should be available") != 0 ||
+	    expect_true(branch.has_condition_selector != 0, "Oracle INSERT FIRST condition selector missing") != 0 ||
+	    expect_true(branch.condition_selector.kind == SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_CONDITION, "Oracle INSERT FIRST condition selector kind mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sql = NULL;
+	rc = sqlparser_selector_clause_sql(handle, &branch.condition_selector, &sql, &error);
+	if (expect_status_ok(rc, &error, "Oracle INSERT FIRST condition selector should read SQL") != 0 ||
+	    expect_true(sql != NULL && strcmp(sql, "flag = 1") == 0, "Oracle INSERT FIRST condition SQL mismatch") != 0) {
+		sqlparser_string_free(sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
 static int test_query_graph_attribution_and_values(void)
 {
 	const char *sql;
@@ -5745,6 +6433,9 @@ int main(void)
 	if (test_insert_cell_sql_mutation() != 0) {
 		return 1;
 	}
+	if (test_insert_cell_bind_mutation() != 0) {
+		return 1;
+	}
 	if (test_delete_where_literal_mutation() != 0) {
 		return 1;
 	}
@@ -5779,6 +6470,12 @@ int main(void)
 		return 1;
 	}
 	if (test_query_graph_public_struct_semantics() != 0) {
+		return 1;
+	}
+	if (test_insert_select_target_values() != 0) {
+		return 1;
+	}
+	if (test_oracle_multi_insert_query_graph_and_patch() != 0) {
 		return 1;
 	}
 	if (test_query_graph_attribution_and_values() != 0) {

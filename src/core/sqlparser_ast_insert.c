@@ -1,6 +1,10 @@
+#include <ctype.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "sqlparser_ast_internal.h"
+#include "../dialect/sqlparser_dialect_oracle_internal.h"
 
 static sqlparser_status_t sqlparser_get_insert_cell_node(
 	sqlparser_handle_t *handle,
@@ -17,6 +21,126 @@ static sqlparser_status_t sqlparser_get_insert_cell_slot(
 	size_t column_index,
 	PgQuery__Node ***out_value_slot,
 	sqlparser_error_t *out_error);
+
+static int sqlparser_bind_key_is_digits(const char *key)
+{
+	size_t index;
+
+	if (key == NULL || key[0] == '\0') {
+		return 0;
+	}
+	for (index = 0U; key[index] != '\0'; index++) {
+		if (!isdigit((unsigned char)key[index])) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static int sqlparser_bind_key_is_identifier(const char *key)
+{
+	size_t index;
+
+	if (key == NULL || key[0] == '\0') {
+		return 0;
+	}
+	if (!(isalpha((unsigned char)key[0]) || key[0] == '_')) {
+		return 0;
+	}
+	for (index = 1U; key[index] != '\0'; index++) {
+		if (!(isalnum((unsigned char)key[index]) || key[index] == '_' || key[index] == '$' || key[index] == '#')) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+sqlparser_status_t sqlparser_render_bind_value_sql(
+	const sqlparser_handle_t *handle,
+	const sqlparser_bind_value_t *bind,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	char buffer[SQLPARSER_BIND_TEXT_CAPACITY + 4U];
+	const char *key;
+	sqlparser_dialect_t dialect;
+
+	if (out_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "out_sql must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_sql = NULL;
+	if (handle == NULL || bind == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "bind arguments must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	key = bind->key;
+	dialect = sqlparser_handle_dialect(handle);
+
+	if (bind->kind == SQLPARSER_BIND_KIND_POSITIONAL) {
+		if (key == NULL || key[0] == '\0') {
+			if (dialect == SQLPARSER_DIALECT_POSTGRESQL) {
+				*out_sql = sqlparser_strdup("$1");
+			} else {
+				*out_sql = sqlparser_strdup("?");
+			}
+			if (*out_sql == NULL) {
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+				return SQLPARSER_STATUS_NO_MEMORY;
+			}
+			return SQLPARSER_STATUS_OK;
+		}
+		if (strlen(key) >= SQLPARSER_BIND_TEXT_CAPACITY) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "bind key is too long");
+			return SQLPARSER_STATUS_INVALID_ARGUMENT;
+		}
+		if (!sqlparser_bind_key_is_digits(key)) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "positional bind key must be numeric");
+			return SQLPARSER_STATUS_INVALID_ARGUMENT;
+		}
+		if (dialect == SQLPARSER_DIALECT_POSTGRESQL) {
+			(void)snprintf(buffer, sizeof(buffer), "$%s", key);
+		} else if (dialect == SQLPARSER_DIALECT_ORACLE || dialect == SQLPARSER_DIALECT_DAMENG) {
+			(void)snprintf(buffer, sizeof(buffer), ":%s", key);
+		} else {
+			(void)snprintf(buffer, sizeof(buffer), "?");
+		}
+		*out_sql = sqlparser_strdup(buffer);
+		if (*out_sql == NULL) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		return SQLPARSER_STATUS_OK;
+	}
+
+	if (bind->kind == SQLPARSER_BIND_KIND_NAMED) {
+		if (key != NULL && strlen(key) >= SQLPARSER_BIND_TEXT_CAPACITY) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "bind key is too long");
+			return SQLPARSER_STATUS_INVALID_ARGUMENT;
+		}
+		if (!sqlparser_bind_key_is_identifier(key)) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "named bind key is invalid");
+			return SQLPARSER_STATUS_INVALID_ARGUMENT;
+		}
+		if (dialect == SQLPARSER_DIALECT_ORACLE || dialect == SQLPARSER_DIALECT_DAMENG) {
+			(void)snprintf(buffer, sizeof(buffer), ":%s", key);
+		} else if (dialect == SQLPARSER_DIALECT_SQLSERVER) {
+			(void)snprintf(buffer, sizeof(buffer), "@%s", key);
+		} else {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "named bind is not supported by this dialect");
+			return SQLPARSER_STATUS_UNSUPPORTED;
+		}
+		*out_sql = sqlparser_strdup(buffer);
+		if (*out_sql == NULL) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		return SQLPARSER_STATUS_OK;
+	}
+
+	sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "bind kind must be positional or named");
+	return SQLPARSER_STATUS_INVALID_ARGUMENT;
+}
 
 static sqlparser_status_t sqlparser_get_insert_column_res_target(
 	PgQuery__InsertStmt *stmt,
@@ -407,6 +531,17 @@ sqlparser_status_t sqlparser_insert_set_cell_literal(
 	sqlparser_status_t status;
 
 	sqlparser_error_clear(out_error);
+	if (handle != NULL &&
+	    handle->dialect == SQLPARSER_DIALECT_ORACLE &&
+	    sqlparser_oracle_state_has_multi_insert(handle->dialect_state)) {
+		return sqlparser_oracle_multi_insert_set_cell_literal(
+			handle,
+			statement_index,
+			row_index,
+			column_index,
+			value,
+			out_error);
+	}
 	status = sqlparser_get_insert_cell_a_const(
 		handle,
 		statement_index,
@@ -450,6 +585,17 @@ sqlparser_status_t sqlparser_insert_cell_sql(
 	*out_sql = NULL;
 	core_sql = NULL;
 	sqlparser_error_clear(out_error);
+	if (handle != NULL &&
+	    handle->dialect == SQLPARSER_DIALECT_ORACLE &&
+	    sqlparser_oracle_state_has_multi_insert(handle->dialect_state)) {
+		return sqlparser_oracle_multi_insert_cell_sql(
+			handle,
+			statement_index,
+			row_index,
+			column_index,
+			out_sql,
+			out_error);
+	}
 	mutable_handle = (sqlparser_handle_t *)handle;
 	status = sqlparser_get_insert_cell_node(
 		mutable_handle,
@@ -499,6 +645,17 @@ sqlparser_status_t sqlparser_insert_set_cell_sql(
 	dialect_state = NULL;
 	value_slot = NULL;
 	replacement = NULL;
+	if (handle != NULL &&
+	    handle->dialect == SQLPARSER_DIALECT_ORACLE &&
+	    sqlparser_oracle_state_has_multi_insert(handle->dialect_state)) {
+		return sqlparser_oracle_multi_insert_set_cell_sql(
+			handle,
+			statement_index,
+			row_index,
+			column_index,
+			sql_text,
+			out_error);
+	}
 	status = sqlparser_preprocess_handle_sql_fragment(
 		handle,
 		sql_text,
@@ -543,4 +700,43 @@ sqlparser_status_t sqlparser_insert_set_cell_sql(
 
 	sqlparser_handle_adopt_dialect_state(handle, dialect_state);
 	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_insert_set_cell_bind(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t row_index,
+	size_t column_index,
+	const sqlparser_bind_value_t *bind,
+	sqlparser_error_t *out_error)
+{
+	char *bind_sql;
+	sqlparser_status_t status;
+
+	bind_sql = NULL;
+	sqlparser_error_clear(out_error);
+	if (handle != NULL &&
+	    handle->dialect == SQLPARSER_DIALECT_ORACLE &&
+	    sqlparser_oracle_state_has_multi_insert(handle->dialect_state)) {
+		return sqlparser_oracle_multi_insert_set_cell_bind(
+			handle,
+			statement_index,
+			row_index,
+			column_index,
+			bind,
+			out_error);
+	}
+	status = sqlparser_render_bind_value_sql(handle, bind, &bind_sql, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_insert_set_cell_sql(
+		handle,
+		statement_index,
+		row_index,
+		column_index,
+		bind_sql,
+		out_error);
+	free(bind_sql);
+	return status;
 }

@@ -30,6 +30,8 @@ unified patch-based rewrite, fine-grained convenience APIs, and dialect usage.
   Demonstrates SELECT output-list, WHERE condition, and ORDER BY rewrites through generic `clause` patches.
 - `examples/patch/17_update_set_patch.c`
   Demonstrates appending, deleting, and replacing full `UPDATE SET` assignments through `sqlparser_apply_patch()`.
+- `examples/patch/19_oracle_multi_insert_patch.c`
+  Demonstrates rewriting Oracle `INSERT ALL` branches through `sqlparser_apply_patch()`: inserting target columns, adding structured bind cells, and cloning existing cells.
 
 ## Convenience API Examples
 
@@ -87,9 +89,15 @@ Run the structured SQL fragment rewrite example:
 ./bin/examples/convenience/18_structured_fragment_rewrite
 ```
 
+Run the Oracle multi-table insert patch example:
+
+```bash
+./bin/examples/patch/19_oracle_multi_insert_patch
+```
+
 ## Notes
 
 - The examples use only public APIs.
-- Integration code should usually start with `examples/patch/`.
+- `examples/patch/` demonstrates the primary structured rewrite workflow.
 - The source files include inline comments that describe the key steps.
 - For complete API details, see [API Reference](../doc/api_reference.en.md).

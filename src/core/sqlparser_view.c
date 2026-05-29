@@ -7,6 +7,7 @@
 
 #include "../dialect/sqlparser_dialect_internal.h"
 #include "sqlparser_ast_internal.h"
+#include "../dialect/sqlparser_dialect_oracle_internal.h"
 
 typedef struct {
 	char *name;
@@ -1467,6 +1468,8 @@ typedef struct {
 	size_t set_count;
 	size_t dml_offset;
 	size_t dml_count;
+	size_t dml_branch_offset;
+	size_t dml_branch_count;
 	size_t dml_column_offset;
 	size_t dml_column_count;
 	size_t dml_cell_offset;
@@ -1500,6 +1503,9 @@ struct sqlparser_query_graph_cache {
 	size_t dml_count;
 	size_t dml_capacity;
 	sqlparser_graph_dml_t *dml;
+	size_t dml_branch_count;
+	size_t dml_branch_capacity;
+	sqlparser_graph_dml_branch_t *dml_branches;
 	size_t dml_column_count;
 	size_t dml_column_capacity;
 	sqlparser_graph_dml_column_t *dml_columns;
@@ -1529,6 +1535,18 @@ typedef struct {
 	sqlparser_target_path_entry_t target_path[SQLPARSER_TARGET_PATH_CAPACITY];
 	size_t target_path_count;
 } sqlparser_graph_build_t;
+
+static int sqlparser_graph_value_from_node(
+	sqlparser_graph_build_t *build,
+	size_t block_index,
+	sqlparser_clause_kind_t clause,
+	const char *operator_name,
+	size_t field_index,
+	int has_field,
+	sqlparser_graph_field_match_kind_t field_match_kind,
+	PgQuery__Node *value_node,
+	sqlparser_graph_value_t *out_value,
+	sqlparser_error_t *out_error);
 
 static int sqlparser_query_graph_reserve_array(
 	void **items,
@@ -1582,6 +1600,7 @@ void sqlparser_query_graph_cache_release(sqlparser_query_graph_cache_t *cache)
 	free(cache->values);
 	free(cache->sets);
 	free(cache->dml);
+	free(cache->dml_branches);
 	free(cache->dml_columns);
 	free(cache->dml_cells);
 	free(cache->dml_assignments);
@@ -1900,6 +1919,40 @@ static int sqlparser_graph_add_value(
 		*out_index = local_index;
 	}
 	return 0;
+}
+
+static int sqlparser_graph_add_target_value_from_node(
+	sqlparser_graph_build_t *build,
+	size_t block_index,
+	PgQuery__Node *value_node,
+	size_t *out_value_index,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_graph_value_t value;
+	int value_status;
+
+	if (out_value_index != NULL) {
+		*out_value_index = 0U;
+	}
+	memset(&value, 0, sizeof(value));
+	value_status = sqlparser_graph_value_from_node(
+		build,
+		block_index,
+		SQLPARSER_CLAUSE_KIND_SELECT_LIST,
+		NULL,
+		0U,
+		0,
+		SQLPARSER_GRAPH_FIELD_MATCH_UNKNOWN,
+		value_node,
+		&value,
+		out_error);
+	if (value_status < 0) {
+		return -1;
+	}
+	if (value_status == 0) {
+		return 0;
+	}
+	return sqlparser_graph_add_value(build, &value, out_value_index, out_error);
 }
 
 static int sqlparser_graph_add_set(
@@ -4152,6 +4205,28 @@ static int sqlparser_graph_build_target(
 	}
 	if (expr != NULL && expr->node_case == PG_QUERY__NODE__NODE_A_CONST) {
 		target.kind = SQLPARSER_GRAPH_TARGET_LITERAL;
+		if (sqlparser_graph_add_target_value_from_node(
+			    build,
+			    block_index,
+			    expr,
+			    &target.value_index,
+			    out_error) != 0) {
+			return -1;
+		}
+		target.has_value = 1;
+		return sqlparser_graph_add_target(build, &target, NULL, out_error);
+	}
+	if (expr != NULL && expr->node_case == PG_QUERY__NODE__NODE_PARAM_REF) {
+		target.kind = SQLPARSER_GRAPH_TARGET_BIND;
+		if (sqlparser_graph_add_target_value_from_node(
+			    build,
+			    block_index,
+			    expr,
+			    &target.value_index,
+			    out_error) != 0) {
+			return -1;
+		}
+		target.has_value = 1;
 		return sqlparser_graph_add_target(build, &target, NULL, out_error);
 	}
 	if (expr != NULL && expr->node_case == PG_QUERY__NODE__NODE_SUB_LINK && expr->sub_link != NULL) {
@@ -4436,6 +4511,7 @@ static int sqlparser_graph_finalize_statement_spans(sqlparser_graph_build_t *bui
 	build->statement->value_count = build->cache->value_count - build->statement->value_offset;
 	build->statement->set_count = build->cache->set_count - build->statement->set_offset;
 	build->statement->dml_count = build->cache->dml_count - build->statement->dml_offset;
+	build->statement->dml_branch_count = build->cache->dml_branch_count - build->statement->dml_branch_offset;
 	build->statement->dml_column_count = build->cache->dml_column_count - build->statement->dml_column_offset;
 	build->statement->dml_cell_count = build->cache->dml_cell_count - build->statement->dml_cell_offset;
 	build->statement->dml_assignment_count = build->cache->dml_assignment_count - build->statement->dml_assignment_offset;
@@ -4539,6 +4615,42 @@ static int sqlparser_graph_add_dml_column(
 	}
 	column->index = local_index;
 	column->statement_index = build->statement_index;
+	if (out_index != NULL) {
+		*out_index = local_index;
+	}
+	return 0;
+}
+
+static int sqlparser_graph_add_dml_branch(
+	sqlparser_graph_build_t *build,
+	const sqlparser_graph_dml_branch_t *source,
+	size_t *out_index,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_graph_dml_branch_t *branch;
+	size_t global_index;
+	size_t local_index;
+
+	if (out_index != NULL) {
+		*out_index = 0U;
+	}
+	if (sqlparser_query_graph_reserve_array(
+		    (void **)&build->cache->dml_branches,
+		    &build->cache->dml_branch_capacity,
+		    build->cache->dml_branch_count + 1U,
+		    sizeof(*build->cache->dml_branches),
+		    out_error) != 0) {
+		return -1;
+	}
+	global_index = build->cache->dml_branch_count++;
+	local_index = build->cache->dml_branch_count - build->statement->dml_branch_offset - 1U;
+	branch = &build->cache->dml_branches[global_index];
+	memset(branch, 0, sizeof(*branch));
+	if (source != NULL) {
+		*branch = *source;
+	}
+	branch->index = local_index;
+	branch->statement_index = build->statement_index;
 	if (out_index != NULL) {
 		*out_index = local_index;
 	}
@@ -4916,6 +5028,319 @@ static int sqlparser_graph_add_dml_assignment_from_res_target(
 	return 0;
 }
 
+static int sqlparser_graph_add_oracle_relation(
+	sqlparser_graph_build_t *build,
+	const sqlparser_oracle_relation_t *source,
+	size_t block_index,
+	size_t *out_relation_index,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_relation_view_t relation;
+
+	if (source == NULL) {
+		if (out_relation_index != NULL) {
+			*out_relation_index = 0U;
+		}
+		return 0;
+	}
+	memset(&relation, 0, sizeof(relation));
+	relation.database_name = source->database_name;
+	relation.schema_name = source->schema_name;
+	relation.table_name = source->table_name;
+	if (sqlparser_graph_add_relation(
+		    build,
+		    block_index,
+		    SQLPARSER_GRAPH_REL_BASE,
+		    &relation,
+		    out_relation_index,
+		    out_error) != 0) {
+		return -1;
+	}
+	return 0;
+}
+
+static int sqlparser_graph_add_oracle_dml_column(
+	sqlparser_graph_build_t *build,
+	size_t dml_index,
+	size_t ordinal,
+	const sqlparser_oracle_column_t *source,
+	sqlparser_graph_dml_branch_t *branch,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_graph_dml_column_t column;
+	size_t column_index;
+
+	memset(&column, 0, sizeof(column));
+	column.dml_index = dml_index;
+	column.ordinal = ordinal;
+	column.column_name = source != NULL ? source->name : NULL;
+	if (sqlparser_graph_add_dml_column(build, &column, &column_index, out_error) != 0) {
+		return -1;
+	}
+	if (branch != NULL &&
+	    sqlparser_graph_span_append_index(build, &branch->target_columns, column_index, out_error) != 0) {
+		return -1;
+	}
+	return 0;
+}
+
+static int sqlparser_graph_oracle_cell_resolve_source_target(
+	sqlparser_graph_build_t *build,
+	size_t source_block_index,
+	PgQuery__ColumnRef *column_ref,
+	size_t *out_source_target_index)
+{
+	const char *name;
+	const char *qualifier;
+	size_t index;
+	size_t match_index;
+	size_t match_count;
+
+	if (out_source_target_index != NULL) {
+		*out_source_target_index = 0U;
+	}
+	if (build == NULL || column_ref == NULL) {
+		return 0;
+	}
+	if (sqlparser_graph_column_ref_is_pseudo(column_ref)) {
+		return 0;
+	}
+	name = sqlparser_graph_column_ref_part(column_ref, 0U);
+	qualifier = sqlparser_graph_column_ref_part(column_ref, 1U);
+	if (name == NULL || name[0] == '\0' || strcmp(name, "*") == 0 ||
+	    (qualifier != NULL && qualifier[0] != '\0')) {
+		return 0;
+	}
+	match_index = 0U;
+	match_count = 0U;
+	for (index = 0U; index < sqlparser_graph_local_target_count(build); index++) {
+		sqlparser_graph_target_t *target;
+		int matched;
+
+		target = sqlparser_graph_target_by_local(build, index);
+		if (target == NULL ||
+		    target->block_index != source_block_index ||
+		    target->kind != SQLPARSER_GRAPH_TARGET_FIELD) {
+			continue;
+		}
+		matched = target->output_name != NULL &&
+			sqlparser_text_equal_ci(target->output_name, name);
+		if (!matched) {
+			continue;
+		}
+		match_index = index;
+		match_count++;
+		if (match_count > 1U) {
+			return 0;
+		}
+	}
+	if (match_count == 1U && out_source_target_index != NULL) {
+		*out_source_target_index = match_index;
+	}
+	return match_count == 1U;
+}
+
+static int sqlparser_graph_add_oracle_dml_cell(
+	sqlparser_graph_build_t *build,
+	size_t dml_index,
+	size_t branch_ordinal,
+	size_t column_ordinal,
+	size_t source_block_index,
+	int has_source_block,
+	const sqlparser_oracle_value_t *source,
+	sqlparser_graph_dml_branch_t *branch,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_graph_dml_cell_t cell;
+	PgQuery__Node *node;
+	size_t cell_index;
+
+	if (source == NULL) {
+		return 0;
+	}
+	memset(&cell, 0, sizeof(cell));
+	cell.dml_index = dml_index;
+	cell.row_index = branch_ordinal;
+	cell.column_ordinal = column_ordinal;
+	if (source->has_bind) {
+		cell.kind = SQLPARSER_GRAPH_VALUE_BIND;
+		cell.has_bind = 1;
+		cell.bind_kind = source->bind_kind;
+		sqlparser_view_copy_public_text(cell.bind, sizeof(cell.bind), source->bind, NULL);
+		sqlparser_view_copy_public_text(cell.bind_sql, sizeof(cell.bind_sql), source->bind_sql, NULL);
+		cell.has_bind_sql = cell.bind_sql[0] != '\0';
+		cell.bind_position = source->bind_position;
+		cell.has_bind_position = source->has_bind_position;
+	} else if (source->has_literal) {
+		cell.kind = SQLPARSER_GRAPH_VALUE_LITERAL;
+		cell.literal = source->literal;
+	} else if (source->parser_sql != NULL && strchr(source->parser_sql, '$') == NULL) {
+		node = NULL;
+		if (sqlparser_parse_insert_cell_node_sql(source->parser_sql, &node, out_error) != SQLPARSER_STATUS_OK) {
+			return -1;
+		}
+		if (node != NULL &&
+		    node->node_case == PG_QUERY__NODE__NODE_A_CONST &&
+		    node->a_const != NULL) {
+			cell.kind = SQLPARSER_GRAPH_VALUE_LITERAL;
+			if (sqlparser_fill_literal_view_from_a_const(node->a_const, &cell.literal, out_error) != SQLPARSER_STATUS_OK) {
+				sqlparser_free_proto_node(node);
+				return -1;
+			}
+		} else if (node != NULL &&
+		           node->node_case == PG_QUERY__NODE__NODE_SET_TO_DEFAULT) {
+			cell.kind = SQLPARSER_GRAPH_VALUE_DEFAULT;
+		} else if (has_source_block &&
+		           node != NULL &&
+		           node->node_case == PG_QUERY__NODE__NODE_COLUMN_REF &&
+		           node->column_ref != NULL &&
+		           sqlparser_graph_oracle_cell_resolve_source_target(
+			           build,
+			           source_block_index,
+			           node->column_ref,
+			           &cell.source_target_index)) {
+			cell.kind = SQLPARSER_GRAPH_VALUE_FIELD;
+			cell.has_source_target = 1;
+		} else {
+			cell.kind = SQLPARSER_GRAPH_VALUE_EXPRESSION;
+		}
+		sqlparser_free_proto_node(node);
+	} else {
+		cell.kind = SQLPARSER_GRAPH_VALUE_EXPRESSION;
+	}
+	cell.selector.kind = SQLPARSER_SELECTOR_KIND_INSERT_CELL;
+	cell.selector.statement_index = build->statement_index;
+	cell.selector.row_index = branch_ordinal;
+	cell.selector.column_index = column_ordinal;
+	cell.has_selector = 1;
+	if (sqlparser_graph_add_dml_cell(build, &cell, &cell_index, out_error) != 0) {
+		return -1;
+	}
+	if (branch != NULL &&
+	    sqlparser_graph_span_append_index(build, &branch->rows, cell_index, out_error) != 0) {
+		return -1;
+	}
+	return 0;
+}
+
+static int sqlparser_graph_build_oracle_multi_insert_dml(
+	sqlparser_graph_build_t *build,
+	PgQuery__InsertStmt *stmt,
+	const sqlparser_oracle_multi_insert_t *multi,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_t *dml_item;
+	size_t root_block_index;
+	size_t dml_index;
+	size_t branch_index;
+	size_t *local_branch_indices;
+
+	if (build == NULL || stmt == NULL || multi == NULL) {
+		return 0;
+	}
+	local_branch_indices = NULL;
+	memset(&dml, 0, sizeof(dml));
+	dml.kind = SQLPARSER_GRAPH_DML_INSERT;
+	dml.insert_mode = multi->mode == SQLPARSER_ORACLE_MULTI_INSERT_FIRST ?
+		SQLPARSER_GRAPH_INSERT_MODE_FIRST :
+		SQLPARSER_GRAPH_INSERT_MODE_ALL;
+	if (sqlparser_graph_add_block(build, SQLPARSER_GRAPH_BLOCK_SELECT, &root_block_index, out_error) != 0 ||
+	    sqlparser_graph_add_dml(build, &dml, &dml_index, out_error) != 0) {
+		return -1;
+	}
+	if (multi->branch_count > 0U) {
+		local_branch_indices = (size_t *)calloc(multi->branch_count, sizeof(*local_branch_indices));
+		if (local_branch_indices == NULL) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			return -1;
+		}
+	}
+	dml_item = &build->cache->dml[build->statement->dml_offset + dml_index];
+	if (stmt->select_stmt != NULL &&
+	    stmt->select_stmt->node_case == PG_QUERY__NODE__NODE_SELECT_STMT) {
+		dml_item->has_source_block = 1;
+		if (sqlparser_graph_build_select(
+			    build,
+			    stmt->select_stmt->select_stmt,
+			    SQLPARSER_GRAPH_BLOCK_SELECT,
+			    &dml_item->source_block_index,
+			    out_error) != 0) {
+			free(local_branch_indices);
+			return -1;
+		}
+	}
+	for (branch_index = 0U; branch_index < multi->branch_count; branch_index++) {
+		const sqlparser_oracle_multi_insert_branch_t *source_branch;
+		sqlparser_graph_dml_branch_t branch;
+		size_t local_branch_index;
+
+		source_branch = &multi->branches[branch_index];
+		memset(&branch, 0, sizeof(branch));
+		branch.dml_index = dml_index;
+		branch.ordinal = branch_index;
+		if (sqlparser_graph_add_oracle_relation(
+			    build,
+			    &source_branch->relation,
+			    root_block_index,
+			    &branch.target_relation_index,
+			    out_error) != 0) {
+			free(local_branch_indices);
+			return -1;
+		}
+		branch.has_target_relation = source_branch->relation.table_name != NULL;
+		if (source_branch->has_condition) {
+			branch.condition_selector.kind = SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_CONDITION;
+			branch.condition_selector.statement_index = build->statement_index;
+			branch.condition_selector.item_index = branch_index;
+			branch.has_condition_selector = 1;
+		}
+		if (sqlparser_graph_add_dml_branch(build, &branch, &local_branch_index, out_error) != 0 ||
+		    sqlparser_graph_span_append_index(build, &dml_item->branches, local_branch_index, out_error) != 0) {
+			free(local_branch_indices);
+			return -1;
+		}
+		local_branch_indices[branch_index] = local_branch_index;
+	}
+	for (branch_index = 0U; branch_index < multi->branch_count; branch_index++) {
+		const sqlparser_oracle_multi_insert_branch_t *source_branch;
+		sqlparser_graph_dml_branch_t *branch_item;
+		size_t index;
+
+		source_branch = &multi->branches[branch_index];
+		branch_item = &build->cache->dml_branches[build->statement->dml_branch_offset + local_branch_indices[branch_index]];
+		for (index = 0U; index < source_branch->column_count; index++) {
+			if (sqlparser_graph_add_oracle_dml_column(
+				    build,
+				    dml_index,
+				    index,
+				    &source_branch->columns[index],
+				    branch_item,
+				    out_error) != 0) {
+				free(local_branch_indices);
+				return -1;
+			}
+		}
+		for (index = 0U; index < source_branch->cell_count; index++) {
+			if (sqlparser_graph_add_oracle_dml_cell(
+				    build,
+				    dml_index,
+				    branch_index,
+				    index,
+				    dml_item->source_block_index,
+				    dml_item->has_source_block,
+				    &source_branch->cells[index],
+				    branch_item,
+				    out_error) != 0) {
+				free(local_branch_indices);
+				return -1;
+			}
+		}
+	}
+	free(local_branch_indices);
+	return 0;
+}
+
 static int sqlparser_graph_build_insert_dml(
 	sqlparser_graph_build_t *build,
 	PgQuery__InsertStmt *stmt,
@@ -4933,6 +5358,7 @@ static int sqlparser_graph_build_insert_dml(
 	}
 	memset(&dml, 0, sizeof(dml));
 	dml.kind = SQLPARSER_GRAPH_DML_INSERT;
+	dml.insert_mode = SQLPARSER_GRAPH_INSERT_MODE_VALUES;
 	if (sqlparser_graph_add_block(build, SQLPARSER_GRAPH_BLOCK_SELECT, &block_index, out_error) != 0 ||
 	    sqlparser_graph_add_dml_target_relation(build, stmt->relation, block_index, &dml.target_relation_index, out_error) != 0) {
 		return -1;
@@ -4984,6 +5410,7 @@ static int sqlparser_graph_build_insert_dml(
 		sqlparser_graph_dml_t *dml_item;
 
 		dml_item = &build->cache->dml[build->statement->dml_offset + dml_index];
+		dml_item->insert_mode = SQLPARSER_GRAPH_INSERT_MODE_SELECT;
 		dml_item->has_source_block = 1;
 		if (sqlparser_graph_build_select(
 			    build,
@@ -5236,6 +5663,16 @@ static int sqlparser_graph_build_statement(
 				sqlparser_graph_build_select(build, statement->create_table_as_stmt->query->select_stmt, SQLPARSER_GRAPH_BLOCK_SELECT, NULL, out_error) :
 				0;
 		case PG_QUERY__NODE__NODE_INSERT_STMT:
+			if (build != NULL &&
+			    build->handle != NULL &&
+			    build->handle->dialect == SQLPARSER_DIALECT_ORACLE &&
+			    sqlparser_oracle_state_has_multi_insert(build->handle->dialect_state)) {
+				return sqlparser_graph_build_oracle_multi_insert_dml(
+					build,
+					statement->insert_stmt,
+					sqlparser_oracle_state_multi_insert(build->handle->dialect_state),
+					out_error);
+			}
 			return sqlparser_graph_build_insert_dml(build, statement->insert_stmt, out_error);
 		case PG_QUERY__NODE__NODE_UPDATE_STMT:
 			return sqlparser_graph_build_update_dml(build, statement->update_stmt, out_error);
@@ -5307,6 +5744,7 @@ static sqlparser_status_t sqlparser_query_graph_cache_build(
 		build.statement->value_offset = cache->value_count;
 		build.statement->set_offset = cache->set_count;
 		build.statement->dml_offset = cache->dml_count;
+		build.statement->dml_branch_offset = cache->dml_branch_count;
 		build.statement->dml_column_offset = cache->dml_column_count;
 		build.statement->dml_cell_offset = cache->dml_cell_count;
 		build.statement->dml_assignment_offset = cache->dml_assignment_count;
@@ -5412,6 +5850,7 @@ sqlparser_status_t sqlparser_statement_query_graph(
 	out_graph->value_count = statement->value_count;
 	out_graph->set_count = statement->set_count;
 	out_graph->has_dml = statement->dml_count > 0U;
+	out_graph->dml_branch_count = statement->dml_branch_count;
 	return SQLPARSER_STATUS_OK;
 }
 
@@ -5606,6 +6045,30 @@ sqlparser_status_t sqlparser_query_graph_dml(
 	return SQLPARSER_STATUS_OK;
 }
 
+sqlparser_status_t sqlparser_query_graph_dml_branch_at(
+	const sqlparser_query_graph_view_t *graph,
+	size_t branch_index,
+	sqlparser_graph_dml_branch_t *out_branch,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_query_graph_cache_t *cache;
+	sqlparser_statement_graph_t *statement;
+
+	sqlparser_error_clear(out_error);
+	if (out_branch == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "out_branch must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	memset(out_branch, 0, sizeof(*out_branch));
+	statement = sqlparser_query_graph_statement(graph, &cache);
+	if (statement == NULL || branch_index >= statement->dml_branch_count) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "dml branch index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_branch = cache->dml_branches[statement->dml_branch_offset + branch_index];
+	return SQLPARSER_STATUS_OK;
+}
+
 sqlparser_status_t sqlparser_query_graph_dml_column_at(
 	const sqlparser_query_graph_view_t *graph,
 	size_t column_index,
@@ -5775,6 +6238,7 @@ static json_t *sqlparser_graph_target_json(
 	    json_object_set_new(object, "kind", json_string(sqlparser_graph_target_kind_name(target->kind))) != 0 ||
 	    sqlparser_json_set_optional_string(object, "name", target->output_name) != 0 ||
 	    sqlparser_json_set_optional_size(object, "field", target->has_field, target->field_index) != 0 ||
+	    sqlparser_json_set_optional_size(object, "value", target->has_value, target->value_index) != 0 ||
 	    sqlparser_json_set_nonempty_array(object, "star_relations", &star_relations) != 0 ||
 	    sqlparser_json_set_optional_size(object, "source_block", target->has_source_block, target->source_block_index) != 0 ||
 	    sqlparser_json_set_optional_selector(object, "selector", target->has_selector ? &target->selector : NULL, out_error) != 0 ||
@@ -6025,6 +6489,7 @@ static json_t *sqlparser_graph_dml_cell_json(
 	    json_object_set_new(object, "row", json_integer((json_int_t)cell->row_index)) != 0 ||
 	    json_object_set_new(object, "column", json_integer((json_int_t)cell->column_ordinal)) != 0 ||
 	    json_object_set_new(object, "kind", json_string(sqlparser_graph_value_kind_name(cell->kind))) != 0 ||
+	    sqlparser_json_set_optional_size(object, "source_target", cell->has_source_target, cell->source_target_index) != 0 ||
 	    sqlparser_json_set_optional_string(object, "bind_key", cell->has_bind ? cell->bind : NULL) != 0 ||
 	    json_object_set_new(object, "bind_kind", json_integer(cell->bind_kind)) != 0 ||
 	    sqlparser_json_set_optional_string(object, "bind_sql", cell->has_bind_sql ? cell->bind_sql : NULL) != 0 ||
@@ -6172,6 +6637,70 @@ static int sqlparser_graph_append_dml_assignment_objects(
 	return 0;
 }
 
+static json_t *sqlparser_graph_dml_branch_json(
+	const sqlparser_query_graph_view_t *graph,
+	const sqlparser_graph_dml_branch_t *branch,
+	sqlparser_error_t *out_error)
+{
+	json_t *object;
+	json_t *target_columns;
+	json_t *rows;
+
+	object = json_object();
+	target_columns = json_array();
+	rows = json_array();
+	if (object == NULL || target_columns == NULL || rows == NULL) {
+		goto fail;
+	}
+	if (sqlparser_graph_append_dml_column_objects(graph, target_columns, branch->target_columns, out_error) != 0 ||
+	    sqlparser_graph_append_dml_cell_objects(graph, rows, branch->rows, out_error) != 0 ||
+	    json_object_set_new(object, "ordinal", json_integer((json_int_t)branch->ordinal)) != 0 ||
+	    sqlparser_json_set_optional_size(object, "target_relation", branch->has_target_relation, branch->target_relation_index) != 0 ||
+	    sqlparser_json_set_nonempty_array(object, "target_columns", &target_columns) != 0 ||
+	    sqlparser_json_set_nonempty_array(object, "rows", &rows) != 0 ||
+	    sqlparser_json_set_optional_size(object, "condition_block", branch->has_condition_block, branch->condition_block_index) != 0 ||
+	    sqlparser_json_set_optional_selector(object, "condition_selector", branch->has_condition_selector ? &branch->condition_selector : NULL, out_error) != 0) {
+		goto fail;
+	}
+	return object;
+
+fail:
+	json_decref(object);
+	json_decref(target_columns);
+	json_decref(rows);
+	if (out_error != NULL && out_error->code == SQLPARSER_STATUS_OK) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+	}
+	return NULL;
+}
+
+static int sqlparser_graph_append_dml_branch_objects(
+	const sqlparser_query_graph_view_t *graph,
+	json_t *array,
+	sqlparser_index_span_t span,
+	sqlparser_error_t *out_error)
+{
+	size_t index;
+
+	for (index = 0U; index < span.count; index++) {
+		size_t branch_index;
+		sqlparser_graph_dml_branch_t branch;
+		json_t *entry;
+
+		if (sqlparser_query_graph_span_index_at(graph, span, index, &branch_index, out_error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_query_graph_dml_branch_at(graph, branch_index, &branch, out_error) != SQLPARSER_STATUS_OK) {
+			return -1;
+		}
+		entry = sqlparser_graph_dml_branch_json(graph, &branch, out_error);
+		if (entry == NULL || sqlparser_json_array_append_owned(array, &entry) != 0) {
+			json_decref(entry);
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			return -1;
+		}
+	}
+	return 0;
+}
+
 static json_t *sqlparser_graph_dml_json(
 	const sqlparser_query_graph_view_t *graph,
 	const sqlparser_graph_dml_t *dml,
@@ -6182,19 +6711,23 @@ static json_t *sqlparser_graph_dml_json(
 	json_t *rows;
 	json_t *assignments;
 	json_t *delete_targets;
+	json_t *branches;
 
 	object = json_object();
 	target_columns = json_array();
 	rows = json_array();
 	assignments = json_array();
 	delete_targets = sqlparser_graph_span_json(graph, dml->delete_targets, out_error);
-	if (object == NULL || target_columns == NULL || rows == NULL || assignments == NULL || delete_targets == NULL) {
+	branches = json_array();
+	if (object == NULL || target_columns == NULL || rows == NULL || assignments == NULL || delete_targets == NULL || branches == NULL) {
 		goto fail;
 	}
 	if (sqlparser_graph_append_dml_column_objects(graph, target_columns, dml->target_columns, out_error) != 0 ||
 	    sqlparser_graph_append_dml_cell_objects(graph, rows, dml->rows, out_error) != 0 ||
 	    sqlparser_graph_append_dml_assignment_objects(graph, assignments, dml->assignments, out_error) != 0 ||
+	    sqlparser_graph_append_dml_branch_objects(graph, branches, dml->branches, out_error) != 0 ||
 	    json_object_set_new(object, "kind", json_string(sqlparser_graph_dml_kind_name(dml->kind))) != 0 ||
+	    json_object_set_new(object, "insert_mode", json_string(sqlparser_graph_insert_mode_name(dml->insert_mode))) != 0 ||
 	    sqlparser_json_set_optional_size(object, "target_relation", dml->has_target_relation, dml->target_relation_index) != 0) {
 		goto fail;
 	}
@@ -6210,6 +6743,9 @@ static json_t *sqlparser_graph_dml_json(
 	if (sqlparser_json_set_nonempty_array(object, "delete_targets", &delete_targets) != 0) {
 		goto fail;
 	}
+	if (sqlparser_json_set_nonempty_array(object, "branches", &branches) != 0) {
+		goto fail;
+	}
 	if (sqlparser_json_set_optional_size(object, "source_block", dml->has_source_block, dml->source_block_index) != 0) {
 		goto fail;
 	}
@@ -6221,6 +6757,7 @@ fail:
 	json_decref(rows);
 	json_decref(assignments);
 	json_decref(delete_targets);
+	json_decref(branches);
 	if (out_error != NULL && out_error->code == SQLPARSER_STATUS_OK) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 	}

@@ -17,7 +17,9 @@ current AST. The executable case matrix defines the support boundary:
 - `MINUS` set operator
 - `OFFSET ... FETCH`
 - `ROWNUM` filters
-- `INSERT VALUES`, multi-row `INSERT`, and `INSERT SELECT`
+- `INSERT VALUES`, multi-row `INSERT`, and `INSERT SELECT`, including `UNION`,
+  `UNION ALL`, `INTERSECT`, and `MINUS` source queries
+- Oracle multi-table insert: `INSERT ALL` and `INSERT FIRST`, including `WHEN ... THEN` conditional branches
 - `UPDATE` and `DELETE`
 - `DATE` and `TIMESTAMP` literals
 - `CASE`, `EXISTS`, `UNION ALL`, and `INTERSECT`
@@ -46,7 +48,6 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
 
 - `CONNECT BY` and `CONNECT_BY_ROOT`
 - legacy outer join `(+)`
-- `INSERT ALL` and `INSERT FIRST`
 - `RETURNING ... INTO`
 - PL/SQL blocks, procedures, and packages
 - `PIVOT` and `UNPIVOT`
@@ -80,5 +81,5 @@ The Oracle support boundary is defined by:
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current Oracle matrix contains 116 cases: 98 supported paths and 18 explicit
-unsupported paths.
+The current Oracle matrix contains 136 cases: 120 supported paths and 16
+explicit unsupported paths.
