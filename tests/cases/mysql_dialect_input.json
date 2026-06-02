@@ -1057,6 +1057,49 @@
       }
     },
     {
+      "id": "M074",
+      "name": "mysql-update-bind-rhs-crypto-source",
+      "sql": "UPDATE `dbp_crypto_test` SET `secret` = ? WHERE `id` = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "secret = ?",
+        "view_contains": [
+          "\"clause\":\"set_list\"",
+          "\"column\":\"secret\"",
+          "\"kind\":\"bind\"",
+          "\"bind_key\":\"1\"",
+          "\"bind_sql\":\"?\"",
+          "\"bind_position\":1"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "M075",
+      "name": "mysql-update-multiple-bind-rhs-crypto-source",
+      "sql": "UPDATE `dbp_crypto_test` SET `phone` = ?, `secret` = ? WHERE `id` = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "secret = ?",
+        "view_contains": [
+          "\"clause\":\"set_list\"",
+          "\"column\":\"phone\"",
+          "\"column\":\"secret\"",
+          "\"bind_key\":\"2\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
       "id": "MU001",
       "name": "mysql-insert-ignore",
       "sql": "INSERT IGNORE INTO `users` (`id`) VALUES (1)",

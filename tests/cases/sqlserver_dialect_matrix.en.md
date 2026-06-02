@@ -1,6 +1,6 @@
 # SQL Server Dialect Case Matrix
 
-This file records regression cases for the SQL Server dialect conversion layer. The executable fixture is `tests/cases/sqlserver_dialect_input.json`; `tests/unit/test_sqlserver_dialect_case_matrix.c` verifies parsing, View JSON, deparse output, and error codes. The current fixture contains 335 cases: 320 supported paths and 15 explicit unsupported paths.
+This file records regression cases for the SQL Server dialect conversion layer. The executable fixture is `tests/cases/sqlserver_dialect_input.json`; `tests/unit/test_sqlserver_dialect_case_matrix.c` verifies parsing, View JSON, deparse output, and error codes. The current fixture contains 341 cases: 326 supported paths and 15 explicit unsupported paths.
 
 ## Supported Cases
 
@@ -95,6 +95,8 @@ This file records regression cases for the SQL Server dialect conversion layer. 
 | S087 | `sqlserver-expression-field-multi-field-expression-value` | `CONCAT(secret, id)` and `secret + id` compared with binds | Fields inside the expression keep separate `expression_field` value relations |
 | S088 | `sqlserver-expression-field-value-side-expression` | field compared with function, concatenation, and CAST value-side expressions | value-side expressions emit `kind=expression` instead of direct binds |
 | S089 | `sqlserver-expression-field-dml-expression-values` | INSERT/UPDATE expression assignments | DML cells and assignments emit `kind=expression` |
+| S090 | `sqlserver-update-named-bind-rhs-crypto-source` | `UPDATE ... SET protected = @name` | protected-field UPDATE SET right-hand named parameter |
+| S091 | `sqlserver-update-multiple-bind-rhs-crypto-source` | `UPDATE ... SET protected1 = @name1, protected2 = @name2` | multiple protected-field SET binds, field attribution, and global bind positions |
 
 ## Explicitly Unsupported Cases
 

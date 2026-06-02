@@ -1391,6 +1391,49 @@
       }
     },
     {
+      "id": "S090",
+      "name": "sqlserver-update-named-bind-rhs-crypto-source",
+      "sql": "UPDATE [dbo].[dbp_crypto_test] SET [secret] = @secret_value WHERE [id] = @id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "secret = @secret_value",
+        "view_contains": [
+          "\"clause\":\"set_list\"",
+          "\"column\":\"secret\"",
+          "\"kind\":\"bind\"",
+          "\"bind_key\":\"secret_value\"",
+          "\"bind_sql\":\"@secret_value\"",
+          "\"bind_position\":1"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S091",
+      "name": "sqlserver-update-multiple-bind-rhs-crypto-source",
+      "sql": "UPDATE [dbo].[dbp_crypto_test] SET [phone] = @phone_value, [secret] = @secret_value WHERE [id] = @id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "secret = @secret_value",
+        "view_contains": [
+          "\"clause\":\"set_list\"",
+          "\"column\":\"phone\"",
+          "\"column\":\"secret\"",
+          "\"bind_key\":\"secret_value\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
       "id": "SU015",
       "name": "sqlserver-table-variable-unsupported",
       "sql": "SELECT [id] FROM @users",

@@ -79,6 +79,50 @@ static PgQuery__Node **sqlparser_update_alloc_node_array(size_t count, sqlparser
 	return nodes;
 }
 
+static sqlparser_status_t sqlparser_update_build_literal_node(
+	const sqlparser_literal_value_t *value,
+	PgQuery__Node **out_node,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__Node *node;
+	PgQuery__AConst *a_const;
+	sqlparser_status_t status;
+
+	if (out_node == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "out_node must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_node = NULL;
+	if (value == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "literal value must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	node = (PgQuery__Node *)calloc(1U, sizeof(*node));
+	a_const = (PgQuery__AConst *)calloc(1U, sizeof(*a_const));
+	if (node == NULL || a_const == NULL) {
+		free(node);
+		free(a_const);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+
+	pg_query__node__init(node);
+	pg_query__a__const__init(a_const);
+	node->node_case = PG_QUERY__NODE__NODE_A_CONST;
+	node->a_const = a_const;
+	a_const->location = -1;
+
+	status = sqlparser_a_const_set_literal(a_const, value, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_free_proto_node(node);
+		return status;
+	}
+
+	*out_node = node;
+	return SQLPARSER_STATUS_OK;
+}
+
 static int sqlparser_update_append_text(
 	char **buffer,
 	size_t *len,
@@ -427,9 +471,12 @@ sqlparser_status_t sqlparser_update_set_assignment_literal(
 {
 	PgQuery__UpdateStmt *update_stmt;
 	PgQuery__ResTarget *target;
+	PgQuery__Node *old_value;
+	PgQuery__Node *new_value;
 	sqlparser_status_t status;
 
 	sqlparser_error_clear(out_error);
+	new_value = NULL;
 	status = sqlparser_get_update_stmt(handle, statement_index, &update_stmt, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
@@ -444,21 +491,33 @@ sqlparser_status_t sqlparser_update_set_assignment_literal(
 		return status;
 	}
 
-	if (target->val == NULL ||
-	    target->val->node_case != PG_QUERY__NODE__NODE_A_CONST ||
-	    target->val->a_const == NULL) {
+	if (target->val != NULL &&
+	    target->val->node_case == PG_QUERY__NODE__NODE_A_CONST &&
+	    target->val->a_const != NULL) {
+		status = sqlparser_a_const_set_literal(target->val->a_const, value, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		return sqlparser_handle_commit_ast(handle, out_error);
+	}
+
+	if (target->val == NULL || target->val->node_case != PG_QUERY__NODE__NODE_PARAM_REF) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_UNSUPPORTED,
-			"update assignment is not a literal");
+			"update assignment value is not a literal or bind");
 		return SQLPARSER_STATUS_UNSUPPORTED;
 	}
 
-	status = sqlparser_a_const_set_literal(target->val->a_const, value, out_error);
+	status = sqlparser_update_build_literal_node(value, &new_value, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
 
+	old_value = target->val;
+	target->val = new_value;
+	new_value = NULL;
+	sqlparser_free_proto_node(old_value);
 	return sqlparser_handle_commit_ast(handle, out_error);
 }
 

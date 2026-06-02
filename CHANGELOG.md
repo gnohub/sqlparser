@@ -1,5 +1,19 @@
 # 变更记录
 
+## 2.4.0
+
+### UPDATE SET 改写
+
+- `sqlparser_update_set_assignment_literal()` 和 selector 版本现在支持把 `UPDATE SET` 赋值右值从 bind 参数改写为 literal。
+- 保持目标列、赋值项顺序和当前方言输出规则不变，仅替换赋值右值 AST 节点。
+- 函数、运算表达式、字段引用、`DEFAULT` 和子查询右值继续返回 `SQLPARSER_STATUS_UNSUPPORTED`，避免生成语义不明确的 SQL。
+
+### 测试与验证
+
+- 扩充 PostgreSQL、MySQL、Oracle、SQL Server 和达梦现有 case matrix，覆盖单字段、多字段、命名 bind、位置 bind 和 JDBC `?` bind 的 `UPDATE SET` 来源表达。
+- 扩充核心 API 回归测试，覆盖 bind 右值改写、备份赋值插入、反解析后二次解析，以及复杂右值拒绝路径。
+- 发布验证覆盖 Linux 单元测试、ASan、UBSan、Valgrind 内存检查和 ABI 导出检查。
+
 ## 2.2.0
 
 ### 结构化 SQL 片段改写

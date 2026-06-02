@@ -1,6 +1,6 @@
 # SQL Server 方言用例矩阵
 
-本文件记录 SQL Server 方言转换层的回归用例。可执行夹具为 `tests/cases/sqlserver_dialect_input.json`，单元测试 `tests/unit/test_sqlserver_dialect_case_matrix.c` 会逐条验证解析结果、View JSON、反解析输出和错误码。当前夹具包含 335 条用例：320 条支持路径，15 条明确不支持路径。
+本文件记录 SQL Server 方言转换层的回归用例。可执行夹具为 `tests/cases/sqlserver_dialect_input.json`，单元测试 `tests/unit/test_sqlserver_dialect_case_matrix.c` 会逐条验证解析结果、View JSON、反解析输出和错误码。当前夹具包含 341 条用例：326 条支持路径，15 条明确不支持路径。
 
 ## 支持用例
 
@@ -95,6 +95,8 @@
 | S087 | `sqlserver-expression-field-multi-field-expression-value` | `CONCAT(secret, id)`、`secret + id` 与 bind 比较 | 表达式内字段分别保留 `expression_field` value 关系 |
 | S088 | `sqlserver-expression-field-value-side-expression` | 字段与值侧函数、拼接、CAST 比较 | 值侧表达式输出 `kind=expression`，不暴露 direct bind |
 | S089 | `sqlserver-expression-field-dml-expression-values` | INSERT/UPDATE 表达式赋值 | DML cell/assignment 输出 `kind=expression` |
+| S090 | `sqlserver-update-named-bind-rhs-crypto-source` | `UPDATE ... SET protected = @name` | UPDATE SET 右值为命名参数的保护字段来源表达 |
+| S091 | `sqlserver-update-multiple-bind-rhs-crypto-source` | `UPDATE ... SET protected1 = @name1, protected2 = @name2` | 多个保护字段的 SET bind、字段归属和全局 bind 序号 |
 
 ## 明确不支持用例
 

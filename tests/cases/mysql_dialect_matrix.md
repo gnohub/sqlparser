@@ -85,6 +85,8 @@
 | M071 | `mysql-expression-field-multi-field-expression-value` | `CONCAT(secret, id)`、`secret + id` 与 `?` 比较 | 表达式内字段分别保留 `expression_field` value 关系 |
 | M072 | `mysql-expression-field-value-side-expression` | 字段与值侧函数、CONCAT、CAST 比较 | 值侧表达式输出 `kind=expression`，不暴露 direct bind |
 | M073 | `mysql-expression-field-dml-expression-values` | INSERT/UPDATE 表达式赋值 | DML cell/assignment 输出 `kind=expression` |
+| M074 | `mysql-update-bind-rhs-crypto-source` | `UPDATE ... SET protected = ?` | UPDATE SET 右值为位置 bind 的保护字段来源表达，可用于后续结构化备份列插入和 literal 改写 |
+| M075 | `mysql-update-multiple-bind-rhs-crypto-source` | `UPDATE ... SET protected1 = ?, protected2 = ?` | 多个保护字段的 SET bind、字段归属和全局 bind 序号 |
 
 ## 明确不支持语句
 

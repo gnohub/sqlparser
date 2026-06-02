@@ -1,5 +1,29 @@
 # Changelog
 
+## 2.4.0
+
+### UPDATE SET Rewrite
+
+- `sqlparser_update_set_assignment_literal()` and the selector variant now
+  support rewriting an `UPDATE SET` assignment right-hand side from a bind
+  parameter to a literal.
+- The target column, assignment order, and active dialect output rules are kept
+  unchanged; only the assignment value AST node is replaced.
+- Function calls, operator expressions, field references, `DEFAULT`, and
+  subquery right-hand sides still return `SQLPARSER_STATUS_UNSUPPORTED` so the
+  library does not generate ambiguous SQL.
+
+### Tests and Validation
+
+- Expanded the existing PostgreSQL, MySQL, Oracle, SQL Server, and Dameng case
+  matrices for single-field, multi-field, named-bind, positional-bind, and JDBC
+  `?` bind `UPDATE SET` source expressions.
+- Expanded core API regression coverage for bind right-hand-side rewrites,
+  backup assignment insertion, deparse-then-parse validation, and complex value
+  rejection paths.
+- Release validation covers Linux unit tests, ASan, UBSan, Valgrind leak
+  checks, and ABI export checks.
+
 ## 2.2.0
 
 ### Structured SQL Fragment Rewrite

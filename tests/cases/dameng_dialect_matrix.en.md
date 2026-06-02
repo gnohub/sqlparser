@@ -87,6 +87,10 @@ This file records regression cases for the Dameng dialect conversion layer. The 
 | D078 | `dameng-expression-field-multi-field-expression-value` | `NVL(secret, id)` and `secret || id` compared with binds | Fields inside the expression keep separate `expression_field` value relations |
 | D079 | `dameng-expression-field-value-side-expression` | field compared with function, concatenation, and CAST value-side expressions | value-side expressions emit `kind=expression` instead of direct binds |
 | D080 | `dameng-expression-field-dml-expression-values` | INSERT/UPDATE expression assignments | DML cells and assignments emit `kind=expression` |
+| D081 | `dameng-update-positional-bind-rhs-crypto-source` | `UPDATE ... SET protected = :1` | protected-field UPDATE SET right-hand positional bind |
+| D082 | `dameng-update-named-bind-rhs-crypto-source` | `UPDATE ... SET protected = :name` | protected-field UPDATE SET right-hand named bind |
+| D083 | `dameng-update-question-bind-rhs-crypto-source` | `UPDATE ... SET protected = ?` | protected-field UPDATE SET right-hand JDBC positional bind |
+| D084 | `dameng-update-multiple-bind-rhs-crypto-source` | `UPDATE ... SET protected1 = :1, protected2 = :2` | multiple protected-field SET binds, field attribution, and global bind positions |
 
 ## Explicitly Unsupported Cases
 

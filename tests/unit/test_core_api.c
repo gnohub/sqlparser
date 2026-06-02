@@ -912,6 +912,357 @@ static int test_structured_update_assignment_from_assignment_value(void)
 	return 0;
 }
 
+static int test_update_assignment_bind_rhs_literal_rewrite(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *backup_column;
+		const char *encrypted_literal;
+		const char *expect_backup_fragment;
+		const char *expect_literal_fragment;
+		const char *expect_where_fragment;
+		size_t source_assignment_index;
+		size_t protected_assignment_index_after_insert;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"UPDATE public.users SET secret = $1 WHERE id = $2",
+			"secret_orig",
+			"pg-encrypted",
+			"secret_orig = $1",
+			"secret = 'pg-encrypted'",
+			"id = $2",
+			0U,
+			1U
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"UPDATE users SET secret = ? WHERE id = ?",
+			"secret_orig",
+			"mysql-encrypted",
+			"secret_orig = ?",
+			"secret = 'mysql-encrypted'",
+			"id = ?",
+			0U,
+			1U
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :1 WHERE ID = :2",
+			"SECRET_ORIG",
+			"oracle-pos-encrypted",
+			"\"SECRET_ORIG\" = :1",
+			"secret = 'oracle-pos-encrypted'",
+			"id = :2",
+			0U,
+			1U
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = ? WHERE ID = ?",
+			"SECRET_ORIG",
+			"oracle-question-encrypted",
+			"\"SECRET_ORIG\" = ?",
+			"secret = 'oracle-question-encrypted'",
+			"id = ?",
+			0U,
+			1U
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :secret, NOTE = :note WHERE ID = :id",
+			"SECRET_ORIG",
+			"oracle-named-encrypted",
+			"\"SECRET_ORIG\" = :secret",
+			"secret = 'oracle-named-encrypted'",
+			"id = :id",
+			0U,
+			1U
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"UPDATE KDES.DBP_CRYPTO_TEST SET STATUS = 'ACTIVE', SECRET = :1 WHERE ID = :2",
+			"SECRET_ORIG",
+			"oracle-mixed-encrypted",
+			"\"SECRET_ORIG\" = :1",
+			"secret = 'oracle-mixed-encrypted'",
+			"id = :2",
+			1U,
+			2U
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"UPDATE \"KDES\".\"DBP_CRYPTO_TEST\" SET \"SECRET\" = :1 WHERE \"ID\" = :2",
+			"SECRET_ORIG",
+			"oracle-quoted-encrypted",
+			"\"SECRET_ORIG\" = :1",
+			"\"SECRET\" = 'oracle-quoted-encrypted'",
+			"\"ID\" = :2",
+			0U,
+			1U
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"UPDATE dbo.users SET secret = @secret WHERE id = @id",
+			"secret_orig",
+			"sqlserver-encrypted",
+			"secret_orig = @secret",
+			"secret = 'sqlserver-encrypted'",
+			"id = @id",
+			0U,
+			1U
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :1 WHERE ID = :2",
+			"SECRET_ORIG",
+			"dameng-encrypted",
+			"\"SECRET_ORIG\" = :1",
+			"secret = 'dameng-encrypted'",
+			"id = :2",
+			0U,
+			1U
+		}
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	size_t index;
+	int rc;
+
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		const char *target_parts[1];
+		sqlparser_handle_t *handle;
+		sqlparser_selector_t insert_selector;
+		sqlparser_selector_t source_selector;
+		sqlparser_selector_t protected_selector;
+		sqlparser_identifier_path_view_t target;
+		sqlparser_literal_value_t encrypted;
+		char *deparsed_sql;
+
+		handle = NULL;
+		deparsed_sql = NULL;
+		memset(&error, 0, sizeof(error));
+		memset(&insert_selector, 0, sizeof(insert_selector));
+		memset(&source_selector, 0, sizeof(source_selector));
+		memset(&protected_selector, 0, sizeof(protected_selector));
+		memset(&target, 0, sizeof(target));
+		memset(&encrypted, 0, sizeof(encrypted));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[index].dialect;
+
+		rc = sqlparser_parse_with_options(cases[index].sql, &options, &handle, &error);
+		if (expect_status_ok(rc, &error, "bind RHS rewrite parse should succeed") != 0) {
+			return 1;
+		}
+
+		insert_selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
+		insert_selector.statement_index = 0U;
+		insert_selector.item_index = cases[index].source_assignment_index;
+		source_selector = insert_selector;
+		target_parts[0] = cases[index].backup_column;
+		target.parts = target_parts;
+		target.part_count = 1U;
+		rc = sqlparser_selector_insert_update_assignment_from_assignment_value(
+			handle,
+			&insert_selector,
+			&target,
+			&source_selector,
+			&error);
+		if (expect_status_ok(rc, &error, "bind RHS backup assignment insert should succeed") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		protected_selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
+		protected_selector.statement_index = 0U;
+		protected_selector.item_index = cases[index].protected_assignment_index_after_insert;
+		encrypted.kind = SQLPARSER_LITERAL_KIND_STRING;
+		encrypted.string_value = cases[index].encrypted_literal;
+		rc = sqlparser_selector_set_update_assignment_literal(handle, &protected_selector, &encrypted, &error);
+		if (expect_status_ok(rc, &error, "bind RHS literal replacement should succeed") != 0 ||
+		    expect_deparse_reparse_ok(handle, "bind RHS rewrite should produce parseable SQL") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+		if (expect_status_ok(rc, &error, "bind RHS deparse should succeed") != 0 ||
+		    expect_true(deparsed_sql != NULL, "bind RHS deparse should return SQL") != 0 ||
+		    expect_true(strstr(deparsed_sql, cases[index].expect_backup_fragment) != NULL,
+		                "bind RHS deparse should contain backup assignment") != 0 ||
+		    expect_true(strstr(deparsed_sql, cases[index].expect_literal_fragment) != NULL,
+		                "bind RHS deparse should contain encrypted literal assignment") != 0 ||
+		    expect_true(strstr(deparsed_sql, cases[index].expect_where_fragment) != NULL,
+		                "bind RHS deparse should preserve WHERE bind") != 0 ||
+		    expect_true(strstr(deparsed_sql, "$") == NULL || cases[index].dialect == SQLPARSER_DIALECT_POSTGRESQL,
+		                "bind RHS deparse should not expose internal bind markers") != 0) {
+			sqlparser_string_free(deparsed_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+	}
+
+	return 0;
+}
+
+static int test_update_assignment_multiple_bind_rhs_literal_rewrite(void)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_selector_t insert_selector;
+	sqlparser_selector_t source_selector;
+	sqlparser_selector_t protected_selector;
+	sqlparser_identifier_path_view_t target;
+	sqlparser_literal_value_t encrypted;
+	const char *phone_backup_parts[1];
+	const char *secret_backup_parts[1];
+	char *deparsed_sql;
+	int rc;
+
+	handle = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&insert_selector, 0, sizeof(insert_selector));
+	memset(&source_selector, 0, sizeof(source_selector));
+	memset(&protected_selector, 0, sizeof(protected_selector));
+	memset(&target, 0, sizeof(target));
+	memset(&encrypted, 0, sizeof(encrypted));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+
+	rc = sqlparser_parse_with_options(
+		"UPDATE KDES.DBP_CRYPTO_TEST SET PHONE = :1, SECRET = :2 WHERE ID = :3",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "multiple bind RHS parse should succeed") != 0) {
+		return 1;
+	}
+
+	insert_selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
+	insert_selector.statement_index = 0U;
+	insert_selector.item_index = 0U;
+	source_selector = insert_selector;
+	phone_backup_parts[0] = "PHONE_ORIG";
+	target.parts = phone_backup_parts;
+	target.part_count = 1U;
+	rc = sqlparser_selector_insert_update_assignment_from_assignment_value(
+		handle,
+		&insert_selector,
+		&target,
+		&source_selector,
+		&error);
+	if (expect_status_ok(rc, &error, "phone backup assignment insert should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	protected_selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
+	protected_selector.statement_index = 0U;
+	protected_selector.item_index = 1U;
+	encrypted.kind = SQLPARSER_LITERAL_KIND_STRING;
+	encrypted.string_value = "encrypted-phone";
+	rc = sqlparser_selector_set_update_assignment_literal(handle, &protected_selector, &encrypted, &error);
+	if (expect_status_ok(rc, &error, "phone RHS literal replacement should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	insert_selector.item_index = 2U;
+	source_selector = insert_selector;
+	secret_backup_parts[0] = "SECRET_ORIG";
+	target.parts = secret_backup_parts;
+	target.part_count = 1U;
+	rc = sqlparser_selector_insert_update_assignment_from_assignment_value(
+		handle,
+		&insert_selector,
+		&target,
+		&source_selector,
+		&error);
+	if (expect_status_ok(rc, &error, "secret backup assignment insert should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	protected_selector.item_index = 3U;
+	encrypted.string_value = "encrypted-secret";
+	rc = sqlparser_selector_set_update_assignment_literal(handle, &protected_selector, &encrypted, &error);
+	if (expect_status_ok(rc, &error, "secret RHS literal replacement should succeed") != 0 ||
+	    expect_deparse_reparse_ok(handle, "multiple bind RHS rewrite should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "multiple bind RHS deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "\"PHONE_ORIG\" = :1") != NULL,
+	                "multiple bind RHS should contain phone backup bind") != 0 ||
+	    expect_true(strstr(deparsed_sql, "phone = 'encrypted-phone'") != NULL,
+	                "multiple bind RHS should contain encrypted phone") != 0 ||
+	    expect_true(strstr(deparsed_sql, "\"SECRET_ORIG\" = :2") != NULL,
+	                "multiple bind RHS should contain secret backup bind") != 0 ||
+	    expect_true(strstr(deparsed_sql, "secret = 'encrypted-secret'") != NULL,
+	                "multiple bind RHS should contain encrypted secret") != 0 ||
+	    expect_true(strstr(deparsed_sql, "id = :3") != NULL,
+	                "multiple bind RHS should preserve WHERE bind") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_update_assignment_literal_rewrite_rejects_complex_rhs(void)
+{
+	static const char *sqls[] = {
+		"UPDATE users SET secret = UPPER(?) WHERE id = ?",
+		"UPDATE users SET secret = other_secret WHERE id = ?",
+		"UPDATE users SET secret = DEFAULT WHERE id = ?"
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_literal_value_t encrypted;
+	size_t index;
+	int rc;
+
+	for (index = 0U; index < sizeof(sqls) / sizeof(sqls[0]); index++) {
+		sqlparser_handle_t *handle;
+		sqlparser_selector_t selector;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		memset(&selector, 0, sizeof(selector));
+		memset(&encrypted, 0, sizeof(encrypted));
+		sqlparser_parse_options_default(&options);
+		options.dialect = SQLPARSER_DIALECT_MYSQL;
+		rc = sqlparser_parse_with_options(sqls[index], &options, &handle, &error);
+		if (expect_status_ok(rc, &error, "complex RHS parse should succeed") != 0) {
+			return 1;
+		}
+
+		selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
+		selector.statement_index = 0U;
+		selector.item_index = 0U;
+		encrypted.kind = SQLPARSER_LITERAL_KIND_STRING;
+		encrypted.string_value = "encrypted";
+		rc = sqlparser_selector_set_update_assignment_literal(handle, &selector, &encrypted, &error);
+		if (expect_true(rc == SQLPARSER_STATUS_UNSUPPORTED, "complex RHS replacement should be unsupported") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+
+	return 0;
+}
+
 static int test_insert_cell_sql_mutation(void)
 {
 	const char *sql;
@@ -6428,6 +6779,15 @@ int main(void)
 		return 1;
 	}
 	if (test_structured_update_assignment_from_assignment_value() != 0) {
+		return 1;
+	}
+	if (test_update_assignment_bind_rhs_literal_rewrite() != 0) {
+		return 1;
+	}
+	if (test_update_assignment_multiple_bind_rhs_literal_rewrite() != 0) {
+		return 1;
+	}
+	if (test_update_assignment_literal_rewrite_rejects_complex_rhs() != 0) {
 		return 1;
 	}
 	if (test_insert_cell_sql_mutation() != 0) {

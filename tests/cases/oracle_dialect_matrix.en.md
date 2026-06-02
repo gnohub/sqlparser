@@ -110,6 +110,10 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 | O102 | `oracle-expression-field-multi-field-expression-value` | `NVL(SECRET, ID)` and `SECRET || ID` compared with binds | Fields inside the expression keep separate `expression_field` value relations |
 | O103 | `oracle-expression-field-value-side-expression` | field compared with function, concatenation, and CAST value-side expressions | value-side expressions emit `kind=expression` instead of direct binds |
 | O104 | `oracle-expression-field-dml-expression-values` | INSERT/UPDATE expression assignments | DML cells and assignments emit `kind=expression` |
+| O105 | `oracle-update-positional-bind-rhs-crypto-source` | `UPDATE ... SET protected = :1` | protected-field UPDATE SET right-hand Oracle positional bind |
+| O106 | `oracle-update-named-bind-rhs-crypto-source` | `UPDATE ... SET protected = :name` | protected-field UPDATE SET right-hand Oracle named bind |
+| O107 | `oracle-update-question-bind-rhs-crypto-source` | `UPDATE ... SET protected = ?` | protected-field UPDATE SET right-hand JDBC positional bind |
+| O108 | `oracle-update-multiple-bind-rhs-crypto-source` | `UPDATE ... SET protected1 = :1, protected2 = :2` | multiple protected-field SET binds, field attribution, and global bind positions |
 | O132 | `oracle-insert-all-bind-branches` | `INSERT ALL` bind branches | branch cells expose bind key, bind kind, bind SQL, and global bind position |
 | O133 | `oracle-insert-all-multi-target` | `INSERT ALL` multiple target tables | each INTO branch keeps its own target relation, target columns, and rows |
 | O134 | `oracle-insert-select-union-literals` | `INSERT ... SELECT ... UNION ALL` literal sources | source targets expose literals through value indexes |

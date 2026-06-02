@@ -85,6 +85,8 @@ This file records regression cases for the MySQL dialect conversion layer. `test
 | M071 | `mysql-expression-field-multi-field-expression-value` | `CONCAT(secret, id)` and `secret + id` compared with `?` | Fields inside the expression keep separate `expression_field` value relations |
 | M072 | `mysql-expression-field-value-side-expression` | field compared with function, CONCAT, and CAST value-side expressions | value-side expressions emit `kind=expression` instead of direct binds |
 | M073 | `mysql-expression-field-dml-expression-values` | INSERT/UPDATE expression assignments | DML cells and assignments emit `kind=expression` |
+| M074 | `mysql-update-bind-rhs-crypto-source` | `UPDATE ... SET protected = ?` | protected-field UPDATE SET right-hand positional bind for later structured backup assignment insertion and literal rewrite |
+| M075 | `mysql-update-multiple-bind-rhs-crypto-source` | `UPDATE ... SET protected1 = ?, protected2 = ?` | multiple protected-field SET binds, field attribution, and global bind positions |
 
 ## Explicitly Unsupported Statements
 

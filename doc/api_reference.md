@@ -313,7 +313,7 @@ bind 字段规则：
 | --- | --- |
 | `sqlparser_update_assignment_count()` | 返回 `SET` 赋值项数量 |
 | `sqlparser_update_assignment()` | 读取指定赋值项 |
-| `sqlparser_update_set_assignment_literal()` | 改写赋值项右值 literal |
+| `sqlparser_update_set_assignment_literal()` | 将赋值项右值 literal 或 bind 改写为 literal |
 | `sqlparser_update_assignment_sql()` | 读取赋值项右值 SQL |
 | `sqlparser_update_set_assignment_sql()` | 改写赋值项右值 SQL |
 | `sqlparser_update_insert_assignment_sql()` | 插入完整 `SET` 赋值项 |
@@ -392,7 +392,7 @@ stmt[0].select_target[0][1]
 | `sqlparser_selector_append_where_sql()` | 向 WHERE 追加条件 |
 | `sqlparser_selector_set_clause_sql()` | 设置或替换通用子句 |
 | `sqlparser_selector_append_clause_condition()` | 向 `where` 类型子句追加条件 |
-| `sqlparser_selector_set_update_assignment_literal()` | 改写 assignment 右值 literal |
+| `sqlparser_selector_set_update_assignment_literal()` | 将 assignment 右值 literal 或 bind 改写为 literal |
 | `sqlparser_selector_set_update_assignment_sql()` | 改写 assignment 右值 SQL |
 | `sqlparser_selector_insert_update_assignment_sql()` | 插入完整 `SET` 赋值项 |
 | `sqlparser_selector_insert_update_assignment_from_assignment_value()` | 用结构化目标列和已有 assignment 右值克隆插入 `SET` 赋值项 |
@@ -428,6 +428,8 @@ sqlparser_selector_insert_update_assignment_from_assignment_value(
     &source_selector,
     &err);
 ```
+
+`sqlparser_update_set_assignment_literal()` 和 `sqlparser_selector_set_update_assignment_literal()` 只替换 assignment 右值并保留左侧目标列。原右值为 literal 或 bind 时可替换为 `sqlparser_literal_value_t`；原右值为函数、运算表达式、字段引用、`DEFAULT` 或子查询时返回 `SQLPARSER_STATUS_UNSUPPORTED`。
 
 `sqlparser_selector_replace_select_target_with_columns()` 用于把一个 SELECT 输出项替换为多个结构化列 target，常用于将 `*` 或 `alias.*` 展开为调用方已经计算好的列列表：
 

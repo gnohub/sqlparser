@@ -336,7 +336,7 @@ such as subqueries, CTEs, or set-operation branches.
 | --- | --- |
 | `sqlparser_update_assignment_count()` | returns the number of `SET` assignments |
 | `sqlparser_update_assignment()` | reads one assignment |
-| `sqlparser_update_set_assignment_literal()` | rewrites an assignment right-hand literal |
+| `sqlparser_update_set_assignment_literal()` | rewrites an assignment right-hand literal or bind to a literal |
 | `sqlparser_update_assignment_sql()` | reads an assignment right-hand SQL |
 | `sqlparser_update_set_assignment_sql()` | rewrites an assignment right-hand SQL |
 | `sqlparser_update_insert_assignment_sql()` | inserts a full `SET` assignment |
@@ -417,7 +417,7 @@ stmt[0].select_target[0][1]
 | `sqlparser_selector_append_where_sql()` | appends a WHERE condition |
 | `sqlparser_selector_set_clause_sql()` | sets or replaces a generic clause |
 | `sqlparser_selector_append_clause_condition()` | appends a condition to a `where` clause |
-| `sqlparser_selector_set_update_assignment_literal()` | rewrites assignment right-hand literal |
+| `sqlparser_selector_set_update_assignment_literal()` | rewrites assignment right-hand literal or bind to a literal |
 | `sqlparser_selector_set_update_assignment_sql()` | rewrites assignment right-hand SQL |
 | `sqlparser_selector_insert_update_assignment_sql()` | inserts a full `SET` assignment |
 | `sqlparser_selector_insert_update_assignment_from_assignment_value()` | inserts a `SET` assignment from a structured target and a cloned assignment value |
@@ -459,6 +459,13 @@ sqlparser_selector_insert_update_assignment_from_assignment_value(
     &source_selector,
     &err);
 ```
+
+`sqlparser_update_set_assignment_literal()` and
+`sqlparser_selector_set_update_assignment_literal()` replace only the
+assignment right-hand value and keep the target column unchanged. A literal or
+bind right-hand value can be replaced with `sqlparser_literal_value_t`;
+function calls, operator expressions, field references, `DEFAULT`, and
+subqueries return `SQLPARSER_STATUS_UNSUPPORTED`.
 
 `sqlparser_selector_replace_select_target_with_columns()` replaces one SELECT
 output target with multiple structured column targets. It is intended for

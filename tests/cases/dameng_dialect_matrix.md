@@ -87,6 +87,10 @@
 | D078 | `dameng-expression-field-multi-field-expression-value` | `NVL(secret, id)`、`secret || id` 与 bind 比较 | 表达式内字段分别保留 `expression_field` value 关系 |
 | D079 | `dameng-expression-field-value-side-expression` | 字段与值侧函数、拼接、CAST 比较 | 值侧表达式输出 `kind=expression`，不暴露 direct bind |
 | D080 | `dameng-expression-field-dml-expression-values` | INSERT/UPDATE 表达式赋值 | DML cell/assignment 输出 `kind=expression` |
+| D081 | `dameng-update-positional-bind-rhs-crypto-source` | `UPDATE ... SET protected = :1` | UPDATE SET 右值为位置 bind 的保护字段来源表达 |
+| D082 | `dameng-update-named-bind-rhs-crypto-source` | `UPDATE ... SET protected = :name` | UPDATE SET 右值为命名 bind 的保护字段来源表达 |
+| D083 | `dameng-update-question-bind-rhs-crypto-source` | `UPDATE ... SET protected = ?` | UPDATE SET 右值为 JDBC 位置 bind 的保护字段来源表达 |
+| D084 | `dameng-update-multiple-bind-rhs-crypto-source` | `UPDATE ... SET protected1 = :1, protected2 = :2` | 多个保护字段的 SET bind、字段归属和全局 bind 序号 |
 
 ## 明确不支持用例
 

@@ -145,11 +145,13 @@
 | P128 | `postgresql-expression-field-multi-field-expression-value` | 多字段表达式与参数比较 | 表达式内字段分别保留 `expression_field` value 关系 |
 | P129 | `postgresql-expression-field-value-side-expression` | 字段与值侧表达式比较 | 值侧函数、运算、CAST 输出 `kind=expression`，不暴露 direct bind |
 | P130 | `postgresql-expression-field-dml-expression-values` | INSERT/UPDATE 表达式赋值 | DML cell/assignment 输出 `kind=expression` |
+| P131 | `postgresql-update-bind-rhs-crypto-source` | `UPDATE ... SET protected = $n` | UPDATE SET 右值为 bind 的保护字段来源表达，可用于后续结构化备份列插入和 literal 改写 |
+| P132 | `postgresql-update-multiple-bind-rhs-crypto-source` | `UPDATE ... SET protected1 = $n, protected2 = $n` | 多个保护字段的 SET bind、字段归属和全局 bind 序号 |
 
 ## 负向用例
 
 | 用例 ID | 用例名称 | 输入 | 验证重点 |
 | --- | --- | --- | --- |
-| P131 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
+| P133 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
 
 新增回归用例必须同步更新 `tests/cases/sql_batch_input.json` 和本矩阵。

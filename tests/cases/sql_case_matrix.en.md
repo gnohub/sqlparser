@@ -145,11 +145,13 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 | P128 | `postgresql-expression-field-multi-field-expression-value` | multi-field expression compared with binds | Fields inside the expression keep separate `expression_field` value relations |
 | P129 | `postgresql-expression-field-value-side-expression` | field compared with value-side expressions | function, operator, and CAST value-side expressions emit `kind=expression` instead of direct binds |
 | P130 | `postgresql-expression-field-dml-expression-values` | INSERT/UPDATE expression assignments | DML cells and assignments emit `kind=expression` |
+| P131 | `postgresql-update-bind-rhs-crypto-source` | `UPDATE ... SET protected = $n` | protected-field UPDATE SET right-hand binds for later structured backup assignment insertion and literal rewrite |
+| P132 | `postgresql-update-multiple-bind-rhs-crypto-source` | `UPDATE ... SET protected1 = $n, protected2 = $n` | multiple protected-field SET binds, field attribution, and global bind positions |
 
 ## Negative Case
 
 | Case ID | Case Name | Input | Validation Focus |
 | --- | --- | --- | --- |
-| P131 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
+| P133 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
 
 New regression cases must update both `tests/cases/sql_batch_input.json` and this matrix.

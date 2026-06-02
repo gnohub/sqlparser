@@ -110,6 +110,10 @@
 | O102 | `oracle-expression-field-multi-field-expression-value` | `NVL(SECRET, ID)`、`SECRET || ID` 与 bind 比较 | 表达式内字段分别保留 `expression_field` value 关系 |
 | O103 | `oracle-expression-field-value-side-expression` | 字段与值侧函数、拼接、CAST 比较 | 值侧表达式输出 `kind=expression`，不暴露 direct bind |
 | O104 | `oracle-expression-field-dml-expression-values` | INSERT/UPDATE 表达式赋值 | DML cell/assignment 输出 `kind=expression` |
+| O105 | `oracle-update-positional-bind-rhs-crypto-source` | `UPDATE ... SET protected = :1` | UPDATE SET 右值为 Oracle 位置 bind 的保护字段来源表达 |
+| O106 | `oracle-update-named-bind-rhs-crypto-source` | `UPDATE ... SET protected = :name` | UPDATE SET 右值为 Oracle 命名 bind 的保护字段来源表达 |
+| O107 | `oracle-update-question-bind-rhs-crypto-source` | `UPDATE ... SET protected = ?` | UPDATE SET 右值为 JDBC 位置 bind 的保护字段来源表达 |
+| O108 | `oracle-update-multiple-bind-rhs-crypto-source` | `UPDATE ... SET protected1 = :1, protected2 = :2` | 多个保护字段的 SET bind、字段归属和全局 bind 序号 |
 | O132 | `oracle-insert-all-bind-branches` | `INSERT ALL` 多分支 bind | 分支 cell 暴露 bind key、bind kind、bind SQL 和全局 bind 序号 |
 | O133 | `oracle-insert-all-multi-target` | `INSERT ALL` 多目标表 | 每个 INTO 分支保留独立 target relation、target columns 和 rows |
 | O134 | `oracle-insert-select-union-literals` | `INSERT ... SELECT ... UNION ALL` literal 来源 | source target 通过 value index 暴露 literal |

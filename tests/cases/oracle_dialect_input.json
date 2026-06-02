@@ -1716,6 +1716,94 @@
       }
     },
     {
+      "id": "O105",
+      "name": "oracle-update-positional-bind-rhs-crypto-source",
+      "sql": "UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :1 WHERE ID = :2",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "secret = :1",
+        "view_contains": [
+          "\"clause\":\"set_list\"",
+          "\"column\":\"secret\"",
+          "\"kind\":\"bind\"",
+          "\"bind_key\":\"1\"",
+          "\"bind_sql\":\":1\"",
+          "\"bind_position\":1"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "O106",
+      "name": "oracle-update-named-bind-rhs-crypto-source",
+      "sql": "UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :secret_value WHERE ID = :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "secret = :secret_value",
+        "view_contains": [
+          "\"clause\":\"set_list\"",
+          "\"column\":\"secret\"",
+          "\"kind\":\"bind\"",
+          "\"bind_key\":\"secret_value\"",
+          "\"bind_sql\":\":secret_value\"",
+          "\"bind_position\":1"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "O107",
+      "name": "oracle-update-question-bind-rhs-crypto-source",
+      "sql": "UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = ? WHERE ID = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "secret = ?",
+        "view_contains": [
+          "\"clause\":\"set_list\"",
+          "\"column\":\"secret\"",
+          "\"kind\":\"bind\"",
+          "\"bind_key\":\"1\"",
+          "\"bind_sql\":\"?\"",
+          "\"bind_position\":1"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "O108",
+      "name": "oracle-update-multiple-bind-rhs-crypto-source",
+      "sql": "UPDATE KDES.DBP_CRYPTO_TEST SET PHONE = :1, SECRET = :2 WHERE ID = :3",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "secret = :2",
+        "view_contains": [
+          "\"clause\":\"set_list\"",
+          "\"column\":\"phone\"",
+          "\"column\":\"secret\"",
+          "\"bind_key\":\"2\"",
+          "\"bind_sql\":\":2\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
       "id": "OU014",
       "name": "oracle-create-synonym",
       "sql": "CREATE SYNONYM u FOR users",
