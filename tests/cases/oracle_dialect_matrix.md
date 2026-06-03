@@ -131,6 +131,12 @@
 | O146 | `oracle-insert-select-intersect-binds` | `INSERT ... SELECT ... INTERSECT` 位置 bind 来源 | set kind、branch targets、bind key/SQL/全局序号保持稳定 |
 | O147 | `oracle-insert-select-minus-named-binds` | `INSERT ... SELECT ... MINUS` 命名 bind 来源 | Oracle `MINUS` 公共形态、branch targets、bind key/SQL/全局序号保持稳定 |
 | O148 | `oracle-insert-all-schema-qualified-targets` | schema-qualified `INSERT ALL` 目标表 | 每个 branch target relation 保留 schema/table，bind key/SQL/全局序号保持稳定 |
+| O149 | `oracle-like-escape-literal` | `LIKE 'A!_%' ESCAPE '!'` | Oracle 字面量 ESCAPE 输出到 `values[].like_escape` |
+| O150 | `oracle-not-like-escape-named-bind` | `NOT LIKE :pattern ESCAPE :escape_char` | 命名 pattern bind 与命名 escape bind 保留公开 SQL 和全局序号 |
+| O151 | `oracle-like-escape-question-bind` | `LIKE ? ESCAPE ?` | Oracle JDBC 风格位置参数的 ESCAPE 结构化输出 |
+| O152 | `oracle-like-escape-expression` | `LIKE :pattern ESCAPE UPPER('!')` | ESCAPE 为表达式时输出 `like_escape.kind=expression` |
+| O153 | `oracle-derived-like-escape-literal` | 派生表外层 `LIKE ... ESCAPE` | 派生表字段归属下的 LIKE ESCAPE 输出保持稳定 |
+| O154 | `oracle-like-without-explicit-escape` | `LIKE :pattern` | 无显式 ESCAPE 时不输出 `like_escape` |
 
 ## 明确不支持用例
 

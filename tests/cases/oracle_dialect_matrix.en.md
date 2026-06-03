@@ -131,6 +131,12 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 | O146 | `oracle-insert-select-intersect-binds` | positional-bind `INSERT ... SELECT ... INTERSECT` sources | set kind, branch targets, bind key/SQL/global positions remain stable |
 | O147 | `oracle-insert-select-minus-named-binds` | named-bind `INSERT ... SELECT ... MINUS` sources | public Oracle `MINUS`, branch targets, bind key/SQL/global positions remain stable |
 | O148 | `oracle-insert-all-schema-qualified-targets` | schema-qualified `INSERT ALL` targets | each branch target relation keeps schema/table; bind key/SQL/global positions remain stable |
+| O149 | `oracle-like-escape-literal` | `LIKE 'A!_%' ESCAPE '!'` | Oracle literal ESCAPE is emitted in `values[].like_escape` |
+| O150 | `oracle-not-like-escape-named-bind` | `NOT LIKE :pattern ESCAPE :escape_char` | named pattern bind and named escape bind keep public SQL and global positions |
+| O151 | `oracle-like-escape-question-bind` | `LIKE ? ESCAPE ?` | structured ESCAPE output for Oracle JDBC-style positional parameters |
+| O152 | `oracle-like-escape-expression` | `LIKE :pattern ESCAPE UPPER('!')` | expression ESCAPE emits `like_escape.kind=expression` |
+| O153 | `oracle-derived-like-escape-literal` | outer derived-table `LIKE ... ESCAPE` | LIKE ESCAPE output stays stable under derived-table field attribution |
+| O154 | `oracle-like-without-explicit-escape` | `LIKE :pattern` | `like_escape` is omitted when ESCAPE is not explicit |
 
 ## Explicitly Unsupported Cases
 

@@ -2049,6 +2049,134 @@
         ],
         "view_not_contains": "$"
       }
+    },
+    {
+      "id": "O149",
+      "name": "oracle-like-escape-literal",
+      "sql": "SELECT ID FROM KDES.USERS WHERE NAME LIKE 'A!_%' ESCAPE '!'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "ESCAPE '!'",
+        "deparse_not_contains": "pg_catalog.like_escape",
+        "view_contains": [
+          "\"operator\":\"LIKE\"",
+          "\"kind\":\"literal\"",
+          "\"like_escape\":{\"kind\":\"literal\"",
+          "\"literal_value\":\"!\""
+        ]
+      }
+    },
+    {
+      "id": "O150",
+      "name": "oracle-not-like-escape-named-bind",
+      "sql": "SELECT ID FROM KDES.USERS WHERE NAME NOT LIKE :pattern ESCAPE :escape_char",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "NOT LIKE",
+        "deparse_not_contains": "pg_catalog.like_escape",
+        "view_contains": [
+          "\"operator\":\"NOT LIKE\"",
+          "\"bind_key\":\"pattern\"",
+          "\"bind_sql\":\":pattern\"",
+          "\"like_escape\":{\"kind\":\"bind\"",
+          "\"bind_key\":\"escape_char\"",
+          "\"bind_sql\":\":escape_char\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "O151",
+      "name": "oracle-like-escape-question-bind",
+      "sql": "SELECT ID FROM KDES.USERS WHERE NAME LIKE ? ESCAPE ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "LIKE ?",
+        "deparse_not_contains": "pg_catalog.like_escape",
+        "view_contains": [
+          "\"operator\":\"LIKE\"",
+          "\"bind_sql\":\"?\"",
+          "\"bind_position\":1",
+          "\"like_escape\":{\"kind\":\"bind\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "O152",
+      "name": "oracle-like-escape-expression",
+      "sql": "SELECT ID FROM KDES.USERS WHERE NAME LIKE :pattern ESCAPE UPPER('!')",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "ESCAPE",
+        "deparse_not_contains": "pg_catalog.like_escape",
+        "view_contains": [
+          "\"operator\":\"LIKE\"",
+          "\"bind_key\":\"pattern\"",
+          "\"like_escape\":{\"kind\":\"expression\"}"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "O153",
+      "name": "oracle-derived-like-escape-literal",
+      "sql": "SELECT D.ID FROM (SELECT ID, NAME FROM KDES.USERS) D WHERE D.NAME LIKE :pattern ESCAPE '!'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "ESCAPE '!'",
+        "deparse_not_contains": "pg_catalog.like_escape",
+        "view_contains": [
+          "\"table\":\"users\"",
+          "\"operator\":\"LIKE\"",
+          "\"like_escape\":{\"kind\":\"literal\"",
+          "\"literal_value\":\"!\""
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "O154",
+      "name": "oracle-like-without-explicit-escape",
+      "sql": "SELECT ID FROM KDES.USERS WHERE NAME LIKE :pattern",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "LIKE :pattern",
+        "view_contains": [
+          "\"operator\":\"LIKE\"",
+          "\"bind_sql\":\":pattern\""
+        ],
+        "view_not_contains": [
+          "\"like_escape\"",
+          "$"
+        ]
+      }
     }
   ]
 }

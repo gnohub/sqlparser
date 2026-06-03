@@ -91,6 +91,10 @@ This file records regression cases for the Dameng dialect conversion layer. The 
 | D082 | `dameng-update-named-bind-rhs-crypto-source` | `UPDATE ... SET protected = :name` | protected-field UPDATE SET right-hand named bind |
 | D083 | `dameng-update-question-bind-rhs-crypto-source` | `UPDATE ... SET protected = ?` | protected-field UPDATE SET right-hand JDBC positional bind |
 | D084 | `dameng-update-multiple-bind-rhs-crypto-source` | `UPDATE ... SET protected1 = :1, protected2 = :2` | multiple protected-field SET binds, field attribution, and global bind positions |
+| D085 | `dameng-like-escape-literal` | `LIKE 'A!_%' ESCAPE '!'` | Dameng literal ESCAPE is emitted in `values[].like_escape` |
+| D086 | `dameng-not-like-escape-named-bind` | `NOT LIKE :pattern ESCAPE :escape_char` | named pattern and escape binds keep public SQL and global positions |
+| D087 | `dameng-like-escape-question-bind` | `LIKE ? ESCAPE ?` | structured output for JDBC-style positional pattern and escape parameters |
+| D088 | `dameng-like-without-explicit-escape` | `LIKE :pattern` | `like_escape` is omitted when ESCAPE is not explicit |
 
 ## Explicitly Unsupported Cases
 

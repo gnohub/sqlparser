@@ -91,6 +91,10 @@
 | D082 | `dameng-update-named-bind-rhs-crypto-source` | `UPDATE ... SET protected = :name` | UPDATE SET 右值为命名 bind 的保护字段来源表达 |
 | D083 | `dameng-update-question-bind-rhs-crypto-source` | `UPDATE ... SET protected = ?` | UPDATE SET 右值为 JDBC 位置 bind 的保护字段来源表达 |
 | D084 | `dameng-update-multiple-bind-rhs-crypto-source` | `UPDATE ... SET protected1 = :1, protected2 = :2` | 多个保护字段的 SET bind、字段归属和全局 bind 序号 |
+| D085 | `dameng-like-escape-literal` | `LIKE 'A!_%' ESCAPE '!'` | 达梦字面量 ESCAPE 输出到 `values[].like_escape` |
+| D086 | `dameng-not-like-escape-named-bind` | `NOT LIKE :pattern ESCAPE :escape_char` | 命名 bind pattern 与 escape 分别保留公开 SQL 和全局序号 |
+| D087 | `dameng-like-escape-question-bind` | `LIKE ? ESCAPE ?` | JDBC 风格位置参数 pattern 和 escape 的结构化输出 |
+| D088 | `dameng-like-without-explicit-escape` | `LIKE :pattern` | 无显式 ESCAPE 时不输出 `like_escape` |
 
 ## 明确不支持用例
 

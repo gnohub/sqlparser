@@ -1251,6 +1251,93 @@
       }
     },
     {
+      "id": "D085",
+      "name": "dameng-like-escape-literal",
+      "sql": "SELECT ID FROM KDES.USERS WHERE NAME LIKE 'A!_%' ESCAPE '!'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "ESCAPE '!'",
+        "deparse_not_contains": "pg_catalog.like_escape",
+        "view_contains": [
+          "\"operator\":\"LIKE\"",
+          "\"kind\":\"literal\"",
+          "\"like_escape\":{\"kind\":\"literal\"",
+          "\"literal_value\":\"!\""
+        ]
+      }
+    },
+    {
+      "id": "D086",
+      "name": "dameng-not-like-escape-named-bind",
+      "sql": "SELECT ID FROM KDES.USERS WHERE NAME NOT LIKE :pattern ESCAPE :escape_char",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "NOT LIKE",
+        "deparse_not_contains": "pg_catalog.like_escape",
+        "view_contains": [
+          "\"operator\":\"NOT LIKE\"",
+          "\"bind_key\":\"pattern\"",
+          "\"bind_sql\":\":pattern\"",
+          "\"like_escape\":{\"kind\":\"bind\"",
+          "\"bind_key\":\"escape_char\"",
+          "\"bind_sql\":\":escape_char\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "D087",
+      "name": "dameng-like-escape-question-bind",
+      "sql": "SELECT ID FROM KDES.USERS WHERE NAME LIKE ? ESCAPE ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "LIKE ?",
+        "deparse_not_contains": "pg_catalog.like_escape",
+        "view_contains": [
+          "\"operator\":\"LIKE\"",
+          "\"bind_sql\":\"?\"",
+          "\"bind_position\":1",
+          "\"like_escape\":{\"kind\":\"bind\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "D088",
+      "name": "dameng-like-without-explicit-escape",
+      "sql": "SELECT ID FROM KDES.USERS WHERE NAME LIKE :pattern",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "LIKE :pattern",
+        "view_contains": [
+          "\"operator\":\"LIKE\"",
+          "\"bind_sql\":\":pattern\""
+        ],
+        "view_not_contains": [
+          "\"like_escape\"",
+          "$1"
+        ]
+      }
+    },
+    {
       "id": "DU001",
       "name": "dameng-connect-by",
       "sql": "SELECT id FROM users START WITH manager_id IS NULL CONNECT BY PRIOR id = manager_id",

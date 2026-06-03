@@ -235,12 +235,33 @@ FROM (
 | `bind_position` | 整条输入 SQL 中第几个 bind occurrence，1 基；没有 bind 时省略 |
 | `selector` | 值 selector；没有可写节点时省略 |
 | `literal` | 字面量结构；非字面量时省略 |
+| `like_escape` | `LIKE` / `NOT LIKE` / `ILIKE` / `NOT ILIKE` 的显式 ESCAPE 结构；没有显式 ESCAPE 时省略 |
 
 字符串 literal 来源于带引号标识符 token 时，`literal` 对象会输出 `quoted_identifier: true`。普通字符串字面量和未加引号标识符不输出该字段。
 
 多语句 SQL 中，`bind_position` 按整条输入 SQL 全局递增，不按 statement 重置。
 
 `WHERE`、`JOIN ... ON`、`HAVING` 以及 SELECT 投影内部的条件表达式中，`IN`、`NOT IN`、`BETWEEN` 和普通比较会输出字段关联值。`field_match_kind` 用于区分 `secret = ?` 这类直接字段匹配和 `UPPER(secret) = ?`、`CAST(secret AS ...) = ?`、`secret || id = ?`、`CASE ... THEN secret END = ?` 这类表达式字段匹配。字段侧表达式包含多个字段时，每个可定位字段各输出一条 `expression_field` 关系。
+
+`LIKE ... ESCAPE ...` 中，`values[]` 的主值仍表示 pattern 右值，`like_escape` 只表示显式 escape 子句。`kind` 可为 `literal`、`bind` 或 `expression`；bind escape 同样输出 `bind_key`、`bind_kind`、`bind_sql` 和 `bind_position`。反解析输出保持 `LIKE pattern ESCAPE escape` 形态。
+
+```json
+{
+  "operator": "LIKE",
+  "kind": "bind",
+  "bind_key": "pattern",
+  "bind_kind": 2,
+  "bind_sql": ":pattern",
+  "bind_position": 1,
+  "like_escape": {
+    "kind": "bind",
+    "bind_key": "escape_char",
+    "bind_kind": 2,
+    "bind_sql": ":escape_char",
+    "bind_position": 2
+  }
+}
+```
 
 如果值侧本身是函数、类型转换、运算符、数组、ROW 或 CASE 表达式，例如 `secret = UPPER(?)`、`secret = ? || 'x'`、`secret = CAST(? AS CHAR)`，`values[]` 输出关联到 `secret` 的 `kind=expression`，不会把表达式内部的 bind 或 literal 暴露成 direct value。
 

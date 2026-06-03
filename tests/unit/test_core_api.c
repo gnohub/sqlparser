@@ -3665,6 +3665,375 @@ static int test_query_graph_bind_fields(void)
 	return 0;
 }
 
+static int test_query_graph_like_escape_semantics(void)
+{
+	struct like_escape_case {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *column_name;
+		const char *operator_name;
+		sqlparser_graph_value_kind_t value_kind;
+		const char *value_literal;
+		sqlparser_bind_kind_t value_bind_kind;
+		const char *value_bind_key;
+		const char *value_bind_sql;
+		size_t value_bind_position;
+		sqlparser_graph_like_escape_kind_t escape_kind;
+		const char *escape_literal;
+		sqlparser_bind_kind_t escape_bind_kind;
+		const char *escape_bind_key;
+		const char *escape_bind_sql;
+		size_t escape_bind_position;
+		int expect_json_escape;
+	};
+	static const struct like_escape_case cases[] = {
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"SELECT id FROM users WHERE phone LIKE :pattern",
+			"phone",
+			"LIKE",
+			SQLPARSER_GRAPH_VALUE_BIND,
+			NULL,
+			SQLPARSER_BIND_KIND_NAMED,
+			"pattern",
+			":pattern",
+			1U,
+			SQLPARSER_GRAPH_LIKE_ESCAPE_NONE,
+			NULL,
+			SQLPARSER_BIND_KIND_NONE,
+			NULL,
+			NULL,
+			0U,
+			0
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"SELECT id FROM users WHERE phone NOT LIKE '123!_678' ESCAPE '!'",
+			"phone",
+			"NOT LIKE",
+			SQLPARSER_GRAPH_VALUE_LITERAL,
+			"123!_678",
+			SQLPARSER_BIND_KIND_NONE,
+			NULL,
+			NULL,
+			0U,
+			SQLPARSER_GRAPH_LIKE_ESCAPE_LITERAL,
+			"!",
+			SQLPARSER_BIND_KIND_NONE,
+			NULL,
+			NULL,
+			0U,
+			1
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"SELECT id FROM users WHERE phone LIKE :pattern ESCAPE '!'",
+			"phone",
+			"LIKE",
+			SQLPARSER_GRAPH_VALUE_BIND,
+			NULL,
+			SQLPARSER_BIND_KIND_NAMED,
+			"pattern",
+			":pattern",
+			1U,
+			SQLPARSER_GRAPH_LIKE_ESCAPE_LITERAL,
+			"!",
+			SQLPARSER_BIND_KIND_NONE,
+			NULL,
+			NULL,
+			0U,
+			1
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"SELECT id FROM users WHERE phone LIKE :pattern ESCAPE :escape_char",
+			"phone",
+			"LIKE",
+			SQLPARSER_GRAPH_VALUE_BIND,
+			NULL,
+			SQLPARSER_BIND_KIND_NAMED,
+			"pattern",
+			":pattern",
+			1U,
+			SQLPARSER_GRAPH_LIKE_ESCAPE_BIND,
+			NULL,
+			SQLPARSER_BIND_KIND_NAMED,
+			"escape_char",
+			":escape_char",
+			2U,
+			1
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"SELECT d.id FROM (SELECT id, phone FROM users) d WHERE d.phone LIKE :pattern ESCAPE '!'",
+			"phone",
+			"LIKE",
+			SQLPARSER_GRAPH_VALUE_BIND,
+			NULL,
+			SQLPARSER_BIND_KIND_NAMED,
+			"pattern",
+			":pattern",
+			1U,
+			SQLPARSER_GRAPH_LIKE_ESCAPE_LITERAL,
+			"!",
+			SQLPARSER_BIND_KIND_NONE,
+			NULL,
+			NULL,
+			0U,
+			1
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"SELECT id FROM users WHERE phone LIKE :pattern ESCAPE upper('!')",
+			"phone",
+			"LIKE",
+			SQLPARSER_GRAPH_VALUE_BIND,
+			NULL,
+			SQLPARSER_BIND_KIND_NAMED,
+			"pattern",
+			":pattern",
+			1U,
+			SQLPARSER_GRAPH_LIKE_ESCAPE_EXPRESSION,
+			NULL,
+			SQLPARSER_BIND_KIND_NONE,
+			NULL,
+			NULL,
+			0U,
+			1
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT id FROM users WHERE phone LIKE $1 ESCAPE $2",
+			"phone",
+			"LIKE",
+			SQLPARSER_GRAPH_VALUE_BIND,
+			NULL,
+			SQLPARSER_BIND_KIND_POSITIONAL,
+			"1",
+			"$1",
+			1U,
+			SQLPARSER_GRAPH_LIKE_ESCAPE_BIND,
+			NULL,
+			SQLPARSER_BIND_KIND_POSITIONAL,
+			"2",
+			"$2",
+			2U,
+			1
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT id FROM users WHERE phone LIKE like_escape($1, $2)",
+			"phone",
+			"LIKE",
+			SQLPARSER_GRAPH_VALUE_EXPRESSION,
+			NULL,
+			SQLPARSER_BIND_KIND_NONE,
+			NULL,
+			NULL,
+			0U,
+			SQLPARSER_GRAPH_LIKE_ESCAPE_NONE,
+			NULL,
+			SQLPARSER_BIND_KIND_NONE,
+			NULL,
+			NULL,
+			0U,
+			0
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT id FROM users WHERE phone LIKE pg_catalog.like_escape($1, $2)",
+			"phone",
+			"LIKE",
+			SQLPARSER_GRAPH_VALUE_EXPRESSION,
+			NULL,
+			SQLPARSER_BIND_KIND_NONE,
+			NULL,
+			NULL,
+			0U,
+			SQLPARSER_GRAPH_LIKE_ESCAPE_NONE,
+			NULL,
+			SQLPARSER_BIND_KIND_NONE,
+			NULL,
+			NULL,
+			0U,
+			0
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"SELECT id FROM users WHERE phone LIKE ? ESCAPE ?",
+			"phone",
+			"LIKE",
+			SQLPARSER_GRAPH_VALUE_BIND,
+			NULL,
+			SQLPARSER_BIND_KIND_POSITIONAL,
+			"1",
+			"?",
+			1U,
+			SQLPARSER_GRAPH_LIKE_ESCAPE_BIND,
+			NULL,
+			SQLPARSER_BIND_KIND_POSITIONAL,
+			"2",
+			"?",
+			2U,
+			1
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"SELECT [id] FROM [dbo].[users] WHERE [phone] LIKE @pattern ESCAPE @escape_char",
+			"phone",
+			"LIKE",
+			SQLPARSER_GRAPH_VALUE_BIND,
+			NULL,
+			SQLPARSER_BIND_KIND_NAMED,
+			"pattern",
+			"@pattern",
+			1U,
+			SQLPARSER_GRAPH_LIKE_ESCAPE_BIND,
+			NULL,
+			SQLPARSER_BIND_KIND_NAMED,
+			"escape_char",
+			"@escape_char",
+			2U,
+			1
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"SELECT id FROM users WHERE phone LIKE :pattern ESCAPE :escape_char",
+			"phone",
+			"LIKE",
+			SQLPARSER_GRAPH_VALUE_BIND,
+			NULL,
+			SQLPARSER_BIND_KIND_NAMED,
+			"pattern",
+			":pattern",
+			1U,
+			SQLPARSER_GRAPH_LIKE_ESCAPE_BIND,
+			NULL,
+			SQLPARSER_BIND_KIND_NAMED,
+			"escape_char",
+			":escape_char",
+			2U,
+			1
+		}
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	size_t index;
+
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		sqlparser_handle_t *handle;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_graph_value_t value;
+		sqlparser_graph_field_t field;
+		char *view_json;
+		char *deparsed_sql;
+		int rc;
+
+		handle = NULL;
+		view_json = NULL;
+		deparsed_sql = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[index].dialect;
+		rc = sqlparser_parse_with_options(cases[index].sql, &options, &handle, &error);
+		if (expect_status_ok(rc, &error, "LIKE ESCAPE parse should succeed") != 0) {
+			return 1;
+		}
+		rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+		if (expect_status_ok(rc, &error, "LIKE ESCAPE graph should be available") != 0 ||
+		    expect_true(graph.value_count == 1U, "LIKE ESCAPE should expose one pattern value") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_value_at(&graph, 0U, &value, &error), &error, "LIKE ESCAPE value should be available") != 0 ||
+		    expect_true(value.has_field != 0, "LIKE ESCAPE value should be attached to a field") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_field_at(&graph, value.field_index, &field, &error), &error, "LIKE ESCAPE field should be available") != 0 ||
+		    expect_true(field.column_name != NULL && strcmp(field.column_name, cases[index].column_name) == 0, "LIKE ESCAPE field column mismatch") != 0 ||
+		    expect_true(value.operator_name != NULL && strcmp(value.operator_name, cases[index].operator_name) == 0, "LIKE ESCAPE operator mismatch") != 0 ||
+		    expect_true(value.kind == cases[index].value_kind, "LIKE ESCAPE value kind mismatch") != 0 ||
+		    expect_true(value.like_escape.kind == cases[index].escape_kind, "LIKE ESCAPE kind mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (cases[index].value_kind == SQLPARSER_GRAPH_VALUE_LITERAL &&
+		    expect_true(value.literal.kind == SQLPARSER_LITERAL_KIND_STRING &&
+		                value.literal.string_value != NULL &&
+		                strcmp(value.literal.string_value, cases[index].value_literal) == 0,
+		                "LIKE ESCAPE pattern literal mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (cases[index].value_kind == SQLPARSER_GRAPH_VALUE_BIND &&
+		    (expect_true(value.bind_kind == cases[index].value_bind_kind, "LIKE ESCAPE pattern bind kind mismatch") != 0 ||
+		     expect_true(value.has_bind != 0 && strcmp(value.bind, cases[index].value_bind_key) == 0, "LIKE ESCAPE pattern bind key mismatch") != 0 ||
+		     expect_true(value.has_bind_sql != 0 && strcmp(value.bind_sql, cases[index].value_bind_sql) == 0, "LIKE ESCAPE pattern bind SQL mismatch") != 0 ||
+		     expect_true(value.has_bind_position != 0 && value.bind_position == cases[index].value_bind_position, "LIKE ESCAPE pattern bind position mismatch") != 0)) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (cases[index].escape_kind == SQLPARSER_GRAPH_LIKE_ESCAPE_LITERAL &&
+		    expect_true(value.like_escape.literal.kind == SQLPARSER_LITERAL_KIND_STRING &&
+		                value.like_escape.literal.string_value != NULL &&
+		                strcmp(value.like_escape.literal.string_value, cases[index].escape_literal) == 0,
+		                "LIKE ESCAPE literal mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (cases[index].escape_kind == SQLPARSER_GRAPH_LIKE_ESCAPE_BIND &&
+		    (expect_true(value.like_escape.bind_kind == cases[index].escape_bind_kind, "LIKE ESCAPE bind kind mismatch") != 0 ||
+		     expect_true(value.like_escape.has_bind != 0 && strcmp(value.like_escape.bind, cases[index].escape_bind_key) == 0, "LIKE ESCAPE bind key mismatch") != 0 ||
+		     expect_true(value.like_escape.has_bind_sql != 0 && strcmp(value.like_escape.bind_sql, cases[index].escape_bind_sql) == 0, "LIKE ESCAPE bind SQL mismatch") != 0 ||
+		     expect_true(value.like_escape.has_bind_position != 0 && value.like_escape.bind_position == cases[index].escape_bind_position, "LIKE ESCAPE bind position mismatch") != 0)) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
+		if (expect_status_ok(rc, &error, "LIKE ESCAPE view JSON should export") != 0 ||
+		    expect_true(view_json != NULL, "LIKE ESCAPE view JSON should not be NULL") != 0 ||
+		    expect_true((strstr(view_json, "\"like_escape\"") != NULL) == cases[index].expect_json_escape,
+		                "LIKE ESCAPE JSON presence mismatch") != 0) {
+			sqlparser_string_free(view_json);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (cases[index].escape_kind == SQLPARSER_GRAPH_LIKE_ESCAPE_LITERAL &&
+		    (expect_true(strstr(view_json, "\"kind\":\"literal\"") != NULL, "LIKE ESCAPE JSON literal kind missing") != 0 ||
+		     expect_true(strstr(view_json, "\"literal_value\":\"!\"") != NULL, "LIKE ESCAPE JSON literal value missing") != 0)) {
+			sqlparser_string_free(view_json);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (cases[index].escape_kind == SQLPARSER_GRAPH_LIKE_ESCAPE_BIND &&
+		    (expect_true(strstr(view_json, "\"like_escape\":{\"kind\":\"bind\"") != NULL, "LIKE ESCAPE JSON bind object missing") != 0 ||
+		     expect_true(strstr(view_json, cases[index].escape_bind_sql) != NULL, "LIKE ESCAPE JSON bind SQL missing") != 0)) {
+			sqlparser_string_free(view_json);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (cases[index].escape_kind == SQLPARSER_GRAPH_LIKE_ESCAPE_EXPRESSION &&
+		    expect_true(strstr(view_json, "\"like_escape\":{\"kind\":\"expression\"}") != NULL,
+		                "LIKE ESCAPE JSON expression object missing") != 0) {
+			sqlparser_string_free(view_json);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+		if (expect_status_ok(rc, &error, "LIKE ESCAPE deparse should succeed") != 0 ||
+		    expect_true(deparsed_sql != NULL, "LIKE ESCAPE deparse output should not be NULL") != 0 ||
+		    expect_true(strstr(deparsed_sql, "pg_catalog.like_escape") == NULL,
+		                "LIKE ESCAPE deparse must not expose internal function") != 0 ||
+		    expect_true(!cases[index].expect_json_escape || strstr(deparsed_sql, " ESCAPE ") != NULL,
+		                "LIKE ESCAPE deparse should preserve explicit ESCAPE") != 0) {
+			sqlparser_string_free(deparsed_sql);
+			sqlparser_string_free(view_json);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+	}
+
+	return 0;
+}
+
 static int expect_query_graph_value_bind(
 	const sqlparser_query_graph_view_t *graph,
 	size_t value_index,
@@ -6815,6 +7184,9 @@ int main(void)
 		return 1;
 	}
 	if (test_query_graph_bind_fields() != 0) {
+		return 1;
+	}
+	if (test_query_graph_like_escape_semantics() != 0) {
 		return 1;
 	}
 	if (test_query_graph_condition_value_lists() != 0) {

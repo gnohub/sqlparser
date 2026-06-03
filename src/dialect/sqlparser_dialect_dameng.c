@@ -2025,6 +2025,11 @@ static sqlparser_status_t sqlparser_dameng_postprocess_deparse(
 		free(public_sql);
 		return status;
 	}
+	status = sqlparser_dialect_rewrite_like_escape(&public_sql, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(public_sql);
+		return status;
+	}
 	*out_sql = public_sql;
 	return SQLPARSER_STATUS_OK;
 }

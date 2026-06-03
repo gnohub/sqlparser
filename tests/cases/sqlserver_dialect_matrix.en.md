@@ -97,6 +97,10 @@ This file records regression cases for the SQL Server dialect conversion layer. 
 | S089 | `sqlserver-expression-field-dml-expression-values` | INSERT/UPDATE expression assignments | DML cells and assignments emit `kind=expression` |
 | S090 | `sqlserver-update-named-bind-rhs-crypto-source` | `UPDATE ... SET protected = @name` | protected-field UPDATE SET right-hand named parameter |
 | S091 | `sqlserver-update-multiple-bind-rhs-crypto-source` | `UPDATE ... SET protected1 = @name1, protected2 = @name2` | multiple protected-field SET binds, field attribution, and global bind positions |
+| S092 | `sqlserver-like-escape-literal` | `LIKE 'A!_%' ESCAPE '!'` | SQL Server literal ESCAPE is emitted in `values[].like_escape` |
+| S093 | `sqlserver-not-like-escape-named-bind` | `NOT LIKE @pattern ESCAPE @escape_char` | named pattern and escape parameters keep public SQL and global positions |
+| S094 | `sqlserver-like-escape-question-bind` | `LIKE ? ESCAPE ?` | structured output for JDBC-style positional pattern and escape parameters |
+| S095 | `sqlserver-like-without-explicit-escape` | `LIKE @pattern` | `like_escape` is omitted when ESCAPE is not explicit |
 
 ## Explicitly Unsupported Cases
 

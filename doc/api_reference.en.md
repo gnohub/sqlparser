@@ -119,6 +119,7 @@ original SQL, the current syntax tree, dialect state, and lazily derived caches.
 | `sqlparser_value_kind_t` | value kind used by fine-grained value APIs |
 | `sqlparser_bind_kind_t` | prepared-statement placeholder kind |
 | `sqlparser_graph_field_match_kind_t` | query graph field-match kind for condition values |
+| `sqlparser_graph_like_escape_kind_t` | escape shape for explicit `LIKE ... ESCAPE ...` in query graph |
 | `sqlparser_literal_kind_t` | literal kind |
 | `sqlparser_selector_kind_t` | selector kind |
 | `sqlparser_clause_kind_t` | clause kind used by query graph and clause patches |
@@ -163,6 +164,15 @@ Bind-field rules:
 | `SQLPARSER_GRAPH_VALUE_DEFAULT` | `3` | `DEFAULT` |
 | `SQLPARSER_GRAPH_VALUE_EXPRESSION` | `4` | function, operator, `CASE`, or other expression |
 | `SQLPARSER_GRAPH_VALUE_FIELD` | `5` | Oracle multi-table INSERT branch cell that directly references source-query output |
+
+`sqlparser_graph_like_escape_kind_t`:
+
+| Enum | Value | Meaning |
+| --- | --- | --- |
+| `SQLPARSER_GRAPH_LIKE_ESCAPE_NONE` | `0` | no explicit `ESCAPE` clause |
+| `SQLPARSER_GRAPH_LIKE_ESCAPE_LITERAL` | `1` | `ESCAPE` is a literal |
+| `SQLPARSER_GRAPH_LIKE_ESCAPE_BIND` | `2` | `ESCAPE` is a prepared-statement placeholder |
+| `SQLPARSER_GRAPH_LIKE_ESCAPE_EXPRESSION` | `3` | `ESCAPE` is a function, operator, or other expression |
 
 `sqlparser_graph_field_match_kind_t`:
 
@@ -582,6 +592,11 @@ from which it was read.
 - If the value side is a function, cast, operator, array, row, or CASE
   expression, the related field value uses `SQLPARSER_GRAPH_VALUE_EXPRESSION`;
   inner binds and literals are not exposed as direct values.
+- When `LIKE`, `NOT LIKE`, `ILIKE`, or `NOT ILIKE` has an explicit `ESCAPE`,
+  the pattern `sqlparser_graph_value_t.like_escape` stores the escape shape.
+  Without an explicit `ESCAPE`, the kind is `SQLPARSER_GRAPH_LIKE_ESCAPE_NONE`.
+  Deparse output keeps the public SQL form, for example
+  `LIKE pattern ESCAPE escape`.
 
 ## JSON Export and Patch
 

@@ -1,3 +1,5 @@
+#include <stdlib.h>
+
 #include "sqlparser_dialect_internal.h"
 
 static sqlparser_status_t sqlparser_postgresql_preprocess(
@@ -36,12 +38,52 @@ static sqlparser_status_t sqlparser_postgresql_preprocess(
 	return SQLPARSER_STATUS_OK;
 }
 
+static sqlparser_status_t sqlparser_postgresql_postprocess_deparse(
+	const char *core_sql,
+	const void *state,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_status_t status;
+
+	(void)state;
+
+	if (out_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"dialect deparse output must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_sql = NULL;
+	if (core_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"core SQL must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	*out_sql = sqlparser_strdup(core_sql);
+	if (*out_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	status = sqlparser_dialect_rewrite_like_escape(out_sql, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(*out_sql);
+		*out_sql = NULL;
+		return status;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
 static const sqlparser_dialect_ops_t SQLPARSER_POSTGRESQL_OPS = {
 	SQLPARSER_DIALECT_POSTGRESQL,
 	"postgresql",
 	sqlparser_postgresql_preprocess,
 	NULL,
-	NULL,
+	sqlparser_postgresql_postprocess_deparse,
 	NULL,
 	NULL,
 	NULL

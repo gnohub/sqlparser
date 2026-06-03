@@ -87,6 +87,10 @@
 | M073 | `mysql-expression-field-dml-expression-values` | INSERT/UPDATE 表达式赋值 | DML cell/assignment 输出 `kind=expression` |
 | M074 | `mysql-update-bind-rhs-crypto-source` | `UPDATE ... SET protected = ?` | UPDATE SET 右值为位置 bind 的保护字段来源表达，可用于后续结构化备份列插入和 literal 改写 |
 | M075 | `mysql-update-multiple-bind-rhs-crypto-source` | `UPDATE ... SET protected1 = ?, protected2 = ?` | 多个保护字段的 SET bind、字段归属和全局 bind 序号 |
+| M076 | `mysql-like-escape-literal` | `LIKE 'A!_%' ESCAPE '!'` | MySQL 字面量 ESCAPE 输出到 `values[].like_escape` |
+| M077 | `mysql-like-escape-question-binds` | `LIKE ? ESCAPE ?` | pattern 与 escape 的 JDBC 位置参数分别保留全局 bind 序号 |
+| M078 | `mysql-not-like-escape-literal` | `NOT LIKE ? ESCAPE '!'` | 否定 LIKE 中 pattern bind 与字面量 ESCAPE 的结构化输出 |
+| M079 | `mysql-like-without-explicit-escape` | `LIKE ?` | 无显式 ESCAPE 时不输出 `like_escape` |
 
 ## 明确不支持语句
 

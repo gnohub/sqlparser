@@ -87,6 +87,10 @@ This file records regression cases for the MySQL dialect conversion layer. `test
 | M073 | `mysql-expression-field-dml-expression-values` | INSERT/UPDATE expression assignments | DML cells and assignments emit `kind=expression` |
 | M074 | `mysql-update-bind-rhs-crypto-source` | `UPDATE ... SET protected = ?` | protected-field UPDATE SET right-hand positional bind for later structured backup assignment insertion and literal rewrite |
 | M075 | `mysql-update-multiple-bind-rhs-crypto-source` | `UPDATE ... SET protected1 = ?, protected2 = ?` | multiple protected-field SET binds, field attribution, and global bind positions |
+| M076 | `mysql-like-escape-literal` | `LIKE 'A!_%' ESCAPE '!'` | MySQL literal ESCAPE is emitted in `values[].like_escape` |
+| M077 | `mysql-like-escape-question-binds` | `LIKE ? ESCAPE ?` | pattern and escape JDBC positional parameters keep separate global bind positions |
+| M078 | `mysql-not-like-escape-literal` | `NOT LIKE ? ESCAPE '!'` | structured output for pattern bind plus literal ESCAPE in negated LIKE |
+| M079 | `mysql-like-without-explicit-escape` | `LIKE ?` | `like_escape` is omitted when ESCAPE is not explicit |
 
 ## Explicitly Unsupported Statements
 

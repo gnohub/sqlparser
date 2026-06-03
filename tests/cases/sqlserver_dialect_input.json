@@ -1434,6 +1434,93 @@
       }
     },
     {
+      "id": "S092",
+      "name": "sqlserver-like-escape-literal",
+      "sql": "SELECT [id] FROM [dbo].[users] WHERE [name] LIKE 'A!_%' ESCAPE '!'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "ESCAPE '!'",
+        "deparse_not_contains": "pg_catalog.like_escape",
+        "view_contains": [
+          "\"operator\":\"LIKE\"",
+          "\"kind\":\"literal\"",
+          "\"like_escape\":{\"kind\":\"literal\"",
+          "\"literal_value\":\"!\""
+        ]
+      }
+    },
+    {
+      "id": "S093",
+      "name": "sqlserver-not-like-escape-named-bind",
+      "sql": "SELECT [id] FROM [dbo].[users] WHERE [name] NOT LIKE @pattern ESCAPE @escape_char",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "NOT LIKE",
+        "deparse_not_contains": "pg_catalog.like_escape",
+        "view_contains": [
+          "\"operator\":\"NOT LIKE\"",
+          "\"bind_key\":\"pattern\"",
+          "\"bind_sql\":\"@pattern\"",
+          "\"like_escape\":{\"kind\":\"bind\"",
+          "\"bind_key\":\"escape_char\"",
+          "\"bind_sql\":\"@escape_char\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S094",
+      "name": "sqlserver-like-escape-question-bind",
+      "sql": "SELECT [id] FROM [dbo].[users] WHERE [name] LIKE ? ESCAPE ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "LIKE ?",
+        "deparse_not_contains": "pg_catalog.like_escape",
+        "view_contains": [
+          "\"operator\":\"LIKE\"",
+          "\"bind_sql\":\"?\"",
+          "\"bind_position\":1",
+          "\"like_escape\":{\"kind\":\"bind\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "S095",
+      "name": "sqlserver-like-without-explicit-escape",
+      "sql": "SELECT [id] FROM [dbo].[users] WHERE [name] LIKE @pattern",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "LIKE @pattern",
+        "view_contains": [
+          "\"operator\":\"LIKE\"",
+          "\"bind_sql\":\"@pattern\""
+        ],
+        "view_not_contains": [
+          "\"like_escape\"",
+          "$1"
+        ]
+      }
+    },
+    {
       "id": "SU015",
       "name": "sqlserver-table-variable-unsupported",
       "sql": "SELECT [id] FROM @users",

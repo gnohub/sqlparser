@@ -1,5 +1,21 @@
 # 变更记录
 
+## 2.5.0
+
+### LIKE ESCAPE 结构化输出
+
+- `sqlparser_graph_value_t` 新增 `like_escape`，用于表达 `LIKE`、`NOT LIKE`、`ILIKE`、`NOT ILIKE` 的显式 `ESCAPE` 子句。
+- 新增 `sqlparser_graph_like_escape_kind_t`，区分无显式 `ESCAPE`、字面量、预编译占位符和表达式 escape。
+- View JSON 的 `values[]` 在 pattern 主值上输出 `like_escape`，不把 escape 子句拆成并列业务值。
+- 各方言 public deparse 保持 `LIKE pattern ESCAPE escape` 形态，不暴露 libpg_query 内部 `pg_catalog.like_escape(...)`。
+- 结构化识别只接受 libpg_query 生成的 `pg_catalog.like_escape`，不会把用户 SQL 中未限定的同名函数误判为显式 `ESCAPE`。
+
+### 测试与验证
+
+- PostgreSQL、MySQL、Oracle、SQL Server 和达梦现有 case matrix 增加 `LIKE ESCAPE` 用例，覆盖字面量 escape、命名 bind、位置 bind、JDBC `?` bind、表达式 escape、无显式 escape 和派生表场景。
+- 核心 API 回归测试同步覆盖 C 结构字段、View JSON、public deparse，以及用户自定义 `like_escape(...)` 函数边界。
+- 发布验证覆盖 Linux 单元测试、ASan、UBSan、Valgrind 内存检查和 ABI 导出检查。
+
 ## 2.4.0
 
 ### UPDATE SET 改写

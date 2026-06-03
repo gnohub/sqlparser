@@ -147,11 +147,15 @@
 | P130 | `postgresql-expression-field-dml-expression-values` | INSERT/UPDATE 表达式赋值 | DML cell/assignment 输出 `kind=expression` |
 | P131 | `postgresql-update-bind-rhs-crypto-source` | `UPDATE ... SET protected = $n` | UPDATE SET 右值为 bind 的保护字段来源表达，可用于后续结构化备份列插入和 literal 改写 |
 | P132 | `postgresql-update-multiple-bind-rhs-crypto-source` | `UPDATE ... SET protected1 = $n, protected2 = $n` | 多个保护字段的 SET bind、字段归属和全局 bind 序号 |
+| P133 | `postgresql-like-escape-literal` | `LIKE 'A!_%' ESCAPE '!'` | 显式字面量 ESCAPE 输出到 `values[].like_escape` |
+| P134 | `postgresql-not-like-escape-bind` | `NOT LIKE $1 ESCAPE $2` | pattern bind 与 escape bind 独立输出，escape bind 保留全局序号 |
+| P135 | `postgresql-ilike-escape-bind` | `ILIKE $1 ESCAPE $2` | PostgreSQL `ILIKE` 的 ESCAPE 结构化输出 |
+| P136 | `postgresql-like-without-explicit-escape` | `LIKE $1` | 无显式 ESCAPE 时不输出 `like_escape` |
 
 ## 负向用例
 
 | 用例 ID | 用例名称 | 输入 | 验证重点 |
 | --- | --- | --- | --- |
-| P133 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
+| P137 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
 
 新增回归用例必须同步更新 `tests/cases/sql_batch_input.json` 和本矩阵。

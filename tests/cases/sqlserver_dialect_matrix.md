@@ -97,6 +97,10 @@
 | S089 | `sqlserver-expression-field-dml-expression-values` | INSERT/UPDATE 表达式赋值 | DML cell/assignment 输出 `kind=expression` |
 | S090 | `sqlserver-update-named-bind-rhs-crypto-source` | `UPDATE ... SET protected = @name` | UPDATE SET 右值为命名参数的保护字段来源表达 |
 | S091 | `sqlserver-update-multiple-bind-rhs-crypto-source` | `UPDATE ... SET protected1 = @name1, protected2 = @name2` | 多个保护字段的 SET bind、字段归属和全局 bind 序号 |
+| S092 | `sqlserver-like-escape-literal` | `LIKE 'A!_%' ESCAPE '!'` | SQL Server 字面量 ESCAPE 输出到 `values[].like_escape` |
+| S093 | `sqlserver-not-like-escape-named-bind` | `NOT LIKE @pattern ESCAPE @escape_char` | 命名参数 pattern 与 escape 分别保留公开 SQL 和全局序号 |
+| S094 | `sqlserver-like-escape-question-bind` | `LIKE ? ESCAPE ?` | JDBC 风格位置参数 pattern 和 escape 的结构化输出 |
+| S095 | `sqlserver-like-without-explicit-escape` | `LIKE @pattern` | 无显式 ESCAPE 时不输出 `like_escape` |
 
 ## 明确不支持用例
 

@@ -111,6 +111,7 @@ int main(void)
 | `sqlparser_value_kind_t` | 精细值读取接口中的值类型 |
 | `sqlparser_bind_kind_t` | 预编译占位符类型 |
 | `sqlparser_graph_field_match_kind_t` | query graph 条件值的字段匹配形态 |
+| `sqlparser_graph_like_escape_kind_t` | query graph 中显式 `LIKE ... ESCAPE ...` 的 escape 形态 |
 | `sqlparser_literal_kind_t` | 字面量类型 |
 | `sqlparser_selector_kind_t` | selector 类型 |
 | `sqlparser_clause_kind_t` | query graph 与 clause patch 使用的子句类型 |
@@ -148,6 +149,15 @@ bind 字段规则：
 | `SQLPARSER_GRAPH_VALUE_DEFAULT` | `3` | `DEFAULT` |
 | `SQLPARSER_GRAPH_VALUE_EXPRESSION` | `4` | 函数、运算符、`CASE` 等表达式 |
 | `SQLPARSER_GRAPH_VALUE_FIELD` | `5` | Oracle multi-table INSERT branch cell 直接引用 source query 输出字段 |
+
+`sqlparser_graph_like_escape_kind_t`：
+
+| 枚举 | 数值 | 说明 |
+| --- | --- | --- |
+| `SQLPARSER_GRAPH_LIKE_ESCAPE_NONE` | `0` | 没有显式 `ESCAPE` 子句 |
+| `SQLPARSER_GRAPH_LIKE_ESCAPE_LITERAL` | `1` | `ESCAPE` 是字面量 |
+| `SQLPARSER_GRAPH_LIKE_ESCAPE_BIND` | `2` | `ESCAPE` 是预编译占位符 |
+| `SQLPARSER_GRAPH_LIKE_ESCAPE_EXPRESSION` | `3` | `ESCAPE` 是函数、运算符或其他表达式 |
 
 `sqlparser_graph_field_match_kind_t`：
 
@@ -518,6 +528,7 @@ sqlparser_status_t sqlparser_statement_query_graph(
 - `sqlparser_graph_value_t.field_match_kind` 仅在 `has_field` 为真时有效，用于区分 `secret = ?` 这类直接字段匹配和 `UPPER(secret) = ?` 这类表达式字段匹配。
 - 字段侧表达式包含多个字段时，每个可定位字段各输出一条 `expression_field` value 关系。
 - 值侧是函数、CAST、运算符、数组、ROW 或 CASE 表达式时，关联字段的 value 使用 `SQLPARSER_GRAPH_VALUE_EXPRESSION`，不会把内部 bind/literal 当作 direct value 暴露。
+- `LIKE`、`NOT LIKE`、`ILIKE`、`NOT ILIKE` 带显式 `ESCAPE` 时，pattern 对应的 `sqlparser_graph_value_t.like_escape` 保存 escape 结构；没有显式 `ESCAPE` 时 `kind` 为 `SQLPARSER_GRAPH_LIKE_ESCAPE_NONE`。反解析输出保持公开 SQL 形态，例如 `LIKE pattern ESCAPE escape`。
 
 ## JSON 导出与 Patch
 

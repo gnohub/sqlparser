@@ -4612,6 +4612,9 @@ static sqlparser_status_t sqlparser_sqlserver_postprocess_deparse(
 	char **out_sql,
 	sqlparser_error_t *out_error)
 {
+	char *public_sql;
+	sqlparser_status_t status;
+
 	if (out_sql == NULL) {
 		sqlparser_error_set_message(
 			out_error,
@@ -4628,11 +4631,22 @@ static sqlparser_status_t sqlparser_sqlserver_postprocess_deparse(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_sqlserver_postprocess_text(
+	public_sql = NULL;
+	status = sqlparser_sqlserver_postprocess_text(
 		core_sql,
 		(const sqlparser_sqlserver_state_t *)state,
-		out_sql,
+		&public_sql,
 		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_dialect_rewrite_like_escape(&public_sql, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(public_sql);
+		return status;
+	}
+	*out_sql = public_sql;
+	return SQLPARSER_STATUS_OK;
 }
 
 static sqlparser_status_t sqlparser_sqlserver_clone_state(

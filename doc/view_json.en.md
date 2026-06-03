@@ -235,12 +235,33 @@ Function calls are not emitted as a separate target kind. For `SELECT UPPER(name
 | `bind_position` | One-based bind occurrence position across the full input SQL; omitted when no bind exists |
 | `selector` | Value selector; omitted when no writable node exists |
 | `literal` | Literal object; omitted for non-literals |
+| `like_escape` | Explicit ESCAPE shape for `LIKE` / `NOT LIKE` / `ILIKE` / `NOT ILIKE`; omitted when ESCAPE is not explicit |
 
 When a string literal comes from a quoted-identifier token, the `literal` object emits `quoted_identifier: true`. Ordinary string literals and unquoted identifiers omit this field.
 
 For multi-statement input, `bind_position` is global across the whole SQL text and does not reset per statement.
 
 For `WHERE`, `JOIN ... ON`, `HAVING`, and predicate expressions inside SELECT projections, field-bound values are emitted for `IN`, `NOT IN`, `BETWEEN`, and ordinary comparisons. `field_match_kind` distinguishes direct-field predicates such as `secret = ?` from expression-field predicates such as `UPPER(secret) = ?`, `CAST(secret AS ...) = ?`, `secret || id = ?`, or `CASE ... THEN secret END = ?`. If the field side contains multiple attributable fields, each field gets a separate `expression_field` relation.
+
+For `LIKE ... ESCAPE ...`, the main `values[]` item still represents the right-hand pattern value. `like_escape` represents only the explicit escape clause. Its `kind` is `literal`, `bind`, or `expression`; bind escapes also include `bind_key`, `bind_kind`, `bind_sql`, and `bind_position`. Deparse output keeps the `LIKE pattern ESCAPE escape` form.
+
+```json
+{
+  "operator": "LIKE",
+  "kind": "bind",
+  "bind_key": "pattern",
+  "bind_kind": 2,
+  "bind_sql": ":pattern",
+  "bind_position": 1,
+  "like_escape": {
+    "kind": "bind",
+    "bind_key": "escape_char",
+    "bind_kind": 2,
+    "bind_sql": ":escape_char",
+    "bind_position": 2
+  }
+}
+```
 
 If the value side is a function, cast, operator, array, row, or CASE expression, such as `secret = UPPER(?)`, `secret = ? || 'x'`, or `secret = CAST(? AS CHAR)`, `values[]` emits `kind=expression` attached to `secret` and does not expose inner binds or literals as direct values.
 

@@ -1589,6 +1589,80 @@
       }
     },
     {
+      "name": "postgresql-like-escape-literal",
+      "sql": "SELECT id FROM public.users WHERE name LIKE 'A!_%' ESCAPE '!'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "ESCAPE '!'",
+        "deparse_not_contains": "pg_catalog.like_escape",
+        "view_contains": [
+          "\"operator\":\"LIKE\"",
+          "\"kind\":\"literal\"",
+          "\"like_escape\":{\"kind\":\"literal\"",
+          "\"literal_value\":\"!\""
+        ]
+      }
+    },
+    {
+      "name": "postgresql-not-like-escape-bind",
+      "sql": "SELECT id FROM public.users WHERE name NOT LIKE $1 ESCAPE $2",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "NOT LIKE",
+        "deparse_not_contains": "pg_catalog.like_escape",
+        "view_contains": [
+          "\"operator\":\"NOT LIKE\"",
+          "\"bind_key\":\"1\"",
+          "\"like_escape\":{\"kind\":\"bind\"",
+          "\"bind_key\":\"2\"",
+          "\"bind_position\":2"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-ilike-escape-bind",
+      "sql": "SELECT id FROM public.users WHERE name ILIKE $1 ESCAPE $2",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "ILIKE",
+        "deparse_not_contains": "pg_catalog.like_escape",
+        "view_contains": [
+          "\"operator\":\"ILIKE\"",
+          "\"like_escape\":{\"kind\":\"bind\"",
+          "\"bind_sql\":\"$2\""
+        ]
+      }
+    },
+    {
+      "name": "postgresql-like-without-explicit-escape",
+      "sql": "SELECT id FROM public.users WHERE name LIKE $1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "LIKE $1",
+        "view_contains": [
+          "\"operator\":\"LIKE\"",
+          "\"bind_sql\":\"$1\""
+        ],
+        "view_not_contains": "\"like_escape\""
+      }
+    },
+    {
       "name": "parse-error",
       "sql": "SELECT FROM",
       "expect": {

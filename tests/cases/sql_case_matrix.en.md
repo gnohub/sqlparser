@@ -147,11 +147,15 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 | P130 | `postgresql-expression-field-dml-expression-values` | INSERT/UPDATE expression assignments | DML cells and assignments emit `kind=expression` |
 | P131 | `postgresql-update-bind-rhs-crypto-source` | `UPDATE ... SET protected = $n` | protected-field UPDATE SET right-hand binds for later structured backup assignment insertion and literal rewrite |
 | P132 | `postgresql-update-multiple-bind-rhs-crypto-source` | `UPDATE ... SET protected1 = $n, protected2 = $n` | multiple protected-field SET binds, field attribution, and global bind positions |
+| P133 | `postgresql-like-escape-literal` | `LIKE 'A!_%' ESCAPE '!'` | explicit literal ESCAPE is emitted in `values[].like_escape` |
+| P134 | `postgresql-not-like-escape-bind` | `NOT LIKE $1 ESCAPE $2` | pattern bind and escape bind remain separate; escape bind keeps its global position |
+| P135 | `postgresql-ilike-escape-bind` | `ILIKE $1 ESCAPE $2` | structured ESCAPE output for PostgreSQL `ILIKE` |
+| P136 | `postgresql-like-without-explicit-escape` | `LIKE $1` | `like_escape` is omitted when ESCAPE is not explicit |
 
 ## Negative Case
 
 | Case ID | Case Name | Input | Validation Focus |
 | --- | --- | --- | --- |
-| P133 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
+| P137 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
 
 New regression cases must update both `tests/cases/sql_batch_input.json` and this matrix.

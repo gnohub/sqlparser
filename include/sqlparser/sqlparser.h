@@ -135,6 +135,13 @@ typedef enum {
 } sqlparser_graph_field_match_kind_t;
 
 typedef enum {
+	SQLPARSER_GRAPH_LIKE_ESCAPE_NONE = 0,
+	SQLPARSER_GRAPH_LIKE_ESCAPE_LITERAL = 1,
+	SQLPARSER_GRAPH_LIKE_ESCAPE_BIND = 2,
+	SQLPARSER_GRAPH_LIKE_ESCAPE_EXPRESSION = 3
+} sqlparser_graph_like_escape_kind_t;
+
+typedef enum {
 	SQLPARSER_GRAPH_SET_UNION = 1,
 	SQLPARSER_GRAPH_SET_UNION_ALL = 2,
 	SQLPARSER_GRAPH_SET_INTERSECT = 3,
@@ -330,6 +337,18 @@ typedef struct {
 } sqlparser_graph_field_t;
 
 typedef struct {
+	sqlparser_graph_like_escape_kind_t kind;
+	sqlparser_literal_view_t literal;
+	char bind[SQLPARSER_BIND_TEXT_CAPACITY];
+	int has_bind;
+	sqlparser_bind_kind_t bind_kind;
+	char bind_sql[SQLPARSER_BIND_SQL_CAPACITY];
+	int has_bind_sql;
+	size_t bind_position;
+	int has_bind_position;
+} sqlparser_graph_like_escape_t;
+
+typedef struct {
 	size_t index;
 	size_t statement_index;
 	size_t block_index;
@@ -349,6 +368,7 @@ typedef struct {
 	int has_bind_position;
 	sqlparser_selector_t selector;
 	int has_selector;
+	sqlparser_graph_like_escape_t like_escape;
 } sqlparser_graph_value_t;
 
 typedef struct {

@@ -44,4 +44,8 @@ const sqlparser_dialect_ops_t *sqlparser_dialect_oracle_ops(void);
 const sqlparser_dialect_ops_t *sqlparser_dialect_sqlserver_ops(void);
 const sqlparser_dialect_ops_t *sqlparser_dialect_dameng_ops(void);
 
+sqlparser_status_t sqlparser_dialect_rewrite_like_escape(
+	char **io_sql,
+	sqlparser_error_t *out_error);
+
 #endif
