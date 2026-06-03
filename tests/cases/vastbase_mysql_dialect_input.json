@@ -1,0 +1,1503 @@
+{
+  "items": [
+    {
+      "id": "VM001",
+      "name": "vastbase-mysql-select-limit-comma",
+      "sql": "SELECT `u`.`id`, \"hello\" AS `label` FROM `users` AS `u` WHERE `u`.`id` = 1 LIMIT 5, 10",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "LIMIT 5, 10"
+      }
+    },
+    {
+      "id": "VM002",
+      "name": "vastbase-mysql-select-join",
+      "sql": "SELECT `u`.`id`, `u`.`name`, `o`.`order_no` FROM `users` `u` JOIN `orders` `o` ON `u`.`id` = `o`.`user_id` WHERE `o`.`status` = \"paid\"",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "JOIN orders o"
+      }
+    },
+    {
+      "id": "VM003",
+      "name": "vastbase-mysql-hash-comment",
+      "sql": "SELECT 1 # mysql line comment\n",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "SELECT 1"
+      }
+    },
+    {
+      "id": "VM004",
+      "name": "vastbase-mysql-insert-values-multi-row",
+      "sql": "INSERT INTO `users` (`id`, `name`) VALUES (1, \"bob\"), (2, 'alice')",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "VALUES (1, 'bob'), (2, 'alice')"
+      }
+    },
+    {
+      "id": "VM005",
+      "name": "vastbase-mysql-insert-select",
+      "sql": "INSERT INTO `archive_users` (`id`, `name`) SELECT `id`, `name` FROM `users` WHERE `status` = \"inactive\"",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT INTO archive_users"
+      }
+    },
+    {
+      "id": "VM006",
+      "name": "vastbase-mysql-update-basic",
+      "sql": "UPDATE `users` SET `name` = \"carol\", `status` = 'active' WHERE `id` = 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "UPDATE users SET"
+      }
+    },
+    {
+      "id": "VM007",
+      "name": "vastbase-mysql-delete-conditional",
+      "sql": "DELETE FROM `users` WHERE `id` = 1 AND `status` = \"inactive\"",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "deparse_contains": "DELETE FROM users"
+      }
+    },
+    {
+      "id": "VM008",
+      "name": "vastbase-mysql-create-table-basic",
+      "sql": "CREATE TABLE `users` (`id` INT, `name` VARCHAR(64))",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "CreateStmt"
+        ],
+        "deparse_contains": "CREATE TABLE users"
+      }
+    },
+    {
+      "id": "VM009",
+      "name": "vastbase-mysql-alter-table-add-column",
+      "sql": "ALTER TABLE `users` ADD COLUMN `age` INT",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "AlterTableStmt"
+        ],
+        "deparse_contains": "ADD COLUMN age int"
+      }
+    },
+    {
+      "id": "VM010",
+      "name": "vastbase-mysql-create-view",
+      "sql": "CREATE VIEW `v_users` AS SELECT `id`, `name` FROM `users`",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "ViewStmt"
+        ],
+        "deparse_contains": "CREATE VIEW v_users AS"
+      }
+    },
+    {
+      "id": "VM011",
+      "name": "vastbase-mysql-drop-table",
+      "sql": "DROP TABLE `users`",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DropStmt"
+        ],
+        "deparse_contains": "DROP TABLE users"
+      }
+    },
+    {
+      "id": "VM012",
+      "name": "vastbase-mysql-start-transaction",
+      "sql": "START TRANSACTION; COMMIT",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": [
+          "TransactionStmt"
+        ],
+        "deparse_contains": "COMMIT"
+      }
+    },
+    {
+      "id": "VM013",
+      "name": "vastbase-mysql-unsupported-keywords-in-string",
+      "sql": "SELECT 'INSERT IGNORE' AS msg FROM `users`",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "'INSERT IGNORE'"
+      }
+    },
+    {
+      "id": "VM014",
+      "name": "vastbase-mysql-unsupported-keywords-in-comment",
+      "sql": "SELECT `id` FROM `users` /* ON DUPLICATE KEY UPDATE */ WHERE `id` = 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "WHERE id = 1"
+      }
+    },
+    {
+      "id": "VM015",
+      "name": "vastbase-mysql-use-database",
+      "sql": "USE analytics",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "USE analytics"
+      }
+    },
+    {
+      "id": "VM016",
+      "name": "vastbase-mysql-use-quoted-database",
+      "sql": "USE `analytics-prod`",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "USE `analytics-prod`"
+      }
+    },
+    {
+      "id": "VM017",
+      "name": "vastbase-mysql-use-database-in-multi-statement",
+      "sql": "USE `analytics-prod`; SELECT * FROM `users`",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": [
+          "VariableSetStmt",
+          "SelectStmt"
+        ],
+        "deparse_contains": "USE `analytics-prod`; SELECT * FROM users"
+      }
+    },
+    {
+      "id": "VM018",
+      "name": "vastbase-mysql-insert-question-params",
+      "sql": "INSERT INTO users (username, email, age) VALUES (?, ?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "VALUES (?, ?, ?)",
+        "view_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM019",
+      "name": "vastbase-mysql-update-question-params",
+      "sql": "UPDATE users SET email = ? WHERE username = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "email = ?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM020",
+      "name": "vastbase-mysql-prepare-from-literal",
+      "sql": "PREPARE stmt FROM 'SELECT * FROM users WHERE id = ?'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "PREPARE stmt FROM 'SELECT * FROM users WHERE id = ?'"
+      }
+    },
+    {
+      "id": "VM021",
+      "name": "vastbase-mysql-execute-using",
+      "sql": "EXECUTE stmt USING @user_id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "EXECUTE stmt USING @user_id"
+      }
+    },
+    {
+      "id": "VM022",
+      "name": "vastbase-mysql-deallocate-prepare",
+      "sql": "DEALLOCATE PREPARE stmt",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "DEALLOCATE PREPARE stmt"
+      }
+    },
+    {
+      "id": "VM023",
+      "name": "vastbase-mysql-drop-prepare",
+      "sql": "DROP PREPARE stmt",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "DROP PREPARE stmt"
+      }
+    },
+    {
+      "id": "VM024",
+      "name": "vastbase-mysql-select-question-params",
+      "sql": "SELECT id, name FROM users WHERE id = ? AND status = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM025",
+      "name": "vastbase-mysql-select-in-question-params",
+      "sql": "SELECT id FROM users WHERE status IN (?, ?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM026",
+      "name": "vastbase-mysql-select-limit-question-params",
+      "sql": "SELECT id FROM users WHERE name LIKE ? ORDER BY id LIMIT ? OFFSET ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM027",
+      "name": "vastbase-mysql-insert-named-columns-question-params",
+      "sql": "INSERT INTO users (id, name, status) VALUES (?, ?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM028",
+      "name": "vastbase-mysql-insert-multi-row-question-params",
+      "sql": "INSERT INTO users (id, name) VALUES (?, ?), (?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM029",
+      "name": "vastbase-mysql-update-multi-question-params",
+      "sql": "UPDATE users SET name = ?, status = ? WHERE id = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM030",
+      "name": "vastbase-mysql-delete-question-params",
+      "sql": "DELETE FROM users WHERE id = ? AND status = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "deparse_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM031",
+      "name": "vastbase-mysql-prepare-insert-literal",
+      "sql": "PREPARE stmt FROM 'INSERT INTO users (id, name) VALUES (?, ?)'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "PREPARE stmt FROM 'INSERT INTO users (id, name) VALUES (?, ?)'",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM032",
+      "name": "vastbase-mysql-prepare-from-user-variable",
+      "sql": "PREPARE stmt FROM @sql_text",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "PREPARE stmt FROM @sql_text"
+      }
+    },
+    {
+      "id": "VM033",
+      "name": "vastbase-mysql-execute-using-multiple-vars",
+      "sql": "EXECUTE stmt USING @id, @name",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "EXECUTE stmt USING @id, @name"
+      }
+    },
+    {
+      "id": "VM034",
+      "name": "vastbase-mysql-view-concat-function",
+      "sql": "SELECT CONCAT(first_name, last_name) FROM users WHERE id = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_not_contains": [
+          "\"sql\":\"?\""
+        ]
+      }
+    },
+    {
+      "id": "VM035",
+      "name": "vastbase-mysql-view-case-expression",
+      "sql": "SELECT CASE WHEN state = 1 THEN name ELSE fallback_name END FROM users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VM035A",
+      "name": "vastbase-mysql-view-case-predicate-bind",
+      "sql": "SELECT CASE WHEN phone = ? THEN name ELSE email END AS v FROM users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VM036",
+      "name": "vastbase-mysql-view-group-having-order",
+      "sql": "SELECT dept, COUNT(id) FROM users GROUP BY dept HAVING COUNT(id) > 1 ORDER BY dept",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VM037",
+      "name": "vastbase-mysql-view-update-question-binds",
+      "sql": "UPDATE users SET ip = ? WHERE id = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "view_not_contains": [
+          "\"sql\":\"?\""
+        ]
+      }
+    },
+    {
+      "id": "VM038",
+      "name": "vastbase-mysql-view-join-on",
+      "sql": "SELECT u.name FROM users u JOIN orders o ON u.id = o.user_id WHERE o.status = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VM039",
+      "name": "vastbase-mysql-select-between-question-params",
+      "sql": "SELECT id FROM users WHERE age BETWEEN ? AND ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "BETWEEN ? AND ?",
+        "view_contains": [
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
+          "\"operator\":\"BETWEEN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"bind_key\":\"1\"",
+          "\"bind_position\":1",
+          "\"bind_key\":\"2\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM040",
+      "name": "vastbase-mysql-select-not-in-question-params",
+      "sql": "SELECT id FROM users WHERE status NOT IN (?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "NOT IN (?, ?)",
+        "view_contains": [
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"status\"",
+          "\"operator\":\"NOT IN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"bind_key\":\"1\"",
+          "\"bind_position\":1",
+          "\"bind_key\":\"2\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM041",
+      "name": "vastbase-mysql-select-not-between-question-params",
+      "sql": "SELECT id FROM users WHERE age NOT BETWEEN ? AND ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "NOT BETWEEN ? AND ?",
+        "view_contains": [
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
+          "\"operator\":\"NOT BETWEEN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"bind_key\":\"1\"",
+          "\"bind_position\":1",
+          "\"bind_key\":\"2\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM042",
+      "name": "vastbase-mysql-select-not-like-question-param",
+      "sql": "SELECT id FROM users WHERE name NOT LIKE ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "NOT LIKE ?",
+        "view_contains": [
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"name\"",
+          "\"operator\":\"NOT LIKE\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"bind_key\":\"1\"",
+          "\"bind_position\":1"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM043",
+      "name": "vastbase-mysql-select-distinct-like-param",
+      "sql": "SELECT DISTINCT `name` FROM `table1` WHERE `name` LIKE ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "DISTINCT",
+        "view_contains": [
+          "\"clause\":\"select_list\",\"relation\":0,\"column\":\"name\"",
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"name\"",
+          "\"operator\":\"LIKE\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"bind_key\":\"1\"",
+          "\"bind_position\":1"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM044",
+      "name": "vastbase-mysql-select-left-join-alias-star",
+      "sql": "SELECT u.*, o.`order_no` FROM `users` u LEFT JOIN `orders` o ON u.`id` = o.`user_id` WHERE o.`status` = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "LEFT JOIN"
+      }
+    },
+    {
+      "id": "VM045",
+      "name": "vastbase-mysql-delete-in-question-params",
+      "sql": "DELETE FROM `users` WHERE `email` IN (?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "deparse_contains": "IN (?, ?)",
+        "view_contains": [
+          "\"kind\":\"delete\"",
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"email\"",
+          "\"operator\":\"IN\",\"field\":0,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"bind_key\":\"1\"",
+          "\"bind_position\":1",
+          "\"bind_key\":\"2\"",
+          "\"bind_position\":2"
+        ]
+      }
+    },
+    {
+      "id": "VM046",
+      "name": "vastbase-mysql-update-in-question-params",
+      "sql": "UPDATE `users` SET `note` = ? WHERE `phone` IN (?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "WHERE phone IN (?, ?)",
+        "view_contains": [
+          "\"kind\":\"update\"",
+          "\"clause\":\"set_list\",\"relation\":0,\"column\":\"note\"",
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"phone\"",
+          "\"operator\":\"IN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"bind_position\":1",
+          "\"bind_position\":2",
+          "\"bind_position\":3"
+        ]
+      }
+    },
+    {
+      "id": "VM047",
+      "name": "vastbase-mysql-select-derived-table-filter",
+      "sql": "SELECT t.`id`, t.`phone` FROM (SELECT `id`, `phone` FROM `users` WHERE `status` = ?) t WHERE t.`phone` = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "FROM (SELECT id, phone FROM users"
+      }
+    },
+    {
+      "id": "VM054",
+      "name": "vastbase-mysql-select-derived-query-graph",
+      "sql": "SELECT s.`inner_name` AS `outer_name` FROM (SELECT `id`, `name` AS `inner_name` FROM `users` WHERE `age` <= ?) s WHERE s.`inner_name` LIKE ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "outer_name"
+      }
+    },
+    {
+      "id": "VM048",
+      "name": "vastbase-mysql-select-json-extract",
+      "sql": "SELECT JSON_EXTRACT(`extra`, '$.phone') AS phone_json FROM `users` WHERE `id` = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "json_extract"
+      }
+    },
+    {
+      "id": "VM049",
+      "name": "vastbase-mysql-create-table-if-not-exists",
+      "sql": "CREATE TABLE IF NOT EXISTS `users` (`id` INT, `name` VARCHAR(64), `phone` TEXT)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "CreateStmt"
+        ],
+        "deparse_contains": "CREATE TABLE IF NOT EXISTS users"
+      }
+    },
+    {
+      "id": "VM050",
+      "name": "vastbase-mysql-drop-view-if-exists",
+      "sql": "DROP VIEW IF EXISTS `user_view`",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DropStmt"
+        ],
+        "deparse_contains": "DROP VIEW IF EXISTS user_view"
+      }
+    },
+    {
+      "id": "VM051",
+      "name": "vastbase-mysql-select-order-by-ordinal",
+      "sql": "SELECT `id`, `phone` FROM `users` ORDER BY 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "ORDER BY 1"
+      }
+    },
+    {
+      "id": "VM052",
+      "name": "vastbase-mysql-limit-comma-question-params",
+      "sql": "SELECT `id` FROM `users` ORDER BY `id` LIMIT ?, ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "LIMIT ?, ?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM053",
+      "name": "vastbase-mysql-multi-statement-global-bind-position",
+      "sql": "UPDATE `users` SET `a` = ? WHERE `b` = ?; UPDATE `users` SET `c` = ? WHERE `d` = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": [
+          "UpdateStmt",
+          "UpdateStmt"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM055",
+      "name": "vastbase-mysql-select-reference-002",
+      "sql": "SELECT `id`, `name`, `age` FROM `users`;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VM056",
+      "name": "vastbase-mysql-select-reference-003",
+      "sql": "SELECT `id`, `name`, `age` FROM `viq-test`.`users`;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VM057",
+      "name": "vastbase-mysql-select-reference-006",
+      "sql": "SELECT u.`id` AS user_id, u.`name` AS user_name FROM `viq-test`.`users` u;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VM058",
+      "name": "vastbase-mysql-select-reference-008",
+      "sql": "SELECT * FROM `viq-test`.`products` WHERE `price` > 100 AND `category` = 'Electronics';",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VM059",
+      "name": "vastbase-mysql-select-reference-010",
+      "sql": "SELECT * FROM logs LIMIT 10;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VM060",
+      "name": "vastbase-mysql-select-reference-012",
+      "sql": "SELECT * FROM users WHERE id IN (SELECT id FROM users WHERE email = ?);",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VM061",
+      "name": "vastbase-mysql-select-reference-014",
+      "sql": "SELECT a.id, a.name FROM (SELECT id, name FROM `viq-test`.`users` WHERE `active` = 1) a;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VM062",
+      "name": "vastbase-mysql-select-reference-016",
+      "sql": "SELECT id, name FROM (SELECT name, id, age FROM `viq-test`.`users`);",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VM063",
+      "name": "vastbase-mysql-select-reference-022",
+      "sql": "SELECT b.* FROM (SELECT a.* FROM (SELECT id, name FROM `viq-test`.`users`) a WHERE id > 10) b WHERE name LIKE 'A%';",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VM064",
+      "name": "vastbase-mysql-select-reference-023",
+      "sql": "SELECT b.* FROM (SELECT a.* FROM (SELECT `id`, `name` FROM `viq-test`.`users`) a WHERE id > 10) b WHERE name LIKE 'A%';",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VM065",
+      "name": "vastbase-mysql-select-reference-025",
+      "sql": "select * from (select id as aa, department as cc, name as bb FROM (select e.*,rownum as row_num from `viq-test`.`employees_uuid` e where rownum <= 100) where row_num >= 1 and (id = 1 or id=2)) where aa = 1;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VM066",
+      "name": "vastbase-mysql-select-reference-027",
+      "sql": "select b.* from (select id as `aa`, `department` as cc, name as bb FROM (select e.*,rownum as row_num from `viq-test`.`employees_uuid` e where rownum <= 100) a where row_num >= 1 and (id = 1 or id=2)) b where aa = 1;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VM067",
+      "name": "vastbase-mysql-select-reference-029",
+      "sql": "SELECT * FROM (SELECT e.*, `ROWNUM` rn FROM `viq-test`.`employees_uuid` e WHERE `ROWNUM` <= 100) WHERE rn > 50;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VM068",
+      "name": "vastbase-mysql-update-join-target-table-qualified",
+      "sql": "UPDATE users JOIN orders o ON users.id=o.user_id SET users.phone = ? WHERE o.shipping_phone = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "JOIN orders o ON",
+        "view_contains": [
+          "\"kind\":\"update\"",
+          "\"table\":\"users\"",
+          "\"table\":\"orders\"",
+          "\"column\":\"phone\"",
+          "\"column\":\"shipping_phone\"",
+          "\"bind_position\":1",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM069",
+      "name": "vastbase-mysql-field-match-kind-direct-and-expression",
+      "sql": "SELECT id FROM users WHERE secret = ? AND UPPER(secret) = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"field_match_kind\":\"direct_field\"",
+          "\"field_match_kind\":\"expression_field\""
+        ]
+      }
+    },
+    {
+      "id": "VM070",
+      "name": "vastbase-mysql-expression-field-case-expression-value",
+      "sql": "SELECT id FROM users WHERE CASE WHEN id = 1 THEN secret ELSE backup_secret END = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"column\":\"secret\"",
+          "\"field_match_kind\":\"expression_field\",\"kind\":\"bind\""
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM071",
+      "name": "vastbase-mysql-expression-field-multi-field-expression-value",
+      "sql": "SELECT id FROM users WHERE CONCAT(secret, id) = ? AND secret + id = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"column\":\"secret\"",
+          "\"column\":\"id\"",
+          "\"field_match_kind\":\"expression_field\",\"kind\":\"bind\""
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM072",
+      "name": "vastbase-mysql-expression-field-value-side-expression",
+      "sql": "SELECT id FROM users WHERE secret = UPPER(?) AND secret = CONCAT(?, 'x') AND secret = CAST(? AS CHAR)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"column\":\"secret\"",
+          "\"field_match_kind\":\"direct_field\",\"kind\":\"expression\""
+        ],
+        "view_not_contains": [
+          "\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "$1"
+        ]
+      }
+    },
+    {
+      "id": "VM073",
+      "name": "vastbase-mysql-expression-field-dml-expression-values",
+      "sql": "INSERT INTO users (id, secret) VALUES (1, UPPER(?)); UPDATE users SET secret = CONCAT(?, 'x') WHERE id = 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": [
+          "InsertStmt",
+          "UpdateStmt"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":1,\"kind\":\"expression\""
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM074",
+      "name": "vastbase-mysql-update-bind-rhs-crypto-source",
+      "sql": "UPDATE `dbp_crypto_test` SET `secret` = ? WHERE `id` = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "secret = ?",
+        "view_contains": [
+          "\"clause\":\"set_list\"",
+          "\"column\":\"secret\"",
+          "\"kind\":\"bind\"",
+          "\"bind_key\":\"1\"",
+          "\"bind_sql\":\"?\"",
+          "\"bind_position\":1"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM075",
+      "name": "vastbase-mysql-update-multiple-bind-rhs-crypto-source",
+      "sql": "UPDATE `dbp_crypto_test` SET `phone` = ?, `secret` = ? WHERE `id` = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "secret = ?",
+        "view_contains": [
+          "\"clause\":\"set_list\"",
+          "\"column\":\"phone\"",
+          "\"column\":\"secret\"",
+          "\"bind_key\":\"2\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM076",
+      "name": "vastbase-mysql-like-escape-literal",
+      "sql": "SELECT `id` FROM `users` WHERE `name` LIKE 'A!_%' ESCAPE '!'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "ESCAPE '!'",
+        "deparse_not_contains": "pg_catalog.like_escape",
+        "view_contains": [
+          "\"operator\":\"LIKE\"",
+          "\"kind\":\"literal\"",
+          "\"like_escape\":{\"kind\":\"literal\"",
+          "\"literal_value\":\"!\""
+        ]
+      }
+    },
+    {
+      "id": "VM077",
+      "name": "vastbase-mysql-like-escape-question-binds",
+      "sql": "SELECT `id` FROM `users` WHERE `name` LIKE ? ESCAPE ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "LIKE ?",
+        "deparse_not_contains": "pg_catalog.like_escape",
+        "view_contains": [
+          "\"operator\":\"LIKE\"",
+          "\"bind_sql\":\"?\"",
+          "\"bind_position\":1",
+          "\"like_escape\":{\"kind\":\"bind\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM078",
+      "name": "vastbase-mysql-not-like-escape-literal",
+      "sql": "SELECT `id` FROM `users` WHERE `name` NOT LIKE ? ESCAPE '!'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "NOT LIKE",
+        "deparse_not_contains": "pg_catalog.like_escape",
+        "view_contains": [
+          "\"operator\":\"NOT LIKE\"",
+          "\"bind_sql\":\"?\"",
+          "\"like_escape\":{\"kind\":\"literal\"",
+          "\"literal_value\":\"!\""
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VM079",
+      "name": "vastbase-mysql-like-without-explicit-escape",
+      "sql": "SELECT `id` FROM `users` WHERE `name` LIKE ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "LIKE ?",
+        "view_contains": [
+          "\"operator\":\"LIKE\"",
+          "\"bind_sql\":\"?\""
+        ],
+        "view_not_contains": [
+          "\"like_escape\"",
+          "$1"
+        ]
+      }
+    },
+    {
+      "id": "VMU001",
+      "name": "vastbase-mysql-insert-ignore",
+      "sql": "INSERT IGNORE INTO `users` (`id`) VALUES (1)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "VMU002",
+      "name": "vastbase-mysql-insert-delayed",
+      "sql": "INSERT DELAYED INTO `users` (`id`) VALUES (1)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "VMU003",
+      "name": "vastbase-mysql-insert-low-priority",
+      "sql": "INSERT LOW_PRIORITY INTO `users` (`id`) VALUES (1)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "VMU004",
+      "name": "vastbase-mysql-insert-high-priority",
+      "sql": "INSERT HIGH_PRIORITY INTO `users` (`id`) VALUES (1)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "VMU005",
+      "name": "vastbase-mysql-on-duplicate-key",
+      "sql": "INSERT INTO users(id, phone) VALUES (?, ?) ON DUPLICATE KEY UPDATE phone = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "ON DUPLICATE KEY UPDATE",
+        "view_contains": [
+          "\"kind\":\"insert\"",
+          "\"assignments\"",
+          "\"bind_position\":1",
+          "\"bind_position\":2",
+          "\"bind_position\":3"
+        ],
+        "view_not_contains": [
+          "$1",
+          "sqlparser_mysql_duplicate_key"
+        ]
+      }
+    },
+    {
+      "id": "VMU006",
+      "name": "vastbase-mysql-replace-into",
+      "sql": "REPLACE INTO `users` (`id`) VALUES (1)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "VMU007",
+      "name": "vastbase-mysql-update-ignore",
+      "sql": "UPDATE IGNORE `users` SET `id` = 2 WHERE `id` = 1",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "VMU008",
+      "name": "vastbase-mysql-delete-ignore",
+      "sql": "DELETE IGNORE FROM `users` WHERE `id` = 1",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "VMU009",
+      "name": "vastbase-mysql-update-join",
+      "sql": "UPDATE users u JOIN orders o ON u.id=o.user_id SET u.phone = ? WHERE o.shipping_phone = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "JOIN orders o ON",
+        "view_contains": [
+          "\"kind\":\"update\"",
+          "\"assignments\"",
+          "\"table\":\"users\"",
+          "\"table\":\"orders\"",
+          "\"column\":\"phone\"",
+          "\"column\":\"shipping_phone\"",
+          "\"bind_position\":1",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VMU010",
+      "name": "vastbase-mysql-delete-join",
+      "sql": "DELETE u FROM users u JOIN orders o ON u.id=o.user_id WHERE u.phone = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "deparse_contains": "DELETE u FROM users u JOIN orders o ON",
+        "view_contains": [
+          "\"kind\":\"delete\"",
+          "\"delete_targets\"",
+          "\"table\":\"users\"",
+          "\"table\":\"orders\"",
+          "\"column\":\"phone\"",
+          "\"bind_position\":1"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VMU010A",
+      "name": "vastbase-mysql-update-join-on-bind",
+      "sql": "UPDATE users u JOIN orders o ON u.phone = ? SET u.name = ? WHERE o.id = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "JOIN orders o ON u.phone = ? SET name = ? WHERE o.id = ?",
+        "deparse_not_contains": "sqlparser_mysql_join_on",
+        "view_contains": [
+          "\"kind\":\"update\"",
+          "\"table\":\"users\"",
+          "\"table\":\"orders\"",
+          "\"clause\":\"set_list\",\"relation\":0,\"column\":\"name\"",
+          "\"clause\":\"on\",\"relation\":0,\"column\":\"phone\"",
+          "\"clause\":\"where\",\"relation\":1,\"column\":\"id\"",
+          "\"clause\":\"on\",\"operator\":\"=\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"bind_key\":\"1\"",
+          "\"bind_position\":1",
+          "\"bind_key\":\"2\"",
+          "\"bind_position\":2",
+          "\"bind_key\":\"3\"",
+          "\"bind_position\":3"
+        ],
+        "view_not_contains": [
+          "$1",
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"phone\"",
+          "sqlparser_mysql_join_on"
+        ]
+      }
+    },
+    {
+      "id": "VMU010B",
+      "name": "vastbase-mysql-delete-join-on-bind",
+      "sql": "DELETE u FROM users u JOIN orders o ON u.phone = ? WHERE o.id = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "deparse_contains": "DELETE u FROM users u JOIN orders o ON u.phone = ? WHERE o.id = ?",
+        "deparse_not_contains": "sqlparser_mysql_join_on",
+        "view_contains": [
+          "\"kind\":\"delete\"",
+          "\"delete_targets\"",
+          "\"table\":\"users\"",
+          "\"table\":\"orders\"",
+          "\"clause\":\"on\",\"relation\":0,\"column\":\"phone\"",
+          "\"clause\":\"where\",\"relation\":1,\"column\":\"id\"",
+          "\"clause\":\"on\",\"operator\":\"=\",\"field\":0,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"bind_key\":\"1\"",
+          "\"bind_position\":1",
+          "\"bind_key\":\"2\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": [
+          "$1",
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"phone\"",
+          "sqlparser_mysql_join_on"
+        ]
+      }
+    },
+    {
+      "id": "VMU011",
+      "name": "vastbase-mysql-auto-increment",
+      "sql": "CREATE TABLE `users` (`id` INT AUTO_INCREMENT)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "VMU012",
+      "name": "vastbase-mysql-unsigned",
+      "sql": "CREATE TABLE `users` (`id` INT UNSIGNED)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "VMU013",
+      "name": "vastbase-mysql-zerofill",
+      "sql": "CREATE TABLE `users` (`id` INT ZEROFILL)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "VMU014",
+      "name": "vastbase-mysql-table-engine",
+      "sql": "CREATE TABLE `users` (`id` INT) ENGINE=InnoDB",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "VMU015",
+      "name": "vastbase-mysql-table-charset",
+      "sql": "CREATE TABLE `users` (`id` INT) DEFAULT CHARSET=utf8mb4",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "VMU016",
+      "name": "vastbase-mysql-table-character-set",
+      "sql": "CREATE TABLE `users` (`id` INT) CHARACTER SET=utf8mb4",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "VMU017",
+      "name": "vastbase-mysql-table-collate",
+      "sql": "CREATE TABLE `users` (`id` INT) COLLATE=utf8mb4_bin",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "VMU018",
+      "name": "vastbase-mysql-update-left-join",
+      "sql": "UPDATE users u LEFT JOIN orders o ON u.id=o.user_id SET u.phone = ? WHERE o.shipping_phone = ?",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "VMU019",
+      "name": "vastbase-mysql-delete-left-join",
+      "sql": "DELETE u FROM users u LEFT JOIN orders o ON u.id=o.user_id WHERE u.phone = ?",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "VMU020",
+      "name": "vastbase-mysql-update-join-source-assignment",
+      "sql": "UPDATE users u JOIN orders o ON u.id=o.user_id SET o.shipping_phone = ? WHERE u.id = ?",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    },
+    {
+      "id": "VMU021",
+      "name": "vastbase-mysql-delete-join-source-target",
+      "sql": "DELETE o FROM users u JOIN orders o ON u.id=o.user_id WHERE o.phone = ?",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported MySQL syntax"
+      }
+    }
+  ]
+}

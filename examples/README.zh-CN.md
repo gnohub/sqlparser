@@ -65,6 +65,8 @@
   展示如何显式指定 SQL Server 方言，导出 View JSON，并在反解析时还原 SQL Server 参数和 `TOP` 语法。
 - `examples/dialect/17_dameng_dialect.c`
   展示如何显式指定达梦方言，导出 View JSON，并在反解析时还原 bind、`SET SCHEMA` 和 `TOP` 语法。
+- `examples/dialect/20_vastbase_dialect.c`
+  展示如何显式指定 Vastbase 四个兼容模式，并验证各模式的反解析输出。
 
 ## 构建
 

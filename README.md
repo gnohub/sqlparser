@@ -20,7 +20,7 @@
 - `SELECT` 输出列表读取、替换、插入与删除
 - 结构化 SQL 片段改写，支持用 identifier path 插入 UPDATE 赋值项和展开 SELECT 输出列
 - `selector` 解析、格式化与定位
-- 方言选项，默认 PostgreSQL，并提供 MySQL、Oracle、SQL Server、达梦方言转换层
+- 方言选项，默认 PostgreSQL，并提供 MySQL、Oracle、SQL Server、达梦、Vastbase 兼容模式转换层
 - 常见预编译 / 参数化 SQL 语句解析、View JSON 和反解析
 - 可配置资源限制，覆盖 SQL 输入、生成输出与语句数量
 - View JSON 导出、C 结构化遍历与结构体 patch 写回
@@ -130,12 +130,16 @@ sqlparser_parse_options_default(&options);
 options.dialect = SQLPARSER_DIALECT_MYSQL;
 ```
 
-Oracle、SQL Server 与达梦方言同样通过 `options.dialect` 显式指定：
+Oracle、SQL Server、达梦与 Vastbase 方言同样通过 `options.dialect` 显式指定：
 
 ```c
 options.dialect = SQLPARSER_DIALECT_ORACLE;
 options.dialect = SQLPARSER_DIALECT_SQLSERVER;
 options.dialect = SQLPARSER_DIALECT_DAMENG;
+options.dialect = SQLPARSER_DIALECT_VASTBASE_ORACLE;
+options.dialect = SQLPARSER_DIALECT_VASTBASE_MYSQL;
+options.dialect = SQLPARSER_DIALECT_VASTBASE_POSTGRESQL;
+options.dialect = SQLPARSER_DIALECT_VASTBASE_SQLSERVER;
 ```
 
 示例编译方式：
@@ -192,6 +196,7 @@ gcc -std=gnu11 demo.c $(pkg-config --cflags --libs sqlparser) -o demo
 - [Oracle 方言支持](./doc/oracle_dialect_support.md)
 - [SQL Server 方言支持](./doc/sqlserver_dialect_support.md)
 - [达梦方言支持](./doc/dameng_dialect_support.md)
+- [Vastbase 方言支持](./doc/vastbase_dialect_support.md)
 - [方言覆盖统计](./doc/dialect_coverage.md)
 - [API 手册](./doc/api_reference.md)
 - [View JSON 手册](./doc/view_json.md)

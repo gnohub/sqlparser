@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "sqlparser_ast_internal.h"
+#include "../dialect/sqlparser_dialect_internal.h"
 #include "../dialect/sqlparser_dialect_oracle_internal.h"
 
 static sqlparser_status_t sqlparser_get_insert_cell_node(
@@ -79,7 +80,7 @@ sqlparser_status_t sqlparser_render_bind_value_sql(
 
 	if (bind->kind == SQLPARSER_BIND_KIND_POSITIONAL) {
 		if (key == NULL || key[0] == '\0') {
-			if (dialect == SQLPARSER_DIALECT_POSTGRESQL) {
+			if (sqlparser_dialect_uses_postgresql_placeholders(dialect)) {
 				*out_sql = sqlparser_strdup("$1");
 			} else {
 				*out_sql = sqlparser_strdup("?");
@@ -98,9 +99,9 @@ sqlparser_status_t sqlparser_render_bind_value_sql(
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "positional bind key must be numeric");
 			return SQLPARSER_STATUS_INVALID_ARGUMENT;
 		}
-		if (dialect == SQLPARSER_DIALECT_POSTGRESQL) {
+		if (sqlparser_dialect_uses_postgresql_placeholders(dialect)) {
 			(void)snprintf(buffer, sizeof(buffer), "$%s", key);
-		} else if (dialect == SQLPARSER_DIALECT_ORACLE || dialect == SQLPARSER_DIALECT_DAMENG) {
+		} else if (sqlparser_dialect_uses_oracle_placeholders(dialect)) {
 			(void)snprintf(buffer, sizeof(buffer), ":%s", key);
 		} else {
 			(void)snprintf(buffer, sizeof(buffer), "?");
@@ -122,9 +123,9 @@ sqlparser_status_t sqlparser_render_bind_value_sql(
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "named bind key is invalid");
 			return SQLPARSER_STATUS_INVALID_ARGUMENT;
 		}
-		if (dialect == SQLPARSER_DIALECT_ORACLE || dialect == SQLPARSER_DIALECT_DAMENG) {
+		if (sqlparser_dialect_uses_oracle_placeholders(dialect)) {
 			(void)snprintf(buffer, sizeof(buffer), ":%s", key);
-		} else if (dialect == SQLPARSER_DIALECT_SQLSERVER) {
+		} else if (sqlparser_dialect_uses_sqlserver_placeholders(dialect)) {
 			(void)snprintf(buffer, sizeof(buffer), "@%s", key);
 		} else {
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "named bind is not supported by this dialect");
@@ -532,7 +533,7 @@ sqlparser_status_t sqlparser_insert_set_cell_literal(
 
 	sqlparser_error_clear(out_error);
 	if (handle != NULL &&
-	    handle->dialect == SQLPARSER_DIALECT_ORACLE &&
+	    sqlparser_dialect_is_oracle_compatible(handle->dialect) &&
 	    sqlparser_oracle_state_has_multi_insert(handle->dialect_state)) {
 		return sqlparser_oracle_multi_insert_set_cell_literal(
 			handle,
@@ -586,7 +587,7 @@ sqlparser_status_t sqlparser_insert_cell_sql(
 	core_sql = NULL;
 	sqlparser_error_clear(out_error);
 	if (handle != NULL &&
-	    handle->dialect == SQLPARSER_DIALECT_ORACLE &&
+	    sqlparser_dialect_is_oracle_compatible(handle->dialect) &&
 	    sqlparser_oracle_state_has_multi_insert(handle->dialect_state)) {
 		return sqlparser_oracle_multi_insert_cell_sql(
 			handle,
@@ -646,7 +647,7 @@ sqlparser_status_t sqlparser_insert_set_cell_sql(
 	value_slot = NULL;
 	replacement = NULL;
 	if (handle != NULL &&
-	    handle->dialect == SQLPARSER_DIALECT_ORACLE &&
+	    sqlparser_dialect_is_oracle_compatible(handle->dialect) &&
 	    sqlparser_oracle_state_has_multi_insert(handle->dialect_state)) {
 		return sqlparser_oracle_multi_insert_set_cell_sql(
 			handle,
@@ -716,7 +717,7 @@ sqlparser_status_t sqlparser_insert_set_cell_bind(
 	bind_sql = NULL;
 	sqlparser_error_clear(out_error);
 	if (handle != NULL &&
-	    handle->dialect == SQLPARSER_DIALECT_ORACLE &&
+	    sqlparser_dialect_is_oracle_compatible(handle->dialect) &&
 	    sqlparser_oracle_state_has_multi_insert(handle->dialect_state)) {
 		return sqlparser_oracle_multi_insert_set_cell_bind(
 			handle,

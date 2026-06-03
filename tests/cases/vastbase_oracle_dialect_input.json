@@ -1,0 +1,2182 @@
+{
+  "items": [
+    {
+      "id": "VO001",
+      "name": "vastbase-oracle-select-bind-nvl",
+      "sql": "SELECT NVL(u.name, 'N/A') AS label FROM users u WHERE u.id = :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": ":id"
+      }
+    },
+    {
+      "id": "VO002",
+      "name": "vastbase-oracle-q-quoted-string",
+      "sql": "SELECT q'[Bob's order]' AS label FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "'Bob''s order'"
+      }
+    },
+    {
+      "id": "VO003",
+      "name": "vastbase-oracle-national-q-quoted-string-unsupported",
+      "sql": "SELECT nq'{Alice's order}' AS label FROM dual",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "VO004",
+      "name": "vastbase-oracle-minus-set-operator",
+      "sql": "SELECT id FROM active_users MINUS SELECT id FROM archived_users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "MINUS",
+        "view_contains": "minus",
+        "deparse_not_contains": "except"
+      }
+    },
+    {
+      "id": "VO005",
+      "name": "vastbase-oracle-offset-fetch",
+      "sql": "SELECT id FROM users ORDER BY id OFFSET 5 ROWS FETCH NEXT 10 ROWS ONLY",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "OFFSET 5"
+      }
+    },
+    {
+      "id": "VO006",
+      "name": "vastbase-oracle-rownum-filter",
+      "sql": "SELECT id FROM users WHERE ROWNUM <= 10",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "rownum <= 10"
+      }
+    },
+    {
+      "id": "VO007",
+      "name": "vastbase-oracle-join-bind",
+      "sql": "SELECT u.id, u.name, o.order_no FROM users u JOIN orders o ON u.id = o.user_id WHERE o.status = :status",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": ":status",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VO008",
+      "name": "vastbase-oracle-insert-values-bind",
+      "sql": "INSERT INTO users (id, name) VALUES (:id, 'bob')",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": ":id",
+        "view_contains": ":id",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VO009",
+      "name": "vastbase-oracle-insert-values-multi-row",
+      "sql": "INSERT INTO users (id, name) VALUES (1, 'bob'), (2, 'alice')",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "VALUES (1, 'bob'), (2, 'alice')"
+      }
+    },
+    {
+      "id": "VO010",
+      "name": "vastbase-oracle-insert-select",
+      "sql": "INSERT INTO archive_users (id, name) SELECT id, name FROM users WHERE status = :status",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": ":status"
+      }
+    },
+    {
+      "id": "VO134",
+      "name": "vastbase-oracle-insert-select-union-literals",
+      "sql": "INSERT INTO users (id, name) SELECT 1, 'a' FROM dual UNION ALL SELECT 2, 'b' FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "UNION ALL",
+        "view_contains": [
+          "\"kind\":\"literal\"",
+          "\"value\":",
+          "\"string_value\":\"b\""
+        ]
+      }
+    },
+    {
+      "id": "VO135",
+      "name": "vastbase-oracle-insert-select-union-positional-binds",
+      "sql": "INSERT INTO users (id, name) SELECT :1, :2 FROM dual UNION ALL SELECT :3, :4 FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": ":4",
+        "view_contains": [
+          "\"kind\":\"bind\"",
+          "\"bind_key\":\"1\"",
+          "\"bind_position\":4"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "VO136",
+      "name": "vastbase-oracle-insert-select-union-named-binds",
+      "sql": "INSERT INTO users (id, name) SELECT :id1, :name1 FROM dual UNION ALL SELECT :id2, :name2 FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": ":name2",
+        "view_contains": [
+          "\"kind\":\"bind\"",
+          "\"bind_key\":\"id1\"",
+          "\"bind_key\":\"name2\""
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "VO011",
+      "name": "vastbase-oracle-update-bind",
+      "sql": "UPDATE users SET name = :name, status = 'active' WHERE id = :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": ":name",
+        "view_contains": ":name",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VO012",
+      "name": "vastbase-oracle-delete-conditional",
+      "sql": "DELETE FROM users WHERE id = :id AND status = 'inactive'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "deparse_contains": ":id"
+      }
+    },
+    {
+      "id": "VO013",
+      "name": "vastbase-oracle-repeated-bind",
+      "sql": "SELECT id FROM users WHERE id = :id OR manager_id = :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": ":id OR"
+      }
+    },
+    {
+      "id": "VO014",
+      "name": "vastbase-oracle-positional-binds",
+      "sql": "SELECT id FROM users WHERE id = :1 AND status = :2",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": ":2"
+      }
+    },
+    {
+      "id": "VO015",
+      "name": "vastbase-oracle-date-literal",
+      "sql": "SELECT DATE '2024-01-01' AS created_on FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "DATE '2024-01-01'"
+      }
+    },
+    {
+      "id": "VO016",
+      "name": "vastbase-oracle-case-expression",
+      "sql": "SELECT CASE WHEN status = 'A' THEN 'active' ELSE 'inactive' END AS status_name FROM users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "CASE WHEN"
+      }
+    },
+    {
+      "id": "VO017",
+      "name": "vastbase-oracle-exists-subquery",
+      "sql": "SELECT id FROM users u WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "EXISTS"
+      }
+    },
+    {
+      "id": "VO018",
+      "name": "vastbase-oracle-group-having",
+      "sql": "SELECT status, COUNT(*) AS cnt FROM users GROUP BY status HAVING COUNT(*) > 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "HAVING"
+      }
+    },
+    {
+      "id": "VO019",
+      "name": "vastbase-oracle-union-all",
+      "sql": "SELECT id FROM active_users UNION ALL SELECT id FROM archived_users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "UNION ALL"
+      }
+    },
+    {
+      "id": "VO020",
+      "name": "vastbase-oracle-intersect",
+      "sql": "SELECT id FROM active_users INTERSECT SELECT id FROM archived_users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "INTERSECT"
+      }
+    },
+    {
+      "id": "VO021",
+      "name": "vastbase-oracle-merge-basic",
+      "sql": "MERGE INTO users u USING staging_users s ON (u.id = s.id) WHEN MATCHED THEN UPDATE SET name = s.name WHEN NOT MATCHED THEN INSERT (id, name) VALUES (s.id, s.name)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "MergeStmt"
+        ],
+        "deparse_contains": "MERGE INTO"
+      }
+    },
+    {
+      "id": "VO022",
+      "name": "vastbase-oracle-create-table",
+      "sql": "CREATE TABLE users (id NUMBER(10), name VARCHAR2(64), created_at DATE)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "CreateStmt"
+        ],
+        "deparse_contains": "CREATE TABLE users"
+      }
+    },
+    {
+      "id": "VO023",
+      "name": "vastbase-oracle-create-sequence",
+      "sql": "CREATE SEQUENCE user_seq START WITH 1 INCREMENT BY 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "CreateSeqStmt"
+        ],
+        "deparse_contains": "CREATE SEQUENCE"
+      }
+    },
+    {
+      "id": "VO024",
+      "name": "vastbase-oracle-create-view",
+      "sql": "CREATE OR REPLACE VIEW v_users AS SELECT id, name FROM users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "ViewStmt"
+        ],
+        "deparse_contains": "CREATE OR REPLACE VIEW"
+      }
+    },
+    {
+      "id": "VO025",
+      "name": "vastbase-oracle-drop-table",
+      "sql": "DROP TABLE users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DropStmt"
+        ],
+        "deparse_contains": "DROP TABLE users"
+      }
+    },
+    {
+      "id": "VO026",
+      "name": "vastbase-oracle-truncate-table",
+      "sql": "TRUNCATE TABLE users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "TruncateStmt"
+        ],
+        "deparse_contains": "TRUNCATE TABLE users"
+      }
+    },
+    {
+      "id": "VO027",
+      "name": "vastbase-oracle-transaction-control",
+      "sql": "SAVEPOINT s1; ROLLBACK TO SAVEPOINT s1; COMMIT",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "statement_types": [
+          "TransactionStmt"
+        ],
+        "deparse_contains": "COMMIT"
+      }
+    },
+    {
+      "id": "VO028",
+      "name": "vastbase-oracle-grant-revoke",
+      "sql": "GRANT SELECT ON users TO app_user; REVOKE SELECT ON users FROM app_user",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": [
+          "GrantStmt"
+        ],
+        "deparse_contains": "REVOKE"
+      }
+    },
+    {
+      "id": "VO029",
+      "name": "vastbase-oracle-comment-on-table",
+      "sql": "COMMENT ON TABLE users IS 'user table'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "CommentStmt"
+        ],
+        "deparse_contains": "COMMENT ON TABLE"
+      }
+    },
+    {
+      "id": "VO030",
+      "name": "vastbase-oracle-for-update-nowait",
+      "sql": "SELECT id FROM users WHERE id = :id FOR UPDATE NOWAIT",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "NOWAIT"
+      }
+    },
+    {
+      "id": "VO031",
+      "name": "vastbase-oracle-decode-sysdate",
+      "sql": "SELECT DECODE(status, 'A', 'active', 'inactive') AS status_name, SYSDATE AS now_value FROM users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "decode"
+      }
+    },
+    {
+      "id": "VO032",
+      "name": "vastbase-oracle-analytic-row-number",
+      "sql": "SELECT id, ROW_NUMBER() OVER (PARTITION BY status ORDER BY created_at) AS rn FROM users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "row_number"
+      }
+    },
+    {
+      "id": "VO033",
+      "name": "vastbase-oracle-timestamp-literal",
+      "sql": "SELECT TIMESTAMP '2024-01-01 12:30:00' AS ts FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "TIMESTAMP '2024-01-01 12:30:00'"
+      }
+    },
+    {
+      "id": "VO034",
+      "name": "vastbase-oracle-quoted-identifiers",
+      "sql": "SELECT \"Name\" FROM \"Users\" WHERE \"Id\" = :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": ":id"
+      }
+    },
+    {
+      "id": "VO035",
+      "name": "vastbase-oracle-alter-table-add-column",
+      "sql": "ALTER TABLE users ADD age NUMBER(3)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "AlterTableStmt"
+        ],
+        "deparse_contains": "ALTER TABLE users"
+      }
+    },
+    {
+      "id": "VO036",
+      "name": "vastbase-oracle-create-index",
+      "sql": "CREATE INDEX idx_users_name ON users (name)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "IndexStmt"
+        ],
+        "deparse_contains": "CREATE INDEX"
+      }
+    },
+    {
+      "id": "VO037",
+      "name": "vastbase-oracle-drop-index",
+      "sql": "DROP INDEX idx_users_name",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DropStmt"
+        ],
+        "deparse_contains": "DROP INDEX"
+      }
+    },
+    {
+      "id": "VO038",
+      "name": "vastbase-oracle-in-list-binds",
+      "sql": "SELECT id FROM users WHERE status IN (:status1, :status2)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": ":status2"
+      }
+    },
+    {
+      "id": "VO039",
+      "name": "vastbase-oracle-delete-date-literal",
+      "sql": "DELETE FROM users WHERE created_at < DATE '2020-01-01'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "deparse_contains": "DATE '2020-01-01'"
+      }
+    },
+    {
+      "id": "VO040",
+      "name": "vastbase-oracle-create-materialized-view-compatible-form",
+      "sql": "CREATE MATERIALIZED VIEW mv_users AS SELECT id, name FROM users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "CreateTableAsStmt"
+        ],
+        "deparse_contains": "CREATE MATERIALIZED VIEW"
+      }
+    },
+    {
+      "id": "VO041",
+      "name": "vastbase-oracle-unsupported-keywords-in-string",
+      "sql": "SELECT 'RETURNING @ (+)' AS label FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "'RETURNING @ (+)'"
+      }
+    },
+    {
+      "id": "VO042",
+      "name": "vastbase-oracle-unsupported-keywords-in-comment",
+      "sql": "SELECT id FROM users /* CONNECT BY PRIOR id = manager_id */ WHERE id = :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": ":id"
+      }
+    },
+    {
+      "id": "VO043",
+      "name": "vastbase-oracle-alter-session-current-schema",
+      "sql": "ALTER SESSION SET CURRENT_SCHEMA=KDES",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "ALTER SESSION SET CURRENT_SCHEMA"
+      }
+    },
+    {
+      "id": "VO043Q",
+      "name": "vastbase-oracle-alter-session-current-schema-quoted-identifier",
+      "sql": "ALTER SESSION SET CURRENT_SCHEMA=\"KdesMixed\"",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "ALTER SESSION SET CURRENT_SCHEMA = \"KdesMixed\""
+      }
+    },
+    {
+      "id": "VO044",
+      "name": "vastbase-oracle-alter-session-container",
+      "sql": "ALTER SESSION SET CONTAINER=PDB1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "ALTER SESSION SET CONTAINER"
+      }
+    },
+    {
+      "id": "VO045",
+      "name": "vastbase-oracle-alter-session-container-root",
+      "sql": "ALTER SESSION SET CONTAINER=CDB$ROOT",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "ALTER SESSION SET CONTAINER = cdb$root"
+      }
+    },
+    {
+      "id": "VO046",
+      "name": "vastbase-oracle-alter-session-container-service",
+      "sql": "ALTER SESSION SET CONTAINER=PDB1 SERVICE=APP_SVC",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "ALTER SESSION SET CONTAINER = pdb1 SERVICE = app_svc"
+      }
+    },
+    {
+      "id": "VO047",
+      "name": "vastbase-oracle-alter-session-current-schema-in-multi-statement",
+      "sql": "SELECT * FROM users; ALTER SESSION SET CURRENT_SCHEMA=KDES",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": [
+          "SelectStmt",
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "ALTER SESSION SET CURRENT_SCHEMA = kdes"
+      }
+    },
+    {
+      "id": "VO048",
+      "name": "vastbase-oracle-insert-question-params",
+      "sql": "INSERT INTO users (username, email, age) VALUES (?, ?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "VALUES (?, ?, ?)",
+        "view_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VO049",
+      "name": "vastbase-oracle-update-question-params",
+      "sql": "UPDATE users SET email = ? WHERE username = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "email = ?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VO050",
+      "name": "vastbase-oracle-execute-immediate",
+      "sql": "EXECUTE IMMEDIATE 'SELECT * FROM users WHERE id = :id' USING :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "EXECUTE IMMEDIATE 'SELECT * FROM users WHERE id = :id' USING :id",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VO051",
+      "name": "vastbase-oracle-select-multiple-named-binds",
+      "sql": "SELECT id, name FROM users WHERE id = :id AND status = :status",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": ":status",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VO052",
+      "name": "vastbase-oracle-select-in-named-binds",
+      "sql": "SELECT id FROM users WHERE status IN (:status1, :status2, :status3)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": ":status3",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VO053",
+      "name": "vastbase-oracle-select-fetch-bind",
+      "sql": "SELECT id FROM users WHERE name LIKE :pattern ORDER BY id FETCH FIRST :limit ROWS ONLY",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": ":limit",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VO054",
+      "name": "vastbase-oracle-insert-multiple-named-binds",
+      "sql": "INSERT INTO users (id, name, status) VALUES (:id, :name, :status)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": ":status",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VO055",
+      "name": "vastbase-oracle-update-multiple-named-binds",
+      "sql": "UPDATE users SET name = :name, status = :status WHERE id = :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": ":status",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VO056",
+      "name": "vastbase-oracle-delete-multiple-named-binds",
+      "sql": "DELETE FROM users WHERE id = :id AND status = :status",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "deparse_contains": ":status",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VO057",
+      "name": "vastbase-oracle-select-positional-bind-pair",
+      "sql": "SELECT id FROM users WHERE id = :1 AND status = :2",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": ":2",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VO058",
+      "name": "vastbase-oracle-insert-question-params-expanded",
+      "sql": "INSERT INTO users (id, name, status) VALUES (?, ?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "VALUES (?, ?, ?)",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VO059",
+      "name": "vastbase-oracle-delete-question-params",
+      "sql": "DELETE FROM users WHERE id = ? AND status = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "deparse_contains": "?",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VO060",
+      "name": "vastbase-oracle-execute-immediate-update-using",
+      "sql": "EXECUTE IMMEDIATE 'UPDATE users SET name = :name WHERE id = :id' USING :name, :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "EXECUTE IMMEDIATE 'UPDATE users SET name = :name WHERE id = :id' USING :name, :id",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VO061",
+      "name": "vastbase-oracle-rownum-pagination-nested-bind",
+      "sql": "SELECT IP, AREACODE, AREANAME, STATE, MSTSCPORT, NTUID, NTPWD,WORKER, WEBSITE,MSDEPLOYPORT, \"UID\", PWD, KEY_ENCRYPTION, MODIFYTIME FROM (SELECT a.*, ROWNUM RN FROM SERVERS a WHERE ROWNUM <= :endRow) WHERE RN > :startRow",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": ":startRow",
+        "view_not_contains": [
+          "\"sql\":\":endRow\"",
+          "\"bind_sql\":\":endRow\""
+        ]
+      }
+    },
+    {
+      "id": "VO062",
+      "name": "vastbase-oracle-view-nvl-upper-functions",
+      "sql": "SELECT NVL(TO_CHAR(commission_pct), 'Not Applicable') commission, UPPER(last_name) FROM employees WHERE employee_id = :employee_id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_not_contains": [
+          "\"sql\":\":employee_id\""
+        ]
+      }
+    },
+    {
+      "id": "VO063",
+      "name": "vastbase-oracle-view-case-expression",
+      "sql": "SELECT CASE WHEN state = 1 THEN name ELSE fallback_name END FROM users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VO064",
+      "name": "vastbase-oracle-view-group-having-order",
+      "sql": "SELECT department_id, COUNT(employee_id) FROM employees GROUP BY department_id HAVING COUNT(employee_id) > 1 ORDER BY department_id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VO065",
+      "name": "vastbase-oracle-view-update-named-binds",
+      "sql": "UPDATE SERVERS SET IP = :aaa WHERE ID = :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "view_not_contains": [
+          "\"sql\":\":aaa\"",
+          "\"sql\":\":id\""
+        ]
+      }
+    },
+    {
+      "id": "VO066",
+      "name": "vastbase-oracle-view-rownum-pagination-attribution",
+      "sql": "SELECT IP, AREACODE, \"UID\" FROM (SELECT a.*, ROWNUM RN FROM SERVERS a WHERE ROWNUM <= :endRow) WHERE RN > :startRow",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"bind_kind\":2",
+          "\"bind_sql\":\":startRow\""
+        ],
+        "view_not_contains": [
+          "\"sql\":\":endRow\"",
+          "\"sql\":\":startRow\"",
+          "\"bind_sql\":\":endRow\""
+        ]
+      }
+    },
+    {
+      "id": "VO067",
+      "name": "vastbase-oracle-view-mixed-positional-binds",
+      "sql": "SELECT abc FROM table1 WHERE abc LIKE :1 AND def LIKE ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"bind_sql\":\":1\"",
+          "\"bind_sql\":\"?\""
+        ],
+        "view_not_contains": [
+          "\"sql\":\":1\"",
+          "\"sql\":\"?\""
+        ]
+      }
+    },
+    {
+      "id": "VO068",
+      "name": "vastbase-oracle-select-between-named-binds",
+      "sql": "SELECT id FROM users WHERE age BETWEEN :min_age AND :max_age",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": ":max_age",
+        "view_contains": [
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
+          "\"operator\":\"BETWEEN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"bind_key\":\"min_age\"",
+          "\"bind_sql\":\":min_age\"",
+          "\"bind_position\":1",
+          "\"bind_key\":\"max_age\"",
+          "\"bind_sql\":\":max_age\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VO069",
+      "name": "vastbase-oracle-select-not-in-named-binds",
+      "sql": "SELECT id FROM users WHERE status NOT IN (:status1, :status2)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": ":status2",
+        "view_contains": [
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"status\"",
+          "\"operator\":\"NOT IN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"bind_key\":\"status1\"",
+          "\"bind_position\":1",
+          "\"bind_key\":\"status2\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VO070",
+      "name": "vastbase-oracle-select-not-between-named-binds",
+      "sql": "SELECT id FROM users WHERE age NOT BETWEEN :min_age AND :max_age",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": ":max_age",
+        "view_contains": [
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
+          "\"operator\":\"NOT BETWEEN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"bind_key\":\"min_age\"",
+          "\"bind_position\":1",
+          "\"bind_key\":\"max_age\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VO071",
+      "name": "vastbase-oracle-select-not-like-named-bind",
+      "sql": "SELECT id FROM users WHERE name NOT LIKE :name_pattern",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": ":name_pattern",
+        "view_contains": [
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"name\"",
+          "\"operator\":\"NOT LIKE\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"bind_key\":\"name_pattern\"",
+          "\"bind_sql\":\":name_pattern\"",
+          "\"bind_position\":1"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VO072",
+      "name": "vastbase-oracle-select-distinct-like-bind",
+      "sql": "SELECT DISTINCT name FROM table1 WHERE name LIKE :name",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": ":name",
+        "view_contains": [
+          "\"clause\":\"select_list\",\"relation\":0,\"column\":\"name\"",
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"name\"",
+          "\"operator\":\"LIKE\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"bind_key\":\"name\"",
+          "\"bind_sql\":\":name\"",
+          "\"bind_position\":1"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VO073",
+      "name": "vastbase-oracle-select-distinct-nested-functions",
+      "sql": "SELECT DISTINCT LOWER(UPPER(name)) FROM table1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "DISTINCT"
+      }
+    },
+    {
+      "id": "VO074",
+      "name": "vastbase-oracle-delete-in-named-binds",
+      "sql": "DELETE FROM users WHERE email IN (:email1, :email2)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "deparse_contains": ":email1",
+        "view_contains": [
+          "\"kind\":\"delete\"",
+          "\"clause\":\"where\",\"relation\":0,\"column\":\"email\"",
+          "\"operator\":\"IN\",\"field\":0,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"bind_key\":\"email1\"",
+          "\"bind_position\":1",
+          "\"bind_key\":\"email2\"",
+          "\"bind_position\":2"
+        ]
+      }
+    },
+    {
+      "id": "VO075",
+      "name": "vastbase-oracle-update-exists-subquery",
+      "sql": "UPDATE users u SET status = :status WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id AND o.phone = :phone)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": ":phone"
+      }
+    },
+    {
+      "id": "VO076",
+      "name": "vastbase-oracle-insert-without-column-list",
+      "sql": "INSERT INTO users VALUES (:id, :name, :age)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "VALUES (:id, :name, :age)"
+      }
+    },
+    {
+      "id": "VO077",
+      "name": "vastbase-oracle-create-or-replace-view",
+      "sql": "CREATE OR REPLACE VIEW v_user_orders AS SELECT u.id, COUNT(o.id) AS order_count FROM users u JOIN orders o ON u.id = o.user_id GROUP BY u.id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "ViewStmt"
+        ],
+        "deparse_contains": "CREATE OR REPLACE VIEW"
+      }
+    },
+    {
+      "id": "VO078",
+      "name": "vastbase-oracle-rownum-pagination-realistic",
+      "sql": "SELECT IP, AREACODE, AREANAME, STATE, MSTSCPORT, NTUID, NTPWD, WORKER, WEBSITE, MSDEPLOYPORT, \"UID\", PWD, KEY_ENCRYPTION, MODIFYTIME FROM (SELECT a.*, ROWNUM RN FROM SERVERS a WHERE ROWNUM <= :endRow) WHERE RN > :startRow",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": ":startRow",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VO079",
+      "name": "vastbase-oracle-select-alias-star",
+      "sql": "SELECT u.*, o.order_no FROM users u LEFT JOIN orders o ON u.id = o.user_id WHERE o.status = :status",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": ":status"
+      }
+    },
+    {
+      "id": "VO080",
+      "name": "vastbase-oracle-select-order-by-ordinal",
+      "sql": "SELECT id, phone FROM users ORDER BY 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "ORDER BY 1"
+      }
+    },
+    {
+      "id": "VO081",
+      "name": "vastbase-oracle-select-from-dual-bind",
+      "sql": "SELECT :value FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": ":value",
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VO089",
+      "name": "vastbase-oracle-select-reference-024",
+      "sql": "select * from (select id as aa, name as bb, department as cc FROM (select e.*,rownum as row_num from employees_uuid e where rownum <= 100) where row_num >= 1 and (id = 1 or id=2)) where aa = 1;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VO090",
+      "name": "vastbase-oracle-select-reference-026",
+      "sql": "select b.* from (select id as aa, department as cc, name as bb FROM (select e.*,rownum as row_num from employees_uuid e where rownum <= 100) a where row_num >= 1 and (id = 1 or id=2)) b where aa = 1;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VO091",
+      "name": "vastbase-oracle-select-reference-028",
+      "sql": "SELECT * FROM (SELECT e.*, ROWNUM rn FROM employees e WHERE ROWNUM <= 100) WHERE rn > 50;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VO092",
+      "name": "vastbase-oracle-select-reference-033",
+      "sql": "select * from (select rownum as num, * from (select * from ( select b.*, rownum autorowno, c.* from PERSON b left join XQGL_XQBC c on b.ID = c.xqgl_id ) a) ) d;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VO093",
+      "name": "vastbase-oracle-select-reference-044",
+      "sql": "select * from ( select /*+first_rows*/ z_results.*,rownum autorowno from ( select t.XQGL_ID xqdh, t.XQGL_BT xqbt, t.xqgl_lx xqlx, (select dict_name from xggl_dict c where trim(t.XQGL_LX) = c.dict_id and c.dict_type='4') xqlxmc, t.XQGL_CJRDM xqcjrdm, t.XQGL_CJRME xqcjr, t.XQGL_LXDH lxdh, t.XQGL_SWJGDM swjgdm, t.XQGL_SWJGMC swjgmc, to_char(t.XQGL_XQCJRQ,'yyyy-MM-dd') xqcjrq, to_char(t.XQGL_XQWCRQ,'yyyy-MM-dd') xqwcrq, t.XQGL_GJGQ gjgq, t.XQGL_CONTENT content, t.XQGL_FLAG flag, t.XQGL_XQQR xqqr, t.XQGL_XQFK xqfk, t.XQGL_REMARK mark, t.XQGL_REMARK1 mgzd, case when t.XQGL_REMARK1 = '1' then '是' else '否' end as mgzdmc, t.XQGL_REMARK2 mark2, t.XQGL_REMARK3 mark3, t.xqgl_zt xqzt, t.XQGL_ZTMC xqztmc, t.xqgl_ywlx ywlx, t.XQGL_YWLXMC ywlxmc, t.xqgl_fzlx fzlx, t.XQGL_FZLXMC fzlxmc, t.XQGL_QRRQ qrrq, t.XQGL_FKRQ fkrq, t.xqgl_fk_xs fkxs, case when t.XQGL_FK_XS ='1' then '书面' when t.XQGL_FK_XS ='2' then '线上' end as fkxsmc, t.XQGL_XQFK_CONTENT fkcontent, t.xqgl_xqff_zygs_id zygs, t.xqgl_xqff_xzgs_id xzgs, t.XQGL_XQFF_ZYGS zygsmc, t.XQGL_XQFF_XZGS xzgsmc, t.xqgl_xbrq xbrq, b.xqgl_bccontent bccontent, b.xqgl_bcfkcontent bcfkcontent from xqgl t left join (select * from xqgl_xqbc where xqgl_type = 'bc') b on t.xqgl_id = b.xqgl_id where t.XQGL_DELETE !='Y' and t.XQGL_CJRDM = '110' and t.XQGL_SWJGDM = '110' order by t.XQGL_XQCJRQ desc ) z_results where rownum<=20 ) where autorowno>= 1;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VO094",
+      "name": "vastbase-oracle-select-reference-045",
+      "sql": "select * from (select /*+first_rows*/ z_results.*,rownum autorowno from ( select t.fxpcbh \"XXPC_BH\", decode(fa.fa_mc,'','','[' || fa.fa_mc ||'] ')||t.fxpcmc \"XXPC_MC\", t.fxpczt \"XXPCZT_DM\", (select dm.mc from rwtc_dm dm where dm.lx_dm = 'RWTCFXSCFS' and dm.dm = t.fxscfs) \"FXSCFS\", (select dm.mc from rwtc_dm dm where dm.lx_dm = 'RWTCFXPCZT' and dm.dm = t.fxpczt) \"XXPCZT_MC\", to_char(t.cjsj,'yyy-mm-dd') \"LRSJ\", (select c.swjgmc from wd_swjg c where c.swjg_dm = t.cjsscsdm) \"LYCS\", (select c.swjgmc from wd_swig c where c.swjg_dm= t.cjswjgdm) \"SWJG\", nv1(t.fxxxsl,0) \"FXXXS\", nv1(t.shtgsl,0) \"FXTGSL\", nv1(t.shbtgsl,0) \"FXBTGSL\", (select c.czry_mc from dm_czry c where c.swry_dm = t.sprdm) spr, to_char(nv1(t.cjsj,t.tssj),'yyyy-m-dd') tssj, to_char(t.spsj,'yyyy-mm-dd') spsj, t.spsm, decode(t.spyj,'Y','通过','不通过') spyj, n.file_name fileName, n.file_path filePath, n.complete_date completeDate, n.remark from rwtc_fxpc t left join rwtc_fxpc_ydzn n on t.fxpcbh = n.fxpcbh left join fxfx_sm_slb sl on sl.smsl_bh=t.fxpcbh left join fxfx_fxfa fa on sl.fa_bh=fa.fa_bh where 1=1 and t.cjswjgdm = '110' and (t.fxpczt in ('02') or t.fxxxsl = (t.shtgsl+ t.shbtgsl)) order by fxpczt asc, t.spsj desc ) z_results where rownum<=20 ) aaa where autorowno>= 1;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VO095",
+      "name": "vastbase-oracle-select-reference-048",
+      "sql": "select * from (select * from (select CONCAT(filePath, fxpczt) as path, b.* from (select * from (select /*+first_rows*/ z_results.*, rownum autorowno from ( select t.fxpcbh \"XXPC_BH\", decode(fa.fa_mc,'','','[' || fa.fa_mc ||'] ')||t.fxpcmc \"XXPC_MC\", t.fxpczt \"XXPCZT_DM\", (select dm.mc from rwtc_dm dm where dm.lx_dm = 'RWTCFXSCFS' and dm.dm = t.fxscfs) \"FXSCFS\", (select dm.mc from rwtc_dm dm where dm.lx_dm = 'RWTCFXPCZT' and dm.dm = t.fxpczt) \"XXPCZT_MC\", to_char(t.cjsj,'yyy-mm-dd') \"LRSJ\", (select c.swjgmc from wd_swjg c where c.swjg_dm = t.cjsscsdm) \"LYCS\", (select c.swjgmc from wd_swig c where c.swjg_dm= t.cjswjgdm) \"SWJG\", nv1(t.fxxxsl,0) \"FXXXS\", nv1(t.shtgsl,0) \"FXTGSL\", nv1(t.shbtgsl,0) \"FXBTGSL\", (select c.czry_mc from dm_czry c where c.swry_dm = t.sprdm) spr, to_char(nv1(t.cjsj,t.tssj),'yyyy-m-dd') tssj, to_char(t.spsj,'yyyy-mm-dd') spsj, t.spsm, decode(t.spyj,'Y','通过','不通过') spyj, n.file_name fileName, n.file_path filePath, n.complete_date completeDate, n.remark from rwtc_fxpc t left join rwtc_fxpc_ydzn n on t.fxpcbh = n.fxpcbh left join fxfx_sm_slb sl on sl.smsl_bh=t.fxpcbh left join fxfx_fxfa fa on sl.fa_bh=fa.fa_bh where 1=1 and t.cjswjgdm = '110' and (t.fxpczt in ('02') or t.fxxxsl = (t.shtgsl+ t.shbtgsl)) order by fxpczt asc, t.spsj desc ) z_results where rownum<=20 ) a1 where autorowno>= 1) b));",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VO096",
+      "name": "vastbase-oracle-select-reference-049",
+      "sql": "select * from (select rownum,* from (select * from (select o.*, rownum as rnum from ( SELECT a.*, b.wenjiansxmc FROM ( SELECT x.zxsq_wj_xxgx_t_rid, x.zxsq_zmwj_t_rid AS zmwj_key, (select dm.mc from rwtc_dm dm where dm.lx_dm = 'RWTCFXSCFS' and dm.dm = x.fxscfs) fxscfs, (select dm.mc from rwtc_dm dm where dm.lx_dm = 'RWTCFXPCZT' and dm.dm = x.fxpczt) xxpczt, x.zhengmingwjdm, x.wenjiansxbm, x.fujiawjmc AS wenjianysmc, x.fujianwjsm AS wenjiansm, x.wenjianlybj, x.create_time AS chuangjiansj, z.wenjianfwqlj, z.futubj, x.yewulxbm, x.wenjianywbm FROM zxsq_wj_xxgx_t x LEFT JOIN zxsq_zmwj_t z ON x.zhengmingwjid = z.zxsq_zmwj_t_rid LEFT JOIN zxsq_dzsqqqjl_cg_t c ON x.dianzisqajbh = c.dianzisqajbh WHERE x.del_flag = '0' AND (z.del_flag = '0' OR z.del_flag IS NULL) AND x.zhengmingwjbm != '123456' AND x.zhubiaom = '789' AND x.yewulxbm = '1011' AND c.create_user_jgdm = '1213' AND x.wenjianywbm = '11' ) a LEFT JOIN zxsq_fjwjywdz_t b ON a.wenjiansxbm = b.wenjiansxbm AND a.yewulxbm = b.yewulxbm UNION SELECT NULL AS zxsq_wj_xxgx_t_rid, z.zxsq_zmwj_t_rid AS zmwj_key, NULL AS fxscfs, NULL AS xxpczt, z.zhengmingwjdm, z.wenjiansxbm, z.wenjianysmc, z.wenjiansm, z.wenjianscfs AS wenjianlybj, NULL AS chuangjiansj, z.wenjianfwqlj, z.futubj, NULL AS yewulxbm, NULL AS wenjianywbm, NULL AS wenjiansxmc FROM zxsq_zmwj_t z WHERE z.del_flag = '0' and z.test_column = '1' AND z.zxsq_zmwj_t_rid = '1' ) o )) b) d;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"alias\":\"d\",\"source_block\":1",
+          "\"alias\":\"b\",\"source_block\":2",
+          "\"alias\":\"o\",\"source_block\":4",
+          "\"sets\":[{\"kind\":\"union\",\"result_block\":4,\"branches\":[5,9]}]",
+          "\"block\":0,\"ordinal\":0,\"kind\":\"star\",\"star_relations\":[0],\"source_block\":1",
+          "\"block\":1,\"ordinal\":1,\"kind\":\"star\",\"star_relations\":[1],\"source_block\":2",
+          "\"block\":2,\"ordinal\":0,\"kind\":\"star\",\"star_relations\":[2],\"source_block\":3",
+          "\"block\":3,\"ordinal\":0,\"kind\":\"qualified_star\",\"star_relations\":[3],\"source_block\":4"
+        ]
+      }
+    },
+    {
+      "id": "VO097",
+      "name": "vastbase-oracle-select-reference-046",
+      "sql": "SELECT a.*, b.wenjiansxmc FROM ( SELECT x.zxsq_wj_xxgx_t_rid, x.zhengmingwjid AS zmwj_key, x.zhengmingwjdm, x.wenjiansxbm, x.fujiawjmc AS wenjianysmc, x.fujianwjsm AS wenjiansm, x.wenjianlybj, x.create_time AS chuangjiansj, z.wenjianfwqlj, z.futubj, x.yewulxbm, x.wenjianywbm FROM zxsq_wj_xxgx_t x LEFT JOIN zxsq_zmwj_t z ON x.zhengmingwjid = z.zxsq_zmwj_t_rid LEFT JOIN zxsq_dzsqqqjl_cg_t c ON x.dianzisqajbh = c.dianzisqajbh WHERE x.del_flag = '0' AND (z.del_flag = '0' OR z.del_flag IS NULL) AND x.zhengmingwjbm != '123456' AND x.zhubiaom = '789' AND x.yewulxbm = '1011' AND c.create_user_jgdm = '1213' AND x.wenjianywbm = '11' ) a LEFT JOIN zxsq_fjwjywdz_t b ON a.wenjiansxbm = b.wenjiansxbm AND a.yewulxbm = b.yewulxbm;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VO098",
+      "name": "vastbase-oracle-select-reference-047",
+      "sql": "SELECT a.*, b.wenjiansxmc FROM ( SELECT x.zxsq_wj_xxgx_t_rid, x.zxsq_zmwj_t_rid AS zmwj_key, x.zhengmingwjdm, x.wenjiansxbm, x.fujiawjmc AS wenjianysmc, x.fujianwjsm AS wenjiansm, x.wenjianlybj, x.create_time AS chuangjiansj, z.wenjianfwqlj, z.futubj, x.yewulxbm, x.wenjianywbm FROM zxsq_wj_xxgx_t x LEFT JOIN zxsq_zmwj_t z ON x.zhengmingwjid = z.zxsq_zmwj_t_rid LEFT JOIN zxsq_dzsqqqjl_cg_t c ON x.dianzisqajbh = c.dianzisqajbh WHERE x.del_flag = '0' AND (z.del_flag = '0' OR z.del_flag IS NULL) AND x.zhengmingwjbm != '123456' AND x.zhubiaom = '789' AND x.yewulxbm = '1011' AND c.create_user_jgdm = '1213' AND x.wenjianywbm = '11' ) a LEFT JOIN zxsq_fjwjywdz_t b ON a.wenjiansxbm = b.wenjiansxbm AND a.yewulxbm = b.yewulxbm UNION SELECT NULL AS zxsq_wj_xxgx_t_rid, z.zxsq_zmwj_t_rid AS zmwj_key, z.zhengmingwjdm, z.wenjiansxbm, z.wenjianysmc, z.wenjiansm, z.wenjianscfs AS wenjianlybj, NULL AS chuangjiansj, z.wenjianfwqlj, z.futubj, NULL AS yewulxbm, NULL AS wenjianywbm, NULL AS wenjiansxmc FROM zxsq_zmwj_t z WHERE z.del_flag = '0' AND z.zxsq_zmwj_t_rid = '';",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ]
+      }
+    },
+    {
+      "id": "VOU001",
+      "name": "vastbase-oracle-connect-by",
+      "sql": "SELECT id FROM users START WITH manager_id IS NULL CONNECT BY PRIOR id = manager_id",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "VOU002",
+      "name": "vastbase-oracle-legacy-outer-join",
+      "sql": "SELECT u.id, o.id FROM users u, orders o WHERE u.id = o.user_id(+)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "VO137",
+      "name": "vastbase-oracle-insert-all",
+      "sql": "INSERT ALL INTO users (id) VALUES (1) INTO users (id) VALUES (2) SELECT 1 FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT ALL",
+        "view_contains": [
+          "\"insert_mode\":\"all\"",
+          "\"branches\"",
+          "\"target_columns\"",
+          "\"rows\""
+        ]
+      }
+    },
+    {
+      "id": "VO132",
+      "name": "vastbase-oracle-insert-all-bind-branches",
+      "sql": "INSERT ALL INTO users (id, name) VALUES (:1, :2) INTO users (id, name) VALUES (:3, :name4) SELECT 1 FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": ":name4",
+        "view_contains": [
+          "\"insert_mode\":\"all\"",
+          "\"bind_key\":\"1\"",
+          "\"bind_key\":\"name4\"",
+          "\"bind_position\":4"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "VO133",
+      "name": "vastbase-oracle-insert-all-multi-target",
+      "sql": "INSERT ALL INTO users (id, name) VALUES (1, 'a') INTO phones (id, phone) VALUES (2, '13800138000') SELECT 1 FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "phones",
+        "view_contains": [
+          "\"insert_mode\":\"all\"",
+          "\"table\":\"users\"",
+          "\"table\":\"phones\"",
+          "\"string_value\":\"13800138000\""
+        ]
+      }
+    },
+    {
+      "id": "VOU004",
+      "name": "vastbase-oracle-returning-into",
+      "sql": "INSERT INTO users (id) VALUES (1) RETURNING id INTO :id",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "VOU005",
+      "name": "vastbase-oracle-plsql-block",
+      "sql": "BEGIN NULL; END;",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "VOU006",
+      "name": "vastbase-oracle-create-procedure",
+      "sql": "CREATE OR REPLACE PROCEDURE p AS BEGIN NULL; END;",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "VOU007",
+      "name": "vastbase-oracle-create-package",
+      "sql": "CREATE OR REPLACE PACKAGE p AS PROCEDURE x; END p;",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "VOU008",
+      "name": "vastbase-oracle-pivot",
+      "sql": "SELECT * FROM sales PIVOT (SUM(amount) FOR quarter IN ('Q1' AS q1))",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "VOU009",
+      "name": "vastbase-oracle-unpivot",
+      "sql": "SELECT * FROM sales UNPIVOT (amount FOR quarter IN (q1, q2))",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "VOU010",
+      "name": "vastbase-oracle-model-clause",
+      "sql": "SELECT * FROM sales MODEL DIMENSION BY (id) MEASURES (amount) RULES (amount[1] = 1)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "VOU011",
+      "name": "vastbase-oracle-flashback-query",
+      "sql": "SELECT * FROM users AS OF SCN 12345",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "VOU012",
+      "name": "vastbase-oracle-match-recognize",
+      "sql": "SELECT * FROM trades MATCH_RECOGNIZE (ORDER BY trade_time PATTERN (A) DEFINE A AS price > 0)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "VO082",
+      "name": "vastbase-oracle-alter-session-nls-date-format",
+      "sql": "ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD'"
+      }
+    },
+    {
+      "id": "VO083",
+      "name": "vastbase-oracle-alter-session-nls-language",
+      "sql": "ALTER SESSION SET NLS_DATE_LANGUAGE = French",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "ALTER SESSION SET NLS_DATE_LANGUAGE = french"
+      }
+    },
+    {
+      "id": "VO084",
+      "name": "vastbase-oracle-alter-session-numeric-parameter",
+      "sql": "ALTER SESSION SET INSTANCE = 2",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "ALTER SESSION SET INSTANCE = 2"
+      }
+    },
+    {
+      "id": "VO085",
+      "name": "vastbase-oracle-alter-session-boolean-parameter",
+      "sql": "ALTER SESSION SET ERROR_ON_OVERLAP_TIME = TRUE",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "ALTER SESSION SET ERROR_ON_OVERLAP_TIME = TRUE"
+      }
+    },
+    {
+      "id": "VO086",
+      "name": "vastbase-oracle-alter-session-nls-numeric-characters",
+      "sql": "ALTER SESSION SET NLS_NUMERIC_CHARACTERS = '.,'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "ALTER SESSION SET NLS_NUMERIC_CHARACTERS = '.,'"
+      }
+    },
+    {
+      "id": "VO087",
+      "name": "vastbase-oracle-multi-statement-global-bind-position",
+      "sql": "UPDATE users SET a = :same WHERE b = :b; UPDATE users SET c = :same WHERE d = :d",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": [
+          "UpdateStmt",
+          "UpdateStmt"
+        ]
+      }
+    },
+    {
+      "id": "VO088",
+      "name": "vastbase-oracle-select-derived-query-graph",
+      "sql": "SELECT s.name AS outer_name FROM (SELECT id, name FROM KDES.USERS WHERE age <= :age) s WHERE s.name LIKE :name",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "outer_name"
+      }
+    },
+    {
+      "id": "VO099",
+      "name": "vastbase-oracle-select-nested-star-query-graph",
+      "sql": "SELECT * FROM (SELECT ROWNUM, * FROM (SELECT * FROM (SELECT o.*, ROWNUM AS rnum FROM (SELECT x.id FROM users x UNION SELECT y.id FROM archived_users y) o)) b) d",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"alias\":\"d\",\"source_block\":1",
+          "\"alias\":\"b\",\"source_block\":2",
+          "\"alias\":\"o\",\"source_block\":4",
+          "\"sets\":[{\"kind\":\"union\",\"result_block\":4,\"branches\":[5,6]}]",
+          "\"block\":0,\"ordinal\":0,\"kind\":\"star\",\"star_relations\":[0],\"source_block\":1",
+          "\"block\":1,\"ordinal\":1,\"kind\":\"star\",\"star_relations\":[1],\"source_block\":2",
+          "\"block\":2,\"ordinal\":0,\"kind\":\"star\",\"star_relations\":[2],\"source_block\":3",
+          "\"block\":3,\"ordinal\":0,\"kind\":\"qualified_star\",\"star_relations\":[3],\"source_block\":4"
+        ]
+      }
+    },
+    {
+      "id": "VO100",
+      "name": "vastbase-oracle-field-match-kind-direct-and-expression",
+      "sql": "SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = :plain_secret AND UPPER(SECRET) = :upper_secret",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"field_match_kind\":\"direct_field\"",
+          "\"field_match_kind\":\"expression_field\""
+        ]
+      }
+    },
+    {
+      "id": "VO101",
+      "name": "vastbase-oracle-expression-field-case-expression-value",
+      "sql": "SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE CASE WHEN ID = 1 THEN SECRET ELSE BACKUP_SECRET END = :v",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"column\":\"secret\"",
+          "\"field_match_kind\":\"expression_field\",\"kind\":\"bind\""
+        ]
+      }
+    },
+    {
+      "id": "VO102",
+      "name": "vastbase-oracle-expression-field-multi-field-expression-value",
+      "sql": "SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE NVL(SECRET, ID) = :v1 AND SECRET || ID = :v2",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"column\":\"secret\"",
+          "\"column\":\"id\"",
+          "\"field_match_kind\":\"expression_field\",\"kind\":\"bind\""
+        ]
+      }
+    },
+    {
+      "id": "VO103",
+      "name": "vastbase-oracle-expression-field-value-side-expression",
+      "sql": "SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = UPPER(:v1) AND SECRET = :v2 || 'x' AND SECRET = CAST(:v3 AS VARCHAR(32))",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"column\":\"secret\"",
+          "\"field_match_kind\":\"direct_field\",\"kind\":\"expression\""
+        ],
+        "view_not_contains": [
+          "\"field_match_kind\":\"direct_field\",\"kind\":\"bind\",\"bind_key\":\"v1\""
+        ]
+      }
+    },
+    {
+      "id": "VO104",
+      "name": "vastbase-oracle-expression-field-dml-expression-values",
+      "sql": "INSERT INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (1, UPPER(:v1)); UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :v2 || 'x' WHERE ID = 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": [
+          "InsertStmt",
+          "UpdateStmt"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":1,\"kind\":\"expression\""
+        ]
+      }
+    },
+    {
+      "id": "VO105",
+      "name": "vastbase-oracle-update-positional-bind-rhs-crypto-source",
+      "sql": "UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :1 WHERE ID = :2",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "secret = :1",
+        "view_contains": [
+          "\"clause\":\"set_list\"",
+          "\"column\":\"secret\"",
+          "\"kind\":\"bind\"",
+          "\"bind_key\":\"1\"",
+          "\"bind_sql\":\":1\"",
+          "\"bind_position\":1"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "VO106",
+      "name": "vastbase-oracle-update-named-bind-rhs-crypto-source",
+      "sql": "UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :secret_value WHERE ID = :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "secret = :secret_value",
+        "view_contains": [
+          "\"clause\":\"set_list\"",
+          "\"column\":\"secret\"",
+          "\"kind\":\"bind\"",
+          "\"bind_key\":\"secret_value\"",
+          "\"bind_sql\":\":secret_value\"",
+          "\"bind_position\":1"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "VO107",
+      "name": "vastbase-oracle-update-question-bind-rhs-crypto-source",
+      "sql": "UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = ? WHERE ID = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "secret = ?",
+        "view_contains": [
+          "\"clause\":\"set_list\"",
+          "\"column\":\"secret\"",
+          "\"kind\":\"bind\"",
+          "\"bind_key\":\"1\"",
+          "\"bind_sql\":\"?\"",
+          "\"bind_position\":1"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "VO108",
+      "name": "vastbase-oracle-update-multiple-bind-rhs-crypto-source",
+      "sql": "UPDATE KDES.DBP_CRYPTO_TEST SET PHONE = :1, SECRET = :2 WHERE ID = :3",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "secret = :2",
+        "view_contains": [
+          "\"clause\":\"set_list\"",
+          "\"column\":\"phone\"",
+          "\"column\":\"secret\"",
+          "\"bind_key\":\"2\"",
+          "\"bind_sql\":\":2\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "VOU014",
+      "name": "vastbase-oracle-create-synonym",
+      "sql": "CREATE SYNONYM u FOR users",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "VOU015",
+      "name": "vastbase-oracle-database-link",
+      "sql": "SELECT * FROM users@remote_db",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "VOU016",
+      "name": "vastbase-oracle-explain-plan",
+      "sql": "EXPLAIN PLAN FOR SELECT * FROM users",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "VOU017",
+      "name": "vastbase-oracle-connect-by-root",
+      "sql": "SELECT CONNECT_BY_ROOT name FROM users CONNECT BY PRIOR id = manager_id",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported Oracle syntax"
+      }
+    },
+    {
+      "id": "VO138",
+      "name": "vastbase-oracle-insert-first",
+      "sql": "INSERT FIRST WHEN 1 = 1 THEN INTO users (id) VALUES (1) SELECT 1 FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT FIRST",
+        "view_contains": [
+          "\"insert_mode\":\"first\"",
+          "\"condition_selector\":\"stmt[0].insert_branch_condition[0]\""
+        ]
+      }
+    },
+    {
+      "id": "VO139",
+      "name": "vastbase-oracle-insert-first-direct-source-fields",
+      "sql": "INSERT FIRST WHEN amount > 100 THEN INTO big_orders (id, amount) VALUES (order_id, amount) ELSE INTO small_orders (id, amount) VALUES (order_id, amount) SELECT id AS order_id, amount FROM orders",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT FIRST",
+        "view_contains": [
+          "\"insert_mode\":\"first\"",
+          "\"kind\":\"field\"",
+          "\"source_target\"",
+          "\"name\":\"order_id\"",
+          "\"table\":\"orders\""
+        ]
+      }
+    },
+    {
+      "id": "VO140",
+      "name": "vastbase-oracle-insert-all-conditional",
+      "sql": "INSERT ALL WHEN flag = 1 THEN INTO users (id, flag_copy) VALUES (:1, flag) WHEN flag = 2 THEN INTO audit_users (id, flag_copy) VALUES (:2, flag) SELECT flag FROM source_table",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT ALL",
+        "view_contains": [
+          "\"insert_mode\":\"all\"",
+          "\"condition_selector\":\"stmt[0].insert_branch_condition[0]\"",
+          "\"condition_selector\":\"stmt[0].insert_branch_condition[1]\"",
+          "\"bind_position\":2",
+          "\"source_target\""
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "VO141",
+      "name": "vastbase-oracle-insert-all-multiple-into-per-when",
+      "sql": "INSERT ALL WHEN flag = 1 THEN INTO users (id) VALUES (:1) INTO audit_users (id) VALUES (:2) ELSE INTO rejected_users (id) VALUES (:3) SELECT flag FROM source_table",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "rejected_users",
+        "view_contains": [
+          "\"insert_mode\":\"all\"",
+          "\"condition_selector\":\"stmt[0].insert_branch_condition[0]\"",
+          "\"condition_selector\":\"stmt[0].insert_branch_condition[1]\"",
+          "\"bind_position\":3"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "VO142",
+      "name": "vastbase-oracle-insert-select-source-fields",
+      "sql": "INSERT INTO users (id, name) SELECT src_id, src_name FROM source_users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_contains": [
+          "\"kind\":\"field\"",
+          "\"column\":\"src_id\"",
+          "\"column\":\"src_name\""
+        ]
+      }
+    },
+    {
+      "id": "VO143",
+      "name": "vastbase-oracle-insert-select-expression-targets",
+      "sql": "INSERT INTO users (id, name) SELECT src_id + 1, UPPER(src_name) FROM source_users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_contains": [
+          "\"kind\":\"expression\"",
+          "\"target_path\"",
+          "\"name\":\"UPPER\""
+        ]
+      }
+    },
+    {
+      "id": "VO144",
+      "name": "vastbase-oracle-insert-all-source-field-and-expression-cells",
+      "sql": "INSERT ALL INTO users (id, name, name_upper) VALUES (src_id, src_name, UPPER(src_name)) SELECT src_id, src_name FROM source_users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_contains": [
+          "\"insert_mode\":\"all\"",
+          "\"source_target\"",
+          "\"column\":2,\"kind\":\"expression\""
+        ]
+      }
+    },
+    {
+      "id": "VO145",
+      "name": "vastbase-oracle-insert-select-union-distinct-literals",
+      "sql": "INSERT INTO users (id, name) SELECT 1, 'a' FROM dual UNION SELECT 2, 'b' FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "UNION",
+        "view_contains": [
+          "\"sets\":[{\"kind\":\"union\"",
+          "\"kind\":\"literal\"",
+          "\"string_value\":\"b\""
+        ]
+      }
+    },
+    {
+      "id": "VO146",
+      "name": "vastbase-oracle-insert-select-intersect-binds",
+      "sql": "INSERT INTO users (id, name) SELECT :1, :2 FROM dual INTERSECT SELECT :3, :4 FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INTERSECT",
+        "view_contains": [
+          "\"sets\":[{\"kind\":\"intersect\"",
+          "\"bind_key\":\"4\"",
+          "\"bind_position\":4"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "VO147",
+      "name": "vastbase-oracle-insert-select-minus-named-binds",
+      "sql": "INSERT INTO users (id, name) SELECT :id1, :name1 FROM dual MINUS SELECT :id2, :name2 FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "MINUS",
+        "view_contains": [
+          "\"sets\":[{\"kind\":\"minus\"",
+          "\"bind_key\":\"name2\"",
+          "\"bind_position\":4"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "VO148",
+      "name": "vastbase-oracle-insert-all-schema-qualified-targets",
+      "sql": "INSERT ALL INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (950001, 'a') INTO KDES.DBP_PHONE_TEST (ID, PHONE) VALUES (:2, :phone) SELECT 1 FROM DUAL",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT ALL",
+        "view_contains": [
+          "\"insert_mode\":\"all\"",
+          "\"schema\":\"KDES\"",
+          "\"table\":\"DBP_CRYPTO_TEST\"",
+          "\"table\":\"DBP_PHONE_TEST\"",
+          "\"bind_key\":\"phone\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "VO149",
+      "name": "vastbase-oracle-like-escape-literal",
+      "sql": "SELECT ID FROM KDES.USERS WHERE NAME LIKE 'A!_%' ESCAPE '!'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "ESCAPE '!'",
+        "deparse_not_contains": "pg_catalog.like_escape",
+        "view_contains": [
+          "\"operator\":\"LIKE\"",
+          "\"kind\":\"literal\"",
+          "\"like_escape\":{\"kind\":\"literal\"",
+          "\"literal_value\":\"!\""
+        ]
+      }
+    },
+    {
+      "id": "VO150",
+      "name": "vastbase-oracle-not-like-escape-named-bind",
+      "sql": "SELECT ID FROM KDES.USERS WHERE NAME NOT LIKE :pattern ESCAPE :escape_char",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "NOT LIKE",
+        "deparse_not_contains": "pg_catalog.like_escape",
+        "view_contains": [
+          "\"operator\":\"NOT LIKE\"",
+          "\"bind_key\":\"pattern\"",
+          "\"bind_sql\":\":pattern\"",
+          "\"like_escape\":{\"kind\":\"bind\"",
+          "\"bind_key\":\"escape_char\"",
+          "\"bind_sql\":\":escape_char\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "VO151",
+      "name": "vastbase-oracle-like-escape-question-bind",
+      "sql": "SELECT ID FROM KDES.USERS WHERE NAME LIKE ? ESCAPE ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "LIKE ?",
+        "deparse_not_contains": "pg_catalog.like_escape",
+        "view_contains": [
+          "\"operator\":\"LIKE\"",
+          "\"bind_sql\":\"?\"",
+          "\"bind_position\":1",
+          "\"like_escape\":{\"kind\":\"bind\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "VO152",
+      "name": "vastbase-oracle-like-escape-expression",
+      "sql": "SELECT ID FROM KDES.USERS WHERE NAME LIKE :pattern ESCAPE UPPER('!')",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "ESCAPE",
+        "deparse_not_contains": "pg_catalog.like_escape",
+        "view_contains": [
+          "\"operator\":\"LIKE\"",
+          "\"bind_key\":\"pattern\"",
+          "\"like_escape\":{\"kind\":\"expression\"}"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "VO153",
+      "name": "vastbase-oracle-derived-like-escape-literal",
+      "sql": "SELECT D.ID FROM (SELECT ID, NAME FROM KDES.USERS) D WHERE D.NAME LIKE :pattern ESCAPE '!'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "ESCAPE '!'",
+        "deparse_not_contains": "pg_catalog.like_escape",
+        "view_contains": [
+          "\"table\":\"users\"",
+          "\"operator\":\"LIKE\"",
+          "\"like_escape\":{\"kind\":\"literal\"",
+          "\"literal_value\":\"!\""
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "VO154",
+      "name": "vastbase-oracle-like-without-explicit-escape",
+      "sql": "SELECT ID FROM KDES.USERS WHERE NAME LIKE :pattern",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "LIKE :pattern",
+        "view_contains": [
+          "\"operator\":\"LIKE\"",
+          "\"bind_sql\":\":pattern\""
+        ],
+        "view_not_contains": [
+          "\"like_escape\"",
+          "$"
+        ]
+      }
+    }
+  ]
+}

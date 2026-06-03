@@ -68,6 +68,8 @@ unified patch-based rewrite, fine-grained convenience APIs, and dialect usage.
   Demonstrates parsing SQL Server SQL with explicit dialect options, exporting View JSON, and restoring SQL Server parameters and `TOP` during deparse.
 - `examples/dialect/17_dameng_dialect.c`
   Demonstrates parsing Dameng SQL with explicit dialect options, exporting View JSON, and restoring binds, `SET SCHEMA`, and `TOP` during deparse.
+- `examples/dialect/20_vastbase_dialect.c`
+  Demonstrates selecting the four explicit Vastbase compatibility modes and validating their deparse output.
 
 ## Build
 

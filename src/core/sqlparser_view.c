@@ -610,7 +610,8 @@ static const char *sqlparser_variable_set_column_keyword(
 {
 	if (sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_CURRENT_DATABASE) &&
 	    handle != NULL &&
-	    (handle->dialect == SQLPARSER_DIALECT_MYSQL || handle->dialect == SQLPARSER_DIALECT_SQLSERVER)) {
+	    (sqlparser_dialect_is_mysql_compatible(handle->dialect) ||
+	     sqlparser_dialect_is_sqlserver_compatible(handle->dialect))) {
 		return "use";
 	}
 	if (sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_MYSQL_PREPARE) ||
@@ -659,22 +660,22 @@ static const char *sqlparser_statement_keyword_for_handle(
 
 	stmt = statement->variable_set_stmt;
 	if (sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_CURRENT_DATABASE)) {
-		if (handle != NULL && handle->dialect == SQLPARSER_DIALECT_ORACLE) {
+		if (handle != NULL && sqlparser_dialect_is_oracle_compatible(handle->dialect)) {
 			return "alter_session";
 		}
 		if (handle != NULL &&
-		    (handle->dialect == SQLPARSER_DIALECT_MYSQL || handle->dialect == SQLPARSER_DIALECT_SQLSERVER)) {
+		    (sqlparser_dialect_is_mysql_compatible(handle->dialect) ||
+		     sqlparser_dialect_is_sqlserver_compatible(handle->dialect))) {
 			return "use";
 		}
 	}
 	if (sqlparser_variable_set_name_is(stmt, SQLPARSER_INTERNAL_CURRENT_SCHEMA) &&
 	    handle != NULL &&
-	    (handle->dialect == SQLPARSER_DIALECT_ORACLE ||
-	     handle->dialect == SQLPARSER_DIALECT_DAMENG)) {
+	    sqlparser_dialect_is_oracle_or_dameng_compatible(handle->dialect)) {
 		return "alter_session";
 	}
 	if (handle != NULL &&
-	    handle->dialect == SQLPARSER_DIALECT_ORACLE &&
+	    sqlparser_dialect_is_oracle_compatible(handle->dialect) &&
 	    sqlparser_variable_set_name_has_prefix(stmt, SQLPARSER_INTERNAL_ORACLE_SESSION_PARAM_PREFIX)) {
 		return "alter_session";
 	}
@@ -5937,7 +5938,7 @@ static int sqlparser_graph_build_statement(
 		case PG_QUERY__NODE__NODE_INSERT_STMT:
 			if (build != NULL &&
 			    build->handle != NULL &&
-			    build->handle->dialect == SQLPARSER_DIALECT_ORACLE &&
+			    sqlparser_dialect_is_oracle_compatible(build->handle->dialect) &&
 			    sqlparser_oracle_state_has_multi_insert(build->handle->dialect_state)) {
 				return sqlparser_graph_build_oracle_multi_insert_dml(
 					build,
@@ -6786,17 +6787,16 @@ static json_t *sqlparser_graph_set_json(
 	kind_name = sqlparser_graph_set_kind_name(set_item->kind);
 	if (set_item->kind == SQLPARSER_GRAPH_SET_EXCEPT &&
 	    handle != NULL &&
-	    (handle->dialect == SQLPARSER_DIALECT_ORACLE ||
-	     handle->dialect == SQLPARSER_DIALECT_DAMENG)) {
+	    sqlparser_dialect_is_oracle_or_dameng_compatible(handle->dialect)) {
 		kind_name = "minus";
 	}
 	if (object == NULL || branches == NULL ||
 	    json_object_set_new(object, "kind", json_string(kind_name)) != 0 ||
 	    json_object_set_new(object, "result_block", json_integer((json_int_t)set_item->result_block_index)) != 0 ||
 	    sqlparser_json_object_set_owned(object, "branches", &branches) != 0) {
-	json_decref(object);
-	json_decref(branches);
-	if (out_error != NULL && out_error->code == SQLPARSER_STATUS_OK) {
+		json_decref(object);
+		json_decref(branches);
+		if (out_error != NULL && out_error->code == SQLPARSER_STATUS_OK) {
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		}
 		return NULL;

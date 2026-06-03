@@ -20,7 +20,7 @@ This release provides:
 - `SELECT` output-list read, replace, insert, and delete operations
 - structured SQL fragment rewrites for UPDATE assignment insertion and SELECT output-column expansion from identifier paths
 - stable selector parse / format / lookup
-- dialect options with PostgreSQL as the default and MySQL / Oracle / SQL Server / Dameng conversion layers
+- dialect options with PostgreSQL as the default and MySQL / Oracle / SQL Server / Dameng / Vastbase compatibility conversion layers
 - common prepared / parameterized SQL statement parsing, View JSON, and deparse output
 - configurable resource limits for SQL input, generated output, and statement count
 - View JSON export, C structured traversal, and structured patch write-back
@@ -130,12 +130,16 @@ sqlparser_parse_options_default(&options);
 options.dialect = SQLPARSER_DIALECT_MYSQL;
 ```
 
-Oracle, SQL Server, and Dameng SQL can be selected explicitly through `options.dialect`:
+Oracle, SQL Server, Dameng, and Vastbase SQL can be selected explicitly through `options.dialect`:
 
 ```c
 options.dialect = SQLPARSER_DIALECT_ORACLE;
 options.dialect = SQLPARSER_DIALECT_SQLSERVER;
 options.dialect = SQLPARSER_DIALECT_DAMENG;
+options.dialect = SQLPARSER_DIALECT_VASTBASE_ORACLE;
+options.dialect = SQLPARSER_DIALECT_VASTBASE_MYSQL;
+options.dialect = SQLPARSER_DIALECT_VASTBASE_POSTGRESQL;
+options.dialect = SQLPARSER_DIALECT_VASTBASE_SQLSERVER;
 ```
 
 Compile the example with:
@@ -192,6 +196,7 @@ See [examples/README.md](./examples/README.md) for details.
 - [Oracle Dialect Support](./doc/oracle_dialect_support.en.md)
 - [SQL Server Dialect Support](./doc/sqlserver_dialect_support.en.md)
 - [Dameng Dialect Support](./doc/dameng_dialect_support.en.md)
+- [Vastbase Dialect Support](./doc/vastbase_dialect_support.en.md)
 - [Dialect Coverage](./doc/dialect_coverage.en.md)
 - [API Reference](./doc/api_reference.en.md)
 - [View JSON Guide](./doc/view_json.en.md)

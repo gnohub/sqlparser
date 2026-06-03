@@ -22,9 +22,12 @@ This directory contains the project documentation for `sqlparser`.
 - [Dameng Dialect Support](./dameng_dialect_support.en.md)
   Describes Dameng dialect support, explicitly unsupported syntax, and output
   rules.
+- [Vastbase Dialect Support](./vastbase_dialect_support.en.md)
+  Describes the four explicit Vastbase compatibility modes, usage, and
+  regression boundary.
 - [Dialect Coverage](./dialect_coverage.en.md)
   Summarizes executable regression coverage for PostgreSQL, MySQL, Oracle,
-  SQL Server, and Dameng.
+  SQL Server, Dameng, and Vastbase.
 - [PostgreSQL Official Syntax Coverage](./postgresql_official_syntax_coverage.en.md)
   Tracks PostgreSQL default-dialect coverage against the official SQL Commands
   documentation.
@@ -38,6 +41,9 @@ This directory contains the project documentation for `sqlparser`.
   Reference.
 - [Dameng Official Syntax Coverage](./dameng_official_syntax_coverage.en.md)
   Tracks Dameng dialect coverage against the official DM_SQL documentation.
+- [Vastbase Official Syntax Coverage](./vastbase_official_syntax_coverage.en.md)
+  Maps Vastbase compatibility modes to the current executable regression
+  matrices.
 - [API Reference](./api_reference.en.md)
   Describes the main public-header types, lifecycle rules, and function groups.
 - [View JSON Guide](./view_json.en.md)

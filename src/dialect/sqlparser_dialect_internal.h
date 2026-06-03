@@ -43,6 +43,18 @@ const sqlparser_dialect_ops_t *sqlparser_dialect_mysql_ops(void);
 const sqlparser_dialect_ops_t *sqlparser_dialect_oracle_ops(void);
 const sqlparser_dialect_ops_t *sqlparser_dialect_sqlserver_ops(void);
 const sqlparser_dialect_ops_t *sqlparser_dialect_dameng_ops(void);
+const sqlparser_dialect_ops_t *sqlparser_dialect_vastbase_oracle_ops(void);
+const sqlparser_dialect_ops_t *sqlparser_dialect_vastbase_mysql_ops(void);
+const sqlparser_dialect_ops_t *sqlparser_dialect_vastbase_postgresql_ops(void);
+const sqlparser_dialect_ops_t *sqlparser_dialect_vastbase_sqlserver_ops(void);
+
+int sqlparser_dialect_uses_postgresql_placeholders(sqlparser_dialect_t dialect);
+int sqlparser_dialect_uses_oracle_placeholders(sqlparser_dialect_t dialect);
+int sqlparser_dialect_uses_sqlserver_placeholders(sqlparser_dialect_t dialect);
+int sqlparser_dialect_is_oracle_compatible(sqlparser_dialect_t dialect);
+int sqlparser_dialect_is_oracle_or_dameng_compatible(sqlparser_dialect_t dialect);
+int sqlparser_dialect_is_mysql_compatible(sqlparser_dialect_t dialect);
+int sqlparser_dialect_is_sqlserver_compatible(sqlparser_dialect_t dialect);
 
 sqlparser_status_t sqlparser_dialect_rewrite_like_escape(
 	char **io_sql,

@@ -16,8 +16,10 @@
   说明 SQL Server 方言转换层的支持范围、明确不支持范围和输出规则。
 - [达梦方言支持](./dameng_dialect_support.md)
   说明达梦方言转换层的支持范围、明确不支持范围和输出规则。
+- [Vastbase 方言支持](./vastbase_dialect_support.md)
+  说明 Vastbase 四个显式兼容模式、使用方式和回归边界。
 - [方言覆盖统计](./dialect_coverage.md)
-  汇总 PostgreSQL、MySQL、Oracle、SQL Server 和达梦的可执行回归覆盖情况。
+  汇总 PostgreSQL、MySQL、Oracle、SQL Server、达梦和 Vastbase 的可执行回归覆盖情况。
 - [PostgreSQL 官方语法覆盖统计](./postgresql_official_syntax_coverage.md)
   记录 PostgreSQL 默认方言相对于官方 SQL Commands 的覆盖情况。
 - [MySQL 官方语法覆盖统计](./mysql_official_syntax_coverage.md)
@@ -28,6 +30,8 @@
   记录 SQL Server 方言相对于 Microsoft Transact-SQL Reference 的覆盖情况。
 - [达梦官方语法覆盖统计](./dameng_official_syntax_coverage.md)
   记录达梦方言相对于达梦官方 DM_SQL 文档的覆盖情况。
+- [Vastbase 官方语法覆盖统计](./vastbase_official_syntax_coverage.md)
+  记录 Vastbase 兼容模式与当前可执行回归矩阵的对应关系。
 - [API 手册](./api_reference.md)
   说明公共头文件中的主要类型、生命周期规则和函数分组。
 - [View JSON 手册](./view_json.md)

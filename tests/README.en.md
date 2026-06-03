@@ -61,6 +61,10 @@ Common quality-gate entry points:
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_dameng_dialect_case_matrix.c`
+- `tests/unit/test_vastbase_oracle_dialect_case_matrix.c`
+- `tests/unit/test_vastbase_mysql_dialect_case_matrix.c`
+- `tests/unit/test_vastbase_postgresql_dialect_case_matrix.c`
+- `tests/unit/test_vastbase_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_robustness.c`
 - `tests/unit/test_stability.c`
 - `tests/install/install_smoke.c`
@@ -69,6 +73,10 @@ Common quality-gate entry points:
 - `tests/cases/oracle_dialect_input.json`
 - `tests/cases/sqlserver_dialect_input.json`
 - `tests/cases/dameng_dialect_input.json`
+- `tests/cases/vastbase_oracle_dialect_input.json`
+- `tests/cases/vastbase_mysql_dialect_input.json`
+- `tests/cases/vastbase_postgresql_dialect_input.json`
+- `tests/cases/vastbase_sqlserver_dialect_input.json`
 - `tests/verify_cli_batch.py`
 
 ## Coverage
@@ -91,6 +99,7 @@ The test coverage includes:
 - Oracle dialect conversion, deparse output, and explicit unsupported-syntax return codes
 - SQL Server dialect conversion, deparse output, and explicit unsupported-syntax return codes
 - Dameng dialect conversion, deparse output, and explicit unsupported-syntax return codes
+- Vastbase explicit compatibility-mode conversion, deparse output, and explicit unsupported-syntax return codes
 - crash-resistance regression for public API NULL arguments, out-of-range access,
   invalid selectors, invalid patches, malformed input, and repeated parsing
 - argument validation, resource limits, malformed SQL, failed-rewrite rollback,
@@ -103,3 +112,7 @@ The test coverage includes:
 - [Oracle Dialect Case Matrix](./cases/oracle_dialect_matrix.en.md)
 - [SQL Server Dialect Case Matrix](./cases/sqlserver_dialect_matrix.en.md)
 - [Dameng Dialect Case Matrix](./cases/dameng_dialect_matrix.en.md)
+- [Vastbase Oracle Compatibility Case Matrix](./cases/vastbase_oracle_dialect_matrix.en.md)
+- [Vastbase MySQL Compatibility Case Matrix](./cases/vastbase_mysql_dialect_matrix.en.md)
+- [Vastbase PostgreSQL Compatibility Case Matrix](./cases/vastbase_postgresql_dialect_matrix.en.md)
+- [Vastbase SQL Server Compatibility Case Matrix](./cases/vastbase_sqlserver_dialect_matrix.en.md)

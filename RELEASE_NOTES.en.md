@@ -1,24 +1,23 @@
-# v2.5.0 Release Notes
+# v2.6.0 Release Notes
 
-`v2.5.0` adds structured support for `LIKE ... ESCAPE ...`. Callers can now
-read the explicit escape clause attached to the pattern value through Query
-Graph and View JSON, while public deparse keeps the dialect-level SQL form.
+`v2.6.0` adds four explicit Vastbase compatibility modes. Callers can select
+the Oracle, MySQL, PostgreSQL, or SQL Server compatibility entry directly; the
+library does not infer a mode from SQL text.
 
 ## Highlights
 
-- Updated the public version to `2.5.0`.
-- Added `like_escape` to `sqlparser_graph_value_t`.
-- Added `sqlparser_graph_like_escape_kind_t` for no explicit `ESCAPE`, literal,
-  bind, and expression escape forms.
-- View JSON emits `like_escape` on the pattern value instead of exposing the
-  escape clause as a separate business value.
-- PostgreSQL, MySQL, Oracle, SQL Server, and Dameng deparse no longer expose
-  `pg_catalog.like_escape(...)`; output keeps `LIKE pattern ESCAPE escape`.
-- Structured recognition only accepts the `pg_catalog.like_escape` node emitted
-  by libpg_query, so an unqualified user-defined `like_escape(...)` function is
-  not misclassified as explicit `ESCAPE`.
-- Updated the Chinese and English API reference, View JSON guide, and test
-  matrices.
+- Updated the public version to `2.6.0`.
+- Added `SQLPARSER_DIALECT_VASTBASE_ORACLE`,
+  `SQLPARSER_DIALECT_VASTBASE_MYSQL`,
+  `SQLPARSER_DIALECT_VASTBASE_POSTGRESQL`, and
+  `SQLPARSER_DIALECT_VASTBASE_SQLSERVER`.
+- The CLI accepts `vastbase-oracle`, `vastbase-mysql`,
+  `vastbase-postgresql`, and `vastbase-sqlserver`.
+- In the CLI, `vastbase` is a deterministic alias for `vastbase-oracle`.
+- The four Vastbase modes keep the public deparse, bind rules, and Query
+  Graph/View JSON output rules of their compatibility entries.
+- Added Vastbase-specific documentation, official syntax coverage, four case
+  matrices, and a dialect example.
 
 ## Release Validation
 

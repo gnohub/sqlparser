@@ -1,5 +1,59 @@
 # Changelog
 
+## 2.6.0
+
+### Vastbase Dialects
+
+- Added four explicit Vastbase compatibility modes: `vastbase-oracle`,
+  `vastbase-mysql`, `vastbase-postgresql`, and `vastbase-sqlserver`.
+- Added public C enum values `SQLPARSER_DIALECT_VASTBASE_ORACLE`,
+  `SQLPARSER_DIALECT_VASTBASE_MYSQL`,
+  `SQLPARSER_DIALECT_VASTBASE_POSTGRESQL`, and
+  `SQLPARSER_DIALECT_VASTBASE_SQLSERVER`.
+- The CLI accepts all four Vastbase dialect names. `vastbase` is a
+  deterministic alias for `vastbase-oracle`; the library does not infer a
+  compatibility mode from SQL text.
+- The four modes are wired through independent dialect hooks and keep their
+  public SQL form, bind rules, and structured output rules.
+
+### Tests and Validation
+
+- Added four Vastbase case matrices covering parse, View JSON, deparse, and
+  explicit unsupported-syntax return codes for the Oracle, MySQL, PostgreSQL,
+  and SQL Server compatibility modes.
+- Added Vastbase CLI batch cases and `examples/dialect/20_vastbase_dialect.c`.
+- Updated Linux and Windows/MSVC build manifests so the new source file, unit
+  tests, and example are built.
+- Release validation covers Linux unit tests, ASan, UBSan, Valgrind leak
+  checks, and ABI export checks.
+
+## 2.5.0
+
+### LIKE ESCAPE Structured Output
+
+- Added `like_escape` to `sqlparser_graph_value_t` for explicit `ESCAPE`
+  clauses attached to `LIKE`, `NOT LIKE`, `ILIKE`, and `NOT ILIKE` patterns.
+- Added `sqlparser_graph_like_escape_kind_t` for no explicit `ESCAPE`, literal,
+  prepared-placeholder, and expression escape forms.
+- View JSON emits `like_escape` on the pattern value instead of exposing the
+  escape clause as a separate business value.
+- PostgreSQL, MySQL, Oracle, SQL Server, and Dameng public deparse keep
+  `LIKE pattern ESCAPE escape` and do not expose the internal
+  `pg_catalog.like_escape(...)` form.
+- Structured recognition only accepts the `pg_catalog.like_escape` node emitted
+  by libpg_query, so an unqualified user-defined `like_escape(...)` function is
+  not misclassified as explicit `ESCAPE`.
+
+### Tests and Validation
+
+- Expanded the existing PostgreSQL, MySQL, Oracle, SQL Server, and Dameng case
+  matrices for literal escapes, named binds, positional binds, JDBC `?` binds,
+  expression escapes, no explicit escape, and derived-table cases.
+- Expanded core API regression coverage for C structure fields, View JSON,
+  public deparse, and user-defined `like_escape(...)` function boundaries.
+- Release validation covers Linux unit tests, ASan, UBSan, Valgrind leak
+  checks, and ABI export checks.
+
 ## 2.4.0
 
 ### UPDATE SET Rewrite

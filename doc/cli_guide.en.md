@@ -35,7 +35,7 @@ make all
 Command form:
 
 ```bash
-./bin/sqlparser_cli [--mode view|deparse] [--dialect postgresql|mysql|oracle|sqlserver|dameng] [--compact] [--file PATH] [SQL]
+./bin/sqlparser_cli [--mode view|deparse] [--dialect postgresql|mysql|oracle|sqlserver|dameng|vastbase-oracle|vastbase-mysql|vastbase-postgresql|vastbase-sqlserver] [--compact] [--file PATH] [SQL]
 ```
 
 It can also read SQL from standard input:
@@ -154,7 +154,7 @@ Array items can be either:
 - a raw SQL string
 - an object: `{"name":"case-name","dialect":"oracle","sql":"..."}`
 
-`dialect` accepts `postgresql`, `mysql`, `oracle`, `sqlserver`, and `dameng`.
+`dialect` accepts `postgresql`, `mysql`, `oracle`, `sqlserver`, `dameng`, `vastbase-oracle`, `vastbase-mysql`, `vastbase-postgresql`, and `vastbase-sqlserver`. `vastbase` is an alias for `vastbase-oracle`.
 
 Example:
 

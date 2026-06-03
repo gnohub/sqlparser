@@ -224,6 +224,10 @@ Defined dialects:
 | `SQLPARSER_DIALECT_ORACLE` | Oracle dialect conversion layer |
 | `SQLPARSER_DIALECT_SQLSERVER` | SQL Server dialect conversion layer |
 | `SQLPARSER_DIALECT_DAMENG` | Dameng dialect conversion layer |
+| `SQLPARSER_DIALECT_VASTBASE_ORACLE` | Vastbase Oracle compatibility mode |
+| `SQLPARSER_DIALECT_VASTBASE_MYSQL` | Vastbase MySQL compatibility mode |
+| `SQLPARSER_DIALECT_VASTBASE_POSTGRESQL` | Vastbase PostgreSQL compatibility mode |
+| `SQLPARSER_DIALECT_VASTBASE_SQLSERVER` | Vastbase SQL Server compatibility mode |
 
 ## Lifecycle and Thread Model
 
@@ -698,3 +702,4 @@ rendered by the library according to the handle dialect.
 | `examples/dialect/11_oracle_dialect.c` | Oracle dialect parsing and rewrite |
 | `examples/dialect/12_sqlserver_dialect.c` | SQL Server dialect parsing and deparse |
 | `examples/dialect/17_dameng_dialect.c` | Dameng dialect parsing and deparse |
+| `examples/dialect/20_vastbase_dialect.c` | Vastbase compatibility-mode parsing and deparse |

@@ -149,6 +149,17 @@ static int test_statement_kind_walk(void)
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
+	if (expect_true(strcmp(sqlparser_dialect_name(SQLPARSER_DIALECT_VASTBASE_ORACLE), "vastbase-oracle") == 0,
+	                "vastbase oracle dialect name should match") != 0 ||
+	    expect_true(strcmp(sqlparser_dialect_name(SQLPARSER_DIALECT_VASTBASE_MYSQL), "vastbase-mysql") == 0,
+	                "vastbase mysql dialect name should match") != 0 ||
+	    expect_true(strcmp(sqlparser_dialect_name(SQLPARSER_DIALECT_VASTBASE_POSTGRESQL), "vastbase-postgresql") == 0,
+	                "vastbase postgresql dialect name should match") != 0 ||
+	    expect_true(strcmp(sqlparser_dialect_name(SQLPARSER_DIALECT_VASTBASE_SQLSERVER), "vastbase-sqlserver") == 0,
+	                "vastbase sqlserver dialect name should match") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
 
 	rc = sqlparser_statement_node_name(handle, 1U, &node_name, &error);
 	if (expect_status_ok(rc, &error, "statement 1 node name should succeed") != 0 ||
@@ -2816,7 +2827,10 @@ static int test_dialect_insert_column_patch_with_question_param(void)
 		{SQLPARSER_DIALECT_MYSQL, "mysql"},
 		{SQLPARSER_DIALECT_ORACLE, "oracle"},
 		{SQLPARSER_DIALECT_SQLSERVER, "sqlserver"},
-		{SQLPARSER_DIALECT_DAMENG, "dameng"}
+		{SQLPARSER_DIALECT_DAMENG, "dameng"},
+		{SQLPARSER_DIALECT_VASTBASE_ORACLE, "vastbase-oracle"},
+		{SQLPARSER_DIALECT_VASTBASE_MYSQL, "vastbase-mysql"},
+		{SQLPARSER_DIALECT_VASTBASE_SQLSERVER, "vastbase-sqlserver"}
 	};
 	sqlparser_parse_options_t options;
 	sqlparser_handle_t *handle;
@@ -3468,7 +3482,11 @@ static int test_query_graph_bind_fields(void)
 		{SQLPARSER_DIALECT_MYSQL, "UPDATE servers SET ip = ? WHERE id = ?", "1", "2", SQLPARSER_BIND_KIND_POSITIONAL, SQLPARSER_BIND_KIND_POSITIONAL, 1U, 2U, "?", "?"},
 		{SQLPARSER_DIALECT_ORACLE, "UPDATE SERVERS SET IP = :aaa WHERE ID = :id", "aaa", "id", SQLPARSER_BIND_KIND_NAMED, SQLPARSER_BIND_KIND_NAMED, 1U, 2U, ":aaa", ":id"},
 		{SQLPARSER_DIALECT_SQLSERVER, "UPDATE dbo.servers SET ip = @aaa WHERE id = @id", "aaa", "id", SQLPARSER_BIND_KIND_NAMED, SQLPARSER_BIND_KIND_NAMED, 1U, 2U, "@aaa", "@id"},
-		{SQLPARSER_DIALECT_DAMENG, "UPDATE servers SET ip = :aaa WHERE id = :id", "aaa", "id", SQLPARSER_BIND_KIND_NAMED, SQLPARSER_BIND_KIND_NAMED, 1U, 2U, ":aaa", ":id"}
+		{SQLPARSER_DIALECT_DAMENG, "UPDATE servers SET ip = :aaa WHERE id = :id", "aaa", "id", SQLPARSER_BIND_KIND_NAMED, SQLPARSER_BIND_KIND_NAMED, 1U, 2U, ":aaa", ":id"},
+		{SQLPARSER_DIALECT_VASTBASE_POSTGRESQL, "UPDATE servers SET ip = $1 WHERE id = $2", "1", "2", SQLPARSER_BIND_KIND_POSITIONAL, SQLPARSER_BIND_KIND_POSITIONAL, 1U, 2U, "$1", "$2"},
+		{SQLPARSER_DIALECT_VASTBASE_MYSQL, "UPDATE servers SET ip = ? WHERE id = ?", "1", "2", SQLPARSER_BIND_KIND_POSITIONAL, SQLPARSER_BIND_KIND_POSITIONAL, 1U, 2U, "?", "?"},
+		{SQLPARSER_DIALECT_VASTBASE_ORACLE, "UPDATE SERVERS SET IP = :aaa WHERE ID = :id", "aaa", "id", SQLPARSER_BIND_KIND_NAMED, SQLPARSER_BIND_KIND_NAMED, 1U, 2U, ":aaa", ":id"},
+		{SQLPARSER_DIALECT_VASTBASE_SQLSERVER, "UPDATE dbo.servers SET ip = @aaa WHERE id = @id", "aaa", "id", SQLPARSER_BIND_KIND_NAMED, SQLPARSER_BIND_KIND_NAMED, 1U, 2U, "@aaa", "@id"}
 	};
 	sqlparser_parse_options_t options;
 	sqlparser_error_t error;
@@ -3514,11 +3532,14 @@ static int test_query_graph_bind_fields(void)
 		}
 
 		replacement_set_list = "ip = :aaa, host = :host";
-		if (cases[index].dialect == SQLPARSER_DIALECT_POSTGRESQL) {
+		if (cases[index].dialect == SQLPARSER_DIALECT_POSTGRESQL ||
+		    cases[index].dialect == SQLPARSER_DIALECT_VASTBASE_POSTGRESQL) {
 			replacement_set_list = "ip = $1, host = $3";
-		} else if (cases[index].dialect == SQLPARSER_DIALECT_MYSQL) {
+		} else if (cases[index].dialect == SQLPARSER_DIALECT_MYSQL ||
+		           cases[index].dialect == SQLPARSER_DIALECT_VASTBASE_MYSQL) {
 			replacement_set_list = "ip = ?, host = ?";
-		} else if (cases[index].dialect == SQLPARSER_DIALECT_SQLSERVER) {
+		} else if (cases[index].dialect == SQLPARSER_DIALECT_SQLSERVER ||
+		           cases[index].dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER) {
 			replacement_set_list = "ip = @aaa, host = @host";
 		}
 		rc = sqlparser_statement_set_clause_sql(handle, 0U, 0U, replacement_set_list, &error);

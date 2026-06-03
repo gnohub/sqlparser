@@ -32,7 +32,7 @@ make all
 命令格式：
 
 ```bash
-./bin/sqlparser_cli [--mode view|deparse] [--dialect postgresql|mysql|oracle|sqlserver|dameng] [--compact] [--file PATH] [SQL]
+./bin/sqlparser_cli [--mode view|deparse] [--dialect postgresql|mysql|oracle|sqlserver|dameng|vastbase-oracle|vastbase-mysql|vastbase-postgresql|vastbase-sqlserver] [--compact] [--file PATH] [SQL]
 ```
 
 也可以从标准输入读取 SQL：
@@ -150,7 +150,7 @@ cat ./input.sql | ./bin/sqlparser_cli --mode deparse
 - 直接写 SQL 字符串
 - 写成对象：`{"name":"case-name","dialect":"oracle","sql":"..."}`
 
-`dialect` 支持 `postgresql`、`mysql`、`oracle`、`sqlserver`、`dameng`。
+`dialect` 支持 `postgresql`、`mysql`、`oracle`、`sqlserver`、`dameng`、`vastbase-oracle`、`vastbase-mysql`、`vastbase-postgresql`、`vastbase-sqlserver`。`vastbase` 是 `vastbase-oracle` 的别名。
 
 示例：
 

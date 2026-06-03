@@ -1,7 +1,7 @@
 {
   "items": [
     {
-      "name": "select-basic",
+      "name": "vastbase-postgresql-select-basic",
       "sql": "SELECT 1",
       "expect": {
         "statement_count": 1,
@@ -9,10 +9,11 @@
           "SelectStmt"
         ],
         "deparse_contains": "SELECT 1"
-      }
+      },
+      "id": "VPG001"
     },
     {
-      "name": "select-filter",
+      "name": "vastbase-postgresql-select-filter",
       "sql": "SELECT id, name FROM public.users WHERE id = 42",
       "expect": {
         "statement_count": 1,
@@ -20,10 +21,11 @@
           "SelectStmt"
         ],
         "deparse_contains": "FROM public.users"
-      }
+      },
+      "id": "VPG002"
     },
     {
-      "name": "select-join",
+      "name": "vastbase-postgresql-select-join",
       "sql": "SELECT u.id, u.name, o.order_no FROM public.users u JOIN public.orders o ON u.id = o.user_id WHERE o.status = 'paid'",
       "expect": {
         "statement_count": 1,
@@ -31,10 +33,11 @@
           "SelectStmt"
         ],
         "deparse_contains": "SELECT u.id, u.name, o.order_no"
-      }
+      },
+      "id": "VPG003"
     },
     {
-      "name": "select-cte",
+      "name": "vastbase-postgresql-select-cte",
       "sql": "WITH active_users AS (SELECT id, name FROM public.users WHERE status = 'active') SELECT au.id, au.name FROM active_users au",
       "expect": {
         "statement_count": 1,
@@ -42,10 +45,11 @@
           "SelectStmt"
         ],
         "deparse_contains": "WITH active_users AS"
-      }
+      },
+      "id": "VPG004"
     },
     {
-      "name": "insert-single-row",
+      "name": "vastbase-postgresql-insert-single-row",
       "sql": "INSERT INTO public.users (id, name) VALUES (1, 'alice')",
       "expect": {
         "statement_count": 1,
@@ -53,10 +57,11 @@
           "InsertStmt"
         ],
         "deparse_contains": "VALUES (1, 'alice')"
-      }
+      },
+      "id": "VPG005"
     },
     {
-      "name": "insert-multi-row",
+      "name": "vastbase-postgresql-insert-multi-row",
       "sql": "INSERT INTO public.users (id, name) VALUES (1, 'alice'), (2, 'bob')",
       "expect": {
         "statement_count": 1,
@@ -64,10 +69,11 @@
           "InsertStmt"
         ],
         "deparse_contains": "VALUES (1, 'alice'), (2, 'bob')"
-      }
+      },
+      "id": "VPG006"
     },
     {
-      "name": "insert-from-select",
+      "name": "vastbase-postgresql-insert-from-select",
       "sql": "INSERT INTO public.user_archive (id, name) SELECT id, name FROM public.users WHERE status = 'inactive'",
       "expect": {
         "statement_count": 1,
@@ -75,10 +81,11 @@
           "InsertStmt"
         ],
         "deparse_contains": "INSERT INTO public.user_archive"
-      }
+      },
+      "id": "VPG007"
     },
     {
-      "name": "update-basic",
+      "name": "vastbase-postgresql-update-basic",
       "sql": "UPDATE public.users SET name = 'alice', status = 'active' WHERE id = 1",
       "expect": {
         "statement_count": 1,
@@ -86,10 +93,11 @@
           "UpdateStmt"
         ],
         "deparse_contains": "UPDATE public.users SET"
-      }
+      },
+      "id": "VPG008"
     },
     {
-      "name": "delete-conditional",
+      "name": "vastbase-postgresql-delete-conditional",
       "sql": "DELETE FROM public.users WHERE id = 1 AND status = 'active'",
       "expect": {
         "statement_count": 1,
@@ -97,10 +105,11 @@
           "DeleteStmt"
         ],
         "deparse_contains": "DELETE FROM public.users"
-      }
+      },
+      "id": "VPG009"
     },
     {
-      "name": "delete-in-list",
+      "name": "vastbase-postgresql-delete-in-list",
       "sql": "DELETE FROM public.users WHERE id IN (1, 2, 3) AND status = 'active'",
       "expect": {
         "statement_count": 1,
@@ -108,10 +117,11 @@
           "DeleteStmt"
         ],
         "deparse_contains": "id IN (1, 2, 3)"
-      }
+      },
+      "id": "VPG010"
     },
     {
-      "name": "drop-table",
+      "name": "vastbase-postgresql-drop-table",
       "sql": "DROP TABLE public.users",
       "expect": {
         "statement_count": 1,
@@ -119,10 +129,11 @@
           "DropStmt"
         ],
         "deparse_contains": "DROP TABLE public.users"
-      }
+      },
+      "id": "VPG011"
     },
     {
-      "name": "drop-view",
+      "name": "vastbase-postgresql-drop-view",
       "sql": "DROP VIEW public.v_users",
       "expect": {
         "statement_count": 1,
@@ -130,10 +141,11 @@
           "DropStmt"
         ],
         "deparse_contains": "DROP VIEW public.v_users"
-      }
+      },
+      "id": "VPG012"
     },
     {
-      "name": "create-view",
+      "name": "vastbase-postgresql-create-view",
       "sql": "CREATE VIEW public.v_users AS SELECT id, name FROM public.users",
       "expect": {
         "statement_count": 1,
@@ -141,10 +153,11 @@
           "ViewStmt"
         ],
         "deparse_contains": "CREATE VIEW public.v_users AS"
-      }
+      },
+      "id": "VPG013"
     },
     {
-      "name": "truncate-table",
+      "name": "vastbase-postgresql-truncate-table",
       "sql": "TRUNCATE TABLE public.users",
       "expect": {
         "statement_count": 1,
@@ -152,10 +165,11 @@
           "TruncateStmt"
         ],
         "deparse_contains": "TRUNCATE public.users"
-      }
+      },
+      "id": "VPG014"
     },
     {
-      "name": "comment-table",
+      "name": "vastbase-postgresql-comment-table",
       "sql": "COMMENT ON TABLE public.users IS 'hot'",
       "expect": {
         "statement_count": 1,
@@ -163,10 +177,11 @@
           "CommentStmt"
         ],
         "deparse_contains": "COMMENT ON TABLE public.users"
-      }
+      },
+      "id": "VPG015"
     },
     {
-      "name": "rename-table",
+      "name": "vastbase-postgresql-rename-table",
       "sql": "ALTER TABLE public.users RENAME TO users_archive",
       "expect": {
         "statement_count": 1,
@@ -174,10 +189,11 @@
           "RenameStmt"
         ],
         "deparse_contains": "RENAME TO users_archive"
-      }
+      },
+      "id": "VPG016"
     },
     {
-      "name": "alter-table-add-column",
+      "name": "vastbase-postgresql-alter-table-add-column",
       "sql": "ALTER TABLE public.users ADD COLUMN age integer",
       "expect": {
         "statement_count": 1,
@@ -185,10 +201,11 @@
           "AlterTableStmt"
         ],
         "deparse_contains": "ADD COLUMN age int"
-      }
+      },
+      "id": "VPG017"
     },
     {
-      "name": "create-index",
+      "name": "vastbase-postgresql-create-index",
       "sql": "CREATE INDEX idx_users_name ON public.users (name)",
       "expect": {
         "statement_count": 1,
@@ -196,10 +213,11 @@
           "IndexStmt"
         ],
         "deparse_contains": "CREATE INDEX idx_users_name"
-      }
+      },
+      "id": "VPG018"
     },
     {
-      "name": "drop-index",
+      "name": "vastbase-postgresql-drop-index",
       "sql": "DROP INDEX public.idx_users_name",
       "expect": {
         "statement_count": 1,
@@ -207,10 +225,11 @@
           "DropStmt"
         ],
         "deparse_contains": "DROP INDEX public.idx_users_name"
-      }
+      },
+      "id": "VPG019"
     },
     {
-      "name": "explain-select",
+      "name": "vastbase-postgresql-explain-select",
       "sql": "EXPLAIN SELECT id FROM public.users",
       "expect": {
         "statement_count": 1,
@@ -218,10 +237,11 @@
           "ExplainStmt"
         ],
         "deparse_contains": "EXPLAIN SELECT id FROM public.users"
-      }
+      },
+      "id": "VPG020"
     },
     {
-      "name": "copy-table",
+      "name": "vastbase-postgresql-copy-table",
       "sql": "COPY public.users (id, name) FROM STDIN",
       "expect": {
         "statement_count": 1,
@@ -229,10 +249,11 @@
           "CopyStmt"
         ],
         "deparse_contains": "COPY public.users(id, name) FROM STDIN"
-      }
+      },
+      "id": "VPG021"
     },
     {
-      "name": "lock-table",
+      "name": "vastbase-postgresql-lock-table",
       "sql": "LOCK TABLE public.users IN ACCESS EXCLUSIVE MODE",
       "expect": {
         "statement_count": 1,
@@ -240,10 +261,11 @@
           "LockStmt"
         ],
         "deparse_contains": "LOCK TABLE public.users"
-      }
+      },
+      "id": "VPG022"
     },
     {
-      "name": "call-procedure",
+      "name": "vastbase-postgresql-call-procedure",
       "sql": "CALL public.refresh_users()",
       "expect": {
         "statement_count": 1,
@@ -251,10 +273,11 @@
           "CallStmt"
         ],
         "deparse_contains": "CALL public.refresh_users()"
-      }
+      },
+      "id": "VPG023"
     },
     {
-      "name": "do-block",
+      "name": "vastbase-postgresql-do-block",
       "sql": "DO $$ BEGIN NULL; END $$",
       "expect": {
         "statement_count": 1,
@@ -262,10 +285,11 @@
           "DoStmt"
         ],
         "deparse_contains": "DO $$ BEGIN NULL; END $$"
-      }
+      },
+      "id": "VPG024"
     },
     {
-      "name": "create-table-as",
+      "name": "vastbase-postgresql-create-table-as",
       "sql": "CREATE TABLE public.active_users AS SELECT id FROM public.users WHERE status = 'active'",
       "expect": {
         "statement_count": 1,
@@ -273,10 +297,11 @@
           "CreateTableAsStmt"
         ],
         "deparse_contains": "CREATE TABLE public.active_users AS"
-      }
+      },
+      "id": "VPG025"
     },
     {
-      "name": "transaction-begin-commit",
+      "name": "vastbase-postgresql-transaction-begin-commit",
       "sql": "BEGIN; COMMIT;",
       "expect": {
         "statement_count": 2,
@@ -284,10 +309,11 @@
           "TransactionStmt"
         ],
         "deparse_contains": "BEGIN; COMMIT"
-      }
+      },
+      "id": "VPG026"
     },
     {
-      "name": "transaction-begin-insert-rollback",
+      "name": "vastbase-postgresql-transaction-begin-insert-rollback",
       "sql": "BEGIN; INSERT INTO public.users (id, name) VALUES (1, 'alice'); ROLLBACK;",
       "expect": {
         "statement_count": 3,
@@ -296,10 +322,11 @@
           "InsertStmt"
         ],
         "deparse_contains": "ROLLBACK"
-      }
+      },
+      "id": "VPG027"
     },
     {
-      "name": "multi-statement-mixed",
+      "name": "vastbase-postgresql-multi-statement-mixed",
       "sql": "SELECT 1; INSERT INTO public.audit_log (id, action) VALUES (1, 'login')",
       "expect": {
         "statement_count": 2,
@@ -308,10 +335,11 @@
           "InsertStmt"
         ],
         "deparse_contains": "INSERT INTO public.audit_log"
-      }
+      },
+      "id": "VPG028"
     },
     {
-      "name": "quoted-identifiers",
+      "name": "vastbase-postgresql-quoted-identifiers",
       "sql": "SELECT \"User\".\"Name\" FROM \"User\"",
       "expect": {
         "statement_count": 1,
@@ -319,10 +347,11 @@
           "SelectStmt"
         ],
         "deparse_contains": "SELECT \"User\".\"Name\" FROM \"User\""
-      }
+      },
+      "id": "VPG029"
     },
     {
-      "name": "literal-semicolon",
+      "name": "vastbase-postgresql-literal-semicolon",
       "sql": "SELECT ';' AS token",
       "expect": {
         "statement_count": 1,
@@ -330,10 +359,11 @@
           "SelectStmt"
         ],
         "deparse_contains": "AS token"
-      }
+      },
+      "id": "VPG030"
     },
     {
-      "name": "select-subquery-exists",
+      "name": "vastbase-postgresql-select-subquery-exists",
       "sql": "SELECT u.id, EXISTS (SELECT 1 FROM public.orders o WHERE o.user_id = u.id) AS has_orders FROM public.users u",
       "expect": {
         "statement_count": 1,
@@ -341,10 +371,11 @@
           "SelectStmt"
         ],
         "deparse_contains": "EXISTS (SELECT 1 FROM public.orders o"
-      }
+      },
+      "id": "VPG031"
     },
     {
-      "name": "select-case-window",
+      "name": "vastbase-postgresql-select-case-window",
       "sql": "SELECT p.id, CASE WHEN p.status = 'paid' THEN p.order_no ELSE 'pending' END AS label, sum(p.amount) OVER (PARTITION BY p.user_id ORDER BY p.created_at) AS running_amount FROM public.payments p",
       "expect": {
         "statement_count": 1,
@@ -352,10 +383,11 @@
           "SelectStmt"
         ],
         "deparse_contains": "sum(p.amount) OVER"
-      }
+      },
+      "id": "VPG032"
     },
     {
-      "name": "select-union-order-limit",
+      "name": "vastbase-postgresql-select-union-order-limit",
       "sql": "SELECT id FROM public.users UNION ALL SELECT id FROM public.user_archive ORDER BY id LIMIT 10",
       "expect": {
         "statement_count": 1,
@@ -363,10 +395,11 @@
           "SelectStmt"
         ],
         "deparse_contains": "UNION ALL SELECT id FROM public.user_archive"
-      }
+      },
+      "id": "VPG033"
     },
     {
-      "name": "insert-on-conflict-update",
+      "name": "vastbase-postgresql-insert-on-conflict-update",
       "sql": "INSERT INTO public.users (id, name) VALUES (1, 'alice') ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name RETURNING id",
       "expect": {
         "statement_count": 1,
@@ -374,10 +407,11 @@
           "InsertStmt"
         ],
         "deparse_contains": "ON CONFLICT (id) DO UPDATE SET"
-      }
+      },
+      "id": "VPG034"
     },
     {
-      "name": "insert-returning",
+      "name": "vastbase-postgresql-insert-returning",
       "sql": "INSERT INTO public.audit_log (id, action) VALUES (1, 'login') RETURNING id, action",
       "expect": {
         "statement_count": 1,
@@ -385,10 +419,11 @@
           "InsertStmt"
         ],
         "deparse_contains": "RETURNING id, action"
-      }
+      },
+      "id": "VPG035"
     },
     {
-      "name": "update-from-returning",
+      "name": "vastbase-postgresql-update-from-returning",
       "sql": "UPDATE public.users AS u SET status = src.status FROM public.user_stage AS src WHERE u.id = src.id RETURNING u.id",
       "expect": {
         "statement_count": 1,
@@ -396,10 +431,11 @@
           "UpdateStmt"
         ],
         "deparse_contains": "FROM public.user_stage src"
-      }
+      },
+      "id": "VPG036"
     },
     {
-      "name": "delete-using-returning",
+      "name": "vastbase-postgresql-delete-using-returning",
       "sql": "DELETE FROM public.users USING public.user_archive AS ua WHERE public.users.id = ua.id RETURNING public.users.id",
       "expect": {
         "statement_count": 1,
@@ -407,10 +443,11 @@
           "DeleteStmt"
         ],
         "deparse_contains": "USING public.user_archive ua"
-      }
+      },
+      "id": "VPG037"
     },
     {
-      "name": "merge-basic",
+      "name": "vastbase-postgresql-merge-basic",
       "sql": "MERGE INTO public.target_table AS t USING public.source_table AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET name = s.name WHEN NOT MATCHED THEN INSERT (id, name) VALUES (s.id, s.name)",
       "expect": {
         "statement_count": 1,
@@ -418,10 +455,11 @@
           "MergeStmt"
         ],
         "deparse_contains": "MERGE INTO public.target_table"
-      }
+      },
+      "id": "VPG038"
     },
     {
-      "name": "savepoint-release",
+      "name": "vastbase-postgresql-savepoint-release",
       "sql": "BEGIN; SAVEPOINT sp1; RELEASE SAVEPOINT sp1; COMMIT;",
       "expect": {
         "statement_count": 4,
@@ -429,10 +467,11 @@
           "TransactionStmt"
         ],
         "deparse_contains": "RELEASE sp1"
-      }
+      },
+      "id": "VPG039"
     },
     {
-      "name": "rollback-to-savepoint",
+      "name": "vastbase-postgresql-rollback-to-savepoint",
       "sql": "BEGIN; SAVEPOINT sp1; INSERT INTO public.audit_log (id, action) VALUES (1, 'login'); ROLLBACK TO SAVEPOINT sp1; COMMIT;",
       "expect": {
         "statement_count": 5,
@@ -441,10 +480,11 @@
           "InsertStmt"
         ],
         "deparse_contains": "ROLLBACK TO SAVEPOINT sp1"
-      }
+      },
+      "id": "VPG040"
     },
     {
-      "name": "create-materialized-view",
+      "name": "vastbase-postgresql-create-materialized-view",
       "sql": "CREATE MATERIALIZED VIEW public.mv_users AS SELECT id, name FROM public.users",
       "expect": {
         "statement_count": 1,
@@ -452,10 +492,11 @@
           "CreateTableAsStmt"
         ],
         "deparse_contains": "CREATE MATERIALIZED VIEW public.mv_users AS"
-      }
+      },
+      "id": "VPG041"
     },
     {
-      "name": "alter-table-drop-column",
+      "name": "vastbase-postgresql-alter-table-drop-column",
       "sql": "ALTER TABLE public.users DROP COLUMN age",
       "expect": {
         "statement_count": 1,
@@ -463,10 +504,11 @@
           "AlterTableStmt"
         ],
         "deparse_contains": "DROP age"
-      }
+      },
+      "id": "VPG042"
     },
     {
-      "name": "create-schema",
+      "name": "vastbase-postgresql-create-schema",
       "sql": "CREATE SCHEMA analytics",
       "expect": {
         "statement_count": 1,
@@ -474,10 +516,11 @@
           "CreateSchemaStmt"
         ],
         "deparse_contains": "CREATE SCHEMA analytics"
-      }
+      },
+      "id": "VPG043"
     },
     {
-      "name": "drop-schema",
+      "name": "vastbase-postgresql-drop-schema",
       "sql": "DROP SCHEMA analytics",
       "expect": {
         "statement_count": 1,
@@ -485,10 +528,11 @@
           "DropStmt"
         ],
         "deparse_contains": "DROP SCHEMA analytics"
-      }
+      },
+      "id": "VPG044"
     },
     {
-      "name": "grant-select",
+      "name": "vastbase-postgresql-grant-select",
       "sql": "GRANT SELECT ON TABLE public.users TO analyst",
       "expect": {
         "statement_count": 1,
@@ -496,10 +540,11 @@
           "GrantStmt"
         ],
         "deparse_contains": "GRANT select ON public.users TO analyst"
-      }
+      },
+      "id": "VPG045"
     },
     {
-      "name": "revoke-select",
+      "name": "vastbase-postgresql-revoke-select",
       "sql": "REVOKE SELECT ON TABLE public.users FROM analyst",
       "expect": {
         "statement_count": 1,
@@ -507,10 +552,11 @@
           "GrantStmt"
         ],
         "deparse_contains": "REVOKE select ON public.users FROM analyst"
-      }
+      },
+      "id": "VPG046"
     },
     {
-      "name": "analyze-table",
+      "name": "vastbase-postgresql-analyze-table",
       "sql": "ANALYZE public.users",
       "expect": {
         "statement_count": 1,
@@ -518,10 +564,11 @@
           "VacuumStmt"
         ],
         "deparse_contains": "ANALYZE public.users"
-      }
+      },
+      "id": "VPG047"
     },
     {
-      "name": "vacuum-analyze-table",
+      "name": "vastbase-postgresql-vacuum-analyze-table",
       "sql": "VACUUM ANALYZE public.users",
       "expect": {
         "statement_count": 1,
@@ -529,10 +576,11 @@
           "VacuumStmt"
         ],
         "deparse_contains": "VACUUM (ANALYZE) public.users"
-      }
+      },
+      "id": "VPG048"
     },
     {
-      "name": "postgresql-set-search-path",
+      "name": "vastbase-postgresql-postgresql-set-search-path",
       "sql": "SET search_path TO app_schema, public",
       "expect": {
         "statement_count": 1,
@@ -540,10 +588,11 @@
           "VariableSetStmt"
         ],
         "deparse_contains": "SET search_path TO app_schema, public"
-      }
+      },
+      "id": "VPG049"
     },
     {
-      "name": "postgresql-set-schema",
+      "name": "vastbase-postgresql-postgresql-set-schema",
       "sql": "SET SCHEMA 'app_schema'",
       "expect": {
         "statement_count": 1,
@@ -551,10 +600,11 @@
           "VariableSetStmt"
         ],
         "deparse_contains": "SET search_path TO app_schema"
-      }
+      },
+      "id": "VPG050"
     },
     {
-      "name": "postgresql-set-local-search-path",
+      "name": "vastbase-postgresql-postgresql-set-local-search-path",
       "sql": "SET LOCAL search_path = app_schema",
       "expect": {
         "statement_count": 1,
@@ -562,10 +612,11 @@
           "VariableSetStmt"
         ],
         "deparse_contains": "SET LOCAL search_path TO app_schema"
-      }
+      },
+      "id": "VPG051"
     },
     {
-      "name": "postgresql-prepare-select",
+      "name": "vastbase-postgresql-postgresql-prepare-select",
       "sql": "PREPARE user_by_id(int) AS SELECT * FROM users WHERE id = $1",
       "expect": {
         "statement_count": 1,
@@ -573,10 +624,11 @@
           "PrepareStmt"
         ],
         "deparse_contains": "PREPARE user_by_id"
-      }
+      },
+      "id": "VPG052"
     },
     {
-      "name": "postgresql-execute-prepared",
+      "name": "vastbase-postgresql-postgresql-execute-prepared",
       "sql": "EXECUTE user_by_id(42)",
       "expect": {
         "statement_count": 1,
@@ -584,10 +636,11 @@
           "ExecuteStmt"
         ],
         "deparse_contains": "EXECUTE user_by_id(42)"
-      }
+      },
+      "id": "VPG053"
     },
     {
-      "name": "postgresql-deallocate-prepare",
+      "name": "vastbase-postgresql-postgresql-deallocate-prepare",
       "sql": "DEALLOCATE PREPARE user_by_id",
       "expect": {
         "statement_count": 1,
@@ -595,47 +648,11 @@
           "DeallocateStmt"
         ],
         "deparse_contains": "DEALLOCATE user_by_id"
-      }
+      },
+      "id": "VPG054"
     },
     {
-      "name": "oracle-cli-dialect-q-quote",
-      "dialect": "oracle",
-      "sql": "SELECT q'[Bob's order]' AS label FROM dual",
-      "expect": {
-        "statement_count": 1,
-        "statement_types": [
-          "SelectStmt"
-        ],
-        "deparse_contains": "'Bob''s order'"
-      }
-    },
-    {
-      "name": "sqlserver-cli-dialect-top-param",
-      "dialect": "sqlserver",
-      "sql": "SELECT TOP (3) [id], [name] FROM [dbo].[users] WHERE [id] = @id ORDER BY [id]",
-      "expect": {
-        "statement_count": 1,
-        "statement_types": [
-          "SelectStmt"
-        ],
-        "deparse_contains": "TOP (3)"
-      }
-    },
-    {
-      "name": "dameng-cli-dialect-set-schema-top",
-      "dialect": "dameng",
-      "sql": "SET SCHEMA KDES; SELECT TOP 2 id, name FROM users WHERE id = :id ORDER BY id",
-      "expect": {
-        "statement_count": 2,
-        "statement_types": [
-          "VariableSetStmt",
-          "SelectStmt"
-        ],
-        "deparse_contains": ":id"
-      }
-    },
-    {
-      "name": "postgresql-select-dollar-params",
+      "name": "vastbase-postgresql-postgresql-select-dollar-params",
       "sql": "SELECT id, name FROM users WHERE id = $1 AND status = $2",
       "expect": {
         "statement_count": 1,
@@ -643,10 +660,11 @@
           "SelectStmt"
         ],
         "deparse_contains": "$2"
-      }
+      },
+      "id": "VPG055"
     },
     {
-      "name": "postgresql-select-in-dollar-params",
+      "name": "vastbase-postgresql-postgresql-select-in-dollar-params",
       "sql": "SELECT id FROM users WHERE status IN ($1, $2, $3)",
       "expect": {
         "statement_count": 1,
@@ -664,10 +682,11 @@
           "\"bind_sql\":\"$3\"",
           "\"bind_position\":3"
         ]
-      }
+      },
+      "id": "VPG056"
     },
     {
-      "name": "postgresql-select-between-dollar-params",
+      "name": "vastbase-postgresql-postgresql-select-between-dollar-params",
       "sql": "SELECT id FROM users WHERE age BETWEEN $1 AND $2",
       "expect": {
         "statement_count": 1,
@@ -683,10 +702,11 @@
           "\"bind_sql\":\"$2\"",
           "\"bind_position\":2"
         ]
-      }
+      },
+      "id": "VPG057"
     },
     {
-      "name": "postgresql-select-not-in-dollar-params",
+      "name": "vastbase-postgresql-postgresql-select-not-in-dollar-params",
       "sql": "SELECT id FROM users WHERE status NOT IN ($1, $2)",
       "expect": {
         "statement_count": 1,
@@ -702,10 +722,11 @@
           "\"bind_sql\":\"$2\"",
           "\"bind_position\":2"
         ]
-      }
+      },
+      "id": "VPG058"
     },
     {
-      "name": "postgresql-select-not-between-dollar-params",
+      "name": "vastbase-postgresql-postgresql-select-not-between-dollar-params",
       "sql": "SELECT id FROM users WHERE age NOT BETWEEN $1 AND $2",
       "expect": {
         "statement_count": 1,
@@ -721,10 +742,11 @@
           "\"bind_sql\":\"$2\"",
           "\"bind_position\":2"
         ]
-      }
+      },
+      "id": "VPG059"
     },
     {
-      "name": "postgresql-select-limit-dollar-params",
+      "name": "vastbase-postgresql-postgresql-select-limit-dollar-params",
       "sql": "SELECT id FROM users WHERE name LIKE $1 ORDER BY id LIMIT $2 OFFSET $3",
       "expect": {
         "statement_count": 1,
@@ -732,10 +754,11 @@
           "SelectStmt"
         ],
         "deparse_contains": "$3"
-      }
+      },
+      "id": "VPG060"
     },
     {
-      "name": "postgresql-insert-dollar-params",
+      "name": "vastbase-postgresql-postgresql-insert-dollar-params",
       "sql": "INSERT INTO users (id, name, status) VALUES ($1, $2, $3)",
       "expect": {
         "statement_count": 1,
@@ -743,10 +766,11 @@
           "InsertStmt"
         ],
         "deparse_contains": "$3"
-      }
+      },
+      "id": "VPG061"
     },
     {
-      "name": "postgresql-insert-multi-row-dollar-params",
+      "name": "vastbase-postgresql-postgresql-insert-multi-row-dollar-params",
       "sql": "INSERT INTO users (id, name) VALUES ($1, $2), ($3, $4)",
       "expect": {
         "statement_count": 1,
@@ -754,10 +778,11 @@
           "InsertStmt"
         ],
         "deparse_contains": "$4"
-      }
+      },
+      "id": "VPG062"
     },
     {
-      "name": "postgresql-update-dollar-params",
+      "name": "vastbase-postgresql-postgresql-update-dollar-params",
       "sql": "UPDATE users SET name = $1, status = $2 WHERE id = $3",
       "expect": {
         "statement_count": 1,
@@ -777,10 +802,11 @@
           "\"bind_sql\":\"$3\"",
           "\"bind_position\":3"
         ]
-      }
+      },
+      "id": "VPG063"
     },
     {
-      "name": "postgresql-delete-dollar-params",
+      "name": "vastbase-postgresql-postgresql-delete-dollar-params",
       "sql": "DELETE FROM users WHERE id = $1 AND status = $2",
       "expect": {
         "statement_count": 1,
@@ -797,10 +823,11 @@
           "\"bind_sql\":\"$2\"",
           "\"bind_position\":2"
         ]
-      }
+      },
+      "id": "VPG064"
     },
     {
-      "name": "postgresql-prepare-insert",
+      "name": "vastbase-postgresql-postgresql-prepare-insert",
       "sql": "PREPARE insert_user(int, text) AS INSERT INTO users (id, name) VALUES ($1, $2)",
       "expect": {
         "statement_count": 1,
@@ -808,10 +835,11 @@
           "PrepareStmt"
         ],
         "deparse_contains": "PREPARE insert_user"
-      }
+      },
+      "id": "VPG065"
     },
     {
-      "name": "postgresql-prepare-update",
+      "name": "vastbase-postgresql-postgresql-prepare-update",
       "sql": "PREPARE update_user(text, int) AS UPDATE users SET name = $1 WHERE id = $2",
       "expect": {
         "statement_count": 1,
@@ -819,10 +847,11 @@
           "PrepareStmt"
         ],
         "deparse_contains": "PREPARE update_user"
-      }
+      },
+      "id": "VPG066"
     },
     {
-      "name": "postgresql-prepare-delete",
+      "name": "vastbase-postgresql-postgresql-prepare-delete",
       "sql": "PREPARE delete_user(int) AS DELETE FROM users WHERE id = $1",
       "expect": {
         "statement_count": 1,
@@ -830,10 +859,11 @@
           "PrepareStmt"
         ],
         "deparse_contains": "PREPARE delete_user"
-      }
+      },
+      "id": "VPG067"
     },
     {
-      "name": "postgresql-execute-prepared-with-args",
+      "name": "vastbase-postgresql-postgresql-execute-prepared-with-args",
       "sql": "EXECUTE insert_user(1, 'bob')",
       "expect": {
         "statement_count": 1,
@@ -841,10 +871,11 @@
           "ExecuteStmt"
         ],
         "deparse_contains": "EXECUTE insert_user(1, 'bob')"
-      }
+      },
+      "id": "VPG068"
     },
     {
-      "name": "postgresql-deallocate-all",
+      "name": "vastbase-postgresql-postgresql-deallocate-all",
       "sql": "DEALLOCATE ALL",
       "expect": {
         "statement_count": 1,
@@ -852,90 +883,99 @@
           "DeallocateStmt"
         ],
         "deparse_contains": "DEALLOCATE ALL"
-      }
+      },
+      "id": "VPG069"
     },
     {
-      "name": "postgresql-view-direct-column",
+      "name": "vastbase-postgresql-postgresql-view-direct-column",
       "sql": "SELECT name FROM users",
       "expect": {
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG070"
     },
     {
-      "name": "postgresql-view-star-qualified-star",
+      "name": "vastbase-postgresql-postgresql-view-star-qualified-star",
       "sql": "SELECT u.*, u.id FROM public.users u",
       "expect": {
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG071"
     },
     {
-      "name": "postgresql-view-functions-and-args",
+      "name": "vastbase-postgresql-postgresql-view-functions-and-args",
       "sql": "SELECT CONCAT(UPPER(first_name), last_name), COALESCE(nickname, name), CAST(age AS text) FROM users",
       "expect": {
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG072"
     },
     {
-      "name": "postgresql-view-distinct-nested-functions",
+      "name": "vastbase-postgresql-postgresql-view-distinct-nested-functions",
       "sql": "SELECT DISTINCT LOW(UPPER(name)) FROM table1",
       "expect": {
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG073"
     },
     {
-      "name": "postgresql-view-expressions-and-case",
+      "name": "vastbase-postgresql-postgresql-view-expressions-and-case",
       "sql": "SELECT first_name || last_name, UPPER(name) || '_x', CASE WHEN state = 1 THEN name ELSE fallback_name END FROM users",
       "expect": {
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG074"
     },
     {
-      "name": "postgresql-view-group-having-order",
+      "name": "vastbase-postgresql-postgresql-view-group-having-order",
       "sql": "SELECT dept, COUNT(id) FROM users GROUP BY dept HAVING COUNT(id) > 1 ORDER BY dept",
       "expect": {
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG075"
     },
     {
-      "name": "postgresql-view-join-on",
+      "name": "vastbase-postgresql-postgresql-view-join-on",
       "sql": "SELECT u.name FROM users u JOIN orders o ON u.id = o.user_id WHERE o.status = 'paid'",
       "expect": {
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG076"
     },
     {
-      "name": "postgresql-view-window-array-row-tests",
+      "name": "vastbase-postgresql-postgresql-view-window-array-row-tests",
       "sql": "SELECT SUM(amount) OVER (PARTITION BY dept ORDER BY created_at), ARRAY[id, age], ROW(id, age), name IS NULL, active IS TRUE FROM users",
       "expect": {
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG077"
     },
     {
-      "name": "postgresql-view-bind-values",
+      "name": "vastbase-postgresql-postgresql-view-bind-values",
       "sql": "UPDATE servers SET ip = $1 WHERE id = $2",
       "expect": {
         "statement_count": 1,
@@ -946,10 +986,11 @@
           "\"sql\":\"$1\"",
           "\"sql\":\"$2\""
         ]
-      }
+      },
+      "id": "VPG078"
     },
     {
-      "name": "postgresql-view-not-like-bind",
+      "name": "vastbase-postgresql-postgresql-view-not-like-bind",
       "sql": "SELECT id FROM users WHERE name NOT LIKE $1",
       "expect": {
         "statement_count": 1,
@@ -959,10 +1000,11 @@
         "view_not_contains": [
           "\"sql\":\"$1\""
         ]
-      }
+      },
+      "id": "VPG079"
     },
     {
-      "name": "postgresql-view-not-ilike-bind",
+      "name": "vastbase-postgresql-postgresql-view-not-ilike-bind",
       "sql": "SELECT id FROM users WHERE name NOT ILIKE $1",
       "expect": {
         "statement_count": 1,
@@ -972,10 +1014,11 @@
         "view_not_contains": [
           "\"sql\":\"$1\""
         ]
-      }
+      },
+      "id": "VPG080"
     },
     {
-      "name": "postgresql-view-not-similar-bind",
+      "name": "vastbase-postgresql-postgresql-view-not-similar-bind",
       "sql": "SELECT id FROM users WHERE name NOT SIMILAR TO $1",
       "expect": {
         "statement_count": 1,
@@ -985,10 +1028,11 @@
         "view_not_contains": [
           "\"sql\":\"$1\""
         ]
-      }
+      },
+      "id": "VPG081"
     },
     {
-      "name": "postgresql-create-table-if-not-exists-types",
+      "name": "vastbase-postgresql-postgresql-create-table-if-not-exists-types",
       "sql": "CREATE TABLE IF NOT EXISTS public.secure_users (id BIGINT, name VARCHAR(64), phone TEXT, payload JSONB, created_at TIMESTAMP)",
       "expect": {
         "statement_count": 1,
@@ -996,10 +1040,11 @@
           "CreateStmt"
         ],
         "deparse_contains": "CREATE TABLE IF NOT EXISTS public.secure_users"
-      }
+      },
+      "id": "VPG082"
     },
     {
-      "name": "postgresql-insert-without-column-list",
+      "name": "vastbase-postgresql-postgresql-insert-without-column-list",
       "sql": "INSERT INTO public.users VALUES ($1, $2, $3)",
       "expect": {
         "statement_count": 1,
@@ -1007,10 +1052,11 @@
           "InsertStmt"
         ],
         "deparse_contains": "VALUES ($1, $2, $3)"
-      }
+      },
+      "id": "VPG083"
     },
     {
-      "name": "postgresql-update-in-not-in-conditions",
+      "name": "vastbase-postgresql-postgresql-update-in-not-in-conditions",
       "sql": "UPDATE public.users SET status = $1 WHERE phone IN ($2, $3) AND email NOT IN ($4, $5)",
       "expect": {
         "statement_count": 1,
@@ -1018,10 +1064,11 @@
           "UpdateStmt"
         ],
         "deparse_contains": "NOT IN ($4, $5)"
-      }
+      },
+      "id": "VPG084"
     },
     {
-      "name": "postgresql-select-rich-where",
+      "name": "vastbase-postgresql-postgresql-select-rich-where",
       "sql": "SELECT id, phone FROM public.users WHERE phone IS NOT NULL AND amount BETWEEN $1 AND $2 AND name LIKE $3",
       "expect": {
         "statement_count": 1,
@@ -1029,10 +1076,11 @@
           "SelectStmt"
         ],
         "deparse_contains": "BETWEEN $1 AND $2"
-      }
+      },
+      "id": "VPG085"
     },
     {
-      "name": "postgresql-select-derived-table-filter",
+      "name": "vastbase-postgresql-postgresql-select-derived-table-filter",
       "sql": "SELECT t.id, t.phone FROM (SELECT id, phone FROM public.users WHERE status = $1) t WHERE t.phone = $2",
       "expect": {
         "statement_count": 1,
@@ -1040,10 +1088,11 @@
           "SelectStmt"
         ],
         "deparse_contains": "FROM (SELECT id, phone FROM public.users"
-      }
+      },
+      "id": "VPG086"
     },
     {
-      "name": "postgresql-select-nested-derived-query-graph",
+      "name": "vastbase-postgresql-postgresql-select-nested-derived-query-graph",
       "sql": "SELECT s.name AS outer_name FROM (SELECT x.name FROM (SELECT name FROM public.aaa WHERE age <= 18) x WHERE x.name IS NOT NULL) s",
       "expect": {
         "statement_count": 1,
@@ -1051,10 +1100,11 @@
           "SelectStmt"
         ],
         "deparse_contains": "outer_name"
-      }
+      },
+      "id": "VPG087"
     },
     {
-      "name": "postgresql-select-scalar-subquery",
+      "name": "vastbase-postgresql-postgresql-select-scalar-subquery",
       "sql": "SELECT u.id, (SELECT COUNT(*) FROM public.orders o WHERE o.user_id = u.id) AS order_count FROM public.users u WHERE u.phone = $1",
       "expect": {
         "statement_count": 1,
@@ -1062,10 +1112,11 @@
           "SelectStmt"
         ],
         "deparse_contains": "SELECT count(*)"
-      }
+      },
+      "id": "VPG088"
     },
     {
-      "name": "postgresql-select-intersect",
+      "name": "vastbase-postgresql-postgresql-select-intersect",
       "sql": "SELECT phone FROM public.users INTERSECT SELECT phone FROM public.contacts",
       "expect": {
         "statement_count": 1,
@@ -1073,10 +1124,11 @@
           "SelectStmt"
         ],
         "deparse_contains": "INTERSECT"
-      }
+      },
+      "id": "VPG089"
     },
     {
-      "name": "postgresql-create-view-join-aggregate",
+      "name": "vastbase-postgresql-postgresql-create-view-join-aggregate",
       "sql": "CREATE VIEW public.v_user_order_count AS SELECT u.id, COUNT(o.id) AS order_count FROM public.users u JOIN public.orders o ON u.id = o.user_id GROUP BY u.id",
       "expect": {
         "statement_count": 1,
@@ -1084,10 +1136,11 @@
           "ViewStmt"
         ],
         "deparse_contains": "CREATE VIEW public.v_user_order_count AS"
-      }
+      },
+      "id": "VPG090"
     },
     {
-      "name": "postgresql-select-order-by-ordinal",
+      "name": "vastbase-postgresql-postgresql-select-order-by-ordinal",
       "sql": "SELECT id, phone FROM public.users ORDER BY 1",
       "expect": {
         "statement_count": 1,
@@ -1095,10 +1148,11 @@
           "SelectStmt"
         ],
         "deparse_contains": "ORDER BY 1"
-      }
+      },
+      "id": "VPG091"
     },
     {
-      "name": "postgresql-select-quoted-mixed-identifiers",
+      "name": "vastbase-postgresql-postgresql-select-quoted-mixed-identifiers",
       "sql": "SELECT \"IdCard\", \"Phone Number\" FROM \"User Info\" WHERE \"Phone Number\" = $1",
       "expect": {
         "statement_count": 1,
@@ -1106,20 +1160,22 @@
           "SelectStmt"
         ],
         "deparse_contains": "\"Phone Number\" = $1"
-      }
+      },
+      "id": "VPG092"
     },
     {
-      "name": "postgresql-dollar-quoted-string-global-bind-position",
+      "name": "vastbase-postgresql-postgresql-dollar-quoted-string-global-bind-position",
       "sql": "SELECT $tag$fake ? marker$tag$ AS note FROM public.users WHERE id = $1 AND name = $2",
       "expect": {
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG093"
     },
     {
-      "name": "postgresql-multi-statement-global-bind-position",
+      "name": "vastbase-postgresql-postgresql-multi-statement-global-bind-position",
       "sql": "UPDATE users SET a = $1 WHERE b = $2; UPDATE users SET c = $3 WHERE d = $4",
       "expect": {
         "statement_count": 2,
@@ -1127,10 +1183,11 @@
           "UpdateStmt",
           "UpdateStmt"
         ]
-      }
+      },
+      "id": "VPG094"
     },
     {
-      "name": "postgresql-select-reference-001",
+      "name": "vastbase-postgresql-postgresql-select-reference-001",
       "sql": "SELECT id, name, age FROM users;",
       "expect": {
         "ok": true,
@@ -1138,10 +1195,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG095"
     },
     {
-      "name": "postgresql-select-reference-004",
+      "name": "vastbase-postgresql-postgresql-select-reference-004",
       "sql": "SELECT * FROM employees;",
       "expect": {
         "ok": true,
@@ -1149,10 +1207,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG096"
     },
     {
-      "name": "postgresql-select-reference-005",
+      "name": "vastbase-postgresql-postgresql-select-reference-005",
       "sql": "SELECT u.id AS user_id, u.name AS user_name FROM users u;",
       "expect": {
         "ok": true,
@@ -1160,10 +1219,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG097"
     },
     {
-      "name": "postgresql-select-reference-007",
+      "name": "vastbase-postgresql-postgresql-select-reference-007",
       "sql": "SELECT * FROM products WHERE price > 100 AND category = 'Electronics';",
       "expect": {
         "ok": true,
@@ -1171,10 +1231,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG098"
     },
     {
-      "name": "postgresql-select-reference-009",
+      "name": "vastbase-postgresql-postgresql-select-reference-009",
       "sql": "SELECT name, price FROM products ORDER BY price DESC, name ASC;",
       "expect": {
         "ok": true,
@@ -1182,10 +1243,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG099"
     },
     {
-      "name": "postgresql-select-reference-011",
+      "name": "vastbase-postgresql-postgresql-select-reference-011",
       "sql": "SELECT DISTINCT department FROM employees;",
       "expect": {
         "ok": true,
@@ -1193,10 +1255,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG100"
     },
     {
-      "name": "postgresql-select-reference-013",
+      "name": "vastbase-postgresql-postgresql-select-reference-013",
       "sql": "SELECT a.id, a.name FROM (SELECT id, name FROM users WHERE active = 1) a;",
       "expect": {
         "ok": true,
@@ -1204,10 +1267,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG101"
     },
     {
-      "name": "postgresql-select-reference-015",
+      "name": "vastbase-postgresql-postgresql-select-reference-015",
       "sql": "SELECT id, name FROM (SELECT name, id, age FROM users);",
       "expect": {
         "ok": true,
@@ -1215,10 +1279,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG102"
     },
     {
-      "name": "postgresql-select-reference-017",
+      "name": "vastbase-postgresql-postgresql-select-reference-017",
       "sql": "SELECT * FROM orders o WHERE EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id = o.id);",
       "expect": {
         "ok": true,
@@ -1226,10 +1291,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG103"
     },
     {
-      "name": "postgresql-select-reference-018",
+      "name": "vastbase-postgresql-postgresql-select-reference-018",
       "sql": "SELECT * FROM products WHERE category_id IN (SELECT id FROM categories WHERE active = 1);",
       "expect": {
         "ok": true,
@@ -1237,10 +1303,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG104"
     },
     {
-      "name": "postgresql-select-reference-019",
+      "name": "vastbase-postgresql-postgresql-select-reference-019",
       "sql": "SELECT id, name, (SELECT COUNT(*) FROM orders WHERE user_id = u.id) AS order_count FROM users u;",
       "expect": {
         "ok": true,
@@ -1248,10 +1315,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG105"
     },
     {
-      "name": "postgresql-select-reference-020",
+      "name": "vastbase-postgresql-postgresql-select-reference-020",
       "sql": "SELECT id, name, (SELECT product_id FROM orders WHERE user_id = u.id) AS product_id FROM users u;",
       "expect": {
         "ok": true,
@@ -1259,10 +1327,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG106"
     },
     {
-      "name": "postgresql-select-reference-021",
+      "name": "vastbase-postgresql-postgresql-select-reference-021",
       "sql": "SELECT b.* FROM (SELECT a.* FROM (SELECT id, name FROM users) a WHERE id > 10) b WHERE name LIKE 'A%';",
       "expect": {
         "ok": true,
@@ -1270,10 +1339,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG107"
     },
     {
-      "name": "postgresql-select-reference-030",
+      "name": "vastbase-postgresql-postgresql-select-reference-030",
       "sql": "SELECT * FROM ( SELECT t1.*, (SELECT COUNT(*) FROM table2 t2 WHERE t2.id = t1.id AND t2.col = (SELECT MAX(col) FROM table3 WHERE table3.ref = t1.ref) ) as cnt FROM table1 t1 ) sub;",
       "expect": {
         "ok": true,
@@ -1281,10 +1351,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG108"
     },
     {
-      "name": "postgresql-select-reference-031",
+      "name": "vastbase-postgresql-postgresql-select-reference-031",
       "sql": "SELECT u.name, o.order_date FROM users u INNER JOIN orders o ON u.id = o.user_id;",
       "expect": {
         "ok": true,
@@ -1292,10 +1363,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG109"
     },
     {
-      "name": "postgresql-select-reference-032",
+      "name": "vastbase-postgresql-postgresql-select-reference-032",
       "sql": "SELECT d.name, COUNT(e.id) FROM departments d LEFT JOIN employees e ON d.id = e.dept_id GROUP BY d.name;",
       "expect": {
         "ok": true,
@@ -1303,10 +1375,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG110"
     },
     {
-      "name": "postgresql-select-reference-034",
+      "name": "vastbase-postgresql-postgresql-select-reference-034",
       "sql": "SELECT c.name, o.amount FROM customers c RIGHT JOIN orders o ON c.id = o.customer_id;",
       "expect": {
         "ok": true,
@@ -1314,10 +1387,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG111"
     },
     {
-      "name": "postgresql-select-reference-035",
+      "name": "vastbase-postgresql-postgresql-select-reference-035",
       "sql": "SELECT a.id, b.value FROM table_a a LEFT JOIN table_b b ON a.key = b.key;",
       "expect": {
         "ok": true,
@@ -1325,10 +1399,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG112"
     },
     {
-      "name": "postgresql-select-reference-036",
+      "name": "vastbase-postgresql-postgresql-select-reference-036",
       "sql": "SELECT u.name, p.product_name, o.quantity FROM users u JOIN orders o ON u.id = o.user_id JOIN products p ON o.product_id = p.id;",
       "expect": {
         "ok": true,
@@ -1336,10 +1411,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG113"
     },
     {
-      "name": "postgresql-select-reference-037",
+      "name": "vastbase-postgresql-postgresql-select-reference-037",
       "sql": "SELECT * FROM table1 t1 JOIN table2 t2 ON t1.id = t2.ref_id AND t1.status = 'active';",
       "expect": {
         "ok": true,
@@ -1347,10 +1423,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG114"
     },
     {
-      "name": "postgresql-select-reference-038",
+      "name": "vastbase-postgresql-postgresql-select-reference-038",
       "sql": "SELECT u.name, sq.user_id, sq.total FROM users u JOIN (SELECT user_id, SUM(amount) as total FROM orders GROUP BY user_id) sq ON u.id = sq.user_id;",
       "expect": {
         "ok": true,
@@ -1358,10 +1435,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG115"
     },
     {
-      "name": "postgresql-select-reference-039",
+      "name": "vastbase-postgresql-postgresql-select-reference-039",
       "sql": "SELECT id, name FROM active_users UNION ALL SELECT NULL as id, name FROM inactive_users;",
       "expect": {
         "ok": true,
@@ -1369,10 +1447,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG116"
     },
     {
-      "name": "postgresql-select-reference-040",
+      "name": "vastbase-postgresql-postgresql-select-reference-040",
       "sql": "SELECT u1.id, u1.name FROM active_users u1 UNION ALL SELECT NULL as id, name FROM inactive_users;",
       "expect": {
         "ok": true,
@@ -1380,10 +1459,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG117"
     },
     {
-      "name": "postgresql-select-reference-041",
+      "name": "vastbase-postgresql-postgresql-select-reference-041",
       "sql": "SELECT product_id FROM orders_2023 UNION SELECT product_id FROM orders_2024;",
       "expect": {
         "ok": true,
@@ -1391,10 +1471,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG118"
     },
     {
-      "name": "postgresql-select-reference-042",
+      "name": "vastbase-postgresql-postgresql-select-reference-042",
       "sql": "SELECT id, name, status FROM users WHERE active = 1 UNION SELECT id, name, 'inactive' as status FROM user WHERE active = 0 ORDER BY name;",
       "expect": {
         "ok": true,
@@ -1402,10 +1483,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG119"
     },
     {
-      "name": "postgresql-select-reference-043",
+      "name": "vastbase-postgresql-postgresql-select-reference-043",
       "sql": "SELECT * FROM table_a UNION ALL SELECT * FROM table_b UNION ALL SELECT * FROM table_c;",
       "expect": {
         "ok": true,
@@ -1413,10 +1495,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG120"
     },
     {
-      "name": "postgresql-select-reference-046",
+      "name": "vastbase-postgresql-postgresql-select-reference-046",
       "sql": "SELECT a.*, b.wenjiansxmc FROM ( SELECT x.zxsq_wj_xxgx_t_rid, x.zhengmingwjid AS zmwj_key, x.zhengmingwjdm, x.wenjiansxbm, x.fujiawjmc AS wenjianysmc, x.fujianwjsm AS wenjiansm, x.wenjianlybj, x.create_time AS chuangjiansj, z.wenjianfwqlj, z.futubj, x.yewulxbm, x.wenjianywbm FROM zxsq_wj_xxgx_t x LEFT JOIN zxsq_zmwj_t z ON x.zhengmingwjid = z.zxsq_zmwj_t_rid LEFT JOIN zxsq_dzsqqqjl_cg_t c ON x.dianzisqajbh = c.dianzisqajbh WHERE x.del_flag = '0' AND (z.del_flag = '0' OR z.del_flag IS NULL) AND x.zhengmingwjbm != '123456' AND x.zhubiaom = '789' AND x.yewulxbm = '1011' AND c.create_user_jgdm = '1213' AND x.wenjianywbm = '11' ) a LEFT JOIN zxsq_fjwjywdz_t b ON a.wenjiansxbm = b.wenjiansxbm AND a.yewulxbm = b.yewulxbm;",
       "expect": {
         "ok": true,
@@ -1424,10 +1507,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG121"
     },
     {
-      "name": "postgresql-select-reference-047",
+      "name": "vastbase-postgresql-postgresql-select-reference-047",
       "sql": "SELECT a.*, b.wenjiansxmc FROM ( SELECT x.zxsq_wj_xxgx_t_rid, x.zxsq_zmwj_t_rid AS zmwj_key, x.zhengmingwjdm, x.wenjiansxbm, x.fujiawjmc AS wenjianysmc, x.fujianwjsm AS wenjiansm, x.wenjianlybj, x.create_time AS chuangjiansj, z.wenjianfwqlj, z.futubj, x.yewulxbm, x.wenjianywbm FROM zxsq_wj_xxgx_t x LEFT JOIN zxsq_zmwj_t z ON x.zhengmingwjid = z.zxsq_zmwj_t_rid LEFT JOIN zxsq_dzsqqqjl_cg_t c ON x.dianzisqajbh = c.dianzisqajbh WHERE x.del_flag = '0' AND (z.del_flag = '0' OR z.del_flag IS NULL) AND x.zhengmingwjbm != '123456' AND x.zhubiaom = '789' AND x.yewulxbm = '1011' AND c.create_user_jgdm = '1213' AND x.wenjianywbm = '11' ) a LEFT JOIN zxsq_fjwjywdz_t b ON a.wenjiansxbm = b.wenjiansxbm AND a.yewulxbm = b.yewulxbm UNION SELECT NULL AS zxsq_wj_xxgx_t_rid, z.zxsq_zmwj_t_rid AS zmwj_key, z.zhengmingwjdm, z.wenjiansxbm, z.wenjianysmc, z.wenjiansm, z.wenjianscfs AS wenjianlybj, NULL AS chuangjiansj, z.wenjianfwqlj, z.futubj, NULL AS yewulxbm, NULL AS wenjianywbm, NULL AS wenjiansxmc FROM zxsq_zmwj_t z WHERE z.del_flag = '0' AND z.zxsq_zmwj_t_rid = '';",
       "expect": {
         "ok": true,
@@ -1435,10 +1519,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG122"
     },
     {
-      "name": "postgresql-select-nested-join-derived-query-graph",
+      "name": "vastbase-postgresql-postgresql-select-nested-join-derived-query-graph",
       "sql": "SELECT s.name AS outer_name FROM public.left_t l JOIN (public.mid_t m JOIN (SELECT id, name FROM public.aaa WHERE age <= 18) s ON s.id = m.id) ON m.id = l.id WHERE s.name IS NOT NULL",
       "expect": {
         "ok": true,
@@ -1446,10 +1531,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG123"
     },
     {
-      "name": "postgresql-select-union-derived-scope",
+      "name": "vastbase-postgresql-postgresql-select-union-derived-scope",
       "sql": "SELECT a FROM (SELECT * FROM abc) UNION ALL SELECT b FROM (SELECT * FROM ttt)",
       "expect": {
         "ok": true,
@@ -1457,10 +1543,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG124"
     },
     {
-      "name": "postgresql-select-unqualified-multi-table-scope",
+      "name": "vastbase-postgresql-postgresql-select-unqualified-multi-table-scope",
       "sql": "SELECT id FROM users u JOIN orders o ON u.id = o.user_id WHERE id = 1",
       "expect": {
         "ok": true,
@@ -1468,10 +1555,11 @@
         "statement_types": [
           "SelectStmt"
         ]
-      }
+      },
+      "id": "VPG125"
     },
     {
-      "name": "postgresql-field-match-kind-direct-and-expression",
+      "name": "vastbase-postgresql-postgresql-field-match-kind-direct-and-expression",
       "sql": "SELECT id FROM public.users WHERE secret = $1 AND UPPER(secret) = $2",
       "expect": {
         "ok": true,
@@ -1483,10 +1571,11 @@
           "\"field_match_kind\":\"direct_field\"",
           "\"field_match_kind\":\"expression_field\""
         ]
-      }
+      },
+      "id": "VPG126"
     },
     {
-      "name": "postgresql-expression-field-case-expression-value",
+      "name": "vastbase-postgresql-postgresql-expression-field-case-expression-value",
       "sql": "SELECT id FROM public.users WHERE CASE WHEN id = 1 THEN secret ELSE backup_secret END = $1",
       "expect": {
         "ok": true,
@@ -1498,10 +1587,11 @@
           "\"column\":\"secret\"",
           "\"field_match_kind\":\"expression_field\",\"kind\":\"bind\""
         ]
-      }
+      },
+      "id": "VPG127"
     },
     {
-      "name": "postgresql-expression-field-multi-field-expression-value",
+      "name": "vastbase-postgresql-postgresql-expression-field-multi-field-expression-value",
       "sql": "SELECT id FROM public.users WHERE COALESCE(secret, id) = $1 AND secret || id = $2",
       "expect": {
         "ok": true,
@@ -1514,10 +1604,11 @@
           "\"column\":\"id\"",
           "\"field_match_kind\":\"expression_field\",\"kind\":\"bind\""
         ]
-      }
+      },
+      "id": "VPG128"
     },
     {
-      "name": "postgresql-expression-field-value-side-expression",
+      "name": "vastbase-postgresql-postgresql-expression-field-value-side-expression",
       "sql": "SELECT id FROM public.users WHERE secret = UPPER($1) AND secret = $2 || 'x' AND secret = CAST($3 AS text)",
       "expect": {
         "ok": true,
@@ -1532,10 +1623,11 @@
         "view_not_contains": [
           "\"field_match_kind\":\"direct_field\",\"kind\":\"bind\",\"bind_key\":\"1\""
         ]
-      }
+      },
+      "id": "VPG129"
     },
     {
-      "name": "postgresql-expression-field-dml-expression-values",
+      "name": "vastbase-postgresql-postgresql-expression-field-dml-expression-values",
       "sql": "INSERT INTO public.users (id, secret) VALUES (1, UPPER($1)); UPDATE public.users SET secret = $2 || 'x' WHERE id = 1",
       "expect": {
         "ok": true,
@@ -1547,10 +1639,11 @@
         "view_contains": [
           "\"row\":0,\"column\":1,\"kind\":\"expression\""
         ]
-      }
+      },
+      "id": "VPG130"
     },
     {
-      "name": "postgresql-update-bind-rhs-crypto-source",
+      "name": "vastbase-postgresql-postgresql-update-bind-rhs-crypto-source",
       "sql": "UPDATE public.dbp_crypto_test SET secret = $1 WHERE id = $2",
       "expect": {
         "ok": true,
@@ -1567,10 +1660,11 @@
           "\"bind_sql\":\"$1\"",
           "\"bind_position\":1"
         ]
-      }
+      },
+      "id": "VPG131"
     },
     {
-      "name": "postgresql-update-multiple-bind-rhs-crypto-source",
+      "name": "vastbase-postgresql-postgresql-update-multiple-bind-rhs-crypto-source",
       "sql": "UPDATE public.dbp_crypto_test SET phone = $1, secret = $2 WHERE id = $3",
       "expect": {
         "ok": true,
@@ -1586,10 +1680,11 @@
           "\"bind_key\":\"2\"",
           "\"bind_position\":2"
         ]
-      }
+      },
+      "id": "VPG132"
     },
     {
-      "name": "postgresql-like-escape-literal",
+      "name": "vastbase-postgresql-postgresql-like-escape-literal",
       "sql": "SELECT id FROM public.users WHERE name LIKE 'A!_%' ESCAPE '!'",
       "expect": {
         "ok": true,
@@ -1605,10 +1700,11 @@
           "\"like_escape\":{\"kind\":\"literal\"",
           "\"literal_value\":\"!\""
         ]
-      }
+      },
+      "id": "VPG133"
     },
     {
-      "name": "postgresql-not-like-escape-bind",
+      "name": "vastbase-postgresql-postgresql-not-like-escape-bind",
       "sql": "SELECT id FROM public.users WHERE name NOT LIKE $1 ESCAPE $2",
       "expect": {
         "ok": true,
@@ -1625,10 +1721,11 @@
           "\"bind_key\":\"2\"",
           "\"bind_position\":2"
         ]
-      }
+      },
+      "id": "VPG134"
     },
     {
-      "name": "postgresql-ilike-escape-bind",
+      "name": "vastbase-postgresql-postgresql-ilike-escape-bind",
       "sql": "SELECT id FROM public.users WHERE name ILIKE $1 ESCAPE $2",
       "expect": {
         "ok": true,
@@ -1643,10 +1740,11 @@
           "\"like_escape\":{\"kind\":\"bind\"",
           "\"bind_sql\":\"$2\""
         ]
-      }
+      },
+      "id": "VPG135"
     },
     {
-      "name": "postgresql-like-without-explicit-escape",
+      "name": "vastbase-postgresql-postgresql-like-without-explicit-escape",
       "sql": "SELECT id FROM public.users WHERE name LIKE $1",
       "expect": {
         "ok": true,
@@ -1660,67 +1758,18 @@
           "\"bind_sql\":\"$1\""
         ],
         "view_not_contains": "\"like_escape\""
-      }
+      },
+      "id": "VPG136"
     },
     {
-      "name": "parse-error",
+      "name": "vastbase-postgresql-parse-error",
       "sql": "SELECT FROM",
       "expect": {
         "ok": false,
         "error_code": 3,
         "error_message_contains": "syntax error"
-      }
-    },
-    {
-      "name": "vastbase-oracle-cli-current-schema",
-      "dialect": "vastbase-oracle",
-      "sql": "ALTER SESSION SET CURRENT_SCHEMA=KDES",
-      "expect": {
-        "statement_count": 1,
-        "statement_types": [
-          "VariableSetStmt"
-        ],
-        "view_contains": "alter_session",
-        "deparse_contains": "CURRENT_SCHEMA"
-      }
-    },
-    {
-      "name": "vastbase-mysql-cli-limit-binds",
-      "dialect": "vastbase-mysql",
-      "sql": "SELECT `id` FROM `users` ORDER BY `id` LIMIT ?, ?",
-      "expect": {
-        "statement_count": 1,
-        "statement_types": [
-          "SelectStmt"
-        ],
-        "deparse_contains": "LIMIT ?, ?"
-      }
-    },
-    {
-      "name": "vastbase-postgresql-cli-positional-binds",
-      "dialect": "vastbase-postgresql",
-      "sql": "SELECT id FROM public.users WHERE id = $1",
-      "expect": {
-        "statement_count": 1,
-        "statement_types": [
-          "SelectStmt"
-        ],
-        "view_contains": "\"bind_sql\":\"$1\"",
-        "deparse_contains": "$1"
-      }
-    },
-    {
-      "name": "vastbase-sqlserver-cli-top-bind",
-      "dialect": "vastbase-sqlserver",
-      "sql": "SELECT TOP (5) [id] FROM [dbo].[users] WHERE [id] = @id",
-      "expect": {
-        "statement_count": 1,
-        "statement_types": [
-          "SelectStmt"
-        ],
-        "view_contains": "\"bind_sql\":\"@id\"",
-        "deparse_contains": "TOP (5)"
-      }
+      },
+      "id": "VPG137"
     }
   ]
 }

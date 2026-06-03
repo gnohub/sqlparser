@@ -208,6 +208,10 @@ bind 字段规则：
 | `SQLPARSER_DIALECT_ORACLE` | Oracle 方言转换层 |
 | `SQLPARSER_DIALECT_SQLSERVER` | SQL Server 方言转换层 |
 | `SQLPARSER_DIALECT_DAMENG` | 达梦方言转换层 |
+| `SQLPARSER_DIALECT_VASTBASE_ORACLE` | Vastbase Oracle 兼容模式 |
+| `SQLPARSER_DIALECT_VASTBASE_MYSQL` | Vastbase MySQL 兼容模式 |
+| `SQLPARSER_DIALECT_VASTBASE_POSTGRESQL` | Vastbase PostgreSQL 兼容模式 |
+| `SQLPARSER_DIALECT_VASTBASE_SQLSERVER` | Vastbase SQL Server 兼容模式 |
 
 ## 生命周期与线程模型
 
@@ -623,3 +627,4 @@ patch 成功后 handle generation 递增，旧 query graph view 失效。
 | `examples/dialect/11_oracle_dialect.c` | Oracle 方言解析与改写 |
 | `examples/dialect/12_sqlserver_dialect.c` | SQL Server 方言解析与反解析 |
 | `examples/dialect/17_dameng_dialect.c` | 达梦方言解析与反解析 |
+| `examples/dialect/20_vastbase_dialect.c` | Vastbase 兼容模式解析与反解析 |

@@ -50,11 +50,11 @@ static void sqlparser_cli_print_usage(const char *program)
 {
 	fprintf(
 		stderr,
-		"Usage: %s [--mode view|deparse] [--dialect postgresql|mysql|oracle|sqlserver|dameng] [--compact] [--file PATH] [--] [SQL]\n",
+		"Usage: %s [--mode view|deparse] [--dialect postgresql|mysql|oracle|sqlserver|dameng|vastbase-oracle|vastbase-mysql|vastbase-postgresql|vastbase-sqlserver] [--compact] [--file PATH] [--] [SQL]\n",
 		program);
 	fprintf(
 		stderr,
-		"       %s --batch-file PATH [--output PATH] [--mode view|deparse] [--dialect postgresql|mysql|oracle|sqlserver|dameng] [--compact]\n",
+		"       %s --batch-file PATH [--output PATH] [--mode view|deparse] [--dialect postgresql|mysql|oracle|sqlserver|dameng|vastbase-oracle|vastbase-mysql|vastbase-postgresql|vastbase-sqlserver] [--compact]\n",
 		program);
 	fprintf(stderr, "       %s --file ./input.sql\n", program);
 	fprintf(stderr, "       %s --batch-file ./sql_batch.json --output ./out.json\n", program);
@@ -253,6 +253,26 @@ static int sqlparser_cli_parse_dialect(const char *value, sqlparser_dialect_t *d
 	if (sqlparser_cli_ascii_equal_ci(value, "dameng") ||
 	    sqlparser_cli_ascii_equal_ci(value, "dm")) {
 		*dialect_out = SQLPARSER_DIALECT_DAMENG;
+		return 0;
+	}
+	if (sqlparser_cli_ascii_equal_ci(value, "vastbase") ||
+	    sqlparser_cli_ascii_equal_ci(value, "vastbase-oracle")) {
+		*dialect_out = SQLPARSER_DIALECT_VASTBASE_ORACLE;
+		return 0;
+	}
+	if (sqlparser_cli_ascii_equal_ci(value, "vastbase-mysql")) {
+		*dialect_out = SQLPARSER_DIALECT_VASTBASE_MYSQL;
+		return 0;
+	}
+	if (sqlparser_cli_ascii_equal_ci(value, "vastbase-postgresql") ||
+	    sqlparser_cli_ascii_equal_ci(value, "vastbase-postgres") ||
+	    sqlparser_cli_ascii_equal_ci(value, "vastbase-pg")) {
+		*dialect_out = SQLPARSER_DIALECT_VASTBASE_POSTGRESQL;
+		return 0;
+	}
+	if (sqlparser_cli_ascii_equal_ci(value, "vastbase-sqlserver") ||
+	    sqlparser_cli_ascii_equal_ci(value, "vastbase-mssql")) {
+		*dialect_out = SQLPARSER_DIALECT_VASTBASE_SQLSERVER;
 		return 0;
 	}
 
@@ -602,7 +622,7 @@ static int sqlparser_cli_run_batch(
 			    sqlparser_cli_parse_dialect(json_string_value(dialect_json), &batch_dialect) != 0) {
 				json_decref(input_root);
 				json_decref(output_root);
-				fprintf(stderr, "batch field 'dialect' must be one of postgresql/mysql/oracle/sqlserver/dameng\n");
+				fprintf(stderr, "batch field 'dialect' must be one of postgresql/mysql/oracle/sqlserver/dameng/vastbase-oracle/vastbase-mysql/vastbase-postgresql/vastbase-sqlserver\n");
 				return 1;
 			}
 		}

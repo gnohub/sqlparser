@@ -20,7 +20,7 @@
 #include "sqlparser_internal.h"
 
 #ifndef SQLPARSER_VERSION_TEXT
-#define SQLPARSER_VERSION_TEXT "2.5.0"
+#define SQLPARSER_VERSION_TEXT "2.6.0"
 #endif
 
 #ifndef SQLPARSER_LIBPG_QUERY_TAG_TEXT
@@ -1341,6 +1341,14 @@ const char *sqlparser_dialect_name(sqlparser_dialect_t dialect)
 			return "sqlserver";
 		case SQLPARSER_DIALECT_DAMENG:
 			return "dameng";
+		case SQLPARSER_DIALECT_VASTBASE_ORACLE:
+			return "vastbase-oracle";
+		case SQLPARSER_DIALECT_VASTBASE_MYSQL:
+			return "vastbase-mysql";
+		case SQLPARSER_DIALECT_VASTBASE_POSTGRESQL:
+			return "vastbase-postgresql";
+		case SQLPARSER_DIALECT_VASTBASE_SQLSERVER:
+			return "vastbase-sqlserver";
 		case SQLPARSER_DIALECT_MYSQL:
 			return "mysql";
 		case SQLPARSER_DIALECT_POSTGRESQL:

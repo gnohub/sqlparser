@@ -152,6 +152,15 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 | P135 | `postgresql-ilike-escape-bind` | `ILIKE $1 ESCAPE $2` | structured ESCAPE output for PostgreSQL `ILIKE` |
 | P136 | `postgresql-like-without-explicit-escape` | `LIKE $1` | `like_escape` is omitted when ESCAPE is not explicit |
 
+## Dialect CLI Cases
+
+| Case ID | Case Name | Input | Validation Focus |
+| --- | --- | --- | --- |
+| VCLI001 | `vastbase-oracle-cli-current-schema` | `ALTER SESSION SET CURRENT_SCHEMA=KDES` | `vastbase-oracle` CLI dialect name, `ALTER SESSION` View JSON, and deparse |
+| VCLI002 | `vastbase-mysql-cli-limit-binds` | ``SELECT `id` FROM `users` ORDER BY `id` LIMIT ?, ?`` | `vastbase-mysql` CLI dialect name, backtick identifiers, and comma LIMIT binds |
+| VCLI003 | `vastbase-postgresql-cli-positional-binds` | `SELECT id FROM public.users WHERE id = $1` | `vastbase-postgresql` CLI dialect name and PostgreSQL positional bind |
+| VCLI004 | `vastbase-sqlserver-cli-top-bind` | `SELECT TOP (5) [id] FROM [dbo].[users] WHERE [id] = @id` | `vastbase-sqlserver` CLI dialect name, bracket identifiers, `TOP`, and named bind |
+
 ## Negative Case
 
 | Case ID | Case Name | Input | Validation Focus |

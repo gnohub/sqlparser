@@ -1,5 +1,21 @@
 # 变更记录
 
+## 2.6.0
+
+### Vastbase 方言
+
+- 新增四个显式 Vastbase 兼容模式：`vastbase-oracle`、`vastbase-mysql`、`vastbase-postgresql` 和 `vastbase-sqlserver`。
+- 公共 C 枚举新增 `SQLPARSER_DIALECT_VASTBASE_ORACLE`、`SQLPARSER_DIALECT_VASTBASE_MYSQL`、`SQLPARSER_DIALECT_VASTBASE_POSTGRESQL` 和 `SQLPARSER_DIALECT_VASTBASE_SQLSERVER`。
+- CLI 支持四个 Vastbase 方言名称；`vastbase` 作为确定性别名映射到 `vastbase-oracle`，不会根据 SQL 文本自动猜测兼容模式。
+- Vastbase 四个模式分别通过独立 hook 接入对应兼容模式，保留各自公开 SQL 形态、bind 规则和结构化输出规则。
+
+### 测试与验证
+
+- 新增四套 Vastbase case matrix，覆盖 Oracle、MySQL、PostgreSQL 和 SQL Server 兼容模式的解析、View JSON、反解析和明确不支持语法返回码。
+- 新增 Vastbase CLI batch 用例和 `examples/dialect/20_vastbase_dialect.c`。
+- 更新 Linux 与 Windows/MSVC 构建清单，确保新增源文件、单元测试和示例参与构建。
+- 发布验证覆盖 Linux 单元测试、ASan、UBSan、Valgrind 内存检查和 ABI 导出检查。
+
 ## 2.5.0
 
 ### LIKE ESCAPE 结构化输出
