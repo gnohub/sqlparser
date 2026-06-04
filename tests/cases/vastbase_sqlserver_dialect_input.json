@@ -1013,7 +1013,7 @@
         "deparse_contains": "@max_age",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
-          "\"operator\":\"BETWEEN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"operator\":\"BETWEEN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"min_age\"",
           "\"bind_sql\":\"@min_age\"",
           "\"bind_position\":1",
@@ -1037,7 +1037,7 @@
         "deparse_contains": "@s2",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"status\"",
-          "\"operator\":\"NOT IN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"operator\":\"NOT IN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"s1\"",
           "\"bind_position\":1",
           "\"bind_key\":\"s2\"",
@@ -1059,7 +1059,7 @@
         "deparse_contains": "@max_age",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
-          "\"operator\":\"NOT BETWEEN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"operator\":\"NOT BETWEEN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"min_age\"",
           "\"bind_position\":1",
           "\"bind_key\":\"max_age\"",
@@ -1081,7 +1081,7 @@
         "deparse_contains": "@name_pattern",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"name\"",
-          "\"operator\":\"NOT LIKE\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"operator\":\"NOT LIKE\",\"operator_kind\":\"not_like\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"name_pattern\"",
           "\"bind_sql\":\"@name_pattern\"",
           "\"bind_position\":1"
@@ -1103,7 +1103,7 @@
         "view_contains": [
           "\"clause\":\"select_list\",\"relation\":0,\"column\":\"name\"",
           "\"clause\":\"where\",\"relation\":0,\"column\":\"name\"",
-          "\"operator\":\"LIKE\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"operator\":\"LIKE\",\"operator_kind\":\"like\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"name\"",
           "\"bind_sql\":\"@name\"",
           "\"bind_position\":1"
@@ -1125,7 +1125,7 @@
         "view_contains": [
           "\"kind\":\"delete\"",
           "\"clause\":\"where\",\"relation\":0,\"column\":\"email\"",
-          "\"operator\":\"IN\",\"field\":0,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"operator\":\"IN\",\"operator_kind\":\"unknown\",\"field\":0,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"email1\"",
           "\"bind_position\":1",
           "\"bind_key\":\"email2\"",
@@ -1447,6 +1447,7 @@
         "deparse_not_contains": "pg_catalog.like_escape",
         "view_contains": [
           "\"operator\":\"LIKE\"",
+          "\"operator_kind\":\"like\"",
           "\"kind\":\"literal\"",
           "\"like_escape\":{\"kind\":\"literal\"",
           "\"literal_value\":\"!\""
@@ -1467,6 +1468,7 @@
         "deparse_not_contains": "pg_catalog.like_escape",
         "view_contains": [
           "\"operator\":\"NOT LIKE\"",
+          "\"operator_kind\":\"not_like\"",
           "\"bind_key\":\"pattern\"",
           "\"bind_sql\":\"@pattern\"",
           "\"like_escape\":{\"kind\":\"bind\"",
@@ -1491,6 +1493,7 @@
         "deparse_not_contains": "pg_catalog.like_escape",
         "view_contains": [
           "\"operator\":\"LIKE\"",
+          "\"operator_kind\":\"like\"",
           "\"bind_sql\":\"?\"",
           "\"bind_position\":1",
           "\"like_escape\":{\"kind\":\"bind\"",
@@ -1512,6 +1515,7 @@
         "deparse_contains": "LIKE @pattern",
         "view_contains": [
           "\"operator\":\"LIKE\"",
+          "\"operator_kind\":\"like\"",
           "\"bind_sql\":\"@pattern\""
         ],
         "view_not_contains": [

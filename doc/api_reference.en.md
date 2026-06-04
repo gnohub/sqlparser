@@ -119,6 +119,7 @@ original SQL, the current syntax tree, dialect state, and lazily derived caches.
 | `sqlparser_value_kind_t` | value kind used by fine-grained value APIs |
 | `sqlparser_bind_kind_t` | prepared-statement placeholder kind |
 | `sqlparser_graph_field_match_kind_t` | query graph field-match kind for condition values |
+| `sqlparser_graph_operator_kind_t` | structured operator classification for query graph values |
 | `sqlparser_graph_like_escape_kind_t` | escape shape for explicit `LIKE ... ESCAPE ...` in query graph |
 | `sqlparser_literal_kind_t` | literal kind |
 | `sqlparser_selector_kind_t` | selector kind |
@@ -181,6 +182,16 @@ Bind-field rules:
 | `SQLPARSER_GRAPH_FIELD_MATCH_UNKNOWN` | `0` | no field association or no stable classification |
 | `SQLPARSER_GRAPH_FIELD_MATCH_DIRECT_FIELD` | `1` | the predicate left side is a direct field, such as `secret = ?` |
 | `SQLPARSER_GRAPH_FIELD_MATCH_EXPRESSION_FIELD` | `2` | the field is inside a function, cast, expression, or `CASE`, such as `UPPER(secret) = ?` |
+
+`sqlparser_graph_operator_kind_t`:
+
+| Enum | Value | Meaning |
+| --- | --- | --- |
+| `SQLPARSER_GRAPH_OPERATOR_UNKNOWN` | `0` | unclassified or not a pattern-match operator |
+| `SQLPARSER_GRAPH_OPERATOR_LIKE` | `1` | `LIKE` |
+| `SQLPARSER_GRAPH_OPERATOR_NOT_LIKE` | `2` | `NOT LIKE` |
+| `SQLPARSER_GRAPH_OPERATOR_ILIKE` | `3` | `ILIKE` |
+| `SQLPARSER_GRAPH_OPERATOR_NOT_ILIKE` | `4` | `NOT ILIKE` |
 
 `sqlparser_clause_kind_t`:
 
@@ -261,8 +272,11 @@ Defined dialects:
 | `sqlparser_graph_target_kind_name()` | returns the query graph target-kind name |
 | `sqlparser_graph_value_kind_name()` | returns the query graph value-kind name |
 | `sqlparser_graph_field_match_kind_name()` | returns the query graph field-match kind name |
+| `sqlparser_graph_operator_kind_name()` | returns the query graph operator-kind name |
 | `sqlparser_graph_set_kind_name()` | returns the query graph set-kind name |
 | `sqlparser_graph_dml_kind_name()` | returns the query graph DML-kind name |
+| `sqlparser_graph_operator_is_like_pattern()` | checks whether an operator kind is `LIKE`, `NOT LIKE`, `ILIKE`, or `NOT ILIKE` |
+| `sqlparser_graph_value_is_like_pattern()` | checks whether a query graph value is a pattern-match pattern value |
 | `sqlparser_dialect_name()` | returns the dialect name |
 | `sqlparser_bool_operator_name()` | returns the boolean-operator name |
 
@@ -591,6 +605,10 @@ from which it was read.
 - `sqlparser_graph_value_t.field_match_kind` is meaningful only when
   `has_field` is true. It distinguishes direct-field predicates such as
   `secret = ?` from expression-field predicates such as `UPPER(secret) = ?`.
+- `sqlparser_graph_value_t.operator_kind` is a structured classification based
+  on the normalized operator. Callers can use
+  `sqlparser_graph_value_is_like_pattern()` or the enum value to check
+  pattern-match semantics without comparing `operator_name` strings.
 - If the field side contains multiple attributable fields, each field gets a
   separate `expression_field` value relation.
 - If the value side is a function, cast, operator, array, row, or CASE

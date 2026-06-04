@@ -16,9 +16,12 @@ SQLPARSER_0 {
 		sqlparser_graph_target_kind_name;
 		sqlparser_graph_value_kind_name;
 		sqlparser_graph_field_match_kind_name;
+		sqlparser_graph_operator_kind_name;
 		sqlparser_graph_set_kind_name;
 		sqlparser_graph_dml_kind_name;
 		sqlparser_graph_insert_mode_name;
+		sqlparser_graph_operator_is_like_pattern;
+		sqlparser_graph_value_is_like_pattern;
 		sqlparser_limits_default;
 		sqlparser_parse_options_default;
 		sqlparser_parse;

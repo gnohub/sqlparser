@@ -674,7 +674,7 @@
         "deparse_contains": "$3",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"status\"",
-          "\"operator\":\"IN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"operator\":\"IN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_sql\":\"$1\"",
           "\"bind_position\":1",
           "\"bind_sql\":\"$2\"",
@@ -696,7 +696,7 @@
         "deparse_contains": "$2",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
-          "\"operator\":\"BETWEEN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"operator\":\"BETWEEN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_sql\":\"$1\"",
           "\"bind_position\":1",
           "\"bind_sql\":\"$2\"",
@@ -716,7 +716,7 @@
         "deparse_contains": "$2",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"status\"",
-          "\"operator\":\"NOT IN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"operator\":\"NOT IN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_sql\":\"$1\"",
           "\"bind_position\":1",
           "\"bind_sql\":\"$2\"",
@@ -736,7 +736,7 @@
         "deparse_contains": "$2",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
-          "\"operator\":\"NOT BETWEEN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"operator\":\"NOT BETWEEN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_sql\":\"$1\"",
           "\"bind_position\":1",
           "\"bind_sql\":\"$2\"",
@@ -997,6 +997,10 @@
         "statement_types": [
           "SelectStmt"
         ],
+        "view_contains": [
+          "\"operator\":\"NOT LIKE\"",
+          "\"operator_kind\":\"not_like\""
+        ],
         "view_not_contains": [
           "\"sql\":\"$1\""
         ]
@@ -1010,6 +1014,10 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
+        ],
+        "view_contains": [
+          "\"operator\":\"NOT ILIKE\"",
+          "\"operator_kind\":\"not_ilike\""
         ],
         "view_not_contains": [
           "\"sql\":\"$1\""
@@ -1696,6 +1704,7 @@
         "deparse_not_contains": "pg_catalog.like_escape",
         "view_contains": [
           "\"operator\":\"LIKE\"",
+          "\"operator_kind\":\"like\"",
           "\"kind\":\"literal\"",
           "\"like_escape\":{\"kind\":\"literal\"",
           "\"literal_value\":\"!\""
@@ -1716,6 +1725,7 @@
         "deparse_not_contains": "pg_catalog.like_escape",
         "view_contains": [
           "\"operator\":\"NOT LIKE\"",
+          "\"operator_kind\":\"not_like\"",
           "\"bind_key\":\"1\"",
           "\"like_escape\":{\"kind\":\"bind\"",
           "\"bind_key\":\"2\"",
@@ -1737,6 +1747,7 @@
         "deparse_not_contains": "pg_catalog.like_escape",
         "view_contains": [
           "\"operator\":\"ILIKE\"",
+          "\"operator_kind\":\"ilike\"",
           "\"like_escape\":{\"kind\":\"bind\"",
           "\"bind_sql\":\"$2\""
         ]
@@ -1755,6 +1766,7 @@
         "deparse_contains": "LIKE $1",
         "view_contains": [
           "\"operator\":\"LIKE\"",
+          "\"operator_kind\":\"like\"",
           "\"bind_sql\":\"$1\""
         ],
         "view_not_contains": "\"like_escape\""

@@ -134,6 +134,14 @@ typedef enum {
 	SQLPARSER_GRAPH_FIELD_MATCH_EXPRESSION_FIELD = 2
 } sqlparser_graph_field_match_kind_t;
 
+typedef enum sqlparser_graph_operator_kind {
+	SQLPARSER_GRAPH_OPERATOR_UNKNOWN = 0,
+	SQLPARSER_GRAPH_OPERATOR_LIKE = 1,
+	SQLPARSER_GRAPH_OPERATOR_NOT_LIKE = 2,
+	SQLPARSER_GRAPH_OPERATOR_ILIKE = 3,
+	SQLPARSER_GRAPH_OPERATOR_NOT_ILIKE = 4
+} sqlparser_graph_operator_kind_t;
+
 typedef enum {
 	SQLPARSER_GRAPH_LIKE_ESCAPE_NONE = 0,
 	SQLPARSER_GRAPH_LIKE_ESCAPE_LITERAL = 1,
@@ -358,6 +366,7 @@ typedef struct {
 	size_t block_index;
 	sqlparser_clause_kind_t clause;
 	const char *operator_name;
+	sqlparser_graph_operator_kind_t operator_kind;
 	size_t field_index;
 	int has_field;
 	sqlparser_graph_field_match_kind_t field_match_kind;
@@ -531,9 +540,12 @@ const char *sqlparser_graph_relation_kind_name(sqlparser_graph_relation_kind_t k
 const char *sqlparser_graph_target_kind_name(sqlparser_graph_target_kind_t kind);
 const char *sqlparser_graph_value_kind_name(sqlparser_graph_value_kind_t kind);
 const char *sqlparser_graph_field_match_kind_name(sqlparser_graph_field_match_kind_t kind);
+const char *sqlparser_graph_operator_kind_name(sqlparser_graph_operator_kind_t kind);
 const char *sqlparser_graph_set_kind_name(sqlparser_graph_set_kind_t kind);
 const char *sqlparser_graph_dml_kind_name(sqlparser_graph_dml_kind_t kind);
 const char *sqlparser_graph_insert_mode_name(sqlparser_graph_insert_mode_t mode);
+int sqlparser_graph_operator_is_like_pattern(sqlparser_graph_operator_kind_t kind);
+int sqlparser_graph_value_is_like_pattern(const sqlparser_graph_value_t *value);
 
 void sqlparser_limits_default(sqlparser_limits_t *out_limits);
 void sqlparser_parse_options_default(sqlparser_parse_options_t *out_options);

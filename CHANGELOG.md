@@ -1,5 +1,20 @@
 # 变更记录
 
+## 2.7.0
+
+### Query Graph 操作符分类
+
+- `sqlparser_graph_value_t` 新增 `operator_kind`，用于对 `LIKE`、`NOT LIKE`、`ILIKE`、`NOT ILIKE` 进行结构化分类。
+- 新增 `sqlparser_graph_operator_kind_t`、`sqlparser_graph_operator_kind_name()`、`sqlparser_graph_operator_is_like_pattern()` 和 `sqlparser_graph_value_is_like_pattern()`。
+- View JSON 的 `query_graph.values[]` 在存在 `operator` 时输出 `operator_kind`，pattern-match 操作为 `like`、`not_like`、`ilike` 或 `not_ilike`，其他操作符为 `unknown`。
+- `LIKE ... ESCAPE ...` 识别复用结构化操作符分类，不再依赖调用方比较操作符字符串。
+
+### 测试与验证
+
+- PostgreSQL、Oracle、MySQL、SQL Server、达梦和 Vastbase 四个兼容模式的现有 case matrix 增加 pattern-match 操作符分类覆盖。
+- 核心 API 回归测试覆盖 public enum、辅助函数、View JSON 输出、非 pattern 操作符边界和显式 `ESCAPE` 保留。
+- 发布验证覆盖 Linux 单元测试、ASan、UBSan、Valgrind 内存检查和 ABI 导出检查。
+
 ## 2.6.0
 
 ### Vastbase 方言

@@ -532,7 +532,7 @@
         "deparse_contains": "BETWEEN ? AND ?",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
-          "\"operator\":\"BETWEEN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"operator\":\"BETWEEN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"1\"",
           "\"bind_position\":1",
           "\"bind_key\":\"2\"",
@@ -554,7 +554,7 @@
         "deparse_contains": "NOT IN (?, ?)",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"status\"",
-          "\"operator\":\"NOT IN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"operator\":\"NOT IN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"1\"",
           "\"bind_position\":1",
           "\"bind_key\":\"2\"",
@@ -576,7 +576,7 @@
         "deparse_contains": "NOT BETWEEN ? AND ?",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
-          "\"operator\":\"NOT BETWEEN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"operator\":\"NOT BETWEEN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"1\"",
           "\"bind_position\":1",
           "\"bind_key\":\"2\"",
@@ -598,7 +598,7 @@
         "deparse_contains": "NOT LIKE ?",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"name\"",
-          "\"operator\":\"NOT LIKE\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"operator\":\"NOT LIKE\",\"operator_kind\":\"not_like\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"1\"",
           "\"bind_position\":1"
         ],
@@ -619,7 +619,7 @@
         "view_contains": [
           "\"clause\":\"select_list\",\"relation\":0,\"column\":\"name\"",
           "\"clause\":\"where\",\"relation\":0,\"column\":\"name\"",
-          "\"operator\":\"LIKE\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"operator\":\"LIKE\",\"operator_kind\":\"like\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"1\"",
           "\"bind_position\":1"
         ],
@@ -653,7 +653,7 @@
         "view_contains": [
           "\"kind\":\"delete\"",
           "\"clause\":\"where\",\"relation\":0,\"column\":\"email\"",
-          "\"operator\":\"IN\",\"field\":0,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"operator\":\"IN\",\"operator_kind\":\"unknown\",\"field\":0,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"1\"",
           "\"bind_position\":1",
           "\"bind_key\":\"2\"",
@@ -676,7 +676,7 @@
           "\"kind\":\"update\"",
           "\"clause\":\"set_list\",\"relation\":0,\"column\":\"note\"",
           "\"clause\":\"where\",\"relation\":0,\"column\":\"phone\"",
-          "\"operator\":\"IN\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"operator\":\"IN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_position\":1",
           "\"bind_position\":2",
           "\"bind_position\":3"
@@ -1113,6 +1113,7 @@
         "deparse_not_contains": "pg_catalog.like_escape",
         "view_contains": [
           "\"operator\":\"LIKE\"",
+          "\"operator_kind\":\"like\"",
           "\"kind\":\"literal\"",
           "\"like_escape\":{\"kind\":\"literal\"",
           "\"literal_value\":\"!\""
@@ -1133,6 +1134,7 @@
         "deparse_not_contains": "pg_catalog.like_escape",
         "view_contains": [
           "\"operator\":\"LIKE\"",
+          "\"operator_kind\":\"like\"",
           "\"bind_sql\":\"?\"",
           "\"bind_position\":1",
           "\"like_escape\":{\"kind\":\"bind\"",
@@ -1155,6 +1157,7 @@
         "deparse_not_contains": "pg_catalog.like_escape",
         "view_contains": [
           "\"operator\":\"NOT LIKE\"",
+          "\"operator_kind\":\"not_like\"",
           "\"bind_sql\":\"?\"",
           "\"like_escape\":{\"kind\":\"literal\"",
           "\"literal_value\":\"!\""
@@ -1175,6 +1178,7 @@
         "deparse_contains": "LIKE ?",
         "view_contains": [
           "\"operator\":\"LIKE\"",
+          "\"operator_kind\":\"like\"",
           "\"bind_sql\":\"?\""
         ],
         "view_not_contains": [
@@ -1342,7 +1346,7 @@
           "\"clause\":\"set_list\",\"relation\":0,\"column\":\"name\"",
           "\"clause\":\"on\",\"relation\":0,\"column\":\"phone\"",
           "\"clause\":\"where\",\"relation\":1,\"column\":\"id\"",
-          "\"clause\":\"on\",\"operator\":\"=\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"clause\":\"on\",\"operator\":\"=\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"1\"",
           "\"bind_position\":1",
           "\"bind_key\":\"2\"",
@@ -1376,7 +1380,7 @@
           "\"table\":\"orders\"",
           "\"clause\":\"on\",\"relation\":0,\"column\":\"phone\"",
           "\"clause\":\"where\",\"relation\":1,\"column\":\"id\"",
-          "\"clause\":\"on\",\"operator\":\"=\",\"field\":0,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"clause\":\"on\",\"operator\":\"=\",\"operator_kind\":\"unknown\",\"field\":0,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"1\"",
           "\"bind_position\":1",
           "\"bind_key\":\"2\"",

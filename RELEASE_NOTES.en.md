@@ -1,23 +1,24 @@
-# v2.6.0 Release Notes
+# v2.7.0 Release Notes
 
-`v2.6.0` adds four explicit Vastbase compatibility modes. Callers can select
-the Oracle, MySQL, PostgreSQL, or SQL Server compatibility entry directly; the
-library does not infer a mode from SQL text.
+`v2.7.0` adds structured Query Graph operator classification. Callers can use
+the public enum to identify `LIKE`, `NOT LIKE`, `ILIKE`, and `NOT ILIKE`
+pattern-match semantics without comparing operator strings.
 
 ## Highlights
 
-- Updated the public version to `2.6.0`.
-- Added `SQLPARSER_DIALECT_VASTBASE_ORACLE`,
-  `SQLPARSER_DIALECT_VASTBASE_MYSQL`,
-  `SQLPARSER_DIALECT_VASTBASE_POSTGRESQL`, and
-  `SQLPARSER_DIALECT_VASTBASE_SQLSERVER`.
-- The CLI accepts `vastbase-oracle`, `vastbase-mysql`,
-  `vastbase-postgresql`, and `vastbase-sqlserver`.
-- In the CLI, `vastbase` is a deterministic alias for `vastbase-oracle`.
-- The four Vastbase modes keep the public deparse, bind rules, and Query
-  Graph/View JSON output rules of their compatibility entries.
-- Added Vastbase-specific documentation, official syntax coverage, four case
-  matrices, and a dialect example.
+- Updated the public version to `2.7.0`.
+- Added `operator_kind` to `sqlparser_graph_value_t`.
+- Added `sqlparser_graph_operator_kind_t` with `unknown`, `like`,
+  `not_like`, `ilike`, and `not_ilike`.
+- Added `sqlparser_graph_operator_kind_name()`,
+  `sqlparser_graph_operator_is_like_pattern()`, and
+  `sqlparser_graph_value_is_like_pattern()`.
+- View JSON now emits `operator_kind` in `query_graph.values[]` when an
+  `operator` is present.
+- `LIKE ... ESCAPE ...` recognition reuses `operator_kind`; explicit `ESCAPE`
+  remains represented by `like_escape`.
+- The public header layout changed. Rebuild callers with this version's header
+  before linking against this version of the library.
 
 ## Release Validation
 
@@ -34,5 +35,5 @@ This release validation includes:
 
 - Public header: `include/sqlparser/sqlparser.h`
 - Shared-library ABI major: `libsqlparser.so.0`
-- Current ABI exported symbols: `128`
+- Current ABI exported symbols: `131`
 - Vendored `libpg_query` tag: `17-6.2.2`

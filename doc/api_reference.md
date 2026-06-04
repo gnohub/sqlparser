@@ -111,6 +111,7 @@ int main(void)
 | `sqlparser_value_kind_t` | 精细值读取接口中的值类型 |
 | `sqlparser_bind_kind_t` | 预编译占位符类型 |
 | `sqlparser_graph_field_match_kind_t` | query graph 条件值的字段匹配形态 |
+| `sqlparser_graph_operator_kind_t` | query graph value 的结构化操作符分类 |
 | `sqlparser_graph_like_escape_kind_t` | query graph 中显式 `LIKE ... ESCAPE ...` 的 escape 形态 |
 | `sqlparser_literal_kind_t` | 字面量类型 |
 | `sqlparser_selector_kind_t` | selector 类型 |
@@ -166,6 +167,16 @@ bind 字段规则：
 | `SQLPARSER_GRAPH_FIELD_MATCH_UNKNOWN` | `0` | 未关联字段或无法稳定判断 |
 | `SQLPARSER_GRAPH_FIELD_MATCH_DIRECT_FIELD` | `1` | 条件左侧是直接字段，例如 `secret = ?` |
 | `SQLPARSER_GRAPH_FIELD_MATCH_EXPRESSION_FIELD` | `2` | 条件左侧字段位于函数、类型转换、表达式或 `CASE` 中，例如 `UPPER(secret) = ?` |
+
+`sqlparser_graph_operator_kind_t`：
+
+| 枚举 | 数值 | 说明 |
+| --- | --- | --- |
+| `SQLPARSER_GRAPH_OPERATOR_UNKNOWN` | `0` | 未分类或不是 pattern-match 操作符 |
+| `SQLPARSER_GRAPH_OPERATOR_LIKE` | `1` | `LIKE` |
+| `SQLPARSER_GRAPH_OPERATOR_NOT_LIKE` | `2` | `NOT LIKE` |
+| `SQLPARSER_GRAPH_OPERATOR_ILIKE` | `3` | `ILIKE` |
+| `SQLPARSER_GRAPH_OPERATOR_NOT_ILIKE` | `4` | `NOT ILIKE` |
 
 `sqlparser_clause_kind_t`：
 
@@ -239,8 +250,11 @@ bind 字段规则：
 | `sqlparser_graph_target_kind_name()` | 返回 query graph target 类型名称 |
 | `sqlparser_graph_value_kind_name()` | 返回 query graph value 类型名称 |
 | `sqlparser_graph_field_match_kind_name()` | 返回 query graph 字段匹配形态名称 |
+| `sqlparser_graph_operator_kind_name()` | 返回 query graph 操作符分类名称 |
 | `sqlparser_graph_set_kind_name()` | 返回 query graph set 类型名称 |
 | `sqlparser_graph_dml_kind_name()` | 返回 query graph DML 类型名称 |
+| `sqlparser_graph_operator_is_like_pattern()` | 判断操作符分类是否为 `LIKE`、`NOT LIKE`、`ILIKE` 或 `NOT ILIKE` |
+| `sqlparser_graph_value_is_like_pattern()` | 判断 query graph value 是否为 pattern-match 的 pattern 值 |
 | `sqlparser_dialect_name()` | 返回方言名称 |
 | `sqlparser_bool_operator_name()` | 返回布尔连接符名称 |
 
@@ -530,6 +544,7 @@ sqlparser_status_t sqlparser_statement_query_graph(
 - Oracle multi-table INSERT branch cell 如果直接引用末尾 source query 输出字段，`sqlparser_graph_dml_cell_t.kind` 为 `SQLPARSER_GRAPH_VALUE_FIELD`，并通过 `has_source_target/source_target_index` 指向对应 `targets[]` 项。
 - `values[]` 只记录与字段或 SELECT target 关联的应用侧值；`LIMIT/OFFSET`、`ROWNUM` 等分页或伪列 bind 不进入 `values[]`。
 - `sqlparser_graph_value_t.field_match_kind` 仅在 `has_field` 为真时有效，用于区分 `secret = ?` 这类直接字段匹配和 `UPPER(secret) = ?` 这类表达式字段匹配。
+- `sqlparser_graph_value_t.operator_kind` 是基于已归一操作符的结构化分类；调用方判断 pattern-match 语义时应使用 `sqlparser_graph_value_is_like_pattern()` 或枚举值，不需要比较 `operator_name` 字符串。
 - 字段侧表达式包含多个字段时，每个可定位字段各输出一条 `expression_field` value 关系。
 - 值侧是函数、CAST、运算符、数组、ROW 或 CASE 表达式时，关联字段的 value 使用 `SQLPARSER_GRAPH_VALUE_EXPRESSION`，不会把内部 bind/literal 当作 direct value 暴露。
 - `LIKE`、`NOT LIKE`、`ILIKE`、`NOT ILIKE` 带显式 `ESCAPE` 时，pattern 对应的 `sqlparser_graph_value_t.like_escape` 保存 escape 结构；没有显式 `ESCAPE` 时 `kind` 为 `SQLPARSER_GRAPH_LIKE_ESCAPE_NONE`。反解析输出保持公开 SQL 形态，例如 `LIKE pattern ESCAPE escape`。

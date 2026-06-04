@@ -4055,6 +4055,152 @@ static int test_query_graph_like_escape_semantics(void)
 	return 0;
 }
 
+static int test_query_graph_operator_kind_semantics(void)
+{
+	struct operator_kind_case {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *operator_name;
+		sqlparser_graph_operator_kind_t operator_kind;
+		int expect_like_pattern;
+		int expect_like_escape;
+	};
+	static const struct operator_kind_case cases[] = {
+		{SQLPARSER_DIALECT_POSTGRESQL,
+		 "SELECT id FROM users WHERE phone LIKE $1",
+		 "LIKE", SQLPARSER_GRAPH_OPERATOR_LIKE, 1, 0},
+		{SQLPARSER_DIALECT_POSTGRESQL,
+		 "SELECT id FROM users WHERE phone NOT LIKE $1",
+		 "NOT LIKE", SQLPARSER_GRAPH_OPERATOR_NOT_LIKE, 1, 0},
+		{SQLPARSER_DIALECT_POSTGRESQL,
+		 "SELECT id FROM users WHERE phone ILIKE $1",
+		 "ILIKE", SQLPARSER_GRAPH_OPERATOR_ILIKE, 1, 0},
+		{SQLPARSER_DIALECT_POSTGRESQL,
+		 "SELECT id FROM users WHERE phone NOT ILIKE $1",
+		 "NOT ILIKE", SQLPARSER_GRAPH_OPERATOR_NOT_ILIKE, 1, 0},
+		{SQLPARSER_DIALECT_POSTGRESQL,
+		 "SELECT id FROM users WHERE phone ILIKE $1 ESCAPE $2",
+		 "ILIKE", SQLPARSER_GRAPH_OPERATOR_ILIKE, 1, 1},
+		{SQLPARSER_DIALECT_POSTGRESQL,
+		 "SELECT id FROM users WHERE phone = $1",
+		 "=", SQLPARSER_GRAPH_OPERATOR_UNKNOWN, 0, 0},
+		{SQLPARSER_DIALECT_ORACLE,
+		 "SELECT id FROM users WHERE phone LIKE :pattern",
+		 "LIKE", SQLPARSER_GRAPH_OPERATOR_LIKE, 1, 0},
+		{SQLPARSER_DIALECT_ORACLE,
+		 "SELECT id FROM users WHERE phone NOT LIKE :pattern",
+		 "NOT LIKE", SQLPARSER_GRAPH_OPERATOR_NOT_LIKE, 1, 0},
+		{SQLPARSER_DIALECT_ORACLE,
+		 "SELECT id FROM users WHERE phone LIKE :pattern ESCAPE :escape_char",
+		 "LIKE", SQLPARSER_GRAPH_OPERATOR_LIKE, 1, 1},
+		{SQLPARSER_DIALECT_MYSQL,
+		 "SELECT id FROM users WHERE phone LIKE ?",
+		 "LIKE", SQLPARSER_GRAPH_OPERATOR_LIKE, 1, 0},
+		{SQLPARSER_DIALECT_MYSQL,
+		 "SELECT id FROM users WHERE phone NOT LIKE ?",
+		 "NOT LIKE", SQLPARSER_GRAPH_OPERATOR_NOT_LIKE, 1, 0},
+		{SQLPARSER_DIALECT_SQLSERVER,
+		 "SELECT id FROM users WHERE phone LIKE @pattern",
+		 "LIKE", SQLPARSER_GRAPH_OPERATOR_LIKE, 1, 0},
+		{SQLPARSER_DIALECT_SQLSERVER,
+		 "SELECT id FROM users WHERE phone NOT LIKE @pattern",
+		 "NOT LIKE", SQLPARSER_GRAPH_OPERATOR_NOT_LIKE, 1, 0},
+		{SQLPARSER_DIALECT_DAMENG,
+		 "SELECT id FROM users WHERE phone LIKE :pattern",
+		 "LIKE", SQLPARSER_GRAPH_OPERATOR_LIKE, 1, 0},
+		{SQLPARSER_DIALECT_DAMENG,
+		 "SELECT id FROM users WHERE phone NOT LIKE :pattern",
+		 "NOT LIKE", SQLPARSER_GRAPH_OPERATOR_NOT_LIKE, 1, 0},
+		{SQLPARSER_DIALECT_VASTBASE_POSTGRESQL,
+		 "SELECT id FROM users WHERE phone ILIKE $1 ESCAPE $2",
+		 "ILIKE", SQLPARSER_GRAPH_OPERATOR_ILIKE, 1, 1},
+		{SQLPARSER_DIALECT_VASTBASE_ORACLE,
+		 "SELECT id FROM users WHERE phone NOT LIKE :pattern",
+		 "NOT LIKE", SQLPARSER_GRAPH_OPERATOR_NOT_LIKE, 1, 0},
+		{SQLPARSER_DIALECT_VASTBASE_MYSQL,
+		 "SELECT id FROM users WHERE phone LIKE ?",
+		 "LIKE", SQLPARSER_GRAPH_OPERATOR_LIKE, 1, 0},
+		{SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+		 "SELECT id FROM users WHERE phone NOT LIKE @pattern",
+		 "NOT LIKE", SQLPARSER_GRAPH_OPERATOR_NOT_LIKE, 1, 0}
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	size_t index;
+
+	if (expect_true(strcmp(sqlparser_graph_operator_kind_name(SQLPARSER_GRAPH_OPERATOR_LIKE), "like") == 0,
+	                "operator kind name for LIKE should be stable") != 0 ||
+	    expect_true(strcmp(sqlparser_graph_operator_kind_name(SQLPARSER_GRAPH_OPERATOR_NOT_LIKE), "not_like") == 0,
+	                "operator kind name for NOT LIKE should be stable") != 0 ||
+	    expect_true(strcmp(sqlparser_graph_operator_kind_name(SQLPARSER_GRAPH_OPERATOR_ILIKE), "ilike") == 0,
+	                "operator kind name for ILIKE should be stable") != 0 ||
+	    expect_true(strcmp(sqlparser_graph_operator_kind_name(SQLPARSER_GRAPH_OPERATOR_NOT_ILIKE), "not_ilike") == 0,
+	                "operator kind name for NOT ILIKE should be stable") != 0 ||
+	    expect_true(strcmp(sqlparser_graph_operator_kind_name(SQLPARSER_GRAPH_OPERATOR_UNKNOWN), "unknown") == 0,
+	                "operator kind name for unknown should be stable") != 0 ||
+	    expect_true(sqlparser_graph_value_is_like_pattern(NULL) == 0,
+	                "NULL graph value should not be a LIKE pattern") != 0) {
+		return 1;
+	}
+
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		sqlparser_handle_t *handle;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_graph_value_t value;
+		char *view_json;
+		char expected_json[96];
+		int rc;
+
+		handle = NULL;
+		view_json = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[index].dialect;
+		rc = sqlparser_parse_with_options(cases[index].sql, &options, &handle, &error);
+		if (expect_status_ok(rc, &error, "operator kind parse should succeed") != 0) {
+			return 1;
+		}
+		rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+		if (expect_status_ok(rc, &error, "operator kind graph should be available") != 0 ||
+		    expect_true(graph.value_count == 1U, "operator kind test should expose one value") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_value_at(&graph, 0U, &value, &error), &error, "operator kind value should be available") != 0 ||
+		    expect_true(value.operator_name != NULL && strcmp(value.operator_name, cases[index].operator_name) == 0,
+		                "operator kind operator_name mismatch") != 0 ||
+		    expect_true(value.operator_kind == cases[index].operator_kind,
+		                "operator kind enum mismatch") != 0 ||
+		    expect_true(sqlparser_graph_operator_is_like_pattern(value.operator_kind) == cases[index].expect_like_pattern,
+		                "operator kind helper mismatch") != 0 ||
+		    expect_true(sqlparser_graph_value_is_like_pattern(&value) == cases[index].expect_like_pattern,
+		                "operator value helper mismatch") != 0 ||
+		    expect_true((value.like_escape.kind != SQLPARSER_GRAPH_LIKE_ESCAPE_NONE) == cases[index].expect_like_escape,
+		                "operator kind LIKE ESCAPE presence mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
+		if (expect_status_ok(rc, &error, "operator kind view JSON should export") != 0 ||
+		    expect_true(view_json != NULL, "operator kind view JSON should not be NULL") != 0) {
+			sqlparser_string_free(view_json);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		snprintf(expected_json,
+		         sizeof(expected_json),
+		         "\"operator_kind\":\"%s\"",
+		         sqlparser_graph_operator_kind_name(cases[index].operator_kind));
+		if (expect_true(strstr(view_json, expected_json) != NULL,
+		                "operator kind JSON should contain expected kind") != 0) {
+			sqlparser_string_free(view_json);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+	}
+
+	return 0;
+}
+
 static int expect_query_graph_value_bind(
 	const sqlparser_query_graph_view_t *graph,
 	size_t value_index,
@@ -7208,6 +7354,9 @@ int main(void)
 		return 1;
 	}
 	if (test_query_graph_like_escape_semantics() != 0) {
+		return 1;
+	}
+	if (test_query_graph_operator_kind_semantics() != 0) {
 		return 1;
 	}
 	if (test_query_graph_condition_value_lists() != 0) {

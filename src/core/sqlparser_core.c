@@ -20,7 +20,7 @@
 #include "sqlparser_internal.h"
 
 #ifndef SQLPARSER_VERSION_TEXT
-#define SQLPARSER_VERSION_TEXT "2.6.0"
+#define SQLPARSER_VERSION_TEXT "2.7.0"
 #endif
 
 #ifndef SQLPARSER_LIBPG_QUERY_TAG_TEXT
@@ -1276,6 +1276,23 @@ const char *sqlparser_graph_field_match_kind_name(sqlparser_graph_field_match_ki
 	}
 }
 
+const char *sqlparser_graph_operator_kind_name(sqlparser_graph_operator_kind_t kind)
+{
+	switch (kind) {
+		case SQLPARSER_GRAPH_OPERATOR_LIKE:
+			return "like";
+		case SQLPARSER_GRAPH_OPERATOR_NOT_LIKE:
+			return "not_like";
+		case SQLPARSER_GRAPH_OPERATOR_ILIKE:
+			return "ilike";
+		case SQLPARSER_GRAPH_OPERATOR_NOT_ILIKE:
+			return "not_ilike";
+		case SQLPARSER_GRAPH_OPERATOR_UNKNOWN:
+		default:
+			return "unknown";
+	}
+}
+
 const char *sqlparser_graph_set_kind_name(sqlparser_graph_set_kind_t kind)
 {
 	switch (kind) {
@@ -1290,6 +1307,19 @@ const char *sqlparser_graph_set_kind_name(sqlparser_graph_set_kind_t kind)
 		default:
 			return "unknown";
 	}
+}
+
+int sqlparser_graph_operator_is_like_pattern(sqlparser_graph_operator_kind_t kind)
+{
+	return kind == SQLPARSER_GRAPH_OPERATOR_LIKE ||
+		kind == SQLPARSER_GRAPH_OPERATOR_NOT_LIKE ||
+		kind == SQLPARSER_GRAPH_OPERATOR_ILIKE ||
+		kind == SQLPARSER_GRAPH_OPERATOR_NOT_ILIKE;
+}
+
+int sqlparser_graph_value_is_like_pattern(const sqlparser_graph_value_t *value)
+{
+	return value != NULL && sqlparser_graph_operator_is_like_pattern(value->operator_kind);
 }
 
 const char *sqlparser_graph_dml_kind_name(sqlparser_graph_dml_kind_t kind)

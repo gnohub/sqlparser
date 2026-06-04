@@ -2489,13 +2489,29 @@ static int sqlparser_graph_fill_bind_fields(
 	return 0;
 }
 
+static sqlparser_graph_operator_kind_t sqlparser_graph_operator_kind_from_name(const char *operator_name)
+{
+	if (operator_name == NULL) {
+		return SQLPARSER_GRAPH_OPERATOR_UNKNOWN;
+	}
+	if (strcmp(operator_name, "LIKE") == 0) {
+		return SQLPARSER_GRAPH_OPERATOR_LIKE;
+	}
+	if (strcmp(operator_name, "NOT LIKE") == 0) {
+		return SQLPARSER_GRAPH_OPERATOR_NOT_LIKE;
+	}
+	if (strcmp(operator_name, "ILIKE") == 0) {
+		return SQLPARSER_GRAPH_OPERATOR_ILIKE;
+	}
+	if (strcmp(operator_name, "NOT ILIKE") == 0) {
+		return SQLPARSER_GRAPH_OPERATOR_NOT_ILIKE;
+	}
+	return SQLPARSER_GRAPH_OPERATOR_UNKNOWN;
+}
+
 static int sqlparser_graph_operator_is_like(const char *operator_name)
 {
-	return operator_name != NULL &&
-		(strcmp(operator_name, "LIKE") == 0 ||
-		 strcmp(operator_name, "NOT LIKE") == 0 ||
-		 strcmp(operator_name, "ILIKE") == 0 ||
-		 strcmp(operator_name, "NOT ILIKE") == 0);
+	return sqlparser_graph_operator_is_like_pattern(sqlparser_graph_operator_kind_from_name(operator_name));
 }
 
 static int sqlparser_graph_func_call_is_pg_like_escape(const PgQuery__FuncCall *func_call)
@@ -2622,6 +2638,7 @@ static int sqlparser_graph_value_from_node(
 	out_value->block_index = block_index;
 	out_value->clause = clause;
 	out_value->operator_name = operator_name;
+	out_value->operator_kind = sqlparser_graph_operator_kind_from_name(operator_name);
 	out_value->field_index = field_index;
 	out_value->has_field = has_field;
 	out_value->field_match_kind = has_field ? field_match_kind : SQLPARSER_GRAPH_FIELD_MATCH_UNKNOWN;
@@ -2930,6 +2947,7 @@ static int sqlparser_graph_record_expression_value_node(
 	value.block_index = block_index;
 	value.clause = clause;
 	value.operator_name = operator_name;
+	value.operator_kind = sqlparser_graph_operator_kind_from_name(operator_name);
 	value.field_index = field_index;
 	value.has_field = 1;
 	value.field_match_kind = field_match_kind;
@@ -6718,11 +6736,15 @@ static json_t *sqlparser_graph_value_json(
 	json_t *literal;
 	json_t *like_escape;
 	const char *field_match_kind_name;
+	const char *operator_kind_name;
 
 	(void)graph;
 	field_match_kind_name = value->has_field &&
 			value->field_match_kind != SQLPARSER_GRAPH_FIELD_MATCH_UNKNOWN ?
 		sqlparser_graph_field_match_kind_name(value->field_match_kind) :
+		NULL;
+	operator_kind_name = value->operator_name != NULL ?
+		sqlparser_graph_operator_kind_name(value->operator_kind) :
 		NULL;
 	object = json_object();
 	literal = sqlparser_graph_literal_json(&value->literal, value->kind);
@@ -6731,6 +6753,7 @@ static json_t *sqlparser_graph_value_json(
 	    json_object_set_new(object, "block", json_integer((json_int_t)value->block_index)) != 0 ||
 	    json_object_set_new(object, "clause", json_string(sqlparser_clause_kind_name(value->clause))) != 0 ||
 	    sqlparser_json_set_optional_string(object, "operator", value->operator_name) != 0 ||
+	    sqlparser_json_set_optional_string(object, "operator_kind", operator_kind_name) != 0 ||
 	    sqlparser_json_set_optional_size(object, "field", value->has_field, value->field_index) != 0 ||
 	    sqlparser_json_set_optional_string(object, "field_match_kind", field_match_kind_name) != 0 ||
 	    json_object_set_new(object, "kind", json_string(sqlparser_graph_value_kind_name(value->kind))) != 0 ||
@@ -7243,10 +7266,10 @@ static json_t *sqlparser_graph_json_from_view(
 			return NULL;
 		}
 		entry = sqlparser_graph_field_json(graph, &field, out_error);
-			if (entry == NULL || sqlparser_json_array_append_owned(fields, &entry) != 0) {
-				json_decref(entry);
-				json_decref(object);
-				json_decref(blocks);
+		if (entry == NULL || sqlparser_json_array_append_owned(fields, &entry) != 0) {
+			json_decref(entry);
+			json_decref(object);
+			json_decref(blocks);
 			json_decref(relations);
 			json_decref(targets);
 			json_decref(fields);
@@ -7270,10 +7293,10 @@ static json_t *sqlparser_graph_json_from_view(
 			return NULL;
 		}
 		entry = sqlparser_graph_value_json(graph, &value, out_error);
-			if (entry == NULL || sqlparser_json_array_append_owned(values, &entry) != 0) {
-				json_decref(entry);
-				json_decref(object);
-				json_decref(blocks);
+		if (entry == NULL || sqlparser_json_array_append_owned(values, &entry) != 0) {
+			json_decref(entry);
+			json_decref(object);
+			json_decref(blocks);
 			json_decref(relations);
 			json_decref(targets);
 			json_decref(fields);

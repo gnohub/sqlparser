@@ -210,6 +210,7 @@ Function calls are not emitted as a separate target kind. For `SELECT UPPER(name
   "block": 0,
   "clause": "where",
   "operator": "=",
+  "operator_kind": "unknown",
   "field": 1,
   "field_match_kind": "direct_field",
   "kind": "bind",
@@ -226,6 +227,7 @@ Function calls are not emitted as a separate target kind. For `SELECT UPPER(name
 | `block` | Query block containing the value |
 | `clause` | Clause containing the value |
 | `operator` | Associated operator; omitted when absent |
+| `operator_kind` | Structured operator classification; emitted when `operator` exists. Pattern-match values are `like`, `not_like`, `ilike`, or `not_ilike`; other operators use `unknown` |
 | `field` | Related field index; pagination or pseudo-column values without a related field are not emitted in `values[]` |
 | `field_match_kind` | Field-match shape; `direct_field` for a direct field and `expression_field` when the field is inside a function, cast, expression, or `CASE` |
 | `kind` | `literal`, `bind`, `default`, or `expression` |
@@ -243,11 +245,12 @@ For multi-statement input, `bind_position` is global across the whole SQL text a
 
 For `WHERE`, `JOIN ... ON`, `HAVING`, and predicate expressions inside SELECT projections, field-bound values are emitted for `IN`, `NOT IN`, `BETWEEN`, and ordinary comparisons. `field_match_kind` distinguishes direct-field predicates such as `secret = ?` from expression-field predicates such as `UPPER(secret) = ?`, `CAST(secret AS ...) = ?`, `secret || id = ?`, or `CASE ... THEN secret END = ?`. If the field side contains multiple attributable fields, each field gets a separate `expression_field` relation.
 
-For `LIKE ... ESCAPE ...`, the main `values[]` item still represents the right-hand pattern value. `like_escape` represents only the explicit escape clause. Its `kind` is `literal`, `bind`, or `expression`; bind escapes also include `bind_key`, `bind_kind`, `bind_sql`, and `bind_position`. Deparse output keeps the `LIKE pattern ESCAPE escape` form.
+For `LIKE ... ESCAPE ...`, the main `values[]` item still represents the right-hand pattern value. `operator_kind` identifies the pattern-match operator classification, and `like_escape` represents only the explicit escape clause. Its `kind` is `literal`, `bind`, or `expression`; bind escapes also include `bind_key`, `bind_kind`, `bind_sql`, and `bind_position`. Deparse output keeps the `LIKE pattern ESCAPE escape` form.
 
 ```json
 {
   "operator": "LIKE",
+  "operator_kind": "like",
   "kind": "bind",
   "bind_key": "pattern",
   "bind_kind": 2,

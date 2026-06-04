@@ -1,5 +1,32 @@
 # Changelog
 
+## 2.7.0
+
+### Query Graph Operator Classification
+
+- Added `operator_kind` to `sqlparser_graph_value_t` for structured
+  classification of `LIKE`, `NOT LIKE`, `ILIKE`, and `NOT ILIKE`.
+- Added `sqlparser_graph_operator_kind_t`,
+  `sqlparser_graph_operator_kind_name()`,
+  `sqlparser_graph_operator_is_like_pattern()`, and
+  `sqlparser_graph_value_is_like_pattern()`.
+- View JSON now emits `operator_kind` in `query_graph.values[]` when an
+  `operator` is present. Pattern-match operators use `like`, `not_like`,
+  `ilike`, or `not_ilike`; other operators use `unknown`.
+- `LIKE ... ESCAPE ...` recognition now reuses the structured operator
+  classification instead of requiring callers to compare operator strings.
+
+### Tests and Validation
+
+- Expanded the existing PostgreSQL, Oracle, MySQL, SQL Server, Dameng, and four
+  Vastbase compatibility case matrices for pattern-match operator
+  classification.
+- Expanded core API regression coverage for the public enum, helper functions,
+  View JSON output, non-pattern operator boundaries, and explicit `ESCAPE`
+  preservation.
+- Release validation covers Linux unit tests, ASan, UBSan, Valgrind leak
+  checks, and ABI export checks.
+
 ## 2.6.0
 
 ### Vastbase Dialects
