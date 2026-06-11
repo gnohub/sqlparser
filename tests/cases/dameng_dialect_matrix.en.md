@@ -10,10 +10,17 @@ This file records regression cases for the Dameng dialect conversion layer. The 
 | D002 | `SET SCHEMA` | current-schema session context switching |
 | D003 | `ALTER SESSION SET CURRENT_SCHEMA` | schema session switching |
 | D003Q | `ALTER SESSION SET CURRENT_SCHEMA="..."` | quoted schema identifier with public literal-view quoted-identifier semantics |
+| D089 | `ALTER SESSION SET NLS_DATE_FORMAT` | session-level DATE string format |
+| D090 | `ALTER SESSION SET NLS_TIMESTAMP_FORMAT` | session-level TIMESTAMP string format |
+| D091 | `ALTER SESSION SET NLS_TIMESTAMP_TZ_FORMAT` | session-level TIMESTAMP_TZ string format |
+| D092 | `ALTER SESSION SET NLS_TIME_FORMAT` | session-level TIME string format |
+| D093 | `ALTER SESSION SET NLS_TIME_TZ_FORMAT` | session-level TIME_TZ string format |
+| D094 | `ALTER SESSION SET NLS_SORT` | session-level natural-language sort mode |
+| D095 | `ALTER SESSION SET CASE_SENSITIVE` | session-level case-sensitivity mode |
 | D004 | `MINUS` | bidirectional Dameng `MINUS` and core set-operator conversion |
 | D005 | `LIMIT n OFFSET n` | basic Dameng pagination |
 | D006 | `LIMIT offset,n` | comma pagination conversion to the core pagination structure |
-| D007 | `SELECT TOP n` | basic `TOP` conversion |
+| D007 | `SELECT TOP n` | basic `TOP` conversion with public deparse restoration |
 | D008 | multi-table JOIN + bind | table, selected-column, join-column, and predicate-column extraction |
 | D009 | `INSERT ... VALUES` + bind | inserted-column extraction and bind restoration |
 | D010 | multi-row `INSERT ... VALUES` | multi-row value lists |
@@ -35,7 +42,7 @@ This file records regression cases for the Dameng dialect conversion layer. The 
 | D026 | `SET SCHEMA; SELECT` | schema switching and query remain separate in multi-statement input |
 | D027 | `DATE` + `TIMESTAMP` literal | date and timestamp literals |
 | D028 | `GROUP BY` + `HAVING` + window function | aggregate query and analytic function |
-| D029 | `SELECT TOP offset,count` | `TOP` offset/count conversion to the core pagination structure |
+| D029 | `SELECT TOP offset,count` | `TOP` offset/count conversion with public deparse restoration |
 | D030 | `INSERT ... VALUES (?, ?, ?)` | JDBC-style positional parameter conversion, inserted-column extraction, and public-form restoration |
 | D031 | `UPDATE ... SET ... WHERE ... = ?` | positional parameter conversion and public-form restoration in SET/WHERE clauses |
 | D032 | `EXEC SQL PREPARE ... FROM ...` | Dameng embedded-SQL prepare statement with SQL text and `?` placeholders restored in public form |
@@ -95,6 +102,42 @@ This file records regression cases for the Dameng dialect conversion layer. The 
 | D086 | `dameng-not-like-escape-named-bind` | `NOT LIKE :pattern ESCAPE :escape_char` | named pattern and escape binds keep public SQL and global positions |
 | D087 | `dameng-like-escape-question-bind` | `LIKE ? ESCAPE ?` | structured output for JDBC-style positional pattern and escape parameters |
 | D088 | `dameng-like-without-explicit-escape` | `LIKE :pattern` | `like_escape` is omitted when ESCAPE is not explicit |
+| D134 | `dameng-top-percent` | `SELECT TOP 10 PERCENT ...` | parses TOP percentage form and preserves `PERCENT` in deparse output |
+| D135 | `dameng-top-with-ties` | `SELECT TOP 2 WITH TIES ...` | parses TOP tie-preserving form and preserves `WITH TIES` in deparse output |
+| D136 | `dameng-top-percent-with-ties` | `SELECT TOP 70 PERCENT WITH TIES ...` | parses the official combined TOP form and preserves public output |
+| D137 | `dameng-limit-before-top-restoration` | `LIMIT` statement followed by a `TOP` statement | TOP restoration matches the generated LIMIT ordinal and does not rewrite the preceding ordinary LIMIT |
+
+## Multi-Table INSERT
+
+The Dameng SQL manual supports `<multi_insert_stmt>`, including `INSERT ALL`, `INSERT FIRST`, `WHEN ... THEN`, `ELSE`, multiple `INTO` branches, and a trailing query expression. The implementation maps this syntax to the common DML graph structures without adding dialect-specific JSON fields.
+
+| ID | Case | SQL shape | Coverage |
+| --- | --- | --- | --- |
+| DU006 | `dameng-insert-all` | `INSERT ALL INTO ... VALUES ... SELECT ...` | `insert_mode=all`, multiple branches, target table, and deparse |
+| D120 | `dameng-insert-all-bind-branches` | bind cells in multiple branches | branch-cell `bind_key`, `bind_sql`, and global `bind_position` |
+| D121 | `dameng-insert-first-direct-source-fields` | `INSERT FIRST WHEN ... ELSE ... SELECT ...` | `insert_mode=first`, condition selector, source target/field linkage |
+| D122 | `dameng-insert-all-conditional` | multiple `WHEN ... THEN` branches | multiple condition selectors, bind positions, and source-target links |
+| D123 | `dameng-insert-all-multiple-into-per-when` | multiple `INTO` branches under one `WHEN` | stable branch and bind ordering |
+| D124 | `dameng-insert-all-source-field-and-expression-cells` | mixed source-field and expression cells | direct fields use `source_target`; expressions are not misclassified |
+| D125 | `dameng-insert-all-schema-qualified-targets` | schema-qualified multiple targets | branch target relation keeps schema/table and bind data |
+| D126 | `dameng-insert-first-grouped-when-else-branches` | multiple `INTO` branches under one `WHEN/ELSE` in `INSERT FIRST` | `branch_kind=when/else`; deparse preserves grouped `INTO` branches so `INSERT FIRST` semantics are not split |
+| D127 | `dameng-insert-select-source-block-graph` | `INSERT ... SELECT ... FROM ...` | target columns, source block, source fields, and bind attribution for INSERT SELECT |
+| D128 | `dameng-merge-update-source-target-lineage` | MERGE matched UPDATE | `s.email` assignment links to source field and source target |
+| D129 | `dameng-merge-insert-source-target-lineage` | MERGE not matched INSERT | INSERT cell `s.email` links to source field and source target |
+| D130 | `dameng-regexp-like-function-predicate` | `REGEXP_LIKE(name, :pat)` | function predicates reuse `fields/values/predicates` for fields, binds, and expression predicates |
+| D131 | `dameng-select-alias-order-by-lineage` | `SELECT u.email AS e ... ORDER BY u.email` | SELECT output aliases keep base-field lineage, while ORDER BY fields stay independently attributed |
+| D132 | `dameng-select-or-predicate-order-by-lineage` | `WHERE field = :bind OR field = :bind ORDER BY ...` | OR predicate trees keep both comparison children, binds, and independent ORDER BY field attribution |
+| D133 | `dameng-unsupported-keywords-in-quoted-identifiers` | `SELECT "RETURNING", "CONNECT" ...` | unsupported prefilter does not reject protected identifiers |
+| DU007 | `dameng-database-link` | `table@database_link` | basic remote object references, with `link` in View JSON |
+| D138 | `dameng-database-link-schema-alias-bind` | `schema.table@link alias` plus bind | schema/table/alias/link and bind attribution |
+| D139 | `dameng-database-link-update-target` | `UPDATE table@link ...` | database link preserved on a DML target |
+| D140 | `dameng-database-link-insert-target` | `INSERT INTO table@link ...` | database link preserved on an INSERT target |
+| D141 | `dameng-database-link-delete-target` | `DELETE FROM table@link ...` | database link preserved on a DELETE target |
+| D142 | `dameng-database-link-quoted-identifiers` | `"TABLE"@"LINK"` | database link with quoted identifiers |
+| DU008 | national q-quoted string | `nq'[...]'` conversion while preserving national string semantics |
+| DU008A | duplicate national q-quoted string | only the original national item is restored when ordinary and national strings share the same text |
+| DU008B | national string literal | `N'...'` input preserves national string semantics |
+| DU008C | duplicate national string literal | restore the national prefix only for original `N'...'` strings when ordinary and national strings share the same text |
 
 ## Explicitly Unsupported Cases
 
@@ -106,13 +149,7 @@ The following constructs have Dameng-specific or compatibility-mode semantics. T
 | DU002 | `PIVOT` | table transformation semantics need a dedicated query model |
 | DU003 | `RETURNING ... INTO` | non-equivalent host-variable return target |
 | DU004 | DMSQL block | outside SQL statement conversion scope |
-| DU005 | `TOP ... PERCENT` | percentage row-count semantics cannot be downgraded to ordinary `LIMIT` |
-| DU006 | `INSERT ALL` | non-equivalent multi-table insert semantics |
-| DU007 | database link | remote object reference semantics |
-| DU008 | national q-quoted string | national character-set semantics are not silently downgraded |
-| DU009 | other `ALTER SESSION` parameters | session parameters other than current-schema switching |
 | DU010 | `CREATE PROCEDURE` | DMSQL program unit |
-| DU011 | `TOP ... WITH TIES` | ties semantics cannot be downgraded to ordinary `LIMIT` |
 | DU012 | `ALTER SESSION SET CONTAINER` | Dameng does not support container session semantics |
 
 ## Maintenance

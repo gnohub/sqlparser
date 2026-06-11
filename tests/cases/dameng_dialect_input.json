@@ -57,6 +57,118 @@
       }
     },
     {
+      "id": "D089",
+      "name": "dameng-alter-session-nls-date-format",
+      "sql": "ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD'",
+        "view_contains": [
+          "\"keyword\":\"alter_session\""
+        ]
+      }
+    },
+    {
+      "id": "D090",
+      "name": "dameng-alter-session-nls-timestamp-format",
+      "sql": "ALTER SESSION SET NLS_TIMESTAMP_FORMAT = 'YYYYMMDD HH:MI:SS'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "ALTER SESSION SET NLS_TIMESTAMP_FORMAT = 'YYYYMMDD HH:MI:SS'",
+        "view_contains": [
+          "\"keyword\":\"alter_session\""
+        ]
+      }
+    },
+    {
+      "id": "D091",
+      "name": "dameng-alter-session-nls-timestamp-tz-format",
+      "sql": "ALTER SESSION SET NLS_TIMESTAMP_TZ_FORMAT = 'YYYYMMDD HH:MI:SS FF TZH:TZM'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "ALTER SESSION SET NLS_TIMESTAMP_TZ_FORMAT = 'YYYYMMDD HH:MI:SS FF TZH:TZM'",
+        "view_contains": [
+          "\"keyword\":\"alter_session\""
+        ]
+      }
+    },
+    {
+      "id": "D092",
+      "name": "dameng-alter-session-nls-time-format",
+      "sql": "ALTER SESSION SET NLS_TIME_FORMAT = 'HH:MI:SS'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "ALTER SESSION SET NLS_TIME_FORMAT = 'HH:MI:SS'",
+        "view_contains": [
+          "\"keyword\":\"alter_session\""
+        ]
+      }
+    },
+    {
+      "id": "D093",
+      "name": "dameng-alter-session-nls-time-tz-format",
+      "sql": "ALTER SESSION SET NLS_TIME_TZ_FORMAT = 'HH:MI:SS FF TZH:TZM'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "ALTER SESSION SET NLS_TIME_TZ_FORMAT = 'HH:MI:SS FF TZH:TZM'",
+        "view_contains": [
+          "\"keyword\":\"alter_session\""
+        ]
+      }
+    },
+    {
+      "id": "D094",
+      "name": "dameng-alter-session-nls-sort",
+      "sql": "ALTER SESSION SET NLS_SORT = SCHINESE_PINYIN_M",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "ALTER SESSION SET NLS_SORT = schinese_pinyin_m",
+        "view_contains": [
+          "\"keyword\":\"alter_session\""
+        ]
+      }
+    },
+    {
+      "id": "D095",
+      "name": "dameng-alter-session-case-sensitive",
+      "sql": "ALTER SESSION SET CASE_SENSITIVE = TRUE",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "VariableSetStmt"
+        ],
+        "deparse_contains": "ALTER SESSION SET CASE_SENSITIVE = TRUE",
+        "view_contains": [
+          "\"keyword\":\"alter_session\""
+        ]
+      }
+    },
+    {
       "id": "D004",
       "name": "dameng-minus-set-operator",
       "sql": "SELECT id FROM active_users MINUS SELECT id FROM archived_users",
@@ -107,7 +219,8 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "LIMIT 2"
+        "deparse_contains": "TOP 2",
+        "deparse_not_contains": "LIMIT"
       }
     },
     {
@@ -398,7 +511,8 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "LIMIT 3 OFFSET 2"
+        "deparse_contains": "TOP 2,3",
+        "deparse_not_contains": "LIMIT"
       }
     },
     {
@@ -607,7 +721,8 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "LIMIT 2",
+        "deparse_contains": "TOP 2",
+        "deparse_not_contains": "LIMIT",
         "view_not_contains": "$1"
       }
     },
@@ -1382,13 +1497,17 @@
       }
     },
     {
-      "id": "DU005",
+      "id": "D134",
       "name": "dameng-top-percent",
       "sql": "SELECT TOP 10 PERCENT id FROM users ORDER BY id",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported Dameng syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "TOP 10 PERCENT",
+        "deparse_not_contains": "LIMIT"
       }
     },
     {
@@ -1396,9 +1515,299 @@
       "name": "dameng-insert-all",
       "sql": "INSERT ALL INTO users (id) VALUES (1) INTO users (id) VALUES (2) SELECT 1 FROM dual",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported Dameng syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT ALL",
+        "view_contains": [
+          "\"insert_mode\":\"all\"",
+          "\"ordinal\":0",
+          "\"ordinal\":1",
+          "\"table\":\"users\""
+        ]
+      }
+    },
+    {
+      "id": "D120",
+      "name": "dameng-insert-all-bind-branches",
+      "sql": "INSERT ALL INTO users (id, name) VALUES (:1, :2) INTO users (id, name) VALUES (:3, :name4) SELECT 1 FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT ALL",
+        "view_contains": [
+          "\"insert_mode\":\"all\"",
+          "\"bind_key\":\"1\"",
+          "\"bind_key\":\"name4\"",
+          "\"bind_position\":4",
+          "\"bind_sql\":\":name4\""
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "D121",
+      "name": "dameng-insert-first-direct-source-fields",
+      "sql": "INSERT FIRST WHEN amount > 100 THEN INTO big_orders (id, amount) VALUES (order_id, amount) ELSE INTO small_orders (id, amount) VALUES (order_id, amount) SELECT id AS order_id, amount FROM orders",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT FIRST",
+        "view_contains": [
+          "\"insert_mode\":\"first\"",
+          "\"branch_kind\":\"when\"",
+          "\"branch_kind\":\"else\"",
+          "\"condition_selector\":\"stmt[0].insert_branch_condition[0]\"",
+          "\"kind\":\"field\"",
+          "\"source_target\"",
+          "\"name\":\"order_id\"",
+          "\"table\":\"orders\""
+        ]
+      }
+    },
+    {
+      "id": "D122",
+      "name": "dameng-insert-all-conditional",
+      "sql": "INSERT ALL WHEN flag = 1 THEN INTO users (id, flag_copy) VALUES (:1, flag) WHEN flag = 2 THEN INTO audit_users (id, flag_copy) VALUES (:2, flag) SELECT flag FROM source_table",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT ALL",
+        "view_contains": [
+          "\"insert_mode\":\"all\"",
+          "\"branch_kind\":\"when\"",
+          "\"condition_selector\":\"stmt[0].insert_branch_condition[0]\"",
+          "\"condition_selector\":\"stmt[0].insert_branch_condition[1]\"",
+          "\"bind_position\":2",
+          "\"source_target\""
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "D123",
+      "name": "dameng-insert-all-multiple-into-per-when",
+      "sql": "INSERT ALL WHEN flag = 1 THEN INTO users (id) VALUES (:1) INTO audit_users (id) VALUES (:2) ELSE INTO rejected_users (id) VALUES (:3) SELECT flag FROM source_table",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "rejected_users",
+        "view_contains": [
+          "\"insert_mode\":\"all\"",
+          "\"branch_kind\":\"when\"",
+          "\"branch_kind\":\"else\"",
+          "\"condition_selector\":\"stmt[0].insert_branch_condition[0]\"",
+          "\"condition_selector\":\"stmt[0].insert_branch_condition[1]\"",
+          "\"bind_position\":3"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "D124",
+      "name": "dameng-insert-all-source-field-and-expression-cells",
+      "sql": "INSERT ALL INTO users (id, name, name_upper) VALUES (src_id, src_name, UPPER(src_name)) SELECT src_id, src_name FROM source_users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_contains": [
+          "\"insert_mode\":\"all\"",
+          "\"source_target\"",
+          "\"column\":2,\"kind\":\"expression\""
+        ]
+      }
+    },
+    {
+      "id": "D125",
+      "name": "dameng-insert-all-schema-qualified-targets",
+      "sql": "INSERT ALL INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (950001, 'a') INTO KDES.DBP_PHONE_TEST (ID, PHONE) VALUES (:2, :phone) SELECT 1 FROM DUAL",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT ALL",
+        "view_contains": [
+          "\"insert_mode\":\"all\"",
+          "\"schema\":\"KDES\"",
+          "\"table\":\"DBP_CRYPTO_TEST\"",
+          "\"table\":\"DBP_PHONE_TEST\"",
+          "\"bind_key\":\"phone\"",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "D126",
+      "name": "dameng-insert-first-grouped-when-else-branches",
+      "sql": "INSERT FIRST WHEN flag = 1 THEN INTO t1 (id) VALUES (:1) INTO t2 (id) VALUES (:2) ELSE INTO t3 (id) VALUES (:3) INTO t4 (id) VALUES (:4) SELECT flag FROM src",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "ELSE INTO t3",
+        "view_contains": [
+          "\"insert_mode\":\"first\"",
+          "\"branch_kind\":\"when\"",
+          "\"branch_kind\":\"else\"",
+          "\"condition_selector\":\"stmt[0].insert_branch_condition[0]\"",
+          "\"condition_selector\":\"stmt[0].insert_branch_condition[1]\"",
+          "\"bind_position\":4"
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "D127",
+      "name": "dameng-insert-select-source-block-graph",
+      "sql": "INSERT INTO users_archive (id, email) SELECT u.id, u.email FROM users u WHERE u.active = :active",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_contains": [
+          "\"insert_mode\":\"select\"",
+          "\"target_columns\"",
+          "\"source_block\"",
+          "\"kind\":\"field\"",
+          "\"bind_sql\":\":active\""
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "D128",
+      "name": "dameng-merge-update-source-target-lineage",
+      "sql": "MERGE INTO t USING (SELECT :1 AS id, :2 AS email FROM dual) s ON (t.id=s.id) WHEN MATCHED THEN UPDATE SET email=s.email",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "MergeStmt"
+        ],
+        "view_contains": [
+          "\"kind\":\"merge\"",
+          "\"name\":\"email\"",
+          "\"kind\":\"field\"",
+          "\"source_field\"",
+          "\"source_target\""
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "D129",
+      "name": "dameng-merge-insert-source-target-lineage",
+      "sql": "MERGE INTO t USING (SELECT :1 AS id, :2 AS email FROM dual) s ON (t.id=s.id) WHEN NOT MATCHED THEN INSERT(id,email) VALUES(s.id,s.email)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "MergeStmt"
+        ],
+        "view_contains": [
+          "\"kind\":\"merge\"",
+          "\"rows\"",
+          "\"kind\":\"field\"",
+          "\"source_field\"",
+          "\"source_target\""
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "D130",
+      "name": "dameng-regexp-like-function-predicate",
+      "sql": "SELECT * FROM users WHERE REGEXP_LIKE(name, :pat)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "regexp_like(name, :pat)",
+        "view_contains": [
+          "\"operator\":\"regexp_like\"",
+          "\"kind\":\"expression\"",
+          "\"bind_sql\":\":pat\"",
+          "\"predicates\""
+        ]
+      }
+    },
+    {
+      "id": "D131",
+      "name": "dameng-select-alias-order-by-lineage",
+      "sql": "SELECT u.email AS e FROM users u ORDER BY u.email",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "ORDER BY u.email",
+        "view_contains": [
+          "\"name\":\"e\"",
+          "\"column\":\"email\"",
+          "\"target\":0",
+          "\"clause\":\"order_by\""
+        ]
+      }
+    },
+    {
+      "id": "D132",
+      "name": "dameng-select-or-predicate-order-by-lineage",
+      "sql": "SELECT u.id, u.email, u.bank_card FROM users u WHERE u.email = :email OR u.bank_card = :card ORDER BY u.id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "WHERE u.email = :email OR u.bank_card = :card ORDER BY u.id",
+        "view_contains": [
+          "\"bool_operator\":\"or\"",
+          "\"bind_sql\":\":email\"",
+          "\"bind_sql\":\":card\"",
+          "\"clause\":\"order_by\"",
+          "\"column\":\"bank_card\""
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "D133",
+      "name": "dameng-unsupported-keywords-in-quoted-identifiers",
+      "sql": "SELECT \"RETURNING\", \"CONNECT\" FROM users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "SELECT \"RETURNING\", \"CONNECT\" FROM users"
       }
     },
     {
@@ -1406,9 +1815,17 @@
       "name": "dameng-database-link",
       "sql": "SELECT * FROM users@remote_db",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported Dameng syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "users@remote_db",
+        "view_contains": [
+          "\"table\":\"users\"",
+          "\"link\":\"remote_db\"",
+          "\"kind\":\"star\""
+        ]
       }
     },
     {
@@ -1416,19 +1833,59 @@
       "name": "dameng-national-q-quoted-string",
       "sql": "SELECT nq'{Alice's order}' AS label FROM dual",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported Dameng syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "N'Alice''s order'",
+        "view_contains": "\"string_value\":\"Alice's order\""
       }
     },
     {
-      "id": "DU009",
-      "name": "dameng-alter-session-other-parameter",
-      "sql": "ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD'",
+      "id": "DU008A",
+      "name": "dameng-national-q-quoted-duplicate-literal",
+      "sql": "SELECT 'same' AS ascii_value, nq'{same}' AS national_value FROM dual",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported Dameng syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": [
+          "'same' AS ascii_value",
+          "N'same' AS national_value"
+        ]
+      }
+    },
+    {
+      "id": "DU008B",
+      "name": "dameng-national-string-literal",
+      "sql": "SELECT N'Alice''s order' AS label FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "N'Alice''s order'",
+        "view_contains": "\"string_value\":\"Alice's order\""
+      }
+    },
+    {
+      "id": "DU008C",
+      "name": "dameng-national-string-duplicate-literal",
+      "sql": "SELECT 'same' AS ascii_value, N'same' AS national_value FROM dual",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": [
+          "'same' AS ascii_value",
+          "N'same' AS national_value"
+        ]
       }
     },
     {
@@ -1442,13 +1899,147 @@
       }
     },
     {
-      "id": "DU011",
+      "id": "D135",
       "name": "dameng-top-with-ties",
       "sql": "SELECT TOP 2 WITH TIES id FROM users ORDER BY id",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported Dameng syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "TOP 2 WITH TIES",
+        "deparse_not_contains": "LIMIT"
+      }
+    },
+    {
+      "id": "D136",
+      "name": "dameng-top-percent-with-ties",
+      "sql": "SELECT TOP 70 PERCENT WITH TIES PRODUCTID, NAME, PUBLISHTIME FROM PRODUCTION.PRODUCT ORDER BY PUBLISHTIME DESC",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "TOP 70 PERCENT WITH TIES",
+        "deparse_not_contains": "LIMIT"
+      }
+    },
+    {
+      "id": "D137",
+      "name": "dameng-limit-before-top-restoration",
+      "sql": "SELECT id FROM users LIMIT 1; SELECT TOP 2 name FROM users ORDER BY name",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": [
+          "LIMIT 1",
+          "TOP 2"
+        ],
+        "deparse_not_contains": "LIMIT 2"
+      }
+    },
+    {
+      "id": "D138",
+      "name": "dameng-database-link-schema-alias-bind",
+      "sql": "SELECT u.id FROM kdes.users@remote_db u WHERE u.id = :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "users@remote_db",
+        "view_contains": [
+          "\"schema\":\"kdes\"",
+          "\"table\":\"users\"",
+          "\"alias\":\"u\"",
+          "\"link\":\"remote_db\"",
+          "\"bind_sql\":\":id\""
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "D139",
+      "name": "dameng-database-link-update-target",
+      "sql": "UPDATE users@remote_db SET name = :name WHERE id = :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "users@remote_db",
+        "view_contains": [
+          "\"table\":\"users\"",
+          "\"link\":\"remote_db\"",
+          "\"column\":\"name\"",
+          "\"bind_sql\":\":name\"",
+          "\"bind_sql\":\":id\""
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "D140",
+      "name": "dameng-database-link-insert-target",
+      "sql": "INSERT INTO users@remote_db (id, name) VALUES (:id, :name)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "users@remote_db",
+        "view_contains": [
+          "\"table\":\"users\"",
+          "\"link\":\"remote_db\"",
+          "\"bind_sql\":\":id\"",
+          "\"bind_sql\":\":name\""
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "D141",
+      "name": "dameng-database-link-delete-target",
+      "sql": "DELETE FROM users@remote_db WHERE id = :id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "deparse_contains": "users@remote_db",
+        "view_contains": [
+          "\"table\":\"users\"",
+          "\"link\":\"remote_db\"",
+          "\"bind_sql\":\":id\""
+        ],
+        "view_not_contains": "$"
+      }
+    },
+    {
+      "id": "D142",
+      "name": "dameng-database-link-quoted-identifiers",
+      "sql": "SELECT * FROM \"USERS\"@\"REMOTE_DB\"",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "\"USERS\"@\"REMOTE_DB\"",
+        "view_contains": [
+          "\"table\":\"USERS\"",
+          "\"link\":\"REMOTE_DB\"",
+          "\"kind\":\"star\""
+        ]
       }
     },
     {

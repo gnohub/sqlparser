@@ -8,7 +8,7 @@ Manual. The complete checklist is
 
 - [MySQL 8.4 Reference Manual: SQL Statements](https://dev.mysql.com/doc/refman/8.4/en/sql-statements.html)
 - [MySQL 8.4 Reference Manual: Language Structure](https://dev.mysql.com/doc/refman/8.4/en/language-structure.html)
-- Counting date: 2026-05-08
+- Counting date: 2026-06-11
 
 The scope is the set of official syntax groups touched by the current MySQL
 dialect layer: queries, DML, common DDL, transaction statements, expressions,
@@ -26,27 +26,28 @@ type attributes, and MySQL-specific semantics.
 
 ## Results
 
-| Status | Syntax Groups | Share of 44 Groups |
+| Status | Syntax Groups | Share of 48 Groups |
 | --- | ---: | ---: |
-| `CURRENT` | 21 | 47.73% |
-| `HOOK_ONLY` | 5 | 11.36% |
-| `MIXED_MODEL` | 2 | 4.55% |
-| `MODEL_REQUIRED` | 16 | 36.36% |
+| `CURRENT` | 40 | 83.33% |
+| `HOOK_ONLY` | 0 | 0.00% |
+| `MIXED_MODEL` | 3 | 6.25% |
+| `MODEL_REQUIRED` | 5 | 10.42% |
 | `REFERENCE_ONLY` | 0 | 0.00% |
 
-After excluding `REFERENCE_ONLY`, there are 44 implementable syntax groups.
-The current implementation covers 21 groups and leaves 23 groups uncovered.
+After excluding `REFERENCE_ONLY`, there are 48 implementable syntax groups.
+The current implementation covers 40 groups and leaves 8 groups uncovered.
 
-| Uncovered Class | Syntax Groups | Share of 23 Uncovered Groups |
+| Uncovered Class | Syntax Groups | Share of 8 Uncovered Groups |
 | --- | ---: | ---: |
-| `HOOK_ONLY` | 5 | 21.74% |
-| `MIXED_MODEL` | 2 | 8.70% |
-| `MODEL_REQUIRED` | 16 | 69.57% |
+| `HOOK_ONLY` | 0 | 0.00% |
+| `MIXED_MODEL` | 3 | 37.50% |
+| `MODEL_REQUIRED` | 5 | 62.50% |
 
 ## Conclusion
 
-The remaining MySQL gaps are concentrated in outer-join DML, table options,
-type attributes, and program objects. Five uncovered groups can be implemented
-with the current AST and hooks; two groups have basic coverage but need a
-dedicated model for full official semantics; sixteen groups require a
-MySQL-specific model.
+The remaining MySQL gaps are concentrated in complete outer-join DML semantics,
+program objects, and administrative statements. INSERT, UPDATE, DELETE
+modifiers, basic public REPLACE forms, and `CREATE TABLE` column attributes,
+table options, and partition tails without query expressions are covered. Three
+groups have basic coverage but need a dedicated model for full official
+semantics; five groups require a MySQL-specific model.

@@ -25,6 +25,8 @@ current parser kernel. The executable case matrix defines the support boundary:
 - `CREATE SCHEMA` and `DROP SCHEMA`
 - `COMMENT ON`, `GRANT`, and `REVOKE`
 - `EXPLAIN`, `COPY`, `LOCK`, `ANALYZE`, and `VACUUM`
+- `LISTEN`, `NOTIFY`, and `UNLISTEN`
+- `CREATE EXTENSION` and `DROP EXTENSION`
 - transaction control, `SAVEPOINT`, `ROLLBACK TO SAVEPOINT`, and
   `RELEASE SAVEPOINT`
 - `CALL` and `DO`
@@ -33,6 +35,7 @@ current parser kernel. The executable case matrix defines the support boundary:
   `SET SCHEMA`
 - PostgreSQL `$n` parameter placeholders
 - `PREPARE`, `EXECUTE`, and `DEALLOCATE`
+- national string literals: `N'...'`
 
 ## Explicitly Unsupported Scope
 
@@ -58,5 +61,5 @@ The PostgreSQL support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current PostgreSQL matrix contains 129 cases: 128 supported paths and 1
+The current PostgreSQL matrix contains 154 cases: 153 supported paths and 1
 negative invalid-SQL path.

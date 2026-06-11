@@ -1675,6 +1675,178 @@
       }
     },
     {
+      "name": "postgresql-update-from-source-field-graph",
+      "sql": "UPDATE public.t SET name = s.name FROM public.src s WHERE t.id = s.id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "view_contains": [
+          "\"kind\":\"update\"",
+          "\"kind\":\"field\"",
+          "\"source_field\"",
+          "\"right_field\""
+        ]
+      }
+    },
+    {
+      "name": "postgresql-insert-select-source-block-graph",
+      "sql": "INSERT INTO public.t (id, email) SELECT s.id, s.email FROM public.src s WHERE s.active = $1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_contains": [
+          "\"insert_mode\":\"select\"",
+          "\"target_columns\"",
+          "\"source_block\"",
+          "\"kind\":\"field\""
+        ]
+      }
+    },
+    {
+      "name": "postgresql-merge-source-target-graph",
+      "sql": "MERGE INTO public.t USING (SELECT $1 AS id, $2 AS email) s ON t.id=s.id WHEN MATCHED THEN UPDATE SET email=s.email WHEN NOT MATCHED THEN INSERT (id,email) VALUES(s.id,s.email)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "MergeStmt"
+        ],
+        "view_contains": [
+          "\"kind\":\"merge\"",
+          "\"source_field\"",
+          "\"source_target\"",
+          "\"kind\":\"field\""
+        ]
+      }
+    },
+    {
+      "name": "postgresql-listen-notify-unlisten",
+      "sql": "LISTEN events; NOTIFY events, 'payload'; UNLISTEN events",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "statement_types": [
+          "OtherStmt"
+        ],
+        "deparse_contains": "NOTIFY events, 'payload'",
+        "view_contains": [
+          "\"keyword\":\"other\"",
+          "\"query_graph\":{}"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-create-drop-extension",
+      "sql": "CREATE EXTENSION IF NOT EXISTS hstore; DROP EXTENSION IF EXISTS hstore",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": [
+          "OtherStmt",
+          "DropStmt"
+        ],
+        "deparse_contains": "CREATE EXTENSION IF NOT EXISTS hstore",
+        "view_contains": [
+          "\"keyword\":\"other\"",
+          "\"keyword\":\"drop\"",
+          "\"query_graph\":{}"
+        ]
+      }
+    },
+    {
+      "name": "postgresql-regexp-like-function-predicate",
+      "sql": "SELECT * FROM public.users WHERE regexp_like(name, $1)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "regexp_like(name, $1)",
+        "view_contains": [
+          "\"operator\":\"regexp_like\"",
+          "\"kind\":\"expression\"",
+          "\"bind_sql\":\"$1\"",
+          "\"predicates\""
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-alias-order-by-lineage",
+      "sql": "SELECT u.email AS e FROM public.users u ORDER BY u.email",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "ORDER BY u.email",
+        "view_contains": [
+          "\"name\":\"e\"",
+          "\"column\":\"email\"",
+          "\"target\":0",
+          "\"clause\":\"order_by\""
+        ]
+      }
+    },
+    {
+      "name": "postgresql-select-or-predicate-order-by-lineage",
+      "sql": "SELECT u.id, u.email, u.bank_card FROM public.users u WHERE u.email = $1 OR u.bank_card = $2 ORDER BY u.id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "WHERE u.email = $1 OR u.bank_card = $2 ORDER BY u.id",
+        "view_contains": [
+          "\"bool_operator\":\"or\"",
+          "\"bind_sql\":\"$1\"",
+          "\"bind_sql\":\"$2\"",
+          "\"clause\":\"order_by\"",
+          "\"column\":\"bank_card\""
+        ]
+      }
+    },
+    {
+      "name": "postgresql-national-string-literal",
+      "sql": "SELECT 'prefix' AS prefix_value, N'Alice''s order' AS label FROM users WHERE name = n'Bob'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": [
+          "'prefix' AS prefix_value",
+          "N'Alice''s order' AS label",
+          "N'Bob'"
+        ],
+        "view_contains": "\"string_value\":\"Alice's order\""
+      }
+    },
+    {
+      "name": "postgresql-national-string-duplicate-literal",
+      "sql": "SELECT 'same' AS plain_value, N'same' AS national_value FROM users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": [
+          "'same' AS plain_value",
+          "N'same' AS national_value"
+        ]
+      }
+    },
+    {
       "name": "parse-error",
       "sql": "SELECT FROM",
       "expect": {

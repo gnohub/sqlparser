@@ -19,12 +19,15 @@ PostgreSQL 方言支持当前解析内核可表达的 PostgreSQL 语句形态，
 - `CREATE SCHEMA`、`DROP SCHEMA`
 - `COMMENT ON`、`GRANT`、`REVOKE`
 - `EXPLAIN`、`COPY`、`LOCK`、`ANALYZE`、`VACUUM`
+- `LISTEN`、`NOTIFY`、`UNLISTEN`
+- `CREATE EXTENSION`、`DROP EXTENSION`
 - 事务控制、`SAVEPOINT`、`ROLLBACK TO SAVEPOINT`、`RELEASE SAVEPOINT`
 - `CALL`、`DO`
 - 多语句解析和反解析
 - 会话 schema 上下文：`SET search_path`、`SET LOCAL search_path`、`SET SCHEMA`
 - PostgreSQL `$n` 参数占位符
 - `PREPARE`、`EXECUTE`、`DEALLOCATE`
+- national 字符串字面量：`N'...'`
 
 ## 明确不支持范围
 
@@ -46,4 +49,4 @@ PostgreSQL 默认方言支持范围以以下文件为准：
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-当前 PostgreSQL 矩阵包含 129 条用例：128 条支持路径，1 条非法 SQL 负向路径。
+当前 PostgreSQL 矩阵包含 154 条用例：153 条支持路径，1 条非法 SQL 负向路径。

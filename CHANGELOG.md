@@ -1,5 +1,35 @@
 # 变更记录
 
+## 2.8.0
+
+### Query Graph 与 DML 结构化输出
+
+- `query_graph` 增加 predicate 数组，用于表达比较、布尔组合、`EXISTS` 和表达式谓词。
+- 新增 `sqlparser_graph_predicate_t`、predicate 类型枚举、布尔枚举和对应名称函数。
+- DML branch、assignment 和 cell 增加 source field / source target 关联，用于表达字段搬运、`MERGE` source lineage 和多分支 insert 来源。
+- relation view 和 graph relation 增加 database link 名称输出。
+- `ROWID` 等伪列可作为独立 target 输出，避免污染星号 lineage。
+
+### 方言覆盖
+
+- Oracle 增强 DML / SELECT 结构化输出，覆盖 alias-qualified `UPDATE`、`INSERT ALL` / `INSERT FIRST`、`MERGE` source lineage、`DISTINCT`、`ORDER BY` 和 qualified star + `ROWID`。
+- MySQL 和 Vastbase-MySQL 增强 multi-table `UPDATE` / `DELETE`、`REPLACE`、insert modifier、CREATE TABLE option 和常见 HOOK_ONLY 语法覆盖。
+- SQL Server 和 Vastbase-SQLServer 补齐多类基础 DDL、表达式、table/query hint、`FOR JSON`、nested `TOP`、全文谓词和官方语法覆盖统计。
+- 达梦补齐 `ALTER SESSION` 参数、`TOP` 公开反解析、database link、national 字符串和多表 insert 相关结构化输出。
+- PostgreSQL 和 Vastbase-PostgreSQL 增加通知、extension、national 字符串和常见可执行矩阵覆盖。
+
+### 字符串和兼容语法
+
+- MySQL、Oracle、PostgreSQL、达梦及 Vastbase 对应兼容模式支持 `N'...'` / `n'...'` national 字符串公开形态保真。
+- Oracle、达梦及 Vastbase-Oracle 保留 `nq'...'` national q-quoted 字符串语义。
+- SQL Server 和 Vastbase-SQLServer 保留 `N'...'` Unicode 字符串前缀和相关 prepared statement 形态。
+
+### 测试与验证
+
+- 扩充 PostgreSQL、MySQL、Oracle、SQL Server、达梦和 Vastbase 四种兼容模式的现有 case matrix。
+- 更新中英文方言支持文档、官方语法覆盖统计和 View JSON/API 文档。
+- 发布验证覆盖 Linux 单元测试、ASan、UBSan、Valgrind 内存检查和 ABI 导出检查。
+
 ## 2.7.0
 
 ### Query Graph 操作符分类

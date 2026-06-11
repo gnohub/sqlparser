@@ -88,6 +88,7 @@ JSON only emits meaningful optional fields. Public C structs represent absence t
 | `fields` | Field-reference occurrences visible in the SQL text; present when non-empty |
 | `values` | Literals, binds, and DEFAULT values associated with fields; pagination and pseudo-column binds are excluded; present when non-empty |
 | `sets` | `UNION`, `UNION ALL`, `INTERSECT`, and `EXCEPT/MINUS` operations; present when non-empty |
+| `predicates` | Predicate-tree nodes from `WHERE`, `ON`, `HAVING`, and similar clauses; present when non-empty |
 | `dml` | `INSERT`, `UPDATE`, and `DELETE` write shape; present only for DML statements |
 
 All indexes are zero-based within the current statement. `relations[].source_block`, `targets[].source_block`, `targets[].star_relations`, and `sets[].branches` together describe derived-table, star, and set-operation lineage.
@@ -146,6 +147,7 @@ The graph does not expand `*` into real table fields and does not duplicate a si
 | `schema` | Schema name if present in SQL; omitted otherwise |
 | `table` | Table name if present in SQL; omitted for derived relations without a table name |
 | `alias` | Alias if present in SQL; omitted otherwise |
+| `link` | Database link name for remote object references; omitted otherwise |
 | `source_block` | Source query block for derived tables or CTEs; omitted otherwise |
 | `selector` | Relation selector for patching; omitted when no writable node exists |
 
@@ -229,8 +231,9 @@ Function calls are not emitted as a separate target kind. For `SELECT UPPER(name
 | `operator` | Associated operator; omitted when absent |
 | `operator_kind` | Structured operator classification; emitted when `operator` exists. Pattern-match values are `like`, `not_like`, `ilike`, or `not_ilike`; other operators use `unknown` |
 | `field` | Related field index; pagination or pseudo-column values without a related field are not emitted in `values[]` |
+| `source_field` | Source field index when the value is a field reference; omitted otherwise |
 | `field_match_kind` | Field-match shape; `direct_field` for a direct field and `expression_field` when the field is inside a function, cast, expression, or `CASE` |
-| `kind` | `literal`, `bind`, `default`, or `expression` |
+| `kind` | `literal`, `bind`, `default`, `expression`, or `field` |
 | `bind_key` | Bind key; omitted when no bind exists |
 | `bind_kind` | `0` none, `1` positional, `2` named |
 | `bind_sql` | Original placeholder text as written in SQL; omitted when no bind exists |
@@ -268,6 +271,36 @@ For `LIKE ... ESCAPE ...`, the main `values[]` item still represents the right-h
 
 If the value side is a function, cast, operator, array, row, or CASE expression, such as `secret = UPPER(?)`, `secret = ? || 'x'`, or `secret = CAST(? AS CHAR)`, `values[]` emits `kind=expression` attached to `secret` and does not expose inner binds or literals as direct values.
 
+## predicate
+
+```json
+{
+  "block": 0,
+  "clause": "where",
+  "kind": "comparison",
+  "bool_operator": "none",
+  "operator": "=",
+  "operator_kind": "unknown",
+  "left_field": 1,
+  "value": 0
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `block` | Query block containing the predicate |
+| `clause` | Clause containing the predicate, such as `where`, `on`, or `having` |
+| `kind` | `comparison`, `bool`, `exists`, `expression`, or `unknown` |
+| `bool_operator` | Boolean operator for `bool` predicates: `and`, `or`, or `not`; other predicate kinds use `none` |
+| `operator` | Comparison operator; omitted for non-comparison predicates |
+| `operator_kind` | Structured operator classification; omitted for non-comparison predicates |
+| `left_field` | Left-side field index; omitted when no stable field side exists |
+| `right_field` | Right-side field index for field-to-field comparisons; omitted otherwise |
+| `value` | Related `values[]` index for literal, bind, DEFAULT, field, or expression right-side values; omitted otherwise |
+| `children` | Child predicate indexes for `AND`, `OR`, and `NOT`; omitted for non-boolean predicates |
+
+`field = literal/bind` is represented by `left_field + value`. `field = field` is represented by `left_field + right_field`, with a `values[]` entry whose `kind` is `field`. Conditions that cannot be split safely into field and value sides are emitted as `kind = "expression"` instead of being reported as direct field movement.
+
 ## DML
 
 `query_graph.dml` describes write targets, target columns, row values,
@@ -278,16 +311,17 @@ Common fields:
 | Field | Description |
 | --- | --- |
 | `kind` | `insert`, `update`, `delete`, or `merge` |
-| `insert_mode` | INSERT shape: `values`, `select`, `all`, or `first` |
+| `insert_mode` | INSERT shape: `values`, `select`, `all`, `first`, `replace_values`, `replace_select`, or `replace_set` |
 | `target_relation` | Target relation index; omitted when no stable target exists |
 | `target_columns` | Explicit INSERT target-column indexes; omitted when no column list exists |
-| `rows` | Cell indexes for `INSERT ... VALUES` or an Oracle multi-table INSERT branch |
-| `source_block` | Source query block for `INSERT ... SELECT` or Oracle multi-table INSERT source query |
-| `branches` | INTO branches for Oracle `INSERT ALL/FIRST`; omitted for non multi-table INSERT |
+| `rows` | Cell indexes for `INSERT ... VALUES` or an Oracle/Dameng multi-table INSERT branch |
+| `source_block` | Source query block for `INSERT ... SELECT` or Oracle/Dameng multi-table INSERT source query |
+| `branches` | INTO branches for Oracle/Dameng `INSERT ALL/FIRST`; omitted for non multi-table INSERT |
 
-Each Oracle multi-table INSERT branch owns its `target_relation`,
-`target_columns`, and `rows`. `INSERT ALL/FIRST` branch predicates are
-addressable through `condition_selector`; pass that selector to
+Each Oracle/Dameng multi-table INSERT branch owns its `target_relation`,
+`target_columns`, `rows`, and `branch_kind`. `branch_kind` is
+`unconditional`, `when`, or `else`. `WHEN` branch predicates are addressable
+through `condition_selector`; pass that selector to
 `sqlparser_selector_clause_sql()` to read the original predicate SQL.
 
 Branch cell `kind` can be `literal`, `bind`, `default`, `expression`, or
@@ -296,6 +330,12 @@ field from the trailing source query, `kind` is `field` and `source_target`
 points to the related source-query entry in `targets[]`. If that target is a
 direct field, callers can follow `targets[].field` to the corresponding
 `fields[]` entry.
+
+`UPDATE` and `MERGE` assignments use `target_field` for the written field. When
+the right-hand side is a direct field reference, `kind` is `field` and
+`source_field` points to the source field. If that source field comes from a
+derived relation and uniquely matches a source-query output target,
+`source_target` is emitted as well.
 
 ## Rewriting
 

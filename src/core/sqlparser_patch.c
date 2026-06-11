@@ -4,7 +4,7 @@
 #include <stdio.h>
 
 #include "sqlparser_ast_internal.h"
-#include "../dialect/sqlparser_dialect_oracle_internal.h"
+#include "../dialect/sqlparser_dialect_multi_insert_internal.h"
 
 static sqlparser_status_t sqlparser_patch_parse_selector(
 	const char *selector_text,
@@ -933,7 +933,7 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
 		}
-		status = sqlparser_oracle_multi_insert_insert_column_sql(
+		status = sqlparser_dialect_multi_insert_insert_column_sql(
 			handle,
 			selector.statement_index,
 			selector.item_index,

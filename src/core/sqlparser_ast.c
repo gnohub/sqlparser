@@ -517,6 +517,36 @@ void sqlparser_fill_relation_view(
 			: NULL;
 }
 
+void sqlparser_fill_relation_view_for_handle(
+	const sqlparser_handle_t *handle,
+	const PgQuery__RangeVar *relation,
+	sqlparser_relation_view_t *out_relation)
+{
+	const char *object_name;
+	const char *link_name;
+
+	sqlparser_fill_relation_view(relation, out_relation);
+	if (handle == NULL || relation == NULL || out_relation == NULL ||
+	    handle->dialect_ops == NULL || relation->relname == NULL) {
+		return;
+	}
+
+	object_name = sqlparser_dialect_relation_object_name(
+		handle->dialect_ops,
+		handle->dialect_state,
+		relation->relname);
+	if (object_name != NULL && object_name[0] != '\0') {
+		out_relation->table_name = object_name;
+	}
+	link_name = sqlparser_dialect_relation_link_name(
+		handle->dialect_ops,
+		handle->dialect_state,
+		relation->relname);
+	if (link_name != NULL && link_name[0] != '\0') {
+		out_relation->link_name = link_name;
+	}
+}
+
 sqlparser_status_t sqlparser_fill_literal_view_from_a_const(
 	const PgQuery__AConst *a_const,
 	sqlparser_literal_view_t *out_literal,

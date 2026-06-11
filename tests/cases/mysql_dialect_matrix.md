@@ -10,6 +10,8 @@
 | M002 | `mysql-select-join` | `SELECT ... JOIN ... ON ... WHERE ...` | 多表 JOIN、查询列、关联列、条件列 |
 | M003 | `mysql-hash-comment` | `SELECT ... # comment` | MySQL `#` 行注释预处理 |
 | M004 | `mysql-insert-values-multi-row` | `INSERT ... VALUES (...), (...)` | 多行插入、插入列、双引号字符串归一化 |
+| M004N | `mysql-national-string-literal` | `SELECT "..." ... N'...' ... n'...'` | national 字符串前缀保留，大小写输入统一公开为 `N` 前缀 |
+| M004NA | `mysql-national-string-duplicate-literal` | 普通字符串和 `N'...'` 同文本 | 只为原始 national 字符串恢复 `N` 前缀 |
 | M005 | `mysql-insert-select` | `INSERT ... SELECT ... FROM ... WHERE ...` | 插入列、内层查询列、WHERE 条件列 |
 | M006 | `mysql-update-basic` | `UPDATE ... SET ... WHERE ...` | 更新列、条件列、反引号标识符 |
 | M007 | `mysql-delete-conditional` | `DELETE FROM ... WHERE ... AND ...` | 条件删除、多条件列提取 |
@@ -20,6 +22,7 @@
 | M012 | `mysql-start-transaction` | `START TRANSACTION; COMMIT` | MySQL 事务起始语句、多语句计数 |
 | M013 | `mysql-unsupported-keywords-in-string` | `SELECT 'INSERT IGNORE' ...` | unsupported 预筛选不会误伤字符串内容 |
 | M014 | `mysql-unsupported-keywords-in-comment` | `SELECT ... /* ON DUPLICATE KEY UPDATE */ ...` | unsupported 预筛选不会误伤注释内容 |
+| M014Q | `mysql-unsupported-keywords-in-quoted-identifiers` | ``SELECT `unsigned`, `auto_increment`, `engine` ...`` | unsupported 预筛选不会误伤受保护标识符 |
 | M015 | `mysql-use-database` | `USE analytics` | 默认数据库切换语句、View JSON value selector |
 | M016 | `mysql-use-quoted-database` | `USE \`analytics-prod\`` | 反引号数据库名和公开 value 片段 |
 | M017 | `mysql-use-database-in-multi-statement` | `USE ...; SELECT ...` | 多语句中的数据库切换和后续查询保持独立输出 |
@@ -75,11 +78,33 @@
 | M066 | `mysql-select-reference-027` | SELECT 参考用例 027 | MySQL 合法 SELECT 示例解析和 View JSON 结构 |
 | M067 | `mysql-select-reference-029` | SELECT 参考用例 029 | MySQL 合法 SELECT 示例解析和 View JSON 结构 |
 | M068 | `mysql-update-join-target-table-qualified` | `UPDATE users JOIN ... SET users.phone = ?` | 未使用别名时，目标表限定赋值仍映射到目标表字段 |
+| MU001 | `mysql-insert-ignore` | `INSERT IGNORE ...` | 保留 `IGNORE` 修饰符，内部复用普通 INSERT AST |
+| MU002 | `mysql-insert-delayed` | `INSERT DELAYED ...` | 保留 `DELAYED` 修饰符，MySQL 8.4 执行时识别并忽略该关键字 |
+| MU003 | `mysql-insert-low-priority` | `INSERT LOW_PRIORITY ...` | 保留 `LOW_PRIORITY` 修饰符，插入列和值结构复用普通 INSERT |
+| MU004 | `mysql-insert-high-priority` | `INSERT HIGH_PRIORITY ...` | 保留 `HIGH_PRIORITY` 修饰符，插入列和值结构复用普通 INSERT |
+| MU004A | `mysql-insert-low-priority-ignore` | `INSERT LOW_PRIORITY IGNORE ... VALUES (?, ?)` | 组合修饰符和位置参数全局序号 |
+| MU004B | `mysql-insert-high-priority-ignore-select` | `INSERT HIGH_PRIORITY IGNORE ... SELECT ...` | 组合修饰符和 INSERT SELECT 来源图 |
+| MU004C | `mysql-insert-ignore-on-duplicate-key` | `INSERT IGNORE ... ON DUPLICATE KEY UPDATE ...` | `IGNORE` 与 upsert 赋值、bind 序号组合 |
 | MU005 | `mysql-on-duplicate-key` | `INSERT ... ON DUPLICATE KEY UPDATE ...` | MySQL upsert 映射到 DML 插入值和更新赋值 |
+| MU007 | `mysql-update-ignore` | `UPDATE IGNORE ...` | 保留 `IGNORE` 修饰符，赋值和条件复用普通 UPDATE 结构 |
+| MU008 | `mysql-delete-ignore` | `DELETE IGNORE ...` | 保留 `IGNORE` 修饰符，条件复用普通 DELETE 结构 |
+| MU008A | `mysql-update-low-priority-ignore-join` | `UPDATE LOW_PRIORITY IGNORE ... JOIN ...` | 组合修饰符与多表 UPDATE JOIN 共用现有目标表、来源表和条件归属 |
+| MU008B | `mysql-delete-low-priority-quick-ignore-join` | `DELETE LOW_PRIORITY QUICK IGNORE ... JOIN ...` | 组合修饰符与多表 DELETE JOIN 共用现有删除目标和条件归属 |
 | MU009 | `mysql-update-join` | `UPDATE ... JOIN ... SET ...` | 带 `ON` 条件的普通/INNER/CROSS 多表 UPDATE 的目标表、来源表、赋值和条件参数映射 |
 | MU010 | `mysql-delete-join` | `DELETE u FROM ... JOIN ...` | 带 `ON` 条件的普通/INNER/CROSS 多表 DELETE 的目标表、来源表和条件参数映射 |
 | MU010A | `mysql-update-join-on-bind` | `UPDATE ... JOIN ... ON ... ? SET ... WHERE ...` | 多表 UPDATE 中 JOIN `ON` 参数归属为 `on`，后续 `WHERE` 参数仍归属为 `where` |
 | MU010B | `mysql-delete-join-on-bind` | `DELETE u FROM ... JOIN ... ON ... ? WHERE ...` | 多表 DELETE 中 JOIN `ON` 参数归属为 `on`，后续 `WHERE` 参数仍归属为 `where` |
+| MU011 | `mysql-auto-increment` | `CREATE TABLE ... AUTO_INCREMENT` | MySQL 自增列属性在预处理阶段映射到通用 DDL AST，deparse 恢复公开 MySQL 片段 |
+| MU012 | `mysql-unsigned` | `CREATE TABLE ... UNSIGNED` | MySQL 数值类型 `UNSIGNED` 属性解析和公开 SQL 恢复 |
+| MU013 | `mysql-zerofill` | `CREATE TABLE ... ZEROFILL` | MySQL 数值类型 `ZEROFILL` 属性解析和公开 SQL 恢复 |
+| MU014 | `mysql-table-engine` | `CREATE TABLE ... ENGINE=...` | MySQL 表存储引擎选项解析和公开 SQL 恢复 |
+| MU015 | `mysql-table-charset` | `CREATE TABLE ... DEFAULT CHARSET=...` | MySQL 表默认字符集选项解析和公开 SQL 恢复 |
+| MU016 | `mysql-table-character-set` | `CREATE TABLE ... CHARACTER SET=...` | MySQL 表字符集选项解析和公开 SQL 恢复 |
+| MU017 | `mysql-table-collate` | `CREATE TABLE ... COLLATE=...` | MySQL 表排序规则选项解析和公开 SQL 恢复 |
+| MU018 | `mysql-update-left-join` | `UPDATE ... LEFT JOIN ... SET ...` | LEFT JOIN 多表 UPDATE 的 join kind、目标表赋值列和条件参数映射 |
+| MU019 | `mysql-delete-left-join` | `DELETE u FROM ... LEFT JOIN ...` | LEFT JOIN 多表 DELETE 的目标表、来源表和条件参数映射 |
+| MU020 | `mysql-update-join-source-assignment` | `UPDATE ... JOIN ... SET source_alias.column = ...` | 修改 JOIN 右侧单目标表时，目标表、来源表和赋值参数映射 |
+| MU021 | `mysql-delete-join-source-target` | `DELETE source_alias FROM target JOIN source_alias ...` | 删除 JOIN 右侧单目标表时，删除目标和条件参数映射 |
 | M069 | `mysql-field-match-kind-direct-and-expression` | 直接字段条件 + 函数包裹字段条件 | `query_graph.values[].field_match_kind` 区分 `direct_field` 和 `expression_field` |
 | M070 | `mysql-expression-field-case-expression-value` | CASE 返回字段再与 `?` 比较 | CASE 表达式字段输出 `expression_field` value 关系 |
 | M071 | `mysql-expression-field-multi-field-expression-value` | `CONCAT(secret, id)`、`secret + id` 与 `?` 比较 | 表达式内字段分别保留 `expression_field` value 关系 |
@@ -91,31 +116,31 @@
 | M077 | `mysql-like-escape-question-binds` | `LIKE ? ESCAPE ?` | pattern 与 escape 的 JDBC 位置参数分别保留全局 bind 序号 |
 | M078 | `mysql-not-like-escape-literal` | `NOT LIKE ? ESCAPE '!'` | 否定 LIKE 中 pattern bind 与字面量 ESCAPE 的结构化输出 |
 | M079 | `mysql-like-without-explicit-escape` | `LIKE ?` | 无显式 ESCAPE 时不输出 `like_escape` |
+| M089 | `mysql-update-join-source-field-graph` | `UPDATE ... JOIN ... SET target = source.column` | 多表 UPDATE 中 SET 右侧真实表来源字段输出 `source_field`，JOIN/WHERE 字段对比输出 `right_field` |
+| M090 | `mysql-insert-select-source-block-graph` | `INSERT ... SELECT ... FROM ...` | INSERT SELECT 的目标列、来源块和来源字段链路 |
+| M091 | `mysql-with-cte-select` | `WITH cte AS (...) SELECT ...` | WITH 公用表表达式、内层表归属和位置参数序号 |
+| M092 | `mysql-window-row-number` | `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...)` | 窗口函数表达式中的字段路径和输出项归属 |
+| M093 | `mysql-common-scalar-functions` | `LOWER(...)`、`COALESCE(...)` | 普通标量函数输出路径和 WHERE 参数归属 |
+| M094 | `mysql-common-data-types` | `CREATE TABLE` + 常用类型名 | 通用类型名映射到当前 DDL/type AST |
+| M095 | `mysql-rollback` | `ROLLBACK` | 事务回滚语句 |
+| M096 | `mysql-json-contains-function-predicate` | `JSON_CONTAINS(tags, ?)` | JSON 函数谓词复用 `fields/values/predicates` 输出字段、bind 和 expression predicate |
+| M097 | `mysql-select-alias-order-by-lineage` | `SELECT u.email AS e ... ORDER BY u.email` | SELECT 输出别名保留 base field lineage，ORDER BY 字段独立归属 |
+| M098 | `mysql-create-table-column-and-table-options` | `CREATE TABLE` + 列属性 + 表选项 | 同一建表语句内组合验证 `UNSIGNED`、`AUTO_INCREMENT`、`ZEROFILL`、`ENGINE`、`CHARSET` 和 `COLLATE` |
+| M099 | `mysql-create-table-official-column-attributes` | `CREATE TABLE` + 官方列属性组合 | 覆盖 `PRIMARY KEY`、`COMMENT`、`CHARACTER SET`、`COLLATE`、`INVISIBLE`、生成列和列级 `REFERENCES` 公开 SQL 恢复 |
+| M100 | `mysql-create-table-numeric-table-options` | `CREATE TABLE` + 数值类表选项 | 覆盖 `AUTO_INCREMENT`、`AVG_ROW_LENGTH`、`CHECKSUM`、`DELAY_KEY_WRITE`、`KEY_BLOCK_SIZE`、行数和统计表选项恢复 |
+| M101 | `mysql-create-table-string-and-storage-table-options` | `CREATE TABLE` + 字符串/存储类表选项 | 覆盖 `COMMENT`、`COMPRESSION`、`CONNECTION`、目录、加密、engine attribute、`ROW_FORMAT` 和 `TABLESPACE` 恢复 |
+| M102 | `mysql-create-table-partition-options` | `CREATE TABLE` + `PARTITION BY` | 无查询表达式建表中的分区尾部公开 SQL 恢复 |
+| M103 | `mysql-create-temporary-table-options` | `CREATE TEMPORARY TABLE IF NOT EXISTS` + 列属性 + 表选项 | 临时表、列可见性、列注释、`ENGINE` 和 `DEFAULT CHARACTER SET` 组合恢复 |
+| MU006 | `mysql-replace-into` | `REPLACE INTO ... VALUES ...` | MySQL `REPLACE` 复用 INSERT 图结构，并通过 `insert_mode=replace_values` 保留替换插入语义 |
+| MU006A | `mysql-replace-low-priority-multi-row` | `REPLACE LOW_PRIORITY INTO ... VALUES (...), (...)` | 多行 `REPLACE VALUES`、位置参数和 `LOW_PRIORITY` 修饰符 |
+| MU006B | `mysql-replace-delayed-select` | `REPLACE DELAYED INTO ... SELECT ...` | `REPLACE SELECT` 的目标表、来源表、位置参数和 `insert_mode=replace_select` |
+| MU006C | `mysql-replace-set` | `REPLACE INTO ... SET ...` | `SET` 形态规范化为公开 MySQL `REPLACE ... VALUES`，并输出 `insert_mode=replace_set` |
+| MU006D | `mysql-replace-without-into` | `REPLACE table ... VALUES ...` | 省略 `INTO` 的官方形态规范化为 `REPLACE INTO ...` |
+| MU006E | `mysql-replace-table-source` | `REPLACE INTO ... TABLE source` | 官方 `TABLE` 形态规范化为 `REPLACE ... SELECT * FROM source` 并保留来源表 |
 
 ## 明确不支持语句
 
-以下语法具有 MySQL 专有语义或当前 AST 无法安全表达的结构，解析时返回 `SQLPARSER_STATUS_UNSUPPORTED`。
-
-| 用例 ID | 用例名称 | 语句形态 | 原因 |
-| --- | --- | --- | --- |
-| MU001 | `mysql-insert-ignore` | `INSERT IGNORE ...` | 忽略错误的语义不能安全降级为普通 `INSERT` |
-| MU002 | `mysql-insert-delayed` | `INSERT DELAYED ...` | 延迟插入语义需要 MySQL 专用执行语义 |
-| MU003 | `mysql-insert-low-priority` | `INSERT LOW_PRIORITY ...` | 优先级语义无法映射到通用 AST |
-| MU004 | `mysql-insert-high-priority` | `INSERT HIGH_PRIORITY ...` | 优先级语义无法映射到通用 AST |
-| MU006 | `mysql-replace-into` | `REPLACE INTO ...` | 删除再插入的语义不同于普通 `INSERT` |
-| MU007 | `mysql-update-ignore` | `UPDATE IGNORE ...` | 忽略错误语义需要 MySQL 专用执行语义 |
-| MU008 | `mysql-delete-ignore` | `DELETE IGNORE ...` | 忽略错误语义需要 MySQL 专用执行语义 |
-| MU011 | `mysql-auto-increment` | `AUTO_INCREMENT` | 列属性需要 MySQL DDL 语义扩展 |
-| MU012 | `mysql-unsigned` | `UNSIGNED` | 类型属性需要 MySQL 类型系统扩展 |
-| MU013 | `mysql-zerofill` | `ZEROFILL` | 类型属性需要 MySQL 类型系统扩展 |
-| MU014 | `mysql-table-engine` | `ENGINE=...` | 表选项需要 MySQL DDL 语义扩展 |
-| MU015 | `mysql-table-charset` | `DEFAULT CHARSET=...` | 表字符集选项需要 MySQL DDL 语义扩展 |
-| MU016 | `mysql-table-character-set` | `CHARACTER SET=...` | 表字符集选项需要 MySQL DDL 语义扩展 |
-| MU017 | `mysql-table-collate` | `COLLATE=...` | 表排序规则选项需要 MySQL DDL 语义扩展 |
-| MU018 | `mysql-update-left-join` | `UPDATE ... LEFT JOIN ... SET ...` | 外连接 UPDATE 的受影响行语义不能降级为普通 `UPDATE FROM` |
-| MU019 | `mysql-delete-left-join` | `DELETE u FROM ... LEFT JOIN ...` | 外连接 DELETE 的受影响行语义不能降级为普通 `DELETE USING` |
-| MU020 | `mysql-update-join-source-assignment` | `UPDATE ... JOIN ... SET source_alias.column = ...` | 多表 UPDATE 修改 JOIN 来源表时不能降级为单目标表 `UPDATE FROM` |
-| MU021 | `mysql-delete-join-source-target` | `DELETE source_alias FROM target JOIN source_alias ...` | 多表 DELETE 删除 JOIN 来源表时不能降级为单目标表 `DELETE USING` |
+当前可执行 MySQL 方言矩阵没有明确不支持用例。官方语法覆盖边界见 `doc/mysql_official_syntax_coverage.csv`。
 
 ## 处理规则
 

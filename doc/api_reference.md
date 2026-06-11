@@ -113,6 +113,8 @@ int main(void)
 | `sqlparser_graph_field_match_kind_t` | query graph 条件值的字段匹配形态 |
 | `sqlparser_graph_operator_kind_t` | query graph value 的结构化操作符分类 |
 | `sqlparser_graph_like_escape_kind_t` | query graph 中显式 `LIKE ... ESCAPE ...` 的 escape 形态 |
+| `sqlparser_graph_predicate_kind_t` | query graph predicate 节点类型 |
+| `sqlparser_graph_predicate_bool_t` | query graph boolean predicate 连接类型 |
 | `sqlparser_literal_kind_t` | 字面量类型 |
 | `sqlparser_selector_kind_t` | selector 类型 |
 | `sqlparser_clause_kind_t` | query graph 与 clause patch 使用的子句类型 |
@@ -149,7 +151,7 @@ bind 字段规则：
 | `SQLPARSER_GRAPH_VALUE_BIND` | `2` | 预编译占位符 |
 | `SQLPARSER_GRAPH_VALUE_DEFAULT` | `3` | `DEFAULT` |
 | `SQLPARSER_GRAPH_VALUE_EXPRESSION` | `4` | 函数、运算符、`CASE` 等表达式 |
-| `SQLPARSER_GRAPH_VALUE_FIELD` | `5` | Oracle multi-table INSERT branch cell 直接引用 source query 输出字段 |
+| `SQLPARSER_GRAPH_VALUE_FIELD` | `5` | 值侧直接引用 SQL 中的字段，例如 field-to-field predicate、DML assignment RHS 或 source query 输出字段 |
 
 `sqlparser_graph_like_escape_kind_t`：
 
@@ -177,6 +179,25 @@ bind 字段规则：
 | `SQLPARSER_GRAPH_OPERATOR_NOT_LIKE` | `2` | `NOT LIKE` |
 | `SQLPARSER_GRAPH_OPERATOR_ILIKE` | `3` | `ILIKE` |
 | `SQLPARSER_GRAPH_OPERATOR_NOT_ILIKE` | `4` | `NOT ILIKE` |
+
+`sqlparser_graph_predicate_kind_t`：
+
+| 枚举 | 数值 | 说明 |
+| --- | --- | --- |
+| `SQLPARSER_GRAPH_PREDICATE_UNKNOWN` | `0` | 未分类谓词 |
+| `SQLPARSER_GRAPH_PREDICATE_COMPARISON` | `1` | 字段和值、字段和字段之间的比较 |
+| `SQLPARSER_GRAPH_PREDICATE_BOOL` | `2` | `AND`、`OR`、`NOT` 组合谓词 |
+| `SQLPARSER_GRAPH_PREDICATE_EXISTS` | `3` | `EXISTS` 谓词 |
+| `SQLPARSER_GRAPH_PREDICATE_EXPRESSION` | `4` | 无法安全拆分为字段和值侧的表达式谓词 |
+
+`sqlparser_graph_predicate_bool_t`：
+
+| 枚举 | 数值 | 说明 |
+| --- | --- | --- |
+| `SQLPARSER_GRAPH_PREDICATE_BOOL_NONE` | `0` | 非 boolean 谓词 |
+| `SQLPARSER_GRAPH_PREDICATE_BOOL_AND` | `1` | `AND` |
+| `SQLPARSER_GRAPH_PREDICATE_BOOL_OR` | `2` | `OR` |
+| `SQLPARSER_GRAPH_PREDICATE_BOOL_NOT` | `3` | `NOT` |
 
 `sqlparser_clause_kind_t`：
 
@@ -253,6 +274,8 @@ bind 字段规则：
 | `sqlparser_graph_operator_kind_name()` | 返回 query graph 操作符分类名称 |
 | `sqlparser_graph_set_kind_name()` | 返回 query graph set 类型名称 |
 | `sqlparser_graph_dml_kind_name()` | 返回 query graph DML 类型名称 |
+| `sqlparser_graph_predicate_kind_name()` | 返回 query graph predicate 类型名称 |
+| `sqlparser_graph_predicate_bool_name()` | 返回 query graph boolean predicate 连接类型名称 |
 | `sqlparser_graph_operator_is_like_pattern()` | 判断操作符分类是否为 `LIKE`、`NOT LIKE`、`ILIKE` 或 `NOT ILIKE` |
 | `sqlparser_graph_value_is_like_pattern()` | 判断 query graph value 是否为 pattern-match 的 pattern 值 |
 | `sqlparser_dialect_name()` | 返回方言名称 |
@@ -401,7 +424,7 @@ stmt[0].select_target[0][1]
 | `sqlparser_selector_where_literal()` | 通过 selector 读取 WHERE literal |
 | `sqlparser_selector_where_sql()` | 通过 selector 读取 WHERE 条件 SQL |
 | `sqlparser_selector_clause()` | 通过 selector 读取通用子句视图 |
-| `sqlparser_selector_clause_sql()` | 通过 selector 读取通用子句 SQL；也可读取 Oracle `INSERT ALL/FIRST` branch condition SQL |
+| `sqlparser_selector_clause_sql()` | 通过 selector 读取通用子句 SQL；也可读取 Oracle/Dameng `INSERT ALL/FIRST` branch condition SQL |
 | `sqlparser_selector_update_assignment()` | 通过 selector 读取 assignment |
 | `sqlparser_selector_update_assignment_sql()` | 通过 selector 读取 assignment 右值 SQL |
 | `sqlparser_selector_insert_cell_literal()` | 通过 selector 读取 INSERT cell literal |
@@ -510,8 +533,9 @@ sqlparser_status_t sqlparser_statement_query_graph(
 | `sqlparser_query_graph_field_at()` | 读取字段 occurrence |
 | `sqlparser_query_graph_value_at()` | 读取字段关联值 |
 | `sqlparser_query_graph_set_at()` | 读取集合运算节点 |
+| `sqlparser_query_graph_predicate_at()` | 读取 WHERE/ON/HAVING 谓词节点 |
 | `sqlparser_query_graph_dml()` | 读取 DML 写入结构 |
-| `sqlparser_query_graph_dml_branch_at()` | 读取 Oracle multi-table INSERT 分支 |
+| `sqlparser_query_graph_dml_branch_at()` | 读取 Oracle/Dameng multi-table INSERT 分支 |
 | `sqlparser_query_graph_dml_column_at()` | 读取 INSERT 目标列 |
 | `sqlparser_query_graph_dml_cell_at()` | 读取 INSERT VALUES 单元格 |
 | `sqlparser_query_graph_dml_assignment_at()` | 读取 UPDATE/MERGE 赋值项 |
@@ -520,28 +544,33 @@ sqlparser_status_t sqlparser_statement_query_graph(
 
 | 结构体 | 说明 |
 | --- | --- |
-| `sqlparser_graph_block_t` | 查询块，持有 relation 和 target span |
+| `sqlparser_graph_block_t` | 查询块，持有 relation、target 和 predicate span |
 | `sqlparser_graph_relation_t` | SQL 中出现的 base、derived、cte 或 dual relation |
 | `sqlparser_graph_target_t` | SELECT 输出项，包含输出顺序、`*` 来源和 selector |
 | `sqlparser_graph_field_t` | SQL 中出现的字段 occurrence |
 | `sqlparser_graph_value_t` | 与字段关联的 literal、bind、default 或 expression 值 |
 | `sqlparser_graph_set_t` | `UNION`、`UNION ALL`、`INTERSECT`、`EXCEPT/MINUS` 分支关系 |
+| `sqlparser_graph_predicate_t` | WHERE、ON、HAVING 中的比较、组合、EXISTS 或表达式谓词 |
 | `sqlparser_graph_dml_t` | INSERT、UPDATE、DELETE、MERGE 写入结构 |
-| `sqlparser_graph_dml_branch_t` | Oracle multi-table INSERT 的单个 INTO 分支 |
+| `sqlparser_graph_dml_branch_t` | Oracle/Dameng multi-table INSERT 的单个 INTO 分支 |
 | `sqlparser_graph_dml_column_t` | INSERT 显式目标列 |
-| `sqlparser_graph_dml_cell_t` | INSERT VALUES 单元格；Oracle multi-table INSERT 中可通过 `source_target_index` 关联末尾 source query 输出项 |
+| `sqlparser_graph_dml_cell_t` | INSERT VALUES 单元格；Oracle/Dameng multi-table INSERT 中可通过 `source_target_index` 关联末尾 source query 输出项 |
 | `sqlparser_graph_dml_assignment_t` | UPDATE/MERGE 赋值项 |
 
 ### 归属规则
 
+- `sqlparser_graph_relation_t.link_name` 表达远程对象引用中的 database link；SQL 未出现时为 `NULL`。
 - `relations[].source_block_index` 表达派生表或 CTE 来源。
 - `targets[].star_relations` 表达 `*` 或 `alias.*` 覆盖的 relation。
 - `targets[].source_block_index` 表达星号或子查询 target 的来源 block。
 - `sets[].branch_blocks` 表达集合运算左右分支。
+- `predicates[]` 表达 `WHERE`、`ON`、`HAVING` 中的谓词树；`children` span 表达 `AND`、`OR`、`NOT` 的子谓词。
+- `field = literal/bind` 谓词通过 `left_field_index + value_index` 表达；`field = field` 谓词通过 `left_field_index + right_field_index` 表达，并在 `values[]` 中以 `SQLPARSER_GRAPH_VALUE_FIELD` 记录右侧来源字段。
 - 未限定字段如果不能仅凭 SQL 唯一归属，`has_relation` 为 0，`candidate_relations` 给出当前 scope 候选 relation。
-- `sqlparser_graph_dml_t.insert_mode` 区分 `VALUES`、`SELECT`、`INSERT ALL` 和 `INSERT FIRST`。
-- `sqlparser_graph_dml_t.branches` 仅用于 Oracle multi-table INSERT；每个 branch 持有独立 target relation、target columns、rows 和可选 condition selector。condition selector 可通过 `sqlparser_selector_clause_sql()` 读取原始条件 SQL。
-- Oracle multi-table INSERT branch cell 如果直接引用末尾 source query 输出字段，`sqlparser_graph_dml_cell_t.kind` 为 `SQLPARSER_GRAPH_VALUE_FIELD`，并通过 `has_source_target/source_target_index` 指向对应 `targets[]` 项。
+- `sqlparser_graph_dml_t.insert_mode` 区分 `VALUES`、`SELECT`、`INSERT ALL`、`INSERT FIRST` 以及 MySQL `REPLACE` 的 `VALUES`、`SELECT`、`SET` 形态。
+- `sqlparser_graph_dml_t.branches` 仅用于 Oracle/Dameng multi-table INSERT；每个 branch 持有独立 target relation、target columns、rows、branch kind 和可选 condition selector。condition selector 可通过 `sqlparser_selector_clause_sql()` 读取原始条件 SQL。
+- Oracle/Dameng multi-table INSERT branch cell 如果直接引用末尾 source query 输出字段，`sqlparser_graph_dml_cell_t.kind` 为 `SQLPARSER_GRAPH_VALUE_FIELD`，并通过 `has_source_target/source_target_index` 指向对应 `targets[]` 项。
+- `UPDATE` 和 `MERGE` assignment 的右侧如果是直接字段引用，`sqlparser_graph_dml_assignment_t.value_kind` 为 `SQLPARSER_GRAPH_VALUE_FIELD`，并通过 `has_source_field/source_field_index` 指向来源字段；来源字段可唯一匹配派生 source query 输出项时，同时提供 `has_source_target/source_target_index`。
 - `values[]` 只记录与字段或 SELECT target 关联的应用侧值；`LIMIT/OFFSET`、`ROWNUM` 等分页或伪列 bind 不进入 `values[]`。
 - `sqlparser_graph_value_t.field_match_kind` 仅在 `has_field` 为真时有效，用于区分 `secret = ?` 这类直接字段匹配和 `UPPER(secret) = ?` 这类表达式字段匹配。
 - `sqlparser_graph_value_t.operator_kind` 是基于已归一操作符的结构化分类；调用方判断 pattern-match 语义时应使用 `sqlparser_graph_value_is_like_pattern()` 或枚举值，不需要比较 `operator_name` 字符串。
@@ -582,7 +611,7 @@ sqlparser_apply_patch(handle, &patches, &err);
 | 操作 | 说明 |
 | --- | --- |
 | `SQLPARSER_PATCH_REPLACE` | 替换 relation、name、value、assignment、literal、where_literal、clause、insert_cell、select_target 或 select_targets |
-| `SQLPARSER_PATCH_INSERT_COLUMN` | 给 `INSERT ... VALUES` 增加列、给 `INSERT ... SELECT` 增加目标列、给 Oracle `INSERT ALL/FIRST` branch 增加目标列，或向 `select_targets` 插入 SELECT 输出项 |
+| `SQLPARSER_PATCH_INSERT_COLUMN` | 给 `INSERT ... VALUES` 增加列、给 `INSERT ... SELECT` 增加目标列、给 Oracle/Dameng `INSERT ALL/FIRST` branch 增加目标列，或向 `select_targets` 插入 SELECT 输出项 |
 | `SQLPARSER_PATCH_DELETE_COLUMN` | 删除 `INSERT ... VALUES` 列、删除 `INSERT ... SELECT` 目标列，或删除 SELECT 输出项 |
 | `SQLPARSER_PATCH_DELETE_ROW` | 删除 `INSERT ... VALUES` 行 |
 | `SQLPARSER_PATCH_APPEND_CONDITION` | 按 `AND` 或 `OR` 向 `where` 子句追加条件 |

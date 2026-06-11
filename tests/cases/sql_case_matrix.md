@@ -151,6 +151,16 @@
 | P134 | `postgresql-not-like-escape-bind` | `NOT LIKE $1 ESCAPE $2` | pattern bind 与 escape bind 独立输出，escape bind 保留全局序号 |
 | P135 | `postgresql-ilike-escape-bind` | `ILIKE $1 ESCAPE $2` | PostgreSQL `ILIKE` 的 ESCAPE 结构化输出 |
 | P136 | `postgresql-like-without-explicit-escape` | `LIKE $1` | 无显式 ESCAPE 时不输出 `like_escape` |
+| P138 | `postgresql-update-from-source-field-graph` | `UPDATE ... SET target = source.column FROM ...` | UPDATE FROM 赋值右侧真实表来源字段输出 `source_field`，WHERE 字段对比输出 `right_field` |
+| P139 | `postgresql-insert-select-source-block-graph` | `INSERT ... SELECT ... FROM ...` | INSERT SELECT 的目标列、来源块和来源字段链路 |
+| P140 | `postgresql-merge-source-target-graph` | `MERGE INTO ... USING ...` | MERGE 的 source/target 字段链路和来源字段表达 |
+| P141 | `postgresql-listen-notify-unlisten` | `LISTEN` / `NOTIFY` / `UNLISTEN` | PostgreSQL 通知语句解析、反解析和空 query graph |
+| P142 | `postgresql-create-drop-extension` | `CREATE EXTENSION` / `DROP EXTENSION` | 扩展对象 DDL 解析、反解析和 utility 语句输出 |
+| P143 | `postgresql-regexp-like-function-predicate` | `regexp_like(name, $1)` | 函数谓词复用 `fields/values/predicates` 输出字段、bind 和 expression predicate |
+| P144 | `postgresql-select-alias-order-by-lineage` | `SELECT u.email AS e ... ORDER BY u.email` | SELECT 输出 alias 保留 base field lineage，ORDER BY 字段独立归属 |
+| P145 | `postgresql-select-or-predicate-order-by-lineage` | `WHERE field = $n OR field = $n ORDER BY ...` | OR 谓词树保留两个比较子节点、bind 和独立 ORDER BY 字段归属 |
+| P146 | `postgresql-national-string-literal` | `SELECT ..., N'...' ... WHERE ... = n'...'` | PostgreSQL national 字符串公开输出保留 `N` 前缀，普通字符串不受影响 |
+| P147 | `postgresql-national-string-duplicate-literal` | `'same'` 与 `N'same'` 同时出现 | 同文本普通字符串和 national 字符串按 literal 序号分别恢复 |
 
 ## 方言 CLI 补充用例
 

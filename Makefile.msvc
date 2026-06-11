@@ -76,6 +76,7 @@ CORE_OBJS = \
 	$(OBJ_DIR)\sqlparser_selector.obj \
 	$(OBJ_DIR)\sqlparser_view.obj \
 	$(OBJ_DIR)\sqlparser_dialect_dameng.obj \
+	$(OBJ_DIR)\sqlparser_dialect_multi_insert.obj \
 	$(OBJ_DIR)\sqlparser_dialect_mysql.obj \
 	$(OBJ_DIR)\sqlparser_dialect_oracle.obj \
 	$(OBJ_DIR)\sqlparser_dialect_postgresql.obj \
@@ -278,6 +279,9 @@ $(OBJ_DIR)\sqlparser_dialect_mysql.obj: src\dialect\sqlparser_dialect_mysql.c
 
 $(OBJ_DIR)\sqlparser_dialect_dameng.obj: src\dialect\sqlparser_dialect_dameng.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_dameng.c
+
+$(OBJ_DIR)\sqlparser_dialect_multi_insert.obj: src\dialect\sqlparser_dialect_multi_insert.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_multi_insert.c
 
 $(OBJ_DIR)\sqlparser_dialect_oracle.obj: src\dialect\sqlparser_dialect_oracle.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_oracle.c

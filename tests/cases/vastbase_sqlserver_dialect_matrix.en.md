@@ -1,6 +1,6 @@
 # Vastbase SQL Server Compatibility Case Matrix
 
-Executable fixture: `tests/cases/vastbase_sqlserver_dialect_input.json`. The unit test verifies parsing, View JSON, deparse output, and explicitly unsupported syntax return codes case by case.
+Executable fixture: `tests/cases/vastbase_sqlserver_dialect_input.json`. The unit test verifies parsing, View JSON, deparse output, and explicitly unsupported syntax return codes case by case. The current fixture contains 459 cases: 448 supported paths and 11 explicit unsupported paths.
 
 | ID | Case | SQL | Status |
 | --- | --- | --- | --- |
@@ -44,14 +44,22 @@ Executable fixture: `tests/cases/vastbase_sqlserver_dialect_input.json`. The uni
 | `VS038` | `vastbase-sqlserver-unicode-duplicate-literal` | SELECT 'same' AS ascii_value, N'same' AS unicode_value FROM [dbo].[users] | covered |
 | `VS042` | `vastbase-sqlserver-unsupported-keywords-in-string` | SELECT 'OUTPUT @table EXEC' AS label FROM [dbo].[users] | covered |
 | `VS043` | `vastbase-sqlserver-unsupported-keywords-in-comment` | SELECT [id] FROM [dbo].[users] /* OUTPUT inserted.id */ WHERE [id] = @id | covered |
-| `VSU001` | `vastbase-sqlserver-top-percent-unsupported` | SELECT TOP (10) PERCENT [id] FROM [dbo].[users] | explicitly unsupported |
-| `VSU002` | `vastbase-sqlserver-top-with-ties-unsupported` | SELECT TOP (10) WITH TIES [id] FROM [dbo].[users] ORDER BY [score] | explicitly unsupported |
+| `VS043Q` | `vastbase-sqlserver-unsupported-keywords-in-quoted-identifiers` | SELECT [OUTPUT], [EXEC], [PIVOT] FROM [dbo].[users] | covered |
+| `VS103` | `vastbase-sqlserver-top-percent` | SELECT TOP (10) PERCENT [id] FROM [dbo].[users] | covered |
+| `VS104` | `vastbase-sqlserver-top-with-ties` | SELECT TOP (10) WITH TIES [id] FROM [dbo].[users] ORDER BY [score] | covered |
+| `VS105` | `vastbase-sqlserver-top-percent-with-ties` | SELECT TOP (10) PERCENT WITH TIES [id] FROM [dbo].[users] ORDER BY [score] | covered |
+| `VS106` | `vastbase-sqlserver-table-hint-nolock` | SELECT [id] FROM [dbo].[users] WITH (NOLOCK) | covered |
+| `VS107` | `vastbase-sqlserver-query-hint-recompile` | SELECT [id] FROM [dbo].[users] OPTION (RECOMPILE) | covered |
+| `VS108` | `vastbase-sqlserver-for-json-path` | SELECT [id] FROM [dbo].[users] FOR JSON PATH | covered |
+| `VS109` | `vastbase-sqlserver-nested-top` | SELECT [id] FROM (SELECT TOP (2) [id] FROM [dbo].[users]) AS [u] | covered |
+| `VS110` | `vastbase-sqlserver-for-json-path-with-option` | SELECT [id] FROM [dbo].[users] WHERE [status] = @status FOR JSON PATH, INCLUDE_NULL_VALUES OPTION (RECOMPILE) | covered |
+| `VS111` | `vastbase-sqlserver-nested-top-with-outer-top` | SELECT TOP (5) [id] FROM (SELECT TOP (2) [id] FROM [dbo].[users]) AS [u] | covered |
+| `VS112` | `vastbase-sqlserver-for-json-second-statement` | SELECT [id] FROM [dbo].[users]; SELECT [id] FROM [dbo].[orders] FOR JSON AUTO | covered |
+| `VSU001` | `vastbase-sqlserver-top-with-ties-without-order-by-unsupported` | SELECT TOP (10) WITH TIES [id] FROM [dbo].[users] | explicitly unsupported |
+| `VSU002` | `vastbase-sqlserver-top-percent-with-ties-without-order-by-unsupported` | SELECT TOP (10) PERCENT WITH TIES [id] FROM [dbo].[users] | explicitly unsupported |
 | `VSU003` | `vastbase-sqlserver-output-unsupported` | INSERT INTO [dbo].[users] ([id]) OUTPUT inserted.[id] VALUES (1) | explicitly unsupported |
-| `VSU004` | `vastbase-sqlserver-table-hint-unsupported` | SELECT [id] FROM [dbo].[users] WITH (NOLOCK) | explicitly unsupported |
 | `VSU005` | `vastbase-sqlserver-cross-apply-unsupported` | SELECT [u].[id] FROM [dbo].[users] [u] CROSS APPLY [dbo].[fn_orders]([u].[id]) [o] | explicitly unsupported |
 | `VSU006` | `vastbase-sqlserver-pivot-unsupported` | SELECT * FROM [dbo].[sales] PIVOT (SUM([amount]) FOR [month] IN ([Jan], [Feb])) AS [p] | explicitly unsupported |
-| `VSU007` | `vastbase-sqlserver-for-json-unsupported` | SELECT [id] FROM [dbo].[users] FOR JSON PATH | explicitly unsupported |
-| `VSU008` | `vastbase-sqlserver-query-hint-unsupported` | SELECT [id] FROM [dbo].[users] OPTION (RECOMPILE) | explicitly unsupported |
 | `VSU009` | `vastbase-sqlserver-declare-unsupported` | DECLARE @id INT = 1; SELECT @id | explicitly unsupported |
 | `VSU010` | `vastbase-sqlserver-exec-unsupported` | EXEC [dbo].[rebuild_user_cache] | explicitly unsupported |
 | `VSU011` | `vastbase-sqlserver-create-procedure-unsupported` | CREATE PROCEDURE [dbo].[p] AS SELECT 1 | explicitly unsupported |
@@ -110,10 +118,16 @@ Executable fixture: `tests/cases/vastbase_sqlserver_dialect_input.json`. The uni
 | `VS093` | `vastbase-sqlserver-not-like-escape-named-bind` | SELECT [id] FROM [dbo].[users] WHERE [name] NOT LIKE @pattern ESCAPE @escape_char | covered |
 | `VS094` | `vastbase-sqlserver-like-escape-question-bind` | SELECT [id] FROM [dbo].[users] WHERE [name] LIKE ? ESCAPE ? | covered |
 | `VS095` | `vastbase-sqlserver-like-without-explicit-escape` | SELECT [id] FROM [dbo].[users] WHERE [name] LIKE @pattern | covered |
+| `VS096` | `vastbase-sqlserver-bitwise-binary-operators` | SELECT [flags] & 4 AS [and_value], [flags] \| 2 AS [or_value], [flags] ^ 1 AS [xor_value] FROM [dbo].[users] WHERE ([flags] & @mask) = @mask | covered |
+| `VS097` | `vastbase-sqlserver-bitwise-not-operator` | SELECT ~[flags] AS [not_value] FROM [dbo].[users] | covered |
+| `VS098` | `vastbase-sqlserver-not-greater-less-comparison` | SELECT [id] FROM [dbo].[users] WHERE [score] !> @max_score AND [score] !< @min_score | covered |
+| `VS099` | `vastbase-sqlserver-string-concat-pipes` | SELECT [first_name] \|\| [last_name] AS [full_name] FROM [dbo].[users] | covered |
+| `VS100` | `vastbase-sqlserver-like-bracket-wildcards` | SELECT [name] FROM [dbo].[users] WHERE [name] LIKE 'A[^b]_%' | covered |
+| `VS101` | `vastbase-sqlserver-at-time-zone-expression` | SELECT [id] FROM [dbo].[users] WHERE [created_at] AT TIME ZONE 'UTC' = @ts | covered |
+| `VS102` | `vastbase-sqlserver-is-distinct-from-bind` | SELECT [id] FROM [dbo].[users] WHERE [deleted_at] IS DISTINCT FROM @deleted_at | covered |
 | `VSU015` | `vastbase-sqlserver-table-variable-unsupported` | SELECT [id] FROM @users | explicitly unsupported |
 | `VSU016` | `vastbase-sqlserver-merge-by-source-unsupported` | MERGE INTO [dbo].[users] AS [t] USING [dbo].[staging_users] AS [s] ON [t].[id] = [s].[id] WHEN NOT MATCHED BY SOURCE THEN DELETE; | explicitly unsupported |
 | `VSU017` | `vastbase-sqlserver-top-offset-fetch-unsupported` | SELECT TOP (10) [id] FROM [dbo].[users] ORDER BY [id] OFFSET 20 ROWS FETCH NEXT 10 ROWS ONLY | explicitly unsupported |
-| `VSU018` | `vastbase-sqlserver-nested-top-unsupported` | SELECT [id] FROM (SELECT TOP (2) [id] FROM [dbo].[users]) AS [u] | explicitly unsupported |
 | `VSH001` | `vastbase-sqlserver-hook-constants-transact-sql` | INSERT INTO [dbo].[binlog] ([payload]) VALUES (0xDEADBEEF) | covered |
 | `VSH002` | `vastbase-sqlserver-hook-datetimeoffset-transact-sql` | CREATE TABLE [dbo].[events] ([created_at] DATETIMEOFFSET(7)) | covered |
 | `VSH003` | `vastbase-sqlserver-hook-nondeterministic-convert-date-literals` | SELECT CONVERT(DATETIME, '01-02-2024', 101) AS [converted_at] FROM [dbo].[users] | covered |
@@ -349,3 +363,65 @@ Executable fixture: `tests/cases/vastbase_sqlserver_dialect_input.json`. The uni
 | `VSH233` | `vastbase-sqlserver-hook-rename-transact-sql` | RENAME OBJECT [dbo].[old_users] TO [new_users] | covered |
 | `VSH234` | `vastbase-sqlserver-hook-sql-server-collation-name-transact-sql` | SELECT [name] COLLATE Latin1_General_CI_AS AS [name] FROM [dbo].[users] | covered |
 | `VSH235` | `vastbase-sqlserver-hook-windows-collation-name-transact-sql` | SELECT [name] COLLATE Latin1_General_CI_AS AS [name] FROM [dbo].[users] | covered |
+| `VSH236` | `vastbase-sqlserver-update-from-source-field-graph` | UPDATE t SET name = s.name FROM dbo.t AS t JOIN dbo.src AS s ON t.id = s.id WHERE s.active = @active | covered |
+| `VSH237` | `vastbase-sqlserver-insert-select-source-block-graph` | INSERT INTO dbo.t (id, email) SELECT s.id, s.email FROM dbo.src AS s WHERE s.active = @active | covered |
+| `VSH238` | `vastbase-sqlserver-merge-source-target-graph` | MERGE INTO dbo.t AS t USING (SELECT @id AS id, @email AS email) AS s ON t.id=s.id WHEN MATCHED THEN UPDATE SET email=s.email WHEN NOT MATCHED THEN INSERT(id,email) VALUES(s.id,s.email); | covered |
+| `VSH239` | `vastbase-sqlserver-mixed-create-database-basic` | CREATE DATABASE [appdb] | basic form covered |
+| `VSH240` | `vastbase-sqlserver-mixed-drop-database-basic` | DROP DATABASE [appdb] | basic form covered |
+| `VSH241` | `vastbase-sqlserver-mixed-create-schema-basic` | CREATE SCHEMA [audit] | basic form covered |
+| `VSH242` | `vastbase-sqlserver-mixed-drop-schema-basic` | DROP SCHEMA [audit] | basic form covered |
+| `VSH243` | `vastbase-sqlserver-mixed-create-role-basic` | CREATE ROLE [app_role] | basic form covered |
+| `VSH244` | `vastbase-sqlserver-mixed-drop-role-basic` | DROP ROLE [app_role] | basic form covered |
+| `VSH245` | `vastbase-sqlserver-mixed-create-sequence-basic` | CREATE SEQUENCE [dbo].[seq_users] START WITH 1 INCREMENT BY 1 | basic form covered |
+| `VSH246` | `vastbase-sqlserver-mixed-alter-sequence-basic` | ALTER SEQUENCE [dbo].[seq_users] RESTART WITH 10 | basic form covered |
+| `VSH247` | `vastbase-sqlserver-mixed-drop-sequence-basic` | DROP SEQUENCE [dbo].[seq_users] | basic form covered |
+| `VSH248` | `vastbase-sqlserver-mixed-drop-view-basic` | DROP VIEW [dbo].[v_users] | basic form covered |
+| `VSH249` | `vastbase-sqlserver-mixed-drop-statistics-basic` | DROP STATISTICS [dbo].[users].[st_users_id] | basic form covered |
+| `VSH250` | `vastbase-sqlserver-mixed-select-into-basic` | SELECT [id] INTO [dbo].[users_copy] FROM [dbo].[users] | basic form covered |
+| `VSH251` | `vastbase-sqlserver-mixed-contains-basic` | SELECT * FROM [dbo].[users] WHERE CONTAINS([name], @term) | basic form covered |
+| `VSH252` | `vastbase-sqlserver-mixed-freetext-basic` | SELECT * FROM [dbo].[users] WHERE FREETEXT([name], @term) | basic form covered |
+| `VSH253` | `vastbase-sqlserver-regexp-like-function-predicate` | SELECT * FROM [dbo].[users] WHERE REGEXP_LIKE([name], @pat) | covered |
+| `VSH254` | `vastbase-sqlserver-select-or-predicate-order-by-lineage` | SELECT [u].[id], [u].[email], [u].[bank_card] FROM [dbo].[users] AS [u] WHERE [u].[email] = @email OR [u].[bank_card] = @card ORDER BY [u].[id] | covered |
+| `VSH255` | `vastbase-sqlserver-mixed-create-table-as-select-basic` | CREATE TABLE [dbo].[users_copy] AS SELECT [id] FROM [dbo].[users] | basic form covered |
+| `VSH256` | `vastbase-sqlserver-mixed-aliasing-basic` | SELECT [u].[id] AS [user_id], [u].[name] [user_name] FROM [dbo].[users] AS [u] | basic form covered |
+| `VSH257` | `vastbase-sqlserver-mixed-subquery-basic` | SELECT [id] FROM [dbo].[users] WHERE [id] IN (SELECT ...) | basic form covered |
+| `VSH258` | `vastbase-sqlserver-mixed-alter-table-add-column-basic` | ALTER TABLE [dbo].[users] ADD [age] INT | basic form covered |
+| `VSH259` | `vastbase-sqlserver-mixed-alter-table-add-constraint-basic` | ALTER TABLE [dbo].[users] ADD CONSTRAINT [pk_users] PRIMARY KEY ([id]) | basic form covered |
+| `VSH260` | `vastbase-sqlserver-mixed-drop-type-basic` | DROP TYPE [dbo].[phone] | basic form covered |
+| `VSH261` | `vastbase-sqlserver-mixed-create-user-basic` | CREATE USER [app_user] | basic form covered |
+| `VSH262` | `vastbase-sqlserver-mixed-drop-user-if-exists-basic` | DROP USER IF EXISTS [app_user] | basic form covered |
+| `VSH263` | `vastbase-sqlserver-mixed-drop-role-drop-user-ordinal` | DROP ROLE [app_role]; DROP USER [app_user] | covered |
+| `VSH264` | `vastbase-sqlserver-mixed-create-user-without-login` | CREATE USER [app_user] WITHOUT LOGIN | covered |
+| `VSH265` | `vastbase-sqlserver-mixed-create-user-for-login` | CREATE USER [app_user] FOR LOGIN [app_login] | covered |
+| `VSH266` | `vastbase-sqlserver-mixed-create-user-from-external-provider` | CREATE USER [app_user] FROM EXTERNAL PROVIDER | covered |
+| `VSH267` | `vastbase-sqlserver-mixed-create-user-with-options` | CREATE USER ... WITH DEFAULT_SCHEMA ... | covered |
+| `VSH268` | `vastbase-sqlserver-mixed-create-user-for-certificate` | CREATE USER ... FOR CERTIFICATE ... | covered |
+| `VSH269` | `vastbase-sqlserver-mixed-create-user-for-asymmetric-key` | CREATE USER ... FOR ASYMMETRIC KEY ... | covered |
+| `VSH270` | `vastbase-sqlserver-mixed-alter-role-add-member` | ALTER ROLE ... ADD MEMBER ... | covered |
+| `VSH271` | `vastbase-sqlserver-mixed-alter-role-drop-member` | ALTER ROLE ... DROP MEMBER ... | covered |
+| `VSH272` | `vastbase-sqlserver-mixed-alter-role-with-name` | ALTER ROLE ... WITH NAME = ... | covered |
+| `VSH273` | `vastbase-sqlserver-mixed-alter-schema-transfer-object` | ALTER SCHEMA ... TRANSFER schema.object | covered |
+| `VSH274` | `vastbase-sqlserver-mixed-alter-schema-transfer-type` | ALTER SCHEMA ... TRANSFER TYPE::schema.type | covered |
+| `VSH275` | `vastbase-sqlserver-mixed-create-role-authorization` | CREATE ROLE ... AUTHORIZATION ... | covered |
+| `VSH276` | `vastbase-sqlserver-mixed-alter-user-name` | ALTER USER ... WITH NAME = ... | covered |
+| `VSH277` | `vastbase-sqlserver-mixed-alter-user-options` | ALTER USER ... WITH DEFAULT_SCHEMA ... | covered |
+| `VSH278` | `vastbase-sqlserver-mixed-alter-user-login` | ALTER USER ... WITH LOGIN = ... | covered |
+| `VSH279` | `vastbase-sqlserver-mixed-alter-user-external-provider` | ALTER USER ... FROM EXTERNAL PROVIDER ... | covered |
+| `VSH280` | `vastbase-sqlserver-mixed-alter-authorization-object` | ALTER AUTHORIZATION ON OBJECT::... TO ... | covered |
+| `VSH281` | `vastbase-sqlserver-mixed-alter-authorization-schema-owner` | ALTER AUTHORIZATION ... TO SCHEMA OWNER | covered |
+| `VSH282` | `vastbase-sqlserver-mixed-alter-authorization-schema` | ALTER AUTHORIZATION ON SCHEMA::... TO ... | covered |
+| `VSH283` | `vastbase-sqlserver-mixed-create-schema-authorization` | CREATE SCHEMA ... AUTHORIZATION ... | covered |
+| `VSH284` | `vastbase-sqlserver-mixed-drop-schema-if-exists` | DROP SCHEMA IF EXISTS ... | covered |
+| `VSH285` | `vastbase-sqlserver-mixed-create-application-role` | CREATE APPLICATION ROLE ... WITH PASSWORD ... | covered |
+| `VSH286` | `vastbase-sqlserver-mixed-alter-application-role-name` | ALTER APPLICATION ROLE ... WITH NAME = ... | covered |
+| `VSH287` | `vastbase-sqlserver-mixed-alter-application-role-options` | ALTER APPLICATION ROLE ... WITH PASSWORD ... | covered |
+| `VSH288` | `vastbase-sqlserver-mixed-drop-application-role` | DROP APPLICATION ROLE ... | covered |
+| `VSH289` | `vastbase-sqlserver-mixed-create-synonym` | CREATE SYNONYM ... FOR ... | covered |
+| `VSH290` | `vastbase-sqlserver-mixed-drop-synonym-if-exists` | DROP SYNONYM IF EXISTS ... | covered |
+| `VSH291` | `vastbase-sqlserver-mixed-create-type-alias` | CREATE TYPE ... FROM ... | covered |
+| `VSH292` | `vastbase-sqlserver-mixed-alter-database-compatibility-level` | ALTER DATABASE ... SET COMPATIBILITY_LEVEL = ... | covered |
+| `VSH293` | `vastbase-sqlserver-mixed-drop-index-if-exists-on-object` | DROP INDEX IF EXISTS ... ON ... | covered |
+| `VSH294` | `vastbase-sqlserver-mixed-update-statistics-fullscan` | UPDATE STATISTICS ... WITH FULLSCAN | covered |
+| `VSH295-VSH333` | `vastbase-sqlserver-set-*` | SET ... | basic session/execution-environment form covered |
+| `VSH334` | `vastbase-sqlserver-table-hints-join-alias` | JOIN + `WITH (NOLOCK)` / `WITH (FORCESEEK)` | basic public SQL restoration for table hints covered |
+| `VSH335` | `vastbase-sqlserver-query-hints-multiple` | `OPTION (RECOMPILE, USE HINT(...))` | basic public SQL restoration for query hints covered |

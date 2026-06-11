@@ -8,7 +8,9 @@ PostgreSQL SQL Commands documentation. The complete checklist is
 
 - [PostgreSQL 17: SQL Commands](https://www.postgresql.org/docs/17/sql-commands.html)
 - [PostgreSQL 17: The SQL Language](https://www.postgresql.org/docs/17/sql.html)
-- Counting date: 2026-05-08
+- [PostgreSQL: Supported Features](https://www.postgresql.org/docs/current/features-sql-standard.html)
+- [PostgreSQL pgsql-docs: document `N'...'` national character string literal syntax](https://www.postgresql.org/message-id/om3g7p7u3ztlrdp4tfswgulavljgn2fe6u2agk34mrr65dffuu%40cpzlzuv6flko)
+- Counting date: 2026-06-11
 
 The scope is the set of official SQL command groups that are directly relevant
 to the public API, View JSON, deparse, and executable regression tests.
@@ -25,26 +27,26 @@ to the public API, View JSON, deparse, and executable regression tests.
 
 ## Results
 
-| Status | Syntax Groups | Share of 41 Groups |
+| Status | Syntax Groups | Share of 42 Groups |
 | --- | ---: | ---: |
-| `CURRENT` | 38 | 92.68% |
-| `HOOK_ONLY` | 2 | 4.88% |
-| `MIXED_MODEL` | 1 | 2.44% |
+| `CURRENT` | 41 | 97.62% |
+| `HOOK_ONLY` | 0 | 0.00% |
+| `MIXED_MODEL` | 1 | 2.38% |
 | `MODEL_REQUIRED` | 0 | 0.00% |
 | `REFERENCE_ONLY` | 0 | 0.00% |
 
-After excluding `REFERENCE_ONLY`, there are 41 implementable syntax groups.
-The current implementation covers 38 groups and leaves 3 groups uncovered.
+After excluding `REFERENCE_ONLY`, there are 42 implementable syntax groups.
+The current implementation covers 41 groups and leaves 1 group uncovered.
 
-| Uncovered Class | Syntax Groups | Share of 3 Uncovered Groups |
+| Uncovered Class | Syntax Groups | Share of 1 Uncovered Group |
 | --- | ---: | ---: |
-| `HOOK_ONLY` | 2 | 66.67% |
-| `MIXED_MODEL` | 1 | 33.33% |
+| `HOOK_ONLY` | 0 | 0.00% |
+| `MIXED_MODEL` | 1 | 100.00% |
 | `MODEL_REQUIRED` | 0 | 0.00% |
 
 ## Conclusion
 
-PostgreSQL is the default parser-kernel dialect. The remaining gaps are mostly
-dedicated public query graph, selector, or regression coverage rather than basic
-parse capability. One syntax group requires public model extension for complete
-coverage.
+PostgreSQL is the default parser-kernel dialect. No hook-only coverage gap
+remains. The remaining gap is complete object attribution and option modeling
+for role, user, and database-management statements, which requires public model
+extension.

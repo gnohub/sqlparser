@@ -13,7 +13,7 @@ current AST. The executable case matrix defines the support boundary:
 - `SELECT`, aliases, subqueries, joins, `WHERE`, `GROUP BY`, and `HAVING`
 - Oracle bind placeholders such as `:id` and `:name`, plus JDBC-style `?`
   positional parameters
-- `q'[...]'` strings
+- `q'[...]'` strings, `N'...'` national strings, and `nq'[...]'` national q-quoted strings
 - `MINUS` set operator
 - `OFFSET ... FETCH`
 - `ROWNUM` filters
@@ -28,10 +28,12 @@ current AST. The executable case matrix defines the support boundary:
   and `TRUNCATE TABLE`
 - transaction control, `GRANT / REVOKE`, and `COMMENT ON`
 - `FOR UPDATE NOWAIT`
+- remote object references such as `schema.table@link`
 - common functions and analytic functions such as `DECODE`, `SYSDATE`, and
   `ROW_NUMBER() OVER (...)`
 - quoted identifiers, `ALTER TABLE ADD`, `CREATE INDEX`, and `DROP INDEX`
 - compatible materialized-view creation forms
+- `CREATE SYNONYM` and `DROP SYNONYM`
 - session statements: `ALTER SESSION SET CURRENT_SCHEMA = ...`,
   `ALTER SESSION SET CONTAINER = ...`,
   `ALTER SESSION SET CONTAINER = ... SERVICE = ...`, and ordinary parameter
@@ -39,6 +41,7 @@ current AST. The executable case matrix defines the support boundary:
   `NLS_NUMERIC_CHARACTERS`, `INSTANCE`, and `ERROR_ON_OVERLAP_TIME`
 - quoted schema identifiers in `CURRENT_SCHEMA` are marked as quoted
   identifiers in the public literal view
+- `EXPLAIN PLAN FOR ...`, including basic `SET STATEMENT_ID` and `INTO` forms
 - dynamic SQL execution through `EXECUTE IMMEDIATE ... USING ...`
 
 ## Explicitly Unsupported Scope
@@ -54,10 +57,6 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
 - `MODEL` clause
 - flashback query
 - `MATCH_RECOGNIZE`
-- synonyms
-- database links
-- `EXPLAIN PLAN FOR`
-- national q-quoted strings such as `nq'[...]'`
 
 ## Public Output Rules
 
@@ -81,5 +80,5 @@ The Oracle support boundary is defined by:
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current Oracle matrix contains 136 cases: 120 supported paths and 16
+The current Oracle matrix contains 175 cases: 163 supported paths and 12
 explicit unsupported paths.

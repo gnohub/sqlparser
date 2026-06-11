@@ -9,6 +9,8 @@ query,FOR_UPDATE_NOWAIT,CURRENT,"已覆盖 FOR UPDATE NOWAIT",https://eco.dameng
 query,GROUP_BY_HAVING_WINDOW,CURRENT,"已覆盖 GROUP BY、HAVING 和代表性窗口函数",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
 expressions,BIND_VARIABLES,CURRENT,"已覆盖 :name 和 JDBC 风格 ? 位置参数",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
 expressions,DATE_TIMESTAMP_LITERAL,CURRENT,"已覆盖 DATE 和 TIMESTAMP 字面量",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
+expressions,NATIONAL_STRING_LITERAL,CURRENT,"已覆盖 N'...' national 字符串字面量兼容形态，公共输出恢复为 N 前缀字符串字面量",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
+expressions,NATIONAL_Q_QUOTED_STRING,CURRENT,"已覆盖 nq q-quoted 字符串，公共输出恢复为 N 前缀字符串字面量",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
 expressions,COMMON_FUNCTIONS,CURRENT,"已覆盖 NVL 等常见函数和代表性分析函数",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
 embedded-sql,EXEC_SQL_PREPARE_EXECUTE_DEALLOCATE,CURRENT,"已覆盖 EXEC SQL PREPARE、EXECUTE 和 DEALLOCATE PREPARE",https://eco.dameng.com/document/dm/zh-cn/pm/dm8_sql-sql-statement
 dml,INSERT_VALUES,CURRENT,"已覆盖 INSERT VALUES 和多行 VALUES",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
@@ -25,7 +27,8 @@ ddl,DROP_TRUNCATE_TABLE,CURRENT,"已覆盖 DROP TABLE 和 TRUNCATE TABLE",https:
 transaction,TRANSACTION_CONTROL,CURRENT,"已覆盖 BEGIN、COMMIT 和 ROLLBACK 代表性事务控制语句",https://eco.dameng.com/document/dm/zh-cn/pm/dm8_sql-sql-statement
 privileges,GRANT_REVOKE,CURRENT,"已覆盖 GRANT 和 REVOKE",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
 session,SET_SCHEMA,CURRENT,"已覆盖 SET SCHEMA 当前模式切换",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
-query,TOP_PERCENT_WITH_TIES,MIXED_MODEL,"TOP n 已覆盖；PERCENT 和 WITH TIES 需要保留专属语义",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
+session,ALTER_SESSION_PARAMETERS,CURRENT,"已覆盖 NLS 日期/时间格式、NLS_SORT 和 CASE_SENSITIVE 会话参数",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
+query,TOP_PERCENT_WITH_TIES,CURRENT,"已覆盖 TOP n、TOP n,m、TOP n PERCENT、TOP n WITH TIES 和 TOP n PERCENT WITH TIES，并在 deparse 输出中保留达梦公开形态",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
 query,CONNECT_BY,MODEL_REQUIRED,"层级查询语义需要专用查询模型",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
 query,PIVOT_UNPIVOT,MODEL_REQUIRED,"表变换语义需要专用查询模型",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
 query,FLASHBACK_QUERY,MODEL_REQUIRED,"闪回查询涉及达梦专属时间点/版本语义",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
@@ -33,4 +36,4 @@ query,SAMPLE_PARTITION_APPLY,MODEL_REQUIRED,"SAMPLE、PARTITION 和 APPLY 完整
 dml,RETURNING_INTO,MODEL_REQUIRED,"RETURNING INTO 涉及返回目标和宿主变量语义",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
 program,DMSQL_BLOCK,MODEL_REQUIRED,"DMSQL block 超出当前 SQL 语句模型",https://eco.dameng.com/document/dm/zh-cn/pm/dm8_sql-sql-statement
 program,CREATE_PROCEDURE_PACKAGE,MODEL_REQUIRED,"procedure 和 package 属于 DMSQL 程序单元",https://eco.dameng.com/document/dm/zh-cn/pm/dm8_sql-sql-statement
-remote,DATABASE_LINK,MODEL_REQUIRED,"数据库链路涉及远程对象引用语义",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
+remote,DATABASE_LINK,CURRENT,"已覆盖 table@database_link 远程对象引用、schema 前缀、别名、DML target 和 quoted identifier 基础形态",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html

@@ -48,7 +48,7 @@ int main(void)
 
 	/*
 	 * 反解析输出达梦可接受的公共 SQL，不暴露内部 $1 参数。
-	 * TOP 会被规范化为达梦同样支持的 LIMIT 形式。
+	 * TOP 会保持达梦公开形态，不暴露内部 LIMIT 转换细节。
 	 */
 	status = sqlparser_deparse(handle, &deparsed_sql, &err);
 	if (status != SQLPARSER_STATUS_OK) {
@@ -60,7 +60,8 @@ int main(void)
 	printf("deparsed sql:\n%s\n", deparsed_sql);
 
 	if (strstr(deparsed_sql, ":id") == NULL ||
-	    strstr(deparsed_sql, "LIMIT 2") == NULL ||
+	    strstr(deparsed_sql, "TOP 2") == NULL ||
+	    strstr(deparsed_sql, "LIMIT 2") != NULL ||
 	    strstr(deparsed_sql, "$1") != NULL) {
 		fprintf(stderr, "unexpected Dameng deparse output\n");
 		sqlparser_string_free(deparsed_sql);

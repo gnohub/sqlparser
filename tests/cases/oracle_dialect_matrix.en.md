@@ -8,6 +8,10 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 | --- | --- | --- |
 | O001 | `SELECT` + `NVL` + named bind | Oracle `:name` bind conversion and restoration |
 | O002 | q-quoted string | `q'[...]'` conversion to a safe string literal |
+| O003 | national q-quoted string | `nq'[...]'` conversion while preserving national string semantics |
+| O003A | duplicate national q-quoted string | only the original national item is restored when ordinary and national strings share the same text |
+| O003B | national string literal | `N'...'` input preserves national string semantics |
+| O003C | duplicate national string literal | restore the national prefix only for original `N'...'` strings when ordinary and national strings share the same text |
 | O004 | `MINUS` | bidirectional Oracle `MINUS` and core `EXCEPT` conversion |
 | O005 | `OFFSET ... FETCH` | Oracle pagination syntax |
 | O006 | `ROWNUM` predicate | pseudo-column in a predicate expression |
@@ -47,6 +51,7 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 | O040 | materialized view | compatible materialized-view syntax |
 | O041 | unsupported keywords in string | `RETURNING`, `@`, and `(+)` inside strings do not trigger unsupported |
 | O042 | unsupported keywords in comment | `CONNECT BY` inside comments does not trigger unsupported |
+| O042Q | unsupported keywords in protected identifiers | `RETURNING` and `@` inside quoted identifiers do not trigger unsupported |
 | O043 | `ALTER SESSION SET CURRENT_SCHEMA` | current-schema session context switching |
 | O043Q | `ALTER SESSION SET CURRENT_SCHEMA="..."` | quoted schema identifier with public literal-view quoted-identifier semantics |
 | O044 | `ALTER SESSION SET CONTAINER` | current-container session context switching |
@@ -122,6 +127,7 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 | O137 | `INSERT ALL` | Oracle multi-table insert | `insert_mode=all`, branch target relations, target columns, rows, and deparse |
 | O138 | `INSERT FIRST` | conditional multi-table insert | `insert_mode=first` and branch condition selectors |
 | O139 | `oracle-insert-first-direct-source-fields` | `INSERT FIRST` branch cells reference source-query fields | branch cells emit `kind=field` and point to source-query outputs through `source_target` |
+| O141A | `oracle-insert-first-grouped-when-else-branches` | multiple `INTO` branches under one `WHEN/ELSE` in `INSERT FIRST` | `branch_kind=when/else`; deparse preserves grouped `INTO` branches so `INSERT FIRST` semantics are not split |
 | O140 | `oracle-insert-all-conditional` | conditional `INSERT ALL WHEN ... THEN` | `insert_mode=all`, branch condition selectors, bind positions, and source-target links |
 | O141 | `oracle-insert-all-multiple-into-per-when` | multiple INTO branches under one WHEN | multiple branches under the same WHEN keep independent spans and condition selectors; ELSE branches parse correctly |
 | O142 | `oracle-insert-select-source-fields` | direct-field `INSERT ... SELECT` source targets | source-query output fields keep `kind=field` and field attribution |
@@ -137,6 +143,32 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 | O152 | `oracle-like-escape-expression` | `LIKE :pattern ESCAPE UPPER('!')` | expression ESCAPE emits `like_escape.kind=expression` |
 | O153 | `oracle-derived-like-escape-literal` | outer derived-table `LIKE ... ESCAPE` | LIKE ESCAPE output stays stable under derived-table field attribution |
 | O154 | `oracle-like-without-explicit-escape` | `LIKE :pattern` | `like_escape` is omitted when ESCAPE is not explicit |
+| O155 | `oracle-p3-update-alias-qualified-assignment` | `UPDATE ... x SET x.email = :1` | alias-qualified assignment targets expose the real column `email` and keep the RHS bind selector |
+| O156 | `oracle-p3-update-multiple-alias-qualified-assignments` | multiple `x.column = :bind` assignments | every assignment emits the real target column, and WHERE binds remain attributed |
+| O157 | `oracle-p3-update-from-source-field` | `UPDATE ... SET name = s.name FROM src s` | assignment RHS emits `kind=field`, `source_field`, and field-to-field WHERE predicates |
+| O158 | `oracle-p3-update-schema-qualified-alias-target` | schema-qualified UPDATE target | schema/table/alias are preserved, and assignment columns are not reported as aliases |
+| O159 | `oracle-p3-update-scalar-subquery-predicate` | UPDATE with scalar subquery | outer fields and inner predicate field/value/operator data enter `query_graph` |
+| O160 | `oracle-p3-delete-exists-correlated-predicate` | DELETE with correlated EXISTS | AND predicate tree, field-to-field correlation, and literal selectors stay structured |
+| O161 | `oracle-p3-select-or-predicate-and-order-by` | SELECT with OR and ORDER BY | both OR branches stay in predicates, and ORDER BY fields do not alter output-target lineage |
+| O162 | `oracle-p3-insert-all-independent-branches` | multi-branch `INSERT ALL` | branch target relation, target columns, rows, and bind cell selectors are emitted independently |
+| O163 | `oracle-p3-merge-update-source-target-lineage` | MERGE matched UPDATE | `s.email` assignments link to source field and source target |
+| O164 | `oracle-p3-merge-insert-source-target-lineage` | MERGE not matched INSERT | INSERT cell `s.email` links to source field and source target |
+| O165 | `oracle-p3-select-distinct-base-field-lineage` | SELECT DISTINCT direct field | DISTINCT does not change base-field pass-through lineage |
+| O166 | `oracle-p3-select-alias-order-by-lineage` | SELECT alias and ORDER BY | output alias is preserved, and ORDER BY fields are attributed independently |
+| O167 | `oracle-p3-select-star-rowid-lineage` | qualified star plus ROWID | `x.*` and `x.ROWID` are structured separately, and ROWID does not pollute star lineage |
+| O168 | `oracle-p3-update-full-alias-qualified-crypto-shape` | alias-qualified UPDATE with scalar subquery | integrated P3 shape for multiple protected-column assignments and subquery predicates |
+| O169 | `oracle-regexp-like-function-predicate` | `REGEXP_LIKE(name, :pat)` | function predicates reuse `fields/values/predicates` for fields, binds, and expression predicates |
+| OU015 | `oracle-database-link` | `table@database_link` | basic remote object references, with `link` in View JSON |
+| O170 | `oracle-database-link-schema-alias-bind` | `schema.table@link alias` plus bind | schema/table/alias/link and bind attribution |
+| O171 | `oracle-database-link-update-target` | `UPDATE table@link ...` | database link preserved on a DML target |
+| O172 | `oracle-database-link-insert-target` | `INSERT INTO table@link ...` | database link preserved on an INSERT target |
+| O173 | `oracle-database-link-delete-target` | `DELETE FROM table@link ...` | database link preserved on a DELETE target |
+| O174 | `oracle-database-link-quoted-identifiers` | `"TABLE"@"LINK"` | database link with quoted identifiers |
+| OU014 | `oracle-create-synonym` | `CREATE SYNONYM u FOR users` | Oracle synonym creation statement |
+| O175 | `oracle-create-public-synonym` | `CREATE OR REPLACE PUBLIC SYNONYM ...` | Oracle public synonym creation statement |
+| O176 | `oracle-drop-synonym` | `DROP SYNONYM ... FORCE` | Oracle synonym drop statement |
+| OU016 | `oracle-explain-plan` | `EXPLAIN PLAN FOR SELECT ...` | Oracle explain plan statement preservation |
+| O177 | `oracle-explain-plan-into` | `EXPLAIN PLAN SET STATEMENT_ID ... INTO ... FOR SELECT ...` | Oracle explain plan form with plan table |
 
 ## Explicitly Unsupported Cases
 
@@ -144,7 +176,6 @@ The following constructs have Oracle-specific semantics. The conversion layer re
 
 | ID | Case | Reason |
 | --- | --- | --- |
-| O003 | national q-quoted string | national character-set semantics are not silently downgraded |
 | OU001 | `CONNECT BY` | non-equivalent hierarchical query semantics |
 | OU002 | `(+)` | non-equivalent legacy outer join semantics |
 | OU004 | `RETURNING ... INTO` | non-equivalent host-variable return target |
@@ -156,9 +187,6 @@ The following constructs have Oracle-specific semantics. The conversion layer re
 | OU010 | `MODEL` | Oracle model clause |
 | OU011 | flashback query | Oracle flashback query semantics |
 | OU012 | `MATCH_RECOGNIZE` | row pattern recognition semantics |
-| OU014 | `CREATE SYNONYM` | Oracle synonym object |
-| OU015 | database link | remote object reference semantics |
-| OU016 | `EXPLAIN PLAN FOR` | Oracle explain plan output semantics |
 | OU017 | `CONNECT_BY_ROOT` | hierarchical-query expression |
 
 ## Maintenance

@@ -8,6 +8,10 @@
 | --- | --- | --- |
 | O001 | `SELECT` + `NVL` + 命名 bind | Oracle `:name` bind 转换与还原 |
 | O002 | q-quoted 字符串 | `q'[...]'` 转换为安全字符串字面量 |
+| O003 | national q-quoted 字符串 | `nq'[...]'` 转换后保留 national 字符串语义 |
+| O003A | 重复 national q-quoted 字符串 | 普通字符串和 national 字符串内容相同时只恢复 national 项 |
+| O003B | national 字符串字面量 | `N'...'` 输入保留 national 字符串语义 |
+| O003C | 重复 national 字符串字面量 | 普通字符串和 `N'...'` 内容相同时只恢复 national 项 |
 | O004 | `MINUS` | Oracle `MINUS` 与核心 `EXCEPT` 的双向转换 |
 | O005 | `OFFSET ... FETCH` | Oracle 分页语法 |
 | O006 | `ROWNUM` 条件 | 伪列作为条件表达式 |
@@ -47,6 +51,7 @@
 | O040 | materialized view | 物化视图兼容语法 |
 | O041 | unsupported 关键字字符串 | 字符串中的 `RETURNING`、`@`、`(+)` 不触发 unsupported |
 | O042 | unsupported 关键字注释 | 注释中的 `CONNECT BY` 不触发 unsupported |
+| O042Q | unsupported 关键字受保护标识符 | 引号标识符中的 `RETURNING` 和 `@` 不触发 unsupported |
 | O043 | `ALTER SESSION SET CURRENT_SCHEMA` | 当前 schema 会话上下文切换 |
 | O043Q | `ALTER SESSION SET CURRENT_SCHEMA="..."` | 带引号 schema 标识符，公共 literal view 暴露 quoted identifier 语义 |
 | O044 | `ALTER SESSION SET CONTAINER` | 当前 container 会话上下文切换 |
@@ -122,6 +127,7 @@
 | O137 | `INSERT ALL` | Oracle 多表插入 | `insert_mode=all`、分支 target relation、target columns、rows 和 deparse |
 | O138 | `INSERT FIRST` | 条件多表插入 | `insert_mode=first` 和 branch condition selector |
 | O139 | `oracle-insert-first-direct-source-fields` | `INSERT FIRST` branch cell 引用 source query 字段 | branch cell 输出 `kind=field` 并通过 `source_target` 指向 source query 输出项 |
+| O141A | `oracle-insert-first-grouped-when-else-branches` | `INSERT FIRST` 单个 `WHEN/ELSE` 下多个 `INTO` | `branch_kind=when/else`，deparse 保留同组 `INTO`，避免 `INSERT FIRST` 语义被拆分 |
 | O140 | `oracle-insert-all-conditional` | 条件 `INSERT ALL WHEN ... THEN` | `insert_mode=all`、branch condition selector、bind 序号和 source target 关联 |
 | O141 | `oracle-insert-all-multiple-into-per-when` | 单个 WHEN 下多个 INTO 分支 | 同一 WHEN 下多个 branch 保留独立分支和 condition selector，ELSE 分支可解析 |
 | O142 | `oracle-insert-select-source-fields` | `INSERT ... SELECT` 直接字段来源 | source query 输出字段保持 `kind=field` 和字段归属 |
@@ -137,6 +143,32 @@
 | O152 | `oracle-like-escape-expression` | `LIKE :pattern ESCAPE UPPER('!')` | ESCAPE 为表达式时输出 `like_escape.kind=expression` |
 | O153 | `oracle-derived-like-escape-literal` | 派生表外层 `LIKE ... ESCAPE` | 派生表字段归属下的 LIKE ESCAPE 输出保持稳定 |
 | O154 | `oracle-like-without-explicit-escape` | `LIKE :pattern` | 无显式 ESCAPE 时不输出 `like_escape` |
+| O155 | `oracle-p3-update-alias-qualified-assignment` | `UPDATE ... x SET x.email = :1` | alias-qualified assignment target 暴露真实列 `email`，并保留 RHS bind selector |
+| O156 | `oracle-p3-update-multiple-alias-qualified-assignments` | 多个 `x.column = :bind` 赋值项 | 多 assignment 均输出真实目标列，WHERE bind 正常归属 |
+| O157 | `oracle-p3-update-from-source-field` | `UPDATE ... SET name = s.name FROM src s` | assignment RHS 暴露 `kind=field`、`source_field` 和 WHERE field-to-field 谓词 |
+| O158 | `oracle-p3-update-schema-qualified-alias-target` | schema-qualified UPDATE target | schema/table/alias 保留，assignment 目标列不误报为 alias |
+| O159 | `oracle-p3-update-scalar-subquery-predicate` | UPDATE + scalar subquery | 外层字段和内层 predicate field/value/operator 均进入 query_graph |
+| O160 | `oracle-p3-delete-exists-correlated-predicate` | DELETE + correlated EXISTS | AND 谓词树、field-to-field correlation 和 literal selector 保持结构化 |
+| O161 | `oracle-p3-select-or-predicate-and-order-by` | SELECT + OR + ORDER BY | OR 两侧谓词保留，ORDER BY 字段不污染输出 target lineage |
+| O162 | `oracle-p3-insert-all-independent-branches` | `INSERT ALL` 多 branch | branch target relation、target columns、rows 和 bind cell selector 独立输出 |
+| O163 | `oracle-p3-merge-update-source-target-lineage` | MERGE matched UPDATE | `s.email` assignment 关联 source field 和 source target |
+| O164 | `oracle-p3-merge-insert-source-target-lineage` | MERGE not matched INSERT | INSERT cell `s.email` 关联 source field 和 source target |
+| O165 | `oracle-p3-select-distinct-base-field-lineage` | SELECT DISTINCT direct field | DISTINCT 不改变 base field pass-through lineage |
+| O166 | `oracle-p3-select-alias-order-by-lineage` | SELECT alias + ORDER BY | 输出 alias 保留，ORDER BY 字段独立归属 |
+| O167 | `oracle-p3-select-star-rowid-lineage` | qualified star + ROWID | `x.*` 和 `x.ROWID` 分别结构化，ROWID 不污染 star lineage |
+| O168 | `oracle-p3-update-full-alias-qualified-crypto-shape` | alias-qualified UPDATE + scalar subquery | 多 protected-column 赋值和子查询 predicate 的 P3 综合形态 |
+| O169 | `oracle-regexp-like-function-predicate` | `REGEXP_LIKE(name, :pat)` | 函数谓词复用 `fields/values/predicates` 输出字段、bind 和 expression predicate |
+| OU015 | `oracle-database-link` | `table@database_link` | 远程对象引用基础形态，View JSON 输出 `link` |
+| O170 | `oracle-database-link-schema-alias-bind` | `schema.table@link alias` + bind | schema/table/alias/link 和 bind 归属 |
+| O171 | `oracle-database-link-update-target` | `UPDATE table@link ...` | DML target 的 database link 保留 |
+| O172 | `oracle-database-link-insert-target` | `INSERT INTO table@link ...` | INSERT target 的 database link 保留 |
+| O173 | `oracle-database-link-delete-target` | `DELETE FROM table@link ...` | DELETE target 的 database link 保留 |
+| O174 | `oracle-database-link-quoted-identifiers` | `"TABLE"@"LINK"` | quoted identifier 形态的 database link 保留 |
+| OU014 | `oracle-create-synonym` | `CREATE SYNONYM u FOR users` | Oracle synonym 创建语句 |
+| O175 | `oracle-create-public-synonym` | `CREATE OR REPLACE PUBLIC SYNONYM ...` | Oracle public synonym 创建语句 |
+| O176 | `oracle-drop-synonym` | `DROP SYNONYM ... FORCE` | Oracle synonym 删除语句 |
+| OU016 | `oracle-explain-plan` | `EXPLAIN PLAN FOR SELECT ...` | Oracle explain plan 语句保留 |
+| O177 | `oracle-explain-plan-into` | `EXPLAIN PLAN SET STATEMENT_ID ... INTO ... FOR SELECT ...` | Oracle explain plan 带计划表形态 |
 
 ## 明确不支持用例
 
@@ -144,7 +176,6 @@
 
 | ID | 用例 | 原因 |
 | --- | --- | --- |
-| O003 | national q-quoted 字符串 | national 字符集语义当前不做静默降级 |
 | OU001 | `CONNECT BY` | 层级查询语义不等价 |
 | OU002 | `(+)` | 旧式外连接语义不等价 |
 | OU004 | `RETURNING ... INTO` | 返回目标和宿主变量语义不等价 |
@@ -156,9 +187,6 @@
 | OU010 | `MODEL` | Oracle model clause |
 | OU011 | flashback query | Oracle 闪回查询语义 |
 | OU012 | `MATCH_RECOGNIZE` | 行模式识别语义 |
-| OU014 | `CREATE SYNONYM` | Oracle 同义词对象 |
-| OU015 | database link | 远程对象引用语义 |
-| OU016 | `EXPLAIN PLAN FOR` | Oracle explain plan 输出语义 |
 | OU017 | `CONNECT_BY_ROOT` | 层级查询相关表达式 |
 
 ## 维护要求

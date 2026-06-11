@@ -8,19 +8,23 @@
 
 - `SELECT`、别名、子查询、连接、`WHERE`、`GROUP BY`、`HAVING`
 - 达梦兼容 bind 占位符，例如 `:id`、`:name`，以及 JDBC 风格 `?` 位置参数
+- `q'[...]'` 字符串、`N'...'` national 字符串和 `nq'[...]'` national q-quoted 字符串
 - `SET SCHEMA <模式名>` 和 `ALTER SESSION SET CURRENT_SCHEMA = ...`
+- 会话参数设置：`NLS_DATE_FORMAT`、`NLS_TIMESTAMP_FORMAT`、`NLS_TIMESTAMP_TZ_FORMAT`、`NLS_TIME_FORMAT`、`NLS_TIME_TZ_FORMAT`、`NLS_SORT`、`CASE_SENSITIVE`
 - `CURRENT_SCHEMA` 的带引号 schema 标识符会在公共 literal view 中标记为 quoted identifier
 - `MINUS` 集合运算
 - `LIMIT n`、`LIMIT offset,n`、`LIMIT n OFFSET offset`
-- `SELECT TOP n ...`
+- `SELECT TOP n ...`、`SELECT TOP n,m ...`、`SELECT TOP n PERCENT ...`、`SELECT TOP n WITH TIES ...`、`SELECT TOP n PERCENT WITH TIES ...`
 - `ROWNUM` 条件
 - `INSERT VALUES`、多行 `INSERT`、`INSERT SELECT`
+- 多表插入：`INSERT ALL`、`INSERT FIRST`，包括 `WHEN ... THEN`、`ELSE` 和单个条件分支下的多个 `INTO`
 - `UPDATE`、`DELETE`
 - 可映射的 `MERGE`
 - `DATE`、`TIMESTAMP` 字面量
 - 常见 DDL：`CREATE TABLE`、`CREATE VIEW`、`CREATE SEQUENCE`、`ALTER TABLE ADD`、`CREATE INDEX`、`DROP TABLE`、`TRUNCATE TABLE`
 - 事务控制、`GRANT / REVOKE`
 - `FOR UPDATE NOWAIT`
+- 远程对象引用，例如 `schema.table@link`
 - 常见函数与分析函数，例如 `NVL`、`ROW_NUMBER() OVER (...)`
 - `EXEC SQL PREPARE`、`EXEC SQL EXECUTE`、`EXEC SQL DEALLOCATE PREPARE`
 
@@ -32,11 +36,7 @@
 - `PIVOT`、`UNPIVOT`
 - `RETURNING ... INTO`
 - DMSQL block、procedure、package
-- `TOP ... PERCENT`、`TOP ... WITH TIES`
-- 多表插入，例如 `INSERT ALL`
-- database link
-- national q-quoted string，例如 `nq'[...]'`
-- 除当前 schema 切换外的其他 `ALTER SESSION` 参数
+- 未列入支持范围的其他 `ALTER SESSION` 参数
 - container 会话切换，例如 `ALTER SESSION SET CONTAINER = ...`
 
 ## 对外输出规则
@@ -58,4 +58,4 @@
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-当前达梦方言矩阵包含 87 条用例：75 条支持路径，12 条明确不支持路径。
+当前达梦方言矩阵包含 131 条用例：125 条支持路径，6 条明确不支持路径。

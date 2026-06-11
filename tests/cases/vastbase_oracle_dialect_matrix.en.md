@@ -6,7 +6,10 @@ Executable fixture: `tests/cases/vastbase_oracle_dialect_input.json`. The unit t
 | --- | --- | --- | --- |
 | `VO001` | `vastbase-oracle-select-bind-nvl` | SELECT NVL(u.name, 'N/A') AS label FROM users u WHERE u.id = :id | covered |
 | `VO002` | `vastbase-oracle-q-quoted-string` | SELECT q'[Bob's order]' AS label FROM dual | covered |
-| `VO003` | `vastbase-oracle-national-q-quoted-string-unsupported` | SELECT nq'{Alice's order}' AS label FROM dual | explicitly unsupported |
+| `VO003` | `vastbase-oracle-national-q-quoted-string` | SELECT nq'{Alice's order}' AS label FROM dual | covered |
+| `VO003A` | `vastbase-oracle-national-q-quoted-duplicate-literal` | SELECT 'same' AS ascii_value, nq'{same}' AS national_value FROM dual | covered |
+| `VO003B` | `vastbase-oracle-national-string-literal` | SELECT N'Alice''s order' AS label FROM dual | covered |
+| `VO003C` | `vastbase-oracle-national-string-duplicate-literal` | SELECT 'same' AS ascii_value, N'same' AS national_value FROM dual | covered |
 | `VO004` | `vastbase-oracle-minus-set-operator` | SELECT id FROM active_users MINUS SELECT id FROM archived_users | covered |
 | `VO005` | `vastbase-oracle-offset-fetch` | SELECT id FROM users ORDER BY id OFFSET 5 ROWS FETCH NEXT 10 ROWS ONLY | covered |
 | `VO006` | `vastbase-oracle-rownum-filter` | SELECT id FROM users WHERE ROWNUM <= 10 | covered |
@@ -49,6 +52,7 @@ Executable fixture: `tests/cases/vastbase_oracle_dialect_input.json`. The unit t
 | `VO040` | `vastbase-oracle-create-materialized-view-compatible-form` | CREATE MATERIALIZED VIEW mv_users AS SELECT id, name FROM users | covered |
 | `VO041` | `vastbase-oracle-unsupported-keywords-in-string` | SELECT 'RETURNING @ (+)' AS label FROM dual | covered |
 | `VO042` | `vastbase-oracle-unsupported-keywords-in-comment` | SELECT id FROM users /* CONNECT BY PRIOR id = manager_id */ WHERE id = :id | covered |
+| `VO042Q` | `vastbase-oracle-unsupported-keywords-in-quoted-identifiers` | SELECT "RETURNING", "email@domain" FROM users | covered |
 | `VO043` | `vastbase-oracle-alter-session-current-schema` | ALTER SESSION SET CURRENT_SCHEMA=KDES | covered |
 | `VO043Q` | `vastbase-oracle-alter-session-current-schema-quoted-identifier` | ALTER SESSION SET CURRENT_SCHEMA="KdesMixed" | covered |
 | `VO044` | `vastbase-oracle-alter-session-container` | ALTER SESSION SET CONTAINER=PDB1 | covered |
@@ -130,9 +134,12 @@ Executable fixture: `tests/cases/vastbase_oracle_dialect_input.json`. The unit t
 | `VO106` | `vastbase-oracle-update-named-bind-rhs-crypto-source` | UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :secret_value WHERE ID = :id | covered |
 | `VO107` | `vastbase-oracle-update-question-bind-rhs-crypto-source` | UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = ? WHERE ID = ? | covered |
 | `VO108` | `vastbase-oracle-update-multiple-bind-rhs-crypto-source` | UPDATE KDES.DBP_CRYPTO_TEST SET PHONE = :1, SECRET = :2 WHERE ID = :3 | covered |
-| `VOU014` | `vastbase-oracle-create-synonym` | CREATE SYNONYM u FOR users | explicitly unsupported |
-| `VOU015` | `vastbase-oracle-database-link` | SELECT * FROM users@remote_db | explicitly unsupported |
-| `VOU016` | `vastbase-oracle-explain-plan` | EXPLAIN PLAN FOR SELECT * FROM users | explicitly unsupported |
+| `VOU014` | `vastbase-oracle-create-synonym` | CREATE SYNONYM u FOR users | covered |
+| `VO175` | `vastbase-oracle-create-public-synonym` | CREATE OR REPLACE PUBLIC SYNONYM app_users FOR kdes.users | covered |
+| `VO176` | `vastbase-oracle-drop-synonym` | DROP SYNONYM app_users FORCE | covered |
+| `VOU015` | `vastbase-oracle-database-link` | SELECT * FROM users@remote_db | covered |
+| `VOU016` | `vastbase-oracle-explain-plan` | EXPLAIN PLAN FOR SELECT * FROM users | covered |
+| `VO177` | `vastbase-oracle-explain-plan-into` | EXPLAIN PLAN SET STATEMENT_ID = 'q1' INTO plan_table FOR SELECT id FROM users WHERE id = :id | covered |
 | `VOU017` | `vastbase-oracle-connect-by-root` | SELECT CONNECT_BY_ROOT name FROM users CONNECT BY PRIOR id = manager_id | explicitly unsupported |
 | `VO138` | `vastbase-oracle-insert-first` | INSERT FIRST WHEN 1 = 1 THEN INTO users (id) VALUES (1) SELECT 1 FROM dual | covered |
 | `VO139` | `vastbase-oracle-insert-first-direct-source-fields` | INSERT FIRST WHEN amount > 100 THEN INTO big_orders (id, amount) VALUES (order_id, amount) ELSE INTO small_orders (id, amount) VALUES (order_id, amount) SELECT id AS order_id, amount FROM orders | covered |
@@ -151,3 +158,23 @@ Executable fixture: `tests/cases/vastbase_oracle_dialect_input.json`. The unit t
 | `VO152` | `vastbase-oracle-like-escape-expression` | SELECT ID FROM KDES.USERS WHERE NAME LIKE :pattern ESCAPE UPPER('!') | covered |
 | `VO153` | `vastbase-oracle-derived-like-escape-literal` | SELECT D.ID FROM (SELECT ID, NAME FROM KDES.USERS) D WHERE D.NAME LIKE :pattern ESCAPE '!' | covered |
 | `VO154` | `vastbase-oracle-like-without-explicit-escape` | SELECT ID FROM KDES.USERS WHERE NAME LIKE :pattern | covered |
+| `VO155` | `vastbase-oracle-p3-update-alias-qualified-assignment` | UPDATE encrypt_test_data x SET x.email = :1 WHERE x.id = :2 | covered |
+| `VO156` | `vastbase-oracle-p3-update-multiple-alias-qualified-assignments` | UPDATE encrypt_test_data x SET x.email = :1, x.secret_sn = :2 WHERE x.phone = :3 | covered |
+| `VO157` | `vastbase-oracle-p3-update-from-source-field` | UPDATE t SET name = s.name FROM src s WHERE t.id = s.id | covered |
+| `VO158` | `vastbase-oracle-p3-update-schema-qualified-alias-target` | UPDATE KDES.ENCRYPT_TEST_DATA x SET x.email = :1 WHERE x.id = :2 | covered |
+| `VO159` | `vastbase-oracle-p3-update-scalar-subquery-predicate` | UPDATE encrypt_test_data x SET x.email = :1 WHERE x.id = (SELECT y.id FROM encrypt_test_data y WHERE y.phone = :2) | covered |
+| `VO160` | `vastbase-oracle-p3-delete-exists-correlated-predicate` | DELETE FROM encrypt_test_data x WHERE EXISTS (...) | covered |
+| `VO161` | `vastbase-oracle-p3-select-or-predicate-and-order-by` | SELECT x.id,x.email,x.bank_card FROM encrypt_test_data x WHERE ... OR ... ORDER BY x.id | covered |
+| `VO162` | `vastbase-oracle-p3-insert-all-independent-branches` | INSERT ALL INTO encrypt_test_data(...) VALUES(...) INTO encrypt_test_data(...) VALUES(...) SELECT 1 FROM dual | covered |
+| `VO163` | `vastbase-oracle-p3-merge-update-source-target-lineage` | MERGE INTO t USING (SELECT :1 id, :2 email FROM dual) s ... UPDATE SET t.email=s.email | covered |
+| `VO164` | `vastbase-oracle-p3-merge-insert-source-target-lineage` | MERGE INTO t USING (SELECT :1 id, :2 email FROM dual) s ... INSERT(id,email) VALUES(s.id,s.email) | covered |
+| `VO165` | `vastbase-oracle-p3-select-distinct-base-field-lineage` | SELECT DISTINCT x.email FROM encrypt_test_data x | covered |
+| `VO166` | `vastbase-oracle-p3-select-alias-order-by-lineage` | SELECT x.email AS e FROM encrypt_test_data x ORDER BY x.email | covered |
+| `VO167` | `vastbase-oracle-p3-select-star-rowid-lineage` | SELECT x.*, x.ROWID FROM encrypt_test_data x ORDER BY x.id | covered |
+| `VO168` | `vastbase-oracle-p3-update-full-alias-qualified-crypto-shape` | UPDATE encrypt_test_data x SET x.email=:1, x.secret_sn=:2, x.special_str=:3, x.remark=:4 WHERE ... | covered |
+| `VO169` | `vastbase-oracle-regexp-like-function-predicate` | SELECT * FROM users WHERE REGEXP_LIKE(name, :pat) | covered |
+| `VO170` | `vastbase-oracle-database-link-schema-alias-bind` | SELECT u.id FROM kdes.users@remote_db u WHERE u.id = :id | covered |
+| `VO171` | `vastbase-oracle-database-link-update-target` | UPDATE users@remote_db SET name = :name WHERE id = :id | covered |
+| `VO172` | `vastbase-oracle-database-link-insert-target` | INSERT INTO users@remote_db (id, name) VALUES (:id, :name) | covered |
+| `VO173` | `vastbase-oracle-database-link-delete-target` | DELETE FROM users@remote_db WHERE id = :id | covered |
+| `VO174` | `vastbase-oracle-database-link-quoted-identifiers` | SELECT * FROM "USERS"@"REMOTE_DB" | covered |

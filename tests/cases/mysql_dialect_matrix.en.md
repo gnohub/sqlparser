@@ -10,6 +10,8 @@ This file records regression cases for the MySQL dialect conversion layer. `test
 | M002 | `mysql-select-join` | `SELECT ... JOIN ... ON ... WHERE ...` | multi-table join, selected columns, join columns, where columns |
 | M003 | `mysql-hash-comment` | `SELECT ... # comment` | MySQL `#` line-comment preprocessing |
 | M004 | `mysql-insert-values-multi-row` | `INSERT ... VALUES (...), (...)` | multi-row insert, insert columns, double-quoted string normalization |
+| M004N | `mysql-national-string-literal` | `SELECT "..." ... N'...' ... n'...'` | national string prefix preservation; lowercase input is exposed with the canonical `N` prefix |
+| M004NA | `mysql-national-string-duplicate-literal` | ordinary string and `N'...'` with the same text | restore the `N` prefix only for the original national string |
 | M005 | `mysql-insert-select` | `INSERT ... SELECT ... FROM ... WHERE ...` | insert columns, inner selected columns, WHERE columns |
 | M006 | `mysql-update-basic` | `UPDATE ... SET ... WHERE ...` | updated columns, where columns, backtick identifiers |
 | M007 | `mysql-delete-conditional` | `DELETE FROM ... WHERE ... AND ...` | conditional delete and multi-condition column extraction |
@@ -20,6 +22,7 @@ This file records regression cases for the MySQL dialect conversion layer. `test
 | M012 | `mysql-start-transaction` | `START TRANSACTION; COMMIT` | MySQL transaction start and multi-statement counting |
 | M013 | `mysql-unsupported-keywords-in-string` | `SELECT 'INSERT IGNORE' ...` | unsupported prefilter does not reject string content |
 | M014 | `mysql-unsupported-keywords-in-comment` | `SELECT ... /* ON DUPLICATE KEY UPDATE */ ...` | unsupported prefilter does not reject comment content |
+| M014Q | `mysql-unsupported-keywords-in-quoted-identifiers` | ``SELECT `unsigned`, `auto_increment`, `engine` ...`` | unsupported prefilter does not reject protected identifiers |
 | M015 | `mysql-use-database` | `USE analytics` | default database switching and View JSON value selector |
 | M016 | `mysql-use-quoted-database` | `USE \`analytics-prod\`` | backtick-delimited database name and public value fragment |
 | M017 | `mysql-use-database-in-multi-statement` | `USE ...; SELECT ...` | database switching and following query remain separate in multi-statement input |
@@ -75,11 +78,33 @@ This file records regression cases for the MySQL dialect conversion layer. `test
 | M066 | `mysql-select-reference-027` | SELECT reference case 027 | MySQL-valid SELECT example parsing and View JSON shape |
 | M067 | `mysql-select-reference-029` | SELECT reference case 029 | MySQL-valid SELECT example parsing and View JSON shape |
 | M068 | `mysql-update-join-target-table-qualified` | `UPDATE users JOIN ... SET users.phone = ?` | target-table qualified assignment still maps to the target relation when no alias is used |
+| MU001 | `mysql-insert-ignore` | `INSERT IGNORE ...` | preserves the `IGNORE` modifier while reusing the ordinary INSERT AST |
+| MU002 | `mysql-insert-delayed` | `INSERT DELAYED ...` | preserves the `DELAYED` modifier; MySQL 8.4 recognizes and ignores it at execution time |
+| MU003 | `mysql-insert-low-priority` | `INSERT LOW_PRIORITY ...` | preserves the `LOW_PRIORITY` modifier while columns and values use ordinary INSERT structures |
+| MU004 | `mysql-insert-high-priority` | `INSERT HIGH_PRIORITY ...` | preserves the `HIGH_PRIORITY` modifier while columns and values use ordinary INSERT structures |
+| MU004A | `mysql-insert-low-priority-ignore` | `INSERT LOW_PRIORITY IGNORE ... VALUES (?, ?)` | combined modifiers and global positional parameters |
+| MU004B | `mysql-insert-high-priority-ignore-select` | `INSERT HIGH_PRIORITY IGNORE ... SELECT ...` | combined modifiers and INSERT SELECT source graph |
+| MU004C | `mysql-insert-ignore-on-duplicate-key` | `INSERT IGNORE ... ON DUPLICATE KEY UPDATE ...` | `IGNORE` combined with upsert assignments and bind positions |
 | MU005 | `mysql-on-duplicate-key` | `INSERT ... ON DUPLICATE KEY UPDATE ...` | MySQL upsert mapped to DML inserted values and update assignments |
+| MU007 | `mysql-update-ignore` | `UPDATE IGNORE ...` | preserves the `IGNORE` modifier while assignments and predicates reuse ordinary UPDATE structures |
+| MU008 | `mysql-delete-ignore` | `DELETE IGNORE ...` | preserves the `IGNORE` modifier while predicates reuse ordinary DELETE structures |
+| MU008A | `mysql-update-low-priority-ignore-join` | `UPDATE LOW_PRIORITY IGNORE ... JOIN ...` | combined modifiers with multi-table UPDATE JOIN using existing target, source, and predicate attribution |
+| MU008B | `mysql-delete-low-priority-quick-ignore-join` | `DELETE LOW_PRIORITY QUICK IGNORE ... JOIN ...` | combined modifiers with multi-table DELETE JOIN using existing delete-target and predicate attribution |
 | MU009 | `mysql-update-join` | `UPDATE ... JOIN ... SET ...` | ordinary/INNER/CROSS multi-table UPDATE with `ON`, including target relation, source relation, assignments, and predicate parameters |
 | MU010 | `mysql-delete-join` | `DELETE u FROM ... JOIN ...` | ordinary/INNER/CROSS multi-table DELETE with `ON`, including target relation, source relation, and predicate parameters |
 | MU010A | `mysql-update-join-on-bind` | `UPDATE ... JOIN ... ON ... ? SET ... WHERE ...` | JOIN `ON` parameters in multi-table UPDATE are attributed to `on`; later `WHERE` parameters remain attributed to `where` |
 | MU010B | `mysql-delete-join-on-bind` | `DELETE u FROM ... JOIN ... ON ... ? WHERE ...` | JOIN `ON` parameters in multi-table DELETE are attributed to `on`; later `WHERE` parameters remain attributed to `where` |
+| MU011 | `mysql-auto-increment` | `CREATE TABLE ... AUTO_INCREMENT` | MySQL auto-increment column attributes are mapped through the generic DDL AST and restored to public MySQL SQL during deparse |
+| MU012 | `mysql-unsigned` | `CREATE TABLE ... UNSIGNED` | MySQL numeric `UNSIGNED` attributes are parsed and restored in public SQL |
+| MU013 | `mysql-zerofill` | `CREATE TABLE ... ZEROFILL` | MySQL numeric `ZEROFILL` attributes are parsed and restored in public SQL |
+| MU014 | `mysql-table-engine` | `CREATE TABLE ... ENGINE=...` | MySQL table engine options are parsed and restored in public SQL |
+| MU015 | `mysql-table-charset` | `CREATE TABLE ... DEFAULT CHARSET=...` | MySQL default table charset options are parsed and restored in public SQL |
+| MU016 | `mysql-table-character-set` | `CREATE TABLE ... CHARACTER SET=...` | MySQL table character-set options are parsed and restored in public SQL |
+| MU017 | `mysql-table-collate` | `CREATE TABLE ... COLLATE=...` | MySQL table collation options are parsed and restored in public SQL |
+| MU018 | `mysql-update-left-join` | `UPDATE ... LEFT JOIN ... SET ...` | LEFT JOIN multi-table UPDATE join kind, target assignment column, and condition-parameter mapping |
+| MU019 | `mysql-delete-left-join` | `DELETE u FROM ... LEFT JOIN ...` | LEFT JOIN multi-table DELETE target/source relation and condition-parameter mapping |
+| MU020 | `mysql-update-join-source-assignment` | `UPDATE ... JOIN ... SET source_alias.column = ...` | single-target update of the joined right-side table, including target/source relation and assignment-parameter mapping |
+| MU021 | `mysql-delete-join-source-target` | `DELETE source_alias FROM target JOIN source_alias ...` | single-target delete of the joined right-side table, including delete target and condition-parameter mapping |
 | M069 | `mysql-field-match-kind-direct-and-expression` | direct-field predicate plus function-wrapped field predicate | `query_graph.values[].field_match_kind` distinguishes `direct_field` from `expression_field` |
 | M070 | `mysql-expression-field-case-expression-value` | CASE returns a field and compares with `?` | CASE expression fields emit `expression_field` value relations |
 | M071 | `mysql-expression-field-multi-field-expression-value` | `CONCAT(secret, id)` and `secret + id` compared with `?` | Fields inside the expression keep separate `expression_field` value relations |
@@ -91,31 +116,31 @@ This file records regression cases for the MySQL dialect conversion layer. `test
 | M077 | `mysql-like-escape-question-binds` | `LIKE ? ESCAPE ?` | pattern and escape JDBC positional parameters keep separate global bind positions |
 | M078 | `mysql-not-like-escape-literal` | `NOT LIKE ? ESCAPE '!'` | structured output for pattern bind plus literal ESCAPE in negated LIKE |
 | M079 | `mysql-like-without-explicit-escape` | `LIKE ?` | `like_escape` is omitted when ESCAPE is not explicit |
+| M089 | `mysql-update-join-source-field-graph` | `UPDATE ... JOIN ... SET target = source.column` | `source_field` for base-table source fields on the right side of multi-table UPDATE assignments, plus `right_field` for JOIN/WHERE field comparisons |
+| M090 | `mysql-insert-select-source-block-graph` | `INSERT ... SELECT ... FROM ...` | target columns, source block, and source-field lineage for INSERT SELECT |
+| M091 | `mysql-with-cte-select` | `WITH cte AS (...) SELECT ...` | WITH common table expression, inner table attribution, and positional-parameter ordering |
+| M092 | `mysql-window-row-number` | `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...)` | field paths and output-target attribution inside a window-function expression |
+| M093 | `mysql-common-scalar-functions` | `LOWER(...)` and `COALESCE(...)` | scalar-function output paths and WHERE parameter attribution |
+| M094 | `mysql-common-data-types` | `CREATE TABLE` with common type names | common type names mapped to the current DDL/type AST |
+| M095 | `mysql-rollback` | `ROLLBACK` | transaction rollback statement |
+| M096 | `mysql-json-contains-function-predicate` | `JSON_CONTAINS(tags, ?)` | JSON function predicates reuse `fields/values/predicates` for fields, binds, and expression predicates |
+| M097 | `mysql-select-alias-order-by-lineage` | `SELECT u.email AS e ... ORDER BY u.email` | SELECT output aliases keep base-field lineage, while ORDER BY fields stay independently attributed |
+| M098 | `mysql-create-table-column-and-table-options` | `CREATE TABLE` with column attributes and table options | combined validation for `UNSIGNED`, `AUTO_INCREMENT`, `ZEROFILL`, `ENGINE`, `CHARSET`, and `COLLATE` in one create-table statement |
+| M099 | `mysql-create-table-official-column-attributes` | `CREATE TABLE` with official column attributes | public SQL restoration for `PRIMARY KEY`, `COMMENT`, `CHARACTER SET`, `COLLATE`, `INVISIBLE`, generated columns, and column-level `REFERENCES` |
+| M100 | `mysql-create-table-numeric-table-options` | `CREATE TABLE` with numeric table options | restores `AUTO_INCREMENT`, `AVG_ROW_LENGTH`, `CHECKSUM`, `DELAY_KEY_WRITE`, `KEY_BLOCK_SIZE`, row-count options, and statistics options |
+| M101 | `mysql-create-table-string-and-storage-table-options` | `CREATE TABLE` with string and storage table options | restores `COMMENT`, `COMPRESSION`, `CONNECTION`, directory options, encryption, engine attributes, `ROW_FORMAT`, and `TABLESPACE` |
+| M102 | `mysql-create-table-partition-options` | `CREATE TABLE` with `PARTITION BY` | restores partition tails for create-table statements without query expressions |
+| M103 | `mysql-create-temporary-table-options` | `CREATE TEMPORARY TABLE IF NOT EXISTS` with column attributes and table options | combined restoration for temporary tables, column visibility, column comments, `ENGINE`, and `DEFAULT CHARACTER SET` |
+| MU006 | `mysql-replace-into` | `REPLACE INTO ... VALUES ...` | MySQL `REPLACE` reuses the INSERT graph shape and preserves replace semantics with `insert_mode=replace_values` |
+| MU006A | `mysql-replace-low-priority-multi-row` | `REPLACE LOW_PRIORITY INTO ... VALUES (...), (...)` | multi-row `REPLACE VALUES`, positional parameters, and `LOW_PRIORITY` modifier |
+| MU006B | `mysql-replace-delayed-select` | `REPLACE DELAYED INTO ... SELECT ...` | `REPLACE SELECT` target table, source table, positional parameters, and `insert_mode=replace_select` |
+| MU006C | `mysql-replace-set` | `REPLACE INTO ... SET ...` | `SET` form is normalized to public MySQL `REPLACE ... VALUES` and emits `insert_mode=replace_set` |
+| MU006D | `mysql-replace-without-into` | `REPLACE table ... VALUES ...` | official form without `INTO` is normalized to `REPLACE INTO ...` |
+| MU006E | `mysql-replace-table-source` | `REPLACE INTO ... TABLE source` | official `TABLE` form is normalized to `REPLACE ... SELECT * FROM source` and preserves the source table |
 
 ## Explicitly Unsupported Statements
 
-The following syntax has MySQL-specific semantics or structures that cannot be safely represented by the current AST. Parsing returns `SQLPARSER_STATUS_UNSUPPORTED`.
-
-| Case ID | Case Name | Statement Shape | Reason |
-| --- | --- | --- | --- |
-| MU001 | `mysql-insert-ignore` | `INSERT IGNORE ...` | error-ignoring semantics cannot be safely downgraded to ordinary `INSERT` |
-| MU002 | `mysql-insert-delayed` | `INSERT DELAYED ...` | delayed-insert semantics require MySQL-specific execution semantics |
-| MU003 | `mysql-insert-low-priority` | `INSERT LOW_PRIORITY ...` | priority semantics cannot be mapped to the generic AST |
-| MU004 | `mysql-insert-high-priority` | `INSERT HIGH_PRIORITY ...` | priority semantics cannot be mapped to the generic AST |
-| MU006 | `mysql-replace-into` | `REPLACE INTO ...` | delete-then-insert semantics differ from ordinary `INSERT` |
-| MU007 | `mysql-update-ignore` | `UPDATE IGNORE ...` | error-ignoring semantics require MySQL-specific execution semantics |
-| MU008 | `mysql-delete-ignore` | `DELETE IGNORE ...` | error-ignoring semantics require MySQL-specific execution semantics |
-| MU011 | `mysql-auto-increment` | `AUTO_INCREMENT` | column attributes require MySQL DDL semantic extensions |
-| MU012 | `mysql-unsigned` | `UNSIGNED` | type attributes require MySQL type-system extensions |
-| MU013 | `mysql-zerofill` | `ZEROFILL` | type attributes require MySQL type-system extensions |
-| MU014 | `mysql-table-engine` | `ENGINE=...` | table options require MySQL DDL semantic extensions |
-| MU015 | `mysql-table-charset` | `DEFAULT CHARSET=...` | table charset options require MySQL DDL semantic extensions |
-| MU016 | `mysql-table-character-set` | `CHARACTER SET=...` | table charset options require MySQL DDL semantic extensions |
-| MU017 | `mysql-table-collate` | `COLLATE=...` | table collation options require MySQL DDL semantic extensions |
-| MU018 | `mysql-update-left-join` | `UPDATE ... LEFT JOIN ... SET ...` | outer-join UPDATE affected-row semantics cannot be downgraded to ordinary `UPDATE FROM` |
-| MU019 | `mysql-delete-left-join` | `DELETE u FROM ... LEFT JOIN ...` | outer-join DELETE affected-row semantics cannot be downgraded to ordinary `DELETE USING` |
-| MU020 | `mysql-update-join-source-assignment` | `UPDATE ... JOIN ... SET source_alias.column = ...` | multi-table UPDATE that modifies the joined source relation cannot be downgraded to single-target `UPDATE FROM` |
-| MU021 | `mysql-delete-join-source-target` | `DELETE source_alias FROM target JOIN source_alias ...` | multi-table DELETE that deletes the joined source relation cannot be downgraded to single-target `DELETE USING` |
+The executable MySQL dialect matrix currently has no explicit unsupported cases. Official syntax coverage boundaries are tracked in `doc/mysql_official_syntax_coverage.csv`.
 
 ## Rules
 

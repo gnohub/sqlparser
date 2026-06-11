@@ -13,14 +13,21 @@ current AST. The executable case matrix defines the support boundary:
 - `SELECT`, aliases, subqueries, joins, `WHERE`, `GROUP BY`, and `HAVING`
 - Dameng-compatible bind placeholders such as `:id` and `:name`, plus
   JDBC-style `?` positional parameters
+- `q'[...]'` strings, `N'...'` national strings, and `nq'[...]'` national q-quoted strings
 - `SET SCHEMA <schema>` and `ALTER SESSION SET CURRENT_SCHEMA = ...`
+- session parameters: `NLS_DATE_FORMAT`, `NLS_TIMESTAMP_FORMAT`,
+  `NLS_TIMESTAMP_TZ_FORMAT`, `NLS_TIME_FORMAT`, `NLS_TIME_TZ_FORMAT`,
+  `NLS_SORT`, and `CASE_SENSITIVE`
 - quoted schema identifiers in `CURRENT_SCHEMA` are marked as quoted
   identifiers in the public literal view
 - `MINUS` set operator
 - `LIMIT n`, `LIMIT offset,n`, and `LIMIT n OFFSET offset`
-- `SELECT TOP n ...`
+- `SELECT TOP n ...`, `SELECT TOP n,m ...`, `SELECT TOP n PERCENT ...`,
+  `SELECT TOP n WITH TIES ...`, and `SELECT TOP n PERCENT WITH TIES ...`
 - `ROWNUM` predicates
 - `INSERT VALUES`, multi-row `INSERT`, and `INSERT SELECT`
+- multi-table insert: `INSERT ALL` and `INSERT FIRST`, including
+  `WHEN ... THEN`, `ELSE`, and multiple `INTO` branches under one condition
 - `UPDATE` and `DELETE`
 - mappable `MERGE`
 - `DATE` and `TIMESTAMP` literals
@@ -28,6 +35,7 @@ current AST. The executable case matrix defines the support boundary:
   `ALTER TABLE ADD`, `CREATE INDEX`, `DROP TABLE`, and `TRUNCATE TABLE`
 - transaction control and `GRANT / REVOKE`
 - `FOR UPDATE NOWAIT`
+- remote object references such as `schema.table@link`
 - common functions and analytic functions such as `NVL` and
   `ROW_NUMBER() OVER (...)`
 - embedded SQL prepared statements: `EXEC SQL PREPARE`, `EXEC SQL EXECUTE`,
@@ -43,11 +51,7 @@ handle:
 - `PIVOT` and `UNPIVOT`
 - `RETURNING ... INTO`
 - DMSQL blocks, procedures, and packages
-- `TOP ... PERCENT` and `TOP ... WITH TIES`
-- multi-table insert forms such as `INSERT ALL`
-- database links
-- national q-quoted strings such as `nq'[...]'`
-- `ALTER SESSION` parameters other than current-schema switching
+- other `ALTER SESSION` parameters outside the supported list
 - container switching such as `ALTER SESSION SET CONTAINER = ...`
 
 ## Public Output Rules
@@ -75,5 +79,5 @@ The Dameng support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current Dameng matrix contains 87 cases: 75 supported paths and 12 explicit
-unsupported paths.
+The current Dameng matrix contains 131 cases: 125 supported paths and 6
+explicit unsupported paths.

@@ -22,31 +22,31 @@ privilege statements, and Oracle-specific semantics.
 | `CURRENT` | The Oracle dialect has representative executable coverage, or the current AST can safely represent the syntax. |
 | `HOOK_ONLY` | Not covered yet, but implementable through dialect hooks, preprocessing, postprocessing, or type/function mapping. |
 | `MIXED_MODEL` | The basic form can use the current AST and hooks, but full official syntax needs an Oracle-specific model. |
-| `MODEL_REQUIRED` | Requires an Oracle-specific model, usually for hierarchical queries, PL/SQL, table transformations, flashback, or remote object references. |
+| `MODEL_REQUIRED` | Requires an Oracle-specific model, usually for hierarchical queries, PL/SQL, table transformations, or flashback. |
 | `REFERENCE_ONLY` | An official index, category, or explanatory page that is not counted as an implementation unit. |
 
 ## Results
 
-| Status | Syntax Groups | Share of 46 Groups |
+| Status | Syntax Groups | Share of 47 Groups |
 | --- | ---: | ---: |
-| `CURRENT` | 33 | 71.74% |
+| `CURRENT` | 36 | 76.60% |
 | `HOOK_ONLY` | 0 | 0.00% |
-| `MIXED_MODEL` | 0 | 0.00% |
-| `MODEL_REQUIRED` | 13 | 28.26% |
+| `MIXED_MODEL` | 2 | 4.26% |
+| `MODEL_REQUIRED` | 9 | 19.15% |
 | `REFERENCE_ONLY` | 0 | 0.00% |
 
-After excluding `REFERENCE_ONLY`, there are 46 implementable syntax groups.
-The current implementation covers 33 groups and leaves 13 groups uncovered.
+After excluding `REFERENCE_ONLY`, there are 47 implementable syntax groups.
+The current implementation fully covers 36 groups and has 11 incomplete groups.
 
-| Uncovered Class | Syntax Groups | Share of 13 Uncovered Groups |
+| Incomplete Class | Syntax Groups | Share of 11 Incomplete Groups |
 | --- | ---: | ---: |
 | `HOOK_ONLY` | 0 | 0.00% |
-| `MIXED_MODEL` | 0 | 0.00% |
-| `MODEL_REQUIRED` | 13 | 100.00% |
+| `MIXED_MODEL` | 2 | 18.18% |
+| `MODEL_REQUIRED` | 9 | 81.82% |
 
 ## Conclusion
 
-The remaining Oracle gaps are all Oracle-specific semantics that cannot be
-safely mapped to the shared AST. Future Oracle expansion should use an
-Oracle-specific model instead of downgrading those semantics to PostgreSQL
-compatible forms.
+The remaining Oracle gaps are mainly Oracle-specific semantics that cannot be
+safely mapped to the shared AST. `SYNONYM` and `EXPLAIN PLAN FOR` now cover
+basic statement parsing, keywords, and deparse output; full object attributes
+or execution-plan semantics require an Oracle-specific model.

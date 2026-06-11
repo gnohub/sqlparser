@@ -83,44 +83,6 @@ static int verify_statement_types(
 	return 0;
 }
 
-static int verify_contains(
-	const char *case_id,
-	const char *case_name,
-	const char *text,
-	const char *field_name,
-	json_t *expected_value)
-{
-	const char *expected;
-
-	expected = json_string_or_null(expected_value);
-	if (expected == NULL) {
-		return 0;
-	}
-	if (text == NULL || strstr(text, expected) == NULL) {
-		return fail_case_field(case_id, case_name, field_name, expected);
-	}
-	return 0;
-}
-
-static int verify_not_contains(
-	const char *case_id,
-	const char *case_name,
-	const char *text,
-	const char *field_name,
-	json_t *expected_value)
-{
-	const char *expected;
-
-	expected = json_string_or_null(expected_value);
-	if (expected == NULL) {
-		return 0;
-	}
-	if (text != NULL && strstr(text, expected) != NULL) {
-		return fail_case_field(case_id, case_name, field_name, expected);
-	}
-	return 0;
-}
-
 static int verify_failure_case(
 	const char *case_id,
 	const char *case_name,
@@ -222,11 +184,11 @@ static int verify_success_case(
 	}
 
 	if (verify_statement_types(case_id, case_name, handle, json_object_get(expect_root, "statement_types")) != 0 ||
-	    verify_contains(case_id, case_name, view_json, "view_contains", json_object_get(expect_root, "view_contains")) != 0 ||
-	    verify_not_contains(case_id, case_name, view_json, "view_not_contains", json_object_get(expect_root, "view_not_contains")) != 0 ||
+	    sqlparser_test_text_contains_expected(case_id, case_name, view_json, "view_contains", json_object_get(expect_root, "view_contains")) != 0 ||
+	    sqlparser_test_text_not_contains_expected(case_id, case_name, view_json, "view_not_contains", json_object_get(expect_root, "view_not_contains")) != 0 ||
 	    sqlparser_test_verify_view_expectations(case_id, case_name, view_json, expect_root) != 0 ||
-	    verify_contains(case_id, case_name, deparse_sql, "deparse_contains", json_object_get(expect_root, "deparse_contains")) != 0 ||
-	    verify_not_contains(case_id, case_name, deparse_sql, "deparse_not_contains", json_object_get(expect_root, "deparse_not_contains")) != 0) {
+	    sqlparser_test_text_contains_expected(case_id, case_name, deparse_sql, "deparse_contains", json_object_get(expect_root, "deparse_contains")) != 0 ||
+	    sqlparser_test_text_not_contains_expected(case_id, case_name, deparse_sql, "deparse_not_contains", json_object_get(expect_root, "deparse_not_contains")) != 0) {
 		sqlparser_string_free(deparse_sql);
 		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);

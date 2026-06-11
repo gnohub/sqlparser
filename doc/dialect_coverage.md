@@ -6,22 +6,22 @@
 
 | 方言 | 统计来源 | 支持用例 | 明确不支持用例 | 合计 | 支持占比 |
 | --- | --- | ---: | ---: | ---: | ---: |
-| PostgreSQL | `tests/cases/sql_batch_input.json` | 143 | 1 | 144 | 99.31% |
-| MySQL | `tests/cases/mysql_dialect_input.json` | 85 | 18 | 103 | 82.52% |
-| Oracle | `tests/cases/oracle_dialect_input.json` | 131 | 16 | 147 | 89.12% |
-| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 330 | 15 | 345 | 95.65% |
-| 达梦 | `tests/cases/dameng_dialect_input.json` | 89 | 12 | 101 | 88.12% |
-| Vastbase PostgreSQL 兼容模式 | `tests/cases/vastbase_postgresql_dialect_input.json` | 136 | 1 | 137 | 99.27% |
-| Vastbase MySQL 兼容模式 | `tests/cases/vastbase_mysql_dialect_input.json` | 85 | 18 | 103 | 82.52% |
-| Vastbase Oracle 兼容模式 | `tests/cases/vastbase_oracle_dialect_input.json` | 131 | 16 | 147 | 89.12% |
-| Vastbase SQL Server 兼容模式 | `tests/cases/vastbase_sqlserver_dialect_input.json` | 330 | 15 | 345 | 95.65% |
+| PostgreSQL | `tests/cases/sql_batch_input.json` | 153 | 1 | 154 | 99.35% |
+| MySQL | `tests/cases/mysql_dialect_input.json` | 131 | 0 | 131 | 100.00% |
+| Oracle | `tests/cases/oracle_dialect_input.json` | 163 | 12 | 175 | 93.14% |
+| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 448 | 11 | 459 | 97.60% |
+| 达梦 | `tests/cases/dameng_dialect_input.json` | 125 | 6 | 131 | 95.42% |
+| Vastbase PostgreSQL 兼容模式 | `tests/cases/vastbase_postgresql_dialect_input.json` | 144 | 1 | 145 | 99.31% |
+| Vastbase MySQL 兼容模式 | `tests/cases/vastbase_mysql_dialect_input.json` | 131 | 0 | 131 | 100.00% |
+| Vastbase Oracle 兼容模式 | `tests/cases/vastbase_oracle_dialect_input.json` | 162 | 12 | 174 | 93.10% |
+| Vastbase SQL Server 兼容模式 | `tests/cases/vastbase_sqlserver_dialect_input.json` | 448 | 11 | 459 | 97.60% |
 
 ## 口径
 
 - `支持用例` 表示当前方言已经通过解析、View JSON、deparse 或错误路径的可执行回归验证。
 - `明确不支持用例` 表示当前实现主动返回 `SQLPARSER_STATUS_UNSUPPORTED` 或解析错误，不返回可用 handle。
 - PostgreSQL 默认方言的负向用例为故意构造的非法 SQL，不计为功能缺口。
-- MySQL、Oracle、SQL Server、达梦和 Vastbase 各兼容模式的明确不支持用例主要来自数据库专属语义，无法在不扩展共享 AST 的前提下安全表达。
+- Oracle、SQL Server、达梦和部分 Vastbase 兼容模式的明确不支持用例主要来自数据库专属语义，无法在不扩展共享 AST 的前提下安全表达。
 
 ## 维护要求
 

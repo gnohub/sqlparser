@@ -381,6 +381,20 @@ static sqlparser_status_t sqlparser_validate_update_assignment_nodes(
 	return SQLPARSER_STATUS_OK;
 }
 
+static const char *sqlparser_update_assignment_effective_column_name(const PgQuery__ResTarget *target)
+{
+	const char *name;
+
+	if (target == NULL) {
+		return NULL;
+	}
+	if (target->n_indirection > 0U && target->indirection != NULL &&
+	    sqlparser_node_string_value(target->indirection[target->n_indirection - 1U], &name) &&
+	    name != NULL && name[0] != '\0') {
+		return name;
+	}
+	return target->name;
+}
 
 sqlparser_status_t sqlparser_update_assignment_count(
 	const sqlparser_handle_t *handle,
@@ -449,7 +463,7 @@ sqlparser_status_t sqlparser_update_assignment(
 		return status;
 	}
 
-	out_assignment->column_name = target->name != NULL ? target->name : NULL;
+	out_assignment->column_name = sqlparser_update_assignment_effective_column_name(target);
 	out_assignment->value_kind = sqlparser_node_value_kind(target->val);
 	if (out_assignment->value_kind == SQLPARSER_VALUE_KIND_LITERAL) {
 		return sqlparser_fill_literal_view_from_a_const_with_sql(

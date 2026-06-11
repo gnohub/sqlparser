@@ -88,6 +88,7 @@ JSON 只输出有意义的可选字段。公共 C 结构中由 `has_*` 或 `coun
 | `fields` | SQL 文本中出现的字段引用 occurrence；非空时存在 |
 | `values` | 与字段关联的字面量、bind、DEFAULT 值；分页或伪列 bind 不进入该数组；非空时存在 |
 | `sets` | `UNION`、`UNION ALL`、`INTERSECT`、`EXCEPT/MINUS` 等集合运算；非空时存在 |
+| `predicates` | `WHERE`、`ON`、`HAVING` 等条件中的谓词树节点；非空时存在 |
 | `dml` | `INSERT`、`UPDATE`、`DELETE` 等写入结构；仅 DML 语句存在 |
 
 数组中的编号均为当前语句内的 0 基索引。`relations[].source_block`、`targets[].source_block`、`targets[].star_relations` 和 `sets[].branches` 可组合表达派生表、星号和集合运算的来源链路。
@@ -146,6 +147,7 @@ FROM (
 | `schema` | SQL 中出现的 schema；未出现时省略 |
 | `table` | SQL 中出现的表名；派生表没有表名时省略 |
 | `alias` | SQL 中出现的别名；未出现时省略 |
+| `link` | 远程对象引用中的 database link 名称；未出现时省略 |
 | `source_block` | 派生表或 CTE 指向的查询块；没有来源块时省略 |
 | `selector` | 可用于 patch 的关系 selector；没有可写节点时省略 |
 
@@ -229,8 +231,9 @@ FROM (
 | `operator` | 与值关联的操作符；没有时省略 |
 | `operator_kind` | 操作符结构化分类；有 `operator` 时输出，pattern-match 可为 `like`、`not_like`、`ilike`、`not_ilike`，其他操作符为 `unknown` |
 | `field` | 关联字段索引；无法关联字段的分页或伪列值不会进入 `values[]` |
+| `source_field` | 值为字段引用时的来源字段索引；不适用时省略 |
 | `field_match_kind` | 字段匹配形态；`direct_field` 表示直接字段，`expression_field` 表示字段位于函数、类型转换、表达式或 `CASE` 中 |
-| `kind` | `literal`、`bind`、`default`、`expression` |
+| `kind` | `literal`、`bind`、`default`、`expression`、`field` |
 | `bind_key` | 预编译占位符 key；没有 bind 时省略 |
 | `bind_kind` | `0` 无 bind，`1` 位置 bind，`2` 命名 bind |
 | `bind_sql` | SQL 中出现的原始占位符文本；没有 bind 时省略 |
@@ -268,6 +271,36 @@ FROM (
 
 如果值侧本身是函数、类型转换、运算符、数组、ROW 或 CASE 表达式，例如 `secret = UPPER(?)`、`secret = ? || 'x'`、`secret = CAST(? AS CHAR)`，`values[]` 输出关联到 `secret` 的 `kind=expression`，不会把表达式内部的 bind 或 literal 暴露成 direct value。
 
+## predicate
+
+```json
+{
+  "block": 0,
+  "clause": "where",
+  "kind": "comparison",
+  "bool_operator": "none",
+  "operator": "=",
+  "operator_kind": "unknown",
+  "left_field": 1,
+  "value": 0
+}
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `block` | 谓词所在查询块 |
+| `clause` | 谓词所在子句，例如 `where`、`on`、`having` |
+| `kind` | `comparison`、`bool`、`exists`、`expression`、`unknown` |
+| `bool_operator` | `bool` 谓词的组合类型：`and`、`or`、`not`；其他类型为 `none` |
+| `operator` | 比较操作符；非比较谓词时省略 |
+| `operator_kind` | 操作符结构化分类；非比较谓词时省略 |
+| `left_field` | 比较左侧字段索引；没有稳定字段侧时省略 |
+| `right_field` | field-to-field 比较右侧字段索引；不适用时省略 |
+| `value` | 比较右侧 literal、bind、DEFAULT、field 或 expression 对应的 `values[]` 索引；不适用时省略 |
+| `children` | `AND`、`OR`、`NOT` 的子谓词索引数组；非组合谓词时省略 |
+
+`field = literal/bind` 使用 `left_field + value` 表达；`field = field` 使用 `left_field + right_field`，并在 `values[]` 中以 `kind = "field"` 记录来源字段。无法安全拆分字段和值两侧的条件会保留为 `kind = "expression"`，避免把复杂表达式误判为直接字段传递。
+
 ## DML
 
 `query_graph.dml` 表达写入语句的目标关系、目标列、行值、赋值项和来源查询。
@@ -277,16 +310,18 @@ FROM (
 | 字段 | 说明 |
 | --- | --- |
 | `kind` | `insert`、`update`、`delete`、`merge` |
-| `insert_mode` | INSERT 写入形态：`values`、`select`、`all`、`first` |
+| `insert_mode` | INSERT 写入形态：`values`、`select`、`all`、`first`、`replace_values`、`replace_select`、`replace_set` |
 | `target_relation` | 写入目标 relation 索引；没有稳定目标时省略 |
 | `target_columns` | INSERT 显式目标列索引数组；没有列列表时省略 |
-| `rows` | `INSERT ... VALUES` 或 Oracle multi-table INSERT branch 的 cell 索引数组 |
-| `source_block` | `INSERT ... SELECT` 或 Oracle multi-table INSERT 末尾 source query 的 block 索引 |
-| `branches` | Oracle `INSERT ALL/FIRST` 的 INTO 分支数组；非 multi-table INSERT 时省略 |
+| `rows` | `INSERT ... VALUES` 或 Oracle/Dameng multi-table INSERT branch 的 cell 索引数组 |
+| `source_block` | `INSERT ... SELECT` 或 Oracle/Dameng multi-table INSERT 末尾 source query 的 block 索引 |
+| `branches` | Oracle/Dameng `INSERT ALL/FIRST` 的 INTO 分支数组；非 multi-table INSERT 时省略 |
 
-Oracle multi-table INSERT 的每个 branch 包含独立的 `target_relation`、`target_columns`、`rows`，`INSERT ALL/FIRST` 的 `WHEN` 条件通过 `condition_selector` 定位；该 selector 可通过 `sqlparser_selector_clause_sql()` 读取原始条件 SQL。
+Oracle/Dameng multi-table INSERT 的每个 branch 包含独立的 `target_relation`、`target_columns`、`rows` 和 `branch_kind`。`branch_kind` 取值为 `unconditional`、`when` 或 `else`；`WHEN` 条件通过 `condition_selector` 定位，该 selector 可通过 `sqlparser_selector_clause_sql()` 读取原始条件 SQL。
 
 branch cell 的 `kind` 可为 `literal`、`bind`、`default`、`expression` 或 `field`。当 `VALUES (id)` 这类 cell 直接引用末尾 source query 的输出字段时，`kind` 为 `field`，并通过 `source_target` 指向 `targets[]` 中对应的 source query 输出项；如果该 target 是直接字段，调用方可继续读取 `targets[].field` 定位到 `fields[]`。
+
+`UPDATE` 和 `MERGE` 的 assignment 使用 `target_field` 指向被写入字段。赋值右侧为直接字段引用时，`kind` 为 `field`，`source_field` 指向来源字段；来源字段来自派生表且可唯一匹配 source query 输出项时，同时输出 `source_target`。
 
 ## 改写
 

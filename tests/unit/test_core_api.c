@@ -2927,37 +2927,154 @@ static int test_dialect_insert_column_patch_with_question_param(void)
 		sqlparser_handle_destroy(handle);
 	}
 
-	return 0;
-}
+		{
+			sqlparser_parse_options_t options;
+			sqlparser_handle_t *handle;
+			sqlparser_error_t error;
+			char *deparsed_sql;
+		int rc;
 
-static int test_mysql_dialect_unsupported(void)
+		handle = NULL;
+		deparsed_sql = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = SQLPARSER_DIALECT_MYSQL;
+		rc = sqlparser_parse_with_options(
+			"INSERT LOW_PRIORITY IGNORE INTO `users` (`id`, `phone`) VALUES (?, ?)",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "mysql insert modifiers should parse") != 0 ||
+		    expect_true(handle != NULL, "mysql insert modifiers should return handle") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+		if (expect_status_ok(rc, &error, "mysql insert modifiers deparse should succeed") != 0 ||
+		    expect_true(strstr(deparsed_sql, "INSERT LOW_PRIORITY IGNORE INTO users") != NULL, "mysql insert modifiers should be preserved") != 0 ||
+		    expect_true(strstr(deparsed_sql, "$") == NULL, "mysql insert modifiers should not expose internal params") != 0) {
+			sqlparser_string_free(deparsed_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+			sqlparser_string_free(deparsed_sql);
+			sqlparser_handle_destroy(handle);
+		}
+
+		{
+			sqlparser_parse_options_t options;
+			sqlparser_handle_t *handle;
+			sqlparser_error_t error;
+			char *deparsed_sql;
+			int rc;
+
+			handle = NULL;
+			deparsed_sql = NULL;
+			memset(&error, 0, sizeof(error));
+			sqlparser_parse_options_default(&options);
+			options.dialect = SQLPARSER_DIALECT_MYSQL;
+			rc = sqlparser_parse_with_options(
+				"UPDATE LOW_PRIORITY IGNORE users u JOIN orders o ON u.id=o.user_id SET u.phone = ? WHERE o.shipping_phone = ?",
+				&options,
+				&handle,
+				&error);
+			if (expect_status_ok(rc, &error, "mysql update modifiers should parse") != 0 ||
+			    expect_true(handle != NULL, "mysql update modifiers should return handle") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+			if (expect_status_ok(rc, &error, "mysql update modifiers deparse should succeed") != 0 ||
+			    expect_true(
+				    strstr(deparsed_sql, "UPDATE LOW_PRIORITY IGNORE users u JOIN orders o ON") != NULL,
+				    "mysql update modifiers should be preserved") != 0 ||
+			    expect_true(strstr(deparsed_sql, "$") == NULL, "mysql update modifiers should not expose internal params") != 0) {
+				sqlparser_string_free(deparsed_sql);
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			sqlparser_string_free(deparsed_sql);
+			sqlparser_handle_destroy(handle);
+		}
+
+		{
+			sqlparser_parse_options_t options;
+			sqlparser_handle_t *handle;
+			sqlparser_error_t error;
+			char *deparsed_sql;
+			int rc;
+
+			handle = NULL;
+			deparsed_sql = NULL;
+			memset(&error, 0, sizeof(error));
+			sqlparser_parse_options_default(&options);
+			options.dialect = SQLPARSER_DIALECT_MYSQL;
+			rc = sqlparser_parse_with_options(
+				"DELETE LOW_PRIORITY QUICK IGNORE u FROM users u JOIN orders o ON u.id=o.user_id WHERE u.phone = ?",
+				&options,
+				&handle,
+				&error);
+			if (expect_status_ok(rc, &error, "mysql delete modifiers should parse") != 0 ||
+			    expect_true(handle != NULL, "mysql delete modifiers should return handle") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+			if (expect_status_ok(rc, &error, "mysql delete modifiers deparse should succeed") != 0 ||
+			    expect_true(
+				    strstr(deparsed_sql, "DELETE LOW_PRIORITY QUICK IGNORE u FROM users u JOIN orders o ON") != NULL,
+				    "mysql delete modifiers should be preserved") != 0 ||
+			    expect_true(strstr(deparsed_sql, "$") == NULL, "mysql delete modifiers should not expose internal params") != 0) {
+				sqlparser_string_free(deparsed_sql);
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			sqlparser_string_free(deparsed_sql);
+			sqlparser_handle_destroy(handle);
+		}
+
+		return 0;
+	}
+
+static int test_mysql_dialect_create_table_extensions(void)
 {
-	const char *sqls[] = {
-		"INSERT IGNORE INTO `users` (`id`) VALUES (1)",
-		"REPLACE INTO users(id) VALUES(1)",
-		"CREATE TABLE `users` (`id` INT AUTO_INCREMENT)"
-	};
 	sqlparser_parse_options_t options;
 	sqlparser_handle_t *handle;
 	sqlparser_error_t error;
-	size_t index;
+	char *deparsed_sql;
 	int rc;
 
 	sqlparser_parse_options_default(&options);
 	options.dialect = SQLPARSER_DIALECT_MYSQL;
+	handle = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
 
-	for (index = 0U; index < sizeof(sqls) / sizeof(sqls[0]); index++) {
-		handle = NULL;
-		memset(&error, 0, sizeof(error));
-		rc = sqlparser_parse_with_options(sqls[index], &options, &handle, &error);
-		if (expect_true(rc == SQLPARSER_STATUS_UNSUPPORTED, "unsupported mysql syntax should return UNSUPPORTED") != 0 ||
-		    expect_true(handle == NULL, "unsupported mysql syntax should not return handle") != 0 ||
-		    expect_true(error.message[0] != '\0', "unsupported mysql syntax should provide error message") != 0) {
-			sqlparser_handle_destroy(handle);
-			return 1;
-		}
+	rc = sqlparser_parse_with_options(
+		"CREATE TABLE `users` (`id` INT UNSIGNED AUTO_INCREMENT, `score` INT ZEROFILL, `name` VARCHAR(64)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "mysql create table extensions should parse") != 0 ||
+	    expect_true(handle != NULL, "mysql create table extensions should return handle") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
 	}
 
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "mysql create table extensions deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "UNSIGNED AUTO_INCREMENT") != NULL, "mysql unsigned auto_increment should be preserved") != 0 ||
+	    expect_true(strstr(deparsed_sql, "ZEROFILL") != NULL, "mysql zerofill should be preserved") != 0 ||
+	    expect_true(strstr(deparsed_sql, "ENGINE=InnoDB") != NULL, "mysql engine option should be preserved") != 0 ||
+	    expect_true(strstr(deparsed_sql, "DEFAULT CHARSET=utf8mb4") != NULL, "mysql default charset option should be preserved") != 0 ||
+	    expect_true(strstr(deparsed_sql, "COLLATE=utf8mb4_bin") != NULL, "mysql collate option should be preserved") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
 	return 0;
 }
 
@@ -5480,6 +5597,25 @@ static int test_query_graph_public_struct_semantics(void)
 
 	handle = NULL;
 	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse_with_options("SELECT * FROM users@remote_db WHERE id = :id", &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "query graph database link parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "database link graph should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_relation_at(&graph, 0U, &relation, &error), &error, "database link relation should be available") != 0 ||
+	    expect_true(relation.object_name != NULL && strcmp(relation.object_name, "users") == 0, "database link relation table mismatch") != 0 ||
+	    expect_true(relation.link_name != NULL && strcmp(relation.link_name, "remote_db") == 0, "database link relation link mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_value_at(&graph, 0U, &value, &error), &error, "database link WHERE value should be available") != 0 ||
+	    expect_true(value.has_bind != 0 && strcmp(value.bind, "id") == 0, "database link bind key mismatch") != 0 ||
+	    expect_true(value.has_bind_position != 0 && value.bind_position == 1U, "database link bind position mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
 	rc = sqlparser_parse_with_options("INSERT INTO users (id, name) VALUES (:id, ?)", &options, &handle, &error);
 	if (expect_status_ok(rc, &error, "query graph insert bind parse should succeed") != 0) {
 		return 1;
@@ -6012,6 +6148,7 @@ static int test_oracle_multi_insert_query_graph_and_patch(void)
 	    expect_true(dml.branches.count == 2U, "Oracle conditional INSERT ALL branch count mismatch") != 0 ||
 	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.branches, 0U, &index, &error), &error, "Oracle conditional INSERT ALL first branch span should resolve") != 0 ||
 	    expect_status_ok(sqlparser_query_graph_dml_branch_at(&graph, index, &branch, &error), &error, "Oracle conditional INSERT ALL first branch should be available") != 0 ||
+	    expect_true(branch.branch_kind == SQLPARSER_GRAPH_DML_BRANCH_WHEN, "Oracle conditional INSERT ALL first branch kind mismatch") != 0 ||
 	    expect_true(branch.has_condition_selector != 0, "Oracle conditional INSERT ALL condition selector missing") != 0 ||
 	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, branch.rows, 0U, &index, &error), &error, "Oracle conditional INSERT ALL bind cell span should resolve") != 0 ||
 	    expect_status_ok(sqlparser_query_graph_dml_cell_at(&graph, index, &cell, &error), &error, "Oracle conditional INSERT ALL bind cell should be available") != 0 ||
@@ -6053,6 +6190,7 @@ static int test_oracle_multi_insert_query_graph_and_patch(void)
 	    expect_true(dml.has_source_block != 0, "Oracle INSERT FIRST direct source block missing") != 0 ||
 	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.branches, 0U, &index, &error), &error, "Oracle INSERT FIRST direct source branch span should resolve") != 0 ||
 	    expect_status_ok(sqlparser_query_graph_dml_branch_at(&graph, index, &branch, &error), &error, "Oracle INSERT FIRST direct source branch should be available") != 0 ||
+	    expect_true(branch.branch_kind == SQLPARSER_GRAPH_DML_BRANCH_WHEN, "Oracle INSERT FIRST direct source first branch kind mismatch") != 0 ||
 	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, branch.rows, 0U, &index, &error), &error, "Oracle INSERT FIRST direct source first cell span should resolve") != 0 ||
 	    expect_status_ok(sqlparser_query_graph_dml_cell_at(&graph, index, &cell, &error), &error, "Oracle INSERT FIRST direct source first cell should be available") != 0 ||
 	    expect_true(cell.kind == SQLPARSER_GRAPH_VALUE_FIELD, "Oracle INSERT FIRST direct source first cell kind mismatch") != 0 ||
@@ -6071,6 +6209,12 @@ static int test_oracle_multi_insert_query_graph_and_patch(void)
 	    expect_true(target.has_field != 0, "Oracle INSERT FIRST direct source second target field missing") != 0 ||
 	    expect_status_ok(sqlparser_query_graph_field_at(&graph, target.field_index, &field, &error), &error, "Oracle INSERT FIRST direct source second field should be available") != 0 ||
 	    expect_true(field.column_name != NULL && strcmp(field.column_name, "amount") == 0, "Oracle INSERT FIRST direct source second field mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	if (expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.branches, 1U, &index, &error), &error, "Oracle INSERT FIRST direct source else branch span should resolve") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_branch_at(&graph, index, &branch, &error), &error, "Oracle INSERT FIRST direct source else branch should be available") != 0 ||
+	    expect_true(branch.branch_kind == SQLPARSER_GRAPH_DML_BRANCH_ELSE, "Oracle INSERT FIRST direct source else branch kind mismatch") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -6110,6 +6254,454 @@ static int test_oracle_multi_insert_query_graph_and_patch(void)
 	}
 	sqlparser_string_free(sql);
 	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	rc = sqlparser_parse_with_options(
+		"INSERT FIRST "
+		"WHEN flag = 1 THEN INTO t1 (id) VALUES (:1) INTO t2 (id) VALUES (:2) "
+		"ELSE INTO t3 (id) VALUES (:3) INTO t4 (id) VALUES (:4) "
+		"SELECT flag FROM src",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "Oracle INSERT FIRST grouped branches should parse") != 0) {
+		return 1;
+	}
+	sql = NULL;
+	rc = sqlparser_deparse(handle, &sql, &error);
+	if (expect_status_ok(rc, &error, "Oracle INSERT FIRST grouped branches deparse should succeed") != 0 ||
+	    expect_true(strstr(sql, "WHEN flag = 1 THEN INTO t1") != NULL, "Oracle INSERT FIRST grouped WHEN should be preserved") != 0 ||
+	    expect_true(strstr(sql, "WHEN flag = 1 THEN INTO t2") == NULL, "Oracle INSERT FIRST grouped WHEN should not repeat for second INTO") != 0 ||
+	    expect_true(strstr(sql, "ELSE INTO t3") != NULL, "Oracle INSERT FIRST grouped ELSE should be preserved") != 0 ||
+	    expect_true(strstr(sql, "ELSE INTO t4") == NULL, "Oracle INSERT FIRST grouped ELSE should not repeat for second INTO") != 0) {
+		sqlparser_string_free(sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_dameng_multi_insert_query_graph_and_patch(void)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_branch_t branch;
+	sqlparser_graph_dml_cell_t cell;
+	sqlparser_graph_relation_t relation;
+	sqlparser_bind_value_t bind;
+	sqlparser_literal_value_t literal;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patch_list;
+	char *sql;
+	size_t index;
+	int rc;
+
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_DAMENG;
+	handle = NULL;
+	rc = sqlparser_parse_with_options(
+		"INSERT ALL "
+		"INTO KDES.t1 (id, secret) VALUES (1, 'a') "
+		"INTO KDES.t2 (id, phone) VALUES (2, :phone2) "
+		"SELECT 1 FROM dual",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "Dameng INSERT ALL parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "Dameng INSERT ALL graph should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "Dameng INSERT ALL dml should be available") != 0 ||
+	    expect_true(dml.insert_mode == SQLPARSER_GRAPH_INSERT_MODE_ALL, "Dameng INSERT ALL mode mismatch") != 0 ||
+	    expect_true(dml.branches.count == 2U, "Dameng INSERT ALL branch count mismatch") != 0 ||
+	    expect_true(dml.has_source_block != 0, "Dameng INSERT ALL source block missing") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_query_graph_span_index_at(&graph, dml.branches, 1U, &index, &error);
+	if (expect_status_ok(rc, &error, "Dameng INSERT ALL second branch span should resolve") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_branch_at(&graph, index, &branch, &error), &error, "Dameng INSERT ALL second branch should be available") != 0 ||
+	    expect_true(branch.target_columns.count == 2U, "Dameng INSERT ALL second branch column count mismatch") != 0 ||
+	    expect_true(branch.rows.count == 2U, "Dameng INSERT ALL second branch cell count mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_relation_at(&graph, branch.target_relation_index, &relation, &error), &error, "Dameng INSERT ALL second relation should be available") != 0 ||
+	    expect_true(relation.schema_name != NULL && strcmp(relation.schema_name, "KDES") == 0, "Dameng INSERT ALL second relation schema mismatch") != 0 ||
+	    expect_true(relation.object_name != NULL && strcmp(relation.object_name, "t2") == 0, "Dameng INSERT ALL second relation mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_query_graph_span_index_at(&graph, branch.rows, 1U, &index, &error);
+	if (expect_status_ok(rc, &error, "Dameng INSERT ALL bind cell span should resolve") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_cell_at(&graph, index, &cell, &error), &error, "Dameng INSERT ALL bind cell should be available") != 0 ||
+	    expect_true(cell.kind == SQLPARSER_GRAPH_VALUE_BIND, "Dameng INSERT ALL bind cell kind mismatch") != 0 ||
+	    expect_true(cell.has_bind != 0 && strcmp(cell.bind, "phone2") == 0, "Dameng INSERT ALL named bind key mismatch") != 0 ||
+	    expect_true(cell.bind_kind == SQLPARSER_BIND_KIND_NAMED, "Dameng INSERT ALL named bind kind mismatch") != 0 ||
+	    expect_true(cell.has_bind_position != 0 && cell.bind_position == 1U, "Dameng INSERT ALL bind position mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	memset(&bind, 0, sizeof(bind));
+	bind.kind = SQLPARSER_BIND_KIND_NAMED;
+	bind.key = "secret_new";
+	rc = sqlparser_insert_set_cell_bind(handle, 0U, 0U, 1U, &bind, &error);
+	if (expect_status_ok(rc, &error, "Dameng INSERT ALL branch bind replacement should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&literal, 0, sizeof(literal));
+	literal.kind = SQLPARSER_LITERAL_KIND_STRING;
+	literal.string_value = "phone-new";
+	rc = sqlparser_insert_set_cell_literal(handle, 0U, 1U, 1U, &literal, &error);
+	if (expect_status_ok(rc, &error, "Dameng INSERT ALL branch literal replacement should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&patch, 0, sizeof(patch));
+	memset(&patch_list, 0, sizeof(patch_list));
+	patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patch.selector = "stmt[0].insert_branch_columns[0]";
+	patch.index = 2U;
+	patch.name = "secret_copy";
+	bind.kind = SQLPARSER_BIND_KIND_NAMED;
+	bind.key = "secret_copy";
+	patch.bind = &bind;
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "Dameng INSERT ALL branch column insertion should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sql = NULL;
+	rc = sqlparser_deparse(handle, &sql, &error);
+	if (expect_status_ok(rc, &error, "Dameng INSERT ALL patched deparse should succeed") != 0 ||
+	    expect_true(strstr(sql, "INSERT ALL") != NULL, "Dameng INSERT ALL keyword missing after patch") != 0 ||
+	    expect_true(strstr(sql, ":secret_new") != NULL, "Dameng INSERT ALL patched bind missing") != 0 ||
+	    expect_true(strstr(sql, "'phone-new'") != NULL, "Dameng INSERT ALL patched literal missing") != 0 ||
+	    expect_true(strstr(sql, "secret_copy") != NULL, "Dameng INSERT ALL inserted branch column missing") != 0 ||
+	    expect_true(strstr(sql, ":secret_copy") != NULL, "Dameng INSERT ALL inserted branch bind missing") != 0) {
+		sqlparser_string_free(sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(sql);
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	rc = sqlparser_parse_with_options(
+		"INSERT FIRST "
+		"WHEN amount > 100 THEN INTO big_orders (id, amount) VALUES (order_id, amount) "
+		"ELSE INTO small_orders (id, amount) VALUES (order_id, amount) "
+		"SELECT id AS order_id, amount FROM orders",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "Dameng INSERT FIRST direct source fields should parse") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "Dameng INSERT FIRST direct source graph should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "Dameng INSERT FIRST direct source dml should be available") != 0 ||
+	    expect_true(dml.insert_mode == SQLPARSER_GRAPH_INSERT_MODE_FIRST, "Dameng INSERT FIRST mode mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.branches, 0U, &index, &error), &error, "Dameng INSERT FIRST branch span should resolve") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_branch_at(&graph, index, &branch, &error), &error, "Dameng INSERT FIRST branch should be available") != 0 ||
+	    expect_true(branch.branch_kind == SQLPARSER_GRAPH_DML_BRANCH_WHEN, "Dameng INSERT FIRST first branch kind mismatch") != 0 ||
+	    expect_true(branch.has_condition_selector != 0, "Dameng INSERT FIRST condition selector missing") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, branch.rows, 0U, &index, &error), &error, "Dameng INSERT FIRST first cell span should resolve") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_cell_at(&graph, index, &cell, &error), &error, "Dameng INSERT FIRST first cell should be available") != 0 ||
+	    expect_true(cell.kind == SQLPARSER_GRAPH_VALUE_FIELD, "Dameng INSERT FIRST source cell kind mismatch") != 0 ||
+	    expect_true(cell.has_source_target != 0, "Dameng INSERT FIRST source target missing") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	if (expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.branches, 1U, &index, &error), &error, "Dameng INSERT FIRST else branch span should resolve") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_branch_at(&graph, index, &branch, &error), &error, "Dameng INSERT FIRST else branch should be available") != 0 ||
+	    expect_true(branch.branch_kind == SQLPARSER_GRAPH_DML_BRANCH_ELSE, "Dameng INSERT FIRST else branch kind mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	if (expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.branches, 0U, &index, &error), &error, "Dameng INSERT FIRST condition branch span should resolve") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_branch_at(&graph, index, &branch, &error), &error, "Dameng INSERT FIRST condition branch should be available") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sql = NULL;
+	rc = sqlparser_selector_clause_sql(handle, &branch.condition_selector, &sql, &error);
+	if (expect_status_ok(rc, &error, "Dameng INSERT FIRST condition selector should read SQL") != 0 ||
+	    expect_true(sql != NULL && strcmp(sql, "amount > 100") == 0, "Dameng INSERT FIRST condition SQL mismatch") != 0) {
+		sqlparser_string_free(sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(sql);
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	rc = sqlparser_parse_with_options(
+		"INSERT FIRST "
+		"WHEN flag = 1 THEN INTO t1 (id) VALUES (:1) INTO t2 (id) VALUES (:2) "
+		"ELSE INTO t3 (id) VALUES (:3) INTO t4 (id) VALUES (:4) "
+		"SELECT flag FROM src",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "Dameng INSERT FIRST grouped branches should parse") != 0) {
+		return 1;
+	}
+	sql = NULL;
+	rc = sqlparser_deparse(handle, &sql, &error);
+	if (expect_status_ok(rc, &error, "Dameng INSERT FIRST grouped branches deparse should succeed") != 0 ||
+	    expect_true(strstr(sql, "WHEN flag = 1 THEN INTO t1") != NULL, "Dameng INSERT FIRST grouped WHEN should be preserved") != 0 ||
+	    expect_true(strstr(sql, "WHEN flag = 1 THEN INTO t2") == NULL, "Dameng INSERT FIRST grouped WHEN should not repeat for second INTO") != 0 ||
+	    expect_true(strstr(sql, "ELSE INTO t3") != NULL, "Dameng INSERT FIRST grouped ELSE should be preserved") != 0 ||
+	    expect_true(strstr(sql, "ELSE INTO t4") == NULL, "Dameng INSERT FIRST grouped ELSE should not repeat for second INTO") != 0) {
+		sqlparser_string_free(sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_oracle_p3_update_assignment_graph(void)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_assignment_t assignment;
+	sqlparser_graph_field_t field;
+	sqlparser_graph_relation_t relation;
+	sqlparser_assignment_view_t public_assignment;
+	size_t assignment_index;
+	size_t index;
+	int found_field_value;
+	int rc;
+
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	handle = NULL;
+	rc = sqlparser_parse_with_options(
+		"UPDATE encrypt_test_data x SET x.email = :1 WHERE x.id = :2",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "Oracle P3 alias UPDATE should parse") != 0) {
+		return 1;
+	}
+	rc = sqlparser_update_assignment(handle, 0U, 0U, &public_assignment, &error);
+	if (expect_status_ok(rc, &error, "Oracle P3 public assignment should be readable") != 0 ||
+	    expect_true(public_assignment.column_name != NULL && strcmp(public_assignment.column_name, "email") == 0,
+	                "Oracle P3 public assignment column should be effective column") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "Oracle P3 alias UPDATE graph should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "Oracle P3 alias UPDATE dml should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.assignments, 0U, &assignment_index, &error),
+	                     &error,
+	                     "Oracle P3 alias UPDATE assignment span should resolve") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_assignment_at(&graph, assignment_index, &assignment, &error),
+	                     &error,
+	                     "Oracle P3 alias UPDATE assignment should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_field_at(&graph, assignment.target_field_index, &field, &error),
+	                     &error,
+	                     "Oracle P3 alias UPDATE target field should be available") != 0 ||
+	    expect_true(field.column_name != NULL && strcmp(field.column_name, "email") == 0,
+	                "Oracle P3 alias UPDATE target field should be email") != 0 ||
+	    expect_true(assignment.value_kind == SQLPARSER_GRAPH_VALUE_BIND, "Oracle P3 alias UPDATE assignment should keep bind value") != 0 ||
+	    expect_true(assignment.has_bind != 0 && strcmp(assignment.bind, "1") == 0,
+	                "Oracle P3 alias UPDATE assignment bind key mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	rc = sqlparser_parse_with_options(
+		"UPDATE t SET name = s.name FROM src s WHERE t.id = s.id",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "Oracle P3 UPDATE FROM should parse") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "Oracle P3 UPDATE FROM graph should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "Oracle P3 UPDATE FROM dml should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.assignments, 0U, &assignment_index, &error),
+	                     &error,
+	                     "Oracle P3 UPDATE FROM assignment span should resolve") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_assignment_at(&graph, assignment_index, &assignment, &error),
+	                     &error,
+	                     "Oracle P3 UPDATE FROM assignment should be readable") != 0 ||
+	    expect_true(assignment.value_kind == SQLPARSER_GRAPH_VALUE_FIELD, "Oracle P3 UPDATE FROM RHS should be a field") != 0 ||
+	    expect_true(assignment.has_source_field != 0, "Oracle P3 UPDATE FROM RHS source field missing") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_field_at(&graph, assignment.source_field_index, &field, &error),
+	                     &error,
+	                     "Oracle P3 UPDATE FROM source field should be readable") != 0 ||
+	    expect_true(field.column_name != NULL && strcmp(field.column_name, "name") == 0,
+	                "Oracle P3 UPDATE FROM source field column mismatch") != 0 ||
+	    expect_true(field.has_relation != 0, "Oracle P3 UPDATE FROM source field relation missing") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_relation_at(&graph, field.relation_index, &relation, &error),
+	                     &error,
+	                     "Oracle P3 UPDATE FROM source relation should be readable") != 0 ||
+	    expect_true(relation.object_name != NULL && strcmp(relation.object_name, "src") == 0,
+	                "Oracle P3 UPDATE FROM source relation table mismatch") != 0 ||
+	    expect_true(relation.alias_name != NULL && strcmp(relation.alias_name, "s") == 0,
+	                "Oracle P3 UPDATE FROM source relation alias mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	found_field_value = 0;
+	for (index = 0U; index < graph.value_count; index++) {
+		sqlparser_graph_value_t value;
+
+		if (expect_status_ok(sqlparser_query_graph_value_at(&graph, index, &value, &error),
+		                     &error,
+		                     "Oracle P3 UPDATE FROM value should be readable") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (value.kind == SQLPARSER_GRAPH_VALUE_FIELD && value.has_source_field) {
+			found_field_value = 1;
+			break;
+		}
+	}
+	if (expect_true(found_field_value != 0, "Oracle P3 UPDATE FROM field-to-field predicate value missing") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	for (index = 0U; index < graph.predicate_count; index++) {
+		sqlparser_graph_predicate_t predicate;
+
+		if (expect_status_ok(sqlparser_query_graph_predicate_at(&graph, index, &predicate, &error),
+		                     &error,
+		                     "Oracle P3 UPDATE FROM predicate should be readable") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (predicate.kind == SQLPARSER_GRAPH_PREDICATE_COMPARISON &&
+		    predicate.has_left_field && predicate.has_right_field) {
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+	}
+	fprintf(stderr, "FAIL: Oracle P3 UPDATE FROM field-to-field predicate missing\n");
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+static int test_oracle_p3_merge_source_target_graph(void)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_assignment_t assignment;
+	sqlparser_graph_dml_cell_t cell;
+	sqlparser_graph_field_t field;
+	sqlparser_graph_target_t target;
+	size_t index;
+	size_t item_index;
+	int found_assignment;
+	int found_cell;
+	int rc;
+
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	handle = NULL;
+	rc = sqlparser_parse_with_options(
+		"MERGE INTO t USING (SELECT :1 id, :2 email FROM dual) s "
+		"ON (t.id=s.id) "
+		"WHEN MATCHED THEN UPDATE SET t.email=s.email "
+		"WHEN NOT MATCHED THEN INSERT(id,email) VALUES(s.id,s.email)",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "Oracle P3 MERGE should parse") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "Oracle P3 MERGE graph should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "Oracle P3 MERGE dml should be readable") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	found_assignment = 0;
+	for (index = 0U; index < dml.assignments.count; index++) {
+		if (expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.assignments, index, &item_index, &error),
+		                     &error,
+		                     "Oracle P3 MERGE assignment span should resolve") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml_assignment_at(&graph, item_index, &assignment, &error),
+		                     &error,
+		                     "Oracle P3 MERGE assignment should be readable") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_field_at(&graph, assignment.target_field_index, &field, &error),
+		                     &error,
+		                     "Oracle P3 MERGE target field should be readable") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (field.column_name != NULL && strcmp(field.column_name, "email") == 0) {
+			if (expect_true(assignment.value_kind == SQLPARSER_GRAPH_VALUE_FIELD,
+			                "Oracle P3 MERGE assignment RHS should be field") != 0 ||
+			    expect_true(assignment.has_source_field != 0, "Oracle P3 MERGE assignment source field missing") != 0 ||
+			    expect_true(assignment.has_source_target != 0, "Oracle P3 MERGE assignment source target missing") != 0 ||
+			    expect_status_ok(sqlparser_query_graph_target_at(&graph, assignment.source_target_index, &target, &error),
+			                     &error,
+			                     "Oracle P3 MERGE assignment source target should be readable") != 0 ||
+			    expect_true(target.output_name != NULL && strcmp(target.output_name, "email") == 0,
+			                "Oracle P3 MERGE assignment source target name mismatch") != 0 ||
+			    expect_true(target.has_value != 0, "Oracle P3 MERGE source target value missing") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			found_assignment = 1;
+		}
+	}
+	if (expect_true(found_assignment != 0, "Oracle P3 MERGE email assignment missing") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	found_cell = 0;
+	for (index = 0U; index < dml.rows.count; index++) {
+		if (expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.rows, index, &item_index, &error),
+		                     &error,
+		                     "Oracle P3 MERGE row span should resolve") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml_cell_at(&graph, item_index, &cell, &error),
+		                     &error,
+		                     "Oracle P3 MERGE cell should be readable") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (cell.column_ordinal == 1U) {
+			if (expect_true(cell.kind == SQLPARSER_GRAPH_VALUE_FIELD, "Oracle P3 MERGE insert cell should be field") != 0 ||
+			    expect_true(cell.has_source_field != 0, "Oracle P3 MERGE insert cell source field missing") != 0 ||
+			    expect_true(cell.has_source_target != 0, "Oracle P3 MERGE insert cell source target missing") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			found_cell = 1;
+		}
+	}
+	if (expect_true(found_cell != 0, "Oracle P3 MERGE email insert cell missing") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
 	return 0;
 }
 
@@ -6133,6 +6725,7 @@ static int test_query_graph_attribution_and_values(void)
 	int saw_users_id;
 	int saw_order_no;
 	int saw_order_status;
+	int saw_paid_value;
 	int rc;
 
 	sql = "SELECT u.id, o.order_no FROM app.users u JOIN sales.orders o ON u.id = o.user_id WHERE o.status = 'paid'";
@@ -6178,15 +6771,27 @@ static int test_query_graph_attribution_and_values(void)
 			saw_order_status = 1;
 		}
 	}
+	saw_paid_value = 0;
+	for (index = 0U; index < graph.value_count; index++) {
+		rc = sqlparser_query_graph_value_at(&graph, index, &value, &error);
+		if (expect_status_ok(rc, &error, "WHERE literal value should be available") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (value.kind == SQLPARSER_GRAPH_VALUE_LITERAL &&
+		    value.literal.kind == SQLPARSER_LITERAL_KIND_STRING &&
+		    value.literal.string_value != NULL &&
+		    strcmp(value.literal.string_value, "paid") == 0 &&
+		    value.has_selector != 0 &&
+		    value.selector.kind == SQLPARSER_SELECTOR_KIND_VALUE) {
+			saw_paid_value = 1;
+			break;
+		}
+	}
 	if (expect_true(saw_users_id != 0, "users relation should include id field") != 0 ||
 	    expect_true(saw_order_no != 0, "orders relation should include order_no field") != 0 ||
 	    expect_true(saw_order_status != 0, "orders relation should include status field") != 0 ||
-	    expect_true(graph.value_count == 1U, "WHERE literal should expose one graph value") != 0 ||
-	    expect_status_ok(sqlparser_query_graph_value_at(&graph, 0U, &value, &error), &error, "WHERE literal value should be available") != 0 ||
-	    expect_true(value.kind == SQLPARSER_GRAPH_VALUE_LITERAL, "WHERE value should be literal") != 0 ||
-	    expect_true(value.literal.kind == SQLPARSER_LITERAL_KIND_STRING, "WHERE literal kind should be string") != 0 ||
-	    expect_true(strcmp(value.literal.string_value, "paid") == 0, "WHERE literal value mismatch") != 0 ||
-	    expect_true(value.has_selector != 0 && value.selector.kind == SQLPARSER_SELECTOR_KIND_VALUE, "WHERE value selector should be value") != 0) {
+	    expect_true(saw_paid_value != 0, "WHERE literal should expose paid graph value") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -7380,6 +7985,15 @@ int main(void)
 	if (test_oracle_multi_insert_query_graph_and_patch() != 0) {
 		return 1;
 	}
+	if (test_dameng_multi_insert_query_graph_and_patch() != 0) {
+		return 1;
+	}
+	if (test_oracle_p3_update_assignment_graph() != 0) {
+		return 1;
+	}
+	if (test_oracle_p3_merge_source_target_graph() != 0) {
+		return 1;
+	}
 	if (test_query_graph_attribution_and_values() != 0) {
 		return 1;
 	}
@@ -7419,7 +8033,7 @@ int main(void)
 	if (test_dialect_insert_column_patch_with_question_param() != 0) {
 		return 1;
 	}
-	if (test_mysql_dialect_unsupported() != 0) {
+	if (test_mysql_dialect_create_table_extensions() != 0) {
 		return 1;
 	}
 	if (test_sqlserver_dialect_option() != 0) {

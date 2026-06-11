@@ -262,7 +262,8 @@ static int sqlparser_test_verify_query_graph_shape(
 	    !sqlparser_test_optional_array_is_valid(graph, "targets") ||
 	    !sqlparser_test_optional_array_is_valid(graph, "fields") ||
 	    !sqlparser_test_optional_array_is_valid(graph, "values") ||
-	    !sqlparser_test_optional_array_is_valid(graph, "sets")) {
+	    !sqlparser_test_optional_array_is_valid(graph, "sets") ||
+	    !sqlparser_test_optional_array_is_valid(graph, "predicates")) {
 		return sqlparser_test_fail_case(case_id, case_name, "query_graph arrays have invalid shape");
 	}
 	if (json_object_get(graph, "objects") != NULL ||

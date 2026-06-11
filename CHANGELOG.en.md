@@ -1,5 +1,56 @@
 # Changelog
 
+## 2.8.0
+
+### Query Graph and DML Structured Output
+
+- Added a predicate array to `query_graph` for comparisons, boolean
+  combinations, `EXISTS`, and expression predicates.
+- Added `sqlparser_graph_predicate_t`, predicate-kind enums, predicate boolean
+  enums, and name helpers.
+- Added source field / source target links to DML branches, assignments, and
+  cells for field movement, `MERGE` source lineage, and multi-branch insert
+  sources.
+- Added database-link names to relation views and graph relations.
+- Pseudo columns such as `ROWID` can be emitted as separate targets without
+  polluting star lineage.
+
+### Dialect Coverage
+
+- Enhanced Oracle DML / SELECT structured output for alias-qualified `UPDATE`,
+  `INSERT ALL` / `INSERT FIRST`, `MERGE` source lineage, `DISTINCT`,
+  `ORDER BY`, and qualified star plus `ROWID`.
+- Enhanced MySQL and Vastbase-MySQL coverage for multi-table `UPDATE` /
+  `DELETE`, `REPLACE`, insert modifiers, CREATE TABLE options, and common
+  hook-only syntax groups.
+- Expanded SQL Server and Vastbase-SQLServer coverage for basic DDL,
+  expressions, table/query hints, `FOR JSON`, nested `TOP`, full-text
+  predicates, and official syntax coverage tracking.
+- Expanded Dameng support for `ALTER SESSION` parameters, public `TOP`
+  deparse, database links, national strings, and multi-table insert structured
+  output.
+- Expanded PostgreSQL and Vastbase-PostgreSQL executable coverage for
+  notification statements, extensions, national strings, and related matrix
+  cases.
+
+### Strings and Compatibility Syntax
+
+- MySQL, Oracle, PostgreSQL, Dameng, and matching Vastbase compatibility modes
+  preserve public `N'...'` / `n'...'` national string forms.
+- Oracle, Dameng, and Vastbase-Oracle preserve `nq'...'` national q-quoted
+  string semantics.
+- SQL Server and Vastbase-SQLServer preserve `N'...'` Unicode string prefixes
+  and related prepared-statement forms.
+
+### Tests and Validation
+
+- Expanded the existing PostgreSQL, MySQL, Oracle, SQL Server, Dameng, and four
+  Vastbase compatibility case matrices.
+- Updated Chinese and English dialect support documents, official syntax
+  coverage reports, and View JSON / API documentation.
+- Release validation covers Linux unit tests, ASan, UBSan, Valgrind leak
+  checks, and ABI export checks.
+
 ## 2.7.0
 
 ### Query Graph Operator Classification

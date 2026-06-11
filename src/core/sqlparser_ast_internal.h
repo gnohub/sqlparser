@@ -146,6 +146,10 @@ sqlparser_status_t sqlparser_get_insert_values_stmt(
 void sqlparser_fill_relation_view(
 	const PgQuery__RangeVar *relation,
 	sqlparser_relation_view_t *out_relation);
+void sqlparser_fill_relation_view_for_handle(
+	const sqlparser_handle_t *handle,
+	const PgQuery__RangeVar *relation,
+	sqlparser_relation_view_t *out_relation);
 sqlparser_status_t sqlparser_fill_literal_view_from_a_const(
 	const PgQuery__AConst *a_const,
 	sqlparser_literal_view_t *out_literal,

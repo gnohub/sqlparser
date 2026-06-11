@@ -14,8 +14,13 @@ the current AST. The executable case matrix defines the support boundary:
 - bracket-delimited identifiers such as `[dbo].[users]`
 - SQL Server parameter placeholders such as `@id` and `@name`
 - JDBC `?` parameter placeholders
-- `TOP (n)` and `TOP (@param)` query limits
+- `TOP (n)`, `TOP (@param)`, `TOP ... PERCENT`, and `TOP ... WITH TIES`
+  query limits, including `TOP` inside subqueries; `WITH TIES` forms require
+  `ORDER BY` in the same query scope
 - `OFFSET ... FETCH NEXT ... ROWS ONLY`
+- public-form preservation for basic table and query hints, such as
+  `WITH (NOLOCK)`, `WITH (FORCESEEK)`, and `OPTION (RECOMPILE)`
+- public-form preservation for `FOR JSON PATH/AUTO` query suffixes
 - `N'...'` Unicode string literals
 - temporary table names such as `#active_users`
 - `INSERT VALUES`, multi-row `INSERT`, and `INSERT SELECT`
@@ -34,6 +39,8 @@ the current AST. The executable case matrix defines the support boundary:
 - common type names and functions such as `NVARCHAR`, `BIT`, `DATETIME2`,
   `ISNULL`, `GETDATE`, and `NEWID`
 - `USE database_name` database context switching
+- basic session and execution-environment `SET` statements such as
+  `SET NOCOUNT ON`, `SET DATEFORMAT dmy`, and `SET IDENTITY_INSERT dbo.Tool ON`
 - parameterized dynamic SQL through `sp_prepare`, `sp_execute`, `sp_prepexec`,
   `sp_unprepare`, and `sp_executesql`
 
@@ -42,15 +49,13 @@ the current AST. The executable case matrix defines the support boundary:
 The following T-SQL-specific constructs are not silently downgraded. They
 return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
 
-- `TOP ... PERCENT` and `TOP ... WITH TIES`
 - `TOP` combined with `OFFSET ... FETCH` in the same query scope
-- nested `SELECT TOP`
+- `TOP ... WITH TIES` without `ORDER BY` in the same query scope
 - DML `TOP`, such as `UPDATE TOP (...)`
 - `OUTPUT`
-- table and query hints such as `WITH (NOLOCK)` and `OPTION (...)`
 - `CROSS APPLY` and `OUTER APPLY`
 - `PIVOT` and `UNPIVOT`
-- `FOR XML` and `FOR JSON`
+- `FOR XML`
 - `DECLARE` and ordinary `EXEC` / `EXECUTE` procedure calls
 - procedure, function, and trigger definitions
 - `BEGIN TRY` / `BEGIN CATCH`
@@ -68,8 +73,11 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
   public form in deparse.
 - SQL Server conversion functions remain visible as `TRY_CAST`,
   `TRY_CONVERT`, `CONVERT`, `PARSE`, or `TRY_PARSE` in deparse output.
-- `TOP (n)` and `OFFSET ... FETCH` remain visible as SQL Server syntax in
-  deparse output.
+- `TOP`, `TOP ... PERCENT`, `TOP ... WITH TIES`, and `OFFSET ... FETCH`
+  remain visible as SQL Server syntax in deparse output.
+- Table hints, `FOR JSON` suffixes, and query hints are restored as original
+  public fragments in deparse output; they are not emitted as structured View
+  JSON hint or JSON-suffix fields yet.
 - `N'...'` Unicode strings keep the `N` prefix when the semantics can be
   preserved.
 - Attributable expression fragments in View JSON use the public SQL Server
@@ -86,6 +94,7 @@ The SQL Server support boundary is defined by:
 - `tests/unit/test_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The SQL Server matrix contains 335 cases: 320 supported paths and 15 explicit
-unsupported paths. Of these, 235 cases come from official `HOOK_ONLY` coverage
-items.
+The SQL Server matrix contains 459 cases: 448 supported paths and 11 explicit
+unsupported paths. Of these, 241 cases provide executable coverage for official
+`CURRENT` entries, and 94 cases cover basic forms of `MIXED_MODEL` official
+entries.

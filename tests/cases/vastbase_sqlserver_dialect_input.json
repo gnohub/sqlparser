@@ -537,23 +537,75 @@
       }
     },
     {
-      "id": "VSU001",
-      "name": "vastbase-sqlserver-top-percent-unsupported",
+      "id": "VS043Q",
+      "name": "vastbase-sqlserver-unsupported-keywords-in-quoted-identifiers",
+      "sql": "SELECT [OUTPUT], [EXEC], [PIVOT] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "SELECT \"OUTPUT\", \"EXEC\", \"PIVOT\" FROM dbo.users"
+      }
+    },
+    {
+      "id": "VS103",
+      "name": "vastbase-sqlserver-top-percent",
       "sql": "SELECT TOP (10) PERCENT [id] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "TOP (10) PERCENT"
+      }
+    },
+    {
+      "id": "VS104",
+      "name": "vastbase-sqlserver-top-with-ties",
+      "sql": "SELECT TOP (10) WITH TIES [id] FROM [dbo].[users] ORDER BY [score]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "TOP (10) WITH TIES"
+      }
+    },
+    {
+      "id": "VS105",
+      "name": "vastbase-sqlserver-top-percent-with-ties",
+      "sql": "SELECT TOP (10) PERCENT WITH TIES [id] FROM [dbo].[users] ORDER BY [score]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "TOP (10) PERCENT WITH TIES"
+      }
+    },
+    {
+      "id": "VSU001",
+      "name": "vastbase-sqlserver-top-with-ties-without-order-by-unsupported",
+      "sql": "SELECT TOP (10) WITH TIES [id] FROM [dbo].[users]",
       "expect": {
         "ok": false,
         "error_code": 5,
-        "error_message_contains": "unsupported SQL Server syntax"
+        "error_message_contains": "TOP WITH TIES requires ORDER BY"
       }
     },
     {
       "id": "VSU002",
-      "name": "vastbase-sqlserver-top-with-ties-unsupported",
-      "sql": "SELECT TOP (10) WITH TIES [id] FROM [dbo].[users] ORDER BY [score]",
+      "name": "vastbase-sqlserver-top-percent-with-ties-without-order-by-unsupported",
+      "sql": "SELECT TOP (10) PERCENT WITH TIES [id] FROM [dbo].[users]",
       "expect": {
         "ok": false,
         "error_code": 5,
-        "error_message_contains": "unsupported SQL Server syntax"
+        "error_message_contains": "TOP WITH TIES requires ORDER BY"
       }
     },
     {
@@ -567,13 +619,20 @@
       }
     },
     {
-      "id": "VSU004",
-      "name": "vastbase-sqlserver-table-hint-unsupported",
+      "id": "VS106",
+      "name": "vastbase-sqlserver-table-hint-nolock",
       "sql": "SELECT [id] FROM [dbo].[users] WITH (NOLOCK)",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported SQL Server syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "FROM dbo.users WITH (NOLOCK)",
+        "view_contains": [
+          "\"table\":\"users\"",
+          "\"column\":\"id\""
+        ]
       }
     },
     {
@@ -597,23 +656,37 @@
       }
     },
     {
-      "id": "VSU007",
-      "name": "vastbase-sqlserver-for-json-unsupported",
+      "id": "VS108",
+      "name": "vastbase-sqlserver-for-json-path",
       "sql": "SELECT [id] FROM [dbo].[users] FOR JSON PATH",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported SQL Server syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "FOR JSON PATH",
+        "view_contains": [
+          "\"table\":\"users\"",
+          "\"column\":\"id\""
+        ]
       }
     },
     {
-      "id": "VSU008",
-      "name": "vastbase-sqlserver-query-hint-unsupported",
+      "id": "VS107",
+      "name": "vastbase-sqlserver-query-hint-recompile",
       "sql": "SELECT [id] FROM [dbo].[users] OPTION (RECOMPILE)",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported SQL Server syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "OPTION (RECOMPILE)",
+        "view_contains": [
+          "\"table\":\"users\"",
+          "\"column\":\"id\""
+        ]
       }
     },
     {
@@ -1525,6 +1598,152 @@
       }
     },
     {
+      "id": "VS096",
+      "name": "vastbase-sqlserver-bitwise-binary-operators",
+      "sql": "SELECT [flags] & 4 AS [and_value], [flags] | 2 AS [or_value], [flags] ^ 1 AS [xor_value] FROM [dbo].[users] WHERE ([flags] & @mask) = @mask",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": [
+          "flags & 4",
+          "flags | 2",
+          "flags ^ 1",
+          "& @mask"
+        ],
+        "view_contains": [
+          "\"name\":\"&\"",
+          "\"name\":\"|\"",
+          "\"name\":\"^\"",
+          "\"field_match_kind\":\"expression_field\"",
+          "\"bind_key\":\"mask\""
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VS097",
+      "name": "vastbase-sqlserver-bitwise-not-operator",
+      "sql": "SELECT ~[flags] AS [not_value] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "~ flags",
+        "view_contains": [
+          "\"kind\":\"expression\"",
+          "\"name\":\"~\"",
+          "\"column\":\"flags\""
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VS098",
+      "name": "vastbase-sqlserver-not-greater-less-comparison",
+      "sql": "SELECT [id] FROM [dbo].[users] WHERE [score] !> @max_score AND [score] !< @min_score",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": [
+          "!> @max_score",
+          "!< @min_score"
+        ],
+        "view_contains": [
+          "\"operator\":\"!>\"",
+          "\"operator\":\"!<\"",
+          "\"bind_key\":\"max_score\"",
+          "\"bind_key\":\"min_score\""
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VS099",
+      "name": "vastbase-sqlserver-string-concat-pipes",
+      "sql": "SELECT [first_name] || [last_name] AS [full_name] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "first_name || last_name",
+        "view_contains": [
+          "\"name\":\"||\"",
+          "\"column\":\"first_name\"",
+          "\"column\":\"last_name\""
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VS100",
+      "name": "vastbase-sqlserver-like-bracket-wildcards",
+      "sql": "SELECT [name] FROM [dbo].[users] WHERE [name] LIKE 'A[^b]_%'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "LIKE 'A[^b]_%'",
+        "view_contains": [
+          "\"operator\":\"LIKE\"",
+          "\"operator_kind\":\"like\"",
+          "\"string_value\":\"A[^b]_%\""
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VS101",
+      "name": "vastbase-sqlserver-at-time-zone-expression",
+      "sql": "SELECT [id] FROM [dbo].[users] WHERE [created_at] AT TIME ZONE 'UTC' = @ts",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "AT TIME ZONE 'UTC' = @ts",
+        "view_contains": [
+          "\"column\":\"created_at\"",
+          "\"field_match_kind\":\"expression_field\"",
+          "\"bind_key\":\"ts\"",
+          "\"bind_sql\":\"@ts\""
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "VS102",
+      "name": "vastbase-sqlserver-is-distinct-from-bind",
+      "sql": "SELECT [id] FROM [dbo].[users] WHERE [deleted_at] IS DISTINCT FROM @deleted_at",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "IS DISTINCT FROM @deleted_at",
+        "view_contains": [
+          "\"operator\":\"IS DISTINCT FROM\"",
+          "\"column\":\"deleted_at\"",
+          "\"bind_key\":\"deleted_at\"",
+          "\"bind_sql\":\"@deleted_at\""
+        ],
+        "view_not_contains": "unsupported SQL Server syntax"
+      }
+    },
+    {
       "id": "VSU015",
       "name": "vastbase-sqlserver-table-variable-unsupported",
       "sql": "SELECT [id] FROM @users",
@@ -1555,13 +1774,82 @@
       }
     },
     {
-      "id": "VSU018",
-      "name": "vastbase-sqlserver-nested-top-unsupported",
+      "id": "VS109",
+      "name": "vastbase-sqlserver-nested-top",
       "sql": "SELECT [id] FROM (SELECT TOP (2) [id] FROM [dbo].[users]) AS [u]",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported SQL Server syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "SELECT TOP (2)",
+        "view_contains": [
+          "\"kind\":\"derived\"",
+          "\"table\":\"users\"",
+          "\"column\":\"id\""
+        ]
+      }
+    },
+    {
+      "id": "VS110",
+      "name": "vastbase-sqlserver-for-json-path-with-option",
+      "sql": "SELECT [id] FROM [dbo].[users] WHERE [status] = @status FOR JSON PATH, INCLUDE_NULL_VALUES OPTION (RECOMPILE)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": [
+          "FOR JSON PATH, INCLUDE_NULL_VALUES",
+          "OPTION (RECOMPILE)"
+        ],
+        "view_contains": [
+          "\"table\":\"users\"",
+          "\"column\":\"status\"",
+          "\"bind_sql\":\"@status\""
+        ]
+      }
+    },
+    {
+      "id": "VS111",
+      "name": "vastbase-sqlserver-nested-top-with-outer-top",
+      "sql": "SELECT TOP (5) [id] FROM (SELECT TOP (2) [id] FROM [dbo].[users]) AS [u]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": [
+          "SELECT TOP (5)",
+          "SELECT TOP (2)"
+        ],
+        "view_contains": [
+          "\"kind\":\"derived\"",
+          "\"table\":\"users\"",
+          "\"column\":\"id\""
+        ]
+      }
+    },
+    {
+      "id": "VS112",
+      "name": "vastbase-sqlserver-for-json-second-statement",
+      "sql": "SELECT [id] FROM [dbo].[users]; SELECT [id] FROM [dbo].[orders] FOR JSON AUTO",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": [
+          "SelectStmt",
+          "SelectStmt"
+        ],
+        "deparse_contains": "SELECT id FROM dbo.orders FOR JSON AUTO",
+        "view_contains": [
+          "\"table\":\"users\"",
+          "\"table\":\"orders\"",
+          "\"column\":\"id\""
+        ]
       }
     },
     {
@@ -4678,6 +4966,1310 @@
         "statement_types": [
           "SelectStmt"
         ]
+      }
+    },
+    {
+      "id": "VSH236",
+      "name": "vastbase-sqlserver-update-from-source-field-graph",
+      "official_item": "docs/t-sql/queries/update-transact-sql.md",
+      "sql": "UPDATE t SET name = s.name FROM dbo.t AS t JOIN dbo.src AS s ON t.id = s.id WHERE s.active = @active",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "view_contains": [
+          "\"kind\":\"update\"",
+          "\"kind\":\"field\"",
+          "\"source_field\"",
+          "\"right_field\""
+        ]
+      }
+    },
+    {
+      "id": "VSH237",
+      "name": "vastbase-sqlserver-insert-select-source-block-graph",
+      "official_item": "docs/t-sql/statements/insert-transact-sql.md",
+      "sql": "INSERT INTO dbo.t (id, email) SELECT s.id, s.email FROM dbo.src AS s WHERE s.active = @active",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_contains": [
+          "\"insert_mode\":\"select\"",
+          "\"target_columns\"",
+          "\"source_block\"",
+          "\"kind\":\"field\""
+        ]
+      }
+    },
+    {
+      "id": "VSH238",
+      "name": "vastbase-sqlserver-merge-source-target-graph",
+      "official_item": "docs/t-sql/statements/merge-transact-sql.md",
+      "sql": "MERGE INTO dbo.t AS t USING (SELECT @id AS id, @email AS email) AS s ON t.id=s.id WHEN MATCHED THEN UPDATE SET email=s.email WHEN NOT MATCHED THEN INSERT(id,email) VALUES(s.id,s.email);",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "MergeStmt"
+        ],
+        "view_contains": [
+          "\"kind\":\"merge\"",
+          "\"source_field\"",
+          "\"source_target\"",
+          "\"kind\":\"field\""
+        ]
+      }
+    },
+    {
+      "id": "VSH239",
+      "name": "vastbase-sqlserver-mixed-create-database-basic",
+      "official_item": "docs/t-sql/statements/create-database-transact-sql.md",
+      "sql": "CREATE DATABASE [appdb]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "CREATE DATABASE appdb"
+      }
+    },
+    {
+      "id": "VSH240",
+      "name": "vastbase-sqlserver-mixed-drop-database-basic",
+      "official_item": "docs/t-sql/statements/drop-database-transact-sql.md",
+      "sql": "DROP DATABASE [appdb]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "DROP DATABASE appdb"
+      }
+    },
+    {
+      "id": "VSH241",
+      "name": "vastbase-sqlserver-mixed-create-schema-basic",
+      "official_item": "docs/t-sql/statements/create-schema-transact-sql.md",
+      "sql": "CREATE SCHEMA [audit]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "CREATE SCHEMA audit"
+      }
+    },
+    {
+      "id": "VSH242",
+      "name": "vastbase-sqlserver-mixed-drop-schema-basic",
+      "official_item": "docs/t-sql/statements/drop-schema-transact-sql.md",
+      "sql": "DROP SCHEMA [audit]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "DROP SCHEMA audit"
+      }
+    },
+    {
+      "id": "VSH243",
+      "name": "vastbase-sqlserver-mixed-create-role-basic",
+      "official_item": "docs/t-sql/statements/create-role-transact-sql.md",
+      "sql": "CREATE ROLE [app_role]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "CREATE ROLE app_role"
+      }
+    },
+    {
+      "id": "VSH244",
+      "name": "vastbase-sqlserver-mixed-drop-role-basic",
+      "official_item": "docs/t-sql/statements/drop-role-transact-sql.md",
+      "sql": "DROP ROLE [app_role]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "DROP ROLE app_role"
+      }
+    },
+    {
+      "id": "VSH245",
+      "name": "vastbase-sqlserver-mixed-create-sequence-basic",
+      "official_item": "docs/t-sql/statements/create-sequence-transact-sql.md",
+      "sql": "CREATE SEQUENCE [dbo].[seq_users] START WITH 1 INCREMENT BY 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "CREATE SEQUENCE dbo.seq_users START 1 INCREMENT 1"
+      }
+    },
+    {
+      "id": "VSH246",
+      "name": "vastbase-sqlserver-mixed-alter-sequence-basic",
+      "official_item": "docs/t-sql/statements/alter-sequence-transact-sql.md",
+      "sql": "ALTER SEQUENCE [dbo].[seq_users] RESTART WITH 10",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "ALTER SEQUENCE dbo.seq_users RESTART 10"
+      }
+    },
+    {
+      "id": "VSH247",
+      "name": "vastbase-sqlserver-mixed-drop-sequence-basic",
+      "official_item": "docs/t-sql/statements/drop-sequence-transact-sql.md",
+      "sql": "DROP SEQUENCE [dbo].[seq_users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "DROP SEQUENCE dbo.seq_users"
+      }
+    },
+    {
+      "id": "VSH248",
+      "name": "vastbase-sqlserver-mixed-drop-view-basic",
+      "official_item": "docs/t-sql/statements/drop-view-transact-sql.md",
+      "sql": "DROP VIEW [dbo].[v_users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "DROP VIEW dbo.v_users"
+      }
+    },
+    {
+      "id": "VSH249",
+      "name": "vastbase-sqlserver-mixed-drop-statistics-basic",
+      "official_item": "docs/t-sql/statements/drop-statistics-transact-sql.md",
+      "sql": "DROP STATISTICS [dbo].[users].[st_users_id]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "DROP STATISTICS dbo.users.st_users_id"
+      }
+    },
+    {
+      "id": "VSH250",
+      "name": "vastbase-sqlserver-mixed-select-into-basic",
+      "official_item": "docs/t-sql/queries/select-into-clause-transact-sql.md",
+      "sql": "SELECT [id] INTO [dbo].[users_copy] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "SELECT id INTO dbo.users_copy FROM dbo.users"
+      }
+    },
+    {
+      "id": "VSH251",
+      "name": "vastbase-sqlserver-mixed-contains-basic",
+      "official_item": "docs/t-sql/queries/contains-transact-sql.md",
+      "sql": "SELECT * FROM [dbo].[users] WHERE CONTAINS([name], @term)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "contains(name, @term)",
+        "view_contains": [
+          "\"operator\":\"contains\"",
+          "\"kind\":\"expression\"",
+          "\"bind_key\":\"term\"",
+          "\"bind_sql\":\"@term\""
+        ]
+      }
+    },
+    {
+      "id": "VSH252",
+      "name": "vastbase-sqlserver-mixed-freetext-basic",
+      "official_item": "docs/t-sql/queries/freetext-transact-sql.md",
+      "sql": "SELECT * FROM [dbo].[users] WHERE FREETEXT([name], @term)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "freetext(name, @term)",
+        "view_contains": [
+          "\"operator\":\"freetext\"",
+          "\"kind\":\"expression\"",
+          "\"bind_key\":\"term\"",
+          "\"bind_sql\":\"@term\""
+        ]
+      }
+    },
+    {
+      "id": "VSH253",
+      "name": "vastbase-sqlserver-regexp-like-function-predicate",
+      "official_item": "docs/t-sql/functions/regexp-like-transact-sql.md",
+      "sql": "SELECT * FROM [dbo].[users] WHERE REGEXP_LIKE([name], @pat)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "regexp_like(name, @pat)",
+        "view_contains": [
+          "\"operator\":\"regexp_like\"",
+          "\"kind\":\"expression\"",
+          "\"bind_sql\":\"@pat\"",
+          "\"predicates\""
+        ]
+      }
+    },
+    {
+      "id": "VSH254",
+      "name": "vastbase-sqlserver-select-or-predicate-order-by-lineage",
+      "sql": "SELECT [u].[id], [u].[email], [u].[bank_card] FROM [dbo].[users] AS [u] WHERE [u].[email] = @email OR [u].[bank_card] = @card ORDER BY [u].[id]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "WHERE u.email = @email OR u.bank_card = @card ORDER BY u.id",
+        "view_contains": [
+          "\"bool_operator\":\"or\"",
+          "\"bind_sql\":\"@email\"",
+          "\"bind_sql\":\"@card\"",
+          "\"clause\":\"order_by\"",
+          "\"column\":\"bank_card\""
+        ]
+      }
+    },
+    {
+      "id": "VSH255",
+      "name": "vastbase-sqlserver-mixed-create-table-as-select-basic",
+      "official_item": "docs/t-sql/statements/create-table-as-select-azure-sql-data-warehouse.md",
+      "sql": "CREATE TABLE [dbo].[users_copy] AS SELECT [id] FROM [dbo].[users]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "CreateTableAsStmt"
+        ],
+        "deparse_contains": "CREATE TABLE dbo.users_copy AS SELECT id FROM dbo.users"
+      }
+    },
+    {
+      "id": "VSH256",
+      "name": "vastbase-sqlserver-mixed-aliasing-basic",
+      "official_item": "docs/t-sql/queries/aliasing-azure-sql-data-warehouse-parallel-data-warehouse.md",
+      "sql": "SELECT [u].[id] AS [user_id], [u].[name] [user_name] FROM [dbo].[users] AS [u]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "SELECT u.id AS user_id, u.name AS user_name FROM dbo.users u"
+      }
+    },
+    {
+      "id": "VSH257",
+      "name": "vastbase-sqlserver-mixed-subquery-basic",
+      "official_item": "docs/t-sql/queries/subqueries-azure-sql-data-warehouse-parallel-data-warehouse.md",
+      "sql": "SELECT [id] FROM [dbo].[users] WHERE [id] IN (SELECT [user_id] FROM [dbo].[orders] WHERE [amount] > @amount)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "WHERE id IN (SELECT user_id FROM dbo.orders WHERE amount > @amount)"
+      }
+    },
+    {
+      "id": "VSH258",
+      "name": "vastbase-sqlserver-mixed-alter-table-add-column-basic",
+      "official_item": "docs/t-sql/statements/alter-table-column-definition-transact-sql.md",
+      "sql": "ALTER TABLE [dbo].[users] ADD [age] INT",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "ALTER TABLE dbo.users ADD COLUMN age int"
+      }
+    },
+    {
+      "id": "VSH259",
+      "name": "vastbase-sqlserver-mixed-alter-table-add-constraint-basic",
+      "official_item": "docs/t-sql/statements/alter-table-table-constraint-transact-sql.md",
+      "sql": "ALTER TABLE [dbo].[users] ADD CONSTRAINT [pk_users] PRIMARY KEY ([id])",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "ALTER TABLE dbo.users ADD CONSTRAINT pk_users PRIMARY KEY (id)"
+      }
+    },
+    {
+      "id": "VSH260",
+      "name": "vastbase-sqlserver-mixed-drop-type-basic",
+      "official_item": "docs/t-sql/statements/drop-type-transact-sql.md",
+      "sql": "DROP TYPE [dbo].[phone]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "DROP TYPE dbo.phone"
+      }
+    },
+    {
+      "id": "VSH261",
+      "name": "vastbase-sqlserver-mixed-create-user-basic",
+      "official_item": "docs/t-sql/statements/create-user-transact-sql.md",
+      "sql": "CREATE USER [app_user]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "CREATE USER app_user"
+      }
+    },
+    {
+      "id": "VSH262",
+      "name": "vastbase-sqlserver-mixed-drop-user-if-exists-basic",
+      "official_item": "docs/t-sql/statements/drop-user-transact-sql.md",
+      "sql": "DROP USER IF EXISTS [app_user]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "DROP USER IF EXISTS app_user",
+        "deparse_not_contains": [
+          "DROP ROLE IF EXISTS app_user"
+        ]
+      }
+    },
+    {
+      "id": "VSH263",
+      "name": "vastbase-sqlserver-mixed-drop-role-drop-user-ordinal",
+      "official_item": "docs/t-sql/statements/drop-user-transact-sql.md",
+      "sql": "DROP ROLE [app_role]; DROP USER [app_user]",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "deparse_contains": "DROP ROLE app_role; DROP USER app_user"
+      }
+    },
+    {
+      "id": "VSH264",
+      "name": "vastbase-sqlserver-mixed-create-user-without-login",
+      "official_item": "docs/t-sql/statements/create-user-transact-sql.md",
+      "sql": "CREATE USER [app_user] WITHOUT LOGIN",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "CREATE USER app_user WITHOUT LOGIN",
+        "view_contains": "\"keyword\":\"create_user\"",
+        "view_not_contains": "sqlparser_sqlserver_create_user"
+      }
+    },
+    {
+      "id": "VSH265",
+      "name": "vastbase-sqlserver-mixed-create-user-for-login",
+      "official_item": "docs/t-sql/statements/create-user-transact-sql.md",
+      "sql": "CREATE USER [app_user] FOR LOGIN [app_login]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "CREATE USER app_user FOR LOGIN app_login",
+        "view_not_contains": "sqlparser_sqlserver_create_user"
+      }
+    },
+    {
+      "id": "VSH266",
+      "name": "vastbase-sqlserver-mixed-create-user-from-external-provider",
+      "official_item": "docs/t-sql/statements/create-user-transact-sql.md",
+      "sql": "CREATE USER [app_user] FROM EXTERNAL PROVIDER",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "CREATE USER app_user FROM EXTERNAL PROVIDER"
+      }
+    },
+    {
+      "id": "VSH267",
+      "name": "vastbase-sqlserver-mixed-create-user-with-options",
+      "official_item": "docs/t-sql/statements/create-user-transact-sql.md",
+      "sql": "CREATE USER [app_user] WITH DEFAULT_SCHEMA = [dbo], ALLOW_ENCRYPTED_VALUE_MODIFICATIONS = ON",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "CREATE USER app_user WITH DEFAULT_SCHEMA = dbo, ALLOW_ENCRYPTED_VALUE_MODIFICATIONS = ON"
+      }
+    },
+    {
+      "id": "VSH268",
+      "name": "vastbase-sqlserver-mixed-create-user-for-certificate",
+      "official_item": "docs/t-sql/statements/create-user-transact-sql.md",
+      "sql": "CREATE USER [cert_user] FOR CERTIFICATE [cert01]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "CREATE USER cert_user FOR CERTIFICATE cert01"
+      }
+    },
+    {
+      "id": "VSH269",
+      "name": "vastbase-sqlserver-mixed-create-user-for-asymmetric-key",
+      "official_item": "docs/t-sql/statements/create-user-transact-sql.md",
+      "sql": "CREATE USER [key_user] FOR ASYMMETRIC KEY [asym01]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "CREATE USER key_user FOR ASYMMETRIC KEY asym01"
+      }
+    },
+    {
+      "id": "VSH270",
+      "name": "vastbase-sqlserver-mixed-alter-role-add-member",
+      "official_item": "docs/t-sql/statements/alter-role-transact-sql.md",
+      "sql": "ALTER ROLE [app_role] ADD MEMBER [app_user]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "ALTER ROLE app_role ADD MEMBER app_user",
+        "view_contains": "\"keyword\":\"alter_role\"",
+        "view_not_contains": "sqlparser_sqlserver_alter_role"
+      }
+    },
+    {
+      "id": "VSH271",
+      "name": "vastbase-sqlserver-mixed-alter-role-drop-member",
+      "official_item": "docs/t-sql/statements/alter-role-transact-sql.md",
+      "sql": "ALTER ROLE [app_role] DROP MEMBER [app_user]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "ALTER ROLE app_role DROP MEMBER app_user"
+      }
+    },
+    {
+      "id": "VSH272",
+      "name": "vastbase-sqlserver-mixed-alter-role-with-name",
+      "official_item": "docs/t-sql/statements/alter-role-transact-sql.md",
+      "sql": "ALTER ROLE [app_role] WITH NAME = [new_role]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "ALTER ROLE app_role WITH NAME = new_role"
+      }
+    },
+    {
+      "id": "VSH273",
+      "name": "vastbase-sqlserver-mixed-alter-schema-transfer-object",
+      "official_item": "docs/t-sql/statements/alter-schema-transact-sql.md",
+      "sql": "ALTER SCHEMA [HumanResources] TRANSFER [Person].[Address]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "ALTER SCHEMA HumanResources TRANSFER Person.Address",
+        "view_contains": "\"keyword\":\"alter_schema\"",
+        "view_not_contains": "sqlparser_sqlserver_alter_schema"
+      }
+    },
+    {
+      "id": "VSH274",
+      "name": "vastbase-sqlserver-mixed-alter-schema-transfer-type",
+      "official_item": "docs/t-sql/statements/alter-schema-transact-sql.md",
+      "sql": "ALTER SCHEMA [Person] TRANSFER TYPE::[Production].[TestType]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "ALTER SCHEMA Person TRANSFER TYPE::Production.TestType"
+      }
+    },
+    {
+      "id": "VSH275",
+      "name": "vastbase-sqlserver-mixed-create-role-authorization",
+      "official_item": "docs/t-sql/statements/create-role-transact-sql.md",
+      "sql": "CREATE ROLE [buyers] AUTHORIZATION [BenMiller]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "CREATE ROLE buyers AUTHORIZATION BenMiller",
+        "view_contains": "\"keyword\":\"create_role\"",
+        "view_not_contains": "sqlparser_sqlserver_create_role"
+      }
+    },
+    {
+      "id": "VSH276",
+      "name": "vastbase-sqlserver-mixed-alter-user-name",
+      "official_item": "docs/t-sql/statements/alter-user-transact-sql.md",
+      "sql": "ALTER USER [Mary5] WITH NAME = [Mary51]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "ALTER USER Mary5 WITH NAME = Mary51",
+        "view_contains": "\"keyword\":\"alter_user\"",
+        "view_not_contains": "sqlparser_sqlserver_alter_user"
+      }
+    },
+    {
+      "id": "VSH277",
+      "name": "vastbase-sqlserver-mixed-alter-user-options",
+      "official_item": "docs/t-sql/statements/alter-user-transact-sql.md",
+      "sql": "ALTER USER [Philip] WITH NAME = [Philipe], DEFAULT_SCHEMA = [Development], DEFAULT_LANGUAGE = French",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "ALTER USER Philip WITH NAME = Philipe, DEFAULT_SCHEMA = Development, DEFAULT_LANGUAGE = French"
+      }
+    },
+    {
+      "id": "VSH278",
+      "name": "vastbase-sqlserver-mixed-alter-user-login",
+      "official_item": "docs/t-sql/statements/alter-user-transact-sql.md",
+      "sql": "ALTER USER [Mai] WITH LOGIN = [Mai]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "ALTER USER Mai WITH LOGIN = Mai"
+      }
+    },
+    {
+      "id": "VSH279",
+      "name": "vastbase-sqlserver-mixed-alter-user-external-provider",
+      "official_item": "docs/t-sql/statements/alter-user-transact-sql.md",
+      "sql": "ALTER USER [app_user] FROM EXTERNAL PROVIDER WITH OBJECT_ID = '11111111-1111-1111-1111-111111111111'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "ALTER USER app_user FROM EXTERNAL PROVIDER WITH OBJECT_ID = '11111111-1111-1111-1111-111111111111'"
+      }
+    },
+    {
+      "id": "VSH280",
+      "name": "vastbase-sqlserver-mixed-alter-authorization-object",
+      "official_item": "docs/t-sql/statements/alter-authorization-transact-sql.md",
+      "sql": "ALTER AUTHORIZATION ON OBJECT::[Parts].[Sprockets] TO [MichikoOsada]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "ALTER AUTHORIZATION ON OBJECT::Parts.Sprockets TO MichikoOsada",
+        "view_contains": "\"keyword\":\"alter_authorization\"",
+        "view_not_contains": "sqlparser_sqlserver_alter_authorization"
+      }
+    },
+    {
+      "id": "VSH281",
+      "name": "vastbase-sqlserver-mixed-alter-authorization-schema-owner",
+      "official_item": "docs/t-sql/statements/alter-authorization-transact-sql.md",
+      "sql": "ALTER AUTHORIZATION ON OBJECT::[Production].[ProductionView06] TO SCHEMA OWNER",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "ALTER AUTHORIZATION ON OBJECT::Production.ProductionView06 TO SCHEMA OWNER"
+      }
+    },
+    {
+      "id": "VSH282",
+      "name": "vastbase-sqlserver-mixed-alter-authorization-schema",
+      "official_item": "docs/t-sql/statements/alter-authorization-transact-sql.md",
+      "sql": "ALTER AUTHORIZATION ON SCHEMA::[SeattleProduction11] TO [SandraAlayo]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "ALTER AUTHORIZATION ON SCHEMA::SeattleProduction11 TO SandraAlayo"
+      }
+    },
+    {
+      "id": "VSH283",
+      "name": "vastbase-sqlserver-mixed-create-schema-authorization",
+      "official_item": "docs/t-sql/statements/create-schema-transact-sql.md",
+      "sql": "CREATE SCHEMA [audit] AUTHORIZATION [owner]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "CREATE SCHEMA audit AUTHORIZATION owner"
+      }
+    },
+    {
+      "id": "VSH284",
+      "name": "vastbase-sqlserver-mixed-drop-schema-if-exists",
+      "official_item": "docs/t-sql/statements/drop-schema-transact-sql.md",
+      "sql": "DROP SCHEMA IF EXISTS [audit]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "DROP SCHEMA IF EXISTS audit"
+      }
+    },
+    {
+      "id": "VSH285",
+      "name": "vastbase-sqlserver-mixed-create-application-role",
+      "official_item": "docs/t-sql/statements/create-application-role-transact-sql.md",
+      "sql": "CREATE APPLICATION ROLE [weekly_receipts] WITH PASSWORD = '987G^bv876sPY)Y5m23', DEFAULT_SCHEMA = [Sales]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "CREATE APPLICATION ROLE weekly_receipts WITH PASSWORD = '987G^bv876sPY)Y5m23', DEFAULT_SCHEMA = Sales",
+        "view_contains": "\"keyword\":\"create_application_role\"",
+        "view_not_contains": "sqlparser_sqlserver_create_application_role"
+      }
+    },
+    {
+      "id": "VSH286",
+      "name": "vastbase-sqlserver-mixed-alter-application-role-name",
+      "official_item": "docs/t-sql/statements/alter-application-role-transact-sql.md",
+      "sql": "ALTER APPLICATION ROLE [weekly_receipts] WITH NAME = [receipts_ledger]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "ALTER APPLICATION ROLE weekly_receipts WITH NAME = receipts_ledger",
+        "view_contains": "\"keyword\":\"alter_application_role\"",
+        "view_not_contains": "sqlparser_sqlserver_alter_application_role"
+      }
+    },
+    {
+      "id": "VSH287",
+      "name": "vastbase-sqlserver-mixed-alter-application-role-options",
+      "official_item": "docs/t-sql/statements/alter-application-role-transact-sql.md",
+      "sql": "ALTER APPLICATION ROLE [receipts_ledger] WITH NAME = [weekly_ledger], PASSWORD = '897yUUbv77bsrEE00nk2i', DEFAULT_SCHEMA = [Production]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "ALTER APPLICATION ROLE receipts_ledger WITH NAME = weekly_ledger, PASSWORD = '897yUUbv77bsrEE00nk2i', DEFAULT_SCHEMA = Production"
+      }
+    },
+    {
+      "id": "VSH288",
+      "name": "vastbase-sqlserver-mixed-drop-application-role",
+      "official_item": "docs/t-sql/statements/drop-application-role-transact-sql.md",
+      "sql": "DROP APPLICATION ROLE [weekly_ledger]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "DROP APPLICATION ROLE weekly_ledger",
+        "view_contains": "\"keyword\":\"drop_application_role\"",
+        "view_not_contains": "sqlparser_sqlserver_drop_application_role"
+      }
+    },
+    {
+      "id": "VSH289",
+      "name": "vastbase-sqlserver-mixed-create-synonym",
+      "official_item": "docs/t-sql/statements/create-synonym-transact-sql.md",
+      "sql": "CREATE SYNONYM [dbo].[MyProduct] FOR [AdventureWorks2022].[Production].[Product]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "CREATE SYNONYM dbo.MyProduct FOR AdventureWorks2022.Production.Product",
+        "view_contains": "\"keyword\":\"create_synonym\"",
+        "view_not_contains": "sqlparser_sqlserver_create_synonym"
+      }
+    },
+    {
+      "id": "VSH290",
+      "name": "vastbase-sqlserver-mixed-drop-synonym-if-exists",
+      "official_item": "docs/t-sql/statements/drop-synonym-transact-sql.md",
+      "sql": "DROP SYNONYM IF EXISTS [dbo].[MyProduct]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "DROP SYNONYM IF EXISTS dbo.MyProduct",
+        "view_contains": "\"keyword\":\"drop_synonym\"",
+        "view_not_contains": "sqlparser_sqlserver_drop_synonym"
+      }
+    },
+    {
+      "id": "VSH291",
+      "name": "vastbase-sqlserver-mixed-create-type-alias",
+      "official_item": "docs/t-sql/statements/create-type-transact-sql.md",
+      "sql": "CREATE TYPE [dbo].[SSN] FROM VARCHAR(11) NOT NULL",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "CREATE TYPE dbo.SSN FROM VARCHAR(11) NOT NULL",
+        "view_contains": "\"keyword\":\"create_type\"",
+        "view_not_contains": "sqlparser_sqlserver_create_type"
+      }
+    },
+    {
+      "id": "VSH292",
+      "name": "vastbase-sqlserver-mixed-alter-database-compatibility-level",
+      "official_item": "docs/t-sql/statements/alter-database-transact-sql-compatibility-level.md",
+      "sql": "ALTER DATABASE [WideWorldImporters] SET COMPATIBILITY_LEVEL = 160",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "ALTER DATABASE WideWorldImporters SET COMPATIBILITY_LEVEL = 160",
+        "view_contains": "\"keyword\":\"alter_database\"",
+        "view_not_contains": "sqlparser_sqlserver_alter_database"
+      }
+    },
+    {
+      "id": "VSH293",
+      "name": "vastbase-sqlserver-mixed-drop-index-if-exists-on-object",
+      "official_item": "docs/t-sql/statements/drop-index-transact-sql.md",
+      "sql": "DROP INDEX IF EXISTS [IX_ProductVendor_BusinessEntityID] ON [Purchasing].[ProductVendor]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "DROP INDEX IF EXISTS IX_ProductVendor_BusinessEntityID ON Purchasing.ProductVendor",
+        "view_contains": "\"keyword\":\"drop_index\"",
+        "view_not_contains": "sqlparser_sqlserver_drop_index"
+      }
+    },
+    {
+      "id": "VSH294",
+      "name": "vastbase-sqlserver-mixed-update-statistics-fullscan",
+      "official_item": "docs/t-sql/statements/update-statistics-transact-sql.md",
+      "sql": "UPDATE STATISTICS [dbo].[users] [st_users_id] WITH FULLSCAN",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "UPDATE STATISTICS dbo.users st_users_id WITH FULLSCAN",
+        "view_contains": "\"keyword\":\"update_statistics\"",
+        "view_not_contains": "sqlparser_sqlserver_update_statistics"
+      }
+    },
+    {
+      "id": "VSH295",
+      "name": "vastbase-sqlserver-set-ansi-defaults",
+      "official_item": "docs/t-sql/statements/set-ansi-defaults-transact-sql.md",
+      "sql": "SET ANSI_DEFAULTS ON",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET ANSI_DEFAULTS ON",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH296",
+      "name": "vastbase-sqlserver-set-ansi-null-dflt-off",
+      "official_item": "docs/t-sql/statements/set-ansi-null-dflt-off-transact-sql.md",
+      "sql": "SET ANSI_NULL_DFLT_OFF ON",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET ANSI_NULL_DFLT_OFF ON",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH297",
+      "name": "vastbase-sqlserver-set-ansi-null-dflt-on",
+      "official_item": "docs/t-sql/statements/set-ansi-null-dflt-on-transact-sql.md",
+      "sql": "SET ANSI_NULL_DFLT_ON ON",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET ANSI_NULL_DFLT_ON ON",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH298",
+      "name": "vastbase-sqlserver-set-ansi-nulls",
+      "official_item": "docs/t-sql/statements/set-ansi-nulls-transact-sql.md",
+      "sql": "SET ANSI_NULLS ON",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET ANSI_NULLS ON",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH299",
+      "name": "vastbase-sqlserver-set-ansi-padding",
+      "official_item": "docs/t-sql/statements/set-ansi-padding-transact-sql.md",
+      "sql": "SET ANSI_PADDING ON",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET ANSI_PADDING ON",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH300",
+      "name": "vastbase-sqlserver-set-ansi-warnings",
+      "official_item": "docs/t-sql/statements/set-ansi-warnings-transact-sql.md",
+      "sql": "SET ANSI_WARNINGS ON",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET ANSI_WARNINGS ON",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH301",
+      "name": "vastbase-sqlserver-set-arithabort",
+      "official_item": "docs/t-sql/statements/set-arithabort-transact-sql.md",
+      "sql": "SET ARITHABORT ON",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET ARITHABORT ON",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH302",
+      "name": "vastbase-sqlserver-set-arithignore",
+      "official_item": "docs/t-sql/statements/set-arithignore-transact-sql.md",
+      "sql": "SET ARITHIGNORE OFF",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET ARITHIGNORE OFF",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH303",
+      "name": "vastbase-sqlserver-set-concat-null-yields-null",
+      "official_item": "docs/t-sql/statements/set-concat-null-yields-null-transact-sql.md",
+      "sql": "SET CONCAT_NULL_YIELDS_NULL ON",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET CONCAT_NULL_YIELDS_NULL ON",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH304",
+      "name": "vastbase-sqlserver-set-cursor-close-on-commit",
+      "official_item": "docs/t-sql/statements/set-cursor-close-on-commit-transact-sql.md",
+      "sql": "SET CURSOR_CLOSE_ON_COMMIT OFF",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET CURSOR_CLOSE_ON_COMMIT OFF",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH305",
+      "name": "vastbase-sqlserver-set-fmtonly",
+      "official_item": "docs/t-sql/statements/set-fmtonly-transact-sql.md",
+      "sql": "SET FMTONLY OFF",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET FMTONLY OFF",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH306",
+      "name": "vastbase-sqlserver-set-forceplan",
+      "official_item": "docs/t-sql/statements/set-forceplan-transact-sql.md",
+      "sql": "SET FORCEPLAN ON",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET FORCEPLAN ON",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH307",
+      "name": "vastbase-sqlserver-set-implicit-transactions",
+      "official_item": "docs/t-sql/statements/set-implicit-transactions-transact-sql.md",
+      "sql": "SET IMPLICIT_TRANSACTIONS OFF",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET IMPLICIT_TRANSACTIONS OFF",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH308",
+      "name": "vastbase-sqlserver-set-nocount",
+      "official_item": "docs/t-sql/statements/set-nocount-transact-sql.md",
+      "sql": "SET NOCOUNT ON",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET NOCOUNT ON",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH309",
+      "name": "vastbase-sqlserver-set-noexec",
+      "official_item": "docs/t-sql/statements/set-noexec-transact-sql.md",
+      "sql": "SET NOEXEC OFF",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET NOEXEC OFF",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH310",
+      "name": "vastbase-sqlserver-set-numeric-roundabort",
+      "official_item": "docs/t-sql/statements/set-numeric-roundabort-transact-sql.md",
+      "sql": "SET NUMERIC_ROUNDABORT OFF",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET NUMERIC_ROUNDABORT OFF",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH311",
+      "name": "vastbase-sqlserver-set-parseonly",
+      "official_item": "docs/t-sql/statements/set-parseonly-transact-sql.md",
+      "sql": "SET PARSEONLY OFF",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET PARSEONLY OFF",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH312",
+      "name": "vastbase-sqlserver-set-quoted-identifier-multiple",
+      "official_item": "docs/t-sql/statements/set-quoted-identifier-transact-sql.md",
+      "sql": "SET QUOTED_IDENTIFIER, ANSI_NULLS ON",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET QUOTED_IDENTIFIER, ANSI_NULLS ON",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH313",
+      "name": "vastbase-sqlserver-set-remote-proc-transactions",
+      "official_item": "docs/t-sql/statements/set-remote-proc-transactions-transact-sql.md",
+      "sql": "SET REMOTE_PROC_TRANSACTIONS OFF",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET REMOTE_PROC_TRANSACTIONS OFF",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH314",
+      "name": "vastbase-sqlserver-set-result-set-caching",
+      "official_item": "docs/t-sql/statements/set-result-set-caching-transact-sql.md",
+      "sql": "SET RESULT_SET_CACHING ON",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET RESULT_SET_CACHING ON",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH315",
+      "name": "vastbase-sqlserver-set-showplan-all",
+      "official_item": "docs/t-sql/statements/set-showplan-all-transact-sql.md",
+      "sql": "SET SHOWPLAN_ALL OFF",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET SHOWPLAN_ALL OFF",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH316",
+      "name": "vastbase-sqlserver-set-showplan-text",
+      "official_item": "docs/t-sql/statements/set-showplan-text-transact-sql.md",
+      "sql": "SET SHOWPLAN_TEXT OFF",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET SHOWPLAN_TEXT OFF",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH317",
+      "name": "vastbase-sqlserver-set-showplan-xml",
+      "official_item": "docs/t-sql/statements/set-showplan-xml-transact-sql.md",
+      "sql": "SET SHOWPLAN_XML OFF",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET SHOWPLAN_XML OFF",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH318",
+      "name": "vastbase-sqlserver-set-statistics-io",
+      "official_item": "docs/t-sql/statements/set-statistics-io-transact-sql.md",
+      "sql": "SET STATISTICS IO ON",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET STATISTICS IO ON",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH319",
+      "name": "vastbase-sqlserver-set-statistics-profile",
+      "official_item": "docs/t-sql/statements/set-statistics-profile-transact-sql.md",
+      "sql": "SET STATISTICS PROFILE OFF",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET STATISTICS PROFILE OFF",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH320",
+      "name": "vastbase-sqlserver-set-statistics-time",
+      "official_item": "docs/t-sql/statements/set-statistics-time-transact-sql.md",
+      "sql": "SET STATISTICS TIME ON",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET STATISTICS TIME ON",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH321",
+      "name": "vastbase-sqlserver-set-statistics-xml",
+      "official_item": "docs/t-sql/statements/set-statistics-xml-transact-sql.md",
+      "sql": "SET STATISTICS XML OFF",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET STATISTICS XML OFF",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH322",
+      "name": "vastbase-sqlserver-set-xact-abort",
+      "official_item": "docs/t-sql/statements/set-xact-abort-transact-sql.md",
+      "sql": "SET XACT_ABORT ON",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET XACT_ABORT ON",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH323",
+      "name": "vastbase-sqlserver-set-datefirst",
+      "official_item": "docs/t-sql/statements/set-datefirst-transact-sql.md",
+      "sql": "SET DATEFIRST 7",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET DATEFIRST 7",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH324",
+      "name": "vastbase-sqlserver-set-dateformat",
+      "official_item": "docs/t-sql/statements/set-dateformat-transact-sql.md",
+      "sql": "SET DATEFORMAT dmy",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET DATEFORMAT dmy",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH325",
+      "name": "vastbase-sqlserver-set-deadlock-priority",
+      "official_item": "docs/t-sql/statements/set-deadlock-priority-transact-sql.md",
+      "sql": "SET DEADLOCK_PRIORITY LOW",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET DEADLOCK_PRIORITY LOW",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH326",
+      "name": "vastbase-sqlserver-set-lock-timeout",
+      "official_item": "docs/t-sql/statements/set-lock-timeout-transact-sql.md",
+      "sql": "SET LOCK_TIMEOUT 1800",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET LOCK_TIMEOUT 1800",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH327",
+      "name": "vastbase-sqlserver-set-identity-insert",
+      "official_item": "docs/t-sql/statements/set-identity-insert-transact-sql.md",
+      "sql": "SET IDENTITY_INSERT [dbo].[Tool] ON",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET IDENTITY_INSERT dbo.Tool ON",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH328",
+      "name": "vastbase-sqlserver-set-language",
+      "official_item": "docs/t-sql/statements/set-language-transact-sql.md",
+      "sql": "SET LANGUAGE N'French'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET LANGUAGE N'French'",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH329",
+      "name": "vastbase-sqlserver-set-query-governor-cost-limit",
+      "official_item": "docs/t-sql/statements/set-query-governor-cost-limit-transact-sql.md",
+      "sql": "SET QUERY_GOVERNOR_COST_LIMIT 300",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET QUERY_GOVERNOR_COST_LIMIT 300",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH330",
+      "name": "vastbase-sqlserver-set-rowcount",
+      "official_item": "docs/t-sql/statements/set-rowcount-transact-sql.md",
+      "sql": "SET ROWCOUNT 100",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET ROWCOUNT 100",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH331",
+      "name": "vastbase-sqlserver-set-textsize",
+      "official_item": "docs/t-sql/statements/set-textsize-transact-sql.md",
+      "sql": "SET TEXTSIZE 4096",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET TEXTSIZE 4096",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH332",
+      "name": "vastbase-sqlserver-set-context-info",
+      "official_item": "docs/t-sql/statements/set-context-info-transact-sql.md",
+      "sql": "SET CONTEXT_INFO 0x1256698456",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET CONTEXT_INFO 0x1256698456",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH333",
+      "name": "vastbase-sqlserver-set-transaction-isolation-level",
+      "official_item": "docs/t-sql/statements/set-transaction-isolation-level-transact-sql.md",
+      "sql": "SET TRANSACTION ISOLATION LEVEL READ COMMITTED",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "deparse_contains": "SET TRANSACTION ISOLATION LEVEL READ COMMITTED",
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_sqlserver_set_statement"
+      }
+    },
+    {
+      "id": "VSH334",
+      "name": "vastbase-sqlserver-table-hints-join-alias",
+      "official_item": "docs/t-sql/queries/hints-transact-sql-table.md",
+      "sql": "SELECT [u].[id], [o].[id] FROM [dbo].[users] AS [u] WITH (NOLOCK) JOIN [dbo].[orders] AS [o] WITH (FORCESEEK) ON [u].[id] = [o].[user_id]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": [
+          "users u WITH (NOLOCK)",
+          "orders o WITH (FORCESEEK)"
+        ],
+        "view_contains": [
+          "\"table\":\"users\"",
+          "\"table\":\"orders\"",
+          "\"clause\":\"on\""
+        ]
+      }
+    },
+    {
+      "id": "VSH335",
+      "name": "vastbase-sqlserver-query-hints-multiple",
+      "official_item": "docs/t-sql/queries/option-clause-transact-sql.md",
+      "sql": "SELECT [id] FROM [dbo].[users] WHERE [status] = @status OPTION (RECOMPILE, USE HINT('DISABLE_OPTIMIZER_ROWGOAL'))",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "OPTION (RECOMPILE, USE HINT('DISABLE_OPTIMIZER_ROWGOAL'))",
+        "view_contains": [
+          "\"bind_key\":\"status\"",
+          "\"bind_sql\":\"@status\"",
+          "\"column\":\"status\""
+        ],
+        "view_not_contains": "bind_sql\":\"@status OPTION"
       }
     }
   ]

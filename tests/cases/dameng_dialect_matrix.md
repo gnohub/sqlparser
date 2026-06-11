@@ -10,10 +10,17 @@
 | D002 | `SET SCHEMA` | 当前 schema 会话上下文切换 |
 | D003 | `ALTER SESSION SET CURRENT_SCHEMA` | schema 会话切换语句 |
 | D003Q | `ALTER SESSION SET CURRENT_SCHEMA="..."` | 带引号 schema 标识符，公共 literal view 暴露 quoted identifier 语义 |
+| D089 | `ALTER SESSION SET NLS_DATE_FORMAT` | 当前会话 DATE 日期串格式 |
+| D090 | `ALTER SESSION SET NLS_TIMESTAMP_FORMAT` | 当前会话 TIMESTAMP 日期串格式 |
+| D091 | `ALTER SESSION SET NLS_TIMESTAMP_TZ_FORMAT` | 当前会话 TIMESTAMP_TZ 日期串格式 |
+| D092 | `ALTER SESSION SET NLS_TIME_FORMAT` | 当前会话 TIME 日期串格式 |
+| D093 | `ALTER SESSION SET NLS_TIME_TZ_FORMAT` | 当前会话 TIME_TZ 日期串格式 |
+| D094 | `ALTER SESSION SET NLS_SORT` | 当前会话自然语言排序方式 |
+| D095 | `ALTER SESSION SET CASE_SENSITIVE` | 当前会话大小写敏感属性 |
 | D004 | `MINUS` | 达梦 `MINUS` 与核心集合运算双向转换 |
 | D005 | `LIMIT n OFFSET n` | 达梦分页基础形态 |
 | D006 | `LIMIT offset,n` | 逗号分页转换为核心分页结构 |
-| D007 | `SELECT TOP n` | `TOP` 基础形态转换 |
+| D007 | `SELECT TOP n` | `TOP` 基础形态转换并在 deparse 中保留公开形态 |
 | D008 | 多表 JOIN + bind | 表、选择列、连接列和条件列识别 |
 | D009 | `INSERT ... VALUES` + bind | 插入列识别和 bind 还原 |
 | D010 | 多行 `INSERT ... VALUES` | 多行值列表 |
@@ -35,7 +42,7 @@
 | D026 | `SET SCHEMA; SELECT` | 多语句中的 schema 切换和查询保持独立输出 |
 | D027 | `DATE` + `TIMESTAMP` literal | 日期和时间戳字面量 |
 | D028 | `GROUP BY` + `HAVING` + 窗口函数 | 聚合查询和分析函数 |
-| D029 | `SELECT TOP offset,count` | `TOP` offset/count 形态转换为核心分页结构 |
+| D029 | `SELECT TOP offset,count` | `TOP` offset/count 形态转换并在 deparse 中保留公开形态 |
 | D030 | `INSERT ... VALUES (?, ?, ?)` | JDBC 风格位置参数转换、插入列识别和公开形态还原 |
 | D031 | `UPDATE ... SET ... WHERE ... = ?` | SET/WHERE 中的位置参数转换和公开形态还原 |
 | D032 | `EXEC SQL PREPARE ... FROM ...` | 达梦嵌入式 SQL prepare 语句、SQL 文本和 `?` 占位符公开形态还原 |
@@ -95,6 +102,42 @@
 | D086 | `dameng-not-like-escape-named-bind` | `NOT LIKE :pattern ESCAPE :escape_char` | 命名 bind pattern 与 escape 分别保留公开 SQL 和全局序号 |
 | D087 | `dameng-like-escape-question-bind` | `LIKE ? ESCAPE ?` | JDBC 风格位置参数 pattern 和 escape 的结构化输出 |
 | D088 | `dameng-like-without-explicit-escape` | `LIKE :pattern` | 无显式 ESCAPE 时不输出 `like_escape` |
+| D134 | `dameng-top-percent` | `SELECT TOP 10 PERCENT ...` | TOP 百分比形态解析并在 deparse 中保留 `PERCENT` |
+| D135 | `dameng-top-with-ties` | `SELECT TOP 2 WITH TIES ...` | TOP 同分保留形态解析并在 deparse 中保留 `WITH TIES` |
+| D136 | `dameng-top-percent-with-ties` | `SELECT TOP 70 PERCENT WITH TIES ...` | 达梦官方组合 TOP 形态解析并保留公开输出 |
+| D137 | `dameng-limit-before-top-restoration` | `LIMIT` 语句后接 `TOP` 语句 | TOP 回写按生成的 LIMIT 序号匹配，不会覆盖前置普通 LIMIT |
+
+## 多表插入
+
+达梦官方语法支持 `<multi_insert_stmt>`，包括 `INSERT ALL`、`INSERT FIRST`、`WHEN ... THEN`、`ELSE`、多个 `INTO` 分支以及后续查询表达式。当前实现使用通用 DML graph 结构表达该类语句，不新增方言专用 JSON 字段。
+
+| ID | 用例 | SQL 形态 | 覆盖内容 |
+| --- | --- | --- | --- |
+| DU006 | `dameng-insert-all` | `INSERT ALL INTO ... VALUES ... SELECT ...` | `insert_mode=all`、多 branch、目标表和 deparse |
+| D120 | `dameng-insert-all-bind-branches` | 多 branch bind cell | branch cell 的 `bind_key`、`bind_sql` 和全局 `bind_position` |
+| D121 | `dameng-insert-first-direct-source-fields` | `INSERT FIRST WHEN ... ELSE ... SELECT ...` | `insert_mode=first`、condition selector、source target/field 关联 |
+| D122 | `dameng-insert-all-conditional` | 多个 `WHEN ... THEN` | 多 condition selector、bind 序号和 source target 关联 |
+| D123 | `dameng-insert-all-multiple-into-per-when` | 单个 `WHEN` 下多个 `INTO` | 多 branch 与 bind 顺序稳定 |
+| D124 | `dameng-insert-all-source-field-and-expression-cells` | source field 与表达式 cell 混合 | direct field 使用 `source_target`，表达式 cell 不误标 |
+| D125 | `dameng-insert-all-schema-qualified-targets` | schema-qualified 多目标表 | branch target relation 保留 schema/table，bind 信息稳定 |
+| D126 | `dameng-insert-first-grouped-when-else-branches` | `INSERT FIRST` 单个 `WHEN/ELSE` 下多个 `INTO` | `branch_kind=when/else`，deparse 保留同组 `INTO`，避免 `INSERT FIRST` 语义被拆分 |
+| D127 | `dameng-insert-select-source-block-graph` | `INSERT ... SELECT ... FROM ...` | INSERT SELECT 的目标列、来源块、来源字段和 bind 归属 |
+| D128 | `dameng-merge-update-source-target-lineage` | MERGE matched UPDATE | `s.email` assignment 关联 source field 和 source target |
+| D129 | `dameng-merge-insert-source-target-lineage` | MERGE not matched INSERT | INSERT cell `s.email` 关联 source field 和 source target |
+| D130 | `dameng-regexp-like-function-predicate` | `REGEXP_LIKE(name, :pat)` | 函数谓词复用 `fields/values/predicates` 输出字段、bind 和 expression predicate |
+| D131 | `dameng-select-alias-order-by-lineage` | `SELECT u.email AS e ... ORDER BY u.email` | SELECT 输出 alias 保留 base field lineage，ORDER BY 字段独立归属 |
+| D132 | `dameng-select-or-predicate-order-by-lineage` | `WHERE field = :bind OR field = :bind ORDER BY ...` | OR 谓词树保留两个比较子节点、bind 和独立 ORDER BY 字段归属 |
+| D133 | `dameng-unsupported-keywords-in-quoted-identifiers` | `SELECT "RETURNING", "CONNECT" ...` | unsupported 预筛选不会误伤受保护标识符 |
+| DU007 | `dameng-database-link` | `table@database_link` | 远程对象引用基础形态，View JSON 输出 `link` |
+| D138 | `dameng-database-link-schema-alias-bind` | `schema.table@link alias` + bind | schema/table/alias/link 和 bind 归属 |
+| D139 | `dameng-database-link-update-target` | `UPDATE table@link ...` | DML target 的 database link 保留 |
+| D140 | `dameng-database-link-insert-target` | `INSERT INTO table@link ...` | INSERT target 的 database link 保留 |
+| D141 | `dameng-database-link-delete-target` | `DELETE FROM table@link ...` | DELETE target 的 database link 保留 |
+| D142 | `dameng-database-link-quoted-identifiers` | `"TABLE"@"LINK"` | quoted identifier 形态的 database link 保留 |
+| DU008 | national q-quoted 字符串 | `nq'[...]'` 转换后保留 national 字符串语义 |
+| DU008A | 重复 national q-quoted 字符串 | 普通字符串和 national 字符串内容相同时只恢复 national 项 |
+| DU008B | national 字符串字面量 | `N'...'` 输入保留 national 字符串语义 |
+| DU008C | 重复 national 字符串字面量 | 普通字符串和 `N'...'` 内容相同时只恢复 national 项 |
 
 ## 明确不支持用例
 
@@ -106,13 +149,7 @@
 | DU002 | `PIVOT` | 表变换语义需要专用查询模型 |
 | DU003 | `RETURNING ... INTO` | 返回目标和宿主变量语义不等价 |
 | DU004 | DMSQL block | 超出 SQL 语句转换范围 |
-| DU005 | `TOP ... PERCENT` | 百分比行数语义不能降级为普通 `LIMIT` |
-| DU006 | `INSERT ALL` | 多表插入语义不等价 |
-| DU007 | database link | 远程对象引用语义 |
-| DU008 | national q-quoted 字符串 | national 字符集语义当前不做静默降级 |
-| DU009 | 其他 `ALTER SESSION` 参数 | 除当前 schema 切换外的会话参数 |
 | DU010 | `CREATE PROCEDURE` | DMSQL 程序单元 |
-| DU011 | `TOP ... WITH TIES` | ties 语义不能降级为普通 `LIMIT` |
 | DU012 | `ALTER SESSION SET CONTAINER` | 达梦当前不支持 container 会话语义 |
 
 ## 维护要求

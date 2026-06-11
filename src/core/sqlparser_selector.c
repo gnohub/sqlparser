@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "sqlparser_ast_internal.h"
-#include "../dialect/sqlparser_dialect_oracle_internal.h"
+#include "../dialect/sqlparser_dialect_multi_insert_internal.h"
 
 static void sqlparser_selector_clear(sqlparser_selector_t *selector)
 {
@@ -719,7 +719,7 @@ sqlparser_status_t sqlparser_selector_clause_sql(
 	sqlparser_error_t *out_error)
 {
 	if (selector != NULL && selector->kind == SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_CONDITION) {
-		return sqlparser_oracle_multi_insert_condition_sql(
+		return sqlparser_dialect_multi_insert_condition_sql(
 			handle,
 			selector->statement_index,
 			selector->item_index,

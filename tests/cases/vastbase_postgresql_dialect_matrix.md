@@ -140,4 +140,12 @@
 | `VPG134` | `vastbase-postgresql-postgresql-not-like-escape-bind` | SELECT id FROM public.users WHERE name NOT LIKE $1 ESCAPE $2 | 已覆盖 |
 | `VPG135` | `vastbase-postgresql-postgresql-ilike-escape-bind` | SELECT id FROM public.users WHERE name ILIKE $1 ESCAPE $2 | 已覆盖 |
 | `VPG136` | `vastbase-postgresql-postgresql-like-without-explicit-escape` | SELECT id FROM public.users WHERE name LIKE $1 | 已覆盖 |
+| `VPG138` | `vastbase-postgresql-update-from-source-field-graph` | UPDATE public.t AS t SET name = s.name FROM public.src AS s WHERE t.id = s.id AND s.active = $1 | 已覆盖 |
+| `VPG139` | `vastbase-postgresql-insert-select-source-block-graph` | INSERT INTO public.t (id, email) SELECT s.id, s.email FROM public.src s WHERE s.active = $1 | 已覆盖 |
+| `VPG140` | `vastbase-postgresql-merge-source-target-graph` | MERGE INTO public.t USING (SELECT $1 AS id, $2 AS email) s ON t.id=s.id WHEN MATCHED THEN UPDATE SET email=s.email WHEN NOT MATCHED THEN INSERT (id,email) VALUES(s.id,s.email) | 已覆盖 |
+| `VPG141` | `vastbase-postgresql-regexp-like-function-predicate` | SELECT * FROM public.users WHERE regexp_like(name, $1) | 已覆盖 |
+| `VPG142` | `vastbase-postgresql-select-alias-order-by-lineage` | SELECT u.email AS e FROM public.users u ORDER BY u.email | 已覆盖 |
+| `VPG143` | `vastbase-postgresql-select-or-predicate-order-by-lineage` | SELECT u.id, u.email, u.bank_card FROM public.users u WHERE u.email = $1 OR u.bank_card = $2 ORDER BY u.id | 已覆盖 |
+| `VPG144` | `vastbase-postgresql-national-string-literal` | SELECT 'prefix' AS prefix_value, N'Alice''s order' AS label FROM users WHERE name = n'Bob' | 已覆盖 |
+| `VPG145` | `vastbase-postgresql-national-string-duplicate-literal` | SELECT 'same' AS plain_value, N'same' AS national_value FROM users | 已覆盖 |
 | `VPG137` | `vastbase-postgresql-parse-error` | SELECT FROM | 明确不支持 |

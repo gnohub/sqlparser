@@ -1,45 +1,45 @@
-#ifndef SQLPARSER_DIALECT_ORACLE_INTERNAL_H
-#define SQLPARSER_DIALECT_ORACLE_INTERNAL_H
+#ifndef SQLPARSER_DIALECT_DAMENG_INTERNAL_H
+#define SQLPARSER_DIALECT_DAMENG_INTERNAL_H
 
 #include "sqlparser_dialect_multi_insert_types.h"
 
-int sqlparser_oracle_state_has_multi_insert(const void *state);
-const sqlparser_dialect_multi_insert_t *sqlparser_oracle_state_multi_insert(const void *state);
-sqlparser_status_t sqlparser_oracle_multi_insert_set_cell_sql(
+int sqlparser_dameng_state_has_multi_insert(const void *state);
+const sqlparser_dialect_multi_insert_t *sqlparser_dameng_state_multi_insert(const void *state);
+sqlparser_status_t sqlparser_dameng_multi_insert_set_cell_sql(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t branch_index,
 	size_t column_index,
 	const char *sql_text,
 	sqlparser_error_t *out_error);
-sqlparser_status_t sqlparser_oracle_multi_insert_cell_sql(
+sqlparser_status_t sqlparser_dameng_multi_insert_cell_sql(
 	const sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t branch_index,
 	size_t column_index,
 	char **out_sql,
 	sqlparser_error_t *out_error);
-sqlparser_status_t sqlparser_oracle_multi_insert_condition_sql(
+sqlparser_status_t sqlparser_dameng_multi_insert_condition_sql(
 	const sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t branch_index,
 	char **out_sql,
 	sqlparser_error_t *out_error);
-sqlparser_status_t sqlparser_oracle_multi_insert_set_cell_literal(
+sqlparser_status_t sqlparser_dameng_multi_insert_set_cell_literal(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t branch_index,
 	size_t column_index,
 	const sqlparser_literal_value_t *value,
 	sqlparser_error_t *out_error);
-sqlparser_status_t sqlparser_oracle_multi_insert_set_cell_bind(
+sqlparser_status_t sqlparser_dameng_multi_insert_set_cell_bind(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t branch_index,
 	size_t column_index,
 	const sqlparser_bind_value_t *bind,
 	sqlparser_error_t *out_error);
-sqlparser_status_t sqlparser_oracle_multi_insert_insert_column_sql(
+sqlparser_status_t sqlparser_dameng_multi_insert_insert_column_sql(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t branch_index,

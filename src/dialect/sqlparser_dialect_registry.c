@@ -73,3 +73,25 @@ int sqlparser_dialect_is_sqlserver_compatible(sqlparser_dialect_t dialect)
 	return dialect == SQLPARSER_DIALECT_SQLSERVER ||
 		dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER;
 }
+
+const char *sqlparser_dialect_relation_object_name(
+	const sqlparser_dialect_ops_t *ops,
+	const void *state,
+	const char *parser_object_name)
+{
+	if (ops == NULL || ops->relation_object_name == NULL) {
+		return NULL;
+	}
+	return ops->relation_object_name(state, parser_object_name);
+}
+
+const char *sqlparser_dialect_relation_link_name(
+	const sqlparser_dialect_ops_t *ops,
+	const void *state,
+	const char *parser_object_name)
+{
+	if (ops == NULL || ops->relation_link_name == NULL) {
+		return NULL;
+	}
+	return ops->relation_link_name(state, parser_object_name);
+}

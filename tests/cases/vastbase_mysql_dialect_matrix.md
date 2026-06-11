@@ -8,6 +8,8 @@
 | `VM002` | `vastbase-mysql-select-join` | SELECT `u`.`id`, `u`.`name`, `o`.`order_no` FROM `users` `u` JOIN `orders` `o` ON `u`.`id` = `o`.`user_id` WHERE `o`.`status` = "paid" | 已覆盖 |
 | `VM003` | `vastbase-mysql-hash-comment` | SELECT 1 # mysql line comment<br> | 已覆盖 |
 | `VM004` | `vastbase-mysql-insert-values-multi-row` | INSERT INTO `users` (`id`, `name`) VALUES (1, "bob"), (2, 'alice') | 已覆盖 |
+| `VM004N` | `vastbase-mysql-national-string-literal` | SELECT "prefix" AS prefix_value, N'Alice''s order' AS label FROM `users` WHERE `name` = n'Bob' | 已覆盖 |
+| `VM004NA` | `vastbase-mysql-national-string-duplicate-literal` | SELECT 'same' AS ascii_value, N'same' AS national_value FROM `users` | 已覆盖 |
 | `VM005` | `vastbase-mysql-insert-select` | INSERT INTO `archive_users` (`id`, `name`) SELECT `id`, `name` FROM `users` WHERE `status` = "inactive" | 已覆盖 |
 | `VM006` | `vastbase-mysql-update-basic` | UPDATE `users` SET `name` = "carol", `status` = 'active' WHERE `id` = 1 | 已覆盖 |
 | `VM007` | `vastbase-mysql-delete-conditional` | DELETE FROM `users` WHERE `id` = 1 AND `status` = "inactive" | 已覆盖 |
@@ -18,6 +20,7 @@
 | `VM012` | `vastbase-mysql-start-transaction` | START TRANSACTION; COMMIT | 已覆盖 |
 | `VM013` | `vastbase-mysql-unsupported-keywords-in-string` | SELECT 'INSERT IGNORE' AS msg FROM `users` | 已覆盖 |
 | `VM014` | `vastbase-mysql-unsupported-keywords-in-comment` | SELECT `id` FROM `users` /* ON DUPLICATE KEY UPDATE */ WHERE `id` = 1 | 已覆盖 |
+| `VM014Q` | `vastbase-mysql-unsupported-keywords-in-quoted-identifiers` | SELECT `unsigned`, `auto_increment`, `engine` FROM `users` | 已覆盖 |
 | `VM015` | `vastbase-mysql-use-database` | USE analytics | 已覆盖 |
 | `VM016` | `vastbase-mysql-use-quoted-database` | USE `analytics-prod` | 已覆盖 |
 | `VM017` | `vastbase-mysql-use-database-in-multi-statement` | USE `analytics-prod`; SELECT * FROM `users` | 已覆盖 |
@@ -84,26 +87,51 @@
 | `VM077` | `vastbase-mysql-like-escape-question-binds` | SELECT `id` FROM `users` WHERE `name` LIKE ? ESCAPE ? | 已覆盖 |
 | `VM078` | `vastbase-mysql-not-like-escape-literal` | SELECT `id` FROM `users` WHERE `name` NOT LIKE ? ESCAPE '!' | 已覆盖 |
 | `VM079` | `vastbase-mysql-like-without-explicit-escape` | SELECT `id` FROM `users` WHERE `name` LIKE ? | 已覆盖 |
-| `VMU001` | `vastbase-mysql-insert-ignore` | INSERT IGNORE INTO `users` (`id`) VALUES (1) | 明确不支持 |
-| `VMU002` | `vastbase-mysql-insert-delayed` | INSERT DELAYED INTO `users` (`id`) VALUES (1) | 明确不支持 |
-| `VMU003` | `vastbase-mysql-insert-low-priority` | INSERT LOW_PRIORITY INTO `users` (`id`) VALUES (1) | 明确不支持 |
-| `VMU004` | `vastbase-mysql-insert-high-priority` | INSERT HIGH_PRIORITY INTO `users` (`id`) VALUES (1) | 明确不支持 |
+| `VM089` | `vastbase-mysql-update-join-source-field-graph` | UPDATE users u JOIN orders o ON u.id=o.user_id SET u.name = o.customer_name WHERE o.active = ? | 已覆盖 |
+| `VM090` | `vastbase-mysql-insert-select-source-block-graph` | INSERT INTO users_archive (id, email) SELECT u.id, u.email FROM users u WHERE u.active = ? | 已覆盖 |
+| `VM091` | `vastbase-mysql-with-cte-select` | WITH cte AS (SELECT id FROM users WHERE active = ?) SELECT id FROM cte | 已覆盖 |
+| `VM092` | `vastbase-mysql-window-row-number` | SELECT id, ROW_NUMBER() OVER (PARTITION BY status ORDER BY id) AS rn FROM users | 已覆盖 |
+| `VM093` | `vastbase-mysql-common-scalar-functions` | SELECT LOWER(name) AS lower_name, COALESCE(email, 'n/a') AS email_value FROM users WHERE id = ? | 已覆盖 |
+| `VM094` | `vastbase-mysql-common-data-types` | CREATE TABLE users (id BIGINT, amount DECIMAL(10,2), created_at DATETIME, active BOOLEAN) | 已覆盖 |
+| `VM095` | `vastbase-mysql-rollback` | ROLLBACK | 已覆盖 |
+| `VM096` | `vastbase-mysql-json-contains-function-predicate` | SELECT * FROM users WHERE JSON_CONTAINS(tags, ?) | 已覆盖 |
+| `VM097` | `vastbase-mysql-select-alias-order-by-lineage` | SELECT u.email AS e FROM users u ORDER BY u.email | 已覆盖 |
+| `VM098` | `vastbase-mysql-create-table-column-and-table-options` | CREATE TABLE `users` (`id` INT UNSIGNED AUTO_INCREMENT, `score` INT ZEROFILL, `name` VARCHAR(64)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin | 已覆盖 |
+| `VM099` | `vastbase-mysql-create-table-official-column-attributes` | CREATE TABLE `users` (`id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY COMMENT 'pk', `name` VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin INVISIBLE, `score` INT GENERATED ALWAYS AS (`id` + 1) STORED, `parent_id` INT REFERENCES `parents` (`id`) ON DELETE CASCADE) | 已覆盖 |
+| `VM100` | `vastbase-mysql-create-table-numeric-table-options` | CREATE TABLE `users` (`id` INT) AUTO_INCREMENT=100 AVG_ROW_LENGTH=64 CHECKSUM=1 DELAY_KEY_WRITE=1 KEY_BLOCK_SIZE=8 MAX_ROWS=1000 MIN_ROWS=1 PACK_KEYS=DEFAULT STATS_AUTO_RECALC=DEFAULT STATS_PERSISTENT=1 STATS_SAMPLE_PAGES=16 | 已覆盖 |
+| `VM101` | `vastbase-mysql-create-table-string-and-storage-table-options` | CREATE TABLE `users` (`id` INT) COMMENT='users table' COMPRESSION='ZLIB' CONNECTION='connect_string' DATA DIRECTORY='/tmp/data' INDEX DIRECTORY='/tmp/index' ENCRYPTION='Y' ENGINE_ATTRIBUTE='{"tier":"hot"}' SECONDARY_ENGINE_ATTRIBUTE='{}' INSERT_METHOD=NO PASSWORD='legacy' ROW_FORMAT=COMPRESSED TABLESPACE=innodb_file_per_table | 已覆盖 |
+| `VM102` | `vastbase-mysql-create-table-partition-options` | CREATE TABLE `users` (`id` INT, `created_at` DATE) ENGINE=InnoDB PARTITION BY HASH(`id`) PARTITIONS 4 | 已覆盖 |
+| `VM103` | `vastbase-mysql-create-temporary-table-options` | CREATE TEMPORARY TABLE IF NOT EXISTS `tmp_users` (`id` INT VISIBLE, `token` VARCHAR(64) COMMENT 'session token') ENGINE=MEMORY DEFAULT CHARACTER SET=utf8mb4 | 已覆盖 |
+| `VMU001` | `vastbase-mysql-insert-ignore` | INSERT IGNORE INTO `users` (`id`) VALUES (1) | 已覆盖 |
+| `VMU002` | `vastbase-mysql-insert-delayed` | INSERT DELAYED INTO `users` (`id`) VALUES (1) | 已覆盖 |
+| `VMU003` | `vastbase-mysql-insert-low-priority` | INSERT LOW_PRIORITY INTO `users` (`id`) VALUES (1) | 已覆盖 |
+| `VMU004` | `vastbase-mysql-insert-high-priority` | INSERT HIGH_PRIORITY INTO `users` (`id`) VALUES (1) | 已覆盖 |
+| `VMU004A` | `vastbase-mysql-insert-low-priority-ignore` | INSERT LOW_PRIORITY IGNORE INTO `users` (`id`, `phone`) VALUES (?, ?) | 已覆盖 |
+| `VMU004B` | `vastbase-mysql-insert-high-priority-ignore-select` | INSERT HIGH_PRIORITY IGNORE INTO `users` (`id`) SELECT `id` FROM `backup_users` | 已覆盖 |
+| `VMU004C` | `vastbase-mysql-insert-ignore-on-duplicate-key` | INSERT IGNORE INTO users(id, phone) VALUES (?, ?) ON DUPLICATE KEY UPDATE phone = ? | 已覆盖 |
 | `VMU005` | `vastbase-mysql-on-duplicate-key` | INSERT INTO users(id, phone) VALUES (?, ?) ON DUPLICATE KEY UPDATE phone = ? | 已覆盖 |
-| `VMU006` | `vastbase-mysql-replace-into` | REPLACE INTO `users` (`id`) VALUES (1) | 明确不支持 |
-| `VMU007` | `vastbase-mysql-update-ignore` | UPDATE IGNORE `users` SET `id` = 2 WHERE `id` = 1 | 明确不支持 |
-| `VMU008` | `vastbase-mysql-delete-ignore` | DELETE IGNORE FROM `users` WHERE `id` = 1 | 明确不支持 |
+| `VMU006` | `vastbase-mysql-replace-into` | REPLACE INTO `users` (`id`) VALUES (1) | 已覆盖 |
+| `VMU006A` | `vastbase-mysql-replace-low-priority-multi-row` | REPLACE LOW_PRIORITY INTO `users` (`id`, `phone`) VALUES (?, ?), (?, ?) | 已覆盖 |
+| `VMU006B` | `vastbase-mysql-replace-delayed-select` | REPLACE DELAYED INTO `users` (`id`, `phone`) SELECT `id`, `phone` FROM `backup_users` WHERE `active` = ? | 已覆盖 |
+| `VMU006C` | `vastbase-mysql-replace-set` | REPLACE INTO `users` SET `id` = ?, `phone` = ? | 已覆盖 |
+| `VMU006D` | `vastbase-mysql-replace-without-into` | REPLACE `users` (`id`) VALUES (1) | 已覆盖 |
+| `VMU006E` | `vastbase-mysql-replace-table-source` | REPLACE INTO `users` (`id`, `phone`) TABLE `backup_users` | 已覆盖 |
+| `VMU007` | `vastbase-mysql-update-ignore` | UPDATE IGNORE `users` SET `id` = ? WHERE `id` = ? | 已覆盖 |
+| `VMU008` | `vastbase-mysql-delete-ignore` | DELETE IGNORE FROM `users` WHERE `id` = ? | 已覆盖 |
+| `VMU008A` | `vastbase-mysql-update-low-priority-ignore-join` | UPDATE LOW_PRIORITY IGNORE users u JOIN orders o ON u.id=o.user_id SET u.phone = ? WHERE o.shipping_phone = ? | 已覆盖 |
+| `VMU008B` | `vastbase-mysql-delete-low-priority-quick-ignore-join` | DELETE LOW_PRIORITY QUICK IGNORE u FROM users u JOIN orders o ON u.id=o.user_id WHERE u.phone = ? | 已覆盖 |
 | `VMU009` | `vastbase-mysql-update-join` | UPDATE users u JOIN orders o ON u.id=o.user_id SET u.phone = ? WHERE o.shipping_phone = ? | 已覆盖 |
 | `VMU010` | `vastbase-mysql-delete-join` | DELETE u FROM users u JOIN orders o ON u.id=o.user_id WHERE u.phone = ? | 已覆盖 |
 | `VMU010A` | `vastbase-mysql-update-join-on-bind` | UPDATE users u JOIN orders o ON u.phone = ? SET u.name = ? WHERE o.id = ? | 已覆盖 |
 | `VMU010B` | `vastbase-mysql-delete-join-on-bind` | DELETE u FROM users u JOIN orders o ON u.phone = ? WHERE o.id = ? | 已覆盖 |
-| `VMU011` | `vastbase-mysql-auto-increment` | CREATE TABLE `users` (`id` INT AUTO_INCREMENT) | 明确不支持 |
-| `VMU012` | `vastbase-mysql-unsigned` | CREATE TABLE `users` (`id` INT UNSIGNED) | 明确不支持 |
-| `VMU013` | `vastbase-mysql-zerofill` | CREATE TABLE `users` (`id` INT ZEROFILL) | 明确不支持 |
-| `VMU014` | `vastbase-mysql-table-engine` | CREATE TABLE `users` (`id` INT) ENGINE=InnoDB | 明确不支持 |
-| `VMU015` | `vastbase-mysql-table-charset` | CREATE TABLE `users` (`id` INT) DEFAULT CHARSET=utf8mb4 | 明确不支持 |
-| `VMU016` | `vastbase-mysql-table-character-set` | CREATE TABLE `users` (`id` INT) CHARACTER SET=utf8mb4 | 明确不支持 |
-| `VMU017` | `vastbase-mysql-table-collate` | CREATE TABLE `users` (`id` INT) COLLATE=utf8mb4_bin | 明确不支持 |
-| `VMU018` | `vastbase-mysql-update-left-join` | UPDATE users u LEFT JOIN orders o ON u.id=o.user_id SET u.phone = ? WHERE o.shipping_phone = ? | 明确不支持 |
-| `VMU019` | `vastbase-mysql-delete-left-join` | DELETE u FROM users u LEFT JOIN orders o ON u.id=o.user_id WHERE u.phone = ? | 明确不支持 |
-| `VMU020` | `vastbase-mysql-update-join-source-assignment` | UPDATE users u JOIN orders o ON u.id=o.user_id SET o.shipping_phone = ? WHERE u.id = ? | 明确不支持 |
-| `VMU021` | `vastbase-mysql-delete-join-source-target` | DELETE o FROM users u JOIN orders o ON u.id=o.user_id WHERE o.phone = ? | 明确不支持 |
+| `VMU011` | `vastbase-mysql-auto-increment` | CREATE TABLE `users` (`id` INT AUTO_INCREMENT) | 已覆盖 |
+| `VMU012` | `vastbase-mysql-unsigned` | CREATE TABLE `users` (`id` INT UNSIGNED) | 已覆盖 |
+| `VMU013` | `vastbase-mysql-zerofill` | CREATE TABLE `users` (`id` INT ZEROFILL) | 已覆盖 |
+| `VMU014` | `vastbase-mysql-table-engine` | CREATE TABLE `users` (`id` INT) ENGINE=InnoDB | 已覆盖 |
+| `VMU015` | `vastbase-mysql-table-charset` | CREATE TABLE `users` (`id` INT) DEFAULT CHARSET=utf8mb4 | 已覆盖 |
+| `VMU016` | `vastbase-mysql-table-character-set` | CREATE TABLE `users` (`id` INT) CHARACTER SET=utf8mb4 | 已覆盖 |
+| `VMU017` | `vastbase-mysql-table-collate` | CREATE TABLE `users` (`id` INT) COLLATE=utf8mb4_bin | 已覆盖 |
+| `VMU018` | `vastbase-mysql-update-left-join` | UPDATE users u LEFT JOIN orders o ON u.id=o.user_id SET u.phone = ? WHERE o.shipping_phone = ? | 已覆盖 |
+| `VMU019` | `vastbase-mysql-delete-left-join` | DELETE u FROM users u LEFT JOIN orders o ON u.id=o.user_id WHERE u.phone = ? | 已覆盖 |
+| `VMU020` | `vastbase-mysql-update-join-source-assignment` | UPDATE users u JOIN orders o ON u.id=o.user_id SET o.shipping_phone = ? WHERE u.id = ? | 已覆盖 |
+| `VMU021` | `vastbase-mysql-delete-join-source-target` | DELETE o FROM users u JOIN orders o ON u.id=o.user_id WHERE o.phone = ? | 已覆盖 |

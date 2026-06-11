@@ -20,6 +20,9 @@ SQLPARSER_0 {
 		sqlparser_graph_set_kind_name;
 		sqlparser_graph_dml_kind_name;
 		sqlparser_graph_insert_mode_name;
+		sqlparser_graph_dml_branch_kind_name;
+		sqlparser_graph_predicate_kind_name;
+		sqlparser_graph_predicate_bool_name;
 		sqlparser_graph_operator_is_like_pattern;
 		sqlparser_graph_value_is_like_pattern;
 		sqlparser_limits_default;
@@ -121,6 +124,7 @@ SQLPARSER_0 {
 		sqlparser_query_graph_field_at;
 		sqlparser_query_graph_value_at;
 		sqlparser_query_graph_set_at;
+		sqlparser_query_graph_predicate_at;
 		sqlparser_query_graph_dml;
 		sqlparser_query_graph_dml_branch_at;
 		sqlparser_query_graph_dml_column_at;

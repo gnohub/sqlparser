@@ -121,6 +121,8 @@ original SQL, the current syntax tree, dialect state, and lazily derived caches.
 | `sqlparser_graph_field_match_kind_t` | query graph field-match kind for condition values |
 | `sqlparser_graph_operator_kind_t` | structured operator classification for query graph values |
 | `sqlparser_graph_like_escape_kind_t` | escape shape for explicit `LIKE ... ESCAPE ...` in query graph |
+| `sqlparser_graph_predicate_kind_t` | query graph predicate node kind |
+| `sqlparser_graph_predicate_bool_t` | query graph boolean predicate operator |
 | `sqlparser_literal_kind_t` | literal kind |
 | `sqlparser_selector_kind_t` | selector kind |
 | `sqlparser_clause_kind_t` | clause kind used by query graph and clause patches |
@@ -164,7 +166,7 @@ Bind-field rules:
 | `SQLPARSER_GRAPH_VALUE_BIND` | `2` | prepared-statement placeholder |
 | `SQLPARSER_GRAPH_VALUE_DEFAULT` | `3` | `DEFAULT` |
 | `SQLPARSER_GRAPH_VALUE_EXPRESSION` | `4` | function, operator, `CASE`, or other expression |
-| `SQLPARSER_GRAPH_VALUE_FIELD` | `5` | Oracle multi-table INSERT branch cell that directly references source-query output |
+| `SQLPARSER_GRAPH_VALUE_FIELD` | `5` | right-hand field reference visible in SQL, such as a field-to-field predicate, DML assignment RHS, or source-query output field |
 
 `sqlparser_graph_like_escape_kind_t`:
 
@@ -192,6 +194,25 @@ Bind-field rules:
 | `SQLPARSER_GRAPH_OPERATOR_NOT_LIKE` | `2` | `NOT LIKE` |
 | `SQLPARSER_GRAPH_OPERATOR_ILIKE` | `3` | `ILIKE` |
 | `SQLPARSER_GRAPH_OPERATOR_NOT_ILIKE` | `4` | `NOT ILIKE` |
+
+`sqlparser_graph_predicate_kind_t`:
+
+| Enum | Value | Meaning |
+| --- | --- | --- |
+| `SQLPARSER_GRAPH_PREDICATE_UNKNOWN` | `0` | unclassified predicate |
+| `SQLPARSER_GRAPH_PREDICATE_COMPARISON` | `1` | field-to-value or field-to-field comparison |
+| `SQLPARSER_GRAPH_PREDICATE_BOOL` | `2` | `AND`, `OR`, or `NOT` boolean predicate |
+| `SQLPARSER_GRAPH_PREDICATE_EXISTS` | `3` | `EXISTS` predicate |
+| `SQLPARSER_GRAPH_PREDICATE_EXPRESSION` | `4` | expression predicate that cannot be safely split into field and value sides |
+
+`sqlparser_graph_predicate_bool_t`:
+
+| Enum | Value | Meaning |
+| --- | --- | --- |
+| `SQLPARSER_GRAPH_PREDICATE_BOOL_NONE` | `0` | non-boolean predicate |
+| `SQLPARSER_GRAPH_PREDICATE_BOOL_AND` | `1` | `AND` |
+| `SQLPARSER_GRAPH_PREDICATE_BOOL_OR` | `2` | `OR` |
+| `SQLPARSER_GRAPH_PREDICATE_BOOL_NOT` | `3` | `NOT` |
 
 `sqlparser_clause_kind_t`:
 
@@ -275,6 +296,8 @@ Defined dialects:
 | `sqlparser_graph_operator_kind_name()` | returns the query graph operator-kind name |
 | `sqlparser_graph_set_kind_name()` | returns the query graph set-kind name |
 | `sqlparser_graph_dml_kind_name()` | returns the query graph DML-kind name |
+| `sqlparser_graph_predicate_kind_name()` | returns the query graph predicate-kind name |
+| `sqlparser_graph_predicate_bool_name()` | returns the query graph boolean-predicate operator name |
 | `sqlparser_graph_operator_is_like_pattern()` | checks whether an operator kind is `LIKE`, `NOT LIKE`, `ILIKE`, or `NOT ILIKE` |
 | `sqlparser_graph_value_is_like_pattern()` | checks whether a query graph value is a pattern-match pattern value |
 | `sqlparser_dialect_name()` | returns the dialect name |
@@ -426,7 +449,7 @@ stmt[0].select_target[0][1]
 | `sqlparser_selector_where_literal()` | reads a WHERE literal |
 | `sqlparser_selector_where_sql()` | reads WHERE condition SQL |
 | `sqlparser_selector_clause()` | reads a generic clause view |
-| `sqlparser_selector_clause_sql()` | reads generic clause SQL; also reads Oracle `INSERT ALL/FIRST` branch condition SQL |
+| `sqlparser_selector_clause_sql()` | reads generic clause SQL; also reads Oracle/Dameng `INSERT ALL/FIRST` branch condition SQL |
 | `sqlparser_selector_update_assignment()` | reads an assignment |
 | `sqlparser_selector_update_assignment_sql()` | reads assignment right-hand SQL |
 | `sqlparser_selector_insert_cell_literal()` | reads INSERT cell literal |
@@ -554,8 +577,9 @@ from which it was read.
 | `sqlparser_query_graph_field_at()` | reads a field occurrence |
 | `sqlparser_query_graph_value_at()` | reads a field-bound value |
 | `sqlparser_query_graph_set_at()` | reads a set-operation node |
+| `sqlparser_query_graph_predicate_at()` | reads a WHERE/ON/HAVING predicate node |
 | `sqlparser_query_graph_dml()` | reads DML write shape |
-| `sqlparser_query_graph_dml_branch_at()` | reads an Oracle multi-table INSERT branch |
+| `sqlparser_query_graph_dml_branch_at()` | reads an Oracle/Dameng multi-table INSERT branch |
 | `sqlparser_query_graph_dml_column_at()` | reads one INSERT target column |
 | `sqlparser_query_graph_dml_cell_at()` | reads one INSERT VALUES cell |
 | `sqlparser_query_graph_dml_assignment_at()` | reads one UPDATE/MERGE assignment |
@@ -564,20 +588,23 @@ from which it was read.
 
 | Struct | Meaning |
 | --- | --- |
-| `sqlparser_graph_block_t` | query block with relation and target spans |
+| `sqlparser_graph_block_t` | query block with relation, target, and predicate spans |
 | `sqlparser_graph_relation_t` | base, derived, CTE, or dual relation visible in SQL |
 | `sqlparser_graph_target_t` | SELECT output target with output order, star source, and selector |
 | `sqlparser_graph_field_t` | field-reference occurrence visible in SQL |
 | `sqlparser_graph_value_t` | literal, bind, default, or expression associated with a field |
 | `sqlparser_graph_set_t` | `UNION`, `UNION ALL`, `INTERSECT`, or `EXCEPT/MINUS` branches |
+| `sqlparser_graph_predicate_t` | comparison, boolean, EXISTS, or expression predicate from WHERE, ON, or HAVING |
 | `sqlparser_graph_dml_t` | INSERT, UPDATE, DELETE, or MERGE write shape |
-| `sqlparser_graph_dml_branch_t` | one INTO branch in an Oracle multi-table INSERT |
+| `sqlparser_graph_dml_branch_t` | one INTO branch in an Oracle/Dameng multi-table INSERT |
 | `sqlparser_graph_dml_column_t` | explicit INSERT target column |
-| `sqlparser_graph_dml_cell_t` | INSERT VALUES cell; Oracle multi-table INSERT cells can link to trailing source-query output through `source_target_index` |
+| `sqlparser_graph_dml_cell_t` | INSERT VALUES cell; Oracle/Dameng multi-table INSERT cells can link to trailing source-query output through `source_target_index` |
 | `sqlparser_graph_dml_assignment_t` | UPDATE/MERGE assignment |
 
 ### Attribution Rules
 
+- `sqlparser_graph_relation_t.link_name` reports the database link for remote
+  object references. It is `NULL` when the SQL has no database link.
 - `relations[].source_block_index` links a derived table or CTE to its source
   block.
 - `targets[].star_relations` reports the relation indexes covered by `*` or
@@ -585,20 +612,32 @@ from which it was read.
 - `targets[].source_block_index` links star or subquery targets to their source
   block.
 - `sets[].branch_blocks` reports set-operation branches.
+- `predicates[]` represents the predicate tree for `WHERE`, `ON`, and `HAVING`;
+  the `children` span reports child predicates for `AND`, `OR`, and `NOT`.
+- A `field = literal/bind` predicate is represented by
+  `left_field_index + value_index`. A `field = field` predicate is represented
+  by `left_field_index + right_field_index`, with a `values[]` entry whose kind
+  is `SQLPARSER_GRAPH_VALUE_FIELD` for the right-side source field.
 - If an unqualified field cannot be uniquely attributed from SQL text alone,
   `has_relation` is `0` and `candidate_relations` lists relation candidates in
   the current scope.
 - `sqlparser_graph_dml_t.insert_mode` distinguishes `VALUES`, `SELECT`,
-  `INSERT ALL`, and `INSERT FIRST`.
-- `sqlparser_graph_dml_t.branches` is used only for Oracle multi-table INSERT;
-  each branch owns its target relation, target columns, rows, and optional
-  condition selector. The condition selector can be passed to
-  `sqlparser_selector_clause_sql()` to read the original predicate SQL.
-- For an Oracle multi-table INSERT branch cell that directly references an
+  `INSERT ALL`, `INSERT FIRST`, and the MySQL `REPLACE` `VALUES`, `SELECT`,
+  and `SET` forms.
+- `sqlparser_graph_dml_t.branches` is used only for Oracle/Dameng multi-table
+  INSERT; each branch owns its target relation, target columns, rows, branch
+  kind, and optional condition selector. The condition selector can be passed
+  to `sqlparser_selector_clause_sql()` to read the original predicate SQL.
+- For an Oracle/Dameng multi-table INSERT branch cell that directly references an
   output field from the trailing source query, `sqlparser_graph_dml_cell_t.kind`
   is `SQLPARSER_GRAPH_VALUE_FIELD`, and
   `has_source_target/source_target_index` points to the related `targets[]`
   entry.
+- If an `UPDATE` or `MERGE` assignment right-hand side is a direct field
+  reference, `sqlparser_graph_dml_assignment_t.value_kind` is
+  `SQLPARSER_GRAPH_VALUE_FIELD` and `has_source_field/source_field_index`
+  points to the source field. If that source field uniquely matches a derived
+  source-query output, `has_source_target/source_target_index` is set as well.
 - `values[]` contains only application-side values associated with fields or SELECT targets.
   `LIMIT/OFFSET`, `ROWNUM`, and other pagination or pseudo-column binds are
   intentionally excluded.
@@ -654,7 +693,7 @@ Patch operations:
 | Operation | Meaning |
 | --- | --- |
 | `SQLPARSER_PATCH_REPLACE` | replaces a relation, name, value, assignment, literal, where literal, clause, insert cell, select target, or select target list |
-| `SQLPARSER_PATCH_INSERT_COLUMN` | adds an `INSERT ... VALUES` column, adds an `INSERT ... SELECT` target column, adds an Oracle `INSERT ALL/FIRST` branch target column, or inserts a SELECT output target |
+| `SQLPARSER_PATCH_INSERT_COLUMN` | adds an `INSERT ... VALUES` column, adds an `INSERT ... SELECT` target column, adds an Oracle/Dameng `INSERT ALL/FIRST` branch target column, or inserts a SELECT output target |
 | `SQLPARSER_PATCH_DELETE_COLUMN` | deletes an `INSERT ... VALUES` column, deletes an `INSERT ... SELECT` target column, or deletes a SELECT output target |
 | `SQLPARSER_PATCH_DELETE_ROW` | deletes an `INSERT ... VALUES` row |
 | `SQLPARSER_PATCH_APPEND_CONDITION` | appends a condition to a `where` clause with `AND` or `OR` |

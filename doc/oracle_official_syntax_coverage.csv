@@ -7,6 +7,7 @@ query,ROWNUM,CURRENT,"已覆盖 ROWNUM 条件过滤",https://docs.oracle.com/en/
 query,FOR_UPDATE_NOWAIT,CURRENT,"已覆盖 FOR UPDATE NOWAIT",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
 expressions,BIND_VARIABLES,CURRENT,"已覆盖 :name、:1 和 JDBC 风格 ? 位置参数",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Comments.html
 expressions,Q_QUOTED_STRING,CURRENT,"已覆盖 q-quoted 字符串",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Literals.html
+expressions,NATIONAL_STRING_LITERAL,CURRENT,"已覆盖 N'...' national 字符串字面量，公共输出恢复为 N 前缀字符串字面量",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Literals.html
 expressions,DATE_TIMESTAMP_LITERAL,CURRENT,"已覆盖 DATE 和 TIMESTAMP 字面量",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Literals.html
 expressions,CASE_EXISTS,CURRENT,"已覆盖 CASE 和 EXISTS 子查询",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CASE-Expressions.html
 expressions,COMMON_FUNCTIONS,CURRENT,"已覆盖 DECODE、NVL、SYSDATE 等常见函数和伪列",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Single-Row-Functions.html
@@ -31,7 +32,7 @@ privileges,GRANT_REVOKE,CURRENT,"已覆盖 GRANT 和 REVOKE",https://docs.oracle
 utility,COMMENT_ON,CURRENT,"已覆盖 COMMENT ON TABLE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/COMMENT.html
 session,ALTER_SESSION_CONTEXT,CURRENT,"已覆盖 CURRENT_SCHEMA、CONTAINER/SERVICE 和普通 ALTER SESSION SET 参数赋值",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/ALTER-SESSION.html
 session,ALTER_SESSION_OTHER,CURRENT,"已覆盖普通 ALTER SESSION SET 参数赋值，包含字符串、标识符、数字和布尔/枚举值",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/ALTER-SESSION.html
-expressions,NATIONAL_Q_QUOTED_STRING,MODEL_REQUIRED,"national 字符集语义不能安全降级为普通字符串",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Literals.html
+expressions,NATIONAL_Q_QUOTED_STRING,CURRENT,"已覆盖 nq q-quoted 字符串，公共输出恢复为 N 前缀字符串字面量",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Literals.html
 query,CONNECT_BY,MODEL_REQUIRED,"层级查询语义需要 Oracle 专用查询模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Hierarchical-Queries.html
 query,LEGACY_OUTER_JOIN,MODEL_REQUIRED,"(+) 旧式外连接语义不做静默降级",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Joins.html
 dml,INSERT_ALL_FIRST,CURRENT,"已覆盖 INSERT ALL 和 INSERT FIRST 的分支、条件、目标表、目标列和值 cell 结构",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/INSERT.html
@@ -42,6 +43,6 @@ query,PIVOT_UNPIVOT,MODEL_REQUIRED,"表变换语义需要 Oracle 专用查询模
 query,MODEL_CLAUSE,MODEL_REQUIRED,"MODEL clause 需要 Oracle 专用查询模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
 query,FLASHBACK_QUERY,MODEL_REQUIRED,"闪回查询语义需要 Oracle 专用查询模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
 query,MATCH_RECOGNIZE,MODEL_REQUIRED,"行模式识别语义需要 Oracle 专用查询模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
-ddl,SYNONYM,MODEL_REQUIRED,"synonym 对象需要 Oracle 专用对象模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-SYNONYM.html
-schema,DATABASE_LINK,MODEL_REQUIRED,"database link 远程对象引用需要 Oracle 专用命名模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-DATABASE-LINK.html
-utility,EXPLAIN_PLAN_FOR,MODEL_REQUIRED,"Oracle explain plan 输出和计划表语义需要专用模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/EXPLAIN-PLAN.html
+ddl,SYNONYM,MIXED_MODEL,"已覆盖 CREATE/DROP SYNONYM 基础语句的解析、keyword 和反解析；完整 synonym 对象属性需要 Oracle 专用对象模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-SYNONYM.html
+schema,DATABASE_LINK,CURRENT,"已覆盖 table@database_link 远程对象引用、schema 前缀、别名、DML target 和 quoted identifier 基础形态",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-DATABASE-LINK.html
+utility,EXPLAIN_PLAN_FOR,MIXED_MODEL,"已覆盖 EXPLAIN PLAN FOR 基础语句的解析、keyword 和反解析；计划表输出语义不进入共享对象模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/EXPLAIN-PLAN.html

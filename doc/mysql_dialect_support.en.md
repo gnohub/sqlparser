@@ -14,40 +14,33 @@ current AST. The executable case matrix defines the support boundary:
 - backtick-delimited identifiers
 - MySQL `#` line comments
 - compatible double-quoted string handling
+- `N'...'` national string literals with the `N` prefix preserved in public output
 - JDBC-style `?` positional parameters
 - `LIMIT offset,count`
+- `WITH` common table expressions
+- window functions
+- common scalar-function expressions
 - `INSERT VALUES`, multi-row `INSERT`, and `INSERT SELECT`
+- preserved `INSERT IGNORE`, `INSERT DELAYED`, `INSERT LOW_PRIORITY`, and `INSERT HIGH_PRIORITY` modifiers
+- basic `REPLACE VALUES`, `REPLACE SET`, `REPLACE SELECT`, and `REPLACE TABLE` forms
+- preserved `UPDATE LOW_PRIORITY/IGNORE` and `DELETE LOW_PRIORITY/QUICK/IGNORE` modifiers
 - `INSERT ... ON DUPLICATE KEY UPDATE`
 - `UPDATE` and `DELETE`
-- ordinary/INNER/CROSS `UPDATE ... JOIN ... SET ...` forms with `ON` conditions
-- ordinary/INNER/CROSS `DELETE u FROM ... JOIN ...` forms with `ON` conditions
-- basic `CREATE TABLE`
+- basic multi-table `UPDATE ... JOIN ... SET ...` forms with `ON` conditions
+- basic multi-table `DELETE u FROM ... JOIN ...` forms with `ON` conditions
+- basic `CREATE TABLE`, column attributes, table options, and partition tails without query expressions
 - `ALTER TABLE ADD COLUMN`
 - `CREATE VIEW`
 - `DROP TABLE`
-- `START TRANSACTION` and `COMMIT`
+- `START TRANSACTION`, `COMMIT`, and `ROLLBACK`
 - `USE db_name` default database switching
 - `PREPARE`, `EXECUTE`, `DEALLOCATE PREPARE`, and `DROP PREPARE`
 
 ## Explicitly Unsupported Scope
 
-The following MySQL-specific constructs are not silently downgraded. They return
-`SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
-
-- `INSERT IGNORE`
-- `INSERT DELAYED`
-- `INSERT LOW_PRIORITY` and `INSERT HIGH_PRIORITY`
-- `REPLACE INTO`
-- `UPDATE IGNORE`
-- `DELETE IGNORE`
-- `UPDATE ... LEFT/RIGHT JOIN ... SET ...`
-- `DELETE u FROM ... LEFT/RIGHT JOIN ...`
-- `AUTO_INCREMENT`
-- `UNSIGNED`
-- `ZEROFILL`
-- table options such as `ENGINE=...`
-- charset and collation table options such as `DEFAULT CHARSET=...`,
-  `CHARACTER SET=...`, and `COLLATE=...`
+The executable MySQL dialect matrix currently has no explicit unsupported
+cases. Official syntax coverage boundaries are tracked in
+`mysql_official_syntax_coverage.csv`.
 
 ## Public Output Rules
 
@@ -69,5 +62,5 @@ The MySQL support boundary is defined by:
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current MySQL matrix contains 92 cases: 74 supported paths and 18 explicit
+The current MySQL matrix contains 131 cases: 131 supported paths and 0 explicit
 unsupported paths.

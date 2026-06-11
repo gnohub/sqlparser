@@ -4,6 +4,7 @@ query,WITH,CURRENT,"已覆盖 CTE 查询和外层查询归属",https://www.postg
 query,set-operations,CURRENT,"已覆盖 UNION ALL、EXCEPT 和 INTERSECT",https://www.postgresql.org/docs/17/queries-union.html
 query,VALUES,CURRENT,"VALUES 可由当前 AST 承载，并在 INSERT VALUES 中验证",https://www.postgresql.org/docs/17/sql-values.html
 query,window-functions,CURRENT,"已覆盖窗口函数表达式",https://www.postgresql.org/docs/17/tutorial-window.html
+expressions,NATIONAL_STRING_LITERAL,CURRENT,"已覆盖当前 PostgreSQL 解析内核支持的 N'...' national 字符串字面量，公共输出保留 N 前缀",https://www.postgresql.org/message-id/om3g7p7u3ztlrdp4tfswgulavljgn2fe6u2agk34mrr65dffuu%40cpzlzuv6flko
 dml,INSERT,CURRENT,"已覆盖单行、多行、INSERT SELECT、ON CONFLICT 和 RETURNING",https://www.postgresql.org/docs/17/sql-insert.html
 dml,UPDATE,CURRENT,"已覆盖 UPDATE、UPDATE FROM 和 RETURNING",https://www.postgresql.org/docs/17/sql-update.html
 dml,DELETE,CURRENT,"已覆盖 DELETE、DELETE USING 和 RETURNING",https://www.postgresql.org/docs/17/sql-delete.html
@@ -36,7 +37,7 @@ transaction,ROLLBACK_TO_SAVEPOINT,CURRENT,"已覆盖 ROLLBACK TO SAVEPOINT",http
 transaction,RELEASE_SAVEPOINT,CURRENT,"已覆盖 RELEASE SAVEPOINT",https://www.postgresql.org/docs/17/sql-release-savepoint.html
 procedural,DO,CURRENT,"已覆盖 DO block",https://www.postgresql.org/docs/17/sql-do.html
 session,SET_SHOW_RESET,CURRENT,"已覆盖 SET search_path、SET LOCAL search_path 和 SET SCHEMA 的会话 schema 上下文输出",https://www.postgresql.org/docs/17/sql-set.html
-notification,LISTEN_NOTIFY_UNLISTEN,HOOK_ONLY,"解析内核可承载，当前回归矩阵未覆盖通知语句",https://www.postgresql.org/docs/17/sql-listen.html
+notification,LISTEN_NOTIFY_UNLISTEN,CURRENT,"已覆盖 LISTEN、NOTIFY 和 UNLISTEN 通知语句",https://www.postgresql.org/docs/17/sql-listen.html
 prepared,PREPARE_EXECUTE_DEALLOCATE,CURRENT,"已覆盖 PREPARE、EXECUTE 和 DEALLOCATE prepared statement 生命周期",https://www.postgresql.org/docs/17/sql-prepare.html
-extension,CREATE_EXTENSION_DROP_EXTENSION,HOOK_ONLY,"解析内核可承载，公共 query_graph 未维护 extension 对象专用归属",https://www.postgresql.org/docs/17/sql-createextension.html
+extension,CREATE_EXTENSION_DROP_EXTENSION,CURRENT,"已覆盖 CREATE EXTENSION 和 DROP EXTENSION 扩展对象 DDL",https://www.postgresql.org/docs/17/sql-createextension.html
 security,ROLE_USER_DATABASE,MIXED_MODEL,"部分 DDL 可解析，完整对象级归属和选项需要扩展公共模型",https://www.postgresql.org/docs/17/sql-createrole.html

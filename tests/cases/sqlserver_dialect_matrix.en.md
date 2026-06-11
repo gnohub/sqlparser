@@ -1,6 +1,6 @@
 # SQL Server Dialect Case Matrix
 
-This file records regression cases for the SQL Server dialect conversion layer. The executable fixture is `tests/cases/sqlserver_dialect_input.json`; `tests/unit/test_sqlserver_dialect_case_matrix.c` verifies parsing, View JSON, deparse output, and error codes. The current fixture contains 341 cases: 326 supported paths and 15 explicit unsupported paths.
+This file records regression cases for the SQL Server dialect conversion layer. The executable fixture is `tests/cases/sqlserver_dialect_input.json`; `tests/unit/test_sqlserver_dialect_case_matrix.c` verifies parsing, View JSON, deparse output, and error codes. The current fixture contains 459 cases: 448 supported paths and 11 explicit unsupported paths.
 
 ## Supported Cases
 
@@ -49,6 +49,7 @@ This file records regression cases for the SQL Server dialect conversion layer. 
 | S041 | `CONVERT(..., style)` | bidirectional mapping for SQL Server conversion functions |
 | S042 | unsupported keywords in string | `OUTPUT`, `@table`, and `EXEC` inside strings do not trigger unsupported |
 | S043 | unsupported keywords in comment | `OUTPUT` inside comments does not trigger unsupported |
+| S043Q | unsupported keywords in protected identifiers | `OUTPUT`, `EXEC`, and `PIVOT` inside bracket-delimited identifiers do not trigger unsupported |
 | S044 | `USE [database]` | database context switching, bracket-delimited database name, and public value fragment |
 | S045 | `USE database` | official basic `USE database_name` form |
 | S046 | `USE ...; SELECT ...` | database switching and following query remain separate in multi-statement input |
@@ -101,6 +102,23 @@ This file records regression cases for the SQL Server dialect conversion layer. 
 | S093 | `sqlserver-not-like-escape-named-bind` | `NOT LIKE @pattern ESCAPE @escape_char` | named pattern and escape parameters keep public SQL and global positions |
 | S094 | `sqlserver-like-escape-question-bind` | `LIKE ? ESCAPE ?` | structured output for JDBC-style positional pattern and escape parameters |
 | S095 | `sqlserver-like-without-explicit-escape` | `LIKE @pattern` | `like_escape` is omitted when ESCAPE is not explicit |
+| S096 | `sqlserver-bitwise-binary-operators` | `&`, `|`, `^` | bitwise expressions, output `target_path`, and WHERE bind attribution |
+| S097 | `sqlserver-bitwise-not-operator` | `~column` | unary bitwise-not output expression |
+| S098 | `sqlserver-not-greater-less-comparison` | `!>`, `!<` | field-value relationships for SQL Server negated comparison operators |
+| S099 | `sqlserver-string-concat-pipes` | `first_name || last_name` | pipe concatenation expression output and field attribution |
+| S100 | `sqlserver-like-bracket-wildcards` | `LIKE 'A[^b]_%'` | SQL Server LIKE bracket wildcard retained as the public pattern literal |
+| S101 | `sqlserver-at-time-zone-expression` | `AT TIME ZONE` | time-zone expression compared as an expression-side value |
+| S102 | `sqlserver-is-distinct-from-bind` | `IS DISTINCT FROM @bind` | `IS DISTINCT FROM` is not misclassified as a table variable and keeps bind attribution |
+| S103 | `TOP ... PERCENT` | `SELECT TOP (10) PERCENT ...` | parses TOP percentage form and preserves public deparse output |
+| S104 | `TOP ... WITH TIES` | `SELECT TOP (10) WITH TIES ...` | parses tie-preserving TOP form and preserves public deparse output |
+| S105 | `TOP ... PERCENT WITH TIES` | `SELECT TOP (10) PERCENT WITH TIES ...` | parses the official combined TOP form and preserves public output |
+| S106 | `WITH (NOLOCK)` table hint | `SELECT ... FROM table WITH (NOLOCK)` | table-hint source text is kept in dialect-private state and restored in public deparse SQL |
+| S107 | `OPTION (RECOMPILE)` query hint | `SELECT ... OPTION (RECOMPILE)` | query-hint source text is kept in dialect-private state and restored in public deparse SQL |
+| S108 | `FOR JSON PATH` | `SELECT ... FOR JSON PATH` | JSON output suffix text is kept in dialect-private state while core View JSON still exposes table and field attribution |
+| S109 | nested `TOP` | `SELECT ... FROM (SELECT TOP (...) ...)` | `TOP` in a subquery scope is converted and restored independently |
+| S110 | `FOR JSON` + `OPTION` | `SELECT ... FOR JSON PATH ... OPTION (...)` | multiple query suffixes are restored in SQL Server public order |
+| S111 | outer and inner `TOP` | `SELECT TOP (...) ... FROM (SELECT TOP (...) ...)` | multiple `TOP` scopes are converted and restored together |
+| S112 | second statement with `FOR JSON` | `SELECT ...; SELECT ... FOR JSON AUTO` | `FOR JSON` suffixes are restored by original statement ordinal, not attached to previous statements |
 
 ## Explicitly Unsupported Cases
 
@@ -108,29 +126,102 @@ The following constructs have SQL Server-specific semantics. The conversion laye
 
 | ID | Case | Reason |
 | --- | --- | --- |
-| SU001 | `TOP ... PERCENT` | percentage limit semantics cannot be mapped equivalently |
-| SU002 | `TOP ... WITH TIES` | tie-preserving semantics cannot be mapped equivalently |
+| SU001 | `TOP ... WITH TIES` without `ORDER BY` | SQL Server requires `WITH TIES` to be used with `ORDER BY` |
+| SU002 | `TOP ... PERCENT WITH TIES` without `ORDER BY` | SQL Server requires `WITH TIES` to be used with `ORDER BY` |
 | SU003 | `OUTPUT` | DML output streams require a SQL Server-specific model |
-| SU004 | table hint | table access hints cannot be safely downgraded |
 | SU005 | `CROSS APPLY` | APPLY semantics differ from ordinary JOIN |
 | SU006 | `PIVOT` | table transformation requires a dedicated AST |
-| SU007 | `FOR JSON` | result formatting is outside the current structural model |
-| SU008 | `OPTION (...)` | query hints cannot be safely downgraded |
 | SU009 | `DECLARE` | variable declarations belong to T-SQL batch semantics |
 | SU010 | ordinary procedure `EXEC` | non-prepared/dynamic-SQL system procedure execution is outside SQL structure rewrite scope |
 | SU011 | `CREATE PROCEDURE` | procedure definitions require a T-SQL program-unit model |
 | SU015 | table variable | table-variable scope belongs to T-SQL batch semantics |
 | SU016 | `MERGE ... BY SOURCE` | SQL Server-specific merge branch semantics |
 | SU017 | `TOP` + `OFFSET/FETCH` | SQL Server does not allow this combination in the same query scope |
-| SU018 | nested `TOP` | only top-level `SELECT TOP` is currently mapped bidirectionally |
 
-## Official `HOOK_ONLY` Coverage Cases
+## DML Source-Field Lineage Cases
 
-`tests/cases/sqlserver_dialect_input.json` includes 235 cases generated from
-`HOOK_ONLY` entries in `doc/sqlserver_official_syntax_coverage.csv`. These cases
-cover official items that can be represented by the existing AST and dialect
-hooks, including functions, types/constants, collations, and simple `RENAME
-OBJECT` forms.
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| SH236 | `sqlserver-update-from-source-field-graph` | `UPDATE ... SET target = source.column FROM ...` | `source_field` for base-table source fields on the right side of UPDATE FROM assignments, plus `right_field` for JOIN/WHERE field comparisons |
+| SH237 | `sqlserver-insert-select-source-block-graph` | `INSERT ... SELECT ... FROM ...` | target columns, source block, and source-field lineage for INSERT SELECT |
+| SH238 | `sqlserver-merge-source-target-graph` | `MERGE INTO ... USING ...` | source/target field lineage and source-field expressions for MERGE |
+| SH254 | `sqlserver-select-or-predicate-order-by-lineage` | `WHERE field = @bind OR field = @bind ORDER BY ...` | OR predicate trees keep both comparison children, binds, and independent ORDER BY field attribution |
+
+## Mixed-Model Basic-Form Cases
+
+The following cases cover basic forms of `MIXED_MODEL` entries. Full official
+syntax remains marked as requiring a SQL Server-specific model in
+`doc/sqlserver_official_syntax_coverage.csv`.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| SH239 | `sqlserver-mixed-create-database-basic` | `CREATE DATABASE [appdb]` | basic database creation |
+| SH240 | `sqlserver-mixed-drop-database-basic` | `DROP DATABASE [appdb]` | basic database drop |
+| SH241 | `sqlserver-mixed-create-schema-basic` | `CREATE SCHEMA [audit]` | basic schema creation |
+| SH242 | `sqlserver-mixed-drop-schema-basic` | `DROP SCHEMA [audit]` | basic schema drop |
+| SH243 | `sqlserver-mixed-create-role-basic` | `CREATE ROLE [app_role]` | basic role creation |
+| SH244 | `sqlserver-mixed-drop-role-basic` | `DROP ROLE [app_role]` | basic role drop |
+| SH245 | `sqlserver-mixed-create-sequence-basic` | `CREATE SEQUENCE ... START WITH ...` | basic sequence creation |
+| SH246 | `sqlserver-mixed-alter-sequence-basic` | `ALTER SEQUENCE ... RESTART WITH ...` | basic sequence alteration |
+| SH247 | `sqlserver-mixed-drop-sequence-basic` | `DROP SEQUENCE ...` | basic sequence drop |
+| SH248 | `sqlserver-mixed-drop-view-basic` | `DROP VIEW [dbo].[v_users]` | basic view drop |
+| SH249 | `sqlserver-mixed-drop-statistics-basic` | `DROP STATISTICS ...` | basic statistics drop |
+| SH250 | `sqlserver-mixed-select-into-basic` | `SELECT ... INTO ... FROM ...` | basic `SELECT INTO` target table |
+| SH251 | `sqlserver-mixed-contains-basic` | `CONTAINS(column, @term)` | basic full-text predicate and bind output |
+| SH252 | `sqlserver-mixed-freetext-basic` | `FREETEXT(column, @term)` | basic full-text predicate and bind output |
+| SH253 | `sqlserver-regexp-like-function-predicate` | `REGEXP_LIKE(column, @pat)` | function predicates reuse `fields/values/predicates` for fields, binds, and expression predicates |
+| SH255 | `sqlserver-mixed-create-table-as-select-basic` | `CREATE TABLE ... AS SELECT ...` | basic CTAS parsing, source query, and deparse |
+| SH256 | `sqlserver-mixed-aliasing-basic` | `SELECT expression AS alias, expression alias FROM ...` | basic SELECT column aliases and table aliases |
+| SH257 | `sqlserver-mixed-subquery-basic` | `WHERE column IN (SELECT ... FROM ...)` | subquery predicate fields, binds, and source table attribution |
+| SH258 | `sqlserver-mixed-alter-table-add-column-basic` | `ALTER TABLE ... ADD column type` | basic add-column DDL |
+| SH259 | `sqlserver-mixed-alter-table-add-constraint-basic` | `ALTER TABLE ... ADD CONSTRAINT ... PRIMARY KEY` | basic add-table-constraint DDL |
+| SH260 | `sqlserver-mixed-drop-type-basic` | `DROP TYPE [schema].[type]` | basic type-drop DDL |
+| SH261 | `sqlserver-mixed-create-user-basic` | `CREATE USER [user]` | basic user creation DDL |
+| SH262 | `sqlserver-mixed-drop-user-if-exists-basic` | `DROP USER IF EXISTS [user]` | basic user drop DDL and public `DROP USER` restoration |
+| SH263 | `sqlserver-mixed-drop-role-drop-user-ordinal` | `DROP ROLE ...; DROP USER ...` | independent occurrence-based restoration for `DROP ROLE` and `DROP USER` in multi-statement input |
+| SH264 | `sqlserver-mixed-create-user-without-login` | `CREATE USER [user] WITHOUT LOGIN` | SQL Server user without login mapping |
+| SH265 | `sqlserver-mixed-create-user-for-login` | `CREATE USER [user] FOR LOGIN [login]` | SQL Server user mapped to a login |
+| SH266 | `sqlserver-mixed-create-user-from-external-provider` | `CREATE USER [user] FROM EXTERNAL PROVIDER` | SQL Server Entra provider user form |
+| SH267 | `sqlserver-mixed-create-user-with-options` | `CREATE USER ... WITH DEFAULT_SCHEMA ...` | SQL Server user option tail preservation |
+| SH268 | `sqlserver-mixed-create-user-for-certificate` | `CREATE USER ... FOR CERTIFICATE ...` | SQL Server certificate user form |
+| SH269 | `sqlserver-mixed-create-user-for-asymmetric-key` | `CREATE USER ... FOR ASYMMETRIC KEY ...` | SQL Server asymmetric key user form |
+| SH270 | `sqlserver-mixed-alter-role-add-member` | `ALTER ROLE ... ADD MEMBER ...` | SQL Server role membership add |
+| SH271 | `sqlserver-mixed-alter-role-drop-member` | `ALTER ROLE ... DROP MEMBER ...` | SQL Server role membership drop |
+| SH272 | `sqlserver-mixed-alter-role-with-name` | `ALTER ROLE ... WITH NAME = ...` | SQL Server role rename |
+| SH273 | `sqlserver-mixed-alter-schema-transfer-object` | `ALTER SCHEMA ... TRANSFER schema.object` | SQL Server schema object transfer |
+| SH274 | `sqlserver-mixed-alter-schema-transfer-type` | `ALTER SCHEMA ... TRANSFER TYPE::schema.type` | SQL Server schema type transfer |
+| SH275 | `sqlserver-mixed-create-role-authorization` | `CREATE ROLE ... AUTHORIZATION ...` | SQL Server role owner assignment |
+| SH276 | `sqlserver-mixed-alter-user-name` | `ALTER USER ... WITH NAME = ...` | SQL Server user rename |
+| SH277 | `sqlserver-mixed-alter-user-options` | `ALTER USER ... WITH DEFAULT_SCHEMA ...` | SQL Server user option update |
+| SH278 | `sqlserver-mixed-alter-user-login` | `ALTER USER ... WITH LOGIN = ...` | SQL Server user login remapping |
+| SH279 | `sqlserver-mixed-alter-user-external-provider` | `ALTER USER ... FROM EXTERNAL PROVIDER ...` | SQL Server external provider user form |
+| SH280 | `sqlserver-mixed-alter-authorization-object` | `ALTER AUTHORIZATION ON OBJECT::... TO ...` | SQL Server object owner transfer |
+| SH281 | `sqlserver-mixed-alter-authorization-schema-owner` | `ALTER AUTHORIZATION ... TO SCHEMA OWNER` | SQL Server schema-owner target |
+| SH282 | `sqlserver-mixed-alter-authorization-schema` | `ALTER AUTHORIZATION ON SCHEMA::... TO ...` | SQL Server schema owner transfer |
+| SH283 | `sqlserver-mixed-create-schema-authorization` | `CREATE SCHEMA ... AUTHORIZATION ...` | SQL Server schema owner assignment |
+| SH284 | `sqlserver-mixed-drop-schema-if-exists` | `DROP SCHEMA IF EXISTS ...` | SQL Server conditional schema drop |
+| SH285 | `sqlserver-mixed-create-application-role` | `CREATE APPLICATION ROLE ... WITH PASSWORD ...` | SQL Server application role creation |
+| SH286 | `sqlserver-mixed-alter-application-role-name` | `ALTER APPLICATION ROLE ... WITH NAME = ...` | SQL Server application role rename |
+| SH287 | `sqlserver-mixed-alter-application-role-options` | `ALTER APPLICATION ROLE ... WITH PASSWORD ...` | SQL Server application role option update |
+| SH288 | `sqlserver-mixed-drop-application-role` | `DROP APPLICATION ROLE ...` | SQL Server application role drop |
+| SH289 | `sqlserver-mixed-create-synonym` | `CREATE SYNONYM ... FOR ...` | SQL Server synonym creation |
+| SH290 | `sqlserver-mixed-drop-synonym-if-exists` | `DROP SYNONYM IF EXISTS ...` | SQL Server conditional synonym drop |
+| SH291 | `sqlserver-mixed-create-type-alias` | `CREATE TYPE ... FROM ...` | SQL Server alias type creation |
+| SH292 | `sqlserver-mixed-alter-database-compatibility-level` | `ALTER DATABASE ... SET COMPATIBILITY_LEVEL = ...` | SQL Server database compatibility level update |
+| SH293 | `sqlserver-mixed-drop-index-if-exists-on-object` | `DROP INDEX IF EXISTS ... ON ...` | SQL Server conditional index drop |
+| SH294 | `sqlserver-mixed-update-statistics-fullscan` | `UPDATE STATISTICS ... WITH FULLSCAN` | SQL Server statistics update |
+| SH295-SH333 | `sqlserver-set-*` | `SET ...` | basic SQL Server session/execution-environment `SET` statements, public SQL restoration, and internal sentinel hiding |
+| SH334 | `sqlserver-table-hints-join-alias` | multi-table JOIN with `WITH (NOLOCK)` / `WITH (FORCESEEK)` | restores table hints by table-source order while keeping field and JOIN attribution unchanged |
+| SH335 | `sqlserver-query-hints-multiple` | `OPTION (RECOMPILE, USE HINT(...))` | restores multi-argument query hints from the original SQL fragment while keeping bind attribution unchanged |
+
+## Official Hook Coverage Cases
+
+`tests/cases/sqlserver_dialect_input.json` includes 241 cases generated from
+official `CURRENT` entries. These cases cover official items that can be
+represented by the existing AST and dialect hooks, including functions,
+types/constants, collations, official `TOP` forms, and simple `RENAME OBJECT`
+forms. Table hints and query hints are covered as `MIXED_MODEL` basic forms;
+fully structured hint semantics remain a dedicated-model boundary.
 
 ## Maintenance
 

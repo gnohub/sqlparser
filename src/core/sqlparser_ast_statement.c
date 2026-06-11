@@ -127,7 +127,7 @@ sqlparser_status_t sqlparser_statement_target_relation(
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 
-	sqlparser_fill_relation_view(relation, out_relation);
+	sqlparser_fill_relation_view_for_handle(handle, relation, out_relation);
 	return SQLPARSER_STATUS_OK;
 }
 
@@ -206,7 +206,7 @@ sqlparser_status_t sqlparser_statement_relation(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	sqlparser_fill_relation_view((PgQuery__RangeVar *)message, out_relation);
+	sqlparser_fill_relation_view_for_handle(handle, (PgQuery__RangeVar *)message, out_relation);
 	return SQLPARSER_STATUS_OK;
 }
 

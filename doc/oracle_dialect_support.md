@@ -8,7 +8,7 @@ Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范
 
 - `SELECT`、别名、子查询、连接、`WHERE`、`GROUP BY`、`HAVING`
 - Oracle bind 占位符，例如 `:id`、`:name`，以及 JDBC 风格 `?` 位置参数
-- `q'[...]'` 字符串
+- `q'[...]'` 字符串、`N'...'` national 字符串和 `nq'[...]'` national q-quoted 字符串
 - `MINUS` 集合运算
 - `OFFSET ... FETCH`
 - `ROWNUM` 过滤
@@ -21,11 +21,14 @@ Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范
 - 常见 DDL：`CREATE TABLE`、`CREATE SEQUENCE`、`CREATE VIEW`、`DROP TABLE`、`TRUNCATE TABLE`
 - 事务控制、`GRANT / REVOKE`、`COMMENT ON`
 - `FOR UPDATE NOWAIT`
+- 远程对象引用，例如 `schema.table@link`
 - 常见函数与分析函数，例如 `DECODE`、`SYSDATE`、`ROW_NUMBER() OVER (...)`
 - 引号标识符、`ALTER TABLE ADD`、`CREATE INDEX`、`DROP INDEX`
 - 兼容形态的物化视图创建语句
+- `CREATE SYNONYM`、`DROP SYNONYM`
 - 会话语句：`ALTER SESSION SET CURRENT_SCHEMA = ...`、`ALTER SESSION SET CONTAINER = ...`、`ALTER SESSION SET CONTAINER = ... SERVICE = ...`，以及普通参数赋值，例如 `NLS_DATE_FORMAT`、`NLS_DATE_LANGUAGE`、`NLS_NUMERIC_CHARACTERS`、`INSTANCE`、`ERROR_ON_OVERLAP_TIME`
 - `CURRENT_SCHEMA` 的带引号 schema 标识符会在公共 literal view 中标记为 quoted identifier
+- `EXPLAIN PLAN FOR ...`，包括 `SET STATEMENT_ID` 和 `INTO` 基础形态
 - `EXECUTE IMMEDIATE ... USING ...` 动态 SQL 执行语句
 
 ## 明确不支持范围
@@ -40,10 +43,6 @@ Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范
 - `MODEL` clause
 - flashback query
 - `MATCH_RECOGNIZE`
-- synonym
-- database link
-- `EXPLAIN PLAN FOR`
-- national q-quoted string，例如 `nq'[...]'`
 
 ## 对外输出规则
 
@@ -62,4 +61,4 @@ Oracle 支持范围以以下文件为准：
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 Oracle 方言矩阵包含 136 条用例：120 条支持路径，16 条明确不支持路径。
+当前 Oracle 方言矩阵包含 175 条用例：163 条支持路径，12 条明确不支持路径。

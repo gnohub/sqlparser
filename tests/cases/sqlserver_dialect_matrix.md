@@ -1,6 +1,6 @@
 # SQL Server 方言用例矩阵
 
-本文件记录 SQL Server 方言转换层的回归用例。可执行夹具为 `tests/cases/sqlserver_dialect_input.json`，单元测试 `tests/unit/test_sqlserver_dialect_case_matrix.c` 会逐条验证解析结果、View JSON、反解析输出和错误码。当前夹具包含 341 条用例：326 条支持路径，15 条明确不支持路径。
+本文件记录 SQL Server 方言转换层的回归用例。可执行夹具为 `tests/cases/sqlserver_dialect_input.json`，单元测试 `tests/unit/test_sqlserver_dialect_case_matrix.c` 会逐条验证解析结果、View JSON、反解析输出和错误码。当前夹具包含 459 条用例：448 条支持路径，11 条明确不支持路径。
 
 ## 支持用例
 
@@ -49,6 +49,7 @@
 | S041 | `CONVERT(..., style)` | SQL Server 风格转换函数双向映射 |
 | S042 | unsupported 关键字字符串 | 字符串中的 `OUTPUT`、`@table`、`EXEC` 不触发 unsupported |
 | S043 | unsupported 关键字注释 | 注释中的 `OUTPUT` 不触发 unsupported |
+| S043Q | unsupported 关键字受保护标识符 | 方括号标识符中的 `OUTPUT`、`EXEC`、`PIVOT` 不触发 unsupported |
 | S044 | `USE [database]` | 数据库上下文切换、方括号数据库名和公开 value 片段 |
 | S045 | `USE database` | 官方 `USE database_name` 基础形态 |
 | S046 | `USE ...; SELECT ...` | 多语句中的数据库切换和后续查询保持独立输出 |
@@ -101,6 +102,23 @@
 | S093 | `sqlserver-not-like-escape-named-bind` | `NOT LIKE @pattern ESCAPE @escape_char` | 命名参数 pattern 与 escape 分别保留公开 SQL 和全局序号 |
 | S094 | `sqlserver-like-escape-question-bind` | `LIKE ? ESCAPE ?` | JDBC 风格位置参数 pattern 和 escape 的结构化输出 |
 | S095 | `sqlserver-like-without-explicit-escape` | `LIKE @pattern` | 无显式 ESCAPE 时不输出 `like_escape` |
+| S096 | `sqlserver-bitwise-binary-operators` | `&`、`|`、`^` | 位运算表达式、输出项 `target_path` 和 WHERE bind 归属 |
+| S097 | `sqlserver-bitwise-not-operator` | `~column` | 一元位取反表达式输出 |
+| S098 | `sqlserver-not-greater-less-comparison` | `!>`、`!<` | SQL Server 否定比较运算符的字段和值关系 |
+| S099 | `sqlserver-string-concat-pipes` | `first_name || last_name` | 管道拼接表达式输出和字段归属 |
+| S100 | `sqlserver-like-bracket-wildcards` | `LIKE 'A[^b]_%'` | SQL Server LIKE bracket wildcard 保持为公开 pattern 字面量 |
+| S101 | `sqlserver-at-time-zone-expression` | `AT TIME ZONE` | 时间区域表达式作为值侧表达式参与比较 |
+| S102 | `sqlserver-is-distinct-from-bind` | `IS DISTINCT FROM @bind` | `IS DISTINCT FROM` 不误判为表变量，并输出 bind 关系 |
+| S103 | `TOP ... PERCENT` | `SELECT TOP (10) PERCENT ...` | 百分比 TOP 子句解析并在 deparse 中保留公开形态 |
+| S104 | `TOP ... WITH TIES` | `SELECT TOP (10) WITH TIES ...` | 同分保留 TOP 子句解析并在 deparse 中保留公开形态 |
+| S105 | `TOP ... PERCENT WITH TIES` | `SELECT TOP (10) PERCENT WITH TIES ...` | 官方组合 TOP 形态解析并保留公开输出 |
+| S106 | `WITH (NOLOCK)` 表提示 | `SELECT ... FROM table WITH (NOLOCK)` | 表提示原片段由方言私有 state 保留，deparse 恢复公开 SQL |
+| S107 | `OPTION (RECOMPILE)` 查询提示 | `SELECT ... OPTION (RECOMPILE)` | 查询提示原片段由方言私有 state 保留，deparse 恢复公开 SQL |
+| S108 | `FOR JSON PATH` | `SELECT ... FOR JSON PATH` | JSON 输出后缀由方言私有 state 保留，核心 View JSON 仍输出表和字段归属 |
+| S109 | 嵌套 `TOP` | `SELECT ... FROM (SELECT TOP (...) ...)` | 子查询作用域中的 `TOP` 独立转换和公开反解析 |
+| S110 | `FOR JSON` + `OPTION` | `SELECT ... FOR JSON PATH ... OPTION (...)` | 多个查询后缀按 SQL Server 公开顺序恢复 |
+| S111 | 外层和内层 `TOP` | `SELECT TOP (...) ... FROM (SELECT TOP (...) ...)` | 多作用域 `TOP` 同时转换和恢复 |
+| S112 | 多语句第二条 `FOR JSON` | `SELECT ...; SELECT ... FOR JSON AUTO` | `FOR JSON` 后缀按原 statement 序号恢复，避免挂到前一条语句 |
 
 ## 明确不支持用例
 
@@ -108,25 +126,95 @@
 
 | ID | 用例 | 原因 |
 | --- | --- | --- |
-| SU001 | `TOP ... PERCENT` | 百分比限制语义不能等价映射 |
-| SU002 | `TOP ... WITH TIES` | 同分保留语义不能等价映射 |
+| SU001 | `TOP ... WITH TIES` 无 `ORDER BY` | SQL Server 要求 `WITH TIES` 与 `ORDER BY` 同时使用 |
+| SU002 | `TOP ... PERCENT WITH TIES` 无 `ORDER BY` | SQL Server 要求 `WITH TIES` 与 `ORDER BY` 同时使用 |
 | SU003 | `OUTPUT` | DML 输出流语义需要 SQL Server 专用模型 |
-| SU004 | 表提示 | 表访问提示不能安全降级 |
 | SU005 | `CROSS APPLY` | APPLY 语义不同于普通 JOIN |
 | SU006 | `PIVOT` | 表变换语义需要专用 AST |
-| SU007 | `FOR JSON` | 结果格式化语义不属于当前结构模型 |
-| SU008 | `OPTION (...)` | 查询提示不能安全降级 |
 | SU009 | `DECLARE` | 变量声明属于 T-SQL 批处理语义 |
 | SU010 | 普通过程 `EXEC` | 非 prepared/dynamic SQL 系统过程调用超出 SQL 结构改写范围 |
 | SU011 | `CREATE PROCEDURE` | 过程定义需要 T-SQL 程序单元模型 |
 | SU015 | 表变量 | 表变量作用域属于 T-SQL 批处理语义 |
 | SU016 | `MERGE ... BY SOURCE` | SQL Server 专属 merge 分支语义 |
 | SU017 | `TOP` + `OFFSET/FETCH` | SQL Server 不允许在同一查询作用域组合使用 |
-| SU018 | 嵌套 `TOP` | 当前只支持顶层 `SELECT TOP` 的安全双向映射 |
 
-## 官方 `HOOK_ONLY` 覆盖用例
+## DML 来源字段链路补充用例
 
-`tests/cases/sqlserver_dialect_input.json` 已包含 235 条按 `doc/sqlserver_official_syntax_coverage.csv` 中 `HOOK_ONLY` 条目生成的用例。该部分覆盖函数、类型/常量、排序规则和简单 `RENAME OBJECT` 等可通过现有 AST 与方言 hook 承载的官方条目。
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| SH236 | `sqlserver-update-from-source-field-graph` | `UPDATE ... SET target = source.column FROM ...` | UPDATE FROM 赋值右侧真实表来源字段输出 `source_field`，JOIN/WHERE 字段对比输出 `right_field` |
+| SH237 | `sqlserver-insert-select-source-block-graph` | `INSERT ... SELECT ... FROM ...` | INSERT SELECT 的目标列、来源块和来源字段链路 |
+| SH238 | `sqlserver-merge-source-target-graph` | `MERGE INTO ... USING ...` | MERGE 的 source/target 字段链路和来源字段表达 |
+| SH254 | `sqlserver-select-or-predicate-order-by-lineage` | `WHERE field = @bind OR field = @bind ORDER BY ...` | OR 谓词树保留两个比较子节点、bind 和独立 ORDER BY 字段归属 |
+
+## 混合模型基础形态补充用例
+
+以下用例覆盖 `MIXED_MODEL` 条目的基础形态。完整官方语法仍按 `doc/sqlserver_official_syntax_coverage.csv` 标记为需要 SQL Server 专用模型。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| SH239 | `sqlserver-mixed-create-database-basic` | `CREATE DATABASE [appdb]` | 基础数据库创建语句 |
+| SH240 | `sqlserver-mixed-drop-database-basic` | `DROP DATABASE [appdb]` | 基础数据库删除语句 |
+| SH241 | `sqlserver-mixed-create-schema-basic` | `CREATE SCHEMA [audit]` | 基础 schema 创建语句 |
+| SH242 | `sqlserver-mixed-drop-schema-basic` | `DROP SCHEMA [audit]` | 基础 schema 删除语句 |
+| SH243 | `sqlserver-mixed-create-role-basic` | `CREATE ROLE [app_role]` | 基础 role 创建语句 |
+| SH244 | `sqlserver-mixed-drop-role-basic` | `DROP ROLE [app_role]` | 基础 role 删除语句 |
+| SH245 | `sqlserver-mixed-create-sequence-basic` | `CREATE SEQUENCE ... START WITH ...` | 基础 sequence 创建语句 |
+| SH246 | `sqlserver-mixed-alter-sequence-basic` | `ALTER SEQUENCE ... RESTART WITH ...` | 基础 sequence 修改语句 |
+| SH247 | `sqlserver-mixed-drop-sequence-basic` | `DROP SEQUENCE ...` | 基础 sequence 删除语句 |
+| SH248 | `sqlserver-mixed-drop-view-basic` | `DROP VIEW [dbo].[v_users]` | 基础 view 删除语句 |
+| SH249 | `sqlserver-mixed-drop-statistics-basic` | `DROP STATISTICS ...` | 基础 statistics 删除语句 |
+| SH250 | `sqlserver-mixed-select-into-basic` | `SELECT ... INTO ... FROM ...` | 基础 `SELECT INTO` 目标表输出 |
+| SH251 | `sqlserver-mixed-contains-basic` | `CONTAINS(column, @term)` | 基础全文谓词和 bind 输出 |
+| SH252 | `sqlserver-mixed-freetext-basic` | `FREETEXT(column, @term)` | 基础全文谓词和 bind 输出 |
+| SH253 | `sqlserver-regexp-like-function-predicate` | `REGEXP_LIKE(column, @pat)` | 函数谓词复用 `fields/values/predicates` 输出字段、bind 和 expression predicate |
+| SH255 | `sqlserver-mixed-create-table-as-select-basic` | `CREATE TABLE ... AS SELECT ...` | 基础 CTAS 解析、来源查询和反解析 |
+| SH256 | `sqlserver-mixed-aliasing-basic` | `SELECT expression AS alias, expression alias FROM ...` | SELECT 列别名和表别名基础形态 |
+| SH257 | `sqlserver-mixed-subquery-basic` | `WHERE column IN (SELECT ... FROM ...)` | 子查询条件字段、bind 和来源表归属 |
+| SH258 | `sqlserver-mixed-alter-table-add-column-basic` | `ALTER TABLE ... ADD column type` | 基础列新增 DDL |
+| SH259 | `sqlserver-mixed-alter-table-add-constraint-basic` | `ALTER TABLE ... ADD CONSTRAINT ... PRIMARY KEY` | 基础表约束新增 DDL |
+| SH260 | `sqlserver-mixed-drop-type-basic` | `DROP TYPE [schema].[type]` | 基础 type 删除 DDL |
+| SH261 | `sqlserver-mixed-create-user-basic` | `CREATE USER [user]` | 基础 user 创建 DDL |
+| SH262 | `sqlserver-mixed-drop-user-if-exists-basic` | `DROP USER IF EXISTS [user]` | 基础 user 删除 DDL 和 `DROP USER` 公开形态恢复 |
+| SH263 | `sqlserver-mixed-drop-role-drop-user-ordinal` | `DROP ROLE ...; DROP USER ...` | 多语句中 `DROP ROLE` 与 `DROP USER` 按 occurrence 独立恢复 |
+| SH264 | `sqlserver-mixed-create-user-without-login` | `CREATE USER [user] WITHOUT LOGIN` | SQL Server user 无 login 映射形态 |
+| SH265 | `sqlserver-mixed-create-user-for-login` | `CREATE USER [user] FOR LOGIN [login]` | SQL Server user 到 login 映射形态 |
+| SH266 | `sqlserver-mixed-create-user-from-external-provider` | `CREATE USER [user] FROM EXTERNAL PROVIDER` | SQL Server Entra provider user 形态 |
+| SH267 | `sqlserver-mixed-create-user-with-options` | `CREATE USER ... WITH DEFAULT_SCHEMA ...` | SQL Server user 选项 tail 保留 |
+| SH268 | `sqlserver-mixed-create-user-for-certificate` | `CREATE USER ... FOR CERTIFICATE ...` | SQL Server certificate user 形态 |
+| SH269 | `sqlserver-mixed-create-user-for-asymmetric-key` | `CREATE USER ... FOR ASYMMETRIC KEY ...` | SQL Server asymmetric key user 形态 |
+| SH270 | `sqlserver-mixed-alter-role-add-member` | `ALTER ROLE ... ADD MEMBER ...` | SQL Server role 增加成员 |
+| SH271 | `sqlserver-mixed-alter-role-drop-member` | `ALTER ROLE ... DROP MEMBER ...` | SQL Server role 删除成员 |
+| SH272 | `sqlserver-mixed-alter-role-with-name` | `ALTER ROLE ... WITH NAME = ...` | SQL Server role 重命名 |
+| SH273 | `sqlserver-mixed-alter-schema-transfer-object` | `ALTER SCHEMA ... TRANSFER schema.object` | SQL Server schema 对象迁移 |
+| SH274 | `sqlserver-mixed-alter-schema-transfer-type` | `ALTER SCHEMA ... TRANSFER TYPE::schema.type` | SQL Server schema type 迁移 |
+| SH275 | `sqlserver-mixed-create-role-authorization` | `CREATE ROLE ... AUTHORIZATION ...` | SQL Server role owner 指定 |
+| SH276 | `sqlserver-mixed-alter-user-name` | `ALTER USER ... WITH NAME = ...` | SQL Server user 重命名 |
+| SH277 | `sqlserver-mixed-alter-user-options` | `ALTER USER ... WITH DEFAULT_SCHEMA ...` | SQL Server user 多选项修改 |
+| SH278 | `sqlserver-mixed-alter-user-login` | `ALTER USER ... WITH LOGIN = ...` | SQL Server user login 重映射 |
+| SH279 | `sqlserver-mixed-alter-user-external-provider` | `ALTER USER ... FROM EXTERNAL PROVIDER ...` | SQL Server external provider user 形态 |
+| SH280 | `sqlserver-mixed-alter-authorization-object` | `ALTER AUTHORIZATION ON OBJECT::... TO ...` | SQL Server 对象 owner 迁移 |
+| SH281 | `sqlserver-mixed-alter-authorization-schema-owner` | `ALTER AUTHORIZATION ... TO SCHEMA OWNER` | SQL Server schema owner 迁移目标 |
+| SH282 | `sqlserver-mixed-alter-authorization-schema` | `ALTER AUTHORIZATION ON SCHEMA::... TO ...` | SQL Server schema owner 迁移 |
+| SH283 | `sqlserver-mixed-create-schema-authorization` | `CREATE SCHEMA ... AUTHORIZATION ...` | SQL Server schema owner 指定 |
+| SH284 | `sqlserver-mixed-drop-schema-if-exists` | `DROP SCHEMA IF EXISTS ...` | SQL Server schema 条件删除 |
+| SH285 | `sqlserver-mixed-create-application-role` | `CREATE APPLICATION ROLE ... WITH PASSWORD ...` | SQL Server application role 创建 |
+| SH286 | `sqlserver-mixed-alter-application-role-name` | `ALTER APPLICATION ROLE ... WITH NAME = ...` | SQL Server application role 重命名 |
+| SH287 | `sqlserver-mixed-alter-application-role-options` | `ALTER APPLICATION ROLE ... WITH PASSWORD ...` | SQL Server application role 多选项修改 |
+| SH288 | `sqlserver-mixed-drop-application-role` | `DROP APPLICATION ROLE ...` | SQL Server application role 删除 |
+| SH289 | `sqlserver-mixed-create-synonym` | `CREATE SYNONYM ... FOR ...` | SQL Server synonym 创建 |
+| SH290 | `sqlserver-mixed-drop-synonym-if-exists` | `DROP SYNONYM IF EXISTS ...` | SQL Server synonym 条件删除 |
+| SH291 | `sqlserver-mixed-create-type-alias` | `CREATE TYPE ... FROM ...` | SQL Server alias type 创建 |
+| SH292 | `sqlserver-mixed-alter-database-compatibility-level` | `ALTER DATABASE ... SET COMPATIBILITY_LEVEL = ...` | SQL Server database compatibility level 修改 |
+| SH293 | `sqlserver-mixed-drop-index-if-exists-on-object` | `DROP INDEX IF EXISTS ... ON ...` | SQL Server index 条件删除 |
+| SH294 | `sqlserver-mixed-update-statistics-fullscan` | `UPDATE STATISTICS ... WITH FULLSCAN` | SQL Server statistics 更新 |
+| SH295-SH333 | `sqlserver-set-*` | `SET ...` | SQL Server 基础会话/执行环境 `SET` 语句、公开 SQL 恢复和内部 sentinel 隐藏 |
+| SH334 | `sqlserver-table-hints-join-alias` | 多表 JOIN + `WITH (NOLOCK)` / `WITH (FORCESEEK)` | 多表表提示按表源顺序恢复，字段和 JOIN 归属保持不变 |
+| SH335 | `sqlserver-query-hints-multiple` | `OPTION (RECOMPILE, USE HINT(...))` | 多查询提示参数按原 SQL 片段恢复，bind 归属保持不变 |
+
+## 官方 hook 覆盖用例
+
+`tests/cases/sqlserver_dialect_input.json` 已包含 241 条按官方 `CURRENT` 条目生成的用例。该部分覆盖函数、类型/常量、排序规则、`TOP` 官方形态和简单 `RENAME OBJECT` 等可通过现有 AST 与方言 hook 承载的官方条目。表提示和查询提示以 `MIXED_MODEL` 基础形态覆盖，完整结构化 hint 语义仍以专用模型为边界。
 
 ## 维护要求
 

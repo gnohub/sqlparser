@@ -5,7 +5,7 @@
 
 #include "sqlparser_ast_internal.h"
 #include "../dialect/sqlparser_dialect_internal.h"
-#include "../dialect/sqlparser_dialect_oracle_internal.h"
+#include "../dialect/sqlparser_dialect_multi_insert_internal.h"
 
 static sqlparser_status_t sqlparser_get_insert_cell_node(
 	sqlparser_handle_t *handle,
@@ -533,9 +533,8 @@ sqlparser_status_t sqlparser_insert_set_cell_literal(
 
 	sqlparser_error_clear(out_error);
 	if (handle != NULL &&
-	    sqlparser_dialect_is_oracle_compatible(handle->dialect) &&
-	    sqlparser_oracle_state_has_multi_insert(handle->dialect_state)) {
-		return sqlparser_oracle_multi_insert_set_cell_literal(
+	    sqlparser_dialect_state_has_multi_insert(handle->dialect, handle->dialect_state)) {
+		return sqlparser_dialect_multi_insert_set_cell_literal(
 			handle,
 			statement_index,
 			row_index,
@@ -587,9 +586,8 @@ sqlparser_status_t sqlparser_insert_cell_sql(
 	core_sql = NULL;
 	sqlparser_error_clear(out_error);
 	if (handle != NULL &&
-	    sqlparser_dialect_is_oracle_compatible(handle->dialect) &&
-	    sqlparser_oracle_state_has_multi_insert(handle->dialect_state)) {
-		return sqlparser_oracle_multi_insert_cell_sql(
+	    sqlparser_dialect_state_has_multi_insert(handle->dialect, handle->dialect_state)) {
+		return sqlparser_dialect_multi_insert_cell_sql(
 			handle,
 			statement_index,
 			row_index,
@@ -647,9 +645,8 @@ sqlparser_status_t sqlparser_insert_set_cell_sql(
 	value_slot = NULL;
 	replacement = NULL;
 	if (handle != NULL &&
-	    sqlparser_dialect_is_oracle_compatible(handle->dialect) &&
-	    sqlparser_oracle_state_has_multi_insert(handle->dialect_state)) {
-		return sqlparser_oracle_multi_insert_set_cell_sql(
+	    sqlparser_dialect_state_has_multi_insert(handle->dialect, handle->dialect_state)) {
+		return sqlparser_dialect_multi_insert_set_cell_sql(
 			handle,
 			statement_index,
 			row_index,
@@ -717,9 +714,8 @@ sqlparser_status_t sqlparser_insert_set_cell_bind(
 	bind_sql = NULL;
 	sqlparser_error_clear(out_error);
 	if (handle != NULL &&
-	    sqlparser_dialect_is_oracle_compatible(handle->dialect) &&
-	    sqlparser_oracle_state_has_multi_insert(handle->dialect_state)) {
-		return sqlparser_oracle_multi_insert_set_cell_bind(
+	    sqlparser_dialect_state_has_multi_insert(handle->dialect, handle->dialect_state)) {
+		return sqlparser_dialect_multi_insert_set_cell_bind(
 			handle,
 			statement_index,
 			row_index,

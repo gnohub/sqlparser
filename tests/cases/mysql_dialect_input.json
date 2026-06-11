@@ -53,6 +53,39 @@
       }
     },
     {
+      "id": "M004N",
+      "name": "mysql-national-string-literal",
+      "sql": "SELECT \"prefix\" AS prefix_value, N'Alice''s order' AS label FROM `users` WHERE `name` = n'Bob'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": [
+          "'prefix' AS prefix_value",
+          "N'Alice''s order' AS label",
+          "N'Bob'"
+        ]
+      }
+    },
+    {
+      "id": "M004NA",
+      "name": "mysql-national-string-duplicate-literal",
+      "sql": "SELECT 'same' AS ascii_value, N'same' AS national_value FROM `users`",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": [
+          "'same' AS ascii_value",
+          "N'same' AS national_value"
+        ]
+      }
+    },
+    {
       "id": "M005",
       "name": "mysql-insert-select",
       "sql": "INSERT INTO `archive_users` (`id`, `name`) SELECT `id`, `name` FROM `users` WHERE `status` = \"inactive\"",
@@ -180,6 +213,19 @@
           "SelectStmt"
         ],
         "deparse_contains": "WHERE id = 1"
+      }
+    },
+    {
+      "id": "M014Q",
+      "name": "mysql-unsupported-keywords-in-quoted-identifiers",
+      "sql": "SELECT `unsigned`, `auto_increment`, `engine` FROM `users`",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "SELECT unsigned, auto_increment, engine FROM users"
       }
     },
     {
@@ -1192,9 +1238,17 @@
       "name": "mysql-insert-ignore",
       "sql": "INSERT IGNORE INTO `users` (`id`) VALUES (1)",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported MySQL syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT IGNORE INTO users (id) VALUES (1)",
+        "view_contains": [
+          "\"kind\":\"insert\"",
+          "\"table\":\"users\"",
+          "\"column\":\"id\""
+        ]
       }
     },
     {
@@ -1202,9 +1256,17 @@
       "name": "mysql-insert-delayed",
       "sql": "INSERT DELAYED INTO `users` (`id`) VALUES (1)",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported MySQL syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT DELAYED INTO users (id) VALUES (1)",
+        "view_contains": [
+          "\"kind\":\"insert\"",
+          "\"table\":\"users\"",
+          "\"column\":\"id\""
+        ]
       }
     },
     {
@@ -1212,9 +1274,17 @@
       "name": "mysql-insert-low-priority",
       "sql": "INSERT LOW_PRIORITY INTO `users` (`id`) VALUES (1)",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported MySQL syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT LOW_PRIORITY INTO users (id) VALUES (1)",
+        "view_contains": [
+          "\"kind\":\"insert\"",
+          "\"table\":\"users\"",
+          "\"column\":\"id\""
+        ]
       }
     },
     {
@@ -1222,9 +1292,82 @@
       "name": "mysql-insert-high-priority",
       "sql": "INSERT HIGH_PRIORITY INTO `users` (`id`) VALUES (1)",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported MySQL syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT HIGH_PRIORITY INTO users (id) VALUES (1)",
+        "view_contains": [
+          "\"kind\":\"insert\"",
+          "\"table\":\"users\"",
+          "\"column\":\"id\""
+        ]
+      }
+    },
+    {
+      "id": "MU004A",
+      "name": "mysql-insert-low-priority-ignore",
+      "sql": "INSERT LOW_PRIORITY IGNORE INTO `users` (`id`, `phone`) VALUES (?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT LOW_PRIORITY IGNORE INTO users (id, phone) VALUES (?, ?)",
+        "view_contains": [
+          "\"kind\":\"insert\"",
+          "\"bind_position\":1",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": [
+          "$1",
+          "$2"
+        ]
+      }
+    },
+    {
+      "id": "MU004B",
+      "name": "mysql-insert-high-priority-ignore-select",
+      "sql": "INSERT HIGH_PRIORITY IGNORE INTO `users` (`id`) SELECT `id` FROM `backup_users`",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT HIGH_PRIORITY IGNORE INTO users (id) SELECT id FROM backup_users",
+        "view_contains": [
+          "\"kind\":\"insert\"",
+          "\"insert_mode\":\"select\"",
+          "\"table\":\"users\"",
+          "\"table\":\"backup_users\""
+        ]
+      }
+    },
+    {
+      "id": "MU004C",
+      "name": "mysql-insert-ignore-on-duplicate-key",
+      "sql": "INSERT IGNORE INTO users(id, phone) VALUES (?, ?) ON DUPLICATE KEY UPDATE phone = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT IGNORE INTO users (id, phone) VALUES (?, ?) ON DUPLICATE KEY UPDATE phone = ?",
+        "view_contains": [
+          "\"kind\":\"insert\"",
+          "\"assignments\"",
+          "\"bind_position\":1",
+          "\"bind_position\":2",
+          "\"bind_position\":3"
+        ],
+        "view_not_contains": [
+          "$1",
+          "sqlparser_mysql_duplicate_key"
+        ]
       }
     },
     {
@@ -1256,29 +1399,205 @@
       "name": "mysql-replace-into",
       "sql": "REPLACE INTO `users` (`id`) VALUES (1)",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported MySQL syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "REPLACE INTO users (id) VALUES (1)",
+        "view_contains": [
+          "\"keyword\":\"replace\"",
+          "\"kind\":\"insert\"",
+          "\"insert_mode\":\"replace_values\"",
+          "\"table\":\"users\"",
+          "\"column\":\"id\""
+        ]
+      }
+    },
+    {
+      "id": "MU006A",
+      "name": "mysql-replace-low-priority-multi-row",
+      "sql": "REPLACE LOW_PRIORITY INTO `users` (`id`, `phone`) VALUES (?, ?), (?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "REPLACE LOW_PRIORITY INTO users (id, phone) VALUES (?, ?), (?, ?)",
+        "view_contains": [
+          "\"keyword\":\"replace\"",
+          "\"insert_mode\":\"replace_values\"",
+          "\"bind_position\":1",
+          "\"bind_position\":4"
+        ],
+        "view_not_contains": [
+          "$1",
+          "$4"
+        ]
+      }
+    },
+    {
+      "id": "MU006B",
+      "name": "mysql-replace-delayed-select",
+      "sql": "REPLACE DELAYED INTO `users` (`id`, `phone`) SELECT `id`, `phone` FROM `backup_users` WHERE `active` = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "REPLACE DELAYED INTO users (id, phone) SELECT id, phone FROM backup_users WHERE active = ?",
+        "view_contains": [
+          "\"keyword\":\"replace\"",
+          "\"insert_mode\":\"replace_select\"",
+          "\"table\":\"users\"",
+          "\"table\":\"backup_users\"",
+          "\"bind_position\":1"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "MU006C",
+      "name": "mysql-replace-set",
+      "sql": "REPLACE INTO `users` SET `id` = ?, `phone` = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "REPLACE INTO users (id, phone) VALUES (?, ?)",
+        "view_contains": [
+          "\"keyword\":\"replace\"",
+          "\"insert_mode\":\"replace_set\"",
+          "\"column\":\"id\"",
+          "\"column\":\"phone\"",
+          "\"bind_position\":1",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "MU006D",
+      "name": "mysql-replace-without-into",
+      "sql": "REPLACE `users` (`id`) VALUES (1)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "REPLACE INTO users (id) VALUES (1)",
+        "view_contains": [
+          "\"keyword\":\"replace\"",
+          "\"insert_mode\":\"replace_values\""
+        ]
+      }
+    },
+    {
+      "id": "MU006E",
+      "name": "mysql-replace-table-source",
+      "sql": "REPLACE INTO `users` (`id`, `phone`) TABLE `backup_users`",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "REPLACE INTO users (id, phone) SELECT * FROM backup_users",
+        "view_contains": [
+          "\"keyword\":\"replace\"",
+          "\"insert_mode\":\"replace_select\"",
+          "\"table\":\"users\"",
+          "\"table\":\"backup_users\""
+        ]
       }
     },
     {
       "id": "MU007",
       "name": "mysql-update-ignore",
-      "sql": "UPDATE IGNORE `users` SET `id` = 2 WHERE `id` = 1",
+      "sql": "UPDATE IGNORE `users` SET `id` = ? WHERE `id` = ?",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported MySQL syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "UPDATE IGNORE users SET id = ? WHERE id = ?",
+        "view_contains": [
+          "\"kind\":\"update\"",
+          "\"assignments\"",
+          "\"bind_position\":1",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$1"
       }
     },
     {
       "id": "MU008",
       "name": "mysql-delete-ignore",
-      "sql": "DELETE IGNORE FROM `users` WHERE `id` = 1",
+      "sql": "DELETE IGNORE FROM `users` WHERE `id` = ?",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported MySQL syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "deparse_contains": "DELETE IGNORE FROM users WHERE id = ?",
+        "view_contains": [
+          "\"kind\":\"delete\"",
+          "\"table\":\"users\"",
+          "\"bind_position\":1"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "MU008A",
+      "name": "mysql-update-low-priority-ignore-join",
+      "sql": "UPDATE LOW_PRIORITY IGNORE users u JOIN orders o ON u.id=o.user_id SET u.phone = ? WHERE o.shipping_phone = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "UPDATE LOW_PRIORITY IGNORE users u JOIN orders o ON",
+        "view_contains": [
+          "\"kind\":\"update\"",
+          "\"table\":\"users\"",
+          "\"table\":\"orders\"",
+          "\"column\":\"phone\"",
+          "\"column\":\"shipping_phone\"",
+          "\"bind_position\":1",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "MU008B",
+      "name": "mysql-delete-low-priority-quick-ignore-join",
+      "sql": "DELETE LOW_PRIORITY QUICK IGNORE u FROM users u JOIN orders o ON u.id=o.user_id WHERE u.phone = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "deparse_contains": "DELETE LOW_PRIORITY QUICK IGNORE u FROM users u JOIN orders o ON",
+        "view_contains": [
+          "\"kind\":\"delete\"",
+          "\"delete_targets\"",
+          "\"table\":\"users\"",
+          "\"table\":\"orders\"",
+          "\"column\":\"phone\"",
+          "\"bind_position\":1"
+        ],
+        "view_not_contains": "$1"
       }
     },
     {
@@ -1346,7 +1665,8 @@
           "\"clause\":\"set_list\",\"relation\":0,\"column\":\"name\"",
           "\"clause\":\"on\",\"relation\":0,\"column\":\"phone\"",
           "\"clause\":\"where\",\"relation\":1,\"column\":\"id\"",
-          "\"clause\":\"on\",\"operator\":\"=\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"clause\":\"on\",\"operator\":\"=\",\"operator_kind\":\"unknown\"",
+          "\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"1\"",
           "\"bind_position\":1",
           "\"bind_key\":\"2\"",
@@ -1380,7 +1700,8 @@
           "\"table\":\"orders\"",
           "\"clause\":\"on\",\"relation\":0,\"column\":\"phone\"",
           "\"clause\":\"where\",\"relation\":1,\"column\":\"id\"",
-          "\"clause\":\"on\",\"operator\":\"=\",\"operator_kind\":\"unknown\",\"field\":0,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
+          "\"clause\":\"on\",\"operator\":\"=\",\"operator_kind\":\"unknown\"",
+          "\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
           "\"bind_key\":\"1\"",
           "\"bind_position\":1",
           "\"bind_key\":\"2\"",
@@ -1398,9 +1719,12 @@
       "name": "mysql-auto-increment",
       "sql": "CREATE TABLE `users` (`id` INT AUTO_INCREMENT)",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported MySQL syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "CreateStmt"
+        ],
+        "deparse_contains": "AUTO_INCREMENT"
       }
     },
     {
@@ -1408,9 +1732,12 @@
       "name": "mysql-unsigned",
       "sql": "CREATE TABLE `users` (`id` INT UNSIGNED)",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported MySQL syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "CreateStmt"
+        ],
+        "deparse_contains": "UNSIGNED"
       }
     },
     {
@@ -1418,9 +1745,12 @@
       "name": "mysql-zerofill",
       "sql": "CREATE TABLE `users` (`id` INT ZEROFILL)",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported MySQL syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "CreateStmt"
+        ],
+        "deparse_contains": "ZEROFILL"
       }
     },
     {
@@ -1428,9 +1758,12 @@
       "name": "mysql-table-engine",
       "sql": "CREATE TABLE `users` (`id` INT) ENGINE=InnoDB",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported MySQL syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "CreateStmt"
+        ],
+        "deparse_contains": "ENGINE=InnoDB"
       }
     },
     {
@@ -1438,9 +1771,12 @@
       "name": "mysql-table-charset",
       "sql": "CREATE TABLE `users` (`id` INT) DEFAULT CHARSET=utf8mb4",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported MySQL syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "CreateStmt"
+        ],
+        "deparse_contains": "DEFAULT CHARSET=utf8mb4"
       }
     },
     {
@@ -1448,9 +1784,12 @@
       "name": "mysql-table-character-set",
       "sql": "CREATE TABLE `users` (`id` INT) CHARACTER SET=utf8mb4",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported MySQL syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "CreateStmt"
+        ],
+        "deparse_contains": "CHARACTER SET=utf8mb4"
       }
     },
     {
@@ -1458,9 +1797,12 @@
       "name": "mysql-table-collate",
       "sql": "CREATE TABLE `users` (`id` INT) COLLATE=utf8mb4_bin",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported MySQL syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "CreateStmt"
+        ],
+        "deparse_contains": "COLLATE=utf8mb4_bin"
       }
     },
     {
@@ -1468,9 +1810,22 @@
       "name": "mysql-update-left-join",
       "sql": "UPDATE users u LEFT JOIN orders o ON u.id=o.user_id SET u.phone = ? WHERE o.shipping_phone = ?",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported MySQL syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "LEFT JOIN orders o ON",
+        "view_contains": [
+          "\"kind\":\"update\"",
+          "\"table\":\"users\"",
+          "\"table\":\"orders\"",
+          "\"column\":\"phone\"",
+          "\"column\":\"shipping_phone\"",
+          "\"bind_position\":1",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$1"
       }
     },
     {
@@ -1478,9 +1833,21 @@
       "name": "mysql-delete-left-join",
       "sql": "DELETE u FROM users u LEFT JOIN orders o ON u.id=o.user_id WHERE u.phone = ?",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported MySQL syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "deparse_contains": "DELETE u FROM users u LEFT JOIN orders o ON",
+        "view_contains": [
+          "\"kind\":\"delete\"",
+          "\"delete_targets\"",
+          "\"table\":\"users\"",
+          "\"table\":\"orders\"",
+          "\"column\":\"phone\"",
+          "\"bind_position\":1"
+        ],
+        "view_not_contains": "$1"
       }
     },
     {
@@ -1488,9 +1855,22 @@
       "name": "mysql-update-join-source-assignment",
       "sql": "UPDATE users u JOIN orders o ON u.id=o.user_id SET o.shipping_phone = ? WHERE u.id = ?",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported MySQL syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "UPDATE orders o JOIN users u ON",
+        "view_contains": [
+          "\"kind\":\"update\"",
+          "\"table\":\"orders\"",
+          "\"table\":\"users\"",
+          "\"column\":\"shipping_phone\"",
+          "\"column\":\"id\"",
+          "\"bind_position\":1",
+          "\"bind_position\":2"
+        ],
+        "view_not_contains": "$1"
       }
     },
     {
@@ -1498,9 +1878,285 @@
       "name": "mysql-delete-join-source-target",
       "sql": "DELETE o FROM users u JOIN orders o ON u.id=o.user_id WHERE o.phone = ?",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported MySQL syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "deparse_contains": "DELETE o FROM orders o JOIN users u ON",
+        "view_contains": [
+          "\"kind\":\"delete\"",
+          "\"delete_targets\"",
+          "\"table\":\"orders\"",
+          "\"table\":\"users\"",
+          "\"column\":\"phone\"",
+          "\"bind_position\":1"
+        ],
+        "view_not_contains": "$1"
+      }
+    },
+    {
+      "id": "M089",
+      "name": "mysql-update-join-source-field-graph",
+      "sql": "UPDATE users u JOIN orders o ON u.id=o.user_id SET u.name = o.customer_name WHERE o.active = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "view_contains": [
+          "\"kind\":\"update\"",
+          "\"kind\":\"field\"",
+          "\"source_field\"",
+          "\"right_field\""
+        ]
+      }
+    },
+    {
+      "id": "M090",
+      "name": "mysql-insert-select-source-block-graph",
+      "sql": "INSERT INTO users_archive (id, email) SELECT u.id, u.email FROM users u WHERE u.active = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_contains": [
+          "\"insert_mode\":\"select\"",
+          "\"target_columns\"",
+          "\"source_block\"",
+          "\"kind\":\"field\""
+        ]
+      }
+    },
+    {
+      "id": "M091",
+      "name": "mysql-with-cte-select",
+      "sql": "WITH cte AS (SELECT id FROM users WHERE active = ?) SELECT id FROM cte",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "WITH cte AS",
+        "view_contains": [
+          "\"keyword\":\"select\"",
+          "\"table\":\"users\"",
+          "\"bind_position\":1"
+        ]
+      }
+    },
+    {
+      "id": "M092",
+      "name": "mysql-window-row-number",
+      "sql": "SELECT id, ROW_NUMBER() OVER (PARTITION BY status ORDER BY id) AS rn FROM users",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "row_number() OVER",
+        "view_contains": [
+          "\"column\":\"id\"",
+          "\"column\":\"status\"",
+          "\"target_path\""
+        ]
+      }
+    },
+    {
+      "id": "M093",
+      "name": "mysql-common-scalar-functions",
+      "sql": "SELECT LOWER(name) AS lower_name, COALESCE(email, 'n/a') AS email_value FROM users WHERE id = ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "COALESCE(email, 'n/a')",
+        "view_contains": [
+          "\"target_path\"",
+          "\"name\":\"lower_name\"",
+          "\"bind_position\":1"
+        ]
+      }
+    },
+    {
+      "id": "M094",
+      "name": "mysql-common-data-types",
+      "sql": "CREATE TABLE users (id BIGINT, amount DECIMAL(10,2), created_at DATETIME, active BOOLEAN)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "CreateStmt"
+        ],
+        "deparse_contains": "CREATE TABLE users"
+      }
+    },
+    {
+      "id": "M095",
+      "name": "mysql-rollback",
+      "sql": "ROLLBACK",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "TransactionStmt"
+        ],
+        "deparse_contains": "ROLLBACK"
+      }
+    },
+    {
+      "id": "M096",
+      "name": "mysql-json-contains-function-predicate",
+      "sql": "SELECT * FROM users WHERE JSON_CONTAINS(tags, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "json_contains(tags, ?)",
+        "view_contains": [
+          "\"operator\":\"json_contains\"",
+          "\"kind\":\"expression\"",
+          "\"bind_sql\":\"?\"",
+          "\"predicates\""
+        ]
+      }
+    },
+    {
+      "id": "M097",
+      "name": "mysql-select-alias-order-by-lineage",
+      "sql": "SELECT u.email AS e FROM users u ORDER BY u.email",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "SELECT u.email AS e FROM users u ORDER BY u.email",
+        "view_contains": [
+          "\"name\":\"e\"",
+          "\"column\":\"email\"",
+          "\"clause\":\"order_by\"",
+          "\"target\":0"
+        ]
+      }
+    },
+    {
+      "id": "M098",
+      "name": "mysql-create-table-column-and-table-options",
+      "sql": "CREATE TABLE `users` (`id` INT UNSIGNED AUTO_INCREMENT, `score` INT ZEROFILL, `name` VARCHAR(64)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_bin",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "CreateStmt"
+        ],
+        "deparse_contains": [
+          "ENGINE=InnoDB",
+          "UNSIGNED AUTO_INCREMENT",
+          "ZEROFILL",
+          "DEFAULT CHARSET=utf8mb4",
+          "COLLATE=utf8mb4_bin"
+        ]
+      }
+    },
+    {
+      "id": "M099",
+      "name": "mysql-create-table-official-column-attributes",
+      "sql": "CREATE TABLE `users` (`id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY COMMENT 'pk', `name` VARCHAR(64) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin INVISIBLE, `score` INT GENERATED ALWAYS AS (`id` + 1) STORED, `parent_id` INT REFERENCES `parents` (`id`) ON DELETE CASCADE)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "CreateStmt"
+        ],
+        "deparse_contains": [
+          "UNSIGNED AUTO_INCREMENT PRIMARY KEY COMMENT 'pk'",
+          "CHARACTER SET utf8mb4 COLLATE utf8mb4_bin INVISIBLE",
+          "GENERATED ALWAYS AS",
+          "REFERENCES `parents` (`id`) ON DELETE CASCADE"
+        ]
+      }
+    },
+    {
+      "id": "M100",
+      "name": "mysql-create-table-numeric-table-options",
+      "sql": "CREATE TABLE `users` (`id` INT) AUTO_INCREMENT=100 AVG_ROW_LENGTH=64 CHECKSUM=1 DELAY_KEY_WRITE=1 KEY_BLOCK_SIZE=8 MAX_ROWS=1000 MIN_ROWS=1 PACK_KEYS=DEFAULT STATS_AUTO_RECALC=DEFAULT STATS_PERSISTENT=1 STATS_SAMPLE_PAGES=16",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "CreateStmt"
+        ],
+        "deparse_contains": [
+          "AUTO_INCREMENT=100",
+          "AVG_ROW_LENGTH=64",
+          "CHECKSUM=1",
+          "DELAY_KEY_WRITE=1",
+          "STATS_SAMPLE_PAGES=16"
+        ]
+      }
+    },
+    {
+      "id": "M101",
+      "name": "mysql-create-table-string-and-storage-table-options",
+      "sql": "CREATE TABLE `users` (`id` INT) COMMENT='users table' COMPRESSION='ZLIB' CONNECTION='connect_string' DATA DIRECTORY='/tmp/data' INDEX DIRECTORY='/tmp/index' ENCRYPTION='Y' ENGINE_ATTRIBUTE='{\"tier\":\"hot\"}' SECONDARY_ENGINE_ATTRIBUTE='{}' INSERT_METHOD=NO PASSWORD='legacy' ROW_FORMAT=COMPRESSED TABLESPACE=innodb_file_per_table",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "CreateStmt"
+        ],
+        "deparse_contains": [
+          "COMMENT='users table'",
+          "COMPRESSION='ZLIB'",
+          "DATA DIRECTORY='/tmp/data'",
+          "ENGINE_ATTRIBUTE='{\"tier\":\"hot\"}'",
+          "TABLESPACE=innodb_file_per_table"
+        ]
+      }
+    },
+    {
+      "id": "M102",
+      "name": "mysql-create-table-partition-options",
+      "sql": "CREATE TABLE `users` (`id` INT, `created_at` DATE) ENGINE=InnoDB PARTITION BY HASH(`id`) PARTITIONS 4",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "CreateStmt"
+        ],
+        "deparse_contains": [
+          "ENGINE=InnoDB",
+          "PARTITION BY HASH(`id`) PARTITIONS 4"
+        ]
+      }
+    },
+    {
+      "id": "M103",
+      "name": "mysql-create-temporary-table-options",
+      "sql": "CREATE TEMPORARY TABLE IF NOT EXISTS `tmp_users` (`id` INT VISIBLE, `token` VARCHAR(64) COMMENT 'session token') ENGINE=MEMORY DEFAULT CHARACTER SET=utf8mb4",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "CreateStmt"
+        ],
+        "deparse_contains": [
+          "CREATE TEMPORARY TABLE IF NOT EXISTS",
+          "INT VISIBLE",
+          "COMMENT 'session token'",
+          "ENGINE=MEMORY",
+          "DEFAULT CHARACTER SET=utf8mb4"
+        ]
       }
     }
   ]

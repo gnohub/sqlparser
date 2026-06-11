@@ -10,38 +10,31 @@ MySQL 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范�
 - 反引号标识符
 - MySQL `#` 行注释
 - 双引号字符串兼容处理
+- `N'...'` national 字符串字面量，公共输出保留 `N` 前缀
 - JDBC 风格 `?` 位置参数
 - `LIMIT offset,count`
+- `WITH` 公用表表达式
+- 窗口函数
+- 普通标量函数表达式
 - `INSERT VALUES`、多行 `INSERT`、`INSERT SELECT`
+- `INSERT IGNORE`、`INSERT DELAYED`、`INSERT LOW_PRIORITY`、`INSERT HIGH_PRIORITY` 修饰符保留
+- `REPLACE VALUES`、`REPLACE SET`、`REPLACE SELECT`、`REPLACE TABLE` 基础形态
+- `UPDATE LOW_PRIORITY/IGNORE` 和 `DELETE LOW_PRIORITY/QUICK/IGNORE` 修饰符保留
 - `INSERT ... ON DUPLICATE KEY UPDATE`
 - `UPDATE`、`DELETE`
-- 带 `ON` 条件的普通/INNER/CROSS `UPDATE ... JOIN ... SET ...`
-- 带 `ON` 条件的普通/INNER/CROSS `DELETE u FROM ... JOIN ...`
-- 基础 `CREATE TABLE`
+- 带 `ON` 条件的多表 `UPDATE ... JOIN ... SET ...` 基础形态
+- 带 `ON` 条件的多表 `DELETE u FROM ... JOIN ...` 基础形态
+- `CREATE TABLE` 基础形态、列属性、表选项和无查询表达式的分区尾部
 - `ALTER TABLE ADD COLUMN`
 - `CREATE VIEW`
 - `DROP TABLE`
-- `START TRANSACTION`、`COMMIT`
+- `START TRANSACTION`、`COMMIT`、`ROLLBACK`
 - `USE db_name` 默认数据库切换
 - `PREPARE`、`EXECUTE`、`DEALLOCATE PREPARE`、`DROP PREPARE`
 
 ## 明确不支持范围
 
-以下 MySQL 专属语义当前不做隐式降级。遇到这些语法时返回 `SQLPARSER_STATUS_UNSUPPORTED`，不会返回可用 handle：
-
-- `INSERT IGNORE`
-- `INSERT DELAYED`
-- `INSERT LOW_PRIORITY`、`INSERT HIGH_PRIORITY`
-- `REPLACE INTO`
-- `UPDATE IGNORE`
-- `DELETE IGNORE`
-- `UPDATE ... LEFT/RIGHT JOIN ... SET ...`
-- `DELETE u FROM ... LEFT/RIGHT JOIN ...`
-- `AUTO_INCREMENT`
-- `UNSIGNED`
-- `ZEROFILL`
-- 表选项，例如 `ENGINE=...`
-- 字符集和排序规则表选项，例如 `DEFAULT CHARSET=...`、`CHARACTER SET=...`、`COLLATE=...`
+当前可执行 MySQL 方言矩阵没有明确不支持用例。官方语法覆盖边界见 `mysql_official_syntax_coverage.csv`。
 
 ## 对外输出规则
 
@@ -59,4 +52,4 @@ MySQL 支持范围以以下文件为准：
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 MySQL 方言矩阵包含 92 条用例：74 条支持路径，18 条明确不支持路径。
+当前 MySQL 方言矩阵包含 131 条用例：131 条支持路径，0 条明确不支持路径。

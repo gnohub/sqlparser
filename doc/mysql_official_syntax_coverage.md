@@ -6,7 +6,7 @@
 
 - [MySQL 8.4 Reference Manual: SQL Statements](https://dev.mysql.com/doc/refman/8.4/en/sql-statements.html)
 - [MySQL 8.4 Reference Manual: Language Structure](https://dev.mysql.com/doc/refman/8.4/en/language-structure.html)
-- 统计日期：2026-05-08
+- 统计日期：2026-06-11
 
 统计范围固定为当前 MySQL 方言转换层涉及的官方语法组，包括查询、DML、常见 DDL、事务语句、表达式、类型属性和 MySQL 专属语义。
 
@@ -22,22 +22,22 @@
 
 ## 统计结果
 
-| 状态 | 语法组数 | 占全部 44 组 |
+| 状态 | 语法组数 | 占全部 48 组 |
 | --- | ---: | ---: |
-| `CURRENT` | 21 | 47.73% |
-| `HOOK_ONLY` | 5 | 11.36% |
-| `MIXED_MODEL` | 2 | 4.55% |
-| `MODEL_REQUIRED` | 16 | 36.36% |
+| `CURRENT` | 40 | 83.33% |
+| `HOOK_ONLY` | 0 | 0.00% |
+| `MIXED_MODEL` | 3 | 6.25% |
+| `MODEL_REQUIRED` | 5 | 10.42% |
 | `REFERENCE_ONLY` | 0 | 0.00% |
 
-剔除 `REFERENCE_ONLY` 后，官方可实现语法组为 44 组。其中当前已覆盖 21 组，未覆盖 23 组。
+剔除 `REFERENCE_ONLY` 后，官方可实现语法组为 48 组。其中当前已覆盖 40 组，未覆盖 8 组。
 
-| 未覆盖分类 | 语法组数 | 占未覆盖 23 组 |
+| 未覆盖分类 | 语法组数 | 占未覆盖 8 组 |
 | --- | ---: | ---: |
-| `HOOK_ONLY` | 5 | 21.74% |
-| `MIXED_MODEL` | 2 | 8.70% |
-| `MODEL_REQUIRED` | 16 | 69.57% |
+| `HOOK_ONLY` | 0 | 0.00% |
+| `MIXED_MODEL` | 3 | 37.50% |
+| `MODEL_REQUIRED` | 5 | 62.50% |
 
 ## 结论
 
-MySQL 剩余未覆盖项主要集中在外连接 DML、表选项、类型属性和程序对象。只依赖现有 AST 与 hook 可补齐的为 5 组，占未覆盖项 21.74%；部分已覆盖但完整官方语义需要专用模型的为 2 组，占 8.70%；需要 MySQL 专用模型的为 16 组，占 69.57%。
+MySQL 剩余未覆盖项主要集中在完整外连接 DML 语义、程序对象和管理类语句。已闭环 INSERT、UPDATE、DELETE 修饰符、REPLACE 基础公开形态，以及 `CREATE TABLE` 列属性、表选项和无查询表达式的分区尾部；部分已覆盖但完整官方语义需要专用模型的为 3 组，占 37.50%；需要 MySQL 专用模型的为 5 组，占 62.50%。

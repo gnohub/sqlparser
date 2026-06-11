@@ -1,45 +1,49 @@
 category,item,status,reason,official_url
-query,SELECT,CURRENT,"已覆盖基础 SELECT、JOIN、WHERE 和查询列归属",https://dev.mysql.com/doc/refman/8.4/en/select.html
+query,SELECT,CURRENT,已覆盖基础 SELECT、JOIN、WHERE 和查询列归属,https://dev.mysql.com/doc/refman/8.4/en/select.html
 query,LIMIT_OFFSET_COUNT,CURRENT,"已覆盖 MySQL LIMIT offset,count",https://dev.mysql.com/doc/refman/8.4/en/select.html
-query,BACKTICK_IDENTIFIERS,CURRENT,"已覆盖反引号标识符",https://dev.mysql.com/doc/refman/8.4/en/identifiers.html
-query,HASH_COMMENTS,CURRENT,"已覆盖 MySQL # 行注释",https://dev.mysql.com/doc/refman/8.4/en/comments.html
-query,DOUBLE_QUOTED_STRINGS,CURRENT,"已覆盖兼容双引号字符串输入",https://dev.mysql.com/doc/refman/8.4/en/string-literals.html
-expressions,PARAMETER_MARKERS,CURRENT,"已覆盖 JDBC 风格 ? 位置参数",https://dev.mysql.com/doc/refman/8.4/en/sql-prepared-statements.html
-prepared,PREPARE_EXECUTE_DEALLOCATE,CURRENT,"已覆盖 PREPARE、EXECUTE、DEALLOCATE PREPARE 和 DROP PREPARE",https://dev.mysql.com/doc/refman/8.4/en/sql-prepared-statements.html
-dml,INSERT_VALUES,CURRENT,"已覆盖 INSERT VALUES 和多行 VALUES",https://dev.mysql.com/doc/refman/8.4/en/insert.html
-dml,INSERT_SELECT,CURRENT,"已覆盖 INSERT SELECT",https://dev.mysql.com/doc/refman/8.4/en/insert-select.html
-dml,UPDATE,CURRENT,"已覆盖 UPDATE SET WHERE",https://dev.mysql.com/doc/refman/8.4/en/update.html
-dml,DELETE,CURRENT,"已覆盖 DELETE FROM WHERE",https://dev.mysql.com/doc/refman/8.4/en/delete.html
-dml,UPDATE_JOIN,MIXED_MODEL,"已覆盖普通/INNER/CROSS 多表 UPDATE；LEFT/RIGHT JOIN 的受影响行语义需要专用模型",https://dev.mysql.com/doc/refman/8.4/en/update.html
-dml,DELETE_JOIN,MIXED_MODEL,"已覆盖普通/INNER/CROSS 多表 DELETE；LEFT/RIGHT JOIN 的受影响行语义需要专用模型",https://dev.mysql.com/doc/refman/8.4/en/delete.html
-ddl,CREATE_TABLE_BASIC,CURRENT,"已覆盖基础 CREATE TABLE",https://dev.mysql.com/doc/refman/8.4/en/create-table.html
-ddl,ALTER_TABLE_ADD_COLUMN,CURRENT,"已覆盖 ALTER TABLE ADD COLUMN",https://dev.mysql.com/doc/refman/8.4/en/alter-table.html
-ddl,CREATE_VIEW,CURRENT,"已覆盖 CREATE VIEW AS SELECT",https://dev.mysql.com/doc/refman/8.4/en/create-view.html
-ddl,DROP_TABLE,CURRENT,"已覆盖 DROP TABLE",https://dev.mysql.com/doc/refman/8.4/en/drop-table.html
-transaction,START_TRANSACTION,CURRENT,"已覆盖 START TRANSACTION",https://dev.mysql.com/doc/refman/8.4/en/commit.html
-transaction,COMMIT,CURRENT,"已覆盖 COMMIT",https://dev.mysql.com/doc/refman/8.4/en/commit.html
-session,USE_DATABASE,CURRENT,"已覆盖 USE db_name 默认数据库切换语句",https://dev.mysql.com/doc/refman/8.4/en/use.html
-query,CTE_WITH,HOOK_ONLY,"MySQL WITH 可由查询 AST 承载，当前 MySQL 方言矩阵未单独覆盖",https://dev.mysql.com/doc/refman/8.4/en/with.html
-query,WINDOW_FUNCTIONS,HOOK_ONLY,"窗口函数可由表达式 AST 承载，当前 MySQL 方言矩阵未单独覆盖",https://dev.mysql.com/doc/refman/8.4/en/window-functions.html
-query,GROUP_BY_HAVING,CURRENT,"已覆盖 GROUP BY、HAVING 和 ORDER BY 组合查询",https://dev.mysql.com/doc/refman/8.4/en/group-by-handling.html
-query,ORDER_BY,CURRENT,"已覆盖 ORDER BY 字段排序和序号排序",https://dev.mysql.com/doc/refman/8.4/en/order-by-optimization.html
-expressions,COMMON_FUNCTIONS,HOOK_ONLY,"普通标量函数可由表达式 AST 承载，函数语义不在解析层求值",https://dev.mysql.com/doc/refman/8.4/en/functions.html
-types,COMMON_DATA_TYPES,HOOK_ONLY,"通用类型名可由核心类型节点承载，MySQL 类型属性另行统计",https://dev.mysql.com/doc/refman/8.4/en/data-types.html
-transaction,ROLLBACK,HOOK_ONLY,"事务语句可由核心事务节点承载，当前 MySQL 矩阵未单独覆盖",https://dev.mysql.com/doc/refman/8.4/en/commit.html
-dml,INSERT_IGNORE,MODEL_REQUIRED,"IGNORE 错误处理语义不能安全降级为普通 INSERT",https://dev.mysql.com/doc/refman/8.4/en/insert.html
-dml,INSERT_DELAYED,MODEL_REQUIRED,"DELAYED 插入语义需要 MySQL 专用模型",https://dev.mysql.com/doc/refman/8.4/en/insert-delayed.html
-dml,INSERT_PRIORITY,MODEL_REQUIRED,"LOW_PRIORITY/HIGH_PRIORITY 优先级语义需要 MySQL 专用模型",https://dev.mysql.com/doc/refman/8.4/en/insert.html
-dml,ON_DUPLICATE_KEY_UPDATE,CURRENT,"已覆盖 INSERT ... ON DUPLICATE KEY UPDATE 的插入值、更新赋值和参数映射",https://dev.mysql.com/doc/refman/8.4/en/insert-on-duplicate.html
-dml,REPLACE,MODEL_REQUIRED,"REPLACE 删除再插入语义不同于普通 INSERT",https://dev.mysql.com/doc/refman/8.4/en/replace.html
-dml,UPDATE_IGNORE,MODEL_REQUIRED,"IGNORE 错误处理语义需要 MySQL 专用模型",https://dev.mysql.com/doc/refman/8.4/en/update.html
-dml,DELETE_IGNORE,MODEL_REQUIRED,"IGNORE 错误处理语义需要 MySQL 专用模型",https://dev.mysql.com/doc/refman/8.4/en/delete.html
-ddl,AUTO_INCREMENT,MODEL_REQUIRED,"自增列属性需要 MySQL 类型和 DDL 选项模型",https://dev.mysql.com/doc/refman/8.4/en/example-auto-increment.html
-types,UNSIGNED,MODEL_REQUIRED,"UNSIGNED 类型属性需要 MySQL 类型系统扩展",https://dev.mysql.com/doc/refman/8.4/en/numeric-type-attributes.html
-types,ZEROFILL,MODEL_REQUIRED,"ZEROFILL 类型属性需要 MySQL 类型系统扩展",https://dev.mysql.com/doc/refman/8.4/en/numeric-type-attributes.html
-ddl,TABLE_ENGINE_OPTIONS,MODEL_REQUIRED,"ENGINE 表选项需要 MySQL DDL 选项模型",https://dev.mysql.com/doc/refman/8.4/en/create-table.html
-ddl,TABLE_CHARSET_COLLATION,MODEL_REQUIRED,"字符集和排序规则表选项需要 MySQL DDL 选项模型",https://dev.mysql.com/doc/refman/8.4/en/create-table.html
-program,CREATE_PROCEDURE_FUNCTION,MODEL_REQUIRED,"存储过程和函数体超出当前 SQL 语句模型",https://dev.mysql.com/doc/refman/8.4/en/create-procedure.html
-program,CREATE_TRIGGER,MODEL_REQUIRED,"触发器定义需要 MySQL 程序单元模型",https://dev.mysql.com/doc/refman/8.4/en/create-trigger.html
-program,CREATE_EVENT,MODEL_REQUIRED,"事件调度对象需要 MySQL 专用 DDL 模型",https://dev.mysql.com/doc/refman/8.4/en/create-event.html
-admin,LOAD_DATA,MODEL_REQUIRED,"LOAD DATA 包含文件、字段和导入控制语义，需要专用模型",https://dev.mysql.com/doc/refman/8.4/en/load-data.html
-admin,LOCK_TABLES,MODEL_REQUIRED,"LOCK TABLES 的锁模式和表列表需要 MySQL 专用语义",https://dev.mysql.com/doc/refman/8.4/en/lock-tables.html
+query,BACKTICK_IDENTIFIERS,CURRENT,已覆盖反引号标识符,https://dev.mysql.com/doc/refman/8.4/en/identifiers.html
+query,HASH_COMMENTS,CURRENT,已覆盖 MySQL # 行注释,https://dev.mysql.com/doc/refman/8.4/en/comments.html
+query,DOUBLE_QUOTED_STRINGS,CURRENT,已覆盖兼容双引号字符串输入,https://dev.mysql.com/doc/refman/8.4/en/string-literals.html
+expressions,NATIONAL_STRING_LITERAL,CURRENT,"已覆盖 N'...' national 字符串字面量，公共输出保留 N 前缀",https://dev.mysql.com/doc/refman/8.4/en/string-literals.html
+expressions,PARAMETER_MARKERS,CURRENT,已覆盖 JDBC 风格 ? 位置参数,https://dev.mysql.com/doc/refman/8.4/en/sql-prepared-statements.html
+prepared,PREPARE_EXECUTE_DEALLOCATE,CURRENT,已覆盖 PREPARE、EXECUTE、DEALLOCATE PREPARE 和 DROP PREPARE,https://dev.mysql.com/doc/refman/8.4/en/sql-prepared-statements.html
+dml,INSERT_VALUES,CURRENT,已覆盖 INSERT VALUES 和多行 VALUES,https://dev.mysql.com/doc/refman/8.4/en/insert.html
+dml,INSERT_SELECT,CURRENT,已覆盖 INSERT SELECT,https://dev.mysql.com/doc/refman/8.4/en/insert-select.html
+dml,UPDATE,CURRENT,已覆盖 UPDATE SET WHERE,https://dev.mysql.com/doc/refman/8.4/en/update.html
+dml,DELETE,CURRENT,已覆盖 DELETE FROM WHERE,https://dev.mysql.com/doc/refman/8.4/en/delete.html
+dml,UPDATE_JOIN,MIXED_MODEL,已覆盖多表 UPDATE JOIN 基础形态；完整外连接受影响行语义需要专用模型,https://dev.mysql.com/doc/refman/8.4/en/update.html
+dml,DELETE_JOIN,MIXED_MODEL,已覆盖多表 DELETE JOIN 基础形态；完整外连接受影响行语义需要专用模型,https://dev.mysql.com/doc/refman/8.4/en/delete.html
+ddl,CREATE_TABLE_BASIC,CURRENT,已覆盖基础 CREATE TABLE,https://dev.mysql.com/doc/refman/8.4/en/create-table.html
+ddl,ALTER_TABLE_ADD_COLUMN,CURRENT,已覆盖 ALTER TABLE ADD COLUMN,https://dev.mysql.com/doc/refman/8.4/en/alter-table.html
+ddl,CREATE_VIEW,CURRENT,已覆盖 CREATE VIEW AS SELECT,https://dev.mysql.com/doc/refman/8.4/en/create-view.html
+ddl,DROP_TABLE,CURRENT,已覆盖 DROP TABLE,https://dev.mysql.com/doc/refman/8.4/en/drop-table.html
+transaction,START_TRANSACTION,CURRENT,已覆盖 START TRANSACTION,https://dev.mysql.com/doc/refman/8.4/en/commit.html
+transaction,COMMIT,CURRENT,已覆盖 COMMIT,https://dev.mysql.com/doc/refman/8.4/en/commit.html
+session,USE_DATABASE,CURRENT,已覆盖 USE db_name 默认数据库切换语句,https://dev.mysql.com/doc/refman/8.4/en/use.html
+query,CTE_WITH,CURRENT,已覆盖 WITH 公用表表达式查询,https://dev.mysql.com/doc/refman/8.4/en/with.html
+query,WINDOW_FUNCTIONS,CURRENT,已覆盖窗口函数表达式和字段归属,https://dev.mysql.com/doc/refman/8.4/en/window-functions.html
+query,GROUP_BY_HAVING,CURRENT,已覆盖 GROUP BY、HAVING 和 ORDER BY 组合查询,https://dev.mysql.com/doc/refman/8.4/en/group-by-handling.html
+query,ORDER_BY,CURRENT,已覆盖 ORDER BY 字段排序和序号排序,https://dev.mysql.com/doc/refman/8.4/en/order-by-optimization.html
+expressions,COMMON_FUNCTIONS,CURRENT,已覆盖普通标量函数表达式和输出字段路径,https://dev.mysql.com/doc/refman/8.4/en/functions.html
+types,COMMON_DATA_TYPES,CURRENT,已覆盖通用类型名；MySQL 类型属性另行统计,https://dev.mysql.com/doc/refman/8.4/en/data-types.html
+transaction,ROLLBACK,CURRENT,已覆盖 ROLLBACK 事务语句,https://dev.mysql.com/doc/refman/8.4/en/commit.html
+dml,INSERT_IGNORE,CURRENT,已覆盖 INSERT IGNORE 修饰符；内部复用普通 INSERT AST，反解析保留 MySQL 公共形态,https://dev.mysql.com/doc/refman/8.4/en/insert.html
+dml,INSERT_DELAYED,CURRENT,已覆盖 INSERT DELAYED 修饰符；MySQL 8.4 识别但执行时忽略该关键字，反解析保留公共形态,https://dev.mysql.com/doc/refman/8.4/en/insert-delayed.html
+dml,INSERT_PRIORITY,CURRENT,已覆盖 LOW_PRIORITY/HIGH_PRIORITY INSERT 修饰符；内部复用普通 INSERT AST，反解析保留 MySQL 公共形态,https://dev.mysql.com/doc/refman/8.4/en/insert.html
+dml,ON_DUPLICATE_KEY_UPDATE,CURRENT,已覆盖 INSERT ... ON DUPLICATE KEY UPDATE 的插入值、更新赋值和参数映射,https://dev.mysql.com/doc/refman/8.4/en/insert-on-duplicate.html
+dml,REPLACE,MIXED_MODEL,已覆盖 REPLACE VALUES/SET/SELECT/TABLE 基础形态并以 replace_* insert_mode 保留语义；PARTITION 变体需要专用模型,https://dev.mysql.com/doc/refman/8.4/en/replace.html
+dml,UPDATE_IGNORE,CURRENT,已覆盖 UPDATE LOW_PRIORITY/IGNORE 修饰符；内部复用普通 UPDATE 和多表 UPDATE JOIN 结构，反解析保留 MySQL 公共形态,https://dev.mysql.com/doc/refman/8.4/en/update.html
+dml,DELETE_IGNORE,CURRENT,已覆盖 DELETE LOW_PRIORITY/QUICK/IGNORE 修饰符；内部复用普通 DELETE 和多表 DELETE JOIN 结构，反解析保留 MySQL 公共形态,https://dev.mysql.com/doc/refman/8.4/en/delete.html
+ddl,AUTO_INCREMENT,CURRENT,已覆盖自增列属性，内部复用通用 CREATE TABLE AST 并在反解析阶段恢复 MySQL 公共形态,https://dev.mysql.com/doc/refman/8.4/en/example-auto-increment.html
+types,UNSIGNED,CURRENT,已覆盖数值类型 UNSIGNED 属性，内部复用通用 CREATE TABLE AST 并在反解析阶段恢复 MySQL 公共形态,https://dev.mysql.com/doc/refman/8.4/en/numeric-type-attributes.html
+types,ZEROFILL,CURRENT,已覆盖数值类型 ZEROFILL 属性，内部复用通用 CREATE TABLE AST 并在反解析阶段恢复 MySQL 公共形态,https://dev.mysql.com/doc/refman/8.4/en/numeric-type-attributes.html
+ddl,TABLE_ENGINE_OPTIONS,CURRENT,已覆盖 ENGINE 表选项，内部复用通用 CREATE TABLE AST 并在反解析阶段恢复 MySQL 公共形态,https://dev.mysql.com/doc/refman/8.4/en/create-table.html
+ddl,TABLE_CHARSET_COLLATION,CURRENT,已覆盖字符集和排序规则表选项，内部复用通用 CREATE TABLE AST 并在反解析阶段恢复 MySQL 公共形态,https://dev.mysql.com/doc/refman/8.4/en/create-table.html
+ddl,CREATE_TABLE_COLUMN_ATTRIBUTES,CURRENT,已覆盖官方 CREATE TABLE column_definition 中的 MySQL 列属性公开形态，内部复用通用 CREATE TABLE AST 并在反解析阶段恢复原 MySQL 片段,https://dev.mysql.com/doc/refman/8.4/en/create-table.html
+ddl,CREATE_TABLE_TABLE_OPTIONS,CURRENT,已覆盖官方 CREATE TABLE table_option 代表形态，内部复用通用 CREATE TABLE AST 并在反解析阶段恢复原 MySQL 表选项尾部,https://dev.mysql.com/doc/refman/8.4/en/create-table.html
+ddl,CREATE_TABLE_PARTITION_OPTIONS,CURRENT,已覆盖无查询表达式 CREATE TABLE 的 PARTITION BY 尾部保留与反解析恢复,https://dev.mysql.com/doc/refman/8.4/en/create-table.html
+program,CREATE_PROCEDURE_FUNCTION,MODEL_REQUIRED,存储过程和函数体超出当前 SQL 语句模型,https://dev.mysql.com/doc/refman/8.4/en/create-procedure.html
+program,CREATE_TRIGGER,MODEL_REQUIRED,触发器定义需要 MySQL 程序单元模型,https://dev.mysql.com/doc/refman/8.4/en/create-trigger.html
+program,CREATE_EVENT,MODEL_REQUIRED,事件调度对象需要 MySQL 专用 DDL 模型,https://dev.mysql.com/doc/refman/8.4/en/create-event.html
+admin,LOAD_DATA,MODEL_REQUIRED,LOAD DATA 包含文件、字段和导入控制语义，需要专用模型,https://dev.mysql.com/doc/refman/8.4/en/load-data.html
+admin,LOCK_TABLES,MODEL_REQUIRED,LOCK TABLES 的锁模式和表列表需要 MySQL 专用语义,https://dev.mysql.com/doc/refman/8.4/en/lock-tables.html

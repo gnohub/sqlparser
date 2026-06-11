@@ -6,7 +6,9 @@
 
 - [PostgreSQL 17: SQL Commands](https://www.postgresql.org/docs/17/sql-commands.html)
 - [PostgreSQL 17: The SQL Language](https://www.postgresql.org/docs/17/sql.html)
-- 统计日期：2026-05-08
+- [PostgreSQL: Supported Features](https://www.postgresql.org/docs/current/features-sql-standard.html)
+- [PostgreSQL pgsql-docs: document `N'...'` national character string literal syntax](https://www.postgresql.org/message-id/om3g7p7u3ztlrdp4tfswgulavljgn2fe6u2agk34mrr65dffuu%40cpzlzuv6flko)
+- 统计日期：2026-06-11
 
 统计范围固定为官方 SQL Commands 中与公共 API、View JSON、deparse 和可执行回归测试直接相关的语法组。
 
@@ -22,22 +24,22 @@
 
 ## 统计结果
 
-| 状态 | 语法组数 | 占全部 41 组 |
+| 状态 | 语法组数 | 占全部 42 组 |
 | --- | ---: | ---: |
-| `CURRENT` | 38 | 92.68% |
-| `HOOK_ONLY` | 2 | 4.88% |
-| `MIXED_MODEL` | 1 | 2.44% |
+| `CURRENT` | 41 | 97.62% |
+| `HOOK_ONLY` | 0 | 0.00% |
+| `MIXED_MODEL` | 1 | 2.38% |
 | `MODEL_REQUIRED` | 0 | 0.00% |
 | `REFERENCE_ONLY` | 0 | 0.00% |
 
-剔除 `REFERENCE_ONLY` 后，官方可实现语法组为 41 组。其中当前已覆盖 38 组，未覆盖 3 组。
+剔除 `REFERENCE_ONLY` 后，官方可实现语法组为 42 组。其中当前已覆盖 41 组，未覆盖 1 组。
 
-| 未覆盖分类 | 语法组数 | 占未覆盖 3 组 |
+| 未覆盖分类 | 语法组数 | 占未覆盖 1 组 |
 | --- | ---: | ---: |
-| `HOOK_ONLY` | 2 | 66.67% |
-| `MIXED_MODEL` | 1 | 33.33% |
+| `HOOK_ONLY` | 0 | 0.00% |
+| `MIXED_MODEL` | 1 | 100.00% |
 | `MODEL_REQUIRED` | 0 | 0.00% |
 
 ## 结论
 
-PostgreSQL 是默认解析内核方言，当前缺口主要不是语法解析能力，而是少量语句在公共 query_graph、selector 或回归矩阵中的专用覆盖。需要扩展公共模型的条目为 1 组。
+PostgreSQL 是默认解析内核方言，当前没有只缺少 hook 或回归覆盖的语法组。剩余缺口为角色、用户、数据库对象管理类语句的完整对象归属和选项模型，需要扩展公共模型。

@@ -151,6 +151,16 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 | P134 | `postgresql-not-like-escape-bind` | `NOT LIKE $1 ESCAPE $2` | pattern bind and escape bind remain separate; escape bind keeps its global position |
 | P135 | `postgresql-ilike-escape-bind` | `ILIKE $1 ESCAPE $2` | structured ESCAPE output for PostgreSQL `ILIKE` |
 | P136 | `postgresql-like-without-explicit-escape` | `LIKE $1` | `like_escape` is omitted when ESCAPE is not explicit |
+| P138 | `postgresql-update-from-source-field-graph` | `UPDATE ... SET target = source.column FROM ...` | `source_field` for base-table source fields on the right side of UPDATE FROM assignments, plus `right_field` for WHERE field comparisons |
+| P139 | `postgresql-insert-select-source-block-graph` | `INSERT ... SELECT ... FROM ...` | target columns, source block, and source-field lineage for INSERT SELECT |
+| P140 | `postgresql-merge-source-target-graph` | `MERGE INTO ... USING ...` | source/target field lineage and source-field expressions for MERGE |
+| P141 | `postgresql-listen-notify-unlisten` | `LISTEN` / `NOTIFY` / `UNLISTEN` | PostgreSQL notification statements parse, deparse, and emit an empty query graph |
+| P142 | `postgresql-create-drop-extension` | `CREATE EXTENSION` / `DROP EXTENSION` | extension-object DDL parsing, deparsing, and utility-statement output |
+| P143 | `postgresql-regexp-like-function-predicate` | `regexp_like(name, $1)` | function predicates reuse `fields/values/predicates` for fields, binds, and expression predicates |
+| P144 | `postgresql-select-alias-order-by-lineage` | `SELECT u.email AS e ... ORDER BY u.email` | SELECT output aliases keep base-field lineage, while ORDER BY fields stay independently attributed |
+| P145 | `postgresql-select-or-predicate-order-by-lineage` | `WHERE field = $n OR field = $n ORDER BY ...` | OR predicate trees keep both comparison children, binds, and independent ORDER BY field attribution |
+| P146 | `postgresql-national-string-literal` | `SELECT ..., N'...' ... WHERE ... = n'...'` | PostgreSQL national string literals keep the public `N` prefix while ordinary strings remain unchanged |
+| P147 | `postgresql-national-string-duplicate-literal` | ordinary `'same'` and `N'same'` together | same-text ordinary and national strings are restored independently by literal ordinal |
 
 ## Dialect CLI Cases
 

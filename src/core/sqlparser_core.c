@@ -20,7 +20,7 @@
 #include "sqlparser_internal.h"
 
 #ifndef SQLPARSER_VERSION_TEXT
-#define SQLPARSER_VERSION_TEXT "2.7.0"
+#define SQLPARSER_VERSION_TEXT "2.8.0"
 #endif
 
 #ifndef SQLPARSER_LIBPG_QUERY_TAG_TEXT
@@ -879,7 +879,13 @@ sqlparser_status_t sqlparser_postprocess_handle_sql_fragment(
 	}
 
 	public_sql = NULL;
-	if (handle->dialect_ops != NULL && handle->dialect_ops->postprocess_deparse != NULL) {
+	if (handle->dialect_ops != NULL && handle->dialect_ops->postprocess_fragment != NULL) {
+		status = handle->dialect_ops->postprocess_fragment(
+			core_sql,
+			handle->dialect_state,
+			&public_sql,
+			out_error);
+	} else if (handle->dialect_ops != NULL && handle->dialect_ops->postprocess_deparse != NULL) {
 		status = handle->dialect_ops->postprocess_deparse(
 			core_sql,
 			handle->dialect_state,
@@ -1349,9 +1355,60 @@ const char *sqlparser_graph_insert_mode_name(sqlparser_graph_insert_mode_t mode)
 			return "all";
 		case SQLPARSER_GRAPH_INSERT_MODE_FIRST:
 			return "first";
+		case SQLPARSER_GRAPH_INSERT_MODE_REPLACE_VALUES:
+			return "replace_values";
+		case SQLPARSER_GRAPH_INSERT_MODE_REPLACE_SELECT:
+			return "replace_select";
+		case SQLPARSER_GRAPH_INSERT_MODE_REPLACE_SET:
+			return "replace_set";
 		case SQLPARSER_GRAPH_INSERT_MODE_UNKNOWN:
 		default:
 			return "unknown";
+	}
+}
+
+const char *sqlparser_graph_dml_branch_kind_name(sqlparser_graph_dml_branch_kind_t kind)
+{
+	switch (kind) {
+		case SQLPARSER_GRAPH_DML_BRANCH_WHEN:
+			return "when";
+		case SQLPARSER_GRAPH_DML_BRANCH_ELSE:
+			return "else";
+		case SQLPARSER_GRAPH_DML_BRANCH_UNCONDITIONAL:
+		default:
+			return "unconditional";
+	}
+}
+
+const char *sqlparser_graph_predicate_kind_name(sqlparser_graph_predicate_kind_t kind)
+{
+	switch (kind) {
+		case SQLPARSER_GRAPH_PREDICATE_COMPARISON:
+			return "comparison";
+		case SQLPARSER_GRAPH_PREDICATE_BOOL:
+			return "bool";
+		case SQLPARSER_GRAPH_PREDICATE_EXISTS:
+			return "exists";
+		case SQLPARSER_GRAPH_PREDICATE_EXPRESSION:
+			return "expression";
+		case SQLPARSER_GRAPH_PREDICATE_UNKNOWN:
+		default:
+			return "unknown";
+	}
+}
+
+const char *sqlparser_graph_predicate_bool_name(sqlparser_graph_predicate_bool_t kind)
+{
+	switch (kind) {
+		case SQLPARSER_GRAPH_PREDICATE_BOOL_AND:
+			return "and";
+		case SQLPARSER_GRAPH_PREDICATE_BOOL_OR:
+			return "or";
+		case SQLPARSER_GRAPH_PREDICATE_BOOL_NOT:
+			return "not";
+		case SQLPARSER_GRAPH_PREDICATE_BOOL_NONE:
+		default:
+			return "none";
 	}
 }
 

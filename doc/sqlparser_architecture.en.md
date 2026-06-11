@@ -86,6 +86,7 @@ Typical outputs include:
 - `query_graph.fields`
 - `query_graph.values`
 - `query_graph.sets`
+- `query_graph.predicates`
 - `query_graph.dml`
 
 ### 3.4 View Layer
