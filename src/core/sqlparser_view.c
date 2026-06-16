@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,6 +26,11 @@ typedef struct {
 	sqlparser_handle_t *handle;
 	size_t statement_index;
 } sqlparser_view_build_t;
+
+typedef struct {
+	const void *pointer;
+	size_t index;
+} sqlparser_graph_pointer_index_t;
 
 typedef struct {
 	sqlparser_handle_t *handle;
@@ -1651,11 +1657,421 @@ typedef struct {
 	sqlparser_query_graph_cache_t *cache;
 	sqlparser_statement_graph_t *statement;
 	size_t statement_index;
+	PgQuery__Node *statement_node;
 	sqlparser_graph_scope_t scopes[32];
 	size_t scope_count;
 	sqlparser_target_path_entry_t target_path[SQLPARSER_TARGET_PATH_CAPACITY];
 	size_t target_path_count;
+	int selector_cache_built;
+	int selector_cache_failed;
+	sqlparser_graph_pointer_index_t *node_indices;
+	size_t node_index_count;
+	size_t node_index_capacity;
+	sqlparser_graph_pointer_index_t *relation_indices;
+	size_t relation_index_count;
+	size_t relation_index_capacity;
+	sqlparser_graph_pointer_index_t *select_target_list_indices;
+	size_t select_target_list_index_count;
+	size_t select_target_list_index_capacity;
+	sqlparser_graph_pointer_index_t *name_indices;
+	size_t name_index_count;
+	size_t name_index_capacity;
 } sqlparser_graph_build_t;
+
+static int sqlparser_graph_selector_cache_append(
+	sqlparser_graph_pointer_index_t **items,
+	size_t *count,
+	size_t *capacity,
+	const void *pointer,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_graph_pointer_index_t *new_items;
+	size_t new_capacity;
+
+	if (items == NULL || count == NULL || capacity == NULL || pointer == NULL) {
+		return 0;
+	}
+	if (*count >= *capacity) {
+		new_capacity = *capacity != 0U ? *capacity : 64U;
+		while (new_capacity <= *count) {
+			if (new_capacity > ((size_t)-1) / 2U) {
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "query graph selector cache is too large");
+				return -1;
+			}
+			new_capacity *= 2U;
+		}
+		if (new_capacity > ((size_t)-1) / sizeof(*new_items)) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "query graph selector cache is too large");
+			return -1;
+		}
+		new_items = (sqlparser_graph_pointer_index_t *)realloc(*items, new_capacity * sizeof(*new_items));
+		if (new_items == NULL) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			return -1;
+		}
+		*items = new_items;
+		*capacity = new_capacity;
+	}
+	(*items)[*count].pointer = pointer;
+	(*items)[*count].index = *count;
+	(*count)++;
+	return 0;
+}
+
+static size_t sqlparser_graph_selector_cache_find(
+	const sqlparser_graph_pointer_index_t *items,
+	size_t count,
+	const void *pointer)
+{
+	size_t index;
+
+	if (items == NULL || pointer == NULL) {
+		return (size_t)-1;
+	}
+	for (index = 0U; index < count; index++) {
+		if (items[index].pointer == pointer) {
+			return items[index].index;
+		}
+	}
+	return (size_t)-1;
+}
+
+static void sqlparser_graph_selector_cache_clear(sqlparser_graph_build_t *build)
+{
+	if (build == NULL) {
+		return;
+	}
+	free(build->node_indices);
+	free(build->relation_indices);
+	free(build->select_target_list_indices);
+	free(build->name_indices);
+	build->node_indices = NULL;
+	build->relation_indices = NULL;
+	build->select_target_list_indices = NULL;
+	build->name_indices = NULL;
+	build->node_index_count = 0U;
+	build->relation_index_count = 0U;
+	build->select_target_list_index_count = 0U;
+	build->name_index_count = 0U;
+	build->node_index_capacity = 0U;
+	build->relation_index_capacity = 0U;
+	build->select_target_list_index_capacity = 0U;
+	build->name_index_capacity = 0U;
+	build->selector_cache_built = 0;
+	build->selector_cache_failed = 0;
+}
+
+static int sqlparser_graph_select_has_target_list(const PgQuery__SelectStmt *stmt)
+{
+	return stmt != NULL && stmt->n_target_list > 0U && stmt->target_list != NULL;
+}
+
+static int sqlparser_graph_message_is_name_container(const ProtobufCMessageDescriptor *descriptor)
+{
+	const char *short_name;
+
+	if (descriptor == NULL || descriptor->short_name == NULL) {
+		return 0;
+	}
+	short_name = descriptor->short_name;
+	return strcmp(short_name, "Node") == 0 || strcmp(short_name, "List") == 0 ||
+	       strcmp(short_name, "String") == 0 || strcmp(short_name, "Float") == 0 ||
+	       strcmp(short_name, "BitString") == 0;
+}
+
+static int sqlparser_graph_name_context_is_literal(const sqlparser_name_context_t *context)
+{
+	return context != NULL && context->owner_type != NULL &&
+	       strcmp(context->owner_type, "AConst") == 0;
+}
+
+static sqlparser_name_context_t sqlparser_graph_next_name_context(
+	const ProtobufCMessageDescriptor *descriptor,
+	const ProtobufCFieldDescriptor *field,
+	const sqlparser_name_context_t *context)
+{
+	sqlparser_name_context_t next_context;
+
+	memset(&next_context, 0, sizeof(next_context));
+	if (sqlparser_graph_message_is_name_container(descriptor)) {
+		if (context != NULL) {
+			next_context = *context;
+		}
+		return next_context;
+	}
+	if (descriptor != NULL) {
+		next_context.owner_type = descriptor->short_name;
+	}
+	if (field != NULL) {
+		next_context.field_name = field->name;
+	}
+	return next_context;
+}
+
+static int sqlparser_graph_selector_cache_record_name(
+	sqlparser_graph_build_t *build,
+	const sqlparser_name_context_t *context,
+	const ProtobufCMessageDescriptor *descriptor,
+	const ProtobufCFieldDescriptor *field,
+	char **slot,
+	sqlparser_error_t *out_error)
+{
+	const char *owner_type;
+	const char *field_name;
+
+	if (slot == NULL || *slot == NULL || (*slot)[0] == '\0') {
+		return 0;
+	}
+	if (sqlparser_graph_name_context_is_literal(context)) {
+		return 0;
+	}
+	owner_type = NULL;
+	field_name = NULL;
+	if (sqlparser_graph_message_is_name_container(descriptor) && context != NULL) {
+		owner_type = context->owner_type;
+		field_name = context->field_name;
+	}
+	if (owner_type == NULL && descriptor != NULL) {
+		owner_type = descriptor->short_name;
+	}
+	if (field_name == NULL && field != NULL) {
+		field_name = field->name;
+	}
+	if (owner_type == NULL || field_name == NULL) {
+		return 0;
+	}
+	return sqlparser_graph_selector_cache_append(
+		&build->name_indices,
+		&build->name_index_count,
+		&build->name_index_capacity,
+		slot,
+		out_error);
+}
+
+static int sqlparser_graph_selector_cache_collect(
+	sqlparser_graph_build_t *build,
+	ProtobufCMessage *message,
+	const sqlparser_name_context_t *context,
+	sqlparser_error_t *out_error)
+{
+	const ProtobufCMessageDescriptor *descriptor;
+	uint8_t *base;
+	unsigned index;
+
+	if (build == NULL || message == NULL) {
+		return 0;
+	}
+	descriptor = message->descriptor;
+	if (descriptor == NULL) {
+		return 0;
+	}
+	if (descriptor == &pg_query__range_var__descriptor &&
+	    sqlparser_graph_selector_cache_append(
+		    &build->relation_indices,
+		    &build->relation_index_count,
+		    &build->relation_index_capacity,
+		    message,
+		    out_error) != 0) {
+		return -1;
+	}
+	if (descriptor == &pg_query__select_stmt__descriptor &&
+	    sqlparser_graph_select_has_target_list((PgQuery__SelectStmt *)message) &&
+	    sqlparser_graph_selector_cache_append(
+		    &build->select_target_list_indices,
+		    &build->select_target_list_index_count,
+		    &build->select_target_list_index_capacity,
+		    message,
+		    out_error) != 0) {
+		return -1;
+	}
+	base = (uint8_t *)message;
+	for (index = 0U; index < descriptor->n_fields; index++) {
+		const ProtobufCFieldDescriptor *field;
+
+		field = &descriptor->fields[index];
+		if ((field->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) != 0U) {
+			const int case_value = *(const int *)(base + field->quantifier_offset);
+
+			if (case_value != (int)field->id) {
+				continue;
+			}
+		}
+
+		if (field->type == PROTOBUF_C_TYPE_STRING) {
+			if (field->label == PROTOBUF_C_LABEL_REPEATED) {
+				size_t item_count;
+				char **items;
+				size_t item_index;
+
+				item_count = *(const size_t *)(base + field->quantifier_offset);
+				items = *(char ***)(base + field->offset);
+				for (item_index = 0U; item_index < item_count; item_index++) {
+					if (sqlparser_graph_selector_cache_record_name(
+						    build,
+						    context,
+						    descriptor,
+						    field,
+						    items != NULL ? &items[item_index] : NULL,
+						    out_error) != 0) {
+						return -1;
+					}
+				}
+			} else if (sqlparser_graph_selector_cache_record_name(
+					   build,
+					   context,
+					   descriptor,
+					   field,
+					   (char **)(base + field->offset),
+					   out_error) != 0) {
+				return -1;
+			}
+			continue;
+		}
+
+		if (field->type == PROTOBUF_C_TYPE_MESSAGE) {
+			sqlparser_name_context_t next_context;
+
+			next_context = sqlparser_graph_next_name_context(descriptor, field, context);
+			if (field->label == PROTOBUF_C_LABEL_REPEATED) {
+				size_t item_count;
+				ProtobufCMessage **items;
+				size_t item_index;
+
+				item_count = *(const size_t *)(base + field->quantifier_offset);
+				items = *(ProtobufCMessage ***)(base + field->offset);
+				for (item_index = 0U; item_index < item_count; item_index++) {
+					ProtobufCMessage *child;
+
+					child = items != NULL ? items[item_index] : NULL;
+					if (child == NULL) {
+						continue;
+					}
+					if (child->descriptor == &pg_query__node__descriptor &&
+					    sqlparser_graph_selector_cache_append(
+						    &build->node_indices,
+						    &build->node_index_count,
+						    &build->node_index_capacity,
+						    child,
+						    out_error) != 0) {
+						return -1;
+					}
+					if (sqlparser_graph_selector_cache_collect(build, child, &next_context, out_error) != 0) {
+						return -1;
+					}
+				}
+			} else {
+				ProtobufCMessage *child;
+
+				child = *(ProtobufCMessage **)(base + field->offset);
+				if (child == NULL) {
+					continue;
+				}
+				if (child->descriptor == &pg_query__node__descriptor &&
+				    sqlparser_graph_selector_cache_append(
+					    &build->node_indices,
+					    &build->node_index_count,
+					    &build->node_index_capacity,
+					    child,
+					    out_error) != 0) {
+					return -1;
+				}
+				if (sqlparser_graph_selector_cache_collect(build, child, &next_context, out_error) != 0) {
+					return -1;
+				}
+			}
+		}
+	}
+	return 0;
+}
+
+static int sqlparser_graph_ensure_selector_cache(
+	sqlparser_graph_build_t *build,
+	sqlparser_error_t *out_error)
+{
+	if (build == NULL || build->statement_node == NULL) {
+		return -1;
+	}
+	if (build->selector_cache_built) {
+		return build->selector_cache_failed ? -1 : 0;
+	}
+	build->selector_cache_built = 1;
+	if (sqlparser_graph_selector_cache_collect(build, (ProtobufCMessage *)build->statement_node, NULL, out_error) != 0) {
+		sqlparser_graph_selector_cache_clear(build);
+		build->selector_cache_built = 1;
+		build->selector_cache_failed = 1;
+		return -1;
+	}
+	return 0;
+}
+
+static size_t sqlparser_graph_find_cached_value_index(
+	sqlparser_graph_build_t *build,
+	PgQuery__Node *node)
+{
+	sqlparser_view_build_t fallback_build;
+
+	if (node == NULL) {
+		return (size_t)-1;
+	}
+	if (sqlparser_graph_ensure_selector_cache(build, NULL) == 0) {
+		return sqlparser_graph_selector_cache_find(
+			build->node_indices,
+			build->node_index_count,
+			node);
+	}
+	memset(&fallback_build, 0, sizeof(fallback_build));
+	fallback_build.handle = build != NULL ? build->handle : NULL;
+	fallback_build.statement_index = build != NULL ? build->statement_index : 0U;
+	return sqlparser_view_find_value_index(&fallback_build, node);
+}
+
+static size_t sqlparser_graph_find_cached_name_index(
+	sqlparser_graph_build_t *build,
+	char **slot)
+{
+	sqlparser_view_build_t fallback_build;
+
+	if (slot == NULL) {
+		return (size_t)-1;
+	}
+	if (sqlparser_graph_ensure_selector_cache(build, NULL) == 0) {
+		return sqlparser_graph_selector_cache_find(
+			build->name_indices,
+			build->name_index_count,
+			slot);
+	}
+	memset(&fallback_build, 0, sizeof(fallback_build));
+	fallback_build.handle = build != NULL ? build->handle : NULL;
+	fallback_build.statement_index = build != NULL ? build->statement_index : 0U;
+	return sqlparser_view_find_name_selector_index(&fallback_build, slot);
+}
+
+static size_t sqlparser_graph_find_cached_select_target_list_index(
+	sqlparser_graph_build_t *build,
+	PgQuery__SelectStmt *stmt)
+{
+	size_t index;
+
+	if (stmt == NULL || !sqlparser_graph_select_has_target_list(stmt)) {
+		return (size_t)-1;
+	}
+	if (sqlparser_graph_ensure_selector_cache(build, NULL) == 0) {
+		return sqlparser_graph_selector_cache_find(
+			build->select_target_list_indices,
+			build->select_target_list_index_count,
+			stmt);
+	}
+	if (build == NULL ||
+	    sqlparser_find_select_target_list_index_by_stmt(
+		    build->handle,
+		    build->statement_index,
+		    stmt,
+		    &index,
+		    NULL) != SQLPARSER_STATUS_OK) {
+		return (size_t)-1;
+	}
+	return index;
+}
 
 static int sqlparser_graph_value_from_node(
 	sqlparser_graph_build_t *build,
@@ -2409,6 +2825,13 @@ static size_t sqlparser_graph_find_relation_selector_index(
 	if (build == NULL || build->handle == NULL || range_var == NULL) {
 		return (size_t)-1;
 	}
+	if (sqlparser_graph_ensure_selector_cache(build, NULL) == 0) {
+		index = sqlparser_graph_selector_cache_find(
+			build->relation_indices,
+			build->relation_index_count,
+			range_var);
+		return index;
+	}
 	memset(&error, 0, sizeof(error));
 	if (sqlparser_search_statement_messages(
 		    build->handle,
@@ -2524,7 +2947,6 @@ static int sqlparser_graph_add_column_ref_field(
 	sqlparser_error_t *out_error)
 {
 	sqlparser_graph_field_t field;
-	sqlparser_view_build_t view_build;
 	const char *column_name;
 	const char *qualifier;
 	size_t name_index;
@@ -2560,10 +2982,7 @@ static int sqlparser_graph_add_column_ref_field(
 		    out_error) != 0) {
 		return -1;
 	}
-	memset(&view_build, 0, sizeof(view_build));
-	view_build.handle = build->handle;
-	view_build.statement_index = build->statement_index;
-	name_index = sqlparser_view_find_name_selector_index(&view_build, sqlparser_graph_column_ref_name_slot(column_ref));
+	name_index = sqlparser_graph_find_cached_name_index(build, sqlparser_graph_column_ref_name_slot(column_ref));
 	if (name_index != (size_t)-1) {
 		field.selector.kind = SQLPARSER_SELECTOR_KIND_NAME;
 		field.selector.statement_index = build->statement_index;
@@ -2835,7 +3254,6 @@ static int sqlparser_graph_value_from_node(
 	sqlparser_graph_value_t *out_value,
 	sqlparser_error_t *out_error)
 {
-	sqlparser_view_build_t view_build;
 	size_t value_index;
 
 	if (out_value == NULL) {
@@ -2884,10 +3302,7 @@ static int sqlparser_graph_value_from_node(
 	if (like_escape != NULL && like_escape->kind != SQLPARSER_GRAPH_LIKE_ESCAPE_NONE) {
 		out_value->like_escape = *like_escape;
 	}
-	memset(&view_build, 0, sizeof(view_build));
-	view_build.handle = build->handle;
-	view_build.statement_index = build->statement_index;
-	value_index = sqlparser_view_find_value_index(&view_build, value_node);
+	value_index = sqlparser_graph_find_cached_value_index(build, value_node);
 	if (value_index != (size_t)-1) {
 		out_value->selector.kind = SQLPARSER_SELECTOR_KIND_VALUE;
 		out_value->selector.statement_index = build->statement_index;
@@ -5331,15 +5746,15 @@ static int sqlparser_graph_build_from_item(
 					out_error) != 0) {
 					return -1;
 				}
-			selector_index = sqlparser_graph_find_relation_selector_index(build, node->range_var);
-			if (selector_index != (size_t)-1) {
-				sqlparser_graph_relation_t *relation;
+				selector_index = sqlparser_graph_find_relation_selector_index(build, node->range_var);
+				if (selector_index != (size_t)-1) {
+					sqlparser_graph_relation_t *relation;
 
-				relation = sqlparser_graph_relation_by_local(build, added_relation);
-				if (relation != NULL) {
-					relation->selector.kind = SQLPARSER_SELECTOR_KIND_RELATION;
-					relation->selector.statement_index = build->statement_index;
-					relation->selector.item_index = selector_index;
+					relation = sqlparser_graph_relation_by_local(build, added_relation);
+					if (relation != NULL) {
+						relation->selector.kind = SQLPARSER_SELECTOR_KIND_RELATION;
+						relation->selector.statement_index = build->statement_index;
+						relation->selector.item_index = selector_index;
 						relation->has_selector = 1;
 					}
 				}
@@ -5501,12 +5916,10 @@ static int sqlparser_graph_build_select(
 		}
 	}
 	target_list_index = 0U;
-	(void)sqlparser_find_select_target_list_index_by_stmt(
-		build->handle,
-		build->statement_index,
-		stmt,
-		&target_list_index,
-		NULL);
+	index = sqlparser_graph_find_cached_select_target_list_index(build, stmt);
+	if (index != (size_t)-1) {
+		target_list_index = index;
+	}
 	for (index = 0U; index < stmt->n_target_list; index++) {
 		PgQuery__Node *target_node;
 
@@ -6959,6 +7372,7 @@ static sqlparser_status_t sqlparser_query_graph_cache_build(
 		build.cache = cache;
 		build.statement = &cache->statements[statement_index];
 		build.statement_index = statement_index;
+		build.statement_node = statement_node;
 		build.statement->block_offset = cache->block_count;
 		build.statement->relation_offset = cache->relation_count;
 		build.statement->target_offset = cache->target_count;
@@ -6973,12 +7387,14 @@ static sqlparser_status_t sqlparser_query_graph_cache_build(
 		build.statement->dml_assignment_offset = cache->dml_assignment_count;
 		if (sqlparser_graph_build_statement(&build, statement_node, out_error) != 0 ||
 		    sqlparser_graph_finalize_statement_spans(&build, out_error) != 0) {
+			sqlparser_graph_selector_cache_clear(&build);
 			sqlparser_query_graph_cache_release(cache);
 			if (out_error != NULL && out_error->code == SQLPARSER_STATUS_OK) {
 				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "failed to build query graph");
 			}
 			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
 		}
+		sqlparser_graph_selector_cache_clear(&build);
 	}
 	*out_cache = cache;
 	return SQLPARSER_STATUS_OK;

@@ -1,17 +1,14 @@
-# v2.8.0 发布说明
+# v2.8.1 发布说明
 
-`v2.8.0` 扩展 Query Graph、DML 结构化输出和多方言覆盖，重点增强 Oracle P3 结构化输出、MySQL / SQL Server / 达梦 / Vastbase 方言兼容能力，以及 national / Unicode 字符串公开形态保真。
+`v2.8.1` 是 `query_graph` 性能补丁版本，重点优化大型 / 多层 SQL 场景下 `sqlparser_statement_query_graph()` 的冷调用耗时，尤其改善 `INSERT ... SELECT`、集合查询和嵌套 SELECT。本版本不新增公共 API，不改变公共结构体布局和 selector 输出语义。
 
 ## 主要变化
 
-- 公共版本号更新为 `2.8.0`。
-- `query_graph` 增加 predicate 结构，用于表达比较、布尔组合、`EXISTS` 和表达式谓词。
-- DML assignment、cell 和 branch 增加 source field / source target 关联，用于表达字段搬运、`MERGE` source lineage 和多分支 insert 来源。
-- Oracle 覆盖 alias-qualified `UPDATE`、`INSERT ALL` / `INSERT FIRST`、`MERGE` source lineage、`DISTINCT`、`ORDER BY` 和 qualified star + `ROWID`。
-- MySQL、SQL Server、达梦和 Vastbase 兼容模式补齐多类可由现有结构安全表达的方言语法。
-- MySQL、Oracle、PostgreSQL、达梦及 Vastbase 对应兼容模式支持 `N'...'` / `n'...'` national 字符串公开形态保真。
-- Oracle、达梦及 Vastbase-Oracle 保留 `nq'...'` national q-quoted 字符串语义。
-- 公共头文件的结构体布局发生变化，使用本版本头文件重新编译调用方后再链接本版本库。
+- 公共版本号更新为 `2.8.1`。
+- `query_graph` 构建期新增 statement 级 selector 缓存，一次遍历记录 value、name、relation 和 select target list 的 selector 索引。
+- 避免大型 / 多层 `query_graph` 构建中为每个 value、field、relation 或 SELECT target list 重复执行全 statement protobuf 树搜索。
+- 保持 `sqlparser_statement_query_graph()` 接口、公共结构体布局、selector 输出格式和同一 handle 的 query graph cache 行为不变。
+- 公共头文件布局未变化；调用方不需要因为公共结构变更做适配。
 
 ## 发布验证
 

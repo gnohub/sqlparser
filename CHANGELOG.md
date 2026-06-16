@@ -1,5 +1,17 @@
 # 变更记录
 
+## 2.8.1
+
+### Query Graph 性能
+
+- `sqlparser_statement_query_graph()` 构建期新增 statement 级 selector 缓存，一次遍历记录 value、name、relation 和 select target list 的 selector 索引。
+- 大型 / 多层 `query_graph` 场景不再为每个 value、field、relation 或 SELECT target list 反复执行全 statement protobuf 树搜索，尤其改善 `INSERT ... SELECT`、集合查询和嵌套 SELECT。
+- 保持公共 API、ABI、selector 输出格式和 `query_graph` 结构不变；同一 handle 的 query graph cache 行为不变。
+
+### 测试与验证
+
+- 发布验证覆盖 Linux 单元测试、ASan、UBSan、Valgrind 内存检查和 ABI 导出检查。
+
 ## 2.8.0
 
 ### Query Graph 与 DML 结构化输出

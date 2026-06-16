@@ -1,29 +1,24 @@
-# v2.8.0 Release Notes
+# v2.8.1 Release Notes
 
-`v2.8.0` expands Query Graph, DML structured output, and multi-dialect
-coverage. The release focuses on Oracle P3 structured output, MySQL / SQL
-Server / Dameng / Vastbase compatibility coverage, and public preservation of
-national / Unicode string forms.
+`v2.8.1` is a `query_graph` performance patch release. It optimizes cold
+`sqlparser_statement_query_graph()` calls for large and deeply nested SQL
+workloads, especially `INSERT ... SELECT`, set queries, and nested SELECT
+statements. This release does not add public APIs or change public structure
+layouts or selector semantics.
 
 ## Highlights
 
-- Updated the public version to `2.8.0`.
-- Added Query Graph predicates for comparisons, boolean combinations, `EXISTS`,
-  and expression predicates.
-- Added source field / source target links to DML assignments, cells, and
-  branches for field movement, `MERGE` source lineage, and multi-branch insert
-  sources.
-- Expanded Oracle coverage for alias-qualified `UPDATE`, `INSERT ALL` /
-  `INSERT FIRST`, `MERGE` source lineage, `DISTINCT`, `ORDER BY`, and qualified
-  star plus `ROWID`.
-- Expanded MySQL, SQL Server, Dameng, and Vastbase compatibility coverage for
-  syntax that can be safely represented by the current structures.
-- MySQL, Oracle, PostgreSQL, Dameng, and matching Vastbase compatibility modes
-  preserve public `N'...'` / `n'...'` national string forms.
-- Oracle, Dameng, and Vastbase-Oracle preserve `nq'...'` national q-quoted
-  string semantics.
-- The public header layout changed. Rebuild callers with this version's header
-  before linking against this version of the library.
+- Updated the public version to `2.8.1`.
+- Added a statement-level selector cache while building `query_graph`,
+  recording value, name, relation, and select target-list selector indexes in
+  one traversal.
+- Avoided repeated full statement protobuf tree searches for each value, field,
+  relation, or SELECT target list in large and deeply nested `query_graph`
+  builds.
+- Kept `sqlparser_statement_query_graph()`, public structure layouts, selector
+  output format, and same-handle query graph cache behavior unchanged.
+- The public header layout is unchanged; callers do not need adaptation for
+  public structure changes.
 
 ## Release Validation
 

@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.8.1
+
+### Query Graph Performance
+
+- Added a statement-level selector cache while building
+  `sqlparser_statement_query_graph()`, recording value, name, relation, and
+  select target-list selector indexes in one traversal.
+- Large and deeply nested `query_graph` workloads no longer run a full
+  statement protobuf tree search for each value, field, relation, or SELECT
+  target list, especially improving `INSERT ... SELECT`, set queries, and
+  nested SELECT statements.
+- Kept the public API, ABI, selector output format, `query_graph` shape, and
+  same-handle query graph cache behavior unchanged.
+
+### Tests and Validation
+
+- Release validation covers Linux unit tests, ASan, UBSan, Valgrind leak
+  checks, and ABI export checks.
+
 ## 2.8.0
 
 ### Query Graph and DML Structured Output
