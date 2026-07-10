@@ -20,7 +20,7 @@
 #include "sqlparser_internal.h"
 
 #ifndef SQLPARSER_VERSION_TEXT
-#define SQLPARSER_VERSION_TEXT "2.8.1"
+#define SQLPARSER_VERSION_TEXT "2.9.0"
 #endif
 
 #ifndef SQLPARSER_LIBPG_QUERY_TAG_TEXT
@@ -1361,6 +1361,8 @@ const char *sqlparser_graph_insert_mode_name(sqlparser_graph_insert_mode_t mode)
 			return "replace_select";
 		case SQLPARSER_GRAPH_INSERT_MODE_REPLACE_SET:
 			return "replace_set";
+		case SQLPARSER_GRAPH_INSERT_MODE_SET:
+			return "set";
 		case SQLPARSER_GRAPH_INSERT_MODE_UNKNOWN:
 		default:
 			return "unknown";

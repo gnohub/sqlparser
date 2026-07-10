@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.9.0
+
+### MySQL Dialect
+
+- Added support for `INSERT ... SET`, `ON DUPLICATE KEY UPDATE` row aliases,
+  aliased delete targets, and single-table `UPDATE` / `DELETE ... ORDER BY ...
+  LIMIT` statements.
+- Added support for `STRAIGHT_JOIN`, `JOIN ... USING`, `NATURAL JOIN`, locking
+  reads, index hints, and query-table `PARTITION(...)` clauses.
+- Added matching compatibility coverage to Vastbase-MySQL.
+
+### Query Graph
+
+- Fields in `JOIN ... USING` are emitted through the existing `fields[]` and
+  `candidate_relations` structures.
+- Repeated references to one CTE share its source block, unused CTEs remain in
+  the graph, and recursive CTE references point to the registered block.
+- Added `SQLPARSER_GRAPH_INSERT_MODE_SET` for the `INSERT ... SET` write form.
+- Public structure layouts remain stable, and the ABI export count remains
+  135.
+
+### Performance and Validation
+
+- MySQL extension syntax uses one feature-classification pass and runs each
+  conversion path only when its syntax is present.
+- The MySQL and Vastbase-MySQL dialect test matrices each contain 156
+  supported cases.
+- Release validation covers strict GCC 8.3 builds, the full test suite, ASan,
+  UBSan, Valgrind, ABI checks, and an old-client shared-library compatibility
+  test.
+
 ## 2.8.1
 
 ### Query Graph Performance
@@ -262,7 +293,7 @@
 
 ### Tests and Coverage
 
-- Expanded the existing PostgreSQL, MySQL, Oracle, SQL Server, and Dameng case matrices for additional DDL, DML, JOIN, function, expression, bind, pagination, and context-switching scenarios
+- Expanded the existing PostgreSQL, MySQL, Oracle, SQL Server, and Dameng case matrices for additional DDL, DML, JOIN, function, expression, bind, pagination, `USE`, `SET SCHEMA`, and `ALTER SESSION SET` scenarios
 - Added Oracle regression coverage for `ALTER SESSION SET NLS_DATE_FORMAT`, `NLS_DATE_LANGUAGE`, `NLS_NUMERIC_CHARACTERS`, `INSTANCE`, and `ERROR_ON_OVERLAP_TIME`
 - Updated the Chinese and English case matrices, dialect coverage summary, and Oracle official syntax coverage summary
 
@@ -295,7 +326,7 @@
 
 - Classify binds as positional or named while preserving `bind_sql` for original forms such as `?`, `:1`, `:name`, `$1`, and `@name`
 - Stop exposing bind placeholders as ordinary `value` payloads, so callers do not confuse placeholders with literal values
-- Stop exposing SELECT output expression operators and values as condition metadata; output shape is represented through `target_path`
+- Stop exposing SELECT output expression operators and values as condition fields; output shape is represented through `target_path`
 - Preserve complete public SQL operator text for `NOT IN`, `NOT LIKE`, `NOT ILIKE`, and `NOT SIMILAR TO`
 
 ### Tests and Documentation
@@ -353,29 +384,29 @@
 
 ### Dialect Capabilities
 
-- Added PostgreSQL session-schema context output for `SET search_path`,
-  `SET LOCAL search_path`, and `SET SCHEMA`
-- Added MySQL `USE db_name` default-database switching
-- Added SQL Server `USE database_name` database-context switching
+- Added structured output for PostgreSQL `SET search_path`, `SET LOCAL
+  search_path`, and `SET SCHEMA`
+- Added MySQL `USE db_name` support
+- Added SQL Server `USE database_name` support
 - Added Oracle `ALTER SESSION SET CURRENT_SCHEMA`, `ALTER SESSION SET
   CONTAINER`, and `ALTER SESSION SET CONTAINER ... SERVICE ...`
-- Fixed context-switch handling in multi-statement input so parse, View JSON
-  JSON, and deparse stay in the public dialect form
+- Fixed `USE`, `SET SCHEMA`, and `ALTER SESSION SET` handling in
+  multi-statement input so parse, View JSON, and deparse retain the public
+  dialect form
 
 ### View JSON and Rewrite
 
-- Session-context statements reuse the existing
-  `query_graph values` structure; no separate JSON format is
-  introduced
-- `stmt[n].value[m]` selectors can rewrite context-switch targets and deparse
-  back to the corresponding dialect SQL
+- These statements reuse the existing `query_graph values` structure; no
+  separate JSON format is introduced
+- `stmt[n].value[m]` selectors can rewrite the corresponding values and
+  deparse back to the appropriate dialect SQL
 - Fixed edge cases where SQL Server, MySQL, and Oracle deparse could expose
   internal `sqlparser_current_*` sentinel names
 
 ### Tests and Documentation
 
-- Added multi-statement context-switch regression cases for MySQL, Oracle, and
-  SQL Server
+- Added multi-statement `USE` / `ALTER SESSION SET` regression cases for
+  MySQL, Oracle, and SQL Server
 - Updated dialect support docs, official syntax coverage checklists, and
   executable coverage summaries
 
@@ -403,7 +434,7 @@
 
 - Pinned vendored `libpg_query` version stored in the repository
 - Public release surface for the header, static library, shared library, and
-  `pkg-config` metadata
+  `pkg-config` file
 - Strict-build, install-smoke, `valgrind` leak-check, loop-regression,
   benchmark-smoke, and one-shot `verify` entry points
 - Build invalidation based on compiler-option signatures for project objects and

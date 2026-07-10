@@ -24,7 +24,7 @@ PostgreSQL 方言支持当前解析内核可表达的 PostgreSQL 语句形态，
 - 事务控制、`SAVEPOINT`、`ROLLBACK TO SAVEPOINT`、`RELEASE SAVEPOINT`
 - `CALL`、`DO`
 - 多语句解析和反解析
-- 会话 schema 上下文：`SET search_path`、`SET LOCAL search_path`、`SET SCHEMA`
+- `SET search_path`、`SET LOCAL search_path`、`SET SCHEMA`
 - PostgreSQL `$n` 参数占位符
 - `PREPARE`、`EXECUTE`、`DEALLOCATE`
 - national 字符串字面量：`N'...'`
@@ -36,8 +36,7 @@ PostgreSQL 默认方言当前没有单独维护负向功能清单。解析失败
 ## 对外输出规则
 
 - `sqlparser_deparse()` 输出 PostgreSQL 兼容 SQL。
-- View JSON 只输出语句和最小 `query_graph`，不保存输入 SQL 副本，不展开 `*`，不保存节点级 SQL 文本。
-- View JSON 作为结构化查看接口保留。
+- View JSON 通过统一的 `query_graph` 输出结构化结果。
 
 ## 回归用例
 

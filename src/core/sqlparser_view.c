@@ -1653,6 +1653,13 @@ typedef struct {
 } sqlparser_graph_scope_t;
 
 typedef struct {
+	PgQuery__CommonTableExpr *cte;
+	size_t block_index;
+	int has_block;
+	int building;
+} sqlparser_graph_cte_entry_t;
+
+typedef struct {
 	sqlparser_handle_t *handle;
 	sqlparser_query_graph_cache_t *cache;
 	sqlparser_statement_graph_t *statement;
@@ -1676,6 +1683,11 @@ typedef struct {
 	sqlparser_graph_pointer_index_t *name_indices;
 	size_t name_index_count;
 	size_t name_index_capacity;
+	sqlparser_graph_cte_entry_t *cte_entries;
+	size_t cte_entry_count;
+	size_t cte_entry_capacity;
+	sqlparser_graph_cte_entry_t *registering_cte;
+	PgQuery__SelectStmt *registering_cte_stmt;
 } sqlparser_graph_build_t;
 
 static int sqlparser_graph_selector_cache_append(
@@ -1759,6 +1771,20 @@ static void sqlparser_graph_selector_cache_clear(sqlparser_graph_build_t *build)
 	build->name_index_capacity = 0U;
 	build->selector_cache_built = 0;
 	build->selector_cache_failed = 0;
+}
+
+static void sqlparser_graph_build_clear(sqlparser_graph_build_t *build)
+{
+	if (build == NULL) {
+		return;
+	}
+	sqlparser_graph_selector_cache_clear(build);
+	free(build->cte_entries);
+	build->cte_entries = NULL;
+	build->cte_entry_count = 0U;
+	build->cte_entry_capacity = 0U;
+	build->registering_cte = NULL;
+	build->registering_cte_stmt = NULL;
 }
 
 static int sqlparser_graph_select_has_target_list(const PgQuery__SelectStmt *stmt)
@@ -2086,24 +2112,25 @@ static int sqlparser_graph_value_from_node(
 	sqlparser_graph_value_t *out_value,
 	sqlparser_error_t *out_error);
 
-static int sqlparser_query_graph_reserve_array(
+static int sqlparser_query_graph_reserve_array_with_initial(
 	void **items,
 	size_t *capacity,
 	size_t required,
 	size_t item_size,
+	size_t initial_capacity,
 	sqlparser_error_t *out_error)
 {
 	void *new_items;
 	size_t new_capacity;
 
-	if (items == NULL || capacity == NULL || item_size == 0U) {
+	if (items == NULL || capacity == NULL || item_size == 0U || initial_capacity == 0U) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "invalid graph array");
 		return -1;
 	}
 	if (required <= *capacity) {
 		return 0;
 	}
-	new_capacity = *capacity != 0U ? *capacity : 16U;
+	new_capacity = *capacity != 0U ? *capacity : initial_capacity;
 	while (new_capacity < required) {
 		if (new_capacity > ((size_t)-1) / 2U) {
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "query graph is too large");
@@ -2123,6 +2150,38 @@ static int sqlparser_query_graph_reserve_array(
 	*items = new_items;
 	*capacity = new_capacity;
 	return 0;
+}
+
+static int sqlparser_query_graph_reserve_array(
+	void **items,
+	size_t *capacity,
+	size_t required,
+	size_t item_size,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_query_graph_reserve_array_with_initial(
+		items,
+		capacity,
+		required,
+		item_size,
+		16U,
+		out_error);
+}
+
+static int sqlparser_query_graph_reserve_sparse_array(
+	void **items,
+	size_t *capacity,
+	size_t required,
+	size_t item_size,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_query_graph_reserve_array_with_initial(
+		items,
+		capacity,
+		required,
+		item_size,
+		4U,
+		out_error);
 }
 
 void sqlparser_query_graph_cache_release(sqlparser_query_graph_cache_t *cache)
@@ -5089,6 +5148,131 @@ static int sqlparser_graph_build_select(
 	size_t *out_block_index,
 	sqlparser_error_t *out_error);
 
+static sqlparser_graph_cte_entry_t *sqlparser_graph_find_cte_entry(
+	sqlparser_graph_build_t *build,
+	PgQuery__CommonTableExpr *cte)
+{
+	size_t index;
+
+	if (build == NULL || cte == NULL) {
+		return NULL;
+	}
+	for (index = 0U; index < build->cte_entry_count; index++) {
+		if (build->cte_entries[index].cte == cte) {
+			return &build->cte_entries[index];
+		}
+	}
+	return NULL;
+}
+
+static int sqlparser_graph_ensure_cte_block(
+	sqlparser_graph_build_t *build,
+	PgQuery__CommonTableExpr *cte,
+	size_t *out_block_index,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_graph_cte_entry_t *entry;
+	PgQuery__SelectStmt *cte_stmt;
+	int rc;
+
+	if (out_block_index != NULL) {
+		*out_block_index = 0U;
+	}
+	if (cte == NULL || cte->ctequery == NULL ||
+	    cte->ctequery->node_case != PG_QUERY__NODE__NODE_SELECT_STMT ||
+	    cte->ctequery->select_stmt == NULL) {
+		return 0;
+	}
+	entry = sqlparser_graph_find_cte_entry(build, cte);
+	if (entry != NULL && entry->has_block) {
+		if (out_block_index != NULL) {
+			*out_block_index = entry->block_index;
+		}
+		return 0;
+	}
+	if (entry != NULL && entry->building) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "recursive CTE block is not registered");
+		return -1;
+	}
+	if (entry == NULL) {
+		if (sqlparser_query_graph_reserve_sparse_array(
+			    (void **)&build->cte_entries,
+			    &build->cte_entry_capacity,
+			    build->cte_entry_count + 1U,
+			    sizeof(*build->cte_entries),
+			    out_error) != 0) {
+			return -1;
+		}
+		entry = &build->cte_entries[build->cte_entry_count++];
+		memset(entry, 0, sizeof(*entry));
+		entry->cte = cte;
+	}
+	entry->building = 1;
+	cte_stmt = cte->ctequery->select_stmt;
+	build->registering_cte = entry;
+	build->registering_cte_stmt = cte_stmt;
+	rc = sqlparser_graph_build_select(
+		build,
+		cte_stmt,
+		SQLPARSER_GRAPH_BLOCK_CTE,
+		NULL,
+		out_error);
+	if (build->registering_cte != NULL && build->registering_cte->cte == cte) {
+		build->registering_cte = NULL;
+		build->registering_cte_stmt = NULL;
+	}
+	entry = sqlparser_graph_find_cte_entry(build, cte);
+	if (rc != 0 || entry == NULL || !entry->has_block) {
+		if (rc == 0) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "CTE block was not registered");
+		}
+		return -1;
+	}
+	entry->building = 0;
+	if (out_block_index != NULL) {
+		*out_block_index = entry->block_index;
+	}
+	return 0;
+}
+
+static void sqlparser_graph_register_cte_block(
+	sqlparser_graph_build_t *build,
+	PgQuery__SelectStmt *stmt,
+	size_t block_index)
+{
+	if (build == NULL || build->registering_cte == NULL ||
+	    build->registering_cte_stmt != stmt) {
+		return;
+	}
+	build->registering_cte->block_index = block_index;
+	build->registering_cte->has_block = 1;
+	build->registering_cte = NULL;
+	build->registering_cte_stmt = NULL;
+}
+
+static int sqlparser_graph_ensure_select_ctes(
+	sqlparser_graph_build_t *build,
+	PgQuery__SelectStmt *stmt,
+	sqlparser_error_t *out_error)
+{
+	size_t index;
+
+	if (stmt == NULL || stmt->with_clause == NULL) {
+		return 0;
+	}
+	for (index = 0U; index < stmt->with_clause->n_ctes; index++) {
+		PgQuery__Node *node;
+
+		node = stmt->with_clause->ctes[index];
+		if (node != NULL && node->node_case == PG_QUERY__NODE__NODE_COMMON_TABLE_EXPR &&
+		    node->common_table_expr != NULL &&
+		    sqlparser_graph_ensure_cte_block(build, node->common_table_expr, NULL, out_error) != 0) {
+			return -1;
+		}
+	}
+	return 0;
+}
+
 static int sqlparser_graph_build_sublink(
 	sqlparser_graph_build_t *build,
 	PgQuery__SubLink *sub_link,
@@ -5705,6 +5889,49 @@ static int sqlparser_graph_build_target(
 		out_error);
 }
 
+static int sqlparser_graph_add_using_field(
+	sqlparser_graph_build_t *build,
+	size_t block_index,
+	PgQuery__Node *using_node,
+	size_t relation_begin,
+	size_t relation_end,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_graph_field_t field;
+	size_t relation_index;
+	size_t name_index;
+
+	if (using_node == NULL || using_node->node_case != PG_QUERY__NODE__NODE_STRING ||
+	    using_node->string == NULL || using_node->string->sval == NULL) {
+		return 0;
+	}
+	memset(&field, 0, sizeof(field));
+	field.block_index = block_index;
+	field.clause = SQLPARSER_CLAUSE_KIND_ON;
+	field.column_name = using_node->string->sval;
+	for (relation_index = relation_begin; relation_index < relation_end; relation_index++) {
+		sqlparser_graph_relation_t *relation;
+
+		relation = sqlparser_graph_relation_by_local(build, relation_index);
+		if (relation != NULL && relation->block_index == block_index &&
+		    sqlparser_graph_span_append_index(
+			    build,
+			    &field.candidate_relations,
+			    relation_index,
+			    out_error) != 0) {
+			return -1;
+		}
+	}
+	name_index = sqlparser_graph_find_cached_name_index(build, &using_node->string->sval);
+	if (name_index != (size_t)-1) {
+		field.selector.kind = SQLPARSER_SELECTOR_KIND_NAME;
+		field.selector.statement_index = build->statement_index;
+		field.selector.item_index = name_index;
+		field.has_selector = 1;
+	}
+	return sqlparser_graph_add_field(build, &field, NULL, out_error);
+}
+
 static int sqlparser_graph_build_from_item(
 	sqlparser_graph_build_t *build,
 	size_t block_index,
@@ -5738,12 +5965,12 @@ static int sqlparser_graph_build_from_item(
 						SQLPARSER_GRAPH_REL_DUAL :
 						SQLPARSER_GRAPH_REL_BASE);
 				if (sqlparser_graph_add_relation(
-					build,
-					block_index,
-					relation_kind,
-					&relation_view,
-					&added_relation,
-					out_error) != 0) {
+					    build,
+					    block_index,
+					    relation_kind,
+					    &relation_view,
+					    &added_relation,
+					    out_error) != 0) {
 					return -1;
 				}
 				selector_index = sqlparser_graph_find_relation_selector_index(build, node->range_var);
@@ -5758,19 +5985,16 @@ static int sqlparser_graph_build_from_item(
 						relation->has_selector = 1;
 					}
 				}
-				if (cte != NULL &&
-				    cte->ctequery != NULL &&
+				if (cte != NULL && cte->ctequery != NULL &&
 				    cte->ctequery->node_case == PG_QUERY__NODE__NODE_SELECT_STMT &&
-				    sqlparser_graph_build_select(
+				    sqlparser_graph_ensure_cte_block(
 					    build,
-					    cte->ctequery->select_stmt,
-					    SQLPARSER_GRAPH_BLOCK_CTE,
+					    cte,
 					    &relation_source_block,
 					    out_error) != 0) {
 					return -1;
 				}
-				if (cte != NULL &&
-				    cte->ctequery != NULL &&
+				if (cte != NULL && cte->ctequery != NULL &&
 				    cte->ctequery->node_case == PG_QUERY__NODE__NODE_SELECT_STMT) {
 					sqlparser_graph_relation_t *relation;
 
@@ -5817,11 +6041,35 @@ static int sqlparser_graph_build_from_item(
 			if (node->join_expr == NULL) {
 				return 0;
 			}
-			if (sqlparser_graph_build_from_item(build, block_index, node->join_expr->larg, out_error) != 0 ||
-			    sqlparser_graph_build_from_item(build, block_index, node->join_expr->rarg, out_error) != 0) {
-				return -1;
+			{
+				size_t relation_begin;
+				size_t relation_end;
+				size_t using_index;
+
+				relation_begin = sqlparser_graph_local_relation_count(build);
+				if (sqlparser_graph_build_from_item(build, block_index, node->join_expr->larg, out_error) != 0 ||
+				    sqlparser_graph_build_from_item(build, block_index, node->join_expr->rarg, out_error) != 0) {
+					return -1;
+				}
+				relation_end = sqlparser_graph_local_relation_count(build);
+				for (using_index = 0U; using_index < node->join_expr->n_using_clause; using_index++) {
+					if (sqlparser_graph_add_using_field(
+						    build,
+						    block_index,
+						    node->join_expr->using_clause[using_index],
+						    relation_begin,
+						    relation_end,
+						    out_error) != 0) {
+						return -1;
+					}
+				}
+				return sqlparser_graph_walk_predicate_expr(
+					build,
+					block_index,
+					SQLPARSER_CLAUSE_KIND_ON,
+					node->join_expr->quals,
+					out_error);
 			}
-			return sqlparser_graph_walk_predicate_expr(build, block_index, SQLPARSER_CLAUSE_KIND_ON, node->join_expr->quals, out_error);
 		default:
 			return 0;
 	}
@@ -5872,36 +6120,49 @@ static int sqlparser_graph_build_select(
 		if (sqlparser_graph_add_block(build, SQLPARSER_GRAPH_BLOCK_SET, &block_index, out_error) != 0) {
 			return -1;
 		}
+		sqlparser_graph_register_cte_block(build, stmt, block_index);
 		if (out_block_index != NULL) {
 			*out_block_index = block_index;
+		}
+		if (sqlparser_graph_push_scope(build, block_index, stmt) != 0) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "query graph nesting is too deep");
+			return -1;
 		}
 		memset(&set_item, 0, sizeof(set_item));
 		set_item.kind = sqlparser_graph_set_kind_from_select(stmt);
 		set_item.result_block_index = block_index;
 		if (stmt->larg != NULL &&
 		    sqlparser_graph_build_select(build, stmt->larg, SQLPARSER_GRAPH_BLOCK_SELECT, &left_block, out_error) != 0) {
-			return -1;
+			goto set_fail;
 		}
 		if (stmt->rarg != NULL &&
 		    sqlparser_graph_build_select(build, stmt->rarg, SQLPARSER_GRAPH_BLOCK_SELECT, &right_block, out_error) != 0) {
-			return -1;
+			goto set_fail;
 		}
 		if (stmt->larg != NULL &&
 		    sqlparser_graph_span_append_index(build, &set_item.branch_blocks, left_block, out_error) != 0) {
-			return -1;
+			goto set_fail;
 		}
 		if (stmt->rarg != NULL &&
 		    sqlparser_graph_span_append_index(build, &set_item.branch_blocks, right_block, out_error) != 0) {
-			return -1;
+			goto set_fail;
 		}
-		if (sqlparser_graph_walk_node_array(build, block_index, SQLPARSER_CLAUSE_KIND_ORDER_BY, stmt->sort_clause, stmt->n_sort_clause, out_error) != 0) {
-			return -1;
+		if (sqlparser_graph_walk_node_array(build, block_index, SQLPARSER_CLAUSE_KIND_ORDER_BY, stmt->sort_clause, stmt->n_sort_clause, out_error) != 0 ||
+		    sqlparser_graph_ensure_select_ctes(build, stmt, out_error) != 0 ||
+		    sqlparser_graph_add_set(build, &set_item, NULL, out_error) != 0) {
+			goto set_fail;
 		}
-		return sqlparser_graph_add_set(build, &set_item, NULL, out_error);
+		sqlparser_graph_pop_scope(build);
+		return 0;
+
+	set_fail:
+		sqlparser_graph_pop_scope(build);
+		return -1;
 	}
 	if (sqlparser_graph_add_block(build, kind, &block_index, out_error) != 0) {
 		return -1;
 	}
+	sqlparser_graph_register_cte_block(build, stmt, block_index);
 	if (out_block_index != NULL) {
 		*out_block_index = block_index;
 	}
@@ -5942,6 +6203,10 @@ static int sqlparser_graph_build_select(
 	    sqlparser_graph_walk_node_array(build, block_index, SQLPARSER_CLAUSE_KIND_GROUP_BY, stmt->group_clause, stmt->n_group_clause, out_error) != 0 ||
 	    sqlparser_graph_walk_predicate_expr(build, block_index, SQLPARSER_CLAUSE_KIND_HAVING, stmt->having_clause, out_error) != 0 ||
 	    sqlparser_graph_walk_node_array(build, block_index, SQLPARSER_CLAUSE_KIND_ORDER_BY, stmt->sort_clause, stmt->n_sort_clause, out_error) != 0) {
+		sqlparser_graph_pop_scope(build);
+		return -1;
+	}
+	if (sqlparser_graph_ensure_select_ctes(build, stmt, out_error) != 0) {
 		sqlparser_graph_pop_scope(build);
 		return -1;
 	}
@@ -7387,14 +7652,14 @@ static sqlparser_status_t sqlparser_query_graph_cache_build(
 		build.statement->dml_assignment_offset = cache->dml_assignment_count;
 		if (sqlparser_graph_build_statement(&build, statement_node, out_error) != 0 ||
 		    sqlparser_graph_finalize_statement_spans(&build, out_error) != 0) {
-			sqlparser_graph_selector_cache_clear(&build);
+			sqlparser_graph_build_clear(&build);
 			sqlparser_query_graph_cache_release(cache);
 			if (out_error != NULL && out_error->code == SQLPARSER_STATUS_OK) {
 				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "failed to build query graph");
 			}
 			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
 		}
-		sqlparser_graph_selector_cache_clear(&build);
+		sqlparser_graph_build_clear(&build);
 	}
 	*out_cache = cache;
 	return SQLPARSER_STATUS_OK;

@@ -1,39 +1,36 @@
-# v2.8.1 Release Notes
+# v2.9.0 Release Notes
 
-`v2.8.1` is a `query_graph` performance patch release. It optimizes cold
-`sqlparser_statement_query_graph()` calls for large and deeply nested SQL
-workloads, especially `INSERT ... SELECT`, set queries, and nested SELECT
-statements. This release does not add public APIs or change public structure
-layouts or selector semantics.
+`v2.9.0` expands MySQL and Vastbase-MySQL dialect coverage and improves Query
+Graph representation for CTEs and JOIN fields.
 
 ## Highlights
 
-- Updated the public version to `2.8.1`.
-- Added a statement-level selector cache while building `query_graph`,
-  recording value, name, relation, and select target-list selector indexes in
-  one traversal.
-- Avoided repeated full statement protobuf tree searches for each value, field,
-  relation, or SELECT target list in large and deeply nested `query_graph`
-  builds.
-- Kept `sqlparser_statement_query_graph()`, public structure layouts, selector
-  output format, and same-handle query graph cache behavior unchanged.
-- The public header layout is unchanged; callers do not need adaptation for
-  public structure changes.
+- Supports `INSERT ... SET`, `ON DUPLICATE KEY UPDATE` row aliases, and aliased
+  delete targets.
+- Supports single-table `UPDATE` / `DELETE ... ORDER BY ... LIMIT` statements.
+- Supports `STRAIGHT_JOIN`, `JOIN ... USING`, `NATURAL JOIN`, locking reads,
+  index hints, and query-table `PARTITION(...)` clauses.
+- Emits `JOIN ... USING` fields through `fields[]` and `candidate_relations`.
+- Repeated references to one CTE share its source block, unused CTEs remain in
+  the graph, and recursive CTE references point to the registered block.
+- Adds the `SQLPARSER_GRAPH_INSERT_MODE_SET` enum value.
+- The MySQL and Vastbase-MySQL dialect test matrices each contain 156
+  supported cases.
+
+## Compatibility
+
+- Public C structure layouts remain stable.
+- The shared-library ABI major remains `libsqlparser.so.0`.
+- The ABI export count remains 135.
+- A client compiled with the previous public header passes against the current
+  shared library.
 
 ## Release Validation
 
-This release validation includes:
+- Strict GCC 8.3 build and full test suite
+- ASan and UBSan
+- Valgrind checks for all configured targets
+- ABI export check
+- Old-client shared-library compatibility test
 
-- `git diff --check`
-- Linux `make test SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0`
-- Linux `make verify-asan SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0`
-- Linux `make verify-ubsan SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0`
-- Linux `make verify-valgrind SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0`
-- Linux `make abi-check SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0`
-
-## Release Boundary
-
-- Public header: `include/sqlparser/sqlparser.h`
-- Shared-library ABI major: `libsqlparser.so.0`
-- Current ABI exported symbols: `135`
-- Vendored `libpg_query` tag: `17-6.2.2`
+Vendored `libpg_query` tag: `17-6.2.2`.

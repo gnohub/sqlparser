@@ -1,29 +1,30 @@
-# v2.8.1 发布说明
+# v2.9.0 发布说明
 
-`v2.8.1` 是 `query_graph` 性能补丁版本，重点优化大型 / 多层 SQL 场景下 `sqlparser_statement_query_graph()` 的冷调用耗时，尤其改善 `INSERT ... SELECT`、集合查询和嵌套 SELECT。本版本不新增公共 API，不改变公共结构体布局和 selector 输出语义。
+`v2.9.0` 扩展 MySQL 与 Vastbase-MySQL 方言覆盖，并增强 CTE 与 JOIN 字段的 Query Graph 表达。
 
 ## 主要变化
 
-- 公共版本号更新为 `2.8.1`。
-- `query_graph` 构建期新增 statement 级 selector 缓存，一次遍历记录 value、name、relation 和 select target list 的 selector 索引。
-- 避免大型 / 多层 `query_graph` 构建中为每个 value、field、relation 或 SELECT target list 重复执行全 statement protobuf 树搜索。
-- 保持 `sqlparser_statement_query_graph()` 接口、公共结构体布局、selector 输出格式和同一 handle 的 query graph cache 行为不变。
-- 公共头文件布局未变化；调用方不需要因为公共结构变更做适配。
+- 支持 `INSERT ... SET`、`ON DUPLICATE KEY UPDATE` 行别名和别名删除目标。
+- 支持单表 `UPDATE` / `DELETE ... ORDER BY ... LIMIT`。
+- 支持 `STRAIGHT_JOIN`、`JOIN ... USING`、`NATURAL JOIN`、锁定读、索引提示和查询表 `PARTITION(...)`。
+- `JOIN ... USING` 字段通过 `fields[]` 和 `candidate_relations` 输出。
+- 同一 CTE 的多次引用共享来源 `source_block`，未引用 CTE 保留在 Query Graph 中，递归 CTE 引用指向已注册的来源块。
+- 新增 `SQLPARSER_GRAPH_INSERT_MODE_SET` 枚举值。
+- MySQL 与 Vastbase-MySQL 方言用例矩阵分别包含 156 条支持用例。
+
+## 兼容性
+
+- 公共 C 结构体布局保持稳定。
+- 动态库 ABI 主版本保持为 `libsqlparser.so.0`。
+- ABI 导出符号数保持为 135。
+- 使用旧版本公共头文件编译的客户端已通过当前动态库加载验证。
 
 ## 发布验证
 
-本版本的发布验证包括：
+- GCC 8.3 严格编译与全量测试
+- ASan 与 UBSan
+- Valgrind 全量目标内存检查
+- ABI 导出检查
+- 旧版本客户端动态库兼容测试
 
-- `git diff --check`
-- Linux `make test SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0`
-- Linux `make verify-asan SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0`
-- Linux `make verify-ubsan SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0`
-- Linux `make verify-valgrind SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0`
-- Linux `make abi-check SHOW_WARNING=1 STRICT=1 SHOW_VENDOR_WARNING=0`
-
-## 发布边界
-
-- 公共头文件：`include/sqlparser/sqlparser.h`
-- 动态库 ABI 主版本：`libsqlparser.so.0`
-- 当前 ABI 导出符号数：`135`
-- vendored `libpg_query` tag：`17-6.2.2`
+vendored `libpg_query` tag：`17-6.2.2`。

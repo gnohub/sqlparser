@@ -26,7 +26,7 @@ ddl,CREATE_INDEX,CURRENT,"已覆盖 CREATE INDEX",https://eco.dameng.com/documen
 ddl,DROP_TRUNCATE_TABLE,CURRENT,"已覆盖 DROP TABLE 和 TRUNCATE TABLE",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
 transaction,TRANSACTION_CONTROL,CURRENT,"已覆盖 BEGIN、COMMIT 和 ROLLBACK 代表性事务控制语句",https://eco.dameng.com/document/dm/zh-cn/pm/dm8_sql-sql-statement
 privileges,GRANT_REVOKE,CURRENT,"已覆盖 GRANT 和 REVOKE",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
-session,SET_SCHEMA,CURRENT,"已覆盖 SET SCHEMA 当前模式切换",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
+session,SET_SCHEMA,CURRENT,"已覆盖 SET SCHEMA 语句",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
 session,ALTER_SESSION_PARAMETERS,CURRENT,"已覆盖 NLS 日期/时间格式、NLS_SORT 和 CASE_SENSITIVE 会话参数",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
 query,TOP_PERCENT_WITH_TIES,CURRENT,"已覆盖 TOP n、TOP n,m、TOP n PERCENT、TOP n WITH TIES 和 TOP n PERCENT WITH TIES，并在 deparse 输出中保留达梦公开形态",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
 query,CONNECT_BY,MODEL_REQUIRED,"层级查询语义需要专用查询模型",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html

@@ -508,7 +508,7 @@ sqlparser_selector_replace_select_target_with_columns(
 
 ## query_graph C 结构化遍历
 
-`query_graph` 是面向字段归属、输出顺序、DML 写入和值绑定的最小结构视图。它不读取数据库元数据，不判断 table/view 类型，不展开 `*`，不保存每个节点的 SQL 文本。
+`query_graph` 提供查询块、关系、输出项、字段引用、条件、DML 写入和值绑定的结构化访问。
 
 ### 获取入口
 
@@ -561,13 +561,14 @@ sqlparser_status_t sqlparser_statement_query_graph(
 
 - `sqlparser_graph_relation_t.link_name` 表达远程对象引用中的 database link；SQL 未出现时为 `NULL`。
 - `relations[].source_block_index` 表达派生表或 CTE 来源。
+- 同一个 CTE 定义只构建一个来源 block；多次引用共享该 `source_block_index`，未被引用的 CTE 定义仍保留在 graph 中。
 - `targets[].star_relations` 表达 `*` 或 `alias.*` 覆盖的 relation。
 - `targets[].source_block_index` 表达星号或子查询 target 的来源 block。
 - `sets[].branch_blocks` 表达集合运算左右分支。
 - `predicates[]` 表达 `WHERE`、`ON`、`HAVING` 中的谓词树；`children` span 表达 `AND`、`OR`、`NOT` 的子谓词。
 - `field = literal/bind` 谓词通过 `left_field_index + value_index` 表达；`field = field` 谓词通过 `left_field_index + right_field_index` 表达，并在 `values[]` 中以 `SQLPARSER_GRAPH_VALUE_FIELD` 记录右侧来源字段。
 - 未限定字段如果不能仅凭 SQL 唯一归属，`has_relation` 为 0，`candidate_relations` 给出当前 scope 候选 relation。
-- `sqlparser_graph_dml_t.insert_mode` 区分 `VALUES`、`SELECT`、`INSERT ALL`、`INSERT FIRST` 以及 MySQL `REPLACE` 的 `VALUES`、`SELECT`、`SET` 形态。
+- `sqlparser_graph_dml_t.insert_mode` 区分 `VALUES`、`SELECT`、`INSERT ALL`、`INSERT FIRST`、MySQL `INSERT ... SET` 以及 `REPLACE` 的 `VALUES`、`SELECT`、`SET` 形态。
 - `sqlparser_graph_dml_t.branches` 仅用于 Oracle/Dameng multi-table INSERT；每个 branch 持有独立 target relation、target columns、rows、branch kind 和可选 condition selector。condition selector 可通过 `sqlparser_selector_clause_sql()` 读取原始条件 SQL。
 - Oracle/Dameng multi-table INSERT branch cell 如果直接引用末尾 source query 输出字段，`sqlparser_graph_dml_cell_t.kind` 为 `SQLPARSER_GRAPH_VALUE_FIELD`，并通过 `has_source_target/source_target_index` 指向对应 `targets[]` 项。
 - `UPDATE` 和 `MERGE` assignment 的右侧如果是直接字段引用，`sqlparser_graph_dml_assignment_t.value_kind` 为 `SQLPARSER_GRAPH_VALUE_FIELD`，并通过 `has_source_field/source_field_index` 指向来源字段；来源字段可唯一匹配派生 source query 输出项时，同时提供 `has_source_target/source_target_index`。
@@ -636,7 +637,7 @@ patch 成功后 handle generation 递增，旧 query graph view 失效。
 
 1. 调用 `sqlparser_statement_query_graph()`。
 2. 遍历 `relations`、`fields`、`values` 和 DML 结构。
-3. 调用方结合自己的 metadata 建立字段策略匹配。
+3. 根据结构化字段执行调用方规则。
 
 ### selector 驱动改写
 

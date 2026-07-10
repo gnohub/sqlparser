@@ -31,8 +31,7 @@ current parser kernel. The executable case matrix defines the support boundary:
   `RELEASE SAVEPOINT`
 - `CALL` and `DO`
 - multi-statement parsing and deparsing
-- session schema context: `SET search_path`, `SET LOCAL search_path`, and
-  `SET SCHEMA`
+- `SET search_path`, `SET LOCAL search_path`, and `SET SCHEMA`
 - PostgreSQL `$n` parameter placeholders
 - `PREPARE`, `EXECUTE`, and `DEALLOCATE`
 - national string literals: `N'...'`
@@ -47,9 +46,7 @@ exposed by the public query graph.
 ## Public Output Rules
 
 - `sqlparser_deparse()` emits PostgreSQL-compatible SQL.
-- View JSON emits statements and the minimal `query_graph`. It does not keep a
-  copy of the input SQL, expand `*`, or store per-node SQL text.
-- View JSON remains available as a structured inspection interface.
+- View JSON emits structured results through the common `query_graph`.
 
 ## Regression Cases
 

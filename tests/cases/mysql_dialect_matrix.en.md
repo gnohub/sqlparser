@@ -131,6 +131,20 @@ This file records regression cases for the MySQL dialect conversion layer. `test
 | M101 | `mysql-create-table-string-and-storage-table-options` | `CREATE TABLE` with string and storage table options | restores `COMMENT`, `COMPRESSION`, `CONNECTION`, directory options, encryption, engine attributes, `ROW_FORMAT`, and `TABLESPACE` |
 | M102 | `mysql-create-table-partition-options` | `CREATE TABLE` with `PARTITION BY` | restores partition tails for create-table statements without query expressions |
 | M103 | `mysql-create-temporary-table-options` | `CREATE TEMPORARY TABLE IF NOT EXISTS` with column attributes and table options | combined restoration for temporary tables, column visibility, column comments, `ENGINE`, and `DEFAULT CHARACTER SET` |
+| M104-M106 | MySQL INSERT extensions | `ON DUPLICATE KEY UPDATE`, row aliases, and `INSERT ... SET` | conflict-update sources, row aliases, and SET write shape |
+| M107-M109 | MySQL DELETE/UPDATE extensions | aliased delete targets, `ORDER BY`, and `LIMIT` | delete-target attribution and DML-tail restoration |
+| M110 | `mysql-select-lock-in-share-mode` | `LOCK IN SHARE MODE` | locking-read parsing and public SQL restoration |
+| M111 | `mysql-select-straight-join` | `STRAIGHT_JOIN` | relations, ON fields, and public SQL restoration |
+| M112-M115 | MySQL index hints | `USE/FORCE/IGNORE INDEX` with scopes | hint positioning and public SQL restoration |
+| M116 | `mysql-comma-table-index-hint-attribution` | index hint on a comma table list | adjacent-relation restoration position |
+| M117-M118 | index-hint list boundaries | multiple names and empty `USE INDEX ()` | complete-list and empty-list restoration |
+| M119-M121 | JOIN structure boundaries | nested JOIN, `USING`, and `NATURAL` | relations, ON/USING fields, and public SQL restoration |
+| M122-M123 | locking-read wait policies | `NOWAIT` and `SKIP LOCKED` | locking-read parsing and public SQL restoration |
+| M124 | `mysql-update-order-limit-bind-isolation` | binds with `ORDER BY` and `LIMIT` | assignment and WHERE binds are isolated from DML tails |
+| M125 | `mysql-nested-straight-join-order` | nested `STRAIGHT_JOIN` | relation order and public SQL restoration |
+| M126 | `mysql-on-duplicate-row-column-aliases` | row-alias column list | alias columns are not attributed to the target table |
+| M127 | `mysql-cte-index-hint-location-attribution` | index hints inside and outside a CTE | CTE source blocks, nested relations, and hint restoration positions |
+| M128 | `mysql-table-partition-with-index-hints` | `PARTITION(...)` with index hints | qualified tables, aliases, and public SQL restoration |
 | MU006 | `mysql-replace-into` | `REPLACE INTO ... VALUES ...` | MySQL `REPLACE` reuses the INSERT graph shape and preserves replace semantics with `insert_mode=replace_values` |
 | MU006A | `mysql-replace-low-priority-multi-row` | `REPLACE LOW_PRIORITY INTO ... VALUES (...), (...)` | multi-row `REPLACE VALUES`, positional parameters, and `LOW_PRIORITY` modifier |
 | MU006B | `mysql-replace-delayed-select` | `REPLACE DELAYED INTO ... SELECT ...` | `REPLACE SELECT` target table, source table, positional parameters, and `insert_mode=replace_select` |

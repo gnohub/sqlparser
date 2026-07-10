@@ -102,6 +102,15 @@ Executable fixture: `tests/cases/vastbase_mysql_dialect_input.json`. The unit te
 | `VM101` | `vastbase-mysql-create-table-string-and-storage-table-options` | CREATE TABLE `users` (`id` INT) COMMENT='users table' COMPRESSION='ZLIB' CONNECTION='connect_string' DATA DIRECTORY='/tmp/data' INDEX DIRECTORY='/tmp/index' ENCRYPTION='Y' ENGINE_ATTRIBUTE='{"tier":"hot"}' SECONDARY_ENGINE_ATTRIBUTE='{}' INSERT_METHOD=NO PASSWORD='legacy' ROW_FORMAT=COMPRESSED TABLESPACE=innodb_file_per_table | covered |
 | `VM102` | `vastbase-mysql-create-table-partition-options` | CREATE TABLE `users` (`id` INT, `created_at` DATE) ENGINE=InnoDB PARTITION BY HASH(`id`) PARTITIONS 4 | covered |
 | `VM103` | `vastbase-mysql-create-temporary-table-options` | CREATE TEMPORARY TABLE IF NOT EXISTS `tmp_users` (`id` INT VISIBLE, `token` VARCHAR(64) COMMENT 'session token') ENGINE=MEMORY DEFAULT CHARACTER SET=utf8mb4 | covered |
+| `VM104-VM106` | INSERT extensions | ON DUPLICATE KEY UPDATE, row aliases, and INSERT SET | covered |
+| `VM107-VM109` | DELETE/UPDATE extensions | aliased delete targets, ORDER BY, and LIMIT | covered |
+| `VM110-VM115` | locking reads, STRAIGHT_JOIN, and index hints | parsing, common relation/field graph, and public SQL restoration | covered |
+| `VM116-VM118` | index-hint positions and list boundaries | comma table lists, multiple indexes, and empty USE INDEX | covered |
+| `VM119-VM121` | JOIN semantics | nested JOIN, USING, and NATURAL | covered |
+| `VM122-VM125` | locks, DML binds, and nested STRAIGHT_JOIN | NOWAIT, SKIP LOCKED, ORDER/LIMIT bind isolation | covered |
+| `VM126` | row-alias column list | ON DUPLICATE KEY UPDATE row-alias column sources | covered |
+| `VM127` | index hints inside and outside a CTE | CTE source blocks, nested relations, and hint restoration positions | covered |
+| `VM128` | table partition with index hints | qualified tables, aliases, and public SQL restoration | covered |
 | `VMU001` | `vastbase-mysql-insert-ignore` | INSERT IGNORE INTO `users` (`id`) VALUES (1) | covered |
 | `VMU002` | `vastbase-mysql-insert-delayed` | INSERT DELAYED INTO `users` (`id`) VALUES (1) | covered |
 | `VMU003` | `vastbase-mysql-insert-low-priority` | INSERT LOW_PRIORITY INTO `users` (`id`) VALUES (1) | covered |

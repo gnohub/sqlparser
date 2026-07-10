@@ -19,7 +19,7 @@ ddl,CREATE_VIEW,CURRENT,已覆盖 CREATE VIEW AS SELECT,https://dev.mysql.com/do
 ddl,DROP_TABLE,CURRENT,已覆盖 DROP TABLE,https://dev.mysql.com/doc/refman/8.4/en/drop-table.html
 transaction,START_TRANSACTION,CURRENT,已覆盖 START TRANSACTION,https://dev.mysql.com/doc/refman/8.4/en/commit.html
 transaction,COMMIT,CURRENT,已覆盖 COMMIT,https://dev.mysql.com/doc/refman/8.4/en/commit.html
-session,USE_DATABASE,CURRENT,已覆盖 USE db_name 默认数据库切换语句,https://dev.mysql.com/doc/refman/8.4/en/use.html
+session,USE_DATABASE,CURRENT,已覆盖 USE db_name 语句,https://dev.mysql.com/doc/refman/8.4/en/use.html
 query,CTE_WITH,CURRENT,已覆盖 WITH 公用表表达式查询,https://dev.mysql.com/doc/refman/8.4/en/with.html
 query,WINDOW_FUNCTIONS,CURRENT,已覆盖窗口函数表达式和字段归属,https://dev.mysql.com/doc/refman/8.4/en/window-functions.html
 query,GROUP_BY_HAVING,CURRENT,已覆盖 GROUP BY、HAVING 和 ORDER BY 组合查询,https://dev.mysql.com/doc/refman/8.4/en/group-by-handling.html

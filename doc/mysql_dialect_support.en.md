@@ -21,19 +21,25 @@ current AST. The executable case matrix defines the support boundary:
 - window functions
 - common scalar-function expressions
 - `INSERT VALUES`, multi-row `INSERT`, and `INSERT SELECT`
+- `INSERT ... SET` and `VALUES/SET` row aliases
 - preserved `INSERT IGNORE`, `INSERT DELAYED`, `INSERT LOW_PRIORITY`, and `INSERT HIGH_PRIORITY` modifiers
 - basic `REPLACE VALUES`, `REPLACE SET`, `REPLACE SELECT`, and `REPLACE TABLE` forms
 - preserved `UPDATE LOW_PRIORITY/IGNORE` and `DELETE LOW_PRIORITY/QUICK/IGNORE` modifiers
 - `INSERT ... ON DUPLICATE KEY UPDATE`
 - `UPDATE` and `DELETE`
+- single-table `UPDATE` and `DELETE` with `ORDER BY ... LIMIT`, and aliased delete targets
 - basic multi-table `UPDATE ... JOIN ... SET ...` forms with `ON` conditions
 - basic multi-table `DELETE u FROM ... JOIN ...` forms with `ON` conditions
+- `STRAIGHT_JOIN`, `JOIN ... USING`, and `NATURAL JOIN`
+- `USE/FORCE/IGNORE INDEX|KEY` with `FOR JOIN|ORDER BY|GROUP BY` scopes
+- `LOCK IN SHARE MODE`, `FOR UPDATE/SHARE`, `NOWAIT`, and `SKIP LOCKED`
+- query-table `PARTITION(...)` selection clauses
 - basic `CREATE TABLE`, column attributes, table options, and partition tails without query expressions
 - `ALTER TABLE ADD COLUMN`
 - `CREATE VIEW`
 - `DROP TABLE`
 - `START TRANSACTION`, `COMMIT`, and `ROLLBACK`
-- `USE db_name` default database switching
+- `USE db_name`
 - `PREPARE`, `EXECUTE`, `DEALLOCATE PREPARE`, and `DROP PREPARE`
 
 ## Explicitly Unsupported Scope
@@ -48,8 +54,8 @@ cases. Official syntax coverage boundaries are tracked in
   conversion details.
 - Backtick-delimited identifiers and MySQL string compatibility rules are
   handled by the dialect layer.
-- Attributable expression fragments in View JSON use the public MySQL
-  form.
+- View JSON uses the common `query_graph` structure; identifiers and values in
+  that structure use the public MySQL form.
 - MySQL-specific semantics that cannot be represented safely are not downgraded
   to PostgreSQL semantics.
 
@@ -62,5 +68,5 @@ The MySQL support boundary is defined by:
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current MySQL matrix contains 131 cases: 131 supported paths and 0 explicit
+The current MySQL matrix contains 156 cases: 156 supported paths and 0 explicit
 unsupported paths.

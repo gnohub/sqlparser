@@ -38,7 +38,7 @@ the current AST. The executable case matrix defines the support boundary:
 - simple `RENAME OBJECT ... TO ...`
 - common type names and functions such as `NVARCHAR`, `BIT`, `DATETIME2`,
   `ISNULL`, `GETDATE`, and `NEWID`
-- `USE database_name` database context switching
+- `USE database_name`
 - basic session and execution-environment `SET` statements such as
   `SET NOCOUNT ON`, `SET DATEFORMAT dmy`, and `SET IDENTITY_INSERT dbo.Tool ON`
 - parameterized dynamic SQL through `sp_prepare`, `sp_execute`, `sp_prepexec`,

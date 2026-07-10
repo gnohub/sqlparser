@@ -73,7 +73,7 @@ sqlparser_status_t sqlparser_export_view_json(
 | `keyword` | 当前语句主关键字 |
 | `query_graph` | 当前语句的结构化查询图 |
 
-`query_graph` 不展开数据库元数据，不推断 SQL 中没有出现的真实字段。它只表达当前 SQL 文本可见的查询块、关系、输出项、字段引用、值、集合运算和 DML 写入结构。
+`query_graph` 表达当前 SQL 中的查询块、关系、输出项、字段引用、值、集合运算和 DML 写入结构。
 
 JSON 只输出有意义的可选字段。公共 C 结构中由 `has_*` 或 `count` 表达不存在的字段，在 JSON 中默认省略，不输出 `null` 或空数组。
 
@@ -124,7 +124,7 @@ FROM (
 - `b` 层的 `*` 同样通过 `star_relations` 指向 `b`，并通过 `source_block` 进入下一层。
 - `o.*` 表现为 `kind = "qualified_star"`，`source_block` 指向 `UNION` 结果块。
 
-这种表达不展开 `*` 对应的真实字段，也不会把同一个字面 occurrence 复制到多个对象下。调用方需要追踪来源时沿 `relation -> source_block -> target -> set branch` 逐层读取即可。
+每个 SQL 字面 occurrence 只输出一次。来源链路可沿 `relation -> source_block -> target -> set branch` 逐层读取。
 
 ## relation
 
@@ -150,6 +150,8 @@ FROM (
 | `link` | 远程对象引用中的 database link 名称；未出现时省略 |
 | `source_block` | 派生表或 CTE 指向的查询块；没有来源块时省略 |
 | `selector` | 可用于 patch 的关系 selector；没有可写节点时省略 |
+
+同一个 CTE 定义只生成一个来源 block。多次 CTE 引用共享 `source_block`，未被引用的 CTE 定义也保留在 `blocks[]` 中。
 
 ## target
 
@@ -310,7 +312,7 @@ FROM (
 | 字段 | 说明 |
 | --- | --- |
 | `kind` | `insert`、`update`、`delete`、`merge` |
-| `insert_mode` | INSERT 写入形态：`values`、`select`、`all`、`first`、`replace_values`、`replace_select`、`replace_set` |
+| `insert_mode` | INSERT 写入形态：`values`、`select`、`all`、`first`、`set`、`replace_values`、`replace_select`、`replace_set` |
 | `target_relation` | 写入目标 relation 索引；没有稳定目标时省略 |
 | `target_columns` | INSERT 显式目标列索引数组；没有列列表时省略 |
 | `rows` | `INSERT ... VALUES` 或 Oracle/Dameng multi-table INSERT branch 的 cell 索引数组 |

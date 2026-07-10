@@ -52,7 +52,7 @@ handle:
 - `RETURNING ... INTO`
 - DMSQL blocks, procedures, and packages
 - other `ALTER SESSION` parameters outside the supported list
-- container switching such as `ALTER SESSION SET CONTAINER = ...`
+- `ALTER SESSION SET CONTAINER = ...`
 
 ## Public Output Rules
 
@@ -62,8 +62,7 @@ handle:
   not emitted.
 - `MINUS` remains visible as the Dameng semantic keyword in View JSON and
   deparse output.
-- `SET SCHEMA` is exposed as session context; View JSON uses the
-  `CURRENT_SCHEMA` field name.
+- `SET SCHEMA` uses the `CURRENT_SCHEMA` field name in View JSON.
 - Attributable expression fragments in View JSON use the public Dameng
   form.
 - Failed expression-fragment rewrites are not committed to the handle; the

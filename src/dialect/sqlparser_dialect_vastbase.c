@@ -329,6 +329,20 @@ static sqlparser_status_t sqlparser_vastbase_sqlserver_postprocess_fragment(
 		out_error);
 }
 
+static sqlparser_status_t sqlparser_vastbase_mysql_postprocess_fragment(
+	const char *core_sql,
+	const void *state,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_vastbase_postprocess_fragment_delegate(
+		sqlparser_dialect_mysql_ops(),
+		core_sql,
+		state,
+		out_sql,
+		out_error);
+}
+
 static const sqlparser_dialect_ops_t SQLPARSER_VASTBASE_ORACLE_OPS = {
 	SQLPARSER_DIALECT_VASTBASE_ORACLE,
 	"vastbase-oracle",
@@ -358,7 +372,7 @@ static const sqlparser_dialect_ops_t SQLPARSER_VASTBASE_MYSQL_OPS = {
 	sqlparser_vastbase_mysql_insert_mode,
 	sqlparser_vastbase_mysql_relation_object_name,
 	sqlparser_vastbase_mysql_relation_link_name,
-	NULL
+	sqlparser_vastbase_mysql_postprocess_fragment
 };
 
 static const sqlparser_dialect_ops_t SQLPARSER_VASTBASE_POSTGRESQL_OPS = {

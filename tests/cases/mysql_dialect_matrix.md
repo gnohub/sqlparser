@@ -131,6 +131,20 @@
 | M101 | `mysql-create-table-string-and-storage-table-options` | `CREATE TABLE` + 字符串/存储类表选项 | 覆盖 `COMMENT`、`COMPRESSION`、`CONNECTION`、目录、加密、engine attribute、`ROW_FORMAT` 和 `TABLESPACE` 恢复 |
 | M102 | `mysql-create-table-partition-options` | `CREATE TABLE` + `PARTITION BY` | 无查询表达式建表中的分区尾部公开 SQL 恢复 |
 | M103 | `mysql-create-temporary-table-options` | `CREATE TEMPORARY TABLE IF NOT EXISTS` + 列属性 + 表选项 | 临时表、列可见性、列注释、`ENGINE` 和 `DEFAULT CHARACTER SET` 组合恢复 |
+| M104-M106 | MySQL INSERT 扩展 | `ON DUPLICATE KEY UPDATE`、row alias、`INSERT ... SET` | 冲突更新来源、row alias 和 SET 写入结构 |
+| M107-M109 | MySQL DELETE/UPDATE 扩展 | 别名删除目标、`ORDER BY`、`LIMIT` | 删除目标归属和 DML 尾部恢复 |
+| M110 | `mysql-select-lock-in-share-mode` | `LOCK IN SHARE MODE` | locking read 解析和公开 SQL 恢复 |
+| M111 | `mysql-select-straight-join` | `STRAIGHT_JOIN` | relation、ON 字段和公开 SQL 恢复 |
+| M112-M115 | MySQL index hint | `USE/FORCE/IGNORE INDEX` + scope | 提示定位和公开 SQL 恢复 |
+| M116 | `mysql-comma-table-index-hint-attribution` | 逗号表列表上的 index hint | 紧邻 relation 的提示恢复位置 |
+| M117-M118 | index hint 列表边界 | 多索引列表、空 `USE INDEX ()` | 完整列表和空列表恢复 |
+| M119-M121 | JOIN 结构边界 | 嵌套 JOIN、`USING`、`NATURAL` | relation、ON/USING 字段和公开 SQL 恢复 |
+| M122-M123 | locking read 等待策略 | `NOWAIT`、`SKIP LOCKED` | locking read 解析和公开 SQL 恢复 |
+| M124 | `mysql-update-order-limit-bind-isolation` | bind + `ORDER BY` + `LIMIT` | assignment/WHERE bind 不被 DML 尾部污染 |
+| M125 | `mysql-nested-straight-join-order` | 嵌套 `STRAIGHT_JOIN` | relation 顺序和公开 SQL 恢复 |
+| M126 | `mysql-on-duplicate-row-column-aliases` | row alias column list | alias 列来源不误归属目标表 |
+| M127 | `mysql-cte-index-hint-location-attribution` | CTE 内外 index hint | CTE 来源块、嵌套 relation 和提示恢复位置 |
+| M128 | `mysql-table-partition-with-index-hints` | `PARTITION(...)` + index hint | 限定表名、别名和公开 SQL 恢复 |
 | MU006 | `mysql-replace-into` | `REPLACE INTO ... VALUES ...` | MySQL `REPLACE` 复用 INSERT 图结构，并通过 `insert_mode=replace_values` 保留替换插入语义 |
 | MU006A | `mysql-replace-low-priority-multi-row` | `REPLACE LOW_PRIORITY INTO ... VALUES (...), (...)` | 多行 `REPLACE VALUES`、位置参数和 `LOW_PRIORITY` 修饰符 |
 | MU006B | `mysql-replace-delayed-select` | `REPLACE DELAYED INTO ... SELECT ...` | `REPLACE SELECT` 的目标表、来源表、位置参数和 `insert_mode=replace_select` |

@@ -73,7 +73,7 @@ Each statement contains:
 | `keyword` | Main statement keyword |
 | `query_graph` | Structured graph for this statement |
 
-The query graph does not expand database metadata and does not infer fields that are not present in the SQL text. It only reports SQL-visible query blocks, relations, targets, field references, values, set operations, and DML write structures.
+The query graph represents query blocks, relations, output targets, field references, values, set operations, and DML write structures found in the SQL.
 
 JSON only emits meaningful optional fields. Public C structs represent absence through `has_*` flags or zero counts; the JSON view omits those fields instead of emitting `null` or empty arrays.
 
@@ -124,7 +124,7 @@ The graph expresses the lineage as:
 - the `b` layer star points at `b` and continues through `source_block`;
 - `o.*` is represented as `kind = "qualified_star"` and points to the `UNION` result block.
 
-The graph does not expand `*` into real table fields and does not duplicate a single SQL occurrence under multiple objects. Callers that need lineage should follow `relation -> source_block -> target -> set branch`.
+Each SQL occurrence is emitted once. Its source path can be followed through `relation -> source_block -> target -> set branch`.
 
 ## relation
 
@@ -150,6 +150,9 @@ The graph does not expand `*` into real table fields and does not duplicate a si
 | `link` | Database link name for remote object references; omitted otherwise |
 | `source_block` | Source query block for derived tables or CTEs; omitted otherwise |
 | `selector` | Relation selector for patching; omitted when no writable node exists |
+
+A CTE definition creates one source block. Multiple references share that
+`source_block`, and an unreferenced CTE definition remains in `blocks[]`.
 
 ## target
 
@@ -311,7 +314,7 @@ Common fields:
 | Field | Description |
 | --- | --- |
 | `kind` | `insert`, `update`, `delete`, or `merge` |
-| `insert_mode` | INSERT shape: `values`, `select`, `all`, `first`, `replace_values`, `replace_select`, or `replace_set` |
+| `insert_mode` | INSERT shape: `values`, `select`, `all`, `first`, `set`, `replace_values`, `replace_select`, or `replace_set` |
 | `target_relation` | Target relation index; omitted when no stable target exists |
 | `target_columns` | Explicit INSERT target-column indexes; omitted when no column list exists |
 | `rows` | Cell indexes for `INSERT ... VALUES` or an Oracle/Dameng multi-table INSERT branch |

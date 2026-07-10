@@ -37,14 +37,14 @@
 - `RETURNING ... INTO`
 - DMSQL block、procedure、package
 - 未列入支持范围的其他 `ALTER SESSION` 参数
-- container 会话切换，例如 `ALTER SESSION SET CONTAINER = ...`
+- `ALTER SESSION SET CONTAINER = ...`
 
 ## 对外输出规则
 
 - `sqlparser_deparse()` 输出达梦公共形态，不暴露内部转换细节。
 - bind 保持 `:name`、`:1` 或 `?` 形态，不输出内部 `$1`、`$2`。
 - `MINUS` 在 View JSON 和 deparse 输出中保持达梦语义名称。
-- `SET SCHEMA` 会以会话上下文结构输出，View JSON 中字段名为 `CURRENT_SCHEMA`。
+- `SET SCHEMA` 在 View JSON 中输出字段名 `CURRENT_SCHEMA`。
 - View JSON 中可归属的表达式片段使用达梦公共形态。
 - 失败的表达式片段改写不会提交到 handle；原有 AST、bind 映射和 deparse 输出保持可用。
 

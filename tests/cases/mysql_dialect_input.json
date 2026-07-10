@@ -2158,6 +2158,392 @@
           "DEFAULT CHARACTER SET=utf8mb4"
         ]
       }
+    },
+    {
+      "id": "M104",
+      "name": "mysql-on-duplicate-values-function",
+      "sql": "INSERT INTO mysql_plugin_policy_smoke(id, secret_name) VALUES (1, 'x') ON DUPLICATE KEY UPDATE secret_name = VALUES(secret_name)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": [
+          "ON DUPLICATE KEY UPDATE",
+          "VALUES(secret_name)"
+        ],
+        "view_contains": [
+          "\"kind\":\"insert\"",
+          "\"assignments\""
+        ],
+        "view_not_contains": [
+          "sqlparser_mysql_duplicate_key"
+        ]
+      }
+    },
+    {
+      "id": "M105",
+      "name": "mysql-on-duplicate-row-alias",
+      "sql": "INSERT INTO mysql_plugin_policy_smoke(id, secret_name) VALUES (1, 'x') AS new ON DUPLICATE KEY UPDATE secret_name = new.secret_name",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": [
+          "AS new ON DUPLICATE KEY UPDATE",
+          "new.secret_name"
+        ],
+        "view_contains": [
+          "\"kind\":\"insert\"",
+          "\"assignments\""
+        ],
+        "view_not_contains": [
+          "sqlparser_mysql_duplicate_key"
+        ]
+      }
+    },
+    {
+      "id": "M106",
+      "name": "mysql-insert-set",
+      "sql": "INSERT INTO mysql_plugin_policy_smoke SET id = 1, secret_name = 'x'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "INSERT INTO mysql_plugin_policy_smoke SET id = 1, secret_name = 'x'",
+        "view_contains": [
+          "\"kind\":\"insert\"",
+          "\"insert_mode\":\"set\""
+        ]
+      }
+    },
+    {
+      "id": "M107",
+      "name": "mysql-delete-table-alias-target",
+      "sql": "DELETE t FROM mysql_plugin_policy_smoke t WHERE t.secret_name = 'x'",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "deparse_contains": "DELETE FROM mysql_plugin_policy_smoke t WHERE t.secret_name = 'x'",
+        "view_contains": [
+          "\"kind\":\"delete\"",
+          "\"table\":\"mysql_plugin_policy_smoke\""
+        ]
+      }
+    },
+    {
+      "id": "M108",
+      "name": "mysql-delete-order-limit",
+      "sql": "DELETE FROM mysql_plugin_policy_smoke WHERE secret_name = 'x' ORDER BY id LIMIT 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "DeleteStmt"
+        ],
+        "deparse_contains": [
+          "ORDER BY id",
+          "LIMIT 1"
+        ],
+        "view_contains": "\"kind\":\"delete\""
+      }
+    },
+    {
+      "id": "M109",
+      "name": "mysql-update-order-limit",
+      "sql": "UPDATE mysql_plugin_policy_smoke SET secret_name = 'x' WHERE id = 1 ORDER BY id LIMIT 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": [
+          "ORDER BY id",
+          "LIMIT 1"
+        ],
+        "view_contains": "\"kind\":\"update\""
+      }
+    },
+    {
+      "id": "M110",
+      "name": "mysql-select-lock-in-share-mode",
+      "sql": "SELECT secret_name FROM mysql_plugin_policy_smoke WHERE id = 1 LOCK IN SHARE MODE",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "LOCK IN SHARE MODE"
+      }
+    },
+    {
+      "id": "M111",
+      "name": "mysql-select-straight-join",
+      "sql": "SELECT a.secret_name FROM mysql_plugin_policy_smoke a STRAIGHT_JOIN mysql_plugin_policy_smoke b ON b.id = a.id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "STRAIGHT_JOIN mysql_plugin_policy_smoke b",
+        "view_contains": [
+          "\"table\":\"mysql_plugin_policy_smoke\",\"alias\":\"a\"",
+          "\"table\":\"mysql_plugin_policy_smoke\",\"alias\":\"b\"",
+          "\"clause\":\"on\",\"relation\":1,\"column\":\"id\"",
+          "\"clause\":\"on\",\"relation\":0,\"column\":\"id\""
+        ]
+      }
+    },
+    {
+      "id": "M112",
+      "name": "mysql-select-use-index",
+      "sql": "SELECT secret_name FROM mysql_plugin_policy_smoke USE INDEX (idx_secret) WHERE id = 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "USE INDEX (idx_secret)",
+        "view_contains": "\"table\":\"mysql_plugin_policy_smoke\""
+      }
+    },
+    {
+      "id": "M113",
+      "name": "mysql-select-force-and-ignore-index",
+      "sql": "SELECT secret_name FROM mysql_plugin_policy_smoke FORCE INDEX FOR JOIN (idx_secret) WHERE id = 1 UNION ALL SELECT secret_name FROM mysql_plugin_policy_smoke IGNORE KEY FOR ORDER BY (idx_secret)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": [
+          "FORCE INDEX FOR JOIN (idx_secret)",
+          "IGNORE KEY FOR ORDER BY (idx_secret)"
+        ]
+      }
+    },
+    {
+      "id": "M114",
+      "name": "mysql-update-use-index",
+      "sql": "UPDATE mysql_plugin_policy_smoke USE INDEX (idx_secret) SET secret_name = 'x' WHERE id = 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": "UPDATE mysql_plugin_policy_smoke USE INDEX (idx_secret) SET",
+        "view_contains": [
+          "\"kind\":\"update\"",
+          "\"table\":\"mysql_plugin_policy_smoke\""
+        ]
+      }
+    },
+    {
+      "id": "M115",
+      "name": "mysql-select-use-index-for-group-by",
+      "sql": "SELECT secret_name FROM mysql_plugin_policy_smoke USE INDEX FOR GROUP BY (idx_secret) GROUP BY secret_name",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": "USE INDEX FOR GROUP BY (idx_secret)",
+        "view_contains": "\"clause\":\"group_by\",\"relation\":0,\"column\":\"secret_name\""
+      }
+    },
+    {
+      "id": "M116",
+      "name": "mysql-comma-table-index-hint-attribution",
+      "sql": "SELECT * FROM table_a a, table_b b USE INDEX (idx_b)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "table_b b USE INDEX (idx_b)",
+        "view_contains": "\"table\":\"table_b\",\"alias\":\"b\""
+      }
+    },
+    {
+      "id": "M117",
+      "name": "mysql-index-hint-list-elements",
+      "sql": "SELECT * FROM table_a USE INDEX (idx_a, idx_b)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "USE INDEX (idx_a, idx_b)"
+      }
+    },
+    {
+      "id": "M118",
+      "name": "mysql-empty-use-index",
+      "sql": "SELECT * FROM table_a USE INDEX () WHERE id = 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "USE INDEX ()"
+      }
+    },
+    {
+      "id": "M119",
+      "name": "mysql-nested-join-operands",
+      "sql": "SELECT * FROM table_a a JOIN (table_b b LEFT JOIN table_c c ON b.id = c.id) ON a.id = b.id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "view_contains": [
+          "\"table\":\"table_a\",\"alias\":\"a\"",
+          "\"table\":\"table_b\",\"alias\":\"b\"",
+          "\"table\":\"table_c\",\"alias\":\"c\"",
+          "\"clause\":\"on\""
+        ]
+      }
+    },
+    {
+      "id": "M120",
+      "name": "mysql-join-using-columns",
+      "sql": "SELECT * FROM table_a a JOIN table_b b USING (id, tenant_id)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "view_contains": [
+          "\"clause\":\"on\",\"candidate_relations\":[0,1],\"column\":\"id\"",
+          "\"clause\":\"on\",\"candidate_relations\":[0,1],\"column\":\"tenant_id\""
+        ]
+      }
+    },
+    {
+      "id": "M121",
+      "name": "mysql-natural-left-join",
+      "sql": "SELECT * FROM table_a NATURAL LEFT JOIN table_b",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "NATURAL LEFT JOIN"
+      }
+    },
+    {
+      "id": "M122",
+      "name": "mysql-locking-read-nowait",
+      "sql": "SELECT * FROM table_a FOR UPDATE NOWAIT",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "FOR UPDATE NOWAIT"
+      }
+    },
+    {
+      "id": "M123",
+      "name": "mysql-locking-read-skip-locked",
+      "sql": "SELECT * FROM table_a FOR SHARE SKIP LOCKED",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "FOR SHARE SKIP LOCKED"
+      }
+    },
+    {
+      "id": "M124",
+      "name": "mysql-update-order-limit-bind-isolation",
+      "sql": "UPDATE table_a SET value_col = ? WHERE id = ? ORDER BY created_at DESC LIMIT ?",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["UpdateStmt"],
+        "deparse_contains": "ORDER BY created_at DESC LIMIT ?",
+        "view_contains": [
+          "\"bind_sql\":\"?\",\"bind_position\":1",
+          "\"bind_sql\":\"?\",\"bind_position\":2"
+        ],
+        "view_not_contains": "bind_sql\":\"? ORDER BY"
+      }
+    },
+    {
+      "id": "M125",
+      "name": "mysql-nested-straight-join-order",
+      "sql": "SELECT * FROM table_a a STRAIGHT_JOIN (table_b b JOIN table_c c ON b.id = c.id) ON a.id = b.id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "STRAIGHT_JOIN",
+        "view_contains": [
+          "\"table\":\"table_a\",\"alias\":\"a\"",
+          "\"table\":\"table_b\",\"alias\":\"b\"",
+          "\"table\":\"table_c\",\"alias\":\"c\""
+        ]
+      }
+    },
+    {
+      "id": "M126",
+      "name": "mysql-on-duplicate-row-column-aliases",
+      "sql": "INSERT INTO table_a(id, value_col) VALUES (1, 'x') AS new(new_id, new_value) ON DUPLICATE KEY UPDATE value_col = new_value",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": [
+          "AS new(new_id, new_value)",
+          "value_col = new_value"
+        ],
+        "view_contains": [
+          "\"column\":\"new_value\"",
+          "\"kind\":\"field\",\"source_field\""
+        ],
+        "view_not_contains": [
+          "sqlparser_mysql_alias_column",
+          "\"relation\":0,\"column\":\"new_value\""
+        ]
+      }
+    },
+    {
+      "id": "M127",
+      "name": "mysql-cte-index-hint-location-attribution",
+      "sql": "WITH cte AS (SELECT * FROM table_a USE INDEX (`idx-a`)) SELECT * FROM cte JOIN table_b USE INDEX (idx_b) ON cte.id = table_b.id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": ["table_a USE INDEX (`idx-a`)", "table_b USE INDEX (idx_b)"],
+        "view_contains": [
+          "\"kind\":\"cte\",\"table\":\"cte\"",
+          "\"kind\":\"base\",\"table\":\"table_a\"",
+          "\"kind\":\"base\",\"table\":\"table_b\""
+        ]
+      }
+    },
+    {
+      "id": "M128",
+      "name": "mysql-table-partition-with-index-hints",
+      "sql": "SELECT * FROM `db-a`.`table-a` PARTITION(`p-a`, p1) AS a USE INDEX (`idx-a`, PRIMARY)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "`db-a`.`table-a` PARTITION(`p-a`, p1) a USE INDEX (`idx-a`, PRIMARY)",
+        "view_contains": "\"schema\":\"db-a\",\"table\":\"table-a\",\"alias\":\"a\""
+      }
     }
   ]
 }

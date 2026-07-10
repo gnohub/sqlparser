@@ -548,9 +548,8 @@ the original handle.
 
 ## query_graph C Traversal
 
-`query_graph` is the minimal structure view for field attribution, output order,
-DML writes, and value binding. It does not read database metadata, distinguish
-tables from views, expand `*`, or store per-node SQL text.
+`query_graph` provides structured access to query blocks, relations, output
+targets, field references, predicates, DML writes, and bound values.
 
 ### Entry Point
 
@@ -607,6 +606,9 @@ from which it was read.
   object references. It is `NULL` when the SQL has no database link.
 - `relations[].source_block_index` links a derived table or CTE to its source
   block.
+- A CTE definition is built once. Multiple references share its
+  `source_block_index`, and an unreferenced CTE definition remains present in
+  the graph.
 - `targets[].star_relations` reports the relation indexes covered by `*` or
   `alias.*`.
 - `targets[].source_block_index` links star or subquery targets to their source
@@ -622,8 +624,8 @@ from which it was read.
   `has_relation` is `0` and `candidate_relations` lists relation candidates in
   the current scope.
 - `sqlparser_graph_dml_t.insert_mode` distinguishes `VALUES`, `SELECT`,
-  `INSERT ALL`, `INSERT FIRST`, and the MySQL `REPLACE` `VALUES`, `SELECT`,
-  and `SET` forms.
+  `INSERT ALL`, `INSERT FIRST`, MySQL `INSERT ... SET`, and the MySQL `REPLACE`
+  `VALUES`, `SELECT`, and `SET` forms.
 - `sqlparser_graph_dml_t.branches` is used only for Oracle/Dameng multi-table
   INSERT; each branch owns its target relation, target columns, rows, branch
   kind, and optional condition selector. The condition selector can be passed
@@ -723,7 +725,7 @@ rendered by the library according to the handle dialect.
 
 1. Call `sqlparser_statement_query_graph()`.
 2. Traverse `relations`, `fields`, `values`, and DML structures.
-3. Combine the result with caller-owned metadata for field-policy matching.
+3. Apply caller-defined rules to the structured fields.
 
 ### Selector-Driven Rewrite
 

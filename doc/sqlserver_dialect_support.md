@@ -29,7 +29,7 @@ SQL Server 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆�
 - ODBC `{fn ...}` 标量函数包装
 - 简单 `RENAME OBJECT ... TO ...`
 - 常见类型名和函数，例如 `NVARCHAR`、`BIT`、`DATETIME2`、`ISNULL`、`GETDATE`、`NEWID`
-- `USE database_name` 数据库上下文切换
+- `USE database_name`
 - 基础 `SET` 会话/执行环境语句，例如 `SET NOCOUNT ON`、`SET DATEFORMAT dmy`、`SET IDENTITY_INSERT dbo.Tool ON`
 - `sp_prepare`、`sp_execute`、`sp_prepexec`、`sp_unprepare`、`sp_executesql` 参数化动态 SQL
 

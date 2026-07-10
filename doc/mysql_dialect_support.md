@@ -17,19 +17,25 @@ MySQL 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范�
 - 窗口函数
 - 普通标量函数表达式
 - `INSERT VALUES`、多行 `INSERT`、`INSERT SELECT`
+- `INSERT ... SET` 和 `VALUES/SET` row alias
 - `INSERT IGNORE`、`INSERT DELAYED`、`INSERT LOW_PRIORITY`、`INSERT HIGH_PRIORITY` 修饰符保留
 - `REPLACE VALUES`、`REPLACE SET`、`REPLACE SELECT`、`REPLACE TABLE` 基础形态
 - `UPDATE LOW_PRIORITY/IGNORE` 和 `DELETE LOW_PRIORITY/QUICK/IGNORE` 修饰符保留
 - `INSERT ... ON DUPLICATE KEY UPDATE`
 - `UPDATE`、`DELETE`
+- 单表 `UPDATE`、`DELETE` 的 `ORDER BY ... LIMIT`，以及别名删除目标
 - 带 `ON` 条件的多表 `UPDATE ... JOIN ... SET ...` 基础形态
 - 带 `ON` 条件的多表 `DELETE u FROM ... JOIN ...` 基础形态
+- `STRAIGHT_JOIN`、`JOIN ... USING`、`NATURAL JOIN`
+- `USE/FORCE/IGNORE INDEX|KEY` 及 `FOR JOIN|ORDER BY|GROUP BY` scope
+- `LOCK IN SHARE MODE`、`FOR UPDATE/SHARE`、`NOWAIT`、`SKIP LOCKED`
+- 查询表的 `PARTITION(...)` 选择子句
 - `CREATE TABLE` 基础形态、列属性、表选项和无查询表达式的分区尾部
 - `ALTER TABLE ADD COLUMN`
 - `CREATE VIEW`
 - `DROP TABLE`
 - `START TRANSACTION`、`COMMIT`、`ROLLBACK`
-- `USE db_name` 默认数据库切换
+- `USE db_name`
 - `PREPARE`、`EXECUTE`、`DEALLOCATE PREPARE`、`DROP PREPARE`
 
 ## 明确不支持范围
@@ -40,7 +46,7 @@ MySQL 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范�
 
 - `sqlparser_deparse()` 输出 MySQL 公共形态，不暴露内部转换细节。
 - 反引号标识符和 MySQL 字符串兼容规则由方言层处理。
-- View JSON 中可归属的表达式片段使用公共 MySQL 形态。
+- View JSON 使用统一的 `query_graph` 结构；其中的标识符和值按 MySQL 公开形态输出。
 - 无法安全表达的 MySQL 专属语义不会降级为 PostgreSQL 语义。
 
 ## 回归用例
@@ -52,4 +58,4 @@ MySQL 支持范围以以下文件为准：
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 MySQL 方言矩阵包含 131 条用例：131 条支持路径，0 条明确不支持路径。
+当前 MySQL 方言矩阵包含 156 条用例：156 条支持路径，0 条明确不支持路径。

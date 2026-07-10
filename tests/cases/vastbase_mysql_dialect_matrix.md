@@ -102,6 +102,15 @@
 | `VM101` | `vastbase-mysql-create-table-string-and-storage-table-options` | CREATE TABLE `users` (`id` INT) COMMENT='users table' COMPRESSION='ZLIB' CONNECTION='connect_string' DATA DIRECTORY='/tmp/data' INDEX DIRECTORY='/tmp/index' ENCRYPTION='Y' ENGINE_ATTRIBUTE='{"tier":"hot"}' SECONDARY_ENGINE_ATTRIBUTE='{}' INSERT_METHOD=NO PASSWORD='legacy' ROW_FORMAT=COMPRESSED TABLESPACE=innodb_file_per_table | 已覆盖 |
 | `VM102` | `vastbase-mysql-create-table-partition-options` | CREATE TABLE `users` (`id` INT, `created_at` DATE) ENGINE=InnoDB PARTITION BY HASH(`id`) PARTITIONS 4 | 已覆盖 |
 | `VM103` | `vastbase-mysql-create-temporary-table-options` | CREATE TEMPORARY TABLE IF NOT EXISTS `tmp_users` (`id` INT VISIBLE, `token` VARCHAR(64) COMMENT 'session token') ENGINE=MEMORY DEFAULT CHARACTER SET=utf8mb4 | 已覆盖 |
+| `VM104-VM106` | INSERT 扩展 | ON DUPLICATE KEY UPDATE、row alias、INSERT SET | 已覆盖 |
+| `VM107-VM109` | DELETE/UPDATE 扩展 | 别名删除目标、ORDER BY、LIMIT | 已覆盖 |
+| `VM110-VM115` | locking read、STRAIGHT_JOIN、index hint | 解析、通用 relation/field 图和公开 SQL 恢复 | 已覆盖 |
+| `VM116-VM118` | index hint 位置和列表边界 | 逗号表列表、多索引、空 USE INDEX | 已覆盖 |
+| `VM119-VM121` | JOIN 语义 | 嵌套 JOIN、USING、NATURAL | 已覆盖 |
+| `VM122-VM125` | lock、DML bind、嵌套 STRAIGHT_JOIN | NOWAIT、SKIP LOCKED、ORDER/LIMIT bind 隔离 | 已覆盖 |
+| `VM126` | row alias column list | ON DUPLICATE KEY UPDATE row alias 列来源 | 已覆盖 |
+| `VM127` | CTE 内外 index hint | CTE 来源块、嵌套 relation 和提示恢复位置 | 已覆盖 |
+| `VM128` | table partition + index hint | 限定表名、别名和公开 SQL 恢复 | 已覆盖 |
 | `VMU001` | `vastbase-mysql-insert-ignore` | INSERT IGNORE INTO `users` (`id`) VALUES (1) | 已覆盖 |
 | `VMU002` | `vastbase-mysql-insert-delayed` | INSERT DELAYED INTO `users` (`id`) VALUES (1) | 已覆盖 |
 | `VMU003` | `vastbase-mysql-insert-low-priority` | INSERT LOW_PRIORITY INTO `users` (`id`) VALUES (1) | 已覆盖 |

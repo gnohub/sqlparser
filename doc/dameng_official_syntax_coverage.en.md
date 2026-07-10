@@ -48,7 +48,7 @@ The current implementation covers 31 groups and leaves 7 groups uncovered.
 ## Conclusion
 
 The current Dameng dialect covers common query, DML, DDL, transaction,
-privilege, current-schema switching, representative session-parameter
-statements, and basic remote object references. The remaining gaps are syntax
-groups that must preserve Dameng-specific semantics and should not be downgraded
-to PostgreSQL-compatible forms.
+privilege, current-schema statements, representative session-parameter
+statements, and basic remote object references. The remaining seven syntax
+groups depend on Dameng-specific query-model or program-unit semantics and are
+not handled by PostgreSQL-compatible conversion.

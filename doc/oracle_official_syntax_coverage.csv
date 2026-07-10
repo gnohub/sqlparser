@@ -30,7 +30,7 @@ ddl,TRUNCATE_TABLE,CURRENT,"已覆盖 TRUNCATE TABLE",https://docs.oracle.com/en
 transaction,SAVEPOINT_ROLLBACK_COMMIT,CURRENT,"已覆盖 SAVEPOINT、ROLLBACK TO SAVEPOINT 和 COMMIT",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Types-of-SQL-Statements.html
 privileges,GRANT_REVOKE,CURRENT,"已覆盖 GRANT 和 REVOKE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/GRANT.html
 utility,COMMENT_ON,CURRENT,"已覆盖 COMMENT ON TABLE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/COMMENT.html
-session,ALTER_SESSION_CONTEXT,CURRENT,"已覆盖 CURRENT_SCHEMA、CONTAINER/SERVICE 和普通 ALTER SESSION SET 参数赋值",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/ALTER-SESSION.html
+session,ALTER_SESSION_SET,CURRENT,"已覆盖 CURRENT_SCHEMA、CONTAINER/SERVICE 和普通 ALTER SESSION SET 参数赋值",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/ALTER-SESSION.html
 session,ALTER_SESSION_OTHER,CURRENT,"已覆盖普通 ALTER SESSION SET 参数赋值，包含字符串、标识符、数字和布尔/枚举值",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/ALTER-SESSION.html
 expressions,NATIONAL_Q_QUOTED_STRING,CURRENT,"已覆盖 nq q-quoted 字符串，公共输出恢复为 N 前缀字符串字面量",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Literals.html
 query,CONNECT_BY,MODEL_REQUIRED,"层级查询语义需要 Oracle 专用查询模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Hierarchical-Queries.html

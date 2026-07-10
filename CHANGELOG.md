@@ -1,5 +1,26 @@
 # 变更记录
 
+## 2.9.0
+
+### MySQL 方言
+
+- 增加 `INSERT ... SET`、`ON DUPLICATE KEY UPDATE` 行别名、别名删除目标以及单表 `UPDATE` / `DELETE ... ORDER BY ... LIMIT` 支持。
+- 增加 `STRAIGHT_JOIN`、`JOIN ... USING`、`NATURAL JOIN`、锁定读、索引提示和查询表 `PARTITION(...)` 支持。
+- Vastbase-MySQL 同步支持上述兼容语法。
+
+### Query Graph
+
+- `JOIN ... USING` 中出现的字段通过现有 `fields[]` 和 `candidate_relations` 输出。
+- 同一 CTE 的多次引用共享来源 `source_block`，未引用 CTE 保留在 Query Graph 中，递归 CTE 引用指向已注册的来源块。
+- 增加 `SQLPARSER_GRAPH_INSERT_MODE_SET`，用于标识 `INSERT ... SET` 写入形态。
+- 公共结构体布局保持稳定，ABI 导出符号数保持为 135。
+
+### 性能与验证
+
+- MySQL 扩展语法采用单次特征分类，仅在对应语法出现时执行转换流程。
+- MySQL 与 Vastbase-MySQL 方言用例矩阵分别包含 156 条支持用例。
+- 发布验证覆盖 GCC 8.3 严格编译、全量测试、ASan、UBSan、Valgrind、ABI 检查及旧版本客户端动态库兼容测试。
+
 ## 2.8.1
 
 ### Query Graph 性能
@@ -160,7 +181,7 @@
 
 ### 测试与覆盖
 
-- 扩充 PostgreSQL、MySQL、Oracle、SQL Server 和达梦现有 case matrix，覆盖更多 DDL、DML、JOIN、函数、表达式、bind、分页和上下文切换场景
+- 扩充 PostgreSQL、MySQL、Oracle、SQL Server 和达梦现有 case matrix，覆盖更多 DDL、DML、JOIN、函数、表达式、bind、分页以及 `USE`、`SET SCHEMA` 和 `ALTER SESSION SET` 场景
 - 新增 Oracle `ALTER SESSION SET NLS_DATE_FORMAT`、`NLS_DATE_LANGUAGE`、`NLS_NUMERIC_CHARACTERS`、`INSTANCE`、`ERROR_ON_OVERLAP_TIME` 回归用例
 - 同步更新中英文 case matrix、方言覆盖统计和 Oracle 官方语法覆盖统计
 
@@ -239,21 +260,21 @@
 
 ### 方言能力
 
-- 增加 PostgreSQL 会话 schema 上下文输出，覆盖 `SET search_path`、`SET LOCAL search_path` 和 `SET SCHEMA`
-- 增加 MySQL `USE db_name` 默认数据库切换支持
-- 增加 SQL Server `USE database_name` 数据库上下文切换支持
+- 增加 PostgreSQL `SET search_path`、`SET LOCAL search_path` 和 `SET SCHEMA` 结构化输出
+- 增加 MySQL `USE db_name` 支持
+- 增加 SQL Server `USE database_name` 支持
 - 增加 Oracle `ALTER SESSION SET CURRENT_SCHEMA`、`ALTER SESSION SET CONTAINER` 和 `ALTER SESSION SET CONTAINER ... SERVICE ...` 支持
-- 修复多语句输入中的上下文切换语句处理，确保 parse、View JSON 和 deparse 均保持公共 SQL 形态
+- 修复多语句输入中的 `USE`、`SET SCHEMA` 和 `ALTER SESSION SET` 语句处理，确保 parse、View JSON 和 deparse 均保持公开方言形态
 
 ### View JSON 与改写
 
-- 会话上下文切换语句复用现有 `query_graph values` 结构，不新增独立 JSON 格式
-- 支持通过 `stmt[n].value[m]` selector 改写上下文切换目标并还原为对应方言 SQL
+- 这些语句复用现有 `query_graph values` 结构，不新增独立 JSON 格式
+- 支持通过 `stmt[n].value[m]` selector 改写对应值并还原为相应方言 SQL
 - 修复 SQL Server、MySQL 和 Oracle deparse 中内部 `sqlparser_current_*` 哨兵泄露的边界问题
 
 ### 测试与文档
 
-- 增加 MySQL、Oracle 和 SQL Server 多语句上下文切换回归用例
+- 增加 MySQL、Oracle 和 SQL Server 多语句 `USE` / `ALTER SESSION SET` 回归用例
 - 同步更新方言支持文档、官方语法覆盖清单和可执行用例覆盖统计
 
 ## 0.2.0
@@ -273,7 +294,7 @@
 ### 发布与构建
 
 - 固定 vendored `libpg_query` 版本并纳入仓库
-- 统一发布公共头文件、静态库、动态库与 `pkg-config` 元数据
+- 统一发布公共头文件、静态库、动态库与 `pkg-config` 文件
 - 新增严格构建、安装烟测、`valgrind` 泄漏校验、循环回归、benchmark smoke 与一键 `verify` 入口
 - 构建系统按编译选项签名自动失效并重建本库对象和 vendor 产物
 - 新增 `make abi-check`，校验动态库导出符号与公共头文件一致

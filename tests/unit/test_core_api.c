@@ -7318,6 +7318,60 @@ static int test_structured_select_target_column_replacement(void)
 	return 0;
 }
 
+static int test_query_graph_join_using_reuses_fields(void)
+{
+	const char *sql;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_parse_options_t options;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_field_t field;
+	char *deparsed;
+	size_t index;
+	int saw_using_field;
+	int rc;
+
+	sql = "SELECT * FROM table_a PARTITION(p0) USE INDEX (idx_a, idx_b) "
+	      "JOIN table_b USING (id) FOR UPDATE NOWAIT";
+	handle = NULL;
+	deparsed = NULL;
+	saw_using_field = 0;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_MYSQL;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "join graph parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "join graph should be available") != 0 ||
+	    expect_true(graph.relation_count == 2U, "join should reuse the existing relation graph") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	for (index = 0U; index < graph.field_count; index++) {
+		if (sqlparser_query_graph_field_at(&graph, index, &field, &error) == SQLPARSER_STATUS_OK &&
+		    field.clause == SQLPARSER_CLAUSE_KIND_ON && field.column_name != NULL &&
+		    strcmp(field.column_name, "id") == 0) {
+			saw_using_field = field.candidate_relations.count == 2U;
+		}
+	}
+	if (expect_true(saw_using_field, "JOIN USING should reuse fields with both relation candidates") != 0 ||
+	    expect_status_ok(sqlparser_deparse(handle, &deparsed, &error), &error,
+	                     "join extensions should deparse") != 0 ||
+	    expect_true(strstr(deparsed, "PARTITION(p0)") != NULL, "partition clause should be preserved") != 0 ||
+	    expect_true(strstr(deparsed, "USE INDEX (idx_a, idx_b)") != NULL, "index hint should be preserved") != 0 ||
+	    expect_true(strstr(deparsed, "USING (id)") != NULL, "USING clause should be preserved") != 0 ||
+	    expect_true(strstr(deparsed, "FOR UPDATE NOWAIT") != NULL, "locking clause should be preserved") != 0) {
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
 static int test_query_graph_set_operation_attribution(void)
 {
 	const char *sql;
@@ -7466,6 +7520,71 @@ static int test_query_graph_strict_contract_edges(void)
 		if (expect_true(saw_cte_relation != 0, "query graph should expose CTE relation") != 0 ||
 		    expect_true(saw_cte_block != 0, "query graph should expose CTE source block") != 0 ||
 		    expect_true(saw_base_users != 0, "query graph should expose CTE inner base table") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+
+	{
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_graph_relation_t relation;
+		size_t index;
+		size_t used_source_block;
+		size_t used_reference_count;
+		size_t users_count;
+		size_t audit_count;
+		int rc;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse(
+			"WITH used AS (SELECT id FROM users), unused AS (SELECT id FROM audit_log) "
+			"SELECT x.id FROM used x JOIN used y ON x.id = y.id",
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "shared CTE graph parse should succeed") != 0) {
+			return 1;
+		}
+		rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+		if (expect_status_ok(rc, &error, "shared CTE graph should be available") != 0 ||
+		    expect_true(graph.block_count == 3U, "CTE definitions should each create one block") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		used_source_block = 0U;
+		used_reference_count = 0U;
+		users_count = 0U;
+		audit_count = 0U;
+		for (index = 0U; index < graph.relation_count; index++) {
+			rc = sqlparser_query_graph_relation_at(&graph, index, &relation, &error);
+			if (expect_status_ok(rc, &error, "shared CTE relation should be readable") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			if (relation.kind == SQLPARSER_GRAPH_REL_CTE && relation.object_name != NULL &&
+			    strcmp(relation.object_name, "used") == 0 && relation.has_source_block) {
+				if (used_reference_count == 0U) {
+					used_source_block = relation.source_block_index;
+				} else if (expect_true(relation.source_block_index == used_source_block,
+				                       "repeated CTE references should share one source block") != 0) {
+					sqlparser_handle_destroy(handle);
+					return 1;
+				}
+				used_reference_count++;
+			} else if (relation.kind == SQLPARSER_GRAPH_REL_BASE && relation.object_name != NULL &&
+			           strcmp(relation.object_name, "users") == 0) {
+				users_count++;
+			} else if (relation.kind == SQLPARSER_GRAPH_REL_BASE && relation.object_name != NULL &&
+			           strcmp(relation.object_name, "audit_log") == 0) {
+				audit_count++;
+			}
+		}
+		if (expect_true(used_reference_count == 2U, "both CTE references should be present") != 0 ||
+		    expect_true(users_count == 1U, "shared CTE source should not be duplicated") != 0 ||
+		    expect_true(audit_count == 1U, "unreferenced CTE definition should remain in the graph") != 0) {
 			sqlparser_handle_destroy(handle);
 			return 1;
 		}
@@ -7977,6 +8096,9 @@ int main(void)
 		return 1;
 	}
 	if (test_query_graph_public_struct_semantics() != 0) {
+		return 1;
+	}
+	if (test_query_graph_join_using_reuses_fields() != 0) {
 		return 1;
 	}
 	if (test_insert_select_target_values() != 0) {
