@@ -2362,7 +2362,8 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "USE INDEX FOR GROUP BY (idx_secret)",
+        "deparse_contains": "FROM mysql_plugin_policy_smoke USE INDEX FOR GROUP BY (idx_secret) GROUP BY secret_name",
+        "deparse_not_contains": "GROUP USE INDEX",
         "view_contains": "\"clause\":\"group_by\",\"relation\":0,\"column\":\"secret_name\""
       }
     },
@@ -2543,6 +2544,264 @@
         "statement_types": ["SelectStmt"],
         "deparse_contains": "`db-a`.`table-a` PARTITION(`p-a`, p1) a USE INDEX (`idx-a`, PRIMARY)",
         "view_contains": "\"schema\":\"db-a\",\"table\":\"table-a\",\"alias\":\"a\""
+      }
+    },
+    {
+      "id": "M129",
+      "name": "mysql-index-hint-before-having",
+      "sql": "SELECT COUNT(*) FROM table_a USE INDEX (idx_a) HAVING COUNT(*) > 0",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "FROM table_a USE INDEX (idx_a) HAVING count(*) > 0",
+        "deparse_not_contains": "HAVING USE INDEX",
+        "view_contains": ["\"kind\":\"base\",\"table\":\"table_a\"", "\"kind\":\"expression\""]
+      }
+    },
+    {
+      "id": "M130",
+      "name": "mysql-index-hint-before-window",
+      "sql": "SELECT id, ROW_NUMBER() OVER w FROM table_a USE INDEX (idx_a) WINDOW w AS (ORDER BY id)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "FROM table_a USE INDEX (idx_a) WINDOW w AS (ORDER BY id)",
+        "deparse_not_contains": "WINDOW USE INDEX",
+        "view_contains": ["\"table\":\"table_a\"", "\"ordinal\":1,\"kind\":\"expression\""]
+      }
+    },
+    {
+      "id": "M131",
+      "name": "mysql-index-hint-before-union",
+      "sql": "SELECT id FROM table_a USE INDEX (idx_a) UNION ALL SELECT id FROM table_b",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "FROM table_a USE INDEX (idx_a) UNION ALL SELECT id FROM table_b",
+        "deparse_not_contains": "UNION USE INDEX",
+        "view_contains": ["\"kind\":\"union_all\"", "\"table\":\"table_a\"", "\"table\":\"table_b\""]
+      }
+    },
+    {
+      "id": "M132",
+      "name": "mysql-index-hint-before-intersect",
+      "sql": "SELECT id FROM table_a USE INDEX (idx_a) INTERSECT SELECT id FROM table_b",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "FROM table_a USE INDEX (idx_a) INTERSECT SELECT id FROM table_b",
+        "deparse_not_contains": "INTERSECT USE INDEX",
+        "view_contains": ["\"kind\":\"intersect\"", "\"table\":\"table_a\"", "\"table\":\"table_b\""]
+      }
+    },
+    {
+      "id": "M133",
+      "name": "mysql-index-hint-before-except",
+      "sql": "SELECT id FROM table_a USE INDEX (idx_a) EXCEPT SELECT id FROM table_b",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "FROM table_a USE INDEX (idx_a) EXCEPT SELECT id FROM table_b",
+        "deparse_not_contains": "EXCEPT USE INDEX",
+        "view_contains": ["\"kind\":\"except\"", "\"table\":\"table_a\"", "\"table\":\"table_b\""]
+      }
+    },
+    {
+      "id": "M134",
+      "name": "mysql-index-hint-before-for-update",
+      "sql": "SELECT id FROM table_a USE INDEX (idx_a) FOR UPDATE",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "FROM table_a USE INDEX (idx_a) FOR UPDATE",
+        "deparse_not_contains": "FOR USE INDEX",
+        "view_contains": ["\"table\":\"table_a\"", "\"clause\":\"select_list\",\"relation\":0,\"column\":\"id\""]
+      }
+    },
+    {
+      "id": "M135",
+      "name": "mysql-index-hint-before-lock-in-share-mode",
+      "sql": "SELECT id FROM table_a USE INDEX (idx_a) LOCK IN SHARE MODE",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "FROM table_a USE INDEX (idx_a) LOCK IN SHARE MODE",
+        "deparse_not_contains": ["FOR USE INDEX", "LOCK USE INDEX"],
+        "view_contains": ["\"table\":\"table_a\"", "\"clause\":\"select_list\",\"relation\":0,\"column\":\"id\""]
+      }
+    },
+    {
+      "id": "M136",
+      "name": "mysql-index-hint-before-natural-left-join",
+      "sql": "SELECT * FROM table_a USE INDEX (idx_a) NATURAL LEFT JOIN table_b",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "table_a USE INDEX (idx_a) NATURAL LEFT JOIN table_b",
+        "deparse_not_contains": "NATURAL USE INDEX",
+        "view_contains": ["\"table\":\"table_a\"", "\"table\":\"table_b\"", "\"star_relations\":[0,1]"]
+      }
+    },
+    {
+      "id": "M137",
+      "name": "mysql-index-hints-around-straight-join",
+      "sql": "SELECT * FROM table_a USE INDEX (idx_a) STRAIGHT_JOIN table_b USE INDEX (idx_b) ON table_a.id = table_b.id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "table_a USE INDEX (idx_a) STRAIGHT_JOIN table_b USE INDEX (idx_b) ON",
+        "deparse_not_contains": "STRAIGHT_JOIN USE INDEX",
+        "view_contains": [
+          "\"table\":\"table_a\"",
+          "\"table\":\"table_b\"",
+          "\"clause\":\"on\",\"relation\":0,\"column\":\"id\"",
+          "\"clause\":\"on\",\"relation\":1,\"column\":\"id\""
+        ]
+      }
+    },
+    {
+      "id": "M138",
+      "name": "mysql-index-hint-before-join-using",
+      "sql": "SELECT * FROM table_a JOIN table_b USE INDEX (idx_b) USING (id)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "JOIN table_b USE INDEX (idx_b) USING (id)",
+        "deparse_not_contains": "USING USE INDEX",
+        "view_contains": [
+          "\"table\":\"table_a\"",
+          "\"table\":\"table_b\"",
+          "\"clause\":\"on\",\"candidate_relations\":[0,1],\"column\":\"id\""
+        ]
+      }
+    },
+    {
+      "id": "M139",
+      "name": "mysql-aliased-index-hint-before-group-having",
+      "sql": "SELECT a.secret_name FROM table_a AS a FORCE INDEX FOR GROUP BY (idx_group) GROUP BY a.secret_name HAVING COUNT(*) > 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "table_a a FORCE INDEX FOR GROUP BY (idx_group) GROUP BY a.secret_name HAVING count(*) > 1",
+        "deparse_not_contains": ["GROUP FORCE INDEX", "HAVING FORCE INDEX"],
+        "view_contains": [
+          "\"table\":\"table_a\",\"alias\":\"a\"",
+          "\"clause\":\"select_list\",\"relation\":0,\"column\":\"secret_name\"",
+          "\"clause\":\"group_by\",\"relation\":0,\"column\":\"secret_name\""
+        ]
+      }
+    },
+    {
+      "id": "M140",
+      "name": "mysql-multiple-scoped-index-hints-before-group-order",
+      "sql": "SELECT category FROM table_a USE INDEX FOR GROUP BY (idx_group) IGNORE INDEX FOR ORDER BY (idx_order) GROUP BY category ORDER BY category",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "table_a USE INDEX FOR GROUP BY (idx_group) IGNORE INDEX FOR ORDER BY (idx_order) GROUP BY category ORDER BY category",
+        "deparse_not_contains": ["GROUP USE INDEX", "ORDER IGNORE INDEX"],
+        "view_contains": [
+          "\"clause\":\"group_by\",\"relation\":0,\"column\":\"category\"",
+          "\"clause\":\"order_by\",\"relation\":0,\"column\":\"category\""
+        ]
+      }
+    },
+    {
+      "id": "M141",
+      "name": "mysql-nested-cte-index-hint-before-group-and-set",
+      "sql": "WITH cte AS (SELECT id FROM table_a USE INDEX (idx_a) GROUP BY id) SELECT id FROM cte UNION ALL SELECT id FROM table_b USE INDEX (idx_b)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": [
+          "table_a USE INDEX (idx_a) GROUP BY id",
+          "UNION ALL SELECT id FROM table_b USE INDEX (idx_b)"
+        ],
+        "deparse_not_contains": "GROUP USE INDEX",
+        "view_contains": [
+          "\"kind\":\"cte\",\"table\":\"cte\"",
+          "\"kind\":\"base\",\"table\":\"table_a\"",
+          "\"kind\":\"base\",\"table\":\"table_b\"",
+          "\"kind\":\"union_all\""
+        ]
+      }
+    },
+    {
+      "id": "M142",
+      "name": "mysql-multi-statement-index-hint-boundaries",
+      "sql": "SELECT id FROM table_a USE INDEX (idx_a) GROUP BY id; SELECT id FROM table_b FORCE INDEX (idx_b) FOR UPDATE",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": [
+          "table_a USE INDEX (idx_a) GROUP BY id",
+          "table_b FORCE INDEX (idx_b) FOR UPDATE"
+        ],
+        "deparse_not_contains": ["GROUP USE INDEX", "FOR FORCE INDEX"],
+        "view_contains": ["\"table\":\"table_a\"", "\"table\":\"table_b\""]
+      }
+    },
+    {
+      "id": "M143",
+      "name": "mysql-partition-alias-index-hint-before-group",
+      "sql": "SELECT a.category FROM table_a PARTITION (p0, p1) AS a USE INDEX (idx_group) GROUP BY a.category",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "table_a PARTITION (p0, p1) a USE INDEX (idx_group) GROUP BY a.category",
+        "deparse_not_contains": "GROUP USE INDEX",
+        "view_contains": [
+          "\"table\":\"table_a\",\"alias\":\"a\"",
+          "\"clause\":\"group_by\",\"relation\":0,\"column\":\"category\""
+        ]
+      }
+    },
+    {
+      "id": "M144",
+      "name": "mysql-quoted-reserved-alias-with-index-hint",
+      "sql": "SELECT `group`.`id` FROM `table_a` `group` USE INDEX (`idx_a`) GROUP BY `group`.`id`",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "USE INDEX (`idx_a`) GROUP BY",
+        "deparse_not_contains": "GROUP USE INDEX",
+        "view_contains": [
+          "\"table\":\"table_a\",\"alias\":\"group\"",
+          "\"clause\":\"group_by\",\"relation\":0,\"column\":\"id\""
+        ]
+      }
+    },
+    {
+      "id": "M145",
+      "name": "mysql-derived-table-index-hint-before-inner-group",
+      "sql": "SELECT d.id FROM (SELECT id FROM table_a USE INDEX (idx_a) GROUP BY id) AS d WHERE d.id > 0",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": "FROM table_a USE INDEX (idx_a) GROUP BY id",
+        "deparse_not_contains": "GROUP USE INDEX",
+        "view_contains": [
+          "\"kind\":\"derived\",\"alias\":\"d\"",
+          "\"kind\":\"base\",\"table\":\"table_a\"",
+          "\"column\":\"id\""
+        ]
       }
     }
   ]

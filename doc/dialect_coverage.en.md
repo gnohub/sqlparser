@@ -9,12 +9,12 @@ coverage is tracked in each dialect's `*_official_syntax_coverage.en.md` file.
 | Dialect | Source | Supported Cases | Explicitly Unsupported Cases | Total | Supported Ratio |
 | --- | --- | ---: | ---: | ---: | ---: |
 | PostgreSQL | `tests/cases/sql_batch_input.json` | 153 | 1 | 154 | 99.35% |
-| MySQL | `tests/cases/mysql_dialect_input.json` | 156 | 0 | 156 | 100.00% |
+| MySQL | `tests/cases/mysql_dialect_input.json` | 173 | 0 | 173 | 100.00% |
 | Oracle | `tests/cases/oracle_dialect_input.json` | 163 | 12 | 175 | 93.14% |
 | SQL Server | `tests/cases/sqlserver_dialect_input.json` | 448 | 11 | 459 | 97.60% |
 | Dameng | `tests/cases/dameng_dialect_input.json` | 125 | 6 | 131 | 95.42% |
 | Vastbase PostgreSQL mode | `tests/cases/vastbase_postgresql_dialect_input.json` | 144 | 1 | 145 | 99.31% |
-| Vastbase MySQL mode | `tests/cases/vastbase_mysql_dialect_input.json` | 156 | 0 | 156 | 100.00% |
+| Vastbase MySQL mode | `tests/cases/vastbase_mysql_dialect_input.json` | 173 | 0 | 173 | 100.00% |
 | Vastbase Oracle mode | `tests/cases/vastbase_oracle_dialect_input.json` | 162 | 12 | 174 | 93.10% |
 | Vastbase SQL Server mode | `tests/cases/vastbase_sqlserver_dialect_input.json` | 448 | 11 | 459 | 97.60% |
 

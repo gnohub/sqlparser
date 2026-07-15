@@ -145,6 +145,9 @@ This file records regression cases for the MySQL dialect conversion layer. `test
 | M126 | `mysql-on-duplicate-row-column-aliases` | row-alias column list | alias columns are not attributed to the target table |
 | M127 | `mysql-cte-index-hint-location-attribution` | index hints inside and outside a CTE | CTE source blocks, nested relations, and hint restoration positions |
 | M128 | `mysql-table-partition-with-index-hints` | `PARTITION(...)` with index hints | qualified tables, aliases, and public SQL restoration |
+| M129-M135 | index hints at query-tail boundaries | `HAVING`, `WINDOW`, set operations, and locking clauses | hints remain after relations and before query tails |
+| M136-M140 | index hints with JOIN and scope combinations | `NATURAL JOIN`, `STRAIGHT_JOIN`, `USING`, aliases, and multiple scoped hints | left/right relations, aliases, and multi-hint restoration order |
+| M141-M145 | nested and identifier boundaries for index hints | CTEs, multiple statements, partitioned tables, reserved-word aliases, and derived tables | hint positions at each relation depth and public SQL restoration |
 | MU006 | `mysql-replace-into` | `REPLACE INTO ... VALUES ...` | MySQL `REPLACE` reuses the INSERT graph shape and preserves replace semantics with `insert_mode=replace_values` |
 | MU006A | `mysql-replace-low-priority-multi-row` | `REPLACE LOW_PRIORITY INTO ... VALUES (...), (...)` | multi-row `REPLACE VALUES`, positional parameters, and `LOW_PRIORITY` modifier |
 | MU006B | `mysql-replace-delayed-select` | `REPLACE DELAYED INTO ... SELECT ...` | `REPLACE SELECT` target table, source table, positional parameters, and `insert_mode=replace_select` |

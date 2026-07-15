@@ -68,5 +68,5 @@ The MySQL support boundary is defined by:
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current MySQL matrix contains 156 cases: 156 supported paths and 0 explicit
+The current MySQL matrix contains 173 cases: 173 supported paths and 0 explicit
 unsupported paths.

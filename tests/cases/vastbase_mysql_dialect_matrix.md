@@ -111,6 +111,9 @@
 | `VM126` | row alias column list | ON DUPLICATE KEY UPDATE row alias 列来源 | 已覆盖 |
 | `VM127` | CTE 内外 index hint | CTE 来源块、嵌套 relation 和提示恢复位置 | 已覆盖 |
 | `VM128` | table partition + index hint | 限定表名、别名和公开 SQL 恢复 | 已覆盖 |
+| `VM129-VM135` | 索引提示与查询尾部边界 | `HAVING`、`WINDOW`、集合运算和锁定子句 | 已覆盖 |
+| `VM136-VM140` | 索引提示与 JOIN / 作用域组合 | `NATURAL JOIN`、`STRAIGHT_JOIN`、`USING`、别名和多作用域索引提示 | 已覆盖 |
+| `VM141-VM145` | 索引提示的嵌套与标识符边界 | CTE、多语句、分区表、保留字别名和派生表 | 已覆盖 |
 | `VMU001` | `vastbase-mysql-insert-ignore` | INSERT IGNORE INTO `users` (`id`) VALUES (1) | 已覆盖 |
 | `VMU002` | `vastbase-mysql-insert-delayed` | INSERT DELAYED INTO `users` (`id`) VALUES (1) | 已覆盖 |
 | `VMU003` | `vastbase-mysql-insert-low-priority` | INSERT LOW_PRIORITY INTO `users` (`id`) VALUES (1) | 已覆盖 |

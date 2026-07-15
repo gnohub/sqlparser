@@ -1,5 +1,20 @@
 # 变更记录
 
+## 2.10.1
+
+### MySQL 方言
+
+- 修正 `USE INDEX`、`IGNORE INDEX`、`FORCE INDEX` 及对应 `KEY` 形式的反解析位置，索引提示保持在表名或别名之后、后续查询子句之前。
+- 修正索引提示与 `GROUP BY`、`HAVING`、`WINDOW`、集合运算、锁定子句、`NATURAL JOIN`、`STRAIGHT_JOIN` 和 `JOIN ... USING` 组合时的反解析顺序。
+- 修正 `STRAIGHT_JOIN` 右侧关系的索引提示恢复。
+- Vastbase-MySQL 同步应用上述修正。
+
+### 兼容性与验证
+
+- 公共 API、公共结构体、View JSON 和 ABI 保持不变；ABI 导出仍为 146 个公共符号。
+- MySQL 与 Vastbase-MySQL 方言矩阵分别包含 173 条支持用例。
+- 发布验证覆盖 GCC 8.3 严格编译、全量测试、ASan、UBSan、Valgrind、ABI 检查以及 Windows VS 2022 x64/MSVC 19.39 全量测试。
+
 ## 2.10.0
 
 ### SQL Server 方言

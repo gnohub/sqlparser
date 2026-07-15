@@ -145,6 +145,9 @@
 | M126 | `mysql-on-duplicate-row-column-aliases` | row alias column list | alias 列来源不误归属目标表 |
 | M127 | `mysql-cte-index-hint-location-attribution` | CTE 内外 index hint | CTE 来源块、嵌套 relation 和提示恢复位置 |
 | M128 | `mysql-table-partition-with-index-hints` | `PARTITION(...)` + index hint | 限定表名、别名和公开 SQL 恢复 |
+| M129-M135 | 索引提示与查询尾部边界 | `HAVING`、`WINDOW`、集合运算和锁定子句 | 索引提示保持在表引用之后、查询尾部之前 |
+| M136-M140 | 索引提示与 JOIN / 作用域组合 | `NATURAL JOIN`、`STRAIGHT_JOIN`、`USING`、别名和多作用域索引提示 | 左右表引用、别名及多个提示的恢复顺序 |
+| M141-M145 | 索引提示的嵌套与标识符边界 | CTE、多语句、分区表、保留字别名和派生表 | 各层表引用的提示位置和反解析结果 |
 | MU006 | `mysql-replace-into` | `REPLACE INTO ... VALUES ...` | MySQL `REPLACE` 复用 INSERT 图结构，并通过 `insert_mode=replace_values` 保留替换插入语义 |
 | MU006A | `mysql-replace-low-priority-multi-row` | `REPLACE LOW_PRIORITY INTO ... VALUES (...), (...)` | 多行 `REPLACE VALUES`、位置参数和 `LOW_PRIORITY` 修饰符 |
 | MU006B | `mysql-replace-delayed-select` | `REPLACE DELAYED INTO ... SELECT ...` | `REPLACE SELECT` 的目标表、来源表、位置参数和 `insert_mode=replace_select` |

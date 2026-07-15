@@ -7694,6 +7694,67 @@ static sqlparser_status_t sqlparser_mysql_restore_straight_join(
 	return SQLPARSER_STATUS_OK;
 }
 
+static int sqlparser_mysql_relation_list_terminator(const char *sql, size_t pos)
+{
+	switch (tolower((unsigned char)sql[pos])) {
+		case 'e':
+			return sqlparser_mysql_ascii_word_equal(sql, pos, "except");
+		case 'f':
+			return sqlparser_mysql_ascii_word_equal(sql, pos, "for");
+		case 'g':
+			return sqlparser_mysql_ascii_word_equal(sql, pos, "group");
+		case 'h':
+			return sqlparser_mysql_ascii_word_equal(sql, pos, "having");
+		case 'i':
+			return sqlparser_mysql_ascii_word_equal(sql, pos, "into") ||
+				sqlparser_mysql_ascii_word_equal(sql, pos, "intersect");
+		case 'l':
+			return sqlparser_mysql_ascii_word_equal(sql, pos, "limit") ||
+				sqlparser_mysql_ascii_word_equal(sql, pos, "lock");
+		case 'o':
+			return sqlparser_mysql_ascii_word_equal(sql, pos, "on") ||
+				sqlparser_mysql_ascii_word_equal(sql, pos, "order");
+		case 's':
+			return sqlparser_mysql_ascii_word_equal(sql, pos, "select") ||
+				sqlparser_mysql_ascii_word_equal(sql, pos, "set");
+		case 'u':
+			return sqlparser_mysql_ascii_word_equal(sql, pos, "using") ||
+				sqlparser_mysql_ascii_word_equal(sql, pos, "union");
+		case 'v':
+			return sqlparser_mysql_ascii_word_equal(sql, pos, "values");
+		case 'w':
+			return sqlparser_mysql_ascii_word_equal(sql, pos, "where") ||
+				sqlparser_mysql_ascii_word_equal(sql, pos, "window");
+		default:
+			return 0;
+	}
+}
+
+static int sqlparser_mysql_relation_alias_boundary(const char *sql, size_t pos)
+{
+	if (sqlparser_mysql_relation_list_terminator(sql, pos)) {
+		return 1;
+	}
+	switch (tolower((unsigned char)sql[pos])) {
+		case 'c':
+			return sqlparser_mysql_ascii_word_equal(sql, pos, "cross");
+		case 'i':
+			return sqlparser_mysql_ascii_word_equal(sql, pos, "inner");
+		case 'j':
+			return sqlparser_mysql_ascii_word_equal(sql, pos, "join");
+		case 'l':
+			return sqlparser_mysql_ascii_word_equal(sql, pos, "left");
+		case 'n':
+			return sqlparser_mysql_ascii_word_equal(sql, pos, "natural");
+		case 'r':
+			return sqlparser_mysql_ascii_word_equal(sql, pos, "right");
+		case 's':
+			return sqlparser_mysql_ascii_word_equal(sql, pos, "straight_join");
+		default:
+			return 0;
+	}
+}
+
 static int sqlparser_mysql_index_hint_count_for_relation(
 	const sqlparser_mysql_state_t *state,
 	size_t statement_index,
@@ -7768,17 +7829,7 @@ static int sqlparser_mysql_relation_hint_insert_pos(
 		if (alias_end > alias_pos) {
 			pos = sqlparser_mysql_skip_space(sql, alias_end);
 		}
-	} else if (pos < statement_end &&
-	           !sqlparser_mysql_ascii_word_equal(sql, pos, "where") &&
-	           !sqlparser_mysql_ascii_word_equal(sql, pos, "join") &&
-	           !sqlparser_mysql_ascii_word_equal(sql, pos, "left") &&
-	           !sqlparser_mysql_ascii_word_equal(sql, pos, "right") &&
-	           !sqlparser_mysql_ascii_word_equal(sql, pos, "inner") &&
-	           !sqlparser_mysql_ascii_word_equal(sql, pos, "cross") &&
-	           !sqlparser_mysql_ascii_word_equal(sql, pos, "on") &&
-	           !sqlparser_mysql_ascii_word_equal(sql, pos, "set") &&
-	           !sqlparser_mysql_ascii_word_equal(sql, pos, "order") &&
-	           !sqlparser_mysql_ascii_word_equal(sql, pos, "limit")) {
+	} else if (pos < statement_end && !sqlparser_mysql_relation_alias_boundary(sql, pos)) {
 		size_t alias_end;
 
 		alias_end = sqlparser_mysql_identifier_end(sql, pos, statement_end);
@@ -7904,6 +7955,9 @@ static sqlparser_status_t sqlparser_mysql_restore_index_hints(
 		if (sql[index] == ',' && from_list_active[depth]) {
 			is_relation_keyword = 1;
 			relation_start = index + 1U;
+		} else if (sqlparser_mysql_ascii_word_equal(sql, index, "straight_join")) {
+			is_relation_keyword = 1;
+			relation_start = index + strlen("straight_join");
 		} else if (sqlparser_mysql_ascii_word_equal(sql, index, "from") ||
 		    sqlparser_mysql_ascii_word_equal(sql, index, "join") ||
 		    sqlparser_mysql_ascii_word_equal(sql, index, "update") ||
@@ -7916,16 +7970,7 @@ static sqlparser_status_t sqlparser_mysql_restore_index_hints(
 		}
 		if (is_relation_keyword) {
 			from_list_active[depth] = 1U;
-		} else if (sqlparser_mysql_ascii_word_equal(sql, index, "select") ||
-		           sqlparser_mysql_ascii_word_equal(sql, index, "where") ||
-		           sqlparser_mysql_ascii_word_equal(sql, index, "on") ||
-		           sqlparser_mysql_ascii_word_equal(sql, index, "group") ||
-		           sqlparser_mysql_ascii_word_equal(sql, index, "having") ||
-		           sqlparser_mysql_ascii_word_equal(sql, index, "order") ||
-		           sqlparser_mysql_ascii_word_equal(sql, index, "limit") ||
-		           sqlparser_mysql_ascii_word_equal(sql, index, "set") ||
-		           sqlparser_mysql_ascii_word_equal(sql, index, "values") ||
-		           sqlparser_mysql_ascii_word_equal(sql, index, "union")) {
+		} else if (sqlparser_mysql_relation_list_terminator(sql, index)) {
 			from_list_active[depth] = 0U;
 		}
 		hint_count = is_relation_keyword ?
@@ -9226,18 +9271,7 @@ static sqlparser_status_t sqlparser_mysql_rewrite_index_hints(
 			current_relation_location = sqlparser_mysql_skip_space(sql, index) - removed_bytes;
 			continue;
 		}
-		if (sqlparser_mysql_ascii_word_equal(sql, index, "select") ||
-		    sqlparser_mysql_ascii_word_equal(sql, index, "where") ||
-		    sqlparser_mysql_ascii_word_equal(sql, index, "on") ||
-		    sqlparser_mysql_ascii_word_equal(sql, index, "group") ||
-		    sqlparser_mysql_ascii_word_equal(sql, index, "having") ||
-		    sqlparser_mysql_ascii_word_equal(sql, index, "order") ||
-		    sqlparser_mysql_ascii_word_equal(sql, index, "limit") ||
-		    sqlparser_mysql_ascii_word_equal(sql, index, "set") ||
-		    sqlparser_mysql_ascii_word_equal(sql, index, "values") ||
-		    sqlparser_mysql_ascii_word_equal(sql, index, "union") ||
-		    sqlparser_mysql_ascii_word_equal(sql, index, "intersect") ||
-		    sqlparser_mysql_ascii_word_equal(sql, index, "except")) {
+		if (sqlparser_mysql_relation_list_terminator(sql, index)) {
 			from_list_active[depth] = 0U;
 		}
 		if (sqlparser_mysql_ascii_word_equal(sql, index, "use") ||
@@ -9510,18 +9544,7 @@ static sqlparser_status_t sqlparser_mysql_rewrite_table_partitions(
 			current_relation_location = sqlparser_mysql_skip_space(sql, index) - removed_bytes;
 			continue;
 		}
-		if (sqlparser_mysql_ascii_word_equal(sql, index, "select") ||
-		    sqlparser_mysql_ascii_word_equal(sql, index, "where") ||
-		    sqlparser_mysql_ascii_word_equal(sql, index, "on") ||
-		    sqlparser_mysql_ascii_word_equal(sql, index, "group") ||
-		    sqlparser_mysql_ascii_word_equal(sql, index, "having") ||
-		    sqlparser_mysql_ascii_word_equal(sql, index, "order") ||
-		    sqlparser_mysql_ascii_word_equal(sql, index, "limit") ||
-		    sqlparser_mysql_ascii_word_equal(sql, index, "set") ||
-		    sqlparser_mysql_ascii_word_equal(sql, index, "values") ||
-		    sqlparser_mysql_ascii_word_equal(sql, index, "union") ||
-		    sqlparser_mysql_ascii_word_equal(sql, index, "intersect") ||
-		    sqlparser_mysql_ascii_word_equal(sql, index, "except")) {
+		if (sqlparser_mysql_relation_list_terminator(sql, index)) {
 			from_list_active[depth] = 0U;
 		}
 		index++;

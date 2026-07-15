@@ -1,30 +1,20 @@
-# v2.10.0 Release Notes
+# v2.10.1 Release Notes
 
-`v2.10.0` adds parsing, structured traversal, and rewrite support for SQL
-Server DML `OUTPUT`, nested DML, and `IF...ELSE` control flow. The same
-capabilities are available in Vastbase-SQLServer compatibility mode.
+`v2.10.1` fixes deparse ordering for MySQL and Vastbase-MySQL index hints.
 
 ## Highlights
 
-- Supports SQL Server `INSERT` with explicit or omitted `INTO`.
-- Supports `OUTPUT` and `OUTPUT ... INTO` on `INSERT`, `UPDATE`, `DELETE`, and
-  `MERGE`.
-- Query Graph represents client/sink result channels, `INSERTED` / `DELETED` /
-  source-field origins, and nested-DML parentage.
-- Adds selectors for DML result targets, sink relations, and sink columns;
-  these selectors are writable through the unified patch API.
-- Supports single-statement, multi-statement, and nested `IF...ELSE` forms.
-  Control conditions and branch SQL are traversable through public C structs.
-- The SQL Server and Vastbase-SQLServer dialect matrices each contain 546
-  cases: 517 supported paths and 29 error or explicitly unsupported paths.
+- `USE INDEX`, `IGNORE INDEX`, `FORCE INDEX`, and their `KEY` forms remain
+  after the table name or alias and before subsequent query clauses.
+- Fixed index-hint placement with grouping, window, set-operation, locking,
+  and JOIN clauses.
+- Fixed index-hint restoration for the right relation of `STRAIGHT_JOIN`.
+- The MySQL and Vastbase-MySQL dialect matrices each contain 173 supported
+  cases.
 
 ## Compatibility
 
-- New APIs and enum values are append-only additions.
-- Existing public function signatures and public structure layouts remain
-  unchanged.
-- View JSON adds optional `control_flow`, DML `result_channels`, and `children`
-  members only for matching statements.
+- The public API, public structures, and View JSON remain unchanged.
 - The shared-library ABI major remains `libsqlparser.so.0`; the ABI export
   check covers 146 public symbols.
 

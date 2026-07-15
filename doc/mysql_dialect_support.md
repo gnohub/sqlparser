@@ -58,4 +58,4 @@ MySQL 支持范围以以下文件为准：
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 MySQL 方言矩阵包含 156 条用例：156 条支持路径，0 条明确不支持路径。
+当前 MySQL 方言矩阵包含 173 条用例：173 条支持路径，0 条明确不支持路径。

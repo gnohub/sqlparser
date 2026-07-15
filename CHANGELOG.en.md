@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.10.1
+
+### MySQL Dialect
+
+- Fixed deparse placement for `USE INDEX`, `IGNORE INDEX`, `FORCE INDEX`, and
+  their `KEY` forms. Index hints now remain after the table name or alias and
+  before subsequent query clauses.
+- Fixed index-hint ordering with `GROUP BY`, `HAVING`, `WINDOW`, set
+  operations, locking clauses, `NATURAL JOIN`, `STRAIGHT_JOIN`, and `JOIN ...
+  USING`.
+- Fixed index-hint restoration for the right relation of `STRAIGHT_JOIN`.
+- Applied the same fixes to Vastbase-MySQL compatibility mode.
+
+### Compatibility and Validation
+
+- The public API, public structures, View JSON, and ABI remain unchanged. The
+  ABI export count remains 146 public symbols.
+- The MySQL and Vastbase-MySQL dialect matrices each contain 173 supported
+  cases.
+- Release validation covers strict GCC 8.3 builds, the full test suite, ASan,
+  UBSan, Valgrind, ABI checks, and the full Windows VS 2022 x64/MSVC 19.39
+  test suite.
+
 ## 2.10.0
 
 ### SQL Server Dialect

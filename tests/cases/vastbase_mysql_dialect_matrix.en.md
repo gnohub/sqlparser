@@ -111,6 +111,9 @@ Executable fixture: `tests/cases/vastbase_mysql_dialect_input.json`. The unit te
 | `VM126` | row-alias column list | ON DUPLICATE KEY UPDATE row-alias column sources | covered |
 | `VM127` | index hints inside and outside a CTE | CTE source blocks, nested relations, and hint restoration positions | covered |
 | `VM128` | table partition with index hints | qualified tables, aliases, and public SQL restoration | covered |
+| `VM129-VM135` | index hints at query-tail boundaries | `HAVING`, `WINDOW`, set operations, and locking clauses | covered |
+| `VM136-VM140` | index hints with JOIN and scope combinations | `NATURAL JOIN`, `STRAIGHT_JOIN`, `USING`, aliases, and multiple scoped hints | covered |
+| `VM141-VM145` | nested and identifier boundaries for index hints | CTEs, multiple statements, partitioned tables, reserved-word aliases, and derived tables | covered |
 | `VMU001` | `vastbase-mysql-insert-ignore` | INSERT IGNORE INTO `users` (`id`) VALUES (1) | covered |
 | `VMU002` | `vastbase-mysql-insert-delayed` | INSERT DELAYED INTO `users` (`id`) VALUES (1) | covered |
 | `VMU003` | `vastbase-mysql-insert-low-priority` | INSERT LOW_PRIORITY INTO `users` (`id`) VALUES (1) | covered |
