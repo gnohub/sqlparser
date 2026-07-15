@@ -4,6 +4,7 @@
 #include <stddef.h>
 
 #include "sqlparser_internal.h"
+#include "sqlparser_control_internal.h"
 
 typedef struct {
 	const char *table_name;
@@ -328,6 +329,56 @@ sqlparser_status_t sqlparser_render_update_assignment_node_sql(
 sqlparser_status_t sqlparser_render_variable_set_arg_node_sql(
 	const PgQuery__Node *node,
 	char **out_sql,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_dml_result_target_sql(
+	const sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_get_dml_result_message(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t dml_index,
+	sqlparser_graph_dml_kind_t *out_kind,
+	ProtobufCMessage **out_message,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_dml_result_set_target_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *sql_text,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_dml_result_insert_target_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	size_t target_index,
+	const char *sql_text,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_dml_result_delete_target(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	size_t target_index,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_dml_result_set_sink_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *sql_text,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_dml_result_set_sink_column_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *sql_text,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_dml_result_insert_sink_column_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	size_t column_index,
+	const char *sql_text,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_dml_result_delete_sink_column(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	size_t column_index,
 	sqlparser_error_t *out_error);
 
 sqlparser_value_kind_t sqlparser_node_value_kind(const PgQuery__Node *node);

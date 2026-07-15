@@ -1,14 +1,13 @@
 # SQL Server Dialect Support
 
-`SQLPARSER_DIALECT_SQLSERVER` provides a conversion layer from SQL Server
-T-SQL to the current `sqlparser` AST model. Callers select it explicitly through
+`SQLPARSER_DIALECT_SQLSERVER` provides parsing, structured traversal, rewrite,
+and deparse support for SQL Server T-SQL. Callers select it explicitly through
 `sqlparser_parse_with_options()`; when no dialect is specified, parsing uses the
 PostgreSQL grammar.
 
 ## Supported Scope
 
-The SQL Server dialect supports common SQL forms that can be safely mapped to
-the current AST. The executable case matrix defines the support boundary:
+The executable case matrix defines the SQL Server dialect support boundary:
 
 - `SELECT`, aliases, subqueries, joins, `WHERE`, and `ORDER BY`
 - bracket-delimited identifiers such as `[dbo].[users]`
@@ -23,8 +22,18 @@ the current AST. The executable case matrix defines the support boundary:
 - public-form preservation for `FOR JSON PATH/AUTO` query suffixes
 - `N'...'` Unicode string literals
 - temporary table names such as `#active_users`
-- `INSERT VALUES`, multi-row `INSERT`, and `INSERT SELECT`
+- `INSERT VALUES`, multi-row `INSERT`, `INSERT SELECT`, set queries, and
+  `DEFAULT VALUES`, with explicit or omitted `INTO`
 - `UPDATE` and `DELETE`
+- `OUTPUT` on `INSERT`, `UPDATE`, `DELETE`, and `MERGE`, including `INSERTED`,
+  `DELETED`, source fields, `$action`, expressions, aliases, and binds
+- `OUTPUT ... INTO relation [(column, ...)]`, `OUTPUT ... INTO @table_variable`,
+  and ordered sink/client dual channels
+- nested DML where an outer `INSERT` consumes an inner DML `OUTPUT`
+- `UPDATE TOP (...) ... OUTPUT` and INSERT target hints combined with `OUTPUT`
+- `IF...ELSE` single-statement branches, `BEGIN...END` multi-statement branches,
+  `ELSE IF`, and nested control flow; conditions support boolean expressions,
+  binds, `EXISTS`, and parenthesized subqueries
 - `CASE`, window functions, `UNION ALL`, `EXCEPT`, and `INTERSECT`
 - mappable `MERGE`
 - common DDL: `CREATE TABLE`, `ALTER TABLE ADD`, `CREATE VIEW`,
@@ -51,16 +60,19 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
 
 - `TOP` combined with `OFFSET ... FETCH` in the same query scope
 - `TOP ... WITH TIES` without `ORDER BY` in the same query scope
-- DML `TOP`, such as `UPDATE TOP (...)`
-- `OUTPUT`
+- DML `TOP` forms not listed in the executable matrix
+- aggregates and subqueries in `OUTPUT`, and `INSERT EXEC` combined with
+  `OUTPUT`
 - `CROSS APPLY` and `OUTER APPLY`
 - `PIVOT` and `UNPIVOT`
 - `FOR XML`
 - `DECLARE` and ordinary `EXEC` / `EXECUTE` procedure calls
 - procedure, function, and trigger definitions
 - `BEGIN TRY` / `BEGIN CATCH`
+- standalone `BEGIN...END` blocks outside an `IF...ELSE` branch
 - `OPENQUERY`, `OPENROWSET`, `OPENDATASOURCE`, `OPENJSON`, and `OPENXML`
-- table variables such as `@table`
+- ordinary table-variable references, excluding an
+  `OUTPUT INTO @table_variable` sink
 - `MERGE ... WHEN NOT MATCHED BY SOURCE`
 
 ## Public Output Rules
@@ -76,12 +88,14 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
 - `TOP`, `TOP ... PERCENT`, `TOP ... WITH TIES`, and `OFFSET ... FETCH`
   remain visible as SQL Server syntax in deparse output.
 - Table hints, `FOR JSON` suffixes, and query hints are restored as original
-  public fragments in deparse output; they are not emitted as structured View
-  JSON hint or JSON-suffix fields yet.
+  public fragments in deparse output. View JSON does not define dedicated hint
+  or JSON-suffix fields.
 - `N'...'` Unicode strings keep the `N` prefix when the semantics can be
   preserved.
 - Attributable expression fragments in View JSON use the public SQL Server
   form.
+- Control conditions and branch SQL are emitted as ordered statement units;
+  View JSON `control_flow` mirrors the public read-only control structures.
 - Failed expression-fragment rewrites are not committed to the handle; the
   previous AST, parameter mapping, and deparse output remain usable.
 
@@ -94,7 +108,5 @@ The SQL Server support boundary is defined by:
 - `tests/unit/test_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The SQL Server matrix contains 459 cases: 448 supported paths and 11 explicit
-unsupported paths. Of these, 241 cases provide executable coverage for official
-`CURRENT` entries, and 94 cases cover basic forms of `MIXED_MODEL` official
-entries.
+The SQL Server matrix contains 546 cases: 517 supported paths and 29 explicit
+error or unsupported paths.

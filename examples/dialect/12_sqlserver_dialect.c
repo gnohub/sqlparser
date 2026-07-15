@@ -8,27 +8,31 @@ int main(void)
 	const char *sql;
 	sqlparser_parse_options_t options;
 	sqlparser_handle_t *handle;
+	sqlparser_control_flow_view_t control_flow;
 	sqlparser_error_t err;
 	char *view_json;
 	char *deparsed_sql;
 	int status;
 
 	sql =
-		"SELECT TOP (10) [u].[id], [u].[name] "
-		"FROM [dbo].[users] AS [u] "
-		"WHERE [u].[id] = @id "
-		"ORDER BY [u].[id]";
+		"IF @a = 1 "
+		"UPDATE dbo.t SET a = 2 "
+		"OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a "
+		"WHERE id = @id "
+		"ELSE "
+		"INSERT dbo.t(a) OUTPUT INSERTED.id VALUES (1)";
 
 	handle = NULL;
 	view_json = NULL;
 	deparsed_sql = NULL;
+	memset(&control_flow, 0, sizeof(control_flow));
 	memset(&err, 0, sizeof(err));
 
 	/* SQL Server 不是默认方言，需要通过 parse options 显式指定。 */
 	sqlparser_parse_options_default(&options);
 	options.dialect = SQLPARSER_DIALECT_SQLSERVER;
 
-	/* 解析时会把 [] 标识符、@ 参数和 TOP 转成核心 AST 可接受的形式。 */
+	/* 解析 SQL Server 控制流以及分支中的 DML OUTPUT。 */
 	status = sqlparser_parse_with_options(sql, &options, &handle, &err);
 	if (status != SQLPARSER_STATUS_OK) {
 		fprintf(stderr, "parse failed: %s\n", err.message);
@@ -36,8 +40,20 @@ int main(void)
 	}
 
 	printf("dialect: %s\n", sqlparser_dialect_name(sqlparser_handle_dialect(handle)));
+	/* 读取 IF 节点、分支和分支语句组成的只读控制流拓扑。 */
+	status = sqlparser_handle_control_flow(handle, &control_flow, &err);
+	if (status != SQLPARSER_STATUS_OK ||
+	    control_flow.node_count != 1U ||
+	    control_flow.branch_count != 2U) {
+		fprintf(stderr, "control flow inspect failed: %s\n", err.message);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	printf("control nodes: %lu, branches: %lu\n",
+	       (unsigned long)control_flow.node_count,
+	       (unsigned long)control_flow.branch_count);
 
-	/* view JSON 用于查看 query_graph、字段关联值和可回写 selector。 */
+	/* View JSON 同时展示控制流拓扑、结果通道和可回写 selector。 */
 	status = sqlparser_export_view_json(handle, 1, &view_json, &err);
 	if (status != SQLPARSER_STATUS_OK) {
 		fprintf(stderr, "view export failed: %s\n", err.message);
@@ -47,7 +63,7 @@ int main(void)
 	printf("view json:\n%s\n", view_json);
 
 	/*
-	 * 反解析会还原 SQL Server 公共形态，不会暴露内部 $1 参数。
+	 * 反解析会还原 IF/ELSE、OUTPUT 和 SQL Server 参数，不暴露内部形态。
 	 * 输出不保证逐字符等同于输入，但应保持语义等价。
 	 */
 	status = sqlparser_deparse(handle, &deparsed_sql, &err);
@@ -59,7 +75,10 @@ int main(void)
 	}
 	printf("deparsed sql:\n%s\n", deparsed_sql);
 
-	if (strstr(deparsed_sql, "TOP (10)") == NULL ||
+	if (strstr(view_json, "\"control_flow\"") == NULL ||
+	    strstr(view_json, "\"result_channels\"") == NULL ||
+	    strstr(deparsed_sql, "OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a") == NULL ||
+	    strstr(deparsed_sql, "OUTPUT INSERTED.id") == NULL ||
 	    strstr(deparsed_sql, "@id") == NULL ||
 	    strstr(deparsed_sql, "$1") != NULL) {
 		fprintf(stderr, "unexpected SQL Server deparse output\n");

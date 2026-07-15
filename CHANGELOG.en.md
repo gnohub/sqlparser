@@ -1,5 +1,42 @@
 # Changelog
 
+## 2.10.0
+
+### SQL Server Dialect
+
+- Added `INSERT` support with explicit or omitted `INTO`, covering `VALUES`,
+  multi-row `VALUES`, `SELECT`, set queries, CTEs, and `DEFAULT VALUES`.
+- Added `OUTPUT` result channels for `INSERT`, `UPDATE`, `DELETE`, and `MERGE`,
+  including `INSERTED`, `DELETED`, source fields, `$action`, expressions,
+  aliases, and binds.
+- Added `OUTPUT ... INTO`, ordered sink/client channels, sink column lists, and
+  nested DML where an outer `INSERT` consumes an inner DML `OUTPUT`.
+- Added single-statement and `BEGIN...END` multi-statement `IF...ELSE`
+  branches, `ELSE IF`, and nested control flow.
+- Added matching compatibility coverage to Vastbase-SQLServer.
+
+### Structured Traversal and Rewrite
+
+- Added read-only control-flow structures and accessors for ordered roots,
+  nodes, branches, items, and addressable condition statements.
+- Extended Query Graph traversal for multiple DML nodes in one statement,
+  nested-DML parentage, DML result channels, and result-field origins.
+- Added selectors for DML result targets, sink relations, and sink columns;
+  these selectors remain writable through `sqlparser_apply_patch()`.
+- Public API additions are append-only. Existing function signatures and
+  public structure layouts remain unchanged.
+
+### Performance and Validation
+
+- Ordinary non-control SQL does not build control-flow state. Control-flow
+  state uses one contiguous allocation.
+- The SQL Server and Vastbase-SQLServer dialect matrices each contain 546
+  cases: 517 supported paths and 29 error or explicitly unsupported paths.
+- Release validation covers strict GCC 8.3 builds, the full test suite, ASan,
+  UBSan, Valgrind, ABI checks, and the full Windows VS 2022 x64/MSVC 19.39
+  test suite.
+- The ABI export check covers 146 public symbols.
+
 ## 2.9.0
 
 ### MySQL Dialect

@@ -463,6 +463,7 @@ sqlparser_status_t sqlparser_select_target_sql(
 	}
 	status = sqlparser_postprocess_handle_sql_fragment(
 		handle,
+		statement_index,
 		core_sql,
 		"select target SQL",
 		out_sql,
@@ -601,6 +602,7 @@ sqlparser_status_t sqlparser_render_select_targets_sql(
 
 static sqlparser_status_t sqlparser_select_parse_public_targets(
 	sqlparser_handle_t *handle,
+	size_t statement_index,
 	const char *sql_text,
 	int require_single,
 	PgQuery__Node ***out_nodes,
@@ -623,6 +625,7 @@ static sqlparser_status_t sqlparser_select_parse_public_targets(
 	dialect_state = NULL;
 	status = sqlparser_preprocess_handle_sql_fragment(
 		handle,
+		statement_index,
 		sql_text,
 		"select target SQL",
 		&parser_sql,
@@ -707,6 +710,7 @@ sqlparser_status_t sqlparser_select_set_targets_sql(
 	}
 	status = sqlparser_select_parse_public_targets(
 		handle,
+		statement_index,
 		sql_text,
 		0,
 		&nodes,
@@ -754,6 +758,7 @@ sqlparser_status_t sqlparser_select_set_target_sql(
 	}
 	status = sqlparser_select_parse_public_targets(
 		handle,
+		statement_index,
 		sql_text,
 		1,
 		&nodes,
@@ -906,6 +911,7 @@ sqlparser_status_t sqlparser_select_insert_target_sql(
 	}
 	status = sqlparser_select_parse_public_targets(
 		handle,
+		statement_index,
 		sql_text,
 		1,
 		&nodes,

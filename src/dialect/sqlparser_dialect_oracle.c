@@ -4860,9 +4860,11 @@ static sqlparser_status_t sqlparser_oracle_postprocess_deparse(
 static sqlparser_status_t sqlparser_oracle_preprocess_fragment(
 	const char *input_sql,
 	void *state,
+	size_t statement_index,
 	char **out_parser_sql,
 	sqlparser_error_t *out_error)
 {
+	(void)statement_index;
 	if (out_parser_sql == NULL) {
 		sqlparser_error_set_message(
 			out_error,
@@ -5667,6 +5669,7 @@ static const char *sqlparser_oracle_relation_link_name(
 static sqlparser_status_t sqlparser_oracle_postprocess_literal_fragment(
 	const char *core_sql,
 	const void *state,
+	size_t statement_index,
 	size_t literal_index,
 	char **out_sql,
 	sqlparser_error_t *out_error)
@@ -5675,6 +5678,8 @@ static sqlparser_status_t sqlparser_oracle_postprocess_literal_fragment(
 	size_t literal_end;
 	sqlparser_oracle_buffer_t out;
 	sqlparser_status_t status;
+
+	(void)statement_index;
 
 	if (out_sql == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "dialect fragment output must not be NULL");
@@ -5728,6 +5733,8 @@ static const sqlparser_dialect_ops_t SQLPARSER_ORACLE_OPS = {
 	NULL,
 	sqlparser_oracle_relation_object_name,
 	sqlparser_oracle_relation_link_name,
+	NULL,
+	NULL,
 	NULL
 };
 

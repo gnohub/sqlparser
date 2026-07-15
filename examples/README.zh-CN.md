@@ -62,7 +62,7 @@
 - `examples/dialect/11_oracle_dialect.c`
   展示如何显式指定 Oracle 方言，导出 View JSON，并在反解析时还原 Oracle bind 占位符。
 - `examples/dialect/12_sqlserver_dialect.c`
-  展示如何显式指定 SQL Server 方言，导出 View JSON，并在反解析时还原 SQL Server 参数和 `TOP` 语法。
+  展示如何显式指定 SQL Server 方言，读取 `IF...ELSE` 控制流，导出包含 DML `OUTPUT` 结果通道的 View JSON，并反解析为 SQL Server 公共语法。
 - `examples/dialect/17_dameng_dialect.c`
   展示如何显式指定达梦方言，导出 View JSON，并在反解析时还原 bind、`SET SCHEMA` 和 `TOP` 语法。
 - `examples/dialect/20_vastbase_dialect.c`

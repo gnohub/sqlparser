@@ -1,36 +1,38 @@
-# v2.9.0 Release Notes
+# v2.10.0 Release Notes
 
-`v2.9.0` expands MySQL and Vastbase-MySQL dialect coverage and improves Query
-Graph representation for CTEs and JOIN fields.
+`v2.10.0` adds parsing, structured traversal, and rewrite support for SQL
+Server DML `OUTPUT`, nested DML, and `IF...ELSE` control flow. The same
+capabilities are available in Vastbase-SQLServer compatibility mode.
 
 ## Highlights
 
-- Supports `INSERT ... SET`, `ON DUPLICATE KEY UPDATE` row aliases, and aliased
-  delete targets.
-- Supports single-table `UPDATE` / `DELETE ... ORDER BY ... LIMIT` statements.
-- Supports `STRAIGHT_JOIN`, `JOIN ... USING`, `NATURAL JOIN`, locking reads,
-  index hints, and query-table `PARTITION(...)` clauses.
-- Emits `JOIN ... USING` fields through `fields[]` and `candidate_relations`.
-- Repeated references to one CTE share its source block, unused CTEs remain in
-  the graph, and recursive CTE references point to the registered block.
-- Adds the `SQLPARSER_GRAPH_INSERT_MODE_SET` enum value.
-- The MySQL and Vastbase-MySQL dialect test matrices each contain 156
-  supported cases.
+- Supports SQL Server `INSERT` with explicit or omitted `INTO`.
+- Supports `OUTPUT` and `OUTPUT ... INTO` on `INSERT`, `UPDATE`, `DELETE`, and
+  `MERGE`.
+- Query Graph represents client/sink result channels, `INSERTED` / `DELETED` /
+  source-field origins, and nested-DML parentage.
+- Adds selectors for DML result targets, sink relations, and sink columns;
+  these selectors are writable through the unified patch API.
+- Supports single-statement, multi-statement, and nested `IF...ELSE` forms.
+  Control conditions and branch SQL are traversable through public C structs.
+- The SQL Server and Vastbase-SQLServer dialect matrices each contain 546
+  cases: 517 supported paths and 29 error or explicitly unsupported paths.
 
 ## Compatibility
 
-- Public C structure layouts remain stable.
-- The shared-library ABI major remains `libsqlparser.so.0`.
-- The ABI export count remains 135.
-- A client compiled with the previous public header passes against the current
-  shared library.
+- New APIs and enum values are append-only additions.
+- Existing public function signatures and public structure layouts remain
+  unchanged.
+- View JSON adds optional `control_flow`, DML `result_channels`, and `children`
+  members only for matching statements.
+- The shared-library ABI major remains `libsqlparser.so.0`; the ABI export
+  check covers 146 public symbols.
 
 ## Release Validation
 
 - Strict GCC 8.3 build and full test suite
-- ASan and UBSan
-- Valgrind checks for all configured targets
+- ASan, UBSan, and Valgrind memory checks
 - ABI export check
-- Old-client shared-library compatibility test
+- Full Windows VS 2022 x64/MSVC 19.39 test suite
 
 Vendored `libpg_query` tag: `17-6.2.2`.

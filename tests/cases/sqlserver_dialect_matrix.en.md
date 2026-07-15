@@ -1,6 +1,6 @@
 # SQL Server Dialect Case Matrix
 
-This file records regression cases for the SQL Server dialect conversion layer. The executable fixture is `tests/cases/sqlserver_dialect_input.json`; `tests/unit/test_sqlserver_dialect_case_matrix.c` verifies parsing, View JSON, deparse output, and error codes. The current fixture contains 459 cases: 448 supported paths and 11 explicit unsupported paths.
+This file records regression cases for the SQL Server dialect conversion layer. The executable fixture is `tests/cases/sqlserver_dialect_input.json`; `tests/unit/test_sqlserver_dialect_case_matrix.c` verifies parsing, View JSON, deparse output, and error codes. The current fixture contains 546 cases: 517 supported paths and 29 error or explicitly unsupported paths.
 
 ## Supported Cases
 
@@ -120,15 +120,88 @@ This file records regression cases for the SQL Server dialect conversion layer. 
 | S111 | outer and inner `TOP` | `SELECT TOP (...) ... FROM (SELECT TOP (...) ...)` | multiple `TOP` scopes are converted and restored together |
 | S112 | second statement with `FOR JSON` | `SELECT ...; SELECT ... FOR JSON AUTO` | `FOR JSON` suffixes are restored by original statement ordinal, not attached to previous statements |
 
-## Explicitly Unsupported Cases
+## INSERT And OUTPUT Cases
 
-The following constructs have SQL Server-specific semantics. The conversion layer returns `SQLPARSER_STATUS_UNSUPPORTED` instead of producing SQL with unreliable semantics.
+| ID | Case | Coverage |
+| --- | --- | --- |
+| SU003 | INSERT client `OUTPUT` | `INSERTED` field, client channel, and public SQL restoration |
+| SH336 | INSERT set query with omitted `INTO` | original `UNION ALL` input, aliases, and Unicode literals |
+| SH337 | INSERT SELECT with explicit `INTO` | source query and client channel |
+| SH338 | single-row VALUES with omitted `INTO` | INSERT target and result field |
+| SH339 | multi-row VALUES with omitted `INTO` | multiple rows and result field |
+| SH340 | `DEFAULT VALUES` | result field without an explicit target-column list |
+| SH341 | CTE + INSERT SELECT | CTE source block and result channel |
+| SH342 | basic INSERT `OUTPUT` | original `SU003` statement shape |
+| SH343 | `INSERTED.*` | target-after star reference |
+| SH344 | expression and alias | OUTPUT target expression patch entry point |
+| SH345 | multiple targets and bind | target order, field references, and bind |
+| SH346 | `OUTPUT ... INTO table` | sink channel and sink relation |
+| SH347 | explicit sink columns | sink-column selectors |
+| SH348 | table-variable sink | `OUTPUT INTO @table_variable` |
+| SH349 | sink/client dual channels | ordered channels with separate target lists |
+| SH350 | UPDATE before/after | `DELETED` and `INSERTED` references |
+| SH351 | UPDATE source field | target-after and source references |
+| SH352 | DELETE before | `DELETED` reference |
+| SH353 | DELETE JOIN source field | DELETE target and source references |
+| SH354 | MERGE `$action` | action target and public SQL restoration |
+| SH355 | all MERGE reference kinds | `$action`, before, after, and source |
+| SH356 | nested DML table source | parent/child DML and inner result channel |
+| SH357 | UPDATE TOP + OUTPUT | DML TOP combined with a result channel |
+| SH358 | INSERT target hint + OUTPUT | hint and result-channel restoration |
+| SH359 | OUTPUT keywords in a string | protected text does not trigger syntax recognition |
+| SH360 | OUTPUT keywords in comments | comment boundaries and trailing-comment restoration |
+| SH361 | OUTPUT keywords in identifiers | bracket-identifier boundaries |
+| SH362 | OUTPUT text in a source subquery | nested scope and protected text |
+| SH363 | source-table hint in INSERT SELECT | the source hint is not restored on the INSERT target |
+| SH364 | target and source hints with OUTPUT | both hints are restored at their recorded anchors |
+| SH365 | delimited reserved-word column in OUTPUT | `INSERTED.[select]` is parsed as a column reference |
+| SH366 | equivalent delimited DELETE alias | differently delimited and escaped forms resolve to one target relation |
+| SH367 | multi-statement OUTPUT channels | INSERT, UPDATE, and DELETE result channels remain associated with their statements |
+| SH368 | Official IF EXISTS shape | Query condition, table hint, Unicode literal, and two branches |
+| SH369 | IF without ELSE | One conditional branch |
+| SH370 | Literal Boolean condition | Values and predicate output without a field |
+| SH371 | Semicolon-delimited BEGIN blocks | Ordered multi-statement branches |
+| SH372 | Newline-delimited BEGIN blocks | Statement boundaries without semicolons |
+| SH373 | Dangling ELSE | ELSE binds to the nearest unmatched IF |
+| SH374 | ELSE IF chain | Nested IF in the else branch |
+| SH375 | NOT EXISTS | Negated query condition and bind |
+| SH376 | Scalar-subquery condition | Parenthesized SELECT, aggregate, and bind |
+| SH377 | Nested Boolean condition | AND, OR, NOT predicate tree and three binds |
+| SH378 | Function condition | COALESCE arguments and values |
+| SH379 | CASE condition | CASE expression and values |
+| SH380 | UPDATE/INSERT OUTPUT branches | OUTPUT state remains local to each control unit |
+| SH381 | DELETE/MERGE OUTPUT branches | DELETE row image, MERGE `$action`, and both row images |
+| SH382 | DDL branches | DROP IF EXISTS and CREATE TABLE |
+| SH383 | Transaction branches | System variable, COMMIT, and ROLLBACK |
+| SH384 | Semicolon-delimited root statements | Root order before and after IF |
+| SH385 | Newline-delimited root statements | Root boundaries without semicolons |
+| SH386 | Protected text | Control keywords in strings, comments, and delimited identifiers |
+| SH387 | Newline UNION ALL | A set query is not split into multiple branch items |
+| SH388 | Newline table hint | `WITH (NOLOCK)` is not treated as a new statement |
+| SH389 | Three nested IF levels | Multi-level control nodes and branch order |
+| SH390 | IF after DROP USER IF EXISTS | Disambiguation between DDL IF and control IF |
+| SH391 | NULL/BETWEEN/IN condition | Common condition operators and binds |
+| SH392 | Right-side scalar subquery | Official parenthesized query condition and cross-block binds |
+| SH393 | CTE branch | Semicolon-prefixed CTE inside a BEGIN block |
+| SH394 | Optional BEGIN/END semicolons | Official block semicolon shape |
+| SH395 | IF after DROP TABLE IF EXISTS | DDL-to-control boundary without a semicolon |
+| SH396 | IF after DROP TABLE | DDL-to-control boundary without `IF EXISTS` or a semicolon |
+| SH397 | IF EXISTS control after DROP TABLE | Disambiguation between a complete DROP target and a control condition |
+| SH398 | IF after multiline DROP TABLE IF EXISTS | Disambiguation between a DROP condition clause and following control flow |
+| SH399 | CTE UPDATE branch | Keeps CTE and multiline UPDATE/SET in one leaf statement |
+| SH400 | CTE DELETE branch | Keeps CTE and multiline DELETE in one leaf statement |
+| SH401 | CTE INSERT branch | Keeps CTE, INSERT, and its source SELECT in one leaf statement |
+| SH402 | CTE MERGE branch | Keeps CTE and complete MERGE actions in one leaf statement |
+| SH403 | CREATE VIEW CTE branch | Keeps a view definition and its multiline CTE in one leaf statement |
+
+## Error And Explicitly Unsupported Cases
+
+These cases verify parse errors or explicit unsupported results and do not return a usable handle.
 
 | ID | Case | Reason |
 | --- | --- | --- |
 | SU001 | `TOP ... WITH TIES` without `ORDER BY` | SQL Server requires `WITH TIES` to be used with `ORDER BY` |
 | SU002 | `TOP ... PERCENT WITH TIES` without `ORDER BY` | SQL Server requires `WITH TIES` to be used with `ORDER BY` |
-| SU003 | `OUTPUT` | DML output streams require a SQL Server-specific model |
 | SU005 | `CROSS APPLY` | APPLY semantics differ from ordinary JOIN |
 | SU006 | `PIVOT` | table transformation requires a dedicated AST |
 | SU009 | `DECLARE` | variable declarations belong to T-SQL batch semantics |
@@ -137,6 +210,25 @@ The following constructs have SQL Server-specific semantics. The conversion laye
 | SU015 | table variable | table-variable scope belongs to T-SQL batch semantics |
 | SU016 | `MERGE ... BY SOURCE` | SQL Server-specific merge branch semantics |
 | SU017 | `TOP` + `OFFSET/FETCH` | SQL Server does not allow this combination in the same query scope |
+| SU018 | empty OUTPUT target | returns a parse error |
+| SU019 | trailing comma in OUTPUT targets | returns a parse error |
+| SU020 | `OUTPUT INTO` without a sink | returns a parse error |
+| SU021 | invalid dual-channel order | a sink channel cannot follow a client channel |
+| SU022 | `DELETED` in INSERT | returns unsupported |
+| SU023 | `INSERTED` in DELETE | returns unsupported |
+| SU024 | `$action` outside MERGE | returns unsupported |
+| SU025 | aggregate in OUTPUT | returns unsupported |
+| SU026 | subquery in OUTPUT | returns unsupported |
+| SU027 | INSERT EXEC + OUTPUT | returns unsupported |
+| SU028 | IF without a condition | returns a syntax error |
+| SU029 | IF without a branch statement | returns a syntax error |
+| SU030 | Orphan ELSE | returns a syntax error |
+| SU031 | Empty BEGIN/END | returns a syntax error |
+| SU032 | Unterminated BEGIN/END | returns a syntax error |
+| SU033 | Unparenthesized condition SELECT | returns a syntax error |
+| SU034 | ELSE without a branch statement | returns a syntax error |
+| SU035 | GO inside control flow | returns unsupported without silently rewriting the batch boundary |
+| SU036 | Unsupported branch leaf | returns the leaf syntax unsupported status |
 
 ## DML Source-Field Lineage Cases
 

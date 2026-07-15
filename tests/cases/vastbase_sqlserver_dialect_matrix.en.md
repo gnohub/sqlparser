@@ -1,6 +1,6 @@
 # Vastbase SQL Server Compatibility Case Matrix
 
-Executable fixture: `tests/cases/vastbase_sqlserver_dialect_input.json`. The unit test verifies parsing, View JSON, deparse output, and explicitly unsupported syntax return codes case by case. The current fixture contains 459 cases: 448 supported paths and 11 explicit unsupported paths.
+Executable fixture: `tests/cases/vastbase_sqlserver_dialect_input.json`. The unit test verifies parsing, View JSON, deparse output, and error codes case by case. The current fixture contains 546 cases: 517 supported paths and 29 error or explicitly unsupported paths.
 
 | ID | Case | SQL | Status |
 | --- | --- | --- | --- |
@@ -57,7 +57,7 @@ Executable fixture: `tests/cases/vastbase_sqlserver_dialect_input.json`. The uni
 | `VS112` | `vastbase-sqlserver-for-json-second-statement` | SELECT [id] FROM [dbo].[users]; SELECT [id] FROM [dbo].[orders] FOR JSON AUTO | covered |
 | `VSU001` | `vastbase-sqlserver-top-with-ties-without-order-by-unsupported` | SELECT TOP (10) WITH TIES [id] FROM [dbo].[users] | explicitly unsupported |
 | `VSU002` | `vastbase-sqlserver-top-percent-with-ties-without-order-by-unsupported` | SELECT TOP (10) PERCENT WITH TIES [id] FROM [dbo].[users] | explicitly unsupported |
-| `VSU003` | `vastbase-sqlserver-output-unsupported` | INSERT INTO [dbo].[users] ([id]) OUTPUT inserted.[id] VALUES (1) | explicitly unsupported |
+| `VSU003` | `vastbase-sqlserver-output-insert-client` | INSERT INTO [dbo].[users] ([id]) OUTPUT inserted.[id] VALUES (1) | covered |
 | `VSU005` | `vastbase-sqlserver-cross-apply-unsupported` | SELECT [u].[id] FROM [dbo].[users] [u] CROSS APPLY [dbo].[fn_orders]([u].[id]) [o] | explicitly unsupported |
 | `VSU006` | `vastbase-sqlserver-pivot-unsupported` | SELECT * FROM [dbo].[sales] PIVOT (SUM([amount]) FOR [month] IN ([Jan], [Feb])) AS [p] | explicitly unsupported |
 | `VSU009` | `vastbase-sqlserver-declare-unsupported` | DECLARE @id INT = 1; SELECT @id | explicitly unsupported |
@@ -425,3 +425,90 @@ Executable fixture: `tests/cases/vastbase_sqlserver_dialect_input.json`. The uni
 | `VSH295-VSH333` | `vastbase-sqlserver-set-*` | SET ... | basic session/execution-environment form covered |
 | `VSH334` | `vastbase-sqlserver-table-hints-join-alias` | JOIN + `WITH (NOLOCK)` / `WITH (FORCESEEK)` | basic public SQL restoration for table hints covered |
 | `VSH335` | `vastbase-sqlserver-query-hints-multiple` | `OPTION (RECOMPILE, USE HINT(...))` | basic public SQL restoration for query hints covered |
+| `VSH336` | `vastbase-sqlserver-insert-output-select-union-all-omitted-into` | INSERT target (...) OUTPUT ... SELECT ... UNION ALL SELECT ... | covered |
+| `VSH337` | `vastbase-sqlserver-insert-output-select-explicit-into` | INSERT INTO ... OUTPUT ... SELECT ... | covered |
+| `VSH338` | `vastbase-sqlserver-insert-output-values-omitted-into` | INSERT target (...) OUTPUT ... VALUES (...) | covered |
+| `VSH339` | `vastbase-sqlserver-insert-output-multi-values-omitted-into` | INSERT target (...) OUTPUT ... VALUES (...), (...) | covered |
+| `VSH340` | `vastbase-sqlserver-insert-output-default-values` | INSERT target OUTPUT ... DEFAULT VALUES | covered |
+| `VSH341` | `vastbase-sqlserver-cte-insert-output-select` | WITH ... INSERT ... OUTPUT ... SELECT ... | covered |
+| `VSH342` | `vastbase-sqlserver-insert-output-existing-case` | INSERT INTO ... OUTPUT INSERTED.id VALUES (...) | covered |
+| `VSH343` | `vastbase-sqlserver-insert-output-inserted-star` | INSERT ... OUTPUT INSERTED.* VALUES (...) | covered |
+| `VSH344` | `vastbase-sqlserver-insert-output-expression-alias` | INSERT ... OUTPUT expression AS alias VALUES (...) | covered |
+| `VSH345` | `vastbase-sqlserver-insert-output-multiple-targets-bind` | INSERT ... OUTPUT target, target, bind VALUES (...) | covered |
+| `VSH346` | `vastbase-sqlserver-insert-output-into-table` | INSERT ... OUTPUT ... INTO table VALUES (...) | covered |
+| `VSH347` | `vastbase-sqlserver-insert-output-into-table-columns` | INSERT ... OUTPUT ... INTO table(columns) VALUES (...) | covered |
+| `VSH348` | `vastbase-sqlserver-insert-output-into-table-variable` | INSERT ... OUTPUT ... INTO @table(columns) VALUES (...) | covered |
+| `VSH349` | `vastbase-sqlserver-insert-output-dual-channel` | INSERT ... OUTPUT ... INTO ... OUTPUT ... VALUES (...) | covered |
+| `VSH350` | `vastbase-sqlserver-update-output-before-after` | UPDATE ... OUTPUT DELETED..., INSERTED... WHERE ... | covered |
+| `VSH351` | `vastbase-sqlserver-update-output-from-source` | UPDATE ... OUTPUT INSERTED..., source... FROM ... | covered |
+| `VSH352` | `vastbase-sqlserver-delete-output-before` | DELETE ... OUTPUT DELETED... WHERE ... | covered |
+| `VSH353` | `vastbase-sqlserver-delete-output-from-source` | DELETE alias OUTPUT DELETED..., source... FROM ... | covered |
+| `VSH354` | `vastbase-sqlserver-merge-output-action` | MERGE ... OUTPUT $action | covered |
+| `VSH355` | `vastbase-sqlserver-merge-output-all-references` | MERGE ... OUTPUT $action, DELETED..., INSERTED..., source... | covered |
+| `VSH356` | `vastbase-sqlserver-nested-delete-output-table-source` | INSERT ... SELECT ... FROM (DELETE ... OUTPUT ...) | covered |
+| `VSH357` | `vastbase-sqlserver-update-top-output` | UPDATE TOP (...) ... OUTPUT ... | covered |
+| `VSH358` | `vastbase-sqlserver-insert-target-hint-output` | INSERT target WITH (...) ... OUTPUT ... | covered |
+| `VSH359` | `vastbase-sqlserver-output-keywords-in-string` | OUTPUT keywords inside a string | covered |
+| `VSH360` | `vastbase-sqlserver-output-keywords-in-comments` | OUTPUT keywords inside comments | covered |
+| `VSH361` | `vastbase-sqlserver-output-keywords-as-identifiers` | OUTPUT keywords inside bracket identifiers | covered |
+| `VSH362` | `vastbase-sqlserver-output-keywords-in-source-subquery` | OUTPUT text inside a source subquery | covered |
+| `VSH363` | `vastbase-sqlserver-insert-select-source-table-hint-anchor` | source-table hint in INSERT SELECT | covered |
+| `VSH364` | `vastbase-sqlserver-insert-output-target-and-source-table-hints` | INSERT target/source hints with OUTPUT | covered |
+| `VSH365` | `vastbase-sqlserver-output-delimited-select-column` | delimited reserved-word column in OUTPUT | covered |
+| `VSH366` | `vastbase-sqlserver-delete-output-equivalent-delimited-alias` | equivalent delimited DELETE alias | covered |
+| `VSH367` | `vastbase-sqlserver-multi-statement-output-channels` | multi-statement OUTPUT channels | covered |
+| `VSH368` | `vastbase-sqlserver-if-exists-official-shape` | official IF EXISTS branches | covered |
+| `VSH369` | `vastbase-sqlserver-if-without-else` | IF without ELSE | covered |
+| `VSH370` | `vastbase-sqlserver-if-boolean-literal` | literal Boolean condition | covered |
+| `VSH371` | `vastbase-sqlserver-if-block-semicolon-statements` | semicolon-delimited BEGIN blocks | covered |
+| `VSH372` | `vastbase-sqlserver-if-block-newline-statements` | newline-delimited BEGIN blocks | covered |
+| `VSH373` | `vastbase-sqlserver-if-dangling-else` | dangling ELSE | covered |
+| `VSH374` | `vastbase-sqlserver-else-if-chain` | ELSE IF chain | covered |
+| `VSH375` | `vastbase-sqlserver-if-not-exists` | NOT EXISTS condition | covered |
+| `VSH376` | `vastbase-sqlserver-if-scalar-subquery-condition` | scalar-subquery condition | covered |
+| `VSH377` | `vastbase-sqlserver-if-nested-boolean-condition` | nested AND/OR/NOT condition | covered |
+| `VSH378` | `vastbase-sqlserver-if-function-condition` | COALESCE condition | covered |
+| `VSH379` | `vastbase-sqlserver-if-case-condition` | CASE condition | covered |
+| `VSH380` | `vastbase-sqlserver-if-update-insert-output-branches` | UPDATE/INSERT OUTPUT branches | covered |
+| `VSH381` | `vastbase-sqlserver-if-delete-merge-output-branches` | DELETE/MERGE OUTPUT branches | covered |
+| `VSH382` | `vastbase-sqlserver-if-ddl-branches` | DDL branches | covered |
+| `VSH383` | `vastbase-sqlserver-if-transaction-branches` | transaction branches | covered |
+| `VSH384` | `vastbase-sqlserver-if-root-statements-semicolon` | semicolon-delimited roots | covered |
+| `VSH385` | `vastbase-sqlserver-if-root-statements-newline` | newline-delimited roots | covered |
+| `VSH386` | `vastbase-sqlserver-if-protected-keyword-text` | keywords in protected text | covered |
+| `VSH387` | `vastbase-sqlserver-if-union-line-boundary` | newline UNION ALL boundary | covered |
+| `VSH388` | `vastbase-sqlserver-if-table-hint-line-boundary` | newline table-hint boundary | covered |
+| `VSH389` | `vastbase-sqlserver-if-three-level-nesting` | three nested IF levels | covered |
+| `VSH390` | `vastbase-sqlserver-drop-user-if-exists-before-control` | IF after DROP USER IF EXISTS | covered |
+| `VSH391` | `vastbase-sqlserver-if-null-between-in-condition` | NULL/BETWEEN/IN condition | covered |
+| `VSH392` | `vastbase-sqlserver-if-query-right-operand` | right-side scalar subquery | covered |
+| `VSH393` | `vastbase-sqlserver-if-cte-branch` | CTE branch | covered |
+| `VSH394` | `vastbase-sqlserver-if-begin-end-optional-semicolons` | optional BEGIN/END semicolons | covered |
+| `VSH395` | `vastbase-sqlserver-drop-table-if-exists-before-control` | IF after DROP TABLE IF EXISTS | covered |
+| `VSH396` | `vastbase-sqlserver-drop-table-before-control` | IF after DROP TABLE | covered |
+| `VSH397` | `vastbase-sqlserver-drop-table-before-if-exists-control` | IF EXISTS control after DROP TABLE | covered |
+| `VSH398` | `vastbase-sqlserver-multiline-drop-if-exists-before-control` | IF after multiline DROP TABLE IF EXISTS | covered |
+| `VSH399` | `vastbase-sqlserver-if-cte-update-branch` | CTE UPDATE branch | covered |
+| `VSH400` | `vastbase-sqlserver-if-cte-delete-branch` | CTE DELETE branch | covered |
+| `VSH401` | `vastbase-sqlserver-if-cte-insert-branch` | CTE INSERT branch | covered |
+| `VSH402` | `vastbase-sqlserver-if-cte-merge-branch` | CTE MERGE branch | covered |
+| `VSH403` | `vastbase-sqlserver-if-create-view-cte-branch` | CREATE VIEW CTE branch | covered |
+| `VSU018` | `vastbase-sqlserver-output-empty-target-error` | INSERT ... OUTPUT VALUES (...) | parse error |
+| `VSU019` | `vastbase-sqlserver-output-trailing-comma-error` | INSERT ... OUTPUT target, VALUES (...) | parse error |
+| `VSU020` | `vastbase-sqlserver-output-into-missing-sink-error` | INSERT ... OUTPUT target INTO VALUES (...) | parse error |
+| `VSU021` | `vastbase-sqlserver-output-channel-order-error` | sink OUTPUT declared after client OUTPUT | parse error |
+| `VSU022` | `vastbase-sqlserver-insert-output-deleted-error` | INSERT ... OUTPUT DELETED... | explicitly unsupported |
+| `VSU023` | `vastbase-sqlserver-delete-output-inserted-error` | DELETE ... OUTPUT INSERTED... | explicitly unsupported |
+| `VSU024` | `vastbase-sqlserver-non-merge-output-action-error` | UPDATE ... OUTPUT $action | explicitly unsupported |
+| `VSU025` | `vastbase-sqlserver-output-aggregate-error` | UPDATE ... OUTPUT COUNT(*) | explicitly unsupported |
+| `VSU026` | `vastbase-sqlserver-output-subquery-error` | UPDATE ... OUTPUT (SELECT ...) | explicitly unsupported |
+| `VSU027` | `vastbase-sqlserver-insert-exec-output-error` | INSERT ... OUTPUT ... EXEC ... | explicitly unsupported |
+| `VSU028` | `vastbase-sqlserver-if-missing-condition` | IF without a condition | parse error |
+| `VSU029` | `vastbase-sqlserver-if-missing-branch` | IF without a branch statement | parse error |
+| `VSU030` | `vastbase-sqlserver-if-orphan-else` | orphan ELSE | parse error |
+| `VSU031` | `vastbase-sqlserver-if-empty-begin-end` | empty BEGIN/END | parse error |
+| `VSU032` | `vastbase-sqlserver-if-unterminated-begin-end` | unterminated BEGIN/END | parse error |
+| `VSU033` | `vastbase-sqlserver-if-unparenthesized-select-condition` | unparenthesized condition SELECT | parse error |
+| `VSU034` | `vastbase-sqlserver-if-else-missing-branch` | ELSE without a branch statement | parse error |
+| `VSU035` | `vastbase-sqlserver-if-go-batch-separator` | GO inside control flow | explicitly unsupported |
+| `VSU036` | `vastbase-sqlserver-if-unsupported-leaf` | unsupported branch leaf | explicitly unsupported |

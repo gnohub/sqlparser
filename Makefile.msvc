@@ -63,6 +63,7 @@ JANSSON_OBJS = \
 CORE_OBJS = \
 	$(OBJ_DIR)\sqlparser_ast.obj \
 	$(OBJ_DIR)\sqlparser_ast_clause.obj \
+	$(OBJ_DIR)\sqlparser_ast_dml_result.obj \
 	$(OBJ_DIR)\sqlparser_ast_expr.obj \
 	$(OBJ_DIR)\sqlparser_ast_identifier.obj \
 	$(OBJ_DIR)\sqlparser_ast_insert.obj \
@@ -71,16 +72,22 @@ CORE_OBJS = \
 	$(OBJ_DIR)\sqlparser_ast_statement.obj \
 	$(OBJ_DIR)\sqlparser_ast_update.obj \
 	$(OBJ_DIR)\sqlparser_ast_where.obj \
+	$(OBJ_DIR)\sqlparser_control.obj \
 	$(OBJ_DIR)\sqlparser_core.obj \
 	$(OBJ_DIR)\sqlparser_patch.obj \
 	$(OBJ_DIR)\sqlparser_selector.obj \
 	$(OBJ_DIR)\sqlparser_view.obj \
 	$(OBJ_DIR)\sqlparser_dialect_dameng.obj \
+	$(OBJ_DIR)\sqlparser_dialect_dml_result.obj \
+	$(OBJ_DIR)\sqlparser_dialect_like_escape.obj \
 	$(OBJ_DIR)\sqlparser_dialect_multi_insert.obj \
 	$(OBJ_DIR)\sqlparser_dialect_mysql.obj \
 	$(OBJ_DIR)\sqlparser_dialect_oracle.obj \
 	$(OBJ_DIR)\sqlparser_dialect_postgresql.obj \
 	$(OBJ_DIR)\sqlparser_dialect_sqlserver.obj \
+	$(OBJ_DIR)\sqlparser_dialect_sqlserver_control.obj \
+	$(OBJ_DIR)\sqlparser_dialect_sqlserver_output.obj \
+	$(OBJ_DIR)\sqlparser_dialect_sqlserver_scan.obj \
 	$(OBJ_DIR)\sqlparser_dialect_vastbase.obj \
 	$(OBJ_DIR)\sqlparser_dialect_registry.obj
 
@@ -91,6 +98,7 @@ UNIT_TEST_BINS = \
 	$(BIN_DIR)\test_mysql_dialect_case_matrix.exe \
 	$(BIN_DIR)\test_oracle_dialect_case_matrix.exe \
 	$(BIN_DIR)\test_sqlserver_dialect_case_matrix.exe \
+	$(BIN_DIR)\test_sqlserver_scan.exe \
 	$(BIN_DIR)\test_dameng_dialect_case_matrix.exe \
 	$(BIN_DIR)\test_vastbase_oracle_dialect_case_matrix.exe \
 	$(BIN_DIR)\test_vastbase_mysql_dialect_case_matrix.exe \
@@ -151,6 +159,7 @@ test: all $(UNIT_TEST_BINS) examples
 	$(BIN_DIR)\test_mysql_dialect_case_matrix.exe
 	$(BIN_DIR)\test_oracle_dialect_case_matrix.exe
 	$(BIN_DIR)\test_sqlserver_dialect_case_matrix.exe
+	$(BIN_DIR)\test_sqlserver_scan.exe
 	$(BIN_DIR)\test_dameng_dialect_case_matrix.exe
 	$(BIN_DIR)\test_vastbase_oracle_dialect_case_matrix.exe
 	$(BIN_DIR)\test_vastbase_mysql_dialect_case_matrix.exe
@@ -238,6 +247,9 @@ $(OBJ_DIR)\sqlparser_ast.obj: src\core\sqlparser_ast.c
 $(OBJ_DIR)\sqlparser_ast_clause.obj: src\core\sqlparser_ast_clause.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_clause.c
 
+$(OBJ_DIR)\sqlparser_ast_dml_result.obj: src\core\sqlparser_ast_dml_result.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_dml_result.c
+
 $(OBJ_DIR)\sqlparser_ast_expr.obj: src\core\sqlparser_ast_expr.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_expr.c
 
@@ -262,6 +274,9 @@ $(OBJ_DIR)\sqlparser_ast_update.obj: src\core\sqlparser_ast_update.c
 $(OBJ_DIR)\sqlparser_ast_where.obj: src\core\sqlparser_ast_where.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_where.c
 
+$(OBJ_DIR)\sqlparser_control.obj: src\core\sqlparser_control.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_control.c
+
 $(OBJ_DIR)\sqlparser_core.obj: src\core\sqlparser_core.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_core.c
 
@@ -280,6 +295,12 @@ $(OBJ_DIR)\sqlparser_dialect_mysql.obj: src\dialect\sqlparser_dialect_mysql.c
 $(OBJ_DIR)\sqlparser_dialect_dameng.obj: src\dialect\sqlparser_dialect_dameng.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_dameng.c
 
+$(OBJ_DIR)\sqlparser_dialect_dml_result.obj: src\dialect\sqlparser_dialect_dml_result.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_dml_result.c
+
+$(OBJ_DIR)\sqlparser_dialect_like_escape.obj: src\dialect\sqlparser_dialect_like_escape.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_like_escape.c
+
 $(OBJ_DIR)\sqlparser_dialect_multi_insert.obj: src\dialect\sqlparser_dialect_multi_insert.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_multi_insert.c
 
@@ -289,8 +310,17 @@ $(OBJ_DIR)\sqlparser_dialect_oracle.obj: src\dialect\sqlparser_dialect_oracle.c
 $(OBJ_DIR)\sqlparser_dialect_postgresql.obj: src\dialect\sqlparser_dialect_postgresql.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_postgresql.c
 
-$(OBJ_DIR)\sqlparser_dialect_sqlserver.obj: src\dialect\sqlparser_dialect_sqlserver.c
+$(OBJ_DIR)\sqlparser_dialect_sqlserver.obj: src\dialect\sqlparser_dialect_sqlserver.c src\dialect\sqlparser_dialect_sqlserver_scan.h
 	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_sqlserver.c
+
+$(OBJ_DIR)\sqlparser_dialect_sqlserver_control.obj: src\dialect\sqlparser_dialect_sqlserver_control.c src\dialect\sqlparser_dialect_sqlserver_control.h src\dialect\sqlparser_dialect_sqlserver_scan.h
+	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_sqlserver_control.c
+
+$(OBJ_DIR)\sqlparser_dialect_sqlserver_output.obj: src\dialect\sqlparser_dialect_sqlserver_output.c src\dialect\sqlparser_dialect_sqlserver_output.h src\dialect\sqlparser_dialect_sqlserver_scan.h
+	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_sqlserver_output.c
+
+$(OBJ_DIR)\sqlparser_dialect_sqlserver_scan.obj: src\dialect\sqlparser_dialect_sqlserver_scan.c src\dialect\sqlparser_dialect_sqlserver_scan.h
+	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_sqlserver_scan.c
 
 $(OBJ_DIR)\sqlparser_dialect_vastbase.obj: src\dialect\sqlparser_dialect_vastbase.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_vastbase.c
@@ -318,6 +348,9 @@ $(BIN_DIR)\test_oracle_dialect_case_matrix.exe: tests\unit\test_oracle_dialect_c
 
 $(BIN_DIR)\test_sqlserver_dialect_case_matrix.exe: tests\unit\test_sqlserver_dialect_case_matrix.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_sqlserver_dialect_case_matrix.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_sqlserver_scan.exe: tests\unit\test_sqlserver_scan.c src\dialect\sqlparser_dialect_sqlserver_scan.h $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_sqlserver_scan.c /link $(LDFLAGS) $(LDLIBS)
 
 $(BIN_DIR)\test_dameng_dialect_case_matrix.exe: tests\unit\test_dameng_dialect_case_matrix.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_dameng_dialect_case_matrix.c /link $(LDFLAGS) $(LDLIBS)

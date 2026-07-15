@@ -22,6 +22,10 @@ sqlparser_status_t sqlparser_statement_kind(
 
 	*out_kind = SQLPARSER_STATEMENT_KIND_UNKNOWN;
 	sqlparser_error_clear(out_error);
+	if (sqlparser_control_unit_is_condition(handle, statement_index)) {
+		*out_kind = SQLPARSER_STATEMENT_KIND_CONDITION;
+		return SQLPARSER_STATUS_OK;
+	}
 	mutable_handle = (sqlparser_handle_t *)handle;
 	status = sqlparser_get_statement_node(mutable_handle, statement_index, &statement, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
@@ -52,6 +56,10 @@ sqlparser_status_t sqlparser_statement_node_name(
 
 	*out_name = NULL;
 	sqlparser_error_clear(out_error);
+	if (sqlparser_control_unit_is_condition(handle, statement_index)) {
+		*out_name = "ConditionExpr";
+		return SQLPARSER_STATUS_OK;
+	}
 	mutable_handle = (sqlparser_handle_t *)handle;
 	status = sqlparser_get_statement_node(mutable_handle, statement_index, &statement, out_error);
 	if (status != SQLPARSER_STATUS_OK) {

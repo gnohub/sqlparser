@@ -613,6 +613,7 @@ sqlparser_status_t sqlparser_insert_cell_sql(
 	}
 	status = sqlparser_postprocess_handle_sql_fragment(
 		handle,
+		statement_index,
 		core_sql,
 		"insert cell SQL",
 		out_sql,
@@ -656,6 +657,7 @@ sqlparser_status_t sqlparser_insert_set_cell_sql(
 	}
 	status = sqlparser_preprocess_handle_sql_fragment(
 		handle,
+		statement_index,
 		sql_text,
 		"insert cell SQL",
 		&parser_sql,

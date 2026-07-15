@@ -42,6 +42,10 @@ The four Vastbase modes are verified by executable regression matrices:
 | `vastbase-postgresql` | `tests/cases/vastbase_postgresql_dialect_input.json` | `tests/unit/test_vastbase_postgresql_dialect_case_matrix.c` |
 | `vastbase-sqlserver` | `tests/cases/vastbase_sqlserver_dialect_input.json` | `tests/unit/test_vastbase_sqlserver_dialect_case_matrix.c` |
 
+The `vastbase-sqlserver` mode includes SQL Server DML `OUTPUT` result channels
+and `IF...ELSE` control flow. Its current matrix contains 546 cases: 517
+supported paths and 29 error or explicitly unsupported paths.
+
 ## Official References
 
 - [Vastbase G100 positioning](https://docs.vastdata.com.cn/zh_CN/VastbaseG100/V3.0.8/1/aabafe2193fb4584b290dc9cdcc5c035)

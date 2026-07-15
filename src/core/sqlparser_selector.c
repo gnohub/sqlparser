@@ -248,6 +248,47 @@ sqlparser_status_t sqlparser_selector_parse(
 				&out_selector->column_index,
 				out_error);
 		}
+	} else if (strncmp(text + offset, "dml_result_targets", 18) == 0) {
+		offset += 18U;
+		out_selector->kind = SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGETS;
+		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_selector_parse_index(text, &offset, &out_selector->row_index, out_error);
+		}
+	} else if (strncmp(text + offset, "dml_result_target", 17) == 0) {
+		offset += 17U;
+		out_selector->kind = SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGET;
+		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_selector_parse_index(text, &offset, &out_selector->row_index, out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_selector_parse_index(text, &offset, &out_selector->column_index, out_error);
+		}
+	} else if (strncmp(text + offset, "dml_result_sink_columns", 23) == 0) {
+		offset += 23U;
+		out_selector->kind = SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK_COLUMNS;
+		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_selector_parse_index(text, &offset, &out_selector->row_index, out_error);
+		}
+	} else if (strncmp(text + offset, "dml_result_sink_column", 22) == 0) {
+		offset += 22U;
+		out_selector->kind = SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK_COLUMN;
+		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_selector_parse_index(text, &offset, &out_selector->row_index, out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_selector_parse_index(text, &offset, &out_selector->column_index, out_error);
+		}
+	} else if (strncmp(text + offset, "dml_result_sink", 15) == 0) {
+		offset += 15U;
+		out_selector->kind = SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK;
+		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_selector_parse_index(text, &offset, &out_selector->row_index, out_error);
+		}
 	} else {
 		sqlparser_error_set_message(
 			out_error,
@@ -416,6 +457,53 @@ sqlparser_status_t sqlparser_selector_format(
 				"stmt[%lu].select_target[%lu][%lu]",
 				(unsigned long)selector->statement_index,
 				(unsigned long)selector->item_index,
+				(unsigned long)selector->column_index);
+			break;
+		case SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGETS:
+			length = snprintf(
+				buffer,
+				sizeof(buffer),
+				"stmt[%lu].dml_result_targets[%lu][%lu]",
+				(unsigned long)selector->statement_index,
+				(unsigned long)selector->item_index,
+				(unsigned long)selector->row_index);
+			break;
+		case SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGET:
+			length = snprintf(
+				buffer,
+				sizeof(buffer),
+				"stmt[%lu].dml_result_target[%lu][%lu][%lu]",
+				(unsigned long)selector->statement_index,
+				(unsigned long)selector->item_index,
+				(unsigned long)selector->row_index,
+				(unsigned long)selector->column_index);
+			break;
+		case SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK:
+			length = snprintf(
+				buffer,
+				sizeof(buffer),
+				"stmt[%lu].dml_result_sink[%lu][%lu]",
+				(unsigned long)selector->statement_index,
+				(unsigned long)selector->item_index,
+				(unsigned long)selector->row_index);
+			break;
+		case SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK_COLUMNS:
+			length = snprintf(
+				buffer,
+				sizeof(buffer),
+				"stmt[%lu].dml_result_sink_columns[%lu][%lu]",
+				(unsigned long)selector->statement_index,
+				(unsigned long)selector->item_index,
+				(unsigned long)selector->row_index);
+			break;
+		case SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK_COLUMN:
+			length = snprintf(
+				buffer,
+				sizeof(buffer),
+				"stmt[%lu].dml_result_sink_column[%lu][%lu][%lu]",
+				(unsigned long)selector->statement_index,
+				(unsigned long)selector->item_index,
+				(unsigned long)selector->row_index,
 				(unsigned long)selector->column_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_UNKNOWN:

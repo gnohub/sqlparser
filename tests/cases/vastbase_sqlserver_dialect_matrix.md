@@ -1,6 +1,6 @@
 # Vastbase SQL Server 兼容模式用例矩阵
 
-可执行夹具：`tests/cases/vastbase_sqlserver_dialect_input.json`。单元测试会逐条验证解析、View JSON、反解析输出和明确不支持语法返回码。当前夹具包含 459 条用例：448 条支持路径，11 条明确不支持路径。
+可执行夹具：`tests/cases/vastbase_sqlserver_dialect_input.json`。单元测试会逐条验证解析、View JSON、反解析输出和错误码。当前夹具包含 546 条用例：517 条支持路径，29 条错误或明确不支持路径。
 
 | ID | 用例 | SQL | 状态 |
 | --- | --- | --- | --- |
@@ -57,7 +57,7 @@
 | `VS112` | `vastbase-sqlserver-for-json-second-statement` | SELECT [id] FROM [dbo].[users]; SELECT [id] FROM [dbo].[orders] FOR JSON AUTO | 已覆盖 |
 | `VSU001` | `vastbase-sqlserver-top-with-ties-without-order-by-unsupported` | SELECT TOP (10) WITH TIES [id] FROM [dbo].[users] | 明确不支持 |
 | `VSU002` | `vastbase-sqlserver-top-percent-with-ties-without-order-by-unsupported` | SELECT TOP (10) PERCENT WITH TIES [id] FROM [dbo].[users] | 明确不支持 |
-| `VSU003` | `vastbase-sqlserver-output-unsupported` | INSERT INTO [dbo].[users] ([id]) OUTPUT inserted.[id] VALUES (1) | 明确不支持 |
+| `VSU003` | `vastbase-sqlserver-output-insert-client` | INSERT INTO [dbo].[users] ([id]) OUTPUT inserted.[id] VALUES (1) | 已覆盖 |
 | `VSU005` | `vastbase-sqlserver-cross-apply-unsupported` | SELECT [u].[id] FROM [dbo].[users] [u] CROSS APPLY [dbo].[fn_orders]([u].[id]) [o] | 明确不支持 |
 | `VSU006` | `vastbase-sqlserver-pivot-unsupported` | SELECT * FROM [dbo].[sales] PIVOT (SUM([amount]) FOR [month] IN ([Jan], [Feb])) AS [p] | 明确不支持 |
 | `VSU009` | `vastbase-sqlserver-declare-unsupported` | DECLARE @id INT = 1; SELECT @id | 明确不支持 |
@@ -425,3 +425,90 @@
 | `VSH295-VSH333` | `vastbase-sqlserver-set-*` | SET ... | 已覆盖基础会话/执行环境形态 |
 | `VSH334` | `vastbase-sqlserver-table-hints-join-alias` | JOIN + `WITH (NOLOCK)` / `WITH (FORCESEEK)` | 已覆盖基础表提示公开 SQL 恢复 |
 | `VSH335` | `vastbase-sqlserver-query-hints-multiple` | `OPTION (RECOMPILE, USE HINT(...))` | 已覆盖基础查询提示公开 SQL 恢复 |
+| `VSH336` | `vastbase-sqlserver-insert-output-select-union-all-omitted-into` | INSERT target (...) OUTPUT ... SELECT ... UNION ALL SELECT ... | 已覆盖 |
+| `VSH337` | `vastbase-sqlserver-insert-output-select-explicit-into` | INSERT INTO ... OUTPUT ... SELECT ... | 已覆盖 |
+| `VSH338` | `vastbase-sqlserver-insert-output-values-omitted-into` | INSERT target (...) OUTPUT ... VALUES (...) | 已覆盖 |
+| `VSH339` | `vastbase-sqlserver-insert-output-multi-values-omitted-into` | INSERT target (...) OUTPUT ... VALUES (...), (...) | 已覆盖 |
+| `VSH340` | `vastbase-sqlserver-insert-output-default-values` | INSERT target OUTPUT ... DEFAULT VALUES | 已覆盖 |
+| `VSH341` | `vastbase-sqlserver-cte-insert-output-select` | WITH ... INSERT ... OUTPUT ... SELECT ... | 已覆盖 |
+| `VSH342` | `vastbase-sqlserver-insert-output-existing-case` | INSERT INTO ... OUTPUT INSERTED.id VALUES (...) | 已覆盖 |
+| `VSH343` | `vastbase-sqlserver-insert-output-inserted-star` | INSERT ... OUTPUT INSERTED.* VALUES (...) | 已覆盖 |
+| `VSH344` | `vastbase-sqlserver-insert-output-expression-alias` | INSERT ... OUTPUT expression AS alias VALUES (...) | 已覆盖 |
+| `VSH345` | `vastbase-sqlserver-insert-output-multiple-targets-bind` | INSERT ... OUTPUT target, target, bind VALUES (...) | 已覆盖 |
+| `VSH346` | `vastbase-sqlserver-insert-output-into-table` | INSERT ... OUTPUT ... INTO table VALUES (...) | 已覆盖 |
+| `VSH347` | `vastbase-sqlserver-insert-output-into-table-columns` | INSERT ... OUTPUT ... INTO table(columns) VALUES (...) | 已覆盖 |
+| `VSH348` | `vastbase-sqlserver-insert-output-into-table-variable` | INSERT ... OUTPUT ... INTO @table(columns) VALUES (...) | 已覆盖 |
+| `VSH349` | `vastbase-sqlserver-insert-output-dual-channel` | INSERT ... OUTPUT ... INTO ... OUTPUT ... VALUES (...) | 已覆盖 |
+| `VSH350` | `vastbase-sqlserver-update-output-before-after` | UPDATE ... OUTPUT DELETED..., INSERTED... WHERE ... | 已覆盖 |
+| `VSH351` | `vastbase-sqlserver-update-output-from-source` | UPDATE ... OUTPUT INSERTED..., source... FROM ... | 已覆盖 |
+| `VSH352` | `vastbase-sqlserver-delete-output-before` | DELETE ... OUTPUT DELETED... WHERE ... | 已覆盖 |
+| `VSH353` | `vastbase-sqlserver-delete-output-from-source` | DELETE alias OUTPUT DELETED..., source... FROM ... | 已覆盖 |
+| `VSH354` | `vastbase-sqlserver-merge-output-action` | MERGE ... OUTPUT $action | 已覆盖 |
+| `VSH355` | `vastbase-sqlserver-merge-output-all-references` | MERGE ... OUTPUT $action, DELETED..., INSERTED..., source... | 已覆盖 |
+| `VSH356` | `vastbase-sqlserver-nested-delete-output-table-source` | INSERT ... SELECT ... FROM (DELETE ... OUTPUT ...) | 已覆盖 |
+| `VSH357` | `vastbase-sqlserver-update-top-output` | UPDATE TOP (...) ... OUTPUT ... | 已覆盖 |
+| `VSH358` | `vastbase-sqlserver-insert-target-hint-output` | INSERT target WITH (...) ... OUTPUT ... | 已覆盖 |
+| `VSH359` | `vastbase-sqlserver-output-keywords-in-string` | OUTPUT 关键字出现在字符串中 | 已覆盖 |
+| `VSH360` | `vastbase-sqlserver-output-keywords-in-comments` | OUTPUT 关键字出现在注释中 | 已覆盖 |
+| `VSH361` | `vastbase-sqlserver-output-keywords-as-identifiers` | OUTPUT 关键字出现在方括号标识符中 | 已覆盖 |
+| `VSH362` | `vastbase-sqlserver-output-keywords-in-source-subquery` | OUTPUT 文本出现在来源子查询中 | 已覆盖 |
+| `VSH363` | `vastbase-sqlserver-insert-select-source-table-hint-anchor` | INSERT SELECT 来源表 hint | 已覆盖 |
+| `VSH364` | `vastbase-sqlserver-insert-output-target-and-source-table-hints` | INSERT 目标/来源 hint 与 OUTPUT | 已覆盖 |
+| `VSH365` | `vastbase-sqlserver-output-delimited-select-column` | OUTPUT 中的定界保留字列 | 已覆盖 |
+| `VSH366` | `vastbase-sqlserver-delete-output-equivalent-delimited-alias` | DELETE 等价定界别名 | 已覆盖 |
+| `VSH367` | `vastbase-sqlserver-multi-statement-output-channels` | 多语句 OUTPUT 通道 | 已覆盖 |
+| `VSH368` | `vastbase-sqlserver-if-exists-official-shape` | 官方 IF EXISTS 双分支 | 已覆盖 |
+| `VSH369` | `vastbase-sqlserver-if-without-else` | 无 ELSE 的 IF | 已覆盖 |
+| `VSH370` | `vastbase-sqlserver-if-boolean-literal` | 常量布尔条件 | 已覆盖 |
+| `VSH371` | `vastbase-sqlserver-if-block-semicolon-statements` | 分号分隔 BEGIN 块 | 已覆盖 |
+| `VSH372` | `vastbase-sqlserver-if-block-newline-statements` | 换行分隔 BEGIN 块 | 已覆盖 |
+| `VSH373` | `vastbase-sqlserver-if-dangling-else` | dangling ELSE | 已覆盖 |
+| `VSH374` | `vastbase-sqlserver-else-if-chain` | ELSE IF 链 | 已覆盖 |
+| `VSH375` | `vastbase-sqlserver-if-not-exists` | NOT EXISTS 条件 | 已覆盖 |
+| `VSH376` | `vastbase-sqlserver-if-scalar-subquery-condition` | 标量子查询条件 | 已覆盖 |
+| `VSH377` | `vastbase-sqlserver-if-nested-boolean-condition` | AND/OR/NOT 嵌套条件 | 已覆盖 |
+| `VSH378` | `vastbase-sqlserver-if-function-condition` | COALESCE 条件 | 已覆盖 |
+| `VSH379` | `vastbase-sqlserver-if-case-condition` | CASE 条件 | 已覆盖 |
+| `VSH380` | `vastbase-sqlserver-if-update-insert-output-branches` | UPDATE/INSERT OUTPUT 分支 | 已覆盖 |
+| `VSH381` | `vastbase-sqlserver-if-delete-merge-output-branches` | DELETE/MERGE OUTPUT 分支 | 已覆盖 |
+| `VSH382` | `vastbase-sqlserver-if-ddl-branches` | DDL 分支 | 已覆盖 |
+| `VSH383` | `vastbase-sqlserver-if-transaction-branches` | 事务分支 | 已覆盖 |
+| `VSH384` | `vastbase-sqlserver-if-root-statements-semicolon` | 分号分隔根语句 | 已覆盖 |
+| `VSH385` | `vastbase-sqlserver-if-root-statements-newline` | 换行分隔根语句 | 已覆盖 |
+| `VSH386` | `vastbase-sqlserver-if-protected-keyword-text` | 受保护文本中的关键字 | 已覆盖 |
+| `VSH387` | `vastbase-sqlserver-if-union-line-boundary` | UNION ALL 换行边界 | 已覆盖 |
+| `VSH388` | `vastbase-sqlserver-if-table-hint-line-boundary` | 表提示换行边界 | 已覆盖 |
+| `VSH389` | `vastbase-sqlserver-if-three-level-nesting` | 三层嵌套 IF | 已覆盖 |
+| `VSH390` | `vastbase-sqlserver-drop-user-if-exists-before-control` | DROP USER IF EXISTS 后接 IF | 已覆盖 |
+| `VSH391` | `vastbase-sqlserver-if-null-between-in-condition` | NULL/BETWEEN/IN 条件 | 已覆盖 |
+| `VSH392` | `vastbase-sqlserver-if-query-right-operand` | 右侧标量子查询 | 已覆盖 |
+| `VSH393` | `vastbase-sqlserver-if-cte-branch` | CTE 分支 | 已覆盖 |
+| `VSH394` | `vastbase-sqlserver-if-begin-end-optional-semicolons` | BEGIN/END 可选分号 | 已覆盖 |
+| `VSH395` | `vastbase-sqlserver-drop-table-if-exists-before-control` | DROP TABLE IF EXISTS 后接 IF | 已覆盖 |
+| `VSH396` | `vastbase-sqlserver-drop-table-before-control` | DROP TABLE 后接 IF | 已覆盖 |
+| `VSH397` | `vastbase-sqlserver-drop-table-before-if-exists-control` | DROP TABLE 后接 IF EXISTS 控制语句 | 已覆盖 |
+| `VSH398` | `vastbase-sqlserver-multiline-drop-if-exists-before-control` | 换行 DROP TABLE IF EXISTS 后接 IF | 已覆盖 |
+| `VSH399` | `vastbase-sqlserver-if-cte-update-branch` | CTE UPDATE 分支 | 已覆盖 |
+| `VSH400` | `vastbase-sqlserver-if-cte-delete-branch` | CTE DELETE 分支 | 已覆盖 |
+| `VSH401` | `vastbase-sqlserver-if-cte-insert-branch` | CTE INSERT 分支 | 已覆盖 |
+| `VSH402` | `vastbase-sqlserver-if-cte-merge-branch` | CTE MERGE 分支 | 已覆盖 |
+| `VSH403` | `vastbase-sqlserver-if-create-view-cte-branch` | CREATE VIEW CTE 分支 | 已覆盖 |
+| `VSU018` | `vastbase-sqlserver-output-empty-target-error` | INSERT ... OUTPUT VALUES (...) | 语法错误 |
+| `VSU019` | `vastbase-sqlserver-output-trailing-comma-error` | INSERT ... OUTPUT target, VALUES (...) | 语法错误 |
+| `VSU020` | `vastbase-sqlserver-output-into-missing-sink-error` | INSERT ... OUTPUT target INTO VALUES (...) | 语法错误 |
+| `VSU021` | `vastbase-sqlserver-output-channel-order-error` | client OUTPUT 后再声明 sink OUTPUT | 语法错误 |
+| `VSU022` | `vastbase-sqlserver-insert-output-deleted-error` | INSERT ... OUTPUT DELETED... | 明确不支持 |
+| `VSU023` | `vastbase-sqlserver-delete-output-inserted-error` | DELETE ... OUTPUT INSERTED... | 明确不支持 |
+| `VSU024` | `vastbase-sqlserver-non-merge-output-action-error` | UPDATE ... OUTPUT $action | 明确不支持 |
+| `VSU025` | `vastbase-sqlserver-output-aggregate-error` | UPDATE ... OUTPUT COUNT(*) | 明确不支持 |
+| `VSU026` | `vastbase-sqlserver-output-subquery-error` | UPDATE ... OUTPUT (SELECT ...) | 明确不支持 |
+| `VSU027` | `vastbase-sqlserver-insert-exec-output-error` | INSERT ... OUTPUT ... EXEC ... | 明确不支持 |
+| `VSU028` | `vastbase-sqlserver-if-missing-condition` | IF 缺少条件 | 语法错误 |
+| `VSU029` | `vastbase-sqlserver-if-missing-branch` | IF 缺少分支语句 | 语法错误 |
+| `VSU030` | `vastbase-sqlserver-if-orphan-else` | 孤立 ELSE | 语法错误 |
+| `VSU031` | `vastbase-sqlserver-if-empty-begin-end` | 空 BEGIN/END | 语法错误 |
+| `VSU032` | `vastbase-sqlserver-if-unterminated-begin-end` | 未闭合 BEGIN/END | 语法错误 |
+| `VSU033` | `vastbase-sqlserver-if-unparenthesized-select-condition` | 条件 SELECT 未加括号 | 语法错误 |
+| `VSU034` | `vastbase-sqlserver-if-else-missing-branch` | ELSE 缺少分支语句 | 语法错误 |
+| `VSU035` | `vastbase-sqlserver-if-go-batch-separator` | 控制流中包含 GO | 明确不支持 |
+| `VSU036` | `vastbase-sqlserver-if-unsupported-leaf` | 分支叶子语句不受支持 | 明确不支持 |

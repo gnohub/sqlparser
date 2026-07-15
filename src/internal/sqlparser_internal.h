@@ -9,6 +9,7 @@
 
 typedef struct sqlparser_dialect_ops sqlparser_dialect_ops_t;
 typedef struct sqlparser_query_graph_cache sqlparser_query_graph_cache_t;
+typedef struct sqlparser_control_state sqlparser_control_state_t;
 
 #define SQLPARSER_INTERNAL_CURRENT_DATABASE "sqlparser_current_database"
 #define SQLPARSER_INTERNAL_CURRENT_SCHEMA "sqlparser_current_schema"
@@ -68,6 +69,7 @@ struct sqlparser_handle {
 	void *dialect_state;
 	sqlparser_query_graph_cache_t *query_graph;
 	unsigned long query_graph_generation;
+	sqlparser_control_state_t *control;
 };
 
 void sqlparser_error_clear(sqlparser_error_t *out_error);
@@ -128,12 +130,14 @@ const char *sqlparser_effective_sql(const sqlparser_handle_t *handle);
 const char *sqlparser_effective_parser_sql(const sqlparser_handle_t *handle);
 sqlparser_status_t sqlparser_postprocess_handle_sql_fragment(
 	const sqlparser_handle_t *handle,
+	size_t statement_index,
 	const char *core_sql,
 	const char *field_name,
 	char **out_sql,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_preprocess_handle_sql_fragment(
 	const sqlparser_handle_t *handle,
+	size_t statement_index,
 	const char *public_sql,
 	const char *field_name,
 	char **out_parser_sql,

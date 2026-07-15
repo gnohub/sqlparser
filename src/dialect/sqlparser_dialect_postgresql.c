@@ -669,9 +669,11 @@ static sqlparser_status_t sqlparser_postgresql_preprocess(
 static sqlparser_status_t sqlparser_postgresql_preprocess_fragment(
 	const char *input_sql,
 	void *state,
+	size_t statement_index,
 	char **out_parser_sql,
 	sqlparser_error_t *out_error)
 {
+	(void)statement_index;
 	if (state == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "PostgreSQL dialect state is missing");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
@@ -809,6 +811,7 @@ static sqlparser_status_t sqlparser_postgresql_postprocess_deparse(
 static sqlparser_status_t sqlparser_postgresql_postprocess_literal_fragment(
 	const char *core_sql,
 	const void *state,
+	size_t statement_index,
 	size_t literal_index,
 	char **out_sql,
 	sqlparser_error_t *out_error)
@@ -817,6 +820,8 @@ static sqlparser_status_t sqlparser_postgresql_postprocess_literal_fragment(
 	size_t literal_end;
 	sqlparser_postgresql_buffer_t out;
 	sqlparser_status_t status;
+
+	(void)statement_index;
 
 	if (out_sql == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "dialect fragment output must not be NULL");
@@ -908,6 +913,8 @@ static const sqlparser_dialect_ops_t SQLPARSER_POSTGRESQL_OPS = {
 	sqlparser_postgresql_clone_state,
 	sqlparser_postgresql_state_destroy,
 	sqlparser_postgresql_postprocess_literal_fragment,
+	NULL,
+	NULL,
 	NULL,
 	NULL,
 	NULL,

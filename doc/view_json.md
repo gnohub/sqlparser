@@ -1,6 +1,6 @@
 # View JSON 手册
 
-View JSON 是 `sqlparser` 对 `query_graph` 结构的按需 JSON 导出，主要用于回归测试、集成验证和跨语言查看解析结果。业务代码优先使用公共 C 结构接口读取 `sqlparser_query_graph_view_t`，不需要为了改写 SQL 先生成 JSON。
+View JSON 是 `sqlparser` 对语句 query graph 和控制流拓扑的按需 JSON 导出，主要用于回归测试、集成验证和跨语言查看解析结果。业务代码优先使用公共 C 结构接口，不需要为了改写 SQL 先生成 JSON。
 
 ## 导出接口
 
@@ -61,7 +61,7 @@ sqlparser_status_t sqlparser_export_view_json(
         ]
       }
     }
-	  ]
+  ]
 }
 ```
 
@@ -75,7 +75,46 @@ sqlparser_status_t sqlparser_export_view_json(
 
 `query_graph` 表达当前 SQL 中的查询块、关系、输出项、字段引用、值、集合运算和 DML 写入结构。
 
+顶层 `control_flow` 仅在输入包含控制语句时存在，表达 statement unit 之间的分支和嵌套关系。
+
 JSON 只输出有意义的可选字段。公共 C 结构中由 `has_*` 或 `count` 表达不存在的字段，在 JSON 中默认省略，不输出 `null` 或空数组。
+
+## control_flow
+
+示例：
+
+```sql
+IF @enabled = 1 SELECT id FROM users ELSE SELECT id FROM archived_users
+```
+
+对应的控制流结构：
+
+```json
+{
+  "control_flow": {
+    "roots": [{"kind": "node", "index": 0}],
+    "nodes": [{"kind": "if", "branches": [0, 1]}],
+    "branches": [
+      {
+        "condition_statement": 0,
+        "items": [{"kind": "statement", "index": 1}]
+      },
+      {
+        "items": [{"kind": "statement", "index": 2}]
+      }
+    ]
+  }
+}
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `roots` | 顶层 statement 或控制节点引用，保持源码顺序 |
+| `nodes` | 控制节点数组；`kind = "if"` 的 `branches` 保存有序分支索引 |
+| `branches` | 分支数组；条件分支包含 `condition_statement`，无条件 `ELSE` 分支不包含该字段 |
+| `items` | 分支中的 statement 或嵌套控制节点引用，保持源码顺序 |
+
+`kind = "statement"` 的 `index` 指向 `statements[]` 中的 statement unit；`kind = "node"` 的 `index` 指向 `nodes[]`。条件 statement 的 `keyword` 为 `condition`，其 query graph 根 block 类型和字段、值的 clause 类型均为 `condition`。嵌套 `IF` 通过 branch item 引用另一个 node，不复制子树。
 
 ## query_graph
 
@@ -89,7 +128,7 @@ JSON 只输出有意义的可选字段。公共 C 结构中由 `has_*` 或 `coun
 | `values` | 与字段关联的字面量、bind、DEFAULT 值；分页或伪列 bind 不进入该数组；非空时存在 |
 | `sets` | `UNION`、`UNION ALL`、`INTERSECT`、`EXCEPT/MINUS` 等集合运算；非空时存在 |
 | `predicates` | `WHERE`、`ON`、`HAVING` 等条件中的谓词树节点；非空时存在 |
-| `dml` | `INSERT`、`UPDATE`、`DELETE` 等写入结构；仅 DML 语句存在 |
+| `dml` | `INSERT`、`UPDATE`、`DELETE`、`MERGE` 写入结构及其嵌套 DML；仅 DML 语句存在 |
 
 数组中的编号均为当前语句内的 0 基索引。`relations[].source_block`、`targets[].source_block`、`targets[].star_relations` 和 `sets[].branches` 可组合表达派生表、星号和集合运算的来源链路。
 
@@ -305,7 +344,7 @@ FROM (
 
 ## DML
 
-`query_graph.dml` 表达写入语句的目标关系、目标列、行值、赋值项和来源查询。
+`query_graph.dml` 表达写入语句的目标关系、目标列、行值、赋值项、来源查询和结果通道。
 
 常见字段：
 
@@ -318,6 +357,28 @@ FROM (
 | `rows` | `INSERT ... VALUES` 或 Oracle/Dameng multi-table INSERT branch 的 cell 索引数组 |
 | `source_block` | `INSERT ... SELECT` 或 Oracle/Dameng multi-table INSERT 末尾 source query 的 block 索引 |
 | `branches` | Oracle/Dameng `INSERT ALL/FIRST` 的 INTO 分支数组；非 multi-table INSERT 时省略 |
+| `result_channels` | DML 结果通道数组；没有结果输出时省略 |
+| `children` | 以当前 DML 为父节点的嵌套 DML 数组；没有嵌套 DML 时省略 |
+
+结果通道字段：
+
+| 字段 | 说明 |
+| --- | --- |
+| `kind` | `client` 表示返回结果，`sink` 表示写入指定 relation |
+| `block` | 该通道输出 target 所在的 `dml_result` block 索引 |
+| `sink_relation` | sink relation 索引；仅 `sink` 通道存在 |
+| `sink_columns` | sink 目标列对象；没有显式列列表时省略 |
+| `references` | 输出 target 对目标行或来源 relation 的字段引用；非空时存在 |
+
+每个 `references[]` 元素包含结果 `target` 索引、可选 `field` 索引、`relation` 索引和 `kind`。`kind` 取值为 `target_before`、`target_after` 或 `source`。SQL Server `DELETED.id`、`INSERTED.id` 和来源表字段分别使用这三种类型。
+
+结果 target、sink relation 和 sink column 的 selector 可直接用于 `sqlparser_apply_patch()`：
+
+```text
+stmt[0].dml_result_target[0][0][0]
+stmt[0].dml_result_sink[0][0]
+stmt[0].dml_result_sink_column[0][0][0]
+```
 
 Oracle/Dameng multi-table INSERT 的每个 branch 包含独立的 `target_relation`、`target_columns`、`rows` 和 `branch_kind`。`branch_kind` 取值为 `unconditional`、`when` 或 `else`；`WHEN` 条件通过 `condition_selector` 定位，该 selector 可通过 `sqlparser_selector_clause_sql()` 读取原始条件 SQL。
 
@@ -327,4 +388,4 @@ branch cell 的 `kind` 可为 `literal`、`bind`、`default`、`expression` 或 
 
 ## 改写
 
-View JSON 中的 `selector` 可用于构造 `sqlparser_patch_t`，再调用 `sqlparser_apply_patch()` 统一改写。改写完成后应调用 `sqlparser_deparse()` 生成 SQL，并重新解析验证输出是否仍是合法 SQL。
+View JSON 中的 `selector` 可用于构造 `sqlparser_patch_t`，再调用 `sqlparser_apply_patch()` 统一改写。改写完成后调用 `sqlparser_deparse()` 生成 SQL。

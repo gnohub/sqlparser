@@ -4,6 +4,10 @@
 #include <string.h>
 
 #include "sqlparser_dialect_internal.h"
+#include "sqlparser_dialect_sqlserver_internal.h"
+#include "sqlparser_dialect_sqlserver_control.h"
+#include "sqlparser_dialect_sqlserver_output.h"
+#include "sqlparser_dialect_sqlserver_scan.h"
 
 typedef struct {
 	char *data;
@@ -25,7 +29,28 @@ typedef struct {
 	char *tail;
 } sqlparser_sqlserver_cast_restore_t;
 
+typedef enum {
+	SQLPARSER_SQLSERVER_TABLE_HINT_ANCHOR_NONE = 0,
+	SQLPARSER_SQLSERVER_TABLE_HINT_ANCHOR_FROM,
+	SQLPARSER_SQLSERVER_TABLE_HINT_ANCHOR_JOIN,
+	SQLPARSER_SQLSERVER_TABLE_HINT_ANCHOR_UPDATE,
+	SQLPARSER_SQLSERVER_TABLE_HINT_ANCHOR_INSERT
+} sqlparser_sqlserver_table_hint_anchor_t;
+
 typedef struct {
+	char *sql;
+	sqlparser_sqlserver_table_hint_anchor_t anchor;
+} sqlparser_sqlserver_table_hint_t;
+
+typedef struct sqlparser_sqlserver_state sqlparser_sqlserver_state_t;
+
+typedef struct {
+	sqlparser_control_state_t *flow;
+	size_t unit_count;
+	sqlparser_sqlserver_state_t *unit_states[1];
+} sqlparser_sqlserver_control_bundle_t;
+
+struct sqlparser_sqlserver_state {
 	char **param_names;
 	size_t param_count;
 	size_t param_capacity;
@@ -41,7 +66,7 @@ typedef struct {
 	size_t top_capacity;
 	size_t top_suffix_count;
 	size_t top_suffix_capacity;
-	char **table_hints;
+	sqlparser_sqlserver_table_hint_t *table_hints;
 	size_t table_hint_count;
 	size_t table_hint_capacity;
 	char **query_hints;
@@ -62,7 +87,9 @@ typedef struct {
 	size_t *drop_user_ordinals;
 	size_t drop_user_count;
 	size_t drop_user_capacity;
-} sqlparser_sqlserver_state_t;
+	sqlparser_sqlserver_output_state_t *output_state;
+	sqlparser_sqlserver_control_bundle_t *control;
+};
 
 typedef struct {
 	char *limit;
@@ -263,6 +290,13 @@ static void sqlparser_sqlserver_state_destroy(void *state)
 	if (sqlserver_state == NULL) {
 		return;
 	}
+	if (sqlserver_state->control != NULL) {
+		sqlparser_control_state_release(sqlserver_state->control->flow);
+		for (index = 1U; index < sqlserver_state->control->unit_count; index++) {
+			sqlparser_sqlserver_state_destroy(sqlserver_state->control->unit_states[index]);
+		}
+		free(sqlserver_state->control);
+	}
 
 	for (index = 0U; index < sqlserver_state->param_count; index++) {
 		free(sqlserver_state->param_names[index]);
@@ -277,7 +311,7 @@ static void sqlparser_sqlserver_state_destroy(void *state)
 		free(sqlserver_state->top_suffixes[index]);
 	}
 	for (index = 0U; index < sqlserver_state->table_hint_count; index++) {
-		free(sqlserver_state->table_hints[index]);
+		free(sqlserver_state->table_hints[index].sql);
 	}
 	for (index = 0U; index < sqlserver_state->query_hint_count; index++) {
 		free(sqlserver_state->query_hints[index]);
@@ -299,6 +333,7 @@ static void sqlparser_sqlserver_state_destroy(void *state)
 	free(sqlserver_state->json_suffix_ordinals);
 	free(sqlserver_state->cast_restores);
 	free(sqlserver_state->drop_user_ordinals);
+	sqlparser_sqlserver_output_destroy(sqlserver_state->output_state);
 	free(sqlserver_state);
 }
 
@@ -324,6 +359,82 @@ static sqlparser_status_t sqlparser_sqlserver_state_new(
 
 	*out_state = state;
 	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_sqlserver_control_bundle_new(
+	sqlparser_sqlserver_state_t *root_state,
+	sqlparser_control_state_t *flow,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_sqlserver_control_bundle_t *bundle;
+	size_t bytes;
+	size_t index;
+	sqlparser_status_t status;
+
+	if (root_state == NULL || flow == NULL || flow->unit_count == 0U) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "SQL Server control state is incomplete");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	if (flow->unit_count - 1U >
+	    (SIZE_MAX - sizeof(*bundle)) / sizeof(bundle->unit_states[0])) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "SQL Server control unit state is too large");
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+	bytes = sizeof(*bundle) +
+		(flow->unit_count - 1U) * sizeof(bundle->unit_states[0]);
+	bundle = (sqlparser_sqlserver_control_bundle_t *)calloc(1U, bytes);
+	if (bundle == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	bundle->flow = flow;
+	bundle->unit_count = flow->unit_count;
+	bundle->unit_states[0] = root_state;
+	for (index = 1U; index < flow->unit_count; index++) {
+		status = sqlparser_sqlserver_state_new(&bundle->unit_states[index], out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			while (index > 1U) {
+				index--;
+				sqlparser_sqlserver_state_destroy(bundle->unit_states[index]);
+			}
+			free(bundle);
+			return status;
+		}
+	}
+	root_state->control = bundle;
+	return SQLPARSER_STATUS_OK;
+}
+
+static const sqlparser_sqlserver_state_t *sqlparser_sqlserver_state_for_statement(
+	const sqlparser_sqlserver_state_t *state,
+	size_t statement_index,
+	size_t *out_local_statement_index)
+{
+	if (state == NULL) {
+		return NULL;
+	}
+	if (state->control == NULL) {
+		if (out_local_statement_index != NULL) {
+			*out_local_statement_index = statement_index;
+		}
+		return state;
+	}
+	if (statement_index >= state->control->unit_count) {
+		return NULL;
+	}
+	if (out_local_statement_index != NULL) {
+		*out_local_statement_index = 0U;
+	}
+	return state->control->unit_states[statement_index];
+}
+
+static sqlparser_sqlserver_state_t *sqlparser_sqlserver_state_for_statement_mutable(
+	sqlparser_sqlserver_state_t *state,
+	size_t statement_index,
+	size_t *out_local_statement_index)
+{
+	return (sqlparser_sqlserver_state_t *)sqlparser_sqlserver_state_for_statement(
+		state, statement_index, out_local_statement_index);
 }
 
 static sqlparser_status_t sqlparser_sqlserver_size_array_add(
@@ -360,73 +471,6 @@ static sqlparser_status_t sqlparser_sqlserver_size_array_add(
 	(*values)[*count] = value;
 	(*count)++;
 	return SQLPARSER_STATUS_OK;
-}
-
-static int sqlparser_sqlserver_is_ident_start(unsigned char c)
-{
-	return isalpha(c) || c == '_' || c == '#';
-}
-
-static int sqlparser_sqlserver_is_ident_char(unsigned char c)
-{
-	return isalnum(c) || c == '_' || c == '$' || c == '#' || c == '@';
-}
-
-static int sqlparser_sqlserver_is_word_boundary(const char *text, size_t pos, size_t len)
-{
-	unsigned char prev;
-	unsigned char next;
-
-	prev = pos == 0U ? 0U : (unsigned char)text[pos - 1U];
-	next = text[pos + len] == '\0' ? 0U : (unsigned char)text[pos + len];
-	return !sqlparser_sqlserver_is_ident_char(prev) && !sqlparser_sqlserver_is_ident_char(next);
-}
-
-static int sqlparser_sqlserver_ascii_word_equal(const char *text, size_t pos, const char *word)
-{
-	size_t index;
-	size_t len;
-
-	if (text == NULL || word == NULL) {
-		return 0;
-	}
-
-	len = strlen(word);
-	for (index = 0U; index < len; index++) {
-		if (text[pos + index] == '\0') {
-			return 0;
-		}
-		if (tolower((unsigned char)text[pos + index]) != tolower((unsigned char)word[index])) {
-			return 0;
-		}
-	}
-
-	return sqlparser_sqlserver_is_word_boundary(text, pos, len);
-}
-
-static size_t sqlparser_sqlserver_skip_space(const char *text, size_t pos)
-{
-	while (isspace((unsigned char)text[pos])) {
-		pos++;
-	}
-	return pos;
-}
-
-static size_t sqlparser_sqlserver_trim_left(const char *text, size_t start, size_t end)
-{
-	while (start < end && isspace((unsigned char)text[start])) {
-		start++;
-	}
-	return start;
-}
-
-static size_t sqlparser_sqlserver_trim_right(const char *text, size_t start, size_t end)
-{
-	(void)start;
-	while (end > start && isspace((unsigned char)text[end - 1U])) {
-		end--;
-	}
-	return end;
 }
 
 static int sqlparser_sqlserver_span_has_space(const char *text, size_t start, size_t end)
@@ -582,84 +626,37 @@ static sqlparser_status_t sqlparser_sqlserver_copy_quoted_or_comment(
 	sqlparser_sqlserver_buffer_t *out,
 	sqlparser_error_t *out_error)
 {
-	char quote;
-	size_t pos;
+	size_t next;
+	sqlparser_status_t status;
 
 	if (sql[*index] == '[') {
 		return sqlparser_sqlserver_append_quoted_identifier(out, sql, index, out_error);
 	}
 
-	quote = sql[*index];
-	if (quote == '\'' || quote == '"') {
-		pos = *index;
-		if (sqlparser_sqlserver_buffer_append_char(out, sql[pos], out_error) != SQLPARSER_STATUS_OK) {
-			return SQLPARSER_STATUS_NO_MEMORY;
+	if (sqlparser_sqlserver_can_copy_quoted_or_comment(sql, *index)) {
+		next = *index;
+		status = sqlparser_sqlserver_quoted_or_comment_span(
+			sql,
+			*index,
+			&next,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
 		}
-		pos++;
-		while (sql[pos] != '\0') {
-			if (sqlparser_sqlserver_buffer_append_char(out, sql[pos], out_error) != SQLPARSER_STATUS_OK) {
-				return SQLPARSER_STATUS_NO_MEMORY;
-			}
-			if (sql[pos] == quote) {
-				if (sql[pos + 1U] == quote) {
-					pos++;
-					if (sqlparser_sqlserver_buffer_append_char(out, sql[pos], out_error) !=
-					    SQLPARSER_STATUS_OK) {
-						return SQLPARSER_STATUS_NO_MEMORY;
-					}
-				} else {
-					pos++;
-					break;
-				}
-			}
-			pos++;
+		status = sqlparser_sqlserver_buffer_append_mem(
+			out,
+			sql + *index,
+			next - *index,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
 		}
-		*index = pos;
-		return SQLPARSER_STATUS_OK;
-	}
-
-	if (sql[*index] == '-' && sql[*index + 1U] == '-') {
-		pos = *index;
-		while (sql[pos] != '\0') {
-			if (sqlparser_sqlserver_buffer_append_char(out, sql[pos], out_error) != SQLPARSER_STATUS_OK) {
-				return SQLPARSER_STATUS_NO_MEMORY;
-			}
-			if (sql[pos] == '\n') {
-				pos++;
-				break;
-			}
-			pos++;
-		}
-		*index = pos;
-		return SQLPARSER_STATUS_OK;
-	}
-
-	if (sql[*index] == '/' && sql[*index + 1U] == '*') {
-		pos = *index;
-		while (sql[pos] != '\0') {
-			if (sqlparser_sqlserver_buffer_append_char(out, sql[pos], out_error) != SQLPARSER_STATUS_OK) {
-				return SQLPARSER_STATUS_NO_MEMORY;
-			}
-			if (sql[pos] == '*' && sql[pos + 1U] == '/') {
-				pos++;
-				if (sqlparser_sqlserver_buffer_append_char(out, sql[pos], out_error) !=
-				    SQLPARSER_STATUS_OK) {
-					return SQLPARSER_STATUS_NO_MEMORY;
-				}
-				pos++;
-				break;
-			}
-			pos++;
-		}
-		*index = pos;
+		*index = next;
 		return SQLPARSER_STATUS_OK;
 	}
 
 	return SQLPARSER_STATUS_INTERNAL_ERROR;
 }
-
-static size_t sqlparser_sqlserver_skip_quoted_or_comment_span(const char *sql, size_t index);
-static int sqlparser_sqlserver_can_copy_quoted_or_comment(const char *sql, size_t index);
 
 static sqlparser_status_t sqlparser_sqlserver_preprocess_use_statement(
 	const char *input_sql,
@@ -2468,42 +2465,6 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_prepared_statement(
 	return SQLPARSER_STATUS_OK;
 }
 
-static size_t sqlparser_sqlserver_statement_end(const char *sql, size_t start)
-{
-	size_t pos;
-	size_t depth;
-
-	depth = 0U;
-	for (pos = start; sql[pos] != '\0';) {
-		size_t skipped;
-
-		if (sqlparser_sqlserver_can_copy_quoted_or_comment(sql, pos)) {
-			skipped = sqlparser_sqlserver_skip_quoted_or_comment_span(sql, pos);
-			if (skipped > pos) {
-				pos = skipped;
-				continue;
-			}
-		}
-		if (sql[pos] == '(') {
-			depth++;
-			pos++;
-			continue;
-		}
-		if (sql[pos] == ')') {
-			if (depth > 0U) {
-				depth--;
-			}
-			pos++;
-			continue;
-		}
-		if (depth == 0U && sql[pos] == ';') {
-			return pos;
-		}
-		pos++;
-	}
-	return pos;
-}
-
 static sqlparser_status_t sqlparser_sqlserver_rewrite_use_statements(
 	char **io_sql,
 	sqlparser_error_t *out_error)
@@ -2532,7 +2493,7 @@ static sqlparser_status_t sqlparser_sqlserver_rewrite_use_statements(
 	rewritten = 0;
 	memset(&out, 0, sizeof(out));
 	while (segment_start < len) {
-		statement_end = sqlparser_sqlserver_statement_end(sql, segment_start);
+		statement_end = sqlparser_sqlserver_statement_end(sql, segment_start, len);
 		statement_sql = sqlparser_strndup(sql + segment_start, statement_end - segment_start);
 		if (statement_sql == NULL) {
 			sqlparser_sqlserver_buffer_release(&out);
@@ -2600,73 +2561,6 @@ static sqlparser_status_t sqlparser_sqlserver_rewrite_use_statements(
 	return SQLPARSER_STATUS_OK;
 }
 
-static size_t sqlparser_sqlserver_skip_quoted_or_comment_span(const char *sql, size_t index)
-{
-	char quote;
-	size_t pos;
-
-	if (sql[index] == '[') {
-		pos = index + 1U;
-		while (sql[pos] != '\0') {
-			if (sql[pos] == ']' && sql[pos + 1U] == ']') {
-				pos += 2U;
-				continue;
-			}
-			if (sql[pos] == ']') {
-				return pos + 1U;
-			}
-			pos++;
-		}
-		return pos;
-	}
-
-	if (sql[index] == '\'' || sql[index] == '"') {
-		quote = sql[index];
-		pos = index + 1U;
-		while (sql[pos] != '\0') {
-			if (sql[pos] == quote && sql[pos + 1U] == quote) {
-				pos += 2U;
-				continue;
-			}
-			if (sql[pos] == quote) {
-				return pos + 1U;
-			}
-			pos++;
-		}
-		return pos;
-	}
-
-	if (sql[index] == '-' && sql[index + 1U] == '-') {
-		pos = index + 2U;
-		while (sql[pos] != '\0' && sql[pos] != '\n') {
-			pos++;
-		}
-		return pos;
-	}
-
-	if (sql[index] == '/' && sql[index + 1U] == '*') {
-		pos = index + 2U;
-		while (sql[pos] != '\0') {
-			if (sql[pos] == '*' && sql[pos + 1U] == '/') {
-				return pos + 2U;
-			}
-			pos++;
-		}
-		return pos;
-	}
-
-	return index;
-}
-
-static int sqlparser_sqlserver_can_copy_quoted_or_comment(const char *sql, size_t index)
-{
-	return sql[index] == '[' ||
-	       sql[index] == '\'' ||
-	       sql[index] == '"' ||
-	       (sql[index] == '-' && sql[index + 1U] == '-') ||
-	       (sql[index] == '/' && sql[index + 1U] == '*');
-}
-
 static sqlparser_status_t sqlparser_sqlserver_mask_non_code(
 	const char *sql,
 	char **out_masked,
@@ -2675,6 +2569,18 @@ static sqlparser_status_t sqlparser_sqlserver_mask_non_code(
 	char *masked;
 	size_t len;
 	size_t index;
+	size_t span_start;
+	size_t span_end;
+	sqlparser_status_t status;
+
+	if (sql == NULL || out_masked == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"SQL Server mask arguments must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_masked = NULL;
 
 	len = strlen(sql);
 	masked = sqlparser_strndup(sql, len);
@@ -2683,64 +2589,29 @@ static sqlparser_status_t sqlparser_sqlserver_mask_non_code(
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
 
-	for (index = 0U; index < len; index++) {
-		if ((masked[index] == 'n' || masked[index] == 'N') && masked[index + 1U] == '\'') {
-			masked[index] = ' ';
+	for (index = 0U; index < len;) {
+		span_start = index;
+		if ((sql[index] == 'n' || sql[index] == 'N') &&
+		    index + 1U < len && sql[index + 1U] == '\'') {
 			index++;
 		}
-		if (masked[index] == '\'') {
-			index++;
-			while (index < len) {
-				if (masked[index] == '\'' && masked[index + 1U] == '\'') {
-					masked[index] = ' ';
-					masked[index + 1U] = ' ';
-					index += 2U;
-					continue;
-				}
-				if (masked[index] == '\'') {
-					break;
-				}
-				masked[index] = ' ';
-				index++;
-			}
-		} else if (masked[index] == '"' || masked[index] == '[') {
-			char close_quote;
+		if (!sqlparser_sqlserver_can_copy_quoted_or_comment(sql, index)) {
+			index = span_start + 1U;
+			continue;
+		}
 
-			close_quote = masked[index] == '[' ? ']' : '"';
-			index++;
-			while (index < len) {
-				if (masked[index] == close_quote && masked[index + 1U] == close_quote) {
-					masked[index] = ' ';
-					masked[index + 1U] = ' ';
-					index += 2U;
-					continue;
-				}
-				if (masked[index] == close_quote) {
-					break;
-				}
-				masked[index] = ' ';
-				index++;
-			}
-		} else if (masked[index] == '-' && masked[index + 1U] == '-') {
-			while (index < len && masked[index] != '\n') {
-				masked[index] = ' ';
-				index++;
-			}
-		} else if (masked[index] == '/' && masked[index + 1U] == '*') {
-			masked[index] = ' ';
-			masked[index + 1U] = ' ';
-			index += 2U;
-			while (index < len) {
-				if (masked[index] == '*' && masked[index + 1U] == '/') {
-					masked[index] = ' ';
-					masked[index + 1U] = ' ';
-					index++;
-					break;
-				}
-				masked[index] = ' ';
-				index++;
-			}
+		span_end = index;
+		status = sqlparser_sqlserver_quoted_or_comment_span(
+			sql,
+			index,
+			&span_end,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			free(masked);
+			return status;
 		}
+		memset(masked + span_start, ' ', span_end - span_start);
+		index = span_end;
 	}
 
 	for (index = 0U; index < len; index++) {
@@ -4016,44 +3887,6 @@ static sqlparser_status_t sqlparser_sqlserver_append_all_pending_top_limits(
 	return SQLPARSER_STATUS_OK;
 }
 
-static int sqlparser_sqlserver_line_is_go(const char *input, size_t index, size_t *out_next)
-{
-	size_t line_start;
-	size_t pos;
-	size_t token_start;
-	size_t token_end;
-
-	line_start = index;
-	while (line_start > 0U && input[line_start - 1U] != '\n' && input[line_start - 1U] != '\r') {
-		line_start--;
-	}
-	pos = line_start;
-	while (isspace((unsigned char)input[pos]) && input[pos] != '\n' && input[pos] != '\r') {
-		pos++;
-	}
-	if (!sqlparser_sqlserver_ascii_word_equal(input, pos, "go")) {
-		return 0;
-	}
-	token_start = pos;
-	pos += 2U;
-	token_end = pos;
-	while (input[pos] != '\0' && input[pos] != '\n' && input[pos] != '\r') {
-		if (!isspace((unsigned char)input[pos]) && !isdigit((unsigned char)input[pos])) {
-			return 0;
-		}
-		pos++;
-	}
-	(void)token_start;
-	(void)token_end;
-	while (input[pos] == '\r' || input[pos] == '\n') {
-		pos++;
-	}
-	if (out_next != NULL) {
-		*out_next = pos;
-	}
-	return 1;
-}
-
 static sqlparser_status_t sqlparser_sqlserver_append_hash_identifier(
 	const char *input,
 	size_t *index,
@@ -4116,60 +3949,23 @@ static sqlparser_status_t sqlparser_sqlserver_skip_identity_clause(
 	return SQLPARSER_STATUS_OK;
 }
 
-static int sqlparser_sqlserver_find_matching_paren(
+static sqlparser_sqlserver_table_hint_anchor_t sqlparser_sqlserver_table_source_anchor(
 	const char *input,
-	size_t open_pos,
-	size_t *out_close_pos,
-	size_t *out_next_pos)
+	size_t pos)
 {
-	size_t pos;
-	size_t depth;
-
-	if (input == NULL || input[open_pos] != '(') {
-		return 0;
+	if (sqlparser_sqlserver_ascii_word_equal(input, pos, "from")) {
+		return SQLPARSER_SQLSERVER_TABLE_HINT_ANCHOR_FROM;
 	}
-
-	pos = open_pos + 1U;
-	depth = 1U;
-	while (input[pos] != '\0') {
-		size_t skipped;
-
-		if (sqlparser_sqlserver_can_copy_quoted_or_comment(input, pos)) {
-			skipped = sqlparser_sqlserver_skip_quoted_or_comment_span(input, pos);
-			if (skipped > pos) {
-				pos = skipped;
-				continue;
-			}
-		}
-
-		if (input[pos] == '(') {
-			depth++;
-		} else if (input[pos] == ')') {
-			depth--;
-			if (depth == 0U) {
-				if (out_close_pos != NULL) {
-					*out_close_pos = pos;
-				}
-				if (out_next_pos != NULL) {
-					*out_next_pos = pos + 1U;
-				}
-				return 1;
-			}
-		}
-		pos++;
+	if (sqlparser_sqlserver_ascii_word_equal(input, pos, "join")) {
+		return SQLPARSER_SQLSERVER_TABLE_HINT_ANCHOR_JOIN;
 	}
-
-	return 0;
-}
-
-static int sqlparser_sqlserver_word_is_table_source_start(const char *input, size_t pos)
-{
-	if (sqlparser_sqlserver_ascii_word_equal(input, pos, "from") ||
-	    sqlparser_sqlserver_ascii_word_equal(input, pos, "join") ||
-	    sqlparser_sqlserver_ascii_word_equal(input, pos, "update")) {
-		return 1;
+	if (sqlparser_sqlserver_ascii_word_equal(input, pos, "update")) {
+		return SQLPARSER_SQLSERVER_TABLE_HINT_ANCHOR_UPDATE;
 	}
-	return 0;
+	if (sqlparser_sqlserver_ascii_word_equal(input, pos, "insert")) {
+		return SQLPARSER_SQLSERVER_TABLE_HINT_ANCHOR_INSERT;
+	}
+	return SQLPARSER_SQLSERVER_TABLE_HINT_ANCHOR_NONE;
 }
 
 static int sqlparser_sqlserver_word_ends_table_source(const char *input, size_t pos)
@@ -4205,18 +4001,20 @@ static int sqlparser_sqlserver_word_ends_table_source(const char *input, size_t 
 	return 0;
 }
 
-static int sqlparser_sqlserver_with_lparen_is_table_hint(const char *input, size_t hint_pos)
+static sqlparser_sqlserver_table_hint_anchor_t sqlparser_sqlserver_table_hint_anchor(
+	const char *input,
+	size_t hint_pos)
 {
 	size_t pos;
 	size_t depth;
-	int in_table_source;
+	sqlparser_sqlserver_table_hint_anchor_t anchor;
 
 	if (input == NULL || !sqlparser_sqlserver_word_followed_by_lparen(input, hint_pos, "with")) {
-		return 0;
+		return SQLPARSER_SQLSERVER_TABLE_HINT_ANCHOR_NONE;
 	}
 
 	depth = 0U;
-	in_table_source = 0;
+	anchor = SQLPARSER_SQLSERVER_TABLE_HINT_ANCHOR_NONE;
 	for (pos = 0U; input[pos] != '\0' && pos < hint_pos;) {
 		size_t skipped;
 
@@ -4240,20 +4038,66 @@ static int sqlparser_sqlserver_with_lparen_is_table_hint(const char *input, size
 			continue;
 		}
 		if (input[pos] == ';' || input[pos] == ',') {
-			in_table_source = 0;
+			anchor = SQLPARSER_SQLSERVER_TABLE_HINT_ANCHOR_NONE;
 			pos++;
 			continue;
 		}
 		if (sqlparser_sqlserver_is_ident_start((unsigned char)input[pos])) {
-			if (sqlparser_sqlserver_word_is_table_source_start(input, pos)) {
-				in_table_source = 1;
+			sqlparser_sqlserver_table_hint_anchor_t next_anchor;
+
+			next_anchor = sqlparser_sqlserver_table_source_anchor(input, pos);
+			if (next_anchor != SQLPARSER_SQLSERVER_TABLE_HINT_ANCHOR_NONE) {
+				anchor = next_anchor;
 			} else if (sqlparser_sqlserver_word_ends_table_source(input, pos)) {
-				in_table_source = 0;
+				anchor = SQLPARSER_SQLSERVER_TABLE_HINT_ANCHOR_NONE;
 			}
 		}
 		pos++;
 	}
-	return in_table_source;
+	return anchor;
+}
+
+static sqlparser_status_t sqlparser_sqlserver_table_hint_add(
+	sqlparser_sqlserver_state_t *state,
+	const char *text,
+	size_t len,
+	sqlparser_sqlserver_table_hint_anchor_t anchor,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_sqlserver_table_hint_t *next;
+	char *copy;
+	size_t next_capacity;
+
+	if (state == NULL || text == NULL || anchor == SQLPARSER_SQLSERVER_TABLE_HINT_ANCHOR_NONE) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "table hint arguments are invalid");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (state->table_hint_count == state->table_hint_capacity) {
+		next_capacity = state->table_hint_capacity == 0U ? 8U : state->table_hint_capacity * 2U;
+		if (next_capacity < state->table_hint_capacity ||
+		    next_capacity > SIZE_MAX / sizeof(*next)) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		next = (sqlparser_sqlserver_table_hint_t *)realloc(
+			state->table_hints,
+			next_capacity * sizeof(*next));
+		if (next == NULL) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		state->table_hints = next;
+		state->table_hint_capacity = next_capacity;
+	}
+	copy = sqlparser_strndup(text, len);
+	if (copy == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	state->table_hints[state->table_hint_count].sql = copy;
+	state->table_hints[state->table_hint_count].anchor = anchor;
+	state->table_hint_count++;
+	return SQLPARSER_STATUS_OK;
 }
 
 static sqlparser_status_t sqlparser_sqlserver_store_balanced_hint(
@@ -4299,17 +4143,33 @@ static sqlparser_status_t sqlparser_sqlserver_store_balanced_hint(
 static sqlparser_status_t sqlparser_sqlserver_copy_table_hint(
 	const char *input,
 	size_t *index,
+	sqlparser_sqlserver_table_hint_anchor_t anchor,
 	sqlparser_sqlserver_state_t *state,
 	sqlparser_error_t *out_error)
 {
-	return sqlparser_sqlserver_store_balanced_hint(
-		input,
-		index,
-		"with",
-		&state->table_hints,
-		&state->table_hint_count,
-		&state->table_hint_capacity,
-		out_error);
+	size_t open_pos;
+	size_t close_pos;
+	size_t next_pos;
+	sqlparser_status_t status;
+
+	if (input == NULL || index == NULL || state == NULL ||
+	    !sqlparser_sqlserver_ascii_word_equal(input, *index, "with")) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "table hint input is invalid");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	open_pos = sqlparser_sqlserver_skip_space(input, *index + strlen("with"));
+	if (input[open_pos] != '(' ||
+	    !sqlparser_sqlserver_find_matching_paren(input, open_pos, &close_pos, &next_pos)) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "unterminated SQL Server hint");
+		return SQLPARSER_STATUS_PARSE_ERROR;
+	}
+	(void)close_pos;
+	status = sqlparser_sqlserver_table_hint_add(
+		state, input + *index, next_pos - *index, anchor, out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		*index = next_pos;
+	}
+	return status;
 }
 
 static sqlparser_status_t sqlparser_sqlserver_copy_query_hint(
@@ -4420,88 +4280,6 @@ static sqlparser_status_t sqlparser_sqlserver_copy_for_json_clause(
 	}
 	*index = pos;
 	return SQLPARSER_STATUS_OK;
-}
-
-static int sqlparser_sqlserver_find_top_level_char(
-	const char *input,
-	size_t start,
-	size_t end,
-	char target,
-	size_t *out_pos)
-{
-	size_t pos;
-	size_t depth;
-
-	depth = 0U;
-	for (pos = start; pos < end;) {
-		size_t skipped;
-
-		if (sqlparser_sqlserver_can_copy_quoted_or_comment(input, pos)) {
-			skipped = sqlparser_sqlserver_skip_quoted_or_comment_span(input, pos);
-			if (skipped > pos) {
-				pos = skipped;
-				continue;
-			}
-		}
-		if (input[pos] == '(') {
-			depth++;
-		} else if (input[pos] == ')' && depth > 0U) {
-			depth--;
-		} else if (depth == 0U && input[pos] == target) {
-			if (out_pos != NULL) {
-				*out_pos = pos;
-			}
-			return 1;
-		}
-		pos++;
-	}
-
-	return 0;
-}
-
-static int sqlparser_sqlserver_find_top_level_word(
-	const char *input,
-	size_t start,
-	size_t end,
-	const char *word,
-	size_t *out_pos)
-{
-	size_t pos;
-	size_t depth;
-	size_t word_len;
-
-	word_len = strlen(word);
-	depth = 0U;
-	for (pos = start; pos + word_len <= end;) {
-		size_t skipped;
-
-		if (sqlparser_sqlserver_can_copy_quoted_or_comment(input, pos)) {
-			skipped = sqlparser_sqlserver_skip_quoted_or_comment_span(input, pos);
-			if (skipped > pos) {
-				pos = skipped;
-				continue;
-			}
-		}
-		if (input[pos] == '(') {
-			depth++;
-			pos++;
-			continue;
-		}
-		if (input[pos] == ')' && depth > 0U) {
-			depth--;
-			pos++;
-			continue;
-		}
-		if (depth == 0U && sqlparser_sqlserver_ascii_word_equal(input, pos, word)) {
-			if (out_pos != NULL) {
-				*out_pos = pos;
-			}
-			return 1;
-		}
-		pos++;
-	}
-
-	return 0;
 }
 
 static sqlparser_status_t sqlparser_sqlserver_preprocess_slice(
@@ -4999,15 +4777,19 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_text(
 			continue;
 		}
 
-		if (sqlparser_sqlserver_word_followed_by_lparen(input_sql, index, "with") &&
-		    sqlparser_sqlserver_with_lparen_is_table_hint(input_sql, index)) {
-			status = sqlparser_sqlserver_copy_table_hint(input_sql, &index, state, out_error);
-			if (status != SQLPARSER_STATUS_OK) {
-				sqlparser_sqlserver_buffer_release(&out);
-				sqlparser_sqlserver_pending_top_list_release(&pending_tops);
-				return status;
+		if (sqlparser_sqlserver_word_followed_by_lparen(input_sql, index, "with")) {
+			sqlparser_sqlserver_table_hint_anchor_t anchor;
+
+			anchor = sqlparser_sqlserver_table_hint_anchor(input_sql, index);
+			if (anchor != SQLPARSER_SQLSERVER_TABLE_HINT_ANCHOR_NONE) {
+				status = sqlparser_sqlserver_copy_table_hint(input_sql, &index, anchor, state, out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					sqlparser_sqlserver_buffer_release(&out);
+					sqlparser_sqlserver_pending_top_list_release(&pending_tops);
+					return status;
+				}
+				continue;
 			}
-			continue;
 		}
 
 		if (paren_depth == 0U && sqlparser_sqlserver_ascii_word_equal(input_sql, index, "for")) {
@@ -5934,7 +5716,7 @@ static sqlparser_status_t sqlparser_sqlserver_rewrite_internal_use(
 	rewritten = 0;
 	memset(&out, 0, sizeof(out));
 	while (segment_start < len) {
-		statement_end = sqlparser_sqlserver_statement_end(sql, segment_start);
+		statement_end = sqlparser_sqlserver_statement_end(sql, segment_start, len);
 		statement_sql = sqlparser_strndup(sql + segment_start, statement_end - segment_start);
 		if (statement_sql == NULL) {
 			sqlparser_sqlserver_buffer_release(&out);
@@ -6968,6 +6750,28 @@ static size_t sqlparser_sqlserver_table_hint_insert_pos(const char *sql, size_t 
 		pos = source_word_pos + strlen("join");
 	} else if (sqlparser_sqlserver_ascii_word_equal(sql, source_word_pos, "update")) {
 		pos = source_word_pos + strlen("update");
+	} else if (sqlparser_sqlserver_ascii_word_equal(sql, source_word_pos, "insert")) {
+		pos = sqlparser_sqlserver_skip_space(sql, source_word_pos + strlen("insert"));
+		if (sqlparser_sqlserver_ascii_word_equal(sql, pos, "into")) {
+			pos = sqlparser_sqlserver_skip_space(sql, pos + strlen("into"));
+		}
+		while (sql[pos] != '\0') {
+			size_t skipped;
+
+			if (sqlparser_sqlserver_can_copy_quoted_or_comment(sql, pos)) {
+				skipped = sqlparser_sqlserver_skip_quoted_or_comment_span(sql, pos);
+				if (skipped > pos) {
+					pos = skipped;
+					continue;
+				}
+			}
+			if (sqlparser_sqlserver_is_ident_char((unsigned char)sql[pos]) || sql[pos] == '.') {
+				pos++;
+				continue;
+			}
+			break;
+		}
+		return pos;
 	} else {
 		return source_word_pos;
 	}
@@ -7034,6 +6838,7 @@ static sqlparser_status_t sqlparser_sqlserver_apply_table_hints_public(
 	while (sql[pos] != '\0' && hint_index < state->table_hint_count) {
 		size_t skipped;
 		size_t insert_pos;
+		sqlparser_sqlserver_table_hint_anchor_t anchor;
 
 		if (sqlparser_sqlserver_can_copy_quoted_or_comment(sql, pos)) {
 			skipped = sqlparser_sqlserver_skip_quoted_or_comment_span(sql, pos);
@@ -7042,7 +6847,9 @@ static sqlparser_status_t sqlparser_sqlserver_apply_table_hints_public(
 				continue;
 			}
 		}
-		if (!sqlparser_sqlserver_word_is_table_source_start(sql, pos)) {
+		anchor = sqlparser_sqlserver_table_source_anchor(sql, pos);
+		if (anchor == SQLPARSER_SQLSERVER_TABLE_HINT_ANCHOR_NONE ||
+		    anchor != state->table_hints[hint_index].anchor) {
 			pos++;
 			continue;
 		}
@@ -7057,7 +6864,8 @@ static sqlparser_status_t sqlparser_sqlserver_apply_table_hints_public(
 			status = sqlparser_sqlserver_buffer_append_char(&out, ' ', out_error);
 		}
 		if (status == SQLPARSER_STATUS_OK) {
-			status = sqlparser_sqlserver_buffer_append_cstr(&out, state->table_hints[hint_index], out_error);
+			status = sqlparser_sqlserver_buffer_append_cstr(
+				&out, state->table_hints[hint_index].sql, out_error);
 		}
 		if (status != SQLPARSER_STATUS_OK) {
 			sqlparser_sqlserver_buffer_release(&out);
@@ -7100,6 +6908,7 @@ static sqlparser_status_t sqlparser_sqlserver_apply_statement_suffixes_public(
 {
 	sqlparser_sqlserver_buffer_t out;
 	const char *sql;
+	size_t len;
 	size_t start;
 	size_t copy_start;
 	size_t suffix_index;
@@ -7112,6 +6921,7 @@ static sqlparser_status_t sqlparser_sqlserver_apply_statement_suffixes_public(
 
 	memset(&out, 0, sizeof(out));
 	sql = *io_sql;
+	len = strlen(sql);
 	start = 0U;
 	copy_start = 0U;
 	suffix_index = 0U;
@@ -7120,7 +6930,7 @@ static sqlparser_status_t sqlparser_sqlserver_apply_statement_suffixes_public(
 		size_t statement_end;
 		size_t insert_pos;
 
-		statement_end = sqlparser_sqlserver_statement_end(sql, start);
+		statement_end = sqlparser_sqlserver_statement_end(sql, start, len);
 		insert_pos = sqlparser_sqlserver_trim_right(sql, start, statement_end);
 		if (insert_pos > start) {
 			status = sqlparser_sqlserver_append_mem_range(&out, sql, copy_start, insert_pos, out_error);
@@ -7153,7 +6963,7 @@ static sqlparser_status_t sqlparser_sqlserver_apply_statement_suffixes_public(
 		return SQLPARSER_STATUS_OK;
 	}
 
-	status = sqlparser_sqlserver_append_mem_range(&out, sql, copy_start, strlen(sql), out_error);
+	status = sqlparser_sqlserver_append_mem_range(&out, sql, copy_start, len, out_error);
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_sqlserver_buffer_finish(&out, out_error);
 	}
@@ -7178,6 +6988,7 @@ static sqlparser_status_t sqlparser_sqlserver_apply_json_suffixes_public(
 {
 	sqlparser_sqlserver_buffer_t out;
 	const char *sql;
+	size_t len;
 	size_t start;
 	size_t copy_start;
 	size_t suffix_index;
@@ -7191,6 +7002,7 @@ static sqlparser_status_t sqlparser_sqlserver_apply_json_suffixes_public(
 
 	memset(&out, 0, sizeof(out));
 	sql = *io_sql;
+	len = strlen(sql);
 	start = 0U;
 	copy_start = 0U;
 	suffix_index = 0U;
@@ -7201,7 +7013,7 @@ static sqlparser_status_t sqlparser_sqlserver_apply_json_suffixes_public(
 		size_t insert_pos;
 		size_t suffix_ordinal;
 
-		statement_end = sqlparser_sqlserver_statement_end(sql, start);
+		statement_end = sqlparser_sqlserver_statement_end(sql, start, len);
 		suffix_ordinal = suffix_index < state->json_suffix_ordinal_count ?
 			state->json_suffix_ordinals[suffix_index] :
 			statement_ordinal;
@@ -7240,7 +7052,7 @@ static sqlparser_status_t sqlparser_sqlserver_apply_json_suffixes_public(
 		return SQLPARSER_STATUS_OK;
 	}
 
-	status = sqlparser_sqlserver_append_mem_range(&out, sql, copy_start, strlen(sql), out_error);
+	status = sqlparser_sqlserver_append_mem_range(&out, sql, copy_start, len, out_error);
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_sqlserver_buffer_finish(&out, out_error);
 	}
@@ -7306,6 +7118,12 @@ static sqlparser_status_t sqlparser_sqlserver_postprocess_text(
 		status = sqlparser_sqlserver_apply_table_hints_public(&public_sql, state, out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK && restore_statement_hints) {
+		status = sqlparser_sqlserver_output_postprocess(
+			&public_sql,
+			state != NULL ? state->output_state : NULL,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK && restore_statement_hints) {
 		status = sqlparser_sqlserver_apply_json_suffixes_public(&public_sql, state, out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK && restore_statement_hints) {
@@ -7323,6 +7141,137 @@ static sqlparser_status_t sqlparser_sqlserver_postprocess_text(
 	return SQLPARSER_STATUS_OK;
 }
 
+static sqlparser_status_t sqlparser_sqlserver_preprocess_rewritten_owned(
+	char *preprocess_sql,
+	const sqlparser_limits_t *limits,
+	unsigned int candidates,
+	sqlparser_sqlserver_state_t *state,
+	char **out_parser_sql,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_status_t status;
+
+	*out_parser_sql = NULL;
+	status = sqlparser_sqlserver_output_preprocess(
+		&preprocess_sql,
+		limits,
+		candidates,
+		&state->output_state,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(preprocess_sql);
+		return status;
+	}
+
+	status = sqlparser_sqlserver_reject_unsupported(preprocess_sql, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(preprocess_sql);
+		return status;
+	}
+
+	status = sqlparser_sqlserver_preprocess_text(preprocess_sql, state, out_parser_sql, out_error);
+	free(preprocess_sql);
+	return status;
+}
+
+static sqlparser_status_t sqlparser_sqlserver_preprocess_statement_owned(
+	char *preprocess_sql,
+	const sqlparser_limits_t *limits,
+	sqlparser_sqlserver_state_t *state,
+	char **out_parser_sql,
+	sqlparser_error_t *out_error)
+{
+	unsigned int candidates;
+	sqlparser_status_t status;
+
+	*out_parser_sql = NULL;
+	status = sqlparser_sqlserver_rewrite_use_statements(&preprocess_sql, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(preprocess_sql);
+		return status;
+	}
+	candidates = sqlparser_sqlserver_candidate_mask(preprocess_sql);
+	return sqlparser_sqlserver_preprocess_rewritten_owned(
+		preprocess_sql,
+		limits,
+		candidates,
+		state,
+		out_parser_sql,
+		out_error);
+}
+
+static sqlparser_status_t sqlparser_sqlserver_preprocess_control(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	sqlparser_sqlserver_state_t *state,
+	char **out_parser_sql,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_sqlserver_buffer_t out;
+	size_t index;
+	sqlparser_status_t status;
+
+	memset(&out, 0, sizeof(out));
+	status = SQLPARSER_STATUS_OK;
+	for (index = 0U; index < state->control->flow->unit_count; index++) {
+		const sqlparser_control_unit_t *unit;
+		sqlparser_sqlserver_state_t *unit_state;
+		char *source_sql;
+		char *parser_sql;
+
+		unit = &state->control->flow->units[index];
+		unit_state = state->control->unit_states[index];
+		source_sql = sqlparser_strndup(
+			input_sql + unit->source_offset,
+			unit->source_length);
+		if (source_sql == NULL) {
+			status = SQLPARSER_STATUS_NO_MEMORY;
+			sqlparser_error_set_message(out_error, status, "out of memory");
+			break;
+		}
+		parser_sql = NULL;
+		if (unit->kind == SQLPARSER_CONTROL_UNIT_CONDITION) {
+			status = sqlparser_sqlserver_preprocess_text(
+				source_sql, unit_state, &parser_sql, out_error);
+			free(source_sql);
+		} else {
+			status = sqlparser_sqlserver_preprocess_statement_owned(
+				source_sql, limits, unit_state, &parser_sql, out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK && parser_sql == NULL) {
+			status = SQLPARSER_STATUS_INTERNAL_ERROR;
+			sqlparser_error_set_message(
+				out_error,
+				status,
+				"SQL Server control unit parser SQL is missing");
+		}
+		if (status == SQLPARSER_STATUS_OK &&
+		    unit->kind == SQLPARSER_CONTROL_UNIT_CONDITION) {
+			status = sqlparser_sqlserver_buffer_append_cstr(
+				&out, "SELECT 1 WHERE ", out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_sqlserver_buffer_append_cstr(&out, parser_sql, out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_sqlserver_buffer_append_cstr(&out, ";\n", out_error);
+		}
+		free(parser_sql);
+		if (status != SQLPARSER_STATUS_OK) {
+			break;
+		}
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_sqlserver_buffer_finish(&out, out_error);
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_sqlserver_buffer_release(&out);
+		return status;
+	}
+	*out_parser_sql = sqlparser_sqlserver_buffer_take(&out);
+	return SQLPARSER_STATUS_OK;
+}
+
 static sqlparser_status_t sqlparser_sqlserver_preprocess(
 	const char *input_sql,
 	const sqlparser_limits_t *limits,
@@ -7331,10 +7280,10 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess(
 	sqlparser_error_t *out_error)
 {
 	sqlparser_sqlserver_state_t *state;
+	sqlparser_control_state_t *flow;
 	char *preprocess_sql;
+	unsigned int candidates;
 	sqlparser_status_t status;
-
-	(void)limits;
 
 	if (out_parser_sql == NULL || out_state == NULL) {
 		sqlparser_error_set_message(
@@ -7345,12 +7294,11 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess(
 	}
 	*out_parser_sql = NULL;
 	*out_state = NULL;
-
-	if (input_sql == NULL) {
+	if (input_sql == NULL || limits == NULL) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
-			"SQL input must not be NULL");
+			"SQL input and limits must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
@@ -7359,7 +7307,6 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-
 	preprocess_sql = sqlparser_strdup(input_sql);
 	if (preprocess_sql == NULL) {
 		sqlparser_sqlserver_state_destroy(state);
@@ -7367,21 +7314,35 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess(
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
 	status = sqlparser_sqlserver_rewrite_use_statements(&preprocess_sql, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		free(preprocess_sql);
-		sqlparser_sqlserver_state_destroy(state);
-		return status;
+	candidates = status == SQLPARSER_STATUS_OK ?
+		sqlparser_sqlserver_candidate_mask(preprocess_sql) : 0U;
+	flow = NULL;
+	if (status == SQLPARSER_STATUS_OK &&
+	    (candidates & SQLPARSER_SQLSERVER_CANDIDATE_CONTROL) != 0U) {
+		status = sqlparser_sqlserver_control_parse(input_sql, limits, &flow, out_error);
 	}
-
-	status = sqlparser_sqlserver_reject_unsupported(preprocess_sql, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
+	if (status == SQLPARSER_STATUS_OK && flow != NULL) {
 		free(preprocess_sql);
-		sqlparser_sqlserver_state_destroy(state);
-		return status;
+		preprocess_sql = NULL;
+		status = sqlparser_sqlserver_control_bundle_new(state, flow, out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			flow = NULL;
+			status = sqlparser_sqlserver_preprocess_control(
+				input_sql, limits, state, out_parser_sql, out_error);
+		}
 	}
-
-	status = sqlparser_sqlserver_preprocess_text(preprocess_sql, state, out_parser_sql, out_error);
+	if (status == SQLPARSER_STATUS_OK && state->control == NULL) {
+		status = sqlparser_sqlserver_preprocess_rewritten_owned(
+			preprocess_sql,
+			limits,
+			candidates,
+			state,
+			out_parser_sql,
+			out_error);
+		preprocess_sql = NULL;
+	}
 	free(preprocess_sql);
+	sqlparser_control_state_release(flow);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_sqlserver_state_destroy(state);
 		return status;
@@ -7394,9 +7355,12 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess(
 static sqlparser_status_t sqlparser_sqlserver_preprocess_fragment(
 	const char *input_sql,
 	void *state,
+	size_t statement_index,
 	char **out_parser_sql,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_sqlserver_state_t *unit_state;
+
 	if (out_parser_sql == NULL) {
 		sqlparser_error_set_message(
 			out_error,
@@ -7420,9 +7384,18 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_fragment(
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 
+	unit_state = sqlparser_sqlserver_state_for_statement_mutable(
+		(sqlparser_sqlserver_state_t *)state, statement_index, NULL);
+	if (unit_state == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"SQL Server fragment statement index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
 	return sqlparser_sqlserver_preprocess_text(
 		input_sql,
-		(sqlparser_sqlserver_state_t *)state,
+		unit_state,
 		out_parser_sql,
 		out_error);
 }
@@ -7474,9 +7447,11 @@ static sqlparser_status_t sqlparser_sqlserver_postprocess_deparse(
 static sqlparser_status_t sqlparser_sqlserver_postprocess_fragment(
 	const char *core_sql,
 	const void *state,
+	size_t statement_index,
 	char **out_sql,
 	sqlparser_error_t *out_error)
 {
+	const sqlparser_sqlserver_state_t *unit_state;
 	char *public_sql;
 	sqlparser_status_t status;
 
@@ -7496,10 +7471,19 @@ static sqlparser_status_t sqlparser_sqlserver_postprocess_fragment(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
+	unit_state = sqlparser_sqlserver_state_for_statement(
+		(const sqlparser_sqlserver_state_t *)state, statement_index, NULL);
+	if (unit_state == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"SQL Server fragment statement index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
 	public_sql = NULL;
 	status = sqlparser_sqlserver_postprocess_text(
 		core_sql,
-		(const sqlparser_sqlserver_state_t *)state,
+		unit_state,
 		0,
 		&public_sql,
 		out_error);
@@ -7515,7 +7499,7 @@ static sqlparser_status_t sqlparser_sqlserver_postprocess_fragment(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_sqlserver_clone_state(
+static sqlparser_status_t sqlparser_sqlserver_clone_state_single(
 	const void *state,
 	void **out_state,
 	sqlparser_error_t *out_error)
@@ -7585,12 +7569,11 @@ static sqlparser_status_t sqlparser_sqlserver_clone_state(
 		}
 	}
 	for (index = 0U; index < source->table_hint_count; index++) {
-		status = sqlparser_sqlserver_array_add(
-			&clone->table_hints,
-			&clone->table_hint_count,
-			&clone->table_hint_capacity,
-			source->table_hints[index],
-			strlen(source->table_hints[index]),
+		status = sqlparser_sqlserver_table_hint_add(
+			clone,
+			source->table_hints[index].sql,
+			strlen(source->table_hints[index].sql),
+			source->table_hints[index].anchor,
 			out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			sqlparser_sqlserver_state_destroy(clone);
@@ -7663,14 +7646,113 @@ static sqlparser_status_t sqlparser_sqlserver_clone_state(
 			return status;
 		}
 	}
+	status = sqlparser_sqlserver_output_clone(
+		source->output_state,
+		&clone->output_state,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_sqlserver_state_destroy(clone);
+		return status;
+	}
 
 	*out_state = clone;
 	return SQLPARSER_STATUS_OK;
 }
 
+static sqlparser_status_t sqlparser_sqlserver_clone_state(
+	const void *state,
+	void **out_state,
+	sqlparser_error_t *out_error)
+{
+	const sqlparser_sqlserver_state_t *source;
+	sqlparser_sqlserver_state_t *clone;
+	sqlparser_sqlserver_control_bundle_t *bundle;
+	size_t bytes;
+	size_t index;
+	sqlparser_status_t status;
+
+	status = sqlparser_sqlserver_clone_state_single(state, out_state, out_error);
+	if (status != SQLPARSER_STATUS_OK || state == NULL) {
+		return status;
+	}
+	source = (const sqlparser_sqlserver_state_t *)state;
+	clone = (sqlparser_sqlserver_state_t *)*out_state;
+	if (source->control == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (source->control->flow != NULL || source->control->unit_count == 0U ||
+	    source->control->unit_count - 1U >
+		    (SIZE_MAX - sizeof(*bundle)) / sizeof(bundle->unit_states[0])) {
+		sqlparser_sqlserver_state_destroy(clone);
+		*out_state = NULL;
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"SQL Server control dialect state cannot be cloned");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	bytes = sizeof(*bundle) +
+		(source->control->unit_count - 1U) * sizeof(bundle->unit_states[0]);
+	bundle = (sqlparser_sqlserver_control_bundle_t *)calloc(1U, bytes);
+	if (bundle == NULL) {
+		sqlparser_sqlserver_state_destroy(clone);
+		*out_state = NULL;
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	bundle->unit_count = source->control->unit_count;
+	bundle->unit_states[0] = clone;
+	clone->control = bundle;
+	for (index = 1U; index < bundle->unit_count; index++) {
+		void *unit_clone;
+
+		unit_clone = NULL;
+		status = sqlparser_sqlserver_clone_state_single(
+			source->control->unit_states[index],
+			&unit_clone,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_sqlserver_state_destroy(clone);
+			*out_state = NULL;
+			return status;
+		}
+		bundle->unit_states[index] = (sqlparser_sqlserver_state_t *)unit_clone;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+const sqlparser_sqlserver_output_state_t *sqlparser_sqlserver_state_output(
+	const void *state,
+	size_t statement_index,
+	size_t *out_local_statement_index)
+{
+	const sqlparser_sqlserver_state_t *sqlserver_state;
+
+	sqlserver_state = sqlparser_sqlserver_state_for_statement(
+		(const sqlparser_sqlserver_state_t *)state,
+		statement_index,
+		out_local_statement_index);
+	return sqlserver_state != NULL ? sqlserver_state->output_state : NULL;
+}
+
+sqlparser_sqlserver_output_state_t *sqlparser_sqlserver_state_output_mutable(
+	void *state,
+	size_t statement_index,
+	size_t *out_local_statement_index)
+{
+	sqlparser_sqlserver_state_t *sqlserver_state;
+
+	sqlserver_state = sqlparser_sqlserver_state_for_statement_mutable(
+		(sqlparser_sqlserver_state_t *)state,
+		statement_index,
+		out_local_statement_index);
+	return sqlserver_state != NULL ? sqlserver_state->output_state : NULL;
+}
+
 static sqlparser_status_t sqlparser_sqlserver_postprocess_literal_fragment(
 	const char *core_sql,
 	const void *state,
+	size_t statement_index,
 	size_t literal_index,
 	char **out_sql,
 	sqlparser_error_t *out_error)
@@ -7695,7 +7777,8 @@ static sqlparser_status_t sqlparser_sqlserver_postprocess_literal_fragment(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	sqlserver_state = (const sqlparser_sqlserver_state_t *)state;
+	sqlserver_state = sqlparser_sqlserver_state_for_statement(
+		(const sqlparser_sqlserver_state_t *)state, statement_index, NULL);
 	literal_end = core_sql[0] == '\'' ? sqlparser_sqlserver_quoted_literal_end(core_sql, 0U) : 0U;
 	if (literal_end > 0U && core_sql[literal_end] == '\0' && sqlserver_state != NULL) {
 		for (index = 0U; index < sqlserver_state->unicode_count; index++) {
@@ -7734,6 +7817,47 @@ static sqlparser_status_t sqlparser_sqlserver_postprocess_literal_fragment(
 	return SQLPARSER_STATUS_OK;
 }
 
+static sqlparser_status_t sqlparser_sqlserver_postprocess_control_unit(
+	const char *core_sql,
+	const void *state,
+	size_t statement_index,
+	int is_condition,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	const sqlparser_sqlserver_state_t *unit_state;
+
+	unit_state = sqlparser_sqlserver_state_for_statement(
+		(const sqlparser_sqlserver_state_t *)state, statement_index, NULL);
+	if (unit_state == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"SQL Server control statement index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (is_condition) {
+		return sqlparser_sqlserver_postprocess_fragment(
+			core_sql, unit_state, 0U, out_sql, out_error);
+	}
+	return sqlparser_sqlserver_postprocess_deparse(
+		core_sql, unit_state, out_sql, out_error);
+}
+
+static sqlparser_control_state_t *sqlparser_sqlserver_take_control_state(void *state)
+{
+	sqlparser_sqlserver_state_t *sqlserver_state;
+	sqlparser_control_state_t *flow;
+
+	sqlserver_state = (sqlparser_sqlserver_state_t *)state;
+	if (sqlserver_state == NULL || sqlserver_state->control == NULL) {
+		return NULL;
+	}
+	flow = sqlserver_state->control->flow;
+	sqlserver_state->control->flow = NULL;
+	return flow;
+}
+
 static const sqlparser_dialect_ops_t SQLPARSER_SQLSERVER_OPS = {
 	SQLPARSER_DIALECT_SQLSERVER,
 	"sqlserver",
@@ -7747,7 +7871,9 @@ static const sqlparser_dialect_ops_t SQLPARSER_SQLSERVER_OPS = {
 	NULL,
 	NULL,
 	NULL,
-	sqlparser_sqlserver_postprocess_fragment
+	sqlparser_sqlserver_postprocess_fragment,
+	sqlparser_sqlserver_postprocess_control_unit,
+	sqlparser_sqlserver_take_control_state
 };
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_sqlserver_ops(void)

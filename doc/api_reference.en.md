@@ -123,6 +123,10 @@ original SQL, the current syntax tree, dialect state, and lazily derived caches.
 | `sqlparser_graph_like_escape_kind_t` | escape shape for explicit `LIKE ... ESCAPE ...` in query graph |
 | `sqlparser_graph_predicate_kind_t` | query graph predicate node kind |
 | `sqlparser_graph_predicate_bool_t` | query graph boolean predicate operator |
+| `sqlparser_control_node_kind_t` | control-flow node kind |
+| `sqlparser_control_item_kind_t` | control-flow item reference kind |
+| `sqlparser_graph_dml_result_kind_t` | DML result-channel kind |
+| `sqlparser_graph_dml_reference_kind_t` | DML result-field source kind |
 | `sqlparser_literal_kind_t` | literal kind |
 | `sqlparser_selector_kind_t` | selector kind |
 | `sqlparser_clause_kind_t` | clause kind used by query graph and clause patches |
@@ -225,6 +229,23 @@ Bind-field rules:
 | `SQLPARSER_CLAUSE_KIND_ON` | `on` | JOIN or MERGE ON condition |
 | `SQLPARSER_CLAUSE_KIND_GROUP_BY` | `group_by` | GROUP BY list |
 | `SQLPARSER_CLAUSE_KIND_HAVING` | `having` | HAVING condition |
+| `SQLPARSER_CLAUSE_KIND_DML_RESULT` | `dml_result` | DML result target list |
+| `SQLPARSER_CLAUSE_KIND_CONDITION` | `condition` | control-flow condition expression |
+
+`sqlparser_graph_dml_result_kind_t`:
+
+| Enum | Meaning |
+| --- | --- |
+| `SQLPARSER_GRAPH_DML_RESULT_CLIENT` | result channel returned to the client |
+| `SQLPARSER_GRAPH_DML_RESULT_SINK` | result channel written to a sink relation |
+
+`sqlparser_graph_dml_reference_kind_t`:
+
+| Enum | Meaning |
+| --- | --- |
+| `SQLPARSER_GRAPH_DML_REFERENCE_TARGET_BEFORE` | target-row field before modification, such as SQL Server `DELETED.id` |
+| `SQLPARSER_GRAPH_DML_REFERENCE_TARGET_AFTER` | target-row field after modification, such as SQL Server `INSERTED.id` |
+| `SQLPARSER_GRAPH_DML_REFERENCE_SOURCE` | field from a DML source relation |
 
 ## Resource Limits and Parse Options
 
@@ -324,6 +345,48 @@ Defined dialects:
 | `sqlparser_statement_kind()` | returns the logical statement kind |
 | `sqlparser_statement_node_name()` | returns the underlying node name |
 | `sqlparser_statement_target_relation()` | returns the primary target relation |
+
+Control conditions and branch SQL are addressable statement units. A condition
+unit has kind `SQLPARSER_STATEMENT_KIND_CONDITION` and node name
+`ConditionExpr`; branch SQL keeps its own statement kind. Existing `stmt[n]...`
+selectors can read and rewrite these units.
+
+## Read-Only Control-Flow Traversal
+
+`sqlparser_handle_control_flow()` returns the read-only control topology. An
+ordinary SQL handle returns success with an empty view. A control statement is
+represented by ordered roots, nodes, branches, and items.
+
+| Function | Summary |
+| --- | --- |
+| `sqlparser_handle_control_flow()` | gets the control-flow view for a handle |
+| `sqlparser_control_span_index_at()` | reads the Nth index from a control span |
+| `sqlparser_control_node_at()` | reads a control node |
+| `sqlparser_control_branch_at()` | reads a conditional or unconditional branch |
+| `sqlparser_control_item_at()` | reads a statement or nested-node reference |
+
+| Struct | Meaning |
+| --- | --- |
+| `sqlparser_control_flow_view_t` | root span, node/branch/item counts, and generation |
+| `sqlparser_control_node_t` | node kind and ordered branch span; the current node kind is `SQLPARSER_CONTROL_NODE_IF` |
+| `sqlparser_control_branch_t` | optional condition-statement index and ordered item span |
+| `sqlparser_control_item_t` | `SQLPARSER_CONTROL_ITEM_STATEMENT` or `SQLPARSER_CONTROL_ITEM_NODE` reference |
+
+The roots, `node.branches`, and `branch.items` fields are index-pool spans. Read
+them through `sqlparser_control_span_index_at()` rather than treating `offset`
+as an object index. The view borrows handle-owned memory and becomes stale when
+a successful rewrite changes the handle generation.
+
+```c
+sqlparser_control_flow_view_t flow;
+sqlparser_control_item_t root;
+size_t root_item_index;
+
+sqlparser_handle_control_flow(handle, &flow, &err);
+sqlparser_control_span_index_at(
+    &flow, flow.roots, 0, &root_item_index, &err);
+sqlparser_control_item_at(&flow, root_item_index, &root, &err);
+```
 
 ## Generic Reads and Fine-Grained Rewrites
 
@@ -435,6 +498,11 @@ stmt[0].insert_branch_columns[0]
 stmt[0].insert_branch_condition[0]
 stmt[0].select_targets[0]
 stmt[0].select_target[0][1]
+stmt[0].dml_result_targets[0][0]
+stmt[0].dml_result_target[0][0][1]
+stmt[0].dml_result_sink[0][0]
+stmt[0].dml_result_sink_columns[0][0]
+stmt[0].dml_result_sink_column[0][0][1]
 ```
 
 ### Selector Parse and Read
@@ -577,7 +645,13 @@ from which it was read.
 | `sqlparser_query_graph_value_at()` | reads a field-bound value |
 | `sqlparser_query_graph_set_at()` | reads a set-operation node |
 | `sqlparser_query_graph_predicate_at()` | reads a WHERE/ON/HAVING predicate node |
-| `sqlparser_query_graph_dml()` | reads DML write shape |
+| `sqlparser_query_graph_dml()` | reads the root DML write shape |
+| `sqlparser_query_graph_dml_count()` | reads the DML count for the current statement |
+| `sqlparser_query_graph_dml_at()` | reads a DML by zero-based index |
+| `sqlparser_query_graph_dml_parent()` | reads the parent DML index for a nested DML |
+| `sqlparser_query_graph_dml_result_count()` | reads the result-channel count for a DML |
+| `sqlparser_query_graph_dml_result_at()` | reads a result channel for a DML |
+| `sqlparser_query_graph_dml_reference_at()` | reads a field-source relation from a result channel |
 | `sqlparser_query_graph_dml_branch_at()` | reads an Oracle/Dameng multi-table INSERT branch |
 | `sqlparser_query_graph_dml_column_at()` | reads one INSERT target column |
 | `sqlparser_query_graph_dml_cell_at()` | reads one INSERT VALUES cell |
@@ -595,6 +669,8 @@ from which it was read.
 | `sqlparser_graph_set_t` | `UNION`, `UNION ALL`, `INTERSECT`, or `EXCEPT/MINUS` branches |
 | `sqlparser_graph_predicate_t` | comparison, boolean, EXISTS, or expression predicate from WHERE, ON, or HAVING |
 | `sqlparser_graph_dml_t` | INSERT, UPDATE, DELETE, or MERGE write shape |
+| `sqlparser_graph_dml_result_t` | DML result channel, output block, optional sink relation, sink columns, and field-reference span |
+| `sqlparser_graph_dml_reference_t` | one result-target reference to a target-row or source-relation field |
 | `sqlparser_graph_dml_branch_t` | one INTO branch in an Oracle/Dameng multi-table INSERT |
 | `sqlparser_graph_dml_column_t` | explicit INSERT target column |
 | `sqlparser_graph_dml_cell_t` | INSERT VALUES cell; Oracle/Dameng multi-table INSERT cells can link to trailing source-query output through `source_target_index` |
@@ -626,6 +702,22 @@ from which it was read.
 - `sqlparser_graph_dml_t.insert_mode` distinguishes `VALUES`, `SELECT`,
   `INSERT ALL`, `INSERT FIRST`, MySQL `INSERT ... SET`, and the MySQL `REPLACE`
   `VALUES`, `SELECT`, and `SET` forms.
+- `sqlparser_query_graph_dml_count()` and `sqlparser_query_graph_dml_at()`
+  traverse multiple DML nodes in one statement; `sqlparser_query_graph_dml()`
+  continues to read the root DML.
+- `sqlparser_query_graph_dml_parent()` reports nested DML parentage. A DML
+  without a parent returns `out_has_parent = 0`.
+- `sqlparser_graph_dml_result_t.kind` distinguishes client and sink channels.
+  A sink channel uses `has_sink_relation`, `sink_relation_index`, and
+  `sink_columns` to identify its destination.
+- Read indexes from `sqlparser_graph_dml_result_t.references` with
+  `sqlparser_query_graph_span_index_at()`, then pass each index to
+  `sqlparser_query_graph_dml_reference_at()`. Each reference links one result
+  target to a `target_before`, `target_after`, or `source` field origin.
+- DML result targets use `stmt[S].dml_result_target[D][C][T]`. The target list,
+  sink relation, sink-column list, and individual sink columns use
+  `dml_result_targets`, `dml_result_sink`, `dml_result_sink_columns`, and
+  `dml_result_sink_column`, respectively.
 - `sqlparser_graph_dml_t.branches` is used only for Oracle/Dameng multi-table
   INSERT; each branch owns its target relation, target columns, rows, branch
   kind, and optional condition selector. The condition selector can be passed
@@ -759,6 +851,6 @@ rendered by the library according to the handle dialect.
 | `examples/inspect/07_multi_statement_walk.c` | traversal of multi-statement input |
 | `examples/dialect/10_mysql_dialect.c` | MySQL dialect parsing and patch-based rewrite |
 | `examples/dialect/11_oracle_dialect.c` | Oracle dialect parsing and rewrite |
-| `examples/dialect/12_sqlserver_dialect.c` | SQL Server dialect parsing and deparse |
+| `examples/dialect/12_sqlserver_dialect.c` | SQL Server `IF ... ELSE` control flow, DML result channels, and deparse |
 | `examples/dialect/17_dameng_dialect.c` | Dameng dialect parsing and deparse |
 | `examples/dialect/20_vastbase_dialect.c` | Vastbase compatibility-mode parsing and deparse |

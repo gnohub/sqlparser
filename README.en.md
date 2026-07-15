@@ -24,6 +24,7 @@ This release provides:
 - common prepared / parameterized SQL statement parsing, View JSON, and deparse output
 - configurable resource limits for SQL input, generated output, and statement count
 - View JSON export, C structured traversal, and structured patch write-back
+- structured read-only traversal for DML result channels and SQL Server `IF...ELSE` control flow
 - `handle -> sql`
 
 ## Public Artifacts

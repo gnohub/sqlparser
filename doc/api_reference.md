@@ -115,6 +115,10 @@ int main(void)
 | `sqlparser_graph_like_escape_kind_t` | query graph 中显式 `LIKE ... ESCAPE ...` 的 escape 形态 |
 | `sqlparser_graph_predicate_kind_t` | query graph predicate 节点类型 |
 | `sqlparser_graph_predicate_bool_t` | query graph boolean predicate 连接类型 |
+| `sqlparser_control_node_kind_t` | 控制流节点类型 |
+| `sqlparser_control_item_kind_t` | 控制流条目引用类型 |
+| `sqlparser_graph_dml_result_kind_t` | DML 结果通道类型 |
+| `sqlparser_graph_dml_reference_kind_t` | DML 结果字段来源类型 |
 | `sqlparser_literal_kind_t` | 字面量类型 |
 | `sqlparser_selector_kind_t` | selector 类型 |
 | `sqlparser_clause_kind_t` | query graph 与 clause patch 使用的子句类型 |
@@ -210,6 +214,23 @@ bind 字段规则：
 | `SQLPARSER_CLAUSE_KIND_ON` | `on` | JOIN 或 MERGE ON 条件 |
 | `SQLPARSER_CLAUSE_KIND_GROUP_BY` | `group_by` | GROUP BY 分组 |
 | `SQLPARSER_CLAUSE_KIND_HAVING` | `having` | HAVING 条件 |
+| `SQLPARSER_CLAUSE_KIND_DML_RESULT` | `dml_result` | DML 结果输出列表 |
+| `SQLPARSER_CLAUSE_KIND_CONDITION` | `condition` | 控制流条件表达式 |
+
+`sqlparser_graph_dml_result_kind_t`：
+
+| 枚举 | 说明 |
+| --- | --- |
+| `SQLPARSER_GRAPH_DML_RESULT_CLIENT` | 返回给调用端的结果通道 |
+| `SQLPARSER_GRAPH_DML_RESULT_SINK` | 写入目标 relation 的结果通道 |
+
+`sqlparser_graph_dml_reference_kind_t`：
+
+| 枚举 | 说明 |
+| --- | --- |
+| `SQLPARSER_GRAPH_DML_REFERENCE_TARGET_BEFORE` | 目标行修改前的字段，例如 SQL Server `DELETED.id` |
+| `SQLPARSER_GRAPH_DML_REFERENCE_TARGET_AFTER` | 目标行修改后的字段，例如 SQL Server `INSERTED.id` |
+| `SQLPARSER_GRAPH_DML_REFERENCE_SOURCE` | DML 来源 relation 的字段 |
 
 ## 资源限制与解析选项
 
@@ -302,6 +323,40 @@ bind 字段规则：
 | `sqlparser_statement_kind()` | 返回指定语句的逻辑类型 |
 | `sqlparser_statement_node_name()` | 返回底层节点名称 |
 | `sqlparser_statement_target_relation()` | 返回语句主目标对象 |
+
+控制流中的条件表达式和分支 SQL 都是可寻址 statement unit。条件 unit 的类型为 `SQLPARSER_STATEMENT_KIND_CONDITION`，节点名称为 `ConditionExpr`；分支 SQL 保持自身语句类型。现有 `stmt[n]...` selector 可直接读取和修改这些 unit。
+
+## 控制流只读遍历
+
+`sqlparser_handle_control_flow()` 返回控制流的只读拓扑。普通 SQL 返回成功和空 view；包含控制语句的 handle 通过 roots、nodes、branches 和 items 表达有序结构。
+
+| 函数 | 摘要 |
+| --- | --- |
+| `sqlparser_handle_control_flow()` | 获取 handle 的控制流 view |
+| `sqlparser_control_span_index_at()` | 从控制流 span 读取第 N 个索引 |
+| `sqlparser_control_node_at()` | 读取控制节点 |
+| `sqlparser_control_branch_at()` | 读取有条件或无条件分支 |
+| `sqlparser_control_item_at()` | 读取分支中的 statement 或嵌套节点引用 |
+
+| 结构 | 说明 |
+| --- | --- |
+| `sqlparser_control_flow_view_t` | roots span、节点/分支/条目数量及 generation |
+| `sqlparser_control_node_t` | 节点类型和有序 branch span；当前节点类型为 `SQLPARSER_CONTROL_NODE_IF` |
+| `sqlparser_control_branch_t` | 可选条件 statement 索引和有序 item span |
+| `sqlparser_control_item_t` | `SQLPARSER_CONTROL_ITEM_STATEMENT` 或 `SQLPARSER_CONTROL_ITEM_NODE` 引用 |
+
+roots、`node.branches` 和 `branch.items` 都是索引池 span，必须通过 `sqlparser_control_span_index_at()` 读取，不能把 `offset` 直接当作对象索引。view 借用 handle 内存；handle 修改后 generation 变化，旧 view 失效。
+
+```c
+sqlparser_control_flow_view_t flow;
+sqlparser_control_item_t root;
+size_t root_item_index;
+
+sqlparser_handle_control_flow(handle, &flow, &err);
+sqlparser_control_span_index_at(
+    &flow, flow.roots, 0, &root_item_index, &err);
+sqlparser_control_item_at(&flow, root_item_index, &root, &err);
+```
 
 ## 通用读取与细粒度改写
 
@@ -410,6 +465,11 @@ stmt[0].insert_branch_columns[0]
 stmt[0].insert_branch_condition[0]
 stmt[0].select_targets[0]
 stmt[0].select_target[0][1]
+stmt[0].dml_result_targets[0][0]
+stmt[0].dml_result_target[0][0][1]
+stmt[0].dml_result_sink[0][0]
+stmt[0].dml_result_sink_columns[0][0]
+stmt[0].dml_result_sink_column[0][0][1]
 ```
 
 ### selector 解析与读取
@@ -534,7 +594,13 @@ sqlparser_status_t sqlparser_statement_query_graph(
 | `sqlparser_query_graph_value_at()` | 读取字段关联值 |
 | `sqlparser_query_graph_set_at()` | 读取集合运算节点 |
 | `sqlparser_query_graph_predicate_at()` | 读取 WHERE/ON/HAVING 谓词节点 |
-| `sqlparser_query_graph_dml()` | 读取 DML 写入结构 |
+| `sqlparser_query_graph_dml()` | 读取根 DML 写入结构 |
+| `sqlparser_query_graph_dml_count()` | 读取当前 statement 的 DML 数量 |
+| `sqlparser_query_graph_dml_at()` | 按 0 基索引读取 DML |
+| `sqlparser_query_graph_dml_parent()` | 读取嵌套 DML 的父 DML 索引 |
+| `sqlparser_query_graph_dml_result_count()` | 读取指定 DML 的结果通道数量 |
+| `sqlparser_query_graph_dml_result_at()` | 读取指定 DML 的结果通道 |
+| `sqlparser_query_graph_dml_reference_at()` | 读取结果通道中的字段来源关系 |
 | `sqlparser_query_graph_dml_branch_at()` | 读取 Oracle/Dameng multi-table INSERT 分支 |
 | `sqlparser_query_graph_dml_column_at()` | 读取 INSERT 目标列 |
 | `sqlparser_query_graph_dml_cell_at()` | 读取 INSERT VALUES 单元格 |
@@ -552,6 +618,8 @@ sqlparser_status_t sqlparser_statement_query_graph(
 | `sqlparser_graph_set_t` | `UNION`、`UNION ALL`、`INTERSECT`、`EXCEPT/MINUS` 分支关系 |
 | `sqlparser_graph_predicate_t` | WHERE、ON、HAVING 中的比较、组合、EXISTS 或表达式谓词 |
 | `sqlparser_graph_dml_t` | INSERT、UPDATE、DELETE、MERGE 写入结构 |
+| `sqlparser_graph_dml_result_t` | DML 结果通道、输出 block、可选 sink relation、sink columns 和字段来源 span |
+| `sqlparser_graph_dml_reference_t` | 一个结果 target 对目标行或来源 relation 的字段引用 |
 | `sqlparser_graph_dml_branch_t` | Oracle/Dameng multi-table INSERT 的单个 INTO 分支 |
 | `sqlparser_graph_dml_column_t` | INSERT 显式目标列 |
 | `sqlparser_graph_dml_cell_t` | INSERT VALUES 单元格；Oracle/Dameng multi-table INSERT 中可通过 `source_target_index` 关联末尾 source query 输出项 |
@@ -569,6 +637,11 @@ sqlparser_status_t sqlparser_statement_query_graph(
 - `field = literal/bind` 谓词通过 `left_field_index + value_index` 表达；`field = field` 谓词通过 `left_field_index + right_field_index` 表达，并在 `values[]` 中以 `SQLPARSER_GRAPH_VALUE_FIELD` 记录右侧来源字段。
 - 未限定字段如果不能仅凭 SQL 唯一归属，`has_relation` 为 0，`candidate_relations` 给出当前 scope 候选 relation。
 - `sqlparser_graph_dml_t.insert_mode` 区分 `VALUES`、`SELECT`、`INSERT ALL`、`INSERT FIRST`、MySQL `INSERT ... SET` 以及 `REPLACE` 的 `VALUES`、`SELECT`、`SET` 形态。
+- `sqlparser_query_graph_dml_count()` 和 `sqlparser_query_graph_dml_at()` 用于遍历同一 statement 内的多个 DML；`sqlparser_query_graph_dml()` 继续读取根 DML。
+- `sqlparser_query_graph_dml_parent()` 表达嵌套 DML 的父子关系；没有父 DML 时 `out_has_parent` 为 0。
+- `sqlparser_graph_dml_result_t.kind` 区分 client 和 sink 通道；sink 通道通过 `has_sink_relation`、`sink_relation_index` 和 `sink_columns` 指向写入目标。
+- `sqlparser_graph_dml_result_t.references` 中的索引通过 `sqlparser_query_graph_span_index_at()` 读取，再传给 `sqlparser_query_graph_dml_reference_at()`。每个 reference 关联一个结果 target，并标明 `target_before`、`target_after` 或 `source` 来源。
+- DML 结果 target 使用 `stmt[S].dml_result_target[D][C][T]` selector；通道 target 列表、sink relation、sink columns 列表和单列分别使用 `dml_result_targets`、`dml_result_sink`、`dml_result_sink_columns` 和 `dml_result_sink_column` selector。
 - `sqlparser_graph_dml_t.branches` 仅用于 Oracle/Dameng multi-table INSERT；每个 branch 持有独立 target relation、target columns、rows、branch kind 和可选 condition selector。condition selector 可通过 `sqlparser_selector_clause_sql()` 读取原始条件 SQL。
 - Oracle/Dameng multi-table INSERT branch cell 如果直接引用末尾 source query 输出字段，`sqlparser_graph_dml_cell_t.kind` 为 `SQLPARSER_GRAPH_VALUE_FIELD`，并通过 `has_source_target/source_target_index` 指向对应 `targets[]` 项。
 - `UPDATE` 和 `MERGE` assignment 的右侧如果是直接字段引用，`sqlparser_graph_dml_assignment_t.value_kind` 为 `SQLPARSER_GRAPH_VALUE_FIELD`，并通过 `has_source_field/source_field_index` 指向来源字段；来源字段可唯一匹配派生 source query 输出项时，同时提供 `has_source_target/source_target_index`。
@@ -670,6 +743,6 @@ patch 成功后 handle generation 递增，旧 query graph view 失效。
 | `examples/inspect/07_multi_statement_walk.c` | 多语句输入遍历 |
 | `examples/dialect/10_mysql_dialect.c` | MySQL 方言解析与 patch 改写 |
 | `examples/dialect/11_oracle_dialect.c` | Oracle 方言解析与改写 |
-| `examples/dialect/12_sqlserver_dialect.c` | SQL Server 方言解析与反解析 |
+| `examples/dialect/12_sqlserver_dialect.c` | SQL Server `IF ... ELSE` 控制流、DML 返回通道与反解析 |
 | `examples/dialect/17_dameng_dialect.c` | 达梦方言解析与反解析 |
 | `examples/dialect/20_vastbase_dialect.c` | Vastbase 兼容模式解析与反解析 |

@@ -65,7 +65,7 @@ unified patch-based rewrite, fine-grained convenience APIs, and dialect usage.
 - `examples/dialect/11_oracle_dialect.c`
   Demonstrates parsing Oracle SQL with explicit dialect options, exporting View JSON, and restoring Oracle bind placeholders during deparse.
 - `examples/dialect/12_sqlserver_dialect.c`
-  Demonstrates parsing SQL Server SQL with explicit dialect options, exporting View JSON, and restoring SQL Server parameters and `TOP` during deparse.
+  Demonstrates SQL Server dialect selection, read-only `IF...ELSE` control-flow traversal, View JSON with DML `OUTPUT` result channels, and SQL Server deparse output.
 - `examples/dialect/17_dameng_dialect.c`
   Demonstrates parsing Dameng SQL with explicit dialect options, exporting View JSON, and restoring binds, `SET SCHEMA`, and `TOP` during deparse.
 - `examples/dialect/20_vastbase_dialect.c`

@@ -15,6 +15,7 @@ struct sqlparser_dialect_ops {
 	sqlparser_status_t (*preprocess_fragment)(
 		const char *input_sql,
 		void *state,
+		size_t statement_index,
 		char **out_parser_sql,
 		sqlparser_error_t *out_error);
 	sqlparser_status_t (*postprocess_deparse)(
@@ -30,6 +31,7 @@ struct sqlparser_dialect_ops {
 	sqlparser_status_t (*postprocess_literal_fragment)(
 		const char *core_sql,
 		const void *state,
+		size_t statement_index,
 		size_t literal_index,
 		char **out_sql,
 		sqlparser_error_t *out_error);
@@ -50,8 +52,17 @@ struct sqlparser_dialect_ops {
 	sqlparser_status_t (*postprocess_fragment)(
 		const char *core_sql,
 		const void *state,
+		size_t statement_index,
 		char **out_sql,
 		sqlparser_error_t *out_error);
+	sqlparser_status_t (*postprocess_control_unit)(
+		const char *core_sql,
+		const void *state,
+		size_t statement_index,
+		int is_condition,
+		char **out_sql,
+		sqlparser_error_t *out_error);
+	sqlparser_control_state_t *(*take_control_state)(void *state);
 };
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_get_ops(sqlparser_dialect_t dialect);

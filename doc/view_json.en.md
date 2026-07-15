@@ -1,6 +1,6 @@
 # View JSON Guide
 
-View JSON is the on-demand JSON serialization of the `sqlparser` query graph. It is intended for regression tests, integration checks, and language-neutral inspection. Production code should prefer the public C query graph structs and does not need to generate JSON before rewriting SQL.
+View JSON is the on-demand JSON serialization of statement query graphs and control-flow topology. It is intended for regression tests, integration checks, and language-neutral inspection. Production code should prefer the public C structs and does not need to generate JSON before rewriting SQL.
 
 ## Export API
 
@@ -61,7 +61,7 @@ sqlparser_status_t sqlparser_export_view_json(
         ]
       }
     }
-	  ]
+  ]
 }
 ```
 
@@ -75,7 +75,51 @@ Each statement contains:
 
 The query graph represents query blocks, relations, output targets, field references, values, set operations, and DML write structures found in the SQL.
 
+The top-level `control_flow` member is present only for control statements. It
+describes branch and nesting relationships between addressable statement units.
+
 JSON only emits meaningful optional fields. Public C structs represent absence through `has_*` flags or zero counts; the JSON view omits those fields instead of emitting `null` or empty arrays.
+
+## control_flow
+
+Example:
+
+```sql
+IF @enabled = 1 SELECT id FROM users ELSE SELECT id FROM archived_users
+```
+
+Control-flow shape:
+
+```json
+{
+  "control_flow": {
+    "roots": [{"kind": "node", "index": 0}],
+    "nodes": [{"kind": "if", "branches": [0, 1]}],
+    "branches": [
+      {
+        "condition_statement": 0,
+        "items": [{"kind": "statement", "index": 1}]
+      },
+      {
+        "items": [{"kind": "statement", "index": 2}]
+      }
+    ]
+  }
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `roots` | Top-level statement or control-node references in source order |
+| `nodes` | Control nodes; an `if` node stores ordered branch indexes |
+| `branches` | Branches; a conditional branch has `condition_statement`, while an unconditional `ELSE` branch omits it |
+| `items` | Statement or nested-control-node references in source order |
+
+For `kind = "statement"`, `index` addresses a statement unit in `statements[]`.
+For `kind = "node"`, it addresses `nodes[]`. A condition statement has keyword
+`condition`; its query-graph root block and its field/value clause kind are also
+`condition`. A nested `IF` is an item that references another node rather than a
+copied subtree.
 
 ## query_graph
 
@@ -89,7 +133,7 @@ JSON only emits meaningful optional fields. Public C structs represent absence t
 | `values` | Literals, binds, and DEFAULT values associated with fields; pagination and pseudo-column binds are excluded; present when non-empty |
 | `sets` | `UNION`, `UNION ALL`, `INTERSECT`, and `EXCEPT/MINUS` operations; present when non-empty |
 | `predicates` | Predicate-tree nodes from `WHERE`, `ON`, `HAVING`, and similar clauses; present when non-empty |
-| `dml` | `INSERT`, `UPDATE`, and `DELETE` write shape; present only for DML statements |
+| `dml` | `INSERT`, `UPDATE`, `DELETE`, and `MERGE` write shape, including nested DML; present only for DML statements |
 
 All indexes are zero-based within the current statement. `relations[].source_block`, `targets[].source_block`, `targets[].star_relations`, and `sets[].branches` together describe derived-table, star, and set-operation lineage.
 
@@ -307,7 +351,7 @@ If the value side is a function, cast, operator, array, row, or CASE expression,
 ## DML
 
 `query_graph.dml` describes write targets, target columns, row values,
-assignments, and source queries.
+assignments, source queries, and result channels.
 
 Common fields:
 
@@ -320,6 +364,32 @@ Common fields:
 | `rows` | Cell indexes for `INSERT ... VALUES` or an Oracle/Dameng multi-table INSERT branch |
 | `source_block` | Source query block for `INSERT ... SELECT` or Oracle/Dameng multi-table INSERT source query |
 | `branches` | INTO branches for Oracle/Dameng `INSERT ALL/FIRST`; omitted for non multi-table INSERT |
+| `result_channels` | DML result channels; omitted when the DML has no result output |
+| `children` | Nested DML nodes owned by this DML; omitted when empty |
+
+Result-channel fields:
+
+| Field | Description |
+| --- | --- |
+| `kind` | `client` for returned rows or `sink` for rows written to a relation |
+| `block` | `dml_result` block containing the channel output targets |
+| `sink_relation` | Sink relation index; present only for a `sink` channel |
+| `sink_columns` | Sink-column objects; omitted without an explicit column list |
+| `references` | Result-target references to target-row or source-relation fields; present when non-empty |
+
+Each `references[]` item contains a result `target` index, an optional `field`
+index, a `relation` index, and a `kind`. The kind is `target_before`,
+`target_after`, or `source`. SQL Server `DELETED.id`, `INSERTED.id`, and source
+table fields use these three kinds, respectively.
+
+Result-target, sink-relation, and sink-column selectors can be passed directly
+to `sqlparser_apply_patch()`:
+
+```text
+stmt[0].dml_result_target[0][0][0]
+stmt[0].dml_result_sink[0][0]
+stmt[0].dml_result_sink_column[0][0][0]
+```
 
 Each Oracle/Dameng multi-table INSERT branch owns its `target_relation`,
 `target_columns`, `rows`, and `branch_kind`. `branch_kind` is
@@ -342,4 +412,6 @@ derived relation and uniquely matches a source-query output target,
 
 ## Rewriting
 
-Selectors from View JSON can be used to populate `sqlparser_patch_t` and passed to `sqlparser_apply_patch()`. After a rewrite, call `sqlparser_deparse()` and reparse the generated SQL to verify that the result is still syntactically valid.
+Selectors from View JSON can be used to populate `sqlparser_patch_t` and passed
+to `sqlparser_apply_patch()`. After a rewrite, call `sqlparser_deparse()` to
+generate SQL.

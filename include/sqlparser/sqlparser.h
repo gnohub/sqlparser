@@ -34,7 +34,8 @@ typedef enum {
 	SQLPARSER_STATEMENT_KIND_TRANSACTION = 6,
 	SQLPARSER_STATEMENT_KIND_DDL = 7,
 	SQLPARSER_STATEMENT_KIND_CALL = 8,
-	SQLPARSER_STATEMENT_KIND_OTHER = 9
+	SQLPARSER_STATEMENT_KIND_OTHER = 9,
+	SQLPARSER_STATEMENT_KIND_CONDITION = 10
 } sqlparser_statement_kind_t;
 
 typedef enum {
@@ -81,7 +82,12 @@ typedef enum {
 	SQLPARSER_SELECTOR_KIND_WHERE = 12,
 	SQLPARSER_SELECTOR_KIND_CLAUSE = 13,
 	SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS = 14,
-	SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_CONDITION = 15
+	SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_CONDITION = 15,
+	SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGETS = 16,
+	SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGET = 17,
+	SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK = 18,
+	SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK_COLUMNS = 19,
+	SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK_COLUMN = 20
 } sqlparser_selector_kind_t;
 
 typedef enum {
@@ -92,15 +98,28 @@ typedef enum {
 	SQLPARSER_CLAUSE_KIND_SET_LIST = 4,
 	SQLPARSER_CLAUSE_KIND_ON = 5,
 	SQLPARSER_CLAUSE_KIND_GROUP_BY = 6,
-	SQLPARSER_CLAUSE_KIND_HAVING = 7
+	SQLPARSER_CLAUSE_KIND_HAVING = 7,
+	SQLPARSER_CLAUSE_KIND_DML_RESULT = 8,
+	SQLPARSER_CLAUSE_KIND_CONDITION = 9
 } sqlparser_clause_kind_t;
 
 typedef enum {
 	SQLPARSER_GRAPH_BLOCK_SELECT = 1,
 	SQLPARSER_GRAPH_BLOCK_SCALAR_SUBQUERY = 2,
 	SQLPARSER_GRAPH_BLOCK_CTE = 3,
-	SQLPARSER_GRAPH_BLOCK_SET = 4
+	SQLPARSER_GRAPH_BLOCK_SET = 4,
+	SQLPARSER_GRAPH_BLOCK_DML_RESULT = 5,
+	SQLPARSER_GRAPH_BLOCK_CONDITION = 6
 } sqlparser_graph_block_kind_t;
+
+typedef enum {
+	SQLPARSER_CONTROL_NODE_IF = 1
+} sqlparser_control_node_kind_t;
+
+typedef enum {
+	SQLPARSER_CONTROL_ITEM_STATEMENT = 1,
+	SQLPARSER_CONTROL_ITEM_NODE = 2
+} sqlparser_control_item_kind_t;
 
 typedef enum {
 	SQLPARSER_GRAPH_REL_BASE = 1,
@@ -162,6 +181,17 @@ typedef enum {
 	SQLPARSER_GRAPH_DML_DELETE = 3,
 	SQLPARSER_GRAPH_DML_MERGE = 4
 } sqlparser_graph_dml_kind_t;
+
+typedef enum {
+	SQLPARSER_GRAPH_DML_RESULT_CLIENT = 1,
+	SQLPARSER_GRAPH_DML_RESULT_SINK = 2
+} sqlparser_graph_dml_result_kind_t;
+
+typedef enum {
+	SQLPARSER_GRAPH_DML_REFERENCE_TARGET_BEFORE = 1,
+	SQLPARSER_GRAPH_DML_REFERENCE_TARGET_AFTER = 2,
+	SQLPARSER_GRAPH_DML_REFERENCE_SOURCE = 3
+} sqlparser_graph_dml_reference_kind_t;
 
 typedef enum {
 	SQLPARSER_GRAPH_INSERT_MODE_UNKNOWN = 0,
@@ -282,6 +312,31 @@ typedef struct {
 	size_t offset;
 	size_t count;
 } sqlparser_index_span_t;
+
+typedef struct {
+	const sqlparser_handle_t *handle;
+	unsigned long generation;
+	sqlparser_index_span_t roots;
+	size_t node_count;
+	size_t branch_count;
+	size_t item_count;
+} sqlparser_control_flow_view_t;
+
+typedef struct {
+	sqlparser_control_node_kind_t kind;
+	sqlparser_index_span_t branches;
+} sqlparser_control_node_t;
+
+typedef struct {
+	size_t condition_statement_index;
+	int has_condition;
+	sqlparser_index_span_t items;
+} sqlparser_control_branch_t;
+
+typedef struct {
+	sqlparser_control_item_kind_t kind;
+	size_t index;
+} sqlparser_control_item_t;
 
 enum {
 	SQLPARSER_BIND_TEXT_CAPACITY = 128,
@@ -456,6 +511,23 @@ typedef struct {
 	size_t source_block_index;
 	int has_source_block;
 } sqlparser_graph_dml_t;
+
+typedef struct {
+	sqlparser_graph_dml_result_kind_t kind;
+	size_t block_index;
+	size_t sink_relation_index;
+	int has_sink_relation;
+	sqlparser_index_span_t sink_columns;
+	sqlparser_index_span_t references;
+} sqlparser_graph_dml_result_t;
+
+typedef struct {
+	size_t target_index;
+	size_t field_index;
+	int has_field;
+	sqlparser_graph_dml_reference_kind_t kind;
+	size_t relation_index;
+} sqlparser_graph_dml_reference_t;
 
 typedef struct {
 	size_t index;
@@ -1176,6 +1248,36 @@ sqlparser_status_t sqlparser_statement_query_graph(
 	sqlparser_query_graph_view_t *out_graph,
 	sqlparser_error_t *out_error);
 
+sqlparser_status_t sqlparser_handle_control_flow(
+	const sqlparser_handle_t *handle,
+	sqlparser_control_flow_view_t *out_flow,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_control_span_index_at(
+	const sqlparser_control_flow_view_t *flow,
+	sqlparser_index_span_t span,
+	size_t item_index,
+	size_t *out_index,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_control_node_at(
+	const sqlparser_control_flow_view_t *flow,
+	size_t node_index,
+	sqlparser_control_node_t *out_node,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_control_branch_at(
+	const sqlparser_control_flow_view_t *flow,
+	size_t branch_index,
+	sqlparser_control_branch_t *out_branch,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_control_item_at(
+	const sqlparser_control_flow_view_t *flow,
+	size_t item_index,
+	sqlparser_control_item_t *out_item,
+	sqlparser_error_t *out_error);
+
 sqlparser_status_t sqlparser_query_graph_span_index_at(
 	const sqlparser_query_graph_view_t *graph,
 	sqlparser_index_span_t span,
@@ -1228,6 +1330,43 @@ sqlparser_status_t sqlparser_query_graph_predicate_at(
 sqlparser_status_t sqlparser_query_graph_dml(
 	const sqlparser_query_graph_view_t *graph,
 	sqlparser_graph_dml_t *out_dml,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_query_graph_dml_count(
+	const sqlparser_query_graph_view_t *graph,
+	size_t *out_count,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_query_graph_dml_at(
+	const sqlparser_query_graph_view_t *graph,
+	size_t dml_index,
+	sqlparser_graph_dml_t *out_dml,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_query_graph_dml_parent(
+	const sqlparser_query_graph_view_t *graph,
+	size_t dml_index,
+	size_t *out_parent_dml_index,
+	int *out_has_parent,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_query_graph_dml_result_count(
+	const sqlparser_query_graph_view_t *graph,
+	size_t dml_index,
+	size_t *out_count,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_query_graph_dml_result_at(
+	const sqlparser_query_graph_view_t *graph,
+	size_t dml_index,
+	size_t result_index,
+	sqlparser_graph_dml_result_t *out_result,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_query_graph_dml_reference_at(
+	const sqlparser_query_graph_view_t *graph,
+	size_t reference_index,
+	sqlparser_graph_dml_reference_t *out_reference,
 	sqlparser_error_t *out_error);
 
 sqlparser_status_t sqlparser_query_graph_dml_branch_at(

@@ -588,6 +588,7 @@ sqlparser_status_t sqlparser_update_assignment_sql(
 	}
 	status = sqlparser_postprocess_handle_sql_fragment(
 		handle,
+		statement_index,
 		core_sql,
 		"update assignment SQL",
 		out_sql,
@@ -620,6 +621,7 @@ sqlparser_status_t sqlparser_update_set_assignment_sql(
 	replacement = NULL;
 	status = sqlparser_preprocess_handle_sql_fragment(
 		handle,
+		statement_index,
 		sql_text,
 		"update assignment SQL",
 		&parser_sql,
@@ -713,6 +715,7 @@ sqlparser_status_t sqlparser_update_insert_assignment_sql(
 
 	status = sqlparser_preprocess_handle_sql_fragment(
 		handle,
+		statement_index,
 		assignment_sql,
 		"update assignment SQL",
 		&parser_sql,
@@ -962,6 +965,7 @@ sqlparser_status_t sqlparser_update_set_assignment_full_sql(
 
 	status = sqlparser_preprocess_handle_sql_fragment(
 		handle,
+		statement_index,
 		assignment_sql,
 		"update assignment SQL",
 		&parser_sql,
@@ -1070,6 +1074,7 @@ sqlparser_status_t sqlparser_render_update_assignments_sql(
 
 	status = sqlparser_postprocess_handle_sql_fragment(
 		handle,
+		statement_index,
 		core_sql != NULL ? core_sql : "",
 		"update SET list SQL",
 		out_sql,
@@ -1116,6 +1121,7 @@ sqlparser_status_t sqlparser_update_set_assignments_sql(
 
 	status = sqlparser_preprocess_handle_sql_fragment(
 		handle,
+		statement_index,
 		sql_text,
 		"update SET list SQL",
 		&parser_sql,

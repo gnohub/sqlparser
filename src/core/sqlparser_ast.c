@@ -216,6 +216,7 @@ sqlparser_status_t sqlparser_get_statement_node(
 {
 	PgQuery__RawStmt *raw_stmt;
 	sqlparser_status_t status;
+	size_t ast_statement_index;
 
 	if (out_statement == NULL) {
 		sqlparser_error_set_message(
@@ -230,22 +231,39 @@ sqlparser_status_t sqlparser_get_statement_node(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-
-	if (statement_index >= handle->ast->n_stmts) {
+	status = sqlparser_control_statement_ast_index(
+		handle, statement_index, &ast_statement_index, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (ast_statement_index >= handle->ast->n_stmts) {
 		sqlparser_error_set_message(
 			out_error,
-			SQLPARSER_STATUS_INVALID_ARGUMENT,
-			"statement_index is out of range");
-		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"statement AST mapping is out of range");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 
-	raw_stmt = handle->ast->stmts[statement_index];
+	raw_stmt = handle->ast->stmts[ast_statement_index];
 	if (raw_stmt == NULL || raw_stmt->stmt == NULL) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INTERNAL_ERROR,
 			"statement node is missing");
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	if (sqlparser_control_unit_is_condition(handle, statement_index)) {
+		if (raw_stmt->stmt->node_case != PG_QUERY__NODE__NODE_SELECT_STMT ||
+		    raw_stmt->stmt->select_stmt == NULL ||
+		    raw_stmt->stmt->select_stmt->where_clause == NULL) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"control condition node is missing");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		*out_statement = raw_stmt->stmt->select_stmt->where_clause;
+		return SQLPARSER_STATUS_OK;
 	}
 
 	*out_statement = raw_stmt->stmt;

@@ -6,7 +6,7 @@
 
 - [Microsoft Learn: Transact-SQL Reference](https://learn.microsoft.com/en-us/sql/t-sql/language-reference)
 - [MicrosoftDocs/sql-docs: `docs/t-sql`](https://github.com/MicrosoftDocs/sql-docs/tree/live/docs/t-sql)
-- 统计日期：2026-06-11
+- 统计日期：2026-07-15
 
 统计范围固定为官方文档仓库中的以下目录：
 
@@ -34,35 +34,39 @@
 
 | 状态 | 条目数 | 占全部 934 条 |
 | --- | ---: | ---: |
-| `CURRENT` | 440 | 47.11% |
+| `CURRENT` | 442 | 47.32% |
 | `HOOK_ONLY` | 0 | 0.00% |
-| `MIXED_MODEL` | 116 | 12.42% |
-| `MODEL_REQUIRED` | 339 | 36.30% |
+| `MIXED_MODEL` | 117 | 12.53% |
+| `MODEL_REQUIRED` | 336 | 35.97% |
 | `REFERENCE_ONLY` | 39 | 4.18% |
 
-剔除 `REFERENCE_ONLY` 后，官方可实现条目为 895 条。其中当前已覆盖 440 条，未覆盖 455 条。
+剔除 `REFERENCE_ONLY` 后，官方可实现条目为 895 条。其中当前已覆盖 442 条，未覆盖 453 条。
 
-| 未覆盖分类 | 条目数 | 占未覆盖 455 条 |
+| 未覆盖分类 | 条目数 | 占未覆盖 453 条 |
 | --- | ---: | ---: |
 | `HOOK_ONLY` | 0 | 0.00% |
-| `MIXED_MODEL` | 116 | 25.49% |
-| `MODEL_REQUIRED` | 339 | 74.51% |
+| `MIXED_MODEL` | 117 | 25.83% |
+| `MODEL_REQUIRED` | 336 | 74.17% |
 
 当前 `HOOK_ONLY` 条目已经全部进入可执行回归。剩余未覆盖条目均需要 SQL Server 专用模型或属于基础形态已覆盖、完整语法仍需扩展模型的混合项。
 
-`MIXED_MODEL` 中已有 94 条基础 case 进入可执行回归，包括数据库、schema、role、application role、user、synonym、type、index、sequence、view、statistics、`SELECT INTO`、基础全文谓词、CTAS、别名、子查询、基础 `ALTER DATABASE`、基础 `ALTER TABLE`、`DROP TYPE`、`DROP USER` 公开形态恢复、`CREATE USER` 专属选项、`ALTER USER` 常见选项、`CREATE ROLE AUTHORIZATION`、`ALTER ROLE` 成员/重命名、`ALTER SCHEMA TRANSFER`、`ALTER AUTHORIZATION` 基础形态、`DROP SCHEMA IF EXISTS`、基础表提示和查询提示，以及基础 `SET` 会话/执行环境语句。完整官方语法仍按 `MIXED_MODEL` 统计。
+`MIXED_MODEL` 中已有 95 条基础 case 进入可执行回归，包括数据库、schema、role、application role、user、synonym、type、index、sequence、view、statistics、`SELECT INTO`、基础全文谓词、CTAS、别名、子查询、基础 `ALTER DATABASE`、基础 `ALTER TABLE`、`DROP TYPE`、`DROP USER` 公开形态恢复、`CREATE USER` 专属选项、`ALTER USER` 常见选项、`CREATE ROLE AUTHORIZATION`、`ALTER ROLE` 成员/重命名、`ALTER SCHEMA TRANSFER`、`ALTER AUTHORIZATION` 基础形态、`DROP SCHEMA IF EXISTS`、基础表提示和查询提示、基础 `SET` 会话/执行环境语句，以及 `IF...ELSE` 分支内的 `BEGIN...END`。完整官方语法仍按 `MIXED_MODEL` 统计。
+
+`OUTPUT` 条目由 29 条成功路径和 10 条错误路径覆盖，包含 `INSERT`、`UPDATE`、`DELETE`、`MERGE`、sink/client 双通道和嵌套 DML。
+
+`IF...ELSE` 条目由 36 条成功路径和 9 条错误路径覆盖，包含单语句分支、多语句块、`ELSE IF`、嵌套、条件查询、DML、DDL、事务和语法边界。
 
 ## 按目录统计
 
 | 目录 | `CURRENT` | `HOOK_ONLY` | `MIXED_MODEL` | `MODEL_REQUIRED` | `REFERENCE_ONLY` | 合计 |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
 | `statements` | 17 | 0 | 102 | 248 | 1 | 368 |
-| `queries` | 17 | 0 | 12 | 9 | 3 | 41 |
-| `language-elements` | 63 | 0 | 2 | 47 | 3 | 115 |
+| `queries` | 18 | 0 | 12 | 8 | 3 | 41 |
+| `language-elements` | 64 | 0 | 3 | 45 | 3 | 115 |
 | `functions` | 321 | 0 | 0 | 16 | 24 | 361 |
 | `data-types` | 17 | 0 | 0 | 19 | 8 | 44 |
 | `system-stored-procedures` | 5 | 0 | 0 | 0 | 0 | 5 |
 
 ## 结论
 
-SQL Server 方言已经覆盖所有只依赖现有 AST 和方言 hook 即可承载的官方条目。剩余 455 条未覆盖项中，339 条需要 SQL Server 专用模型，116 条属于基础形态可覆盖但完整官方语法仍需专用模型的混合项。
+SQL Server 方言已经覆盖所有只依赖现有 AST 和方言 hook 即可承载的官方条目。剩余 453 条未覆盖项中，336 条需要 SQL Server 专用模型，117 条属于基础形态可覆盖但完整官方语法仍需扩展模型的混合项。

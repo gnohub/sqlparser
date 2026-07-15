@@ -41,6 +41,8 @@ Vastbase 四个模式分别通过以下可执行矩阵验证：
 | `vastbase-postgresql` | `tests/cases/vastbase_postgresql_dialect_input.json` | `tests/unit/test_vastbase_postgresql_dialect_case_matrix.c` |
 | `vastbase-sqlserver` | `tests/cases/vastbase_sqlserver_dialect_input.json` | `tests/unit/test_vastbase_sqlserver_dialect_case_matrix.c` |
 
+`vastbase-sqlserver` 兼容模式包含 SQL Server DML `OUTPUT` 结果通道和 `IF...ELSE` 控制流能力；当前矩阵为 546 条用例，其中 517 条支持路径、29 条错误或明确不支持路径。
+
 ## 官方资料
 
 - [Vastbase G100 产品定位](https://docs.vastdata.com.cn/zh_CN/VastbaseG100/V3.0.8/1/aabafe2193fb4584b290dc9cdcc5c035)

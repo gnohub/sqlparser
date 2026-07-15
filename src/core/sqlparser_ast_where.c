@@ -552,6 +552,7 @@ sqlparser_status_t sqlparser_statement_where_sql(
 	}
 	status = sqlparser_postprocess_handle_sql_fragment(
 		handle,
+		statement_index,
 		core_sql,
 		"WHERE SQL",
 		out_sql,
@@ -562,6 +563,7 @@ sqlparser_status_t sqlparser_statement_where_sql(
 
 static sqlparser_status_t sqlparser_statement_parse_public_where(
 	sqlparser_handle_t *handle,
+	size_t statement_index,
 	const char *sql_text,
 	PgQuery__Node **out_node,
 	void **out_dialect_state,
@@ -581,6 +583,7 @@ static sqlparser_status_t sqlparser_statement_parse_public_where(
 	dialect_state = NULL;
 	status = sqlparser_preprocess_handle_sql_fragment(
 		handle,
+		statement_index,
 		sql_text,
 		"WHERE SQL",
 		&parser_sql,
@@ -623,7 +626,8 @@ sqlparser_status_t sqlparser_statement_set_where_sql(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	status = sqlparser_statement_parse_public_where(handle, sql_text, &replacement, &dialect_state, out_error);
+	status = sqlparser_statement_parse_public_where(
+		handle, statement_index, sql_text, &replacement, &dialect_state, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
@@ -666,7 +670,8 @@ sqlparser_status_t sqlparser_statement_append_where_sql(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	status = sqlparser_statement_parse_public_where(handle, sql_text, &condition, &dialect_state, out_error);
+	status = sqlparser_statement_parse_public_where(
+		handle, statement_index, sql_text, &condition, &dialect_state, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}

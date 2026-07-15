@@ -256,6 +256,7 @@ static sqlparser_status_t sqlparser_patch_set_value_sql(
 	variable_set_arg = sqlparser_patch_value_slot_is_variable_set_arg(statement, value_slot);
 	status = sqlparser_preprocess_handle_sql_fragment(
 		handle,
+		selector->statement_index,
 		sql_text,
 		"value SQL",
 		&parser_sql,
@@ -472,6 +473,8 @@ static sqlparser_status_t sqlparser_patch_render_source_selector_sql(
 			return sqlparser_selector_insert_cell_sql(handle, &selector, out_sql, out_error);
 		case SQLPARSER_SELECTOR_KIND_SELECT_TARGET:
 			return sqlparser_selector_select_target_sql(handle, &selector, out_sql, out_error);
+		case SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGET:
+			return sqlparser_dml_result_target_sql(handle, &selector, out_sql, out_error);
 		case SQLPARSER_SELECTOR_KIND_ASSIGNMENT:
 			return sqlparser_selector_update_assignment_sql(handle, &selector, out_sql, out_error);
 		default:
@@ -592,6 +595,7 @@ static sqlparser_status_t sqlparser_patch_replace(
 		}
 		case SQLPARSER_SELECTOR_KIND_SELECT_TARGETS:
 		case SQLPARSER_SELECTOR_KIND_SELECT_TARGET:
+		case SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGET:
 		{
 			char *target_sql;
 
@@ -602,12 +606,26 @@ static sqlparser_status_t sqlparser_patch_replace(
 			}
 			if (selector.kind == SQLPARSER_SELECTOR_KIND_SELECT_TARGETS) {
 				status = sqlparser_selector_set_select_targets_sql(handle, &selector, target_sql, out_error);
-			} else {
+			} else if (selector.kind == SQLPARSER_SELECTOR_KIND_SELECT_TARGET) {
 				status = sqlparser_selector_set_select_target_sql(handle, &selector, target_sql, out_error);
+			} else {
+				status = sqlparser_dml_result_set_target_sql(handle, &selector, target_sql, out_error);
 			}
 			free(target_sql);
 			return status;
 		}
+		case SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK:
+			if (patch->sql == NULL) {
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "DML result sink replacement requires sql");
+				return SQLPARSER_STATUS_INVALID_ARGUMENT;
+			}
+			return sqlparser_dml_result_set_sink_sql(handle, &selector, patch->sql, out_error);
+		case SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK_COLUMN:
+			if (patch->sql == NULL) {
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "DML result sink column replacement requires sql");
+				return SQLPARSER_STATUS_INVALID_ARGUMENT;
+			}
+			return sqlparser_dml_result_set_sink_column_sql(handle, &selector, patch->sql, out_error);
 		case SQLPARSER_SELECTOR_KIND_WHERE:
 			if (patch->sql == NULL) {
 				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "where replacement requires sql");
@@ -921,6 +939,27 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 		free(target_sql);
 		return status;
 	}
+	if (selector.kind == SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGETS) {
+		char *target_sql;
+
+		target_sql = NULL;
+		status = sqlparser_patch_render_structured_sql(handle, patch, patch->sql, &target_sql, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		status = sqlparser_dml_result_insert_target_sql(
+			handle, &selector, patch->index, target_sql, out_error);
+		free(target_sql);
+		return status;
+	}
+	if (selector.kind == SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK_COLUMNS) {
+		if (patch->name == NULL || patch->name[0] == '\0') {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "DML result sink column insertion requires name");
+			return SQLPARSER_STATUS_INVALID_ARGUMENT;
+		}
+		return sqlparser_dml_result_insert_sink_column_sql(
+			handle, &selector, patch->index, patch->name, out_error);
+	}
 	if (selector.kind == SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS) {
 		char *branch_cell_sql;
 
@@ -945,7 +984,7 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 		return status;
 	}
 	if (selector.kind != SQLPARSER_SELECTOR_KIND_INSERT_COLUMNS) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "insert_column selector must be insert_columns, insert_branch_columns, or select_targets");
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "insert_column selector is not a column list");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	if (patch->name == NULL) {
@@ -1000,6 +1039,7 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 	}
 	status = sqlparser_preprocess_handle_sql_fragment(
 		handle,
+		selector.statement_index,
 		rendered_default_sql,
 		"insert column default SQL",
 		&parser_default_sql,
@@ -1147,8 +1187,16 @@ static sqlparser_status_t sqlparser_patch_delete_column(
 			patch->index,
 			out_error);
 	}
+	if (selector.kind == SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGETS) {
+		return sqlparser_dml_result_delete_target(
+			handle, &selector, patch->index, out_error);
+	}
+	if (selector.kind == SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK_COLUMNS) {
+		return sqlparser_dml_result_delete_sink_column(
+			handle, &selector, patch->index, out_error);
+	}
 	if (selector.kind != SQLPARSER_SELECTOR_KIND_INSERT_COLUMNS) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "delete_column selector must be insert_columns or select_targets");
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "delete_column selector is not a column list");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	status = sqlparser_get_insert_stmt(handle, selector.statement_index, &stmt, out_error);

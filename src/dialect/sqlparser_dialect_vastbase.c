@@ -19,6 +19,7 @@ static sqlparser_status_t sqlparser_vastbase_preprocess_fragment_delegate(
 	const sqlparser_dialect_ops_t *base_ops,
 	const char *input_sql,
 	void *state,
+	size_t statement_index,
 	char **out_parser_sql,
 	sqlparser_error_t *out_error)
 {
@@ -26,7 +27,8 @@ static sqlparser_status_t sqlparser_vastbase_preprocess_fragment_delegate(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "Vastbase SQL fragment is not supported");
 		return SQLPARSER_STATUS_UNSUPPORTED;
 	}
-	return base_ops->preprocess_fragment(input_sql, state, out_parser_sql, out_error);
+	return base_ops->preprocess_fragment(
+		input_sql, state, statement_index, out_parser_sql, out_error);
 }
 
 static sqlparser_status_t sqlparser_vastbase_postprocess_deparse_delegate(
@@ -47,6 +49,7 @@ static sqlparser_status_t sqlparser_vastbase_postprocess_fragment_delegate(
 	const sqlparser_dialect_ops_t *base_ops,
 	const char *core_sql,
 	const void *state,
+	size_t statement_index,
 	char **out_sql,
 	sqlparser_error_t *out_error)
 {
@@ -55,7 +58,8 @@ static sqlparser_status_t sqlparser_vastbase_postprocess_fragment_delegate(
 		return SQLPARSER_STATUS_UNSUPPORTED;
 	}
 	if (base_ops->postprocess_fragment != NULL) {
-		return base_ops->postprocess_fragment(core_sql, state, out_sql, out_error);
+		return base_ops->postprocess_fragment(
+			core_sql, state, statement_index, out_sql, out_error);
 	}
 	if (base_ops->postprocess_deparse != NULL) {
 		return base_ops->postprocess_deparse(core_sql, state, out_sql, out_error);
@@ -92,6 +96,7 @@ static sqlparser_status_t sqlparser_vastbase_postprocess_literal_fragment_delega
 	const sqlparser_dialect_ops_t *base_ops,
 	const char *core_sql,
 	const void *state,
+	size_t statement_index,
 	size_t literal_index,
 	char **out_sql,
 	sqlparser_error_t *out_error)
@@ -100,7 +105,8 @@ static sqlparser_status_t sqlparser_vastbase_postprocess_literal_fragment_delega
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "Vastbase literal fragment is not supported");
 		return SQLPARSER_STATUS_UNSUPPORTED;
 	}
-	return base_ops->postprocess_literal_fragment(core_sql, state, literal_index, out_sql, out_error);
+	return base_ops->postprocess_literal_fragment(
+		core_sql, state, statement_index, literal_index, out_sql, out_error);
 }
 
 static const char *sqlparser_vastbase_statement_keyword_delegate(
@@ -147,6 +153,36 @@ static const char *sqlparser_vastbase_relation_link_name_delegate(
 		return NULL;
 	}
 	return base_ops->relation_link_name(state, parser_object_name);
+}
+
+static sqlparser_status_t sqlparser_vastbase_postprocess_control_unit_delegate(
+	const sqlparser_dialect_ops_t *base_ops,
+	const char *core_sql,
+	const void *state,
+	size_t statement_index,
+	int is_condition,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	if (base_ops == NULL || base_ops->postprocess_control_unit == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "Vastbase control SQL is not supported");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	return base_ops->postprocess_control_unit(
+		core_sql,
+		state,
+		statement_index,
+		is_condition,
+		out_sql,
+		out_error);
+}
+
+static sqlparser_control_state_t *sqlparser_vastbase_take_control_state_delegate(
+	const sqlparser_dialect_ops_t *base_ops,
+	void *state)
+{
+	return base_ops != NULL && base_ops->take_control_state != NULL ?
+		base_ops->take_control_state(state) : NULL;
 }
 
 #define SQLPARSER_DEFINE_VASTBASE_PRE_POST(TAG, BASE_OPS_FN) \
@@ -224,6 +260,7 @@ static const char *sqlparser_vastbase_relation_link_name_delegate(
 	static sqlparser_status_t sqlparser_vastbase_##TAG##_preprocess_fragment( \
 		const char *input_sql, \
 		void *state, \
+		size_t statement_index, \
 		char **out_parser_sql, \
 		sqlparser_error_t *out_error) \
 	{ \
@@ -231,6 +268,7 @@ static const char *sqlparser_vastbase_relation_link_name_delegate(
 			BASE_OPS_FN(), \
 			input_sql, \
 			state, \
+			statement_index, \
 			out_parser_sql, \
 			out_error); \
 	} \
@@ -254,6 +292,7 @@ SQLPARSER_DEFINE_VASTBASE_STATEFUL(sqlserver, sqlparser_dialect_sqlserver_ops)
 static sqlparser_status_t sqlparser_vastbase_oracle_postprocess_literal_fragment(
 	const char *core_sql,
 	const void *state,
+	size_t statement_index,
 	size_t literal_index,
 	char **out_sql,
 	sqlparser_error_t *out_error)
@@ -262,6 +301,7 @@ static sqlparser_status_t sqlparser_vastbase_oracle_postprocess_literal_fragment
 		sqlparser_dialect_oracle_ops(),
 		core_sql,
 		state,
+		statement_index,
 		literal_index,
 		out_sql,
 		out_error);
@@ -270,6 +310,7 @@ static sqlparser_status_t sqlparser_vastbase_oracle_postprocess_literal_fragment
 static sqlparser_status_t sqlparser_vastbase_mysql_postprocess_literal_fragment(
 	const char *core_sql,
 	const void *state,
+	size_t statement_index,
 	size_t literal_index,
 	char **out_sql,
 	sqlparser_error_t *out_error)
@@ -278,6 +319,7 @@ static sqlparser_status_t sqlparser_vastbase_mysql_postprocess_literal_fragment(
 		sqlparser_dialect_mysql_ops(),
 		core_sql,
 		state,
+		statement_index,
 		literal_index,
 		out_sql,
 		out_error);
@@ -286,6 +328,7 @@ static sqlparser_status_t sqlparser_vastbase_mysql_postprocess_literal_fragment(
 static sqlparser_status_t sqlparser_vastbase_postgresql_postprocess_literal_fragment(
 	const char *core_sql,
 	const void *state,
+	size_t statement_index,
 	size_t literal_index,
 	char **out_sql,
 	sqlparser_error_t *out_error)
@@ -294,6 +337,7 @@ static sqlparser_status_t sqlparser_vastbase_postgresql_postprocess_literal_frag
 		sqlparser_dialect_postgresql_ops(),
 		core_sql,
 		state,
+		statement_index,
 		literal_index,
 		out_sql,
 		out_error);
@@ -302,6 +346,7 @@ static sqlparser_status_t sqlparser_vastbase_postgresql_postprocess_literal_frag
 static sqlparser_status_t sqlparser_vastbase_sqlserver_postprocess_literal_fragment(
 	const char *core_sql,
 	const void *state,
+	size_t statement_index,
 	size_t literal_index,
 	char **out_sql,
 	sqlparser_error_t *out_error)
@@ -310,6 +355,7 @@ static sqlparser_status_t sqlparser_vastbase_sqlserver_postprocess_literal_fragm
 		sqlparser_dialect_sqlserver_ops(),
 		core_sql,
 		state,
+		statement_index,
 		literal_index,
 		out_sql,
 		out_error);
@@ -318,6 +364,7 @@ static sqlparser_status_t sqlparser_vastbase_sqlserver_postprocess_literal_fragm
 static sqlparser_status_t sqlparser_vastbase_sqlserver_postprocess_fragment(
 	const char *core_sql,
 	const void *state,
+	size_t statement_index,
 	char **out_sql,
 	sqlparser_error_t *out_error)
 {
@@ -325,6 +372,7 @@ static sqlparser_status_t sqlparser_vastbase_sqlserver_postprocess_fragment(
 		sqlparser_dialect_sqlserver_ops(),
 		core_sql,
 		state,
+		statement_index,
 		out_sql,
 		out_error);
 }
@@ -332,6 +380,7 @@ static sqlparser_status_t sqlparser_vastbase_sqlserver_postprocess_fragment(
 static sqlparser_status_t sqlparser_vastbase_mysql_postprocess_fragment(
 	const char *core_sql,
 	const void *state,
+	size_t statement_index,
 	char **out_sql,
 	sqlparser_error_t *out_error)
 {
@@ -339,8 +388,33 @@ static sqlparser_status_t sqlparser_vastbase_mysql_postprocess_fragment(
 		sqlparser_dialect_mysql_ops(),
 		core_sql,
 		state,
+		statement_index,
 		out_sql,
 		out_error);
+}
+
+static sqlparser_status_t sqlparser_vastbase_sqlserver_postprocess_control_unit(
+	const char *core_sql,
+	const void *state,
+	size_t statement_index,
+	int is_condition,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_vastbase_postprocess_control_unit_delegate(
+		sqlparser_dialect_sqlserver_ops(),
+		core_sql,
+		state,
+		statement_index,
+		is_condition,
+		out_sql,
+		out_error);
+}
+
+static sqlparser_control_state_t *sqlparser_vastbase_sqlserver_take_control_state(void *state)
+{
+	return sqlparser_vastbase_take_control_state_delegate(
+		sqlparser_dialect_sqlserver_ops(), state);
 }
 
 static const sqlparser_dialect_ops_t SQLPARSER_VASTBASE_ORACLE_OPS = {
@@ -356,6 +430,8 @@ static const sqlparser_dialect_ops_t SQLPARSER_VASTBASE_ORACLE_OPS = {
 	sqlparser_vastbase_oracle_insert_mode,
 	sqlparser_vastbase_oracle_relation_object_name,
 	sqlparser_vastbase_oracle_relation_link_name,
+	NULL,
+	NULL,
 	NULL
 };
 
@@ -372,7 +448,9 @@ static const sqlparser_dialect_ops_t SQLPARSER_VASTBASE_MYSQL_OPS = {
 	sqlparser_vastbase_mysql_insert_mode,
 	sqlparser_vastbase_mysql_relation_object_name,
 	sqlparser_vastbase_mysql_relation_link_name,
-	sqlparser_vastbase_mysql_postprocess_fragment
+	sqlparser_vastbase_mysql_postprocess_fragment,
+	NULL,
+	NULL
 };
 
 static const sqlparser_dialect_ops_t SQLPARSER_VASTBASE_POSTGRESQL_OPS = {
@@ -388,6 +466,8 @@ static const sqlparser_dialect_ops_t SQLPARSER_VASTBASE_POSTGRESQL_OPS = {
 	sqlparser_vastbase_postgresql_insert_mode,
 	sqlparser_vastbase_postgresql_relation_object_name,
 	sqlparser_vastbase_postgresql_relation_link_name,
+	NULL,
+	NULL,
 	NULL
 };
 
@@ -404,7 +484,9 @@ static const sqlparser_dialect_ops_t SQLPARSER_VASTBASE_SQLSERVER_OPS = {
 	sqlparser_vastbase_sqlserver_insert_mode,
 	sqlparser_vastbase_sqlserver_relation_object_name,
 	sqlparser_vastbase_sqlserver_relation_link_name,
-	sqlparser_vastbase_sqlserver_postprocess_fragment
+	sqlparser_vastbase_sqlserver_postprocess_fragment,
+	sqlparser_vastbase_sqlserver_postprocess_control_unit,
+	sqlparser_vastbase_sqlserver_take_control_state
 };
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_vastbase_oracle_ops(void)

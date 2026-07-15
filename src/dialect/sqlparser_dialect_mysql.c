@@ -9735,9 +9735,11 @@ static sqlparser_status_t sqlparser_mysql_preprocess(
 static sqlparser_status_t sqlparser_mysql_preprocess_fragment(
 	const char *input_sql,
 	void *state,
+	size_t statement_index,
 	char **out_parser_sql,
 	sqlparser_error_t *out_error)
 {
+	(void)statement_index;
 	if (out_parser_sql == NULL) {
 		sqlparser_error_set_message(
 			out_error,
@@ -9891,9 +9893,11 @@ static sqlparser_status_t sqlparser_mysql_postprocess_deparse(
 static sqlparser_status_t sqlparser_mysql_postprocess_fragment(
 	const char *core_sql,
 	const void *state,
+	size_t statement_index,
 	char **out_sql,
 	sqlparser_error_t *out_error)
 {
+	(void)statement_index;
 	if (out_sql == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "fragment output must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
@@ -9913,6 +9917,7 @@ static sqlparser_status_t sqlparser_mysql_postprocess_fragment(
 static sqlparser_status_t sqlparser_mysql_postprocess_literal_fragment(
 	const char *core_sql,
 	const void *state,
+	size_t statement_index,
 	size_t literal_index,
 	char **out_sql,
 	sqlparser_error_t *out_error)
@@ -9921,6 +9926,8 @@ static sqlparser_status_t sqlparser_mysql_postprocess_literal_fragment(
 	size_t literal_end;
 	sqlparser_mysql_buffer_t out;
 	sqlparser_status_t status;
+
+	(void)statement_index;
 
 	if (out_sql == NULL) {
 		sqlparser_error_set_message(
@@ -10253,7 +10260,9 @@ static const sqlparser_dialect_ops_t SQLPARSER_MYSQL_OPS = {
 	sqlparser_mysql_insert_mode,
 	NULL,
 	NULL,
-	sqlparser_mysql_postprocess_fragment
+	sqlparser_mysql_postprocess_fragment,
+	NULL,
+	NULL
 };
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_mysql_ops(void)

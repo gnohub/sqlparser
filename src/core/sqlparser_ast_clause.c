@@ -341,6 +341,14 @@ static sqlparser_status_t sqlparser_resolve_statement_clause(
 	if (out_select_stmt != NULL) {
 		*out_select_stmt = NULL;
 	}
+	if (sqlparser_control_unit_is_condition(handle, statement_index)) {
+		if (clause_index != 0U) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "clause selector is out of range");
+			return SQLPARSER_STATUS_INVALID_ARGUMENT;
+		}
+		*out_kind = SQLPARSER_CLAUSE_KIND_CONDITION;
+		return SQLPARSER_STATUS_OK;
+	}
 	statement = NULL;
 	status = sqlparser_get_statement_node(handle, statement_index, &statement, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
@@ -566,6 +574,7 @@ static sqlparser_status_t sqlparser_render_order_by_nodes_sql(
 
 static sqlparser_status_t sqlparser_statement_order_by_sql(
 	const sqlparser_handle_t *handle,
+	size_t statement_index,
 	PgQuery__SelectStmt *stmt,
 	char **out_sql,
 	sqlparser_error_t *out_error)
@@ -586,13 +595,15 @@ static sqlparser_status_t sqlparser_statement_order_by_sql(
 	if (core_sql == NULL) {
 		return SQLPARSER_STATUS_OK;
 	}
-	status = sqlparser_postprocess_handle_sql_fragment(handle, core_sql, "ORDER BY SQL", out_sql, out_error);
+	status = sqlparser_postprocess_handle_sql_fragment(
+		handle, statement_index, core_sql, "ORDER BY SQL", out_sql, out_error);
 	free(core_sql);
 	return status;
 }
 
 static sqlparser_status_t sqlparser_statement_set_order_by_sql(
 	sqlparser_handle_t *handle,
+	size_t statement_index,
 	PgQuery__SelectStmt *stmt,
 	const char *sql_text,
 	sqlparser_error_t *out_error)
@@ -614,6 +625,7 @@ static sqlparser_status_t sqlparser_statement_set_order_by_sql(
 	dialect_state = NULL;
 	status = sqlparser_preprocess_handle_sql_fragment(
 		handle,
+		statement_index,
 		sql_text,
 		"ORDER BY SQL",
 		&parser_sql,
@@ -659,6 +671,10 @@ sqlparser_status_t sqlparser_statement_clause_count(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	*out_count = 0U;
+	if (sqlparser_control_unit_is_condition(handle, statement_index)) {
+		*out_count = 1U;
+		return SQLPARSER_STATUS_OK;
+	}
 	statement = NULL;
 	status = sqlparser_get_statement_node((sqlparser_handle_t *)handle, statement_index, &statement, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
@@ -754,9 +770,12 @@ sqlparser_status_t sqlparser_statement_clause_sql(
 		case SQLPARSER_CLAUSE_KIND_WHERE:
 			return sqlparser_statement_where_sql(handle, statement_index, internal_index, out_sql, out_error);
 		case SQLPARSER_CLAUSE_KIND_ORDER_BY:
-			return sqlparser_statement_order_by_sql(handle, select_stmt, out_sql, out_error);
+			return sqlparser_statement_order_by_sql(
+				handle, statement_index, select_stmt, out_sql, out_error);
 		case SQLPARSER_CLAUSE_KIND_SET_LIST:
 			return sqlparser_render_update_assignments_sql(handle, statement_index, internal_index, out_sql, out_error);
+		case SQLPARSER_CLAUSE_KIND_CONDITION:
+			return sqlparser_control_condition_sql(handle, statement_index, out_sql, out_error);
 		default:
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "clause kind is not readable");
 			return SQLPARSER_STATUS_UNSUPPORTED;
@@ -801,9 +820,12 @@ sqlparser_status_t sqlparser_statement_set_clause_sql(
 		case SQLPARSER_CLAUSE_KIND_WHERE:
 			return sqlparser_statement_set_where_sql(handle, statement_index, internal_index, sql_text, out_error);
 		case SQLPARSER_CLAUSE_KIND_ORDER_BY:
-			return sqlparser_statement_set_order_by_sql(handle, select_stmt, sql_text, out_error);
+			return sqlparser_statement_set_order_by_sql(
+				handle, statement_index, select_stmt, sql_text, out_error);
 		case SQLPARSER_CLAUSE_KIND_SET_LIST:
 			return sqlparser_update_set_assignments_sql(handle, statement_index, internal_index, sql_text, out_error);
+		case SQLPARSER_CLAUSE_KIND_CONDITION:
+			return sqlparser_control_set_condition_sql(handle, statement_index, sql_text, out_error);
 		default:
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "clause kind is not writable");
 			return SQLPARSER_STATUS_UNSUPPORTED;

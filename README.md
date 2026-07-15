@@ -24,6 +24,7 @@
 - 常见预编译 / 参数化 SQL 语句解析、View JSON 和反解析
 - 可配置资源限制，覆盖 SQL 输入、生成输出与语句数量
 - View JSON 导出、C 结构化遍历与结构体 patch 写回
+- DML 结果通道以及 SQL Server `IF...ELSE` 控制流的结构化只读遍历
 - `handle -> sql`
 
 ## 公共产物

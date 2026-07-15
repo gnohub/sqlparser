@@ -610,12 +610,22 @@
     },
     {
       "id": "VSU003",
-      "name": "vastbase-sqlserver-output-unsupported",
+      "name": "vastbase-sqlserver-output-insert-client",
+      "official_item": "output-clause-transact-sql",
       "sql": "INSERT INTO [dbo].[users] ([id]) OUTPUT inserted.[id] VALUES (1)",
       "expect": {
-        "ok": false,
-        "error_code": 5,
-        "error_message_contains": "unsupported SQL Server syntax"
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "deparse_contains": "OUTPUT inserted.id",
+        "view_contains": [
+          "\"result_channels\"",
+          "\"kind\":\"client\"",
+          "\"kind\":\"target_after\""
+        ],
+        "view_not_contains": "__sqlparser_"
       }
     },
     {
@@ -6270,6 +6280,1223 @@
           "\"column\":\"status\""
         ],
         "view_not_contains": "bind_sql\":\"@status OPTION"
+      }
+    },
+    {
+      "id": "VSH336",
+      "name": "vastbase-sqlserver-insert-output-select-union-all-omitted-into",
+      "official_item": "insert-transact-sql/output-clause-transact-sql",
+      "sql": "INSERT [KoalSug_35079cba] ([Name],[Secret]) OUTPUT INSERTED.[Id] AS [Id] SELECT N'Alice' AS [Name],N'Secret-Alice-Phone' AS [Secret] UNION ALL SELECT N'Bob' AS [Name],N'Secret-Bob-ID' AS [Secret]",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": ["INSERT \"KoalSug_35079cba\"", "OUTPUT inserted.\"Id\" AS \"Id\"", "UNION ALL"],
+        "deparse_not_contains": ["INSERT INTO \"KoalSug_35079cba\"", "__sqlparser_"],
+        "view_contains": ["\"kind\":\"insert\"", "\"kind\":\"client\"", "\"kind\":\"target_after\""]
+      }
+    },
+    {
+      "id": "VSH337",
+      "name": "vastbase-sqlserver-insert-output-select-explicit-into",
+      "official_item": "output-clause-transact-sql",
+      "sql": "INSERT INTO dbo.t(a) OUTPUT INSERTED.id SELECT a FROM dbo.s",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": ["INSERT INTO dbo.t", "OUTPUT inserted.id", "SELECT a FROM dbo.s"],
+        "view_contains": ["\"kind\":\"client\"", "\"kind\":\"target_after\""]
+      }
+    },
+    {
+      "id": "VSH338",
+      "name": "vastbase-sqlserver-insert-output-values-omitted-into",
+      "official_item": "insert-transact-sql",
+      "sql": "INSERT dbo.t(a) OUTPUT INSERTED.id VALUES (1)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": ["INSERT dbo.t", "OUTPUT inserted.id", "VALUES (1)"],
+        "deparse_not_contains": ["INSERT INTO dbo.t", "INSERT  ", "__sqlparser_"]
+      }
+    },
+    {
+      "id": "VSH339",
+      "name": "vastbase-sqlserver-insert-output-multi-values-omitted-into",
+      "official_item": "insert-transact-sql",
+      "sql": "INSERT dbo.t(a) OUTPUT INSERTED.id VALUES (1), (2)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": ["INSERT dbo.t", "OUTPUT inserted.id", "VALUES (1), (2)"],
+        "deparse_not_contains": ["INSERT INTO dbo.t", "__sqlparser_"]
+      }
+    },
+    {
+      "id": "VSH340",
+      "name": "vastbase-sqlserver-insert-output-default-values",
+      "official_item": "insert-transact-sql",
+      "sql": "INSERT dbo.t OUTPUT INSERTED.id DEFAULT VALUES",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": ["INSERT dbo.t", "OUTPUT inserted.id", "DEFAULT VALUES"],
+        "deparse_not_contains": "__sqlparser_"
+      }
+    },
+    {
+      "id": "VSH341",
+      "name": "vastbase-sqlserver-cte-insert-output-select",
+      "official_item": "insert-transact-sql",
+      "sql": "WITH s AS (SELECT 1 AS a) INSERT dbo.t(a) OUTPUT INSERTED.id SELECT a FROM s",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": ["WITH s AS", "INSERT dbo.t", "OUTPUT inserted.id", "SELECT a FROM s"],
+        "deparse_not_contains": "__sqlparser_"
+      }
+    },
+    {
+      "id": "VSH342",
+      "name": "vastbase-sqlserver-insert-output-existing-case",
+      "official_item": "output-clause-transact-sql",
+      "sql": "INSERT INTO dbo.users(id) OUTPUT INSERTED.id VALUES (1)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": "OUTPUT inserted.id",
+        "view_contains": ["\"kind\":\"client\"", "\"kind\":\"target_after\""]
+      }
+    },
+    {
+      "id": "VSH343",
+      "name": "vastbase-sqlserver-insert-output-inserted-star",
+      "official_item": "output-clause-transact-sql",
+      "sql": "INSERT dbo.t(a) OUTPUT INSERTED.* VALUES (1)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": "OUTPUT inserted.*",
+        "view_contains": ["\"kind\":\"qualified_star\"", "\"kind\":\"target_after\""]
+      }
+    },
+    {
+      "id": "VSH344",
+      "name": "vastbase-sqlserver-insert-output-expression-alias",
+      "official_item": "output-clause-transact-sql",
+      "sql": "INSERT dbo.t(a) OUTPUT INSERTED.id + 1 AS next_id VALUES (1)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": "OUTPUT inserted.id + 1 AS next_id",
+        "view_contains": ["\"kind\":\"expression\"", "\"kind\":\"target_after\""]
+      }
+    },
+    {
+      "id": "VSH345",
+      "name": "vastbase-sqlserver-insert-output-multiple-targets-bind",
+      "official_item": "output-clause-transact-sql",
+      "sql": "INSERT dbo.t(a) OUTPUT INSERTED.id, INSERTED.a, @tag AS tag VALUES (1)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": ["OUTPUT inserted.id, inserted.a, @tag AS tag", "VALUES (1)"],
+        "view_contains": ["\"kind\":\"bind\"", "\"bind_sql\":\"@tag\""]
+      }
+    },
+    {
+      "id": "VSH346",
+      "name": "vastbase-sqlserver-insert-output-into-table",
+      "official_item": "output-clause-transact-sql",
+      "sql": "INSERT dbo.t(a) OUTPUT INSERTED.id INTO dbo.audit VALUES (1)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": "OUTPUT inserted.id INTO dbo.audit",
+        "view_contains": ["\"kind\":\"sink\"", "\"table\":\"audit\""]
+      }
+    },
+    {
+      "id": "VSH347",
+      "name": "vastbase-sqlserver-insert-output-into-table-columns",
+      "official_item": "output-clause-transact-sql",
+      "sql": "INSERT dbo.t(a) OUTPUT INSERTED.id INTO dbo.audit(id) VALUES (1)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": "OUTPUT inserted.id INTO dbo.audit (id)",
+        "view_contains": ["\"kind\":\"sink\"", "\"sink_columns\""]
+      }
+    },
+    {
+      "id": "VSH348",
+      "name": "vastbase-sqlserver-insert-output-into-table-variable",
+      "official_item": "output-clause-transact-sql",
+      "sql": "INSERT dbo.t(a) OUTPUT INSERTED.id INTO @audit(id) VALUES (1)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": "OUTPUT inserted.id INTO @audit (id)",
+        "view_contains": ["\"kind\":\"sink\"", "\"table\":\"@audit\""]
+      }
+    },
+    {
+      "id": "VSH349",
+      "name": "vastbase-sqlserver-insert-output-dual-channel",
+      "official_item": "output-clause-transact-sql",
+      "sql": "INSERT dbo.t(a) OUTPUT INSERTED.id INTO dbo.audit(id) OUTPUT INSERTED.id AS client_id VALUES (1)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": ["OUTPUT inserted.id INTO dbo.audit (id)", "OUTPUT inserted.id AS client_id"],
+        "view_contains": ["\"kind\":\"sink\"", "\"kind\":\"client\""]
+      }
+    },
+    {
+      "id": "VSH350",
+      "name": "vastbase-sqlserver-update-output-before-after",
+      "official_item": "output-clause-transact-sql",
+      "sql": "UPDATE dbo.t SET a = @a OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a WHERE id = @id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["UpdateStmt"],
+        "deparse_contains": ["OUTPUT deleted.a AS old_a, inserted.a AS new_a", "WHERE id = @id"],
+        "view_contains": ["\"kind\":\"target_before\"", "\"kind\":\"target_after\""]
+      }
+    },
+    {
+      "id": "VSH351",
+      "name": "vastbase-sqlserver-update-output-from-source",
+      "official_item": "output-clause-transact-sql",
+      "sql": "UPDATE t SET a = s.a OUTPUT INSERTED.a, s.a AS source_a FROM dbo.t AS t JOIN dbo.s AS s ON t.id = s.id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["UpdateStmt"],
+        "deparse_contains": ["OUTPUT inserted.a, s.a AS source_a", "FROM dbo.t t JOIN dbo.s s"],
+        "view_contains": ["\"kind\":\"target_after\"", "\"kind\":\"source\""]
+      }
+    },
+    {
+      "id": "VSH352",
+      "name": "vastbase-sqlserver-delete-output-before",
+      "official_item": "output-clause-transact-sql",
+      "sql": "DELETE FROM dbo.t OUTPUT DELETED.id WHERE state = @state",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["DeleteStmt"],
+        "deparse_contains": ["DELETE FROM dbo.t", "OUTPUT deleted.id", "WHERE state = @state"],
+        "view_contains": "\"kind\":\"target_before\""
+      }
+    },
+    {
+      "id": "VSH353",
+      "name": "vastbase-sqlserver-delete-output-from-source",
+      "official_item": "output-clause-transact-sql",
+      "sql": "DELETE t OUTPUT DELETED.id, s.code AS source_code FROM dbo.t AS t JOIN dbo.s AS s ON t.id = s.id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["DeleteStmt"],
+        "deparse_contains": ["OUTPUT deleted.id, s.code AS source_code", "FROM dbo.t t JOIN dbo.s s"],
+        "view_contains": ["\"kind\":\"target_before\"", "\"kind\":\"source\""]
+      }
+    },
+    {
+      "id": "VSH354",
+      "name": "vastbase-sqlserver-merge-output-action",
+      "official_item": "merge-transact-sql/output-clause-transact-sql",
+      "sql": "MERGE INTO dbo.t AS t USING dbo.s AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET a = s.a WHEN NOT MATCHED THEN INSERT (id, a) VALUES (s.id, s.a) OUTPUT $action",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["MergeStmt"],
+        "deparse_contains": "OUTPUT $action",
+        "deparse_not_contains": "__sqlparser_",
+        "view_contains": ["\"kind\":\"pseudo\"", "\"name\":\"$action\""]
+      }
+    },
+    {
+      "id": "VSH355",
+      "name": "vastbase-sqlserver-merge-output-all-references",
+      "official_item": "merge-transact-sql/output-clause-transact-sql",
+      "sql": "MERGE INTO dbo.t AS t USING dbo.s AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET a = s.a WHEN NOT MATCHED THEN INSERT (id, a) VALUES (s.id, s.a) OUTPUT $action, DELETED.id AS old_id, INSERTED.id AS new_id, s.id AS source_id",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["MergeStmt"],
+        "deparse_contains": ["OUTPUT $action", "deleted.id AS old_id", "inserted.id AS new_id", "s.id AS source_id"],
+        "deparse_not_contains": "__sqlparser_",
+        "view_contains": ["\"kind\":\"target_before\"", "\"kind\":\"target_after\"", "\"kind\":\"source\""]
+      }
+    },
+    {
+      "id": "VSH356",
+      "name": "vastbase-sqlserver-nested-delete-output-table-source",
+      "official_item": "insert-transact-sql/output-clause-transact-sql",
+      "sql": "INSERT INTO dbo.Log(id) SELECT d.id FROM (DELETE FROM dbo.Items OUTPUT DELETED.id WHERE state = @state) AS d",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": ["INSERT INTO dbo.log", "FROM (DELETE FROM dbo.items", "OUTPUT deleted.id"],
+        "deparse_not_contains": "__sqlparser_dml_source_",
+        "view_contains": ["\"kind\":\"insert\"", "\"kind\":\"delete\"", "\"kind\":\"dml_result\""]
+      }
+    },
+    {
+      "id": "VSH357",
+      "name": "vastbase-sqlserver-update-top-output",
+      "official_item": "update-transact-sql/output-clause-transact-sql",
+      "sql": "UPDATE TOP (5) dbo.t SET state = @state OUTPUT INSERTED.id WHERE state IS NULL",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["UpdateStmt"],
+        "deparse_contains": ["UPDATE TOP (5) dbo.t", "OUTPUT inserted.id"],
+        "view_contains": "\"kind\":\"target_after\""
+      }
+    },
+    {
+      "id": "VSH358",
+      "name": "vastbase-sqlserver-insert-target-hint-output",
+      "official_item": "insert-transact-sql/output-clause-transact-sql",
+      "sql": "INSERT INTO dbo.t WITH (TABLOCK) (a) OUTPUT INSERTED.id VALUES (1)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": ["INSERT INTO dbo.t WITH (TABLOCK)", "OUTPUT inserted.id"],
+        "view_contains": "\"kind\":\"target_after\""
+      }
+    },
+    {
+      "id": "VSH359",
+      "name": "vastbase-sqlserver-output-keywords-in-string",
+      "official_item": "output-clause-transact-sql",
+      "sql": "INSERT dbo.t(a) OUTPUT INSERTED.id VALUES (N'OUTPUT INSERTED INTO')",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": ["OUTPUT inserted.id", "N'OUTPUT INSERTED INTO'"],
+        "deparse_not_contains": "__sqlparser_"
+      }
+    },
+    {
+      "id": "VSH360",
+      "name": "vastbase-sqlserver-output-keywords-in-comments",
+      "official_item": "output-clause-transact-sql",
+      "sql": "INSERT /* OUTPUT INSERTED INTO */ dbo.t(a) OUTPUT INSERTED.id VALUES (1) -- OUTPUT DELETED",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": ["OUTPUT inserted.id", "VALUES (1)"],
+        "deparse_not_contains": "__sqlparser_"
+      }
+    },
+    {
+      "id": "VSH361",
+      "name": "vastbase-sqlserver-output-keywords-as-identifiers",
+      "official_item": "output-clause-transact-sql",
+      "sql": "INSERT dbo.[OUTPUT]([INSERTED]) OUTPUT INSERTED.[DELETED] VALUES (1)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": ["INSERT dbo.\"OUTPUT\"", "OUTPUT inserted.\"DELETED\""],
+        "view_contains": ["\"table\":\"OUTPUT\"", "\"column\":\"DELETED\""]
+      }
+    },
+    {
+      "id": "VSH362",
+      "name": "vastbase-sqlserver-output-keywords-in-source-subquery",
+      "official_item": "insert-transact-sql/output-clause-transact-sql",
+      "sql": "INSERT dbo.t(a) OUTPUT INSERTED.id SELECT q.a FROM (SELECT 1 AS a, N'OUTPUT INSERTED INTO' AS output_text) AS q",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": ["OUTPUT inserted.id", "N'OUTPUT INSERTED INTO' AS output_text"],
+        "deparse_not_contains": "__sqlparser_",
+        "view_contains": ["\"kind\":\"client\"", "\"kind\":\"target_after\""]
+      }
+    },
+    {
+      "id": "VSH363",
+      "name": "vastbase-sqlserver-insert-select-source-table-hint-anchor",
+      "official_item": "insert-transact-sql/hints-transact-sql-table",
+      "sql": "INSERT INTO dbo.t(a) SELECT s.a FROM dbo.s AS s WITH (NOLOCK)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": "FROM dbo.s s WITH (NOLOCK)",
+        "deparse_not_contains": "dbo.t WITH (NOLOCK)"
+      }
+    },
+    {
+      "id": "VSH364",
+      "name": "vastbase-sqlserver-insert-output-target-and-source-table-hints",
+      "official_item": "insert-transact-sql/output-clause-transact-sql/hints-transact-sql-table",
+      "sql": "INSERT INTO dbo.t WITH (TABLOCK) (a) OUTPUT INSERTED.id SELECT s.a FROM dbo.s AS s WITH (NOLOCK)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": ["dbo.t WITH (TABLOCK)", "OUTPUT inserted.id", "FROM dbo.s s WITH (NOLOCK)"],
+        "deparse_not_contains": ["dbo.t WITH (NOLOCK)", "dbo.s s WITH (TABLOCK)"]
+      }
+    },
+    {
+      "id": "VSH365",
+      "name": "vastbase-sqlserver-output-delimited-select-column",
+      "official_item": "output-clause-transact-sql",
+      "sql": "INSERT dbo.t([select]) OUTPUT INSERTED.[select] VALUES (1)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["InsertStmt"],
+        "deparse_contains": "OUTPUT inserted.\"select\"",
+        "view_contains": ["\"column\":\"select\"", "\"kind\":\"target_after\""]
+      }
+    },
+    {
+      "id": "VSH366",
+      "name": "vastbase-sqlserver-delete-output-equivalent-delimited-alias",
+      "official_item": "delete-transact-sql/output-clause-transact-sql",
+      "sql": "DELETE [t]]x] OUTPUT DELETED.id FROM dbo.t AS \"t]x\" WHERE \"t]x\".id = 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["DeleteStmt"],
+        "deparse_contains": ["DELETE [t]]x] OUTPUT deleted.id", "FROM dbo.t \"t]x\""],
+        "view_contains": ["\"kind\":\"target_before\"", "\"table\":\"t\""]
+      }
+    },
+    {
+      "id": "VSH367",
+      "name": "vastbase-sqlserver-multi-statement-output-channels",
+      "official_item": "output-clause-transact-sql",
+      "sql": "INSERT dbo.t(a) OUTPUT INSERTED.id VALUES (1); UPDATE dbo.t SET a = 2 OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a WHERE id = 1; DELETE FROM dbo.t OUTPUT DELETED.id WHERE id = 2",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "statement_types": ["InsertStmt", "UpdateStmt", "DeleteStmt"],
+        "deparse_contains": ["INSERT dbo.t (a) OUTPUT inserted.id", "UPDATE dbo.t SET a = 2 OUTPUT deleted.a AS old_a, inserted.a AS new_a", "DELETE FROM dbo.t OUTPUT deleted.id"]
+      }
+    },
+    {
+      "id": "VSH368",
+      "name": "vastbase-sqlserver-if-exists-official-shape",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF EXISTS (SELECT * FROM sys.objects WITH (NOLOCK) WHERE type = 'U' AND name = N'KoalSug_3f70364b') SELECT 1 AS res ELSE SELECT 0 AS res",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "deparse_contains": [
+          "IF EXISTS",
+          "WITH (NOLOCK)",
+          "ELSE SELECT 0 AS res"
+        ],
+        "view_contains": [
+          "\"control_flow\"",
+          "\"kind\":\"condition\"",
+          "\"kind\":\"exists\""
+        ]
+      }
+    },
+    {
+      "id": "VSH369",
+      "name": "vastbase-sqlserver-if-without-else",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @enabled = 1 SELECT id FROM dbo.t",
+      "expect": {
+        "ok": true,
+        "statement_count": 2,
+        "deparse_contains": "IF @enabled = 1 SELECT id FROM dbo.t",
+        "view_contains": [
+          "\"bind_key\":\"enabled\"",
+          "\"branches\":[0]"
+        ]
+      }
+    },
+    {
+      "id": "VSH370",
+      "name": "vastbase-sqlserver-if-boolean-literal",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF 1 = 1 SELECT 1 ELSE SELECT 0",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "deparse_contains": "IF 1 = 1 SELECT 1 ELSE SELECT 0",
+        "view_contains": "\"kind\":\"expression\""
+      }
+    },
+    {
+      "id": "VSH371",
+      "name": "vastbase-sqlserver-if-block-semicolon-statements",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @enabled = 1 BEGIN SELECT 1; SELECT 2; END ELSE BEGIN SELECT 3; SELECT 4; END",
+      "expect": {
+        "ok": true,
+        "statement_count": 5,
+        "deparse_contains": [
+          "BEGIN SELECT 1; SELECT 2; END",
+          "ELSE BEGIN SELECT 3; SELECT 4; END"
+        ],
+        "view_contains": "\"control_flow\""
+      }
+    },
+    {
+      "id": "VSH372",
+      "name": "vastbase-sqlserver-if-block-newline-statements",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @enabled = 1 BEGIN\nSELECT 1\nSELECT 2\nEND ELSE BEGIN\nSELECT 3\nSELECT 4\nEND",
+      "expect": {
+        "ok": true,
+        "statement_count": 5,
+        "deparse_contains": [
+          "SELECT 1\nSELECT 2",
+          "SELECT 3\nSELECT 4"
+        ],
+        "view_contains": "\"control_flow\""
+      }
+    },
+    {
+      "id": "VSH373",
+      "name": "vastbase-sqlserver-if-dangling-else",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @a = 1 IF @b = 1 SELECT 1 ELSE SELECT 2",
+      "expect": {
+        "ok": true,
+        "statement_count": 4,
+        "deparse_contains": "IF @a = 1 IF @b = 1 SELECT 1 ELSE SELECT 2",
+        "view_contains": [
+          "\"nodes\":[{\"kind\":\"if\"",
+          "\"kind\":\"node\""
+        ]
+      }
+    },
+    {
+      "id": "VSH374",
+      "name": "vastbase-sqlserver-else-if-chain",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @a = 1 SELECT 1 ELSE IF @b = 1 SELECT 2 ELSE SELECT 3",
+      "expect": {
+        "ok": true,
+        "statement_count": 5,
+        "deparse_contains": [
+          "ELSE IF @b = 1",
+          "ELSE SELECT 3"
+        ],
+        "view_contains": "\"control_flow\""
+      }
+    },
+    {
+      "id": "VSH375",
+      "name": "vastbase-sqlserver-if-not-exists",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF NOT EXISTS (SELECT 1 FROM sys.objects WHERE name = @name) SELECT 0 ELSE SELECT 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "deparse_contains": [
+          "NOT EXISTS",
+          "@name"
+        ],
+        "view_contains": [
+          "\"kind\":\"exists\"",
+          "\"bind_key\":\"name\""
+        ]
+      }
+    },
+    {
+      "id": "VSH376",
+      "name": "vastbase-sqlserver-if-scalar-subquery-condition",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF (SELECT COUNT(*) FROM dbo.t WHERE state = @state) > 5 SELECT 1 ELSE SELECT 0",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "deparse_contains": [
+          "SELECT COUNT(*)",
+          "@state",
+          "> 5"
+        ],
+        "view_contains": [
+          "\"kind\":\"scalar_subquery\"",
+          "\"bind_key\":\"state\""
+        ]
+      }
+    },
+    {
+      "id": "VSH377",
+      "name": "vastbase-sqlserver-if-nested-boolean-condition",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @a = 1 AND (@b = 2 OR NOT @c = 3) SELECT 1 ELSE SELECT 0",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "deparse_contains": [
+          "@a = 1",
+          "@b = 2",
+          "@c = 3"
+        ],
+        "view_contains": [
+          "\"bool_operator\":\"and\"",
+          "\"bool_operator\":\"or\"",
+          "\"bool_operator\":\"not\"",
+          "\"clause\":\"condition\""
+        ]
+      }
+    },
+    {
+      "id": "VSH378",
+      "name": "vastbase-sqlserver-if-function-condition",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF COALESCE(@flag, 0) = 1 SELECT 1 ELSE SELECT 0",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "deparse_contains": "COALESCE(@flag, 0) = 1",
+        "view_contains": [
+          "\"bind_key\":\"flag\"",
+          "\"clause\":\"condition\""
+        ]
+      }
+    },
+    {
+      "id": "VSH379",
+      "name": "vastbase-sqlserver-if-case-condition",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF CASE WHEN @a = 1 THEN 1 ELSE 0 END = 1 SELECT 1 ELSE SELECT 0",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "deparse_contains": "CASE WHEN @a = 1 THEN 1 ELSE 0 END = 1",
+        "view_contains": [
+          "\"bind_key\":\"a\"",
+          "\"clause\":\"condition\""
+        ]
+      }
+    },
+    {
+      "id": "VSH380",
+      "name": "vastbase-sqlserver-if-update-insert-output-branches",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @a = 1 UPDATE dbo.t SET a = 2 OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a WHERE id = @id ELSE INSERT dbo.t(a) OUTPUT INSERTED.id VALUES (1)",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "deparse_contains": [
+          "OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a",
+          "OUTPUT INSERTED.id"
+        ],
+        "view_contains": [
+          "\"kind\":\"target_before\"",
+          "\"kind\":\"target_after\"",
+          "\"bind_key\":\"id\""
+        ]
+      }
+    },
+    {
+      "id": "VSH381",
+      "name": "vastbase-sqlserver-if-delete-merge-output-branches",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @a = 1 DELETE FROM dbo.t OUTPUT DELETED.id WHERE id = @id ELSE MERGE INTO dbo.t AS t USING dbo.s AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET a = s.a WHEN NOT MATCHED THEN INSERT (id, a) VALUES (s.id, s.a) OUTPUT $action, DELETED.id, INSERTED.id",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "deparse_contains": [
+          "DELETE FROM dbo.t OUTPUT DELETED.id",
+          "MERGE INTO dbo.t",
+          "OUTPUT $action"
+        ],
+        "view_contains": [
+          "\"kind\":\"delete\"",
+          "\"kind\":\"merge\"",
+          "\"kind\":\"pseudo\",\"name\":\"$action\""
+        ]
+      }
+    },
+    {
+      "id": "VSH382",
+      "name": "vastbase-sqlserver-if-ddl-branches",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @a = 1 DROP TABLE IF EXISTS dbo.old_t ELSE CREATE TABLE dbo.new_t(id int)",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "deparse_contains": [
+          "DROP TABLE IF EXISTS dbo.old_t",
+          "CREATE TABLE dbo.new_t"
+        ],
+        "view_contains": "\"control_flow\""
+      }
+    },
+    {
+      "id": "VSH383",
+      "name": "vastbase-sqlserver-if-transaction-branches",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @@TRANCOUNT > 0 COMMIT TRANSACTION ELSE ROLLBACK TRANSACTION",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "deparse_contains": [
+          "@@TRANCOUNT > 0",
+          "COMMIT TRANSACTION",
+          "ROLLBACK TRANSACTION"
+        ],
+        "view_contains": "\"kind\":\"condition\""
+      }
+    },
+    {
+      "id": "VSH384",
+      "name": "vastbase-sqlserver-if-root-statements-semicolon",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "SELECT 9; IF @a = 1 SELECT 1 ELSE SELECT 0; SELECT 8",
+      "expect": {
+        "ok": true,
+        "statement_count": 5,
+        "deparse_contains": [
+          "SELECT 9; IF",
+          "ELSE SELECT 0; SELECT 8"
+        ],
+        "view_contains": [
+          "\"roots\":[{\"kind\":\"statement\",\"index\":0},{\"kind\":\"node\",\"index\":0},{\"kind\":\"statement\",\"index\":4}]"
+        ]
+      }
+    },
+    {
+      "id": "VSH385",
+      "name": "vastbase-sqlserver-if-root-statements-newline",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "SELECT 9\nIF @a = 1 SELECT 1 ELSE SELECT 0\nSELECT 8",
+      "expect": {
+        "ok": true,
+        "statement_count": 5,
+        "deparse_contains": [
+          "SELECT 9\nIF",
+          "ELSE SELECT 0\nSELECT 8"
+        ],
+        "view_contains": "\"control_flow\""
+      }
+    },
+    {
+      "id": "VSH386",
+      "name": "vastbase-sqlserver-if-protected-keyword-text",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @a = 1 BEGIN SELECT 'ELSE'; -- ELSE\nSELECT [IF] FROM dbo.t END /* ELSE */ ELSE SELECT 0",
+      "expect": {
+        "ok": true,
+        "statement_count": 4,
+        "deparse_contains": [
+          "SELECT 'ELSE'",
+          "SELECT [IF]",
+          "/* ELSE */ ELSE"
+        ],
+        "view_contains": "\"control_flow\""
+      }
+    },
+    {
+      "id": "VSH387",
+      "name": "vastbase-sqlserver-if-union-line-boundary",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @a = 1 BEGIN SELECT 1\nUNION ALL\nSELECT 2\nSELECT 3 END ELSE SELECT 0",
+      "expect": {
+        "ok": true,
+        "statement_count": 4,
+        "deparse_contains": [
+          "SELECT 1\nUNION ALL\nSELECT 2",
+          "SELECT 3"
+        ],
+        "view_contains": "\"control_flow\""
+      }
+    },
+    {
+      "id": "VSH388",
+      "name": "vastbase-sqlserver-if-table-hint-line-boundary",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @a = 1 BEGIN SELECT id FROM dbo.t\nWITH (NOLOCK)\nSELECT 2 END ELSE SELECT 0",
+      "expect": {
+        "ok": true,
+        "statement_count": 4,
+        "deparse_contains": [
+          "dbo.t\nWITH (NOLOCK)",
+          "SELECT 2"
+        ],
+        "view_contains": "\"control_flow\""
+      }
+    },
+    {
+      "id": "VSH389",
+      "name": "vastbase-sqlserver-if-three-level-nesting",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @a = 1 BEGIN IF @b = 1 BEGIN IF @c = 1 SELECT 1 ELSE SELECT 2 END ELSE SELECT 3 END ELSE SELECT 4",
+      "expect": {
+        "ok": true,
+        "statement_count": 7,
+        "deparse_contains": [
+          "IF @b = 1",
+          "IF @c = 1",
+          "ELSE SELECT 4"
+        ],
+        "view_contains": "\"control_flow\""
+      }
+    },
+    {
+      "id": "VSH390",
+      "name": "vastbase-sqlserver-drop-user-if-exists-before-control",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "DROP USER IF EXISTS app_user\nIF @a = 1 SELECT 1 ELSE SELECT 0",
+      "expect": {
+        "ok": true,
+        "statement_count": 4,
+        "deparse_contains": [
+          "DROP USER IF EXISTS app_user",
+          "IF @a = 1"
+        ],
+        "view_contains": "\"control_flow\""
+      }
+    },
+    {
+      "id": "VSH391",
+      "name": "vastbase-sqlserver-if-null-between-in-condition",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @a IS NULL OR @b BETWEEN 1 AND 2 OR @c IN (1, 2, 3) SELECT 1 ELSE SELECT 0",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "deparse_contains": [
+          "@a IS NULL",
+          "@b BETWEEN 1 AND 2",
+          "@c IN (1, 2, 3)"
+        ],
+        "view_contains": [
+          "\"bind_key\":\"a\"",
+          "\"bind_key\":\"b\"",
+          "\"bind_key\":\"c\""
+        ]
+      }
+    },
+    {
+      "id": "VSH392",
+      "name": "vastbase-sqlserver-if-query-right-operand",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @maxWeight <= (SELECT Weight FROM dbo.Products WHERE ProductKey = @id) SELECT 1 ELSE SELECT 0",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "deparse_contains": [
+          "@maxWeight <= (SELECT Weight",
+          "ProductKey = @id"
+        ],
+        "view_contains": [
+          "\"kind\":\"scalar_subquery\"",
+          "\"bind_key\":\"maxWeight\"",
+          "\"bind_key\":\"id\""
+        ]
+      }
+    },
+    {
+      "id": "VSH393",
+      "name": "vastbase-sqlserver-if-cte-branch",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @a = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.t) SELECT id FROM cte; END ELSE SELECT 0",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "deparse_contains": [
+          "WITH cte AS",
+          "SELECT id FROM cte"
+        ],
+        "view_contains": "\"control_flow\""
+      }
+    },
+    {
+      "id": "VSH394",
+      "name": "vastbase-sqlserver-if-begin-end-optional-semicolons",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @a = 1 BEGIN; SELECT 1; END; ELSE BEGIN; SELECT 0; END;",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "deparse_contains": [
+          "BEGIN; SELECT 1; END;",
+          "ELSE BEGIN; SELECT 0; END;"
+        ],
+        "view_contains": "\"control_flow\""
+      }
+    },
+    {
+      "id": "VSH395",
+      "name": "vastbase-sqlserver-drop-table-if-exists-before-control",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "DROP TABLE IF EXISTS dbo.old_t\nIF @a = 1 SELECT 1 ELSE SELECT 0",
+      "expect": {
+        "ok": true,
+        "statement_count": 4,
+        "deparse_contains": [
+          "DROP TABLE IF EXISTS dbo.old_t",
+          "IF @a = 1"
+        ],
+        "view_contains": "\"control_flow\""
+      }
+    },
+    {
+      "id": "VSH396",
+      "name": "vastbase-sqlserver-drop-table-before-control",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "DROP TABLE dbo.old_t\nIF @a = 1 SELECT 1 ELSE SELECT 0",
+      "expect": {
+        "ok": true,
+        "statement_count": 4,
+        "deparse_contains": [
+          "DROP TABLE dbo.old_t",
+          "IF @a = 1"
+        ],
+        "view_contains": "\"control_flow\""
+      }
+    },
+    {
+      "id": "VSH397",
+      "name": "vastbase-sqlserver-drop-table-before-if-exists-control",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "DROP TABLE dbo.old_t\nIF EXISTS (SELECT 1 FROM dbo.t WHERE id = @id) SELECT 1 ELSE SELECT 0",
+      "expect": {
+        "ok": true,
+        "statement_count": 4,
+        "deparse_contains": [
+          "DROP TABLE dbo.old_t",
+          "IF EXISTS (SELECT 1",
+          "id = @id"
+        ],
+        "view_contains": "\"control_flow\""
+      }
+    },
+    {
+      "id": "VSH398",
+      "name": "vastbase-sqlserver-multiline-drop-if-exists-before-control",
+      "official_item": "drop-table-transact-sql/else-if-else-transact-sql",
+      "sql": "DROP TABLE\nIF EXISTS dbo.old_t\nIF @a = 1 SELECT 1 ELSE SELECT 0",
+      "expect": {
+        "ok": true,
+        "statement_count": 4,
+        "deparse_contains": [
+          "DROP TABLE",
+          "IF EXISTS dbo.old_t",
+          "IF @a = 1"
+        ],
+        "view_contains": "\"control_flow\""
+      }
+    },
+    {
+      "id": "VSH399",
+      "name": "vastbase-sqlserver-if-cte-update-branch",
+      "official_item": "with-common-table-expression-transact-sql/else-if-else-transact-sql",
+      "sql": "IF @run = 1 BEGIN; WITH cte AS (SELECT id, v FROM dbo.t)\nUPDATE cte\nSET v = 1\nWHERE id = 2; END ELSE SELECT 0",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "deparse_contains": [
+          "WITH cte AS",
+          "UPDATE cte",
+          "SET v = 1",
+          "WHERE id = 2"
+        ],
+        "view_contains": "\"control_flow\""
+      }
+    },
+    {
+      "id": "VSH400",
+      "name": "vastbase-sqlserver-if-cte-delete-branch",
+      "official_item": "with-common-table-expression-transact-sql/else-if-else-transact-sql",
+      "sql": "IF @run = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.t)\nDELETE FROM cte\nWHERE id = 2; END ELSE SELECT 0",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "deparse_contains": [
+          "WITH cte AS",
+          "DELETE FROM cte",
+          "WHERE id = 2"
+        ],
+        "view_contains": "\"control_flow\""
+      }
+    },
+    {
+      "id": "VSH401",
+      "name": "vastbase-sqlserver-if-cte-insert-branch",
+      "official_item": "with-common-table-expression-transact-sql/else-if-else-transact-sql",
+      "sql": "IF @run = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.s)\nINSERT INTO dbo.t(id)\nSELECT id FROM cte; END ELSE SELECT 0",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "deparse_contains": [
+          "WITH cte AS",
+          "INSERT INTO dbo.t(id)",
+          "SELECT id FROM cte"
+        ],
+        "view_contains": "\"control_flow\""
+      }
+    },
+    {
+      "id": "VSH402",
+      "name": "vastbase-sqlserver-if-cte-merge-branch",
+      "official_item": "with-common-table-expression-transact-sql/merge-transact-sql/else-if-else-transact-sql",
+      "sql": "IF @run = 1 BEGIN; WITH src AS (SELECT id, v FROM dbo.s)\nMERGE INTO dbo.t AS t\nUSING src AS s ON t.id = s.id\nWHEN MATCHED THEN UPDATE SET v = s.v\nWHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v); END ELSE SELECT 0",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "deparse_contains": [
+          "WITH src AS",
+          "MERGE INTO dbo.t AS t",
+          "WHEN MATCHED THEN UPDATE SET v = s.v",
+          "WHEN NOT MATCHED THEN INSERT (id, v)"
+        ],
+        "view_contains": "\"control_flow\""
+      }
+    },
+    {
+      "id": "VSH403",
+      "name": "vastbase-sqlserver-if-create-view-cte-branch",
+      "official_item": "with-common-table-expression-transact-sql/create-view-transact-sql/else-if-else-transact-sql",
+      "sql": "IF @run = 1 BEGIN; CREATE VIEW dbo.v_active AS\nWITH cte AS (SELECT id FROM dbo.t WHERE active = 1)\nSELECT id FROM cte; END ELSE DROP VIEW dbo.v_active",
+      "expect": {
+        "ok": true,
+        "statement_count": 3,
+        "deparse_contains": [
+          "CREATE VIEW dbo.v_active AS",
+          "WITH cte AS",
+          "SELECT id FROM cte",
+          "DROP VIEW dbo.v_active"
+        ],
+        "view_contains": "\"control_flow\""
+      }
+    },
+    {
+      "id": "VSU028",
+      "name": "vastbase-sqlserver-if-missing-condition",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF",
+      "expect": {
+        "ok": false,
+        "error_code": 3,
+        "error_message_contains": "SQL Server IF requires a condition"
+      }
+    },
+    {
+      "id": "VSU029",
+      "name": "vastbase-sqlserver-if-missing-branch",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @a = 1",
+      "expect": {
+        "ok": false,
+        "error_code": 3,
+        "error_message_contains": "SQL Server IF requires a branch statement"
+      }
+    },
+    {
+      "id": "VSU030",
+      "name": "vastbase-sqlserver-if-orphan-else",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "ELSE SELECT 1",
+      "expect": {
+        "ok": false,
+        "error_code": 3,
+        "error_message_contains": "SQL Server ELSE does not have a matching IF"
+      }
+    },
+    {
+      "id": "VSU031",
+      "name": "vastbase-sqlserver-if-empty-begin-end",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @a = 1 BEGIN END",
+      "expect": {
+        "ok": false,
+        "error_code": 3,
+        "error_message_contains": "SQL Server BEGIN block requires at least one statement"
+      }
+    },
+    {
+      "id": "VSU032",
+      "name": "vastbase-sqlserver-if-unterminated-begin-end",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @a = 1 BEGIN SELECT 1",
+      "expect": {
+        "ok": false,
+        "error_code": 3,
+        "error_message_contains": "unterminated SQL Server BEGIN block"
+      }
+    },
+    {
+      "id": "VSU033",
+      "name": "vastbase-sqlserver-if-unparenthesized-select-condition",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF EXISTS SELECT 1 SELECT 2",
+      "expect": {
+        "ok": false,
+        "error_code": 3,
+        "error_message_contains": "SQL Server IF condition SELECT must be parenthesized"
+      }
+    },
+    {
+      "id": "VSU034",
+      "name": "vastbase-sqlserver-if-else-missing-branch",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @a = 1 SELECT 1 ELSE",
+      "expect": {
+        "ok": false,
+        "error_code": 3,
+        "error_message_contains": "SQL Server ELSE requires a branch statement"
+      }
+    },
+    {
+      "id": "VSU035",
+      "name": "vastbase-sqlserver-if-go-batch-separator",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @a = 1 SELECT 1\nGO\nSELECT 2",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "GO batch separator is not supported inside SQL Server control flow"
+      }
+    },
+    {
+      "id": "VSU036",
+      "name": "vastbase-sqlserver-if-unsupported-leaf",
+      "official_item": "else-if-else-transact-sql/begin-end-transact-sql",
+      "sql": "IF @a = 1 EXEC dbo.proc ELSE SELECT 0",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "unsupported SQL Server syntax: batch or procedure execution"
+      }
+    },
+    {
+      "id": "VSU018",
+      "name": "vastbase-sqlserver-output-empty-target-list-error",
+      "official_item": "output-clause-transact-sql",
+      "sql": "INSERT dbo.t(a) OUTPUT VALUES (1)",
+      "expect": {
+        "ok": false,
+        "error_code": 3,
+        "error_message_contains": "OUTPUT target list must not be empty"
+      }
+    },
+    {
+      "id": "VSU019",
+      "name": "vastbase-sqlserver-output-trailing-comma-error",
+      "official_item": "output-clause-transact-sql",
+      "sql": "INSERT dbo.t(a) OUTPUT INSERTED.id, VALUES (1)",
+      "expect": {
+        "ok": false,
+        "error_code": 3,
+        "error_message_contains": "OUTPUT target list must not end with a comma"
+      }
+    },
+    {
+      "id": "VSU020",
+      "name": "vastbase-sqlserver-output-into-missing-target-error",
+      "official_item": "output-clause-transact-sql",
+      "sql": "INSERT dbo.t(a) OUTPUT INSERTED.id INTO VALUES (1)",
+      "expect": {
+        "ok": false,
+        "error_code": 3,
+        "error_message_contains": "OUTPUT INTO requires a target"
+      }
+    },
+    {
+      "id": "VSU021",
+      "name": "vastbase-sqlserver-output-channel-order-error",
+      "official_item": "output-clause-transact-sql",
+      "sql": "INSERT dbo.t(a) OUTPUT INSERTED.id OUTPUT INSERTED.id INTO dbo.audit VALUES (1)",
+      "expect": {
+        "ok": false,
+        "error_code": 3,
+        "error_message_contains": "second channel only after OUTPUT INTO"
+      }
+    },
+    {
+      "id": "VSU022",
+      "name": "vastbase-sqlserver-insert-output-deleted-error",
+      "official_item": "output-clause-transact-sql",
+      "sql": "INSERT dbo.t(a) OUTPUT DELETED.id VALUES (1)",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "DELETED is not valid in a SQL Server INSERT OUTPUT clause"
+      }
+    },
+    {
+      "id": "VSU023",
+      "name": "vastbase-sqlserver-delete-output-inserted-error",
+      "official_item": "output-clause-transact-sql",
+      "sql": "DELETE FROM dbo.t OUTPUT INSERTED.id WHERE id = 1",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "INSERTED is not valid in a SQL Server DELETE OUTPUT clause"
+      }
+    },
+    {
+      "id": "VSU024",
+      "name": "vastbase-sqlserver-non-merge-output-action-error",
+      "official_item": "output-clause-transact-sql",
+      "sql": "UPDATE dbo.t SET a = 1 OUTPUT $action WHERE id = 1",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "$action is valid only in a SQL Server MERGE OUTPUT clause"
+      }
+    },
+    {
+      "id": "VSU025",
+      "name": "vastbase-sqlserver-output-aggregate-error",
+      "official_item": "output-clause-transact-sql",
+      "sql": "UPDATE dbo.t SET a = 1 OUTPUT COUNT(*) WHERE id = 1",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "OUTPUT does not allow aggregate functions"
+      }
+    },
+    {
+      "id": "VSU026",
+      "name": "vastbase-sqlserver-output-subquery-error",
+      "official_item": "output-clause-transact-sql",
+      "sql": "UPDATE dbo.t SET a = 1 OUTPUT (SELECT 1) WHERE id = 1",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "OUTPUT does not allow subqueries"
+      }
+    },
+    {
+      "id": "VSU027",
+      "name": "vastbase-sqlserver-insert-exec-output-error",
+      "official_item": "insert-transact-sql/output-clause-transact-sql",
+      "sql": "INSERT dbo.t(a) OUTPUT INSERTED.id EXEC dbo.load_t",
+      "expect": {
+        "ok": false,
+        "error_code": 5,
+        "error_message_contains": "INSERT EXEC cannot use OUTPUT"
       }
     }
   ]

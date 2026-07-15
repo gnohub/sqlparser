@@ -1,6 +1,6 @@
 # SQL Server 方言用例矩阵
 
-本文件记录 SQL Server 方言转换层的回归用例。可执行夹具为 `tests/cases/sqlserver_dialect_input.json`，单元测试 `tests/unit/test_sqlserver_dialect_case_matrix.c` 会逐条验证解析结果、View JSON、反解析输出和错误码。当前夹具包含 459 条用例：448 条支持路径，11 条明确不支持路径。
+本文件记录 SQL Server 方言转换层的回归用例。可执行夹具为 `tests/cases/sqlserver_dialect_input.json`，单元测试 `tests/unit/test_sqlserver_dialect_case_matrix.c` 会逐条验证解析结果、View JSON、反解析输出和错误码。当前夹具包含 546 条用例：517 条支持路径，29 条错误或明确不支持路径。
 
 ## 支持用例
 
@@ -120,15 +120,88 @@
 | S111 | 外层和内层 `TOP` | `SELECT TOP (...) ... FROM (SELECT TOP (...) ...)` | 多作用域 `TOP` 同时转换和恢复 |
 | S112 | 多语句第二条 `FOR JSON` | `SELECT ...; SELECT ... FOR JSON AUTO` | `FOR JSON` 后缀按原 statement 序号恢复，避免挂到前一条语句 |
 
-## 明确不支持用例
+## INSERT 与 OUTPUT 用例
 
-以下语法具有 SQL Server 专属语义，当前不会尝试映射为 PostgreSQL AST。转换层返回 `SQLPARSER_STATUS_UNSUPPORTED`，避免生成语义不可靠的 SQL。
+| ID | 用例 | 覆盖点 |
+| --- | --- | --- |
+| SU003 | INSERT client `OUTPUT` | `INSERTED` 字段、client channel、公开 SQL 恢复 |
+| SH336 | 省略 `INTO` 的 INSERT 集合查询 | 原始 `UNION ALL` 输入、别名和 Unicode literal |
+| SH337 | 显式 `INTO` 的 INSERT SELECT | 来源查询与 client channel |
+| SH338 | 省略 `INTO` 的单行 VALUES | INSERT 目标和结果字段 |
+| SH339 | 省略 `INTO` 的多行 VALUES | 多行写入和结果字段 |
+| SH340 | `DEFAULT VALUES` | 无显式目标列的结果字段 |
+| SH341 | CTE + INSERT SELECT | CTE 来源块和结果通道 |
+| SH342 | 基础 INSERT `OUTPUT` | 兼容原 `SU003` 形态 |
+| SH343 | `INSERTED.*` | target-after 星号引用 |
+| SH344 | 表达式和别名 | OUTPUT target 表达式 patch 入口 |
+| SH345 | 多 target 与 bind | target 顺序、字段引用和 bind |
+| SH346 | `OUTPUT ... INTO table` | sink channel 和 sink relation |
+| SH347 | sink 显式列列表 | sink column selector |
+| SH348 | table variable sink | `OUTPUT INTO @table_variable` |
+| SH349 | sink/client 双通道 | 有序双通道和独立 target 列表 |
+| SH350 | UPDATE before/after | `DELETED` 与 `INSERTED` 引用 |
+| SH351 | UPDATE 来源字段 | target-after 和 source 引用 |
+| SH352 | DELETE before | `DELETED` 引用 |
+| SH353 | DELETE JOIN 来源字段 | DELETE target 和 source 引用 |
+| SH354 | MERGE `$action` | action target 与公开 SQL 恢复 |
+| SH355 | MERGE 全部引用类型 | `$action`、before、after、source |
+| SH356 | 嵌套 DML table source | 父子 DML 与内层 result channel |
+| SH357 | UPDATE TOP + OUTPUT | DML TOP 与结果通道组合 |
+| SH358 | INSERT 目标 hint + OUTPUT | hint 与结果通道组合恢复 |
+| SH359 | 字符串中的 OUTPUT 关键字 | 受保护文本不触发语法识别 |
+| SH360 | 注释中的 OUTPUT 关键字 | 注释边界和尾注释恢复 |
+| SH361 | 标识符中的 OUTPUT 关键字 | 方括号标识符边界 |
+| SH362 | 来源子查询中的 OUTPUT 文本 | 嵌套作用域与受保护文本 |
+| SH363 | INSERT SELECT 来源表 hint | 来源 hint 不会恢复到 INSERT 目标 |
+| SH364 | INSERT 目标与来源表 hint + OUTPUT | 两个 hint 按各自锚点恢复 |
+| SH365 | OUTPUT 中的定界保留字列 | `INSERTED.[select]` 按列引用解析 |
+| SH366 | DELETE 等价定界别名 | 不同定界形式和转义后的同名别名归一为同一目标关系 |
+| SH367 | 多语句 OUTPUT 通道 | INSERT、UPDATE、DELETE 的结果通道按语句独立关联 |
+| SH368 | 官方 IF EXISTS 形态 | 查询条件、表提示、Unicode 常量和双分支 |
+| SH369 | 无 ELSE 的 IF | 单条件分支 |
+| SH370 | 常量布尔条件 | 无字段条件的 values/predicate 输出 |
+| SH371 | 分号分隔 BEGIN 块 | 双分支多语句顺序 |
+| SH372 | 换行分隔 BEGIN 块 | 无分号语句边界 |
+| SH373 | dangling ELSE | ELSE 归属最近未闭合 IF |
+| SH374 | ELSE IF 链 | else 分支中的嵌套 IF |
+| SH375 | NOT EXISTS | 否定查询条件和 bind |
+| SH376 | 标量子查询条件 | 括号 SELECT、聚合和 bind |
+| SH377 | 嵌套布尔条件 | AND、OR、NOT 谓词树和三个 bind |
+| SH378 | 函数条件 | COALESCE 参数和值输出 |
+| SH379 | CASE 条件 | CASE 表达式和值输出 |
+| SH380 | UPDATE/INSERT OUTPUT 分支 | 每个控制单元独立维护 OUTPUT 状态 |
+| SH381 | DELETE/MERGE OUTPUT 分支 | DELETE row image、MERGE `$action` 和双 row image |
+| SH382 | DDL 分支 | DROP IF EXISTS 与 CREATE TABLE |
+| SH383 | 事务分支 | 系统变量、COMMIT 和 ROLLBACK |
+| SH384 | 分号分隔根语句 | IF 前后普通语句的根顺序 |
+| SH385 | 换行分隔根语句 | 无分号根语句边界 |
+| SH386 | 受保护文本 | 字符串、注释和定界标识符中的控制关键字 |
+| SH387 | UNION ALL 换行 | 集合查询不被拆成多个 branch item |
+| SH388 | 表提示换行 | `WITH (NOLOCK)` 不被识别为新语句 |
+| SH389 | 三层嵌套 IF | 多级控制节点与分支顺序 |
+| SH390 | DROP USER IF EXISTS 后接 IF | DDL 内部 IF 与控制 IF 消歧 |
+| SH391 | NULL/BETWEEN/IN 条件 | 常用条件运算与 bind |
+| SH392 | 右侧标量子查询 | 官方括号查询条件和跨块 bind |
+| SH393 | CTE 分支 | BEGIN 块内的分号前导 CTE |
+| SH394 | BEGIN/END 可选分号 | 官方块分号形态 |
+| SH395 | DROP TABLE IF EXISTS 后接 IF | 无分号 DDL 与控制流边界 |
+| SH396 | DROP TABLE 后接 IF | 不含 `IF EXISTS` 的无分号 DDL 与控制流边界 |
+| SH397 | DROP TABLE 后接 IF EXISTS 控制语句 | 完整 DROP 目标与控制条件消歧 |
+| SH398 | 换行 DROP TABLE IF EXISTS 后接 IF | DROP 条件子句与后续控制语句消歧 |
+| SH399 | CTE UPDATE 分支 | CTE 与 UPDATE/SET 续行保持为同一叶语句 |
+| SH400 | CTE DELETE 分支 | CTE 与 DELETE 续行保持为同一叶语句 |
+| SH401 | CTE INSERT 分支 | CTE、INSERT 与来源 SELECT 保持为同一叶语句 |
+| SH402 | CTE MERGE 分支 | CTE 与完整 MERGE action 保持为同一叶语句 |
+| SH403 | CREATE VIEW CTE 分支 | 视图定义与换行 CTE 保持为同一叶语句 |
+
+## 错误与明确不支持用例
+
+以下用例逐条验证语法错误或明确不支持状态，不返回可用 handle。
 
 | ID | 用例 | 原因 |
 | --- | --- | --- |
 | SU001 | `TOP ... WITH TIES` 无 `ORDER BY` | SQL Server 要求 `WITH TIES` 与 `ORDER BY` 同时使用 |
 | SU002 | `TOP ... PERCENT WITH TIES` 无 `ORDER BY` | SQL Server 要求 `WITH TIES` 与 `ORDER BY` 同时使用 |
-| SU003 | `OUTPUT` | DML 输出流语义需要 SQL Server 专用模型 |
 | SU005 | `CROSS APPLY` | APPLY 语义不同于普通 JOIN |
 | SU006 | `PIVOT` | 表变换语义需要专用 AST |
 | SU009 | `DECLARE` | 变量声明属于 T-SQL 批处理语义 |
@@ -137,6 +210,25 @@
 | SU015 | 表变量 | 表变量作用域属于 T-SQL 批处理语义 |
 | SU016 | `MERGE ... BY SOURCE` | SQL Server 专属 merge 分支语义 |
 | SU017 | `TOP` + `OFFSET/FETCH` | SQL Server 不允许在同一查询作用域组合使用 |
+| SU018 | OUTPUT 空 target | 返回语法错误 |
+| SU019 | OUTPUT target 尾逗号 | 返回语法错误 |
+| SU020 | `OUTPUT INTO` 缺少 sink | 返回语法错误 |
+| SU021 | 双通道顺序错误 | client channel 后不允许再声明 sink channel |
+| SU022 | INSERT 使用 `DELETED` | 返回明确不支持 |
+| SU023 | DELETE 使用 `INSERTED` | 返回明确不支持 |
+| SU024 | 非 MERGE 使用 `$action` | 返回明确不支持 |
+| SU025 | OUTPUT 聚合函数 | 返回明确不支持 |
+| SU026 | OUTPUT 子查询 | 返回明确不支持 |
+| SU027 | INSERT EXEC + OUTPUT | 返回明确不支持 |
+| SU028 | IF 缺少条件 | 返回语法错误 |
+| SU029 | IF 缺少分支语句 | 返回语法错误 |
+| SU030 | 孤立 ELSE | 返回语法错误 |
+| SU031 | 空 BEGIN/END | 返回语法错误 |
+| SU032 | 未闭合 BEGIN/END | 返回语法错误 |
+| SU033 | 条件 SELECT 未加括号 | 返回语法错误 |
+| SU034 | ELSE 缺少分支语句 | 返回语法错误 |
+| SU035 | 控制流中包含 GO | 返回明确不支持，不静默改写批边界 |
+| SU036 | 分支叶子语句不受支持 | 返回叶子语法的明确不支持状态 |
 
 ## DML 来源字段链路补充用例
 

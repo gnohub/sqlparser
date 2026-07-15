@@ -17,10 +17,11 @@
 
 #include "protobuf/pg_query.pb-c.h"
 #include "../dialect/sqlparser_dialect_internal.h"
+#include "sqlparser_control_internal.h"
 #include "sqlparser_internal.h"
 
 #ifndef SQLPARSER_VERSION_TEXT
-#define SQLPARSER_VERSION_TEXT "2.9.0"
+#define SQLPARSER_VERSION_TEXT "2.10.0"
 #endif
 
 #ifndef SQLPARSER_LIBPG_QUERY_TAG_TEXT
@@ -557,6 +558,10 @@ static void sqlparser_handle_release_contents(sqlparser_handle_t *handle)
 	sqlparser_handle_clear_ast(handle);
 	sqlparser_handle_invalidate_derived(handle);
 	sqlparser_protobuf_release(&handle->parse_tree);
+	if (handle->control != NULL) {
+		sqlparser_control_state_release(handle->control);
+		handle->control = NULL;
+	}
 	if (handle->dialect_ops != NULL && handle->dialect_ops->destroy_state != NULL && handle->dialect_state != NULL) {
 		handle->dialect_ops->destroy_state(handle->dialect_state);
 	}
@@ -593,7 +598,6 @@ sqlparser_status_t sqlparser_handle_clone(
 			"out_handle must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-
 	*out_handle = NULL;
 	if (source == NULL || source->sql == NULL || source->parser_sql == NULL || source->parse_tree.data == NULL) {
 		sqlparser_error_set_message(
@@ -610,6 +614,9 @@ sqlparser_status_t sqlparser_handle_clone(
 	}
 	clone->dialect = source->dialect;
 	clone->dialect_ops = source->dialect_ops;
+	clone->limits = source->limits;
+	clone->generation = source->generation;
+	clone->statement_count = source->statement_count;
 
 	clone->sql = sqlparser_strdup(source->sql);
 	if (clone->sql == NULL) {
@@ -650,12 +657,16 @@ sqlparser_status_t sqlparser_handle_clone(
 		sqlparser_handle_destroy(clone);
 		return status;
 	}
+	if (source->control != NULL) {
+		status = sqlparser_control_state_clone(source->control, &clone->limits, &clone->control, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_handle_destroy(clone);
+			return status;
+		}
+	}
 
 	clone->sql_len = source->sql_len;
 	clone->parser_sql_len = source->parser_sql_len;
-	clone->statement_count = source->statement_count;
-	clone->limits = source->limits;
-	clone->generation = source->generation;
 	*out_handle = clone;
 	return SQLPARSER_STATUS_OK;
 }
@@ -687,6 +698,11 @@ sqlparser_status_t sqlparser_handle_commit_ast(
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
 			"handle must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (handle->control != NULL && handle->ast->n_stmts != handle->control->unit_count) {
+		sqlparser_handle_clear_ast(handle);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "control units do not match parser statements");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 
 	packed_size = pg_query__parse_result__get_packed_size(handle->ast);
@@ -727,7 +743,7 @@ sqlparser_status_t sqlparser_handle_commit_ast(
 	free(handle->parse_tree.data);
 	handle->parse_tree.data = packed;
 	handle->parse_tree.len = packed_len;
-	handle->statement_count = handle->ast->n_stmts;
+	handle->statement_count = handle->control != NULL ? handle->control->unit_count : handle->ast->n_stmts;
 	handle->generation++;
 	sqlparser_handle_invalidate_derived(handle);
 	return SQLPARSER_STATUS_OK;
@@ -753,12 +769,22 @@ sqlparser_status_t sqlparser_ensure_current_sql_text(
 	if (handle->generation == 0UL) {
 		return SQLPARSER_STATUS_OK;
 	}
-	if (handle->current_sql != NULL && handle->current_parser_sql != NULL) {
+	if ((handle->control != NULL && handle->current_sql != NULL) ||
+	    (handle->control == NULL && handle->current_sql != NULL && handle->current_parser_sql != NULL)) {
 		return SQLPARSER_STATUS_OK;
 	}
 
 	mutable_handle = (sqlparser_handle_t *)handle;
 	sqlparser_handle_invalidate_derived(mutable_handle);
+	if (handle->control != NULL) {
+		public_sql = NULL;
+		status = sqlparser_control_build_public_sql(handle, &public_sql, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		mutable_handle->current_sql = public_sql;
+		return SQLPARSER_STATUS_OK;
+	}
 
 	sqlparser_pg_query_prepare();
 	deparse_result = pg_query_deparse_protobuf(handle->parse_tree);
@@ -844,7 +870,7 @@ const char *sqlparser_effective_parser_sql(const sqlparser_handle_t *handle)
 		return NULL;
 	}
 
-	if (handle->generation == 0UL || handle->current_parser_sql == NULL) {
+	if (handle->control != NULL || handle->generation == 0UL || handle->current_parser_sql == NULL) {
 		return handle->parser_sql;
 	}
 
@@ -853,6 +879,7 @@ const char *sqlparser_effective_parser_sql(const sqlparser_handle_t *handle)
 
 sqlparser_status_t sqlparser_postprocess_handle_sql_fragment(
 	const sqlparser_handle_t *handle,
+	size_t statement_index,
 	const char *core_sql,
 	const char *field_name,
 	char **out_sql,
@@ -883,6 +910,7 @@ sqlparser_status_t sqlparser_postprocess_handle_sql_fragment(
 		status = handle->dialect_ops->postprocess_fragment(
 			core_sql,
 			handle->dialect_state,
+			statement_index,
 			&public_sql,
 			out_error);
 	} else if (handle->dialect_ops != NULL && handle->dialect_ops->postprocess_deparse != NULL) {
@@ -944,6 +972,7 @@ void sqlparser_handle_adopt_dialect_state(
 
 sqlparser_status_t sqlparser_preprocess_handle_sql_fragment(
 	const sqlparser_handle_t *handle,
+	size_t statement_index,
 	const char *public_sql,
 	const char *field_name,
 	char **out_parser_sql,
@@ -992,6 +1021,7 @@ sqlparser_status_t sqlparser_preprocess_handle_sql_fragment(
 	status = handle->dialect_ops->preprocess_fragment(
 		public_sql,
 		candidate_state,
+		statement_index,
 		out_parser_sql,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
@@ -1055,6 +1085,8 @@ const char *sqlparser_statement_kind_name(sqlparser_statement_kind_t kind)
 			return "call";
 		case SQLPARSER_STATEMENT_KIND_OTHER:
 			return "other";
+		case SQLPARSER_STATEMENT_KIND_CONDITION:
+			return "condition";
 		case SQLPARSER_STATEMENT_KIND_UNKNOWN:
 		default:
 			return "unknown";
@@ -1154,6 +1186,16 @@ const char *sqlparser_selector_kind_name(sqlparser_selector_kind_t kind)
 			return "insert_branch_columns";
 		case SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_CONDITION:
 			return "insert_branch_condition";
+		case SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGETS:
+			return "dml_result_targets";
+		case SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGET:
+			return "dml_result_target";
+		case SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK:
+			return "dml_result_sink";
+		case SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK_COLUMNS:
+			return "dml_result_sink_columns";
+		case SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK_COLUMN:
+			return "dml_result_sink_column";
 		case SQLPARSER_SELECTOR_KIND_UNKNOWN:
 		default:
 			return "unknown";
@@ -1189,6 +1231,10 @@ const char *sqlparser_clause_kind_name(sqlparser_clause_kind_t kind)
 			return "group_by";
 		case SQLPARSER_CLAUSE_KIND_HAVING:
 			return "having";
+		case SQLPARSER_CLAUSE_KIND_DML_RESULT:
+			return "dml_result";
+		case SQLPARSER_CLAUSE_KIND_CONDITION:
+			return "condition";
 		case SQLPARSER_CLAUSE_KIND_UNKNOWN:
 		default:
 			return "unknown";
@@ -1206,6 +1252,10 @@ const char *sqlparser_graph_block_kind_name(sqlparser_graph_block_kind_t kind)
 			return "cte";
 		case SQLPARSER_GRAPH_BLOCK_SET:
 			return "set";
+		case SQLPARSER_GRAPH_BLOCK_DML_RESULT:
+			return "dml_result";
+		case SQLPARSER_GRAPH_BLOCK_CONDITION:
+			return "condition";
 		default:
 			return "unknown";
 	}
@@ -1483,6 +1533,7 @@ sqlparser_status_t sqlparser_parse_with_options(
 	size_t parser_sql_len;
 	char *parser_sql;
 	void *dialect_state;
+	sqlparser_control_state_t *control_state;
 
 	if (out_handle == NULL) {
 		sqlparser_error_set_message(
@@ -1497,6 +1548,7 @@ sqlparser_status_t sqlparser_parse_with_options(
 	sqlparser_error_clear(out_error);
 	parser_sql = NULL;
 	dialect_state = NULL;
+	control_state = NULL;
 
 	if (sql == NULL || sql[0] == '\0') {
 		sqlparser_error_set_message(
@@ -1617,6 +1669,19 @@ sqlparser_status_t sqlparser_parse_with_options(
 		sqlparser_handle_destroy(handle);
 		return status;
 	}
+	if (dialect_ops->take_control_state != NULL) {
+		control_state = dialect_ops->take_control_state(handle->dialect_state);
+		if (control_state != NULL) {
+			status = sqlparser_control_state_attach(handle, control_state, out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				sqlparser_control_state_release(control_state);
+				pg_query_free_protobuf_parse_result(parse_result);
+				sqlparser_handle_destroy(handle);
+				return status;
+			}
+			control_state = NULL;
+		}
+	}
 	sqlparser_handle_clear_ast(handle);
 
 	pg_query_free_protobuf_parse_result(parse_result);
@@ -1688,6 +1753,30 @@ sqlparser_status_t sqlparser_deparse(
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
 			"handle must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (handle->control != NULL) {
+		if (handle->generation == 0UL) {
+			status = sqlparser_validate_handle_output_text(handle, handle->sql, "deparse output", out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+			*out_sql = sqlparser_strdup(handle->sql);
+			if (*out_sql == NULL) {
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+				return SQLPARSER_STATUS_NO_MEMORY;
+			}
+			return SQLPARSER_STATUS_OK;
+		}
+		status = sqlparser_ensure_current_sql_text(handle, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		*out_sql = sqlparser_strdup(handle->current_sql);
+		if (*out_sql == NULL) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		return SQLPARSER_STATUS_OK;
 	}
 
 	sqlparser_pg_query_prepare();

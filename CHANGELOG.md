@@ -1,5 +1,29 @@
 # 变更记录
 
+## 2.10.0
+
+### SQL Server 方言
+
+- 支持显式或省略 `INTO` 的 `INSERT`，覆盖 `VALUES`、多行 `VALUES`、`SELECT`、集合查询、CTE 和 `DEFAULT VALUES`。
+- 支持 `INSERT`、`UPDATE`、`DELETE` 和 `MERGE` 的 `OUTPUT` 结果通道，覆盖 `INSERTED`、`DELETED`、来源字段、`$action`、表达式、别名和 bind。
+- 支持 `OUTPUT ... INTO`、sink/client 双通道、目标列列表以及外层 `INSERT` 消费内层 DML `OUTPUT` 的嵌套 DML。
+- 支持 `IF...ELSE` 单语句分支、`BEGIN...END` 多语句分支、`ELSE IF` 和嵌套控制流。
+- Vastbase-SQLServer 同步支持上述兼容语法。
+
+### 结构化遍历与改写
+
+- 增加控制流只读结构和访问函数，按源码顺序遍历 roots、nodes、branches、items 及可寻址条件 statement。
+- Query Graph 支持同一 statement 内的多个 DML、嵌套 DML 父子关系、DML 结果通道和结果字段来源。
+- 增加 DML 结果 target、sink relation 和 sink column selector，可继续通过 `sqlparser_apply_patch()` 执行统一改写。
+- 公共 API 采用追加式扩展，既有函数签名和公共结构体布局保持不变。
+
+### 性能与验证
+
+- 普通非控制 SQL 不构造控制流状态；控制流状态使用单次连续分配。
+- SQL Server 与 Vastbase-SQLServer 方言用例矩阵分别包含 546 条用例，其中 517 条为支持路径，29 条为错误或明确不支持路径。
+- 发布验证覆盖 GCC 8.3 严格编译、全量测试、ASan、UBSan、Valgrind、ABI 检查以及 Windows VS 2022 x64/MSVC 19.39 全量测试。
+- ABI 导出检查包含 146 个公共符号。
+
 ## 2.9.0
 
 ### MySQL 方言

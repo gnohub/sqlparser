@@ -5,6 +5,7 @@
 #include <jansson.h>
 
 #include "sqlparser/sqlparser.h"
+#include "sqlparser_control_internal.h"
 
 static int expect_true(int condition, const char *message)
 {
@@ -59,6 +60,213 @@ static int expect_deparse_reparse_ok(const sqlparser_handle_t *handle, const cha
 	sqlparser_handle_destroy(reparsed);
 	sqlparser_string_free(sql);
 	return 0;
+}
+
+static const char *test_control_sql(void)
+{
+	return "SELECT 1 FROM __sqlparser_source__ WHERE a = 1; "
+		"SELECT id FROM t; UPDATE t SET x = 2 WHERE id = 1";
+}
+
+static void test_control_state_fill(
+	sqlparser_control_state_t *state,
+	const char *sql)
+{
+	const char *condition;
+	const char *then_statement;
+	const char *else_statement;
+
+	condition = strstr(sql, "a = 1");
+	then_statement = strstr(sql, "SELECT id FROM t");
+	else_statement = strstr(sql, "UPDATE t SET x = 2 WHERE id = 1");
+	state->roots.offset = 0U;
+	state->roots.count = 1U;
+	state->nodes[0].kind = SQLPARSER_CONTROL_NODE_IF;
+	state->nodes[0].branches.offset = 1U;
+	state->nodes[0].branches.count = 2U;
+	state->branches[0].condition_statement_index = 0U;
+	state->branches[0].has_condition = 1;
+	state->branches[0].items.offset = 3U;
+	state->branches[0].items.count = 1U;
+	state->branches[1].items.offset = 4U;
+	state->branches[1].items.count = 1U;
+	state->items[0].kind = SQLPARSER_CONTROL_ITEM_NODE;
+	state->items[0].index = 0U;
+	state->items[1].kind = SQLPARSER_CONTROL_ITEM_STATEMENT;
+	state->items[1].index = 1U;
+	state->items[2].kind = SQLPARSER_CONTROL_ITEM_STATEMENT;
+	state->items[2].index = 2U;
+	state->index_pool[0] = 0U;
+	state->index_pool[1] = 0U;
+	state->index_pool[2] = 1U;
+	state->index_pool[3] = 1U;
+	state->index_pool[4] = 2U;
+	state->units[0].kind = SQLPARSER_CONTROL_UNIT_CONDITION;
+	state->units[0].ast_statement_index = 0U;
+	state->units[0].source_offset = (size_t)(condition - sql);
+	state->units[0].source_length = strlen("a = 1");
+	state->units[1].kind = SQLPARSER_CONTROL_UNIT_STATEMENT;
+	state->units[1].ast_statement_index = 1U;
+	state->units[1].source_offset = (size_t)(then_statement - sql);
+	state->units[1].source_length = strlen("SELECT id FROM t");
+	state->units[2].kind = SQLPARSER_CONTROL_UNIT_STATEMENT;
+	state->units[2].ast_statement_index = 2U;
+	state->units[2].source_offset = (size_t)(else_statement - sql);
+	state->units[2].source_length = strlen("UPDATE t SET x = 2 WHERE id = 1");
+}
+
+static int test_control_handle_new(sqlparser_handle_t **out_handle)
+{
+	sqlparser_control_counts_t counts;
+	sqlparser_control_state_t *state;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_status_t status;
+
+	if (out_handle == NULL) {
+		return 1;
+	}
+	*out_handle = NULL;
+	handle = NULL;
+	state = NULL;
+	memset(&error, 0, sizeof(error));
+	status = sqlparser_parse(test_control_sql(), &handle, &error);
+	if (expect_status_ok(status, &error, "control test SQL should parse") != 0) {
+		return 1;
+	}
+	memset(&counts, 0, sizeof(counts));
+	counts.root_count = 1U;
+	counts.node_count = 1U;
+	counts.branch_count = 2U;
+	counts.item_count = 3U;
+	counts.index_count = 5U;
+	counts.unit_count = 3U;
+	status = sqlparser_control_state_allocate(&counts, &handle->limits, &state, &error);
+	if (expect_status_ok(status, &error, "control state allocation should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	test_control_state_fill(state, test_control_sql());
+	status = sqlparser_control_state_attach(handle, state, &error);
+	if (expect_status_ok(status, &error, "control state attach should succeed") != 0) {
+		sqlparser_control_state_release(state);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	*out_handle = handle;
+	return 0;
+}
+
+static int test_nested_control_depth(size_t depth, sqlparser_status_t expected_status)
+{
+	static const char condition_statement[] =
+		"SELECT 1 FROM __sqlparser_source__ WHERE a = 1; ";
+	static const char condition_prefix[] =
+		"SELECT 1 FROM __sqlparser_source__ WHERE ";
+	static const char condition_sql[] = "a = 1";
+	static const char leaf_sql[] = "SELECT 1";
+	sqlparser_parse_options_t options;
+	sqlparser_control_counts_t counts;
+	sqlparser_control_state_t *state;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_status_t status;
+	char *sql;
+	size_t sql_length;
+	size_t index;
+	int result;
+
+	if (depth == 0U || depth > 64U) {
+		return 1;
+	}
+	sql_length = depth * (sizeof(condition_statement) - 1U) +
+		(sizeof(leaf_sql) - 1U);
+	sql = (char *)malloc(sql_length + 1U);
+	if (sql == NULL) {
+		return 1;
+	}
+	for (index = 0U; index < depth; index++) {
+		memcpy(
+			sql + index * (sizeof(condition_statement) - 1U),
+			condition_statement,
+			sizeof(condition_statement) - 1U);
+	}
+	memcpy(
+		sql + depth * (sizeof(condition_statement) - 1U),
+		leaf_sql,
+		sizeof(leaf_sql));
+
+	handle = NULL;
+	state = NULL;
+	result = 1;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	status = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(status, &error, "nested control SQL should parse") != 0) {
+		goto done;
+	}
+	memset(&counts, 0, sizeof(counts));
+	counts.root_count = 1U;
+	counts.node_count = depth;
+	counts.branch_count = depth;
+	counts.item_count = depth + 1U;
+	counts.index_count = depth * 2U + 1U;
+	counts.unit_count = depth + 1U;
+	status = sqlparser_control_state_allocate(&counts, &handle->limits, &state, &error);
+	if (expect_status_ok(status, &error, "nested control state should allocate") != 0) {
+		goto done;
+	}
+	state->roots.offset = 0U;
+	state->roots.count = 1U;
+	state->index_pool[0] = 0U;
+	state->items[0].kind = SQLPARSER_CONTROL_ITEM_NODE;
+	state->items[0].index = 0U;
+	for (index = 0U; index < depth; index++) {
+		state->nodes[index].kind = SQLPARSER_CONTROL_NODE_IF;
+		state->nodes[index].branches.offset = 1U + index;
+		state->nodes[index].branches.count = 1U;
+		state->branches[index].condition_statement_index = index;
+		state->branches[index].has_condition = 1;
+		state->branches[index].items.offset = 1U + depth + index;
+		state->branches[index].items.count = 1U;
+		state->items[index + 1U].kind = index + 1U < depth ?
+			SQLPARSER_CONTROL_ITEM_NODE : SQLPARSER_CONTROL_ITEM_STATEMENT;
+		state->items[index + 1U].index = index + 1U < depth ? index + 1U : depth;
+		state->index_pool[1U + index] = index;
+		state->index_pool[1U + depth + index] = index + 1U;
+		state->units[index].kind = SQLPARSER_CONTROL_UNIT_CONDITION;
+		state->units[index].ast_statement_index = index;
+		state->units[index].source_offset =
+			index * (sizeof(condition_statement) - 1U) +
+			(sizeof(condition_prefix) - 1U);
+		state->units[index].source_length = sizeof(condition_sql) - 1U;
+	}
+	state->units[depth].kind = SQLPARSER_CONTROL_UNIT_STATEMENT;
+	state->units[depth].ast_statement_index = depth;
+	state->units[depth].source_offset = depth * (sizeof(condition_statement) - 1U);
+	state->units[depth].source_length = sizeof(leaf_sql) - 1U;
+
+	status = sqlparser_control_state_attach(handle, state, &error);
+	if (status != expected_status) {
+		fprintf(
+			stderr,
+			"FAIL: nested control depth %lu returned %d instead of %d: %s\n",
+			(unsigned long)depth,
+			(int)status,
+			(int)expected_status,
+			error.message);
+		goto done;
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		state = NULL;
+	}
+	result = 0;
+
+done:
+	sqlparser_control_state_release(state);
+	sqlparser_handle_destroy(handle);
+	free(sql);
+	return result;
 }
 
 static int find_name_index(
@@ -1114,6 +1322,7 @@ static int test_update_assignment_bind_rhs_literal_rewrite(void)
 		}
 		sqlparser_string_free(deparsed_sql);
 		sqlparser_handle_destroy(handle);
+
 	}
 
 	return 0;
@@ -1911,6 +2120,13 @@ static int test_where_clause_sql_rewrite_api(void)
 	rc = sqlparser_statement_clause_count(handle, 0U, &clause_count, &error);
 	if (expect_status_ok(rc, &error, "select clause count should succeed") != 0 ||
 	    expect_true(clause_count == 3U, "select should expose select_list, where, and order_by clauses") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_clause_sql(handle, 0U, clause_count, &clause_sql, &error);
+	if (expect_true(rc == SQLPARSER_STATUS_INVALID_ARGUMENT && clause_sql == NULL,
+		    "out-of-range clause access should fail") != 0) {
+		sqlparser_string_free(clause_sql);
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -2841,6 +3057,7 @@ static int test_dialect_insert_column_patch_with_question_param(void)
 	sqlparser_graph_dml_t dml;
 	sqlparser_graph_dml_column_t column;
 	sqlparser_graph_dml_cell_t cell;
+	sqlparser_index_span_t invalid_span;
 	char *deparsed_sql;
 	size_t cell_index;
 	size_t index;
@@ -2920,6 +3137,14 @@ static int test_dialect_insert_column_patch_with_question_param(void)
 		    expect_true(cell.column_ordinal == 3U, "patched insert cell column mismatch") != 0 ||
 		    expect_true(cell.kind == SQLPARSER_GRAPH_VALUE_BIND, "patched insert cell should be a bind") != 0 ||
 		    expect_true(cell.has_bind_sql != 0 && strcmp(cell.bind_sql, "?") == 0, "patched insert cell should expose question bind SQL") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		invalid_span.offset = (size_t)-1;
+		invalid_span.count = 1U;
+		rc = sqlparser_query_graph_span_index_at(&graph, invalid_span, 0U, &cell_index, &error);
+		if (expect_true(rc == SQLPARSER_STATUS_INVALID_ARGUMENT,
+			    "overflowing query graph span should fail") != 0) {
 			sqlparser_handle_destroy(handle);
 			return 1;
 		}
@@ -3115,6 +3340,1119 @@ static int test_sqlserver_dialect_option(void)
 
 	sqlparser_string_free(deparsed_sql);
 	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_sqlserver_control_flow_and_patch(void)
+{
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_SQLSERVER,
+		SQLPARSER_DIALECT_VASTBASE_SQLSERVER
+	};
+	const char *sql;
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *clone;
+	sqlparser_control_flow_view_t flow;
+	sqlparser_control_branch_t branch;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_block_t block;
+	sqlparser_graph_value_t value;
+	sqlparser_patch_t patches[2];
+	sqlparser_patch_t invalid_patch;
+	sqlparser_patch_list_t patch_list;
+	sqlparser_error_t error;
+	char *view_json;
+	char *deparsed_sql;
+	char *clone_sql;
+	char *before_invalid;
+	char *after_invalid;
+	size_t dialect_index;
+	size_t index;
+	size_t count;
+	unsigned long generation;
+	int found_new_name;
+	int rc;
+
+	sql =
+		"IF @enabled = 1 AND EXISTS (SELECT 1 FROM dbo.config WHERE name = @name) "
+		"BEGIN UPDATE dbo.t SET a = 2 "
+		"OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a WHERE id = @id; "
+		"SELECT id FROM dbo.t; END "
+		"ELSE INSERT dbo.t(a) OUTPUT INSERTED.id VALUES (1)";
+	handle = NULL;
+	clone = NULL;
+	view_json = NULL;
+	deparsed_sql = NULL;
+	clone_sql = NULL;
+	before_invalid = NULL;
+	after_invalid = NULL;
+	memset(&error, 0, sizeof(error));
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		sqlparser_statement_kind_t statement_kind;
+
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index];
+		rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+		if (expect_status_ok(rc, &error, "SQL Server control flow should parse") != 0 ||
+		    expect_true(sqlparser_statement_count(handle) == 4U,
+			    "SQL Server control flow should expose four addressable units") != 0) {
+			goto fail;
+		}
+		rc = sqlparser_statement_kind(handle, 0U, &statement_kind, &error);
+		if (expect_status_ok(rc, &error, "SQL Server condition kind should be available") != 0 ||
+		    expect_true(statement_kind == SQLPARSER_STATEMENT_KIND_CONDITION,
+			    "SQL Server first control unit should be a condition") != 0) {
+			goto fail;
+		}
+		memset(&flow, 0, sizeof(flow));
+		rc = sqlparser_handle_control_flow(handle, &flow, &error);
+		if (expect_status_ok(rc, &error, "SQL Server control topology should be available") != 0 ||
+		    expect_true(flow.roots.count == 1U && flow.node_count == 1U &&
+			    flow.branch_count == 2U && flow.item_count == 4U,
+			    "SQL Server control topology counts should match the source") != 0) {
+			goto fail;
+		}
+		memset(&branch, 0, sizeof(branch));
+		rc = sqlparser_control_branch_at(&flow, 0U, &branch, &error);
+		if (expect_status_ok(rc, &error, "SQL Server then branch should be available") != 0 ||
+		    expect_true(branch.has_condition && branch.condition_statement_index == 0U &&
+			    branch.items.count == 2U,
+			    "SQL Server then branch should reference its condition and two statements") != 0) {
+			goto fail;
+		}
+		rc = sqlparser_control_branch_at(&flow, 1U, &branch, &error);
+		if (expect_status_ok(rc, &error, "SQL Server else branch should be available") != 0 ||
+		    expect_true(!branch.has_condition && branch.items.count == 1U,
+			    "SQL Server else branch should contain one unconditional statement") != 0) {
+			goto fail;
+		}
+
+		memset(&graph, 0, sizeof(graph));
+		rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+		if (expect_status_ok(rc, &error, "SQL Server condition graph should be available") != 0 ||
+		    expect_true(graph.has_root_block && graph.block_count == 2U &&
+			    graph.value_count == 4U && graph.predicate_count == 4U,
+			    "SQL Server condition graph should include the condition and subquery") != 0) {
+			goto fail;
+		}
+		memset(&block, 0, sizeof(block));
+		rc = sqlparser_query_graph_block_at(&graph, graph.root_block_index, &block, &error);
+		if (expect_status_ok(rc, &error, "SQL Server condition root block should be available") != 0 ||
+		    expect_true(block.kind == SQLPARSER_GRAPH_BLOCK_CONDITION,
+			    "SQL Server condition root should not expose its SELECT wrapper") != 0) {
+			goto fail;
+		}
+		memset(&value, 0, sizeof(value));
+		rc = sqlparser_query_graph_value_at(&graph, 0U, &value, &error);
+		if (expect_status_ok(rc, &error, "SQL Server condition bind should be available") != 0 ||
+		    expect_true(value.clause == SQLPARSER_CLAUSE_KIND_CONDITION &&
+			    value.has_bind && strcmp(value.bind, "enabled") == 0 &&
+			    value.has_bind_position && value.bind_position == 1U,
+			    "SQL Server condition bind should retain clause and global position") != 0) {
+			goto fail;
+		}
+		memset(&graph, 0, sizeof(graph));
+		rc = sqlparser_statement_query_graph(handle, 1U, &graph, &error);
+		if (expect_status_ok(rc, &error, "SQL Server branch DML graph should be available") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml_result_count(&graph, 0U, &count, &error),
+			    &error, "SQL Server branch OUTPUT count should be available") != 0 ||
+		    expect_true(count == 1U && graph.value_count == 1U,
+			    "SQL Server branch DML should expose one OUTPUT channel and WHERE bind") != 0) {
+			goto fail;
+		}
+		memset(&value, 0, sizeof(value));
+		rc = sqlparser_query_graph_value_at(&graph, 0U, &value, &error);
+		if (expect_status_ok(rc, &error, "SQL Server branch bind should be available") != 0 ||
+		    expect_true(value.has_bind && strcmp(value.bind, "id") == 0 &&
+			    value.has_bind_position && value.bind_position == 3U,
+			    "SQL Server bind positions should remain global across control units") != 0) {
+			goto fail;
+		}
+
+		rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
+		if (expect_status_ok(rc, &error, "SQL Server control View JSON should succeed") != 0 ||
+		    expect_true(strstr(view_json, "\"control_flow\"") != NULL &&
+			    strstr(view_json, "\"keyword\":\"condition\"") != NULL &&
+			    strstr(view_json, "__sqlparser_") == NULL,
+			    "SQL Server control View should mirror public structures only") != 0) {
+			goto fail;
+		}
+		sqlparser_string_free(view_json);
+		view_json = NULL;
+
+		memset(patches, 0, sizeof(patches));
+		patches[0].op = SQLPARSER_PATCH_REPLACE;
+		patches[0].selector = "stmt[0].clause[0]";
+		patches[0].sql =
+			"@enabled = 2 AND EXISTS "
+			"(SELECT 1 FROM dbo.config WHERE name = @new_name)";
+		patches[1].op = SQLPARSER_PATCH_REPLACE;
+		patches[1].selector = "stmt[1].dml_result_target[0][0][1]";
+		patches[1].sql = "INSERTED.a AS current_a";
+		patch_list.items = patches;
+		patch_list.count = sizeof(patches) / sizeof(patches[0]);
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		if (expect_status_ok(rc, &error, "SQL Server cross-unit patch should succeed") != 0 ||
+		    expect_deparse_reparse_ok(handle, "SQL Server patched control SQL should reparse") != 0) {
+			goto fail;
+		}
+		rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+		if (expect_status_ok(rc, &error, "SQL Server patched control SQL should deparse") != 0 ||
+		    expect_true(strstr(deparsed_sql, "@enabled = 2") != NULL &&
+			    strstr(deparsed_sql, "@new_name") != NULL &&
+			    strstr(deparsed_sql, "inserted.a AS current_a") != NULL &&
+			    strstr(deparsed_sql, "$1") == NULL,
+			    "SQL Server control deparse should restore public bind and OUTPUT syntax") != 0) {
+			goto fail;
+		}
+
+		memset(&graph, 0, sizeof(graph));
+		rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+		if (expect_status_ok(rc, &error, "patched SQL Server condition graph should rebuild") != 0) {
+			goto fail;
+		}
+		found_new_name = 0;
+		for (index = 0U; index < graph.value_count; index++) {
+			memset(&value, 0, sizeof(value));
+			rc = sqlparser_query_graph_value_at(&graph, index, &value, &error);
+			if (expect_status_ok(rc, &error, "patched SQL Server condition value should resolve") != 0) {
+				goto fail;
+			}
+			if (value.has_bind && strcmp(value.bind, "new_name") == 0) {
+				found_new_name = 1;
+			}
+		}
+		if (expect_true(found_new_name,
+			    "patched SQL Server condition graph should expose the replacement bind") != 0) {
+			goto fail;
+		}
+
+		rc = sqlparser_handle_clone(handle, &clone, &error);
+		if (expect_status_ok(rc, &error, "SQL Server control handle clone should succeed") != 0 ||
+		    expect_deparse_reparse_ok(clone, "cloned SQL Server control SQL should reparse") != 0) {
+			goto fail;
+		}
+		rc = sqlparser_deparse(clone, &clone_sql, &error);
+		if (expect_status_ok(rc, &error, "cloned SQL Server control SQL should deparse") != 0 ||
+		    expect_true(strcmp(clone_sql, deparsed_sql) == 0,
+			    "SQL Server control clone should preserve all patched units") != 0) {
+			goto fail;
+		}
+
+		before_invalid = deparsed_sql;
+		deparsed_sql = NULL;
+		generation = handle->generation;
+		memset(&invalid_patch, 0, sizeof(invalid_patch));
+		invalid_patch.op = SQLPARSER_PATCH_REPLACE;
+		invalid_patch.selector = "stmt[0].clause[0]";
+		invalid_patch.sql = "@enabled =";
+		patch_list.items = &invalid_patch;
+		patch_list.count = 1U;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		if (expect_true(rc != SQLPARSER_STATUS_OK && handle->generation == generation,
+			    "failed SQL Server condition patch should not mutate the handle") != 0) {
+			goto fail;
+		}
+		rc = sqlparser_deparse(handle, &after_invalid, &error);
+		if (expect_status_ok(rc, &error, "SQL Server control SQL should deparse after failed patch") != 0 ||
+		    expect_true(strcmp(before_invalid, after_invalid) == 0,
+			    "failed SQL Server condition patch should preserve every control unit") != 0) {
+			goto fail;
+		}
+
+		sqlparser_string_free(before_invalid);
+		before_invalid = NULL;
+		sqlparser_string_free(after_invalid);
+		after_invalid = NULL;
+		sqlparser_string_free(clone_sql);
+		clone_sql = NULL;
+		sqlparser_handle_destroy(clone);
+		clone = NULL;
+		sqlparser_handle_destroy(handle);
+		handle = NULL;
+	}
+	return 0;
+
+fail:
+	sqlparser_string_free(view_json);
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_string_free(clone_sql);
+	sqlparser_string_free(before_invalid);
+	sqlparser_string_free(after_invalid);
+	sqlparser_handle_destroy(clone);
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+static int test_sqlserver_control_depth_limit(void)
+{
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_SQLSERVER,
+		SQLPARSER_DIALECT_VASTBASE_SQLSERVER
+	};
+	static const char prefix[] = "IF @v = 1 ";
+	static const char leaf[] = "SELECT 1";
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_control_flow_view_t flow;
+	sqlparser_error_t error;
+	char *sql;
+	size_t depths[2];
+	size_t depth_index;
+	size_t dialect_index;
+	size_t depth;
+	size_t index;
+	size_t sql_length;
+	int rc;
+
+	depths[0] = SQLPARSER_CONTROL_MAX_DEPTH;
+	depths[1] = SQLPARSER_CONTROL_MAX_DEPTH + 1U;
+	for (depth_index = 0U; depth_index < sizeof(depths) / sizeof(depths[0]); depth_index++) {
+		depth = depths[depth_index];
+		sql_length = depth * (sizeof(prefix) - 1U) + (sizeof(leaf) - 1U);
+		sql = (char *)malloc(sql_length + 1U);
+		if (sql == NULL) {
+			return 1;
+		}
+		for (index = 0U; index < depth; index++) {
+			memcpy(sql + index * (sizeof(prefix) - 1U), prefix, sizeof(prefix) - 1U);
+		}
+		memcpy(sql + depth * (sizeof(prefix) - 1U), leaf, sizeof(leaf));
+
+		for (dialect_index = 0U;
+		     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+		     dialect_index++) {
+			char *deparsed;
+			sqlparser_handle_t *reparsed;
+
+			handle = NULL;
+			reparsed = NULL;
+			deparsed = NULL;
+			memset(&error, 0, sizeof(error));
+			sqlparser_parse_options_default(&options);
+			options.dialect = dialects[dialect_index];
+			rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+			if (depth <= SQLPARSER_CONTROL_MAX_DEPTH) {
+				if (expect_status_ok(rc, &error, "SQL Server control depth limit should parse") != 0 ||
+				    expect_true(sqlparser_statement_count(handle) == depth + 1U,
+					    "SQL Server nested IF should expose every condition and leaf") != 0 ||
+				    expect_status_ok(sqlparser_handle_control_flow(handle, &flow, &error),
+					    &error, "SQL Server nested control topology should be available") != 0 ||
+				    expect_true(flow.node_count == depth,
+					    "SQL Server nested control topology should retain every IF") != 0) {
+					sqlparser_handle_destroy(handle);
+					free(sql);
+					return 1;
+				}
+				rc = sqlparser_deparse(handle, &deparsed, &error);
+				if (expect_status_ok(rc, &error,
+					    "SQL Server control SQL at the depth limit should deparse") != 0) {
+					sqlparser_handle_destroy(handle);
+					free(sql);
+					return 1;
+				}
+				rc = sqlparser_parse_with_options(deparsed, &options, &reparsed, &error);
+				if (expect_status_ok(rc, &error,
+					    "SQL Server control SQL at the depth limit should reparse") != 0) {
+					sqlparser_string_free(deparsed);
+					sqlparser_handle_destroy(handle);
+					free(sql);
+					return 1;
+				}
+			} else if (expect_true(rc == SQLPARSER_STATUS_RESOURCE_LIMIT && handle == NULL,
+				   "SQL Server control SQL above the depth limit should fail cleanly") != 0) {
+				sqlparser_handle_destroy(handle);
+				free(sql);
+				return 1;
+			}
+			sqlparser_string_free(deparsed);
+			sqlparser_handle_destroy(reparsed);
+			sqlparser_handle_destroy(handle);
+		}
+		free(sql);
+	}
+	return 0;
+}
+
+static int test_sqlserver_output_query_graph_and_patch(void)
+{
+	const char *sql;
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_result_t result;
+	sqlparser_graph_dml_reference_t reference;
+	sqlparser_graph_relation_t relation;
+	sqlparser_patch_t patches[5];
+	sqlparser_patch_list_t patch_list;
+	char *deparsed_sql;
+	size_t count;
+	size_t reference_index;
+	int rc;
+
+	sql =
+		"INSERT dbo.t(a, name) "
+		"OUTPUT INSERTED.id INTO dbo.audit(id) "
+		"OUTPUT INSERTED.id AS id "
+		"VALUES (1, N'Alice')";
+	handle = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_SQLSERVER;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "SQL Server dual OUTPUT parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "SQL Server dual OUTPUT graph should succeed") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_count(&graph, &count, &error), &error,
+	                     "SQL Server dual OUTPUT dml count should succeed") != 0 ||
+	    expect_true(count == 1U, "SQL Server dual OUTPUT should expose one DML") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_at(&graph, 0U, &dml, &error), &error,
+	                     "SQL Server dual OUTPUT dml should be available") != 0 ||
+	    expect_true(dml.kind == SQLPARSER_GRAPH_DML_INSERT, "SQL Server dual OUTPUT DML should be insert") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_result_count(&graph, 0U, &count, &error), &error,
+	                     "SQL Server dual OUTPUT result count should succeed") != 0 ||
+	    expect_true(count == 2U, "SQL Server dual OUTPUT should expose two result channels") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_query_graph_dml_result_at(&graph, 0U, 0U, &result, &error);
+	if (expect_status_ok(rc, &error, "SQL Server OUTPUT sink channel should be available") != 0 ||
+	    expect_true(result.kind == SQLPARSER_GRAPH_DML_RESULT_SINK, "first OUTPUT channel should be sink") != 0 ||
+	    expect_true(result.has_sink_relation != 0, "sink OUTPUT should expose its relation") != 0 ||
+	    expect_true(result.sink_columns.count == 1U, "sink OUTPUT should expose one sink column") != 0 ||
+	    expect_true(result.references.count == 1U, "sink OUTPUT should expose one row-image reference") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_relation_at(&graph, result.sink_relation_index, &relation, &error), &error,
+	                     "SQL Server OUTPUT sink relation should be available") != 0 ||
+	    expect_true(relation.object_name != NULL && strcmp(relation.object_name, "audit") == 0,
+	                "SQL Server OUTPUT sink relation should be audit") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(
+	                         &graph, result.references, 0U, &reference_index, &error),
+	                     &error, "SQL Server OUTPUT reference index should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_reference_at(
+	                         &graph, reference_index, &reference, &error),
+	                     &error, "SQL Server OUTPUT reference should be available") != 0 ||
+	    expect_true(reference.kind == SQLPARSER_GRAPH_DML_REFERENCE_TARGET_AFTER,
+	                "INSERTED reference should identify the target-after row image") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_query_graph_dml_result_at(&graph, 0U, 1U, &result, &error);
+	if (expect_status_ok(rc, &error, "SQL Server OUTPUT client channel should be available") != 0 ||
+	    expect_true(result.kind == SQLPARSER_GRAPH_DML_RESULT_CLIENT, "second OUTPUT channel should be client") != 0 ||
+	    expect_true(result.has_sink_relation == 0, "client OUTPUT must not expose a sink relation") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[0].selector = "stmt[0].dml_result_targets[0][0]";
+	patches[0].index = 1U;
+	patches[0].sql = "INSERTED.name AS audit_name";
+	patches[1].op = SQLPARSER_PATCH_REPLACE;
+	patches[1].selector = "stmt[0].dml_result_target[0][1][0]";
+	patches[1].sql = "INSERTED.name AS output_name";
+	patches[2].op = SQLPARSER_PATCH_REPLACE;
+	patches[2].selector = "stmt[0].dml_result_sink[0][0]";
+	patches[2].sql = "dbo.audit_log";
+	patches[3].op = SQLPARSER_PATCH_REPLACE;
+	patches[3].selector = "stmt[0].dml_result_sink_column[0][0][0]";
+	patches[3].sql = "audit_id";
+	patches[4].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[4].selector = "stmt[0].dml_result_sink_columns[0][0]";
+	patches[4].index = 1U;
+	patches[4].name = "audit_name";
+	patch_list.items = patches;
+	patch_list.count = sizeof(patches) / sizeof(patches[0]);
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "SQL Server OUTPUT patch list should succeed") != 0 ||
+	    expect_true(
+		    sqlparser_query_graph_dml_count(&graph, &count, &error) == SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "SQL Server OUTPUT patch should invalidate the previous query graph view") != 0 ||
+	    expect_deparse_reparse_ok(handle, "SQL Server patched OUTPUT should reparse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "SQL Server patched OUTPUT deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "INSERT INTO dbo.t") == NULL && strstr(deparsed_sql, "dbo.t") != NULL,
+	                "omitted INSERT INTO should be preserved") != 0 ||
+	    expect_true(strstr(deparsed_sql, "INSERT  ") == NULL,
+	                "omitted INSERT INTO must not leave duplicate whitespace") != 0 ||
+	    expect_true(strstr(deparsed_sql, ")  OUTPUT") == NULL,
+	                "OUTPUT insertion must not create duplicate whitespace") != 0 ||
+	    expect_true(strstr(deparsed_sql, "OUTPUT inserted.id, inserted.name AS audit_name INTO dbo.audit_log (audit_id, audit_name)") != NULL,
+	                "patched sink OUTPUT should be preserved") != 0 ||
+	    expect_true(strstr(deparsed_sql, "OUTPUT inserted.name AS output_name") != NULL,
+	                "patched client OUTPUT should be preserved") != 0 ||
+	    expect_true(strstr(deparsed_sql, "__sqlparser_") == NULL,
+	                "patched OUTPUT must not expose internal identifiers") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_DELETE_COLUMN;
+	patches[0].selector = "stmt[0].dml_result_targets[0][0]";
+	patches[0].index = 0U;
+	patches[1].op = SQLPARSER_PATCH_DELETE_COLUMN;
+	patches[1].selector = "stmt[0].dml_result_sink_columns[0][0]";
+	patches[1].index = 0U;
+	patch_list.items = patches;
+	patch_list.count = 2U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "SQL Server OUTPUT target and sink-column deletion should succeed") != 0 ||
+	    expect_deparse_reparse_ok(handle, "SQL Server OUTPUT after deletion should reparse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_sqlserver_output_action_marker_and_patch(void)
+{
+	const char *sql;
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_result_t result;
+	sqlparser_graph_block_t block;
+	sqlparser_graph_target_t target;
+	sqlparser_graph_field_t field;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patch_list;
+	char *view_json;
+	char *deparsed_sql;
+	size_t target_index;
+	size_t field_index;
+	size_t marker0_count;
+	size_t marker1_count;
+	size_t count;
+	int rc;
+
+	sql =
+		"MERGE INTO dbo.t AS t USING dbo.s AS s ON t.id = s.id "
+		"WHEN MATCHED THEN UPDATE SET a = s.a "
+		"WHEN NOT MATCHED THEN INSERT (id, a) VALUES (s.id, s.a) "
+		"OUTPUT $action, "
+		"N'kind:' + $action + s.__sqlparser_dml_action_0__ + "
+		"s.__sqlparser_dml_action_1__ AS label, "
+		"s.__sqlparser_dml_action_0__ AS marker0";
+	handle = NULL;
+	view_json = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_SQLSERVER;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "SQL Server MERGE $action parse should succeed") != 0 ||
+	    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error), &error,
+	                     "SQL Server MERGE $action graph should succeed") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_result_count(&graph, 0U, &count, &error), &error,
+	                     "SQL Server MERGE $action result count should succeed") != 0 ||
+	    expect_true(count == 1U, "SQL Server MERGE should expose one OUTPUT result") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_result_at(&graph, 0U, 0U, &result, &error), &error,
+	                     "SQL Server MERGE OUTPUT result should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_block_at(&graph, result.block_index, &block, &error), &error,
+	                     "SQL Server MERGE OUTPUT block should be available") != 0 ||
+	    expect_true(block.targets.count == 3U, "SQL Server MERGE OUTPUT should expose three targets") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, block.targets, 0U, &target_index, &error), &error,
+	                     "SQL Server MERGE $action target index should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_target_at(&graph, target_index, &target, &error), &error,
+	                     "SQL Server MERGE $action target should be available") != 0 ||
+	    expect_true(target.kind == SQLPARSER_GRAPH_TARGET_PSEUDO,
+	                "SQL Server MERGE $action should be a pseudo target") != 0 ||
+	    expect_true(target.output_name != NULL && strcmp(target.output_name, "$action") == 0,
+	                "SQL Server MERGE $action public name should be preserved") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	marker0_count = 0U;
+	marker1_count = 0U;
+	for (field_index = 0U; field_index < graph.field_count; field_index++) {
+		rc = sqlparser_query_graph_field_at(&graph, field_index, &field, &error);
+		if (expect_status_ok(rc, &error, "SQL Server MERGE OUTPUT field should be available") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (field.column_name != NULL && strcmp(field.column_name, "__sqlparser_dml_action_0__") == 0) {
+			marker0_count++;
+		}
+		if (field.column_name != NULL && strcmp(field.column_name, "__sqlparser_dml_action_1__") == 0) {
+			marker1_count++;
+		}
+		if (expect_true(field.column_name == NULL ||
+		                strcmp(field.column_name, "__sqlparser_dml_action_2__") != 0,
+		                "internal collision marker must not be exported as a field") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+	if (expect_true(marker0_count >= 2U,
+	                "legitimate marker-like source column should remain visible in both targets") != 0 ||
+	    expect_true(marker1_count >= 1U,
+	                "second legitimate marker-like source column should remain visible") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
+	if (expect_status_ok(rc, &error, "SQL Server MERGE $action view export should succeed") != 0 ||
+	    expect_true(strstr(view_json, "$action") != NULL,
+	                "SQL Server MERGE OUTPUT view should expose $action") != 0 ||
+	    expect_true(strstr(view_json, "__sqlparser_dml_action_0__") != NULL &&
+	                strstr(view_json, "__sqlparser_dml_action_1__") != NULL,
+	                "legitimate marker-like identifiers should remain in the view") != 0 ||
+	    expect_true(strstr(view_json, "__sqlparser_dml_action_2__") == NULL,
+	                "generated collision marker must not leak into the view") != 0) {
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(view_json);
+	view_json = NULL;
+
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = "stmt[0].dml_result_target[0][0][0]";
+	patch.sql = "s.__sqlparser_dml_action_0__ AS marker_action";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "SQL Server $action target replacement should succeed") != 0 ||
+	    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error), &error,
+	                     "SQL Server graph after $action replacement should succeed") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_result_at(&graph, 0U, 0U, &result, &error), &error,
+	                     "SQL Server result after $action replacement should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_block_at(&graph, result.block_index, &block, &error), &error,
+	                     "SQL Server block after $action replacement should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, block.targets, 0U, &target_index, &error), &error,
+	                     "SQL Server replaced target index should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_target_at(&graph, target_index, &target, &error), &error,
+	                     "SQL Server replaced target should be available") != 0 ||
+	    expect_true(target.kind == SQLPARSER_GRAPH_TARGET_FIELD,
+	                "replacing $action with a source field should update target semantics") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	patch.sql = "$action";
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "SQL Server source target replacement with $action should succeed") != 0 ||
+	    expect_deparse_reparse_ok(handle, "SQL Server patched $action should reparse") != 0 ||
+	    expect_status_ok(sqlparser_deparse(handle, &deparsed_sql, &error), &error,
+	                     "SQL Server patched $action deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "OUTPUT $action") != NULL,
+	                "SQL Server patched OUTPUT should restore $action") != 0 ||
+	    expect_true(strstr(deparsed_sql, "s.__sqlparser_dml_action_0__") != NULL &&
+	                strstr(deparsed_sql, "s.__sqlparser_dml_action_1__") != NULL,
+	                "SQL Server deparse should preserve legitimate marker-like identifiers") != 0 ||
+	    expect_true(strstr(deparsed_sql, "__sqlparser_dml_action_2__") == NULL,
+	                "SQL Server deparse must not expose generated collision marker") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_sqlserver_nested_output_query_graph_and_patch(void)
+{
+	const char *sql;
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t outer_dml;
+	sqlparser_graph_dml_t inner_dml;
+	sqlparser_graph_dml_result_t inner_result;
+	sqlparser_graph_relation_t relation;
+	sqlparser_patch_t patches[2];
+	sqlparser_patch_list_t patch_list;
+	char *deparsed_sql;
+	size_t dml_count;
+	size_t result_count;
+	size_t parent_index;
+	size_t relation_index;
+	int has_parent;
+	int found_source;
+	int rc;
+
+	sql =
+		"INSERT INTO dbo.Log (id) SELECT d.id "
+		"FROM (DELETE FROM dbo.Items OUTPUT DELETED.id WHERE state = @state) AS d";
+	handle = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_SQLSERVER;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "nested SQL Server DML parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "nested SQL Server DML graph should succeed") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_count(&graph, &dml_count, &error), &error,
+	                     "nested SQL Server DML count should succeed") != 0 ||
+	    expect_true(dml_count == 2U, "nested SQL Server DML should expose outer and inner DML") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_at(&graph, 0U, &outer_dml, &error), &error,
+	                     "outer nested DML should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_at(&graph, 1U, &inner_dml, &error), &error,
+	                     "inner nested DML should be available") != 0 ||
+	    expect_true(outer_dml.kind == SQLPARSER_GRAPH_DML_INSERT, "outer nested DML should be insert") != 0 ||
+	    expect_true(inner_dml.kind == SQLPARSER_GRAPH_DML_DELETE, "inner nested DML should be delete") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_parent(
+	                         &graph, 1U, &parent_index, &has_parent, &error),
+	                     &error, "nested DML parent should be available") != 0 ||
+	    expect_true(has_parent != 0 && parent_index == 0U, "inner DML should belong to the outer DML") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_result_count(
+	                         &graph, 1U, &result_count, &error),
+	                     &error, "inner DML result count should succeed") != 0 ||
+	    expect_true(result_count == 1U, "inner DML should expose one client OUTPUT") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_result_at(
+	                         &graph, 1U, 0U, &inner_result, &error),
+	                     &error, "inner DML result should be available") != 0 ||
+	    expect_true(inner_result.kind == SQLPARSER_GRAPH_DML_RESULT_CLIENT,
+	                "nested DML OUTPUT should be a client result") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	found_source = 0;
+	for (relation_index = 0U; relation_index < graph.relation_count; relation_index++) {
+		rc = sqlparser_query_graph_relation_at(&graph, relation_index, &relation, &error);
+		if (expect_status_ok(rc, &error, "nested DML relation should be available") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (relation.alias_name != NULL && strcmp(relation.alias_name, "d") == 0) {
+			found_source = relation.kind == SQLPARSER_GRAPH_REL_DERIVED &&
+				relation.has_source_block != 0 &&
+				relation.source_block_index == inner_result.block_index;
+			break;
+		}
+	}
+	if (expect_true(found_source, "outer DML source should point to the inner OUTPUT block") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_REPLACE;
+	patches[0].selector = "stmt[0].dml_result_target[1][0][0]";
+	patches[0].sql = "DELETED.id AS id";
+	patches[1].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[1].selector = "stmt[0].dml_result_targets[1][0]";
+	patches[1].index = 1U;
+	patches[1].sql = "DELETED.state AS old_state";
+	patch_list.items = patches;
+	patch_list.count = sizeof(patches) / sizeof(patches[0]);
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "nested SQL Server OUTPUT patch should succeed") != 0 ||
+	    expect_deparse_reparse_ok(handle, "nested SQL Server OUTPUT patch should reparse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "nested SQL Server OUTPUT deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, "FROM (DELETE FROM dbo.items") != NULL,
+	                "nested DML should retain its public table-source form") != 0 ||
+	    expect_true(strstr(deparsed_sql, "OUTPUT deleted.id AS id, deleted.state AS old_state") != NULL,
+	                "nested DML should contain patched OUTPUT targets") != 0 ||
+	    expect_true(strstr(deparsed_sql, "__sqlparser_dml_source_") == NULL,
+	                "nested DML must not expose its internal CTE name") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_DELETE_COLUMN;
+	patches[0].selector = "stmt[0].dml_result_targets[1][0]";
+	patches[0].index = 1U;
+	patch_list.items = patches;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "nested SQL Server OUTPUT target deletion should succeed") != 0 ||
+	    expect_deparse_reparse_ok(handle, "nested SQL Server OUTPUT after deletion should reparse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_sqlserver_delete_output_source_graph_and_patch(void)
+{
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_SQLSERVER,
+		SQLPARSER_DIALECT_VASTBASE_SQLSERVER
+	};
+	size_t dialect_index;
+
+	for (dialect_index = 0U; dialect_index < sizeof(dialects) / sizeof(dialects[0]); dialect_index++) {
+		sqlparser_parse_options_t options;
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_graph_dml_t dml;
+		sqlparser_graph_dml_result_t result;
+		sqlparser_graph_dml_reference_t reference;
+		sqlparser_patch_t patch;
+		sqlparser_patch_list_t patch_list;
+		char *deparsed_sql;
+		size_t reference_index;
+		int rc;
+
+		handle = NULL;
+		deparsed_sql = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index];
+		rc = sqlparser_parse_with_options(
+			"DELETE t OUTPUT DELETED.id, s.code AS source_code "
+			"FROM dbo.t AS t JOIN dbo.s AS s ON t.id = s.id",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "SQL Server-compatible DELETE source OUTPUT should parse") != 0 ||
+		    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error), &error,
+		                     "SQL Server-compatible DELETE source OUTPUT graph should succeed") != 0 ||
+		    expect_true(graph.relation_count == 2U,
+		                "DELETE source OUTPUT graph should not duplicate the target relation") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml_at(&graph, 0U, &dml, &error), &error,
+		                     "DELETE source OUTPUT dml should be available") != 0 ||
+		    expect_true(dml.kind == SQLPARSER_GRAPH_DML_DELETE &&
+		                dml.has_target_relation != 0 && dml.target_relation_index == 0U,
+		                "DELETE source OUTPUT should identify the real delete target") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml_result_at(&graph, 0U, 0U, &result, &error), &error,
+		                     "DELETE source OUTPUT result should be available") != 0 ||
+		    expect_true(result.references.count == 2U,
+		                "DELETE source OUTPUT should expose target and source references") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (expect_status_ok(sqlparser_query_graph_span_index_at(
+		                         &graph, result.references, 0U, &reference_index, &error),
+		                     &error, "DELETE target-before reference index should be available") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml_reference_at(
+		                         &graph, reference_index, &reference, &error),
+		                     &error, "DELETE target-before reference should be available") != 0 ||
+		    expect_true(reference.kind == SQLPARSER_GRAPH_DML_REFERENCE_TARGET_BEFORE &&
+		                reference.relation_index == 0U,
+		                "DELETED reference should belong to the delete target") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_span_index_at(
+		                         &graph, result.references, 1U, &reference_index, &error),
+		                     &error, "DELETE source reference index should be available") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml_reference_at(
+		                         &graph, reference_index, &reference, &error),
+		                     &error, "DELETE source reference should be available") != 0 ||
+		    expect_true(reference.kind == SQLPARSER_GRAPH_DML_REFERENCE_SOURCE &&
+		                reference.relation_index == 1U,
+		                "source reference should belong to the joined source") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_REPLACE;
+		patch.selector = "stmt[0].dml_result_target[0][0][1]";
+		patch.sql = "s.name AS source_name";
+		patch_list.items = &patch;
+		patch_list.count = 1U;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		if (expect_status_ok(rc, &error, "DELETE source OUTPUT target patch should succeed") != 0 ||
+		    expect_deparse_reparse_ok(handle, "patched DELETE source OUTPUT should reparse") != 0 ||
+		    expect_status_ok(sqlparser_deparse(handle, &deparsed_sql, &error), &error,
+		                     "patched DELETE source OUTPUT should deparse") != 0 ||
+		    expect_true(strstr(deparsed_sql, "DELETE t OUTPUT deleted.id, s.name AS source_name FROM dbo.t t JOIN dbo.s s") != NULL,
+		                "DELETE alias and source FROM form should be restored after patch") != 0 ||
+		    expect_true(strstr(deparsed_sql, " USING ") == NULL,
+		                "DELETE source deparse must not expose internal USING") != 0) {
+			sqlparser_string_free(deparsed_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			"DELETE [t]]x] OUTPUT DELETED.id "
+			"FROM dbo.t AS \"t]x\" WHERE \"t]x\".id = 1",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "delimited DELETE alias OUTPUT should parse") != 0 ||
+		    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error), &error,
+		                     "delimited DELETE alias OUTPUT graph should succeed") != 0 ||
+		    expect_true(graph.relation_count == 1U,
+		                "equivalent delimited DELETE aliases must identify one target relation") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml_at(&graph, 0U, &dml, &error), &error,
+		                     "delimited DELETE alias DML should be available") != 0 ||
+		    expect_true(dml.has_target_relation != 0 && dml.target_relation_index == 0U,
+		                "delimited DELETE alias should identify the source relation as its target") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml_result_at(&graph, 0U, 0U, &result, &error), &error,
+		                     "delimited DELETE alias OUTPUT result should be available") != 0 ||
+		    expect_true(result.references.count == 1U,
+		                "delimited DELETE alias OUTPUT should expose one target reference") != 0 ||
+		    expect_deparse_reparse_ok(handle, "delimited DELETE alias OUTPUT should reparse") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	{
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_query_graph_view_t graph;
+		int rc;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse("DELETE FROM t USING t WHERE t.id = 1", &handle, &error);
+		if (expect_status_ok(rc, &error, "PostgreSQL DELETE USING should parse") != 0 ||
+		    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error), &error,
+		                     "PostgreSQL DELETE USING graph should succeed") != 0 ||
+		    expect_true(graph.relation_count == 2U,
+		                "native DELETE USING relations must not use SQL Server duplicate suppression") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	return 0;
+}
+
+static int test_sqlserver_output_failure_is_non_destructive(void)
+{
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_SQLSERVER,
+		SQLPARSER_DIALECT_VASTBASE_SQLSERVER
+	};
+	size_t dialect_index;
+
+	for (dialect_index = 0U; dialect_index < sizeof(dialects) / sizeof(dialects[0]); dialect_index++) {
+		sqlparser_parse_options_t options;
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_patch_t patch;
+		sqlparser_patch_list_t patch_list;
+		char *before_sql;
+		char *after_sql;
+		int rc;
+
+		handle = NULL;
+		before_sql = NULL;
+		after_sql = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index];
+		rc = sqlparser_parse_with_options(
+			"DELETE FROM dbo.t OUTPUT DELETED.id WHERE id = @id",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "SQL Server-compatible OUTPUT parse should succeed") != 0 ||
+		    expect_deparse_reparse_ok(handle, "SQL Server-compatible OUTPUT should reparse") != 0 ||
+		    expect_status_ok(sqlparser_deparse(handle, &before_sql, &error), &error,
+		                     "SQL Server-compatible OUTPUT baseline deparse should succeed") != 0) {
+			sqlparser_string_free(before_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_DELETE_COLUMN;
+		patch.selector = "stmt[0].dml_result_targets[0][0]";
+		patch.index = 0U;
+		patch_list.items = &patch;
+		patch_list.count = 1U;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		if (expect_true(rc == SQLPARSER_STATUS_UNSUPPORTED,
+		                "deleting the last OUTPUT target should be rejected") != 0 ||
+		    expect_status_ok(sqlparser_deparse(handle, &after_sql, &error), &error,
+		                     "rejected OUTPUT patch should leave handle deparseable") != 0 ||
+		    expect_true(strcmp(before_sql, after_sql) == 0,
+		                "rejected OUTPUT patch must not modify SQL") != 0 ||
+		    expect_deparse_reparse_ok(handle, "rejected OUTPUT patch should leave valid SQL") != 0) {
+			sqlparser_string_free(before_sql);
+			sqlparser_string_free(after_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(before_sql);
+		sqlparser_string_free(after_sql);
+		sqlparser_handle_destroy(handle);
+	}
+
+	return 0;
+}
+
+static int test_sqlserver_output_sink_patch_validation(void)
+{
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_SQLSERVER,
+		SQLPARSER_DIALECT_VASTBASE_SQLSERVER
+	};
+	size_t dialect_index;
+
+	for (dialect_index = 0U; dialect_index < sizeof(dialects) / sizeof(dialects[0]); dialect_index++) {
+		sqlparser_parse_options_t options;
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_graph_dml_result_t result;
+		sqlparser_patch_t patch;
+		sqlparser_patch_list_t patch_list;
+		char *before_sql;
+		char *after_sql;
+		int rc;
+
+		handle = NULL;
+		before_sql = NULL;
+		after_sql = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index];
+		rc = sqlparser_parse_with_options(
+			"INSERT INTO dbo.t(a) OUTPUT INSERTED.id INTO dbo.audit(id) VALUES (1)",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "SQL Server-compatible OUTPUT sink parse should succeed") != 0 ||
+		    expect_status_ok(sqlparser_deparse(handle, &before_sql, &error), &error,
+		                     "SQL Server-compatible OUTPUT sink baseline deparse should succeed") != 0) {
+			sqlparser_string_free(before_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_REPLACE;
+		patch.selector = "stmt[0].dml_result_sink[0][0]";
+		patch.sql = "dbo.audit; DROP TABLE dbo.t";
+		patch_list.items = &patch;
+		patch_list.count = 1U;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		if (expect_true(rc == SQLPARSER_STATUS_PARSE_ERROR,
+		                "invalid OUTPUT sink relation should be rejected") != 0 ||
+		    expect_status_ok(sqlparser_deparse(handle, &after_sql, &error), &error,
+		                     "rejected OUTPUT sink relation patch should leave handle deparseable") != 0 ||
+		    expect_true(strcmp(before_sql, after_sql) == 0,
+		                "rejected OUTPUT sink relation patch must not modify SQL") != 0) {
+			sqlparser_string_free(before_sql);
+			sqlparser_string_free(after_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(after_sql);
+		after_sql = NULL;
+
+		patch.selector = "stmt[0].dml_result_sink_column[0][0][0]";
+		patch.sql = "audit_id, injected";
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		if (expect_true(rc == SQLPARSER_STATUS_PARSE_ERROR,
+		                "invalid OUTPUT sink column should be rejected") != 0 ||
+		    expect_status_ok(sqlparser_deparse(handle, &after_sql, &error), &error,
+		                     "rejected OUTPUT sink column patch should leave handle deparseable") != 0 ||
+		    expect_true(strcmp(before_sql, after_sql) == 0,
+		                "rejected OUTPUT sink column patch must not modify SQL") != 0 ||
+		    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error), &error,
+		                     "rejected OUTPUT sink patch should leave graph available") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml_result_at(&graph, 0U, 0U, &result, &error), &error,
+		                     "rejected OUTPUT sink patch should leave result available") != 0 ||
+		    expect_true(result.has_sink_relation != 0 && result.sink_columns.count == 1U,
+		                "rejected OUTPUT sink patch should preserve sink metadata") != 0 ||
+		    expect_deparse_reparse_ok(handle, "rejected OUTPUT sink patches should leave valid SQL") != 0) {
+			sqlparser_string_free(before_sql);
+			sqlparser_string_free(after_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		sqlparser_string_free(before_sql);
+		sqlparser_string_free(after_sql);
+		sqlparser_handle_destroy(handle);
+	}
+
+	return 0;
+}
+
+static int test_sqlserver_nested_output_resource_limit(void)
+{
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_SQLSERVER,
+		SQLPARSER_DIALECT_VASTBASE_SQLSERVER
+	};
+	const char *sql;
+	size_t dialect_index;
+
+	sql =
+		"INSERT INTO dbo.Log (id) SELECT d.id "
+		"FROM (DELETE FROM dbo.Items OUTPUT DELETED.id WHERE state = @state) AS d";
+	for (dialect_index = 0U; dialect_index < sizeof(dialects) / sizeof(dialects[0]); dialect_index++) {
+		sqlparser_parse_options_t options;
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_query_graph_view_t graph;
+		size_t dml_count;
+		int rc;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index];
+		options.limits.max_statement_count = 1U;
+		rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+		if (expect_true(rc == SQLPARSER_STATUS_RESOURCE_LIMIT,
+		                "nested DML should honor max_statement_count") != 0 ||
+		    expect_true(handle == NULL,
+		                "resource-limited nested DML parse must not return a handle") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index];
+		options.limits.max_statement_count = 2U;
+		rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+		if (expect_status_ok(rc, &error, "nested DML at configured limit should parse") != 0 ||
+		    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error), &error,
+		                     "nested DML at configured limit should expose graph") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml_count(&graph, &dml_count, &error), &error,
+		                     "nested DML at configured limit should expose count") != 0 ||
+		    expect_true(dml_count == 2U,
+		                "nested DML at configured limit should expose outer and inner DML") != 0 ||
+		    expect_deparse_reparse_ok(handle, "nested DML at configured limit should reparse") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+
 	return 0;
 }
 
@@ -8015,8 +9353,389 @@ static int test_oracle_container_service_patch_api(void)
 	return 0;
 }
 
+static int test_control_flow_core(void)
+{
+	sqlparser_handle_t *ordinary;
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *clone;
+	sqlparser_control_flow_view_t flow;
+	sqlparser_control_node_t node;
+	sqlparser_control_branch_t branch;
+	sqlparser_control_item_t item;
+	sqlparser_statement_kind_t statement_kind;
+	sqlparser_clause_view_t clause;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_block_t block;
+	sqlparser_error_t error;
+	const char *node_name;
+	char *clause_sql;
+	char *view_json;
+	char *clone_sql;
+	json_error_t json_error;
+	json_t *root;
+	json_t *control_json;
+	json_t *statements_json;
+	json_t *statement_json;
+	size_t index;
+	size_t count;
+	int rc;
+
+	ordinary = NULL;
+	handle = NULL;
+	clone = NULL;
+	clause_sql = NULL;
+	view_json = NULL;
+	clone_sql = NULL;
+	root = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse("SELECT id FROM t", &ordinary, &error);
+	if (expect_status_ok(rc, &error, "ordinary control-flow baseline should parse") != 0) {
+		return 1;
+	}
+	memset(&flow, 0, sizeof(flow));
+	rc = sqlparser_handle_control_flow(ordinary, &flow, &error);
+	if (expect_status_ok(rc, &error, "ordinary handle control view should succeed") != 0 ||
+	    expect_true(flow.node_count == 0U && flow.branch_count == 0U && flow.item_count == 0U && flow.roots.count == 0U,
+		    "ordinary handle control view should be empty") != 0) {
+		sqlparser_handle_destroy(ordinary);
+		return 1;
+	}
+	memset(&node, 0, sizeof(node));
+	rc = sqlparser_control_node_at(&flow, 0U, &node, &error);
+	if (expect_true(rc == SQLPARSER_STATUS_INVALID_ARGUMENT, "empty control view should reject node access") != 0) {
+		sqlparser_handle_destroy(ordinary);
+		return 1;
+	}
+	sqlparser_handle_destroy(ordinary);
+
+	if (test_control_handle_new(&handle) != 0) {
+		return 1;
+	}
+	if (expect_true(sqlparser_statement_count(handle) == 3U, "control handle should expose three addressable units") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_statement_kind(handle, 0U, &statement_kind, &error);
+	if (expect_status_ok(rc, &error, "condition statement kind should succeed") != 0 ||
+	    expect_true(statement_kind == SQLPARSER_STATEMENT_KIND_CONDITION, "first control unit should be a condition") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_statement_node_name(handle, 0U, &node_name, &error);
+	if (expect_status_ok(rc, &error, "condition node name should succeed") != 0 ||
+	    expect_true(node_name != NULL && strcmp(node_name, "ConditionExpr") == 0,
+		    "condition node name should hide its parser wrapper") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_statement_clause_count(handle, 0U, &count, &error);
+	if (expect_status_ok(rc, &error, "condition clause count should succeed") != 0 ||
+	    expect_true(count == 1U, "condition unit should expose one clause") != 0) {
+		goto fail;
+	}
+	memset(&clause, 0, sizeof(clause));
+	rc = sqlparser_statement_clause(handle, 0U, 0U, &clause, &error);
+	if (expect_status_ok(rc, &error, "condition clause should succeed") != 0 ||
+	    expect_true(clause.kind == SQLPARSER_CLAUSE_KIND_CONDITION, "condition clause kind should be explicit") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_statement_clause_sql(handle, 0U, 0U, &clause_sql, &error);
+	if (expect_status_ok(rc, &error, "condition clause SQL should succeed") != 0 ||
+	    expect_true(clause_sql != NULL && strstr(clause_sql, "a = 1") != NULL,
+		    "condition clause SQL should contain only the expression") != 0) {
+		goto fail;
+	}
+	sqlparser_string_free(clause_sql);
+	clause_sql = NULL;
+
+	memset(&flow, 0, sizeof(flow));
+	rc = sqlparser_handle_control_flow(handle, &flow, &error);
+	if (expect_status_ok(rc, &error, "control view should succeed") != 0 ||
+	    expect_true(flow.roots.count == 1U && flow.node_count == 1U &&
+		    flow.branch_count == 2U && flow.item_count == 3U,
+		    "control view counts should match the tree") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_control_span_index_at(&flow, flow.roots, 0U, &index, &error);
+	if (expect_status_ok(rc, &error, "control root span should resolve") != 0 ||
+	    expect_true(index == 0U, "control root should reference the first item") != 0) {
+		goto fail;
+	}
+	memset(&item, 0, sizeof(item));
+	rc = sqlparser_control_item_at(&flow, index, &item, &error);
+	if (expect_status_ok(rc, &error, "control root item should resolve") != 0 ||
+	    expect_true(item.kind == SQLPARSER_CONTROL_ITEM_NODE && item.index == 0U,
+		    "control root item should reference the IF node") != 0) {
+		goto fail;
+	}
+	memset(&node, 0, sizeof(node));
+	rc = sqlparser_control_node_at(&flow, 0U, &node, &error);
+	if (expect_status_ok(rc, &error, "control node should resolve") != 0 ||
+	    expect_true(node.kind == SQLPARSER_CONTROL_NODE_IF && node.branches.count == 2U,
+		    "control node should expose ordered IF branches") != 0) {
+		goto fail;
+	}
+	memset(&branch, 0, sizeof(branch));
+	rc = sqlparser_control_branch_at(&flow, 0U, &branch, &error);
+	if (expect_status_ok(rc, &error, "then branch should resolve") != 0 ||
+	    expect_true(branch.has_condition && branch.condition_statement_index == 0U && branch.items.count == 1U,
+		    "then branch should reference the condition unit") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_control_branch_at(&flow, 1U, &branch, &error);
+	if (expect_status_ok(rc, &error, "else branch should resolve") != 0 ||
+	    expect_true(!branch.has_condition && branch.items.count == 1U,
+		    "else branch should be unconditional") != 0) {
+		goto fail;
+	}
+
+	memset(&graph, 0, sizeof(graph));
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "condition query graph should succeed") != 0 ||
+	    expect_true(graph.has_root_block && graph.block_count == 1U && graph.target_count == 0U,
+		    "condition graph should contain one expression block and no fake target") != 0) {
+		goto fail;
+	}
+	memset(&block, 0, sizeof(block));
+	rc = sqlparser_query_graph_block_at(&graph, graph.root_block_index, &block, &error);
+	if (expect_status_ok(rc, &error, "condition root block should resolve") != 0 ||
+	    expect_true(block.kind == SQLPARSER_GRAPH_BLOCK_CONDITION, "condition graph block kind should be explicit") != 0) {
+		goto fail;
+	}
+	for (index = 0U; index < graph.field_count; index++) {
+		sqlparser_graph_field_t field;
+
+		memset(&field, 0, sizeof(field));
+		rc = sqlparser_query_graph_field_at(&graph, index, &field, &error);
+		if (expect_status_ok(rc, &error, "condition graph field should resolve") != 0 ||
+		    expect_true(field.clause == SQLPARSER_CLAUSE_KIND_CONDITION,
+			    "condition graph field should retain condition clause ownership") != 0) {
+			goto fail;
+		}
+	}
+	for (index = 0U; index < graph.value_count; index++) {
+		sqlparser_graph_value_t value;
+
+		memset(&value, 0, sizeof(value));
+		rc = sqlparser_query_graph_value_at(&graph, index, &value, &error);
+		if (expect_status_ok(rc, &error, "condition graph value should resolve") != 0 ||
+		    expect_true(value.clause == SQLPARSER_CLAUSE_KIND_CONDITION,
+			    "condition graph value should retain condition clause ownership") != 0) {
+			goto fail;
+		}
+	}
+
+	rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
+	if (expect_status_ok(rc, &error, "control View JSON should succeed") != 0) {
+		goto fail;
+	}
+	memset(&json_error, 0, sizeof(json_error));
+	root = json_loads(view_json, 0, &json_error);
+	control_json = root != NULL ? json_object_get(root, "control_flow") : NULL;
+	statements_json = root != NULL ? json_object_get(root, "statements") : NULL;
+	statement_json = json_is_array(statements_json) ? json_array_get(statements_json, 0U) : NULL;
+	if (expect_true(
+		    json_is_object(control_json) &&
+		    json_array_size(json_object_get(control_json, "roots")) == 1U &&
+		    json_array_size(json_object_get(control_json, "nodes")) == 1U &&
+		    json_array_size(json_object_get(control_json, "branches")) == 2U,
+		    "View JSON should mirror the public control topology") != 0 ||
+	    expect_true(
+		    statement_json != NULL &&
+		    json_is_string(json_object_get(statement_json, "keyword")) &&
+		    strcmp(json_string_value(json_object_get(statement_json, "keyword")), "condition") == 0,
+		    "View JSON should identify the condition unit") != 0) {
+		goto fail;
+	}
+	json_decref(root);
+	root = NULL;
+	sqlparser_string_free(view_json);
+	view_json = NULL;
+
+	rc = sqlparser_handle_clone(handle, &clone, &error);
+	if (expect_status_ok(rc, &error, "control handle clone should succeed") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_deparse(clone, &clone_sql, &error);
+	if (expect_status_ok(rc, &error, "cloned control handle should deparse") != 0 ||
+	    expect_true(clone_sql != NULL && strcmp(clone_sql, test_control_sql()) == 0,
+		    "unmodified control deparse should preserve the source text") != 0) {
+		goto fail;
+	}
+
+	sqlparser_string_free(clone_sql);
+	sqlparser_handle_destroy(clone);
+	sqlparser_handle_destroy(handle);
+	return 0;
+
+fail:
+	json_decref(root);
+	sqlparser_string_free(clause_sql);
+	sqlparser_string_free(view_json);
+	sqlparser_string_free(clone_sql);
+	sqlparser_handle_destroy(clone);
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+static int test_control_flow_patch_and_limits(void)
+{
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *invalid_handle;
+	sqlparser_control_flow_view_t stale_flow;
+	sqlparser_control_node_t node;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patch_list;
+	sqlparser_control_counts_t counts;
+	sqlparser_control_state_t *state;
+	sqlparser_limits_t limits;
+	sqlparser_error_t error;
+	char *condition_sql;
+	char *deparsed;
+	unsigned long generation;
+	int rc;
+
+	handle = NULL;
+	invalid_handle = NULL;
+	state = NULL;
+	condition_sql = NULL;
+	deparsed = NULL;
+	memset(&error, 0, sizeof(error));
+	if (test_control_handle_new(&handle) != 0) {
+		return 1;
+	}
+	memset(&stale_flow, 0, sizeof(stale_flow));
+	rc = sqlparser_handle_control_flow(handle, &stale_flow, &error);
+	if (expect_status_ok(rc, &error, "pre-patch control view should succeed") != 0) {
+		goto fail;
+	}
+	generation = handle->generation;
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = "stmt[99].clause[0]";
+	patch.sql = "a = 10";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_true(rc == SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "failed control patch should report the invalid selector") != 0 ||
+	    expect_true(handle->generation == generation,
+		    "failed control patch should not change the handle") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_statement_clause_sql(handle, 0U, 0U, &condition_sql, &error);
+	if (expect_status_ok(rc, &error, "condition should remain readable after rollback") != 0 ||
+	    expect_true(condition_sql != NULL && strstr(condition_sql, "a = 1") != NULL,
+		    "failed control patch should preserve the original condition") != 0) {
+		goto fail;
+	}
+	sqlparser_string_free(condition_sql);
+	condition_sql = NULL;
+
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = "stmt[0].clause[0]";
+	patch.sql = "a = 2 AND b = $1";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "control condition patch should succeed") != 0 ||
+	    expect_true(handle->generation == generation + 1UL,
+		    "successful control patch should advance generation once") != 0) {
+		goto fail;
+	}
+	memset(&node, 0, sizeof(node));
+	rc = sqlparser_control_node_at(&stale_flow, 0U, &node, &error);
+	if (expect_true(rc == SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "a control view should become stale after patch") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_statement_clause_sql(handle, 0U, 0U, &condition_sql, &error);
+	if (expect_status_ok(rc, &error, "patched condition should be readable") != 0 ||
+	    expect_true(condition_sql != NULL && strstr(condition_sql, "a = 2") != NULL &&
+		    strstr(condition_sql, "b = $1") != NULL,
+		    "patched condition should expose both predicates") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_deparse(handle, &deparsed, &error);
+	if (expect_status_ok(rc, &error, "patched control handle should deparse") != 0 ||
+	    expect_true(deparsed != NULL && strstr(deparsed, "a = 2") != NULL &&
+		    strstr(deparsed, "SELECT id FROM t") != NULL &&
+		    strstr(deparsed, "UPDATE t SET x = 2") != NULL,
+		    "control deparse should preserve its skeleton and rewrite only the condition") != 0 ||
+	    expect_deparse_reparse_ok(handle, "patched generic control SQL should reparse") != 0) {
+		goto fail;
+	}
+	sqlparser_string_free(condition_sql);
+	condition_sql = NULL;
+	sqlparser_string_free(deparsed);
+	deparsed = NULL;
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	memset(&counts, 0, sizeof(counts));
+	counts.root_count = 1U;
+	counts.node_count = 1U;
+	counts.branch_count = 2U;
+	counts.item_count = 3U;
+	counts.index_count = 5U;
+	counts.unit_count = 3U;
+	sqlparser_limits_default(&limits);
+	limits.max_statement_count = 2U;
+	rc = sqlparser_control_state_allocate(&counts, &limits, &state, &error);
+	if (expect_true(rc == SQLPARSER_STATUS_RESOURCE_LIMIT && state == NULL,
+		    "control units should honor the statement limit") != 0) {
+		goto fail;
+	}
+	limits.max_statement_count = 3U;
+	rc = sqlparser_control_state_allocate(&counts, &limits, &state, &error);
+	if (expect_status_ok(rc, &error,
+		    "control metadata should not reduce the configured statement limit") != 0) {
+		goto fail;
+	}
+	sqlparser_control_state_release(state);
+	state = NULL;
+
+	rc = sqlparser_parse(test_control_sql(), &invalid_handle, &error);
+	if (expect_status_ok(rc, &error, "invalid control topology baseline should parse") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_control_state_allocate(&counts, &invalid_handle->limits, &state, &error);
+	if (expect_status_ok(rc, &error, "invalid control topology state should allocate") != 0) {
+		goto fail;
+	}
+	test_control_state_fill(state, test_control_sql());
+	state->index_pool[4] = 99U;
+	rc = sqlparser_control_state_attach(invalid_handle, state, &error);
+	if (expect_true(rc == SQLPARSER_STATUS_INTERNAL_ERROR && invalid_handle->control == NULL,
+		    "invalid control topology should be rejected before ownership transfer") != 0) {
+		goto fail;
+	}
+	sqlparser_control_state_release(state);
+	state = NULL;
+	sqlparser_handle_destroy(invalid_handle);
+	return 0;
+
+fail:
+	sqlparser_string_free(condition_sql);
+	sqlparser_string_free(deparsed);
+	sqlparser_control_state_release(state);
+	sqlparser_handle_destroy(invalid_handle);
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
 int main(void)
 {
+	if (test_control_flow_core() != 0) {
+		return 1;
+	}
+	if (test_control_flow_patch_and_limits() != 0) {
+		return 1;
+	}
+	if (test_nested_control_depth(SQLPARSER_CONTROL_MAX_DEPTH, SQLPARSER_STATUS_OK) != 0) {
+		return 1;
+	}
+	if (test_nested_control_depth(SQLPARSER_CONTROL_MAX_DEPTH + 1U, SQLPARSER_STATUS_RESOURCE_LIMIT) != 0) {
+		return 1;
+	}
 	if (test_statement_kind_walk() != 0) {
 		return 1;
 	}
@@ -8159,6 +9878,33 @@ int main(void)
 		return 1;
 	}
 	if (test_sqlserver_dialect_option() != 0) {
+		return 1;
+	}
+	if (test_sqlserver_control_flow_and_patch() != 0) {
+		return 1;
+	}
+	if (test_sqlserver_control_depth_limit() != 0) {
+		return 1;
+	}
+	if (test_sqlserver_output_query_graph_and_patch() != 0) {
+		return 1;
+	}
+	if (test_sqlserver_output_action_marker_and_patch() != 0) {
+		return 1;
+	}
+	if (test_sqlserver_nested_output_query_graph_and_patch() != 0) {
+		return 1;
+	}
+	if (test_sqlserver_delete_output_source_graph_and_patch() != 0) {
+		return 1;
+	}
+	if (test_sqlserver_output_failure_is_non_destructive() != 0) {
+		return 1;
+	}
+	if (test_sqlserver_output_sink_patch_validation() != 0) {
+		return 1;
+	}
+	if (test_sqlserver_nested_output_resource_limit() != 0) {
 		return 1;
 	}
 	if (test_session_context_patch_api() != 0) {
