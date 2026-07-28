@@ -1119,7 +1119,7 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "SELECT count(*)"
+        "deparse_contains": "SELECT COUNT(*)"
       },
       "id": "VPG088"
     },
@@ -1928,6 +1928,23 @@
         "error_message_contains": "syntax error"
       },
       "id": "VPG137"
+    },
+    {
+      "name": "vastbase-postgresql-deparse-preserves-identifier-spelling",
+      "sql": "SELECT U.ID AS UserID FROM Public.Users U WHERE U.UserName = $1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": [
+          "U.ID AS UserID",
+          "Public.Users U",
+          "U.UserName = $1"
+        ]
+      },
+      "id": "VPG146"
     }
   ]
 }

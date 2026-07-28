@@ -111,7 +111,7 @@ static sqlparser_status_t sqlparser_update_build_literal_node(
 	pg_query__a__const__init(a_const);
 	node->node_case = PG_QUERY__NODE__NODE_A_CONST;
 	node->a_const = a_const;
-	a_const->location = -1;
+	a_const->location = SQLPARSER_PROTO_LOCATION_GENERATED;
 
 	status = sqlparser_a_const_set_literal(a_const, value, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
@@ -238,6 +238,7 @@ static sqlparser_status_t sqlparser_parse_update_assignment_nodes_sql(
 			nodes = NULL;
 			goto done;
 		}
+		sqlparser_mark_proto_generated((ProtobufCMessage *)nodes[index]);
 	}
 
 	*out_nodes = nodes;

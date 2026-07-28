@@ -811,6 +811,8 @@ rendered by the library according to the handle dialect.
 | `sqlparser_deparse()` | deparses the current AST into SQL |
 | `sqlparser_string_free()` | releases strings returned by the library |
 
+Unchanged schema, table, column, and alias identifiers retain their source SQL spelling, including the original case of unquoted identifiers. Keywords, whitespace, and optional syntax forms remain normalized by the deparser.
+
 ## Common Usage Patterns
 
 ### Field and Value Attribution

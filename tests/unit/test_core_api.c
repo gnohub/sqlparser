@@ -1172,8 +1172,8 @@ static int test_update_assignment_bind_rhs_literal_rewrite(void)
 			"SECRET_ORIG",
 			"oracle-pos-encrypted",
 			"\"SECRET_ORIG\" = :1",
-			"secret = 'oracle-pos-encrypted'",
-			"id = :2",
+			"SECRET = 'oracle-pos-encrypted'",
+			"ID = :2",
 			0U,
 			1U
 		},
@@ -1183,8 +1183,8 @@ static int test_update_assignment_bind_rhs_literal_rewrite(void)
 			"SECRET_ORIG",
 			"oracle-question-encrypted",
 			"\"SECRET_ORIG\" = ?",
-			"secret = 'oracle-question-encrypted'",
-			"id = ?",
+			"SECRET = 'oracle-question-encrypted'",
+			"ID = ?",
 			0U,
 			1U
 		},
@@ -1194,8 +1194,8 @@ static int test_update_assignment_bind_rhs_literal_rewrite(void)
 			"SECRET_ORIG",
 			"oracle-named-encrypted",
 			"\"SECRET_ORIG\" = :secret",
-			"secret = 'oracle-named-encrypted'",
-			"id = :id",
+			"SECRET = 'oracle-named-encrypted'",
+			"ID = :id",
 			0U,
 			1U
 		},
@@ -1205,8 +1205,8 @@ static int test_update_assignment_bind_rhs_literal_rewrite(void)
 			"SECRET_ORIG",
 			"oracle-mixed-encrypted",
 			"\"SECRET_ORIG\" = :1",
-			"secret = 'oracle-mixed-encrypted'",
-			"id = :2",
+			"SECRET = 'oracle-mixed-encrypted'",
+			"ID = :2",
 			1U,
 			2U
 		},
@@ -1238,8 +1238,8 @@ static int test_update_assignment_bind_rhs_literal_rewrite(void)
 			"SECRET_ORIG",
 			"dameng-encrypted",
 			"\"SECRET_ORIG\" = :1",
-			"secret = 'dameng-encrypted'",
-			"id = :2",
+			"SECRET = 'dameng-encrypted'",
+			"ID = :2",
 			0U,
 			1U
 		}
@@ -1421,13 +1421,13 @@ static int test_update_assignment_multiple_bind_rhs_literal_rewrite(void)
 	if (expect_status_ok(rc, &error, "multiple bind RHS deparse should succeed") != 0 ||
 	    expect_true(strstr(deparsed_sql, "\"PHONE_ORIG\" = :1") != NULL,
 	                "multiple bind RHS should contain phone backup bind") != 0 ||
-	    expect_true(strstr(deparsed_sql, "phone = 'encrypted-phone'") != NULL,
+	    expect_true(strstr(deparsed_sql, "PHONE = 'encrypted-phone'") != NULL,
 	                "multiple bind RHS should contain encrypted phone") != 0 ||
 	    expect_true(strstr(deparsed_sql, "\"SECRET_ORIG\" = :2") != NULL,
 	                "multiple bind RHS should contain secret backup bind") != 0 ||
-	    expect_true(strstr(deparsed_sql, "secret = 'encrypted-secret'") != NULL,
+	    expect_true(strstr(deparsed_sql, "SECRET = 'encrypted-secret'") != NULL,
 	                "multiple bind RHS should contain encrypted secret") != 0 ||
-	    expect_true(strstr(deparsed_sql, "id = :3") != NULL,
+	    expect_true(strstr(deparsed_sql, "ID = :3") != NULL,
 	                "multiple bind RHS should preserve WHERE bind") != 0) {
 		sqlparser_string_free(deparsed_sql);
 		sqlparser_handle_destroy(handle);
@@ -3789,7 +3789,7 @@ static int test_sqlserver_output_query_graph_and_patch(void)
 	                "omitted INSERT INTO must not leave duplicate whitespace") != 0 ||
 	    expect_true(strstr(deparsed_sql, ")  OUTPUT") == NULL,
 	                "OUTPUT insertion must not create duplicate whitespace") != 0 ||
-	    expect_true(strstr(deparsed_sql, "OUTPUT inserted.id, inserted.name AS audit_name INTO dbo.audit_log (audit_id, audit_name)") != NULL,
+	    expect_true(strstr(deparsed_sql, "OUTPUT INSERTED.id, inserted.name AS audit_name INTO dbo.audit_log (audit_id, audit_name)") != NULL,
 	                "patched sink OUTPUT should be preserved") != 0 ||
 	    expect_true(strstr(deparsed_sql, "OUTPUT inserted.name AS output_name") != NULL,
 	                "patched client OUTPUT should be preserved") != 0 ||
@@ -4072,7 +4072,7 @@ static int test_sqlserver_nested_output_query_graph_and_patch(void)
 	}
 	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
 	if (expect_status_ok(rc, &error, "nested SQL Server OUTPUT deparse should succeed") != 0 ||
-	    expect_true(strstr(deparsed_sql, "FROM (DELETE FROM dbo.items") != NULL,
+	    expect_true(strstr(deparsed_sql, "FROM (DELETE FROM dbo.Items") != NULL,
 	                "nested DML should retain its public table-source form") != 0 ||
 	    expect_true(strstr(deparsed_sql, "OUTPUT deleted.id AS id, deleted.state AS old_state") != NULL,
 	                "nested DML should contain patched OUTPUT targets") != 0 ||
@@ -4185,7 +4185,7 @@ static int test_sqlserver_delete_output_source_graph_and_patch(void)
 		    expect_deparse_reparse_ok(handle, "patched DELETE source OUTPUT should reparse") != 0 ||
 		    expect_status_ok(sqlparser_deparse(handle, &deparsed_sql, &error), &error,
 		                     "patched DELETE source OUTPUT should deparse") != 0 ||
-		    expect_true(strstr(deparsed_sql, "DELETE t OUTPUT deleted.id, s.name AS source_name FROM dbo.t t JOIN dbo.s s") != NULL,
+		    expect_true(strstr(deparsed_sql, "DELETE t OUTPUT DELETED.id, s.name AS source_name FROM dbo.t t JOIN dbo.s s") != NULL,
 		                "DELETE alias and source FROM form should be restored after patch") != 0 ||
 		    expect_true(strstr(deparsed_sql, " USING ") == NULL,
 		                "DELETE source deparse must not expose internal USING") != 0) {
@@ -9722,8 +9722,260 @@ fail:
 	return 1;
 }
 
+static int test_deparse_identifier_spelling(void)
+{
+	struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *expected[3];
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT U.ID AS UserID, U.USER_NAME FROM Public.DBP_USERS U "
+			"WHERE U.ID = $1 ORDER BY U.USER_NAME",
+			{"U.ID AS UserID", "Public.DBP_USERS U", "U.USER_NAME"}
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"INSERT INTO KDES.Users (UserID, UserName) VALUES (1, 'Alice')",
+			{"KDES.Users", "(UserID, UserName)", NULL}
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"UPDATE KDES.Users U SET UserName = 'Alice' WHERE U.UserID = 1",
+			{"KDES.Users U", "UserName = 'Alice'", "U.UserID"}
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"DELETE FROM KDES.Users U WHERE U.UserID = 1",
+			{"KDES.Users U", "U.UserID", NULL}
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"CREATE TABLE KDES.Users (UserID BIGINT, UserName TEXT, "
+			"CONSTRAINT PK_Users PRIMARY KEY (UserID)); "
+			"CREATE INDEX IDX_Users_UserName ON KDES.Users (UserName)",
+			{"CONSTRAINT PK_Users PRIMARY KEY (UserID)", "INDEX IDX_Users_UserName", "(UserName)"}
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT '\\' AS AliasName FROM Public.Users",
+			{"AS AliasName", "Public.Users", NULL}
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT U&'d\\0061t\\+000061' AS u FROM Public.Users",
+			{"'data' AS u", "Public.Users", NULL}
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT /* AliasName */ 1 AS AliasName, "
+			"$tag$AliasName$tag$ AS DollarAlias FROM Public.Users",
+			{"1 AS AliasName", "'AliasName' AS DollarAlias", "Public.Users"}
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"SELECT U.ID AS UserID FROM App.Users U WHERE U.UserName = ? ORDER BY U.ID LIMIT 1",
+			{"U.ID AS UserID", "App.Users U", "U.UserName"}
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"SELECT a FROM T WHERE X = \"a\" AND Y = 'A\\'s' ORDER BY A",
+			{"FROM T", "ORDER BY A", NULL}
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"MERGE INTO KDES.DBP_SQLM_USERS U "
+			"USING (SELECT ? ID, ? PHONE FROM DUAL) S "
+			"ON (U.ID = S.ID) WHEN MATCHED THEN UPDATE SET U.PHONE = S.PHONE",
+			{"KDES.DBP_SQLM_USERS U", "? AS ID, ? AS PHONE", "U.PHONE = S.PHONE"}
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"SELECT a FROM T WHERE A = :a AND X = q'[A's]' ORDER BY A",
+			{"FROM T", "A = :a", "ORDER BY A"}
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"SELECT U.ID AS UserID FROM App.Users U WHERE U.UserName = @UserName",
+			{"U.ID AS UserID", "App.Users U", "U.UserName = @UserName"}
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"SELECT a FROM T WHERE A = @a ORDER BY A",
+			{"FROM T", "A = @a", "ORDER BY A"}
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"SELECT U.ID AS UserID FROM KDES.Users U WHERE U.UserName = :UserName",
+			{"U.ID AS UserID", "KDES.Users U", "U.UserName = :UserName"}
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"SELECT a FROM T WHERE A = :a AND X = q'[A's]' ORDER BY A",
+			{"FROM T", "A = :a", "ORDER BY A"}
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_MYSQL,
+			"SELECT U.ID AS UserID FROM App.Users U WHERE U.UserName = ?",
+			{"U.ID AS UserID", "App.Users U", "U.UserName = ?"}
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_MYSQL,
+			"SELECT a FROM T WHERE X = \"a\" AND Y = 'A\\'s' ORDER BY A",
+			{"FROM T", "ORDER BY A", NULL}
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_ORACLE,
+			"SELECT U.ID AS UserID FROM KDES.Users U WHERE U.UserName = :UserName",
+			{"U.ID AS UserID", "KDES.Users U", "U.UserName = :UserName"}
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_ORACLE,
+			"SELECT a FROM T WHERE A = :a AND X = q'[A's]' ORDER BY A",
+			{"FROM T", "A = :a", "ORDER BY A"}
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_POSTGRESQL,
+			"SELECT U.ID AS UserID FROM Public.Users U WHERE U.UserName = $1",
+			{"U.ID AS UserID", "Public.Users U", "U.UserName = $1"}
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"SELECT U.ID AS UserID FROM App.Users U WHERE U.UserName = @UserName",
+			{"U.ID AS UserID", "App.Users U", "U.UserName = @UserName"}
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"SELECT a FROM T WHERE A = @a ORDER BY A",
+			{"FROM T", "A = @a", "ORDER BY A"}
+		}
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patch_list;
+	char *deparsed;
+	size_t case_index;
+	size_t expected_index;
+	int rc;
+
+	for (case_index = 0U; case_index < sizeof(cases) / sizeof(cases[0]); case_index++) {
+		handle = NULL;
+		deparsed = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[case_index].dialect;
+		rc = sqlparser_parse_with_options(cases[case_index].sql, &options, &handle, &error);
+		if (expect_status_ok(rc, &error, "identifier spelling parse should succeed") != 0) {
+			return 1;
+		}
+		rc = sqlparser_deparse(handle, &deparsed, &error);
+		if (expect_status_ok(rc, &error, "identifier spelling deparse should succeed") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		for (expected_index = 0U; expected_index < 3U; expected_index++) {
+			if (cases[case_index].expected[expected_index] != NULL &&
+			    expect_true(
+				    strstr(deparsed, cases[case_index].expected[expected_index]) != NULL,
+				    "deparse should preserve identifier spelling") != 0) {
+				sqlparser_string_free(deparsed);
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		}
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(handle);
+	}
+
+	handle = NULL;
+	deparsed = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	rc = sqlparser_parse_with_options(
+		"UPDATE KDES.DBP_SQLM_USERS U SET U.PHONE = :Phone WHERE U.ID = :ID",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "identifier spelling patch parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_append_where_sql(
+		handle,
+		0U,
+		0U,
+		SQLPARSER_BOOL_OPERATOR_AND,
+		"U.STATUS = :Status",
+		&error);
+	if (expect_status_ok(rc, &error, "identifier spelling patch should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &deparsed, &error);
+	if (expect_status_ok(rc, &error, "identifier spelling patch deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed, "KDES.DBP_SQLM_USERS U") != NULL,
+	                "patched deparse should preserve relation spelling") != 0 ||
+	    expect_true(strstr(deparsed, "U.PHONE") != NULL,
+	                "patched deparse should preserve assignment column spelling") != 0 ||
+	    expect_true(strstr(deparsed, "U.ID") != NULL,
+	                "patched deparse should preserve existing predicate spelling") != 0) {
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed);
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	deparsed = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	rc = sqlparser_parse_with_options(
+		"SELECT U.ID FROM KDES.USERS U WHERE U.STATUS = :STATUS",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "identifier spelling collision parse should succeed") != 0) {
+		return 1;
+	}
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patch.selector = "stmt[0].select_targets[0]";
+	patch.index = 1U;
+	patch.sql = "u.status AS status";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "identifier spelling collision patch should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &deparsed, &error);
+	if (expect_status_ok(rc, &error, "identifier spelling collision deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed, "U.ID, u.status AS status") != NULL,
+	                "generated target should keep patch spelling") != 0 ||
+	    expect_true(strstr(deparsed, "KDES.USERS U") != NULL,
+	                "collision deparse should preserve relation spelling") != 0 ||
+	    expect_true(strstr(deparsed, "U.STATUS = :STATUS") != NULL,
+	                "collision deparse should preserve existing predicate spelling") != 0) {
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
 int main(void)
 {
+	if (test_deparse_identifier_spelling() != 0) {
+		return 1;
+	}
 	if (test_control_flow_core() != 0) {
 		return 1;
 	}

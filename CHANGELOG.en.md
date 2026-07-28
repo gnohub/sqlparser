@@ -1,5 +1,26 @@
 # Changelog
 
+## 2.11.0
+
+### Deparse
+
+- Unchanged database, schema, table, column, alias, function, index,
+  constraint, and CTE identifiers retain their source SQL spelling, including
+  the original case of unquoted identifiers.
+- Dialect conversion no longer mistakes text inside comments, strings, bind
+  parameters, or quoted identifiers for source identifiers.
+- Nodes created by a patch use their own identifiers instead of inheriting
+  spelling from unrelated source nodes with the same name.
+
+### Compatibility and Validation
+
+- The public API, public structures, View JSON, Query Graph, and ABI remain
+  unchanged. The ABI export count remains 146 public symbols.
+- Identifier-spelling regression cases cover PostgreSQL, MySQL, Oracle, SQL
+  Server, Dameng, and Vastbase compatibility modes.
+- Release validation covers strict GCC 8.3 builds, the full test suite, ASan,
+  UBSan, Valgrind, ABI checks, and per-call performance measurements.
+
 ## 2.10.1
 
 ### MySQL Dialect

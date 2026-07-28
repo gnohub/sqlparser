@@ -213,6 +213,7 @@ sqlparser_status_t sqlparser_render_bind_value_sql(
 	char **out_sql,
 	sqlparser_error_t *out_error);
 void sqlparser_free_proto_node(PgQuery__Node *node);
+void sqlparser_mark_proto_generated(ProtobufCMessage *message);
 sqlparser_status_t sqlparser_clone_proto_node(
 	const PgQuery__Node *source,
 	PgQuery__Node **out_node,

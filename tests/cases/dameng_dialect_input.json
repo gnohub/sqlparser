@@ -432,7 +432,7 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "rownum <= 10"
+        "deparse_contains": "ROWNUM <= 10"
       }
     },
     {
@@ -790,7 +790,7 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "nvl",
+        "deparse_contains": "NVL",
         "view_not_contains": "$1"
       }
     },
@@ -1287,7 +1287,7 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "secret = :1",
+        "deparse_contains": "SECRET = :1",
         "view_contains": [
           "\"clause\":\"set_list\"",
           "\"column\":\"secret\"",
@@ -1309,7 +1309,7 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "secret = :secret_value",
+        "deparse_contains": "SECRET = :secret_value",
         "view_contains": [
           "\"clause\":\"set_list\"",
           "\"column\":\"secret\"",
@@ -1331,7 +1331,7 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "secret = ?",
+        "deparse_contains": "SECRET = ?",
         "view_contains": [
           "\"clause\":\"set_list\"",
           "\"column\":\"secret\"",
@@ -1353,7 +1353,7 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "secret = :2",
+        "deparse_contains": "SECRET = :2",
         "view_contains": [
           "\"clause\":\"set_list\"",
           "\"column\":\"phone\"",
@@ -1748,7 +1748,7 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "regexp_like(name, :pat)",
+        "deparse_contains": "REGEXP_LIKE(name, :pat)",
         "view_contains": [
           "\"operator\":\"regexp_like\"",
           "\"kind\":\"expression\"",
@@ -2050,6 +2050,40 @@
         "ok": false,
         "error_code": 5,
         "error_message_contains": "unsupported Dameng syntax"
+      }
+    },
+    {
+      "id": "D143",
+      "name": "dameng-deparse-preserves-identifier-spelling",
+      "sql": "UPDATE KDES.Users U SET UserName = :UserName WHERE U.UserID = :UserID",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "UpdateStmt"
+        ],
+        "deparse_contains": [
+          "KDES.Users U",
+          "UserName = :UserName",
+          "U.UserID = :UserID"
+        ]
+      }
+    },
+    {
+      "id": "D144",
+      "name": "dameng-deparse-spelling-skips-bind-and-q-quoted-text",
+      "sql": "SELECT a FROM T WHERE A = :a AND X = q'[A's]' ORDER BY A",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": [
+          "FROM T",
+          "A = :a",
+          "ORDER BY A"
+        ]
       }
     }
   ]

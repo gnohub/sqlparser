@@ -1069,7 +1069,7 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "SELECT count(*)"
+        "deparse_contains": "SELECT COUNT(*)"
       }
     },
     {
@@ -1904,6 +1904,22 @@
         ],
         "view_contains": "\"bind_sql\":\"@id\"",
         "deparse_contains": "TOP (5)"
+      }
+    },
+    {
+      "name": "postgresql-deparse-preserves-identifier-spelling",
+      "dialect": "postgresql",
+      "sql": "SELECT U.ID AS UserID, U.USER_NAME FROM Public.DBP_USERS U WHERE U.ID = $1 ORDER BY U.USER_NAME",
+      "expect": {
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": [
+          "U.ID AS UserID",
+          "Public.DBP_USERS U",
+          "U.USER_NAME"
+        ]
       }
     }
   ]

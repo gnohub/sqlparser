@@ -485,6 +485,7 @@ static sqlparser_status_t sqlparser_parse_order_by_nodes_sql(
 			if (status != SQLPARSER_STATUS_OK) {
 				break;
 			}
+			sqlparser_mark_proto_generated((ProtobufCMessage *)nodes[index]);
 		}
 	}
 	if (status == SQLPARSER_STATUS_OK) {

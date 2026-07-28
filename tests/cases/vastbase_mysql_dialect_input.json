@@ -765,7 +765,7 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "json_extract"
+        "deparse_contains": "JSON_EXTRACT"
       }
     },
     {
@@ -1959,7 +1959,7 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "row_number() OVER",
+        "deparse_contains": "ROW_NUMBER() OVER",
         "view_contains": [
           "\"column\":\"id\"",
           "\"column\":\"status\"",
@@ -2021,7 +2021,7 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "json_contains(tags, ?)",
+        "deparse_contains": "JSON_CONTAINS(tags, ?)",
         "view_contains": [
           "\"operator\":\"json_contains\"",
           "\"kind\":\"expression\"",
@@ -2490,7 +2490,7 @@
       "sql": "SELECT COUNT(*) FROM table_a USE INDEX (idx_a) HAVING COUNT(*) > 0",
       "expect": {
         "ok": true, "statement_count": 1, "statement_types": ["SelectStmt"],
-        "deparse_contains": "FROM table_a USE INDEX (idx_a) HAVING count(*) > 0",
+        "deparse_contains": "FROM table_a USE INDEX (idx_a) HAVING COUNT(*) > 0",
         "deparse_not_contains": "HAVING USE INDEX",
         "view_contains": ["\"kind\":\"base\",\"table\":\"table_a\"", "\"kind\":\"expression\""]
       }
@@ -2607,7 +2607,7 @@
       "sql": "SELECT a.secret_name FROM table_a AS a FORCE INDEX FOR GROUP BY (idx_group) GROUP BY a.secret_name HAVING COUNT(*) > 1",
       "expect": {
         "ok": true, "statement_count": 1, "statement_types": ["SelectStmt"],
-        "deparse_contains": "table_a a FORCE INDEX FOR GROUP BY (idx_group) GROUP BY a.secret_name HAVING count(*) > 1",
+        "deparse_contains": "table_a a FORCE INDEX FOR GROUP BY (idx_group) GROUP BY a.secret_name HAVING COUNT(*) > 1",
         "deparse_not_contains": ["GROUP FORCE INDEX", "HAVING FORCE INDEX"],
         "view_contains": [
           "\"table\":\"table_a\",\"alias\":\"a\"",
@@ -2694,6 +2694,35 @@
         "view_contains": [
           "\"kind\":\"derived\",\"alias\":\"d\"", "\"kind\":\"base\",\"table\":\"table_a\"",
           "\"column\":\"id\""
+        ]
+      }
+    },
+    {
+      "id": "VM146",
+      "name": "vastbase-mysql-deparse-preserves-identifier-spelling",
+      "sql": "SELECT U.ID AS UserID FROM App.Users U WHERE U.UserName = ? ORDER BY U.ID LIMIT 1",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": [
+          "U.ID AS UserID",
+          "App.Users U",
+          "U.UserName = ?"
+        ]
+      }
+    },
+    {
+      "id": "VM147",
+      "name": "vastbase-mysql-deparse-spelling-skips-supported-string-forms",
+      "sql": "SELECT a FROM T WHERE X = \"a\" AND Y = 'A\\'s' ORDER BY A",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": ["SelectStmt"],
+        "deparse_contains": [
+          "FROM T",
+          "ORDER BY A"
         ]
       }
     }

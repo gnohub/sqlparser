@@ -11,6 +11,15 @@ typedef struct PostgresDeparseComment {
     char *str;                   // The actual comment string, including comment start/end tokens, and newline characters in comment (if any)
 } PostgresDeparseComment;
 
+typedef bool (*PostgresDeparseIdentifierResolver)(
+    void *context,
+    const char *identifier,
+    int location,
+    size_t component_index,
+    bool search_forward,
+    const char **resolved,
+    size_t *resolved_length);
+
 typedef struct PostgresDeparseOpts {
     PostgresDeparseComment **comments;
     size_t comment_count;
@@ -21,6 +30,10 @@ typedef struct PostgresDeparseOpts {
     int max_line_length;       // Restricts the line length of certain lists of items (Default 80 characters)
     bool trailing_newline;     // Whether to add a trailing newline at the end of the output (Default off)
     bool commas_start_of_line; // Place separating commas at start of line (Default off)
+
+    // Optional source-spelling resolver for identifiers.
+    PostgresDeparseIdentifierResolver identifier_resolver;
+    void *identifier_resolver_context;
 } PostgresDeparseOpts;
 
 /* Forward declarations to allow referencing the structs in this include file without needing Postgres includes */

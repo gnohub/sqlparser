@@ -198,7 +198,7 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "getdate()"
+        "deparse_contains": "GETDATE()"
       }
     },
     {
@@ -211,7 +211,7 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "row_number() OVER"
+        "deparse_contains": "ROW_NUMBER() OVER"
       }
     },
     {
@@ -407,7 +407,7 @@
         "statement_types": [
           "CreateStmt"
         ],
-        "deparse_contains": "datetime2"
+        "deparse_contains": "DATETIME2"
       }
     },
     {
@@ -1889,7 +1889,7 @@
         "statement_types": [
           "CreateStmt"
         ],
-        "deparse_contains": "datetimeoffset"
+        "deparse_contains": "DATETIMEOFFSET"
       }
     },
     {
@@ -5181,7 +5181,7 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "contains(name, @term)",
+        "deparse_contains": "CONTAINS(name, @term)",
         "view_contains": [
           "\"operator\":\"contains\"",
           "\"kind\":\"expression\"",
@@ -5201,7 +5201,7 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "freetext(name, @term)",
+        "deparse_contains": "FREETEXT(name, @term)",
         "view_contains": [
           "\"operator\":\"freetext\"",
           "\"kind\":\"expression\"",
@@ -5221,7 +5221,7 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "regexp_like(name, @pat)",
+        "deparse_contains": "REGEXP_LIKE(name, @pat)",
         "view_contains": [
           "\"operator\":\"regexp_like\"",
           "\"kind\":\"expression\"",
@@ -6291,7 +6291,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["InsertStmt"],
-        "deparse_contains": ["INSERT \"KoalSug_35079cba\"", "OUTPUT inserted.\"Id\" AS \"Id\"", "UNION ALL"],
+        "deparse_contains": ["INSERT \"KoalSug_35079cba\"", "OUTPUT INSERTED.\"Id\" AS \"Id\"", "UNION ALL"],
         "deparse_not_contains": ["INSERT INTO \"KoalSug_35079cba\"", "__sqlparser_"],
         "view_contains": ["\"kind\":\"insert\"", "\"kind\":\"client\"", "\"kind\":\"target_after\""]
       }
@@ -6305,7 +6305,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["InsertStmt"],
-        "deparse_contains": ["INSERT INTO dbo.t", "OUTPUT inserted.id", "SELECT a FROM dbo.s"],
+        "deparse_contains": ["INSERT INTO dbo.t", "OUTPUT INSERTED.id", "SELECT a FROM dbo.s"],
         "view_contains": ["\"kind\":\"client\"", "\"kind\":\"target_after\""]
       }
     },
@@ -6318,7 +6318,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["InsertStmt"],
-        "deparse_contains": ["INSERT dbo.t", "OUTPUT inserted.id", "VALUES (1)"],
+        "deparse_contains": ["INSERT dbo.t", "OUTPUT INSERTED.id", "VALUES (1)"],
         "deparse_not_contains": ["INSERT INTO dbo.t", "INSERT  ", "__sqlparser_"]
       }
     },
@@ -6331,7 +6331,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["InsertStmt"],
-        "deparse_contains": ["INSERT dbo.t", "OUTPUT inserted.id", "VALUES (1), (2)"],
+        "deparse_contains": ["INSERT dbo.t", "OUTPUT INSERTED.id", "VALUES (1), (2)"],
         "deparse_not_contains": ["INSERT INTO dbo.t", "__sqlparser_"]
       }
     },
@@ -6344,7 +6344,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["InsertStmt"],
-        "deparse_contains": ["INSERT dbo.t", "OUTPUT inserted.id", "DEFAULT VALUES"],
+        "deparse_contains": ["INSERT dbo.t", "OUTPUT INSERTED.id", "DEFAULT VALUES"],
         "deparse_not_contains": "__sqlparser_"
       }
     },
@@ -6357,7 +6357,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["InsertStmt"],
-        "deparse_contains": ["WITH s AS", "INSERT dbo.t", "OUTPUT inserted.id", "SELECT a FROM s"],
+        "deparse_contains": ["WITH s AS", "INSERT dbo.t", "OUTPUT INSERTED.id", "SELECT a FROM s"],
         "deparse_not_contains": "__sqlparser_"
       }
     },
@@ -6370,7 +6370,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["InsertStmt"],
-        "deparse_contains": "OUTPUT inserted.id",
+        "deparse_contains": "OUTPUT INSERTED.id",
         "view_contains": ["\"kind\":\"client\"", "\"kind\":\"target_after\""]
       }
     },
@@ -6383,7 +6383,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["InsertStmt"],
-        "deparse_contains": "OUTPUT inserted.*",
+        "deparse_contains": "OUTPUT INSERTED.*",
         "view_contains": ["\"kind\":\"qualified_star\"", "\"kind\":\"target_after\""]
       }
     },
@@ -6396,7 +6396,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["InsertStmt"],
-        "deparse_contains": "OUTPUT inserted.id + 1 AS next_id",
+        "deparse_contains": "OUTPUT INSERTED.id + 1 AS next_id",
         "view_contains": ["\"kind\":\"expression\"", "\"kind\":\"target_after\""]
       }
     },
@@ -6409,7 +6409,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["InsertStmt"],
-        "deparse_contains": ["OUTPUT inserted.id, inserted.a, @tag AS tag", "VALUES (1)"],
+        "deparse_contains": ["OUTPUT INSERTED.id, INSERTED.a, @tag AS tag", "VALUES (1)"],
         "view_contains": ["\"kind\":\"bind\"", "\"bind_sql\":\"@tag\""]
       }
     },
@@ -6422,7 +6422,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["InsertStmt"],
-        "deparse_contains": "OUTPUT inserted.id INTO dbo.audit",
+        "deparse_contains": "OUTPUT INSERTED.id INTO dbo.audit",
         "view_contains": ["\"kind\":\"sink\"", "\"table\":\"audit\""]
       }
     },
@@ -6435,7 +6435,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["InsertStmt"],
-        "deparse_contains": "OUTPUT inserted.id INTO dbo.audit (id)",
+        "deparse_contains": "OUTPUT INSERTED.id INTO dbo.audit (id)",
         "view_contains": ["\"kind\":\"sink\"", "\"sink_columns\""]
       }
     },
@@ -6448,7 +6448,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["InsertStmt"],
-        "deparse_contains": "OUTPUT inserted.id INTO @audit (id)",
+        "deparse_contains": "OUTPUT INSERTED.id INTO @audit (id)",
         "view_contains": ["\"kind\":\"sink\"", "\"table\":\"@audit\""]
       }
     },
@@ -6461,7 +6461,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["InsertStmt"],
-        "deparse_contains": ["OUTPUT inserted.id INTO dbo.audit (id)", "OUTPUT inserted.id AS client_id"],
+        "deparse_contains": ["OUTPUT INSERTED.id INTO dbo.audit (id)", "OUTPUT INSERTED.id AS client_id"],
         "view_contains": ["\"kind\":\"sink\"", "\"kind\":\"client\""]
       }
     },
@@ -6474,7 +6474,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["UpdateStmt"],
-        "deparse_contains": ["OUTPUT deleted.a AS old_a, inserted.a AS new_a", "WHERE id = @id"],
+        "deparse_contains": ["OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a", "WHERE id = @id"],
         "view_contains": ["\"kind\":\"target_before\"", "\"kind\":\"target_after\""]
       }
     },
@@ -6487,7 +6487,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["UpdateStmt"],
-        "deparse_contains": ["OUTPUT inserted.a, s.a AS source_a", "FROM dbo.t t JOIN dbo.s s"],
+        "deparse_contains": ["OUTPUT INSERTED.a, s.a AS source_a", "FROM dbo.t t JOIN dbo.s s"],
         "view_contains": ["\"kind\":\"target_after\"", "\"kind\":\"source\""]
       }
     },
@@ -6500,7 +6500,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["DeleteStmt"],
-        "deparse_contains": ["DELETE FROM dbo.t", "OUTPUT deleted.id", "WHERE state = @state"],
+        "deparse_contains": ["DELETE FROM dbo.t", "OUTPUT DELETED.id", "WHERE state = @state"],
         "view_contains": "\"kind\":\"target_before\""
       }
     },
@@ -6513,7 +6513,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["DeleteStmt"],
-        "deparse_contains": ["OUTPUT deleted.id, s.code AS source_code", "FROM dbo.t t JOIN dbo.s s"],
+        "deparse_contains": ["OUTPUT DELETED.id, s.code AS source_code", "FROM dbo.t t JOIN dbo.s s"],
         "view_contains": ["\"kind\":\"target_before\"", "\"kind\":\"source\""]
       }
     },
@@ -6540,7 +6540,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["MergeStmt"],
-        "deparse_contains": ["OUTPUT $action", "deleted.id AS old_id", "inserted.id AS new_id", "s.id AS source_id"],
+        "deparse_contains": ["OUTPUT $action", "DELETED.id AS old_id", "INSERTED.id AS new_id", "s.id AS source_id"],
         "deparse_not_contains": "__sqlparser_",
         "view_contains": ["\"kind\":\"target_before\"", "\"kind\":\"target_after\"", "\"kind\":\"source\""]
       }
@@ -6554,7 +6554,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["InsertStmt"],
-        "deparse_contains": ["INSERT INTO dbo.log", "FROM (DELETE FROM dbo.items", "OUTPUT deleted.id"],
+        "deparse_contains": ["INSERT INTO dbo.Log", "FROM (DELETE FROM dbo.Items", "OUTPUT DELETED.id"],
         "deparse_not_contains": "__sqlparser_dml_source_",
         "view_contains": ["\"kind\":\"insert\"", "\"kind\":\"delete\"", "\"kind\":\"dml_result\""]
       }
@@ -6568,7 +6568,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["UpdateStmt"],
-        "deparse_contains": ["UPDATE TOP (5) dbo.t", "OUTPUT inserted.id"],
+        "deparse_contains": ["UPDATE TOP (5) dbo.t", "OUTPUT INSERTED.id"],
         "view_contains": "\"kind\":\"target_after\""
       }
     },
@@ -6581,7 +6581,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["InsertStmt"],
-        "deparse_contains": ["INSERT INTO dbo.t WITH (TABLOCK)", "OUTPUT inserted.id"],
+        "deparse_contains": ["INSERT INTO dbo.t WITH (TABLOCK)", "OUTPUT INSERTED.id"],
         "view_contains": "\"kind\":\"target_after\""
       }
     },
@@ -6594,7 +6594,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["InsertStmt"],
-        "deparse_contains": ["OUTPUT inserted.id", "N'OUTPUT INSERTED INTO'"],
+        "deparse_contains": ["OUTPUT INSERTED.id", "N'OUTPUT INSERTED INTO'"],
         "deparse_not_contains": "__sqlparser_"
       }
     },
@@ -6607,7 +6607,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["InsertStmt"],
-        "deparse_contains": ["OUTPUT inserted.id", "VALUES (1)"],
+        "deparse_contains": ["OUTPUT INSERTED.id", "VALUES (1)"],
         "deparse_not_contains": "__sqlparser_"
       }
     },
@@ -6620,7 +6620,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["InsertStmt"],
-        "deparse_contains": ["INSERT dbo.\"OUTPUT\"", "OUTPUT inserted.\"DELETED\""],
+        "deparse_contains": ["INSERT dbo.\"OUTPUT\"", "OUTPUT INSERTED.\"DELETED\""],
         "view_contains": ["\"table\":\"OUTPUT\"", "\"column\":\"DELETED\""]
       }
     },
@@ -6633,7 +6633,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["InsertStmt"],
-        "deparse_contains": ["OUTPUT inserted.id", "N'OUTPUT INSERTED INTO' AS output_text"],
+        "deparse_contains": ["OUTPUT INSERTED.id", "N'OUTPUT INSERTED INTO' AS output_text"],
         "deparse_not_contains": "__sqlparser_",
         "view_contains": ["\"kind\":\"client\"", "\"kind\":\"target_after\""]
       }
@@ -6660,7 +6660,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["InsertStmt"],
-        "deparse_contains": ["dbo.t WITH (TABLOCK)", "OUTPUT inserted.id", "FROM dbo.s s WITH (NOLOCK)"],
+        "deparse_contains": ["dbo.t WITH (TABLOCK)", "OUTPUT INSERTED.id", "FROM dbo.s s WITH (NOLOCK)"],
         "deparse_not_contains": ["dbo.t WITH (NOLOCK)", "dbo.s s WITH (TABLOCK)"]
       }
     },
@@ -6673,7 +6673,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["InsertStmt"],
-        "deparse_contains": "OUTPUT inserted.\"select\"",
+        "deparse_contains": "OUTPUT INSERTED.\"select\"",
         "view_contains": ["\"column\":\"select\"", "\"kind\":\"target_after\""]
       }
     },
@@ -6686,7 +6686,7 @@
         "ok": true,
         "statement_count": 1,
         "statement_types": ["DeleteStmt"],
-        "deparse_contains": ["DELETE [t]]x] OUTPUT deleted.id", "FROM dbo.t \"t]x\""],
+        "deparse_contains": ["DELETE [t]]x] OUTPUT DELETED.id", "FROM dbo.t \"t]x\""],
         "view_contains": ["\"kind\":\"target_before\"", "\"table\":\"t\""]
       }
     },
@@ -6699,7 +6699,7 @@
         "ok": true,
         "statement_count": 3,
         "statement_types": ["InsertStmt", "UpdateStmt", "DeleteStmt"],
-        "deparse_contains": ["INSERT dbo.t (a) OUTPUT inserted.id", "UPDATE dbo.t SET a = 2 OUTPUT deleted.a AS old_a, inserted.a AS new_a", "DELETE FROM dbo.t OUTPUT deleted.id"]
+        "deparse_contains": ["INSERT dbo.t (a) OUTPUT INSERTED.id", "UPDATE dbo.t SET a = 2 OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a", "DELETE FROM dbo.t OUTPUT DELETED.id"]
       }
     },
     {
@@ -7497,6 +7497,40 @@
         "ok": false,
         "error_code": 5,
         "error_message_contains": "INSERT EXEC cannot use OUTPUT"
+      }
+    },
+    {
+      "id": "SH404",
+      "name": "sqlserver-deparse-preserves-identifier-spelling",
+      "sql": "SELECT U.ID AS UserID FROM App.Users U WHERE U.UserName = @UserName ORDER BY U.ID",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": [
+          "U.ID AS UserID",
+          "App.Users U",
+          "U.UserName = @UserName"
+        ]
+      }
+    },
+    {
+      "id": "SH405",
+      "name": "sqlserver-deparse-spelling-skips-named-bind",
+      "sql": "SELECT a FROM T WHERE A = @a ORDER BY A",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": [
+          "FROM T",
+          "A = @a",
+          "ORDER BY A"
+        ]
       }
     }
   ]

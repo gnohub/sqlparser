@@ -161,7 +161,7 @@ static void deparseSelectStmt(DeparseState *state, SelectStmt *stmt, DeparseNode
 static void deparseIntoClause(DeparseState *state, IntoClause *into_clause);
 static void deparseRangeVar(DeparseState *state, RangeVar *range_var, DeparseNodeContext context);
 static void deparseResTarget(DeparseState *state, ResTarget *res_target, DeparseNodeContext context);
-static void deparseAlias(DeparseState *state, Alias *alias);
+static void deparseAlias(DeparseState *state, Alias *alias, int location);
 static void deparseWindowDef(DeparseState *state, WindowDef* window_def);
 static void deparseColumnRef(DeparseState *state, ColumnRef* column_ref);
 static void deparseSubLink(DeparseState *state, SubLink* sub_link);
@@ -403,6 +403,39 @@ static void deparseAppendStringInfoChar(DeparseState *state, char ch)
 {
 	StringInfo str = deparseGetCurrentStringInfo(state);
 	appendStringInfoChar(str, ch);
+}
+
+static void
+deparseIdentifier(
+	DeparseState *state,
+	const char *identifier,
+	int location,
+	size_t component_index,
+	bool search_forward)
+{
+	const char *resolved = NULL;
+	size_t resolved_length = 0;
+
+	if (state->opts.identifier_resolver != NULL &&
+		state->opts.identifier_resolver(
+			state->opts.identifier_resolver_context,
+			identifier,
+			location,
+			component_index,
+			search_forward,
+			&resolved,
+			&resolved_length) &&
+		resolved != NULL &&
+		resolved_length <= INT_MAX)
+	{
+		appendBinaryStringInfo(
+			deparseGetCurrentStringInfo(state),
+			resolved,
+			(int) resolved_length);
+		return;
+	}
+
+	deparseAppendStringInfoString(state, quote_identifier(identifier));
 }
 
 static void
@@ -700,7 +733,7 @@ static void deparseAnyName(DeparseState *state, List *parts)
 	foreach(lc, parts)
 	{
 		Assert(IsA(lfirst(lc), String));
-		deparseAppendStringInfoString(state, quote_identifier(strVal(lfirst(lc))));
+		deparseIdentifier(state, strVal(lfirst(lc)), -1, 0, true);
 		if (lnext(parts, lc))
 			deparseAppendStringInfoChar(state, '.');
 	}
@@ -712,7 +745,7 @@ static void deparseAnyNameSkipFirst(DeparseState *state, List *parts)
 	for_each_from(lc, parts, 1)
 	{
 		Assert(IsA(lfirst(lc), String));
-		deparseAppendStringInfoString(state, quote_identifier(strVal(lfirst(lc))));
+		deparseIdentifier(state, strVal(lfirst(lc)), -1, 0, true);
 		if (lnext(parts, lc))
 			deparseAppendStringInfoChar(state, '.');
 	}
@@ -725,7 +758,7 @@ static void deparseAnyNameSkipLast(DeparseState *state, List *parts)
 	{
 		if (lnext(parts, lc))
 		{
-			deparseAppendStringInfoString(state, quote_identifier(strVal(lfirst(lc))));
+			deparseIdentifier(state, strVal(lfirst(lc)), -1, 0, true);
 			if (foreach_current_index(lc) < list_length(parts) - 2)
 				deparseAppendStringInfoChar(state, '.');
 		}
@@ -1013,6 +1046,43 @@ static void deparseOptIndirection(DeparseState *state, List *indirection, int N)
 		else
 		{
 			// No other nodes should appear here
+			Assert(false);
+		}
+	}
+}
+
+static void
+deparseOptIndirectionAt(
+	DeparseState *state,
+	List *indirection,
+	int N,
+	int location,
+	size_t *component_index)
+{
+	ListCell *lc = NULL;
+
+	for_each_from(lc, indirection, N)
+	{
+		if (IsA(lfirst(lc), String))
+		{
+			deparseAppendStringInfoChar(state, '.');
+			deparseIdentifier(
+				state,
+				strVal(lfirst(lc)),
+				location,
+				(*component_index)++,
+				false);
+		}
+		else if (IsA(lfirst(lc), A_Star))
+		{
+			deparseAppendStringInfoString(state, ".*");
+		}
+		else if (IsA(lfirst(lc), A_Indices))
+		{
+			deparseAIndices(state, castNode(A_Indices, lfirst(lc)));
+		}
+		else
+		{
 			Assert(false);
 		}
 	}
@@ -1568,6 +1638,25 @@ static void deparseFuncName(DeparseState *state, List *func_name)
 	}
 }
 
+static void
+deparseFuncNameAt(DeparseState *state, List *func_name, int location)
+{
+	ListCell *lc = NULL;
+	size_t component_index = 0;
+
+	foreach(lc, func_name)
+	{
+		deparseIdentifier(
+			state,
+			strVal(lfirst(lc)),
+			location,
+			component_index++,
+			false);
+		if (lnext(func_name, lc))
+			deparseAppendStringInfoChar(state, '.');
+	}
+}
+
 // "function_with_argtypes" in gram.y
 static void deparseFunctionWithArgtypes(DeparseState *state, ObjectWithArgs *object_with_args)
 {
@@ -1706,7 +1795,7 @@ static void deparseColumnList(DeparseState *state, List *columns)
 	ListCell *lc = NULL;
 	foreach(lc, columns)
 	{
-		deparseAppendStringInfoString(state, quote_identifier(strVal(lfirst(lc))));
+		deparseIdentifier(state, strVal(lfirst(lc)), -1, 0, true);
 		if (lnext(columns, lc))
 			deparseAppendStringInfoString(state, ", ");
 	}
@@ -2075,7 +2164,12 @@ static void deparseTargetList(DeparseState *state, List *l)
 
 		if (res_target->name != NULL) {
 			deparseAppendStringInfoString(state, " AS ");
-			deparseAppendStringInfoString(state, quote_identifier(res_target->name));
+			deparseIdentifier(
+				state,
+				res_target->name,
+				res_target->location,
+				0,
+				true);
 		}
 
 		if (lnext(l, lc))
@@ -2091,9 +2185,21 @@ static void deparseInsertColumnList(DeparseState *state, List *l)
 	foreach(lc, l)
 	{
 		ResTarget *res_target = castNode(ResTarget, lfirst(lc));
+		size_t component_index = 1;
+
 		Assert(res_target->name != NULL);
-		deparseAppendStringInfoString(state, quote_identifier(res_target->name));
-		deparseOptIndirection(state, res_target->indirection, 0);
+		deparseIdentifier(
+			state,
+			res_target->name,
+			res_target->location,
+			0,
+			false);
+		deparseOptIndirectionAt(
+			state,
+			res_target->indirection,
+			0,
+			res_target->location,
+			&component_index);
 		if (lnext(l, lc))
 			deparseAppendStringInfoString(state, ", ");
 	}
@@ -2114,7 +2220,7 @@ static void deparseXmlAttributeList(DeparseState *state, List *l)
 		if (res_target->name != NULL)
 		{
 			deparseAppendStringInfoString(state, " AS ");
-			deparseAppendStringInfoString(state, quote_identifier(res_target->name));
+			deparseIdentifier(state, res_target->name, res_target->location, 0, true);
 		}
 
 		if (lnext(l, lc))
@@ -2140,7 +2246,7 @@ static void deparseXmlNamespaceList(DeparseState *state, List *l)
 		if (res_target->name != NULL)
 		{
 			deparseAppendStringInfoString(state, " AS ");
-			deparseAppendStringInfoString(state, quote_identifier(res_target->name));
+			deparseIdentifier(state, res_target->name, res_target->location, 0, true);
 		}
 
 		if (lnext(l, lc))
@@ -2259,9 +2365,21 @@ static void deparseGroupByList(DeparseState *state, List *l)
 // "set_target" in gram.y
 static void deparseSetTarget(DeparseState *state, ResTarget *res_target)
 {
+	size_t component_index = 1;
+
 	Assert(res_target->name != NULL);
-	deparseColId(state, res_target->name);
-	deparseOptIndirection(state, res_target->indirection, 0);
+	deparseIdentifier(
+		state,
+		res_target->name,
+		res_target->location,
+		0,
+		false);
+	deparseOptIndirectionAt(
+		state,
+		res_target->indirection,
+		0,
+		res_target->location,
+		&component_index);
 }
 
 // "any_name_list" in gram.y
@@ -2284,7 +2402,7 @@ static void deparseNameList(DeparseState *state, List *l)
 
 	foreach(lc, l)
 	{
-		deparseColId(state, strVal(lfirst(lc)));
+		deparseIdentifier(state, strVal(lfirst(lc)), -1, 0, true);
 		if (lnext(l, lc))
 			deparseAppendStringInfoString(state, ", ");
 	}
@@ -2432,7 +2550,7 @@ static void deparseIndexElem(DeparseState *state, IndexElem* index_elem)
 {
 	if (index_elem->name != NULL)
 	{
-		deparseColId(state, index_elem->name);
+		deparseIdentifier(state, index_elem->name, -1, 0, true);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 	else if (index_elem->expr != NULL)
@@ -2974,30 +3092,32 @@ static void deparseIntoClause(DeparseState *state, IntoClause *into_clause)
 
 static void deparseRangeVar(DeparseState *state, RangeVar *range_var, DeparseNodeContext context)
 {
+	size_t component_index = 0;
+
 	if (!range_var->inh && context != DEPARSE_NODE_CONTEXT_CREATE_TYPE && context != DEPARSE_NODE_CONTEXT_ALTER_TYPE)
 		deparseAppendStringInfoString(state, "ONLY ");
 
 	if (range_var->catalogname != NULL)
 	{
-		deparseAppendStringInfoString(state, quote_identifier(range_var->catalogname));
+		deparseIdentifier(state, range_var->catalogname, range_var->location, component_index++, false);
 		deparseAppendStringInfoChar(state, '.');
 	}
 
 	if (range_var->schemaname != NULL)
 	{
-		deparseAppendStringInfoString(state, quote_identifier(range_var->schemaname));
+		deparseIdentifier(state, range_var->schemaname, range_var->location, component_index++, false);
 		deparseAppendStringInfoChar(state, '.');
 	}
 
 	Assert(range_var->relname != NULL);
-	deparseAppendStringInfoString(state, quote_identifier(range_var->relname));
+	deparseIdentifier(state, range_var->relname, range_var->location, component_index, false);
 	deparseAppendStringInfoChar(state, ' ');
 
 	if (range_var->alias != NULL)
 	{
 		if (context == DEPARSE_NODE_CONTEXT_INSERT_RELATION)
 			deparseAppendStringInfoString(state, "AS ");
-		deparseAlias(state, range_var->alias);
+		deparseAlias(state, range_var->alias, range_var->location);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -3051,15 +3171,27 @@ void deparseRawStmtOpts(StringInfo str, struct RawStmt *raw_stmt, PostgresDepars
 	pfree(state);
 }
 
-static void deparseAlias(DeparseState *state, Alias *alias)
+static void deparseAlias(DeparseState *state, Alias *alias, int location)
 {
-	deparseAppendStringInfoString(state, quote_identifier(alias->aliasname));
+	const ListCell *lc = NULL;
+	size_t component_index = 0;
+
+	deparseIdentifier(state, alias->aliasname, location, 0, true);
 
 	if (list_length(alias->colnames) > 0)
 	{
-		const ListCell *lc = NULL;
 		deparseAppendStringInfoChar(state, '(');
-		deparseNameList(state, alias->colnames);
+		foreach(lc, alias->colnames)
+		{
+			deparseIdentifier(
+				state,
+				strVal(lfirst(lc)),
+				location,
+				component_index++,
+				true);
+			if (lnext(alias->colnames, lc))
+				deparseAppendStringInfoString(state, ", ");
+		}
 		deparseAppendStringInfoChar(state, ')');
 	}
 }
@@ -3346,7 +3478,7 @@ static void deparseFuncCall(DeparseState *state, FuncCall *func_call, DeparseNod
 		return;
 	}
 		
-	deparseFuncName(state, func_call->funcname);
+	deparseFuncNameAt(state, func_call->funcname, func_call->location);
 	deparseAppendStringInfoChar(state, '(');
 
 	if (func_call->agg_distinct)
@@ -3525,6 +3657,8 @@ static void deparseWindowDef(DeparseState *state, WindowDef* window_def)
 
 static void deparseColumnRef(DeparseState *state, ColumnRef* column_ref)
 {
+	size_t component_index = 0;
+
 	Assert(list_length(column_ref->fields) >= 1);
 
 	deparseAppendCommentsIfNeeded(state, column_ref->location);
@@ -3532,9 +3666,19 @@ static void deparseColumnRef(DeparseState *state, ColumnRef* column_ref)
 	if (IsA(linitial(column_ref->fields), A_Star))
 		deparseAStar(state, castNode(A_Star, linitial(column_ref->fields)));
 	else if (IsA(linitial(column_ref->fields), String))
-		deparseColLabel(state, strVal(linitial(column_ref->fields)));
+		deparseIdentifier(
+			state,
+			strVal(linitial(column_ref->fields)),
+			column_ref->location,
+			component_index++,
+			false);
 
-	deparseOptIndirection(state, column_ref->fields, 1);
+	deparseOptIndirectionAt(
+		state,
+		column_ref->fields,
+		1,
+		column_ref->location,
+		&component_index);
 }
 
 static void deparseSubLink(DeparseState *state, SubLink* sub_link)
@@ -4054,13 +4198,28 @@ static void deparseJoinExpr(DeparseState *state, JoinExpr *join_expr)
 	if (list_length(join_expr->usingClause) > 0)
 	{
 		deparseAppendStringInfoString(state, "USING (");
-		deparseNameList(state, join_expr->usingClause);
+		foreach(lc, join_expr->usingClause)
+		{
+			deparseIdentifier(
+				state,
+				strVal(lfirst(lc)),
+				-1,
+				0,
+				true);
+			if (lnext(join_expr->usingClause, lc))
+				deparseAppendStringInfoString(state, ", ");
+		}
 		deparseAppendStringInfoString(state, ") ");
 
 		if (join_expr->join_using_alias)
 		{
 			deparseAppendStringInfoString(state, "AS ");
-			deparseAppendStringInfoString(state, join_expr->join_using_alias->aliasname);
+			deparseIdentifier(
+				state,
+				join_expr->join_using_alias->aliasname,
+				-1,
+				0,
+				true);
 		}
 	}
 
@@ -4068,7 +4227,7 @@ static void deparseJoinExpr(DeparseState *state, JoinExpr *join_expr)
 		deparseAppendStringInfoString(state, ") ");
 
 	if (join_expr->alias != NULL)
-		deparseAlias(state, join_expr->alias);
+		deparseAlias(state, join_expr->alias, -1);
 
 	removeTrailingSpace(state);
 }
@@ -4119,14 +4278,26 @@ static void deparseCTECycleClause(DeparseState *state, CTECycleClause *cycle_cla
 
 static void deparseCommonTableExpr(DeparseState *state, CommonTableExpr *cte)
 {
+	ListCell *lc = NULL;
+
 	deparseAppendCommentsIfNeeded(state, cte->location);
 
-	deparseColId(state, cte->ctename);
+	deparseIdentifier(state, cte->ctename, cte->location, 0, false);
 
 	if (list_length(cte->aliascolnames) > 0)
 	{
 		deparseAppendStringInfoChar(state, '(');
-		deparseNameList(state, cte->aliascolnames);
+		foreach(lc, cte->aliascolnames)
+		{
+			deparseIdentifier(
+				state,
+				strVal(lfirst(lc)),
+				cte->location,
+				0,
+				true);
+			if (lnext(cte->aliascolnames, lc))
+				deparseAppendStringInfoString(state, ", ");
+		}
 		deparseAppendStringInfoChar(state, ')');
 	}
 	deparseAppendStringInfoChar(state, ' ');
@@ -4165,7 +4336,7 @@ static void deparseRangeSubselect(DeparseState *state, RangeSubselect *range_sub
 	if (range_subselect->alias != NULL)
 	{
 		deparseAppendStringInfoChar(state, ' ');
-		deparseAlias(state, range_subselect->alias);
+		deparseAlias(state, range_subselect->alias, -1);
 	}
 }
 
@@ -4216,7 +4387,7 @@ static void deparseRangeFunction(DeparseState *state, RangeFunction *range_func)
 
 	if (range_func->alias != NULL)
 	{
-		deparseAlias(state, range_func->alias);
+		deparseAlias(state, range_func->alias, -1);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -4730,7 +4901,12 @@ static void deparseColumnDef(DeparseState *state, ColumnDef *column_def)
 
 	if (column_def->colname != NULL)
 	{
-		deparseAppendStringInfoString(state, quote_identifier(column_def->colname));
+		deparseIdentifier(
+			state,
+			column_def->colname,
+			column_def->location,
+			0,
+			false);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -5388,7 +5564,12 @@ static void deparseConstraint(DeparseState *state, Constraint *constraint)
 	if (constraint->conname != NULL)
 	{
 		deparseAppendStringInfoString(state, "CONSTRAINT ");
-		deparseAppendStringInfoString(state, quote_identifier(constraint->conname));
+		deparseIdentifier(
+			state,
+			constraint->conname,
+			constraint->location,
+			0,
+			true);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -5892,7 +6073,12 @@ static void deparsePartitionElem(DeparseState *state, PartitionElem *partition_e
 
 	if (partition_elem->name != NULL)
 	{
-		deparseColId(state, partition_elem->name);
+		deparseIdentifier(
+			state,
+			partition_elem->name,
+			partition_elem->location,
+			0,
+			false);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 	else if (partition_elem->expr != NULL)
@@ -7216,7 +7402,7 @@ static void deparseAlterTableCmd(DeparseState *state, AlterTableCmd *alter_table
 
 	if (alter_table_cmd->name != NULL)
 	{
-		deparseAppendStringInfoString(state, quote_identifier(alter_table_cmd->name));
+		deparseIdentifier(state, alter_table_cmd->name, -1, 0, true);
 		deparseAppendStringInfoChar(state, ' ');
 	} else if (alter_table_cmd->subtype == AT_SetAccessMethod)
 	{
@@ -8901,7 +9087,7 @@ static void deparseIndexStmt(DeparseState *state, IndexStmt *index_stmt)
 
 	if (index_stmt->idxname != NULL)
 	{
-		deparseAppendStringInfoString(state, quote_identifier(index_stmt->idxname));
+		deparseIdentifier(state, index_stmt->idxname, -1, 0, true);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -10972,7 +11158,7 @@ static void deparseRangeTableFunc(DeparseState *state, RangeTableFunc* range_tab
 	if (range_table_func->alias)
 	{
 		deparseAppendStringInfoString(state, "AS ");
-		deparseAlias(state, range_table_func->alias);
+		deparseAlias(state, range_table_func->alias, -1);
 	}
 
 	removeTrailingSpace(state);
@@ -11526,7 +11712,7 @@ static void deparseJsonTable(DeparseState *state, JsonTable *json_table)
 	if (json_table->alias)
 	{
 		deparseAppendStringInfoChar(state, ' ');
-		deparseAlias(state, json_table->alias);
+		deparseAlias(state, json_table->alias, -1);
 	}
 }
 

@@ -124,7 +124,7 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "rownum <= 10"
+        "deparse_contains": "ROWNUM <= 10"
       }
     },
     {
@@ -510,7 +510,7 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "decode"
+        "deparse_contains": "DECODE"
       }
     },
     {
@@ -523,7 +523,7 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "row_number"
+        "deparse_contains": "ROW_NUMBER"
       }
     },
     {
@@ -1788,7 +1788,7 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "secret = :1",
+        "deparse_contains": "SECRET = :1",
         "view_contains": [
           "\"clause\":\"set_list\"",
           "\"column\":\"secret\"",
@@ -1810,7 +1810,7 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "secret = :secret_value",
+        "deparse_contains": "SECRET = :secret_value",
         "view_contains": [
           "\"clause\":\"set_list\"",
           "\"column\":\"secret\"",
@@ -1832,7 +1832,7 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "secret = ?",
+        "deparse_contains": "SECRET = ?",
         "view_contains": [
           "\"clause\":\"set_list\"",
           "\"column\":\"secret\"",
@@ -1854,7 +1854,7 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "secret = :2",
+        "deparse_contains": "SECRET = :2",
         "view_contains": [
           "\"clause\":\"set_list\"",
           "\"column\":\"phone\"",
@@ -2601,7 +2601,7 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "regexp_like(name, :pat)",
+        "deparse_contains": "REGEXP_LIKE(name, :pat)",
         "view_contains": [
           "\"operator\":\"regexp_like\"",
           "\"kind\":\"expression\"",
@@ -2706,6 +2706,40 @@
           "\"table\":\"USERS\"",
           "\"link\":\"REMOTE_DB\"",
           "\"kind\":\"star\""
+        ]
+      }
+    },
+    {
+      "id": "ODP001",
+      "name": "oracle-merge-deparse-preserves-identifier-spelling",
+      "sql": "MERGE INTO KDES.DBP_SQLM_USERS U USING (SELECT ? ID, ? PHONE FROM DUAL) S ON (U.ID = S.ID) WHEN MATCHED THEN UPDATE SET U.PHONE = S.PHONE",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "MergeStmt"
+        ],
+        "deparse_contains": [
+          "KDES.DBP_SQLM_USERS U",
+          "? AS ID, ? AS PHONE",
+          "U.PHONE = S.PHONE"
+        ]
+      }
+    },
+    {
+      "id": "ODP002",
+      "name": "oracle-deparse-spelling-skips-bind-and-q-quoted-text",
+      "sql": "SELECT a FROM T WHERE A = :a AND X = q'[A's]' ORDER BY A",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "deparse_contains": [
+          "FROM T",
+          "A = :a",
+          "ORDER BY A"
         ]
       }
     }

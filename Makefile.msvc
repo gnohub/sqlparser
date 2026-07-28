@@ -74,6 +74,7 @@ CORE_OBJS = \
 	$(OBJ_DIR)\sqlparser_ast_where.obj \
 	$(OBJ_DIR)\sqlparser_control.obj \
 	$(OBJ_DIR)\sqlparser_core.obj \
+	$(OBJ_DIR)\sqlparser_deparse_spelling.obj \
 	$(OBJ_DIR)\sqlparser_patch.obj \
 	$(OBJ_DIR)\sqlparser_selector.obj \
 	$(OBJ_DIR)\sqlparser_view.obj \
@@ -279,6 +280,9 @@ $(OBJ_DIR)\sqlparser_control.obj: src\core\sqlparser_control.c
 
 $(OBJ_DIR)\sqlparser_core.obj: src\core\sqlparser_core.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_core.c
+
+$(OBJ_DIR)\sqlparser_deparse_spelling.obj: src\core\sqlparser_deparse_spelling.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_deparse_spelling.c
 
 $(OBJ_DIR)\sqlparser_patch.obj: src\core\sqlparser_patch.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_patch.c

@@ -780,7 +780,7 @@ static sqlparser_status_t sqlparser_control_render_statement_core(
 	protobuf.data = (char *)scratch->data;
 	protobuf.len = packed_len;
 	sqlparser_pg_query_prepare();
-	result = pg_query_deparse_protobuf(protobuf);
+	result = sqlparser_deparse_protobuf_for_handle(handle, protobuf);
 	if (result.error != NULL || result.query == NULL) {
 		sqlparser_error_set_message(
 			out_error,

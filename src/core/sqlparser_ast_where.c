@@ -325,6 +325,9 @@ sqlparser_status_t sqlparser_parse_where_node_sql(
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_clone_proto_node(*slot, out_node, out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			sqlparser_mark_proto_generated((ProtobufCMessage *)*out_node);
+		}
 	}
 
 	if (ast != NULL) {
@@ -433,7 +436,7 @@ static PgQuery__Node *sqlparser_where_new_bool_node(
 	expr->boolop = bool_operator;
 	expr->n_args = 2U;
 	expr->args = args;
-	expr->location = -1;
+	expr->location = SQLPARSER_PROTO_LOCATION_GENERATED;
 	args[0] = left;
 	args[1] = right;
 	return node;

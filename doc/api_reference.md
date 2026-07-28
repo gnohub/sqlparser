@@ -704,6 +704,8 @@ patch 成功后 handle generation 递增，旧 query graph view 失效。
 | `sqlparser_deparse()` | 反解析当前 AST，生成 SQL 字符串 |
 | `sqlparser_string_free()` | 释放库返回的字符串 |
 
+未被改写的 schema、表名、列名和别名按输入 SQL 中的标识符拼写输出，包括未加引号标识符的原始大小写。关键字、空白和可选语法形式仍由反解析器规范化。
+
 ## 常见使用模式
 
 ### 字段和值归属

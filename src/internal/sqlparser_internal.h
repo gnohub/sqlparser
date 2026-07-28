@@ -51,6 +51,7 @@ typedef struct sqlparser_control_state sqlparser_control_state_t;
 #define SQLPARSER_INTERNAL_DAMENG_EXEC_SQL_PREPARE "sqlparser_dameng_exec_sql_prepare"
 #define SQLPARSER_INTERNAL_DAMENG_EXEC_SQL_EXECUTE "sqlparser_dameng_exec_sql_execute"
 #define SQLPARSER_INTERNAL_DAMENG_EXEC_SQL_DEALLOCATE_PREPARE "sqlparser_dameng_exec_sql_deallocate_prepare"
+#define SQLPARSER_PROTO_LOCATION_GENERATED (-2)
 
 struct sqlparser_handle {
 	char *sql;
@@ -126,6 +127,9 @@ void sqlparser_handle_replace_contents(
 sqlparser_status_t sqlparser_ensure_current_sql_text(
 	const sqlparser_handle_t *handle,
 	sqlparser_error_t *out_error);
+PgQueryDeparseResult sqlparser_deparse_protobuf_for_handle(
+	const sqlparser_handle_t *handle,
+	PgQueryProtobuf parse_tree);
 const char *sqlparser_effective_sql(const sqlparser_handle_t *handle);
 const char *sqlparser_effective_parser_sql(const sqlparser_handle_t *handle);
 sqlparser_status_t sqlparser_postprocess_handle_sql_fragment(

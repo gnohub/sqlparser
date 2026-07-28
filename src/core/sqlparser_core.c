@@ -21,7 +21,7 @@
 #include "sqlparser_internal.h"
 
 #ifndef SQLPARSER_VERSION_TEXT
-#define SQLPARSER_VERSION_TEXT "2.10.1"
+#define SQLPARSER_VERSION_TEXT "2.11.0"
 #endif
 
 #ifndef SQLPARSER_LIBPG_QUERY_TAG_TEXT
@@ -787,7 +787,7 @@ sqlparser_status_t sqlparser_ensure_current_sql_text(
 	}
 
 	sqlparser_pg_query_prepare();
-	deparse_result = pg_query_deparse_protobuf(handle->parse_tree);
+	deparse_result = sqlparser_deparse_protobuf_for_handle(handle, handle->parse_tree);
 	if (deparse_result.error != NULL) {
 		sqlparser_error_from_pg(
 			out_error,
@@ -1780,7 +1780,7 @@ sqlparser_status_t sqlparser_deparse(
 	}
 
 	sqlparser_pg_query_prepare();
-	deparse_result = pg_query_deparse_protobuf(handle->parse_tree);
+	deparse_result = sqlparser_deparse_protobuf_for_handle(handle, handle->parse_tree);
 	if (deparse_result.error != NULL) {
 		sqlparser_error_from_pg(
 			out_error,

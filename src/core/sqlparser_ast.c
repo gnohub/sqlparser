@@ -1729,6 +1729,51 @@ void sqlparser_free_proto_node(PgQuery__Node *node)
 	}
 }
 
+void sqlparser_mark_proto_generated(ProtobufCMessage *message)
+{
+	const ProtobufCMessageDescriptor *descriptor;
+	uint8_t *base;
+	unsigned index;
+
+	if (message == NULL || message->descriptor == NULL) {
+		return;
+	}
+
+	descriptor = message->descriptor;
+	base = (uint8_t *)message;
+	for (index = 0U; index < descriptor->n_fields; index++) {
+		const ProtobufCFieldDescriptor *field;
+
+		field = &descriptor->fields[index];
+		if ((field->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) != 0U &&
+		    *(const int *)(base + field->quantifier_offset) != (int)field->id) {
+			continue;
+		}
+		if (field->type == PROTOBUF_C_TYPE_INT32 &&
+		    field->label != PROTOBUF_C_LABEL_REPEATED &&
+		    strcmp(field->name, "location") == 0) {
+			*(int32_t *)(base + field->offset) = SQLPARSER_PROTO_LOCATION_GENERATED;
+			continue;
+		}
+		if (field->type != PROTOBUF_C_TYPE_MESSAGE) {
+			continue;
+		}
+		if (field->label == PROTOBUF_C_LABEL_REPEATED) {
+			size_t item_count;
+			ProtobufCMessage **items;
+			size_t item_index;
+
+			item_count = *(const size_t *)(base + field->quantifier_offset);
+			items = *(ProtobufCMessage ***)(base + field->offset);
+			for (item_index = 0U; items != NULL && item_index < item_count; item_index++) {
+				sqlparser_mark_proto_generated(items[item_index]);
+			}
+		} else {
+			sqlparser_mark_proto_generated(*(ProtobufCMessage **)(base + field->offset));
+		}
+	}
+}
+
 sqlparser_status_t sqlparser_clone_proto_node(
 	const PgQuery__Node *source,
 	PgQuery__Node **out_node,

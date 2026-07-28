@@ -99,7 +99,7 @@ sqlparser_status_t sqlparser_build_identifier_path_node(
 	node->column_ref = column_ref;
 	column_ref->n_fields = path->part_count;
 	column_ref->fields = fields;
-	column_ref->location = -1;
+	column_ref->location = SQLPARSER_PROTO_LOCATION_GENERATED;
 
 	for (index = 0U; index < path->part_count; index++) {
 		fields[index] = sqlparser_alloc_string_node(path->parts[index], out_error);
@@ -152,7 +152,7 @@ sqlparser_status_t sqlparser_build_select_target_identifier_node(
 	node->node_case = PG_QUERY__NODE__NODE_RES_TARGET;
 	node->res_target = target;
 	target->val = value_node;
-	target->location = -1;
+	target->location = SQLPARSER_PROTO_LOCATION_GENERATED;
 
 	*out_node = node;
 	return SQLPARSER_STATUS_OK;
@@ -199,7 +199,7 @@ sqlparser_status_t sqlparser_build_update_assignment_identifier_node(
 	pg_query__res_target__init(target);
 	node->node_case = PG_QUERY__NODE__NODE_RES_TARGET;
 	node->res_target = target;
-	target->location = -1;
+	target->location = SQLPARSER_PROTO_LOCATION_GENERATED;
 	target->name = sqlparser_strdup(target_path->parts[0]);
 	if (target->name == NULL) {
 		sqlparser_free_proto_node(node);

@@ -432,6 +432,9 @@ sqlparser_status_t sqlparser_parse_insert_cell_node_sql(
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_clone_proto_node(*slot, out_node, out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			sqlparser_mark_proto_generated((ProtobufCMessage *)*out_node);
+		}
 	}
 
 	if (ast != NULL) {
@@ -474,6 +477,9 @@ sqlparser_status_t sqlparser_parse_update_assignment_node_sql(
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_clone_proto_node(*slot, out_node, out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			sqlparser_mark_proto_generated((ProtobufCMessage *)*out_node);
+		}
 	}
 
 	if (ast != NULL) {
@@ -516,6 +522,9 @@ sqlparser_status_t sqlparser_parse_variable_set_arg_node_sql(
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_clone_proto_node(*slot, out_node, out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			sqlparser_mark_proto_generated((ProtobufCMessage *)*out_node);
+		}
 	}
 
 	if (ast != NULL) {
