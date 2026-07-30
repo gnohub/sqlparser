@@ -123,6 +123,10 @@ original SQL, the current syntax tree, dialect state, and lazily derived caches.
 | `sqlparser_graph_like_escape_kind_t` | escape shape for explicit `LIKE ... ESCAPE ...` in query graph |
 | `sqlparser_graph_predicate_kind_t` | query graph predicate node kind |
 | `sqlparser_graph_predicate_bool_t` | query graph boolean predicate operator |
+| `sqlparser_graph_session_action_t` | session-state action kind |
+| `sqlparser_graph_session_scope_t` | session-state scope |
+| `sqlparser_graph_session_target_kind_t` | session-state target kind |
+| `sqlparser_graph_session_value_kind_t` | session-state value kind |
 | `sqlparser_control_node_kind_t` | control-flow node kind |
 | `sqlparser_control_item_kind_t` | control-flow item reference kind |
 | `sqlparser_graph_dml_result_kind_t` | DML result-channel kind |
@@ -406,6 +410,16 @@ sqlparser_control_item_at(&flow, root_item_index, &root, &err);
 | `sqlparser_statement_name()` | reads one name atom |
 | `sqlparser_statement_set_name()` | rewrites one name atom |
 
+For an unquoted identifier derived from an input identifier token, the AST
+name value retains the token text and case, so `abc` and `DDD` remain `abc`
+and `DDD`. For a quoted identifier, `value` retains the decoded name text and
+case without double-quote, backtick, or bracket delimiters. Delimiter and
+escape-byte preservation is guaranteed only for generation-`0` deparse. The
+name API exposes identifier atoms explicitly supported for reading and
+rewriting; other AST string fields,
+including keywords, operators, structural control values, literals, and
+payloads, are not exposed as names.
+
 ### Literal
 
 | Function | Summary |
@@ -493,6 +507,7 @@ stmt[0].literal[1]
 stmt[0].where_literal[0]
 stmt[0].clause[0]
 stmt[0].assignment[0]
+stmt[0].merge_assignment[1][0]
 stmt[0].insert_cell[1][2]
 stmt[0].insert_branch_columns[0]
 stmt[0].insert_branch_condition[0]
@@ -504,6 +519,22 @@ stmt[0].dml_result_sink[0][0]
 stmt[0].dml_result_sink_columns[0][0]
 stmt[0].dml_result_sink_column[0][0][1]
 ```
+
+`stmt[S].assignment[A]` addresses assignment `A` in the top-level `UPDATE` of
+statement `S`. `stmt[S].merge_assignment[W][A]` addresses a MERGE matched
+UPDATE action: `W` is the absolute zero-based ordinal across all `WHEN`
+clauses in the MERGE, not an ordinal renumbered over UPDATE actions, and `A`
+is the zero-based assignment ordinal within that UPDATE branch. `W` must
+identify a `WHEN MATCHED ... THEN UPDATE` clause. After parsing, the selector
+has kind `SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT`, with `W` in `item_index`
+and `A` in `column_index`.
+
+`sqlparser_selector_update_assignment()`,
+`sqlparser_selector_update_assignment_sql()`, the
+`sqlparser_selector_set_update_assignment_*()` and
+`sqlparser_selector_insert_update_assignment_*()` families, and
+`sqlparser_selector_delete_update_assignment()` accept both `assignment` and
+`merge_assignment` selectors.
 
 ### Selector Parse and Read
 
@@ -556,9 +587,12 @@ and source selectors; they do not build SQL fragments or pass quote characters.
 The dialect is taken from `sqlparser_handle_t`.
 
 `sqlparser_selector_insert_update_assignment_from_assignment_value()` inserts a
-new `UPDATE SET` assignment. It clones the right-hand value of the assignment
-pointed to by `source_assignment_selector` and uses `target` as the new
-assignment left side:
+new `SET` assignment into a top-level `UPDATE` or MERGE matched UPDATE action.
+It clones the right-hand value of the assignment pointed to by
+`source_assignment_selector` and uses `target` as the new assignment left
+side. Both the insertion selector and the source selector can use either
+`assignment` or `merge_assignment`. Both selectors must address the same
+statement; otherwise the function returns `SQLPARSER_STATUS_UNSUPPORTED`:
 
 ```c
 const char *backup_parts[] = {"phone_backup"};
@@ -617,7 +651,8 @@ the original handle.
 ## query_graph C Traversal
 
 `query_graph` provides structured access to query blocks, relations, output
-targets, field references, predicates, DML writes, and bound values.
+targets, field references, predicates, DML writes, session state, and bound
+values.
 
 ### Entry Point
 
@@ -645,6 +680,9 @@ from which it was read.
 | `sqlparser_query_graph_value_at()` | reads a field-bound value |
 | `sqlparser_query_graph_set_at()` | reads a set-operation node |
 | `sqlparser_query_graph_predicate_at()` | reads a WHERE/ON/HAVING predicate node |
+| `sqlparser_query_graph_session()` | reads the statement session-state action |
+| `sqlparser_query_graph_session_item_at()` | reads a session-state target |
+| `sqlparser_query_graph_session_value_at()` | reads a session-state value |
 | `sqlparser_query_graph_dml()` | reads the root DML write shape |
 | `sqlparser_query_graph_dml_count()` | reads the DML count for the current statement |
 | `sqlparser_query_graph_dml_at()` | reads a DML by zero-based index |
@@ -668,6 +706,9 @@ from which it was read.
 | `sqlparser_graph_value_t` | literal, bind, default, or expression associated with a field |
 | `sqlparser_graph_set_t` | `UNION`, `UNION ALL`, `INTERSECT`, or `EXCEPT/MINUS` branches |
 | `sqlparser_graph_predicate_t` | comparison, boolean, EXISTS, or expression predicate from WHERE, ON, or HAVING |
+| `sqlparser_graph_session_t` | statement session-state action and item count |
+| `sqlparser_graph_session_item_t` | session-state scope, target, and value span |
+| `sqlparser_graph_session_value_t` | session-state identifier, keyword, literal, bind, or expression value |
 | `sqlparser_graph_dml_t` | INSERT, UPDATE, DELETE, or MERGE write shape |
 | `sqlparser_graph_dml_result_t` | DML result channel, output block, optional sink relation, sink columns, and field-reference span |
 | `sqlparser_graph_dml_reference_t` | one result-target reference to a target-row or source-relation field |
@@ -753,6 +794,63 @@ from which it was read.
   Deparse output keeps the public SQL form, for example
   `LIKE pattern ESCAPE escape`.
 
+### Session State
+
+Supported database, schema, role, identity, transaction-characteristic, and
+session-parameter statements are projected into
+`sqlparser_graph_session_t`. When the current statement has no available
+session projection, `sqlparser_query_graph_session()` returns success with
+action `SQLPARSER_GRAPH_SESSION_ACTION_UNKNOWN` and `item_count = 0`.
+
+```c
+sqlparser_query_graph_view_t graph;
+sqlparser_graph_session_t session;
+sqlparser_graph_session_item_t item;
+sqlparser_graph_session_value_t value;
+size_t item_index;
+size_t value_index;
+
+sqlparser_statement_query_graph(handle, 0, &graph, &err);
+sqlparser_query_graph_session(&graph, &session, &err);
+
+for (item_index = 0; item_index < session.item_count; item_index++) {
+    sqlparser_query_graph_session_item_at(
+        &graph, item_index, &item, &err);
+
+    for (value_index = 0; value_index < item.value_count; value_index++) {
+        sqlparser_query_graph_session_value_at(
+            &graph, item.value_offset + value_index, &value, &err);
+    }
+}
+```
+
+`action` reports operations such as `set`, `reset`, `switch`, and `discard`.
+An item's `scope` is `session`, `local`, or `transaction`; `target_kind`
+identifies targets such as a parameter, database, schema, or role. `name` can
+be an explicit SQL name or a canonical semantic name such as `timezone` or
+`search_path`; it is `NULL` when unavailable, and a canonical name need not
+appear verbatim in the SQL.
+
+Each value can also carry an optional `name` that labels a value with distinct
+semantics inside the same item. For example, the second value in MySQL
+`SET NAMES ... COLLATE ...` uses `name = "collation"`. The field is `NULL`
+when no distinct semantic label is available.
+
+Use the remaining value fields according to `kind`:
+
+| `kind` | Valid fields |
+| --- | --- |
+| `SQLPARSER_GRAPH_SESSION_VALUE_IDENTIFIER` | `text` |
+| `SQLPARSER_GRAPH_SESSION_VALUE_KEYWORD` | `text` |
+| `SQLPARSER_GRAPH_SESSION_VALUE_LITERAL` | `literal` |
+| `SQLPARSER_GRAPH_SESSION_VALUE_BIND` | `bind_key`, `bind_kind`, `bind_sql`, `bind_position`, `has_bind_position` |
+| `SQLPARSER_GRAPH_SESSION_VALUE_EXPRESSION` | `text` |
+
+`bind_position` starts at `1` and follows SQL occurrence order across all
+statements in the same handle. Borrowed string pointers in the returned
+structures, and graph data referenced by an item's value span, remain valid
+only while the owning query graph view remains valid.
+
 ## JSON Export and Patch
 
 | Function | Summary |
@@ -791,17 +889,22 @@ Patch operations:
 | `SQLPARSER_PATCH_DELETE_COLUMN` | deletes an `INSERT ... VALUES` column, deletes an `INSERT ... SELECT` target column, or deletes a SELECT output target |
 | `SQLPARSER_PATCH_DELETE_ROW` | deletes an `INSERT ... VALUES` row |
 | `SQLPARSER_PATCH_APPEND_CONDITION` | appends a condition to a `where` clause with `AND` or `OR` |
-| `SQLPARSER_PATCH_INSERT_ASSIGNMENT` | inserts an `UPDATE SET` assignment |
-| `SQLPARSER_PATCH_DELETE_ASSIGNMENT` | deletes an `UPDATE SET` assignment |
-| `SQLPARSER_PATCH_REPLACE_ASSIGNMENT` | replaces a full `UPDATE SET` assignment |
+| `SQLPARSER_PATCH_INSERT_ASSIGNMENT` | inserts a `SET` assignment into a top-level `UPDATE` or MERGE matched UPDATE action |
+| `SQLPARSER_PATCH_DELETE_ASSIGNMENT` | deletes a `SET` assignment from a top-level `UPDATE` or MERGE matched UPDATE action |
+| `SQLPARSER_PATCH_REPLACE_ASSIGNMENT` | replaces a full `SET` assignment in a top-level `UPDATE` or MERGE matched UPDATE action |
 
 After a patch succeeds, the handle generation increases and any previous query
 graph view becomes invalid.
 
+All three assignment patch operations accept either
+`stmt[S].assignment[A]` or `stmt[S].merge_assignment[W][A]` as their target
+selector.
+
 The value-source fields in `sqlparser_patch_t` are mutually exclusive for one
 rewrite position: provide only one of `sql`, `default_sql`, `source_selector`,
 `literal`, or `bind`. `source_selector` clones SQL from an existing
-`insert_cell`, `select_target`, or `assignment`; `literal` and `bind` are
+`insert_cell`, `select_target`, or assignment; assignment cloning accepts both
+`assignment` and `merge_assignment` selectors. `literal` and `bind` are
 rendered by the library according to the handle dialect.
 
 ## Deparse and String Free
@@ -811,7 +914,12 @@ rendered by the library according to the handle dialect.
 | `sqlparser_deparse()` | deparses the current AST into SQL |
 | `sqlparser_string_free()` | releases strings returned by the library |
 
-Unchanged schema, table, column, and alias identifiers retain their source SQL spelling, including the original case of unquoted identifiers. Keywords, whitespace, and optional syntax forms remain normalized by the deparser.
+When `sqlparser_deparse()` succeeds and the handle generation is `0`, it
+returns the input SQL byte for byte, including identifier quoting, case,
+keywords, whitespace, line breaks, comments, semicolons, and multi-statement
+boundaries. When the generation is greater than `0`, the function generates
+SQL from the current handle state; the byte-for-byte guarantee does not apply
+to any part of that output.
 
 ## Common Usage Patterns
 

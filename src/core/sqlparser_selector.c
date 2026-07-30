@@ -206,6 +206,17 @@ sqlparser_status_t sqlparser_selector_parse(
 		offset += 10U;
 		out_selector->kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
 		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
+	} else if (strncmp(text + offset, "merge_assignment", 16) == 0) {
+		offset += 16U;
+		out_selector->kind = SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT;
+		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_selector_parse_index(
+				text,
+				&offset,
+				&out_selector->column_index,
+				out_error);
+		}
 	} else if (strncmp(text + offset, "insert_cell", 11) == 0) {
 		offset += 11U;
 		out_selector->kind = SQLPARSER_SELECTOR_KIND_INSERT_CELL;
@@ -401,6 +412,15 @@ sqlparser_status_t sqlparser_selector_format(
 				"stmt[%lu].assignment[%lu]",
 				(unsigned long)selector->statement_index,
 				(unsigned long)selector->item_index);
+			break;
+		case SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT:
+			length = snprintf(
+				buffer,
+				sizeof(buffer),
+				"stmt[%lu].merge_assignment[%lu][%lu]",
+				(unsigned long)selector->statement_index,
+				(unsigned long)selector->item_index,
+				(unsigned long)selector->column_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_INSERT_CELL:
 			length = snprintf(
@@ -882,7 +902,9 @@ sqlparser_status_t sqlparser_selector_update_assignment(
 	sqlparser_assignment_view_t *out_assignment,
 	sqlparser_error_t *out_error)
 {
-	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT) {
+	if (selector == NULL ||
+	    (selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
+	     selector->kind != SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT)) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -890,12 +912,7 @@ sqlparser_status_t sqlparser_selector_update_assignment(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_update_assignment(
-		handle,
-		selector->statement_index,
-		selector->item_index,
-		out_assignment,
-		out_error);
+	return sqlparser_assignment_by_selector(handle, selector, out_assignment, out_error);
 }
 
 sqlparser_status_t sqlparser_selector_set_update_assignment_literal(
@@ -904,7 +921,9 @@ sqlparser_status_t sqlparser_selector_set_update_assignment_literal(
 	const sqlparser_literal_value_t *value,
 	sqlparser_error_t *out_error)
 {
-	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT) {
+	if (selector == NULL ||
+	    (selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
+	     selector->kind != SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT)) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -912,12 +931,8 @@ sqlparser_status_t sqlparser_selector_set_update_assignment_literal(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_update_set_assignment_literal(
-		handle,
-		selector->statement_index,
-		selector->item_index,
-		value,
-		out_error);
+	return sqlparser_assignment_set_literal_by_selector(
+		handle, selector, value, out_error);
 }
 
 sqlparser_status_t sqlparser_selector_update_assignment_sql(
@@ -926,7 +941,9 @@ sqlparser_status_t sqlparser_selector_update_assignment_sql(
 	char **out_sql,
 	sqlparser_error_t *out_error)
 {
-	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT) {
+	if (selector == NULL ||
+	    (selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
+	     selector->kind != SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT)) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -934,12 +951,8 @@ sqlparser_status_t sqlparser_selector_update_assignment_sql(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_update_assignment_sql(
-		handle,
-		selector->statement_index,
-		selector->item_index,
-		out_sql,
-		out_error);
+	return sqlparser_assignment_sql_by_selector(
+		handle, selector, out_sql, out_error);
 }
 
 sqlparser_status_t sqlparser_selector_set_update_assignment_sql(
@@ -948,7 +961,9 @@ sqlparser_status_t sqlparser_selector_set_update_assignment_sql(
 	const char *sql_text,
 	sqlparser_error_t *out_error)
 {
-	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT) {
+	if (selector == NULL ||
+	    (selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
+	     selector->kind != SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT)) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -956,12 +971,8 @@ sqlparser_status_t sqlparser_selector_set_update_assignment_sql(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_update_set_assignment_sql(
-		handle,
-		selector->statement_index,
-		selector->item_index,
-		sql_text,
-		out_error);
+	return sqlparser_assignment_set_sql_by_selector(
+		handle, selector, sql_text, out_error);
 }
 
 sqlparser_status_t sqlparser_selector_insert_update_assignment_sql(
@@ -970,7 +981,9 @@ sqlparser_status_t sqlparser_selector_insert_update_assignment_sql(
 	const char *assignment_sql,
 	sqlparser_error_t *out_error)
 {
-	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT) {
+	if (selector == NULL ||
+	    (selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
+	     selector->kind != SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT)) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -978,12 +991,8 @@ sqlparser_status_t sqlparser_selector_insert_update_assignment_sql(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_update_insert_assignment_sql(
-		handle,
-		selector->statement_index,
-		selector->item_index,
-		assignment_sql,
-		out_error);
+	return sqlparser_assignment_insert_sql_by_selector(
+		handle, selector, assignment_sql, out_error);
 }
 
 sqlparser_status_t sqlparser_selector_insert_update_assignment_from_assignment_value(
@@ -1000,8 +1009,12 @@ sqlparser_status_t sqlparser_selector_insert_update_assignment_from_assignment_v
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "handle must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	if (insert_selector == NULL || insert_selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT ||
-	    source_assignment_selector == NULL || source_assignment_selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT) {
+	if (insert_selector == NULL ||
+	    (insert_selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
+	     insert_selector->kind != SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT) ||
+	    source_assignment_selector == NULL ||
+	    (source_assignment_selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
+	     source_assignment_selector->kind != SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT)) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -1025,12 +1038,11 @@ sqlparser_status_t sqlparser_selector_insert_update_assignment_from_assignment_v
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	status = sqlparser_update_insert_assignment_from_assignment_value(
+	status = sqlparser_assignment_insert_from_assignment_value_by_selector(
 		candidate,
-		insert_selector->statement_index,
-		insert_selector->item_index,
+		insert_selector,
 		target,
-		source_assignment_selector->item_index,
+		source_assignment_selector,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_handle_destroy(candidate);
@@ -1047,7 +1059,9 @@ sqlparser_status_t sqlparser_selector_delete_update_assignment(
 	const sqlparser_selector_t *selector,
 	sqlparser_error_t *out_error)
 {
-	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT) {
+	if (selector == NULL ||
+	    (selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
+	     selector->kind != SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT)) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -1055,11 +1069,7 @@ sqlparser_status_t sqlparser_selector_delete_update_assignment(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_update_delete_assignment(
-		handle,
-		selector->statement_index,
-		selector->item_index,
-		out_error);
+	return sqlparser_assignment_delete_by_selector(handle, selector, out_error);
 }
 
 sqlparser_status_t sqlparser_selector_set_update_assignment_full_sql(
@@ -1068,7 +1078,9 @@ sqlparser_status_t sqlparser_selector_set_update_assignment_full_sql(
 	const char *assignment_sql,
 	sqlparser_error_t *out_error)
 {
-	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT) {
+	if (selector == NULL ||
+	    (selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
+	     selector->kind != SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT)) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -1076,12 +1088,8 @@ sqlparser_status_t sqlparser_selector_set_update_assignment_full_sql(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_update_set_assignment_full_sql(
-		handle,
-		selector->statement_index,
-		selector->item_index,
-		assignment_sql,
-		out_error);
+	return sqlparser_assignment_set_full_sql_by_selector(
+		handle, selector, assignment_sql, out_error);
 }
 
 sqlparser_status_t sqlparser_selector_insert_cell_literal(

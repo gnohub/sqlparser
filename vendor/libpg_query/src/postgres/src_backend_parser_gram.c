@@ -32611,31 +32611,31 @@ yyreduce:
 					 * the following special-case codes, to avoid bloating the
 					 * size of the main parser.
 					 */
-					if (strcmp((yyvsp[(1) - (1)].str), "superuser") == 0)
+					if (parser_identifier_is_keyword((yyvsp[(1) - (1)].str), "superuser", (yylsp[(1) - (1)]), yyscanner))
 						(yyval.defelt) = makeDefElem("superuser", (Node *) makeBoolean(true), (yylsp[(1) - (1)]));
-					else if (strcmp((yyvsp[(1) - (1)].str), "nosuperuser") == 0)
+					else if (parser_identifier_is_keyword((yyvsp[(1) - (1)].str), "nosuperuser", (yylsp[(1) - (1)]), yyscanner))
 						(yyval.defelt) = makeDefElem("superuser", (Node *) makeBoolean(false), (yylsp[(1) - (1)]));
-					else if (strcmp((yyvsp[(1) - (1)].str), "createrole") == 0)
+					else if (parser_identifier_is_keyword((yyvsp[(1) - (1)].str), "createrole", (yylsp[(1) - (1)]), yyscanner))
 						(yyval.defelt) = makeDefElem("createrole", (Node *) makeBoolean(true), (yylsp[(1) - (1)]));
-					else if (strcmp((yyvsp[(1) - (1)].str), "nocreaterole") == 0)
+					else if (parser_identifier_is_keyword((yyvsp[(1) - (1)].str), "nocreaterole", (yylsp[(1) - (1)]), yyscanner))
 						(yyval.defelt) = makeDefElem("createrole", (Node *) makeBoolean(false), (yylsp[(1) - (1)]));
-					else if (strcmp((yyvsp[(1) - (1)].str), "replication") == 0)
+					else if (parser_identifier_is_keyword((yyvsp[(1) - (1)].str), "replication", (yylsp[(1) - (1)]), yyscanner))
 						(yyval.defelt) = makeDefElem("isreplication", (Node *) makeBoolean(true), (yylsp[(1) - (1)]));
-					else if (strcmp((yyvsp[(1) - (1)].str), "noreplication") == 0)
+					else if (parser_identifier_is_keyword((yyvsp[(1) - (1)].str), "noreplication", (yylsp[(1) - (1)]), yyscanner))
 						(yyval.defelt) = makeDefElem("isreplication", (Node *) makeBoolean(false), (yylsp[(1) - (1)]));
-					else if (strcmp((yyvsp[(1) - (1)].str), "createdb") == 0)
+					else if (parser_identifier_is_keyword((yyvsp[(1) - (1)].str), "createdb", (yylsp[(1) - (1)]), yyscanner))
 						(yyval.defelt) = makeDefElem("createdb", (Node *) makeBoolean(true), (yylsp[(1) - (1)]));
-					else if (strcmp((yyvsp[(1) - (1)].str), "nocreatedb") == 0)
+					else if (parser_identifier_is_keyword((yyvsp[(1) - (1)].str), "nocreatedb", (yylsp[(1) - (1)]), yyscanner))
 						(yyval.defelt) = makeDefElem("createdb", (Node *) makeBoolean(false), (yylsp[(1) - (1)]));
-					else if (strcmp((yyvsp[(1) - (1)].str), "login") == 0)
+					else if (parser_identifier_is_keyword((yyvsp[(1) - (1)].str), "login", (yylsp[(1) - (1)]), yyscanner))
 						(yyval.defelt) = makeDefElem("canlogin", (Node *) makeBoolean(true), (yylsp[(1) - (1)]));
-					else if (strcmp((yyvsp[(1) - (1)].str), "nologin") == 0)
+					else if (parser_identifier_is_keyword((yyvsp[(1) - (1)].str), "nologin", (yylsp[(1) - (1)]), yyscanner))
 						(yyval.defelt) = makeDefElem("canlogin", (Node *) makeBoolean(false), (yylsp[(1) - (1)]));
-					else if (strcmp((yyvsp[(1) - (1)].str), "bypassrls") == 0)
+					else if (parser_identifier_is_keyword((yyvsp[(1) - (1)].str), "bypassrls", (yylsp[(1) - (1)]), yyscanner))
 						(yyval.defelt) = makeDefElem("bypassrls", (Node *) makeBoolean(true), (yylsp[(1) - (1)]));
-					else if (strcmp((yyvsp[(1) - (1)].str), "nobypassrls") == 0)
+					else if (parser_identifier_is_keyword((yyvsp[(1) - (1)].str), "nobypassrls", (yylsp[(1) - (1)]), yyscanner))
 						(yyval.defelt) = makeDefElem("bypassrls", (Node *) makeBoolean(false), (yylsp[(1) - (1)]));
-					else if (strcmp((yyvsp[(1) - (1)].str), "noinherit") == 0)
+					else if (parser_identifier_is_keyword((yyvsp[(1) - (1)].str), "noinherit", (yylsp[(1) - (1)]), yyscanner))
 					{
 						/*
 						 * Note that INHERIT is a keyword, so it's handled by main parser, but
@@ -38117,9 +38117,9 @@ yyreduce:
   case 766:
 #line 5889 "gram.y"
     {
-					if (strcmp((yyvsp[(2) - (2)].str), "permissive") == 0)
+					if (parser_identifier_is_keyword((yyvsp[(2) - (2)].str), "permissive", (yylsp[(2) - (2)]), yyscanner))
 						(yyval.boolean) = true;
-					else if (strcmp((yyvsp[(2) - (2)].str), "restrictive") == 0)
+					else if (parser_identifier_is_keyword((yyvsp[(2) - (2)].str), "restrictive", (yylsp[(2) - (2)]), yyscanner))
 						(yyval.boolean) = false;
 					else
 						ereport(ERROR,
@@ -47980,7 +47980,8 @@ yyreduce:
   case 1898:
 #line 14142 "gram.y"
     {
-					if (strcmp((yyvsp[(1) - (2)].str), "__pg__is_not_null") == 0)
+					if (strcmp((yyvsp[(1) - (2)].str), "__pg__is_not_null") == 0 ||
+						parser_identifier_is_keyword((yyvsp[(1) - (2)].str), "__pg__is_not_null", (yylsp[(1) - (2)]), yyscanner))
 						ereport(ERROR,
 								(errcode(ERRCODE_SYNTAX_ERROR),
 								 errmsg("option name \"%s\" cannot be used in XMLTABLE", (yyvsp[(1) - (2)].str)),
@@ -52412,12 +52413,12 @@ yyreduce:
 					 */
 					RoleSpec   *n;
 
-					if (strcmp((yyvsp[(1) - (1)].str), "public") == 0)
+					if (parser_identifier_is_keyword((yyvsp[(1) - (1)].str), "public", (yylsp[(1) - (1)]), yyscanner))
 					{
 						n = (RoleSpec *) makeRoleSpec(ROLESPEC_PUBLIC, (yylsp[(1) - (1)]));
 						n->roletype = ROLESPEC_PUBLIC;
 					}
-					else if (strcmp((yyvsp[(1) - (1)].str), "none") == 0)
+					else if (parser_identifier_is_keyword((yyvsp[(1) - (1)].str), "none", (yylsp[(1) - (1)]), yyscanner))
 					{
 						ereport(ERROR,
 								(errcode(ERRCODE_RESERVED_NAME),
@@ -52526,12 +52527,12 @@ yyreduce:
 
   case 2463:
 #line 17584 "gram.y"
-    { (yyval.str) = pstrdup((yyvsp[(1) - (1)].keyword)); ;}
+    { (yyval.str) = parser_keyword_spelling((yyvsp[(1) - (1)].keyword), (yylsp[(1) - (1)]), yyscanner); ;}
     break;
 
   case 2464:
 #line 17585 "gram.y"
-    { (yyval.str) = pstrdup((yyvsp[(1) - (1)].keyword)); ;}
+    { (yyval.str) = parser_keyword_spelling((yyvsp[(1) - (1)].keyword), (yylsp[(1) - (1)]), yyscanner); ;}
     break;
 
   case 2465:
@@ -52541,12 +52542,12 @@ yyreduce:
 
   case 2466:
 #line 17591 "gram.y"
-    { (yyval.str) = pstrdup((yyvsp[(1) - (1)].keyword)); ;}
+    { (yyval.str) = parser_keyword_spelling((yyvsp[(1) - (1)].keyword), (yylsp[(1) - (1)]), yyscanner); ;}
     break;
 
   case 2467:
 #line 17592 "gram.y"
-    { (yyval.str) = pstrdup((yyvsp[(1) - (1)].keyword)); ;}
+    { (yyval.str) = parser_keyword_spelling((yyvsp[(1) - (1)].keyword), (yylsp[(1) - (1)]), yyscanner); ;}
     break;
 
   case 2468:
@@ -52556,17 +52557,17 @@ yyreduce:
 
   case 2469:
 #line 17598 "gram.y"
-    { (yyval.str) = pstrdup((yyvsp[(1) - (1)].keyword)); ;}
+    { (yyval.str) = parser_keyword_spelling((yyvsp[(1) - (1)].keyword), (yylsp[(1) - (1)]), yyscanner); ;}
     break;
 
   case 2470:
 #line 17599 "gram.y"
-    { (yyval.str) = pstrdup((yyvsp[(1) - (1)].keyword)); ;}
+    { (yyval.str) = parser_keyword_spelling((yyvsp[(1) - (1)].keyword), (yylsp[(1) - (1)]), yyscanner); ;}
     break;
 
   case 2471:
 #line 17600 "gram.y"
-    { (yyval.str) = pstrdup((yyvsp[(1) - (1)].keyword)); ;}
+    { (yyval.str) = parser_keyword_spelling((yyvsp[(1) - (1)].keyword), (yylsp[(1) - (1)]), yyscanner); ;}
     break;
 
   case 2472:
@@ -52576,22 +52577,22 @@ yyreduce:
 
   case 2473:
 #line 17607 "gram.y"
-    { (yyval.str) = pstrdup((yyvsp[(1) - (1)].keyword)); ;}
+    { (yyval.str) = parser_keyword_spelling((yyvsp[(1) - (1)].keyword), (yylsp[(1) - (1)]), yyscanner); ;}
     break;
 
   case 2474:
 #line 17608 "gram.y"
-    { (yyval.str) = pstrdup((yyvsp[(1) - (1)].keyword)); ;}
+    { (yyval.str) = parser_keyword_spelling((yyvsp[(1) - (1)].keyword), (yylsp[(1) - (1)]), yyscanner); ;}
     break;
 
   case 2475:
 #line 17609 "gram.y"
-    { (yyval.str) = pstrdup((yyvsp[(1) - (1)].keyword)); ;}
+    { (yyval.str) = parser_keyword_spelling((yyvsp[(1) - (1)].keyword), (yylsp[(1) - (1)]), yyscanner); ;}
     break;
 
   case 2476:
 #line 17610 "gram.y"
-    { (yyval.str) = pstrdup((yyvsp[(1) - (1)].keyword)); ;}
+    { (yyval.str) = parser_keyword_spelling((yyvsp[(1) - (1)].keyword), (yylsp[(1) - (1)]), yyscanner); ;}
     break;
 
   case 2477:
@@ -52601,7 +52602,7 @@ yyreduce:
 
   case 2478:
 #line 17617 "gram.y"
-    { (yyval.str) = pstrdup((yyvsp[(1) - (1)].keyword)); ;}
+    { (yyval.str) = parser_keyword_spelling((yyvsp[(1) - (1)].keyword), (yylsp[(1) - (1)]), yyscanner); ;}
     break;
 
 
@@ -53845,4 +53846,3 @@ parser_init(base_yy_extra_type *yyext)
 {
 	yyext->parsetree = NIL;		/* in case grammar forgets to set it */
 }
-

@@ -133,6 +133,7 @@ copied subtree.
 | `values` | Literals, binds, and DEFAULT values associated with fields; pagination and pseudo-column binds are excluded; present when non-empty |
 | `sets` | `UNION`, `UNION ALL`, `INTERSECT`, and `EXCEPT/MINUS` operations; present when non-empty |
 | `predicates` | Predicate-tree nodes from `WHERE`, `ON`, `HAVING`, and similar clauses; present when non-empty |
+| `session` | Database, schema, role, identity, transaction-characteristic, or session-parameter action; present only for statements with session-state semantics |
 | `dml` | `INSERT`, `UPDATE`, `DELETE`, and `MERGE` write shape, including nested DML; present only for DML statements |
 
 All indexes are zero-based within the current statement. `relations[].source_block`, `targets[].source_block`, `targets[].star_relations`, and `sets[].branches` together describe derived-table, star, and set-operation lineage.
@@ -348,6 +349,53 @@ If the value side is a function, cast, operator, array, row, or CASE expression,
 
 `field = literal/bind` is represented by `left_field + value`. `field = field` is represented by `left_field + right_field`, with a `values[]` entry whose `kind` is `field`. Conditions that cannot be split safely into field and value sides are emitted as `kind = "expression"` instead of being reported as direct field movement.
 
+## session
+
+`query_graph.session` describes the statement's session-state action.
+
+```json
+{
+  "action": "set",
+  "items": [
+    {
+      "scope": "session",
+      "target_kind": "parameter",
+      "name": "NLS_DATE_LANGUAGE",
+      "values": [
+        {
+          "kind": "identifier",
+          "text": "ENGLISH"
+        }
+      ]
+    }
+  ]
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `action` | `set`, `reset`, `switch`, `discard`, `enable`, `disable`, `force`, `advise`, `close`, `sync`, `assume`, or `revert` |
+| `items` | Session-state targets affected by the action; contains at least one item |
+
+Item fields:
+
+| Field | Description |
+| --- | --- |
+| `scope` | `session`, `local`, or `transaction` |
+| `target_kind` | `parameter`, `variable`, `database`, `schema`, `container`, `role`, `authorization`, `login`, `user`, `transaction`, `session_context`, `database_link`, `object`, `constraint`, or `all` |
+| `name` | Explicit or canonical semantic name of a parameter, variable, or object; omitted when unavailable, and a canonical name need not appear verbatim in the SQL |
+| `values` | Target values; omitted when empty |
+
+A value `kind` is `identifier`, `keyword`, `literal`, `bind`, or `expression`.
+Identifiers, keywords, and expressions use `text`; literals use `literal`;
+binds use `bind_key`, `bind_kind`, `bind_sql`, and a one-based `bind_position`
+assigned by SQL occurrence order across the statements in the handle. A value
+of any kind can also include an optional `name` that distinguishes a value
+with separate semantics inside the same item. For example, the collation value
+in `SET NAMES ... COLLATE ...` uses
+`"name": "collation"`. The field is omitted when no distinct semantic label
+is available.
+
 ## DML
 
 `query_graph.dml` describes write targets, target columns, row values,
@@ -409,6 +457,16 @@ the right-hand side is a direct field reference, `kind` is `field` and
 `source_field` points to the source field. If that source field comes from a
 derived relation and uniquely matches a source-query output target,
 `source_target` is emitted as well.
+
+A top-level `UPDATE` assignment has a selector of the form
+`stmt[S].assignment[A]`. An assignment in a MERGE matched UPDATE action uses
+`stmt[S].merge_assignment[W][A]`, where `W` is the absolute zero-based ordinal
+across all `WHEN` clauses in that MERGE and `A` is the zero-based assignment
+ordinal within the target UPDATE branch. Both selector forms can be passed to
+the assignment selector APIs, `SQLPARSER_PATCH_INSERT_ASSIGNMENT`,
+`SQLPARSER_PATCH_DELETE_ASSIGNMENT`, and
+`SQLPARSER_PATCH_REPLACE_ASSIGNMENT`. A patch `source_selector` also accepts
+both forms when cloning an assignment.
 
 ## Rewriting
 

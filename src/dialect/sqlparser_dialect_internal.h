@@ -2,6 +2,52 @@
 #define SQLPARSER_DIALECT_INTERNAL_H
 
 #include "sqlparser_internal.h"
+#include "sqlparser_identifier_origin_internal.h"
+
+typedef struct {
+	const char *name;
+	size_t name_length;
+	sqlparser_graph_session_value_kind_t kind;
+	const char *text;
+	size_t text_length;
+	sqlparser_literal_view_t literal;
+	const char *bind_key;
+	size_t bind_key_length;
+	sqlparser_bind_kind_t bind_kind;
+	const char *bind_sql;
+	size_t bind_sql_length;
+	size_t bind_position;
+	int has_bind_position;
+	const char *source_sql;
+	size_t source_offset;
+} sqlparser_dialect_session_value_t;
+
+typedef struct {
+	void *context;
+	sqlparser_status_t (*set_action)(
+		void *context,
+		sqlparser_graph_session_action_t action,
+		sqlparser_error_t *out_error);
+	sqlparser_status_t (*add_item)(
+		void *context,
+		sqlparser_graph_session_scope_t scope,
+		sqlparser_graph_session_target_kind_t target_kind,
+		const char *name,
+		size_t name_length,
+		size_t *out_item_index,
+		sqlparser_error_t *out_error);
+	sqlparser_status_t (*add_value)(
+		void *context,
+		size_t item_index,
+		const sqlparser_dialect_session_value_t *value,
+		sqlparser_error_t *out_error);
+	sqlparser_status_t (*add_ast_value)(
+		void *context,
+		size_t item_index,
+		const char *name,
+		const PgQuery__Node *node,
+		sqlparser_error_t *out_error);
+} sqlparser_dialect_session_emitter_t;
 
 struct sqlparser_dialect_ops {
 	sqlparser_dialect_t dialect;
@@ -63,20 +109,93 @@ struct sqlparser_dialect_ops {
 		char **out_sql,
 		sqlparser_error_t *out_error);
 	sqlparser_control_state_t *(*take_control_state)(void *state);
+	sqlparser_status_t (*project_session)(
+		const sqlparser_handle_t *handle,
+		const void *state,
+		size_t statement_index,
+		const PgQuery__Node *statement,
+		const sqlparser_dialect_session_emitter_t *emitter,
+		sqlparser_error_t *out_error);
 };
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_get_ops(sqlparser_dialect_t dialect);
 int sqlparser_dialect_is_supported(sqlparser_dialect_t dialect);
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_postgresql_ops(void);
+sqlparser_status_t sqlparser_postgresql_preprocess_identifier_origins(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error);
 const sqlparser_dialect_ops_t *sqlparser_dialect_mysql_ops(void);
+sqlparser_status_t sqlparser_mysql_preprocess_identifier_origins(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error);
+int sqlparser_mysql_public_sql_is_session_statement(
+	const char *sql,
+	size_t length);
 const sqlparser_dialect_ops_t *sqlparser_dialect_oracle_ops(void);
+sqlparser_status_t sqlparser_oracle_preprocess_identifier_origins(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error);
 const sqlparser_dialect_ops_t *sqlparser_dialect_sqlserver_ops(void);
+sqlparser_status_t sqlparser_sqlserver_preprocess_identifier_origins(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error);
 const sqlparser_dialect_ops_t *sqlparser_dialect_dameng_ops(void);
+sqlparser_status_t sqlparser_dameng_preprocess_identifier_origins(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error);
 const sqlparser_dialect_ops_t *sqlparser_dialect_vastbase_oracle_ops(void);
+sqlparser_status_t sqlparser_vastbase_oracle_preprocess_identifier_origins(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error);
 const sqlparser_dialect_ops_t *sqlparser_dialect_vastbase_mysql_ops(void);
+sqlparser_status_t sqlparser_vastbase_mysql_preprocess_identifier_origins(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error);
 const sqlparser_dialect_ops_t *sqlparser_dialect_vastbase_postgresql_ops(void);
+sqlparser_status_t sqlparser_vastbase_postgresql_preprocess_identifier_origins(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error);
 const sqlparser_dialect_ops_t *sqlparser_dialect_vastbase_sqlserver_ops(void);
+sqlparser_status_t sqlparser_vastbase_sqlserver_preprocess_identifier_origins(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error);
 
 int sqlparser_dialect_uses_postgresql_placeholders(sqlparser_dialect_t dialect);
 int sqlparser_dialect_uses_oracle_placeholders(sqlparser_dialect_t dialect);

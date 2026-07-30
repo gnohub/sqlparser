@@ -4,6 +4,18 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
+#define POSTGRES_DEPARSE_GENERATED_IDENTIFIER_LOCATION (-2)
+#define POSTGRES_DEPARSE_SEMANTIC_IDENTIFIER_LOCATION (-3)
+#define POSTGRES_DEPARSE_WINDOW_NAME_COMPONENT ((size_t)-1)
+#define POSTGRES_DEPARSE_INDEX_ACCESS_METHOD_COMPONENT ((size_t)-2)
+
+typedef enum PostgresDeparseSourceTokenKind {
+    POSTGRES_DEPARSE_SOURCE_TOKEN_NONE = 0,
+    POSTGRES_DEPARSE_SOURCE_TOKEN_IDENTIFIER_MATCH,
+    POSTGRES_DEPARSE_SOURCE_TOKEN_IDENTIFIER_MISMATCH,
+    POSTGRES_DEPARSE_SOURCE_TOKEN_STRING
+} PostgresDeparseSourceTokenKind;
+
 typedef struct PostgresDeparseComment {
     int match_location;          // Insert comment before a node, once we find a node whose location field is equal-or-higher than this location
     int newlines_before_comment; // Insert newlines before inserting the comment (set to non-zero if the source comment was separated from the prior token by at least one newline)
@@ -20,6 +32,28 @@ typedef bool (*PostgresDeparseIdentifierResolver)(
     const char **resolved,
     size_t *resolved_length);
 
+typedef bool (*PostgresDeparseKeywordMatcher)(
+    void *context,
+    const char *identifier,
+    const char *keyword,
+    int location,
+    bool search_forward);
+
+typedef PostgresDeparseSourceTokenKind (*PostgresDeparseSourceTokenProbe)(
+    void *context,
+    const char *identifier,
+    int location,
+    bool search_forward);
+
+typedef void (*PostgresDeparseGeneratedIdentifierReader)(
+    void *context,
+    size_t identifier_index,
+    const char *identifier);
+
+typedef bool (*PostgresDeparseGeneratedIdentifierProbe)(
+    void *context,
+    const char *identifier);
+
 typedef struct PostgresDeparseOpts {
     PostgresDeparseComment **comments;
     size_t comment_count;
@@ -33,6 +67,12 @@ typedef struct PostgresDeparseOpts {
 
     // Optional source-spelling resolver for identifiers.
     PostgresDeparseIdentifierResolver identifier_resolver;
+    PostgresDeparseKeywordMatcher keyword_matcher;
+    PostgresDeparseSourceTokenProbe source_token_probe;
+    const char *generated_identifier_prefix;
+    size_t generated_identifier_prefix_length;
+    PostgresDeparseGeneratedIdentifierReader generated_identifier_reader;
+    PostgresDeparseGeneratedIdentifierProbe generated_identifier_probe;
     void *identifier_resolver_context;
 } PostgresDeparseOpts;
 
@@ -43,5 +83,6 @@ struct RawStmt;
 
 extern void deparseRawStmt(StringInfo str, struct RawStmt *raw_stmt);
 extern void deparseRawStmtOpts(StringInfo str, struct RawStmt *raw_stmt, PostgresDeparseOpts opts);
+extern int postgres_deparse_keyword_category(const char *word, size_t length);
 
 #endif

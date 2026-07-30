@@ -1,15 +1,40 @@
 #include <ctype.h>
 #include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "sqlparser_dialect_internal.h"
 
+typedef enum {
+	SQLPARSER_MYSQL_ORIGIN_INPUT = 1,
+	SQLPARSER_MYSQL_ORIGIN_SOURCE_IDENTIFIER = 2,
+	SQLPARSER_MYSQL_ORIGIN_GENERATED_IDENTIFIER = 3
+} sqlparser_mysql_origin_kind_t;
+
+typedef struct {
+	sqlparser_mysql_origin_kind_t kind;
+	size_t output_offset;
+	size_t output_length;
+	size_t input_offset;
+	size_t input_length;
+} sqlparser_mysql_origin_run_t;
+
+typedef struct {
+	sqlparser_mysql_origin_run_t *runs;
+	size_t run_count;
+	size_t run_capacity;
+} sqlparser_mysql_origin_trace_t;
+
 typedef struct {
 	char *data;
 	size_t len;
 	size_t capacity;
+	const char *origin_input;
+	size_t origin_input_length;
+	size_t origin_input_base;
+	sqlparser_mysql_origin_trace_t *origin_trace;
 } sqlparser_mysql_buffer_t;
 
 typedef enum {
@@ -988,6 +1013,159 @@ static sqlparser_graph_insert_mode_t sqlparser_mysql_state_insert_mode_override(
 	return SQLPARSER_GRAPH_INSERT_MODE_UNKNOWN;
 }
 
+static int sqlparser_mysql_origin_size_add(
+	size_t left,
+	size_t right,
+	size_t *out_value)
+{
+	if (right > SIZE_MAX - left) {
+		return 0;
+	}
+	*out_value = left + right;
+	return 1;
+}
+
+static void sqlparser_mysql_origin_trace_release(
+	sqlparser_mysql_origin_trace_t *trace)
+{
+	if (trace == NULL) {
+		return;
+	}
+	free(trace->runs);
+	memset(trace, 0, sizeof(*trace));
+}
+
+static sqlparser_status_t sqlparser_mysql_origin_trace_reserve(
+	sqlparser_mysql_origin_trace_t *trace,
+	size_t required,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_mysql_origin_run_t *next;
+	size_t next_capacity;
+
+	if (required <= trace->run_capacity) {
+		return SQLPARSER_STATUS_OK;
+	}
+	next_capacity = trace->run_capacity == 0U ? 8U : trace->run_capacity;
+	while (next_capacity < required) {
+		if (next_capacity > SIZE_MAX / 2U) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"MySQL identifier origin trace is too large");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		next_capacity *= 2U;
+	}
+	if (next_capacity > SIZE_MAX / sizeof(*next)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"MySQL identifier origin trace is too large");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	next = (sqlparser_mysql_origin_run_t *)realloc(
+		trace->runs,
+		next_capacity * sizeof(*next));
+	if (next == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	trace->runs = next;
+	trace->run_capacity = next_capacity;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_mysql_origin_trace_append(
+	sqlparser_mysql_origin_trace_t *trace,
+	const sqlparser_mysql_origin_run_t *run,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_mysql_origin_run_t *previous;
+	sqlparser_status_t status;
+	size_t previous_input_end;
+	size_t previous_output_end;
+
+	if (trace == NULL || run->output_length == 0U) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (trace->run_count > 0U) {
+		previous = &trace->runs[trace->run_count - 1U];
+		if (!sqlparser_mysql_origin_size_add(
+			    previous->output_offset,
+			    previous->output_length,
+			    &previous_output_end) ||
+		    previous_output_end > run->output_offset) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"MySQL identifier origin trace overlaps");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		if (previous->kind == SQLPARSER_MYSQL_ORIGIN_INPUT &&
+		    run->kind == SQLPARSER_MYSQL_ORIGIN_INPUT &&
+		    previous_output_end == run->output_offset &&
+		    sqlparser_mysql_origin_size_add(
+			    previous->input_offset,
+			    previous->input_length,
+			    &previous_input_end) &&
+		    previous_input_end == run->input_offset) {
+			if (!sqlparser_mysql_origin_size_add(
+				    previous->output_length,
+				    run->output_length,
+				    &previous->output_length) ||
+			    !sqlparser_mysql_origin_size_add(
+				    previous->input_length,
+				    run->input_length,
+				    &previous->input_length)) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_NO_MEMORY,
+					"MySQL identifier origin trace is too large");
+				return SQLPARSER_STATUS_NO_MEMORY;
+			}
+			return SQLPARSER_STATUS_OK;
+		}
+	}
+	status = sqlparser_mysql_origin_trace_reserve(
+		trace,
+		trace->run_count + 1U,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	trace->runs[trace->run_count++] = *run;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_mysql_buffer_begin_origin(
+	sqlparser_mysql_buffer_t *buffer,
+	sqlparser_mysql_origin_trace_t *trace,
+	const char *input,
+	size_t input_base,
+	sqlparser_error_t *out_error)
+{
+	if (trace == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (buffer == NULL || input == NULL || trace->runs != NULL ||
+	    trace->run_count != 0U || trace->run_capacity != 0U) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"MySQL identifier origin buffer is invalid");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	buffer->origin_input = input;
+	buffer->origin_input_length = strlen(input);
+	buffer->origin_input_base = input_base;
+	buffer->origin_trace = trace;
+	return SQLPARSER_STATUS_OK;
+}
+
 static void sqlparser_mysql_buffer_release(sqlparser_mysql_buffer_t *buffer)
 {
 	if (buffer == NULL) {
@@ -998,6 +1176,10 @@ static void sqlparser_mysql_buffer_release(sqlparser_mysql_buffer_t *buffer)
 	buffer->data = NULL;
 	buffer->len = 0U;
 	buffer->capacity = 0U;
+	buffer->origin_input = NULL;
+	buffer->origin_input_length = 0U;
+	buffer->origin_input_base = 0U;
+	buffer->origin_trace = NULL;
 }
 
 static sqlparser_status_t sqlparser_mysql_buffer_reserve(
@@ -1047,7 +1229,7 @@ static sqlparser_status_t sqlparser_mysql_buffer_reserve(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_mysql_buffer_append_mem(
+static sqlparser_status_t sqlparser_mysql_buffer_append_raw_mem(
 	sqlparser_mysql_buffer_t *buffer,
 	const char *data,
 	size_t len,
@@ -1077,6 +1259,51 @@ static sqlparser_status_t sqlparser_mysql_buffer_append_mem(
 	return SQLPARSER_STATUS_OK;
 }
 
+static sqlparser_status_t sqlparser_mysql_buffer_append_mem(
+	sqlparser_mysql_buffer_t *buffer,
+	const char *data,
+	size_t len,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_mysql_origin_run_t run;
+	uintptr_t data_address;
+	uintptr_t input_address;
+	size_t input_offset;
+	sqlparser_status_t status;
+
+	if (len > 0U && buffer != NULL && buffer->origin_trace != NULL &&
+	    data != NULL) {
+		data_address = (uintptr_t)(const void *)data;
+		input_address = (uintptr_t)(const void *)buffer->origin_input;
+		if (data_address >= input_address &&
+		    data_address - input_address <= buffer->origin_input_length) {
+			input_offset = (size_t)(data_address - input_address);
+			if (len <= buffer->origin_input_length - input_offset &&
+			    input_offset <= SIZE_MAX - buffer->origin_input_base) {
+				memset(&run, 0, sizeof(run));
+				run.kind = SQLPARSER_MYSQL_ORIGIN_INPUT;
+				run.output_offset = buffer->len;
+				run.output_length = len;
+				run.input_offset =
+					buffer->origin_input_base + input_offset;
+				run.input_length = len;
+				status = sqlparser_mysql_origin_trace_append(
+					buffer->origin_trace,
+					&run,
+					out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					return status;
+				}
+			}
+		}
+	}
+	return sqlparser_mysql_buffer_append_raw_mem(
+		buffer,
+		data,
+		len,
+		out_error);
+}
+
 static sqlparser_status_t sqlparser_mysql_buffer_append_char(
 	sqlparser_mysql_buffer_t *buffer,
 	char value,
@@ -1085,12 +1312,145 @@ static sqlparser_status_t sqlparser_mysql_buffer_append_char(
 	return sqlparser_mysql_buffer_append_mem(buffer, &value, 1U, out_error);
 }
 
+static sqlparser_status_t sqlparser_mysql_buffer_append_generated_identifier(
+	sqlparser_mysql_buffer_t *buffer,
+	const char *text,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_mysql_origin_run_t run;
+	sqlparser_status_t status;
+	size_t length;
+
+	length = text != NULL ? strlen(text) : 0U;
+	if (buffer != NULL && buffer->origin_trace != NULL && length > 0U) {
+		memset(&run, 0, sizeof(run));
+		run.kind = SQLPARSER_MYSQL_ORIGIN_GENERATED_IDENTIFIER;
+		run.output_offset = buffer->len;
+		run.output_length = length;
+		status = sqlparser_mysql_origin_trace_append(
+			buffer->origin_trace,
+			&run,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+	return sqlparser_mysql_buffer_append_raw_mem(
+		buffer,
+		text,
+		length,
+		out_error);
+}
+
+static sqlparser_status_t sqlparser_mysql_buffer_mark_source_identifier(
+	sqlparser_mysql_buffer_t *buffer,
+	size_t output_offset,
+	const char *input_start,
+	size_t input_length,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_mysql_origin_run_t run;
+	uintptr_t input_address;
+	uintptr_t start_address;
+	size_t local_offset;
+
+	if (buffer == NULL || buffer->origin_trace == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	input_address = (uintptr_t)(const void *)buffer->origin_input;
+	start_address = (uintptr_t)(const void *)input_start;
+	if (start_address < input_address ||
+	    start_address - input_address > buffer->origin_input_length) {
+		return SQLPARSER_STATUS_OK;
+	}
+	local_offset = (size_t)(start_address - input_address);
+	if (input_length > buffer->origin_input_length - local_offset ||
+	    local_offset > SIZE_MAX - buffer->origin_input_base ||
+	    output_offset > buffer->len) {
+		return SQLPARSER_STATUS_OK;
+	}
+	memset(&run, 0, sizeof(run));
+	run.kind = SQLPARSER_MYSQL_ORIGIN_SOURCE_IDENTIFIER;
+	run.output_offset = output_offset;
+	run.output_length = buffer->len - output_offset;
+	run.input_offset = buffer->origin_input_base + local_offset;
+	run.input_length = input_length;
+	return sqlparser_mysql_origin_trace_append(
+		buffer->origin_trace,
+		&run,
+		out_error);
+}
+
+static sqlparser_status_t sqlparser_mysql_buffer_append_trace_mem(
+	sqlparser_mysql_buffer_t *buffer,
+	const char *data,
+	size_t length,
+	const sqlparser_mysql_origin_trace_t *trace,
+	sqlparser_error_t *out_error)
+{
+	size_t index;
+	size_t output_base;
+	sqlparser_status_t status;
+
+	if (buffer == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"MySQL traced append buffer must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	output_base = buffer->len;
+	if (buffer->origin_trace != NULL && trace != NULL) {
+		for (index = 0U; index < trace->run_count; index++) {
+			sqlparser_mysql_origin_run_t run;
+
+			run = trace->runs[index];
+			if (!sqlparser_mysql_origin_size_add(
+				    output_base,
+				    run.output_offset,
+				    &run.output_offset)) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_NO_MEMORY,
+					"MySQL identifier origin trace is too large");
+				return SQLPARSER_STATUS_NO_MEMORY;
+			}
+			status = sqlparser_mysql_origin_trace_append(
+				buffer->origin_trace,
+				&run,
+				out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+		}
+	}
+	return sqlparser_mysql_buffer_append_raw_mem(
+		buffer,
+		data,
+		length,
+		out_error);
+}
+
 static sqlparser_status_t sqlparser_mysql_buffer_append_cstr(
 	sqlparser_mysql_buffer_t *buffer,
 	const char *text,
 	sqlparser_error_t *out_error)
 {
 	return sqlparser_mysql_buffer_append_mem(buffer, text, text != NULL ? strlen(text) : 0U, out_error);
+}
+
+static sqlparser_status_t sqlparser_mysql_buffer_append_trace_cstr(
+	sqlparser_mysql_buffer_t *buffer,
+	const char *text,
+	const sqlparser_mysql_origin_trace_t *trace,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_mysql_buffer_append_trace_mem(
+		buffer,
+		text,
+		text != NULL ? strlen(text) : 0U,
+		trace,
+		out_error);
 }
 
 static sqlparser_status_t sqlparser_mysql_buffer_finish(
@@ -1123,7 +1483,125 @@ static char *sqlparser_mysql_buffer_take(sqlparser_mysql_buffer_t *buffer)
 	buffer->data = NULL;
 	buffer->len = 0U;
 	buffer->capacity = 0U;
+	buffer->origin_input = NULL;
+	buffer->origin_input_length = 0U;
+	buffer->origin_input_base = 0U;
+	buffer->origin_trace = NULL;
 	return data;
+}
+
+static sqlparser_status_t sqlparser_mysql_origin_trace_commit(
+	sqlparser_identifier_origin_map_t *origins,
+	const char *input_sql,
+	const char *output_sql,
+	const sqlparser_mysql_origin_trace_t *trace,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_identifier_origin_writer_t writer;
+	sqlparser_status_t status;
+	size_t index;
+	size_t output_length;
+	size_t position;
+
+	if (origins == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (input_sql == NULL || output_sql == NULL || trace == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"MySQL identifier origin commit arguments must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	memset(&writer, 0, sizeof(writer));
+	status = sqlparser_identifier_origin_writer_begin(
+		&writer,
+		origins,
+		strlen(input_sql),
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	output_length = strlen(output_sql);
+	position = 0U;
+	for (index = 0U; index < trace->run_count; index++) {
+		const sqlparser_mysql_origin_run_t *run;
+		size_t run_end;
+
+		run = &trace->runs[index];
+		if (run->output_offset < position ||
+		    !sqlparser_mysql_origin_size_add(
+			    run->output_offset,
+			    run->output_length,
+			    &run_end) ||
+		    run_end > output_length) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"MySQL identifier origin trace is invalid");
+			status = SQLPARSER_STATUS_INTERNAL_ERROR;
+			break;
+		}
+		status = sqlparser_identifier_origin_writer_append_unknown(
+			&writer,
+			run->output_offset - position,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			break;
+		}
+		switch (run->kind) {
+			case SQLPARSER_MYSQL_ORIGIN_INPUT:
+				status = sqlparser_identifier_origin_writer_append_input(
+					&writer,
+					run->input_offset,
+					run->input_length,
+					out_error);
+				break;
+			case SQLPARSER_MYSQL_ORIGIN_SOURCE_IDENTIFIER:
+				status =
+					sqlparser_identifier_origin_writer_append_source_identifier(
+						&writer,
+						run->input_offset,
+						run->input_length,
+						run->output_length,
+						out_error);
+				break;
+			case SQLPARSER_MYSQL_ORIGIN_GENERATED_IDENTIFIER:
+				status =
+					sqlparser_identifier_origin_writer_append_generated_identifier(
+						&writer,
+						run->output_length,
+						out_error);
+				break;
+			default:
+				status = SQLPARSER_STATUS_INTERNAL_ERROR;
+				sqlparser_error_set_message(
+					out_error,
+					status,
+					"MySQL identifier origin kind is invalid");
+				break;
+		}
+		if (status != SQLPARSER_STATUS_OK) {
+			break;
+		}
+		position = run_end;
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_identifier_origin_writer_append_unknown(
+			&writer,
+			output_length - position,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_identifier_origin_writer_commit(
+			&writer,
+			output_length,
+			out_error);
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_identifier_origin_writer_release(&writer);
+	}
+	return status;
 }
 
 static sqlparser_status_t sqlparser_mysql_buffer_reserve_input(
@@ -1338,8 +1816,12 @@ static sqlparser_status_t sqlparser_mysql_copy_backtick_identifier(
 	sqlparser_error_t *out_error)
 {
 	sqlparser_status_t status;
+	size_t input_start;
+	size_t output_start;
 	size_t pos;
 
+	input_start = *index;
+	output_start = out->len;
 	status = sqlparser_mysql_buffer_append_char(out, '"', out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
@@ -1364,7 +1846,12 @@ static sqlparser_status_t sqlparser_mysql_copy_backtick_identifier(
 				return status;
 			}
 			*index = pos + 1U;
-			return SQLPARSER_STATUS_OK;
+			return sqlparser_mysql_buffer_mark_source_identifier(
+				out,
+				output_start,
+				input + input_start,
+				*index - input_start,
+				out_error);
 		}
 		if (c == '"') {
 			status = sqlparser_mysql_buffer_append_cstr(out, "\"\"", out_error);
@@ -1388,6 +1875,8 @@ static sqlparser_status_t sqlparser_mysql_preprocess_quotes(
 	const char *input_sql,
 	sqlparser_mysql_state_t *state,
 	char **out_sql,
+	size_t origin_input_base,
+	sqlparser_mysql_origin_trace_t *origin_trace,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_mysql_buffer_t out;
@@ -1395,6 +1884,15 @@ static sqlparser_status_t sqlparser_mysql_preprocess_quotes(
 	size_t index;
 
 	memset(&out, 0, sizeof(out));
+	status = sqlparser_mysql_buffer_begin_origin(
+		&out,
+		origin_trace,
+		input_sql,
+		origin_input_base,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
 	status = sqlparser_mysql_buffer_reserve_input(&out, input_sql, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
@@ -1479,7 +1977,11 @@ static sqlparser_status_t sqlparser_mysql_preprocess_quotes(
 				index++;
 			}
 		} else {
-			status = sqlparser_mysql_buffer_append_char(&out, c, out_error);
+			status = sqlparser_mysql_buffer_append_mem(
+				&out,
+				input_sql + index,
+				1U,
+				out_error);
 			if (status == SQLPARSER_STATUS_OK) {
 				index++;
 			}
@@ -1536,6 +2038,17 @@ static size_t sqlparser_mysql_skip_quoted_or_comment_span(const char *sql, size_
 		return pos;
 	}
 
+	if (sql[index] == '#') {
+		pos = index + 1U;
+		while (sql[pos] != '\0') {
+			if (sql[pos] == '\n') {
+				return pos + 1U;
+			}
+			pos++;
+		}
+		return pos;
+	}
+
 	if (sql[index] == '/' && sql[index + 1U] == '*') {
 		pos = index + 2U;
 		while (sql[pos] != '\0') {
@@ -1548,6 +2061,33 @@ static size_t sqlparser_mysql_skip_quoted_or_comment_span(const char *sql, size_
 	}
 
 	return index;
+}
+
+static size_t sqlparser_mysql_skip_leading_trivia(
+	const char *sql,
+	size_t start,
+	size_t end)
+{
+	size_t pos;
+	size_t skipped;
+
+	pos = start;
+	for (;;) {
+		while (pos < end && isspace((unsigned char)sql[pos])) {
+			pos++;
+		}
+		if (pos >= end ||
+		    !((sql[pos] == '-' && pos + 1U < end && sql[pos + 1U] == '-') ||
+		      sql[pos] == '#' ||
+		      (sql[pos] == '/' && pos + 1U < end && sql[pos + 1U] == '*'))) {
+			return pos;
+		}
+		skipped = sqlparser_mysql_skip_quoted_or_comment_span(sql, pos);
+		if (skipped <= pos) {
+			return pos;
+		}
+		pos = skipped < end ? skipped : end;
+	}
 }
 
 static sqlparser_status_t sqlparser_mysql_mask_non_code(
@@ -2134,7 +2674,9 @@ static sqlparser_status_t sqlparser_mysql_append_pg_quoted_identifier(
 {
 	const char *pos;
 	sqlparser_status_t status;
+	size_t output_start;
 
+	output_start = out != NULL ? out->len : 0U;
 	status = sqlparser_mysql_buffer_append_char(out, '"', out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
@@ -2149,7 +2691,16 @@ static sqlparser_status_t sqlparser_mysql_append_pg_quoted_identifier(
 			return status;
 		}
 	}
-	return sqlparser_mysql_buffer_append_char(out, '"', out_error);
+	status = sqlparser_mysql_buffer_append_char(out, '"', out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	return sqlparser_mysql_buffer_mark_source_identifier(
+		out,
+		output_start,
+		start,
+		(size_t)(end - start),
+		out_error);
 }
 
 static sqlparser_status_t sqlparser_mysql_append_internal_string_literal(
@@ -2191,7 +2742,10 @@ static sqlparser_status_t sqlparser_mysql_append_internal_set(
 
 	status = sqlparser_mysql_buffer_append_cstr(out, "SET ", out_error);
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_mysql_buffer_append_cstr(out, internal_name, out_error);
+		status = sqlparser_mysql_buffer_append_generated_identifier(
+			out,
+			internal_name,
+			out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_mysql_buffer_append_cstr(out, " TO ", out_error);
@@ -2233,9 +2787,12 @@ static size_t sqlparser_mysql_statement_token_end(const char *sql, size_t pos, s
 static sqlparser_status_t sqlparser_mysql_preprocess_use_statement(
 	const char *input_sql,
 	char **out_sql,
+	size_t origin_input_base,
+	sqlparser_mysql_origin_trace_t *origin_trace,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_mysql_buffer_t out;
+	sqlparser_mysql_origin_trace_t quoted_origin;
 	const char *start;
 	const char *end;
 	const char *name_start;
@@ -2277,9 +2834,21 @@ static sqlparser_status_t sqlparser_mysql_preprocess_use_statement(
 	}
 
 	memset(&out, 0, sizeof(out));
+	status = sqlparser_mysql_buffer_begin_origin(
+		&out,
+		origin_trace,
+		input_sql,
+		origin_input_base,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
 	status = sqlparser_mysql_buffer_append_cstr(&out, "SET ", out_error);
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_mysql_buffer_append_cstr(&out, SQLPARSER_INTERNAL_CURRENT_DATABASE, out_error);
+		status = sqlparser_mysql_buffer_append_generated_identifier(
+			&out,
+			SQLPARSER_INTERNAL_CURRENT_DATABASE,
+			out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_mysql_buffer_append_cstr(&out, " = ", out_error);
@@ -2292,6 +2861,7 @@ static sqlparser_status_t sqlparser_mysql_preprocess_use_statement(
 	quoted_name = NULL;
 	if (*name_start == '`') {
 		char *slice;
+		size_t quoted_input_base;
 
 		slice = sqlparser_strndup(name_start, (size_t)(name_end - name_start));
 		if (slice == NULL) {
@@ -2299,12 +2869,36 @@ static sqlparser_status_t sqlparser_mysql_preprocess_use_statement(
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 			return SQLPARSER_STATUS_NO_MEMORY;
 		}
-		status = sqlparser_mysql_preprocess_quotes(slice, NULL, &quoted_name, out_error);
+		memset(&quoted_origin, 0, sizeof(quoted_origin));
+		if (!sqlparser_mysql_origin_size_add(
+			    origin_input_base,
+			    (size_t)(name_start - input_sql),
+			    &quoted_input_base)) {
+			free(slice);
+			sqlparser_mysql_buffer_release(&out);
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"MySQL identifier origin trace is too large");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		status = sqlparser_mysql_preprocess_quotes(
+			slice,
+			NULL,
+			&quoted_name,
+			quoted_input_base,
+			origin_trace != NULL ? &quoted_origin : NULL,
+			out_error);
 		free(slice);
 		if (status == SQLPARSER_STATUS_OK) {
-			status = sqlparser_mysql_buffer_append_cstr(&out, quoted_name, out_error);
+			status = sqlparser_mysql_buffer_append_trace_cstr(
+				&out,
+				quoted_name,
+				&quoted_origin,
+				out_error);
 		}
 		free(quoted_name);
+		sqlparser_mysql_origin_trace_release(&quoted_origin);
 	} else if (*name_start == '"') {
 		const char *pos;
 
@@ -2351,9 +2945,584 @@ static sqlparser_status_t sqlparser_mysql_preprocess_use_statement(
 	return SQLPARSER_STATUS_OK;
 }
 
+static int sqlparser_mysql_session_sql_is_complete(
+	const char *sql,
+	size_t start,
+	size_t end)
+{
+	size_t pos;
+	int depth;
+
+	depth = 0;
+	for (pos = start; pos < end; pos++) {
+		char quote;
+
+		quote = sql[pos];
+		if (quote == '\'' || quote == '"' || quote == '`') {
+			int closed;
+
+			closed = 0;
+			for (pos++; pos < end; pos++) {
+				if (sql[pos] == '\\' && quote != '`' && pos + 1U < end) {
+					pos++;
+					continue;
+				}
+				if (sql[pos] != quote) {
+					continue;
+				}
+				if (pos + 1U < end && sql[pos + 1U] == quote) {
+					pos++;
+					continue;
+				}
+				closed = 1;
+				break;
+			}
+			if (!closed) {
+				return 0;
+			}
+			continue;
+		}
+		if (sql[pos] == '/' && pos + 1U < end && sql[pos + 1U] == '*') {
+			int closed;
+
+			closed = 0;
+			for (pos += 2U; pos + 1U < end; pos++) {
+				if (sql[pos] == '*' && sql[pos + 1U] == '/') {
+					pos++;
+					closed = 1;
+					break;
+				}
+			}
+			if (!closed) {
+				return 0;
+			}
+			continue;
+		}
+		if (sql[pos] == '-' && pos + 1U < end && sql[pos + 1U] == '-') {
+			while (pos < end && sql[pos] != '\n') {
+				pos++;
+			}
+			continue;
+		}
+		if (sql[pos] == '(') {
+			depth++;
+		} else if (sql[pos] == ')') {
+			if (depth == 0) {
+				return 0;
+			}
+			depth--;
+		}
+	}
+	return depth == 0;
+}
+
+static int sqlparser_mysql_session_consume_word(
+	const char *sql,
+	size_t *io_pos,
+	size_t end,
+	const char *word)
+{
+	size_t len;
+	size_t pos;
+
+	pos = sqlparser_mysql_skip_space(sql, *io_pos);
+	len = strlen(word);
+	if (pos >= end || len > end - pos ||
+	    !sqlparser_mysql_ascii_word_equal(sql, pos, word)) {
+		return 0;
+	}
+	*io_pos = pos + len;
+	return 1;
+}
+
+static size_t sqlparser_mysql_session_token_end(
+	const char *sql,
+	size_t start,
+	size_t end)
+{
+	size_t pos;
+
+	if (start >= end) {
+		return start;
+	}
+	if (sql[start] == '\'' || sql[start] == '"' || sql[start] == '`') {
+		pos = sqlparser_mysql_skip_quoted_or_comment_span(sql, start);
+		return pos <= end && pos > start + 1U && sql[pos - 1U] == sql[start] ?
+			pos :
+			start;
+	}
+	pos = start;
+	while (pos < end && !isspace((unsigned char)sql[pos]) && sql[pos] != ',') {
+		pos++;
+	}
+	return pos;
+}
+
+static int sqlparser_mysql_session_assignment_target_is_supported(
+	const char *sql,
+	size_t start,
+	size_t end)
+{
+	size_t pos;
+	size_t token_end;
+
+	if (start >= end) {
+		return 0;
+	}
+	if (sql[end - 1U] == ':') {
+		end--;
+		end = (size_t)(sqlparser_mysql_trim_right(sql + start, sql + end) - sql);
+		if (start >= end) {
+			return 0;
+		}
+	}
+	pos = start;
+	if (sqlparser_mysql_ascii_word_equal(sql, pos, "session") ||
+	    sqlparser_mysql_ascii_word_equal(sql, pos, "local")) {
+		pos += sqlparser_mysql_ascii_word_equal(sql, pos, "session") ?
+			strlen("session") :
+			strlen("local");
+		if (pos >= end || !isspace((unsigned char)sql[pos])) {
+			return 0;
+		}
+		pos = sqlparser_mysql_skip_space(sql, pos);
+	}
+	if (pos + 1U < end && sql[pos] == '@' && sql[pos + 1U] == '@') {
+		pos += 2U;
+		if (sqlparser_mysql_ascii_word_equal(sql, pos, "global")) {
+			return 0;
+		}
+		if (sqlparser_mysql_ascii_word_equal(sql, pos, "session") ||
+		    sqlparser_mysql_ascii_word_equal(sql, pos, "local")) {
+			pos += sqlparser_mysql_ascii_word_equal(sql, pos, "session") ?
+				strlen("session") :
+				strlen("local");
+			if (pos >= end || sql[pos] != '.') {
+				return 0;
+			}
+			pos++;
+		}
+		if (pos >= end || !sqlparser_mysql_is_ident_start((unsigned char)sql[pos])) {
+			return 0;
+		}
+		while (pos < end && sqlparser_mysql_is_ident_char((unsigned char)sql[pos])) {
+			pos++;
+		}
+		return pos == end;
+	}
+	if (sql[pos] == '@') {
+		pos++;
+		if (pos >= end) {
+			return 0;
+		}
+		if (sql[pos] == '\'' || sql[pos] == '"' || sql[pos] == '`') {
+			token_end = sqlparser_mysql_session_token_end(sql, pos, end);
+			return token_end == end;
+		}
+		token_end = pos;
+		while (token_end < end &&
+		       (sqlparser_mysql_is_ident_char((unsigned char)sql[token_end]) ||
+		        sql[token_end] == '.' || sql[token_end] == '$' ||
+		        (unsigned char)sql[token_end] >= 0x80U)) {
+			token_end++;
+		}
+		return token_end > pos && token_end == end;
+	}
+	if (!sqlparser_mysql_is_ident_start((unsigned char)sql[pos])) {
+		return 0;
+	}
+	while (pos < end && sqlparser_mysql_is_ident_char((unsigned char)sql[pos])) {
+		pos++;
+	}
+	return pos == end;
+}
+
+static int sqlparser_mysql_session_list_is_nonempty(
+	const char *sql,
+	size_t start,
+	size_t end)
+{
+	size_t comma;
+	const char *item_start;
+	const char *item_end;
+
+	if (!sqlparser_mysql_session_sql_is_complete(sql, start, end)) {
+		return 0;
+	}
+	while (start < end) {
+		comma = sqlparser_mysql_find_top_level_char_between(sql, ',', start, end);
+		item_start = sqlparser_mysql_trim_left(
+			sql + start,
+			sql + (comma == (size_t)-1 ? end : comma));
+		item_end = sqlparser_mysql_trim_right(
+			item_start,
+			sql + (comma == (size_t)-1 ? end : comma));
+		if (item_start == item_end) {
+			return 0;
+		}
+		if (comma == (size_t)-1) {
+			return 1;
+		}
+		start = comma + 1U;
+	}
+	return 0;
+}
+
+static int sqlparser_mysql_session_assignment_list_is_supported(
+	const char *sql,
+	size_t start,
+	size_t end)
+{
+	size_t comma;
+	size_t equals;
+	const char *left_start;
+	const char *left_end;
+	const char *right_start;
+	const char *right_end;
+
+	if (!sqlparser_mysql_session_list_is_nonempty(sql, start, end)) {
+		return 0;
+	}
+	while (start < end) {
+		comma = sqlparser_mysql_find_top_level_char_between(sql, ',', start, end);
+		if (comma == (size_t)-1) {
+			comma = end;
+		}
+		equals = sqlparser_mysql_find_top_level_char_between(sql, '=', start, comma);
+		if (equals == (size_t)-1) {
+			return 0;
+		}
+		left_start = sqlparser_mysql_trim_left(sql + start, sql + equals);
+		left_end = sqlparser_mysql_trim_right(left_start, sql + equals);
+		right_start = sqlparser_mysql_trim_left(sql + equals + 1U, sql + comma);
+		right_end = sqlparser_mysql_trim_right(right_start, sql + comma);
+		if (left_start == left_end || right_start == right_end || *right_start == '=') {
+			return 0;
+		}
+		if (left_end[-1] == ':' && left_end != sql + equals) {
+			return 0;
+		}
+		if (!sqlparser_mysql_session_assignment_target_is_supported(
+			    sql,
+			    (size_t)(left_start - sql),
+			    (size_t)(left_end - sql))) {
+			return 0;
+		}
+		if (comma == end) {
+			return 1;
+		}
+		start = comma + 1U;
+	}
+	return 0;
+}
+
+static int sqlparser_mysql_session_transaction_is_supported(
+	const char *sql,
+	size_t pos,
+	size_t end)
+{
+	int option_count;
+
+	option_count = 0;
+	while (pos < end) {
+		if (sqlparser_mysql_session_consume_word(sql, &pos, end, "isolation")) {
+			if (!sqlparser_mysql_session_consume_word(sql, &pos, end, "level")) {
+				return 0;
+			}
+			if (sqlparser_mysql_session_consume_word(sql, &pos, end, "serializable")) {
+				/* Complete option. */
+			} else if (sqlparser_mysql_session_consume_word(sql, &pos, end, "repeatable")) {
+				if (!sqlparser_mysql_session_consume_word(sql, &pos, end, "read")) {
+					return 0;
+				}
+			} else if (sqlparser_mysql_session_consume_word(sql, &pos, end, "read")) {
+				if (!sqlparser_mysql_session_consume_word(sql, &pos, end, "committed") &&
+				    !sqlparser_mysql_session_consume_word(sql, &pos, end, "uncommitted")) {
+					return 0;
+				}
+			} else {
+				return 0;
+			}
+		} else if (sqlparser_mysql_session_consume_word(sql, &pos, end, "read")) {
+			if (!sqlparser_mysql_session_consume_word(sql, &pos, end, "only") &&
+			    !sqlparser_mysql_session_consume_word(sql, &pos, end, "write")) {
+				return 0;
+			}
+		} else {
+			return 0;
+		}
+		option_count++;
+		pos = sqlparser_mysql_skip_space(sql, pos);
+		if (pos == end) {
+			return option_count > 0;
+		}
+		if (pos > end || sql[pos] != ',') {
+			return 0;
+		}
+		pos = sqlparser_mysql_skip_space(sql, pos + 1U);
+		if (pos >= end) {
+			return 0;
+		}
+	}
+	return 0;
+}
+
+static int sqlparser_mysql_session_character_set_is_supported(
+	const char *sql,
+	size_t pos,
+	size_t end,
+	int allow_collation)
+{
+	size_t token_end;
+
+	pos = sqlparser_mysql_skip_space(sql, pos);
+	token_end = sqlparser_mysql_session_token_end(sql, pos, end);
+	if (token_end <= pos) {
+		return 0;
+	}
+	pos = sqlparser_mysql_skip_space(sql, token_end);
+	if (pos == end) {
+		return 1;
+	}
+	if (!allow_collation ||
+	    !sqlparser_mysql_session_consume_word(sql, &pos, end, "collate")) {
+		return 0;
+	}
+	pos = sqlparser_mysql_skip_space(sql, pos);
+	token_end = sqlparser_mysql_session_token_end(sql, pos, end);
+	return token_end > pos && sqlparser_mysql_skip_space(sql, token_end) == end;
+}
+
+static int sqlparser_mysql_session_role_is_supported(
+	const char *sql,
+	size_t pos,
+	size_t end)
+{
+	if (sqlparser_mysql_session_consume_word(sql, &pos, end, "default") ||
+	    sqlparser_mysql_session_consume_word(sql, &pos, end, "none")) {
+		return sqlparser_mysql_skip_space(sql, pos) == end;
+	}
+	if (sqlparser_mysql_session_consume_word(sql, &pos, end, "all")) {
+		if (sqlparser_mysql_skip_space(sql, pos) == end) {
+			return 1;
+		}
+		if (!sqlparser_mysql_session_consume_word(sql, &pos, end, "except")) {
+			return 0;
+		}
+	}
+	pos = sqlparser_mysql_skip_space(sql, pos);
+	return pos < end && sqlparser_mysql_session_list_is_nonempty(sql, pos, end);
+}
+
+static int sqlparser_mysql_session_set_is_supported(
+	const char *sql,
+	size_t start,
+	size_t end)
+{
+	size_t pos;
+
+	if (!sqlparser_mysql_ascii_word_equal(sql, start, "set")) {
+		return 0;
+	}
+	pos = sqlparser_mysql_skip_space(sql, start + strlen("set"));
+	if (pos >= end ||
+	    sqlparser_mysql_ascii_word_equal(sql, pos, "global") ||
+	    sqlparser_mysql_ascii_word_equal(sql, pos, "persist") ||
+	    sqlparser_mysql_ascii_word_equal(sql, pos, "persist_only") ||
+	    sqlparser_mysql_ascii_word_equal(sql, pos, "default") ||
+	    sqlparser_mysql_ascii_word_equal(sql, pos, "password") ||
+	    sqlparser_mysql_ascii_word_equal(sql, pos, "resource")) {
+		return 0;
+	}
+	if (sqlparser_mysql_ascii_word_equal(sql, pos, "character")) {
+		pos = sqlparser_mysql_skip_space(sql, pos + strlen("character"));
+		if (!sqlparser_mysql_ascii_word_equal(sql, pos, "set")) {
+			return 0;
+		}
+		pos = sqlparser_mysql_skip_space(sql, pos + strlen("set"));
+		return sqlparser_mysql_session_character_set_is_supported(sql, pos, end, 0);
+	}
+	if (sqlparser_mysql_ascii_word_equal(sql, pos, "charset")) {
+		pos = sqlparser_mysql_skip_space(sql, pos + strlen("charset"));
+		return sqlparser_mysql_session_character_set_is_supported(sql, pos, end, 0);
+	}
+	if (sqlparser_mysql_ascii_word_equal(sql, pos, "names")) {
+		pos = sqlparser_mysql_skip_space(sql, pos + strlen("names"));
+		return sqlparser_mysql_session_character_set_is_supported(sql, pos, end, 1);
+	}
+	if (sqlparser_mysql_ascii_word_equal(sql, pos, "role")) {
+		pos = sqlparser_mysql_skip_space(sql, pos + strlen("role"));
+		return sqlparser_mysql_session_role_is_supported(sql, pos, end);
+	}
+	if (sqlparser_mysql_ascii_word_equal(sql, pos, "transaction")) {
+		pos = sqlparser_mysql_skip_space(sql, pos + strlen("transaction"));
+		return sqlparser_mysql_session_transaction_is_supported(sql, pos, end);
+	}
+	if (sqlparser_mysql_ascii_word_equal(sql, pos, "session")) {
+		pos = sqlparser_mysql_skip_space(sql, pos + strlen("session"));
+		if (sqlparser_mysql_ascii_word_equal(sql, pos, "transaction")) {
+			pos = sqlparser_mysql_skip_space(sql, pos + strlen("transaction"));
+			return sqlparser_mysql_session_transaction_is_supported(sql, pos, end);
+		}
+	} else if (sqlparser_mysql_ascii_word_equal(sql, pos, "local")) {
+		pos = sqlparser_mysql_skip_space(sql, pos + strlen("local"));
+		if (sqlparser_mysql_ascii_word_equal(sql, pos, "transaction")) {
+			pos = sqlparser_mysql_skip_space(sql, pos + strlen("transaction"));
+			return sqlparser_mysql_session_transaction_is_supported(sql, pos, end);
+		}
+	}
+	return sqlparser_mysql_session_assignment_list_is_supported(sql, pos, end);
+}
+
+static int sqlparser_mysql_session_set_is_candidate(
+	const char *sql,
+	size_t start,
+	size_t end)
+{
+	size_t pos;
+
+	if (!sqlparser_mysql_ascii_word_equal(sql, start, "set")) {
+		return 0;
+	}
+	pos = sqlparser_mysql_skip_space(sql, start + strlen("set"));
+	if (pos >= end) {
+		return 0;
+	}
+	if (sqlparser_mysql_ascii_word_equal(sql, pos, "character") ||
+	    sqlparser_mysql_ascii_word_equal(sql, pos, "charset") ||
+	    sqlparser_mysql_ascii_word_equal(sql, pos, "names") ||
+	    sqlparser_mysql_ascii_word_equal(sql, pos, "role") ||
+	    sqlparser_mysql_ascii_word_equal(sql, pos, "transaction") ||
+	    sqlparser_mysql_ascii_word_equal(sql, pos, "global") ||
+	    sqlparser_mysql_ascii_word_equal(sql, pos, "persist") ||
+	    sqlparser_mysql_ascii_word_equal(sql, pos, "persist_only") ||
+	    sqlparser_mysql_ascii_word_equal(sql, pos, "default") ||
+	    sqlparser_mysql_ascii_word_equal(sql, pos, "password") ||
+	    sqlparser_mysql_ascii_word_equal(sql, pos, "resource")) {
+		return 1;
+	}
+	if (sqlparser_mysql_ascii_word_equal(sql, pos, "session") ||
+	    sqlparser_mysql_ascii_word_equal(sql, pos, "local")) {
+		pos = sqlparser_mysql_skip_space(
+			sql,
+			pos + (sqlparser_mysql_ascii_word_equal(sql, pos, "session") ?
+				strlen("session") :
+				strlen("local")));
+		if (sqlparser_mysql_ascii_word_equal(sql, pos, "transaction")) {
+			return 1;
+		}
+	}
+	return sql[pos] == '@' ||
+		sqlparser_mysql_find_top_level_char_between(sql, '=', pos, end) !=
+			(size_t)-1;
+}
+
+static sqlparser_status_t sqlparser_mysql_preprocess_session_statement(
+	const char *input_sql,
+	char **out_sql,
+	size_t origin_input_base,
+	sqlparser_mysql_origin_trace_t *origin_trace,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_mysql_buffer_t out;
+	const char *start;
+	const char *end;
+	sqlparser_status_t status;
+
+	if (out_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "out_sql must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_sql = NULL;
+	if (input_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "SQL input must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	start = sqlparser_mysql_trim_left(input_sql, input_sql + strlen(input_sql));
+	end = sqlparser_mysql_trim_right(start, input_sql + strlen(input_sql));
+	if (end > start && end[-1] == ';') {
+		end = sqlparser_mysql_trim_right(start, end - 1);
+	}
+	if (!sqlparser_mysql_session_set_is_supported(
+		    input_sql,
+		    (size_t)(start - input_sql),
+		    (size_t)(end - input_sql))) {
+		if (sqlparser_mysql_session_set_is_candidate(
+			    input_sql,
+			    (size_t)(start - input_sql),
+			    (size_t)(end - input_sql))) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_PARSE_ERROR,
+				"invalid MySQL SET statement");
+			return SQLPARSER_STATUS_PARSE_ERROR;
+		}
+		return SQLPARSER_STATUS_OK;
+	}
+
+	memset(&out, 0, sizeof(out));
+	status = sqlparser_mysql_buffer_begin_origin(
+		&out,
+		origin_trace,
+		input_sql,
+		origin_input_base,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_mysql_append_internal_set(
+		&out,
+		SQLPARSER_INTERNAL_MYSQL_SESSION_STATEMENT,
+		start,
+		end,
+		NULL,
+		NULL,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_mysql_buffer_reserve(&out, 0U, out_error);
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_mysql_buffer_release(&out);
+		return status;
+	}
+	*out_sql = sqlparser_mysql_buffer_take(&out);
+	if (*out_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+int sqlparser_mysql_public_sql_is_session_statement(
+	const char *sql,
+	size_t length)
+{
+	size_t start;
+	size_t end;
+
+	if (sql == NULL) {
+		return 0;
+	}
+	start = sqlparser_mysql_skip_space(sql, 0U);
+	end = length;
+	while (end > start && isspace((unsigned char)sql[end - 1U])) {
+		end--;
+	}
+	if (end > start && sql[end - 1U] == ';') {
+		end--;
+		while (end > start && isspace((unsigned char)sql[end - 1U])) {
+			end--;
+		}
+	}
+	return sqlparser_mysql_session_set_is_supported(sql, start, end);
+}
+
 static sqlparser_status_t sqlparser_mysql_preprocess_prepared_statement(
 	const char *input_sql,
 	char **out_sql,
+	size_t origin_input_base,
+	sqlparser_mysql_origin_trace_t *origin_trace,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_mysql_buffer_t out;
@@ -2460,6 +3629,15 @@ static sqlparser_status_t sqlparser_mysql_preprocess_prepared_statement(
 	}
 
 	memset(&out, 0, sizeof(out));
+	status = sqlparser_mysql_buffer_begin_origin(
+		&out,
+		origin_trace,
+		input_sql,
+		origin_input_base,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
 	status = sqlparser_mysql_append_internal_set(
 		&out,
 		internal_name,
@@ -2826,6 +4004,7 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_column_segment(
 	sqlparser_error_t *out_error)
 {
 	sqlparser_mysql_buffer_t stripped;
+	sqlparser_mysql_origin_trace_t stripped_origin;
 	const char *trimmed_start;
 	const char *trimmed_end;
 	size_t token_start;
@@ -2854,6 +4033,16 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_column_segment(
 	depth = 0;
 	removed = 0;
 	memset(&stripped, 0, sizeof(stripped));
+	memset(&stripped_origin, 0, sizeof(stripped_origin));
+	status = sqlparser_mysql_buffer_begin_origin(
+		&stripped,
+		out != NULL && out->origin_trace != NULL ? &stripped_origin : NULL,
+		sql,
+		out != NULL ? out->origin_input_base : 0U,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
 
 	while (pos < segment_end && sql[pos] != '\0') {
 		size_t skipped;
@@ -2886,6 +4075,7 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_column_segment(
 				pos - copy_start,
 				out_error);
 			if (status != SQLPARSER_STATUS_OK) {
+				sqlparser_mysql_origin_trace_release(&stripped_origin);
 				sqlparser_mysql_buffer_release(&stripped);
 				return status;
 			}
@@ -2898,6 +4088,7 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_column_segment(
 	}
 
 	if (!removed) {
+		sqlparser_mysql_origin_trace_release(&stripped_origin);
 		sqlparser_mysql_buffer_release(&stripped);
 		return sqlparser_mysql_buffer_append_mem(
 			out,
@@ -2912,6 +4103,7 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_column_segment(
 		segment_end - copy_start,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_mysql_origin_trace_release(&stripped_origin);
 		sqlparser_mysql_buffer_release(&stripped);
 		return status;
 	}
@@ -2926,8 +4118,14 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_column_segment(
 		(size_t)(trimmed_end - trimmed_start),
 		out_error);
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_mysql_buffer_append_mem(out, stripped.data, stripped.len, out_error);
+		status = sqlparser_mysql_buffer_append_trace_mem(
+			out,
+			stripped.data,
+			stripped.len,
+			&stripped_origin,
+			out_error);
 	}
+	sqlparser_mysql_origin_trace_release(&stripped_origin);
 	sqlparser_mysql_buffer_release(&stripped);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
@@ -3267,10 +4465,13 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_table_statement_extensi
 	size_t statement_index,
 	sqlparser_mysql_state_t *state,
 	char **out_sql,
+	size_t origin_input_base,
+	sqlparser_mysql_origin_trace_t *origin_trace,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_mysql_buffer_t columns;
 	sqlparser_mysql_buffer_t out;
+	sqlparser_mysql_origin_trace_t columns_origin;
 	char *masked;
 	const char *tail_start;
 	const char *tail_end;
@@ -3304,6 +4505,17 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_table_statement_extensi
 	}
 
 	memset(&columns, 0, sizeof(columns));
+	memset(&columns_origin, 0, sizeof(columns_origin));
+	status = sqlparser_mysql_buffer_begin_origin(
+		&columns,
+		origin_trace != NULL ? &columns_origin : NULL,
+		statement_sql,
+		origin_input_base,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(masked);
+		return status;
+	}
 	columns_rewritten = 0;
 	column_ordinal = 0U;
 	segment_start = body_start;
@@ -3330,6 +4542,7 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_table_statement_extensi
 			out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			free(masked);
+			sqlparser_mysql_origin_trace_release(&columns_origin);
 			sqlparser_mysql_buffer_release(&columns);
 			return status;
 		}
@@ -3339,6 +4552,7 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_table_statement_extensi
 		status = sqlparser_mysql_buffer_append_char(&columns, ',', out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			free(masked);
+			sqlparser_mysql_origin_trace_release(&columns_origin);
 			sqlparser_mysql_buffer_release(&columns);
 			return status;
 		}
@@ -3362,6 +4576,7 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_table_statement_extensi
 			out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			free(masked);
+			sqlparser_mysql_origin_trace_release(&columns_origin);
 			sqlparser_mysql_buffer_release(&columns);
 			return status;
 		}
@@ -3370,17 +4585,35 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_table_statement_extensi
 
 	if (!columns_rewritten && !options_rewritten) {
 		free(masked);
+		sqlparser_mysql_origin_trace_release(&columns_origin);
 		sqlparser_mysql_buffer_release(&columns);
 		return SQLPARSER_STATUS_OK;
 	}
 
 	memset(&out, 0, sizeof(out));
+	status = sqlparser_mysql_buffer_begin_origin(
+		&out,
+		origin_trace,
+		statement_sql,
+		origin_input_base,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(masked);
+		sqlparser_mysql_origin_trace_release(&columns_origin);
+		sqlparser_mysql_buffer_release(&columns);
+		return status;
+	}
 	status = sqlparser_mysql_buffer_reserve_input(&out, statement_sql, out_error);
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_mysql_buffer_append_mem(&out, statement_sql, body_start, out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_mysql_buffer_append_mem(&out, columns.data, columns.len, out_error);
+		status = sqlparser_mysql_buffer_append_trace_mem(
+			&out,
+			columns.data,
+			columns.len,
+			&columns_origin,
+			out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		if (options_rewritten) {
@@ -3398,6 +4631,7 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_table_statement_extensi
 		}
 	}
 	free(masked);
+	sqlparser_mysql_origin_trace_release(&columns_origin);
 	sqlparser_mysql_buffer_release(&columns);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_mysql_buffer_release(&out);
@@ -3414,9 +4648,11 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_table_statement_extensi
 static sqlparser_status_t sqlparser_mysql_rewrite_create_table_extensions(
 	char **io_sql,
 	sqlparser_mysql_state_t *state,
+	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_mysql_buffer_t out;
+	sqlparser_mysql_origin_trace_t origin;
 	const char *sql;
 	sqlparser_status_t status;
 	size_t len;
@@ -3437,7 +4673,9 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_table_extensions(
 	statement_index = 0U;
 	rewritten = 0;
 	memset(&out, 0, sizeof(out));
+	memset(&origin, 0, sizeof(origin));
 	while (segment_start < len) {
+		sqlparser_mysql_origin_trace_t statement_origin;
 		size_t statement_end;
 		const char *trimmed_start;
 		const char *trimmed_end;
@@ -3445,6 +4683,7 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_table_extensions(
 		char *rewritten_sql;
 		size_t current_statement_index;
 
+		memset(&statement_origin, 0, sizeof(statement_origin));
 		statement_end = sqlparser_mysql_statement_end(sql, segment_start);
 		trimmed_start = sqlparser_mysql_trim_left(sql + segment_start, sql + statement_end);
 		trimmed_end = sqlparser_mysql_trim_right(trimmed_start, sql + statement_end);
@@ -3454,6 +4693,7 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_table_extensions(
 		}
 		statement_sql = sqlparser_strndup(sql + segment_start, statement_end - segment_start);
 		if (statement_sql == NULL) {
+			sqlparser_mysql_origin_trace_release(&origin);
 			sqlparser_mysql_buffer_release(&out);
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 			return SQLPARSER_STATUS_NO_MEMORY;
@@ -3464,18 +4704,38 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_table_extensions(
 			current_statement_index,
 			state,
 			&rewritten_sql,
+			segment_start,
+			origins != NULL ? &statement_origin : NULL,
 			out_error);
 		free(statement_sql);
 		if (status != SQLPARSER_STATUS_OK) {
 			free(rewritten_sql);
+			sqlparser_mysql_origin_trace_release(&statement_origin);
+			sqlparser_mysql_origin_trace_release(&origin);
 			sqlparser_mysql_buffer_release(&out);
 			return status;
 		}
 		if (rewritten_sql != NULL) {
 			if (!rewritten) {
+				status = sqlparser_mysql_buffer_begin_origin(
+					&out,
+					origins != NULL ? &origin : NULL,
+					sql,
+					0U,
+					out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					free(rewritten_sql);
+					sqlparser_mysql_origin_trace_release(
+						&statement_origin);
+					sqlparser_mysql_origin_trace_release(&origin);
+					return status;
+				}
 				status = sqlparser_mysql_buffer_reserve_input(&out, sql, out_error);
 				if (status != SQLPARSER_STATUS_OK) {
 					free(rewritten_sql);
+					sqlparser_mysql_origin_trace_release(
+						&statement_origin);
+					sqlparser_mysql_origin_trace_release(&origin);
 					return status;
 				}
 				rewritten = 1;
@@ -3486,14 +4746,22 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_table_extensions(
 				segment_start - copy_start,
 				out_error);
 			if (status == SQLPARSER_STATUS_OK) {
-				status = sqlparser_mysql_buffer_append_cstr(&out, rewritten_sql, out_error);
+				status = sqlparser_mysql_buffer_append_trace_cstr(
+					&out,
+					rewritten_sql,
+					&statement_origin,
+					out_error);
 			}
 			free(rewritten_sql);
+			sqlparser_mysql_origin_trace_release(&statement_origin);
 			if (status != SQLPARSER_STATUS_OK) {
+				sqlparser_mysql_origin_trace_release(&origin);
 				sqlparser_mysql_buffer_release(&out);
 				return status;
 			}
 			copy_start = statement_end;
+		} else {
+			sqlparser_mysql_origin_trace_release(&statement_origin);
 		}
 		if (statement_end >= len) {
 			break;
@@ -3502,9 +4770,22 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_table_extensions(
 	}
 
 	if (!rewritten) {
+		sqlparser_mysql_origin_trace_release(&origin);
 		return SQLPARSER_STATUS_OK;
 	}
 	status = sqlparser_mysql_buffer_append_mem(&out, sql + copy_start, len - copy_start, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_mysql_origin_trace_release(&origin);
+		sqlparser_mysql_buffer_release(&out);
+		return status;
+	}
+	status = sqlparser_mysql_origin_trace_commit(
+		origins,
+		sql,
+		out.data,
+		&origin,
+		out_error);
+	sqlparser_mysql_origin_trace_release(&origin);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_mysql_buffer_release(&out);
 		return status;
@@ -3518,11 +4799,13 @@ static sqlparser_status_t sqlparser_mysql_rewrite_create_table_extensions(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_mysql_rewrite_use_statements(
+static sqlparser_status_t sqlparser_mysql_rewrite_session_statements(
 	char **io_sql,
+	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_mysql_buffer_t out;
+	sqlparser_mysql_origin_trace_t origin;
 	const char *sql;
 	char *statement_sql;
 	char *rewritten_sql;
@@ -3545,45 +4828,98 @@ static sqlparser_status_t sqlparser_mysql_rewrite_use_statements(
 	copy_start = 0U;
 	rewritten = 0;
 	memset(&out, 0, sizeof(out));
+	memset(&origin, 0, sizeof(origin));
 	while (segment_start < len) {
+		sqlparser_mysql_origin_trace_t statement_origin;
+
+		memset(&statement_origin, 0, sizeof(statement_origin));
 		statement_end = sqlparser_mysql_statement_end(sql, segment_start);
-		statement_sql = sqlparser_strndup(sql + segment_start, statement_end - segment_start);
+		leading_end = sqlparser_mysql_skip_leading_trivia(
+			sql, segment_start, statement_end);
+		statement_sql = sqlparser_strndup(
+			sql + leading_end, statement_end - leading_end);
 		if (statement_sql == NULL) {
+			sqlparser_mysql_origin_trace_release(&origin);
 			sqlparser_mysql_buffer_release(&out);
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 			return SQLPARSER_STATUS_NO_MEMORY;
 		}
 		rewritten_sql = NULL;
-		status = sqlparser_mysql_preprocess_use_statement(statement_sql, &rewritten_sql, out_error);
+		status = sqlparser_mysql_preprocess_use_statement(
+			statement_sql,
+			&rewritten_sql,
+			leading_end,
+			origins != NULL ? &statement_origin : NULL,
+			out_error);
 		if (status == SQLPARSER_STATUS_OK && rewritten_sql == NULL) {
-			status = sqlparser_mysql_preprocess_prepared_statement(statement_sql, &rewritten_sql, out_error);
+			status = sqlparser_mysql_preprocess_session_statement(
+				statement_sql,
+				&rewritten_sql,
+				leading_end,
+				origins != NULL ? &statement_origin : NULL,
+				out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK && rewritten_sql == NULL) {
+			status = sqlparser_mysql_preprocess_prepared_statement(
+				statement_sql,
+				&rewritten_sql,
+				leading_end,
+				origins != NULL ? &statement_origin : NULL,
+				out_error);
 		}
 		free(statement_sql);
 		if (status != SQLPARSER_STATUS_OK) {
 			free(rewritten_sql);
+			sqlparser_mysql_origin_trace_release(&statement_origin);
+			sqlparser_mysql_origin_trace_release(&origin);
 			sqlparser_mysql_buffer_release(&out);
 			return status;
 		}
 		if (rewritten_sql != NULL) {
 			if (!rewritten) {
+				status = sqlparser_mysql_buffer_begin_origin(
+					&out,
+					origins != NULL ? &origin : NULL,
+					sql,
+					0U,
+					out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					free(rewritten_sql);
+					sqlparser_mysql_origin_trace_release(
+						&statement_origin);
+					sqlparser_mysql_origin_trace_release(&origin);
+					sqlparser_mysql_buffer_release(&out);
+					return status;
+				}
 				status = sqlparser_mysql_buffer_reserve_input(&out, sql, out_error);
 				if (status != SQLPARSER_STATUS_OK) {
 					free(rewritten_sql);
+					sqlparser_mysql_origin_trace_release(
+						&statement_origin);
+					sqlparser_mysql_origin_trace_release(&origin);
+					sqlparser_mysql_buffer_release(&out);
 					return status;
 				}
 				rewritten = 1;
 			}
-			leading_end = (size_t)(sqlparser_mysql_trim_left(sql + segment_start, sql + statement_end) - sql);
 			status = sqlparser_mysql_buffer_append_mem(&out, sql + copy_start, leading_end - copy_start, out_error);
 			if (status == SQLPARSER_STATUS_OK) {
-				status = sqlparser_mysql_buffer_append_cstr(&out, rewritten_sql, out_error);
+				status = sqlparser_mysql_buffer_append_trace_cstr(
+					&out,
+					rewritten_sql,
+					&statement_origin,
+					out_error);
 			}
 			free(rewritten_sql);
+			sqlparser_mysql_origin_trace_release(&statement_origin);
 			if (status != SQLPARSER_STATUS_OK) {
+				sqlparser_mysql_origin_trace_release(&origin);
 				sqlparser_mysql_buffer_release(&out);
 				return status;
 			}
 			copy_start = statement_end;
+		} else {
+			sqlparser_mysql_origin_trace_release(&statement_origin);
 		}
 		if (statement_end >= len) {
 			break;
@@ -3592,12 +4928,25 @@ static sqlparser_status_t sqlparser_mysql_rewrite_use_statements(
 	}
 
 	if (!rewritten) {
+		sqlparser_mysql_origin_trace_release(&origin);
 		return SQLPARSER_STATUS_OK;
 	}
 	status = sqlparser_mysql_buffer_append_mem(&out, sql + copy_start, len - copy_start, out_error);
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_mysql_buffer_reserve(&out, 0U, out_error);
 	}
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_mysql_origin_trace_release(&origin);
+		sqlparser_mysql_buffer_release(&out);
+		return status;
+	}
+	status = sqlparser_mysql_origin_trace_commit(
+		origins,
+		sql,
+		out.data,
+		&origin,
+		out_error);
+	sqlparser_mysql_origin_trace_release(&origin);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_mysql_buffer_release(&out);
 		return status;
@@ -3650,9 +4999,11 @@ static int sqlparser_mysql_simple_limit_operand(const char *start, const char *e
 
 static sqlparser_status_t sqlparser_mysql_rewrite_limit_offset_count(
 	char **io_sql,
+	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_mysql_buffer_t out;
+	sqlparser_mysql_origin_trace_t origin;
 	const char *sql;
 	sqlparser_status_t status;
 	size_t index;
@@ -3672,6 +5023,7 @@ static sqlparser_status_t sqlparser_mysql_rewrite_limit_offset_count(
 	index = 0U;
 	copy_start = 0U;
 	rewritten = 0;
+	memset(&origin, 0, sizeof(origin));
 	while (sql[index] != '\0') {
 		size_t skipped;
 
@@ -3720,8 +5072,19 @@ static sqlparser_status_t sqlparser_mysql_rewrite_limit_offset_count(
 			}
 
 			if (!rewritten) {
+				status = sqlparser_mysql_buffer_begin_origin(
+					&out,
+					origins != NULL ? &origin : NULL,
+					sql,
+					0U,
+					out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					sqlparser_mysql_origin_trace_release(&origin);
+					return status;
+				}
 				status = sqlparser_mysql_buffer_reserve_input(&out, sql, out_error);
 				if (status != SQLPARSER_STATUS_OK) {
+					sqlparser_mysql_origin_trace_release(&origin);
 					return status;
 				}
 				rewritten = 1;
@@ -3748,6 +5111,7 @@ static sqlparser_status_t sqlparser_mysql_rewrite_limit_offset_count(
 					out_error);
 			}
 			if (status != SQLPARSER_STATUS_OK) {
+				sqlparser_mysql_origin_trace_release(&origin);
 				sqlparser_mysql_buffer_release(&out);
 				return status;
 			}
@@ -3760,10 +5124,20 @@ static sqlparser_status_t sqlparser_mysql_rewrite_limit_offset_count(
 	}
 
 	if (!rewritten) {
+		sqlparser_mysql_origin_trace_release(&origin);
 		return SQLPARSER_STATUS_OK;
 	}
 
 	status = sqlparser_mysql_buffer_append_cstr(&out, sql + copy_start, out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_mysql_origin_trace_commit(
+			origins,
+			sql,
+			out.data,
+			&origin,
+			out_error);
+	}
+	sqlparser_mysql_origin_trace_release(&origin);
 	if (status == SQLPARSER_STATUS_OK) {
 		free(*io_sql);
 		*io_sql = sqlparser_mysql_buffer_take(&out);
@@ -4484,7 +5858,10 @@ static sqlparser_status_t sqlparser_mysql_append_join_on_call(
 {
 	sqlparser_status_t status;
 
-	status = sqlparser_mysql_buffer_append_cstr(out, sqlparser_mysql_join_on_func_name(join_kind), out_error);
+	status = sqlparser_mysql_buffer_append_generated_identifier(
+		out,
+		sqlparser_mysql_join_on_func_name(join_kind),
+		out_error);
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_mysql_buffer_append_char(out, '(', out_error);
 	}
@@ -4729,11 +6106,15 @@ static sqlparser_status_t sqlparser_mysql_rewrite_replace_set_statement(
 	size_t cursor,
 	size_t len,
 	char **out_sql,
+	size_t origin_input_base,
+	sqlparser_mysql_origin_trace_t *origin_trace,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_mysql_buffer_t out;
 	sqlparser_mysql_buffer_t columns;
 	sqlparser_mysql_buffer_t values;
+	sqlparser_mysql_origin_trace_t columns_origin;
+	sqlparser_mysql_origin_trace_t values_origin;
 	const char *relation_start;
 	const char *relation_end;
 	const char *assignment_start;
@@ -4762,6 +6143,35 @@ static sqlparser_status_t sqlparser_mysql_rewrite_replace_set_statement(
 	memset(&out, 0, sizeof(out));
 	memset(&columns, 0, sizeof(columns));
 	memset(&values, 0, sizeof(values));
+	memset(&columns_origin, 0, sizeof(columns_origin));
+	memset(&values_origin, 0, sizeof(values_origin));
+	status = sqlparser_mysql_buffer_begin_origin(
+		&out,
+		origin_trace,
+		statement_sql,
+		origin_input_base,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_mysql_buffer_begin_origin(
+			&columns,
+			origin_trace != NULL ? &columns_origin : NULL,
+			statement_sql,
+			origin_input_base,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_mysql_buffer_begin_origin(
+			&values,
+			origin_trace != NULL ? &values_origin : NULL,
+			statement_sql,
+			origin_input_base,
+			out_error);
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_mysql_origin_trace_release(&columns_origin);
+		sqlparser_mysql_origin_trace_release(&values_origin);
+		return status;
+	}
 	status = sqlparser_mysql_buffer_reserve_input(&out, statement_sql, out_error);
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_mysql_buffer_reserve_input(&columns, statement_sql, out_error);
@@ -4770,6 +6180,8 @@ static sqlparser_status_t sqlparser_mysql_rewrite_replace_set_statement(
 		status = sqlparser_mysql_buffer_reserve_input(&values, statement_sql, out_error);
 	}
 	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_mysql_origin_trace_release(&columns_origin);
+		sqlparser_mysql_origin_trace_release(&values_origin);
 		sqlparser_mysql_buffer_release(&out);
 		sqlparser_mysql_buffer_release(&columns);
 		sqlparser_mysql_buffer_release(&values);
@@ -4800,6 +6212,8 @@ static sqlparser_status_t sqlparser_mysql_rewrite_replace_set_statement(
 			segment_start,
 			current_end);
 		if (eq_pos == (size_t)-1) {
+			sqlparser_mysql_origin_trace_release(&columns_origin);
+			sqlparser_mysql_origin_trace_release(&values_origin);
 			sqlparser_mysql_buffer_release(&out);
 			sqlparser_mysql_buffer_release(&columns);
 			sqlparser_mysql_buffer_release(&values);
@@ -4812,6 +6226,8 @@ static sqlparser_status_t sqlparser_mysql_rewrite_replace_set_statement(
 		right_start = sqlparser_mysql_trim_left(statement_sql + eq_pos + 1U, statement_sql + current_end);
 		right_end = sqlparser_mysql_trim_right(right_start, statement_sql + current_end);
 		if (left_start >= left_end || right_start >= right_end) {
+			sqlparser_mysql_origin_trace_release(&columns_origin);
+			sqlparser_mysql_origin_trace_release(&values_origin);
 			sqlparser_mysql_buffer_release(&out);
 			sqlparser_mysql_buffer_release(&columns);
 			sqlparser_mysql_buffer_release(&values);
@@ -4839,6 +6255,8 @@ static sqlparser_status_t sqlparser_mysql_rewrite_replace_set_statement(
 				out_error);
 		}
 		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_mysql_origin_trace_release(&columns_origin);
+			sqlparser_mysql_origin_trace_release(&values_origin);
 			sqlparser_mysql_buffer_release(&out);
 			sqlparser_mysql_buffer_release(&columns);
 			sqlparser_mysql_buffer_release(&values);
@@ -4866,17 +6284,27 @@ static sqlparser_status_t sqlparser_mysql_rewrite_replace_set_statement(
 		status = sqlparser_mysql_buffer_append_cstr(&out, " (", out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_mysql_buffer_append_cstr(&out, columns.data, out_error);
+		status = sqlparser_mysql_buffer_append_trace_cstr(
+			&out,
+			columns.data,
+			&columns_origin,
+			out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_mysql_buffer_append_cstr(&out, ") VALUES (", out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_mysql_buffer_append_cstr(&out, values.data, out_error);
+		status = sqlparser_mysql_buffer_append_trace_cstr(
+			&out,
+			values.data,
+			&values_origin,
+			out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_mysql_buffer_append_char(&out, ')', out_error);
 	}
+	sqlparser_mysql_origin_trace_release(&columns_origin);
+	sqlparser_mysql_origin_trace_release(&values_origin);
 	sqlparser_mysql_buffer_release(&columns);
 	sqlparser_mysql_buffer_release(&values);
 	if (status != SQLPARSER_STATUS_OK) {
@@ -4899,6 +6327,8 @@ static sqlparser_status_t sqlparser_mysql_rewrite_replace_table_statement(
 	size_t cursor,
 	size_t len,
 	char **out_sql,
+	size_t origin_input_base,
+	sqlparser_mysql_origin_trace_t *origin_trace,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_mysql_buffer_t out;
@@ -4925,6 +6355,15 @@ static sqlparser_status_t sqlparser_mysql_rewrite_replace_table_statement(
 	}
 
 	memset(&out, 0, sizeof(out));
+	status = sqlparser_mysql_buffer_begin_origin(
+		&out,
+		origin_trace,
+		statement_sql,
+		origin_input_base,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
 	status = sqlparser_mysql_buffer_reserve_input(&out, statement_sql, out_error);
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_mysql_buffer_append_mem(&out, statement_sql, start_pos, out_error);
@@ -4959,6 +6398,8 @@ static sqlparser_status_t sqlparser_mysql_rewrite_dml_modifier_statement(
 	size_t statement_index,
 	sqlparser_mysql_state_t *state,
 	char **out_sql,
+	size_t origin_input_base,
+	sqlparser_mysql_origin_trace_t *origin_trace,
 	sqlparser_error_t *out_error)
 {
 	char *masked;
@@ -5045,6 +6486,8 @@ static sqlparser_status_t sqlparser_mysql_rewrite_dml_modifier_statement(
 				body_start,
 				len,
 				&replace_sql,
+				origin_input_base,
+				origin_trace,
 				out_error);
 		} else if (insert_mode_override == SQLPARSER_GRAPH_INSERT_MODE_REPLACE_SELECT) {
 			size_t table_pos;
@@ -5069,10 +6512,20 @@ static sqlparser_status_t sqlparser_mysql_rewrite_dml_modifier_statement(
 					body_start,
 					len,
 					&replace_sql,
+					origin_input_base,
+					origin_trace,
 					out_error);
 			} else {
 				memset(&out, 0, sizeof(out));
-				status = sqlparser_mysql_buffer_reserve_input(&out, statement_sql, out_error);
+				status = sqlparser_mysql_buffer_begin_origin(
+					&out,
+					origin_trace,
+					statement_sql,
+					origin_input_base,
+					out_error);
+				if (status == SQLPARSER_STATUS_OK) {
+					status = sqlparser_mysql_buffer_reserve_input(&out, statement_sql, out_error);
+				}
 				if (status == SQLPARSER_STATUS_OK) {
 					status = sqlparser_mysql_buffer_append_mem(&out, statement_sql, start_pos, out_error);
 				}
@@ -5094,7 +6547,15 @@ static sqlparser_status_t sqlparser_mysql_rewrite_dml_modifier_statement(
 			}
 		} else {
 			memset(&out, 0, sizeof(out));
-			status = sqlparser_mysql_buffer_reserve_input(&out, statement_sql, out_error);
+			status = sqlparser_mysql_buffer_begin_origin(
+				&out,
+				origin_trace,
+				statement_sql,
+				origin_input_base,
+				out_error);
+			if (status == SQLPARSER_STATUS_OK) {
+				status = sqlparser_mysql_buffer_reserve_input(&out, statement_sql, out_error);
+			}
 			if (status == SQLPARSER_STATUS_OK) {
 				status = sqlparser_mysql_buffer_append_mem(&out, statement_sql, start_pos, out_error);
 			}
@@ -5159,6 +6620,8 @@ static sqlparser_status_t sqlparser_mysql_rewrite_dml_modifier_statement(
 				body_start,
 				len,
 				&insert_set_sql,
+				origin_input_base,
+				origin_trace,
 				out_error);
 			if (status == SQLPARSER_STATUS_OK) {
 				status = sqlparser_mysql_state_add_dml_modifier(
@@ -5184,7 +6647,15 @@ static sqlparser_status_t sqlparser_mysql_rewrite_dml_modifier_statement(
 	}
 
 	memset(&out, 0, sizeof(out));
-	status = sqlparser_mysql_buffer_reserve_input(&out, statement_sql, out_error);
+	status = sqlparser_mysql_buffer_begin_origin(
+		&out,
+		origin_trace,
+		statement_sql,
+		origin_input_base,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_mysql_buffer_reserve_input(&out, statement_sql, out_error);
+	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_mysql_buffer_append_mem(&out, statement_sql, start_pos, out_error);
 	}
@@ -5294,7 +6765,16 @@ static sqlparser_status_t sqlparser_mysql_append_on_duplicate_tail_internal(
 			if (pos + close_pos < tail_end && pos[close_pos] == ')') {
 				arg_start = sqlparser_mysql_trim_left(pos + open_pos + 1U, pos + close_pos);
 				arg_end = sqlparser_mysql_trim_right(arg_start, pos + close_pos);
-				status = sqlparser_mysql_buffer_append_cstr(out, "EXCLUDED.", out_error);
+				status = sqlparser_mysql_buffer_append_generated_identifier(
+					out,
+					"EXCLUDED",
+					out_error);
+				if (status == SQLPARSER_STATUS_OK) {
+					status = sqlparser_mysql_buffer_append_char(
+						out,
+						'.',
+						out_error);
+				}
 				if (status == SQLPARSER_STATUS_OK) {
 					status = sqlparser_mysql_buffer_append_mem(out, arg_start, (size_t)(arg_end - arg_start), out_error);
 				}
@@ -5313,7 +6793,16 @@ static sqlparser_status_t sqlparser_mysql_append_on_duplicate_tail_internal(
 		    sqlparser_mysql_span_case_equal(pos, alias_len, alias_start, alias_len) &&
 		    pos[alias_len] == '.' &&
 		    !sqlparser_mysql_is_ident_char((unsigned char)(pos > tail ? pos[-1] : '\0'))) {
-			status = sqlparser_mysql_buffer_append_cstr(out, "EXCLUDED.", out_error);
+			status = sqlparser_mysql_buffer_append_generated_identifier(
+				out,
+				"EXCLUDED",
+				out_error);
+			if (status == SQLPARSER_STATUS_OK) {
+				status = sqlparser_mysql_buffer_append_char(
+					out,
+					'.',
+					out_error);
+			}
 			if (status != SQLPARSER_STATUS_OK) {
 				return status;
 			}
@@ -5362,7 +6851,16 @@ static sqlparser_status_t sqlparser_mysql_append_on_duplicate_tail_internal(
 				}
 			}
 			if (matched) {
-				status = sqlparser_mysql_buffer_append_cstr(out, "sqlparser_mysql_alias_column.", out_error);
+				status = sqlparser_mysql_buffer_append_generated_identifier(
+					out,
+					"sqlparser_mysql_alias_column",
+					out_error);
+				if (status == SQLPARSER_STATUS_OK) {
+					status = sqlparser_mysql_buffer_append_char(
+						out,
+						'.',
+						out_error);
+				}
 				if (status == SQLPARSER_STATUS_OK) {
 					status = sqlparser_mysql_buffer_append_mem(out, pos, (size_t)(token_end - pos), out_error);
 				}
@@ -5382,7 +6880,7 @@ static sqlparser_status_t sqlparser_mysql_append_on_duplicate_tail_internal(
 		} else if (*pos == ',' && expression_depth == 0U) {
 			in_assignment_value = 0;
 		}
-		status = sqlparser_mysql_buffer_append_char(out, *pos, out_error);
+		status = sqlparser_mysql_buffer_append_mem(out, pos, 1U, out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
 		}
@@ -5396,6 +6894,8 @@ static sqlparser_status_t sqlparser_mysql_rewrite_on_duplicate_statement(
 	size_t statement_index,
 	sqlparser_mysql_state_t *state,
 	char **out_sql,
+	size_t origin_input_base,
+	sqlparser_mysql_origin_trace_t *origin_trace,
 	sqlparser_error_t *out_error)
 {
 	char *masked;
@@ -5473,14 +6973,34 @@ static sqlparser_status_t sqlparser_mysql_rewrite_on_duplicate_statement(
 	free(masked);
 	tail = sqlparser_mysql_trim_left(statement_sql + tail_start, statement_sql + end_pos);
 	memset(&out, 0, sizeof(out));
-	status = sqlparser_mysql_buffer_reserve_input(&out, statement_sql, out_error);
+	status = sqlparser_mysql_buffer_begin_origin(
+		&out,
+		origin_trace,
+		statement_sql,
+		origin_input_base,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_mysql_buffer_reserve_input(&out, statement_sql, out_error);
+	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_mysql_buffer_append_mem(&out, statement_sql, insert_copy_end, out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_mysql_buffer_append_cstr(
 			&out,
-			"ON CONFLICT ON CONSTRAINT sqlparser_mysql_duplicate_key DO UPDATE SET ",
+			"ON CONFLICT ON CONSTRAINT ",
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_mysql_buffer_append_generated_identifier(
+			&out,
+			"sqlparser_mysql_duplicate_key",
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_mysql_buffer_append_cstr(
+			&out,
+			" DO UPDATE SET ",
 			out_error);
 	}
 	used_values = 0;
@@ -5524,6 +7044,8 @@ static sqlparser_status_t sqlparser_mysql_rewrite_on_duplicate_statement(
 static sqlparser_status_t sqlparser_mysql_rewrite_update_join_statement(
 	const char *statement_sql,
 	char **out_sql,
+	size_t origin_input_base,
+	sqlparser_mysql_origin_trace_t *origin_trace,
 	sqlparser_error_t *out_error)
 {
 	char *masked;
@@ -5650,7 +7172,15 @@ static sqlparser_status_t sqlparser_mysql_rewrite_update_join_statement(
 		join_kind = sqlparser_mysql_invert_join_kind(join_kind);
 	}
 	memset(&out, 0, sizeof(out));
-	status = sqlparser_mysql_buffer_reserve_input(&out, statement_sql, out_error);
+	status = sqlparser_mysql_buffer_begin_origin(
+		&out,
+		origin_trace,
+		statement_sql,
+		origin_input_base,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_mysql_buffer_reserve_input(&out, statement_sql, out_error);
+	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_mysql_buffer_append_mem(&out, statement_sql, start_pos, out_error);
 	}
@@ -5715,6 +7245,8 @@ static sqlparser_status_t sqlparser_mysql_rewrite_update_join_statement(
 static sqlparser_status_t sqlparser_mysql_rewrite_delete_join_statement(
 	const char *statement_sql,
 	char **out_sql,
+	size_t origin_input_base,
+	sqlparser_mysql_origin_trace_t *origin_trace,
 	sqlparser_error_t *out_error)
 {
 	char *masked;
@@ -5834,7 +7366,15 @@ static sqlparser_status_t sqlparser_mysql_rewrite_delete_join_statement(
 		join_kind = sqlparser_mysql_invert_join_kind(join_kind);
 	}
 	memset(&out, 0, sizeof(out));
-	status = sqlparser_mysql_buffer_reserve_input(&out, statement_sql, out_error);
+	status = sqlparser_mysql_buffer_begin_origin(
+		&out,
+		origin_trace,
+		statement_sql,
+		origin_input_base,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_mysql_buffer_reserve_input(&out, statement_sql, out_error);
+	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_mysql_buffer_append_mem(&out, statement_sql, start_pos, out_error);
 	}
@@ -5885,6 +7425,8 @@ static sqlparser_status_t sqlparser_mysql_rewrite_delete_join_statement(
 static sqlparser_status_t sqlparser_mysql_rewrite_delete_alias_statement(
 	const char *statement_sql,
 	char **out_sql,
+	size_t origin_input_base,
+	sqlparser_mysql_origin_trace_t *origin_trace,
 	sqlparser_error_t *out_error)
 {
 	char *masked;
@@ -5951,7 +7493,15 @@ static sqlparser_status_t sqlparser_mysql_rewrite_delete_alias_statement(
 		return SQLPARSER_STATUS_OK;
 	}
 	memset(&out, 0, sizeof(out));
-	status = sqlparser_mysql_buffer_reserve_input(&out, statement_sql, out_error);
+	status = sqlparser_mysql_buffer_begin_origin(
+		&out,
+		origin_trace,
+		statement_sql,
+		origin_input_base,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_mysql_buffer_reserve_input(&out, statement_sql, out_error);
+	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_mysql_buffer_append_mem(&out, statement_sql, start_pos, out_error);
 	}
@@ -5987,6 +7537,8 @@ static sqlparser_status_t sqlparser_mysql_rewrite_dml_order_limit_statement(
 	size_t statement_index,
 	sqlparser_mysql_state_t *state,
 	char **out_sql,
+	size_t origin_input_base,
+	sqlparser_mysql_origin_trace_t *origin_trace,
 	sqlparser_error_t *out_error)
 {
 	char *masked;
@@ -6044,7 +7596,15 @@ static sqlparser_status_t sqlparser_mysql_rewrite_dml_order_limit_statement(
 		return status;
 	}
 	memset(&out, 0, sizeof(out));
-	status = sqlparser_mysql_buffer_reserve_input(&out, statement_sql, out_error);
+	status = sqlparser_mysql_buffer_begin_origin(
+		&out,
+		origin_trace,
+		statement_sql,
+		origin_input_base,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_mysql_buffer_reserve_input(&out, statement_sql, out_error);
+	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_mysql_buffer_append_mem(
 			&out,
@@ -6064,9 +7624,243 @@ static sqlparser_status_t sqlparser_mysql_rewrite_dml_order_limit_statement(
 	return SQLPARSER_STATUS_OK;
 }
 
+typedef enum {
+	SQLPARSER_MYSQL_DML_ORIGIN_MODIFIER = 0,
+	SQLPARSER_MYSQL_DML_ORIGIN_ON_DUPLICATE,
+	SQLPARSER_MYSQL_DML_ORIGIN_UPDATE_JOIN,
+	SQLPARSER_MYSQL_DML_ORIGIN_DELETE_JOIN,
+	SQLPARSER_MYSQL_DML_ORIGIN_DELETE_ALIAS,
+	SQLPARSER_MYSQL_DML_ORIGIN_ORDER_LIMIT
+} sqlparser_mysql_dml_origin_pass_t;
+
+static sqlparser_status_t sqlparser_mysql_rewrite_dml_origin_pass(
+	char **io_sql,
+	sqlparser_mysql_state_t *state,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_mysql_dml_origin_pass_t pass,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_mysql_buffer_t out;
+	sqlparser_mysql_origin_trace_t origin;
+	const char *sql;
+	size_t copy_start;
+	size_t len;
+	size_t segment_start;
+	size_t statement_index;
+	int rewritten;
+	sqlparser_status_t status;
+
+	sql = *io_sql;
+	len = strlen(sql);
+	copy_start = 0U;
+	segment_start = 0U;
+	statement_index = 0U;
+	rewritten = 0;
+	memset(&out, 0, sizeof(out));
+	memset(&origin, 0, sizeof(origin));
+	while (segment_start <= len) {
+		sqlparser_mysql_origin_trace_t statement_origin;
+		const char *trimmed_end;
+		const char *trimmed_start;
+		char *rewritten_sql;
+		char *statement_sql;
+		size_t current_statement_index;
+		size_t statement_end;
+
+		memset(&statement_origin, 0, sizeof(statement_origin));
+		statement_end = sqlparser_mysql_statement_end(sql, segment_start);
+		trimmed_start =
+			sqlparser_mysql_trim_left(
+				sql + segment_start,
+				sql + statement_end);
+		trimmed_end =
+			sqlparser_mysql_trim_right(trimmed_start, sql + statement_end);
+		current_statement_index = statement_index;
+		if (trimmed_start < trimmed_end) {
+			statement_index++;
+		}
+		statement_sql = sqlparser_strndup(
+			sql + segment_start,
+			statement_end - segment_start);
+		if (statement_sql == NULL) {
+			sqlparser_mysql_origin_trace_release(&origin);
+			sqlparser_mysql_buffer_release(&out);
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		rewritten_sql = NULL;
+		switch (pass) {
+			case SQLPARSER_MYSQL_DML_ORIGIN_MODIFIER:
+				status = sqlparser_mysql_rewrite_dml_modifier_statement(
+					statement_sql,
+					current_statement_index,
+					state,
+					&rewritten_sql,
+					segment_start,
+					&statement_origin,
+					out_error);
+				break;
+			case SQLPARSER_MYSQL_DML_ORIGIN_ON_DUPLICATE:
+				status = sqlparser_mysql_rewrite_on_duplicate_statement(
+					statement_sql,
+					current_statement_index,
+					state,
+					&rewritten_sql,
+					segment_start,
+					&statement_origin,
+					out_error);
+				break;
+			case SQLPARSER_MYSQL_DML_ORIGIN_UPDATE_JOIN:
+				status = sqlparser_mysql_rewrite_update_join_statement(
+					statement_sql,
+					&rewritten_sql,
+					segment_start,
+					&statement_origin,
+					out_error);
+				break;
+			case SQLPARSER_MYSQL_DML_ORIGIN_DELETE_JOIN:
+				status = sqlparser_mysql_rewrite_delete_join_statement(
+					statement_sql,
+					&rewritten_sql,
+					segment_start,
+					&statement_origin,
+					out_error);
+				break;
+			case SQLPARSER_MYSQL_DML_ORIGIN_DELETE_ALIAS:
+				status = sqlparser_mysql_rewrite_delete_alias_statement(
+					statement_sql,
+					&rewritten_sql,
+					segment_start,
+					&statement_origin,
+					out_error);
+				break;
+			case SQLPARSER_MYSQL_DML_ORIGIN_ORDER_LIMIT:
+				status =
+					sqlparser_mysql_rewrite_dml_order_limit_statement(
+						statement_sql,
+						current_statement_index,
+						state,
+						&rewritten_sql,
+						segment_start,
+						&statement_origin,
+						out_error);
+				break;
+			default:
+				status = SQLPARSER_STATUS_INTERNAL_ERROR;
+				sqlparser_error_set_message(
+					out_error,
+					status,
+					"MySQL DML origin pass is invalid");
+				break;
+		}
+		free(statement_sql);
+		if (status != SQLPARSER_STATUS_OK) {
+			free(rewritten_sql);
+			sqlparser_mysql_origin_trace_release(&statement_origin);
+			sqlparser_mysql_origin_trace_release(&origin);
+			sqlparser_mysql_buffer_release(&out);
+			return status;
+		}
+		if (rewritten_sql != NULL) {
+			size_t leading_end;
+
+			if (!rewritten) {
+				status = sqlparser_mysql_buffer_begin_origin(
+					&out,
+					&origin,
+					sql,
+					0U,
+					out_error);
+				if (status == SQLPARSER_STATUS_OK) {
+					status = sqlparser_mysql_buffer_reserve_input(
+						&out,
+						sql,
+						out_error);
+				}
+				if (status != SQLPARSER_STATUS_OK) {
+					free(rewritten_sql);
+					sqlparser_mysql_origin_trace_release(
+						&statement_origin);
+					sqlparser_mysql_origin_trace_release(&origin);
+					sqlparser_mysql_buffer_release(&out);
+					return status;
+				}
+				rewritten = 1;
+			}
+			leading_end = (size_t)(
+				sqlparser_mysql_trim_left(
+					sql + segment_start,
+					sql + statement_end) -
+				sql);
+			status = sqlparser_mysql_buffer_append_mem(
+				&out,
+				sql + copy_start,
+				leading_end - copy_start,
+				out_error);
+			if (status == SQLPARSER_STATUS_OK) {
+				status = sqlparser_mysql_buffer_append_trace_cstr(
+					&out,
+					rewritten_sql,
+					&statement_origin,
+					out_error);
+			}
+			free(rewritten_sql);
+			sqlparser_mysql_origin_trace_release(&statement_origin);
+			if (status != SQLPARSER_STATUS_OK) {
+				sqlparser_mysql_origin_trace_release(&origin);
+				sqlparser_mysql_buffer_release(&out);
+				return status;
+			}
+			copy_start = statement_end;
+		} else {
+			sqlparser_mysql_origin_trace_release(&statement_origin);
+		}
+		if (statement_end >= len) {
+			break;
+		}
+		segment_start = statement_end + 1U;
+	}
+	if (!rewritten) {
+		sqlparser_mysql_origin_trace_release(&origin);
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_mysql_buffer_append_mem(
+		&out,
+		sql + copy_start,
+		len - copy_start,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_mysql_origin_trace_commit(
+			origins,
+			sql,
+			out.data,
+			&origin,
+			out_error);
+	}
+	sqlparser_mysql_origin_trace_release(&origin);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_mysql_buffer_release(&out);
+		return status;
+	}
+	free(*io_sql);
+	*io_sql = sqlparser_mysql_buffer_take(&out);
+	if (*io_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
 static sqlparser_status_t sqlparser_mysql_rewrite_dml_extensions(
 	char **io_sql,
 	sqlparser_mysql_state_t *state,
+	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_mysql_buffer_t out;
@@ -6081,6 +7875,24 @@ static sqlparser_status_t sqlparser_mysql_rewrite_dml_extensions(
 	if (io_sql == NULL || *io_sql == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "SQL buffer must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (origins != NULL) {
+		sqlparser_mysql_dml_origin_pass_t pass;
+
+		for (pass = SQLPARSER_MYSQL_DML_ORIGIN_MODIFIER;
+		     pass <= SQLPARSER_MYSQL_DML_ORIGIN_ORDER_LIMIT;
+		     pass = (sqlparser_mysql_dml_origin_pass_t)(pass + 1)) {
+			status = sqlparser_mysql_rewrite_dml_origin_pass(
+				io_sql,
+				state,
+				origins,
+				pass,
+				out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+		}
+		return SQLPARSER_STATUS_OK;
 	}
 	sql = *io_sql;
 	len = strlen(sql);
@@ -6118,6 +7930,8 @@ static sqlparser_status_t sqlparser_mysql_rewrite_dml_extensions(
 			current_statement_index,
 			state,
 			&modifier_sql,
+			0U,
+			NULL,
 			out_error);
 		if (status == SQLPARSER_STATUS_OK && modifier_sql != NULL) {
 			free(statement_sql);
@@ -6133,6 +7947,8 @@ static sqlparser_status_t sqlparser_mysql_rewrite_dml_extensions(
 				current_statement_index,
 				state,
 				&next_sql,
+				0U,
+				NULL,
 				out_error);
 			if (status == SQLPARSER_STATUS_OK && next_sql != NULL) {
 				free(statement_sql);
@@ -6144,7 +7960,12 @@ static sqlparser_status_t sqlparser_mysql_rewrite_dml_extensions(
 			char *next_sql;
 
 			next_sql = NULL;
-			status = sqlparser_mysql_rewrite_update_join_statement(statement_sql, &next_sql, out_error);
+			status = sqlparser_mysql_rewrite_update_join_statement(
+				statement_sql,
+				&next_sql,
+				0U,
+				NULL,
+				out_error);
 			if (status == SQLPARSER_STATUS_OK && next_sql != NULL) {
 				free(statement_sql);
 				statement_sql = next_sql;
@@ -6155,7 +7976,12 @@ static sqlparser_status_t sqlparser_mysql_rewrite_dml_extensions(
 			char *next_sql;
 
 			next_sql = NULL;
-			status = sqlparser_mysql_rewrite_delete_join_statement(statement_sql, &next_sql, out_error);
+			status = sqlparser_mysql_rewrite_delete_join_statement(
+				statement_sql,
+				&next_sql,
+				0U,
+				NULL,
+				out_error);
 			if (status == SQLPARSER_STATUS_OK && next_sql != NULL) {
 				free(statement_sql);
 				statement_sql = next_sql;
@@ -6166,7 +7992,12 @@ static sqlparser_status_t sqlparser_mysql_rewrite_dml_extensions(
 			char *next_sql;
 
 			next_sql = NULL;
-			status = sqlparser_mysql_rewrite_delete_alias_statement(statement_sql, &next_sql, out_error);
+			status = sqlparser_mysql_rewrite_delete_alias_statement(
+				statement_sql,
+				&next_sql,
+				0U,
+				NULL,
+				out_error);
 			if (status == SQLPARSER_STATUS_OK && next_sql != NULL) {
 				free(statement_sql);
 				statement_sql = next_sql;
@@ -6182,6 +8013,8 @@ static sqlparser_status_t sqlparser_mysql_rewrite_dml_extensions(
 				current_statement_index,
 				state,
 				&next_sql,
+				0U,
+				NULL,
 				out_error);
 			if (status == SQLPARSER_STATUS_OK && next_sql != NULL) {
 				free(statement_sql);
@@ -8651,6 +10484,42 @@ static int sqlparser_mysql_internal_set_prefix(
 	return 1;
 }
 
+static sqlparser_status_t sqlparser_mysql_rewrite_internal_session_statement(
+	char **io_sql,
+	sqlparser_error_t *out_error)
+{
+	char *public_sql;
+	const char *sql;
+	size_t pos;
+	size_t end;
+	sqlparser_status_t status;
+
+	if (io_sql == NULL || *io_sql == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	sql = *io_sql;
+	if (!sqlparser_mysql_internal_set_prefix(
+		    sql,
+		    SQLPARSER_INTERNAL_MYSQL_SESSION_STATEMENT,
+		    &pos)) {
+		return SQLPARSER_STATUS_OK;
+	}
+	public_sql = NULL;
+	status = sqlparser_mysql_read_internal_string_arg(sql, &pos, &public_sql, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(public_sql);
+		return status;
+	}
+	end = sqlparser_mysql_skip_space(sql, pos);
+	if (sql[end] != '\0') {
+		free(public_sql);
+		return SQLPARSER_STATUS_OK;
+	}
+	free(*io_sql);
+	*io_sql = public_sql;
+	return SQLPARSER_STATUS_OK;
+}
+
 static sqlparser_status_t sqlparser_mysql_rewrite_internal_prepared_statement(
 	char **io_sql,
 	sqlparser_error_t *out_error)
@@ -8782,6 +10651,9 @@ static sqlparser_status_t sqlparser_mysql_rewrite_internal_use(
 		}
 		original_statement_sql = statement_sql;
 		status = sqlparser_mysql_rewrite_internal_use_statement(&statement_sql, out_error);
+		if (status == SQLPARSER_STATUS_OK && statement_sql == original_statement_sql) {
+			status = sqlparser_mysql_rewrite_internal_session_statement(&statement_sql, out_error);
+		}
 		if (status == SQLPARSER_STATUS_OK && statement_sql == original_statement_sql) {
 			status = sqlparser_mysql_rewrite_internal_prepared_statement(&statement_sql, out_error);
 		}
@@ -8965,9 +10837,11 @@ static sqlparser_status_t sqlparser_mysql_rewrite_dml_modifiers_to_mysql(
 static sqlparser_status_t sqlparser_mysql_rewrite_locking_reads(
 	char **io_sql,
 	sqlparser_mysql_state_t *state,
+	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_mysql_buffer_t out;
+	sqlparser_mysql_origin_trace_t origin;
 	const char *sql;
 	size_t index;
 	size_t copy_start;
@@ -8984,6 +10858,7 @@ static sqlparser_status_t sqlparser_mysql_rewrite_locking_reads(
 	copy_start = 0U;
 	statement_index = 0U;
 	rewritten = 0;
+	memset(&origin, 0, sizeof(origin));
 	while (sql[index] != '\0') {
 		size_t skipped;
 
@@ -9014,14 +10889,26 @@ static sqlparser_status_t sqlparser_mysql_rewrite_locking_reads(
 
 				phrase_end = mode_pos + strlen("mode");
 				if (!rewritten) {
+					status = sqlparser_mysql_buffer_begin_origin(
+						&out,
+						origins != NULL ? &origin : NULL,
+						sql,
+						0U,
+						out_error);
+					if (status != SQLPARSER_STATUS_OK) {
+						sqlparser_mysql_origin_trace_release(&origin);
+						return status;
+					}
 					status = sqlparser_mysql_buffer_reserve_input(&out, sql, out_error);
 					if (status != SQLPARSER_STATUS_OK) {
+						sqlparser_mysql_origin_trace_release(&origin);
 						return status;
 					}
 					rewritten = 1;
 				}
 				status = sqlparser_mysql_state_add_lock_in_share(state, statement_index, out_error);
 				if (status != SQLPARSER_STATUS_OK) {
+					sqlparser_mysql_origin_trace_release(&origin);
 					sqlparser_mysql_buffer_release(&out);
 					return status;
 				}
@@ -9030,6 +10917,7 @@ static sqlparser_status_t sqlparser_mysql_rewrite_locking_reads(
 					status = sqlparser_mysql_buffer_append_cstr(&out, "FOR SHARE", out_error);
 				}
 				if (status != SQLPARSER_STATUS_OK) {
+					sqlparser_mysql_origin_trace_release(&origin);
 					sqlparser_mysql_buffer_release(&out);
 					return status;
 				}
@@ -9041,9 +10929,19 @@ static sqlparser_status_t sqlparser_mysql_rewrite_locking_reads(
 		index++;
 	}
 	if (!rewritten) {
+		sqlparser_mysql_origin_trace_release(&origin);
 		return SQLPARSER_STATUS_OK;
 	}
 	status = sqlparser_mysql_buffer_append_cstr(&out, sql + copy_start, out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_mysql_origin_trace_commit(
+			origins,
+			sql,
+			out.data,
+			&origin,
+			out_error);
+	}
+	sqlparser_mysql_origin_trace_release(&origin);
 	if (status == SQLPARSER_STATUS_OK) {
 		free(*io_sql);
 		*io_sql = sqlparser_mysql_buffer_take(&out);
@@ -9062,9 +10960,11 @@ static sqlparser_status_t sqlparser_mysql_rewrite_locking_reads(
 static sqlparser_status_t sqlparser_mysql_rewrite_straight_join(
 	char **io_sql,
 	sqlparser_mysql_state_t *state,
+	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_mysql_buffer_t out;
+	sqlparser_mysql_origin_trace_t origin;
 	const char *sql;
 	size_t index;
 	size_t copy_start;
@@ -9083,6 +10983,7 @@ static sqlparser_status_t sqlparser_mysql_rewrite_straight_join(
 	statement_index = 0U;
 	join_index = 0U;
 	rewritten = 0;
+	memset(&origin, 0, sizeof(origin));
 	while (sql[index] != '\0') {
 		size_t skipped;
 
@@ -9099,8 +11000,19 @@ static sqlparser_status_t sqlparser_mysql_rewrite_straight_join(
 		}
 		if (sqlparser_mysql_ascii_word_equal(sql, index, "straight_join")) {
 			if (!rewritten) {
+				status = sqlparser_mysql_buffer_begin_origin(
+					&out,
+					origins != NULL ? &origin : NULL,
+					sql,
+					0U,
+					out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					sqlparser_mysql_origin_trace_release(&origin);
+					return status;
+				}
 				status = sqlparser_mysql_buffer_reserve_input(&out, sql, out_error);
 				if (status != SQLPARSER_STATUS_OK) {
+					sqlparser_mysql_origin_trace_release(&origin);
 					return status;
 				}
 				rewritten = 1;
@@ -9119,6 +11031,7 @@ static sqlparser_status_t sqlparser_mysql_rewrite_straight_join(
 				status = sqlparser_mysql_buffer_append_cstr(&out, "JOIN", out_error);
 			}
 			if (status != SQLPARSER_STATUS_OK) {
+				sqlparser_mysql_origin_trace_release(&origin);
 				sqlparser_mysql_buffer_release(&out);
 				return status;
 			}
@@ -9135,9 +11048,19 @@ static sqlparser_status_t sqlparser_mysql_rewrite_straight_join(
 		index++;
 	}
 	if (!rewritten) {
+		sqlparser_mysql_origin_trace_release(&origin);
 		return SQLPARSER_STATUS_OK;
 	}
 	status = sqlparser_mysql_buffer_append_cstr(&out, sql + copy_start, out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_mysql_origin_trace_commit(
+			origins,
+			sql,
+			out.data,
+			&origin,
+			out_error);
+	}
+	sqlparser_mysql_origin_trace_release(&origin);
 	if (status == SQLPARSER_STATUS_OK) {
 		free(*io_sql);
 		*io_sql = sqlparser_mysql_buffer_take(&out);
@@ -9156,9 +11079,11 @@ static sqlparser_status_t sqlparser_mysql_rewrite_straight_join(
 static sqlparser_status_t sqlparser_mysql_rewrite_index_hints(
 	char **io_sql,
 	sqlparser_mysql_state_t *state,
+	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_mysql_buffer_t out;
+	sqlparser_mysql_origin_trace_t origin;
 	const char *sql;
 	size_t index;
 	size_t copy_start;
@@ -9187,6 +11112,7 @@ static sqlparser_status_t sqlparser_mysql_rewrite_index_hints(
 	depth = 0U;
 	memset(from_list_active, 0, sizeof(from_list_active));
 	rewritten = 0;
+	memset(&origin, 0, sizeof(origin));
 	while (sql[index] != '\0') {
 		size_t skipped;
 
@@ -9347,18 +11273,31 @@ static sqlparser_status_t sqlparser_mysql_rewrite_index_hints(
 				close_pos + 1U - keyword_pos,
 				out_error);
 			if (status != SQLPARSER_STATUS_OK) {
+				sqlparser_mysql_origin_trace_release(&origin);
 				sqlparser_mysql_buffer_release(&out);
 				return status;
 			}
 			if (!rewritten) {
+				status = sqlparser_mysql_buffer_begin_origin(
+					&out,
+					origins != NULL ? &origin : NULL,
+					sql,
+					0U,
+					out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					sqlparser_mysql_origin_trace_release(&origin);
+					return status;
+				}
 				status = sqlparser_mysql_buffer_reserve_input(&out, sql, out_error);
 				if (status != SQLPARSER_STATUS_OK) {
+					sqlparser_mysql_origin_trace_release(&origin);
 					return status;
 				}
 				rewritten = 1;
 			}
 			status = sqlparser_mysql_buffer_append_mem(&out, sql + copy_start, keyword_pos - copy_start, out_error);
 			if (status != SQLPARSER_STATUS_OK) {
+				sqlparser_mysql_origin_trace_release(&origin);
 				sqlparser_mysql_buffer_release(&out);
 				return status;
 			}
@@ -9370,9 +11309,19 @@ static sqlparser_status_t sqlparser_mysql_rewrite_index_hints(
 		index++;
 	}
 	if (!rewritten) {
+		sqlparser_mysql_origin_trace_release(&origin);
 		return SQLPARSER_STATUS_OK;
 	}
 	status = sqlparser_mysql_buffer_append_cstr(&out, sql + copy_start, out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_mysql_origin_trace_commit(
+			origins,
+			sql,
+			out.data,
+			&origin,
+			out_error);
+	}
+	sqlparser_mysql_origin_trace_release(&origin);
 	if (status == SQLPARSER_STATUS_OK) {
 		free(*io_sql);
 		*io_sql = sqlparser_mysql_buffer_take(&out);
@@ -9391,10 +11340,12 @@ static sqlparser_status_t sqlparser_mysql_rewrite_index_hints(
 static sqlparser_status_t sqlparser_mysql_rewrite_table_partitions(
 	char **io_sql,
 	sqlparser_mysql_state_t *state,
+	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error)
 {
 	const char *sql;
 	sqlparser_mysql_buffer_t out;
+	sqlparser_mysql_origin_trace_t origin;
 	sqlparser_status_t status;
 	size_t index;
 	size_t copy_start;
@@ -9422,6 +11373,7 @@ static sqlparser_status_t sqlparser_mysql_rewrite_table_partitions(
 	depth = 0U;
 	memset(from_list_active, 0, sizeof(from_list_active));
 	rewritten = 0;
+	memset(&origin, 0, sizeof(origin));
 	while (sql[index] != '\0') {
 		size_t skipped;
 
@@ -9483,18 +11435,31 @@ static sqlparser_status_t sqlparser_mysql_rewrite_table_partitions(
 				removal_len,
 				out_error);
 			if (status != SQLPARSER_STATUS_OK) {
+				sqlparser_mysql_origin_trace_release(&origin);
 				sqlparser_mysql_buffer_release(&out);
 				return status;
 			}
 			if (!rewritten) {
+				status = sqlparser_mysql_buffer_begin_origin(
+					&out,
+					origins != NULL ? &origin : NULL,
+					sql,
+					0U,
+					out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					sqlparser_mysql_origin_trace_release(&origin);
+					return status;
+				}
 				status = sqlparser_mysql_buffer_reserve_input(&out, sql, out_error);
 				if (status != SQLPARSER_STATUS_OK) {
+					sqlparser_mysql_origin_trace_release(&origin);
 					return status;
 				}
 				rewritten = 1;
 			}
 			status = sqlparser_mysql_buffer_append_mem(&out, sql + copy_start, index - copy_start, out_error);
 			if (status != SQLPARSER_STATUS_OK) {
+				sqlparser_mysql_origin_trace_release(&origin);
 				sqlparser_mysql_buffer_release(&out);
 				return status;
 			}
@@ -9550,9 +11515,19 @@ static sqlparser_status_t sqlparser_mysql_rewrite_table_partitions(
 		index++;
 	}
 	if (!rewritten) {
+		sqlparser_mysql_origin_trace_release(&origin);
 		return SQLPARSER_STATUS_OK;
 	}
 	status = sqlparser_mysql_buffer_append_cstr(&out, sql + copy_start, out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_mysql_origin_trace_commit(
+			origins,
+			sql,
+			out.data,
+			&origin,
+			out_error);
+	}
+	sqlparser_mysql_origin_trace_release(&origin);
 	if (status == SQLPARSER_STATUS_OK) {
 		free(*io_sql);
 		*io_sql = sqlparser_mysql_buffer_take(&out);
@@ -9628,11 +11603,12 @@ static sqlparser_mysql_extension_features_t sqlparser_mysql_classify_extensions(
 	return features;
 }
 
-static sqlparser_status_t sqlparser_mysql_preprocess(
+static sqlparser_status_t sqlparser_mysql_preprocess_internal(
 	const char *input_sql,
 	const sqlparser_limits_t *limits,
 	char **out_parser_sql,
 	void **out_state,
+	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error)
 {
 	char *quoted_sql;
@@ -9665,7 +11641,11 @@ static sqlparser_status_t sqlparser_mysql_preprocess(
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
 
-	status = sqlparser_mysql_rewrite_create_table_extensions(&quoted_sql, mysql_state, out_error);
+	status = sqlparser_mysql_rewrite_create_table_extensions(
+		&quoted_sql,
+		mysql_state,
+		origins,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		free(quoted_sql);
 		sqlparser_mysql_state_destroy(mysql_state);
@@ -9674,25 +11654,50 @@ static sqlparser_status_t sqlparser_mysql_preprocess(
 
 	{
 		char *mysql_sql;
+		sqlparser_mysql_origin_trace_t quote_origin;
 
 		mysql_sql = quoted_sql;
 		quoted_sql = NULL;
-		status = sqlparser_mysql_preprocess_quotes(mysql_sql, mysql_state, &quoted_sql, out_error);
+		memset(&quote_origin, 0, sizeof(quote_origin));
+		status = sqlparser_mysql_preprocess_quotes(
+			mysql_sql,
+			mysql_state,
+			&quoted_sql,
+			0U,
+			origins != NULL ? &quote_origin : NULL,
+			out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_mysql_origin_trace_commit(
+				origins,
+				mysql_sql,
+				quoted_sql,
+				&quote_origin,
+				out_error);
+		}
+		sqlparser_mysql_origin_trace_release(&quote_origin);
 		free(mysql_sql);
 	}
-	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_mysql_state_destroy(mysql_state);
-		return status;
-	}
-
-	status = sqlparser_mysql_rewrite_use_statements(&quoted_sql, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		free(quoted_sql);
 		sqlparser_mysql_state_destroy(mysql_state);
 		return status;
 	}
 
-	status = sqlparser_mysql_rewrite_dml_extensions(&quoted_sql, mysql_state, out_error);
+	status = sqlparser_mysql_rewrite_session_statements(
+		&quoted_sql,
+		origins,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(quoted_sql);
+		sqlparser_mysql_state_destroy(mysql_state);
+		return status;
+	}
+
+	status = sqlparser_mysql_rewrite_dml_extensions(
+		&quoted_sql,
+		mysql_state,
+		origins,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		free(quoted_sql);
 		sqlparser_mysql_state_destroy(mysql_state);
@@ -9701,7 +11706,11 @@ static sqlparser_status_t sqlparser_mysql_preprocess(
 
 	features = sqlparser_mysql_classify_extensions(quoted_sql);
 	if (features.straight_join) {
-		status = sqlparser_mysql_rewrite_straight_join(&quoted_sql, mysql_state, out_error);
+		status = sqlparser_mysql_rewrite_straight_join(
+			&quoted_sql,
+			mysql_state,
+			origins,
+			out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			free(quoted_sql);
 			sqlparser_mysql_state_destroy(mysql_state);
@@ -9710,7 +11719,11 @@ static sqlparser_status_t sqlparser_mysql_preprocess(
 	}
 
 	if (features.index_hint) {
-		status = sqlparser_mysql_rewrite_index_hints(&quoted_sql, mysql_state, out_error);
+		status = sqlparser_mysql_rewrite_index_hints(
+			&quoted_sql,
+			mysql_state,
+			origins,
+			out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			free(quoted_sql);
 			sqlparser_mysql_state_destroy(mysql_state);
@@ -9719,7 +11732,11 @@ static sqlparser_status_t sqlparser_mysql_preprocess(
 	}
 
 	if (features.table_partition) {
-		status = sqlparser_mysql_rewrite_table_partitions(&quoted_sql, mysql_state, out_error);
+		status = sqlparser_mysql_rewrite_table_partitions(
+			&quoted_sql,
+			mysql_state,
+			origins,
+			out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			free(quoted_sql);
 			sqlparser_mysql_state_destroy(mysql_state);
@@ -9728,7 +11745,11 @@ static sqlparser_status_t sqlparser_mysql_preprocess(
 	}
 
 	if (features.locking_read) {
-		status = sqlparser_mysql_rewrite_locking_reads(&quoted_sql, mysql_state, out_error);
+		status = sqlparser_mysql_rewrite_locking_reads(
+			&quoted_sql,
+			mysql_state,
+			origins,
+			out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			free(quoted_sql);
 			sqlparser_mysql_state_destroy(mysql_state);
@@ -9743,7 +11764,10 @@ static sqlparser_status_t sqlparser_mysql_preprocess(
 		return status;
 	}
 
-	status = sqlparser_mysql_rewrite_limit_offset_count(&quoted_sql, out_error);
+	status = sqlparser_mysql_rewrite_limit_offset_count(
+		&quoted_sql,
+		origins,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		free(quoted_sql);
 		sqlparser_mysql_state_destroy(mysql_state);
@@ -9753,6 +11777,52 @@ static sqlparser_status_t sqlparser_mysql_preprocess(
 	*out_parser_sql = quoted_sql;
 	*out_state = mysql_state;
 	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_mysql_preprocess(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_mysql_preprocess_internal(
+		input_sql,
+		limits,
+		out_parser_sql,
+		out_state,
+		NULL,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_mysql_preprocess_identifier_origins(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error)
+{
+	if (out_parser_sql != NULL) {
+		*out_parser_sql = NULL;
+	}
+	if (out_state != NULL) {
+		*out_state = NULL;
+	}
+	if (origins == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"identifier origin map must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	return sqlparser_mysql_preprocess_internal(
+		input_sql,
+		limits,
+		out_parser_sql,
+		out_state,
+		origins,
+		out_error);
 }
 
 static sqlparser_status_t sqlparser_mysql_preprocess_fragment(
@@ -9783,6 +11853,8 @@ static sqlparser_status_t sqlparser_mysql_preprocess_fragment(
 		input_sql,
 		(sqlparser_mysql_state_t *)state,
 		out_parser_sql,
+		0U,
+		NULL,
 		out_error);
 }
 
@@ -10270,6 +12342,885 @@ static sqlparser_graph_insert_mode_t sqlparser_mysql_insert_mode(
 	return override_mode;
 }
 
+static const char *sqlparser_mysql_session_ast_argument(
+	const PgQuery__Node *statement,
+	const char *internal_name)
+{
+	const PgQuery__VariableSetStmt *set_stmt;
+	const PgQuery__Node *arg;
+
+	if (statement == NULL ||
+	    statement->node_case != PG_QUERY__NODE__NODE_VARIABLE_SET_STMT ||
+	    statement->variable_set_stmt == NULL ||
+	    statement->variable_set_stmt->name == NULL ||
+	    strcmp(statement->variable_set_stmt->name, internal_name) != 0) {
+		return NULL;
+	}
+	set_stmt = statement->variable_set_stmt;
+	if (set_stmt->n_args != 1U || set_stmt->args == NULL) {
+		return NULL;
+	}
+	arg = set_stmt->args[0];
+	if (arg == NULL ||
+	    arg->node_case != PG_QUERY__NODE__NODE_A_CONST ||
+	    arg->a_const == NULL ||
+	    arg->a_const->val_case != PG_QUERY__A__CONST__VAL_SVAL ||
+	    arg->a_const->sval == NULL) {
+		return NULL;
+	}
+	return arg->a_const->sval->sval;
+}
+
+static sqlparser_status_t sqlparser_mysql_session_emit_text(
+	const sqlparser_dialect_session_emitter_t *emitter,
+	size_t item_index,
+	const char *name,
+	size_t name_length,
+	sqlparser_graph_session_value_kind_t kind,
+	const char *text,
+	size_t text_length,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dialect_session_value_t value;
+
+	memset(&value, 0, sizeof(value));
+	value.name = name;
+	value.name_length = name_length;
+	value.kind = kind;
+	value.text = text;
+	value.text_length = text_length;
+	return emitter->add_value(
+		emitter->context,
+		item_index,
+		&value,
+		out_error);
+}
+
+static int sqlparser_mysql_session_span_is_integer(
+	const char *start,
+	const char *end,
+	long long *out_value)
+{
+	unsigned long long value;
+	unsigned long long limit;
+	int negative;
+
+	if (start == NULL || end == NULL || start >= end || out_value == NULL) {
+		return 0;
+	}
+	negative = 0;
+	if (*start == '+' || *start == '-') {
+		negative = *start == '-';
+		start++;
+		if (start == end) {
+			return 0;
+		}
+	}
+	value = 0U;
+	limit = negative ? (unsigned long long)LLONG_MAX + 1U : (unsigned long long)LLONG_MAX;
+	while (start < end) {
+		unsigned int digit;
+
+		if (*start < '0' || *start > '9') {
+			return 0;
+		}
+		digit = (unsigned int)(*start - '0');
+		if (value > (limit - digit) / 10U) {
+			return 0;
+		}
+		value = value * 10U + digit;
+		start++;
+	}
+	if (negative) {
+		*out_value = value == (unsigned long long)LLONG_MAX + 1U ?
+			LLONG_MIN :
+			-(long long)value;
+	} else {
+		*out_value = (long long)value;
+	}
+	return 1;
+}
+
+static int sqlparser_mysql_session_span_is_float(
+	const char *start,
+	const char *end)
+{
+	const char *pos;
+	int has_digit;
+	int has_fraction;
+	int has_exponent;
+
+	if (start == NULL || end == NULL || start >= end) {
+		return 0;
+	}
+	pos = start;
+	if (*pos == '+' || *pos == '-') {
+		pos++;
+	}
+	has_digit = 0;
+	while (pos < end && isdigit((unsigned char)*pos)) {
+		has_digit = 1;
+		pos++;
+	}
+	has_fraction = 0;
+	if (pos < end && *pos == '.') {
+		has_fraction = 1;
+		pos++;
+		while (pos < end && isdigit((unsigned char)*pos)) {
+			has_digit = 1;
+			pos++;
+		}
+	}
+	has_exponent = 0;
+	if (has_digit && pos < end && (*pos == 'e' || *pos == 'E')) {
+		has_exponent = 1;
+		pos++;
+		if (pos < end && (*pos == '+' || *pos == '-')) {
+			pos++;
+		}
+		if (pos == end || !isdigit((unsigned char)*pos)) {
+			return 0;
+		}
+		while (pos < end && isdigit((unsigned char)*pos)) {
+			pos++;
+		}
+	}
+	return has_digit &&
+		(has_fraction || has_exponent) &&
+		pos == end;
+}
+
+static char *sqlparser_mysql_session_decode_simple_quote(
+	const char *start,
+	const char *end,
+	char quote,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_mysql_buffer_t out;
+	const char *pos;
+	sqlparser_status_t status;
+
+	if (start == NULL || end == NULL || end - start < 2 ||
+	    *start != quote || end[-1] != quote) {
+		return NULL;
+	}
+	memset(&out, 0, sizeof(out));
+	for (pos = start + 1; pos < end - 1; pos++) {
+		if (*pos == quote && pos + 1 < end - 1 && pos[1] == quote) {
+			pos++;
+		}
+		status = sqlparser_mysql_buffer_append_char(&out, *pos, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_mysql_buffer_release(&out);
+			return NULL;
+		}
+	}
+	status = sqlparser_mysql_buffer_reserve(&out, 0U, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_mysql_buffer_release(&out);
+		return NULL;
+	}
+	if (out.data == NULL) {
+		out.data = sqlparser_strdup("");
+		if (out.data == NULL) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		}
+	}
+	return sqlparser_mysql_buffer_take(&out);
+}
+
+static int sqlparser_mysql_session_span_is_identifier(
+	const char *start,
+	const char *end)
+{
+	const char *pos;
+
+	if (start == NULL || end == NULL || start >= end ||
+	    !sqlparser_mysql_is_ident_start((unsigned char)*start)) {
+		return 0;
+	}
+	for (pos = start + 1; pos < end; pos++) {
+		if (!sqlparser_mysql_is_ident_char((unsigned char)*pos) &&
+		    *pos != '$' && (unsigned char)*pos < 0x80U) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static int sqlparser_mysql_session_span_equal_word(
+	const char *start,
+	const char *end,
+	const char *word)
+{
+	size_t index;
+	size_t length;
+
+	if (start == NULL || end == NULL || word == NULL || end < start) {
+		return 0;
+	}
+	length = strlen(word);
+	if ((size_t)(end - start) != length) {
+		return 0;
+	}
+	for (index = 0U; index < length; index++) {
+		if (tolower((unsigned char)start[index]) !=
+		    tolower((unsigned char)word[index])) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static sqlparser_status_t sqlparser_mysql_session_emit_span_value(
+	const sqlparser_dialect_session_emitter_t *emitter,
+	size_t item_index,
+	const char *name,
+	size_t name_length,
+	const char *source_sql,
+	const char *start,
+	const char *end,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dialect_session_value_t value;
+	char *decoded;
+	char *float_text;
+	long long integer_value;
+
+	start = sqlparser_mysql_trim_left(start, end);
+	end = sqlparser_mysql_trim_right(start, end);
+	if (start >= end) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "MySQL session value is empty");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	memset(&value, 0, sizeof(value));
+	value.name = name;
+	value.name_length = name_length;
+	if (*start == '\'' &&
+	    sqlparser_mysql_session_token_end(
+		    start,
+		    0U,
+		    (size_t)(end - start)) == (size_t)(end - start)) {
+		decoded = sqlparser_mysql_session_decode_simple_quote(
+			start,
+			end,
+			'\'',
+			out_error);
+		if (decoded != NULL) {
+			value.kind = SQLPARSER_GRAPH_SESSION_VALUE_LITERAL;
+			value.literal.kind = SQLPARSER_LITERAL_KIND_STRING;
+			value.literal.string_value = decoded;
+			if (emitter->add_value(
+				    emitter->context,
+				    item_index,
+				    &value,
+				    out_error) != SQLPARSER_STATUS_OK) {
+				free(decoded);
+				return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+			}
+			free(decoded);
+			return SQLPARSER_STATUS_OK;
+		}
+		if (out_error != NULL &&
+		    (out_error->code == SQLPARSER_STATUS_NO_MEMORY ||
+		     out_error->code == SQLPARSER_STATUS_RESOURCE_LIMIT)) {
+			return out_error->code;
+		}
+		sqlparser_error_clear(out_error);
+	}
+	if (sqlparser_mysql_session_span_is_integer(start, end, &integer_value)) {
+		value.kind = SQLPARSER_GRAPH_SESSION_VALUE_LITERAL;
+		value.literal.kind = SQLPARSER_LITERAL_KIND_INTEGER;
+		value.literal.integer_value = integer_value;
+		return emitter->add_value(
+			emitter->context,
+			item_index,
+			&value,
+			out_error);
+	}
+	if (sqlparser_mysql_session_span_is_float(start, end)) {
+		float_text = sqlparser_strndup(
+			start,
+			(size_t)(end - start));
+		if (float_text == NULL) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		value.kind = SQLPARSER_GRAPH_SESSION_VALUE_LITERAL;
+		value.literal.kind = SQLPARSER_LITERAL_KIND_FLOAT;
+		value.literal.float_value = float_text;
+		if (emitter->add_value(
+			    emitter->context,
+			    item_index,
+			    &value,
+			    out_error) != SQLPARSER_STATUS_OK) {
+			free(float_text);
+			return out_error != NULL ?
+				out_error->code :
+				SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		free(float_text);
+		return SQLPARSER_STATUS_OK;
+	}
+	if (end - start == 1 && *start == '?') {
+		if (source_sql == NULL || start < source_sql) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "MySQL session bind source is invalid");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		value.kind = SQLPARSER_GRAPH_SESSION_VALUE_BIND;
+		value.bind_kind = SQLPARSER_BIND_KIND_POSITIONAL;
+		value.bind_sql = start;
+		value.bind_sql_length = 1U;
+		value.source_sql = source_sql;
+		value.source_offset = (size_t)(start - source_sql);
+		return emitter->add_value(
+			emitter->context,
+			item_index,
+			&value,
+			out_error);
+	}
+	if (sqlparser_mysql_session_span_equal_word(start, end, "null")) {
+		value.kind = SQLPARSER_GRAPH_SESSION_VALUE_LITERAL;
+		value.literal.kind = SQLPARSER_LITERAL_KIND_NULL;
+		return emitter->add_value(
+			emitter->context,
+			item_index,
+			&value,
+			out_error);
+	}
+	if (sqlparser_mysql_session_span_equal_word(start, end, "true") ||
+	    sqlparser_mysql_session_span_equal_word(start, end, "false")) {
+		value.kind = SQLPARSER_GRAPH_SESSION_VALUE_LITERAL;
+		value.literal.kind = SQLPARSER_LITERAL_KIND_BOOLEAN;
+		value.literal.boolean_value =
+			sqlparser_mysql_session_span_equal_word(
+				start,
+				end,
+				"true");
+		return emitter->add_value(
+			emitter->context,
+			item_index,
+			&value,
+			out_error);
+	}
+	if (sqlparser_mysql_session_span_equal_word(start, end, "default") ||
+	    sqlparser_mysql_session_span_equal_word(start, end, "none") ||
+	    sqlparser_mysql_session_span_equal_word(start, end, "all") ||
+	    sqlparser_mysql_session_span_equal_word(start, end, "on") ||
+	    sqlparser_mysql_session_span_equal_word(start, end, "off")) {
+		return sqlparser_mysql_session_emit_text(
+			emitter,
+			item_index,
+			name,
+			name_length,
+			SQLPARSER_GRAPH_SESSION_VALUE_KEYWORD,
+			start,
+			(size_t)(end - start),
+			out_error);
+	}
+	return sqlparser_mysql_session_emit_text(
+		emitter,
+		item_index,
+		name,
+		name_length,
+		sqlparser_mysql_session_span_is_identifier(start, end) ?
+			SQLPARSER_GRAPH_SESSION_VALUE_IDENTIFIER :
+			SQLPARSER_GRAPH_SESSION_VALUE_EXPRESSION,
+		start,
+		(size_t)(end - start),
+		out_error);
+}
+
+static sqlparser_status_t sqlparser_mysql_session_project_assignments(
+	const char *sql,
+	size_t start,
+	size_t end,
+	const sqlparser_dialect_session_emitter_t *emitter,
+	sqlparser_error_t *out_error)
+{
+	size_t segment_start;
+
+	segment_start = start;
+	while (segment_start < end) {
+		char *decoded_name;
+		sqlparser_graph_session_scope_t scope;
+		sqlparser_graph_session_target_kind_t target_kind;
+		const char *left_start;
+		const char *left_end;
+		const char *name_start;
+		const char *name_end;
+		const char *right_start;
+		const char *right_end;
+		size_t comma;
+		size_t equals;
+		size_t item_index;
+		size_t pos;
+		sqlparser_status_t status;
+
+		comma = sqlparser_mysql_find_top_level_char_between(
+			sql,
+			',',
+			segment_start,
+			end);
+		if (comma == (size_t)-1) {
+			comma = end;
+		}
+		equals = sqlparser_mysql_find_top_level_char_between(
+			sql,
+			'=',
+			segment_start,
+			comma);
+		if (equals == (size_t)-1) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "MySQL session assignment is invalid");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		left_start = sqlparser_mysql_trim_left(sql + segment_start, sql + equals);
+		left_end = sqlparser_mysql_trim_right(left_start, sql + equals);
+		if (left_end > left_start && left_end[-1] == ':') {
+			left_end = sqlparser_mysql_trim_right(left_start, left_end - 1);
+		}
+		right_start = sqlparser_mysql_trim_left(sql + equals + 1U, sql + comma);
+		right_end = sqlparser_mysql_trim_right(right_start, sql + comma);
+		scope = SQLPARSER_GRAPH_SESSION_SCOPE_SESSION;
+		target_kind = SQLPARSER_GRAPH_SESSION_TARGET_PARAMETER;
+		name_start = left_start;
+		name_end = left_end;
+		pos = (size_t)(name_start - sql);
+		if (sqlparser_mysql_ascii_word_equal(sql, pos, "session") ||
+		    sqlparser_mysql_ascii_word_equal(sql, pos, "local")) {
+			int is_local;
+
+			is_local = sqlparser_mysql_ascii_word_equal(sql, pos, "local");
+			pos += is_local ? strlen("local") : strlen("session");
+			name_start = sqlparser_mysql_trim_left(sql + pos, left_end);
+			scope = SQLPARSER_GRAPH_SESSION_SCOPE_SESSION;
+		}
+		if (name_end - name_start >= 2 &&
+		    name_start[0] == '@' && name_start[1] == '@') {
+			name_start += 2;
+			if ((size_t)(name_end - name_start) > strlen("session.") &&
+			    sqlparser_mysql_ascii_word_equal(
+				    name_start,
+				    0U,
+				    "session") &&
+			    name_start[strlen("session")] == '.') {
+				name_start += strlen("session") + 1U;
+			} else if ((size_t)(name_end - name_start) > strlen("local.") &&
+				   sqlparser_mysql_ascii_word_equal(
+					   name_start,
+					   0U,
+					   "local") &&
+				   name_start[strlen("local")] == '.') {
+				name_start += strlen("local") + 1U;
+				scope = SQLPARSER_GRAPH_SESSION_SCOPE_SESSION;
+			}
+		} else if (name_start < name_end && *name_start == '@') {
+			name_start++;
+			target_kind = SQLPARSER_GRAPH_SESSION_TARGET_VARIABLE;
+		}
+		decoded_name = NULL;
+		if (name_end - name_start >= 2 &&
+		    ((*name_start == '\'' && name_end[-1] == '\'') ||
+		     (*name_start == '"' && name_end[-1] == '"') ||
+		     (*name_start == '`' && name_end[-1] == '`'))) {
+			decoded_name = sqlparser_mysql_session_decode_simple_quote(
+				name_start,
+				name_end,
+				*name_start,
+				out_error);
+			if (decoded_name == NULL) {
+				return out_error != NULL ?
+					out_error->code :
+					SQLPARSER_STATUS_INTERNAL_ERROR;
+			}
+			name_start = decoded_name;
+			name_end = decoded_name + strlen(decoded_name);
+		}
+		if (name_start >= name_end) {
+			free(decoded_name);
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "MySQL session item name is empty");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		status = emitter->add_item(
+			emitter->context,
+			scope,
+			target_kind,
+			name_start,
+			(size_t)(name_end - name_start),
+			&item_index,
+			out_error);
+		free(decoded_name);
+		if (status != SQLPARSER_STATUS_OK) {
+			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		status = sqlparser_mysql_session_emit_span_value(
+			emitter,
+			item_index,
+			NULL,
+			0U,
+			sql,
+			right_start,
+			right_end,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		if (comma == end) {
+			break;
+		}
+		segment_start = comma + 1U;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_mysql_session_project_character_set(
+	const char *sql,
+	size_t pos,
+	size_t end,
+	int allow_collation,
+	const char *parameter_name,
+	const sqlparser_dialect_session_emitter_t *emitter,
+	sqlparser_error_t *out_error)
+{
+	size_t item_index;
+	size_t token_end;
+
+	pos = sqlparser_mysql_skip_space(sql, pos);
+	token_end = sqlparser_mysql_session_token_end(sql, pos, end);
+	if (token_end <= pos ||
+	    emitter->add_item(
+		    emitter->context,
+		    SQLPARSER_GRAPH_SESSION_SCOPE_SESSION,
+		    SQLPARSER_GRAPH_SESSION_TARGET_PARAMETER,
+		    parameter_name,
+		    strlen(parameter_name),
+		    &item_index,
+		    out_error) != SQLPARSER_STATUS_OK ||
+	    sqlparser_mysql_session_emit_span_value(
+		    emitter,
+		    item_index,
+		    NULL,
+		    0U,
+		    sql,
+		    sql + pos,
+		    sql + token_end,
+		    out_error) != SQLPARSER_STATUS_OK) {
+		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	pos = sqlparser_mysql_skip_space(sql, token_end);
+	if (pos == end) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (!allow_collation ||
+	    !sqlparser_mysql_session_consume_word(sql, &pos, end, "collate")) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "MySQL character set tail is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	pos = sqlparser_mysql_skip_space(sql, pos);
+	token_end = sqlparser_mysql_session_token_end(sql, pos, end);
+	return sqlparser_mysql_session_emit_span_value(
+		emitter,
+		item_index,
+		"collation",
+		strlen("collation"),
+		sql,
+		sql + pos,
+		sql + token_end,
+		out_error);
+}
+
+static sqlparser_status_t sqlparser_mysql_session_project_role(
+	const char *sql,
+	size_t pos,
+	size_t end,
+	const sqlparser_dialect_session_emitter_t *emitter,
+	sqlparser_error_t *out_error)
+{
+	size_t item_index;
+	const char *value_name;
+	size_t value_name_length;
+
+	if (emitter->add_item(
+		    emitter->context,
+		    SQLPARSER_GRAPH_SESSION_SCOPE_SESSION,
+		    SQLPARSER_GRAPH_SESSION_TARGET_ROLE,
+		    NULL,
+		    0U,
+		    &item_index,
+		    out_error) != SQLPARSER_STATUS_OK) {
+		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	pos = sqlparser_mysql_skip_space(sql, pos);
+	value_name = NULL;
+	value_name_length = 0U;
+	if (sqlparser_mysql_ascii_word_equal(sql, pos, "all")) {
+		size_t word_end;
+
+		word_end = pos + strlen("all");
+		if (sqlparser_mysql_session_emit_text(
+			    emitter,
+			    item_index,
+			    NULL,
+			    0U,
+			    SQLPARSER_GRAPH_SESSION_VALUE_KEYWORD,
+			    sql + pos,
+			    strlen("all"),
+			    out_error) != SQLPARSER_STATUS_OK) {
+			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		pos = sqlparser_mysql_skip_space(sql, word_end);
+		if (pos == end) {
+			return SQLPARSER_STATUS_OK;
+		}
+		if (!sqlparser_mysql_session_consume_word(sql, &pos, end, "except")) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "MySQL role list is invalid");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		value_name = "except";
+		value_name_length = strlen(value_name);
+	} else if (sqlparser_mysql_ascii_word_equal(sql, pos, "default") ||
+		   sqlparser_mysql_ascii_word_equal(sql, pos, "none")) {
+		return sqlparser_mysql_session_emit_span_value(
+			emitter,
+			item_index,
+			NULL,
+			0U,
+			sql,
+			sql + pos,
+			sql + end,
+			out_error);
+	}
+	pos = sqlparser_mysql_skip_space(sql, pos);
+	while (pos < end) {
+		size_t comma;
+
+		comma = sqlparser_mysql_find_top_level_char_between(sql, ',', pos, end);
+		if (comma == (size_t)-1) {
+			comma = end;
+		}
+		if (sqlparser_mysql_session_emit_span_value(
+			    emitter,
+			    item_index,
+			    value_name,
+			    value_name_length,
+			    sql,
+			    sql + pos,
+			    sql + comma,
+			    out_error) != SQLPARSER_STATUS_OK) {
+			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		if (comma == end) {
+			break;
+		}
+		pos = sqlparser_mysql_skip_space(sql, comma + 1U);
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_mysql_session_project_transaction(
+	const char *sql,
+	size_t pos,
+	size_t end,
+	sqlparser_graph_session_scope_t scope,
+	const sqlparser_dialect_session_emitter_t *emitter,
+	sqlparser_error_t *out_error)
+{
+	size_t item_index;
+
+	if (emitter->add_item(
+		    emitter->context,
+		    scope,
+		    SQLPARSER_GRAPH_SESSION_TARGET_TRANSACTION,
+		    NULL,
+		    0U,
+		    &item_index,
+		    out_error) != SQLPARSER_STATUS_OK) {
+		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	while (pos < end) {
+		const char *name;
+		size_t name_length;
+		size_t comma;
+		size_t option_start;
+		size_t value_start;
+
+		pos = sqlparser_mysql_skip_space(sql, pos);
+		comma = sqlparser_mysql_find_top_level_char_between(sql, ',', pos, end);
+		if (comma == (size_t)-1) {
+			comma = end;
+		}
+		option_start = pos;
+		value_start = pos;
+		name = NULL;
+		name_length = 0U;
+		if (sqlparser_mysql_session_consume_word(sql, &value_start, comma, "isolation") &&
+		    sqlparser_mysql_session_consume_word(sql, &value_start, comma, "level")) {
+			name = "isolation_level";
+			name_length = strlen(name);
+			value_start = sqlparser_mysql_skip_space(sql, value_start);
+		} else if (sqlparser_mysql_ascii_word_equal(sql, option_start, "read")) {
+			name = "access_mode";
+			name_length = strlen(name);
+			value_start = option_start;
+		}
+		if (sqlparser_mysql_session_emit_text(
+			    emitter,
+			    item_index,
+			    name,
+			    name_length,
+			    SQLPARSER_GRAPH_SESSION_VALUE_KEYWORD,
+			    sql + value_start,
+			    comma - value_start,
+			    out_error) != SQLPARSER_STATUS_OK) {
+			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		if (comma == end) {
+			break;
+		}
+		pos = comma + 1U;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_mysql_project_raw_session(
+	const char *sql,
+	const sqlparser_dialect_session_emitter_t *emitter,
+	sqlparser_error_t *out_error)
+{
+	size_t end;
+	size_t pos;
+	sqlparser_graph_session_scope_t scope;
+
+	end = strlen(sql);
+	pos = sqlparser_mysql_skip_space(sql, 0U);
+	if (!sqlparser_mysql_ascii_word_equal(sql, pos, "set")) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "MySQL session statement is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	if (emitter->set_action(
+		    emitter->context,
+		    SQLPARSER_GRAPH_SESSION_ACTION_SET,
+		    out_error) != SQLPARSER_STATUS_OK) {
+		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	pos = sqlparser_mysql_skip_space(sql, pos + strlen("set"));
+	if (sqlparser_mysql_ascii_word_equal(sql, pos, "character")) {
+		pos = sqlparser_mysql_skip_space(sql, pos + strlen("character"));
+		pos = sqlparser_mysql_skip_space(sql, pos + strlen("set"));
+		return sqlparser_mysql_session_project_character_set(
+			sql, pos, end, 0, "character_set", emitter, out_error);
+	}
+	if (sqlparser_mysql_ascii_word_equal(sql, pos, "charset")) {
+		pos = sqlparser_mysql_skip_space(sql, pos + strlen("charset"));
+		return sqlparser_mysql_session_project_character_set(
+			sql, pos, end, 0, "character_set", emitter, out_error);
+	}
+	if (sqlparser_mysql_ascii_word_equal(sql, pos, "names")) {
+		pos = sqlparser_mysql_skip_space(sql, pos + strlen("names"));
+		return sqlparser_mysql_session_project_character_set(
+			sql, pos, end, 1, "names", emitter, out_error);
+	}
+	if (sqlparser_mysql_ascii_word_equal(sql, pos, "role")) {
+		pos = sqlparser_mysql_skip_space(sql, pos + strlen("role"));
+		return sqlparser_mysql_session_project_role(
+			sql, pos, end, emitter, out_error);
+	}
+	scope = SQLPARSER_GRAPH_SESSION_SCOPE_TRANSACTION;
+	if (sqlparser_mysql_ascii_word_equal(sql, pos, "session") ||
+	    sqlparser_mysql_ascii_word_equal(sql, pos, "local")) {
+		int is_local;
+
+		is_local = sqlparser_mysql_ascii_word_equal(sql, pos, "local");
+		pos += is_local ? strlen("local") : strlen("session");
+		pos = sqlparser_mysql_skip_space(sql, pos);
+		scope = SQLPARSER_GRAPH_SESSION_SCOPE_SESSION;
+	}
+	if (sqlparser_mysql_ascii_word_equal(sql, pos, "transaction")) {
+		pos = sqlparser_mysql_skip_space(sql, pos + strlen("transaction"));
+		return sqlparser_mysql_session_project_transaction(
+			sql, pos, end, scope, emitter, out_error);
+	}
+	return sqlparser_mysql_session_project_assignments(
+		sql, pos, end, emitter, out_error);
+}
+
+static sqlparser_status_t sqlparser_mysql_project_session(
+	const sqlparser_handle_t *handle,
+	const void *state,
+	size_t statement_index,
+	const PgQuery__Node *statement,
+	const sqlparser_dialect_session_emitter_t *emitter,
+	sqlparser_error_t *out_error)
+{
+	char *public_sql;
+	const char *value;
+	size_t item_index;
+	sqlparser_dialect_session_value_t session_value;
+	sqlparser_status_t status;
+
+	(void)state;
+	if (emitter == NULL || emitter->set_action == NULL ||
+	    emitter->add_item == NULL || emitter->add_value == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "session graph emitter is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	value = sqlparser_mysql_session_ast_argument(
+		statement,
+		SQLPARSER_INTERNAL_CURRENT_DATABASE);
+	if (value != NULL) {
+		if (emitter->set_action(
+			    emitter->context,
+			    SQLPARSER_GRAPH_SESSION_ACTION_SWITCH,
+			    out_error) != SQLPARSER_STATUS_OK ||
+		    emitter->add_item(
+			    emitter->context,
+			    SQLPARSER_GRAPH_SESSION_SCOPE_SESSION,
+			    SQLPARSER_GRAPH_SESSION_TARGET_DATABASE,
+			    NULL,
+			    0U,
+			    &item_index,
+			    out_error) != SQLPARSER_STATUS_OK) {
+			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		memset(&session_value, 0, sizeof(session_value));
+		session_value.kind = SQLPARSER_GRAPH_SESSION_VALUE_IDENTIFIER;
+		session_value.text = value;
+		session_value.text_length = strlen(value);
+		return emitter->add_value(
+			emitter->context,
+			item_index,
+			&session_value,
+			out_error);
+	}
+	value = sqlparser_mysql_session_ast_argument(
+		statement,
+		SQLPARSER_INTERNAL_MYSQL_SESSION_STATEMENT);
+	if (value == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	public_sql = NULL;
+	status = sqlparser_postprocess_handle_sql_fragment(
+		handle,
+		statement_index,
+		value,
+		"session statement",
+		&public_sql,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		if (public_sql == NULL) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "MySQL session SQL is missing");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		status = sqlparser_mysql_project_raw_session(
+			public_sql, emitter, out_error);
+	}
+	free(public_sql);
+	return status;
+}
+
 static const sqlparser_dialect_ops_t SQLPARSER_MYSQL_OPS = {
 	SQLPARSER_DIALECT_MYSQL,
 	"mysql",
@@ -10285,7 +13236,8 @@ static const sqlparser_dialect_ops_t SQLPARSER_MYSQL_OPS = {
 	NULL,
 	sqlparser_mysql_postprocess_fragment,
 	NULL,
-	NULL
+	NULL,
+	sqlparser_mysql_project_session
 };
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_mysql_ops(void)

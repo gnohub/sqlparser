@@ -2,6 +2,20 @@
 
 This file records regression cases for the Oracle dialect conversion layer. The executable fixture is `tests/cases/oracle_dialect_input.json`; `tests/unit/test_oracle_dialect_case_matrix.c` verifies parsing, View JSON, deparse output, and error codes.
 
+## Matrix Counts and Session Regression
+
+The fixture contains 235 cases: 213 expect success and 22 expect failure.
+Statement-level `expect.session` appears in 59 cases, covering `O043`,
+`O043Q`, `O044` through `O047`, `O082` through `O086`, and the `ORA-*`
+session cases. All 59 contain at least one non-null session expectation.
+
+When an `expect.session` array is present, the matrix test requires one entry
+per statement. A non-null entry is matched against the corresponding session
+projection, including its action, item scope, target kind, name, and value
+fields; `null` asserts that no session projection is emitted. For fixture
+cases that expect success, the test also deparses the unmodified handle and
+compares the result with the input SQL byte for byte.
+
 ## Supported Cases
 
 | ID | Case | Coverage |

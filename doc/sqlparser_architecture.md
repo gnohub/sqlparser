@@ -78,6 +78,7 @@
 - `query_graph.values`
 - `query_graph.sets`
 - `query_graph.predicates`
+- `query_graph.session`
 - `query_graph.dml`
 
 ### 3.4 View 层
@@ -99,9 +100,11 @@ View 层用于把语句树按需导出为可供外部程序消费的结构化视
 
 ### 3.5 反解析层
 
-反解析层负责从当前语法树状态输出 SQL。
+反解析层根据 handle generation 和控制流状态选择输出路径。
 
-`sqlparser_deparse()` 对外提供统一入口，底层仍基于 `libpg_query` 的反解析能力完成 round-trip。
+`sqlparser_deparse()` 对外提供统一入口。解析成功后，handle 的 generation 为 `0`，该接口直接复制原始输入 SQL，因此标识符引用形式、大小写、空白、注释、分号和多语句边界按字节保留，不经过 AST 反解析器。
+
+generation 大于 `0` 时，非控制流 handle 使用 `libpg_query` protobuf 反解析器生成 SQL，方言层随后恢复对应的公开语法形态；控制流 handle 根据当前控制流和语句状态生成 SQL。
 
 ## 4. 数据模型与缓存
 
@@ -115,9 +118,10 @@ View 层用于把语句树按需导出为可供外部程序消费的结构化视
 缓存行为如下：
 
 - 初次解析时只建立必要的统一语法树
+- generation 为 `0` 的未改写 handle 反解析时直接复制原始 SQL
 - View JSON 等派生输出按需生成
 - 成功改写后，派生缓存会统一失效
-- 再次访问时，会基于最新 AST 重新生成
+- 再次访问派生结构时，会基于最新 AST 重新生成
 
 ## 5. 公共接口组织方式
 

@@ -34,6 +34,7 @@ VENDOR_BUILD_SIGNATURE_FILE := $(BUILD_PATH)/vendor/.vendor_build_signature
 OBJ_FILES := $(foreach src,$(ALL_SRC),$(OBJ_PATH)/$(patsubst src/%,%,$(src:.c=.o)))
 DEP_FILES := $(OBJ_FILES:.o=.d)
 UNIT_TEST_BINS := $(foreach src,$(UNIT_TEST_SRC),$(BIN_PATH)/$(notdir $(src:.c=)))
+CASE_MATRIX_BINS := $(filter %_case_matrix,$(UNIT_TEST_BINS))
 EXAMPLE_BINS := $(patsubst examples/%.c,$(BIN_PATH)/examples/%,$(EXAMPLE_SRC))
 TEST_API_SMOKE_BIN := $(BIN_PATH)/test_api_smoke
 TEST_CORE_API_BIN := $(BIN_PATH)/test_core_api
@@ -192,10 +193,11 @@ libpg-query-baseline-build: $(LIBPG_QUERY_BASELINE_BIN)
 test: cli test-unit test-examples test-cli
 
 test-unit: $(UNIT_TEST_BINS)
-	@set -e; \
+	@failed=0; \
 	for test_bin in $(UNIT_TEST_BINS); do \
-		"$$test_bin"; \
-	done
+		"$$test_bin" || failed=1; \
+	done; \
+	exit $$failed
 
 test-examples: $(EXAMPLE_BINS)
 	@set -e; \
@@ -217,9 +219,13 @@ test-inspect: $(TEST_API_SMOKE_BIN) $(TEST_CORE_API_BIN) $(TEST_CASE_MATRIX_BIN)
 test-rewrite: $(TEST_CORE_API_BIN)
 	@$(TEST_CORE_API_BIN)
 
-test-deparse: $(TEST_CORE_API_BIN) $(TEST_CASE_MATRIX_BIN)
-	@$(TEST_CORE_API_BIN)
-	@$(TEST_CASE_MATRIX_BIN)
+test-deparse: $(TEST_CORE_API_BIN) $(CASE_MATRIX_BINS)
+	@failed=0; \
+	$(TEST_CORE_API_BIN) || failed=1; \
+	for test_bin in $(CASE_MATRIX_BINS); do \
+		"$$test_bin" || failed=1; \
+	done; \
+	exit $$failed
 
 test-view-json: $(TEST_CORE_API_BIN)
 	@$(TEST_CORE_API_BIN)
@@ -350,21 +356,21 @@ verify-ubsan:
 
 verify-valgrind:
 	@$(MAKE) --no-print-directory clean
-	@if command -v "$(VERIFY_VALGRIND_TOOL)" >/dev/null 2>&1; then \
-		$(MAKE) --no-print-directory all test install-smoke DEBUG=0 SHOW_WARNING=0 SHOW_VENDOR_WARNING=0; \
-		for test_bin in $(UNIT_TEST_BINS) $(EXAMPLE_BINS); do \
-			$(VALGRIND_RUNNER) --tool "$(VERIFY_VALGRIND_TOOL)" --log-dir "$(VALGRIND_LOG_DIR)" --name "$$(basename "$$test_bin")" -- "$$test_bin"; \
-		done; \
-		$(VALGRIND_RUNNER) --tool "$(VERIFY_VALGRIND_TOOL)" --log-dir "$(VALGRIND_LOG_DIR)" --name "sqlparser_cli_batch" -- \
-			$(SQLPARSER_CLI_BIN) --batch-file $(SQLPARSER_CLI_BATCH_FIXTURE) --output $(SQLPARSER_CLI_BATCH_OUTPUT); \
-		$(BENCH_PYTHON) $(SQLPARSER_CLI_BATCH_VERIFY) \
-			--fixture $(SQLPARSER_CLI_BATCH_FIXTURE) \
-			--output $(SQLPARSER_CLI_BATCH_OUTPUT); \
-		$(VALGRIND_RUNNER) --tool "$(VERIFY_VALGRIND_TOOL)" --log-dir "$(VALGRIND_LOG_DIR)" --name "install_smoke" -- \
-			$(INSTALL_SMOKE_BIN); \
-	else \
-		echo "skip verify-valgrind: valgrind is not installed"; \
-	fi
+	@command -v "$(VERIFY_VALGRIND_TOOL)" >/dev/null 2>&1 || \
+		{ echo "verify-valgrind: valgrind is not installed" >&2; exit 1; }
+	@$(MAKE) --no-print-directory all test install-smoke DEBUG=0 SHOW_WARNING=0 SHOW_VENDOR_WARNING=0
+	@failed=0; \
+	for test_bin in $(UNIT_TEST_BINS) $(EXAMPLE_BINS); do \
+		$(VALGRIND_RUNNER) --tool "$(VERIFY_VALGRIND_TOOL)" --log-dir "$(VALGRIND_LOG_DIR)" --name "$$(basename "$$test_bin")" -- "$$test_bin" || failed=1; \
+	done; \
+	$(VALGRIND_RUNNER) --tool "$(VERIFY_VALGRIND_TOOL)" --log-dir "$(VALGRIND_LOG_DIR)" --name "sqlparser_cli_batch" -- \
+		$(SQLPARSER_CLI_BIN) --batch-file $(SQLPARSER_CLI_BATCH_FIXTURE) --output $(SQLPARSER_CLI_BATCH_OUTPUT) || failed=1; \
+	$(BENCH_PYTHON) $(SQLPARSER_CLI_BATCH_VERIFY) \
+		--fixture $(SQLPARSER_CLI_BATCH_FIXTURE) \
+		--output $(SQLPARSER_CLI_BATCH_OUTPUT) || failed=1; \
+	$(VALGRIND_RUNNER) --tool "$(VERIFY_VALGRIND_TOOL)" --log-dir "$(VALGRIND_LOG_DIR)" --name "install_smoke" -- \
+		$(INSTALL_SMOKE_BIN) || failed=1; \
+	exit $$failed
 
 verify: verify-release verify-debug verify-asan verify-ubsan verify-valgrind
 	@$(MAKE) --no-print-directory clean

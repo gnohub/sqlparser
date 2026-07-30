@@ -11,12 +11,25 @@ typedef struct sqlparser_dialect_ops sqlparser_dialect_ops_t;
 typedef struct sqlparser_query_graph_cache sqlparser_query_graph_cache_t;
 typedef struct sqlparser_control_state sqlparser_control_state_t;
 
+typedef struct {
+	size_t raw_statement_index;
+	size_t string_index;
+	size_t relation_group;
+	size_t source_component_index;
+	char **slot;
+	char *value;
+	char *original;
+	int has_source_component;
+	int source_present;
+} sqlparser_identifier_mutation_t;
+
 #define SQLPARSER_INTERNAL_CURRENT_DATABASE "sqlparser_current_database"
 #define SQLPARSER_INTERNAL_CURRENT_SCHEMA "sqlparser_current_schema"
 #define SQLPARSER_INTERNAL_MYSQL_PREPARE "sqlparser_mysql_prepare"
 #define SQLPARSER_INTERNAL_MYSQL_EXECUTE "sqlparser_mysql_execute"
 #define SQLPARSER_INTERNAL_MYSQL_DEALLOCATE_PREPARE "sqlparser_mysql_deallocate_prepare"
 #define SQLPARSER_INTERNAL_MYSQL_DROP_PREPARE "sqlparser_mysql_drop_prepare"
+#define SQLPARSER_INTERNAL_MYSQL_SESSION_STATEMENT "sqlparser_mysql_session_statement"
 #define SQLPARSER_INTERNAL_MYSQL_JOIN_ON "sqlparser_mysql_join_on"
 #define SQLPARSER_INTERNAL_MYSQL_LEFT_JOIN_ON "sqlparser_mysql_left_join_on"
 #define SQLPARSER_INTERNAL_MYSQL_RIGHT_JOIN_ON "sqlparser_mysql_right_join_on"
@@ -36,6 +49,9 @@ typedef struct sqlparser_control_state sqlparser_control_state_t;
 #define SQLPARSER_INTERNAL_SQLSERVER_DROP_INDEX "sqlparser_sqlserver_drop_index"
 #define SQLPARSER_INTERNAL_SQLSERVER_UPDATE_STATISTICS "sqlparser_sqlserver_update_statistics"
 #define SQLPARSER_INTERNAL_SQLSERVER_SET_STATEMENT "sqlparser_sqlserver_set_statement"
+#define SQLPARSER_INTERNAL_SQLSERVER_EXECUTE_STATEMENT "sqlparser_sqlserver_execute_statement"
+#define SQLPARSER_INTERNAL_SQLSERVER_REVERT_STATEMENT "sqlparser_sqlserver_revert_statement"
+#define SQLPARSER_INTERNAL_SQLSERVER_SETUSER_STATEMENT "sqlparser_sqlserver_setuser_statement"
 #define SQLPARSER_INTERNAL_SQLSERVER_CREATE_USER "sqlparser_sqlserver_create_user"
 #define SQLPARSER_INTERNAL_SQLSERVER_ALTER_USER "sqlparser_sqlserver_alter_user"
 #define SQLPARSER_INTERNAL_SQLSERVER_CREATE_ROLE "sqlparser_sqlserver_create_role"
@@ -47,10 +63,13 @@ typedef struct sqlparser_control_state sqlparser_control_state_t;
 #define SQLPARSER_INTERNAL_ORACLE_DROP_SYNONYM "sqlparser_oracle_drop_synonym"
 #define SQLPARSER_INTERNAL_ORACLE_EXPLAIN_PLAN "sqlparser_oracle_explain_plan"
 #define SQLPARSER_INTERNAL_ORACLE_SESSION_PARAM_PREFIX "sqlparser_oracle_session_param_"
+#define SQLPARSER_INTERNAL_ORACLE_SESSION_STATEMENT "sqlparser_oracle_session_statement"
 #define SQLPARSER_INTERNAL_DAMENG_SESSION_PARAM_PREFIX "sqlparser_dameng_session_param_"
+#define SQLPARSER_INTERNAL_DAMENG_SESSION_STATEMENT "sqlparser_dameng_session_statement"
 #define SQLPARSER_INTERNAL_DAMENG_EXEC_SQL_PREPARE "sqlparser_dameng_exec_sql_prepare"
 #define SQLPARSER_INTERNAL_DAMENG_EXEC_SQL_EXECUTE "sqlparser_dameng_exec_sql_execute"
 #define SQLPARSER_INTERNAL_DAMENG_EXEC_SQL_DEALLOCATE_PREPARE "sqlparser_dameng_exec_sql_deallocate_prepare"
+#define SQLPARSER_INTERNAL_VASTBASE_SESSION_STATEMENT "sqlparser_vastbase_session_statement"
 #define SQLPARSER_PROTO_LOCATION_GENERATED (-2)
 
 struct sqlparser_handle {
@@ -71,6 +90,9 @@ struct sqlparser_handle {
 	sqlparser_query_graph_cache_t *query_graph;
 	unsigned long query_graph_generation;
 	sqlparser_control_state_t *control;
+	sqlparser_identifier_mutation_t *identifier_mutations;
+	size_t identifier_mutation_count;
+	size_t identifier_mutation_capacity;
 };
 
 void sqlparser_error_clear(sqlparser_error_t *out_error);
@@ -111,6 +133,12 @@ sqlparser_status_t sqlparser_handle_ensure_ast(
 	sqlparser_handle_t *handle,
 	sqlparser_error_t *out_error);
 void sqlparser_handle_clear_ast(sqlparser_handle_t *handle);
+sqlparser_status_t sqlparser_handle_rebind_identifier_mutations(
+	sqlparser_handle_t *handle,
+	sqlparser_error_t *out_error);
+void sqlparser_handle_remove_identifier_mutation(
+	sqlparser_handle_t *handle,
+	size_t mutation_index);
 void sqlparser_handle_invalidate_derived(sqlparser_handle_t *handle);
 void sqlparser_query_graph_cache_release(sqlparser_query_graph_cache_t *cache);
 void sqlparser_handle_clear_query_graph(sqlparser_handle_t *handle);
@@ -129,7 +157,16 @@ sqlparser_status_t sqlparser_ensure_current_sql_text(
 	sqlparser_error_t *out_error);
 PgQueryDeparseResult sqlparser_deparse_protobuf_for_handle(
 	const sqlparser_handle_t *handle,
-	PgQueryProtobuf parse_tree);
+	PgQueryProtobuf parse_tree,
+	size_t raw_statement_offset,
+	size_t source_start,
+	size_t source_end);
+PgQueryProtobufParseResult
+sqlparser_parse_protobuf_preserving_identifier_spelling(
+	const char *parser_sql);
+sqlparser_status_t sqlparser_validate_ast_identifier_spelling(
+	const sqlparser_handle_t *handle,
+	sqlparser_error_t *out_error);
 const char *sqlparser_effective_sql(const sqlparser_handle_t *handle);
 const char *sqlparser_effective_parser_sql(const sqlparser_handle_t *handle);
 sqlparser_status_t sqlparser_postprocess_handle_sql_fragment(

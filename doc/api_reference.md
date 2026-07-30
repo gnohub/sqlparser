@@ -115,6 +115,10 @@ int main(void)
 | `sqlparser_graph_like_escape_kind_t` | query graph 中显式 `LIKE ... ESCAPE ...` 的 escape 形态 |
 | `sqlparser_graph_predicate_kind_t` | query graph predicate 节点类型 |
 | `sqlparser_graph_predicate_bool_t` | query graph boolean predicate 连接类型 |
+| `sqlparser_graph_session_action_t` | 会话状态操作类型 |
+| `sqlparser_graph_session_scope_t` | 会话状态作用域 |
+| `sqlparser_graph_session_target_kind_t` | 会话状态目标类型 |
+| `sqlparser_graph_session_value_kind_t` | 会话状态值类型 |
 | `sqlparser_control_node_kind_t` | 控制流节点类型 |
 | `sqlparser_control_item_kind_t` | 控制流条目引用类型 |
 | `sqlparser_graph_dml_result_kind_t` | DML 结果通道类型 |
@@ -376,6 +380,8 @@ sqlparser_control_item_at(&flow, root_item_index, &root, &err);
 | `sqlparser_statement_name()` | 读取指定名称原子 |
 | `sqlparser_statement_set_name()` | 改写指定名称原子 |
 
+对于源自输入 identifier token 的未加引号标识符，AST 名称值保留 token 文本及其大小写，因此 `abc`、`DDD` 分别仍为 `abc`、`DDD`。带引号标识符的 `value` 保留解码后的名称文本及其大小写，不包含双引号、反引号或方括号定界符。仅 generation 为 `0` 的 deparse 保证保留定界符和转义字节。Name API 只暴露明确支持读取和改写的标识符原子；关键字、操作符、结构控制值、字面量、payload 等其他 AST 字符串字段不作为 name 暴露。
+
 ### Literal
 
 | 函数 | 摘要 |
@@ -460,6 +466,7 @@ stmt[0].literal[1]
 stmt[0].where_literal[0]
 stmt[0].clause[0]
 stmt[0].assignment[0]
+stmt[0].merge_assignment[1][0]
 stmt[0].insert_cell[1][2]
 stmt[0].insert_branch_columns[0]
 stmt[0].insert_branch_condition[0]
@@ -471,6 +478,10 @@ stmt[0].dml_result_sink[0][0]
 stmt[0].dml_result_sink_columns[0][0]
 stmt[0].dml_result_sink_column[0][0][1]
 ```
+
+`stmt[S].assignment[A]` 定位 statement `S` 的顶层 `UPDATE` 中第 `A` 个赋值项。`stmt[S].merge_assignment[W][A]` 定位 statement `S` 的 MERGE matched UPDATE action：`W` 是 MERGE 中所有 `WHEN` 子句的绝对 0 基序号，不是仅对 UPDATE action 重新编号；`A` 是该 UPDATE 分支内赋值项的 0 基序号。`W` 必须指向 `WHEN MATCHED ... THEN UPDATE`。解析后 selector 的 `kind` 为 `SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT`，`item_index` 保存 `W`，`column_index` 保存 `A`。
+
+`sqlparser_selector_update_assignment()`、`sqlparser_selector_update_assignment_sql()`、`sqlparser_selector_set_update_assignment_*()`、`sqlparser_selector_insert_update_assignment_*()` 和 `sqlparser_selector_delete_update_assignment()` 均接受 `assignment` 与 `merge_assignment` selector。
 
 ### selector 解析与读取
 
@@ -519,7 +530,7 @@ stmt[0].dml_result_sink_column[0][0][1]
 
 结构化改写接口接收 selector 和 `sqlparser_identifier_path_view_t`，直接构造或克隆 AST 节点。调用方只提供标识符分段和源 selector，不需要拼接 SQL 片段，也不需要传入 quote 字符。方言由 `sqlparser_handle_t` 决定。
 
-`sqlparser_selector_insert_update_assignment_from_assignment_value()` 用于插入新的 `UPDATE SET` 赋值项。函数会克隆 `source_assignment_selector` 指向的 assignment 右值，并以 `target` 作为新 assignment 左侧：
+`sqlparser_selector_insert_update_assignment_from_assignment_value()` 用于向顶层 `UPDATE` 或 MERGE matched UPDATE action 插入新的 `SET` 赋值项。函数会克隆 `source_assignment_selector` 指向的 assignment 右值，并以 `target` 作为新 assignment 左侧；插入位置 selector 和来源 selector 均可使用 `assignment` 或 `merge_assignment`。两个 selector 必须指向同一 statement，否则函数返回 `SQLPARSER_STATUS_UNSUPPORTED`：
 
 ```c
 const char *backup_parts[] = {"phone_backup"};
@@ -568,7 +579,7 @@ sqlparser_selector_replace_select_target_with_columns(
 
 ## query_graph C 结构化遍历
 
-`query_graph` 提供查询块、关系、输出项、字段引用、条件、DML 写入和值绑定的结构化访问。
+`query_graph` 提供查询块、关系、输出项、字段引用、条件、DML 写入、会话状态和值绑定的结构化访问。
 
 ### 获取入口
 
@@ -594,6 +605,9 @@ sqlparser_status_t sqlparser_statement_query_graph(
 | `sqlparser_query_graph_value_at()` | 读取字段关联值 |
 | `sqlparser_query_graph_set_at()` | 读取集合运算节点 |
 | `sqlparser_query_graph_predicate_at()` | 读取 WHERE/ON/HAVING 谓词节点 |
+| `sqlparser_query_graph_session()` | 读取当前语句的会话状态操作 |
+| `sqlparser_query_graph_session_item_at()` | 读取会话状态目标 |
+| `sqlparser_query_graph_session_value_at()` | 读取会话状态值 |
 | `sqlparser_query_graph_dml()` | 读取根 DML 写入结构 |
 | `sqlparser_query_graph_dml_count()` | 读取当前 statement 的 DML 数量 |
 | `sqlparser_query_graph_dml_at()` | 按 0 基索引读取 DML |
@@ -617,6 +631,9 @@ sqlparser_status_t sqlparser_statement_query_graph(
 | `sqlparser_graph_value_t` | 与字段关联的 literal、bind、default 或 expression 值 |
 | `sqlparser_graph_set_t` | `UNION`、`UNION ALL`、`INTERSECT`、`EXCEPT/MINUS` 分支关系 |
 | `sqlparser_graph_predicate_t` | WHERE、ON、HAVING 中的比较、组合、EXISTS 或表达式谓词 |
+| `sqlparser_graph_session_t` | 当前语句的会话状态操作和 item 数量 |
+| `sqlparser_graph_session_item_t` | 会话状态作用域、目标和 value span |
+| `sqlparser_graph_session_value_t` | 会话状态的标识符、关键字、字面量、bind 或表达式值 |
 | `sqlparser_graph_dml_t` | INSERT、UPDATE、DELETE、MERGE 写入结构 |
 | `sqlparser_graph_dml_result_t` | DML 结果通道、输出 block、可选 sink relation、sink columns 和字段来源 span |
 | `sqlparser_graph_dml_reference_t` | 一个结果 target 对目标行或来源 relation 的字段引用 |
@@ -651,6 +668,48 @@ sqlparser_status_t sqlparser_statement_query_graph(
 - 字段侧表达式包含多个字段时，每个可定位字段各输出一条 `expression_field` value 关系。
 - 值侧是函数、CAST、运算符、数组、ROW 或 CASE 表达式时，关联字段的 value 使用 `SQLPARSER_GRAPH_VALUE_EXPRESSION`，不会把内部 bind/literal 当作 direct value 暴露。
 - `LIKE`、`NOT LIKE`、`ILIKE`、`NOT ILIKE` 带显式 `ESCAPE` 时，pattern 对应的 `sqlparser_graph_value_t.like_escape` 保存 escape 结构；没有显式 `ESCAPE` 时 `kind` 为 `SQLPARSER_GRAPH_LIKE_ESCAPE_NONE`。反解析输出保持公开 SQL 形态，例如 `LIKE pattern ESCAPE escape`。
+
+### 会话状态
+
+受支持的数据库、Schema、角色、身份、事务特征和会话参数语句会投影到 `sqlparser_graph_session_t`。当前语句没有可用的 session 投影时，`sqlparser_query_graph_session()` 返回成功，`action` 为 `SQLPARSER_GRAPH_SESSION_ACTION_UNKNOWN`，`item_count` 为 `0`。
+
+```c
+sqlparser_query_graph_view_t graph;
+sqlparser_graph_session_t session;
+sqlparser_graph_session_item_t item;
+sqlparser_graph_session_value_t value;
+size_t item_index;
+size_t value_index;
+
+sqlparser_statement_query_graph(handle, 0, &graph, &err);
+sqlparser_query_graph_session(&graph, &session, &err);
+
+for (item_index = 0; item_index < session.item_count; item_index++) {
+    sqlparser_query_graph_session_item_at(
+        &graph, item_index, &item, &err);
+
+    for (value_index = 0; value_index < item.value_count; value_index++) {
+        sqlparser_query_graph_session_value_at(
+            &graph, item.value_offset + value_index, &value, &err);
+    }
+}
+```
+
+`action` 表示 `set`、`reset`、`switch`、`discard` 等操作。item 的 `scope` 表示 `session`、`local` 或 `transaction`，`target_kind` 表示 parameter、database、schema、role 等目标。`name` 可以是 SQL 中的显式名称，也可以是 `timezone`、`search_path` 这类规范化语义名称；没有可用名称时为 `NULL`，规范化名称不保证逐字出现在 SQL 中。
+
+每个 value 还可以带可选的 `name`，用于标记同一 item 内具有独立语义的值，例如 MySQL `SET NAMES ... COLLATE ...` 中第二个 value 的 `name` 为 `collation`。没有可用的独立语义标签时，该字段为 `NULL`。
+
+value 的其他字段按 `kind` 使用：
+
+| `kind` | 有效字段 |
+| --- | --- |
+| `SQLPARSER_GRAPH_SESSION_VALUE_IDENTIFIER` | `text` |
+| `SQLPARSER_GRAPH_SESSION_VALUE_KEYWORD` | `text` |
+| `SQLPARSER_GRAPH_SESSION_VALUE_LITERAL` | `literal` |
+| `SQLPARSER_GRAPH_SESSION_VALUE_BIND` | `bind_key`、`bind_kind`、`bind_sql`、`bind_position`、`has_bind_position` |
+| `SQLPARSER_GRAPH_SESSION_VALUE_EXPRESSION` | `text` |
+
+`bind_position` 从 `1` 开始，按同一 handle 中绑定参数的 SQL 出现顺序全局编号。返回结构体中的借用字符串指针，以及 item 的 value span 所引用的 graph 数据，仅在所属 query graph view 有效期内可用。
 
 ## JSON 导出与 Patch
 
@@ -689,13 +748,15 @@ sqlparser_apply_patch(handle, &patches, &err);
 | `SQLPARSER_PATCH_DELETE_COLUMN` | 删除 `INSERT ... VALUES` 列、删除 `INSERT ... SELECT` 目标列，或删除 SELECT 输出项 |
 | `SQLPARSER_PATCH_DELETE_ROW` | 删除 `INSERT ... VALUES` 行 |
 | `SQLPARSER_PATCH_APPEND_CONDITION` | 按 `AND` 或 `OR` 向 `where` 子句追加条件 |
-| `SQLPARSER_PATCH_INSERT_ASSIGNMENT` | 插入 `UPDATE SET` 赋值项 |
-| `SQLPARSER_PATCH_DELETE_ASSIGNMENT` | 删除 `UPDATE SET` 赋值项 |
-| `SQLPARSER_PATCH_REPLACE_ASSIGNMENT` | 整项替换 `UPDATE SET` 赋值项 |
+| `SQLPARSER_PATCH_INSERT_ASSIGNMENT` | 向顶层 `UPDATE` 或 MERGE matched UPDATE action 插入 `SET` 赋值项 |
+| `SQLPARSER_PATCH_DELETE_ASSIGNMENT` | 从顶层 `UPDATE` 或 MERGE matched UPDATE action 删除 `SET` 赋值项 |
+| `SQLPARSER_PATCH_REPLACE_ASSIGNMENT` | 整项替换顶层 `UPDATE` 或 MERGE matched UPDATE action 的 `SET` 赋值项 |
 
 patch 成功后 handle generation 递增，旧 query graph view 失效。
 
-`sqlparser_patch_t` 的值来源字段互斥：`sql`、`default_sql`、`source_selector`、`literal`、`bind` 中同一位置只能提供一种。`source_selector` 支持克隆已有 `insert_cell`、`select_target` 或 `assignment` 的 SQL 片段；`literal` 和 `bind` 由库按当前方言渲染，调用方不需要拼接占位符文本。
+三个 assignment patch 操作的目标 selector 均可使用 `stmt[S].assignment[A]` 或 `stmt[S].merge_assignment[W][A]`。
+
+`sqlparser_patch_t` 的值来源字段互斥：`sql`、`default_sql`、`source_selector`、`literal`、`bind` 中同一位置只能提供一种。`source_selector` 支持克隆已有 `insert_cell`、`select_target` 或 assignment 的 SQL 片段；克隆 assignment 时同样接受 `assignment` 和 `merge_assignment` 两种 selector。`literal` 和 `bind` 由库按当前方言渲染，调用方不需要拼接占位符文本。
 
 ## Deparse 与字符串释放
 
@@ -704,7 +765,7 @@ patch 成功后 handle generation 递增，旧 query graph view 失效。
 | `sqlparser_deparse()` | 反解析当前 AST，生成 SQL 字符串 |
 | `sqlparser_string_free()` | 释放库返回的字符串 |
 
-未被改写的 schema、表名、列名和别名按输入 SQL 中的标识符拼写输出，包括未加引号标识符的原始大小写。关键字、空白和可选语法形式仍由反解析器规范化。
+`sqlparser_deparse()` 调用成功且 handle generation 为 `0` 时，返回值与输入 SQL 按字节一致，包括标识符引用形式、大小写、关键字、空白、换行、注释、分号和多语句边界。generation 大于 `0` 时，接口根据当前 handle 状态生成 SQL，整个输出不适用逐字节一致性保证。
 
 ## 常见使用模式
 

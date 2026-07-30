@@ -53,6 +53,13 @@ static char *str_udeescape(const char *str, char escape,
 List *
 raw_parser(const char *str, RawParseMode mode)
 {
+	return raw_parser_with_options(str, mode, false);
+}
+
+List *
+raw_parser_with_options(const char *str, RawParseMode mode,
+						bool preserve_identifier_spelling)
+{
 	core_yyscan_t yyscanner;
 	base_yy_extra_type yyextra;
 	int			yyresult;
@@ -60,6 +67,8 @@ raw_parser(const char *str, RawParseMode mode)
 	/* initialize the flex scanner */
 	yyscanner = scanner_init(str, &yyextra.core_yy_extra,
 							 &ScanKeywords, ScanKeywordTokens);
+	yyextra.core_yy_extra.preserve_identifier_spelling =
+		preserve_identifier_spelling;
 
 	/* base_yylex() only needs us to initialize the lookahead token, if any */
 	if (mode == RAW_PARSE_DEFAULT)
@@ -95,6 +104,42 @@ raw_parser(const char *str, RawParseMode mode)
 		return NIL;
 
 	return yyextra.parsetree;
+}
+
+char *
+parser_keyword_spelling(const char *keyword, int location,
+						core_yyscan_t yyscanner)
+{
+	base_yy_extra_type *yyextra = pg_yyget_extra(yyscanner);
+	size_t		length = strlen(keyword);
+
+	if (yyextra->core_yy_extra.preserve_identifier_spelling &&
+		location >= 0 &&
+		(size_t) location + length <= yyextra->core_yy_extra.scanbuflen)
+		return pnstrdup(yyextra->core_yy_extra.scanbuf + location, length);
+	return pstrdup(keyword);
+}
+
+bool
+parser_identifier_is_keyword(const char *identifier, const char *keyword,
+							 int location, core_yyscan_t yyscanner)
+{
+	base_yy_extra_type *yyextra = pg_yyget_extra(yyscanner);
+	const char *token;
+
+	if (!yyextra->core_yy_extra.preserve_identifier_spelling ||
+	    location < 0 ||
+	    (size_t) location >= yyextra->core_yy_extra.scanbuflen)
+		return strcmp(identifier, keyword) == 0;
+
+	token = yyextra->core_yy_extra.scanbuf + location;
+	if (token[0] == '"' ||
+		((token[0] == 'U' || token[0] == 'u') &&
+		 (size_t) location + 2 < yyextra->core_yy_extra.scanbuflen &&
+		 token[1] == '&' &&
+		 token[2] == '"'))
+		return false;
+	return pg_strcasecmp(identifier, keyword) == 0;
 }
 
 
@@ -322,10 +367,10 @@ base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp, core_yyscan_t yyscanner)
 
 			if (cur_token == UIDENT)
 			{
-				/* It's an identifier, so truncate as appropriate */
-				truncate_identifier(lvalp->core_yystype.str,
-									strlen(lvalp->core_yystype.str),
-									true);
+				if (!yyextra->core_yy_extra.preserve_identifier_spelling)
+					truncate_identifier(lvalp->core_yystype.str,
+										strlen(lvalp->core_yystype.str),
+										true);
 				cur_token = IDENT;
 			}
 			else if (cur_token == USCONST)

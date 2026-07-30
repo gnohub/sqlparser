@@ -1526,9 +1526,17 @@ pstrdup(const char *in)
  *		Like pstrdup(), but append null byte to a
  *		not-necessarily-null-terminated input string.
  */
+char *
+pnstrdup(const char *in, Size len)
+{
+	char	   *out = (char *) palloc(len + 1);
+
+	memcpy(out, in, len);
+	out[len] = '\0';
+	return out;
+}
 
 
 /*
  * Make copy of string with all trailing newline characters removed.
  */
-

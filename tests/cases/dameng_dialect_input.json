@@ -10,7 +10,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": ":id",
         "view_not_contains": [
           "$1",
           "\"bind_sql\":\":endRow\""
@@ -27,7 +26,23 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "ALTER SESSION SET CURRENT_SCHEMA"
+        "session": [
+          {
+            "action": "switch",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "schema",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "KDES"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       }
     },
     {
@@ -40,7 +55,23 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "ALTER SESSION SET CURRENT_SCHEMA"
+        "session": [
+          {
+            "action": "switch",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "schema",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "KDES"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       }
     },
     {
@@ -53,7 +84,23 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "ALTER SESSION SET CURRENT_SCHEMA = \"KdesMixed\""
+        "session": [
+          {
+            "action": "switch",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "schema",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "KdesMixed"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       }
     },
     {
@@ -66,9 +113,29 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD'",
         "view_contains": [
           "\"keyword\":\"alter_session\""
+        ],
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "NLS_DATE_FORMAT",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "YYYY-MM-DD"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
         ]
       }
     },
@@ -82,9 +149,29 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "ALTER SESSION SET NLS_TIMESTAMP_FORMAT = 'YYYYMMDD HH:MI:SS'",
         "view_contains": [
           "\"keyword\":\"alter_session\""
+        ],
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "NLS_TIMESTAMP_FORMAT",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "YYYYMMDD HH:MI:SS"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
         ]
       }
     },
@@ -98,9 +185,29 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "ALTER SESSION SET NLS_TIMESTAMP_TZ_FORMAT = 'YYYYMMDD HH:MI:SS FF TZH:TZM'",
         "view_contains": [
           "\"keyword\":\"alter_session\""
+        ],
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "NLS_TIMESTAMP_TZ_FORMAT",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "YYYYMMDD HH:MI:SS FF TZH:TZM"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
         ]
       }
     },
@@ -114,9 +221,29 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "ALTER SESSION SET NLS_TIME_FORMAT = 'HH:MI:SS'",
         "view_contains": [
           "\"keyword\":\"alter_session\""
+        ],
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "NLS_TIME_FORMAT",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "HH:MI:SS"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
         ]
       }
     },
@@ -130,9 +257,29 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "ALTER SESSION SET NLS_TIME_TZ_FORMAT = 'HH:MI:SS FF TZH:TZM'",
         "view_contains": [
           "\"keyword\":\"alter_session\""
+        ],
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "NLS_TIME_TZ_FORMAT",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "HH:MI:SS FF TZH:TZM"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
         ]
       }
     },
@@ -146,9 +293,26 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "ALTER SESSION SET NLS_SORT = schinese_pinyin_m",
         "view_contains": [
           "\"keyword\":\"alter_session\""
+        ],
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "NLS_SORT",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "SCHINESE_PINYIN_M"
+                  }
+                ]
+              }
+            ]
+          }
         ]
       }
     },
@@ -162,9 +326,26 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "ALTER SESSION SET CASE_SENSITIVE = TRUE",
         "view_contains": [
           "\"keyword\":\"alter_session\""
+        ],
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "CASE_SENSITIVE",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "true"
+                  }
+                ]
+              }
+            ]
+          }
         ]
       }
     },
@@ -178,9 +359,7 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "MINUS",
-        "view_contains": "minus",
-        "deparse_not_contains": "except"
+        "view_contains": "minus"
       }
     },
     {
@@ -192,8 +371,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "LIMIT 2 OFFSET 2"
+        ]
       }
     },
     {
@@ -205,8 +383,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "LIMIT 3 OFFSET 2"
+        ]
       }
     },
     {
@@ -218,9 +395,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "TOP 2",
-        "deparse_not_contains": "LIMIT"
+        ]
       }
     },
     {
@@ -233,7 +408,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": ":status",
         "view_not_contains": "$1"
       }
     },
@@ -247,7 +421,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": ":id",
         "view_not_contains": "$1"
       }
     },
@@ -260,8 +433,7 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "deparse_contains": "VALUES (1, 'bob'), (2, 'alice')"
+        ]
       }
     },
     {
@@ -273,8 +445,7 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "deparse_contains": ":status"
+        ]
       }
     },
     {
@@ -287,7 +458,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": ":name",
         "view_not_contains": "$1"
       }
     },
@@ -300,8 +470,7 @@
         "statement_count": 1,
         "statement_types": [
           "DeleteStmt"
-        ],
-        "deparse_contains": ":id"
+        ]
       }
     },
     {
@@ -314,7 +483,9 @@
         "statement_types": [
           "MergeStmt"
         ],
-        "deparse_contains": "MERGE INTO"
+        "view_contains": [
+          "\"selector\":\"stmt[0].merge_assignment[0][0]\""
+        ]
       }
     },
     {
@@ -326,8 +497,7 @@
         "statement_count": 1,
         "statement_types": [
           "CreateStmt"
-        ],
-        "deparse_contains": "CREATE TABLE users"
+        ]
       }
     },
     {
@@ -339,8 +509,7 @@
         "statement_count": 1,
         "statement_types": [
           "ViewStmt"
-        ],
-        "deparse_contains": "CREATE OR REPLACE VIEW"
+        ]
       }
     },
     {
@@ -352,8 +521,7 @@
         "statement_count": 1,
         "statement_types": [
           "CreateSeqStmt"
-        ],
-        "deparse_contains": "CREATE SEQUENCE"
+        ]
       }
     },
     {
@@ -365,8 +533,7 @@
         "statement_count": 1,
         "statement_types": [
           "AlterTableStmt"
-        ],
-        "deparse_contains": "ALTER TABLE users"
+        ]
       }
     },
     {
@@ -378,8 +545,7 @@
         "statement_count": 1,
         "statement_types": [
           "IndexStmt"
-        ],
-        "deparse_contains": "CREATE INDEX"
+        ]
       }
     },
     {
@@ -392,8 +558,7 @@
         "statement_types": [
           "DropStmt",
           "TruncateStmt"
-        ],
-        "deparse_contains": "TRUNCATE TABLE users"
+        ]
       }
     },
     {
@@ -405,8 +570,7 @@
         "statement_count": 3,
         "statement_types": [
           "TransactionStmt"
-        ],
-        "deparse_contains": "COMMIT"
+        ]
       }
     },
     {
@@ -418,8 +582,7 @@
         "statement_count": 2,
         "statement_types": [
           "GrantStmt"
-        ],
-        "deparse_contains": "REVOKE"
+        ]
       }
     },
     {
@@ -431,8 +594,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "ROWNUM <= 10"
+        ]
       }
     },
     {
@@ -444,8 +606,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "NOWAIT"
+        ]
       }
     },
     {
@@ -457,8 +618,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "'Bob''s order'"
+        ]
       }
     },
     {
@@ -472,7 +632,24 @@
           "VariableSetStmt",
           "SelectStmt"
         ],
-        "deparse_contains": "ALTER SESSION SET CURRENT_SCHEMA = kdes; SELECT * FROM users"
+        "session": [
+          {
+            "action": "switch",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "schema",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "KDES"
+                  }
+                ]
+              }
+            ]
+          },
+          null
+        ]
       }
     },
     {
@@ -484,8 +661,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "TIMESTAMP '2024-01-01 12:30:00'"
+        ]
       }
     },
     {
@@ -497,8 +673,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "HAVING"
+        ]
       }
     },
     {
@@ -510,9 +685,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "TOP 2,3",
-        "deparse_not_contains": "LIMIT"
+        ]
       }
     },
     {
@@ -525,7 +698,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "VALUES (?, ?, ?)",
         "view_contains": "?",
         "view_not_contains": "$1"
       }
@@ -540,7 +712,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "email = ?",
         "view_not_contains": "$1"
       }
     },
@@ -554,7 +725,6 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "EXEC SQL PREPARE stmt FROM 'SELECT * FROM users WHERE id = ?'",
         "view_not_contains": "$1"
       }
     },
@@ -568,7 +738,6 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "EXEC SQL EXECUTE stmt USING ?",
         "view_not_contains": "$1"
       }
     },
@@ -581,8 +750,7 @@
         "statement_count": 1,
         "statement_types": [
           "VariableSetStmt"
-        ],
-        "deparse_contains": "EXEC SQL DEALLOCATE PREPARE stmt"
+        ]
       }
     },
     {
@@ -595,7 +763,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": ":status",
         "view_not_contains": "$1"
       }
     },
@@ -609,7 +776,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": ":status3",
         "view_not_contains": "$1"
       }
     },
@@ -623,7 +789,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": ":status",
         "view_not_contains": "$1"
       }
     },
@@ -637,7 +802,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "?",
         "view_not_contains": "$1"
       }
     },
@@ -651,7 +815,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "?",
         "view_not_contains": "$1"
       }
     },
@@ -665,7 +828,6 @@
         "statement_types": [
           "DeleteStmt"
         ],
-        "deparse_contains": "?",
         "view_not_contains": "$1"
       }
     },
@@ -679,7 +841,6 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "EXEC SQL PREPARE stmt FROM 'INSERT INTO users (id, name) VALUES (?, ?)'",
         "view_not_contains": "$1"
       }
     },
@@ -693,7 +854,6 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "EXEC SQL EXECUTE stmt USING :id, :name",
         "view_not_contains": "$1"
       }
     },
@@ -707,7 +867,6 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "EXEC SQL EXECUTE stmt USING ?, ?",
         "view_not_contains": "$1"
       }
     },
@@ -721,8 +880,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "TOP 2",
-        "deparse_not_contains": "LIMIT",
         "view_not_contains": "$1"
       }
     },
@@ -735,8 +892,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "CASE WHEN"
+        ]
       }
     },
     {
@@ -748,8 +904,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "HAVING"
+        ]
       }
     },
     {
@@ -762,7 +917,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": ":port",
         "view_not_contains": "$1"
       }
     },
@@ -776,7 +930,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": ":status",
         "view_not_contains": "$1"
       }
     },
@@ -790,7 +943,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "NVL",
         "view_not_contains": "$1"
       }
     },
@@ -804,7 +956,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": ":max_age",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
           "\"operator\":\"BETWEEN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
@@ -828,7 +979,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": ":status2",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"status\"",
           "\"operator\":\"NOT IN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
@@ -850,7 +1000,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": ":max_age",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
           "\"operator\":\"NOT BETWEEN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
@@ -872,7 +1021,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": ":name_pattern",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"name\"",
           "\"operator\":\"NOT LIKE\",\"operator_kind\":\"not_like\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
@@ -893,7 +1041,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": ":name",
         "view_contains": [
           "\"clause\":\"select_list\",\"relation\":0,\"column\":\"name\"",
           "\"clause\":\"where\",\"relation\":0,\"column\":\"name\"",
@@ -914,8 +1061,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "DISTINCT"
+        ]
       }
     },
     {
@@ -928,7 +1074,6 @@
         "statement_types": [
           "DeleteStmt"
         ],
-        "deparse_contains": ":email1",
         "view_contains": [
           "\"kind\":\"delete\"",
           "\"clause\":\"where\",\"relation\":0,\"column\":\"email\"",
@@ -949,8 +1094,7 @@
         "statement_count": 1,
         "statement_types": [
           "UpdateStmt"
-        ],
-        "deparse_contains": ":phone"
+        ]
       }
     },
     {
@@ -962,8 +1106,7 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "deparse_contains": "VALUES (:id, :name, :age)"
+        ]
       }
     },
     {
@@ -975,8 +1118,7 @@
         "statement_count": 1,
         "statement_types": [
           "ViewStmt"
-        ],
-        "deparse_contains": "CREATE OR REPLACE VIEW"
+        ]
       }
     },
     {
@@ -989,7 +1131,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": ":startRow",
         "view_not_contains": [
           "$1",
           "\"bind_sql\":\":endRow\""
@@ -1005,8 +1146,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": ":status"
+        ]
       }
     },
     {
@@ -1018,8 +1158,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "LIMIT ? OFFSET ?"
+        ]
       }
     },
     {
@@ -1032,7 +1171,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": ":value",
         "view_not_contains": "$1"
       }
     },
@@ -1059,8 +1197,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "outer_name"
+        ]
       }
     },
     {
@@ -1287,10 +1424,9 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "SECRET = :1",
         "view_contains": [
           "\"clause\":\"set_list\"",
-          "\"column\":\"secret\"",
+          "\"column\":\"SECRET\"",
           "\"kind\":\"bind\"",
           "\"bind_key\":\"1\"",
           "\"bind_sql\":\":1\"",
@@ -1309,10 +1445,9 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "SECRET = :secret_value",
         "view_contains": [
           "\"clause\":\"set_list\"",
-          "\"column\":\"secret\"",
+          "\"column\":\"SECRET\"",
           "\"kind\":\"bind\"",
           "\"bind_key\":\"secret_value\"",
           "\"bind_sql\":\":secret_value\"",
@@ -1331,10 +1466,9 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "SECRET = ?",
         "view_contains": [
           "\"clause\":\"set_list\"",
-          "\"column\":\"secret\"",
+          "\"column\":\"SECRET\"",
           "\"kind\":\"bind\"",
           "\"bind_key\":\"1\"",
           "\"bind_sql\":\"?\"",
@@ -1353,11 +1487,10 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "SECRET = :2",
         "view_contains": [
           "\"clause\":\"set_list\"",
-          "\"column\":\"phone\"",
-          "\"column\":\"secret\"",
+          "\"column\":\"PHONE\"",
+          "\"column\":\"SECRET\"",
           "\"bind_key\":\"2\"",
           "\"bind_sql\":\":2\"",
           "\"bind_position\":2"
@@ -1375,8 +1508,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "ESCAPE '!'",
-        "deparse_not_contains": "pg_catalog.like_escape",
         "view_contains": [
           "\"operator\":\"LIKE\"",
           "\"operator_kind\":\"like\"",
@@ -1396,8 +1527,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "NOT LIKE",
-        "deparse_not_contains": "pg_catalog.like_escape",
         "view_contains": [
           "\"operator\":\"NOT LIKE\"",
           "\"operator_kind\":\"not_like\"",
@@ -1421,8 +1550,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "LIKE ?",
-        "deparse_not_contains": "pg_catalog.like_escape",
         "view_contains": [
           "\"operator\":\"LIKE\"",
           "\"operator_kind\":\"like\"",
@@ -1444,7 +1571,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "LIKE :pattern",
         "view_contains": [
           "\"operator\":\"LIKE\"",
           "\"operator_kind\":\"like\"",
@@ -1505,9 +1631,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "TOP 10 PERCENT",
-        "deparse_not_contains": "LIMIT"
+        ]
       }
     },
     {
@@ -1520,7 +1644,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "INSERT ALL",
         "view_contains": [
           "\"insert_mode\":\"all\"",
           "\"ordinal\":0",
@@ -1539,7 +1662,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "INSERT ALL",
         "view_contains": [
           "\"insert_mode\":\"all\"",
           "\"bind_key\":\"1\"",
@@ -1560,7 +1682,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "INSERT FIRST",
         "view_contains": [
           "\"insert_mode\":\"first\"",
           "\"branch_kind\":\"when\"",
@@ -1583,7 +1704,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "INSERT ALL",
         "view_contains": [
           "\"insert_mode\":\"all\"",
           "\"branch_kind\":\"when\"",
@@ -1605,7 +1725,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "rejected_users",
         "view_contains": [
           "\"insert_mode\":\"all\"",
           "\"branch_kind\":\"when\"",
@@ -1644,7 +1763,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "INSERT ALL",
         "view_contains": [
           "\"insert_mode\":\"all\"",
           "\"schema\":\"KDES\"",
@@ -1666,7 +1784,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "ELSE INTO t3",
         "view_contains": [
           "\"insert_mode\":\"first\"",
           "\"branch_kind\":\"when\"",
@@ -1713,7 +1830,8 @@
           "\"name\":\"email\"",
           "\"kind\":\"field\"",
           "\"source_field\"",
-          "\"source_target\""
+          "\"source_target\"",
+          "\"selector\":\"stmt[0].merge_assignment[0][0]\""
         ],
         "view_not_contains": "$"
       }
@@ -1748,9 +1866,8 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "REGEXP_LIKE(name, :pat)",
         "view_contains": [
-          "\"operator\":\"regexp_like\"",
+          "\"operator\":\"REGEXP_LIKE\"",
           "\"kind\":\"expression\"",
           "\"bind_sql\":\":pat\"",
           "\"predicates\""
@@ -1767,7 +1884,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "ORDER BY u.email",
         "view_contains": [
           "\"name\":\"e\"",
           "\"column\":\"email\"",
@@ -1786,7 +1902,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "WHERE u.email = :email OR u.bank_card = :card ORDER BY u.id",
         "view_contains": [
           "\"bool_operator\":\"or\"",
           "\"bind_sql\":\":email\"",
@@ -1806,8 +1921,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "SELECT \"RETURNING\", \"CONNECT\" FROM users"
+        ]
       }
     },
     {
@@ -1820,7 +1934,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "users@remote_db",
         "view_contains": [
           "\"table\":\"users\"",
           "\"link\":\"remote_db\"",
@@ -1838,7 +1951,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "N'Alice''s order'",
         "view_contains": "\"string_value\":\"Alice's order\""
       }
     },
@@ -1851,10 +1963,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": [
-          "'same' AS ascii_value",
-          "N'same' AS national_value"
         ]
       }
     },
@@ -1868,7 +1976,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "N'Alice''s order'",
         "view_contains": "\"string_value\":\"Alice's order\""
       }
     },
@@ -1881,10 +1988,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": [
-          "'same' AS ascii_value",
-          "N'same' AS national_value"
         ]
       }
     },
@@ -1907,9 +2010,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "TOP 2 WITH TIES",
-        "deparse_not_contains": "LIMIT"
+        ]
       }
     },
     {
@@ -1921,9 +2022,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "TOP 70 PERCENT WITH TIES",
-        "deparse_not_contains": "LIMIT"
+        ]
       }
     },
     {
@@ -1935,12 +2034,7 @@
         "statement_count": 2,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": [
-          "LIMIT 1",
-          "TOP 2"
-        ],
-        "deparse_not_contains": "LIMIT 2"
+        ]
       }
     },
     {
@@ -1953,7 +2047,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "users@remote_db",
         "view_contains": [
           "\"schema\":\"kdes\"",
           "\"table\":\"users\"",
@@ -1974,7 +2067,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "users@remote_db",
         "view_contains": [
           "\"table\":\"users\"",
           "\"link\":\"remote_db\"",
@@ -1995,7 +2087,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "users@remote_db",
         "view_contains": [
           "\"table\":\"users\"",
           "\"link\":\"remote_db\"",
@@ -2015,7 +2106,6 @@
         "statement_types": [
           "DeleteStmt"
         ],
-        "deparse_contains": "users@remote_db",
         "view_contains": [
           "\"table\":\"users\"",
           "\"link\":\"remote_db\"",
@@ -2034,7 +2124,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "\"USERS\"@\"REMOTE_DB\"",
         "view_contains": [
           "\"table\":\"USERS\"",
           "\"link\":\"REMOTE_DB\"",
@@ -2061,11 +2150,6 @@
         "statement_count": 1,
         "statement_types": [
           "UpdateStmt"
-        ],
-        "deparse_contains": [
-          "KDES.Users U",
-          "UserName = :UserName",
-          "U.UserID = :UserID"
         ]
       }
     },
@@ -2078,12 +2162,737 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": [
-          "FROM T",
-          "A = :a",
-          "ORDER BY A"
         ]
+      }
+    },
+    {
+      "id": "DM-001",
+      "name": "session-state-dm-001",
+      "sql": "SET SCHEMA SALES;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "switch",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "schema",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "SALES"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-002",
+      "name": "session-state-dm-002",
+      "sql": "SET TIME ZONE '+9:00';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "TIME_ZONE",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "+9:00"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-003",
+      "name": "session-state-dm-003",
+      "sql": "SET TIME ZONE LOCAL;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "TIME_ZONE",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "DEFAULT"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-004",
+      "name": "session-state-dm-004",
+      "sql": "ALTER SESSION SET NLS_DATE_LANGUAGE = ENGLISH;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "NLS_DATE_LANGUAGE",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "ENGLISH"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-005",
+      "name": "session-state-dm-005",
+      "sql": "ALTER SESSION SET NLS_DATE_LANGUAGE = AMERICAN;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "NLS_DATE_LANGUAGE",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "AMERICAN"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-006",
+      "name": "session-state-dm-006",
+      "sql": "ALTER SESSION SET NLS_DATE_LANGUAGE = 'SIMPLIFIED CHINESE';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "NLS_DATE_LANGUAGE",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "SIMPLIFIED CHINESE"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-013",
+      "name": "session-state-dm-013",
+      "sql": "ALTER SESSION SET NLS_SORT = SCHINESE_STROKE_M;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "NLS_SORT",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "SCHINESE_STROKE_M"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-014",
+      "name": "session-state-dm-014",
+      "sql": "ALTER SESSION SET NLS_SORT = SCHINESE_RADICAL_M;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "NLS_SORT",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "SCHINESE_RADICAL_M"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-015",
+      "name": "session-state-dm-015",
+      "sql": "ALTER SESSION SET NLS_SORT = BINARY;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "NLS_SORT",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "BINARY"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-016",
+      "name": "session-state-dm-016",
+      "sql": "ALTER SESSION SET NLS_SORT = THAI_CI_AS;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "NLS_SORT",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "THAI_CI_AS"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-017",
+      "name": "session-state-dm-017",
+      "sql": "ALTER SESSION SET NLS_SORT = KOREAN_M;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "NLS_SORT",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "KOREAN_M"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-019",
+      "name": "session-state-dm-019",
+      "sql": "ALTER SESSION SET CASE_SENSITIVE = FALSE;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "CASE_SENSITIVE",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "false"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-020",
+      "name": "session-state-dm-020",
+      "sql": "ALTER SESSION SET CASE_SENSITIVE = DEFAULT;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "CASE_SENSITIVE",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "DEFAULT"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-021",
+      "name": "session-state-dm-021",
+      "sql": "ALTER SESSION ENABLE PARALLEL DML;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "enable",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "PARALLEL DML"
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-022",
+      "name": "session-state-dm-022",
+      "sql": "ALTER SESSION DISABLE PARALLEL DML;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "disable",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "PARALLEL DML"
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-023",
+      "name": "session-state-dm-023",
+      "sql": "ALTER SESSION SET 'HAGR_HASH_SIZE' = 2000000;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "HAGR_HASH_SIZE",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 2000000
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-024",
+      "name": "session-state-dm-024",
+      "sql": "ALTER SESSION SET 'HAGR_HASH_SIZE' = 2000000 PURGE;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "HAGR_HASH_SIZE",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 2000000
+                    }
+                  },
+                  {
+                    "name": "purge",
+                    "kind": "keyword",
+                    "text": "PURGE"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-025",
+      "name": "session-state-dm-025",
+      "sql": "ALTER SESSION SET NLS_DATE_LANGUAGE = 'ENGLISH';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "NLS_DATE_LANGUAGE",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "ENGLISH"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-026",
+      "name": "session-state-dm-026",
+      "sql": "ALTER SESSION SET NLS_DATE_LANGUAGE = 'AMERICAN';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "NLS_DATE_LANGUAGE",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "AMERICAN"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-027",
+      "name": "session-state-dm-027",
+      "sql": "SET TIME ZONE '-8';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "TIME_ZONE",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "-8"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-028",
+      "name": "session-state-dm-028",
+      "sql": "SET TIME ZONE INTERVAL '+9' HOUR;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "TIME_ZONE",
+                "values": [
+                  {
+                    "kind": "expression",
+                    "text": "interval '+9' hour"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-029",
+      "name": "session-state-dameng-parallel-dml-trailing-space",
+      "sql": "ALTER SESSION ENABLE PARALLEL DML   ;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "enable",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "PARALLEL DML"
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-030",
+      "name": "session-state-dameng-hagr-purge-trailing-space",
+      "sql": "ALTER SESSION SET 'HAGR_HASH_SIZE' = 2000000 PURGE   ;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "HAGR_HASH_SIZE",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 2000000
+                    }
+                  },
+                  {
+                    "name": "purge",
+                    "kind": "keyword",
+                    "text": "PURGE"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-N001",
+      "name": "session-state-dameng-hagr-missing-value",
+      "sql": "ALTER SESSION SET 'HAGR_HASH_SIZE' = PURGE;",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "DM-N002",
+      "name": "session-state-dameng-hagr-invalid-suffix",
+      "sql": "ALTER SESSION SET 'HAGR_HASH_SIZE' = 2000000 KEEP;",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "DM-N003",
+      "name": "session-state-dameng-unclosed-session-value",
+      "sql": "ALTER SESSION SET NLS_DATE_LANGUAGE = 'ENGLISH;",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "DM-N004",
+      "name": "session-state-dameng-unsupported-parallel-query",
+      "sql": "ALTER SESSION ENABLE PARALLEL QUERY;",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "DM-B001",
+      "name": "session-state-dameng-use-database-name",
+      "sql": "USE appdb;",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "DM-B002",
+      "name": "session-state-dameng-use-database-keyword",
+      "sql": "USE DATABASE appdb;",
+      "expect": {
+        "ok": false
       }
     }
   ]

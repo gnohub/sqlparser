@@ -2,6 +2,21 @@
 
 Executable fixture: `tests/cases/vastbase_oracle_dialect_input.json`. The unit test verifies parsing, View JSON, deparse output, and explicitly unsupported syntax return codes case by case.
 
+## Matrix Counts and Session Regression
+
+The fixture contains 209 cases: 188 expect success and 21 expect failure.
+Statement-level `expect.session` appears in 35 cases, covering `VO043`,
+`VO043Q`, `VO044` through `VO047`, `VO082` through `VO086`, `VB-C001` through
+`VB-C022`, and `VB-C026` through `VB-C027`. All 35 contain at least one
+non-null session expectation.
+
+When an `expect.session` array is present, the matrix test requires one entry
+per statement. A non-null entry is matched against the corresponding session
+projection, including its action, item scope, target kind, name, and value
+fields; `null` asserts that no session projection is emitted. For fixture cases
+that expect success, the test also deparses the unmodified handle and compares
+the result with the input SQL byte for byte.
+
 | ID | Case | SQL | Status |
 | --- | --- | --- | --- |
 | `VO001` | `vastbase-oracle-select-bind-nvl` | SELECT NVL(u.name, 'N/A') AS label FROM users u WHERE u.id = :id | covered |

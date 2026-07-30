@@ -44,8 +44,8 @@ current AST. The executable case matrix defines the support boundary:
 
 ## Explicitly Unsupported Scope
 
-The executable MySQL dialect matrix currently has no explicit unsupported
-cases. Official syntax coverage boundaries are tracked in
+The executable MySQL dialect matrix contains 9 expected-failure cases covering
+invalid session-state syntax. Official syntax coverage boundaries are tracked in
 `mysql_official_syntax_coverage.csv`.
 
 ## Public Output Rules
@@ -68,5 +68,5 @@ The MySQL support boundary is defined by:
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current MySQL matrix contains 173 cases: 173 supported paths and 0 explicit
-unsupported paths.
+The current MySQL matrix contains 213 cases: 204 successful cases and 9
+expected-failure cases.

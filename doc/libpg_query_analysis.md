@@ -60,7 +60,7 @@
 
 - `pg_query_deparse_protobuf()`
 
-`sqlparser` 对 AST 的所有改写最终都通过这条路径重新生成 SQL。
+对于非控制流 handle，`sqlparser` 对 AST 的改写通过这条路径重新生成 SQL。handle generation 为 `0` 时，`sqlparser_deparse()` 直接复制原始输入 SQL，不调用 `pg_query_deparse_protobuf()`；由此逐字节保留原始引用符、大小写、空白、注释和多语句边界。
 
 ### 3.4 分段
 
@@ -76,13 +76,19 @@
 
 - 解析结果可以稳定保存到 `handle`
 - 改写可以直接作用于 AST
-- 反解析路径天然消费 protobuf AST
+- generation 大于 `0` 的非控制流反解析路径消费 protobuf AST
 - JSON 可以按需导出，不承担主表示职责
 
-处理链路如下：
+处理链路分为未改写和已改写两条：
 
 ```text
-SQL -> libpg_query protobuf AST -> sqlparser handle -> rewrite -> deparse -> SQL
+SQL -> libpg_query protobuf AST -> sqlparser handle
+                                      | generation = 0
+                                      |   -> 复制原始 SQL
+                                      | generation > 0，非控制流
+                                      |   -> AST deparse -> 方言恢复 -> SQL
+                                      ` generation > 0，控制流
+                                          -> 控制流/语句 SQL 生成 -> SQL
 ```
 
 ## 5. 仓库中的关键目录

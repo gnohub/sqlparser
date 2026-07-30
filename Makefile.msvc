@@ -75,6 +75,7 @@ CORE_OBJS = \
 	$(OBJ_DIR)\sqlparser_control.obj \
 	$(OBJ_DIR)\sqlparser_core.obj \
 	$(OBJ_DIR)\sqlparser_deparse_spelling.obj \
+	$(OBJ_DIR)\sqlparser_identifier_origin.obj \
 	$(OBJ_DIR)\sqlparser_patch.obj \
 	$(OBJ_DIR)\sqlparser_selector.obj \
 	$(OBJ_DIR)\sqlparser_view.obj \
@@ -96,6 +97,7 @@ UNIT_TEST_BINS = \
 	$(BIN_DIR)\test_api_smoke.exe \
 	$(BIN_DIR)\test_api_case_matrix.exe \
 	$(BIN_DIR)\test_core_api.exe \
+	$(BIN_DIR)\test_identifier_spelling.exe \
 	$(BIN_DIR)\test_mysql_dialect_case_matrix.exe \
 	$(BIN_DIR)\test_oracle_dialect_case_matrix.exe \
 	$(BIN_DIR)\test_sqlserver_dialect_case_matrix.exe \
@@ -130,7 +132,8 @@ EXAMPLE_BINS = \
 	$(BIN_DIR)\examples\patch\15_insert_columns_patch.exe \
 	$(BIN_DIR)\examples\patch\16_clause_patch.exe \
 	$(BIN_DIR)\examples\patch\17_update_set_patch.exe \
-	$(BIN_DIR)\examples\convenience\18_structured_fragment_rewrite.exe
+	$(BIN_DIR)\examples\convenience\18_structured_fragment_rewrite.exe \
+	$(BIN_DIR)\examples\patch\19_oracle_multi_insert_patch.exe
 
 all: static cli
 
@@ -157,6 +160,7 @@ test: all $(UNIT_TEST_BINS) examples
 	$(BIN_DIR)\test_api_smoke.exe
 	$(BIN_DIR)\test_api_case_matrix.exe
 	$(BIN_DIR)\test_core_api.exe
+	$(BIN_DIR)\test_identifier_spelling.exe
 	$(BIN_DIR)\test_mysql_dialect_case_matrix.exe
 	$(BIN_DIR)\test_oracle_dialect_case_matrix.exe
 	$(BIN_DIR)\test_sqlserver_dialect_case_matrix.exe
@@ -190,6 +194,7 @@ test: all $(UNIT_TEST_BINS) examples
 	$(BIN_DIR)\examples\patch\16_clause_patch.exe
 	$(BIN_DIR)\examples\patch\17_update_set_patch.exe
 	$(BIN_DIR)\examples\convenience\18_structured_fragment_rewrite.exe
+	$(BIN_DIR)\examples\patch\19_oracle_multi_insert_patch.exe
 	$(BIN_DIR)\sqlparser_cli.exe --mode view "INSERT INTO users (username, email, age) VALUES (?, ?, ?);" --dialect oracle >NUL
 	$(BIN_DIR)\sqlparser_cli.exe --mode view "ALTER SESSION SET CURRENT_SCHEMA=KDES" --dialect vastbase-oracle >NUL
 
@@ -284,6 +289,9 @@ $(OBJ_DIR)\sqlparser_core.obj: src\core\sqlparser_core.c
 $(OBJ_DIR)\sqlparser_deparse_spelling.obj: src\core\sqlparser_deparse_spelling.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_deparse_spelling.c
 
+$(OBJ_DIR)\sqlparser_identifier_origin.obj: src\core\sqlparser_identifier_origin.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_identifier_origin.c
+
 $(OBJ_DIR)\sqlparser_patch.obj: src\core\sqlparser_patch.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_patch.c
 
@@ -343,6 +351,9 @@ $(BIN_DIR)\test_api_case_matrix.exe: tests\unit\test_api_case_matrix.c $(STATIC_
 
 $(BIN_DIR)\test_core_api.exe: tests\unit\test_core_api.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_core_api.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_identifier_spelling.exe: tests\unit\test_identifier_spelling.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_identifier_spelling.c /link $(LDFLAGS) $(LDLIBS)
 
 $(BIN_DIR)\test_mysql_dialect_case_matrix.exe: tests\unit\test_mysql_dialect_case_matrix.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_mysql_dialect_case_matrix.c /link $(LDFLAGS) $(LDLIBS)
@@ -464,3 +475,7 @@ $(BIN_DIR)\examples\patch\17_update_set_patch.exe: examples\patch\17_update_set_
 $(BIN_DIR)\examples\convenience\18_structured_fragment_rewrite.exe: examples\convenience\18_structured_fragment_rewrite.c $(STATIC_LIB)
 	@if not exist $(BIN_DIR)\examples\convenience mkdir $(BIN_DIR)\examples\convenience
 	$(CC) $(CFLAGS) /Fe$@ examples\convenience\18_structured_fragment_rewrite.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\examples\patch\19_oracle_multi_insert_patch.exe: examples\patch\19_oracle_multi_insert_patch.c $(STATIC_LIB)
+	@if not exist $(BIN_DIR)\examples\patch mkdir $(BIN_DIR)\examples\patch
+	$(CC) $(CFLAGS) /Fe$@ examples\patch\19_oracle_multi_insert_patch.c /link $(LDFLAGS) $(LDLIBS)

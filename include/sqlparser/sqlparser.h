@@ -87,7 +87,8 @@ typedef enum {
 	SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGET = 17,
 	SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK = 18,
 	SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK_COLUMNS = 19,
-	SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK_COLUMN = 20
+	SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK_COLUMN = 20,
+	SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT = 21
 } sqlparser_selector_kind_t;
 
 typedef enum {
@@ -225,6 +226,57 @@ typedef enum {
 	SQLPARSER_GRAPH_PREDICATE_BOOL_OR = 2,
 	SQLPARSER_GRAPH_PREDICATE_BOOL_NOT = 3
 } sqlparser_graph_predicate_bool_t;
+
+typedef enum {
+	SQLPARSER_GRAPH_SESSION_ACTION_UNKNOWN = 0,
+	SQLPARSER_GRAPH_SESSION_ACTION_SET = 1,
+	SQLPARSER_GRAPH_SESSION_ACTION_RESET = 2,
+	SQLPARSER_GRAPH_SESSION_ACTION_SWITCH = 3,
+	SQLPARSER_GRAPH_SESSION_ACTION_DISCARD = 4,
+	SQLPARSER_GRAPH_SESSION_ACTION_ENABLE = 5,
+	SQLPARSER_GRAPH_SESSION_ACTION_DISABLE = 6,
+	SQLPARSER_GRAPH_SESSION_ACTION_FORCE = 7,
+	SQLPARSER_GRAPH_SESSION_ACTION_ADVISE = 8,
+	SQLPARSER_GRAPH_SESSION_ACTION_CLOSE = 9,
+	SQLPARSER_GRAPH_SESSION_ACTION_SYNC = 10,
+	SQLPARSER_GRAPH_SESSION_ACTION_ASSUME = 11,
+	SQLPARSER_GRAPH_SESSION_ACTION_REVERT = 12
+} sqlparser_graph_session_action_t;
+
+typedef enum {
+	SQLPARSER_GRAPH_SESSION_SCOPE_UNKNOWN = 0,
+	SQLPARSER_GRAPH_SESSION_SCOPE_SESSION = 1,
+	SQLPARSER_GRAPH_SESSION_SCOPE_LOCAL = 2,
+	SQLPARSER_GRAPH_SESSION_SCOPE_TRANSACTION = 3
+} sqlparser_graph_session_scope_t;
+
+typedef enum {
+	SQLPARSER_GRAPH_SESSION_TARGET_UNKNOWN = 0,
+	SQLPARSER_GRAPH_SESSION_TARGET_PARAMETER = 1,
+	SQLPARSER_GRAPH_SESSION_TARGET_VARIABLE = 2,
+	SQLPARSER_GRAPH_SESSION_TARGET_DATABASE = 3,
+	SQLPARSER_GRAPH_SESSION_TARGET_SCHEMA = 4,
+	SQLPARSER_GRAPH_SESSION_TARGET_CONTAINER = 5,
+	SQLPARSER_GRAPH_SESSION_TARGET_ROLE = 6,
+	SQLPARSER_GRAPH_SESSION_TARGET_AUTHORIZATION = 7,
+	SQLPARSER_GRAPH_SESSION_TARGET_LOGIN = 8,
+	SQLPARSER_GRAPH_SESSION_TARGET_USER = 9,
+	SQLPARSER_GRAPH_SESSION_TARGET_TRANSACTION = 10,
+	SQLPARSER_GRAPH_SESSION_TARGET_SESSION_CONTEXT = 11,
+	SQLPARSER_GRAPH_SESSION_TARGET_DATABASE_LINK = 12,
+	SQLPARSER_GRAPH_SESSION_TARGET_OBJECT = 13,
+	SQLPARSER_GRAPH_SESSION_TARGET_CONSTRAINT = 14,
+	SQLPARSER_GRAPH_SESSION_TARGET_ALL = 15
+} sqlparser_graph_session_target_kind_t;
+
+typedef enum {
+	SQLPARSER_GRAPH_SESSION_VALUE_UNKNOWN = 0,
+	SQLPARSER_GRAPH_SESSION_VALUE_IDENTIFIER = 1,
+	SQLPARSER_GRAPH_SESSION_VALUE_KEYWORD = 2,
+	SQLPARSER_GRAPH_SESSION_VALUE_LITERAL = 3,
+	SQLPARSER_GRAPH_SESSION_VALUE_BIND = 4,
+	SQLPARSER_GRAPH_SESSION_VALUE_EXPRESSION = 5
+} sqlparser_graph_session_value_kind_t;
 
 typedef enum {
 	SQLPARSER_DIALECT_POSTGRESQL = 0,
@@ -495,6 +547,33 @@ typedef struct {
 	int has_value;
 	sqlparser_index_span_t children;
 } sqlparser_graph_predicate_t;
+
+typedef struct {
+	sqlparser_graph_session_action_t action;
+	size_t item_count;
+} sqlparser_graph_session_t;
+
+typedef struct {
+	size_t index;
+	sqlparser_graph_session_scope_t scope;
+	sqlparser_graph_session_target_kind_t target_kind;
+	const char *name;
+	size_t value_offset;
+	size_t value_count;
+} sqlparser_graph_session_item_t;
+
+typedef struct {
+	size_t index;
+	const char *name;
+	sqlparser_graph_session_value_kind_t kind;
+	const char *text;
+	sqlparser_literal_view_t literal;
+	const char *bind_key;
+	sqlparser_bind_kind_t bind_kind;
+	const char *bind_sql;
+	size_t bind_position;
+	int has_bind_position;
+} sqlparser_graph_session_value_t;
 
 typedef struct {
 	size_t index;
@@ -1325,6 +1404,23 @@ sqlparser_status_t sqlparser_query_graph_predicate_at(
 	const sqlparser_query_graph_view_t *graph,
 	size_t predicate_index,
 	sqlparser_graph_predicate_t *out_predicate,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_query_graph_session(
+	const sqlparser_query_graph_view_t *graph,
+	sqlparser_graph_session_t *out_session,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_query_graph_session_item_at(
+	const sqlparser_query_graph_view_t *graph,
+	size_t item_index,
+	sqlparser_graph_session_item_t *out_item,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_query_graph_session_value_at(
+	const sqlparser_query_graph_view_t *graph,
+	size_t value_index,
+	sqlparser_graph_session_value_t *out_value,
 	sqlparser_error_t *out_error);
 
 sqlparser_status_t sqlparser_query_graph_dml(

@@ -7,6 +7,11 @@ typedef struct {
 	char *data;
 	size_t len;
 	size_t capacity;
+	const char *origin_input;
+	size_t origin_input_length;
+	size_t origin_pending_offset;
+	size_t origin_pending_length;
+	sqlparser_identifier_origin_writer_t origin_writer;
 } sqlparser_postgresql_buffer_t;
 
 typedef struct {
@@ -24,7 +29,90 @@ static void sqlparser_postgresql_buffer_release(sqlparser_postgresql_buffer_t *b
 		return;
 	}
 	free(buffer->data);
+	sqlparser_identifier_origin_writer_release(&buffer->origin_writer);
 	memset(buffer, 0, sizeof(*buffer));
+}
+
+static sqlparser_status_t sqlparser_postgresql_buffer_begin_origin(
+	sqlparser_postgresql_buffer_t *buffer,
+	const char *input,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_status_t status;
+	size_t input_length;
+
+	if (origins == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (buffer == NULL || input == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"PostgreSQL origin input must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	input_length = strlen(input);
+	status = sqlparser_identifier_origin_writer_begin(
+		&buffer->origin_writer,
+		origins,
+		input_length,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	buffer->origin_input = input;
+	buffer->origin_input_length = input_length;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_postgresql_buffer_flush_origin_input(
+	sqlparser_postgresql_buffer_t *buffer,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_status_t status;
+
+	if (buffer == NULL || buffer->origin_writer.map == NULL ||
+	    buffer->origin_pending_length == 0U) {
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_identifier_origin_writer_append_input(
+		&buffer->origin_writer,
+		buffer->origin_pending_offset,
+		buffer->origin_pending_length,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	buffer->origin_pending_offset = 0U;
+	buffer->origin_pending_length = 0U;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_postgresql_buffer_commit_origin(
+	sqlparser_postgresql_buffer_t *buffer,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_status_t status;
+
+	if (buffer == NULL || buffer->origin_writer.map == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_postgresql_buffer_flush_origin_input(
+		buffer,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_identifier_origin_writer_commit(
+			&buffer->origin_writer,
+			buffer->len,
+			out_error);
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	buffer->origin_input = NULL;
+	buffer->origin_input_length = 0U;
+	return SQLPARSER_STATUS_OK;
 }
 
 static sqlparser_status_t sqlparser_postgresql_buffer_reserve(
@@ -90,11 +178,78 @@ static sqlparser_status_t sqlparser_postgresql_buffer_append_char(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "buffer must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
+	if (buffer->origin_writer.map != NULL) {
+		status = sqlparser_postgresql_buffer_flush_origin_input(
+			buffer,
+			out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_identifier_origin_writer_append_unknown(
+				&buffer->origin_writer,
+				1U,
+				out_error);
+		}
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
 	status = sqlparser_postgresql_buffer_reserve(buffer, buffer->len + 2U, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
 	buffer->data[buffer->len++] = value;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_postgresql_buffer_append_input_char(
+	sqlparser_postgresql_buffer_t *buffer,
+	const char *input,
+	size_t input_offset,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_status_t status;
+
+	if (buffer == NULL || input == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"PostgreSQL input character must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (buffer->origin_writer.map != NULL) {
+		if (input != buffer->origin_input ||
+		    input_offset >= buffer->origin_input_length) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"PostgreSQL origin input changed during preprocess");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		if (buffer->origin_pending_length == 0U) {
+			buffer->origin_pending_offset = input_offset;
+			buffer->origin_pending_length = 1U;
+		} else if (input_offset ==
+			   buffer->origin_pending_offset +
+				   buffer->origin_pending_length) {
+			buffer->origin_pending_length++;
+		} else {
+			status = sqlparser_postgresql_buffer_flush_origin_input(
+				buffer,
+				out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+			buffer->origin_pending_offset = input_offset;
+			buffer->origin_pending_length = 1U;
+		}
+	}
+	status = sqlparser_postgresql_buffer_reserve(
+		buffer,
+		buffer->len + 2U,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	buffer->data[buffer->len++] = input[input_offset];
 	return SQLPARSER_STATUS_OK;
 }
 
@@ -110,6 +265,20 @@ static sqlparser_status_t sqlparser_postgresql_buffer_append_cstr(
 		return SQLPARSER_STATUS_OK;
 	}
 	len = strlen(text);
+	if (buffer->origin_writer.map != NULL) {
+		status = sqlparser_postgresql_buffer_flush_origin_input(
+			buffer,
+			out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_identifier_origin_writer_append_unknown(
+				&buffer->origin_writer,
+				len,
+				out_error);
+		}
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
 	status = sqlparser_postgresql_buffer_reserve(buffer, buffer->len + len + 1U, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
@@ -141,9 +310,7 @@ static char *sqlparser_postgresql_buffer_take(sqlparser_postgresql_buffer_t *buf
 		return NULL;
 	}
 	data = buffer->data;
-	buffer->data = NULL;
-	buffer->len = 0U;
-	buffer->capacity = 0U;
+	memset(buffer, 0, sizeof(*buffer));
 	return data;
 }
 
@@ -348,20 +515,32 @@ static sqlparser_status_t sqlparser_postgresql_copy_single_quoted_literal(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "single quoted literal is missing");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	status = sqlparser_postgresql_buffer_append_char(out, sql[*index], out_error);
+	status = sqlparser_postgresql_buffer_append_input_char(
+		out,
+		sql,
+		*index,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
 	(*index)++;
 	while (sql[*index] != '\0') {
-		status = sqlparser_postgresql_buffer_append_char(out, sql[*index], out_error);
+		status = sqlparser_postgresql_buffer_append_input_char(
+			out,
+			sql,
+			*index,
+			out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
 		}
 		if (sql[*index] == '\'') {
 			(*index)++;
 			if (sql[*index] == '\'') {
-				status = sqlparser_postgresql_buffer_append_char(out, sql[*index], out_error);
+				status = sqlparser_postgresql_buffer_append_input_char(
+					out,
+					sql,
+					*index,
+					out_error);
 				if (status != SQLPARSER_STATUS_OK) {
 					return status;
 				}
@@ -400,20 +579,32 @@ static int sqlparser_postgresql_copy_double_quoted_identifier(
 	if (sql == NULL || index == NULL || out == NULL || sql[*index] != '"') {
 		return 0;
 	}
-	status = sqlparser_postgresql_buffer_append_char(out, sql[*index], out_error);
+	status = sqlparser_postgresql_buffer_append_input_char(
+		out,
+		sql,
+		*index,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return -1;
 	}
 	(*index)++;
 	while (sql[*index] != '\0') {
-		status = sqlparser_postgresql_buffer_append_char(out, sql[*index], out_error);
+		status = sqlparser_postgresql_buffer_append_input_char(
+			out,
+			sql,
+			*index,
+			out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			return -1;
 		}
 		if (sql[*index] == '"') {
 			(*index)++;
 			if (sql[*index] == '"') {
-				status = sqlparser_postgresql_buffer_append_char(out, sql[*index], out_error);
+				status = sqlparser_postgresql_buffer_append_input_char(
+					out,
+					sql,
+					*index,
+					out_error);
 				if (status != SQLPARSER_STATUS_OK) {
 					return -1;
 				}
@@ -464,7 +655,11 @@ static int sqlparser_postgresql_copy_dollar_quoted_literal(
 	}
 	tag_len = tag_end - *index;
 	while (sql[*index] != '\0') {
-		status = sqlparser_postgresql_buffer_append_char(out, sql[*index], out_error);
+		status = sqlparser_postgresql_buffer_append_input_char(
+			out,
+			sql,
+			*index,
+			out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			return -1;
 		}
@@ -491,7 +686,11 @@ static int sqlparser_postgresql_copy_comment(
 	}
 	if (sql[*index] == '-' && sql[*index + 1U] == '-') {
 		while (sql[*index] != '\0') {
-			status = sqlparser_postgresql_buffer_append_char(out, sql[*index], out_error);
+			status = sqlparser_postgresql_buffer_append_input_char(
+				out,
+				sql,
+				*index,
+				out_error);
 			if (status != SQLPARSER_STATUS_OK) {
 				return -1;
 			}
@@ -504,19 +703,31 @@ static int sqlparser_postgresql_copy_comment(
 		return 1;
 	}
 	if (sql[*index] == '/' && sql[*index + 1U] == '*') {
-		status = sqlparser_postgresql_buffer_append_char(out, sql[*index], out_error);
+		status = sqlparser_postgresql_buffer_append_input_char(
+			out,
+			sql,
+			*index,
+			out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			return -1;
 		}
 		(*index)++;
 		while (sql[*index] != '\0') {
-			status = sqlparser_postgresql_buffer_append_char(out, sql[*index], out_error);
+			status = sqlparser_postgresql_buffer_append_input_char(
+				out,
+				sql,
+				*index,
+				out_error);
 			if (status != SQLPARSER_STATUS_OK) {
 				return -1;
 			}
 			if (sql[*index] == '*' && sql[*index + 1U] == '/') {
 				(*index)++;
-				status = sqlparser_postgresql_buffer_append_char(out, sql[*index], out_error);
+				status = sqlparser_postgresql_buffer_append_input_char(
+					out,
+					sql,
+					*index,
+					out_error);
 				if (status != SQLPARSER_STATUS_OK) {
 					return -1;
 				}
@@ -534,6 +745,7 @@ static sqlparser_status_t sqlparser_postgresql_preprocess_text(
 	const char *input_sql,
 	sqlparser_postgresql_state_t *state,
 	char **out_parser_sql,
+	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_postgresql_buffer_t out;
@@ -553,6 +765,15 @@ static sqlparser_status_t sqlparser_postgresql_preprocess_text(
 	memset(&out, 0, sizeof(out));
 	status = sqlparser_postgresql_buffer_reserve_input(&out, input_sql, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_postgresql_buffer_begin_origin(
+		&out,
+		input_sql,
+		origins,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_postgresql_buffer_release(&out);
 		return status;
 	}
 
@@ -610,7 +831,11 @@ static sqlparser_status_t sqlparser_postgresql_preprocess_text(
 				state->literal_count++;
 			}
 		} else {
-			status = sqlparser_postgresql_buffer_append_char(&out, input_sql[index], out_error);
+			status = sqlparser_postgresql_buffer_append_input_char(
+				&out,
+				input_sql,
+				index,
+				out_error);
 			if (status == SQLPARSER_STATUS_OK) {
 				index++;
 			}
@@ -622,6 +847,11 @@ static sqlparser_status_t sqlparser_postgresql_preprocess_text(
 	}
 
 	status = sqlparser_postgresql_buffer_finish(&out, out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_postgresql_buffer_commit_origin(
+			&out,
+			out_error);
+	}
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_postgresql_buffer_release(&out);
 		return status;
@@ -630,11 +860,12 @@ static sqlparser_status_t sqlparser_postgresql_preprocess_text(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_postgresql_preprocess(
+static sqlparser_status_t sqlparser_postgresql_preprocess_internal(
 	const char *input_sql,
 	const sqlparser_limits_t *limits,
 	char **out_parser_sql,
 	void **out_state,
+	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_postgresql_state_t *state;
@@ -657,13 +888,64 @@ static sqlparser_status_t sqlparser_postgresql_preprocess(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	status = sqlparser_postgresql_preprocess_text(input_sql, state, out_parser_sql, out_error);
+	status = sqlparser_postgresql_preprocess_text(
+		input_sql,
+		state,
+		out_parser_sql,
+		origins,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_postgresql_state_destroy(state);
 		return status;
 	}
 	*out_state = state;
 	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_postgresql_preprocess(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_postgresql_preprocess_internal(
+		input_sql,
+		limits,
+		out_parser_sql,
+		out_state,
+		NULL,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_postgresql_preprocess_identifier_origins(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error)
+{
+	if (out_parser_sql != NULL) {
+		*out_parser_sql = NULL;
+	}
+	if (out_state != NULL) {
+		*out_state = NULL;
+	}
+	if (origins == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"identifier origin map must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	return sqlparser_postgresql_preprocess_internal(
+		input_sql,
+		limits,
+		out_parser_sql,
+		out_state,
+		origins,
+		out_error);
 }
 
 static sqlparser_status_t sqlparser_postgresql_preprocess_fragment(
@@ -682,6 +964,7 @@ static sqlparser_status_t sqlparser_postgresql_preprocess_fragment(
 		input_sql,
 		(sqlparser_postgresql_state_t *)state,
 		out_parser_sql,
+		NULL,
 		out_error);
 }
 
@@ -753,7 +1036,11 @@ static sqlparser_status_t sqlparser_postgresql_postprocess_national_literals(
 			}
 			literal_ordinal++;
 		} else {
-			status = sqlparser_postgresql_buffer_append_char(&out, sql[index], out_error);
+			status = sqlparser_postgresql_buffer_append_input_char(
+				&out,
+				sql,
+				index,
+				out_error);
 			if (status == SQLPARSER_STATUS_OK) {
 				index++;
 			}
@@ -913,6 +1200,7 @@ static const sqlparser_dialect_ops_t SQLPARSER_POSTGRESQL_OPS = {
 	sqlparser_postgresql_clone_state,
 	sqlparser_postgresql_state_destroy,
 	sqlparser_postgresql_postprocess_literal_fragment,
+	NULL,
 	NULL,
 	NULL,
 	NULL,

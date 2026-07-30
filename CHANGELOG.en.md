@@ -1,5 +1,64 @@
 # Changelog
 
+## 2.12.0
+
+### Deparse and AST Identifiers
+
+- When a handle generation is `0`, a successful `sqlparser_deparse()` call
+  copies the original input SQL byte for byte, preserving identifier
+  delimiters and case, keywords, whitespace, line breaks, comments,
+  semicolons, and multi-statement boundaries.
+- AST name values originating from SQL identifier tokens retain the source
+  token's letter case. A quoted identifier still stores decoded name content
+  in the AST; its delimiters and escape spelling are preserved by the
+  generation-`0` deparse contract.
+- When the generation is greater than `0`, deparse serializes the current
+  handle state, and the byte-for-byte guarantee no longer applies to the
+  output as a whole.
+
+### Session-State Query Graph
+
+- Supported database, schema, role, identity, transaction-characteristic, and
+  session-parameter statements are projected as structured session actions,
+  scopes, targets, and values.
+- Added session action, scope, target-kind, and value-kind enums;
+  `sqlparser_graph_session_t`, `sqlparser_graph_session_item_t`, and
+  `sqlparser_graph_session_value_t`; and three Query Graph accessors.
+- View JSON emits an optional `query_graph.session` object for statements with
+  an available session projection, covering identifier, keyword, literal,
+  bind, and expression values.
+
+### MERGE Matched-UPDATE Rewrites
+
+- Added `SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT` and the
+  `stmt[S].merge_assignment[W][A]` selector. `W` is the absolute zero-based
+  ordinal across all `WHEN` clauses in the MERGE, and `A` is the zero-based
+  assignment ordinal within the selected matched-UPDATE branch.
+- The `update_assignment` selector APIs support reads, right-hand-side
+  rewrites, and same-statement right-hand-value cloning for MERGE
+  matched-UPDATE assignments. `SQLPARSER_PATCH_INSERT_ASSIGNMENT`,
+  `SQLPARSER_PATCH_DELETE_ASSIGNMENT`, and
+  `SQLPARSER_PATCH_REPLACE_ASSIGNMENT` support assignment insertion, deletion,
+  and full replacement.
+- Query Graph emits the corresponding selector for writable MERGE
+  matched-UPDATE assignments.
+
+### Compatibility and Validation
+
+- Public API changes are append-only; existing function signatures and public
+  structure layouts remain unchanged. The shared-library ABI major remains
+  `libsqlparser.so.0`, and the ABI export check covers 149 public symbols.
+- All expected-success cases in the nine PostgreSQL, MySQL, Oracle, SQL
+  Server, Dameng, and four Vastbase compatibility matrices run the
+  generation-`0` byte-exact deparse check and the AST identifier-spelling
+  check.
+- All nine dialect matrices include session-projection expectations, and
+  MERGE-capable dialects include matched-UPDATE assignment selector and
+  mutation regressions.
+- Release validation covers strict GCC 8.3 release/debug builds, the full test
+  suite, install smoke, ABI, ASan, UBSan, and Valgrind, plus a Windows VS 2022
+  x64/MSVC 19.39 clean build and full test suite.
+
 ## 2.11.0
 
 ### Deparse

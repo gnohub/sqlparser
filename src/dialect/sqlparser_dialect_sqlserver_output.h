@@ -2,6 +2,7 @@
 #define SQLPARSER_DIALECT_SQLSERVER_OUTPUT_H
 
 #include "sqlparser_dialect_dml_result_internal.h"
+#include "sqlparser_identifier_origin_internal.h"
 
 typedef struct sqlparser_sqlserver_output_state sqlparser_sqlserver_output_state_t;
 
@@ -28,6 +29,14 @@ sqlparser_status_t sqlparser_sqlserver_output_preprocess(
 	const sqlparser_limits_t *limits,
 	unsigned int candidates,
 	sqlparser_sqlserver_output_state_t **out_state,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_sqlserver_output_preprocess_identifier_origins(
+	char **io_sql,
+	const sqlparser_limits_t *limits,
+	unsigned int candidates,
+	sqlparser_sqlserver_output_state_t **out_state,
+	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error);
 
 sqlparser_status_t sqlparser_sqlserver_output_postprocess(

@@ -663,17 +663,350 @@ static int sqlparser_message_is_name_container(const ProtobufCMessageDescriptor 
 
 	short_name = descriptor->short_name;
 	return strcmp(short_name, "Node") == 0 || strcmp(short_name, "List") == 0 ||
-	       strcmp(short_name, "String") == 0 || strcmp(short_name, "Float") == 0 ||
-	       strcmp(short_name, "BitString") == 0;
+	       strcmp(short_name, "String") == 0;
 }
 
-static int sqlparser_name_context_is_literal(const sqlparser_name_context_t *context)
+int sqlparser_name_atom_is_identifier(
+	ProtobufCMessage *message,
+	const sqlparser_name_context_t *context,
+	const ProtobufCMessageDescriptor *descriptor,
+	const ProtobufCFieldDescriptor *field)
 {
-	return context != NULL && context->owner_type != NULL &&
-	       strcmp(context->owner_type, "AConst") == 0;
+	static const char *const identifier_fields[][2] = {
+		{"AIndirection", "indirection"},
+		{"AccessPriv", "cols"},
+		{"Alias", "aliasname"},
+		{"Alias", "colnames"},
+		{"AlterCollationStmt", "collname"},
+		{"AlterDatabaseRefreshCollStmt", "dbname"},
+		{"AlterDatabaseSetStmt", "dbname"},
+		{"AlterDatabaseStmt", "dbname"},
+		{"AlterDomainStmt", "name"},
+		{"AlterDomainStmt", "type_name"},
+		{"AlterEnumStmt", "type_name"},
+		{"AlterEventTrigStmt", "trigname"},
+		{"AlterExtensionContentsStmt", "extname"},
+		{"AlterExtensionContentsStmt", "object"},
+		{"AlterExtensionStmt", "extname"},
+		{"AlterFdwStmt", "fdwname"},
+		{"AlterForeignServerStmt", "servername"},
+		{"AlterObjectDependsStmt", "extname"},
+		{"AlterObjectDependsStmt", "object"},
+		{"AlterObjectSchemaStmt", "newschema"},
+		{"AlterObjectSchemaStmt", "object"},
+		{"AlterOpFamilyStmt", "amname"},
+		{"AlterOwnerStmt", "object"},
+		{"AlterPolicyStmt", "policy_name"},
+		{"AlterPublicationStmt", "pubname"},
+		{"AlterRoleSetStmt", "database"},
+		{"AlterStatsStmt", "defnames"},
+		{"AlterSubscriptionStmt", "subname"},
+		{"AlterTSConfigurationStmt", "cfgname"},
+		{"AlterTSConfigurationStmt", "dicts"},
+		{"AlterTSConfigurationStmt", "tokentype"},
+		{"AlterTSDictionaryStmt", "dictname"},
+		{"AlterTableCmd", "name"},
+		{"AlterTableMoveAllStmt", "new_tablespacename"},
+		{"AlterTableMoveAllStmt", "orig_tablespacename"},
+		{"AlterTableSpaceOptionsStmt", "tablespacename"},
+		{"AlterTypeStmt", "type_name"},
+		{"AlterUserMappingStmt", "servername"},
+		{"CTECycleClause", "cycle_col_list"},
+		{"CTECycleClause", "cycle_mark_column"},
+		{"CTECycleClause", "cycle_path_column"},
+		{"CTESearchClause", "search_col_list"},
+		{"CTESearchClause", "search_seq_column"},
+		{"ClosePortalStmt", "portalname"},
+		{"ClusterStmt", "indexname"},
+		{"CollateClause", "collname"},
+		{"ColumnDef", "colname"},
+		{"ColumnDef", "compression"},
+		{"ColumnDef", "storage_name"},
+		{"ColumnRef", "fields"},
+		{"CommentStmt", "object"},
+		{"CommonTableExpr", "aliascolnames"},
+		{"CommonTableExpr", "ctecolnames"},
+		{"CommonTableExpr", "ctename"},
+		{"Constraint", "access_method"},
+		{"Constraint", "conname"},
+		{"Constraint", "fk_attrs"},
+		{"Constraint", "fk_del_set_cols"},
+		{"Constraint", "including"},
+		{"Constraint", "indexname"},
+		{"Constraint", "indexspace"},
+		{"Constraint", "keys"},
+		{"Constraint", "pk_attrs"},
+		{"ConstraintsSetStmt", "constraints"},
+		{"CreateAmStmt", "amname"},
+		{"CreateAmStmt", "handler_name"},
+		{"CreateConversionStmt", "conversion_name"},
+		{"CreateConversionStmt", "func_name"},
+		{"CreateDomainStmt", "domainname"},
+		{"CreateEnumStmt", "type_name"},
+		{"CreateEventTrigStmt", "eventname"},
+		{"CreateEventTrigStmt", "funcname"},
+		{"CreateEventTrigStmt", "trigname"},
+		{"CreateExtensionStmt", "extname"},
+		{"CreateFdwStmt", "fdwname"},
+		{"CreateForeignServerStmt", "fdwname"},
+		{"CreateForeignServerStmt", "servername"},
+		{"CreateForeignTableStmt", "servername"},
+		{"CreateFunctionStmt", "funcname"},
+		{"CreateOpClassItem", "order_family"},
+		{"CreateOpClassStmt", "amname"},
+		{"CreateOpClassStmt", "opclassname"},
+		{"CreateOpClassStmt", "opfamilyname"},
+		{"CreateOpFamilyStmt", "amname"},
+		{"CreateOpFamilyStmt", "opfamilyname"},
+		{"CreatePLangStmt", "plhandler"},
+		{"CreatePLangStmt", "plinline"},
+		{"CreatePLangStmt", "plname"},
+		{"CreatePLangStmt", "plvalidator"},
+		{"CreatePolicyStmt", "policy_name"},
+		{"CreatePublicationStmt", "pubname"},
+		{"CreateRangeStmt", "type_name"},
+		{"CreateRoleStmt", "role"},
+		{"CreateSchemaStmt", "schemaname"},
+		{"CreateStatsStmt", "defnames"},
+		{"CreateStmt", "access_method"},
+		{"CreateStmt", "tablespacename"},
+		{"CreateSubscriptionStmt", "publication"},
+		{"CreateSubscriptionStmt", "subname"},
+		{"CreateTableSpaceStmt", "tablespacename"},
+		{"CreateTransformStmt", "lang"},
+		{"CreateTrigStmt", "columns"},
+		{"CreateTrigStmt", "funcname"},
+		{"CreateTrigStmt", "trigname"},
+		{"CreateUserMappingStmt", "servername"},
+		{"CreatedbStmt", "dbname"},
+		{"CurrentOfExpr", "cursor_name"},
+		{"DeallocateStmt", "name"},
+		{"DeclareCursorStmt", "portalname"},
+		{"DropOwnedStmt", "roles"},
+		{"DropRoleStmt", "roles"},
+		{"DropStmt", "objects"},
+		{"DropSubscriptionStmt", "subname"},
+		{"DropTableSpaceStmt", "tablespacename"},
+		{"DropUserMappingStmt", "servername"},
+		{"DropdbStmt", "dbname"},
+		{"ExecuteStmt", "name"},
+		{"FetchStmt", "portalname"},
+		{"FuncCall", "funcname"},
+		{"FunctionParameter", "name"},
+		{"GrantStmt", "objects"},
+		{"ImportForeignSchemaStmt", "local_schema"},
+		{"ImportForeignSchemaStmt", "remote_schema"},
+		{"ImportForeignSchemaStmt", "server_name"},
+		{"ImportForeignSchemaStmt", "table_list"},
+		{"IndexElem", "collation"},
+		{"IndexElem", "indexcolname"},
+		{"IndexElem", "name"},
+		{"IndexElem", "opclass"},
+		{"IndexStmt", "access_method"},
+		{"IndexStmt", "idxname"},
+		{"IndexStmt", "table_space"},
+		{"InferClause", "conname"},
+		{"IntoClause", "access_method"},
+		{"IntoClause", "col_names"},
+		{"IntoClause", "table_space_name"},
+		{"JoinExpr", "using_clause"},
+		{"JsonArgument", "name"},
+		{"JsonExpr", "column_name"},
+		{"JsonFuncExpr", "column_name"},
+		{"JsonTableColumn", "name"},
+		{"JsonTablePath", "name"},
+		{"JsonTablePathSpec", "name"},
+		{"ListenStmt", "conditionname"},
+		{"NamedArgExpr", "name"},
+		{"NotifyStmt", "conditionname"},
+		{"PLAssignStmt", "indirection"},
+		{"PLAssignStmt", "name"},
+		{"PartitionElem", "collation"},
+		{"PartitionElem", "name"},
+		{"PartitionElem", "opclass"},
+		{"PrepareStmt", "name"},
+		{"PublicationObjSpec", "name"},
+		{"PublicationTable", "columns"},
+		{"RangeTableFuncCol", "colname"},
+		{"RangeTableSample", "method"},
+		{"RangeTblEntry", "ctename"},
+		{"RangeTblEntry", "enrname"},
+		{"RangeVar", "catalogname"},
+		{"RangeVar", "relname"},
+		{"RangeVar", "schemaname"},
+		{"ReassignOwnedStmt", "roles"},
+		{"ReindexStmt", "name"},
+		{"RenameStmt", "newname"},
+		{"RenameStmt", "object"},
+		{"RenameStmt", "subname"},
+		{"ReplicaIdentityStmt", "name"},
+		{"ResTarget", "indirection"},
+		{"ResTarget", "name"},
+		{"RoleSpec", "rolename"},
+		{"RowExpr", "colnames"},
+		{"RuleStmt", "rulename"},
+		{"SecLabelStmt", "object"},
+		{"SecLabelStmt", "provider"},
+		{"StatsElem", "name"},
+		{"TargetEntry", "resname"},
+		{"TransactionStmt", "savepoint_name"},
+		{"TriggerTransition", "name"},
+		{"TypeName", "names"},
+		{"UnlistenStmt", "conditionname"},
+		{"VacuumRelation", "va_cols"},
+		{"VariableShowStmt", "name"},
+		{"ViewStmt", "aliases"},
+		{"WindowClause", "name"},
+		{"WindowClause", "refname"},
+		{"WindowDef", "name"},
+		{"WindowDef", "refname"},
+		{"WithCheckOption", "polname"},
+		{"WithCheckOption", "relname"},
+		{"XmlExpr", "name"}
+	};
+	const char *field_name;
+	const char *owner_type;
+	size_t high;
+	size_t low;
+
+	owner_type = NULL;
+	field_name = NULL;
+	if (sqlparser_message_is_name_container(descriptor) &&
+	    context != NULL) {
+		owner_type = context->owner_type;
+		field_name = context->field_name;
+	}
+	if (owner_type == NULL && descriptor != NULL) {
+		owner_type = descriptor->short_name;
+	}
+	if (field_name == NULL && field != NULL) {
+		field_name = field->name;
+	}
+	if (message == NULL || owner_type == NULL || field_name == NULL ||
+	    (context != NULL && context->identifier_forbidden)) {
+		return 0;
+	}
+	if (strcmp(owner_type, "VariableSetStmt") == 0 &&
+	    strcmp(field_name, "name") == 0) {
+		if (message->descriptor !=
+		    &pg_query__variable_set_stmt__descriptor) {
+			return 0;
+		}
+		return ((PgQuery__VariableSetStmt *)message)->kind !=
+			PG_QUERY__VARIABLE_SET_KIND__VAR_SET_MULTI;
+	}
+	if (strcmp(owner_type, "FuncCall") == 0 &&
+	    strcmp(field_name, "funcname") == 0) {
+		return context != NULL &&
+			context->field_owner != NULL &&
+			context->field_owner->descriptor ==
+				&pg_query__func_call__descriptor &&
+			((PgQuery__FuncCall *)context->field_owner)->funcformat ==
+				PG_QUERY__COERCION_FORM__COERCE_EXPLICIT_CALL;
+	}
+	if (strcmp(owner_type, "Constraint") == 0 &&
+	    strcmp(field_name, "keys") == 0 &&
+	    context != NULL &&
+	    context->field_owner != NULL &&
+	    context->field_owner->descriptor ==
+		    &pg_query__constraint__descriptor &&
+	    ((PgQuery__Constraint *)context->field_owner)->contype ==
+		    PG_QUERY__CONSTR_TYPE__CONSTR_NOTNULL) {
+		return 0;
+	}
+	if (strcmp(owner_type, "DefElem") == 0) {
+		if ((strcmp(field_name, "defname") != 0 &&
+		     strcmp(field_name, "defnamespace") != 0) ||
+		    context == NULL || context->owner_type == NULL ||
+		    context->field_name == NULL) {
+			return 0;
+		}
+		return
+			(strcmp(context->owner_type, "AlterFdwStmt") == 0 &&
+			 strcmp(context->field_name, "options") == 0) ||
+			(strcmp(context->owner_type, "AlterForeignServerStmt") == 0 &&
+			 strcmp(context->field_name, "options") == 0) ||
+			(strcmp(context->owner_type, "AlterTableSpaceOptionsStmt") == 0 &&
+			 strcmp(context->field_name, "options") == 0) ||
+			(strcmp(context->owner_type, "AlterUserMappingStmt") == 0 &&
+			 strcmp(context->field_name, "options") == 0) ||
+			(strcmp(context->owner_type, "ColumnDef") == 0 &&
+			 strcmp(context->field_name, "fdwoptions") == 0) ||
+			(strcmp(context->owner_type, "CreateFdwStmt") == 0 &&
+			 strcmp(context->field_name, "options") == 0) ||
+			(strcmp(context->owner_type, "CreateForeignServerStmt") == 0 &&
+			 strcmp(context->field_name, "options") == 0) ||
+			(strcmp(context->owner_type, "CreateForeignTableStmt") == 0 &&
+			 strcmp(context->field_name, "options") == 0) ||
+			(strcmp(context->owner_type, "CreateStmt") == 0 &&
+			 strcmp(context->field_name, "options") == 0) ||
+			(strcmp(context->owner_type, "CreateTableSpaceStmt") == 0 &&
+			 strcmp(context->field_name, "options") == 0) ||
+			(strcmp(context->owner_type, "CreateUserMappingStmt") == 0 &&
+			 strcmp(context->field_name, "options") == 0) ||
+			(strcmp(context->owner_type, "ImportForeignSchemaStmt") == 0 &&
+			 strcmp(context->field_name, "options") == 0) ||
+			(strcmp(context->owner_type, "IndexElem") == 0 &&
+			 strcmp(context->field_name, "opclassopts") == 0) ||
+			(strcmp(context->owner_type, "IndexStmt") == 0 &&
+			 strcmp(context->field_name, "options") == 0) ||
+			(strcmp(context->owner_type, "IntoClause") == 0 &&
+			 strcmp(context->field_name, "options") == 0) ||
+			(strcmp(context->owner_type, "ViewStmt") == 0 &&
+			 strcmp(context->field_name, "options") == 0);
+	}
+
+	low = 0U;
+	high = sizeof(identifier_fields) / sizeof(identifier_fields[0]);
+	while (low < high) {
+		const size_t middle = low + (high - low) / 2U;
+		int comparison;
+
+		comparison =
+			strcmp(owner_type, identifier_fields[middle][0]);
+		if (comparison == 0) {
+			comparison =
+				strcmp(field_name, identifier_fields[middle][1]);
+		}
+		if (comparison < 0) {
+			high = middle;
+		} else if (comparison > 0) {
+			low = middle + 1U;
+		} else {
+			return 1;
+		}
+	}
+	return 0;
 }
 
-static sqlparser_name_context_t sqlparser_next_name_context(
+int32_t *sqlparser_proto_location_slot(ProtobufCMessage *message)
+{
+	const ProtobufCMessageDescriptor *descriptor;
+	uint8_t *base;
+	unsigned index;
+
+	if (message == NULL || message->descriptor == NULL) {
+		return NULL;
+	}
+
+	descriptor = message->descriptor;
+	base = (uint8_t *)message;
+	for (index = 0U; index < descriptor->n_fields; index++) {
+		const ProtobufCFieldDescriptor *field;
+
+		field = &descriptor->fields[index];
+		if (field->type == PROTOBUF_C_TYPE_INT32 &&
+		    field->label != PROTOBUF_C_LABEL_REPEATED &&
+		    strcmp(field->name, "location") == 0) {
+			return (int32_t *)(base + field->offset);
+		}
+	}
+
+	return NULL;
+}
+
+sqlparser_name_context_t sqlparser_next_name_context(
+	ProtobufCMessage *message,
 	const ProtobufCMessageDescriptor *descriptor,
 	const ProtobufCFieldDescriptor *field,
 	const sqlparser_name_context_t *context)
@@ -694,10 +1027,31 @@ static sqlparser_name_context_t sqlparser_next_name_context(
 	if (field != NULL) {
 		next_context.field_name = field->name;
 	}
+	next_context.field_owner = message;
+	if (descriptor == &pg_query__func_call__descriptor &&
+	    field != NULL && strcmp(field->name, "funcname") == 0 &&
+	    context != NULL &&
+	    context->owner_type != NULL &&
+	    strcmp(context->owner_type, "AExpr") == 0 &&
+	    context->field_name != NULL &&
+	    strcmp(context->field_name, "rexpr") == 0 &&
+	    context->field_owner != NULL &&
+	    context->field_owner->descriptor ==
+		    &pg_query__a__expr__descriptor &&
+	    (((PgQuery__AExpr *)context->field_owner)->kind ==
+		     PG_QUERY__A__EXPR__KIND__AEXPR_LIKE ||
+	     ((PgQuery__AExpr *)context->field_owner)->kind ==
+		     PG_QUERY__A__EXPR__KIND__AEXPR_ILIKE ||
+	     ((PgQuery__AExpr *)context->field_owner)->kind ==
+		     PG_QUERY__A__EXPR__KIND__AEXPR_SIMILAR)) {
+		next_context.identifier_forbidden = 1;
+	}
 	return next_context;
 }
 
 static sqlparser_status_t sqlparser_record_name_atom(
+	ProtobufCMessage *message,
+	ProtobufCMessage *location_owner,
 	const sqlparser_name_context_t *context,
 	const ProtobufCMessageDescriptor *descriptor,
 	const ProtobufCFieldDescriptor *field,
@@ -708,9 +1062,6 @@ static sqlparser_status_t sqlparser_record_name_atom(
 	const char *field_name;
 
 	if (slot == NULL || search == NULL || *slot == NULL || (*slot)[0] == '\0') {
-		return SQLPARSER_STATUS_OK;
-	}
-	if (sqlparser_name_context_is_literal(context)) {
 		return SQLPARSER_STATUS_OK;
 	}
 
@@ -730,6 +1081,13 @@ static sqlparser_status_t sqlparser_record_name_atom(
 	if (owner_type == NULL || field_name == NULL) {
 		return SQLPARSER_STATUS_OK;
 	}
+	if (!sqlparser_name_atom_is_identifier(
+		    message,
+		    context,
+		    descriptor,
+		    field)) {
+		return SQLPARSER_STATUS_OK;
+	}
 
 	if (search->match_slot != NULL) {
 		if (slot == search->match_slot) {
@@ -739,6 +1097,7 @@ static sqlparser_status_t sqlparser_record_name_atom(
 				search->name_view->value = *slot;
 			}
 			search->target_slot = slot;
+			search->target_owner = location_owner;
 			search->target_index = search->seen;
 		}
 		search->seen++;
@@ -761,6 +1120,7 @@ static sqlparser_status_t sqlparser_record_name_atom(
 		search->name_view->value = *slot;
 	}
 	search->target_slot = slot;
+	search->target_owner = location_owner;
 	search->seen++;
 	return SQLPARSER_STATUS_OK;
 }
@@ -859,8 +1219,8 @@ sqlparser_status_t sqlparser_walk_message_tree(
 }
 
 /*
- * 通用名称层只关心“非 literal 的字符串原子”。
- * 通过 protobuf-c 反射递归遍历，既覆盖 DDL 对象名，也覆盖列引用、别名等节点。
+ * 通用名称层只枚举可安全改写的 identifier 字符串原子。
+ * protobuf 中的 literal、operator 和结构判别字符串默认不公开。
  */
 sqlparser_status_t sqlparser_walk_message_names(
 	ProtobufCMessage *message,
@@ -869,6 +1229,7 @@ sqlparser_status_t sqlparser_walk_message_names(
 {
 	const ProtobufCMessageDescriptor *descriptor;
 	uint8_t *base;
+	ProtobufCMessage *location_owner;
 	unsigned index;
 
 	if (message == NULL || search == NULL) {
@@ -884,6 +1245,10 @@ sqlparser_status_t sqlparser_walk_message_names(
 	}
 
 	base = (uint8_t *)message;
+	location_owner =
+		sqlparser_proto_location_slot(message) != NULL ?
+			message :
+			(context != NULL ? context->location_owner : NULL);
 	for (index = 0U; index < descriptor->n_fields; index++) {
 		const ProtobufCFieldDescriptor *field;
 
@@ -907,6 +1272,8 @@ sqlparser_status_t sqlparser_walk_message_names(
 				items = *(char ***)(base + field->offset);
 				for (item_index = 0U; item_index < item_count; item_index++) {
 					status = sqlparser_record_name_atom(
+						message,
+						location_owner,
 						context,
 						descriptor,
 						field,
@@ -923,6 +1290,8 @@ sqlparser_status_t sqlparser_walk_message_names(
 				sqlparser_status_t status;
 
 				status = sqlparser_record_name_atom(
+					message,
+					location_owner,
 					context,
 					descriptor,
 					field,
@@ -941,7 +1310,13 @@ sqlparser_status_t sqlparser_walk_message_names(
 		if (field->type == PROTOBUF_C_TYPE_MESSAGE) {
 			sqlparser_name_context_t next_context;
 
-			next_context = sqlparser_next_name_context(descriptor, field, context);
+			next_context =
+				sqlparser_next_name_context(
+					message,
+					descriptor,
+					field,
+					context);
+			next_context.location_owner = location_owner;
 			if (field->label == PROTOBUF_C_LABEL_REPEATED) {
 				size_t item_count;
 				ProtobufCMessage **items;
@@ -1032,6 +1407,217 @@ sqlparser_status_t sqlparser_find_statement_name_index_by_slot(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
+	*out_index = search.target_index;
+	return SQLPARSER_STATUS_OK;
+}
+
+static void sqlparser_record_string_slot(
+	char **slot,
+	sqlparser_string_search_t *search)
+{
+	if (slot == NULL || search == NULL || search->target_slot != NULL) {
+		return;
+	}
+	if (search->match_slot != NULL) {
+		if (slot == search->match_slot &&
+		    (search->match_value == NULL ||
+		     *slot == search->match_value)) {
+			search->target_slot = slot;
+			search->target_index = search->seen;
+		}
+		search->seen++;
+		return;
+	}
+	if (search->match_value != NULL) {
+		if (*slot == search->match_value) {
+			search->target_slot = slot;
+			search->target_index = search->seen;
+		}
+		search->seen++;
+		return;
+	}
+	if (search->want_target && search->seen == search->target_index) {
+		search->target_slot = slot;
+	}
+	search->seen++;
+}
+
+sqlparser_status_t sqlparser_walk_message_strings(
+	ProtobufCMessage *message,
+	sqlparser_string_search_t *search)
+{
+	const ProtobufCMessageDescriptor *descriptor;
+	uint8_t *base;
+	unsigned index;
+
+	if (message == NULL || search == NULL || search->target_slot != NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	descriptor = message->descriptor;
+	if (descriptor == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	base = (uint8_t *)message;
+	for (index = 0U; index < descriptor->n_fields; index++) {
+		const ProtobufCFieldDescriptor *field;
+
+		field = &descriptor->fields[index];
+		if ((field->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) != 0U &&
+		    *(const int *)(base + field->quantifier_offset) !=
+			    (int)field->id) {
+			continue;
+		}
+		if (field->type == PROTOBUF_C_TYPE_STRING) {
+			if (field->label == PROTOBUF_C_LABEL_REPEATED) {
+				size_t count;
+				char **items;
+				size_t item_index;
+
+				count = *(const size_t *)(base + field->quantifier_offset);
+				items = *(char ***)(base + field->offset);
+				for (item_index = 0U;
+				     items != NULL && item_index < count;
+				     item_index++) {
+					sqlparser_record_string_slot(
+						&items[item_index],
+						search);
+					if (search->target_slot != NULL) {
+						return SQLPARSER_STATUS_OK;
+					}
+				}
+			} else {
+				sqlparser_record_string_slot(
+					(char **)(base + field->offset),
+					search);
+				if (search->target_slot != NULL) {
+					return SQLPARSER_STATUS_OK;
+				}
+			}
+			continue;
+		}
+		if (field->type == PROTOBUF_C_TYPE_MESSAGE) {
+			if (field->label == PROTOBUF_C_LABEL_REPEATED) {
+				size_t count;
+				ProtobufCMessage **items;
+				size_t item_index;
+
+				count = *(const size_t *)(base + field->quantifier_offset);
+				items = *(ProtobufCMessage ***)(base + field->offset);
+				for (item_index = 0U;
+				     items != NULL && item_index < count;
+				     item_index++) {
+					sqlparser_status_t status;
+
+					status = sqlparser_walk_message_strings(
+						items[item_index],
+						search);
+					if (status != SQLPARSER_STATUS_OK ||
+					    search->target_slot != NULL) {
+						return status;
+					}
+				}
+			} else {
+				ProtobufCMessage *child;
+				sqlparser_status_t status;
+
+				child =
+					*(ProtobufCMessage **)(base + field->offset);
+				if (child == NULL) {
+					continue;
+				}
+				status = sqlparser_walk_message_strings(
+					child,
+					search);
+				if (status != SQLPARSER_STATUS_OK ||
+				    search->target_slot != NULL) {
+					return status;
+				}
+			}
+		}
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_get_raw_statement_string_slot_by_index(
+	PgQuery__ParseResult *ast,
+	size_t raw_statement_index,
+	size_t string_index,
+	char ***out_slot)
+{
+	sqlparser_string_search_t search;
+	sqlparser_status_t status;
+
+	if (out_slot == NULL) {
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_slot = NULL;
+	if (ast == NULL || raw_statement_index >= ast->n_stmts ||
+	    ast->stmts == NULL || ast->stmts[raw_statement_index] == NULL ||
+	    ast->stmts[raw_statement_index]->stmt == NULL) {
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	memset(&search, 0, sizeof(search));
+	search.want_target = 1;
+	search.target_index = string_index;
+	status = sqlparser_walk_message_strings(
+		(ProtobufCMessage *)ast->stmts[raw_statement_index]->stmt,
+		&search);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	*out_slot = search.target_slot;
+	return search.target_slot != NULL ?
+		SQLPARSER_STATUS_OK :
+		SQLPARSER_STATUS_INVALID_ARGUMENT;
+}
+
+sqlparser_status_t sqlparser_find_raw_statement_string_index_by_slot(
+	sqlparser_handle_t *handle,
+	size_t raw_statement_index,
+	char **slot,
+	size_t *out_index,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_string_search_t search;
+	sqlparser_status_t status;
+
+	if (handle == NULL || slot == NULL || out_index == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"name slot must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	status = sqlparser_handle_ensure_ast(handle, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (raw_statement_index >= handle->ast->n_stmts ||
+	    handle->ast->stmts == NULL ||
+	    handle->ast->stmts[raw_statement_index] == NULL ||
+	    handle->ast->stmts[raw_statement_index]->stmt == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"statement index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	memset(&search, 0, sizeof(search));
+	search.match_slot = slot;
+	status = sqlparser_walk_message_strings(
+		(ProtobufCMessage *)
+			handle->ast->stmts[raw_statement_index]->stmt,
+		&search);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (search.target_slot == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"name slot is not part of the statement");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
 	*out_index = search.target_index;
 	return SQLPARSER_STATUS_OK;
 }

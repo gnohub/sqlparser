@@ -2,6 +2,12 @@
 
 本文件记录达梦方言转换层的回归用例。可执行夹具为 `tests/cases/dameng_dialect_input.json`，单元测试 `tests/unit/test_dameng_dialect_case_matrix.c` 会逐条验证解析结果、View JSON、反解析输出和错误码。
 
+## 矩阵统计与 session 回归
+
+夹具包含 162 条用例，其中 150 条预期成功，12 条预期失败。34 条用例包含 statement 级 `expect.session`，覆盖 `D002`、`D003`、`D003Q`、`D026`、`D089` 至 `D095` 和 `DM-*` session 用例；这 34 条用例均至少包含一个非空 session 期望。
+
+用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
+
 ## 支持用例
 
 | ID | 用例 | 覆盖点 |

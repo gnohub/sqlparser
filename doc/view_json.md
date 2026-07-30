@@ -128,6 +128,7 @@ IF @enabled = 1 SELECT id FROM users ELSE SELECT id FROM archived_users
 | `values` | 与字段关联的字面量、bind、DEFAULT 值；分页或伪列 bind 不进入该数组；非空时存在 |
 | `sets` | `UNION`、`UNION ALL`、`INTERSECT`、`EXCEPT/MINUS` 等集合运算；非空时存在 |
 | `predicates` | `WHERE`、`ON`、`HAVING` 等条件中的谓词树节点；非空时存在 |
+| `session` | 数据库、Schema、角色、身份、事务特征或会话参数操作；仅具有会话状态语义时存在 |
 | `dml` | `INSERT`、`UPDATE`、`DELETE`、`MERGE` 写入结构及其嵌套 DML；仅 DML 语句存在 |
 
 数组中的编号均为当前语句内的 0 基索引。`relations[].source_block`、`targets[].source_block`、`targets[].star_relations` 和 `sets[].branches` 可组合表达派生表、星号和集合运算的来源链路。
@@ -342,6 +343,45 @@ FROM (
 
 `field = literal/bind` 使用 `left_field + value` 表达；`field = field` 使用 `left_field + right_field`，并在 `values[]` 中以 `kind = "field"` 记录来源字段。无法安全拆分字段和值两侧的条件会保留为 `kind = "expression"`，避免把复杂表达式误判为直接字段传递。
 
+## session
+
+`query_graph.session` 表达当前语句的会话状态操作。
+
+```json
+{
+  "action": "set",
+  "items": [
+    {
+      "scope": "session",
+      "target_kind": "parameter",
+      "name": "NLS_DATE_LANGUAGE",
+      "values": [
+        {
+          "kind": "identifier",
+          "text": "ENGLISH"
+        }
+      ]
+    }
+  ]
+}
+```
+
+| 字段 | 说明 |
+| --- | --- |
+| `action` | `set`、`reset`、`switch`、`discard`、`enable`、`disable`、`force`、`advise`、`close`、`sync`、`assume` 或 `revert` |
+| `items` | 本次操作涉及的会话状态目标；至少包含一个元素 |
+
+item 字段：
+
+| 字段 | 说明 |
+| --- | --- |
+| `scope` | `session`、`local` 或 `transaction` |
+| `target_kind` | `parameter`、`variable`、`database`、`schema`、`container`、`role`、`authorization`、`login`、`user`、`transaction`、`session_context`、`database_link`、`object`、`constraint` 或 `all` |
+| `name` | 参数、变量或对象的显式名称或规范化语义名称；没有可用名称时省略，规范化名称不保证逐字出现在 SQL 中 |
+| `values` | 目标值数组；没有值时省略 |
+
+value 的 `kind` 为 `identifier`、`keyword`、`literal`、`bind` 或 `expression`。标识符、关键字和表达式使用 `text`；字面量使用 `literal`；bind 使用 `bind_key`、`bind_kind`、`bind_sql`，其 `bind_position` 从 `1` 开始，按同一 handle 内各 statement 中的 SQL 出现顺序编号。各类 value 均可包含可选 `name`，用于区分同一 item 内具有独立语义的值；例如 `SET NAMES ... COLLATE ...` 的 collation value 使用 `"name": "collation"`。没有可用的独立语义标签时省略该字段。
+
 ## DML
 
 `query_graph.dml` 表达写入语句的目标关系、目标列、行值、赋值项、来源查询和结果通道。
@@ -385,6 +425,8 @@ Oracle/Dameng multi-table INSERT 的每个 branch 包含独立的 `target_relati
 branch cell 的 `kind` 可为 `literal`、`bind`、`default`、`expression` 或 `field`。当 `VALUES (id)` 这类 cell 直接引用末尾 source query 的输出字段时，`kind` 为 `field`，并通过 `source_target` 指向 `targets[]` 中对应的 source query 输出项；如果该 target 是直接字段，调用方可继续读取 `targets[].field` 定位到 `fields[]`。
 
 `UPDATE` 和 `MERGE` 的 assignment 使用 `target_field` 指向被写入字段。赋值右侧为直接字段引用时，`kind` 为 `field`，`source_field` 指向来源字段；来源字段来自派生表且可唯一匹配 source query 输出项时，同时输出 `source_target`。
+
+顶层 `UPDATE` assignment 的 `selector` 形如 `stmt[S].assignment[A]`。MERGE matched UPDATE action 的 assignment 使用 `stmt[S].merge_assignment[W][A]`：`W` 是该 MERGE 中所有 `WHEN` 子句的绝对 0 基序号，`A` 是目标 UPDATE 分支内赋值项的 0 基序号。两种 selector 都可用于 assignment selector API、`SQLPARSER_PATCH_INSERT_ASSIGNMENT`、`SQLPARSER_PATCH_DELETE_ASSIGNMENT` 和 `SQLPARSER_PATCH_REPLACE_ASSIGNMENT`；patch 的 `source_selector` 克隆 assignment 时也接受两种形式。
 
 ## 改写
 

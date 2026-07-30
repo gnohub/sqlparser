@@ -123,6 +123,10 @@ PgQueryParseResult pg_query_parse(const char* input);
 PgQueryParseResult pg_query_parse_opts(const char* input, int parser_options);
 PgQueryProtobufParseResult pg_query_parse_protobuf(const char* input);
 PgQueryProtobufParseResult pg_query_parse_protobuf_opts(const char* input, int parser_options);
+PgQueryProtobufParseResult
+pg_query_parse_protobuf_opts_preserving_identifier_spelling(
+	const char* input,
+	int parser_options);
 PgQueryPlpgsqlParseResult pg_query_parse_plpgsql(const char* input);
 
 PgQueryFingerprintResult pg_query_fingerprint(const char* input);

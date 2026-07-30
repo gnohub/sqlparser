@@ -32,7 +32,7 @@ pg_query_deparse_protobuf_opts(PgQueryProtobuf parse_tree, PostgresDeparseOpts o
 
 	PG_TRY();
 	{
-		stmts = pg_query_protobuf_to_nodes(parse_tree);
+		stmts = pg_query_protobuf_to_nodes_opts(parse_tree, &opts);
 
 		initStringInfo(&str);
 
@@ -49,6 +49,7 @@ pg_query_deparse_protobuf_opts(PgQueryProtobuf parse_tree, PostgresDeparseOpts o
 		ErrorData  *error_data;
 		PgQueryError *error;
 
+		pg_query_readfuncs_reset_options();
 		MemoryContextSwitchTo(ctx);
 		error_data = CopyErrorData();
 

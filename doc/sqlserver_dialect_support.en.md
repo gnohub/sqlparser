@@ -108,5 +108,5 @@ The SQL Server support boundary is defined by:
 - `tests/unit/test_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The SQL Server matrix contains 546 cases: 517 supported paths and 29 explicit
-error or unsupported paths.
+The SQL Server matrix contains 605 cases: 568 successful cases and 37
+expected-failure cases.

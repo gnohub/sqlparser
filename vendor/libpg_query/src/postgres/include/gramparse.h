@@ -67,6 +67,12 @@ typedef struct base_yy_extra_type
 /* from parser.c */
 extern int	base_yylex(YYSTYPE *lvalp, YYLTYPE *llocp,
 					   core_yyscan_t yyscanner);
+extern char *parser_keyword_spelling(const char *keyword, int location,
+								 core_yyscan_t yyscanner);
+extern bool parser_identifier_is_keyword(const char *identifier,
+									  const char *keyword,
+									  int location,
+									  core_yyscan_t yyscanner);
 
 /* from gram.y */
 extern void parser_init(base_yy_extra_type *yyext);

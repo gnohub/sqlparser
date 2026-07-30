@@ -1,5 +1,32 @@
 # 变更记录
 
+## 2.12.0
+
+### 反解析与 AST 标识符
+
+- handle generation 为 `0` 时，`sqlparser_deparse()` 在成功返回时逐字节复制原始输入 SQL，保留标识符定界符和大小写、关键字、空白、换行、注释、分号及多语句边界。
+- AST 中源自 SQL identifier token 的名称值保留源 token 的字母大小写；带引号标识符的 AST 值仍为解码后的名称内容，其定界符和转义形式由 generation-`0` deparse 契约保留。
+- generation 大于 `0` 时，反解析从当前 handle 状态重新生成 SQL，整个输出不适用逐字节一致性保证。
+
+### 会话状态 Query Graph
+
+- 支持的数据库、schema、角色、身份、事务特征和会话参数语句会投影为结构化 session action、scope、target 和 value。
+- 新增 session action、scope、target kind、value kind 枚举，`sqlparser_graph_session_t`、`sqlparser_graph_session_item_t`、`sqlparser_graph_session_value_t` 以及三个 Query Graph 访问函数。
+- View JSON 为具有可用 session projection 的语句输出可选 `query_graph.session`，覆盖 identifier、keyword、literal、bind 和 expression value。
+
+### MERGE matched UPDATE 改写
+
+- 新增 `SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT` 和 `stmt[S].merge_assignment[W][A]` selector；`W` 是 MERGE 中所有 `WHEN` 子句的绝对 0 基序号，`A` 是对应 matched UPDATE 分支内赋值项的 0 基序号。
+- `update_assignment` selector API 支持 MERGE matched UPDATE 赋值项的读取、右值改写和同一 statement 内的右值克隆；`SQLPARSER_PATCH_INSERT_ASSIGNMENT`、`SQLPARSER_PATCH_DELETE_ASSIGNMENT` 与 `SQLPARSER_PATCH_REPLACE_ASSIGNMENT` 支持赋值项的插入、删除和整项替换。
+- Query Graph 为可改写的 MERGE matched UPDATE 赋值项输出对应 selector。
+
+### 兼容性与验证
+
+- 公共 API 采用追加式扩展；既有函数签名和公共结构体布局保持不变。动态库 ABI 主版本保持为 `libsqlparser.so.0`，ABI 导出检查包含 149 个公共符号。
+- PostgreSQL、MySQL、Oracle、SQL Server、达梦及 Vastbase 四种兼容模式的九套用例矩阵对所有预期成功用例执行 generation-`0` 逐字节反解析检查和 AST 标识符拼写检查。
+- 九套方言矩阵均包含 session 投影期望；支持 MERGE 的方言还包含 matched UPDATE assignment selector 与改写回归。
+- 发布验证覆盖 GCC 8.3 严格发布/调试构建、全量测试、install smoke、ABI、ASan、UBSan、Valgrind，以及 Windows VS 2022 x64/MSVC 19.39 清理后构建和全量测试。
+
 ## 2.11.0
 
 ### 反解析

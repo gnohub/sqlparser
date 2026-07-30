@@ -48,4 +48,4 @@ PostgreSQL 默认方言支持范围以以下文件为准：
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-当前 PostgreSQL 矩阵包含 154 条用例：153 条支持路径，1 条非法 SQL 负向路径。
+当前 PostgreSQL 矩阵包含 184 条用例：181 条成功用例，3 条预期失败用例。

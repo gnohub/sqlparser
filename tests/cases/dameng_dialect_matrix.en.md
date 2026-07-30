@@ -2,6 +2,20 @@
 
 This file records regression cases for the Dameng dialect conversion layer. The executable fixture is `tests/cases/dameng_dialect_input.json`; `tests/unit/test_dameng_dialect_case_matrix.c` verifies parsing, View JSON, deparse output, and error codes.
 
+## Matrix Counts and Session Regression
+
+The fixture contains 162 cases: 150 expect success and 12 expect failure.
+Statement-level `expect.session` appears in 34 cases, covering `D002`,
+`D003`, `D003Q`, `D026`, `D089` through `D095`, and the `DM-*` session cases.
+All 34 contain at least one non-null session expectation.
+
+When an `expect.session` array is present, the matrix test requires one entry
+per statement. A non-null entry is matched against the corresponding session
+projection, including its action, item scope, target kind, name, and value
+fields; `null` asserts that no session projection is emitted. For fixture
+cases that expect success, the test also deparses the unmodified handle and
+compares the result with the input SQL byte for byte.
+
 ## Supported Cases
 
 | ID | Case | Coverage |

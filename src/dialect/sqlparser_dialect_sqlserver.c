@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -9,10 +10,15 @@
 #include "sqlparser_dialect_sqlserver_output.h"
 #include "sqlparser_dialect_sqlserver_scan.h"
 
+#define SQLPARSER_SQLSERVER_SYSTEM_VARIABLE_PREFIX "@sqlparser_sqlserver_system_variable_"
+
 typedef struct {
 	char *data;
 	size_t len;
 	size_t capacity;
+	sqlparser_identifier_origin_writer_t origin_writer;
+	size_t pending_input_offset;
+	size_t pending_input_length;
 } sqlparser_sqlserver_buffer_t;
 
 typedef enum {
@@ -93,6 +99,8 @@ struct sqlparser_sqlserver_state {
 
 typedef struct {
 	char *limit;
+	sqlparser_identifier_origin_map_t *origins;
+	size_t source_offset;
 	size_t depth;
 } sqlparser_sqlserver_pending_top_t;
 
@@ -108,6 +116,20 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_text(
 	char **out_sql,
 	sqlparser_error_t *out_error);
 
+static sqlparser_status_t sqlparser_sqlserver_preprocess_text_origins(
+	const char *input_sql,
+	sqlparser_sqlserver_state_t *state,
+	char **out_sql,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error);
+
+static sqlparser_status_t sqlparser_sqlserver_append_mapped_identifiers(
+	sqlparser_sqlserver_buffer_t *out,
+	const char *sql,
+	const sqlparser_identifier_origin_map_t *origins,
+	size_t source_offset,
+	sqlparser_error_t *out_error);
+
 static void sqlparser_sqlserver_buffer_release(sqlparser_sqlserver_buffer_t *buffer)
 {
 	if (buffer == NULL) {
@@ -115,9 +137,75 @@ static void sqlparser_sqlserver_buffer_release(sqlparser_sqlserver_buffer_t *buf
 	}
 
 	free(buffer->data);
+	sqlparser_identifier_origin_writer_release(&buffer->origin_writer);
 	buffer->data = NULL;
 	buffer->len = 0U;
 	buffer->capacity = 0U;
+	buffer->pending_input_offset = 0U;
+	buffer->pending_input_length = 0U;
+}
+
+static sqlparser_status_t sqlparser_sqlserver_buffer_begin_origin(
+	sqlparser_sqlserver_buffer_t *buffer,
+	sqlparser_identifier_origin_map_t *origins,
+	size_t input_length,
+	sqlparser_error_t *out_error)
+{
+	if (origins == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	return sqlparser_identifier_origin_writer_begin(
+		&buffer->origin_writer,
+		origins,
+		input_length,
+		out_error);
+}
+
+static sqlparser_status_t sqlparser_sqlserver_buffer_commit_origin(
+	sqlparser_sqlserver_buffer_t *buffer,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_status_t status;
+
+	if (buffer == NULL || buffer->origin_writer.map == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (buffer->pending_input_length > 0U) {
+		status = sqlparser_identifier_origin_writer_append_input(
+			&buffer->origin_writer,
+			buffer->pending_input_offset,
+			buffer->pending_input_length,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		buffer->pending_input_length = 0U;
+	}
+	return sqlparser_identifier_origin_writer_commit(
+		&buffer->origin_writer,
+		buffer->len,
+		out_error);
+}
+
+static sqlparser_status_t sqlparser_sqlserver_buffer_flush_input_origin(
+	sqlparser_sqlserver_buffer_t *buffer,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_status_t status;
+
+	if (buffer == NULL || buffer->origin_writer.map == NULL ||
+	    buffer->pending_input_length == 0U) {
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_identifier_origin_writer_append_input(
+		&buffer->origin_writer,
+		buffer->pending_input_offset,
+		buffer->pending_input_length,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		buffer->pending_input_length = 0U;
+	}
+	return status;
 }
 
 static sqlparser_status_t sqlparser_sqlserver_buffer_reserve(
@@ -167,7 +255,7 @@ static sqlparser_status_t sqlparser_sqlserver_buffer_reserve(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_sqlserver_buffer_append_mem(
+static sqlparser_status_t sqlparser_sqlserver_buffer_append_raw_mem(
 	sqlparser_sqlserver_buffer_t *buffer,
 	const char *data,
 	size_t len,
@@ -195,6 +283,140 @@ static sqlparser_status_t sqlparser_sqlserver_buffer_append_mem(
 	buffer->len += len;
 	buffer->data[buffer->len] = '\0';
 	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_sqlserver_buffer_append_mem(
+	sqlparser_sqlserver_buffer_t *buffer,
+	const char *data,
+	size_t len,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_status_t status;
+
+	if (buffer != NULL && buffer->origin_writer.map != NULL) {
+		status = sqlparser_sqlserver_buffer_flush_input_origin(
+			buffer,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		status = sqlparser_identifier_origin_writer_append_unknown(
+			&buffer->origin_writer,
+			len,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+	return sqlparser_sqlserver_buffer_append_raw_mem(
+		buffer,
+		data,
+		len,
+		out_error);
+}
+
+static sqlparser_status_t sqlparser_sqlserver_buffer_append_input_mem(
+	sqlparser_sqlserver_buffer_t *buffer,
+	const char *input,
+	size_t input_offset,
+	size_t len,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_status_t status;
+
+	if (buffer != NULL && buffer->origin_writer.map != NULL) {
+		if (buffer->pending_input_length > 0U &&
+		    input_offset ==
+			    buffer->pending_input_offset +
+				    buffer->pending_input_length) {
+			if (len > SIZE_MAX - buffer->pending_input_length) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_RESOURCE_LIMIT,
+					"SQL Server origin span is too large");
+				return SQLPARSER_STATUS_RESOURCE_LIMIT;
+			}
+			buffer->pending_input_length += len;
+		} else {
+			status = sqlparser_sqlserver_buffer_flush_input_origin(
+				buffer,
+				out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+			buffer->pending_input_offset = input_offset;
+			buffer->pending_input_length = len;
+		}
+	}
+	return sqlparser_sqlserver_buffer_append_raw_mem(
+		buffer,
+		input != NULL ? input + input_offset : NULL,
+		len,
+		out_error);
+}
+
+static sqlparser_status_t sqlparser_sqlserver_buffer_append_source_identifier(
+	sqlparser_sqlserver_buffer_t *buffer,
+	const char *data,
+	size_t input_offset,
+	size_t input_length,
+	size_t output_length,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_status_t status;
+
+	if (buffer != NULL && buffer->origin_writer.map != NULL) {
+		status = sqlparser_sqlserver_buffer_flush_input_origin(
+			buffer,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		status = sqlparser_identifier_origin_writer_append_source_identifier(
+			&buffer->origin_writer,
+			input_offset,
+			input_length,
+			output_length,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+	return sqlparser_sqlserver_buffer_append_raw_mem(
+		buffer,
+		data,
+		output_length,
+		out_error);
+}
+
+static sqlparser_status_t sqlparser_sqlserver_buffer_append_generated_identifier(
+	sqlparser_sqlserver_buffer_t *buffer,
+	const char *data,
+	size_t len,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_status_t status;
+
+	if (buffer != NULL && buffer->origin_writer.map != NULL) {
+		status = sqlparser_sqlserver_buffer_flush_input_origin(
+			buffer,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		status = sqlparser_identifier_origin_writer_append_generated_identifier(
+			&buffer->origin_writer,
+			len,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+	return sqlparser_sqlserver_buffer_append_raw_mem(
+		buffer,
+		data,
+		len,
+		out_error);
 }
 
 static sqlparser_status_t sqlparser_sqlserver_buffer_append_char(
@@ -278,6 +500,9 @@ static char *sqlparser_sqlserver_buffer_take(sqlparser_sqlserver_buffer_t *buffe
 	buffer->data = NULL;
 	buffer->len = 0U;
 	buffer->capacity = 0U;
+	buffer->pending_input_offset = 0U;
+	buffer->pending_input_length = 0U;
+	sqlparser_identifier_origin_writer_release(&buffer->origin_writer);
 	return data;
 }
 
@@ -576,10 +801,14 @@ static sqlparser_status_t sqlparser_sqlserver_append_quoted_identifier(
 	size_t *index,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_sqlserver_buffer_t quoted;
+	size_t source_start;
 	size_t pos;
 	sqlparser_status_t status;
 
-	status = sqlparser_sqlserver_buffer_append_char(out, '"', out_error);
+	memset(&quoted, 0, sizeof(quoted));
+	source_start = *index;
+	status = sqlparser_sqlserver_buffer_append_char(&quoted, '"', out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
@@ -588,31 +817,47 @@ static sqlparser_status_t sqlparser_sqlserver_append_quoted_identifier(
 	while (input[pos] != '\0') {
 		if (input[pos] == ']') {
 			if (input[pos + 1U] == ']') {
-				status = sqlparser_sqlserver_buffer_append_char(out, ']', out_error);
+				status = sqlparser_sqlserver_buffer_append_char(
+					&quoted, ']', out_error);
 				if (status != SQLPARSER_STATUS_OK) {
+					sqlparser_sqlserver_buffer_release(&quoted);
 					return status;
 				}
 				pos += 2U;
 				continue;
 			}
-			status = sqlparser_sqlserver_buffer_append_char(out, '"', out_error);
+			status = sqlparser_sqlserver_buffer_append_char(
+				&quoted, '"', out_error);
 			if (status != SQLPARSER_STATUS_OK) {
+				sqlparser_sqlserver_buffer_release(&quoted);
 				return status;
 			}
 			*index = pos + 1U;
-			return SQLPARSER_STATUS_OK;
+			status = sqlparser_sqlserver_buffer_append_source_identifier(
+				out,
+				quoted.data,
+				source_start,
+				*index - source_start,
+				quoted.len,
+				out_error);
+			sqlparser_sqlserver_buffer_release(&quoted);
+			return status;
 		}
 		if (input[pos] == '"') {
-			status = sqlparser_sqlserver_buffer_append_cstr(out, "\"\"", out_error);
+			status = sqlparser_sqlserver_buffer_append_cstr(
+				&quoted, "\"\"", out_error);
 		} else {
-			status = sqlparser_sqlserver_buffer_append_char(out, input[pos], out_error);
+			status = sqlparser_sqlserver_buffer_append_char(
+				&quoted, input[pos], out_error);
 		}
 		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_sqlserver_buffer_release(&quoted);
 			return status;
 		}
 		pos++;
 	}
 
+	sqlparser_sqlserver_buffer_release(&quoted);
 	sqlparser_error_set_message(
 		out_error,
 		SQLPARSER_STATUS_PARSE_ERROR,
@@ -643,9 +888,10 @@ static sqlparser_status_t sqlparser_sqlserver_copy_quoted_or_comment(
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
 		}
-		status = sqlparser_sqlserver_buffer_append_mem(
+		status = sqlparser_sqlserver_buffer_append_input_mem(
 			out,
-			sql + *index,
+			sql,
+			*index,
 			next - *index,
 			out_error);
 		if (status != SQLPARSER_STATUS_OK) {
@@ -661,6 +907,8 @@ static sqlparser_status_t sqlparser_sqlserver_copy_quoted_or_comment(
 static sqlparser_status_t sqlparser_sqlserver_preprocess_use_statement(
 	const char *input_sql,
 	char **out_sql,
+	size_t *out_name_start,
+	size_t *out_name_end,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_sqlserver_buffer_t out;
@@ -671,11 +919,13 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_use_statement(
 	size_t index;
 	sqlparser_status_t status;
 
-	if (out_sql == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "out_sql must not be NULL");
+	if (out_sql == NULL || out_name_start == NULL || out_name_end == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "USE output arguments must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	*out_sql = NULL;
+	*out_name_start = 0U;
+	*out_name_end = 0U;
 	if (input_sql == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "SQL input must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
@@ -773,6 +1023,8 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_use_statement(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
+	*out_name_start = name_start;
+	*out_name_end = name_end;
 	return SQLPARSER_STATUS_OK;
 }
 
@@ -967,8 +1219,33 @@ static int sqlparser_sqlserver_word_at_bounded(
 		return 0;
 	}
 	len = strlen(word);
-	return pos + len <= end &&
+	return len <= end - pos &&
 		sqlparser_sqlserver_ascii_word_equal(sql, pos, word);
+}
+
+static int sqlparser_sqlserver_ascii_span_equal(
+	const char *sql,
+	size_t start,
+	size_t end,
+	const char *word)
+{
+	size_t index;
+	size_t word_len;
+
+	if (sql == NULL || word == NULL || start > end) {
+		return 0;
+	}
+	word_len = strlen(word);
+	if (end - start != word_len) {
+		return 0;
+	}
+	for (index = 0U; index < word_len; index++) {
+		if (tolower((unsigned char)sql[start + index]) !=
+		    tolower((unsigned char)word[index])) {
+			return 0;
+		}
+	}
+	return 1;
 }
 
 static size_t sqlparser_sqlserver_skip_space_bounded(const char *sql, size_t pos, size_t end)
@@ -977,6 +1254,23 @@ static size_t sqlparser_sqlserver_skip_space_bounded(const char *sql, size_t pos
 		pos++;
 	}
 	return pos;
+}
+
+static int sqlparser_sqlserver_identifier_token_equal(
+	const char *sql,
+	size_t start,
+	size_t end,
+	const char *word)
+{
+	if (sql == NULL || start >= end) {
+		return 0;
+	}
+	if ((sql[start] == '[' && sql[end - 1U] == ']') ||
+	    (sql[start] == '"' && sql[end - 1U] == '"')) {
+		start++;
+		end--;
+	}
+	return sqlparser_sqlserver_ascii_span_equal(sql, start, end, word);
 }
 
 static size_t sqlparser_sqlserver_multipart_identifier_end(
@@ -1930,6 +2224,81 @@ static int sqlparser_sqlserver_context_info_tail_is_supported(
 	return 1;
 }
 
+static int sqlparser_sqlserver_fips_flagger_tail_is_supported(
+	const char *sql,
+	size_t start,
+	size_t end)
+{
+	size_t token_end;
+
+	start = sqlparser_sqlserver_skip_space_bounded(sql, start, end);
+	if (sqlparser_sqlserver_word_at_bounded(sql, start, end, "off")) {
+		return sqlparser_sqlserver_skip_space_bounded(
+			sql, start + strlen("off"), end) >= end;
+	}
+	if (start >= end || sql[start] != '\'') {
+		return 0;
+	}
+	token_end = sqlparser_sqlserver_skip_quoted_or_comment_span(sql, start);
+	if (token_end <= start + 1U || token_end > end ||
+	    sql[token_end - 1U] != '\'' ||
+	    sqlparser_sqlserver_skip_space_bounded(sql, token_end, end) < end) {
+		return 0;
+	}
+	return sqlparser_sqlserver_ascii_span_equal(sql, start + 1U, token_end - 1U, "entry") ||
+		sqlparser_sqlserver_ascii_span_equal(sql, start + 1U, token_end - 1U, "intermediate") ||
+		sqlparser_sqlserver_ascii_span_equal(sql, start + 1U, token_end - 1U, "full");
+}
+
+static int sqlparser_sqlserver_offsets_tail_is_supported(
+	const char *sql,
+	size_t start,
+	size_t end)
+{
+	static const char *const clauses[] = {
+		"select",
+		"from",
+		"order",
+		"compute",
+		"table",
+		"procedure",
+		"statement",
+		"param"
+	};
+	size_t index;
+	size_t pos;
+	int matched;
+
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, start, end);
+	for (;;) {
+		matched = 0;
+		for (index = 0U; index < sizeof(clauses) / sizeof(clauses[0]); index++) {
+			if (sqlparser_sqlserver_word_at_bounded(sql, pos, end, clauses[index])) {
+				pos = sqlparser_sqlserver_skip_space_bounded(
+					sql, pos + strlen(clauses[index]), end);
+				matched = 1;
+				break;
+			}
+		}
+		if (!matched) {
+			return 0;
+		}
+		if (pos >= end || sql[pos] != ',') {
+			break;
+		}
+		pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + 1U, end);
+	}
+	if (sqlparser_sqlserver_word_at_bounded(sql, pos, end, "on")) {
+		pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + strlen("on"), end);
+		return pos >= end;
+	}
+	if (sqlparser_sqlserver_word_at_bounded(sql, pos, end, "off")) {
+		pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + strlen("off"), end);
+		return pos >= end;
+	}
+	return 0;
+}
+
 static int sqlparser_sqlserver_identity_insert_tail_is_supported(
 	const char *sql,
 	size_t start,
@@ -2048,7 +2417,306 @@ static int sqlparser_sqlserver_set_statement_tail_is_supported(
 		pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + strlen("context_info"), end);
 		return sqlparser_sqlserver_context_info_tail_is_supported(sql, pos, end);
 	}
+	if (sqlparser_sqlserver_word_at_bounded(sql, pos, end, "fips_flagger")) {
+		pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + strlen("fips_flagger"), end);
+		return sqlparser_sqlserver_fips_flagger_tail_is_supported(sql, pos, end);
+	}
+	if (sqlparser_sqlserver_word_at_bounded(sql, pos, end, "offsets")) {
+		pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + strlen("offsets"), end);
+		return sqlparser_sqlserver_offsets_tail_is_supported(sql, pos, end);
+	}
 	return sqlparser_sqlserver_set_on_off_tail_is_supported(sql, pos, end, 1);
+}
+
+static int sqlparser_sqlserver_execute_as_tail_is_supported(
+	const char *sql,
+	size_t pos,
+	size_t end)
+{
+	size_t token_end;
+
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos, end);
+	if (!sqlparser_sqlserver_word_at_bounded(sql, pos, end, "as")) {
+		return 0;
+	}
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + strlen("as"), end);
+	if (sqlparser_sqlserver_word_at_bounded(sql, pos, end, "login")) {
+		pos += strlen("login");
+	} else if (sqlparser_sqlserver_word_at_bounded(sql, pos, end, "user")) {
+		pos += strlen("user");
+	} else {
+		return 0;
+	}
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos, end);
+	if (pos >= end || sql[pos] != '=') {
+		return 0;
+	}
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + 1U, end);
+	if (pos < end && (sql[pos] == 'N' || sql[pos] == 'n') &&
+	    pos + 1U < end && sql[pos + 1U] == '\'') {
+		pos++;
+	}
+	if (pos >= end || sql[pos] != '\'') {
+		return 0;
+	}
+	token_end = sqlparser_sqlserver_skip_quoted_or_comment_span(sql, pos);
+	if (token_end <= pos + 1U || token_end > end || sql[token_end - 1U] != '\'') {
+		return 0;
+	}
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, token_end, end);
+	if (pos >= end) {
+		return 1;
+	}
+	if (!sqlparser_sqlserver_word_at_bounded(sql, pos, end, "with")) {
+		return 0;
+	}
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + strlen("with"), end);
+	if (sqlparser_sqlserver_tail_starts_with_two_words(sql, pos, end, "no", "revert")) {
+		pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + strlen("no"), end);
+		pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + strlen("revert"), end);
+		return pos >= end;
+	}
+	if (!sqlparser_sqlserver_tail_starts_with_two_words(sql, pos, end, "cookie", "into")) {
+		return 0;
+	}
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + strlen("cookie"), end);
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + strlen("into"), end);
+	return sqlparser_sqlserver_variable_tail_is_supported(sql, pos, end);
+}
+
+static int sqlparser_sqlserver_session_context_value_is_supported(
+	const char *sql,
+	size_t start,
+	size_t end)
+{
+	int has_digit;
+	int has_exponent;
+	size_t pos;
+	size_t token_end;
+
+	start = sqlparser_sqlserver_skip_space_bounded(sql, start, end);
+	end = sqlparser_sqlserver_trim_right(sql, start, end);
+	if (start >= end) {
+		return 0;
+	}
+	if ((sql[start] == 'N' || sql[start] == 'n') &&
+	    start + 1U < end && sql[start + 1U] == '\'') {
+		start++;
+	}
+	if (sql[start] == '\'') {
+		token_end = sqlparser_sqlserver_skip_quoted_or_comment_span(sql, start);
+		return token_end > start + 1U && token_end == end &&
+			sql[token_end - 1U] == '\'';
+	}
+	if (sqlparser_sqlserver_variable_tail_is_supported(sql, start, end)) {
+		return 1;
+	}
+	if (sqlparser_sqlserver_word_at_bounded(sql, start, end, "null") ||
+	    sqlparser_sqlserver_word_at_bounded(sql, start, end, "default")) {
+		token_end = sqlparser_sqlserver_identifier_token_end(sql, start, end);
+		return token_end == end;
+	}
+	if (end > start + 2U && sql[start] == '0' &&
+	    (sql[start + 1U] == 'x' || sql[start + 1U] == 'X')) {
+		for (pos = start + 2U; pos < end; pos++) {
+			if (!isxdigit((unsigned char)sql[pos])) {
+				return 0;
+			}
+		}
+		return 1;
+	}
+	pos = start;
+	if (pos < end && (sql[pos] == '+' || sql[pos] == '-')) {
+		pos++;
+	}
+	has_digit = 0;
+	while (pos < end && isdigit((unsigned char)sql[pos])) {
+		has_digit = 1;
+		pos++;
+	}
+	if (pos < end && sql[pos] == '.') {
+		pos++;
+		while (pos < end && isdigit((unsigned char)sql[pos])) {
+			has_digit = 1;
+			pos++;
+		}
+	}
+	if (!has_digit) {
+		return 0;
+	}
+	has_exponent = 0;
+	if (pos < end && (sql[pos] == 'e' || sql[pos] == 'E')) {
+		pos++;
+		if (pos < end && (sql[pos] == '+' || sql[pos] == '-')) {
+			pos++;
+		}
+		while (pos < end && isdigit((unsigned char)sql[pos])) {
+			has_exponent = 1;
+			pos++;
+		}
+		if (!has_exponent) {
+			return 0;
+		}
+	}
+	return pos == end;
+}
+
+static int sqlparser_sqlserver_session_context_arguments_are_supported(
+	const char *sql,
+	size_t start,
+	size_t end)
+{
+	size_t comma;
+	size_t equals;
+	size_t item_end;
+	size_t item_start;
+	size_t name_end;
+	int named_started;
+
+	named_started = 0;
+	while (start < end) {
+		if (sqlparser_sqlserver_find_top_level_char(
+			    sql, start, end, ',', &comma)) {
+			item_end = sqlparser_sqlserver_trim_right(sql, start, comma);
+		} else {
+			comma = end;
+			item_end = sqlparser_sqlserver_trim_right(sql, start, end);
+		}
+		item_start = sqlparser_sqlserver_skip_space_bounded(sql, start, item_end);
+		if (item_start >= item_end) {
+			return 0;
+		}
+		if (sqlparser_sqlserver_find_top_level_char(
+			    sql, item_start, item_end, '=', &equals)) {
+			name_end = sqlparser_sqlserver_trim_right(sql, item_start, equals);
+			if (!sqlparser_sqlserver_variable_tail_is_supported(
+				    sql, item_start, name_end)) {
+				return 0;
+			}
+			named_started = 1;
+			if (!sqlparser_sqlserver_session_context_value_is_supported(
+				    sql, equals + 1U, item_end)) {
+				return 0;
+			}
+		} else {
+			if (named_started) {
+				return 0;
+			}
+			if (!sqlparser_sqlserver_session_context_value_is_supported(
+				    sql, item_start, item_end)) {
+				return 0;
+			}
+		}
+		if (comma == end) {
+			break;
+		}
+		start = comma + 1U;
+		if (sqlparser_sqlserver_skip_space_bounded(sql, start, end) >= end) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static int sqlparser_sqlserver_session_context_tail_is_supported(
+	const char *sql,
+	size_t pos,
+	size_t end)
+{
+	size_t part_end;
+	size_t args_start;
+
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos, end);
+	if (sqlparser_sqlserver_word_at_bounded(sql, pos, end, "sys")) {
+		part_end = pos + strlen("sys");
+		pos = sqlparser_sqlserver_skip_space_bounded(sql, part_end, end);
+		if (pos >= end || sql[pos] != '.') {
+			return 0;
+		}
+		pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + 1U, end);
+		part_end = pos + strlen("sp_set_session_context");
+		if (!sqlparser_sqlserver_word_at_bounded(sql, pos, end, "sp_set_session_context")) {
+			return 0;
+		}
+	} else if (sqlparser_sqlserver_word_at_bounded(sql, pos, end, "sp_set_session_context")) {
+		part_end = pos + strlen("sp_set_session_context");
+	} else {
+		part_end = sqlparser_sqlserver_identifier_token_end(sql, pos, end);
+		if (part_end <= pos) {
+			return 0;
+		}
+	}
+	if (sqlparser_sqlserver_identifier_token_equal(sql, pos, part_end, "sys")) {
+		pos = sqlparser_sqlserver_skip_space_bounded(sql, part_end, end);
+		if (pos >= end || sql[pos] != '.') {
+			return 0;
+		}
+		pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + 1U, end);
+		part_end = sqlparser_sqlserver_identifier_token_end(sql, pos, end);
+	}
+	if (part_end <= pos ||
+	    !sqlparser_sqlserver_identifier_token_equal(sql, pos, part_end, "sp_set_session_context")) {
+		return 0;
+	}
+	args_start = sqlparser_sqlserver_skip_space_bounded(sql, part_end, end);
+	return args_start < end &&
+		sqlparser_sqlserver_session_context_arguments_are_supported(
+			sql, args_start, end);
+}
+
+static int sqlparser_sqlserver_revert_tail_is_supported(
+	const char *sql,
+	size_t pos,
+	size_t end)
+{
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos, end);
+	if (pos >= end) {
+		return 1;
+	}
+	if (!sqlparser_sqlserver_tail_starts_with_two_words(sql, pos, end, "with", "cookie")) {
+		return 0;
+	}
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + strlen("with"), end);
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + strlen("cookie"), end);
+	if (pos >= end || sql[pos] != '=') {
+		return 0;
+	}
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + 1U, end);
+	return sqlparser_sqlserver_variable_tail_is_supported(sql, pos, end);
+}
+
+static int sqlparser_sqlserver_setuser_tail_is_supported(
+	const char *sql,
+	size_t pos,
+	size_t end)
+{
+	size_t token_end;
+
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos, end);
+	if (pos >= end) {
+		return 1;
+	}
+	if (pos < end && (sql[pos] == 'N' || sql[pos] == 'n') &&
+	    pos + 1U < end && sql[pos + 1U] == '\'') {
+		pos++;
+	}
+	if (pos >= end || sql[pos] != '\'') {
+		return 0;
+	}
+	token_end = sqlparser_sqlserver_skip_quoted_or_comment_span(sql, pos);
+	if (token_end <= pos + 1U || token_end > end || sql[token_end - 1U] != '\'') {
+		return 0;
+	}
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, token_end, end);
+	if (pos >= end) {
+		return 1;
+	}
+	if (!sqlparser_sqlserver_tail_starts_with_two_words(sql, pos, end, "with", "noreset")) {
+		return 0;
+	}
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + strlen("with"), end);
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + strlen("noreset"), end);
+	return pos >= end;
 }
 
 static int sqlparser_sqlserver_alter_authorization_tail_is_supported(
@@ -2319,6 +2987,28 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_internal_ddl_statement(
 			internal_name = SQLPARSER_INTERNAL_SQLSERVER_SET_STATEMENT;
 			matched = 1;
 		}
+	} else if (sqlparser_sqlserver_word_at_bounded(input_sql, start, end, "execute") ||
+	           sqlparser_sqlserver_word_at_bounded(input_sql, start, end, "exec")) {
+		pos = start + (sqlparser_sqlserver_word_at_bounded(input_sql, start, end, "execute") ?
+			strlen("execute") :
+			strlen("exec"));
+		if (sqlparser_sqlserver_execute_as_tail_is_supported(input_sql, pos, end) ||
+		    sqlparser_sqlserver_session_context_tail_is_supported(input_sql, pos, end)) {
+			internal_name = SQLPARSER_INTERNAL_SQLSERVER_EXECUTE_STATEMENT;
+			matched = 1;
+		}
+	} else if (sqlparser_sqlserver_word_at_bounded(input_sql, start, end, "revert")) {
+		pos = start + strlen("revert");
+		if (sqlparser_sqlserver_revert_tail_is_supported(input_sql, pos, end)) {
+			internal_name = SQLPARSER_INTERNAL_SQLSERVER_REVERT_STATEMENT;
+			matched = 1;
+		}
+	} else if (sqlparser_sqlserver_word_at_bounded(input_sql, start, end, "setuser")) {
+		pos = start + strlen("setuser");
+		if (sqlparser_sqlserver_setuser_tail_is_supported(input_sql, pos, end)) {
+			internal_name = SQLPARSER_INTERNAL_SQLSERVER_SETUSER_STATEMENT;
+			matched = 1;
+		}
 	}
 	if (!matched) {
 		return SQLPARSER_STATUS_OK;
@@ -2467,6 +3157,7 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_prepared_statement(
 
 static sqlparser_status_t sqlparser_sqlserver_rewrite_use_statements(
 	char **io_sql,
+	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_sqlserver_buffer_t out;
@@ -2479,7 +3170,10 @@ static sqlparser_status_t sqlparser_sqlserver_rewrite_use_statements(
 	size_t statement_end;
 	size_t copy_start;
 	size_t leading_end;
+	size_t use_name_start;
+	size_t use_name_end;
 	int rewritten;
+	int rewritten_use;
 
 	if (io_sql == NULL || *io_sql == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "SQL buffer must not be NULL");
@@ -2494,14 +3188,52 @@ static sqlparser_status_t sqlparser_sqlserver_rewrite_use_statements(
 	memset(&out, 0, sizeof(out));
 	while (segment_start < len) {
 		statement_end = sqlparser_sqlserver_statement_end(sql, segment_start, len);
-		statement_sql = sqlparser_strndup(sql + segment_start, statement_end - segment_start);
+		leading_end = segment_start;
+		for (;;) {
+			while (leading_end < statement_end &&
+			       isspace((unsigned char)sql[leading_end])) {
+				leading_end++;
+			}
+			if (leading_end >= statement_end ||
+			    !((sql[leading_end] == '-' &&
+			       leading_end + 1U < statement_end &&
+			       sql[leading_end + 1U] == '-') ||
+			      (sql[leading_end] == '/' &&
+			       leading_end + 1U < statement_end &&
+			       sql[leading_end + 1U] == '*'))) {
+				break;
+			}
+			{
+				size_t skipped;
+
+				skipped = sqlparser_sqlserver_skip_quoted_or_comment_span(
+					sql, leading_end);
+				if (skipped <= leading_end) {
+					break;
+				}
+				leading_end = skipped < statement_end ?
+					skipped :
+					statement_end;
+			}
+		}
+		statement_sql = sqlparser_strndup(
+			sql + leading_end, statement_end - leading_end);
 		if (statement_sql == NULL) {
 			sqlparser_sqlserver_buffer_release(&out);
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 			return SQLPARSER_STATUS_NO_MEMORY;
 		}
 		rewritten_sql = NULL;
-		status = sqlparser_sqlserver_preprocess_use_statement(statement_sql, &rewritten_sql, out_error);
+		use_name_start = 0U;
+		use_name_end = 0U;
+		status = sqlparser_sqlserver_preprocess_use_statement(
+			statement_sql,
+			&rewritten_sql,
+			&use_name_start,
+			&use_name_end,
+			out_error);
+		rewritten_use =
+			status == SQLPARSER_STATUS_OK && rewritten_sql != NULL;
 		if (status == SQLPARSER_STATUS_OK && rewritten_sql == NULL) {
 			status = sqlparser_sqlserver_preprocess_prepared_statement(statement_sql, &rewritten_sql, out_error);
 		}
@@ -2521,12 +3253,75 @@ static sqlparser_status_t sqlparser_sqlserver_rewrite_use_statements(
 					free(rewritten_sql);
 					return status;
 				}
+				status = sqlparser_sqlserver_buffer_begin_origin(
+					&out,
+					origins,
+					len,
+					out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					free(rewritten_sql);
+					sqlparser_sqlserver_buffer_release(&out);
+					return status;
+				}
 				rewritten = 1;
 			}
-			leading_end = sqlparser_sqlserver_trim_left(sql, segment_start, statement_end);
-			status = sqlparser_sqlserver_buffer_append_mem(&out, sql + copy_start, leading_end - copy_start, out_error);
+			status = sqlparser_sqlserver_buffer_append_input_mem(
+				&out,
+				sql,
+				copy_start,
+				leading_end - copy_start,
+				out_error);
 			if (status == SQLPARSER_STATUS_OK) {
-				status = sqlparser_sqlserver_buffer_append_cstr(&out, rewritten_sql, out_error);
+				size_t sentinel_start;
+				size_t sentinel_end;
+
+				sentinel_start = strlen("SET ");
+				sentinel_end = sentinel_start;
+				while (rewritten_sql[sentinel_end] != '\0' &&
+				       sqlparser_sqlserver_is_ident_char(
+					       (unsigned char)rewritten_sql[sentinel_end])) {
+					sentinel_end++;
+				}
+				status = sqlparser_sqlserver_buffer_append_mem(
+					&out,
+					rewritten_sql,
+					sentinel_start,
+					out_error);
+				if (status == SQLPARSER_STATUS_OK) {
+					status = sqlparser_sqlserver_buffer_append_generated_identifier(
+						&out,
+						rewritten_sql + sentinel_start,
+						sentinel_end - sentinel_start,
+						out_error);
+				}
+				if (status == SQLPARSER_STATUS_OK) {
+					if (rewritten_use) {
+						size_t value_start;
+						size_t rewritten_len;
+
+						value_start = sentinel_end + strlen(" = ");
+						rewritten_len = strlen(rewritten_sql);
+						status = sqlparser_sqlserver_buffer_append_mem(
+							&out,
+							rewritten_sql + sentinel_end,
+							value_start - sentinel_end,
+							out_error);
+						if (status == SQLPARSER_STATUS_OK) {
+							status = sqlparser_sqlserver_buffer_append_source_identifier(
+								&out,
+								rewritten_sql + value_start,
+								leading_end + use_name_start,
+								use_name_end - use_name_start,
+								rewritten_len - value_start,
+								out_error);
+						}
+					} else {
+						status = sqlparser_sqlserver_buffer_append_cstr(
+							&out,
+							rewritten_sql + sentinel_end,
+							out_error);
+					}
+				}
 			}
 			free(rewritten_sql);
 			if (status != SQLPARSER_STATUS_OK) {
@@ -2544,9 +3339,19 @@ static sqlparser_status_t sqlparser_sqlserver_rewrite_use_statements(
 	if (!rewritten) {
 		return SQLPARSER_STATUS_OK;
 	}
-	status = sqlparser_sqlserver_buffer_append_mem(&out, sql + copy_start, len - copy_start, out_error);
+	status = sqlparser_sqlserver_buffer_append_input_mem(
+		&out,
+		sql,
+		copy_start,
+		len - copy_start,
+		out_error);
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_sqlserver_buffer_finish(&out, out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_sqlserver_buffer_commit_origin(
+			&out,
+			out_error);
 	}
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_sqlserver_buffer_release(&out);
@@ -3230,6 +4035,8 @@ static sqlparser_status_t sqlparser_sqlserver_copy_parameter(
 
 	start = *index;
 	if (input[start] == '@' && input[start + 1U] == '@') {
+		sqlparser_sqlserver_buffer_t generated;
+
 		end = start + 2U;
 		if (!sqlparser_sqlserver_is_ident_start((unsigned char)input[end])) {
 			return sqlparser_sqlserver_buffer_append_char(out, input[(*index)++], out_error);
@@ -3237,17 +4044,34 @@ static sqlparser_status_t sqlparser_sqlserver_copy_parameter(
 		while (sqlparser_sqlserver_is_ident_char((unsigned char)input[end])) {
 			end++;
 		}
-		status = sqlparser_sqlserver_state_find_or_add_param(
-			state,
-			input + start,
-			end - start,
-			0,
-			&param_index,
+		memset(&generated, 0, sizeof(generated));
+		status = sqlparser_sqlserver_buffer_append_cstr(
+			&generated,
+			"\"" SQLPARSER_SQLSERVER_SYSTEM_VARIABLE_PREFIX,
 			out_error);
-		if (status != SQLPARSER_STATUS_OK) {
-			return status;
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_sqlserver_buffer_append_mem(
+				&generated,
+				input + start + 2U,
+				end - start - 2U,
+				out_error);
 		}
-		status = sqlparser_sqlserver_append_pg_param(out, param_index, out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_sqlserver_buffer_append_char(
+				&generated, '"', out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_sqlserver_buffer_append_generated_identifier(
+				out,
+				generated.data,
+				generated.len,
+				out_error);
+		}
+		sqlparser_sqlserver_buffer_release(&generated);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_sqlserver_buffer_append_cstr(
+				out, "()", out_error);
+		}
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
 		}
@@ -3517,6 +4341,9 @@ static sqlparser_status_t sqlparser_sqlserver_parse_top_clause(
 	char **out_public_limit,
 	char **out_public_suffix,
 	char **out_parser_limit,
+	int capture_origins,
+	sqlparser_identifier_origin_map_t **out_parser_origins,
+	size_t *out_source_offset,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_sqlserver_buffer_t limit;
@@ -3530,7 +4357,9 @@ static sqlparser_status_t sqlparser_sqlserver_parse_top_clause(
 	int with_ties;
 	sqlparser_status_t status;
 
-	if (state == NULL || out_public_limit == NULL || out_public_suffix == NULL || out_parser_limit == NULL) {
+	if (state == NULL || out_public_limit == NULL ||
+	    out_public_suffix == NULL || out_parser_limit == NULL ||
+	    out_parser_origins == NULL || out_source_offset == NULL) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -3540,6 +4369,8 @@ static sqlparser_status_t sqlparser_sqlserver_parse_top_clause(
 	*out_public_limit = NULL;
 	*out_public_suffix = NULL;
 	*out_parser_limit = NULL;
+	*out_parser_origins = NULL;
+	*out_source_offset = 0U;
 
 	pos = sqlparser_sqlserver_skip_space(input, *index);
 	if (!sqlparser_sqlserver_ascii_word_equal(input, pos, "top")) {
@@ -3669,8 +4500,26 @@ static sqlparser_status_t sqlparser_sqlserver_parse_top_clause(
 			return SQLPARSER_STATUS_NO_MEMORY;
 		}
 	}
-	status = sqlparser_sqlserver_preprocess_text(public_limit, state, out_parser_limit, out_error);
+	if (capture_origins) {
+		status = sqlparser_identifier_origin_map_new_identity(
+			strlen(public_limit),
+			out_parser_origins,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			free(public_limit);
+			free(public_suffix);
+			return status;
+		}
+	}
+	status = sqlparser_sqlserver_preprocess_text_origins(
+		public_limit,
+		state,
+		out_parser_limit,
+		*out_parser_origins,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_identifier_origin_map_destroy(*out_parser_origins);
+		*out_parser_origins = NULL;
 		free(public_limit);
 		free(public_suffix);
 		return status;
@@ -3678,6 +4527,7 @@ static sqlparser_status_t sqlparser_sqlserver_parse_top_clause(
 
 	*out_public_limit = public_limit;
 	*out_public_suffix = public_suffix;
+	*out_source_offset = expr_start;
 	*index = pos;
 	return SQLPARSER_STATUS_OK;
 }
@@ -3721,21 +4571,31 @@ static sqlparser_status_t sqlparser_sqlserver_store_top_clause(
 
 static sqlparser_status_t sqlparser_sqlserver_append_pending_top_limit(
 	sqlparser_sqlserver_buffer_t *out,
-	char **pending_top_limit,
+	sqlparser_sqlserver_pending_top_t *pending_top,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_status_t status;
 
-	if (pending_top_limit == NULL || *pending_top_limit == NULL) {
+	if (pending_top == NULL || pending_top->limit == NULL) {
 		return SQLPARSER_STATUS_OK;
 	}
 
 	status = sqlparser_sqlserver_buffer_append_cstr(out, " LIMIT ", out_error);
-	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_sqlserver_buffer_append_cstr(out, *pending_top_limit, out_error);
+	if (status == SQLPARSER_STATUS_OK && pending_top->origins != NULL) {
+		status = sqlparser_sqlserver_append_mapped_identifiers(
+			out,
+			pending_top->limit,
+			pending_top->origins,
+			pending_top->source_offset,
+			out_error);
+	} else if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_sqlserver_buffer_append_cstr(
+			out, pending_top->limit, out_error);
 	}
-	free(*pending_top_limit);
-	*pending_top_limit = NULL;
+	free(pending_top->limit);
+	pending_top->limit = NULL;
+	sqlparser_identifier_origin_map_destroy(pending_top->origins);
+	pending_top->origins = NULL;
 	return status;
 }
 
@@ -3748,6 +4608,8 @@ static void sqlparser_sqlserver_pending_top_list_release(sqlparser_sqlserver_pen
 	}
 	for (index = 0U; index < pending->count; index++) {
 		free(pending->items[index].limit);
+		sqlparser_identifier_origin_map_destroy(
+			pending->items[index].origins);
 	}
 	free(pending->items);
 	pending->items = NULL;
@@ -3775,6 +4637,8 @@ static int sqlparser_sqlserver_pending_top_list_has_depth(
 static sqlparser_status_t sqlparser_sqlserver_pending_top_list_add(
 	sqlparser_sqlserver_pending_top_list_t *pending,
 	char **limit,
+	sqlparser_identifier_origin_map_t **origins,
+	size_t source_offset,
 	size_t depth,
 	sqlparser_error_t *out_error)
 {
@@ -3812,9 +4676,15 @@ static sqlparser_status_t sqlparser_sqlserver_pending_top_list_add(
 		pending->capacity = next_capacity;
 	}
 	pending->items[pending->count].limit = *limit;
+	pending->items[pending->count].origins =
+		origins != NULL ? *origins : NULL;
+	pending->items[pending->count].source_offset = source_offset;
 	pending->items[pending->count].depth = depth;
 	pending->count++;
 	*limit = NULL;
+	if (origins != NULL) {
+		*origins = NULL;
+	}
 	return SQLPARSER_STATUS_OK;
 }
 
@@ -3826,6 +4696,7 @@ static void sqlparser_sqlserver_pending_top_list_remove_at(
 		return;
 	}
 	free(pending->items[index].limit);
+	sqlparser_identifier_origin_map_destroy(pending->items[index].origins);
 	if (index + 1U < pending->count) {
 		memmove(
 			pending->items + index,
@@ -3855,7 +4726,7 @@ static sqlparser_status_t sqlparser_sqlserver_append_pending_top_limits_at_depth
 		}
 		status = sqlparser_sqlserver_append_pending_top_limit(
 			out,
-			&pending->items[index].limit,
+			&pending->items[index],
 			out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
@@ -3877,7 +4748,7 @@ static sqlparser_status_t sqlparser_sqlserver_append_all_pending_top_limits(
 		index = pending->count - 1U;
 		status = sqlparser_sqlserver_append_pending_top_limit(
 			out,
-			&pending->items[index].limit,
+			&pending->items[index],
 			out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
@@ -3893,27 +4764,42 @@ static sqlparser_status_t sqlparser_sqlserver_append_hash_identifier(
 	sqlparser_sqlserver_buffer_t *out,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_sqlserver_buffer_t quoted;
+	size_t source_start;
 	size_t pos;
 	sqlparser_status_t status;
 
+	memset(&quoted, 0, sizeof(quoted));
+	source_start = *index;
 	pos = *index;
-	status = sqlparser_sqlserver_buffer_append_char(out, '"', out_error);
+	status = sqlparser_sqlserver_buffer_append_char(&quoted, '"', out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
 	while (sqlparser_sqlserver_is_ident_char((unsigned char)input[pos])) {
-		status = sqlparser_sqlserver_buffer_append_char(out, input[pos], out_error);
+		status = sqlparser_sqlserver_buffer_append_char(
+			&quoted, input[pos], out_error);
 		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_sqlserver_buffer_release(&quoted);
 			return status;
 		}
 		pos++;
 	}
-	status = sqlparser_sqlserver_buffer_append_char(out, '"', out_error);
+	status = sqlparser_sqlserver_buffer_append_char(&quoted, '"', out_error);
 	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_sqlserver_buffer_release(&quoted);
 		return status;
 	}
 	*index = pos;
-	return SQLPARSER_STATUS_OK;
+	status = sqlparser_sqlserver_buffer_append_source_identifier(
+		out,
+		quoted.data,
+		source_start,
+		pos - source_start,
+		quoted.len,
+		out_error);
+	sqlparser_sqlserver_buffer_release(&quoted);
+	return status;
 }
 
 static sqlparser_status_t sqlparser_sqlserver_skip_identity_clause(
@@ -4288,6 +5174,7 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_slice(
 	size_t end,
 	sqlparser_sqlserver_state_t *state,
 	char **out_sql,
+	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error)
 {
 	char *slice;
@@ -4310,9 +5197,106 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_slice(
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
 
-	status = sqlparser_sqlserver_preprocess_text(slice, state, out_sql, out_error);
+	status = sqlparser_sqlserver_preprocess_text_origins(
+		slice,
+		state,
+		out_sql,
+		origins,
+		out_error);
 	free(slice);
 	return status;
+}
+
+static sqlparser_status_t sqlparser_sqlserver_append_mapped_identifiers(
+	sqlparser_sqlserver_buffer_t *out,
+	const char *sql,
+	const sqlparser_identifier_origin_map_t *origins,
+	size_t source_offset,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_sqlserver_scanner_t scanner;
+	sqlparser_sqlserver_token_t token;
+	sqlparser_identifier_origin_t origin;
+	sqlparser_identifier_origin_kind_t kind;
+	sqlparser_status_t status;
+	size_t cursor;
+	size_t sql_length;
+
+	sql_length = strlen(sql);
+	status = sqlparser_sqlserver_scanner_init(
+		&scanner,
+		sql,
+		0U,
+		sql_length,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	cursor = 0U;
+	for (;;) {
+		status = sqlparser_sqlserver_scanner_next(
+			&scanner,
+			&token,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		if (token.start > cursor) {
+			status = sqlparser_sqlserver_buffer_append_mem(
+				out,
+				sql + cursor,
+				token.start - cursor,
+				out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+		}
+		if (token.kind == SQLPARSER_SQLSERVER_TOKEN_EOF) {
+			break;
+		}
+		kind = SQLPARSER_IDENTIFIER_ORIGIN_UNKNOWN;
+		if (token.kind == SQLPARSER_SQLSERVER_TOKEN_WORD ||
+		    token.kind == SQLPARSER_SQLSERVER_TOKEN_QUOTED_IDENTIFIER) {
+			kind = sqlparser_identifier_origin_map_lookup(
+				origins,
+				token.start,
+				token.end - token.start,
+				&origin);
+		}
+		if (kind == SQLPARSER_IDENTIFIER_ORIGIN_SOURCE) {
+			if (origin.source_offset > SIZE_MAX - source_offset) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_RESOURCE_LIMIT,
+					"SQL Server identifier origin offset is too large");
+				return SQLPARSER_STATUS_RESOURCE_LIMIT;
+			}
+			status = sqlparser_sqlserver_buffer_append_source_identifier(
+				out,
+				sql + token.start,
+				source_offset + origin.source_offset,
+				origin.source_length,
+				token.end - token.start,
+				out_error);
+		} else if (kind == SQLPARSER_IDENTIFIER_ORIGIN_GENERATED) {
+			status = sqlparser_sqlserver_buffer_append_generated_identifier(
+				out,
+				sql + token.start,
+				token.end - token.start,
+				out_error);
+		} else {
+			status = sqlparser_sqlserver_buffer_append_mem(
+				out,
+				sql + token.start,
+				token.end - token.start,
+				out_error);
+		}
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		cursor = token.end;
+	}
+	return SQLPARSER_STATUS_OK;
 }
 
 static sqlparser_status_t sqlparser_sqlserver_append_preprocessed_slice(
@@ -4324,14 +5308,46 @@ static sqlparser_status_t sqlparser_sqlserver_append_preprocessed_slice(
 	sqlparser_error_t *out_error)
 {
 	char *processed;
+	sqlparser_identifier_origin_map_t *origins;
 	sqlparser_status_t status;
 
 	processed = NULL;
-	status = sqlparser_sqlserver_preprocess_slice(input, start, end, state, &processed, out_error);
+	origins = NULL;
+	start = sqlparser_sqlserver_trim_left(input, start, end);
+	end = sqlparser_sqlserver_trim_right(input, start, end);
+	if (out->origin_writer.map != NULL) {
+		status = sqlparser_identifier_origin_map_new_identity(
+			end - start,
+			&origins,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+	status = sqlparser_sqlserver_preprocess_slice(
+		input,
+		start,
+		end,
+		state,
+		&processed,
+		origins,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_identifier_origin_map_destroy(origins);
 		return status;
 	}
-	status = sqlparser_sqlserver_buffer_append_cstr(out, processed, out_error);
+	if (origins != NULL) {
+		status = sqlparser_sqlserver_append_mapped_identifiers(
+			out,
+			processed,
+			origins,
+			start,
+			out_error);
+	} else {
+		status = sqlparser_sqlserver_buffer_append_cstr(
+			out, processed, out_error);
+	}
+	sqlparser_identifier_origin_map_destroy(origins);
 	free(processed);
 	return status;
 }
@@ -4664,10 +5680,11 @@ static sqlparser_status_t sqlparser_sqlserver_copy_rename_object(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_sqlserver_preprocess_text(
+static sqlparser_status_t sqlparser_sqlserver_preprocess_text_origins(
 	const char *input_sql,
 	sqlparser_sqlserver_state_t *state,
 	char **out_sql,
+	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_sqlserver_buffer_t out;
@@ -4681,6 +5698,15 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_text(
 	memset(&pending_tops, 0, sizeof(pending_tops));
 	status = sqlparser_sqlserver_buffer_reserve_input(&out, input_sql, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_sqlserver_buffer_begin_origin(
+		&out,
+		origins,
+		strlen(input_sql),
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_sqlserver_buffer_release(&out);
 		return status;
 	}
 	index = 0U;
@@ -4931,10 +5957,17 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_text(
 			char *top_public_limit;
 			char *top_public_suffix;
 			char *top_parser_limit;
+			sqlparser_identifier_origin_map_t *top_parser_origins;
 			size_t after_select;
 			size_t top_pos;
+			size_t top_source_offset;
 
-			status = sqlparser_sqlserver_buffer_append_mem(&out, input_sql + index, 6U, out_error);
+			status = sqlparser_sqlserver_buffer_append_input_mem(
+				&out,
+				input_sql,
+				index,
+				6U,
+				out_error);
 			if (status != SQLPARSER_STATUS_OK) {
 				sqlparser_sqlserver_buffer_release(&out);
 				sqlparser_sqlserver_pending_top_list_release(&pending_tops);
@@ -4943,7 +5976,12 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_text(
 			index += 6U;
 			after_select = index;
 			while (isspace((unsigned char)input_sql[index])) {
-				status = sqlparser_sqlserver_buffer_append_char(&out, input_sql[index], out_error);
+				status = sqlparser_sqlserver_buffer_append_input_mem(
+					&out,
+					input_sql,
+					index,
+					1U,
+					out_error);
 				if (status != SQLPARSER_STATUS_OK) {
 					sqlparser_sqlserver_buffer_release(&out);
 					sqlparser_sqlserver_pending_top_list_release(&pending_tops);
@@ -4957,7 +5995,12 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_text(
 				size_t word_len;
 
 				word_len = sqlparser_sqlserver_ascii_word_equal(input_sql, index, "distinct") ? 8U : 3U;
-				status = sqlparser_sqlserver_buffer_append_mem(&out, input_sql + index, word_len, out_error);
+				status = sqlparser_sqlserver_buffer_append_input_mem(
+					&out,
+					input_sql,
+					index,
+					word_len,
+					out_error);
 				if (status != SQLPARSER_STATUS_OK) {
 					sqlparser_sqlserver_buffer_release(&out);
 					sqlparser_sqlserver_pending_top_list_release(&pending_tops);
@@ -4965,7 +6008,12 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_text(
 				}
 				index += word_len;
 				while (isspace((unsigned char)input_sql[index])) {
-					status = sqlparser_sqlserver_buffer_append_char(&out, input_sql[index], out_error);
+					status = sqlparser_sqlserver_buffer_append_input_mem(
+						&out,
+						input_sql,
+						index,
+						1U,
+						out_error);
 					if (status != SQLPARSER_STATUS_OK) {
 						sqlparser_sqlserver_buffer_release(&out);
 						sqlparser_sqlserver_pending_top_list_release(&pending_tops);
@@ -4979,6 +6027,8 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_text(
 			top_public_limit = NULL;
 			top_public_suffix = NULL;
 			top_parser_limit = NULL;
+			top_parser_origins = NULL;
+			top_source_offset = 0U;
 			status = sqlparser_sqlserver_parse_top_clause(
 				input_sql,
 				&top_pos,
@@ -4986,6 +6036,9 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_text(
 				&top_public_limit,
 				&top_public_suffix,
 				&top_parser_limit,
+				out.origin_writer.map != NULL,
+				&top_parser_origins,
+				&top_source_offset,
 				out_error);
 			if (status != SQLPARSER_STATUS_OK) {
 				sqlparser_sqlserver_buffer_release(&out);
@@ -4993,6 +6046,8 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_text(
 				free(top_public_limit);
 				free(top_public_suffix);
 				free(top_parser_limit);
+				sqlparser_identifier_origin_map_destroy(
+					top_parser_origins);
 				return status;
 			}
 			if (top_public_limit != NULL) {
@@ -5003,6 +6058,8 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_text(
 					free(top_public_limit);
 					free(top_public_suffix);
 					free(top_parser_limit);
+					sqlparser_identifier_origin_map_destroy(
+						top_parser_origins);
 					return status;
 				}
 				free(top_public_limit);
@@ -5010,12 +6067,16 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_text(
 				status = sqlparser_sqlserver_pending_top_list_add(
 					&pending_tops,
 					&top_parser_limit,
+					&top_parser_origins,
+					top_source_offset,
 					paren_depth,
 					out_error);
 				if (status != SQLPARSER_STATUS_OK) {
 					sqlparser_sqlserver_buffer_release(&out);
 					sqlparser_sqlserver_pending_top_list_release(&pending_tops);
 					free(top_parser_limit);
+					sqlparser_identifier_origin_map_destroy(
+						top_parser_origins);
 					return status;
 				}
 				index = sqlparser_sqlserver_skip_space(input_sql, top_pos);
@@ -5098,7 +6159,12 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_text(
 			}
 		}
 
-		status = sqlparser_sqlserver_buffer_append_char(&out, input_sql[index], out_error);
+		status = sqlparser_sqlserver_buffer_append_input_mem(
+			&out,
+			input_sql,
+			index,
+			1U,
+			out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			sqlparser_sqlserver_buffer_release(&out);
 			sqlparser_sqlserver_pending_top_list_release(&pending_tops);
@@ -5119,6 +6185,11 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_text(
 	sqlparser_sqlserver_pending_top_list_release(&pending_tops);
 
 	status = sqlparser_sqlserver_buffer_finish(&out, out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_sqlserver_buffer_commit_origin(
+			&out,
+			out_error);
+	}
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_sqlserver_buffer_release(&out);
 		return status;
@@ -5131,6 +6202,20 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_text(
 	}
 
 	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_sqlserver_preprocess_text(
+	const char *input_sql,
+	sqlparser_sqlserver_state_t *state,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_sqlserver_preprocess_text_origins(
+		input_sql,
+		state,
+		out_sql,
+		NULL,
+		out_error);
 }
 
 static sqlparser_status_t sqlparser_sqlserver_param_to_public(
@@ -5233,6 +6318,42 @@ static sqlparser_status_t sqlparser_sqlserver_append_public_temp_identifier(
 	return sqlparser_sqlserver_buffer_append_char(out, sql[(*index)++], out_error);
 }
 
+static sqlparser_status_t sqlparser_sqlserver_append_public_system_variable(
+	const char *sql,
+	size_t *index,
+	sqlparser_sqlserver_buffer_t *out,
+	sqlparser_error_t *out_error)
+{
+	size_t name_start;
+	size_t pos;
+	sqlparser_status_t status;
+
+	name_start = *index + 1U + strlen(SQLPARSER_SQLSERVER_SYSTEM_VARIABLE_PREFIX);
+	pos = name_start;
+	while (sqlparser_sqlserver_is_ident_char((unsigned char)sql[pos])) {
+		pos++;
+	}
+	if (pos == name_start ||
+	    sql[pos] != '"' ||
+	    sql[pos + 1U] != '(' ||
+	    sql[pos + 2U] != ')') {
+		return sqlparser_sqlserver_buffer_append_char(out, sql[(*index)++], out_error);
+	}
+
+	status = sqlparser_sqlserver_buffer_append_cstr(out, "@@", out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_sqlserver_buffer_append_mem(
+			out,
+			sql + name_start,
+			pos - name_start,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		*index = pos + 3U;
+	}
+	return status;
+}
+
 static int sqlparser_sqlserver_literal_matches(
 	const char *sql,
 	size_t start,
@@ -5305,6 +6426,13 @@ static sqlparser_status_t sqlparser_sqlserver_postprocess_core(
 				index = literal_end;
 			}
 			literal_ordinal++;
+		} else if (core_sql[index] == '"' &&
+		           strncmp(
+			           core_sql + index + 1U,
+			           SQLPARSER_SQLSERVER_SYSTEM_VARIABLE_PREFIX,
+			           strlen(SQLPARSER_SQLSERVER_SYSTEM_VARIABLE_PREFIX)) == 0) {
+			status = sqlparser_sqlserver_append_public_system_variable(
+				core_sql, &index, &out, out_error);
 		} else if (core_sql[index] == '"' && core_sql[index + 1U] == '#') {
 			status = sqlparser_sqlserver_append_public_temp_identifier(core_sql, &index, &out, out_error);
 		} else if (core_sql[index] == '$') {
@@ -5647,6 +6775,9 @@ static sqlparser_status_t sqlparser_sqlserver_rewrite_internal_raw_statement(
 		SQLPARSER_INTERNAL_SQLSERVER_DROP_INDEX,
 		SQLPARSER_INTERNAL_SQLSERVER_UPDATE_STATISTICS,
 		SQLPARSER_INTERNAL_SQLSERVER_SET_STATEMENT,
+		SQLPARSER_INTERNAL_SQLSERVER_EXECUTE_STATEMENT,
+		SQLPARSER_INTERNAL_SQLSERVER_REVERT_STATEMENT,
+		SQLPARSER_INTERNAL_SQLSERVER_SETUSER_STATEMENT,
 		SQLPARSER_INTERNAL_SQLSERVER_CREATE_USER,
 		SQLPARSER_INTERNAL_SQLSERVER_ALTER_USER,
 		SQLPARSER_INTERNAL_SQLSERVER_CREATE_ROLE,
@@ -7147,17 +8278,26 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_rewritten_owned(
 	unsigned int candidates,
 	sqlparser_sqlserver_state_t *state,
 	char **out_parser_sql,
+	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_status_t status;
 
 	*out_parser_sql = NULL;
-	status = sqlparser_sqlserver_output_preprocess(
-		&preprocess_sql,
-		limits,
-		candidates,
-		&state->output_state,
-		out_error);
+	status = origins != NULL ?
+		sqlparser_sqlserver_output_preprocess_identifier_origins(
+			&preprocess_sql,
+			limits,
+			candidates,
+			&state->output_state,
+			origins,
+			out_error) :
+		sqlparser_sqlserver_output_preprocess(
+			&preprocess_sql,
+			limits,
+			candidates,
+			&state->output_state,
+			out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		free(preprocess_sql);
 		return status;
@@ -7169,7 +8309,12 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_rewritten_owned(
 		return status;
 	}
 
-	status = sqlparser_sqlserver_preprocess_text(preprocess_sql, state, out_parser_sql, out_error);
+	status = sqlparser_sqlserver_preprocess_text_origins(
+		preprocess_sql,
+		state,
+		out_parser_sql,
+		origins,
+		out_error);
 	free(preprocess_sql);
 	return status;
 }
@@ -7179,13 +8324,15 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_statement_owned(
 	const sqlparser_limits_t *limits,
 	sqlparser_sqlserver_state_t *state,
 	char **out_parser_sql,
+	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error)
 {
 	unsigned int candidates;
 	sqlparser_status_t status;
 
 	*out_parser_sql = NULL;
-	status = sqlparser_sqlserver_rewrite_use_statements(&preprocess_sql, out_error);
+	status = sqlparser_sqlserver_rewrite_use_statements(
+		&preprocess_sql, origins, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		free(preprocess_sql);
 		return status;
@@ -7197,6 +8344,7 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_statement_owned(
 		candidates,
 		state,
 		out_parser_sql,
+		origins,
 		out_error);
 }
 
@@ -7205,6 +8353,7 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_control(
 	const sqlparser_limits_t *limits,
 	sqlparser_sqlserver_state_t *state,
 	char **out_parser_sql,
+	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_sqlserver_buffer_t out;
@@ -7212,31 +8361,59 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_control(
 	sqlparser_status_t status;
 
 	memset(&out, 0, sizeof(out));
-	status = SQLPARSER_STATUS_OK;
+	status = sqlparser_sqlserver_buffer_begin_origin(
+		&out,
+		origins,
+		strlen(input_sql),
+		out_error);
 	for (index = 0U; index < state->control->flow->unit_count; index++) {
 		const sqlparser_control_unit_t *unit;
 		sqlparser_sqlserver_state_t *unit_state;
+		sqlparser_identifier_origin_map_t *unit_origins;
 		char *source_sql;
 		char *parser_sql;
 
+		if (status != SQLPARSER_STATUS_OK) {
+			break;
+		}
 		unit = &state->control->flow->units[index];
 		unit_state = state->control->unit_states[index];
+		unit_origins = NULL;
+		if (origins != NULL) {
+			status = sqlparser_identifier_origin_map_new_identity(
+				unit->source_length,
+				&unit_origins,
+				out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				break;
+			}
+		}
 		source_sql = sqlparser_strndup(
 			input_sql + unit->source_offset,
 			unit->source_length);
 		if (source_sql == NULL) {
+			sqlparser_identifier_origin_map_destroy(unit_origins);
 			status = SQLPARSER_STATUS_NO_MEMORY;
 			sqlparser_error_set_message(out_error, status, "out of memory");
 			break;
 		}
 		parser_sql = NULL;
 		if (unit->kind == SQLPARSER_CONTROL_UNIT_CONDITION) {
-			status = sqlparser_sqlserver_preprocess_text(
-				source_sql, unit_state, &parser_sql, out_error);
+			status = sqlparser_sqlserver_preprocess_text_origins(
+				source_sql,
+				unit_state,
+				&parser_sql,
+				unit_origins,
+				out_error);
 			free(source_sql);
 		} else {
 			status = sqlparser_sqlserver_preprocess_statement_owned(
-				source_sql, limits, unit_state, &parser_sql, out_error);
+				source_sql,
+				limits,
+				unit_state,
+				&parser_sql,
+				unit_origins,
+				out_error);
 		}
 		if (status == SQLPARSER_STATUS_OK && parser_sql == NULL) {
 			status = SQLPARSER_STATUS_INTERNAL_ERROR;
@@ -7251,18 +8428,32 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_control(
 				&out, "SELECT 1 WHERE ", out_error);
 		}
 		if (status == SQLPARSER_STATUS_OK) {
-			status = sqlparser_sqlserver_buffer_append_cstr(&out, parser_sql, out_error);
+			status = unit_origins != NULL ?
+				sqlparser_sqlserver_append_mapped_identifiers(
+					&out,
+					parser_sql,
+					unit_origins,
+					unit->source_offset,
+					out_error) :
+				sqlparser_sqlserver_buffer_append_cstr(
+					&out, parser_sql, out_error);
 		}
 		if (status == SQLPARSER_STATUS_OK) {
 			status = sqlparser_sqlserver_buffer_append_cstr(&out, ";\n", out_error);
 		}
 		free(parser_sql);
+		sqlparser_identifier_origin_map_destroy(unit_origins);
 		if (status != SQLPARSER_STATUS_OK) {
 			break;
 		}
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_sqlserver_buffer_finish(&out, out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_sqlserver_buffer_commit_origin(
+			&out,
+			out_error);
 	}
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_sqlserver_buffer_release(&out);
@@ -7313,7 +8504,8 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
-	status = sqlparser_sqlserver_rewrite_use_statements(&preprocess_sql, out_error);
+	status = sqlparser_sqlserver_rewrite_use_statements(
+		&preprocess_sql, NULL, out_error);
 	candidates = status == SQLPARSER_STATUS_OK ?
 		sqlparser_sqlserver_candidate_mask(preprocess_sql) : 0U;
 	flow = NULL;
@@ -7328,7 +8520,12 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess(
 		if (status == SQLPARSER_STATUS_OK) {
 			flow = NULL;
 			status = sqlparser_sqlserver_preprocess_control(
-				input_sql, limits, state, out_parser_sql, out_error);
+				input_sql,
+				limits,
+				state,
+				out_parser_sql,
+				NULL,
+				out_error);
 		}
 	}
 	if (status == SQLPARSER_STATUS_OK && state->control == NULL) {
@@ -7338,6 +8535,7 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess(
 			candidates,
 			state,
 			out_parser_sql,
+			NULL,
 			out_error);
 		preprocess_sql = NULL;
 	}
@@ -7348,6 +8546,101 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess(
 		return status;
 	}
 
+	*out_state = state;
+	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_sqlserver_preprocess_identifier_origins(
+	const char *input_sql,
+	const sqlparser_limits_t *limits,
+	char **out_parser_sql,
+	void **out_state,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_sqlserver_state_t *state;
+	sqlparser_control_state_t *flow;
+	char *candidate_sql;
+	char *preprocess_sql;
+	unsigned int candidates;
+	sqlparser_status_t status;
+
+	if (out_parser_sql != NULL) {
+		*out_parser_sql = NULL;
+	}
+	if (out_state != NULL) {
+		*out_state = NULL;
+	}
+	if (input_sql == NULL || limits == NULL || out_parser_sql == NULL ||
+	    out_state == NULL || origins == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"SQL Server identifier origin arguments must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	state = NULL;
+	flow = NULL;
+	candidate_sql = sqlparser_strdup(input_sql);
+	if (candidate_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	status = sqlparser_sqlserver_rewrite_use_statements(
+		&candidate_sql, NULL, out_error);
+	candidates = status == SQLPARSER_STATUS_OK ?
+		sqlparser_sqlserver_candidate_mask(candidate_sql) : 0U;
+	if (status == SQLPARSER_STATUS_OK &&
+	    (candidates & SQLPARSER_SQLSERVER_CANDIDATE_CONTROL) != 0U) {
+		status = sqlparser_sqlserver_control_parse(
+			input_sql, limits, &flow, out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_sqlserver_state_new(&state, out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK && flow != NULL) {
+		status = sqlparser_sqlserver_control_bundle_new(
+			state, flow, out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			flow = NULL;
+			status = sqlparser_sqlserver_preprocess_control(
+				input_sql,
+				limits,
+				state,
+				out_parser_sql,
+				origins,
+				out_error);
+		}
+	} else if (status == SQLPARSER_STATUS_OK) {
+		preprocess_sql = sqlparser_strdup(input_sql);
+		if (preprocess_sql == NULL) {
+			status = SQLPARSER_STATUS_NO_MEMORY;
+			sqlparser_error_set_message(
+				out_error,
+				status,
+				"out of memory");
+		} else {
+			status = sqlparser_sqlserver_preprocess_statement_owned(
+				preprocess_sql,
+				limits,
+				state,
+				out_parser_sql,
+				origins,
+				out_error);
+		}
+	}
+	free(candidate_sql);
+	sqlparser_control_state_release(flow);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(*out_parser_sql);
+		*out_parser_sql = NULL;
+		sqlparser_sqlserver_state_destroy(state);
+		return status;
+	}
 	*out_state = state;
 	return SQLPARSER_STATUS_OK;
 }
@@ -7817,6 +9110,915 @@ static sqlparser_status_t sqlparser_sqlserver_postprocess_literal_fragment(
 	return SQLPARSER_STATUS_OK;
 }
 
+static const PgQuery__VariableSetStmt *sqlparser_sqlserver_session_set_statement(
+	const PgQuery__Node *statement)
+{
+	if (statement == NULL ||
+	    statement->node_case != PG_QUERY__NODE__NODE_VARIABLE_SET_STMT ||
+	    statement->variable_set_stmt == NULL ||
+	    statement->variable_set_stmt->name == NULL) {
+		return NULL;
+	}
+	return statement->variable_set_stmt;
+}
+
+static const char *sqlparser_sqlserver_session_raw_argument(
+	const PgQuery__VariableSetStmt *set_stmt,
+	const char *internal_name)
+{
+	const PgQuery__Node *arg;
+
+	if (set_stmt == NULL || internal_name == NULL ||
+	    strcmp(set_stmt->name, internal_name) != 0 ||
+	    set_stmt->n_args != 1U || set_stmt->args == NULL) {
+		return NULL;
+	}
+	arg = set_stmt->args[0];
+	if (arg == NULL ||
+	    arg->node_case != PG_QUERY__NODE__NODE_A_CONST ||
+	    arg->a_const == NULL ||
+	    arg->a_const->val_case != PG_QUERY__A__CONST__VAL_SVAL ||
+	    arg->a_const->sval == NULL) {
+		return NULL;
+	}
+	return arg->a_const->sval->sval;
+}
+
+static int sqlparser_sqlserver_session_parse_integer(
+	const char *sql,
+	size_t start,
+	size_t end,
+	long long *out_value)
+{
+	unsigned long long value;
+	unsigned long long limit;
+	unsigned int digit;
+	int negative;
+
+	if (sql == NULL || out_value == NULL || start >= end) {
+		return 0;
+	}
+	negative = 0;
+	if (sql[start] == '+' || sql[start] == '-') {
+		negative = sql[start] == '-';
+		start++;
+		if (start == end) {
+			return 0;
+		}
+	}
+	value = 0U;
+	limit = negative ? (unsigned long long)LLONG_MAX + 1U : (unsigned long long)LLONG_MAX;
+	while (start < end) {
+		if (!isdigit((unsigned char)sql[start])) {
+			return 0;
+		}
+		digit = (unsigned int)(sql[start] - '0');
+		if (value > (limit - digit) / 10U) {
+			return 0;
+		}
+		value = value * 10U + digit;
+		start++;
+	}
+	*out_value = negative ?
+		(value == (unsigned long long)LLONG_MAX + 1U ? LLONG_MIN : -(long long)value) :
+		(long long)value;
+	return 1;
+}
+
+static char *sqlparser_sqlserver_session_decode_string(
+	const char *sql,
+	size_t start,
+	size_t end,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_sqlserver_buffer_t out;
+	size_t pos;
+	sqlparser_status_t status;
+
+	if (sql == NULL || start >= end) {
+		return NULL;
+	}
+	if ((sql[start] == 'N' || sql[start] == 'n') &&
+	    start + 1U < end && sql[start + 1U] == '\'') {
+		start++;
+	}
+	if (end - start < 2U || sql[start] != '\'' || sql[end - 1U] != '\'') {
+		return NULL;
+	}
+	memset(&out, 0, sizeof(out));
+	for (pos = start + 1U; pos < end - 1U; pos++) {
+		if (sql[pos] == '\'' && pos + 1U < end - 1U && sql[pos + 1U] == '\'') {
+			pos++;
+		}
+		status = sqlparser_sqlserver_buffer_append_char(&out, sql[pos], out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_sqlserver_buffer_release(&out);
+			return NULL;
+		}
+	}
+	status = sqlparser_sqlserver_buffer_finish(&out, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_sqlserver_buffer_release(&out);
+		return NULL;
+	}
+	return sqlparser_sqlserver_buffer_take(&out);
+}
+
+static int sqlparser_sqlserver_session_span_is_keyword(
+	const char *sql,
+	size_t start,
+	size_t end)
+{
+	static const char *const keywords[] = {
+		"default", "high", "low", "noreset", "null", "off", "on"
+	};
+	size_t index;
+	int has_space;
+
+	for (index = 0U; index < sizeof(keywords) / sizeof(keywords[0]); index++) {
+		if (sqlparser_sqlserver_ascii_span_equal(
+			    sql, start, end, keywords[index])) {
+			return 1;
+		}
+	}
+	has_space = 0;
+	for (index = start; index < end; index++) {
+		if (isspace((unsigned char)sql[index])) {
+			has_space = 1;
+		} else if (!isalpha((unsigned char)sql[index]) &&
+			   sql[index] != '_') {
+			return 0;
+		}
+	}
+	return has_space;
+}
+
+static sqlparser_status_t sqlparser_sqlserver_session_emit_span_value(
+	const char *sql,
+	size_t start,
+	size_t end,
+	size_t item_index,
+	const char *name,
+	size_t name_length,
+	const sqlparser_dialect_session_emitter_t *emitter,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dialect_session_value_t value;
+	char *decoded;
+	long long integer_value;
+	size_t index;
+	int is_binary_literal;
+
+	start = sqlparser_sqlserver_skip_space_bounded(sql, start, end);
+	end = sqlparser_sqlserver_trim_right(sql, start, end);
+	if (start >= end) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "SQL Server session value is empty");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	memset(&value, 0, sizeof(value));
+	value.name = name;
+	value.name_length = name != NULL ? name_length : 0U;
+	decoded = sqlparser_sqlserver_session_decode_string(sql, start, end, out_error);
+	if (decoded != NULL) {
+		value.kind = SQLPARSER_GRAPH_SESSION_VALUE_LITERAL;
+		value.literal.kind = SQLPARSER_LITERAL_KIND_STRING;
+		value.literal.string_value = decoded;
+		if (emitter->add_value(
+			    emitter->context,
+			    item_index,
+			    &value,
+			    out_error) != SQLPARSER_STATUS_OK) {
+			free(decoded);
+			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		free(decoded);
+		return SQLPARSER_STATUS_OK;
+	}
+	if (out_error != NULL &&
+	    (out_error->code == SQLPARSER_STATUS_NO_MEMORY ||
+	     out_error->code == SQLPARSER_STATUS_RESOURCE_LIMIT)) {
+		return out_error->code;
+	}
+	sqlparser_error_clear(out_error);
+	if (sqlparser_sqlserver_session_parse_integer(
+		    sql, start, end, &integer_value)) {
+		value.kind = SQLPARSER_GRAPH_SESSION_VALUE_LITERAL;
+		value.literal.kind = SQLPARSER_LITERAL_KIND_INTEGER;
+		value.literal.integer_value = integer_value;
+	} else if ((end - start > 1U &&
+	            sql[start] == '@' &&
+	            sql[start + 1U] != '@') ||
+	           (end - start == 1U && sql[start] == '?')) {
+		size_t key_start;
+
+		key_start = sql[start] == '@' ? start + 1U : start;
+		value.kind = SQLPARSER_GRAPH_SESSION_VALUE_BIND;
+		value.bind_kind = sql[start] == '?' ?
+			SQLPARSER_BIND_KIND_POSITIONAL : SQLPARSER_BIND_KIND_NAMED;
+		value.bind_key = sql + key_start;
+		value.bind_key_length = end - key_start;
+		value.bind_sql = sql + start;
+		value.bind_sql_length = end - start;
+		value.source_sql = sql;
+		value.source_offset = start;
+	} else {
+		is_binary_literal =
+			end - start > 2U && sql[start] == '0' &&
+			(sql[start + 1U] == 'x' || sql[start + 1U] == 'X');
+		for (index = start + 2U; is_binary_literal && index < end; index++) {
+			is_binary_literal = isxdigit((unsigned char)sql[index]) != 0;
+		}
+		value.kind = (end - start > 2U &&
+			      sql[start] == '@' &&
+			      sql[start + 1U] == '@') ||
+			     is_binary_literal ?
+			SQLPARSER_GRAPH_SESSION_VALUE_EXPRESSION :
+			(sqlparser_sqlserver_session_span_is_keyword(sql, start, end) ?
+				SQLPARSER_GRAPH_SESSION_VALUE_KEYWORD :
+				(sqlparser_sqlserver_identifier_token_end(sql, start, end) == end ?
+					SQLPARSER_GRAPH_SESSION_VALUE_IDENTIFIER :
+					SQLPARSER_GRAPH_SESSION_VALUE_EXPRESSION));
+		value.text = sql + start;
+		value.text_length = end - start;
+	}
+	return emitter->add_value(
+		emitter->context,
+		item_index,
+		&value,
+		out_error);
+}
+
+static sqlparser_status_t sqlparser_sqlserver_session_emit_text_value(
+	const char *sql,
+	size_t start,
+	size_t end,
+	size_t item_index,
+	const char *name,
+	sqlparser_graph_session_value_kind_t kind,
+	const sqlparser_dialect_session_emitter_t *emitter,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dialect_session_value_t value;
+
+	start = sqlparser_sqlserver_skip_space_bounded(sql, start, end);
+	end = sqlparser_sqlserver_trim_right(sql, start, end);
+	memset(&value, 0, sizeof(value));
+	value.name = name;
+	value.name_length = name != NULL ? strlen(name) : 0U;
+	value.kind = kind;
+	value.text = sql + start;
+	value.text_length = end - start;
+	return emitter->add_value(
+		emitter->context,
+		item_index,
+		&value,
+		out_error);
+}
+
+static sqlparser_status_t sqlparser_sqlserver_session_add_item(
+	const char *sql,
+	size_t name_start,
+	size_t name_end,
+	sqlparser_graph_session_target_kind_t target_kind,
+	const sqlparser_dialect_session_emitter_t *emitter,
+	size_t *out_item_index,
+	sqlparser_error_t *out_error)
+{
+	name_start = sqlparser_sqlserver_skip_space_bounded(sql, name_start, name_end);
+	name_end = sqlparser_sqlserver_trim_right(sql, name_start, name_end);
+	return emitter->add_item(
+		emitter->context,
+		SQLPARSER_GRAPH_SESSION_SCOPE_SESSION,
+		target_kind,
+		name_start < name_end ? sql + name_start : NULL,
+		name_start < name_end ? name_end - name_start : 0U,
+		out_item_index,
+		out_error);
+}
+
+static sqlparser_status_t sqlparser_sqlserver_session_project_set_options(
+	const char *sql,
+	size_t start,
+	size_t end,
+	size_t state_start,
+	const sqlparser_dialect_session_emitter_t *emitter,
+	sqlparser_error_t *out_error)
+{
+	size_t comma;
+	size_t item_end;
+	size_t item_index;
+
+	while (start < state_start) {
+		if (!sqlparser_sqlserver_find_top_level_char(
+			    sql, start, state_start, ',', &comma)) {
+			comma = state_start;
+		}
+		item_end = sqlparser_sqlserver_trim_right(sql, start, comma);
+		if (sqlparser_sqlserver_session_add_item(
+			    sql,
+			    start,
+			    item_end,
+			    SQLPARSER_GRAPH_SESSION_TARGET_PARAMETER,
+			    emitter,
+			    &item_index,
+			    out_error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_sqlserver_session_emit_span_value(
+			    sql,
+			    state_start,
+			    end,
+			    item_index,
+			    NULL,
+			    0U,
+			    emitter,
+			    out_error) != SQLPARSER_STATUS_OK) {
+			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		if (comma == state_start) {
+			break;
+		}
+		start = sqlparser_sqlserver_skip_space_bounded(sql, comma + 1U, state_start);
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_sqlserver_session_project_set(
+	const char *sql,
+	size_t pos,
+	size_t end,
+	const sqlparser_dialect_session_emitter_t *emitter,
+	sqlparser_error_t *out_error)
+{
+	size_t comma;
+	size_t item_index;
+	size_t name_end;
+	size_t name_start;
+	size_t scan;
+	size_t state_start;
+	size_t token_end;
+	size_t value_start;
+
+	if (emitter->set_action(
+		    emitter->context,
+		    SQLPARSER_GRAPH_SESSION_ACTION_SET,
+		    out_error) != SQLPARSER_STATUS_OK) {
+		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos, end);
+	if (sqlparser_sqlserver_word_at_bounded(sql, pos, end, "transaction")) {
+		scan = sqlparser_sqlserver_skip_space_bounded(
+			sql, pos + strlen("transaction"), end);
+		scan = sqlparser_sqlserver_skip_space_bounded(
+			sql, scan + strlen("isolation"), end);
+		value_start = sqlparser_sqlserver_skip_space_bounded(
+			sql, scan + strlen("level"), end);
+		if (emitter->add_item(
+			    emitter->context,
+			    SQLPARSER_GRAPH_SESSION_SCOPE_SESSION,
+			    SQLPARSER_GRAPH_SESSION_TARGET_TRANSACTION,
+			    NULL,
+			    0U,
+			    &item_index,
+			    out_error) != SQLPARSER_STATUS_OK) {
+			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		return sqlparser_sqlserver_session_emit_text_value(
+			sql,
+			value_start,
+			end,
+			item_index,
+			"isolation_level",
+			SQLPARSER_GRAPH_SESSION_VALUE_KEYWORD,
+			emitter,
+			out_error);
+	}
+	if (sqlparser_sqlserver_word_at_bounded(sql, pos, end, "identity_insert")) {
+		name_start = pos;
+		name_end = pos + strlen("identity_insert");
+		value_start = sqlparser_sqlserver_skip_space_bounded(sql, name_end, end);
+		token_end = sqlparser_sqlserver_multipart_identifier_end(sql, value_start, end);
+		state_start = sqlparser_sqlserver_skip_space_bounded(sql, token_end, end);
+		if (sqlparser_sqlserver_session_add_item(
+			    sql,
+			    name_start,
+			    name_end,
+			    SQLPARSER_GRAPH_SESSION_TARGET_PARAMETER,
+			    emitter,
+			    &item_index,
+			    out_error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_sqlserver_session_emit_text_value(
+			    sql,
+			    value_start,
+			    token_end,
+			    item_index,
+			    "object",
+			    SQLPARSER_GRAPH_SESSION_VALUE_IDENTIFIER,
+			    emitter,
+			    out_error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_sqlserver_session_emit_span_value(
+			    sql,
+			    state_start,
+			    end,
+			    item_index,
+			    "state",
+			    strlen("state"),
+			    emitter,
+			    out_error) != SQLPARSER_STATUS_OK) {
+			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		return SQLPARSER_STATUS_OK;
+	}
+
+	state_start = end;
+	while (state_start > pos && !isspace((unsigned char)sql[state_start - 1U])) {
+		state_start--;
+	}
+	if ((sqlparser_sqlserver_ascii_span_equal(sql, state_start, end, "on") ||
+	     sqlparser_sqlserver_ascii_span_equal(sql, state_start, end, "off")) &&
+	    sqlparser_sqlserver_find_top_level_char(
+		    sql, pos, state_start, ',', &comma)) {
+		return sqlparser_sqlserver_session_project_set_options(
+			sql, pos, end, state_start, emitter, out_error);
+	}
+
+	name_start = pos;
+	name_end = sqlparser_sqlserver_identifier_token_end(sql, name_start, end);
+	value_start = sqlparser_sqlserver_skip_space_bounded(sql, name_end, end);
+	if (sqlparser_sqlserver_word_at_bounded(sql, name_start, end, "statistics")) {
+		token_end = sqlparser_sqlserver_identifier_token_end(sql, value_start, end);
+		name_end = token_end;
+		value_start = sqlparser_sqlserver_skip_space_bounded(sql, token_end, end);
+	}
+	if (sqlparser_sqlserver_word_at_bounded(sql, name_start, end, "context_info")) {
+		if (sqlparser_sqlserver_session_add_item(
+			    sql,
+			    name_start,
+			    name_end,
+			    SQLPARSER_GRAPH_SESSION_TARGET_SESSION_CONTEXT,
+			    emitter,
+			    &item_index,
+			    out_error) != SQLPARSER_STATUS_OK) {
+			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+	} else if (sqlparser_sqlserver_session_add_item(
+			   sql,
+			   name_start,
+			   name_end,
+			   SQLPARSER_GRAPH_SESSION_TARGET_PARAMETER,
+			   emitter,
+			   &item_index,
+			   out_error) != SQLPARSER_STATUS_OK) {
+		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	return sqlparser_sqlserver_session_emit_span_value(
+		sql,
+		value_start,
+		end,
+		item_index,
+		NULL,
+		0U,
+		emitter,
+		out_error);
+}
+
+static size_t sqlparser_sqlserver_session_string_end(
+	const char *sql,
+	size_t start,
+	size_t end)
+{
+	size_t quote_start;
+
+	quote_start = start;
+	if (quote_start + 1U < end &&
+	    (sql[quote_start] == 'N' || sql[quote_start] == 'n') &&
+	    sql[quote_start + 1U] == '\'') {
+		quote_start++;
+	}
+	return sqlparser_sqlserver_skip_quoted_or_comment_span(sql, quote_start);
+}
+
+static sqlparser_status_t sqlparser_sqlserver_session_project_execute_as(
+	const char *sql,
+	size_t pos,
+	size_t end,
+	const sqlparser_dialect_session_emitter_t *emitter,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_graph_session_target_kind_t target_kind;
+	size_t item_index;
+	size_t token_end;
+	size_t value_start;
+
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos, end);
+	if (!sqlparser_sqlserver_word_at_bounded(sql, pos, end, "as")) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "SQL Server execution context is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + strlen("as"), end);
+	if (sqlparser_sqlserver_word_at_bounded(sql, pos, end, "login")) {
+		target_kind = SQLPARSER_GRAPH_SESSION_TARGET_LOGIN;
+		pos += strlen("login");
+	} else if (sqlparser_sqlserver_word_at_bounded(sql, pos, end, "user")) {
+		target_kind = SQLPARSER_GRAPH_SESSION_TARGET_USER;
+		pos += strlen("user");
+	} else {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "SQL Server execution context target is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos, end);
+	if (pos >= end || sql[pos] != '=') {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "SQL Server execution context assignment is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	value_start = sqlparser_sqlserver_skip_space_bounded(sql, pos + 1U, end);
+	token_end = sqlparser_sqlserver_session_string_end(sql, value_start, end);
+	if (emitter->set_action(
+		    emitter->context,
+		    SQLPARSER_GRAPH_SESSION_ACTION_ASSUME,
+		    out_error) != SQLPARSER_STATUS_OK ||
+	    emitter->add_item(
+		    emitter->context,
+		    SQLPARSER_GRAPH_SESSION_SCOPE_SESSION,
+		    target_kind,
+		    NULL,
+		    0U,
+		    &item_index,
+		    out_error) != SQLPARSER_STATUS_OK ||
+	    sqlparser_sqlserver_session_emit_span_value(
+		    sql,
+		    value_start,
+		    token_end,
+		    item_index,
+		    NULL,
+		    0U,
+		    emitter,
+		    out_error) != SQLPARSER_STATUS_OK) {
+		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, token_end, end);
+	if (pos >= end) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (!sqlparser_sqlserver_word_at_bounded(sql, pos, end, "with")) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "SQL Server execution context option is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + strlen("with"), end);
+	if (sqlparser_sqlserver_tail_starts_with_two_words(
+		    sql, pos, end, "no", "revert")) {
+		return sqlparser_sqlserver_session_emit_text_value(
+			sql,
+			pos,
+			end,
+			item_index,
+			"revert",
+			SQLPARSER_GRAPH_SESSION_VALUE_KEYWORD,
+			emitter,
+			out_error);
+	}
+	if (!sqlparser_sqlserver_word_at_bounded(sql, pos, end, "cookie")) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "SQL Server execution context cookie is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + strlen("cookie"), end);
+	if (!sqlparser_sqlserver_word_at_bounded(sql, pos, end, "into")) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "SQL Server execution context cookie target is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + strlen("into"), end);
+	return sqlparser_sqlserver_session_emit_span_value(
+		sql,
+		pos,
+		end,
+		item_index,
+		"cookie",
+		strlen("cookie"),
+		emitter,
+		out_error);
+}
+
+static sqlparser_status_t sqlparser_sqlserver_session_project_context(
+	const char *sql,
+	size_t pos,
+	size_t end,
+	const sqlparser_dialect_session_emitter_t *emitter,
+	sqlparser_error_t *out_error)
+{
+	static const char *const positional_names[] = {"key", "value", "read_only"};
+	const char *value_name;
+	size_t comma;
+	size_t equals;
+	size_t item_end;
+	size_t item_index;
+	size_t item_start;
+	size_t name_end;
+	size_t name_start;
+	size_t ordinal;
+	size_t part_end;
+	size_t value_name_length;
+	size_t value_start;
+
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos, end);
+	if (sqlparser_sqlserver_word_at_bounded(sql, pos, end, "sys")) {
+		part_end = pos + strlen("sys");
+		pos = sqlparser_sqlserver_skip_space_bounded(sql, part_end, end);
+		if (pos >= end || sql[pos] != '.') {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "SQL Server session context procedure is invalid");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		pos = sqlparser_sqlserver_skip_space_bounded(sql, pos + 1U, end);
+	}
+	if (!sqlparser_sqlserver_word_at_bounded(
+		    sql, pos, end, "sp_set_session_context")) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "SQL Server session context procedure is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	part_end = pos + strlen("sp_set_session_context");
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, part_end, end);
+	if (emitter->set_action(
+		    emitter->context,
+		    SQLPARSER_GRAPH_SESSION_ACTION_SET,
+		    out_error) != SQLPARSER_STATUS_OK ||
+	    emitter->add_item(
+		    emitter->context,
+		    SQLPARSER_GRAPH_SESSION_SCOPE_SESSION,
+		    SQLPARSER_GRAPH_SESSION_TARGET_SESSION_CONTEXT,
+		    NULL,
+		    0U,
+		    &item_index,
+		    out_error) != SQLPARSER_STATUS_OK) {
+		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	ordinal = 0U;
+	while (pos < end) {
+		if (!sqlparser_sqlserver_find_top_level_char(
+			    sql, pos, end, ',', &comma)) {
+			comma = end;
+		}
+		item_start = sqlparser_sqlserver_skip_space_bounded(sql, pos, comma);
+		item_end = sqlparser_sqlserver_trim_right(sql, item_start, comma);
+		name_start = 0U;
+		name_end = 0U;
+		if (sqlparser_sqlserver_find_top_level_char(
+			    sql, item_start, item_end, '=', &equals)) {
+			name_start = item_start;
+			name_end = sqlparser_sqlserver_trim_right(
+				sql, name_start, equals);
+			if (name_start < name_end && sql[name_start] == '@') {
+				name_start++;
+			}
+			value_start = sqlparser_sqlserver_skip_space_bounded(
+				sql, equals + 1U, item_end);
+			value_name = sql + name_start;
+			value_name_length = name_end - name_start;
+		} else {
+			value_start = item_start;
+			value_name = ordinal < sizeof(positional_names) / sizeof(positional_names[0]) ?
+				positional_names[ordinal] : NULL;
+			value_name_length = value_name != NULL ? strlen(value_name) : 0U;
+		}
+		if (sqlparser_sqlserver_session_emit_span_value(
+			    sql,
+			    value_start,
+			    item_end,
+			    item_index,
+			    value_name,
+			    value_name_length,
+			    emitter,
+			    out_error) != SQLPARSER_STATUS_OK) {
+			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		ordinal++;
+		if (comma == end) {
+			break;
+		}
+		pos = comma + 1U;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_sqlserver_session_project_revert(
+	const char *sql,
+	size_t pos,
+	size_t end,
+	const sqlparser_dialect_session_emitter_t *emitter,
+	sqlparser_error_t *out_error)
+{
+	size_t equals;
+	size_t item_index;
+
+	if (emitter->set_action(
+		    emitter->context,
+		    SQLPARSER_GRAPH_SESSION_ACTION_REVERT,
+		    out_error) != SQLPARSER_STATUS_OK ||
+	    emitter->add_item(
+		    emitter->context,
+		    SQLPARSER_GRAPH_SESSION_SCOPE_SESSION,
+		    SQLPARSER_GRAPH_SESSION_TARGET_AUTHORIZATION,
+		    NULL,
+		    0U,
+		    &item_index,
+		    out_error) != SQLPARSER_STATUS_OK) {
+		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos, end);
+	if (pos >= end) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (!sqlparser_sqlserver_find_top_level_char(
+		    sql, pos, end, '=', &equals)) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "SQL Server REVERT cookie is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, equals + 1U, end);
+	return sqlparser_sqlserver_session_emit_span_value(
+		sql,
+		pos,
+		end,
+		item_index,
+		"cookie",
+		strlen("cookie"),
+		emitter,
+		out_error);
+}
+
+static sqlparser_status_t sqlparser_sqlserver_session_project_setuser(
+	const char *sql,
+	size_t pos,
+	size_t end,
+	const sqlparser_dialect_session_emitter_t *emitter,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_graph_session_action_t action;
+	size_t item_index;
+	size_t token_end;
+	size_t value_start;
+
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, pos, end);
+	action = pos >= end ?
+		SQLPARSER_GRAPH_SESSION_ACTION_REVERT :
+		SQLPARSER_GRAPH_SESSION_ACTION_ASSUME;
+	if (emitter->set_action(emitter->context, action, out_error) != SQLPARSER_STATUS_OK ||
+	    emitter->add_item(
+		    emitter->context,
+		    SQLPARSER_GRAPH_SESSION_SCOPE_SESSION,
+		    SQLPARSER_GRAPH_SESSION_TARGET_USER,
+		    NULL,
+		    0U,
+		    &item_index,
+		    out_error) != SQLPARSER_STATUS_OK) {
+		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	if (pos >= end) {
+		return SQLPARSER_STATUS_OK;
+	}
+	value_start = pos;
+	token_end = sqlparser_sqlserver_session_string_end(sql, value_start, end);
+	if (sqlparser_sqlserver_session_emit_span_value(
+		    sql,
+		    value_start,
+		    token_end,
+		    item_index,
+		    NULL,
+		    0U,
+		    emitter,
+		    out_error) != SQLPARSER_STATUS_OK) {
+		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	pos = sqlparser_sqlserver_skip_space_bounded(sql, token_end, end);
+	return pos < end ?
+		sqlparser_sqlserver_session_emit_text_value(
+			sql,
+			pos + strlen("with"),
+			end,
+			item_index,
+			"reset",
+			SQLPARSER_GRAPH_SESSION_VALUE_KEYWORD,
+			emitter,
+			out_error) :
+		SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_sqlserver_session_emit_database(
+	const PgQuery__VariableSetStmt *set_stmt,
+	const sqlparser_dialect_session_emitter_t *emitter,
+	sqlparser_error_t *out_error)
+{
+	size_t item_index;
+	size_t index;
+
+	if (emitter->set_action(
+		    emitter->context,
+		    SQLPARSER_GRAPH_SESSION_ACTION_SWITCH,
+		    out_error) != SQLPARSER_STATUS_OK ||
+	    emitter->add_item(
+		    emitter->context,
+		    SQLPARSER_GRAPH_SESSION_SCOPE_SESSION,
+		    SQLPARSER_GRAPH_SESSION_TARGET_DATABASE,
+		    NULL,
+		    0U,
+		    &item_index,
+		    out_error) != SQLPARSER_STATUS_OK) {
+		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	for (index = 0U; index < set_stmt->n_args; index++) {
+		if (emitter->add_ast_value(
+			    emitter->context,
+			    item_index,
+			    NULL,
+			    set_stmt->args[index],
+			    out_error) != SQLPARSER_STATUS_OK) {
+			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_sqlserver_project_session(
+	const sqlparser_handle_t *handle,
+	const void *state,
+	size_t statement_index,
+	const PgQuery__Node *statement,
+	const sqlparser_dialect_session_emitter_t *emitter,
+	sqlparser_error_t *out_error)
+{
+	const PgQuery__VariableSetStmt *set_stmt;
+	const char *raw_sql;
+	size_t end;
+	size_t pos;
+
+	(void)handle;
+	(void)state;
+	(void)statement_index;
+	if (emitter == NULL || emitter->set_action == NULL ||
+	    emitter->add_item == NULL || emitter->add_value == NULL ||
+	    emitter->add_ast_value == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "session graph emitter is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	set_stmt = sqlparser_sqlserver_session_set_statement(statement);
+	if (set_stmt == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (strcmp(set_stmt->name, SQLPARSER_INTERNAL_CURRENT_DATABASE) == 0) {
+		return sqlparser_sqlserver_session_emit_database(
+			set_stmt, emitter, out_error);
+	}
+
+	raw_sql = sqlparser_sqlserver_session_raw_argument(
+		set_stmt,
+		SQLPARSER_INTERNAL_SQLSERVER_SET_STATEMENT);
+	if (raw_sql != NULL) {
+		end = strlen(raw_sql);
+		pos = sqlparser_sqlserver_skip_space_bounded(raw_sql, 0U, end);
+		pos = sqlparser_sqlserver_skip_space_bounded(
+			raw_sql, pos + strlen("set"), end);
+		return sqlparser_sqlserver_session_project_set(
+			raw_sql, pos, end, emitter, out_error);
+	}
+	raw_sql = sqlparser_sqlserver_session_raw_argument(
+		set_stmt,
+		SQLPARSER_INTERNAL_SQLSERVER_EXECUTE_STATEMENT);
+	if (raw_sql != NULL) {
+		end = strlen(raw_sql);
+		pos = sqlparser_sqlserver_skip_space_bounded(raw_sql, 0U, end);
+		pos += sqlparser_sqlserver_word_at_bounded(
+			raw_sql, pos, end, "execute") ?
+			strlen("execute") : strlen("exec");
+		return sqlparser_sqlserver_word_at_bounded(
+			       raw_sql,
+			       sqlparser_sqlserver_skip_space_bounded(raw_sql, pos, end),
+			       end,
+			       "as") ?
+			sqlparser_sqlserver_session_project_execute_as(
+				raw_sql, pos, end, emitter, out_error) :
+			sqlparser_sqlserver_session_project_context(
+				raw_sql, pos, end, emitter, out_error);
+	}
+	raw_sql = sqlparser_sqlserver_session_raw_argument(
+		set_stmt,
+		SQLPARSER_INTERNAL_SQLSERVER_REVERT_STATEMENT);
+	if (raw_sql != NULL) {
+		end = strlen(raw_sql);
+		pos = sqlparser_sqlserver_skip_space_bounded(raw_sql, 0U, end);
+		pos = sqlparser_sqlserver_skip_space_bounded(
+			raw_sql, pos + strlen("revert"), end);
+		return sqlparser_sqlserver_session_project_revert(
+			raw_sql, pos, end, emitter, out_error);
+	}
+	raw_sql = sqlparser_sqlserver_session_raw_argument(
+		set_stmt,
+		SQLPARSER_INTERNAL_SQLSERVER_SETUSER_STATEMENT);
+	if (raw_sql != NULL) {
+		end = strlen(raw_sql);
+		pos = sqlparser_sqlserver_skip_space_bounded(raw_sql, 0U, end);
+		pos = sqlparser_sqlserver_skip_space_bounded(
+			raw_sql, pos + strlen("setuser"), end);
+		return sqlparser_sqlserver_session_project_setuser(
+			raw_sql, pos, end, emitter, out_error);
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
 static sqlparser_status_t sqlparser_sqlserver_postprocess_control_unit(
 	const char *core_sql,
 	const void *state,
@@ -7873,7 +10075,8 @@ static const sqlparser_dialect_ops_t SQLPARSER_SQLSERVER_OPS = {
 	NULL,
 	sqlparser_sqlserver_postprocess_fragment,
 	sqlparser_sqlserver_postprocess_control_unit,
-	sqlparser_sqlserver_take_control_state
+	sqlparser_sqlserver_take_control_state,
+	sqlparser_sqlserver_project_session
 };
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_sqlserver_ops(void)

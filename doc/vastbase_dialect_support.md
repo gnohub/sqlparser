@@ -34,14 +34,14 @@ options.dialect = SQLPARSER_DIALECT_VASTBASE_ORACLE;
 
 Vastbase 四个模式分别通过以下可执行矩阵验证：
 
-| 模式 | 回归夹具 | 单元测试 |
-| --- | --- | --- |
-| `vastbase-oracle` | `tests/cases/vastbase_oracle_dialect_input.json` | `tests/unit/test_vastbase_oracle_dialect_case_matrix.c` |
-| `vastbase-mysql` | `tests/cases/vastbase_mysql_dialect_input.json` | `tests/unit/test_vastbase_mysql_dialect_case_matrix.c` |
-| `vastbase-postgresql` | `tests/cases/vastbase_postgresql_dialect_input.json` | `tests/unit/test_vastbase_postgresql_dialect_case_matrix.c` |
-| `vastbase-sqlserver` | `tests/cases/vastbase_sqlserver_dialect_input.json` | `tests/unit/test_vastbase_sqlserver_dialect_case_matrix.c` |
+| 模式 | 回归夹具 | 单元测试 | 成功用例 | 预期失败用例 | 用例总数 |
+| --- | --- | --- | ---: | ---: | ---: |
+| `vastbase-oracle` | `tests/cases/vastbase_oracle_dialect_input.json` | `tests/unit/test_vastbase_oracle_dialect_case_matrix.c` | 188 | 21 | 209 |
+| `vastbase-mysql` | `tests/cases/vastbase_mysql_dialect_input.json` | `tests/unit/test_vastbase_mysql_dialect_case_matrix.c` | 210 | 9 | 219 |
+| `vastbase-postgresql` | `tests/cases/vastbase_postgresql_dialect_input.json` | `tests/unit/test_vastbase_postgresql_dialect_case_matrix.c` | 174 | 10 | 184 |
+| `vastbase-sqlserver` | `tests/cases/vastbase_sqlserver_dialect_input.json` | `tests/unit/test_vastbase_sqlserver_dialect_case_matrix.c` | 547 | 38 | 585 |
 
-`vastbase-sqlserver` 兼容模式包含 SQL Server DML `OUTPUT` 结果通道和 `IF...ELSE` 控制流能力；当前矩阵为 546 条用例，其中 517 条支持路径、29 条错误或明确不支持路径。
+`vastbase-sqlserver` 兼容模式包含 SQL Server DML `OUTPUT` 结果通道和 `IF...ELSE` 控制流能力。
 
 ## 官方资料
 

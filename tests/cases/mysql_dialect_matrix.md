@@ -2,6 +2,12 @@
 
 本文件记录 MySQL 方言转换层的回归用例。`tests/cases/mysql_dialect_input.json` 是可执行测试源，`tests/unit/test_mysql_dialect_case_matrix.c` 会逐条读取该文件并验证解析、View JSON、deparse 和错误码。
 
+## 矩阵统计与 session 回归
+
+夹具包含 213 条用例，其中 204 条预期成功，9 条预期失败。32 条用例包含 statement 级 `expect.session`，覆盖 `M015` 至 `M017` 和 `MY-001` 至 `MY-029`；这 32 条用例均至少包含一个非空 session 期望。
+
+用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
+
 ## 已验证支持语句
 
 | 用例 ID | 用例名称 | 语句形态 | 验证重点 |
@@ -9,8 +15,8 @@
 | M001 | `mysql-select-limit-comma` | `SELECT ... FROM ... WHERE ... LIMIT offset,count` | 反引号标识符、双引号字符串、表名、查询列、WHERE literal、MySQL comma limit deparse |
 | M002 | `mysql-select-join` | `SELECT ... JOIN ... ON ... WHERE ...` | 多表 JOIN、查询列、关联列、条件列 |
 | M003 | `mysql-hash-comment` | `SELECT ... # comment` | MySQL `#` 行注释预处理 |
-| M004 | `mysql-insert-values-multi-row` | `INSERT ... VALUES (...), (...)` | 多行插入、插入列、双引号字符串归一化 |
-| M004N | `mysql-national-string-literal` | `SELECT "..." ... N'...' ... n'...'` | national 字符串前缀保留，大小写输入统一公开为 `N` 前缀 |
+| M004 | `mysql-insert-values-multi-row` | `INSERT ... VALUES (...), (...)` | 多行插入、插入列；对未修改的 handle 执行 deparse 时，结果与输入逐字节一致，包括原始双引号字符串 |
+| M004N | `mysql-national-string-literal` | `SELECT "..." ... N'...' ... n'...'` | AST 保留 national 字符串语义；对未修改的 handle 执行 deparse 时，结果逐字节保留输入中的 `N`/`n` 拼写 |
 | M004NA | `mysql-national-string-duplicate-literal` | 普通字符串和 `N'...'` 同文本 | 只为原始 national 字符串恢复 `N` 前缀 |
 | M005 | `mysql-insert-select` | `INSERT ... SELECT ... FROM ... WHERE ...` | 插入列、内层查询列、WHERE 条件列 |
 | M006 | `mysql-update-basic` | `UPDATE ... SET ... WHERE ...` | 更新列、条件列、反引号标识符 |
@@ -151,13 +157,13 @@
 | MU006 | `mysql-replace-into` | `REPLACE INTO ... VALUES ...` | MySQL `REPLACE` 复用 INSERT 图结构，并通过 `insert_mode=replace_values` 保留替换插入语义 |
 | MU006A | `mysql-replace-low-priority-multi-row` | `REPLACE LOW_PRIORITY INTO ... VALUES (...), (...)` | 多行 `REPLACE VALUES`、位置参数和 `LOW_PRIORITY` 修饰符 |
 | MU006B | `mysql-replace-delayed-select` | `REPLACE DELAYED INTO ... SELECT ...` | `REPLACE SELECT` 的目标表、来源表、位置参数和 `insert_mode=replace_select` |
-| MU006C | `mysql-replace-set` | `REPLACE INTO ... SET ...` | `SET` 形态规范化为公开 MySQL `REPLACE ... VALUES`，并输出 `insert_mode=replace_set` |
-| MU006D | `mysql-replace-without-into` | `REPLACE table ... VALUES ...` | 省略 `INTO` 的官方形态规范化为 `REPLACE INTO ...` |
-| MU006E | `mysql-replace-table-source` | `REPLACE INTO ... TABLE source` | 官方 `TABLE` 形态规范化为 `REPLACE ... SELECT * FROM source` 并保留来源表 |
+| MU006C | `mysql-replace-set` | `REPLACE INTO ... SET ...` | 输出 `insert_mode=replace_set`；对未修改的 handle 执行 deparse 时，结果逐字节保留原始 `SET` 形态 |
+| MU006D | `mysql-replace-without-into` | `REPLACE table ... VALUES ...` | 对未修改的 handle 执行 deparse 时，结果逐字节保留省略 `INTO` 的原始形态 |
+| MU006E | `mysql-replace-table-source` | `REPLACE INTO ... TABLE source` | 保留来源表；对未修改的 handle 执行 deparse 时，结果逐字节保留原始 `TABLE` 形态 |
 
 ## 明确不支持语句
 
-当前可执行 MySQL 方言矩阵没有明确不支持用例。官方语法覆盖边界见 `doc/mysql_official_syntax_coverage.csv`。
+当前可执行 MySQL 方言矩阵有 9 条预期失败用例，覆盖非法会话状态语法。官方语法覆盖边界见 `doc/mysql_official_syntax_coverage.csv`。
 
 ## 处理规则
 

@@ -40,7 +40,7 @@ MySQL 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范�
 
 ## 明确不支持范围
 
-当前可执行 MySQL 方言矩阵没有明确不支持用例。官方语法覆盖边界见 `mysql_official_syntax_coverage.csv`。
+当前可执行 MySQL 方言矩阵包含 9 条预期失败用例，覆盖非法会话状态语法。官方语法覆盖边界见 `mysql_official_syntax_coverage.csv`。
 
 ## 对外输出规则
 
@@ -58,4 +58,4 @@ MySQL 支持范围以以下文件为准：
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 MySQL 方言矩阵包含 173 条用例：173 条支持路径，0 条明确不支持路径。
+当前 MySQL 方言矩阵包含 213 条用例：204 条成功用例，9 条预期失败用例。

@@ -4,24 +4,23 @@
 
 ## 汇总
 
-| 方言 | 统计来源 | 支持用例 | 明确不支持用例 | 合计 | 支持占比 |
+| 方言 | 统计来源 | 成功用例 | 预期失败用例 | 用例总数 | 夹具成功率 |
 | --- | --- | ---: | ---: | ---: | ---: |
-| PostgreSQL | `tests/cases/sql_batch_input.json` | 153 | 1 | 154 | 99.35% |
-| MySQL | `tests/cases/mysql_dialect_input.json` | 173 | 0 | 173 | 100.00% |
-| Oracle | `tests/cases/oracle_dialect_input.json` | 163 | 12 | 175 | 93.14% |
-| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 448 | 11 | 459 | 97.60% |
-| 达梦 | `tests/cases/dameng_dialect_input.json` | 125 | 6 | 131 | 95.42% |
-| Vastbase PostgreSQL 兼容模式 | `tests/cases/vastbase_postgresql_dialect_input.json` | 144 | 1 | 145 | 99.31% |
-| Vastbase MySQL 兼容模式 | `tests/cases/vastbase_mysql_dialect_input.json` | 173 | 0 | 173 | 100.00% |
-| Vastbase Oracle 兼容模式 | `tests/cases/vastbase_oracle_dialect_input.json` | 162 | 12 | 174 | 93.10% |
-| Vastbase SQL Server 兼容模式 | `tests/cases/vastbase_sqlserver_dialect_input.json` | 448 | 11 | 459 | 97.60% |
+| PostgreSQL | `tests/cases/sql_batch_input.json` | 181 | 3 | 184 | 98.37% |
+| MySQL | `tests/cases/mysql_dialect_input.json` | 204 | 9 | 213 | 95.77% |
+| Oracle | `tests/cases/oracle_dialect_input.json` | 213 | 22 | 235 | 90.64% |
+| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 568 | 37 | 605 | 93.88% |
+| 达梦 | `tests/cases/dameng_dialect_input.json` | 150 | 12 | 162 | 92.59% |
+| Vastbase PostgreSQL 兼容模式 | `tests/cases/vastbase_postgresql_dialect_input.json` | 174 | 10 | 184 | 94.57% |
+| Vastbase MySQL 兼容模式 | `tests/cases/vastbase_mysql_dialect_input.json` | 210 | 9 | 219 | 95.89% |
+| Vastbase Oracle 兼容模式 | `tests/cases/vastbase_oracle_dialect_input.json` | 188 | 21 | 209 | 89.95% |
+| Vastbase SQL Server 兼容模式 | `tests/cases/vastbase_sqlserver_dialect_input.json` | 547 | 38 | 585 | 93.50% |
 
 ## 口径
 
-- `支持用例` 表示当前方言已经通过解析、View JSON、deparse 或错误路径的可执行回归验证。
-- `明确不支持用例` 表示当前实现主动返回 `SQLPARSER_STATUS_UNSUPPORTED` 或解析错误，不返回可用 handle。
-- PostgreSQL 默认方言的负向用例为故意构造的非法 SQL，不计为功能缺口。
-- Oracle、SQL Server、达梦和部分 Vastbase 兼容模式的明确不支持用例主要来自数据库专属语义，无法在不扩展共享 AST 的前提下安全表达。
+- `成功用例` 表示输入成功生成 handle，并通过解析、View JSON、未修改 handle 的 deparse 原文逐字节一致性和适用的结构断言。
+- `预期失败用例` 表示 fixture 明确期望 `SQLPARSER_STATUS_UNSUPPORTED`、解析错误或其他失败状态，不返回可用 handle。
+- 预期失败用例包括非法 SQL，以及当前方言到 AST 的映射尚未表示其必要语义的用例。该夹具统计不代表官方语法覆盖率。
 
 ## 维护要求
 

@@ -147,11 +147,13 @@ static int verify_success_case(
 	char *view_json;
 	char *deparse_sql;
 	json_t *value;
+	int regression_failed;
 	int status;
 
 	handle = NULL;
 	view_json = NULL;
 	deparse_sql = NULL;
+	regression_failed = 0;
 	memset(&error, 0, sizeof(error));
 	sqlparser_parse_options_default(&options);
 	options.dialect = SQLPARSER_DIALECT_SQLSERVER;
@@ -164,6 +166,30 @@ static int verify_success_case(
 	if (handle == NULL) {
 		return fail_case(case_id, case_name, "parse succeeded without handle");
 	}
+	status = sqlparser_deparse(handle, &deparse_sql, &error);
+	if (status != SQLPARSER_STATUS_OK || deparse_sql == NULL || deparse_sql[0] == '\0') {
+		(void)fail_case(case_id, case_name, "deparse failed");
+		regression_failed = 1;
+	}
+	if (sqlparser_test_verify_exact_deparse(
+		    case_id,
+		    case_name,
+		    sql,
+		    deparse_sql) != 0) {
+		regression_failed = 1;
+	}
+	if (sqlparser_test_verify_ast_identifier_spelling(
+		    case_id,
+		    case_name,
+		    handle) != 0) {
+		regression_failed = 1;
+	}
+	if (regression_failed) {
+		goto fail;
+	}
+	sqlparser_string_free(deparse_sql);
+	deparse_sql = NULL;
+
 	if (sqlparser_handle_dialect(handle) != SQLPARSER_DIALECT_SQLSERVER) {
 		sqlparser_handle_destroy(handle);
 		return fail_case(case_id, case_name, "handle dialect mismatch");
@@ -197,23 +223,7 @@ static int verify_success_case(
 		goto fail;
 	}
 
-	status = sqlparser_deparse(handle, &deparse_sql, &error);
-	if (status != SQLPARSER_STATUS_OK || deparse_sql == NULL || deparse_sql[0] == '\0') {
-		goto fail;
-	}
 	if (sqlparser_test_text_contains_expected(
-		    case_id,
-		    case_name,
-		    deparse_sql,
-		    "deparse_contains",
-		    json_object_get(expect_root, "deparse_contains")) != 0 ||
-	    sqlparser_test_text_not_contains_expected(
-		    case_id,
-		    case_name,
-		    deparse_sql,
-		    "deparse_not_contains",
-		    json_object_get(expect_root, "deparse_not_contains")) != 0 ||
-	    sqlparser_test_text_contains_expected(
 		    case_id,
 		    case_name,
 		    view_json,
@@ -225,6 +235,12 @@ static int verify_success_case(
 		    view_json,
 		    "view_not_contains",
 		    json_object_get(expect_root, "view_not_contains")) != 0) {
+		goto fail;
+	}
+	if (sqlparser_test_verify_merge_assignment_mutations(
+		    case_id,
+		    case_name,
+		    handle) != 0) {
 		goto fail;
 	}
 
@@ -345,7 +361,9 @@ static int run_fixture_file(const char *fixture_path)
 	json_t *items;
 	json_t *item;
 	size_t index;
+	int failed;
 
+	failed = 0;
 	memset(&error, 0, sizeof(error));
 	root = json_load_file(fixture_path, 0, &error);
 	if (root == NULL) {
@@ -362,27 +380,29 @@ static int run_fixture_file(const char *fixture_path)
 
 	json_array_foreach(items, index, item) {
 		if (!json_is_object(item)) {
-			json_decref(root);
 			fprintf(stderr, "FAIL: case %lu is not an object\n", (unsigned long)index);
-			return 1;
+			failed = 1;
+			continue;
 		}
 		if (run_case(item) != 0) {
-			json_decref(root);
-			return 1;
+			failed = 1;
 		}
 	}
 
 	json_decref(root);
-	return 0;
+	return failed;
 }
 
 int main(void)
 {
+	int failed;
+
+	failed = 0;
 	if (run_fixture_file(SQLPARSER_SQLSERVER_CASE_FIXTURE_PATH) != 0) {
-		return 1;
+		failed = 1;
 	}
 	if (verify_sqlserver_fragment_rewrite_paths() != 0) {
-		return 1;
+		failed = 1;
 	}
-	return 0;
+	return failed;
 }

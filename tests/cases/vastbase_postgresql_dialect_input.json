@@ -7,8 +7,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "SELECT 1"
+        ]
       },
       "id": "VPG001"
     },
@@ -19,8 +18,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "FROM public.users"
+        ]
       },
       "id": "VPG002"
     },
@@ -31,8 +29,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "SELECT u.id, u.name, o.order_no"
+        ]
       },
       "id": "VPG003"
     },
@@ -43,8 +40,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "WITH active_users AS"
+        ]
       },
       "id": "VPG004"
     },
@@ -55,8 +51,7 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "deparse_contains": "VALUES (1, 'alice')"
+        ]
       },
       "id": "VPG005"
     },
@@ -67,8 +62,7 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "deparse_contains": "VALUES (1, 'alice'), (2, 'bob')"
+        ]
       },
       "id": "VPG006"
     },
@@ -79,8 +73,7 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "deparse_contains": "INSERT INTO public.user_archive"
+        ]
       },
       "id": "VPG007"
     },
@@ -91,8 +84,7 @@
         "statement_count": 1,
         "statement_types": [
           "UpdateStmt"
-        ],
-        "deparse_contains": "UPDATE public.users SET"
+        ]
       },
       "id": "VPG008"
     },
@@ -103,8 +95,7 @@
         "statement_count": 1,
         "statement_types": [
           "DeleteStmt"
-        ],
-        "deparse_contains": "DELETE FROM public.users"
+        ]
       },
       "id": "VPG009"
     },
@@ -115,8 +106,7 @@
         "statement_count": 1,
         "statement_types": [
           "DeleteStmt"
-        ],
-        "deparse_contains": "id IN (1, 2, 3)"
+        ]
       },
       "id": "VPG010"
     },
@@ -127,8 +117,7 @@
         "statement_count": 1,
         "statement_types": [
           "DropStmt"
-        ],
-        "deparse_contains": "DROP TABLE public.users"
+        ]
       },
       "id": "VPG011"
     },
@@ -139,8 +128,7 @@
         "statement_count": 1,
         "statement_types": [
           "DropStmt"
-        ],
-        "deparse_contains": "DROP VIEW public.v_users"
+        ]
       },
       "id": "VPG012"
     },
@@ -151,8 +139,7 @@
         "statement_count": 1,
         "statement_types": [
           "ViewStmt"
-        ],
-        "deparse_contains": "CREATE VIEW public.v_users AS"
+        ]
       },
       "id": "VPG013"
     },
@@ -163,8 +150,7 @@
         "statement_count": 1,
         "statement_types": [
           "TruncateStmt"
-        ],
-        "deparse_contains": "TRUNCATE public.users"
+        ]
       },
       "id": "VPG014"
     },
@@ -175,8 +161,7 @@
         "statement_count": 1,
         "statement_types": [
           "CommentStmt"
-        ],
-        "deparse_contains": "COMMENT ON TABLE public.users"
+        ]
       },
       "id": "VPG015"
     },
@@ -187,8 +172,7 @@
         "statement_count": 1,
         "statement_types": [
           "RenameStmt"
-        ],
-        "deparse_contains": "RENAME TO users_archive"
+        ]
       },
       "id": "VPG016"
     },
@@ -199,8 +183,7 @@
         "statement_count": 1,
         "statement_types": [
           "AlterTableStmt"
-        ],
-        "deparse_contains": "ADD COLUMN age int"
+        ]
       },
       "id": "VPG017"
     },
@@ -211,8 +194,7 @@
         "statement_count": 1,
         "statement_types": [
           "IndexStmt"
-        ],
-        "deparse_contains": "CREATE INDEX idx_users_name"
+        ]
       },
       "id": "VPG018"
     },
@@ -223,8 +205,7 @@
         "statement_count": 1,
         "statement_types": [
           "DropStmt"
-        ],
-        "deparse_contains": "DROP INDEX public.idx_users_name"
+        ]
       },
       "id": "VPG019"
     },
@@ -235,8 +216,7 @@
         "statement_count": 1,
         "statement_types": [
           "ExplainStmt"
-        ],
-        "deparse_contains": "EXPLAIN SELECT id FROM public.users"
+        ]
       },
       "id": "VPG020"
     },
@@ -247,8 +227,7 @@
         "statement_count": 1,
         "statement_types": [
           "CopyStmt"
-        ],
-        "deparse_contains": "COPY public.users(id, name) FROM STDIN"
+        ]
       },
       "id": "VPG021"
     },
@@ -259,8 +238,7 @@
         "statement_count": 1,
         "statement_types": [
           "LockStmt"
-        ],
-        "deparse_contains": "LOCK TABLE public.users"
+        ]
       },
       "id": "VPG022"
     },
@@ -271,8 +249,7 @@
         "statement_count": 1,
         "statement_types": [
           "CallStmt"
-        ],
-        "deparse_contains": "CALL public.refresh_users()"
+        ]
       },
       "id": "VPG023"
     },
@@ -283,8 +260,7 @@
         "statement_count": 1,
         "statement_types": [
           "DoStmt"
-        ],
-        "deparse_contains": "DO $$ BEGIN NULL; END $$"
+        ]
       },
       "id": "VPG024"
     },
@@ -295,8 +271,7 @@
         "statement_count": 1,
         "statement_types": [
           "CreateTableAsStmt"
-        ],
-        "deparse_contains": "CREATE TABLE public.active_users AS"
+        ]
       },
       "id": "VPG025"
     },
@@ -307,8 +282,7 @@
         "statement_count": 2,
         "statement_types": [
           "TransactionStmt"
-        ],
-        "deparse_contains": "BEGIN; COMMIT"
+        ]
       },
       "id": "VPG026"
     },
@@ -320,8 +294,7 @@
         "statement_types": [
           "TransactionStmt",
           "InsertStmt"
-        ],
-        "deparse_contains": "ROLLBACK"
+        ]
       },
       "id": "VPG027"
     },
@@ -333,8 +306,7 @@
         "statement_types": [
           "SelectStmt",
           "InsertStmt"
-        ],
-        "deparse_contains": "INSERT INTO public.audit_log"
+        ]
       },
       "id": "VPG028"
     },
@@ -345,8 +317,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "SELECT \"User\".\"Name\" FROM \"User\""
+        ]
       },
       "id": "VPG029"
     },
@@ -357,8 +328,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "AS token"
+        ]
       },
       "id": "VPG030"
     },
@@ -369,8 +339,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "EXISTS (SELECT 1 FROM public.orders o"
+        ]
       },
       "id": "VPG031"
     },
@@ -381,8 +350,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "sum(p.amount) OVER"
+        ]
       },
       "id": "VPG032"
     },
@@ -393,8 +361,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "UNION ALL SELECT id FROM public.user_archive"
+        ]
       },
       "id": "VPG033"
     },
@@ -405,8 +372,7 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "deparse_contains": "ON CONFLICT (id) DO UPDATE SET"
+        ]
       },
       "id": "VPG034"
     },
@@ -417,8 +383,7 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "deparse_contains": "RETURNING id, action"
+        ]
       },
       "id": "VPG035"
     },
@@ -429,8 +394,7 @@
         "statement_count": 1,
         "statement_types": [
           "UpdateStmt"
-        ],
-        "deparse_contains": "FROM public.user_stage src"
+        ]
       },
       "id": "VPG036"
     },
@@ -441,8 +405,7 @@
         "statement_count": 1,
         "statement_types": [
           "DeleteStmt"
-        ],
-        "deparse_contains": "USING public.user_archive ua"
+        ]
       },
       "id": "VPG037"
     },
@@ -453,8 +416,7 @@
         "statement_count": 1,
         "statement_types": [
           "MergeStmt"
-        ],
-        "deparse_contains": "MERGE INTO public.target_table"
+        ]
       },
       "id": "VPG038"
     },
@@ -465,8 +427,7 @@
         "statement_count": 4,
         "statement_types": [
           "TransactionStmt"
-        ],
-        "deparse_contains": "RELEASE sp1"
+        ]
       },
       "id": "VPG039"
     },
@@ -478,8 +439,7 @@
         "statement_types": [
           "TransactionStmt",
           "InsertStmt"
-        ],
-        "deparse_contains": "ROLLBACK TO SAVEPOINT sp1"
+        ]
       },
       "id": "VPG040"
     },
@@ -490,8 +450,7 @@
         "statement_count": 1,
         "statement_types": [
           "CreateTableAsStmt"
-        ],
-        "deparse_contains": "CREATE MATERIALIZED VIEW public.mv_users AS"
+        ]
       },
       "id": "VPG041"
     },
@@ -502,8 +461,7 @@
         "statement_count": 1,
         "statement_types": [
           "AlterTableStmt"
-        ],
-        "deparse_contains": "DROP age"
+        ]
       },
       "id": "VPG042"
     },
@@ -514,8 +472,7 @@
         "statement_count": 1,
         "statement_types": [
           "CreateSchemaStmt"
-        ],
-        "deparse_contains": "CREATE SCHEMA analytics"
+        ]
       },
       "id": "VPG043"
     },
@@ -526,8 +483,7 @@
         "statement_count": 1,
         "statement_types": [
           "DropStmt"
-        ],
-        "deparse_contains": "DROP SCHEMA analytics"
+        ]
       },
       "id": "VPG044"
     },
@@ -538,8 +494,7 @@
         "statement_count": 1,
         "statement_types": [
           "GrantStmt"
-        ],
-        "deparse_contains": "GRANT select ON public.users TO analyst"
+        ]
       },
       "id": "VPG045"
     },
@@ -550,8 +505,7 @@
         "statement_count": 1,
         "statement_types": [
           "GrantStmt"
-        ],
-        "deparse_contains": "REVOKE select ON public.users FROM analyst"
+        ]
       },
       "id": "VPG046"
     },
@@ -562,8 +516,7 @@
         "statement_count": 1,
         "statement_types": [
           "VacuumStmt"
-        ],
-        "deparse_contains": "ANALYZE public.users"
+        ]
       },
       "id": "VPG047"
     },
@@ -574,8 +527,7 @@
         "statement_count": 1,
         "statement_types": [
           "VacuumStmt"
-        ],
-        "deparse_contains": "VACUUM (ANALYZE) public.users"
+        ]
       },
       "id": "VPG048"
     },
@@ -587,7 +539,28 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "SET search_path TO app_schema, public"
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "schema",
+                "name": "search_path",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "app_schema"
+                  },
+                  {
+                    "kind": "identifier",
+                    "text": "public"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       },
       "id": "VPG049"
     },
@@ -599,7 +572,27 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "SET search_path TO app_schema"
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "schema",
+                "name": "search_path",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "app_schema"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       },
       "id": "VPG050"
     },
@@ -611,7 +604,24 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "SET LOCAL search_path TO app_schema"
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "local",
+                "target_kind": "schema",
+                "name": "search_path",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "app_schema"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       },
       "id": "VPG051"
     },
@@ -622,8 +632,7 @@
         "statement_count": 1,
         "statement_types": [
           "PrepareStmt"
-        ],
-        "deparse_contains": "PREPARE user_by_id"
+        ]
       },
       "id": "VPG052"
     },
@@ -634,8 +643,7 @@
         "statement_count": 1,
         "statement_types": [
           "ExecuteStmt"
-        ],
-        "deparse_contains": "EXECUTE user_by_id(42)"
+        ]
       },
       "id": "VPG053"
     },
@@ -646,8 +654,7 @@
         "statement_count": 1,
         "statement_types": [
           "DeallocateStmt"
-        ],
-        "deparse_contains": "DEALLOCATE user_by_id"
+        ]
       },
       "id": "VPG054"
     },
@@ -658,8 +665,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "$2"
+        ]
       },
       "id": "VPG055"
     },
@@ -671,7 +677,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "$3",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"status\"",
           "\"operator\":\"IN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
@@ -693,7 +698,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "$2",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
           "\"operator\":\"BETWEEN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
@@ -713,7 +717,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "$2",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"status\"",
           "\"operator\":\"NOT IN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
@@ -733,7 +736,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "$2",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
           "\"operator\":\"NOT BETWEEN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
@@ -752,8 +754,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "$3"
+        ]
       },
       "id": "VPG060"
     },
@@ -764,8 +765,7 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "deparse_contains": "$3"
+        ]
       },
       "id": "VPG061"
     },
@@ -776,8 +776,7 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "deparse_contains": "$4"
+        ]
       },
       "id": "VPG062"
     },
@@ -789,7 +788,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "$3",
         "view_contains": [
           "\"kind\":\"update\"",
           "\"clause\":\"set_list\",\"relation\":0,\"column\":\"name\"",
@@ -813,7 +811,6 @@
         "statement_types": [
           "DeleteStmt"
         ],
-        "deparse_contains": "$2",
         "view_contains": [
           "\"kind\":\"delete\"",
           "\"clause\":\"where\",\"relation\":0,\"column\":\"id\"",
@@ -833,8 +830,7 @@
         "statement_count": 1,
         "statement_types": [
           "PrepareStmt"
-        ],
-        "deparse_contains": "PREPARE insert_user"
+        ]
       },
       "id": "VPG065"
     },
@@ -845,8 +841,7 @@
         "statement_count": 1,
         "statement_types": [
           "PrepareStmt"
-        ],
-        "deparse_contains": "PREPARE update_user"
+        ]
       },
       "id": "VPG066"
     },
@@ -857,8 +852,7 @@
         "statement_count": 1,
         "statement_types": [
           "PrepareStmt"
-        ],
-        "deparse_contains": "PREPARE delete_user"
+        ]
       },
       "id": "VPG067"
     },
@@ -869,8 +863,7 @@
         "statement_count": 1,
         "statement_types": [
           "ExecuteStmt"
-        ],
-        "deparse_contains": "EXECUTE insert_user(1, 'bob')"
+        ]
       },
       "id": "VPG068"
     },
@@ -881,8 +874,7 @@
         "statement_count": 1,
         "statement_types": [
           "DeallocateStmt"
-        ],
-        "deparse_contains": "DEALLOCATE ALL"
+        ]
       },
       "id": "VPG069"
     },
@@ -1046,8 +1038,7 @@
         "statement_count": 1,
         "statement_types": [
           "CreateStmt"
-        ],
-        "deparse_contains": "CREATE TABLE IF NOT EXISTS public.secure_users"
+        ]
       },
       "id": "VPG082"
     },
@@ -1058,8 +1049,7 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "deparse_contains": "VALUES ($1, $2, $3)"
+        ]
       },
       "id": "VPG083"
     },
@@ -1070,8 +1060,7 @@
         "statement_count": 1,
         "statement_types": [
           "UpdateStmt"
-        ],
-        "deparse_contains": "NOT IN ($4, $5)"
+        ]
       },
       "id": "VPG084"
     },
@@ -1082,8 +1071,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "BETWEEN $1 AND $2"
+        ]
       },
       "id": "VPG085"
     },
@@ -1094,8 +1082,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "FROM (SELECT id, phone FROM public.users"
+        ]
       },
       "id": "VPG086"
     },
@@ -1106,8 +1093,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "outer_name"
+        ]
       },
       "id": "VPG087"
     },
@@ -1118,8 +1104,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "SELECT COUNT(*)"
+        ]
       },
       "id": "VPG088"
     },
@@ -1130,8 +1115,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "INTERSECT"
+        ]
       },
       "id": "VPG089"
     },
@@ -1142,8 +1126,7 @@
         "statement_count": 1,
         "statement_types": [
           "ViewStmt"
-        ],
-        "deparse_contains": "CREATE VIEW public.v_user_order_count AS"
+        ]
       },
       "id": "VPG090"
     },
@@ -1154,8 +1137,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "ORDER BY 1"
+        ]
       },
       "id": "VPG091"
     },
@@ -1166,8 +1148,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "\"Phone Number\" = $1"
+        ]
       },
       "id": "VPG092"
     },
@@ -1659,7 +1640,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "secret = $1",
         "view_contains": [
           "\"clause\":\"set_list\"",
           "\"column\":\"secret\"",
@@ -1680,7 +1660,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "secret = $2",
         "view_contains": [
           "\"clause\":\"set_list\"",
           "\"column\":\"phone\"",
@@ -1700,8 +1679,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "ESCAPE '!'",
-        "deparse_not_contains": "pg_catalog.like_escape",
         "view_contains": [
           "\"operator\":\"LIKE\"",
           "\"operator_kind\":\"like\"",
@@ -1721,8 +1698,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "NOT LIKE",
-        "deparse_not_contains": "pg_catalog.like_escape",
         "view_contains": [
           "\"operator\":\"NOT LIKE\"",
           "\"operator_kind\":\"not_like\"",
@@ -1743,8 +1718,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "ILIKE",
-        "deparse_not_contains": "pg_catalog.like_escape",
         "view_contains": [
           "\"operator\":\"ILIKE\"",
           "\"operator_kind\":\"ilike\"",
@@ -1763,7 +1736,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "LIKE $1",
         "view_contains": [
           "\"operator\":\"LIKE\"",
           "\"operator_kind\":\"like\"",
@@ -1822,7 +1794,8 @@
           "\"kind\":\"merge\"",
           "\"source_field\"",
           "\"source_target\"",
-          "\"kind\":\"field\""
+          "\"kind\":\"field\"",
+          "\"selector\":\"stmt[0].merge_assignment[0][0]\""
         ]
       },
       "id": "VPG140"
@@ -1836,7 +1809,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "regexp_like(name, $1)",
         "view_contains": [
           "\"operator\":\"regexp_like\"",
           "\"kind\":\"expression\"",
@@ -1855,7 +1827,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "ORDER BY u.email",
         "view_contains": [
           "\"name\":\"e\"",
           "\"column\":\"email\"",
@@ -1874,7 +1845,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "WHERE u.email = $1 OR u.bank_card = $2 ORDER BY u.id",
         "view_contains": [
           "\"bool_operator\":\"or\"",
           "\"bind_sql\":\"$1\"",
@@ -1894,11 +1864,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": [
-          "'prefix' AS prefix_value",
-          "N'Alice''s order' AS label",
-          "N'Bob'"
-        ],
         "view_contains": "\"string_value\":\"Alice's order\""
       },
       "id": "VPG144"
@@ -1911,10 +1876,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": [
-          "'same' AS plain_value",
-          "N'same' AS national_value"
         ]
       },
       "id": "VPG145"
@@ -1937,14 +1898,920 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": [
-          "U.ID AS UserID",
-          "Public.Users U",
-          "U.UserName = $1"
         ]
       },
       "id": "VPG146"
+    },
+    {
+      "id": "VB-C001",
+      "name": "session-state-vb-c001",
+      "sql": "SET SEARCH_PATH TO ds, public;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "schema",
+                "name": "SEARCH_PATH",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "ds"
+                  },
+                  {
+                    "kind": "identifier",
+                    "text": "public"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C002",
+      "name": "session-state-vb-c002",
+      "sql": "SET DATESTYLE TO postgres, dmy;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "DATESTYLE",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "postgres"
+                  },
+                  {
+                    "kind": "identifier",
+                    "text": "dmy"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C003",
+      "name": "session-state-vb-c003",
+      "sql": "ALTER SESSION SET statement_timeout TO '5s';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "statement_timeout",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "5s"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C004",
+      "name": "session-state-vb-c004",
+      "sql": "ALTER SESSION SET statement_timeout = '5s';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "statement_timeout",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "5s"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C005",
+      "name": "session-state-vb-c005",
+      "sql": "ALTER SESSION SET statement_timeout TO DEFAULT;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "statement_timeout",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "DEFAULT"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C006",
+      "name": "session-state-vb-c006",
+      "sql": "ALTER SESSION SET statement_timeout FROM CURRENT;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "statement_timeout",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "CURRENT"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C007",
+      "name": "session-state-vb-c007",
+      "sql": "ALTER SESSION SET NAMES 'UTF8';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "NAMES",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "UTF8"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C008",
+      "name": "session-state-vb-c008",
+      "sql": "SET TIME ZONE 'PST8PDT';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "timezone",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "PST8PDT"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C009",
+      "name": "session-state-vb-c009",
+      "sql": "SET TIME ZONE 'Europe/Rome';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "timezone",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "Europe/Rome"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C010",
+      "name": "session-state-vb-c010",
+      "sql": "ALTER SESSION SET TIME ZONE LOCAL;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "TIME ZONE",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "LOCAL"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C011",
+      "name": "session-state-vb-c011",
+      "sql": "ALTER SESSION SET CURRENT_SCHEMA tpcds;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "switch",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "schema",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "tpcds"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C012",
+      "name": "session-state-vb-c012",
+      "sql": "ALTER SESSION SET XML OPTION DOCUMENT;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "XML OPTION",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "DOCUMENT"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C013",
+      "name": "session-state-vb-c013",
+      "sql": "ALTER SESSION SET ROLE joe PASSWORD 'ExamplePassword_1';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "role",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "joe"
+                  },
+                  {
+                    "name": "password",
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "ExamplePassword_1"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C014",
+      "name": "session-state-vb-c014",
+      "sql": "ALTER SESSION SET SESSION AUTHORIZATION joe PASSWORD 'ExamplePassword_1';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "authorization",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "joe"
+                  },
+                  {
+                    "name": "password",
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "ExamplePassword_1"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C015",
+      "name": "session-state-vb-c015",
+      "sql": "ALTER SESSION SET SESSION AUTHORIZATION DEFAULT;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "authorization",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "DEFAULT"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C016",
+      "name": "session-state-vb-c016",
+      "sql": "ALTER SESSION SET SESSION CHARACTERISTICS AS TRANSACTION\n    ISOLATION LEVEL READ COMMITTED,\n    READ ONLY;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "transaction",
+                "values": [
+                  {
+                    "name": "isolation_level",
+                    "kind": "keyword",
+                    "text": "READ COMMITTED"
+                  },
+                  {
+                    "name": "access_mode",
+                    "kind": "keyword",
+                    "text": "READ ONLY"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C017",
+      "name": "session-state-vb-c017",
+      "sql": "SET SESSION AUTHORIZATION DEFAULT;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "authorization",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "DEFAULT"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C018",
+      "name": "session-state-vb-c018",
+      "sql": "RESET ALL;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "reset",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "all"
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"reset\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C019",
+      "name": "session-state-vb-c019",
+      "sql": "ALTER SESSION SET TRANSACTION\n    ISOLATION LEVEL READ COMMITTED,\n    READ WRITE;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "transaction",
+                "values": [
+                  {
+                    "name": "isolation_level",
+                    "kind": "keyword",
+                    "text": "READ COMMITTED"
+                  },
+                  {
+                    "name": "access_mode",
+                    "kind": "keyword",
+                    "text": "READ WRITE"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C020",
+      "name": "session-state-vb-c020",
+      "sql": "ALTER SESSION SET XML OPTION CONTENT;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "XML OPTION",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "CONTENT"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C021",
+      "name": "session-state-vb-c021",
+      "sql": "ALTER SESSION SET TIME ZONE '+08:00';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "TIME ZONE",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "+08:00"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C022",
+      "name": "session-state-vb-c022",
+      "sql": "ALTER SESSION SET CURRENT_SCHEMA TO tpcds;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "switch",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "schema",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "tpcds"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C023",
+      "name": "session-state-dollar-quoted-alter-session-text",
+      "sql": "SELECT $$x; ALTER SESSION SET CURRENT_SCHEMA tpcds; y$$;",
+      "expect": {
+        "ok": true,
+        "session": [
+          null
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"select\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C024",
+      "name": "session-state-tagged-dollar-quoted-alter-session-text",
+      "sql": "SELECT $body$x; ALTER SESSION SET TIME ZONE 'UTC'; y$body$;",
+      "expect": {
+        "ok": true,
+        "session": [
+          null
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"select\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C025",
+      "name": "session-state-after-dollar-quoted-statement",
+      "sql": "SELECT $$x;y$$; ALTER SESSION SET CURRENT_SCHEMA tpcds;",
+      "expect": {
+        "ok": true,
+        "session": [
+          null,
+          {
+            "action": "switch",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "schema",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "tpcds"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 2,
+        "view_contains": [
+          "\"keyword\":\"select\"",
+          "\"keyword\":\"alter_session\""
+        ],
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C026",
+      "name": "session-state-vb-leading-block-comment",
+      "sql": "/* lexical comment */ ALTER SESSION SET CURRENT_SCHEMA tpcds;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "switch",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "schema",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "tpcds"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C027",
+      "name": "session-state-vb-leading-line-comment",
+      "sql": "-- lexical comment\nALTER SESSION SET TIME ZONE '+08:00';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "TIME ZONE",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "+08:00"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C028",
+      "name": "session-state-vb-nested-comment-before-statement",
+      "sql": "/* outer /* inner */ outer */ ALTER SESSION SET CURRENT_SCHEMA tpcds;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "switch",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "schema",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "tpcds"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"alter_session\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-C029",
+      "name": "session-state-vb-alter-session-inside-nested-comment",
+      "sql": "/* outer /* inner */ ; ALTER SESSION SET CURRENT_SCHEMA hidden; outer */ SELECT 1;",
+      "expect": {
+        "ok": true,
+        "session": [
+          null
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"select\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "VB-N001",
+      "name": "session-state-vb-empty-timeout-value",
+      "sql": "ALTER SESSION SET statement_timeout =;",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "VB-N002",
+      "name": "session-state-vb-unclosed-timeout-value",
+      "sql": "ALTER SESSION SET statement_timeout TO '5s;",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "VB-N003",
+      "name": "session-state-vb-missing-current-schema",
+      "sql": "ALTER SESSION SET CURRENT_SCHEMA;",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "VB-N004",
+      "name": "session-state-vb-missing-time-zone",
+      "sql": "ALTER SESSION SET TIME ZONE;",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "VB-N005",
+      "name": "session-state-vb-invalid-xml-option",
+      "sql": "ALTER SESSION SET XML OPTION BINARY;",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "VB-N006",
+      "name": "session-state-vb-invalid-transaction-option",
+      "sql": "ALTER SESSION SET TRANSACTION FLY FAST;",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "VB-N007",
+      "name": "session-state-vb-incomplete-session-characteristics",
+      "sql": "ALTER SESSION SET SESSION CHARACTERISTICS AS TRANSACTION READ;",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "VB-N008",
+      "name": "session-state-vb-extra-timeout-token",
+      "sql": "ALTER SESSION SET statement_timeout TO '5s' EXTRA;",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "VB-N009",
+      "name": "session-state-vb-current-schema-string-literal",
+      "sql": "ALTER SESSION SET CURRENT_SCHEMA 'tpcds';",
+      "expect": {
+        "ok": false
+      }
     }
   ]
 }

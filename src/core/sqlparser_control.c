@@ -748,12 +748,15 @@ static sqlparser_status_t sqlparser_control_render_statement_core(
 	sqlparser_error_t *out_error)
 {
 	PgQuery__ParseResult single = PG_QUERY__PARSE_RESULT__INIT;
+	PgQuery__RawStmt *raw_statement;
 	PgQuery__RawStmt *statements[1];
 	PgQueryProtobuf protobuf;
 	PgQueryDeparseResult result;
 	size_t ast_index;
 	size_t packed_size;
 	size_t packed_len;
+	size_t source_end;
+	size_t source_start;
 	sqlparser_status_t status;
 
 	*out_sql = NULL;
@@ -761,7 +764,40 @@ static sqlparser_status_t sqlparser_control_render_statement_core(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	statements[0] = handle->ast->stmts[ast_index];
+	raw_statement = handle->ast->stmts[ast_index];
+	if (raw_statement == NULL ||
+	    raw_statement->stmt_location < 0 ||
+	    (size_t)raw_statement->stmt_location >
+		    handle->parser_sql_len) {
+		return sqlparser_control_invalid_state(
+			out_error,
+			"control statement source range is invalid");
+	}
+	source_start = (size_t)raw_statement->stmt_location;
+	if (raw_statement->stmt_len > 0) {
+		if ((size_t)raw_statement->stmt_len >
+		    handle->parser_sql_len - source_start) {
+			return sqlparser_control_invalid_state(
+				out_error,
+				"control statement source range is invalid");
+		}
+		source_end =
+			source_start + (size_t)raw_statement->stmt_len;
+	} else if (ast_index + 1U < handle->ast->n_stmts &&
+		   handle->ast->stmts[ast_index + 1U] != NULL &&
+		   handle->ast->stmts[ast_index + 1U]->stmt_location >= 0 &&
+		   (size_t)handle->ast->stmts[ast_index + 1U]
+				    ->stmt_location > source_start &&
+		   (size_t)handle->ast->stmts[ast_index + 1U]
+				    ->stmt_location <=
+			   handle->parser_sql_len) {
+		source_end =
+			(size_t)handle->ast->stmts[ast_index + 1U]
+				->stmt_location;
+	} else {
+		source_end = handle->parser_sql_len;
+	}
+	statements[0] = raw_statement;
 	single.version = handle->ast->version;
 	single.n_stmts = 1U;
 	single.stmts = statements;
@@ -780,7 +816,12 @@ static sqlparser_status_t sqlparser_control_render_statement_core(
 	protobuf.data = (char *)scratch->data;
 	protobuf.len = packed_len;
 	sqlparser_pg_query_prepare();
-	result = sqlparser_deparse_protobuf_for_handle(handle, protobuf);
+	result = sqlparser_deparse_protobuf_for_handle(
+		handle,
+		protobuf,
+		ast_index,
+		source_start,
+		source_end);
 	if (result.error != NULL || result.query == NULL) {
 		sqlparser_error_set_message(
 			out_error,
@@ -886,9 +927,11 @@ sqlparser_status_t sqlparser_control_build_public_sql(
 	source_offset = 0U;
 	status = SQLPARSER_STATUS_OK;
 	for (unit_index = 0U; unit_index < handle->control->unit_count; unit_index++) {
-		const sqlparser_control_unit_t *unit;
+		sqlparser_control_unit_t *unit;
 		char *core_sql;
 		char *public_sql;
+		size_t current_offset;
+		size_t current_length;
 
 		unit = &handle->control->units[unit_index];
 		status = sqlparser_control_buffer_append(
@@ -922,8 +965,18 @@ sqlparser_status_t sqlparser_control_build_public_sql(
 				out_error);
 		}
 		free(core_sql);
+		current_offset = buffer.length;
+		current_length = public_sql != NULL ? strlen(public_sql) : 0U;
 		if (status == SQLPARSER_STATUS_OK) {
-			status = sqlparser_control_buffer_append(&buffer, public_sql, strlen(public_sql), out_error);
+			status = sqlparser_control_buffer_append(
+				&buffer,
+				public_sql,
+				current_length,
+				out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			unit->current_offset = current_offset;
+			unit->current_length = current_length;
 		}
 		free(public_sql);
 		if (status != SQLPARSER_STATUS_OK) {

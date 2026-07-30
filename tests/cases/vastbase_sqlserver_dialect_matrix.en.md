@@ -1,6 +1,22 @@
 # Vastbase SQL Server Compatibility Case Matrix
 
-Executable fixture: `tests/cases/vastbase_sqlserver_dialect_input.json`. The unit test verifies parsing, View JSON, deparse output, and error codes case by case. The current fixture contains 546 cases: 517 supported paths and 29 error or explicitly unsupported paths.
+Executable fixture: `tests/cases/vastbase_sqlserver_dialect_input.json`. The unit test verifies parsing, View JSON, deparse output, and error codes case by case.
+
+## Matrix Counts and Session Regression
+
+The fixture contains 585 cases: 547 expect success and 38 expect failure.
+Statement-level `expect.session` appears in 70 cases, covering `VS044` through
+`VS046`, `VSH295` through `VSH333`, `VB-C001` through `VB-C022`, `VB-C026`
+through `VB-C029`, and `VB-MSSQL-001` through `VB-MSSQL-002`. Sixty-nine
+contain at least one non-null session expectation; lexical-isolation case
+`VB-C029` requires every statement to omit session output.
+
+When an `expect.session` array is present, the matrix test requires one entry
+per statement. A non-null entry is matched against the corresponding session
+projection, including its action, item scope, target kind, name, and value
+fields; `null` asserts that no session projection is emitted. For fixture cases
+that expect success, the test also deparses the unmodified handle and compares
+the result with the input SQL byte for byte.
 
 | ID | Case | SQL | Status |
 | --- | --- | --- | --- |

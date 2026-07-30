@@ -16,15 +16,15 @@
 - `sql -> handle`
 - 语句类型与节点名称识别
 - 表、名称原子、字面量的遍历与改写
-- `INSERT`、`UPDATE`、`WHERE` 结构读取与精确改写，支持新增 WHERE 与追加条件
+- `INSERT`、顶层 `UPDATE`、`MERGE WHEN MATCHED ... THEN UPDATE`、`WHERE` 的结构化读取与基于 selector 的改写，支持新增 WHERE 与追加条件
 - `SELECT` 输出列表读取、替换、插入与删除
-- 结构化 SQL 片段改写，支持用 identifier path 插入 UPDATE 赋值项和展开 SELECT 输出列
-- `selector` 解析、格式化与定位
+- 结构化 SQL 片段改写，支持用 identifier path 向顶层 UPDATE 或 MERGE matched UPDATE action 插入赋值项，以及展开 SELECT 输出列
+- `selector` 解析、格式化与定位，包括 `stmt[S].assignment[A]` 和 `stmt[S].merge_assignment[W][A]`
 - 方言选项，默认 PostgreSQL，并提供 MySQL、Oracle、SQL Server、达梦、Vastbase 兼容模式转换层
 - 常见预编译 / 参数化 SQL 语句解析、View JSON 和反解析
 - 可配置资源限制，覆盖 SQL 输入、生成输出与语句数量
 - View JSON 导出、C 结构化遍历与结构体 patch 写回
-- DML 结果通道以及 SQL Server `IF...ELSE` 控制流的结构化只读遍历
+- DML 结果通道、会话状态以及 SQL Server `IF...ELSE` 控制流的结构化只读遍历
 - `handle -> sql`
 
 ## 公共产物

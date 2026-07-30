@@ -16,15 +16,15 @@ This release provides:
 - `sql -> handle`
 - statement kind and node-name inspection
 - statement-wide relation, name, and literal traversal and rewrite
-- `INSERT`, `UPDATE`, and `WHERE` structural views, including WHERE insertion and condition append
+- structural views and selector-based rewrites for `INSERT`, top-level `UPDATE`, `MERGE WHEN MATCHED ... THEN UPDATE`, and `WHERE`, including WHERE insertion and condition append
 - `SELECT` output-list read, replace, insert, and delete operations
-- structured SQL fragment rewrites for UPDATE assignment insertion and SELECT output-column expansion from identifier paths
-- stable selector parse / format / lookup
+- structured SQL fragment rewrites for assignment insertion into a top-level UPDATE or MERGE matched UPDATE action, and SELECT output-column expansion from identifier paths
+- selector parse / format / lookup, including `stmt[S].assignment[A]` and `stmt[S].merge_assignment[W][A]`
 - dialect options with PostgreSQL as the default and MySQL / Oracle / SQL Server / Dameng / Vastbase compatibility conversion layers
 - common prepared / parameterized SQL statement parsing, View JSON, and deparse output
 - configurable resource limits for SQL input, generated output, and statement count
 - View JSON export, C structured traversal, and structured patch write-back
-- structured read-only traversal for DML result channels and SQL Server `IF...ELSE` control flow
+- structured read-only traversal for DML result channels, session state, and SQL Server `IF...ELSE` control flow
 - `handle -> sql`
 
 ## Public Artifacts

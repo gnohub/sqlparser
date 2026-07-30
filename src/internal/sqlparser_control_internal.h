@@ -26,6 +26,8 @@ typedef struct {
 	size_t ast_statement_index;
 	size_t source_offset;
 	size_t source_length;
+	size_t current_offset;
+	size_t current_length;
 } sqlparser_control_unit_t;
 
 struct sqlparser_control_state {

@@ -2,6 +2,12 @@
 
 可执行夹具：`tests/cases/vastbase_mysql_dialect_input.json`。单元测试会逐条验证解析、View JSON、反解析输出和明确不支持语法返回码。
 
+## 矩阵统计与 session 回归
+
+夹具包含 219 条用例，其中 210 条预期成功，9 条预期失败。38 条用例包含 statement 级 `expect.session`，覆盖 `VM015` 至 `VM017`、`VB-C001` 至 `VB-C022`、`VB-C026` 至 `VB-C027` 和 `VB-B001` 至 `VB-B011`；这 38 条用例均至少包含一个非空 session 期望。
+
+用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
+
 | ID | 用例 | SQL | 状态 |
 | --- | --- | --- | --- |
 | `VM001` | `vastbase-mysql-select-limit-comma` | SELECT `u`.`id`, "hello" AS `label` FROM `users` AS `u` WHERE `u`.`id` = 1 LIMIT 5, 10 | 已覆盖 |

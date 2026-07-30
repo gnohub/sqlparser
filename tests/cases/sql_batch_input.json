@@ -7,8 +7,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "SELECT 1"
+        ]
       }
     },
     {
@@ -18,8 +17,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "FROM public.users"
+        ]
       }
     },
     {
@@ -29,8 +27,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "SELECT u.id, u.name, o.order_no"
+        ]
       }
     },
     {
@@ -40,8 +37,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "WITH active_users AS"
+        ]
       }
     },
     {
@@ -51,8 +47,7 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "deparse_contains": "VALUES (1, 'alice')"
+        ]
       }
     },
     {
@@ -62,8 +57,7 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "deparse_contains": "VALUES (1, 'alice'), (2, 'bob')"
+        ]
       }
     },
     {
@@ -73,8 +67,7 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "deparse_contains": "INSERT INTO public.user_archive"
+        ]
       }
     },
     {
@@ -84,8 +77,7 @@
         "statement_count": 1,
         "statement_types": [
           "UpdateStmt"
-        ],
-        "deparse_contains": "UPDATE public.users SET"
+        ]
       }
     },
     {
@@ -95,8 +87,7 @@
         "statement_count": 1,
         "statement_types": [
           "DeleteStmt"
-        ],
-        "deparse_contains": "DELETE FROM public.users"
+        ]
       }
     },
     {
@@ -106,8 +97,7 @@
         "statement_count": 1,
         "statement_types": [
           "DeleteStmt"
-        ],
-        "deparse_contains": "id IN (1, 2, 3)"
+        ]
       }
     },
     {
@@ -117,8 +107,7 @@
         "statement_count": 1,
         "statement_types": [
           "DropStmt"
-        ],
-        "deparse_contains": "DROP TABLE public.users"
+        ]
       }
     },
     {
@@ -128,8 +117,7 @@
         "statement_count": 1,
         "statement_types": [
           "DropStmt"
-        ],
-        "deparse_contains": "DROP VIEW public.v_users"
+        ]
       }
     },
     {
@@ -139,8 +127,7 @@
         "statement_count": 1,
         "statement_types": [
           "ViewStmt"
-        ],
-        "deparse_contains": "CREATE VIEW public.v_users AS"
+        ]
       }
     },
     {
@@ -150,8 +137,7 @@
         "statement_count": 1,
         "statement_types": [
           "TruncateStmt"
-        ],
-        "deparse_contains": "TRUNCATE public.users"
+        ]
       }
     },
     {
@@ -161,8 +147,7 @@
         "statement_count": 1,
         "statement_types": [
           "CommentStmt"
-        ],
-        "deparse_contains": "COMMENT ON TABLE public.users"
+        ]
       }
     },
     {
@@ -172,8 +157,7 @@
         "statement_count": 1,
         "statement_types": [
           "RenameStmt"
-        ],
-        "deparse_contains": "RENAME TO users_archive"
+        ]
       }
     },
     {
@@ -183,8 +167,7 @@
         "statement_count": 1,
         "statement_types": [
           "AlterTableStmt"
-        ],
-        "deparse_contains": "ADD COLUMN age int"
+        ]
       }
     },
     {
@@ -194,8 +177,7 @@
         "statement_count": 1,
         "statement_types": [
           "IndexStmt"
-        ],
-        "deparse_contains": "CREATE INDEX idx_users_name"
+        ]
       }
     },
     {
@@ -205,8 +187,7 @@
         "statement_count": 1,
         "statement_types": [
           "DropStmt"
-        ],
-        "deparse_contains": "DROP INDEX public.idx_users_name"
+        ]
       }
     },
     {
@@ -216,8 +197,7 @@
         "statement_count": 1,
         "statement_types": [
           "ExplainStmt"
-        ],
-        "deparse_contains": "EXPLAIN SELECT id FROM public.users"
+        ]
       }
     },
     {
@@ -227,8 +207,7 @@
         "statement_count": 1,
         "statement_types": [
           "CopyStmt"
-        ],
-        "deparse_contains": "COPY public.users(id, name) FROM STDIN"
+        ]
       }
     },
     {
@@ -238,8 +217,7 @@
         "statement_count": 1,
         "statement_types": [
           "LockStmt"
-        ],
-        "deparse_contains": "LOCK TABLE public.users"
+        ]
       }
     },
     {
@@ -249,8 +227,7 @@
         "statement_count": 1,
         "statement_types": [
           "CallStmt"
-        ],
-        "deparse_contains": "CALL public.refresh_users()"
+        ]
       }
     },
     {
@@ -260,8 +237,7 @@
         "statement_count": 1,
         "statement_types": [
           "DoStmt"
-        ],
-        "deparse_contains": "DO $$ BEGIN NULL; END $$"
+        ]
       }
     },
     {
@@ -271,8 +247,7 @@
         "statement_count": 1,
         "statement_types": [
           "CreateTableAsStmt"
-        ],
-        "deparse_contains": "CREATE TABLE public.active_users AS"
+        ]
       }
     },
     {
@@ -282,8 +257,7 @@
         "statement_count": 2,
         "statement_types": [
           "TransactionStmt"
-        ],
-        "deparse_contains": "BEGIN; COMMIT"
+        ]
       }
     },
     {
@@ -294,8 +268,7 @@
         "statement_types": [
           "TransactionStmt",
           "InsertStmt"
-        ],
-        "deparse_contains": "ROLLBACK"
+        ]
       }
     },
     {
@@ -306,8 +279,7 @@
         "statement_types": [
           "SelectStmt",
           "InsertStmt"
-        ],
-        "deparse_contains": "INSERT INTO public.audit_log"
+        ]
       }
     },
     {
@@ -317,8 +289,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "SELECT \"User\".\"Name\" FROM \"User\""
+        ]
       }
     },
     {
@@ -328,8 +299,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "AS token"
+        ]
       }
     },
     {
@@ -339,8 +309,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "EXISTS (SELECT 1 FROM public.orders o"
+        ]
       }
     },
     {
@@ -350,8 +319,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "sum(p.amount) OVER"
+        ]
       }
     },
     {
@@ -361,8 +329,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "UNION ALL SELECT id FROM public.user_archive"
+        ]
       }
     },
     {
@@ -372,8 +339,7 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "deparse_contains": "ON CONFLICT (id) DO UPDATE SET"
+        ]
       }
     },
     {
@@ -383,8 +349,7 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "deparse_contains": "RETURNING id, action"
+        ]
       }
     },
     {
@@ -394,8 +359,7 @@
         "statement_count": 1,
         "statement_types": [
           "UpdateStmt"
-        ],
-        "deparse_contains": "FROM public.user_stage src"
+        ]
       }
     },
     {
@@ -405,8 +369,7 @@
         "statement_count": 1,
         "statement_types": [
           "DeleteStmt"
-        ],
-        "deparse_contains": "USING public.user_archive ua"
+        ]
       }
     },
     {
@@ -416,8 +379,7 @@
         "statement_count": 1,
         "statement_types": [
           "MergeStmt"
-        ],
-        "deparse_contains": "MERGE INTO public.target_table"
+        ]
       }
     },
     {
@@ -427,8 +389,7 @@
         "statement_count": 4,
         "statement_types": [
           "TransactionStmt"
-        ],
-        "deparse_contains": "RELEASE sp1"
+        ]
       }
     },
     {
@@ -439,8 +400,7 @@
         "statement_types": [
           "TransactionStmt",
           "InsertStmt"
-        ],
-        "deparse_contains": "ROLLBACK TO SAVEPOINT sp1"
+        ]
       }
     },
     {
@@ -450,8 +410,7 @@
         "statement_count": 1,
         "statement_types": [
           "CreateTableAsStmt"
-        ],
-        "deparse_contains": "CREATE MATERIALIZED VIEW public.mv_users AS"
+        ]
       }
     },
     {
@@ -461,8 +420,7 @@
         "statement_count": 1,
         "statement_types": [
           "AlterTableStmt"
-        ],
-        "deparse_contains": "DROP age"
+        ]
       }
     },
     {
@@ -472,8 +430,7 @@
         "statement_count": 1,
         "statement_types": [
           "CreateSchemaStmt"
-        ],
-        "deparse_contains": "CREATE SCHEMA analytics"
+        ]
       }
     },
     {
@@ -483,8 +440,7 @@
         "statement_count": 1,
         "statement_types": [
           "DropStmt"
-        ],
-        "deparse_contains": "DROP SCHEMA analytics"
+        ]
       }
     },
     {
@@ -494,8 +450,7 @@
         "statement_count": 1,
         "statement_types": [
           "GrantStmt"
-        ],
-        "deparse_contains": "GRANT select ON public.users TO analyst"
+        ]
       }
     },
     {
@@ -505,8 +460,7 @@
         "statement_count": 1,
         "statement_types": [
           "GrantStmt"
-        ],
-        "deparse_contains": "REVOKE select ON public.users FROM analyst"
+        ]
       }
     },
     {
@@ -516,8 +470,7 @@
         "statement_count": 1,
         "statement_types": [
           "VacuumStmt"
-        ],
-        "deparse_contains": "ANALYZE public.users"
+        ]
       }
     },
     {
@@ -527,8 +480,7 @@
         "statement_count": 1,
         "statement_types": [
           "VacuumStmt"
-        ],
-        "deparse_contains": "VACUUM (ANALYZE) public.users"
+        ]
       }
     },
     {
@@ -539,7 +491,28 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "SET search_path TO app_schema, public"
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "schema",
+                "name": "search_path",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "app_schema"
+                  },
+                  {
+                    "kind": "identifier",
+                    "text": "public"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       }
     },
     {
@@ -550,7 +523,27 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "SET search_path TO app_schema"
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "schema",
+                "name": "search_path",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "app_schema"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       }
     },
     {
@@ -561,7 +554,24 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "SET LOCAL search_path TO app_schema"
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "local",
+                "target_kind": "schema",
+                "name": "search_path",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "app_schema"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       }
     },
     {
@@ -571,8 +581,7 @@
         "statement_count": 1,
         "statement_types": [
           "PrepareStmt"
-        ],
-        "deparse_contains": "PREPARE user_by_id"
+        ]
       }
     },
     {
@@ -582,8 +591,7 @@
         "statement_count": 1,
         "statement_types": [
           "ExecuteStmt"
-        ],
-        "deparse_contains": "EXECUTE user_by_id(42)"
+        ]
       }
     },
     {
@@ -593,8 +601,7 @@
         "statement_count": 1,
         "statement_types": [
           "DeallocateStmt"
-        ],
-        "deparse_contains": "DEALLOCATE user_by_id"
+        ]
       }
     },
     {
@@ -605,8 +612,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "'Bob''s order'"
+        ]
       }
     },
     {
@@ -617,8 +623,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "TOP (3)"
+        ]
       }
     },
     {
@@ -631,7 +636,24 @@
           "VariableSetStmt",
           "SelectStmt"
         ],
-        "deparse_contains": ":id"
+        "session": [
+          {
+            "action": "switch",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "schema",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "KDES"
+                  }
+                ]
+              }
+            ]
+          },
+          null
+        ]
       }
     },
     {
@@ -641,8 +663,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "$2"
+        ]
       }
     },
     {
@@ -653,7 +674,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "$3",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"status\"",
           "\"operator\":\"IN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
@@ -674,7 +694,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "$2",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
           "\"operator\":\"BETWEEN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
@@ -693,7 +712,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "$2",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"status\"",
           "\"operator\":\"NOT IN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
@@ -712,7 +730,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "$2",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
           "\"operator\":\"NOT BETWEEN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
@@ -730,8 +747,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "$3"
+        ]
       }
     },
     {
@@ -741,8 +757,7 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "deparse_contains": "$3"
+        ]
       }
     },
     {
@@ -752,8 +767,7 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "deparse_contains": "$4"
+        ]
       }
     },
     {
@@ -764,7 +778,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "$3",
         "view_contains": [
           "\"kind\":\"update\"",
           "\"clause\":\"set_list\",\"relation\":0,\"column\":\"name\"",
@@ -787,7 +800,6 @@
         "statement_types": [
           "DeleteStmt"
         ],
-        "deparse_contains": "$2",
         "view_contains": [
           "\"kind\":\"delete\"",
           "\"clause\":\"where\",\"relation\":0,\"column\":\"id\"",
@@ -806,8 +818,7 @@
         "statement_count": 1,
         "statement_types": [
           "PrepareStmt"
-        ],
-        "deparse_contains": "PREPARE insert_user"
+        ]
       }
     },
     {
@@ -817,8 +828,7 @@
         "statement_count": 1,
         "statement_types": [
           "PrepareStmt"
-        ],
-        "deparse_contains": "PREPARE update_user"
+        ]
       }
     },
     {
@@ -828,8 +838,7 @@
         "statement_count": 1,
         "statement_types": [
           "PrepareStmt"
-        ],
-        "deparse_contains": "PREPARE delete_user"
+        ]
       }
     },
     {
@@ -839,8 +848,7 @@
         "statement_count": 1,
         "statement_types": [
           "ExecuteStmt"
-        ],
-        "deparse_contains": "EXECUTE insert_user(1, 'bob')"
+        ]
       }
     },
     {
@@ -850,8 +858,7 @@
         "statement_count": 1,
         "statement_types": [
           "DeallocateStmt"
-        ],
-        "deparse_contains": "DEALLOCATE ALL"
+        ]
       }
     },
     {
@@ -1002,8 +1009,7 @@
         "statement_count": 1,
         "statement_types": [
           "CreateStmt"
-        ],
-        "deparse_contains": "CREATE TABLE IF NOT EXISTS public.secure_users"
+        ]
       }
     },
     {
@@ -1013,8 +1019,7 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "deparse_contains": "VALUES ($1, $2, $3)"
+        ]
       }
     },
     {
@@ -1024,8 +1029,7 @@
         "statement_count": 1,
         "statement_types": [
           "UpdateStmt"
-        ],
-        "deparse_contains": "NOT IN ($4, $5)"
+        ]
       }
     },
     {
@@ -1035,8 +1039,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "BETWEEN $1 AND $2"
+        ]
       }
     },
     {
@@ -1046,8 +1049,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "FROM (SELECT id, phone FROM public.users"
+        ]
       }
     },
     {
@@ -1057,8 +1059,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "outer_name"
+        ]
       }
     },
     {
@@ -1068,8 +1069,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "SELECT COUNT(*)"
+        ]
       }
     },
     {
@@ -1079,8 +1079,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "INTERSECT"
+        ]
       }
     },
     {
@@ -1090,8 +1089,7 @@
         "statement_count": 1,
         "statement_types": [
           "ViewStmt"
-        ],
-        "deparse_contains": "CREATE VIEW public.v_user_order_count AS"
+        ]
       }
     },
     {
@@ -1101,8 +1099,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "ORDER BY 1"
+        ]
       }
     },
     {
@@ -1112,8 +1109,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "\"Phone Number\" = $1"
+        ]
       }
     },
     {
@@ -1566,7 +1562,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "secret = $1",
         "view_contains": [
           "\"clause\":\"set_list\"",
           "\"column\":\"secret\"",
@@ -1586,7 +1581,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "secret = $2",
         "view_contains": [
           "\"clause\":\"set_list\"",
           "\"column\":\"phone\"",
@@ -1605,8 +1599,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "ESCAPE '!'",
-        "deparse_not_contains": "pg_catalog.like_escape",
         "view_contains": [
           "\"operator\":\"LIKE\"",
           "\"operator_kind\":\"like\"",
@@ -1625,8 +1617,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "NOT LIKE",
-        "deparse_not_contains": "pg_catalog.like_escape",
         "view_contains": [
           "\"operator\":\"NOT LIKE\"",
           "\"operator_kind\":\"not_like\"",
@@ -1646,8 +1636,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "ILIKE",
-        "deparse_not_contains": "pg_catalog.like_escape",
         "view_contains": [
           "\"operator\":\"ILIKE\"",
           "\"operator_kind\":\"ilike\"",
@@ -1665,7 +1653,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "LIKE $1",
         "view_contains": [
           "\"operator\":\"LIKE\"",
           "\"operator_kind\":\"like\"",
@@ -1721,7 +1708,8 @@
           "\"kind\":\"merge\"",
           "\"source_field\"",
           "\"source_target\"",
-          "\"kind\":\"field\""
+          "\"kind\":\"field\"",
+          "\"selector\":\"stmt[0].merge_assignment[0][0]\""
         ]
       }
     },
@@ -1734,7 +1722,6 @@
         "statement_types": [
           "OtherStmt"
         ],
-        "deparse_contains": "NOTIFY events, 'payload'",
         "view_contains": [
           "\"keyword\":\"other\"",
           "\"query_graph\":{}"
@@ -1751,7 +1738,6 @@
           "OtherStmt",
           "DropStmt"
         ],
-        "deparse_contains": "CREATE EXTENSION IF NOT EXISTS hstore",
         "view_contains": [
           "\"keyword\":\"other\"",
           "\"keyword\":\"drop\"",
@@ -1768,7 +1754,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "regexp_like(name, $1)",
         "view_contains": [
           "\"operator\":\"regexp_like\"",
           "\"kind\":\"expression\"",
@@ -1786,7 +1771,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "ORDER BY u.email",
         "view_contains": [
           "\"name\":\"e\"",
           "\"column\":\"email\"",
@@ -1804,7 +1788,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "WHERE u.email = $1 OR u.bank_card = $2 ORDER BY u.id",
         "view_contains": [
           "\"bool_operator\":\"or\"",
           "\"bind_sql\":\"$1\"",
@@ -1823,11 +1806,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": [
-          "'prefix' AS prefix_value",
-          "N'Alice''s order' AS label",
-          "N'Bob'"
-        ],
         "view_contains": "\"string_value\":\"Alice's order\""
       }
     },
@@ -1839,10 +1817,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": [
-          "'same' AS plain_value",
-          "N'same' AS national_value"
         ]
       }
     },
@@ -1865,7 +1839,23 @@
           "VariableSetStmt"
         ],
         "view_contains": "alter_session",
-        "deparse_contains": "CURRENT_SCHEMA"
+        "session": [
+          {
+            "action": "switch",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "schema",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "KDES"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       }
     },
     {
@@ -1876,8 +1866,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "LIMIT ?, ?"
+        ]
       }
     },
     {
@@ -1889,8 +1878,7 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "view_contains": "\"bind_sql\":\"$1\"",
-        "deparse_contains": "$1"
+        "view_contains": "\"bind_sql\":\"$1\""
       }
     },
     {
@@ -1902,8 +1890,7 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "view_contains": "\"bind_sql\":\"@id\"",
-        "deparse_contains": "TOP (5)"
+        "view_contains": "\"bind_sql\":\"@id\""
       }
     },
     {
@@ -1914,13 +1901,831 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": [
-          "U.ID AS UserID",
-          "Public.DBP_USERS U",
-          "U.USER_NAME"
         ]
       }
+    },
+    {
+      "id": "PG-001",
+      "name": "session-state-pg-001",
+      "sql": "SET search_path TO my_schema, public;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "schema",
+                "name": "search_path",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "my_schema"
+                  },
+                  {
+                    "kind": "identifier",
+                    "text": "public"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-002",
+      "name": "session-state-pg-002",
+      "sql": "SET SESSION search_path = my_schema, public;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "schema",
+                "name": "search_path",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "my_schema"
+                  },
+                  {
+                    "kind": "identifier",
+                    "text": "public"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-003",
+      "name": "session-state-pg-003",
+      "sql": "SET LOCAL statement_timeout TO '5s';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "local",
+                "target_kind": "parameter",
+                "name": "statement_timeout",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "5s"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-004",
+      "name": "session-state-pg-004",
+      "sql": "SET search_path TO DEFAULT;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "schema",
+                "name": "search_path",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "DEFAULT"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-005",
+      "name": "session-state-pg-005",
+      "sql": "SET SCHEMA 'my_schema';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "schema",
+                "name": "search_path",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "my_schema"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-006",
+      "name": "session-state-pg-006",
+      "sql": "SET NAMES 'UTF8';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "client_encoding",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "UTF8"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-007",
+      "name": "session-state-pg-007",
+      "sql": "SET SEED TO 0.5;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "SEED",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "float",
+                      "float_value": "0.5"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-008",
+      "name": "session-state-pg-008",
+      "sql": "SET TIME ZONE 'America/Los_Angeles';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "timezone",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "America/Los_Angeles"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-009",
+      "name": "session-state-pg-009",
+      "sql": "SET TIME ZONE LOCAL;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "timezone",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "DEFAULT"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-010",
+      "name": "session-state-pg-010",
+      "sql": "SET TIME ZONE DEFAULT;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "timezone",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "DEFAULT"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-011",
+      "name": "session-state-pg-011",
+      "sql": "RESET timezone;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "reset",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "timezone"
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"reset\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-012",
+      "name": "session-state-pg-012",
+      "sql": "RESET ALL;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "reset",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "all"
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"reset\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-013",
+      "name": "session-state-pg-013",
+      "sql": "SET ROLE 'paul';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "role",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "paul"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-014",
+      "name": "session-state-pg-014",
+      "sql": "SET LOCAL ROLE NONE;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "local",
+                "target_kind": "role",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "NONE"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-015",
+      "name": "session-state-pg-015",
+      "sql": "RESET ROLE;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "reset",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "role"
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"reset\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-016",
+      "name": "session-state-pg-016",
+      "sql": "SET SESSION AUTHORIZATION 'paul';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "authorization",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "paul"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-017",
+      "name": "session-state-pg-017",
+      "sql": "SET SESSION AUTHORIZATION DEFAULT;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "authorization",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "DEFAULT"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-018",
+      "name": "session-state-pg-018",
+      "sql": "RESET SESSION AUTHORIZATION;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "reset",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "authorization"
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"reset\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-019",
+      "name": "session-state-pg-019",
+      "sql": "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE, READ ONLY, DEFERRABLE;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "transaction",
+                "target_kind": "transaction",
+                "values": [
+                  {
+                    "name": "isolation_level",
+                    "kind": "keyword",
+                    "text": "serializable"
+                  },
+                  {
+                    "name": "access_mode",
+                    "kind": "keyword",
+                    "text": "READ ONLY"
+                  },
+                  {
+                    "name": "deferrable",
+                    "kind": "keyword",
+                    "text": "DEFERRABLE"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-020",
+      "name": "session-state-pg-020",
+      "sql": "SET TRANSACTION SNAPSHOT '00000003-0000001B-1';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "transaction",
+                "target_kind": "transaction",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "00000003-0000001B-1"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-021",
+      "name": "session-state-pg-021",
+      "sql": "SET SESSION CHARACTERISTICS AS TRANSACTION\n    ISOLATION LEVEL READ COMMITTED,\n    READ WRITE,\n    NOT DEFERRABLE;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "transaction",
+                "values": [
+                  {
+                    "name": "isolation_level",
+                    "kind": "keyword",
+                    "text": "read committed"
+                  },
+                  {
+                    "name": "access_mode",
+                    "kind": "keyword",
+                    "text": "READ WRITE"
+                  },
+                  {
+                    "name": "deferrable",
+                    "kind": "keyword",
+                    "text": "NOT DEFERRABLE"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-022",
+      "name": "session-state-pg-022",
+      "sql": "DISCARD ALL;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "discard",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "all"
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"discard\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-023",
+      "name": "session-state-pg-023",
+      "sql": "DISCARD PLANS;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "discard",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "object",
+                "name": "plans"
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"discard\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-024",
+      "name": "session-state-pg-024",
+      "sql": "DISCARD SEQUENCES;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "discard",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "object",
+                "name": "sequences"
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"discard\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-025",
+      "name": "session-state-pg-025",
+      "sql": "DISCARD TEMPORARY;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "discard",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "object",
+                "name": "temporary"
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"discard\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-026",
+      "name": "session-state-pg-026",
+      "sql": "SET CONSTRAINTS ALL DEFERRED;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "transaction",
+                "target_kind": "all",
+                "name": "constraints",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "DEFERRED"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-027",
+      "name": "session-state-pg-027",
+      "sql": "SET CONSTRAINTS order_customer_fk IMMEDIATE;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "transaction",
+                "target_kind": "constraint",
+                "name": "order_customer_fk",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "IMMEDIATE"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-B001",
+      "name": "session-state-pg-b001",
+      "sql": "USE appdb;",
+      "expect": {
+        "ok": false
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-B002",
+      "name": "session-state-pg-b002",
+      "sql": "USE DATABASE appdb;",
+      "expect": {
+        "ok": false
+      },
+      "dialect": "postgresql"
     }
   ]
 }

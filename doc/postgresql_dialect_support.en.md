@@ -58,5 +58,5 @@ The PostgreSQL support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current PostgreSQL matrix contains 154 cases: 153 supported paths and 1
-negative invalid-SQL path.
+The current PostgreSQL matrix contains 184 cases: 181 successful cases and 3
+expected-failure cases.

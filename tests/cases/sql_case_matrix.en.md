@@ -2,6 +2,20 @@
 
 This file records the regression cases covered by `tests/cases/sql_batch_input.json`. The JSON fixture is the executable test source; this document describes the validated statement shapes and validation focus.
 
+## Matrix Counts and Session Regression
+
+The fixture contains 184 cases: 181 expect success and 3 expect failure.
+Statement-level `expect.session` appears in 32 cases: 5 schema/session cases
+without an `id` field and `PG-001` through `PG-027`. All 32 contain at least
+one non-null session expectation.
+
+When an `expect.session` array is present, the matrix test requires one entry
+per statement. A non-null entry is matched against the corresponding session
+projection, including its action, item scope, target kind, name, and value
+fields; `null` asserts that no session projection is emitted. For fixture
+cases that expect success, the test also deparses the unmodified handle and
+compares the result with the input SQL byte for byte.
+
 ## Executable Entry Points
 
 - API smoke test: `tests/unit/test_api_smoke.c`

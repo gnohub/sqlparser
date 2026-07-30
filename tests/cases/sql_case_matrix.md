@@ -2,6 +2,12 @@
 
 本文件记录 `tests/cases/sql_batch_input.json` 覆盖的回归用例。JSON 夹具是可执行测试源，本文档用于说明当前已验证的语句形态和验证重点。
 
+## 矩阵统计与 session 回归
+
+夹具包含 184 条用例，其中 181 条预期成功，3 条预期失败。32 条用例包含 statement 级 `expect.session`：5 条未设置 `id` 的 schema/session 用例和 `PG-001` 至 `PG-027`；这 32 条用例均至少包含一个非空 session 期望。
+
+用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
+
 ## 可执行入口
 
 - API 烟测：`tests/unit/test_api_smoke.c`

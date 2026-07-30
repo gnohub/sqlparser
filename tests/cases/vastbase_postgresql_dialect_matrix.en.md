@@ -2,6 +2,21 @@
 
 Executable fixture: `tests/cases/vastbase_postgresql_dialect_input.json`. The unit test verifies parsing, View JSON, deparse output, and explicitly unsupported syntax return codes case by case.
 
+## Matrix Counts and Session Regression
+
+The fixture contains 184 cases: 174 expect success and 10 expect failure.
+Statement-level `expect.session` appears in 32 cases, covering `VPG049` through
+`VPG051` and `VB-C001` through `VB-C029`. Twenty-nine contain at least one
+non-null session expectation; lexical-isolation cases `VB-C023`, `VB-C024`,
+and `VB-C029` require every statement to omit session output.
+
+When an `expect.session` array is present, the matrix test requires one entry
+per statement. A non-null entry is matched against the corresponding session
+projection, including its action, item scope, target kind, name, and value
+fields; `null` asserts that no session projection is emitted. For fixture cases
+that expect success, the test also deparses the unmodified handle and compares
+the result with the input SQL byte for byte.
+
 | ID | Case | SQL | Status |
 | --- | --- | --- | --- |
 | `VPG001` | `vastbase-postgresql-select-basic` | SELECT 1 | covered |

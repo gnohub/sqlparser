@@ -104,6 +104,7 @@ static sqlparser_status_t sqlparser_patch_set_relation_sql(
 	char *database_name;
 	char *schema_name;
 	char *table_name;
+	const char *values[3];
 	sqlparser_status_t status;
 
 	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_RELATION) {
@@ -136,16 +137,15 @@ static sqlparser_status_t sqlparser_patch_set_relation_sql(
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		relation = (PgQuery__RangeVar *)message;
-		status = sqlparser_replace_proto_string(&relation->catalogname, database_name != NULL ? database_name : "", out_error);
-		if (status == SQLPARSER_STATUS_OK) {
-			status = sqlparser_replace_proto_string(&relation->schemaname, schema_name != NULL ? schema_name : "", out_error);
-		}
-		if (status == SQLPARSER_STATUS_OK) {
-			status = sqlparser_replace_proto_string(&relation->relname, table_name, out_error);
-		}
-		if (status == SQLPARSER_STATUS_OK) {
-			status = sqlparser_handle_commit_ast(handle, out_error);
-		}
+		values[0] = database_name != NULL ? database_name : "";
+		values[1] = schema_name != NULL ? schema_name : "";
+		values[2] = table_name;
+		status = sqlparser_replace_relation_identifier_slots(
+			handle,
+			selector->statement_index,
+			relation,
+			values,
+			out_error);
 	}
 
 	free(database_name);
@@ -476,6 +476,7 @@ static sqlparser_status_t sqlparser_patch_render_source_selector_sql(
 		case SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGET:
 			return sqlparser_dml_result_target_sql(handle, &selector, out_sql, out_error);
 		case SQLPARSER_SELECTOR_KIND_ASSIGNMENT:
+		case SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT:
 			return sqlparser_selector_update_assignment_sql(handle, &selector, out_sql, out_error);
 		default:
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "source_selector kind cannot be cloned");
@@ -575,6 +576,7 @@ static sqlparser_status_t sqlparser_patch_replace(
 			return status;
 		}
 		case SQLPARSER_SELECTOR_KIND_ASSIGNMENT:
+		case SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT:
 			if (patch->sql == NULL) {
 				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "assignment replacement requires sql");
 				return SQLPARSER_STATUS_INVALID_ARGUMENT;
@@ -711,7 +713,8 @@ static sqlparser_status_t sqlparser_patch_insert_assignment(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	if (selector.kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT) {
+	if (selector.kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
+	    selector.kind != SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "insert_assignment selector must be assignment");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
@@ -735,7 +738,8 @@ static sqlparser_status_t sqlparser_patch_delete_assignment(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	if (selector.kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT) {
+	if (selector.kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
+	    selector.kind != SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "delete_assignment selector must be assignment");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
@@ -759,7 +763,8 @@ static sqlparser_status_t sqlparser_patch_replace_assignment(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	if (selector.kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT) {
+	if (selector.kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
+	    selector.kind != SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "replace_assignment selector must be assignment");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
@@ -794,6 +799,7 @@ static PgQuery__Node *sqlparser_patch_new_insert_column_node(const char *name, s
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return NULL;
 	}
+	sqlparser_mark_proto_generated((ProtobufCMessage *)node);
 	return node;
 }
 

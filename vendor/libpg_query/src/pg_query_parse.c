@@ -9,7 +9,11 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-PgQueryInternalParsetreeAndError pg_query_raw_parse(const char* input, int parser_options)
+static PgQueryInternalParsetreeAndError
+pg_query_raw_parse_with_options(
+	const char* input,
+	int parser_options,
+	bool preserve_identifier_spelling)
 {
 	PgQueryInternalParsetreeAndError result = {0};
 	MemoryContext parse_context = CurrentMemoryContext;
@@ -70,7 +74,10 @@ PgQueryInternalParsetreeAndError pg_query_raw_parse(const char* input, int parse
 		standard_conforming_strings = !((parser_options & PG_QUERY_DISABLE_STANDARD_CONFORMING_STRINGS) == PG_QUERY_DISABLE_STANDARD_CONFORMING_STRINGS);
 		escape_string_warning = !((parser_options & PG_QUERY_DISABLE_ESCAPE_STRING_WARNING) == PG_QUERY_DISABLE_ESCAPE_STRING_WARNING);
 
-		result.tree = raw_parser(input, rawParseMode);
+		result.tree = raw_parser_with_options(
+			input,
+			rawParseMode,
+			preserve_identifier_spelling);
 
 		backslash_quote = BACKSLASH_QUOTE_SAFE_ENCODING;
 		standard_conforming_strings = true;
@@ -113,6 +120,11 @@ PgQueryInternalParsetreeAndError pg_query_raw_parse(const char* input, int parse
 #endif
 
 	return result;
+}
+
+PgQueryInternalParsetreeAndError pg_query_raw_parse(const char* input, int parser_options)
+{
+	return pg_query_raw_parse_with_options(input, parser_options, false);
 }
 
 PgQueryParseResult pg_query_parse(const char* input)
@@ -158,6 +170,32 @@ PgQueryProtobufParseResult pg_query_parse_protobuf_opts(const char* input, int p
 	ctx = pg_query_enter_memory_context();
 
 	parsetree_and_error = pg_query_raw_parse(input, parser_options);
+
+	// These are all malloc-ed and will survive exiting the memory context, the caller is responsible to free them now
+	result.stderr_buffer = parsetree_and_error.stderr_buffer;
+	result.error = parsetree_and_error.error;
+	result.parse_tree = pg_query_nodes_to_protobuf(parsetree_and_error.tree);
+
+	pg_query_exit_memory_context(ctx);
+
+	return result;
+}
+
+PgQueryProtobufParseResult
+pg_query_parse_protobuf_opts_preserving_identifier_spelling(
+	const char* input,
+	int parser_options)
+{
+	MemoryContext ctx = NULL;
+	PgQueryInternalParsetreeAndError parsetree_and_error;
+	PgQueryProtobufParseResult result = {0};
+
+	ctx = pg_query_enter_memory_context();
+
+	parsetree_and_error = pg_query_raw_parse_with_options(
+		input,
+		parser_options,
+		true);
 
 	// These are all malloc-ed and will survive exiting the memory context, the caller is responsible to free them now
 	result.stderr_buffer = parsetree_and_error.stderr_buffer;

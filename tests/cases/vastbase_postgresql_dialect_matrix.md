@@ -2,6 +2,12 @@
 
 可执行夹具：`tests/cases/vastbase_postgresql_dialect_input.json`。单元测试会逐条验证解析、View JSON、反解析输出和明确不支持语法返回码。
 
+## 矩阵统计与 session 回归
+
+夹具包含 184 条用例，其中 174 条预期成功，10 条预期失败。32 条用例包含 statement 级 `expect.session`，覆盖 `VPG049` 至 `VPG051` 和 `VB-C001` 至 `VB-C029`。其中 29 条至少包含一个非空 session 期望；词法隔离用例 `VB-C023`、`VB-C024`、`VB-C029` 的所有 statement 均要求不输出 session 投影。
+
+用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
+
 | ID | 用例 | SQL | 状态 |
 | --- | --- | --- | --- |
 | `VPG001` | `vastbase-postgresql-select-basic` | SELECT 1 | 已覆盖 |

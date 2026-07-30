@@ -87,6 +87,7 @@ typedef struct core_yy_extra_type
 	int			backslash_quote;
 	bool		escape_string_warning;
 	bool		standard_conforming_strings;
+	bool		preserve_identifier_spelling;
 
 	/*
 	 * literalbuf is used to accumulate literal values when multiple rules are

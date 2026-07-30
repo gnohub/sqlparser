@@ -80,5 +80,5 @@ The Oracle support boundary is defined by:
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current Oracle matrix contains 175 cases: 163 supported paths and 12
-explicit unsupported paths.
+The current Oracle matrix contains 235 cases: 213 successful cases and 22
+expected-failure cases.

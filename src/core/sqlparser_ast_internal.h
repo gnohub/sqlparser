@@ -33,6 +33,9 @@ typedef struct {
 typedef struct {
 	const char *owner_type;
 	const char *field_name;
+	ProtobufCMessage *field_owner;
+	ProtobufCMessage *location_owner;
+	int identifier_forbidden;
 } sqlparser_name_context_t;
 
 typedef struct {
@@ -41,8 +44,29 @@ typedef struct {
 	int want_target;
 	char **match_slot;
 	char **target_slot;
+	ProtobufCMessage *target_owner;
 	sqlparser_name_view_t *name_view;
 } sqlparser_name_search_t;
+
+int sqlparser_name_atom_is_identifier(
+	ProtobufCMessage *message,
+	const sqlparser_name_context_t *context,
+	const ProtobufCMessageDescriptor *descriptor,
+	const ProtobufCFieldDescriptor *field);
+sqlparser_name_context_t sqlparser_next_name_context(
+	ProtobufCMessage *message,
+	const ProtobufCMessageDescriptor *descriptor,
+	const ProtobufCFieldDescriptor *field,
+	const sqlparser_name_context_t *context);
+
+typedef struct {
+	size_t seen;
+	size_t target_index;
+	int want_target;
+	char **match_slot;
+	char *match_value;
+	char **target_slot;
+} sqlparser_string_search_t;
 
 typedef struct {
 	size_t seen;
@@ -175,6 +199,34 @@ sqlparser_status_t sqlparser_find_statement_name_index_by_slot(
 	char **slot,
 	size_t *out_index,
 	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_walk_message_strings(
+	ProtobufCMessage *message,
+	sqlparser_string_search_t *search);
+sqlparser_status_t sqlparser_find_raw_statement_string_index_by_slot(
+	sqlparser_handle_t *handle,
+	size_t raw_statement_index,
+	char **slot,
+	size_t *out_index,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_get_raw_statement_string_slot_by_index(
+	PgQuery__ParseResult *ast,
+	size_t raw_statement_index,
+	size_t string_index,
+	char ***out_slot);
+sqlparser_status_t sqlparser_handle_prepare_identifier_mutation(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	char **slot,
+	ProtobufCMessage *location_owner,
+	size_t *out_mutation_index,
+	int *out_created,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_replace_relation_identifier_slots(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	PgQuery__RangeVar *relation,
+	const char *const *values,
+	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_find_statement_node_index_by_node(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
@@ -213,6 +265,7 @@ sqlparser_status_t sqlparser_render_bind_value_sql(
 	char **out_sql,
 	sqlparser_error_t *out_error);
 void sqlparser_free_proto_node(PgQuery__Node *node);
+int32_t *sqlparser_proto_location_slot(ProtobufCMessage *message);
 void sqlparser_mark_proto_generated(ProtobufCMessage *message);
 sqlparser_status_t sqlparser_clone_proto_node(
 	const PgQuery__Node *source,
@@ -279,6 +332,46 @@ sqlparser_status_t sqlparser_update_set_assignments_sql(
 	size_t statement_index,
 	size_t target_list_index,
 	const char *sql_text,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_assignment_by_selector(
+	const sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	sqlparser_assignment_view_t *out_assignment,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_assignment_set_literal_by_selector(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const sqlparser_literal_value_t *value,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_assignment_sql_by_selector(
+	const sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_assignment_set_sql_by_selector(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *sql_text,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_assignment_insert_sql_by_selector(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *assignment_sql,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_assignment_insert_from_assignment_value_by_selector(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *insert_selector,
+	const sqlparser_identifier_path_view_t *target,
+	const sqlparser_selector_t *source_selector,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_assignment_delete_by_selector(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_assignment_set_full_sql_by_selector(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *assignment_sql,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_update_insert_assignment_from_assignment_value(
 	sqlparser_handle_t *handle,

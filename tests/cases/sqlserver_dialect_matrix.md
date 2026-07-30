@@ -1,6 +1,12 @@
 # SQL Server 方言用例矩阵
 
-本文件记录 SQL Server 方言转换层的回归用例。可执行夹具为 `tests/cases/sqlserver_dialect_input.json`，单元测试 `tests/unit/test_sqlserver_dialect_case_matrix.c` 会逐条验证解析结果、View JSON、反解析输出和错误码。当前夹具包含 546 条用例：517 条支持路径，29 条错误或明确不支持路径。
+本文件记录 SQL Server 方言转换层的回归用例。可执行夹具为 `tests/cases/sqlserver_dialect_input.json`，单元测试 `tests/unit/test_sqlserver_dialect_case_matrix.c` 会逐条验证解析结果、View JSON、反解析输出和错误码。
+
+## 矩阵统计与 session 回归
+
+夹具包含 605 条用例，其中 568 条预期成功，37 条预期失败。91 条用例包含 statement 级 `expect.session`，覆盖 `S044` 至 `S046`、`SH295` 至 `SH333` 和 49 条 `MSSQL-*` session 用例；这 91 条用例均至少包含一个非空 session 期望。
+
+用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
 
 ## 支持用例
 

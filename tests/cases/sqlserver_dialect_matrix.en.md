@@ -1,6 +1,20 @@
 # SQL Server Dialect Case Matrix
 
-This file records regression cases for the SQL Server dialect conversion layer. The executable fixture is `tests/cases/sqlserver_dialect_input.json`; `tests/unit/test_sqlserver_dialect_case_matrix.c` verifies parsing, View JSON, deparse output, and error codes. The current fixture contains 546 cases: 517 supported paths and 29 error or explicitly unsupported paths.
+This file records regression cases for the SQL Server dialect conversion layer. The executable fixture is `tests/cases/sqlserver_dialect_input.json`; `tests/unit/test_sqlserver_dialect_case_matrix.c` verifies parsing, View JSON, deparse output, and error codes.
+
+## Matrix Counts and Session Regression
+
+The fixture contains 605 cases: 568 expect success and 37 expect failure.
+Statement-level `expect.session` appears in 91 cases, covering `S044` through
+`S046`, `SH295` through `SH333`, and 49 `MSSQL-*` session cases. All 91 contain
+at least one non-null session expectation.
+
+When an `expect.session` array is present, the matrix test requires one entry
+per statement. A non-null entry is matched against the corresponding session
+projection, including its action, item scope, target kind, name, and value
+fields; `null` asserts that no session projection is emitted. For fixture cases
+that expect success, the test also deparses the unmodified handle and compares
+the result with the input SQL byte for byte.
 
 ## Supported Cases
 

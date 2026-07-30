@@ -1,6 +1,12 @@
 # Vastbase SQL Server 兼容模式用例矩阵
 
-可执行夹具：`tests/cases/vastbase_sqlserver_dialect_input.json`。单元测试会逐条验证解析、View JSON、反解析输出和错误码。当前夹具包含 546 条用例：517 条支持路径，29 条错误或明确不支持路径。
+可执行夹具：`tests/cases/vastbase_sqlserver_dialect_input.json`。单元测试会逐条验证解析、View JSON、反解析输出和错误码。
+
+## 矩阵统计与 session 回归
+
+夹具包含 585 条用例，其中 547 条预期成功，38 条预期失败。70 条用例包含 statement 级 `expect.session`，覆盖 `VS044` 至 `VS046`、`VSH295` 至 `VSH333`、`VB-C001` 至 `VB-C022`、`VB-C026` 至 `VB-C029` 和 `VB-MSSQL-001` 至 `VB-MSSQL-002`。其中 69 条至少包含一个非空 session 期望；词法隔离用例 `VB-C029` 的所有 statement 均要求不输出 session 投影。
+
+用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
 
 | ID | 用例 | SQL | 状态 |
 | --- | --- | --- | --- |

@@ -18,6 +18,20 @@
 #include "utils/timestamp.h"
 #include "utils/xml.h"
 
+int
+postgres_deparse_keyword_category(const char *word, size_t length)
+{
+	char buffer[NAMEDATALEN];
+	int keyword;
+
+	if (word == NULL || length == 0 || length >= sizeof(buffer))
+		return -1;
+	memcpy(buffer, word, length);
+	buffer[length] = '\0';
+	keyword = ScanKeywordLookup(buffer, &ScanKeywords);
+	return keyword >= 0 ? ScanKeywordCategories[keyword] : -1;
+}
+
 /*
  * # Deparser overview
  *
@@ -438,6 +452,69 @@ deparseIdentifier(
 	deparseAppendStringInfoString(state, quote_identifier(identifier));
 }
 
+static bool
+deparseIdentifierIsGenerated(
+	DeparseState *state,
+	const char *identifier)
+{
+	return state->opts.generated_identifier_probe != NULL &&
+		state->opts.generated_identifier_probe(
+			state->opts.identifier_resolver_context,
+			identifier);
+}
+
+static bool
+deparseNameListHasGenerated(
+	DeparseState *state,
+	List *names)
+{
+	ListCell *lc;
+
+	foreach(lc, names)
+	{
+		Node *name = lfirst(lc);
+
+		if (IsA(name, String) &&
+			deparseIdentifierIsGenerated(state, strVal(name)))
+			return true;
+	}
+	return false;
+}
+
+static bool
+deparseIdentifierIsKeyword(
+	DeparseState *state,
+	const char *identifier,
+	const char *keyword,
+	int location,
+	bool search_forward)
+{
+	if (state->opts.keyword_matcher != NULL)
+		return state->opts.keyword_matcher(
+			state->opts.identifier_resolver_context,
+			identifier,
+			keyword,
+			location,
+			search_forward);
+	return strcmp(identifier, keyword) == 0;
+}
+
+static PostgresDeparseSourceTokenKind
+deparseSourceToken(
+	DeparseState *state,
+	const char *identifier,
+	int location,
+	bool search_forward)
+{
+	if (state->opts.source_token_probe == NULL)
+		return POSTGRES_DEPARSE_SOURCE_TOKEN_NONE;
+	return state->opts.source_token_probe(
+		state->opts.identifier_resolver_context,
+		identifier,
+		location,
+		search_forward);
+}
+
 static void
 removeTrailingSpace(DeparseState *state)
 {
@@ -738,6 +815,29 @@ static void deparseAnyName(DeparseState *state, List *parts)
 			deparseAppendStringInfoChar(state, '.');
 	}
 }
+
+static void deparseAnyNameAt(
+	DeparseState *state,
+	List *parts,
+	int location)
+{
+	ListCell *lc = NULL;
+	size_t component_index = 0;
+
+	foreach(lc, parts)
+	{
+		Assert(IsA(lfirst(lc), String));
+		deparseIdentifier(
+			state,
+			strVal(lfirst(lc)),
+			location,
+			component_index++,
+			false);
+		if (lnext(parts, lc))
+			deparseAppendStringInfoChar(state, '.');
+	}
+}
+
 static void deparseAnyNameSkipFirst(DeparseState *state, List *parts)
 {
 	ListCell *lc = NULL;
@@ -1005,7 +1105,7 @@ static void deparseExprList(DeparseState *state, List *exprs)
 // "ColId", "name", "database_name", "access_method" and "index_name" in gram.y
 static void deparseColId(DeparseState *state, char *s)
 {
-	deparseAppendStringInfoString(state, quote_identifier(s));
+	deparseIdentifier(state, s, -1, 0, true);
 }
 
 // "ColLabel", "attr_name"
@@ -1014,7 +1114,7 @@ static void deparseColId(DeparseState *state, char *s)
 // specific on how to handle keywords here
 static void deparseColLabel(DeparseState *state, char *s)
 {
-	deparseAppendStringInfoString(state, quote_identifier(s));
+	deparseIdentifier(state, s, -1, 0, true);
 }
 
 // "SignedIconst" and "Iconst" in gram.y
@@ -1263,7 +1363,7 @@ static void deparseAnyOperator(DeparseState *state, List *op)
 	Assert(isOp(strVal(llast(op))));
 	if (list_length(op) == 2)
 	{
-		deparseAppendStringInfoString(state, quote_identifier(strVal(linitial(op))));
+		deparseIdentifier(state, strVal(linitial(op)), -1, 0, true);
 		deparseAppendStringInfoChar(state, '.');
 		deparseAppendStringInfoString(state, strVal(llast(op)));
 	}
@@ -1365,13 +1465,27 @@ static void deparseDefArg(DeparseState *state, Node *arg, bool is_operator_def_a
 	else if (IsA(arg, String))
 	{
 		char *s = strVal(arg);
-		if (!is_operator_def_arg && IsA(arg, String) && strcmp(s, "none") == 0) // NONE
+		PostgresDeparseSourceTokenKind source_kind =
+			deparseSourceToken(state, s, -1, false);
+
+		if (source_kind == POSTGRES_DEPARSE_SOURCE_TOKEN_STRING)
+		{
+			deparseStringLiteral(state, s);
+		}
+		else if (!is_operator_def_arg &&
+			deparseIdentifierIsKeyword(state, s, "none", -1, false)) // NONE
 		{
 			deparseAppendStringInfoString(state, "NONE");
 		}
-		else if (isReservedKeyword(s)) // reserved_keyword
+		else if (isReservedKeyword(s) &&
+			deparseIdentifierIsKeyword(state, s, s, -1, false)) // reserved_keyword
 		{
 			deparseAppendStringInfoString(state, s);
+		}
+		else if (source_kind ==
+			POSTGRES_DEPARSE_SOURCE_TOKEN_IDENTIFIER_MATCH)
+		{
+			deparseIdentifier(state, s, -1, 0, true);
 		}
 		else // Sconst
 		{
@@ -1393,7 +1507,7 @@ static void deparseDefinition(DeparseState *state, List *options)
 	foreach (lc, options)
 	{
 		DefElem *def_elem = castNode(DefElem, lfirst(lc));
-		deparseAppendStringInfoString(state, quote_identifier(def_elem->defname));
+		deparseIdentifier(state, def_elem->defname, -1, 0, true);
 		if (def_elem->arg != NULL) {
 			deparseAppendStringInfoString(state, " = ");
 			deparseDefArg(state, def_elem->arg, false);
@@ -1429,7 +1543,7 @@ static void deparseCreateGenericOptions(DeparseState *state, List *options)
 	foreach(lc, options)
 	{
 		DefElem *def_elem = castNode(DefElem, lfirst(lc));
-		deparseAppendStringInfoString(state, quote_identifier(def_elem->defname));
+		deparseIdentifier(state, def_elem->defname, -1, 0, true);
 		deparseAppendStringInfoChar(state, ' ');
 		deparseStringLiteral(state, strVal(def_elem->arg));
 		if (lnext(options, lc))
@@ -1499,7 +1613,7 @@ static void deparseCommonFuncOptItem(DeparseState *state, DefElem *def_elem)
 	else if (strcmp(def_elem->defname, "parallel") == 0)
 	{
 		deparseAppendStringInfoString(state, "PARALLEL ");
-		deparseAppendStringInfoString(state, quote_identifier(strVal(def_elem->arg)));
+		deparseIdentifier(state, strVal(def_elem->arg), -1, 0, true);
 	}
 	else
 	{
@@ -1514,14 +1628,66 @@ static void deparseCommonFuncOptItem(DeparseState *state, DefElem *def_elem)
 //
 // 1) when the string is empty (since an empty identifier can't be scanned)
 // 2) when the value is equal or larger than NAMEDATALEN (64+ characters)
-static void deparseNonReservedWordOrSconst(DeparseState *state, const char *val)
+static void deparseNonReservedWordOrSconstFrom(
+	DeparseState *state,
+	const char *val,
+	int location,
+	bool search_forward)
 {
+	PostgresDeparseSourceTokenKind source_kind =
+		deparseSourceToken(state, val, location, search_forward);
+
 	if (strlen(val) == 0)
 		deparseAppendStringInfoString(state, "''");
+	else if (source_kind == POSTGRES_DEPARSE_SOURCE_TOKEN_STRING)
+		deparseStringLiteral(state, val);
+	else if (source_kind == POSTGRES_DEPARSE_SOURCE_TOKEN_IDENTIFIER_MATCH)
+		deparseIdentifier(
+			state,
+			val,
+			location,
+			0,
+			search_forward);
+	else if (strcmp(val, "true") == 0 &&
+		deparseIdentifierIsKeyword(state, val, "true", location, search_forward))
+		deparseAppendStringInfoString(state, "TRUE");
+	else if (strcmp(val, "false") == 0 &&
+		deparseIdentifierIsKeyword(state, val, "false", location, search_forward))
+		deparseAppendStringInfoString(state, "FALSE");
+	else if (strcmp(val, "on") == 0 &&
+		deparseIdentifierIsKeyword(state, val, "on", location, search_forward))
+		deparseAppendStringInfoString(state, "ON");
+	else if (strcmp(val, "off") == 0 &&
+		deparseIdentifierIsKeyword(state, val, "off", location, search_forward))
+		deparseAppendStringInfoString(state, "OFF");
+	else if (location >= 0 && state->opts.identifier_resolver != NULL)
+		deparseIdentifier(
+			state,
+			val,
+			location,
+			0,
+			search_forward);
 	else if (strlen(val) >= NAMEDATALEN)
 		deparseStringLiteral(state, val);
 	else
-		deparseAppendStringInfoString(state, quote_identifier(val));
+		deparseIdentifier(state, val, -1, 0, true);
+}
+
+static void deparseNonReservedWordOrSconstAt(
+	DeparseState *state,
+	const char *val,
+	int location)
+{
+	deparseNonReservedWordOrSconstFrom(
+		state,
+		val,
+		location,
+		false);
+}
+
+static void deparseNonReservedWordOrSconst(DeparseState *state, const char *val)
+{
+	deparseNonReservedWordOrSconstFrom(state, val, -1, true);
 }
 
 // "func_as" in gram.y
@@ -1561,7 +1727,11 @@ static void deparseCreateFuncOptItem(DeparseState *state, DefElem *def_elem)
 	else if (strcmp(def_elem->defname, "language") == 0)
 	{
 		deparseAppendStringInfoString(state, "LANGUAGE ");
-		deparseNonReservedWordOrSconst(state, strVal(def_elem->arg));
+		deparseNonReservedWordOrSconstFrom(
+			state,
+			strVal(def_elem->arg),
+			def_elem->location,
+			true);
 	}
 	else if (strcmp(def_elem->defname, "transform") == 0)
 	{
@@ -1597,25 +1767,25 @@ static void deparseAlterGenericOptions(DeparseState *state, List *options)
 		switch (def_elem->defaction)
 		{
 			case DEFELEM_UNSPEC:
-				deparseAppendStringInfoString(state, quote_identifier(def_elem->defname));
+				deparseIdentifier(state, def_elem->defname, -1, 0, true);
 				deparseAppendStringInfoChar(state, ' ');
 				deparseStringLiteral(state, strVal(def_elem->arg));
 				break;
 			case DEFELEM_SET:
 				deparseAppendStringInfoString(state, "SET ");
-				deparseAppendStringInfoString(state, quote_identifier(def_elem->defname));
+				deparseIdentifier(state, def_elem->defname, -1, 0, true);
 				deparseAppendStringInfoChar(state, ' ');
 				deparseStringLiteral(state, strVal(def_elem->arg));
 				break;
 			case DEFELEM_ADD:
 				deparseAppendStringInfoString(state, "ADD ");
-				deparseAppendStringInfoString(state, quote_identifier(def_elem->defname));
+				deparseIdentifier(state, def_elem->defname, -1, 0, true);
 				deparseAppendStringInfoChar(state, ' ');
 				deparseStringLiteral(state, strVal(def_elem->arg));
 				break;
 			case DEFELEM_DROP:
 				deparseAppendStringInfoString(state, "DROP ");
-				deparseAppendStringInfoString(state, quote_identifier(def_elem->defname));
+				deparseIdentifier(state, def_elem->defname, -1, 0, true);
 				break;
 		}
 
@@ -1632,7 +1802,7 @@ static void deparseFuncName(DeparseState *state, List *func_name)
 
 	foreach(lc, func_name)
 	{
-		deparseAppendStringInfoString(state, quote_identifier(strVal(lfirst(lc))));
+		deparseIdentifier(state, strVal(lfirst(lc)), -1, 0, true);
 		if (lnext(func_name, lc))
 			deparseAppendStringInfoChar(state, '.');
 	}
@@ -1842,7 +2012,7 @@ static void deparseHandlerName(DeparseState *state, List *handler_name)
 
 	foreach(lc, handler_name)
 	{
-		deparseAppendStringInfoString(state, quote_identifier(strVal(lfirst(lc))));
+		deparseIdentifier(state, strVal(lfirst(lc)), -1, 0, true);
 		if (lnext(handler_name, lc))
 			deparseAppendStringInfoChar(state, '.');
 	}
@@ -1897,10 +2067,15 @@ static void deparseTypeList(DeparseState *state, List *type_list)
 }
 
 // "opt_boolean_or_string" in gram.y
-static void deparseOptBooleanOrString(DeparseState *state, char *s)
+static void deparseOptBooleanOrString(
+	DeparseState *state,
+	char *s,
+	int location)
 {
 	if (s == NULL)
 		return; // No value set
+	else if (state->opts.source_token_probe != NULL)
+		deparseNonReservedWordOrSconstFrom(state, s, location, true);
 	else if (strcmp(s, "true") == 0)
 		deparseAppendStringInfoString(state, "TRUE");
 	else if (strcmp(s, "false") == 0)
@@ -1977,7 +2152,54 @@ bool optBooleanValue(Node *node)
 // output of namespaced variable names
 static void deparseVarName(DeparseState *state, char *s)
 {
-	deparseColId(state, s);
+	const char *semantic_keyword = NULL;
+	const char *semantic_keyword_alt = NULL;
+
+	if (deparseIdentifierIsGenerated(state, s))
+	{
+		deparseIdentifier(state, s, -1, 0, true);
+		return;
+	}
+	if (strcmp(s, "timezone") == 0)
+		semantic_keyword = "time";
+	else if (strcmp(s, "search_path") == 0)
+		semantic_keyword = "schema";
+	else if (strcmp(s, "client_encoding") == 0)
+		semantic_keyword = "names";
+	else if (strcmp(s, "role") == 0)
+		semantic_keyword = "role";
+	else if (strcmp(s, "session_authorization") == 0)
+		semantic_keyword = "session";
+	else if (strcmp(s, "xmloption") == 0)
+		semantic_keyword = "xml";
+	else if (strcmp(s, "transaction_isolation") == 0)
+		semantic_keyword = "transaction";
+	else if (strcmp(s, "sqlparser_current_schema") == 0)
+	{
+		semantic_keyword = "schema";
+		semantic_keyword_alt = "current_schema";
+	}
+
+	int location =
+		semantic_keyword != NULL &&
+		state->opts.keyword_matcher != NULL &&
+		(deparseIdentifierIsKeyword(
+			 state,
+			 semantic_keyword,
+			 semantic_keyword,
+			 -1,
+			 true) ||
+		 (semantic_keyword_alt != NULL &&
+		  deparseIdentifierIsKeyword(
+			  state,
+			  semantic_keyword_alt,
+			  semantic_keyword_alt,
+			  -1,
+			  true))) ?
+				POSTGRES_DEPARSE_SEMANTIC_IDENTIFIER_LOCATION :
+				-1;
+
+	deparseIdentifier(state, s, location, 0, true);
 }
 
 // "var_list"
@@ -1997,7 +2219,10 @@ static void deparseVarList(DeparseState *state, List *l)
 			if (IsA(&a_const->val, Integer) || IsA(&a_const->val, Float))
 				deparseNumericOnly(state, (union ValUnion *) &a_const->val);
 			else if (IsA(&a_const->val, String))
-				deparseOptBooleanOrString(state, strVal(&a_const->val));
+				deparseNonReservedWordOrSconstAt(
+					state,
+					strVal(&a_const->val),
+					a_const->location);
 			else
 				Assert(false);
 		}
@@ -2115,11 +2340,11 @@ static void deparseRelOptions(DeparseState *state, List *l)
 		DefElem *def_elem = castNode(DefElem, lfirst(lc));
 		if (def_elem->defnamespace != NULL)
 		{
-			deparseAppendStringInfoString(state, quote_identifier(def_elem->defnamespace));
+			deparseIdentifier(state, def_elem->defnamespace, -1, 0, true);
 			deparseAppendStringInfoChar(state, '.');
 		}
 		if (def_elem->defname != NULL)
-			deparseAppendStringInfoString(state, quote_identifier(def_elem->defname));
+			deparseIdentifier(state, def_elem->defname, -1, 0, true);
 		if (def_elem->defname != NULL && def_elem->arg != NULL)
 			deparseAppendStringInfoChar(state, '=');
 		if (def_elem->arg != NULL)
@@ -2337,7 +2562,7 @@ static void deparseWhereOrCurrentClause(DeparseState *state, Node *node)
 	if (IsA(node, CurrentOfExpr)) {
 		CurrentOfExpr *current_of_expr = castNode(CurrentOfExpr, node);
 		deparseAppendStringInfoString(state, "CURRENT OF ");
-		deparseAppendStringInfoString(state, quote_identifier(current_of_expr->cursor_name));
+		deparseIdentifier(state, current_of_expr->cursor_name, -1, 0, true);
 	} else {
 		deparseExpr(state, node, DEPARSE_NODE_CONTEXT_A_EXPR);
 	}
@@ -2443,7 +2668,12 @@ static void deparseFuncArgExpr(DeparseState *state, Node *node)
 	if (IsA(node, NamedArgExpr))
 	{
 		NamedArgExpr *named_arg_expr = castNode(NamedArgExpr, node);
-		deparseAppendStringInfoString(state, named_arg_expr->name);
+		deparseIdentifier(
+			state,
+			named_arg_expr->name,
+			named_arg_expr->location,
+			0,
+			false);
 		deparseAppendStringInfoString(state, " := ");
 		deparseExpr(state, (Node *) named_arg_expr->arg, DEPARSE_NODE_CONTEXT_A_EXPR);
 	}
@@ -2807,7 +3037,13 @@ static void deparseCreatedbOptList(DeparseState *state, List *l)
 		else if (IsA(def_elem->arg, Integer))
 			deparseSignedIconst(state, def_elem->arg);
 		else if (IsA(def_elem->arg, String))
-			deparseOptBooleanOrString(state, strVal(def_elem->arg));
+			deparseOptBooleanOrString(
+				state,
+				strVal(def_elem->arg),
+				def_elem->location >= 0 ?
+					def_elem->location +
+						(int) strlen(def_elem->defname) :
+					-1);
 
 		if (lnext(l, lc))
 			deparseAppendStringInfoChar(state, ' ');
@@ -2834,7 +3070,13 @@ static void deparseUtilityOptionList(DeparseState *state, List *options)
 				if (IsA(def_elem->arg, Integer) || IsA(def_elem->arg, Float))
 					deparseNumericOnly(state, (union ValUnion *) def_elem->arg);
 				else if (IsA(def_elem->arg, String))
-					deparseOptBooleanOrString(state, strVal(def_elem->arg));
+					deparseOptBooleanOrString(
+						state,
+						strVal(def_elem->arg),
+						def_elem->location >= 0 ?
+							def_elem->location +
+								(int) strlen(def_elem->defname) :
+							-1);
 				else
 					Assert(false);
 			}
@@ -2948,7 +3190,12 @@ static void deparseSelectStmt(DeparseState *state, SelectStmt *stmt, DeparseNode
 				{
 					WindowDef *window_def = castNode(WindowDef, lfirst(lc));
 					Assert(window_def->name != NULL);
-					deparseAppendStringInfoString(state, window_def->name);
+					deparseIdentifier(
+						state,
+						window_def->name,
+						window_def->location,
+						POSTGRES_DEPARSE_WINDOW_NAME_COMPONENT,
+						false);
 					deparseAppendStringInfoString(state, " AS ");
 					deparseWindowDef(state, window_def);
 					if (lnext(stmt->windowClause, lc))
@@ -3058,7 +3305,7 @@ static void deparseIntoClause(DeparseState *state, IntoClause *into_clause)
 	if (into_clause->accessMethod != NULL)
 	{
 		deparseAppendStringInfoString(state, "USING ");
-		deparseAppendStringInfoString(state, quote_identifier(into_clause->accessMethod));
+		deparseIdentifier(state, into_clause->accessMethod, -1, 0, true);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -3083,7 +3330,7 @@ static void deparseIntoClause(DeparseState *state, IntoClause *into_clause)
 	if (into_clause->tableSpaceName != NULL)
 	{
 		deparseAppendStringInfoString(state, "TABLESPACE ");
-		deparseAppendStringInfoString(state, quote_identifier(into_clause->tableSpaceName));
+		deparseIdentifier(state, into_clause->tableSpaceName, -1, 0, true);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -3208,11 +3455,20 @@ static void deparseFuncCall(DeparseState *state, FuncCall *func_call, DeparseNod
 	const ListCell *lc = NULL;
 
 	Assert(list_length(func_call->funcname) > 0);
+	if (deparseNameListHasGenerated(state, func_call->funcname))
+		goto generic_func_call;
 
 	if (list_length(func_call->funcname) == 2 &&
 		strcmp(strVal(linitial(func_call->funcname)), "pg_catalog") == 0 &&
 		strcmp(strVal(lsecond(func_call->funcname)), "overlay") == 0 &&
-		list_length(func_call->args) == 4)
+		list_length(func_call->args) == 4 &&
+		(state->opts.keyword_matcher == NULL ||
+		 deparseIdentifierIsKeyword(
+			 state,
+			 "overlay",
+			 "overlay",
+			 func_call->location,
+			 false)))
 	{
 		/*
 		 * Note that this is a bit odd, but "OVERLAY" is a keyword on its own merit, and only accepts the
@@ -3477,7 +3733,30 @@ static void deparseFuncCall(DeparseState *state, FuncCall *func_call, DeparseNod
 		deparseAppendStringInfoString(state, "SYSTEM_USER");
 		return;
 	}
+	else if (func_call->funcformat == COERCE_EXPLICIT_CALL &&
+		list_length(func_call->funcname) == 2 &&
+		strcmp(strVal(linitial(func_call->funcname)), "pg_catalog") == 0 &&
+		strcmp(strVal(lsecond(func_call->funcname)), "json_object") == 0 &&
+		state->opts.keyword_matcher != NULL &&
+		deparseIdentifierIsKeyword(
+			state,
+			"json_object",
+			"json_object",
+			func_call->location,
+			false))
+	{
+		deparseAppendStringInfoString(state, "JSON_OBJECT(");
+		foreach(lc, func_call->args)
+		{
+			deparseFuncArgExpr(state, lfirst(lc));
+			if (lnext(func_call->args, lc))
+				deparseAppendStringInfoString(state, ", ");
+		}
+		deparseAppendStringInfoChar(state, ')');
+		return;
+	}
 		
+generic_func_call:
 	deparseFuncNameAt(state, func_call->funcname, func_call->location);
 	deparseAppendStringInfoChar(state, '(');
 
@@ -3528,7 +3807,12 @@ static void deparseFuncCall(DeparseState *state, FuncCall *func_call, DeparseNod
 	{
 		deparseAppendStringInfoString(state, "OVER ");
 		if (func_call->over->name)
-			deparseAppendStringInfoString(state, func_call->over->name);
+			deparseIdentifier(
+				state,
+				func_call->over->name,
+				func_call->over->location,
+				0,
+				false);
 		else
 			deparseWindowDef(state, func_call->over);
 	}
@@ -3557,7 +3841,7 @@ static void deparseWindowDef(DeparseState *state, WindowDef* window_def)
 
 	if (window_def->refname != NULL)
 	{
-		deparseAppendStringInfoString(state, quote_identifier(window_def->refname));
+		deparseIdentifier(state, window_def->refname, -1, 0, true);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -3747,6 +4031,32 @@ needsParensAsBExpr(Node *node)
 	return IsA(node, BoolExpr) || IsA(node, BooleanTest) || IsA(node, NullTest) || IsA(node, A_Expr);
 }
 
+static void
+deparseLikeRexpr(
+	DeparseState *state,
+	Node *node,
+	DeparseNodeContext context,
+	int location)
+{
+	if (IsA(node, FuncCall))
+	{
+		FuncCall *func_call = castNode(FuncCall, node);
+
+		if (list_length(func_call->funcname) == 2 &&
+			strcmp(strVal(linitial(func_call->funcname)), "pg_catalog") == 0 &&
+			strcmp(strVal(lsecond(func_call->funcname)), "like_escape") == 0 &&
+			list_length(func_call->args) == 2 &&
+			func_call->location == location)
+		{
+			deparseExpr(state, linitial(func_call->args), context);
+			deparseAppendStringInfoString(state, " ESCAPE ");
+			deparseExpr(state, lsecond(func_call->args), context);
+			return;
+		}
+	}
+	deparseExpr(state, node, context);
+}
+
 // This handles "A_Expr" parse tree objects, which are a subset of the rules in "a_expr" (handled by deparseExpr)
 static void deparseAExpr(DeparseState *state, A_Expr* a_expr, DeparseNodeContext context)
 {
@@ -3869,7 +4179,11 @@ static void deparseAExpr(DeparseState *state, A_Expr* a_expr, DeparseNodeContext
 				Assert(false);
 			}
 
-			deparseExpr(state, a_expr->rexpr, context);
+			deparseLikeRexpr(
+				state,
+				a_expr->rexpr,
+				context,
+				a_expr->location);
 			return;
 		case AEXPR_ILIKE: /* [NOT] ILIKE - name must be "~~*" or "!~~*" */
 			Assert(list_length(a_expr->name) == 1);
@@ -3886,7 +4200,11 @@ static void deparseAExpr(DeparseState *state, A_Expr* a_expr, DeparseNodeContext
 				Assert(false);
 			}
 
-			deparseExpr(state, a_expr->rexpr, context);
+			deparseLikeRexpr(
+				state,
+				a_expr->rexpr,
+				context,
+				a_expr->location);
 			return;
 		case AEXPR_SIMILAR: /* [NOT] SIMILAR - name must be "~" or "!~" */
 			Assert(list_length(a_expr->name) == 1);
@@ -4246,7 +4564,7 @@ static void deparseCTESearchClause(DeparseState *state, CTESearchClause *search_
 		deparseColumnList(state, search_clause->search_col_list);
 
 	deparseAppendStringInfoString(state, " SET ");
-	deparseAppendStringInfoString(state, quote_identifier(search_clause->search_seq_column));
+	deparseIdentifier(state, search_clause->search_seq_column, -1, 0, true);
 }
 
 // "opt_cycle_clause" in gram.y
@@ -4258,7 +4576,7 @@ static void deparseCTECycleClause(DeparseState *state, CTECycleClause *cycle_cla
 		deparseColumnList(state, cycle_clause->cycle_col_list);
 
 	deparseAppendStringInfoString(state, " SET ");
-	deparseAppendStringInfoString(state, quote_identifier(cycle_clause->cycle_mark_column));
+	deparseIdentifier(state, cycle_clause->cycle_mark_column, -1, 0, true);
 
 	if (cycle_clause->cycle_mark_value)
 	{
@@ -4273,7 +4591,7 @@ static void deparseCTECycleClause(DeparseState *state, CTECycleClause *cycle_cla
 	}
 
 	deparseAppendStringInfoString(state, " USING ");
-	deparseAppendStringInfoString(state, quote_identifier(cycle_clause->cycle_path_column));
+	deparseIdentifier(state, cycle_clause->cycle_path_column, -1, 0, true);
 }
 
 static void deparseCommonTableExpr(DeparseState *state, CommonTableExpr *cte)
@@ -4444,8 +4762,11 @@ static void deparseRowExpr(DeparseState *state, RowExpr *row_expr)
 static void deparseTypeCast(DeparseState *state, TypeCast *type_cast, DeparseNodeContext context)
 {
 	bool need_parens = needsParensAsBExpr(type_cast->arg);
+	bool generated_type_name;
 
 	Assert(type_cast->typeName != NULL);
+	generated_type_name =
+		deparseNameListHasGenerated(state, type_cast->typeName->names);
 
 	if (context == DEPARSE_NODE_CONTEXT_FUNC_EXPR)
 	{
@@ -4461,7 +4782,8 @@ static void deparseTypeCast(DeparseState *state, TypeCast *type_cast, DeparseNod
 	{
 		A_Const *a_const = castNode(A_Const, type_cast->arg);
 
-		if (list_length(type_cast->typeName->names) == 2 &&
+		if (!generated_type_name &&
+			list_length(type_cast->typeName->names) == 2 &&
 			strcmp(strVal(linitial(type_cast->typeName->names)), "pg_catalog") == 0)
 		{
 			char *typename = strVal(lsecond(type_cast->typeName->names));
@@ -4504,7 +4826,8 @@ static void deparseTypeCast(DeparseState *state, TypeCast *type_cast, DeparseNod
 			need_parens = true;
 		}
 
-		if (list_length(type_cast->typeName->names) == 1 &&
+		if (!generated_type_name &&
+			list_length(type_cast->typeName->names) == 1 &&
 			strcmp(strVal(linitial(type_cast->typeName->names)), "point") == 0 &&
 			a_const->location > type_cast->typeName->location)
 		{
@@ -4525,15 +4848,84 @@ static void deparseTypeCast(DeparseState *state, TypeCast *type_cast, DeparseNod
 	deparseTypeName(state, type_cast->typeName);
 }
 
+static bool
+deparseTypeNameSourceWord(
+	DeparseState *state,
+	TypeName *type_name,
+	const char *word)
+{
+	return deparseIdentifierIsKeyword(
+		state,
+		word,
+		word,
+		type_name->location,
+		true);
+}
+
+static bool
+deparseTypeNameIsSystem(
+	DeparseState *state,
+	TypeName *type_name)
+{
+	const char *name;
+
+	if (deparseNameListHasGenerated(state, type_name->names))
+		return false;
+	if (list_length(type_name->names) != 2 ||
+		strcmp(strVal(linitial(type_name->names)), "pg_catalog") != 0)
+		return false;
+	if (state->opts.source_token_probe == NULL)
+		return true;
+	if (type_name->location ==
+		POSTGRES_DEPARSE_GENERATED_IDENTIFIER_LOCATION)
+		return false;
+
+	name = strVal(lsecond(type_name->names));
+	if (deparseTypeNameSourceWord(state, type_name, name))
+		return true;
+	if (strcmp(name, "bpchar") == 0)
+		return deparseTypeNameSourceWord(state, type_name, "char") ||
+			deparseTypeNameSourceWord(state, type_name, "character");
+	if (strcmp(name, "varchar") == 0)
+		return deparseTypeNameSourceWord(state, type_name, "varchar") ||
+			deparseTypeNameSourceWord(state, type_name, "character");
+	if (strcmp(name, "numeric") == 0)
+		return deparseTypeNameSourceWord(state, type_name, "decimal") ||
+			deparseTypeNameSourceWord(state, type_name, "dec");
+	if (strcmp(name, "bool") == 0)
+		return deparseTypeNameSourceWord(state, type_name, "boolean");
+	if (strcmp(name, "varbit") == 0)
+		return deparseTypeNameSourceWord(state, type_name, "bit");
+	if (strcmp(name, "int2") == 0)
+		return deparseTypeNameSourceWord(state, type_name, "smallint");
+	if (strcmp(name, "int4") == 0)
+		return deparseTypeNameSourceWord(state, type_name, "int") ||
+			deparseTypeNameSourceWord(state, type_name, "integer");
+	if (strcmp(name, "int8") == 0)
+		return deparseTypeNameSourceWord(state, type_name, "bigint");
+	if (strcmp(name, "float4") == 0)
+		return deparseTypeNameSourceWord(state, type_name, "real") ||
+			deparseTypeNameSourceWord(state, type_name, "float");
+	if (strcmp(name, "float8") == 0)
+		return deparseTypeNameSourceWord(state, type_name, "double") ||
+			deparseTypeNameSourceWord(state, type_name, "float");
+	if (strcmp(name, "timetz") == 0)
+		return deparseTypeNameSourceWord(state, type_name, "time");
+	if (strcmp(name, "timestamptz") == 0)
+		return deparseTypeNameSourceWord(state, type_name, "timestamp");
+	return false;
+}
+
 static void deparseTypeName(DeparseState *state, TypeName *type_name)
 {
 	ListCell *lc;
 	bool skip_typmods = false;
+	bool system_name = deparseTypeNameIsSystem(state, type_name);
 
 	if (type_name->setof)
 		deparseAppendStringInfoString(state, "SETOF ");
 
-	if (list_length(type_name->names) == 2 && strcmp(strVal(linitial(type_name->names)), "pg_catalog") == 0)
+	if (system_name)
 	{
 		const char *name = strVal(lsecond(type_name->names));
 		if (strcmp(name, "bpchar") == 0)
@@ -4551,6 +4943,14 @@ static void deparseTypeName(DeparseState *state, TypeName *type_name)
 		else if (strcmp(name, "bool") == 0)
 		{
 			deparseAppendStringInfoString(state, "boolean");
+		}
+		else if (strcmp(name, "bit") == 0)
+		{
+			deparseAppendStringInfoString(state, "bit");
+		}
+		else if (strcmp(name, "varbit") == 0)
+		{
+			deparseAppendStringInfoString(state, "bit varying");
 		}
 		else if (strcmp(name, "int2") == 0)
 		{
@@ -4627,13 +5027,27 @@ static void deparseTypeName(DeparseState *state, TypeName *type_name)
 		}
 		else
 		{
-			deparseAppendStringInfoString(state, "pg_catalog.");
-			deparseAppendStringInfoString(state, name);
+			deparseIdentifier(
+				state,
+				strVal(linitial(type_name->names)),
+				type_name->location,
+				0,
+				false);
+			deparseAppendStringInfoChar(state, '.');
+			deparseIdentifier(
+				state,
+				name,
+				type_name->location,
+				1,
+				false);
 		}
 	}
 	else
 	{
-		deparseAnyName(state, type_name->names);
+		if (type_name->location >= 0)
+			deparseAnyNameAt(state, type_name->names, type_name->location);
+		else
+			deparseAnyName(state, type_name->names);
 	}
 
 	if (list_length(type_name->typmods) > 0 && !skip_typmods)
@@ -4919,7 +5333,12 @@ static void deparseColumnDef(DeparseState *state, ColumnDef *column_def)
 	if (column_def->storage_name)
 	{
 		deparseAppendStringInfoString(state, "STORAGE ");
-		deparseAppendStringInfoString(state, column_def->storage_name);
+		deparseIdentifier(
+			state,
+			column_def->storage_name,
+			column_def->location,
+			0,
+			true);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -4933,7 +5352,12 @@ static void deparseColumnDef(DeparseState *state, ColumnDef *column_def)
 	if (column_def->compression != NULL)
 	{
 		deparseAppendStringInfoString(state, "COMPRESSION ");
-		deparseAppendStringInfoString(state, column_def->compression);
+		deparseIdentifier(
+			state,
+			column_def->compression,
+			column_def->location,
+			0,
+			true);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -5043,7 +5467,7 @@ static void deparseInferClause(DeparseState *state, InferClause *infer_clause)
 	if (infer_clause->conname != NULL)
 	{
 		deparseAppendStringInfoString(state, "ON CONSTRAINT ");
-		deparseAppendStringInfoString(state, quote_identifier(infer_clause->conname));
+		deparseIdentifier(state, infer_clause->conname, -1, 0, true);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -5375,7 +5799,7 @@ static void deparseCreateOpClassStmt(DeparseState *state, CreateOpClassStmt *cre
 	deparseAppendStringInfoChar(state, ' ');
 
 	deparseAppendStringInfoString(state, "USING ");
-	deparseAppendStringInfoString(state, quote_identifier(create_op_class_stmt->amname));
+	deparseIdentifier(state, create_op_class_stmt->amname, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	if (create_op_class_stmt->opfamilyname != NULL)
@@ -5397,7 +5821,7 @@ static void deparseCreateOpFamilyStmt(DeparseState *state, CreateOpFamilyStmt *c
 	deparseAppendStringInfoChar(state, ' ');
 
 	deparseAppendStringInfoString(state, "USING ");
-	deparseAppendStringInfoString(state, quote_identifier(create_op_family_stmt->amname));
+	deparseIdentifier(state, create_op_family_stmt->amname, -1, 0, true);
 }
 
 static void deparseCreateOpClassItem(DeparseState *state, CreateOpClassItem *create_op_class_item)
@@ -5539,7 +5963,11 @@ static void deparseCreateExtensionStmt(DeparseState *state, CreateExtensionStmt 
 		else if (strcmp(def_elem->defname, "new_version") == 0)
 		{
 			deparseAppendStringInfoString(state, "VERSION ");
-			deparseNonReservedWordOrSconst(state, strVal(def_elem->arg));
+			deparseNonReservedWordOrSconstFrom(
+				state,
+				strVal(def_elem->arg),
+				def_elem->location,
+				true);
 		}
 		else if (strcmp(def_elem->defname, "cascade") == 0)
 		{
@@ -5624,7 +6052,7 @@ static void deparseConstraint(DeparseState *state, Constraint *constraint)
 			if (strcmp(constraint->access_method, DEFAULT_INDEX_TYPE) != 0)
 			{
 				deparseAppendStringInfoString(state, "USING ");
-				deparseAppendStringInfoString(state, quote_identifier(constraint->access_method));
+				deparseIdentifier(state, constraint->access_method, -1, 0, true);
 				deparseAppendStringInfoChar(state, ' ');
 			}
 			deparseAppendStringInfoChar(state, '(');
@@ -5763,7 +6191,12 @@ static void deparseConstraint(DeparseState *state, Constraint *constraint)
 				deparseAppendStringInfoString(state, "(");
 				ListCell *lc;
 				foreach (lc, constraint->fk_del_set_cols) {
-					deparseAppendStringInfoString(state, strVal(lfirst(lc)));
+					deparseIdentifier(
+						state,
+						strVal(lfirst(lc)),
+						constraint->location,
+						0,
+						true);
 					if (lfirst(lc) != llast(constraint->fk_del_set_cols))
 						deparseAppendStringInfoString(state, ", ");
 				}
@@ -5794,10 +6227,18 @@ static void deparseConstraint(DeparseState *state, Constraint *constraint)
 	}
 
 	if (constraint->indexname != NULL)
-		deparseAppendStringInfo(state, "USING INDEX %s ", quote_identifier(constraint->indexname));
+	{
+		deparseAppendStringInfoString(state, "USING INDEX ");
+		deparseIdentifier(state, constraint->indexname, -1, 0, true);
+		deparseAppendStringInfoChar(state, ' ');
+	}
 
 	if (constraint->indexspace != NULL)
-		deparseAppendStringInfo(state, "USING INDEX TABLESPACE %s ", quote_identifier(constraint->indexspace));
+	{
+		deparseAppendStringInfoString(state, "USING INDEX TABLESPACE ");
+		deparseIdentifier(state, constraint->indexspace, -1, 0, true);
+		deparseAppendStringInfoChar(state, ' ');
+	}
 
 	if (constraint->deferrable)
 		deparseAppendStringInfoString(state, "DEFERRABLE ");
@@ -5948,7 +6389,7 @@ static void deparseFunctionParameter(DeparseState *state, FunctionParameter *fun
 
 	if (function_parameter->name != NULL)
 	{
-		deparseAppendStringInfoString(state, function_parameter->name);
+		deparseIdentifier(state, function_parameter->name, -1, 0, true);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -6017,7 +6458,7 @@ static void deparseAlterRoleSetStmt(DeparseState *state, AlterRoleSetStmt *alter
 	if (alter_role_set_stmt->database != NULL)
 	{
 		deparseAppendStringInfoString(state, "IN DATABASE ");
-		deparseAppendStringInfoString(state, quote_identifier(alter_role_set_stmt->database));
+		deparseIdentifier(state, alter_role_set_stmt->database, -1, 0, true);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -6049,7 +6490,7 @@ static void deparseRoleSpec(DeparseState *state, RoleSpec *role_spec)
 	{
 		case ROLESPEC_CSTRING:
 			Assert(role_spec->rolename != NULL);
-			deparseAppendStringInfoString(state, quote_identifier(role_spec->rolename));
+			deparseIdentifier(state, role_spec->rolename, -1, 0, true);
 			break;
 		case ROLESPEC_CURRENT_ROLE:
 			deparseAppendStringInfoString(state, "CURRENT_ROLE");
@@ -6264,7 +6705,8 @@ static void deparseCreateStmt(DeparseState *state, CreateStmt *create_stmt, bool
 	if (create_stmt->accessMethod != NULL)
 	{
 		deparseAppendStringInfoString(state, "USING ");
-		deparseAppendStringInfoString(state, quote_identifier(create_stmt->accessMethod));
+		deparseIdentifier(state, create_stmt->accessMethod, -1, 0, true);
+		deparseAppendStringInfoChar(state, ' ');
 	}
 
 	deparseOptWith(state, create_stmt->options);
@@ -6288,7 +6730,7 @@ static void deparseCreateStmt(DeparseState *state, CreateStmt *create_stmt, bool
 	if (create_stmt->tablespacename != NULL)
 	{
 		deparseAppendStringInfoString(state, "TABLESPACE ");
-		deparseAppendStringInfoString(state, quote_identifier(create_stmt->tablespacename));
+		deparseIdentifier(state, create_stmt->tablespacename, -1, 0, true);
 	}
 
 	removeTrailingSpace(state);
@@ -6299,7 +6741,7 @@ static void deparseCreateFdwStmt(DeparseState *state, CreateFdwStmt *create_fdw_
 	ListCell *lc;
 
 	deparseAppendStringInfoString(state, "CREATE FOREIGN DATA WRAPPER ");
-	deparseAppendStringInfoString(state, quote_identifier(create_fdw_stmt->fdwname));
+	deparseIdentifier(state, create_fdw_stmt->fdwname, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	if (list_length(create_fdw_stmt->func_options) > 0)
@@ -6316,7 +6758,7 @@ static void deparseCreateFdwStmt(DeparseState *state, CreateFdwStmt *create_fdw_
 static void deparseAlterFdwStmt(DeparseState *state, AlterFdwStmt *alter_fdw_stmt)
 {
 	deparseAppendStringInfoString(state, "ALTER FOREIGN DATA WRAPPER ");
-	deparseAppendStringInfoString(state, quote_identifier(alter_fdw_stmt->fdwname));
+	deparseIdentifier(state, alter_fdw_stmt->fdwname, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	if (list_length(alter_fdw_stmt->func_options) > 0)
@@ -6338,7 +6780,7 @@ static void deparseCreateForeignServerStmt(DeparseState *state, CreateForeignSer
 	deparseAppendStringInfoString(state, "CREATE SERVER ");
 	if (create_foreign_server_stmt->if_not_exists)
 		deparseAppendStringInfoString(state, "IF NOT EXISTS ");
-	deparseAppendStringInfoString(state, quote_identifier(create_foreign_server_stmt->servername));
+	deparseIdentifier(state, create_foreign_server_stmt->servername, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	if (create_foreign_server_stmt->servertype != NULL)
@@ -6356,7 +6798,7 @@ static void deparseCreateForeignServerStmt(DeparseState *state, CreateForeignSer
 	}
 
 	deparseAppendStringInfoString(state, "FOREIGN DATA WRAPPER ");
-	deparseAppendStringInfoString(state, quote_identifier(create_foreign_server_stmt->fdwname));
+	deparseIdentifier(state, create_foreign_server_stmt->fdwname, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	deparseCreateGenericOptions(state, create_foreign_server_stmt->options);
@@ -6368,7 +6810,7 @@ static void deparseAlterForeignServerStmt(DeparseState *state, AlterForeignServe
 {
 	deparseAppendStringInfoString(state, "ALTER SERVER ");
 
-	deparseAppendStringInfoString(state, quote_identifier(alter_foreign_server_stmt->servername));
+	deparseIdentifier(state, alter_foreign_server_stmt->servername, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	if (alter_foreign_server_stmt->has_version)
@@ -6398,7 +6840,7 @@ static void deparseCreateUserMappingStmt(DeparseState *state, CreateUserMappingS
 	deparseAppendStringInfoChar(state, ' ');
 
 	deparseAppendStringInfoString(state, "SERVER ");
-	deparseAppendStringInfoString(state, quote_identifier(create_user_mapping_stmt->servername));
+	deparseIdentifier(state, create_user_mapping_stmt->servername, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	deparseCreateGenericOptions(state, create_user_mapping_stmt->options);
@@ -6422,7 +6864,7 @@ static void deparseAlterUserMappingStmt(DeparseState *state, AlterUserMappingStm
 	deparseAppendStringInfoChar(state, ' ');
 
 	deparseAppendStringInfoString(state, "SERVER ");
-	deparseAppendStringInfoString(state, quote_identifier(alter_user_mapping_stmt->servername));
+	deparseIdentifier(state, alter_user_mapping_stmt->servername, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	deparseAlterGenericOptions(state, alter_user_mapping_stmt->options);
@@ -6442,7 +6884,7 @@ static void deparseDropUserMappingStmt(DeparseState *state, DropUserMappingStmt 
 	deparseAppendStringInfoChar(state, ' ');
 
 	deparseAppendStringInfoString(state, "SERVER ");
-	deparseAppendStringInfoString(state, quote_identifier(drop_user_mapping_stmt->servername));
+	deparseIdentifier(state, drop_user_mapping_stmt->servername, -1, 0, true);
 }
 
 static void deparseSecLabelStmt(DeparseState *state, SecLabelStmt *sec_label_stmt)
@@ -6454,7 +6896,7 @@ static void deparseSecLabelStmt(DeparseState *state, SecLabelStmt *sec_label_stm
 	if (sec_label_stmt->provider != NULL)
 	{
 		deparseAppendStringInfoString(state, "FOR ");
-		deparseAppendStringInfoString(state, quote_identifier(sec_label_stmt->provider));
+		deparseIdentifier(state, sec_label_stmt->provider, -1, 0, true);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -6488,35 +6930,35 @@ static void deparseSecLabelStmt(DeparseState *state, SecLabelStmt *sec_label_stm
 			break;
 		case OBJECT_DATABASE:
 			deparseAppendStringInfoString(state, "DATABASE ");
-			deparseAppendStringInfoString(state, quote_identifier(strVal(sec_label_stmt->object)));
+			deparseIdentifier(state, strVal(sec_label_stmt->object), -1, 0, true);
 			break;
 		case OBJECT_EVENT_TRIGGER:
 			deparseAppendStringInfoString(state, "EVENT TRIGGER ");
-			deparseAppendStringInfoString(state, quote_identifier(strVal(sec_label_stmt->object)));
+			deparseIdentifier(state, strVal(sec_label_stmt->object), -1, 0, true);
 			break;
 		case OBJECT_LANGUAGE:
 			deparseAppendStringInfoString(state, "LANGUAGE ");
-			deparseAppendStringInfoString(state, quote_identifier(strVal(sec_label_stmt->object)));
+			deparseIdentifier(state, strVal(sec_label_stmt->object), -1, 0, true);
 			break;
 		case OBJECT_PUBLICATION:
 			deparseAppendStringInfoString(state, "PUBLICATION ");
-			deparseAppendStringInfoString(state, quote_identifier(strVal(sec_label_stmt->object)));
+			deparseIdentifier(state, strVal(sec_label_stmt->object), -1, 0, true);
 			break;
 		case OBJECT_ROLE:
 			deparseAppendStringInfoString(state, "ROLE ");
-			deparseAppendStringInfoString(state, quote_identifier(strVal(sec_label_stmt->object)));
+			deparseIdentifier(state, strVal(sec_label_stmt->object), -1, 0, true);
 			break;
 		case OBJECT_SCHEMA:
 			deparseAppendStringInfoString(state, "SCHEMA ");
-			deparseAppendStringInfoString(state, quote_identifier(strVal(sec_label_stmt->object)));
+			deparseIdentifier(state, strVal(sec_label_stmt->object), -1, 0, true);
 			break;
 		case OBJECT_SUBSCRIPTION:
 			deparseAppendStringInfoString(state, "SUBSCRIPTION ");
-			deparseAppendStringInfoString(state, quote_identifier(strVal(sec_label_stmt->object)));
+			deparseIdentifier(state, strVal(sec_label_stmt->object), -1, 0, true);
 			break;
 		case OBJECT_TABLESPACE:
 			deparseAppendStringInfoString(state, "TABLESPACE ");
-			deparseAppendStringInfoString(state, quote_identifier(strVal(sec_label_stmt->object)));
+			deparseIdentifier(state, strVal(sec_label_stmt->object), -1, 0, true);
 			break;
 		case OBJECT_TYPE:
 			deparseAppendStringInfoString(state, "TYPE ");
@@ -6567,7 +7009,7 @@ static void deparseCreateForeignTableStmt(DeparseState *state, CreateForeignTabl
 	deparseCreateStmt(state, &create_foreign_table_stmt->base, true);
 
 	deparseAppendStringInfoString(state, " SERVER ");
-	deparseAppendStringInfoString(state, quote_identifier(create_foreign_table_stmt->servername));
+	deparseIdentifier(state, create_foreign_table_stmt->servername, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	if (list_length(create_foreign_table_stmt->options) > 0)
@@ -6580,7 +7022,12 @@ static void deparseImportForeignSchemaStmt(DeparseState *state, ImportForeignSch
 {
 	deparseAppendStringInfoString(state, "IMPORT FOREIGN SCHEMA ");
 
-	deparseAppendStringInfoString(state, import_foreign_schema_stmt->remote_schema);
+	deparseIdentifier(
+		state,
+		import_foreign_schema_stmt->remote_schema,
+		-1,
+		0,
+		true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	switch (import_foreign_schema_stmt->list_type)
@@ -6601,11 +7048,11 @@ static void deparseImportForeignSchemaStmt(DeparseState *state, ImportForeignSch
 	}
 
 	deparseAppendStringInfoString(state, "FROM SERVER ");
-	deparseAppendStringInfoString(state, quote_identifier(import_foreign_schema_stmt->server_name));
+	deparseIdentifier(state, import_foreign_schema_stmt->server_name, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	deparseAppendStringInfoString(state, "INTO ");
-	deparseAppendStringInfoString(state, quote_identifier(import_foreign_schema_stmt->local_schema));
+	deparseIdentifier(state, import_foreign_schema_stmt->local_schema, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	deparseCreateGenericOptions(state, import_foreign_schema_stmt->options);
@@ -6979,7 +7426,12 @@ static void deparseDropTableSpaceStmt(DeparseState *state, DropTableSpaceStmt *d
 	if (drop_table_space_stmt->missing_ok)
 		deparseAppendStringInfoString(state, "IF EXISTS ");
 
-	deparseAppendStringInfoString(state, drop_table_space_stmt->tablespacename);
+	deparseIdentifier(
+		state,
+		drop_table_space_stmt->tablespacename,
+		-1,
+		0,
+		true);
 }
 
 static void deparseAlterObjectDependsStmt(DeparseState *state, AlterObjectDependsStmt *alter_object_depends_stmt)
@@ -7023,7 +7475,13 @@ static void deparseAlterObjectDependsStmt(DeparseState *state, AlterObjectDepend
 	if (alter_object_depends_stmt->remove)
 		deparseAppendStringInfoString(state, "NO ");
 
-	deparseAppendStringInfo(state, "DEPENDS ON EXTENSION %s", alter_object_depends_stmt->extname->sval);
+	deparseAppendStringInfoString(state, "DEPENDS ON EXTENSION ");
+	deparseIdentifier(
+		state,
+		alter_object_depends_stmt->extname->sval,
+		-1,
+		0,
+		true);
 }
 
 static void deparseAlterObjectSchemaStmt(DeparseState *state, AlterObjectSchemaStmt *alter_object_schema_stmt)
@@ -7053,7 +7511,7 @@ static void deparseAlterObjectSchemaStmt(DeparseState *state, AlterObjectSchemaS
 			break;
 		case OBJECT_EXTENSION:
 			deparseAppendStringInfoString(state, "EXTENSION ");
-			deparseAppendStringInfoString(state, quote_identifier(strVal(alter_object_schema_stmt->object)));
+			deparseIdentifier(state, strVal(alter_object_schema_stmt->object), -1, 0, true);
 			break;
 		case OBJECT_FUNCTION:
 			deparseAppendStringInfoString(state, "FUNCTION ");
@@ -7068,14 +7526,14 @@ static void deparseAlterObjectSchemaStmt(DeparseState *state, AlterObjectSchemaS
 			deparseAppendStringInfoString(state, "OPERATOR CLASS ");
 			deparseAnyNameSkipFirst(state, l);
 			deparseAppendStringInfoString(state, " USING ");
-			deparseAppendStringInfoString(state, quote_identifier(strVal(linitial(l))));
+			deparseIdentifier(state, strVal(linitial(l)), -1, 0, true);
 			break;
 		case OBJECT_OPFAMILY:
 			l = castNode(List, alter_object_schema_stmt->object);
 			deparseAppendStringInfoString(state, "OPERATOR FAMILY ");
 			deparseAnyNameSkipFirst(state, l);
 			deparseAppendStringInfoString(state, " USING ");
-			deparseAppendStringInfoString(state, quote_identifier(strVal(linitial(l))));
+			deparseIdentifier(state, strVal(linitial(l)), -1, 0, true);
 			break;
 		case OBJECT_PROCEDURE:
 			deparseAppendStringInfoString(state, "PROCEDURE ");
@@ -7145,7 +7603,7 @@ static void deparseAlterObjectSchemaStmt(DeparseState *state, AlterObjectSchemaS
 	}
 
 	deparseAppendStringInfoString(state, " SET SCHEMA ");
-	deparseAppendStringInfoString(state, quote_identifier(alter_object_schema_stmt->newschema));
+	deparseIdentifier(state, alter_object_schema_stmt->newschema, -1, 0, true);
 }
 
 // "alter_table_cmd" in gram.y
@@ -7552,7 +8010,12 @@ static void deparseAlterTableMoveAllStmt(DeparseState *state, AlterTableMoveAllS
 	deparseAlterTableObjType(state, move_all_stmt->objtype);
 
 	deparseAppendStringInfoString(state, "ALL IN TABLESPACE ");
-	deparseAppendStringInfoString(state, move_all_stmt->orig_tablespacename);
+	deparseIdentifier(
+		state,
+		move_all_stmt->orig_tablespacename,
+		-1,
+		0,
+		true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	if (move_all_stmt->roles)
@@ -7563,7 +8026,12 @@ static void deparseAlterTableMoveAllStmt(DeparseState *state, AlterTableMoveAllS
 	}
 
 	deparseAppendStringInfoString(state, "SET TABLESPACE ");
-	deparseAppendStringInfoString(state, move_all_stmt->new_tablespacename);
+	deparseIdentifier(
+		state,
+		move_all_stmt->new_tablespacename,
+		-1,
+		0,
+		true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	if (move_all_stmt->nowait)
@@ -7644,13 +8112,13 @@ static void deparseAlterDomainStmt(DeparseState *state, AlterDomainStmt *alter_d
 			deparseAppendStringInfoString(state, "DROP CONSTRAINT ");
 			if (alter_domain_stmt->missing_ok)
 				deparseAppendStringInfoString(state, "IF EXISTS ");
-			deparseAppendStringInfoString(state, quote_identifier(alter_domain_stmt->name));
+			deparseIdentifier(state, alter_domain_stmt->name, -1, 0, true);
 			if (alter_domain_stmt->behavior == DROP_CASCADE)
 				deparseAppendStringInfoString(state, " CASCADE");
 			break;
 		case 'V':
 			deparseAppendStringInfoString(state, "VALIDATE CONSTRAINT ");
-			deparseAppendStringInfoString(state, quote_identifier(alter_domain_stmt->name));
+			deparseIdentifier(state, alter_domain_stmt->name, -1, 0, true);
 			break;
 		default:
 			// No other subtypes supported by the parser
@@ -7807,7 +8275,7 @@ static void deparseRenameStmt(DeparseState *state, RenameStmt *rename_stmt)
 		case OBJECT_DOMCONSTRAINT:
 			deparseAnyName(state, castNode(List, rename_stmt->object));
 			deparseAppendStringInfoString(state, " RENAME CONSTRAINT ");
-			deparseAppendStringInfoString(state, quote_identifier(rename_stmt->subname));
+			deparseIdentifier(state, rename_stmt->subname, -1, 0, true);
 			deparseAppendStringInfoChar(state, ' ');
 			break;
 		case OBJECT_OPCLASS:
@@ -7815,11 +8283,11 @@ static void deparseRenameStmt(DeparseState *state, RenameStmt *rename_stmt)
 			l = castNode(List, rename_stmt->object);
 			deparseAnyNameSkipFirst(state, l);
 			deparseAppendStringInfoString(state, " USING ");
-			deparseAppendStringInfoString(state, quote_identifier(strVal(linitial(l))));
+			deparseIdentifier(state, strVal(linitial(l)), -1, 0, true);
 			deparseAppendStringInfoString(state, " RENAME ");
 			break;
 		case OBJECT_POLICY:
-			deparseAppendStringInfoString(state, quote_identifier(rename_stmt->subname));
+			deparseIdentifier(state, rename_stmt->subname, -1, 0, true);
 			deparseAppendStringInfoString(state, " ON ");
 			deparseRangeVar(state, rename_stmt->relation, DEPARSE_NODE_CONTEXT_NONE);
 			deparseAppendStringInfoString(state, " RENAME ");
@@ -7846,18 +8314,18 @@ static void deparseRenameStmt(DeparseState *state, RenameStmt *rename_stmt)
 		case OBJECT_COLUMN:
 			deparseRangeVar(state, rename_stmt->relation, DEPARSE_NODE_CONTEXT_NONE);
 			deparseAppendStringInfoString(state, " RENAME COLUMN ");
-			deparseAppendStringInfoString(state, quote_identifier(rename_stmt->subname));
+			deparseIdentifier(state, rename_stmt->subname, -1, 0, true);
 			deparseAppendStringInfoChar(state, ' ');
 			break;
 		case OBJECT_TABCONSTRAINT:
 			deparseRangeVar(state, rename_stmt->relation, DEPARSE_NODE_CONTEXT_NONE);
 			deparseAppendStringInfoString(state, " RENAME CONSTRAINT ");
-			deparseAppendStringInfoString(state, quote_identifier(rename_stmt->subname));
+			deparseIdentifier(state, rename_stmt->subname, -1, 0, true);
 			deparseAppendStringInfoChar(state, ' ');
 			break;
 		case OBJECT_RULE:
 		case OBJECT_TRIGGER:
-			deparseAppendStringInfoString(state, quote_identifier(rename_stmt->subname));
+			deparseIdentifier(state, rename_stmt->subname, -1, 0, true);
 			deparseAppendStringInfoString(state, " ON ");
 			deparseRangeVar(state, rename_stmt->relation, DEPARSE_NODE_CONTEXT_NONE);
 			deparseAppendStringInfoString(state, " RENAME ");
@@ -7867,14 +8335,14 @@ static void deparseRenameStmt(DeparseState *state, RenameStmt *rename_stmt)
 		case OBJECT_PUBLICATION:
 		case OBJECT_FOREIGN_SERVER:
 		case OBJECT_EVENT_TRIGGER:
-			deparseAppendStringInfoString(state, quote_identifier(strVal(rename_stmt->object)));
+			deparseIdentifier(state, strVal(rename_stmt->object), -1, 0, true);
 			deparseAppendStringInfoString(state, " RENAME ");
 			break;
 		case OBJECT_DATABASE:
 		case OBJECT_ROLE:
 		case OBJECT_SCHEMA:
 		case OBJECT_TABLESPACE:
-			deparseAppendStringInfoString(state, quote_identifier(rename_stmt->subname));
+			deparseIdentifier(state, rename_stmt->subname, -1, 0, true);
 			deparseAppendStringInfoString(state, " RENAME ");
 			break;
 		case OBJECT_COLLATION:
@@ -7892,7 +8360,7 @@ static void deparseRenameStmt(DeparseState *state, RenameStmt *rename_stmt)
 		case OBJECT_ATTRIBUTE:
 			deparseRangeVar(state, rename_stmt->relation, DEPARSE_NODE_CONTEXT_ALTER_TYPE);
 			deparseAppendStringInfoString(state, " RENAME ATTRIBUTE ");
-			deparseAppendStringInfoString(state, quote_identifier(rename_stmt->subname));
+			deparseIdentifier(state, rename_stmt->subname, -1, 0, true);
 			deparseAppendStringInfoChar(state, ' ');
 			break;
 		default:
@@ -7901,7 +8369,7 @@ static void deparseRenameStmt(DeparseState *state, RenameStmt *rename_stmt)
 	}
 
 	deparseAppendStringInfoString(state, "TO ");
-	deparseAppendStringInfoString(state, quote_identifier(rename_stmt->newname));
+	deparseIdentifier(state, rename_stmt->newname, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	deparseOptDropBehavior(state, rename_stmt->behavior);
@@ -7934,16 +8402,16 @@ static void deparseTransactionStmt(DeparseState *state, TransactionStmt *transac
 			break;
 		case TRANS_STMT_SAVEPOINT:
 			deparseAppendStringInfoString(state, "SAVEPOINT ");
-			deparseAppendStringInfoString(state, quote_identifier(transaction_stmt->savepoint_name));
+			deparseIdentifier(state, transaction_stmt->savepoint_name, -1, 0, true);
 			break;
 		case TRANS_STMT_RELEASE:
 			deparseAppendStringInfoString(state, "RELEASE ");
-			deparseAppendStringInfoString(state, quote_identifier(transaction_stmt->savepoint_name));
+			deparseIdentifier(state, transaction_stmt->savepoint_name, -1, 0, true);
 			break;
 		case TRANS_STMT_ROLLBACK_TO:
 			deparseAppendStringInfoString(state, "ROLLBACK ");
 			deparseAppendStringInfoString(state, "TO SAVEPOINT ");
-			deparseAppendStringInfoString(state, quote_identifier(transaction_stmt->savepoint_name));
+			deparseIdentifier(state, transaction_stmt->savepoint_name, -1, 0, true);
 			break;
 		case TRANS_STMT_PREPARE:
 			deparseAppendStringInfoString(state, "PREPARE TRANSACTION ");
@@ -7964,14 +8432,22 @@ static void deparseTransactionStmt(DeparseState *state, TransactionStmt *transac
 
 // Determine if we hit SET TIME ZONE INTERVAL, that has special syntax not
 // supported for other SET statements
-static bool isSetTimeZoneInterval(VariableSetStmt* stmt)
+static bool isSetTimeZoneInterval(
+	DeparseState *state,
+	VariableSetStmt* stmt)
 {
+	TypeName* typeName;
+
+	if (deparseIdentifierIsGenerated(state, stmt->name))
+		return false;
 	if (!(strcmp(stmt->name, "timezone") == 0 &&
 		  list_length(stmt->args) == 1 &&
 		  IsA(linitial(stmt->args), TypeCast)))
 		return false;
 
-	TypeName* typeName = castNode(TypeCast, linitial(stmt->args))->typeName;
+	typeName = castNode(TypeCast, linitial(stmt->args))->typeName;
+	if (deparseNameListHasGenerated(state, typeName->names))
+		return false;
 
 	return (list_length(typeName->names) == 2 &&
 		strcmp(strVal(linitial(typeName->names)), "pg_catalog") == 0 &&
@@ -7988,7 +8464,7 @@ static void deparseVariableSetStmt(DeparseState *state, VariableSetStmt* variabl
 			deparseAppendStringInfoString(state, "SET ");
 			if (variable_set_stmt->is_local)
 				deparseAppendStringInfoString(state, "LOCAL ");
-			if (isSetTimeZoneInterval(variable_set_stmt))
+			if (isSetTimeZoneInterval(state, variable_set_stmt))
 			{
 				deparseAppendStringInfoString(state, "TIME ZONE ");
 				deparseVarList(state, variable_set_stmt->args);
@@ -8057,7 +8533,7 @@ static void deparseDropdbStmt(DeparseState *state, DropdbStmt *dropdb_stmt)
 	if (dropdb_stmt->missing_ok)
 		deparseAppendStringInfoString(state, "IF EXISTS ");
 
-	deparseAppendStringInfoString(state, quote_identifier(dropdb_stmt->dbname));
+	deparseIdentifier(state, dropdb_stmt->dbname, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	if (list_length(dropdb_stmt->options) > 0)
@@ -8103,7 +8579,7 @@ static void deparseVacuumStmt(DeparseState *state, VacuumStmt *vacuum_stmt)
 			deparseAppendStringInfoChar(state, '(');
 			foreach(lc2, rel->va_cols)
 			{
-				deparseAppendStringInfoString(state, quote_identifier(strVal(lfirst(lc2))));
+				deparseIdentifier(state, strVal(lfirst(lc2)), -1, 0, true);
 				if (lnext(rel->va_cols, lc2))
 					deparseAppendStringInfoString(state, ", ");
 			}
@@ -8275,14 +8751,14 @@ static void deparseCopyStmt(DeparseState *state, CopyStmt *copy_stmt)
 		{
 			DefElem *def_elem = castNode(DefElem, lfirst(lc));
 
-			if (strcmp(def_elem->defname, "freeze") == 0 && optBooleanValue(def_elem->arg))
-			{}
-			else if (strcmp(def_elem->defname, "header") == 0 && def_elem->arg && optBooleanValue(def_elem->arg))
-			{}
-			else if (strcmp(def_elem->defname, "format") == 0 && strcmp(strVal(def_elem->arg), "csv") == 0)
-			{}
-			else if (strcmp(def_elem->defname, "force_quote") == 0 && def_elem->arg && nodeTag(def_elem->arg) == T_List)
-			{}
+				if (strcmp(def_elem->defname, "freeze") == 0 && optBooleanValue(def_elem->arg))
+				{}
+				else if (strcmp(def_elem->defname, "header") == 0 && def_elem->arg && optBooleanValue(def_elem->arg))
+				{}
+				else if (strcmp(def_elem->defname, "format") == 0 && pg_strcasecmp(strVal(def_elem->arg), "csv") == 0)
+				{}
+				else if (strcmp(def_elem->defname, "force_quote") == 0 && def_elem->arg && nodeTag(def_elem->arg) == T_List)
+				{}
 			else
 			{
 				old_fmt = false;
@@ -8296,19 +8772,19 @@ static void deparseCopyStmt(DeparseState *state, CopyStmt *copy_stmt)
 			{
 				DefElem *def_elem = castNode(DefElem, lfirst(lc));
 
-				if (strcmp(def_elem->defname, "freeze") == 0 && optBooleanValue(def_elem->arg))
-				{
-					deparseAppendStringInfoString(state, "FREEZE ");
-				}
-				else if (strcmp(def_elem->defname, "header") == 0 && def_elem->arg && optBooleanValue(def_elem->arg))
-				{
-					deparseAppendStringInfoString(state, "HEADER ");
-				}
-				else if (strcmp(def_elem->defname, "format") == 0 && strcmp(strVal(def_elem->arg), "csv") == 0)
-				{
-					deparseAppendStringInfoString(state, "CSV ");
-				}
-				else if (strcmp(def_elem->defname, "force_quote") == 0 && def_elem->arg && nodeTag(def_elem->arg) == T_List)
+					if (strcmp(def_elem->defname, "freeze") == 0 && optBooleanValue(def_elem->arg))
+					{
+						deparseAppendStringInfoString(state, "FREEZE ");
+					}
+					else if (strcmp(def_elem->defname, "header") == 0 && def_elem->arg && optBooleanValue(def_elem->arg))
+					{
+						deparseAppendStringInfoString(state, "HEADER ");
+					}
+					else if (strcmp(def_elem->defname, "format") == 0 && pg_strcasecmp(strVal(def_elem->arg), "csv") == 0)
+					{
+						deparseAppendStringInfoString(state, "CSV ");
+					}
+					else if (strcmp(def_elem->defname, "force_quote") == 0 && def_elem->arg && nodeTag(def_elem->arg) == T_List)
 				{
 					deparseAppendStringInfoString(state, "FORCE QUOTE ");
 					deparseColumnList(state, castNode(List, def_elem->arg));
@@ -8325,51 +8801,51 @@ static void deparseCopyStmt(DeparseState *state, CopyStmt *copy_stmt)
 			{
 				DefElem *def_elem = castNode(DefElem, lfirst(lc));
 
-				if (strcmp(def_elem->defname, "format") == 0)
-				{
-					deparseAppendStringInfoString(state, "FORMAT ");
+					if (strcmp(def_elem->defname, "format") == 0)
+					{
+						deparseAppendStringInfoString(state, "FORMAT ");
 
-					char *format = strVal(def_elem->arg);
-					if (strcmp(format, "binary") == 0)
-						deparseAppendStringInfoString(state, "BINARY");
-					else if (strcmp(format, "csv") == 0)
-						deparseAppendStringInfoString(state, "CSV");
-					else if (strcmp(format, "text") == 0)
-						deparseAppendStringInfoString(state, "TEXT");
-					else
-						Assert(false);
-				}
-				else if (strcmp(def_elem->defname, "freeze") == 0)
-				{
-					deparseAppendStringInfoString(state, "FREEZE");
-					deparseOptBoolean(state, def_elem->arg);
-				}
-				else if (strcmp(def_elem->defname, "delimiter") == 0)
-				{
-					deparseAppendStringInfoString(state, "DELIMITER ");
-					deparseStringLiteral(state, strVal(def_elem->arg));
-				}
-				else if (strcmp(def_elem->defname, "null") == 0)
-				{
-					deparseAppendStringInfoString(state, "NULL ");
-					deparseStringLiteral(state, strVal(def_elem->arg));
-				}
-				else if (strcmp(def_elem->defname, "header") == 0)
-				{
-					deparseAppendStringInfoString(state, "HEADER");
-					deparseOptBoolean(state, def_elem->arg);
-				}
-				else if (strcmp(def_elem->defname, "quote") == 0)
-				{
-					deparseAppendStringInfoString(state, "QUOTE ");
-					deparseStringLiteral(state, strVal(def_elem->arg));
-				}
-				else if (strcmp(def_elem->defname, "escape") == 0)
-				{
-					deparseAppendStringInfoString(state, "ESCAPE ");
-					deparseStringLiteral(state, strVal(def_elem->arg));
-				}
-				else if (strcmp(def_elem->defname, "force_quote") == 0)
+						char *format = strVal(def_elem->arg);
+						if (pg_strcasecmp(format, "binary") == 0)
+							deparseAppendStringInfoString(state, "BINARY");
+						else if (pg_strcasecmp(format, "csv") == 0)
+							deparseAppendStringInfoString(state, "CSV");
+						else if (pg_strcasecmp(format, "text") == 0)
+							deparseAppendStringInfoString(state, "TEXT");
+						else
+							Assert(false);
+					}
+					else if (strcmp(def_elem->defname, "freeze") == 0)
+					{
+						deparseAppendStringInfoString(state, "FREEZE");
+						deparseOptBoolean(state, def_elem->arg);
+					}
+					else if (strcmp(def_elem->defname, "delimiter") == 0)
+					{
+						deparseAppendStringInfoString(state, "DELIMITER ");
+						deparseStringLiteral(state, strVal(def_elem->arg));
+					}
+					else if (strcmp(def_elem->defname, "null") == 0)
+					{
+						deparseAppendStringInfoString(state, "NULL ");
+						deparseStringLiteral(state, strVal(def_elem->arg));
+					}
+					else if (strcmp(def_elem->defname, "header") == 0)
+					{
+						deparseAppendStringInfoString(state, "HEADER");
+						deparseOptBoolean(state, def_elem->arg);
+					}
+					else if (strcmp(def_elem->defname, "quote") == 0)
+					{
+						deparseAppendStringInfoString(state, "QUOTE ");
+						deparseStringLiteral(state, strVal(def_elem->arg));
+					}
+					else if (strcmp(def_elem->defname, "escape") == 0)
+					{
+						deparseAppendStringInfoString(state, "ESCAPE ");
+						deparseStringLiteral(state, strVal(def_elem->arg));
+					}
+					else if (strcmp(def_elem->defname, "force_quote") == 0)
 				{
 					deparseAppendStringInfoString(state, "FORCE_QUOTE ");
 					if (IsA(def_elem->arg, A_Star))
@@ -8387,7 +8863,7 @@ static void deparseCopyStmt(DeparseState *state, CopyStmt *copy_stmt)
 						Assert(false);
 					}
 				}
-				else if (strcmp(def_elem->defname, "force_not_null") == 0)
+					else if (strcmp(def_elem->defname, "force_not_null") == 0)
 				{
 					deparseAppendStringInfoString(state, "FORCE_NOT_NULL ");
 
@@ -8400,7 +8876,7 @@ static void deparseCopyStmt(DeparseState *state, CopyStmt *copy_stmt)
 						deparseAppendStringInfoChar(state, ')');
 					}
 				}
-				else if (strcmp(def_elem->defname, "force_null") == 0)
+					else if (strcmp(def_elem->defname, "force_null") == 0)
 				{
 					deparseAppendStringInfoString(state, "FORCE_NULL ");
 
@@ -8413,14 +8889,14 @@ static void deparseCopyStmt(DeparseState *state, CopyStmt *copy_stmt)
 						deparseAppendStringInfoChar(state, ')');
 					}
 				}
-				else if (strcmp(def_elem->defname, "encoding") == 0)
+					else if (strcmp(def_elem->defname, "encoding") == 0)
 				{
 					deparseAppendStringInfoString(state, "ENCODING ");
 					deparseStringLiteral(state, strVal(def_elem->arg));
 				}
 				else
 				{
-					deparseAppendStringInfoString(state, quote_identifier(def_elem->defname));
+					deparseIdentifier(state, def_elem->defname, -1, 0, true);
 					if (def_elem->arg != NULL)
 						deparseAppendStringInfoChar(state, ' ');
 					
@@ -8430,7 +8906,13 @@ static void deparseCopyStmt(DeparseState *state, CopyStmt *copy_stmt)
 					}
 					else if (IsA(def_elem->arg, String))
 					{
-						deparseOptBooleanOrString(state, strVal(def_elem->arg));
+						deparseOptBooleanOrString(
+							state,
+							strVal(def_elem->arg),
+							def_elem->location >= 0 ?
+								def_elem->location +
+									(int) strlen(def_elem->defname) :
+								-1);
 					}
 					else if (IsA(def_elem->arg, Integer) || IsA(def_elem->arg, Float))
 					{
@@ -8446,7 +8928,13 @@ static void deparseCopyStmt(DeparseState *state, CopyStmt *copy_stmt)
 						deparseAppendStringInfoChar(state, '(');
 						foreach(lc2, l)
 						{
-							deparseOptBooleanOrString(state, strVal(lfirst(lc2)));
+							deparseOptBooleanOrString(
+								state,
+								strVal(lfirst(lc2)),
+								def_elem->location >= 0 ?
+									def_elem->location +
+										(int) strlen(def_elem->defname) :
+									-1);
 							if (lnext(l, lc2))
 								deparseAppendStringInfoString(state, ", ");
 						}
@@ -8478,7 +8966,11 @@ static void deparseDoStmt(DeparseState *state, DoStmt *do_stmt)
 		if (strcmp(defel->defname, "language") == 0)
 		{
 			deparseAppendStringInfoString(state, "LANGUAGE ");
-			deparseAppendStringInfoString(state, quote_identifier(strVal(defel->arg)));
+			deparseNonReservedWordOrSconstFrom(
+				state,
+				strVal(defel->arg),
+				defel->location,
+				true);
 			deparseAppendStringInfoChar(state, ' ');
 		}
 		else if (strcmp(defel->defname, "as") == 0)
@@ -8700,7 +9192,11 @@ static void deparseAlterExtensionStmt(DeparseState *state, AlterExtensionStmt *a
 		if (strcmp(def_elem->defname, "new_version") == 0)
 		{
 			deparseAppendStringInfoString(state, "TO ");
-			deparseNonReservedWordOrSconst(state, strVal(def_elem->arg));
+			deparseNonReservedWordOrSconstFrom(
+				state,
+				strVal(def_elem->arg),
+				def_elem->location,
+				true);
 		}
 		else
 		{
@@ -8901,7 +9397,7 @@ static void deparseAccessPriv(DeparseState *state, AccessPriv *access_priv)
 		else if (strcmp(access_priv->priv_name, "create") == 0)
 			deparseAppendStringInfoString(state, "create");
 		else
-			deparseAppendStringInfoString(state, quote_identifier(access_priv->priv_name));
+			deparseIdentifier(state, access_priv->priv_name, -1, 0, true);
 	}
 	else
 	{
@@ -9098,7 +9594,12 @@ static void deparseIndexStmt(DeparseState *state, IndexStmt *index_stmt)
 	if (index_stmt->accessMethod != NULL)
 	{
 		deparseAppendStringInfoString(state, "USING ");
-		deparseAppendStringInfoString(state, quote_identifier(index_stmt->accessMethod));
+		deparseIdentifier(
+			state,
+			index_stmt->accessMethod,
+			-1,
+			POSTGRES_DEPARSE_INDEX_ACCESS_METHOD_COMPONENT,
+			true);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -9133,7 +9634,7 @@ static void deparseIndexStmt(DeparseState *state, IndexStmt *index_stmt)
 	if (index_stmt->tableSpace != NULL)
 	{
 		deparseAppendStringInfoString(state, "TABLESPACE ");
-		deparseAppendStringInfoString(state, quote_identifier(index_stmt->tableSpace));
+		deparseIdentifier(state, index_stmt->tableSpace, -1, 0, true);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -9149,7 +9650,7 @@ static void deparseAlterOpFamilyStmt(DeparseState *state, AlterOpFamilyStmt *alt
 	deparseAppendStringInfoChar(state, ' ');
 
 	deparseAppendStringInfoString(state, "USING ");
-	deparseAppendStringInfoString(state, quote_identifier(alter_op_family_stmt->amname));
+	deparseIdentifier(state, alter_op_family_stmt->amname, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	if (alter_op_family_stmt->isDrop)
@@ -9181,7 +9682,7 @@ static void deparseExecuteStmt(DeparseState *state, ExecuteStmt *execute_stmt)
 	ListCell *lc;
 
 	deparseAppendStringInfoString(state, "EXECUTE ");
-	deparseAppendStringInfoString(state, quote_identifier(execute_stmt->name));
+	deparseIdentifier(state, execute_stmt->name, -1, 0, true);
 	if (list_length(execute_stmt->params) > 0)
 	{
 		deparseAppendStringInfoChar(state, '(');
@@ -9194,7 +9695,7 @@ static void deparseDeallocateStmt(DeparseState *state, DeallocateStmt *deallocat
 {
 	deparseAppendStringInfoString(state, "DEALLOCATE ");
 	if (deallocate_stmt->name != NULL)
-		deparseAppendStringInfoString(state, quote_identifier(deallocate_stmt->name));
+		deparseIdentifier(state, deallocate_stmt->name, -1, 0, true);
 	else
 		deparseAppendStringInfoString(state, "ALL");
 }
@@ -9375,7 +9876,7 @@ static void deparseCreateRoleStmt(DeparseState *state, CreateRoleStmt *create_ro
 			break;
 	}
 
-	deparseAppendStringInfoString(state, quote_identifier(create_role_stmt->role));
+	deparseIdentifier(state, create_role_stmt->role, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	if (create_role_stmt->options != NULL)
@@ -9438,7 +9939,7 @@ static void deparseAlterRoleStmt(DeparseState *state, AlterRoleStmt *alter_role_
 static void deparseDeclareCursorStmt(DeparseState *state, DeclareCursorStmt *declare_cursor_stmt)
 {
 	deparseAppendStringInfoString(state, "DECLARE ");
-	deparseAppendStringInfoString(state, quote_identifier(declare_cursor_stmt->portalname));
+	deparseIdentifier(state, declare_cursor_stmt->portalname, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	if (declare_cursor_stmt->options & CURSOR_OPT_BINARY)
@@ -9518,7 +10019,7 @@ static void deparseFetchStmt(DeparseState *state, FetchStmt *fetch_stmt)
 			deparseAppendStringInfo(state, "RELATIVE %ld ", fetch_stmt->howMany);
 	}
 
-	deparseAppendStringInfoString(state, quote_identifier(fetch_stmt->portalname));
+	deparseIdentifier(state, fetch_stmt->portalname, -1, 0, true);
 }
 
 static void deparseAlterDefaultPrivilegesStmt(DeparseState *state, AlterDefaultPrivilegesStmt *alter_default_privileges_stmt)
@@ -9583,7 +10084,7 @@ static void deparseReindexStmt(DeparseState *state, ReindexStmt *reindex_stmt)
 	}
 	else if (reindex_stmt->name != NULL)
 	{
-		deparseAppendStringInfoString(state, quote_identifier(reindex_stmt->name));
+		deparseIdentifier(state, reindex_stmt->name, -1, 0, true);
 	}
 }
 
@@ -9597,7 +10098,7 @@ static void deparseRuleStmt(DeparseState *state, RuleStmt* rule_stmt)
 		deparseAppendStringInfoString(state, "OR REPLACE ");
 
 	deparseAppendStringInfoString(state, "RULE ");
-	deparseAppendStringInfoString(state, quote_identifier(rule_stmt->rulename));
+	deparseIdentifier(state, rule_stmt->rulename, -1, 0, true);
 	deparseAppendStringInfoString(state, " AS ON ");
 
 	switch (rule_stmt->event)
@@ -9660,7 +10161,7 @@ static void deparseRuleStmt(DeparseState *state, RuleStmt* rule_stmt)
 static void deparseNotifyStmt(DeparseState *state, NotifyStmt *notify_stmt)
 {
 	deparseAppendStringInfoString(state, "NOTIFY ");
-	deparseAppendStringInfoString(state, quote_identifier(notify_stmt->conditionname));
+	deparseIdentifier(state, notify_stmt->conditionname, -1, 0, true);
 
 	if (notify_stmt->payload != NULL)
 	{
@@ -9672,7 +10173,7 @@ static void deparseNotifyStmt(DeparseState *state, NotifyStmt *notify_stmt)
 static void deparseListenStmt(DeparseState *state, ListenStmt *listen_stmt)
 {
 	deparseAppendStringInfoString(state, "LISTEN ");
-	deparseAppendStringInfoString(state, quote_identifier(listen_stmt->conditionname));
+	deparseIdentifier(state, listen_stmt->conditionname, -1, 0, true);
 }
 
 static void deparseUnlistenStmt(DeparseState *state, UnlistenStmt *unlisten_stmt)
@@ -9681,7 +10182,7 @@ static void deparseUnlistenStmt(DeparseState *state, UnlistenStmt *unlisten_stmt
 	if (unlisten_stmt->conditionname == NULL)
 		deparseAppendStringInfoString(state, "*");
 	else
-		deparseAppendStringInfoString(state, quote_identifier(unlisten_stmt->conditionname));
+		deparseIdentifier(state, unlisten_stmt->conditionname, -1, 0, true);
 }
 
 static void deparseCreateSeqStmt(DeparseState *state, CreateSeqStmt *create_seq_stmt)
@@ -9760,11 +10261,11 @@ static void deparseCreateEventTrigStmt(DeparseState *state, CreateEventTrigStmt 
 	ListCell *lc2 = NULL;
 
 	deparseAppendStringInfoString(state, "CREATE EVENT TRIGGER ");
-	deparseAppendStringInfoString(state, quote_identifier(create_event_trig_stmt->trigname));
+	deparseIdentifier(state, create_event_trig_stmt->trigname, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	deparseAppendStringInfoString(state, "ON ");
-	deparseAppendStringInfoString(state, quote_identifier(create_event_trig_stmt->eventname));
+	deparseIdentifier(state, create_event_trig_stmt->eventname, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	if (create_event_trig_stmt->whenclause)
@@ -9775,7 +10276,7 @@ static void deparseCreateEventTrigStmt(DeparseState *state, CreateEventTrigStmt 
 		{
 			DefElem *def_elem = castNode(DefElem, lfirst(lc));
 			List *l = castNode(List, def_elem->arg);
-			deparseAppendStringInfoString(state, quote_identifier(def_elem->defname));
+			deparseIdentifier(state, def_elem->defname, -1, 0, true);
 			deparseAppendStringInfoString(state, " IN (");
 			foreach (lc2, l)
 			{
@@ -9799,7 +10300,7 @@ static void deparseCreateEventTrigStmt(DeparseState *state, CreateEventTrigStmt 
 static void deparseAlterEventTrigStmt(DeparseState *state, AlterEventTrigStmt *alter_event_trig_stmt)
 {
 	deparseAppendStringInfoString(state, "ALTER EVENT TRIGGER ");
-	deparseAppendStringInfoString(state, quote_identifier(alter_event_trig_stmt->trigname));
+	deparseIdentifier(state, alter_event_trig_stmt->trigname, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	switch (alter_event_trig_stmt->tgenabled)
@@ -9851,7 +10352,7 @@ static void deparseReplicaIdentityStmt(DeparseState *state, ReplicaIdentityStmt 
 		case REPLICA_IDENTITY_INDEX:
 			Assert(replica_identity_stmt->name != NULL);
 			deparseAppendStringInfoString(state, "USING INDEX ");
-			deparseAppendStringInfoString(state, quote_identifier(replica_identity_stmt->name));
+			deparseIdentifier(state, replica_identity_stmt->name, -1, 0, true);
 			break;
 	}
 }
@@ -9906,7 +10407,7 @@ static void deparseCreatePolicyStmt(DeparseState *state, CreatePolicyStmt *creat
 static void deparseAlterPolicyStmt(DeparseState *state, AlterPolicyStmt *alter_policy_stmt)
 {
 	deparseAppendStringInfoString(state, "ALTER POLICY ");
-	deparseAppendStringInfoString(state, quote_identifier(alter_policy_stmt->policy_name));
+	deparseIdentifier(state, alter_policy_stmt->policy_name, -1, 0, true);
 	deparseAppendStringInfoString(state, " ON ");
 	deparseRangeVar(state, alter_policy_stmt->table, DEPARSE_NODE_CONTEXT_NONE);
 	deparseAppendStringInfoChar(state, ' ');
@@ -9971,7 +10472,7 @@ static void deparseCreateTransformStmt(DeparseState *state, CreateTransformStmt 
 	deparseAppendStringInfoChar(state, ' ');
 
 	deparseAppendStringInfoString(state, "LANGUAGE ");
-	deparseAppendStringInfoString(state, quote_identifier(create_transform_stmt->lang));
+	deparseIdentifier(state, create_transform_stmt->lang, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	deparseAppendStringInfoChar(state, '(');
@@ -9997,7 +10498,7 @@ static void deparseCreateTransformStmt(DeparseState *state, CreateTransformStmt 
 static void deparseCreateAmStmt(DeparseState *state, CreateAmStmt *create_am_stmt)
 {
 	deparseAppendStringInfoString(state, "CREATE ACCESS METHOD ");
-	deparseAppendStringInfoString(state, quote_identifier(create_am_stmt->amname));
+	deparseIdentifier(state, create_am_stmt->amname, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	deparseAppendStringInfoString(state, "TYPE ");
@@ -10043,7 +10544,7 @@ static void deparsePublicationObjectList(DeparseState *state, List *pubobjects) 
 				break;
 			case PUBLICATIONOBJ_TABLES_IN_SCHEMA:
 				deparseAppendStringInfoString(state, "TABLES IN SCHEMA ");
-				deparseAppendStringInfoString(state, quote_identifier(obj->name));
+				deparseIdentifier(state, obj->name, -1, 0, true);
 				break;
 			case PUBLICATIONOBJ_TABLES_IN_CUR_SCHEMA:
 				deparseAppendStringInfoString(state, "TABLES IN SCHEMA CURRENT_SCHEMA");
@@ -10065,7 +10566,7 @@ static void deparseCreatePublicationStmt(DeparseState *state, CreatePublicationS
 	ListCell *lc = NULL;
 
 	deparseAppendStringInfoString(state, "CREATE PUBLICATION ");
-	deparseAppendStringInfoString(state, quote_identifier(create_publication_stmt->pubname));
+	deparseIdentifier(state, create_publication_stmt->pubname, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	if (list_length(create_publication_stmt->pubobjects) > 0)
@@ -10314,7 +10815,7 @@ static void deparseCommentStmt(DeparseState *state, CommentStmt *comment_stmt)
 		case OBJECT_FOREIGN_SERVER:
 		case OBJECT_SUBSCRIPTION:
 		case OBJECT_TABLESPACE:
-			deparseAppendStringInfoString(state, quote_identifier(strVal(comment_stmt->object)));
+			deparseIdentifier(state, strVal(comment_stmt->object), -1, 0, true);
 			break;
 		case OBJECT_TYPE:
 		case OBJECT_DOMAIN:
@@ -10336,13 +10837,13 @@ static void deparseCommentStmt(DeparseState *state, CommentStmt *comment_stmt)
 		case OBJECT_RULE:
 		case OBJECT_TRIGGER:
 			l = castNode(List, comment_stmt->object);
-			deparseAppendStringInfoString(state, quote_identifier(strVal(llast(l))));
+			deparseIdentifier(state, strVal(llast(l)), -1, 0, true);
 			deparseAppendStringInfoString(state, " ON ");
 			deparseAnyNameSkipLast(state, l);
 			break;
 		case OBJECT_DOMCONSTRAINT:
 			l = castNode(List, comment_stmt->object);
-			deparseAppendStringInfoString(state, quote_identifier(strVal(llast(l))));
+			deparseIdentifier(state, strVal(llast(l)), -1, 0, true);
 			deparseAppendStringInfoString(state, " ON DOMAIN ");
 			deparseTypeName(state, linitial(l));
 			break;
@@ -10351,14 +10852,14 @@ static void deparseCommentStmt(DeparseState *state, CommentStmt *comment_stmt)
 			deparseAppendStringInfoString(state, "FOR ");
 			deparseTypeName(state, castNode(TypeName, linitial(l)));
 			deparseAppendStringInfoString(state, " LANGUAGE ");
-			deparseAppendStringInfoString(state, quote_identifier(strVal(lsecond(l))));
+			deparseIdentifier(state, strVal(lsecond(l)), -1, 0, true);
 			break;
 		case OBJECT_OPCLASS:
 		case OBJECT_OPFAMILY:
 			l = castNode(List, comment_stmt->object);
 			deparseAnyNameSkipFirst(state, l);
 			deparseAppendStringInfoString(state, " USING ");
-			deparseAppendStringInfoString(state, quote_identifier(strVal(linitial(l))));
+			deparseIdentifier(state, strVal(linitial(l)), -1, 0, true);
 			break;
 		case OBJECT_LARGEOBJECT:
 			deparseValue(state, (union ValUnion *) comment_stmt->object, DEPARSE_NODE_CONTEXT_NONE);
@@ -10390,7 +10891,7 @@ static void deparseStatsElem(DeparseState *state, StatsElem *stats_elem)
 {
 	// only one of stats_elem->name or stats_elem->expr can be non-null
 	if (stats_elem->name)
-		deparseAppendStringInfoString(state, stats_elem->name);
+		deparseIdentifier(state, stats_elem->name, -1, 0, true);
 	else if (stats_elem->expr)
 	{
 		deparseAppendStringInfoChar(state, '(');
@@ -10528,18 +11029,50 @@ static void deparseAlterTSConfigurationStmt(DeparseState *state, AlterTSConfigur
 
 static void deparseVariableShowStmt(DeparseState *state, VariableShowStmt *variable_show_stmt)
 {
+	const char *semantic_keyword = NULL;
+	bool generated_name;
+	bool semantic_name;
+
+	generated_name =
+		deparseIdentifierIsGenerated(state, variable_show_stmt->name);
+	if (!generated_name &&
+		strcmp(variable_show_stmt->name, "timezone") == 0)
+		semantic_keyword = "time";
+	else if (!generated_name &&
+		strcmp(variable_show_stmt->name, "transaction_isolation") == 0)
+		semantic_keyword = "transaction";
+	else if (!generated_name &&
+		strcmp(variable_show_stmt->name, "session_authorization") == 0)
+		semantic_keyword = "session";
+	else if (!generated_name &&
+		strcmp(variable_show_stmt->name, "all") == 0)
+		semantic_keyword = "all";
+	semantic_name =
+		semantic_keyword != NULL &&
+		state->opts.keyword_matcher != NULL &&
+		deparseIdentifierIsKeyword(
+			state,
+			semantic_keyword,
+			semantic_keyword,
+			-1,
+			true);
+
 	deparseAppendStringInfoString(state, "SHOW ");
 
-	if (strcmp(variable_show_stmt->name, "timezone") == 0)
+	if (semantic_name &&
+		strcmp(variable_show_stmt->name, "timezone") == 0)
 		deparseAppendStringInfoString(state, "TIME ZONE");
-	else if (strcmp(variable_show_stmt->name, "transaction_isolation") == 0)
+	else if (semantic_name &&
+		strcmp(variable_show_stmt->name, "transaction_isolation") == 0)
 		deparseAppendStringInfoString(state, "TRANSACTION ISOLATION LEVEL");
-	else if (strcmp(variable_show_stmt->name, "session_authorization") == 0)
+	else if (semantic_name &&
+		strcmp(variable_show_stmt->name, "session_authorization") == 0)
 		deparseAppendStringInfoString(state, "SESSION AUTHORIZATION");
-	else if (strcmp(variable_show_stmt->name, "all") == 0)
+	else if (semantic_name &&
+		strcmp(variable_show_stmt->name, "all") == 0)
 		deparseAppendStringInfoString(state, "ALL");
 	else
-		deparseAppendStringInfoString(state, quote_identifier(variable_show_stmt->name));
+		deparseIdentifier(state, variable_show_stmt->name, -1, 0, true);
 }
 
 // "tablesample_clause" in gram.y
@@ -10569,7 +11102,7 @@ static void deparseCreateSubscriptionStmt(DeparseState *state, CreateSubscriptio
 	ListCell *lc;
 
 	deparseAppendStringInfoString(state, "CREATE SUBSCRIPTION ");
-	deparseAppendStringInfoString(state, quote_identifier(create_subscription_stmt->subname));
+	deparseIdentifier(state, create_subscription_stmt->subname, -1, 0, true);
 
 	deparseAppendStringInfoString(state, " CONNECTION ");
 	if (create_subscription_stmt->conninfo != NULL)
@@ -10596,7 +11129,7 @@ static void deparseAlterSubscriptionStmt(DeparseState *state, AlterSubscriptionS
 	ListCell *lc;
 
 	deparseAppendStringInfoString(state, "ALTER SUBSCRIPTION ");
-	deparseAppendStringInfoString(state, quote_identifier(alter_subscription_stmt->subname));
+	deparseIdentifier(state, alter_subscription_stmt->subname, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	switch (alter_subscription_stmt->kind)
@@ -10676,7 +11209,7 @@ static void deparseDropSubscriptionStmt(DeparseState *state, DropSubscriptionStm
 	if (drop_subscription_stmt->missing_ok)
 		deparseAppendStringInfoString(state, "IF EXISTS ");
 
-	deparseAppendStringInfoString(state, drop_subscription_stmt->subname);
+	deparseIdentifier(state, drop_subscription_stmt->subname, -1, 0, true);
 }
 
 static void deparseCallStmt(DeparseState *state, CallStmt *call_stmt)
@@ -10811,7 +11344,7 @@ static void deparseOperatorDefList(DeparseState *state, List *defs)
 	foreach (lc, defs)
 	{
 		DefElem *def_elem = castNode(DefElem, lfirst(lc));
-		deparseAppendStringInfoString(state, quote_identifier(def_elem->defname));
+		deparseIdentifier(state, def_elem->defname, -1, 0, true);
 		deparseAppendStringInfoString(state, " = ");
 		if (def_elem->arg != NULL)
 			deparseDefArg(state, def_elem->arg, true);
@@ -10866,7 +11399,7 @@ static void deparseClosePortalStmt(DeparseState *state, ClosePortalStmt *close_p
 	deparseAppendStringInfoString(state, "CLOSE ");
 	if (close_portal_stmt->portalname != NULL)
 	{
-		deparseAppendStringInfoString(state, quote_identifier(close_portal_stmt->portalname));
+		deparseIdentifier(state, close_portal_stmt->portalname, -1, 0, true);
 	}
 	else
 	{
@@ -10887,7 +11420,7 @@ static void deparseCreateTrigStmt(DeparseState *state, CreateTrigStmt *create_tr
 		deparseAppendStringInfoString(state, "CONSTRAINT ");
 	deparseAppendStringInfoString(state, "TRIGGER ");
 
-	deparseAppendStringInfoString(state, quote_identifier(create_trig_stmt->trigname));
+	deparseIdentifier(state, create_trig_stmt->trigname, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	switch (create_trig_stmt->timing)
@@ -10998,7 +11531,7 @@ static void deparseTriggerTransition(DeparseState *state, TriggerTransition *tri
 	else
 		deparseAppendStringInfoString(state, "ROW ");
 
-	deparseAppendStringInfoString(state, quote_identifier(trigger_transition->name));
+	deparseIdentifier(state, trigger_transition->name, -1, 0, true);
 }
 
 static void deparseXmlExpr(DeparseState *state, XmlExpr* xml_expr, DeparseNodeContext context)
@@ -11012,7 +11545,7 @@ static void deparseXmlExpr(DeparseState *state, XmlExpr* xml_expr, DeparseNodeCo
 			break;
 		case IS_XMLELEMENT: /* XMLELEMENT(name, xml_attributes, args) */
 			deparseAppendStringInfoString(state, "xmlelement(name ");
-			deparseAppendStringInfoString(state, quote_identifier(xml_expr->name));
+			deparseIdentifier(state, xml_expr->name, -1, 0, true);
 			if (xml_expr->named_args != NULL)
 			{
 				deparseAppendStringInfoString(state, ", xmlattributes(");
@@ -11050,7 +11583,7 @@ static void deparseXmlExpr(DeparseState *state, XmlExpr* xml_expr, DeparseNodeCo
 			break;
 		case IS_XMLPI: /* XMLPI(name [, args]) */
 			deparseAppendStringInfoString(state, "xmlpi(name ");
-			deparseAppendStringInfoString(state, quote_identifier(xml_expr->name));
+			deparseIdentifier(state, xml_expr->name, -1, 0, true);
 			if (xml_expr->args != NULL)
 			{
 				deparseAppendStringInfoString(state, ", ");
@@ -11089,7 +11622,7 @@ static void deparseXmlExpr(DeparseState *state, XmlExpr* xml_expr, DeparseNodeCo
 // "xmltable_column_el" in gram.y
 static void deparseRangeTableFuncCol(DeparseState *state, RangeTableFuncCol* range_table_func_col)
 {
-	deparseAppendStringInfoString(state, quote_identifier(range_table_func_col->colname));
+	deparseIdentifier(state, range_table_func_col->colname, -1, 0, true);
 	deparseAppendStringInfoChar(state, ' ');
 
 	if (range_table_func_col->for_ordinality)
@@ -11332,7 +11865,12 @@ static void deparseJsonObjectAgg(DeparseState *state, JsonObjectAgg *json_object
 		struct WindowDef *over = json_object_agg->constructor->over;
 		deparseAppendStringInfoString(state, "OVER ");
 		if (over->name)
-			deparseAppendStringInfoString(state, over->name);
+			deparseIdentifier(
+				state,
+				over->name,
+				over->location,
+				0,
+				false);
 		else
 			deparseWindowDef(state, over);
 	}
@@ -11369,7 +11907,12 @@ static void deparseJsonArrayAgg(DeparseState *state, JsonArrayAgg *json_array_ag
 		struct WindowDef *over = json_array_agg->constructor->over;
 		deparseAppendStringInfoString(state, "OVER ");
 		if (over->name)
-			deparseAppendStringInfoString(state, over->name);
+			deparseIdentifier(
+				state,
+				over->name,
+				over->location,
+				0,
+				false);
 		else
 			deparseWindowDef(state, over);
 	}
@@ -11738,7 +12281,7 @@ static void deparseClusterStmt(DeparseState *state, ClusterStmt *cluster_stmt)
 	if (cluster_stmt->indexname != NULL)
 	{
 		deparseAppendStringInfoString(state, "USING ");
-		deparseAppendStringInfoString(state, quote_identifier(cluster_stmt->indexname));
+		deparseIdentifier(state, cluster_stmt->indexname, -1, 0, true);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -11763,7 +12306,7 @@ static void deparseValue(DeparseState *state, union ValUnion *value, DeparseNode
 			break;
 		case T_String:
 			if (context == DEPARSE_NODE_CONTEXT_IDENTIFIER) {
-				deparseAppendStringInfoString(state, quote_identifier(value->sval.sval));
+				deparseIdentifier(state, value->sval.sval, -1, 0, true);
 			} else if (context == DEPARSE_NODE_CONTEXT_CONSTANT) {
 				deparseStringLiteral(state, value->sval.sval);
 			} else {

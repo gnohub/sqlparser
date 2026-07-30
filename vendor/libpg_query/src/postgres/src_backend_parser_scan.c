@@ -9217,7 +9217,8 @@ YY_RULE_SETUP
 					if (yyextra->literallen == 0)
 						yyerror("zero-length delimited identifier");
 					ident = litbufdup(yyscanner);
-					if (yyextra->literallen >= NAMEDATALEN)
+					if (!yyextra->preserve_identifier_spelling &&
+						yyextra->literallen >= NAMEDATALEN)
 						truncate_identifier(ident, yyextra->literallen, true);
 					yylval->str = ident;
 					yyextra->yyllocend = yytext - yyextra->scanbuf + yyleng;
@@ -9267,7 +9268,10 @@ YY_RULE_SETUP
 					/* throw back all but the initial u/U */
 					yyless(1);
 					/* and treat it as {identifier} */
-					ident = downcase_truncate_identifier(yytext, yyleng, true);
+					if (yyextra->preserve_identifier_spelling)
+						ident = pnstrdup(yytext, yyleng);
+					else
+						ident = downcase_truncate_identifier(yytext, yyleng, true);
 					yylval->str = ident;
 					yyextra->yyllocend = yytext - yyextra->scanbuf + yyleng;
 					return IDENT;
@@ -9602,11 +9606,10 @@ YY_RULE_SETUP
 						return yyextra->keyword_tokens[kwnum];
 					}
 
-					/*
-					 * No.  Convert the identifier to lower case, and truncate
-					 * if necessary.
-					 */
-					ident = downcase_truncate_identifier(yytext, yyleng, true);
+					if (yyextra->preserve_identifier_spelling)
+						ident = pnstrdup(yytext, yyleng);
+					else
+						ident = downcase_truncate_identifier(yytext, yyleng, true);
 					yylval->str = ident;
 					yyextra->yyllocend = yytext - yyextra->scanbuf + yyleng;
 					return IDENT;
@@ -10674,6 +10677,7 @@ scanner_init(const char *str,
 	yyext->backslash_quote = backslash_quote;
 	yyext->escape_string_warning = escape_string_warning;
 	yyext->standard_conforming_strings = standard_conforming_strings;
+	yyext->preserve_identifier_spelling = false;
 
 	/*
 	 * Make a scan buffer with special termination needed by flex.
@@ -10887,6 +10891,4 @@ core_yyrealloc(void *ptr, yy_size_t bytes, core_yyscan_t yyscanner)
 	else
 		return palloc(bytes);
 }
-
-
 

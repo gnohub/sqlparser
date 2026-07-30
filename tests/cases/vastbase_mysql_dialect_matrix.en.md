@@ -2,6 +2,21 @@
 
 Executable fixture: `tests/cases/vastbase_mysql_dialect_input.json`. The unit test verifies parsing, View JSON, deparse output, and explicitly unsupported syntax return codes case by case.
 
+## Matrix Counts and Session Regression
+
+The fixture contains 219 cases: 210 expect success and 9 expect failure.
+Statement-level `expect.session` appears in 38 cases, covering `VM015` through
+`VM017`, `VB-C001` through `VB-C022`, `VB-C026` through `VB-C027`, and
+`VB-B001` through `VB-B011`. All 38 contain at least one non-null session
+expectation.
+
+When an `expect.session` array is present, the matrix test requires one entry
+per statement. A non-null entry is matched against the corresponding session
+projection, including its action, item scope, target kind, name, and value
+fields; `null` asserts that no session projection is emitted. For fixture cases
+that expect success, the test also deparses the unmodified handle and compares
+the result with the input SQL byte for byte.
+
 | ID | Case | SQL | Status |
 | --- | --- | --- | --- |
 | `VM001` | `vastbase-mysql-select-limit-comma` | SELECT `u`.`id`, "hello" AS `label` FROM `users` AS `u` WHERE `u`.`id` = 1 LIMIT 5, 10 | covered |

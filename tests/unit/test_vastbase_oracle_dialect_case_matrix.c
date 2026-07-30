@@ -123,11 +123,13 @@ static int verify_success_case(const char *case_id, const char *case_name, const
 	char *view_json;
 	char *deparse_sql;
 	json_t *value;
+	int regression_failed;
 	int status;
 
 	handle = NULL;
 	view_json = NULL;
 	deparse_sql = NULL;
+	regression_failed = 0;
 	memset(&error, 0, sizeof(error));
 	sqlparser_parse_options_default(&options);
 	options.dialect = SQLPARSER_DIALECT_VASTBASE_ORACLE;
@@ -139,6 +141,32 @@ static int verify_success_case(const char *case_id, const char *case_name, const
 	if (handle == NULL) {
 		return fail_case(case_id, case_name, "parse succeeded without handle");
 	}
+	status = sqlparser_deparse(handle, &deparse_sql, &error);
+	if (status != SQLPARSER_STATUS_OK || deparse_sql == NULL || deparse_sql[0] == '\0') {
+		(void)fail_case(case_id, case_name, "deparse failed");
+		regression_failed = 1;
+	}
+	if (sqlparser_test_verify_exact_deparse(
+		    case_id,
+		    case_name,
+		    sql,
+		    deparse_sql) != 0) {
+		regression_failed = 1;
+	}
+	if (sqlparser_test_verify_ast_identifier_spelling(
+		    case_id,
+		    case_name,
+		    handle) != 0) {
+		regression_failed = 1;
+	}
+	if (regression_failed) {
+		sqlparser_string_free(deparse_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparse_sql);
+	deparse_sql = NULL;
+
 	if (sqlparser_handle_dialect(handle) != SQLPARSER_DIALECT_VASTBASE_ORACLE) {
 		sqlparser_handle_destroy(handle);
 		return fail_case(case_id, case_name, "handle dialect mismatch");
@@ -187,30 +215,10 @@ static int verify_success_case(const char *case_id, const char *case_name, const
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-	status = sqlparser_deparse(handle, &deparse_sql, &error);
-	if (status != SQLPARSER_STATUS_OK || deparse_sql == NULL || deparse_sql[0] == '\0') {
-		sqlparser_string_free(view_json);
-		sqlparser_handle_destroy(handle);
-		return fail_case(case_id, case_name, "deparse failed");
-	}
-	if (sqlparser_test_text_contains_expected(
+	if (sqlparser_test_verify_merge_assignment_mutations(
 		    case_id,
 		    case_name,
-		    deparse_sql,
-		    "deparse_contains",
-		    json_object_get(expect_root, "deparse_contains")) != 0) {
-		sqlparser_string_free(deparse_sql);
-		sqlparser_string_free(view_json);
-		sqlparser_handle_destroy(handle);
-		return 1;
-	}
-	if (sqlparser_test_text_not_contains_expected(
-		    case_id,
-		    case_name,
-		    deparse_sql,
-		    "deparse_not_contains",
-		    json_object_get(expect_root, "deparse_not_contains")) != 0) {
-		sqlparser_string_free(deparse_sql);
+		    handle) != 0) {
 		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
 		return 1;
@@ -228,7 +236,9 @@ int main(void)
 	json_t *items;
 	size_t index;
 	json_t *item;
+	int failed;
 
+	failed = 0;
 	root = json_load_file(SQLPARSER_VASTBASE_ORACLE_CASE_FIXTURE_PATH, 0, &error);
 	if (root == NULL) {
 		fprintf(stderr, "FAIL: unable to load fixture %s: %s\n", SQLPARSER_VASTBASE_ORACLE_CASE_FIXTURE_PATH, error.text);
@@ -253,22 +263,20 @@ int main(void)
 		sql = json_string_or_null(json_object_get(item, "sql"));
 		expect_root = json_object_get(item, "expect");
 		if (case_id == NULL || case_name == NULL || sql == NULL || !json_is_object(expect_root)) {
-			json_decref(root);
 			fprintf(stderr, "FAIL: case %lu is missing id/name/sql/expect\n", (unsigned long)index);
-			return 1;
+			failed = 1;
+			continue;
 		}
 		ok_value = json_object_get(expect_root, "ok");
 		expected_ok = ok_value == NULL ? 1 : json_is_true(ok_value);
 		if (expected_ok) {
 			if (verify_success_case(case_id, case_name, sql, expect_root) != 0) {
-				json_decref(root);
-				return 1;
+				failed = 1;
 			}
 		} else if (verify_failure_case(case_id, case_name, sql, expect_root) != 0) {
-			json_decref(root);
-			return 1;
+			failed = 1;
 		}
 	}
 	json_decref(root);
-	return 0;
+	return failed;
 }

@@ -61,4 +61,4 @@ Oracle 支持范围以以下文件为准：
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 Oracle 方言矩阵包含 175 条用例：163 条支持路径，12 条明确不支持路径。
+当前 Oracle 方言矩阵包含 235 条用例：213 条成功用例，22 条预期失败用例。

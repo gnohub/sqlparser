@@ -2,6 +2,20 @@
 
 This file records regression cases for the MySQL dialect conversion layer. `tests/cases/mysql_dialect_input.json` is the executable test source; `tests/unit/test_mysql_dialect_case_matrix.c` reads it and verifies parsing, View JSON, deparse output, and error codes.
 
+## Matrix Counts and Session Regression
+
+The fixture contains 213 cases: 204 expect success and 9 expect failure.
+Statement-level `expect.session` appears in 32 cases, covering `M015` through
+`M017` and `MY-001` through `MY-029`. All 32 contain at least one non-null
+session expectation.
+
+When an `expect.session` array is present, the matrix test requires one entry
+per statement. A non-null entry is matched against the corresponding session
+projection, including its action, item scope, target kind, name, and value
+fields; `null` asserts that no session projection is emitted. For fixture
+cases that expect success, the test also deparses the unmodified handle and
+compares the result with the input SQL byte for byte.
+
 ## Validated Supported Statements
 
 | Case ID | Case Name | Statement Shape | Validation Focus |
@@ -9,8 +23,8 @@ This file records regression cases for the MySQL dialect conversion layer. `test
 | M001 | `mysql-select-limit-comma` | `SELECT ... FROM ... WHERE ... LIMIT offset,count` | backtick identifiers, double-quoted strings, table extraction, selected columns, WHERE literal, MySQL comma-limit deparse |
 | M002 | `mysql-select-join` | `SELECT ... JOIN ... ON ... WHERE ...` | multi-table join, selected columns, join columns, where columns |
 | M003 | `mysql-hash-comment` | `SELECT ... # comment` | MySQL `#` line-comment preprocessing |
-| M004 | `mysql-insert-values-multi-row` | `INSERT ... VALUES (...), (...)` | multi-row insert, insert columns, double-quoted string normalization |
-| M004N | `mysql-national-string-literal` | `SELECT "..." ... N'...' ... n'...'` | national string prefix preservation; lowercase input is exposed with the canonical `N` prefix |
+| M004 | `mysql-insert-values-multi-row` | `INSERT ... VALUES (...), (...)` | multi-row insert and insert columns; deparsing the unmodified handle reproduces the input byte for byte, including the original double-quoted string |
+| M004N | `mysql-national-string-literal` | `SELECT "..." ... N'...' ... n'...'` | the AST preserves national-string semantics; deparsing the unmodified handle reproduces the input `N`/`n` spelling byte for byte |
 | M004NA | `mysql-national-string-duplicate-literal` | ordinary string and `N'...'` with the same text | restore the `N` prefix only for the original national string |
 | M005 | `mysql-insert-select` | `INSERT ... SELECT ... FROM ... WHERE ...` | insert columns, inner selected columns, WHERE columns |
 | M006 | `mysql-update-basic` | `UPDATE ... SET ... WHERE ...` | updated columns, where columns, backtick identifiers |
@@ -151,13 +165,15 @@ This file records regression cases for the MySQL dialect conversion layer. `test
 | MU006 | `mysql-replace-into` | `REPLACE INTO ... VALUES ...` | MySQL `REPLACE` reuses the INSERT graph shape and preserves replace semantics with `insert_mode=replace_values` |
 | MU006A | `mysql-replace-low-priority-multi-row` | `REPLACE LOW_PRIORITY INTO ... VALUES (...), (...)` | multi-row `REPLACE VALUES`, positional parameters, and `LOW_PRIORITY` modifier |
 | MU006B | `mysql-replace-delayed-select` | `REPLACE DELAYED INTO ... SELECT ...` | `REPLACE SELECT` target table, source table, positional parameters, and `insert_mode=replace_select` |
-| MU006C | `mysql-replace-set` | `REPLACE INTO ... SET ...` | `SET` form is normalized to public MySQL `REPLACE ... VALUES` and emits `insert_mode=replace_set` |
-| MU006D | `mysql-replace-without-into` | `REPLACE table ... VALUES ...` | official form without `INTO` is normalized to `REPLACE INTO ...` |
-| MU006E | `mysql-replace-table-source` | `REPLACE INTO ... TABLE source` | official `TABLE` form is normalized to `REPLACE ... SELECT * FROM source` and preserves the source table |
+| MU006C | `mysql-replace-set` | `REPLACE INTO ... SET ...` | emits `insert_mode=replace_set`; deparsing the unmodified handle reproduces the original `SET` form byte for byte |
+| MU006D | `mysql-replace-without-into` | `REPLACE table ... VALUES ...` | deparsing the unmodified handle reproduces the original form without `INTO` byte for byte |
+| MU006E | `mysql-replace-table-source` | `REPLACE INTO ... TABLE source` | preserves the source table; deparsing the unmodified handle reproduces the original `TABLE` form byte for byte |
 
 ## Explicitly Unsupported Statements
 
-The executable MySQL dialect matrix currently has no explicit unsupported cases. Official syntax coverage boundaries are tracked in `doc/mysql_official_syntax_coverage.csv`.
+The executable MySQL dialect matrix has 9 expected-failure cases covering
+invalid session-state syntax. Official syntax coverage boundaries are tracked in
+`doc/mysql_official_syntax_coverage.csv`.
 
 ## Rules
 

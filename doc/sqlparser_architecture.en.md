@@ -87,6 +87,7 @@ Typical outputs include:
 - `query_graph.values`
 - `query_graph.sets`
 - `query_graph.predicates`
+- `query_graph.session`
 - `query_graph.dml`
 
 ### 3.4 View Layer
@@ -109,10 +110,19 @@ This layer is suitable for:
 
 ### 3.5 Deparse Layer
 
-The deparse layer emits SQL from the current syntax-tree state.
+The deparse layer selects its output path from the handle generation and
+control-flow state.
 
-`sqlparser_deparse()` is the single public entry point, while the underlying
-round-trip still relies on `libpg_query` deparse functionality.
+`sqlparser_deparse()` is the single public entry point. After a successful
+parse, the handle generation is `0`; the function copies the original input
+SQL directly. Identifier delimiters, case, whitespace, comments, semicolons,
+and multi-statement boundaries are therefore preserved byte for byte without
+invoking the AST deparser.
+
+When the generation is greater than `0`, a non-control-flow handle uses the
+`libpg_query` protobuf deparser and then restores the public dialect form. A
+control-flow handle generates SQL from its current control-flow and statement
+state.
 
 ## 4. Data Model and Caching
 
@@ -126,9 +136,10 @@ A `sqlparser_handle_t` holds the following categories of data:
 Caching behavior is:
 
 - only the required canonical syntax tree is created during the initial parse
+- deparsing an unchanged generation-`0` handle copies the original SQL
 - View JSON and other derived outputs are generated on demand
 - a successful rewrite invalidates the derived caches
-- subsequent reads regenerate those derived results from the latest AST
+- subsequent structural reads regenerate those derived results from the latest AST
 
 ## 5. Public API Organization
 

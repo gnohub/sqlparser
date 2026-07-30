@@ -78,5 +78,5 @@ The Dameng support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current Dameng matrix contains 131 cases: 125 supported paths and 6
-explicit unsupported paths.
+The current Dameng matrix contains 162 cases: 150 successful cases and 12
+expected-failure cases.

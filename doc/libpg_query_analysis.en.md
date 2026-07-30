@@ -64,8 +64,11 @@ This path is mainly used for:
 
 - `pg_query_deparse_protobuf()`
 
-All AST rewrites performed by `sqlparser` are turned back into SQL through this
-path.
+AST rewrites performed by `sqlparser` are turned back into SQL through this
+path for non-control-flow handles. When the handle generation is `0`,
+`sqlparser_deparse()` copies the original input SQL directly instead of calling
+`pg_query_deparse_protobuf()`. This preserves the original delimiters, case,
+whitespace, comments, and multi-statement boundaries byte for byte.
 
 ### 3.4 Split
 
@@ -83,13 +86,19 @@ truth because:
 
 - parse results can be stored stably inside a `handle`
 - rewrites can be applied directly to the AST
-- the deparse path naturally consumes the protobuf AST
+- the generation-`>0` non-control-flow deparse path consumes the protobuf AST
 - JSON can be exported on demand without becoming the primary state format
 
-The current processing path is:
+The processing path has unchanged and rewritten branches:
 
 ```text
-SQL -> libpg_query protobuf AST -> sqlparser handle -> rewrite -> deparse -> SQL
+SQL -> libpg_query protobuf AST -> sqlparser handle
+                                      | generation = 0
+                                      |   -> copy original SQL
+                                      | generation > 0, non-control-flow
+                                      |   -> AST deparse -> dialect restore -> SQL
+                                      ` generation > 0, control-flow
+                                          -> control/statement SQL generation -> SQL
 ```
 
 ## 5. Key Repository Directories

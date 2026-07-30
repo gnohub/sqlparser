@@ -17,11 +17,12 @@
 
 #include "protobuf/pg_query.pb-c.h"
 #include "../dialect/sqlparser_dialect_internal.h"
+#include "sqlparser_ast_internal.h"
 #include "sqlparser_control_internal.h"
 #include "sqlparser_internal.h"
 
 #ifndef SQLPARSER_VERSION_TEXT
-#define SQLPARSER_VERSION_TEXT "2.11.0"
+#define SQLPARSER_VERSION_TEXT "2.12.0"
 #endif
 
 #ifndef SQLPARSER_LIBPG_QUERY_TAG_TEXT
@@ -474,6 +475,92 @@ static void sqlparser_protobuf_release(PgQueryProtobuf *value)
 	value->len = 0U;
 }
 
+void sqlparser_handle_remove_identifier_mutation(
+	sqlparser_handle_t *handle,
+	size_t mutation_index)
+{
+	if (handle == NULL ||
+	    mutation_index >= handle->identifier_mutation_count) {
+		return;
+	}
+	free(handle->identifier_mutations[mutation_index].original);
+	if (mutation_index + 1U < handle->identifier_mutation_count) {
+		memmove(
+			&handle->identifier_mutations[mutation_index],
+			&handle->identifier_mutations[mutation_index + 1U],
+			(handle->identifier_mutation_count -
+			 mutation_index - 1U) *
+				sizeof(*handle->identifier_mutations));
+	}
+	handle->identifier_mutation_count--;
+}
+
+sqlparser_status_t sqlparser_handle_rebind_identifier_mutations(
+	sqlparser_handle_t *handle,
+	sqlparser_error_t *out_error)
+{
+	size_t index;
+
+	(void)out_error;
+	if (handle == NULL || handle->ast == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	index = 0U;
+	while (index < handle->identifier_mutation_count) {
+		sqlparser_identifier_mutation_t *mutation;
+		sqlparser_string_search_t search;
+		char **slot;
+
+		mutation = &handle->identifier_mutations[index];
+		if (mutation->raw_statement_index >= handle->ast->n_stmts ||
+		    handle->ast->stmts == NULL ||
+		    handle->ast->stmts[mutation->raw_statement_index] == NULL ||
+		    handle->ast->stmts[mutation->raw_statement_index]->stmt ==
+			    NULL) {
+			sqlparser_handle_remove_identifier_mutation(handle, index);
+			continue;
+		}
+		memset(&search, 0, sizeof(search));
+		if (mutation->slot != NULL) {
+			search.match_slot = mutation->slot;
+			search.match_value = mutation->value;
+		} else if (mutation->value != NULL) {
+			search.match_value = mutation->value;
+		} else {
+			search.want_target = 1;
+			search.target_index = mutation->string_index;
+		}
+		(void)sqlparser_walk_message_strings(
+			(ProtobufCMessage *)
+				handle->ast->stmts
+					[mutation->raw_statement_index]
+					->stmt,
+			&search);
+		slot = search.target_slot;
+		if (slot == NULL && mutation->slot != NULL &&
+		    mutation->value != NULL) {
+			memset(&search, 0, sizeof(search));
+			search.match_value = mutation->value;
+			(void)sqlparser_walk_message_strings(
+				(ProtobufCMessage *)
+					handle->ast->stmts
+						[mutation->raw_statement_index]
+						->stmt,
+				&search);
+			slot = search.target_slot;
+		}
+		if (slot == NULL) {
+			sqlparser_handle_remove_identifier_mutation(handle, index);
+			continue;
+		}
+		mutation->string_index = search.target_index;
+		mutation->slot = slot;
+		mutation->value = *slot;
+		index++;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
 sqlparser_status_t sqlparser_handle_ensure_ast(
 	sqlparser_handle_t *handle,
 	sqlparser_error_t *out_error)
@@ -502,12 +589,25 @@ sqlparser_status_t sqlparser_handle_ensure_ast(
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 
-	return SQLPARSER_STATUS_OK;
+	return sqlparser_handle_rebind_identifier_mutations(
+		handle,
+		out_error);
 }
 
 void sqlparser_handle_clear_ast(sqlparser_handle_t *handle)
 {
-	if (handle == NULL || handle->ast == NULL) {
+	size_t index;
+
+	if (handle == NULL) {
+		return;
+	}
+	for (index = 0U;
+	     index < handle->identifier_mutation_count;
+	     index++) {
+		handle->identifier_mutations[index].slot = NULL;
+		handle->identifier_mutations[index].value = NULL;
+	}
+	if (handle->ast == NULL) {
 		return;
 	}
 
@@ -550,6 +650,7 @@ static void sqlparser_handle_release_contents(sqlparser_handle_t *handle)
 {
 	char *sql;
 	char *parser_sql;
+	size_t mutation_index;
 
 	if (handle == NULL) {
 		return;
@@ -566,6 +667,15 @@ static void sqlparser_handle_release_contents(sqlparser_handle_t *handle)
 		handle->dialect_ops->destroy_state(handle->dialect_state);
 	}
 	handle->dialect_state = NULL;
+	for (mutation_index = 0U;
+	     mutation_index < handle->identifier_mutation_count;
+	     mutation_index++) {
+		free(handle->identifier_mutations[mutation_index].original);
+	}
+	free(handle->identifier_mutations);
+	handle->identifier_mutations = NULL;
+	handle->identifier_mutation_count = 0U;
+	handle->identifier_mutation_capacity = 0U;
 	sql = handle->sql;
 	parser_sql = handle->parser_sql;
 	free(sql);
@@ -657,6 +767,58 @@ sqlparser_status_t sqlparser_handle_clone(
 		sqlparser_handle_destroy(clone);
 		return status;
 	}
+	if (source->identifier_mutation_count > 0U) {
+		size_t mutation_index;
+
+		if (source->identifier_mutation_count >
+		    SIZE_MAX / sizeof(*clone->identifier_mutations)) {
+			sqlparser_handle_destroy(clone);
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		clone->identifier_mutations =
+			(sqlparser_identifier_mutation_t *)calloc(
+				source->identifier_mutation_count,
+				sizeof(*clone->identifier_mutations));
+		if (clone->identifier_mutations == NULL) {
+			sqlparser_handle_destroy(clone);
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		clone->identifier_mutation_capacity =
+			source->identifier_mutation_count;
+		for (mutation_index = 0U;
+		     mutation_index < source->identifier_mutation_count;
+		     mutation_index++) {
+			clone->identifier_mutations[mutation_index] =
+				source->identifier_mutations[mutation_index];
+			clone->identifier_mutations[mutation_index].slot = NULL;
+			clone->identifier_mutations[mutation_index].value = NULL;
+			clone->identifier_mutations[mutation_index].original =
+				sqlparser_strdup(
+					source->identifier_mutations
+						[mutation_index]
+						.original);
+			if (clone->identifier_mutations[mutation_index].original ==
+			    NULL) {
+				clone->identifier_mutation_count =
+					mutation_index;
+				sqlparser_handle_destroy(clone);
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_NO_MEMORY,
+					"out of memory");
+				return SQLPARSER_STATUS_NO_MEMORY;
+			}
+			clone->identifier_mutation_count++;
+		}
+	}
 	if (source->control != NULL) {
 		status = sqlparser_control_state_clone(source->control, &clone->limits, &clone->control, out_error);
 		if (status != SQLPARSER_STATUS_OK) {
@@ -704,7 +866,6 @@ sqlparser_status_t sqlparser_handle_commit_ast(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "control units do not match parser statements");
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
-
 	packed_size = pg_query__parse_result__get_packed_size(handle->ast);
 	if (packed_size == 0U) {
 		sqlparser_handle_clear_ast(handle);
@@ -738,6 +899,15 @@ sqlparser_status_t sqlparser_handle_commit_ast(
 		free(packed);
 		sqlparser_handle_clear_ast(handle);
 		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+	if (sqlparser_handle_rebind_identifier_mutations(
+		    handle,
+		    out_error) != SQLPARSER_STATUS_OK) {
+		free(packed);
+		sqlparser_handle_clear_ast(handle);
+		return out_error != NULL ?
+			out_error->code :
+			SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 
 	free(handle->parse_tree.data);
@@ -787,13 +957,25 @@ sqlparser_status_t sqlparser_ensure_current_sql_text(
 	}
 
 	sqlparser_pg_query_prepare();
-	deparse_result = sqlparser_deparse_protobuf_for_handle(handle, handle->parse_tree);
-	if (deparse_result.error != NULL) {
-		sqlparser_error_from_pg(
-			out_error,
-			SQLPARSER_STATUS_INTERNAL_ERROR,
-			handle->parser_sql,
-			deparse_result.error);
+	deparse_result = sqlparser_deparse_protobuf_for_handle(
+		handle,
+		handle->parse_tree,
+		0U,
+		0U,
+		handle->parser_sql_len);
+	if (deparse_result.error != NULL || deparse_result.query == NULL) {
+		if (deparse_result.error != NULL) {
+			sqlparser_error_from_pg(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				handle->parser_sql,
+				deparse_result.error);
+		} else {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"failed to deparse current SQL");
+		}
 		pg_query_free_deparse_result(deparse_result);
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
@@ -1168,6 +1350,8 @@ const char *sqlparser_selector_kind_name(sqlparser_selector_kind_t kind)
 			return "where_literal";
 		case SQLPARSER_SELECTOR_KIND_ASSIGNMENT:
 			return "assignment";
+		case SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT:
+			return "merge_assignment";
 		case SQLPARSER_SELECTOR_KIND_INSERT_CELL:
 			return "insert_cell";
 		case SQLPARSER_SELECTOR_KIND_INSERT_COLUMNS:
@@ -1599,7 +1783,9 @@ sqlparser_status_t sqlparser_parse_with_options(
 	}
 
 	sqlparser_pg_query_prepare();
-	parse_result = pg_query_parse_protobuf(parser_sql);
+	parse_result =
+		sqlparser_parse_protobuf_preserving_identifier_spelling(
+			parser_sql);
 	if (parse_result.error != NULL) {
 		sqlparser_error_from_pg(out_error, SQLPARSER_STATUS_PARSE_ERROR, parser_sql, parse_result.error);
 		pg_query_free_protobuf_parse_result(parse_result);
@@ -1754,19 +1940,26 @@ sqlparser_status_t sqlparser_deparse(
 			"handle must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	if (handle->control != NULL) {
-		if (handle->generation == 0UL) {
-			status = sqlparser_validate_handle_output_text(handle, handle->sql, "deparse output", out_error);
-			if (status != SQLPARSER_STATUS_OK) {
-				return status;
-			}
-			*out_sql = sqlparser_strdup(handle->sql);
-			if (*out_sql == NULL) {
-				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-				return SQLPARSER_STATUS_NO_MEMORY;
-			}
-			return SQLPARSER_STATUS_OK;
+	if (handle->generation == 0UL) {
+		status = sqlparser_validate_handle_output_text(
+			handle,
+			handle->sql,
+			"deparse output",
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
 		}
+		*out_sql = sqlparser_strdup(handle->sql);
+		if (*out_sql == NULL) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		return SQLPARSER_STATUS_OK;
+	}
+	if (handle->control != NULL) {
 		status = sqlparser_ensure_current_sql_text(handle, out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
@@ -1780,13 +1973,27 @@ sqlparser_status_t sqlparser_deparse(
 	}
 
 	sqlparser_pg_query_prepare();
-	deparse_result = sqlparser_deparse_protobuf_for_handle(handle, handle->parse_tree);
-	if (deparse_result.error != NULL) {
-		sqlparser_error_from_pg(
-			out_error,
-			SQLPARSER_STATUS_INTERNAL_ERROR,
-			handle->parser_sql != NULL ? handle->parser_sql : handle->sql,
-			deparse_result.error);
+	deparse_result = sqlparser_deparse_protobuf_for_handle(
+		handle,
+		handle->parse_tree,
+		0U,
+		0U,
+		handle->parser_sql_len);
+	if (deparse_result.error != NULL || deparse_result.query == NULL) {
+		if (deparse_result.error != NULL) {
+			sqlparser_error_from_pg(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				handle->parser_sql != NULL ?
+					handle->parser_sql :
+					handle->sql,
+				deparse_result.error);
+		} else {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"failed to deparse SQL");
+		}
 		pg_query_free_deparse_result(deparse_result);
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}

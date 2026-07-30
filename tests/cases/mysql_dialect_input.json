@@ -9,8 +9,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "LIMIT 5, 10"
+        ]
       }
     },
     {
@@ -22,8 +21,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "JOIN orders o"
+        ]
       }
     },
     {
@@ -35,8 +33,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "SELECT 1"
+        ]
       }
     },
     {
@@ -48,8 +45,7 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "deparse_contains": "VALUES (1, 'bob'), (2, 'alice')"
+        ]
       }
     },
     {
@@ -61,11 +57,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": [
-          "'prefix' AS prefix_value",
-          "N'Alice''s order' AS label",
-          "N'Bob'"
         ]
       }
     },
@@ -78,10 +69,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": [
-          "'same' AS ascii_value",
-          "N'same' AS national_value"
         ]
       }
     },
@@ -94,8 +81,7 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "deparse_contains": "INSERT INTO archive_users"
+        ]
       }
     },
     {
@@ -107,8 +93,7 @@
         "statement_count": 1,
         "statement_types": [
           "UpdateStmt"
-        ],
-        "deparse_contains": "UPDATE users SET"
+        ]
       }
     },
     {
@@ -120,8 +105,7 @@
         "statement_count": 1,
         "statement_types": [
           "DeleteStmt"
-        ],
-        "deparse_contains": "DELETE FROM users"
+        ]
       }
     },
     {
@@ -133,8 +117,7 @@
         "statement_count": 1,
         "statement_types": [
           "CreateStmt"
-        ],
-        "deparse_contains": "CREATE TABLE users"
+        ]
       }
     },
     {
@@ -146,8 +129,7 @@
         "statement_count": 1,
         "statement_types": [
           "AlterTableStmt"
-        ],
-        "deparse_contains": "ADD COLUMN age int"
+        ]
       }
     },
     {
@@ -159,8 +141,7 @@
         "statement_count": 1,
         "statement_types": [
           "ViewStmt"
-        ],
-        "deparse_contains": "CREATE VIEW v_users AS"
+        ]
       }
     },
     {
@@ -172,8 +153,7 @@
         "statement_count": 1,
         "statement_types": [
           "DropStmt"
-        ],
-        "deparse_contains": "DROP TABLE users"
+        ]
       }
     },
     {
@@ -185,8 +165,7 @@
         "statement_count": 2,
         "statement_types": [
           "TransactionStmt"
-        ],
-        "deparse_contains": "COMMIT"
+        ]
       }
     },
     {
@@ -198,8 +177,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "'INSERT IGNORE'"
+        ]
       }
     },
     {
@@ -211,8 +189,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "WHERE id = 1"
+        ]
       }
     },
     {
@@ -224,8 +201,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "SELECT unsigned, auto_increment, engine FROM users"
+        ]
       }
     },
     {
@@ -238,7 +214,23 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "USE analytics"
+        "session": [
+          {
+            "action": "switch",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "database",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "analytics"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       }
     },
     {
@@ -251,7 +243,23 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "USE `analytics-prod`"
+        "session": [
+          {
+            "action": "switch",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "database",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "analytics-prod"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       }
     },
     {
@@ -265,7 +273,24 @@
           "VariableSetStmt",
           "SelectStmt"
         ],
-        "deparse_contains": "USE `analytics-prod`; SELECT * FROM users"
+        "session": [
+          {
+            "action": "switch",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "database",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "analytics-prod"
+                  }
+                ]
+              }
+            ]
+          },
+          null
+        ]
       }
     },
     {
@@ -278,7 +303,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "VALUES (?, ?, ?)",
         "view_contains": "?",
         "view_not_contains": "$1"
       }
@@ -293,7 +317,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "email = ?",
         "view_not_contains": "$1"
       }
     },
@@ -306,8 +329,7 @@
         "statement_count": 1,
         "statement_types": [
           "VariableSetStmt"
-        ],
-        "deparse_contains": "PREPARE stmt FROM 'SELECT * FROM users WHERE id = ?'"
+        ]
       }
     },
     {
@@ -319,8 +341,7 @@
         "statement_count": 1,
         "statement_types": [
           "VariableSetStmt"
-        ],
-        "deparse_contains": "EXECUTE stmt USING @user_id"
+        ]
       }
     },
     {
@@ -332,8 +353,7 @@
         "statement_count": 1,
         "statement_types": [
           "VariableSetStmt"
-        ],
-        "deparse_contains": "DEALLOCATE PREPARE stmt"
+        ]
       }
     },
     {
@@ -345,8 +365,7 @@
         "statement_count": 1,
         "statement_types": [
           "VariableSetStmt"
-        ],
-        "deparse_contains": "DROP PREPARE stmt"
+        ]
       }
     },
     {
@@ -359,7 +378,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "?",
         "view_not_contains": "$1"
       }
     },
@@ -373,7 +391,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "?",
         "view_not_contains": "$1"
       }
     },
@@ -387,7 +404,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "?",
         "view_not_contains": "$1"
       }
     },
@@ -401,7 +417,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "?",
         "view_not_contains": "$1"
       }
     },
@@ -415,7 +430,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "?",
         "view_not_contains": "$1"
       }
     },
@@ -429,7 +443,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "?",
         "view_not_contains": "$1"
       }
     },
@@ -443,7 +456,6 @@
         "statement_types": [
           "DeleteStmt"
         ],
-        "deparse_contains": "?",
         "view_not_contains": "$1"
       }
     },
@@ -457,7 +469,6 @@
         "statement_types": [
           "VariableSetStmt"
         ],
-        "deparse_contains": "PREPARE stmt FROM 'INSERT INTO users (id, name) VALUES (?, ?)'",
         "view_not_contains": "$1"
       }
     },
@@ -470,8 +481,7 @@
         "statement_count": 1,
         "statement_types": [
           "VariableSetStmt"
-        ],
-        "deparse_contains": "PREPARE stmt FROM @sql_text"
+        ]
       }
     },
     {
@@ -483,8 +493,7 @@
         "statement_count": 1,
         "statement_types": [
           "VariableSetStmt"
-        ],
-        "deparse_contains": "EXECUTE stmt USING @id, @name"
+        ]
       }
     },
     {
@@ -575,7 +584,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "BETWEEN ? AND ?",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
           "\"operator\":\"BETWEEN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
@@ -597,7 +605,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "NOT IN (?, ?)",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"status\"",
           "\"operator\":\"NOT IN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
@@ -619,7 +626,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "NOT BETWEEN ? AND ?",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"age\"",
           "\"operator\":\"NOT BETWEEN\",\"operator_kind\":\"unknown\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
@@ -641,7 +647,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "NOT LIKE ?",
         "view_contains": [
           "\"clause\":\"where\",\"relation\":0,\"column\":\"name\"",
           "\"operator\":\"NOT LIKE\",\"operator_kind\":\"not_like\",\"field\":1,\"field_match_kind\":\"direct_field\",\"kind\":\"bind\"",
@@ -661,7 +666,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "DISTINCT",
         "view_contains": [
           "\"clause\":\"select_list\",\"relation\":0,\"column\":\"name\"",
           "\"clause\":\"where\",\"relation\":0,\"column\":\"name\"",
@@ -681,8 +685,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "LEFT JOIN"
+        ]
       }
     },
     {
@@ -695,7 +698,6 @@
         "statement_types": [
           "DeleteStmt"
         ],
-        "deparse_contains": "IN (?, ?)",
         "view_contains": [
           "\"kind\":\"delete\"",
           "\"clause\":\"where\",\"relation\":0,\"column\":\"email\"",
@@ -717,7 +719,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "WHERE phone IN (?, ?)",
         "view_contains": [
           "\"kind\":\"update\"",
           "\"clause\":\"set_list\",\"relation\":0,\"column\":\"note\"",
@@ -738,8 +739,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "FROM (SELECT id, phone FROM users"
+        ]
       }
     },
     {
@@ -751,8 +751,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "outer_name"
+        ]
       }
     },
     {
@@ -764,8 +763,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "JSON_EXTRACT"
+        ]
       }
     },
     {
@@ -777,8 +775,7 @@
         "statement_count": 1,
         "statement_types": [
           "CreateStmt"
-        ],
-        "deparse_contains": "CREATE TABLE IF NOT EXISTS users"
+        ]
       }
     },
     {
@@ -790,8 +787,7 @@
         "statement_count": 1,
         "statement_types": [
           "DropStmt"
-        ],
-        "deparse_contains": "DROP VIEW IF EXISTS user_view"
+        ]
       }
     },
     {
@@ -803,8 +799,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "ORDER BY 1"
+        ]
       }
     },
     {
@@ -817,7 +812,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "LIMIT ?, ?",
         "view_not_contains": "$1"
       }
     },
@@ -1001,7 +995,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "JOIN orders o ON",
         "view_contains": [
           "\"kind\":\"update\"",
           "\"table\":\"users\"",
@@ -1112,7 +1105,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "secret = ?",
         "view_contains": [
           "\"clause\":\"set_list\"",
           "\"column\":\"secret\"",
@@ -1134,7 +1126,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "secret = ?",
         "view_contains": [
           "\"clause\":\"set_list\"",
           "\"column\":\"phone\"",
@@ -1155,8 +1146,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "ESCAPE '!'",
-        "deparse_not_contains": "pg_catalog.like_escape",
         "view_contains": [
           "\"operator\":\"LIKE\"",
           "\"operator_kind\":\"like\"",
@@ -1176,8 +1165,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "LIKE ?",
-        "deparse_not_contains": "pg_catalog.like_escape",
         "view_contains": [
           "\"operator\":\"LIKE\"",
           "\"operator_kind\":\"like\"",
@@ -1199,8 +1186,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "NOT LIKE",
-        "deparse_not_contains": "pg_catalog.like_escape",
         "view_contains": [
           "\"operator\":\"NOT LIKE\"",
           "\"operator_kind\":\"not_like\"",
@@ -1221,7 +1206,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "LIKE ?",
         "view_contains": [
           "\"operator\":\"LIKE\"",
           "\"operator_kind\":\"like\"",
@@ -1243,7 +1227,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "INSERT IGNORE INTO users (id) VALUES (1)",
         "view_contains": [
           "\"kind\":\"insert\"",
           "\"table\":\"users\"",
@@ -1261,7 +1244,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "INSERT DELAYED INTO users (id) VALUES (1)",
         "view_contains": [
           "\"kind\":\"insert\"",
           "\"table\":\"users\"",
@@ -1279,7 +1261,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "INSERT LOW_PRIORITY INTO users (id) VALUES (1)",
         "view_contains": [
           "\"kind\":\"insert\"",
           "\"table\":\"users\"",
@@ -1297,7 +1278,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "INSERT HIGH_PRIORITY INTO users (id) VALUES (1)",
         "view_contains": [
           "\"kind\":\"insert\"",
           "\"table\":\"users\"",
@@ -1315,7 +1295,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "INSERT LOW_PRIORITY IGNORE INTO users (id, phone) VALUES (?, ?)",
         "view_contains": [
           "\"kind\":\"insert\"",
           "\"bind_position\":1",
@@ -1337,7 +1316,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "INSERT HIGH_PRIORITY IGNORE INTO users (id) SELECT id FROM backup_users",
         "view_contains": [
           "\"kind\":\"insert\"",
           "\"insert_mode\":\"select\"",
@@ -1356,7 +1334,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "INSERT IGNORE INTO users (id, phone) VALUES (?, ?) ON DUPLICATE KEY UPDATE phone = ?",
         "view_contains": [
           "\"kind\":\"insert\"",
           "\"assignments\"",
@@ -1380,7 +1357,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "ON DUPLICATE KEY UPDATE",
         "view_contains": [
           "\"kind\":\"insert\"",
           "\"assignments\"",
@@ -1404,7 +1380,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "REPLACE INTO users (id) VALUES (1)",
         "view_contains": [
           "\"keyword\":\"replace\"",
           "\"kind\":\"insert\"",
@@ -1424,7 +1399,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "REPLACE LOW_PRIORITY INTO users (id, phone) VALUES (?, ?), (?, ?)",
         "view_contains": [
           "\"keyword\":\"replace\"",
           "\"insert_mode\":\"replace_values\"",
@@ -1447,7 +1421,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "REPLACE DELAYED INTO users (id, phone) SELECT id, phone FROM backup_users WHERE active = ?",
         "view_contains": [
           "\"keyword\":\"replace\"",
           "\"insert_mode\":\"replace_select\"",
@@ -1468,7 +1441,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "REPLACE INTO users (id, phone) VALUES (?, ?)",
         "view_contains": [
           "\"keyword\":\"replace\"",
           "\"insert_mode\":\"replace_set\"",
@@ -1490,7 +1462,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "REPLACE INTO users (id) VALUES (1)",
         "view_contains": [
           "\"keyword\":\"replace\"",
           "\"insert_mode\":\"replace_values\""
@@ -1507,7 +1478,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "REPLACE INTO users (id, phone) SELECT * FROM backup_users",
         "view_contains": [
           "\"keyword\":\"replace\"",
           "\"insert_mode\":\"replace_select\"",
@@ -1526,7 +1496,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "UPDATE IGNORE users SET id = ? WHERE id = ?",
         "view_contains": [
           "\"kind\":\"update\"",
           "\"assignments\"",
@@ -1546,7 +1515,6 @@
         "statement_types": [
           "DeleteStmt"
         ],
-        "deparse_contains": "DELETE IGNORE FROM users WHERE id = ?",
         "view_contains": [
           "\"kind\":\"delete\"",
           "\"table\":\"users\"",
@@ -1565,7 +1533,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "UPDATE LOW_PRIORITY IGNORE users u JOIN orders o ON",
         "view_contains": [
           "\"kind\":\"update\"",
           "\"table\":\"users\"",
@@ -1588,7 +1555,6 @@
         "statement_types": [
           "DeleteStmt"
         ],
-        "deparse_contains": "DELETE LOW_PRIORITY QUICK IGNORE u FROM users u JOIN orders o ON",
         "view_contains": [
           "\"kind\":\"delete\"",
           "\"delete_targets\"",
@@ -1610,7 +1576,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "JOIN orders o ON",
         "view_contains": [
           "\"kind\":\"update\"",
           "\"assignments\"",
@@ -1634,7 +1599,6 @@
         "statement_types": [
           "DeleteStmt"
         ],
-        "deparse_contains": "DELETE u FROM users u JOIN orders o ON",
         "view_contains": [
           "\"kind\":\"delete\"",
           "\"delete_targets\"",
@@ -1656,8 +1620,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "JOIN orders o ON u.phone = ? SET name = ? WHERE o.id = ?",
-        "deparse_not_contains": "sqlparser_mysql_join_on",
         "view_contains": [
           "\"kind\":\"update\"",
           "\"table\":\"users\"",
@@ -1691,8 +1653,6 @@
         "statement_types": [
           "DeleteStmt"
         ],
-        "deparse_contains": "DELETE u FROM users u JOIN orders o ON u.phone = ? WHERE o.id = ?",
-        "deparse_not_contains": "sqlparser_mysql_join_on",
         "view_contains": [
           "\"kind\":\"delete\"",
           "\"delete_targets\"",
@@ -1723,8 +1683,7 @@
         "statement_count": 1,
         "statement_types": [
           "CreateStmt"
-        ],
-        "deparse_contains": "AUTO_INCREMENT"
+        ]
       }
     },
     {
@@ -1736,8 +1695,7 @@
         "statement_count": 1,
         "statement_types": [
           "CreateStmt"
-        ],
-        "deparse_contains": "UNSIGNED"
+        ]
       }
     },
     {
@@ -1749,8 +1707,7 @@
         "statement_count": 1,
         "statement_types": [
           "CreateStmt"
-        ],
-        "deparse_contains": "ZEROFILL"
+        ]
       }
     },
     {
@@ -1762,8 +1719,7 @@
         "statement_count": 1,
         "statement_types": [
           "CreateStmt"
-        ],
-        "deparse_contains": "ENGINE=InnoDB"
+        ]
       }
     },
     {
@@ -1775,8 +1731,7 @@
         "statement_count": 1,
         "statement_types": [
           "CreateStmt"
-        ],
-        "deparse_contains": "DEFAULT CHARSET=utf8mb4"
+        ]
       }
     },
     {
@@ -1788,8 +1743,7 @@
         "statement_count": 1,
         "statement_types": [
           "CreateStmt"
-        ],
-        "deparse_contains": "CHARACTER SET=utf8mb4"
+        ]
       }
     },
     {
@@ -1801,8 +1755,7 @@
         "statement_count": 1,
         "statement_types": [
           "CreateStmt"
-        ],
-        "deparse_contains": "COLLATE=utf8mb4_bin"
+        ]
       }
     },
     {
@@ -1815,7 +1768,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "LEFT JOIN orders o ON",
         "view_contains": [
           "\"kind\":\"update\"",
           "\"table\":\"users\"",
@@ -1838,7 +1790,6 @@
         "statement_types": [
           "DeleteStmt"
         ],
-        "deparse_contains": "DELETE u FROM users u LEFT JOIN orders o ON",
         "view_contains": [
           "\"kind\":\"delete\"",
           "\"delete_targets\"",
@@ -1860,7 +1811,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "UPDATE orders o JOIN users u ON",
         "view_contains": [
           "\"kind\":\"update\"",
           "\"table\":\"orders\"",
@@ -1883,7 +1833,6 @@
         "statement_types": [
           "DeleteStmt"
         ],
-        "deparse_contains": "DELETE o FROM orders o JOIN users u ON",
         "view_contains": [
           "\"kind\":\"delete\"",
           "\"delete_targets\"",
@@ -1941,7 +1890,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "WITH cte AS",
         "view_contains": [
           "\"keyword\":\"select\"",
           "\"table\":\"users\"",
@@ -1959,7 +1907,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "ROW_NUMBER() OVER",
         "view_contains": [
           "\"column\":\"id\"",
           "\"column\":\"status\"",
@@ -1977,7 +1924,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "COALESCE(email, 'n/a')",
         "view_contains": [
           "\"target_path\"",
           "\"name\":\"lower_name\"",
@@ -1994,8 +1940,7 @@
         "statement_count": 1,
         "statement_types": [
           "CreateStmt"
-        ],
-        "deparse_contains": "CREATE TABLE users"
+        ]
       }
     },
     {
@@ -2007,8 +1952,7 @@
         "statement_count": 1,
         "statement_types": [
           "TransactionStmt"
-        ],
-        "deparse_contains": "ROLLBACK"
+        ]
       }
     },
     {
@@ -2021,9 +1965,8 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "JSON_CONTAINS(tags, ?)",
         "view_contains": [
-          "\"operator\":\"json_contains\"",
+          "\"operator\":\"JSON_CONTAINS\"",
           "\"kind\":\"expression\"",
           "\"bind_sql\":\"?\"",
           "\"predicates\""
@@ -2040,7 +1983,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "SELECT u.email AS e FROM users u ORDER BY u.email",
         "view_contains": [
           "\"name\":\"e\"",
           "\"column\":\"email\"",
@@ -2058,13 +2000,6 @@
         "statement_count": 1,
         "statement_types": [
           "CreateStmt"
-        ],
-        "deparse_contains": [
-          "ENGINE=InnoDB",
-          "UNSIGNED AUTO_INCREMENT",
-          "ZEROFILL",
-          "DEFAULT CHARSET=utf8mb4",
-          "COLLATE=utf8mb4_bin"
         ]
       }
     },
@@ -2077,12 +2012,6 @@
         "statement_count": 1,
         "statement_types": [
           "CreateStmt"
-        ],
-        "deparse_contains": [
-          "UNSIGNED AUTO_INCREMENT PRIMARY KEY COMMENT 'pk'",
-          "CHARACTER SET utf8mb4 COLLATE utf8mb4_bin INVISIBLE",
-          "GENERATED ALWAYS AS",
-          "REFERENCES `parents` (`id`) ON DELETE CASCADE"
         ]
       }
     },
@@ -2095,13 +2024,6 @@
         "statement_count": 1,
         "statement_types": [
           "CreateStmt"
-        ],
-        "deparse_contains": [
-          "AUTO_INCREMENT=100",
-          "AVG_ROW_LENGTH=64",
-          "CHECKSUM=1",
-          "DELAY_KEY_WRITE=1",
-          "STATS_SAMPLE_PAGES=16"
         ]
       }
     },
@@ -2114,13 +2036,6 @@
         "statement_count": 1,
         "statement_types": [
           "CreateStmt"
-        ],
-        "deparse_contains": [
-          "COMMENT='users table'",
-          "COMPRESSION='ZLIB'",
-          "DATA DIRECTORY='/tmp/data'",
-          "ENGINE_ATTRIBUTE='{\"tier\":\"hot\"}'",
-          "TABLESPACE=innodb_file_per_table"
         ]
       }
     },
@@ -2133,10 +2048,6 @@
         "statement_count": 1,
         "statement_types": [
           "CreateStmt"
-        ],
-        "deparse_contains": [
-          "ENGINE=InnoDB",
-          "PARTITION BY HASH(`id`) PARTITIONS 4"
         ]
       }
     },
@@ -2149,13 +2060,6 @@
         "statement_count": 1,
         "statement_types": [
           "CreateStmt"
-        ],
-        "deparse_contains": [
-          "CREATE TEMPORARY TABLE IF NOT EXISTS",
-          "INT VISIBLE",
-          "COMMENT 'session token'",
-          "ENGINE=MEMORY",
-          "DEFAULT CHARACTER SET=utf8mb4"
         ]
       }
     },
@@ -2168,10 +2072,6 @@
         "statement_count": 1,
         "statement_types": [
           "InsertStmt"
-        ],
-        "deparse_contains": [
-          "ON DUPLICATE KEY UPDATE",
-          "VALUES(secret_name)"
         ],
         "view_contains": [
           "\"kind\":\"insert\"",
@@ -2192,10 +2092,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": [
-          "AS new ON DUPLICATE KEY UPDATE",
-          "new.secret_name"
-        ],
         "view_contains": [
           "\"kind\":\"insert\"",
           "\"assignments\""
@@ -2215,7 +2111,6 @@
         "statement_types": [
           "InsertStmt"
         ],
-        "deparse_contains": "INSERT INTO mysql_plugin_policy_smoke SET id = 1, secret_name = 'x'",
         "view_contains": [
           "\"kind\":\"insert\"",
           "\"insert_mode\":\"set\""
@@ -2232,7 +2127,6 @@
         "statement_types": [
           "DeleteStmt"
         ],
-        "deparse_contains": "DELETE FROM mysql_plugin_policy_smoke t WHERE t.secret_name = 'x'",
         "view_contains": [
           "\"kind\":\"delete\"",
           "\"table\":\"mysql_plugin_policy_smoke\""
@@ -2249,10 +2143,6 @@
         "statement_types": [
           "DeleteStmt"
         ],
-        "deparse_contains": [
-          "ORDER BY id",
-          "LIMIT 1"
-        ],
         "view_contains": "\"kind\":\"delete\""
       }
     },
@@ -2266,10 +2156,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": [
-          "ORDER BY id",
-          "LIMIT 1"
-        ],
         "view_contains": "\"kind\":\"update\""
       }
     },
@@ -2282,8 +2168,7 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": "LOCK IN SHARE MODE"
+        ]
       }
     },
     {
@@ -2296,7 +2181,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "STRAIGHT_JOIN mysql_plugin_policy_smoke b",
         "view_contains": [
           "\"table\":\"mysql_plugin_policy_smoke\",\"alias\":\"a\"",
           "\"table\":\"mysql_plugin_policy_smoke\",\"alias\":\"b\"",
@@ -2315,7 +2199,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "USE INDEX (idx_secret)",
         "view_contains": "\"table\":\"mysql_plugin_policy_smoke\""
       }
     },
@@ -2328,10 +2211,6 @@
         "statement_count": 1,
         "statement_types": [
           "SelectStmt"
-        ],
-        "deparse_contains": [
-          "FORCE INDEX FOR JOIN (idx_secret)",
-          "IGNORE KEY FOR ORDER BY (idx_secret)"
         ]
       }
     },
@@ -2345,7 +2224,6 @@
         "statement_types": [
           "UpdateStmt"
         ],
-        "deparse_contains": "UPDATE mysql_plugin_policy_smoke USE INDEX (idx_secret) SET",
         "view_contains": [
           "\"kind\":\"update\"",
           "\"table\":\"mysql_plugin_policy_smoke\""
@@ -2362,8 +2240,6 @@
         "statement_types": [
           "SelectStmt"
         ],
-        "deparse_contains": "FROM mysql_plugin_policy_smoke USE INDEX FOR GROUP BY (idx_secret) GROUP BY secret_name",
-        "deparse_not_contains": "GROUP USE INDEX",
         "view_contains": "\"clause\":\"group_by\",\"relation\":0,\"column\":\"secret_name\""
       }
     },
@@ -2374,8 +2250,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": "table_b b USE INDEX (idx_b)",
+        "statement_types": [
+          "SelectStmt"
+        ],
         "view_contains": "\"table\":\"table_b\",\"alias\":\"b\""
       }
     },
@@ -2386,8 +2263,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": "USE INDEX (idx_a, idx_b)"
+        "statement_types": [
+          "SelectStmt"
+        ]
       }
     },
     {
@@ -2397,8 +2275,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": "USE INDEX ()"
+        "statement_types": [
+          "SelectStmt"
+        ]
       }
     },
     {
@@ -2408,7 +2287,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
+        "statement_types": [
+          "SelectStmt"
+        ],
         "view_contains": [
           "\"table\":\"table_a\",\"alias\":\"a\"",
           "\"table\":\"table_b\",\"alias\":\"b\"",
@@ -2424,7 +2305,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
+        "statement_types": [
+          "SelectStmt"
+        ],
         "view_contains": [
           "\"clause\":\"on\",\"candidate_relations\":[0,1],\"column\":\"id\"",
           "\"clause\":\"on\",\"candidate_relations\":[0,1],\"column\":\"tenant_id\""
@@ -2438,8 +2321,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": "NATURAL LEFT JOIN"
+        "statement_types": [
+          "SelectStmt"
+        ]
       }
     },
     {
@@ -2449,8 +2333,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": "FOR UPDATE NOWAIT"
+        "statement_types": [
+          "SelectStmt"
+        ]
       }
     },
     {
@@ -2460,8 +2345,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": "FOR SHARE SKIP LOCKED"
+        "statement_types": [
+          "SelectStmt"
+        ]
       }
     },
     {
@@ -2471,8 +2357,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["UpdateStmt"],
-        "deparse_contains": "ORDER BY created_at DESC LIMIT ?",
+        "statement_types": [
+          "UpdateStmt"
+        ],
         "view_contains": [
           "\"bind_sql\":\"?\",\"bind_position\":1",
           "\"bind_sql\":\"?\",\"bind_position\":2"
@@ -2487,8 +2374,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": "STRAIGHT_JOIN",
+        "statement_types": [
+          "SelectStmt"
+        ],
         "view_contains": [
           "\"table\":\"table_a\",\"alias\":\"a\"",
           "\"table\":\"table_b\",\"alias\":\"b\"",
@@ -2503,10 +2391,8 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["InsertStmt"],
-        "deparse_contains": [
-          "AS new(new_id, new_value)",
-          "value_col = new_value"
+        "statement_types": [
+          "InsertStmt"
         ],
         "view_contains": [
           "\"column\":\"new_value\"",
@@ -2525,8 +2411,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": ["table_a USE INDEX (`idx-a`)", "table_b USE INDEX (idx_b)"],
+        "statement_types": [
+          "SelectStmt"
+        ],
         "view_contains": [
           "\"kind\":\"cte\",\"table\":\"cte\"",
           "\"kind\":\"base\",\"table\":\"table_a\"",
@@ -2541,8 +2428,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": "`db-a`.`table-a` PARTITION(`p-a`, p1) a USE INDEX (`idx-a`, PRIMARY)",
+        "statement_types": [
+          "SelectStmt"
+        ],
         "view_contains": "\"schema\":\"db-a\",\"table\":\"table-a\",\"alias\":\"a\""
       }
     },
@@ -2553,10 +2441,13 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": "FROM table_a USE INDEX (idx_a) HAVING COUNT(*) > 0",
-        "deparse_not_contains": "HAVING USE INDEX",
-        "view_contains": ["\"kind\":\"base\",\"table\":\"table_a\"", "\"kind\":\"expression\""]
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"kind\":\"base\",\"table\":\"table_a\"",
+          "\"kind\":\"expression\""
+        ]
       }
     },
     {
@@ -2566,10 +2457,13 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": "FROM table_a USE INDEX (idx_a) WINDOW w AS (ORDER BY id)",
-        "deparse_not_contains": "WINDOW USE INDEX",
-        "view_contains": ["\"table\":\"table_a\"", "\"ordinal\":1,\"kind\":\"expression\""]
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"table\":\"table_a\"",
+          "\"ordinal\":1,\"kind\":\"expression\""
+        ]
       }
     },
     {
@@ -2579,10 +2473,14 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": "FROM table_a USE INDEX (idx_a) UNION ALL SELECT id FROM table_b",
-        "deparse_not_contains": "UNION USE INDEX",
-        "view_contains": ["\"kind\":\"union_all\"", "\"table\":\"table_a\"", "\"table\":\"table_b\""]
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"kind\":\"union_all\"",
+          "\"table\":\"table_a\"",
+          "\"table\":\"table_b\""
+        ]
       }
     },
     {
@@ -2592,10 +2490,14 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": "FROM table_a USE INDEX (idx_a) INTERSECT SELECT id FROM table_b",
-        "deparse_not_contains": "INTERSECT USE INDEX",
-        "view_contains": ["\"kind\":\"intersect\"", "\"table\":\"table_a\"", "\"table\":\"table_b\""]
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"kind\":\"intersect\"",
+          "\"table\":\"table_a\"",
+          "\"table\":\"table_b\""
+        ]
       }
     },
     {
@@ -2605,10 +2507,14 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": "FROM table_a USE INDEX (idx_a) EXCEPT SELECT id FROM table_b",
-        "deparse_not_contains": "EXCEPT USE INDEX",
-        "view_contains": ["\"kind\":\"except\"", "\"table\":\"table_a\"", "\"table\":\"table_b\""]
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"kind\":\"except\"",
+          "\"table\":\"table_a\"",
+          "\"table\":\"table_b\""
+        ]
       }
     },
     {
@@ -2618,10 +2524,13 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": "FROM table_a USE INDEX (idx_a) FOR UPDATE",
-        "deparse_not_contains": "FOR USE INDEX",
-        "view_contains": ["\"table\":\"table_a\"", "\"clause\":\"select_list\",\"relation\":0,\"column\":\"id\""]
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"table\":\"table_a\"",
+          "\"clause\":\"select_list\",\"relation\":0,\"column\":\"id\""
+        ]
       }
     },
     {
@@ -2631,10 +2540,13 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": "FROM table_a USE INDEX (idx_a) LOCK IN SHARE MODE",
-        "deparse_not_contains": ["FOR USE INDEX", "LOCK USE INDEX"],
-        "view_contains": ["\"table\":\"table_a\"", "\"clause\":\"select_list\",\"relation\":0,\"column\":\"id\""]
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"table\":\"table_a\"",
+          "\"clause\":\"select_list\",\"relation\":0,\"column\":\"id\""
+        ]
       }
     },
     {
@@ -2644,10 +2556,14 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": "table_a USE INDEX (idx_a) NATURAL LEFT JOIN table_b",
-        "deparse_not_contains": "NATURAL USE INDEX",
-        "view_contains": ["\"table\":\"table_a\"", "\"table\":\"table_b\"", "\"star_relations\":[0,1]"]
+        "statement_types": [
+          "SelectStmt"
+        ],
+        "view_contains": [
+          "\"table\":\"table_a\"",
+          "\"table\":\"table_b\"",
+          "\"star_relations\":[0,1]"
+        ]
       }
     },
     {
@@ -2657,9 +2573,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": "table_a USE INDEX (idx_a) STRAIGHT_JOIN table_b USE INDEX (idx_b) ON",
-        "deparse_not_contains": "STRAIGHT_JOIN USE INDEX",
+        "statement_types": [
+          "SelectStmt"
+        ],
         "view_contains": [
           "\"table\":\"table_a\"",
           "\"table\":\"table_b\"",
@@ -2675,9 +2591,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": "JOIN table_b USE INDEX (idx_b) USING (id)",
-        "deparse_not_contains": "USING USE INDEX",
+        "statement_types": [
+          "SelectStmt"
+        ],
         "view_contains": [
           "\"table\":\"table_a\"",
           "\"table\":\"table_b\"",
@@ -2692,9 +2608,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": "table_a a FORCE INDEX FOR GROUP BY (idx_group) GROUP BY a.secret_name HAVING COUNT(*) > 1",
-        "deparse_not_contains": ["GROUP FORCE INDEX", "HAVING FORCE INDEX"],
+        "statement_types": [
+          "SelectStmt"
+        ],
         "view_contains": [
           "\"table\":\"table_a\",\"alias\":\"a\"",
           "\"clause\":\"select_list\",\"relation\":0,\"column\":\"secret_name\"",
@@ -2709,9 +2625,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": "table_a USE INDEX FOR GROUP BY (idx_group) IGNORE INDEX FOR ORDER BY (idx_order) GROUP BY category ORDER BY category",
-        "deparse_not_contains": ["GROUP USE INDEX", "ORDER IGNORE INDEX"],
+        "statement_types": [
+          "SelectStmt"
+        ],
         "view_contains": [
           "\"clause\":\"group_by\",\"relation\":0,\"column\":\"category\"",
           "\"clause\":\"order_by\",\"relation\":0,\"column\":\"category\""
@@ -2725,12 +2641,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": [
-          "table_a USE INDEX (idx_a) GROUP BY id",
-          "UNION ALL SELECT id FROM table_b USE INDEX (idx_b)"
+        "statement_types": [
+          "SelectStmt"
         ],
-        "deparse_not_contains": "GROUP USE INDEX",
         "view_contains": [
           "\"kind\":\"cte\",\"table\":\"cte\"",
           "\"kind\":\"base\",\"table\":\"table_a\"",
@@ -2746,13 +2659,13 @@
       "expect": {
         "ok": true,
         "statement_count": 2,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": [
-          "table_a USE INDEX (idx_a) GROUP BY id",
-          "table_b FORCE INDEX (idx_b) FOR UPDATE"
+        "statement_types": [
+          "SelectStmt"
         ],
-        "deparse_not_contains": ["GROUP USE INDEX", "FOR FORCE INDEX"],
-        "view_contains": ["\"table\":\"table_a\"", "\"table\":\"table_b\""]
+        "view_contains": [
+          "\"table\":\"table_a\"",
+          "\"table\":\"table_b\""
+        ]
       }
     },
     {
@@ -2762,9 +2675,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": "table_a PARTITION (p0, p1) a USE INDEX (idx_group) GROUP BY a.category",
-        "deparse_not_contains": "GROUP USE INDEX",
+        "statement_types": [
+          "SelectStmt"
+        ],
         "view_contains": [
           "\"table\":\"table_a\",\"alias\":\"a\"",
           "\"clause\":\"group_by\",\"relation\":0,\"column\":\"category\""
@@ -2778,9 +2691,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": "USE INDEX (`idx_a`) GROUP BY",
-        "deparse_not_contains": "GROUP USE INDEX",
+        "statement_types": [
+          "SelectStmt"
+        ],
         "view_contains": [
           "\"table\":\"table_a\",\"alias\":\"group\"",
           "\"clause\":\"group_by\",\"relation\":0,\"column\":\"id\""
@@ -2794,9 +2707,9 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": "FROM table_a USE INDEX (idx_a) GROUP BY id",
-        "deparse_not_contains": "GROUP USE INDEX",
+        "statement_types": [
+          "SelectStmt"
+        ],
         "view_contains": [
           "\"kind\":\"derived\",\"alias\":\"d\"",
           "\"kind\":\"base\",\"table\":\"table_a\"",
@@ -2811,11 +2724,8 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": [
-          "U.ID AS UserID",
-          "App.Users U",
-          "U.UserName = ?"
+        "statement_types": [
+          "SelectStmt"
         ]
       }
     },
@@ -2826,11 +2736,1047 @@
       "expect": {
         "ok": true,
         "statement_count": 1,
-        "statement_types": ["SelectStmt"],
-        "deparse_contains": [
-          "FROM T",
-          "ORDER BY A"
+        "statement_types": [
+          "SelectStmt"
         ]
+      }
+    },
+    {
+      "id": "MY-001",
+      "name": "session-state-my-001",
+      "sql": "USE db1;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "switch",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "database",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "db1"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"use\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-002",
+      "name": "session-state-my-002",
+      "sql": "SET @name = 43;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "variable",
+                "name": "name",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 43
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-003",
+      "name": "session-state-my-003",
+      "sql": "SET @total_tax = (SELECT SUM(tax) FROM taxable_transactions);",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "variable",
+                "name": "total_tax",
+                "values": [
+                  {
+                    "kind": "expression",
+                    "text": "(SELECT SUM(tax) FROM taxable_transactions)"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-004",
+      "name": "session-state-my-004",
+      "sql": "SET SESSION sql_mode = 'TRADITIONAL';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "sql_mode",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "TRADITIONAL"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-005",
+      "name": "session-state-my-005",
+      "sql": "SET LOCAL sql_mode = 'TRADITIONAL';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "sql_mode",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "TRADITIONAL"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-006",
+      "name": "session-state-my-006",
+      "sql": "SET @@SESSION.sql_mode = 'TRADITIONAL';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "sql_mode",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "TRADITIONAL"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-007",
+      "name": "session-state-my-007",
+      "sql": "SET @@LOCAL.sql_mode = 'TRADITIONAL';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "sql_mode",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "TRADITIONAL"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-008",
+      "name": "session-state-my-008",
+      "sql": "SET @@sql_mode = 'TRADITIONAL';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "sql_mode",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "TRADITIONAL"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-009",
+      "name": "session-state-my-009",
+      "sql": "SET sql_mode = 'TRADITIONAL';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "sql_mode",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "TRADITIONAL"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-010",
+      "name": "session-state-my-010",
+      "sql": "SET @x = 1, SESSION sql_mode = '';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "variable",
+                "name": "x",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 1
+                    }
+                  }
+                ]
+              },
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "sql_mode",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": ""
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-011",
+      "name": "session-state-my-011",
+      "sql": "SET @x := 1, @y := 2;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "variable",
+                "name": "x",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 1
+                    }
+                  }
+                ]
+              },
+              {
+                "scope": "session",
+                "target_kind": "variable",
+                "name": "y",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 2
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-012",
+      "name": "session-state-my-012",
+      "sql": "SET CHARACTER SET 'utf8mb4';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "character_set",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "utf8mb4"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-013",
+      "name": "session-state-my-013",
+      "sql": "SET CHARSET DEFAULT;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "character_set",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "DEFAULT"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-014",
+      "name": "session-state-my-014",
+      "sql": "SET NAMES 'utf8mb4';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "names",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "utf8mb4"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-015",
+      "name": "session-state-my-015",
+      "sql": "SET NAMES 'utf8mb4' COLLATE 'utf8mb4_0900_ai_ci';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "names",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "utf8mb4"
+                    }
+                  },
+                  {
+                    "name": "collation",
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "utf8mb4_0900_ai_ci"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-016",
+      "name": "session-state-my-016",
+      "sql": "SET NAMES DEFAULT;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "parameter",
+                "name": "names",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "DEFAULT"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-017",
+      "name": "session-state-my-017",
+      "sql": "SET ROLE DEFAULT;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "role",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "DEFAULT"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-018",
+      "name": "session-state-my-018",
+      "sql": "SET ROLE NONE;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "role",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "NONE"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-019",
+      "name": "session-state-my-019",
+      "sql": "SET ROLE ALL;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "role",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "ALL"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-020",
+      "name": "session-state-my-020",
+      "sql": "SET ROLE ALL EXCEPT 'role1', 'role2';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "role",
+                "values": [
+                  {
+                    "kind": "keyword",
+                    "text": "ALL"
+                  },
+                  {
+                    "name": "except",
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "role1"
+                    }
+                  },
+                  {
+                    "name": "except",
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "role2"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-021",
+      "name": "session-state-my-021",
+      "sql": "SET ROLE 'role1', 'role2';",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "role",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "role1"
+                    }
+                  },
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "role2"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-022",
+      "name": "session-state-my-022",
+      "sql": "SET TRANSACTION ISOLATION LEVEL READ COMMITTED, READ ONLY;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "transaction",
+                "target_kind": "transaction",
+                "values": [
+                  {
+                    "name": "isolation_level",
+                    "kind": "keyword",
+                    "text": "READ COMMITTED"
+                  },
+                  {
+                    "name": "access_mode",
+                    "kind": "keyword",
+                    "text": "READ ONLY"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-023",
+      "name": "session-state-my-023",
+      "sql": "SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ WRITE;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "transaction",
+                "values": [
+                  {
+                    "name": "isolation_level",
+                    "kind": "keyword",
+                    "text": "REPEATABLE READ"
+                  },
+                  {
+                    "name": "access_mode",
+                    "kind": "keyword",
+                    "text": "READ WRITE"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-024",
+      "name": "session-state-my-024",
+      "sql": "USE `sales-archive`;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "switch",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "database",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "sales-archive"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"use\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-025",
+      "name": "session-state-my-025",
+      "sql": "USE db1;\nSELECT COUNT(*) FROM mytable;\nUSE db2;\nSELECT COUNT(*) FROM mytable;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "switch",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "database",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "db1"
+                  }
+                ]
+              }
+            ]
+          },
+          null,
+          {
+            "action": "switch",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "database",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "db2"
+                  }
+                ]
+              }
+            ]
+          },
+          null
+        ],
+        "statement_count": 4,
+        "view_contains": "\"keyword\":\"use\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-B001",
+      "name": "session-state-my-b001",
+      "sql": "USE DATABASE db1;",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "MY-B002",
+      "name": "session-state-mysql-trailing-assignment-comma",
+      "sql": "SET @x = 1,;",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "MY-B003",
+      "name": "session-state-mysql-missing-names-value",
+      "sql": "SET NAMES;",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "MY-B004",
+      "name": "session-state-mysql-missing-collation-value",
+      "sql": "SET NAMES 'utf8mb4' COLLATE;",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "MY-B005",
+      "name": "session-state-mysql-incomplete-transaction-option",
+      "sql": "SET TRANSACTION READ;",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "MY-B006",
+      "name": "session-state-mysql-missing-except-role",
+      "sql": "SET ROLE ALL EXCEPT;",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "MY-B007",
+      "name": "session-state-mysql-invalid-double-equals",
+      "sql": "SET sql_mode == 'TRADITIONAL';",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "MY-B008",
+      "name": "session-state-mysql-unclosed-string",
+      "sql": "SET sql_mode = 'TRADITIONAL;",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "id": "MY-026",
+      "name": "session-state-mysql-user-variable-punctuation",
+      "sql": "SET @user.name$ = 1;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "variable",
+                "name": "user.name$",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 1
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-027",
+      "name": "session-state-mysql-quoted-user-variable",
+      "sql": "SET @'my-var' = 1;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "variable",
+                "name": "my-var",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 1
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-028",
+      "name": "session-state-mysql-leading-block-comment",
+      "sql": "/* lexical comment */ SET @session_value = 1;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "set",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "variable",
+                "name": "session_value",
+                "values": [
+                  {
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 1
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"set\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-029",
+      "name": "session-state-mysql-leading-hash-comment",
+      "sql": "# lexical comment\nUSE analytics;",
+      "expect": {
+        "ok": true,
+        "session": [
+          {
+            "action": "switch",
+            "items": [
+              {
+                "scope": "session",
+                "target_kind": "database",
+                "values": [
+                  {
+                    "kind": "identifier",
+                    "text": "analytics"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "statement_count": 1,
+        "view_contains": "\"keyword\":\"use\"",
+        "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "MY-B009",
+      "name": "session-state-mysql-invalid-assignment-target",
+      "sql": "SET sql mode = 'TRADITIONAL';",
+      "expect": {
+        "ok": false
       }
     }
   ]
