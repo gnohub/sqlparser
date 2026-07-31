@@ -508,6 +508,9 @@ stmt[0].where_literal[0]
 stmt[0].clause[0]
 stmt[0].assignment[0]
 stmt[0].merge_assignment[1][0]
+stmt[0].merge_assignment[2][1][0]
+stmt[0].merge_branch_condition[1]
+stmt[0].merge_branch_condition[2][1]
 stmt[0].insert_cell[1][2]
 stmt[0].insert_branch_columns[0]
 stmt[0].insert_branch_condition[0]
@@ -521,13 +524,22 @@ stmt[0].dml_result_sink_column[0][0][1]
 ```
 
 `stmt[S].assignment[A]` addresses assignment `A` in the top-level `UPDATE` of
-statement `S`. `stmt[S].merge_assignment[W][A]` addresses a MERGE matched
-UPDATE action: `W` is the absolute zero-based ordinal across all `WHEN`
-clauses in the MERGE, not an ordinal renumbered over UPDATE actions, and `A`
-is the zero-based assignment ordinal within that UPDATE branch. `W` must
-identify a `WHEN MATCHED ... THEN UPDATE` clause. After parsing, the selector
-has kind `SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT`, with `W` in `item_index`
-and `A` in `column_index`.
+statement `S`. A matched UPDATE action in the root MERGE uses
+`stmt[S].merge_assignment[W][A]`; a nested MERGE uses
+`stmt[S].merge_assignment[D][W][A]`. `D` is the DML index within the current
+statement, `W` is the absolute zero-based ordinal across all `WHEN` clauses in
+the target MERGE, not an ordinal renumbered over UPDATE actions, and `A` is the
+zero-based assignment ordinal within that UPDATE branch. `W` must identify a
+`WHEN MATCHED ... THEN UPDATE` clause. The selector kind is
+`SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT`. A root MERGE has `row_index = 0`;
+for a nested MERGE, `row_index` stores `D`. `item_index` stores `W`, and
+`column_index` stores `A`.
+
+A MERGE branch condition uses `stmt[S].merge_branch_condition[W]`; a nested
+MERGE uses `stmt[S].merge_branch_condition[D][W]`. Its kind is
+`SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION`, and `D` and `W` have the
+same meanings as in a MERGE assignment selector. An unconditional branch has
+no condition selector.
 
 `sqlparser_selector_update_assignment()`,
 `sqlparser_selector_update_assignment_sql()`, the
@@ -548,7 +560,7 @@ and `A` in `column_index`.
 | `sqlparser_selector_where_literal()` | reads a WHERE literal |
 | `sqlparser_selector_where_sql()` | reads WHERE condition SQL |
 | `sqlparser_selector_clause()` | reads a generic clause view |
-| `sqlparser_selector_clause_sql()` | reads generic clause SQL; also reads Oracle/Dameng `INSERT ALL/FIRST` branch condition SQL |
+| `sqlparser_selector_clause_sql()` | reads generic clause SQL, Oracle/Dameng `INSERT ALL/FIRST` branch-condition SQL, and MERGE branch-condition SQL |
 | `sqlparser_selector_update_assignment()` | reads an assignment |
 | `sqlparser_selector_update_assignment_sql()` | reads assignment right-hand SQL |
 | `sqlparser_selector_insert_cell_literal()` | reads INSERT cell literal |
@@ -690,7 +702,8 @@ from which it was read.
 | `sqlparser_query_graph_dml_result_count()` | reads the result-channel count for a DML |
 | `sqlparser_query_graph_dml_result_at()` | reads a result channel for a DML |
 | `sqlparser_query_graph_dml_reference_at()` | reads a field-source relation from a result channel |
-| `sqlparser_query_graph_dml_branch_at()` | reads an Oracle/Dameng multi-table INSERT branch |
+| `sqlparser_query_graph_dml_branch_at()` | reads a DML branch, including an Oracle/Dameng multi-table INSERT branch or a MERGE `WHEN` branch |
+| `sqlparser_query_graph_merge_branch_detail()` | reads a MERGE branch action, match kind, and branch-assignment span; returns `SQLPARSER_STATUS_UNSUPPORTED` for a non-MERGE branch |
 | `sqlparser_query_graph_dml_column_at()` | reads one INSERT target column |
 | `sqlparser_query_graph_dml_cell_at()` | reads one INSERT VALUES cell |
 | `sqlparser_query_graph_dml_assignment_at()` | reads one UPDATE/MERGE assignment |
@@ -712,7 +725,7 @@ from which it was read.
 | `sqlparser_graph_dml_t` | INSERT, UPDATE, DELETE, or MERGE write shape |
 | `sqlparser_graph_dml_result_t` | DML result channel, output block, optional sink relation, sink columns, and field-reference span |
 | `sqlparser_graph_dml_reference_t` | one result-target reference to a target-row or source-relation field |
-| `sqlparser_graph_dml_branch_t` | one INTO branch in an Oracle/Dameng multi-table INSERT |
+| `sqlparser_graph_dml_branch_t` | common DML-branch shape with target relation, target columns, rows, condition, and branch ordinal |
 | `sqlparser_graph_dml_column_t` | explicit INSERT target column |
 | `sqlparser_graph_dml_cell_t` | INSERT VALUES cell; Oracle/Dameng multi-table INSERT cells can link to trailing source-query output through `source_target_index` |
 | `sqlparser_graph_dml_assignment_t` | UPDATE/MERGE assignment |
@@ -759,10 +772,20 @@ from which it was read.
   sink relation, sink-column list, and individual sink columns use
   `dml_result_targets`, `dml_result_sink`, `dml_result_sink_columns`, and
   `dml_result_sink_column`, respectively.
-- `sqlparser_graph_dml_t.branches` is used only for Oracle/Dameng multi-table
-  INSERT; each branch owns its target relation, target columns, rows, branch
+- `sqlparser_graph_dml_t.branches` is used by Oracle/Dameng multi-table INSERT
+  and MERGE. Each branch owns its target relation, target columns, rows, branch
   kind, and optional condition selector. The condition selector can be passed
   to `sqlparser_selector_clause_sql()` to read the original predicate SQL.
+- For a successfully parsed MERGE, each `WHEN` clause has one branch whose `ordinal` is the absolute
+  zero-based ordinal across all `WHEN` clauses. Read its action, match kind,
+  and assignment span with `sqlparser_query_graph_merge_branch_detail()`. An
+  INSERT cell uses that absolute `WHEN` ordinal as `row_index` and its
+  zero-based VALUES position as `column_ordinal`; when the target column list
+  is omitted, `target_columns` can be empty while `rows` is nonempty. An UPDATE
+  assignment appears in both the parent DML assignment span and the branch
+  detail assignment span, with both spans referencing the same assignment
+  index. DELETE and NOTHING actions carry no target columns, rows, or
+  assignments.
 - For an Oracle/Dameng multi-table INSERT branch cell that directly references an
   output field from the trailing source query, `sqlparser_graph_dml_cell_t.kind`
   is `SQLPARSER_GRAPH_VALUE_FIELD`, and

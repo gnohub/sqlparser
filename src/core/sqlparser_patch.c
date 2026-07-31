@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
@@ -21,76 +22,217 @@ static sqlparser_status_t sqlparser_patch_parse_selector(
 	return sqlparser_selector_parse(selector_text, selector, out_error);
 }
 
-static sqlparser_status_t sqlparser_patch_split_relation_name(
+typedef struct {
+	char *parts[3];
+	size_t part_count;
+	int32_t location;
+	void *dialect_state;
+} sqlparser_patch_identifier_path_t;
+
+static void sqlparser_patch_identifier_path_clear(
+	const sqlparser_handle_t *handle,
+	sqlparser_patch_identifier_path_t *path)
+{
+	size_t index;
+
+	if (path == NULL) {
+		return;
+	}
+	for (index = 0U; index < sizeof(path->parts) / sizeof(path->parts[0]); index++) {
+		free(path->parts[index]);
+	}
+	sqlparser_handle_discard_dialect_state(handle, path->dialect_state);
+	memset(path, 0, sizeof(*path));
+}
+
+static int sqlparser_patch_identifier_path_is_exact(
+	const sqlparser_handle_t *handle,
 	const char *sql_text,
-	char **out_database,
-	char **out_schema,
-	char **out_table,
+	int32_t location,
+	size_t part_count)
+{
+	const char *spelling;
+	size_t cursor;
+	size_t length;
+	size_t spelling_length;
+	size_t index;
+
+	if (handle == NULL || sql_text == NULL || part_count == 0U ||
+	    !sqlparser_proto_location_is_identifier_spelling(location)) {
+		return 0;
+	}
+	length = strlen(sql_text);
+	cursor = 0U;
+	for (index = 0U; index < part_count; index++) {
+		while (cursor < length &&
+		       isspace((unsigned char)sql_text[cursor])) {
+			cursor++;
+		}
+		spelling = NULL;
+		spelling_length = 0U;
+		if (!sqlparser_handle_identifier_spelling(
+			    handle,
+			    location,
+			    index,
+			    &spelling,
+			    &spelling_length) ||
+		    spelling == NULL ||
+		    spelling_length == 0U ||
+		    spelling_length > length - cursor ||
+		    memcmp(sql_text + cursor, spelling, spelling_length) != 0) {
+			return 0;
+		}
+		cursor += spelling_length;
+		while (cursor < length &&
+		       isspace((unsigned char)sql_text[cursor])) {
+			cursor++;
+		}
+		if (index + 1U < part_count) {
+			if (cursor >= length || sql_text[cursor] != '.') {
+				return 0;
+			}
+			cursor++;
+		}
+	}
+	while (cursor < length &&
+	       isspace((unsigned char)sql_text[cursor])) {
+		cursor++;
+	}
+	return cursor == length;
+}
+
+static sqlparser_status_t sqlparser_patch_parse_identifier_path(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	const char *sql_text,
+	size_t max_part_count,
+	const char *field_name,
+	sqlparser_patch_identifier_path_t *out_path,
 	sqlparser_error_t *out_error)
 {
-	char *copy;
-	char *parts[3];
-	size_t count;
-	char *cursor;
+	PgQuery__ColumnRef *column_ref;
+	PgQuery__Node *node;
+	sqlparser_generated_source_t source;
+	sqlparser_identifier_origin_map_t *origins;
+	char *parser_sql;
+	void *dialect_state;
+	size_t index;
+	sqlparser_status_t status;
 
-	if (out_database == NULL || out_schema == NULL || out_table == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "relation outputs must not be NULL");
+	if (out_path == NULL || max_part_count == 0U ||
+	    max_part_count > sizeof(out_path->parts) / sizeof(out_path->parts[0])) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"identifier path output is invalid");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	*out_database = NULL;
-	*out_schema = NULL;
-	*out_table = NULL;
-	if (sql_text == NULL || sql_text[0] == '\0') {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "relation SQL must not be NULL or empty");
-		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	memset(out_path, 0, sizeof(*out_path));
+	parser_sql = NULL;
+	dialect_state = NULL;
+	origins = NULL;
+	node = NULL;
+	status = sqlparser_preprocess_handle_sql_fragment_with_origins(
+		handle,
+		statement_index,
+		sql_text,
+		field_name,
+		&parser_sql,
+		&dialect_state,
+		&origins,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	memset(&source, 0, sizeof(source));
+	source.public_sql = sql_text;
+	source.origins = origins;
+	source.dialect = handle->dialect;
+	source.spelling_handle = handle;
+	status = sqlparser_parse_select_target_node_sql(
+		parser_sql,
+		&source,
+		&node,
+		out_error);
+	sqlparser_identifier_origin_map_destroy(origins);
+	free(parser_sql);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_discard_dialect_state(handle, dialect_state);
+		return status;
 	}
 
-	copy = sqlparser_strdup(sql_text);
-	if (copy == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-		return SQLPARSER_STATUS_NO_MEMORY;
-	}
-
-	count = 0U;
-	cursor = copy;
-	while (cursor != NULL && count < 3U) {
-		char *dot;
-
-		parts[count++] = cursor;
-		dot = strchr(cursor, '.');
-		if (dot == NULL) {
-			break;
-		}
-		*dot = '\0';
-		cursor = dot + 1;
-	}
-	if (count == 3U && strchr(parts[2], '.') != NULL) {
-		free(copy);
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "relation SQL has too many name parts");
-		return SQLPARSER_STATUS_UNSUPPORTED;
-	}
-	if (count == 1U) {
-		*out_table = sqlparser_strdup(parts[0]);
-	} else if (count == 2U) {
-		*out_schema = sqlparser_strdup(parts[0]);
-		*out_table = sqlparser_strdup(parts[1]);
+	column_ref =
+		node->node_case == PG_QUERY__NODE__NODE_RES_TARGET &&
+			node->res_target != NULL &&
+			(node->res_target->name == NULL ||
+			 node->res_target->name[0] == '\0') &&
+			node->res_target->val != NULL &&
+			node->res_target->val->node_case ==
+				PG_QUERY__NODE__NODE_COLUMN_REF ?
+			node->res_target->val->column_ref :
+			NULL;
+	if (column_ref == NULL || column_ref->n_fields == 0U ||
+	    column_ref->n_fields > max_part_count || column_ref->fields == NULL) {
+		status = SQLPARSER_STATUS_UNSUPPORTED;
+		sqlparser_error_set_message(
+			out_error,
+			status,
+			max_part_count == 1U ?
+				"column name must contain exactly one identifier" :
+				"relation SQL must contain one identifier path with at most three parts");
 	} else {
-		*out_database = sqlparser_strdup(parts[0]);
-		*out_schema = sqlparser_strdup(parts[1]);
-		*out_table = sqlparser_strdup(parts[2]);
+		for (index = 0U; index < column_ref->n_fields; index++) {
+			PgQuery__Node *field;
+
+			field = column_ref->fields[index];
+			if (field == NULL ||
+			    field->node_case != PG_QUERY__NODE__NODE_STRING ||
+			    field->string == NULL ||
+			    field->string->sval == NULL ||
+			    field->string->sval[0] == '\0') {
+				status = SQLPARSER_STATUS_UNSUPPORTED;
+				sqlparser_error_set_message(
+					out_error,
+					status,
+					"identifier path contains an invalid component");
+				break;
+			}
+			out_path->parts[index] =
+				sqlparser_strdup(field->string->sval);
+			if (out_path->parts[index] == NULL) {
+				status = SQLPARSER_STATUS_NO_MEMORY;
+				sqlparser_error_set_message(
+					out_error,
+					status,
+					"out of memory");
+				break;
+			}
+		}
+		if (status == SQLPARSER_STATUS_OK &&
+		    !sqlparser_patch_identifier_path_is_exact(
+			    handle,
+			    sql_text,
+			    column_ref->location,
+			    column_ref->n_fields)) {
+			status = SQLPARSER_STATUS_UNSUPPORTED;
+			sqlparser_error_set_message(
+				out_error,
+				status,
+				"identifier path must contain only identifiers and dot separators");
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			out_path->part_count = column_ref->n_fields;
+			out_path->location = column_ref->location;
+			out_path->dialect_state = dialect_state;
+			dialect_state = NULL;
+		}
 	}
-	free(copy);
-	if (*out_table == NULL || (count >= 2U && *out_schema == NULL) || (count >= 3U && *out_database == NULL)) {
-		free(*out_database);
-		free(*out_schema);
-		free(*out_table);
-		*out_database = NULL;
-		*out_schema = NULL;
-		*out_table = NULL;
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-		return SQLPARSER_STATUS_NO_MEMORY;
+	sqlparser_free_proto_node(node);
+	sqlparser_handle_discard_dialect_state(handle, dialect_state);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_patch_identifier_path_clear(handle, out_path);
 	}
-	return SQLPARSER_STATUS_OK;
+	return status;
 }
 
 static sqlparser_status_t sqlparser_patch_set_relation_sql(
@@ -101,10 +243,13 @@ static sqlparser_status_t sqlparser_patch_set_relation_sql(
 {
 	ProtobufCMessage *message;
 	PgQuery__RangeVar *relation;
-	char *database_name;
-	char *schema_name;
-	char *table_name;
+	sqlparser_patch_identifier_path_t path;
 	const char *values[3];
+	const char *current[3];
+	int32_t previous_location;
+	size_t first_part;
+	size_t index;
+	int names_changed;
 	sqlparser_status_t status;
 
 	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_RELATION) {
@@ -112,10 +257,14 @@ static sqlparser_status_t sqlparser_patch_set_relation_sql(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	database_name = NULL;
-	schema_name = NULL;
-	table_name = NULL;
-	status = sqlparser_patch_split_relation_name(sql_text, &database_name, &schema_name, &table_name, out_error);
+	status = sqlparser_patch_parse_identifier_path(
+		handle,
+		selector->statement_index,
+		sql_text,
+		3U,
+		"relation SQL",
+		&path,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
@@ -137,20 +286,42 @@ static sqlparser_status_t sqlparser_patch_set_relation_sql(
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		relation = (PgQuery__RangeVar *)message;
-		values[0] = database_name != NULL ? database_name : "";
-		values[1] = schema_name != NULL ? schema_name : "";
-		values[2] = table_name;
+		current[0] = relation->catalogname != NULL ? relation->catalogname : "";
+		current[1] = relation->schemaname != NULL ? relation->schemaname : "";
+		current[2] = relation->relname != NULL ? relation->relname : "";
+		values[0] = "";
+		values[1] = "";
+		values[2] = "";
+		first_part = 3U - path.part_count;
+		for (index = 0U; index < path.part_count; index++) {
+			values[first_part + index] = path.parts[index];
+		}
+		names_changed = 0;
+		for (index = 0U; index < 3U; index++) {
+			names_changed =
+				names_changed || strcmp(current[index], values[index]) != 0;
+		}
+		previous_location = relation->location;
+		relation->location = path.location;
 		status = sqlparser_replace_relation_identifier_slots(
 			handle,
 			selector->statement_index,
 			relation,
 			values,
 			out_error);
+		if (status == SQLPARSER_STATUS_OK && !names_changed) {
+			status = sqlparser_handle_commit_ast(handle, out_error);
+		}
+		if (status != SQLPARSER_STATUS_OK && handle->ast != NULL) {
+			relation->location = previous_location;
+		}
 	}
 
-	free(database_name);
-	free(schema_name);
-	free(table_name);
+	if (status == SQLPARSER_STATUS_OK) {
+		sqlparser_handle_adopt_dialect_state(handle, path.dialect_state);
+		path.dialect_state = NULL;
+	}
+	sqlparser_patch_identifier_path_clear(handle, &path);
 	return status;
 }
 
@@ -222,6 +393,8 @@ static sqlparser_status_t sqlparser_patch_set_value_sql(
 	PgQuery__Node *replacement;
 	sqlparser_status_t status;
 	char *parser_sql;
+	sqlparser_generated_source_t source;
+	sqlparser_identifier_origin_map_t *origins;
 	void *dialect_state;
 	int variable_set_arg;
 
@@ -231,6 +404,7 @@ static sqlparser_status_t sqlparser_patch_set_value_sql(
 	}
 
 	parser_sql = NULL;
+	origins = NULL;
 	dialect_state = NULL;
 	replacement = NULL;
 	statement = NULL;
@@ -254,22 +428,37 @@ static sqlparser_status_t sqlparser_patch_set_value_sql(
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 	variable_set_arg = sqlparser_patch_value_slot_is_variable_set_arg(statement, value_slot);
-	status = sqlparser_preprocess_handle_sql_fragment(
+	status = sqlparser_preprocess_handle_sql_fragment_with_origins(
 		handle,
 		selector->statement_index,
 		sql_text,
 		"value SQL",
 		&parser_sql,
 		&dialect_state,
+		&origins,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
+	memset(&source, 0, sizeof(source));
+	source.public_sql = sql_text;
+	source.origins = origins;
+	source.dialect = handle->dialect;
+	source.spelling_handle = handle;
 	if (variable_set_arg) {
-		status = sqlparser_parse_variable_set_arg_node_sql(parser_sql, &replacement, out_error);
+		status = sqlparser_parse_variable_set_arg_node_sql(
+			parser_sql,
+			&source,
+			&replacement,
+			out_error);
 	} else {
-		status = sqlparser_parse_update_assignment_node_sql(parser_sql, &replacement, out_error);
+		status = sqlparser_parse_update_assignment_node_sql(
+			parser_sql,
+			&source,
+			&replacement,
+			out_error);
 	}
+	sqlparser_identifier_origin_map_destroy(origins);
 	free(parser_sql);
 	parser_sql = NULL;
 	if (status != SQLPARSER_STATUS_OK) {
@@ -311,7 +500,11 @@ static sqlparser_status_t sqlparser_patch_literal_value_from_sql(
 	memset(out_value, 0, sizeof(*out_value));
 	memset(&view, 0, sizeof(view));
 	node = NULL;
-	status = sqlparser_parse_insert_cell_node_sql(sql_text, &node, out_error);
+	status = sqlparser_parse_insert_cell_node_sql(
+		sql_text,
+		NULL,
+		&node,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
@@ -557,11 +750,56 @@ static sqlparser_status_t sqlparser_patch_replace(
 			}
 			return sqlparser_patch_set_relation_sql(handle, &selector, patch->sql, out_error);
 		case SQLPARSER_SELECTOR_KIND_NAME:
+		{
+			sqlparser_patch_identifier_path_t path;
+			const char *spelling;
+			size_t spelling_length;
+
 			if (patch->sql == NULL) {
 				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "name replacement requires sql");
 				return SQLPARSER_STATUS_INVALID_ARGUMENT;
 			}
-			return sqlparser_selector_set_name(handle, &selector, patch->sql, out_error);
+			status = sqlparser_patch_parse_identifier_path(
+				handle,
+				selector.statement_index,
+				patch->sql,
+				1U,
+				"name replacement SQL",
+				&path,
+				out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+			spelling = NULL;
+			spelling_length = 0U;
+			if (!sqlparser_handle_identifier_spelling(
+				    handle,
+				    path.location,
+				    0U,
+				    &spelling,
+				    &spelling_length) ||
+			    spelling_length == 0U) {
+				sqlparser_patch_identifier_path_clear(
+					handle,
+					&path);
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INTERNAL_ERROR,
+					"name replacement spelling is missing");
+				return SQLPARSER_STATUS_INTERNAL_ERROR;
+			}
+			status = sqlparser_statement_set_name_spelling(
+				handle,
+				selector.statement_index,
+				selector.item_index,
+				path.parts[0],
+				spelling,
+				out_error);
+			sqlparser_patch_identifier_path_clear(
+				handle,
+				&path);
+			return status;
+		}
 		case SQLPARSER_SELECTOR_KIND_VALUE:
 		{
 			char *value_sql;
@@ -772,7 +1010,10 @@ static sqlparser_status_t sqlparser_patch_replace_assignment(
 	return sqlparser_selector_set_update_assignment_full_sql(handle, &selector, patch->sql, out_error);
 }
 
-static PgQuery__Node *sqlparser_patch_new_insert_column_node(const char *name, sqlparser_error_t *out_error)
+static PgQuery__Node *sqlparser_patch_new_insert_column_node(
+	const char *name,
+	int32_t location,
+	sqlparser_error_t *out_error)
 {
 	PgQuery__Node *node;
 	PgQuery__ResTarget *target;
@@ -800,6 +1041,7 @@ static PgQuery__Node *sqlparser_patch_new_insert_column_node(const char *name, s
 		return NULL;
 	}
 	sqlparser_mark_proto_generated((ProtobufCMessage *)node);
+	target->location = location;
 	return node;
 }
 
@@ -914,6 +1156,8 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 	sqlparser_status_t status;
 	char *parser_default_sql;
 	char *rendered_default_sql;
+	sqlparser_generated_source_t source;
+	sqlparser_identifier_origin_map_t *origins;
 	void *dialect_state;
 	size_t row_index;
 	size_t insert_index;
@@ -968,11 +1212,24 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 	}
 	if (selector.kind == SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS) {
 		char *branch_cell_sql;
+		sqlparser_patch_identifier_path_t column_path;
 
 		if (patch->name == NULL) {
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "insert branch column requires name");
 			return SQLPARSER_STATUS_INVALID_ARGUMENT;
 		}
+		status = sqlparser_patch_parse_identifier_path(
+			handle,
+			selector.statement_index,
+			patch->name,
+			1U,
+			"insert branch column name",
+			&column_path,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		sqlparser_patch_identifier_path_clear(handle, &column_path);
 		branch_cell_sql = NULL;
 		status = sqlparser_patch_render_structured_sql(handle, patch, patch->default_sql, &branch_cell_sql, out_error);
 		if (status != SQLPARSER_STATUS_OK) {
@@ -997,26 +1254,47 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "insert_column requires name");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
+	{
+		sqlparser_patch_identifier_path_t column_path;
+
+		status = sqlparser_patch_parse_identifier_path(
+			handle,
+			selector.statement_index,
+			patch->name,
+			1U,
+			"insert column name",
+			&column_path,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		column_node = sqlparser_patch_new_insert_column_node(
+			column_path.parts[0],
+			column_path.location,
+			out_error);
+		sqlparser_patch_identifier_path_clear(handle, &column_path);
+		if (column_node == NULL) {
+			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+		}
+	}
 	status = sqlparser_get_insert_stmt(handle, selector.statement_index, &stmt, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_free_proto_node(column_node);
 		return status;
 	}
 
-	column_node = NULL;
 	default_node = NULL;
 	next_cols = NULL;
 	plans = NULL;
 	parser_default_sql = NULL;
 	rendered_default_sql = NULL;
+	origins = NULL;
 	dialect_state = NULL;
 	insert_index = patch->index > stmt->n_cols ? stmt->n_cols : patch->index;
 	if (stmt->n_cols == SIZE_MAX) {
+		sqlparser_free_proto_node(column_node);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "insert column count is too large");
 		return SQLPARSER_STATUS_RESOURCE_LIMIT;
-	}
-	column_node = sqlparser_patch_new_insert_column_node(patch->name, out_error);
-	if (column_node == NULL) {
-		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
 	}
 	if (sqlparser_insert_source_from_stmt(stmt) == SQLPARSER_INSERT_SOURCE_QUERY) {
 		next_cols = sqlparser_patch_alloc_node_array(stmt->n_cols + 1U, out_error);
@@ -1043,21 +1321,33 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 		sqlparser_free_proto_node(column_node);
 		return status;
 	}
-	status = sqlparser_preprocess_handle_sql_fragment(
+	status = sqlparser_preprocess_handle_sql_fragment_with_origins(
 		handle,
 		selector.statement_index,
 		rendered_default_sql,
 		"insert column default SQL",
 		&parser_default_sql,
 		&dialect_state,
+		&origins,
 		out_error);
-	free(rendered_default_sql);
-	rendered_default_sql = NULL;
 	if (status != SQLPARSER_STATUS_OK) {
+		free(rendered_default_sql);
 		sqlparser_free_proto_node(column_node);
 		return status;
 	}
-	status = sqlparser_parse_insert_cell_node_sql(parser_default_sql, &default_node, out_error);
+	memset(&source, 0, sizeof(source));
+	source.public_sql = rendered_default_sql;
+	source.origins = origins;
+	source.dialect = handle->dialect;
+	source.spelling_handle = handle;
+	status = sqlparser_parse_insert_cell_node_sql(
+		parser_default_sql,
+		&source,
+		&default_node,
+		out_error);
+	sqlparser_identifier_origin_map_destroy(origins);
+	free(rendered_default_sql);
+	rendered_default_sql = NULL;
 	free(parser_default_sql);
 	parser_default_sql = NULL;
 	if (status != SQLPARSER_STATUS_OK) {
@@ -1358,19 +1648,13 @@ static sqlparser_status_t sqlparser_patch_delete_row(
 	return sqlparser_handle_commit_ast(handle, out_error);
 }
 
-sqlparser_status_t sqlparser_apply_patch(
+static sqlparser_status_t sqlparser_apply_patch_in_place(
 	sqlparser_handle_t *handle,
 	const sqlparser_patch_list_t *patches,
 	sqlparser_error_t *out_error)
 {
 	size_t index;
 	sqlparser_status_t status;
-
-	sqlparser_error_clear(out_error);
-	if (handle == NULL || patches == NULL || (patches->count > 0U && patches->items == NULL)) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "handle and patches must not be NULL");
-		return SQLPARSER_STATUS_INVALID_ARGUMENT;
-	}
 
 	for (index = 0U; index < patches->count; index++) {
 		const sqlparser_patch_t *patch;
@@ -1410,5 +1694,121 @@ sqlparser_status_t sqlparser_apply_patch(
 			return status;
 		}
 	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_patch_candidate_is_noop(
+	const sqlparser_handle_t *handle,
+	sqlparser_handle_t *candidate,
+	int *out_noop,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_handle_t *baseline;
+	char *baseline_sql;
+	char *candidate_sql;
+	sqlparser_status_t status;
+
+	*out_noop = 0;
+	if (handle->parse_tree.len != candidate->parse_tree.len ||
+	    memcmp(
+		    handle->parse_tree.data,
+		    candidate->parse_tree.data,
+		    handle->parse_tree.len) != 0) {
+		return SQLPARSER_STATUS_OK;
+	}
+
+	baseline = NULL;
+	baseline_sql = NULL;
+	candidate_sql = NULL;
+	status = sqlparser_handle_clone(handle, &baseline, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	baseline->generation = candidate->generation;
+	sqlparser_handle_invalidate_derived(baseline);
+	status = sqlparser_deparse(baseline, &baseline_sql, out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_deparse(
+			candidate,
+			&candidate_sql,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		*out_noop =
+			baseline_sql != NULL &&
+			candidate_sql != NULL &&
+			strcmp(baseline_sql, candidate_sql) == 0;
+	}
+	sqlparser_string_free(candidate_sql);
+	sqlparser_string_free(baseline_sql);
+	sqlparser_handle_destroy(baseline);
+	return status;
+}
+
+sqlparser_status_t sqlparser_apply_patch(
+	sqlparser_handle_t *handle,
+	const sqlparser_patch_list_t *patches,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_handle_t *candidate;
+	sqlparser_status_t status;
+	unsigned long original_generation;
+	int noop;
+
+	sqlparser_error_clear(out_error);
+	if (handle == NULL || patches == NULL ||
+	    (patches->count > 0U && patches->items == NULL)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"handle and patches must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (patches->count == 0U) {
+		return SQLPARSER_STATUS_OK;
+	}
+
+	candidate = NULL;
+	original_generation = handle->generation;
+	status = sqlparser_handle_clone(
+		handle,
+		&candidate,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_apply_patch_in_place(
+		candidate,
+		patches,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_destroy(candidate);
+		return status;
+	}
+	if (candidate->generation == original_generation) {
+		sqlparser_handle_destroy(candidate);
+		sqlparser_error_clear(out_error);
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_patch_candidate_is_noop(
+		handle,
+		candidate,
+		&noop,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_destroy(candidate);
+		return status;
+	}
+	if (noop) {
+		sqlparser_handle_destroy(candidate);
+		sqlparser_error_clear(out_error);
+		return SQLPARSER_STATUS_OK;
+	}
+
+	candidate->generation = original_generation + 1UL;
+	sqlparser_handle_invalidate_derived(candidate);
+	sqlparser_handle_replace_contents(handle, candidate);
+	sqlparser_handle_destroy(candidate);
+	sqlparser_error_clear(out_error);
 	return SQLPARSER_STATUS_OK;
 }

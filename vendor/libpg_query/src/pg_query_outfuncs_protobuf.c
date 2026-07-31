@@ -172,6 +172,7 @@ static void
 _outString(PgQuery__String* out, const String *node)
 {
   out->sval = node->sval;
+  out->location = node->location;
 }
 
 static void
@@ -219,6 +220,7 @@ _outAConst(PgQuery__AConst* out, const A_Const *node)
         PgQuery__String *value = palloc(sizeof(PgQuery__String));
 	pg_query__string__init(value);
 	value->sval = pstrdup(node->val.sval.sval);
+	value->location = node->val.sval.location;
 
 	out->val_case = PG_QUERY__A__CONST__VAL_SVAL;
 	out->sval = value;

@@ -49,6 +49,7 @@ typedef struct Alias
 	NodeTag		type;
 	char	   *aliasname;		/* aliased rel name (never qualified) */
 	List	   *colnames;		/* optional list of column aliases */
+	int			location;		/* generated identifier spelling */
 } Alias;
 
 /* What to do at commit time for temporary relations */

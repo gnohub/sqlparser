@@ -88,7 +88,8 @@ typedef enum {
 	SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK = 18,
 	SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK_COLUMNS = 19,
 	SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK_COLUMN = 20,
-	SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT = 21
+	SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT = 21,
+	SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION = 22
 } sqlparser_selector_kind_t;
 
 typedef enum {
@@ -211,6 +212,21 @@ typedef enum {
 	SQLPARSER_GRAPH_DML_BRANCH_WHEN = 1,
 	SQLPARSER_GRAPH_DML_BRANCH_ELSE = 2
 } sqlparser_graph_dml_branch_kind_t;
+
+typedef enum {
+	SQLPARSER_GRAPH_MERGE_ACTION_UNKNOWN = 0,
+	SQLPARSER_GRAPH_MERGE_ACTION_INSERT = 1,
+	SQLPARSER_GRAPH_MERGE_ACTION_UPDATE = 2,
+	SQLPARSER_GRAPH_MERGE_ACTION_DELETE = 3,
+	SQLPARSER_GRAPH_MERGE_ACTION_NOTHING = 4
+} sqlparser_graph_merge_action_kind_t;
+
+typedef enum {
+	SQLPARSER_GRAPH_MERGE_MATCH_UNKNOWN = 0,
+	SQLPARSER_GRAPH_MERGE_MATCH_MATCHED = 1,
+	SQLPARSER_GRAPH_MERGE_MATCH_NOT_MATCHED_BY_SOURCE = 2,
+	SQLPARSER_GRAPH_MERGE_MATCH_NOT_MATCHED_BY_TARGET = 3
+} sqlparser_graph_merge_match_kind_t;
 
 typedef enum {
 	SQLPARSER_GRAPH_PREDICATE_UNKNOWN = 0,
@@ -752,6 +768,8 @@ const char *sqlparser_graph_set_kind_name(sqlparser_graph_set_kind_t kind);
 const char *sqlparser_graph_dml_kind_name(sqlparser_graph_dml_kind_t kind);
 const char *sqlparser_graph_insert_mode_name(sqlparser_graph_insert_mode_t mode);
 const char *sqlparser_graph_dml_branch_kind_name(sqlparser_graph_dml_branch_kind_t kind);
+const char *sqlparser_graph_merge_action_kind_name(sqlparser_graph_merge_action_kind_t kind);
+const char *sqlparser_graph_merge_match_kind_name(sqlparser_graph_merge_match_kind_t kind);
 const char *sqlparser_graph_predicate_kind_name(sqlparser_graph_predicate_kind_t kind);
 const char *sqlparser_graph_predicate_bool_name(sqlparser_graph_predicate_bool_t kind);
 int sqlparser_graph_operator_is_like_pattern(sqlparser_graph_operator_kind_t kind);
@@ -1469,6 +1487,14 @@ sqlparser_status_t sqlparser_query_graph_dml_branch_at(
 	const sqlparser_query_graph_view_t *graph,
 	size_t branch_index,
 	sqlparser_graph_dml_branch_t *out_branch,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_query_graph_merge_branch_detail(
+	const sqlparser_query_graph_view_t *graph,
+	size_t branch_index,
+	sqlparser_graph_merge_action_kind_t *out_action_kind,
+	sqlparser_graph_merge_match_kind_t *out_match_kind,
+	sqlparser_index_span_t *out_assignments,
 	sqlparser_error_t *out_error);
 
 sqlparser_status_t sqlparser_query_graph_dml_column_at(

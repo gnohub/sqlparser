@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 184 条用例，其中 174 条预期成功，10 条预期失败。32 条用例包含 statement 级 `expect.session`，覆盖 `VPG049` 至 `VPG051` 和 `VB-C001` 至 `VB-C029`。其中 29 条至少包含一个非空 session 期望；词法隔离用例 `VB-C023`、`VB-C024`、`VB-C029` 的所有 statement 均要求不输出 session 投影。
+夹具包含 196 条用例，其中 186 条预期成功，10 条预期失败。34 条用例包含 statement 级 `expect.session`，覆盖 `VPG049` 至 `VPG051` 和 `VB-C001` 至 `VB-C031`。其中 31 条至少包含一个非空 session 期望；词法隔离用例 `VB-C023`、`VB-C024`、`VB-C029` 的所有 statement 均要求不输出 session 投影。
 
 用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
 
@@ -155,3 +155,22 @@
 | `VPG144` | `vastbase-postgresql-national-string-literal` | SELECT 'prefix' AS prefix_value, N'Alice''s order' AS label FROM users WHERE name = n'Bob' | 已覆盖 |
 | `VPG145` | `vastbase-postgresql-national-string-duplicate-literal` | SELECT 'same' AS plain_value, N'same' AS national_value FROM users | 已覆盖 |
 | `VPG137` | `vastbase-postgresql-parse-error` | SELECT FROM | 明确不支持 |
+
+## INSERT VALUES 回归：bind 与表达式混合
+
+`VPG-BM001` 至 `VPG-BM010` 是 Vastbase Parse/Bind/Execute（PBE）、PREPARE 或驱动模板语境下的 INSERT 输入。这里的 `$n` 表示在 Bind 阶段提供的位置参数；这些位置参数必须通过 PBE、PREPARE 或对应的驱动 bind 流程提供。
+
+每条用例逐个校验 VALUES 单元格的 `row`、`column`、`kind` 和 `selector`。直接 bind 单元格还校验 `bind_key`、`bind_kind`、`bind_sql`、`bind_position`；表达式内部的 bind 按当前公开契约不直接挂到单元格上，而由其后的直接 bind 全局 `bind_position` 验证已计入扫描顺序。时间函数名不得出现在 `query_graph.fields[].column` 中。
+
+| 用例 ID | VALUES 形态 | 验证重点 |
+| --- | --- | --- |
+| `VPG-BM001` | 三个直接 bind + 末尾 `CURRENT_TIMESTAMP` | 连续直接 bind 与尾部时间表达式 |
+| `VPG-BM002` | `now()` 在首位 + 三个直接 bind | 表达式位于首列 |
+| `VPG-BM003` | `$1`、`CAST($2 AS text)`、`$3`、`CURRENT_TIMESTAMP` | bind 与表达式交错，嵌套 bind 参与全局计数 |
+| `VPG-BM004` | 直接 bind、`NULL`、`now()`、直接 bind | literal 与时间表达式混合 |
+| `VPG-BM005` | 直接 bind、独立 `DEFAULT`、`CURRENT_TIMESTAMP`、直接 bind | `DEFAULT` 仅作为独立 VALUES 单元格 |
+| `VPG-BM006` | 直接 bind、字符串 literal、`now()`、直接 bind | literal、表达式与 bind 混合 |
+| `VPG-BM007` | `$1`、`COALESCE($2, 'fallback')`、`CURRENT_TIMESTAMP`、`$3` | COALESCE 内嵌 bind 与后续全局位置 |
+| `VPG-BM008` | `$1`、包含 `$2` 的 `CASE` 表达式、`now()`、`$3` | CASE 表达式内 bind 与后续全局位置 |
+| `VPG-BM009` | 三行 VALUES，bind 与表达式位置逐行变化 | 跨行 cell 坐标及连续全局 bind 位置 |
+| `VPG-BM010` | schema-qualified quoted identifiers、非常规空白、三个直接 bind + 时间表达式 | 引号标识符、原始空白及末尾表达式 |

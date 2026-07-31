@@ -267,6 +267,7 @@ _readAlias(OUT_TYPE(Alias, Alias) msg)
   Alias *node = makeNode(Alias);
   READ_STRING_FIELD(aliasname, aliasname, aliasname);
   READ_LIST_FIELD(colnames, colnames, colnames);
+  READ_INT_FIELD(location, location, location);
   return node;
 }
 
@@ -3400,4 +3401,3 @@ _readDropSubscriptionStmt(OUT_TYPE(DropSubscriptionStmt, DropSubscriptionStmt) m
   READ_ENUM_FIELD(DropBehavior, behavior, behavior, behavior);
   return node;
 }
-

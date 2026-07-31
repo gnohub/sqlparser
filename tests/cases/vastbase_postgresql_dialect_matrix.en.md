@@ -4,9 +4,9 @@ Executable fixture: `tests/cases/vastbase_postgresql_dialect_input.json`. The un
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 184 cases: 174 expect success and 10 expect failure.
-Statement-level `expect.session` appears in 32 cases, covering `VPG049` through
-`VPG051` and `VB-C001` through `VB-C029`. Twenty-nine contain at least one
+The fixture contains 196 cases: 186 expect success and 10 expect failure.
+Statement-level `expect.session` appears in 34 cases, covering `VPG049` through
+`VPG051` and `VB-C001` through `VB-C031`. Thirty-one contain at least one
 non-null session expectation; lexical-isolation cases `VB-C023`, `VB-C024`,
 and `VB-C029` require every statement to omit session output.
 
@@ -164,3 +164,22 @@ the result with the input SQL byte for byte.
 | `VPG144` | `vastbase-postgresql-national-string-literal` | SELECT 'prefix' AS prefix_value, N'Alice''s order' AS label FROM users WHERE name = n'Bob' | covered |
 | `VPG145` | `vastbase-postgresql-national-string-duplicate-literal` | SELECT 'same' AS plain_value, N'same' AS national_value FROM users | covered |
 | `VPG137` | `vastbase-postgresql-parse-error` | SELECT FROM | explicitly unsupported |
+
+## INSERT VALUES Regression: Mixed Binds and Expressions
+
+`VPG-BM001` through `VPG-BM010` are INSERT inputs in Vastbase Parse/Bind/Execute (PBE), PREPARE, or driver-template contexts. Here `$n` denotes a positional parameter supplied during Bind. These positional parameters must be supplied through PBE, PREPARE, or the corresponding driver bind flow.
+
+Every case checks `row`, `column`, `kind`, and `selector` for every VALUES cell. Direct-bind cells also check `bind_key`, `bind_kind`, `bind_sql`, and `bind_position`. Under the current public contract a bind nested inside an expression is not attached directly to the cell; the global `bind_position` of a following direct bind verifies that the nested occurrence was counted. Time-function names must not appear in `query_graph.fields[].column`.
+
+| Case ID | VALUES shape | Validation focus |
+| --- | --- | --- |
+| `VPG-BM001` | three direct binds + trailing `CURRENT_TIMESTAMP` | consecutive direct binds and a trailing time expression |
+| `VPG-BM002` | leading `now()` + three direct binds | expression in the first column |
+| `VPG-BM003` | `$1`, `CAST($2 AS text)`, `$3`, `CURRENT_TIMESTAMP` | interleaving binds and expressions; nested bind participates in global counting |
+| `VPG-BM004` | direct bind, `NULL`, `now()`, direct bind | literal and time expression mixed with binds |
+| `VPG-BM005` | direct bind, standalone `DEFAULT`, `CURRENT_TIMESTAMP`, direct bind | `DEFAULT` only as a standalone VALUES cell |
+| `VPG-BM006` | direct bind, string literal, `now()`, direct bind | literal, expression, and binds together |
+| `VPG-BM007` | `$1`, `COALESCE($2, 'fallback')`, `CURRENT_TIMESTAMP`, `$3` | nested bind and the following global position |
+| `VPG-BM008` | `$1`, a `CASE` expression containing `$2`, `now()`, `$3` | CASE-nested bind and the following global position |
+| `VPG-BM009` | three VALUES rows with changing bind/expression positions | cross-row cell coordinates and continuous global bind positions |
+| `VPG-BM010` | schema-qualified quoted identifiers, irregular whitespace, three direct binds + time expression | quoted identifiers, original whitespace, and the trailing expression |

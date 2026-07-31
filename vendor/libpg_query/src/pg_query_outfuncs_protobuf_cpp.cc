@@ -144,6 +144,7 @@ static void
 _outString(pg_query::String* out_node, const String *node)
 {
 	out_node->set_sval(node->sval);
+	out_node->set_location(node->location);
 }
 
 static void
@@ -181,6 +182,7 @@ _outAConst(pg_query::A_Const* out_node, const A_Const *node)
 			case T_String: {
 				pg_query::String *value = new pg_query::String();
 				value->set_sval(pstrdup(node->val.sval.sval));
+				value->set_location(node->val.sval.location);
 				out_node->set_allocated_sval(value);
 				break;
 			}

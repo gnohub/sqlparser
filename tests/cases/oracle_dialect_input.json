@@ -349,7 +349,98 @@
         ],
         "view_contains": [
           "\"selector\":\"stmt[0].merge_assignment[0][0]\""
-        ]
+        ],
+        "view_merge_exact": {
+          "statement_index": 0,
+          "target_relation": {
+            "table": "users",
+            "alias": "u"
+          },
+          "actions": [
+            "update",
+            "insert"
+          ],
+          "parent_target_columns": [],
+          "parent_rows": [],
+          "binds": [],
+          "assignments": [
+            {
+              "target_column": "name",
+              "kind": "field",
+              "source_field": {
+                "relation": {
+                  "table": "staging_users",
+                  "alias": "s"
+                },
+                "column": "name"
+              },
+              "selector": "stmt[0].merge_assignment[0][0]"
+            }
+          ],
+          "branches": [
+            {
+              "ordinal": 0,
+              "branch_kind": "when",
+              "merge_action_kind": "update",
+              "merge_match_kind": "matched",
+              "target_columns": [],
+              "rows": [],
+              "assignments": [
+                {
+                  "target_column": "name",
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "table": "staging_users",
+                      "alias": "s"
+                    },
+                    "column": "name"
+                  },
+                  "selector": "stmt[0].merge_assignment[0][0]"
+                }
+              ]
+            },
+            {
+              "ordinal": 1,
+              "branch_kind": "when",
+              "merge_action_kind": "insert",
+              "merge_match_kind": "not_matched_by_target",
+              "target_columns": [
+                "id",
+                "name"
+              ],
+              "rows": [
+                {
+                  "row": 1,
+                  "column": 0,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "table": "staging_users",
+                      "alias": "s"
+                    },
+                    "column": "id"
+                  }
+                },
+                {
+                  "row": 1,
+                  "column": 1,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "table": "staging_users",
+                      "alias": "s"
+                    },
+                    "column": "name"
+                  }
+                }
+              ],
+              "assignments": []
+            }
+          ],
+          "output_channels": 0,
+          "output": []
+        }
       }
     },
     {
@@ -1885,7 +1976,7 @@
           "UpdateStmt"
         ],
         "view_contains": [
-          "\"row\":0,\"column\":1,\"kind\":\"expression\""
+          "\"row\":0,\"column\":1,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"expression_sql\":\"UPPER(:v1)\""
         ]
       }
     },
@@ -2202,7 +2293,7 @@
         "view_contains": [
           "\"insert_mode\":\"all\"",
           "\"source_target\"",
-          "\"column\":2,\"kind\":\"expression\""
+          "\"row\":0,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][2]\",\"expression_sql\":\"UPPER(src_name)\""
         ]
       }
     },
@@ -2577,7 +2668,88 @@
           "\"source_field\"",
           "\"source_target\"",
           "\"selector\":\"stmt[0].merge_assignment[0][0]\""
-        ]
+        ],
+        "view_merge_exact": {
+          "statement_index": 0,
+          "target_relation": {
+            "table": "t"
+          },
+          "actions": [
+            "update"
+          ],
+          "parent_target_columns": [],
+          "parent_rows": [],
+          "binds": [
+            {
+              "bind_key": "1",
+              "bind_kind": 1,
+              "bind_sql": ":1",
+              "bind_position": 1
+            },
+            {
+              "bind_key": "2",
+              "bind_kind": 1,
+              "bind_sql": ":2",
+              "bind_position": 2
+            }
+          ],
+          "assignments": [
+            {
+              "target_column": "email",
+              "kind": "field",
+              "source_field": {
+                "relation": {
+                  "alias": "s",
+                  "source_block": true
+                },
+                "column": "email"
+              },
+              "source_target": {
+                "name": "email",
+                "kind": "bind",
+                "bind_key": "2",
+                "bind_kind": 1,
+                "bind_sql": ":2",
+                "bind_position": 2
+              },
+              "selector": "stmt[0].merge_assignment[0][0]"
+            }
+          ],
+          "branches": [
+            {
+              "ordinal": 0,
+              "branch_kind": "when",
+              "merge_action_kind": "update",
+              "merge_match_kind": "matched",
+              "target_columns": [],
+              "rows": [],
+              "assignments": [
+                {
+                  "target_column": "email",
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "alias": "s",
+                      "source_block": true
+                    },
+                    "column": "email"
+                  },
+                  "source_target": {
+                    "name": "email",
+                    "kind": "bind",
+                    "bind_key": "2",
+                    "bind_kind": 1,
+                    "bind_sql": ":2",
+                    "bind_position": 2
+                  },
+                  "selector": "stmt[0].merge_assignment[0][0]"
+                }
+              ]
+            }
+          ],
+          "output_channels": 0,
+          "output": []
+        }
       }
     },
     {
@@ -2596,7 +2768,90 @@
           "\"kind\":\"field\"",
           "\"source_field\"",
           "\"source_target\""
-        ]
+        ],
+        "view_merge_exact": {
+          "statement_index": 0,
+          "target_relation": {
+            "table": "t"
+          },
+          "actions": [
+            "insert"
+          ],
+          "parent_target_columns": [],
+          "parent_rows": [],
+          "binds": [
+            {
+              "bind_key": "1",
+              "bind_kind": 1,
+              "bind_sql": ":1",
+              "bind_position": 1
+            },
+            {
+              "bind_key": "2",
+              "bind_kind": 1,
+              "bind_sql": ":2",
+              "bind_position": 2
+            }
+          ],
+          "assignments": [],
+          "branches": [
+            {
+              "ordinal": 0,
+              "branch_kind": "when",
+              "merge_action_kind": "insert",
+              "merge_match_kind": "not_matched_by_target",
+              "target_columns": [
+                "id",
+                "email"
+              ],
+              "rows": [
+                {
+                  "row": 0,
+                  "column": 0,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "alias": "s",
+                      "source_block": true
+                    },
+                    "column": "id"
+                  },
+                  "source_target": {
+                    "name": "id",
+                    "kind": "bind",
+                    "bind_key": "1",
+                    "bind_kind": 1,
+                    "bind_sql": ":1",
+                    "bind_position": 1
+                  }
+                },
+                {
+                  "row": 0,
+                  "column": 1,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "alias": "s",
+                      "source_block": true
+                    },
+                    "column": "email"
+                  },
+                  "source_target": {
+                    "name": "email",
+                    "kind": "bind",
+                    "bind_key": "2",
+                    "bind_kind": 1,
+                    "bind_sql": ":2",
+                    "bind_position": 2
+                  }
+                }
+              ],
+              "assignments": []
+            }
+          ],
+          "output_channels": 0,
+          "output": []
+        }
       }
     },
     {
@@ -2796,7 +3051,90 @@
         ],
         "view_contains": [
           "\"selector\":\"stmt[0].merge_assignment[0][0]\""
-        ]
+        ],
+        "view_merge_exact": {
+          "statement_index": 0,
+          "target_relation": {
+            "schema": "KDES",
+            "table": "DBP_SQLM_USERS",
+            "alias": "U"
+          },
+          "actions": [
+            "update"
+          ],
+          "parent_target_columns": [],
+          "parent_rows": [],
+          "binds": [
+            {
+              "bind_key": "1",
+              "bind_kind": 1,
+              "bind_sql": "?",
+              "bind_position": 1
+            },
+            {
+              "bind_key": "2",
+              "bind_kind": 1,
+              "bind_sql": "?",
+              "bind_position": 2
+            }
+          ],
+          "assignments": [
+            {
+              "target_column": "PHONE",
+              "kind": "field",
+              "source_field": {
+                "relation": {
+                  "alias": "S",
+                  "source_block": true
+                },
+                "column": "PHONE"
+              },
+              "source_target": {
+                "name": "PHONE",
+                "kind": "bind",
+                "bind_key": "2",
+                "bind_kind": 1,
+                "bind_sql": "?",
+                "bind_position": 2
+              },
+              "selector": "stmt[0].merge_assignment[0][0]"
+            }
+          ],
+          "branches": [
+            {
+              "ordinal": 0,
+              "branch_kind": "when",
+              "merge_action_kind": "update",
+              "merge_match_kind": "matched",
+              "target_columns": [],
+              "rows": [],
+              "assignments": [
+                {
+                  "target_column": "PHONE",
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "alias": "S",
+                      "source_block": true
+                    },
+                    "column": "PHONE"
+                  },
+                  "source_target": {
+                    "name": "PHONE",
+                    "kind": "bind",
+                    "bind_key": "2",
+                    "bind_kind": 1,
+                    "bind_sql": "?",
+                    "bind_position": 2
+                  },
+                  "selector": "stmt[0].merge_assignment[0][0]"
+                }
+              ]
+            }
+          ],
+          "output_channels": 0,
+          "output": []
+        }
       }
     },
     {
@@ -4254,6 +4592,295 @@
       "sql": "ALTER SESSION ENABLE RESUMABLE NAME q'[batch_load';",
       "expect": {
         "ok": false
+      }
+    },
+    {
+      "id": "ORA-BM001",
+      "name": "oracle-bind-mixed-jdbc-time-tail",
+      "sql": "INSERT INTO KDES.KDES_ORACLE_P0_DATA (  CUSTOMER_ID,    CUSTOMER_NAME,  CITY,   CREATED_AT) VALUES (   ?,    ?,    ?,  SYSDATE);",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "schema": "KDES",
+          "table": "KDES_ORACLE_P0_DATA"
+        },
+        "view_target_columns": [
+          "CUSTOMER_ID",
+          "CUSTOMER_NAME",
+          "CITY",
+          "CREATED_AT"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"bind\",\"bind_key\":\"2\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][1]\"",
+          "\"row\":0,\"column\":2,\"kind\":\"bind\",\"bind_key\":\"3\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":3,\"selector\":\"stmt[0].insert_cell[0][2]\"",
+          "\"row\":0,\"column\":3,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][3]\",\"expression_sql\":\"SYSDATE\""
+        ],
+        "view_not_contains": "\"column\":\"SYSDATE\""
+      }
+    },
+    {
+      "id": "ORA-BM002",
+      "name": "oracle-bind-mixed-current-timestamp-first",
+      "sql": "INSERT INTO bind_mix (created_at, customer_id, customer_name, city) VALUES (CURRENT_TIMESTAMP, ?, ?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "created_at",
+          "customer_id",
+          "customer_name",
+          "city"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][0]\",\"expression_sql\":\"CURRENT_TIMESTAMP\"",
+          "\"row\":0,\"column\":1,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][1]\"",
+          "\"row\":0,\"column\":2,\"kind\":\"bind\",\"bind_key\":\"2\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][2]\"",
+          "\"row\":0,\"column\":3,\"kind\":\"bind\",\"bind_key\":\"3\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":3,\"selector\":\"stmt[0].insert_cell[0][3]\""
+        ],
+        "view_not_contains": "\"column\":\"CURRENT_TIMESTAMP\""
+      }
+    },
+    {
+      "id": "ORA-BM003",
+      "name": "oracle-bind-mixed-positional-time-tail",
+      "sql": "INSERT INTO bind_mix (customer_id, customer_name, city, created_at) VALUES (:1, :2, :3, SYSDATE)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "customer_id",
+          "customer_name",
+          "city",
+          "created_at"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\":1\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"bind\",\"bind_key\":\"2\",\"bind_kind\":1,\"bind_sql\":\":2\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][1]\"",
+          "\"row\":0,\"column\":2,\"kind\":\"bind\",\"bind_key\":\"3\",\"bind_kind\":1,\"bind_sql\":\":3\",\"bind_position\":3,\"selector\":\"stmt[0].insert_cell[0][2]\"",
+          "\"row\":0,\"column\":3,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][3]\",\"expression_sql\":\"SYSDATE\""
+        ],
+        "view_not_contains": "\"column\":\"SYSDATE\""
+      }
+    },
+    {
+      "id": "ORA-BM004",
+      "name": "oracle-bind-mixed-sysdate-first-named",
+      "sql": "INSERT INTO bind_mix (created_at, customer_id, customer_name, city) VALUES (SYSDATE, :customer_id, :customer_name, :city)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "created_at",
+          "customer_id",
+          "customer_name",
+          "city"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][0]\",\"expression_sql\":\"SYSDATE\"",
+          "\"row\":0,\"column\":1,\"kind\":\"bind\",\"bind_key\":\"customer_id\",\"bind_kind\":2,\"bind_sql\":\":customer_id\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][1]\"",
+          "\"row\":0,\"column\":2,\"kind\":\"bind\",\"bind_key\":\"customer_name\",\"bind_kind\":2,\"bind_sql\":\":customer_name\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][2]\"",
+          "\"row\":0,\"column\":3,\"kind\":\"bind\",\"bind_key\":\"city\",\"bind_kind\":2,\"bind_sql\":\":city\",\"bind_position\":3,\"selector\":\"stmt[0].insert_cell[0][3]\""
+        ],
+        "view_not_contains": "\"column\":\"SYSDATE\""
+      }
+    },
+    {
+      "id": "ORA-BM005",
+      "name": "oracle-bind-mixed-named-time-interleaved",
+      "sql": "INSERT INTO bind_mix (customer_id, created_at, customer_name, updated_at, city) VALUES (:customer_id, SYSDATE, :customer_name, CURRENT_TIMESTAMP, :city)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "customer_id",
+          "created_at",
+          "customer_name",
+          "updated_at",
+          "city"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"customer_id\",\"bind_kind\":2,\"bind_sql\":\":customer_id\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"expression_sql\":\"SYSDATE\"",
+          "\"row\":0,\"column\":2,\"kind\":\"bind\",\"bind_key\":\"customer_name\",\"bind_kind\":2,\"bind_sql\":\":customer_name\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][2]\"",
+          "\"row\":0,\"column\":3,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][3]\",\"expression_sql\":\"CURRENT_TIMESTAMP\"",
+          "\"row\":0,\"column\":4,\"kind\":\"bind\",\"bind_key\":\"city\",\"bind_kind\":2,\"bind_sql\":\":city\",\"bind_position\":3,\"selector\":\"stmt[0].insert_cell[0][4]\""
+        ],
+        "view_not_contains": [
+          "\"column\":\"SYSDATE\"",
+          "\"column\":\"CURRENT_TIMESTAMP\""
+        ]
+      }
+    },
+    {
+      "id": "ORA-BM006",
+      "name": "oracle-bind-mixed-null-sysdate",
+      "sql": "INSERT INTO bind_mix (customer_id, note, created_at, city) VALUES (:customer_id, NULL, SYSDATE, :city)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "customer_id",
+          "note",
+          "created_at",
+          "city"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"customer_id\",\"bind_kind\":2,\"bind_sql\":\":customer_id\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"literal\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"literal\":{\"kind\":\"null\"}",
+          "\"row\":0,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][2]\",\"expression_sql\":\"SYSDATE\"",
+          "\"row\":0,\"column\":3,\"kind\":\"bind\",\"bind_key\":\"city\",\"bind_kind\":2,\"bind_sql\":\":city\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][3]\""
+        ],
+        "view_not_contains": "\"column\":\"SYSDATE\""
+      }
+    },
+    {
+      "id": "ORA-BM007",
+      "name": "oracle-bind-mixed-default-current-timestamp",
+      "sql": "INSERT INTO bind_mix (customer_id, status, created_at, city) VALUES (:customer_id, DEFAULT, CURRENT_TIMESTAMP, :city)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "customer_id",
+          "status",
+          "created_at",
+          "city"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"customer_id\",\"bind_kind\":2,\"bind_sql\":\":customer_id\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"default\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\"",
+          "\"row\":0,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][2]\",\"expression_sql\":\"CURRENT_TIMESTAMP\"",
+          "\"row\":0,\"column\":3,\"kind\":\"bind\",\"bind_key\":\"city\",\"bind_kind\":2,\"bind_sql\":\":city\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][3]\""
+        ],
+        "view_not_contains": "\"column\":\"CURRENT_TIMESTAMP\""
+      }
+    },
+    {
+      "id": "ORA-BM008",
+      "name": "oracle-bind-mixed-coalesce-sysdate",
+      "sql": "INSERT INTO bind_mix (customer_id, retry_count, created_at, city) VALUES (:customer_id, COALESCE(:retry_count, 0), SYSDATE, :city)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "customer_id",
+          "retry_count",
+          "created_at",
+          "city"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"customer_id\",\"bind_kind\":2,\"bind_sql\":\":customer_id\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"expression_sql\":\"COALESCE(:retry_count, 0)\"",
+          "\"row\":0,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][2]\",\"expression_sql\":\"SYSDATE\"",
+          "\"row\":0,\"column\":3,\"kind\":\"bind\",\"bind_key\":\"city\",\"bind_kind\":2,\"bind_sql\":\":city\",\"bind_position\":3,\"selector\":\"stmt[0].insert_cell[0][3]\""
+        ],
+        "view_not_contains": "\"column\":\"SYSDATE\""
+      }
+    },
+    {
+      "id": "ORA-BM009",
+      "name": "oracle-bind-mixed-case-cast-sysdate",
+      "sql": "INSERT INTO bind_mix (customer_id, state, amount, created_at, city) VALUES (:customer_id, CASE WHEN :enabled = 1 THEN 'Y' ELSE 'N' END, CAST(:amount AS NUMBER), SYSDATE, :city)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "customer_id",
+          "state",
+          "amount",
+          "created_at",
+          "city"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"customer_id\",\"bind_kind\":2,\"bind_sql\":\":customer_id\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"expression_sql\":\"CASE WHEN :enabled = 1 THEN 'Y' ELSE 'N' END\"",
+          "\"row\":0,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][2]\",\"expression_sql\":\"CAST(:amount AS NUMBER)\"",
+          "\"row\":0,\"column\":3,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][3]\",\"expression_sql\":\"SYSDATE\"",
+          "\"row\":0,\"column\":4,\"kind\":\"bind\",\"bind_key\":\"city\",\"bind_kind\":2,\"bind_sql\":\":city\",\"bind_position\":4,\"selector\":\"stmt[0].insert_cell[0][4]\""
+        ],
+        "view_not_contains": "\"column\":\"SYSDATE\""
+      }
+    },
+    {
+      "id": "ORA-BM010",
+      "name": "oracle-bind-mixed-quoted-irregular-whitespace",
+      "sql": "INSERT   INTO \"KDES\".\"Bind_Mix\" (  \"Customer_Id\",    \"Customer_Name\",  \"City\",   \"Created_At\") VALUES (   :customer_id,    :customer_name,    :city,  CURRENT_TIMESTAMP);",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "schema": "KDES",
+          "table": "Bind_Mix"
+        },
+        "view_target_columns": [
+          "Customer_Id",
+          "Customer_Name",
+          "City",
+          "Created_At"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"customer_id\",\"bind_kind\":2,\"bind_sql\":\":customer_id\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"bind\",\"bind_key\":\"customer_name\",\"bind_kind\":2,\"bind_sql\":\":customer_name\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][1]\"",
+          "\"row\":0,\"column\":2,\"kind\":\"bind\",\"bind_key\":\"city\",\"bind_kind\":2,\"bind_sql\":\":city\",\"bind_position\":3,\"selector\":\"stmt[0].insert_cell[0][2]\"",
+          "\"row\":0,\"column\":3,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][3]\",\"expression_sql\":\"CURRENT_TIMESTAMP\""
+        ],
+        "view_not_contains": "\"column\":\"CURRENT_TIMESTAMP\""
       }
     }
   ]

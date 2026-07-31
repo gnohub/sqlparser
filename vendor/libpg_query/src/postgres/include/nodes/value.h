@@ -66,6 +66,7 @@ typedef struct String
 
 	NodeTag		type;
 	char	   *sval;
+	ParseLoc	location;
 } String;
 
 typedef struct BitString

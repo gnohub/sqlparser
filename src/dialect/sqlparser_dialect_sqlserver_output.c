@@ -33,6 +33,7 @@ typedef struct {
 	size_t statement_index;
 	char *top_sql;
 	char *source_name;
+	char *source_sql;
 	char *delete_target_sql;
 	int omitted_into;
 	int delete_source_from;
@@ -186,6 +187,7 @@ static void sqlparser_sqlserver_output_dml_clear(sqlparser_sqlserver_output_dml_
 	}
 	free(dml->top_sql);
 	free(dml->source_name);
+	free(dml->source_sql);
 	free(dml->delete_target_sql);
 	for (index = 0U; index < dml->channel_count; index++) {
 		sqlparser_sqlserver_output_channel_clear(&dml->channels[index]);
@@ -2590,7 +2592,12 @@ static sqlparser_status_t sqlparser_sqlserver_output_process_nested_statement(
 		}
 		item->source_offset = tokens.items[index + 1U].start;
 		(*io_state)->dmls[dml_global_index].source_name = sqlparser_strdup(item->name);
-		if ((*io_state)->dmls[dml_global_index].source_name == NULL) {
+		(*io_state)->dmls[dml_global_index].source_sql = sqlparser_strndup(
+			sql + tokens.items[index + 1U].start,
+			tokens.items[close_index].start -
+				tokens.items[index + 1U].start);
+		if ((*io_state)->dmls[dml_global_index].source_name == NULL ||
+		    (*io_state)->dmls[dml_global_index].source_sql == NULL) {
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 			status = SQLPARSER_STATUS_NO_MEMORY;
 			goto done;
@@ -2970,6 +2977,14 @@ sqlparser_status_t sqlparser_sqlserver_output_clone(
 				return SQLPARSER_STATUS_NO_MEMORY;
 			}
 		}
+		if (source_dml->source_sql != NULL) {
+			dest_dml->source_sql = sqlparser_strdup(source_dml->source_sql);
+			if (dest_dml->source_sql == NULL) {
+				sqlparser_sqlserver_output_destroy(clone);
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+				return SQLPARSER_STATUS_NO_MEMORY;
+			}
+		}
 		if (source_dml->delete_target_sql != NULL) {
 			dest_dml->delete_target_sql = sqlparser_strdup(source_dml->delete_target_sql);
 			if (dest_dml->delete_target_sql == NULL) {
@@ -3069,6 +3084,7 @@ int sqlparser_sqlserver_output_dml_at(
 	out_dml->parent_dml_index = dml->parent_dml_index;
 	out_dml->has_parent = dml->has_parent;
 	out_dml->source_name = dml->source_name;
+	out_dml->source_sql = dml->source_sql;
 	out_dml->has_duplicate_target_relation =
 		dml->delete_target_sql != NULL && dml->delete_source_from;
 	return 1;

@@ -137,6 +137,12 @@ sqlparser_status_t sqlparser_mysql_preprocess_identifier_origins(
 	void **out_state,
 	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_mysql_preprocess_fragment_identifier_origins(
+	const char *input_sql,
+	void *state,
+	char **out_parser_sql,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error);
 int sqlparser_mysql_public_sql_is_session_statement(
 	const char *sql,
 	size_t length);
@@ -154,6 +160,13 @@ sqlparser_status_t sqlparser_sqlserver_preprocess_identifier_origins(
 	const sqlparser_limits_t *limits,
 	char **out_parser_sql,
 	void **out_state,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_sqlserver_preprocess_fragment_identifier_origins(
+	const char *input_sql,
+	void *state,
+	size_t statement_index,
+	char **out_parser_sql,
 	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error);
 const sqlparser_dialect_ops_t *sqlparser_dialect_dameng_ops(void);

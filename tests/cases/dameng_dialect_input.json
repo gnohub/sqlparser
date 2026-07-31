@@ -485,7 +485,98 @@
         ],
         "view_contains": [
           "\"selector\":\"stmt[0].merge_assignment[0][0]\""
-        ]
+        ],
+        "view_merge_exact": {
+          "statement_index": 0,
+          "target_relation": {
+            "table": "users",
+            "alias": "u"
+          },
+          "actions": [
+            "update",
+            "insert"
+          ],
+          "parent_target_columns": [],
+          "parent_rows": [],
+          "binds": [],
+          "assignments": [
+            {
+              "target_column": "name",
+              "kind": "field",
+              "source_field": {
+                "relation": {
+                  "table": "staging_users",
+                  "alias": "s"
+                },
+                "column": "name"
+              },
+              "selector": "stmt[0].merge_assignment[0][0]"
+            }
+          ],
+          "branches": [
+            {
+              "ordinal": 0,
+              "branch_kind": "when",
+              "merge_action_kind": "update",
+              "merge_match_kind": "matched",
+              "target_columns": [],
+              "rows": [],
+              "assignments": [
+                {
+                  "target_column": "name",
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "table": "staging_users",
+                      "alias": "s"
+                    },
+                    "column": "name"
+                  },
+                  "selector": "stmt[0].merge_assignment[0][0]"
+                }
+              ]
+            },
+            {
+              "ordinal": 1,
+              "branch_kind": "when",
+              "merge_action_kind": "insert",
+              "merge_match_kind": "not_matched_by_target",
+              "target_columns": [
+                "id",
+                "name"
+              ],
+              "rows": [
+                {
+                  "row": 1,
+                  "column": 0,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "table": "staging_users",
+                      "alias": "s"
+                    },
+                    "column": "id"
+                  }
+                },
+                {
+                  "row": 1,
+                  "column": 1,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "table": "staging_users",
+                      "alias": "s"
+                    },
+                    "column": "name"
+                  }
+                }
+              ],
+              "assignments": []
+            }
+          ],
+          "output_channels": 0,
+          "output": []
+        }
       }
     },
     {
@@ -1410,7 +1501,7 @@
           "UpdateStmt"
         ],
         "view_contains": [
-          "\"row\":0,\"column\":1,\"kind\":\"expression\""
+          "\"row\":0,\"column\":1,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"expression_sql\":\"UPPER(:v1)\""
         ]
       }
     },
@@ -1749,7 +1840,7 @@
         "view_contains": [
           "\"insert_mode\":\"all\"",
           "\"source_target\"",
-          "\"column\":2,\"kind\":\"expression\""
+          "\"row\":0,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][2]\",\"expression_sql\":\"UPPER(src_name)\""
         ]
       }
     },
@@ -1833,7 +1924,88 @@
           "\"source_target\"",
           "\"selector\":\"stmt[0].merge_assignment[0][0]\""
         ],
-        "view_not_contains": "$"
+        "view_not_contains": "$",
+        "view_merge_exact": {
+          "statement_index": 0,
+          "target_relation": {
+            "table": "t"
+          },
+          "actions": [
+            "update"
+          ],
+          "parent_target_columns": [],
+          "parent_rows": [],
+          "binds": [
+            {
+              "bind_key": "1",
+              "bind_kind": 1,
+              "bind_sql": ":1",
+              "bind_position": 1
+            },
+            {
+              "bind_key": "2",
+              "bind_kind": 1,
+              "bind_sql": ":2",
+              "bind_position": 2
+            }
+          ],
+          "assignments": [
+            {
+              "target_column": "email",
+              "kind": "field",
+              "source_field": {
+                "relation": {
+                  "alias": "s",
+                  "source_block": true
+                },
+                "column": "email"
+              },
+              "source_target": {
+                "name": "email",
+                "kind": "bind",
+                "bind_key": "2",
+                "bind_kind": 1,
+                "bind_sql": ":2",
+                "bind_position": 2
+              },
+              "selector": "stmt[0].merge_assignment[0][0]"
+            }
+          ],
+          "branches": [
+            {
+              "ordinal": 0,
+              "branch_kind": "when",
+              "merge_action_kind": "update",
+              "merge_match_kind": "matched",
+              "target_columns": [],
+              "rows": [],
+              "assignments": [
+                {
+                  "target_column": "email",
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "alias": "s",
+                      "source_block": true
+                    },
+                    "column": "email"
+                  },
+                  "source_target": {
+                    "name": "email",
+                    "kind": "bind",
+                    "bind_key": "2",
+                    "bind_kind": 1,
+                    "bind_sql": ":2",
+                    "bind_position": 2
+                  },
+                  "selector": "stmt[0].merge_assignment[0][0]"
+                }
+              ]
+            }
+          ],
+          "output_channels": 0,
+          "output": []
+        }
       }
     },
     {
@@ -1853,7 +2025,90 @@
           "\"source_field\"",
           "\"source_target\""
         ],
-        "view_not_contains": "$"
+        "view_not_contains": "$",
+        "view_merge_exact": {
+          "statement_index": 0,
+          "target_relation": {
+            "table": "t"
+          },
+          "actions": [
+            "insert"
+          ],
+          "parent_target_columns": [],
+          "parent_rows": [],
+          "binds": [
+            {
+              "bind_key": "1",
+              "bind_kind": 1,
+              "bind_sql": ":1",
+              "bind_position": 1
+            },
+            {
+              "bind_key": "2",
+              "bind_kind": 1,
+              "bind_sql": ":2",
+              "bind_position": 2
+            }
+          ],
+          "assignments": [],
+          "branches": [
+            {
+              "ordinal": 0,
+              "branch_kind": "when",
+              "merge_action_kind": "insert",
+              "merge_match_kind": "not_matched_by_target",
+              "target_columns": [
+                "id",
+                "email"
+              ],
+              "rows": [
+                {
+                  "row": 0,
+                  "column": 0,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "alias": "s",
+                      "source_block": true
+                    },
+                    "column": "id"
+                  },
+                  "source_target": {
+                    "name": "id",
+                    "kind": "bind",
+                    "bind_key": "1",
+                    "bind_kind": 1,
+                    "bind_sql": ":1",
+                    "bind_position": 1
+                  }
+                },
+                {
+                  "row": 0,
+                  "column": 1,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "alias": "s",
+                      "source_block": true
+                    },
+                    "column": "email"
+                  },
+                  "source_target": {
+                    "name": "email",
+                    "kind": "bind",
+                    "bind_key": "2",
+                    "bind_kind": 1,
+                    "bind_sql": ":2",
+                    "bind_position": 2
+                  }
+                }
+              ],
+              "assignments": []
+            }
+          ],
+          "output_channels": 0,
+          "output": []
+        }
       }
     },
     {
@@ -2845,6 +3100,321 @@
         "statement_count": 1,
         "view_contains": "\"keyword\":\"alter_session\"",
         "view_not_contains": "sqlparser_"
+      }
+    },
+    {
+      "id": "DM-BM001",
+      "name": "dameng-bind-mixed-time-expression-tail",
+      "sql": "INSERT INTO bind_mix (id, name, city, created_at) VALUES (?, ?, ?, SYSDATE())",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "id",
+          "name",
+          "city",
+          "created_at"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"bind\",\"bind_key\":\"2\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][1]\"",
+          "\"row\":0,\"column\":2,\"kind\":\"bind\",\"bind_key\":\"3\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":3,\"selector\":\"stmt[0].insert_cell[0][2]\"",
+          "\"row\":0,\"column\":3,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][3]\",\"expression_sql\":\"SYSDATE()\""
+        ],
+        "view_not_contains": [
+          "\"column\":\"SYSDATE\"",
+          "$1"
+        ]
+      }
+    },
+    {
+      "id": "DM-BM002",
+      "name": "dameng-bind-mixed-time-expression-head",
+      "sql": "INSERT INTO bind_mix (created_at, id, name, city) VALUES (SYSDATE(), ?, ?, ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "created_at",
+          "id",
+          "name",
+          "city"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][0]\",\"expression_sql\":\"SYSDATE()\"",
+          "\"row\":0,\"column\":1,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][1]\"",
+          "\"row\":0,\"column\":2,\"kind\":\"bind\",\"bind_key\":\"2\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][2]\"",
+          "\"row\":0,\"column\":3,\"kind\":\"bind\",\"bind_key\":\"3\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":3,\"selector\":\"stmt[0].insert_cell[0][3]\""
+        ],
+        "view_not_contains": [
+          "\"column\":\"SYSDATE\"",
+          "$1"
+        ]
+      }
+    },
+    {
+      "id": "DM-BM003",
+      "name": "dameng-bind-mixed-interleaved-time-expressions",
+      "sql": "INSERT INTO bind_mix (id, created_at, name, updated_at) VALUES (?, CURRENT_TIMESTAMP(), ?, SYSDATE())",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "id",
+          "created_at",
+          "name",
+          "updated_at"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"expression_sql\":\"CURRENT_TIMESTAMP()\"",
+          "\"row\":0,\"column\":2,\"kind\":\"bind\",\"bind_key\":\"2\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][2]\"",
+          "\"row\":0,\"column\":3,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][3]\",\"expression_sql\":\"SYSDATE()\""
+        ],
+        "view_not_contains": [
+          "\"column\":\"CURRENT_TIMESTAMP\"",
+          "\"column\":\"SYSDATE\"",
+          "$1"
+        ]
+      }
+    },
+    {
+      "id": "DM-BM004",
+      "name": "dameng-bind-mixed-null-and-time-expression",
+      "sql": "INSERT INTO bind_mix (id, note, created_at, name) VALUES (?, NULL, SYSDATE(), ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "id",
+          "note",
+          "created_at",
+          "name"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"literal\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"literal\":{\"kind\":\"null\"}",
+          "\"row\":0,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][2]\",\"expression_sql\":\"SYSDATE()\"",
+          "\"row\":0,\"column\":3,\"kind\":\"bind\",\"bind_key\":\"2\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][3]\""
+        ],
+        "view_not_contains": [
+          "\"column\":\"SYSDATE\"",
+          "$1"
+        ]
+      }
+    },
+    {
+      "id": "DM-BM005",
+      "name": "dameng-bind-mixed-default-and-time-expression",
+      "sql": "INSERT INTO bind_mix (id, note, created_at, name) VALUES (?, DEFAULT, CURRENT_TIMESTAMP(), ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "id",
+          "note",
+          "created_at",
+          "name"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"default\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\"",
+          "\"row\":0,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][2]\",\"expression_sql\":\"CURRENT_TIMESTAMP()\"",
+          "\"row\":0,\"column\":3,\"kind\":\"bind\",\"bind_key\":\"2\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][3]\""
+        ],
+        "view_not_contains": [
+          "\"column\":\"CURRENT_TIMESTAMP\"",
+          "$1"
+        ]
+      }
+    },
+    {
+      "id": "DM-BM006",
+      "name": "dameng-bind-mixed-literal-and-time-expression",
+      "sql": "INSERT INTO bind_mix (id, note, created_at, name) VALUES (?, 'literal', SYSDATE(), ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "id",
+          "note",
+          "created_at",
+          "name"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"literal\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"literal\":{\"kind\":\"string\",\"string_value\":\"literal\"}",
+          "\"row\":0,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][2]\",\"expression_sql\":\"SYSDATE()\"",
+          "\"row\":0,\"column\":3,\"kind\":\"bind\",\"bind_key\":\"2\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][3]\""
+        ],
+        "view_not_contains": [
+          "\"column\":\"SYSDATE\"",
+          "$1"
+        ]
+      }
+    },
+    {
+      "id": "DM-BM007",
+      "name": "dameng-bind-mixed-coalesce-and-time-expression",
+      "sql": "INSERT INTO bind_mix (id, note, created_at, city) VALUES (?, COALESCE(?, 'fallback'), SYSDATE(), ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "id",
+          "note",
+          "created_at",
+          "city"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"expression_sql\":\"COALESCE(?, 'fallback')\"",
+          "\"row\":0,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][2]\",\"expression_sql\":\"SYSDATE()\"",
+          "\"row\":0,\"column\":3,\"kind\":\"bind\",\"bind_key\":\"3\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":3,\"selector\":\"stmt[0].insert_cell[0][3]\""
+        ],
+        "view_not_contains": [
+          "\"column\":\"SYSDATE\"",
+          "$1"
+        ]
+      }
+    },
+    {
+      "id": "DM-BM008",
+      "name": "dameng-bind-mixed-case-cast-and-time-expression",
+      "sql": "INSERT INTO bind_mix (id, state, amount, created_at, city) VALUES (?, CASE WHEN ? IS NULL THEN 'missing' ELSE 'present' END, CAST(? AS INTEGER), SYSDATE(), ?)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "id",
+          "state",
+          "amount",
+          "created_at",
+          "city"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"expression_sql\":\"CASE WHEN ? IS NULL THEN 'missing' ELSE 'present' END\"",
+          "\"row\":0,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][2]\",\"expression_sql\":\"CAST(? AS INTEGER)\"",
+          "\"row\":0,\"column\":3,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][3]\",\"expression_sql\":\"SYSDATE()\"",
+          "\"row\":0,\"column\":4,\"kind\":\"bind\",\"bind_key\":\"4\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":4,\"selector\":\"stmt[0].insert_cell[0][4]\""
+        ],
+        "view_not_contains": [
+          "\"column\":\"SYSDATE\"",
+          "$1"
+        ]
+      }
+    },
+    {
+      "id": "DM-BM009",
+      "name": "dameng-bind-mixed-multirow-time-expressions",
+      "sql": "INSERT INTO bind_mix (v1, v2) VALUES (?, SYSDATE()), (SYSDATE(), ?), (?, CURRENT_TIMESTAMP())",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "v1",
+          "v2"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"expression_sql\":\"SYSDATE()\"",
+          "\"row\":1,\"column\":0,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[1][0]\",\"expression_sql\":\"SYSDATE()\"",
+          "\"row\":1,\"column\":1,\"kind\":\"bind\",\"bind_key\":\"2\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[1][1]\"",
+          "\"row\":2,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"3\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":3,\"selector\":\"stmt[0].insert_cell[2][0]\"",
+          "\"row\":2,\"column\":1,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[2][1]\",\"expression_sql\":\"CURRENT_TIMESTAMP()\""
+        ],
+        "view_not_contains": [
+          "\"column\":\"CURRENT_TIMESTAMP\"",
+          "\"column\":\"SYSDATE\"",
+          "$1"
+        ]
+      }
+    },
+    {
+      "id": "DM-BM010",
+      "name": "dameng-bind-mixed-quoted-identifiers-and-spacing",
+      "sql": "INSERT INTO \"KDES\".\"Bind_Mix\" (  \"Id\",    \"Name\",  \"City\",   \"Created_At\") VALUES (   ?,    ?,    ?,  SYSDATE);",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "schema": "KDES",
+          "table": "Bind_Mix"
+        },
+        "view_target_columns": [
+          "Id",
+          "Name",
+          "City",
+          "Created_At"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"bind\",\"bind_key\":\"2\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][1]\"",
+          "\"row\":0,\"column\":2,\"kind\":\"bind\",\"bind_key\":\"3\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":3,\"selector\":\"stmt[0].insert_cell[0][2]\"",
+          "\"row\":0,\"column\":3,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][3]\",\"expression_sql\":\"SYSDATE\""
+        ],
+        "view_not_contains": [
+          "\"column\":\"SYSDATE\"",
+          "$1"
+        ]
       }
     },
     {

@@ -431,7 +431,103 @@
           "\"target_columns\"",
           "\"rows\"",
           "\"selector\":\"stmt[0].merge_assignment[0][0]\""
-        ]
+        ],
+        "view_merge_exact": {
+          "statement_index": 0,
+          "target_relation": {
+            "schema": "dbo",
+            "table": "users",
+            "alias": "t"
+          },
+          "actions": [
+            "update",
+            "insert"
+          ],
+          "parent_target_columns": [],
+          "parent_rows": [],
+          "binds": [],
+          "assignments": [
+            {
+              "target_column": "name",
+              "kind": "field",
+              "source_field": {
+                "relation": {
+                  "schema": "dbo",
+                  "table": "staging_users",
+                  "alias": "s"
+                },
+                "column": "name"
+              },
+              "selector": "stmt[0].merge_assignment[0][0]"
+            }
+          ],
+          "branches": [
+            {
+              "ordinal": 0,
+              "branch_kind": "when",
+              "merge_action_kind": "update",
+              "merge_match_kind": "matched",
+              "target_columns": [],
+              "rows": [],
+              "assignments": [
+                {
+                  "target_column": "name",
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "schema": "dbo",
+                      "table": "staging_users",
+                      "alias": "s"
+                    },
+                    "column": "name"
+                  },
+                  "selector": "stmt[0].merge_assignment[0][0]"
+                }
+              ]
+            },
+            {
+              "ordinal": 1,
+              "branch_kind": "when",
+              "merge_action_kind": "insert",
+              "merge_match_kind": "not_matched_by_target",
+              "target_columns": [
+                "id",
+                "name"
+              ],
+              "rows": [
+                {
+                  "row": 1,
+                  "column": 0,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "schema": "dbo",
+                      "table": "staging_users",
+                      "alias": "s"
+                    },
+                    "column": "id"
+                  }
+                },
+                {
+                  "row": 1,
+                  "column": 1,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "schema": "dbo",
+                      "table": "staging_users",
+                      "alias": "s"
+                    },
+                    "column": "name"
+                  }
+                }
+              ],
+              "assignments": []
+            }
+          ],
+          "output_channels": 0,
+          "output": []
+        }
       }
     },
     {
@@ -1349,7 +1445,107 @@
           "\"bind_position\":3",
           "\"selector\":\"stmt[0].merge_assignment[0][0]\""
         ],
-        "view_not_contains": "$1"
+        "view_not_contains": "$1",
+        "view_merge_exact": {
+          "statement_index": 0,
+          "target_relation": {
+            "table": "target",
+            "alias": "t"
+          },
+          "actions": [
+            "update",
+            "insert"
+          ],
+          "parent_target_columns": [],
+          "parent_rows": [],
+          "binds": [
+            {
+              "bind_key": "1",
+              "bind_kind": 1,
+              "bind_sql": "?",
+              "bind_position": 1
+            },
+            {
+              "bind_key": "2",
+              "bind_kind": 1,
+              "bind_sql": "?",
+              "bind_position": 2
+            },
+            {
+              "bind_key": "3",
+              "bind_kind": 1,
+              "bind_sql": "?",
+              "bind_position": 3
+            }
+          ],
+          "assignments": [
+            {
+              "target_column": "phone",
+              "kind": "bind",
+              "bind_key": "1",
+              "bind_kind": 1,
+              "bind_sql": "?",
+              "bind_position": 1,
+              "selector": "stmt[0].merge_assignment[0][0]"
+            }
+          ],
+          "branches": [
+            {
+              "ordinal": 0,
+              "branch_kind": "when",
+              "merge_action_kind": "update",
+              "merge_match_kind": "matched",
+              "target_columns": [],
+              "rows": [],
+              "assignments": [
+                {
+                  "target_column": "phone",
+                  "kind": "bind",
+                  "bind_key": "1",
+                  "bind_kind": 1,
+                  "bind_sql": "?",
+                  "bind_position": 1,
+                  "selector": "stmt[0].merge_assignment[0][0]"
+                }
+              ]
+            },
+            {
+              "ordinal": 1,
+              "branch_kind": "when",
+              "merge_action_kind": "insert",
+              "merge_match_kind": "not_matched_by_target",
+              "target_columns": [
+                "id",
+                "phone"
+              ],
+              "rows": [
+                {
+                  "row": 1,
+                  "column": 0,
+                  "kind": "bind",
+                  "bind_key": "2",
+                  "bind_kind": 1,
+                  "bind_sql": "?",
+                  "bind_position": 2,
+                  "selector": "stmt[0].value[15]"
+                },
+                {
+                  "row": 1,
+                  "column": 1,
+                  "kind": "bind",
+                  "bind_key": "3",
+                  "bind_kind": 1,
+                  "bind_sql": "?",
+                  "bind_position": 3,
+                  "selector": "stmt[0].value[16]"
+                }
+              ],
+              "assignments": []
+            }
+          ],
+          "output_channels": 0,
+          "output": []
+        }
       }
     },
     {
@@ -1435,7 +1631,7 @@
           "UpdateStmt"
         ],
         "view_contains": [
-          "\"row\":0,\"column\":1,\"kind\":\"expression\""
+          "\"row\":0,\"column\":1,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"expression_sql\":\"UPPER(@v1)\""
         ],
         "view_not_contains": "$1"
       }
@@ -4932,7 +5128,144 @@
           "\"source_target\"",
           "\"kind\":\"field\"",
           "\"selector\":\"stmt[0].merge_assignment[0][0]\""
-        ]
+        ],
+        "view_merge_exact": {
+          "statement_index": 0,
+          "target_relation": {
+            "schema": "dbo",
+            "table": "t",
+            "alias": "t"
+          },
+          "actions": [
+            "update",
+            "insert"
+          ],
+          "parent_target_columns": [],
+          "parent_rows": [],
+          "binds": [
+            {
+              "bind_key": "id",
+              "bind_kind": 2,
+              "bind_sql": "@id",
+              "bind_position": 1
+            },
+            {
+              "bind_key": "email",
+              "bind_kind": 2,
+              "bind_sql": "@email",
+              "bind_position": 2
+            }
+          ],
+          "assignments": [
+            {
+              "target_column": "email",
+              "kind": "field",
+              "source_field": {
+                "relation": {
+                  "alias": "s",
+                  "source_block": true
+                },
+                "column": "email"
+              },
+              "source_target": {
+                "name": "email",
+                "kind": "bind",
+                "bind_key": "email",
+                "bind_kind": 2,
+                "bind_sql": "@email",
+                "bind_position": 2
+              },
+              "selector": "stmt[0].merge_assignment[0][0]"
+            }
+          ],
+          "branches": [
+            {
+              "ordinal": 0,
+              "branch_kind": "when",
+              "merge_action_kind": "update",
+              "merge_match_kind": "matched",
+              "target_columns": [],
+              "rows": [],
+              "assignments": [
+                {
+                  "target_column": "email",
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "alias": "s",
+                      "source_block": true
+                    },
+                    "column": "email"
+                  },
+                  "source_target": {
+                    "name": "email",
+                    "kind": "bind",
+                    "bind_key": "email",
+                    "bind_kind": 2,
+                    "bind_sql": "@email",
+                    "bind_position": 2
+                  },
+                  "selector": "stmt[0].merge_assignment[0][0]"
+                }
+              ]
+            },
+            {
+              "ordinal": 1,
+              "branch_kind": "when",
+              "merge_action_kind": "insert",
+              "merge_match_kind": "not_matched_by_target",
+              "target_columns": [
+                "id",
+                "email"
+              ],
+              "rows": [
+                {
+                  "row": 1,
+                  "column": 0,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "alias": "s",
+                      "source_block": true
+                    },
+                    "column": "id"
+                  },
+                  "source_target": {
+                    "name": "id",
+                    "kind": "bind",
+                    "bind_key": "id",
+                    "bind_kind": 2,
+                    "bind_sql": "@id",
+                    "bind_position": 1
+                  }
+                },
+                {
+                  "row": 1,
+                  "column": 1,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "alias": "s",
+                      "source_block": true
+                    },
+                    "column": "email"
+                  },
+                  "source_target": {
+                    "name": "email",
+                    "kind": "bind",
+                    "bind_key": "email",
+                    "bind_kind": 2,
+                    "bind_sql": "@email",
+                    "bind_position": 2
+                  }
+                }
+              ],
+              "assignments": []
+            }
+          ],
+          "output_channels": 0,
+          "output": []
+        }
       }
     },
     {
@@ -7119,7 +7452,108 @@
           "\"kind\":\"pseudo\"",
           "\"name\":\"$action\"",
           "\"selector\":\"stmt[0].merge_assignment[0][0]\""
-        ]
+        ],
+        "view_merge_exact": {
+          "statement_index": 0,
+          "target_relation": {
+            "schema": "dbo",
+            "table": "t",
+            "alias": "t"
+          },
+          "actions": [
+            "update",
+            "insert"
+          ],
+          "parent_target_columns": [],
+          "parent_rows": [],
+          "binds": [],
+          "assignments": [
+            {
+              "target_column": "a",
+              "kind": "field",
+              "source_field": {
+                "relation": {
+                  "schema": "dbo",
+                  "table": "s",
+                  "alias": "s"
+                },
+                "column": "a"
+              },
+              "selector": "stmt[0].merge_assignment[0][0]"
+            }
+          ],
+          "branches": [
+            {
+              "ordinal": 0,
+              "branch_kind": "when",
+              "merge_action_kind": "update",
+              "merge_match_kind": "matched",
+              "target_columns": [],
+              "rows": [],
+              "assignments": [
+                {
+                  "target_column": "a",
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "schema": "dbo",
+                      "table": "s",
+                      "alias": "s"
+                    },
+                    "column": "a"
+                  },
+                  "selector": "stmt[0].merge_assignment[0][0]"
+                }
+              ]
+            },
+            {
+              "ordinal": 1,
+              "branch_kind": "when",
+              "merge_action_kind": "insert",
+              "merge_match_kind": "not_matched_by_target",
+              "target_columns": [
+                "id",
+                "a"
+              ],
+              "rows": [
+                {
+                  "row": 1,
+                  "column": 0,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "schema": "dbo",
+                      "table": "s",
+                      "alias": "s"
+                    },
+                    "column": "id"
+                  }
+                },
+                {
+                  "row": 1,
+                  "column": 1,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "schema": "dbo",
+                      "table": "s",
+                      "alias": "s"
+                    },
+                    "column": "a"
+                  }
+                }
+              ],
+              "assignments": []
+            }
+          ],
+          "output_channels": 1,
+          "output": [
+            {
+              "kind": "pseudo",
+              "name": "$action"
+            }
+          ]
+        }
       }
     },
     {
@@ -7138,7 +7572,126 @@
           "\"kind\":\"target_after\"",
           "\"kind\":\"source\"",
           "\"selector\":\"stmt[0].merge_assignment[0][0]\""
-        ]
+        ],
+        "view_merge_exact": {
+          "statement_index": 0,
+          "target_relation": {
+            "schema": "dbo",
+            "table": "t",
+            "alias": "t"
+          },
+          "actions": [
+            "update",
+            "insert"
+          ],
+          "parent_target_columns": [],
+          "parent_rows": [],
+          "binds": [],
+          "assignments": [
+            {
+              "target_column": "a",
+              "kind": "field",
+              "source_field": {
+                "relation": {
+                  "schema": "dbo",
+                  "table": "s",
+                  "alias": "s"
+                },
+                "column": "a"
+              },
+              "selector": "stmt[0].merge_assignment[0][0]"
+            }
+          ],
+          "branches": [
+            {
+              "ordinal": 0,
+              "branch_kind": "when",
+              "merge_action_kind": "update",
+              "merge_match_kind": "matched",
+              "target_columns": [],
+              "rows": [],
+              "assignments": [
+                {
+                  "target_column": "a",
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "schema": "dbo",
+                      "table": "s",
+                      "alias": "s"
+                    },
+                    "column": "a"
+                  },
+                  "selector": "stmt[0].merge_assignment[0][0]"
+                }
+              ]
+            },
+            {
+              "ordinal": 1,
+              "branch_kind": "when",
+              "merge_action_kind": "insert",
+              "merge_match_kind": "not_matched_by_target",
+              "target_columns": [
+                "id",
+                "a"
+              ],
+              "rows": [
+                {
+                  "row": 1,
+                  "column": 0,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "schema": "dbo",
+                      "table": "s",
+                      "alias": "s"
+                    },
+                    "column": "id"
+                  }
+                },
+                {
+                  "row": 1,
+                  "column": 1,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "schema": "dbo",
+                      "table": "s",
+                      "alias": "s"
+                    },
+                    "column": "a"
+                  }
+                }
+              ],
+              "assignments": []
+            }
+          ],
+          "output_channels": 1,
+          "output": [
+            {
+              "kind": "pseudo",
+              "name": "$action"
+            },
+            {
+              "kind": "field",
+              "name": "old_id",
+              "column": "id",
+              "reference_kind": "target_before"
+            },
+            {
+              "kind": "field",
+              "name": "new_id",
+              "column": "id",
+              "reference_kind": "target_after"
+            },
+            {
+              "kind": "field",
+              "name": "source_id",
+              "column": "id",
+              "reference_kind": "source"
+            }
+          ]
+        }
       }
     },
     {
@@ -7504,12 +8057,143 @@
       "expect": {
         "ok": true,
         "statement_count": 3,
+        "statement_types": [
+          "ConditionExpr",
+          "DeleteStmt",
+          "MergeStmt"
+        ],
         "view_contains": [
           "\"kind\":\"delete\"",
           "\"kind\":\"merge\"",
           "\"kind\":\"pseudo\",\"name\":\"$action\"",
           "\"selector\":\"stmt[2].merge_assignment[0][0]\""
-        ]
+        ],
+        "view_merge_exact": {
+          "statement_index": 2,
+          "target_relation": {
+            "schema": "dbo",
+            "table": "t",
+            "alias": "t"
+          },
+          "actions": [
+            "update",
+            "insert"
+          ],
+          "parent_target_columns": [],
+          "parent_rows": [],
+          "binds": [
+            {
+              "bind_key": "a",
+              "bind_kind": 2,
+              "bind_sql": "@a",
+              "bind_position": 1
+            },
+            {
+              "bind_key": "id",
+              "bind_kind": 2,
+              "bind_sql": "@id",
+              "bind_position": 2
+            }
+          ],
+          "assignments": [
+            {
+              "target_column": "a",
+              "kind": "field",
+              "source_field": {
+                "relation": {
+                  "schema": "dbo",
+                  "table": "s",
+                  "alias": "s"
+                },
+                "column": "a"
+              },
+              "selector": "stmt[2].merge_assignment[0][0]"
+            }
+          ],
+          "branches": [
+            {
+              "ordinal": 0,
+              "branch_kind": "when",
+              "merge_action_kind": "update",
+              "merge_match_kind": "matched",
+              "target_columns": [],
+              "rows": [],
+              "assignments": [
+                {
+                  "target_column": "a",
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "schema": "dbo",
+                      "table": "s",
+                      "alias": "s"
+                    },
+                    "column": "a"
+                  },
+                  "selector": "stmt[2].merge_assignment[0][0]"
+                }
+              ]
+            },
+            {
+              "ordinal": 1,
+              "branch_kind": "when",
+              "merge_action_kind": "insert",
+              "merge_match_kind": "not_matched_by_target",
+              "target_columns": [
+                "id",
+                "a"
+              ],
+              "rows": [
+                {
+                  "row": 1,
+                  "column": 0,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "schema": "dbo",
+                      "table": "s",
+                      "alias": "s"
+                    },
+                    "column": "id"
+                  }
+                },
+                {
+                  "row": 1,
+                  "column": 1,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "schema": "dbo",
+                      "table": "s",
+                      "alias": "s"
+                    },
+                    "column": "a"
+                  }
+                }
+              ],
+              "assignments": []
+            }
+          ],
+          "output_channels": 1,
+          "output": [
+            {
+              "kind": "pseudo",
+              "name": "$action"
+            },
+            {
+              "kind": "field",
+              "name": "id",
+              "column": "id",
+              "reference_kind": "target_before"
+            },
+            {
+              "kind": "field",
+              "name": "id",
+              "column": "id",
+              "reference_kind": "target_after"
+            }
+          ]
+        }
       }
     },
     {
@@ -7750,10 +8434,162 @@
       "expect": {
         "ok": true,
         "statement_count": 3,
+        "statement_types": [
+          "ConditionExpr",
+          "MergeStmt",
+          "SelectStmt"
+        ],
         "view_contains": [
           "\"control_flow\"",
           "\"selector\":\"stmt[1].merge_assignment[0][0]\""
-        ]
+        ],
+        "view_merge_exact": {
+          "statement_index": 1,
+          "target_relation": {
+            "schema": "dbo",
+            "table": "t",
+            "alias": "t"
+          },
+          "actions": [
+            "update",
+            "insert"
+          ],
+          "parent_target_columns": [],
+          "parent_rows": [],
+          "binds": [
+            {
+              "bind_key": "run",
+              "bind_kind": 2,
+              "bind_sql": "@run",
+              "bind_position": 1
+            }
+          ],
+          "assignments": [
+            {
+              "target_column": "v",
+              "kind": "field",
+          "source_field": {
+            "relation": {
+              "table": "src",
+              "alias": "s",
+              "source_block": true
+            },
+            "column": "v"
+          },
+          "source_target": {
+            "name": "v",
+            "kind": "field",
+            "source_field": {
+              "relation": {
+                "schema": "dbo",
+                "table": "s"
+              },
+              "column": "v"
+            }
+          },
+          "selector": "stmt[1].merge_assignment[0][0]"
+            }
+          ],
+          "branches": [
+            {
+              "ordinal": 0,
+              "branch_kind": "when",
+              "merge_action_kind": "update",
+              "merge_match_kind": "matched",
+              "target_columns": [],
+              "rows": [],
+              "assignments": [
+                {
+                  "target_column": "v",
+                  "kind": "field",
+              "source_field": {
+                "relation": {
+                  "table": "src",
+                  "alias": "s",
+                  "source_block": true
+                },
+                "column": "v"
+              },
+              "source_target": {
+                "name": "v",
+                "kind": "field",
+                "source_field": {
+                  "relation": {
+                    "schema": "dbo",
+                    "table": "s"
+                  },
+                  "column": "v"
+                }
+              },
+              "selector": "stmt[1].merge_assignment[0][0]"
+                }
+              ]
+            },
+            {
+              "ordinal": 1,
+              "branch_kind": "when",
+              "merge_action_kind": "insert",
+              "merge_match_kind": "not_matched_by_target",
+              "target_columns": [
+                "id",
+                "v"
+              ],
+              "rows": [
+                {
+                  "row": 1,
+                  "column": 0,
+                  "kind": "field",
+              "source_field": {
+                "relation": {
+                  "table": "src",
+                  "alias": "s",
+                  "source_block": true
+                },
+                "column": "id"
+              },
+              "source_target": {
+                "name": "id",
+                "kind": "field",
+                "source_field": {
+                  "relation": {
+                    "schema": "dbo",
+                    "table": "s"
+                  },
+                  "column": "id"
+                }
+              }
+                },
+                {
+                  "row": 1,
+                  "column": 1,
+                  "kind": "field",
+              "source_field": {
+                "relation": {
+                  "table": "src",
+                  "alias": "s",
+                  "source_block": true
+                },
+                "column": "v"
+              },
+              "source_target": {
+                "name": "v",
+                "kind": "field",
+                "source_field": {
+                  "relation": {
+                    "schema": "dbo",
+                    "table": "s"
+                  },
+                  "column": "v"
+                }
+              }
+                }
+              ],
+              "assignments": []
+            }
+          ],
+          "output_channels": 0,
+          "output": []
+        }
       }
     },
     {
@@ -9597,6 +10433,308 @@
       "sql": "EXECUTE sys.sp_set_session_context @key = N'a', @value = 1e+;",
       "expect": {
         "ok": false
+      }
+    },
+    {
+      "id": "MSSQL-BM001",
+      "name": "sqlserver-bind-mixed-getdate-tail",
+      "sql": "INSERT INTO dbo.bind_mix (customer_id, customer_name, city, created_at) VALUES (@customer_id, @customer_name, @city, GETDATE())",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "schema": "dbo",
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "customer_id",
+          "customer_name",
+          "city",
+          "created_at"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"customer_id\",\"bind_kind\":2,\"bind_sql\":\"@customer_id\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"bind\",\"bind_key\":\"customer_name\",\"bind_kind\":2,\"bind_sql\":\"@customer_name\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][1]\"",
+          "\"row\":0,\"column\":2,\"kind\":\"bind\",\"bind_key\":\"city\",\"bind_kind\":2,\"bind_sql\":\"@city\",\"bind_position\":3,\"selector\":\"stmt[0].insert_cell[0][2]\"",
+          "\"row\":0,\"column\":3,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][3]\",\"expression_sql\":\"GETDATE()\""
+        ],
+        "view_not_contains": "\"column\":\"GETDATE\""
+      }
+    },
+    {
+      "id": "MSSQL-BM002",
+      "name": "sqlserver-bind-mixed-getdate-first",
+      "sql": "INSERT INTO dbo.bind_mix (created_at, customer_id, customer_name, city) VALUES (GETDATE(), @customer_id, @customer_name, @city)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "schema": "dbo",
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "created_at",
+          "customer_id",
+          "customer_name",
+          "city"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][0]\",\"expression_sql\":\"GETDATE()\"",
+          "\"row\":0,\"column\":1,\"kind\":\"bind\",\"bind_key\":\"customer_id\",\"bind_kind\":2,\"bind_sql\":\"@customer_id\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][1]\"",
+          "\"row\":0,\"column\":2,\"kind\":\"bind\",\"bind_key\":\"customer_name\",\"bind_kind\":2,\"bind_sql\":\"@customer_name\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][2]\"",
+          "\"row\":0,\"column\":3,\"kind\":\"bind\",\"bind_key\":\"city\",\"bind_kind\":2,\"bind_sql\":\"@city\",\"bind_position\":3,\"selector\":\"stmt[0].insert_cell[0][3]\""
+        ],
+        "view_not_contains": "\"column\":\"GETDATE\""
+      }
+    },
+    {
+      "id": "MSSQL-BM003",
+      "name": "sqlserver-bind-mixed-time-interleaved",
+      "sql": "INSERT INTO dbo.bind_mix (customer_id, created_at, customer_name, updated_at) VALUES (@customer_id, CURRENT_TIMESTAMP, @customer_name, GETDATE())",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "schema": "dbo",
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "customer_id",
+          "created_at",
+          "customer_name",
+          "updated_at"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"customer_id\",\"bind_kind\":2,\"bind_sql\":\"@customer_id\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"expression_sql\":\"CURRENT_TIMESTAMP\"",
+          "\"row\":0,\"column\":2,\"kind\":\"bind\",\"bind_key\":\"customer_name\",\"bind_kind\":2,\"bind_sql\":\"@customer_name\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][2]\"",
+          "\"row\":0,\"column\":3,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][3]\",\"expression_sql\":\"GETDATE()\""
+        ],
+        "view_not_contains": [
+          "\"column\":\"CURRENT_TIMESTAMP\"",
+          "\"column\":\"GETDATE\""
+        ]
+      }
+    },
+    {
+      "id": "MSSQL-BM004",
+      "name": "sqlserver-bind-mixed-null-getdate",
+      "sql": "INSERT INTO dbo.bind_mix (customer_id, note, created_at, city) VALUES (@customer_id, NULL, GETDATE(), @city)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "schema": "dbo",
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "customer_id",
+          "note",
+          "created_at",
+          "city"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"customer_id\",\"bind_kind\":2,\"bind_sql\":\"@customer_id\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"literal\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"literal\":{\"kind\":\"null\"}",
+          "\"row\":0,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][2]\",\"expression_sql\":\"GETDATE()\"",
+          "\"row\":0,\"column\":3,\"kind\":\"bind\",\"bind_key\":\"city\",\"bind_kind\":2,\"bind_sql\":\"@city\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][3]\""
+        ],
+        "view_not_contains": "\"column\":\"GETDATE\""
+      }
+    },
+    {
+      "id": "MSSQL-BM005",
+      "name": "sqlserver-bind-mixed-default-current-timestamp",
+      "sql": "INSERT INTO dbo.bind_mix (customer_id, status, created_at, city) VALUES (@customer_id, DEFAULT, CURRENT_TIMESTAMP, @city)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "schema": "dbo",
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "customer_id",
+          "status",
+          "created_at",
+          "city"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"customer_id\",\"bind_kind\":2,\"bind_sql\":\"@customer_id\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"default\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\"",
+          "\"row\":0,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][2]\",\"expression_sql\":\"CURRENT_TIMESTAMP\"",
+          "\"row\":0,\"column\":3,\"kind\":\"bind\",\"bind_key\":\"city\",\"bind_kind\":2,\"bind_sql\":\"@city\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][3]\""
+        ],
+        "view_not_contains": "\"column\":\"CURRENT_TIMESTAMP\""
+      }
+    },
+    {
+      "id": "MSSQL-BM006",
+      "name": "sqlserver-bind-mixed-literal-getdate",
+      "sql": "INSERT INTO dbo.bind_mix (customer_id, note, created_at, city) VALUES (@customer_id, N'seed', GETDATE(), @city)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "schema": "dbo",
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "customer_id",
+          "note",
+          "created_at",
+          "city"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"customer_id\",\"bind_kind\":2,\"bind_sql\":\"@customer_id\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"literal\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"literal\":{\"kind\":\"string\",\"string_value\":\"seed\"}",
+          "\"row\":0,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][2]\",\"expression_sql\":\"GETDATE()\"",
+          "\"row\":0,\"column\":3,\"kind\":\"bind\",\"bind_key\":\"city\",\"bind_kind\":2,\"bind_sql\":\"@city\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][3]\""
+        ],
+        "view_not_contains": "\"column\":\"GETDATE\""
+      }
+    },
+    {
+      "id": "MSSQL-BM007",
+      "name": "sqlserver-bind-mixed-coalesce-getdate",
+      "sql": "INSERT INTO dbo.bind_mix (customer_id, retry_count, created_at, city) VALUES (@customer_id, COALESCE(@retry_count, 0), GETDATE(), @city)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "schema": "dbo",
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "customer_id",
+          "retry_count",
+          "created_at",
+          "city"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"customer_id\",\"bind_kind\":2,\"bind_sql\":\"@customer_id\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"expression_sql\":\"COALESCE(@retry_count, 0)\"",
+          "\"row\":0,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][2]\",\"expression_sql\":\"GETDATE()\"",
+          "\"row\":0,\"column\":3,\"kind\":\"bind\",\"bind_key\":\"city\",\"bind_kind\":2,\"bind_sql\":\"@city\",\"bind_position\":3,\"selector\":\"stmt[0].insert_cell[0][3]\""
+        ],
+        "view_not_contains": "\"column\":\"GETDATE\""
+      }
+    },
+    {
+      "id": "MSSQL-BM008",
+      "name": "sqlserver-bind-mixed-case-cast-current-timestamp",
+      "sql": "INSERT INTO dbo.bind_mix (customer_id, state, amount, created_at, city) VALUES (@customer_id, CASE WHEN @enabled = 1 THEN N'Y' ELSE N'N' END, CAST(@amount AS int), CURRENT_TIMESTAMP, @city)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "schema": "dbo",
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "customer_id",
+          "state",
+          "amount",
+          "created_at",
+          "city"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"customer_id\",\"bind_kind\":2,\"bind_sql\":\"@customer_id\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"expression_sql\":\"CASE WHEN @enabled = 1 THEN N'Y' ELSE N'N' END\"",
+          "\"row\":0,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][2]\",\"expression_sql\":\"CAST(@amount AS int)\"",
+          "\"row\":0,\"column\":3,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][3]\",\"expression_sql\":\"CURRENT_TIMESTAMP\"",
+          "\"row\":0,\"column\":4,\"kind\":\"bind\",\"bind_key\":\"city\",\"bind_kind\":2,\"bind_sql\":\"@city\",\"bind_position\":4,\"selector\":\"stmt[0].insert_cell[0][4]\""
+        ],
+        "view_not_contains": "\"column\":\"CURRENT_TIMESTAMP\""
+      }
+    },
+    {
+      "id": "MSSQL-BM009",
+      "name": "sqlserver-bind-mixed-driver-template-getdate",
+      "sql": "INSERT INTO dbo.bind_mix (customer_id, customer_name, city, created_at) VALUES (?, ?, ?, GETDATE())",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "schema": "dbo",
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "customer_id",
+          "customer_name",
+          "city",
+          "created_at"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"bind\",\"bind_key\":\"2\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][1]\"",
+          "\"row\":0,\"column\":2,\"kind\":\"bind\",\"bind_key\":\"3\",\"bind_kind\":1,\"bind_sql\":\"?\",\"bind_position\":3,\"selector\":\"stmt[0].insert_cell[0][2]\"",
+          "\"row\":0,\"column\":3,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][3]\",\"expression_sql\":\"GETDATE()\""
+        ],
+        "view_not_contains": "\"column\":\"GETDATE\""
+      }
+    },
+    {
+      "id": "MSSQL-BM010",
+      "name": "sqlserver-bind-mixed-bracket-multirow-irregular-whitespace",
+      "sql": "INSERT   INTO [dbo].[Bind_Mix] (  [Customer_Id],    [Status],  [Created_At],   [Updated_At]) VALUES (   @customer_id_1,    DEFAULT,    GETDATE(),  CURRENT_TIMESTAMP), ( @customer_id_2,  N'active', CURRENT_TIMESTAMP, GETDATE() );",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "schema": "dbo",
+          "table": "Bind_Mix"
+        },
+        "view_target_columns": [
+          "Customer_Id",
+          "Status",
+          "Created_At",
+          "Updated_At"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"customer_id_1\",\"bind_kind\":2,\"bind_sql\":\"@customer_id_1\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"default\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\"",
+          "\"row\":0,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][2]\",\"expression_sql\":\"GETDATE()\"",
+          "\"row\":0,\"column\":3,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][3]\",\"expression_sql\":\"CURRENT_TIMESTAMP\"",
+          "\"row\":1,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"customer_id_2\",\"bind_kind\":2,\"bind_sql\":\"@customer_id_2\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[1][0]\"",
+          "\"row\":1,\"column\":1,\"kind\":\"literal\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[1][1]\",\"literal\":{\"kind\":\"string\",\"string_value\":\"active\"}",
+          "\"row\":1,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[1][2]\",\"expression_sql\":\"CURRENT_TIMESTAMP\"",
+          "\"row\":1,\"column\":3,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[1][3]\",\"expression_sql\":\"GETDATE()\""
+        ],
+        "view_not_contains": [
+          "\"column\":\"GETDATE\"",
+          "\"column\":\"CURRENT_TIMESTAMP\""
+        ]
       }
     }
   ]

@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 219 条用例，其中 210 条预期成功，9 条预期失败。38 条用例包含 statement 级 `expect.session`，覆盖 `VM015` 至 `VM017`、`VB-C001` 至 `VB-C022`、`VB-C026` 至 `VB-C027` 和 `VB-B001` 至 `VB-B011`；这 38 条用例均至少包含一个非空 session 期望。
+夹具包含 231 条用例，其中 222 条预期成功，9 条预期失败。40 条用例包含 statement 级 `expect.session`，覆盖 `VM015` 至 `VM017`、`VB-C001` 至 `VB-C022`、`VB-C026` 至 `VB-C027`、`VB-C030` 至 `VB-C031` 和 `VB-B001` 至 `VB-B011`；这 40 条用例均至少包含一个非空 session 期望。
 
 用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
 
@@ -153,3 +153,22 @@
 | `VMU019` | `vastbase-mysql-delete-left-join` | DELETE u FROM users u LEFT JOIN orders o ON u.id=o.user_id WHERE u.phone = ? | 已覆盖 |
 | `VMU020` | `vastbase-mysql-update-join-source-assignment` | UPDATE users u JOIN orders o ON u.id=o.user_id SET o.shipping_phone = ? WHERE u.id = ? | 已覆盖 |
 | `VMU021` | `vastbase-mysql-delete-join-source-target` | DELETE o FROM users u JOIN orders o ON u.id=o.user_id WHERE o.phone = ? | 已覆盖 |
+
+## INSERT VALUES 回归：bind 与表达式混合
+
+以下 10 条用例覆盖 Vastbase B/MySQL 兼容模式下的 prepared statement、驱动 SQL 模板、多行 VALUES、复合表达式和反引号标识符。数据库侧执行 `?` 参数模板时还要求启用 `vb_enable_bcompat_mode`。
+
+未加引号的 `?` 只按 prepared statement 或驱动 SQL 模板中的数据值参数处理，不能替代表名、列名或关键字；含该参数标记的 SQL 必须经过 prepare/bind 流程执行。`DEFAULT` 只作为独立 cell。表达式 cell 保持 `kind=expression`，其内部 `?` 仍计入全局 bind 序号，后续直接 bind 的 `bind_position` 用于验证表达式内 bind 已纳入全局计数；时间函数名不得出现在 `query_graph.fields[].column` 中。
+
+| ID | 用例 | VALUES 形态 | 验证重点 |
+| --- | --- | --- | --- |
+| `VM-BM001` | `vastbase-mysql-insert-bind-mixed-bare-time` | 三个直接 `?` + `NOW()` | 直接 bind cell 的 key、kind、SQL、位置、selector 及尾部时间表达式 |
+| `VM-BM002` | `vastbase-mysql-insert-bind-mixed-expression-first` | `CONVERT(?, BIGINT)`、`?`、`CURRENT_TIMESTAMP`、`?` | 首位表达式、嵌套 bind 全局序号和后续直接 bind |
+| `VM-BM003` | `vastbase-mysql-insert-bind-mixed-interleaved-functions` | `?`、`NOW()`、`?`、`COALESCE(?, 'fallback')`、`?` | bind 与表达式交错、`NOW` 不出现在 `query_graph.fields[].column` 中、嵌套 bind 计数 |
+| `VM-BM004` | `vastbase-mysql-insert-bind-mixed-null` | `?`、`NULL`、`CONVERT(?, BIGINT)`、`?` | NULL literal、表达式和直接 bind cell 独立分类 |
+| `VM-BM005` | `vastbase-mysql-insert-bind-mixed-default` | `?`、`DEFAULT`、`CONVERT(?, BIGINT)`、`?` | 独立 DEFAULT cell 和嵌套 bind 全局序号 |
+| `VM-BM006` | `vastbase-mysql-insert-bind-mixed-literal` | `?`、字符串 literal、包含 `?` 的 `CASE` 表达式、`?` | 字符串 literal、CASE 表达式和后续 bind 位置 |
+| `VM-BM007` | `vastbase-mysql-insert-bind-mixed-coalesce-time` | `?`、`COALESCE(?, 'fallback')`、`CURRENT_TIMESTAMP`、`?` | COALESCE 内部 bind、独立时间表达式和直接 bind |
+| `VM-BM008` | `vastbase-mysql-insert-bind-mixed-case-time` | `?`、包含 `?` 的 `CASE` 表达式、`NOW()`、`?` | CASE 表达式内 bind、独立时间表达式和直接 bind |
+| `VM-BM009` | `vastbase-mysql-insert-bind-mixed-three-rows` | 三行中交错 bind、CONVERT/COALESCE/CASE 表达式和时间表达式 | 逐 cell selector 及跨行连续的全局 bind 序号 |
+| `VM-BM010` | `vastbase-mysql-insert-bind-mixed-quoted-irregular-whitespace` | schema-qualified 反引号标识符、不规则空白、三个直接 `?` + 时间表达式 | quoted identifier、逐字节保留输入 SQL，并与期望 cell 对象逐字段一致 |

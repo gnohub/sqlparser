@@ -640,7 +640,7 @@ sqlparser_status_t sqlparser_control_condition_sql(
 	status = sqlparser_control_condition_expression(
 		(sqlparser_handle_t *)handle, statement_index, &expression, out_error);
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_render_where_node_sql(expression, &core_sql, out_error);
+		status = sqlparser_render_where_node_sql(handle, expression, &core_sql, out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_control_postprocess_unit(
@@ -659,6 +659,8 @@ sqlparser_status_t sqlparser_control_set_condition_sql(
 	PgQuery__Node *expression;
 	PgQuery__Node *replacement;
 	char *parser_sql;
+	sqlparser_generated_source_t source;
+	sqlparser_identifier_origin_map_t *origins;
 	void *candidate_state;
 	sqlparser_status_t status;
 
@@ -670,12 +672,30 @@ sqlparser_status_t sqlparser_control_set_condition_sql(
 	expression = NULL;
 	replacement = NULL;
 	parser_sql = NULL;
+	origins = NULL;
 	candidate_state = NULL;
-	status = sqlparser_preprocess_handle_sql_fragment(
-		handle, statement_index, sql_text, "control condition SQL", &parser_sql, &candidate_state, out_error);
+	status = sqlparser_preprocess_handle_sql_fragment_with_origins(
+		handle,
+		statement_index,
+		sql_text,
+		"control condition SQL",
+		&parser_sql,
+		&candidate_state,
+		&origins,
+		out_error);
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_parse_where_node_sql(parser_sql, &replacement, out_error);
+		memset(&source, 0, sizeof(source));
+		source.public_sql = sql_text;
+		source.origins = origins;
+		source.dialect = handle->dialect;
+		source.spelling_handle = handle;
+		status = sqlparser_parse_where_node_sql(
+			parser_sql,
+			&source,
+			&replacement,
+			out_error);
 	}
+	sqlparser_identifier_origin_map_destroy(origins);
 	free(parser_sql);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_handle_discard_dialect_state(handle, candidate_state);
@@ -684,6 +704,7 @@ sqlparser_status_t sqlparser_control_set_condition_sql(
 	status = sqlparser_control_condition_expression(handle, statement_index, &expression, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_free_proto_node(replacement);
+		sqlparser_handle_sweep_identifier_spellings(handle);
 		sqlparser_handle_discard_dialect_state(handle, candidate_state);
 		return status;
 	}
@@ -694,6 +715,7 @@ sqlparser_status_t sqlparser_control_set_condition_sql(
 		status = sqlparser_control_statement_ast_index(handle, statement_index, &ast_index, out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			sqlparser_free_proto_node(replacement);
+			sqlparser_handle_sweep_identifier_spellings(handle);
 			sqlparser_handle_discard_dialect_state(handle, candidate_state);
 			return status;
 		}
@@ -950,7 +972,7 @@ sqlparser_status_t sqlparser_control_build_public_sql(
 			expression = NULL;
 			status = sqlparser_control_condition_expression(mutable_handle, unit_index, &expression, out_error);
 			if (status == SQLPARSER_STATUS_OK) {
-				status = sqlparser_render_where_node_sql(expression, &core_sql, out_error);
+				status = sqlparser_render_where_node_sql(handle, expression, &core_sql, out_error);
 			}
 		} else {
 			status = sqlparser_control_render_statement_core(handle, unit_index, &scratch, &core_sql, out_error);

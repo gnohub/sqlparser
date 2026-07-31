@@ -4,9 +4,28 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 235 条用例，其中 213 条预期成功，22 条预期失败。59 条用例包含 statement 级 `expect.session`，覆盖 `O043`、`O043Q`、`O044` 至 `O047`、`O082` 至 `O086`，以及 `ORA-*` session 用例；这 59 条用例均至少包含一个非空 session 期望。
+夹具包含 245 条用例，其中 223 条预期成功，22 条预期失败。59 条用例包含 statement 级 `expect.session`，覆盖 `O043`、`O043Q`、`O044` 至 `O047`、`O082` 至 `O086`，以及 `ORA-*` session 用例；这 59 条用例均至少包含一个非空 session 期望。
 
 用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
+
+## INSERT VALUES 回归：bind 与表达式混合
+
+`ORA-BM001` 至 `ORA-BM010` 覆盖 Oracle 单行 `INSERT ... VALUES`。`:name`、`:1` 按 Oracle bind 处理；`?` 只按 JDBC prepared-statement 模板处理，Oracle 原生 bind 变量使用冒号前缀标记。
+
+10 条用例均为单行 VALUES；`DEFAULT` 只作为独立 cell。每条用例逐 cell 断言 `row`、`column`、`kind` 和 `selector`，逐个直接 bind 断言 `bind_key`、`bind_kind`、`bind_sql`、全局 `bind_position` 和 `selector`；通过表达式后的直接 bind 位置验证嵌套 bind 已计入全局序号，并禁止 `SYSDATE`、`CURRENT_TIMESTAMP` 出现在 `query_graph.fields[].column` 中。
+
+| ID | SQL 形态 | 关键边界 |
+| --- | --- | --- |
+| `ORA-BM001` | 三个独立 JDBC `?` + 尾部 `SYSDATE` | 逐字节保留带不规则空白和分号的原始输入 SQL；`?` 仅属 JDBC 模板 |
+| `ORA-BM002` | 首位 `CURRENT_TIMESTAMP` + 三个独立 JDBC `?` | expression cell 在首列，bind 位置仍从 1 连续编号 |
+| `ORA-BM003` | `:1`、`:2`、`:3` + 尾部 `SYSDATE` | 数字形式的 Oracle 冒号 bind 标记 |
+| `ORA-BM004` | 首位 `SYSDATE` + 三个 named bind | 具名 Oracle 冒号 bind 标记 |
+| `ORA-BM005` | named bind 与 `SYSDATE` / `CURRENT_TIMESTAMP` 交错 | expression cell 不得造成后续 bind 错位 |
+| `ORA-BM006` | bind + `NULL` + `SYSDATE` + bind | `NULL` 为 literal，`SYSDATE` 为 expression |
+| `ORA-BM007` | bind + 独立 `DEFAULT` + `CURRENT_TIMESTAMP` + bind | `DEFAULT` 不嵌入其他表达式 |
+| `ORA-BM008` | 直接 bind + `COALESCE(:retry_count, 0)` + `SYSDATE` + 直接 bind | 尾部直接 bind 为 position 3，验证嵌套 bind 已计数 |
+| `ORA-BM009` | 直接 bind + 包含 `:enabled` 的 `CASE` 表达式 + `CAST(:amount AS NUMBER)` + `SYSDATE` + 直接 bind | 尾部直接 bind 为 position 4，验证两个嵌套 bind 均已计数 |
+| `ORA-BM010` | schema-qualified quoted identifiers + 三个冒号前缀 bind + `CURRENT_TIMESTAMP` | 混合大小写标识符、不规则空白和分号原样保留 |
 
 ## 支持用例
 

@@ -15,72 +15,9 @@ static int fail_case(const char *case_id, const char *case_name, const char *mes
 	return 1;
 }
 
-static int fail_case_field(
-	const char *case_id,
-	const char *case_name,
-	const char *field_name,
-	const char *expected)
-{
-	fprintf(stderr,
-	        "FAIL [%s %s]: missing %s value '%s'\n",
-	        case_id != NULL ? case_id : "-",
-	        case_name,
-	        field_name,
-	        expected);
-	return 1;
-}
-
 static const char *json_string_or_null(json_t *value)
 {
 	return json_is_string(value) ? json_string_value(value) : NULL;
-}
-
-static int verify_statement_types(
-	const char *case_id,
-	const char *case_name,
-	const sqlparser_handle_t *handle,
-	json_t *expected_array)
-{
-	size_t index;
-	json_t *value;
-	sqlparser_error_t error;
-
-	if (expected_array == NULL) {
-		return 0;
-	}
-	if (!json_is_array(expected_array)) {
-		return fail_case(case_id, case_name, "expected statement_types metadata must be an array");
-	}
-	memset(&error, 0, sizeof(error));
-
-	json_array_foreach(expected_array, index, value) {
-		const char *expected;
-		size_t statement_index;
-		int found;
-
-		expected = json_string_or_null(value);
-		if (expected == NULL) {
-			return fail_case(case_id, case_name, "expected statement_types value must be a string");
-		}
-
-		found = 0;
-		for (statement_index = 0U; statement_index < sqlparser_statement_count(handle); statement_index++) {
-			const char *actual;
-
-			actual = NULL;
-			if (sqlparser_statement_node_name(handle, statement_index, &actual, &error) ==
-			    SQLPARSER_STATUS_OK &&
-			    actual != NULL &&
-			    strcmp(actual, expected) == 0) {
-				found = 1;
-				break;
-			}
-		}
-		if (!found) {
-			return fail_case_field(case_id, case_name, "statement_types", expected);
-		}
-	}
-	return 0;
 }
 
 static int verify_failure_case(
@@ -204,10 +141,8 @@ static int verify_success_case(
 		sqlparser_handle_destroy(handle);
 		return fail_case(case_id, case_name, "view JSON export failed");
 	}
-	if (verify_statement_types(case_id, case_name, handle, json_object_get(expect_root, "statement_types")) != 0 ||
-	    sqlparser_test_text_contains_expected(case_id, case_name, view_json, "view_contains", json_object_get(expect_root, "view_contains")) != 0 ||
-	    sqlparser_test_text_not_contains_expected(case_id, case_name, view_json, "view_not_contains", json_object_get(expect_root, "view_not_contains")) != 0 ||
-	    sqlparser_test_verify_view_expectations(case_id, case_name, view_json, expect_root) != 0) {
+	if (sqlparser_test_verify_statement_types(case_id, case_name, handle, json_object_get(expect_root, "statement_types")) != 0 ||
+	    sqlparser_test_verify_view_expectations(case_id, case_name, handle, view_json, expect_root) != 0) {
 		sqlparser_string_free(deparse_sql);
 		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
@@ -289,22 +224,23 @@ static int verify_dameng_fragment_rewrite_paths(void)
 static int run_case(json_t *item)
 {
 	json_t *expect_root;
-	json_t *ok_value;
 	const char *case_id;
 	const char *case_name;
 	const char *sql;
 	int expect_ok;
 
+	if (sqlparser_test_validate_case_schema(
+		    item,
+		    1,
+		    0,
+		    0,
+		    &expect_ok) != 0) {
+		return 1;
+	}
 	case_id = json_string_or_null(json_object_get(item, "id"));
 	case_name = json_string_or_null(json_object_get(item, "name"));
 	sql = json_string_or_null(json_object_get(item, "sql"));
 	expect_root = json_object_get(item, "expect");
-	if (case_id == NULL || case_name == NULL || sql == NULL || !json_is_object(expect_root)) {
-		return fail_case(case_id, case_name != NULL ? case_name : "-", "case is missing id/name/sql/expect");
-	}
-
-	ok_value = json_object_get(expect_root, "ok");
-	expect_ok = !json_is_false(ok_value);
 	if (expect_ok) {
 		return verify_success_case(case_id, case_name, sql, expect_root);
 	}
@@ -321,6 +257,10 @@ int main(void)
 	int failed;
 
 	failed = 0;
+	if (sqlparser_test_verify_case_schema_gate(
+		    1, 0, 0) != 0) {
+		return 1;
+	}
 	memset(&error, 0, sizeof(error));
 	root = json_load_file(SQLPARSER_DAMENG_CASE_FIXTURE_PATH, 0, &error);
 	if (root == NULL) {

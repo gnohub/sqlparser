@@ -4,9 +4,28 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 605 条用例，其中 568 条预期成功，37 条预期失败。91 条用例包含 statement 级 `expect.session`，覆盖 `S044` 至 `S046`、`SH295` 至 `SH333` 和 49 条 `MSSQL-*` session 用例；这 91 条用例均至少包含一个非空 session 期望。
+夹具包含 615 条用例，其中 578 条预期成功，37 条预期失败。91 条用例包含 statement 级 `expect.session`，覆盖 `S044` 至 `S046`、`SH295` 至 `SH333` 和 49 条 `MSSQL-*` session 用例；这 91 条用例均至少包含一个非空 session 期望。
 
 用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
+
+## INSERT VALUES 回归：bind 与表达式混合
+
+`MSSQL-BM001` 至 `MSSQL-BM010` 覆盖 SQL Server VALUES cell 中 `DEFAULT`、`NULL`、bind、literal 和 expression 的组合，以及两行 VALUES 输入。
+
+T-SQL `@name` 引用要求已有变量或参数作用域；`MSSQL-BM009` 的 `?` 仅作为 JDBC/ODBC 驱动参数标记。`DEFAULT` 始终是独立 cell。每条用例逐 cell 断言 `row`、`column`、`kind` 和 `selector`；逐个直接 bind 断言 `bind_key`、`bind_kind`、`bind_sql`、`bind_position` 和 `selector`，并通过表达式后的直接 bind 位置验证嵌套 bind 已计入全局序号；`GETDATE()`、`CURRENT_TIMESTAMP` 断言为 `kind=expression`，且不得出现在 `query_graph.fields[].column` 中。
+
+| ID | SQL 形态 | 关键边界 |
+| --- | --- | --- |
+| `MSSQL-BM001` | 三个 `@` bind + 尾部 `GETDATE()` | `@` 引用要求已有变量/参数作用域 |
+| `MSSQL-BM002` | 首位 `GETDATE()` + 三个 `@` bind | 首列 expression 不得造成 bind 错位 |
+| `MSSQL-BM003` | `@` bind、`CURRENT_TIMESTAMP`、`@` bind、`GETDATE()` 交错 | 两种时间 expression 均不得出现在 `query_graph.fields[].column` 中 |
+| `MSSQL-BM004` | bind + `NULL` + `GETDATE()` + bind | `NULL` 为 literal，`GETDATE()` 为 expression |
+| `MSSQL-BM005` | bind + 独立 `DEFAULT` + `CURRENT_TIMESTAMP` + bind | `DEFAULT` 不嵌入其他表达式 |
+| `MSSQL-BM006` | bind + Unicode literal + `GETDATE()` + bind | literal 与 expression 不改变后续 bind 位置 |
+| `MSSQL-BM007` | 直接 bind + `COALESCE(@retry_count, 0)` + `GETDATE()` + 直接 bind | 尾部直接 bind 为 position 3，验证嵌套 bind 已计数 |
+| `MSSQL-BM008` | 直接 bind + 包含 `@enabled` 的 `CASE` 表达式 + `CAST(@amount AS int)` + `CURRENT_TIMESTAMP` + 直接 bind | 尾部直接 bind 为 position 4，验证两个嵌套 bind 均已计数 |
+| `MSSQL-BM009` | 三个独立 JDBC/ODBC `?` + `GETDATE()` | `?` 仅作为驱动模板参数标记，不嵌入复杂表达式 |
+| `MSSQL-BM010` | schema-qualified 方括号标识符 + 不规则空白的两行 VALUES | 两行混合 `@` bind、独立 `DEFAULT`、literal、`GETDATE()`、`CURRENT_TIMESTAMP` |
 
 ## 支持用例
 

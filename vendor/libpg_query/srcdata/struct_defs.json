@@ -7386,6 +7386,11 @@
           "name": "colnames",
           "c_type": "List*",
           "comment": "/* optional list of column aliases */"
+        },
+        {
+          "name": "location",
+          "c_type": "ParseLoc",
+          "comment": "/* alias token location, or -1 if unknown */"
         }
       ],
       "comment": "/*\n * Alias -\n *\t  specifies an alias for a range variable; the alias might also\n *\t  specify renaming of columns within the table.\n *\n * Note: colnames is a list of String nodes.  In Alias structs\n * associated with RTEs, there may be entries corresponding to dropped\n * columns; these are normally empty strings (\"\").  See parsenodes.h for info.\n */\n"
@@ -11415,6 +11420,10 @@
         {
           "name": "sval",
           "c_type": "char*"
+        },
+        {
+          "name": "location",
+          "c_type": "ParseLoc"
         }
       ]
     },

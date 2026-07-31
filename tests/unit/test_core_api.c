@@ -6,6 +6,62 @@
 
 #include "sqlparser/sqlparser.h"
 #include "sqlparser_control_internal.h"
+#include "../../src/core/sqlparser_ast_internal.h"
+
+typedef struct {
+	size_t index;
+	size_t statement_index;
+	size_t dml_index;
+	size_t ordinal;
+	sqlparser_graph_dml_branch_kind_t branch_kind;
+	size_t target_relation_index;
+	int has_target_relation;
+	sqlparser_index_span_t target_columns;
+	sqlparser_index_span_t rows;
+	size_t condition_block_index;
+	int has_condition_block;
+	sqlparser_selector_t condition_selector;
+	int has_condition_selector;
+} sqlparser_graph_dml_branch_abi_baseline_t;
+
+_Static_assert(
+	sizeof(sqlparser_graph_dml_branch_t) ==
+		sizeof(sqlparser_graph_dml_branch_abi_baseline_t),
+	"sqlparser_graph_dml_branch_t ABI size changed");
+#define SQLPARSER_ASSERT_BRANCH_ABI_OFFSET(field) \
+	_Static_assert( \
+		offsetof(sqlparser_graph_dml_branch_t, field) == \
+			offsetof(sqlparser_graph_dml_branch_abi_baseline_t, field), \
+		"sqlparser_graph_dml_branch_t ABI offset changed: " #field)
+SQLPARSER_ASSERT_BRANCH_ABI_OFFSET(index);
+SQLPARSER_ASSERT_BRANCH_ABI_OFFSET(statement_index);
+SQLPARSER_ASSERT_BRANCH_ABI_OFFSET(dml_index);
+SQLPARSER_ASSERT_BRANCH_ABI_OFFSET(ordinal);
+SQLPARSER_ASSERT_BRANCH_ABI_OFFSET(branch_kind);
+SQLPARSER_ASSERT_BRANCH_ABI_OFFSET(target_relation_index);
+SQLPARSER_ASSERT_BRANCH_ABI_OFFSET(has_target_relation);
+SQLPARSER_ASSERT_BRANCH_ABI_OFFSET(target_columns);
+SQLPARSER_ASSERT_BRANCH_ABI_OFFSET(rows);
+SQLPARSER_ASSERT_BRANCH_ABI_OFFSET(condition_block_index);
+SQLPARSER_ASSERT_BRANCH_ABI_OFFSET(has_condition_block);
+SQLPARSER_ASSERT_BRANCH_ABI_OFFSET(condition_selector);
+SQLPARSER_ASSERT_BRANCH_ABI_OFFSET(has_condition_selector);
+#undef SQLPARSER_ASSERT_BRANCH_ABI_OFFSET
+
+typedef struct {
+	sqlparser_graph_merge_action_kind_t action_kind;
+	sqlparser_graph_merge_match_kind_t match_kind;
+	sqlparser_index_span_t assignments;
+} sqlparser_test_merge_branch_detail_t;
+
+static int json_string_is(
+	json_t *object,
+	const char *key,
+	const char *expected);
+static int json_integer_is(
+	json_t *object,
+	const char *key,
+	json_int_t expected);
 
 static int expect_true(int condition, const char *message)
 {
@@ -25,6 +81,29 @@ static int expect_status_ok(sqlparser_status_t status, const sqlparser_error_t *
 	}
 
 	return 0;
+}
+
+static int expect_merge_branch_detail(
+	const sqlparser_query_graph_view_t *graph,
+	size_t branch_index,
+	sqlparser_test_merge_branch_detail_t *out_detail,
+	sqlparser_error_t *error,
+	const char *message)
+{
+	if (out_detail == NULL) {
+		return expect_true(0, message);
+	}
+	memset(out_detail, 0, sizeof(*out_detail));
+	return expect_status_ok(
+		sqlparser_query_graph_merge_branch_detail(
+			graph,
+			branch_index,
+			&out_detail->action_kind,
+			&out_detail->match_kind,
+			&out_detail->assignments,
+			error),
+		error,
+		message);
 }
 
 static int expect_deparse_reparse_ok(const sqlparser_handle_t *handle, const char *message)
@@ -59,6 +138,108 @@ static int expect_deparse_reparse_ok(const sqlparser_handle_t *handle, const cha
 
 	sqlparser_handle_destroy(reparsed);
 	sqlparser_string_free(sql);
+	return 0;
+}
+
+static int expect_deparse_equals_and_reparse(
+	const sqlparser_handle_t *handle,
+	const char *expected_sql,
+	const char *message)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *reparsed;
+	sqlparser_error_t error;
+	char *sql;
+	int rc;
+
+	if (handle == NULL || expected_sql == NULL) {
+		fprintf(stderr, "FAIL: %s: invalid expected deparse input\n", message);
+		return 1;
+	}
+
+	sql = NULL;
+	reparsed = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_deparse(handle, &sql, &error);
+	if (expect_status_ok(rc, &error, message) != 0) {
+		return 1;
+	}
+	if (sql == NULL || strcmp(sql, expected_sql) != 0) {
+		fprintf(
+			stderr,
+			"FAIL: %s: expected=%s actual=%s\n",
+			message,
+			expected_sql,
+			sql != NULL ? sql : "(null)");
+		sqlparser_string_free(sql);
+		return 1;
+	}
+
+	sqlparser_parse_options_default(&options);
+	options.dialect = sqlparser_handle_dialect(handle);
+	rc = sqlparser_parse_with_options(sql, &options, &reparsed, &error);
+	if (expect_status_ok(rc, &error, message) != 0) {
+		sqlparser_string_free(sql);
+		return 1;
+	}
+
+	sqlparser_handle_destroy(reparsed);
+	sqlparser_string_free(sql);
+	return 0;
+}
+
+static int expect_query_graph_clause_fields(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	sqlparser_clause_kind_t clause,
+	const char *const *expected_names,
+	size_t expected_count,
+	const char *message)
+{
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_field_t field;
+	sqlparser_error_t error;
+	unsigned int found;
+	unsigned int expected;
+	size_t field_index;
+	size_t name_index;
+	int rc;
+
+	if (expected_count > sizeof(found) * 8U) {
+		fprintf(stderr, "FAIL: %s: too many expected fields\n", message);
+		return 1;
+	}
+
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_statement_query_graph(handle, statement_index, &graph, &error);
+	if (expect_status_ok(rc, &error, message) != 0) {
+		return 1;
+	}
+	found = 0U;
+	for (field_index = 0U; field_index < graph.field_count; field_index++) {
+		rc = sqlparser_query_graph_field_at(&graph, field_index, &field, &error);
+		if (expect_status_ok(rc, &error, message) != 0) {
+			return 1;
+		}
+		if (field.clause != clause || field.column_name == NULL) {
+			continue;
+		}
+		for (name_index = 0U; name_index < expected_count; name_index++) {
+			if (strcmp(field.column_name, expected_names[name_index]) == 0) {
+				found |= 1U << name_index;
+			}
+		}
+	}
+	expected = expected_count == 0U ? 0U : (1U << expected_count) - 1U;
+	if (found != expected) {
+		fprintf(
+			stderr,
+			"FAIL: %s: expected field mask=%u actual=%u\n",
+			message,
+			expected,
+			found);
+		return 1;
+	}
 	return 0;
 }
 
@@ -864,7 +1045,7 @@ static int test_update_assignment_sql_mutation(void)
 	char *deparsed_sql;
 	int rc;
 
-	sql = "UPDATE public.users SET name = upper(name), updated_at = DEFAULT WHERE id = 1";
+	sql = "UPDATE public.users SET name = upper(name), updated_at = CuRrEnT_TiMeStAmP WHERE id = 1";
 	handle = NULL;
 	assignment_sql = NULL;
 	selector_sql = NULL;
@@ -895,9 +1076,9 @@ static int test_update_assignment_sql_mutation(void)
 	}
 
 	rc = sqlparser_update_assignment(handle, 0U, 1U, &assignment, &error);
-	if (expect_status_ok(rc, &error, "default assignment fetch should succeed") != 0 ||
-	    expect_true(strcmp(assignment.column_name, "updated_at") == 0, "default assignment column should be updated_at") != 0 ||
-	    expect_true(assignment.value_kind == SQLPARSER_VALUE_KIND_DEFAULT, "default assignment should be DEFAULT") != 0) {
+	if (expect_status_ok(rc, &error, "SQL value assignment fetch should succeed") != 0 ||
+	    expect_true(strcmp(assignment.column_name, "updated_at") == 0, "SQL value assignment column should be updated_at") != 0 ||
+	    expect_true(assignment.value_kind == SQLPARSER_VALUE_KIND_EXPRESSION, "SQL value assignment should be an expression") != 0) {
 		sqlparser_string_free(assignment_sql);
 		sqlparser_handle_destroy(handle);
 		return 1;
@@ -908,7 +1089,7 @@ static int test_update_assignment_sql_mutation(void)
 	selector.item_index = 1U;
 	rc = sqlparser_selector_update_assignment_sql(handle, &selector, &selector_sql, &error);
 	if (expect_status_ok(rc, &error, "selector assignment SQL fetch should succeed") != 0 ||
-	    expect_true(strcmp(selector_sql, "DEFAULT") == 0, "selector assignment SQL should be DEFAULT") != 0) {
+	    expect_true(strcmp(selector_sql, "CuRrEnT_TiMeStAmP") == 0, "selector assignment SQL should retain source case") != 0) {
 		sqlparser_string_free(selector_sql);
 		sqlparser_string_free(assignment_sql);
 		sqlparser_handle_destroy(handle);
@@ -923,12 +1104,34 @@ static int test_update_assignment_sql_mutation(void)
 		return 1;
 	}
 
+	sqlparser_string_free(selector_sql);
+	selector_sql = NULL;
+	rc = sqlparser_selector_update_assignment_sql(handle, &selector, &selector_sql, &error);
+	if (expect_status_ok(rc, &error, "unmodified SQL value assignment should remain readable") != 0 ||
+	    expect_true(strcmp(selector_sql, "CuRrEnT_TiMeStAmP") == 0, "unmodified SQL value assignment should retain source case after another patch") != 0) {
+		sqlparser_string_free(selector_sql);
+		sqlparser_string_free(assignment_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
 	rc = sqlparser_selector_set_update_assignment_sql(
 		handle,
 		&selector,
-		"clock_timestamp()",
+		"cUrReNt_tImEsTaMp",
 		&error);
 	if (expect_status_ok(rc, &error, "selector assignment SQL mutation should succeed") != 0) {
+		sqlparser_string_free(selector_sql);
+		sqlparser_string_free(assignment_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(selector_sql);
+	selector_sql = NULL;
+	rc = sqlparser_selector_update_assignment_sql(handle, &selector, &selector_sql, &error);
+	if (expect_status_ok(rc, &error, "patched SQL value assignment should be readable") != 0 ||
+	    expect_true(strcmp(selector_sql, "cUrReNt_tImEsTaMp") == 0, "patched SQL value assignment should retain patch case") != 0) {
 		sqlparser_string_free(selector_sql);
 		sqlparser_string_free(assignment_sql);
 		sqlparser_handle_destroy(handle);
@@ -938,7 +1141,7 @@ static int test_update_assignment_sql_mutation(void)
 	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
 	if (expect_status_ok(rc, &error, "expression update deparse should succeed") != 0 ||
 	    expect_true(strstr(deparsed_sql, "name = lower(name)") != NULL, "deparsed update should contain lower(name)") != 0 ||
-	    expect_true(strstr(deparsed_sql, "updated_at = clock_timestamp()") != NULL, "deparsed update should contain clock_timestamp()") != 0) {
+	    expect_true(strstr(deparsed_sql, "updated_at = cUrReNt_tImEsTaMp") != NULL, "deparsed update should retain patched SQL value case") != 0) {
 		sqlparser_string_free(deparsed_sql);
 		sqlparser_string_free(selector_sql);
 		sqlparser_string_free(assignment_sql);
@@ -1756,6 +1959,4809 @@ static int test_insert_cell_sql_mutation(void)
 	return 0;
 }
 
+static int test_insert_cell_source_keyword_boundary(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"INSERT INTO évalues (x) VALUES (CoAlEsCe(1,  2))"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"INSERT INTO évalue (x) VALUES (CoAlEsCe(1,  2))"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"INSERT INTO évalues (x) VALUES (CoAlEsCe(1,  2))"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"INSERT INTO évalues (x) VALUES (CoAlEsCe(1,  2))"
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"INSERT INTO évalues (x) VALUES (CoAlEsCe(1,  2))"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_ORACLE,
+			"INSERT INTO évalues (x) VALUES (CoAlEsCe(1,  2))"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_MYSQL,
+			"INSERT INTO évalue (x) VALUES (CoAlEsCe(1,  2))"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_POSTGRESQL,
+			"INSERT INTO évalues (x) VALUES (CoAlEsCe(1,  2))"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"INSERT INTO évalues (x) VALUES (CoAlEsCe(1,  2))"
+		}
+	};
+	const char *expected_sql;
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_selector_t selector;
+	char *cell_sql;
+	char *selector_sql;
+	char *view_json;
+	size_t index;
+	int rc;
+
+	expected_sql = "CoAlEsCe(1,  2)";
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		handle = NULL;
+		cell_sql = NULL;
+		selector_sql = NULL;
+		view_json = NULL;
+		memset(&error, 0, sizeof(error));
+		memset(&selector, 0, sizeof(selector));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[index].dialect;
+
+		rc = sqlparser_parse_with_options(
+			cases[index].sql, &options, &handle, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "Unicode keyword-boundary INSERT parse should succeed") != 0) {
+			return 1;
+		}
+		rc = sqlparser_insert_cell_sql(
+			handle, 0U, 0U, 0U, &cell_sql, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "Unicode keyword-boundary insert cell SQL should be available") != 0 ||
+		    expect_true(
+			    cell_sql != NULL && strcmp(cell_sql, expected_sql) == 0,
+			    "insert cell SQL should preserve the exact source expression") != 0) {
+			sqlparser_string_free(cell_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		selector.kind = SQLPARSER_SELECTOR_KIND_INSERT_CELL;
+		selector.statement_index = 0U;
+		selector.row_index = 0U;
+		selector.column_index = 0U;
+		rc = sqlparser_selector_insert_cell_sql(
+			handle, &selector, &selector_sql, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "Unicode keyword-boundary selector cell SQL should be available") != 0 ||
+		    expect_true(
+			    selector_sql != NULL &&
+				    strcmp(selector_sql, expected_sql) == 0,
+			    "selector cell SQL should preserve the exact source expression") != 0) {
+			sqlparser_string_free(selector_sql);
+			sqlparser_string_free(cell_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "Unicode keyword-boundary View JSON should export") != 0 ||
+		    expect_true(
+			    view_json != NULL &&
+				    strstr(
+					    view_json,
+					    "\"expression_sql\":\"CoAlEsCe(1,  2)\"") != NULL,
+			    "View JSON should preserve the exact source expression") != 0) {
+			sqlparser_string_free(view_json);
+			sqlparser_string_free(selector_sql);
+			sqlparser_string_free(cell_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		sqlparser_string_free(view_json);
+		sqlparser_string_free(selector_sql);
+		sqlparser_string_free(cell_sql);
+		sqlparser_handle_destroy(handle);
+	}
+	return 0;
+}
+
+static int test_sqlserver_expression_source_case(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	size_t statement_index,
+	size_t dml_index,
+	sqlparser_graph_dml_kind_t dml_kind,
+	const char *const *expected_expression_sql,
+	size_t expected_cell_count,
+	int expect_cell_selectors,
+	const char *message)
+{
+	static const char *const merge_column_names[] = {
+		"id",
+		"calc",
+		"created_at"
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_branch_t branch;
+	sqlparser_test_merge_branch_detail_t branch_detail;
+	sqlparser_graph_dml_column_t dml_column;
+	sqlparser_graph_dml_cell_t cell;
+	sqlparser_graph_field_t field;
+	sqlparser_graph_relation_t relation;
+	sqlparser_graph_target_t target;
+	sqlparser_graph_value_t value;
+	sqlparser_index_span_t cell_span;
+	char *cell_sql;
+	char *view_json;
+	json_error_t json_error;
+	json_t *root;
+	json_t *statements;
+	json_t *statement;
+	json_t *query_graph;
+	json_t *dml_json;
+	json_t *rows;
+	json_t *merge_columns_json;
+	size_t dml_count;
+	size_t branch_index;
+	size_t cell_index;
+	size_t index;
+	size_t merge_source_field_index;
+	size_t merge_source_target_index;
+	int rc;
+	int result;
+
+	handle = NULL;
+	view_json = NULL;
+	root = NULL;
+	merge_columns_json = NULL;
+	merge_source_field_index = (size_t)-1;
+	merge_source_target_index = (size_t)-1;
+	result = 1;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, message) != 0 ||
+	    expect_deparse_equals_and_reparse(handle, sql, message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(
+			    handle,
+			    statement_index,
+			    &graph,
+			    &error),
+		    &error,
+		    "SQL Server expression source graph should succeed") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_count(
+			    &graph,
+			    &dml_count,
+			    &error),
+		    &error,
+		    "SQL Server expression source DML count should succeed") != 0 ||
+	    expect_true(
+		    dml_count == dml_index + 1U,
+		    "SQL Server expression source DML count mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_at(
+			    &graph,
+			    dml_index,
+			    &dml,
+			    &error),
+		    &error,
+		    "SQL Server expression source DML should be available") != 0 ||
+	    expect_true(
+		    dml.kind == dml_kind,
+		    "SQL Server expression source DML shape mismatch") != 0) {
+		goto done;
+	}
+	cell_span = dml.rows;
+	if (dml_kind == SQLPARSER_GRAPH_DML_MERGE) {
+		if (expect_true(
+			    dml.target_columns.count == 0U &&
+				    dml.rows.count == 0U &&
+				    dml.branches.count == 1U,
+			    "MERGE INSERT payload should be branch-scoped") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.branches,
+				    0U,
+				    &branch_index,
+				    &error),
+			    &error,
+			    "MERGE branch index should be available") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_branch_at(
+				    &graph,
+				    branch_index,
+				    &branch,
+				    &error),
+			    &error,
+			    "MERGE branch should be available") != 0 ||
+		    expect_merge_branch_detail(
+			    &graph,
+			    branch_index,
+			    &branch_detail,
+			    &error,
+			    "MERGE branch detail should be available") != 0 ||
+		    expect_true(
+			    branch.statement_index == statement_index &&
+				    branch.dml_index == dml_index &&
+				    branch.ordinal == 0U &&
+				    branch.branch_kind ==
+					    SQLPARSER_GRAPH_DML_BRANCH_WHEN &&
+				    branch_detail.action_kind ==
+					    SQLPARSER_GRAPH_MERGE_ACTION_INSERT &&
+				    branch_detail.match_kind ==
+					    SQLPARSER_GRAPH_MERGE_MATCH_NOT_MATCHED_BY_TARGET &&
+				    branch.has_target_relation != 0 &&
+				    branch.target_relation_index ==
+					    dml.target_relation_index &&
+				    branch.target_columns.count ==
+					    expected_cell_count &&
+				    branch.rows.count ==
+					    expected_cell_count &&
+				    branch_detail.assignments.count == 0U &&
+				    branch.has_condition_block == 0 &&
+				    branch.has_condition_selector == 0,
+			    "MERGE branch payload shape mismatch") != 0) {
+			goto done;
+		}
+		for (index = 0U; index < expected_cell_count; index++) {
+			if (expect_status_ok(
+				    sqlparser_query_graph_span_index_at(
+					    &graph,
+					    branch.target_columns,
+					    index,
+					    &cell_index,
+					    &error),
+				    &error,
+				    "nested MERGE target column index should resolve") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_dml_column_at(
+					    &graph,
+					    cell_index,
+					    &dml_column,
+					    &error),
+				    &error,
+				    "nested MERGE target column should resolve") != 0 ||
+			    expect_true(
+				    dml_column.statement_index ==
+						    statement_index &&
+					    dml_column.dml_index == dml_index &&
+					    dml_column.ordinal == index &&
+					    dml_column.column_name != NULL &&
+					    strcmp(
+						    dml_column.column_name,
+						    merge_column_names[index]) == 0,
+				    "nested MERGE target column mismatch") != 0) {
+				goto done;
+			}
+		}
+		cell_span = branch.rows;
+	} else if (expect_true(
+			   dml.rows.count == expected_cell_count,
+			   "INSERT row count mismatch") != 0) {
+		goto done;
+	}
+
+	for (index = 0U; index < expected_cell_count; index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    cell_span,
+				    index,
+				    &cell_index,
+				    &error),
+			    &error,
+			    "SQL Server expression source cell index should be available") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_cell_at(
+				    &graph,
+				    cell_index,
+				    &cell,
+				    &error),
+			    &error,
+			    "SQL Server expression source cell should be available") != 0 ||
+		    expect_true(
+			    cell.dml_index == dml_index &&
+				    cell.statement_index == statement_index &&
+				    cell.row_index == 0U &&
+				    cell.column_ordinal == index,
+			    "SQL Server expression source cell coordinates mismatch") != 0 ||
+		    expect_true(
+			    cell.kind ==
+				    (expected_expression_sql[index] != NULL ?
+					     SQLPARSER_GRAPH_VALUE_EXPRESSION :
+					     SQLPARSER_GRAPH_VALUE_FIELD),
+			    "SQL Server expression source cell kind mismatch") != 0 ||
+		    expect_true(
+			    expect_cell_selectors ?
+				    (cell.has_selector != 0 &&
+				     cell.selector.kind ==
+					     SQLPARSER_SELECTOR_KIND_INSERT_CELL &&
+				     cell.selector.statement_index ==
+					     statement_index &&
+				     cell.selector.row_index == 0U &&
+				     cell.selector.column_index == index) :
+				    cell.has_selector == 0,
+			    "SQL Server expression source cell selector mismatch") != 0) {
+			goto done;
+		}
+		if (expected_expression_sql[index] != NULL) {
+			if (expect_true(
+				    cell.has_bind == 0 &&
+					    cell.bind_kind ==
+						    SQLPARSER_BIND_KIND_NONE &&
+					    cell.has_bind_sql == 0 &&
+					    cell.has_bind_position == 0 &&
+					    cell.has_source_target == 0 &&
+					    cell.has_source_field == 0,
+				    "SQL Server expression cell metadata mismatch") != 0) {
+				goto done;
+			}
+		} else if (dml_kind == SQLPARSER_GRAPH_DML_MERGE) {
+			if (expect_true(
+				    index == 0U &&
+					    cell.has_bind == 0 &&
+					    cell.bind_kind ==
+						    SQLPARSER_BIND_KIND_NONE &&
+					    cell.has_bind_sql == 0 &&
+					    cell.has_bind_position == 0 &&
+					    cell.has_source_target != 0 &&
+					    cell.has_source_field != 0,
+				    "nested MERGE source cell metadata mismatch") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_field_at(
+					    &graph,
+					    cell.source_field_index,
+					    &field,
+					    &error),
+				    &error,
+				    "nested MERGE source field should resolve") != 0 ||
+			    expect_true(
+				    field.column_name != NULL &&
+					    strcmp(field.column_name, "id") == 0 &&
+					    field.has_relation != 0,
+				    "nested MERGE source field mismatch") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_relation_at(
+					    &graph,
+					    field.relation_index,
+					    &relation,
+					    &error),
+				    &error,
+				    "nested MERGE source relation should resolve") != 0 ||
+			    expect_true(
+				    relation.alias_name != NULL &&
+					    strcmp(relation.alias_name, "s") == 0 &&
+					    relation.has_source_block != 0 &&
+					    field.block_index ==
+						    relation.block_index,
+				    "nested MERGE source relation mismatch") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_target_at(
+					    &graph,
+					    cell.source_target_index,
+					    &target,
+					    &error),
+				    &error,
+				    "nested MERGE source target should resolve") != 0 ||
+			    expect_true(
+				    target.kind ==
+						    SQLPARSER_GRAPH_TARGET_BIND &&
+					    target.output_name != NULL &&
+					    strcmp(target.output_name, "id") == 0 &&
+					    target.has_value != 0,
+				    "nested MERGE source target mismatch") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_value_at(
+					    &graph,
+					    target.value_index,
+					    &value,
+					    &error),
+				    &error,
+				    "nested MERGE source target value should resolve") != 0 ||
+			    expect_true(
+				    value.kind == SQLPARSER_GRAPH_VALUE_BIND &&
+					    value.has_bind != 0 &&
+					    strcmp(value.bind, "id") == 0 &&
+					    value.bind_kind ==
+						    SQLPARSER_BIND_KIND_NAMED &&
+					    value.has_bind_sql != 0 &&
+					    strcmp(value.bind_sql, "@id") == 0 &&
+					    value.has_bind_position != 0 &&
+					    value.bind_position == 1U,
+				    "nested MERGE source target bind mismatch") != 0) {
+				goto done;
+			}
+			merge_source_field_index =
+				cell.source_field_index;
+			merge_source_target_index =
+				cell.source_target_index;
+		}
+		if (!expect_cell_selectors) {
+			continue;
+		}
+		cell_sql = NULL;
+		rc = sqlparser_insert_cell_sql(
+			handle,
+			statement_index,
+			0U,
+			index,
+			&cell_sql,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "SQL Server control insert cell SQL should be available") != 0 ||
+		    expect_true(
+			    cell_sql != NULL &&
+				    expected_expression_sql[index] != NULL &&
+				    strcmp(
+					    cell_sql,
+					    expected_expression_sql[index]) == 0,
+			    "SQL Server control insert cell SQL mismatch") != 0) {
+			sqlparser_string_free(cell_sql);
+			goto done;
+		}
+		sqlparser_string_free(cell_sql);
+	}
+
+	rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "SQL Server expression source View JSON should export") != 0) {
+		goto done;
+	}
+	memset(&json_error, 0, sizeof(json_error));
+	root = json_loads(view_json, 0, &json_error);
+	statements = root != NULL ?
+		json_object_get(root, "statements") :
+		NULL;
+	statement = json_is_array(statements) ?
+		json_array_get(statements, statement_index) :
+		NULL;
+	query_graph = json_is_object(statement) ?
+		json_object_get(statement, "query_graph") :
+		NULL;
+	dml_json = json_is_object(query_graph) ?
+		json_object_get(query_graph, "dml") :
+		NULL;
+	if (dml_index > 0U && json_is_object(dml_json)) {
+		json_t *children;
+
+		children = json_object_get(dml_json, "children");
+		dml_json = json_is_array(children) ?
+			json_array_get(children, dml_index - 1U) :
+			NULL;
+	}
+	rows = json_is_object(dml_json) ?
+		json_object_get(dml_json, "rows") :
+		NULL;
+	if (dml_kind == SQLPARSER_GRAPH_DML_MERGE &&
+	    json_is_object(dml_json)) {
+		json_t *branch_json;
+		json_t *branches;
+
+		branches = json_object_get(dml_json, "branches");
+		branch_json = json_is_array(branches) ?
+			json_array_get(branches, 0U) :
+			NULL;
+		merge_columns_json = json_is_object(branch_json) ?
+			json_object_get(branch_json, "target_columns") :
+			NULL;
+		if (expect_true(
+			    json_object_get(dml_json, "target_columns") == NULL &&
+				    rows == NULL &&
+				    json_is_array(branches) &&
+				    json_array_size(branches) == 1U &&
+				    json_is_object(branch_json) &&
+				    json_object_size(branch_json) == 7U &&
+				    json_integer_is(
+					    branch_json,
+					    "ordinal",
+					    0) &&
+				    json_string_is(
+					    branch_json,
+					    "branch_kind",
+					    "when") &&
+				    json_string_is(
+					    branch_json,
+					    "merge_action_kind",
+					    "insert") &&
+				    json_string_is(
+					    branch_json,
+					    "merge_match_kind",
+					    "not_matched_by_target") &&
+				    json_integer_is(
+					    branch_json,
+					    "target_relation",
+					    (json_int_t)
+						    dml.target_relation_index) &&
+				    json_object_get(
+					    branch_json,
+					    "condition_block") == NULL &&
+				    json_object_get(
+					    branch_json,
+					    "condition_selector") == NULL &&
+				    json_is_array(merge_columns_json) &&
+				    json_array_size(merge_columns_json) ==
+					    expected_cell_count,
+			    "MERGE View payload should be branch-scoped") != 0) {
+			goto done;
+		}
+		for (index = 0U; index < expected_cell_count; index++) {
+			json_t *column_json;
+
+			column_json =
+				json_array_get(merge_columns_json, index);
+			if (expect_true(
+				    json_is_object(column_json) &&
+					    json_object_size(column_json) == 2U &&
+					    json_integer_is(
+						    column_json,
+						    "ordinal",
+						    (json_int_t)index) &&
+					    json_string_is(
+						    column_json,
+						    "column",
+						    merge_column_names[index]),
+				    "nested MERGE View target column mismatch") != 0) {
+				goto done;
+			}
+		}
+		rows = json_is_object(branch_json) ?
+			json_object_get(branch_json, "rows") :
+			NULL;
+	}
+	if (expect_true(
+		    json_is_array(rows) &&
+			    json_array_size(rows) == expected_cell_count,
+		    "SQL Server expression source View rows mismatch") != 0) {
+		goto done;
+	}
+	for (index = 0U; index < expected_cell_count; index++) {
+		json_t *cell_json;
+		json_t *row_json;
+		json_t *column_json;
+		json_t *kind_json;
+		json_t *expression_json;
+		json_t *selector_json;
+		const char *expected_kind;
+
+		cell_json = json_array_get(rows, index);
+		row_json = json_is_object(cell_json) ?
+			json_object_get(cell_json, "row") :
+			NULL;
+		column_json = json_is_object(cell_json) ?
+			json_object_get(cell_json, "column") :
+			NULL;
+		kind_json = json_is_object(cell_json) ?
+			json_object_get(cell_json, "kind") :
+			NULL;
+		expression_json = json_is_object(cell_json) ?
+			json_object_get(cell_json, "expression_sql") :
+			NULL;
+		selector_json = json_is_object(cell_json) ?
+			json_object_get(cell_json, "selector") :
+			NULL;
+		expected_kind = expected_expression_sql[index] != NULL ?
+			"expression" :
+			"field";
+		if (expect_true(
+			    json_is_integer(row_json) &&
+				    json_integer_value(row_json) == 0 &&
+				    json_is_integer(column_json) &&
+				    json_integer_value(column_json) ==
+					    (json_int_t)index &&
+				    json_is_string(kind_json) &&
+				    strcmp(
+					    json_string_value(kind_json),
+					    expected_kind) == 0,
+			    "SQL Server expression source View cell mismatch") != 0 ||
+		    expect_true(
+			    expected_expression_sql[index] != NULL ?
+				    (json_is_string(expression_json) &&
+				     strcmp(
+					     json_string_value(expression_json),
+					     expected_expression_sql[index]) == 0) :
+				    expression_json == NULL,
+			    "SQL Server expression source View SQL mismatch") != 0) {
+			goto done;
+		}
+		if (expected_expression_sql[index] != NULL) {
+			if (expect_true(
+				    json_object_size(cell_json) ==
+						    (expect_cell_selectors ?
+							     6U :
+							     5U) &&
+					    json_integer_is(
+						    cell_json,
+						    "bind_kind",
+						    SQLPARSER_BIND_KIND_NONE) &&
+					    json_object_get(
+						    cell_json,
+						    "source_target") == NULL &&
+					    json_object_get(
+						    cell_json,
+						    "source_field") == NULL &&
+					    json_object_get(
+						    cell_json,
+						    "bind_key") == NULL &&
+					    json_object_get(
+						    cell_json,
+						    "bind_sql") == NULL &&
+					    json_object_get(
+						    cell_json,
+						    "bind_position") == NULL,
+				    "SQL Server expression source View metadata mismatch") != 0) {
+				goto done;
+			}
+		} else if (expect_true(
+				   dml_kind ==
+						   SQLPARSER_GRAPH_DML_MERGE &&
+					   json_object_size(cell_json) == 6U &&
+					   json_integer_is(
+						   cell_json,
+						   "source_target",
+						   (json_int_t)
+							   merge_source_target_index) &&
+					   json_integer_is(
+						   cell_json,
+						   "source_field",
+						   (json_int_t)
+							   merge_source_field_index) &&
+					   json_integer_is(
+						   cell_json,
+						   "bind_kind",
+						   SQLPARSER_BIND_KIND_NONE) &&
+					   json_object_get(
+						   cell_json,
+						   "bind_key") == NULL &&
+					   json_object_get(
+						   cell_json,
+						   "bind_sql") == NULL &&
+					   json_object_get(
+						   cell_json,
+						   "bind_position") == NULL,
+				   "nested MERGE View source lineage mismatch") != 0) {
+			goto done;
+		}
+		if (expect_cell_selectors) {
+			char expected_selector[64];
+
+			snprintf(
+				expected_selector,
+				sizeof(expected_selector),
+				"stmt[%zu].insert_cell[0][%zu]",
+				statement_index,
+				index);
+			if (expect_true(
+				    json_is_string(selector_json) &&
+					    strcmp(
+						    json_string_value(
+							    selector_json),
+						    expected_selector) == 0,
+				    "SQL Server control cell View selector mismatch") != 0) {
+				goto done;
+			}
+		} else if (expect_true(
+			       selector_json == NULL,
+			       "nested SQL Server DML cell must not expose a selector") != 0) {
+			goto done;
+		}
+	}
+	result = 0;
+
+done:
+	if (root != NULL) {
+		json_decref(root);
+	}
+	sqlparser_string_free(view_json);
+	sqlparser_handle_destroy(handle);
+	return result;
+}
+
+static int test_sqlserver_control_nested_expression_source_sql(void)
+{
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_SQLSERVER,
+		SQLPARSER_DIALECT_VASTBASE_SQLSERVER
+	};
+	static const char *const control_expressions[] = {
+		"/*lead-A*/ CoAlEsCe ( @x ,  0 ) /*tail-A*/",
+		"CURRENT_TIMESTAMP",
+		"[dbo].[Fn] ( @x )"
+	};
+	static const char *const nested_insert_expressions[] = {
+		"/*lead-I*/ AbS ( @id ) /*tail-I*/",
+		"CURRENT_TIMESTAMP",
+		"[dbo].[Fn] ( @id )"
+	};
+	static const char *const nested_merge_expressions[] = {
+		NULL,
+		"/*lead-M*/ CoAlEsCe ( @v , 0 ) /*tail-M*/",
+		"CURRENT_TIMESTAMP"
+	};
+	const char *control_sql;
+	const char *nested_insert_sql;
+	const char *nested_merge_sql;
+	size_t dialect_index;
+
+	control_sql =
+		"IF @go = 1 INSERT dbo.ControlSink(a, b, c) VALUES (  "
+		"/*lead-A*/ CoAlEsCe ( @x ,  0 ) /*tail-A*/  , "
+		"CURRENT_TIMESTAMP, [dbo].[Fn] ( @x ) )";
+	nested_insert_sql =
+		"INSERT INTO dbo.InsertAudit(id, created_at, calc) "
+		"SELECT d.id, d.created_at, d.calc "
+		"FROM (INSERT INTO dbo.InsertSource(id, created_at, calc) "
+		"OUTPUT INSERTED.id, INSERTED.created_at, INSERTED.calc "
+		"VALUES (  /*lead-I*/ AbS ( @id ) /*tail-I*/  , "
+		"CURRENT_TIMESTAMP, [dbo].[Fn] ( @id ) )) AS d";
+	nested_merge_sql =
+		"INSERT INTO dbo.MergeAudit(action_name, id, calc, created_at) "
+		"SELECT d.action_name, d.id, d.calc, d.created_at "
+		"FROM (MERGE dbo.MergeTarget AS t "
+		"USING (SELECT @id AS id) AS s ON t.id = s.id "
+		"WHEN NOT MATCHED THEN INSERT (id, calc, created_at) "
+		"VALUES (s.id,  /*lead-M*/ CoAlEsCe ( @v , 0 ) /*tail-M*/ , "
+		"CURRENT_TIMESTAMP) "
+		"OUTPUT $action AS action_name, INSERTED.id, INSERTED.calc, "
+		"INSERTED.created_at) AS d";
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		if (test_sqlserver_expression_source_case(
+			    dialects[dialect_index],
+			    control_sql,
+			    1U,
+			    0U,
+			    SQLPARSER_GRAPH_DML_INSERT,
+			    control_expressions,
+			    sizeof(control_expressions) /
+				    sizeof(control_expressions[0]),
+			    1,
+			    "SQL Server control INSERT source SQL should remain exact") != 0 ||
+		    test_sqlserver_expression_source_case(
+			    dialects[dialect_index],
+			    nested_insert_sql,
+			    0U,
+			    1U,
+			    SQLPARSER_GRAPH_DML_INSERT,
+			    nested_insert_expressions,
+			    sizeof(nested_insert_expressions) /
+				    sizeof(nested_insert_expressions[0]),
+			    0,
+			    "nested SQL Server INSERT source SQL should remain exact") != 0 ||
+		    test_sqlserver_expression_source_case(
+			    dialects[dialect_index],
+			    nested_merge_sql,
+			    0U,
+			    1U,
+			    SQLPARSER_GRAPH_DML_MERGE,
+			    nested_merge_expressions,
+			    sizeof(nested_merge_expressions) /
+				    sizeof(nested_merge_expressions[0]),
+			    0,
+			    "nested SQL Server MERGE source SQL should remain exact") != 0) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static int test_merge_single_insert_branch_case(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	const char *condition_sql,
+	size_t when_index,
+	const char *bind_key,
+	sqlparser_bind_kind_t bind_kind,
+	const char *bind_sql,
+	const char *expression_sql)
+{
+	static const char *const column_names[] = {
+		"id",
+		"created_at"
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_branch_t branch;
+	sqlparser_test_merge_branch_detail_t branch_detail;
+	sqlparser_graph_dml_column_t column;
+	sqlparser_graph_dml_cell_t cell;
+	sqlparser_graph_dml_assignment_t assignment;
+	sqlparser_graph_field_t assignment_field;
+	sqlparser_graph_dml_branch_t update_branch;
+	sqlparser_test_merge_branch_detail_t update_branch_detail;
+	sqlparser_selector_t parsed_selector;
+	char *assignment_sql;
+	char *bind_selector_text;
+	char *condition;
+	char *selector_text;
+	char *view_json;
+	char expected_selector_text[64];
+	json_error_t json_error;
+	json_t *root;
+	json_t *statements;
+	json_t *statement;
+	json_t *query_graph;
+	json_t *dml_json;
+	json_t *branches;
+	json_t *branch_json;
+	json_t *columns_json;
+	json_t *rows_json;
+	size_t index;
+	size_t item_index;
+	size_t assignment_index;
+	size_t update_assignment_index;
+	int rc;
+
+	handle = NULL;
+	assignment_sql = NULL;
+	bind_selector_text = NULL;
+	condition = NULL;
+	selector_text = NULL;
+	view_json = NULL;
+	root = NULL;
+	snprintf(
+		expected_selector_text,
+		sizeof(expected_selector_text),
+		"stmt[0].merge_branch_condition[%zu]",
+		when_index);
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	rc = sqlparser_parse_with_options(
+		sql,
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "single-arm MERGE should parse") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    sql,
+		    "single-arm MERGE should deparse exactly and reparse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(
+			    handle,
+			    0U,
+			    &graph,
+			    &error),
+		    &error,
+		    "single-arm MERGE graph should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml(
+			    &graph,
+			    &dml,
+			    &error),
+		    &error,
+		    "single-arm MERGE DML should be available") != 0 ||
+	    expect_true(
+		    dml.kind == SQLPARSER_GRAPH_DML_MERGE &&
+			    dml.has_target_relation != 0 &&
+			    dml.assignments.count ==
+				    (when_index == 0U ? 0U : 1U) &&
+			    dml.target_columns.count == 0U &&
+			    dml.rows.count == 0U &&
+			    dml.branches.count == when_index + 1U,
+		    "single-arm MERGE payload should be branch-scoped") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    &graph,
+			    dml.branches,
+			    when_index,
+			    &index,
+			    &error),
+		    &error,
+		    "single-arm MERGE branch index should resolve") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_branch_at(
+			    &graph,
+			    index,
+			    &branch,
+			    &error),
+		    &error,
+		    "single-arm MERGE branch should be available") != 0 ||
+	    expect_merge_branch_detail(
+		    &graph,
+		    index,
+		    &branch_detail,
+		    &error,
+		    "single-arm MERGE branch detail should be available") != 0 ||
+	    expect_true(
+		    branch.ordinal == when_index &&
+			    branch.statement_index == 0U &&
+			    branch.dml_index == dml.index &&
+			    branch.branch_kind ==
+				    SQLPARSER_GRAPH_DML_BRANCH_WHEN &&
+			    branch_detail.action_kind ==
+				    SQLPARSER_GRAPH_MERGE_ACTION_INSERT &&
+			    branch_detail.match_kind ==
+				    SQLPARSER_GRAPH_MERGE_MATCH_NOT_MATCHED_BY_TARGET &&
+			    branch.has_target_relation != 0 &&
+			    branch.target_relation_index ==
+				    dml.target_relation_index &&
+			    branch.target_columns.count == 2U &&
+			    branch.rows.count == 2U &&
+			    branch_detail.assignments.count == 0U &&
+			    branch.has_condition_block == 0 &&
+			    branch.has_condition_selector != 0 &&
+			    branch.condition_selector.kind ==
+				    SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION &&
+			    branch.condition_selector.statement_index == 0U &&
+			    branch.condition_selector.row_index == 0U &&
+			    branch.condition_selector.item_index == when_index,
+		    "single-arm MERGE branch metadata mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_selector_format(
+			    &branch.condition_selector,
+			    &selector_text,
+			    &error),
+		    &error,
+		    "MERGE condition selector should format") != 0 ||
+	    expect_true(
+		    selector_text != NULL &&
+			    strcmp(selector_text, expected_selector_text) == 0 &&
+			    strcmp(
+				    sqlparser_selector_kind_name(
+					    branch.condition_selector.kind),
+				    "merge_branch_condition") == 0,
+		    "MERGE condition selector text mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_selector_parse(
+			    selector_text,
+			    &parsed_selector,
+			    &error),
+		    &error,
+		    "MERGE condition selector should parse") != 0 ||
+	    expect_true(
+			    parsed_selector.kind ==
+				    branch.condition_selector.kind &&
+			    parsed_selector.statement_index == 0U &&
+			    parsed_selector.row_index == 0U &&
+			    parsed_selector.item_index == when_index,
+		    "MERGE condition selector round-trip mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_selector_clause_sql(
+			    handle,
+			    &branch.condition_selector,
+			    &condition,
+			    &error),
+		    &error,
+		    "MERGE branch condition SQL should be available") != 0 ||
+	    expect_true(
+		    condition != NULL &&
+			    strcmp(condition, condition_sql) == 0,
+		    "MERGE branch condition SQL should preserve source text") != 0) {
+		goto fail;
+	}
+	if (when_index != 0U) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.branches,
+				    0U,
+				    &index,
+				    &error),
+			    &error,
+			    "preceding MERGE UPDATE branch index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_branch_at(
+				    &graph,
+				    index,
+				    &update_branch,
+				    &error),
+			    &error,
+			    "preceding MERGE UPDATE branch should be available") != 0 ||
+		    expect_merge_branch_detail(
+			    &graph,
+			    index,
+			    &update_branch_detail,
+			    &error,
+			    "preceding MERGE UPDATE branch detail should be available") != 0 ||
+		    expect_true(
+			    update_branch.ordinal == 0U &&
+				    update_branch_detail.action_kind ==
+					    SQLPARSER_GRAPH_MERGE_ACTION_UPDATE &&
+				    update_branch_detail.match_kind ==
+					    SQLPARSER_GRAPH_MERGE_MATCH_MATCHED &&
+				    update_branch_detail.assignments.count == 1U &&
+				    update_branch.target_columns.count == 0U &&
+				    update_branch.rows.count == 0U &&
+				    update_branch.has_condition_selector == 0,
+			    "preceding MERGE UPDATE branch metadata mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.assignments,
+				    0U,
+				    &assignment_index,
+				    &error),
+			    &error,
+			    "preceding MERGE UPDATE assignment should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    update_branch_detail.assignments,
+				    0U,
+				    &update_assignment_index,
+				    &error),
+			    &error,
+			    "preceding MERGE UPDATE branch assignment should resolve") != 0 ||
+		    expect_true(
+			    update_assignment_index == assignment_index,
+			    "MERGE branch and DML assignment spans should reference the same assignment") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_assignment_at(
+				    &graph,
+				    assignment_index,
+				    &assignment,
+				    &error),
+			    &error,
+			    "preceding MERGE UPDATE assignment should be available") != 0 ||
+		    expect_true(
+			    assignment.statement_index == 0U &&
+				    assignment.dml_index == dml.index &&
+				    assignment.value_kind ==
+					    SQLPARSER_GRAPH_VALUE_EXPRESSION &&
+				    assignment.has_source_target == 0 &&
+				    assignment.has_source_field == 0 &&
+				    assignment.has_bind == 0 &&
+				    assignment.bind_kind ==
+					    SQLPARSER_BIND_KIND_NONE &&
+				    assignment.has_bind_sql == 0 &&
+				    assignment.has_bind_position == 0 &&
+				    assignment.has_selector != 0 &&
+				    assignment.selector.kind ==
+					    SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT &&
+				    assignment.selector.row_index == 0U &&
+				    assignment.selector.item_index == 0U &&
+				    assignment.selector.column_index == 0U,
+			    "preceding MERGE UPDATE assignment metadata mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    &graph,
+				    assignment.target_field_index,
+				    &assignment_field,
+				    &error),
+			    &error,
+			    "preceding MERGE UPDATE target field should resolve") != 0 ||
+		    expect_true(
+			    assignment_field.column_name != NULL &&
+				    strcmp(
+					    assignment_field.column_name,
+					    "created_at") == 0,
+			    "preceding MERGE UPDATE target field mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_selector_update_assignment_sql(
+				    handle,
+				    &assignment.selector,
+				    &assignment_sql,
+				    &error),
+			    &error,
+			    "preceding MERGE UPDATE SQL should be available") != 0 ||
+		    expect_true(
+			    assignment_sql != NULL &&
+				    strcmp(
+					    assignment_sql,
+					    "CURRENT_TIMESTAMP") == 0,
+			    "preceding MERGE UPDATE SQL mismatch") != 0) {
+			goto fail;
+		}
+		sqlparser_string_free(assignment_sql);
+		assignment_sql = NULL;
+	}
+	for (item_index = 0U; item_index < 2U; item_index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    branch.target_columns,
+				    item_index,
+				    &index,
+				    &error),
+			    &error,
+			    "MERGE branch column index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_column_at(
+				    &graph,
+				    index,
+				    &column,
+				    &error),
+			    &error,
+			    "MERGE branch column should be available") != 0 ||
+		    expect_true(
+			    column.statement_index == 0U &&
+				    column.dml_index == dml.index &&
+				    column.ordinal == item_index &&
+				    column.column_name != NULL &&
+				    strcmp(
+					    column.column_name,
+					    column_names[item_index]) == 0,
+			    "MERGE branch column metadata mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    branch.rows,
+				    item_index,
+				    &index,
+				    &error),
+			    &error,
+			    "MERGE branch cell index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_cell_at(
+				    &graph,
+				    index,
+				    &cell,
+				    &error),
+			    &error,
+			    "MERGE branch cell should be available") != 0 ||
+		    expect_true(
+			    cell.statement_index == 0U &&
+				    cell.dml_index == dml.index &&
+				    cell.row_index == when_index &&
+				    cell.column_ordinal == item_index,
+			    "MERGE branch cell coordinates mismatch") != 0) {
+			goto fail;
+		}
+		if (item_index == 0U) {
+			if (expect_true(
+				    cell.kind == SQLPARSER_GRAPH_VALUE_BIND &&
+					    cell.has_bind != 0 &&
+					    strcmp(cell.bind, bind_key) == 0 &&
+					    cell.bind_kind == bind_kind &&
+					    cell.has_bind_sql != 0 &&
+					    strcmp(cell.bind_sql, bind_sql) == 0 &&
+					    cell.has_bind_position != 0 &&
+					    cell.bind_position == 1U &&
+					    cell.has_source_target == 0 &&
+					    cell.has_source_field == 0 &&
+					    cell.has_selector != 0 &&
+					    cell.selector.kind ==
+						    SQLPARSER_SELECTOR_KIND_VALUE &&
+					    cell.selector.statement_index == 0U,
+				    "MERGE branch bind metadata mismatch") != 0) {
+				goto fail;
+			}
+			if (expect_status_ok(
+				    sqlparser_selector_format(
+					    &cell.selector,
+					    &bind_selector_text,
+					    &error),
+				    &error,
+				    "MERGE branch bind selector should format") != 0) {
+				goto fail;
+			}
+		} else if (expect_true(
+				   cell.kind ==
+					   SQLPARSER_GRAPH_VALUE_EXPRESSION &&
+					   cell.has_bind == 0 &&
+					   cell.bind_kind ==
+						   SQLPARSER_BIND_KIND_NONE &&
+					   cell.has_bind_sql == 0 &&
+					   cell.has_bind_position == 0 &&
+					   cell.has_source_target == 0 &&
+					   cell.has_source_field == 0 &&
+					   cell.has_selector == 0,
+				   "MERGE branch expression kind mismatch") != 0) {
+			goto fail;
+		}
+	}
+	rc = sqlparser_export_view_json(
+		handle,
+		0,
+		&view_json,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "single-arm MERGE View should export") != 0) {
+		goto fail;
+	}
+	root = json_loads(view_json, 0, &json_error);
+	statements = root != NULL ?
+		json_object_get(root, "statements") :
+		NULL;
+	statement = json_is_array(statements) ?
+		json_array_get(statements, 0U) :
+		NULL;
+	query_graph = json_is_object(statement) ?
+		json_object_get(statement, "query_graph") :
+		NULL;
+	dml_json = json_is_object(query_graph) ?
+		json_object_get(query_graph, "dml") :
+		NULL;
+	branches = json_is_object(dml_json) ?
+		json_object_get(dml_json, "branches") :
+		NULL;
+	branch_json = json_is_array(branches) ?
+		json_array_get(branches, when_index) :
+		NULL;
+	columns_json = json_is_object(branch_json) ?
+		json_object_get(branch_json, "target_columns") :
+		NULL;
+	rows_json = json_is_object(branch_json) ?
+		json_object_get(branch_json, "rows") :
+		NULL;
+	if (expect_true(
+		    json_is_object(dml_json) &&
+			    json_string_is(dml_json, "kind", "merge") &&
+			    json_string_is(
+				    dml_json,
+				    "insert_mode",
+				    "unknown") &&
+			    json_integer_is(
+				    dml_json,
+				    "target_relation",
+				    (json_int_t)dml.target_relation_index) &&
+			    json_object_get(dml_json, "target_columns") == NULL &&
+			    json_object_get(dml_json, "rows") == NULL &&
+			    json_is_array(branches) &&
+			    json_array_size(branches) == when_index + 1U &&
+			    json_object_size(dml_json) ==
+				    (when_index == 0U ? 4U : 5U),
+		    "single-arm MERGE View parent payload should be empty") != 0 ||
+	    expect_true(
+		    json_is_object(branch_json) &&
+			    json_integer_is(
+				    branch_json,
+				    "ordinal",
+				    (json_int_t)when_index) &&
+			    json_string_is(branch_json, "branch_kind", "when") &&
+			    json_string_is(
+				    branch_json,
+				    "merge_action_kind",
+				    "insert") &&
+			    json_string_is(
+				    branch_json,
+				    "merge_match_kind",
+				    "not_matched_by_target") &&
+			    json_integer_is(
+				    branch_json,
+				    "target_relation",
+				    (json_int_t)dml.target_relation_index) &&
+			    json_string_is(
+				    branch_json,
+				    "condition_selector",
+				    expected_selector_text) &&
+			    json_object_get(
+				    branch_json,
+				    "condition_block") == NULL &&
+			    json_object_size(branch_json) == 8U &&
+			    json_is_array(columns_json) &&
+			    json_array_size(columns_json) == 2U &&
+			    json_is_array(rows_json) &&
+			    json_array_size(rows_json) == 2U,
+		    "single-arm MERGE View branch metadata mismatch") != 0) {
+		goto fail;
+	}
+	if (when_index == 0U) {
+		if (expect_true(
+			    json_object_get(dml_json, "assignments") == NULL,
+			    "single-arm MERGE View should omit assignments") != 0) {
+			goto fail;
+		}
+	} else {
+		json_t *assignment_json;
+		json_t *assignments_json;
+		json_t *branch_assignment_json;
+		json_t *branch_assignments_json;
+		json_t *update_branch_json;
+
+		assignments_json =
+			json_object_get(dml_json, "assignments");
+		assignment_json = json_is_array(assignments_json) ?
+			json_array_get(assignments_json, 0U) :
+			NULL;
+		update_branch_json = json_array_get(branches, 0U);
+		branch_assignments_json =
+			json_is_object(update_branch_json) ?
+				json_object_get(
+					update_branch_json,
+					"assignments") :
+				NULL;
+		branch_assignment_json =
+			json_is_array(branch_assignments_json) ?
+				json_array_get(branch_assignments_json, 0U) :
+				NULL;
+		if (expect_true(
+			    json_is_array(assignments_json) &&
+				    json_array_size(assignments_json) == 1U &&
+				    json_is_object(assignment_json) &&
+				    json_object_size(assignment_json) == 4U &&
+				    json_integer_is(
+					    assignment_json,
+					    "target_field",
+					    (json_int_t)
+						    assignment.target_field_index) &&
+				    json_string_is(
+					    assignment_json,
+					    "kind",
+					    "expression") &&
+				    json_integer_is(
+					    assignment_json,
+					    "bind_kind",
+					    SQLPARSER_BIND_KIND_NONE) &&
+				    json_string_is(
+					    assignment_json,
+					    "selector",
+					    "stmt[0].merge_assignment[0][0]"),
+			    "preceding MERGE UPDATE View assignment mismatch") != 0 ||
+		    expect_true(
+			    json_is_object(update_branch_json) &&
+				    json_integer_is(
+					    update_branch_json,
+					    "ordinal",
+					    0) &&
+				    json_string_is(
+					    update_branch_json,
+					    "merge_action_kind",
+					    "update") &&
+				    json_string_is(
+					    update_branch_json,
+					    "merge_match_kind",
+					    "matched") &&
+				    json_object_get(
+					    update_branch_json,
+					    "target_columns") == NULL &&
+				    json_object_get(
+					    update_branch_json,
+					    "rows") == NULL &&
+				    json_object_get(
+					    update_branch_json,
+					    "condition_selector") == NULL &&
+				    json_is_array(branch_assignments_json) &&
+				    json_array_size(
+					    branch_assignments_json) == 1U &&
+				    json_equal(
+					    assignment_json,
+					    branch_assignment_json),
+			    "preceding MERGE UPDATE branch assignment mismatch") != 0) {
+			goto fail;
+		}
+	}
+	for (item_index = 0U; item_index < 2U; item_index++) {
+		json_t *column_json;
+		json_t *cell_json;
+
+		column_json = json_array_get(columns_json, item_index);
+		cell_json = json_array_get(rows_json, item_index);
+		if (expect_true(
+			    json_integer_is(
+				    column_json,
+				    "ordinal",
+				    (json_int_t)item_index) &&
+				    json_string_is(
+					    column_json,
+					    "column",
+					    column_names[item_index]) &&
+				    json_object_get(
+					    column_json,
+					    "selector") == NULL &&
+				    json_object_size(column_json) == 2U,
+			    "single-arm MERGE View column mismatch") != 0 ||
+		    expect_true(
+			    json_integer_is(
+				    cell_json,
+				    "row",
+				    (json_int_t)when_index) &&
+				    json_integer_is(
+					    cell_json,
+					    "column",
+					    (json_int_t)item_index) &&
+				    json_object_get(
+					    cell_json,
+					    "source_target") == NULL &&
+				    json_object_get(
+					    cell_json,
+					    "source_field") == NULL &&
+				    (item_index == 0U ||
+				     json_object_get(
+					     cell_json,
+					     "selector") == NULL),
+			    "single-arm MERGE View cell coordinates mismatch") != 0) {
+			goto fail;
+		}
+		if (item_index == 0U) {
+			if (expect_true(
+				    json_object_size(cell_json) == 8U &&
+					    json_string_is(
+						    cell_json,
+						    "kind",
+						    "bind") &&
+					    json_string_is(
+						    cell_json,
+						    "bind_key",
+						    bind_key) &&
+					    json_integer_is(
+						    cell_json,
+						    "bind_kind",
+						    (json_int_t)bind_kind) &&
+					    json_string_is(
+						    cell_json,
+						    "bind_sql",
+						    bind_sql) &&
+					    json_integer_is(
+						    cell_json,
+						    "bind_position",
+						    1) &&
+					    json_string_is(
+						    cell_json,
+						    "selector",
+						    bind_selector_text) &&
+					    json_object_get(
+						    cell_json,
+						    "expression_sql") == NULL,
+				    "single-arm MERGE View bind mismatch") != 0) {
+				goto fail;
+			}
+		} else if (expect_true(
+				   json_object_size(cell_json) == 5U &&
+					   json_string_is(
+						   cell_json,
+						   "kind",
+						   "expression") &&
+					   json_integer_is(
+						   cell_json,
+						   "bind_kind",
+						   SQLPARSER_BIND_KIND_NONE) &&
+					   json_object_get(
+						   cell_json,
+						   "bind_key") == NULL &&
+					   json_object_get(
+						   cell_json,
+						   "bind_sql") == NULL &&
+					   json_object_get(
+						   cell_json,
+						   "bind_position") == NULL &&
+					   json_string_is(
+						   cell_json,
+						   "expression_sql",
+						   expression_sql),
+				   "single-arm MERGE View expression mismatch") != 0) {
+			goto fail;
+		}
+	}
+
+	json_decref(root);
+	sqlparser_string_free(view_json);
+	sqlparser_string_free(assignment_sql);
+	sqlparser_string_free(bind_selector_text);
+	sqlparser_string_free(condition);
+	sqlparser_string_free(selector_text);
+	sqlparser_handle_destroy(handle);
+	return 0;
+
+fail:
+	if (root != NULL) {
+		json_decref(root);
+	}
+	sqlparser_string_free(view_json);
+	sqlparser_string_free(assignment_sql);
+	sqlparser_string_free(bind_selector_text);
+	sqlparser_string_free(condition);
+	sqlparser_string_free(selector_text);
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+static int test_merge_single_insert_branches(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		size_t when_index;
+		const char *bind_key;
+		sqlparser_bind_kind_t bind_kind;
+		const char *bind_sql;
+		const char *expression_sql;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"MERGE INTO t USING s ON t.id=s.id "
+			"WHEN NOT MATCHED AND  /*lead*/ s.flag  =  1 /*tail*/  THEN "
+			"INSERT (id, created_at) VALUES ($1, CURRENT_TIMESTAMP)",
+			0U,
+			"1",
+			SQLPARSER_BIND_KIND_POSITIONAL,
+			"$1",
+			"CURRENT_TIMESTAMP"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"MERGE INTO dbo.t AS t USING dbo.s AS s ON t.id=s.id "
+			"WHEN MATCHED THEN UPDATE SET t.created_at = CURRENT_TIMESTAMP "
+			"WHEN NOT MATCHED AND  /*lead*/ s.flag  =  1 /*tail*/  THEN "
+			"INSERT (id, created_at) VALUES (@id, CURRENT_TIMESTAMP);",
+			1U,
+			"id",
+			SQLPARSER_BIND_KIND_NAMED,
+			"@id",
+			"CURRENT_TIMESTAMP"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"MERGE INTO t USING s ON (t.id=s.id) "
+			"WHEN NOT MATCHED THEN INSERT (id, created_at) "
+			"VALUES (:1, SySdAtE) WHERE  /*lead*/ s.flag  =  1 /*tail*/",
+			0U,
+			"1",
+			SQLPARSER_BIND_KIND_POSITIONAL,
+			":1",
+			"SySdAtE"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_POSTGRESQL,
+			"MERGE INTO t USING s ON t.id=s.id "
+			"WHEN NOT MATCHED AND  /*lead*/ s.flag  =  1 /*tail*/  THEN "
+			"INSERT (id, created_at) VALUES ($1, CURRENT_TIMESTAMP)",
+			0U,
+			"1",
+			SQLPARSER_BIND_KIND_POSITIONAL,
+			"$1",
+			"CURRENT_TIMESTAMP"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"MERGE INTO dbo.t AS t USING dbo.s AS s ON t.id=s.id "
+			"WHEN NOT MATCHED AND  /*lead*/ s.flag  =  1 /*tail*/  THEN "
+			"INSERT (id, created_at) VALUES (@id, CURRENT_TIMESTAMP);",
+			0U,
+			"id",
+			SQLPARSER_BIND_KIND_NAMED,
+			"@id",
+			"CURRENT_TIMESTAMP"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_ORACLE,
+			"MERGE INTO t USING s ON (t.id=s.id) "
+			"WHEN NOT MATCHED THEN INSERT (id, created_at) "
+			"VALUES (:1, SySdAtE) WHERE  /*lead*/ s.flag  =  1 /*tail*/",
+			0U,
+			"1",
+			SQLPARSER_BIND_KIND_POSITIONAL,
+			":1",
+			"SySdAtE"
+		}
+	};
+	size_t index;
+
+	for (index = 0U;
+	     index < sizeof(cases) / sizeof(cases[0]);
+	     index++) {
+		if (test_merge_single_insert_branch_case(
+			    cases[index].dialect,
+			    cases[index].sql,
+			    "/*lead*/ s.flag  =  1 /*tail*/",
+			    cases[index].when_index,
+			    cases[index].bind_key,
+			    cases[index].bind_kind,
+			    cases[index].bind_sql,
+			    cases[index].expression_sql) != 0) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static int test_postgresql_merge_multiple_insert_branches(void)
+{
+	struct merge_cell_expectation {
+		sqlparser_graph_value_kind_t kind;
+		const char *bind_key;
+		sqlparser_bind_kind_t bind_kind;
+		const char *bind_sql;
+		size_t bind_position;
+		const char *expression_sql;
+		const char *source_column;
+	};
+	static const char *const expected_conditions[] = {
+		"/*c1*/ s.kind  =  1 /*t1*/",
+		"/*c2*/ s.kind  =  2 /*t2*/"
+	};
+	static const char *const expected_columns[] = {
+		"id",
+		"a",
+		"id",
+		"b",
+		"c"
+	};
+	static const size_t expected_column_counts[] = {
+		2U,
+		3U
+	};
+	static const struct merge_cell_expectation expected_cells[] = {
+		{
+			SQLPARSER_GRAPH_VALUE_FIELD,
+			NULL,
+			SQLPARSER_BIND_KIND_NONE,
+			NULL,
+			0U,
+			NULL,
+			"id"
+		},
+		{
+			SQLPARSER_GRAPH_VALUE_EXPRESSION,
+			NULL,
+			SQLPARSER_BIND_KIND_NONE,
+			NULL,
+			0U,
+			"CoAlEsCe($1,  1)",
+			NULL
+		},
+		{
+			SQLPARSER_GRAPH_VALUE_FIELD,
+			NULL,
+			SQLPARSER_BIND_KIND_NONE,
+			NULL,
+			0U,
+			NULL,
+			"id"
+		},
+		{
+			SQLPARSER_GRAPH_VALUE_BIND,
+			"2",
+			SQLPARSER_BIND_KIND_POSITIONAL,
+			"$2",
+			2U,
+			NULL,
+			NULL
+		},
+		{
+			SQLPARSER_GRAPH_VALUE_EXPRESSION,
+			NULL,
+			SQLPARSER_BIND_KIND_NONE,
+			NULL,
+			0U,
+			"CURRENT_TIMESTAMP",
+			NULL
+		}
+	};
+	const char *sql;
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_branch_t branch;
+	sqlparser_test_merge_branch_detail_t branch_detail;
+	sqlparser_graph_dml_column_t column;
+	sqlparser_graph_dml_cell_t cell;
+	sqlparser_graph_field_t field;
+	sqlparser_graph_target_t target;
+	sqlparser_graph_relation_t relation;
+	char *condition;
+	char *view_json;
+	json_error_t json_error;
+	json_t *root;
+	json_t *statements;
+	json_t *statement;
+	json_t *query_graph;
+	json_t *dml_json;
+	json_t *branches_json;
+	size_t source_field_indices[5];
+	size_t source_target_indices[5];
+	size_t branch_index;
+	size_t column_base;
+	size_t item_index;
+	size_t local_index;
+	int rc;
+
+	sql =
+		"MERGE INTO public.t AS t "
+		"USING (SELECT id,kind FROM public.s) AS s ON t.id=s.id "
+		"WHEN NOT MATCHED AND /*c1*/ s.kind  =  1 /*t1*/ THEN "
+		"INSERT (id,a) VALUES (s.id,CoAlEsCe($1,  1)) "
+		"WHEN NOT MATCHED AND /*c2*/ s.kind  =  2 /*t2*/ THEN "
+		"INSERT (id,b,c) VALUES (s.id,$2,CURRENT_TIMESTAMP)";
+	handle = NULL;
+	condition = NULL;
+	view_json = NULL;
+	root = NULL;
+	column_base = 0U;
+	for (item_index = 0U;
+	     item_index < sizeof(source_field_indices) /
+		     sizeof(source_field_indices[0]);
+	     item_index++) {
+		source_field_indices[item_index] = (size_t)-1;
+		source_target_indices[item_index] = (size_t)-1;
+	}
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(
+		sql,
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "PostgreSQL multi-arm MERGE should parse") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    sql,
+		    "PostgreSQL multi-arm MERGE should deparse exactly and reparse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(
+			    handle,
+			    0U,
+			    &graph,
+			    &error),
+		    &error,
+		    "PostgreSQL multi-arm MERGE graph should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml(
+			    &graph,
+			    &dml,
+			    &error),
+		    &error,
+		    "PostgreSQL multi-arm MERGE DML should be available") != 0 ||
+	    expect_true(
+		    dml.kind == SQLPARSER_GRAPH_DML_MERGE &&
+			    dml.has_target_relation != 0 &&
+			    dml.target_columns.count == 0U &&
+			    dml.rows.count == 0U &&
+			    dml.branches.count == 2U,
+		    "PostgreSQL multi-arm MERGE payload should be branch-scoped") != 0) {
+		goto fail;
+	}
+	for (branch_index = 0U; branch_index < 2U; branch_index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.branches,
+				    branch_index,
+				    &local_index,
+				    &error),
+			    &error,
+			    "PostgreSQL MERGE branch index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_branch_at(
+				    &graph,
+				    local_index,
+				    &branch,
+				    &error),
+			    &error,
+			    "PostgreSQL MERGE branch should be available") != 0 ||
+		    expect_merge_branch_detail(
+			    &graph,
+			    local_index,
+			    &branch_detail,
+			    &error,
+			    "PostgreSQL MERGE branch detail should be available") != 0 ||
+		    expect_true(
+			    branch.statement_index == 0U &&
+				    branch.dml_index == dml.index &&
+			    branch.ordinal == branch_index &&
+				    branch.branch_kind ==
+					    SQLPARSER_GRAPH_DML_BRANCH_WHEN &&
+				    branch_detail.action_kind ==
+					    SQLPARSER_GRAPH_MERGE_ACTION_INSERT &&
+				    branch_detail.match_kind ==
+					    SQLPARSER_GRAPH_MERGE_MATCH_NOT_MATCHED_BY_TARGET &&
+				    branch.has_target_relation != 0 &&
+				    branch.target_relation_index ==
+					    dml.target_relation_index &&
+				    branch.target_columns.count ==
+					    expected_column_counts[branch_index] &&
+				    branch.rows.count ==
+					    expected_column_counts[branch_index] &&
+				    branch_detail.assignments.count == 0U &&
+				    branch.has_condition_block == 0 &&
+				    branch.has_condition_selector != 0 &&
+				    branch.condition_selector.kind ==
+					    SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION &&
+				    branch.condition_selector.statement_index ==
+					    0U &&
+				    branch.condition_selector.row_index == 0U &&
+				    branch.condition_selector.item_index ==
+					    branch_index,
+			    "PostgreSQL MERGE branch metadata mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_selector_clause_sql(
+				    handle,
+				    &branch.condition_selector,
+				    &condition,
+				    &error),
+			    &error,
+			    "PostgreSQL MERGE condition should be available") != 0 ||
+		    expect_true(
+			    condition != NULL &&
+				    strcmp(
+					    condition,
+					    expected_conditions[branch_index]) == 0,
+			    "PostgreSQL MERGE condition source mismatch") != 0) {
+			goto fail;
+		}
+		sqlparser_string_free(condition);
+		condition = NULL;
+		for (item_index = 0U;
+		     item_index < expected_column_counts[branch_index];
+		     item_index++) {
+			const struct merge_cell_expectation *expected_cell;
+
+			expected_cell =
+				&expected_cells[column_base + item_index];
+			if (expect_status_ok(
+				    sqlparser_query_graph_span_index_at(
+					    &graph,
+					    branch.target_columns,
+					    item_index,
+					    &local_index,
+					    &error),
+				    &error,
+				    "PostgreSQL MERGE column index should resolve") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_dml_column_at(
+					    &graph,
+					    local_index,
+					    &column,
+					    &error),
+				    &error,
+				    "PostgreSQL MERGE column should be available") != 0 ||
+			    expect_true(
+				    column.statement_index == 0U &&
+					    column.dml_index == dml.index &&
+					    column.ordinal == item_index &&
+					    column.column_name != NULL &&
+					    strcmp(
+						    column.column_name,
+						    expected_columns[
+							    column_base +
+							    item_index]) == 0,
+				    "PostgreSQL MERGE column mismatch") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_span_index_at(
+					    &graph,
+					    branch.rows,
+					    item_index,
+					    &local_index,
+					    &error),
+				    &error,
+				    "PostgreSQL MERGE cell index should resolve") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_dml_cell_at(
+					    &graph,
+					    local_index,
+					    &cell,
+					    &error),
+				    &error,
+				    "PostgreSQL MERGE cell should be available") != 0 ||
+			    expect_true(
+				    cell.statement_index == 0U &&
+					    cell.dml_index == dml.index &&
+					    cell.row_index == branch_index &&
+					    cell.column_ordinal ==
+						    item_index &&
+					    cell.kind ==
+						    expected_cell->kind &&
+					    cell.has_selector ==
+						    (expected_cell->kind ==
+							     SQLPARSER_GRAPH_VALUE_BIND),
+				    "PostgreSQL MERGE cell shape mismatch") != 0) {
+				goto fail;
+			}
+			if (expected_cell->kind ==
+			    SQLPARSER_GRAPH_VALUE_BIND) {
+				if (expect_true(
+					    cell.has_bind != 0 &&
+						    strcmp(
+							    cell.bind,
+							    expected_cell->bind_key) ==
+							    0 &&
+						    cell.bind_kind ==
+							    expected_cell->bind_kind &&
+						    cell.has_bind_sql != 0 &&
+						    strcmp(
+							    cell.bind_sql,
+							    expected_cell->bind_sql) ==
+							    0 &&
+						    cell.has_bind_position != 0 &&
+						    cell.bind_position ==
+							    expected_cell->bind_position &&
+						    cell.selector.kind ==
+							    SQLPARSER_SELECTOR_KIND_VALUE &&
+						    cell.selector.statement_index ==
+							    0U &&
+						    cell.has_source_target == 0 &&
+						    cell.has_source_field == 0,
+					    "PostgreSQL MERGE direct bind metadata mismatch") != 0) {
+					goto fail;
+				}
+			} else if (expected_cell->kind ==
+				   SQLPARSER_GRAPH_VALUE_FIELD) {
+				if (expect_true(
+					    cell.has_bind == 0 &&
+					    cell.bind_kind ==
+						    SQLPARSER_BIND_KIND_NONE &&
+						    cell.has_bind_sql == 0 &&
+						    cell.has_bind_position == 0 &&
+						    cell.has_source_target != 0 &&
+						    cell.has_source_field != 0,
+					    "PostgreSQL MERGE source field metadata mismatch") != 0 ||
+				    expect_status_ok(
+					    sqlparser_query_graph_field_at(
+						    &graph,
+						    cell.source_field_index,
+						    &field,
+						    &error),
+					    &error,
+					    "PostgreSQL MERGE source field should resolve") != 0 ||
+				    expect_true(
+					    field.column_name != NULL &&
+						    strcmp(
+							    field.column_name,
+							    expected_cell->source_column) ==
+							    0 &&
+						    field.has_relation != 0,
+					    "PostgreSQL MERGE source field lineage mismatch") != 0 ||
+				    expect_status_ok(
+					    sqlparser_query_graph_relation_at(
+						    &graph,
+						    field.relation_index,
+						    &relation,
+						    &error),
+					    &error,
+					    "PostgreSQL MERGE source relation should resolve") != 0 ||
+				    expect_true(
+					    relation.alias_name != NULL &&
+						    strcmp(
+							    relation.alias_name,
+							    "s") == 0 &&
+						    relation.has_source_block != 0,
+					    "PostgreSQL MERGE source relation lineage mismatch") != 0) {
+					goto fail;
+				}
+				if (expect_status_ok(
+					    sqlparser_query_graph_target_at(
+						    &graph,
+						    cell.source_target_index,
+						    &target,
+						    &error),
+					    &error,
+					    "PostgreSQL MERGE source target should resolve") != 0 ||
+				    expect_true(
+					    target.kind ==
+						    SQLPARSER_GRAPH_TARGET_FIELD &&
+						    target.output_name != NULL &&
+						    strcmp(
+							    target.output_name,
+							    expected_cell->source_column) ==
+							    0 &&
+						    target.has_field != 0,
+					    "PostgreSQL MERGE source target lineage mismatch") != 0 ||
+				    expect_status_ok(
+					    sqlparser_query_graph_field_at(
+						    &graph,
+						    target.field_index,
+						    &field,
+						    &error),
+					    &error,
+					    "PostgreSQL MERGE source target field should resolve") != 0 ||
+				    expect_true(
+					    field.column_name != NULL &&
+						    strcmp(
+							    field.column_name,
+							    expected_cell->source_column) ==
+							    0 &&
+						    field.has_relation != 0,
+					    "PostgreSQL MERGE source target field mismatch") != 0 ||
+				    expect_status_ok(
+					    sqlparser_query_graph_relation_at(
+						    &graph,
+						    field.relation_index,
+						    &relation,
+						    &error),
+					    &error,
+					    "PostgreSQL MERGE source target relation should resolve") != 0 ||
+				    expect_true(
+					    relation.schema_name != NULL &&
+						    strcmp(
+							    relation.schema_name,
+							    "public") == 0 &&
+						    relation.object_name != NULL &&
+						    strcmp(
+							    relation.object_name,
+							    "s") == 0,
+					    "PostgreSQL MERGE source target relation mismatch") != 0) {
+					goto fail;
+				}
+				source_field_indices[column_base + item_index] =
+					cell.source_field_index;
+				source_target_indices[column_base + item_index] =
+					cell.source_target_index;
+			} else if (expect_true(
+					   cell.has_bind == 0 &&
+						   cell.bind_kind ==
+							   SQLPARSER_BIND_KIND_NONE &&
+						   cell.has_bind_sql == 0 &&
+						   cell.has_bind_position == 0 &&
+						   cell.has_source_target == 0 &&
+						   cell.has_source_field == 0,
+					   "PostgreSQL MERGE expression metadata mismatch") != 0) {
+				goto fail;
+			}
+		}
+		column_base += expected_column_counts[branch_index];
+	}
+	if (expect_true(
+		    source_target_indices[0] != (size_t)-1 &&
+			    source_target_indices[0] ==
+				    source_target_indices[2],
+		    "PostgreSQL MERGE s.id cells should share one source target") != 0 ||
+	    expect_true(
+		    source_field_indices[0] != (size_t)-1 &&
+			    source_field_indices[2] != (size_t)-1 &&
+			    source_field_indices[0] !=
+				    source_field_indices[2],
+		    "PostgreSQL MERGE s.id occurrences should retain distinct source fields") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_export_view_json(
+		handle,
+		0,
+		&view_json,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "PostgreSQL multi-arm MERGE View should export") != 0) {
+		goto fail;
+	}
+	root = json_loads(view_json, 0, &json_error);
+	statements = root != NULL ?
+		json_object_get(root, "statements") :
+		NULL;
+	statement = json_is_array(statements) ?
+		json_array_get(statements, 0U) :
+		NULL;
+	query_graph = json_is_object(statement) ?
+		json_object_get(statement, "query_graph") :
+		NULL;
+	dml_json = json_is_object(query_graph) ?
+		json_object_get(query_graph, "dml") :
+		NULL;
+	branches_json = json_is_object(dml_json) ?
+		json_object_get(dml_json, "branches") :
+		NULL;
+	if (expect_true(
+		    json_is_object(dml_json) &&
+			    json_string_is(dml_json, "kind", "merge") &&
+			    json_string_is(
+				    dml_json,
+				    "insert_mode",
+				    "unknown") &&
+			    json_integer_is(
+				    dml_json,
+				    "target_relation",
+				    (json_int_t)dml.target_relation_index) &&
+			    json_object_get(dml_json, "target_columns") == NULL &&
+			    json_object_get(dml_json, "rows") == NULL &&
+			    json_is_array(branches_json) &&
+			    json_array_size(branches_json) == 2U &&
+			    json_object_size(dml_json) == 4U,
+		    "PostgreSQL multi-arm MERGE View parent payload mismatch") != 0) {
+		goto fail;
+	}
+	column_base = 0U;
+	for (branch_index = 0U; branch_index < 2U; branch_index++) {
+		json_t *branch_json;
+		json_t *columns_json;
+		json_t *rows_json;
+		char expected_selector[64];
+
+		branch_json = json_array_get(branches_json, branch_index);
+		columns_json = json_is_object(branch_json) ?
+			json_object_get(branch_json, "target_columns") :
+			NULL;
+		rows_json = json_is_object(branch_json) ?
+			json_object_get(branch_json, "rows") :
+			NULL;
+		snprintf(
+			expected_selector,
+			sizeof(expected_selector),
+			"stmt[0].merge_branch_condition[%zu]",
+			branch_index);
+		if (expect_true(
+			    json_is_object(branch_json) &&
+				    json_integer_is(
+					    branch_json,
+					    "ordinal",
+					    (json_int_t)branch_index) &&
+				    json_string_is(
+					    branch_json,
+					    "branch_kind",
+					    "when") &&
+				    json_string_is(
+					    branch_json,
+					    "merge_action_kind",
+					    "insert") &&
+				    json_string_is(
+					    branch_json,
+					    "merge_match_kind",
+					    "not_matched_by_target") &&
+				    json_integer_is(
+					    branch_json,
+					    "target_relation",
+					    (json_int_t)dml.target_relation_index) &&
+				    json_string_is(
+					    branch_json,
+					    "condition_selector",
+					    expected_selector) &&
+				    json_object_get(
+					    branch_json,
+					    "condition_block") == NULL &&
+				    json_object_size(branch_json) == 8U &&
+				    json_is_array(columns_json) &&
+				    json_array_size(columns_json) ==
+					    expected_column_counts[branch_index] &&
+				    json_is_array(rows_json) &&
+				    json_array_size(rows_json) ==
+					    expected_column_counts[branch_index],
+			    "PostgreSQL multi-arm MERGE View branch mismatch") != 0) {
+			goto fail;
+		}
+		for (item_index = 0U;
+		     item_index < expected_column_counts[branch_index];
+		     item_index++) {
+			const struct merge_cell_expectation *expected_cell;
+			json_t *column_json;
+			json_t *cell_json;
+
+			expected_cell =
+				&expected_cells[column_base + item_index];
+			column_json =
+				json_array_get(columns_json, item_index);
+			cell_json = json_array_get(rows_json, item_index);
+			if (expect_true(
+				    json_integer_is(
+					    column_json,
+					    "ordinal",
+					    (json_int_t)item_index) &&
+					    json_string_is(
+						    column_json,
+						    "column",
+						    expected_columns[
+							    column_base +
+							    item_index]) &&
+					    json_object_get(
+						    column_json,
+						    "selector") == NULL &&
+					    json_object_size(column_json) ==
+						    2U,
+				    "PostgreSQL multi-arm MERGE View column mismatch") != 0 ||
+			    expect_true(
+				    json_integer_is(
+					    cell_json,
+					    "row",
+					    (json_int_t)branch_index) &&
+					    json_integer_is(
+						    cell_json,
+						    "column",
+						    (json_int_t)item_index) &&
+					    json_string_is(
+						    cell_json,
+						    "kind",
+						    sqlparser_graph_value_kind_name(
+							    expected_cell->kind)) &&
+					    json_integer_is(
+						    cell_json,
+						    "bind_kind",
+						    (json_int_t)
+							    expected_cell->bind_kind) &&
+					    (expected_cell->kind ==
+						     SQLPARSER_GRAPH_VALUE_BIND ?
+						     json_string_is(
+							     cell_json,
+							     "selector",
+							     "stmt[0].value[45]") :
+						     json_object_get(
+							     cell_json,
+							     "selector") == NULL) &&
+					    (expected_cell->kind ==
+						     SQLPARSER_GRAPH_VALUE_FIELD ?
+						     json_integer_is(
+							     cell_json,
+							     "source_target",
+							     (json_int_t)
+								     source_target_indices[
+									     column_base +
+									     item_index]) :
+						     json_object_get(
+							     cell_json,
+							     "source_target") ==
+							     NULL),
+				    "PostgreSQL multi-arm MERGE View cell shape mismatch") != 0) {
+				goto fail;
+			}
+			if (expected_cell->kind ==
+			    SQLPARSER_GRAPH_VALUE_FIELD) {
+				if (expect_true(
+					    json_object_size(cell_json) == 6U &&
+						    json_integer_is(
+							    cell_json,
+							    "source_field",
+							    (json_int_t)
+								    source_field_indices[
+									    column_base +
+									    item_index]) &&
+						    json_object_get(
+							    cell_json,
+							    "bind_key") == NULL &&
+						    json_object_get(
+							    cell_json,
+							    "bind_sql") == NULL &&
+						    json_object_get(
+							    cell_json,
+							    "bind_position") == NULL &&
+						    json_object_get(
+							    cell_json,
+							    "expression_sql") == NULL,
+					    "PostgreSQL multi-arm MERGE View field lineage mismatch") != 0) {
+					goto fail;
+				}
+			} else if (expected_cell->kind ==
+				   SQLPARSER_GRAPH_VALUE_BIND) {
+				if (expect_true(
+					    json_object_size(cell_json) == 8U &&
+						    json_object_get(
+							    cell_json,
+							    "source_field") == NULL &&
+						    json_string_is(
+							    cell_json,
+							    "bind_key",
+							    expected_cell->bind_key) &&
+						    json_string_is(
+							    cell_json,
+							    "bind_sql",
+							    expected_cell->bind_sql) &&
+						    json_integer_is(
+							    cell_json,
+							    "bind_position",
+							    (json_int_t)
+								    expected_cell->bind_position) &&
+						    json_object_get(
+							    cell_json,
+							    "expression_sql") == NULL,
+					    "PostgreSQL multi-arm MERGE View bind mismatch") != 0) {
+					goto fail;
+				}
+			} else if (expect_true(
+					   json_object_size(cell_json) == 5U &&
+						   json_object_get(
+							   cell_json,
+							   "source_field") == NULL &&
+						   json_object_get(
+							   cell_json,
+							   "bind_key") == NULL &&
+						   json_object_get(
+							   cell_json,
+							   "bind_sql") == NULL &&
+						   json_object_get(
+							   cell_json,
+							   "bind_position") == NULL &&
+						   json_string_is(
+							   cell_json,
+							   "expression_sql",
+							   expected_cell->expression_sql),
+					   "PostgreSQL multi-arm MERGE View expression mismatch") != 0) {
+				goto fail;
+			}
+		}
+		column_base += expected_column_counts[branch_index];
+	}
+
+	json_decref(root);
+	sqlparser_string_free(view_json);
+	sqlparser_handle_destroy(handle);
+	return 0;
+
+fail:
+	if (root != NULL) {
+		json_decref(root);
+	}
+	sqlparser_string_free(view_json);
+	sqlparser_string_free(condition);
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+static int test_postgresql_merge_complete_action_branches(void)
+{
+	static const sqlparser_graph_merge_action_kind_t expected_actions[] = {
+		SQLPARSER_GRAPH_MERGE_ACTION_UPDATE,
+		SQLPARSER_GRAPH_MERGE_ACTION_DELETE,
+		SQLPARSER_GRAPH_MERGE_ACTION_INSERT,
+		SQLPARSER_GRAPH_MERGE_ACTION_NOTHING
+	};
+	static const sqlparser_graph_merge_match_kind_t expected_matches[] = {
+		SQLPARSER_GRAPH_MERGE_MATCH_MATCHED,
+		SQLPARSER_GRAPH_MERGE_MATCH_MATCHED,
+		SQLPARSER_GRAPH_MERGE_MATCH_NOT_MATCHED_BY_TARGET,
+		SQLPARSER_GRAPH_MERGE_MATCH_NOT_MATCHED_BY_TARGET
+	};
+	static const char *const expected_action_names[] = {
+		"update",
+		"delete",
+		"insert",
+		"nothing"
+	};
+	static const char *const expected_match_names[] = {
+		"matched",
+		"matched",
+		"not_matched_by_target",
+		"not_matched_by_target"
+	};
+	static const char *const expected_conditions[] = {
+		"t.balance > s.delta",
+		NULL,
+		"s.delta > 0",
+		NULL
+	};
+	static const char sql[] =
+		"MERGE INTO target AS t USING source AS s ON t.tid = s.sid "
+		"WHEN MATCHED AND t.balance > s.delta THEN "
+		"UPDATE SET balance = t.balance - s.delta "
+		"WHEN MATCHED THEN DELETE "
+		"WHEN NOT MATCHED AND s.delta > 0 THEN "
+		"INSERT VALUES (s.sid, s.delta) "
+		"WHEN NOT MATCHED THEN DO NOTHING;";
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_branch_t branch;
+	sqlparser_test_merge_branch_detail_t branch_detail;
+	char *condition;
+	char *view_json;
+	json_error_t json_error;
+	json_t *root;
+	json_t *statements;
+	json_t *statement;
+	json_t *query_graph;
+	json_t *dml_json;
+	json_t *branches_json;
+	json_t *parent_assignments_json;
+	size_t assignment_index;
+	size_t branch_assignment_index;
+	size_t branch_index;
+	size_t local_index;
+	int rc;
+	int result;
+
+	handle = NULL;
+	condition = NULL;
+	view_json = NULL;
+	root = NULL;
+	result = 1;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(
+		sql,
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "official four-action PostgreSQL MERGE should parse") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    sql,
+		    "official four-action PostgreSQL MERGE should deparse exactly") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(
+			    handle,
+			    0U,
+			    &graph,
+			    &error),
+		    &error,
+		    "official four-action PostgreSQL MERGE graph should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml(
+			    &graph,
+			    &dml,
+			    &error),
+		    &error,
+		    "official four-action PostgreSQL MERGE DML should resolve") != 0 ||
+	    expect_true(
+		    dml.kind == SQLPARSER_GRAPH_DML_MERGE &&
+			    dml.branches.count == 4U &&
+			    dml.assignments.count == 1U &&
+			    dml.target_columns.count == 0U &&
+			    dml.rows.count == 0U,
+		    "official four-action MERGE parent payload mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    &graph,
+			    dml.assignments,
+			    0U,
+			    &assignment_index,
+			    &error),
+		    &error,
+		    "official four-action parent assignment should resolve") != 0) {
+		goto done;
+	}
+
+	for (branch_index = 0U; branch_index < 4U; branch_index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.branches,
+				    branch_index,
+				    &local_index,
+				    &error),
+			    &error,
+			    "official MERGE branch index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_branch_at(
+				    &graph,
+				    local_index,
+				    &branch,
+				    &error),
+			    &error,
+			    "official MERGE branch should resolve") != 0 ||
+		    expect_merge_branch_detail(
+			    &graph,
+			    local_index,
+			    &branch_detail,
+			    &error,
+			    "official MERGE branch detail should resolve") != 0 ||
+		    expect_true(
+			    branch.ordinal == branch_index &&
+				    branch.branch_kind ==
+					    SQLPARSER_GRAPH_DML_BRANCH_WHEN &&
+				    branch_detail.action_kind ==
+					    expected_actions[branch_index] &&
+				    branch_detail.match_kind ==
+					    expected_matches[branch_index] &&
+				    strcmp(
+					    sqlparser_graph_merge_action_kind_name(
+						    branch_detail.action_kind),
+					    expected_action_names[branch_index]) == 0 &&
+				    strcmp(
+					    sqlparser_graph_merge_match_kind_name(
+						    branch_detail.match_kind),
+					    expected_match_names[branch_index]) == 0 &&
+				    branch.has_target_relation != 0 &&
+				    branch.target_relation_index ==
+					    dml.target_relation_index,
+			    "official MERGE branch action or match mismatch") != 0) {
+			goto done;
+		}
+		if (branch_index == 0U) {
+			if (expect_true(
+				    branch_detail.assignments.count == 1U &&
+					    branch.target_columns.count == 0U &&
+					    branch.rows.count == 0U,
+				    "official MERGE UPDATE payload mismatch") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_span_index_at(
+					    &graph,
+					    branch_detail.assignments,
+					    0U,
+					    &branch_assignment_index,
+					    &error),
+				    &error,
+				    "official MERGE UPDATE branch assignment should resolve") != 0 ||
+			    expect_true(
+				    branch_assignment_index == assignment_index,
+				    "official MERGE UPDATE branch must reference the parent assignment") != 0) {
+				goto done;
+			}
+		} else if (branch_index == 2U) {
+			size_t cell_offset;
+
+			if (expect_true(
+				    branch_detail.assignments.count == 0U &&
+					    branch.target_columns.count == 0U &&
+					    branch.rows.count == 2U,
+				    "official MERGE INSERT payload mismatch") != 0) {
+				goto done;
+			}
+			for (cell_offset = 0U; cell_offset < 2U; cell_offset++) {
+				sqlparser_graph_dml_cell_t cell;
+
+				if (expect_status_ok(
+					    sqlparser_query_graph_span_index_at(
+						    &graph,
+						    branch.rows,
+						    cell_offset,
+						    &local_index,
+						    &error),
+					    &error,
+					    "official MERGE INSERT cell index should resolve") != 0 ||
+				    expect_status_ok(
+					    sqlparser_query_graph_dml_cell_at(
+						    &graph,
+						    local_index,
+						    &cell,
+						    &error),
+					    &error,
+					    "official MERGE INSERT cell should resolve") != 0 ||
+				    expect_true(
+					    cell.row_index == 2U &&
+						    cell.column_ordinal ==
+							    cell_offset,
+					    "official MERGE INSERT cell coordinates must use absolute WHEN ordinal") != 0) {
+					goto done;
+				}
+			}
+		} else if (expect_true(
+				   branch_detail.assignments.count == 0U &&
+					   branch.target_columns.count == 0U &&
+					   branch.rows.count == 0U,
+				   "MERGE DELETE/NOTHING branches must not expose payload") != 0) {
+			goto done;
+		}
+		if (expected_conditions[branch_index] != NULL) {
+			if (expect_true(
+				    branch.has_condition_selector != 0 &&
+					    branch.condition_selector.row_index ==
+						    0U &&
+					    branch.condition_selector.item_index ==
+						    branch_index,
+				    "official MERGE conditioned branch selector mismatch") != 0 ||
+			    expect_status_ok(
+				    sqlparser_selector_clause_sql(
+					    handle,
+					    &branch.condition_selector,
+					    &condition,
+					    &error),
+				    &error,
+				    "official MERGE condition SQL should resolve") != 0 ||
+			    expect_true(
+				    condition != NULL &&
+					    strcmp(
+						    condition,
+						    expected_conditions[
+							    branch_index]) == 0,
+				    "official MERGE condition SQL mismatch") != 0) {
+				goto done;
+			}
+			sqlparser_string_free(condition);
+			condition = NULL;
+		} else if (expect_true(
+				   branch.has_condition_selector == 0,
+				   "unconditional MERGE branch must not expose a condition selector") != 0) {
+			goto done;
+		}
+	}
+
+	rc = sqlparser_export_view_json(
+		handle,
+		0,
+		&view_json,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "official four-action MERGE View JSON should export") != 0) {
+		goto done;
+	}
+	memset(&json_error, 0, sizeof(json_error));
+	root = json_loads(view_json, 0, &json_error);
+	statements = root != NULL ?
+		json_object_get(root, "statements") :
+		NULL;
+	statement = json_is_array(statements) ?
+		json_array_get(statements, 0U) :
+		NULL;
+	query_graph = json_is_object(statement) ?
+		json_object_get(statement, "query_graph") :
+		NULL;
+	dml_json = json_is_object(query_graph) ?
+		json_object_get(query_graph, "dml") :
+		NULL;
+	branches_json = json_is_object(dml_json) ?
+		json_object_get(dml_json, "branches") :
+		NULL;
+	parent_assignments_json = json_is_object(dml_json) ?
+		json_object_get(dml_json, "assignments") :
+		NULL;
+	if (expect_true(
+		    json_is_array(branches_json) &&
+			    json_array_size(branches_json) == 4U &&
+			    json_is_array(parent_assignments_json) &&
+			    json_array_size(parent_assignments_json) == 1U,
+		    "official four-action MERGE JSON parent payload mismatch") != 0) {
+		goto done;
+	}
+	for (branch_index = 0U; branch_index < 4U; branch_index++) {
+		json_t *branch_json;
+		json_t *branch_assignments_json;
+		json_t *rows_json;
+
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.branches,
+				    branch_index,
+				    &local_index,
+				    &error),
+			    &error,
+			    "official MERGE JSON branch index should resolve") != 0 ||
+		    expect_merge_branch_detail(
+			    &graph,
+			    local_index,
+			    &branch_detail,
+			    &error,
+			    "official MERGE JSON branch detail should resolve") != 0) {
+			goto done;
+		}
+		branch_json = json_array_get(branches_json, branch_index);
+		branch_assignments_json =
+			json_is_object(branch_json) ?
+				json_object_get(branch_json, "assignments") :
+				NULL;
+		rows_json = json_is_object(branch_json) ?
+			json_object_get(branch_json, "rows") :
+			NULL;
+		if (expect_true(
+			    json_is_object(branch_json) &&
+				    json_integer_is(
+					    branch_json,
+					    "ordinal",
+					    (json_int_t)branch_index) &&
+				    json_string_is(
+					    branch_json,
+					    "merge_action_kind",
+					    sqlparser_graph_merge_action_kind_name(
+						    branch_detail.action_kind)) &&
+				    json_string_is(
+					    branch_json,
+					    "merge_match_kind",
+					    sqlparser_graph_merge_match_kind_name(
+						    branch_detail.match_kind)) &&
+				    ((branch_detail.assignments.count == 0U &&
+				      branch_assignments_json == NULL) ||
+				     (json_is_array(branch_assignments_json) &&
+				      json_array_size(
+					      branch_assignments_json) ==
+					      branch_detail.assignments.count)),
+			    "official MERGE JSON action or match mismatch") != 0) {
+			goto done;
+		}
+		if (branch_index == 0U) {
+			if (expect_true(
+				    json_is_array(branch_assignments_json) &&
+					    json_array_size(
+						    branch_assignments_json) == 1U &&
+					    json_equal(
+						    json_array_get(
+							    parent_assignments_json,
+							    0U),
+						    json_array_get(
+							    branch_assignments_json,
+							    0U)) &&
+					    rows_json == NULL,
+				    "official MERGE UPDATE JSON payload mismatch") != 0) {
+				goto done;
+			}
+		} else if (branch_index == 2U) {
+			if (expect_true(
+				    branch_assignments_json == NULL &&
+					    json_is_array(rows_json) &&
+					    json_array_size(rows_json) == 2U &&
+					    json_integer_is(
+						    json_array_get(rows_json, 0U),
+						    "row",
+						    2) &&
+					    json_integer_is(
+						    json_array_get(rows_json, 1U),
+						    "row",
+						    2),
+				    "official MERGE INSERT JSON payload mismatch") != 0) {
+				goto done;
+			}
+		} else if (expect_true(
+				   branch_assignments_json == NULL &&
+					   rows_json == NULL &&
+					   json_object_get(
+						   branch_json,
+						   "target_columns") == NULL,
+				   "MERGE DELETE/NOTHING JSON branches must not expose payload") != 0) {
+			goto done;
+		}
+	}
+	result = 0;
+
+done:
+	if (root != NULL) {
+		json_decref(root);
+	}
+	sqlparser_string_free(view_json);
+	sqlparser_string_free(condition);
+	sqlparser_handle_destroy(handle);
+	return result;
+}
+
+static int test_merge_branch_detail_api_contract(void)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_merge_action_kind_t action_kind;
+	sqlparser_graph_merge_match_kind_t match_kind;
+	sqlparser_index_span_t assignments;
+	size_t branch_index;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(
+		"MERGE INTO t USING s ON t.id=s.id "
+		"WHEN MATCHED THEN UPDATE SET v=s.v",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "MERGE branch detail contract SQL should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(
+			    handle,
+			    0U,
+			    &graph,
+			    &error),
+		    &error,
+		    "MERGE branch detail contract graph should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml(
+			    &graph,
+			    &dml,
+			    &error),
+		    &error,
+		    "MERGE branch detail contract DML should resolve") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    &graph,
+			    dml.branches,
+			    0U,
+			    &branch_index,
+			    &error),
+		    &error,
+		    "MERGE branch detail contract branch should resolve") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_merge_branch_detail(
+			    &graph,
+			    branch_index,
+			    &action_kind,
+			    &match_kind,
+			    &assignments,
+			    &error),
+		    &error,
+		    "MERGE branch detail getter should succeed") != 0 ||
+	    expect_true(
+		    action_kind == SQLPARSER_GRAPH_MERGE_ACTION_UPDATE &&
+			    match_kind == SQLPARSER_GRAPH_MERGE_MATCH_MATCHED &&
+			    assignments.count == 1U,
+		    "MERGE branch detail getter payload mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	match_kind = SQLPARSER_GRAPH_MERGE_MATCH_MATCHED;
+	assignments.offset = 1U;
+	assignments.count = 1U;
+	rc = sqlparser_query_graph_merge_branch_detail(
+		&graph,
+		branch_index,
+		NULL,
+		&match_kind,
+		&assignments,
+		&error);
+	if (expect_true(
+		    rc == SQLPARSER_STATUS_INVALID_ARGUMENT &&
+			    match_kind ==
+				    SQLPARSER_GRAPH_MERGE_MATCH_UNKNOWN &&
+			    assignments.offset == 0U &&
+			    assignments.count == 0U,
+		    "MERGE branch detail NULL action output contract mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	action_kind = SQLPARSER_GRAPH_MERGE_ACTION_UPDATE;
+	assignments.offset = 1U;
+	assignments.count = 1U;
+	rc = sqlparser_query_graph_merge_branch_detail(
+		&graph,
+		branch_index,
+		&action_kind,
+		NULL,
+		&assignments,
+		&error);
+	if (expect_true(
+		    rc == SQLPARSER_STATUS_INVALID_ARGUMENT &&
+			    action_kind ==
+				    SQLPARSER_GRAPH_MERGE_ACTION_UNKNOWN &&
+			    assignments.offset == 0U &&
+			    assignments.count == 0U,
+		    "MERGE branch detail NULL match output contract mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	action_kind = SQLPARSER_GRAPH_MERGE_ACTION_UPDATE;
+	match_kind = SQLPARSER_GRAPH_MERGE_MATCH_MATCHED;
+	rc = sqlparser_query_graph_merge_branch_detail(
+		&graph,
+		branch_index,
+		&action_kind,
+		&match_kind,
+		NULL,
+		&error);
+	if (expect_true(
+		    rc == SQLPARSER_STATUS_INVALID_ARGUMENT &&
+			    action_kind ==
+				    SQLPARSER_GRAPH_MERGE_ACTION_UNKNOWN &&
+			    match_kind ==
+				    SQLPARSER_GRAPH_MERGE_MATCH_UNKNOWN,
+		    "MERGE branch detail NULL assignments output contract mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	action_kind = SQLPARSER_GRAPH_MERGE_ACTION_UPDATE;
+	match_kind = SQLPARSER_GRAPH_MERGE_MATCH_MATCHED;
+	assignments.offset = 1U;
+	assignments.count = 1U;
+	rc = sqlparser_query_graph_merge_branch_detail(
+		&graph,
+		graph.dml_branch_count,
+		&action_kind,
+		&match_kind,
+		&assignments,
+		&error);
+	if (expect_true(
+		    rc == SQLPARSER_STATUS_INVALID_ARGUMENT &&
+			    action_kind ==
+				    SQLPARSER_GRAPH_MERGE_ACTION_UNKNOWN &&
+			    match_kind ==
+				    SQLPARSER_GRAPH_MERGE_MATCH_UNKNOWN &&
+			    assignments.offset == 0U &&
+			    assignments.count == 0U,
+		    "MERGE branch detail out-of-range contract mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	action_kind = SQLPARSER_GRAPH_MERGE_ACTION_UPDATE;
+	match_kind = SQLPARSER_GRAPH_MERGE_MATCH_MATCHED;
+	assignments.offset = 1U;
+	assignments.count = 1U;
+	rc = sqlparser_query_graph_merge_branch_detail(
+		NULL,
+		0U,
+		&action_kind,
+		&match_kind,
+		&assignments,
+		&error);
+	if (expect_true(
+		    rc == SQLPARSER_STATUS_INVALID_ARGUMENT &&
+			    action_kind ==
+				    SQLPARSER_GRAPH_MERGE_ACTION_UNKNOWN &&
+			    match_kind ==
+				    SQLPARSER_GRAPH_MERGE_MATCH_UNKNOWN &&
+			    assignments.offset == 0U &&
+			    assignments.count == 0U,
+		    "MERGE branch detail NULL graph contract mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	rc = sqlparser_parse_with_options(
+		"INSERT ALL "
+		"INTO users (id) VALUES (1) "
+		"INTO users (id) VALUES (2) "
+		"SELECT 1 FROM dual",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "non-MERGE branch detail contract SQL should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(
+			    handle,
+			    0U,
+			    &graph,
+			    &error),
+		    &error,
+		    "non-MERGE branch detail contract graph should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml(
+			    &graph,
+			    &dml,
+			    &error),
+		    &error,
+		    "non-MERGE branch detail contract DML should resolve") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    &graph,
+			    dml.branches,
+			    0U,
+			    &branch_index,
+			    &error),
+		    &error,
+		    "non-MERGE branch detail contract branch should resolve") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	action_kind = SQLPARSER_GRAPH_MERGE_ACTION_UPDATE;
+	match_kind = SQLPARSER_GRAPH_MERGE_MATCH_MATCHED;
+	assignments.offset = 1U;
+	assignments.count = 1U;
+	rc = sqlparser_query_graph_merge_branch_detail(
+		&graph,
+		branch_index,
+		&action_kind,
+		&match_kind,
+		&assignments,
+		&error);
+	if (expect_true(
+		    rc == SQLPARSER_STATUS_UNSUPPORTED &&
+			    action_kind ==
+				    SQLPARSER_GRAPH_MERGE_ACTION_UNKNOWN &&
+			    match_kind ==
+				    SQLPARSER_GRAPH_MERGE_MATCH_UNKNOWN &&
+			    assignments.offset == 0U &&
+			    assignments.count == 0U,
+		    "non-MERGE branch detail contract mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_merge_condition_scanner_boundaries(void)
+{
+	static const char postgresql_sql[] =
+		"WITH src AS (SELECT 1 AS merge, 1 AS id, 1 AS flag) "
+		"MERGE INTO public.t AS t USING src AS s ON t.id=s.id "
+		"WHEN MATCHED AND "
+		"/* WHEN MATCHED THEN */ "
+		"(CASE WHEN s.flag = 1 THEN true ELSE false END) THEN "
+		"UPDATE SET id=s.id "
+		"WHEN NOT MATCHED AND s.flag=2 THEN "
+		"INSERT(id) VALUES(s.id)";
+	static const char *const expected_postgresql_conditions[] = {
+		"/* WHEN MATCHED THEN */ "
+		"(CASE WHEN s.flag = 1 THEN true ELSE false END)",
+		"s.flag=2"
+	};
+	static const char oracle_sql[] =
+		"MERGE INTO t USING s ON (t.id=s.id) "
+		"WHEN MATCHED THEN UPDATE SET v=s.v "
+		"WHEN NOT MATCHED THEN INSERT(id) VALUES(s.id) "
+		"WHERE s.flag=1";
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_branch_t branch;
+	sqlparser_selector_t selector;
+	char *condition;
+	char *view_json;
+	size_t branch_index;
+	size_t local_index;
+	int rc;
+
+	handle = NULL;
+	condition = NULL;
+	view_json = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(
+		postgresql_sql,
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "MERGE condition lexical-boundary SQL should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(
+			    handle,
+			    0U,
+			    &graph,
+			    &error),
+		    &error,
+		    "MERGE condition lexical-boundary graph should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml(
+			    &graph,
+			    &dml,
+			    &error),
+		    &error,
+		    "MERGE condition lexical-boundary DML should resolve") != 0 ||
+	    expect_true(
+		    dml.branches.count == 2U,
+		    "MERGE condition lexical-boundary branch count mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	for (branch_index = 0U; branch_index < 2U; branch_index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.branches,
+				    branch_index,
+				    &local_index,
+				    &error),
+			    &error,
+			    "MERGE lexical-boundary branch index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_branch_at(
+				    &graph,
+				    local_index,
+				    &branch,
+				    &error),
+			    &error,
+			    "MERGE lexical-boundary branch should resolve") != 0 ||
+		    expect_true(
+			    branch.ordinal == branch_index &&
+				    branch.has_condition_selector != 0 &&
+				    branch.condition_selector.row_index == 0U &&
+				    branch.condition_selector.item_index ==
+					    branch_index,
+			    "MERGE lexical-boundary selector mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_selector_clause_sql(
+				    handle,
+				    &branch.condition_selector,
+				    &condition,
+				    &error),
+			    &error,
+			    "MERGE lexical-boundary condition should resolve") != 0 ||
+		    expect_true(
+			    condition != NULL &&
+				    strcmp(
+					    condition,
+					    expected_postgresql_conditions[
+						    branch_index]) == 0,
+			    "MERGE lexical-boundary condition source mismatch") != 0) {
+			sqlparser_string_free(condition);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(condition);
+		condition = NULL;
+	}
+	rc = sqlparser_export_view_json(
+		handle,
+		0,
+		&view_json,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "MERGE lexical-boundary View JSON should export") != 0 ||
+	    expect_true(
+		    view_json != NULL &&
+			    strstr(
+				    view_json,
+				    "\"condition_selector\":\"stmt[0].merge_branch_condition[0]\"") != NULL &&
+			    strstr(
+				    view_json,
+				    "\"condition_selector\":\"stmt[0].merge_branch_condition[1]\"") != NULL,
+		    "MERGE lexical-boundary JSON selectors mismatch") != 0) {
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(view_json);
+	view_json = NULL;
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	rc = sqlparser_parse_with_options(
+		oracle_sql,
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Oracle MERGE action-WHERE boundary SQL should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(
+			    handle,
+			    0U,
+			    &graph,
+			    &error),
+		    &error,
+		    "Oracle MERGE action-WHERE graph should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml(
+			    &graph,
+			    &dml,
+			    &error),
+		    &error,
+		    "Oracle MERGE action-WHERE DML should resolve") != 0 ||
+	    expect_true(
+		    dml.branches.count == 2U,
+		    "Oracle MERGE action-WHERE branch count mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&selector, 0, sizeof(selector));
+	selector.kind =
+		SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION;
+	selector.statement_index = 0U;
+	selector.item_index = 0U;
+	condition = NULL;
+	rc = sqlparser_selector_clause_sql(
+		handle,
+		&selector,
+		&condition,
+		&error);
+	if (expect_true(
+		    rc == SQLPARSER_STATUS_INVALID_ARGUMENT &&
+			    condition == NULL,
+		    "unconditional W0 must not read W1 action-WHERE condition") != 0) {
+		sqlparser_string_free(condition);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	selector.item_index = 1U;
+	rc = sqlparser_selector_clause_sql(
+		handle,
+		&selector,
+		&condition,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Oracle W1 action-WHERE condition should resolve") != 0 ||
+	    expect_true(
+		    condition != NULL &&
+			    strcmp(condition, "s.flag=1") == 0,
+		    "Oracle W1 action-WHERE condition mismatch") != 0) {
+		sqlparser_string_free(condition);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(condition);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_oracle_merge_action_where_after_patch(void)
+{
+	static const sqlparser_dialect_t rejected_dialects[] = {
+		SQLPARSER_DIALECT_POSTGRESQL,
+		SQLPARSER_DIALECT_MYSQL,
+		SQLPARSER_DIALECT_SQLSERVER,
+		SQLPARSER_DIALECT_VASTBASE_POSTGRESQL,
+		SQLPARSER_DIALECT_VASTBASE_MYSQL,
+		SQLPARSER_DIALECT_VASTBASE_SQLSERVER
+	};
+	static const char sql[] =
+		"MERGE INTO t USING s ON (t.id=s.id) "
+		"WHEN MATCHED AND (s.a=1 OR s.b=1) AND s.c=1 THEN "
+		"UPDATE SET t.v=s.v WHERE s.flag=1 "
+		"WHEN NOT MATCHED THEN "
+		"INSERT (id,v) VALUES(s.id,s.v) WHERE s.flag=2";
+	static const char expected[] =
+		"MERGE INTO t USING s ON t.id = s.id "
+		"WHEN MATCHED AND (s.a_changed = 1 OR s.b = 1) AND s.c = 1 THEN "
+		"UPDATE SET t.v = s.v WHERE s.flag = 1 "
+		"WHEN NOT MATCHED THEN "
+		"INSERT (id, v) VALUES (s.id, s.v) WHERE s.flag = 2";
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *reparsed;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patches;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_selector_t selector;
+	char *condition;
+	char *deparsed;
+	size_t dialect_index;
+	size_t name_index;
+	int rc;
+
+	handle = NULL;
+	reparsed = NULL;
+	condition = NULL;
+	deparsed = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&patch, 0, sizeof(patch));
+	memset(&selector, 0, sizeof(selector));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Oracle MERGE action-WHERE patch SQL should parse") != 0) {
+		return 1;
+	}
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = "stmt[0].merge_assignment[0][0]";
+	patch.sql = "s.v";
+	patches.items = &patch;
+	patches.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patches, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Oracle MERGE action-WHERE assignment patch should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	if (find_name_index(
+		    handle,
+		    0U,
+		    "ColumnRef",
+		    "fields",
+		    "a",
+		    &name_index) != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_set_name(
+			    handle,
+			    0U,
+			    name_index,
+			    "a_changed",
+			    &error),
+		    &error,
+		    "Oracle MERGE condition name patch should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	selector.kind =
+		SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION;
+	selector.statement_index = 0U;
+	selector.item_index = 0U;
+	rc = sqlparser_selector_clause_sql(
+		handle,
+		&selector,
+		&condition,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "same-handle patched Oracle MERGE condition should resolve") != 0 ||
+	    expect_true(
+		    condition != NULL &&
+			    strcmp(
+				    condition,
+				    "(s.a_changed = 1 OR s.b = 1) AND s.c = 1") == 0,
+		    "same-handle patched Oracle MERGE condition is stale") != 0) {
+		sqlparser_string_free(condition);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(condition);
+	condition = NULL;
+	selector.item_index = 1U;
+	rc = sqlparser_selector_clause_sql(
+		handle,
+		&selector,
+		&condition,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "same-handle patched Oracle MERGE action condition should resolve") != 0 ||
+	    expect_true(
+		    condition != NULL &&
+			    strcmp(condition, "s.flag = 2") == 0,
+		    "same-handle patched Oracle MERGE action condition is stale") != 0) {
+		sqlparser_string_free(condition);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(condition);
+	condition = NULL;
+	if (expect_status_ok(
+		    sqlparser_deparse(handle, &deparsed, &error),
+		    &error,
+		    "patched Oracle MERGE action-WHERE should deparse") != 0 ||
+	    expect_true(
+		    deparsed != NULL && strcmp(deparsed, expected) == 0,
+		    "patched Oracle MERGE action-WHERE deparse mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_parse_with_options(
+			    deparsed,
+			    &options,
+			    &reparsed,
+			    &error),
+		    &error,
+		    "patched Oracle MERGE action-WHERE should reparse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(
+			    reparsed,
+			    0U,
+			    &graph,
+			    &error),
+		    &error,
+		    "reparsed Oracle MERGE action-WHERE graph should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml(&graph, &dml, &error),
+		    &error,
+		    "reparsed Oracle MERGE action-WHERE DML should resolve") != 0 ||
+	    expect_true(
+		    dml.assignments.count == 1U &&
+			    dml.branches.count == 2U,
+		    "reparsed Oracle MERGE action-WHERE graph mismatch") != 0) {
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(reparsed);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	selector.kind =
+		SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION;
+	selector.statement_index = 0U;
+	selector.item_index = 0U;
+	rc = sqlparser_selector_clause_sql(
+		reparsed,
+		&selector,
+		&condition,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "reparsed Oracle MERGE match condition should resolve") != 0 ||
+	    expect_true(
+		    condition != NULL &&
+			    strcmp(
+				    condition,
+				    "(s.a_changed = 1 OR s.b = 1) AND s.c = 1") == 0,
+		    "reparsed Oracle MERGE match condition mismatch") != 0) {
+		sqlparser_string_free(condition);
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(reparsed);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(condition);
+	condition = NULL;
+	selector.item_index = 1U;
+	rc = sqlparser_selector_clause_sql(
+		reparsed,
+		&selector,
+		&condition,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "reparsed Oracle MERGE insert action condition should resolve") != 0 ||
+	    expect_true(
+		    condition != NULL &&
+			    strcmp(condition, "s.flag = 2") == 0,
+		    "reparsed Oracle MERGE insert action condition mismatch") != 0) {
+		sqlparser_string_free(condition);
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(reparsed);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(condition);
+	sqlparser_string_free(deparsed);
+	sqlparser_handle_destroy(reparsed);
+	sqlparser_handle_destroy(handle);
+
+	for (dialect_index = 0U;
+	     dialect_index <
+		     sizeof(rejected_dialects) /
+			     sizeof(rejected_dialects[0]);
+	     dialect_index++) {
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = rejected_dialects[dialect_index];
+		rc = sqlparser_parse_with_options(
+			"MERGE INTO t USING s ON t.id=s.id "
+			"WHEN MATCHED THEN UPDATE SET v=s.v WHERE s.flag=1",
+			&options,
+			&handle,
+			&error);
+		if (expect_true(
+			    rc != SQLPARSER_STATUS_OK && handle == NULL,
+			    "non-Oracle MERGE action WHERE must be rejected") ==
+		    0) {
+			continue;
+		}
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	return 0;
+}
+
+static int test_postgresql_merge_by_source_match_branch(void)
+{
+	static const char sql[] =
+		"MERGE INTO wines w USING new_wine_list s "
+		"ON s.winename = w.winename "
+		"WHEN NOT MATCHED BY TARGET THEN "
+		"INSERT VALUES(s.winename, s.stock) "
+		"WHEN MATCHED AND w.stock != s.stock THEN "
+		"UPDATE SET stock = s.stock "
+		"WHEN NOT MATCHED BY SOURCE THEN DELETE;";
+	static const sqlparser_graph_merge_action_kind_t expected_actions[] = {
+		SQLPARSER_GRAPH_MERGE_ACTION_INSERT,
+		SQLPARSER_GRAPH_MERGE_ACTION_UPDATE,
+		SQLPARSER_GRAPH_MERGE_ACTION_DELETE
+	};
+	static const sqlparser_graph_merge_match_kind_t expected_matches[] = {
+		SQLPARSER_GRAPH_MERGE_MATCH_NOT_MATCHED_BY_TARGET,
+		SQLPARSER_GRAPH_MERGE_MATCH_MATCHED,
+		SQLPARSER_GRAPH_MERGE_MATCH_NOT_MATCHED_BY_SOURCE
+	};
+	static const char *const expected_action_names[] = {
+		"insert",
+		"update",
+		"delete"
+	};
+	static const char *const expected_match_names[] = {
+		"not_matched_by_target",
+		"matched",
+		"not_matched_by_source"
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_branch_t branch;
+	sqlparser_test_merge_branch_detail_t branch_detail;
+	char *condition;
+	char *view_json;
+	json_error_t json_error;
+	json_t *root;
+	json_t *branches_json;
+	json_t *dml_json;
+	json_t *query_graph;
+	json_t *statement;
+	json_t *statements;
+	size_t branch_index;
+	size_t local_index;
+	int rc;
+	int result;
+
+	handle = NULL;
+	condition = NULL;
+	view_json = NULL;
+	root = NULL;
+	result = 1;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(
+		sql,
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "official PostgreSQL BY SOURCE MERGE should parse") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    sql,
+		    "official PostgreSQL BY SOURCE MERGE should deparse exactly") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(
+			    handle,
+			    0U,
+			    &graph,
+			    &error),
+		    &error,
+		    "official PostgreSQL BY SOURCE MERGE graph should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml(
+			    &graph,
+			    &dml,
+			    &error),
+		    &error,
+		    "official PostgreSQL BY SOURCE MERGE DML should resolve") != 0 ||
+	    expect_true(
+		    dml.branches.count == 3U &&
+			    dml.assignments.count == 1U,
+		    "official PostgreSQL BY SOURCE MERGE payload mismatch") != 0) {
+		goto done;
+	}
+	for (branch_index = 0U; branch_index < 3U; branch_index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.branches,
+				    branch_index,
+				    &local_index,
+				    &error),
+			    &error,
+			    "BY SOURCE MERGE branch index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_branch_at(
+				    &graph,
+				    local_index,
+				    &branch,
+				    &error),
+			    &error,
+			    "BY SOURCE MERGE branch should resolve") != 0 ||
+		    expect_merge_branch_detail(
+			    &graph,
+			    local_index,
+			    &branch_detail,
+			    &error,
+			    "BY SOURCE MERGE branch detail should resolve") != 0 ||
+		    expect_true(
+			    branch.ordinal == branch_index &&
+				    branch_detail.action_kind ==
+					    expected_actions[branch_index] &&
+				    branch_detail.match_kind ==
+					    expected_matches[branch_index],
+			    "BY SOURCE MERGE branch action or match mismatch") != 0) {
+			goto done;
+		}
+		if (branch_index == 0U) {
+			if (expect_true(
+				    branch.rows.count == 2U &&
+					    branch_detail.assignments.count == 0U,
+				    "BY SOURCE MERGE INSERT payload mismatch") != 0) {
+				goto done;
+			}
+		} else if (branch_index == 1U) {
+			if (expect_true(
+				    branch.rows.count == 0U &&
+					    branch_detail.assignments.count == 1U &&
+					    branch.has_condition_selector != 0,
+				    "BY SOURCE MERGE UPDATE payload mismatch") != 0 ||
+			    expect_status_ok(
+				    sqlparser_selector_clause_sql(
+					    handle,
+					    &branch.condition_selector,
+					    &condition,
+					    &error),
+				    &error,
+				    "BY SOURCE MERGE UPDATE condition should resolve") != 0 ||
+			    expect_true(
+				    strcmp(
+					    condition,
+					    "w.stock != s.stock") == 0,
+				    "BY SOURCE MERGE UPDATE condition mismatch") != 0) {
+				goto done;
+			}
+			sqlparser_string_free(condition);
+			condition = NULL;
+		} else if (expect_true(
+				   branch.rows.count == 0U &&
+					   branch_detail.assignments.count == 0U &&
+					   branch.has_condition_selector == 0,
+				   "BY SOURCE MERGE DELETE payload mismatch") != 0) {
+			goto done;
+		}
+	}
+	rc = sqlparser_export_view_json(
+		handle,
+		0,
+		&view_json,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "BY SOURCE MERGE View JSON should export") != 0) {
+		goto done;
+	}
+	memset(&json_error, 0, sizeof(json_error));
+	root = json_loads(view_json, 0, &json_error);
+	statements = root != NULL ?
+		json_object_get(root, "statements") :
+		NULL;
+	statement = json_is_array(statements) ?
+		json_array_get(statements, 0U) :
+		NULL;
+	query_graph = json_is_object(statement) ?
+		json_object_get(statement, "query_graph") :
+		NULL;
+	dml_json = json_is_object(query_graph) ?
+		json_object_get(query_graph, "dml") :
+		NULL;
+	branches_json = json_is_object(dml_json) ?
+		json_object_get(dml_json, "branches") :
+		NULL;
+	if (expect_true(
+		    json_is_array(branches_json) &&
+			    json_array_size(branches_json) == 3U,
+		    "BY SOURCE MERGE JSON branch count mismatch") != 0) {
+		goto done;
+	}
+	for (branch_index = 0U; branch_index < 3U; branch_index++) {
+		json_t *branch_json;
+
+		branch_json = json_array_get(
+			branches_json,
+			branch_index);
+		if (expect_true(
+			    json_is_object(branch_json) &&
+				    json_string_is(
+					    branch_json,
+					    "merge_action_kind",
+					    expected_action_names[
+						    branch_index]) &&
+				    json_string_is(
+					    branch_json,
+					    "merge_match_kind",
+					    expected_match_names[
+						    branch_index]),
+			    "BY SOURCE MERGE JSON action or match mismatch") != 0) {
+			goto done;
+		}
+	}
+	result = 0;
+
+done:
+	if (root != NULL) {
+		json_decref(root);
+	}
+	sqlparser_string_free(view_json);
+	sqlparser_string_free(condition);
+	sqlparser_handle_destroy(handle);
+	return result;
+}
+
+static int test_sqlserver_multiple_nested_merge_selectors(void)
+{
+	static const char sql[] =
+		"INSERT INTO dbo.MergeAudit(id1, id2) "
+		"SELECT a.id, b.id "
+		"FROM (MERGE dbo.T1 AS t1 "
+		"USING (SELECT @id1 AS id, @v1 AS v, @f1 AS flag) AS s1 "
+		"ON t1.id=s1.id "
+		"WHEN MATCHED THEN UPDATE SET v=s1.v "
+		"WHEN NOT MATCHED AND s1.flag=1 THEN "
+		"INSERT(id,v) VALUES(s1.id,s1.v) "
+		"OUTPUT INSERTED.id) AS a "
+		"CROSS JOIN (MERGE dbo.T2 AS t2 "
+		"USING (SELECT @id2 AS id, @v2 AS v, @f2 AS flag) AS s2 "
+		"ON t2.id=s2.id "
+		"WHEN MATCHED THEN UPDATE SET v=s2.v "
+		"WHEN NOT MATCHED AND s2.flag=2 THEN "
+		"INSERT(id,v) VALUES(s2.id,s2.v) "
+		"OUTPUT INSERTED.id) AS b";
+	static const char *const expected_assignment_selectors[] = {
+		"stmt[0].merge_assignment[1][0][0]",
+		"stmt[0].merge_assignment[2][0][0]"
+	};
+	static const char *const expected_condition_selectors[] = {
+		"stmt[0].merge_branch_condition[1][1]",
+		"stmt[0].merge_branch_condition[2][1]"
+	};
+	static const char *const expected_assignment_sql[] = {
+		"s1.v",
+		"s2.v"
+	};
+	static const char *const expected_condition_sql[] = {
+		"s1.flag=1",
+		"s2.flag=2"
+	};
+	static const char *const expected_reparsed_condition_sql[] = {
+		"s1.flag = 1",
+		"s2.flag = 2"
+	};
+	static const char *const expected_aliases[] = {
+		"s1",
+		"s2"
+	};
+	static const char *const expected_bind_sql[] = {
+		"@id1",
+		"@id2"
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *reparsed;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_branch_t branch;
+	sqlparser_test_merge_branch_detail_t branch_detail;
+	sqlparser_graph_dml_assignment_t assignment;
+	sqlparser_graph_dml_cell_t cell;
+	sqlparser_graph_field_t field;
+	sqlparser_graph_relation_t relation;
+	sqlparser_graph_target_t target;
+	sqlparser_graph_value_t value;
+	sqlparser_selector_t assignment_selectors[2];
+	sqlparser_selector_t condition_selectors[2];
+	char *assignment_sql;
+	char *condition_sql;
+	char *deparsed;
+	char *selector_text;
+	char *view_json;
+	size_t assignment_index;
+	size_t branch_index;
+	size_t cell_index;
+	size_t dml_count;
+	size_t merge_index;
+	int rc;
+	int result;
+
+	handle = NULL;
+	reparsed = NULL;
+	assignment_sql = NULL;
+	condition_sql = NULL;
+	deparsed = NULL;
+	selector_text = NULL;
+	view_json = NULL;
+	result = 1;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_SQLSERVER;
+	rc = sqlparser_parse_with_options(
+		sql,
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "multiple nested SQL Server MERGE SQL should parse") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    sql,
+		    "multiple nested SQL Server MERGE SQL should deparse exactly") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(
+			    handle,
+			    0U,
+			    &graph,
+			    &error),
+		    &error,
+		    "multiple nested SQL Server MERGE graph should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_count(
+			    &graph,
+			    &dml_count,
+			    &error),
+		    &error,
+		    "multiple nested SQL Server MERGE DML count should resolve") != 0 ||
+	    expect_true(
+		    dml_count == 3U,
+		    "outer INSERT and two nested MERGE DML nodes should be present") != 0) {
+		goto done;
+	}
+
+	for (merge_index = 0U; merge_index < 2U; merge_index++) {
+		size_t dml_index;
+
+		dml_index = merge_index + 1U;
+		if (expect_status_ok(
+			    sqlparser_query_graph_dml_at(
+				    &graph,
+				    dml_index,
+				    &dml,
+				    &error),
+			    &error,
+			    "nested MERGE DML should resolve") != 0 ||
+		    expect_true(
+			    dml.kind == SQLPARSER_GRAPH_DML_MERGE &&
+				    dml.index == dml_index &&
+				    dml.branches.count == 2U &&
+				    dml.assignments.count == 1U,
+			    "nested MERGE DML shape mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.assignments,
+				    0U,
+				    &assignment_index,
+				    &error),
+			    &error,
+			    "nested MERGE assignment index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_assignment_at(
+				    &graph,
+				    assignment_index,
+				    &assignment,
+				    &error),
+			    &error,
+			    "nested MERGE assignment should resolve") != 0 ||
+		    expect_true(
+			    assignment.has_selector != 0 &&
+				    assignment.selector.kind ==
+					    SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT &&
+				    assignment.selector.row_index == dml_index &&
+				    assignment.selector.item_index == 0U &&
+				    assignment.selector.column_index == 0U,
+			    "nested MERGE assignment selector coordinates mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_selector_format(
+				    &assignment.selector,
+				    &selector_text,
+				    &error),
+			    &error,
+			    "nested MERGE assignment selector should format") != 0 ||
+		    expect_true(
+			    strcmp(
+				    selector_text,
+				    expected_assignment_selectors[
+					    merge_index]) == 0,
+			    "nested MERGE assignment selector must include DML index") != 0) {
+			goto done;
+		}
+		sqlparser_string_free(selector_text);
+		selector_text = NULL;
+		assignment_selectors[merge_index] =
+			assignment.selector;
+		if (expect_status_ok(
+			    sqlparser_selector_update_assignment_sql(
+				    handle,
+				    &assignment_selectors[merge_index],
+				    &assignment_sql,
+				    &error),
+			    &error,
+			    "nested MERGE assignment SQL should resolve") != 0 ||
+		    expect_true(
+			    strcmp(
+				    assignment_sql,
+				    expected_assignment_sql[merge_index]) == 0,
+			    "nested MERGE assignment SQL mismatch") != 0) {
+			goto done;
+		}
+		sqlparser_string_free(assignment_sql);
+		assignment_sql = NULL;
+
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.branches,
+				    1U,
+				    &branch_index,
+				    &error),
+			    &error,
+			    "nested MERGE INSERT branch index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_branch_at(
+				    &graph,
+				    branch_index,
+				    &branch,
+				    &error),
+			    &error,
+			    "nested MERGE INSERT branch should resolve") != 0 ||
+		    expect_merge_branch_detail(
+			    &graph,
+			    branch_index,
+			    &branch_detail,
+			    &error,
+			    "nested MERGE INSERT branch detail should resolve") != 0 ||
+		    expect_true(
+			    branch.ordinal == 1U &&
+				    branch_detail.action_kind ==
+					    SQLPARSER_GRAPH_MERGE_ACTION_INSERT &&
+				    branch.condition_selector.row_index ==
+					    dml_index &&
+				    branch.condition_selector.item_index == 1U &&
+				    branch.rows.count == 2U,
+			    "nested MERGE INSERT branch selector or payload mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_selector_format(
+				    &branch.condition_selector,
+				    &selector_text,
+				    &error),
+			    &error,
+			    "nested MERGE condition selector should format") != 0 ||
+		    expect_true(
+			    strcmp(
+				    selector_text,
+				    expected_condition_selectors[
+					    merge_index]) == 0,
+			    "nested MERGE condition selector must include DML index") != 0) {
+			goto done;
+		}
+		sqlparser_string_free(selector_text);
+		selector_text = NULL;
+		condition_selectors[merge_index] =
+			branch.condition_selector;
+		if (expect_status_ok(
+			    sqlparser_selector_clause_sql(
+				    handle,
+				    &condition_selectors[merge_index],
+				    &condition_sql,
+				    &error),
+			    &error,
+			    "nested MERGE condition SQL should resolve") != 0 ||
+		    expect_true(
+			    strcmp(
+				    condition_sql,
+				    expected_condition_sql[merge_index]) == 0,
+			    "nested MERGE condition SQL must come from its own source SQL") != 0) {
+			goto done;
+		}
+		sqlparser_string_free(condition_sql);
+		condition_sql = NULL;
+
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    branch.rows,
+				    0U,
+				    &cell_index,
+				    &error),
+			    &error,
+			    "nested MERGE source cell index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_cell_at(
+				    &graph,
+				    cell_index,
+				    &cell,
+				    &error),
+			    &error,
+			    "nested MERGE source cell should resolve") != 0 ||
+		    expect_true(
+			    cell.row_index == 1U &&
+				    cell.has_source_field != 0 &&
+				    cell.has_source_target != 0,
+			    "nested MERGE qualified source cell lineage is missing") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    &graph,
+				    cell.source_field_index,
+				    &field,
+				    &error),
+			    &error,
+			    "nested MERGE source field should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_relation_at(
+				    &graph,
+				    field.relation_index,
+				    &relation,
+				    &error),
+			    &error,
+			    "nested MERGE source relation should resolve") != 0 ||
+		    expect_true(
+			    field.block_index == relation.block_index &&
+				    relation.alias_name != NULL &&
+				    strcmp(
+					    relation.alias_name,
+					    expected_aliases[merge_index]) == 0,
+			    "nested MERGE source field must use the nested MERGE block") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_target_at(
+				    &graph,
+				    cell.source_target_index,
+				    &target,
+				    &error),
+			    &error,
+			    "nested MERGE source target should resolve") != 0 ||
+		    expect_true(
+			    target.has_value != 0,
+			    "nested MERGE source target value is missing") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_value_at(
+				    &graph,
+				    target.value_index,
+				    &value,
+				    &error),
+			    &error,
+			    "nested MERGE source target value should resolve") != 0 ||
+		    expect_true(
+			    value.has_bind_sql != 0 &&
+				    strcmp(
+					    value.bind_sql,
+					    expected_bind_sql[merge_index]) == 0,
+			    "nested MERGE source target bind lineage mismatch") != 0) {
+			goto done;
+		}
+	}
+
+	rc = sqlparser_export_view_json(
+		handle,
+		0,
+		&view_json,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "multiple nested MERGE View JSON should export") != 0 ||
+	    expect_true(
+		    view_json != NULL &&
+			    strstr(
+				    view_json,
+				    expected_assignment_selectors[0]) != NULL &&
+			    strstr(
+				    view_json,
+				    expected_assignment_selectors[1]) != NULL &&
+			    strstr(
+				    view_json,
+				    expected_condition_selectors[0]) != NULL &&
+			    strstr(
+				    view_json,
+				    expected_condition_selectors[1]) != NULL,
+		    "multiple nested MERGE JSON selectors must be unique") != 0) {
+		goto done;
+	}
+	sqlparser_string_free(view_json);
+	view_json = NULL;
+
+	rc = sqlparser_selector_set_update_assignment_sql(
+		handle,
+		&assignment_selectors[0],
+		"s1.v + 10",
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "first nested MERGE assignment mutation should succeed") != 0 ||
+	    expect_status_ok(
+		    sqlparser_selector_update_assignment_sql(
+			    handle,
+			    &assignment_selectors[0],
+			    &assignment_sql,
+			    &error),
+		    &error,
+		    "first nested MERGE mutated assignment should resolve") != 0 ||
+	    expect_true(
+		    strcmp(assignment_sql, "s1.v + 10") == 0,
+		    "first nested MERGE mutation mismatch") != 0) {
+		goto done;
+	}
+	sqlparser_string_free(assignment_sql);
+	assignment_sql = NULL;
+	if (expect_status_ok(
+		    sqlparser_selector_update_assignment_sql(
+			    handle,
+			    &assignment_selectors[1],
+			    &assignment_sql,
+			    &error),
+		    &error,
+		    "second nested MERGE assignment should remain readable") != 0 ||
+	    expect_true(
+		    strcmp(assignment_sql, "s2.v") == 0,
+		    "first mutation must not alter the second nested MERGE") != 0) {
+		goto done;
+	}
+	sqlparser_string_free(assignment_sql);
+	assignment_sql = NULL;
+
+	rc = sqlparser_selector_set_update_assignment_sql(
+		handle,
+		&assignment_selectors[1],
+		"s2.v + 20",
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "second nested MERGE assignment mutation should succeed") != 0 ||
+	    expect_status_ok(
+		    sqlparser_selector_update_assignment_sql(
+			    handle,
+			    &assignment_selectors[0],
+			    &assignment_sql,
+			    &error),
+		    &error,
+		    "first nested MERGE assignment should remain readable") != 0 ||
+	    expect_true(
+		    strcmp(assignment_sql, "s1.v + 10") == 0,
+		    "second mutation must not alter the first nested MERGE") != 0) {
+		goto done;
+	}
+	sqlparser_string_free(assignment_sql);
+	assignment_sql = NULL;
+	if (expect_status_ok(
+		    sqlparser_selector_update_assignment_sql(
+			    handle,
+			    &assignment_selectors[1],
+			    &assignment_sql,
+			    &error),
+		    &error,
+		    "second nested MERGE mutated assignment should resolve") != 0 ||
+	    expect_true(
+		    strcmp(assignment_sql, "s2.v + 20") == 0,
+		    "second nested MERGE mutation mismatch") != 0) {
+		goto done;
+	}
+	sqlparser_string_free(assignment_sql);
+	assignment_sql = NULL;
+
+	for (merge_index = 0U; merge_index < 2U; merge_index++) {
+		if (expect_status_ok(
+			    sqlparser_selector_clause_sql(
+				    handle,
+				    &condition_selectors[merge_index],
+				    &condition_sql,
+				    &error),
+			    &error,
+			    "mutated same-handle nested MERGE condition should resolve") != 0 ||
+		    expect_true(
+			    strcmp(
+				    condition_sql,
+				    expected_reparsed_condition_sql[
+					    merge_index]) == 0,
+			    "mutated same-handle nested MERGE condition is stale") != 0) {
+			goto done;
+		}
+		sqlparser_string_free(condition_sql);
+		condition_sql = NULL;
+	}
+
+	rc = sqlparser_deparse(
+		handle,
+		&deparsed,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "mutated nested MERGE SQL should deparse") != 0 ||
+	    expect_true(
+		    strstr(deparsed, "v = s1.v + 10") != NULL &&
+			    strstr(deparsed, "v = s2.v + 20") != NULL,
+		    "mutated nested MERGE deparse must contain both independent changes") != 0) {
+		goto done;
+	}
+	rc = sqlparser_parse_with_options(
+		deparsed,
+		&options,
+		&reparsed,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "mutated nested MERGE SQL should reparse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(
+			    reparsed,
+			    0U,
+			    &graph,
+			    &error),
+		    &error,
+		    "reparsed nested MERGE View should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_count(
+			    &graph,
+			    &dml_count,
+			    &error),
+		    &error,
+		    "reparsed nested MERGE DML count should resolve") != 0 ||
+	    expect_true(
+		    dml_count == 3U,
+		    "reparsed nested MERGE DML count mismatch") != 0) {
+		goto done;
+	}
+	for (merge_index = 0U; merge_index < 2U; merge_index++) {
+		const char *expected_sql;
+
+		expected_sql = merge_index == 0U ?
+			"s1.v + 10" :
+			"s2.v + 20";
+		if (expect_status_ok(
+			    sqlparser_selector_update_assignment_sql(
+				    reparsed,
+				    &assignment_selectors[merge_index],
+				    &assignment_sql,
+				    &error),
+			    &error,
+			    "reparsed nested MERGE assignment should resolve") != 0 ||
+		    expect_true(
+			    strcmp(assignment_sql, expected_sql) == 0,
+			    "reparsed nested MERGE assignment mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_selector_clause_sql(
+				    reparsed,
+				    &condition_selectors[merge_index],
+				    &condition_sql,
+				    &error),
+			    &error,
+			    "reparsed nested MERGE condition should resolve") != 0 ||
+		    expect_true(
+			    strcmp(
+				    condition_sql,
+				    expected_reparsed_condition_sql[
+					    merge_index]) == 0,
+			    "reparsed nested MERGE condition mismatch") != 0) {
+			goto done;
+		}
+		sqlparser_string_free(assignment_sql);
+		assignment_sql = NULL;
+		sqlparser_string_free(condition_sql);
+		condition_sql = NULL;
+	}
+	rc = sqlparser_export_view_json(
+		reparsed,
+		0,
+		&view_json,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "reparsed nested MERGE JSON should export") != 0 ||
+	    expect_true(
+		    view_json != NULL &&
+			    strstr(
+				    view_json,
+				    expected_assignment_selectors[0]) != NULL &&
+			    strstr(
+				    view_json,
+				    expected_assignment_selectors[1]) != NULL &&
+			    strstr(
+				    view_json,
+				    expected_condition_selectors[0]) != NULL &&
+			    strstr(
+				    view_json,
+				    expected_condition_selectors[1]) != NULL,
+		    "reparsed nested MERGE JSON selector mapping mismatch") != 0) {
+		goto done;
+	}
+	result = 0;
+
+done:
+	sqlparser_string_free(view_json);
+	sqlparser_string_free(selector_text);
+	sqlparser_string_free(deparsed);
+	sqlparser_string_free(condition_sql);
+	sqlparser_string_free(assignment_sql);
+	sqlparser_handle_destroy(reparsed);
+	sqlparser_handle_destroy(handle);
+	return result;
+}
+
+static int test_sqlserver_merge_scope_and_cte_lineage(void)
+{
+	static const char unqualified_sql[] =
+		"INSERT INTO dbo.audit_log(id) SELECT d.id "
+		"FROM (MERGE dbo.t AS t "
+		"USING (SELECT @id AS id) AS s ON t.id=s.id "
+		"WHEN NOT MATCHED THEN INSERT(id) VALUES(id) "
+		"OUTPUT INSERTED.id) AS d";
+	static const char cte_sql[] =
+		"IF @run = 1 BEGIN; "
+		"WITH src AS (SELECT id, v FROM dbo.s) "
+		"MERGE INTO dbo.t AS t "
+		"USING src AS s ON t.id = s.id "
+		"WHEN MATCHED THEN UPDATE SET v = s.v "
+		"WHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v); "
+		"END ELSE SELECT 0";
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_SQLSERVER,
+		SQLPARSER_DIALECT_VASTBASE_SQLSERVER
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_branch_t branch;
+	sqlparser_graph_dml_assignment_t assignment;
+	sqlparser_graph_dml_cell_t cell;
+	sqlparser_graph_field_t field;
+	sqlparser_graph_relation_t relation;
+	sqlparser_graph_target_t target;
+	char *view_json;
+	json_error_t json_error;
+	json_t *root;
+	json_t *statements;
+	json_t *statement;
+	json_t *query_graph;
+	json_t *dml_json;
+	json_t *branches_json;
+	json_t *rows_json;
+	json_t *cell_json;
+	size_t assignment_index;
+	size_t branch_index;
+	size_t cell_index;
+	size_t dialect_index;
+	size_t statement_count;
+	size_t statement_index;
+	int rc;
+
+	handle = NULL;
+	view_json = NULL;
+	root = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_SQLSERVER;
+	rc = sqlparser_parse_with_options(
+		unqualified_sql,
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "nested MERGE unqualified source SQL should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(
+			    handle,
+			    0U,
+			    &graph,
+			    &error),
+		    &error,
+		    "nested MERGE unqualified source graph should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_at(
+			    &graph,
+			    1U,
+			    &dml,
+			    &error),
+		    &error,
+		    "nested MERGE unqualified DML should resolve") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    &graph,
+			    dml.branches,
+			    0U,
+			    &branch_index,
+			    &error),
+		    &error,
+		    "nested MERGE unqualified branch index should resolve") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_branch_at(
+			    &graph,
+			    branch_index,
+			    &branch,
+			    &error),
+		    &error,
+		    "nested MERGE unqualified branch should resolve") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    &graph,
+			    branch.rows,
+			    0U,
+			    &cell_index,
+			    &error),
+		    &error,
+		    "nested MERGE unqualified cell index should resolve") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_cell_at(
+			    &graph,
+			    cell_index,
+			    &cell,
+			    &error),
+		    &error,
+		    "nested MERGE unqualified cell should resolve") != 0 ||
+	    expect_true(
+		    cell.has_source_field != 0 &&
+			    cell.has_source_target == 0,
+		    "ambiguous nested MERGE unqualified field must remain unresolved") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_field_at(
+			    &graph,
+			    cell.source_field_index,
+			    &field,
+			    &error),
+		    &error,
+		    "nested MERGE unqualified field should resolve") != 0 ||
+	    expect_true(
+		    field.block_index != 0U &&
+			    field.has_relation == 0,
+		    "nested MERGE unqualified field must stay in the nested block without binding the outer target") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_export_view_json(
+		handle,
+		0,
+		&view_json,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "nested MERGE unqualified JSON should export") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&json_error, 0, sizeof(json_error));
+	root = json_loads(view_json, 0, &json_error);
+	statements = root != NULL ?
+		json_object_get(root, "statements") :
+		NULL;
+	statement = json_is_array(statements) ?
+		json_array_get(statements, 0U) :
+		NULL;
+	query_graph = json_is_object(statement) ?
+		json_object_get(statement, "query_graph") :
+		NULL;
+	dml_json = json_is_object(query_graph) ?
+		json_object_get(query_graph, "dml") :
+		NULL;
+	dml_json = json_is_object(dml_json) ?
+		json_array_get(
+			json_object_get(dml_json, "children"),
+			0U) :
+		NULL;
+	branches_json = json_is_object(dml_json) ?
+		json_object_get(dml_json, "branches") :
+		NULL;
+	rows_json = json_is_array(branches_json) ?
+		json_object_get(
+			json_array_get(branches_json, 0U),
+			"rows") :
+		NULL;
+	cell_json = json_is_array(rows_json) ?
+		json_array_get(rows_json, 0U) :
+		NULL;
+	if (expect_true(
+		    json_is_object(cell_json) &&
+			    json_integer_is(
+				    cell_json,
+				    "source_field",
+				    (json_int_t)cell.source_field_index) &&
+			    json_object_get(
+				    cell_json,
+				    "source_target") == NULL,
+		    "nested MERGE unqualified JSON must remain unresolved") != 0) {
+		json_decref(root);
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	json_decref(root);
+	root = NULL;
+	sqlparser_string_free(view_json);
+	view_json = NULL;
+	sqlparser_handle_destroy(handle);
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index];
+		rc = sqlparser_parse_with_options(
+			cte_sql,
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "SH402 CTE MERGE SQL should parse") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		statement_count = sqlparser_statement_count(handle);
+		statement_index = (size_t)-1;
+		for (branch_index = 0U;
+		     branch_index < statement_count;
+		     branch_index++) {
+			sqlparser_statement_kind_t kind;
+
+			if (sqlparser_statement_kind(
+				    handle,
+				    branch_index,
+				    &kind,
+				    &error) == SQLPARSER_STATUS_OK &&
+			    kind == SQLPARSER_STATEMENT_KIND_MERGE) {
+				statement_index = branch_index;
+				break;
+			}
+		}
+		if (expect_true(
+			    statement_index != (size_t)-1,
+			    "SH402 MERGE control leaf should be present") != 0 ||
+		    expect_status_ok(
+			    sqlparser_statement_query_graph(
+				    handle,
+				    statement_index,
+				    &graph,
+				    &error),
+			    &error,
+			    "SH402 CTE MERGE graph should build") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml(
+				    &graph,
+				    &dml,
+				    &error),
+			    &error,
+			    "SH402 CTE MERGE DML should resolve") != 0 ||
+		    expect_true(
+			    dml.branches.count == 2U &&
+				    dml.assignments.count == 1U,
+			    "SH402 CTE MERGE DML payload mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.assignments,
+				    0U,
+				    &assignment_index,
+				    &error),
+			    &error,
+			    "SH402 assignment index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_assignment_at(
+				    &graph,
+				    assignment_index,
+				    &assignment,
+				    &error),
+			    &error,
+			    "SH402 assignment should resolve") != 0 ||
+		    expect_true(
+			    assignment.has_source_field != 0 &&
+				    assignment.has_source_target != 0,
+			    "SH402 assignment CTE source lineage is missing") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_target_at(
+				    &graph,
+				    assignment.source_target_index,
+				    &target,
+				    &error),
+			    &error,
+			    "SH402 CTE source target should resolve") != 0 ||
+		    expect_true(
+			    target.has_field != 0 &&
+				    target.output_name != NULL &&
+				    strcmp(target.output_name, "v") == 0,
+			    "SH402 CTE source target mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    &graph,
+				    target.field_index,
+				    &field,
+				    &error),
+			    &error,
+			    "SH402 underlying CTE target field should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_relation_at(
+				    &graph,
+				    field.relation_index,
+				    &relation,
+				    &error),
+			    &error,
+			    "SH402 underlying CTE target relation should resolve") != 0 ||
+		    expect_true(
+			    relation.schema_name != NULL &&
+				    strcmp(relation.schema_name, "dbo") == 0 &&
+				    relation.object_name != NULL &&
+				    strcmp(relation.object_name, "s") == 0,
+			    "SH402 CTE source target must trace to dbo.s") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.branches,
+				    1U,
+				    &branch_index,
+				    &error),
+			    &error,
+			    "SH402 INSERT branch index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_branch_at(
+				    &graph,
+				    branch_index,
+				    &branch,
+				    &error),
+			    &error,
+			    "SH402 INSERT branch should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    branch.rows,
+				    0U,
+				    &cell_index,
+				    &error),
+			    &error,
+			    "SH402 INSERT cell index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_cell_at(
+				    &graph,
+				    cell_index,
+				    &cell,
+				    &error),
+			    &error,
+			    "SH402 INSERT cell should resolve") != 0 ||
+		    expect_true(
+			    cell.row_index == 1U &&
+				    cell.has_source_target != 0,
+			    "SH402 INSERT cell lineage is missing") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_export_view_json(
+			handle,
+			0,
+			&view_json,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "SH402 View JSON should export") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		memset(&json_error, 0, sizeof(json_error));
+		root = json_loads(view_json, 0, &json_error);
+		statements = root != NULL ?
+			json_object_get(root, "statements") :
+			NULL;
+		statement = json_is_array(statements) ?
+			json_array_get(statements, statement_index) :
+			NULL;
+		query_graph = json_is_object(statement) ?
+			json_object_get(statement, "query_graph") :
+			NULL;
+		dml_json = json_is_object(query_graph) ?
+			json_object_get(query_graph, "dml") :
+			NULL;
+		branches_json = json_is_object(dml_json) ?
+			json_object_get(dml_json, "branches") :
+			NULL;
+		rows_json = json_is_array(branches_json) ?
+			json_object_get(
+				json_array_get(branches_json, 1U),
+				"rows") :
+			NULL;
+		cell_json = json_is_array(rows_json) ?
+			json_array_get(rows_json, 0U) :
+			NULL;
+		if (expect_true(
+			    json_is_object(cell_json) &&
+				    json_integer_is(
+					    cell_json,
+					    "source_target",
+					    (json_int_t)
+						    cell.source_target_index) &&
+				    json_string_is(
+					    json_array_get(
+						    branches_json,
+						    0U),
+					    "merge_action_kind",
+					    "update") &&
+				    json_string_is(
+					    json_array_get(
+						    branches_json,
+						    1U),
+					    "merge_action_kind",
+					    "insert"),
+			    "SH402 JSON lineage or action payload mismatch") != 0) {
+			json_decref(root);
+			sqlparser_string_free(view_json);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		json_decref(root);
+		root = NULL;
+		sqlparser_string_free(view_json);
+		view_json = NULL;
+		sqlparser_handle_destroy(handle);
+	}
+	return 0;
+}
+
+static int test_non_postgresql_multiple_merge_insert_rejection(void)
+{
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_SQLSERVER,
+		SQLPARSER_DIALECT_ORACLE,
+		SQLPARSER_DIALECT_DAMENG,
+		SQLPARSER_DIALECT_VASTBASE_POSTGRESQL,
+		SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+		SQLPARSER_DIALECT_VASTBASE_ORACLE
+	};
+	const char *sql;
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	size_t index;
+	int rc;
+
+	sql =
+		"MERGE INTO t USING s ON (t.id=s.id) "
+		"WHEN NOT MATCHED AND s.flag=1 THEN "
+		"INSERT (id,a) VALUES (s.id,1) "
+		"WHEN NOT MATCHED AND s.flag=2 THEN "
+		"INSERT (id,b) VALUES (s.id,2)";
+	for (index = 0U;
+	     index < sizeof(dialects) / sizeof(dialects[0]);
+	     index++) {
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[index];
+		rc = sqlparser_parse_with_options(
+			sql,
+			&options,
+			&handle,
+			&error);
+		if (expect_true(
+			    rc == SQLPARSER_STATUS_UNSUPPORTED &&
+				    handle == NULL &&
+				    strstr(
+					    error.message,
+					    "multiple MERGE INSERT actions") !=
+					    NULL,
+			    "non-PostgreSQL multiple MERGE INSERT actions should fail closed") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_SQLSERVER;
+	rc = sqlparser_parse_with_options(
+		"INSERT INTO dbo.audit_log(id) SELECT d.id "
+		"FROM (MERGE dbo.t AS t USING dbo.s AS s ON t.id=s.id "
+		"WHEN NOT MATCHED AND s.flag=1 THEN "
+		"INSERT (id,a) VALUES (s.id,1) "
+		"WHEN NOT MATCHED AND s.flag=2 THEN "
+		"INSERT (id,b) VALUES (s.id,2) "
+		"OUTPUT INSERTED.id) AS d",
+		&options,
+		&handle,
+		&error);
+	if (expect_true(
+		    rc == SQLPARSER_STATUS_UNSUPPORTED &&
+			    handle == NULL &&
+			    strstr(
+				    error.message,
+				    "multiple MERGE INSERT actions") != NULL,
+		    "nested SQL Server multiple MERGE INSERT actions should fail atomically during parse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
 static int test_insert_cell_bind_mutation(void)
 {
 	sqlparser_parse_options_t options;
@@ -2375,6 +7381,8 @@ static int test_selector_parse_and_format(void)
 	                "selector kind should be merge_assignment") != 0 ||
 	    expect_true(selector.statement_index == 2U,
 	                "MERGE assignment statement index should be 2") != 0 ||
+	    expect_true(selector.row_index == 0U,
+	                "root MERGE assignment DML index should be 0") != 0 ||
 	    expect_true(selector.item_index == 3U,
 	                "MERGE assignment WHEN index should be 3") != 0 ||
 	    expect_true(selector.column_index == 4U,
@@ -2393,6 +7401,90 @@ static int test_selector_parse_and_format(void)
 
 	sqlparser_string_free(selector_text);
 	selector_text = NULL;
+	memset(&selector, 0, sizeof(selector));
+
+	rc = sqlparser_selector_parse(
+		"stmt[2].merge_assignment[5][3][4]",
+		&selector,
+		&error);
+	if (expect_status_ok(rc, &error, "nested MERGE assignment selector should parse") != 0 ||
+	    expect_true(
+		    selector.kind == SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT &&
+			    selector.statement_index == 2U &&
+			    selector.row_index == 5U &&
+			    selector.item_index == 3U &&
+			    selector.column_index == 4U,
+		    "nested MERGE assignment selector coordinates mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_selector_format(
+			    &selector,
+			    &selector_text,
+			    &error),
+		    &error,
+		    "nested MERGE assignment selector should format") != 0 ||
+	    expect_true(
+		    strcmp(
+			    selector_text,
+			    "stmt[2].merge_assignment[5][3][4]") == 0,
+		    "nested MERGE assignment selector should round-trip") != 0) {
+		sqlparser_string_free(selector_text);
+		return 1;
+	}
+	sqlparser_string_free(selector_text);
+	selector_text = NULL;
+	memset(&selector, 0, sizeof(selector));
+
+	rc = sqlparser_selector_parse(
+		"stmt[2].merge_branch_condition[5][3]",
+		&selector,
+		&error);
+	if (expect_status_ok(rc, &error, "nested MERGE condition selector should parse") != 0 ||
+	    expect_true(
+		    selector.kind ==
+				    SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION &&
+			    selector.statement_index == 2U &&
+			    selector.row_index == 5U &&
+			    selector.item_index == 3U,
+		    "nested MERGE condition selector coordinates mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_selector_format(
+			    &selector,
+			    &selector_text,
+			    &error),
+		    &error,
+		    "nested MERGE condition selector should format") != 0 ||
+	    expect_true(
+		    strcmp(
+			    selector_text,
+			    "stmt[2].merge_branch_condition[5][3]") == 0,
+		    "nested MERGE condition selector should round-trip") != 0) {
+		sqlparser_string_free(selector_text);
+		return 1;
+	}
+	sqlparser_string_free(selector_text);
+	selector_text = NULL;
+	memset(&selector, 0, sizeof(selector));
+
+	rc = sqlparser_selector_parse(
+		"stmt[2].merge_assignment[5][3][4][1]",
+		&selector,
+		&error);
+	if (expect_true(
+		    rc == SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "MERGE assignment selector with an extra coordinate must fail") != 0) {
+		return 1;
+	}
+	memset(&selector, 0, sizeof(selector));
+
+	rc = sqlparser_selector_parse(
+		"stmt[2].merge_branch_condition[5][3][1]",
+		&selector,
+		&error);
+	if (expect_true(
+		    rc == SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "MERGE condition selector with an extra coordinate must fail") != 0) {
+		return 1;
+	}
 	memset(&selector, 0, sizeof(selector));
 
 	rc = sqlparser_selector_parse("stmt[3].insert_cell[2][4]", &selector, &error);
@@ -3983,7 +9075,7 @@ static int test_sqlserver_control_flow_and_patch(void)
 		if (expect_status_ok(rc, &error, "SQL Server patched control SQL should deparse") != 0 ||
 		    expect_true(strstr(deparsed_sql, "@enabled = 2") != NULL &&
 			    strstr(deparsed_sql, "@new_name") != NULL &&
-			    strstr(deparsed_sql, "inserted.a AS current_a") != NULL &&
+			    strstr(deparsed_sql, "INSERTED.a AS current_a") != NULL &&
 			    strstr(deparsed_sql, "$1") == NULL,
 			    "SQL Server control deparse should restore public bind and OUTPUT syntax") != 0) {
 			goto fail;
@@ -4269,9 +9361,9 @@ static int test_sqlserver_output_query_graph_and_patch(void)
 	                "omitted INSERT INTO must not leave duplicate whitespace") != 0 ||
 	    expect_true(strstr(deparsed_sql, ")  OUTPUT") == NULL,
 	                "OUTPUT insertion must not create duplicate whitespace") != 0 ||
-	    expect_true(strstr(deparsed_sql, "OUTPUT INSERTED.id, inserted.name AS audit_name INTO dbo.audit_log (audit_id, audit_name)") != NULL,
+	    expect_true(strstr(deparsed_sql, "OUTPUT INSERTED.id, INSERTED.name AS audit_name INTO dbo.audit_log (audit_id, audit_name)") != NULL,
 	                "patched sink OUTPUT should be preserved") != 0 ||
-	    expect_true(strstr(deparsed_sql, "OUTPUT inserted.name AS output_name") != NULL,
+	    expect_true(strstr(deparsed_sql, "OUTPUT INSERTED.name AS output_name") != NULL,
 	                "patched client OUTPUT should be preserved") != 0 ||
 	    expect_true(strstr(deparsed_sql, "__sqlparser_") == NULL,
 	                "patched OUTPUT must not expose internal identifiers") != 0) {
@@ -4554,7 +9646,7 @@ static int test_sqlserver_nested_output_query_graph_and_patch(void)
 	if (expect_status_ok(rc, &error, "nested SQL Server OUTPUT deparse should succeed") != 0 ||
 	    expect_true(strstr(deparsed_sql, "FROM (DELETE FROM dbo.Items") != NULL,
 	                "nested DML should retain its public table-source form") != 0 ||
-	    expect_true(strstr(deparsed_sql, "OUTPUT deleted.id AS id, deleted.state AS old_state") != NULL,
+	    expect_true(strstr(deparsed_sql, "OUTPUT DELETED.id AS id, DELETED.state AS old_state") != NULL,
 	                "nested DML should contain patched OUTPUT targets") != 0 ||
 	    expect_true(strstr(deparsed_sql, "__sqlparser_dml_source_") == NULL,
 	                "nested DML must not expose its internal CTE name") != 0) {
@@ -7525,6 +12617,7 @@ static int test_query_graph_public_struct_semantics(void)
 	sqlparser_graph_dml_t dml;
 	sqlparser_graph_dml_cell_t cell;
 	size_t cell_index;
+	size_t index;
 	int rc;
 
 	handle = NULL;
@@ -7601,6 +12694,682 @@ static int test_query_graph_public_struct_semantics(void)
 		return 1;
 	}
 	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse_with_options(
+		"INSERT INTO users (id, name, updated_at) "
+		"VALUES (:id, source_name, :updated_at)",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "interleaved insert field parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "interleaved insert graph should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "interleaved insert dml should be available") != 0 ||
+	    expect_true(dml.rows.count == 3U, "interleaved insert should expose three cells") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	for (index = 0U; index < dml.rows.count; index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.rows,
+				    index,
+				    &cell_index,
+				    &error),
+			    &error,
+			    "interleaved insert cell index should be available") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_cell_at(
+				    &graph,
+				    cell_index,
+				    &cell,
+				    &error),
+			    &error,
+			    "interleaved insert cell should be available") != 0 ||
+		    expect_true(
+			    cell.row_index == 0U && cell.column_ordinal == index,
+			    "interleaved insert cell coordinates should remain ordered") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (index == 0U) {
+			if (expect_true(
+				    cell.kind == SQLPARSER_GRAPH_VALUE_BIND,
+				    "interleaved first cell should be a bind") != 0 ||
+			    expect_true(
+				    cell.has_bind != 0 && strcmp(cell.bind, "id") == 0,
+				    "interleaved first bind key mismatch") != 0 ||
+			    expect_true(
+				    cell.bind_kind == SQLPARSER_BIND_KIND_NAMED,
+				    "interleaved first bind kind mismatch") != 0 ||
+			    expect_true(
+				    cell.has_bind_position != 0 &&
+					    cell.bind_position == 1U,
+				    "interleaved first bind position mismatch") != 0 ||
+			    expect_true(
+				    cell.has_bind_sql != 0 &&
+					    strcmp(cell.bind_sql, ":id") == 0,
+				    "interleaved first bind SQL mismatch") != 0 ||
+			    expect_true(
+				    cell.has_source_field == 0 &&
+					    cell.has_source_target == 0,
+				    "interleaved first bind should not expose a source field") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		} else if (index == 1U) {
+			if (expect_true(
+				    cell.kind == SQLPARSER_GRAPH_VALUE_FIELD,
+				    "interleaved middle cell should be a field") != 0 ||
+			    expect_true(
+				    cell.has_bind == 0 &&
+					    cell.has_bind_position == 0 &&
+					    cell.has_bind_sql == 0,
+				    "interleaved middle field should not expose bind metadata") != 0 ||
+			    expect_true(
+				    cell.has_source_field != 0 &&
+					    cell.has_source_target == 0,
+				    "interleaved middle field source metadata mismatch") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_field_at(
+					    &graph,
+					    cell.source_field_index,
+					    &field,
+					    &error),
+				    &error,
+				    "interleaved middle source field should be available") != 0 ||
+			    expect_true(
+				    field.column_name != NULL &&
+					    strcmp(field.column_name, "source_name") == 0,
+				    "interleaved middle source field name mismatch") != 0 ||
+			    expect_true(
+				    field.has_relation != 0 &&
+					    field.relation_index == 0U,
+				    "interleaved middle source field relation mismatch") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		} else {
+			if (expect_true(
+				    cell.kind == SQLPARSER_GRAPH_VALUE_BIND,
+				    "interleaved last cell should be a bind") != 0 ||
+			    expect_true(
+				    cell.has_bind != 0 &&
+					    strcmp(cell.bind, "updated_at") == 0,
+				    "interleaved last bind key mismatch") != 0 ||
+			    expect_true(
+				    cell.bind_kind == SQLPARSER_BIND_KIND_NAMED,
+				    "interleaved last bind kind mismatch") != 0 ||
+			    expect_true(
+				    cell.has_bind_position != 0 &&
+					    cell.bind_position == 2U,
+				    "interleaved last bind position mismatch") != 0 ||
+			    expect_true(
+				    cell.has_bind_sql != 0 &&
+					    strcmp(cell.bind_sql, ":updated_at") == 0,
+				    "interleaved last bind SQL mismatch") != 0 ||
+			    expect_true(
+				    cell.has_source_field == 0 &&
+					    cell.has_source_target == 0,
+				    "interleaved last bind should not expose a source field") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		}
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static sqlparser_status_t test_set_generated_expression_sql(
+	sqlparser_handle_t *handle,
+	int path,
+	const char *sql,
+	sqlparser_error_t *out_error)
+{
+	if (path == 0) {
+		return sqlparser_insert_set_cell_sql(
+			handle,
+			0U,
+			0U,
+			0U,
+			sql,
+			out_error);
+	}
+	if (path == 1) {
+		return sqlparser_update_set_assignment_sql(
+			handle,
+			0U,
+			0U,
+			sql,
+			out_error);
+	}
+	return sqlparser_select_set_target_sql(
+		handle,
+		0U,
+		0U,
+		0U,
+		sql,
+		out_error);
+}
+
+static int test_query_graph_count_field(
+	const sqlparser_query_graph_view_t *graph,
+	const char *column_name,
+	size_t *out_count)
+{
+	sqlparser_error_t error;
+	sqlparser_graph_field_t field;
+	size_t count;
+	size_t index;
+	int rc;
+
+	count = 0U;
+	for (index = 0U; index < graph->field_count; index++) {
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_query_graph_field_at(
+			graph,
+			index,
+			&field,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "generated expression field should be available") != 0) {
+			return 1;
+		}
+		if (field.column_name != NULL &&
+		    strcmp(field.column_name, column_name) == 0) {
+			count++;
+		}
+	}
+	*out_count = count;
+	return 0;
+}
+
+static int test_generated_sysdate_insert_view(
+	sqlparser_handle_t *handle,
+	const char *replacement_sql,
+	int expression)
+{
+	sqlparser_error_t error;
+	json_error_t json_error;
+	json_t *cell;
+	json_t *dml;
+	json_t *query_graph;
+	json_t *root;
+	json_t *rows;
+	json_t *statement;
+	json_t *statements;
+	char *view_json;
+	int rc;
+	int result;
+
+	root = NULL;
+	view_json = NULL;
+	result = 1;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "generated SYSDATE View should export") != 0) {
+		goto done;
+	}
+	memset(&json_error, 0, sizeof(json_error));
+	root = json_loads(view_json, 0, &json_error);
+	statements = root != NULL ?
+		json_object_get(root, "statements") :
+		NULL;
+	statement = json_is_array(statements) ?
+		json_array_get(statements, 0U) :
+		NULL;
+	query_graph = json_is_object(statement) ?
+		json_object_get(statement, "query_graph") :
+		NULL;
+	dml = json_is_object(query_graph) ?
+		json_object_get(query_graph, "dml") :
+		NULL;
+	rows = json_is_object(dml) ?
+		json_object_get(dml, "rows") :
+		NULL;
+	cell = json_is_array(rows) && json_array_size(rows) == 1U ?
+		json_array_get(rows, 0U) :
+		NULL;
+	if (expect_true(
+		    json_is_object(cell) &&
+			    json_string_is(
+				    cell,
+				    "kind",
+				    expression ? "expression" : "field") &&
+			    (expression ?
+				     json_string_is(
+					     cell,
+					     "expression_sql",
+					     replacement_sql) :
+				     json_object_get(
+					     cell,
+					     "expression_sql") == NULL),
+		    "generated SYSDATE View cell mismatch") != 0) {
+		goto done;
+	}
+	result = 0;
+
+done:
+	if (root != NULL) {
+		json_decref(root);
+	}
+	sqlparser_string_free(view_json);
+	return result;
+}
+
+static int test_generated_sysdate_query_graph_semantics(void)
+{
+	static const sqlparser_dialect_t compatible_dialects[] = {
+		SQLPARSER_DIALECT_ORACLE,
+		SQLPARSER_DIALECT_DAMENG,
+		SQLPARSER_DIALECT_VASTBASE_ORACLE
+	};
+	static const sqlparser_dialect_t other_dialects[] = {
+		SQLPARSER_DIALECT_POSTGRESQL,
+		SQLPARSER_DIALECT_MYSQL,
+		SQLPARSER_DIALECT_SQLSERVER,
+		SQLPARSER_DIALECT_VASTBASE_MYSQL,
+		SQLPARSER_DIALECT_VASTBASE_POSTGRESQL,
+		SQLPARSER_DIALECT_VASTBASE_SQLSERVER
+	};
+	static const struct {
+		const char *sql;
+		int path;
+	} paths[] = {
+		{ "INSERT INTO t(a) VALUES (1)", 0 },
+		{ "UPDATE t SET a = 1", 1 },
+		{ "SELECT 1 FROM t", 2 }
+	};
+	static const struct {
+		const char *sql;
+		const char *column_name;
+		int expression;
+	} replacements[] = {
+		{ "SYSDATE", NULL, 1 },
+		{ "\"SYSDATE\"", "SYSDATE", 0 },
+		{ "\"sysdate\"", "sysdate", 0 }
+	};
+	static const struct {
+		const char *sql;
+		size_t sysdate_field_count;
+	} nested_replacements[] = {
+		{ "COALESCE(SYSDATE, source_col)", 0U },
+		{ "COALESCE(\"sysdate\", source_col)", 1U }
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_cell_t cell;
+	sqlparser_graph_dml_assignment_t assignment;
+	sqlparser_graph_target_t target;
+	sqlparser_graph_field_t field;
+	size_t compatible_index;
+	size_t dialect_index;
+	size_t field_count;
+	size_t item_index;
+	size_t nested_index;
+	size_t path_index;
+	size_t replacement_index;
+	size_t sysdate_lower_count;
+	size_t sysdate_upper_count;
+	int rc;
+
+	sqlparser_parse_options_default(&options);
+	for (compatible_index = 0U;
+	     compatible_index <
+		     sizeof(compatible_dialects) / sizeof(compatible_dialects[0]);
+	     compatible_index++) {
+		options.dialect = compatible_dialects[compatible_index];
+		for (path_index = 0U;
+		     path_index < sizeof(paths) / sizeof(paths[0]);
+		     path_index++) {
+			for (replacement_index = 0U;
+			     replacement_index <
+				     sizeof(replacements) / sizeof(replacements[0]);
+			     replacement_index++) {
+			handle = NULL;
+			memset(&error, 0, sizeof(error));
+			rc = sqlparser_parse_with_options(
+				paths[path_index].sql,
+				&options,
+				&handle,
+				&error);
+			if (expect_status_ok(rc, &error, "generated SYSDATE base parse should succeed") != 0) {
+				return 1;
+			}
+			rc = test_set_generated_expression_sql(
+				handle,
+				paths[path_index].path,
+				replacements[replacement_index].sql,
+				&error);
+			if (expect_status_ok(rc, &error, "generated SYSDATE mutation should succeed") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			rc = sqlparser_statement_query_graph(
+				handle,
+				0U,
+				&graph,
+				&error);
+			if (expect_status_ok(rc, &error, "generated SYSDATE graph should be available") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+
+			item_index = 0U;
+			if (paths[path_index].path == 0) {
+				if (expect_status_ok(
+					    sqlparser_query_graph_dml(
+						    &graph,
+						    &dml,
+						    &error),
+					    &error,
+					    "generated INSERT dml should be available") != 0 ||
+				    expect_true(
+					    dml.rows.count == 1U,
+					    "generated INSERT should expose one cell") != 0 ||
+				    expect_status_ok(
+					    sqlparser_query_graph_span_index_at(
+						    &graph,
+						    dml.rows,
+						    0U,
+						    &item_index,
+						    &error),
+					    &error,
+					    "generated INSERT cell index should be available") != 0 ||
+				    expect_status_ok(
+					    sqlparser_query_graph_dml_cell_at(
+						    &graph,
+						    item_index,
+						    &cell,
+						    &error),
+					    &error,
+					    "generated INSERT cell should be available") != 0 ||
+				    expect_true(
+					    cell.kind ==
+						    (replacements[replacement_index].expression ?
+							     SQLPARSER_GRAPH_VALUE_EXPRESSION :
+							     SQLPARSER_GRAPH_VALUE_FIELD),
+					    "generated INSERT cell kind mismatch") != 0 ||
+				    expect_true(
+					    cell.has_source_field ==
+						    !replacements[replacement_index].expression,
+					    "generated INSERT source field presence mismatch") != 0) {
+					sqlparser_handle_destroy(handle);
+					return 1;
+				}
+				if (!replacements[replacement_index].expression) {
+					item_index = cell.source_field_index;
+				}
+				if (test_generated_sysdate_insert_view(
+					    handle,
+					    replacements[replacement_index].sql,
+					    replacements[replacement_index].expression) != 0) {
+					sqlparser_handle_destroy(handle);
+					return 1;
+				}
+			} else if (paths[path_index].path == 1) {
+				if (expect_status_ok(
+					    sqlparser_query_graph_dml(
+						    &graph,
+						    &dml,
+						    &error),
+					    &error,
+					    "generated UPDATE dml should be available") != 0 ||
+				    expect_true(
+					    dml.assignments.count == 1U,
+					    "generated UPDATE should expose one assignment") != 0 ||
+				    expect_status_ok(
+					    sqlparser_query_graph_span_index_at(
+						    &graph,
+						    dml.assignments,
+						    0U,
+						    &item_index,
+						    &error),
+					    &error,
+					    "generated UPDATE assignment index should be available") != 0 ||
+				    expect_status_ok(
+					    sqlparser_query_graph_dml_assignment_at(
+						    &graph,
+						    item_index,
+						    &assignment,
+						    &error),
+					    &error,
+					    "generated UPDATE assignment should be available") != 0 ||
+				    expect_true(
+					    assignment.value_kind ==
+						    (replacements[replacement_index].expression ?
+							     SQLPARSER_GRAPH_VALUE_EXPRESSION :
+							     SQLPARSER_GRAPH_VALUE_FIELD),
+					    "generated UPDATE assignment kind mismatch") != 0 ||
+				    expect_true(
+					    assignment.has_source_field ==
+						    !replacements[replacement_index].expression,
+					    "generated UPDATE source field presence mismatch") != 0) {
+					sqlparser_handle_destroy(handle);
+					return 1;
+				}
+				if (!replacements[replacement_index].expression) {
+					item_index = assignment.source_field_index;
+				}
+			} else {
+				if (expect_status_ok(
+					    sqlparser_query_graph_target_at(
+						    &graph,
+						    0U,
+						    &target,
+						    &error),
+					    &error,
+					    "generated SELECT target should be available") != 0 ||
+				    expect_true(
+					    target.kind ==
+						    (replacements[replacement_index].expression ?
+							     SQLPARSER_GRAPH_TARGET_EXPRESSION :
+							     SQLPARSER_GRAPH_TARGET_FIELD),
+					    "generated SELECT target kind mismatch") != 0 ||
+				    expect_true(
+					    target.has_field ==
+						    !replacements[replacement_index].expression,
+					    "generated SELECT target field presence mismatch") != 0) {
+					sqlparser_handle_destroy(handle);
+					return 1;
+				}
+				if (!replacements[replacement_index].expression) {
+					item_index = target.field_index;
+				}
+			}
+
+			if (!replacements[replacement_index].expression &&
+			    (expect_status_ok(
+				     sqlparser_query_graph_field_at(
+					     &graph,
+					     item_index,
+					     &field,
+					     &error),
+				     &error,
+				     "generated quoted SYSDATE field should be available") != 0 ||
+			     expect_true(
+				     field.column_name != NULL &&
+					     strcmp(
+						     field.column_name,
+						     replacements[replacement_index].column_name) == 0,
+				     "generated quoted SYSDATE field spelling mismatch") != 0)) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			if (test_query_graph_count_field(
+				    &graph,
+				    "sysdate",
+				    &sysdate_lower_count) != 0 ||
+			    test_query_graph_count_field(
+				    &graph,
+				    "SYSDATE",
+				    &sysdate_upper_count) != 0 ||
+			    expect_true(
+				    replacements[replacement_index].expression ?
+					    sysdate_lower_count == 0U &&
+						    sysdate_upper_count == 0U :
+					    (strcmp(
+						     replacements[replacement_index].column_name,
+						     "sysdate") == 0 ?
+						     sysdate_lower_count == 1U &&
+							     sysdate_upper_count == 0U :
+						     sysdate_lower_count == 0U &&
+							     sysdate_upper_count == 1U),
+				    "generated SYSDATE field projection mismatch") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			sqlparser_handle_destroy(handle);
+		}
+	}
+	}
+
+	for (compatible_index = 0U;
+	     compatible_index <
+		     sizeof(compatible_dialects) / sizeof(compatible_dialects[0]);
+	     compatible_index++) {
+		options.dialect = compatible_dialects[compatible_index];
+		for (nested_index = 0U;
+		     nested_index <
+			     sizeof(nested_replacements) /
+				     sizeof(nested_replacements[0]);
+		     nested_index++) {
+			handle = NULL;
+			memset(&error, 0, sizeof(error));
+			rc = sqlparser_parse_with_options(
+				"SELECT 1 FROM t",
+				&options,
+				&handle,
+				&error);
+			if (expect_status_ok(rc, &error, "nested SYSDATE base parse should succeed") != 0) {
+				return 1;
+			}
+			rc = test_set_generated_expression_sql(
+				handle,
+				2,
+				nested_replacements[nested_index].sql,
+				&error);
+			if (expect_status_ok(rc, &error, "nested SYSDATE mutation should succeed") != 0 ||
+			    expect_status_ok(
+				    sqlparser_statement_query_graph(
+					    handle,
+					    0U,
+					    &graph,
+					    &error),
+				    &error,
+				    "nested SYSDATE graph should be available") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_target_at(
+					    &graph,
+					    0U,
+					    &target,
+					    &error),
+				    &error,
+				    "nested SYSDATE target should be available") != 0 ||
+			    expect_true(
+				    target.kind == SQLPARSER_GRAPH_TARGET_EXPRESSION &&
+					    !target.has_field,
+				    "nested SYSDATE target should remain an expression") != 0 ||
+			    test_query_graph_count_field(
+				    &graph,
+				    "source_col",
+				    &field_count) != 0 ||
+			    expect_true(
+				    field_count == 1U,
+				    "nested SYSDATE source field count mismatch") != 0 ||
+			    test_query_graph_count_field(
+				    &graph,
+				    "sysdate",
+				    &field_count) != 0 ||
+			    expect_true(
+				    field_count ==
+					    nested_replacements[nested_index]
+						    .sysdate_field_count,
+				    "nested SYSDATE field count mismatch") != 0 ||
+			    expect_true(
+				    graph.field_count ==
+					    1U +
+						    nested_replacements[nested_index]
+							    .sysdate_field_count,
+				    "nested SYSDATE total field count mismatch") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			sqlparser_handle_destroy(handle);
+		}
+	}
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(other_dialects) / sizeof(other_dialects[0]);
+	     dialect_index++) {
+		options.dialect = other_dialects[dialect_index];
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			"SELECT 1 FROM t",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "non-Oracle SYSDATE base parse should succeed") != 0) {
+			return 1;
+		}
+		rc = test_set_generated_expression_sql(
+			handle,
+			2,
+			"SYSDATE",
+			&error);
+		if (expect_status_ok(rc, &error, "non-Oracle SYSDATE mutation should succeed") != 0 ||
+		    expect_status_ok(
+			    sqlparser_statement_query_graph(
+				    handle,
+				    0U,
+				    &graph,
+				    &error),
+			    &error,
+			    "non-Oracle SYSDATE graph should be available") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_target_at(
+				    &graph,
+				    0U,
+				    &target,
+				    &error),
+			    &error,
+			    "non-Oracle SYSDATE target should be available") != 0 ||
+		    expect_true(
+			    target.kind == SQLPARSER_GRAPH_TARGET_FIELD &&
+				    target.has_field,
+			    "non-Oracle SYSDATE should remain a field") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    &graph,
+				    target.field_index,
+				    &field,
+				    &error),
+			    &error,
+			    "non-Oracle SYSDATE field should be available") != 0 ||
+		    expect_true(
+			    field.column_name != NULL &&
+				    strcmp(field.column_name, "SYSDATE") == 0,
+			    "non-Oracle SYSDATE field spelling mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
 	return 0;
 }
 
@@ -7637,18 +13406,18 @@ static int expect_query_graph_target_value(
 		return 1;
 	}
 	if (value_kind == SQLPARSER_GRAPH_VALUE_BIND) {
-		if (!value.has_bind || value.bind == NULL || strcmp(value.bind, bind_key) != 0 ||
+		if (!value.has_bind || strcmp(value.bind, bind_key) != 0 ||
 		    value.bind_kind != bind_kind ||
 		    !value.has_bind_position || value.bind_position != bind_position ||
-		    !value.has_bind_sql || value.bind_sql == NULL || strcmp(value.bind_sql, bind_sql) != 0) {
+		    !value.has_bind_sql || strcmp(value.bind_sql, bind_sql) != 0) {
 			fprintf(
 				stderr,
 				"FAIL: target bind mismatch: expected=%s/%s/%lu actual=%s/%s/%lu\n",
 				bind_key,
 				bind_sql,
 				(unsigned long)bind_position,
-				value.bind != NULL ? value.bind : "(null)",
-				value.bind_sql != NULL ? value.bind_sql : "(null)",
+				value.bind,
+				value.bind_sql,
 				(unsigned long)value.bind_position);
 			return 1;
 		}
@@ -7965,6 +13734,7 @@ static int test_oracle_multi_insert_query_graph_and_patch(void)
 	sqlparser_patch_list_t patch_list;
 	char *sql;
 	size_t index;
+	unsigned long generation;
 	int rc;
 
 	memset(&error, 0, sizeof(error));
@@ -8014,19 +13784,23 @@ static int test_oracle_multi_insert_query_graph_and_patch(void)
 		return 1;
 	}
 
+	generation = handle->generation;
 	memset(&bind, 0, sizeof(bind));
 	bind.kind = SQLPARSER_BIND_KIND_NAMED;
 	bind.key = "secret_new";
 	rc = sqlparser_insert_set_cell_bind(handle, 0U, 0U, 1U, &bind, &error);
-	if (expect_status_ok(rc, &error, "Oracle INSERT ALL branch bind replacement should succeed") != 0) {
+	if (expect_status_ok(rc, &error, "Oracle INSERT ALL branch bind replacement should succeed") != 0 ||
+	    expect_true(handle->generation == generation + 1UL, "Oracle INSERT ALL bind replacement generation mismatch") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
+	generation = handle->generation;
 	memset(&literal, 0, sizeof(literal));
 	literal.kind = SQLPARSER_LITERAL_KIND_STRING;
 	literal.string_value = "phone-new";
 	rc = sqlparser_insert_set_cell_literal(handle, 0U, 1U, 1U, &literal, &error);
-	if (expect_status_ok(rc, &error, "Oracle INSERT ALL branch literal replacement should succeed") != 0) {
+	if (expect_status_ok(rc, &error, "Oracle INSERT ALL branch literal replacement should succeed") != 0 ||
+	    expect_true(handle->generation == generation + 1UL, "Oracle INSERT ALL literal replacement generation mismatch") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -8058,8 +13832,10 @@ static int test_oracle_multi_insert_query_graph_and_patch(void)
 	patch.bind = &bind;
 	patch_list.items = &patch;
 	patch_list.count = 1U;
+	generation = handle->generation;
 	rc = sqlparser_apply_patch(handle, &patch_list, &error);
-	if (expect_status_ok(rc, &error, "Oracle INSERT ALL branch column insertion should succeed") != 0) {
+	if (expect_status_ok(rc, &error, "Oracle INSERT ALL branch column insertion should succeed") != 0 ||
+	    expect_true(handle->generation == generation + 1UL, "Oracle INSERT ALL branch insertion generation mismatch") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -8091,8 +13867,10 @@ static int test_oracle_multi_insert_query_graph_and_patch(void)
 	patch.source_selector = "stmt[0].insert_cell[0][1]";
 	patch_list.items = &patch;
 	patch_list.count = 1U;
+	generation = handle->generation;
 	rc = sqlparser_apply_patch(handle, &patch_list, &error);
-	if (expect_status_ok(rc, &error, "Oracle INSERT ALL branch cell clone should succeed") != 0) {
+	if (expect_status_ok(rc, &error, "Oracle INSERT ALL branch cell clone should succeed") != 0 ||
+	    expect_true(handle->generation == generation + 1UL, "Oracle INSERT ALL branch clone generation mismatch") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -8278,6 +14056,7 @@ static int test_dameng_multi_insert_query_graph_and_patch(void)
 	sqlparser_patch_list_t patch_list;
 	char *sql;
 	size_t index;
+	unsigned long generation;
 	int rc;
 
 	memset(&error, 0, sizeof(error));
@@ -8326,19 +14105,23 @@ static int test_dameng_multi_insert_query_graph_and_patch(void)
 		return 1;
 	}
 
+	generation = handle->generation;
 	memset(&bind, 0, sizeof(bind));
 	bind.kind = SQLPARSER_BIND_KIND_NAMED;
 	bind.key = "secret_new";
 	rc = sqlparser_insert_set_cell_bind(handle, 0U, 0U, 1U, &bind, &error);
-	if (expect_status_ok(rc, &error, "Dameng INSERT ALL branch bind replacement should succeed") != 0) {
+	if (expect_status_ok(rc, &error, "Dameng INSERT ALL branch bind replacement should succeed") != 0 ||
+	    expect_true(handle->generation == generation + 1UL, "Dameng INSERT ALL bind replacement generation mismatch") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
+	generation = handle->generation;
 	memset(&literal, 0, sizeof(literal));
 	literal.kind = SQLPARSER_LITERAL_KIND_STRING;
 	literal.string_value = "phone-new";
 	rc = sqlparser_insert_set_cell_literal(handle, 0U, 1U, 1U, &literal, &error);
-	if (expect_status_ok(rc, &error, "Dameng INSERT ALL branch literal replacement should succeed") != 0) {
+	if (expect_status_ok(rc, &error, "Dameng INSERT ALL branch literal replacement should succeed") != 0 ||
+	    expect_true(handle->generation == generation + 1UL, "Dameng INSERT ALL literal replacement generation mismatch") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -8353,8 +14136,10 @@ static int test_dameng_multi_insert_query_graph_and_patch(void)
 	patch.bind = &bind;
 	patch_list.items = &patch;
 	patch_list.count = 1U;
+	generation = handle->generation;
 	rc = sqlparser_apply_patch(handle, &patch_list, &error);
-	if (expect_status_ok(rc, &error, "Dameng INSERT ALL branch column insertion should succeed") != 0) {
+	if (expect_status_ok(rc, &error, "Dameng INSERT ALL branch column insertion should succeed") != 0 ||
+	    expect_true(handle->generation == generation + 1UL, "Dameng INSERT ALL branch insertion generation mismatch") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -8589,11 +14374,14 @@ static int test_oracle_p3_merge_source_target_graph(void)
 	sqlparser_handle_t *handle;
 	sqlparser_query_graph_view_t graph;
 	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_branch_t branch;
+	sqlparser_test_merge_branch_detail_t branch_detail;
 	sqlparser_graph_dml_assignment_t assignment;
 	sqlparser_graph_dml_cell_t cell;
 	sqlparser_graph_field_t field;
 	sqlparser_graph_target_t target;
 	size_t index;
+	size_t branch_index;
 	size_t item_index;
 	int found_assignment;
 	int found_cell;
@@ -8616,7 +14404,27 @@ static int test_oracle_p3_merge_source_target_graph(void)
 	}
 	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
 	if (expect_status_ok(rc, &error, "Oracle P3 MERGE graph should be available") != 0 ||
-	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "Oracle P3 MERGE dml should be readable") != 0) {
+	    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error, "Oracle P3 MERGE dml should be readable") != 0 ||
+	    expect_true(dml.rows.count == 0U && dml.target_columns.count == 0U && dml.branches.count == 2U,
+	                "Oracle P3 MERGE insert payload should be branch-scoped") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.branches, 1U, &branch_index, &error),
+	                     &error,
+	                     "Oracle P3 MERGE branch span should resolve") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_dml_branch_at(&graph, branch_index, &branch, &error),
+	                     &error,
+	                     "Oracle P3 MERGE branch should be readable") != 0 ||
+	    expect_merge_branch_detail(
+		    &graph,
+		    branch_index,
+		    &branch_detail,
+		    &error,
+		    "Oracle P3 MERGE branch detail should be readable") != 0 ||
+	    expect_true(
+		    branch.ordinal == 1U &&
+			    branch_detail.action_kind ==
+				    SQLPARSER_GRAPH_MERGE_ACTION_INSERT &&
+			    branch.rows.count == 2U,
+		    "Oracle P3 MERGE INSERT branch mismatch") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -8656,8 +14464,8 @@ static int test_oracle_p3_merge_source_target_graph(void)
 		return 1;
 	}
 	found_cell = 0;
-	for (index = 0U; index < dml.rows.count; index++) {
-		if (expect_status_ok(sqlparser_query_graph_span_index_at(&graph, dml.rows, index, &item_index, &error),
+	for (index = 0U; index < branch.rows.count; index++) {
+		if (expect_status_ok(sqlparser_query_graph_span_index_at(&graph, branch.rows, index, &item_index, &error),
 		                     &error,
 		                     "Oracle P3 MERGE row span should resolve") != 0 ||
 		    expect_status_ok(sqlparser_query_graph_dml_cell_at(&graph, item_index, &cell, &error),
@@ -8796,13 +14604,23 @@ static int expect_merge_assignment_lineage(
 	return 0;
 }
 
-static int test_oracle_merge_assignment_patch_closure(void)
+static int test_oracle_compatible_merge_assignment_patch_closure_case(
+	sqlparser_dialect_t dialect)
 {
+	static const char expected_inserted_sql[] =
+		"MERGE INTO KDES.DBP_SQLM_USERS u "
+		"USING (SELECT :1 AS ID, :2 AS PHONE FROM DUAL) s "
+		"ON u.ID = s.ID "
+		"WHEN MATCHED THEN UPDATE SET "
+		"u.\"PHONE_ORIG\" = s.PHONE, "
+		"u.PHONE = s.ID, "
+		"u.phone_audit = s.PHONE";
 	const char *sql;
 	const char *target_parts[2];
 	sqlparser_parse_options_t options;
 	sqlparser_error_t error;
 	sqlparser_handle_t *handle;
+	sqlparser_handle_t *reparsed;
 	sqlparser_query_graph_view_t graph;
 	sqlparser_graph_dml_t dml;
 	sqlparser_selector_t source_selector;
@@ -8810,6 +14628,7 @@ static int test_oracle_merge_assignment_patch_closure(void)
 	sqlparser_patch_t patch;
 	sqlparser_patch_list_t patch_list;
 	char *deparsed_sql;
+	unsigned long generation;
 	int rc;
 
 	sql =
@@ -8818,13 +14637,14 @@ static int test_oracle_merge_assignment_patch_closure(void)
 		"ON (u.ID = s.ID) "
 		"WHEN MATCHED THEN UPDATE SET u.PHONE = s.PHONE";
 	handle = NULL;
+	reparsed = NULL;
 	deparsed_sql = NULL;
 	memset(&error, 0, sizeof(error));
 	memset(&source_selector, 0, sizeof(source_selector));
 	memset(&target, 0, sizeof(target));
 	memset(&patch, 0, sizeof(patch));
 	sqlparser_parse_options_default(&options);
-	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	options.dialect = dialect;
 	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
 	if (expect_status_ok(rc, &error, "Oracle MERGE patch SQL should parse") != 0) {
 		return 1;
@@ -8974,23 +14794,52 @@ static int test_oracle_merge_assignment_patch_closure(void)
 	patch.op = SQLPARSER_PATCH_INSERT_ASSIGNMENT;
 	patch.selector = "stmt[0].merge_assignment[0][2]";
 	patch.sql = "u.phone_audit = s.PHONE";
+	generation = handle->generation;
 	rc = sqlparser_apply_patch(handle, &patch_list, &error);
 	if (expect_status_ok(
 		    rc,
 		    &error,
-		    "generic Oracle MERGE assignment insert should succeed") != 0) {
+		    "generic Oracle-compatible MERGE assignment insert should succeed") != 0 ||
+	    expect_true(
+		    handle->generation == generation + 1UL,
+		    "generic MERGE assignment insert generation mismatch") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
-	if (expect_status_ok(rc, &error, "inserted Oracle MERGE graph should rebuild") != 0 ||
+	if (expect_status_ok(rc, &error, "inserted Oracle-compatible MERGE graph should rebuild") != 0 ||
 	    expect_status_ok(
 		    sqlparser_query_graph_dml(&graph, &dml, &error),
 		    &error,
-		    "inserted Oracle MERGE DML should be readable") != 0 ||
+		    "inserted Oracle-compatible MERGE DML should be readable") != 0 ||
 	    expect_true(
-		    dml.assignments.count == 3U,
-		    "generic insert should add one MERGE assignment") != 0 ||
+		    graph.generation == handle->generation &&
+			    dml.assignments.count == 3U,
+		    "generic insert should rebuild the current MERGE generation") != 0 ||
+	    expect_merge_assignment_lineage(
+		    &graph,
+		    &dml,
+		    0U,
+		    "PHONE_ORIG",
+		    "stmt[0].merge_assignment[0][0]",
+		    1U,
+		    "PHONE",
+		    "2",
+		    2U,
+		    ":2",
+		    NULL) != 0 ||
+	    expect_merge_assignment_lineage(
+		    &graph,
+		    &dml,
+		    1U,
+		    "PHONE",
+		    "stmt[0].merge_assignment[0][1]",
+		    0U,
+		    "ID",
+		    "1",
+		    1U,
+		    ":1",
+		    NULL) != 0 ||
 	    expect_merge_assignment_lineage(
 		    &graph,
 		    &dml,
@@ -9006,6 +14855,93 @@ static int test_oracle_merge_assignment_patch_closure(void)
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "inserted Oracle-compatible MERGE should deparse") != 0 ||
+	    expect_true(
+		    deparsed_sql != NULL &&
+			    strcmp(deparsed_sql, expected_inserted_sql) == 0,
+		    "inserted Oracle-compatible MERGE deparse mismatch") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_parse_with_options(
+		deparsed_sql,
+		&options,
+		&reparsed,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "deparsed Oracle-compatible MERGE should reparse") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+	rc = sqlparser_statement_query_graph(
+		reparsed,
+		0U,
+		&graph,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "reparsed Oracle-compatible MERGE graph should rebuild") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml(&graph, &dml, &error),
+		    &error,
+		    "reparsed Oracle-compatible MERGE DML should be readable") != 0 ||
+	    expect_true(
+		    graph.generation == 0UL &&
+			    dml.assignments.count == 3U,
+		    "reparsed Oracle-compatible MERGE graph shape mismatch") != 0 ||
+	    expect_merge_assignment_lineage(
+		    &graph,
+		    &dml,
+		    0U,
+		    "PHONE_ORIG",
+		    "stmt[0].merge_assignment[0][0]",
+		    1U,
+		    "PHONE",
+		    "2",
+		    2U,
+		    ":2",
+		    NULL) != 0 ||
+	    expect_merge_assignment_lineage(
+		    &graph,
+		    &dml,
+		    1U,
+		    "PHONE",
+		    "stmt[0].merge_assignment[0][1]",
+		    0U,
+		    "ID",
+		    "1",
+		    1U,
+		    ":1",
+		    NULL) != 0 ||
+	    expect_merge_assignment_lineage(
+		    &graph,
+		    &dml,
+		    2U,
+		    "phone_audit",
+		    "stmt[0].merge_assignment[0][2]",
+		    1U,
+		    "PHONE",
+		    "2",
+		    2U,
+		    ":2",
+		    NULL) != 0) {
+		sqlparser_handle_destroy(reparsed);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(reparsed);
+	reparsed = NULL;
 
 	memset(&patch, 0, sizeof(patch));
 	patch.op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
@@ -9071,6 +15007,26 @@ static int test_oracle_merge_assignment_patch_closure(void)
 	return 0;
 }
 
+static int test_oracle_merge_assignment_patch_closure(void)
+{
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_ORACLE,
+		SQLPARSER_DIALECT_DAMENG,
+		SQLPARSER_DIALECT_VASTBASE_ORACLE
+	};
+	size_t dialect_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		if (test_oracle_compatible_merge_assignment_patch_closure_case(
+			    dialects[dialect_index]) != 0) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
 static int test_sqlserver_merge_question_bind_positions(void)
 {
 	static const sqlparser_dialect_t dialects[] = {
@@ -9085,6 +15041,8 @@ static int test_sqlserver_merge_question_bind_positions(void)
 	sqlparser_parse_options_t options;
 	sqlparser_error_t error;
 	sqlparser_graph_dml_assignment_t assignment;
+	sqlparser_graph_dml_branch_t branch;
+	sqlparser_test_merge_branch_detail_t branch_detail;
 	sqlparser_graph_dml_cell_t cell;
 	sqlparser_graph_dml_t dml;
 	sqlparser_identifier_path_view_t target;
@@ -9092,6 +15050,7 @@ static int test_sqlserver_merge_question_bind_positions(void)
 	sqlparser_selector_t selector;
 	sqlparser_handle_t *handle;
 	size_t assignment_index;
+	size_t branch_index;
 	size_t cell_index;
 	size_t dialect_index;
 	int rc;
@@ -9128,11 +15087,44 @@ static int test_sqlserver_merge_question_bind_positions(void)
 			    "SQL Server MERGE question-bind graph should build") != 0 ||
 		    expect_status_ok(
 			    sqlparser_query_graph_dml(&graph, &dml, &error),
-			    &error,
-			    "SQL Server MERGE question-bind DML should be readable") != 0 ||
+		    &error,
+		    "SQL Server MERGE question-bind DML should be readable") != 0 ||
 		    expect_true(
-			    dml.assignments.count == 2U && dml.rows.count == 1U,
+			    dml.assignments.count == 2U &&
+				    dml.rows.count == 0U &&
+				    dml.target_columns.count == 0U &&
+				    dml.branches.count == 2U,
 			    "SQL Server MERGE question-bind graph shape mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.branches,
+				    1U,
+				    &branch_index,
+				    &error),
+			    &error,
+			    "SQL Server MERGE insert branch should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_branch_at(
+				    &graph,
+				    branch_index,
+				    &branch,
+				    &error),
+			    &error,
+			    "SQL Server MERGE insert branch should be readable") != 0 ||
+		    expect_merge_branch_detail(
+			    &graph,
+			    branch_index,
+			    &branch_detail,
+			    &error,
+			    "SQL Server MERGE insert branch detail should be readable") != 0 ||
+		    expect_true(
+			    branch.ordinal == 1U &&
+				    branch_detail.action_kind ==
+					    SQLPARSER_GRAPH_MERGE_ACTION_INSERT &&
+				    branch.rows.count == 1U &&
+				    branch.target_columns.count == 1U,
+			    "SQL Server MERGE insert branch shape mismatch") != 0 ||
 		    expect_status_ok(
 			    sqlparser_query_graph_span_index_at(
 				    &graph,
@@ -9161,7 +15153,7 @@ static int test_sqlserver_merge_question_bind_positions(void)
 		    expect_status_ok(
 			    sqlparser_query_graph_span_index_at(
 				    &graph,
-				    dml.rows,
+				    branch.rows,
 				    0U,
 				    &cell_index,
 				    &error),
@@ -9176,7 +15168,8 @@ static int test_sqlserver_merge_question_bind_positions(void)
 			    &error,
 			    "SQL Server MERGE insert cell should be readable") != 0 ||
 		    expect_true(
-			    cell.has_bind != 0 &&
+			    cell.row_index == 1U &&
+				    cell.has_bind != 0 &&
 				    strcmp(cell.bind, "2") == 0 &&
 				    cell.has_bind_position != 0 &&
 				    cell.bind_position == 2U,
@@ -9207,11 +15200,44 @@ static int test_sqlserver_merge_question_bind_positions(void)
 			    "cloned SQL Server MERGE question graph should build") != 0 ||
 		    expect_status_ok(
 			    sqlparser_query_graph_dml(&graph, &dml, &error),
-			    &error,
-			    "cloned SQL Server MERGE question DML should be readable") != 0 ||
+		    &error,
+		    "cloned SQL Server MERGE question DML should be readable") != 0 ||
 		    expect_true(
-			    dml.assignments.count == 3U && dml.rows.count == 1U,
+			    dml.assignments.count == 3U &&
+				    dml.rows.count == 0U &&
+				    dml.target_columns.count == 0U &&
+				    dml.branches.count == 2U,
 			    "cloned SQL Server MERGE question graph shape mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.branches,
+				    1U,
+				    &branch_index,
+				    &error),
+			    &error,
+			    "cloned SQL Server MERGE insert branch should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_branch_at(
+				    &graph,
+				    branch_index,
+				    &branch,
+				    &error),
+			    &error,
+			    "cloned SQL Server MERGE insert branch should be readable") != 0 ||
+		    expect_merge_branch_detail(
+			    &graph,
+			    branch_index,
+			    &branch_detail,
+			    &error,
+			    "cloned SQL Server MERGE insert branch detail should be readable") != 0 ||
+		    expect_true(
+			    branch.ordinal == 1U &&
+				    branch_detail.action_kind ==
+					    SQLPARSER_GRAPH_MERGE_ACTION_INSERT &&
+				    branch.rows.count == 1U &&
+				    branch.target_columns.count == 1U,
+			    "cloned SQL Server MERGE insert branch shape mismatch") != 0 ||
 		    expect_status_ok(
 			    sqlparser_query_graph_span_index_at(
 				    &graph,
@@ -9261,7 +15287,7 @@ static int test_sqlserver_merge_question_bind_positions(void)
 		    expect_status_ok(
 			    sqlparser_query_graph_span_index_at(
 				    &graph,
-				    dml.rows,
+				    branch.rows,
 				    0U,
 				    &cell_index,
 				    &error),
@@ -9276,7 +15302,8 @@ static int test_sqlserver_merge_question_bind_positions(void)
 			    &error,
 			    "shifted SQL Server MERGE insert cell should be readable") != 0 ||
 		    expect_true(
-			    cell.has_bind != 0 &&
+			    cell.row_index == 1U &&
+				    cell.has_bind != 0 &&
 				    strcmp(cell.bind, "3") == 0 &&
 				    cell.has_bind_position != 0 &&
 				    cell.bind_position == 3U,
@@ -9941,6 +15968,7 @@ static int test_select_target_list_patch_api(void)
 	sqlparser_handle_t *handle;
 	sqlparser_error_t error;
 	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_field_t field;
 	sqlparser_graph_target_t target;
 	sqlparser_selector_t selector;
 	sqlparser_patch_t patch;
@@ -10105,7 +16133,7 @@ static int test_select_target_list_patch_api(void)
 	target_sql = NULL;
 	sqlparser_handle_destroy(handle);
 
-	sql = "SELECT * FROM `users`";
+	sql = "SELECT * FROM abc";
 	handle = NULL;
 	sqlparser_parse_options_default(&options);
 	options.dialect = SQLPARSER_DIALECT_MYSQL;
@@ -10113,7 +16141,7 @@ static int test_select_target_list_patch_api(void)
 	if (expect_status_ok(rc, &error, "mysql select target parse should succeed") != 0) {
 		return 1;
 	}
-	rc = sqlparser_select_set_targets_sql(handle, 0U, 0U, "`id`, `name`", &error);
+	rc = sqlparser_select_set_targets_sql(handle, 0U, 0U, "`a`,`b,c`", &error);
 	if (expect_status_ok(rc, &error, "mysql select target replace should succeed") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
@@ -10122,9 +16150,56 @@ static int test_select_target_list_patch_api(void)
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
+	rc = sqlparser_select_target_count(handle, 0U, 0U, &target_count, &error);
+	if (expect_status_ok(rc, &error, "mysql patched target count should succeed") != 0 ||
+	    expect_true(target_count == 2U, "mysql patched target count should be two") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_select_target_sql(handle, 0U, 0U, 0U, &target_sql, &error);
+	if (expect_status_ok(rc, &error, "mysql first patched target SQL should succeed") != 0 ||
+	    expect_true(strcmp(target_sql, "`a`") == 0, "mysql first patched target should retain backticks") != 0) {
+		sqlparser_string_free(target_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(target_sql);
+	target_sql = NULL;
+	rc = sqlparser_select_target_sql(handle, 0U, 0U, 1U, &target_sql, &error);
+	if (expect_status_ok(rc, &error, "mysql second patched target SQL should succeed") != 0 ||
+	    expect_true(strcmp(target_sql, "`b,c`") == 0, "mysql comma identifier should remain one backtick target") != 0) {
+		sqlparser_string_free(target_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(target_sql);
+	target_sql = NULL;
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "mysql patched target graph should succeed") != 0 ||
+	    expect_true(graph.target_count == 2U, "mysql patched graph should expose two targets") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_target_at(&graph, 0U, &target, &error), &error,
+	                     "mysql first patched graph target should succeed") != 0 ||
+	    expect_true(target.kind == SQLPARSER_GRAPH_TARGET_FIELD && target.has_field,
+	                "mysql first patched graph target should be a field") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_field_at(&graph, target.field_index, &field, &error), &error,
+	                     "mysql first patched graph field should succeed") != 0 ||
+	    expect_true(field.column_name != NULL && strcmp(field.column_name, "a") == 0,
+	                "mysql first patched graph field should be a") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_target_at(&graph, 1U, &target, &error), &error,
+	                     "mysql second patched graph target should succeed") != 0 ||
+	    expect_true(target.kind == SQLPARSER_GRAPH_TARGET_FIELD && target.has_field,
+	                "mysql second patched graph target should be a field") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_field_at(&graph, target.field_index, &field, &error), &error,
+	                     "mysql second patched graph field should succeed") != 0 ||
+	    expect_true(field.column_name != NULL && strcmp(field.column_name, "b,c") == 0,
+	                "mysql comma identifier should remain one graph field") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
 	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
 	if (expect_status_ok(rc, &error, "mysql select target deparse should succeed") != 0 ||
-	    expect_true(strstr(deparsed_sql, "id, name") != NULL, "mysql deparse should contain rewritten targets") != 0 ||
+	    expect_true(strcmp(deparsed_sql, "SELECT `a`, `b,c` FROM abc") == 0,
+	                "mysql deparse should retain patched backtick targets") != 0 ||
 	    expect_true(strstr(deparsed_sql, "$1") == NULL, "mysql deparse should not expose internal state") != 0) {
 		sqlparser_string_free(deparsed_sql);
 		sqlparser_handle_destroy(handle);
@@ -10203,9 +16278,20 @@ static int test_select_target_list_patch_api(void)
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
+	rc = sqlparser_select_target_sql(handle, 0U, 0U, 1U, &target_sql, &error);
+	if (expect_status_ok(rc, &error, "sqlserver patched target SQL should succeed") != 0 ||
+	    expect_true(strcmp(target_sql, "[name] AS [display_name]") == 0,
+	                "sqlserver patched target should retain bracket delimiters") != 0) {
+		sqlparser_string_free(target_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(target_sql);
+	target_sql = NULL;
 	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
 	if (expect_status_ok(rc, &error, "sqlserver select target deparse should succeed") != 0 ||
-	    expect_true(strstr(deparsed_sql, "name AS display_name") != NULL, "sqlserver deparse should contain inserted target") != 0 ||
+	    expect_true(strcmp(deparsed_sql, "SELECT *, [name] AS [display_name] FROM [dbo].[users]") == 0,
+	                "sqlserver deparse should retain patched bracket delimiters") != 0 ||
 	    expect_true(strstr(deparsed_sql, "$") == NULL, "sqlserver deparse should not expose internal bind markers") != 0) {
 		sqlparser_string_free(deparsed_sql);
 		sqlparser_handle_destroy(handle);
@@ -10213,6 +16299,1372 @@ static int test_select_target_list_patch_api(void)
 	}
 	sqlparser_string_free(deparsed_sql);
 	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_relation_patch_identifier_path_spelling(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *replacement;
+		const char *expected_sql;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"\"Db.Dot\".\"SchemaCase\".MixedTable",
+			"SELECT 1 FROM \"Db.Dot\".\"SchemaCase\".MixedTable"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"`Db.Dot`.`SchemaCase`.MixedTable",
+			"SELECT 1 FROM `Db.Dot`.`SchemaCase`.MixedTable"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"[Db.Dot].\"SchemaCase\".MixedTable",
+			"SELECT 1 FROM [Db.Dot].\"SchemaCase\".MixedTable"
+		}
+	};
+	sqlparser_parse_options_t options;
+	size_t case_index;
+
+	for (case_index = 0U; case_index < sizeof(cases) / sizeof(cases[0]); case_index++) {
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_relation_view_t relation;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_graph_relation_t graph_relation;
+		sqlparser_patch_t patch;
+		sqlparser_patch_list_t patch_list;
+		char *view_json;
+		int rc;
+
+		handle = NULL;
+		view_json = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[case_index].dialect;
+		rc = sqlparser_parse_with_options(
+			"SELECT 1 FROM old_db.old_schema.old_table",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "relation identifier patch baseline should parse") != 0) {
+			return 1;
+		}
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_REPLACE;
+		patch.selector = "stmt[0].relation[0]";
+		patch.sql = cases[case_index].replacement;
+		patch_list.items = &patch;
+		patch_list.count = 1U;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		if (expect_status_ok(rc, &error, "relation identifier path patch should succeed") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		memset(&relation, 0, sizeof(relation));
+		rc = sqlparser_statement_relation(handle, 0U, 0U, &relation, &error);
+		if (expect_status_ok(rc, &error, "patched relation view should succeed") != 0 ||
+		    expect_true(
+			    relation.database_name != NULL &&
+				    strcmp(relation.database_name, "Db.Dot") == 0 &&
+				    relation.schema_name != NULL &&
+				    strcmp(relation.schema_name, "SchemaCase") == 0 &&
+				    relation.table_name != NULL &&
+				    strcmp(relation.table_name, "MixedTable") == 0,
+			    "patched relation view should expose decoded identifier components") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+		if (expect_status_ok(rc, &error, "patched relation graph should succeed") != 0 ||
+		    expect_true(graph.relation_count == 1U, "patched relation graph count mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_relation_at(&graph, 0U, &graph_relation, &error),
+			    &error,
+			    "patched graph relation should succeed") != 0 ||
+		    expect_true(
+			    graph_relation.database_name != NULL &&
+				    strcmp(graph_relation.database_name, "Db.Dot") == 0 &&
+				    graph_relation.schema_name != NULL &&
+				    strcmp(graph_relation.schema_name, "SchemaCase") == 0 &&
+				    graph_relation.object_name != NULL &&
+				    strcmp(graph_relation.object_name, "MixedTable") == 0,
+			    "patched graph relation should preserve semantic components") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
+		if (expect_status_ok(rc, &error, "patched relation JSON view should succeed") != 0 ||
+		    expect_true(
+			    view_json != NULL &&
+				    strstr(view_json, "Db.Dot") != NULL &&
+				    strstr(view_json, "SchemaCase") != NULL &&
+				    strstr(view_json, "MixedTable") != NULL,
+			    "patched relation JSON view should contain decoded components") != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    cases[case_index].expected_sql,
+			    "patched relation path should deparse exactly and reparse") != 0) {
+			sqlparser_string_free(view_json);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+	}
+
+	{
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_patch_t patch;
+		sqlparser_patch_list_t patch_list;
+		char *before_sql;
+		char *after_sql;
+		int rc;
+
+		handle = NULL;
+		before_sql = NULL;
+		after_sql = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse("SELECT 1 FROM public.old_table", &handle, &error);
+		if (expect_status_ok(rc, &error, "invalid relation patch baseline should parse") != 0 ||
+		    expect_status_ok(sqlparser_deparse(handle, &before_sql, &error), &error,
+		                     "invalid relation patch baseline should deparse") != 0) {
+			sqlparser_string_free(before_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_REPLACE;
+		patch.selector = "stmt[0].relation[0]";
+		patch.sql = "\"unterminated";
+		patch_list.items = &patch;
+		patch_list.count = 1U;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		if (expect_true(rc != SQLPARSER_STATUS_OK, "invalid relation identifier path should fail") != 0 ||
+		    expect_status_ok(sqlparser_deparse(handle, &after_sql, &error), &error,
+		                     "failed relation patch should leave handle deparseable") != 0 ||
+		    expect_true(
+			    before_sql != NULL && after_sql != NULL && strcmp(before_sql, after_sql) == 0,
+			    "failed relation identifier patch must be atomic") != 0) {
+			sqlparser_string_free(before_sql);
+			sqlparser_string_free(after_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(before_sql);
+		sqlparser_string_free(after_sql);
+		sqlparser_handle_destroy(handle);
+	}
+
+	return 0;
+}
+
+static int test_insert_column_patch_identifier_spelling(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *name;
+		const char *decoded_name;
+		const char *expected_sql;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"\"Col.Dot\"",
+			"Col.Dot",
+			"INSERT INTO T (C, \"Col.Dot\") VALUES (1, 2)"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"AddedMixed",
+			"AddedMixed",
+			"INSERT INTO T (C, AddedMixed) VALUES (1, 2)"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"`Col.Dot`",
+			"Col.Dot",
+			"INSERT INTO T (C, `Col.Dot`) VALUES (1, 2)"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"[Col.Dot]",
+			"Col.Dot",
+			"INSERT INTO T (C, [Col.Dot]) VALUES (1, 2)"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"\"DoubleCol\"",
+			"DoubleCol",
+			"INSERT INTO T (C, \"DoubleCol\") VALUES (1, 2)"
+		}
+	};
+	sqlparser_parse_options_t options;
+	size_t case_index;
+
+	for (case_index = 0U; case_index < sizeof(cases) / sizeof(cases[0]); case_index++) {
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_graph_dml_t dml;
+		sqlparser_graph_dml_column_t column;
+		sqlparser_patch_t patch;
+		sqlparser_patch_list_t patch_list;
+		const char *column_name;
+		char *view_json;
+		size_t column_index;
+		int rc;
+
+		handle = NULL;
+		view_json = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[case_index].dialect;
+		rc = sqlparser_parse_with_options(
+			"INSERT INTO T (C) VALUES (1)",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "insert-column identifier baseline should parse") != 0) {
+			return 1;
+		}
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patch.selector = "stmt[0].insert_columns";
+		patch.index = 1U;
+		patch.name = cases[case_index].name;
+		patch.default_sql = "2";
+		patch_list.items = &patch;
+		patch_list.count = 1U;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		if (expect_status_ok(rc, &error, "insert-column identifier patch should succeed") != 0 ||
+		    expect_status_ok(
+			    sqlparser_insert_column_name(handle, 0U, 1U, &column_name, &error),
+			    &error,
+			    "insert-column decoded name should succeed") != 0 ||
+		    expect_true(
+			    column_name != NULL && strcmp(column_name, cases[case_index].decoded_name) == 0,
+			    "insert-column view must not contain delimiters") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+		if (expect_status_ok(rc, &error, "insert-column graph should succeed") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error,
+		                     "insert-column DML graph should succeed") != 0 ||
+		    expect_true(dml.target_columns.count == 2U, "insert-column graph count mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph, dml.target_columns, 1U, &column_index, &error),
+			    &error,
+			    "insert-column graph index should succeed") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_column_at(&graph, column_index, &column, &error),
+			    &error,
+			    "insert-column graph item should succeed") != 0 ||
+		    expect_true(
+			    column.column_name != NULL &&
+				    strcmp(column.column_name, cases[case_index].decoded_name) == 0,
+			    "insert-column graph must expose decoded identifier") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
+		if (expect_status_ok(rc, &error, "insert-column JSON view should succeed") != 0 ||
+		    expect_true(
+			    view_json != NULL &&
+				    strstr(view_json, cases[case_index].decoded_name) != NULL,
+			    "insert-column JSON view should contain decoded identifier") != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    cases[case_index].expected_sql,
+			    "insert-column identifier should deparse exactly and reparse") != 0) {
+			sqlparser_string_free(view_json);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+	}
+
+	{
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_patch_t patch;
+		sqlparser_patch_list_t patch_list;
+		char *before_sql;
+		char *after_sql;
+		int rc;
+
+		handle = NULL;
+		before_sql = NULL;
+		after_sql = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse("INSERT INTO T (C) VALUES (1)", &handle, &error);
+		if (expect_status_ok(rc, &error, "invalid insert-column baseline should parse") != 0 ||
+		    expect_status_ok(sqlparser_deparse(handle, &before_sql, &error), &error,
+		                     "invalid insert-column baseline should deparse") != 0) {
+			sqlparser_string_free(before_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patch.selector = "stmt[0].insert_columns";
+		patch.index = 1U;
+		patch.name = "Bad.Name";
+		patch.default_sql = "2";
+		patch_list.items = &patch;
+		patch_list.count = 1U;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		if (expect_true(rc != SQLPARSER_STATUS_OK, "qualified insert-column name should fail") != 0 ||
+		    expect_status_ok(sqlparser_deparse(handle, &after_sql, &error), &error,
+		                     "failed insert-column patch should leave handle deparseable") != 0 ||
+		    expect_true(
+			    before_sql != NULL && after_sql != NULL && strcmp(before_sql, after_sql) == 0,
+			    "failed insert-column identifier patch must be atomic") != 0) {
+			sqlparser_string_free(before_sql);
+			sqlparser_string_free(after_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(before_sql);
+		sqlparser_string_free(after_sql);
+		sqlparser_handle_destroy(handle);
+	}
+
+	return 0;
+}
+
+static int test_fragment_mutation_identifier_spelling(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *expression;
+		const char *condition;
+		const char *order_by;
+		const char *assignment;
+		const char *assignment_rhs;
+		const char *set_list;
+		const char *generated_column;
+		const char *field_names[3];
+		size_t field_count;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"COALESCE(\"QuotedCase\", MixedCase)",
+			"\"QuotedCase\" = MixedCase",
+			"\"QuotedCase\", MixedCase",
+			"\"TargetCase\" = \"SourceCase\"",
+			"\"SourceCase\"",
+			"\"TargetCase\" = \"SourceCase\", MixedTarget = MixedSource",
+			"AddedColumn",
+			{"QuotedCase", "MixedCase", NULL},
+			2U
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"COALESCE(`BacktickCase`, MixedCase)",
+			"`BacktickCase` = MixedCase",
+			"`BacktickCase`, MixedCase",
+			"`TargetCase` = `SourceCase`",
+			"`SourceCase`",
+			"`TargetCase` = `SourceCase`, MixedTarget = MixedSource",
+			"AddedColumn",
+			{"BacktickCase", "MixedCase", NULL},
+			2U
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"COALESCE([BracketCase], \"DoubleCase\", MixedCase)",
+			"[BracketCase] = \"DoubleCase\" AND MixedCase = 1",
+			"[BracketCase], \"DoubleCase\", MixedCase",
+			"[TargetCase] = \"SourceCase\"",
+			"\"SourceCase\"",
+			"[TargetCase] = \"SourceCase\", MixedTarget = MixedSource",
+			"AddedColumn",
+			{"BracketCase", "DoubleCase", "MixedCase"},
+			3U
+		}
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	size_t case_index;
+	int rc;
+
+	for (case_index = 0U; case_index < sizeof(cases) / sizeof(cases[0]); case_index++) {
+		sqlparser_handle_t *handle;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_graph_dml_t dml;
+		sqlparser_graph_dml_cell_t cell;
+		sqlparser_graph_dml_assignment_t graph_assignment;
+		sqlparser_graph_dml_column_t column;
+		sqlparser_graph_field_t field;
+		sqlparser_assignment_view_t assignment;
+		sqlparser_graph_value_t value;
+		sqlparser_patch_t patch;
+		sqlparser_patch_list_t patch_list;
+		sqlparser_selector_t value_selector;
+		const char *value_fields[4];
+		char expected_sql[512];
+		char expected_fragment[256];
+		char *fragment;
+		char *selector_text;
+		size_t graph_index;
+		size_t item_index;
+		int found_value_selector;
+
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[case_index].dialect;
+
+		handle = NULL;
+		fragment = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			"INSERT INTO T (C) VALUES (1)",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "fragment spelling insert-cell parse should succeed") != 0) {
+			return 1;
+		}
+		rc = sqlparser_insert_set_cell_sql(
+			handle,
+			0U,
+			0U,
+			0U,
+			cases[case_index].expression,
+			&error);
+		if (expect_status_ok(rc, &error, "fragment spelling insert-cell mutation should succeed") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_insert_cell_sql(handle, 0U, 0U, 0U, &fragment, &error);
+		if (expect_status_ok(rc, &error, "fragment spelling insert-cell getter should succeed") != 0 ||
+		    expect_true(
+			    fragment != NULL && strcmp(fragment, cases[case_index].expression) == 0,
+			    "fragment spelling insert-cell getter should preserve SQL") != 0) {
+			sqlparser_string_free(fragment);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(fragment);
+		fragment = NULL;
+		rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+		if (expect_status_ok(rc, &error, "fragment spelling insert-cell graph should succeed") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error,
+		                     "fragment spelling insert-cell DML should succeed") != 0 ||
+		    expect_true(dml.kind == SQLPARSER_GRAPH_DML_INSERT && dml.rows.count == 1U,
+		                "fragment spelling insert-cell DML shape mismatch") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_span_index_at(
+		                         &graph, dml.rows, 0U, &item_index, &error),
+		                     &error,
+		                     "fragment spelling insert-cell index should succeed") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml_cell_at(&graph, item_index, &cell, &error), &error,
+		                     "fragment spelling insert-cell graph item should succeed") != 0 ||
+		    expect_true(cell.kind == SQLPARSER_GRAPH_VALUE_EXPRESSION,
+		                "fragment spelling insert-cell should remain an expression") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		snprintf(
+			expected_sql,
+			sizeof(expected_sql),
+			"INSERT INTO T (C) VALUES (%s)",
+			cases[case_index].expression);
+		if (expect_deparse_equals_and_reparse(
+			    handle,
+			    expected_sql,
+			    "fragment spelling insert-cell deparse should be exact") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		fragment = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			"UPDATE T SET C = 1",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "fragment spelling assignment RHS parse should succeed") != 0) {
+			return 1;
+		}
+		rc = sqlparser_update_set_assignment_sql(
+			handle,
+			0U,
+			0U,
+			cases[case_index].expression,
+			&error);
+		if (expect_status_ok(rc, &error, "fragment spelling assignment RHS mutation should succeed") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_update_assignment_sql(handle, 0U, 0U, &fragment, &error);
+		memset(&assignment, 0, sizeof(assignment));
+		if (expect_status_ok(rc, &error, "fragment spelling assignment RHS getter should succeed") != 0 ||
+		    expect_true(
+			    fragment != NULL && strcmp(fragment, cases[case_index].expression) == 0,
+			    "fragment spelling assignment RHS getter should preserve SQL") != 0 ||
+		    expect_status_ok(sqlparser_update_assignment(handle, 0U, 0U, &assignment, &error), &error,
+		                     "fragment spelling assignment RHS view should succeed") != 0 ||
+		    expect_true(
+			    assignment.column_name != NULL && strcmp(assignment.column_name, "C") == 0 &&
+				    assignment.value_kind == SQLPARSER_VALUE_KIND_EXPRESSION,
+			    "fragment spelling assignment RHS view mismatch") != 0) {
+			sqlparser_string_free(fragment);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(fragment);
+		fragment = NULL;
+		rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+		if (expect_status_ok(rc, &error, "fragment spelling assignment RHS graph should succeed") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error,
+		                     "fragment spelling assignment RHS DML should succeed") != 0 ||
+		    expect_true(dml.assignments.count == 1U,
+		                "fragment spelling assignment RHS graph count mismatch") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_span_index_at(
+		                         &graph, dml.assignments, 0U, &item_index, &error),
+		                     &error,
+		                     "fragment spelling assignment RHS index should succeed") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml_assignment_at(
+		                         &graph, item_index, &graph_assignment, &error),
+		                     &error,
+		                     "fragment spelling assignment RHS graph item should succeed") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_field_at(
+		                         &graph, graph_assignment.target_field_index, &field, &error),
+		                     &error,
+		                     "fragment spelling assignment RHS target should succeed") != 0 ||
+		    expect_true(
+			    graph_assignment.value_kind == SQLPARSER_GRAPH_VALUE_EXPRESSION &&
+				    field.column_name != NULL && strcmp(field.column_name, "C") == 0,
+			    "fragment spelling assignment RHS graph mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		snprintf(
+			expected_sql,
+			sizeof(expected_sql),
+			"UPDATE T SET C = %s",
+			cases[case_index].expression);
+		if (expect_deparse_equals_and_reparse(
+			    handle,
+			    expected_sql,
+			    "fragment spelling assignment RHS deparse should be exact") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		fragment = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			"UPDATE T SET C = 1",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "fragment spelling assignment insert parse should succeed") != 0) {
+			return 1;
+		}
+		rc = sqlparser_update_insert_assignment_sql(
+			handle,
+			0U,
+			1U,
+			cases[case_index].assignment,
+			&error);
+		if (expect_status_ok(rc, &error, "fragment spelling assignment insert should succeed") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_update_assignment_sql(handle, 0U, 1U, &fragment, &error);
+		memset(&assignment, 0, sizeof(assignment));
+		if (expect_status_ok(rc, &error, "fragment spelling inserted assignment getter should succeed") != 0 ||
+		    expect_true(
+			    fragment != NULL && strcmp(fragment, cases[case_index].assignment_rhs) == 0,
+			    "fragment spelling inserted assignment RHS should preserve SQL") != 0 ||
+		    expect_status_ok(sqlparser_update_assignment(handle, 0U, 1U, &assignment, &error), &error,
+		                     "fragment spelling inserted assignment view should succeed") != 0 ||
+		    expect_true(
+			    assignment.column_name != NULL && strcmp(assignment.column_name, "TargetCase") == 0,
+			    "fragment spelling inserted assignment target case mismatch") != 0) {
+			sqlparser_string_free(fragment);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(fragment);
+		snprintf(
+			expected_sql,
+			sizeof(expected_sql),
+			"UPDATE T SET C = 1, %s",
+			cases[case_index].assignment);
+		if (expect_deparse_equals_and_reparse(
+			    handle,
+			    expected_sql,
+			    "fragment spelling assignment insert deparse should be exact") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		fragment = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			"UPDATE T SET C = 1",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "fragment spelling full assignment parse should succeed") != 0) {
+			return 1;
+		}
+		rc = sqlparser_update_set_assignment_full_sql(
+			handle,
+			0U,
+			0U,
+			cases[case_index].assignment,
+			&error);
+		if (expect_status_ok(rc, &error, "fragment spelling full assignment mutation should succeed") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_update_assignment_sql(handle, 0U, 0U, &fragment, &error);
+		memset(&assignment, 0, sizeof(assignment));
+		if (expect_status_ok(rc, &error, "fragment spelling full assignment getter should succeed") != 0 ||
+		    expect_true(
+			    fragment != NULL && strcmp(fragment, cases[case_index].assignment_rhs) == 0,
+			    "fragment spelling full assignment RHS should preserve SQL") != 0 ||
+		    expect_status_ok(sqlparser_update_assignment(handle, 0U, 0U, &assignment, &error), &error,
+		                     "fragment spelling full assignment view should succeed") != 0 ||
+		    expect_true(
+			    assignment.column_name != NULL && strcmp(assignment.column_name, "TargetCase") == 0,
+			    "fragment spelling full assignment target case mismatch") != 0) {
+			sqlparser_string_free(fragment);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(fragment);
+		snprintf(
+			expected_sql,
+			sizeof(expected_sql),
+			"UPDATE T SET %s",
+			cases[case_index].assignment);
+		if (expect_deparse_equals_and_reparse(
+			    handle,
+			    expected_sql,
+			    "fragment spelling full assignment deparse should be exact") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		fragment = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			"UPDATE T SET C = 1",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "fragment spelling SET-list parse should succeed") != 0) {
+			return 1;
+		}
+		rc = sqlparser_statement_set_clause_sql(
+			handle,
+			0U,
+			0U,
+			cases[case_index].set_list,
+			&error);
+		if (expect_status_ok(rc, &error, "fragment spelling SET-list mutation should succeed") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_statement_clause_sql(handle, 0U, 0U, &fragment, &error);
+		if (expect_status_ok(rc, &error, "fragment spelling SET-list getter should succeed") != 0 ||
+		    expect_true(
+			    fragment != NULL && strcmp(fragment, cases[case_index].set_list) == 0,
+			    "fragment spelling SET-list getter should preserve SQL") != 0) {
+			sqlparser_string_free(fragment);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(fragment);
+		fragment = NULL;
+		memset(&assignment, 0, sizeof(assignment));
+		if (expect_status_ok(sqlparser_update_assignment(handle, 0U, 0U, &assignment, &error), &error,
+		                     "fragment spelling SET-list first assignment should succeed") != 0 ||
+		    expect_true(
+			    assignment.column_name != NULL && strcmp(assignment.column_name, "TargetCase") == 0,
+			    "fragment spelling SET-list quoted target mismatch") != 0 ||
+		    expect_status_ok(sqlparser_update_assignment(handle, 0U, 1U, &assignment, &error), &error,
+		                     "fragment spelling SET-list second assignment should succeed") != 0 ||
+		    expect_true(
+			    assignment.column_name != NULL && strcmp(assignment.column_name, "MixedTarget") == 0,
+			    "fragment spelling SET-list mixed-case target mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		snprintf(
+			expected_sql,
+			sizeof(expected_sql),
+			"UPDATE T SET %s",
+			cases[case_index].set_list);
+		if (expect_deparse_equals_and_reparse(
+			    handle,
+			    expected_sql,
+			    "fragment spelling SET-list deparse should be exact") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		fragment = NULL;
+		snprintf(
+			expected_sql,
+			sizeof(expected_sql),
+			"SELECT 1 FROM T ORDER BY %s",
+			cases[case_index].order_by);
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			expected_sql,
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "parsed fragment spelling ORDER BY should succeed") != 0) {
+			return 1;
+		}
+		rc = sqlparser_statement_clause_sql(
+			handle,
+			0U,
+			2U,
+			&fragment,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "parsed fragment spelling ORDER BY getter should succeed") != 0 ||
+		    expect_true(
+			    fragment != NULL &&
+				    strcmp(
+					    fragment,
+					    cases[case_index].order_by) == 0,
+			    "parsed fragment spelling ORDER BY getter should preserve SQL") != 0 ||
+		    expect_query_graph_clause_fields(
+			    handle,
+			    0U,
+			    SQLPARSER_CLAUSE_KIND_ORDER_BY,
+			    cases[case_index].field_names,
+			    cases[case_index].field_count,
+			    "parsed fragment spelling ORDER BY graph fields should preserve case") != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    expected_sql,
+			    "parsed fragment spelling ORDER BY deparse should be exact") != 0) {
+			sqlparser_string_free(fragment);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(fragment);
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		fragment = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			"SELECT 1 FROM T",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "fragment spelling WHERE parse should succeed") != 0) {
+			return 1;
+		}
+		rc = sqlparser_statement_set_where_sql(
+			handle,
+			0U,
+			0U,
+			cases[case_index].condition,
+			&error);
+		if (expect_status_ok(rc, &error, "fragment spelling WHERE mutation should succeed") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_statement_where_sql(handle, 0U, 0U, &fragment, &error);
+		if (expect_status_ok(rc, &error, "fragment spelling WHERE getter should succeed") != 0 ||
+		    expect_true(
+			    fragment != NULL && strcmp(fragment, cases[case_index].condition) == 0,
+			    "fragment spelling WHERE getter should preserve SQL") != 0 ||
+		    expect_query_graph_clause_fields(
+			    handle,
+			    0U,
+			    SQLPARSER_CLAUSE_KIND_WHERE,
+			    cases[case_index].field_names,
+			    cases[case_index].field_count,
+			    "fragment spelling WHERE graph fields should preserve case") != 0) {
+			sqlparser_string_free(fragment);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(fragment);
+		snprintf(
+			expected_sql,
+			sizeof(expected_sql),
+			"SELECT 1 FROM T WHERE %s",
+			cases[case_index].condition);
+		if (expect_deparse_equals_and_reparse(
+			    handle,
+			    expected_sql,
+			    "fragment spelling WHERE deparse should be exact") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		fragment = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			"SELECT 1 FROM T",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "fragment spelling ORDER BY parse should succeed") != 0) {
+			return 1;
+		}
+		rc = sqlparser_statement_set_clause_sql(
+			handle,
+			0U,
+			2U,
+			cases[case_index].order_by,
+			&error);
+		if (expect_status_ok(rc, &error, "fragment spelling ORDER BY mutation should succeed") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_statement_clause_sql(handle, 0U, 2U, &fragment, &error);
+		if (expect_status_ok(rc, &error, "fragment spelling ORDER BY getter should succeed") != 0 ||
+		    expect_true(
+			    fragment != NULL && strcmp(fragment, cases[case_index].order_by) == 0,
+			    "fragment spelling ORDER BY getter should preserve SQL") != 0 ||
+		    expect_query_graph_clause_fields(
+			    handle,
+			    0U,
+			    SQLPARSER_CLAUSE_KIND_ORDER_BY,
+			    cases[case_index].field_names,
+			    cases[case_index].field_count,
+			    "fragment spelling ORDER BY graph fields should preserve case") != 0) {
+			sqlparser_string_free(fragment);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(fragment);
+		snprintf(
+			expected_sql,
+			sizeof(expected_sql),
+			"SELECT 1 FROM T ORDER BY %s",
+			cases[case_index].order_by);
+		if (expect_deparse_equals_and_reparse(
+			    handle,
+			    expected_sql,
+			    "fragment spelling ORDER BY deparse should be exact") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		fragment = NULL;
+		selector_text = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			"SELECT * FROM T WHERE C = 1",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "fragment spelling VALUE parse should succeed") != 0) {
+			return 1;
+		}
+		rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+		if (expect_status_ok(rc, &error, "fragment spelling VALUE graph should succeed") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		found_value_selector = 0;
+		memset(&value_selector, 0, sizeof(value_selector));
+		for (graph_index = 0U; graph_index < graph.value_count; graph_index++) {
+			rc = sqlparser_query_graph_value_at(&graph, graph_index, &value, &error);
+			if (expect_status_ok(rc, &error, "fragment spelling VALUE item should succeed") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			if (value.kind == SQLPARSER_GRAPH_VALUE_LITERAL &&
+			    value.literal.kind == SQLPARSER_LITERAL_KIND_INTEGER &&
+			    value.literal.integer_value == 1LL &&
+			    value.has_selector) {
+				value_selector = value.selector;
+				found_value_selector = 1;
+				break;
+			}
+		}
+		if (expect_true(found_value_selector, "fragment spelling VALUE selector should exist") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_selector_format(&value_selector, &selector_text, &error);
+		if (expect_status_ok(rc, &error, "fragment spelling VALUE selector should format") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_REPLACE;
+		patch.selector = selector_text;
+		patch.sql = cases[case_index].expression;
+		patch_list.items = &patch;
+		patch_list.count = 1U;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		sqlparser_string_free(selector_text);
+		selector_text = NULL;
+		if (expect_status_ok(rc, &error, "fragment spelling VALUE mutation should succeed") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		snprintf(
+			expected_fragment,
+			sizeof(expected_fragment),
+			"C = %s",
+			cases[case_index].expression);
+		rc = sqlparser_statement_where_sql(handle, 0U, 0U, &fragment, &error);
+		if (expect_status_ok(rc, &error, "fragment spelling VALUE getter should succeed") != 0 ||
+		    expect_true(
+			    fragment != NULL && strcmp(fragment, expected_fragment) == 0,
+			    "fragment spelling VALUE getter should preserve surrounding SQL") != 0) {
+			sqlparser_string_free(fragment);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(fragment);
+		value_fields[0] = "C";
+		for (graph_index = 0U; graph_index < cases[case_index].field_count; graph_index++) {
+			value_fields[graph_index + 1U] = cases[case_index].field_names[graph_index];
+		}
+		if (expect_query_graph_clause_fields(
+			    handle,
+			    0U,
+			    SQLPARSER_CLAUSE_KIND_WHERE,
+			    value_fields,
+			    cases[case_index].field_count + 1U,
+			    "fragment spelling VALUE graph fields should preserve case") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		snprintf(
+			expected_sql,
+			sizeof(expected_sql),
+			"SELECT * FROM T WHERE C = %s",
+			cases[case_index].expression);
+		if (expect_deparse_equals_and_reparse(
+			    handle,
+			    expected_sql,
+			    "fragment spelling VALUE deparse should be exact") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		fragment = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			"INSERT INTO T (C) VALUES (1)",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "fragment spelling INSERT_COLUMN parse should succeed") != 0) {
+			return 1;
+		}
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patch.selector = "stmt[0].insert_columns";
+		patch.index = 1U;
+		patch.name = "AddedColumn";
+		patch.default_sql = cases[case_index].expression;
+		patch_list.items = &patch;
+		patch_list.count = 1U;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		if (expect_status_ok(rc, &error, "fragment spelling INSERT_COLUMN mutation should succeed") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_insert_cell_sql(handle, 0U, 0U, 1U, &fragment, &error);
+		if (expect_status_ok(rc, &error, "fragment spelling INSERT_COLUMN default getter should succeed") != 0 ||
+		    expect_true(
+			    fragment != NULL && strcmp(fragment, cases[case_index].expression) == 0,
+			    "fragment spelling INSERT_COLUMN default should preserve SQL") != 0) {
+			sqlparser_string_free(fragment);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(fragment);
+		fragment = NULL;
+		rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+		if (expect_status_ok(rc, &error, "fragment spelling INSERT_COLUMN graph should succeed") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml(&graph, &dml, &error), &error,
+		                     "fragment spelling INSERT_COLUMN DML should succeed") != 0 ||
+		    expect_true(dml.target_columns.count == 2U && dml.rows.count == 2U,
+		                "fragment spelling INSERT_COLUMN graph shape mismatch") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_span_index_at(
+		                         &graph, dml.target_columns, 1U, &item_index, &error),
+		                     &error,
+		                     "fragment spelling INSERT_COLUMN target index should succeed") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml_column_at(&graph, item_index, &column, &error), &error,
+		                     "fragment spelling INSERT_COLUMN target should succeed") != 0 ||
+		    expect_true(
+			    column.column_name != NULL && strcmp(column.column_name, "AddedColumn") == 0,
+			    "fragment spelling INSERT_COLUMN target case mismatch") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_span_index_at(
+		                         &graph, dml.rows, 1U, &item_index, &error),
+		                     &error,
+		                     "fragment spelling INSERT_COLUMN cell index should succeed") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_dml_cell_at(&graph, item_index, &cell, &error), &error,
+		                     "fragment spelling INSERT_COLUMN cell should succeed") != 0 ||
+		    expect_true(cell.kind == SQLPARSER_GRAPH_VALUE_EXPRESSION,
+		                "fragment spelling INSERT_COLUMN default should remain expression") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		snprintf(
+			expected_sql,
+			sizeof(expected_sql),
+			"INSERT INTO T (C, %s) VALUES (1, %s)",
+			cases[case_index].generated_column,
+			cases[case_index].expression);
+		if (expect_deparse_equals_and_reparse(
+			    handle,
+			    expected_sql,
+			    "fragment spelling INSERT_COLUMN deparse should be exact") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+
+	return 0;
+}
+
+static int test_special_fragment_mutation_identifier_spelling(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *replacement;
+		const char *expected_sql;
+		const char *expected_value;
+	} session_cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SET search_path TO app_schema",
+			"MixedSchema",
+			"SET search_path TO MixedSchema",
+			"MixedSchema"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SET search_path TO app_schema",
+			"\"QuotedSchema\"",
+			"SET search_path TO \"QuotedSchema\"",
+			"QuotedSchema"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"USE analytics",
+			"`BacktickSchema`",
+			"USE `BacktickSchema`",
+			"BacktickSchema"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"USE [OldDatabase]",
+			"[BracketSchema]",
+			"USE [BracketSchema]",
+			"BracketSchema"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"USE [OldDatabase]",
+			"\"DoubleSchema\"",
+			"USE \"DoubleSchema\"",
+			"DoubleSchema"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"USE [OldDatabase]",
+			"[A]]B]",
+			"USE [A]]B]",
+			"A]B"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"USE [OldDatabase]",
+			"\"A\"\"B\"",
+			"USE \"A\"\"B\"",
+			"A\"B"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"USE [OldDatabase]",
+			"\"A]B\"",
+			"USE \"A]B\"",
+			"A]B"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"USE [OldDatabase]",
+			"MixedSchema",
+			"USE MixedSchema",
+			"MixedSchema"
+		}
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_session_t session;
+	sqlparser_graph_session_item_t session_item;
+	sqlparser_graph_session_value_t session_value;
+	sqlparser_literal_view_t literal;
+	sqlparser_patch_t patches[2];
+	sqlparser_patch_list_t patch_list;
+	sqlparser_selector_t selector;
+	sqlparser_graph_target_t target;
+	sqlparser_graph_field_t field;
+	const char *control_fields[] = {"BracketCase", "DoubleCase", "MixedCase"};
+	char *fragment;
+	size_t case_index;
+	int rc;
+
+	for (case_index = 0U;
+	     case_index < sizeof(session_cases) / sizeof(session_cases[0]);
+	     case_index++) {
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = session_cases[case_index].dialect;
+		rc = sqlparser_parse_with_options(
+			session_cases[case_index].sql,
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, "fragment spelling session parse should succeed") != 0) {
+			return 1;
+		}
+		memset(patches, 0, sizeof(patches));
+		patches[0].op = SQLPARSER_PATCH_REPLACE;
+		patches[0].selector = "stmt[0].value[0]";
+		patches[0].sql = session_cases[case_index].replacement;
+		patch_list.items = patches;
+		patch_list.count = 1U;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		memset(&literal, 0, sizeof(literal));
+		if (expect_status_ok(rc, &error, "fragment spelling session VALUE mutation should succeed") != 0 ||
+		    expect_status_ok(sqlparser_statement_literal(handle, 0U, 0U, &literal, &error), &error,
+		                     "fragment spelling session literal getter should succeed") != 0 ||
+		    expect_true(
+			    literal.kind == SQLPARSER_LITERAL_KIND_STRING &&
+				    literal.string_value != NULL &&
+				    strcmp(literal.string_value, session_cases[case_index].expected_value) == 0,
+			    "fragment spelling session literal getter mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+		if (expect_status_ok(rc, &error, "fragment spelling session graph should succeed") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_session(&graph, &session, &error), &error,
+		                     "fragment spelling session view should succeed") != 0 ||
+		    expect_true(session.item_count == 1U, "fragment spelling session item count mismatch") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_session_item_at(&graph, 0U, &session_item, &error), &error,
+		                     "fragment spelling session item should succeed") != 0 ||
+		    expect_true(session_item.value_count == 1U,
+		                "fragment spelling session value count mismatch") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_session_value_at(
+		                         &graph, session_item.value_offset, &session_value, &error),
+		                     &error,
+		                     "fragment spelling session value should succeed") != 0 ||
+		    expect_true(
+			    session_value.kind == SQLPARSER_GRAPH_SESSION_VALUE_IDENTIFIER &&
+				    session_value.text != NULL &&
+				    strcmp(session_value.text, session_cases[case_index].expected_value) == 0,
+			    "fragment spelling session graph value mismatch") != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    session_cases[case_index].expected_sql,
+			    "fragment spelling session deparse should be exact") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+
+	handle = NULL;
+	fragment = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_SQLSERVER;
+	rc = sqlparser_parse_with_options(
+		"IF [OldCase] = \"OldDouble\" BEGIN SELECT 1; END",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "fragment spelling control parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_set_clause_sql(
+		handle,
+		0U,
+		0U,
+		"[BracketCase] = \"DoubleCase\" AND MixedCase = 1",
+		&error);
+	if (expect_status_ok(rc, &error, "fragment spelling control condition mutation should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_clause_sql(handle, 0U, 0U, &fragment, &error);
+	if (expect_status_ok(rc, &error, "fragment spelling control condition getter should succeed") != 0 ||
+	    expect_true(
+		    fragment != NULL &&
+			    strcmp(fragment, "[BracketCase] = \"DoubleCase\" AND MixedCase = 1") == 0,
+		    "fragment spelling control condition getter should preserve SQL") != 0 ||
+	    expect_query_graph_clause_fields(
+		    handle,
+		    0U,
+		    SQLPARSER_CLAUSE_KIND_CONDITION,
+		    control_fields,
+		    sizeof(control_fields) / sizeof(control_fields[0]),
+		    "fragment spelling control graph fields should preserve case") != 0) {
+		sqlparser_string_free(fragment);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(fragment);
+	fragment = NULL;
+	if (expect_deparse_equals_and_reparse(
+	    handle,
+	    "IF [BracketCase] = \"DoubleCase\" AND MixedCase = 1 BEGIN SELECT 1; END",
+	    "fragment spelling control deparse should be exact") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse_with_options(
+		"INSERT dbo.t (a) OUTPUT INSERTED.id VALUES (1)",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "fragment spelling OUTPUT parse should succeed") != 0) {
+		return 1;
+	}
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_REPLACE;
+	patches[0].selector = "stmt[0].dml_result_target[0][0][0]";
+	patches[0].sql = "INSERTED.[BracketCase] AS \"DoubleAlias\"";
+	patches[1].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[1].selector = "stmt[0].dml_result_targets[0][0]";
+	patches[1].index = 1U;
+	patches[1].sql = "INSERTED.MixedCase AS MixedAlias";
+	patch_list.items = patches;
+	patch_list.count = 2U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "fragment spelling OUTPUT target mutations should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&selector, 0, sizeof(selector));
+	rc = sqlparser_selector_parse(
+		"stmt[0].dml_result_target[0][0][0]",
+		&selector,
+		&error);
+	if (expect_status_ok(rc, &error, "fragment spelling OUTPUT first selector should parse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_dml_result_target_sql(handle, &selector, &fragment, &error);
+	if (expect_status_ok(rc, &error, "fragment spelling OUTPUT first target getter should succeed") != 0 ||
+	    expect_true(
+		    fragment != NULL &&
+			    strcmp(fragment, "INSERTED.[BracketCase] AS \"DoubleAlias\"") == 0,
+		    "fragment spelling OUTPUT first target should preserve SQL") != 0) {
+		sqlparser_string_free(fragment);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(fragment);
+	fragment = NULL;
+	memset(&selector, 0, sizeof(selector));
+	rc = sqlparser_selector_parse(
+		"stmt[0].dml_result_target[0][0][1]",
+		&selector,
+		&error);
+	if (expect_status_ok(rc, &error, "fragment spelling OUTPUT second selector should parse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_dml_result_target_sql(handle, &selector, &fragment, &error);
+	if (expect_status_ok(rc, &error, "fragment spelling OUTPUT second target getter should succeed") != 0 ||
+	    expect_true(
+		    fragment != NULL && strcmp(fragment, "INSERTED.MixedCase AS MixedAlias") == 0,
+		    "fragment spelling OUTPUT second target should preserve SQL") != 0) {
+		sqlparser_string_free(fragment);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(fragment);
+	fragment = NULL;
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "fragment spelling OUTPUT graph should succeed") != 0 ||
+	    expect_true(graph.target_count == 2U && graph.field_count == 2U,
+	                "fragment spelling OUTPUT graph shape mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_target_at(&graph, 0U, &target, &error), &error,
+	                     "fragment spelling OUTPUT first graph target should succeed") != 0 ||
+	    expect_true(
+		    target.output_name != NULL && strcmp(target.output_name, "DoubleAlias") == 0 &&
+			    target.has_field,
+		    "fragment spelling OUTPUT first graph target mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_field_at(&graph, target.field_index, &field, &error), &error,
+	                     "fragment spelling OUTPUT first graph field should succeed") != 0 ||
+	    expect_true(
+		    field.column_name != NULL && strcmp(field.column_name, "BracketCase") == 0,
+		    "fragment spelling OUTPUT bracket field mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_target_at(&graph, 1U, &target, &error), &error,
+	                     "fragment spelling OUTPUT second graph target should succeed") != 0 ||
+	    expect_true(
+		    target.output_name != NULL && strcmp(target.output_name, "MixedAlias") == 0 &&
+			    target.has_field,
+		    "fragment spelling OUTPUT second graph target mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_field_at(&graph, target.field_index, &field, &error), &error,
+	                     "fragment spelling OUTPUT second graph field should succeed") != 0 ||
+	    expect_true(
+		    field.column_name != NULL && strcmp(field.column_name, "MixedCase") == 0,
+		    "fragment spelling OUTPUT mixed-case field mismatch") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    "INSERT dbo.t (a) OUTPUT INSERTED.[BracketCase] AS \"DoubleAlias\", "
+		    "INSERTED.MixedCase AS MixedAlias VALUES (1)",
+		    "fragment spelling OUTPUT deparse should be exact") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
 	return 0;
 }
 
@@ -10500,7 +17952,7 @@ static int test_generated_keyword_insert_column(void)
 		    0 ||
 	    expect_deparse_reparse_ok(
 		    handle,
-		    "generated keyword insert column should reparse") != 0) {
+		    "parsed keyword insert column should reparse") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -10508,12 +17960,12 @@ static int test_generated_keyword_insert_column(void)
 	if (expect_status_ok(
 		    rc,
 		    &error,
-		    "generated keyword insert column deparse should succeed") !=
+		    "parsed keyword insert column deparse should succeed") !=
 		    0 ||
 	    expect_true(
 		    deparsed != NULL &&
-			    strstr(deparsed, "(OldCol, \"INSERT\")") != NULL,
-		    "generated keyword insert column should be quoted") != 0) {
+			    strstr(deparsed, "(OldCol, INSERT)") != NULL,
+		    "parsed keyword insert column should retain its unquoted spelling") != 0) {
 		sqlparser_string_free(deparsed);
 		sqlparser_handle_destroy(handle);
 		return 1;
@@ -10961,28 +18413,28 @@ static int test_session_context_patch_api(void)
 			"ALTER SESSION SET CURRENT_SCHEMA=KDES",
 			"stmt[0].value[0]",
 			"APP",
-			"ALTER SESSION SET CURRENT_SCHEMA = app"
+			"ALTER SESSION SET CURRENT_SCHEMA = APP"
 		},
 		{
 			SQLPARSER_DIALECT_ORACLE,
 			"ALTER SESSION SET CONTAINER=PDB1",
 			"stmt[0].value[0]",
 			"PDB2",
-			"ALTER SESSION SET CONTAINER = pdb2"
+			"ALTER SESSION SET CONTAINER = PDB2"
 		},
 		{
 			SQLPARSER_DIALECT_DAMENG,
 			"SET SCHEMA KDES",
 			"stmt[0].value[0]",
 			"APP",
-			"ALTER SESSION SET CURRENT_SCHEMA = app"
+			"ALTER SESSION SET CURRENT_SCHEMA = APP"
 		},
 		{
 			SQLPARSER_DIALECT_DAMENG,
 			"ALTER SESSION SET CURRENT_SCHEMA=KDES",
 			"stmt[0].value[0]",
 			"APP",
-			"ALTER SESSION SET CURRENT_SCHEMA = app"
+			"ALTER SESSION SET CURRENT_SCHEMA = APP"
 		}
 	};
 	size_t index;
@@ -11155,7 +18607,7 @@ static int test_oracle_container_service_patch_api(void)
 	}
 	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
 	if (expect_status_ok(rc, &error, "oracle service deparse should succeed") != 0 ||
-	    expect_true(strstr(deparsed_sql, "ALTER SESSION SET CONTAINER = PDB1 SERVICE = report_svc") != NULL,
+	    expect_true(strstr(deparsed_sql, "ALTER SESSION SET CONTAINER = PDB1 SERVICE = REPORT_SVC") != NULL,
 	                "oracle service deparse mismatch") != 0) {
 		sqlparser_string_free(deparsed_sql);
 		sqlparser_handle_destroy(handle);
@@ -11789,6 +19241,222 @@ static int test_deparse_identifier_spelling(void)
 	sqlparser_string_free(deparsed);
 	sqlparser_handle_destroy(handle);
 	return 0;
+}
+
+static int test_query_graph_flat_and_span_growth(void)
+{
+	static const char prefix[] = "SELECT * FROM t WHERE ";
+	const size_t condition_count = 8192U;
+	sqlparser_parse_options_t options;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_block_t block;
+	sqlparser_graph_predicate_t root_predicate;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	char *sql;
+	size_t block_root_index;
+	size_t index;
+	size_t length;
+	size_t sql_capacity;
+	int rc;
+	int result;
+
+	sql_capacity =
+		sizeof(prefix) + condition_count * 40U;
+	sql = (char *)malloc(sql_capacity);
+	if (sql == NULL) {
+		fprintf(stderr, "FAIL: flat AND graph SQL allocation failed\n");
+		return 1;
+	}
+	memcpy(sql, prefix, sizeof(prefix) - 1U);
+	length = sizeof(prefix) - 1U;
+	for (index = 0U; index < condition_count; index++) {
+		int written;
+
+		written = snprintf(
+			sql + length,
+			sql_capacity - length,
+			"%sc%lu = %lu",
+			index == 0U ? "" : " AND ",
+			(unsigned long)(index + 1U),
+			(unsigned long)(index + 1U));
+		if (written < 0 ||
+		    (size_t)written >= sql_capacity - length) {
+			fprintf(stderr, "FAIL: flat AND graph SQL generation failed\n");
+			free(sql);
+			return 1;
+		}
+		length += (size_t)written;
+	}
+
+	handle = NULL;
+	result = 1;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(
+		sql,
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "flat AND graph SQL should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(
+			    handle,
+			    0U,
+			    &graph,
+			    &error),
+		    &error,
+		    "flat AND query graph should build") != 0 ||
+	    expect_true(
+		    graph.has_root_block != 0 &&
+			    graph.field_count == condition_count &&
+			    graph.value_count == condition_count &&
+			    graph.predicate_count == condition_count + 1U,
+		    "flat AND query graph counts mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_block_at(
+			    &graph,
+			    graph.root_block_index,
+			    &block,
+			    &error),
+		    &error,
+		    "flat AND root block should be available") != 0 ||
+	    expect_true(
+		    block.predicates.count == condition_count + 1U,
+		    "flat AND root block predicate count mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_predicate_at(
+			    &graph,
+			    0U,
+			    &root_predicate,
+			    &error),
+		    &error,
+		    "flat AND root predicate should be available") != 0 ||
+	    expect_true(
+		    root_predicate.kind == SQLPARSER_GRAPH_PREDICATE_BOOL &&
+			    root_predicate.bool_operator ==
+				    SQLPARSER_GRAPH_PREDICATE_BOOL_AND &&
+			    root_predicate.children.count == condition_count,
+		    "flat AND root predicate shape mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    &graph,
+			    block.predicates,
+			    0U,
+			    &block_root_index,
+			    &error),
+		    &error,
+		    "flat AND block root predicate should be available") != 0 ||
+	    expect_true(
+		    block_root_index == 0U,
+		    "flat AND block root predicate order mismatch") != 0) {
+		goto done;
+	}
+
+	for (index = 0U; index < condition_count; index++) {
+		sqlparser_graph_field_t field;
+		sqlparser_graph_predicate_t child;
+		sqlparser_graph_value_t value;
+		char expected_name[32];
+		size_t block_predicate_index;
+		size_t child_index;
+
+		(void)snprintf(
+			expected_name,
+			sizeof(expected_name),
+			"c%lu",
+			(unsigned long)(index + 1U));
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    root_predicate.children,
+				    index,
+				    &child_index,
+				    &error),
+			    &error,
+			    "flat AND child index should be available") != 0 ||
+		    expect_true(
+			    child_index == index + 1U,
+			    "flat AND child order mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    block.predicates,
+				    index + 1U,
+				    &block_predicate_index,
+				    &error),
+			    &error,
+			    "flat AND block predicate index should be available") != 0 ||
+		    expect_true(
+			    block_predicate_index == child_index,
+			    "flat AND block predicate order mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_predicate_at(
+				    &graph,
+				    child_index,
+				    &child,
+				    &error),
+			    &error,
+			    "flat AND child predicate should be available") != 0 ||
+		    expect_true(
+			    child.kind ==
+					    SQLPARSER_GRAPH_PREDICATE_COMPARISON &&
+				    child.has_left_field != 0 &&
+				    child.left_field_index == index &&
+				    child.has_value != 0 &&
+				    child.value_index == index &&
+				    child.operator_name != NULL &&
+				    strcmp(child.operator_name, "=") == 0,
+			    "flat AND child predicate semantics mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    &graph,
+				    child.left_field_index,
+				    &field,
+				    &error),
+			    &error,
+			    "flat AND child field should be available") != 0 ||
+		    expect_true(
+			    field.has_relation != 0 &&
+				    field.relation_index == 0U &&
+				    field.column_name != NULL &&
+				    strcmp(field.column_name, expected_name) == 0,
+			    "flat AND child field semantics mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_value_at(
+				    &graph,
+				    child.value_index,
+				    &value,
+				    &error),
+			    &error,
+			    "flat AND child value should be available") != 0 ||
+		    expect_true(
+			    value.kind == SQLPARSER_GRAPH_VALUE_LITERAL &&
+				    value.has_field != 0 &&
+				    value.field_index ==
+					    child.left_field_index &&
+				    value.literal.kind ==
+					    SQLPARSER_LITERAL_KIND_INTEGER &&
+				    value.literal.integer_value ==
+					    (long long)(index + 1U),
+			    "flat AND child value semantics mismatch") != 0) {
+			fprintf(
+				stderr,
+				"FAIL: flat AND semantic mismatch at condition %lu\n",
+				(unsigned long)index);
+			goto done;
+		}
+	}
+	result = 0;
+
+done:
+	sqlparser_handle_destroy(handle);
+	free(sql);
+	return result;
 }
 
 static int test_query_graph_session_semantics(void)
@@ -12538,6 +20206,12 @@ static int test_query_graph_session_control_patch_span(void)
 
 int main(void)
 {
+	if (test_relation_patch_identifier_path_spelling() != 0) {
+		return 1;
+	}
+	if (test_insert_column_patch_identifier_spelling() != 0) {
+		return 1;
+	}
 	if (test_deparse_identifier_spelling() != 0) {
 		return 1;
 	}
@@ -12590,6 +20264,42 @@ int main(void)
 		return 1;
 	}
 	if (test_insert_cell_sql_mutation() != 0) {
+		return 1;
+	}
+	if (test_insert_cell_source_keyword_boundary() != 0) {
+		return 1;
+	}
+	if (test_sqlserver_control_nested_expression_source_sql() != 0) {
+		return 1;
+	}
+	if (test_merge_single_insert_branches() != 0) {
+		return 1;
+	}
+	if (test_postgresql_merge_multiple_insert_branches() != 0) {
+		return 1;
+	}
+	if (test_postgresql_merge_complete_action_branches() != 0) {
+		return 1;
+	}
+	if (test_merge_branch_detail_api_contract() != 0) {
+		return 1;
+	}
+	if (test_merge_condition_scanner_boundaries() != 0) {
+		return 1;
+	}
+	if (test_oracle_merge_action_where_after_patch() != 0) {
+		return 1;
+	}
+	if (test_postgresql_merge_by_source_match_branch() != 0) {
+		return 1;
+	}
+	if (test_sqlserver_multiple_nested_merge_selectors() != 0) {
+		return 1;
+	}
+	if (test_sqlserver_merge_scope_and_cte_lineage() != 0) {
+		return 1;
+	}
+	if (test_non_postgresql_multiple_merge_insert_rejection() != 0) {
 		return 1;
 	}
 	if (test_insert_cell_bind_mutation() != 0) {
@@ -12664,7 +20374,13 @@ int main(void)
 	if (test_query_graph_public_struct_semantics() != 0) {
 		return 1;
 	}
+	if (test_generated_sysdate_query_graph_semantics() != 0) {
+		return 1;
+	}
 	if (test_query_graph_join_using_reuses_fields() != 0) {
+		return 1;
+	}
+	if (test_query_graph_flat_and_span_growth() != 0) {
 		return 1;
 	}
 	if (test_generated_keyword_insert_column() != 0) {
@@ -12704,6 +20420,12 @@ int main(void)
 		return 1;
 	}
 	if (test_select_target_list_patch_api() != 0) {
+		return 1;
+	}
+	if (test_fragment_mutation_identifier_spelling() != 0) {
+		return 1;
+	}
+	if (test_special_fragment_mutation_identifier_spelling() != 0) {
 		return 1;
 	}
 	if (test_structured_select_target_column_replacement() != 0) {

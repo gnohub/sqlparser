@@ -2274,10 +2274,11 @@ struct  PgQuery__String
    * string 
    */
   char *sval;
+  int32_t location;
 };
 #define PG_QUERY__STRING__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__string__descriptor) \
-    , (char *)protobuf_c_empty_string }
+    , (char *)protobuf_c_empty_string, 0 }
 
 
 struct  PgQuery__BitString
@@ -2361,10 +2362,11 @@ struct  PgQuery__Alias
   char *aliasname;
   size_t n_colnames;
   PgQuery__Node **colnames;
+  int32_t location;
 };
 #define PG_QUERY__ALIAS__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alias__descriptor) \
-    , (char *)protobuf_c_empty_string, 0,NULL }
+    , (char *)protobuf_c_empty_string, 0,NULL, 0 }
 
 
 struct  PgQuery__RangeVar

@@ -9,6 +9,7 @@ typedef struct {
 	size_t parent_dml_index;
 	int has_parent;
 	const char *source_name;
+	const char *source_sql;
 	int has_duplicate_target_relation;
 } sqlparser_dialect_dml_result_dml_t;
 

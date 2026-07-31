@@ -21,6 +21,8 @@ SQLPARSER_0 {
 		sqlparser_graph_dml_kind_name;
 		sqlparser_graph_insert_mode_name;
 		sqlparser_graph_dml_branch_kind_name;
+		sqlparser_graph_merge_action_kind_name;
+		sqlparser_graph_merge_match_kind_name;
 		sqlparser_graph_predicate_kind_name;
 		sqlparser_graph_predicate_bool_name;
 		sqlparser_graph_operator_is_like_pattern;
@@ -141,6 +143,7 @@ SQLPARSER_0 {
 		sqlparser_query_graph_dml_result_at;
 		sqlparser_query_graph_dml_reference_at;
 		sqlparser_query_graph_dml_branch_at;
+		sqlparser_query_graph_merge_branch_detail;
 		sqlparser_query_graph_dml_column_at;
 		sqlparser_query_graph_dml_cell_at;
 		sqlparser_query_graph_dml_assignment_at;

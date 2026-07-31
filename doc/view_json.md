@@ -396,7 +396,7 @@ value 的 `kind` 为 `identifier`、`keyword`、`literal`、`bind` 或 `expressi
 | `target_columns` | INSERT 显式目标列索引数组；没有列列表时省略 |
 | `rows` | `INSERT ... VALUES` 或 Oracle/Dameng multi-table INSERT branch 的 cell 索引数组 |
 | `source_block` | `INSERT ... SELECT` 或 Oracle/Dameng multi-table INSERT 末尾 source query 的 block 索引 |
-| `branches` | Oracle/Dameng `INSERT ALL/FIRST` 的 INTO 分支数组；非 multi-table INSERT 时省略 |
+| `branches` | Oracle/Dameng `INSERT ALL/FIRST` 的 INTO 分支，或 MERGE 的有序 `WHEN` 分支；没有分支时省略 |
 | `result_channels` | DML 结果通道数组；没有结果输出时省略 |
 | `children` | 以当前 DML 为父节点的嵌套 DML 数组；没有嵌套 DML 时省略 |
 
@@ -424,9 +424,11 @@ Oracle/Dameng multi-table INSERT 的每个 branch 包含独立的 `target_relati
 
 branch cell 的 `kind` 可为 `literal`、`bind`、`default`、`expression` 或 `field`。当 `VALUES (id)` 这类 cell 直接引用末尾 source query 的输出字段时，`kind` 为 `field`，并通过 `source_target` 指向 `targets[]` 中对应的 source query 输出项；如果该 target 是直接字段，调用方可继续读取 `targets[].field` 定位到 `fields[]`。
 
+对于解析成功的 MERGE，`branches[]` 按 `WHEN` 子句在源 SQL 中的出现顺序排列。每个分支的 `ordinal` 是相对于该 MERGE 全部 `WHEN` 子句的 0 基绝对序号 `W`。每个分支包含 `merge_action_kind`（`insert`、`update`、`delete` 或 `nothing`）和 `merge_match_kind`（`matched`、`not_matched_by_target` 或 `not_matched_by_source`）。INSERT 分支通过 `target_columns` 和 `rows` 表达写入值；省略目标列列表时 `target_columns` 不存在，但 `rows` 仍存在，且每个 cell 的 `row` 等于绝对 `W`、`column` 按值顺序从 0 连续编号。UPDATE 分支通过 `assignments` 引用父 DML assignment；DELETE 和 NOTHING 分支省略 `target_columns`、`rows` 和 `assignments`。带条件的分支包含 `condition_selector`，无条件分支不包含该字段。
+
 `UPDATE` 和 `MERGE` 的 assignment 使用 `target_field` 指向被写入字段。赋值右侧为直接字段引用时，`kind` 为 `field`，`source_field` 指向来源字段；来源字段来自派生表且可唯一匹配 source query 输出项时，同时输出 `source_target`。
 
-顶层 `UPDATE` assignment 的 `selector` 形如 `stmt[S].assignment[A]`。MERGE matched UPDATE action 的 assignment 使用 `stmt[S].merge_assignment[W][A]`：`W` 是该 MERGE 中所有 `WHEN` 子句的绝对 0 基序号，`A` 是目标 UPDATE 分支内赋值项的 0 基序号。两种 selector 都可用于 assignment selector API、`SQLPARSER_PATCH_INSERT_ASSIGNMENT`、`SQLPARSER_PATCH_DELETE_ASSIGNMENT` 和 `SQLPARSER_PATCH_REPLACE_ASSIGNMENT`；patch 的 `source_selector` 克隆 assignment 时也接受两种形式。
+顶层 `UPDATE` assignment 的 `selector` 形如 `stmt[S].assignment[A]`。根 MERGE matched UPDATE action 的 assignment 使用 `stmt[S].merge_assignment[W][A]`；嵌套 MERGE 使用 `stmt[S].merge_assignment[D][W][A]`。`D` 是当前 statement 内的 DML 索引，`W` 是目标 MERGE 中所有 `WHEN` 子句的绝对 0 基序号，`A` 是目标 UPDATE 分支内赋值项的 0 基序号。MERGE 分支条件对应使用 `stmt[S].merge_branch_condition[W]` 或嵌套形式 `stmt[S].merge_branch_condition[D][W]`，并可通过 `sqlparser_selector_clause_sql()` 读取条件原文。assignment selector 可用于 assignment selector API、`SQLPARSER_PATCH_INSERT_ASSIGNMENT`、`SQLPARSER_PATCH_DELETE_ASSIGNMENT`、`SQLPARSER_PATCH_REPLACE_ASSIGNMENT` 以及 patch 的 `source_selector`。
 
 ## 改写
 

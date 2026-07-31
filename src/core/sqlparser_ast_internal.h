@@ -13,6 +13,15 @@ typedef struct {
 } sqlparser_predicate_context_t;
 
 typedef struct {
+	const char *public_sql;
+	size_t public_sql_length;
+	size_t parser_sql_length;
+	const sqlparser_identifier_origin_map_t *origins;
+	sqlparser_dialect_t dialect;
+	sqlparser_handle_t *spelling_handle;
+} sqlparser_generated_source_t;
+
+typedef struct {
 	size_t seen;
 	size_t target_index;
 	int want_target;
@@ -221,6 +230,13 @@ sqlparser_status_t sqlparser_handle_prepare_identifier_mutation(
 	size_t *out_mutation_index,
 	int *out_created,
 	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_statement_set_name_spelling(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t name_index,
+	const char *value,
+	const char *spelling,
+	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_replace_relation_identifier_slots(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
@@ -266,7 +282,44 @@ sqlparser_status_t sqlparser_render_bind_value_sql(
 	sqlparser_error_t *out_error);
 void sqlparser_free_proto_node(PgQuery__Node *node);
 int32_t *sqlparser_proto_location_slot(ProtobufCMessage *message);
+int sqlparser_identifier_is_sysdate(const char *text);
+int sqlparser_proto_location_is_generated(int32_t location);
+sqlparser_proto_identifier_style_t sqlparser_proto_identifier_style(
+	int32_t location,
+	size_t component_index);
 void sqlparser_mark_proto_generated(ProtobufCMessage *message);
+sqlparser_status_t sqlparser_mark_proto_generated_with_fragment_source(
+	ProtobufCMessage *message,
+	const char *parser_sql,
+	size_t parser_fragment_offset,
+	const sqlparser_generated_source_t *source,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_mark_proto_nodes_generated_with_fragment_source(
+	PgQuery__Node *const *nodes,
+	size_t count,
+	const char *parser_sql,
+	size_t parser_fragment_offset,
+	const sqlparser_generated_source_t *source,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_mark_proto_generated_from_handle(
+	const sqlparser_handle_t *handle,
+	ProtobufCMessage *message,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_identifier_origins_for_handle(
+	const sqlparser_handle_t *handle,
+	const sqlparser_identifier_origin_map_t **out_origins,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_resolve_relation_component_spelling(
+	const sqlparser_handle_t *handle,
+	const PgQuery__RangeVar *relation,
+	size_t component_index,
+	const char *identifier,
+	char **out_spelling,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_render_default_identifier_spelling(
+	const char *identifier,
+	char **out_spelling,
+	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_clone_proto_node(
 	const PgQuery__Node *source,
 	PgQuery__Node **out_node,
@@ -296,6 +349,7 @@ sqlparser_status_t sqlparser_parse_wrapper_ast(
 	PgQuery__ParseResult **out_ast,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_deparse_wrapper_ast(
+	const sqlparser_handle_t *handle,
 	const PgQuery__ParseResult *ast,
 	char **out_sql,
 	sqlparser_error_t *out_error);
@@ -308,12 +362,8 @@ sqlparser_status_t sqlparser_extract_wrapped_value_sql(
 
 sqlparser_status_t sqlparser_parse_insert_cell_node_sql(
 	const char *sql_text,
+	const sqlparser_generated_source_t *source,
 	PgQuery__Node **out_node,
-	sqlparser_error_t *out_error);
-sqlparser_status_t sqlparser_parse_select_target_nodes_sql(
-	const char *sql_text,
-	PgQuery__Node ***out_nodes,
-	size_t *out_count,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_render_select_targets_sql(
 	const sqlparser_handle_t *handle,
@@ -382,6 +432,7 @@ sqlparser_status_t sqlparser_update_insert_assignment_from_assignment_value(
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_parse_select_target_node_sql(
 	const char *sql_text,
+	const sqlparser_generated_source_t *source,
 	PgQuery__Node **out_node,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_select_replace_target_with_columns(
@@ -394,29 +445,50 @@ sqlparser_status_t sqlparser_select_replace_target_with_columns(
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_parse_where_node_sql(
 	const char *sql_text,
+	const sqlparser_generated_source_t *source,
 	PgQuery__Node **out_node,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_parse_update_assignment_node_sql(
 	const char *sql_text,
+	const sqlparser_generated_source_t *source,
 	PgQuery__Node **out_node,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_parse_variable_set_arg_node_sql(
 	const char *sql_text,
+	const sqlparser_generated_source_t *source,
 	PgQuery__Node **out_node,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_render_insert_cell_node_sql(
+	const sqlparser_handle_t *handle,
 	const PgQuery__Node *node,
 	char **out_sql,
 	sqlparser_error_t *out_error);
+int sqlparser_view_insert_cell_source_sql(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t row_index,
+	size_t column_index,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_merge_branch_condition_sql(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t dml_index,
+	size_t when_index,
+	char **out_sql,
+	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_render_select_target_node_sql(
+	const sqlparser_handle_t *handle,
 	const PgQuery__Node *node,
 	char **out_sql,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_render_where_node_sql(
+	const sqlparser_handle_t *handle,
 	const PgQuery__Node *node,
 	char **out_sql,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_render_update_assignment_node_sql(
+	const sqlparser_handle_t *handle,
 	const PgQuery__Node *node,
 	char **out_sql,
 	sqlparser_error_t *out_error);
@@ -436,6 +508,12 @@ sqlparser_status_t sqlparser_get_dml_result_message(
 	size_t dml_index,
 	sqlparser_graph_dml_kind_t *out_kind,
 	ProtobufCMessage **out_message,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_get_merge_stmt_by_dml_index(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t dml_index,
+	PgQuery__MergeStmt **out_stmt,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_dml_result_set_target_sql(
 	sqlparser_handle_t *handle,

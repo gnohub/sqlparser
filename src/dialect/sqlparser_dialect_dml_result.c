@@ -114,6 +114,7 @@ int sqlparser_dialect_dml_result_dml_at(
 	out_dml->parent_dml_index = dml.parent_dml_index;
 	out_dml->has_parent = dml.has_parent;
 	out_dml->source_name = dml.source_name;
+	out_dml->source_sql = dml.source_sql;
 	out_dml->has_duplicate_target_relation = dml.has_duplicate_target_relation;
 	return 1;
 }

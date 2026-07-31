@@ -2,10 +2,12 @@
 #define SQLPARSER_INTERNAL_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 #include "pg_query.h"
 #include "protobuf/pg_query.pb-c.h"
 #include "sqlparser/sqlparser.h"
+#include "sqlparser_identifier_origin_internal.h"
 
 typedef struct sqlparser_dialect_ops sqlparser_dialect_ops_t;
 typedef struct sqlparser_query_graph_cache sqlparser_query_graph_cache_t;
@@ -19,6 +21,7 @@ typedef struct {
 	char **slot;
 	char *value;
 	char *original;
+	char *spelling;
 	int has_source_component;
 	int source_present;
 } sqlparser_identifier_mutation_t;
@@ -71,6 +74,35 @@ typedef struct {
 #define SQLPARSER_INTERNAL_DAMENG_EXEC_SQL_DEALLOCATE_PREPARE "sqlparser_dameng_exec_sql_deallocate_prepare"
 #define SQLPARSER_INTERNAL_VASTBASE_SESSION_STATEMENT "sqlparser_vastbase_session_statement"
 #define SQLPARSER_PROTO_LOCATION_GENERATED (-2)
+#define SQLPARSER_PROTO_LOCATION_GENERATED_STYLE_BASE (-16)
+#define SQLPARSER_PROTO_LOCATION_GENERATED_SPELLING_BASE INT32_MIN
+#define SQLPARSER_PROTO_LOCATION_GENERATED_SPELLING_LAST (-1610612737)
+#define SQLPARSER_PROTO_LOCATION_SQL_VALUE_CASE_BASE (-1073741840)
+#define SQLPARSER_PROTO_LOCATION_SQL_VALUE_CASE_LAST (-1073872911)
+#define SQLPARSER_PROTO_IDENTIFIER_SPELLING_COMPONENT_BITS 4U
+#define SQLPARSER_PROTO_IDENTIFIER_SPELLING_COMPONENT_MASK 15U
+#define SQLPARSER_PROTO_IDENTIFIER_SPELLING_COMPONENTS 16U
+#define SQLPARSER_PROTO_IDENTIFIER_SPELLING_GROUP_MAX 33554431U
+#define SQLPARSER_PROTO_IDENTIFIER_STYLE_BITS 3U
+#define SQLPARSER_PROTO_IDENTIFIER_STYLE_MASK 7U
+#define SQLPARSER_PROTO_IDENTIFIER_STYLE_COMPONENTS 10U
+
+typedef enum {
+	SQLPARSER_PROTO_IDENTIFIER_STYLE_NONE = 0,
+	SQLPARSER_PROTO_IDENTIFIER_STYLE_UNQUOTED = 1,
+	SQLPARSER_PROTO_IDENTIFIER_STYLE_DOUBLE_QUOTED = 2,
+	SQLPARSER_PROTO_IDENTIFIER_STYLE_BACKTICK_QUOTED = 3,
+	SQLPARSER_PROTO_IDENTIFIER_STYLE_BRACKET_QUOTED = 4
+} sqlparser_proto_identifier_style_t;
+
+typedef struct {
+	char *parts[SQLPARSER_PROTO_IDENTIFIER_SPELLING_COMPONENTS];
+	size_t part_count;
+} sqlparser_identifier_spelling_t;
+
+#define SQLPARSER_PROTO_LOCATION_GENERATED_DOUBLE_QUOTED \
+	(SQLPARSER_PROTO_LOCATION_GENERATED_STYLE_BASE - \
+	 SQLPARSER_PROTO_IDENTIFIER_STYLE_DOUBLE_QUOTED)
 
 struct sqlparser_handle {
 	char *sql;
@@ -93,6 +125,14 @@ struct sqlparser_handle {
 	sqlparser_identifier_mutation_t *identifier_mutations;
 	size_t identifier_mutation_count;
 	size_t identifier_mutation_capacity;
+	sqlparser_identifier_spelling_t *identifier_spellings;
+	size_t identifier_spelling_count;
+	size_t identifier_spelling_capacity;
+	size_t identifier_spelling_free_group;
+	size_t identifier_spelling_build_group;
+	int32_t identifier_spelling_last_location;
+	sqlparser_status_t identifier_spelling_status;
+	sqlparser_identifier_origin_map_t *identifier_origins;
 };
 
 void sqlparser_error_clear(sqlparser_error_t *out_error);
@@ -139,6 +179,24 @@ sqlparser_status_t sqlparser_handle_rebind_identifier_mutations(
 void sqlparser_handle_remove_identifier_mutation(
 	sqlparser_handle_t *handle,
 	size_t mutation_index);
+void sqlparser_handle_begin_identifier_spelling(
+	sqlparser_handle_t *handle);
+void sqlparser_handle_sweep_identifier_spellings(
+	sqlparser_handle_t *handle);
+int32_t sqlparser_handle_append_identifier_spelling(
+	sqlparser_handle_t *handle,
+	const char *spelling,
+	size_t spelling_length);
+sqlparser_status_t sqlparser_handle_finish_identifier_spelling(
+	sqlparser_handle_t *handle,
+	sqlparser_error_t *out_error);
+int sqlparser_proto_location_is_identifier_spelling(int32_t location);
+int sqlparser_handle_identifier_spelling(
+	const sqlparser_handle_t *handle,
+	int32_t location,
+	size_t component_index,
+	const char **out_spelling,
+	size_t *out_length);
 void sqlparser_handle_invalidate_derived(sqlparser_handle_t *handle);
 void sqlparser_query_graph_cache_release(sqlparser_query_graph_cache_t *cache);
 void sqlparser_handle_clear_query_graph(sqlparser_handle_t *handle);
@@ -176,13 +234,14 @@ sqlparser_status_t sqlparser_postprocess_handle_sql_fragment(
 	const char *field_name,
 	char **out_sql,
 	sqlparser_error_t *out_error);
-sqlparser_status_t sqlparser_preprocess_handle_sql_fragment(
+sqlparser_status_t sqlparser_preprocess_handle_sql_fragment_with_origins(
 	const sqlparser_handle_t *handle,
 	size_t statement_index,
 	const char *public_sql,
 	const char *field_name,
 	char **out_parser_sql,
 	void **out_dialect_state,
+	sqlparser_identifier_origin_map_t **out_origins,
 	sqlparser_error_t *out_error);
 void sqlparser_handle_discard_dialect_state(
 	const sqlparser_handle_t *handle,

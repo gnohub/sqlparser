@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 213 条用例，其中 204 条预期成功，9 条预期失败。32 条用例包含 statement 级 `expect.session`，覆盖 `M015` 至 `M017` 和 `MY-001` 至 `MY-029`；这 32 条用例均至少包含一个非空 session 期望。
+夹具包含 223 条用例，其中 214 条预期成功，9 条预期失败。32 条用例包含 statement 级 `expect.session`，覆盖 `M015` 至 `M017` 和 `MY-001` 至 `MY-029`；这 32 条用例均至少包含一个非空 session 期望。
 
 用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
 
@@ -160,6 +160,25 @@
 | MU006C | `mysql-replace-set` | `REPLACE INTO ... SET ...` | 输出 `insert_mode=replace_set`；对未修改的 handle 执行 deparse 时，结果逐字节保留原始 `SET` 形态 |
 | MU006D | `mysql-replace-without-into` | `REPLACE table ... VALUES ...` | 对未修改的 handle 执行 deparse 时，结果逐字节保留省略 `INTO` 的原始形态 |
 | MU006E | `mysql-replace-table-source` | `REPLACE INTO ... TABLE source` | 保留来源表；对未修改的 handle 执行 deparse 时，结果逐字节保留原始 `TABLE` 形态 |
+
+## INSERT VALUES 回归：bind 与表达式混合
+
+以下 10 条用例验证 prepared statement 或驱动生成的 SQL 模板。未加引号的 `?` 只表示数据值参数，不能替代表名、列名或关键字；含该参数标记的 SQL 必须经过 prepare/bind 流程执行。
+
+`DEFAULT` 只作为独立的 VALUES cell。表达式 cell 保持 `kind=expression`，不会被分类为 `kind=bind`；表达式内部的 `?` 仍计入全局 bind 序号，后续直接 bind 的 `bind_position` 用于验证表达式内 bind 已纳入全局计数。直接 bind cell 同时校验 `bind_key`、`bind_kind`、`bind_sql`、全局 `bind_position` 和 `selector`；时间函数和 UUID 函数名不得出现在 `query_graph.fields[].column` 中。
+
+| 用例 ID | 用例名称 | VALUES 形态 | 验证重点 |
+| --- | --- | --- | --- |
+| `MY-BM001` | `mysql-insert-bind-mixed-bare-time` | 三个直接 `?` + `NOW()` | 直接 bind cell 的 key、kind、SQL、位置、selector 及尾部时间表达式 |
+| `MY-BM002` | `mysql-insert-bind-mixed-expression-first` | `CAST(? AS SIGNED)`、`?`、`CURRENT_TIMESTAMP`、`?` | 首位表达式、嵌套 bind 全局序号和后续直接 bind |
+| `MY-BM003` | `mysql-insert-bind-mixed-interleaved-functions` | `?`、`UUID()`、`?`、`COALESCE(?, 'fallback')`、`?` | bind 与表达式交错、`UUID` 不出现在 `query_graph.fields[].column` 中、嵌套 bind 计数 |
+| `MY-BM004` | `mysql-insert-bind-mixed-null` | `?`、`NULL`、`CAST(? AS SIGNED)`、`?` | NULL literal、表达式和直接 bind cell 独立分类 |
+| `MY-BM005` | `mysql-insert-bind-mixed-default` | `?`、`DEFAULT`、`CAST(? AS SIGNED)`、`?` | 独立 DEFAULT cell 和嵌套 bind 全局序号 |
+| `MY-BM006` | `mysql-insert-bind-mixed-literal` | `?`、字符串 literal、包含 `?` 的 `CASE` 表达式、`?` | 字符串 literal、CASE 表达式和后续 bind 位置 |
+| `MY-BM007` | `mysql-insert-bind-mixed-coalesce-time` | `?`、`COALESCE(?, 'fallback')`、`CURRENT_TIMESTAMP`、`?` | COALESCE 内部 bind、独立时间表达式和直接 bind |
+| `MY-BM008` | `mysql-insert-bind-mixed-case-time` | `?`、包含 `?` 的 `CASE` 表达式、`NOW()`、`?` | CASE 表达式内 bind、独立时间表达式和直接 bind |
+| `MY-BM009` | `mysql-insert-bind-mixed-three-rows` | 三行中交错 bind、CAST/COALESCE/CASE 表达式和时间表达式 | 逐 cell selector 及跨行连续的全局 bind 序号 |
+| `MY-BM010` | `mysql-insert-bind-mixed-quoted-irregular-whitespace` | schema-qualified 反引号标识符、不规则空白、三个直接 `?` + 时间表达式 | quoted identifier、逐字节保留输入 SQL，并与期望 cell 对象逐字段一致 |
 
 ## 明确不支持语句
 

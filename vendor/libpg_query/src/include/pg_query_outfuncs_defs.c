@@ -266,6 +266,7 @@ _outAlias(OUT_TYPE(Alias, Alias) out, const Alias *node)
 {
   WRITE_STRING_FIELD(aliasname, aliasname, aliasname);
   WRITE_LIST_FIELD(colnames, colnames, colnames);
+  WRITE_INT_FIELD(location, location, location);
 }
 
 static void
@@ -2881,4 +2882,3 @@ _outDropSubscriptionStmt(OUT_TYPE(DropSubscriptionStmt, DropSubscriptionStmt) ou
   WRITE_BOOL_FIELD(missing_ok, missing_ok, missing_ok);
   WRITE_ENUM_FIELD(DropBehavior, behavior, behavior, behavior);
 }
-

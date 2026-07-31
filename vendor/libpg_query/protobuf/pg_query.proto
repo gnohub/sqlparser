@@ -305,6 +305,7 @@ message Boolean
 message String
 {
   string sval = 1; /* string */
+  int32 location = 2;
 }
 
 message BitString
@@ -344,6 +345,7 @@ message Alias
 {
   string aliasname = 1 [json_name="aliasname"];
   repeated Node colnames = 2 [json_name="colnames"];
+  int32 location = 3 [json_name="location"];
 }
 
 message RangeVar

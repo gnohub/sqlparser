@@ -140,7 +140,9 @@ static Node * _readNode(PgQuery__Node *msg);
 static String *
 _readString(PgQuery__String* msg)
 {
-	return makeString(pg_query_read_string_copy(msg->sval, false));
+	String *node = makeString(pg_query_read_string_copy(msg->sval, false));
+	node->location = msg->location;
+	return node;
 }
 
 #include "pg_query_enum_defs.c"
@@ -169,7 +171,7 @@ static Node * _readNode(PgQuery__Node *msg)
 		case PG_QUERY__NODE__NODE_BOOLEAN:
 			return (Node *) makeBoolean(msg->boolean->boolval);
 		case PG_QUERY__NODE__NODE_STRING:
-			return (Node *) makeString(pg_query_read_string_copy(msg->string->sval, false));
+			return (Node *) _readString(msg->string);
 		case PG_QUERY__NODE__NODE_BIT_STRING:
 			return (Node *) makeBitString(pg_query_read_string_copy(msg->bit_string->bsval, false));
 		case PG_QUERY__NODE__NODE_A_CONST: {
@@ -190,7 +192,7 @@ static Node * _readNode(PgQuery__Node *msg)
 						ac->val.boolval = *makeBoolean(msg->a_const->boolval->boolval);
 						break;
 					case PG_QUERY__A__CONST__VAL_SVAL:
-						ac->val.sval = *makeString(pg_query_read_string_copy(msg->a_const->sval->sval, false));
+						ac->val.sval = *_readString(msg->a_const->sval);
 						break;
 					case PG_QUERY__A__CONST__VAL_BSVAL:
 						ac->val.bsval = *makeBitString(pg_query_read_string_copy(msg->a_const->bsval->bsval, false));

@@ -207,6 +207,8 @@ sqlparser_status_t sqlparser_selector_parse(
 		out_selector->kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
 		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
 	} else if (strncmp(text + offset, "merge_assignment", 16) == 0) {
+		size_t first_index;
+
 		offset += 16U;
 		out_selector->kind = SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT;
 		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
@@ -215,6 +217,31 @@ sqlparser_status_t sqlparser_selector_parse(
 				text,
 				&offset,
 				&out_selector->column_index,
+				out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK && text[offset] == '[') {
+			first_index = out_selector->item_index;
+			out_selector->row_index = first_index;
+			out_selector->item_index = out_selector->column_index;
+			status = sqlparser_selector_parse_index(
+				text,
+				&offset,
+				&out_selector->column_index,
+				out_error);
+		}
+	} else if (strncmp(text + offset, "merge_branch_condition", 22) == 0) {
+		size_t first_index;
+
+		offset += 22U;
+		out_selector->kind = SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION;
+		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
+		if (status == SQLPARSER_STATUS_OK && text[offset] == '[') {
+			first_index = out_selector->item_index;
+			out_selector->row_index = first_index;
+			status = sqlparser_selector_parse_index(
+				text,
+				&offset,
+				&out_selector->item_index,
 				out_error);
 		}
 	} else if (strncmp(text + offset, "insert_cell", 11) == 0) {
@@ -414,13 +441,42 @@ sqlparser_status_t sqlparser_selector_format(
 				(unsigned long)selector->item_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT:
-			length = snprintf(
-				buffer,
-				sizeof(buffer),
-				"stmt[%lu].merge_assignment[%lu][%lu]",
-				(unsigned long)selector->statement_index,
-				(unsigned long)selector->item_index,
-				(unsigned long)selector->column_index);
+			if (selector->row_index == 0U) {
+				length = snprintf(
+					buffer,
+					sizeof(buffer),
+					"stmt[%lu].merge_assignment[%lu][%lu]",
+					(unsigned long)selector->statement_index,
+					(unsigned long)selector->item_index,
+					(unsigned long)selector->column_index);
+			} else {
+				length = snprintf(
+					buffer,
+					sizeof(buffer),
+					"stmt[%lu].merge_assignment[%lu][%lu][%lu]",
+					(unsigned long)selector->statement_index,
+					(unsigned long)selector->row_index,
+					(unsigned long)selector->item_index,
+					(unsigned long)selector->column_index);
+			}
+			break;
+		case SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION:
+			if (selector->row_index == 0U) {
+				length = snprintf(
+					buffer,
+					sizeof(buffer),
+					"stmt[%lu].merge_branch_condition[%lu]",
+					(unsigned long)selector->statement_index,
+					(unsigned long)selector->item_index);
+			} else {
+				length = snprintf(
+					buffer,
+					sizeof(buffer),
+					"stmt[%lu].merge_branch_condition[%lu][%lu]",
+					(unsigned long)selector->statement_index,
+					(unsigned long)selector->row_index,
+					(unsigned long)selector->item_index);
+			}
 			break;
 		case SQLPARSER_SELECTOR_KIND_INSERT_CELL:
 			length = snprintf(
@@ -830,6 +886,15 @@ sqlparser_status_t sqlparser_selector_clause_sql(
 		return sqlparser_dialect_multi_insert_condition_sql(
 			handle,
 			selector->statement_index,
+			selector->item_index,
+			out_sql,
+			out_error);
+	}
+	if (selector != NULL && selector->kind == SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION) {
+		return sqlparser_merge_branch_condition_sql(
+			handle,
+			selector->statement_index,
+			selector->row_index,
 			selector->item_index,
 			out_sql,
 			out_error);

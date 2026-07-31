@@ -363,7 +363,7 @@ static size_t sqlparser_vastbase_statement_end(
 	return pos;
 }
 
-static size_t sqlparser_vastbase_skip_leading_trivia(
+static size_t sqlparser_vastbase_skip_trivia(
 	const char *sql,
 	size_t start,
 	size_t end,
@@ -387,6 +387,13 @@ static size_t sqlparser_vastbase_skip_leading_trivia(
 			pos,
 			end,
 			scan_flags);
+		if (sql[pos] == '/' &&
+		    skipped == end &&
+		    (end - pos < 4U ||
+		     sql[end - 2U] != '*' ||
+		     sql[end - 1U] != '/')) {
+			return pos;
+		}
 		if (skipped <= pos) {
 			return pos;
 		}
@@ -473,7 +480,15 @@ static size_t sqlparser_vastbase_token_end(
 	       !isspace((unsigned char)sql[pos]) &&
 	       sql[pos] != '=' &&
 	       sql[pos] != ',' &&
-	       sql[pos] != ';') {
+	       sql[pos] != ';' &&
+	       !(sql[pos] == '-' &&
+		 pos + 1U < end &&
+		 sql[pos + 1U] == '-') &&
+	       !(sql[pos] == '/' &&
+		 pos + 1U < end &&
+		 sql[pos + 1U] == '*') &&
+	       !((scan_flags & SQLPARSER_VASTBASE_SCAN_HASH_COMMENTS) != 0U &&
+		 sql[pos] == '#')) {
 		pos++;
 	}
 	return pos;
@@ -483,11 +498,14 @@ static int sqlparser_vastbase_consume_word(
 	const char *sql,
 	size_t *io_pos,
 	size_t end,
-	const char *word)
+	const char *word,
+	unsigned int scan_flags)
 {
 	size_t pos;
 
-	pos = sqlparser_vastbase_skip_space(sql, *io_pos, end);
+	pos = sqlparser_vastbase_skip_trivia(
+		sql, *io_pos, end, scan_flags);
+	*io_pos = pos;
 	if (!sqlparser_vastbase_word_at(sql, pos, end, word)) {
 		return 0;
 	}
@@ -498,51 +516,68 @@ static int sqlparser_vastbase_consume_word(
 static int sqlparser_vastbase_transaction_options_are_supported(
 	const char *sql,
 	size_t pos,
-	size_t end)
+	size_t end,
+	unsigned int scan_flags)
 {
 	int option_count;
 
 	option_count = 0;
 	while (pos < end) {
-		if (sqlparser_vastbase_consume_word(sql, &pos, end, "isolation")) {
-			if (!sqlparser_vastbase_consume_word(sql, &pos, end, "level")) {
+		if (sqlparser_vastbase_consume_word(
+			    sql, &pos, end, "isolation", scan_flags)) {
+			if (!sqlparser_vastbase_consume_word(
+				    sql, &pos, end, "level", scan_flags)) {
 				return 0;
 			}
-			if (sqlparser_vastbase_consume_word(sql, &pos, end, "serializable")) {
+			if (sqlparser_vastbase_consume_word(
+				    sql, &pos, end, "serializable", scan_flags)) {
 				/* Complete option. */
-			} else if (sqlparser_vastbase_consume_word(sql, &pos, end, "repeatable")) {
-				if (!sqlparser_vastbase_consume_word(sql, &pos, end, "read")) {
+			} else if (sqlparser_vastbase_consume_word(
+					   sql, &pos, end, "repeatable", scan_flags)) {
+				if (!sqlparser_vastbase_consume_word(
+					    sql, &pos, end, "read", scan_flags)) {
 					return 0;
 				}
-			} else if (sqlparser_vastbase_consume_word(sql, &pos, end, "read")) {
-				if (!sqlparser_vastbase_consume_word(sql, &pos, end, "committed") &&
-				    !sqlparser_vastbase_consume_word(sql, &pos, end, "uncommitted")) {
+			} else if (sqlparser_vastbase_consume_word(
+					   sql, &pos, end, "read", scan_flags)) {
+				if (!sqlparser_vastbase_consume_word(
+					    sql, &pos, end, "committed", scan_flags) &&
+				    !sqlparser_vastbase_consume_word(
+					    sql, &pos, end, "uncommitted", scan_flags)) {
 					return 0;
 				}
 			} else {
 				return 0;
 			}
-		} else if (sqlparser_vastbase_consume_word(sql, &pos, end, "read")) {
-			if (!sqlparser_vastbase_consume_word(sql, &pos, end, "only") &&
-			    !sqlparser_vastbase_consume_word(sql, &pos, end, "write")) {
+		} else if (sqlparser_vastbase_consume_word(
+				   sql, &pos, end, "read", scan_flags)) {
+			if (!sqlparser_vastbase_consume_word(
+				    sql, &pos, end, "only", scan_flags) &&
+			    !sqlparser_vastbase_consume_word(
+				    sql, &pos, end, "write", scan_flags)) {
 				return 0;
 			}
-		} else if (sqlparser_vastbase_consume_word(sql, &pos, end, "not")) {
-			if (!sqlparser_vastbase_consume_word(sql, &pos, end, "deferrable")) {
+		} else if (sqlparser_vastbase_consume_word(
+				   sql, &pos, end, "not", scan_flags)) {
+			if (!sqlparser_vastbase_consume_word(
+				    sql, &pos, end, "deferrable", scan_flags)) {
 				return 0;
 			}
-		} else if (!sqlparser_vastbase_consume_word(sql, &pos, end, "deferrable")) {
+		} else if (!sqlparser_vastbase_consume_word(
+				   sql, &pos, end, "deferrable", scan_flags)) {
 			return 0;
 		}
 		option_count++;
-		pos = sqlparser_vastbase_skip_space(sql, pos, end);
+		pos = sqlparser_vastbase_skip_trivia(
+			sql, pos, end, scan_flags);
 		if (pos == end) {
 			return option_count > 0;
 		}
 		if (sql[pos] != ',') {
 			return 0;
 		}
-		pos = sqlparser_vastbase_skip_space(sql, pos + 1U, end);
+		pos = sqlparser_vastbase_skip_trivia(
+			sql, pos + 1U, end, scan_flags);
 		if (pos == end) {
 			return 0;
 		}
@@ -563,53 +598,69 @@ static int sqlparser_vastbase_alter_session_is_supported(
 	if (!sqlparser_vastbase_word_at(sql, pos, end, "alter")) {
 		return 0;
 	}
-	pos = sqlparser_vastbase_skip_space(sql, pos + strlen("alter"), end);
+	pos = sqlparser_vastbase_skip_trivia(
+		sql, pos + strlen("alter"), end, scan_flags);
 	if (!sqlparser_vastbase_word_at(sql, pos, end, "session")) {
 		return 0;
 	}
-	pos = sqlparser_vastbase_skip_space(sql, pos + strlen("session"), end);
+	pos = sqlparser_vastbase_skip_trivia(
+		sql, pos + strlen("session"), end, scan_flags);
 	if (!sqlparser_vastbase_word_at(sql, pos, end, "set")) {
 		return 0;
 	}
-	pos = sqlparser_vastbase_skip_space(sql, pos + strlen("set"), end);
+	pos = sqlparser_vastbase_skip_trivia(
+		sql, pos + strlen("set"), end, scan_flags);
 	if (pos >= end) {
 		return 0;
 	}
 
 	if (sqlparser_vastbase_word_at(sql, pos, end, "current_schema")) {
-		pos = sqlparser_vastbase_skip_space(sql, pos + strlen("current_schema"), end);
+		pos = sqlparser_vastbase_skip_trivia(
+			sql, pos + strlen("current_schema"), end, scan_flags);
 		if (sqlparser_vastbase_word_at(sql, pos, end, "to")) {
-			pos = sqlparser_vastbase_skip_space(sql, pos + strlen("to"), end);
+			pos = sqlparser_vastbase_skip_trivia(
+				sql, pos + strlen("to"), end, scan_flags);
 		}
 		if (pos >= end || sql[pos] == '\'') {
 			return 0;
 		}
 		token_end = sqlparser_vastbase_token_end(
 			sql, pos, end, scan_flags);
-		return token_end > pos && sqlparser_vastbase_skip_space(sql, token_end, end) == end;
+		return token_end > pos &&
+			sqlparser_vastbase_skip_trivia(
+				sql, token_end, end, scan_flags) == end;
 	}
 	if (sqlparser_vastbase_word_at(sql, pos, end, "names")) {
-		pos = sqlparser_vastbase_skip_space(sql, pos + strlen("names"), end);
+		pos = sqlparser_vastbase_skip_trivia(
+			sql, pos + strlen("names"), end, scan_flags);
 		token_end = sqlparser_vastbase_token_end(
 			sql, pos, end, scan_flags);
-		return token_end > pos && sqlparser_vastbase_skip_space(sql, token_end, end) == end;
+		return token_end > pos &&
+			sqlparser_vastbase_skip_trivia(
+				sql, token_end, end, scan_flags) == end;
 	}
 	if (sqlparser_vastbase_word_at(sql, pos, end, "time")) {
-		pos = sqlparser_vastbase_skip_space(sql, pos + strlen("time"), end);
+		pos = sqlparser_vastbase_skip_trivia(
+			sql, pos + strlen("time"), end, scan_flags);
 		if (!sqlparser_vastbase_word_at(sql, pos, end, "zone")) {
 			return 0;
 		}
-		pos = sqlparser_vastbase_skip_space(sql, pos + strlen("zone"), end);
+		pos = sqlparser_vastbase_skip_trivia(
+			sql, pos + strlen("zone"), end, scan_flags);
 		token_end = sqlparser_vastbase_token_end(
 			sql, pos, end, scan_flags);
-		return token_end > pos && sqlparser_vastbase_skip_space(sql, token_end, end) == end;
+		return token_end > pos &&
+			sqlparser_vastbase_skip_trivia(
+				sql, token_end, end, scan_flags) == end;
 	}
 	if (sqlparser_vastbase_word_at(sql, pos, end, "xml")) {
-		pos = sqlparser_vastbase_skip_space(sql, pos + strlen("xml"), end);
+		pos = sqlparser_vastbase_skip_trivia(
+			sql, pos + strlen("xml"), end, scan_flags);
 		if (!sqlparser_vastbase_word_at(sql, pos, end, "option")) {
 			return 0;
 		}
-		pos = sqlparser_vastbase_skip_space(sql, pos + strlen("option"), end);
+		pos = sqlparser_vastbase_skip_trivia(
+			sql, pos + strlen("option"), end, scan_flags);
 		if (sqlparser_vastbase_word_at(sql, pos, end, "document")) {
 			pos += strlen("document");
 		} else if (sqlparser_vastbase_word_at(sql, pos, end, "content")) {
@@ -617,63 +668,81 @@ static int sqlparser_vastbase_alter_session_is_supported(
 		} else {
 			return 0;
 		}
-		return sqlparser_vastbase_skip_space(sql, pos, end) == end;
+		return sqlparser_vastbase_skip_trivia(
+			sql, pos, end, scan_flags) == end;
 	}
 	if (sqlparser_vastbase_word_at(sql, pos, end, "role")) {
-		pos = sqlparser_vastbase_skip_space(sql, pos + strlen("role"), end);
+		pos = sqlparser_vastbase_skip_trivia(
+			sql, pos + strlen("role"), end, scan_flags);
 		token_end = sqlparser_vastbase_token_end(
 			sql, pos, end, scan_flags);
 		if (token_end <= pos) {
 			return 0;
 		}
-		pos = sqlparser_vastbase_skip_space(sql, token_end, end);
+		pos = sqlparser_vastbase_skip_trivia(
+			sql, token_end, end, scan_flags);
 		if (!sqlparser_vastbase_word_at(sql, pos, end, "password")) {
 			return 0;
 		}
-		pos = sqlparser_vastbase_skip_space(sql, pos + strlen("password"), end);
+		pos = sqlparser_vastbase_skip_trivia(
+			sql, pos + strlen("password"), end, scan_flags);
 		token_end = sqlparser_vastbase_token_end(
 			sql, pos, end, scan_flags);
-		return token_end > pos && sqlparser_vastbase_skip_space(sql, token_end, end) == end;
+		return token_end > pos &&
+			sqlparser_vastbase_skip_trivia(
+				sql, token_end, end, scan_flags) == end;
 	}
 	if (sqlparser_vastbase_word_at(sql, pos, end, "session")) {
-		pos = sqlparser_vastbase_skip_space(sql, pos + strlen("session"), end);
+		pos = sqlparser_vastbase_skip_trivia(
+			sql, pos + strlen("session"), end, scan_flags);
 		if (sqlparser_vastbase_word_at(sql, pos, end, "authorization")) {
-			pos = sqlparser_vastbase_skip_space(sql, pos + strlen("authorization"), end);
+			pos = sqlparser_vastbase_skip_trivia(
+				sql, pos + strlen("authorization"), end, scan_flags);
 			token_end = sqlparser_vastbase_token_end(
 				sql, pos, end, scan_flags);
 			if (token_end <= pos) {
 				return 0;
 			}
 			if (sqlparser_vastbase_word_at(sql, pos, token_end, "default")) {
-				return sqlparser_vastbase_skip_space(sql, token_end, end) == end;
+				return sqlparser_vastbase_skip_trivia(
+					sql, token_end, end, scan_flags) == end;
 			}
-			pos = sqlparser_vastbase_skip_space(sql, token_end, end);
+			pos = sqlparser_vastbase_skip_trivia(
+				sql, token_end, end, scan_flags);
 			if (!sqlparser_vastbase_word_at(sql, pos, end, "password")) {
 				return 0;
 			}
-			pos = sqlparser_vastbase_skip_space(sql, pos + strlen("password"), end);
+			pos = sqlparser_vastbase_skip_trivia(
+				sql, pos + strlen("password"), end, scan_flags);
 			token_end = sqlparser_vastbase_token_end(
 				sql, pos, end, scan_flags);
 			return token_end > pos &&
-				sqlparser_vastbase_skip_space(sql, token_end, end) == end;
+				sqlparser_vastbase_skip_trivia(
+					sql, token_end, end, scan_flags) == end;
 		}
 		if (!sqlparser_vastbase_word_at(sql, pos, end, "characteristics")) {
 			return 0;
 		}
-		pos = sqlparser_vastbase_skip_space(sql, pos + strlen("characteristics"), end);
+		pos = sqlparser_vastbase_skip_trivia(
+			sql, pos + strlen("characteristics"), end, scan_flags);
 		if (!sqlparser_vastbase_word_at(sql, pos, end, "as")) {
 			return 0;
 		}
-		pos = sqlparser_vastbase_skip_space(sql, pos + strlen("as"), end);
+		pos = sqlparser_vastbase_skip_trivia(
+			sql, pos + strlen("as"), end, scan_flags);
 		if (!sqlparser_vastbase_word_at(sql, pos, end, "transaction")) {
 			return 0;
 		}
-		pos = sqlparser_vastbase_skip_space(sql, pos + strlen("transaction"), end);
-		return sqlparser_vastbase_transaction_options_are_supported(sql, pos, end);
+		pos = sqlparser_vastbase_skip_trivia(
+			sql, pos + strlen("transaction"), end, scan_flags);
+		return sqlparser_vastbase_transaction_options_are_supported(
+			sql, pos, end, scan_flags);
 	}
 	if (sqlparser_vastbase_word_at(sql, pos, end, "transaction")) {
-		pos = sqlparser_vastbase_skip_space(sql, pos + strlen("transaction"), end);
-		return sqlparser_vastbase_transaction_options_are_supported(sql, pos, end);
+		pos = sqlparser_vastbase_skip_trivia(
+			sql, pos + strlen("transaction"), end, scan_flags);
+		return sqlparser_vastbase_transaction_options_are_supported(
+			sql, pos, end, scan_flags);
 	}
 
 	if (!sqlparser_vastbase_word_at(sql, pos, end, "statement_timeout")) {
@@ -684,27 +753,36 @@ static int sqlparser_vastbase_alter_session_is_supported(
 	if (token_end <= pos) {
 		return 0;
 	}
-	pos = sqlparser_vastbase_skip_space(sql, token_end, end);
+	pos = sqlparser_vastbase_skip_trivia(
+		sql, token_end, end, scan_flags);
 	if (pos < end && sql[pos] == '=') {
-		pos = sqlparser_vastbase_skip_space(sql, pos + 1U, end);
+		pos = sqlparser_vastbase_skip_trivia(
+			sql, pos + 1U, end, scan_flags);
 		token_end = sqlparser_vastbase_token_end(
 			sql, pos, end, scan_flags);
-		return token_end > pos && sqlparser_vastbase_skip_space(sql, token_end, end) == end;
+		return token_end > pos &&
+			sqlparser_vastbase_skip_trivia(
+				sql, token_end, end, scan_flags) == end;
 	}
 	if (sqlparser_vastbase_word_at(sql, pos, end, "to")) {
-		pos = sqlparser_vastbase_skip_space(sql, pos + strlen("to"), end);
+		pos = sqlparser_vastbase_skip_trivia(
+			sql, pos + strlen("to"), end, scan_flags);
 		token_end = sqlparser_vastbase_token_end(
 			sql, pos, end, scan_flags);
-		return token_end > pos && sqlparser_vastbase_skip_space(sql, token_end, end) == end;
+		return token_end > pos &&
+			sqlparser_vastbase_skip_trivia(
+				sql, token_end, end, scan_flags) == end;
 	}
 	if (!sqlparser_vastbase_word_at(sql, pos, end, "from")) {
 		return 0;
 	}
-	pos = sqlparser_vastbase_skip_space(sql, pos + strlen("from"), end);
+	pos = sqlparser_vastbase_skip_trivia(
+		sql, pos + strlen("from"), end, scan_flags);
 	if (!sqlparser_vastbase_word_at(sql, pos, end, "current")) {
 		return 0;
 	}
-	return sqlparser_vastbase_skip_space(sql, pos + strlen("current"), end) == end;
+	return sqlparser_vastbase_skip_trivia(
+		sql, pos + strlen("current"), end, scan_flags) == end;
 }
 
 static sqlparser_status_t sqlparser_vastbase_size_add(
@@ -756,7 +834,7 @@ static sqlparser_status_t sqlparser_vastbase_rewrite_session_pass(
 			len,
 			scan_flags,
 			&statement_next);
-		statement_start = sqlparser_vastbase_skip_leading_trivia(
+		statement_start = sqlparser_vastbase_skip_trivia(
 			sql, segment_start, statement_end, scan_flags);
 		end = sqlparser_vastbase_trim_right(sql, statement_start, statement_end);
 		if (statement_start < end &&
@@ -1047,7 +1125,7 @@ static sqlparser_status_t sqlparser_vastbase_restore_session_pass(
 			len,
 			scan_flags,
 			&statement_next);
-		statement_start = sqlparser_vastbase_skip_leading_trivia(
+		statement_start = sqlparser_vastbase_skip_trivia(
 			sql, segment_start, statement_end, scan_flags);
 		end = sqlparser_vastbase_trim_right(sql, statement_start, statement_end);
 		if (statement_start < end &&
@@ -1789,6 +1867,7 @@ static sqlparser_status_t sqlparser_vastbase_session_project_transaction(
 	const char *sql,
 	size_t pos,
 	size_t end,
+	unsigned int scan_flags,
 	const sqlparser_dialect_session_emitter_t *emitter,
 	sqlparser_error_t *out_error)
 {
@@ -1808,41 +1887,57 @@ static sqlparser_status_t sqlparser_vastbase_session_project_transaction(
 		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 	while (pos < end) {
-		pos = sqlparser_vastbase_skip_space(sql, pos, end);
-		if (sqlparser_vastbase_consume_word(sql, &pos, end, "isolation")) {
-			if (!sqlparser_vastbase_consume_word(sql, &pos, end, "level")) {
+		pos = sqlparser_vastbase_skip_trivia(
+			sql, pos, end, scan_flags);
+		if (sqlparser_vastbase_consume_word(
+			    sql, &pos, end, "isolation", scan_flags)) {
+			if (!sqlparser_vastbase_consume_word(
+				    sql, &pos, end, "level", scan_flags)) {
 				goto invalid;
 			}
 			value_name = "isolation_level";
-			value_start = sqlparser_vastbase_skip_space(sql, pos, end);
-			if (sqlparser_vastbase_consume_word(sql, &pos, end, "serializable")) {
+			value_start = sqlparser_vastbase_skip_trivia(
+				sql, pos, end, scan_flags);
+			if (sqlparser_vastbase_consume_word(
+				    sql, &pos, end, "serializable", scan_flags)) {
 				/* Complete value. */
-			} else if (sqlparser_vastbase_consume_word(sql, &pos, end, "repeatable")) {
-				if (!sqlparser_vastbase_consume_word(sql, &pos, end, "read")) {
+			} else if (sqlparser_vastbase_consume_word(
+					   sql, &pos, end, "repeatable", scan_flags)) {
+				if (!sqlparser_vastbase_consume_word(
+					    sql, &pos, end, "read", scan_flags)) {
 					goto invalid;
 				}
-			} else if (sqlparser_vastbase_consume_word(sql, &pos, end, "read")) {
-				if (!sqlparser_vastbase_consume_word(sql, &pos, end, "committed") &&
-				    !sqlparser_vastbase_consume_word(sql, &pos, end, "uncommitted")) {
+			} else if (sqlparser_vastbase_consume_word(
+					   sql, &pos, end, "read", scan_flags)) {
+				if (!sqlparser_vastbase_consume_word(
+					    sql, &pos, end, "committed", scan_flags) &&
+				    !sqlparser_vastbase_consume_word(
+					    sql, &pos, end, "uncommitted", scan_flags)) {
 					goto invalid;
 				}
 			} else {
 				goto invalid;
 			}
-		} else if (sqlparser_vastbase_consume_word(sql, &pos, end, "read")) {
+		} else if (sqlparser_vastbase_consume_word(
+				   sql, &pos, end, "read", scan_flags)) {
 			value_name = "access_mode";
 			value_start = pos - strlen("read");
-			if (!sqlparser_vastbase_consume_word(sql, &pos, end, "only") &&
-			    !sqlparser_vastbase_consume_word(sql, &pos, end, "write")) {
+			if (!sqlparser_vastbase_consume_word(
+				    sql, &pos, end, "only", scan_flags) &&
+			    !sqlparser_vastbase_consume_word(
+				    sql, &pos, end, "write", scan_flags)) {
 				goto invalid;
 			}
-		} else if (sqlparser_vastbase_consume_word(sql, &pos, end, "not")) {
+		} else if (sqlparser_vastbase_consume_word(
+				   sql, &pos, end, "not", scan_flags)) {
 			value_name = "deferrable";
 			value_start = pos - strlen("not");
-			if (!sqlparser_vastbase_consume_word(sql, &pos, end, "deferrable")) {
+			if (!sqlparser_vastbase_consume_word(
+				    sql, &pos, end, "deferrable", scan_flags)) {
 				goto invalid;
 			}
-		} else if (sqlparser_vastbase_consume_word(sql, &pos, end, "deferrable")) {
+		} else if (sqlparser_vastbase_consume_word(
+				   sql, &pos, end, "deferrable", scan_flags)) {
 			value_name = "deferrable";
 			value_start = pos - strlen("deferrable");
 		} else {
@@ -1860,7 +1955,8 @@ static sqlparser_status_t sqlparser_vastbase_session_project_transaction(
 			    out_error) != SQLPARSER_STATUS_OK) {
 			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
 		}
-		pos = sqlparser_vastbase_skip_space(sql, pos, end);
+		pos = sqlparser_vastbase_skip_trivia(
+			sql, pos, end, scan_flags);
 		if (pos == end) {
 			return SQLPARSER_STATUS_OK;
 		}
@@ -1907,19 +2003,28 @@ static sqlparser_status_t sqlparser_vastbase_project_common_session(
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 	end = strlen(raw_sql);
-	pos = sqlparser_vastbase_skip_space(raw_sql, 0U, end);
-	if (!sqlparser_vastbase_consume_word(raw_sql, &pos, end, "alter") ||
-	    !sqlparser_vastbase_consume_word(raw_sql, &pos, end, "session") ||
-	    !sqlparser_vastbase_consume_word(raw_sql, &pos, end, "set")) {
+	pos = sqlparser_vastbase_skip_trivia(
+		raw_sql, 0U, end, scan_flags);
+	if (!sqlparser_vastbase_consume_word(
+		    raw_sql, &pos, end, "alter", scan_flags) ||
+	    !sqlparser_vastbase_consume_word(
+		    raw_sql, &pos, end, "session", scan_flags) ||
+	    !sqlparser_vastbase_consume_word(
+		    raw_sql, &pos, end, "set", scan_flags)) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "Vastbase session statement is invalid");
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
-	pos = sqlparser_vastbase_skip_space(raw_sql, pos, end);
+	pos = sqlparser_vastbase_skip_trivia(
+		raw_sql, pos, end, scan_flags);
 	if (sqlparser_vastbase_word_at(raw_sql, pos, end, "current_schema")) {
-		pos = sqlparser_vastbase_skip_space(
-			raw_sql, pos + strlen("current_schema"), end);
+		pos = sqlparser_vastbase_skip_trivia(
+			raw_sql,
+			pos + strlen("current_schema"),
+			end,
+			scan_flags);
 		if (sqlparser_vastbase_word_at(raw_sql, pos, end, "to")) {
-			pos = sqlparser_vastbase_skip_space(raw_sql, pos + strlen("to"), end);
+			pos = sqlparser_vastbase_skip_trivia(
+				raw_sql, pos + strlen("to"), end, scan_flags);
 		}
 		token_end = sqlparser_vastbase_token_end(
 			raw_sql, pos, end, scan_flags);
@@ -1956,39 +2061,47 @@ static sqlparser_status_t sqlparser_vastbase_project_common_session(
 	if (sqlparser_vastbase_word_at(raw_sql, pos, end, "names")) {
 		name_start = pos;
 		name_end = pos + strlen("names");
-		value_start = sqlparser_vastbase_skip_space(raw_sql, name_end, end);
+		value_start = sqlparser_vastbase_skip_trivia(
+			raw_sql, name_end, end, scan_flags);
 		token_end = sqlparser_vastbase_token_end(
 			raw_sql, value_start, end, scan_flags);
 	} else if (sqlparser_vastbase_word_at(raw_sql, pos, end, "time")) {
 		name_start = pos;
-		pos = sqlparser_vastbase_skip_space(raw_sql, pos + strlen("time"), end);
+		pos = sqlparser_vastbase_skip_trivia(
+			raw_sql, pos + strlen("time"), end, scan_flags);
 		if (!sqlparser_vastbase_word_at(raw_sql, pos, end, "zone")) {
 			goto invalid;
 		}
 		name_end = pos + strlen("zone");
-		value_start = sqlparser_vastbase_skip_space(raw_sql, name_end, end);
+		value_start = sqlparser_vastbase_skip_trivia(
+			raw_sql, name_end, end, scan_flags);
 		token_end = sqlparser_vastbase_token_end(
 			raw_sql, value_start, end, scan_flags);
 	} else if (sqlparser_vastbase_word_at(raw_sql, pos, end, "xml")) {
 		name_start = pos;
-		pos = sqlparser_vastbase_skip_space(raw_sql, pos + strlen("xml"), end);
+		pos = sqlparser_vastbase_skip_trivia(
+			raw_sql, pos + strlen("xml"), end, scan_flags);
 		if (!sqlparser_vastbase_word_at(raw_sql, pos, end, "option")) {
 			goto invalid;
 		}
 		name_end = pos + strlen("option");
-		value_start = sqlparser_vastbase_skip_space(raw_sql, name_end, end);
+		value_start = sqlparser_vastbase_skip_trivia(
+			raw_sql, name_end, end, scan_flags);
 		token_end = sqlparser_vastbase_token_end(
 			raw_sql, value_start, end, scan_flags);
 	} else if (sqlparser_vastbase_word_at(raw_sql, pos, end, "role")) {
-		pos = sqlparser_vastbase_skip_space(raw_sql, pos + strlen("role"), end);
+		pos = sqlparser_vastbase_skip_trivia(
+			raw_sql, pos + strlen("role"), end, scan_flags);
 		token_end = sqlparser_vastbase_token_end(
 			raw_sql, pos, end, scan_flags);
 		value_start = pos;
-		pos = sqlparser_vastbase_skip_space(raw_sql, token_end, end);
+		pos = sqlparser_vastbase_skip_trivia(
+			raw_sql, token_end, end, scan_flags);
 		if (!sqlparser_vastbase_word_at(raw_sql, pos, end, "password")) {
 			goto invalid;
 		}
-		pos = sqlparser_vastbase_skip_space(raw_sql, pos + strlen("password"), end);
+		pos = sqlparser_vastbase_skip_trivia(
+			raw_sql, pos + strlen("password"), end, scan_flags);
 		name_end = sqlparser_vastbase_token_end(
 			raw_sql, pos, end, scan_flags);
 		if (sqlparser_vastbase_session_add_item(
@@ -2020,10 +2133,14 @@ static sqlparser_status_t sqlparser_vastbase_project_common_session(
 			emitter,
 			out_error);
 	} else if (sqlparser_vastbase_word_at(raw_sql, pos, end, "session")) {
-		pos = sqlparser_vastbase_skip_space(raw_sql, pos + strlen("session"), end);
+		pos = sqlparser_vastbase_skip_trivia(
+			raw_sql, pos + strlen("session"), end, scan_flags);
 		if (sqlparser_vastbase_word_at(raw_sql, pos, end, "authorization")) {
-			pos = sqlparser_vastbase_skip_space(
-				raw_sql, pos + strlen("authorization"), end);
+			pos = sqlparser_vastbase_skip_trivia(
+				raw_sql,
+				pos + strlen("authorization"),
+				end,
+				scan_flags);
 			token_end = sqlparser_vastbase_token_end(
 				raw_sql, pos, end, scan_flags);
 			if (sqlparser_vastbase_session_add_item(
@@ -2045,15 +2162,19 @@ static sqlparser_status_t sqlparser_vastbase_project_common_session(
 				    out_error) != SQLPARSER_STATUS_OK) {
 				return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
 			}
-			pos = sqlparser_vastbase_skip_space(raw_sql, token_end, end);
+			pos = sqlparser_vastbase_skip_trivia(
+				raw_sql, token_end, end, scan_flags);
 			if (pos == end) {
 				return SQLPARSER_STATUS_OK;
 			}
 			if (!sqlparser_vastbase_word_at(raw_sql, pos, end, "password")) {
 				goto invalid;
 			}
-			pos = sqlparser_vastbase_skip_space(
-				raw_sql, pos + strlen("password"), end);
+			pos = sqlparser_vastbase_skip_trivia(
+				raw_sql,
+				pos + strlen("password"),
+				end,
+				scan_flags);
 			token_end = sqlparser_vastbase_token_end(
 				raw_sql, pos, end, scan_flags);
 			return sqlparser_vastbase_session_emit_span(
@@ -2067,27 +2188,33 @@ static sqlparser_status_t sqlparser_vastbase_project_common_session(
 				out_error);
 		}
 		if (!sqlparser_vastbase_consume_word(
-			    raw_sql, &pos, end, "characteristics") ||
-		    !sqlparser_vastbase_consume_word(raw_sql, &pos, end, "as") ||
-		    !sqlparser_vastbase_consume_word(raw_sql, &pos, end, "transaction")) {
+			    raw_sql, &pos, end, "characteristics", scan_flags) ||
+		    !sqlparser_vastbase_consume_word(
+			    raw_sql, &pos, end, "as", scan_flags) ||
+		    !sqlparser_vastbase_consume_word(
+			    raw_sql, &pos, end, "transaction", scan_flags)) {
 			goto invalid;
 		}
 		return sqlparser_vastbase_session_project_transaction(
-			raw_sql, pos, end, emitter, out_error);
+			raw_sql, pos, end, scan_flags, emitter, out_error);
 	} else if (sqlparser_vastbase_word_at(raw_sql, pos, end, "transaction")) {
 		pos += strlen("transaction");
 		return sqlparser_vastbase_session_project_transaction(
-			raw_sql, pos, end, emitter, out_error);
+			raw_sql, pos, end, scan_flags, emitter, out_error);
 	} else if (sqlparser_vastbase_word_at(raw_sql, pos, end, "statement_timeout")) {
 		name_start = pos;
 		name_end = pos + strlen("statement_timeout");
-		pos = sqlparser_vastbase_skip_space(raw_sql, name_end, end);
+		pos = sqlparser_vastbase_skip_trivia(
+			raw_sql, name_end, end, scan_flags);
 		if (pos < end && raw_sql[pos] == '=') {
-			pos = sqlparser_vastbase_skip_space(raw_sql, pos + 1U, end);
+			pos = sqlparser_vastbase_skip_trivia(
+				raw_sql, pos + 1U, end, scan_flags);
 		} else if (sqlparser_vastbase_word_at(raw_sql, pos, end, "to")) {
-			pos = sqlparser_vastbase_skip_space(raw_sql, pos + strlen("to"), end);
+			pos = sqlparser_vastbase_skip_trivia(
+				raw_sql, pos + strlen("to"), end, scan_flags);
 		} else if (sqlparser_vastbase_word_at(raw_sql, pos, end, "from")) {
-			pos = sqlparser_vastbase_skip_space(raw_sql, pos + strlen("from"), end);
+			pos = sqlparser_vastbase_skip_trivia(
+				raw_sql, pos + strlen("from"), end, scan_flags);
 		} else {
 			goto invalid;
 		}
@@ -2098,7 +2225,8 @@ static sqlparser_status_t sqlparser_vastbase_project_common_session(
 		goto invalid;
 	}
 	if (token_end <= value_start ||
-	    sqlparser_vastbase_skip_space(raw_sql, token_end, end) != end) {
+	    sqlparser_vastbase_skip_trivia(
+		    raw_sql, token_end, end, scan_flags) != end) {
 		goto invalid;
 	}
 	if (sqlparser_vastbase_session_add_item(

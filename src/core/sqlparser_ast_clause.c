@@ -435,6 +435,7 @@ static sqlparser_status_t sqlparser_get_wrapper_order_by_stmt(
 
 static sqlparser_status_t sqlparser_parse_order_by_nodes_sql(
 	const char *sql_text,
+	const sqlparser_generated_source_t *source,
 	PgQuery__Node ***out_nodes,
 	size_t *out_count,
 	sqlparser_error_t *out_error)
@@ -485,7 +486,16 @@ static sqlparser_status_t sqlparser_parse_order_by_nodes_sql(
 			if (status != SQLPARSER_STATUS_OK) {
 				break;
 			}
-			sqlparser_mark_proto_generated((ProtobufCMessage *)nodes[index]);
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status =
+				sqlparser_mark_proto_nodes_generated_with_fragment_source(
+					nodes,
+					stmt->n_sort_clause,
+					wrapped_sql,
+					strlen(prefix),
+					source,
+					out_error);
 		}
 	}
 	if (status == SQLPARSER_STATUS_OK) {
@@ -503,6 +513,7 @@ static sqlparser_status_t sqlparser_parse_order_by_nodes_sql(
 }
 
 static sqlparser_status_t sqlparser_render_order_by_nodes_sql(
+	const sqlparser_handle_t *handle,
 	PgQuery__Node **nodes,
 	size_t count,
 	char **out_sql,
@@ -514,6 +525,7 @@ static sqlparser_status_t sqlparser_render_order_by_nodes_sql(
 	PgQuery__ParseResult *ast;
 	PgQuery__SelectStmt *stmt;
 	PgQuery__Node **replacement;
+	PgQuery__List list;
 	sqlparser_status_t status;
 	size_t index;
 
@@ -554,11 +566,24 @@ static sqlparser_status_t sqlparser_render_order_by_nodes_sql(
 		}
 	}
 	if (status == SQLPARSER_STATUS_OK) {
+		pg_query__list__init(&list);
+		list.n_items = count;
+		list.items = replacement;
+		status = sqlparser_mark_proto_generated_from_handle(
+			handle,
+			(ProtobufCMessage *)&list,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
 		sqlparser_clause_free_node_array(stmt->sort_clause, stmt->n_sort_clause);
 		stmt->sort_clause = replacement;
 		stmt->n_sort_clause = count;
 		replacement = NULL;
-		status = sqlparser_deparse_wrapper_ast(ast, &deparsed_sql, out_error);
+		status = sqlparser_deparse_wrapper_ast(
+			handle,
+			ast,
+			&deparsed_sql,
+			out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_extract_wrapped_value_sql(deparsed_sql, prefix, NULL, out_sql, out_error);
@@ -589,7 +614,12 @@ static sqlparser_status_t sqlparser_statement_order_by_sql(
 	}
 	*out_sql = NULL;
 	core_sql = NULL;
-	status = sqlparser_render_order_by_nodes_sql(stmt->sort_clause, stmt->n_sort_clause, &core_sql, out_error);
+	status = sqlparser_render_order_by_nodes_sql(
+		handle,
+		stmt->sort_clause,
+		stmt->n_sort_clause,
+		&core_sql,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
@@ -612,6 +642,8 @@ static sqlparser_status_t sqlparser_statement_set_order_by_sql(
 	PgQuery__Node **nodes;
 	size_t count;
 	char *parser_sql;
+	sqlparser_generated_source_t source;
+	sqlparser_identifier_origin_map_t *origins;
 	void *dialect_state;
 	sqlparser_status_t status;
 	size_t index;
@@ -623,18 +655,31 @@ static sqlparser_status_t sqlparser_statement_set_order_by_sql(
 	nodes = NULL;
 	count = 0U;
 	parser_sql = NULL;
+	origins = NULL;
 	dialect_state = NULL;
-	status = sqlparser_preprocess_handle_sql_fragment(
+	status = sqlparser_preprocess_handle_sql_fragment_with_origins(
 		handle,
 		statement_index,
 		sql_text,
 		"ORDER BY SQL",
 		&parser_sql,
 		&dialect_state,
+		&origins,
 		out_error);
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_parse_order_by_nodes_sql(parser_sql, &nodes, &count, out_error);
+		memset(&source, 0, sizeof(source));
+		source.public_sql = sql_text;
+		source.origins = origins;
+		source.dialect = handle->dialect;
+		source.spelling_handle = handle;
+		status = sqlparser_parse_order_by_nodes_sql(
+			parser_sql,
+			&source,
+			&nodes,
+			&count,
+			out_error);
 	}
+	sqlparser_identifier_origin_map_destroy(origins);
 	free(parser_sql);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_handle_discard_dialect_state(handle, dialect_state);

@@ -4,9 +4,30 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 209 条用例，其中 188 条预期成功，21 条预期失败。35 条用例包含 statement 级 `expect.session`，覆盖 `VO043`、`VO043Q`、`VO044` 至 `VO047`、`VO082` 至 `VO086`、`VB-C001` 至 `VB-C022` 和 `VB-C026` 至 `VB-C027`；这 35 条用例均至少包含一个非空 session 期望。
+夹具包含 221 条用例，其中 200 条预期成功，21 条预期失败。37 条用例包含 statement 级 `expect.session`，覆盖 `VO043`、`VO043Q`、`VO044` 至 `VO047`、`VO082` 至 `VO086`、`VB-C001` 至 `VB-C022`、`VB-C026` 至 `VB-C027` 和 `VB-C030` 至 `VB-C031`；这 37 条用例均至少包含一个非空 session 期望。
 
 用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
+
+## INSERT VALUES 回归：bind 与表达式混合
+
+`VO-BM001` 至 `VO-BM010` 覆盖 Vastbase Oracle 兼容模式下使用 PBE `$n` 位置参数的单行 `INSERT ... VALUES`。这些 SQL 是 prepare/bind 流程中的 statement body，不作为带未绑定参数的直接执行语句。
+
+10 条用例均为单行 VALUES，`DEFAULT` 只作为独立 cell。每条用例逐 cell 断言 `row`、`column`、`kind` 和 `selector`；逐个直接 bind 断言 `bind_key`、`bind_kind`、`bind_sql`、全局 `bind_position` 和 `selector`；通过表达式后的直接 bind 位置验证嵌套 bind 已计入全局序号。`SYSDATE`、`CURRENT_TIMESTAMP` 必须是 expression，且不得出现在 `query_graph.fields[].column` 中。
+
+| ID | SQL 形态 | 边界 |
+| --- | --- | --- |
+| `VO-BM001` | 三个独立 `$n` bind + 尾部 `SYSDATE` | 逐字节保留带不规则空白和分号的原始输入 SQL |
+| `VO-BM002` | 首位 `CURRENT_TIMESTAMP` + 三个独立 `$n` bind | 首列 expression 不得造成 bind 错位 |
+| `VO-BM003` | `$1`、`$2`、`$3` + 尾部 `SYSDATE` | 连续位置参数及尾部时间表达式 |
+| `VO-BM004` | 首位 `SYSDATE` + 三个 `$n` bind | 表达式位于首列时保持 bind 顺序 |
+| `VO-BM005` | `$n` bind 与 `SYSDATE` / `CURRENT_TIMESTAMP` 交错 | expression cell 不得造成后续 bind 错位 |
+| `VO-BM006` | bind + `NULL` + `SYSDATE` + bind | `NULL` 为 literal，`SYSDATE` 为 expression |
+| `VO-BM007` | bind + 独立 `DEFAULT` + `CURRENT_TIMESTAMP` + bind | `DEFAULT` 不嵌入其他表达式 |
+| `VO-BM008` | 直接 bind + `COALESCE($2, 0)` + `SYSDATE` + 直接 bind | 尾部直接 bind 为 position 3，验证嵌套 bind 已计数 |
+| `VO-BM009` | 直接 bind + 包含 `$2` 的 `CASE` 表达式 + `CAST($3 AS NUMBER)` + `SYSDATE` + 直接 bind | 尾部直接 bind 为 position 4，验证两个嵌套 bind 均已计数 |
+| `VO-BM010` | schema-qualified quoted identifiers + 三个 `$n` bind + `CURRENT_TIMESTAMP` | 保留大小写标识符、不规则空白和分号 |
+
+## 支持用例
 
 | ID | 用例 | SQL | 状态 |
 | --- | --- | --- | --- |

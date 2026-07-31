@@ -11833,6 +11833,24 @@ static sqlparser_status_t sqlparser_mysql_preprocess_fragment(
 	sqlparser_error_t *out_error)
 {
 	(void)statement_index;
+	return sqlparser_mysql_preprocess_fragment_identifier_origins(
+		input_sql,
+		state,
+		out_parser_sql,
+		NULL,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_mysql_preprocess_fragment_identifier_origins(
+	const char *input_sql,
+	void *state,
+	char **out_parser_sql,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_mysql_origin_trace_t trace;
+	sqlparser_status_t status;
+
 	if (out_parser_sql == NULL) {
 		sqlparser_error_set_message(
 			out_error,
@@ -11848,14 +11866,28 @@ static sqlparser_status_t sqlparser_mysql_preprocess_fragment(
 			"SQL fragment must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-
-	return sqlparser_mysql_preprocess_quotes(
+	memset(&trace, 0, sizeof(trace));
+	status = sqlparser_mysql_preprocess_quotes(
 		input_sql,
 		(sqlparser_mysql_state_t *)state,
 		out_parser_sql,
 		0U,
-		NULL,
+		origins != NULL ? &trace : NULL,
 		out_error);
+	if (status == SQLPARSER_STATUS_OK && origins != NULL) {
+		status = sqlparser_mysql_origin_trace_commit(
+			origins,
+			input_sql,
+			*out_parser_sql,
+			&trace,
+			out_error);
+	}
+	sqlparser_mysql_origin_trace_release(&trace);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(*out_parser_sql);
+		*out_parser_sql = NULL;
+	}
+	return status;
 }
 
 static sqlparser_status_t sqlparser_mysql_postprocess_deparse(

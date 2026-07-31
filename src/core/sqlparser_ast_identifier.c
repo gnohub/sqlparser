@@ -50,6 +50,7 @@ static PgQuery__Node *sqlparser_alloc_string_node(
 	pg_query__string__init(string_node);
 	node->node_case = PG_QUERY__NODE__NODE_STRING;
 	node->string = string_node;
+	string_node->location = SQLPARSER_PROTO_LOCATION_GENERATED;
 	string_node->sval = sqlparser_strdup(text);
 	if (string_node->sval == NULL) {
 		sqlparser_free_proto_node(node);
@@ -99,7 +100,11 @@ sqlparser_status_t sqlparser_build_identifier_path_node(
 	node->column_ref = column_ref;
 	column_ref->n_fields = path->part_count;
 	column_ref->fields = fields;
-	column_ref->location = SQLPARSER_PROTO_LOCATION_GENERATED;
+	column_ref->location =
+		path->part_count == 1U &&
+			sqlparser_identifier_is_sysdate(path->parts[0]) ?
+			SQLPARSER_PROTO_LOCATION_GENERATED_DOUBLE_QUOTED :
+			SQLPARSER_PROTO_LOCATION_GENERATED;
 
 	for (index = 0U; index < path->part_count; index++) {
 		fields[index] = sqlparser_alloc_string_node(path->parts[index], out_error);

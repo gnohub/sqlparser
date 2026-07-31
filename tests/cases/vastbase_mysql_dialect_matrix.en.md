@@ -4,11 +4,11 @@ Executable fixture: `tests/cases/vastbase_mysql_dialect_input.json`. The unit te
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 219 cases: 210 expect success and 9 expect failure.
-Statement-level `expect.session` appears in 38 cases, covering `VM015` through
-`VM017`, `VB-C001` through `VB-C022`, `VB-C026` through `VB-C027`, and
-`VB-B001` through `VB-B011`. All 38 contain at least one non-null session
-expectation.
+The fixture contains 231 cases: 222 expect success and 9 expect failure.
+Statement-level `expect.session` appears in 40 cases, covering `VM015` through
+`VM017`, `VB-C001` through `VB-C022`, `VB-C026` through `VB-C027`, `VB-C030`
+through `VB-C031`, and `VB-B001` through `VB-B011`. All 40 contain at least one
+non-null session expectation.
 
 When an `expect.session` array is present, the matrix test requires one entry
 per statement. A non-null entry is matched against the corresponding session
@@ -162,3 +162,22 @@ the result with the input SQL byte for byte.
 | `VMU019` | `vastbase-mysql-delete-left-join` | DELETE u FROM users u LEFT JOIN orders o ON u.id=o.user_id WHERE u.phone = ? | covered |
 | `VMU020` | `vastbase-mysql-update-join-source-assignment` | UPDATE users u JOIN orders o ON u.id=o.user_id SET o.shipping_phone = ? WHERE u.id = ? | covered |
 | `VMU021` | `vastbase-mysql-delete-join-source-target` | DELETE o FROM users u JOIN orders o ON u.id=o.user_id WHERE o.phone = ? | covered |
+
+## INSERT VALUES Regression: Mixed Binds and Expressions
+
+These ten cases cover prepared statements, driver SQL templates, multi-row VALUES, compound expressions, and backtick identifiers in Vastbase B/MySQL compatibility mode. Database-side execution of `?` parameter templates also requires `vb_enable_bcompat_mode`.
+
+An unquoted `?` is treated only as a data-value parameter in a prepared statement or driver SQL template; it cannot replace a table name, column name, or keyword. Execution of SQL containing these parameter markers requires the prepare/bind flow. `DEFAULT` appears only as a standalone cell. Expression cells remain `kind=expression`; an internal `?` still consumes its global bind ordinal, as verified by the positions of following direct binds. Time-function names must not appear in `query_graph.fields[].column`.
+
+| ID | Case | VALUES Shape | Validation Focus |
+| --- | --- | --- | --- |
+| `VM-BM001` | `vastbase-mysql-insert-bind-mixed-bare-time` | three direct `?` values plus `NOW()` | direct-bind key, kind, SQL, position, selector, and the trailing time expression |
+| `VM-BM002` | `vastbase-mysql-insert-bind-mixed-expression-first` | `CONVERT(?, BIGINT)`, `?`, `CURRENT_TIMESTAMP`, `?` | leading expression, nested-bind global ordinal, and following direct binds |
+| `VM-BM003` | `vastbase-mysql-insert-bind-mixed-interleaved-functions` | `?`, `NOW()`, `?`, `COALESCE(?, 'fallback')`, `?` | interleaved binds and expressions, `NOW` absent from `query_graph.fields[].column`, and nested-bind counting |
+| `VM-BM004` | `vastbase-mysql-insert-bind-mixed-null` | `?`, `NULL`, `CONVERT(?, BIGINT)`, `?` | independent NULL literal, expression, and direct-bind cell kinds |
+| `VM-BM005` | `vastbase-mysql-insert-bind-mixed-default` | `?`, `DEFAULT`, `CONVERT(?, BIGINT)`, `?` | standalone DEFAULT cell and nested-bind global ordinal |
+| `VM-BM006` | `vastbase-mysql-insert-bind-mixed-literal` | `?`, string literal, a `CASE` expression containing `?`, `?` | string literal, CASE expression, and following bind position |
+| `VM-BM007` | `vastbase-mysql-insert-bind-mixed-coalesce-time` | `?`, `COALESCE(?, 'fallback')`, `CURRENT_TIMESTAMP`, `?` | COALESCE bind, independent time expression, and direct bind |
+| `VM-BM008` | `vastbase-mysql-insert-bind-mixed-case-time` | `?`, a `CASE` expression containing `?`, `NOW()`, `?` | bind within a CASE expression, independent time expression, and direct bind |
+| `VM-BM009` | `vastbase-mysql-insert-bind-mixed-three-rows` | three rows mixing binds, CONVERT/COALESCE/CASE expressions, and time expressions | every cell selector and continuous global bind positions across rows |
+| `VM-BM010` | `vastbase-mysql-insert-bind-mixed-quoted-irregular-whitespace` | schema-qualified backtick identifiers, irregular whitespace, three direct `?` values, and a time expression | quoted identifiers, byte-exact source preservation, and field-for-field equality with expected cell objects |

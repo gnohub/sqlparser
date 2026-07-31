@@ -4,9 +4,30 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 585 条用例，其中 547 条预期成功，38 条预期失败。70 条用例包含 statement 级 `expect.session`，覆盖 `VS044` 至 `VS046`、`VSH295` 至 `VSH333`、`VB-C001` 至 `VB-C022`、`VB-C026` 至 `VB-C029` 和 `VB-MSSQL-001` 至 `VB-MSSQL-002`。其中 69 条至少包含一个非空 session 期望；词法隔离用例 `VB-C029` 的所有 statement 均要求不输出 session 投影。
+夹具包含 597 条用例，其中 559 条预期成功，38 条预期失败。72 条用例包含 statement 级 `expect.session`，覆盖 `VS044` 至 `VS046`、`VSH295` 至 `VSH333`、`VB-C001` 至 `VB-C022`、`VB-C026` 至 `VB-C031` 和 `VB-MSSQL-001` 至 `VB-MSSQL-002`。其中 71 条至少包含一个非空 session 期望；词法隔离用例 `VB-C029` 的所有 statement 均要求不输出 session 投影。
 
 用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
+
+## INSERT VALUES 回归：bind 与表达式混合
+
+`VS-BM001` 至 `VS-BM010` 覆盖 Vastbase SQL Server 兼容模式下 VALUES cell 中 `DEFAULT`、`NULL`、bind、literal 和 expression 的组合，以及两行 VALUES 输入。数据库侧执行 `@name` 参数语法时须具备对应变量或参数作用域，并按部署要求启用 MSSQL 变量格式；`VS-BM010` 的方括号标识符还要求启用 MSSQL 方括号兼容。
+
+`DEFAULT` 始终是独立 cell。每条用例逐 cell 断言 `row`、`column`、`kind` 和 `selector`；逐个直接 bind 断言 `bind_key`、`bind_kind`、`bind_sql`、`bind_position` 和 `selector`，并通过表达式后的直接 bind 位置验证嵌套 bind 已计入全局序号；`GETDATE()`、`CURRENT_TIMESTAMP` 断言为 `kind=expression`，且不得出现在 `query_graph.fields[].column` 中。
+
+| ID | SQL 形态 | 边界 |
+| --- | --- | --- |
+| `VS-BM001` | 三个 `@` bind + 尾部 `GETDATE()` | `@` 引用要求已有变量/参数作用域 |
+| `VS-BM002` | 首位 `GETDATE()` + 三个 `@` bind | 首列 expression 不得造成 bind 错位 |
+| `VS-BM003` | `@` bind、`CURRENT_TIMESTAMP`、`@` bind、`GETDATE()` 交错 | 两种时间 expression 均不得出现在 `query_graph.fields[].column` 中 |
+| `VS-BM004` | bind + `NULL` + `GETDATE()` + bind | `NULL` 为 literal，`GETDATE()` 为 expression |
+| `VS-BM005` | bind + 独立 `DEFAULT` + `CURRENT_TIMESTAMP` + bind | `DEFAULT` 不嵌入其他表达式 |
+| `VS-BM006` | bind + Unicode literal + `GETDATE()` + bind | literal 与 expression 不改变后续 bind 位置 |
+| `VS-BM007` | 直接 bind + `COALESCE(@retry_count, 0)` + `GETDATE()` + 直接 bind | 尾部直接 bind 为 position 3，验证嵌套 bind 已计数 |
+| `VS-BM008` | 直接 bind + 包含 `@enabled` 的 `CASE` 表达式 + `CAST(@amount AS int)` + `CURRENT_TIMESTAMP` + 直接 bind | 尾部直接 bind 为 position 4，验证两个嵌套 bind 均已计数 |
+| `VS-BM009` | 两个 `@` bind + `NULL` + `CURRENT_TIMESTAMP` | 直接 bind、literal 和时间 expression 的相邻映射 |
+| `VS-BM010` | schema-qualified 方括号标识符 + 不规则空白的两行 VALUES | 两行混合 `@` bind、独立 `DEFAULT`、literal、`GETDATE()` 和 `CURRENT_TIMESTAMP` |
+
+## 支持用例
 
 | ID | 用例 | SQL | 状态 |
 | --- | --- | --- | --- |

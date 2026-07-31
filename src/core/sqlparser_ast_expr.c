@@ -64,7 +64,9 @@ sqlparser_status_t sqlparser_parse_wrapper_ast(
 
 	*out_ast = NULL;
 	sqlparser_pg_query_prepare();
-	parse_result = pg_query_parse_protobuf(wrapped_sql);
+	parse_result =
+		sqlparser_parse_protobuf_preserving_identifier_spelling(
+			wrapped_sql);
 	if (parse_result.error != NULL) {
 		sqlparser_error_from_pg(
 			out_error,
@@ -93,6 +95,7 @@ sqlparser_status_t sqlparser_parse_wrapper_ast(
 }
 
 sqlparser_status_t sqlparser_deparse_wrapper_ast(
+	const sqlparser_handle_t *handle,
 	const PgQuery__ParseResult *ast,
 	char **out_sql,
 	sqlparser_error_t *out_error)
@@ -140,18 +143,29 @@ sqlparser_status_t sqlparser_deparse_wrapper_ast(
 	parse_tree.len = packed_size;
 	parse_tree.data = (char *)buffer;
 	sqlparser_pg_query_prepare();
-	deparse_result = pg_query_deparse_protobuf(parse_tree);
+	deparse_result = handle != NULL &&
+			handle->generation > 0UL ?
+		sqlparser_deparse_protobuf_for_handle(
+			handle,
+			parse_tree,
+			SIZE_MAX,
+			0U,
+			0U) :
+		pg_query_deparse_protobuf(parse_tree);
 	free(buffer);
-	if (deparse_result.error != NULL) {
+	if (deparse_result.error != NULL || deparse_result.query == NULL) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INTERNAL_ERROR,
-			deparse_result.error->message != NULL ? deparse_result.error->message : "failed to deparse wrapped SQL");
+			deparse_result.error != NULL &&
+					deparse_result.error->message != NULL ?
+				deparse_result.error->message :
+				"failed to deparse wrapped SQL");
 		pg_query_free_deparse_result(deparse_result);
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 
-	*out_sql = sqlparser_strdup(deparse_result.query != NULL ? deparse_result.query : "");
+	*out_sql = sqlparser_strdup(deparse_result.query);
 	pg_query_free_deparse_result(deparse_result);
 	if (*out_sql == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
@@ -399,6 +413,7 @@ static sqlparser_status_t sqlparser_get_wrapper_variable_set_arg_slot(
 
 sqlparser_status_t sqlparser_parse_insert_cell_node_sql(
 	const char *sql_text,
+	const sqlparser_generated_source_t *source,
 	PgQuery__Node **out_node,
 	sqlparser_error_t *out_error)
 {
@@ -433,7 +448,12 @@ sqlparser_status_t sqlparser_parse_insert_cell_node_sql(
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_clone_proto_node(*slot, out_node, out_error);
 		if (status == SQLPARSER_STATUS_OK) {
-			sqlparser_mark_proto_generated((ProtobufCMessage *)*out_node);
+			status = sqlparser_mark_proto_generated_with_fragment_source(
+				(ProtobufCMessage *)*out_node,
+				wrapped_sql,
+				strlen(prefix),
+				source,
+				out_error);
 		}
 	}
 
@@ -441,11 +461,16 @@ sqlparser_status_t sqlparser_parse_insert_cell_node_sql(
 		pg_query__parse_result__free_unpacked(ast, NULL);
 	}
 	free(wrapped_sql);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_free_proto_node(*out_node);
+		*out_node = NULL;
+	}
 	return status;
 }
 
 sqlparser_status_t sqlparser_parse_update_assignment_node_sql(
 	const char *sql_text,
+	const sqlparser_generated_source_t *source,
 	PgQuery__Node **out_node,
 	sqlparser_error_t *out_error)
 {
@@ -478,7 +503,12 @@ sqlparser_status_t sqlparser_parse_update_assignment_node_sql(
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_clone_proto_node(*slot, out_node, out_error);
 		if (status == SQLPARSER_STATUS_OK) {
-			sqlparser_mark_proto_generated((ProtobufCMessage *)*out_node);
+			status = sqlparser_mark_proto_generated_with_fragment_source(
+				(ProtobufCMessage *)*out_node,
+				wrapped_sql,
+				strlen(prefix),
+				source,
+				out_error);
 		}
 	}
 
@@ -486,11 +516,16 @@ sqlparser_status_t sqlparser_parse_update_assignment_node_sql(
 		pg_query__parse_result__free_unpacked(ast, NULL);
 	}
 	free(wrapped_sql);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_free_proto_node(*out_node);
+		*out_node = NULL;
+	}
 	return status;
 }
 
 sqlparser_status_t sqlparser_parse_variable_set_arg_node_sql(
 	const char *sql_text,
+	const sqlparser_generated_source_t *source,
 	PgQuery__Node **out_node,
 	sqlparser_error_t *out_error)
 {
@@ -523,7 +558,12 @@ sqlparser_status_t sqlparser_parse_variable_set_arg_node_sql(
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_clone_proto_node(*slot, out_node, out_error);
 		if (status == SQLPARSER_STATUS_OK) {
-			sqlparser_mark_proto_generated((ProtobufCMessage *)*out_node);
+			status = sqlparser_mark_proto_generated_with_fragment_source(
+				(ProtobufCMessage *)*out_node,
+				wrapped_sql,
+				strlen(prefix),
+				source,
+				out_error);
 		}
 	}
 
@@ -531,10 +571,15 @@ sqlparser_status_t sqlparser_parse_variable_set_arg_node_sql(
 		pg_query__parse_result__free_unpacked(ast, NULL);
 	}
 	free(wrapped_sql);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_free_proto_node(*out_node);
+		*out_node = NULL;
+	}
 	return status;
 }
 
 sqlparser_status_t sqlparser_render_insert_cell_node_sql(
+	const sqlparser_handle_t *handle,
 	const PgQuery__Node *node,
 	char **out_sql,
 	sqlparser_error_t *out_error)
@@ -574,11 +619,21 @@ sqlparser_status_t sqlparser_render_insert_cell_node_sql(
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_clone_proto_node(node, &replacement, out_error);
 	}
+	if (status == SQLPARSER_STATUS_OK && handle != NULL) {
+		status = sqlparser_mark_proto_generated_from_handle(
+			handle,
+			(ProtobufCMessage *)replacement,
+			out_error);
+	}
 	if (status == SQLPARSER_STATUS_OK) {
 		sqlparser_free_proto_node(*slot);
 		*slot = replacement;
 		replacement = NULL;
-		status = sqlparser_deparse_wrapper_ast(ast, &deparsed_sql, out_error);
+		status = sqlparser_deparse_wrapper_ast(
+			handle,
+			ast,
+			&deparsed_sql,
+			out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_extract_wrapped_value_sql(deparsed_sql, prefix, suffix, out_sql, out_error);
@@ -637,7 +692,11 @@ sqlparser_status_t sqlparser_render_variable_set_arg_node_sql(
 		sqlparser_free_proto_node(*slot);
 		*slot = replacement;
 		replacement = NULL;
-		status = sqlparser_deparse_wrapper_ast(ast, &deparsed_sql, out_error);
+		status = sqlparser_deparse_wrapper_ast(
+			NULL,
+			ast,
+			&deparsed_sql,
+			out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_extract_wrapped_value_sql(deparsed_sql, deparse_prefix, NULL, out_sql, out_error);
@@ -653,6 +712,7 @@ sqlparser_status_t sqlparser_render_variable_set_arg_node_sql(
 }
 
 sqlparser_status_t sqlparser_render_update_assignment_node_sql(
+	const sqlparser_handle_t *handle,
 	const PgQuery__Node *node,
 	char **out_sql,
 	sqlparser_error_t *out_error)
@@ -690,11 +750,21 @@ sqlparser_status_t sqlparser_render_update_assignment_node_sql(
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_clone_proto_node(node, &replacement, out_error);
 	}
+	if (status == SQLPARSER_STATUS_OK && handle != NULL) {
+		status = sqlparser_mark_proto_generated_from_handle(
+			handle,
+			(ProtobufCMessage *)replacement,
+			out_error);
+	}
 	if (status == SQLPARSER_STATUS_OK) {
 		sqlparser_free_proto_node(*slot);
 		*slot = replacement;
 		replacement = NULL;
-		status = sqlparser_deparse_wrapper_ast(ast, &deparsed_sql, out_error);
+		status = sqlparser_deparse_wrapper_ast(
+			handle,
+			ast,
+			&deparsed_sql,
+			out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_extract_wrapped_value_sql(deparsed_sql, prefix, NULL, out_sql, out_error);

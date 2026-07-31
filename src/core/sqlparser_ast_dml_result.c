@@ -154,6 +154,74 @@ sqlparser_status_t sqlparser_get_dml_result_message(
 	return SQLPARSER_STATUS_OK;
 }
 
+sqlparser_status_t sqlparser_get_merge_stmt_by_dml_index(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t dml_index,
+	PgQuery__MergeStmt **out_stmt,
+	sqlparser_error_t *out_error)
+{
+	ProtobufCMessage *message;
+	PgQuery__Node *statement;
+	sqlparser_graph_dml_kind_t kind;
+	sqlparser_status_t status;
+
+	if (out_stmt == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"MERGE statement output must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_stmt = NULL;
+	if (dml_index == 0U) {
+		statement = NULL;
+		status = sqlparser_get_statement_node(
+			handle,
+			statement_index,
+			&statement,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		if (statement == NULL ||
+		    statement->node_case != PG_QUERY__NODE__NODE_MERGE_STMT ||
+		    statement->merge_stmt == NULL) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_UNSUPPORTED,
+				"DML selector does not target a MERGE statement");
+			return SQLPARSER_STATUS_UNSUPPORTED;
+		}
+		*out_stmt = statement->merge_stmt;
+		return SQLPARSER_STATUS_OK;
+	}
+
+	message = NULL;
+	kind = (sqlparser_graph_dml_kind_t)0;
+	status = sqlparser_get_dml_result_message(
+		handle,
+		statement_index,
+		dml_index,
+		&kind,
+		&message,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (kind != SQLPARSER_GRAPH_DML_MERGE ||
+	    message == NULL ||
+	    message->descriptor != &pg_query__merge_stmt__descriptor) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"DML selector does not target a MERGE statement");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	*out_stmt = (PgQuery__MergeStmt *)message;
+	return SQLPARSER_STATUS_OK;
+}
+
 static sqlparser_status_t sqlparser_dml_result_get_list(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
@@ -230,6 +298,8 @@ static sqlparser_status_t sqlparser_dml_result_parse_target(
 {
 	char *result_sql;
 	char *parser_sql;
+	sqlparser_generated_source_t source;
+	sqlparser_identifier_origin_map_t *origins;
 	void *candidate_state;
 	sqlparser_status_t status;
 
@@ -238,6 +308,7 @@ static sqlparser_status_t sqlparser_dml_result_parse_target(
 	*out_action_marker = NULL;
 	result_sql = NULL;
 	parser_sql = NULL;
+	origins = NULL;
 	candidate_state = NULL;
 	status = sqlparser_dialect_dml_result_preprocess_target_sql(
 		handle->dialect,
@@ -248,18 +319,29 @@ static sqlparser_status_t sqlparser_dml_result_parse_target(
 		out_action_marker,
 		out_error);
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_preprocess_handle_sql_fragment(
+		status = sqlparser_preprocess_handle_sql_fragment_with_origins(
 			handle,
 			statement_index,
 			result_sql,
 			"DML result target SQL",
 			&parser_sql,
 			&candidate_state,
+			&origins,
 			out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_parse_select_target_node_sql(parser_sql, out_node, out_error);
+		memset(&source, 0, sizeof(source));
+		source.public_sql = result_sql;
+		source.origins = origins;
+		source.dialect = handle->dialect;
+		source.spelling_handle = handle;
+		status = sqlparser_parse_select_target_node_sql(
+			parser_sql,
+			&source,
+			out_node,
+			out_error);
 	}
+	sqlparser_identifier_origin_map_destroy(origins);
 	free(result_sql);
 	free(parser_sql);
 	if (status != SQLPARSER_STATUS_OK) {
@@ -327,7 +409,11 @@ sqlparser_status_t sqlparser_dml_result_target_sql(
 	absolute_index = channel.target_offset + selector->column_index;
 	core_sql = NULL;
 	fragment_sql = NULL;
-	status = sqlparser_render_select_target_node_sql((*list.items)[absolute_index], &core_sql, out_error);
+	status = sqlparser_render_select_target_node_sql(
+		handle,
+		(*list.items)[absolute_index],
+		&core_sql,
+		out_error);
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_postprocess_handle_sql_fragment(
 			handle,
@@ -410,6 +496,7 @@ sqlparser_status_t sqlparser_dml_result_set_target_sql(
 	free(action_marker);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_free_proto_node(replacement);
+		sqlparser_handle_sweep_identifier_spellings(handle);
 		sqlparser_handle_discard_dialect_state(handle, candidate_state);
 		return status;
 	}
@@ -488,6 +575,7 @@ sqlparser_status_t sqlparser_dml_result_insert_target_sql(
 	if (status != SQLPARSER_STATUS_OK) {
 		free(action_marker);
 		sqlparser_free_proto_node(node);
+		sqlparser_handle_sweep_identifier_spellings(handle);
 		sqlparser_handle_discard_dialect_state(handle, candidate_state);
 		return status;
 	}
@@ -503,6 +591,7 @@ sqlparser_status_t sqlparser_dml_result_insert_target_sql(
 	free(action_marker);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_free_proto_node(node);
+		sqlparser_handle_sweep_identifier_spellings(handle);
 		sqlparser_handle_discard_dialect_state(handle, candidate_state);
 		return status;
 	}
@@ -510,6 +599,7 @@ sqlparser_status_t sqlparser_dml_result_insert_target_sql(
 	next = (PgQuery__Node **)malloc((old_count + 1U) * sizeof(*next));
 	if (next == NULL) {
 		sqlparser_free_proto_node(node);
+		sqlparser_handle_sweep_identifier_spellings(handle);
 		sqlparser_handle_discard_dialect_state(handle, candidate_state);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;

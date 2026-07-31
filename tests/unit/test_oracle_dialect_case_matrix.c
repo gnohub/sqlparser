@@ -160,26 +160,18 @@ static int verify_success_case(
 		return fail_case(case_id, case_name, "view JSON export failed");
 	}
 
-	if (sqlparser_test_verify_view_expectations(case_id, case_name, view_json, expect_root) != 0) {
+	if (sqlparser_test_verify_statement_types(
+		    case_id,
+		    case_name,
+		    handle,
+		    json_object_get(
+			    expect_root, "statement_types")) != 0) {
+		goto fail;
+	}
+	if (sqlparser_test_verify_view_expectations(case_id, case_name, handle, view_json, expect_root) != 0) {
 		goto fail;
 	}
 
-	if (sqlparser_test_text_contains_expected(
-		    case_id,
-		    case_name,
-		    view_json,
-		    "view_contains",
-		    json_object_get(expect_root, "view_contains")) != 0) {
-		goto fail;
-	}
-	if (sqlparser_test_text_not_contains_expected(
-		    case_id,
-		    case_name,
-		    view_json,
-		    "view_not_contains",
-		    json_object_get(expect_root, "view_not_contains")) != 0) {
-		goto fail;
-	}
 	if (sqlparser_test_verify_merge_assignment_mutations(
 		    case_id,
 		    case_name,
@@ -388,6 +380,10 @@ int main(void)
 	int failed;
 
 	failed = 0;
+	if (sqlparser_test_verify_case_schema_gate(
+		    1, 0, 0) != 0) {
+		return 1;
+	}
 	root = json_load_file(SQLPARSER_ORACLE_CASE_FIXTURE_PATH, 0, &error);
 	if (root == NULL) {
 		fprintf(stderr, "FAIL: unable to load fixture %s: %s\n", SQLPARSER_ORACLE_CASE_FIXTURE_PATH, error.text);
@@ -403,24 +399,24 @@ int main(void)
 
 	json_array_foreach(items, index, item) {
 		json_t *expect_root;
-		json_t *ok_value;
 		const char *case_id;
 		const char *case_name;
 		const char *sql;
 		int expected_ok;
 
+		if (sqlparser_test_validate_case_schema(
+			    item,
+			    1,
+			    0,
+			    0,
+			    &expected_ok) != 0) {
+			failed = 1;
+			continue;
+		}
 		case_id = json_string_or_null(json_object_get(item, "id"));
 		case_name = json_string_or_null(json_object_get(item, "name"));
 		sql = json_string_or_null(json_object_get(item, "sql"));
 		expect_root = json_object_get(item, "expect");
-		if (case_id == NULL || case_name == NULL || sql == NULL || !json_is_object(expect_root)) {
-			fprintf(stderr, "FAIL: case %lu is missing id/name/sql/expect\n", (unsigned long)index);
-			failed = 1;
-			continue;
-		}
-
-		ok_value = json_object_get(expect_root, "ok");
-		expected_ok = ok_value == NULL ? 1 : json_is_true(ok_value);
 		if (expected_ok) {
 			if (verify_success_case(case_id, case_name, sql, expect_root) != 0) {
 				failed = 1;

@@ -297,6 +297,7 @@ static sqlparser_status_t sqlparser_get_wrapper_where_slot(
 
 sqlparser_status_t sqlparser_parse_where_node_sql(
 	const char *sql_text,
+	const sqlparser_generated_source_t *source,
 	PgQuery__Node **out_node,
 	sqlparser_error_t *out_error)
 {
@@ -326,7 +327,12 @@ sqlparser_status_t sqlparser_parse_where_node_sql(
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_clone_proto_node(*slot, out_node, out_error);
 		if (status == SQLPARSER_STATUS_OK) {
-			sqlparser_mark_proto_generated((ProtobufCMessage *)*out_node);
+			status = sqlparser_mark_proto_generated_with_fragment_source(
+				(ProtobufCMessage *)*out_node,
+				wrapped_sql,
+				strlen(prefix),
+				source,
+				out_error);
 		}
 	}
 
@@ -334,10 +340,15 @@ sqlparser_status_t sqlparser_parse_where_node_sql(
 		pg_query__parse_result__free_unpacked(ast, NULL);
 	}
 	free(wrapped_sql);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_free_proto_node(*out_node);
+		*out_node = NULL;
+	}
 	return status;
 }
 
 sqlparser_status_t sqlparser_render_where_node_sql(
+	const sqlparser_handle_t *handle,
 	const PgQuery__Node *node,
 	char **out_sql,
 	sqlparser_error_t *out_error)
@@ -373,10 +384,20 @@ sqlparser_status_t sqlparser_render_where_node_sql(
 		status = sqlparser_clone_proto_node(node, &replacement, out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_mark_proto_generated_from_handle(
+			handle,
+			(ProtobufCMessage *)replacement,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
 		sqlparser_free_proto_node(*slot);
 		*slot = replacement;
 		replacement = NULL;
-		status = sqlparser_deparse_wrapper_ast(ast, &deparsed_sql, out_error);
+		status = sqlparser_deparse_wrapper_ast(
+			handle,
+			ast,
+			&deparsed_sql,
+			out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_extract_wrapped_value_sql(deparsed_sql, prefix, NULL, out_sql, out_error);
@@ -549,7 +570,7 @@ sqlparser_status_t sqlparser_statement_where_sql(
 	}
 
 	core_sql = NULL;
-	status = sqlparser_render_where_node_sql(*slot, &core_sql, out_error);
+	status = sqlparser_render_where_node_sql(handle, *slot, &core_sql, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
@@ -573,6 +594,8 @@ static sqlparser_status_t sqlparser_statement_parse_public_where(
 	sqlparser_error_t *out_error)
 {
 	char *parser_sql;
+	sqlparser_generated_source_t source;
+	sqlparser_identifier_origin_map_t *origins;
 	void *dialect_state;
 	sqlparser_status_t status;
 
@@ -583,18 +606,30 @@ static sqlparser_status_t sqlparser_statement_parse_public_where(
 	*out_node = NULL;
 	*out_dialect_state = NULL;
 	parser_sql = NULL;
+	origins = NULL;
 	dialect_state = NULL;
-	status = sqlparser_preprocess_handle_sql_fragment(
+	status = sqlparser_preprocess_handle_sql_fragment_with_origins(
 		handle,
 		statement_index,
 		sql_text,
 		"WHERE SQL",
 		&parser_sql,
 		&dialect_state,
+		&origins,
 		out_error);
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_parse_where_node_sql(parser_sql, out_node, out_error);
+		memset(&source, 0, sizeof(source));
+		source.public_sql = sql_text;
+		source.origins = origins;
+		source.dialect = handle->dialect;
+		source.spelling_handle = handle;
+		status = sqlparser_parse_where_node_sql(
+			parser_sql,
+			&source,
+			out_node,
+			out_error);
 	}
+	sqlparser_identifier_origin_map_destroy(origins);
 	free(parser_sql);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_handle_discard_dialect_state(handle, dialect_state);
@@ -681,6 +716,7 @@ sqlparser_status_t sqlparser_statement_append_where_sql(
 	status = sqlparser_where_append_node(slot, bool_operator, condition, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_free_proto_node(condition);
+		sqlparser_handle_sweep_identifier_spellings(handle);
 		sqlparser_handle_discard_dialect_state(handle, dialect_state);
 		return status;
 	}

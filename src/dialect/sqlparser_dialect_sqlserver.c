@@ -110,12 +110,6 @@ typedef struct {
 	size_t capacity;
 } sqlparser_sqlserver_pending_top_list_t;
 
-static sqlparser_status_t sqlparser_sqlserver_preprocess_text(
-	const char *input_sql,
-	sqlparser_sqlserver_state_t *state,
-	char **out_sql,
-	sqlparser_error_t *out_error);
-
 static sqlparser_status_t sqlparser_sqlserver_preprocess_text_origins(
 	const char *input_sql,
 	sqlparser_sqlserver_state_t *state,
@@ -6204,20 +6198,6 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_text_origins(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_sqlserver_preprocess_text(
-	const char *input_sql,
-	sqlparser_sqlserver_state_t *state,
-	char **out_sql,
-	sqlparser_error_t *out_error)
-{
-	return sqlparser_sqlserver_preprocess_text_origins(
-		input_sql,
-		state,
-		out_sql,
-		NULL,
-		out_error);
-}
-
 static sqlparser_status_t sqlparser_sqlserver_param_to_public(
 	const char *sql,
 	size_t *index,
@@ -6469,46 +6449,6 @@ static sqlparser_status_t sqlparser_sqlserver_postprocess_core(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_sqlserver_append_public_use_value(
-	sqlparser_sqlserver_buffer_t *out,
-	const char *value_start,
-	const char *value_end,
-	sqlparser_error_t *out_error)
-{
-	const char *pos;
-	sqlparser_status_t status;
-
-	if (value_start < value_end && *value_start == '"' && *(value_end - 1) == '"') {
-		status = sqlparser_sqlserver_buffer_append_char(out, '[', out_error);
-		if (status != SQLPARSER_STATUS_OK) {
-			return status;
-		}
-		pos = value_start + 1;
-		while (pos < value_end - 1) {
-			if (*pos == '"' && pos + 1 < value_end - 1 && *(pos + 1) == '"') {
-				status = sqlparser_sqlserver_buffer_append_char(out, '"', out_error);
-				pos += 2;
-			} else if (*pos == ']') {
-				status = sqlparser_sqlserver_buffer_append_cstr(out, "]]", out_error);
-				pos++;
-			} else {
-				status = sqlparser_sqlserver_buffer_append_char(out, *pos, out_error);
-				pos++;
-			}
-			if (status != SQLPARSER_STATUS_OK) {
-				return status;
-			}
-		}
-		return sqlparser_sqlserver_buffer_append_char(out, ']', out_error);
-	}
-
-	return sqlparser_sqlserver_buffer_append_mem(
-		out,
-		value_start,
-		(size_t)(value_end - value_start),
-		out_error);
-}
-
 static sqlparser_status_t sqlparser_sqlserver_rewrite_internal_use_statement(
 	char **io_sql,
 	sqlparser_error_t *out_error)
@@ -6542,11 +6482,14 @@ static sqlparser_status_t sqlparser_sqlserver_rewrite_internal_use_statement(
 	if (value_start >= value_end) {
 		return SQLPARSER_STATUS_OK;
 	}
-
 	memset(&out, 0, sizeof(out));
 	status = sqlparser_sqlserver_buffer_append_cstr(&out, "USE ", out_error);
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_sqlserver_append_public_use_value(&out, value_start, value_end, out_error);
+		status = sqlparser_sqlserver_buffer_append_mem(
+			&out,
+			value_start,
+			(size_t)(value_end - value_start),
+			out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_sqlserver_buffer_finish(&out, out_error);
@@ -8645,11 +8588,12 @@ sqlparser_status_t sqlparser_sqlserver_preprocess_identifier_origins(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_sqlserver_preprocess_fragment(
+sqlparser_status_t sqlparser_sqlserver_preprocess_fragment_identifier_origins(
 	const char *input_sql,
 	void *state,
 	size_t statement_index,
 	char **out_parser_sql,
+	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_sqlserver_state_t *unit_state;
@@ -8686,10 +8630,27 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_fragment(
 			"SQL Server fragment statement index is out of range");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	return sqlparser_sqlserver_preprocess_text(
+	return sqlparser_sqlserver_preprocess_text_origins(
 		input_sql,
 		unit_state,
 		out_parser_sql,
+		origins,
+		out_error);
+}
+
+static sqlparser_status_t sqlparser_sqlserver_preprocess_fragment(
+	const char *input_sql,
+	void *state,
+	size_t statement_index,
+	char **out_parser_sql,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_sqlserver_preprocess_fragment_identifier_origins(
+		input_sql,
+		state,
+		statement_index,
+		out_parser_sql,
+		NULL,
 		out_error);
 }
 

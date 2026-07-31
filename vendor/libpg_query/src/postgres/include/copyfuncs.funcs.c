@@ -45,6 +45,7 @@ _copyAlias(const Alias *from)
 
 	COPY_STRING_FIELD(aliasname);
 	COPY_NODE_FIELD(colnames);
+	COPY_SCALAR_FIELD(location);
 
 	return newnode;
 }
@@ -5230,6 +5231,7 @@ _copyString(const String *from)
 	String *newnode = makeNode(String);
 
 	COPY_STRING_FIELD(sval);
+	COPY_LOCATION_FIELD(location);
 
 	return newnode;
 }

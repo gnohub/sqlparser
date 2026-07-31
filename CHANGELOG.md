@@ -1,5 +1,33 @@
 # 变更记录
 
+## 2.13.0
+
+### MERGE 分支结构与改写
+
+- Query Graph 按源码顺序投影 MERGE 的每个 `WHEN` 分支，并提供 action、match 类型、INSERT 目标列与行以及 UPDATE assignment 范围；有条件的分支同时提供对应的 condition selector。
+- 新增 `SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION`、MERGE action/match 枚举、两个枚举名称函数和一个 MERGE 分支详情访问函数；顶层与嵌套 MERGE 的分支条件和赋值项均可通过 selector 定位。
+- MERGE UPDATE assignment 保留目标字段、来源字段、source target 和 bind 的关联，可通过既有 assignment selector 与 patch 操作读取、插入、替换和删除。
+- Oracle、达梦和 Vastbase-Oracle 支持 MERGE UPDATE/INSERT action 级 `WHERE`；其他方言拒绝该语法。
+
+### INSERT VALUES 与 View 语义
+
+- 九种方言模式的 `INSERT ... VALUES` 支持 bind、literal、独立 `DEFAULT`、函数和复合表达式混合排列，并保持逐单元格的行列坐标、selector 与全局 bind 序号。
+- 表达式内部的 bind 参与全局序号计算；`SYSDATE`、`CURRENT_TIMESTAMP`、`NOW()`、`GETDATE()` 等时间表达式作为 expression cell 输出，不会被投影为字段名称。
+- 新增九组共 90 条混合 VALUES 回归用例，覆盖单行、多行、表达式首尾与交错、嵌套 bind、带定界符的标识符和非常规空白。
+
+### Patch 后的标识符与反解析
+
+- SQL 片段 patch 解析为 AST 后，新增标识符保留片段中的大小写、定界符和转义形式；双引号、MySQL 反引号及 SQL Server 方括号不会被替换或重复添加。
+- generation 为 `0` 的未改写 handle 继续逐字节返回原始 SQL。generation 大于 `0` 时根据当前 AST 生成 SQL；标识符的大小写、定界符和转义形式予以保留，节点之间的空白可能由反解析器规范化。
+- 标识符拼写状态在成功改写、失败改写后的回滚、handle 克隆和销毁路径中均按既定生命周期管理，并且不会因重复失败的 patch 操作而累积。
+
+### 性能、兼容性与验证
+
+- MERGE 语法验证通过 O(AST) 的主 protobuf 深度优先遍历完成，并执行分支局部检查；Query Graph 在单次构建中复用 statement 级定位数据、表达式源码扫描游标和当前 SQL 缓存，减少重复树遍历、反解析和源码扫描。
+- 公共 API 采用追加式扩展，既有函数签名和公共结构体布局保持不变。动态库 ABI 主版本保持为 `libsqlparser.so.0`，ABI 导出检查包含 152 个公共符号。
+- 九套方言矩阵的 2535 条预期成功用例均执行 generation-`0` 逐字节反解析检查、AST 标识符拼写审计和 View 构建，并对声明的结构化期望逐字段断言。
+- 发布验证覆盖 GCC 8.3 严格发布/调试构建、全量测试、install smoke、ABI、ASan、UBSan、Valgrind 和 benchmark smoke。
+
 ## 2.12.0
 
 ### 反解析与 AST 标识符

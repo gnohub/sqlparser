@@ -175,7 +175,9 @@ static void deparseSelectStmt(DeparseState *state, SelectStmt *stmt, DeparseNode
 static void deparseIntoClause(DeparseState *state, IntoClause *into_clause);
 static void deparseRangeVar(DeparseState *state, RangeVar *range_var, DeparseNodeContext context);
 static void deparseResTarget(DeparseState *state, ResTarget *res_target, DeparseNodeContext context);
-static void deparseAlias(DeparseState *state, Alias *alias, int location);
+static void deparseAlias(
+	DeparseState *state,
+	Alias *alias);
 static void deparseWindowDef(DeparseState *state, WindowDef* window_def);
 static void deparseColumnRef(DeparseState *state, ColumnRef* column_ref);
 static void deparseSubLink(DeparseState *state, SubLink* sub_link);
@@ -429,6 +431,79 @@ deparseIdentifier(
 {
 	const char *resolved = NULL;
 	size_t resolved_length = 0;
+	unsigned int generated_style = 0;
+
+	if (location <= POSTGRES_DEPARSE_GENERATED_SPELLING_LAST &&
+		state->opts.identifier_resolver != NULL &&
+		state->opts.identifier_resolver(
+			state->opts.identifier_resolver_context,
+			identifier,
+			location,
+			component_index,
+			search_forward,
+			&resolved,
+			&resolved_length) &&
+		resolved != NULL &&
+		resolved_length <= INT_MAX)
+	{
+		appendBinaryStringInfo(
+			deparseGetCurrentStringInfo(state),
+			resolved,
+			(int) resolved_length);
+		return;
+	}
+	if (location < POSTGRES_DEPARSE_GENERATED_STYLE_BASE &&
+		component_index < 10)
+	{
+		unsigned int payload;
+
+		payload = (unsigned int)(
+			(int64) POSTGRES_DEPARSE_GENERATED_STYLE_BASE -
+			(int64) location);
+		generated_style =
+			(payload >>
+			 (component_index * POSTGRES_DEPARSE_IDENTIFIER_STYLE_BITS)) &
+			POSTGRES_DEPARSE_IDENTIFIER_STYLE_MASK;
+	}
+	if (generated_style != 0)
+	{
+		const char *cursor;
+		char opening;
+		char closing;
+
+		if (state->opts.identifier_resolver != NULL)
+			(void) state->opts.identifier_resolver(
+				state->opts.identifier_resolver_context,
+				identifier,
+				location,
+				component_index,
+				search_forward,
+				&resolved,
+				&resolved_length);
+		if (generated_style ==
+			POSTGRES_DEPARSE_IDENTIFIER_STYLE_UNQUOTED)
+		{
+			deparseAppendStringInfoString(state, identifier);
+			return;
+		}
+		opening = generated_style ==
+			POSTGRES_DEPARSE_IDENTIFIER_STYLE_BACKTICK_QUOTED ?
+			'`' :
+			generated_style ==
+				POSTGRES_DEPARSE_IDENTIFIER_STYLE_BRACKET_QUOTED ?
+				'[' :
+				'"';
+		closing = opening == '[' ? ']' : opening;
+		deparseAppendStringInfoChar(state, opening);
+		for (cursor = identifier; *cursor != '\0'; cursor++)
+		{
+			if (*cursor == closing)
+				deparseAppendStringInfoChar(state, closing);
+			deparseAppendStringInfoChar(state, *cursor);
+		}
+		deparseAppendStringInfoChar(state, closing);
+		return;
+	}
 
 	if (state->opts.identifier_resolver != NULL &&
 		state->opts.identifier_resolver(
@@ -450,6 +525,33 @@ deparseIdentifier(
 	}
 
 	deparseAppendStringInfoString(state, quote_identifier(identifier));
+}
+
+static void
+deparseStringIdentifier(
+	DeparseState *state,
+	const String *identifier,
+	int fallback_location,
+	size_t fallback_component_index,
+	bool search_forward)
+{
+	int location = fallback_location;
+	size_t component_index = fallback_component_index;
+
+	if (identifier->location >= 0 ||
+		identifier->location < POSTGRES_DEPARSE_GENERATED_STYLE_BASE)
+	{
+		location = identifier->location;
+		component_index = 0;
+		if (location >= 0)
+			search_forward = false;
+	}
+	deparseIdentifier(
+		state,
+		identifier->sval,
+		location,
+		component_index,
+		search_forward);
 }
 
 static bool
@@ -810,7 +912,12 @@ static void deparseAnyName(DeparseState *state, List *parts)
 	foreach(lc, parts)
 	{
 		Assert(IsA(lfirst(lc), String));
-		deparseIdentifier(state, strVal(lfirst(lc)), -1, 0, true);
+		deparseStringIdentifier(
+			state,
+			castNode(String, lfirst(lc)),
+			-1,
+			0,
+			true);
 		if (lnext(parts, lc))
 			deparseAppendStringInfoChar(state, '.');
 	}
@@ -827,9 +934,9 @@ static void deparseAnyNameAt(
 	foreach(lc, parts)
 	{
 		Assert(IsA(lfirst(lc), String));
-		deparseIdentifier(
+		deparseStringIdentifier(
 			state,
-			strVal(lfirst(lc)),
+			castNode(String, lfirst(lc)),
 			location,
 			component_index++,
 			false);
@@ -845,7 +952,12 @@ static void deparseAnyNameSkipFirst(DeparseState *state, List *parts)
 	for_each_from(lc, parts, 1)
 	{
 		Assert(IsA(lfirst(lc), String));
-		deparseIdentifier(state, strVal(lfirst(lc)), -1, 0, true);
+		deparseStringIdentifier(
+			state,
+			castNode(String, lfirst(lc)),
+			-1,
+			0,
+			true);
 		if (lnext(parts, lc))
 			deparseAppendStringInfoChar(state, '.');
 	}
@@ -858,7 +970,12 @@ static void deparseAnyNameSkipLast(DeparseState *state, List *parts)
 	{
 		if (lnext(parts, lc))
 		{
-			deparseIdentifier(state, strVal(lfirst(lc)), -1, 0, true);
+			deparseStringIdentifier(
+				state,
+				castNode(String, lfirst(lc)),
+				-1,
+				0,
+				true);
 			if (foreach_current_index(lc) < list_length(parts) - 2)
 				deparseAppendStringInfoChar(state, '.');
 		}
@@ -1133,7 +1250,12 @@ static void deparseOptIndirection(DeparseState *state, List *indirection, int N)
 		if (IsA(lfirst(lc), String))
 		{
 			deparseAppendStringInfoChar(state, '.');
-			deparseColLabel(state, strVal(lfirst(lc)));
+			deparseStringIdentifier(
+				state,
+				castNode(String, lfirst(lc)),
+				-1,
+				0,
+				true);
 		}
 		else if (IsA(lfirst(lc), A_Star))
 		{
@@ -1166,9 +1288,9 @@ deparseOptIndirectionAt(
 		if (IsA(lfirst(lc), String))
 		{
 			deparseAppendStringInfoChar(state, '.');
-			deparseIdentifier(
+			deparseStringIdentifier(
 				state,
-				strVal(lfirst(lc)),
+				castNode(String, lfirst(lc)),
 				location,
 				(*component_index)++,
 				false);
@@ -1634,8 +1756,18 @@ static void deparseNonReservedWordOrSconstFrom(
 	int location,
 	bool search_forward)
 {
-	PostgresDeparseSourceTokenKind source_kind =
-		deparseSourceToken(state, val, location, search_forward);
+	PostgresDeparseSourceTokenKind source_kind;
+
+	if (location < POSTGRES_DEPARSE_GENERATED_STYLE_BASE)
+	{
+		deparseIdentifier(state, val, location, 0, search_forward);
+		return;
+	}
+	source_kind = deparseSourceToken(
+		state,
+		val,
+		location,
+		search_forward);
 
 	if (strlen(val) == 0)
 		deparseAppendStringInfoString(state, "''");
@@ -1965,7 +2097,12 @@ static void deparseColumnList(DeparseState *state, List *columns)
 	ListCell *lc = NULL;
 	foreach(lc, columns)
 	{
-		deparseIdentifier(state, strVal(lfirst(lc)), -1, 0, true);
+		deparseStringIdentifier(
+			state,
+			castNode(String, lfirst(lc)),
+			-1,
+			0,
+			true);
 		if (lnext(columns, lc))
 			deparseAppendStringInfoString(state, ", ");
 	}
@@ -3194,7 +3331,7 @@ static void deparseSelectStmt(DeparseState *state, SelectStmt *stmt, DeparseNode
 						state,
 						window_def->name,
 						window_def->location,
-						POSTGRES_DEPARSE_WINDOW_NAME_COMPONENT,
+						0,
 						false);
 					deparseAppendStringInfoString(state, " AS ");
 					deparseWindowDef(state, window_def);
@@ -3364,7 +3501,7 @@ static void deparseRangeVar(DeparseState *state, RangeVar *range_var, DeparseNod
 	{
 		if (context == DEPARSE_NODE_CONTEXT_INSERT_RELATION)
 			deparseAppendStringInfoString(state, "AS ");
-		deparseAlias(state, range_var->alias, range_var->location);
+		deparseAlias(state, range_var->alias);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -3418,22 +3555,29 @@ void deparseRawStmtOpts(StringInfo str, struct RawStmt *raw_stmt, PostgresDepars
 	pfree(state);
 }
 
-static void deparseAlias(DeparseState *state, Alias *alias, int location)
+static void deparseAlias(
+	DeparseState *state,
+	Alias *alias)
 {
 	const ListCell *lc = NULL;
 	size_t component_index = 0;
 
-	deparseIdentifier(state, alias->aliasname, location, 0, true);
+	deparseIdentifier(
+		state,
+		alias->aliasname,
+		alias->location,
+		component_index++,
+		true);
 
 	if (list_length(alias->colnames) > 0)
 	{
 		deparseAppendStringInfoChar(state, '(');
 		foreach(lc, alias->colnames)
 		{
-			deparseIdentifier(
+			deparseStringIdentifier(
 				state,
-				strVal(lfirst(lc)),
-				location,
+				castNode(String, lfirst(lc)),
+				alias->location,
 				component_index++,
 				true);
 			if (lnext(alias->colnames, lc))
@@ -3841,7 +3985,16 @@ static void deparseWindowDef(DeparseState *state, WindowDef* window_def)
 
 	if (window_def->refname != NULL)
 	{
-		deparseIdentifier(state, window_def->refname, -1, 0, true);
+		deparseIdentifier(
+			state,
+			window_def->refname,
+			window_def->location,
+			window_def->location <
+					POSTGRES_DEPARSE_GENERATED_STYLE_BASE &&
+				window_def->name != NULL ?
+					1 :
+					0,
+			true);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -3950,9 +4103,9 @@ static void deparseColumnRef(DeparseState *state, ColumnRef* column_ref)
 	if (IsA(linitial(column_ref->fields), A_Star))
 		deparseAStar(state, castNode(A_Star, linitial(column_ref->fields)));
 	else if (IsA(linitial(column_ref->fields), String))
-		deparseIdentifier(
+		deparseStringIdentifier(
 			state,
-			strVal(linitial(column_ref->fields)),
+			castNode(String, linitial(column_ref->fields)),
 			column_ref->location,
 			component_index++,
 			false);
@@ -4333,7 +4486,14 @@ static void deparseCollateClause(DeparseState *state, CollateClause* collate_cla
 		deparseAppendStringInfoChar(state, ' ');
 	}
 	deparseAppendStringInfoString(state, "COLLATE ");
-	deparseAnyName(state, collate_clause->collname);
+	if (collate_clause->location <
+		POSTGRES_DEPARSE_GENERATED_STYLE_BASE)
+		deparseAnyNameAt(
+			state,
+			collate_clause->collname,
+			collate_clause->location);
+	else
+		deparseAnyName(state, collate_clause->collname);
 }
 
 // "sortby" in gram.y
@@ -4382,55 +4542,91 @@ static void deparseParamRef(DeparseState *state, ParamRef* param_ref)
 	}
 }
 
-static void deparseSQLValueFunction(DeparseState *state, SQLValueFunction* sql_value_function)
+static const char *deparseSQLValueFunctionKeyword(SQLValueFunctionOp op)
 {
-	switch (sql_value_function->op)
+	switch (op)
 	{
 		case SVFOP_CURRENT_DATE:
-			deparseAppendStringInfoString(state, "current_date");
-			break;
+			return "current_date";
 		case SVFOP_CURRENT_TIME:
-			deparseAppendStringInfoString(state, "current_time");
-			break;
 		case SVFOP_CURRENT_TIME_N:
-			deparseAppendStringInfoString(state, "current_time"); // with precision
-			break;
+			return "current_time";
 		case SVFOP_CURRENT_TIMESTAMP:
-			deparseAppendStringInfoString(state, "current_timestamp");
-			break;
 		case SVFOP_CURRENT_TIMESTAMP_N:
-			deparseAppendStringInfoString(state, "current_timestamp"); // with precision
-			break;
+			return "current_timestamp";
 		case SVFOP_LOCALTIME:
-			deparseAppendStringInfoString(state, "localtime");
-			break;
 		case SVFOP_LOCALTIME_N:
-			deparseAppendStringInfoString(state, "localtime"); // with precision
-			break;
+			return "localtime";
 		case SVFOP_LOCALTIMESTAMP:
-			deparseAppendStringInfoString(state, "localtimestamp");
-			break;
 		case SVFOP_LOCALTIMESTAMP_N:
-			deparseAppendStringInfoString(state, "localtimestamp"); // with precision
-			break;
+			return "localtimestamp";
 		case SVFOP_CURRENT_ROLE:
-			deparseAppendStringInfoString(state, "current_role");
-			break;
+			return "current_role";
 		case SVFOP_CURRENT_USER:
-			deparseAppendStringInfoString(state, "current_user");
-			break;
+			return "current_user";
 		case SVFOP_USER:
-			deparseAppendStringInfoString(state, "user");
-			break;
+			return "user";
 		case SVFOP_SESSION_USER:
-			deparseAppendStringInfoString(state, "session_user");
-			break;
+			return "session_user";
 		case SVFOP_CURRENT_CATALOG:
-			deparseAppendStringInfoString(state, "current_catalog");
-			break;
+			return "current_catalog";
 		case SVFOP_CURRENT_SCHEMA:
-			deparseAppendStringInfoString(state, "current_schema");
-			break;
+			return "current_schema";
+		default:
+			return NULL;
+	}
+}
+
+static void deparseSQLValueFunction(DeparseState *state, SQLValueFunction* sql_value_function)
+{
+	const char *keyword;
+	const char *resolved = NULL;
+	size_t resolved_length = 0;
+
+	keyword = deparseSQLValueFunctionKeyword(sql_value_function->op);
+	if (keyword == NULL)
+		return;
+	if (sql_value_function->location <=
+			POSTGRES_DEPARSE_SQL_VALUE_CASE_BASE &&
+		sql_value_function->location >=
+			POSTGRES_DEPARSE_SQL_VALUE_CASE_LAST)
+	{
+		unsigned int uppercase_mask;
+		size_t index;
+
+		uppercase_mask = (unsigned int)(
+			(int64) POSTGRES_DEPARSE_SQL_VALUE_CASE_BASE -
+			(int64) sql_value_function->location);
+		for (index = 0; keyword[index] != '\0'; index++)
+		{
+			char ch = keyword[index];
+
+			if ((uppercase_mask & (1U << index)) != 0U &&
+				ch >= 'a' && ch <= 'z')
+				ch = (char) (ch - ('a' - 'A'));
+			deparseAppendStringInfoChar(state, ch);
+		}
+	}
+	else if (state->opts.identifier_resolver != NULL &&
+			 state->opts.identifier_resolver(
+				 state->opts.identifier_resolver_context,
+				 keyword,
+				 sql_value_function->location,
+				 POSTGRES_DEPARSE_SQL_VALUE_FUNCTION_COMPONENT,
+				 false,
+				 &resolved,
+				 &resolved_length) &&
+			 resolved != NULL &&
+			 resolved_length <= INT_MAX)
+	{
+		appendBinaryStringInfo(
+			deparseGetCurrentStringInfo(state),
+			resolved,
+			(int) resolved_length);
+	}
+	else
+	{
+		deparseAppendStringInfoString(state, keyword);
 	}
 
 	if (sql_value_function->typmod != -1)
@@ -4518,9 +4714,9 @@ static void deparseJoinExpr(DeparseState *state, JoinExpr *join_expr)
 		deparseAppendStringInfoString(state, "USING (");
 		foreach(lc, join_expr->usingClause)
 		{
-			deparseIdentifier(
+			deparseStringIdentifier(
 				state,
-				strVal(lfirst(lc)),
+				castNode(String, lfirst(lc)),
 				-1,
 				0,
 				true);
@@ -4545,7 +4741,7 @@ static void deparseJoinExpr(DeparseState *state, JoinExpr *join_expr)
 		deparseAppendStringInfoString(state, ") ");
 
 	if (join_expr->alias != NULL)
-		deparseAlias(state, join_expr->alias, -1);
+		deparseAlias(state, join_expr->alias);
 
 	removeTrailingSpace(state);
 }
@@ -4564,7 +4760,12 @@ static void deparseCTESearchClause(DeparseState *state, CTESearchClause *search_
 		deparseColumnList(state, search_clause->search_col_list);
 
 	deparseAppendStringInfoString(state, " SET ");
-	deparseIdentifier(state, search_clause->search_seq_column, -1, 0, true);
+	deparseIdentifier(
+		state,
+		search_clause->search_seq_column,
+		search_clause->location,
+		0,
+		true);
 }
 
 // "opt_cycle_clause" in gram.y
@@ -4576,7 +4777,12 @@ static void deparseCTECycleClause(DeparseState *state, CTECycleClause *cycle_cla
 		deparseColumnList(state, cycle_clause->cycle_col_list);
 
 	deparseAppendStringInfoString(state, " SET ");
-	deparseIdentifier(state, cycle_clause->cycle_mark_column, -1, 0, true);
+	deparseIdentifier(
+		state,
+		cycle_clause->cycle_mark_column,
+		cycle_clause->location,
+		0,
+		true);
 
 	if (cycle_clause->cycle_mark_value)
 	{
@@ -4591,7 +4797,12 @@ static void deparseCTECycleClause(DeparseState *state, CTECycleClause *cycle_cla
 	}
 
 	deparseAppendStringInfoString(state, " USING ");
-	deparseIdentifier(state, cycle_clause->cycle_path_column, -1, 0, true);
+	deparseIdentifier(
+		state,
+		cycle_clause->cycle_path_column,
+		cycle_clause->location,
+		1,
+		true);
 }
 
 static void deparseCommonTableExpr(DeparseState *state, CommonTableExpr *cte)
@@ -4604,14 +4815,20 @@ static void deparseCommonTableExpr(DeparseState *state, CommonTableExpr *cte)
 
 	if (list_length(cte->aliascolnames) > 0)
 	{
+		size_t component_index =
+			cte->location <
+				POSTGRES_DEPARSE_GENERATED_STYLE_BASE ?
+					1 :
+					0;
+
 		deparseAppendStringInfoChar(state, '(');
 		foreach(lc, cte->aliascolnames)
 		{
-			deparseIdentifier(
+			deparseStringIdentifier(
 				state,
-				strVal(lfirst(lc)),
+				castNode(String, lfirst(lc)),
 				cte->location,
-				0,
+				component_index++,
 				true);
 			if (lnext(cte->aliascolnames, lc))
 				deparseAppendStringInfoString(state, ", ");
@@ -4654,7 +4871,7 @@ static void deparseRangeSubselect(DeparseState *state, RangeSubselect *range_sub
 	if (range_subselect->alias != NULL)
 	{
 		deparseAppendStringInfoChar(state, ' ');
-		deparseAlias(state, range_subselect->alias, -1);
+		deparseAlias(state, range_subselect->alias);
 	}
 }
 
@@ -4705,7 +4922,7 @@ static void deparseRangeFunction(DeparseState *state, RangeFunction *range_func)
 
 	if (range_func->alias != NULL)
 	{
-		deparseAlias(state, range_func->alias, -1);
+		deparseAlias(state, range_func->alias);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -4877,7 +5094,9 @@ deparseTypeNameIsSystem(
 	if (state->opts.source_token_probe == NULL)
 		return true;
 	if (type_name->location ==
-		POSTGRES_DEPARSE_GENERATED_IDENTIFIER_LOCATION)
+			POSTGRES_DEPARSE_GENERATED_IDENTIFIER_LOCATION ||
+		type_name->location <
+			POSTGRES_DEPARSE_GENERATED_STYLE_BASE)
 		return false;
 
 	name = strVal(lsecond(type_name->names));
@@ -5044,7 +5263,9 @@ static void deparseTypeName(DeparseState *state, TypeName *type_name)
 	}
 	else
 	{
-		if (type_name->location >= 0)
+		if (type_name->location >= 0 ||
+			type_name->location <
+				POSTGRES_DEPARSE_GENERATED_STYLE_BASE)
 			deparseAnyNameAt(state, type_name->names, type_name->location);
 		else
 			deparseAnyName(state, type_name->names);
@@ -5550,6 +5771,21 @@ static void deparseUpdateStmt(DeparseState *state, UpdateStmt *update_stmt)
 	deparseStateDecreaseNestingLevel(state, parent_level);
 }
 
+static Node *
+mergeActionWhereCondition(Node *node)
+{
+	BoolExpr *expression;
+
+	if (node == NULL || !IsA(node, BoolExpr))
+		return NULL;
+	expression = castNode(BoolExpr, node);
+	if (expression->boolop != AND_EXPR ||
+		expression->location != PG_QUERY_MERGE_ACTION_WHERE_LOCATION ||
+		list_length(expression->args) != 1)
+		return NULL;
+	return linitial(expression->args);
+}
+
 // "MergeStmt" in gram.y
 static void deparseMergeStmt(DeparseState *state, MergeStmt *merge_stmt)
 {
@@ -5578,6 +5814,9 @@ static void deparseMergeStmt(DeparseState *state, MergeStmt *merge_stmt)
 	foreach (lc, merge_stmt->mergeWhenClauses)
 	{
 		MergeWhenClause *clause = castNode(MergeWhenClause, lfirst(lc));
+		BoolExpr *combinedCondition = NULL;
+		Node *actionCondition = NULL;
+		Node *directActionCondition;
 
 		deparseAppendStringInfoString(state, "WHEN ");
 
@@ -5594,10 +5833,72 @@ static void deparseMergeStmt(DeparseState *state, MergeStmt *merge_stmt)
 				break;
 		}
 
-		if (clause->condition)
+		directActionCondition =
+			mergeActionWhereCondition(clause->condition);
+		if (directActionCondition != NULL)
+		{
+			actionCondition = directActionCondition;
+		}
+		else if (clause->condition != NULL &&
+				 IsA(clause->condition, BoolExpr))
+		{
+			BoolExpr *condition =
+				castNode(BoolExpr, clause->condition);
+
+			if (condition->boolop == AND_EXPR &&
+				list_length(condition->args) > 1)
+			{
+				actionCondition =
+					mergeActionWhereCondition(
+						llast(condition->args));
+				if (actionCondition != NULL)
+					combinedCondition = condition;
+			}
+		}
+
+		if (clause->condition != NULL &&
+			directActionCondition == NULL)
 		{
 			deparseAppendStringInfoString(state, "AND ");
-			deparseExpr(state, clause->condition, DEPARSE_NODE_CONTEXT_A_EXPR);
+			if (combinedCondition != NULL)
+			{
+				ListCell *conditionCell;
+
+				foreach (conditionCell, combinedCondition->args)
+				{
+					Node *conditionArg;
+					bool needParens;
+
+					if (conditionCell ==
+						list_tail(combinedCondition->args))
+						break;
+					conditionArg = lfirst(conditionCell);
+					needParens =
+						IsA(conditionArg, BoolExpr) &&
+						(castNode(BoolExpr, conditionArg)->boolop ==
+							 AND_EXPR ||
+						 castNode(BoolExpr, conditionArg)->boolop ==
+							 OR_EXPR);
+					if (needParens)
+						deparseAppendStringInfoChar(state, '(');
+					deparseExpr(
+						state,
+						conditionArg,
+						DEPARSE_NODE_CONTEXT_A_EXPR);
+					if (needParens)
+						deparseAppendStringInfoChar(state, ')');
+					if (lnext(combinedCondition->args, conditionCell) !=
+						list_tail(combinedCondition->args))
+						deparseAppendStringInfoString(state, " AND ");
+				}
+			}
+			else
+			{
+				deparseExpr(
+					state,
+					clause->condition,
+					DEPARSE_NODE_CONTEXT_A_EXPR);
+			}
 			deparseAppendStringInfoChar(state, ' ');
 		}
 
@@ -5637,6 +5938,14 @@ static void deparseMergeStmt(DeparseState *state, MergeStmt *merge_stmt)
 			default:
 				elog(ERROR, "deparse: unpermitted command type in merge statement: %d", clause->commandType);
 				break;
+		}
+		if (actionCondition != NULL)
+		{
+			deparseAppendStringInfoString(state, " WHERE ");
+			deparseExpr(
+				state,
+				actionCondition,
+				DEPARSE_NODE_CONTEXT_A_EXPR);
 		}
 
 		if (lfirst(lc) != llast(merge_stmt->mergeWhenClauses))
@@ -11545,7 +11854,12 @@ static void deparseXmlExpr(DeparseState *state, XmlExpr* xml_expr, DeparseNodeCo
 			break;
 		case IS_XMLELEMENT: /* XMLELEMENT(name, xml_attributes, args) */
 			deparseAppendStringInfoString(state, "xmlelement(name ");
-			deparseIdentifier(state, xml_expr->name, -1, 0, true);
+			deparseIdentifier(
+				state,
+				xml_expr->name,
+				xml_expr->location,
+				0,
+				true);
 			if (xml_expr->named_args != NULL)
 			{
 				deparseAppendStringInfoString(state, ", xmlattributes(");
@@ -11583,7 +11897,12 @@ static void deparseXmlExpr(DeparseState *state, XmlExpr* xml_expr, DeparseNodeCo
 			break;
 		case IS_XMLPI: /* XMLPI(name [, args]) */
 			deparseAppendStringInfoString(state, "xmlpi(name ");
-			deparseIdentifier(state, xml_expr->name, -1, 0, true);
+			deparseIdentifier(
+				state,
+				xml_expr->name,
+				xml_expr->location,
+				0,
+				true);
 			if (xml_expr->args != NULL)
 			{
 				deparseAppendStringInfoString(state, ", ");
@@ -11691,7 +12010,7 @@ static void deparseRangeTableFunc(DeparseState *state, RangeTableFunc* range_tab
 	if (range_table_func->alias)
 	{
 		deparseAppendStringInfoString(state, "AS ");
-		deparseAlias(state, range_table_func->alias, -1);
+		deparseAlias(state, range_table_func->alias);
 	}
 
 	removeTrailingSpace(state);
@@ -12255,7 +12574,7 @@ static void deparseJsonTable(DeparseState *state, JsonTable *json_table)
 	if (json_table->alias)
 	{
 		deparseAppendStringInfoChar(state, ' ');
-		deparseAlias(state, json_table->alias, -1);
+		deparseAlias(state, json_table->alias);
 	}
 }
 

@@ -4,10 +4,10 @@ Executable fixture: `tests/cases/vastbase_sqlserver_dialect_input.json`. The uni
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 585 cases: 547 expect success and 38 expect failure.
-Statement-level `expect.session` appears in 70 cases, covering `VS044` through
+The fixture contains 597 cases: 559 expect success and 38 expect failure.
+Statement-level `expect.session` appears in 72 cases, covering `VS044` through
 `VS046`, `VSH295` through `VSH333`, `VB-C001` through `VB-C022`, `VB-C026`
-through `VB-C029`, and `VB-MSSQL-001` through `VB-MSSQL-002`. Sixty-nine
+through `VB-C031`, and `VB-MSSQL-001` through `VB-MSSQL-002`. Seventy-one
 contain at least one non-null session expectation; lexical-isolation case
 `VB-C029` requires every statement to omit session output.
 
@@ -17,6 +17,38 @@ projection, including its action, item scope, target kind, name, and value
 fields; `null` asserts that no session projection is emitted. For fixture cases
 that expect success, the test also deparses the unmodified handle and compares
 the result with the input SQL byte for byte.
+
+## INSERT VALUES Regression: Mixed Binds and Expressions
+
+`VS-BM001` through `VS-BM010` cover combinations of `DEFAULT`, `NULL`, binds,
+literals, and expressions in Vastbase SQL Server compatibility-mode VALUES
+cells, including a two-row VALUES input. Database-side execution of `@name`
+syntax requires a matching variable or parameter scope and the deployment's
+MSSQL variable-format setting. The bracketed identifiers in `VS-BM010` also
+require MSSQL bracket compatibility.
+
+`DEFAULT` is always standalone. Every case asserts each cell's
+`row`, `column`, `kind`,
+and `selector`, plus `bind_key`, `bind_kind`, `bind_sql`, `bind_position`, and
+`selector` for every direct bind. Later direct-bind positions verify that
+nested binds were counted in the global sequence. `GETDATE()` and
+`CURRENT_TIMESTAMP` are asserted as `kind=expression` and absent from
+`query_graph.fields[].column`.
+
+| ID | SQL shape | Boundary |
+| --- | --- | --- |
+| `VS-BM001` | three `@` binds + trailing `GETDATE()` | `@` references require an existing variable/parameter scope |
+| `VS-BM002` | leading `GETDATE()` + three `@` binds | a leading expression must not shift bind positions |
+| `VS-BM003` | interleaved `@` bind, `CURRENT_TIMESTAMP`, `@` bind, and `GETDATE()` | neither time expression appears in `query_graph.fields[].column` |
+| `VS-BM004` | bind + `NULL` + `GETDATE()` + bind | `NULL` is literal and `GETDATE()` is expression |
+| `VS-BM005` | bind + standalone `DEFAULT` + `CURRENT_TIMESTAMP` + bind | `DEFAULT` is not nested in another expression |
+| `VS-BM006` | bind + Unicode literal + `GETDATE()` + bind | literal and expression cells do not shift the trailing bind |
+| `VS-BM007` | direct bind + `COALESCE(@retry_count, 0)` + `GETDATE()` + direct bind | trailing direct bind at position 3 verifies that the nested bind was counted |
+| `VS-BM008` | direct bind + a `CASE` expression containing `@enabled` + `CAST(@amount AS int)` + `CURRENT_TIMESTAMP` + direct bind | trailing direct bind at position 4 verifies that both nested binds were counted |
+| `VS-BM009` | two `@` binds + `NULL` + `CURRENT_TIMESTAMP` | adjacent mapping of direct binds, a literal, and a time expression |
+| `VS-BM010` | bracketed schema-qualified identifiers + irregularly spaced two-row VALUES | two rows mix `@` binds, standalone `DEFAULT`, literal, `GETDATE()`, and `CURRENT_TIMESTAMP` |
+
+## Supported Cases
 
 | ID | Case | SQL | Status |
 | --- | --- | --- | --- |

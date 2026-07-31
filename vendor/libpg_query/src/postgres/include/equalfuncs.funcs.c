@@ -43,6 +43,7 @@ _equalAlias(const Alias *a, const Alias *b)
 {
 	COMPARE_STRING_FIELD(aliasname);
 	COMPARE_NODE_FIELD(colnames);
+	COMPARE_SCALAR_FIELD(location);
 
 	return true;
 }
@@ -3297,6 +3298,7 @@ static bool
 _equalString(const String *a, const String *b)
 {
 	COMPARE_STRING_FIELD(sval);
+	COMPARE_LOCATION_FIELD(location);
 
 	return true;
 }

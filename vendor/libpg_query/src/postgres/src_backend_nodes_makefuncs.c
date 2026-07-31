@@ -186,6 +186,7 @@ makeAlias(const char *aliasname, List *colnames)
 
 	a->aliasname = pstrdup(aliasname);
 	a->colnames = colnames;
+	a->location = -1;
 
 	return a;
 }
@@ -548,4 +549,3 @@ makeJsonTablePathSpec(char *string, char *name, int string_location,
  * makeJsonTablePath -
  *		Make JsonTablePath node for given path string and name
  */
-

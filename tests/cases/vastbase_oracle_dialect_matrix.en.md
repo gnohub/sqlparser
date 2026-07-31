@@ -4,11 +4,11 @@ Executable fixture: `tests/cases/vastbase_oracle_dialect_input.json`. The unit t
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 209 cases: 188 expect success and 21 expect failure.
-Statement-level `expect.session` appears in 35 cases, covering `VO043`,
+The fixture contains 221 cases: 200 expect success and 21 expect failure.
+Statement-level `expect.session` appears in 37 cases, covering `VO043`,
 `VO043Q`, `VO044` through `VO047`, `VO082` through `VO086`, `VB-C001` through
-`VB-C022`, and `VB-C026` through `VB-C027`. All 35 contain at least one
-non-null session expectation.
+`VB-C022`, `VB-C026` through `VB-C027`, and `VB-C030` through `VB-C031`. All
+37 contain at least one non-null session expectation.
 
 When an `expect.session` array is present, the matrix test requires one entry
 per statement. A non-null entry is matched against the corresponding session
@@ -16,6 +16,36 @@ projection, including its action, item scope, target kind, name, and value
 fields; `null` asserts that no session projection is emitted. For fixture cases
 that expect success, the test also deparses the unmodified handle and compares
 the result with the input SQL byte for byte.
+
+## INSERT VALUES Regression: Mixed Binds and Expressions
+
+`VO-BM001` through `VO-BM010` cover single-row `INSERT ... VALUES` statements
+using Vastbase PBE `$n` positional parameters in Oracle compatibility mode.
+These SQL strings are statement bodies for the prepare/bind flow, not direct
+execution statements with unresolved parameters.
+
+All ten cases use single-row VALUES statements, and `DEFAULT` is always
+standalone. Every case asserts each cell's `row`, `column`, `kind`, and
+`selector`, plus every direct
+bind's `bind_key`, `bind_kind`, `bind_sql`, global `bind_position`, and
+`selector`. A later direct-bind position verifies that nested binds were
+counted in the global sequence. `SYSDATE` and `CURRENT_TIMESTAMP` must be expressions and must not
+appear in `query_graph.fields[].column`.
+
+| ID | SQL shape | Boundary |
+| --- | --- | --- |
+| `VO-BM001` | three standalone `$n` binds + trailing `SYSDATE` | preserves the original input SQL byte for byte, including irregular spacing and semicolon |
+| `VO-BM002` | leading `CURRENT_TIMESTAMP` + three standalone `$n` binds | a leading expression must not shift bind positions |
+| `VO-BM003` | `$1`, `$2`, `$3` + trailing `SYSDATE` | consecutive positional parameters and a trailing time expression |
+| `VO-BM004` | leading `SYSDATE` + three `$n` binds | preserves bind order when an expression occupies the first cell |
+| `VO-BM005` | `$n` binds interleaved with `SYSDATE` / `CURRENT_TIMESTAMP` | expression cells must not shift later binds |
+| `VO-BM006` | bind + `NULL` + `SYSDATE` + bind | `NULL` is literal and `SYSDATE` is expression |
+| `VO-BM007` | bind + standalone `DEFAULT` + `CURRENT_TIMESTAMP` + bind | `DEFAULT` is not nested in another expression |
+| `VO-BM008` | direct bind + `COALESCE($2, 0)` + `SYSDATE` + direct bind | trailing direct bind at position 3 verifies that the nested bind was counted |
+| `VO-BM009` | direct bind + a `CASE` expression containing `$2` + `CAST($3 AS NUMBER)` + `SYSDATE` + direct bind | trailing direct bind at position 4 verifies that both nested binds were counted |
+| `VO-BM010` | schema-qualified quoted identifiers + three `$n` binds + `CURRENT_TIMESTAMP` | preserves mixed-case identifiers, irregular whitespace, and semicolon |
+
+## Supported Cases
 
 | ID | Case | SQL | Status |
 | --- | --- | --- | --- |

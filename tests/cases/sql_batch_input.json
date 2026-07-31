@@ -379,7 +379,103 @@
         "statement_count": 1,
         "statement_types": [
           "MergeStmt"
-        ]
+        ],
+        "view_merge_exact": {
+          "statement_index": 0,
+          "target_relation": {
+            "schema": "public",
+            "table": "target_table",
+            "alias": "t"
+          },
+          "actions": [
+            "update",
+            "insert"
+          ],
+          "parent_target_columns": [],
+          "parent_rows": [],
+          "binds": [],
+          "assignments": [
+            {
+              "target_column": "name",
+              "kind": "field",
+              "source_field": {
+                "relation": {
+                  "schema": "public",
+                  "table": "source_table",
+                  "alias": "s"
+                },
+                "column": "name"
+              },
+              "selector": "stmt[0].merge_assignment[0][0]"
+            }
+          ],
+          "branches": [
+            {
+              "ordinal": 0,
+              "branch_kind": "when",
+              "merge_action_kind": "update",
+              "merge_match_kind": "matched",
+              "target_columns": [],
+              "rows": [],
+              "assignments": [
+                {
+                  "target_column": "name",
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "schema": "public",
+                      "table": "source_table",
+                      "alias": "s"
+                    },
+                    "column": "name"
+                  },
+                  "selector": "stmt[0].merge_assignment[0][0]"
+                }
+              ]
+            },
+            {
+              "ordinal": 1,
+              "branch_kind": "when",
+              "merge_action_kind": "insert",
+              "merge_match_kind": "not_matched_by_target",
+              "target_columns": [
+                "id",
+                "name"
+              ],
+              "rows": [
+                {
+                  "row": 1,
+                  "column": 0,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "schema": "public",
+                      "table": "source_table",
+                      "alias": "s"
+                    },
+                    "column": "id"
+                  }
+                },
+                {
+                  "row": 1,
+                  "column": 1,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "schema": "public",
+                      "table": "source_table",
+                      "alias": "s"
+                    },
+                    "column": "name"
+                  }
+                }
+              ],
+              "assignments": []
+            }
+          ],
+          "output_channels": 0,
+          "output": []
+        }
       }
     },
     {
@@ -1549,7 +1645,7 @@
           "UpdateStmt"
         ],
         "view_contains": [
-          "\"row\":0,\"column\":1,\"kind\":\"expression\""
+          "\"row\":0,\"column\":1,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"expression_sql\":\"UPPER($1)\""
         ]
       }
     },
@@ -1710,7 +1806,373 @@
           "\"source_target\"",
           "\"kind\":\"field\"",
           "\"selector\":\"stmt[0].merge_assignment[0][0]\""
-        ]
+        ],
+        "view_merge_exact": {
+          "statement_index": 0,
+          "target_relation": {
+            "schema": "public",
+            "table": "t"
+          },
+          "actions": [
+            "update",
+            "insert"
+          ],
+          "parent_target_columns": [],
+          "parent_rows": [],
+          "binds": [
+            {
+              "bind_key": "1",
+              "bind_kind": 1,
+              "bind_sql": "$1",
+              "bind_position": 1
+            },
+            {
+              "bind_key": "2",
+              "bind_kind": 1,
+              "bind_sql": "$2",
+              "bind_position": 2
+            }
+          ],
+          "assignments": [
+            {
+              "target_column": "email",
+              "kind": "field",
+              "source_field": {
+                "relation": {
+                  "alias": "s",
+                  "source_block": true
+                },
+                "column": "email"
+              },
+              "source_target": {
+                "name": "email",
+                "kind": "bind",
+                "bind_key": "2",
+                "bind_kind": 1,
+                "bind_sql": "$2",
+                "bind_position": 2
+              },
+              "selector": "stmt[0].merge_assignment[0][0]"
+            }
+          ],
+          "branches": [
+            {
+              "ordinal": 0,
+              "branch_kind": "when",
+              "merge_action_kind": "update",
+              "merge_match_kind": "matched",
+              "target_columns": [],
+              "rows": [],
+              "assignments": [
+                {
+                  "target_column": "email",
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "alias": "s",
+                      "source_block": true
+                    },
+                    "column": "email"
+                  },
+                  "source_target": {
+                    "name": "email",
+                    "kind": "bind",
+                    "bind_key": "2",
+                    "bind_kind": 1,
+                    "bind_sql": "$2",
+                    "bind_position": 2
+                  },
+                  "selector": "stmt[0].merge_assignment[0][0]"
+                }
+              ]
+            },
+            {
+              "ordinal": 1,
+              "branch_kind": "when",
+              "merge_action_kind": "insert",
+              "merge_match_kind": "not_matched_by_target",
+              "target_columns": [
+                "id",
+                "email"
+              ],
+              "rows": [
+                {
+                  "row": 1,
+                  "column": 0,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "alias": "s",
+                      "source_block": true
+                    },
+                    "column": "id"
+                  },
+                  "source_target": {
+                    "name": "id",
+                    "kind": "bind",
+                    "bind_key": "1",
+                    "bind_kind": 1,
+                    "bind_sql": "$1",
+                    "bind_position": 1
+                  }
+                },
+                {
+                  "row": 1,
+                  "column": 1,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "alias": "s",
+                      "source_block": true
+                    },
+                    "column": "email"
+                  },
+                  "source_target": {
+                    "name": "email",
+                    "kind": "bind",
+                    "bind_key": "2",
+                    "bind_kind": 1,
+                    "bind_sql": "$2",
+                    "bind_position": 2
+                  }
+                }
+              ],
+              "assignments": []
+            }
+          ],
+          "output_channels": 0,
+          "output": []
+        }
+      }
+    },
+    {
+      "id": "P148",
+      "name": "postgresql-merge-multiple-conditional-insert-branches",
+      "sql": "MERGE INTO public.t AS t USING public.s AS s ON t.id=s.id WHEN NOT MATCHED AND /*c1*/ s.kind  =  1 /*t1*/ THEN INSERT (id,a) VALUES (s.id,CoAlEsCe($1,  1)) WHEN NOT MATCHED AND /*c2*/ s.kind  =  2 /*t2*/ THEN INSERT (id,b,c) VALUES (s.id,$2,CURRENT_TIMESTAMP)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "MergeStmt"
+        ],
+        "view_merge_exact": {
+          "statement_index": 0,
+          "target_relation": {
+            "schema": "public",
+            "table": "t",
+            "alias": "t"
+          },
+          "actions": [
+            "insert",
+            "insert"
+          ],
+          "parent_target_columns": [],
+          "parent_rows": [],
+          "binds": [
+            {
+              "bind_key": "2",
+              "bind_kind": 1,
+              "bind_sql": "$2",
+              "bind_position": 2
+            }
+          ],
+          "assignments": [],
+          "branches": [
+            {
+              "ordinal": 0,
+              "branch_kind": "when",
+              "merge_action_kind": "insert",
+              "merge_match_kind": "not_matched_by_target",
+              "target_columns": [
+                "id",
+                "a"
+              ],
+              "rows": [
+                {
+                  "row": 0,
+                  "column": 0,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "schema": "public",
+                      "table": "s",
+                      "alias": "s"
+                    },
+                    "column": "id"
+                  }
+                },
+                {
+                  "row": 0,
+                  "column": 1,
+                  "kind": "expression",
+                  "expression_sql": "CoAlEsCe($1,  1)"
+                }
+              ],
+              "assignments": [],
+              "condition_selector": "stmt[0].merge_branch_condition[0]",
+              "condition_sql": "/*c1*/ s.kind  =  1 /*t1*/"
+            },
+            {
+              "ordinal": 1,
+              "branch_kind": "when",
+              "merge_action_kind": "insert",
+              "merge_match_kind": "not_matched_by_target",
+              "target_columns": [
+                "id",
+                "b",
+                "c"
+              ],
+              "rows": [
+                {
+                  "row": 1,
+                  "column": 0,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "schema": "public",
+                      "table": "s",
+                      "alias": "s"
+                    },
+                    "column": "id"
+                  }
+                },
+                {
+                  "row": 1,
+                  "column": 1,
+                  "kind": "bind",
+                  "bind_key": "2",
+                  "bind_kind": 1,
+                  "bind_sql": "$2",
+                  "bind_position": 2,
+                  "selector": "stmt[0].value[37]"
+                },
+                {
+                  "row": 1,
+                  "column": 2,
+                  "kind": "expression",
+                  "expression_sql": "CURRENT_TIMESTAMP"
+                }
+              ],
+              "assignments": [],
+              "condition_selector": "stmt[0].merge_branch_condition[1]",
+              "condition_sql": "/*c2*/ s.kind  =  2 /*t2*/"
+            }
+          ],
+          "output_channels": 0,
+          "output": []
+        }
+      }
+    },
+    {
+      "id": "P149",
+      "name": "postgresql-merge-by-source-and-omitted-insert-columns",
+      "sql": "MERGE INTO wines w USING new_wine_list s ON s.winename = w.winename WHEN NOT MATCHED BY TARGET THEN INSERT VALUES(s.winename, s.stock) WHEN MATCHED AND w.stock != s.stock THEN UPDATE SET stock = s.stock WHEN NOT MATCHED BY SOURCE THEN DELETE;",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "MergeStmt"
+        ],
+        "view_merge_exact": {
+          "statement_index": 0,
+          "target_relation": {
+            "table": "wines",
+            "alias": "w"
+          },
+          "actions": [
+            "insert",
+            "update",
+            "delete"
+          ],
+          "parent_target_columns": [],
+          "parent_rows": [],
+          "binds": [],
+          "assignments": [
+            {
+              "target_column": "stock",
+              "kind": "field",
+              "source_field": {
+                "relation": {
+                  "table": "new_wine_list",
+                  "alias": "s"
+                },
+                "column": "stock"
+              },
+              "selector": "stmt[0].merge_assignment[1][0]"
+            }
+          ],
+          "branches": [
+            {
+              "ordinal": 0,
+              "branch_kind": "when",
+              "merge_action_kind": "insert",
+              "merge_match_kind": "not_matched_by_target",
+              "target_columns": [],
+              "rows": [
+                {
+                  "row": 0,
+                  "column": 0,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "table": "new_wine_list",
+                      "alias": "s"
+                    },
+                    "column": "winename"
+                  }
+                },
+                {
+                  "row": 0,
+                  "column": 1,
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "table": "new_wine_list",
+                      "alias": "s"
+                    },
+                    "column": "stock"
+                  }
+                }
+              ],
+              "assignments": []
+            },
+            {
+              "ordinal": 1,
+              "branch_kind": "when",
+              "merge_action_kind": "update",
+              "merge_match_kind": "matched",
+              "target_columns": [],
+              "rows": [],
+              "assignments": [
+                {
+                  "target_column": "stock",
+                  "kind": "field",
+                  "source_field": {
+                    "relation": {
+                      "table": "new_wine_list",
+                      "alias": "s"
+                    },
+                    "column": "stock"
+                  },
+                  "selector": "stmt[0].merge_assignment[1][0]"
+                }
+              ],
+              "condition_selector": "stmt[0].merge_branch_condition[1]",
+              "condition_sql": "w.stock != s.stock"
+            },
+            {
+              "ordinal": 2,
+              "branch_kind": "when",
+              "merge_action_kind": "delete",
+              "merge_match_kind": "not_matched_by_source",
+              "target_columns": [],
+              "rows": [],
+              "assignments": []
+            }
+          ],
+          "output_channels": 0,
+          "output": []
+        }
       }
     },
     {
@@ -2706,6 +3168,336 @@
         "statement_count": 1,
         "view_contains": "\"keyword\":\"set\"",
         "view_not_contains": "sqlparser_"
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-BM001",
+      "name": "postgresql-bind-mixed-insert-tail-time",
+      "sql": "INSERT INTO public.bind_mix (c1, c2, c3, c4) VALUES ($1, $2, $3, CURRENT_TIMESTAMP)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "schema": "public",
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "c1",
+          "c2",
+          "c3",
+          "c4"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\"$1\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"bind\",\"bind_key\":\"2\",\"bind_kind\":1,\"bind_sql\":\"$2\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][1]\"",
+          "\"row\":0,\"column\":2,\"kind\":\"bind\",\"bind_key\":\"3\",\"bind_kind\":1,\"bind_sql\":\"$3\",\"bind_position\":3,\"selector\":\"stmt[0].insert_cell[0][2]\"",
+          "\"row\":0,\"column\":3,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][3]\",\"expression_sql\":\"CURRENT_TIMESTAMP\""
+        ],
+        "view_not_contains": [
+          "\"column\":\"CURRENT_TIMESTAMP\""
+        ]
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-BM002",
+      "name": "postgresql-bind-mixed-insert-expression-first",
+      "sql": "INSERT INTO public.bind_mix (c1, c2, c3, c4) VALUES (now(), $1, $2, $3)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "schema": "public",
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "c1",
+          "c2",
+          "c3",
+          "c4"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][0]\",\"expression_sql\":\"now()\"",
+          "\"row\":0,\"column\":1,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\"$1\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][1]\"",
+          "\"row\":0,\"column\":2,\"kind\":\"bind\",\"bind_key\":\"2\",\"bind_kind\":1,\"bind_sql\":\"$2\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][2]\"",
+          "\"row\":0,\"column\":3,\"kind\":\"bind\",\"bind_key\":\"3\",\"bind_kind\":1,\"bind_sql\":\"$3\",\"bind_position\":3,\"selector\":\"stmt[0].insert_cell[0][3]\""
+        ],
+        "view_not_contains": [
+          "\"column\":\"now\""
+        ]
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-BM003",
+      "name": "postgresql-bind-mixed-insert-interleaved",
+      "sql": "INSERT INTO public.bind_mix (c1, c2, c3, c4) VALUES ($1, CAST($2 AS text), $3, clock_timestamp())",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "schema": "public",
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "c1",
+          "c2",
+          "c3",
+          "c4"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\"$1\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"expression_sql\":\"CAST($2 AS text)\"",
+          "\"row\":0,\"column\":2,\"kind\":\"bind\",\"bind_key\":\"3\",\"bind_kind\":1,\"bind_sql\":\"$3\",\"bind_position\":3,\"selector\":\"stmt[0].insert_cell[0][2]\"",
+          "\"row\":0,\"column\":3,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][3]\",\"expression_sql\":\"clock_timestamp()\""
+        ],
+        "view_not_contains": [
+          "\"column\":\"clock_timestamp\""
+        ]
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-BM004",
+      "name": "postgresql-bind-mixed-insert-null",
+      "sql": "INSERT INTO public.bind_mix (c1, c2, c3, c4) VALUES ($1, NULL, now(), $2)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "schema": "public",
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "c1",
+          "c2",
+          "c3",
+          "c4"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\"$1\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"literal\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"literal\":{\"kind\":\"null\"}",
+          "\"row\":0,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][2]\",\"expression_sql\":\"now()\"",
+          "\"row\":0,\"column\":3,\"kind\":\"bind\",\"bind_key\":\"2\",\"bind_kind\":1,\"bind_sql\":\"$2\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][3]\""
+        ],
+        "view_not_contains": [
+          "\"column\":\"now\""
+        ]
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-BM005",
+      "name": "postgresql-bind-mixed-insert-default",
+      "sql": "INSERT INTO public.bind_mix (c1, c2, c3, c4) VALUES ($1, DEFAULT, CURRENT_TIMESTAMP, $2)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "schema": "public",
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "c1",
+          "c2",
+          "c3",
+          "c4"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\"$1\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"default\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\"",
+          "\"row\":0,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][2]\",\"expression_sql\":\"CURRENT_TIMESTAMP\"",
+          "\"row\":0,\"column\":3,\"kind\":\"bind\",\"bind_key\":\"2\",\"bind_kind\":1,\"bind_sql\":\"$2\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][3]\""
+        ],
+        "view_not_contains": [
+          "\"column\":\"CURRENT_TIMESTAMP\""
+        ]
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-BM006",
+      "name": "postgresql-bind-mixed-insert-literal",
+      "sql": "INSERT INTO public.bind_mix (c1, c2, c3, c4) VALUES ($1, 'seed', clock_timestamp(), $2)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "schema": "public",
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "c1",
+          "c2",
+          "c3",
+          "c4"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\"$1\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"literal\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"literal\":{\"kind\":\"string\",\"string_value\":\"seed\"}",
+          "\"row\":0,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][2]\",\"expression_sql\":\"clock_timestamp()\"",
+          "\"row\":0,\"column\":3,\"kind\":\"bind\",\"bind_key\":\"2\",\"bind_kind\":1,\"bind_sql\":\"$2\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][3]\""
+        ],
+        "view_not_contains": [
+          "\"column\":\"clock_timestamp\""
+        ]
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-BM007",
+      "name": "postgresql-bind-mixed-insert-coalesce",
+      "sql": "INSERT INTO public.bind_mix (c1, c2, c3, c4) VALUES ($1, COALESCE($2, 'fallback'), CURRENT_TIMESTAMP, $3)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "schema": "public",
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "c1",
+          "c2",
+          "c3",
+          "c4"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\"$1\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"expression_sql\":\"COALESCE($2, 'fallback')\"",
+          "\"row\":0,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][2]\",\"expression_sql\":\"CURRENT_TIMESTAMP\"",
+          "\"row\":0,\"column\":3,\"kind\":\"bind\",\"bind_key\":\"3\",\"bind_kind\":1,\"bind_sql\":\"$3\",\"bind_position\":3,\"selector\":\"stmt[0].insert_cell[0][3]\""
+        ],
+        "view_not_contains": [
+          "\"column\":\"CURRENT_TIMESTAMP\""
+        ]
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-BM008",
+      "name": "postgresql-bind-mixed-insert-case",
+      "sql": "INSERT INTO public.bind_mix (c1, c2, c3, c4) VALUES ($1, CASE $2 WHEN 1 THEN 'one' ELSE 'other' END, now(), $3)",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "schema": "public",
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "c1",
+          "c2",
+          "c3",
+          "c4"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\"$1\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"expression_sql\":\"CASE $2 WHEN 1 THEN 'one' ELSE 'other' END\"",
+          "\"row\":0,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][2]\",\"expression_sql\":\"now()\"",
+          "\"row\":0,\"column\":3,\"kind\":\"bind\",\"bind_key\":\"3\",\"bind_kind\":1,\"bind_sql\":\"$3\",\"bind_position\":3,\"selector\":\"stmt[0].insert_cell[0][3]\""
+        ],
+        "view_not_contains": [
+          "\"column\":\"now\""
+        ]
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-BM009",
+      "name": "postgresql-bind-mixed-insert-three-rows",
+      "sql": "INSERT INTO public.bind_mix (c1, c2, c3, c4) VALUES ($1, CURRENT_TIMESTAMP, $2, CAST($3 AS text)), (now(), $4, COALESCE($5, 'fallback'), $6), ($7, CASE $8 WHEN 1 THEN 'yes' ELSE 'no' END, $9, clock_timestamp())",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "schema": "public",
+          "table": "bind_mix"
+        },
+        "view_target_columns": [
+          "c1",
+          "c2",
+          "c3",
+          "c4"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\"$1\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][1]\",\"expression_sql\":\"CURRENT_TIMESTAMP\"",
+          "\"row\":0,\"column\":2,\"kind\":\"bind\",\"bind_key\":\"2\",\"bind_kind\":1,\"bind_sql\":\"$2\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][2]\"",
+          "\"row\":0,\"column\":3,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][3]\",\"expression_sql\":\"CAST($3 AS text)\"",
+          "\"row\":1,\"column\":0,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[1][0]\",\"expression_sql\":\"now()\"",
+          "\"row\":1,\"column\":1,\"kind\":\"bind\",\"bind_key\":\"4\",\"bind_kind\":1,\"bind_sql\":\"$4\",\"bind_position\":4,\"selector\":\"stmt[0].insert_cell[1][1]\"",
+          "\"row\":1,\"column\":2,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[1][2]\",\"expression_sql\":\"COALESCE($5, 'fallback')\"",
+          "\"row\":1,\"column\":3,\"kind\":\"bind\",\"bind_key\":\"6\",\"bind_kind\":1,\"bind_sql\":\"$6\",\"bind_position\":6,\"selector\":\"stmt[0].insert_cell[1][3]\"",
+          "\"row\":2,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"7\",\"bind_kind\":1,\"bind_sql\":\"$7\",\"bind_position\":7,\"selector\":\"stmt[0].insert_cell[2][0]\"",
+          "\"row\":2,\"column\":1,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[2][1]\",\"expression_sql\":\"CASE $8 WHEN 1 THEN 'yes' ELSE 'no' END\"",
+          "\"row\":2,\"column\":2,\"kind\":\"bind\",\"bind_key\":\"9\",\"bind_kind\":1,\"bind_sql\":\"$9\",\"bind_position\":9,\"selector\":\"stmt[0].insert_cell[2][2]\"",
+          "\"row\":2,\"column\":3,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[2][3]\",\"expression_sql\":\"clock_timestamp()\""
+        ],
+        "view_not_contains": [
+          "\"column\":\"CURRENT_TIMESTAMP\"",
+          "\"column\":\"now\"",
+          "\"column\":\"clock_timestamp\""
+        ]
+      },
+      "dialect": "postgresql"
+    },
+    {
+      "id": "PG-BM010",
+      "name": "postgresql-bind-mixed-insert-quoted-irregular-whitespace",
+      "sql": "INSERT  INTO \"Audit\".\"Bind Mix\" (\"Id\",\"Payload\",\"Status\",\"Created At\")\nVALUES ( $1,$2,  $3,CURRENT_TIMESTAMP )",
+      "expect": {
+        "ok": true,
+        "statement_count": 1,
+        "statement_types": [
+          "InsertStmt"
+        ],
+        "view_target_relation": {
+          "schema": "Audit",
+          "table": "Bind Mix"
+        },
+        "view_target_columns": [
+          "Id",
+          "Payload",
+          "Status",
+          "Created At"
+        ],
+        "view_contains": [
+          "\"row\":0,\"column\":0,\"kind\":\"bind\",\"bind_key\":\"1\",\"bind_kind\":1,\"bind_sql\":\"$1\",\"bind_position\":1,\"selector\":\"stmt[0].insert_cell[0][0]\"",
+          "\"row\":0,\"column\":1,\"kind\":\"bind\",\"bind_key\":\"2\",\"bind_kind\":1,\"bind_sql\":\"$2\",\"bind_position\":2,\"selector\":\"stmt[0].insert_cell[0][1]\"",
+          "\"row\":0,\"column\":2,\"kind\":\"bind\",\"bind_key\":\"3\",\"bind_kind\":1,\"bind_sql\":\"$3\",\"bind_position\":3,\"selector\":\"stmt[0].insert_cell[0][2]\"",
+          "\"row\":0,\"column\":3,\"kind\":\"expression\",\"bind_kind\":0,\"selector\":\"stmt[0].insert_cell[0][3]\",\"expression_sql\":\"CURRENT_TIMESTAMP\""
+        ],
+        "view_not_contains": [
+          "\"column\":\"CURRENT_TIMESTAMP\""
+        ]
       },
       "dialect": "postgresql"
     },

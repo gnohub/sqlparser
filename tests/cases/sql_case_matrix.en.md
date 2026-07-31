@@ -4,7 +4,7 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 184 cases: 181 expect success and 3 expect failure.
+The fixture contains 196 cases: 193 expect success and 3 expect failure.
 Statement-level `expect.session` appears in 32 cases: 5 schema/session cases
 without an `id` field and `PG-001` through `PG-027`. All 32 contain at least
 one non-null session expectation.
@@ -175,6 +175,27 @@ compares the result with the input SQL byte for byte.
 | P145 | `postgresql-select-or-predicate-order-by-lineage` | `WHERE field = $n OR field = $n ORDER BY ...` | OR predicate trees keep both comparison children, binds, and independent ORDER BY field attribution |
 | P146 | `postgresql-national-string-literal` | `SELECT ..., N'...' ... WHERE ... = n'...'` | PostgreSQL national string literals keep the public `N` prefix while ordinary strings remain unchanged |
 | P147 | `postgresql-national-string-duplicate-literal` | ordinary `'same'` and `N'same'` together | same-text ordinary and national strings are restored independently by literal ordinal |
+| P148 | `postgresql-merge-multiple-conditional-insert-branches` | two conditional `WHEN NOT MATCHED ... INSERT` actions | MERGE branch order, exact condition text, branch columns/row coordinates, field/bind/expression cells, and global bind positions |
+| P149 | `postgresql-merge-by-source-and-omitted-insert-columns` | BY TARGET INSERT, conditional MATCHED UPDATE, and BY SOURCE DELETE | all three MERGE action/match pairs, absolute branch ordinals, INSERT rows without a target column list, and exact branch payloads |
+
+## INSERT VALUES Regression: Mixed Binds and Expressions
+
+`PG-BM001` through `PG-BM010` are INSERT inputs in PostgreSQL prepared-statement, extended-query-protocol, or driver-template contexts. Here `$n` denotes an externally supplied positional parameter. The simple Query protocol does not supply these parameters; execution requires a supported prepare/bind flow.
+
+Every case checks `row`, `column`, `kind`, and `selector` for every VALUES cell. Direct-bind cells also check `bind_key`, `bind_kind`, `bind_sql`, and `bind_position`. Under the current public contract a bind nested inside an expression is not attached directly to the cell; the global `bind_position` of a following direct bind verifies that the nested occurrence was counted. Time-function names must not appear in `query_graph.fields[].column`.
+
+| Case ID | VALUES shape | Validation focus |
+| --- | --- | --- |
+| `PG-BM001` | three direct binds + trailing `CURRENT_TIMESTAMP` | consecutive direct binds and a trailing time expression |
+| `PG-BM002` | leading `now()` + three direct binds | expression in the first column |
+| `PG-BM003` | `$1`, `CAST($2 AS text)`, `$3`, `clock_timestamp()` | interleaving binds and expressions; nested bind participates in global counting |
+| `PG-BM004` | direct bind, `NULL`, `now()`, direct bind | literal and time expression mixed with binds |
+| `PG-BM005` | direct bind, standalone `DEFAULT`, `CURRENT_TIMESTAMP`, direct bind | `DEFAULT` only as a standalone VALUES cell |
+| `PG-BM006` | direct bind, string literal, `clock_timestamp()`, direct bind | literal, expression, and binds together |
+| `PG-BM007` | `$1`, `COALESCE($2, 'fallback')`, `CURRENT_TIMESTAMP`, `$3` | nested bind and the following global position |
+| `PG-BM008` | `$1`, a `CASE` expression containing `$2`, `now()`, `$3` | CASE-nested bind and the following global position |
+| `PG-BM009` | three VALUES rows with changing bind/expression positions | cross-row cell coordinates and continuous global bind positions |
+| `PG-BM010` | schema-qualified quoted identifiers, irregular whitespace, three direct binds + time expression | quoted identifiers, original whitespace, and the trailing expression |
 
 ## Dialect CLI Cases
 

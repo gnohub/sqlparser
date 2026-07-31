@@ -4,7 +4,7 @@ This file records regression cases for the Dameng dialect conversion layer. The 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 162 cases: 150 expect success and 12 expect failure.
+The fixture contains 172 cases: 160 expect success and 12 expect failure.
 Statement-level `expect.session` appears in 34 cases, covering `D002`,
 `D003`, `D003Q`, `D026`, `D089` through `D095`, and the `DM-*` session cases.
 All 34 contain at least one non-null session expectation.
@@ -152,6 +152,25 @@ The Dameng SQL manual supports `<multi_insert_stmt>`, including `INSERT ALL`, `I
 | DU008A | duplicate national q-quoted string | only the original national item is restored when ordinary and national strings share the same text |
 | DU008B | national string literal | `N'...'` input preserves national string semantics |
 | DU008C | duplicate national string literal | restore the national prefix only for original `N'...'` strings when ordinary and national strings share the same text |
+
+## INSERT VALUES Regression: Mixed Binds and Expressions
+
+`DM-BM001` through `DM-BM010` cover combinations of JDBC parameter markers, time functions, compound expressions, literals, `DEFAULT`, and multi-row values in Dameng INSERT VALUES statements.
+
+In these cases, `?` is accepted only as a JDBC prepared-statement parameter marker; execution requires the corresponding prepare/bind flow. The fixture checks parsing, View cell mapping, global bind positions, and byte-for-byte deparse without connecting to a database. `DEFAULT` is used only as a standalone value cell. `DM-BM009` verifies multi-row `VALUES` parsing, View mapping, and deparse; it does not verify execution semantics for column-store tables.
+
+| ID | SQL combination | Regression target |
+| --- | --- | --- |
+| `DM-BM001` | three `?` parameters followed by `SYSDATE()` | the trailing time expression must not duplicate the preceding bind or appear in `query_graph.fields[].column` |
+| `DM-BM002` | `SYSDATE()` followed by three `?` parameters | preserve cell coordinates and bind order when an expression precedes binds |
+| `DM-BM003` | interleaved `?` parameters and two current-time functions | preserve column order across multiple expressions and binds |
+| `DM-BM004` | mixed `?`, `NULL`, and `SYSDATE()` | keep bind, null literal, and expression kinds independent |
+| `DM-BM005` | mixed `?`, `DEFAULT`, and `CURRENT_TIMESTAMP()` | classify a standalone `DEFAULT` cell and a time expression correctly |
+| `DM-BM006` | mixed `?`, string literal, and `SYSDATE()` | a literal must not shift adjacent bind or expression cells |
+| `DM-BM007` | direct `?`, `COALESCE(?, 'fallback')`, `SYSDATE()`, and a following direct `?` | count the nested parameter globally so the following direct bind has the correct position |
+| `DM-BM008` | direct `?`, a `CASE` expression containing `?`, `CAST(? AS INTEGER)`, `SYSDATE()`, and a following direct `?` | preserve the global position of a direct bind after multiple parameterized expressions |
+| `DM-BM009` | binds and time functions change positions across three `VALUES` rows | keep multi-row cell coordinates and cross-row bind order stable |
+| `DM-BM010` | schema-qualified quoted identifiers and irregular spacing with `?` and `SYSDATE` | preserve identifiers, whitespace, cell mapping, and byte-for-byte deparse |
 
 ## Explicitly Unsupported Cases
 

@@ -106,7 +106,7 @@ sqlparser_status_t sqlparser_handle_prepare_identifier_mutation(
 	handle->identifier_mutations[mutation_index].source_present =
 		handle->identifier_mutations[mutation_index].original[0] != '\0' &&
 		(location_slot == NULL ||
-		 *location_slot != SQLPARSER_PROTO_LOCATION_GENERATED);
+		 !sqlparser_proto_location_is_generated(*location_slot));
 	handle->identifier_mutation_count++;
 	*out_mutation_index = mutation_index;
 	*out_created = 1;
@@ -141,6 +141,16 @@ static void sqlparser_remove_prepared_identifier_mutations(
 	}
 }
 
+static void sqlparser_free_relation_identifier_buffers(char **buffers)
+{
+	size_t index;
+
+	for (index = 0U; index < 3U; index++) {
+		free(buffers[index]);
+		buffers[index] = NULL;
+	}
+}
+
 sqlparser_status_t sqlparser_replace_relation_identifier_slots(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
@@ -149,7 +159,12 @@ sqlparser_status_t sqlparser_replace_relation_identifier_slots(
 	sqlparser_error_t *out_error)
 {
 	char **slots[3];
+	char *borrowed_spellings[3];
+	char *replacements[3];
+	const char *source_values[3];
+	size_t borrowed_sources[3];
 	size_t mutation_indices[3];
+	size_t source_components[3];
 	int mutation_created[3];
 	int mutation_remove[3];
 	int changed[3];
@@ -171,6 +186,8 @@ sqlparser_status_t sqlparser_replace_relation_identifier_slots(
 	slots[0] = &relation->catalogname;
 	slots[1] = &relation->schemaname;
 	slots[2] = &relation->relname;
+	memset(borrowed_spellings, 0, sizeof(borrowed_spellings));
+	memset(replacements, 0, sizeof(replacements));
 	for (index = 0U; index < 3U; index++) {
 		const char *current;
 
@@ -182,10 +199,107 @@ sqlparser_status_t sqlparser_replace_relation_identifier_slots(
 			return SQLPARSER_STATUS_INVALID_ARGUMENT;
 		}
 		current = *slots[index] != NULL ? *slots[index] : "";
+		source_values[index] = current;
+		borrowed_sources[index] = SIZE_MAX;
+		source_components[index] = SIZE_MAX;
 		changed[index] = strcmp(current, values[index]) != 0;
 	}
 	if (!changed[0] && !changed[1] && !changed[2]) {
 		return SQLPARSER_STATUS_OK;
+	}
+	source_component = 0U;
+	for (index = 0U; index < 3U; index++) {
+		if (source_values[index][0] != '\0') {
+			source_components[index] = source_component++;
+		}
+	}
+	for (index = 0U; index < 3U; index++) {
+		size_t source_index;
+
+		if (!changed[index] || values[index][0] == '\0') {
+			continue;
+		}
+		for (source_index = 0U; source_index < 3U;
+		     source_index++) {
+			if (source_index != index &&
+			    source_values[source_index][0] != '\0' &&
+			    values[index] == source_values[source_index]) {
+				borrowed_sources[index] = source_index;
+				break;
+			}
+		}
+		if (borrowed_sources[index] != SIZE_MAX) {
+			const sqlparser_identifier_mutation_t *source_mutation;
+			size_t mutation_index;
+			size_t source_index;
+
+			source_index = borrowed_sources[index];
+			source_mutation = NULL;
+			for (mutation_index = 0U;
+			     mutation_index <
+				     handle->identifier_mutation_count;
+			     mutation_index++) {
+				if (handle->identifier_mutations[mutation_index]
+					    .slot == slots[source_index]) {
+					source_mutation =
+						&handle->identifier_mutations
+							[mutation_index];
+					break;
+				}
+			}
+			if (source_mutation != NULL &&
+			    source_mutation->spelling != NULL) {
+				borrowed_spellings[index] =
+					sqlparser_strdup(
+						source_mutation->spelling);
+				if (borrowed_spellings[index] == NULL) {
+					sqlparser_free_relation_identifier_buffers(
+						borrowed_spellings);
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_NO_MEMORY,
+						"out of memory");
+					return SQLPARSER_STATUS_NO_MEMORY;
+				}
+				continue;
+			}
+			if (source_mutation != NULL &&
+			    strcmp(
+				    source_values[source_index],
+				    source_mutation->original) != 0) {
+				status =
+					sqlparser_render_default_identifier_spelling(
+						source_values[source_index],
+						&borrowed_spellings[index],
+						out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					sqlparser_free_relation_identifier_buffers(
+						borrowed_spellings);
+					return status;
+				}
+				continue;
+			}
+			if (source_mutation != NULL &&
+			    source_mutation->source_present &&
+			    source_mutation->has_source_component) {
+				source_components[source_index] =
+					source_mutation
+						->source_component_index;
+			}
+			status =
+				sqlparser_resolve_relation_component_spelling(
+					handle,
+					relation,
+					source_components[source_index],
+					source_values[source_index],
+					&borrowed_spellings[index],
+					out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				sqlparser_free_relation_identifier_buffers(
+					borrowed_spellings);
+				return status;
+			}
+		}
 	}
 	for (index = 0U; index < 3U; index++) {
 		status = sqlparser_handle_prepare_identifier_mutation(
@@ -202,6 +316,8 @@ sqlparser_status_t sqlparser_replace_relation_identifier_slots(
 				mutation_indices,
 				mutation_created,
 				index);
+			sqlparser_free_relation_identifier_buffers(
+				borrowed_spellings);
 			return status;
 		}
 		mutation_remove[index] =
@@ -238,6 +354,8 @@ sqlparser_status_t sqlparser_replace_relation_identifier_slots(
 				mutation_indices,
 				mutation_created,
 				3U);
+			sqlparser_free_relation_identifier_buffers(
+				borrowed_spellings);
 			sqlparser_error_set_message(
 				out_error,
 				SQLPARSER_STATUS_INTERNAL_ERROR,
@@ -253,6 +371,8 @@ sqlparser_status_t sqlparser_replace_relation_identifier_slots(
 				mutation_indices,
 				mutation_created,
 				3U);
+			sqlparser_free_relation_identifier_buffers(
+				borrowed_spellings);
 			sqlparser_error_set_message(
 				out_error,
 				SQLPARSER_STATUS_RESOURCE_LIMIT,
@@ -265,18 +385,36 @@ sqlparser_status_t sqlparser_replace_relation_identifier_slots(
 		if (!changed[index]) {
 			continue;
 		}
-		status = sqlparser_replace_proto_string(
-			slots[index],
-			values[index],
-			out_error);
-		if (status != SQLPARSER_STATUS_OK) {
-			sqlparser_handle_clear_ast(handle);
+		replacements[index] = sqlparser_strdup(values[index]);
+		if (replacements[index] == NULL) {
+			sqlparser_free_relation_identifier_buffers(
+				replacements);
+			sqlparser_free_relation_identifier_buffers(
+				borrowed_spellings);
 			sqlparser_remove_prepared_identifier_mutations(
 				handle,
 				mutation_indices,
 				mutation_created,
 				3U);
-			return status;
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+	}
+	for (index = 0U; index < 3U; index++) {
+		char *previous;
+
+		if (!changed[index]) {
+			continue;
+		}
+		previous = *slots[index];
+		*slots[index] = replacements[index];
+		replacements[index] = NULL;
+		if (previous != NULL &&
+		    previous != (char *)protobuf_c_empty_string) {
+			free(previous);
 		}
 	}
 	for (index = 0U; index < 3U; index++) {
@@ -292,6 +430,8 @@ sqlparser_status_t sqlparser_replace_relation_identifier_slots(
 			mutation_indices,
 			mutation_created,
 			3U);
+		sqlparser_free_relation_identifier_buffers(
+			borrowed_spellings);
 		return status;
 	}
 	if (mutation_remove[0] && mutation_remove[1] &&
@@ -301,6 +441,8 @@ sqlparser_status_t sqlparser_replace_relation_identifier_slots(
 			mutation_indices,
 			mutation_remove,
 			3U);
+		sqlparser_free_relation_identifier_buffers(
+			borrowed_spellings);
 		return SQLPARSER_STATUS_OK;
 	}
 
@@ -308,7 +450,7 @@ sqlparser_status_t sqlparser_replace_relation_identifier_slots(
 		sqlparser_proto_location_slot((ProtobufCMessage *)relation);
 	source_generated =
 		location_slot != NULL &&
-		*location_slot == SQLPARSER_PROTO_LOCATION_GENERATED;
+		sqlparser_proto_location_is_generated(*location_slot);
 	source_component = 0U;
 	for (index = 0U; index < 3U; index++) {
 		sqlparser_identifier_mutation_t *mutation;
@@ -324,7 +466,14 @@ sqlparser_status_t sqlparser_replace_relation_identifier_slots(
 			mutation->source_present ?
 				source_component++ :
 				SIZE_MAX;
+		if (borrowed_spellings[index] != NULL) {
+			free(mutation->spelling);
+			mutation->spelling =
+				borrowed_spellings[index];
+			borrowed_spellings[index] = NULL;
+		}
 	}
+	sqlparser_free_relation_identifier_buffers(borrowed_spellings);
 	return SQLPARSER_STATUS_OK;
 }
 
@@ -687,17 +836,26 @@ sqlparser_status_t sqlparser_statement_name(
 	return SQLPARSER_STATUS_OK;
 }
 
-sqlparser_status_t sqlparser_statement_set_name(
+sqlparser_status_t sqlparser_statement_set_name_spelling(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t name_index,
 	const char *value,
+	const char *spelling,
 	sqlparser_error_t *out_error)
 {
 	PgQuery__Node *statement;
 	sqlparser_name_search_t search;
+	char *next_spelling;
+	char *previous_spelling;
+	const char *generated_spelling;
+	int32_t *location_slot;
+	int32_t previous_location;
 	size_t relation_group;
+	size_t generated_spelling_length;
 	size_t mutation_index;
+	int location_retagged;
+	int value_changed;
 	int mutation_created;
 	int remove_mutation;
 	sqlparser_status_t status;
@@ -707,6 +865,13 @@ sqlparser_status_t sqlparser_statement_set_name(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
 			"value must not be NULL or empty");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (spelling != NULL && spelling[0] == '\0') {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"identifier spelling must not be empty");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
@@ -730,10 +895,20 @@ sqlparser_status_t sqlparser_statement_set_name(
 			"name_index is out of range");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	if (strcmp(*search.target_slot, value) == 0) {
+	value_changed = strcmp(*search.target_slot, value) != 0;
+	if (!value_changed && spelling == NULL) {
 		return SQLPARSER_STATUS_OK;
 	}
 
+	next_spelling =
+		spelling != NULL ? sqlparser_strdup(spelling) : NULL;
+	if (spelling != NULL && next_spelling == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
 	status = sqlparser_handle_prepare_identifier_mutation(
 		handle,
 		statement_index,
@@ -743,24 +918,99 @@ sqlparser_status_t sqlparser_statement_set_name(
 		&mutation_created,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
+		free(next_spelling);
 		return status;
 	}
-	status = sqlparser_replace_proto_string(search.target_slot, value, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
+	location_slot = sqlparser_proto_location_slot(search.target_owner);
+	previous_location =
+		location_slot != NULL ? *location_slot : 0;
+	location_retagged = 0;
+	generated_spelling = NULL;
+	generated_spelling_length = 0U;
+	if (value_changed &&
+	    spelling == NULL &&
+	    !handle->identifier_mutations[mutation_index].source_present &&
+	    search.target_owner != NULL &&
+	    search.target_owner->descriptor == &pg_query__string__descriptor &&
+	    location_slot != NULL &&
+	    sqlparser_proto_location_is_identifier_spelling(*location_slot) &&
+	    sqlparser_handle_identifier_spelling(
+		    handle,
+		    *location_slot,
+		    0U,
+		    &generated_spelling,
+		    &generated_spelling_length) &&
+	    generated_spelling_length > 0U &&
+	    !(generated_spelling_length > 2U &&
+	      (generated_spelling[0] == 'U' ||
+	       generated_spelling[0] == 'u') &&
+	      generated_spelling[1] == '&' &&
+	      generated_spelling[2] == '"')) {
+		sqlparser_proto_identifier_style_t style;
+
+		if (generated_spelling[0] == '`') {
+			style =
+				SQLPARSER_PROTO_IDENTIFIER_STYLE_BACKTICK_QUOTED;
+		} else if (generated_spelling[0] == '[') {
+			style =
+				SQLPARSER_PROTO_IDENTIFIER_STYLE_BRACKET_QUOTED;
+		} else if (generated_spelling[0] == '"') {
+			style =
+				SQLPARSER_PROTO_IDENTIFIER_STYLE_DOUBLE_QUOTED;
+		} else {
+			style = SQLPARSER_PROTO_IDENTIFIER_STYLE_UNQUOTED;
+		}
+		*location_slot =
+			SQLPARSER_PROTO_LOCATION_GENERATED_STYLE_BASE -
+			(int32_t)style;
+		location_retagged = 1;
+	}
+	if (!value_changed &&
+	    ((handle->identifier_mutations[mutation_index].spelling == NULL &&
+	      next_spelling == NULL) ||
+	     (handle->identifier_mutations[mutation_index].spelling != NULL &&
+	      next_spelling != NULL &&
+	      strcmp(
+		      handle->identifier_mutations[mutation_index].spelling,
+		      next_spelling) == 0))) {
+		free(next_spelling);
 		if (mutation_created) {
 			sqlparser_handle_remove_identifier_mutation(
 				handle,
 				mutation_index);
 		}
-		return status;
+		return SQLPARSER_STATUS_OK;
+	}
+	if (value_changed) {
+		status = sqlparser_replace_proto_string(
+			search.target_slot,
+			value,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			if (location_retagged) {
+				*location_slot = previous_location;
+			}
+			free(next_spelling);
+			if (mutation_created) {
+				sqlparser_handle_remove_identifier_mutation(
+					handle,
+					mutation_index);
+			}
+			return status;
+		}
 	}
 	handle->identifier_mutations[mutation_index].slot =
 		search.target_slot;
 	handle->identifier_mutations[mutation_index].value =
 		*search.target_slot;
+	previous_spelling =
+		handle->identifier_mutations[mutation_index].spelling;
+	handle->identifier_mutations[mutation_index].spelling =
+		next_spelling;
 	relation_group =
 		handle->identifier_mutations[mutation_index].relation_group;
 	remove_mutation =
+		spelling == NULL &&
 		relation_group == 0U &&
 		strcmp(
 			handle->identifier_mutations[mutation_index].original,
@@ -768,6 +1018,9 @@ sqlparser_status_t sqlparser_statement_set_name(
 
 	status = sqlparser_handle_commit_ast(handle, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
+		handle->identifier_mutations[mutation_index].spelling =
+			previous_spelling;
+		free(next_spelling);
 		if (mutation_created) {
 			sqlparser_handle_remove_identifier_mutation(
 				handle,
@@ -775,6 +1028,7 @@ sqlparser_status_t sqlparser_statement_set_name(
 		}
 		return status;
 	}
+	free(previous_spelling);
 	if (remove_mutation) {
 		sqlparser_handle_remove_identifier_mutation(
 			handle,
@@ -814,4 +1068,20 @@ sqlparser_status_t sqlparser_statement_set_name(
 		}
 	}
 	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_statement_set_name(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t name_index,
+	const char *value,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_statement_set_name_spelling(
+		handle,
+		statement_index,
+		name_index,
+		value,
+		NULL,
+		out_error);
 }

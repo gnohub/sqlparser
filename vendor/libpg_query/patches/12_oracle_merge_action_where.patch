@@ -1,0 +1,131 @@
+diff --git a/src/backend/parser/gram.y b/src/backend/parser/gram.y
+index 16605518c3..701b05810a 100644
+--- a/src/backend/parser/gram.y
++++ b/src/backend/parser/gram.y
+@@ -12460,7 +12460,10 @@ merge_when_clause:
+ 			merge_when_tgt_matched opt_merge_when_condition THEN merge_update
+ 				{
+ 					$4->matchKind = $1;
+-					$4->condition = $2;
++					if ($2 != NULL && $4->condition != NULL)
++						$4->condition = makeAndExpr($2, $4->condition, @3);
++					else if ($2 != NULL)
++						$4->condition = $2;
+ 
+ 					$$ = (Node *) $4;
+ 				}
+@@ -12474,7 +12477,10 @@ merge_when_clause:
+ 			| merge_when_tgt_not_matched opt_merge_when_condition THEN merge_insert
+ 				{
+ 					$4->matchKind = $1;
+-					$4->condition = $2;
++					if ($2 != NULL && $4->condition != NULL)
++						$4->condition = makeAndExpr($2, $4->condition, @3);
++					else if ($2 != NULL)
++						$4->condition = $2;
+ 
+ 					$$ = (Node *) $4;
+ 				}
+@@ -12516,13 +12522,19 @@ opt_merge_when_condition:
+ 		;
+ 
+ merge_update:
+-			UPDATE SET set_clause_list
++			UPDATE SET set_clause_list where_clause
+ 				{
+ 					MergeWhenClause *n = makeNode(MergeWhenClause);
+ 					n->commandType = CMD_UPDATE;
+ 					n->override = OVERRIDING_NOT_SET;
+ 					n->targetList = $3;
+ 					n->values = NIL;
++					n->condition = $4 != NULL ?
++						(Node *) makeBoolExpr(
++							AND_EXPR,
++							list_make1($4),
++							PG_QUERY_MERGE_ACTION_WHERE_LOCATION) :
++						NULL;
+ 
+ 					$$ = n;
+ 				}
+@@ -12545,40 +12557,64 @@ merge_delete:
+ 		;
+ 
+ merge_insert:
+-			INSERT merge_values_clause
++			INSERT merge_values_clause where_clause
+ 				{
+ 					MergeWhenClause *n = makeNode(MergeWhenClause);
+ 					n->commandType = CMD_INSERT;
+ 					n->override = OVERRIDING_NOT_SET;
+ 					n->targetList = NIL;
+ 					n->values = $2;
++					n->condition = $3 != NULL ?
++						(Node *) makeBoolExpr(
++							AND_EXPR,
++							list_make1($3),
++							PG_QUERY_MERGE_ACTION_WHERE_LOCATION) :
++						NULL;
+ 					$$ = n;
+ 				}
+-			| INSERT OVERRIDING override_kind VALUE_P merge_values_clause
++			| INSERT OVERRIDING override_kind VALUE_P merge_values_clause where_clause
+ 				{
+ 					MergeWhenClause *n = makeNode(MergeWhenClause);
+ 					n->commandType = CMD_INSERT;
+ 					n->override = $3;
+ 					n->targetList = NIL;
+ 					n->values = $5;
++					n->condition = $6 != NULL ?
++						(Node *) makeBoolExpr(
++							AND_EXPR,
++							list_make1($6),
++							PG_QUERY_MERGE_ACTION_WHERE_LOCATION) :
++						NULL;
+ 					$$ = n;
+ 				}
+-			| INSERT '(' insert_column_list ')' merge_values_clause
++			| INSERT '(' insert_column_list ')' merge_values_clause where_clause
+ 				{
+ 					MergeWhenClause *n = makeNode(MergeWhenClause);
+ 					n->commandType = CMD_INSERT;
+ 					n->override = OVERRIDING_NOT_SET;
+ 					n->targetList = $3;
+ 					n->values = $5;
++					n->condition = $6 != NULL ?
++						(Node *) makeBoolExpr(
++							AND_EXPR,
++							list_make1($6),
++							PG_QUERY_MERGE_ACTION_WHERE_LOCATION) :
++						NULL;
+ 					$$ = n;
+ 				}
+-			| INSERT '(' insert_column_list ')' OVERRIDING override_kind VALUE_P merge_values_clause
++			| INSERT '(' insert_column_list ')' OVERRIDING override_kind VALUE_P merge_values_clause where_clause
+ 				{
+ 					MergeWhenClause *n = makeNode(MergeWhenClause);
+ 					n->commandType = CMD_INSERT;
+ 					n->override = $6;
+ 					n->targetList = $3;
+ 					n->values = $8;
++					n->condition = $9 != NULL ?
++						(Node *) makeBoolExpr(
++							AND_EXPR,
++							list_make1($9),
++							PG_QUERY_MERGE_ACTION_WHERE_LOCATION) :
++						NULL;
+ 					$$ = n;
+ 				}
+ 			| INSERT DEFAULT VALUES
+diff --git a/src/include/nodes/parsenodes.h b/src/include/nodes/parsenodes.h
+index 67c90a2..79d6fa5 100644
+--- a/src/include/nodes/parsenodes.h
++++ b/src/include/nodes/parsenodes.h
+@@ -1714,6 +1714,8 @@ typedef struct CommonTableExpr
+  *
+  * This is transformed into MergeAction by parse analysis
+  */
++#define PG_QUERY_MERGE_ACTION_WHERE_LOCATION (-1610612736)
++
+ typedef struct MergeWhenClause
+ {
+ 	NodeTag		type;

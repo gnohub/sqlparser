@@ -467,6 +467,9 @@ stmt[0].where_literal[0]
 stmt[0].clause[0]
 stmt[0].assignment[0]
 stmt[0].merge_assignment[1][0]
+stmt[0].merge_assignment[2][1][0]
+stmt[0].merge_branch_condition[1]
+stmt[0].merge_branch_condition[2][1]
 stmt[0].insert_cell[1][2]
 stmt[0].insert_branch_columns[0]
 stmt[0].insert_branch_condition[0]
@@ -479,7 +482,9 @@ stmt[0].dml_result_sink_columns[0][0]
 stmt[0].dml_result_sink_column[0][0][1]
 ```
 
-`stmt[S].assignment[A]` 定位 statement `S` 的顶层 `UPDATE` 中第 `A` 个赋值项。`stmt[S].merge_assignment[W][A]` 定位 statement `S` 的 MERGE matched UPDATE action：`W` 是 MERGE 中所有 `WHEN` 子句的绝对 0 基序号，不是仅对 UPDATE action 重新编号；`A` 是该 UPDATE 分支内赋值项的 0 基序号。`W` 必须指向 `WHEN MATCHED ... THEN UPDATE`。解析后 selector 的 `kind` 为 `SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT`，`item_index` 保存 `W`，`column_index` 保存 `A`。
+`stmt[S].assignment[A]` 定位 statement `S` 的顶层 `UPDATE` 中第 `A` 个赋值项。根 MERGE 的 matched UPDATE action 使用 `stmt[S].merge_assignment[W][A]`；嵌套 MERGE 使用 `stmt[S].merge_assignment[D][W][A]`。`D` 是当前 statement 内的 DML 索引，`W` 是目标 MERGE 中所有 `WHEN` 子句的绝对 0 基序号，不是仅对 UPDATE action 重新编号；`A` 是该 UPDATE 分支内赋值项的 0 基序号。`W` 必须指向 `WHEN MATCHED ... THEN UPDATE`。解析后 selector 的 `kind` 为 `SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT`；根 MERGE 的 `row_index` 为 `0`，嵌套 MERGE 的 `row_index` 保存 `D`，`item_index` 保存 `W`，`column_index` 保存 `A`。
+
+MERGE 分支条件使用 `stmt[S].merge_branch_condition[W]`；嵌套 MERGE 使用 `stmt[S].merge_branch_condition[D][W]`。其 `kind` 为 `SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION`，坐标含义与 MERGE assignment selector 中的 `D`、`W` 相同。无条件分支没有 condition selector。
 
 `sqlparser_selector_update_assignment()`、`sqlparser_selector_update_assignment_sql()`、`sqlparser_selector_set_update_assignment_*()`、`sqlparser_selector_insert_update_assignment_*()` 和 `sqlparser_selector_delete_update_assignment()` 均接受 `assignment` 与 `merge_assignment` selector。
 
@@ -495,7 +500,7 @@ stmt[0].dml_result_sink_column[0][0][1]
 | `sqlparser_selector_where_literal()` | 通过 selector 读取 WHERE literal |
 | `sqlparser_selector_where_sql()` | 通过 selector 读取 WHERE 条件 SQL |
 | `sqlparser_selector_clause()` | 通过 selector 读取通用子句视图 |
-| `sqlparser_selector_clause_sql()` | 通过 selector 读取通用子句 SQL；也可读取 Oracle/Dameng `INSERT ALL/FIRST` branch condition SQL |
+| `sqlparser_selector_clause_sql()` | 通过 selector 读取通用子句 SQL、Oracle/Dameng `INSERT ALL/FIRST` 分支条件 SQL 和 MERGE 分支条件 SQL |
 | `sqlparser_selector_update_assignment()` | 通过 selector 读取 assignment |
 | `sqlparser_selector_update_assignment_sql()` | 通过 selector 读取 assignment 右值 SQL |
 | `sqlparser_selector_insert_cell_literal()` | 通过 selector 读取 INSERT cell literal |
@@ -615,7 +620,8 @@ sqlparser_status_t sqlparser_statement_query_graph(
 | `sqlparser_query_graph_dml_result_count()` | 读取指定 DML 的结果通道数量 |
 | `sqlparser_query_graph_dml_result_at()` | 读取指定 DML 的结果通道 |
 | `sqlparser_query_graph_dml_reference_at()` | 读取结果通道中的字段来源关系 |
-| `sqlparser_query_graph_dml_branch_at()` | 读取 Oracle/Dameng multi-table INSERT 分支 |
+| `sqlparser_query_graph_dml_branch_at()` | 读取 DML 分支，包括 Oracle/Dameng multi-table INSERT 分支和 MERGE `WHEN` 分支 |
+| `sqlparser_query_graph_merge_branch_detail()` | 读取 MERGE 分支的 action、match 类型和 branch assignment span；非 MERGE 分支返回 `SQLPARSER_STATUS_UNSUPPORTED` |
 | `sqlparser_query_graph_dml_column_at()` | 读取 INSERT 目标列 |
 | `sqlparser_query_graph_dml_cell_at()` | 读取 INSERT VALUES 单元格 |
 | `sqlparser_query_graph_dml_assignment_at()` | 读取 UPDATE/MERGE 赋值项 |
@@ -637,7 +643,7 @@ sqlparser_status_t sqlparser_statement_query_graph(
 | `sqlparser_graph_dml_t` | INSERT、UPDATE、DELETE、MERGE 写入结构 |
 | `sqlparser_graph_dml_result_t` | DML 结果通道、输出 block、可选 sink relation、sink columns 和字段来源 span |
 | `sqlparser_graph_dml_reference_t` | 一个结果 target 对目标行或来源 relation 的字段引用 |
-| `sqlparser_graph_dml_branch_t` | Oracle/Dameng multi-table INSERT 的单个 INTO 分支 |
+| `sqlparser_graph_dml_branch_t` | DML 分支的公共结构，包括目标 relation、目标列、行、条件和分支序号 |
 | `sqlparser_graph_dml_column_t` | INSERT 显式目标列 |
 | `sqlparser_graph_dml_cell_t` | INSERT VALUES 单元格；Oracle/Dameng multi-table INSERT 中可通过 `source_target_index` 关联末尾 source query 输出项 |
 | `sqlparser_graph_dml_assignment_t` | UPDATE/MERGE 赋值项 |
@@ -659,7 +665,8 @@ sqlparser_status_t sqlparser_statement_query_graph(
 - `sqlparser_graph_dml_result_t.kind` 区分 client 和 sink 通道；sink 通道通过 `has_sink_relation`、`sink_relation_index` 和 `sink_columns` 指向写入目标。
 - `sqlparser_graph_dml_result_t.references` 中的索引通过 `sqlparser_query_graph_span_index_at()` 读取，再传给 `sqlparser_query_graph_dml_reference_at()`。每个 reference 关联一个结果 target，并标明 `target_before`、`target_after` 或 `source` 来源。
 - DML 结果 target 使用 `stmt[S].dml_result_target[D][C][T]` selector；通道 target 列表、sink relation、sink columns 列表和单列分别使用 `dml_result_targets`、`dml_result_sink`、`dml_result_sink_columns` 和 `dml_result_sink_column` selector。
-- `sqlparser_graph_dml_t.branches` 仅用于 Oracle/Dameng multi-table INSERT；每个 branch 持有独立 target relation、target columns、rows、branch kind 和可选 condition selector。condition selector 可通过 `sqlparser_selector_clause_sql()` 读取原始条件 SQL。
+- `sqlparser_graph_dml_t.branches` 用于 Oracle/Dameng multi-table INSERT 和 MERGE。每个 branch 持有独立 target relation、target columns、rows、branch kind 和可选 condition selector；condition selector 可通过 `sqlparser_selector_clause_sql()` 读取原始条件 SQL。
+- 对于解析成功的 MERGE，每个 `WHEN` 子句对应一个 branch，`ordinal` 是所有 `WHEN` 子句中的绝对 0 基序号。通过 `sqlparser_query_graph_merge_branch_detail()` 读取该 branch 的 action、match 类型和 assignment span。INSERT action 的 cell `row_index` 等于该绝对 `WHEN` 序号，`column_ordinal` 是 VALUES 中的 0 基位置；省略目标列列表时 `target_columns` 可以为空而 `rows` 非空。UPDATE action 的 assignment 同时出现在父 DML assignment span 和 branch detail assignment span 中，二者引用同一 assignment 索引。DELETE 和 NOTHING action 不携带 target columns、rows 或 assignments。
 - Oracle/Dameng multi-table INSERT branch cell 如果直接引用末尾 source query 输出字段，`sqlparser_graph_dml_cell_t.kind` 为 `SQLPARSER_GRAPH_VALUE_FIELD`，并通过 `has_source_target/source_target_index` 指向对应 `targets[]` 项。
 - `UPDATE` 和 `MERGE` assignment 的右侧如果是直接字段引用，`sqlparser_graph_dml_assignment_t.value_kind` 为 `SQLPARSER_GRAPH_VALUE_FIELD`，并通过 `has_source_field/source_field_index` 指向来源字段；来源字段可唯一匹配派生 source query 输出项时，同时提供 `has_source_target/source_target_index`。
 - `values[]` 只记录与字段或 SELECT target 关联的应用侧值；`LIMIT/OFFSET`、`ROWNUM` 等分页或伪列 bind 不进入 `values[]`。

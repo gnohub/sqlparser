@@ -65,6 +65,13 @@ typedef struct {
 } sqlparser_view_control_unit_span_t;
 
 typedef struct {
+	size_t resume;
+	size_t search_position;
+	size_t last_location;
+	int valid;
+} sqlparser_view_expression_source_cache_t;
+
+typedef struct {
 	sqlparser_handle_t *handle;
 	size_t statement_index;
 } sqlparser_view_build_t;
@@ -217,23 +224,54 @@ static int sqlparser_identifier_component_source(
 	sqlparser_identifier_source_t *out_source,
 	size_t *out_end)
 {
+	const char *spelling;
 	const char *sql;
+	sqlparser_proto_identifier_style_t style;
 	size_t index;
 	size_t length;
 	size_t position;
+	size_t spelling_length;
 
 	if (out_source == NULL) {
 		return 0;
 	}
 	memset(out_source, 0, sizeof(*out_source));
+	spelling = NULL;
+	spelling_length = 0U;
+	if (handle != NULL &&
+	    sqlparser_handle_identifier_spelling(
+		    handle,
+		    location,
+		    component_index,
+		    &spelling,
+		    &spelling_length) &&
+	    spelling_length > 0U) {
+		out_source->known = 1;
+		out_source->quoted =
+			spelling[0] == '"' ||
+			spelling[0] == '`' ||
+			spelling[0] == '[' ||
+			(spelling_length > 2U &&
+			 (spelling[0] == 'U' || spelling[0] == 'u') &&
+			 spelling[1] == '&' &&
+			 spelling[2] == '"');
+		return 1;
+	}
+	style = sqlparser_proto_identifier_style(location, component_index);
+	if (style != SQLPARSER_PROTO_IDENTIFIER_STYLE_NONE) {
+		out_source->known = 1;
+		out_source->quoted =
+			style != SQLPARSER_PROTO_IDENTIFIER_STYLE_UNQUOTED;
+		return 1;
+	}
 	if (handle == NULL || location < 0) {
 		return 0;
 	}
-	sql = sqlparser_effective_parser_sql(handle);
+	sql = handle->parser_sql;
 	if (sql == NULL) {
 		return 0;
 	}
-	length = strlen(sql);
+	length = handle->parser_sql_len;
 	position = (size_t)location;
 	if (position >= length) {
 		return 0;
@@ -304,17 +342,14 @@ static void sqlparser_range_var_identifier_sources(
 	const PgQuery__RangeVar *range_var,
 	sqlparser_graph_relation_identifier_t *out_identifiers)
 {
-	const char *sql;
 	size_t component_count;
-	size_t length;
-	size_t position;
 
 	if (out_identifiers == NULL) {
 		return;
 	}
 	memset(out_identifiers, 0, sizeof(*out_identifiers));
 	if (handle == NULL || range_var == NULL ||
-	    range_var->relname == NULL || range_var->location < 0) {
+	    range_var->relname == NULL) {
 		return;
 	}
 	component_count =
@@ -328,56 +363,18 @@ static void sqlparser_range_var_identifier_sources(
 		    range_var->location,
 		    component_count - 1U,
 		    &out_identifiers->object,
-		    &position) ||
+		    NULL) ||
 	    range_var->alias == NULL ||
 	    range_var->alias->aliasname == NULL ||
 	    range_var->alias->aliasname[0] == '\0') {
 		return;
 	}
-	sql = sqlparser_effective_parser_sql(handle);
-	length = sql != NULL ? strlen(sql) : 0U;
-	position = sqlparser_identifier_skip_trivia(sql, length, position);
-	while (position < length &&
-	       (sql[position] == ')' || sql[position] == '*')) {
-		position = sqlparser_identifier_skip_trivia(
-			sql,
-			length,
-			position + 1U);
-	}
-	{
-		size_t token_end;
-		int quoted;
-
-		if (!sqlparser_identifier_token(
-			    sql,
-			    length,
-			    position,
-			    &token_end,
-			    &quoted)) {
-			return;
-		}
-		if (!quoted &&
-		    sqlparser_identifier_token_is_word(
-			    sql,
-			    position,
-			    token_end,
-			    "as")) {
-			position = sqlparser_identifier_skip_trivia(
-				sql,
-				length,
-				token_end);
-			if (!sqlparser_identifier_token(
-				    sql,
-				    length,
-				    position,
-				    &token_end,
-				    &quoted)) {
-				return;
-			}
-		}
-		out_identifiers->alias.known = 1;
-		out_identifiers->alias.quoted = quoted;
-	}
+	(void)sqlparser_identifier_component_source(
+		handle,
+		range_var->alias->location,
+		0U,
+		&out_identifiers->alias,
+		NULL);
 }
 
 static int sqlparser_identifier_semantic_equal(
@@ -996,7 +993,11 @@ static sqlparser_status_t sqlparser_view_full_clause_sql(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	core_sql = NULL;
-	status = sqlparser_render_update_assignment_node_sql(readonly.target_expr, &core_sql, out_error);
+	status = sqlparser_render_update_assignment_node_sql(
+		handle,
+		readonly.target_expr,
+		&core_sql,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
@@ -1688,7 +1689,7 @@ static void sqlparser_view_bind_info_release(sqlparser_view_bind_info_t *info)
 
 static int sqlparser_view_bind_public_char_is_ident(unsigned char ch)
 {
-	return isalnum(ch) || ch == '_' || ch == '$' || ch == '#';
+	return isalnum(ch) || ch == '_' || ch == '$' || ch == '#' || ch >= 0x80U;
 }
 
 static int sqlparser_view_bind_dollar_tag_char_is_ident(unsigned char ch)
@@ -1974,6 +1975,17 @@ static size_t sqlparser_view_public_skip_trivia(
 	return pos;
 }
 
+static size_t sqlparser_view_public_skip_space(
+	const char *sql,
+	size_t pos)
+{
+	while (sql[pos] != '\0' &&
+	       isspace((unsigned char)sql[pos])) {
+		pos++;
+	}
+	return pos;
+}
+
 static int sqlparser_view_public_sqlserver_go_at(
 	sqlparser_dialect_t dialect,
 	const char *sql,
@@ -2048,13 +2060,18 @@ static int sqlparser_view_public_statement_span(
 			handle->dialect,
 			sql,
 			pos);
-		while (sql[pos] == ';' ||
-		       sqlparser_view_public_sqlserver_go_at(
-			       handle->dialect,
-			       sql,
-			       pos,
-			       &after_go)) {
-			pos = sql[pos] == ';' ? pos + 1U : after_go;
+		for (;;) {
+			if (sql[pos] == ';') {
+				pos++;
+			} else if (sqlparser_view_public_sqlserver_go_at(
+					   handle->dialect,
+					   sql,
+					   pos,
+					   &after_go)) {
+				pos = after_go;
+			} else {
+				break;
+			}
 			pos = sqlparser_view_public_skip_trivia(
 				handle->dialect,
 				sql,
@@ -2098,6 +2115,1229 @@ static int sqlparser_view_public_statement_span(
 				   pos,
 				   &after_go)) {
 			pos = after_go;
+		}
+	}
+	return 0;
+}
+
+static int sqlparser_view_insert_values_cell_sql(
+	const sqlparser_handle_t *handle,
+	const char *sql,
+	size_t values_start,
+	size_t statement_end,
+	size_t row_index,
+	size_t column_index,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	size_t brace_depth;
+	size_t bracket_depth;
+	size_t cell_column;
+	size_t cell_start;
+	size_t paren_depth;
+	size_t pos;
+	size_t row;
+	size_t skipped;
+
+	pos = sqlparser_view_public_skip_trivia(
+		handle->dialect,
+		sql,
+		values_start);
+	if (pos >= statement_end || sql[pos] != '(') {
+		return 0;
+	}
+	row = 0U;
+	for (;;) {
+		pos++;
+		cell_column = 0U;
+		cell_start = sqlparser_view_public_skip_space(sql, pos);
+		paren_depth = 0U;
+		bracket_depth = 0U;
+		brace_depth = 0U;
+		for (pos = cell_start; pos < statement_end; pos++) {
+			size_t cell_end;
+
+			skipped = sqlparser_view_bind_public_skip_quoted_or_comment(
+				handle->dialect,
+				sql,
+				pos);
+			if (skipped != pos) {
+				pos = skipped - 1U;
+				continue;
+			}
+			if (sql[pos] == '(') {
+				paren_depth++;
+				continue;
+			}
+			if (sql[pos] == '[') {
+				bracket_depth++;
+				continue;
+			}
+			if (sql[pos] == '{') {
+				brace_depth++;
+				continue;
+			}
+			if (sql[pos] == ')' && paren_depth > 0U) {
+				paren_depth--;
+				continue;
+			}
+			if (sql[pos] == ']' && bracket_depth > 0U) {
+				bracket_depth--;
+				continue;
+			}
+			if (sql[pos] == '}' && brace_depth > 0U) {
+				brace_depth--;
+				continue;
+			}
+			if ((sql[pos] != ',' && sql[pos] != ')') ||
+			    paren_depth != 0U ||
+			    bracket_depth != 0U ||
+			    brace_depth != 0U) {
+				continue;
+			}
+			cell_end = pos;
+			while (cell_end > cell_start &&
+			       isspace((unsigned char)sql[cell_end - 1U])) {
+				cell_end--;
+			}
+			if (row == row_index && cell_column == column_index) {
+				if (cell_end <= cell_start) {
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_INTERNAL_ERROR,
+						"insert cell source SQL is empty");
+					return -1;
+				}
+				*out_sql = sqlparser_strndup(
+					sql + cell_start,
+					cell_end - cell_start);
+				if (*out_sql == NULL) {
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_NO_MEMORY,
+						"out of memory");
+					return -1;
+				}
+				return 1;
+			}
+			if (sql[pos] == ',') {
+				cell_column++;
+				cell_start = sqlparser_view_public_skip_space(
+					sql,
+					pos + 1U);
+				pos = cell_start - 1U;
+				continue;
+			}
+			pos = sqlparser_view_public_skip_trivia(
+				handle->dialect,
+				sql,
+				pos + 1U);
+			if (pos >= statement_end || sql[pos] != ',') {
+				return 0;
+			}
+			pos = sqlparser_view_public_skip_trivia(
+				handle->dialect,
+				sql,
+				pos + 1U);
+			if (pos >= statement_end || sql[pos] != '(') {
+				return 0;
+			}
+			row++;
+			break;
+		}
+		if (pos >= statement_end) {
+			return 0;
+		}
+	}
+}
+
+static int sqlparser_view_dml_cell_source_sql(
+	const sqlparser_handle_t *handle,
+	const char *sql,
+	size_t start,
+	size_t end,
+	size_t values_ordinal,
+	size_t row_index,
+	size_t column_index,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	size_t current_values;
+	size_t depth;
+	size_t pos;
+	size_t skipped;
+
+	if (out_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"insert cell source output must not be NULL");
+		return -1;
+	}
+	*out_sql = NULL;
+	if (handle == NULL || sql == NULL || start >= end) {
+		return 0;
+	}
+	current_values = 0U;
+	depth = 0U;
+	for (pos = start; pos < end; pos++) {
+		int status;
+		size_t values_content;
+		size_t values_end;
+
+		skipped = sqlparser_view_bind_public_skip_quoted_or_comment(
+			handle->dialect,
+			sql,
+			pos);
+		if (skipped != pos) {
+			pos = skipped - 1U;
+			continue;
+		}
+		if (sql[pos] == '(') {
+			depth++;
+			continue;
+		}
+		if (sql[pos] == ')') {
+			if (depth > 0U) {
+				depth--;
+			}
+			continue;
+		}
+		if (depth != 0U) {
+			continue;
+		}
+		if (sqlparser_view_public_word_at(
+			    sql,
+			    pos,
+			    end,
+			    "values")) {
+			values_end = pos + strlen("values");
+		} else if (sqlparser_dialect_is_mysql_compatible(handle->dialect) &&
+			   sqlparser_view_public_word_at(
+				   sql,
+				   pos,
+				   end,
+				   "value")) {
+			values_end = pos + strlen("value");
+		} else {
+			continue;
+		}
+		values_content = sqlparser_view_public_skip_trivia(
+			handle->dialect,
+			sql,
+			values_end);
+		if (values_content >= end || sql[values_content] != '(') {
+			continue;
+		}
+		if (current_values++ != values_ordinal) {
+			continue;
+		}
+		status = sqlparser_view_insert_values_cell_sql(
+			handle,
+			sql,
+			values_end,
+			end,
+			row_index,
+			column_index,
+			out_sql,
+			out_error);
+		if (status != 0) {
+			return status;
+		}
+	}
+	return 0;
+}
+
+static int sqlparser_view_statement_dml_cell_source_sql(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t values_ordinal,
+	size_t row_index,
+	size_t column_index,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	const char *sql;
+	size_t end;
+	size_t start;
+
+	if (out_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"insert cell source output must not be NULL");
+		return -1;
+	}
+	*out_sql = NULL;
+	if (handle == NULL || handle->generation != 0UL ||
+	    !sqlparser_view_public_statement_span(
+		    handle,
+		    statement_index,
+		    &start,
+		    &end)) {
+		return 0;
+	}
+	sql = sqlparser_effective_sql(handle);
+	return sqlparser_view_dml_cell_source_sql(
+		handle,
+		sql,
+		start,
+		end,
+		values_ordinal,
+		row_index,
+		column_index,
+		out_sql,
+		out_error);
+}
+
+int sqlparser_view_insert_cell_source_sql(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t row_index,
+	size_t column_index,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_view_statement_dml_cell_source_sql(
+		handle,
+		statement_index,
+		0U,
+		row_index,
+		column_index,
+		out_sql,
+		out_error);
+}
+
+static size_t sqlparser_view_merge_skip_trivia(
+	const sqlparser_handle_t *handle,
+	const char *sql,
+	size_t pos,
+	size_t end)
+{
+	pos = sqlparser_view_public_skip_trivia(
+		handle->dialect,
+		sql,
+		pos);
+	return pos < end ? pos : end;
+}
+
+static int sqlparser_view_merge_when_header(
+	const sqlparser_handle_t *handle,
+	const char *sql,
+	size_t when_pos,
+	size_t end,
+	size_t *out_after_header)
+{
+	size_t pos;
+
+	pos = sqlparser_view_merge_skip_trivia(
+		handle,
+		sql,
+		when_pos + strlen("when"),
+		end);
+	if (sqlparser_view_public_word_at(sql, pos, end, "matched")) {
+		pos += strlen("matched");
+	} else if (sqlparser_view_public_word_at(sql, pos, end, "not")) {
+		pos = sqlparser_view_merge_skip_trivia(
+			handle,
+			sql,
+			pos + strlen("not"),
+			end);
+		if (!sqlparser_view_public_word_at(
+			    sql,
+			    pos,
+			    end,
+			    "matched")) {
+			return 0;
+		}
+		pos += strlen("matched");
+	} else {
+		return 0;
+	}
+	pos = sqlparser_view_merge_skip_trivia(
+		handle,
+		sql,
+		pos,
+		end);
+	if (sqlparser_view_public_word_at(sql, pos, end, "by")) {
+		pos = sqlparser_view_merge_skip_trivia(
+			handle,
+			sql,
+			pos + strlen("by"),
+			end);
+		if (sqlparser_view_public_word_at(
+			    sql,
+			    pos,
+			    end,
+			    "target")) {
+			pos += strlen("target");
+		} else if (sqlparser_view_public_word_at(
+				   sql,
+				   pos,
+				   end,
+				   "source")) {
+			pos += strlen("source");
+		} else {
+			return 0;
+		}
+		pos = sqlparser_view_merge_skip_trivia(
+			handle,
+			sql,
+			pos,
+			end);
+	}
+	*out_after_header = pos;
+	return 1;
+}
+
+static int sqlparser_view_merge_action_where_condition(
+	const sqlparser_handle_t *handle,
+	const char *sql,
+	size_t after_header,
+	size_t end,
+	size_t base_paren_depth,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	size_t case_depth;
+	size_t condition_start;
+	size_t paren_depth;
+	size_t pos;
+	size_t skipped;
+	int where_seen;
+
+	if (!sqlparser_view_public_word_at(
+		    sql,
+		    after_header,
+		    end,
+		    "then")) {
+		return 0;
+	}
+	case_depth = 0U;
+	condition_start = 0U;
+	paren_depth = base_paren_depth;
+	where_seen = 0;
+	for (pos = after_header + strlen("then"); pos < end; pos++) {
+		size_t ignored_header;
+
+		skipped = sqlparser_view_bind_public_skip_quoted_or_comment(
+			handle->dialect,
+			sql,
+			pos);
+		if (skipped != pos) {
+			pos = skipped - 1U;
+			continue;
+		}
+		if (sql[pos] == '(') {
+			paren_depth++;
+			continue;
+		}
+		if (sql[pos] == ')' && paren_depth > 0U) {
+			paren_depth--;
+			continue;
+		}
+		if (sqlparser_view_public_word_at(
+			    sql,
+			    pos,
+			    end,
+			    "case")) {
+			case_depth++;
+			pos += strlen("case") - 1U;
+			continue;
+		}
+		if (case_depth > 0U &&
+		    sqlparser_view_public_word_at(
+			    sql,
+			    pos,
+			    end,
+			    "end")) {
+			case_depth--;
+			pos += strlen("end") - 1U;
+			continue;
+		}
+		if (paren_depth != base_paren_depth || case_depth != 0U) {
+			continue;
+		}
+		if (sqlparser_view_public_word_at(
+			    sql,
+			    pos,
+			    end,
+			    "when") &&
+		    sqlparser_view_merge_when_header(
+			    handle,
+			    sql,
+			    pos,
+			    end,
+			    &ignored_header)) {
+			end = pos;
+			break;
+		}
+		if (!where_seen &&
+		    sqlparser_view_public_word_at(
+			    sql,
+			    pos,
+			    end,
+			    "where")) {
+			condition_start = sqlparser_view_public_skip_space(
+				sql,
+				pos + strlen("where"));
+			where_seen = 1;
+			pos += strlen("where") - 1U;
+			continue;
+		}
+		if (where_seen &&
+		    sqlparser_view_public_word_at(
+			    sql,
+			    pos,
+			    end,
+			    "log")) {
+			size_t after_log;
+
+			after_log = sqlparser_view_merge_skip_trivia(
+				handle,
+				sql,
+				pos + strlen("log"),
+				end);
+			if (sqlparser_view_public_word_at(
+				    sql,
+				    after_log,
+				    end,
+				    "errors")) {
+				end = pos;
+				break;
+			}
+		}
+	}
+	while (end > condition_start &&
+	       isspace((unsigned char)sql[end - 1U])) {
+		end--;
+	}
+	if (!where_seen || condition_start >= end) {
+		return 0;
+	}
+	*out_sql = sqlparser_strndup(
+		sql + condition_start,
+		end - condition_start);
+	if (*out_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		return -1;
+	}
+	return 1;
+}
+
+static int sqlparser_view_merge_condition_source_sql(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t dml_index,
+	size_t when_index,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	const char *sql;
+	sqlparser_dialect_dml_result_dml_t dml;
+	size_t base_paren_depth;
+	size_t case_depth;
+	size_t current_when;
+	size_t end;
+	size_t paren_depth;
+	size_t pos;
+	size_t skipped;
+	size_t start;
+	int merge_seen;
+
+	*out_sql = NULL;
+	if (dml_index == 0U) {
+		if (!sqlparser_view_public_statement_span(
+			    handle,
+			    statement_index,
+			    &start,
+			    &end)) {
+			return 0;
+		}
+		sql = sqlparser_effective_sql(handle);
+	} else {
+		memset(&dml, 0, sizeof(dml));
+		if (!sqlparser_dialect_dml_result_dml_at(
+			    handle->dialect,
+			    handle->dialect_state,
+			    statement_index,
+			    dml_index,
+			    &dml) ||
+		    dml.kind != SQLPARSER_GRAPH_DML_MERGE ||
+		    dml.source_sql == NULL) {
+			return 0;
+		}
+		sql = dml.source_sql;
+		start = 0U;
+		end = strlen(sql);
+	}
+	base_paren_depth = 0U;
+	case_depth = 0U;
+	current_when = 0U;
+	paren_depth = 0U;
+	merge_seen = 0;
+	for (pos = start; pos < end; pos++) {
+		size_t after_header;
+
+		skipped = sqlparser_view_bind_public_skip_quoted_or_comment(
+			handle->dialect,
+			sql,
+			pos);
+		if (skipped != pos) {
+			pos = skipped - 1U;
+			continue;
+		}
+		if (sql[pos] == '(') {
+			paren_depth++;
+			continue;
+		}
+		if (sql[pos] == ')' && paren_depth > 0U) {
+			paren_depth--;
+			continue;
+		}
+		if (!merge_seen) {
+			if (paren_depth == 0U &&
+			    sqlparser_view_public_word_at(
+				    sql,
+				    pos,
+				    end,
+				    "merge")) {
+				merge_seen = 1;
+				base_paren_depth = paren_depth;
+				pos += strlen("merge") - 1U;
+			}
+			continue;
+		}
+		if (sqlparser_view_public_word_at(
+			    sql,
+			    pos,
+			    end,
+			    "case")) {
+			case_depth++;
+			pos += strlen("case") - 1U;
+			continue;
+		}
+		if (case_depth > 0U &&
+		    sqlparser_view_public_word_at(
+			    sql,
+			    pos,
+			    end,
+			    "end")) {
+			case_depth--;
+			pos += strlen("end") - 1U;
+			continue;
+		}
+		if (paren_depth != base_paren_depth ||
+		    case_depth != 0U ||
+		    !sqlparser_view_public_word_at(
+			    sql,
+			    pos,
+			    end,
+			    "when") ||
+		    !sqlparser_view_merge_when_header(
+			    handle,
+			    sql,
+			    pos,
+			    end,
+			    &after_header)) {
+			continue;
+		}
+		if (current_when++ != when_index) {
+			pos += strlen("when") - 1U;
+			continue;
+		}
+		if (!sqlparser_view_public_word_at(
+			    sql,
+			    after_header,
+			    end,
+			    "and")) {
+			return sqlparser_view_merge_action_where_condition(
+				handle,
+				sql,
+				after_header,
+				end,
+				base_paren_depth,
+				out_sql,
+				out_error);
+		}
+		start = sqlparser_view_public_skip_space(
+			sql,
+			after_header + strlen("and"));
+		case_depth = 0U;
+		for (pos = start; pos < end; pos++) {
+			skipped =
+				sqlparser_view_bind_public_skip_quoted_or_comment(
+					handle->dialect,
+					sql,
+					pos);
+			if (skipped != pos) {
+				pos = skipped - 1U;
+				continue;
+			}
+			if (sql[pos] == '(') {
+				paren_depth++;
+				continue;
+			}
+			if (sql[pos] == ')' && paren_depth > 0U) {
+				paren_depth--;
+				continue;
+			}
+			if (sqlparser_view_public_word_at(
+				    sql,
+				    pos,
+				    end,
+				    "case")) {
+				case_depth++;
+				pos += strlen("case") - 1U;
+				continue;
+			}
+			if (case_depth > 0U &&
+			    sqlparser_view_public_word_at(
+				    sql,
+				    pos,
+				    end,
+				    "end")) {
+				case_depth--;
+				pos += strlen("end") - 1U;
+				continue;
+			}
+			if (paren_depth == base_paren_depth &&
+			    case_depth == 0U &&
+			    sqlparser_view_public_word_at(
+				    sql,
+				    pos,
+				    end,
+				    "then")) {
+				size_t condition_end;
+
+				condition_end = pos;
+				while (condition_end > start &&
+				       isspace((unsigned char)
+						       sql[condition_end - 1U])) {
+					condition_end--;
+				}
+				if (start >= condition_end) {
+					return 0;
+				}
+				*out_sql = sqlparser_strndup(
+					sql + start,
+					condition_end - start);
+				if (*out_sql == NULL) {
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_NO_MEMORY,
+						"out of memory");
+					return -1;
+				}
+				return 1;
+			}
+		}
+		return 0;
+	}
+	return 0;
+}
+
+static const PgQuery__Node *
+sqlparser_view_merge_action_where_expression(const PgQuery__Node *node)
+{
+	const PgQuery__BoolExpr *expression;
+
+	if (node == NULL ||
+	    node->node_case != PG_QUERY__NODE__NODE_BOOL_EXPR ||
+	    node->bool_expr == NULL) {
+		return NULL;
+	}
+	expression = node->bool_expr;
+	if (expression->boolop != PG_QUERY__BOOL_EXPR_TYPE__AND_EXPR ||
+	    expression->location !=
+		    POSTGRES_DEPARSE_MERGE_ACTION_WHERE_LOCATION ||
+	    expression->n_args != 1U ||
+	    expression->args == NULL) {
+		return NULL;
+	}
+	return expression->args[0];
+}
+
+static sqlparser_status_t sqlparser_view_render_merge_condition_sql(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	const PgQuery__Node *condition,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__BoolExpr visible_bool;
+	PgQuery__Node visible_node;
+	const PgQuery__Node *action_where;
+	const PgQuery__Node *visible_condition;
+	char *core_sql;
+	size_t visible_arg_count;
+	sqlparser_status_t status;
+
+	visible_condition = condition;
+	action_where =
+		sqlparser_view_merge_action_where_expression(condition);
+	if (action_where != NULL) {
+		visible_condition = action_where;
+	} else if (condition != NULL &&
+		   condition->node_case ==
+			   PG_QUERY__NODE__NODE_BOOL_EXPR &&
+		   condition->bool_expr != NULL &&
+		   condition->bool_expr->boolop ==
+			   PG_QUERY__BOOL_EXPR_TYPE__AND_EXPR &&
+		   condition->bool_expr->n_args > 1U &&
+		   condition->bool_expr->args != NULL &&
+		   sqlparser_view_merge_action_where_expression(
+			   condition->bool_expr->args[
+				   condition->bool_expr->n_args - 1U]) !=
+			   NULL) {
+		visible_arg_count =
+			condition->bool_expr->n_args - 1U;
+		if (visible_arg_count == 1U) {
+			visible_condition =
+				condition->bool_expr->args[0];
+		} else {
+			visible_node = *condition;
+			visible_bool = *condition->bool_expr;
+			visible_bool.n_args = visible_arg_count;
+			visible_node.bool_expr = &visible_bool;
+			visible_condition = &visible_node;
+		}
+	}
+	if (visible_condition == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"MERGE WHEN condition is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	core_sql = NULL;
+	status = sqlparser_render_where_node_sql(
+		handle,
+		visible_condition,
+		&core_sql,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_postprocess_handle_sql_fragment(
+			handle,
+			statement_index,
+			core_sql,
+			"MERGE WHEN condition",
+			out_sql,
+			out_error);
+	}
+	free(core_sql);
+	return status;
+}
+
+sqlparser_status_t sqlparser_merge_branch_condition_sql(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t dml_index,
+	size_t when_index,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__MergeStmt *merge_stmt;
+	PgQuery__Node *when_node;
+	int status;
+	sqlparser_status_t ast_status;
+
+	sqlparser_error_clear(out_error);
+	if (handle == NULL || out_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"handle and out_sql must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_sql = NULL;
+	merge_stmt = NULL;
+	ast_status = sqlparser_get_merge_stmt_by_dml_index(
+		(sqlparser_handle_t *)handle,
+		statement_index,
+		dml_index,
+		&merge_stmt,
+		out_error);
+	if (ast_status != SQLPARSER_STATUS_OK) {
+		return ast_status;
+	}
+	if (when_index >= merge_stmt->n_merge_when_clauses ||
+	    merge_stmt->merge_when_clauses == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"merge WHEN index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	when_node = merge_stmt->merge_when_clauses[when_index];
+	if (when_node == NULL ||
+	    when_node->node_case != PG_QUERY__NODE__NODE_MERGE_WHEN_CLAUSE ||
+	    when_node->merge_when_clause == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"MERGE WHEN node is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	if (when_node->merge_when_clause->condition == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"merge WHEN action has no condition");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (handle->generation != 0UL) {
+		return sqlparser_view_render_merge_condition_sql(
+			handle,
+			statement_index,
+			when_node->merge_when_clause->condition,
+			out_sql,
+			out_error);
+	}
+	status = sqlparser_view_merge_condition_source_sql(
+		handle,
+		statement_index,
+		dml_index,
+		when_index,
+		out_sql,
+		out_error);
+	if (status > 0) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (status < 0) {
+		return out_error != NULL ?
+			out_error->code :
+			SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	sqlparser_error_set_message(
+		out_error,
+		SQLPARSER_STATUS_INVALID_ARGUMENT,
+		"MERGE WHEN condition is missing or cannot be located");
+	return SQLPARSER_STATUS_INVALID_ARGUMENT;
+}
+
+static int sqlparser_view_node_source_location(
+	const PgQuery__Node *node,
+	size_t *out_location)
+{
+	const ProtobufCMessageDescriptor *descriptor;
+	const ProtobufCMessage *message;
+	const uint8_t *base;
+	unsigned index;
+
+	if (node == NULL || out_location == NULL) {
+		return 0;
+	}
+	message = (const ProtobufCMessage *)node;
+	descriptor = message->descriptor;
+	if (descriptor == NULL) {
+		return 0;
+	}
+	base = (const uint8_t *)message;
+	for (index = 0U; index < descriptor->n_fields; index++) {
+		const ProtobufCFieldDescriptor *field;
+		ProtobufCMessage *child;
+		int32_t *location;
+
+		field = &descriptor->fields[index];
+		if (field->type != PROTOBUF_C_TYPE_MESSAGE ||
+		    field->label == PROTOBUF_C_LABEL_REPEATED ||
+		    ((field->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) != 0U &&
+		     *(const int *)(base + field->quantifier_offset) !=
+			     (int)field->id)) {
+			continue;
+		}
+		child = *(ProtobufCMessage *const *)(base + field->offset);
+		location = sqlparser_proto_location_slot(child);
+		if (location != NULL && *location >= 0) {
+			*out_location = (size_t)*location;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static int sqlparser_view_source_delimiter(
+	const sqlparser_identifier_origin_map_t *origins,
+	size_t parser_offset,
+	size_t *out_start,
+	size_t *out_end)
+{
+	sqlparser_identifier_origin_t origin;
+
+	if (out_start == NULL || out_end == NULL ||
+	    sqlparser_identifier_origin_map_lookup(
+		    origins,
+		    parser_offset,
+		    1U,
+		    &origin) != SQLPARSER_IDENTIFIER_ORIGIN_SOURCE ||
+	    origin.source_length == 0U ||
+	    origin.source_offset > (size_t)-1 - origin.source_length) {
+		return 0;
+	}
+	*out_start = origin.source_offset;
+	*out_end = origin.source_offset + origin.source_length;
+	return 1;
+}
+
+static int sqlparser_view_expression_source_between(
+	const sqlparser_handle_t *handle,
+	const sqlparser_identifier_origin_map_t *origins,
+	size_t parser_left_delimiter,
+	size_t parser_right_delimiter,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	size_t left_end;
+	size_t left_start;
+	size_t right_end;
+	size_t right_start;
+	size_t source_end;
+	size_t source_start;
+
+	if (!sqlparser_view_source_delimiter(
+		    origins,
+		    parser_left_delimiter,
+		    &left_start,
+		    &left_end) ||
+	    !sqlparser_view_source_delimiter(
+		    origins,
+		    parser_right_delimiter,
+		    &right_start,
+		    &right_end) ||
+	    left_end > right_start ||
+	    right_end > handle->sql_len) {
+		return 0;
+	}
+	source_start = sqlparser_view_public_skip_space(
+		handle->sql,
+		left_end);
+	source_end = right_start;
+	while (source_end > source_start &&
+	       isspace((unsigned char)handle->sql[source_end - 1U])) {
+		source_end--;
+	}
+	if (source_start >= source_end) {
+		return 0;
+	}
+	*out_sql = sqlparser_strndup(
+		handle->sql + source_start,
+		source_end - source_start);
+	if (*out_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		return -1;
+	}
+	return 1;
+}
+
+static int sqlparser_view_expression_source_in_values(
+	const sqlparser_handle_t *handle,
+	const sqlparser_identifier_origin_map_t *origins,
+	size_t scan_start,
+	size_t location,
+	size_t *out_resume,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	const char *parser_sql;
+	size_t brace_depth;
+	size_t bracket_depth;
+	size_t cell_left_delimiter;
+	size_t paren_depth;
+	size_t pos;
+	size_t skipped;
+
+	parser_sql = handle->parser_sql;
+	pos = sqlparser_view_public_skip_trivia(
+		SQLPARSER_DIALECT_POSTGRESQL,
+		parser_sql,
+		scan_start);
+	if (parser_sql[pos] != '(' && parser_sql[pos] != ',') {
+		return 0;
+	}
+	for (;;) {
+		cell_left_delimiter = pos;
+		paren_depth = 0U;
+		bracket_depth = 0U;
+		brace_depth = 0U;
+		for (pos++; parser_sql[pos] != '\0'; pos++) {
+			skipped = sqlparser_view_bind_public_skip_quoted_or_comment(
+				SQLPARSER_DIALECT_POSTGRESQL,
+				parser_sql,
+				pos);
+			if (skipped != pos) {
+				pos = skipped - 1U;
+				continue;
+			}
+			if (parser_sql[pos] == '(') {
+				paren_depth++;
+				continue;
+			}
+			if (parser_sql[pos] == '[') {
+				bracket_depth++;
+				continue;
+			}
+			if (parser_sql[pos] == '{') {
+				brace_depth++;
+				continue;
+			}
+			if (parser_sql[pos] == ')' && paren_depth > 0U) {
+				paren_depth--;
+				continue;
+			}
+			if (parser_sql[pos] == ']' && bracket_depth > 0U) {
+				bracket_depth--;
+				continue;
+			}
+			if (parser_sql[pos] == '}' && brace_depth > 0U) {
+				brace_depth--;
+				continue;
+			}
+			if ((parser_sql[pos] != ',' && parser_sql[pos] != ')') ||
+			    paren_depth != 0U ||
+			    bracket_depth != 0U ||
+			    brace_depth != 0U) {
+				continue;
+			}
+			if (location > cell_left_delimiter && location < pos) {
+				if (out_resume != NULL) {
+					*out_resume = cell_left_delimiter;
+				}
+				return sqlparser_view_expression_source_between(
+					handle,
+					origins,
+					cell_left_delimiter,
+					pos,
+					out_sql,
+					out_error);
+			}
+			if (parser_sql[pos] == ',') {
+				cell_left_delimiter = pos;
+				continue;
+			}
+			pos = sqlparser_view_public_skip_trivia(
+				SQLPARSER_DIALECT_POSTGRESQL,
+				parser_sql,
+				pos + 1U);
+			if (parser_sql[pos] != ',') {
+				return 0;
+			}
+			pos = sqlparser_view_public_skip_trivia(
+				SQLPARSER_DIALECT_POSTGRESQL,
+				parser_sql,
+				pos + 1U);
+			if (parser_sql[pos] != '(') {
+				return 0;
+			}
+			break;
+		}
+		if (parser_sql[pos] == '\0') {
+			return 0;
+		}
+	}
+}
+
+static int sqlparser_view_expression_source_sql(
+	const sqlparser_handle_t *handle,
+	const sqlparser_identifier_origin_map_t **origins,
+	sqlparser_view_expression_source_cache_t *cache,
+	PgQuery__Node *value_node,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	const char *parser_sql;
+	size_t location;
+	size_t pos;
+	size_t resume;
+	size_t search_position;
+	size_t skipped;
+	sqlparser_status_t status;
+
+	*out_sql = NULL;
+	if (handle == NULL || origins == NULL ||
+	    handle->generation != 0UL ||
+	    !sqlparser_view_node_source_location(value_node, &location) ||
+	    location >= handle->parser_sql_len) {
+		return 0;
+	}
+	if (*origins == NULL) {
+		status = sqlparser_identifier_origins_for_handle(
+			handle,
+			origins,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return -1;
+		}
+	}
+	parser_sql = handle->parser_sql;
+	search_position = 0U;
+	if (cache != NULL &&
+	    cache->valid &&
+	    location >= cache->last_location) {
+		int source_status;
+
+		resume = cache->resume;
+		source_status = sqlparser_view_expression_source_in_values(
+			handle,
+			*origins,
+			resume,
+			location,
+			&resume,
+			out_sql,
+			out_error);
+		if (source_status != 0) {
+			cache->resume = resume;
+			cache->last_location = location;
+			return source_status;
+		}
+		search_position = cache->search_position;
+		cache->valid = 0;
+	} else if (cache != NULL) {
+		cache->valid = 0;
+	}
+	for (pos = search_position;
+	     parser_sql[pos] != '\0';
+	     pos++) {
+		int source_status;
+
+		skipped = sqlparser_view_bind_public_skip_quoted_or_comment(
+			SQLPARSER_DIALECT_POSTGRESQL,
+			parser_sql,
+			pos);
+		if (skipped != pos) {
+			pos = skipped - 1U;
+			continue;
+		}
+		if (!sqlparser_view_public_word_at(
+			    parser_sql,
+			    pos,
+			    handle->parser_sql_len,
+			    "values")) {
+			continue;
+		}
+		source_status = sqlparser_view_expression_source_in_values(
+			handle,
+			*origins,
+			pos + strlen("values"),
+			location,
+			&resume,
+			out_sql,
+			out_error);
+		if (source_status != 0) {
+			if (cache != NULL) {
+				cache->resume = resume;
+				cache->search_position =
+					pos + strlen("values");
+				cache->last_location = location;
+				cache->valid = 1;
+			}
+			return source_status;
 		}
 	}
 	return 0;
@@ -2353,6 +3593,32 @@ static int sqlparser_view_bind_public_is_token_start(
 	    sql[index] == '@' &&
 	    (isalnum(next) || next == '_')) {
 		return index == 0U || sql[index - 1U] != '@';
+	}
+	return 0;
+}
+
+static int sqlparser_view_parser_sql_has_bind(const char *sql)
+{
+	size_t index;
+
+	for (index = 0U; sql != NULL && sql[index] != '\0';) {
+		size_t skipped;
+
+		skipped = sqlparser_view_bind_public_skip_quoted_or_comment(
+			SQLPARSER_DIALECT_POSTGRESQL,
+			sql,
+			index);
+		if (skipped != index) {
+			index = skipped;
+			continue;
+		}
+		if (sqlparser_view_bind_public_is_token_start(
+			    SQLPARSER_DIALECT_POSTGRESQL,
+			    sql,
+			    index)) {
+			return 1;
+		}
+		index++;
 	}
 	return 0;
 }
@@ -3662,7 +4928,11 @@ static sqlparser_status_t sqlparser_view_render_value_node_public_sql(
 	}
 
 	memset(&render_error, 0, sizeof(render_error));
-	status = sqlparser_render_update_assignment_node_sql(value_node, &core_sql, &render_error);
+	status = sqlparser_render_update_assignment_node_sql(
+		handle,
+		value_node,
+		&core_sql,
+		&render_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		if (status == SQLPARSER_STATUS_NO_MEMORY || status == SQLPARSER_STATUS_RESOURCE_LIMIT) {
 			sqlparser_error_set_message(out_error, status, render_error.message);
@@ -3692,21 +4962,21 @@ static sqlparser_status_t sqlparser_view_render_value_node_public_sql(
 	return status;
 }
 
-static PgQuery__CommonTableExpr *sqlparser_view_select_find_cte(
+static PgQuery__CommonTableExpr *sqlparser_view_find_cte(
 	const sqlparser_handle_t *handle,
-	PgQuery__SelectStmt *scope,
+	PgQuery__WithClause *with_clause,
 	const char *name,
 	sqlparser_identifier_source_t name_source)
 {
 	size_t index;
 
-	if (scope == NULL || scope->with_clause == NULL || name == NULL || name[0] == '\0') {
+	if (with_clause == NULL || name == NULL || name[0] == '\0') {
 		return NULL;
 	}
-	for (index = 0U; index < scope->with_clause->n_ctes; index++) {
+	for (index = 0U; index < with_clause->n_ctes; index++) {
 		PgQuery__Node *node;
 
-		node = scope->with_clause->ctes[index];
+		node = with_clause->ctes[index];
 		if (node != NULL &&
 		    node->node_case == PG_QUERY__NODE__NODE_COMMON_TABLE_EXPR &&
 		    node->common_table_expr != NULL &&
@@ -3821,6 +5091,12 @@ typedef struct {
 	size_t session_value_count;
 } sqlparser_statement_graph_t;
 
+typedef struct {
+	sqlparser_graph_merge_action_kind_t action_kind;
+	sqlparser_graph_merge_match_kind_t match_kind;
+	sqlparser_index_span_t assignments;
+} sqlparser_graph_merge_branch_detail_t;
+
 struct sqlparser_query_graph_cache {
 	unsigned long generation;
 	size_t statement_count;
@@ -3852,12 +5128,16 @@ struct sqlparser_query_graph_cache {
 	size_t dml_branch_count;
 	size_t dml_branch_capacity;
 	sqlparser_graph_dml_branch_t *dml_branches;
+	size_t merge_branch_detail_capacity;
+	sqlparser_graph_merge_branch_detail_t *merge_branch_details;
 	size_t dml_column_count;
 	size_t dml_column_capacity;
 	sqlparser_graph_dml_column_t *dml_columns;
 	size_t dml_cell_count;
 	size_t dml_cell_capacity;
 	sqlparser_graph_dml_cell_t *dml_cells;
+	size_t dml_cell_expression_sql_capacity;
+	char **dml_cell_expression_sql;
 	size_t dml_assignment_count;
 	size_t dml_assignment_capacity;
 	sqlparser_graph_dml_assignment_t *dml_assignments;
@@ -3881,7 +5161,7 @@ struct sqlparser_query_graph_cache {
 
 typedef struct {
 	size_t block_index;
-	PgQuery__SelectStmt *select_stmt;
+	PgQuery__WithClause *with_clause;
 } sqlparser_graph_scope_t;
 
 typedef struct {
@@ -3922,11 +5202,17 @@ typedef struct {
 	sqlparser_graph_relation_identifier_t *relation_identifiers;
 	size_t relation_identifier_count;
 	size_t relation_identifier_capacity;
+	sqlparser_identifier_source_t *target_identifiers;
+	size_t target_identifier_count;
+	size_t target_identifier_capacity;
 	sqlparser_graph_cte_entry_t *cte_entries;
 	size_t cte_entry_count;
 	size_t cte_entry_capacity;
 	sqlparser_graph_cte_entry_t *registering_cte;
 	PgQuery__SelectStmt *registering_cte_stmt;
+	const sqlparser_identifier_origin_map_t *origins;
+	sqlparser_view_expression_source_cache_t expression_source_cache;
+	const char *dml_source_sql;
 	int building_dml_result;
 	size_t dml_result_scope_block_index;
 	size_t dml_result_target_relation_index;
@@ -4028,15 +5314,20 @@ static void sqlparser_graph_build_clear(sqlparser_graph_build_t *build)
 	}
 	sqlparser_graph_selector_cache_clear(build);
 	free(build->relation_identifiers);
+	free(build->target_identifiers);
 	free(build->cte_entries);
 	build->relation_identifiers = NULL;
 	build->relation_identifier_count = 0U;
 	build->relation_identifier_capacity = 0U;
+	build->target_identifiers = NULL;
+	build->target_identifier_count = 0U;
+	build->target_identifier_capacity = 0U;
 	build->cte_entries = NULL;
 	build->cte_entry_count = 0U;
 	build->cte_entry_capacity = 0U;
 	build->registering_cte = NULL;
 	build->registering_cte_stmt = NULL;
+	build->origins = NULL;
 }
 
 static int sqlparser_graph_select_has_target_list(const PgQuery__SelectStmt *stmt)
@@ -5682,6 +6973,7 @@ static int sqlparser_graph_dml_result_own_text(
 
 void sqlparser_query_graph_cache_release(sqlparser_query_graph_cache_t *cache)
 {
+	size_t cell_index;
 	size_t text_index;
 
 	if (cache == NULL) {
@@ -5697,7 +6989,12 @@ void sqlparser_query_graph_cache_release(sqlparser_query_graph_cache_t *cache)
 	free(cache->predicates);
 	free(cache->dml);
 	free(cache->dml_branches);
+	free(cache->merge_branch_details);
 	free(cache->dml_columns);
+	for (cell_index = 0U; cell_index < cache->dml_cell_count; cell_index++) {
+		free(cache->dml_cell_expression_sql[cell_index]);
+	}
+	free(cache->dml_cell_expression_sql);
 	free(cache->dml_cells);
 	free(cache->dml_assignments);
 	free(cache->session_items);
@@ -5730,6 +7027,10 @@ static int sqlparser_graph_append_index(
 		return -1;
 	}
 	cache = build->cache;
+	if (cache->index_pool_count == SIZE_MAX) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "query graph is too large");
+		return -1;
+	}
 	if (sqlparser_query_graph_reserve_array(
 		    (void **)&cache->index_pool,
 		    &cache->index_pool_capacity,
@@ -5742,18 +7043,191 @@ static int sqlparser_graph_append_index(
 	return 0;
 }
 
+#define SQLPARSER_GRAPH_INDEX_SEGMENT_MARKER SIZE_MAX
+
+enum {
+	SQLPARSER_GRAPH_INDEX_SEGMENT_HEADER_COUNT = 3U,
+	SQLPARSER_GRAPH_INDEX_SEGMENT_INITIAL_CAPACITY = 4U
+};
+
+static int sqlparser_graph_span_segment_info(
+	const sqlparser_query_graph_cache_t *cache,
+	const sqlparser_index_span_t *span,
+	size_t *out_capacity,
+	size_t *out_used)
+{
+	size_t capacity;
+	size_t header_offset;
+	size_t used;
+
+	*out_capacity = 0U;
+	*out_used = 0U;
+	if (span->offset < SQLPARSER_GRAPH_INDEX_SEGMENT_HEADER_COUNT) {
+		return 0;
+	}
+	header_offset =
+		span->offset - SQLPARSER_GRAPH_INDEX_SEGMENT_HEADER_COUNT;
+	if (cache->index_pool[header_offset] !=
+	    SQLPARSER_GRAPH_INDEX_SEGMENT_MARKER) {
+		return 0;
+	}
+	capacity = cache->index_pool[header_offset + 1U];
+	used = cache->index_pool[header_offset + 2U];
+	if (capacity < SQLPARSER_GRAPH_INDEX_SEGMENT_INITIAL_CAPACITY ||
+	    (capacity & (capacity - 1U)) != 0U ||
+	    used > capacity ||
+	    capacity > cache->index_pool_count - span->offset) {
+		return -1;
+	}
+	*out_capacity = capacity;
+	*out_used = used;
+	return 1;
+}
+
+static int sqlparser_graph_span_append_segment(
+	sqlparser_graph_build_t *build,
+	sqlparser_index_span_t *span,
+	size_t value,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_query_graph_cache_t *cache;
+	size_t header_offset;
+	size_t new_capacity;
+	size_t new_count;
+	size_t required;
+	size_t values_offset;
+
+	cache = build->cache;
+	new_capacity = SQLPARSER_GRAPH_INDEX_SEGMENT_INITIAL_CAPACITY;
+	while (new_capacity <= span->count) {
+		if (new_capacity > SIZE_MAX / 2U) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_RESOURCE_LIMIT,
+				"query graph is too large");
+			return -1;
+		}
+		new_capacity *= 2U;
+	}
+	if (new_capacity > SIZE_MAX / sizeof(*cache->index_pool) ||
+	    cache->index_pool_count >
+		    SIZE_MAX - SQLPARSER_GRAPH_INDEX_SEGMENT_HEADER_COUNT ||
+	    new_capacity >
+		    SIZE_MAX -
+			    SQLPARSER_GRAPH_INDEX_SEGMENT_HEADER_COUNT -
+			    cache->index_pool_count) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_RESOURCE_LIMIT,
+			"query graph is too large");
+		return -1;
+	}
+	header_offset = cache->index_pool_count;
+	values_offset =
+		header_offset + SQLPARSER_GRAPH_INDEX_SEGMENT_HEADER_COUNT;
+	required = values_offset + new_capacity;
+	if (sqlparser_query_graph_reserve_array(
+		    (void **)&cache->index_pool,
+		    &cache->index_pool_capacity,
+		    required,
+		    sizeof(*cache->index_pool),
+		    out_error) != 0) {
+		return -1;
+	}
+	memset(
+		cache->index_pool + values_offset,
+		0,
+		new_capacity * sizeof(*cache->index_pool));
+	if (span->count > 0U) {
+		memcpy(
+			cache->index_pool + values_offset,
+			cache->index_pool + span->offset,
+			span->count * sizeof(*cache->index_pool));
+	}
+	new_count = span->count + 1U;
+	cache->index_pool[values_offset + span->count] = value;
+	cache->index_pool[header_offset] =
+		SQLPARSER_GRAPH_INDEX_SEGMENT_MARKER;
+	cache->index_pool[header_offset + 1U] = new_capacity;
+	cache->index_pool[header_offset + 2U] = new_count;
+	cache->index_pool_count = required;
+	span->offset = values_offset;
+	span->count = new_count;
+	return 0;
+}
+
 static int sqlparser_graph_span_append_index(
 	sqlparser_graph_build_t *build,
 	sqlparser_index_span_t *span,
 	size_t value,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_query_graph_cache_t *cache;
+	size_t capacity;
+	size_t offset;
+	size_t used;
+	int segment_status;
+
 	if (span == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "query graph span is missing");
 		return -1;
 	}
+	if (build == NULL || build->cache == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "query graph builder is missing");
+		return -1;
+	}
+	cache = build->cache;
+	if (value == SQLPARSER_GRAPH_INDEX_SEGMENT_MARKER) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "query graph index is invalid");
+		return -1;
+	}
 	if (span->count == 0U) {
-		span->offset = build->cache->index_pool_count;
+		offset = cache->index_pool_count;
+		if (sqlparser_graph_append_index(build, value, out_error) != 0) {
+			return -1;
+		}
+		span->offset = offset;
+		span->count = 1U;
+		return 0;
+	}
+	if (span->offset > cache->index_pool_count ||
+	    span->count > cache->index_pool_count - span->offset) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "query graph span is invalid");
+		return -1;
+	}
+	capacity = 0U;
+	used = 0U;
+	segment_status = sqlparser_graph_span_segment_info(
+		cache,
+		span,
+		&capacity,
+		&used);
+	if (segment_status < 0 || (segment_status > 0 && used < span->count)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"query graph index segment is invalid");
+		return -1;
+	}
+	if (segment_status > 0) {
+		if (used == span->count && used < capacity) {
+			cache->index_pool[span->offset + used] = value;
+			cache->index_pool[span->offset - 1U] = used + 1U;
+			span->count++;
+			return 0;
+		}
+		return sqlparser_graph_span_append_segment(
+			build,
+			span,
+			value,
+			out_error);
+	}
+	if (span->offset + span->count != cache->index_pool_count) {
+		return sqlparser_graph_span_append_segment(
+			build,
+			span,
+			value,
+			out_error);
 	}
 	if (sqlparser_graph_append_index(build, value, out_error) != 0) {
 		return -1;
@@ -5884,6 +7358,18 @@ static sqlparser_graph_target_t *sqlparser_graph_target_by_local(
 	return &build->cache->targets[build->statement->target_offset + target_index];
 }
 
+static sqlparser_identifier_source_t *
+sqlparser_graph_target_identifier_by_local(
+	sqlparser_graph_build_t *build,
+	size_t target_index)
+{
+	if (build == NULL ||
+	    target_index >= build->target_identifier_count) {
+		return NULL;
+	}
+	return &build->target_identifiers[target_index];
+}
+
 static sqlparser_graph_field_t *sqlparser_graph_field_by_local(
 	sqlparser_graph_build_t *build,
 	size_t field_index)
@@ -5959,9 +7445,11 @@ static int sqlparser_graph_add_relation(
 static int sqlparser_graph_add_target(
 	sqlparser_graph_build_t *build,
 	const sqlparser_graph_target_t *source,
+	const sqlparser_identifier_source_t *identifier,
 	size_t *out_index,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_identifier_source_t *target_identifier;
 	sqlparser_graph_target_t *target;
 	size_t global_index;
 	size_t local_index;
@@ -5969,7 +7457,13 @@ static int sqlparser_graph_add_target(
 	if (out_index != NULL) {
 		*out_index = 0U;
 	}
-	if (sqlparser_query_graph_reserve_array(
+	if (sqlparser_query_graph_reserve_sparse_array(
+		    (void **)&build->target_identifiers,
+		    &build->target_identifier_capacity,
+		    build->target_identifier_count + 1U,
+		    sizeof(*build->target_identifiers),
+		    out_error) != 0 ||
+	    sqlparser_query_graph_reserve_array(
 		    (void **)&build->cache->targets,
 		    &build->cache->target_capacity,
 		    build->cache->target_count + 1U,
@@ -5986,6 +7480,13 @@ static int sqlparser_graph_add_target(
 	}
 	target->index = local_index;
 	target->statement_index = build->statement_index;
+	target_identifier =
+		&build->target_identifiers[build->target_identifier_count++];
+	if (identifier != NULL) {
+		*target_identifier = *identifier;
+	} else {
+		memset(target_identifier, 0, sizeof(*target_identifier));
+	}
 	if (out_index != NULL) {
 		*out_index = local_index;
 	}
@@ -6268,6 +7769,7 @@ static sqlparser_identifier_source_t sqlparser_graph_column_ref_part_source(
 	size_t reverse_index)
 {
 	sqlparser_identifier_source_t source;
+	size_t component_index;
 	size_t part_count;
 	size_t index;
 
@@ -6290,23 +7792,39 @@ static sqlparser_identifier_source_t sqlparser_graph_column_ref_part_source(
 	if (reverse_index >= part_count) {
 		return source;
 	}
+	component_index = part_count - reverse_index - 1U;
 	(void)sqlparser_identifier_component_source(
 		handle,
 		column_ref->location,
-		part_count - reverse_index - 1U,
+		component_index,
 		&source,
 		NULL);
 	return source;
 }
 
-static int sqlparser_graph_column_ref_is_pseudo(PgQuery__ColumnRef *column_ref)
+static int sqlparser_graph_column_ref_is_pseudo(
+	const sqlparser_graph_build_t *build,
+	PgQuery__ColumnRef *column_ref)
 {
+	sqlparser_identifier_source_t source;
 	const char *name;
 	const char *qualifier;
 
+	if (build == NULL || build->handle == NULL ||
+	    !sqlparser_dialect_is_oracle_or_dameng_compatible(
+		    build->handle->dialect)) {
+		return 0;
+	}
 	name = sqlparser_graph_column_ref_part(column_ref, 0U);
 	qualifier = sqlparser_graph_column_ref_part(column_ref, 1U);
 	if (name == NULL) {
+		return 0;
+	}
+	source = sqlparser_graph_column_ref_part_source(
+		build->handle,
+		column_ref,
+		0U);
+	if (source.known && source.quoted) {
 		return 0;
 	}
 	if (sqlparser_text_equal_ci(name, "rowid")) {
@@ -6316,11 +7834,110 @@ static int sqlparser_graph_column_ref_is_pseudo(PgQuery__ColumnRef *column_ref)
 		sqlparser_text_equal_ci(name, "rownum");
 }
 
-static int sqlparser_graph_column_ref_is_recordable_field(PgQuery__ColumnRef *column_ref)
+static int sqlparser_graph_column_ref_is_dialect_expression_name(
+	const sqlparser_graph_build_t *build,
+	PgQuery__ColumnRef *column_ref)
+{
+	const char *name;
+	const char *qualifier;
+
+	if (build == NULL || build->handle == NULL ||
+	    !sqlparser_dialect_is_oracle_or_dameng_compatible(
+		    build->handle->dialect)) {
+		return 0;
+	}
+	name = sqlparser_graph_column_ref_part(column_ref, 0U);
+	qualifier = sqlparser_graph_column_ref_part(column_ref, 1U);
+	if (name == NULL ||
+	    (qualifier != NULL && qualifier[0] != '\0') ||
+	    !sqlparser_text_equal_ci(name, "sysdate")) {
+		return 0;
+	}
+	return 1;
+}
+
+static int sqlparser_graph_column_ref_is_dialect_expression(
+	const sqlparser_graph_build_t *build,
+	PgQuery__ColumnRef *column_ref)
+{
+	sqlparser_identifier_source_t source;
+
+	if (!sqlparser_graph_column_ref_is_dialect_expression_name(
+		    build,
+		    column_ref)) {
+		return 0;
+	}
+	source = sqlparser_graph_column_ref_part_source(
+		build->handle,
+		column_ref,
+		0U);
+	if (source.known) {
+		return !source.quoted;
+	}
+	return column_ref->location == SQLPARSER_PROTO_LOCATION_GENERATED;
+}
+
+static sqlparser_identifier_source_t
+sqlparser_graph_fragment_identifier_source(const char *sql)
+{
+	sqlparser_identifier_source_t source;
+	size_t length;
+	size_t position;
+	size_t token_end;
+	int quoted;
+
+	memset(&source, 0, sizeof(source));
+	if (sql != NULL) {
+		length = strlen(sql);
+		position = 0U;
+		for (;;) {
+			position = sqlparser_identifier_skip_trivia(
+				sql,
+				length,
+				position);
+			if (position >= length || sql[position] != '(') {
+				break;
+			}
+			position++;
+		}
+		if (sqlparser_identifier_token(
+			    sql,
+			    length,
+			    position,
+			    &token_end,
+			    &quoted)) {
+			source.known = 1;
+			source.quoted = quoted;
+		}
+	}
+	return source;
+}
+
+static int sqlparser_graph_fragment_column_ref_is_dialect_expression(
+	const sqlparser_graph_build_t *build,
+	PgQuery__ColumnRef *column_ref,
+	const char *sql)
+{
+	sqlparser_identifier_source_t source;
+
+	if (!sqlparser_graph_column_ref_is_dialect_expression_name(
+		    build,
+		    column_ref)) {
+		return 0;
+	}
+	source = sqlparser_graph_fragment_identifier_source(sql);
+	return source.known && !source.quoted;
+}
+
+static int sqlparser_graph_column_ref_is_recordable_field(
+	const sqlparser_graph_build_t *build,
+	PgQuery__ColumnRef *column_ref)
 {
 	const char *name;
 
-	if (column_ref == NULL || sqlparser_graph_column_ref_is_pseudo(column_ref)) {
+	if (column_ref == NULL ||
+	    sqlparser_graph_column_ref_is_pseudo(build, column_ref) ||
+	    sqlparser_graph_column_ref_is_dialect_expression(build, column_ref)) {
 		return 0;
 	}
 	name = sqlparser_graph_column_ref_part(column_ref, 0U);
@@ -6463,13 +8080,13 @@ static int sqlparser_graph_resolve_relation(
 static int sqlparser_graph_push_scope(
 	sqlparser_graph_build_t *build,
 	size_t block_index,
-	PgQuery__SelectStmt *select_stmt)
+	PgQuery__WithClause *with_clause)
 {
 	if (build == NULL || build->scope_count >= sizeof(build->scopes) / sizeof(build->scopes[0])) {
 		return -1;
 	}
 	build->scopes[build->scope_count].block_index = block_index;
-	build->scopes[build->scope_count].select_stmt = select_stmt;
+	build->scopes[build->scope_count].with_clause = with_clause;
 	build->scope_count++;
 	return 0;
 }
@@ -6499,9 +8116,9 @@ static PgQuery__CommonTableExpr *sqlparser_graph_find_cte(
 	for (scope_pos = build->scope_count; scope_pos > 0U; scope_pos--) {
 		PgQuery__CommonTableExpr *cte;
 
-		cte = sqlparser_view_select_find_cte(
+		cte = sqlparser_view_find_cte(
 			build->handle,
-			build->scopes[scope_pos - 1U].select_stmt,
+			build->scopes[scope_pos - 1U].with_clause,
 			name,
 			identifiers.object);
 		if (cte != NULL) {
@@ -6661,7 +8278,7 @@ static int sqlparser_graph_add_column_ref_field(
 	    sqlparser_text_equal_ci(column_name, build->dml_result_action_marker)) {
 		return 0;
 	}
-	if (!sqlparser_graph_column_ref_is_recordable_field(column_ref)) {
+	if (!sqlparser_graph_column_ref_is_recordable_field(build, column_ref)) {
 		return 0;
 	}
 	qualifier = sqlparser_graph_column_ref_part(column_ref, 1U);
@@ -7804,7 +9421,7 @@ static int sqlparser_graph_record_column_ref_match(
 {
 	size_t field_index;
 
-	if (!sqlparser_graph_column_ref_is_recordable_field(column_ref)) {
+	if (!sqlparser_graph_column_ref_is_recordable_field(build, column_ref)) {
 		return 0;
 	}
 	field_index = 0U;
@@ -8380,7 +9997,7 @@ static int sqlparser_graph_add_predicate_field_value(
 	size_t value_index;
 	int value_status;
 
-	if (!sqlparser_graph_column_ref_is_recordable_field(field_ref)) {
+	if (!sqlparser_graph_column_ref_is_recordable_field(build, field_ref)) {
 		return 0;
 	}
 	field_index = 0U;
@@ -8435,8 +10052,8 @@ static int sqlparser_graph_add_predicate_field_to_field_value(
 	size_t right_field_index;
 	size_t value_index;
 
-	if (!sqlparser_graph_column_ref_is_recordable_field(left_ref) ||
-	    !sqlparser_graph_column_ref_is_recordable_field(right_ref)) {
+	if (!sqlparser_graph_column_ref_is_recordable_field(build, left_ref) ||
+	    !sqlparser_graph_column_ref_is_recordable_field(build, right_ref)) {
 		return 0;
 	}
 	left_field_index = 0U;
@@ -8600,7 +10217,9 @@ static int sqlparser_graph_build_a_expr_predicate(
 	predicate.operator_name = operator_name;
 	predicate.operator_kind = sqlparser_graph_operator_kind_from_name(operator_name);
 	if (left != NULL && left->node_case == PG_QUERY__NODE__NODE_COLUMN_REF &&
-	    pattern_node != NULL && pattern_node->node_case == PG_QUERY__NODE__NODE_COLUMN_REF) {
+	    pattern_node != NULL && pattern_node->node_case == PG_QUERY__NODE__NODE_COLUMN_REF &&
+	    sqlparser_graph_column_ref_is_recordable_field(build, left->column_ref) &&
+	    sqlparser_graph_column_ref_is_recordable_field(build, pattern_node->column_ref)) {
 		if (sqlparser_graph_add_predicate_field_to_field_value(
 			    build,
 			    block_index,
@@ -8613,7 +10232,8 @@ static int sqlparser_graph_build_a_expr_predicate(
 			return -1;
 		}
 	} else if (left != NULL && left->node_case == PG_QUERY__NODE__NODE_COLUMN_REF &&
-	           pattern_node != NULL && sqlparser_graph_node_has_recordable_value(pattern_node)) {
+	           pattern_node != NULL && sqlparser_graph_node_has_recordable_value(pattern_node) &&
+	           sqlparser_graph_column_ref_is_recordable_field(build, left->column_ref)) {
 		if (sqlparser_graph_add_predicate_field_value(
 			    build,
 			    block_index,
@@ -8627,7 +10247,8 @@ static int sqlparser_graph_build_a_expr_predicate(
 			return -1;
 		}
 	} else if (pattern_node != NULL && pattern_node->node_case == PG_QUERY__NODE__NODE_COLUMN_REF &&
-	           left != NULL && sqlparser_graph_node_has_recordable_value(left)) {
+	           left != NULL && sqlparser_graph_node_has_recordable_value(left) &&
+	           sqlparser_graph_column_ref_is_recordable_field(build, pattern_node->column_ref)) {
 		if (sqlparser_graph_add_predicate_field_value(
 			    build,
 			    block_index,
@@ -8644,7 +10265,9 @@ static int sqlparser_graph_build_a_expr_predicate(
 		predicate.kind = SQLPARSER_GRAPH_PREDICATE_EXPRESSION;
 		if (left != NULL &&
 		    left->node_case == PG_QUERY__NODE__NODE_COLUMN_REF &&
-		    sqlparser_graph_column_ref_is_recordable_field(left->column_ref)) {
+		    sqlparser_graph_column_ref_is_recordable_field(
+			    build,
+			    left->column_ref)) {
 			if (sqlparser_graph_add_column_ref_field(
 				    build,
 				    block_index,
@@ -8658,37 +10281,90 @@ static int sqlparser_graph_build_a_expr_predicate(
 			}
 			predicate.has_left_field = 1;
 		}
-		if (clause == SQLPARSER_CLAUSE_KIND_CONDITION) {
+		if (pattern_node != NULL &&
+		    pattern_node->node_case == PG_QUERY__NODE__NODE_COLUMN_REF &&
+		    sqlparser_graph_column_ref_is_recordable_field(
+			    build,
+			    pattern_node->column_ref)) {
+			if (sqlparser_graph_add_column_ref_field(
+				    build,
+				    block_index,
+				    clause,
+				    pattern_node->column_ref,
+				    0U,
+				    0,
+				    &predicate.right_field_index,
+				    out_error) != 0) {
+				return -1;
+			}
+			predicate.has_right_field = 1;
+		}
+		{
+			int records_expression_values;
 			int left_status;
+			int left_is_pseudo;
+			int right_is_pseudo;
 			int right_status;
 			size_t first_value_index;
 
+			records_expression_values =
+				clause == SQLPARSER_CLAUSE_KIND_CONDITION ||
+				(left != NULL &&
+				 left->node_case ==
+					 PG_QUERY__NODE__NODE_COLUMN_REF &&
+				 sqlparser_graph_column_ref_is_dialect_expression(
+					 build,
+					 left->column_ref)) ||
+				(pattern_node != NULL &&
+				 pattern_node->node_case ==
+					 PG_QUERY__NODE__NODE_COLUMN_REF &&
+				 sqlparser_graph_column_ref_is_dialect_expression(
+					 build,
+					 pattern_node->column_ref));
 			first_value_index = sqlparser_graph_local_value_count(build);
-			left_status = sqlparser_graph_record_value_nodes(
-				build,
-				block_index,
-				clause,
-				operator_name,
-				0U,
-				0,
-				SQLPARSER_GRAPH_FIELD_MATCH_UNKNOWN,
-				left,
-				like_escape_ptr,
-				out_error);
+			left_is_pseudo =
+				left != NULL &&
+				left->node_case ==
+					PG_QUERY__NODE__NODE_COLUMN_REF &&
+				sqlparser_graph_column_ref_is_pseudo(
+					build,
+					left->column_ref);
+			right_is_pseudo =
+				pattern_node != NULL &&
+				pattern_node->node_case ==
+					PG_QUERY__NODE__NODE_COLUMN_REF &&
+				sqlparser_graph_column_ref_is_pseudo(
+					build,
+					pattern_node->column_ref);
+			left_status = !records_expression_values || right_is_pseudo ?
+				0 :
+				sqlparser_graph_record_value_nodes(
+					build,
+					block_index,
+					clause,
+					operator_name,
+					0U,
+					0,
+					SQLPARSER_GRAPH_FIELD_MATCH_UNKNOWN,
+					left,
+					like_escape_ptr,
+					out_error);
 			if (left_status < 0) {
 				return -1;
 			}
-			right_status = sqlparser_graph_record_value_nodes(
-				build,
-				block_index,
-				clause,
-				operator_name,
-				0U,
-				0,
-				SQLPARSER_GRAPH_FIELD_MATCH_UNKNOWN,
-				pattern_node,
-				like_escape_ptr,
-				out_error);
+			right_status = !records_expression_values || left_is_pseudo ?
+				0 :
+				sqlparser_graph_record_value_nodes(
+					build,
+					block_index,
+					clause,
+					operator_name,
+					0U,
+					0,
+					SQLPARSER_GRAPH_FIELD_MATCH_UNKNOWN,
+					pattern_node,
+					like_escape_ptr,
+					out_error);
 			if (right_status < 0) {
 				return -1;
 			}
@@ -8750,7 +10426,9 @@ static int sqlparser_graph_build_func_call_predicate(
 		}
 		if (field_ref == NULL &&
 		    arg->node_case == PG_QUERY__NODE__NODE_COLUMN_REF &&
-		    sqlparser_graph_column_ref_is_recordable_field(arg->column_ref)) {
+		    sqlparser_graph_column_ref_is_recordable_field(
+			    build,
+			    arg->column_ref)) {
 			field_ref = arg->column_ref;
 			continue;
 		}
@@ -9590,6 +11268,174 @@ static void sqlparser_graph_set_star_target_source_block(
 	target->has_source_block = 1;
 }
 
+static int sqlparser_graph_target_list_boundary(
+	const char *sql,
+	size_t start,
+	size_t end)
+{
+	static const char *const words[] = {
+		"except", "fetch", "for", "from", "group", "having",
+		"intersect", "into", "limit", "offset", "order", "union",
+		"where"
+	};
+	size_t index;
+
+	for (index = 0U; index < sizeof(words) / sizeof(words[0]); index++) {
+		if (sqlparser_identifier_token_is_word(
+			    sql,
+			    start,
+			    end,
+			    words[index])) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static sqlparser_identifier_source_t
+sqlparser_graph_res_target_identifier_source(
+	const sqlparser_graph_build_t *build,
+	const PgQuery__ResTarget *target)
+{
+	sqlparser_identifier_source_t last_identifier;
+	sqlparser_identifier_source_t source;
+	const char *sql;
+	size_t bracket_depth;
+	size_t depth;
+	size_t length;
+	size_t position;
+	int expect_alias;
+
+	memset(&last_identifier, 0, sizeof(last_identifier));
+	memset(&source, 0, sizeof(source));
+	if (build == NULL || build->handle == NULL ||
+	    target == NULL || target->name == NULL ||
+	    target->name[0] == '\0') {
+		return source;
+	}
+	if (target->location < 0) {
+		(void)sqlparser_identifier_component_source(
+			build->handle,
+			target->location,
+			0U,
+			&source,
+			NULL);
+		return source;
+	}
+	sql = build->handle->parser_sql;
+	length = build->handle->parser_sql_len;
+	position = (size_t)target->location;
+	if (position >= length) {
+		return source;
+	}
+	bracket_depth = 0U;
+	depth = 0U;
+	expect_alias = 0;
+	while (position < length) {
+		size_t skipped;
+		size_t token_end;
+		int quoted;
+
+		position = sqlparser_identifier_skip_trivia(
+			sql,
+			length,
+			position);
+		if (position >= length ||
+		    (depth == 0U && bracket_depth == 0U &&
+		     (sql[position] == ',' || sql[position] == ';'))) {
+			break;
+		}
+		if (sql[position] == '(') {
+			depth++;
+			position++;
+			continue;
+		}
+		if (sql[position] == '[') {
+			bracket_depth++;
+			position++;
+			continue;
+		}
+		if (sql[position] == ']') {
+			if (bracket_depth > 0U) {
+				bracket_depth--;
+			}
+			position++;
+			continue;
+		}
+		if (sql[position] == ')') {
+			if (depth == 0U) {
+				break;
+			}
+			depth--;
+			position++;
+			continue;
+		}
+		if (sql[position] != '"' &&
+		    !((sql[position] == 'U' || sql[position] == 'u') &&
+		      position + 2U < length &&
+		      sql[position + 1U] == '&' &&
+		      sql[position + 2U] == '"')) {
+			skipped =
+				sqlparser_view_bind_public_skip_quoted_or_comment(
+					SQLPARSER_DIALECT_POSTGRESQL,
+					sql,
+					position);
+			if (skipped != position) {
+				position = skipped;
+				continue;
+			}
+		}
+		if (!sqlparser_identifier_token(
+			    sql,
+			    length,
+			    position,
+			    &token_end,
+			    &quoted)) {
+			position++;
+			continue;
+		}
+		if (depth == 0U && bracket_depth == 0U &&
+		    expect_alias) {
+			source.known = 1;
+			source.quoted = quoted;
+			return source;
+		}
+		if (depth == 0U && bracket_depth == 0U &&
+		    !quoted &&
+		    sqlparser_identifier_token_is_word(
+			    sql,
+			    position,
+			    token_end,
+			    "as")) {
+			expect_alias = 1;
+			position = token_end;
+			continue;
+		}
+		if (depth == 0U && bracket_depth == 0U && !quoted &&
+		    sqlparser_graph_target_list_boundary(
+			    sql,
+			    position,
+			    token_end)) {
+			break;
+		}
+		if (depth == 0U && bracket_depth == 0U) {
+			last_identifier.known = 1;
+			last_identifier.quoted = quoted;
+		}
+		if (sqlparser_identifier_token_value_equal(
+			    sql,
+			    position,
+			    token_end,
+			    quoted,
+			    target->name)) {
+			source.known = 1;
+			source.quoted = quoted;
+		}
+		position = token_end;
+	}
+	return source.known ? source : last_identifier;
+}
+
 static int sqlparser_graph_build_target(
 	sqlparser_graph_build_t *build,
 	size_t block_index,
@@ -9602,6 +11448,7 @@ static int sqlparser_graph_build_target(
 	PgQuery__ResTarget *res_target,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_identifier_source_t output_identifier;
 	sqlparser_graph_target_t target;
 	PgQuery__Node *expr;
 	const char *name;
@@ -9609,10 +11456,17 @@ static int sqlparser_graph_build_target(
 	size_t target_index;
 	size_t field_index;
 
+	memset(&output_identifier, 0, sizeof(output_identifier));
 	memset(&target, 0, sizeof(target));
 	target.block_index = block_index;
 	target.ordinal = ordinal;
 	target.output_name = res_target != NULL && res_target->name != NULL && res_target->name[0] != '\0' ? res_target->name : NULL;
+	if (target.output_name != NULL) {
+		output_identifier =
+			sqlparser_graph_res_target_identifier_source(
+				build,
+				res_target);
+	}
 	target.target_list_selector.kind = target_list_selector_kind;
 	target.target_list_selector.statement_index = build->statement_index;
 	target.target_list_selector.item_index = selector_item_index;
@@ -9628,6 +11482,12 @@ static int sqlparser_graph_build_target(
 	if (expr != NULL && expr->node_case == PG_QUERY__NODE__NODE_COLUMN_REF && expr->column_ref != NULL) {
 		name = sqlparser_graph_column_ref_part(expr->column_ref, 0U);
 		qualifier = sqlparser_graph_column_ref_part(expr->column_ref, 1U);
+		if (target.output_name == NULL) {
+			output_identifier = sqlparser_graph_column_ref_part_source(
+				build->handle,
+				expr->column_ref,
+				0U);
+		}
 		if (name != NULL && strcmp(name, "*") == 0) {
 			size_t resolution_block;
 			size_t star_target_index;
@@ -9659,7 +11519,12 @@ static int sqlparser_graph_build_target(
 			}
 			sqlparser_graph_set_star_target_source_block(build, &target);
 			star_target_index = 0U;
-			if (sqlparser_graph_add_target(build, &target, &star_target_index, out_error) != 0) {
+			if (sqlparser_graph_add_target(
+				    build,
+				    &target,
+				    &output_identifier,
+				    &star_target_index,
+				    out_error) != 0) {
 				return -1;
 			}
 			if (build->building_dml_result && target.star_relations.count > 0U) {
@@ -9685,7 +11550,20 @@ static int sqlparser_graph_build_target(
 			}
 			return 0;
 		}
-		if (sqlparser_graph_column_ref_is_pseudo(expr->column_ref) ||
+		if (sqlparser_graph_column_ref_is_dialect_expression(
+			    build,
+			    expr->column_ref)) {
+			target.kind = SQLPARSER_GRAPH_TARGET_EXPRESSION;
+			return sqlparser_graph_add_target(
+				build,
+				&target,
+				&output_identifier,
+				NULL,
+				out_error);
+		}
+		if (sqlparser_graph_column_ref_is_pseudo(
+			    build,
+			    expr->column_ref) ||
 		    (build->building_dml_result && build->dml_result_action_marker != NULL &&
 		     sqlparser_text_equal_ci(name, build->dml_result_action_marker))) {
 			target.kind = SQLPARSER_GRAPH_TARGET_PSEUDO;
@@ -9694,14 +11572,24 @@ static int sqlparser_graph_build_target(
 					sqlparser_text_equal_ci(name, build->dml_result_action_marker) ?
 					"$action" : name;
 			}
-			return sqlparser_graph_add_target(build, &target, NULL, out_error);
+			return sqlparser_graph_add_target(
+				build,
+				&target,
+				&output_identifier,
+				NULL,
+				out_error);
 		}
 		target_index = 0U;
 		target.kind = SQLPARSER_GRAPH_TARGET_FIELD;
 		if (target.output_name == NULL) {
 			target.output_name = name;
 		}
-		if (sqlparser_graph_add_target(build, &target, &target_index, out_error) != 0) {
+		if (sqlparser_graph_add_target(
+			    build,
+			    &target,
+			    &output_identifier,
+			    &target_index,
+			    out_error) != 0) {
 			return -1;
 		}
 		field_index = 0U;
@@ -9737,7 +11625,12 @@ static int sqlparser_graph_build_target(
 			return -1;
 		}
 		target.has_value = 1;
-		return sqlparser_graph_add_target(build, &target, NULL, out_error);
+		return sqlparser_graph_add_target(
+			build,
+			&target,
+			&output_identifier,
+			NULL,
+			out_error);
 	}
 	if (expr != NULL && expr->node_case == PG_QUERY__NODE__NODE_PARAM_REF) {
 		int added;
@@ -9756,10 +11649,20 @@ static int sqlparser_graph_build_target(
 		}
 		if (!added) {
 			target.kind = SQLPARSER_GRAPH_TARGET_EXPRESSION;
-			return sqlparser_graph_add_target(build, &target, NULL, out_error);
+			return sqlparser_graph_add_target(
+				build,
+				&target,
+				&output_identifier,
+				NULL,
+				out_error);
 		}
 		target.has_value = 1;
-		return sqlparser_graph_add_target(build, &target, NULL, out_error);
+		return sqlparser_graph_add_target(
+			build,
+			&target,
+			&output_identifier,
+			NULL,
+			out_error);
 	}
 	if (expr != NULL && expr->node_case == PG_QUERY__NODE__NODE_SUB_LINK && expr->sub_link != NULL) {
 		target.kind = SQLPARSER_GRAPH_TARGET_SUBQUERY;
@@ -9767,10 +11670,20 @@ static int sqlparser_graph_build_target(
 			return -1;
 		}
 		target.has_source_block = 1;
-		return sqlparser_graph_add_target(build, &target, NULL, out_error);
+		return sqlparser_graph_add_target(
+			build,
+			&target,
+			&output_identifier,
+			NULL,
+			out_error);
 	}
 	target.kind = SQLPARSER_GRAPH_TARGET_EXPRESSION;
-	if (sqlparser_graph_add_target(build, &target, &target_index, out_error) != 0) {
+	if (sqlparser_graph_add_target(
+		    build,
+		    &target,
+		    &output_identifier,
+		    &target_index,
+		    out_error) != 0) {
 		return -1;
 	}
 	return sqlparser_graph_walk_expr(
@@ -9976,11 +11889,12 @@ static int sqlparser_graph_build_from_item(
 				0,
 				sizeof(derived_identifiers));
 			if (relation_view.alias_name != NULL) {
-				derived_identifiers.alias =
-					sqlparser_identifier_source_for_text(
-						build->handle,
-						build->statement_index,
-						relation_view.alias_name);
+				(void)sqlparser_identifier_component_source(
+					build->handle,
+					node->range_subselect->alias->location,
+					0U,
+					&derived_identifiers.alias,
+					NULL);
 			}
 			if (sqlparser_graph_add_relation(
 				    build,
@@ -10088,7 +12002,10 @@ static int sqlparser_graph_build_select(
 		if (out_block_index != NULL) {
 			*out_block_index = block_index;
 		}
-		if (sqlparser_graph_push_scope(build, block_index, stmt) != 0) {
+		if (sqlparser_graph_push_scope(
+			    build,
+			    block_index,
+			    stmt->with_clause) != 0) {
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "query graph nesting is too deep");
 			return -1;
 		}
@@ -10130,7 +12047,10 @@ static int sqlparser_graph_build_select(
 	if (out_block_index != NULL) {
 		*out_block_index = block_index;
 	}
-	if (sqlparser_graph_push_scope(build, block_index, stmt) != 0) {
+	if (sqlparser_graph_push_scope(
+		    build,
+		    block_index,
+		    stmt->with_clause) != 0) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "query graph nesting is too deep");
 		return -1;
 	}
@@ -10332,10 +12252,12 @@ static int sqlparser_graph_add_dml_column(
 static int sqlparser_graph_add_dml_branch(
 	sqlparser_graph_build_t *build,
 	const sqlparser_graph_dml_branch_t *source,
+	const sqlparser_graph_merge_branch_detail_t *detail_source,
 	size_t *out_index,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_graph_dml_branch_t *branch;
+	sqlparser_graph_merge_branch_detail_t *detail;
 	size_t global_index;
 	size_t local_index;
 
@@ -10347,15 +12269,26 @@ static int sqlparser_graph_add_dml_branch(
 		    &build->cache->dml_branch_capacity,
 		    build->cache->dml_branch_count + 1U,
 		    sizeof(*build->cache->dml_branches),
+		    out_error) != 0 ||
+	    sqlparser_query_graph_reserve_array(
+		    (void **)&build->cache->merge_branch_details,
+		    &build->cache->merge_branch_detail_capacity,
+		    build->cache->dml_branch_count + 1U,
+		    sizeof(*build->cache->merge_branch_details),
 		    out_error) != 0) {
 		return -1;
 	}
 	global_index = build->cache->dml_branch_count++;
 	local_index = build->cache->dml_branch_count - build->statement->dml_branch_offset - 1U;
 	branch = &build->cache->dml_branches[global_index];
+	detail = &build->cache->merge_branch_details[global_index];
 	memset(branch, 0, sizeof(*branch));
+	memset(detail, 0, sizeof(*detail));
 	if (source != NULL) {
 		*branch = *source;
+	}
+	if (detail_source != NULL) {
+		*detail = *detail_source;
 	}
 	branch->index = local_index;
 	branch->statement_index = build->statement_index;
@@ -10383,12 +12316,19 @@ static int sqlparser_graph_add_dml_cell(
 		    &build->cache->dml_cell_capacity,
 		    build->cache->dml_cell_count + 1U,
 		    sizeof(*build->cache->dml_cells),
+		    out_error) != 0 ||
+	    sqlparser_query_graph_reserve_array(
+		    (void **)&build->cache->dml_cell_expression_sql,
+		    &build->cache->dml_cell_expression_sql_capacity,
+		    build->cache->dml_cell_count + 1U,
+		    sizeof(*build->cache->dml_cell_expression_sql),
 		    out_error) != 0) {
 		return -1;
 	}
 	global_index = build->cache->dml_cell_count++;
 	local_index = build->cache->dml_cell_count - build->statement->dml_cell_offset - 1U;
 	cell = &build->cache->dml_cells[global_index];
+	build->cache->dml_cell_expression_sql[global_index] = NULL;
 	memset(cell, 0, sizeof(*cell));
 	if (source != NULL) {
 		*cell = *source;
@@ -10554,8 +12494,10 @@ static int sqlparser_graph_fill_dml_value_fields(
 static int sqlparser_graph_resolve_source_target_from_field(
 	sqlparser_graph_build_t *build,
 	size_t field_index,
+	PgQuery__ColumnRef *column_ref,
 	size_t *out_source_target_index)
 {
+	sqlparser_identifier_source_t field_identifier;
 	sqlparser_graph_field_t *field;
 	sqlparser_graph_relation_t *relation;
 	size_t index;
@@ -10573,16 +12515,29 @@ static int sqlparser_graph_resolve_source_target_from_field(
 	if (relation == NULL || !relation->has_source_block) {
 		return 0;
 	}
+	field_identifier = sqlparser_graph_column_ref_part_source(
+		build->handle,
+		column_ref,
+		0U);
 	match_index = 0U;
 	match_count = 0U;
 	for (index = 0U; index < sqlparser_graph_local_target_count(build); index++) {
+		sqlparser_identifier_source_t *target_identifier;
 		sqlparser_graph_target_t *target;
 
 		target = sqlparser_graph_target_by_local(build, index);
+		target_identifier =
+			sqlparser_graph_target_identifier_by_local(build, index);
 		if (target == NULL ||
 		    target->block_index != relation->source_block_index ||
 		    target->output_name == NULL ||
-		    !sqlparser_text_equal_ci(target->output_name, field->column_name)) {
+		    target_identifier == NULL ||
+		    !sqlparser_identifier_semantic_equal(
+			    build->handle,
+			    target->output_name,
+			    *target_identifier,
+			    field->column_name,
+			    field_identifier)) {
 			continue;
 		}
 		match_index = index;
@@ -10626,7 +12581,9 @@ static int sqlparser_graph_fill_dml_source_field(
 	if (value_node == NULL ||
 	    value_node->node_case != PG_QUERY__NODE__NODE_COLUMN_REF ||
 	    value_node->column_ref == NULL ||
-	    sqlparser_graph_column_ref_is_pseudo(value_node->column_ref)) {
+	    !sqlparser_graph_column_ref_is_recordable_field(
+		    build,
+		    value_node->column_ref)) {
 		return 0;
 	}
 	field_index = 0U;
@@ -10651,7 +12608,11 @@ static int sqlparser_graph_fill_dml_source_field(
 		*has_source_field = 1;
 	}
 	if (source_target_index != NULL &&
-	    sqlparser_graph_resolve_source_target_from_field(build, field_index, source_target_index)) {
+	    sqlparser_graph_resolve_source_target_from_field(
+		    build,
+		    field_index,
+		    value_node->column_ref,
+		    source_target_index)) {
 		if (has_source_target != NULL) {
 			*has_source_target = 1;
 		}
@@ -10718,6 +12679,7 @@ static int sqlparser_graph_add_dml_column_from_res_target(
 	size_t dml_index,
 	size_t ordinal,
 	PgQuery__Node *col_node,
+	sqlparser_index_span_t *target_columns,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_graph_dml_column_t column;
@@ -10733,7 +12695,96 @@ static int sqlparser_graph_add_dml_column_from_res_target(
 	column.ordinal = ordinal;
 	column.column_name = col_node->res_target->name;
 	if (sqlparser_graph_add_dml_column(build, &column, &column_index, out_error) != 0 ||
-	    sqlparser_graph_span_append_index(build, &build->cache->dml[build->statement->dml_offset + dml_index].target_columns, column_index, out_error) != 0) {
+	    sqlparser_graph_span_append_index(
+		    build,
+		    target_columns,
+		    column_index,
+		    out_error) != 0) {
+		return -1;
+	}
+	return 0;
+}
+
+static int sqlparser_graph_dml_expression_sql(
+	sqlparser_graph_build_t *build,
+	size_t dml_index,
+	size_t values_ordinal,
+	size_t row_index,
+	size_t column_ordinal,
+	PgQuery__Node *value_node,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	char *core_sql;
+	int source_status;
+	sqlparser_status_t status;
+
+	*out_sql = NULL;
+	source_status = sqlparser_view_expression_source_sql(
+		build->handle,
+		&build->origins,
+		&build->expression_source_cache,
+		value_node,
+		out_sql,
+		out_error);
+	if (source_status != 0) {
+		return source_status > 0 ? 0 : -1;
+	}
+	if (build->handle->generation == 0UL) {
+		if (build->dml_source_sql != NULL) {
+			source_status = sqlparser_view_dml_cell_source_sql(
+				build->handle,
+				build->dml_source_sql,
+				0U,
+				strlen(build->dml_source_sql),
+				values_ordinal,
+				row_index,
+				column_ordinal,
+				out_sql,
+				out_error);
+		} else if (dml_index == 0U) {
+			source_status =
+				sqlparser_view_statement_dml_cell_source_sql(
+					build->handle,
+					build->statement_index,
+					values_ordinal,
+					row_index,
+					column_ordinal,
+					out_sql,
+					out_error);
+		}
+	}
+	if (source_status != 0) {
+		return source_status > 0 ? 0 : -1;
+	}
+	core_sql = NULL;
+	status = sqlparser_render_insert_cell_node_sql(
+		build->handle,
+		value_node,
+		&core_sql,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_postprocess_handle_sql_fragment(
+			build->handle,
+			build->statement_index,
+			core_sql,
+			"query graph expression cell",
+			out_sql,
+			out_error);
+	}
+	free(core_sql);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(*out_sql);
+		*out_sql = NULL;
+		return -1;
+	}
+	if (*out_sql == NULL || (*out_sql)[0] == '\0') {
+		free(*out_sql);
+		*out_sql = NULL;
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"expression cell SQL is missing");
 		return -1;
 	}
 	return 0;
@@ -10742,16 +12793,22 @@ static int sqlparser_graph_add_dml_column_from_res_target(
 static int sqlparser_graph_add_dml_cell_from_node(
 	sqlparser_graph_build_t *build,
 	size_t dml_index,
+	size_t block_index,
 	size_t row_index,
+	size_t source_row_index,
 	size_t column_ordinal,
 	PgQuery__Node *value_node,
+	size_t values_ordinal,
 	int assign_insert_selector,
+	sqlparser_index_span_t *rows,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_graph_dml_cell_t cell;
+	char *expression_sql;
 	size_t cell_index;
 
 	memset(&cell, 0, sizeof(cell));
+	expression_sql = NULL;
 	cell.dml_index = dml_index;
 	cell.row_index = row_index;
 	cell.column_ordinal = column_ordinal;
@@ -10771,10 +12828,10 @@ static int sqlparser_graph_add_dml_cell_from_node(
 		    &cell.has_bind_position,
 		    &cell.selector,
 		    &cell.has_selector,
-		    out_error) != 0 ||
+	    out_error) != 0 ||
 	    sqlparser_graph_fill_dml_source_field(
 		    build,
-		    0U,
+		    block_index,
 		    SQLPARSER_CLAUSE_KIND_UNKNOWN,
 		    value_node,
 		    &cell.kind,
@@ -10783,11 +12840,40 @@ static int sqlparser_graph_add_dml_cell_from_node(
 		    &cell.source_target_index,
 		    &cell.has_source_target,
 		    out_error) < 0 ||
-	    sqlparser_graph_add_dml_cell(build, &cell, &cell_index, out_error) != 0 ||
-	    sqlparser_graph_span_append_index(build, &build->cache->dml[build->statement->dml_offset + dml_index].rows, cell_index, out_error) != 0) {
+	    (cell.kind == SQLPARSER_GRAPH_VALUE_EXPRESSION &&
+	     sqlparser_graph_dml_expression_sql(
+		     build,
+		     dml_index,
+		     values_ordinal,
+		     source_row_index,
+		     column_ordinal,
+		     value_node,
+		     &expression_sql,
+		     out_error) != 0)) {
+		free(expression_sql);
+		return -1;
+	}
+	if (sqlparser_graph_add_dml_cell(
+		    build,
+		    &cell,
+		    &cell_index,
+		    out_error) != 0) {
+		free(expression_sql);
+		return -1;
+	}
+	build->cache->dml_cell_expression_sql[
+		build->statement->dml_cell_offset + cell_index] =
+		expression_sql;
+	if (sqlparser_graph_span_append_index(
+		    build,
+		    rows,
+		    cell_index,
+		    out_error) != 0) {
 		return -1;
 	}
 	if (assign_insert_selector) {
+		cell.index = cell_index;
+		cell.statement_index = build->statement_index;
 		cell.selector.kind = SQLPARSER_SELECTOR_KIND_INSERT_CELL;
 		cell.selector.statement_index = build->statement_index;
 		cell.selector.row_index = row_index;
@@ -10821,6 +12907,7 @@ static int sqlparser_graph_add_dml_assignment_from_res_target(
 	int has_relation,
 	PgQuery__Node *node,
 	const sqlparser_selector_t *selector,
+	sqlparser_index_span_t *branch_assignments,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_graph_field_t field;
@@ -10874,7 +12961,13 @@ static int sqlparser_graph_add_dml_assignment_from_res_target(
 		    &assignment.has_source_target,
 		    out_error) < 0 ||
 	    sqlparser_graph_add_dml_assignment(build, &assignment, &assignment_index, out_error) != 0 ||
-	    sqlparser_graph_span_append_index(build, &build->cache->dml[build->statement->dml_offset + dml_index].assignments, assignment_index, out_error) != 0) {
+	    sqlparser_graph_span_append_index(build, &build->cache->dml[build->statement->dml_offset + dml_index].assignments, assignment_index, out_error) != 0 ||
+	    (branch_assignments != NULL &&
+	     sqlparser_graph_span_append_index(
+		     build,
+		     branch_assignments,
+		     assignment_index,
+		     out_error) != 0)) {
 		return -1;
 	}
 	if (selector != NULL) {
@@ -10955,8 +13048,10 @@ static int sqlparser_graph_multi_insert_cell_resolve_source_target(
 	sqlparser_graph_build_t *build,
 	size_t source_block_index,
 	PgQuery__ColumnRef *column_ref,
+	const char *source_sql,
 	size_t *out_source_target_index)
 {
+	sqlparser_identifier_source_t name_identifier;
 	const char *name;
 	const char *qualifier;
 	size_t index;
@@ -10969,7 +13064,11 @@ static int sqlparser_graph_multi_insert_cell_resolve_source_target(
 	if (build == NULL || column_ref == NULL) {
 		return 0;
 	}
-	if (sqlparser_graph_column_ref_is_pseudo(column_ref)) {
+	if (sqlparser_graph_column_ref_is_pseudo(build, column_ref) ||
+	    sqlparser_graph_fragment_column_ref_is_dialect_expression(
+		    build,
+		    column_ref,
+		    source_sql)) {
 		return 0;
 	}
 	name = sqlparser_graph_column_ref_part(column_ref, 0U);
@@ -10978,20 +13077,31 @@ static int sqlparser_graph_multi_insert_cell_resolve_source_target(
 	    (qualifier != NULL && qualifier[0] != '\0')) {
 		return 0;
 	}
+	name_identifier =
+		sqlparser_graph_fragment_identifier_source(source_sql);
 	match_index = 0U;
 	match_count = 0U;
 	for (index = 0U; index < sqlparser_graph_local_target_count(build); index++) {
+		sqlparser_identifier_source_t *target_identifier;
 		sqlparser_graph_target_t *target;
 		int matched;
 
 		target = sqlparser_graph_target_by_local(build, index);
+		target_identifier =
+			sqlparser_graph_target_identifier_by_local(build, index);
 		if (target == NULL ||
 		    target->block_index != source_block_index ||
 		    target->kind != SQLPARSER_GRAPH_TARGET_FIELD) {
 			continue;
 		}
 		matched = target->output_name != NULL &&
-			sqlparser_text_equal_ci(target->output_name, name);
+			target_identifier != NULL &&
+			sqlparser_identifier_semantic_equal(
+				build->handle,
+				target->output_name,
+				*target_identifier,
+				name,
+				name_identifier);
 		if (!matched) {
 			continue;
 		}
@@ -11019,6 +13129,7 @@ static int sqlparser_graph_add_multi_insert_dml_cell(
 	sqlparser_error_t *out_error)
 {
 	sqlparser_graph_dml_cell_t cell;
+	char *expression_sql;
 	PgQuery__Node *node;
 	size_t cell_index;
 
@@ -11026,6 +13137,7 @@ static int sqlparser_graph_add_multi_insert_dml_cell(
 		return 0;
 	}
 	memset(&cell, 0, sizeof(cell));
+	expression_sql = NULL;
 	cell.dml_index = dml_index;
 	cell.row_index = branch_ordinal;
 	cell.column_ordinal = column_ordinal;
@@ -11041,9 +13153,14 @@ static int sqlparser_graph_add_multi_insert_dml_cell(
 	} else if (source->has_literal) {
 		cell.kind = SQLPARSER_GRAPH_VALUE_LITERAL;
 		cell.literal = source->literal;
-	} else if (source->parser_sql != NULL && strchr(source->parser_sql, '$') == NULL) {
+	} else if (source->parser_sql != NULL &&
+		   !sqlparser_view_parser_sql_has_bind(source->parser_sql)) {
 		node = NULL;
-		if (sqlparser_parse_insert_cell_node_sql(source->parser_sql, &node, out_error) != SQLPARSER_STATUS_OK) {
+		if (sqlparser_parse_insert_cell_node_sql(
+			    source->parser_sql,
+			    NULL,
+			    &node,
+			    out_error) != SQLPARSER_STATUS_OK) {
 			return -1;
 		}
 		if (node != NULL &&
@@ -11065,6 +13182,7 @@ static int sqlparser_graph_add_multi_insert_dml_cell(
 			           build,
 			           source_block_index,
 			           node->column_ref,
+			           source->public_sql,
 			           &cell.source_target_index)) {
 			sqlparser_graph_target_t *target;
 
@@ -11087,9 +13205,30 @@ static int sqlparser_graph_add_multi_insert_dml_cell(
 	cell.selector.row_index = branch_ordinal;
 	cell.selector.column_index = column_ordinal;
 	cell.has_selector = 1;
+	if (cell.kind == SQLPARSER_GRAPH_VALUE_EXPRESSION) {
+		if (source->public_sql == NULL || source->public_sql[0] == '\0') {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"multi-insert expression cell SQL is missing");
+			return -1;
+		}
+		expression_sql = sqlparser_strdup(source->public_sql);
+		if (expression_sql == NULL) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			return -1;
+		}
+	}
 	if (sqlparser_graph_add_dml_cell(build, &cell, &cell_index, out_error) != 0) {
+		free(expression_sql);
 		return -1;
 	}
+	build->cache->dml_cell_expression_sql[
+		build->statement->dml_cell_offset + cell_index] =
+		expression_sql;
 	if (branch != NULL &&
 	    sqlparser_graph_span_append_index(build, &branch->rows, cell_index, out_error) != 0) {
 		return -1;
@@ -11556,7 +13695,12 @@ static int sqlparser_graph_build_multi_insert_dml(
 			branch.condition_selector.item_index = branch_index;
 			branch.has_condition_selector = 1;
 		}
-		if (sqlparser_graph_add_dml_branch(build, &branch, &local_branch_index, out_error) != 0 ||
+		if (sqlparser_graph_add_dml_branch(
+			    build,
+			    &branch,
+			    NULL,
+			    &local_branch_index,
+			    out_error) != 0 ||
 		    sqlparser_graph_span_append_index(build, &dml_item->branches, local_branch_index, out_error) != 0) {
 			free(local_branch_indices);
 			return -1;
@@ -11608,6 +13752,7 @@ static int sqlparser_graph_build_insert_dml(
 	sqlparser_error_t *out_error)
 {
 	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_t *dml_item;
 	size_t block_index;
 	size_t dml_index;
 	size_t index;
@@ -11627,12 +13772,15 @@ static int sqlparser_graph_build_insert_dml(
 	if (sqlparser_graph_add_dml(build, &dml, &dml_index, out_error) != 0) {
 		return -1;
 	}
+	dml_item = &build->cache->dml[
+		build->statement->dml_offset + dml_index];
 	for (index = 0U; index < stmt->n_cols; index++) {
 		if (sqlparser_graph_add_dml_column_from_res_target(
 			    build,
 			    dml_index,
 			    index,
 			    stmt->cols != NULL ? stmt->cols[index] : NULL,
+			    &dml_item->target_columns,
 			    out_error) != 0) {
 			return -1;
 		}
@@ -11658,10 +13806,14 @@ static int sqlparser_graph_build_insert_dml(
 				if (sqlparser_graph_add_dml_cell_from_node(
 					    build,
 					    dml_index,
+					    block_index,
+					    index,
 					    index,
 					    column_index,
 					    row_node->list->items[column_index],
-					    1,
+					    0U,
+					    dml_index == 0U,
+					    &dml_item->rows,
 					    out_error) != 0) {
 					return -1;
 				}
@@ -11669,9 +13821,6 @@ static int sqlparser_graph_build_insert_dml(
 		}
 	} else if (stmt->select_stmt != NULL &&
 			   stmt->select_stmt->node_case == PG_QUERY__NODE__NODE_SELECT_STMT) {
-		sqlparser_graph_dml_t *dml_item;
-
-		dml_item = &build->cache->dml[build->statement->dml_offset + dml_index];
 		dml_item->insert_mode = SQLPARSER_GRAPH_INSERT_MODE_SELECT;
 		dml_item->has_source_block = 1;
 		if (sqlparser_graph_build_select(
@@ -11693,8 +13842,9 @@ static int sqlparser_graph_build_insert_dml(
 				    dml.target_relation_index,
 				    dml.has_target_relation,
 				    stmt->on_conflict_clause->target_list != NULL ?
-					    stmt->on_conflict_clause->target_list[index] :
+				    stmt->on_conflict_clause->target_list[index] :
 					    NULL,
+				    NULL,
 				    NULL,
 				    out_error) != 0) {
 				return -1;
@@ -11744,7 +13894,10 @@ static int sqlparser_graph_build_update_dml(
 	dml.target_relation_index = relation_index;
 	dml.has_target_relation = stmt->relation != NULL;
 	if (sqlparser_graph_add_dml(build, &dml, &dml_index, out_error) != 0 ||
-	    sqlparser_graph_push_scope(build, block_index, NULL) != 0) {
+	    sqlparser_graph_push_scope(
+		    build,
+		    block_index,
+		    stmt->with_clause) != 0) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "query graph nesting is too deep");
 		return -1;
 	}
@@ -11769,6 +13922,7 @@ static int sqlparser_graph_build_update_dml(
 			    dml.has_target_relation,
 			    stmt->target_list != NULL ? stmt->target_list[index] : NULL,
 			    &selector,
+			    NULL,
 			    out_error) != 0) {
 			sqlparser_graph_pop_scope(build);
 			return -1;
@@ -11823,7 +13977,10 @@ static int sqlparser_graph_build_delete_dml(
 		return -1;
 	}
 	if (sqlparser_graph_add_dml(build, &dml, &dml_index, out_error) != 0 ||
-	    sqlparser_graph_push_scope(build, block_index, NULL) != 0) {
+	    sqlparser_graph_push_scope(
+		    build,
+		    block_index,
+		    stmt->with_clause) != 0) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "query graph nesting is too deep");
 		return -1;
 	}
@@ -11873,16 +14030,52 @@ static int sqlparser_graph_build_delete_dml(
 	return 0;
 }
 
+static sqlparser_graph_merge_action_kind_t sqlparser_graph_merge_action_kind(
+	PgQuery__CmdType command_type)
+{
+	switch (command_type) {
+		case PG_QUERY__CMD_TYPE__CMD_INSERT:
+			return SQLPARSER_GRAPH_MERGE_ACTION_INSERT;
+		case PG_QUERY__CMD_TYPE__CMD_UPDATE:
+			return SQLPARSER_GRAPH_MERGE_ACTION_UPDATE;
+		case PG_QUERY__CMD_TYPE__CMD_DELETE:
+			return SQLPARSER_GRAPH_MERGE_ACTION_DELETE;
+		case PG_QUERY__CMD_TYPE__CMD_NOTHING:
+			return SQLPARSER_GRAPH_MERGE_ACTION_NOTHING;
+		default:
+			return SQLPARSER_GRAPH_MERGE_ACTION_UNKNOWN;
+	}
+}
+
+static sqlparser_graph_merge_match_kind_t sqlparser_graph_merge_match_kind(
+	PgQuery__MergeMatchKind match_kind)
+{
+	switch (match_kind) {
+		case PG_QUERY__MERGE_MATCH_KIND__MERGE_WHEN_MATCHED:
+			return SQLPARSER_GRAPH_MERGE_MATCH_MATCHED;
+		case PG_QUERY__MERGE_MATCH_KIND__MERGE_WHEN_NOT_MATCHED_BY_SOURCE:
+			return SQLPARSER_GRAPH_MERGE_MATCH_NOT_MATCHED_BY_SOURCE;
+		case PG_QUERY__MERGE_MATCH_KIND__MERGE_WHEN_NOT_MATCHED_BY_TARGET:
+			return SQLPARSER_GRAPH_MERGE_MATCH_NOT_MATCHED_BY_TARGET;
+		default:
+			return SQLPARSER_GRAPH_MERGE_MATCH_UNKNOWN;
+	}
+}
+
 static int sqlparser_graph_build_merge_dml(
 	sqlparser_graph_build_t *build,
 	PgQuery__MergeStmt *stmt,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_t *dml_item;
 	size_t block_index;
-	size_t target_relation_index;
+	size_t branch_ordinal;
 	size_t dml_index;
+	size_t first_branch_index;
 	size_t index;
+	size_t target_relation_index;
+	size_t values_ordinal;
 
 	if (build == NULL || stmt == NULL) {
 		return 0;
@@ -11896,7 +14089,10 @@ static int sqlparser_graph_build_merge_dml(
 	dml.target_relation_index = target_relation_index;
 	dml.has_target_relation = stmt->relation != NULL;
 	if (sqlparser_graph_add_dml(build, &dml, &dml_index, out_error) != 0 ||
-	    sqlparser_graph_push_scope(build, block_index, NULL) != 0) {
+	    sqlparser_graph_push_scope(
+		    build,
+		    block_index,
+		    stmt->with_clause) != 0) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "query graph nesting is too deep");
 		return -1;
 	}
@@ -11905,9 +14101,89 @@ static int sqlparser_graph_build_merge_dml(
 		sqlparser_graph_pop_scope(build);
 		return -1;
 	}
+	dml_item = &build->cache->dml[
+		build->statement->dml_offset + dml_index];
+	first_branch_index =
+		build->cache->dml_branch_count -
+		build->statement->dml_branch_offset;
+	values_ordinal = 0U;
 	for (index = 0U; index < stmt->n_merge_when_clauses; index++) {
 		PgQuery__Node *when_node;
 		PgQuery__MergeWhenClause *when_clause;
+		sqlparser_graph_dml_branch_t branch;
+		sqlparser_graph_merge_branch_detail_t detail;
+		size_t branch_index;
+
+		when_node = stmt->merge_when_clauses != NULL ?
+			stmt->merge_when_clauses[index] :
+			NULL;
+		if (when_node == NULL ||
+		    when_node->node_case !=
+			    PG_QUERY__NODE__NODE_MERGE_WHEN_CLAUSE ||
+		    when_node->merge_when_clause == NULL) {
+			continue;
+		}
+		when_clause = when_node->merge_when_clause;
+		if (when_clause->command_type ==
+			    PG_QUERY__CMD_TYPE__CMD_INSERT &&
+		    build->handle->dialect !=
+			    SQLPARSER_DIALECT_POSTGRESQL &&
+		    values_ordinal > 0U) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_UNSUPPORTED,
+				"multiple MERGE INSERT actions are not supported for this dialect");
+			sqlparser_graph_pop_scope(build);
+			return -1;
+		}
+		if (when_clause->command_type ==
+		    PG_QUERY__CMD_TYPE__CMD_INSERT) {
+			values_ordinal++;
+		}
+		memset(&branch, 0, sizeof(branch));
+		memset(&detail, 0, sizeof(detail));
+		branch.dml_index = dml_index;
+		branch.ordinal = index;
+		branch.branch_kind = SQLPARSER_GRAPH_DML_BRANCH_WHEN;
+		detail.action_kind =
+			sqlparser_graph_merge_action_kind(
+				when_clause->command_type);
+		detail.match_kind =
+			sqlparser_graph_merge_match_kind(
+				when_clause->match_kind);
+		branch.target_relation_index = target_relation_index;
+		branch.has_target_relation = dml.has_target_relation;
+		if (when_clause->condition != NULL) {
+			branch.condition_selector.kind =
+				SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION;
+			branch.condition_selector.statement_index =
+				build->statement_index;
+			branch.condition_selector.row_index = dml_index;
+			branch.condition_selector.item_index = index;
+			branch.has_condition_selector = 1;
+		}
+		if (sqlparser_graph_add_dml_branch(
+			    build,
+			    &branch,
+			    &detail,
+			    &branch_index,
+			    out_error) != 0 ||
+		    sqlparser_graph_span_append_index(
+			    build,
+			    &dml_item->branches,
+			    branch_index,
+			    out_error) != 0) {
+			sqlparser_graph_pop_scope(build);
+			return -1;
+		}
+	}
+	values_ordinal = 0U;
+	branch_ordinal = 0U;
+	for (index = 0U; index < stmt->n_merge_when_clauses; index++) {
+		PgQuery__Node *when_node;
+		PgQuery__MergeWhenClause *when_clause;
+		sqlparser_graph_dml_branch_t *branch;
+		sqlparser_graph_merge_branch_detail_t *detail;
 		size_t item_index;
 
 		when_node = stmt->merge_when_clauses != NULL ? stmt->merge_when_clauses[index] : NULL;
@@ -11917,6 +14193,14 @@ static int sqlparser_graph_build_merge_dml(
 			continue;
 		}
 		when_clause = when_node->merge_when_clause;
+		branch = &build->cache->dml_branches[
+			build->statement->dml_branch_offset +
+			first_branch_index +
+			branch_ordinal++];
+		detail = &build->cache->merge_branch_details[
+			build->statement->dml_branch_offset +
+			first_branch_index +
+			branch_ordinal - 1U];
 		if (sqlparser_graph_walk_predicate_expr(build, block_index, SQLPARSER_CLAUSE_KIND_WHERE, when_clause->condition, out_error) != 0) {
 			sqlparser_graph_pop_scope(build);
 			return -1;
@@ -11928,6 +14212,7 @@ static int sqlparser_graph_build_merge_dml(
 				memset(&selector, 0, sizeof(selector));
 				selector.kind = SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT;
 				selector.statement_index = build->statement_index;
+				selector.row_index = dml_index;
 				selector.item_index = index;
 				selector.column_index = item_index;
 				if (sqlparser_graph_add_dml_assignment_from_res_target(
@@ -11938,6 +14223,7 @@ static int sqlparser_graph_build_merge_dml(
 					    dml.has_target_relation,
 					    when_clause->target_list != NULL ? when_clause->target_list[item_index] : NULL,
 					    &selector,
+					    &detail->assignments,
 					    out_error) != 0) {
 					sqlparser_graph_pop_scope(build);
 					return -1;
@@ -11950,6 +14236,7 @@ static int sqlparser_graph_build_merge_dml(
 					    dml_index,
 					    item_index,
 					    when_clause->target_list != NULL ? when_clause->target_list[item_index] : NULL,
+					    &branch->target_columns,
 					    out_error) != 0) {
 					sqlparser_graph_pop_scope(build);
 					return -1;
@@ -11959,15 +14246,20 @@ static int sqlparser_graph_build_merge_dml(
 				if (sqlparser_graph_add_dml_cell_from_node(
 					    build,
 					    dml_index,
+					    block_index,
+					    index,
 					    0U,
 					    item_index,
 					    when_clause->values != NULL ? when_clause->values[item_index] : NULL,
+					    values_ordinal,
 					    0,
+					    &branch->rows,
 					    out_error) != 0) {
 					sqlparser_graph_pop_scope(build);
 					return -1;
 				}
 			}
+			values_ordinal++;
 		}
 	}
 	if (sqlparser_graph_build_dml_results(
@@ -12073,6 +14365,7 @@ static int sqlparser_graph_build_nested_dmls(
 		build->statement_index);
 	for (dml_index = 1U; dml_index < dml_count; dml_index++) {
 		sqlparser_dialect_dml_result_dml_t dml_info;
+		const char *saved_dml_source_sql;
 		ProtobufCMessage *message;
 		sqlparser_graph_dml_kind_t kind;
 		sqlparser_status_t status;
@@ -12101,6 +14394,8 @@ static int sqlparser_graph_build_nested_dmls(
 		if (status != SQLPARSER_STATUS_OK || kind != dml_info.kind || message == NULL) {
 			return -1;
 		}
+		saved_dml_source_sql = build->dml_source_sql;
+		build->dml_source_sql = dml_info.source_sql;
 		switch (kind) {
 			case SQLPARSER_GRAPH_DML_INSERT:
 				build_status = sqlparser_graph_build_insert_dml(build, (PgQuery__InsertStmt *)message, out_error);
@@ -12116,8 +14411,10 @@ static int sqlparser_graph_build_nested_dmls(
 				break;
 			default:
 				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "nested DML kind is invalid");
+				build->dml_source_sql = saved_dml_source_sql;
 				return -1;
 		}
+		build->dml_source_sql = saved_dml_source_sql;
 		if (build_status != 0 ||
 		    sqlparser_graph_link_nested_dml_source(
 			    build, dml_index, dml_info.source_name, out_error) != 0) {
@@ -12988,6 +15285,78 @@ sqlparser_status_t sqlparser_query_graph_dml_branch_at(
 	return SQLPARSER_STATUS_OK;
 }
 
+static const sqlparser_graph_merge_branch_detail_t *
+sqlparser_query_graph_merge_branch_detail_entry(
+	const sqlparser_query_graph_view_t *graph,
+	size_t branch_index)
+{
+	sqlparser_query_graph_cache_t *cache;
+	sqlparser_statement_graph_t *statement;
+
+	statement = sqlparser_query_graph_statement(graph, &cache);
+	if (statement == NULL ||
+	    branch_index >= statement->dml_branch_count) {
+		return NULL;
+	}
+	return &cache->merge_branch_details[
+		statement->dml_branch_offset + branch_index];
+}
+
+sqlparser_status_t sqlparser_query_graph_merge_branch_detail(
+	const sqlparser_query_graph_view_t *graph,
+	size_t branch_index,
+	sqlparser_graph_merge_action_kind_t *out_action_kind,
+	sqlparser_graph_merge_match_kind_t *out_match_kind,
+	sqlparser_index_span_t *out_assignments,
+	sqlparser_error_t *out_error)
+{
+	const sqlparser_graph_merge_branch_detail_t *detail;
+
+	sqlparser_error_clear(out_error);
+	if (out_action_kind != NULL) {
+		*out_action_kind = SQLPARSER_GRAPH_MERGE_ACTION_UNKNOWN;
+	}
+	if (out_match_kind != NULL) {
+		*out_match_kind = SQLPARSER_GRAPH_MERGE_MATCH_UNKNOWN;
+	}
+	if (out_assignments != NULL) {
+		memset(out_assignments, 0, sizeof(*out_assignments));
+	}
+	if (out_action_kind == NULL ||
+	    out_match_kind == NULL ||
+	    out_assignments == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"MERGE branch detail outputs must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	detail = sqlparser_query_graph_merge_branch_detail_entry(
+		graph,
+		branch_index);
+	if (detail == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"dml branch index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (detail->action_kind ==
+		    SQLPARSER_GRAPH_MERGE_ACTION_UNKNOWN ||
+	    detail->match_kind ==
+		    SQLPARSER_GRAPH_MERGE_MATCH_UNKNOWN) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"dml branch is not a MERGE WHEN branch");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	*out_action_kind = detail->action_kind;
+	*out_match_kind = detail->match_kind;
+	*out_assignments = detail->assignments;
+	return SQLPARSER_STATUS_OK;
+}
+
 sqlparser_status_t sqlparser_query_graph_dml_column_at(
 	const sqlparser_query_graph_view_t *graph,
 	size_t column_index,
@@ -13795,15 +16164,48 @@ static json_t *sqlparser_graph_dml_column_json(
 	return object;
 }
 
+static const char *sqlparser_graph_dml_cell_expression_sql(
+	const sqlparser_query_graph_view_t *graph,
+	const sqlparser_graph_dml_cell_t *cell)
+{
+	sqlparser_query_graph_cache_t *cache;
+	sqlparser_statement_graph_t *statement;
+	size_t global_index;
+
+	cache = NULL;
+	statement = sqlparser_query_graph_statement(graph, &cache);
+	if (statement == NULL || cache == NULL ||
+	    cell->index >= statement->dml_cell_count ||
+	    statement->dml_cell_offset > (size_t)-1 - cell->index) {
+		return NULL;
+	}
+	global_index = statement->dml_cell_offset + cell->index;
+	return global_index < cache->dml_cell_count ?
+		cache->dml_cell_expression_sql[global_index] :
+		NULL;
+}
+
 static json_t *sqlparser_graph_dml_cell_json(
 	const sqlparser_query_graph_view_t *graph,
 	const sqlparser_graph_dml_cell_t *cell,
 	sqlparser_error_t *out_error)
 {
+	const char *expression_sql;
 	json_t *object;
 	json_t *literal;
 
-	(void)graph;
+	expression_sql = NULL;
+	if (cell->kind == SQLPARSER_GRAPH_VALUE_EXPRESSION) {
+		expression_sql =
+			sqlparser_graph_dml_cell_expression_sql(graph, cell);
+		if (expression_sql == NULL || expression_sql[0] == '\0') {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"expression cell SQL is missing");
+			return NULL;
+		}
+	}
 	object = json_object();
 	literal = sqlparser_graph_literal_json(
 		&cell->literal,
@@ -13818,7 +16220,8 @@ static json_t *sqlparser_graph_dml_cell_json(
 	    json_object_set_new(object, "bind_kind", json_integer(cell->bind_kind)) != 0 ||
 	    sqlparser_json_set_optional_string(object, "bind_sql", cell->has_bind_sql ? cell->bind_sql : NULL) != 0 ||
 	    sqlparser_json_set_optional_size(object, "bind_position", cell->has_bind_position, cell->bind_position) != 0 ||
-	    sqlparser_json_set_optional_selector(object, "selector", cell->has_selector ? &cell->selector : NULL, out_error) != 0) {
+	    sqlparser_json_set_optional_selector(object, "selector", cell->has_selector ? &cell->selector : NULL, out_error) != 0 ||
+	    sqlparser_json_set_optional_string(object, "expression_sql", expression_sql) != 0) {
 		json_decref(object);
 		json_decref(literal);
 		if (out_error != NULL && out_error->code == SQLPARSER_STATUS_OK) {
@@ -13970,23 +16373,55 @@ static json_t *sqlparser_graph_dml_branch_json(
 	const sqlparser_graph_dml_branch_t *branch,
 	sqlparser_error_t *out_error)
 {
+	const sqlparser_graph_merge_branch_detail_t *detail;
 	json_t *object;
+	json_t *assignments;
 	json_t *target_columns;
 	json_t *rows;
+	const char *merge_action_kind;
+	const char *merge_match_kind;
 
 	object = json_object();
+	assignments = json_array();
 	target_columns = json_array();
 	rows = json_array();
-	if (object == NULL || target_columns == NULL || rows == NULL) {
+	if (object == NULL || assignments == NULL ||
+	    target_columns == NULL || rows == NULL) {
 		goto fail;
 	}
+	detail = sqlparser_query_graph_merge_branch_detail_entry(
+		graph,
+		branch->index);
+	merge_action_kind =
+		detail != NULL &&
+		detail->action_kind !=
+				SQLPARSER_GRAPH_MERGE_ACTION_UNKNOWN ?
+			sqlparser_graph_merge_action_kind_name(
+				detail->action_kind) :
+			NULL;
+	merge_match_kind =
+		detail != NULL &&
+		detail->match_kind !=
+				SQLPARSER_GRAPH_MERGE_MATCH_UNKNOWN ?
+			sqlparser_graph_merge_match_kind_name(
+				detail->match_kind) :
+			NULL;
 	if (sqlparser_graph_append_dml_column_objects(graph, target_columns, branch->target_columns, out_error) != 0 ||
 	    sqlparser_graph_append_dml_cell_objects(graph, rows, branch->rows, out_error) != 0 ||
+	    (detail != NULL &&
+	     sqlparser_graph_append_dml_assignment_objects(
+		     graph,
+		     assignments,
+		     detail->assignments,
+		     out_error) != 0) ||
 	    json_object_set_new(object, "ordinal", json_integer((json_int_t)branch->ordinal)) != 0 ||
 	    json_object_set_new(object, "branch_kind", json_string(sqlparser_graph_dml_branch_kind_name(branch->branch_kind))) != 0 ||
+	    sqlparser_json_set_optional_string(object, "merge_action_kind", merge_action_kind) != 0 ||
+	    sqlparser_json_set_optional_string(object, "merge_match_kind", merge_match_kind) != 0 ||
 	    sqlparser_json_set_optional_size(object, "target_relation", branch->has_target_relation, branch->target_relation_index) != 0 ||
 	    sqlparser_json_set_nonempty_array(object, "target_columns", &target_columns) != 0 ||
 	    sqlparser_json_set_nonempty_array(object, "rows", &rows) != 0 ||
+	    sqlparser_json_set_nonempty_array(object, "assignments", &assignments) != 0 ||
 	    sqlparser_json_set_optional_size(object, "condition_block", branch->has_condition_block, branch->condition_block_index) != 0 ||
 	    sqlparser_json_set_optional_selector(object, "condition_selector", branch->has_condition_selector ? &branch->condition_selector : NULL, out_error) != 0) {
 		goto fail;
@@ -13995,6 +16430,7 @@ static json_t *sqlparser_graph_dml_branch_json(
 
 fail:
 	json_decref(object);
+	json_decref(assignments);
 	json_decref(target_columns);
 	json_decref(rows);
 	if (out_error != NULL && out_error->code == SQLPARSER_STATUS_OK) {

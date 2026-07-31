@@ -781,6 +781,26 @@ static size_t sqlparser_dameng_skip_space(const char *text, size_t pos)
 	return pos;
 }
 
+static size_t sqlparser_dameng_skip_quoted_or_comment_span(const char *sql, size_t index);
+
+static size_t sqlparser_dameng_skip_trivia(const char *text, size_t pos)
+{
+	size_t next;
+
+	for (;;) {
+		pos = sqlparser_dameng_skip_space(text, pos);
+		if (!((text[pos] == '-' && text[pos + 1U] == '-') ||
+		      (text[pos] == '/' && text[pos + 1U] == '*'))) {
+			return pos;
+		}
+		next = sqlparser_dameng_skip_quoted_or_comment_span(text, pos);
+		if (next == pos) {
+			return pos;
+		}
+		pos = next;
+	}
+}
+
 static size_t sqlparser_dameng_trim_right(const char *text, size_t start, size_t end)
 {
 	while (end > start && isspace((unsigned char)text[end - 1U])) {
@@ -825,6 +845,55 @@ static char sqlparser_dameng_q_quote_close_char(char open_char)
 			return '>';
 		default:
 			return open_char;
+	}
+}
+
+static void sqlparser_dameng_scan_previous_significant(
+	const char *text,
+	size_t end,
+	size_t *scan_pos,
+	size_t *last_pos)
+{
+	size_t next;
+	size_t prefix_len;
+
+	while (*scan_pos < end) {
+		if (isspace((unsigned char)text[*scan_pos])) {
+			(*scan_pos)++;
+			continue;
+		}
+		prefix_len = sqlparser_dameng_q_quote_prefix_len(
+			text + *scan_pos);
+		if (prefix_len > 0U) {
+			char close_char;
+
+			next = *scan_pos + prefix_len + 2U;
+			close_char = sqlparser_dameng_q_quote_close_char(
+				text[next - 1U]);
+			while (next < end &&
+			       !(text[next] == close_char &&
+			         text[next + 1U] == '\'')) {
+				next++;
+			}
+			if (next < end) {
+				next += 2U;
+			}
+			*last_pos = *scan_pos;
+			*scan_pos = next;
+			continue;
+		}
+		next = sqlparser_dameng_skip_quoted_or_comment_span(
+			text,
+			*scan_pos);
+		if (next != *scan_pos) {
+			if (text[*scan_pos] == '\'' || text[*scan_pos] == '"') {
+				*last_pos = *scan_pos;
+			}
+			*scan_pos = next;
+			continue;
+		}
+		*last_pos = *scan_pos;
+		(*scan_pos)++;
 	}
 }
 
@@ -2427,6 +2496,8 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 	size_t pending_limit_depth;
 	size_t index;
 	size_t paren_depth;
+	size_t significant_scan_pos;
+	size_t previous_significant_pos;
 	sqlparser_status_t status;
 
 	if (out_sql == NULL) {
@@ -2460,9 +2531,12 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 	pending_limit_depth = 0U;
 	index = 0U;
 	paren_depth = 0U;
+	significant_scan_pos = 0U;
+	previous_significant_pos = SIZE_MAX;
 	while (input_sql[index] != '\0') {
 		int copied;
 		size_t q_prefix_len;
+		size_t current_timestamp_end;
 
 		q_prefix_len = sqlparser_dameng_q_quote_prefix_len(input_sql + index);
 		if (q_prefix_len > 0U) {
@@ -2570,7 +2644,52 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 			return status;
 		}
 
-		if (input_sql[index] == '(') {
+		current_timestamp_end = 0U;
+		if (sqlparser_dameng_ascii_word_equal(
+			    input_sql,
+			    index,
+			    "current_timestamp")) {
+			size_t open_pos;
+			size_t close_pos;
+
+			sqlparser_dameng_scan_previous_significant(
+				input_sql,
+				index,
+				&significant_scan_pos,
+				&previous_significant_pos);
+			if (previous_significant_pos == SIZE_MAX ||
+			    input_sql[previous_significant_pos] != '.') {
+				open_pos = sqlparser_dameng_skip_trivia(
+					input_sql,
+					index + strlen("current_timestamp"));
+				if (input_sql[open_pos] == '(') {
+					close_pos = sqlparser_dameng_skip_trivia(
+						input_sql,
+						open_pos + 1U);
+					if (input_sql[close_pos] == ')') {
+						current_timestamp_end =
+							close_pos + 1U;
+					}
+				}
+			}
+		}
+		if (current_timestamp_end != 0U) {
+			status = sqlparser_dameng_buffer_append_input_mem(
+				&out,
+				input_sql,
+				index,
+				strlen("current_timestamp"),
+				out_error);
+			if (status == SQLPARSER_STATUS_OK) {
+				status = sqlparser_dameng_buffer_append_char(
+					&out,
+					' ',
+					out_error);
+			}
+			if (status == SQLPARSER_STATUS_OK) {
+				index = current_timestamp_end;
+			}
+		} else if (input_sql[index] == '(') {
 			paren_depth++;
 			status = sqlparser_dameng_buffer_append_input_char(
 				&out,
@@ -5757,6 +5876,7 @@ static sqlparser_status_t sqlparser_dameng_multi_insert_replace_cell_public_sql(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
+	replacement->generation = handle->generation + 1UL;
 	sqlparser_handle_replace_contents(handle, replacement);
 	sqlparser_handle_destroy(replacement);
 	return SQLPARSER_STATUS_OK;
@@ -6056,6 +6176,7 @@ sqlparser_status_t sqlparser_dameng_multi_insert_insert_column_sql(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
+	replacement->generation = handle->generation + 1UL;
 	sqlparser_handle_replace_contents(handle, replacement);
 	sqlparser_handle_destroy(replacement);
 	return SQLPARSER_STATUS_OK;

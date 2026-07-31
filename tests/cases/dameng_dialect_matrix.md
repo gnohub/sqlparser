@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 162 条用例，其中 150 条预期成功，12 条预期失败。34 条用例包含 statement 级 `expect.session`，覆盖 `D002`、`D003`、`D003Q`、`D026`、`D089` 至 `D095` 和 `DM-*` session 用例；这 34 条用例均至少包含一个非空 session 期望。
+夹具包含 172 条用例，其中 160 条预期成功，12 条预期失败。34 条用例包含 statement 级 `expect.session`，覆盖 `D002`、`D003`、`D003Q`、`D026`、`D089` 至 `D095` 和 `DM-*` session 用例；这 34 条用例均至少包含一个非空 session 期望。
 
 用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
 
@@ -144,6 +144,25 @@
 | DU008A | 重复 national q-quoted 字符串 | 普通字符串和 national 字符串内容相同时只恢复 national 项 |
 | DU008B | national 字符串字面量 | `N'...'` 输入保留 national 字符串语义 |
 | DU008C | 重复 national 字符串字面量 | 普通字符串和 `N'...'` 内容相同时只恢复 national 项 |
+
+## INSERT VALUES 回归：bind 与表达式混合
+
+`DM-BM001` 至 `DM-BM010` 覆盖达梦 INSERT VALUES 中 JDBC 参数标记、时间函数、复合表达式、literal、`DEFAULT` 和多行值的组合。
+
+本组中的 `?` 仅作为 JDBC 预编译语句参数标记；执行时必须经过对应的 prepare/bind 流程。用例验证解析、View 单元映射、bind 全局序号和逐字节反解析，不连接数据库。`DEFAULT` 只作为独立值单元使用。`DM-BM009` 验证多行 `VALUES` 的解析、View 映射和反解析，不验证列存储表上的执行语义。
+
+| ID | SQL 组合 | 回归目标 |
+| --- | --- | --- |
+| `DM-BM001` | 三个 `?` + 尾部 `SYSDATE()` | 尾部时间表达式不得复制前一个 bind，也不得出现在 `query_graph.fields[].column` 中 |
+| `DM-BM002` | 头部 `SYSDATE()` + 三个 `?` | 表达式在 bind 之前时保持单元位置和 bind 顺序 |
+| `DM-BM003` | `?` 与两种当前时间函数交错 | 多个表达式与 bind 交错时保持列序 |
+| `DM-BM004` | `?`、`NULL`、`SYSDATE()` 混合 | bind、`NULL` 字面量和表达式的种类互不污染 |
+| `DM-BM005` | `?`、`DEFAULT`、`CURRENT_TIMESTAMP()` 混合 | `DEFAULT` 独立单元和时间表达式分类 |
+| `DM-BM006` | `?`、字符串字面量、`SYSDATE()` 混合 | 普通字面量不会改变相邻 bind 和表达式位置 |
+| `DM-BM007` | 直接 `?`、`COALESCE(?, 'fallback')`、`SYSDATE()` 和后续直接 `?` | 表达式内参数计入全局序号，后续直接 bind 位置正确 |
+| `DM-BM008` | 直接 `?`、包含 `?` 的 `CASE` 表达式、`CAST(? AS INTEGER)`、`SYSDATE()` 和后续直接 `?` | 多个含参表达式之后的直接 bind 保持全局位置 |
+| `DM-BM009` | 三行 `VALUES` 中 bind 与时间函数换位 | 多行单元坐标和跨行 bind 顺序稳定 |
+| `DM-BM010` | schema-qualified 引号标识符、不规则空白、`?` 和 `SYSDATE` | 保持标识符、空白、单元映射并逐字节还原输入 SQL |
 
 ## 明确不支持用例
 

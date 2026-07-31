@@ -411,7 +411,7 @@ Common fields:
 | `target_columns` | Explicit INSERT target-column indexes; omitted when no column list exists |
 | `rows` | Cell indexes for `INSERT ... VALUES` or an Oracle/Dameng multi-table INSERT branch |
 | `source_block` | Source query block for `INSERT ... SELECT` or Oracle/Dameng multi-table INSERT source query |
-| `branches` | INTO branches for Oracle/Dameng `INSERT ALL/FIRST`; omitted for non multi-table INSERT |
+| `branches` | INTO branches for Oracle/Dameng `INSERT ALL/FIRST`, or ordered `WHEN` branches for MERGE; omitted when empty |
 | `result_channels` | DML result channels; omitted when the DML has no result output |
 | `children` | Nested DML nodes owned by this DML; omitted when empty |
 
@@ -452,6 +452,19 @@ points to the related source-query entry in `targets[]`. If that target is a
 direct field, callers can follow `targets[].field` to the corresponding
 `fields[]` entry.
 
+For a successfully parsed MERGE, `branches[]` follows the order in which the
+`WHEN` clauses appear in the source SQL. Each branch's `ordinal` is its
+zero-based absolute ordinal `W` across all `WHEN` clauses in that MERGE. A branch contains
+`merge_action_kind` (`insert`, `update`, `delete`, or `nothing`) and
+`merge_match_kind` (`matched`, `not_matched_by_target`, or
+`not_matched_by_source`). An INSERT branch exposes `target_columns` and `rows`.
+When the target column list is omitted, `target_columns` is absent but `rows`
+remains present. Every cell uses the absolute `W` as `row`, with contiguous
+zero-based `column` values. An UPDATE branch exposes `assignments` that
+reference the parent DML assignments. DELETE and NOTHING branches omit
+`target_columns`, `rows`, and `assignments`. A conditional branch has `condition_selector`; an unconditional
+branch omits it.
+
 `UPDATE` and `MERGE` assignments use `target_field` for the written field. When
 the right-hand side is a direct field reference, `kind` is `field` and
 `source_field` points to the source field. If that source field comes from a
@@ -459,14 +472,18 @@ derived relation and uniquely matches a source-query output target,
 `source_target` is emitted as well.
 
 A top-level `UPDATE` assignment has a selector of the form
-`stmt[S].assignment[A]`. An assignment in a MERGE matched UPDATE action uses
-`stmt[S].merge_assignment[W][A]`, where `W` is the absolute zero-based ordinal
-across all `WHEN` clauses in that MERGE and `A` is the zero-based assignment
-ordinal within the target UPDATE branch. Both selector forms can be passed to
-the assignment selector APIs, `SQLPARSER_PATCH_INSERT_ASSIGNMENT`,
-`SQLPARSER_PATCH_DELETE_ASSIGNMENT`, and
-`SQLPARSER_PATCH_REPLACE_ASSIGNMENT`. A patch `source_selector` also accepts
-both forms when cloning an assignment.
+`stmt[S].assignment[A]`. A matched UPDATE action in a root MERGE uses
+`stmt[S].merge_assignment[W][A]`; a nested MERGE uses
+`stmt[S].merge_assignment[D][W][A]`. `D` is the DML index within the current
+statement, `W` is the absolute zero-based ordinal across all `WHEN` clauses in
+the selected MERGE, and `A` is the zero-based assignment ordinal in the target
+UPDATE branch. MERGE conditions similarly use
+`stmt[S].merge_branch_condition[W]` or the nested form
+`stmt[S].merge_branch_condition[D][W]`; callers can read the original
+condition text with `sqlparser_selector_clause_sql()`. Assignment selectors
+are accepted by the assignment selector APIs and also work with
+`SQLPARSER_PATCH_INSERT_ASSIGNMENT`, `SQLPARSER_PATCH_DELETE_ASSIGNMENT`,
+`SQLPARSER_PATCH_REPLACE_ASSIGNMENT`, and a patch `source_selector`.
 
 ## Rewriting
 

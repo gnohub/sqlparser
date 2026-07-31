@@ -1714,6 +1714,8 @@ typedef struct CommonTableExpr
  *
  * This is transformed into MergeAction by parse analysis
  */
+#define PG_QUERY_MERGE_ACTION_WHERE_LOCATION (-1610612736)
+
 typedef struct MergeWhenClause
 {
 	NodeTag		type;

@@ -1,5 +1,66 @@
 # Changelog
 
+## 2.13.0
+
+### MERGE Branch Structure and Rewrites
+
+- Query Graph projects every MERGE `WHEN` branch in source order, including
+  its action, match kind, INSERT target columns and rows, and UPDATE assignment
+  span. A conditional branch also includes its condition selector.
+- Added `SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION`, MERGE action and
+  match enums, two enum-name functions, and a MERGE branch-detail accessor.
+  Branch conditions and assignments are addressable through selectors in
+  both top-level and nested MERGE statements.
+- MERGE UPDATE assignments retain their target-field, source-field,
+  source-target, and bind relationships and remain readable, insertable,
+  replaceable, and deletable through the existing assignment selectors and
+  patch operations.
+- Oracle, Dameng, and Vastbase-Oracle support action-level `WHERE` clauses on
+  MERGE UPDATE and INSERT actions. Other dialects reject this syntax.
+
+### INSERT VALUES and View Semantics
+
+- Across all nine dialect modes, `INSERT ... VALUES` supports interleaved
+  binds, literals, standalone `DEFAULT` values, functions, and compound
+  expressions while preserving per-cell row and column coordinates,
+  selectors, and global bind positions.
+- Binds nested in expressions participate in global bind ordering.
+  Time expressions such as `SYSDATE`, `CURRENT_TIMESTAMP`, `NOW()`, and
+  `GETDATE()` are emitted as expression cells rather than field names.
+- Added 90 mixed-VALUES regression cases across nine matrices, covering
+  single and multiple rows, leading, trailing, and interleaved expressions,
+  nested binds, delimited identifiers, and irregular whitespace.
+
+### Identifiers and Deparse After Patches
+
+- Identifiers introduced by a parsed SQL-fragment patch retain the fragment's
+  case, delimiters, and escape spelling. Double quotes, MySQL backticks, and
+  SQL Server brackets are neither replaced nor duplicated.
+- An unchanged generation-`0` handle continues to return the original SQL
+  byte for byte. For generations greater than `0`, SQL is serialized from the
+  current AST. Identifier case, delimiters, and escape spelling are preserved,
+  while the deparser may normalize whitespace between nodes.
+- Identifier-spelling state is managed across successful rewrites, rollback
+  after failed rewrites, handle cloning, and destruction, and does not
+  accumulate across repeated failed patch operations.
+
+### Performance, Compatibility, and Validation
+
+- MERGE syntax validation uses an O(AST) primary depth-first protobuf
+  traversal with local branch checks. During one build, Query Graph reuses
+  statement-level lookup data, expression-source scan cursors, and the
+  current-SQL cache to reduce repeated tree traversal, deparse, and source
+  scanning.
+- Public API changes are append-only; existing function signatures and public
+  structure layouts remain unchanged. The shared-library ABI major remains
+  `libsqlparser.so.0`, and the ABI export check covers 152 public symbols.
+- All 2,535 expected-success cases across the nine dialect matrices run
+  generation-`0` byte-exact deparse checks, AST identifier-spelling audits,
+  and View construction, with field-level assertions for declared structured
+  expectations.
+- Release validation covers strict GCC 8.3 release and debug builds, the full
+  test suite, install smoke, ABI, ASan, UBSan, Valgrind, and benchmark smoke.
+
 ## 2.12.0
 
 ### Deparse and AST Identifiers

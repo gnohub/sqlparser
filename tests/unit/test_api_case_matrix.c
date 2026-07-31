@@ -9,15 +9,17 @@
 
 #define SQLPARSER_CASE_FIXTURE_PATH "./tests/cases/sql_batch_input.json"
 
-static int fail_case(const char *case_name, const char *message)
+static int fail_case(
+	const char *case_id,
+	const char *case_name,
+	const char *message)
 {
-	fprintf(stderr, "FAIL [%s]: %s\n", case_name, message);
-	return 1;
-}
-
-static int fail_case_field(const char *case_name, const char *field_name, const char *expected)
-{
-	fprintf(stderr, "FAIL [%s]: missing %s value '%s'\n", case_name, field_name, expected);
+	fprintf(
+		stderr,
+		"FAIL [%s %s]: %s\n",
+		case_id != NULL ? case_id : "-",
+		case_name,
+		message);
 	return 1;
 }
 
@@ -82,54 +84,8 @@ static int parse_dialect_or_default(json_t *value, sqlparser_dialect_t *out_dial
 	return -1;
 }
 
-static int verify_statement_types(
-	const char *case_name,
-	const sqlparser_handle_t *handle,
-	json_t *expected_array)
-{
-	size_t index;
-	json_t *value;
-
-	if (expected_array == NULL) {
-		return 0;
-	}
-	if (!json_is_array(expected_array)) {
-		return fail_case(case_name, "statement_types must be an array");
-	}
-	json_array_foreach(expected_array, index, value) {
-		const char *expected;
-		size_t statement_index;
-		int found;
-
-		(void)index;
-		expected = json_string_or_null(value);
-		if (expected == NULL) {
-			return fail_case(case_name, "statement_types value must be a string");
-		}
-		found = 0;
-		for (statement_index = 0U;
-		     statement_index < sqlparser_statement_count(handle);
-		     statement_index++) {
-			const char *actual;
-			sqlparser_error_t error;
-
-			actual = NULL;
-			if (sqlparser_statement_node_name(handle, statement_index, &actual, &error) ==
-			    SQLPARSER_STATUS_OK &&
-			    actual != NULL &&
-			    strcmp(actual, expected) == 0) {
-				found = 1;
-				break;
-			}
-		}
-		if (!found) {
-			return fail_case_field(case_name, "statement_types", expected);
-		}
-	}
-	return 0;
-}
-
 static int verify_failure_case(
+	const char *case_id,
 	const char *case_name,
 	const char *sql,
 	sqlparser_dialect_t dialect,
@@ -149,27 +105,28 @@ static int verify_failure_case(
 	status = sqlparser_parse_with_options(sql, &options, &handle, &error);
 	if (status == SQLPARSER_STATUS_OK) {
 		sqlparser_handle_destroy(handle);
-		return fail_case(case_name, "parse was expected to fail");
+		return fail_case(case_id, case_name, "parse was expected to fail");
 	}
 	if (handle != NULL) {
 		sqlparser_handle_destroy(handle);
-		return fail_case(case_name, "failed parse should not return a handle");
+		return fail_case(case_id, case_name, "failed parse should not return a handle");
 	}
 	value = json_object_get(expect_root, "error_code");
 	if (json_is_integer(value) && status != (int)json_integer_value(value)) {
-		return fail_case(case_name, "unexpected parse error code");
+		return fail_case(case_id, case_name, "unexpected parse error code");
 	}
 	message_contains = json_string_or_null(json_object_get(expect_root, "error_message_contains"));
 	if (message_contains != NULL && strstr(error.message, message_contains) == NULL) {
-		return fail_case(case_name, "parse error message did not match expectation");
+		return fail_case(case_id, case_name, "parse error message did not match expectation");
 	}
 	if (error.message[0] == '\0') {
-		return fail_case(case_name, "parse failure should provide a message");
+		return fail_case(case_id, case_name, "parse failure should provide a message");
 	}
 	return 0;
 }
 
 static int verify_success_case(
+	const char *case_id,
 	const char *case_name,
 	const char *sql,
 	sqlparser_dialect_t dialect,
@@ -194,26 +151,38 @@ static int verify_success_case(
 
 	status = sqlparser_parse_with_options(sql, &options, &handle, &error);
 	if (status != SQLPARSER_STATUS_OK) {
-		fprintf(stderr, "FAIL [%s]: parse failed: %s\n", case_name, error.message);
+		fprintf(
+			stderr,
+			"FAIL [%s %s]: parse failed: %s\n",
+			case_id != NULL ? case_id : "-",
+			case_name,
+			error.message);
 		return 1;
 	}
 	if (handle == NULL) {
-		return fail_case(case_name, "parse succeeded without handle");
+		return fail_case(case_id, case_name, "parse succeeded without handle");
+	}
+	if (sqlparser_handle_dialect(handle) != dialect) {
+		sqlparser_handle_destroy(handle);
+		return fail_case(
+			case_id,
+			case_name,
+			"handle dialect mismatch");
 	}
 	status = sqlparser_deparse(handle, &deparse_sql, &error);
 	if (status != SQLPARSER_STATUS_OK || deparse_sql == NULL || deparse_sql[0] == '\0') {
-		(void)fail_case(case_name, "deparse export failed");
+		(void)fail_case(case_id, case_name, "deparse export failed");
 		regression_failed = 1;
 	}
 	if (sqlparser_test_verify_exact_deparse(
-		    NULL,
+		    case_id,
 		    case_name,
 		    sql,
 		    deparse_sql) != 0) {
 		regression_failed = 1;
 	}
 	if (sqlparser_test_verify_ast_identifier_spelling(
-		    NULL,
+		    case_id,
 		    case_name,
 		    handle) != 0) {
 		regression_failed = 1;
@@ -228,16 +197,16 @@ static int verify_success_case(
 
 	if (strcmp(sqlparser_original_sql(handle), sql) != 0) {
 		sqlparser_handle_destroy(handle);
-		return fail_case(case_name, "original SQL did not round-trip");
+		return fail_case(case_id, case_name, "original SQL did not round-trip");
 	}
 
 	value = json_object_get(expect_root, "statement_count");
 	if (json_is_integer(value) &&
 	    sqlparser_statement_count(handle) != (size_t)json_integer_value(value)) {
 		sqlparser_handle_destroy(handle);
-		return fail_case(case_name, "statement count mismatch");
+		return fail_case(case_id, case_name, "statement count mismatch");
 	}
-	if (verify_statement_types(case_name, handle, json_object_get(expect_root, "statement_types")) != 0) {
+	if (sqlparser_test_verify_statement_types(case_id, case_name, handle, json_object_get(expect_root, "statement_types")) != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -245,15 +214,15 @@ static int verify_success_case(
 	status = sqlparser_export_view_json(handle, 0, &view_json, &error);
 	if (status != SQLPARSER_STATUS_OK || view_json == NULL || view_json[0] == '\0') {
 		sqlparser_handle_destroy(handle);
-		return fail_case(case_name, "view JSON export failed");
+		return fail_case(case_id, case_name, "view JSON export failed");
 	}
-	if (sqlparser_test_verify_view_expectations(NULL, case_name, view_json, expect_root) != 0) {
+	if (sqlparser_test_verify_view_expectations(case_id, case_name, handle, view_json, expect_root) != 0) {
 		sqlparser_string_free(view_json);
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 	if (sqlparser_test_verify_merge_assignment_mutations(
-		    NULL,
+		    case_id,
 		    case_name,
 		    handle) != 0) {
 		sqlparser_string_free(view_json);
@@ -276,6 +245,10 @@ int main(void)
 	int failed;
 
 	failed = 0;
+	if (sqlparser_test_verify_case_schema_gate(
+		    0, 1, 0) != 0) {
+		return 1;
+	}
 	root = json_load_file(SQLPARSER_CASE_FIXTURE_PATH, 0, &error);
 	if (root == NULL) {
 		fprintf(stderr, "FAIL: unable to load fixture %s: %s\n", SQLPARSER_CASE_FIXTURE_PATH, error.text);
@@ -290,32 +263,35 @@ int main(void)
 
 	json_array_foreach(items, index, item) {
 		json_t *expect_root;
-		json_t *ok_value;
+		const char *case_id;
 		const char *case_name;
 		const char *sql;
 		sqlparser_dialect_t dialect;
 		int expected_ok;
 
-		case_name = json_string_or_null(json_object_get(item, "name"));
-		sql = json_string_or_null(json_object_get(item, "sql"));
-		expect_root = json_object_get(item, "expect");
-		if (case_name == NULL || sql == NULL || !json_is_object(expect_root)) {
-			fprintf(stderr, "FAIL: case %lu is missing name/sql/expect\n", (unsigned long)index);
+		if (sqlparser_test_validate_case_schema(
+			    item,
+			    0,
+			    1,
+			    0,
+			    &expected_ok) != 0) {
 			failed = 1;
 			continue;
 		}
+		case_id = json_string_or_null(json_object_get(item, "id"));
+		case_name = json_string_or_null(json_object_get(item, "name"));
+		sql = json_string_or_null(json_object_get(item, "sql"));
+		expect_root = json_object_get(item, "expect");
 		if (parse_dialect_or_default(json_object_get(item, "dialect"), &dialect) != 0) {
 			fprintf(stderr, "FAIL: case %lu has invalid dialect\n", (unsigned long)index);
 			failed = 1;
 			continue;
 		}
-		ok_value = json_object_get(expect_root, "ok");
-		expected_ok = ok_value == NULL ? 1 : json_is_true(ok_value);
 		if (expected_ok) {
-			if (verify_success_case(case_name, sql, dialect, expect_root) != 0) {
+			if (verify_success_case(case_id, case_name, sql, dialect, expect_root) != 0) {
 				failed = 1;
 			}
-		} else if (verify_failure_case(case_name, sql, dialect, expect_root) != 0) {
+		} else if (verify_failure_case(case_id, case_name, sql, dialect, expect_root) != 0) {
 			failed = 1;
 		}
 	}

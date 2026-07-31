@@ -4,7 +4,7 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 235 cases: 213 expect success and 22 expect failure.
+The fixture contains 245 cases: 223 expect success and 22 expect failure.
 Statement-level `expect.session` appears in 59 cases, covering `O043`,
 `O043Q`, `O044` through `O047`, `O082` through `O086`, and the `ORA-*`
 session cases. All 59 contain at least one non-null session expectation.
@@ -15,6 +15,33 @@ projection, including its action, item scope, target kind, name, and value
 fields; `null` asserts that no session projection is emitted. For fixture
 cases that expect success, the test also deparses the unmodified handle and
 compares the result with the input SQL byte for byte.
+
+## INSERT VALUES Regression: Mixed Binds and Expressions
+
+`ORA-BM001` through `ORA-BM010` cover Oracle single-row
+`INSERT ... VALUES`. `:name` and `:1` are handled as Oracle binds. A `?` is
+accepted only as a JDBC prepared-statement template marker; native Oracle bind
+variables use colon-prefixed markers.
+
+All ten cases use single-row VALUES statements, and `DEFAULT` is always a
+standalone cell. Every case asserts each cell's `row`, `column`, `kind`, and
+`selector`, plus each direct bind's `bind_key`, `bind_kind`, `bind_sql`, global
+`bind_position`, and `selector`. A later direct-bind position verifies that nested
+binds were included in the global sequence. `SYSDATE` and
+`CURRENT_TIMESTAMP` must not appear in `query_graph.fields[].column`.
+
+| ID | SQL shape | Boundary |
+| --- | --- | --- |
+| `ORA-BM001` | three standalone JDBC `?` cells + trailing `SYSDATE` | preserves the original input SQL byte for byte, including irregular spacing and semicolon; `?` is JDBC-only |
+| `ORA-BM002` | leading `CURRENT_TIMESTAMP` + three standalone JDBC `?` cells | a leading expression cell must not shift bind positions |
+| `ORA-BM003` | `:1`, `:2`, `:3` + trailing `SYSDATE` | numeric colon-prefixed Oracle bind markers |
+| `ORA-BM004` | leading `SYSDATE` + three named binds | named colon-prefixed Oracle bind markers |
+| `ORA-BM005` | named binds interleaved with `SYSDATE` / `CURRENT_TIMESTAMP` | expression cells must not shift later binds |
+| `ORA-BM006` | bind + `NULL` + `SYSDATE` + bind | `NULL` is literal and `SYSDATE` is expression |
+| `ORA-BM007` | bind + standalone `DEFAULT` + `CURRENT_TIMESTAMP` + bind | `DEFAULT` is not nested in another expression |
+| `ORA-BM008` | direct bind + `COALESCE(:retry_count, 0)` + `SYSDATE` + direct bind | trailing direct bind at position 3 verifies that the nested bind was counted |
+| `ORA-BM009` | direct bind + a `CASE` expression containing `:enabled` + `CAST(:amount AS NUMBER)` + `SYSDATE` + direct bind | trailing direct bind at position 4 verifies that both nested binds were counted |
+| `ORA-BM010` | schema-qualified quoted identifiers + three colon-prefixed binds + `CURRENT_TIMESTAMP` | preserves mixed-case identifiers, irregular whitespace, and semicolon |
 
 ## Supported Cases
 

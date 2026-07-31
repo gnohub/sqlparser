@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -999,7 +1000,7 @@ static int mutation_marker_lifecycle(void)
 	    deparsed == NULL ||
 	    strstr(
 		    deparsed,
-		    "SELECT added, Foo AS \"SELECT\" FROM MixedTable") ==
+		    "SELECT Added, Foo AS \"SELECT\" FROM MixedTable") ==
 		    NULL) {
 		fprintf(
 			stderr,
@@ -1050,7 +1051,7 @@ static int mutation_marker_lifecycle(void)
 	    deparsed == NULL ||
 	    strstr(
 		    deparsed,
-		    "SELECT added, Foo AS OldAlias FROM MixedTable") ==
+		    "SELECT Added, Foo AS OldAlias FROM MixedTable") ==
 		    NULL ||
 	    sqlparser_parse(deparsed, &reparsed, &error) !=
 		    SQLPARSER_STATUS_OK) {
@@ -1075,6 +1076,7 @@ static int failed_commit_preserves_mutation_provenance(void)
 	sqlparser_error_t error;
 	sqlparser_limits_t limits;
 	char *deparsed;
+	size_t spelling_count;
 	size_t target_index;
 	sqlparser_status_t status;
 
@@ -1106,6 +1108,7 @@ static int failed_commit_preserves_mutation_provenance(void)
 		sqlparser_handle_destroy(handle);
 		return 0;
 	}
+	spelling_count = handle->identifier_spelling_count;
 	limits = handle->limits;
 	handle->limits.max_statement_count = 1U;
 	status = sqlparser_select_insert_target_sql(
@@ -1118,6 +1121,7 @@ static int failed_commit_preserves_mutation_provenance(void)
 	handle->limits = limits;
 	if (status != SQLPARSER_STATUS_RESOURCE_LIMIT ||
 	    handle->identifier_mutation_count != 1U ||
+	    handle->identifier_spelling_count != spelling_count ||
 	    sqlparser_deparse(handle, &deparsed, &error) !=
 		    SQLPARSER_STATUS_OK ||
 	    deparsed == NULL ||
@@ -1140,9 +1144,60 @@ static int failed_commit_preserves_mutation_provenance(void)
 
 static int relation_group_preserves_source_spelling(void)
 {
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *expected;
+	} borrowed_cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT * FROM OldSchema.OldTable",
+			"SELECT * FROM OldTable.OldSchema"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT * FROM \"OldSchema\".\"OldTable\"",
+			"SELECT * FROM \"OldTable\".\"OldSchema\""
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"SELECT * FROM [OldSchema].[OldTable]",
+			"SELECT * FROM [OldTable].[OldSchema]"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"SELECT * FROM `OldSchema`.`OldTable`",
+			"SELECT * FROM `OldTable`.`OldSchema`"
+		}
+	};
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *new_schema;
+		const char *after_rename;
+		const char *after_swap;
+	} renamed_borrowed_cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT * FROM OldSchema.OldTable",
+			"new_schema",
+			"SELECT * FROM new_schema.OldTable",
+			"SELECT * FROM OldTable.new_schema"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"SELECT * FROM [OldSchema].[OldTable]",
+			"NewSchema",
+			"SELECT * FROM \"NewSchema\".[OldTable]",
+			"SELECT * FROM [OldTable].\"NewSchema\""
+		}
+	};
 	sqlparser_handle_t *handle;
+	sqlparser_parse_options_t options;
 	sqlparser_error_t error;
+	sqlparser_relation_view_t relation;
 	char *deparsed;
+	size_t case_index;
 
 	handle = NULL;
 	deparsed = NULL;
@@ -1229,61 +1284,1039 @@ static int relation_group_preserves_source_spelling(void)
 	}
 	sqlparser_string_free(deparsed);
 	sqlparser_handle_destroy(handle);
+
+	for (case_index = 0U;
+	     case_index <
+		     sizeof(borrowed_cases) /
+			     sizeof(borrowed_cases[0]);
+	     case_index++) {
+		handle = NULL;
+		deparsed = NULL;
+		memset(&relation, 0, sizeof(relation));
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = borrowed_cases[case_index].dialect;
+		if (sqlparser_parse_with_options(
+			    borrowed_cases[case_index].sql,
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_relation(
+			    handle,
+			    0U,
+			    0U,
+			    &relation,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_set_relation_name(
+			    handle,
+			    0U,
+			    0U,
+			    relation.table_name,
+			    relation.schema_name,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_deparse(handle, &deparsed, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    deparsed == NULL ||
+		    strcmp(
+			    deparsed,
+			    borrowed_cases[case_index].expected) !=
+			    0) {
+			fprintf(
+				stderr,
+				"FAIL: borrowed relation component spelling case %lu was not preserved: %s\n",
+				(unsigned long)case_index,
+				deparsed != NULL ?
+					deparsed :
+					error.message);
+			sqlparser_string_free(deparsed);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(handle);
+	}
+	for (case_index = 0U;
+	     case_index <
+		     sizeof(renamed_borrowed_cases) /
+			     sizeof(renamed_borrowed_cases[0]);
+	     case_index++) {
+		handle = NULL;
+		deparsed = NULL;
+		memset(&relation, 0, sizeof(relation));
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect =
+			renamed_borrowed_cases[case_index].dialect;
+		if (sqlparser_parse_with_options(
+			    renamed_borrowed_cases[case_index].sql,
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_set_relation_name(
+			    handle,
+			    0U,
+			    0U,
+			    renamed_borrowed_cases[case_index].new_schema,
+			    "OldTable",
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_deparse(handle, &deparsed, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    deparsed == NULL ||
+		    strcmp(
+			    deparsed,
+			    renamed_borrowed_cases[case_index]
+				    .after_rename) != 0) {
+			fprintf(
+				stderr,
+				"FAIL: renamed relation spelling case %lu mismatch: %s\n",
+				(unsigned long)case_index,
+				deparsed != NULL ?
+					deparsed :
+					error.message);
+			sqlparser_string_free(deparsed);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_string_free(deparsed);
+		deparsed = NULL;
+		if (sqlparser_statement_relation(
+			    handle,
+			    0U,
+			    0U,
+			    &relation,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_set_relation_name(
+			    handle,
+			    0U,
+			    0U,
+			    relation.table_name,
+			    relation.schema_name,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_deparse(handle, &deparsed, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    deparsed == NULL ||
+		    strcmp(
+			    deparsed,
+			    renamed_borrowed_cases[case_index]
+				    .after_swap) != 0) {
+			fprintf(
+				stderr,
+				"FAIL: borrowed renamed relation spelling case %lu mismatch: %s\n",
+				(unsigned long)case_index,
+				deparsed != NULL ?
+					deparsed :
+					error.message);
+			sqlparser_string_free(deparsed);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(handle);
+	}
 	return 1;
 }
 
-static int generated_identifier_has_no_source_provenance(void)
+static int patched_select_identifier_spelling_preserved(void)
 {
+	static const expected_name_t ast_names[] = {
+		{"ColumnRef", "fields", "MiXeD"},
+		{"ColumnRef", "fields", "Uq"},
+		{"ColumnRef", "fields", "PlainCase"},
+		{"ResTarget", "name", "AliasCase"}
+	};
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *patch_sql;
+		const char *targets[3];
+		size_t target_count;
+		const char *deparsed_sql;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"u.\"MiXeD\", \"Uq\".PlainCase AS AliasCase",
+			{
+				"u.\"MiXeD\"",
+				"\"Uq\".PlainCase AS AliasCase"
+			},
+			2U,
+			"SELECT u.\"MiXeD\", \"Uq\".PlainCase AS AliasCase "
+			"FROM abc u"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"u.`MiXeD`, `Uq`.PlainCase AS AliasCase",
+			{
+				"u.`MiXeD`",
+				"`Uq`.PlainCase AS AliasCase"
+			},
+			2U,
+			"SELECT u.`MiXeD`, `Uq`.PlainCase AS AliasCase "
+			"FROM abc u"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"u.[MiXeD], [Uq].PlainCase AS AliasCase, "
+			"\"DQ\".\"QuotedCase\"",
+			{
+				"u.[MiXeD]",
+				"[Uq].PlainCase AS AliasCase",
+				"\"DQ\".\"QuotedCase\""
+			},
+			3U,
+			"SELECT u.[MiXeD], [Uq].PlainCase AS AliasCase, "
+			"\"DQ\".\"QuotedCase\" FROM abc u"
+		}
+	};
 	sqlparser_handle_t *handle;
+	sqlparser_handle_t *reparsed;
+	sqlparser_parse_options_t options;
 	sqlparser_error_t error;
 	char *deparsed;
+	char *target_sql;
+	size_t case_index;
+	size_t name_index;
+	size_t target_count;
 	size_t target_index;
 
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		handle = NULL;
+		reparsed = NULL;
+		deparsed = NULL;
+		target_sql = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[case_index].dialect;
+		if (sqlparser_parse_with_options(
+			    "SELECT * FROM abc u",
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_select_set_targets_sql(
+			    handle,
+			    0U,
+			    0U,
+			    cases[case_index].patch_sql,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_select_target_count(
+			    handle,
+			    0U,
+			    0U,
+			    &target_count,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    target_count != cases[case_index].target_count) {
+			fprintf(
+				stderr,
+				"FAIL: patched identifier spelling case %lu setup failed: %s\n",
+				(unsigned long)case_index,
+				error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		for (target_index = 0U;
+		     target_index < cases[case_index].target_count;
+		     target_index++) {
+			if (sqlparser_select_target_sql(
+				    handle,
+				    0U,
+				    0U,
+				    target_index,
+				    &target_sql,
+				    &error) != SQLPARSER_STATUS_OK ||
+			    target_sql == NULL ||
+			    strcmp(
+				    target_sql,
+				    cases[case_index].targets[target_index]) != 0) {
+				fprintf(
+					stderr,
+					"FAIL: patched target %lu lost identifier spelling: %s\n",
+					(unsigned long)target_index,
+					target_sql != NULL ? target_sql : error.message);
+				sqlparser_string_free(target_sql);
+				sqlparser_handle_destroy(handle);
+				return 0;
+			}
+			sqlparser_string_free(target_sql);
+			target_sql = NULL;
+		}
+		for (name_index = 0U;
+		     name_index < sizeof(ast_names) / sizeof(ast_names[0]);
+		     name_index++) {
+			if (!statement_has_name(
+				    handle,
+				    0U,
+				    &ast_names[name_index])) {
+				fprintf(
+					stderr,
+					"FAIL: patched identifier spelling case %lu lost AST name %s\n",
+					(unsigned long)case_index,
+					ast_names[name_index].value);
+				sqlparser_handle_destroy(handle);
+				return 0;
+			}
+		}
+		if (sqlparser_deparse(handle, &deparsed, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    deparsed == NULL ||
+		    strcmp(deparsed, cases[case_index].deparsed_sql) != 0 ||
+		    sqlparser_parse_with_options(
+			    deparsed,
+			    &options,
+			    &reparsed,
+			    &error) != SQLPARSER_STATUS_OK) {
+			fprintf(
+				stderr,
+				"FAIL: patched identifier spelling case %lu changed on deparse: %s\n",
+				(unsigned long)case_index,
+				deparsed != NULL ? deparsed : error.message);
+			sqlparser_handle_destroy(reparsed);
+			sqlparser_string_free(deparsed);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_handle_destroy(reparsed);
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(handle);
+	}
+	return 1;
+}
+
+static int patched_nested_identifier_spelling_preserved(void)
+{
+	static const expected_name_t names[] = {
+		{"ColumnRef", "fields", "X"},
+		{"RangeVar", "schemaname", "DbO"},
+		{"RangeVar", "relname", "T"},
+		{"Alias", "aliasname", "Q"},
+		{"ResTarget", "name", "Z"}
+	};
+	static const char patch_sql[] =
+		"(SELECT [X] FROM [DbO].[T] AS [Q] "
+		"WHERE [Q].[X] = 1) AS [Z]";
+	static const char expected_sql[] =
+		"SELECT (SELECT [X] FROM [DbO].[T] [Q] "
+		"WHERE [Q].[X] = 1) AS [Z] FROM abc";
+	static const struct {
+		const char *patch_sql;
+		const char *expected_sql;
+	} nested_cases[] = {
+		{
+			"[X] COLLATE [CaseColl] AS [Z]",
+			"SELECT [X] COLLATE [CaseColl] AS [Z] FROM abc"
+		},
+		{
+			"(WITH [CteX]([ColAlias]) AS "
+			"(SELECT [X] FROM [DbO].[T]) "
+			"SELECT [ColAlias] FROM [CteX]) AS [Z]",
+			"SELECT (WITH [CteX]([ColAlias]) AS "
+			"(SELECT [X] FROM [DbO].[T]) "
+			"SELECT [ColAlias] FROM [CteX]) AS [Z] FROM abc"
+		},
+		{
+			"(SELECT SUM([X]) OVER [WinCase] FROM [DbO].[T] "
+			"WINDOW [WinCase] AS (PARTITION BY [X])) AS [Z]",
+			"SELECT (SELECT SUM([X]) OVER [WinCase] "
+			"FROM [DbO].[T] WINDOW [WinCase] AS "
+			"(PARTITION BY [X])) AS [Z] FROM abc"
+		}
+	};
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *reparsed;
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	char *deparsed;
+	size_t index;
+
 	handle = NULL;
+	reparsed = NULL;
 	deparsed = NULL;
 	memset(&error, 0, sizeof(error));
-	if (sqlparser_parse(
-		    "SELECT Existing FROM SourceTable",
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_SQLSERVER;
+	if (sqlparser_parse_with_options(
+		    "SELECT * FROM abc",
+		    &options,
 		    &handle,
 		    &error) != SQLPARSER_STATUS_OK ||
-	    sqlparser_select_insert_target_sql(
+	    sqlparser_select_set_target_sql(
 		    handle,
 		    0U,
 		    0U,
 		    0U,
-		    "\"Existing\"",
-		    &error) != SQLPARSER_STATUS_OK ||
-	    !statement_find_name_index(
-		    handle,
-		    0U,
-		    "ColumnRef",
-		    "fields",
-		    "Existing",
-		    &target_index) ||
-	    sqlparser_statement_set_name(
-		    handle,
-		    0U,
-		    target_index,
-		    "changed",
-		    &error) != SQLPARSER_STATUS_OK ||
-	    handle->identifier_mutation_count != 1U ||
-	    handle->identifier_mutations[0].source_present ||
-	    sqlparser_deparse(handle, &deparsed, &error) !=
-		    SQLPARSER_STATUS_OK ||
-	    deparsed == NULL ||
-	    strstr(
-		    deparsed,
-		    "SELECT changed, Existing FROM SourceTable") == NULL) {
+		    patch_sql,
+		    &error) != SQLPARSER_STATUS_OK) {
 		fprintf(
 			stderr,
-			"FAIL: generated identifier borrowed source provenance: %s\n",
+			"FAIL: nested identifier patch setup failed: %s\n",
+			error.message);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	for (index = 0U; index < sizeof(names) / sizeof(names[0]); index++) {
+		if (!statement_has_name(handle, 0U, &names[index])) {
+			fprintf(
+				stderr,
+				"FAIL: nested identifier patch lost AST name %s\n",
+				names[index].value);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+	}
+	if (sqlparser_deparse(handle, &deparsed, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    deparsed == NULL ||
+	    strcmp(deparsed, expected_sql) != 0 ||
+	    sqlparser_parse_with_options(
+		    deparsed,
+		    &options,
+		    &reparsed,
+		    &error) != SQLPARSER_STATUS_OK) {
+		fprintf(
+			stderr,
+			"FAIL: nested identifier patch changed on deparse: %s\n",
 			deparsed != NULL ? deparsed : error.message);
+		sqlparser_handle_destroy(reparsed);
 		sqlparser_string_free(deparsed);
 		sqlparser_handle_destroy(handle);
 		return 0;
 	}
+	sqlparser_handle_destroy(reparsed);
 	sqlparser_string_free(deparsed);
 	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	reparsed = NULL;
+	deparsed = NULL;
+	memset(&error, 0, sizeof(error));
+	if (sqlparser_parse_with_options(
+		    "SELECT * FROM abc",
+		    &options,
+		    &handle,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    sqlparser_select_set_target_sql(
+		    handle,
+		    0U,
+		    0U,
+		    0U,
+		    "(SELECT [Q].[X] FROM "
+		    "(SELECT [X] FROM [DbO].[T]) AS [Q]) AS [Z]",
+		    &error) != SQLPARSER_STATUS_OK ||
+	    sqlparser_deparse(handle, &deparsed, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    deparsed == NULL ||
+	    strcmp(
+		    deparsed,
+		    "SELECT (SELECT [Q].[X] FROM "
+		    "(SELECT [X] FROM [DbO].[T]) [Q]) AS [Z] FROM abc") !=
+		    0 ||
+	    sqlparser_parse_with_options(
+		    deparsed,
+		    &options,
+		    &reparsed,
+		    &error) != SQLPARSER_STATUS_OK) {
+		fprintf(
+			stderr,
+			"FAIL: derived-table alias patch changed on deparse: %s\n",
+			deparsed != NULL ? deparsed : error.message);
+		sqlparser_handle_destroy(reparsed);
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	sqlparser_handle_destroy(reparsed);
+	sqlparser_string_free(deparsed);
+	sqlparser_handle_destroy(handle);
+	for (index = 0U;
+	     index < sizeof(nested_cases) / sizeof(nested_cases[0]);
+	     index++) {
+		handle = NULL;
+		reparsed = NULL;
+		deparsed = NULL;
+		memset(&error, 0, sizeof(error));
+		if (sqlparser_parse_with_options(
+			    "SELECT * FROM abc",
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_select_set_target_sql(
+			    handle,
+			    0U,
+			    0U,
+			    0U,
+			    nested_cases[index].patch_sql,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_deparse(handle, &deparsed, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    deparsed == NULL ||
+		    strcmp(
+			    deparsed,
+			    nested_cases[index].expected_sql) != 0 ||
+		    sqlparser_parse_with_options(
+			    deparsed,
+			    &options,
+			    &reparsed,
+			    &error) != SQLPARSER_STATUS_OK) {
+			fprintf(
+				stderr,
+				"FAIL: nested identifier case %lu changed on deparse: %s\n",
+				(unsigned long)index,
+				deparsed != NULL ? deparsed : error.message);
+			sqlparser_handle_destroy(reparsed);
+			sqlparser_string_free(deparsed);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_handle_destroy(reparsed);
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(handle);
+	}
+	return 1;
+}
+
+static int patched_alias_locations_preserve_spelling(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *patch_sql;
+		const char *expected_sql;
+		size_t alias_count;
+		size_t column_alias_count;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"(SELECT \"Dup\".\"C1\", Dup.C1 FROM "
+			"source_table \"Dup\", "
+			"(SELECT 1) Dup(C1))",
+			"SELECT (SELECT \"Dup\".\"C1\", Dup.C1 FROM "
+			"source_table \"Dup\", "
+			"(SELECT 1) Dup(C1)) FROM base_table",
+			2U,
+			1U
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"(SELECT `Dup`.`C1`, Dup.C1 FROM "
+			"source_table `Dup`, "
+			"(SELECT 1) Dup(C1))",
+			"SELECT (SELECT `Dup`.`C1`, Dup.C1 FROM "
+			"source_table `Dup`, "
+			"(SELECT 1) Dup(C1)) FROM base_table",
+			2U,
+			1U
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"(SELECT [Dup].[C1], Dup.C1, \"Dup\".\"C1\" FROM "
+			"source_table [Dup], "
+			"(SELECT 1) Dup(C1), "
+			"(SELECT 1) \"Dup\"(\"C1\"))",
+			"SELECT (SELECT [Dup].[C1], Dup.C1, \"Dup\".\"C1\" FROM "
+			"source_table [Dup], "
+			"(SELECT 1) Dup(C1), "
+			"(SELECT 1) \"Dup\"(\"C1\")) FROM base_table",
+			3U,
+			2U
+		}
+	};
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *reparsed;
+	sqlparser_name_view_t name;
+	sqlparser_parse_options_t options;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_query_graph_view_t reparsed_graph;
+	sqlparser_statement_kind_t kind;
+	sqlparser_statement_kind_t reparsed_kind;
+	sqlparser_error_t error;
+	char *deparsed;
+	size_t alias_count;
+	size_t case_index;
+	size_t column_alias_count;
+	size_t name_count;
+	size_t name_index;
+
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		handle = NULL;
+		reparsed = NULL;
+		deparsed = NULL;
+		alias_count = 0U;
+		column_alias_count = 0U;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[case_index].dialect;
+		if (sqlparser_parse_with_options(
+			    "SELECT * FROM base_table",
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_select_set_target_sql(
+			    handle,
+			    0U,
+			    0U,
+			    0U,
+			    cases[case_index].patch_sql,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_name_count(
+			    handle,
+			    0U,
+			    &name_count,
+			    &error) != SQLPARSER_STATUS_OK) {
+			fprintf(
+				stderr,
+				"FAIL: alias location case %lu setup failed: %s\n",
+				(unsigned long)case_index,
+				error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		for (name_index = 0U; name_index < name_count; name_index++) {
+			if (sqlparser_statement_name(
+				    handle,
+				    0U,
+				    name_index,
+				    &name,
+				    &error) != SQLPARSER_STATUS_OK ||
+			    name.owner_type == NULL ||
+			    name.field_name == NULL ||
+			    name.value == NULL ||
+			    strcmp(name.owner_type, "Alias") != 0) {
+				continue;
+			}
+			if (strcmp(name.field_name, "aliasname") == 0 &&
+			    strcmp(name.value, "Dup") == 0) {
+				alias_count++;
+			} else if (strcmp(name.field_name, "colnames") == 0 &&
+				   strcmp(name.value, "C1") == 0) {
+				column_alias_count++;
+			}
+		}
+		if (alias_count != cases[case_index].alias_count ||
+		    column_alias_count !=
+			    cases[case_index].column_alias_count ||
+		    sqlparser_statement_kind(
+			    handle,
+			    0U,
+			    &kind,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    kind != SQLPARSER_STATEMENT_KIND_SELECT ||
+		    sqlparser_statement_query_graph(
+			    handle,
+			    0U,
+			    &graph,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_deparse(handle, &deparsed, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    deparsed == NULL ||
+		    strcmp(deparsed, cases[case_index].expected_sql) != 0 ||
+		    sqlparser_parse_with_options(
+			    deparsed,
+			    &options,
+			    &reparsed,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_kind(
+			    reparsed,
+			    0U,
+			    &reparsed_kind,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    reparsed_kind != kind ||
+		    sqlparser_statement_query_graph(
+			    reparsed,
+			    0U,
+			    &reparsed_graph,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    reparsed_graph.block_count != graph.block_count ||
+		    reparsed_graph.relation_count != graph.relation_count ||
+		    reparsed_graph.target_count != graph.target_count ||
+		    reparsed_graph.field_count != graph.field_count ||
+		    reparsed_graph.value_count != graph.value_count ||
+		    reparsed_graph.predicate_count != graph.predicate_count) {
+			fprintf(
+				stderr,
+				"FAIL: alias location case %lu changed spelling or semantics: %s\n",
+				(unsigned long)case_index,
+				deparsed != NULL ? deparsed : error.message);
+			sqlparser_handle_destroy(reparsed);
+			sqlparser_string_free(deparsed);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_handle_destroy(reparsed);
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(handle);
+	}
+	return 1;
+}
+
+static int patched_identifier_owner_spelling_preserved(void)
+{
+	static const struct {
+		const char *name;
+		const char *patch_sql;
+		const char *expected_sql;
+	} cases[] = {
+		{
+			"alias-and-cte-columns-over-ten",
+			"(WITH \"CteCase\"("
+			"\"C01\", C02, \"C03\", C04, \"C05\", C06, "
+			"\"C07\", C08, \"C09\", C10, \"C11\", C12"
+			") AS (VALUES (1, 2, 3, 4, 5, 6, "
+			"7, 8, 9, 10, 11, 12)) "
+			"SELECT * FROM \"CteCase\" \"AliasCase\"("
+			"\"A01\", A02, \"A03\", A04, \"A05\", A06, "
+			"\"A07\", A08, \"A09\", A10, \"A11\", A12))",
+			"SELECT (WITH \"CteCase\"("
+			"\"C01\", C02, \"C03\", C04, \"C05\", C06, "
+			"\"C07\", C08, \"C09\", C10, \"C11\", C12"
+			") AS (VALUES (1, 2, 3, 4, 5, 6, "
+			"7, 8, 9, 10, 11, 12)) "
+			"SELECT * FROM \"CteCase\" \"AliasCase\"("
+			"\"A01\", A02, \"A03\", A04, \"A05\", A06, "
+			"\"A07\", A08, \"A09\", A10, \"A11\", A12)) "
+			"FROM base_table"
+		},
+		{
+			"join-using",
+			"(SELECT * FROM LeftTable l JOIN RightTable r "
+			"USING (\"QuotedKey\", PlainKey, \"OtherKey\"))",
+			"SELECT (SELECT * FROM LeftTable l JOIN RightTable r "
+			"USING (\"QuotedKey\", PlainKey, \"OtherKey\")) "
+			"FROM base_table"
+		},
+		{
+			"multiple-window-definitions",
+			"(SELECT sum(ValueCol) OVER \"QuotedWin\", "
+			"count(*) OVER PlainWin FROM SourceTable "
+			"WINDOW \"QuotedWin\" AS (ORDER BY ValueCol), "
+			"PlainWin AS (ORDER BY ValueCol))",
+			"SELECT (SELECT sum(ValueCol) OVER \"QuotedWin\", "
+			"count(*) OVER PlainWin FROM SourceTable "
+			"WINDOW \"QuotedWin\" AS (ORDER BY ValueCol), "
+			"PlainWin AS (ORDER BY ValueCol)) FROM base_table"
+		},
+		{
+			"cte-search-cycle",
+			"(WITH RECURSIVE SearchGraph(\"FromId\", ToId) AS "
+			"(VALUES (1, 2) UNION ALL "
+			"SELECT \"FromId\", ToId FROM SearchGraph) "
+			"SEARCH DEPTH FIRST BY \"FromId\", ToId SET SearchSeq "
+			"CYCLE \"FromId\", ToId SET IsCycle USING PathCols "
+			"SELECT * FROM SearchGraph)",
+			"SELECT (WITH RECURSIVE SearchGraph(\"FromId\", ToId) AS "
+			"(VALUES (1, 2) UNION ALL "
+			"SELECT \"FromId\", ToId FROM SearchGraph) "
+			"SEARCH DEPTH FIRST BY \"FromId\", ToId SET SearchSeq "
+			"CYCLE \"FromId\", ToId SET IsCycle "
+			"TO true DEFAULT false USING PathCols "
+			"SELECT * FROM SearchGraph) FROM base_table"
+		},
+		{
+			"column-definition",
+			"(SELECT * FROM json_to_record("
+			"'{\"MixedCol\":1,\"PlainCol\":\"x\"}') "
+			"RecAlias(\"MixedCol\" int, PlainCol text))",
+			"SELECT (SELECT * FROM json_to_record("
+			"'{\"MixedCol\":1,\"PlainCol\":\"x\"}') "
+			"RecAlias (\"MixedCol\" pg_catalog.int4, PlainCol text)) "
+			"FROM base_table"
+		},
+		{
+			"xml-expression",
+			"xmlelement(name ElementCase, "
+			"xmlattributes(1 AS \"AttrCase\", 2 AS PlainAttr), "
+			"'content')",
+			"SELECT xmlelement(name ElementCase, "
+			"xmlattributes(1 AS \"AttrCase\", 2 AS PlainAttr), "
+			"'content') FROM base_table"
+		}
+	};
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *reparsed;
+	sqlparser_parse_options_t options;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_query_graph_view_t reparsed_graph;
+	sqlparser_statement_kind_t kind;
+	sqlparser_statement_kind_t reparsed_kind;
+	sqlparser_error_t error;
+	char *deparsed;
+	size_t case_index;
+	size_t name_count;
+	size_t reparsed_name_count;
+	int all_valid;
+	int graph_valid;
+
+	all_valid = 1;
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		handle = NULL;
+		reparsed = NULL;
+		deparsed = NULL;
+		graph_valid = 0;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+		if (sqlparser_parse_with_options(
+			    "SELECT * FROM base_table",
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_select_set_target_sql(
+			    handle,
+			    0U,
+			    0U,
+			    0U,
+			    cases[case_index].patch_sql,
+			    &error) != SQLPARSER_STATUS_OK) {
+			fprintf(
+				stderr,
+				"FAIL: identifier owner case %s setup failed: %s\n",
+				cases[case_index].name,
+				error.message);
+			sqlparser_handle_destroy(handle);
+			all_valid = 0;
+			continue;
+		}
+		memset(&error, 0, sizeof(error));
+		if (sqlparser_validate_ast_identifier_spelling(handle, &error) !=
+		    SQLPARSER_STATUS_OK) {
+			fprintf(
+				stderr,
+				"FAIL: identifier owner case %s failed AST spelling audit: %s\n",
+				cases[case_index].name,
+				error.message);
+			all_valid = 0;
+		}
+		memset(&error, 0, sizeof(error));
+		if (sqlparser_statement_kind(
+			    handle,
+			    0U,
+			    &kind,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    kind != SQLPARSER_STATEMENT_KIND_SELECT ||
+		    sqlparser_statement_name_count(
+			    handle,
+			    0U,
+			    &name_count,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_query_graph(
+			    handle,
+			    0U,
+			    &graph,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    graph.block_count == 0U ||
+		    graph.target_count == 0U) {
+			fprintf(
+				stderr,
+				"FAIL: identifier owner case %s View setup failed: %s\n",
+				cases[case_index].name,
+				error.message);
+			all_valid = 0;
+		} else {
+			graph_valid = 1;
+		}
+		memset(&error, 0, sizeof(error));
+		if (sqlparser_deparse(handle, &deparsed, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    deparsed == NULL) {
+			fprintf(
+				stderr,
+				"FAIL: identifier owner case %s did not deparse: %s\n",
+				cases[case_index].name,
+				error.message);
+			sqlparser_string_free(deparsed);
+			sqlparser_handle_destroy(handle);
+			all_valid = 0;
+			continue;
+		}
+		if (strcmp(deparsed, cases[case_index].expected_sql) != 0) {
+			fprintf(
+				stderr,
+				"FAIL: identifier owner case %s changed spelling\n"
+				"expected: %s\n"
+				"output:   %s\n",
+				cases[case_index].name,
+				cases[case_index].expected_sql,
+				deparsed);
+			all_valid = 0;
+		}
+		memset(&error, 0, sizeof(error));
+		if (sqlparser_parse_with_options(
+			    deparsed,
+			    &options,
+			    &reparsed,
+			    &error) != SQLPARSER_STATUS_OK) {
+			fprintf(
+				stderr,
+				"FAIL: identifier owner case %s did not reparse: %s\n",
+				cases[case_index].name,
+				error.message);
+			all_valid = 0;
+		} else {
+			memset(&error, 0, sizeof(error));
+			if (sqlparser_validate_ast_identifier_spelling(
+			    reparsed,
+			    &error) != SQLPARSER_STATUS_OK) {
+				fprintf(
+					stderr,
+					"FAIL: identifier owner case %s reparsed AST spelling audit failed: %s\n",
+					cases[case_index].name,
+					error.message);
+				all_valid = 0;
+			}
+		}
+		memset(&error, 0, sizeof(error));
+		if (reparsed != NULL &&
+		    graph_valid &&
+		    (sqlparser_statement_kind(
+			    reparsed,
+			    0U,
+			    &reparsed_kind,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    reparsed_kind != kind ||
+		    sqlparser_statement_name_count(
+			    reparsed,
+			    0U,
+			    &reparsed_name_count,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    reparsed_name_count != name_count ||
+		    sqlparser_statement_query_graph(
+			    reparsed,
+			    0U,
+			    &reparsed_graph,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    reparsed_graph.block_count != graph.block_count ||
+		    reparsed_graph.relation_count != graph.relation_count ||
+		    reparsed_graph.target_count != graph.target_count ||
+		    reparsed_graph.field_count != graph.field_count ||
+		    reparsed_graph.value_count != graph.value_count ||
+		    reparsed_graph.predicate_count != graph.predicate_count)) {
+			fprintf(
+				stderr,
+				"FAIL: identifier owner case %s changed View semantics: %s\n",
+				cases[case_index].name,
+				error.message);
+			all_valid = 0;
+		}
+		sqlparser_handle_destroy(reparsed);
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(handle);
+	}
+	return all_valid;
+}
+
+static int generated_identifier_preserves_patch_delimiter(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *patch_target;
+		const char *expected_target;
+		const char *expected_sql;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"\"OldName\"",
+			"\"NeWName\"",
+			"SELECT \"NeWName\", BaseCol FROM SourceTable"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"`OldName`",
+			"`NeWName`",
+			"SELECT `NeWName`, BaseCol FROM SourceTable"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"[OldName]",
+			"[NeWName]",
+			"SELECT [NeWName], BaseCol FROM SourceTable"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"\"OldName\"",
+			"\"NeWName\"",
+			"SELECT \"NeWName\", BaseCol FROM SourceTable"
+		}
+	};
+	sqlparser_handle_t *handle;
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	char *deparsed;
+	char *target_sql;
+	expected_name_t renamed_name;
+	size_t case_index;
+	size_t target_index;
+
+	renamed_name.owner_type = "ColumnRef";
+	renamed_name.field_name = "fields";
+	renamed_name.value = "NeWName";
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		handle = NULL;
+		deparsed = NULL;
+		target_sql = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[case_index].dialect;
+		if (sqlparser_parse_with_options(
+			    "SELECT BaseCol FROM SourceTable",
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_select_insert_target_sql(
+			    handle,
+			    0U,
+			    0U,
+			    0U,
+			    cases[case_index].patch_target,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !statement_find_name_index(
+			    handle,
+			    0U,
+			    "ColumnRef",
+			    "fields",
+			    "OldName",
+			    &target_index) ||
+		    sqlparser_statement_set_name(
+			    handle,
+			    0U,
+			    target_index,
+			    "NeWName",
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !statement_has_name(handle, 0U, &renamed_name) ||
+		    handle->identifier_mutation_count != 1U ||
+		    handle->identifier_mutations[0].source_present ||
+		    sqlparser_select_target_sql(
+			    handle,
+			    0U,
+			    0U,
+			    0U,
+			    &target_sql,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    target_sql == NULL ||
+		    strcmp(target_sql, cases[case_index].expected_target) != 0 ||
+		    sqlparser_deparse(handle, &deparsed, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    deparsed == NULL ||
+		    strcmp(deparsed, cases[case_index].expected_sql) != 0) {
+			fprintf(
+				stderr,
+				"FAIL: renamed patched identifier case %lu lost its delimiter: %s\n",
+				(unsigned long)case_index,
+				deparsed != NULL ?
+					deparsed :
+					(target_sql != NULL ? target_sql : error.message));
+			sqlparser_string_free(target_sql);
+			sqlparser_string_free(deparsed);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_string_free(target_sql);
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(handle);
+	}
 	return 1;
 }
 
@@ -1313,6 +2346,92 @@ static int identifier_role_classifier_is_fail_closed(void)
 			"AExpr",
 			"name",
 			"="
+		},
+		{
+			"SELECT 1 = ANY (SELECT 1)",
+			"SubLink",
+			"oper_name",
+			"="
+		},
+		{
+			"SELECT a FROM t ORDER BY a USING >",
+			"SortBy",
+			"use_op",
+			">"
+		},
+		{
+			"CREATE TABLE t (a int, EXCLUDE USING btree (a WITH =))",
+			"Constraint",
+			"exclusions",
+			"="
+		},
+		{
+			"CREATE DOMAIN d AS int NOT NULL",
+			"Constraint",
+			"keys",
+			"value"
+		},
+		{
+			"CREATE TABLE identity_t "
+			"(id bigint GENERATED ALWAYS AS IDENTITY)",
+			"Constraint",
+			"generated_when",
+			"a"
+		},
+		{
+			"CREATE TABLE child_t "
+			"(id int REFERENCES parent_t(id) MATCH FULL "
+			"ON UPDATE CASCADE ON DELETE SET NULL)",
+			"Constraint",
+			"fk_matchtype",
+			"f"
+		},
+		{
+			"CREATE TABLE child_t "
+			"(id int REFERENCES parent_t(id) MATCH FULL "
+			"ON UPDATE CASCADE ON DELETE SET NULL)",
+			"Constraint",
+			"fk_upd_action",
+			"c"
+		},
+		{
+			"CREATE TABLE child_t "
+			"(id int REFERENCES parent_t(id) MATCH FULL "
+			"ON UPDATE CASCADE ON DELETE SET NULL)",
+			"Constraint",
+			"fk_del_action",
+			"n"
+		},
+		{
+			"CREATE TABLE child_p PARTITION OF parent_p "
+			"FOR VALUES FROM (1) TO (2)",
+			"PartitionBoundSpec",
+			"strategy",
+			"r"
+		},
+		{
+			"ALTER TABLE t REPLICA IDENTITY FULL",
+			"ReplicaIdentityStmt",
+			"identity_type",
+			"f"
+		},
+		{
+			"ALTER DOMAIN d SET NOT NULL",
+			"AlterDomainStmt",
+			"subtype",
+			"N"
+		},
+		{
+			"CREATE ACCESS METHOD am TYPE INDEX HANDLER h",
+			"CreateAmStmt",
+			"amtype",
+			"i"
+		},
+		{
+			"ALTER EVENT TRIGGER et ENABLE",
+			"AlterEventTrigStmt",
+			"tgenabled",
+			"O"
 		},
 		{
 			"SET TRANSACTION ISOLATION LEVEL SERIALIZABLE",
@@ -1374,6 +2493,12 @@ static int identifier_role_classifier_is_fail_closed(void)
 			"NotifyStmt",
 			"payload",
 			"payload"
+		},
+		{
+			"SELECT 'LiteralCase'",
+			"AConst",
+			"sval",
+			"LiteralCase"
 		}
 	};
 	static const expected_name_t explicit_function_schema = {
@@ -1426,14 +2551,14 @@ static int identifier_role_classifier_is_fail_closed(void)
 	handle = NULL;
 	memset(&error, 0, sizeof(error));
 	if (sqlparser_parse(
-		    "SELECT public.\"MixedFn\"(1)",
+		    "SELECT lhs LIKE public.\"MixedFn\"(1) FROM source_table",
 		    &handle,
 		    &error) != SQLPARSER_STATUS_OK ||
 	    !statement_has_name(handle, 0U, &explicit_function_schema) ||
 	    !statement_has_name(handle, 0U, &explicit_function_name)) {
 		fprintf(
 			stderr,
-			"FAIL: explicit function identifiers were not exposed: %s\n",
+			"FAIL: explicit pattern RHS function identifiers were not exposed: %s\n",
 			error.message);
 		sqlparser_handle_destroy(handle);
 		return 0;
@@ -1479,6 +2604,257 @@ static int identifier_role_classifier_is_fail_closed(void)
 	return 1;
 }
 
+static int defelem_context_classifier_is_fail_closed(void)
+{
+	static const struct {
+		const char *owner_type;
+		const char *field_name;
+		const char *defelem_field;
+		int expected;
+	} cases[] = {
+		{
+			"CreateForeignTableStmt",
+			"options",
+			"defname",
+			1
+		},
+		{
+			"CreateForeignTableStmt",
+			"options",
+			"defnamespace",
+			0
+		},
+		{
+			"IndexElem",
+			"opclassopts",
+			"defnamespace",
+			1
+		},
+		{
+			"CreateRoleStmt",
+			"options",
+			"defname",
+			0
+		},
+		{
+			"CreateFunctionStmt",
+			"options",
+			"defnamespace",
+			0
+		}
+	};
+	PgQuery__DefElem def_elem = PG_QUERY__DEF_ELEM__INIT;
+	PgQuery__AlterTableCmd alter_table_cmd =
+		PG_QUERY__ALTER_TABLE_CMD__INIT;
+	PgQuery__Constraint constraint = PG_QUERY__CONSTRAINT__INIT;
+	const ProtobufCFieldDescriptor *defname_field;
+	const ProtobufCFieldDescriptor *defnamespace_field;
+	sqlparser_name_context_t dynamic_context;
+	size_t index;
+
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		sqlparser_name_context_t context;
+		const ProtobufCFieldDescriptor *field;
+		int actual;
+
+		memset(&context, 0, sizeof(context));
+		context.owner_type = cases[index].owner_type;
+		context.field_name = cases[index].field_name;
+		field = protobuf_c_message_descriptor_get_field_by_name(
+			def_elem.base.descriptor,
+			cases[index].defelem_field);
+		actual = field != NULL &&
+			sqlparser_name_atom_is_identifier(
+				(ProtobufCMessage *)&def_elem,
+				&context,
+				def_elem.base.descriptor,
+				field);
+		if (field == NULL || actual != cases[index].expected) {
+			fprintf(
+				stderr,
+				"FAIL: DefElem context classifier mismatch: %s.%s -> %s\n",
+				cases[index].owner_type,
+				cases[index].field_name,
+				cases[index].defelem_field);
+			return 0;
+		}
+	}
+
+	defname_field = protobuf_c_message_descriptor_get_field_by_name(
+		def_elem.base.descriptor,
+		"defname");
+	defnamespace_field = protobuf_c_message_descriptor_get_field_by_name(
+		def_elem.base.descriptor,
+		"defnamespace");
+	if (defname_field == NULL || defnamespace_field == NULL) {
+		fprintf(stderr, "FAIL: DefElem name descriptor is missing\n");
+		return 0;
+	}
+
+	memset(&dynamic_context, 0, sizeof(dynamic_context));
+	dynamic_context.owner_type = "Constraint";
+	dynamic_context.field_name = "options";
+	dynamic_context.field_owner = (ProtobufCMessage *)&constraint;
+	constraint.contype = PG_QUERY__CONSTR_TYPE__CONSTR_PRIMARY;
+	if (!sqlparser_name_atom_is_identifier(
+		    (ProtobufCMessage *)&def_elem,
+		    &dynamic_context,
+		    def_elem.base.descriptor,
+		    defname_field)) {
+		fprintf(
+			stderr,
+			"FAIL: index constraint reloption was not exposed as a name\n");
+		return 0;
+	}
+	constraint.contype = PG_QUERY__CONSTR_TYPE__CONSTR_IDENTITY;
+	if (sqlparser_name_atom_is_identifier(
+		    (ProtobufCMessage *)&def_elem,
+		    &dynamic_context,
+		    def_elem.base.descriptor,
+		    defname_field)) {
+		fprintf(
+			stderr,
+			"FAIL: identity sequence option was exposed as a name\n");
+		return 0;
+	}
+
+	memset(&dynamic_context, 0, sizeof(dynamic_context));
+	dynamic_context.owner_type = "AlterTableCmd";
+	dynamic_context.field_name = "def";
+	dynamic_context.field_owner = (ProtobufCMessage *)&alter_table_cmd;
+	alter_table_cmd.subtype =
+		PG_QUERY__ALTER_TABLE_TYPE__AT_AlterColumnGenericOptions;
+	if (!sqlparser_name_atom_is_identifier(
+		    (ProtobufCMessage *)&def_elem,
+		    &dynamic_context,
+		    def_elem.base.descriptor,
+		    defname_field)) {
+		fprintf(
+			stderr,
+			"FAIL: ALTER TABLE generic option was not exposed as a name\n");
+		return 0;
+	}
+	if (sqlparser_name_atom_is_identifier(
+		    (ProtobufCMessage *)&def_elem,
+		    &dynamic_context,
+		    def_elem.base.descriptor,
+		    defnamespace_field)) {
+		fprintf(
+			stderr,
+			"FAIL: ALTER TABLE generic option namespace was exposed as a name\n");
+		return 0;
+	}
+	alter_table_cmd.subtype =
+		PG_QUERY__ALTER_TABLE_TYPE__AT_SetRelOptions;
+	if (!sqlparser_name_atom_is_identifier(
+		    (ProtobufCMessage *)&def_elem,
+		    &dynamic_context,
+		    def_elem.base.descriptor,
+		    defnamespace_field)) {
+		fprintf(
+			stderr,
+			"FAIL: ALTER TABLE reloption namespace was not exposed as a name\n");
+		return 0;
+	}
+	alter_table_cmd.subtype = PG_QUERY__ALTER_TABLE_TYPE__AT_SetIdentity;
+	if (sqlparser_name_atom_is_identifier(
+		    (ProtobufCMessage *)&def_elem,
+		    &dynamic_context,
+		    def_elem.base.descriptor,
+		    defname_field)) {
+		fprintf(
+			stderr,
+			"FAIL: ALTER TABLE identity option was exposed as a name\n");
+		return 0;
+	}
+	return 1;
+}
+
+static int semantic_control_fields_fail_closed(void)
+{
+	PgQuery__RangeVar range_var = PG_QUERY__RANGE_VAR__INIT;
+	PgQuery__Aggref aggref = PG_QUERY__AGGREF__INIT;
+	PgQuery__ColumnDef column_def = PG_QUERY__COLUMN_DEF__INIT;
+	PgQuery__PartitionBoundSpec partition_bound =
+		PG_QUERY__PARTITION_BOUND_SPEC__INIT;
+	PgQuery__RangeTblEntry range_tbl_entry =
+		PG_QUERY__RANGE_TBL_ENTRY__INIT;
+	PgQuery__ReplicaIdentityStmt replica_identity =
+		PG_QUERY__REPLICA_IDENTITY_STMT__INIT;
+	PgQuery__AlterDomainStmt alter_domain =
+		PG_QUERY__ALTER_DOMAIN_STMT__INIT;
+	PgQuery__Constraint constraint = PG_QUERY__CONSTRAINT__INIT;
+	PgQuery__CreateAmStmt create_am = PG_QUERY__CREATE_AM_STMT__INIT;
+	PgQuery__AlterEventTrigStmt alter_event_trigger =
+		PG_QUERY__ALTER_EVENT_TRIG_STMT__INIT;
+	const struct {
+		ProtobufCMessage *message;
+		const char *field_name;
+	} cases[] = {
+		{(ProtobufCMessage *)&range_var, "relpersistence"},
+		{(ProtobufCMessage *)&aggref, "aggkind"},
+		{(ProtobufCMessage *)&column_def, "storage"},
+		{(ProtobufCMessage *)&column_def, "identity"},
+		{(ProtobufCMessage *)&column_def, "generated"},
+		{(ProtobufCMessage *)&partition_bound, "strategy"},
+		{(ProtobufCMessage *)&range_tbl_entry, "relkind"},
+		{(ProtobufCMessage *)&replica_identity, "identity_type"},
+		{(ProtobufCMessage *)&alter_domain, "subtype"},
+		{(ProtobufCMessage *)&constraint, "generated_when"},
+		{(ProtobufCMessage *)&constraint, "fk_matchtype"},
+		{(ProtobufCMessage *)&constraint, "fk_upd_action"},
+		{(ProtobufCMessage *)&constraint, "fk_del_action"},
+		{(ProtobufCMessage *)&create_am, "amtype"},
+		{(ProtobufCMessage *)&alter_event_trigger, "tgenabled"}
+	};
+	size_t index;
+
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		const ProtobufCFieldDescriptor *field;
+		sqlparser_name_search_t search;
+		char **slot;
+		char *saved;
+		sqlparser_status_t status;
+
+		field = protobuf_c_message_descriptor_get_field_by_name(
+			cases[index].message->descriptor,
+			cases[index].field_name);
+		if (field == NULL ||
+		    field->type != PROTOBUF_C_TYPE_STRING ||
+		    sqlparser_name_atom_is_identifier(
+			    cases[index].message,
+			    NULL,
+			    cases[index].message->descriptor,
+			    field)) {
+			fprintf(
+				stderr,
+				"FAIL: semantic control field was exposed as a name: %s.%s\n",
+				cases[index].message->descriptor->short_name,
+				cases[index].field_name);
+			return 0;
+		}
+		slot = (char **)((unsigned char *)cases[index].message +
+				field->offset);
+		saved = *slot;
+		*slot = (char *)"x";
+		memset(&search, 0, sizeof(search));
+		status = sqlparser_walk_message_names(
+			cases[index].message,
+			NULL,
+			&search);
+		*slot = saved;
+		if (status != SQLPARSER_STATUS_OK || search.seen != 0U) {
+			fprintf(
+				stderr,
+				"FAIL: semantic control field entered the public name walk: %s.%s\n",
+				cases[index].message->descriptor->short_name,
+				cases[index].field_name);
+			return 0;
+		}
+	}
+	return 1;
+}
+
 static int graph_name_selector_uses_public_name_ordinal(void)
 {
 	sqlparser_graph_field_t field;
@@ -1494,7 +2870,8 @@ static int graph_name_selector_uses_public_name_ordinal(void)
 	found = 0;
 	memset(&error, 0, sizeof(error));
 	if (sqlparser_parse(
-		    "SELECT 'a' LIKE 'a' ESCAPE '!', Wanted FROM t",
+		    "SELECT 'LiteralCase', 1 = ANY (SELECT 1), "
+		    "'a' LIKE 'a' ESCAPE '!', Wanted FROM t",
 		    &handle,
 		    &error) != SQLPARSER_STATUS_OK ||
 	    sqlparser_statement_query_graph(
@@ -1532,6 +2909,8 @@ static int graph_name_selector_uses_public_name_ordinal(void)
 	    sqlparser_deparse(handle, &deparsed, &error) !=
 		    SQLPARSER_STATUS_OK ||
 	    deparsed == NULL ||
+	    strstr(deparsed, "'LiteralCase'") == NULL ||
+	    strstr(deparsed, "= ANY") == NULL ||
 	    strstr(deparsed, "ESCAPE '!'") == NULL ||
 	    strstr(deparsed, "Changed") == NULL ||
 	    strstr(deparsed, "FROM t") == NULL ||
@@ -1647,6 +3026,1076 @@ static int unconsumed_identifier_tag_fails_closed(void)
 		sqlparser_handle_destroy(handle);
 		return 0;
 	}
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+static int patched_identifier_atoms_preserve_all_dialects(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *alias_sql;
+		const char *alias_value;
+		const char *relation_sql;
+		const char *relation_value;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"U&\"Mi\\0058ed\"",
+			"MiXed",
+			"U&\"d!0061t\" UESCAPE '!'",
+			"dat"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"`A``Case`",
+			"A`Case",
+			"`T``Case`",
+			"T`Case"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"\"A\"\"Case\"",
+			"A\"Case",
+			"\"T\"\"Case\"",
+			"T\"Case"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"[A]]Case]",
+			"A]Case",
+			"[T]]Case]",
+			"T]Case"
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"\"A\"\"Case\"",
+			"A\"Case",
+			"\"T\"\"Case\"",
+			"T\"Case"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_ORACLE,
+			"\"A\"\"Case\"",
+			"A\"Case",
+			"\"T\"\"Case\"",
+			"T\"Case"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_MYSQL,
+			"`A``Case`",
+			"A`Case",
+			"`T``Case`",
+			"T`Case"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_POSTGRESQL,
+			"U&\"Mi\\0058ed\"",
+			"MiXed",
+			"U&\"d!0061t\" UESCAPE '!'",
+			"dat"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"[A]]Case]",
+			"A]Case",
+			"[T]]Case]",
+			"T]Case"
+		}
+	};
+	sqlparser_parse_options_t options;
+	size_t case_index;
+
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		expected_name_t alias_name;
+		expected_name_t relation_name;
+		sqlparser_error_t error;
+		sqlparser_graph_relation_t graph_relation;
+		sqlparser_graph_target_t graph_target;
+		sqlparser_handle_t *handle;
+		sqlparser_handle_t *reparsed;
+		sqlparser_patch_list_t patch_list;
+		sqlparser_patch_t patches[2];
+		sqlparser_query_graph_view_t graph;
+		sqlparser_relation_view_t relation;
+		char expected_sql[512];
+		char name_selector[64];
+		char *deparsed;
+		size_t alias_index;
+		unsigned long generation;
+
+		handle = NULL;
+		reparsed = NULL;
+		deparsed = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[case_index].dialect;
+		if (sqlparser_parse_with_options(
+			    "SELECT OldCol AS OldAlias FROM OldTable",
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !statement_find_name_index(
+			    handle,
+			    0U,
+			    "ResTarget",
+			    "name",
+			    "OldAlias",
+			    &alias_index)) {
+			fprintf(
+				stderr,
+				"FAIL: dialect identifier atom case %lu setup failed: %s\n",
+				(unsigned long)case_index,
+				error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		if (snprintf(
+			    name_selector,
+			    sizeof(name_selector),
+			    "stmt[0].name[%lu]",
+			    (unsigned long)alias_index) <= 0 ||
+		    snprintf(
+			    expected_sql,
+			    sizeof(expected_sql),
+			    "SELECT OldCol AS %s FROM %s",
+			    cases[case_index].alias_sql,
+			    cases[case_index].relation_sql) <= 0) {
+			fprintf(
+				stderr,
+				"FAIL: dialect identifier atom case %lu formatting failed\n",
+				(unsigned long)case_index);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		memset(patches, 0, sizeof(patches));
+		patches[0].op = SQLPARSER_PATCH_REPLACE;
+		patches[0].selector = name_selector;
+		patches[0].sql = cases[case_index].alias_sql;
+		patches[1].op = SQLPARSER_PATCH_REPLACE;
+		patches[1].selector = "stmt[0].relation[0]";
+		patches[1].sql = cases[case_index].relation_sql;
+		patch_list.items = patches;
+		patch_list.count = 2U;
+		generation = handle->generation;
+		if (sqlparser_apply_patch(
+			    handle,
+			    &patch_list,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    handle->generation != generation + 1UL) {
+			fprintf(
+				stderr,
+				"FAIL: dialect identifier atom case %lu batch failed or advanced generation more than once: %s\n",
+				(unsigned long)case_index,
+				error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+
+		alias_name.owner_type = "ResTarget";
+		alias_name.field_name = "name";
+		alias_name.value = cases[case_index].alias_value;
+		relation_name.owner_type = "RangeVar";
+		relation_name.field_name = "relname";
+		relation_name.value = cases[case_index].relation_value;
+		memset(&relation, 0, sizeof(relation));
+		memset(&graph, 0, sizeof(graph));
+		memset(&graph_relation, 0, sizeof(graph_relation));
+		memset(&graph_target, 0, sizeof(graph_target));
+		if (!statement_has_name(handle, 0U, &alias_name) ||
+		    !statement_has_name(handle, 0U, &relation_name) ||
+		    sqlparser_statement_relation(
+			    handle,
+			    0U,
+			    0U,
+			    &relation,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    relation.table_name == NULL ||
+		    strcmp(
+			    relation.table_name,
+			    cases[case_index].relation_value) != 0 ||
+		    sqlparser_statement_query_graph(
+			    handle,
+			    0U,
+			    &graph,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    graph.relation_count != 1U ||
+		    graph.target_count != 1U ||
+		    sqlparser_query_graph_relation_at(
+			    &graph,
+			    0U,
+			    &graph_relation,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_query_graph_target_at(
+			    &graph,
+			    0U,
+			    &graph_target,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    graph_relation.object_name == NULL ||
+		    strcmp(
+			    graph_relation.object_name,
+			    cases[case_index].relation_value) != 0 ||
+		    graph_target.output_name == NULL ||
+		    strcmp(
+			    graph_target.output_name,
+			    cases[case_index].alias_value) != 0) {
+			fprintf(
+				stderr,
+				"FAIL: dialect identifier atom case %lu changed AST/View semantics: %s\n",
+				(unsigned long)case_index,
+				error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		if (sqlparser_validate_ast_identifier_spelling(
+			    handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_deparse(handle, &deparsed, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    deparsed == NULL ||
+		    strcmp(deparsed, expected_sql) != 0 ||
+		    sqlparser_parse_with_options(
+			    deparsed,
+			    &options,
+			    &reparsed,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_validate_ast_identifier_spelling(
+			    reparsed,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !statement_has_name(reparsed, 0U, &alias_name) ||
+		    !statement_has_name(reparsed, 0U, &relation_name)) {
+			fprintf(
+				stderr,
+				"FAIL: dialect identifier atom case %lu did not round-trip exactly: %s\n",
+				(unsigned long)case_index,
+				deparsed != NULL ? deparsed : error.message);
+			sqlparser_handle_destroy(reparsed);
+			sqlparser_string_free(deparsed);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_handle_destroy(reparsed);
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(handle);
+	}
+	return 1;
+}
+
+static int patched_mysql_target_list_preserves_raw_identifiers(void)
+{
+	static const expected_name_t first_name = {
+		"ColumnRef",
+		"fields",
+		"a"
+	};
+	static const expected_name_t second_name = {
+		"ColumnRef",
+		"fields",
+		"b,c"
+	};
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *reparsed;
+	sqlparser_parse_options_t options;
+	sqlparser_patch_list_t patch_list;
+	sqlparser_patch_t patch;
+	sqlparser_query_graph_view_t graph;
+	char *deparsed;
+	char *target_sql;
+	size_t target_count;
+
+	handle = NULL;
+	reparsed = NULL;
+	deparsed = NULL;
+	target_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_MYSQL;
+	if (sqlparser_parse_with_options(
+		    "SELECT * FROM abc",
+		    &options,
+		    &handle,
+		    &error) != SQLPARSER_STATUS_OK) {
+		fprintf(
+			stderr,
+			"FAIL: MySQL raw target-list setup failed: %s\n",
+			error.message);
+		return 0;
+	}
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = "stmt[0].select_targets[0]";
+	patch.sql = "`a`,`b,c`";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	if (sqlparser_apply_patch(
+		    handle,
+		    &patch_list,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    sqlparser_select_target_count(
+		    handle,
+		    0U,
+		    0U,
+		    &target_count,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    target_count != 2U ||
+	    !statement_has_name(handle, 0U, &first_name) ||
+	    !statement_has_name(handle, 0U, &second_name) ||
+	    sqlparser_statement_query_graph(
+		    handle,
+		    0U,
+		    &graph,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    graph.target_count != 2U) {
+		fprintf(
+			stderr,
+			"FAIL: MySQL raw target-list AST/View mismatch: %s\n",
+			error.message);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	if (sqlparser_select_target_sql(
+		    handle,
+		    0U,
+		    0U,
+		    0U,
+		    &target_sql,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    target_sql == NULL ||
+	    strcmp(target_sql, "`a`") != 0) {
+		fprintf(
+			stderr,
+			"FAIL: first MySQL raw target changed: %s\n",
+			target_sql != NULL ? target_sql : error.message);
+		sqlparser_string_free(target_sql);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	sqlparser_string_free(target_sql);
+	target_sql = NULL;
+	if (sqlparser_select_target_sql(
+		    handle,
+		    0U,
+		    0U,
+		    1U,
+		    &target_sql,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    target_sql == NULL ||
+	    strcmp(target_sql, "`b,c`") != 0 ||
+	    sqlparser_deparse(handle, &deparsed, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    deparsed == NULL ||
+	    strcmp(deparsed, "SELECT `a`, `b,c` FROM abc") != 0 ||
+	    sqlparser_parse_with_options(
+		    deparsed,
+		    &options,
+		    &reparsed,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    sqlparser_validate_ast_identifier_spelling(
+		    reparsed,
+		    &error) != SQLPARSER_STATUS_OK) {
+		fprintf(
+			stderr,
+			"FAIL: MySQL raw target-list did not round-trip: %s\n",
+			deparsed != NULL ? deparsed : error.message);
+		sqlparser_handle_destroy(reparsed);
+		sqlparser_string_free(deparsed);
+		sqlparser_string_free(target_sql);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	sqlparser_handle_destroy(reparsed);
+	sqlparser_string_free(deparsed);
+	sqlparser_string_free(target_sql);
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+static int identifier_patch_batch_is_atomic(void)
+{
+	static const char baseline_sql[] =
+		"SELECT OldCol AS OldAlias FROM OldTable; "
+		"SELECT KeepCol FROM KeepTable";
+	static const expected_name_t old_alias = {
+		"ResTarget",
+		"name",
+		"OldAlias"
+	};
+	sqlparser_error_t error;
+	sqlparser_graph_relation_t old_graph_relation;
+	sqlparser_graph_target_t old_graph_target;
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *reparsed;
+	sqlparser_parse_options_t options;
+	sqlparser_patch_list_t patch_list;
+	sqlparser_patch_t patches[2];
+	sqlparser_query_graph_view_t old_graph;
+	char name_selector[64];
+	char *after_sql;
+	char *after_view;
+	char *before_sql;
+	char *before_view;
+	char *tree_copy;
+	size_t alias_index;
+	size_t mutation_count;
+	size_t spelling_count;
+	size_t tree_len;
+	unsigned long generation;
+	sqlparser_status_t status;
+
+	handle = NULL;
+	reparsed = NULL;
+	after_sql = NULL;
+	after_view = NULL;
+	before_sql = NULL;
+	before_view = NULL;
+	tree_copy = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	if (sqlparser_parse_with_options(
+		    baseline_sql,
+		    &options,
+		    &handle,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    !statement_find_name_index(
+		    handle,
+		    0U,
+		    "ResTarget",
+		    "name",
+		    "OldAlias",
+		    &alias_index) ||
+	    sqlparser_deparse(handle, &before_sql, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    sqlparser_export_view_json(
+		    handle,
+		    0,
+		    &before_view,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    sqlparser_statement_query_graph(
+		    handle,
+		    0U,
+		    &old_graph,
+		    &error) != SQLPARSER_STATUS_OK) {
+		fprintf(
+			stderr,
+			"FAIL: patch transaction setup failed: %s\n",
+			error.message);
+		sqlparser_string_free(before_view);
+		sqlparser_string_free(before_sql);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	if (snprintf(
+		    name_selector,
+		    sizeof(name_selector),
+		    "stmt[0].name[%lu]",
+		    (unsigned long)alias_index) <= 0) {
+		fprintf(stderr, "FAIL: patch transaction selector formatting failed\n");
+		sqlparser_string_free(before_view);
+		sqlparser_string_free(before_sql);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	tree_len = handle->parse_tree.len;
+	tree_copy = (char *)malloc(tree_len);
+	if (tree_copy == NULL) {
+		fprintf(stderr, "FAIL: patch transaction tree snapshot allocation failed\n");
+		sqlparser_string_free(before_view);
+		sqlparser_string_free(before_sql);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	memcpy(tree_copy, handle->parse_tree.data, tree_len);
+	generation = handle->generation;
+	mutation_count = handle->identifier_mutation_count;
+	spelling_count = handle->identifier_spelling_count;
+
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_REPLACE;
+	patches[0].selector = name_selector;
+	patches[0].sql = "\"GoodAlias\"";
+	patches[1].op = SQLPARSER_PATCH_REPLACE;
+	patches[1].selector = "stmt[0].relation[0]";
+	patches[1].sql = "a + b";
+	patch_list.items = patches;
+	patch_list.count = 2U;
+	status = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (status == SQLPARSER_STATUS_OK ||
+	    handle->generation != generation ||
+	    handle->identifier_mutation_count != mutation_count ||
+	    handle->identifier_spelling_count != spelling_count ||
+	    handle->parse_tree.len != tree_len ||
+	    memcmp(handle->parse_tree.data, tree_copy, tree_len) != 0 ||
+	    sqlparser_deparse(handle, &after_sql, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    after_sql == NULL ||
+	    strcmp(after_sql, before_sql) != 0 ||
+	    sqlparser_export_view_json(
+		    handle,
+		    0,
+		    &after_view,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    after_view == NULL ||
+	    strcmp(after_view, before_view) != 0 ||
+	    !statement_has_name(handle, 0U, &old_alias) ||
+	    sqlparser_query_graph_relation_at(
+		    &old_graph,
+		    0U,
+		    &old_graph_relation,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    sqlparser_query_graph_target_at(
+		    &old_graph,
+		    0U,
+		    &old_graph_target,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    old_graph_relation.object_name == NULL ||
+	    strcmp(old_graph_relation.object_name, "OldTable") != 0 ||
+	    old_graph_target.output_name == NULL ||
+	    strcmp(old_graph_target.output_name, "OldAlias") != 0) {
+		fprintf(
+			stderr,
+			"FAIL: failed patch batch changed original handle state\n");
+		free(tree_copy);
+		sqlparser_string_free(after_view);
+		sqlparser_string_free(after_sql);
+		sqlparser_string_free(before_view);
+		sqlparser_string_free(before_sql);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	sqlparser_string_free(after_view);
+	after_view = NULL;
+	sqlparser_string_free(after_sql);
+	after_sql = NULL;
+
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_REPLACE;
+	patches[0].selector = name_selector;
+	patches[0].sql = "OldAlias";
+	patch_list.items = patches;
+	patch_list.count = 1U;
+	if (sqlparser_apply_patch(
+		    handle,
+		    &patch_list,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    handle->generation != generation ||
+	    handle->identifier_mutation_count != mutation_count ||
+	    handle->identifier_spelling_count != spelling_count ||
+	    handle->parse_tree.len != tree_len ||
+	    memcmp(handle->parse_tree.data, tree_copy, tree_len) != 0) {
+		fprintf(
+			stderr,
+			"FAIL: semantic and spelling no-op patch changed handle state: %s\n",
+			error.message);
+		free(tree_copy);
+		sqlparser_string_free(before_view);
+		sqlparser_string_free(before_sql);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	patch_list.items = NULL;
+	patch_list.count = 0U;
+	if (sqlparser_apply_patch(
+		    handle,
+		    &patch_list,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    handle->generation != generation ||
+	    handle->parse_tree.len != tree_len ||
+	    memcmp(handle->parse_tree.data, tree_copy, tree_len) != 0) {
+		fprintf(
+			stderr,
+			"FAIL: empty patch batch changed handle state: %s\n",
+			error.message);
+		free(tree_copy);
+		sqlparser_string_free(before_view);
+		sqlparser_string_free(before_sql);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_REPLACE;
+	patches[0].selector = name_selector;
+	patches[0].sql = "\"GoodAlias\"";
+	patches[1].op = SQLPARSER_PATCH_REPLACE;
+	patches[1].selector = "stmt[1].relation[0]";
+	patches[1].sql = "\"NewTable\"";
+	patch_list.items = patches;
+	patch_list.count = 2U;
+	if (sqlparser_apply_patch(
+		    handle,
+		    &patch_list,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    handle->generation != generation + 1UL ||
+	    sqlparser_deparse(handle, &after_sql, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    after_sql == NULL ||
+	    strstr(
+		    after_sql,
+		    "SELECT OldCol AS \"GoodAlias\" FROM OldTable") == NULL ||
+	    strstr(
+		    after_sql,
+		    "SELECT KeepCol FROM \"NewTable\"") == NULL ||
+	    sqlparser_parse_with_options(
+		    after_sql,
+		    &options,
+		    &reparsed,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    sqlparser_statement_count(reparsed) != 2U) {
+		fprintf(
+			stderr,
+			"FAIL: successful multi-statement patch batch mismatch: %s\n",
+			after_sql != NULL ? after_sql : error.message);
+		free(tree_copy);
+		sqlparser_handle_destroy(reparsed);
+		sqlparser_string_free(after_sql);
+		sqlparser_string_free(before_view);
+		sqlparser_string_free(before_sql);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	free(tree_copy);
+	sqlparser_handle_destroy(reparsed);
+	sqlparser_string_free(after_sql);
+	sqlparser_string_free(before_view);
+	sqlparser_string_free(before_sql);
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+static int identifier_patch_atoms_reject_non_identifiers(void)
+{
+	static const char *const name_invalid[] = {
+		"",
+		"'text'",
+		"a.b",
+		"a + b",
+		"a, b",
+		"a AS b",
+		"f()",
+		"(a)",
+		"*",
+		"a; SELECT b",
+		"\"unterminated"
+	};
+	static const char *const relation_invalid[] = {
+		"",
+		"'text'",
+		"a + b",
+		"a, b",
+		"a AS b",
+		"f()",
+		"(a)",
+		"*",
+		"a; SELECT b",
+		"\"unterminated"
+	};
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_patch_list_t patch_list;
+	sqlparser_patch_t patch;
+	char name_selector[64];
+	char *baseline_sql;
+	char *current_sql;
+	size_t alias_index;
+	size_t index;
+	unsigned long generation;
+
+	handle = NULL;
+	baseline_sql = NULL;
+	current_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	if (sqlparser_parse(
+		    "SELECT OldCol AS OldAlias FROM OldTable",
+		    &handle,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    !statement_find_name_index(
+		    handle,
+		    0U,
+		    "ResTarget",
+		    "name",
+		    "OldAlias",
+		    &alias_index) ||
+	    sqlparser_deparse(handle, &baseline_sql, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    snprintf(
+		    name_selector,
+		    sizeof(name_selector),
+		    "stmt[0].name[%lu]",
+		    (unsigned long)alias_index) <= 0) {
+		fprintf(
+			stderr,
+			"FAIL: invalid identifier atom setup failed: %s\n",
+			error.message);
+		sqlparser_string_free(baseline_sql);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	generation = handle->generation;
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = name_selector;
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	for (index = 0U;
+	     index < sizeof(name_invalid) / sizeof(name_invalid[0]);
+	     index++) {
+		patch.sql = name_invalid[index];
+		if (sqlparser_apply_patch(
+			    handle,
+			    &patch_list,
+			    &error) == SQLPARSER_STATUS_OK ||
+		    handle->generation != generation ||
+		    sqlparser_deparse(handle, &current_sql, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    current_sql == NULL ||
+		    strcmp(current_sql, baseline_sql) != 0) {
+			fprintf(
+				stderr,
+				"FAIL: invalid name atom %s was accepted or changed state\n",
+				name_invalid[index]);
+			sqlparser_string_free(current_sql);
+			sqlparser_string_free(baseline_sql);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_string_free(current_sql);
+		current_sql = NULL;
+	}
+	patch.selector = "stmt[0].relation[0]";
+	for (index = 0U;
+	     index < sizeof(relation_invalid) / sizeof(relation_invalid[0]);
+	     index++) {
+		patch.sql = relation_invalid[index];
+		if (sqlparser_apply_patch(
+			    handle,
+			    &patch_list,
+			    &error) == SQLPARSER_STATUS_OK ||
+		    handle->generation != generation ||
+		    sqlparser_deparse(handle, &current_sql, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    current_sql == NULL ||
+		    strcmp(current_sql, baseline_sql) != 0) {
+			fprintf(
+				stderr,
+				"FAIL: invalid relation atom %s was accepted or changed state\n",
+				relation_invalid[index]);
+			sqlparser_string_free(current_sql);
+			sqlparser_string_free(baseline_sql);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_string_free(current_sql);
+		current_sql = NULL;
+	}
+	sqlparser_string_free(baseline_sql);
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+static int dropped_source_identifier_is_rejected(
+	size_t mutation_kind,
+	const char *sql)
+{
+	PgQuery__ColumnRef *column_ref;
+	PgQuery__SelectStmt *select_stmt;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_status_t status;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	if (sqlparser_parse(sql, &handle, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    sqlparser_handle_ensure_ast(handle, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    handle->ast == NULL ||
+	    handle->ast->n_stmts != 1U ||
+	    handle->ast->stmts == NULL ||
+	    handle->ast->stmts[0] == NULL ||
+	    handle->ast->stmts[0]->stmt == NULL ||
+	    handle->ast->stmts[0]->stmt->node_case !=
+		    PG_QUERY__NODE__NODE_SELECT_STMT ||
+	    handle->ast->stmts[0]->stmt->select_stmt == NULL) {
+		fprintf(
+			stderr,
+			"FAIL: dropped identifier audit setup failed: %s\n",
+			error.message);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	select_stmt = handle->ast->stmts[0]->stmt->select_stmt;
+	if (mutation_kind == 0U || mutation_kind == 3U) {
+		if (select_stmt->n_target_list != 1U ||
+		    select_stmt->target_list == NULL ||
+		    select_stmt->target_list[0] == NULL ||
+		    select_stmt->target_list[0]->res_target == NULL ||
+		    select_stmt->target_list[0]->res_target->name == NULL) {
+			fprintf(stderr, "FAIL: alias identifier audit fixture is invalid\n");
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		free(select_stmt->target_list[0]->res_target->name);
+		select_stmt->target_list[0]->res_target->name = NULL;
+	} else if (mutation_kind == 1U) {
+		if (select_stmt->n_from_clause != 1U ||
+		    select_stmt->from_clause == NULL ||
+		    select_stmt->from_clause[0] == NULL) {
+			fprintf(stderr, "FAIL: relation identifier audit fixture is invalid\n");
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_free_proto_node(select_stmt->from_clause[0]);
+		free(select_stmt->from_clause);
+		select_stmt->from_clause = NULL;
+		select_stmt->n_from_clause = 0U;
+	} else {
+		if (select_stmt->n_target_list != 1U ||
+		    select_stmt->target_list == NULL ||
+		    select_stmt->target_list[0] == NULL ||
+		    select_stmt->target_list[0]->res_target == NULL ||
+		    select_stmt->target_list[0]->res_target->val == NULL ||
+		    select_stmt->target_list[0]->res_target->val->node_case !=
+			    PG_QUERY__NODE__NODE_COLUMN_REF ||
+		    select_stmt->target_list[0]->res_target->val->column_ref ==
+			    NULL) {
+			fprintf(stderr, "FAIL: qualified identifier audit fixture is invalid\n");
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		column_ref =
+			select_stmt->target_list[0]->res_target->val->column_ref;
+		if (column_ref->n_fields != 2U ||
+		    column_ref->fields == NULL ||
+		    column_ref->fields[0] == NULL) {
+			fprintf(stderr, "FAIL: qualified identifier audit path is invalid\n");
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_free_proto_node(column_ref->fields[0]);
+		memmove(
+			&column_ref->fields[0],
+			&column_ref->fields[1],
+			sizeof(column_ref->fields[0]));
+		column_ref->n_fields = 1U;
+	}
+	if (sqlparser_handle_commit_ast(handle, &error) !=
+	    SQLPARSER_STATUS_OK) {
+		fprintf(
+			stderr,
+			"FAIL: dropped identifier audit commit failed: %s\n",
+			error.message);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	handle->generation = 0UL;
+	status = sqlparser_validate_ast_identifier_spelling(
+		handle,
+		&error);
+	if (status != SQLPARSER_STATUS_INTERNAL_ERROR) {
+		fprintf(
+			stderr,
+			"FAIL: generation-zero AST dropped source identifier kind %lu without rejection\n",
+			(unsigned long)mutation_kind);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+static int identifier_completeness_audit_is_fail_closed(void)
+{
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	char *deparsed;
+
+	if (!dropped_source_identifier_is_rejected(
+		    0U,
+		    "SELECT q.Col AS AliasGone FROM SchemaName.TableName q") ||
+	    !dropped_source_identifier_is_rejected(
+		    1U,
+		    "SELECT KeptCol FROM RelationGone") ||
+	    !dropped_source_identifier_is_rejected(
+		    2U,
+		    "SELECT QualifierGone.KeptCol FROM SourceTable") ||
+	    !dropped_source_identifier_is_rejected(
+		    3U,
+		    "SELECT KeptCol AS comment FROM SourceTable")) {
+		return 0;
+	}
+
+	handle = NULL;
+	deparsed = NULL;
+	memset(&error, 0, sizeof(error));
+	if (sqlparser_parse(
+		    "SELECT KeepCol, DropCol FROM BaseTable",
+		    &handle,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    sqlparser_select_delete_target(
+		    handle,
+		    0U,
+		    0U,
+		    1U,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    handle->generation == 0UL ||
+	    sqlparser_validate_ast_identifier_spelling(
+		    handle,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    sqlparser_statement_query_graph(
+		    handle,
+		    0U,
+		    &graph,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    graph.target_count != 1U ||
+	    sqlparser_deparse(handle, &deparsed, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    deparsed == NULL ||
+	    strcmp(deparsed, "SELECT KeepCol FROM BaseTable") != 0) {
+		fprintf(
+			stderr,
+			"FAIL: legal generation-positive identifier deletion was rejected or changed semantics: %s\n",
+			deparsed != NULL ? deparsed : error.message);
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	sqlparser_string_free(deparsed);
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+static int discarded_generated_targets_release_spellings(void)
+{
+	static const char baseline_sql[] =
+		"SELECT KeepColumn FROM KeepTable";
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	char *deparsed;
+	size_t spelling_count;
+	size_t iteration;
+
+	handle = NULL;
+	deparsed = NULL;
+	memset(&error, 0, sizeof(error));
+	if (sqlparser_parse(baseline_sql, &handle, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    sqlparser_handle_ensure_ast(handle, &error) !=
+		    SQLPARSER_STATUS_OK) {
+		fprintf(
+			stderr,
+			"FAIL: discarded generated target setup failed: %s\n",
+			error.message);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	spelling_count = handle->identifier_spelling_count;
+	for (iteration = 0U; iteration < 64U; iteration++) {
+		if (sqlparser_select_set_target_sql(
+			    handle,
+			    0U,
+			    0U,
+			    0U,
+			    "FirstCase, SecondCase",
+			    &error) != SQLPARSER_STATUS_UNSUPPORTED ||
+		    handle->identifier_spelling_count != spelling_count) {
+			fprintf(
+				stderr,
+				"FAIL: discarded generated targets retained spelling groups at iteration %lu\n",
+				(unsigned long)iteration);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+	}
+	if (sqlparser_deparse(handle, &deparsed, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    deparsed == NULL ||
+	    strcmp(deparsed, baseline_sql) != 0) {
+		fprintf(
+			stderr,
+			"FAIL: discarded generated targets changed handle state: %s\n",
+			deparsed != NULL ? deparsed : error.message);
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	sqlparser_string_free(deparsed);
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+static int discarded_assignment_fragments_release_spellings(void)
+{
+	static const char baseline_sql[] =
+		"UPDATE KeepTable SET KeepColumn = 1";
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	char *deparsed;
+	size_t retained_count;
+	size_t iteration;
+
+	handle = NULL;
+	deparsed = NULL;
+	memset(&error, 0, sizeof(error));
+	if (sqlparser_parse(baseline_sql, &handle, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    sqlparser_update_insert_assignment_sql(
+		    handle,
+		    0U,
+		    1U,
+		    "\"AddedColumn\" = \"AddedValue\"",
+		    &error) != SQLPARSER_STATUS_OK ||
+	    handle->identifier_spelling_count == 0U) {
+		fprintf(
+			stderr,
+			"FAIL: discarded assignment fragment setup failed: %s\n",
+			error.message);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	retained_count = handle->identifier_spelling_count;
+	for (iteration = 0U; iteration < 64U; iteration++) {
+		if (sqlparser_update_insert_assignment_sql(
+			    handle,
+			    0U,
+			    2U,
+			    "\"DiscardedOne\" = \"FirstValue\", "
+			    "\"DiscardedTwo\" = \"SecondValue\"",
+			    &error) != SQLPARSER_STATUS_UNSUPPORTED ||
+		    handle->identifier_spelling_count != retained_count) {
+			fprintf(
+				stderr,
+				"FAIL: discarded assignment fragment retained spelling groups at iteration %lu: expected=%lu actual=%lu\n",
+				(unsigned long)iteration,
+				(unsigned long)retained_count,
+				(unsigned long)
+					handle->identifier_spelling_count);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+	}
+	if (sqlparser_validate_ast_identifier_spelling(handle, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    sqlparser_deparse(handle, &deparsed, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    deparsed == NULL ||
+	    strstr(
+		    deparsed,
+		    "\"AddedColumn\" = \"AddedValue\"") == NULL ||
+	    strstr(deparsed, "DiscardedOne") != NULL ||
+	    strstr(deparsed, "DiscardedTwo") != NULL) {
+		fprintf(
+			stderr,
+			"FAIL: discarded assignment fragments damaged retained spelling: %s\n",
+			deparsed != NULL ? deparsed : error.message);
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	sqlparser_string_free(deparsed);
 	sqlparser_handle_destroy(handle);
 	return 1;
 }
@@ -2088,11 +4537,24 @@ int main(void)
 	if (!query_graph_identifier_semantics() ||
 	    !session_identifier_semantics() ||
 	    !identifier_role_classifier_is_fail_closed() ||
+	    !defelem_context_classifier_is_fail_closed() ||
+	    !semantic_control_fields_fail_closed() ||
 	    !graph_name_selector_uses_public_name_ordinal() ||
 	    !mutation_marker_lifecycle() ||
 	    !failed_commit_preserves_mutation_provenance() ||
 	    !relation_group_preserves_source_spelling() ||
-	    !generated_identifier_has_no_source_provenance() ||
+	    !patched_select_identifier_spelling_preserved() ||
+	    !patched_nested_identifier_spelling_preserved() ||
+	    !patched_alias_locations_preserve_spelling() ||
+	    !patched_identifier_owner_spelling_preserved() ||
+	    !generated_identifier_preserves_patch_delimiter() ||
+	    !patched_identifier_atoms_preserve_all_dialects() ||
+	    !patched_mysql_target_list_preserves_raw_identifiers() ||
+	    !identifier_patch_batch_is_atomic() ||
+	    !identifier_patch_atoms_reject_non_identifiers() ||
+	    !identifier_completeness_audit_is_fail_closed() ||
+	    !discarded_generated_targets_release_spellings() ||
+	    !discarded_assignment_fragments_release_spellings() ||
 	    !unconsumed_identifier_tag_fails_closed() ||
 	    !mutated_keyword_alias_is_quoted() ||
 	    !mutated_type_prefix_is_not_synthetic() ||

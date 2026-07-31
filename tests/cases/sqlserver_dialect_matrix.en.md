@@ -4,7 +4,7 @@ This file records regression cases for the SQL Server dialect conversion layer. 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 605 cases: 568 expect success and 37 expect failure.
+The fixture contains 615 cases: 578 expect success and 37 expect failure.
 Statement-level `expect.session` appears in 91 cases, covering `S044` through
 `S046`, `SH295` through `SH333`, and 49 `MSSQL-*` session cases. All 91 contain
 at least one non-null session expectation.
@@ -15,6 +15,34 @@ projection, including its action, item scope, target kind, name, and value
 fields; `null` asserts that no session projection is emitted. For fixture cases
 that expect success, the test also deparses the unmodified handle and compares
 the result with the input SQL byte for byte.
+
+## INSERT VALUES Regression: Mixed Binds and Expressions
+
+`MSSQL-BM001` through `MSSQL-BM010` cover combinations of `DEFAULT`, `NULL`,
+binds, literals, and expressions in SQL Server VALUES cells, including a
+two-row VALUES input.
+
+T-SQL `@name` references require an existing variable or parameter scope; the
+`?` markers in `MSSQL-BM009` are accepted only as JDBC/ODBC driver parameter markers.
+`DEFAULT` is always standalone. Every case asserts each cell's `row`, `column`,
+`kind`, and `selector`, plus `bind_key`, `bind_kind`, `bind_sql`,
+`bind_position`, and `selector` for every direct bind. Later direct-bind
+positions verify that nested binds were counted in the global sequence.
+`GETDATE()` and `CURRENT_TIMESTAMP` are asserted as `kind=expression` and
+absent from `query_graph.fields[].column`.
+
+| ID | SQL shape | Boundary |
+| --- | --- | --- |
+| `MSSQL-BM001` | three `@` binds + trailing `GETDATE()` | `@` references require an existing variable/parameter scope |
+| `MSSQL-BM002` | leading `GETDATE()` + three `@` binds | a leading expression must not shift bind positions |
+| `MSSQL-BM003` | interleaved `@` bind, `CURRENT_TIMESTAMP`, `@` bind, and `GETDATE()` | neither time expression appears in `query_graph.fields[].column` |
+| `MSSQL-BM004` | bind + `NULL` + `GETDATE()` + bind | `NULL` is literal and `GETDATE()` is expression |
+| `MSSQL-BM005` | bind + standalone `DEFAULT` + `CURRENT_TIMESTAMP` + bind | `DEFAULT` is not nested in another expression |
+| `MSSQL-BM006` | bind + Unicode literal + `GETDATE()` + bind | literal and expression cells do not shift the trailing bind |
+| `MSSQL-BM007` | direct bind + `COALESCE(@retry_count, 0)` + `GETDATE()` + direct bind | trailing direct bind at position 3 verifies that the nested bind was counted |
+| `MSSQL-BM008` | direct bind + a `CASE` expression containing `@enabled` + `CAST(@amount AS int)` + `CURRENT_TIMESTAMP` + direct bind | trailing direct bind at position 4 verifies that both nested binds were counted |
+| `MSSQL-BM009` | three standalone JDBC/ODBC `?` cells + `GETDATE()` | `?` is a driver-template parameter marker and is not nested in a complex expression |
+| `MSSQL-BM010` | bracketed schema-qualified identifiers + irregularly spaced two-row VALUES | two rows mix `@` binds, standalone `DEFAULT`, literal, `GETDATE()`, and `CURRENT_TIMESTAMP` |
 
 ## Supported Cases
 

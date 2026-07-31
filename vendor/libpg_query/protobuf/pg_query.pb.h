@@ -34,6 +34,9 @@
 #include "google/protobuf/message.h"
 #include "google/protobuf/repeated_field.h"  // IWYU pragma: export
 #include "google/protobuf/extension_set.h"  // IWYU pragma: export
+#include "google/protobuf/map.h"  // IWYU pragma: export
+#include "google/protobuf/map_entry.h"
+#include "google/protobuf/map_field_inl.h"
 #include "google/protobuf/generated_enum_reflection.h"
 #include "google/protobuf/unknown_field_set.h"
 // @@protoc_insertion_point(includes)
@@ -799,6 +802,21 @@ extern SubPlanDefaultTypeInternal _SubPlan_default_instance_;
 class SubscriptingRef;
 struct SubscriptingRefDefaultTypeInternal;
 extern SubscriptingRefDefaultTypeInternal _SubscriptingRef_default_instance_;
+class SummaryResult;
+struct SummaryResultDefaultTypeInternal;
+extern SummaryResultDefaultTypeInternal _SummaryResult_default_instance_;
+class SummaryResult_AliasesEntry_DoNotUse;
+struct SummaryResult_AliasesEntry_DoNotUseDefaultTypeInternal;
+extern SummaryResult_AliasesEntry_DoNotUseDefaultTypeInternal _SummaryResult_AliasesEntry_DoNotUse_default_instance_;
+class SummaryResult_FilterColumn;
+struct SummaryResult_FilterColumnDefaultTypeInternal;
+extern SummaryResult_FilterColumnDefaultTypeInternal _SummaryResult_FilterColumn_default_instance_;
+class SummaryResult_Function;
+struct SummaryResult_FunctionDefaultTypeInternal;
+extern SummaryResult_FunctionDefaultTypeInternal _SummaryResult_Function_default_instance_;
+class SummaryResult_Table;
+struct SummaryResult_TableDefaultTypeInternal;
+extern SummaryResult_TableDefaultTypeInternal _SummaryResult_Table_default_instance_;
 class TableFunc;
 struct TableFuncDefaultTypeInternal;
 extern TableFuncDefaultTypeInternal _TableFunc_default_instance_;
@@ -881,6 +899,42 @@ namespace protobuf {
 }  // namespace google
 
 namespace pg_query {
+enum SummaryResult_Context : int {
+  SummaryResult_Context_None = 0,
+  SummaryResult_Context_Select = 1,
+  SummaryResult_Context_DML = 2,
+  SummaryResult_Context_DDL = 3,
+  SummaryResult_Context_Call = 4,
+  SummaryResult_Context_SummaryResult_Context_INT_MIN_SENTINEL_DO_NOT_USE_ =
+      std::numeric_limits<::int32_t>::min(),
+  SummaryResult_Context_SummaryResult_Context_INT_MAX_SENTINEL_DO_NOT_USE_ =
+      std::numeric_limits<::int32_t>::max(),
+};
+
+bool SummaryResult_Context_IsValid(int value);
+extern const uint32_t SummaryResult_Context_internal_data_[];
+constexpr SummaryResult_Context SummaryResult_Context_Context_MIN = static_cast<SummaryResult_Context>(0);
+constexpr SummaryResult_Context SummaryResult_Context_Context_MAX = static_cast<SummaryResult_Context>(4);
+constexpr int SummaryResult_Context_Context_ARRAYSIZE = 4 + 1;
+const ::google::protobuf::EnumDescriptor*
+SummaryResult_Context_descriptor();
+template <typename T>
+const std::string& SummaryResult_Context_Name(T value) {
+  static_assert(std::is_same<T, SummaryResult_Context>::value ||
+                    std::is_integral<T>::value,
+                "Incorrect type passed to Context_Name().");
+  return SummaryResult_Context_Name(static_cast<SummaryResult_Context>(value));
+}
+template <>
+inline const std::string& SummaryResult_Context_Name(SummaryResult_Context value) {
+  return ::google::protobuf::internal::NameOfDenseEnum<SummaryResult_Context_descriptor,
+                                                 0, 4>(
+      static_cast<int>(value));
+}
+inline bool SummaryResult_Context_Parse(absl::string_view name, SummaryResult_Context* value) {
+  return ::google::protobuf::internal::ParseNamedEnum<SummaryResult_Context>(
+      SummaryResult_Context_descriptor(), name, value);
+}
 enum QuerySource : int {
   QUERY_SOURCE_UNDEFINED = 0,
   QSRC_ORIGINAL = 1,
@@ -4721,6 +4775,711 @@ class TriggerTransition final :
   friend struct ::TableStruct_protobuf_2fpg_5fquery_2eproto;
 };// -------------------------------------------------------------------
 
+class SummaryResult_Table final :
+    public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:pg_query.SummaryResult.Table) */ {
+ public:
+  inline SummaryResult_Table() : SummaryResult_Table(nullptr) {}
+  ~SummaryResult_Table() override;
+  template<typename = void>
+  explicit PROTOBUF_CONSTEXPR SummaryResult_Table(::google::protobuf::internal::ConstantInitialized);
+
+  inline SummaryResult_Table(const SummaryResult_Table& from)
+      : SummaryResult_Table(nullptr, from) {}
+  SummaryResult_Table(SummaryResult_Table&& from) noexcept
+    : SummaryResult_Table() {
+    *this = ::std::move(from);
+  }
+
+  inline SummaryResult_Table& operator=(const SummaryResult_Table& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline SummaryResult_Table& operator=(SummaryResult_Table&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const SummaryResult_Table& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const SummaryResult_Table* internal_default_instance() {
+    return reinterpret_cast<const SummaryResult_Table*>(
+               &_SummaryResult_Table_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    272;
+
+  friend void swap(SummaryResult_Table& a, SummaryResult_Table& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(SummaryResult_Table* other) {
+    if (other == this) return;
+  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr &&
+        GetArena() == other->GetArena()) {
+   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(SummaryResult_Table* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  SummaryResult_Table* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<SummaryResult_Table>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const SummaryResult_Table& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom( const SummaryResult_Table& from) {
+    SummaryResult_Table::MergeImpl(*this, from);
+  }
+  private:
+  static void MergeImpl(::google::protobuf::Message& to_msg, const ::google::protobuf::Message& from_msg);
+  public:
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target, ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  ::google::protobuf::internal::CachedSize* AccessCachedSize() const final;
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(SummaryResult_Table* other);
+
+  private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() {
+    return "pg_query.SummaryResult.Table";
+  }
+  protected:
+  explicit SummaryResult_Table(::google::protobuf::Arena* arena);
+  SummaryResult_Table(::google::protobuf::Arena* arena, const SummaryResult_Table& from);
+  public:
+
+  static const ClassData _class_data_;
+  const ::google::protobuf::Message::ClassData*GetClassData() const final;
+
+  ::google::protobuf::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kNameFieldNumber = 1,
+    kSchemaNameFieldNumber = 2,
+    kTableNameFieldNumber = 3,
+    kContextFieldNumber = 4,
+  };
+  // string name = 1;
+  void clear_name() ;
+  const std::string& name() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_name(Arg_&& arg, Args_... args);
+  std::string* mutable_name();
+  PROTOBUF_NODISCARD std::string* release_name();
+  void set_allocated_name(std::string* value);
+
+  private:
+  const std::string& _internal_name() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_name(
+      const std::string& value);
+  std::string* _internal_mutable_name();
+
+  public:
+  // string schema_name = 2;
+  void clear_schema_name() ;
+  const std::string& schema_name() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_schema_name(Arg_&& arg, Args_... args);
+  std::string* mutable_schema_name();
+  PROTOBUF_NODISCARD std::string* release_schema_name();
+  void set_allocated_schema_name(std::string* value);
+
+  private:
+  const std::string& _internal_schema_name() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_schema_name(
+      const std::string& value);
+  std::string* _internal_mutable_schema_name();
+
+  public:
+  // string table_name = 3;
+  void clear_table_name() ;
+  const std::string& table_name() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_table_name(Arg_&& arg, Args_... args);
+  std::string* mutable_table_name();
+  PROTOBUF_NODISCARD std::string* release_table_name();
+  void set_allocated_table_name(std::string* value);
+
+  private:
+  const std::string& _internal_table_name() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_table_name(
+      const std::string& value);
+  std::string* _internal_mutable_table_name();
+
+  public:
+  // .pg_query.SummaryResult.Context context = 4;
+  void clear_context() ;
+  ::pg_query::SummaryResult_Context context() const;
+  void set_context(::pg_query::SummaryResult_Context value);
+
+  private:
+  ::pg_query::SummaryResult_Context _internal_context() const;
+  void _internal_set_context(::pg_query::SummaryResult_Context value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:pg_query.SummaryResult.Table)
+ private:
+  class _Internal;
+
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      2, 4, 0,
+      62, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+
+        inline explicit constexpr Impl_(
+            ::google::protobuf::internal::ConstantInitialized) noexcept;
+        inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                              ::google::protobuf::Arena* arena);
+        inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                              ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::ArenaStringPtr name_;
+    ::google::protobuf::internal::ArenaStringPtr schema_name_;
+    ::google::protobuf::internal::ArenaStringPtr table_name_;
+    int context_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_protobuf_2fpg_5fquery_2eproto;
+};// -------------------------------------------------------------------
+
+class SummaryResult_Function final :
+    public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:pg_query.SummaryResult.Function) */ {
+ public:
+  inline SummaryResult_Function() : SummaryResult_Function(nullptr) {}
+  ~SummaryResult_Function() override;
+  template<typename = void>
+  explicit PROTOBUF_CONSTEXPR SummaryResult_Function(::google::protobuf::internal::ConstantInitialized);
+
+  inline SummaryResult_Function(const SummaryResult_Function& from)
+      : SummaryResult_Function(nullptr, from) {}
+  SummaryResult_Function(SummaryResult_Function&& from) noexcept
+    : SummaryResult_Function() {
+    *this = ::std::move(from);
+  }
+
+  inline SummaryResult_Function& operator=(const SummaryResult_Function& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline SummaryResult_Function& operator=(SummaryResult_Function&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const SummaryResult_Function& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const SummaryResult_Function* internal_default_instance() {
+    return reinterpret_cast<const SummaryResult_Function*>(
+               &_SummaryResult_Function_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    274;
+
+  friend void swap(SummaryResult_Function& a, SummaryResult_Function& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(SummaryResult_Function* other) {
+    if (other == this) return;
+  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr &&
+        GetArena() == other->GetArena()) {
+   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(SummaryResult_Function* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  SummaryResult_Function* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<SummaryResult_Function>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const SummaryResult_Function& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom( const SummaryResult_Function& from) {
+    SummaryResult_Function::MergeImpl(*this, from);
+  }
+  private:
+  static void MergeImpl(::google::protobuf::Message& to_msg, const ::google::protobuf::Message& from_msg);
+  public:
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target, ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  ::google::protobuf::internal::CachedSize* AccessCachedSize() const final;
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(SummaryResult_Function* other);
+
+  private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() {
+    return "pg_query.SummaryResult.Function";
+  }
+  protected:
+  explicit SummaryResult_Function(::google::protobuf::Arena* arena);
+  SummaryResult_Function(::google::protobuf::Arena* arena, const SummaryResult_Function& from);
+  public:
+
+  static const ClassData _class_data_;
+  const ::google::protobuf::Message::ClassData*GetClassData() const final;
+
+  ::google::protobuf::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kNameFieldNumber = 1,
+    kFunctionNameFieldNumber = 2,
+    kSchemaNameFieldNumber = 3,
+    kContextFieldNumber = 4,
+  };
+  // string name = 1;
+  void clear_name() ;
+  const std::string& name() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_name(Arg_&& arg, Args_... args);
+  std::string* mutable_name();
+  PROTOBUF_NODISCARD std::string* release_name();
+  void set_allocated_name(std::string* value);
+
+  private:
+  const std::string& _internal_name() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_name(
+      const std::string& value);
+  std::string* _internal_mutable_name();
+
+  public:
+  // string function_name = 2;
+  void clear_function_name() ;
+  const std::string& function_name() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_function_name(Arg_&& arg, Args_... args);
+  std::string* mutable_function_name();
+  PROTOBUF_NODISCARD std::string* release_function_name();
+  void set_allocated_function_name(std::string* value);
+
+  private:
+  const std::string& _internal_function_name() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_function_name(
+      const std::string& value);
+  std::string* _internal_mutable_function_name();
+
+  public:
+  // string schema_name = 3;
+  void clear_schema_name() ;
+  const std::string& schema_name() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_schema_name(Arg_&& arg, Args_... args);
+  std::string* mutable_schema_name();
+  PROTOBUF_NODISCARD std::string* release_schema_name();
+  void set_allocated_schema_name(std::string* value);
+
+  private:
+  const std::string& _internal_schema_name() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_schema_name(
+      const std::string& value);
+  std::string* _internal_mutable_schema_name();
+
+  public:
+  // .pg_query.SummaryResult.Context context = 4;
+  void clear_context() ;
+  ::pg_query::SummaryResult_Context context() const;
+  void set_context(::pg_query::SummaryResult_Context value);
+
+  private:
+  ::pg_query::SummaryResult_Context _internal_context() const;
+  void _internal_set_context(::pg_query::SummaryResult_Context value);
+
+  public:
+  // @@protoc_insertion_point(class_scope:pg_query.SummaryResult.Function)
+ private:
+  class _Internal;
+
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      2, 4, 0,
+      68, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+
+        inline explicit constexpr Impl_(
+            ::google::protobuf::internal::ConstantInitialized) noexcept;
+        inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                              ::google::protobuf::Arena* arena);
+        inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                              ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::ArenaStringPtr name_;
+    ::google::protobuf::internal::ArenaStringPtr function_name_;
+    ::google::protobuf::internal::ArenaStringPtr schema_name_;
+    int context_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_protobuf_2fpg_5fquery_2eproto;
+};// -------------------------------------------------------------------
+
+class SummaryResult_FilterColumn final :
+    public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:pg_query.SummaryResult.FilterColumn) */ {
+ public:
+  inline SummaryResult_FilterColumn() : SummaryResult_FilterColumn(nullptr) {}
+  ~SummaryResult_FilterColumn() override;
+  template<typename = void>
+  explicit PROTOBUF_CONSTEXPR SummaryResult_FilterColumn(::google::protobuf::internal::ConstantInitialized);
+
+  inline SummaryResult_FilterColumn(const SummaryResult_FilterColumn& from)
+      : SummaryResult_FilterColumn(nullptr, from) {}
+  SummaryResult_FilterColumn(SummaryResult_FilterColumn&& from) noexcept
+    : SummaryResult_FilterColumn() {
+    *this = ::std::move(from);
+  }
+
+  inline SummaryResult_FilterColumn& operator=(const SummaryResult_FilterColumn& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline SummaryResult_FilterColumn& operator=(SummaryResult_FilterColumn&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const SummaryResult_FilterColumn& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const SummaryResult_FilterColumn* internal_default_instance() {
+    return reinterpret_cast<const SummaryResult_FilterColumn*>(
+               &_SummaryResult_FilterColumn_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    275;
+
+  friend void swap(SummaryResult_FilterColumn& a, SummaryResult_FilterColumn& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(SummaryResult_FilterColumn* other) {
+    if (other == this) return;
+  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr &&
+        GetArena() == other->GetArena()) {
+   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(SummaryResult_FilterColumn* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  SummaryResult_FilterColumn* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<SummaryResult_FilterColumn>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const SummaryResult_FilterColumn& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom( const SummaryResult_FilterColumn& from) {
+    SummaryResult_FilterColumn::MergeImpl(*this, from);
+  }
+  private:
+  static void MergeImpl(::google::protobuf::Message& to_msg, const ::google::protobuf::Message& from_msg);
+  public:
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target, ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  ::google::protobuf::internal::CachedSize* AccessCachedSize() const final;
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(SummaryResult_FilterColumn* other);
+
+  private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() {
+    return "pg_query.SummaryResult.FilterColumn";
+  }
+  protected:
+  explicit SummaryResult_FilterColumn(::google::protobuf::Arena* arena);
+  SummaryResult_FilterColumn(::google::protobuf::Arena* arena, const SummaryResult_FilterColumn& from);
+  public:
+
+  static const ClassData _class_data_;
+  const ::google::protobuf::Message::ClassData*GetClassData() const final;
+
+  ::google::protobuf::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kSchemaNameFieldNumber = 1,
+    kTableNameFieldNumber = 2,
+    kColumnFieldNumber = 3,
+  };
+  // string schema_name = 1;
+  void clear_schema_name() ;
+  const std::string& schema_name() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_schema_name(Arg_&& arg, Args_... args);
+  std::string* mutable_schema_name();
+  PROTOBUF_NODISCARD std::string* release_schema_name();
+  void set_allocated_schema_name(std::string* value);
+
+  private:
+  const std::string& _internal_schema_name() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_schema_name(
+      const std::string& value);
+  std::string* _internal_mutable_schema_name();
+
+  public:
+  // string table_name = 2;
+  void clear_table_name() ;
+  const std::string& table_name() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_table_name(Arg_&& arg, Args_... args);
+  std::string* mutable_table_name();
+  PROTOBUF_NODISCARD std::string* release_table_name();
+  void set_allocated_table_name(std::string* value);
+
+  private:
+  const std::string& _internal_table_name() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_table_name(
+      const std::string& value);
+  std::string* _internal_mutable_table_name();
+
+  public:
+  // string column = 3;
+  void clear_column() ;
+  const std::string& column() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_column(Arg_&& arg, Args_... args);
+  std::string* mutable_column();
+  PROTOBUF_NODISCARD std::string* release_column();
+  void set_allocated_column(std::string* value);
+
+  private:
+  const std::string& _internal_column() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_column(
+      const std::string& value);
+  std::string* _internal_mutable_column();
+
+  public:
+  // @@protoc_insertion_point(class_scope:pg_query.SummaryResult.FilterColumn)
+ private:
+  class _Internal;
+
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      2, 3, 0,
+      71, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+
+        inline explicit constexpr Impl_(
+            ::google::protobuf::internal::ConstantInitialized) noexcept;
+        inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                              ::google::protobuf::Arena* arena);
+        inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                              ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::internal::ArenaStringPtr schema_name_;
+    ::google::protobuf::internal::ArenaStringPtr table_name_;
+    ::google::protobuf::internal::ArenaStringPtr column_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_protobuf_2fpg_5fquery_2eproto;
+};// -------------------------------------------------------------------
+
+class SummaryResult_AliasesEntry_DoNotUse final
+    : public ::google::protobuf::internal::MapEntry<
+          SummaryResult_AliasesEntry_DoNotUse, std::string, std::string,
+          ::google::protobuf::internal::WireFormatLite::TYPE_STRING,
+          ::google::protobuf::internal::WireFormatLite::TYPE_STRING> {
+ public:
+  using SuperType = ::google::protobuf::internal::MapEntry<
+      SummaryResult_AliasesEntry_DoNotUse, std::string, std::string,
+      ::google::protobuf::internal::WireFormatLite::TYPE_STRING,
+      ::google::protobuf::internal::WireFormatLite::TYPE_STRING>;
+  SummaryResult_AliasesEntry_DoNotUse();
+  template <typename = void>
+  explicit PROTOBUF_CONSTEXPR SummaryResult_AliasesEntry_DoNotUse(
+      ::google::protobuf::internal::ConstantInitialized);
+  explicit SummaryResult_AliasesEntry_DoNotUse(::google::protobuf::Arena* arena);
+  static const SummaryResult_AliasesEntry_DoNotUse* internal_default_instance() {
+    return reinterpret_cast<const SummaryResult_AliasesEntry_DoNotUse*>(
+        &_SummaryResult_AliasesEntry_DoNotUse_default_instance_);
+  }
+  static bool ValidateKey(std::string* s) {
+    return ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(s->data(), static_cast<int>(s->size()), ::google::protobuf::internal::WireFormatLite::PARSE, "pg_query.SummaryResult.AliasesEntry.key");
+ }
+  static bool ValidateValue(std::string* s) {
+    return ::google::protobuf::internal::WireFormatLite::VerifyUtf8String(s->data(), static_cast<int>(s->size()), ::google::protobuf::internal::WireFormatLite::PARSE, "pg_query.SummaryResult.AliasesEntry.value");
+ }
+  ::google::protobuf::Metadata GetMetadata() const final;
+  friend struct ::TableStruct_protobuf_2fpg_5fquery_2eproto;
+};
+// -------------------------------------------------------------------
+
 class String final :
     public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:pg_query.String) */ {
  public:
@@ -4854,6 +5613,7 @@ class String final :
 
   enum : int {
     kSvalFieldNumber = 1,
+    kLocationFieldNumber = 2,
   };
   // string sval = 1;
   void clear_sval() ;
@@ -4871,13 +5631,23 @@ class String final :
   std::string* _internal_mutable_sval();
 
   public:
+  // int32 location = 2;
+  void clear_location() ;
+  ::int32_t location() const;
+  void set_location(::int32_t value);
+
+  private:
+  ::int32_t _internal_location() const;
+  void _internal_set_location(::int32_t value);
+
+  public:
   // @@protoc_insertion_point(class_scope:pg_query.String)
  private:
   class _Internal;
 
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      0, 1, 0,
+      1, 2, 0,
       28, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -4895,6 +5665,7 @@ class String final :
         inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
                               ::google::protobuf::Arena* arena, const Impl_& from);
     ::google::protobuf::internal::ArenaStringPtr sval_;
+    ::int32_t location_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -10596,6 +11367,354 @@ class A_Star final :
   friend struct ::TableStruct_protobuf_2fpg_5fquery_2eproto;
 };// -------------------------------------------------------------------
 
+class SummaryResult final :
+    public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:pg_query.SummaryResult) */ {
+ public:
+  inline SummaryResult() : SummaryResult(nullptr) {}
+  ~SummaryResult() override;
+  template<typename = void>
+  explicit PROTOBUF_CONSTEXPR SummaryResult(::google::protobuf::internal::ConstantInitialized);
+
+  inline SummaryResult(const SummaryResult& from)
+      : SummaryResult(nullptr, from) {}
+  SummaryResult(SummaryResult&& from) noexcept
+    : SummaryResult() {
+    *this = ::std::move(from);
+  }
+
+  inline SummaryResult& operator=(const SummaryResult& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline SummaryResult& operator=(SummaryResult&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetArena() == from.GetArena()
+  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetArena() != nullptr
+  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  inline const ::google::protobuf::UnknownFieldSet& unknown_fields() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.unknown_fields<::google::protobuf::UnknownFieldSet>(::google::protobuf::UnknownFieldSet::default_instance);
+  }
+  inline ::google::protobuf::UnknownFieldSet* mutable_unknown_fields()
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
+    return _internal_metadata_.mutable_unknown_fields<::google::protobuf::UnknownFieldSet>();
+  }
+
+  static const ::google::protobuf::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::google::protobuf::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::google::protobuf::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const SummaryResult& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const SummaryResult* internal_default_instance() {
+    return reinterpret_cast<const SummaryResult*>(
+               &_SummaryResult_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    276;
+
+  friend void swap(SummaryResult& a, SummaryResult& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(SummaryResult* other) {
+    if (other == this) return;
+  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() != nullptr &&
+        GetArena() == other->GetArena()) {
+   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetArena() == other->GetArena()) {
+  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::google::protobuf::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(SummaryResult* other) {
+    if (other == this) return;
+    ABSL_DCHECK(GetArena() == other->GetArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  SummaryResult* New(::google::protobuf::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<SummaryResult>(arena);
+  }
+  using ::google::protobuf::Message::CopyFrom;
+  void CopyFrom(const SummaryResult& from);
+  using ::google::protobuf::Message::MergeFrom;
+  void MergeFrom( const SummaryResult& from) {
+    SummaryResult::MergeImpl(*this, from);
+  }
+  private:
+  static void MergeImpl(::google::protobuf::Message& to_msg, const ::google::protobuf::Message& from_msg);
+  public:
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  ::size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::google::protobuf::internal::ParseContext* ctx) final;
+  ::uint8_t* _InternalSerialize(
+      ::uint8_t* target, ::google::protobuf::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const { return _impl_._cached_size_.Get(); }
+
+  private:
+  ::google::protobuf::internal::CachedSize* AccessCachedSize() const final;
+  void SharedCtor(::google::protobuf::Arena* arena);
+  void SharedDtor();
+  void InternalSwap(SummaryResult* other);
+
+  private:
+  friend class ::google::protobuf::internal::AnyMetadata;
+  static ::absl::string_view FullMessageName() {
+    return "pg_query.SummaryResult";
+  }
+  protected:
+  explicit SummaryResult(::google::protobuf::Arena* arena);
+  SummaryResult(::google::protobuf::Arena* arena, const SummaryResult& from);
+  public:
+
+  static const ClassData _class_data_;
+  const ::google::protobuf::Message::ClassData*GetClassData() const final;
+
+  ::google::protobuf::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  using Table = SummaryResult_Table;
+  using Function = SummaryResult_Function;
+  using FilterColumn = SummaryResult_FilterColumn;
+
+  using Context = SummaryResult_Context;
+  static constexpr Context None = SummaryResult_Context_None;
+  static constexpr Context Select = SummaryResult_Context_Select;
+  static constexpr Context DML = SummaryResult_Context_DML;
+  static constexpr Context DDL = SummaryResult_Context_DDL;
+  static constexpr Context Call = SummaryResult_Context_Call;
+  static inline bool Context_IsValid(int value) {
+    return SummaryResult_Context_IsValid(value);
+  }
+  static constexpr Context Context_MIN = SummaryResult_Context_Context_MIN;
+  static constexpr Context Context_MAX = SummaryResult_Context_Context_MAX;
+  static constexpr int Context_ARRAYSIZE = SummaryResult_Context_Context_ARRAYSIZE;
+  static inline const ::google::protobuf::EnumDescriptor* Context_descriptor() {
+    return SummaryResult_Context_descriptor();
+  }
+  template <typename T>
+  static inline const std::string& Context_Name(T value) {
+    return SummaryResult_Context_Name(value);
+  }
+  static inline bool Context_Parse(absl::string_view name, Context* value) {
+    return SummaryResult_Context_Parse(name, value);
+  }
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kTablesFieldNumber = 1,
+    kAliasesFieldNumber = 2,
+    kCteNamesFieldNumber = 3,
+    kFunctionsFieldNumber = 4,
+    kFilterColumnsFieldNumber = 5,
+    kStatementTypesFieldNumber = 6,
+    kTruncatedQueryFieldNumber = 7,
+  };
+  // repeated .pg_query.SummaryResult.Table tables = 1;
+  int tables_size() const;
+  private:
+  int _internal_tables_size() const;
+
+  public:
+  void clear_tables() ;
+  ::pg_query::SummaryResult_Table* mutable_tables(int index);
+  ::google::protobuf::RepeatedPtrField< ::pg_query::SummaryResult_Table >*
+      mutable_tables();
+  private:
+  const ::google::protobuf::RepeatedPtrField<::pg_query::SummaryResult_Table>& _internal_tables() const;
+  ::google::protobuf::RepeatedPtrField<::pg_query::SummaryResult_Table>* _internal_mutable_tables();
+  public:
+  const ::pg_query::SummaryResult_Table& tables(int index) const;
+  ::pg_query::SummaryResult_Table* add_tables();
+  const ::google::protobuf::RepeatedPtrField< ::pg_query::SummaryResult_Table >&
+      tables() const;
+  // map<string, string> aliases = 2;
+  int aliases_size() const;
+  private:
+  int _internal_aliases_size() const;
+
+  public:
+  void clear_aliases() ;
+  const ::google::protobuf::Map<std::string, std::string>& aliases() const;
+  ::google::protobuf::Map<std::string, std::string>* mutable_aliases();
+
+  private:
+  const ::google::protobuf::Map<std::string, std::string>& _internal_aliases() const;
+  ::google::protobuf::Map<std::string, std::string>* _internal_mutable_aliases();
+
+  public:
+  // repeated string cte_names = 3;
+  int cte_names_size() const;
+  private:
+  int _internal_cte_names_size() const;
+
+  public:
+  void clear_cte_names() ;
+  const std::string& cte_names(int index) const;
+  std::string* mutable_cte_names(int index);
+  void set_cte_names(int index, const std::string& value);
+  void set_cte_names(int index, std::string&& value);
+  void set_cte_names(int index, const char* value);
+  void set_cte_names(int index, const char* value, std::size_t size);
+  void set_cte_names(int index, absl::string_view value);
+  std::string* add_cte_names();
+  void add_cte_names(const std::string& value);
+  void add_cte_names(std::string&& value);
+  void add_cte_names(const char* value);
+  void add_cte_names(const char* value, std::size_t size);
+  void add_cte_names(absl::string_view value);
+  const ::google::protobuf::RepeatedPtrField<std::string>& cte_names() const;
+  ::google::protobuf::RepeatedPtrField<std::string>* mutable_cte_names();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<std::string>& _internal_cte_names() const;
+  ::google::protobuf::RepeatedPtrField<std::string>* _internal_mutable_cte_names();
+
+  public:
+  // repeated .pg_query.SummaryResult.Function functions = 4;
+  int functions_size() const;
+  private:
+  int _internal_functions_size() const;
+
+  public:
+  void clear_functions() ;
+  ::pg_query::SummaryResult_Function* mutable_functions(int index);
+  ::google::protobuf::RepeatedPtrField< ::pg_query::SummaryResult_Function >*
+      mutable_functions();
+  private:
+  const ::google::protobuf::RepeatedPtrField<::pg_query::SummaryResult_Function>& _internal_functions() const;
+  ::google::protobuf::RepeatedPtrField<::pg_query::SummaryResult_Function>* _internal_mutable_functions();
+  public:
+  const ::pg_query::SummaryResult_Function& functions(int index) const;
+  ::pg_query::SummaryResult_Function* add_functions();
+  const ::google::protobuf::RepeatedPtrField< ::pg_query::SummaryResult_Function >&
+      functions() const;
+  // repeated .pg_query.SummaryResult.FilterColumn filter_columns = 5;
+  int filter_columns_size() const;
+  private:
+  int _internal_filter_columns_size() const;
+
+  public:
+  void clear_filter_columns() ;
+  ::pg_query::SummaryResult_FilterColumn* mutable_filter_columns(int index);
+  ::google::protobuf::RepeatedPtrField< ::pg_query::SummaryResult_FilterColumn >*
+      mutable_filter_columns();
+  private:
+  const ::google::protobuf::RepeatedPtrField<::pg_query::SummaryResult_FilterColumn>& _internal_filter_columns() const;
+  ::google::protobuf::RepeatedPtrField<::pg_query::SummaryResult_FilterColumn>* _internal_mutable_filter_columns();
+  public:
+  const ::pg_query::SummaryResult_FilterColumn& filter_columns(int index) const;
+  ::pg_query::SummaryResult_FilterColumn* add_filter_columns();
+  const ::google::protobuf::RepeatedPtrField< ::pg_query::SummaryResult_FilterColumn >&
+      filter_columns() const;
+  // repeated string statement_types = 6;
+  int statement_types_size() const;
+  private:
+  int _internal_statement_types_size() const;
+
+  public:
+  void clear_statement_types() ;
+  const std::string& statement_types(int index) const;
+  std::string* mutable_statement_types(int index);
+  void set_statement_types(int index, const std::string& value);
+  void set_statement_types(int index, std::string&& value);
+  void set_statement_types(int index, const char* value);
+  void set_statement_types(int index, const char* value, std::size_t size);
+  void set_statement_types(int index, absl::string_view value);
+  std::string* add_statement_types();
+  void add_statement_types(const std::string& value);
+  void add_statement_types(std::string&& value);
+  void add_statement_types(const char* value);
+  void add_statement_types(const char* value, std::size_t size);
+  void add_statement_types(absl::string_view value);
+  const ::google::protobuf::RepeatedPtrField<std::string>& statement_types() const;
+  ::google::protobuf::RepeatedPtrField<std::string>* mutable_statement_types();
+
+  private:
+  const ::google::protobuf::RepeatedPtrField<std::string>& _internal_statement_types() const;
+  ::google::protobuf::RepeatedPtrField<std::string>* _internal_mutable_statement_types();
+
+  public:
+  // string truncated_query = 7;
+  void clear_truncated_query() ;
+  const std::string& truncated_query() const;
+  template <typename Arg_ = const std::string&, typename... Args_>
+  void set_truncated_query(Arg_&& arg, Args_... args);
+  std::string* mutable_truncated_query();
+  PROTOBUF_NODISCARD std::string* release_truncated_query();
+  void set_allocated_truncated_query(std::string* value);
+
+  private:
+  const std::string& _internal_truncated_query() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_truncated_query(
+      const std::string& value);
+  std::string* _internal_mutable_truncated_query();
+
+  public:
+  // @@protoc_insertion_point(class_scope:pg_query.SummaryResult)
+ private:
+  class _Internal;
+
+  friend class ::google::protobuf::internal::TcParser;
+  static const ::google::protobuf::internal::TcParseTable<
+      3, 7, 4,
+      77, 2>
+      _table_;
+  friend class ::google::protobuf::MessageLite;
+  friend class ::google::protobuf::Arena;
+  template <typename T>
+  friend class ::google::protobuf::Arena::InternalHelper;
+  using InternalArenaConstructable_ = void;
+  using DestructorSkippable_ = void;
+  struct Impl_ {
+
+        inline explicit constexpr Impl_(
+            ::google::protobuf::internal::ConstantInitialized) noexcept;
+        inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                              ::google::protobuf::Arena* arena);
+        inline explicit Impl_(::google::protobuf::internal::InternalVisibility visibility,
+                              ::google::protobuf::Arena* arena, const Impl_& from);
+    ::google::protobuf::RepeatedPtrField< ::pg_query::SummaryResult_Table > tables_;
+    ::google::protobuf::internal::MapField<SummaryResult_AliasesEntry_DoNotUse, std::string, std::string,
+                      ::google::protobuf::internal::WireFormatLite::TYPE_STRING,
+                      ::google::protobuf::internal::WireFormatLite::TYPE_STRING>
+        aliases_;
+    ::google::protobuf::RepeatedPtrField<std::string> cte_names_;
+    ::google::protobuf::RepeatedPtrField< ::pg_query::SummaryResult_Function > functions_;
+    ::google::protobuf::RepeatedPtrField< ::pg_query::SummaryResult_FilterColumn > filter_columns_;
+    ::google::protobuf::RepeatedPtrField<std::string> statement_types_;
+    ::google::protobuf::internal::ArenaStringPtr truncated_query_;
+    mutable ::google::protobuf::internal::CachedSize _cached_size_;
+    PROTOBUF_TSAN_DECLARE_MEMBER
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_protobuf_2fpg_5fquery_2eproto;
+};// -------------------------------------------------------------------
+
 class ScanResult final :
     public ::google::protobuf::Message /* @@protoc_insertion_point(class_definition:pg_query.ScanResult) */ {
  public:
@@ -13155,6 +14274,7 @@ class Alias final :
   enum : int {
     kColnamesFieldNumber = 2,
     kAliasnameFieldNumber = 1,
+    kLocationFieldNumber = 3,
   };
   // repeated .pg_query.Node colnames = 2 [json_name = "colnames"];
   int colnames_size() const;
@@ -13190,13 +14310,23 @@ class Alias final :
   std::string* _internal_mutable_aliasname();
 
   public:
+  // int32 location = 3 [json_name = "location"];
+  void clear_location() ;
+  ::int32_t location() const;
+  void set_location(::int32_t value);
+
+  private:
+  ::int32_t _internal_location() const;
+  void _internal_set_location(::int32_t value);
+
+  public:
   // @@protoc_insertion_point(class_scope:pg_query.Alias)
  private:
   class _Internal;
 
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      1, 2, 1,
+      2, 3, 1,
       32, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -13215,6 +14345,7 @@ class Alias final :
                               ::google::protobuf::Arena* arena, const Impl_& from);
     ::google::protobuf::RepeatedPtrField< ::pg_query::Node > colnames_;
     ::google::protobuf::internal::ArenaStringPtr aliasname_;
+    ::int32_t location_;
     mutable ::google::protobuf::internal::CachedSize _cached_size_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
@@ -97490,6 +98621,29 @@ inline void String::set_allocated_sval(std::string* value) {
   // @@protoc_insertion_point(field_set_allocated:pg_query.String.sval)
 }
 
+// int32 location = 2;
+inline void String::clear_location() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.location_ = 0;
+}
+inline ::int32_t String::location() const {
+  // @@protoc_insertion_point(field_get:pg_query.String.location)
+  return _internal_location();
+}
+inline void String::set_location(::int32_t value) {
+  _internal_set_location(value);
+  // @@protoc_insertion_point(field_set:pg_query.String.location)
+}
+inline ::int32_t String::_internal_location() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.location_;
+}
+inline void String::_internal_set_location(::int32_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.location_ = value;
+}
+
 // -------------------------------------------------------------------
 
 // BitString
@@ -98249,6 +99403,29 @@ inline ::google::protobuf::RepeatedPtrField<::pg_query::Node>*
 Alias::_internal_mutable_colnames() {
   PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
   return &_impl_.colnames_;
+}
+
+// int32 location = 3 [json_name = "location"];
+inline void Alias::clear_location() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.location_ = 0;
+}
+inline ::int32_t Alias::location() const {
+  // @@protoc_insertion_point(field_get:pg_query.Alias.location)
+  return _internal_location();
+}
+inline void Alias::set_location(::int32_t value) {
+  _internal_set_location(value);
+  // @@protoc_insertion_point(field_set:pg_query.Alias.location)
+}
+inline ::int32_t Alias::_internal_location() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.location_;
+}
+inline void Alias::_internal_set_location(::int32_t value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.location_ = value;
 }
 
 // -------------------------------------------------------------------
@@ -168170,6 +169347,977 @@ inline void ScanToken::_internal_set_keyword_kind(::pg_query::KeywordKind value)
   _impl_.keyword_kind_ = value;
 }
 
+// -------------------------------------------------------------------
+
+// SummaryResult_Table
+
+// string name = 1;
+inline void SummaryResult_Table::clear_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.name_.ClearToEmpty();
+}
+inline const std::string& SummaryResult_Table::name() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:pg_query.SummaryResult.Table.name)
+  return _internal_name();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void SummaryResult_Table::set_name(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.name_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:pg_query.SummaryResult.Table.name)
+}
+inline std::string* SummaryResult_Table::mutable_name() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_name();
+  // @@protoc_insertion_point(field_mutable:pg_query.SummaryResult.Table.name)
+  return _s;
+}
+inline const std::string& SummaryResult_Table::_internal_name() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.name_.Get();
+}
+inline void SummaryResult_Table::_internal_set_name(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.name_.Set(value, GetArena());
+}
+inline std::string* SummaryResult_Table::_internal_mutable_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  return _impl_.name_.Mutable( GetArena());
+}
+inline std::string* SummaryResult_Table::release_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:pg_query.SummaryResult.Table.name)
+  return _impl_.name_.Release();
+}
+inline void SummaryResult_Table::set_allocated_name(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.name_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.name_.IsDefault()) {
+          _impl_.name_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:pg_query.SummaryResult.Table.name)
+}
+
+// string schema_name = 2;
+inline void SummaryResult_Table::clear_schema_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.schema_name_.ClearToEmpty();
+}
+inline const std::string& SummaryResult_Table::schema_name() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:pg_query.SummaryResult.Table.schema_name)
+  return _internal_schema_name();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void SummaryResult_Table::set_schema_name(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.schema_name_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:pg_query.SummaryResult.Table.schema_name)
+}
+inline std::string* SummaryResult_Table::mutable_schema_name() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_schema_name();
+  // @@protoc_insertion_point(field_mutable:pg_query.SummaryResult.Table.schema_name)
+  return _s;
+}
+inline const std::string& SummaryResult_Table::_internal_schema_name() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.schema_name_.Get();
+}
+inline void SummaryResult_Table::_internal_set_schema_name(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.schema_name_.Set(value, GetArena());
+}
+inline std::string* SummaryResult_Table::_internal_mutable_schema_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  return _impl_.schema_name_.Mutable( GetArena());
+}
+inline std::string* SummaryResult_Table::release_schema_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:pg_query.SummaryResult.Table.schema_name)
+  return _impl_.schema_name_.Release();
+}
+inline void SummaryResult_Table::set_allocated_schema_name(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.schema_name_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.schema_name_.IsDefault()) {
+          _impl_.schema_name_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:pg_query.SummaryResult.Table.schema_name)
+}
+
+// string table_name = 3;
+inline void SummaryResult_Table::clear_table_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.table_name_.ClearToEmpty();
+}
+inline const std::string& SummaryResult_Table::table_name() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:pg_query.SummaryResult.Table.table_name)
+  return _internal_table_name();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void SummaryResult_Table::set_table_name(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.table_name_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:pg_query.SummaryResult.Table.table_name)
+}
+inline std::string* SummaryResult_Table::mutable_table_name() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_table_name();
+  // @@protoc_insertion_point(field_mutable:pg_query.SummaryResult.Table.table_name)
+  return _s;
+}
+inline const std::string& SummaryResult_Table::_internal_table_name() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.table_name_.Get();
+}
+inline void SummaryResult_Table::_internal_set_table_name(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.table_name_.Set(value, GetArena());
+}
+inline std::string* SummaryResult_Table::_internal_mutable_table_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  return _impl_.table_name_.Mutable( GetArena());
+}
+inline std::string* SummaryResult_Table::release_table_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:pg_query.SummaryResult.Table.table_name)
+  return _impl_.table_name_.Release();
+}
+inline void SummaryResult_Table::set_allocated_table_name(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.table_name_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.table_name_.IsDefault()) {
+          _impl_.table_name_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:pg_query.SummaryResult.Table.table_name)
+}
+
+// .pg_query.SummaryResult.Context context = 4;
+inline void SummaryResult_Table::clear_context() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.context_ = 0;
+}
+inline ::pg_query::SummaryResult_Context SummaryResult_Table::context() const {
+  // @@protoc_insertion_point(field_get:pg_query.SummaryResult.Table.context)
+  return _internal_context();
+}
+inline void SummaryResult_Table::set_context(::pg_query::SummaryResult_Context value) {
+  _internal_set_context(value);
+  // @@protoc_insertion_point(field_set:pg_query.SummaryResult.Table.context)
+}
+inline ::pg_query::SummaryResult_Context SummaryResult_Table::_internal_context() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return static_cast<::pg_query::SummaryResult_Context>(_impl_.context_);
+}
+inline void SummaryResult_Table::_internal_set_context(::pg_query::SummaryResult_Context value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.context_ = value;
+}
+
+// -------------------------------------------------------------------
+
+// -------------------------------------------------------------------
+
+// SummaryResult_Function
+
+// string name = 1;
+inline void SummaryResult_Function::clear_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.name_.ClearToEmpty();
+}
+inline const std::string& SummaryResult_Function::name() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:pg_query.SummaryResult.Function.name)
+  return _internal_name();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void SummaryResult_Function::set_name(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.name_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:pg_query.SummaryResult.Function.name)
+}
+inline std::string* SummaryResult_Function::mutable_name() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_name();
+  // @@protoc_insertion_point(field_mutable:pg_query.SummaryResult.Function.name)
+  return _s;
+}
+inline const std::string& SummaryResult_Function::_internal_name() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.name_.Get();
+}
+inline void SummaryResult_Function::_internal_set_name(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.name_.Set(value, GetArena());
+}
+inline std::string* SummaryResult_Function::_internal_mutable_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  return _impl_.name_.Mutable( GetArena());
+}
+inline std::string* SummaryResult_Function::release_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:pg_query.SummaryResult.Function.name)
+  return _impl_.name_.Release();
+}
+inline void SummaryResult_Function::set_allocated_name(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.name_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.name_.IsDefault()) {
+          _impl_.name_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:pg_query.SummaryResult.Function.name)
+}
+
+// string function_name = 2;
+inline void SummaryResult_Function::clear_function_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.function_name_.ClearToEmpty();
+}
+inline const std::string& SummaryResult_Function::function_name() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:pg_query.SummaryResult.Function.function_name)
+  return _internal_function_name();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void SummaryResult_Function::set_function_name(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.function_name_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:pg_query.SummaryResult.Function.function_name)
+}
+inline std::string* SummaryResult_Function::mutable_function_name() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_function_name();
+  // @@protoc_insertion_point(field_mutable:pg_query.SummaryResult.Function.function_name)
+  return _s;
+}
+inline const std::string& SummaryResult_Function::_internal_function_name() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.function_name_.Get();
+}
+inline void SummaryResult_Function::_internal_set_function_name(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.function_name_.Set(value, GetArena());
+}
+inline std::string* SummaryResult_Function::_internal_mutable_function_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  return _impl_.function_name_.Mutable( GetArena());
+}
+inline std::string* SummaryResult_Function::release_function_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:pg_query.SummaryResult.Function.function_name)
+  return _impl_.function_name_.Release();
+}
+inline void SummaryResult_Function::set_allocated_function_name(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.function_name_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.function_name_.IsDefault()) {
+          _impl_.function_name_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:pg_query.SummaryResult.Function.function_name)
+}
+
+// string schema_name = 3;
+inline void SummaryResult_Function::clear_schema_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.schema_name_.ClearToEmpty();
+}
+inline const std::string& SummaryResult_Function::schema_name() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:pg_query.SummaryResult.Function.schema_name)
+  return _internal_schema_name();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void SummaryResult_Function::set_schema_name(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.schema_name_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:pg_query.SummaryResult.Function.schema_name)
+}
+inline std::string* SummaryResult_Function::mutable_schema_name() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_schema_name();
+  // @@protoc_insertion_point(field_mutable:pg_query.SummaryResult.Function.schema_name)
+  return _s;
+}
+inline const std::string& SummaryResult_Function::_internal_schema_name() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.schema_name_.Get();
+}
+inline void SummaryResult_Function::_internal_set_schema_name(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.schema_name_.Set(value, GetArena());
+}
+inline std::string* SummaryResult_Function::_internal_mutable_schema_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  return _impl_.schema_name_.Mutable( GetArena());
+}
+inline std::string* SummaryResult_Function::release_schema_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:pg_query.SummaryResult.Function.schema_name)
+  return _impl_.schema_name_.Release();
+}
+inline void SummaryResult_Function::set_allocated_schema_name(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.schema_name_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.schema_name_.IsDefault()) {
+          _impl_.schema_name_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:pg_query.SummaryResult.Function.schema_name)
+}
+
+// .pg_query.SummaryResult.Context context = 4;
+inline void SummaryResult_Function::clear_context() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.context_ = 0;
+}
+inline ::pg_query::SummaryResult_Context SummaryResult_Function::context() const {
+  // @@protoc_insertion_point(field_get:pg_query.SummaryResult.Function.context)
+  return _internal_context();
+}
+inline void SummaryResult_Function::set_context(::pg_query::SummaryResult_Context value) {
+  _internal_set_context(value);
+  // @@protoc_insertion_point(field_set:pg_query.SummaryResult.Function.context)
+}
+inline ::pg_query::SummaryResult_Context SummaryResult_Function::_internal_context() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return static_cast<::pg_query::SummaryResult_Context>(_impl_.context_);
+}
+inline void SummaryResult_Function::_internal_set_context(::pg_query::SummaryResult_Context value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.context_ = value;
+}
+
+// -------------------------------------------------------------------
+
+// SummaryResult_FilterColumn
+
+// string schema_name = 1;
+inline void SummaryResult_FilterColumn::clear_schema_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.schema_name_.ClearToEmpty();
+}
+inline const std::string& SummaryResult_FilterColumn::schema_name() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:pg_query.SummaryResult.FilterColumn.schema_name)
+  return _internal_schema_name();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void SummaryResult_FilterColumn::set_schema_name(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.schema_name_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:pg_query.SummaryResult.FilterColumn.schema_name)
+}
+inline std::string* SummaryResult_FilterColumn::mutable_schema_name() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_schema_name();
+  // @@protoc_insertion_point(field_mutable:pg_query.SummaryResult.FilterColumn.schema_name)
+  return _s;
+}
+inline const std::string& SummaryResult_FilterColumn::_internal_schema_name() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.schema_name_.Get();
+}
+inline void SummaryResult_FilterColumn::_internal_set_schema_name(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.schema_name_.Set(value, GetArena());
+}
+inline std::string* SummaryResult_FilterColumn::_internal_mutable_schema_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  return _impl_.schema_name_.Mutable( GetArena());
+}
+inline std::string* SummaryResult_FilterColumn::release_schema_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:pg_query.SummaryResult.FilterColumn.schema_name)
+  return _impl_.schema_name_.Release();
+}
+inline void SummaryResult_FilterColumn::set_allocated_schema_name(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.schema_name_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.schema_name_.IsDefault()) {
+          _impl_.schema_name_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:pg_query.SummaryResult.FilterColumn.schema_name)
+}
+
+// string table_name = 2;
+inline void SummaryResult_FilterColumn::clear_table_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.table_name_.ClearToEmpty();
+}
+inline const std::string& SummaryResult_FilterColumn::table_name() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:pg_query.SummaryResult.FilterColumn.table_name)
+  return _internal_table_name();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void SummaryResult_FilterColumn::set_table_name(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.table_name_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:pg_query.SummaryResult.FilterColumn.table_name)
+}
+inline std::string* SummaryResult_FilterColumn::mutable_table_name() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_table_name();
+  // @@protoc_insertion_point(field_mutable:pg_query.SummaryResult.FilterColumn.table_name)
+  return _s;
+}
+inline const std::string& SummaryResult_FilterColumn::_internal_table_name() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.table_name_.Get();
+}
+inline void SummaryResult_FilterColumn::_internal_set_table_name(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.table_name_.Set(value, GetArena());
+}
+inline std::string* SummaryResult_FilterColumn::_internal_mutable_table_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  return _impl_.table_name_.Mutable( GetArena());
+}
+inline std::string* SummaryResult_FilterColumn::release_table_name() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:pg_query.SummaryResult.FilterColumn.table_name)
+  return _impl_.table_name_.Release();
+}
+inline void SummaryResult_FilterColumn::set_allocated_table_name(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.table_name_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.table_name_.IsDefault()) {
+          _impl_.table_name_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:pg_query.SummaryResult.FilterColumn.table_name)
+}
+
+// string column = 3;
+inline void SummaryResult_FilterColumn::clear_column() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.column_.ClearToEmpty();
+}
+inline const std::string& SummaryResult_FilterColumn::column() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:pg_query.SummaryResult.FilterColumn.column)
+  return _internal_column();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void SummaryResult_FilterColumn::set_column(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.column_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:pg_query.SummaryResult.FilterColumn.column)
+}
+inline std::string* SummaryResult_FilterColumn::mutable_column() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_column();
+  // @@protoc_insertion_point(field_mutable:pg_query.SummaryResult.FilterColumn.column)
+  return _s;
+}
+inline const std::string& SummaryResult_FilterColumn::_internal_column() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.column_.Get();
+}
+inline void SummaryResult_FilterColumn::_internal_set_column(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.column_.Set(value, GetArena());
+}
+inline std::string* SummaryResult_FilterColumn::_internal_mutable_column() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  return _impl_.column_.Mutable( GetArena());
+}
+inline std::string* SummaryResult_FilterColumn::release_column() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:pg_query.SummaryResult.FilterColumn.column)
+  return _impl_.column_.Release();
+}
+inline void SummaryResult_FilterColumn::set_allocated_column(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.column_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.column_.IsDefault()) {
+          _impl_.column_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:pg_query.SummaryResult.FilterColumn.column)
+}
+
+// -------------------------------------------------------------------
+
+// SummaryResult
+
+// repeated .pg_query.SummaryResult.Table tables = 1;
+inline int SummaryResult::_internal_tables_size() const {
+  return _internal_tables().size();
+}
+inline int SummaryResult::tables_size() const {
+  return _internal_tables_size();
+}
+inline void SummaryResult::clear_tables() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.tables_.Clear();
+}
+inline ::pg_query::SummaryResult_Table* SummaryResult::mutable_tables(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:pg_query.SummaryResult.tables)
+  return _internal_mutable_tables()->Mutable(index);
+}
+inline ::google::protobuf::RepeatedPtrField<::pg_query::SummaryResult_Table>* SummaryResult::mutable_tables()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_list:pg_query.SummaryResult.tables)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _internal_mutable_tables();
+}
+inline const ::pg_query::SummaryResult_Table& SummaryResult::tables(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:pg_query.SummaryResult.tables)
+  return _internal_tables().Get(index);
+}
+inline ::pg_query::SummaryResult_Table* SummaryResult::add_tables() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::pg_query::SummaryResult_Table* _add = _internal_mutable_tables()->Add();
+  // @@protoc_insertion_point(field_add:pg_query.SummaryResult.tables)
+  return _add;
+}
+inline const ::google::protobuf::RepeatedPtrField<::pg_query::SummaryResult_Table>& SummaryResult::tables() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:pg_query.SummaryResult.tables)
+  return _internal_tables();
+}
+inline const ::google::protobuf::RepeatedPtrField<::pg_query::SummaryResult_Table>&
+SummaryResult::_internal_tables() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.tables_;
+}
+inline ::google::protobuf::RepeatedPtrField<::pg_query::SummaryResult_Table>*
+SummaryResult::_internal_mutable_tables() {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return &_impl_.tables_;
+}
+
+// map<string, string> aliases = 2;
+inline int SummaryResult::_internal_aliases_size() const {
+  return _internal_aliases().size();
+}
+inline int SummaryResult::aliases_size() const {
+  return _internal_aliases_size();
+}
+inline void SummaryResult::clear_aliases() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.aliases_.Clear();
+}
+inline const ::google::protobuf::Map<std::string, std::string>& SummaryResult::_internal_aliases() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.aliases_.GetMap();
+}
+inline const ::google::protobuf::Map<std::string, std::string>& SummaryResult::aliases() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_map:pg_query.SummaryResult.aliases)
+  return _internal_aliases();
+}
+inline ::google::protobuf::Map<std::string, std::string>* SummaryResult::_internal_mutable_aliases() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _impl_.aliases_.MutableMap();
+}
+inline ::google::protobuf::Map<std::string, std::string>* SummaryResult::mutable_aliases() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_map:pg_query.SummaryResult.aliases)
+  return _internal_mutable_aliases();
+}
+
+// repeated string cte_names = 3;
+inline int SummaryResult::_internal_cte_names_size() const {
+  return _internal_cte_names().size();
+}
+inline int SummaryResult::cte_names_size() const {
+  return _internal_cte_names_size();
+}
+inline void SummaryResult::clear_cte_names() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.cte_names_.Clear();
+}
+inline std::string* SummaryResult::add_cte_names()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  std::string* _s = _internal_mutable_cte_names()->Add();
+  // @@protoc_insertion_point(field_add_mutable:pg_query.SummaryResult.cte_names)
+  return _s;
+}
+inline const std::string& SummaryResult::cte_names(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:pg_query.SummaryResult.cte_names)
+  return _internal_cte_names().Get(index);
+}
+inline std::string* SummaryResult::mutable_cte_names(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:pg_query.SummaryResult.cte_names)
+  return _internal_mutable_cte_names()->Mutable(index);
+}
+inline void SummaryResult::set_cte_names(int index, const std::string& value) {
+  _internal_mutable_cte_names()->Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set:pg_query.SummaryResult.cte_names)
+}
+inline void SummaryResult::set_cte_names(int index, std::string&& value) {
+  _internal_mutable_cte_names()->Mutable(index)->assign(std::move(value));
+  // @@protoc_insertion_point(field_set:pg_query.SummaryResult.cte_names)
+}
+inline void SummaryResult::set_cte_names(int index, const char* value) {
+  ABSL_DCHECK(value != nullptr);
+  _internal_mutable_cte_names()->Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set_char:pg_query.SummaryResult.cte_names)
+}
+inline void SummaryResult::set_cte_names(int index, const char* value,
+                              std::size_t size) {
+  _internal_mutable_cte_names()->Mutable(index)->assign(
+      reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:pg_query.SummaryResult.cte_names)
+}
+inline void SummaryResult::set_cte_names(int index, absl::string_view value) {
+  _internal_mutable_cte_names()->Mutable(index)->assign(value.data(),
+                                                     value.size());
+  // @@protoc_insertion_point(field_set_string_piece:pg_query.SummaryResult.cte_names)
+}
+inline void SummaryResult::add_cte_names(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_cte_names()->Add()->assign(value);
+  // @@protoc_insertion_point(field_add:pg_query.SummaryResult.cte_names)
+}
+inline void SummaryResult::add_cte_names(std::string&& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_cte_names()->Add(std::move(value));
+  // @@protoc_insertion_point(field_add:pg_query.SummaryResult.cte_names)
+}
+inline void SummaryResult::add_cte_names(const char* value) {
+  ABSL_DCHECK(value != nullptr);
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_cte_names()->Add()->assign(value);
+  // @@protoc_insertion_point(field_add_char:pg_query.SummaryResult.cte_names)
+}
+inline void SummaryResult::add_cte_names(const char* value, std::size_t size) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_cte_names()->Add()->assign(
+      reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_add_pointer:pg_query.SummaryResult.cte_names)
+}
+inline void SummaryResult::add_cte_names(absl::string_view value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_cte_names()->Add()->assign(value.data(), value.size());
+  // @@protoc_insertion_point(field_add_string_piece:pg_query.SummaryResult.cte_names)
+}
+inline const ::google::protobuf::RepeatedPtrField<std::string>&
+SummaryResult::cte_names() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:pg_query.SummaryResult.cte_names)
+  return _internal_cte_names();
+}
+inline ::google::protobuf::RepeatedPtrField<std::string>*
+SummaryResult::mutable_cte_names() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_list:pg_query.SummaryResult.cte_names)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _internal_mutable_cte_names();
+}
+inline const ::google::protobuf::RepeatedPtrField<std::string>&
+SummaryResult::_internal_cte_names() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.cte_names_;
+}
+inline ::google::protobuf::RepeatedPtrField<std::string>*
+SummaryResult::_internal_mutable_cte_names() {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return &_impl_.cte_names_;
+}
+
+// repeated .pg_query.SummaryResult.Function functions = 4;
+inline int SummaryResult::_internal_functions_size() const {
+  return _internal_functions().size();
+}
+inline int SummaryResult::functions_size() const {
+  return _internal_functions_size();
+}
+inline void SummaryResult::clear_functions() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.functions_.Clear();
+}
+inline ::pg_query::SummaryResult_Function* SummaryResult::mutable_functions(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:pg_query.SummaryResult.functions)
+  return _internal_mutable_functions()->Mutable(index);
+}
+inline ::google::protobuf::RepeatedPtrField<::pg_query::SummaryResult_Function>* SummaryResult::mutable_functions()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_list:pg_query.SummaryResult.functions)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _internal_mutable_functions();
+}
+inline const ::pg_query::SummaryResult_Function& SummaryResult::functions(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:pg_query.SummaryResult.functions)
+  return _internal_functions().Get(index);
+}
+inline ::pg_query::SummaryResult_Function* SummaryResult::add_functions() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::pg_query::SummaryResult_Function* _add = _internal_mutable_functions()->Add();
+  // @@protoc_insertion_point(field_add:pg_query.SummaryResult.functions)
+  return _add;
+}
+inline const ::google::protobuf::RepeatedPtrField<::pg_query::SummaryResult_Function>& SummaryResult::functions() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:pg_query.SummaryResult.functions)
+  return _internal_functions();
+}
+inline const ::google::protobuf::RepeatedPtrField<::pg_query::SummaryResult_Function>&
+SummaryResult::_internal_functions() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.functions_;
+}
+inline ::google::protobuf::RepeatedPtrField<::pg_query::SummaryResult_Function>*
+SummaryResult::_internal_mutable_functions() {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return &_impl_.functions_;
+}
+
+// repeated .pg_query.SummaryResult.FilterColumn filter_columns = 5;
+inline int SummaryResult::_internal_filter_columns_size() const {
+  return _internal_filter_columns().size();
+}
+inline int SummaryResult::filter_columns_size() const {
+  return _internal_filter_columns_size();
+}
+inline void SummaryResult::clear_filter_columns() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.filter_columns_.Clear();
+}
+inline ::pg_query::SummaryResult_FilterColumn* SummaryResult::mutable_filter_columns(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:pg_query.SummaryResult.filter_columns)
+  return _internal_mutable_filter_columns()->Mutable(index);
+}
+inline ::google::protobuf::RepeatedPtrField<::pg_query::SummaryResult_FilterColumn>* SummaryResult::mutable_filter_columns()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_list:pg_query.SummaryResult.filter_columns)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _internal_mutable_filter_columns();
+}
+inline const ::pg_query::SummaryResult_FilterColumn& SummaryResult::filter_columns(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:pg_query.SummaryResult.filter_columns)
+  return _internal_filter_columns().Get(index);
+}
+inline ::pg_query::SummaryResult_FilterColumn* SummaryResult::add_filter_columns() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ::pg_query::SummaryResult_FilterColumn* _add = _internal_mutable_filter_columns()->Add();
+  // @@protoc_insertion_point(field_add:pg_query.SummaryResult.filter_columns)
+  return _add;
+}
+inline const ::google::protobuf::RepeatedPtrField<::pg_query::SummaryResult_FilterColumn>& SummaryResult::filter_columns() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:pg_query.SummaryResult.filter_columns)
+  return _internal_filter_columns();
+}
+inline const ::google::protobuf::RepeatedPtrField<::pg_query::SummaryResult_FilterColumn>&
+SummaryResult::_internal_filter_columns() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.filter_columns_;
+}
+inline ::google::protobuf::RepeatedPtrField<::pg_query::SummaryResult_FilterColumn>*
+SummaryResult::_internal_mutable_filter_columns() {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return &_impl_.filter_columns_;
+}
+
+// repeated string statement_types = 6;
+inline int SummaryResult::_internal_statement_types_size() const {
+  return _internal_statement_types().size();
+}
+inline int SummaryResult::statement_types_size() const {
+  return _internal_statement_types_size();
+}
+inline void SummaryResult::clear_statement_types() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.statement_types_.Clear();
+}
+inline std::string* SummaryResult::add_statement_types()
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  std::string* _s = _internal_mutable_statement_types()->Add();
+  // @@protoc_insertion_point(field_add_mutable:pg_query.SummaryResult.statement_types)
+  return _s;
+}
+inline const std::string& SummaryResult::statement_types(int index) const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:pg_query.SummaryResult.statement_types)
+  return _internal_statement_types().Get(index);
+}
+inline std::string* SummaryResult::mutable_statement_types(int index)
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable:pg_query.SummaryResult.statement_types)
+  return _internal_mutable_statement_types()->Mutable(index);
+}
+inline void SummaryResult::set_statement_types(int index, const std::string& value) {
+  _internal_mutable_statement_types()->Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set:pg_query.SummaryResult.statement_types)
+}
+inline void SummaryResult::set_statement_types(int index, std::string&& value) {
+  _internal_mutable_statement_types()->Mutable(index)->assign(std::move(value));
+  // @@protoc_insertion_point(field_set:pg_query.SummaryResult.statement_types)
+}
+inline void SummaryResult::set_statement_types(int index, const char* value) {
+  ABSL_DCHECK(value != nullptr);
+  _internal_mutable_statement_types()->Mutable(index)->assign(value);
+  // @@protoc_insertion_point(field_set_char:pg_query.SummaryResult.statement_types)
+}
+inline void SummaryResult::set_statement_types(int index, const char* value,
+                              std::size_t size) {
+  _internal_mutable_statement_types()->Mutable(index)->assign(
+      reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_set_pointer:pg_query.SummaryResult.statement_types)
+}
+inline void SummaryResult::set_statement_types(int index, absl::string_view value) {
+  _internal_mutable_statement_types()->Mutable(index)->assign(value.data(),
+                                                     value.size());
+  // @@protoc_insertion_point(field_set_string_piece:pg_query.SummaryResult.statement_types)
+}
+inline void SummaryResult::add_statement_types(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_statement_types()->Add()->assign(value);
+  // @@protoc_insertion_point(field_add:pg_query.SummaryResult.statement_types)
+}
+inline void SummaryResult::add_statement_types(std::string&& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_statement_types()->Add(std::move(value));
+  // @@protoc_insertion_point(field_add:pg_query.SummaryResult.statement_types)
+}
+inline void SummaryResult::add_statement_types(const char* value) {
+  ABSL_DCHECK(value != nullptr);
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_statement_types()->Add()->assign(value);
+  // @@protoc_insertion_point(field_add_char:pg_query.SummaryResult.statement_types)
+}
+inline void SummaryResult::add_statement_types(const char* value, std::size_t size) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_statement_types()->Add()->assign(
+      reinterpret_cast<const char*>(value), size);
+  // @@protoc_insertion_point(field_add_pointer:pg_query.SummaryResult.statement_types)
+}
+inline void SummaryResult::add_statement_types(absl::string_view value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _internal_mutable_statement_types()->Add()->assign(value.data(), value.size());
+  // @@protoc_insertion_point(field_add_string_piece:pg_query.SummaryResult.statement_types)
+}
+inline const ::google::protobuf::RepeatedPtrField<std::string>&
+SummaryResult::statement_types() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_list:pg_query.SummaryResult.statement_types)
+  return _internal_statement_types();
+}
+inline ::google::protobuf::RepeatedPtrField<std::string>*
+SummaryResult::mutable_statement_types() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_mutable_list:pg_query.SummaryResult.statement_types)
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  return _internal_mutable_statement_types();
+}
+inline const ::google::protobuf::RepeatedPtrField<std::string>&
+SummaryResult::_internal_statement_types() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.statement_types_;
+}
+inline ::google::protobuf::RepeatedPtrField<std::string>*
+SummaryResult::_internal_mutable_statement_types() {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return &_impl_.statement_types_;
+}
+
+// string truncated_query = 7;
+inline void SummaryResult::clear_truncated_query() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.truncated_query_.ClearToEmpty();
+}
+inline const std::string& SummaryResult::truncated_query() const
+    ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:pg_query.SummaryResult.truncated_query)
+  return _internal_truncated_query();
+}
+template <typename Arg_, typename... Args_>
+inline PROTOBUF_ALWAYS_INLINE void SummaryResult::set_truncated_query(Arg_&& arg,
+                                                     Args_... args) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.truncated_query_.Set(static_cast<Arg_&&>(arg), args..., GetArena());
+  // @@protoc_insertion_point(field_set:pg_query.SummaryResult.truncated_query)
+}
+inline std::string* SummaryResult::mutable_truncated_query() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  std::string* _s = _internal_mutable_truncated_query();
+  // @@protoc_insertion_point(field_mutable:pg_query.SummaryResult.truncated_query)
+  return _s;
+}
+inline const std::string& SummaryResult::_internal_truncated_query() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.truncated_query_.Get();
+}
+inline void SummaryResult::_internal_set_truncated_query(const std::string& value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.truncated_query_.Set(value, GetArena());
+}
+inline std::string* SummaryResult::_internal_mutable_truncated_query() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  return _impl_.truncated_query_.Mutable( GetArena());
+}
+inline std::string* SummaryResult::release_truncated_query() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:pg_query.SummaryResult.truncated_query)
+  return _impl_.truncated_query_.Release();
+}
+inline void SummaryResult::set_allocated_truncated_query(std::string* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.truncated_query_.SetAllocated(value, GetArena());
+  #ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+        if (_impl_.truncated_query_.IsDefault()) {
+          _impl_.truncated_query_.Set("", GetArena());
+        }
+  #endif  // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:pg_query.SummaryResult.truncated_query)
+}
+
 #ifdef __GNUC__
 #pragma GCC diagnostic pop
 #endif  // __GNUC__
@@ -168181,6 +170329,12 @@ inline void ScanToken::_internal_set_keyword_kind(::pg_query::KeywordKind value)
 namespace google {
 namespace protobuf {
 
+template <>
+struct is_proto_enum<::pg_query::SummaryResult_Context> : std::true_type {};
+template <>
+inline const EnumDescriptor* GetEnumDescriptor<::pg_query::SummaryResult_Context>() {
+  return ::pg_query::SummaryResult_Context_descriptor();
+}
 template <>
 struct is_proto_enum<::pg_query::QuerySource> : std::true_type {};
 template <>

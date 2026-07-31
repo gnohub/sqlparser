@@ -6694,6 +6694,7 @@ static sqlparser_status_t sqlparser_oracle_multi_insert_replace_cell_public_sql(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
+	replacement->generation = handle->generation + 1UL;
 	sqlparser_handle_replace_contents(handle, replacement);
 	sqlparser_handle_destroy(replacement);
 	return SQLPARSER_STATUS_OK;
@@ -6993,6 +6994,7 @@ sqlparser_status_t sqlparser_oracle_multi_insert_insert_column_sql(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
+	replacement->generation = handle->generation + 1UL;
 	sqlparser_handle_replace_contents(handle, replacement);
 	sqlparser_handle_destroy(replacement);
 	return SQLPARSER_STATUS_OK;

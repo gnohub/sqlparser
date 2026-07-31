@@ -221,8 +221,9 @@ static sqlparser_status_t sqlparser_get_wrapper_select_stmt(
 	return SQLPARSER_STATUS_OK;
 }
 
-sqlparser_status_t sqlparser_parse_select_target_nodes_sql(
+static sqlparser_status_t sqlparser_parse_select_target_nodes_sql_internal(
 	const char *sql_text,
+	const sqlparser_generated_source_t *source,
 	PgQuery__Node ***out_nodes,
 	size_t *out_count,
 	sqlparser_error_t *out_error)
@@ -268,7 +269,16 @@ sqlparser_status_t sqlparser_parse_select_target_nodes_sql(
 			if (status != SQLPARSER_STATUS_OK) {
 				break;
 			}
-			sqlparser_mark_proto_generated((ProtobufCMessage *)nodes[index]);
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status =
+				sqlparser_mark_proto_nodes_generated_with_fragment_source(
+					nodes,
+					stmt->n_target_list,
+					wrapped_sql,
+					strlen(prefix),
+					source,
+					out_error);
 		}
 	}
 	if (status == SQLPARSER_STATUS_OK) {
@@ -287,6 +297,7 @@ sqlparser_status_t sqlparser_parse_select_target_nodes_sql(
 
 sqlparser_status_t sqlparser_parse_select_target_node_sql(
 	const char *sql_text,
+	const sqlparser_generated_source_t *source,
 	PgQuery__Node **out_node,
 	sqlparser_error_t *out_error)
 {
@@ -301,12 +312,21 @@ sqlparser_status_t sqlparser_parse_select_target_node_sql(
 	*out_node = NULL;
 	nodes = NULL;
 	count = 0U;
-	status = sqlparser_parse_select_target_nodes_sql(sql_text, &nodes, &count, out_error);
+	status = sqlparser_parse_select_target_nodes_sql_internal(
+		sql_text,
+		source,
+		&nodes,
+		&count,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
 	if (count != 1U) {
 		sqlparser_select_free_node_array(nodes, count);
+		if (source != NULL && source->spelling_handle != NULL) {
+			sqlparser_handle_sweep_identifier_spellings(
+				source->spelling_handle);
+		}
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "select target SQL must contain exactly one target");
 		return SQLPARSER_STATUS_UNSUPPORTED;
 	}
@@ -317,6 +337,7 @@ sqlparser_status_t sqlparser_parse_select_target_node_sql(
 }
 
 sqlparser_status_t sqlparser_render_select_target_node_sql(
+	const sqlparser_handle_t *handle,
 	const PgQuery__Node *node,
 	char **out_sql,
 	sqlparser_error_t *out_error)
@@ -356,7 +377,11 @@ sqlparser_status_t sqlparser_render_select_target_node_sql(
 		sqlparser_free_proto_node(stmt->target_list[0]);
 		stmt->target_list[0] = replacement;
 		replacement = NULL;
-		status = sqlparser_deparse_wrapper_ast(ast, &deparsed_sql, out_error);
+		status = sqlparser_deparse_wrapper_ast(
+			handle,
+			ast,
+			&deparsed_sql,
+			out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_extract_wrapped_value_sql(deparsed_sql, prefix, suffix, out_sql, out_error);
@@ -458,7 +483,11 @@ sqlparser_status_t sqlparser_select_target_sql(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	core_sql = NULL;
-	status = sqlparser_render_select_target_node_sql(stmt->target_list[target_index], &core_sql, out_error);
+	status = sqlparser_render_select_target_node_sql(
+		handle,
+		stmt->target_list[target_index],
+		&core_sql,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
@@ -612,6 +641,8 @@ static sqlparser_status_t sqlparser_select_parse_public_targets(
 	sqlparser_error_t *out_error)
 {
 	char *parser_sql;
+	sqlparser_generated_source_t source;
+	sqlparser_identifier_origin_map_t *origins;
 	void *dialect_state;
 	sqlparser_status_t status;
 
@@ -623,18 +654,31 @@ static sqlparser_status_t sqlparser_select_parse_public_targets(
 	*out_count = 0U;
 	*out_dialect_state = NULL;
 	parser_sql = NULL;
+	origins = NULL;
 	dialect_state = NULL;
-	status = sqlparser_preprocess_handle_sql_fragment(
+	status = sqlparser_preprocess_handle_sql_fragment_with_origins(
 		handle,
 		statement_index,
 		sql_text,
 		"select target SQL",
 		&parser_sql,
 		&dialect_state,
+		&origins,
 		out_error);
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_parse_select_target_nodes_sql(parser_sql, out_nodes, out_count, out_error);
+		memset(&source, 0, sizeof(source));
+		source.public_sql = sql_text;
+		source.origins = origins;
+		source.dialect = handle->dialect;
+		source.spelling_handle = handle;
+		status = sqlparser_parse_select_target_nodes_sql_internal(
+			parser_sql,
+			&source,
+			out_nodes,
+			out_count,
+			out_error);
 	}
+	sqlparser_identifier_origin_map_destroy(origins);
 	free(parser_sql);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_handle_discard_dialect_state(handle, dialect_state);
@@ -644,6 +688,7 @@ static sqlparser_status_t sqlparser_select_parse_public_targets(
 		sqlparser_select_free_node_array(*out_nodes, *out_count);
 		*out_nodes = NULL;
 		*out_count = 0U;
+		sqlparser_handle_sweep_identifier_spellings(handle);
 		sqlparser_handle_discard_dialect_state(handle, dialect_state);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "select target SQL must contain exactly one target");
 		return SQLPARSER_STATUS_UNSUPPORTED;
@@ -925,6 +970,7 @@ sqlparser_status_t sqlparser_select_insert_target_sql(
 	next_targets = sqlparser_select_alloc_node_array(stmt->n_target_list + 1U, out_error);
 	if (next_targets == NULL) {
 		sqlparser_select_free_node_array(nodes, count);
+		sqlparser_handle_sweep_identifier_spellings(handle);
 		sqlparser_handle_discard_dialect_state(handle, dialect_state);
 		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
 	}

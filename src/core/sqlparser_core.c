@@ -22,7 +22,7 @@
 #include "sqlparser_internal.h"
 
 #ifndef SQLPARSER_VERSION_TEXT
-#define SQLPARSER_VERSION_TEXT "2.12.0"
+#define SQLPARSER_VERSION_TEXT "2.13.0"
 #endif
 
 #ifndef SQLPARSER_LIBPG_QUERY_TAG_TEXT
@@ -484,6 +484,7 @@ void sqlparser_handle_remove_identifier_mutation(
 		return;
 	}
 	free(handle->identifier_mutations[mutation_index].original);
+	free(handle->identifier_mutations[mutation_index].spelling);
 	if (mutation_index + 1U < handle->identifier_mutation_count) {
 		memmove(
 			&handle->identifier_mutations[mutation_index],
@@ -493,6 +494,381 @@ void sqlparser_handle_remove_identifier_mutation(
 				sizeof(*handle->identifier_mutations));
 	}
 	handle->identifier_mutation_count--;
+}
+
+int sqlparser_proto_location_is_identifier_spelling(int32_t location)
+{
+	return location >= SQLPARSER_PROTO_LOCATION_GENERATED_SPELLING_BASE &&
+		location <= SQLPARSER_PROTO_LOCATION_GENERATED_SPELLING_LAST;
+}
+
+static void sqlparser_mark_identifier_spelling_groups(
+	const ProtobufCMessage *message,
+	unsigned char *used,
+	size_t group_count)
+{
+	const ProtobufCMessageDescriptor *descriptor;
+	const uint8_t *base;
+	unsigned index;
+
+	if (message == NULL || message->descriptor == NULL) {
+		return;
+	}
+	descriptor = message->descriptor;
+	base = (const uint8_t *)message;
+	for (index = 0U; index < descriptor->n_fields; index++) {
+		const ProtobufCFieldDescriptor *field;
+
+		field = &descriptor->fields[index];
+		if ((field->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) != 0U &&
+		    *(const int *)(base + field->quantifier_offset) !=
+			    (int)field->id) {
+			continue;
+		}
+		if (field->type == PROTOBUF_C_TYPE_INT32 &&
+		    field->label != PROTOBUF_C_LABEL_REPEATED &&
+		    strcmp(field->name, "location") == 0) {
+			int32_t location;
+
+			location = *(const int32_t *)(base + field->offset);
+			if (sqlparser_proto_location_is_identifier_spelling(
+				    location)) {
+				uint32_t payload;
+				size_t group_index;
+
+				payload = (uint32_t)(
+					(int64_t)location -
+					(int64_t)
+						SQLPARSER_PROTO_LOCATION_GENERATED_SPELLING_BASE);
+				group_index =
+					payload >>
+					SQLPARSER_PROTO_IDENTIFIER_SPELLING_COMPONENT_BITS;
+				if (group_index < group_count) {
+					used[group_index >> 3U] |=
+						(unsigned char)(
+							1U <<
+							(group_index & 7U));
+				}
+			}
+			continue;
+		}
+		if (field->type != PROTOBUF_C_TYPE_MESSAGE) {
+			continue;
+		}
+		if (field->label == PROTOBUF_C_LABEL_REPEATED) {
+			size_t item_count;
+			ProtobufCMessage *const *items;
+			size_t item_index;
+
+			item_count =
+				*(const size_t *)(base + field->quantifier_offset);
+			items =
+				*(ProtobufCMessage *const *const *)
+					(base + field->offset);
+			for (item_index = 0U;
+			     items != NULL && item_index < item_count;
+			     item_index++) {
+				sqlparser_mark_identifier_spelling_groups(
+					items[item_index],
+					used,
+					group_count);
+			}
+		} else {
+			sqlparser_mark_identifier_spelling_groups(
+				*(ProtobufCMessage *const *)
+					(base + field->offset),
+				used,
+				group_count);
+		}
+	}
+}
+
+static void sqlparser_handle_sweep_identifier_spellings_for_message(
+	sqlparser_handle_t *handle,
+	const ProtobufCMessage *message)
+{
+	sqlparser_identifier_spelling_t *next;
+	unsigned char *used;
+	size_t first_free;
+	size_t group_index;
+	size_t used_size;
+
+	if (handle == NULL || message == NULL ||
+	    handle->identifier_spelling_count == 0U ||
+	    handle->identifier_spelling_build_group != SIZE_MAX) {
+		return;
+	}
+	used_size =
+		(handle->identifier_spelling_count + 7U) / 8U;
+	used = (unsigned char *)calloc(used_size, 1U);
+	if (used == NULL) {
+		return;
+	}
+	sqlparser_mark_identifier_spelling_groups(
+		message,
+		used,
+		handle->identifier_spelling_count);
+	first_free = handle->identifier_spelling_count;
+	for (group_index = 0U;
+	     group_index < handle->identifier_spelling_count;
+	     group_index++) {
+		size_t part_index;
+
+		if ((used[group_index >> 3U] &
+		     (unsigned char)(1U << (group_index & 7U))) != 0U) {
+			continue;
+		}
+		for (part_index = 0U;
+		     part_index <
+			     handle->identifier_spellings[group_index].part_count;
+		     part_index++) {
+			free(handle->identifier_spellings[group_index]
+				     .parts[part_index]);
+		}
+		memset(
+			&handle->identifier_spellings[group_index],
+			0,
+			sizeof(*handle->identifier_spellings));
+		if (first_free == handle->identifier_spelling_count) {
+			first_free = group_index;
+		}
+	}
+	free(used);
+	while (handle->identifier_spelling_count > 0U &&
+	       handle->identifier_spellings
+			       [handle->identifier_spelling_count - 1U]
+				       .part_count == 0U) {
+		handle->identifier_spelling_count--;
+	}
+	if (handle->identifier_spelling_count == 0U) {
+		free(handle->identifier_spellings);
+		handle->identifier_spellings = NULL;
+		handle->identifier_spelling_capacity = 0U;
+		handle->identifier_spelling_free_group = 0U;
+		return;
+	}
+	if (handle->identifier_spelling_capacity >
+	    handle->identifier_spelling_count * 2U) {
+		next = (sqlparser_identifier_spelling_t *)realloc(
+			handle->identifier_spellings,
+			handle->identifier_spelling_count * sizeof(*next));
+		if (next != NULL) {
+			handle->identifier_spellings = next;
+			handle->identifier_spelling_capacity =
+				handle->identifier_spelling_count;
+		}
+	}
+	handle->identifier_spelling_free_group =
+		first_free < handle->identifier_spelling_count ?
+			first_free :
+			handle->identifier_spelling_count;
+}
+
+void sqlparser_handle_sweep_identifier_spellings(
+	sqlparser_handle_t *handle)
+{
+	if (handle == NULL) {
+		return;
+	}
+	sqlparser_handle_sweep_identifier_spellings_for_message(
+		handle,
+		(const ProtobufCMessage *)handle->ast);
+}
+
+void sqlparser_handle_begin_identifier_spelling(
+	sqlparser_handle_t *handle)
+{
+	if (handle == NULL) {
+		return;
+	}
+	handle->identifier_spelling_build_group = SIZE_MAX;
+	handle->identifier_spelling_last_location =
+		SQLPARSER_PROTO_LOCATION_GENERATED;
+}
+
+int32_t sqlparser_handle_append_identifier_spelling(
+	sqlparser_handle_t *handle,
+	const char *spelling,
+	size_t spelling_length)
+{
+	sqlparser_identifier_spelling_t *group;
+	sqlparser_identifier_spelling_t *next;
+	char *copy;
+	size_t capacity;
+	size_t component_index;
+	size_t group_index;
+	uint32_t payload;
+
+	if (handle == NULL || spelling == NULL ||
+	    handle->identifier_spelling_status != SQLPARSER_STATUS_OK) {
+		return SQLPARSER_PROTO_LOCATION_GENERATED;
+	}
+	if (handle->identifier_spelling_build_group == SIZE_MAX) {
+		group_index =
+			handle->identifier_spelling_free_group <=
+					handle->identifier_spelling_count ?
+				handle->identifier_spelling_free_group :
+				0U;
+		while (group_index < handle->identifier_spelling_count &&
+		       handle->identifier_spellings[group_index].part_count !=
+			       0U) {
+			group_index++;
+		}
+		if (group_index < handle->identifier_spelling_count) {
+			handle->identifier_spelling_build_group = group_index;
+			handle->identifier_spelling_free_group =
+				group_index + 1U;
+		} else {
+			if (handle->identifier_spelling_count >
+			    SQLPARSER_PROTO_IDENTIFIER_SPELLING_GROUP_MAX) {
+				handle->identifier_spelling_status =
+					SQLPARSER_STATUS_RESOURCE_LIMIT;
+				return SQLPARSER_PROTO_LOCATION_GENERATED;
+			}
+			if (handle->identifier_spelling_count ==
+			    handle->identifier_spelling_capacity) {
+				capacity =
+					handle->identifier_spelling_capacity == 0U ?
+						8U :
+						handle->identifier_spelling_capacity * 2U;
+				if (capacity <
+					    handle->identifier_spelling_capacity ||
+				    capacity >
+					    SQLPARSER_PROTO_IDENTIFIER_SPELLING_GROUP_MAX +
+						    1U ||
+				    capacity >
+					    SIZE_MAX /
+						    sizeof(*handle->identifier_spellings)) {
+					handle->identifier_spelling_status =
+						SQLPARSER_STATUS_NO_MEMORY;
+					return SQLPARSER_PROTO_LOCATION_GENERATED;
+				}
+				next = (sqlparser_identifier_spelling_t *)realloc(
+					handle->identifier_spellings,
+					capacity * sizeof(*next));
+				if (next == NULL) {
+					handle->identifier_spelling_status =
+						SQLPARSER_STATUS_NO_MEMORY;
+					return SQLPARSER_PROTO_LOCATION_GENERATED;
+				}
+				handle->identifier_spellings = next;
+				handle->identifier_spelling_capacity =
+					capacity;
+			}
+			handle->identifier_spelling_build_group =
+				handle->identifier_spelling_count++;
+			handle->identifier_spelling_free_group =
+				handle->identifier_spelling_count;
+		}
+		memset(
+			&handle->identifier_spellings
+				[handle->identifier_spelling_build_group],
+			0,
+			sizeof(*handle->identifier_spellings));
+	}
+	group = &handle->identifier_spellings
+		[handle->identifier_spelling_build_group];
+	if (group->part_count >=
+	    SQLPARSER_PROTO_IDENTIFIER_SPELLING_COMPONENTS) {
+		handle->identifier_spelling_status =
+			SQLPARSER_STATUS_RESOURCE_LIMIT;
+		return SQLPARSER_PROTO_LOCATION_GENERATED;
+	}
+	copy = sqlparser_strndup(spelling, spelling_length);
+	if (copy == NULL) {
+		handle->identifier_spelling_status = SQLPARSER_STATUS_NO_MEMORY;
+		return SQLPARSER_PROTO_LOCATION_GENERATED;
+	}
+	component_index = group->part_count++;
+	group->parts[component_index] = copy;
+	payload =
+		(uint32_t)(
+			handle->identifier_spelling_build_group <<
+			SQLPARSER_PROTO_IDENTIFIER_SPELLING_COMPONENT_BITS) |
+		(uint32_t)component_index;
+	handle->identifier_spelling_last_location = (int32_t)(
+		(int64_t)SQLPARSER_PROTO_LOCATION_GENERATED_SPELLING_BASE +
+		(int64_t)payload);
+	return handle->identifier_spelling_last_location;
+}
+
+sqlparser_status_t sqlparser_handle_finish_identifier_spelling(
+	sqlparser_handle_t *handle,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_status_t status;
+
+	if (handle == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	status = handle->identifier_spelling_status;
+	handle->identifier_spelling_status = SQLPARSER_STATUS_OK;
+	handle->identifier_spelling_build_group = SIZE_MAX;
+	handle->identifier_spelling_last_location =
+		SQLPARSER_PROTO_LOCATION_GENERATED;
+	if (status == SQLPARSER_STATUS_NO_MEMORY) {
+		sqlparser_error_set_message(
+			out_error,
+			status,
+			"out of memory");
+	} else if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_error_set_message(
+			out_error,
+			status,
+			"generated identifier spelling is too large");
+	}
+	return status;
+}
+
+int sqlparser_handle_identifier_spelling(
+	const sqlparser_handle_t *handle,
+	int32_t location,
+	size_t component_index,
+	const char **out_spelling,
+	size_t *out_length)
+{
+	const sqlparser_identifier_spelling_t *group;
+	uint32_t payload;
+	size_t base_component;
+	size_t group_index;
+
+	if (out_spelling != NULL) {
+		*out_spelling = NULL;
+	}
+	if (out_length != NULL) {
+		*out_length = 0U;
+	}
+	if (handle == NULL ||
+	    !sqlparser_proto_location_is_identifier_spelling(location)) {
+		return 0;
+	}
+	payload = (uint32_t)(
+		(int64_t)location -
+		(int64_t)SQLPARSER_PROTO_LOCATION_GENERATED_SPELLING_BASE);
+	base_component =
+		payload &
+		SQLPARSER_PROTO_IDENTIFIER_SPELLING_COMPONENT_MASK;
+	group_index =
+		payload >>
+		SQLPARSER_PROTO_IDENTIFIER_SPELLING_COMPONENT_BITS;
+	if (group_index >= handle->identifier_spelling_count ||
+	    component_index >
+		    SIZE_MAX - base_component) {
+		return 0;
+	}
+	component_index += base_component;
+	group = &handle->identifier_spellings[group_index];
+	if (component_index >= group->part_count ||
+	    group->parts[component_index] == NULL) {
+		return 0;
+	}
+	if (out_spelling != NULL) {
+		*out_spelling = group->parts[component_index];
+	}
+	if (out_length != NULL) {
+		*out_length = strlen(group->parts[component_index]);
+	}
+	return 1;
 }
 
 sqlparser_status_t sqlparser_handle_rebind_identifier_mutations(
@@ -615,7 +991,33 @@ void sqlparser_handle_clear_ast(sqlparser_handle_t *handle)
 	handle->ast = NULL;
 }
 
-void sqlparser_handle_invalidate_derived(sqlparser_handle_t *handle)
+static void sqlparser_handle_discard_ast_changes(
+	sqlparser_handle_t *handle)
+{
+	PgQuery__ParseResult *persisted_ast;
+
+	if (handle == NULL) {
+		return;
+	}
+	sqlparser_handle_clear_ast(handle);
+	if (handle->identifier_spelling_count == 0U ||
+	    handle->parse_tree.data == NULL) {
+		return;
+	}
+	persisted_ast = pg_query__parse_result__unpack(
+		NULL,
+		handle->parse_tree.len,
+		(const uint8_t *)handle->parse_tree.data);
+	if (persisted_ast == NULL) {
+		return;
+	}
+	sqlparser_handle_sweep_identifier_spellings_for_message(
+		handle,
+		(const ProtobufCMessage *)persisted_ast);
+	pg_query__parse_result__free_unpacked(persisted_ast, NULL);
+}
+
+static void sqlparser_handle_clear_current_sql(sqlparser_handle_t *handle)
 {
 	char *current_sql;
 	char *current_parser_sql;
@@ -633,6 +1035,15 @@ void sqlparser_handle_invalidate_derived(sqlparser_handle_t *handle)
 		free(current_parser_sql);
 	}
 	handle->current_parser_sql = NULL;
+}
+
+void sqlparser_handle_invalidate_derived(sqlparser_handle_t *handle)
+{
+	if (handle == NULL) {
+		return;
+	}
+
+	sqlparser_handle_clear_current_sql(handle);
 	sqlparser_handle_clear_query_graph(handle);
 }
 
@@ -671,11 +1082,35 @@ static void sqlparser_handle_release_contents(sqlparser_handle_t *handle)
 	     mutation_index < handle->identifier_mutation_count;
 	     mutation_index++) {
 		free(handle->identifier_mutations[mutation_index].original);
+		free(handle->identifier_mutations[mutation_index].spelling);
 	}
 	free(handle->identifier_mutations);
 	handle->identifier_mutations = NULL;
 	handle->identifier_mutation_count = 0U;
 	handle->identifier_mutation_capacity = 0U;
+	for (mutation_index = 0U;
+	     mutation_index < handle->identifier_spelling_count;
+	     mutation_index++) {
+		size_t part_index;
+
+		for (part_index = 0U;
+		     part_index < handle->identifier_spellings[mutation_index].part_count;
+		     part_index++) {
+			free(handle->identifier_spellings[mutation_index]
+				     .parts[part_index]);
+		}
+	}
+	free(handle->identifier_spellings);
+	handle->identifier_spellings = NULL;
+	handle->identifier_spelling_count = 0U;
+	handle->identifier_spelling_capacity = 0U;
+	handle->identifier_spelling_free_group = 0U;
+	handle->identifier_spelling_build_group = SIZE_MAX;
+	handle->identifier_spelling_last_location =
+		SQLPARSER_PROTO_LOCATION_GENERATED;
+	handle->identifier_spelling_status = SQLPARSER_STATUS_OK;
+	sqlparser_identifier_origin_map_destroy(handle->identifier_origins);
+	handle->identifier_origins = NULL;
 	sql = handle->sql;
 	parser_sql = handle->parser_sql;
 	free(sql);
@@ -816,9 +1251,88 @@ sqlparser_status_t sqlparser_handle_clone(
 					"out of memory");
 				return SQLPARSER_STATUS_NO_MEMORY;
 			}
+			clone->identifier_mutations[mutation_index].spelling =
+				source->identifier_mutations[mutation_index].spelling !=
+						NULL ?
+					sqlparser_strdup(
+						source->identifier_mutations
+							[mutation_index]
+							.spelling) :
+					NULL;
+			if (source->identifier_mutations[mutation_index].spelling !=
+				    NULL &&
+			    clone->identifier_mutations[mutation_index].spelling ==
+				    NULL) {
+				clone->identifier_mutation_count =
+					mutation_index + 1U;
+				sqlparser_handle_destroy(clone);
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_NO_MEMORY,
+					"out of memory");
+				return SQLPARSER_STATUS_NO_MEMORY;
+			}
 			clone->identifier_mutation_count++;
 		}
 	}
+	if (source->identifier_spelling_count > 0U) {
+		size_t group_index;
+
+		clone->identifier_spellings =
+			(sqlparser_identifier_spelling_t *)calloc(
+				source->identifier_spelling_count,
+				sizeof(*clone->identifier_spellings));
+		if (clone->identifier_spellings == NULL) {
+			sqlparser_handle_destroy(clone);
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		clone->identifier_spelling_capacity =
+			source->identifier_spelling_count;
+		for (group_index = 0U;
+		     group_index < source->identifier_spelling_count;
+		     group_index++) {
+			size_t part_index;
+
+			for (part_index = 0U;
+			     part_index <
+				     source->identifier_spellings[group_index].part_count;
+			     part_index++) {
+				clone->identifier_spellings[group_index]
+					.parts[part_index] =
+					sqlparser_strdup(
+						source->identifier_spellings[group_index]
+							.parts[part_index]);
+				if (clone->identifier_spellings[group_index]
+					    .parts[part_index] == NULL) {
+					clone->identifier_spelling_count =
+						group_index + 1U;
+					clone->identifier_spellings[group_index]
+						.part_count =
+						part_index;
+					sqlparser_handle_destroy(clone);
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_NO_MEMORY,
+						"out of memory");
+					return SQLPARSER_STATUS_NO_MEMORY;
+				}
+				clone->identifier_spellings[group_index].part_count++;
+			}
+			clone->identifier_spelling_count++;
+		}
+	}
+	clone->identifier_spelling_free_group =
+		source->identifier_spelling_free_group <=
+				clone->identifier_spelling_count ?
+			source->identifier_spelling_free_group :
+			clone->identifier_spelling_count;
+	clone->identifier_spelling_build_group = SIZE_MAX;
+	clone->identifier_spelling_last_location =
+		SQLPARSER_PROTO_LOCATION_GENERATED;
 	if (source->control != NULL) {
 		status = sqlparser_control_state_clone(source->control, &clone->limits, &clone->control, out_error);
 		if (status != SQLPARSER_STATUS_OK) {
@@ -861,14 +1375,15 @@ sqlparser_status_t sqlparser_handle_commit_ast(
 			"handle must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
+	sqlparser_handle_clear_query_graph(handle);
 	if (handle->control != NULL && handle->ast->n_stmts != handle->control->unit_count) {
-		sqlparser_handle_clear_ast(handle);
+		sqlparser_handle_discard_ast_changes(handle);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "control units do not match parser statements");
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 	packed_size = pg_query__parse_result__get_packed_size(handle->ast);
 	if (packed_size == 0U) {
-		sqlparser_handle_clear_ast(handle);
+		sqlparser_handle_discard_ast_changes(handle);
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INTERNAL_ERROR,
@@ -878,7 +1393,7 @@ sqlparser_status_t sqlparser_handle_commit_ast(
 
 	packed = (char *)malloc(packed_size);
 	if (packed == NULL) {
-		sqlparser_handle_clear_ast(handle);
+		sqlparser_handle_discard_ast_changes(handle);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
@@ -886,7 +1401,7 @@ sqlparser_status_t sqlparser_handle_commit_ast(
 	packed_len = pg_query__parse_result__pack(handle->ast, (uint8_t *)packed);
 	if (packed_len != packed_size) {
 		free(packed);
-		sqlparser_handle_clear_ast(handle);
+		sqlparser_handle_discard_ast_changes(handle);
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INTERNAL_ERROR,
@@ -897,14 +1412,14 @@ sqlparser_status_t sqlparser_handle_commit_ast(
 	if (sqlparser_validate_statement_count_limit(&handle->limits, handle->ast->n_stmts, out_error) !=
 	    SQLPARSER_STATUS_OK) {
 		free(packed);
-		sqlparser_handle_clear_ast(handle);
+		sqlparser_handle_discard_ast_changes(handle);
 		return SQLPARSER_STATUS_RESOURCE_LIMIT;
 	}
 	if (sqlparser_handle_rebind_identifier_mutations(
 		    handle,
 		    out_error) != SQLPARSER_STATUS_OK) {
 		free(packed);
-		sqlparser_handle_clear_ast(handle);
+		sqlparser_handle_discard_ast_changes(handle);
 		return out_error != NULL ?
 			out_error->code :
 			SQLPARSER_STATUS_INTERNAL_ERROR;
@@ -915,6 +1430,7 @@ sqlparser_status_t sqlparser_handle_commit_ast(
 	handle->parse_tree.len = packed_len;
 	handle->statement_count = handle->control != NULL ? handle->control->unit_count : handle->ast->n_stmts;
 	handle->generation++;
+	sqlparser_handle_sweep_identifier_spellings(handle);
 	sqlparser_handle_invalidate_derived(handle);
 	return SQLPARSER_STATUS_OK;
 }
@@ -945,7 +1461,7 @@ sqlparser_status_t sqlparser_ensure_current_sql_text(
 	}
 
 	mutable_handle = (sqlparser_handle_t *)handle;
-	sqlparser_handle_invalidate_derived(mutable_handle);
+	sqlparser_handle_clear_current_sql(mutable_handle);
 	if (handle->control != NULL) {
 		public_sql = NULL;
 		status = sqlparser_control_build_public_sql(handle, &public_sql, out_error);
@@ -1010,7 +1526,6 @@ sqlparser_status_t sqlparser_ensure_current_sql_text(
 	}
 	if (status != SQLPARSER_STATUS_OK) {
 		pg_query_free_deparse_result(deparse_result);
-		sqlparser_handle_invalidate_derived(mutable_handle);
 		return status;
 	}
 	mutable_handle->current_parser_sql = deparse_result.query;
@@ -1019,7 +1534,7 @@ sqlparser_status_t sqlparser_ensure_current_sql_text(
 	status = sqlparser_validate_handle_output_text(handle, public_sql, "deparse output", out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		free(public_sql);
-		sqlparser_handle_invalidate_derived(mutable_handle);
+		sqlparser_handle_clear_current_sql(mutable_handle);
 		return status;
 	}
 	if (public_sql != NULL &&
@@ -1152,16 +1667,18 @@ void sqlparser_handle_adopt_dialect_state(
 	handle->dialect_state = state;
 }
 
-sqlparser_status_t sqlparser_preprocess_handle_sql_fragment(
+static sqlparser_status_t sqlparser_preprocess_handle_sql_fragment_internal(
 	const sqlparser_handle_t *handle,
 	size_t statement_index,
 	const char *public_sql,
 	const char *field_name,
 	char **out_parser_sql,
 	void **out_dialect_state,
+	sqlparser_identifier_origin_map_t **out_origins,
 	sqlparser_error_t *out_error)
 {
 	void *candidate_state;
+	sqlparser_identifier_origin_map_t *origins;
 	sqlparser_status_t status;
 
 	if (out_parser_sql == NULL || out_dialect_state == NULL) {
@@ -1173,6 +1690,9 @@ sqlparser_status_t sqlparser_preprocess_handle_sql_fragment(
 	}
 	*out_parser_sql = NULL;
 	*out_dialect_state = NULL;
+	if (out_origins != NULL) {
+		*out_origins = NULL;
+	}
 
 	status = sqlparser_validate_handle_sql_input(
 		handle,
@@ -1183,11 +1703,26 @@ sqlparser_status_t sqlparser_preprocess_handle_sql_fragment(
 		return status;
 	}
 
+	origins = NULL;
+	if (out_origins != NULL) {
+		status = sqlparser_identifier_origin_map_new_identity(
+			strlen(public_sql),
+			&origins,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+
 	if (handle->dialect_ops == NULL || handle->dialect_ops->preprocess_fragment == NULL) {
 		*out_parser_sql = sqlparser_strdup(public_sql);
 		if (*out_parser_sql == NULL) {
+			sqlparser_identifier_origin_map_destroy(origins);
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		if (out_origins != NULL) {
+			*out_origins = origins;
 		}
 		return SQLPARSER_STATUS_OK;
 	}
@@ -1196,27 +1731,58 @@ sqlparser_status_t sqlparser_preprocess_handle_sql_fragment(
 	if (handle->dialect_ops->clone_state != NULL) {
 		status = handle->dialect_ops->clone_state(handle->dialect_state, &candidate_state, out_error);
 		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_identifier_origin_map_destroy(origins);
 			return status;
 		}
 	}
 
-	status = handle->dialect_ops->preprocess_fragment(
-		public_sql,
-		candidate_state,
-		statement_index,
-		out_parser_sql,
-		out_error);
+	if (origins != NULL &&
+	    sqlparser_dialect_is_sqlserver_compatible(handle->dialect)) {
+		status =
+			sqlparser_sqlserver_preprocess_fragment_identifier_origins(
+				public_sql,
+				candidate_state,
+				statement_index,
+				out_parser_sql,
+				origins,
+				out_error);
+	} else if (origins != NULL &&
+		   sqlparser_dialect_is_mysql_compatible(handle->dialect)) {
+		status =
+			sqlparser_mysql_preprocess_fragment_identifier_origins(
+				public_sql,
+				candidate_state,
+				out_parser_sql,
+				origins,
+				out_error);
+	} else {
+		status = handle->dialect_ops->preprocess_fragment(
+			public_sql,
+			candidate_state,
+			statement_index,
+			out_parser_sql,
+			out_error);
+	}
 	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_identifier_origin_map_destroy(origins);
 		sqlparser_handle_discard_dialect_state(handle, candidate_state);
 		return status;
 	}
 	if (*out_parser_sql == NULL) {
+		sqlparser_identifier_origin_map_destroy(origins);
 		sqlparser_handle_discard_dialect_state(handle, candidate_state);
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INTERNAL_ERROR,
 			"dialect fragment output is missing");
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	if (origins != NULL &&
+	    !sqlparser_dialect_is_sqlserver_compatible(handle->dialect) &&
+	    !sqlparser_dialect_is_mysql_compatible(handle->dialect) &&
+	    strcmp(*out_parser_sql, public_sql) != 0) {
+		sqlparser_identifier_origin_map_destroy(origins);
+		origins = NULL;
 	}
 
 	status = sqlparser_validate_text_limit(
@@ -1228,12 +1794,44 @@ sqlparser_status_t sqlparser_preprocess_handle_sql_fragment(
 	if (status != SQLPARSER_STATUS_OK) {
 		free(*out_parser_sql);
 		*out_parser_sql = NULL;
+		sqlparser_identifier_origin_map_destroy(origins);
 		sqlparser_handle_discard_dialect_state(handle, candidate_state);
 		return status;
 	}
 
 	*out_dialect_state = candidate_state;
+	if (out_origins != NULL) {
+		*out_origins = origins;
+	}
 	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_preprocess_handle_sql_fragment_with_origins(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	const char *public_sql,
+	const char *field_name,
+	char **out_parser_sql,
+	void **out_dialect_state,
+	sqlparser_identifier_origin_map_t **out_origins,
+	sqlparser_error_t *out_error)
+{
+	if (out_origins == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"fragment identifier origins output must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	return sqlparser_preprocess_handle_sql_fragment_internal(
+		handle,
+		statement_index,
+		public_sql,
+		field_name,
+		out_parser_sql,
+		out_dialect_state,
+		out_origins,
+		out_error);
 }
 
 const char *sqlparser_version_string(void)
@@ -1352,6 +1950,8 @@ const char *sqlparser_selector_kind_name(sqlparser_selector_kind_t kind)
 			return "assignment";
 		case SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT:
 			return "merge_assignment";
+		case SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION:
+			return "merge_branch_condition";
 		case SQLPARSER_SELECTOR_KIND_INSERT_CELL:
 			return "insert_cell";
 		case SQLPARSER_SELECTOR_KIND_INSERT_COLUMNS:
@@ -1616,6 +2216,38 @@ const char *sqlparser_graph_dml_branch_kind_name(sqlparser_graph_dml_branch_kind
 	}
 }
 
+const char *sqlparser_graph_merge_action_kind_name(sqlparser_graph_merge_action_kind_t kind)
+{
+	switch (kind) {
+		case SQLPARSER_GRAPH_MERGE_ACTION_INSERT:
+			return "insert";
+		case SQLPARSER_GRAPH_MERGE_ACTION_UPDATE:
+			return "update";
+		case SQLPARSER_GRAPH_MERGE_ACTION_DELETE:
+			return "delete";
+		case SQLPARSER_GRAPH_MERGE_ACTION_NOTHING:
+			return "nothing";
+		case SQLPARSER_GRAPH_MERGE_ACTION_UNKNOWN:
+		default:
+			return "unknown";
+	}
+}
+
+const char *sqlparser_graph_merge_match_kind_name(sqlparser_graph_merge_match_kind_t kind)
+{
+	switch (kind) {
+		case SQLPARSER_GRAPH_MERGE_MATCH_MATCHED:
+			return "matched";
+		case SQLPARSER_GRAPH_MERGE_MATCH_NOT_MATCHED_BY_SOURCE:
+			return "not_matched_by_source";
+		case SQLPARSER_GRAPH_MERGE_MATCH_NOT_MATCHED_BY_TARGET:
+			return "not_matched_by_target";
+		case SQLPARSER_GRAPH_MERGE_MATCH_UNKNOWN:
+		default:
+			return "unknown";
+	}
+}
+
 const char *sqlparser_graph_predicate_kind_name(sqlparser_graph_predicate_kind_t kind)
 {
 	switch (kind) {
@@ -1700,6 +2332,173 @@ sqlparser_status_t sqlparser_parse_with_limits(
 	sqlparser_parse_options_set_defaults(&options);
 	sqlparser_limits_normalize(limits, &options.limits);
 	return sqlparser_parse_with_options(sql, &options, out_handle, out_error);
+}
+
+static int sqlparser_merge_condition_has_action_where(
+	const PgQuery__Node *condition)
+{
+	size_t index;
+
+	if (condition == NULL ||
+	    condition->node_case != PG_QUERY__NODE__NODE_BOOL_EXPR ||
+	    condition->bool_expr == NULL) {
+		return 0;
+	}
+	if (condition->bool_expr->location ==
+	    POSTGRES_DEPARSE_MERGE_ACTION_WHERE_LOCATION) {
+		return 1;
+	}
+	for (index = 0U;
+	     index < condition->bool_expr->n_args;
+	     index++) {
+		if (sqlparser_merge_condition_has_action_where(
+			    condition->bool_expr->args != NULL ?
+				    condition->bool_expr->args[index] :
+				    NULL)) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static sqlparser_status_t sqlparser_validate_merge_stmt(
+	const PgQuery__MergeStmt *merge_stmt,
+	sqlparser_dialect_t dialect,
+	sqlparser_error_t *out_error)
+{
+	size_t insert_count;
+	size_t when_index;
+
+	if (merge_stmt == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	insert_count = 0U;
+	for (when_index = 0U;
+	     when_index < merge_stmt->n_merge_when_clauses;
+	     when_index++) {
+		PgQuery__Node *when_node;
+
+		when_node = merge_stmt->merge_when_clauses != NULL ?
+			merge_stmt->merge_when_clauses[when_index] :
+			NULL;
+		if (when_node != NULL &&
+		    when_node->node_case ==
+			    PG_QUERY__NODE__NODE_MERGE_WHEN_CLAUSE &&
+		    when_node->merge_when_clause != NULL) {
+			PgQuery__Node *condition;
+
+			if (when_node->merge_when_clause->command_type ==
+			    PG_QUERY__CMD_TYPE__CMD_INSERT) {
+				insert_count++;
+			}
+			condition = when_node->merge_when_clause->condition;
+			if (dialect != SQLPARSER_DIALECT_ORACLE &&
+			    dialect != SQLPARSER_DIALECT_DAMENG &&
+			    dialect != SQLPARSER_DIALECT_VASTBASE_ORACLE &&
+			    sqlparser_merge_condition_has_action_where(
+				    condition)) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_UNSUPPORTED,
+					"MERGE action WHERE is not supported for this dialect");
+				return SQLPARSER_STATUS_UNSUPPORTED;
+			}
+		}
+	}
+	if (dialect != SQLPARSER_DIALECT_POSTGRESQL &&
+	    insert_count > 1U) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"multiple MERGE INSERT actions are not supported for this dialect");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_validate_merge_message(
+	const ProtobufCMessage *message,
+	sqlparser_dialect_t dialect,
+	sqlparser_error_t *out_error)
+{
+	const ProtobufCMessageDescriptor *descriptor;
+	const uint8_t *base;
+	unsigned field_index;
+	sqlparser_status_t status;
+
+	if (message == NULL || message->descriptor == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (message->descriptor == &pg_query__merge_stmt__descriptor) {
+		status = sqlparser_validate_merge_stmt(
+			(const PgQuery__MergeStmt *)message,
+			dialect,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+	descriptor = message->descriptor;
+	base = (const uint8_t *)message;
+	for (field_index = 0U;
+	     field_index < descriptor->n_fields;
+	     field_index++) {
+		const ProtobufCFieldDescriptor *field;
+
+		field = &descriptor->fields[field_index];
+		if (field->type != PROTOBUF_C_TYPE_MESSAGE ||
+		    ((field->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) != 0U &&
+		     *(const int *)(base + field->quantifier_offset) !=
+			     (int)field->id)) {
+			continue;
+		}
+		if (field->label == PROTOBUF_C_LABEL_REPEATED) {
+			size_t item_count;
+			ProtobufCMessage *const *items;
+			size_t item_index;
+
+			item_count =
+				*(const size_t *)(base + field->quantifier_offset);
+			items =
+				*(ProtobufCMessage *const *const *)
+					(base + field->offset);
+			for (item_index = 0U;
+			     items != NULL && item_index < item_count;
+			     item_index++) {
+				status = sqlparser_validate_merge_message(
+					items[item_index],
+					dialect,
+					out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					return status;
+				}
+			}
+		} else {
+			status = sqlparser_validate_merge_message(
+				*(ProtobufCMessage *const *)
+					(base + field->offset),
+				dialect,
+				out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+		}
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_validate_merge_statements(
+	sqlparser_handle_t *handle,
+	sqlparser_error_t *out_error)
+{
+	if (handle == NULL ||
+	    handle->ast == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	return sqlparser_validate_merge_message(
+		(const ProtobufCMessage *)handle->ast,
+		handle->dialect,
+		out_error);
 }
 
 sqlparser_status_t sqlparser_parse_with_options(
@@ -1849,6 +2648,14 @@ sqlparser_status_t sqlparser_parse_with_options(
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 	handle->statement_count = handle->ast->n_stmts;
+	status = sqlparser_validate_merge_statements(
+		handle,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		pg_query_free_protobuf_parse_result(parse_result);
+		sqlparser_handle_destroy(handle);
+		return status;
+	}
 	status = sqlparser_validate_statement_count_limit(&handle->limits, handle->statement_count, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		pg_query_free_protobuf_parse_result(parse_result);
