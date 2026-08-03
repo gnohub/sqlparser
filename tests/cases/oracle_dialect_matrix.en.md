@@ -4,7 +4,7 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 237 cases with `status = "final"`.
+The fixture contains 238 cases with `status = "final"`.
 Statement-level `query_graph.session` appears in 59 cases, covering `O043`,
 `O043Q`, `O044` through `O047`, `O082` through `O086`, and the `ORA-*`
 session cases. All 59 contain at least one non-empty session item.
@@ -217,6 +217,7 @@ binds were included in the global sequence. `SYSDATE` and
 | O185 | `oracle-direct-bind-null-test` | `:STATUS IS NOT NULL AND DELETED_AT IS NULL` | emits an expression predicate that references only the real named bind for the direct-bind null test; the field null test is a comparison with no NULL value, with AND order and all 4 patches verified exactly |
 | O186 | `oracle-nested-select-target-multi-replace-middle` | replaces the middle item of a three-target derived-table SELECT with three quoted targets | expands the replacement only at the selected inner target-list position while preserving inner/outer blocks, relations, and target order; an independent insert patch validates the inner list position |
 | O187 | `oracle-merge-update-compound-rhs` | a compound assignment RHS in a MERGE UPDATE branch | branch `rhs_fields` and `rhs_values` attribute the source field, positional bind, and literal to the assignment; the source alias remains stable, and MERGE assignment replacement and insertion are verified exactly |
+| O188 | `oracle-merge-insert-structured-pair-rewrite` | structured MERGE INSERT target-column and VALUES-cell rewriting with three-column lineage, independent target-column and complete-cell selectors, atomic column/value insertion and deletion, quoted identifiers, and preservation of untouched SQL bytes |
 
 ## ROWNUM Predicate Semantics Regression
 

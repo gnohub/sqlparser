@@ -15,7 +15,7 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 253 cases with `status = "final"`. The expected View contains a non-empty session projection in 44 cases.
+The fixture contains 254 cases with `status = "final"`. The expected View contains a non-empty session projection in 44 cases.
 
 View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
 
@@ -149,6 +149,7 @@ View validation compares JSON structures; object-key order and formatting whites
 | `VM251` | `vastbase-mysql-string-common-backslash-escapes` | common newline, tab, and backslash string escapes | View retains decoded string semantics; original escape spellings and the quote, national prefix, and backslash spelling of patch fragments are preserved byte for byte |
 | `VM252` | `vastbase-mysql-string-equal-value-surfaces` | plain, lowercase-`n`, and uppercase-`N` strings with the same value | View exposes three independently addressable values; AST ownership preserves each surface spelling without reusing another equal-valued literal after replacement or insertion |
 | `VM253` | `vastbase-mysql-string-nested-surface-owners` | an outer double-quoted string, an inner lowercase-`n` string, and an escaped WHERE string | nested block, relation, field, target, and value attribution is complete; cross-level patches preserve every untouched string byte for byte |
+| `VM254` | `vastbase-mysql-merge-insert-structured-pair-rewrite` | structured MERGE INSERT target-column and VALUES-cell rewriting | verifies independent target-column, source-field, and expression-cell selectors, plus backtick preservation and atomic column/value insertion and deletion |
 | `VMU001` | `vastbase-mysql-insert-ignore` | INSERT IGNORE INTO `users` (`id`) VALUES (1) | covered |
 | `VMU002` | `vastbase-mysql-insert-delayed` | INSERT DELAYED INTO `users` (`id`) VALUES (1) | covered |
 | `VMU003` | `vastbase-mysql-insert-low-priority` | INSERT LOW_PRIORITY INTO `users` (`id`) VALUES (1) | covered |

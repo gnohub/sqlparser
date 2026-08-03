@@ -1,6 +1,278 @@
 {
   "items": [
     {
+      "name": "oracle-merge-insert-structured-pair-rewrite",
+      "sql": "MERGE INTO KDES.DBP_SQLM_USERS u USING (SELECT ? ID, ? NAME, ? PHONE FROM DUAL) s ON (u.ID = s.ID) WHEN NOT MATCHED THEN INSERT (ID, NAME, PHONE) VALUES (s.ID, s.NAME, s.PHONE)",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "merge",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0
+                  ],
+                  "relations": [
+                    0,
+                    1
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    2
+                  ],
+                  "targets": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ],
+              "dml": {
+                "branches": [
+                  {
+                    "branch_kind": "when",
+                    "merge_action_kind": "insert",
+                    "merge_match_kind": "not_matched_by_target",
+                    "ordinal": 0,
+                    "rows": [
+                      {
+                        "bind_kind": 0,
+                        "column": 0,
+                        "kind": "field",
+                        "row": 0,
+                        "source_field": 2,
+                        "source_target": 0,
+                        "selector": "stmt[0].merge_insert_cell[0][0]"
+                      },
+                      {
+                        "bind_kind": 0,
+                        "column": 1,
+                        "kind": "field",
+                        "row": 0,
+                        "source_field": 3,
+                        "source_target": 1,
+                        "selector": "stmt[0].merge_insert_cell[0][1]"
+                      },
+                      {
+                        "bind_kind": 0,
+                        "column": 2,
+                        "kind": "field",
+                        "row": 0,
+                        "source_field": 4,
+                        "source_target": 2,
+                        "selector": "stmt[0].merge_insert_cell[0][2]"
+                      }
+                    ],
+                    "target_list_selector": "stmt[0].insert_branch_columns[0]",
+                    "target_columns": [
+                      {
+                        "column": "ID",
+                        "ordinal": 0,
+                        "selector": "stmt[0].merge_insert_column[0][0]"
+                      },
+                      {
+                        "column": "NAME",
+                        "ordinal": 1,
+                        "selector": "stmt[0].merge_insert_column[0][1]"
+                      },
+                      {
+                        "column": "PHONE",
+                        "ordinal": 2,
+                        "selector": "stmt[0].merge_insert_column[0][2]"
+                      }
+                    ],
+                    "target_relation": 0
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "merge",
+                "target_relation": 0
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "ID",
+                  "relation": 0,
+                  "selector": "stmt[0].name[9]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "ID",
+                  "relation": 1,
+                  "selector": "stmt[0].name[11]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "column": "ID",
+                  "relation": 1,
+                  "selector": "stmt[0].name[16]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "column": "NAME",
+                  "relation": 1,
+                  "selector": "stmt[0].name[18]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "column": "PHONE",
+                  "relation": 1,
+                  "selector": "stmt[0].name[20]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "on",
+                  "kind": "comparison",
+                  "left_field": 0,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 1,
+                  "value": 3
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "u",
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "KDES",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "DBP_SQLM_USERS"
+                },
+                {
+                  "alias": "s",
+                  "block": 0,
+                  "kind": "derived",
+                  "source_block": 1
+                },
+                {
+                  "block": 1,
+                  "kind": "dual",
+                  "selector": "stmt[0].relation[1]",
+                  "table": "DUAL"
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 1,
+                  "kind": "bind",
+                  "name": "ID",
+                  "ordinal": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]",
+                  "value": 0
+                },
+                {
+                  "block": 1,
+                  "kind": "bind",
+                  "name": "NAME",
+                  "ordinal": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]",
+                  "value": 1
+                },
+                {
+                  "block": 1,
+                  "kind": "bind",
+                  "name": "PHONE",
+                  "ordinal": 2,
+                  "selector": "stmt[0].select_target[0][2]",
+                  "target_list_selector": "stmt[0].select_targets[0]",
+                  "value": 2
+                }
+              ],
+              "values": [
+                {
+                  "bind_key": "1",
+                  "bind_kind": 1,
+                  "bind_position": 1,
+                  "bind_sql": "?",
+                  "block": 1,
+                  "clause": "select_list",
+                  "kind": "bind",
+                  "selector": "stmt[0].value[3]"
+                },
+                {
+                  "bind_key": "2",
+                  "bind_kind": 1,
+                  "bind_position": 2,
+                  "bind_sql": "?",
+                  "block": 1,
+                  "clause": "select_list",
+                  "kind": "bind",
+                  "selector": "stmt[0].value[5]"
+                },
+                {
+                  "bind_key": "3",
+                  "bind_kind": 1,
+                  "bind_position": 3,
+                  "bind_sql": "?",
+                  "block": 1,
+                  "clause": "select_list",
+                  "kind": "bind",
+                  "selector": "stmt[0].value[7]"
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "on",
+                  "field": 0,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 1
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/branches/0/target_columns/2/selector",
+          "value": "\"PHONE_ORIG\"",
+          "deparse": "MERGE INTO KDES.DBP_SQLM_USERS u USING (SELECT ? ID, ? NAME, ? PHONE FROM DUAL) s ON (u.ID = s.ID) WHEN NOT MATCHED THEN INSERT (ID, NAME, \"PHONE_ORIG\") VALUES (s.ID, s.NAME, s.PHONE)"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/branches/0/rows/2/selector",
+          "value": "s.PHONE_ORIG",
+          "deparse": "MERGE INTO KDES.DBP_SQLM_USERS u USING (SELECT ? ID, ? NAME, ? PHONE FROM DUAL) s ON (u.ID = s.ID) WHEN NOT MATCHED THEN INSERT (ID, NAME, PHONE) VALUES (s.ID, s.NAME, s.PHONE_ORIG)"
+        },
+        {
+          "action": "insert_column",
+          "target": "/statements/0/query_graph/dml/branches/0/target_list_selector",
+          "index": 3,
+          "name": "CREATED_AT",
+          "value": "SYSDATE",
+          "deparse": "MERGE INTO KDES.DBP_SQLM_USERS u USING (SELECT ? ID, ? NAME, ? PHONE FROM DUAL) s ON (u.ID = s.ID) WHEN NOT MATCHED THEN INSERT (ID, NAME, PHONE, CREATED_AT) VALUES (s.ID, s.NAME, s.PHONE, SYSDATE)"
+        },
+        {
+          "action": "delete_column",
+          "target": "/statements/0/query_graph/dml/branches/0/target_list_selector",
+          "index": 1,
+          "deparse": "MERGE INTO KDES.DBP_SQLM_USERS u USING (SELECT ? ID, ? NAME, ? PHONE FROM DUAL) s ON (u.ID = s.ID) WHEN NOT MATCHED THEN INSERT (ID, PHONE) VALUES (s.ID, s.PHONE)"
+        }
+      ]
+    },
+    {
       "name": "oracle-select-bind-nvl",
       "sql": "SELECT NVL(u.name, 'N/A') AS label FROM users u WHERE u.id = :id",
       "view": {
@@ -3418,24 +3690,29 @@
                         "column": 0,
                         "kind": "field",
                         "row": 1,
-                        "source_field": 4
+                        "source_field": 4,
+                        "selector": "stmt[0].merge_insert_cell[1][0]"
                       },
                       {
                         "bind_kind": 0,
                         "column": 1,
                         "kind": "field",
                         "row": 1,
-                        "source_field": 5
+                        "source_field": 5,
+                        "selector": "stmt[0].merge_insert_cell[1][1]"
                       }
                     ],
+                    "target_list_selector": "stmt[0].insert_branch_columns[1]",
                     "target_columns": [
                       {
                         "column": "id",
-                        "ordinal": 0
+                        "ordinal": 0,
+                        "selector": "stmt[0].merge_insert_column[1][0]"
                       },
                       {
                         "column": "name",
-                        "ordinal": 1
+                        "ordinal": 1,
+                        "selector": "stmt[0].merge_insert_column[1][1]"
                       }
                     ],
                     "target_relation": 0
@@ -27423,7 +27700,8 @@
                         "kind": "field",
                         "row": 0,
                         "source_field": 2,
-                        "source_target": 0
+                        "source_target": 0,
+                        "selector": "stmt[0].merge_insert_cell[0][0]"
                       },
                       {
                         "bind_kind": 0,
@@ -27431,17 +27709,21 @@
                         "kind": "field",
                         "row": 0,
                         "source_field": 3,
-                        "source_target": 1
+                        "source_target": 1,
+                        "selector": "stmt[0].merge_insert_cell[0][1]"
                       }
                     ],
+                    "target_list_selector": "stmt[0].insert_branch_columns[0]",
                     "target_columns": [
                       {
                         "column": "id",
-                        "ordinal": 0
+                        "ordinal": 0,
+                        "selector": "stmt[0].merge_insert_column[0][0]"
                       },
                       {
                         "column": "email",
-                        "ordinal": 1
+                        "ordinal": 1,
+                        "selector": "stmt[0].merge_insert_column[0][1]"
                       }
                     ],
                     "target_relation": 0
@@ -27610,6 +27892,20 @@
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
           "deparse": "MERGE INTO t USING (SELECT 42 id, :2 email FROM dual) s ON (t.id=s.id) WHEN NOT MATCHED THEN INSERT(id,email) VALUES(s.id,s.email)"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/branches/0/rows/1/selector",
+          "value": "COALESCE(s.email, 'unknown')",
+          "deparse": "MERGE INTO t USING (SELECT :1 id, :2 email FROM dual) s ON (t.id=s.id) WHEN NOT MATCHED THEN INSERT(id,email) VALUES(s.id,COALESCE(s.email, 'unknown'))"
+        },
+        {
+          "action": "insert_column",
+          "target": "/statements/0/query_graph/dml/branches/0/target_list_selector",
+          "index": 1,
+          "name": "CREATED_AT",
+          "value": "SYSDATE",
+          "deparse": "MERGE INTO t USING (SELECT :1 id, :2 email FROM dual) s ON (t.id=s.id) WHEN NOT MATCHED THEN INSERT(id,CREATED_AT,email) VALUES(s.id,SYSDATE,s.email)"
         }
       ]
     },

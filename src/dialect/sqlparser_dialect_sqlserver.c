@@ -280,7 +280,7 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_text_origins(
 	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error);
 
-static sqlparser_status_t sqlparser_sqlserver_append_mapped_identifiers(
+static sqlparser_status_t sqlparser_sqlserver_append_mapped_sql(
 	sqlparser_sqlserver_buffer_t *out,
 	const char *sql,
 	const sqlparser_identifier_origin_map_t *origins,
@@ -5195,7 +5195,7 @@ static sqlparser_status_t sqlparser_sqlserver_append_pending_top_limit(
 			out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK && pending_top->origins != NULL) {
-		status = sqlparser_sqlserver_append_mapped_identifiers(
+		status = sqlparser_sqlserver_append_mapped_sql(
 			out,
 			pending_top->limit,
 			pending_top->origins,
@@ -6279,96 +6279,53 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_slice(
 	return status;
 }
 
-static sqlparser_status_t sqlparser_sqlserver_append_mapped_identifiers(
+static sqlparser_status_t sqlparser_sqlserver_append_mapped_sql(
 	sqlparser_sqlserver_buffer_t *out,
 	const char *sql,
 	const sqlparser_identifier_origin_map_t *origins,
 	size_t source_offset,
 	sqlparser_error_t *out_error)
 {
-	sqlparser_sqlserver_scanner_t scanner;
-	sqlparser_sqlserver_token_t token;
-	sqlparser_identifier_origin_t origin;
-	sqlparser_identifier_origin_kind_t kind;
 	sqlparser_status_t status;
-	size_t cursor;
 	size_t sql_length;
 
-	sql_length = strlen(sql);
-	status = sqlparser_sqlserver_scanner_init(
-		&scanner,
-		sql,
-		0U,
-		sql_length,
-		out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		return status;
+	if (out == NULL || sql == NULL || origins == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"SQL Server mapped SQL arguments are invalid");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	cursor = 0U;
-	for (;;) {
-		status = sqlparser_sqlserver_scanner_next(
-			&scanner,
-			&token,
+	sql_length = strlen(sql);
+	if (sqlparser_identifier_origin_map_output_length(origins) !=
+	    sql_length) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"SQL Server mapped SQL length is inconsistent");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	if (out->origin_writer.map != NULL) {
+		status = sqlparser_sqlserver_buffer_flush_input_origin(
+			out,
 			out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
 		}
-		if (token.start > cursor) {
-			status = sqlparser_sqlserver_buffer_append_mem(
-				out,
-				sql + cursor,
-				token.start - cursor,
-				out_error);
-			if (status != SQLPARSER_STATUS_OK) {
-				return status;
-			}
-		}
-		if (token.kind == SQLPARSER_SQLSERVER_TOKEN_EOF) {
-			break;
-		}
-		kind = SQLPARSER_IDENTIFIER_ORIGIN_UNKNOWN;
-		if (token.kind == SQLPARSER_SQLSERVER_TOKEN_WORD ||
-		    token.kind == SQLPARSER_SQLSERVER_TOKEN_QUOTED_IDENTIFIER) {
-			kind = sqlparser_identifier_origin_map_lookup(
-				origins,
-				token.start,
-				token.end - token.start,
-				&origin);
-		}
-		if (kind == SQLPARSER_IDENTIFIER_ORIGIN_SOURCE) {
-			if (origin.source_offset > SIZE_MAX - source_offset) {
-				sqlparser_error_set_message(
-					out_error,
-					SQLPARSER_STATUS_RESOURCE_LIMIT,
-					"SQL Server identifier origin offset is too large");
-				return SQLPARSER_STATUS_RESOURCE_LIMIT;
-			}
-			status = sqlparser_sqlserver_buffer_append_source_identifier(
-				out,
-				sql + token.start,
-				source_offset + origin.source_offset,
-				origin.source_length,
-				token.end - token.start,
-				out_error);
-		} else if (kind == SQLPARSER_IDENTIFIER_ORIGIN_GENERATED) {
-			status = sqlparser_sqlserver_buffer_append_generated_identifier(
-				out,
-				sql + token.start,
-				token.end - token.start,
-				out_error);
-		} else {
-			status = sqlparser_sqlserver_buffer_append_mem(
-				out,
-				sql + token.start,
-				token.end - token.start,
-				out_error);
-		}
+		status = sqlparser_identifier_origin_writer_append_map(
+			&out->origin_writer,
+			origins,
+			source_offset,
+			out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
 		}
-		cursor = token.end;
 	}
-	return SQLPARSER_STATUS_OK;
+	return sqlparser_sqlserver_buffer_append_raw_mem(
+		out,
+		sql,
+		sql_length,
+		out_error);
 }
 
 static sqlparser_status_t sqlparser_sqlserver_append_preprocessed_slice(
@@ -6424,7 +6381,7 @@ static sqlparser_status_t sqlparser_sqlserver_append_preprocessed_slice(
 		return status;
 	}
 	if (origins != NULL) {
-		status = sqlparser_sqlserver_append_mapped_identifiers(
+		status = sqlparser_sqlserver_append_mapped_sql(
 			out,
 			processed,
 			origins,
@@ -11026,7 +10983,7 @@ static sqlparser_status_t sqlparser_sqlserver_preprocess_control(
 		}
 		if (status == SQLPARSER_STATUS_OK) {
 			status = unit_origins != NULL ?
-				sqlparser_sqlserver_append_mapped_identifiers(
+				sqlparser_sqlserver_append_mapped_sql(
 					&out,
 					parser_sql,
 					unit_origins,

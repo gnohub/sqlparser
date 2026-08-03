@@ -1,66 +1,61 @@
-# v2.14.0 Release Notes
+# v2.14.1 Release Notes
 
-`v2.14.0` closes the consistency loop across patching, deparse, and View:
-unchanged SQL surface text survives local rewrites, compound DML assignments
-expose right-hand lineage, and one statement can represent multiple peer DML
-roots.
+`v2.14.1` is a patch release for `v2.14.0`. It completes structured MERGE
+INSERT addressing and rewrites, and corrects cases where a local patch in a
+SQL Server-compatible mode normalized unchanged SQL surface text.
 
-## Patch and Deparse
+## Structured MERGE INSERT Rewrites
 
-- Unchanged SQL spans retain original identifier case and delimiters, keywords,
-  comments, whitespace, parentheses, and semicolons byte for byte. A local
-  patch replaces only its resolved source interval.
-- Patch values are parsed as SQL fragments in the selected dialect before
-  entering the AST. Explicit double quotes, MySQL backticks, or SQL Server
-  brackets in the fragment are neither replaced nor duplicated.
-- Relation renames propagate only to qualified references that bind uniquely
-  in scope. Same-scope ambiguity, inner-scope shadowing, explicit aliases, and
-  SQL Server pseudo-relations such as `INSERTED` and `DELETED` remain unchanged.
-- Replacing one SELECT target splices a multi-target fragment at the original
-  position and does not inherit the old target alias.
+- Every explicit MERGE INSERT target column exposes a `merge_insert_column`
+  selector, every complete VALUES cell exposes a `merge_insert_cell` selector,
+  and an explicit target-column list exposes an `insert_branch_columns`
+  selector.
+- A root MERGE uses the WHEN-branch and column ordinals. A nested MERGE in the
+  same statement also includes its DML index, preventing selector collisions
+  between multiple MERGE statements.
+- One target column or complete cell can be replaced independently. The target
+  list supports atomic insertion or deletion of the target column and value at
+  the same index, preventing count or ordering mismatches.
+- A new cell can come from SQL, a source selector, a literal, or a bind. Field,
+  bind, and expression semantics, including `source_field` and `source_target`
+  lineage, remain available.
 
-## Query Graph and View
+## Patch and Deparse Surface Preservation
 
-- `sqlparser_graph_dml_assignment_t` adds `rhs_fields`, `rhs_values`, and
-  `rhs_blocks` for traversing fields, values, and subquery entry blocks in a
-  compound UPDATE or MERGE assignment right-hand side.
-- A single root DML continues to use `query_graph.dml`; multiple peer roots use
-  `query_graph.dmls`. Nested DML remains under each root's `children`, and
-  data-modifying CTEs follow the same structure.
-- Added `SQLPARSER_CLAUSE_KIND_WINDOW_PARTITION`, making the `PARTITION BY`
-  list of a named window definition independently addressable.
-
-## Dialect Boundaries
-
-- Oracle, Dameng, and Vastbase-Oracle extend parsing, lineage, and surface
-  preservation for set operations, multi-table DML, binds, and national
-  literals. Set-tree traversal does not depend on a fixed branch-count ceiling.
-- MySQL and Vastbase-MySQL correct restoration of ordinary comments,
-  executable comments, index hints, table partitions, and DML tails along
-  patch paths.
-- SQL Server and Vastbase-SQLServer correct post-patch restoration for
-  `OUTPUT`, MERGE, dynamic execution, transaction batches, and bracket
-  identifiers.
+- SELECT, INSERT, UPDATE, DELETE, and MERGE units in SQL Server and
+  Vastbase-SQLServer control flow support local source edits. Unchanged
+  branches retain their original line breaks, whitespace, parentheses,
+  identifier delimiters, and case.
+- CTE DML, `UNION ALL`, table hints, and multiline `DROP ... IF EXISTS`
+  boundaries are no longer folded or reordered after a patch.
+- Replacing a complete SELECT target wrapped in an ODBC `{fn ...}` scalar
+  escape consumes the wrapper and does not leave a `{fn ` prefix behind.
+- UPDATE assignments validate the `OUTPUT` boundary against an actual OUTPUT
+  target. UPDATE OUTPUT target lists use a verifiable `FROM` or `WHERE`
+  boundary for local edits and retain the safe fallback when no boundary can
+  be proven.
 
 ## Compatibility
 
-- The public layout of `sqlparser_graph_dml_assignment_t` has grown. C
-  consumers that use this structure must rebuild against the 2.14.0 header.
-- View consumers must recognize the mutually exclusive `query_graph.dml` and
-  `query_graph.dmls` shapes and must not assume one DML root per statement.
-- Patch fragments remain dialect-parsed SQL and are not concatenated as
-  unparsed strings.
+- `sqlparser_selector_kind_t` only appends
+  `SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN` and
+  `SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL`.
+- Existing enum values, public function signatures, and public structure
+  layouts remain unchanged. The shared-library ABI major remains
+  `libsqlparser.so.0`.
+- MERGE INSERT View objects add target-column selectors, cell selectors, and a
+  `target_list_selector` when available. Consumers may read these additive
+  fields as needed; existing field semantics are unchanged.
 
 ## Release Validation
 
-- The nine executable dialect fixtures contain 2,752 cases with
-  `status = "final"` and 8,890 independent patches.
-- Every case checks byte-exact original deparse, the expected View JSON
-  structure, and all independent patches. Each patch also checks expected SQL,
-  a second deparse after a fresh parse, and patched/fresh View equivalence.
-- The release-candidate code completed one ASan run, one UBSan run, one
-  Valgrind run, ten full regression loops, and the full benchmark. The
-  benchmark executed 530,100 measured operations with zero error operations;
-  this does not claim an improvement over a historical baseline.
+- The nine executable dialect fixtures contain 2,755 cases with
+  `status = "final"` and 8,918 independent patches.
+- Every case checks byte-exact original deparse and expected View JSON. Every
+  patch checks expected SQL, a second deparse after reparsing, and
+  patched/fresh View equivalence.
+- A complete remote `make test` run exited with status 0. All nine fixtures
+  reported zero case, patch, original-deparse, View, patch-deparse, and runner
+  failures.
 
 Vendored `libpg_query` tag: `17-6.2.2`.

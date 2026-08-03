@@ -469,6 +469,18 @@ reference the parent DML assignments. DELETE and NOTHING branches omit
 `target_columns`, `rows`, and `assignments`. A conditional branch has `condition_selector`; an unconditional
 branch omits it.
 
+Each `target_columns[]` object in a MERGE INSERT action has a single-column
+`selector`, and each `rows[]` cell has a complete-expression `selector`. A root
+MERGE uses `stmt[S].merge_insert_column[W][C]` and
+`stmt[S].merge_insert_cell[W][C]`. A nested MERGE adds its statement-local DML
+index `D` before `W`. An explicit target-column list also exposes
+`target_list_selector` as `stmt[S].insert_branch_columns[W]`, or
+`stmt[S].insert_branch_columns[D][W]` for a nested MERGE. The field is omitted
+when the target-column list is omitted. Single-column and complete-cell
+selectors support replacement; the target-list selector supports atomic
+insertion or deletion of a target column and its VALUES item at the same
+position.
+
 `UPDATE` and `MERGE` assignments use `target_field` for the written field. When
 the right-hand side is a direct field reference, `kind` is `field` and
 `source_field` points to the source field. If that source field comes from a

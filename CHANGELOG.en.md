@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.14.1
+
+### Structured MERGE INSERT Addressing and Rewrites
+
+- MERGE INSERT target columns and complete VALUES cells expose `merge_insert_column` and `merge_insert_cell` selectors, while an explicit target-column list exposes an `insert_branch_columns` selector. Root and nested MERGE statements use distinct coordinates that uniquely identify the DML, WHEN branch, and column within one statement.
+- `SQLPARSER_PATCH_REPLACE` can replace one MERGE INSERT target column or complete cell. `SQLPARSER_PATCH_INSERT_COLUMN` and `SQLPARSER_PATCH_DELETE_COLUMN` use the target-list selector to atomically insert or remove the target column and value at the same position. New values continue to accept SQL, source-selector, literal, and bind inputs.
+- Field, bind, literal, and expression semantics in MERGE INSERT cells retain their existing `source_field` and `source_target` lineage. Dialect modes that support MERGE share the same selector and patch rules.
+
+### Patch Surface Preservation and Boundary Corrections
+
+- Local patches in SQL Server and Vastbase-SQLServer control-flow SELECT, INSERT, UPDATE, DELETE, and MERGE units preserve original line breaks, whitespace, parentheses, identifier delimiters, and case in unchanged branches, including CTE DML, set queries, table hints, and multiline DDL boundaries.
+- Corrected the SELECT-target replacement span for ODBC `{fn ...}` scalar wrappers so replacing the complete target does not leave a `{fn ` prefix behind.
+- UPDATE assignments validate the `OUTPUT` boundary against the source position of the first actual OUTPUT target. UPDATE OUTPUT target lists use their actual `FROM` or `WHERE` boundary, preventing scans into the result list or a following control unit and avoiding whole-statement normalization.
+
+### Compatibility and Validation
+
+- `sqlparser_selector_kind_t` appends `SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN` and `SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL`. Existing enum values, public function signatures, and public structure layouts remain unchanged.
+- The nine executable dialect fixtures contain 2,755 final cases and 8,918 independent patches. A remote full `make test` run validated original deparse, View JSON, patched deparse, a second deparse after reparsing, and patched/fresh View equivalence, with all checks passing.
+
 ## 2.14.0
 
 ### Source-Surface Preservation for Patch and Deparse

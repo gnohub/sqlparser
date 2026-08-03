@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 237 条 `status = "final"` 用例。59 条用例包含 statement 级 `query_graph.session`，覆盖 `O043`、`O043Q`、`O044` 至 `O047`、`O082` 至 `O086`，以及 `ORA-*` session 用例；这 59 条用例均至少包含一个非空 session item。
+夹具包含 238 条 `status = "final"` 用例。59 条用例包含 statement 级 `query_graph.session`，覆盖 `O043`、`O043Q`、`O044` 至 `O047`、`O082` 至 `O086`，以及 `ORA-*` session 用例；这 59 条用例均至少包含一个非空 session item。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name 及 value 字段均属于比较范围。
 
@@ -204,6 +204,7 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | O185 | `oracle-direct-bind-null-test` | `:STATUS IS NOT NULL AND DELETED_AT IS NULL` | 直接 bind NULL 测试输出 expression predicate 并仅引用真实命名 bind；字段 NULL 测试输出 comparison 且不生成 NULL value，AND 顺序及 4 个 patch 精确验证 |
 | O186 | `oracle-nested-select-target-multi-replace-middle` | 派生表内层三输出项 SELECT 的中间项替换为三个双引号输出项 | replacement 仅在内层 target list 原位置展开，内外 block、relation 和 target 顺序保持正确；独立 insert patch 验证内层列表位置 |
 | O187 | `oracle-merge-update-compound-rhs` | MERGE UPDATE 分支中的复合赋值右值 | 分支 assignment 通过 `rhs_fields` 和 `rhs_values` 归属 source field、位置参数与 literal；source alias 保持稳定，并精确验证 MERGE assignment 替换与插入 |
+| O188 | `oracle-merge-insert-structured-pair-rewrite` | MERGE INSERT 目标列与 VALUES cell 结构化改写：三列来源关系、目标列与完整 cell 定位、列值对成对插入和删除，以及标识符形式与未修改 SQL 原文保留 |
 
 ## ROWNUM 谓词语义回归
 

@@ -3674,24 +3674,29 @@
                         "column": 0,
                         "kind": "field",
                         "row": 1,
-                        "source_field": 4
+                        "source_field": 4,
+                        "selector": "stmt[0].merge_insert_cell[1][0]"
                       },
                       {
                         "bind_kind": 0,
                         "column": 1,
                         "kind": "field",
                         "row": 1,
-                        "source_field": 5
+                        "source_field": 5,
+                        "selector": "stmt[0].merge_insert_cell[1][1]"
                       }
                     ],
+                    "target_list_selector": "stmt[0].insert_branch_columns[1]",
                     "target_columns": [
                       {
                         "column": "id",
-                        "ordinal": 0
+                        "ordinal": 0,
+                        "selector": "stmt[0].merge_insert_column[1][0]"
                       },
                       {
                         "column": "name",
-                        "ordinal": 1
+                        "ordinal": 1,
+                        "selector": "stmt[0].merge_insert_column[1][1]"
                       }
                     ],
                     "target_relation": 0
@@ -3824,6 +3829,26 @@
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
           "deparse": "MERGE INTO [PatchedTable] AS [t] USING [dbo].[staging_users] AS [s] ON [t].[id] = [s].[id] WHEN MATCHED THEN UPDATE SET [name] = [s].[name] WHEN NOT MATCHED BY TARGET THEN INSERT ([id], [name]) VALUES ([s].[id], [s].[name]);"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/branches/1/target_columns/1/selector",
+          "value": "[display_name]",
+          "deparse": "MERGE INTO [dbo].[users] AS [t] USING [dbo].[staging_users] AS [s] ON [t].[id] = [s].[id] WHEN MATCHED THEN UPDATE SET [name] = [s].[name] WHEN NOT MATCHED BY TARGET THEN INSERT ([id], [display_name]) VALUES ([s].[id], [s].[name]);"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/branches/1/rows/1/selector",
+          "value": "COALESCE([s].[name], N'unknown')",
+          "deparse": "MERGE INTO [dbo].[users] AS [t] USING [dbo].[staging_users] AS [s] ON [t].[id] = [s].[id] WHEN MATCHED THEN UPDATE SET [name] = [s].[name] WHEN NOT MATCHED BY TARGET THEN INSERT ([id], [name]) VALUES ([s].[id], COALESCE([s].[name], N'unknown'));"
+        },
+        {
+          "action": "insert_column",
+          "target": "/statements/0/query_graph/dml/branches/1/target_list_selector",
+          "index": 1,
+          "name": "[extra]",
+          "value": "42",
+          "deparse": "MERGE INTO [dbo].[users] AS [t] USING [dbo].[staging_users] AS [s] ON [t].[id] = [s].[id] WHEN MATCHED THEN UPDATE SET [name] = [s].[name] WHEN NOT MATCHED BY TARGET THEN INSERT ([id], [extra], [name]) VALUES ([s].[id], 42, [s].[name]);"
         }
       ]
     },
@@ -10147,7 +10172,7 @@
                         "column": 0,
                         "kind": "bind",
                         "row": 1,
-                        "selector": "stmt[0].value[15]"
+                        "selector": "stmt[0].merge_insert_cell[1][0]"
                       },
                       {
                         "bind_key": "3",
@@ -10157,17 +10182,20 @@
                         "column": 1,
                         "kind": "bind",
                         "row": 1,
-                        "selector": "stmt[0].value[16]"
+                        "selector": "stmt[0].merge_insert_cell[1][1]"
                       }
                     ],
+                    "target_list_selector": "stmt[0].insert_branch_columns[1]",
                     "target_columns": [
                       {
                         "column": "id",
-                        "ordinal": 0
+                        "ordinal": 0,
+                        "selector": "stmt[0].merge_insert_column[1][0]"
                       },
                       {
                         "column": "phone",
-                        "ordinal": 1
+                        "ordinal": 1,
+                        "selector": "stmt[0].merge_insert_column[1][1]"
                       }
                     ],
                     "target_relation": 0
@@ -10252,31 +10280,31 @@
           "action": "replace_assignment",
           "target": "/statements/0/query_graph/dml/assignments/0/selector",
           "value": "[PatchedColumn] = 42",
-          "deparse": "MERGE INTO target t USING source s ON t.id = s.id WHEN MATCHED THEN UPDATE SET [PatchedColumn] = 42 WHEN NOT MATCHED THEN INSERT (id, phone) VALUES (?, ?)"
+          "deparse": "MERGE INTO target t USING source s ON t.id=s.id WHEN MATCHED THEN UPDATE SET [PatchedColumn] = 42 WHEN NOT MATCHED THEN INSERT (id, phone) VALUES (?, ?)"
         },
         {
           "action": "insert_assignment",
           "target": "/statements/0/query_graph/dml/assignments/0/selector",
           "value": "[InsertedColumn] = 43",
-          "deparse": "MERGE INTO target t USING source s ON t.id = s.id WHEN MATCHED THEN UPDATE SET [InsertedColumn] = 43, phone = ? WHEN NOT MATCHED THEN INSERT (id, phone) VALUES (?, ?)"
+          "deparse": "MERGE INTO target t USING source s ON t.id=s.id WHEN MATCHED THEN UPDATE SET [InsertedColumn] = 43, phone = ? WHEN NOT MATCHED THEN INSERT (id, phone) VALUES (?, ?)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/dml/branches/1/rows/0/selector",
           "value": "42",
-          "deparse": "MERGE INTO target t USING source s ON t.id = s.id WHEN MATCHED THEN UPDATE SET phone = ? WHEN NOT MATCHED THEN INSERT (id, phone) VALUES (42, ?)"
+          "deparse": "MERGE INTO target t USING source s ON t.id=s.id WHEN MATCHED THEN UPDATE SET phone = ? WHEN NOT MATCHED THEN INSERT (id, phone) VALUES (42, ?)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "[PatchedName]",
-          "deparse": "MERGE INTO target t USING source s ON t.[PatchedName] = s.id WHEN MATCHED THEN UPDATE SET phone = ? WHEN NOT MATCHED THEN INSERT (id, phone) VALUES (?, ?)"
+          "deparse": "MERGE INTO target t USING source s ON t.[PatchedName]=s.id WHEN MATCHED THEN UPDATE SET phone = ? WHEN NOT MATCHED THEN INSERT (id, phone) VALUES (?, ?)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "MERGE INTO [PatchedTable] t USING source s ON t.id = s.id WHEN MATCHED THEN UPDATE SET phone = ? WHEN NOT MATCHED THEN INSERT (id, phone) VALUES (?, ?)"
+          "deparse": "MERGE INTO [PatchedTable] t USING source s ON t.id=s.id WHEN MATCHED THEN UPDATE SET phone = ? WHEN NOT MATCHED THEN INSERT (id, phone) VALUES (?, ?)"
         }
       ]
     },
@@ -32685,7 +32713,8 @@
                         "kind": "field",
                         "row": 1,
                         "source_field": 4,
-                        "source_target": 0
+                        "source_target": 0,
+                        "selector": "stmt[0].merge_insert_cell[1][0]"
                       },
                       {
                         "bind_kind": 0,
@@ -32693,17 +32722,21 @@
                         "kind": "field",
                         "row": 1,
                         "source_field": 5,
-                        "source_target": 1
+                        "source_target": 1,
+                        "selector": "stmt[0].merge_insert_cell[1][1]"
                       }
                     ],
+                    "target_list_selector": "stmt[0].insert_branch_columns[1]",
                     "target_columns": [
                       {
                         "column": "id",
-                        "ordinal": 0
+                        "ordinal": 0,
+                        "selector": "stmt[0].merge_insert_column[1][0]"
                       },
                       {
                         "column": "email",
-                        "ordinal": 1
+                        "ordinal": 1,
+                        "selector": "stmt[0].merge_insert_column[1][1]"
                       }
                     ],
                     "target_relation": 0
@@ -32849,50 +32882,50 @@
           "action": "replace_assignment",
           "target": "/statements/0/query_graph/dml/assignments/0/selector",
           "value": "[PatchedColumn] = 42",
-          "deparse": "MERGE INTO dbo.t AS t USING (SELECT @id AS id, @email AS email) AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET [PatchedColumn] = 42 WHEN NOT MATCHED THEN INSERT (id, email) VALUES (s.id, s.email);"
+          "deparse": "MERGE INTO dbo.t AS t USING (SELECT @id AS id, @email AS email) AS s ON t.id=s.id WHEN MATCHED THEN UPDATE SET [PatchedColumn] = 42 WHEN NOT MATCHED THEN INSERT(id,email) VALUES(s.id,s.email);"
         },
         {
           "action": "insert_assignment",
           "target": "/statements/0/query_graph/dml/assignments/0/selector",
           "value": "[InsertedColumn] = 43",
-          "deparse": "MERGE INTO dbo.t AS t USING (SELECT @id AS id, @email AS email) AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET [InsertedColumn] = 43, email = s.email WHEN NOT MATCHED THEN INSERT (id, email) VALUES (s.id, s.email);"
+          "deparse": "MERGE INTO dbo.t AS t USING (SELECT @id AS id, @email AS email) AS s ON t.id=s.id WHEN MATCHED THEN UPDATE SET [InsertedColumn] = 43, email=s.email WHEN NOT MATCHED THEN INSERT(id,email) VALUES(s.id,s.email);"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "[PatchedName]",
-          "deparse": "MERGE INTO dbo.t AS t USING (SELECT @id AS id, @email AS email) AS s ON t.[PatchedName] = s.id WHEN MATCHED THEN UPDATE SET email = s.email WHEN NOT MATCHED THEN INSERT (id, email) VALUES (s.id, s.email);"
+          "deparse": "MERGE INTO dbo.t AS t USING (SELECT @id AS id, @email AS email) AS s ON t.[PatchedName]=s.id WHEN MATCHED THEN UPDATE SET email=s.email WHEN NOT MATCHED THEN INSERT(id,email) VALUES(s.id,s.email);"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/5/selector",
           "value": "[PatchedName]",
-          "deparse": "MERGE INTO dbo.t AS t USING (SELECT @id AS id, @email AS email) AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET email = s.email WHEN NOT MATCHED THEN INSERT (id, email) VALUES (s.id, s.[PatchedName]);"
+          "deparse": "MERGE INTO dbo.t AS t USING (SELECT @id AS id, @email AS email) AS s ON t.id=s.id WHEN MATCHED THEN UPDATE SET email=s.email WHEN NOT MATCHED THEN INSERT(id,email) VALUES(s.id,s.[PatchedName]);"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "MERGE INTO [PatchedTable] AS t USING (SELECT @id AS id, @email AS email) AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET email = s.email WHEN NOT MATCHED THEN INSERT (id, email) VALUES (s.id, s.email);"
+          "deparse": "MERGE INTO [PatchedTable] AS t USING (SELECT @id AS id, @email AS email) AS s ON t.id=s.id WHEN MATCHED THEN UPDATE SET email=s.email WHEN NOT MATCHED THEN INSERT(id,email) VALUES(s.id,s.email);"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "MERGE INTO dbo.t AS t USING (SELECT [PatchedTarget], @email AS email) AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET email = s.email WHEN NOT MATCHED THEN INSERT (id, email) VALUES (s.id, s.email);"
+          "deparse": "MERGE INTO dbo.t AS t USING (SELECT [PatchedTarget], @email AS email) AS s ON t.id=s.id WHEN MATCHED THEN UPDATE SET email=s.email WHEN NOT MATCHED THEN INSERT(id,email) VALUES(s.id,s.email);"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "[InsertedTarget]",
           "index": 1,
-          "deparse": "MERGE INTO dbo.t AS t USING (SELECT @id AS id, [InsertedTarget], @email AS email) AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET email = s.email WHEN NOT MATCHED THEN INSERT (id, email) VALUES (s.id, s.email);"
+          "deparse": "MERGE INTO dbo.t AS t USING (SELECT @id AS id, [InsertedTarget], @email AS email) AS s ON t.id=s.id WHEN MATCHED THEN UPDATE SET email=s.email WHEN NOT MATCHED THEN INSERT(id,email) VALUES(s.id,s.email);"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "MERGE INTO dbo.t AS t USING (SELECT 42 AS id, @email AS email) AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET email = s.email WHEN NOT MATCHED THEN INSERT (id, email) VALUES (s.id, s.email);"
+          "deparse": "MERGE INTO dbo.t AS t USING (SELECT 42 AS id, @email AS email) AS s ON t.id=s.id WHEN MATCHED THEN UPDATE SET email=s.email WHEN NOT MATCHED THEN INSERT(id,email) VALUES(s.id,s.email);"
         }
       ]
     },
@@ -39261,24 +39294,29 @@
                         "column": 0,
                         "kind": "field",
                         "row": 1,
-                        "source_field": 4
+                        "source_field": 4,
+                        "selector": "stmt[0].merge_insert_cell[1][0]"
                       },
                       {
                         "bind_kind": 0,
                         "column": 1,
                         "kind": "field",
                         "row": 1,
-                        "source_field": 5
+                        "source_field": 5,
+                        "selector": "stmt[0].merge_insert_cell[1][1]"
                       }
                     ],
+                    "target_list_selector": "stmt[0].insert_branch_columns[1]",
                     "target_columns": [
                       {
                         "column": "id",
-                        "ordinal": 0
+                        "ordinal": 0,
+                        "selector": "stmt[0].merge_insert_column[1][0]"
                       },
                       {
                         "column": "a",
-                        "ordinal": 1
+                        "ordinal": 1,
+                        "selector": "stmt[0].merge_insert_column[1][1]"
                       }
                     ],
                     "target_relation": 0
@@ -39511,24 +39549,29 @@
                         "column": 0,
                         "kind": "field",
                         "row": 1,
-                        "source_field": 4
+                        "source_field": 4,
+                        "selector": "stmt[0].merge_insert_cell[1][0]"
                       },
                       {
                         "bind_kind": 0,
                         "column": 1,
                         "kind": "field",
                         "row": 1,
-                        "source_field": 5
+                        "source_field": 5,
+                        "selector": "stmt[0].merge_insert_cell[1][1]"
                       }
                     ],
+                    "target_list_selector": "stmt[0].insert_branch_columns[1]",
                     "target_columns": [
                       {
                         "column": "id",
-                        "ordinal": 0
+                        "ordinal": 0,
+                        "selector": "stmt[0].merge_insert_column[1][0]"
                       },
                       {
                         "column": "a",
-                        "ordinal": 1
+                        "ordinal": 1,
+                        "selector": "stmt[0].merge_insert_column[1][1]"
                       }
                     ],
                     "target_relation": 0
@@ -45400,68 +45443,68 @@
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "IF 42 = 1 UPDATE dbo.t SET a = 2 OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a WHERE id = @id ELSE INSERT dbo.t (a) OUTPUT INSERTED.id VALUES (1)"
+          "deparse": "IF 42 = 1 UPDATE dbo.t SET a = 2 OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a WHERE id = @id ELSE INSERT dbo.t(a) OUTPUT INSERTED.id VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "IF @a = 1 UPDATE dbo.t SET a = 2 OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a WHERE id = 42 ELSE INSERT dbo.t (a) OUTPUT INSERTED.id VALUES (1)"
+          "deparse": "IF @a = 1 UPDATE dbo.t SET a = 2 OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a WHERE id = 42 ELSE INSERT dbo.t(a) OUTPUT INSERTED.id VALUES (1)"
         },
         {
           "action": "replace_assignment",
           "target": "/statements/1/query_graph/dml/assignments/0/selector",
           "value": "[PatchedColumn] = 42",
-          "deparse": "IF @a = 1 UPDATE dbo.t SET [PatchedColumn] = 42 OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a WHERE id = @id ELSE INSERT dbo.t (a) OUTPUT INSERTED.id VALUES (1)"
+          "deparse": "IF @a = 1 UPDATE dbo.t SET [PatchedColumn] = 42 OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a WHERE id = @id ELSE INSERT dbo.t(a) OUTPUT INSERTED.id VALUES (1)"
         },
         {
           "action": "insert_assignment",
           "target": "/statements/1/query_graph/dml/assignments/0/selector",
           "value": "[InsertedColumn] = 43",
-          "deparse": "IF @a = 1 UPDATE dbo.t SET [InsertedColumn] = 43, a = 2 OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a WHERE id = @id ELSE INSERT dbo.t (a) OUTPUT INSERTED.id VALUES (1)"
+          "deparse": "IF @a = 1 UPDATE dbo.t SET [InsertedColumn] = 43, a = 2 OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a WHERE id = @id ELSE INSERT dbo.t(a) OUTPUT INSERTED.id VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/fields/1/selector",
           "value": "[PatchedName]",
-          "deparse": "IF @a = 1 UPDATE dbo.t SET a = 2 OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a WHERE [PatchedName] = @id ELSE INSERT dbo.t (a) OUTPUT INSERTED.id VALUES (1)"
+          "deparse": "IF @a = 1 UPDATE dbo.t SET a = 2 OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a WHERE [PatchedName] = @id ELSE INSERT dbo.t(a) OUTPUT INSERTED.id VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/2/query_graph/fields/0/selector",
           "value": "[PatchedName]",
-          "deparse": "IF @a = 1 UPDATE dbo.t SET a = 2 OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a WHERE id = @id ELSE INSERT dbo.t (a) OUTPUT INSERTED.[PatchedName] VALUES (1)"
+          "deparse": "IF @a = 1 UPDATE dbo.t SET a = 2 OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a WHERE id = @id ELSE INSERT dbo.t(a) OUTPUT INSERTED.[PatchedName] VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "IF @a = 1 UPDATE [PatchedTable] SET a = 2 OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a WHERE id = @id ELSE INSERT dbo.t (a) OUTPUT INSERTED.id VALUES (1)"
+          "deparse": "IF @a = 1 UPDATE [PatchedTable] SET a = 2 OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a WHERE id = @id ELSE INSERT dbo.t(a) OUTPUT INSERTED.id VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "IF @a = 1 UPDATE dbo.t SET a = 2 OUTPUT [PatchedTarget], INSERTED.a AS new_a WHERE id = @id ELSE INSERT dbo.t (a) OUTPUT INSERTED.id VALUES (1)"
+          "deparse": "IF @a = 1 UPDATE dbo.t SET a = 2 OUTPUT [PatchedTarget], INSERTED.a AS new_a WHERE id = @id ELSE INSERT dbo.t(a) OUTPUT INSERTED.id VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/2/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "IF @a = 1 UPDATE dbo.t SET a = 2 OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a WHERE id = @id ELSE INSERT dbo.t (a) OUTPUT [PatchedTarget] VALUES (1)"
+          "deparse": "IF @a = 1 UPDATE dbo.t SET a = 2 OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a WHERE id = @id ELSE INSERT dbo.t(a) OUTPUT [PatchedTarget] VALUES (1)"
         },
         {
           "action": "insert_column",
           "target": "/statements/1/query_graph/targets/0/target_list_selector",
           "value": "[InsertedTarget]",
           "index": 1,
-          "deparse": "IF @a = 1 UPDATE dbo.t SET a = 2 OUTPUT DELETED.a AS old_a, [InsertedTarget], INSERTED.a AS new_a WHERE id = @id ELSE INSERT dbo.t (a) OUTPUT INSERTED.id VALUES (1)"
+          "deparse": "IF @a = 1 UPDATE dbo.t SET a = 2 OUTPUT DELETED.a AS old_a, [InsertedTarget], INSERTED.a AS new_a WHERE id = @id ELSE INSERT dbo.t(a) OUTPUT INSERTED.id VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/2/query_graph/dml/rows/0/selector",
           "value": "42",
-          "deparse": "IF @a = 1 UPDATE dbo.t SET a = 2 OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a WHERE id = @id ELSE INSERT dbo.t (a) OUTPUT INSERTED.id VALUES (42)"
+          "deparse": "IF @a = 1 UPDATE dbo.t SET a = 2 OUTPUT DELETED.a AS old_a, INSERTED.a AS new_a WHERE id = @id ELSE INSERT dbo.t(a) OUTPUT INSERTED.id VALUES (42)"
         }
       ]
     },
@@ -45732,24 +45775,29 @@
                         "column": 0,
                         "kind": "field",
                         "row": 1,
-                        "source_field": 4
+                        "source_field": 4,
+                        "selector": "stmt[2].merge_insert_cell[1][0]"
                       },
                       {
                         "bind_kind": 0,
                         "column": 1,
                         "kind": "field",
                         "row": 1,
-                        "source_field": 5
+                        "source_field": 5,
+                        "selector": "stmt[2].merge_insert_cell[1][1]"
                       }
                     ],
+                    "target_list_selector": "stmt[2].insert_branch_columns[1]",
                     "target_columns": [
                       {
                         "column": "id",
-                        "ordinal": 0
+                        "ordinal": 0,
+                        "selector": "stmt[2].merge_insert_column[1][0]"
                       },
                       {
                         "column": "a",
-                        "ordinal": 1
+                        "ordinal": 1,
+                        "selector": "stmt[2].merge_insert_column[1][1]"
                       }
                     ],
                     "target_relation": 0
@@ -46098,7 +46146,7 @@
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "IF 42 = 1 DROP TABLE IF EXISTS dbo.old_t ELSE CREATE TABLE dbo.new_t (id int)"
+          "deparse": "IF 42 = 1 DROP TABLE IF EXISTS dbo.old_t ELSE CREATE TABLE dbo.new_t(id int)"
         }
       ]
     },
@@ -47338,32 +47386,32 @@
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "IF 42 = 1 BEGIN SELECT 1 UNION ALL SELECT 2\nSELECT 3 END ELSE SELECT 0"
+          "deparse": "IF 42 = 1 BEGIN SELECT 1\nUNION ALL\nSELECT 2\nSELECT 3 END ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/3/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "IF @a = 1 BEGIN SELECT 1 UNION ALL SELECT 2\nSELECT 3 END ELSE SELECT 42"
+          "deparse": "IF @a = 1 BEGIN SELECT 1\nUNION ALL\nSELECT 2\nSELECT 3 END ELSE SELECT 42"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "IF @a = 1 BEGIN SELECT [PatchedTarget] UNION ALL SELECT 2\nSELECT 3 END ELSE SELECT 0"
+          "deparse": "IF @a = 1 BEGIN SELECT [PatchedTarget]\nUNION ALL\nSELECT 2\nSELECT 3 END ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/3/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "IF @a = 1 BEGIN SELECT 1 UNION ALL SELECT 2\nSELECT 3 END ELSE SELECT [PatchedTarget]"
+          "deparse": "IF @a = 1 BEGIN SELECT 1\nUNION ALL\nSELECT 2\nSELECT 3 END ELSE SELECT [PatchedTarget]"
         },
         {
           "action": "insert_column",
           "target": "/statements/3/query_graph/targets/0/target_list_selector",
           "value": "[InsertedTarget]",
           "index": 1,
-          "deparse": "IF @a = 1 BEGIN SELECT 1 UNION ALL SELECT 2\nSELECT 3 END ELSE SELECT 0, [InsertedTarget]"
+          "deparse": "IF @a = 1 BEGIN SELECT 1\nUNION ALL\nSELECT 2\nSELECT 3 END ELSE SELECT 0, [InsertedTarget]"
         }
       ]
     },
@@ -47597,51 +47645,51 @@
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "IF 42 = 1 BEGIN SELECT id FROM dbo.t WITH (NOLOCK)\nSELECT 2 END ELSE SELECT 0"
+          "deparse": "IF 42 = 1 BEGIN SELECT id FROM dbo.t\nWITH (NOLOCK)\nSELECT 2 END ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/3/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "IF @a = 1 BEGIN SELECT id FROM dbo.t WITH (NOLOCK)\nSELECT 2 END ELSE SELECT 42"
+          "deparse": "IF @a = 1 BEGIN SELECT id FROM dbo.t\nWITH (NOLOCK)\nSELECT 2 END ELSE SELECT 42"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/fields/0/selector",
           "value": "[PatchedName]",
-          "deparse": "IF @a = 1 BEGIN SELECT [PatchedName] FROM dbo.t WITH (NOLOCK)\nSELECT 2 END ELSE SELECT 0"
+          "deparse": "IF @a = 1 BEGIN SELECT [PatchedName] FROM dbo.t\nWITH (NOLOCK)\nSELECT 2 END ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "IF @a = 1 BEGIN SELECT id FROM [PatchedTable] WITH (NOLOCK)\nSELECT 2 END ELSE SELECT 0"
+          "deparse": "IF @a = 1 BEGIN SELECT id FROM [PatchedTable]\nWITH (NOLOCK)\nSELECT 2 END ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "IF @a = 1 BEGIN SELECT [PatchedTarget] FROM dbo.t WITH (NOLOCK)\nSELECT 2 END ELSE SELECT 0"
+          "deparse": "IF @a = 1 BEGIN SELECT [PatchedTarget] FROM dbo.t\nWITH (NOLOCK)\nSELECT 2 END ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/3/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "IF @a = 1 BEGIN SELECT id FROM dbo.t WITH (NOLOCK)\nSELECT 2 END ELSE SELECT [PatchedTarget]"
+          "deparse": "IF @a = 1 BEGIN SELECT id FROM dbo.t\nWITH (NOLOCK)\nSELECT 2 END ELSE SELECT [PatchedTarget]"
         },
         {
           "action": "insert_column",
           "target": "/statements/1/query_graph/targets/0/target_list_selector",
           "value": "[InsertedTarget]",
           "index": 1,
-          "deparse": "IF @a = 1 BEGIN SELECT id, [InsertedTarget] FROM dbo.t WITH (NOLOCK)\nSELECT 2 END ELSE SELECT 0"
+          "deparse": "IF @a = 1 BEGIN SELECT id, [InsertedTarget] FROM dbo.t\nWITH (NOLOCK)\nSELECT 2 END ELSE SELECT 0"
         },
         {
           "action": "insert_column",
           "target": "/statements/3/query_graph/targets/0/target_list_selector",
           "value": "[InsertedTarget]",
           "index": 1,
-          "deparse": "IF @a = 1 BEGIN SELECT id FROM dbo.t WITH (NOLOCK)\nSELECT 2 END ELSE SELECT 0, [InsertedTarget]"
+          "deparse": "IF @a = 1 BEGIN SELECT id FROM dbo.t\nWITH (NOLOCK)\nSELECT 2 END ELSE SELECT 0, [InsertedTarget]"
         }
       ]
     },
@@ -50246,26 +50294,26 @@
           "action": "replace",
           "target": "/statements/1/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "DROP TABLE IF EXISTS dbo.old_t\nIF 42 = 1 SELECT 1 ELSE SELECT 0"
+          "deparse": "DROP TABLE\nIF EXISTS dbo.old_t\nIF 42 = 1 SELECT 1 ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/3/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "DROP TABLE IF EXISTS dbo.old_t\nIF @a = 1 SELECT 1 ELSE SELECT 42"
+          "deparse": "DROP TABLE\nIF EXISTS dbo.old_t\nIF @a = 1 SELECT 1 ELSE SELECT 42"
         },
         {
           "action": "replace",
           "target": "/statements/2/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "DROP TABLE IF EXISTS dbo.old_t\nIF @a = 1 SELECT [PatchedTarget] ELSE SELECT 0"
+          "deparse": "DROP TABLE\nIF EXISTS dbo.old_t\nIF @a = 1 SELECT [PatchedTarget] ELSE SELECT 0"
         },
         {
           "action": "insert_column",
           "target": "/statements/2/query_graph/targets/0/target_list_selector",
           "value": "[InsertedTarget]",
           "index": 1,
-          "deparse": "DROP TABLE IF EXISTS dbo.old_t\nIF @a = 1 SELECT 1, [InsertedTarget] ELSE SELECT 0"
+          "deparse": "DROP TABLE\nIF EXISTS dbo.old_t\nIF @a = 1 SELECT 1, [InsertedTarget] ELSE SELECT 0"
         }
       ]
     },
@@ -50550,50 +50598,50 @@
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "IF 42 = 1 BEGIN; WITH cte AS (SELECT id, v FROM dbo.t) UPDATE cte SET v = 1 WHERE id = 2; END ELSE SELECT 0"
+          "deparse": "IF 42 = 1 BEGIN; WITH cte AS (SELECT id, v FROM dbo.t)\nUPDATE cte\nSET v = 1\nWHERE id = 2; END ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/2/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id, v FROM dbo.t) UPDATE cte SET v = 1 WHERE id = 2; END ELSE SELECT 42"
+          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id, v FROM dbo.t)\nUPDATE cte\nSET v = 1\nWHERE id = 2; END ELSE SELECT 42"
         },
         {
           "action": "replace_assignment",
           "target": "/statements/1/query_graph/dml/assignments/0/selector",
           "value": "[PatchedColumn] = 42",
-          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id, v FROM dbo.t) UPDATE cte SET [PatchedColumn] = 42 WHERE id = 2; END ELSE SELECT 0"
+          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id, v FROM dbo.t)\nUPDATE cte\nSET [PatchedColumn] = 42\nWHERE id = 2; END ELSE SELECT 0"
         },
         {
           "action": "insert_assignment",
           "target": "/statements/1/query_graph/dml/assignments/0/selector",
           "value": "[InsertedColumn] = 43",
-          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id, v FROM dbo.t) UPDATE cte SET [InsertedColumn] = 43, v = 1 WHERE id = 2; END ELSE SELECT 0"
+          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id, v FROM dbo.t)\nUPDATE cte\nSET [InsertedColumn] = 43, v = 1\nWHERE id = 2; END ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/fields/3/selector",
           "value": "[PatchedName]",
-          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id, v FROM dbo.t) UPDATE cte SET v = 1 WHERE [PatchedName] = 2; END ELSE SELECT 0"
+          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id, v FROM dbo.t)\nUPDATE cte\nSET v = 1\nWHERE [PatchedName] = 2; END ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id, v FROM dbo.t) UPDATE [PatchedTable] SET v = 1 WHERE id = 2; END ELSE SELECT 0"
+          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id, v FROM dbo.t)\nUPDATE [PatchedTable]\nSET v = 1\nWHERE id = 2; END ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/2/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id, v FROM dbo.t) UPDATE cte SET v = 1 WHERE id = 2; END ELSE SELECT [PatchedTarget]"
+          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id, v FROM dbo.t)\nUPDATE cte\nSET v = 1\nWHERE id = 2; END ELSE SELECT [PatchedTarget]"
         },
         {
           "action": "insert_column",
           "target": "/statements/2/query_graph/targets/0/target_list_selector",
           "value": "[InsertedTarget]",
           "index": 1,
-          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id, v FROM dbo.t) UPDATE cte SET v = 1 WHERE id = 2; END ELSE SELECT 0, [InsertedTarget]"
+          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id, v FROM dbo.t)\nUPDATE cte\nSET v = 1\nWHERE id = 2; END ELSE SELECT 0, [InsertedTarget]"
         }
       ]
     },
@@ -50845,38 +50893,38 @@
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "IF 42 = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.t) DELETE FROM cte WHERE id = 2; END ELSE SELECT 0"
+          "deparse": "IF 42 = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.t)\nDELETE FROM cte\nWHERE id = 2; END ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/2/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.t) DELETE FROM cte WHERE id = 2; END ELSE SELECT 42"
+          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.t)\nDELETE FROM cte\nWHERE id = 2; END ELSE SELECT 42"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/fields/1/selector",
           "value": "[PatchedName]",
-          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.t) DELETE FROM cte WHERE [PatchedName] = 2; END ELSE SELECT 0"
+          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.t)\nDELETE FROM cte\nWHERE [PatchedName] = 2; END ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.t) DELETE FROM [PatchedTable] WHERE id = 2; END ELSE SELECT 0"
+          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.t)\nDELETE FROM [PatchedTable]\nWHERE id = 2; END ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/2/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.t) DELETE FROM cte WHERE id = 2; END ELSE SELECT [PatchedTarget]"
+          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.t)\nDELETE FROM cte\nWHERE id = 2; END ELSE SELECT [PatchedTarget]"
         },
         {
           "action": "insert_column",
           "target": "/statements/2/query_graph/targets/0/target_list_selector",
           "value": "[InsertedTarget]",
           "index": 1,
-          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.t) DELETE FROM cte WHERE id = 2; END ELSE SELECT 0, [InsertedTarget]"
+          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.t)\nDELETE FROM cte\nWHERE id = 2; END ELSE SELECT 0, [InsertedTarget]"
         }
       ]
     },
@@ -51126,38 +51174,38 @@
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "IF 42 = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.s) INSERT INTO dbo.t (id) SELECT id FROM cte; END ELSE SELECT 0"
+          "deparse": "IF 42 = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.s)\nINSERT INTO dbo.t(id)\nSELECT id FROM cte; END ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/2/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.s) INSERT INTO dbo.t (id) SELECT id FROM cte; END ELSE SELECT 42"
+          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.s)\nINSERT INTO dbo.t(id)\nSELECT id FROM cte; END ELSE SELECT 42"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/fields/1/selector",
           "value": "[PatchedName]",
-          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.s) INSERT INTO dbo.t (id) SELECT [PatchedName] FROM cte; END ELSE SELECT 0"
+          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.s)\nINSERT INTO dbo.t(id)\nSELECT [PatchedName] FROM cte; END ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.s) INSERT INTO [PatchedTable] (id) SELECT id FROM cte; END ELSE SELECT 0"
+          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.s)\nINSERT INTO [PatchedTable](id)\nSELECT id FROM cte; END ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/targets/1/selector",
           "value": "[PatchedTarget]",
-          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.s) INSERT INTO dbo.t (id) SELECT [PatchedTarget] FROM cte; END ELSE SELECT 0"
+          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.s)\nINSERT INTO dbo.t(id)\nSELECT [PatchedTarget] FROM cte; END ELSE SELECT 0"
         },
         {
           "action": "insert_column",
           "target": "/statements/2/query_graph/targets/0/target_list_selector",
           "value": "[InsertedTarget]",
           "index": 1,
-          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.s) INSERT INTO dbo.t (id) SELECT id FROM cte; END ELSE SELECT 0, [InsertedTarget]"
+          "deparse": "IF @run = 1 BEGIN; WITH cte AS (SELECT id FROM dbo.s)\nINSERT INTO dbo.t(id)\nSELECT id FROM cte; END ELSE SELECT 0, [InsertedTarget]"
         }
       ]
     },
@@ -51322,7 +51370,8 @@
                         "kind": "field",
                         "row": 1,
                         "source_field": 6,
-                        "source_target": 0
+                        "source_target": 0,
+                        "selector": "stmt[1].merge_insert_cell[1][0]"
                       },
                       {
                         "bind_kind": 0,
@@ -51330,17 +51379,21 @@
                         "kind": "field",
                         "row": 1,
                         "source_field": 7,
-                        "source_target": 1
+                        "source_target": 1,
+                        "selector": "stmt[1].merge_insert_cell[1][1]"
                       }
                     ],
+                    "target_list_selector": "stmt[1].insert_branch_columns[1]",
                     "target_columns": [
                       {
                         "column": "id",
-                        "ordinal": 0
+                        "ordinal": 0,
+                        "selector": "stmt[1].merge_insert_column[1][0]"
                       },
                       {
                         "column": "v",
-                        "ordinal": 1
+                        "ordinal": 1,
+                        "selector": "stmt[1].merge_insert_column[1][1]"
                       }
                     ],
                     "target_relation": 0
@@ -51529,68 +51582,68 @@
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "IF 42 = 1 BEGIN; WITH src AS (SELECT id, v FROM dbo.s) MERGE INTO dbo.t AS t USING src AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET v = s.v WHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v); END ELSE SELECT 0"
+          "deparse": "IF 42 = 1 BEGIN; WITH src AS (SELECT id, v FROM dbo.s)\nMERGE INTO dbo.t AS t\nUSING src AS s ON t.id = s.id\nWHEN MATCHED THEN UPDATE SET v = s.v\nWHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v); END ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/2/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "IF @run = 1 BEGIN; WITH src AS (SELECT id, v FROM dbo.s) MERGE INTO dbo.t AS t USING src AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET v = s.v WHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v); END ELSE SELECT 42"
+          "deparse": "IF @run = 1 BEGIN; WITH src AS (SELECT id, v FROM dbo.s)\nMERGE INTO dbo.t AS t\nUSING src AS s ON t.id = s.id\nWHEN MATCHED THEN UPDATE SET v = s.v\nWHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v); END ELSE SELECT 42"
         },
         {
           "action": "replace_assignment",
           "target": "/statements/1/query_graph/dml/assignments/0/selector",
           "value": "[PatchedColumn] = 42",
-          "deparse": "IF @run = 1 BEGIN; WITH src AS (SELECT id, v FROM dbo.s) MERGE INTO dbo.t AS t USING src AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET [PatchedColumn] = 42 WHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v); END ELSE SELECT 0"
+          "deparse": "IF @run = 1 BEGIN; WITH src AS (SELECT id, v FROM dbo.s)\nMERGE INTO dbo.t AS t\nUSING src AS s ON t.id = s.id\nWHEN MATCHED THEN UPDATE SET [PatchedColumn] = 42\nWHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v); END ELSE SELECT 0"
         },
         {
           "action": "insert_assignment",
           "target": "/statements/1/query_graph/dml/assignments/0/selector",
           "value": "[InsertedColumn] = 43",
-          "deparse": "IF @run = 1 BEGIN; WITH src AS (SELECT id, v FROM dbo.s) MERGE INTO dbo.t AS t USING src AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET [InsertedColumn] = 43, v = s.v WHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v); END ELSE SELECT 0"
+          "deparse": "IF @run = 1 BEGIN; WITH src AS (SELECT id, v FROM dbo.s)\nMERGE INTO dbo.t AS t\nUSING src AS s ON t.id = s.id\nWHEN MATCHED THEN UPDATE SET [InsertedColumn] = 43, v = s.v\nWHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v); END ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/fields/0/selector",
           "value": "[PatchedName]",
-          "deparse": "IF @run = 1 BEGIN; WITH src AS (SELECT [PatchedName], v FROM dbo.s) MERGE INTO dbo.t AS t USING src AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET v = s.v WHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v); END ELSE SELECT 0"
+          "deparse": "IF @run = 1 BEGIN; WITH src AS (SELECT [PatchedName], v FROM dbo.s)\nMERGE INTO dbo.t AS t\nUSING src AS s ON t.id = s.id\nWHEN MATCHED THEN UPDATE SET v = s.v\nWHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v); END ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/fields/7/selector",
           "value": "[PatchedName]",
-          "deparse": "IF @run = 1 BEGIN; WITH src AS (SELECT id, v FROM dbo.s) MERGE INTO dbo.t AS t USING src AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET v = s.v WHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.[PatchedName]); END ELSE SELECT 0"
+          "deparse": "IF @run = 1 BEGIN; WITH src AS (SELECT id, v FROM dbo.s)\nMERGE INTO dbo.t AS t\nUSING src AS s ON t.id = s.id\nWHEN MATCHED THEN UPDATE SET v = s.v\nWHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.[PatchedName]); END ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "IF @run = 1 BEGIN; WITH src AS (SELECT id, v FROM dbo.s) MERGE INTO [PatchedTable] AS t USING src AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET v = s.v WHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v); END ELSE SELECT 0"
+          "deparse": "IF @run = 1 BEGIN; WITH src AS (SELECT id, v FROM dbo.s)\nMERGE INTO [PatchedTable] AS t\nUSING src AS s ON t.id = s.id\nWHEN MATCHED THEN UPDATE SET v = s.v\nWHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v); END ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/relations/2/selector",
           "value": "[PatchedTable]",
-          "deparse": "IF @run = 1 BEGIN; WITH src AS (SELECT id, v FROM [PatchedTable]) MERGE INTO dbo.t AS t USING src AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET v = s.v WHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v); END ELSE SELECT 0"
+          "deparse": "IF @run = 1 BEGIN; WITH src AS (SELECT id, v FROM [PatchedTable])\nMERGE INTO dbo.t AS t\nUSING src AS s ON t.id = s.id\nWHEN MATCHED THEN UPDATE SET v = s.v\nWHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v); END ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "IF @run = 1 BEGIN; WITH src AS (SELECT [PatchedTarget], v FROM dbo.s) MERGE INTO dbo.t AS t USING src AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET v = s.v WHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v); END ELSE SELECT 0"
+          "deparse": "IF @run = 1 BEGIN; WITH src AS (SELECT [PatchedTarget], v FROM dbo.s)\nMERGE INTO dbo.t AS t\nUSING src AS s ON t.id = s.id\nWHEN MATCHED THEN UPDATE SET v = s.v\nWHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v); END ELSE SELECT 0"
         },
         {
           "action": "replace",
           "target": "/statements/2/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "IF @run = 1 BEGIN; WITH src AS (SELECT id, v FROM dbo.s) MERGE INTO dbo.t AS t USING src AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET v = s.v WHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v); END ELSE SELECT [PatchedTarget]"
+          "deparse": "IF @run = 1 BEGIN; WITH src AS (SELECT id, v FROM dbo.s)\nMERGE INTO dbo.t AS t\nUSING src AS s ON t.id = s.id\nWHEN MATCHED THEN UPDATE SET v = s.v\nWHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v); END ELSE SELECT [PatchedTarget]"
         },
         {
           "action": "insert_column",
           "target": "/statements/1/query_graph/targets/0/target_list_selector",
           "value": "[InsertedTarget]",
           "index": 1,
-          "deparse": "IF @run = 1 BEGIN; WITH src AS (SELECT id, [InsertedTarget], v FROM dbo.s) MERGE INTO dbo.t AS t USING src AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET v = s.v WHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v); END ELSE SELECT 0"
+          "deparse": "IF @run = 1 BEGIN; WITH src AS (SELECT id, [InsertedTarget], v FROM dbo.s)\nMERGE INTO dbo.t AS t\nUSING src AS s ON t.id = s.id\nWHEN MATCHED THEN UPDATE SET v = s.v\nWHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v); END ELSE SELECT 0"
         }
       ]
     },
@@ -56984,24 +57037,29 @@
                         "column": 0,
                         "kind": "field",
                         "row": 1,
-                        "source_field": 4
+                        "source_field": 4,
+                        "selector": "stmt[0].merge_insert_cell[1][0]"
                       },
                       {
                         "bind_kind": 0,
                         "column": 1,
                         "kind": "field",
                         "row": 1,
-                        "source_field": 5
+                        "source_field": 5,
+                        "selector": "stmt[0].merge_insert_cell[1][1]"
                       }
                     ],
+                    "target_list_selector": "stmt[0].insert_branch_columns[1]",
                     "target_columns": [
                       {
                         "column": "id",
-                        "ordinal": 0
+                        "ordinal": 0,
+                        "selector": "stmt[0].merge_insert_column[1][0]"
                       },
                       {
                         "column": "a",
-                        "ordinal": 1
+                        "ordinal": 1,
+                        "selector": "stmt[0].merge_insert_column[1][1]"
                       }
                     ],
                     "target_relation": 0

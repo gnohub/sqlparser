@@ -1,5 +1,24 @@
 # 变更记录
 
+## 2.14.1
+
+### MERGE INSERT 结构化定位与改写
+
+- MERGE INSERT 的目标列与完整 VALUES cell 分别提供 `merge_insert_column` 和 `merge_insert_cell` selector；显式目标列列表提供 `insert_branch_columns` selector。根 MERGE 与嵌套 MERGE 使用独立坐标，能够在同一 statement 内唯一定位对应 DML、WHEN 分支和列。
+- `SQLPARSER_PATCH_REPLACE` 支持替换单个 MERGE INSERT 目标列或完整 cell；`SQLPARSER_PATCH_INSERT_COLUMN` 与 `SQLPARSER_PATCH_DELETE_COLUMN` 通过目标列列表 selector 原子插入或删除同一位置的目标列和值。新增值继续支持 SQL、source selector、literal 和 bind 来源。
+- MERGE INSERT cell 的 field、bind、literal 与 expression 语义及 `source_field`、`source_target` 来源关系保持不变；支持 MERGE 的方言模式共用同一组 selector 和 patch 规则。
+
+### Patch 表面保留与边界修正
+
+- SQL Server 与 Vastbase-SQLServer 控制流中的 SELECT、INSERT、UPDATE、DELETE 和 MERGE 局部 patch 保留未修改分支的原始换行、空白、括号、标识符定界符与大小写，覆盖 CTE DML、集合查询、表提示和多行 DDL 边界。
+- 修正 ODBC `{fn ...}` scalar wrapper 的 SELECT target 替换区间，替换完整 target 时不会残留 `{fn ` 前缀。
+- UPDATE assignment 通过首个真实 OUTPUT target 的来源位置确认 `OUTPUT` 边界；UPDATE OUTPUT target 列表按实际 `FROM` 或 `WHERE` 边界定位，避免进入结果列表或后续控制单元并触发整句规范化。
+
+### 兼容性与验证
+
+- `sqlparser_selector_kind_t` 追加 `SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN` 和 `SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL`；既有枚举值、公开函数签名和公开结构体布局保持不变。
+- 九套可执行方言夹具包含 2,755 条 final 用例和 8,918 个独立 patch。远端全量 `make test` 对原始反解析、View JSON、patch 反解析、重新解析后的二次反解析及 patch/fresh View 一致性完成校验，全部通过。
+
 ## 2.14.0
 
 ### Patch 与反解析表面保留

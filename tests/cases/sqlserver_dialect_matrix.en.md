@@ -4,7 +4,7 @@ This file records regression cases for the SQL Server dialect conversion layer. 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 619 cases with `status = "final"`. A non-empty
+The fixture contains 620 cases with `status = "final"`. A non-empty
 `query_graph.session` projection appears in 91 expected Views, covering `S044`
 through `S046`, `SH295` through `SH333`, and 49 `MSSQL-*` session cases.
 
@@ -83,6 +83,14 @@ These cases require OUTPUT restoration to retain a boundary only when a followin
 | SH420 | `sqlserver-merge-output-action-terminal-semicolon` | `MERGE ... OUTPUT $action;` | no trailing space after terminal MERGE OUTPUT and unchanged semicolon position |
 | SH421 | `sqlserver-update-output-terminal` | `UPDATE ... OUTPUT INSERTED.a` | no generated right boundary without a following WHERE or FROM clause |
 | SH422 | `sqlserver-delete-output-terminal` | `DELETE ... OUTPUT DELETED.id` | no generated right boundary without a following WHERE or FROM clause |
+
+## Nested MERGE INSERT Selector Regression
+
+This case verifies that multiple nested MERGE statements in one statement use independent selectors containing their DML index. Target-column, complete VALUES-cell, and atomic column/value patches must affect only the selected MERGE while preserving the other nested MERGE and the outer INSERT byte for byte.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| SH423 | `sqlserver-nested-merge-insert-selector-uniqueness` | an outer `INSERT ... SELECT` combines two nested MERGE statements with `OUTPUT` | unique target-list, target-column, and cell selectors for both nonzero DML indexes; independent replacement and atomic insertion do not cross MERGE boundaries |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 

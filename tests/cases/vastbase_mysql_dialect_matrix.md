@@ -15,7 +15,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 253 条 `status = "final"` 用例，其中 44 条用例的期望 View 包含非空 session 投影。
+夹具包含 254 条 `status = "final"` 用例，其中 44 条用例的期望 View 包含非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -149,6 +149,7 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | `VM251` | `vastbase-mysql-string-common-backslash-escapes` | 换行、制表符和反斜杠的常用字符串转义 | View 保存解码后的字符串语义；原始转义拼写及 patch fragment 的引号、national 前缀和反斜杠逐字节保留 |
 | `VM252` | `vastbase-mysql-string-equal-value-surfaces` | 普通字符串、`n` 与 `N` 前缀字符串具有相同值 | View 中三个 value 独立定位；按 AST owner 保留各自表面拼写，替换或插入单个节点不会串用其他节点的拼写 |
 | `VM253` | `vastbase-mysql-string-nested-surface-owners` | 外层双引号字符串、内层 `n` 字符串和 WHERE 转义字符串 | 嵌套 block、relation、field、target 和 value 归属完整；跨层 patch 后所有未修改字符串仍逐字节保留 |
+| `VM254` | `vastbase-mysql-merge-insert-structured-pair-rewrite` | MERGE INSERT 目标列与 VALUES cell 结构化改写 | 明确目标列、来源字段与表达式 cell 的独立定位，验证反引号目标列、完整 cell、列值对成对插入和删除 |
 | `VMU001` | `vastbase-mysql-insert-ignore` | INSERT IGNORE INTO `users` (`id`) VALUES (1) | 已覆盖 |
 | `VMU002` | `vastbase-mysql-insert-delayed` | INSERT DELAYED INTO `users` (`id`) VALUES (1) | 已覆盖 |
 | `VMU003` | `vastbase-mysql-insert-low-priority` | INSERT LOW_PRIORITY INTO `users` (`id`) VALUES (1) | 已覆盖 |

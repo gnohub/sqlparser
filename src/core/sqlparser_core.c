@@ -22,7 +22,7 @@
 #include "sqlparser_internal.h"
 
 #ifndef SQLPARSER_VERSION_TEXT
-#define SQLPARSER_VERSION_TEXT "2.13.0"
+#define SQLPARSER_VERSION_TEXT "2.14.1"
 #endif
 
 #ifndef SQLPARSER_LIBPG_QUERY_TAG_TEXT
@@ -2441,6 +2441,157 @@ cleanup:
 	return status;
 }
 
+static sqlparser_status_t sqlparser_control_surface_advance(
+	const sqlparser_handle_t *handle,
+	size_t source_limit,
+	int include_insert_at_limit,
+	size_t output_length,
+	size_t *in_out_edit_index,
+	size_t *in_out_source_cursor,
+	size_t *in_out_output_cursor,
+	sqlparser_error_t *out_error)
+{
+	const sqlparser_surface_source_edits_t *edits;
+	size_t edit_index;
+	size_t output_cursor;
+	size_t source_cursor;
+
+	edits = &handle->surface_source_edits;
+	edit_index = *in_out_edit_index;
+	source_cursor = *in_out_source_cursor;
+	output_cursor = *in_out_output_cursor;
+	while (edit_index < edits->count) {
+		const sqlparser_surface_source_edit_t *edit;
+		size_t copy_length;
+
+		edit = &edits->items[edit_index];
+		if (edit->source_start > source_limit ||
+		    (edit->source_start == source_limit &&
+		     (!include_insert_at_limit ||
+		      edit->source_end != source_limit))) {
+			break;
+		}
+		if (edit->replacement == NULL ||
+		    edit->source_start < source_cursor ||
+		    edit->source_end < edit->source_start ||
+		    edit->source_end > source_limit) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"control surface edit crosses a unit boundary");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		copy_length = edit->source_start - source_cursor;
+		if (copy_length > output_length - output_cursor ||
+		    edit->replacement_length >
+			    output_length - output_cursor - copy_length) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"control surface output length is invalid");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		output_cursor += copy_length + edit->replacement_length;
+		source_cursor = edit->source_end;
+		edit_index++;
+	}
+	if (source_cursor > source_limit ||
+	    source_limit - source_cursor > output_length - output_cursor) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"control surface output range is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	output_cursor += source_limit - source_cursor;
+	*in_out_edit_index = edit_index;
+	*in_out_source_cursor = source_limit;
+	*in_out_output_cursor = output_cursor;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_control_project_surface_units(
+	sqlparser_handle_t *handle,
+	size_t output_length,
+	sqlparser_error_t *out_error)
+{
+	size_t edit_index;
+	size_t output_cursor;
+	size_t source_cursor;
+	size_t unit_index;
+	sqlparser_status_t status;
+
+	edit_index = 0U;
+	source_cursor = 0U;
+	output_cursor = 0U;
+	for (unit_index = 0U;
+	     unit_index < handle->control->unit_count;
+	     unit_index++) {
+		sqlparser_control_unit_t *unit;
+		size_t unit_end;
+
+		unit = &handle->control->units[unit_index];
+		if (unit->source_offset > handle->sql_len ||
+		    unit->source_length >
+			    handle->sql_len - unit->source_offset) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"control unit source range is invalid");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		status = sqlparser_control_surface_advance(
+			handle,
+			unit->source_offset,
+			0,
+			output_length,
+			&edit_index,
+			&source_cursor,
+			&output_cursor,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		unit->current_offset = output_cursor;
+		unit_end = unit->source_offset + unit->source_length;
+		status = sqlparser_control_surface_advance(
+			handle,
+			unit_end,
+			1,
+			output_length,
+			&edit_index,
+			&source_cursor,
+			&output_cursor,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		unit->current_length =
+			output_cursor - unit->current_offset;
+	}
+	status = sqlparser_control_surface_advance(
+		handle,
+		handle->sql_len,
+		1,
+		output_length,
+		&edit_index,
+		&source_cursor,
+		&output_cursor,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (edit_index != handle->surface_source_edits.count ||
+	    output_cursor != output_length) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"control surface projection is incomplete");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
 sqlparser_status_t sqlparser_ensure_current_sql_text(
 	const sqlparser_handle_t *handle,
 	sqlparser_error_t *out_error)
@@ -2459,6 +2610,36 @@ sqlparser_status_t sqlparser_ensure_current_sql_text(
 	}
 
 	if (handle->generation == 0UL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (handle->control != NULL && handle->surface_source_complete) {
+		if (handle->current_sql != NULL) {
+			return SQLPARSER_STATUS_OK;
+		}
+		mutable_handle = (sqlparser_handle_t *)handle;
+		public_sql = NULL;
+		status = sqlparser_restore_source_envelope(
+			handle,
+			&public_sql,
+			out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_validate_handle_output_text(
+				handle,
+				public_sql,
+				"current SQL",
+				out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_control_project_surface_units(
+				mutable_handle,
+				strlen(public_sql),
+				out_error);
+		}
+		if (status != SQLPARSER_STATUS_OK) {
+			free(public_sql);
+			return status;
+		}
+		mutable_handle->current_sql = public_sql;
 		return SQLPARSER_STATUS_OK;
 	}
 	if ((handle->control != NULL && handle->current_sql != NULL) ||
@@ -3006,6 +3187,10 @@ const char *sqlparser_selector_kind_name(sqlparser_selector_kind_t kind)
 			return "merge_assignment";
 		case SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION:
 			return "merge_branch_condition";
+		case SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN:
+			return "merge_insert_column";
+		case SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL:
+			return "merge_insert_cell";
 		case SQLPARSER_SELECTOR_KIND_INSERT_CELL:
 			return "insert_cell";
 		case SQLPARSER_SELECTOR_KIND_INSERT_COLUMNS:

@@ -1,6 +1,192 @@
 {
   "items": [
     {
+      "name": "vastbase-mysql-merge-insert-structured-pair-rewrite",
+      "sql": "MERGE INTO users t USING user_stage s ON (t.id = s.id) WHEN NOT MATCHED THEN INSERT (id, phone, created_at) VALUES (s.id, s.phone, CURRENT_TIMESTAMP)",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "merge",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0
+                  ],
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "dml": {
+                "branches": [
+                  {
+                    "branch_kind": "when",
+                    "merge_action_kind": "insert",
+                    "merge_match_kind": "not_matched_by_target",
+                    "ordinal": 0,
+                    "rows": [
+                      {
+                        "bind_kind": 0,
+                        "column": 0,
+                        "kind": "field",
+                        "row": 0,
+                        "source_field": 2,
+                        "selector": "stmt[0].merge_insert_cell[0][0]"
+                      },
+                      {
+                        "bind_kind": 0,
+                        "column": 1,
+                        "kind": "field",
+                        "row": 0,
+                        "source_field": 3,
+                        "selector": "stmt[0].merge_insert_cell[0][1]"
+                      },
+                      {
+                        "bind_kind": 0,
+                        "column": 2,
+                        "expression_sql": "CURRENT_TIMESTAMP",
+                        "kind": "expression",
+                        "row": 0,
+                        "selector": "stmt[0].merge_insert_cell[0][2]"
+                      }
+                    ],
+                    "target_list_selector": "stmt[0].insert_branch_columns[0]",
+                    "target_columns": [
+                      {
+                        "column": "id",
+                        "ordinal": 0,
+                        "selector": "stmt[0].merge_insert_column[0][0]"
+                      },
+                      {
+                        "column": "phone",
+                        "ordinal": 1,
+                        "selector": "stmt[0].merge_insert_column[0][1]"
+                      },
+                      {
+                        "column": "created_at",
+                        "ordinal": 2,
+                        "selector": "stmt[0].merge_insert_column[0][2]"
+                      }
+                    ],
+                    "target_relation": 0
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "merge",
+                "target_relation": 0
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[5]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "id",
+                  "relation": 1,
+                  "selector": "stmt[0].name[7]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "column": "id",
+                  "relation": 1,
+                  "selector": "stmt[0].name[12]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "column": "phone",
+                  "relation": 1,
+                  "selector": "stmt[0].name[14]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "on",
+                  "kind": "comparison",
+                  "left_field": 0,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 1,
+                  "value": 0
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "t",
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "users"
+                },
+                {
+                  "alias": "s",
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[1]",
+                  "table": "user_stage"
+                }
+              ],
+              "root": 0,
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "on",
+                  "field": 0,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 1
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/branches/0/target_columns/1/selector",
+          "value": "`phone_new`",
+          "deparse": "MERGE INTO users t USING user_stage s ON (t.id = s.id) WHEN NOT MATCHED THEN INSERT (id, `phone_new`, created_at) VALUES (s.id, s.phone, CURRENT_TIMESTAMP)"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/branches/0/rows/1/selector",
+          "value": "COALESCE(s.phone, 'unknown')",
+          "deparse": "MERGE INTO users t USING user_stage s ON (t.id = s.id) WHEN NOT MATCHED THEN INSERT (id, phone, created_at) VALUES (s.id, COALESCE(s.phone, 'unknown'), CURRENT_TIMESTAMP)"
+        },
+        {
+          "action": "insert_column",
+          "target": "/statements/0/query_graph/dml/branches/0/target_list_selector",
+          "index": 3,
+          "name": "`updated_by`",
+          "value": "'merge'",
+          "deparse": "MERGE INTO users t USING user_stage s ON (t.id = s.id) WHEN NOT MATCHED THEN INSERT (id, phone, created_at, `updated_by`) VALUES (s.id, s.phone, CURRENT_TIMESTAMP, 'merge')"
+        },
+        {
+          "action": "delete_column",
+          "target": "/statements/0/query_graph/dml/branches/0/target_list_selector",
+          "index": 1,
+          "deparse": "MERGE INTO users t USING user_stage s ON (t.id = s.id) WHEN NOT MATCHED THEN INSERT (id, created_at) VALUES (s.id, CURRENT_TIMESTAMP)"
+        }
+      ]
+    },
+    {
       "name": "vastbase-mysql-select-limit-comma",
       "sql": "SELECT `u`.`id`, \"hello\" AS `label` FROM `users` AS `u` WHERE `u`.`id` = 1 LIMIT 5, 10",
       "view": {

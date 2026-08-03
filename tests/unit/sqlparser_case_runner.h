@@ -341,6 +341,10 @@ static int sqlparser_case_patch_op(
 		*out_op = SQLPARSER_PATCH_INSERT_COLUMN;
 		return 1;
 	}
+	if (strcmp(action, "delete_column") == 0) {
+		*out_op = SQLPARSER_PATCH_DELETE_COLUMN;
+		return 1;
+	}
 	if (strcmp(action, "replace_assignment") == 0) {
 		*out_op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
 		return 1;
@@ -463,15 +467,27 @@ static int sqlparser_case_prepare_patch(
 	static const char *const insert_keys[] = {
 		"action", "target", "value", "index", "deparse"
 	};
+	static const char *const pair_insert_keys[] = {
+		"action", "target", "value", "index", "name", "deparse"
+	};
+	static const char *const delete_keys[] = {
+		"action", "target", "index", "deparse"
+	};
 	const char *action;
 	const char *expected_sql;
+	const char *name;
 	const char *target;
 	const char *value;
 	const char *selector;
+	const char *const *allowed_keys;
+	size_t allowed_count;
+	int pair_insert;
 	json_int_t index;
 	json_t *index_json;
 	json_t *resolved;
+	sqlparser_error_t selector_error;
 	sqlparser_patch_op_t op;
+	sqlparser_selector_t parsed_selector;
 
 	*out_action = NULL;
 	*out_target = NULL;
@@ -482,27 +498,16 @@ static int sqlparser_case_prepare_patch(
 	}
 	action = sqlparser_case_required_string(patch_json, "action");
 	target = sqlparser_case_required_string(patch_json, "target");
-	value = sqlparser_case_required_string(patch_json, "value");
 	expected_sql = sqlparser_case_required_string(patch_json, "deparse");
 	*out_action = action;
 	*out_target = target;
 	*out_expected_sql = expected_sql;
-	if (action == NULL || target == NULL || value == NULL || expected_sql == NULL) {
+	if (action == NULL || target == NULL || expected_sql == NULL) {
 		(void)snprintf(detail, detail_size, "patch strings must be non-empty");
 		return 0;
 	}
 	if (!sqlparser_case_patch_op(action, &op)) {
 		(void)snprintf(detail, detail_size, "unsupported patch action '%s'", action);
-		return 0;
-	}
-	if (!sqlparser_case_object_has_only(
-		    patch_json,
-		    op == SQLPARSER_PATCH_INSERT_COLUMN ? insert_keys : normal_keys,
-		    op == SQLPARSER_PATCH_INSERT_COLUMN ?
-			(sizeof(insert_keys) / sizeof(insert_keys[0])) :
-			(sizeof(normal_keys) / sizeof(normal_keys[0])),
-		    detail,
-		    detail_size)) {
 		return 0;
 	}
 	resolved = sqlparser_case_resolve_pointer(
@@ -515,17 +520,73 @@ static int sqlparser_case_prepare_patch(
 		}
 		return 0;
 	}
+	memset(&selector_error, 0, sizeof(selector_error));
+	memset(&parsed_selector, 0, sizeof(parsed_selector));
+	if (sqlparser_selector_parse(
+		    selector,
+		    &parsed_selector,
+		    &selector_error) != SQLPARSER_STATUS_OK) {
+		(void)snprintf(
+			detail,
+			detail_size,
+			"patch target selector is invalid: %s",
+			selector_error.message);
+		return 0;
+	}
+	pair_insert =
+		op == SQLPARSER_PATCH_INSERT_COLUMN &&
+		parsed_selector.kind ==
+			SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS;
+	if (pair_insert) {
+		allowed_keys = pair_insert_keys;
+		allowed_count = sizeof(pair_insert_keys) / sizeof(pair_insert_keys[0]);
+	} else if (op == SQLPARSER_PATCH_INSERT_COLUMN) {
+		allowed_keys = insert_keys;
+		allowed_count = sizeof(insert_keys) / sizeof(insert_keys[0]);
+	} else if (op == SQLPARSER_PATCH_DELETE_COLUMN) {
+		allowed_keys = delete_keys;
+		allowed_count = sizeof(delete_keys) / sizeof(delete_keys[0]);
+	} else {
+		allowed_keys = normal_keys;
+		allowed_count = sizeof(normal_keys) / sizeof(normal_keys[0]);
+	}
+	if (!sqlparser_case_object_has_only(
+		    patch_json,
+		    allowed_keys,
+		    allowed_count,
+		    detail,
+		    detail_size)) {
+		return 0;
+	}
+	value = NULL;
+	if (op != SQLPARSER_PATCH_DELETE_COLUMN &&
+	    (value = sqlparser_case_required_string(patch_json, "value")) == NULL) {
+		(void)snprintf(detail, detail_size, "patch value must be a non-empty string");
+		return 0;
+	}
+	name = NULL;
+	if (pair_insert &&
+	    (name = sqlparser_case_required_string(patch_json, "name")) == NULL) {
+		(void)snprintf(detail, detail_size, "insert_column name must be a non-empty string");
+		return 0;
+	}
 
 	memset(out_patch, 0, sizeof(*out_patch));
 	out_patch->op = op;
 	out_patch->selector = selector;
-	out_patch->sql = value;
-	if (op == SQLPARSER_PATCH_INSERT_COLUMN) {
+	if (pair_insert) {
+		out_patch->name = name;
+		out_patch->default_sql = value;
+	} else if (op != SQLPARSER_PATCH_DELETE_COLUMN) {
+		out_patch->sql = value;
+	}
+	if (op == SQLPARSER_PATCH_INSERT_COLUMN ||
+	    op == SQLPARSER_PATCH_DELETE_COLUMN) {
 		index_json = json_object_get(patch_json, "index");
 		if (!json_is_integer(index_json) ||
 		    (index = json_integer_value(index_json)) < 0 ||
 		    (uintmax_t)index > (uintmax_t)SIZE_MAX) {
-			(void)snprintf(detail, detail_size, "insert_column index is invalid");
+			(void)snprintf(detail, detail_size, "%s index is invalid", action);
 			return 0;
 		}
 		out_patch->index = (size_t)index;

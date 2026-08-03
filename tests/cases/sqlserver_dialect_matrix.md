@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 619 条 `status = "final"` 用例。91 条用例的期望 View 包含非空 `query_graph.session` 投影，覆盖 `S044` 至 `S046`、`SH295` 至 `SH333` 和 49 条 `MSSQL-*` session 用例。
+夹具包含 620 条 `status = "final"` 用例。91 条用例的期望 View 包含非空 `query_graph.session` 投影，覆盖 `S044` 至 `S046`、`SH295` 至 `SH333` 和 49 条 `MSSQL-*` session 用例。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -75,6 +75,14 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | SH420 | `sqlserver-merge-output-action-terminal-semicolon` | `MERGE ... OUTPUT $action;` | MERGE 末尾 OUTPUT 无尾空格，分号位置不变 |
 | SH421 | `sqlserver-update-output-terminal` | `UPDATE ... OUTPUT INSERTED.a` | 无后继 WHERE/FROM 时不生成右边界 |
 | SH422 | `sqlserver-delete-output-terminal` | `DELETE ... OUTPUT DELETED.id` | 无后继 WHERE/FROM 时不生成右边界 |
+
+## 嵌套 MERGE INSERT 定位回归
+
+以下用例验证同一 statement 中多个嵌套 MERGE 的 INSERT 分支使用包含 DML 索引的独立 selector。目标列、完整 VALUES cell 和列值对 patch 必须只作用于指定 MERGE，其他嵌套 MERGE 及外层 INSERT 原文保持不变。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| SH423 | `sqlserver-nested-merge-insert-selector-uniqueness` | 外层 `INSERT ... SELECT` 组合两个带 `OUTPUT` 的嵌套 MERGE | 两个非零 DML 的目标列列表、目标列和 cell selector 唯一，独立替换及成对插入互不影响 |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 

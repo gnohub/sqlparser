@@ -727,6 +727,128 @@ sqlparser_status_t sqlparser_identifier_origin_writer_append_source_identifier(
 	return status;
 }
 
+sqlparser_status_t sqlparser_identifier_origin_writer_append_map(
+	sqlparser_identifier_origin_writer_t *writer,
+	const sqlparser_identifier_origin_map_t *input_map,
+	size_t input_offset,
+	sqlparser_error_t *out_error)
+{
+	size_t input_cursor;
+	size_t input_run_offset;
+	size_t output_end;
+	size_t run_end;
+	size_t run_index;
+	sqlparser_status_t status;
+
+	if (writer == NULL || writer->map == NULL || input_map == NULL ||
+	    !sqlparser_identifier_origin_size_add(
+		    writer->output_length,
+		    input_map->output_length,
+		    &output_end)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"identifier origin map append is invalid");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	input_cursor = 0U;
+	for (run_index = 0U;
+	     run_index < input_map->run_count;
+	     run_index++) {
+		const sqlparser_identifier_origin_run_t *input_run;
+
+		input_run = &input_map->runs[run_index];
+		if (!sqlparser_identifier_origin_size_add(
+			    input_run->output_offset,
+			    input_run->output_length,
+			    &run_end) ||
+		    run_end > input_map->output_length ||
+		    input_run->output_offset < input_cursor) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"identifier origin input map is invalid");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		status = sqlparser_identifier_origin_writer_append_unknown(
+			writer,
+			input_run->output_offset - input_cursor,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		if (input_run->kind ==
+		    SQLPARSER_IDENTIFIER_ORIGIN_RUN_GENERATED) {
+			status =
+				sqlparser_identifier_origin_writer_append_generated_identifier(
+					writer,
+					input_run->output_length,
+					out_error);
+		} else {
+			if (!sqlparser_identifier_origin_size_add(
+				    input_offset,
+				    input_run->source_offset,
+				    &input_run_offset)) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_RESOURCE_LIMIT,
+					"identifier origin source offset is too large");
+				return SQLPARSER_STATUS_RESOURCE_LIMIT;
+			}
+			if (input_run->kind ==
+			    SQLPARSER_IDENTIFIER_ORIGIN_RUN_SOURCE_LINEAR) {
+				if (input_run->output_length !=
+				    input_run->source_length) {
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_INTERNAL_ERROR,
+						"linear identifier origin run is invalid");
+					return SQLPARSER_STATUS_INTERNAL_ERROR;
+				}
+				status = sqlparser_identifier_origin_writer_append_input(
+					writer,
+					input_run_offset,
+					input_run->source_length,
+					out_error);
+			} else if (input_run->kind ==
+				   SQLPARSER_IDENTIFIER_ORIGIN_RUN_SOURCE_IDENTIFIER) {
+				status =
+					sqlparser_identifier_origin_writer_append_source_identifier(
+						writer,
+						input_run_offset,
+						input_run->source_length,
+						input_run->output_length,
+						out_error);
+			} else {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INTERNAL_ERROR,
+					"identifier origin input run kind is invalid");
+				return SQLPARSER_STATUS_INTERNAL_ERROR;
+			}
+		}
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		input_cursor = run_end;
+	}
+	status = sqlparser_identifier_origin_writer_append_unknown(
+		writer,
+		input_map->output_length - input_cursor,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (writer->output_length != output_end) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"identifier origin map append length is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
 sqlparser_status_t sqlparser_identifier_origin_writer_commit(
 	sqlparser_identifier_origin_writer_t *writer,
 	size_t output_length,

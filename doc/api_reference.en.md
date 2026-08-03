@@ -514,8 +514,13 @@ stmt[0].merge_assignment[1][0]
 stmt[0].merge_assignment[2][1][0]
 stmt[0].merge_branch_condition[1]
 stmt[0].merge_branch_condition[2][1]
+stmt[0].merge_insert_column[1][2]
+stmt[0].merge_insert_column[2][1][2]
+stmt[0].merge_insert_cell[1][2]
+stmt[0].merge_insert_cell[2][1][2]
 stmt[0].insert_cell[1][2]
 stmt[0].insert_branch_columns[0]
+stmt[0].insert_branch_columns[2][1]
 stmt[0].insert_branch_condition[0]
 stmt[0].select_targets[0]
 stmt[0].select_target[0][1]
@@ -543,6 +548,24 @@ MERGE uses `stmt[S].merge_branch_condition[D][W]`. Its kind is
 `SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION`, and `D` and `W` have the
 same meanings as in a MERGE assignment selector. An unconditional branch has
 no condition selector.
+
+A target column in a MERGE INSERT action uses
+`stmt[S].merge_insert_column[W][C]`, and a complete VALUES cell uses
+`stmt[S].merge_insert_cell[W][C]`. Their kinds are
+`SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN` and
+`SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL`, respectively. The nested-MERGE
+forms are
+`stmt[S].merge_insert_column[D][W][C]` and
+`stmt[S].merge_insert_cell[D][W][C]`. An explicit target-column list uses
+`SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS` and the text form
+`stmt[S].insert_branch_columns[W]`, or
+`stmt[S].insert_branch_columns[D][W]` for a nested MERGE. `D` and `W` have the
+same meanings as in MERGE assignment selectors, and `C` is the zero-based
+column ordinal in the INSERT action. A parsed root-MERGE selector has
+`row_index = 0`; for a nested MERGE, `row_index` stores `D`. `item_index`
+stores `W`, and `column_index` stores `C` for an individual item. An INSERT
+action without an explicit target-column list still exposes cell selectors but
+has no target-column or target-list selector.
 
 `sqlparser_selector_update_assignment()`,
 `sqlparser_selector_update_assignment_sql()`, the
@@ -931,9 +954,9 @@ Patch operations:
 
 | Operation | Meaning |
 | --- | --- |
-| `SQLPARSER_PATCH_REPLACE` | replaces a relation, name, value, assignment, literal, where literal, clause, insert cell, select target, or select target list |
-| `SQLPARSER_PATCH_INSERT_COLUMN` | adds an `INSERT ... VALUES` column, adds an `INSERT ... SELECT` target column, adds an Oracle/Dameng `INSERT ALL/FIRST` branch target column, or inserts a SELECT output target |
-| `SQLPARSER_PATCH_DELETE_COLUMN` | deletes an `INSERT ... VALUES` column, deletes an `INSERT ... SELECT` target column, or deletes a SELECT output target |
+| `SQLPARSER_PATCH_REPLACE` | replaces a relation, name, value, assignment, literal, where literal, clause, insert cell, MERGE INSERT target column or complete cell, select target, or select target list |
+| `SQLPARSER_PATCH_INSERT_COLUMN` | adds an `INSERT ... VALUES` column, adds an `INSERT ... SELECT` target column, adds an Oracle/Dameng `INSERT ALL/FIRST` branch target column, atomically adds a MERGE INSERT target/value pair, or inserts a SELECT output target |
+| `SQLPARSER_PATCH_DELETE_COLUMN` | deletes an `INSERT ... VALUES` column, deletes an `INSERT ... SELECT` target column, atomically deletes a MERGE INSERT target/value pair, or deletes a SELECT output target |
 | `SQLPARSER_PATCH_DELETE_ROW` | deletes an `INSERT ... VALUES` row |
 | `SQLPARSER_PATCH_APPEND_CONDITION` | appends a condition to a `where` clause with `AND` or `OR` |
 | `SQLPARSER_PATCH_INSERT_ASSIGNMENT` | inserts a `SET` assignment into a top-level `UPDATE` or MERGE matched UPDATE action |
@@ -947,12 +970,25 @@ All three assignment patch operations accept either
 `stmt[S].assignment[A]` or `stmt[S].merge_assignment[W][A]` as their target
 selector.
 
+Use a `merge_insert_column` or `merge_insert_cell` selector with
+`SQLPARSER_PATCH_REPLACE` for an individual MERGE INSERT rewrite. A target
+column replacement takes its identifier from `sql`; a complete cell takes its
+new value from exactly one of `sql`, `source_selector`, `literal`, or `bind`.
+To insert a target/value pair, use an `insert_branch_columns` selector with
+`SQLPARSER_PATCH_INSERT_COLUMN`, set the position in `index`, set the target
+column in `name`, and provide the corresponding value through exactly one of
+`default_sql`, `source_selector`, `literal`, or `bind`. Use the same selector
+and `index` with `SQLPARSER_PATCH_DELETE_COLUMN` to delete a pair. Both
+operations update the target-column and VALUES lists atomically. They fail for
+mismatched list lengths, invalid indexes, or an INSERT action without an
+explicit target-column list.
+
 The value-source fields in `sqlparser_patch_t` are mutually exclusive for one
 rewrite position: provide only one of `sql`, `default_sql`, `source_selector`,
 `literal`, or `bind`. `source_selector` clones SQL from an existing
-`insert_cell`, `select_target`, or assignment; assignment cloning accepts both
-`assignment` and `merge_assignment` selectors. `literal` and `bind` are
-rendered by the library according to the handle dialect.
+`insert_cell`, `merge_insert_cell`, `select_target`, or assignment; assignment
+cloning accepts both `assignment` and `merge_assignment` selectors. `literal`
+and `bind` are rendered by the library according to the handle dialect.
 
 ## Deparse and String Free
 

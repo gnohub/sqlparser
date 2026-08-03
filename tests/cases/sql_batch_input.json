@@ -3656,24 +3656,29 @@
                         "column": 0,
                         "kind": "field",
                         "row": 1,
-                        "source_field": 4
+                        "source_field": 4,
+                        "selector": "stmt[0].merge_insert_cell[1][0]"
                       },
                       {
                         "bind_kind": 0,
                         "column": 1,
                         "kind": "field",
                         "row": 1,
-                        "source_field": 5
+                        "source_field": 5,
+                        "selector": "stmt[0].merge_insert_cell[1][1]"
                       }
                     ],
+                    "target_list_selector": "stmt[0].insert_branch_columns[1]",
                     "target_columns": [
                       {
                         "column": "id",
-                        "ordinal": 0
+                        "ordinal": 0,
+                        "selector": "stmt[0].merge_insert_column[1][0]"
                       },
                       {
                         "column": "name",
-                        "ordinal": 1
+                        "ordinal": 1,
+                        "selector": "stmt[0].merge_insert_column[1][1]"
                       }
                     ],
                     "target_relation": 0
@@ -19587,7 +19592,8 @@
                         "kind": "field",
                         "row": 1,
                         "source_field": 4,
-                        "source_target": 0
+                        "source_target": 0,
+                        "selector": "stmt[0].merge_insert_cell[1][0]"
                       },
                       {
                         "bind_kind": 0,
@@ -19595,17 +19601,21 @@
                         "kind": "field",
                         "row": 1,
                         "source_field": 5,
-                        "source_target": 1
+                        "source_target": 1,
+                        "selector": "stmt[0].merge_insert_cell[1][1]"
                       }
                     ],
+                    "target_list_selector": "stmt[0].insert_branch_columns[1]",
                     "target_columns": [
                       {
                         "column": "id",
-                        "ordinal": 0
+                        "ordinal": 0,
+                        "selector": "stmt[0].merge_insert_column[1][0]"
                       },
                       {
                         "column": "email",
-                        "ordinal": 1
+                        "ordinal": 1,
+                        "selector": "stmt[0].merge_insert_column[1][1]"
                       }
                     ],
                     "target_relation": 0
@@ -19834,24 +19844,29 @@
                         "column": 0,
                         "kind": "field",
                         "row": 0,
-                        "source_field": 3
+                        "source_field": 3,
+                        "selector": "stmt[0].merge_insert_cell[0][0]"
                       },
                       {
                         "bind_kind": 0,
                         "column": 1,
                         "expression_sql": "CoAlEsCe($1,  1)",
                         "kind": "expression",
-                        "row": 0
+                        "row": 0,
+                        "selector": "stmt[0].merge_insert_cell[0][1]"
                       }
                     ],
+                    "target_list_selector": "stmt[0].insert_branch_columns[0]",
                     "target_columns": [
                       {
                         "column": "id",
-                        "ordinal": 0
+                        "ordinal": 0,
+                        "selector": "stmt[0].merge_insert_column[0][0]"
                       },
                       {
                         "column": "a",
-                        "ordinal": 1
+                        "ordinal": 1,
+                        "selector": "stmt[0].merge_insert_column[0][1]"
                       }
                     ],
                     "target_relation": 0
@@ -19868,7 +19883,8 @@
                         "column": 0,
                         "kind": "field",
                         "row": 1,
-                        "source_field": 5
+                        "source_field": 5,
+                        "selector": "stmt[0].merge_insert_cell[1][0]"
                       },
                       {
                         "bind_key": "2",
@@ -19878,28 +19894,33 @@
                         "column": 1,
                         "kind": "bind",
                         "row": 1,
-                        "selector": "stmt[0].value[37]"
+                        "selector": "stmt[0].merge_insert_cell[1][1]"
                       },
                       {
                         "bind_kind": 0,
                         "column": 2,
                         "expression_sql": "CURRENT_TIMESTAMP",
                         "kind": "expression",
-                        "row": 1
+                        "row": 1,
+                        "selector": "stmt[0].merge_insert_cell[1][2]"
                       }
                     ],
+                    "target_list_selector": "stmt[0].insert_branch_columns[1]",
                     "target_columns": [
                       {
                         "column": "id",
-                        "ordinal": 0
+                        "ordinal": 0,
+                        "selector": "stmt[0].merge_insert_column[1][0]"
                       },
                       {
                         "column": "b",
-                        "ordinal": 1
+                        "ordinal": 1,
+                        "selector": "stmt[0].merge_insert_column[1][1]"
                       },
                       {
                         "column": "c",
-                        "ordinal": 2
+                        "ordinal": 2,
+                        "selector": "stmt[0].merge_insert_column[1][2]"
                       }
                     ],
                     "target_relation": 0
@@ -20083,6 +20104,20 @@
           "target": "/statements/0/query_graph/dml/branches/1/rows/1/selector",
           "value": "42",
           "deparse": "MERGE INTO public.t AS t USING public.s AS s ON t.id=s.id WHEN NOT MATCHED AND /*c1*/ s.kind  =  1 /*t1*/ THEN INSERT (id,a) VALUES (s.id,CoAlEsCe($1,  1)) WHEN NOT MATCHED AND /*c2*/ s.kind  =  2 /*t2*/ THEN INSERT (id,b,c) VALUES (s.id,42,CURRENT_TIMESTAMP)"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/branches/1/rows/2/selector",
+          "value": "CURRENT_DATE",
+          "deparse": "MERGE INTO public.t AS t USING public.s AS s ON t.id=s.id WHEN NOT MATCHED AND /*c1*/ s.kind  =  1 /*t1*/ THEN INSERT (id,a) VALUES (s.id,CoAlEsCe($1,  1)) WHEN NOT MATCHED AND /*c2*/ s.kind  =  2 /*t2*/ THEN INSERT (id,b,c) VALUES (s.id,$2,CURRENT_DATE)"
+        },
+        {
+          "action": "insert_column",
+          "target": "/statements/0/query_graph/dml/branches/1/target_list_selector",
+          "index": 1,
+          "name": "b_mid",
+          "value": "DEFAULT",
+          "deparse": "MERGE INTO public.t AS t USING public.s AS s ON t.id=s.id WHEN NOT MATCHED AND /*c1*/ s.kind  =  1 /*t1*/ THEN INSERT (id,a) VALUES (s.id,CoAlEsCe($1,  1)) WHEN NOT MATCHED AND /*c2*/ s.kind  =  2 /*t2*/ THEN INSERT (id,b_mid,b,c) VALUES (s.id,DEFAULT,$2,CURRENT_TIMESTAMP)"
         }
       ]
     },
@@ -20130,14 +20165,16 @@
                         "column": 0,
                         "kind": "field",
                         "row": 0,
-                        "source_field": 2
+                        "source_field": 2,
+                        "selector": "stmt[0].merge_insert_cell[0][0]"
                       },
                       {
                         "bind_kind": 0,
                         "column": 1,
                         "kind": "field",
                         "row": 0,
-                        "source_field": 3
+                        "source_field": 3,
+                        "selector": "stmt[0].merge_insert_cell[0][1]"
                       }
                     ],
                     "target_relation": 0
@@ -26828,24 +26865,29 @@
                         "column": 0,
                         "kind": "field",
                         "row": 1,
-                        "source_field": 4
+                        "source_field": 4,
+                        "selector": "stmt[0].merge_insert_cell[1][0]"
                       },
                       {
                         "bind_kind": 0,
                         "column": 1,
                         "kind": "field",
                         "row": 1,
-                        "source_field": 5
+                        "source_field": 5,
+                        "selector": "stmt[0].merge_insert_cell[1][1]"
                       }
                     ],
+                    "target_list_selector": "stmt[0].insert_branch_columns[1]",
                     "target_columns": [
                       {
                         "column": "id",
-                        "ordinal": 0
+                        "ordinal": 0,
+                        "selector": "stmt[0].merge_insert_column[1][0]"
                       },
                       {
                         "column": "payload",
-                        "ordinal": 1
+                        "ordinal": 1,
+                        "selector": "stmt[0].merge_insert_column[1][1]"
                       }
                     ],
                     "target_relation": 1

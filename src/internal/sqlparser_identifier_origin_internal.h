@@ -88,6 +88,12 @@ sqlparser_status_t sqlparser_identifier_origin_writer_append_source_identifier(
 	size_t output_length,
 	sqlparser_error_t *out_error);
 
+sqlparser_status_t sqlparser_identifier_origin_writer_append_map(
+	sqlparser_identifier_origin_writer_t *writer,
+	const sqlparser_identifier_origin_map_t *input_map,
+	size_t input_offset,
+	sqlparser_error_t *out_error);
+
 sqlparser_status_t sqlparser_identifier_origin_writer_commit(
 	sqlparser_identifier_origin_writer_t *writer,
 	size_t output_length,

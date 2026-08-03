@@ -229,6 +229,34 @@ sqlparser_status_t sqlparser_selector_parse(
 				&out_selector->column_index,
 				out_error);
 		}
+	} else if (strncmp(text + offset, "merge_insert_column", 19) == 0 ||
+		   strncmp(text + offset, "merge_insert_cell", 17) == 0) {
+		size_t first_index;
+		int is_column;
+
+		is_column = strncmp(text + offset, "merge_insert_column", 19) == 0;
+		offset += is_column ? 19U : 17U;
+		out_selector->kind = is_column ?
+			SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN :
+			SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL;
+		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_selector_parse_index(
+				text,
+				&offset,
+				&out_selector->column_index,
+				out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK && text[offset] == '[') {
+			first_index = out_selector->item_index;
+			out_selector->row_index = first_index;
+			out_selector->item_index = out_selector->column_index;
+			status = sqlparser_selector_parse_index(
+				text,
+				&offset,
+				&out_selector->column_index,
+				out_error);
+		}
 	} else if (strncmp(text + offset, "merge_branch_condition", 22) == 0) {
 		size_t first_index;
 
@@ -260,9 +288,20 @@ sqlparser_status_t sqlparser_selector_parse(
 		out_selector->kind = SQLPARSER_SELECTOR_KIND_INSERT_COLUMNS;
 		status = SQLPARSER_STATUS_OK;
 	} else if (strncmp(text + offset, "insert_branch_columns", 21) == 0) {
+		size_t first_index;
+
 		offset += 21U;
 		out_selector->kind = SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS;
 		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
+		if (status == SQLPARSER_STATUS_OK && text[offset] == '[') {
+			first_index = out_selector->item_index;
+			out_selector->row_index = first_index;
+			status = sqlparser_selector_parse_index(
+				text,
+				&offset,
+				&out_selector->item_index,
+				out_error);
+		}
 	} else if (strncmp(text + offset, "insert_branch_condition", 23) == 0) {
 		offset += 23U;
 		out_selector->kind = SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_CONDITION;
@@ -460,6 +499,31 @@ sqlparser_status_t sqlparser_selector_format(
 					(unsigned long)selector->column_index);
 			}
 			break;
+		case SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN:
+		case SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL:
+			if (selector->row_index == 0U) {
+				length = snprintf(
+					buffer,
+					sizeof(buffer),
+					selector->kind == SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN ?
+						"stmt[%lu].merge_insert_column[%lu][%lu]" :
+						"stmt[%lu].merge_insert_cell[%lu][%lu]",
+					(unsigned long)selector->statement_index,
+					(unsigned long)selector->item_index,
+					(unsigned long)selector->column_index);
+			} else {
+				length = snprintf(
+					buffer,
+					sizeof(buffer),
+					selector->kind == SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN ?
+						"stmt[%lu].merge_insert_column[%lu][%lu][%lu]" :
+						"stmt[%lu].merge_insert_cell[%lu][%lu][%lu]",
+					(unsigned long)selector->statement_index,
+					(unsigned long)selector->row_index,
+					(unsigned long)selector->item_index,
+					(unsigned long)selector->column_index);
+			}
+			break;
 		case SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION:
 			if (selector->row_index == 0U) {
 				length = snprintf(
@@ -495,12 +559,22 @@ sqlparser_status_t sqlparser_selector_format(
 				(unsigned long)selector->statement_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS:
-			length = snprintf(
-				buffer,
-				sizeof(buffer),
-				"stmt[%lu].insert_branch_columns[%lu]",
-				(unsigned long)selector->statement_index,
-				(unsigned long)selector->item_index);
+			if (selector->row_index == 0U) {
+				length = snprintf(
+					buffer,
+					sizeof(buffer),
+					"stmt[%lu].insert_branch_columns[%lu]",
+					(unsigned long)selector->statement_index,
+					(unsigned long)selector->item_index);
+			} else {
+				length = snprintf(
+					buffer,
+					sizeof(buffer),
+					"stmt[%lu].insert_branch_columns[%lu][%lu]",
+					(unsigned long)selector->statement_index,
+					(unsigned long)selector->row_index,
+					(unsigned long)selector->item_index);
+			}
 			break;
 		case SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_CONDITION:
 			length = snprintf(

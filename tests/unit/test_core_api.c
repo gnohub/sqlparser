@@ -2300,7 +2300,7 @@ static int test_sqlserver_expression_source_case(
 	sqlparser_graph_dml_kind_t dml_kind,
 	const char *const *expected_expression_sql,
 	size_t expected_cell_count,
-	int expect_cell_selectors,
+	sqlparser_selector_kind_t expected_cell_selector_kind,
 	const char *message)
 {
 	static const char *const merge_column_names[] = {
@@ -2464,7 +2464,15 @@ static int test_sqlserver_expression_source_case(
 					    dml_column.column_name != NULL &&
 					    strcmp(
 						    dml_column.column_name,
-						    merge_column_names[index]) == 0,
+						    merge_column_names[index]) == 0 &&
+					    dml_column.has_selector != 0 &&
+					    dml_column.selector.kind ==
+						    SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN &&
+					    dml_column.selector.statement_index ==
+						    statement_index &&
+					    dml_column.selector.row_index == dml_index &&
+					    dml_column.selector.item_index == 0U &&
+					    dml_column.selector.column_index == index,
 				    "nested MERGE target column mismatch") != 0) {
 				goto done;
 			}
@@ -2507,13 +2515,18 @@ static int test_sqlserver_expression_source_case(
 					     SQLPARSER_GRAPH_VALUE_FIELD),
 			    "SQL Server expression source cell kind mismatch") != 0 ||
 		    expect_true(
-			    expect_cell_selectors ?
+			    expected_cell_selector_kind !=
+					    SQLPARSER_SELECTOR_KIND_UNKNOWN ?
 				    (cell.has_selector != 0 &&
 				     cell.selector.kind ==
-					     SQLPARSER_SELECTOR_KIND_INSERT_CELL &&
+					     expected_cell_selector_kind &&
 				     cell.selector.statement_index ==
 					     statement_index &&
-				     cell.selector.row_index == 0U &&
+				     (expected_cell_selector_kind ==
+					      SQLPARSER_SELECTOR_KIND_INSERT_CELL ?
+					      cell.selector.row_index == 0U :
+					      (cell.selector.row_index == dml_index &&
+					       cell.selector.item_index == 0U)) &&
 				     cell.selector.column_index == index) :
 				    cell.has_selector == 0,
 			    "SQL Server expression source cell selector mismatch") != 0) {
@@ -2611,7 +2624,8 @@ static int test_sqlserver_expression_source_case(
 			merge_source_target_index =
 				cell.source_target_index;
 		}
-		if (!expect_cell_selectors) {
+		if (expected_cell_selector_kind !=
+		    SQLPARSER_SELECTOR_KIND_INSERT_CELL) {
 			continue;
 		}
 		cell_sql = NULL;
@@ -2675,6 +2689,8 @@ static int test_sqlserver_expression_source_case(
 	    json_is_object(dml_json)) {
 		json_t *branch_json;
 		json_t *branches;
+		json_t *target_list_selector_json;
+		char expected_target_list_selector[64];
 
 		branches = json_object_get(dml_json, "branches");
 		branch_json = json_is_array(branches) ?
@@ -2683,13 +2699,30 @@ static int test_sqlserver_expression_source_case(
 		merge_columns_json = json_is_object(branch_json) ?
 			json_object_get(branch_json, "target_columns") :
 			NULL;
+		target_list_selector_json = json_is_object(branch_json) ?
+			json_object_get(branch_json, "target_list_selector") :
+			NULL;
+		if (dml_index == 0U) {
+			snprintf(
+				expected_target_list_selector,
+				sizeof(expected_target_list_selector),
+				"stmt[%zu].insert_branch_columns[0]",
+				statement_index);
+		} else {
+			snprintf(
+				expected_target_list_selector,
+				sizeof(expected_target_list_selector),
+				"stmt[%zu].insert_branch_columns[%zu][0]",
+				statement_index,
+				dml_index);
+		}
 		if (expect_true(
 			    json_object_get(dml_json, "target_columns") == NULL &&
 				    rows == NULL &&
 				    json_is_array(branches) &&
 				    json_array_size(branches) == 1U &&
 				    json_is_object(branch_json) &&
-				    json_object_size(branch_json) == 7U &&
+				    json_object_size(branch_json) == 8U &&
 				    json_integer_is(
 					    branch_json,
 					    "ordinal",
@@ -2711,6 +2744,11 @@ static int test_sqlserver_expression_source_case(
 					    "target_relation",
 					    (json_int_t)
 						    dml.target_relation_index) &&
+				    json_is_string(target_list_selector_json) &&
+				    strcmp(
+					    json_string_value(
+						    target_list_selector_json),
+					    expected_target_list_selector) == 0 &&
 				    json_object_get(
 					    branch_json,
 					    "condition_block") == NULL &&
@@ -2724,13 +2762,34 @@ static int test_sqlserver_expression_source_case(
 			goto done;
 		}
 		for (index = 0U; index < expected_cell_count; index++) {
+			char expected_column_selector[64];
 			json_t *column_json;
+			json_t *column_selector_json;
 
 			column_json =
 				json_array_get(merge_columns_json, index);
+			column_selector_json = json_is_object(column_json) ?
+				json_object_get(column_json, "selector") :
+				NULL;
+			if (dml_index == 0U) {
+				snprintf(
+					expected_column_selector,
+					sizeof(expected_column_selector),
+					"stmt[%zu].merge_insert_column[0][%zu]",
+					statement_index,
+					index);
+			} else {
+				snprintf(
+					expected_column_selector,
+					sizeof(expected_column_selector),
+					"stmt[%zu].merge_insert_column[%zu][0][%zu]",
+					statement_index,
+					dml_index,
+					index);
+			}
 			if (expect_true(
 				    json_is_object(column_json) &&
-					    json_object_size(column_json) == 2U &&
+					    json_object_size(column_json) == 3U &&
 					    json_integer_is(
 						    column_json,
 						    "ordinal",
@@ -2738,7 +2797,12 @@ static int test_sqlserver_expression_source_case(
 					    json_string_is(
 						    column_json,
 						    "column",
-						    merge_column_names[index]),
+						    merge_column_names[index]) &&
+					    json_is_string(column_selector_json) &&
+					    strcmp(
+						    json_string_value(
+							    column_selector_json),
+						    expected_column_selector) == 0,
 				    "nested MERGE View target column mismatch") != 0) {
 				goto done;
 			}
@@ -2805,7 +2869,8 @@ static int test_sqlserver_expression_source_case(
 		if (expected_expression_sql[index] != NULL) {
 			if (expect_true(
 				    json_object_size(cell_json) ==
-						    (expect_cell_selectors ?
+						    (expected_cell_selector_kind !=
+							     SQLPARSER_SELECTOR_KIND_UNKNOWN ?
 							     6U :
 							     5U) &&
 					    json_integer_is(
@@ -2833,7 +2898,11 @@ static int test_sqlserver_expression_source_case(
 		} else if (expect_true(
 				   dml_kind ==
 						   SQLPARSER_GRAPH_DML_MERGE &&
-					   json_object_size(cell_json) == 6U &&
+					   json_object_size(cell_json) ==
+						   (expected_cell_selector_kind !=
+							    SQLPARSER_SELECTOR_KIND_UNKNOWN ?
+							    7U :
+							    6U) &&
 					   json_integer_is(
 						   cell_json,
 						   "source_target",
@@ -2860,27 +2929,46 @@ static int test_sqlserver_expression_source_case(
 				   "nested MERGE View source lineage mismatch") != 0) {
 			goto done;
 		}
-		if (expect_cell_selectors) {
+		if (expected_cell_selector_kind !=
+		    SQLPARSER_SELECTOR_KIND_UNKNOWN) {
 			char expected_selector[64];
 
-			snprintf(
-				expected_selector,
-				sizeof(expected_selector),
-				"stmt[%zu].insert_cell[0][%zu]",
-				statement_index,
-				index);
+			if (expected_cell_selector_kind ==
+			    SQLPARSER_SELECTOR_KIND_INSERT_CELL) {
+				snprintf(
+					expected_selector,
+					sizeof(expected_selector),
+					"stmt[%zu].insert_cell[0][%zu]",
+					statement_index,
+					index);
+			} else if (dml_index == 0U) {
+				snprintf(
+					expected_selector,
+					sizeof(expected_selector),
+					"stmt[%zu].merge_insert_cell[0][%zu]",
+					statement_index,
+					index);
+			} else {
+				snprintf(
+					expected_selector,
+					sizeof(expected_selector),
+					"stmt[%zu].merge_insert_cell[%zu][0][%zu]",
+					statement_index,
+					dml_index,
+					index);
+			}
 			if (expect_true(
 				    json_is_string(selector_json) &&
 					    strcmp(
 						    json_string_value(
 							    selector_json),
 						    expected_selector) == 0,
-				    "SQL Server control cell View selector mismatch") != 0) {
+				    "SQL Server expression cell View selector mismatch") != 0) {
 				goto done;
 			}
 		} else if (expect_true(
 			       selector_json == NULL,
-			       "nested SQL Server DML cell must not expose a selector") != 0) {
+			       "SQL Server expression cell must not expose a selector") != 0) {
 			goto done;
 		}
 	}
@@ -2955,7 +3043,7 @@ static int test_sqlserver_control_nested_expression_source_sql(void)
 			    control_expressions,
 			    sizeof(control_expressions) /
 				    sizeof(control_expressions[0]),
-			    1,
+			    SQLPARSER_SELECTOR_KIND_INSERT_CELL,
 			    "SQL Server control INSERT source SQL should remain exact") != 0 ||
 		    test_sqlserver_expression_source_case(
 			    dialects[dialect_index],
@@ -2966,7 +3054,7 @@ static int test_sqlserver_control_nested_expression_source_sql(void)
 			    nested_insert_expressions,
 			    sizeof(nested_insert_expressions) /
 				    sizeof(nested_insert_expressions[0]),
-			    0,
+			    SQLPARSER_SELECTOR_KIND_UNKNOWN,
 			    "nested SQL Server INSERT source SQL should remain exact") != 0 ||
 		    test_sqlserver_expression_source_case(
 			    dialects[dialect_index],
@@ -2977,7 +3065,7 @@ static int test_sqlserver_control_nested_expression_source_sql(void)
 			    nested_merge_expressions,
 			    sizeof(nested_merge_expressions) /
 				    sizeof(nested_merge_expressions[0]),
-			    0,
+			    SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL,
 			    "nested SQL Server MERGE source SQL should remain exact") != 0) {
 			return 1;
 		}
@@ -3019,6 +3107,7 @@ static int test_merge_single_insert_branch_case(
 	char *selector_text;
 	char *view_json;
 	char expected_selector_text[64];
+	char expected_target_list_selector_text[64];
 	json_error_t json_error;
 	json_t *root;
 	json_t *statements;
@@ -3046,6 +3135,11 @@ static int test_merge_single_insert_branch_case(
 		expected_selector_text,
 		sizeof(expected_selector_text),
 		"stmt[0].merge_branch_condition[%zu]",
+		when_index);
+	snprintf(
+		expected_target_list_selector_text,
+		sizeof(expected_target_list_selector_text),
+		"stmt[0].insert_branch_columns[%zu]",
 		when_index);
 	memset(&error, 0, sizeof(error));
 	sqlparser_parse_options_default(&options);
@@ -3294,6 +3388,14 @@ static int test_merge_single_insert_branch_case(
 		assignment_sql = NULL;
 	}
 	for (item_index = 0U; item_index < 2U; item_index++) {
+		char expected_cell_selector_text[64];
+
+		snprintf(
+			expected_cell_selector_text,
+			sizeof(expected_cell_selector_text),
+			"stmt[0].merge_insert_cell[%zu][%zu]",
+			when_index,
+			item_index);
 		if (expect_status_ok(
 			    sqlparser_query_graph_span_index_at(
 				    &graph,
@@ -3318,7 +3420,14 @@ static int test_merge_single_insert_branch_case(
 				    column.column_name != NULL &&
 				    strcmp(
 					    column.column_name,
-					    column_names[item_index]) == 0,
+					    column_names[item_index]) == 0 &&
+				    column.has_selector != 0 &&
+				    column.selector.kind ==
+					    SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN &&
+				    column.selector.statement_index == 0U &&
+				    column.selector.row_index == 0U &&
+				    column.selector.item_index == when_index &&
+				    column.selector.column_index == item_index,
 			    "MERGE branch column metadata mismatch") != 0 ||
 		    expect_status_ok(
 			    sqlparser_query_graph_span_index_at(
@@ -3341,7 +3450,14 @@ static int test_merge_single_insert_branch_case(
 			    cell.statement_index == 0U &&
 				    cell.dml_index == dml.index &&
 				    cell.row_index == when_index &&
-				    cell.column_ordinal == item_index,
+				    cell.column_ordinal == item_index &&
+				    cell.has_selector != 0 &&
+				    cell.selector.kind ==
+					    SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL &&
+				    cell.selector.statement_index == 0U &&
+				    cell.selector.row_index == 0U &&
+				    cell.selector.item_index == when_index &&
+				    cell.selector.column_index == item_index,
 			    "MERGE branch cell coordinates mismatch") != 0) {
 			goto fail;
 		}
@@ -3356,11 +3472,7 @@ static int test_merge_single_insert_branch_case(
 					    cell.has_bind_position != 0 &&
 					    cell.bind_position == 1U &&
 					    cell.has_source_target == 0 &&
-					    cell.has_source_field == 0 &&
-					    cell.has_selector != 0 &&
-					    cell.selector.kind ==
-						    SQLPARSER_SELECTOR_KIND_VALUE &&
-					    cell.selector.statement_index == 0U,
+					    cell.has_source_field == 0,
 				    "MERGE branch bind metadata mismatch") != 0) {
 				goto fail;
 			}
@@ -3373,6 +3485,14 @@ static int test_merge_single_insert_branch_case(
 				    "MERGE branch bind selector should format") != 0) {
 				goto fail;
 			}
+			if (expect_true(
+				    bind_selector_text != NULL &&
+					    strcmp(
+					    bind_selector_text,
+					    expected_cell_selector_text) == 0,
+				    "MERGE branch bind selector text mismatch") != 0) {
+				goto fail;
+			}
 		} else if (expect_true(
 				   cell.kind ==
 					   SQLPARSER_GRAPH_VALUE_EXPRESSION &&
@@ -3380,11 +3500,10 @@ static int test_merge_single_insert_branch_case(
 					   cell.bind_kind ==
 						   SQLPARSER_BIND_KIND_NONE &&
 					   cell.has_bind_sql == 0 &&
-					   cell.has_bind_position == 0 &&
-					   cell.has_source_target == 0 &&
-					   cell.has_source_field == 0 &&
-					   cell.has_selector == 0,
-				   "MERGE branch expression kind mismatch") != 0) {
+				   cell.has_bind_position == 0 &&
+				   cell.has_source_target == 0 &&
+				   cell.has_source_field == 0,
+			   "MERGE branch expression kind mismatch") != 0) {
 			goto fail;
 		}
 	}
@@ -3465,10 +3584,14 @@ static int test_merge_single_insert_branch_case(
 				    branch_json,
 				    "condition_selector",
 				    expected_selector_text) &&
+			    json_string_is(
+				    branch_json,
+				    "target_list_selector",
+				    expected_target_list_selector_text) &&
 			    json_object_get(
 				    branch_json,
 				    "condition_block") == NULL &&
-			    json_object_size(branch_json) == 8U &&
+			    json_object_size(branch_json) == 9U &&
 			    json_is_array(columns_json) &&
 			    json_array_size(columns_json) == 2U &&
 			    json_is_array(rows_json) &&
@@ -3562,9 +3685,23 @@ static int test_merge_single_insert_branch_case(
 		}
 	}
 	for (item_index = 0U; item_index < 2U; item_index++) {
+		char expected_cell_selector_text[64];
+		char expected_column_selector_text[64];
 		json_t *column_json;
 		json_t *cell_json;
 
+		snprintf(
+			expected_cell_selector_text,
+			sizeof(expected_cell_selector_text),
+			"stmt[0].merge_insert_cell[%zu][%zu]",
+			when_index,
+			item_index);
+		snprintf(
+			expected_column_selector_text,
+			sizeof(expected_column_selector_text),
+			"stmt[0].merge_insert_column[%zu][%zu]",
+			when_index,
+			item_index);
 		column_json = json_array_get(columns_json, item_index);
 		cell_json = json_array_get(rows_json, item_index);
 		if (expect_true(
@@ -3576,10 +3713,11 @@ static int test_merge_single_insert_branch_case(
 					    column_json,
 					    "column",
 					    column_names[item_index]) &&
-				    json_object_get(
+				    json_string_is(
 					    column_json,
-					    "selector") == NULL &&
-				    json_object_size(column_json) == 2U,
+					    "selector",
+					    expected_column_selector_text) &&
+				    json_object_size(column_json) == 3U,
 			    "single-arm MERGE View column mismatch") != 0 ||
 		    expect_true(
 			    json_integer_is(
@@ -3596,10 +3734,10 @@ static int test_merge_single_insert_branch_case(
 				    json_object_get(
 					    cell_json,
 					    "source_field") == NULL &&
-				    (item_index == 0U ||
-				     json_object_get(
-					     cell_json,
-					     "selector") == NULL),
+				    json_string_is(
+					    cell_json,
+					    "selector",
+					    expected_cell_selector_text),
 			    "single-arm MERGE View cell coordinates mismatch") != 0) {
 			goto fail;
 		}
@@ -3637,7 +3775,7 @@ static int test_merge_single_insert_branch_case(
 				goto fail;
 			}
 		} else if (expect_true(
-				   json_object_size(cell_json) == 5U &&
+				   json_object_size(cell_json) == 6U &&
 					   json_string_is(
 						   cell_json,
 						   "kind",
@@ -4050,7 +4188,14 @@ static int test_postgresql_merge_multiple_insert_branches(void)
 						    column.column_name,
 						    expected_columns[
 							    column_base +
-							    item_index]) == 0,
+							    item_index]) == 0 &&
+					    column.has_selector != 0 &&
+					    column.selector.kind ==
+						    SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN &&
+					    column.selector.statement_index == 0U &&
+					    column.selector.row_index == 0U &&
+					    column.selector.item_index == branch_index &&
+					    column.selector.column_index == item_index,
 				    "PostgreSQL MERGE column mismatch") != 0 ||
 			    expect_status_ok(
 				    sqlparser_query_graph_span_index_at(
@@ -4077,9 +4222,13 @@ static int test_postgresql_merge_multiple_insert_branches(void)
 						    item_index &&
 					    cell.kind ==
 						    expected_cell->kind &&
-					    cell.has_selector ==
-						    (expected_cell->kind ==
-							     SQLPARSER_GRAPH_VALUE_BIND),
+					    cell.has_selector != 0 &&
+					    cell.selector.kind ==
+						    SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL &&
+					    cell.selector.statement_index == 0U &&
+					    cell.selector.row_index == 0U &&
+					    cell.selector.item_index == branch_index &&
+					    cell.selector.column_index == item_index,
 				    "PostgreSQL MERGE cell shape mismatch") != 0) {
 				goto fail;
 			}
@@ -4101,10 +4250,6 @@ static int test_postgresql_merge_multiple_insert_branches(void)
 						    cell.has_bind_position != 0 &&
 						    cell.bind_position ==
 							    expected_cell->bind_position &&
-						    cell.selector.kind ==
-							    SQLPARSER_SELECTOR_KIND_VALUE &&
-						    cell.selector.statement_index ==
-							    0U &&
 						    cell.has_source_target == 0 &&
 						    cell.has_source_field == 0,
 					    "PostgreSQL MERGE direct bind metadata mismatch") != 0) {
@@ -4291,6 +4436,7 @@ static int test_postgresql_merge_multiple_insert_branches(void)
 		json_t *columns_json;
 		json_t *rows_json;
 		char expected_selector[64];
+		char expected_target_list_selector[64];
 
 		branch_json = json_array_get(branches_json, branch_index);
 		columns_json = json_is_object(branch_json) ?
@@ -4303,6 +4449,11 @@ static int test_postgresql_merge_multiple_insert_branches(void)
 			expected_selector,
 			sizeof(expected_selector),
 			"stmt[0].merge_branch_condition[%zu]",
+			branch_index);
+		snprintf(
+			expected_target_list_selector,
+			sizeof(expected_target_list_selector),
+			"stmt[0].insert_branch_columns[%zu]",
 			branch_index);
 		if (expect_true(
 			    json_is_object(branch_json) &&
@@ -4330,10 +4481,14 @@ static int test_postgresql_merge_multiple_insert_branches(void)
 					    branch_json,
 					    "condition_selector",
 					    expected_selector) &&
+				    json_string_is(
+					    branch_json,
+					    "target_list_selector",
+					    expected_target_list_selector) &&
 				    json_object_get(
 					    branch_json,
 					    "condition_block") == NULL &&
-				    json_object_size(branch_json) == 8U &&
+				    json_object_size(branch_json) == 9U &&
 				    json_is_array(columns_json) &&
 				    json_array_size(columns_json) ==
 					    expected_column_counts[branch_index] &&
@@ -4347,11 +4502,25 @@ static int test_postgresql_merge_multiple_insert_branches(void)
 		     item_index < expected_column_counts[branch_index];
 		     item_index++) {
 			const struct merge_cell_expectation *expected_cell;
+			char expected_cell_selector[64];
+			char expected_column_selector[64];
 			json_t *column_json;
 			json_t *cell_json;
 
 			expected_cell =
 				&expected_cells[column_base + item_index];
+			snprintf(
+				expected_cell_selector,
+				sizeof(expected_cell_selector),
+				"stmt[0].merge_insert_cell[%zu][%zu]",
+				branch_index,
+				item_index);
+			snprintf(
+				expected_column_selector,
+				sizeof(expected_column_selector),
+				"stmt[0].merge_insert_column[%zu][%zu]",
+				branch_index,
+				item_index);
 			column_json =
 				json_array_get(columns_json, item_index);
 			cell_json = json_array_get(rows_json, item_index);
@@ -4366,11 +4535,12 @@ static int test_postgresql_merge_multiple_insert_branches(void)
 						    expected_columns[
 							    column_base +
 							    item_index]) &&
-					    json_object_get(
+					    json_string_is(
 						    column_json,
-						    "selector") == NULL &&
+						    "selector",
+						    expected_column_selector) &&
 					    json_object_size(column_json) ==
-						    2U,
+						    3U,
 				    "PostgreSQL multi-arm MERGE View column mismatch") != 0 ||
 			    expect_true(
 				    json_integer_is(
@@ -4391,15 +4561,10 @@ static int test_postgresql_merge_multiple_insert_branches(void)
 						    "bind_kind",
 						    (json_int_t)
 							    expected_cell->bind_kind) &&
-					    (expected_cell->kind ==
-						     SQLPARSER_GRAPH_VALUE_BIND ?
-						     json_string_is(
-							     cell_json,
-							     "selector",
-							     "stmt[0].value[45]") :
-						     json_object_get(
-							     cell_json,
-							     "selector") == NULL) &&
+					    json_string_is(
+						    cell_json,
+						    "selector",
+						    expected_cell_selector) &&
 					    (expected_cell->kind ==
 						     SQLPARSER_GRAPH_VALUE_FIELD ?
 						     json_integer_is(
@@ -4419,7 +4584,7 @@ static int test_postgresql_merge_multiple_insert_branches(void)
 			if (expected_cell->kind ==
 			    SQLPARSER_GRAPH_VALUE_FIELD) {
 				if (expect_true(
-					    json_object_size(cell_json) == 6U &&
+					    json_object_size(cell_json) == 7U &&
 						    json_integer_is(
 							    cell_json,
 							    "source_field",
@@ -4469,7 +4634,7 @@ static int test_postgresql_merge_multiple_insert_branches(void)
 					goto fail;
 				}
 			} else if (expect_true(
-					   json_object_size(cell_json) == 5U &&
+					   json_object_size(cell_json) == 6U &&
 						   json_object_get(
 							   cell_json,
 							   "source_field") == NULL &&
@@ -8631,9 +8796,44 @@ static int test_generic_name_api_on_ddl(void)
 
 static int test_selector_parse_and_format(void)
 {
+	static const struct {
+		const char *text;
+		const char *kind_name;
+		sqlparser_selector_kind_t kind;
+		size_t statement_index;
+		size_t dml_index;
+		size_t when_index;
+		size_t column_index;
+	} merge_insert_cases[] = {
+		{
+			"stmt[2].merge_insert_column[3][4]",
+			"merge_insert_column",
+			SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN,
+			2U, 0U, 3U, 4U
+		},
+		{
+			"stmt[2].merge_insert_cell[5][3][4]",
+			"merge_insert_cell",
+			SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL,
+			2U, 5U, 3U, 4U
+		},
+		{
+			"stmt[2].insert_branch_columns[3]",
+			"insert_branch_columns",
+			SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS,
+			2U, 0U, 3U, 0U
+		},
+		{
+			"stmt[2].insert_branch_columns[5][3]",
+			"insert_branch_columns",
+			SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS,
+			2U, 5U, 3U, 0U
+		}
+	};
 	sqlparser_selector_t selector;
 	sqlparser_error_t error;
 	char *selector_text;
+	size_t case_index;
 	int rc;
 
 	memset(&selector, 0, sizeof(selector));
@@ -8770,6 +8970,65 @@ static int test_selector_parse_and_format(void)
 	if (expect_true(
 		    rc == SQLPARSER_STATUS_INVALID_ARGUMENT,
 		    "MERGE condition selector with an extra coordinate must fail") != 0) {
+		return 1;
+	}
+	memset(&selector, 0, sizeof(selector));
+
+	for (case_index = 0U;
+	     case_index < sizeof(merge_insert_cases) /
+		     sizeof(merge_insert_cases[0]);
+	     case_index++) {
+		rc = sqlparser_selector_parse(
+			merge_insert_cases[case_index].text,
+			&selector,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "MERGE INSERT selector should parse") != 0 ||
+		    expect_true(
+			    selector.kind == merge_insert_cases[case_index].kind &&
+				    selector.statement_index ==
+					    merge_insert_cases[case_index].statement_index &&
+				    selector.row_index ==
+					    merge_insert_cases[case_index].dml_index &&
+				    selector.item_index ==
+					    merge_insert_cases[case_index].when_index &&
+				    selector.column_index ==
+					    merge_insert_cases[case_index].column_index,
+			    "MERGE INSERT selector coordinates mismatch") != 0 ||
+		    expect_true(
+			    strcmp(
+				    sqlparser_selector_kind_name(selector.kind),
+				    merge_insert_cases[case_index].kind_name) == 0,
+			    "MERGE INSERT selector kind name mismatch") != 0 ||
+		    expect_selector_equals(
+			    &selector,
+			    merge_insert_cases[case_index].text,
+			    "MERGE INSERT selector should round-trip") != 0) {
+			return 1;
+		}
+		memset(&selector, 0, sizeof(selector));
+	}
+
+	rc = sqlparser_selector_parse(
+		"stmt[2].merge_insert_column[3]",
+		&selector,
+		&error);
+	if (expect_true(
+		    rc == SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "MERGE INSERT column selector missing a coordinate must fail") != 0) {
+		return 1;
+	}
+	memset(&selector, 0, sizeof(selector));
+
+	rc = sqlparser_selector_parse(
+		"stmt[2].merge_insert_cell[5][3][4][1]",
+		&selector,
+		&error);
+	if (expect_true(
+		    rc == SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "MERGE INSERT cell selector with an extra coordinate must fail") != 0) {
 		return 1;
 	}
 	memset(&selector, 0, sizeof(selector));
@@ -24467,6 +24726,29 @@ static int test_oracle_multi_insert_query_graph_and_patch(void)
 		return 1;
 	}
 	sqlparser_string_free(sql);
+	memset(&patch, 0, sizeof(patch));
+	memset(&patch_list, 0, sizeof(patch_list));
+	patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patch.selector = "stmt[0].insert_branch_columns[9][0]";
+	patch.index = 2U;
+	patch.name = "invalid_dml_column";
+	bind.kind = SQLPARSER_BIND_KIND_NAMED;
+	bind.key = "invalid_dml_value";
+	patch.bind = &bind;
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	generation = handle->generation;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_true(
+		    rc == SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "Oracle INSERT ALL selector with a DML index must fail") != 0 ||
+	    expect_true(
+		    handle->generation == generation,
+		    "invalid Oracle INSERT ALL selector changed generation") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&error, 0, sizeof(error));
 	memset(&patch, 0, sizeof(patch));
 	memset(&patch_list, 0, sizeof(patch_list));
 	patch.op = SQLPARSER_PATCH_INSERT_COLUMN;

@@ -427,6 +427,8 @@ branch cell 的 `kind` 可为 `literal`、`bind`、`default`、`expression` 或 
 
 对于解析成功的 MERGE，`branches[]` 按 `WHEN` 子句在源 SQL 中的出现顺序排列。每个分支的 `ordinal` 是相对于该 MERGE 全部 `WHEN` 子句的 0 基绝对序号 `W`。每个分支包含 `merge_action_kind`（`insert`、`update`、`delete` 或 `nothing`）和 `merge_match_kind`（`matched`、`not_matched_by_target` 或 `not_matched_by_source`）。INSERT 分支通过 `target_columns` 和 `rows` 表达写入值；省略目标列列表时 `target_columns` 不存在，但 `rows` 仍存在，且每个 cell 的 `row` 等于绝对 `W`、`column` 按值顺序从 0 连续编号。UPDATE 分支通过 `assignments` 引用父 DML assignment；DELETE 和 NOTHING 分支省略 `target_columns`、`rows` 和 `assignments`。带条件的分支包含 `condition_selector`，无条件分支不包含该字段。
 
+MERGE INSERT 的每个 `target_columns[]` 对象包含单列 `selector`，每个 `rows[]` cell 包含完整表达式 `selector`。根 MERGE 分别使用 `stmt[S].merge_insert_column[W][C]` 和 `stmt[S].merge_insert_cell[W][C]`；嵌套 MERGE 在 `W` 前增加当前 statement 内的 DML 索引 `D`。显式目标列列表还包含 `target_list_selector`，其形式为 `stmt[S].insert_branch_columns[W]` 或嵌套形式 `stmt[S].insert_branch_columns[D][W]`。省略目标列列表时不输出 `target_list_selector`。单列和完整 cell selector 可用于替换；目标列列表 selector 可用于原子插入或删除同一位置的目标列与 VALUES 值。
+
 `UPDATE` 和 `MERGE` 的 assignment 使用 `target_field` 指向被写入字段。赋值右侧为直接字段引用时，`kind` 为 `field`，`source_field` 指向来源字段；来源字段来自派生表且可唯一匹配 source query 输出项时，同时输出 `source_target`。
 
 assignment 的 `kind` 为 `expression` 时，`rhs_fields` 和 `rhs_values` 分别列出右侧表达式在当前 assignment block 内对应的 `fields[]` 和 `values[]` 索引；`rhs_blocks` 列出从右侧表达式出发、不跨越另一层子查询边界即可到达的子查询入口 `blocks[]` 索引。空列表省略。`rhs_blocks` 不重复收录这些子查询内部的 block；内部 relation、target、field、value、predicate 和 set 语义从入口 block 继续遍历。右侧为直接 `field`、`literal`、`bind` 或 `default` 时，继续使用 assignment 的既有 payload，不输出三个 `rhs_*` 列表。

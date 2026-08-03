@@ -16789,6 +16789,7 @@ static int sqlparser_graph_add_dml_column_from_res_target(
 	size_t dml_index,
 	size_t ordinal,
 	PgQuery__Node *col_node,
+	const sqlparser_selector_t *selector,
 	size_t *out_column_index,
 	sqlparser_error_t *out_error)
 {
@@ -16807,6 +16808,10 @@ static int sqlparser_graph_add_dml_column_from_res_target(
 	column.dml_index = dml_index;
 	column.ordinal = ordinal;
 	column.column_name = col_node->res_target->name;
+	if (selector != NULL) {
+		column.selector = *selector;
+		column.has_selector = 1;
+	}
 	if (sqlparser_graph_add_dml_column(
 		    build, &column, &column_index, out_error) != 0) {
 		return -1;
@@ -16914,7 +16919,7 @@ static int sqlparser_graph_add_dml_cell_from_node(
 	size_t column_ordinal,
 	PgQuery__Node *value_node,
 	size_t values_ordinal,
-	int assign_insert_selector,
+	const sqlparser_selector_t *selector_override,
 	size_t *out_cell_index,
 	sqlparser_error_t *out_error)
 {
@@ -16984,6 +16989,10 @@ static int sqlparser_graph_add_dml_cell_from_node(
 		free(expression_sql);
 		return -1;
 	}
+	if (selector_override != NULL) {
+		cell.selector = *selector_override;
+		cell.has_selector = 1;
+	}
 	if (sqlparser_graph_add_dml_cell(
 		    build,
 		    &cell,
@@ -16995,16 +17004,6 @@ static int sqlparser_graph_add_dml_cell_from_node(
 	build->cache->dml_cell_expression_sql[
 		build->statement->dml_cell_offset + cell_index] =
 		expression_sql;
-	if (assign_insert_selector) {
-		cell.index = cell_index;
-		cell.statement_index = build->statement_index;
-		cell.selector.kind = SQLPARSER_SELECTOR_KIND_INSERT_CELL;
-		cell.selector.statement_index = build->statement_index;
-		cell.selector.row_index = row_index;
-		cell.selector.column_index = column_ordinal;
-		cell.has_selector = 1;
-		build->cache->dml_cells[build->statement->dml_cell_offset + cell_index] = cell;
-	}
 	if (out_cell_index != NULL) {
 		*out_cell_index = cell_index;
 	}
@@ -18172,6 +18171,7 @@ static int sqlparser_graph_build_insert_dml(
 			    dml_index,
 			    index,
 			    stmt->cols != NULL ? stmt->cols[index] : NULL,
+			    NULL,
 			    &column_index,
 			    out_error) != 0 ||
 		    (column_index != (size_t)-1 &&
@@ -18208,7 +18208,20 @@ static int sqlparser_graph_build_insert_dml(
 				continue;
 			}
 			for (column_index = 0U; column_index < row_node->list->n_items; column_index++) {
+				sqlparser_selector_t selector;
 				size_t cell_index;
+				int assign_insert_selector;
+
+				memset(&selector, 0, sizeof(selector));
+				selector.kind = SQLPARSER_SELECTOR_KIND_INSERT_CELL;
+				selector.statement_index = build->statement_index;
+				selector.row_index = index;
+				selector.column_index = column_index;
+				assign_insert_selector =
+					build->statement_node != NULL &&
+					build->statement_node->node_case ==
+						PG_QUERY__NODE__NODE_INSERT_STMT &&
+					build->statement_node->insert_stmt == stmt;
 
 				if (sqlparser_graph_add_dml_cell_from_node(
 					    build,
@@ -18219,10 +18232,7 @@ static int sqlparser_graph_build_insert_dml(
 					    column_index,
 					    row_node->list->items[column_index],
 					    0U,
-					    build->statement_node != NULL &&
-						    build->statement_node->node_case ==
-							    PG_QUERY__NODE__NODE_INSERT_STMT &&
-						    build->statement_node->insert_stmt == stmt,
+					    assign_insert_selector ? &selector : NULL,
 					    &cell_index,
 					    out_error) != 0 ||
 				    (cell_index != (size_t)-1 &&
@@ -18814,13 +18824,23 @@ static int sqlparser_graph_build_merge_dml(
 			}
 		} else if (when_clause->command_type == PG_QUERY__CMD_TYPE__CMD_INSERT) {
 			for (item_index = 0U; item_index < when_clause->n_target_list; item_index++) {
+				sqlparser_selector_t selector;
 				size_t column_index;
+
+				memset(&selector, 0, sizeof(selector));
+				selector.kind =
+					SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN;
+				selector.statement_index = build->statement_index;
+				selector.row_index = dml_index;
+				selector.item_index = index;
+				selector.column_index = item_index;
 
 				if (sqlparser_graph_add_dml_column_from_res_target(
 					    build,
 					    dml_index,
 					    item_index,
 					    when_clause->target_list != NULL ? when_clause->target_list[item_index] : NULL,
+					    &selector,
 					    &column_index,
 					    out_error) != 0 ||
 				    (column_index != (size_t)-1 &&
@@ -18837,7 +18857,16 @@ static int sqlparser_graph_build_merge_dml(
 				}
 			}
 			for (item_index = 0U; item_index < when_clause->n_values; item_index++) {
+				sqlparser_selector_t selector;
 				size_t cell_index;
+
+				memset(&selector, 0, sizeof(selector));
+				selector.kind =
+					SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL;
+				selector.statement_index = build->statement_index;
+				selector.row_index = dml_index;
+				selector.item_index = index;
+				selector.column_index = item_index;
 
 				if (sqlparser_graph_add_dml_cell_from_node(
 					    build,
@@ -18848,7 +18877,7 @@ static int sqlparser_graph_build_merge_dml(
 					    item_index,
 					    when_clause->values != NULL ? when_clause->values[item_index] : NULL,
 					    values_ordinal,
-					    0,
+					    &selector,
 					    &cell_index,
 					    out_error) != 0 ||
 				    (cell_index != (size_t)-1 &&
@@ -21191,12 +21220,14 @@ static json_t *sqlparser_graph_dml_branch_json(
 	sqlparser_error_t *out_error)
 {
 	const sqlparser_graph_merge_branch_detail_t *detail;
+	const sqlparser_selector_t *target_list_selector_ptr;
 	json_t *object;
 	json_t *assignments;
 	json_t *target_columns;
 	json_t *rows;
 	const char *merge_action_kind;
 	const char *merge_match_kind;
+	sqlparser_selector_t target_list_selector;
 
 	object = json_object();
 	assignments = json_array();
@@ -21209,6 +21240,18 @@ static json_t *sqlparser_graph_dml_branch_json(
 	detail = sqlparser_query_graph_merge_branch_detail_entry(
 		graph,
 		branch->index);
+	memset(&target_list_selector, 0, sizeof(target_list_selector));
+	target_list_selector_ptr = NULL;
+	if (detail != NULL &&
+	    detail->action_kind == SQLPARSER_GRAPH_MERGE_ACTION_INSERT &&
+	    branch->target_columns.count > 0U) {
+		target_list_selector.kind =
+			SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS;
+		target_list_selector.statement_index = branch->statement_index;
+		target_list_selector.row_index = branch->dml_index;
+		target_list_selector.item_index = branch->ordinal;
+		target_list_selector_ptr = &target_list_selector;
+	}
 	merge_action_kind =
 		detail != NULL &&
 		detail->action_kind !=
@@ -21236,6 +21279,7 @@ static json_t *sqlparser_graph_dml_branch_json(
 	    sqlparser_json_set_optional_string(object, "merge_action_kind", merge_action_kind) != 0 ||
 	    sqlparser_json_set_optional_string(object, "merge_match_kind", merge_match_kind) != 0 ||
 	    sqlparser_json_set_optional_size(object, "target_relation", branch->has_target_relation, branch->target_relation_index) != 0 ||
+	    sqlparser_json_set_optional_selector(object, "target_list_selector", target_list_selector_ptr, out_error) != 0 ||
 	    sqlparser_json_set_nonempty_array(object, "target_columns", &target_columns) != 0 ||
 	    sqlparser_json_set_nonempty_array(object, "rows", &rows) != 0 ||
 	    sqlparser_json_set_nonempty_array(object, "assignments", &assignments) != 0 ||
