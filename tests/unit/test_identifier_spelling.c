@@ -1079,12 +1079,13 @@ static int failed_commit_preserves_mutation_provenance(void)
 	size_t spelling_count;
 	size_t target_index;
 	sqlparser_status_t status;
+	unsigned long generation;
 
 	handle = NULL;
 	deparsed = NULL;
 	memset(&error, 0, sizeof(error));
 	if (sqlparser_parse(
-		    "SELECT Foo AS OldAlias FROM MixedTable; SELECT 1",
+		    "SELECT Foo AS OldAlias, KeepCol FROM MixedTable; SELECT 1",
 		    &handle,
 		    &error) != SQLPARSER_STATUS_OK ||
 	    !statement_find_name_index(
@@ -1109,26 +1110,28 @@ static int failed_commit_preserves_mutation_provenance(void)
 		return 0;
 	}
 	spelling_count = handle->identifier_spelling_count;
+	generation = handle->generation;
 	limits = handle->limits;
 	handle->limits.max_statement_count = 1U;
-	status = sqlparser_select_insert_target_sql(
+	status = sqlparser_select_set_target_sql(
 		handle,
 		0U,
 		0U,
 		0U,
-		"Added",
+		"\"AddedOne\" AS \"AliasOne\", "
+		"\"AddedTwo\" AS \"AliasTwo\"",
 		&error);
 	handle->limits = limits;
 	if (status != SQLPARSER_STATUS_RESOURCE_LIMIT ||
+	    handle->generation != generation ||
 	    handle->identifier_mutation_count != 1U ||
 	    handle->identifier_spelling_count != spelling_count ||
 	    sqlparser_deparse(handle, &deparsed, &error) !=
 		    SQLPARSER_STATUS_OK ||
 	    deparsed == NULL ||
-	    strstr(
+	    strcmp(
 		    deparsed,
-		    "SELECT Foo AS \"SELECT\" FROM MixedTable") == NULL ||
-	    strstr(deparsed, "Added") != NULL) {
+		    "SELECT Foo AS \"SELECT\", KeepCol FROM MixedTable; SELECT 1") != 0) {
 		fprintf(
 			stderr,
 			"FAIL: failed commit changed identifier provenance: %s\n",
@@ -1138,7 +1141,213 @@ static int failed_commit_preserves_mutation_provenance(void)
 		return 0;
 	}
 	sqlparser_string_free(deparsed);
+	deparsed = NULL;
+	spelling_count = handle->identifier_spelling_count;
+	generation = handle->generation;
+	limits = handle->limits;
+	handle->limits.max_statement_count = 1U;
+	status = sqlparser_select_set_target_sql(
+		handle,
+		0U,
+		0U,
+		0U,
+		"\"AddedOne\"",
+		&error);
+	handle->limits = limits;
+	if (status != SQLPARSER_STATUS_RESOURCE_LIMIT ||
+	    handle->generation != generation ||
+	    handle->identifier_mutation_count != 1U ||
+	    handle->identifier_spelling_count != spelling_count ||
+	    sqlparser_deparse(handle, &deparsed, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    deparsed == NULL ||
+	    strcmp(
+		    deparsed,
+		    "SELECT Foo AS \"SELECT\", KeepCol FROM MixedTable; SELECT 1") != 0) {
+		fprintf(
+			stderr,
+			"FAIL: failed whole-target commit changed identifier provenance: %s\n",
+			deparsed != NULL ? deparsed : error.message);
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	sqlparser_string_free(deparsed);
+	deparsed = NULL;
+	generation = handle->generation;
+	status = sqlparser_select_set_target_sql(
+		handle,
+		0U,
+		0U,
+		0U,
+		"\"AddedOne\"",
+		&error);
+	if (status != SQLPARSER_STATUS_OK ||
+	    handle->generation != generation + 1UL ||
+	    handle->identifier_mutation_count != 0U ||
+	    sqlparser_deparse(handle, &deparsed, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    deparsed == NULL ||
+	    strcmp(
+		    deparsed,
+		    "SELECT \"AddedOne\", KeepCol FROM MixedTable; SELECT 1") != 0) {
+		fprintf(
+			stderr,
+			"FAIL: successful whole-target commit retained old provenance: %s\n",
+			deparsed != NULL ? deparsed : error.message);
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	sqlparser_string_free(deparsed);
 	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+static int removed_select_target_paths_preserve_mutation_provenance(void)
+{
+	typedef enum {
+		REMOVE_SELECT_TARGET_LIST = 0,
+		REMOVE_SELECT_TARGET_WITH_COLUMNS = 1,
+		REMOVE_SELECT_TARGET = 2
+	} removal_action_t;
+	static const char *structured_parts[] = {"structured_col"};
+	static const sqlparser_identifier_path_view_t structured_column = {
+		structured_parts,
+		1U
+	};
+	static const struct {
+		removal_action_t action;
+		const char *expected_sql;
+	} cases[] = {
+		{REMOVE_SELECT_TARGET_LIST, "SELECT list_col, keep_col FROM MixedTable; SELECT 1"},
+		{REMOVE_SELECT_TARGET_WITH_COLUMNS, "SELECT structured_col, KeepCol FROM MixedTable; SELECT 1"},
+		{REMOVE_SELECT_TARGET, "SELECT KeepCol FROM MixedTable; SELECT 1"}
+	};
+	static const char original_sql[] =
+		"SELECT Foo AS \"SELECT\", KeepCol FROM MixedTable; SELECT 1";
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_limits_t limits;
+	char *deparsed;
+	size_t case_index;
+	size_t spelling_count;
+	size_t target_index;
+	size_t attempt;
+	sqlparser_status_t status;
+	unsigned long generation;
+
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		handle = NULL;
+		deparsed = NULL;
+		memset(&error, 0, sizeof(error));
+		if (sqlparser_parse(
+			    "SELECT Foo AS OldAlias, KeepCol FROM MixedTable; SELECT 1",
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !statement_find_name_index(
+			    handle,
+			    0U,
+			    "ResTarget",
+			    "name",
+			    "OldAlias",
+			    &target_index) ||
+		    sqlparser_statement_set_name(
+			    handle,
+			    0U,
+			    target_index,
+			    "SELECT",
+			    &error) != SQLPARSER_STATUS_OK ||
+		    handle->identifier_mutation_count != 1U) {
+			fprintf(
+				stderr,
+				"FAIL: removed-target provenance case %lu setup failed: %s\n",
+				(unsigned long)case_index,
+				error.message);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+
+		for (attempt = 0U; attempt < 2U; attempt++) {
+			generation = handle->generation;
+			spelling_count = handle->identifier_spelling_count;
+			limits = handle->limits;
+			if (attempt == 0U) {
+				handle->limits.max_statement_count = 1U;
+			}
+			if (cases[case_index].action == REMOVE_SELECT_TARGET_LIST) {
+				status = sqlparser_select_set_targets_sql(
+					handle,
+					0U,
+					0U,
+					"list_col, keep_col",
+					&error);
+			} else if (cases[case_index].action ==
+				   REMOVE_SELECT_TARGET_WITH_COLUMNS) {
+				status = sqlparser_select_replace_target_with_columns(
+					handle,
+					0U,
+					0U,
+					0U,
+					&structured_column,
+					1U,
+					&error);
+			} else {
+				status = sqlparser_select_delete_target(
+					handle,
+					0U,
+					0U,
+					0U,
+					&error);
+			}
+			handle->limits = limits;
+			if (sqlparser_deparse(handle, &deparsed, &error) !=
+				    SQLPARSER_STATUS_OK ||
+			    deparsed == NULL) {
+				fprintf(
+					stderr,
+					"FAIL: removed-target provenance case %lu deparse failed: %s\n",
+					(unsigned long)case_index,
+					error.message);
+				sqlparser_string_free(deparsed);
+				sqlparser_handle_destroy(handle);
+				return 0;
+			}
+			if (attempt == 0U) {
+				if (status != SQLPARSER_STATUS_RESOURCE_LIMIT ||
+				    handle->generation != generation ||
+				    handle->identifier_mutation_count != 1U ||
+				    handle->identifier_spelling_count != spelling_count ||
+				    strcmp(deparsed, original_sql) != 0) {
+					fprintf(
+						stderr,
+						"FAIL: removed-target failure case %lu changed provenance: %s\n",
+						(unsigned long)case_index,
+						deparsed);
+					sqlparser_string_free(deparsed);
+					sqlparser_handle_destroy(handle);
+					return 0;
+				}
+			} else if (status != SQLPARSER_STATUS_OK ||
+				   handle->generation != generation + 1UL ||
+				   handle->identifier_mutation_count != 0U ||
+				   strcmp(deparsed, cases[case_index].expected_sql) != 0) {
+				fprintf(
+					stderr,
+					"FAIL: removed-target success case %lu retained provenance: %s\n",
+					(unsigned long)case_index,
+					deparsed);
+				sqlparser_string_free(deparsed);
+				sqlparser_handle_destroy(handle);
+				return 0;
+			}
+			sqlparser_string_free(deparsed);
+			deparsed = NULL;
+		}
+		sqlparser_handle_destroy(handle);
+	}
 	return 1;
 }
 
@@ -1595,7 +1804,7 @@ static int patched_nested_identifier_spelling_preserved(void)
 		"(SELECT [X] FROM [DbO].[T] AS [Q] "
 		"WHERE [Q].[X] = 1) AS [Z]";
 	static const char expected_sql[] =
-		"SELECT (SELECT [X] FROM [DbO].[T] [Q] "
+		"SELECT (SELECT [X] FROM [DbO].[T] AS [Q] "
 		"WHERE [Q].[X] = 1) AS [Z] FROM abc";
 	static const struct {
 		const char *patch_sql;
@@ -1708,7 +1917,7 @@ static int patched_nested_identifier_spelling_preserved(void)
 	    strcmp(
 		    deparsed,
 		    "SELECT (SELECT [Q].[X] FROM "
-		    "(SELECT [X] FROM [DbO].[T]) [Q]) AS [Z] FROM abc") !=
+		    "(SELECT [X] FROM [DbO].[T]) AS [Q]) AS [Z] FROM abc") !=
 		    0 ||
 	    sqlparser_parse_with_options(
 		    deparsed,
@@ -2018,7 +2227,7 @@ static int patched_identifier_owner_spelling_preserved(void)
 			"RecAlias(\"MixedCol\" int, PlainCol text))",
 			"SELECT (SELECT * FROM json_to_record("
 			"'{\"MixedCol\":1,\"PlainCol\":\"x\"}') "
-			"RecAlias (\"MixedCol\" pg_catalog.int4, PlainCol text)) "
+			"RecAlias (\"MixedCol\" int, PlainCol text)) "
 			"FROM base_table"
 		},
 		{
@@ -3994,7 +4203,7 @@ static int discarded_generated_targets_release_spellings(void)
 	}
 	spelling_count = handle->identifier_spelling_count;
 	for (iteration = 0U; iteration < 64U; iteration++) {
-		if (sqlparser_select_set_target_sql(
+		if (sqlparser_select_insert_target_sql(
 			    handle,
 			    0U,
 			    0U,
@@ -4542,6 +4751,7 @@ int main(void)
 	    !graph_name_selector_uses_public_name_ordinal() ||
 	    !mutation_marker_lifecycle() ||
 	    !failed_commit_preserves_mutation_provenance() ||
+	    !removed_select_target_paths_preserve_mutation_provenance() ||
 	    !relation_group_preserves_source_spelling() ||
 	    !patched_select_identifier_spelling_preserved() ||
 	    !patched_nested_identifier_spelling_preserved() ||
@@ -4572,7 +4782,7 @@ int main(void)
 		    "aliasname",
 		    "OldAlias",
 		    "new_alias",
-		    "MixedTable new_alias",
+		    "MixedTable AS new_alias",
 		    "\"MixedTable\"") ||
 	    !mutated_name_preserves_siblings(
 		    "SELECT * FROM t AS Foo(Old)",
@@ -4580,7 +4790,7 @@ int main(void)
 		    "colnames",
 		    "Old",
 		    "Foo",
-		    "Foo(\"Foo\")",
+		    "AS Foo(\"Foo\")",
 		    NULL) ||
 	    !mutated_name_preserves_siblings(
 		    "WITH CteName(OldCol, KeepCol) AS "
@@ -4597,7 +4807,7 @@ int main(void)
 		    "relname",
 		    "MixedTable",
 		    "other",
-		    "other OldAlias",
+		    "other AS OldAlias",
 		    "\"OldAlias\"") ||
 	    !mutated_name_preserves_siblings(
 		    "SELECT * FROM (SELECT 1) Foo(KeepCase)",
@@ -4613,7 +4823,7 @@ int main(void)
 		    "aliasname",
 		    "select",
 		    "other",
-		    ") other(\"select\")",
+		    ") AS other(\"select\")",
 		    NULL) ||
 	    !mutated_name_preserves_siblings(
 		    "WITH cte(comment, KeepCase) AS "
@@ -4663,22 +4873,55 @@ int main(void)
 		    "WINDOW AS AS") ||
 	    !ast_deparse_preserves_dialect(
 		    SQLPARSER_DIALECT_MYSQL,
+		    "SELECT CAST(a AS char), CAST(b AS char(1)), "
+		    "CAST(c AS char(8)) FROM `t`",
+		    "CAST(a AS char), CAST(b AS char(1)), CAST(c AS char(8))",
+		    "FROM `t`",
+		    NULL) ||
+	    !ast_deparse_preserves_dialect(
+		    SQLPARSER_DIALECT_VASTBASE_MYSQL,
+		    "SELECT CAST(a AS CHAR), CAST(b AS CHAR(1)), "
+		    "CAST(c AS CHAR(8)) FROM `t`",
+		    "CAST(a AS CHAR), CAST(b AS CHAR(1)), CAST(c AS CHAR(8))",
+		    "FROM `t`",
+		    NULL) ||
+	    !ast_deparse_preserves(
+		    "SELECT $1::character, $2::character(1), "
+		    "$3::character(8) FROM t",
+		    "$1::character, $2::character(1), $3::character(8)",
+		    "FROM t",
+		    NULL) ||
+	    !ast_deparse_preserves_dialect(
+		    SQLPARSER_DIALECT_VASTBASE_POSTGRESQL,
+		    "SELECT $1::CHARACTER, $2::CHARACTER(1), "
+		    "$3::CHARACTER(8) FROM t",
+		    "$1::CHARACTER, $2::CHARACTER(1), $3::CHARACTER(8)",
+		    "FROM t",
+		    NULL) ||
+	    !ast_deparse_preserves_dialect(
+		    SQLPARSER_DIALECT_MYSQL,
 		    "SELECT CAST(`A` AS bit) FROM pg_catalog.T",
-		    "::bit(1)",
+		    "CAST(`A` AS bit)",
+		    "FROM pg_catalog.T",
+		    "bit(1)") ||
+	    !ast_deparse_preserves_dialect(
+		    SQLPARSER_DIALECT_MYSQL,
+		    "SELECT CAST(`A` AS bit(1)) FROM pg_catalog.T",
+		    "CAST(`A` AS bit(1))",
 		    "FROM pg_catalog.T",
 		    "::pg_catalog.bit") ||
 	    !ast_deparse_preserves_dialect(
 		    SQLPARSER_DIALECT_MYSQL,
 		    "SELECT CAST(`A` AS double precision) FROM `precision`",
-		    "::double precision",
+		    "CAST(`A` AS double precision)",
 		    "FROM `precision`",
 		    "FROM precision") ||
 	    !ast_deparse_preserves_dialect(
 		    SQLPARSER_DIALECT_MYSQL,
 		    "SELECT CAST(1 AS bit) FROM `t`",
-		    "::bit(1)",
+		    "CAST(1 AS bit)",
 		    "FROM `t`",
-		    "FROM t") ||
+		    "bit(1)") ||
 	    !ast_deparse_preserves_dialect(
 		    SQLPARSER_DIALECT_MYSQL,
 		    "SELECT overlay('abc' PLACING 'x' FROM 1) FROM `t`",
@@ -4760,11 +5003,46 @@ int main(void)
 		    NULL,
 		    " PLACING ") ||
 	    !ast_deparse_preserves(
+		    "SELECT B'1'::bit",
+		    "::bit",
+		    NULL,
+		    "::bit(1)") ||
+	    !ast_deparse_preserves(
+		    "SELECT B'1'::bit(1), B'10'::bit(2)",
+		    "::bit(1)",
+		    "::bit(2)",
+		    NULL) ||
+	    !ast_deparse_preserves(
+		    "SELECT B'1'::pg_catalog.bit",
+		    "::pg_catalog.bit",
+		    NULL,
+		    "::pg_catalog.bit(1)") ||
+	    !ast_deparse_preserves(
 		    "SELECT B'1'::pg_catalog.bit(1), "
 		    "B'1'::pg_catalog.varbit(8)",
 		    "::pg_catalog.bit(1)",
 		    "::pg_catalog.varbit(8)",
 		    NULL) ||
+	    !ast_deparse_preserves(
+		    "SELECT B'1'::other.bit(1)",
+		    "::other.bit(1)",
+		    NULL,
+		    NULL) ||
+	    !ast_deparse_preserves(
+		    "SELECT B'1'::\"bit\"(1)",
+		    "::\"bit\"(1)",
+		    NULL,
+		    NULL) ||
+	    !ast_deparse_preserves(
+		    "SELECT B'1'::\"pg_catalog\".\"bit\"(1)",
+		    "::\"pg_catalog\".\"bit\"(1)",
+		    NULL,
+		    NULL) ||
+	    !ast_deparse_preserves(
+		    "SELECT B'1'::bit varying(1)",
+		    "::bit varying(1)",
+		    NULL,
+		    "::bit(1)") ||
 	    !ast_deparse_preserves(
 		    "CREATE FUNCTION F() RETURNS int AS "
 		    "'BEGIN RETURN 1; END' LANGUAGE PLpgSQL",

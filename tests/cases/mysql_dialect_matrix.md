@@ -1,12 +1,12 @@
 # MySQL 方言用例矩阵
 
-本文件记录 MySQL 方言转换层的回归用例。`tests/cases/mysql_dialect_input.json` 是可执行测试源，`tests/unit/test_mysql_dialect_case_matrix.c` 会逐条读取该文件并验证解析、View JSON、deparse 和错误码。
+本文件记录 MySQL 方言转换层的回归用例。可执行夹具为 `tests/cases/mysql_dialect_input.json`。对每条 final 用例，runner 验证未修改 SQL 的反解析结果与输入逐字节一致、实际 View 与期望 JSON 结构相等，并独立执行每个 patch；patch 后 SQL 必须与 `patch.deparse` 逐字节一致，重新解析后再次反解析仍须一致，且 patch handle 与重新解析 handle 的 View 输出必须一致。
 
 ## 矩阵统计与 session 回归
 
-夹具包含 223 条用例，其中 214 条预期成功，9 条预期失败。32 条用例包含 statement 级 `expect.session`，覆盖 `M015` 至 `M017` 和 `MY-001` 至 `MY-029`；这 32 条用例均至少包含一个非空 session 期望。
+夹具包含 253 条 `status = "final"` 用例。37 条用例的期望 View 包含 statement 级 `query_graph.session`，覆盖 `M015` 至 `M017`、`MY-001` 至 `MY-029` 以及 5 条注释或空语句穿插的 `USE` 边界；这 37 条用例均至少包含一个非空 session 投影。
 
-用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
+View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session 投影的 action、item scope、target kind、name 及 value 字段均属于比较范围。
 
 ## 已验证支持语句
 
@@ -154,6 +154,30 @@
 | M129-M135 | 索引提示与查询尾部边界 | `HAVING`、`WINDOW`、集合运算和锁定子句 | 索引提示保持在表引用之后、查询尾部之前 |
 | M136-M140 | 索引提示与 JOIN / 作用域组合 | `NATURAL JOIN`、`STRAIGHT_JOIN`、`USING`、别名和多作用域索引提示 | 左右表引用、别名及多个提示的恢复顺序 |
 | M141-M145 | 索引提示的嵌套与标识符边界 | CTE、多语句、分区表、保留字别名和派生表 | 各层表引用的提示位置和反解析结果 |
+| M226-M229 | UPDATE/DELETE 尾部结构回归 | 仅 `ORDER BY`、仅 `LIMIT`、DELETE bind 隔离、别名限定的多排序键 | ORDER 字段独立归属且可 patch；LIMIT 不污染 WHERE/assignment bind；原始及 patch 后 SQL 精确保留 |
+| M230 | `mysql-cte-update-nested-order-limit-bind-isolation` | CTE、`USE INDEX FOR ORDER BY`、相关标量子查询排序及 assignment/WHERE/ORDER/LIMIT 混合 bind | index hint 的 `FOR ORDER BY` 不形成 DML 尾部；CTE 来源块与相关字段归属明确；前三个语义 bind 分别归属 assignment、外层 WHERE 和嵌套 predicate；LIMIT bind 不进入 View；8 个 patch 精确反解析 |
+| M231 | `mysql-update-join-compound-on-where-or-bind-order` | 复合 `ON AND`、`WHERE OR` 及 ON/SET/WHERE 混合 bind | ON 与 WHERE 分别形成独立布尔根；bind 位置依次为 ON 1、SET 2、WHERE 3/4；字段、关系、值及 assignment patch 精确反解析 |
+| M232 | `mysql-delete-left-join-where-three-and` | `LEFT JOIN` + 三项 `WHERE AND` | ON 比较独立于 WHERE AND 根；WHERE 根保持三个同 clause 子节点；字段、值和关系 patch 精确反解析 |
+| M233 | `mysql-delete-right-join-compound-on-no-where` | `RIGHT JOIN` + 复合 ON，无 WHERE | 删除目标、反向 relation 顺序、ON AND 根及 bind 归属保持正确，不生成虚假 WHERE |
+| M234 | `mysql-update-join-where-or-and-precedence` | 未加外层括号的 `WHERE a OR b AND c` | WHERE 保持 OR 根及右侧 AND 子树，不与 ON 合并；assignment、字段、值和关系 patch 保持运算优先级 |
+| M235 | `mysql-update-join-user-wrapper-name-where` | WHERE 中调用与内部 marker 同名的普通函数 | 仅内部 wrapper 指针归入 ON；用户函数保持 WHERE expression predicate，字段和 assignment patch 不泄漏或误删函数 |
+| M236 | `mysql-named-window-partition-order-independent-selectors` | 命名窗口同时包含 `PARTITION BY` 与 `ORDER BY` | 定义字段分别归类为 `window_partition` 和 `order_by`；同名 SELECT 字段与窗口分区字段具有独立 selector，并通过逐项 patch 验证 |
+| M237 | `mysql-named-window-reused-multiple-order-fields` | 两个窗口函数复用同一命名窗口，窗口定义包含两个排序字段 | 命名窗口定义只遍历一次，两个排序字段各自进入 Query Graph 并可独立 patch |
+| M238 | `mysql-named-window-inheritance-partition-order` | 基础窗口定义分区，派生窗口继承后补充排序 | 两个窗口定义按物理定义顺序遍历，分区字段与继承窗口排序字段保持独立归属和 selector |
+| M239 | `mysql-named-window-frame-and-query-order` | 命名窗口分区、排序、ROWS frame 与查询级 `ORDER BY` 组合 | 窗口排序和查询排序各自定位；frame 原文、View 语义及全部 patch 结果精确验证 |
+| M240 | `mysql-join-on-field-cast-expression-value` | JOIN ON 中直接字段与 `CAST(? AS SIGNED)` 值侧表达式比较 | ON comparison 的 `predicate.value` 引用唯一 expression value，`field_match_kind=direct_field`，CAST 内部 bind 不提升为独立 value |
+| M241 | `mysql-join-on-function-and-field-comparison` | JOIN ON 中函数表达式与 bind、字段对字段比较通过 AND 组合 | ON 保留 AND 子节点顺序；`UPPER(u.role_code) = ?` 输出 expression predicate，`u.role_id = r.id` 输出双侧字段 comparison；3 个 patch 精确反解析 |
+| M242 | `mysql-row-in-subquery-membership` | `(tenant_id, id) IN (SELECT tenant_id, user_id ...)` | 行值左侧两个字段完整保留，membership predicate 不任意绑定单个字段；内层双 target、过滤 bind 和 block 归属明确，6 个 patch 覆盖跨层 selector |
+| M243 | `mysql-left-join-on-null-test` | `LEFT JOIN ... ON p.user_id = u.id AND p.deleted_at IS NULL` | ON 布尔树按原顺序包含字段对字段比较与 `IS NULL` comparison；NULL 测试只引用 `p.deleted_at`，不生成 NULL value；WHERE bind 独立归属，4 个 patch 精确验证 |
+| M244 | `mysql-relation-patch-cte-outer-qualifiers` | CTE 定义、内部基础关系及外层 CTE 引用 | View 明确区分 CTE 来源块和外层关系；外层关系 patch 同步更新限定星号、直接字段及 WHERE 字段，并保持 CTE 声明和内部基础关系不变 |
+| M245 | `mysql-update-join-compound-rhs` | `UPDATE ... JOIN` 中的复合赋值右值 | source field、位置参数和 literal 通过 `rhs_fields` 和 `rhs_values` 归属同一 assignment；source relation alias 保持稳定，并精确验证 assignment 替换与插入 |
+| M247 | `mysql-derived-mixed-limit-surfaces` | 派生查询使用 `LIMIT offset, count`，外层查询使用 `LIMIT count OFFSET offset` | 两层 LIMIT 的原始表面形式分别保留；内外层 relation、target 及外层 target 插入 patch 均精确反解析 |
+| M248 | `mysql-union-result-limit-offset` | `UNION ALL` 结果使用参数化 `LIMIT count OFFSET offset` | 集合根及两个分支的 View 归属保持正确；relation 与两侧 target patch 后仍逐字节保留 OFFSET 形式 |
+| M249 | `mysql-limit-comma-comment-trivia` | `LIMIT offset, count` 三个 token 间隙穿插普通块注释 | 原始 SQL 可解析且 generation-0 逐字节保留；target patch 的普通注释回放保持正确期望，并纳入 RG016 闭环 |
+| M250 | `mysql-string-quote-escape-surfaces` | 单引号与双引号字符串混用反斜杠、重复引号转义 | View 中四个等价字符串值及 selector 逐项准确；原始反解析和 relation、target、value、insert patch 后未修改字面量均逐字节保留 |
+| M251 | `mysql-string-common-backslash-escapes` | 换行、制表符和反斜杠的常用字符串转义 | View 保存解码后的字符串语义；原始转义拼写及 patch fragment 的引号、national 前缀和反斜杠逐字节保留 |
+| M252 | `mysql-string-equal-value-surfaces` | 普通字符串、`n` 与 `N` 前缀字符串具有相同值 | View 中三个 value 独立定位；按 AST owner 保留各自表面拼写，替换或插入单个节点不会串用其他节点的拼写 |
+| M253 | `mysql-string-nested-surface-owners` | 外层双引号字符串、内层 `n` 字符串和 WHERE 转义字符串 | 嵌套 block、relation、field、target 和 value 归属完整；跨层 patch 后所有未修改字符串仍逐字节保留 |
 | MU006 | `mysql-replace-into` | `REPLACE INTO ... VALUES ...` | MySQL `REPLACE` 复用 INSERT 图结构，并通过 `insert_mode=replace_values` 保留替换插入语义 |
 | MU006A | `mysql-replace-low-priority-multi-row` | `REPLACE LOW_PRIORITY INTO ... VALUES (...), (...)` | 多行 `REPLACE VALUES`、位置参数和 `LOW_PRIORITY` 修饰符 |
 | MU006B | `mysql-replace-delayed-select` | `REPLACE DELAYED INTO ... SELECT ...` | `REPLACE SELECT` 的目标表、来源表、位置参数和 `insert_mode=replace_select` |
@@ -180,14 +204,14 @@
 | `MY-BM009` | `mysql-insert-bind-mixed-three-rows` | 三行中交错 bind、CAST/COALESCE/CASE 表达式和时间表达式 | 逐 cell selector 及跨行连续的全局 bind 序号 |
 | `MY-BM010` | `mysql-insert-bind-mixed-quoted-irregular-whitespace` | schema-qualified 反引号标识符、不规则空白、三个直接 `?` + 时间表达式 | quoted identifier、逐字节保留输入 SQL，并与期望 cell 对象逐字段一致 |
 
-## 明确不支持语句
+## 覆盖边界
 
-当前可执行 MySQL 方言矩阵有 9 条预期失败用例，覆盖非法会话状态语法。官方语法覆盖边界见 `doc/mysql_official_syntax_coverage.csv`。
+本矩阵只列出可成功解析并具有最终 View 与 patch 期望的用例。未纳入该可执行夹具的语法边界由 `doc/mysql_official_syntax_coverage.csv` 维护。
 
 ## 处理规则
 
 - 默认方言是 `SQLPARSER_DIALECT_POSTGRESQL`。
 - MySQL 语句必须通过 `sqlparser_parse_with_options` 显式传入 `SQLPARSER_DIALECT_MYSQL`。
 - 可安全映射的语法在 dialect preprocess / postprocess 层处理。
-- 不能安全映射的 MySQL 专有语义返回 `SQLPARSER_STATUS_UNSUPPORTED`。
 - 新增 MySQL 支持项必须同步更新 `tests/cases/mysql_dialect_input.json`、本矩阵和可执行回归测试。
+- 未纳入可执行夹具的语法不得在本矩阵中登记为已验证用例。

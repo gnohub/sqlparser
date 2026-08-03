@@ -19,6 +19,8 @@ typedef struct {
 	const sqlparser_identifier_origin_map_t *origins;
 	sqlparser_dialect_t dialect;
 	sqlparser_handle_t *spelling_handle;
+	void *candidate_dialect_state;
+	size_t statement_index;
 } sqlparser_generated_source_t;
 
 typedef struct {
@@ -54,6 +56,7 @@ typedef struct {
 	char **match_slot;
 	char **target_slot;
 	ProtobufCMessage *target_owner;
+	ProtobufCMessage *target_field_owner;
 	sqlparser_name_view_t *name_view;
 } sqlparser_name_search_t;
 
@@ -82,15 +85,50 @@ typedef struct {
 	size_t target_index;
 	int want_target;
 	PgQuery__Node *match_node;
+	PgQuery__AConst *match_a_const;
 	PgQuery__Node **target_slot;
+	ProtobufCMessage *target_parent;
+	PgQuery__SelectStmt *dml_tail_select;
 } sqlparser_node_slot_search_t;
+
+int sqlparser_node_is_mysql_dml_tail_wrapper(
+	const PgQuery__Node *node,
+	const PgQuery__SelectStmt *tail_select);
 
 typedef struct {
 	size_t seen;
 	size_t target_index;
 	int want_target;
 	PgQuery__Node **target_slot;
+	PgQuery__SelectStmt *dml_tail_select;
 } sqlparser_where_clause_search_t;
+
+static inline int sqlparser_a_indirection_is_grouping(
+	const PgQuery__AIndirection *indirection)
+{
+	return indirection != NULL && indirection->n_indirection == 0U;
+}
+
+static inline int sqlparser_node_is_grouping_wrapper(const PgQuery__Node *node)
+{
+	return node != NULL &&
+	       node->node_case == PG_QUERY__NODE__NODE_A_INDIRECTION &&
+	       sqlparser_a_indirection_is_grouping(node->a_indirection);
+}
+
+static inline const PgQuery__Node *sqlparser_unwrap_grouping_node_const(
+	const PgQuery__Node *node)
+{
+	while (sqlparser_node_is_grouping_wrapper(node)) {
+		node = node->a_indirection->arg;
+	}
+	return node;
+}
+
+static inline PgQuery__Node *sqlparser_unwrap_grouping_node(PgQuery__Node *node)
+{
+	return (PgQuery__Node *)sqlparser_unwrap_grouping_node_const(node);
+}
 
 typedef struct {
 	size_t seen;
@@ -104,6 +142,7 @@ typedef struct {
 	size_t order_by_seen;
 	size_t set_list_seen;
 	size_t set_operand_depth;
+	PgQuery__SelectStmt *dml_tail_select;
 } sqlparser_clause_search_t;
 
 void sqlparser_relation_view_clear(sqlparser_relation_view_t *view);
@@ -119,6 +158,12 @@ sqlparser_status_t sqlparser_get_statement_node(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
 	PgQuery__Node **out_statement,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_get_mysql_dml_tail_select(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	PgQuery__Node *statement,
+	PgQuery__SelectStmt **out_select,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_get_insert_stmt(
 	sqlparser_handle_t *handle,
@@ -237,11 +282,36 @@ sqlparser_status_t sqlparser_statement_set_name_spelling(
 	const char *value,
 	const char *spelling,
 	sqlparser_error_t *out_error);
-sqlparser_status_t sqlparser_replace_relation_identifier_slots(
+typedef struct {
+	PgQuery__ColumnRef **column_refs;
+	size_t column_ref_count;
+	PgQuery__ResTarget **assignment_targets;
+	size_t assignment_target_count;
+} sqlparser_relation_bindings_t;
+void sqlparser_relation_bindings_clear(
+	sqlparser_relation_bindings_t *bindings);
+sqlparser_status_t sqlparser_replace_relation_and_bound_qualifiers(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
 	PgQuery__RangeVar *relation,
+	PgQuery__RangeVar *duplicate_relation,
+	const sqlparser_relation_bindings_t *bindings,
 	const char *const *values,
+	const char *const *spellings,
+	void *dialect_state,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_collect_relation_bindings(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	PgQuery__RangeVar *relation,
+	sqlparser_relation_bindings_t *out_bindings,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_find_duplicate_delete_relation(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	PgQuery__RangeVar *target,
+	PgQuery__RangeVar **out_primary,
+	PgQuery__RangeVar **out_duplicate,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_find_statement_node_index_by_node(
 	sqlparser_handle_t *handle,
@@ -249,14 +319,33 @@ sqlparser_status_t sqlparser_find_statement_node_index_by_node(
 	PgQuery__Node *node,
 	size_t *out_index,
 	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_find_statement_a_const_node(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	PgQuery__AConst *a_const,
+	PgQuery__Node **out_node,
+	size_t *out_index,
+	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_get_statement_node_slot_by_index(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t node_index,
 	PgQuery__Node ***out_slot,
+	ProtobufCMessage **out_parent,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_find_statement_literal_node(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t literal_index,
+	int where_only,
+	PgQuery__Node **out_node,
+	size_t *out_node_index,
 	sqlparser_error_t *out_error);
 
 int sqlparser_node_string_value(const PgQuery__Node *node, const char **out_text);
+PgQuery__Node *sqlparser_alloc_string_node(
+	const char *text,
+	sqlparser_error_t *out_error);
 int sqlparser_try_extract_column_ref(
 	const PgQuery__Node *node,
 	const char **table_name_out,
@@ -309,9 +398,9 @@ sqlparser_status_t sqlparser_identifier_origins_for_handle(
 	const sqlparser_handle_t *handle,
 	const sqlparser_identifier_origin_map_t **out_origins,
 	sqlparser_error_t *out_error);
-sqlparser_status_t sqlparser_resolve_relation_component_spelling(
+sqlparser_status_t sqlparser_resolve_identifier_component_spelling(
 	const sqlparser_handle_t *handle,
-	const PgQuery__RangeVar *relation,
+	int32_t location,
 	size_t component_index,
 	const char *identifier,
 	char **out_spelling,
@@ -320,6 +409,11 @@ sqlparser_status_t sqlparser_render_default_identifier_spelling(
 	const char *identifier,
 	char **out_spelling,
 	sqlparser_error_t *out_error);
+int sqlparser_source_alias_has_explicit_as(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	size_t length,
+	size_t alias_offset);
 sqlparser_status_t sqlparser_clone_proto_node(
 	const PgQuery__Node *source,
 	PgQuery__Node **out_node,
@@ -435,6 +529,20 @@ sqlparser_status_t sqlparser_parse_select_target_node_sql(
 	const sqlparser_generated_source_t *source,
 	PgQuery__Node **out_node,
 	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_select_insert_target_sql_in_place(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t target_list_index,
+	size_t target_index,
+	const char *sql_text,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_insert_set_cell_sql_in_place(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t row_index,
+	size_t column_index,
+	const char *sql_text,
+	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_select_replace_target_with_columns(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
@@ -470,6 +578,15 @@ int sqlparser_view_insert_cell_source_sql(
 	size_t column_index,
 	char **out_sql,
 	sqlparser_error_t *out_error);
+int sqlparser_view_insert_cell_source_span(
+	sqlparser_handle_t *handle,
+	const sqlparser_surface_source_edits_t *surface_edits,
+	size_t statement_index,
+	size_t row_index,
+	size_t column_index,
+	size_t *out_start,
+	size_t *out_end,
+	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_merge_branch_condition_sql(
 	const sqlparser_handle_t *handle,
 	size_t statement_index,
@@ -493,6 +610,7 @@ sqlparser_status_t sqlparser_render_update_assignment_node_sql(
 	char **out_sql,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_render_variable_set_arg_node_sql(
+	const sqlparser_handle_t *handle,
 	const PgQuery__Node *node,
 	char **out_sql,
 	sqlparser_error_t *out_error);

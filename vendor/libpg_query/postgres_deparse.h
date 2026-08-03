@@ -10,16 +10,20 @@
 #define POSTGRES_DEPARSE_GENERATED_SPELLING_LAST (-1610612737)
 #define POSTGRES_DEPARSE_MERGE_ACTION_WHERE_LOCATION (-1610612736)
 #define POSTGRES_DEPARSE_SQL_VALUE_CASE_BASE (-1073741840)
-#define POSTGRES_DEPARSE_SQL_VALUE_CASE_LAST (-1073872911)
+#define POSTGRES_DEPARSE_SQL_VALUE_CASE_LAST (-1074003983)
+#define POSTGRES_DEPARSE_SQL_VALUE_UPPERCASE_MASK 0x1ffffU
+#define POSTGRES_DEPARSE_SQL_VALUE_EMPTY_CALL_FLAG 0x20000U
 #define POSTGRES_DEPARSE_IDENTIFIER_STYLE_BITS 3U
 #define POSTGRES_DEPARSE_IDENTIFIER_STYLE_MASK 7U
 #define POSTGRES_DEPARSE_IDENTIFIER_STYLE_UNQUOTED 1U
 #define POSTGRES_DEPARSE_IDENTIFIER_STYLE_DOUBLE_QUOTED 2U
 #define POSTGRES_DEPARSE_IDENTIFIER_STYLE_BACKTICK_QUOTED 3U
 #define POSTGRES_DEPARSE_IDENTIFIER_STYLE_BRACKET_QUOTED 4U
+#define POSTGRES_DEPARSE_IDENTIFIER_STYLE_DIALECT_GENERATED 5U
 #define POSTGRES_DEPARSE_WINDOW_NAME_COMPONENT ((size_t)-1)
 #define POSTGRES_DEPARSE_INDEX_ACCESS_METHOD_COMPONENT ((size_t)-2)
 #define POSTGRES_DEPARSE_SQL_VALUE_FUNCTION_COMPONENT ((size_t)-3)
+#define POSTGRES_DEPARSE_TYPE_NAME_COMPONENT ((size_t)-4)
 
 typedef enum PostgresDeparseSourceTokenKind {
     POSTGRES_DEPARSE_SOURCE_TOKEN_NONE = 0,
@@ -66,6 +70,22 @@ typedef bool (*PostgresDeparseGeneratedIdentifierProbe)(
     void *context,
     const char *identifier);
 
+typedef bool (*PostgresDeparseAliasStyleResolver)(
+    void *context,
+    const char *identifier,
+    int location,
+    bool *explicit_as);
+
+typedef bool (*PostgresDeparseAssignmentQualifierResolver)(
+    void *context,
+    const char *target_identifier,
+    int target_location,
+    const char *qualifier_identifier,
+    int qualifier_location,
+    size_t qualifier_component_index,
+    const char **resolved,
+    size_t *resolved_length);
+
 typedef struct PostgresDeparseOpts {
     PostgresDeparseComment **comments;
     size_t comment_count;
@@ -76,6 +96,7 @@ typedef struct PostgresDeparseOpts {
     int max_line_length;       // Restricts the line length of certain lists of items (Default 80 characters)
     bool trailing_newline;     // Whether to add a trailing newline at the end of the output (Default off)
     bool commas_start_of_line; // Place separating commas at start of line (Default off)
+    bool type_cast_as_function; // Emit CAST(value AS type) instead of PostgreSQL's value::type form
 
     // Optional source-spelling resolver for identifiers.
     PostgresDeparseIdentifierResolver identifier_resolver;
@@ -85,6 +106,8 @@ typedef struct PostgresDeparseOpts {
     size_t generated_identifier_prefix_length;
     PostgresDeparseGeneratedIdentifierReader generated_identifier_reader;
     PostgresDeparseGeneratedIdentifierProbe generated_identifier_probe;
+    PostgresDeparseAliasStyleResolver alias_style_resolver;
+    PostgresDeparseAssignmentQualifierResolver assignment_qualifier_resolver;
     void *identifier_resolver_context;
 } PostgresDeparseOpts;
 

@@ -1,21 +1,23 @@
 # Vastbase MySQL Compatibility Case Matrix
 
-Executable fixture: `tests/cases/vastbase_mysql_dialect_input.json`. The unit test verifies parsing, View JSON, deparse output, and explicitly unsupported syntax return codes case by case.
+The executable fixture is `tests/cases/vastbase_mysql_dialect_input.json`. For every final case, the runner requires unchanged SQL to deparse byte for byte, compares the actual View with the expected JSON structure, and executes each patch independently. Patched SQL must match `patch.deparse` byte for byte, remain identical after a fresh parse and second deparse, and produce the same View from the patched and freshly parsed handles.
+
+## Canonical Transaction Characteristic Values
+
+These four final cases cover common transaction isolation levels and access modes in Vastbase MySQL compatibility mode. Generation-0 deparse must preserve every input byte, while View must emit trivia-free canonical keyword values in input order. Session semantic values expose no selector, so these cases intentionally have no patch entries.
+
+| ID | Case | SQL | Verification focus |
+| --- | --- | --- | --- |
+| `VM-TX001` | `vastbase-mysql-session-transaction-commented-read-uncommitted` | ALTER/*command*/SESSION SET TRANSACTION ISOLATION/*name*/LEVEL READ/*value*/UNCOMMITTED; | canonical `READ UNCOMMITTED` and a single characteristic |
+| `VM-TX002` | `vastbase-mysql-session-characteristics-commented-repeatable-read-write` | ALTER SESSION SET SESSION/*scope*/CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL REPEATABLE/*value*/READ, READ/*mode*/WRITE; | `REPEATABLE READ`, `READ WRITE`, and the session-characteristics entry |
+| `VM-TX003` | `vastbase-mysql-session-transaction-commented-serializable-read-only` | ALTER SESSION SET TRANSACTION ISOLATION LEVEL SERIALIZABLE/*tail*/, READ/*mode*/ONLY; | `SERIALIZABLE`, `READ ONLY`, and trivia before the comma |
+| `VM-TX004` | `vastbase-mysql-session-transaction-commented-option-order` | ALTER SESSION SET TRANSACTION read/*mode*/write, ISOLATION/*name*/LEVEL read/*value*/committed; | input option order, lowercase source preservation, and canonical `READ COMMITTED` |
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 231 cases: 222 expect success and 9 expect failure.
-Statement-level `expect.session` appears in 40 cases, covering `VM015` through
-`VM017`, `VB-C001` through `VB-C022`, `VB-C026` through `VB-C027`, `VB-C030`
-through `VB-C031`, and `VB-B001` through `VB-B011`. All 40 contain at least one
-non-null session expectation.
+The fixture contains 253 cases with `status = "final"`. The expected View contains a non-empty session projection in 44 cases.
 
-When an `expect.session` array is present, the matrix test requires one entry
-per statement. A non-null entry is matched against the corresponding session
-projection, including its action, item scope, target kind, name, and value
-fields; `null` asserts that no session projection is emitted. For fixture cases
-that expect success, the test also deparses the unmodified handle and compares
-the result with the input SQL byte for byte.
+View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
 
 | ID | Case | SQL | Status |
 | --- | --- | --- | --- |
@@ -129,6 +131,24 @@ the result with the input SQL byte for byte.
 | `VM129-VM135` | index hints at query-tail boundaries | `HAVING`, `WINDOW`, set operations, and locking clauses | covered |
 | `VM136-VM140` | index hints with JOIN and scope combinations | `NATURAL JOIN`, `STRAIGHT_JOIN`, `USING`, aliases, and multiple scoped hints | covered |
 | `VM141-VM145` | nested and identifier boundaries for index hints | CTEs, multiple statements, partitioned tables, reserved-word aliases, and derived tables | covered |
+| `VM228-VM231` | UPDATE/DELETE tail structure regression | ORDER BY only, LIMIT only, DELETE bind isolation, and alias-qualified multiple sort keys | covered |
+| `VM232` | `vastbase-mysql-cte-update-nested-order-limit-bind-isolation` | CTE, `USE INDEX FOR ORDER BY`, correlated scalar-subquery ordering, and mixed assignment/WHERE/ORDER/LIMIT binds | the index-hint/real-tail boundary, CTE source blocks, correlated fields, the first three semantic binds, and all 8 patches are covered precisely; the LIMIT bind stays outside View |
+| `VM233` | `vastbase-mysql-update-join-compound-on-where-or-bind-order` | compound `ON AND`, `WHERE OR`, and mixed ON/SET/WHERE binds | separate ON/WHERE roots, bind positions 1/2/3/4, and field, relation, value, and assignment patches are covered exactly |
+| `VM234` | `vastbase-mysql-delete-left-join-where-three-and` | `LEFT JOIN` plus a three-term `WHERE AND` | the ON comparison, three WHERE children, and field, value, and relation patches are covered exactly |
+| `VM235` | `vastbase-mysql-delete-right-join-compound-on-no-where` | `RIGHT JOIN` with a compound ON and no WHERE | the delete target, reversed relation order, ON AND root, and bind attribution are covered without a synthetic WHERE |
+| `VM236` | `vastbase-mysql-update-join-where-or-and-precedence` | unparenthesized `WHERE a OR b AND c` | the WHERE OR/AND precedence tree remains separate from ON through assignment, field, value, and relation patches |
+| `VM237` | `vastbase-mysql-update-join-user-wrapper-name-where` | an ordinary WHERE function whose name matches the internal marker | the user function remains a WHERE expression predicate while only the internal wrapper is attributed to ON |
+| `VM238` | `vastbase-mysql-named-window-partition-order-independent-selectors` | a named window containing both `PARTITION BY` and `ORDER BY` | definition fields are classified as `window_partition` and `order_by`; the same-named SELECT and window-partition fields retain independent selectors verified by individual patches |
+| `VM239` | `vastbase-mysql-named-window-reused-multiple-order-fields` | two window functions reuse one named window with two ordering fields | the physical definition is traversed once, and both ordering fields enter Query Graph with independently patchable selectors |
+| `VM240` | `vastbase-mysql-named-window-inheritance-partition-order` | a base window defines partitioning and an inherited window adds ordering | both physical definitions are traversed in order, with separate attribution and selectors for the partition and inherited ordering fields |
+| `VM241` | `vastbase-mysql-named-window-frame-and-query-order` | named-window partitioning, ordering, a ROWS frame, and query-level `ORDER BY` | window and query ordering remain independently addressable; frame spelling, View semantics, and every patch result are verified exactly |
+| `VM247` | `vastbase-mysql-derived-mixed-limit-surfaces` | a derived query uses `LIMIT offset, count` while the outer query uses `LIMIT count OFFSET offset` | each query level preserves its original LIMIT surface; relation, inner and outer target, and outer target-list insertion patches all deparse exactly |
+| `VM248` | `vastbase-mysql-union-result-limit-offset` | a `UNION ALL` result uses parameterized `LIMIT count OFFSET offset` | View preserves the set root and both branch attributions; relation and branch-target patches retain the OFFSET form byte for byte |
+| `VM249` | `vastbase-mysql-limit-comma-comment-trivia` | ordinary block comments occupy all three token gaps in `LIMIT offset, count` | the original SQL parses and is preserved byte for byte at generation 0; ordinary-comment replay after the target patch retains the correct expectation for RG016 closure |
+| `VM250` | `vastbase-mysql-string-quote-escape-surfaces` | single- and double-quoted strings using backslash and doubled-quote escapes | View records all four equivalent string values and selectors precisely; original deparse and relation, target, value, and insertion patches preserve every untouched literal byte for byte |
+| `VM251` | `vastbase-mysql-string-common-backslash-escapes` | common newline, tab, and backslash string escapes | View retains decoded string semantics; original escape spellings and the quote, national prefix, and backslash spelling of patch fragments are preserved byte for byte |
+| `VM252` | `vastbase-mysql-string-equal-value-surfaces` | plain, lowercase-`n`, and uppercase-`N` strings with the same value | View exposes three independently addressable values; AST ownership preserves each surface spelling without reusing another equal-valued literal after replacement or insertion |
+| `VM253` | `vastbase-mysql-string-nested-surface-owners` | an outer double-quoted string, an inner lowercase-`n` string, and an escaped WHERE string | nested block, relation, field, target, and value attribution is complete; cross-level patches preserve every untouched string byte for byte |
 | `VMU001` | `vastbase-mysql-insert-ignore` | INSERT IGNORE INTO `users` (`id`) VALUES (1) | covered |
 | `VMU002` | `vastbase-mysql-insert-delayed` | INSERT DELAYED INTO `users` (`id`) VALUES (1) | covered |
 | `VMU003` | `vastbase-mysql-insert-low-priority` | INSERT LOW_PRIORITY INTO `users` (`id`) VALUES (1) | covered |

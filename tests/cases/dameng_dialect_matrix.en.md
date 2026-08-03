@@ -1,20 +1,18 @@
 # Dameng Dialect Case Matrix
 
-This file records regression cases for the Dameng dialect conversion layer. The executable fixture is `tests/cases/dameng_dialect_input.json`; `tests/unit/test_dameng_dialect_case_matrix.c` verifies parsing, View JSON, deparse output, and error codes.
+This file records regression cases for the Dameng dialect conversion layer. The executable fixture is `tests/cases/dameng_dialect_input.json`. For every final case, the runner requires unchanged SQL to deparse byte for byte, compares the actual View with the expected JSON structure, and executes each patch independently. Patched SQL must match `patch.deparse` byte for byte, remain identical after a fresh parse and second deparse, and produce the same View from the patched and freshly parsed handles.
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 172 cases: 160 expect success and 12 expect failure.
-Statement-level `expect.session` appears in 34 cases, covering `D002`,
+The fixture contains 165 cases with `status = "final"`.
+Statement-level `query_graph.session` appears in 34 cases, covering `D002`,
 `D003`, `D003Q`, `D026`, `D089` through `D095`, and the `DM-*` session cases.
-All 34 contain at least one non-null session expectation.
+All 34 contain at least one non-empty session item.
 
-When an `expect.session` array is present, the matrix test requires one entry
-per statement. A non-null entry is matched against the corresponding session
-projection, including its action, item scope, target kind, name, and value
-fields; `null` asserts that no session projection is emitted. For fixture
-cases that expect success, the test also deparses the unmodified handle and
-compares the result with the input SQL byte for byte.
+When `query_graph.session` is present, the matrix test checks its action, item
+scope, target kind, name, and value fields as part of the exact View JSON
+comparison. Every case also deparses the unmodified handle and compares the
+result with the input SQL byte for byte.
 
 ## Supported Cases
 
@@ -172,20 +170,23 @@ In these cases, `?` is accepted only as a JDBC prepared-statement parameter mark
 | `DM-BM009` | binds and time functions change positions across three `VALUES` rows | keep multi-row cell coordinates and cross-row bind order stable |
 | `DM-BM010` | schema-qualified quoted identifiers and irregular spacing with `?` and `SYSDATE` | preserve identifiers, whitespace, cell mapping, and byte-for-byte deparse |
 
-## Explicitly Unsupported Cases
+## ROWNUM Predicate Semantics Regression
 
-The following constructs have Dameng-specific or compatibility-mode semantics. The conversion layer returns `SQLPARSER_STATUS_UNSUPPORTED` or a parse error instead of producing SQL with unreliable semantics.
+This group covers ROWNUM combined with an ordinary predicate, ordered Top-N, reversed equality, a greater-than boundary, and a DELETE batch condition. In View JSON, a ROWNUM condition is an expression predicate that does not reference `fields[]` and instead points to the opposite literal or bind value.
 
-| ID | Case | Reason |
-| --- | --- | --- |
-| DU001 | `CONNECT BY` | hierarchical query semantics need a dedicated query model |
-| DU002 | `PIVOT` | table transformation semantics need a dedicated query model |
-| DU003 | `RETURNING ... INTO` | non-equivalent host-variable return target |
-| DU004 | DMSQL block | outside SQL statement conversion scope |
-| DU010 | `CREATE PROCEDURE` | DMSQL program unit |
-| DU012 | `ALTER SESSION SET CONTAINER` | Dameng does not support container session semantics |
+| ID | Case | SQL shape | Coverage |
+| --- | --- | --- | --- |
+| D-RN001 | `dameng-rownum-and-named-bind` | ordinary comparison `AND ROWNUM <= :limit` | the AND root retains both the ordinary comparison and the fieldless ROWNUM expression; the named bind has position 1 |
+| D-RN002 | `dameng-rownum-ordered-top-n` | inner `ORDER BY`, outer `ROWNUM < 11` | the ordering field belongs to the inner block, while the ROWNUM predicate and literal belong to the outer block |
+| D-RN003 | `dameng-rownum-reversed-equality` | `1 = ROWNUM` | reversed operand order remains unchanged and the fieldless equality expression references the literal |
+| D-RN004 | `dameng-rownum-greater-than-boundary` | `ROWNUM > 1` | the greater-than boundary retains its predicate and literal in View JSON without semantic folding |
+| D-RN005 | `dameng-delete-rownum-batch-limit` | DELETE ordinary comparison `AND ROWNUM <= :batch_size` | DELETE DML target, AND tree, and the ROWNUM bind keep the correct block, position, and attribution |
+
+## Coverage Boundary
+
+This matrix lists only cases that parse successfully and have final View and patch expectations. Syntax boundaries outside this executable fixture are maintained in `doc/dameng_official_syntax_coverage.csv`.
 
 ## Maintenance
 
 - New Dameng support must update `tests/cases/dameng_dialect_input.json`, this matrix, and executable regression tests.
-- Dameng-only syntax that cannot be mapped with equivalent semantics must return `SQLPARSER_STATUS_UNSUPPORTED` or a parse error.
+- Syntax outside the executable fixture must not be listed here as a validated case.

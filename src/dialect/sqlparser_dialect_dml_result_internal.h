@@ -3,8 +3,18 @@
 
 #include "sqlparser_dialect_internal.h"
 
+enum {
+	SQLPARSER_DIALECT_DML_TARGET_REFERENCE_NONE = 0U,
+	SQLPARSER_DIALECT_DML_TARGET_REFERENCE_BEFORE = 1U << 0,
+	SQLPARSER_DIALECT_DML_TARGET_REFERENCE_AFTER = 1U << 1
+};
+
 typedef struct {
 	sqlparser_graph_dml_kind_t kind;
+	ProtobufCMessage *message;
+	PgQuery__CommonTableExpr *cte;
+	size_t target_count;
+	unsigned int target_reference_kinds;
 	size_t channel_count;
 	size_t parent_dml_index;
 	int has_parent;
@@ -21,21 +31,30 @@ typedef struct {
 	size_t sink_column_count;
 } sqlparser_dialect_dml_result_channel_t;
 
+typedef int (*sqlparser_dialect_dml_result_visit_fn)(
+	size_t dml_index,
+	const sqlparser_dialect_dml_result_dml_t *dml,
+	void *context);
+
+int sqlparser_dialect_postgresql_dml_result_visit(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	sqlparser_dialect_dml_result_visit_fn visitor,
+	void *context,
+	size_t *out_count);
+
 size_t sqlparser_dialect_dml_result_count(
-	sqlparser_dialect_t dialect,
-	const void *state,
+	const sqlparser_handle_t *handle,
 	size_t statement_index);
 
 int sqlparser_dialect_dml_result_dml_at(
-	sqlparser_dialect_t dialect,
-	const void *state,
+	const sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t dml_index,
 	sqlparser_dialect_dml_result_dml_t *out_dml);
 
 int sqlparser_dialect_dml_result_channel_at(
-	sqlparser_dialect_t dialect,
-	const void *state,
+	const sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t dml_index,
 	size_t channel_index,

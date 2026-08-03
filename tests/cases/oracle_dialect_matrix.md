@@ -1,12 +1,12 @@
 # Oracle 方言用例矩阵
 
-本文件记录 Oracle 方言转换层的回归用例。可执行夹具为 `tests/cases/oracle_dialect_input.json`，单元测试 `tests/unit/test_oracle_dialect_case_matrix.c` 会逐条验证解析结果、View JSON、反解析输出和错误码。
+本文件记录 Oracle 方言转换层的回归用例。可执行夹具为 `tests/cases/oracle_dialect_input.json`。对每条 final 用例，runner 验证未修改 SQL 的反解析结果与输入逐字节一致、实际 View 与期望 JSON 结构相等，并独立执行每个 patch；patch 后 SQL 必须与 `patch.deparse` 逐字节一致，重新解析后再次反解析仍须一致，且 patch handle 与重新解析 handle 的 View 输出必须一致。
 
 ## 矩阵统计与 session 回归
 
-夹具包含 245 条用例，其中 223 条预期成功，22 条预期失败。59 条用例包含 statement 级 `expect.session`，覆盖 `O043`、`O043Q`、`O044` 至 `O047`、`O082` 至 `O086`，以及 `ORA-*` session 用例；这 59 条用例均至少包含一个非空 session 期望。
+夹具包含 237 条 `status = "final"` 用例。59 条用例包含 statement 级 `query_graph.session`，覆盖 `O043`、`O043Q`、`O044` 至 `O047`、`O082` 至 `O086`，以及 `ORA-*` session 用例；这 59 条用例均至少包含一个非空 session item。
 
-用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
+View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name 及 value 字段均属于比较范围。
 
 ## INSERT VALUES 回归：bind 与表达式混合
 
@@ -194,27 +194,34 @@
 | O176 | `oracle-drop-synonym` | `DROP SYNONYM ... FORCE` | Oracle synonym 删除语句 |
 | OU016 | `oracle-explain-plan` | `EXPLAIN PLAN FOR SELECT ...` | Oracle explain plan 语句保留 |
 | O177 | `oracle-explain-plan-into` | `EXPLAIN PLAN SET STATEMENT_ID ... INTO ... FOR SELECT ...` | Oracle explain plan 带计划表形态 |
+| O178 | `oracle-union-all-three-branch-scope` | 显式分组的三分支 `UNION ALL` | 两级集合拓扑、分支顺序和 literal selector 保持稳定 |
+| O179 | `oracle-grouped-union-all-intersect` | 显式分组的 `UNION ALL` 与 `INTERSECT` | 分组边界、运算符类型和所选分支 patch 后反解析保持稳定 |
+| O180 | `oracle-union-all-root-cte-scope` | 根级 CTE 跨 `UNION ALL` 分支可见 | 两个分支均解析到同一 CTE source block |
+| O181 | `oracle-union-all-qualified-table-bypasses-cte` | 与 CTE 同名的 schema-qualified 及 database-link 基表 | `app.src` 与 `src@remote_db` 均保持 base relation，不误解析为 CTE |
+| O182 | `oracle-correlated-union-all-subquery-scope` | 相关子查询内的 `UNION ALL` | 两个集合分支分别保留本地 relation，并解析到外层 `o` relation |
+| O183 | `oracle-upper-reverse-bind-expression-predicate` | `:v = UPPER(SECRET)` | expression predicate 通过 `right_field` 引用 `SECRET`，仅输出比较左侧 bind value |
+| O184 | `oracle-in-subquery-named-bind-membership` | `ID IN (SELECT USER_ID ... STATUS = :status)` | 外层 membership 字段和 `IN` predicate 与内层 block、target、过滤字段及命名 bind 分离归属；6 个 patch 覆盖两层字段、关系、target、插入 target 与 bind |
+| O185 | `oracle-direct-bind-null-test` | `:STATUS IS NOT NULL AND DELETED_AT IS NULL` | 直接 bind NULL 测试输出 expression predicate 并仅引用真实命名 bind；字段 NULL 测试输出 comparison 且不生成 NULL value，AND 顺序及 4 个 patch 精确验证 |
+| O186 | `oracle-nested-select-target-multi-replace-middle` | 派生表内层三输出项 SELECT 的中间项替换为三个双引号输出项 | replacement 仅在内层 target list 原位置展开，内外 block、relation 和 target 顺序保持正确；独立 insert patch 验证内层列表位置 |
+| O187 | `oracle-merge-update-compound-rhs` | MERGE UPDATE 分支中的复合赋值右值 | 分支 assignment 通过 `rhs_fields` 和 `rhs_values` 归属 source field、位置参数与 literal；source alias 保持稳定，并精确验证 MERGE assignment 替换与插入 |
 
-## 明确不支持用例
+## ROWNUM 谓词语义回归
 
-以下语法具有 Oracle 专有语义，当前不会尝试映射为 PostgreSQL AST。转换层返回 `SQLPARSER_STATUS_UNSUPPORTED`，避免生成语义不可靠的 SQL。
+以下 5 条最终用例验证 `ROWNUM` 仅作为伪列表达式参与谓词，不进入 `query_graph.fields`。谓词保留原始运算符并指向对侧 literal 或 bind value；组合条件同时精确保留布尔树、block 和 DML 归属。这些用例不产生 session 投影。
 
-| ID | 用例 | 原因 |
-| --- | --- | --- |
-| OU001 | `CONNECT BY` | 层级查询语义不等价 |
-| OU002 | `(+)` | 旧式外连接语义不等价 |
-| OU004 | `RETURNING ... INTO` | 返回目标和宿主变量语义不等价 |
-| OU005 | PL/SQL block | 超出 SQL 语句转换范围 |
-| OU006 | `CREATE PROCEDURE` | PL/SQL 单元 |
-| OU007 | `CREATE PACKAGE` | PL/SQL 单元 |
-| OU008 | `PIVOT` | Oracle 表变换语义 |
-| OU009 | `UNPIVOT` | Oracle 表变换语义 |
-| OU010 | `MODEL` | Oracle model clause |
-| OU011 | flashback query | Oracle 闪回查询语义 |
-| OU012 | `MATCH_RECOGNIZE` | 行模式识别语义 |
-| OU017 | `CONNECT_BY_ROOT` | 层级查询相关表达式 |
+| ID | 用例 | SQL 形态 | 覆盖点 |
+| --- | --- | --- | --- |
+| `O-RN001` | `oracle-rownum-and-named-bind` | 普通字段条件与 `ROWNUM <= :limit` | `AND` 布尔树、无 field 的 ROWNUM expression predicate 和命名 bind 位置 |
+| `O-RN002` | `oracle-rownum-derived-order-by-limit` | 派生表 `ORDER BY` + 外层 `ROWNUM < 11` | 内外 block、派生 relation、星号来源和 literal predicate 归属 |
+| `O-RN003` | `oracle-rownum-right-operand-equality` | `1 = ROWNUM` | ROWNUM 位于比较右侧时保留原始运算符和左侧 literal selector |
+| `O-RN004` | `oracle-rownum-greater-than-literal` | `ROWNUM > 1` | 大于运算符和对侧 literal 的 expression predicate |
+| `O-RN005` | `oracle-delete-rownum-batch-limit` | `DELETE ... expired = 1 AND ROWNUM <= :batch_size` | DELETE 目标、`AND` 布尔树、普通字段谓词及 ROWNUM bind predicate 归属 |
+
+## 覆盖边界
+
+本矩阵只列出可成功解析并具有最终 View 与 patch 期望的用例。未纳入该可执行夹具的语法边界由 `doc/oracle_official_syntax_coverage.csv` 维护。
 
 ## 维护要求
 
 - 新增 Oracle 支持项必须同步更新 `tests/cases/oracle_dialect_input.json`、本矩阵和可执行回归测试。
-- 无法保证语义等价的 Oracle 专有语法必须返回 `SQLPARSER_STATUS_UNSUPPORTED`。
+- 未纳入可执行夹具的语法不得在本矩阵中登记为已验证用例。

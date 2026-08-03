@@ -1,15 +1,21 @@
 #include <ctype.h>
 #include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "sqlparser_dialect_ast_surface_internal.h"
+#include "sqlparser_dialect_bind_internal.h"
 #include "sqlparser_dialect_internal.h"
 #include "sqlparser_dialect_dameng_internal.h"
+#include "sqlparser_dialect_minus_internal.h"
+#include "sqlparser_dialect_national_literal_internal.h"
 
 typedef struct {
 	char *clause;
 	size_t limit_ordinal;
+	PgQuery__SelectStmt *owner;
 } sqlparser_dameng_top_restore_t;
 
 typedef struct {
@@ -18,28 +24,28 @@ typedef struct {
 	char *public_link_name;
 	char *public_object_sql;
 	char *public_link_sql;
+	PgQuery__RangeVar *owner;
 } sqlparser_dameng_dblink_relation_t;
 
 typedef struct {
 	char **bind_names;
 	size_t bind_count;
 	size_t bind_capacity;
+	sqlparser_dialect_prepared_binds_t prepared_binds;
 	sqlparser_dameng_top_restore_t *top_restores;
 	size_t top_count;
 	size_t top_capacity;
-	char **national_literals;
-	size_t *national_literal_ordinals;
-	size_t national_literal_count;
-	size_t national_literal_capacity;
-	size_t national_literal_ordinal_capacity;
+	size_t top_fragment_start;
+	size_t fragment_limit_base;
+	sqlparser_dialect_national_literals_t national_literals;
 	size_t limit_count;
-	size_t literal_count;
 	size_t bind_occurrence_count;
-	int saw_minus;
+	sqlparser_dialect_minuses_t minuses;
 	sqlparser_dialect_multi_insert_t *multi_insert;
 	sqlparser_dameng_dblink_relation_t *dblink_relations;
 	size_t dblink_count;
 	size_t dblink_capacity;
+	size_t next_dblink_id;
 } sqlparser_dameng_state_t;
 
 typedef struct {
@@ -62,6 +68,19 @@ typedef struct {
 	int valid;
 } sqlparser_dameng_limit_origin_t;
 
+typedef struct {
+	char *limit;
+	char *top_clause;
+	sqlparser_dameng_limit_origin_t origin;
+	size_t depth;
+} sqlparser_dameng_pending_top_t;
+
+typedef struct {
+	sqlparser_dameng_pending_top_t *items;
+	size_t count;
+	size_t capacity;
+} sqlparser_dameng_pending_tops_t;
+
 static int sqlparser_dameng_is_multi_insert_start(
 	const char *sql,
 	sqlparser_dialect_multi_insert_mode_t *out_mode);
@@ -71,6 +90,20 @@ static sqlparser_status_t sqlparser_dameng_parse_multi_insert(
 	char **out_parser_sql,
 	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error);
+
+static void sqlparser_dameng_dblink_relation_clear(
+	sqlparser_dameng_dblink_relation_t *relation)
+{
+	if (relation == NULL) {
+		return;
+	}
+	free(relation->parser_object_name);
+	free(relation->public_object_name);
+	free(relation->public_link_name);
+	free(relation->public_object_sql);
+	free(relation->public_link_sql);
+	memset(relation, 0, sizeof(*relation));
+}
 
 static void sqlparser_dameng_buffer_release(sqlparser_dameng_buffer_t *buffer)
 {
@@ -562,20 +595,17 @@ static void sqlparser_dameng_state_destroy(void *state)
 	for (index = 0U; index < dameng_state->top_count; index++) {
 		free(dameng_state->top_restores[index].clause);
 	}
-	for (index = 0U; index < dameng_state->national_literal_count; index++) {
-		free(dameng_state->national_literals[index]);
-	}
 	for (index = 0U; index < dameng_state->dblink_count; index++) {
-		free(dameng_state->dblink_relations[index].parser_object_name);
-		free(dameng_state->dblink_relations[index].public_object_name);
-		free(dameng_state->dblink_relations[index].public_link_name);
-		free(dameng_state->dblink_relations[index].public_object_sql);
-		free(dameng_state->dblink_relations[index].public_link_sql);
+		sqlparser_dameng_dblink_relation_clear(
+			&dameng_state->dblink_relations[index]);
 	}
 	free(dameng_state->bind_names);
+	sqlparser_dialect_prepared_binds_clear(
+		&dameng_state->prepared_binds);
 	free(dameng_state->top_restores);
-	free(dameng_state->national_literals);
-	free(dameng_state->national_literal_ordinals);
+	sqlparser_dialect_national_literals_clear(
+		&dameng_state->national_literals);
+	sqlparser_dialect_minuses_clear(&dameng_state->minuses);
 	free(dameng_state->dblink_relations);
 	sqlparser_dameng_multi_insert_destroy(dameng_state->multi_insert);
 	free(dameng_state);
@@ -601,44 +631,6 @@ static sqlparser_status_t sqlparser_dameng_state_new(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_dameng_size_array_reserve(
-	size_t **items,
-	size_t *capacity,
-	size_t required,
-	sqlparser_error_t *out_error)
-{
-	size_t next_capacity;
-	size_t *next;
-
-	if (items == NULL || capacity == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "array arguments must not be NULL");
-		return SQLPARSER_STATUS_INVALID_ARGUMENT;
-	}
-	if (required <= *capacity) {
-		return SQLPARSER_STATUS_OK;
-	}
-	next_capacity = *capacity == 0U ? 4U : *capacity;
-	while (next_capacity < required) {
-		if (next_capacity > ((size_t)-1) / 2U) {
-			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-			return SQLPARSER_STATUS_NO_MEMORY;
-		}
-		next_capacity *= 2U;
-	}
-	if (next_capacity > ((size_t)-1) / sizeof(*next)) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-		return SQLPARSER_STATUS_NO_MEMORY;
-	}
-	next = (size_t *)realloc(*items, next_capacity * sizeof(*next));
-	if (next == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-		return SQLPARSER_STATUS_NO_MEMORY;
-	}
-	*items = next;
-	*capacity = next_capacity;
-	return SQLPARSER_STATUS_OK;
-}
-
 static sqlparser_status_t sqlparser_dameng_store_national_literal(
 	sqlparser_dameng_state_t *state,
 	const char *literal,
@@ -646,49 +638,14 @@ static sqlparser_status_t sqlparser_dameng_store_national_literal(
 	size_t ordinal,
 	sqlparser_error_t *out_error)
 {
-	char **next;
-	char *copy;
-	size_t next_capacity;
-	sqlparser_status_t status;
-
-	if (state == NULL || literal == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "national literal arguments must not be NULL");
-		return SQLPARSER_STATUS_INVALID_ARGUMENT;
-	}
-
-	status = sqlparser_dameng_size_array_reserve(
-		&state->national_literal_ordinals,
-		&state->national_literal_ordinal_capacity,
-		state->national_literal_count + 1U,
-		out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		return status;
-	}
-	if (state->national_literal_count == state->national_literal_capacity) {
-		next_capacity = state->national_literal_capacity == 0U ? 4U : state->national_literal_capacity * 2U;
-		if (next_capacity < state->national_literal_capacity ||
-		    next_capacity > ((size_t)-1) / sizeof(*next)) {
-			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-			return SQLPARSER_STATUS_NO_MEMORY;
-		}
-		next = (char **)realloc(state->national_literals, next_capacity * sizeof(*next));
-		if (next == NULL) {
-			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-			return SQLPARSER_STATUS_NO_MEMORY;
-		}
-		state->national_literals = next;
-		state->national_literal_capacity = next_capacity;
-	}
-
-	copy = sqlparser_strndup(literal, len);
-	if (copy == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-		return SQLPARSER_STATUS_NO_MEMORY;
-	}
-	state->national_literals[state->national_literal_count] = copy;
-	state->national_literal_ordinals[state->national_literal_count] = ordinal;
-	state->national_literal_count++;
-	return SQLPARSER_STATUS_OK;
+	return state != NULL ?
+		sqlparser_dialect_national_literals_append(
+			&state->national_literals,
+			literal,
+			len,
+			ordinal,
+			out_error) :
+		SQLPARSER_STATUS_INVALID_ARGUMENT;
 }
 
 static int sqlparser_dameng_national_literal_matches(
@@ -698,21 +655,13 @@ static int sqlparser_dameng_national_literal_matches(
 	size_t start,
 	size_t end)
 {
-	size_t index;
-	size_t len;
-
-	if (state == NULL || sql == NULL || end <= start) {
-		return 0;
-	}
-	len = end - start;
-	for (index = 0U; index < state->national_literal_count; index++) {
-		if (state->national_literal_ordinals[index] == ordinal &&
-		    strlen(state->national_literals[index]) == len &&
-		    strncmp(state->national_literals[index], sql + start, len) == 0) {
-			return 1;
-		}
-	}
-	return 0;
+	return state != NULL &&
+		sqlparser_dialect_national_literals_match(
+			&state->national_literals,
+			ordinal,
+			sql,
+			start,
+			end);
 }
 
 static int sqlparser_dameng_is_ident_start(unsigned char c)
@@ -1226,6 +1175,7 @@ static sqlparser_status_t sqlparser_dameng_state_append_top_clause(
 	}
 	state->top_restores[state->top_count].clause = copy;
 	state->top_restores[state->top_count].limit_ordinal = limit_ordinal;
+	state->top_restores[state->top_count].owner = NULL;
 	state->top_count++;
 	return SQLPARSER_STATUS_OK;
 }
@@ -1344,6 +1294,7 @@ static sqlparser_status_t sqlparser_dameng_state_append_dblink_relation(
 	size_t public_link_sql_len,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_dameng_dblink_relation_t copy;
 	sqlparser_dameng_dblink_relation_t *next;
 	sqlparser_dameng_dblink_relation_t *relation;
 	size_t next_capacity;
@@ -1353,9 +1304,26 @@ static sqlparser_status_t sqlparser_dameng_state_append_dblink_relation(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "database link relation arguments must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
+	memset(&copy, 0, sizeof(copy));
+	copy.parser_object_name = sqlparser_strdup(parser_object_name);
+	copy.public_object_name = sqlparser_strdup(public_object_name);
+	copy.public_link_name = sqlparser_strdup(public_link_name);
+	copy.public_object_sql = sqlparser_strndup(
+		public_object_sql, public_object_sql_len);
+	copy.public_link_sql = sqlparser_strndup(
+		public_link_sql, public_link_sql_len);
+	if (copy.parser_object_name == NULL || copy.public_object_name == NULL ||
+	    copy.public_link_name == NULL || copy.public_object_sql == NULL ||
+	    copy.public_link_sql == NULL) {
+		sqlparser_dameng_dblink_relation_clear(&copy);
+		sqlparser_error_set_message(
+			out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
 	if (state->dblink_count == state->dblink_capacity) {
 		next_capacity = state->dblink_capacity == 0U ? 4U : state->dblink_capacity * 2U;
 		if (next_capacity < state->dblink_capacity) {
+			sqlparser_dameng_dblink_relation_clear(&copy);
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 			return SQLPARSER_STATUS_NO_MEMORY;
 		}
@@ -1363,6 +1331,7 @@ static sqlparser_status_t sqlparser_dameng_state_append_dblink_relation(
 			state->dblink_relations,
 			next_capacity * sizeof(*next));
 		if (next == NULL) {
+			sqlparser_dameng_dblink_relation_clear(&copy);
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 			return SQLPARSER_STATUS_NO_MEMORY;
 		}
@@ -1371,26 +1340,7 @@ static sqlparser_status_t sqlparser_dameng_state_append_dblink_relation(
 	}
 
 	relation = &state->dblink_relations[state->dblink_count];
-	memset(relation, 0, sizeof(*relation));
-	relation->parser_object_name = sqlparser_strdup(parser_object_name);
-	relation->public_object_name = sqlparser_strdup(public_object_name);
-	relation->public_link_name = sqlparser_strdup(public_link_name);
-	relation->public_object_sql = sqlparser_strndup(public_object_sql, public_object_sql_len);
-	relation->public_link_sql = sqlparser_strndup(public_link_sql, public_link_sql_len);
-	if (relation->parser_object_name == NULL ||
-	    relation->public_object_name == NULL ||
-	    relation->public_link_name == NULL ||
-	    relation->public_object_sql == NULL ||
-	    relation->public_link_sql == NULL) {
-		free(relation->parser_object_name);
-		free(relation->public_object_name);
-		free(relation->public_link_name);
-		free(relation->public_object_sql);
-		free(relation->public_link_sql);
-		memset(relation, 0, sizeof(*relation));
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-		return SQLPARSER_STATUS_NO_MEMORY;
-	}
+	*relation = copy;
 	state->dblink_count++;
 	return SQLPARSER_STATUS_OK;
 }
@@ -1467,11 +1417,19 @@ static sqlparser_status_t sqlparser_dameng_try_copy_database_link_relation(
 		return SQLPARSER_STATUS_PARSE_ERROR;
 	}
 
+	if (state->next_dblink_id == SIZE_MAX) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_RESOURCE_LIMIT,
+			"database link marker range is exhausted");
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+	state->next_dblink_id++;
 	marker_len = snprintf(
 		marker,
 		sizeof(marker),
-		"sqlparser_dameng_dblink_%lu",
-		(unsigned long)(state->dblink_count + 1U));
+		"sqlparser_dameng_dblink_%zu",
+		state->next_dblink_id);
 	if (marker_len <= 0 || (size_t)marker_len >= sizeof(marker)) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "database link marker is too long");
 		return SQLPARSER_STATUS_RESOURCE_LIMIT;
@@ -1531,12 +1489,24 @@ static sqlparser_status_t sqlparser_dameng_try_copy_database_link_relation(
 static sqlparser_status_t sqlparser_dameng_append_pg_param(
 	sqlparser_dameng_buffer_t *out,
 	size_t param_index,
+	const char *input,
+	size_t source_start,
+	size_t source_length,
 	sqlparser_error_t *out_error)
 {
 	char text[32];
+	size_t text_length;
 
 	(void)snprintf(text, sizeof(text), "$%lu", (unsigned long)param_index);
-	return sqlparser_dameng_buffer_append_cstr(out, text, out_error);
+	text_length = strlen(text);
+	return sqlparser_dameng_buffer_append_source_identifier(
+		out,
+		input,
+		source_start,
+		source_length,
+		text,
+		text_length,
+		out_error);
 }
 
 static sqlparser_status_t sqlparser_dameng_copy_bind_placeholder(
@@ -1585,7 +1555,13 @@ static sqlparser_status_t sqlparser_dameng_copy_bind_placeholder(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	status = sqlparser_dameng_append_pg_param(out, param_index, out_error);
+	status = sqlparser_dameng_append_pg_param(
+		out,
+		param_index,
+		input,
+		start,
+		end - start,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
@@ -1595,19 +1571,28 @@ static sqlparser_status_t sqlparser_dameng_copy_bind_placeholder(
 }
 
 static sqlparser_status_t sqlparser_dameng_copy_question_placeholder(
+	const char *input,
 	size_t *index,
 	sqlparser_dameng_buffer_t *out,
 	sqlparser_dameng_state_t *state,
 	sqlparser_error_t *out_error)
 {
 	size_t param_index;
+	size_t start;
 	sqlparser_status_t status;
 
+	start = *index;
 	status = sqlparser_dameng_state_append_bind(state, "?", 1U, &param_index, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	status = sqlparser_dameng_append_pg_param(out, param_index, out_error);
+	status = sqlparser_dameng_append_pg_param(
+		out,
+		param_index,
+		input,
+		start,
+		1U,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
@@ -1879,6 +1864,97 @@ static sqlparser_status_t sqlparser_dameng_append_pending_limit(
 	if (pending_origin != NULL) {
 		memset(pending_origin, 0, sizeof(*pending_origin));
 	}
+	return status;
+}
+
+static void sqlparser_dameng_pending_tops_release(
+	sqlparser_dameng_pending_tops_t *pending_tops)
+{
+	if (pending_tops == NULL) {
+		return;
+	}
+	while (pending_tops->count > 0U) {
+		pending_tops->count--;
+		free(pending_tops->items[pending_tops->count].limit);
+		free(pending_tops->items[pending_tops->count].top_clause);
+	}
+	free(pending_tops->items);
+	memset(pending_tops, 0, sizeof(*pending_tops));
+}
+
+static sqlparser_status_t sqlparser_dameng_pending_tops_push(
+	sqlparser_dameng_pending_tops_t *pending_tops,
+	char *limit,
+	char *top_clause,
+	const sqlparser_dameng_limit_origin_t *origin,
+	size_t depth,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dameng_pending_top_t *next;
+	size_t next_capacity;
+
+	if (pending_tops->count == pending_tops->capacity) {
+		next_capacity = pending_tops->capacity == 0U ?
+			4U : pending_tops->capacity * 2U;
+		if (next_capacity < pending_tops->capacity ||
+		    next_capacity > SIZE_MAX / sizeof(*next)) {
+			free(limit);
+			free(top_clause);
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		next = (sqlparser_dameng_pending_top_t *)realloc(
+			pending_tops->items,
+			next_capacity * sizeof(*next));
+		if (next == NULL) {
+			free(limit);
+			free(top_clause);
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		pending_tops->items = next;
+		pending_tops->capacity = next_capacity;
+	}
+
+	pending_tops->items[pending_tops->count].limit = limit;
+	pending_tops->items[pending_tops->count].top_clause = top_clause;
+	pending_tops->items[pending_tops->count].origin = *origin;
+	pending_tops->items[pending_tops->count].depth = depth;
+	pending_tops->count++;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_dameng_pending_tops_flush_depth(
+	sqlparser_dameng_pending_tops_t *pending_tops,
+	size_t depth,
+	sqlparser_dameng_buffer_t *out,
+	sqlparser_dameng_state_t *state,
+	const char *input,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dameng_pending_top_t *pending_top;
+	sqlparser_status_t status;
+
+	if (pending_tops->count == 0U ||
+	    pending_tops->items[pending_tops->count - 1U].depth != depth) {
+		return SQLPARSER_STATUS_OK;
+	}
+	pending_top = &pending_tops->items[pending_tops->count - 1U];
+	status = sqlparser_dameng_append_pending_limit(
+		out,
+		state,
+		input,
+		&pending_top->limit,
+		&pending_top->top_clause,
+		&pending_top->origin,
+		out_error);
+	pending_tops->count--;
 	return status;
 }
 
@@ -2490,10 +2566,7 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 	sqlparser_error_t *out_error)
 {
 	sqlparser_dameng_buffer_t out;
-	char *pending_limit;
-	char *pending_top_clause;
-	sqlparser_dameng_limit_origin_t pending_limit_origin;
-	size_t pending_limit_depth;
+	sqlparser_dameng_pending_tops_t pending_tops;
 	size_t index;
 	size_t paren_depth;
 	size_t significant_scan_pos;
@@ -2525,10 +2598,7 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	pending_limit = NULL;
-	pending_top_clause = NULL;
-	memset(&pending_limit_origin, 0, sizeof(pending_limit_origin));
-	pending_limit_depth = 0U;
+	memset(&pending_tops, 0, sizeof(pending_tops));
 	index = 0U;
 	paren_depth = 0U;
 	significant_scan_pos = 0U;
@@ -2545,8 +2615,7 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 			literal_start = out.len;
 			copied = sqlparser_dameng_copy_q_quote(input_sql, &index, &out, out_error);
 			if (copied < 0) {
-				free(pending_limit);
-				free(pending_top_clause);
+				sqlparser_dameng_pending_tops_release(&pending_tops);
 				sqlparser_dameng_buffer_release(&out);
 				return out_error != NULL ? out_error->code : SQLPARSER_STATUS_PARSE_ERROR;
 			}
@@ -2555,16 +2624,15 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 					state,
 					out.data + literal_start,
 					out.len - literal_start,
-					state->literal_count,
+					state->national_literals.literal_count,
 					out_error);
 				if (status != SQLPARSER_STATUS_OK) {
-					free(pending_limit);
-					free(pending_top_clause);
+					sqlparser_dameng_pending_tops_release(&pending_tops);
 					sqlparser_dameng_buffer_release(&out);
 					return status;
 				}
 			}
-			state->literal_count++;
+			state->national_literals.literal_count++;
 			continue;
 		}
 
@@ -2574,8 +2642,7 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 			literal_start = out.len;
 			status = sqlparser_dameng_copy_n_string_literal(input_sql, &index, &out, out_error);
 			if (status != SQLPARSER_STATUS_OK) {
-				free(pending_limit);
-				free(pending_top_clause);
+				sqlparser_dameng_pending_tops_release(&pending_tops);
 				sqlparser_dameng_buffer_release(&out);
 				return status;
 			}
@@ -2583,15 +2650,14 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 				state,
 				out.data + literal_start,
 				out.len - literal_start,
-				state->literal_count,
+				state->national_literals.literal_count,
 				out_error);
 			if (status != SQLPARSER_STATUS_OK) {
-				free(pending_limit);
-				free(pending_top_clause);
+				sqlparser_dameng_pending_tops_release(&pending_tops);
 				sqlparser_dameng_buffer_release(&out);
 				return status;
 			}
-			state->literal_count++;
+			state->national_literals.literal_count++;
 			continue;
 		}
 
@@ -2607,8 +2673,7 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 				state,
 				out_error);
 			if (status != SQLPARSER_STATUS_OK) {
-				free(pending_limit);
-				free(pending_top_clause);
+				sqlparser_dameng_pending_tops_release(&pending_tops);
 				sqlparser_dameng_buffer_release(&out);
 				return status;
 			}
@@ -2623,12 +2688,11 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 			quoted_start = index;
 			copied = sqlparser_dameng_copy_quoted_or_comment(input_sql, &index, &out, out_error);
 			if (copied > 0 && input_sql[quoted_start] == '\'') {
-				state->literal_count++;
+				state->national_literals.literal_count++;
 			}
 		}
 		if (copied < 0) {
-			free(pending_limit);
-			free(pending_top_clause);
+			sqlparser_dameng_pending_tops_release(&pending_tops);
 			sqlparser_dameng_buffer_release(&out);
 			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_PARSE_ERROR;
 		}
@@ -2638,8 +2702,7 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 
 		status = sqlparser_dameng_reject_unsupported_at(input_sql, index, out_error);
 		if (status != SQLPARSER_STATUS_OK) {
-			free(pending_limit);
-			free(pending_top_clause);
+			sqlparser_dameng_pending_tops_release(&pending_tops);
 			sqlparser_dameng_buffer_release(&out);
 			return status;
 		}
@@ -2700,19 +2763,17 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 				index++;
 			}
 		} else if (input_sql[index] == ')') {
-			if (pending_limit != NULL && paren_depth == pending_limit_depth) {
-				status = sqlparser_dameng_append_pending_limit(
-					&out,
-					state,
-					input_sql,
-					&pending_limit,
-					&pending_top_clause,
-					&pending_limit_origin,
-					out_error);
-				if (status != SQLPARSER_STATUS_OK) {
-					sqlparser_dameng_buffer_release(&out);
-					return status;
-				}
+			status = sqlparser_dameng_pending_tops_flush_depth(
+				&pending_tops,
+				paren_depth,
+				&out,
+				state,
+				input_sql,
+				out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				sqlparser_dameng_pending_tops_release(&pending_tops);
+				sqlparser_dameng_buffer_release(&out);
+				return status;
 			}
 			if (paren_depth > 0U) {
 				paren_depth--;
@@ -2726,13 +2787,12 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 				index++;
 			}
 		} else if (input_sql[index] == ';') {
-			status = sqlparser_dameng_append_pending_limit(
+			status = sqlparser_dameng_pending_tops_flush_depth(
+				&pending_tops,
+				paren_depth,
 				&out,
 				state,
 				input_sql,
-				&pending_limit,
-				&pending_top_clause,
-				&pending_limit_origin,
 				out_error);
 			if (status == SQLPARSER_STATUS_OK) {
 				status = sqlparser_dameng_buffer_append_input_char(
@@ -2790,14 +2850,39 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 				}
 			}
 		} else if (input_sql[index] == '?') {
-			status = sqlparser_dameng_copy_question_placeholder(&index, &out, state, out_error);
+			status = sqlparser_dameng_copy_question_placeholder(
+				input_sql,
+				&index,
+				&out,
+				state,
+				out_error);
 		} else if (input_sql[index] == ':' && input_sql[index + 1U] != '=' &&
 		           input_sql[index + 1U] != ':' && input_sql[index + 1U] != '\0') {
 			status = sqlparser_dameng_copy_bind_placeholder(input_sql, &index, &out, state, out_error);
 		} else if (sqlparser_dameng_ascii_word_equal(input_sql, index, "minus")) {
-			state->saw_minus = 1;
-			status = sqlparser_dameng_buffer_append_cstr(&out, "EXCEPT", out_error);
-			index += strlen("minus");
+			status = sqlparser_dialect_minuses_append(
+				&state->minuses,
+				state->minuses.except_count,
+				out_error);
+			if (status == SQLPARSER_STATUS_OK) {
+				status = sqlparser_dameng_buffer_append_cstr(
+					&out, "EXCEPT", out_error);
+			}
+			if (status == SQLPARSER_STATUS_OK) {
+				state->minuses.except_count++;
+				index += strlen("minus");
+			}
+		} else if (sqlparser_dameng_ascii_word_equal(input_sql, index, "except")) {
+			status = sqlparser_dameng_buffer_append_input_mem(
+				&out,
+				input_sql,
+				index,
+				strlen("except"),
+				out_error);
+			if (status == SQLPARSER_STATUS_OK) {
+				state->minuses.except_count++;
+				index += strlen("except");
+			}
 		} else if (sqlparser_dameng_ascii_word_equal(input_sql, index, "limit")) {
 			size_t before;
 
@@ -2828,8 +2913,7 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 				strlen("select"),
 				out_error);
 			if (status != SQLPARSER_STATUS_OK) {
-				free(pending_limit);
-				free(pending_top_clause);
+				sqlparser_dameng_pending_tops_release(&pending_tops);
 				sqlparser_dameng_buffer_release(&out);
 				return status;
 			}
@@ -2838,13 +2922,18 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 			if (sqlparser_dameng_ascii_word_equal(input_sql, top_pos, "top")) {
 				char *top_limit;
 				char *top_clause;
+				sqlparser_dameng_limit_origin_t top_origin;
 				size_t next_pos;
 
-				if (pending_limit != NULL) {
-					free(pending_limit);
-					free(pending_top_clause);
+				if (pending_tops.count > 0U &&
+				    pending_tops.items[pending_tops.count - 1U].depth >=
+					    paren_depth) {
+					sqlparser_dameng_pending_tops_release(&pending_tops);
 					sqlparser_dameng_buffer_release(&out);
-					sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "unsupported Dameng syntax: nested TOP");
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_UNSUPPORTED,
+						"unsupported Dameng syntax: ambiguous TOP at the same nesting depth");
 					return SQLPARSER_STATUS_UNSUPPORTED;
 				}
 				if (sqlparser_dameng_buffer_append_input_mem(
@@ -2854,8 +2943,7 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 					    top_pos - after_select,
 					    out_error) !=
 					SQLPARSER_STATUS_OK) {
-					free(pending_limit);
-					free(pending_top_clause);
+					sqlparser_dameng_pending_tops_release(&pending_tops);
 					sqlparser_dameng_buffer_release(&out);
 					return out_error != NULL ?
 						out_error->code :
@@ -2863,6 +2951,7 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 				}
 				top_limit = NULL;
 				top_clause = NULL;
+				memset(&top_origin, 0, sizeof(top_origin));
 				next_pos = top_pos;
 				status = sqlparser_dameng_parse_top_clause(
 					input_sql,
@@ -2870,17 +2959,27 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 					&next_pos,
 					&top_limit,
 					&top_clause,
-					&pending_limit_origin,
+					&top_origin,
 					out_error);
 				if (status != SQLPARSER_STATUS_OK) {
 					free(top_limit);
 					free(top_clause);
+					sqlparser_dameng_pending_tops_release(&pending_tops);
 					sqlparser_dameng_buffer_release(&out);
 					return status;
 				}
-				pending_limit = top_limit;
-				pending_top_clause = top_clause;
-				pending_limit_depth = paren_depth;
+				status = sqlparser_dameng_pending_tops_push(
+					&pending_tops,
+					top_limit,
+					top_clause,
+					&top_origin,
+					paren_depth,
+					out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					sqlparser_dameng_pending_tops_release(&pending_tops);
+					sqlparser_dameng_buffer_release(&out);
+					return status;
+				}
 				index = sqlparser_dameng_skip_space(input_sql, next_pos);
 			} else {
 				index = after_select;
@@ -2897,21 +2996,23 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 		}
 
 		if (status != SQLPARSER_STATUS_OK) {
-			free(pending_limit);
-			free(pending_top_clause);
+			sqlparser_dameng_pending_tops_release(&pending_tops);
 			sqlparser_dameng_buffer_release(&out);
 			return status;
 		}
 	}
 
-	status = sqlparser_dameng_append_pending_limit(
-		&out,
-		state,
-		input_sql,
-		&pending_limit,
-		&pending_top_clause,
-		&pending_limit_origin,
-		out_error);
+	status = SQLPARSER_STATUS_OK;
+	while (status == SQLPARSER_STATUS_OK && pending_tops.count > 0U) {
+		status = sqlparser_dameng_pending_tops_flush_depth(
+			&pending_tops,
+			pending_tops.items[pending_tops.count - 1U].depth,
+			&out,
+			state,
+			input_sql,
+			out_error);
+	}
+	sqlparser_dameng_pending_tops_release(&pending_tops);
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_dameng_buffer_finish(&out, out_error);
 	}
@@ -3059,6 +3160,8 @@ static sqlparser_status_t sqlparser_dameng_preprocess_fragment(
 	char **out_parser_sql,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_dameng_state_t *dameng_state;
+
 	(void)statement_index;
 	if (out_parser_sql == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "dialect fragment output must not be NULL");
@@ -3069,8 +3172,15 @@ static sqlparser_status_t sqlparser_dameng_preprocess_fragment(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "Dameng dialect state is missing");
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
+	dameng_state = (sqlparser_dameng_state_t *)state;
+	dameng_state->top_fragment_start = dameng_state->top_count;
+	dameng_state->fragment_limit_base = dameng_state->limit_count;
+	sqlparser_dialect_national_literals_begin_fragment(
+		&dameng_state->national_literals);
+	sqlparser_dialect_minuses_begin_fragment(&dameng_state->minuses);
 
-	return sqlparser_dameng_preprocess_text(input_sql, (sqlparser_dameng_state_t *)state, out_parser_sql, out_error);
+	return sqlparser_dameng_preprocess_text(
+		input_sql, dameng_state, out_parser_sql, out_error);
 }
 
 static sqlparser_status_t sqlparser_dameng_param_to_bind(
@@ -3331,6 +3441,7 @@ static sqlparser_status_t sqlparser_dameng_postprocess_text(
 	sqlparser_status_t status;
 	size_t index;
 	size_t literal_ordinal;
+	size_t except_ordinal;
 
 	memset(&out, 0, sizeof(out));
 	status = sqlparser_dameng_buffer_reserve_input(&out, core_sql, out_error);
@@ -3339,6 +3450,7 @@ static sqlparser_status_t sqlparser_dameng_postprocess_text(
 	}
 	index = 0U;
 	literal_ordinal = 0U;
+	except_ordinal = 0U;
 	while (core_sql[index] != '\0') {
 		int copied;
 
@@ -3386,9 +3498,14 @@ static sqlparser_status_t sqlparser_dameng_postprocess_text(
 
 		if (core_sql[index] == '$') {
 			status = sqlparser_dameng_param_to_bind(core_sql, &index, state, &out, out_error);
-		} else if (state != NULL && state->saw_minus &&
-		           sqlparser_dameng_ascii_word_equal(core_sql, index, "except")) {
-			status = sqlparser_dameng_buffer_append_cstr(&out, "MINUS", out_error);
+		} else if (sqlparser_dameng_ascii_word_equal(core_sql, index, "except")) {
+			status = sqlparser_dameng_buffer_append_cstr(
+				&out,
+				sqlparser_dialect_minuses_match(
+					state != NULL ? &state->minuses : NULL,
+					except_ordinal) ? "MINUS" : "EXCEPT",
+				out_error);
+			except_ordinal++;
 			index += strlen("except");
 		} else if (sqlparser_dameng_ascii_word_equal(core_sql, index, "truncate")) {
 			status = sqlparser_dameng_buffer_append_cstr(&out, "TRUNCATE TABLE ", out_error);
@@ -5511,6 +5628,64 @@ static sqlparser_status_t sqlparser_dameng_postprocess_deparse(
 	return SQLPARSER_STATUS_OK;
 }
 
+static sqlparser_status_t sqlparser_dameng_postprocess_fragment(
+	const char *core_sql,
+	const void *state,
+	size_t statement_index,
+	sqlparser_fragment_context_t fragment_context,
+	ProtobufCMessage *const *roots,
+	size_t root_count,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	char *public_sql;
+	sqlparser_status_t status;
+
+	(void)statement_index;
+	(void)fragment_context;
+	(void)roots;
+	(void)root_count;
+	if (out_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"dialect fragment output must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_sql = NULL;
+	if (core_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"core SQL fragment must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	public_sql = NULL;
+	status = sqlparser_dameng_postprocess_text(
+		core_sql,
+		(const sqlparser_dameng_state_t *)state,
+		&public_sql,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_dameng_restore_database_links(
+		&public_sql,
+		(const sqlparser_dameng_state_t *)state,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_dialect_rewrite_like_escape(&public_sql, out_error);
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		free(public_sql);
+		return status;
+	}
+
+	*out_sql = public_sql;
+	return SQLPARSER_STATUS_OK;
+}
+
 static sqlparser_status_t sqlparser_dameng_multi_insert_clone(
 	const sqlparser_dialect_multi_insert_t *source,
 	sqlparser_dialect_multi_insert_t **out_clone,
@@ -6205,10 +6380,9 @@ static sqlparser_status_t sqlparser_dameng_clone_state(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	clone->saw_minus = source->saw_minus;
 	clone->bind_occurrence_count = source->bind_occurrence_count;
+	clone->next_dblink_id = source->next_dblink_id;
 	clone->limit_count = source->limit_count;
-	clone->literal_count = source->literal_count;
 	for (index = 0U; index < source->bind_count; index++) {
 		size_t param_index;
 
@@ -6236,17 +6410,23 @@ static sqlparser_status_t sqlparser_dameng_clone_state(
 			return status;
 		}
 	}
-	for (index = 0U; index < source->national_literal_count; index++) {
-		status = sqlparser_dameng_store_national_literal(
-			clone,
-			source->national_literals[index],
-			strlen(source->national_literals[index]),
-			source->national_literal_ordinals[index],
-			out_error);
-		if (status != SQLPARSER_STATUS_OK) {
-			sqlparser_dameng_state_destroy(clone);
-			return status;
-		}
+	clone->top_fragment_start = clone->top_count;
+	clone->fragment_limit_base = clone->limit_count;
+	status = sqlparser_dialect_national_literals_clone(
+		&source->national_literals,
+		&clone->national_literals,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_dameng_state_destroy(clone);
+		return status;
+	}
+	status = sqlparser_dialect_minuses_clone(
+		&source->minuses,
+		&clone->minuses,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_dameng_state_destroy(clone);
+		return status;
 	}
 	for (index = 0U; index < source->dblink_count; index++) {
 		status = sqlparser_dameng_state_append_dblink_relation(
@@ -6301,10 +6481,11 @@ static sqlparser_status_t sqlparser_dameng_postprocess_literal_fragment(
 	const char *core_sql,
 	const void *state,
 	size_t statement_index,
-	size_t literal_index,
+	const PgQuery__AConst *literal_owner,
 	char **out_sql,
 	sqlparser_error_t *out_error)
 {
+	const sqlparser_dialect_national_literal_t *literal;
 	const sqlparser_dameng_state_t *dameng_state;
 	size_t literal_end;
 	sqlparser_dameng_buffer_t out;
@@ -6323,10 +6504,16 @@ static sqlparser_status_t sqlparser_dameng_postprocess_literal_fragment(
 	}
 
 	dameng_state = (const sqlparser_dameng_state_t *)state;
+	literal = dameng_state != NULL ?
+		sqlparser_dialect_national_literals_find_owner(
+			&dameng_state->national_literals, literal_owner) :
+		NULL;
 	literal_end = core_sql[0] == '\'' ? sqlparser_dameng_quoted_literal_end(core_sql, 0U) : 0U;
 	if (literal_end > 0U &&
 	    core_sql[literal_end] == '\0' &&
-	    sqlparser_dameng_national_literal_matches(dameng_state, literal_index, core_sql, 0U, literal_end)) {
+	    literal != NULL &&
+	    sqlparser_dameng_national_literal_matches(
+		    dameng_state, literal->ordinal, core_sql, 0U, literal_end)) {
 		memset(&out, 0, sizeof(out));
 		status = sqlparser_dameng_buffer_append_char(&out, 'N', out_error);
 		if (status == SQLPARSER_STATUS_OK) {
@@ -6676,6 +6863,758 @@ static sqlparser_status_t sqlparser_dameng_project_session(
 		SQLPARSER_STATUS_OK;
 }
 
+typedef struct {
+	sqlparser_dameng_state_t *state;
+	size_t record_end;
+	size_t ordinal_base;
+	size_t seen;
+	size_t next_record;
+} sqlparser_dameng_top_bind_t;
+
+typedef struct {
+	sqlparser_dameng_state_t *state;
+	size_t seen;
+} sqlparser_dameng_top_reconcile_t;
+
+typedef struct {
+	sqlparser_dameng_state_t *state;
+	size_t source_record_count;
+} sqlparser_dameng_top_clone_t;
+
+static int sqlparser_dameng_top_owner_compare(
+	const void *left,
+	const void *right)
+{
+	const sqlparser_dameng_top_restore_t *left_restore;
+	const sqlparser_dameng_top_restore_t *right_restore;
+	uintptr_t left_owner;
+	uintptr_t right_owner;
+
+	left_restore = (const sqlparser_dameng_top_restore_t *)left;
+	right_restore = (const sqlparser_dameng_top_restore_t *)right;
+	left_owner = (uintptr_t)left_restore->owner;
+	right_owner = (uintptr_t)right_restore->owner;
+	return left_owner < right_owner ? -1 : left_owner > right_owner;
+}
+
+static int sqlparser_dameng_top_ordinal_compare(
+	const void *left,
+	const void *right)
+{
+	const sqlparser_dameng_top_restore_t *left_restore;
+	const sqlparser_dameng_top_restore_t *right_restore;
+
+	left_restore = (const sqlparser_dameng_top_restore_t *)left;
+	right_restore = (const sqlparser_dameng_top_restore_t *)right;
+	return left_restore->limit_ordinal < right_restore->limit_ordinal ?
+		-1 : left_restore->limit_ordinal > right_restore->limit_ordinal;
+}
+
+static sqlparser_dameng_top_restore_t *sqlparser_dameng_top_find_owner(
+	sqlparser_dameng_state_t *state,
+	const PgQuery__SelectStmt *owner,
+	size_t count)
+{
+	sqlparser_dameng_top_restore_t key;
+
+	if (count == 0U) {
+		return NULL;
+	}
+	memset(&key, 0, sizeof(key));
+	key.owner = (PgQuery__SelectStmt *)owner;
+	return (sqlparser_dameng_top_restore_t *)bsearch(
+		&key,
+		state->top_restores,
+		count,
+		sizeof(*state->top_restores),
+		sqlparser_dameng_top_owner_compare);
+}
+
+static void sqlparser_dameng_top_bind_visit(
+	PgQuery__SelectStmt *select,
+	size_t statement_index,
+	void *context)
+{
+	sqlparser_dameng_top_bind_t *bind;
+	size_t ordinal;
+
+	(void)select;
+	(void)statement_index;
+	bind = (sqlparser_dameng_top_bind_t *)context;
+	ordinal = bind->ordinal_base + bind->seen + 1U;
+	while (bind->next_record < bind->record_end &&
+	       bind->state->top_restores[bind->next_record].limit_ordinal <
+		       ordinal) {
+		bind->next_record++;
+	}
+	if (bind->next_record < bind->record_end &&
+	    bind->state->top_restores[bind->next_record].limit_ordinal ==
+		    ordinal) {
+		bind->state->top_restores[bind->next_record].owner = select;
+		bind->next_record++;
+	}
+	bind->seen++;
+}
+
+static sqlparser_status_t sqlparser_dameng_top_bind_roots(
+	sqlparser_dameng_state_t *state,
+	size_t record_start,
+	size_t record_end,
+	size_t ordinal_base,
+	ProtobufCMessage *const *roots,
+	size_t root_count,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dialect_ast_surface_visitor_t visitor;
+	sqlparser_dameng_top_bind_t bind;
+
+	if (record_start >= record_end) {
+		return SQLPARSER_STATUS_OK;
+	}
+	memset(&bind, 0, sizeof(bind));
+	bind.state = state;
+	bind.record_end = record_end;
+	bind.ordinal_base = ordinal_base;
+	bind.next_record = record_start;
+	memset(&visitor, 0, sizeof(visitor));
+	visitor.context = &bind;
+	visitor.select_limit = sqlparser_dameng_top_bind_visit;
+	sqlparser_dialect_ast_surface_visit_roots(
+		roots, root_count, 0U, &visitor);
+	if (bind.next_record != record_end) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"Dameng TOP AST owner is missing");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static void sqlparser_dameng_top_reconcile_visit(
+	PgQuery__SelectStmt *select,
+	size_t statement_index,
+	void *context)
+{
+	sqlparser_dameng_top_reconcile_t *reconcile;
+	sqlparser_dameng_top_restore_t *restore;
+
+	(void)statement_index;
+	reconcile = (sqlparser_dameng_top_reconcile_t *)context;
+	reconcile->seen++;
+	restore = sqlparser_dameng_top_find_owner(
+		reconcile->state,
+		select,
+		reconcile->state->top_count);
+	if (restore != NULL) {
+		restore->limit_ordinal = reconcile->seen;
+	}
+}
+
+static void sqlparser_dameng_top_reconcile(
+	sqlparser_dameng_state_t *state,
+	const PgQuery__ParseResult *ast)
+{
+	sqlparser_dialect_ast_surface_visitor_t visitor;
+	sqlparser_dameng_top_reconcile_t reconcile;
+	size_t read_index;
+	size_t write_index;
+
+	if (state == NULL || ast == NULL) {
+		return;
+	}
+	if (state->top_count > 1U) {
+		qsort(
+			state->top_restores,
+			state->top_count,
+			sizeof(*state->top_restores),
+			sqlparser_dameng_top_owner_compare);
+	}
+	for (read_index = 0U; read_index < state->top_count; read_index++) {
+		state->top_restores[read_index].limit_ordinal = SIZE_MAX;
+	}
+	memset(&reconcile, 0, sizeof(reconcile));
+	reconcile.state = state;
+	memset(&visitor, 0, sizeof(visitor));
+	visitor.context = &reconcile;
+	visitor.select_limit = sqlparser_dameng_top_reconcile_visit;
+	sqlparser_dialect_ast_surface_visit(ast, &visitor);
+	write_index = 0U;
+	for (read_index = 0U; read_index < state->top_count; read_index++) {
+		if (state->top_restores[read_index].limit_ordinal == SIZE_MAX) {
+			free(state->top_restores[read_index].clause);
+			continue;
+		}
+		if (write_index != read_index) {
+			state->top_restores[write_index] =
+				state->top_restores[read_index];
+		}
+		write_index++;
+	}
+	state->top_count = write_index;
+	if (state->top_count > 1U) {
+		qsort(
+			state->top_restores,
+			state->top_count,
+			sizeof(*state->top_restores),
+			sqlparser_dameng_top_ordinal_compare);
+	}
+	state->limit_count = reconcile.seen;
+	state->top_fragment_start = state->top_count;
+	state->fragment_limit_base = state->limit_count;
+}
+
+static sqlparser_status_t sqlparser_dameng_top_clone_visit(
+	const PgQuery__SelectStmt *source,
+	PgQuery__SelectStmt *clone,
+	void *context,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dameng_top_clone_t *clone_context;
+	sqlparser_dameng_top_restore_t *restore;
+	sqlparser_status_t status;
+
+	clone_context = (sqlparser_dameng_top_clone_t *)context;
+	restore = sqlparser_dameng_top_find_owner(
+		clone_context->state,
+		source,
+		clone_context->source_record_count);
+	if (restore == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_dameng_state_append_top_clause(
+		clone_context->state,
+		restore->clause,
+		strlen(restore->clause),
+		SIZE_MAX,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		clone_context->state->top_restores[
+			clone_context->state->top_count - 1U].owner = clone;
+	}
+	return status;
+}
+
+typedef struct {
+	sqlparser_dameng_state_t *state;
+} sqlparser_dameng_dblink_bind_t;
+
+typedef struct {
+	sqlparser_dameng_state_t *state;
+	size_t source_count;
+} sqlparser_dameng_dblink_clone_t;
+
+static int sqlparser_dameng_dblink_name_compare(
+	const void *left,
+	const void *right)
+{
+	const sqlparser_dameng_dblink_relation_t *left_relation;
+	const sqlparser_dameng_dblink_relation_t *right_relation;
+
+	left_relation = (const sqlparser_dameng_dblink_relation_t *)left;
+	right_relation = (const sqlparser_dameng_dblink_relation_t *)right;
+	return strcmp(
+		left_relation->parser_object_name,
+		right_relation->parser_object_name);
+}
+
+static size_t sqlparser_dameng_dblink_name_lower_bound(
+	const sqlparser_dameng_state_t *state,
+	const char *parser_object_name,
+	size_t count)
+{
+	size_t left;
+	size_t right;
+
+	left = 0U;
+	right = count;
+	while (left < right) {
+		size_t middle;
+		int comparison;
+
+		middle = left + (right - left) / 2U;
+		comparison = strcmp(
+			state->dblink_relations[middle].parser_object_name,
+			parser_object_name);
+		if (comparison < 0) {
+			left = middle + 1U;
+		} else {
+			right = middle;
+		}
+	}
+	return left;
+}
+
+static void sqlparser_dameng_dblink_bind_visit(
+	PgQuery__RangeVar *relation,
+	size_t statement_index,
+	void *context)
+{
+	sqlparser_dameng_dblink_bind_t *bind;
+	size_t index;
+
+	(void)statement_index;
+	if (relation == NULL || relation->relname == NULL) {
+		return;
+	}
+	bind = (sqlparser_dameng_dblink_bind_t *)context;
+	index = sqlparser_dameng_dblink_name_lower_bound(
+		bind->state,
+		relation->relname,
+		bind->state->dblink_count);
+	while (index < bind->state->dblink_count &&
+	       strcmp(
+		       bind->state->dblink_relations[index].parser_object_name,
+		       relation->relname) == 0) {
+		if (bind->state->dblink_relations[index].owner == NULL) {
+			bind->state->dblink_relations[index].owner = relation;
+			return;
+		}
+		index++;
+	}
+}
+
+static sqlparser_status_t sqlparser_dameng_bind_dblink_state(
+	sqlparser_dameng_state_t *state,
+	const PgQuery__ParseResult *ast,
+	size_t statement_index,
+	ProtobufCMessage *const *roots,
+	size_t root_count,
+	int require_all,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dialect_ast_surface_visitor_t visitor;
+	sqlparser_dameng_dblink_bind_t bind;
+	size_t index;
+
+	if (state == NULL || state->dblink_count == 0U) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (state->dblink_count > 1U) {
+		qsort(
+			state->dblink_relations,
+			state->dblink_count,
+			sizeof(*state->dblink_relations),
+			sqlparser_dameng_dblink_name_compare);
+	}
+	for (index = 0U; index < state->dblink_count; index++) {
+		state->dblink_relations[index].owner = NULL;
+	}
+	memset(&bind, 0, sizeof(bind));
+	bind.state = state;
+	memset(&visitor, 0, sizeof(visitor));
+	visitor.context = &bind;
+	visitor.relation = sqlparser_dameng_dblink_bind_visit;
+	visitor.insert_relation = sqlparser_dameng_dblink_bind_visit;
+	if (ast != NULL) {
+		sqlparser_dialect_ast_surface_visit(ast, &visitor);
+	}
+	if (roots != NULL && root_count > 0U) {
+		sqlparser_dialect_ast_surface_visit_roots(
+			roots, root_count, statement_index, &visitor);
+	}
+	if (require_all) {
+		for (index = 0U; index < state->dblink_count; index++) {
+			if (state->dblink_relations[index].owner == NULL) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INTERNAL_ERROR,
+					"Dameng database-link AST owner is missing");
+				return SQLPARSER_STATUS_INTERNAL_ERROR;
+			}
+		}
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static void sqlparser_dameng_reconcile_dblink_state(
+	sqlparser_dameng_state_t *state,
+	const PgQuery__ParseResult *ast)
+{
+	size_t read_index;
+	size_t write_index;
+
+	if (state == NULL || ast == NULL || state->dblink_count == 0U) {
+		return;
+	}
+	(void)sqlparser_dameng_bind_dblink_state(
+		state, ast, 0U, NULL, 0U, 0, NULL);
+	write_index = 0U;
+	for (read_index = 0U; read_index < state->dblink_count; read_index++) {
+		if (state->dblink_relations[read_index].owner == NULL) {
+			sqlparser_dameng_dblink_relation_clear(
+				&state->dblink_relations[read_index]);
+			continue;
+		}
+		if (write_index != read_index) {
+			state->dblink_relations[write_index] =
+				state->dblink_relations[read_index];
+		}
+		write_index++;
+	}
+	state->dblink_count = write_index;
+}
+
+static sqlparser_status_t sqlparser_dameng_dblink_clone_visit(
+	const PgQuery__RangeVar *source,
+	PgQuery__RangeVar *clone,
+	void *context,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dameng_dblink_clone_t *clone_context;
+	sqlparser_dameng_dblink_relation_t *record;
+	sqlparser_status_t status;
+	size_t index;
+
+	if (source == NULL || source->relname == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	clone_context = (sqlparser_dameng_dblink_clone_t *)context;
+	index = sqlparser_dameng_dblink_name_lower_bound(
+		clone_context->state,
+		source->relname,
+		clone_context->source_count);
+	record = NULL;
+	while (index < clone_context->source_count &&
+	       strcmp(
+		       clone_context->state->dblink_relations[index]
+			       .parser_object_name,
+		       source->relname) == 0) {
+		if (clone_context->state->dblink_relations[index].owner == source) {
+			record = &clone_context->state->dblink_relations[index];
+			break;
+		}
+		index++;
+	}
+	if (record == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_dameng_state_append_dblink_relation(
+		clone_context->state,
+		record->parser_object_name,
+		record->public_object_name,
+		record->public_link_name,
+		record->public_object_sql,
+		strlen(record->public_object_sql),
+		record->public_link_sql,
+		strlen(record->public_link_sql),
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		clone_context->state->dblink_relations[
+			clone_context->state->dblink_count - 1U].owner = clone;
+	}
+	return status;
+}
+
+static sqlparser_status_t sqlparser_dameng_clone_dblink_owners(
+	sqlparser_dameng_state_t *state,
+	const ProtobufCMessage *source_root,
+	const ProtobufCMessage *clone_root,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dialect_ast_surface_clone_visitor_t visitor;
+	sqlparser_dameng_dblink_clone_t clone_context;
+	sqlparser_status_t status;
+	size_t original_count;
+
+	if (state == NULL || source_root == NULL || clone_root == NULL ||
+	    state->dblink_count == 0U) {
+		return SQLPARSER_STATUS_OK;
+	}
+	original_count = state->dblink_count;
+	if (original_count > 1U) {
+		qsort(
+			state->dblink_relations,
+			original_count,
+			sizeof(*state->dblink_relations),
+			sqlparser_dameng_dblink_name_compare);
+	}
+	memset(&clone_context, 0, sizeof(clone_context));
+	clone_context.state = state;
+	clone_context.source_count = original_count;
+	memset(&visitor, 0, sizeof(visitor));
+	visitor.context = &clone_context;
+	visitor.relation = sqlparser_dameng_dblink_clone_visit;
+	status = sqlparser_dialect_ast_surface_clone(
+		source_root,
+		(ProtobufCMessage *)clone_root,
+		&visitor,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		while (state->dblink_count > original_count) {
+			state->dblink_count--;
+			sqlparser_dameng_dblink_relation_clear(
+				&state->dblink_relations[state->dblink_count]);
+		}
+		if (status == SQLPARSER_STATUS_INTERNAL_ERROR) {
+			sqlparser_error_set_message(
+				out_error,
+				status,
+				"cloned Dameng database-link AST shape is inconsistent");
+		}
+	}
+	return status;
+}
+
+static sqlparser_status_t sqlparser_dameng_bind_ast_state(
+	void *state,
+	const PgQuery__ParseResult *ast,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dameng_state_t *dameng_state;
+	ProtobufCMessage *roots[1];
+	sqlparser_status_t status;
+	size_t index;
+
+	if (state == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	dameng_state = (sqlparser_dameng_state_t *)state;
+	if (ast == NULL) {
+		sqlparser_dialect_prepared_binds_clear(
+			&dameng_state->prepared_binds);
+		for (index = 0U; index < dameng_state->top_count; index++) {
+			dameng_state->top_restores[index].owner = NULL;
+		}
+	}
+	status = sqlparser_dialect_national_literals_bind_ast(
+		&dameng_state->national_literals,
+		ast,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_dialect_minuses_bind_ast(
+			&dameng_state->minuses, ast, out_error);
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (ast == NULL) {
+		return sqlparser_dameng_bind_dblink_state(
+			dameng_state, NULL, 0U, NULL, 0U, 0, out_error);
+	}
+	roots[0] = (ProtobufCMessage *)ast;
+	status = sqlparser_dameng_top_bind_roots(
+		dameng_state,
+		0U,
+		dameng_state->top_count,
+		0U,
+		roots,
+		1U,
+		out_error);
+	return status == SQLPARSER_STATUS_OK ?
+		sqlparser_dameng_bind_dblink_state(
+			dameng_state,
+			ast,
+			0U,
+			NULL,
+			0U,
+			1,
+			out_error) :
+		status;
+}
+
+static sqlparser_status_t sqlparser_dameng_bind_fragment_ast_state(
+	void *state,
+	const PgQuery__ParseResult *base_ast,
+	size_t statement_index,
+	size_t parser_fragment_offset,
+	ProtobufCMessage *const *roots,
+	size_t root_count,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dameng_state_t *dameng_state;
+	ProtobufCMessage *base_roots[1];
+	sqlparser_status_t status;
+
+	(void)parser_fragment_offset;
+	if (state == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	dameng_state = (sqlparser_dameng_state_t *)state;
+	status = sqlparser_dialect_national_literals_bind_fragment(
+		&dameng_state->national_literals,
+		base_ast,
+		roots,
+		root_count,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_dialect_minuses_bind_fragment(
+		&dameng_state->minuses,
+		base_ast,
+		roots,
+		root_count,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (dameng_state->top_fragment_start > dameng_state->top_count) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"Dameng TOP fragment checkpoint is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	base_roots[0] = (ProtobufCMessage *)base_ast;
+	status = sqlparser_dameng_top_bind_roots(
+		dameng_state,
+		0U,
+		dameng_state->top_fragment_start,
+		0U,
+		base_roots,
+		base_ast != NULL ? 1U : 0U,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_dameng_top_bind_roots(
+		dameng_state,
+		dameng_state->top_fragment_start,
+		dameng_state->top_count,
+		dameng_state->fragment_limit_base,
+		roots,
+		root_count,
+		out_error);
+	return status == SQLPARSER_STATUS_OK ?
+		sqlparser_dameng_bind_dblink_state(
+			dameng_state,
+			base_ast,
+			statement_index,
+			roots,
+			root_count,
+			1,
+			out_error) :
+		status;
+}
+
+static void sqlparser_dameng_reconcile_ast_state(
+	void *state,
+	const PgQuery__ParseResult *ast)
+{
+	sqlparser_dameng_state_t *dameng_state;
+
+	if (state == NULL) {
+		return;
+	}
+	dameng_state = (sqlparser_dameng_state_t *)state;
+	sqlparser_dialect_reconcile_binds(
+		&dameng_state->prepared_binds,
+		&dameng_state->bind_names,
+		&dameng_state->bind_count,
+		&dameng_state->bind_capacity,
+		&dameng_state->bind_occurrence_count);
+	sqlparser_dialect_national_literals_reconcile(
+		&dameng_state->national_literals,
+		ast);
+	sqlparser_dialect_minuses_reconcile(&dameng_state->minuses, ast);
+	sqlparser_dameng_top_reconcile(dameng_state, ast);
+	sqlparser_dameng_reconcile_dblink_state(dameng_state, ast);
+}
+
+static sqlparser_status_t sqlparser_dameng_clone_ast_state(
+	void *state,
+	size_t statement_index,
+	const ProtobufCMessage *source_root,
+	const ProtobufCMessage *clone_root,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dialect_ast_surface_clone_visitor_t visitor;
+	sqlparser_dameng_top_clone_t clone_context;
+	sqlparser_dameng_state_t *dameng_state;
+	sqlparser_status_t status;
+	size_t original_top_count;
+	size_t original_minus_count;
+	size_t original_national_count;
+
+	(void)statement_index;
+	if (state == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	dameng_state = (sqlparser_dameng_state_t *)state;
+	original_top_count = dameng_state->top_count;
+	original_minus_count = dameng_state->minuses.count;
+	original_national_count = dameng_state->national_literals.count;
+	if (original_top_count > 1U) {
+		qsort(
+			dameng_state->top_restores,
+			original_top_count,
+			sizeof(*dameng_state->top_restores),
+			sqlparser_dameng_top_owner_compare);
+	}
+	memset(&clone_context, 0, sizeof(clone_context));
+	clone_context.state = dameng_state;
+	clone_context.source_record_count = original_top_count;
+	memset(&visitor, 0, sizeof(visitor));
+	visitor.context = &clone_context;
+	visitor.select_limit = sqlparser_dameng_top_clone_visit;
+	status = sqlparser_dialect_ast_surface_clone(
+		source_root,
+		(ProtobufCMessage *)clone_root,
+		&visitor,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_dialect_minuses_clone_owners(
+			&dameng_state->minuses,
+			source_root,
+			clone_root,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_dialect_national_literals_clone_owners(
+			&dameng_state->national_literals,
+			source_root,
+			clone_root,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_dameng_clone_dblink_owners(
+			dameng_state, source_root, clone_root, out_error);
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		dameng_state->minuses.count = original_minus_count;
+		while (dameng_state->national_literals.count >
+		       original_national_count) {
+			dameng_state->national_literals.count--;
+			free(dameng_state->national_literals.items[
+				dameng_state->national_literals.count].sql);
+			free(dameng_state->national_literals.items[
+				dameng_state->national_literals.count].surface_sql);
+		}
+		while (dameng_state->top_count > original_top_count) {
+			dameng_state->top_count--;
+			free(dameng_state->top_restores[
+				dameng_state->top_count].clause);
+		}
+		if (status == SQLPARSER_STATUS_INTERNAL_ERROR) {
+			sqlparser_error_set_message(
+				out_error,
+				status,
+				"cloned Dameng TOP AST shape is inconsistent");
+		}
+	}
+	return status;
+}
+
+static sqlparser_status_t sqlparser_dameng_prepare_ast_state(
+	void *state,
+	PgQuery__ParseResult *ast,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dameng_state_t *dameng_state;
+
+	if (state == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	dameng_state = (sqlparser_dameng_state_t *)state;
+	return sqlparser_dialect_prepare_binds(
+		dameng_state->bind_names,
+		dameng_state->bind_count,
+		ast,
+		&dameng_state->prepared_binds,
+		out_error);
+}
+
 static const sqlparser_dialect_ops_t SQLPARSER_DAMENG_OPS = {
 	SQLPARSER_DIALECT_DAMENG,
 	"dameng",
@@ -6689,10 +7628,15 @@ static const sqlparser_dialect_ops_t SQLPARSER_DAMENG_OPS = {
 	NULL,
 	sqlparser_dameng_relation_object_name,
 	sqlparser_dameng_relation_link_name,
+	sqlparser_dameng_postprocess_fragment,
 	NULL,
 	NULL,
-	NULL,
-	sqlparser_dameng_project_session
+	sqlparser_dameng_project_session,
+	sqlparser_dameng_bind_ast_state,
+	sqlparser_dameng_bind_fragment_ast_state,
+	sqlparser_dameng_reconcile_ast_state,
+	sqlparser_dameng_clone_ast_state,
+	sqlparser_dameng_prepare_ast_state
 };
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_dameng_ops(void)

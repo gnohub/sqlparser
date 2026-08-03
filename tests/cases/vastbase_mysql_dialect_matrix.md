@@ -1,12 +1,23 @@
 # Vastbase MySQL 兼容模式用例矩阵
 
-可执行夹具：`tests/cases/vastbase_mysql_dialect_input.json`。单元测试会逐条验证解析、View JSON、反解析输出和明确不支持语法返回码。
+可执行夹具为 `tests/cases/vastbase_mysql_dialect_input.json`。对每条 final 用例，runner 验证未修改 SQL 的反解析结果与输入逐字节一致、实际 View 与期望 JSON 结构相等，并独立执行每个 patch；patch 后 SQL 必须与 `patch.deparse` 逐字节一致，重新解析后再次反解析仍须一致，且 patch handle 与重新解析 handle 的 View 输出必须一致。
+
+## 事务特征规范语义值回归
+
+以下 4 条 final 用例覆盖 Vastbase MySQL 兼容模式的常用事务隔离级别和访问模式。原始 SQL 反解析必须逐字节保持；View 必须按输入顺序输出去除 trivia 后的规范关键字值。session 语义值不提供 selector，因此这些用例不设置 patch。
+
+| ID | 用例 | SQL | 验证重点 |
+| --- | --- | --- | --- |
+| `VM-TX001` | `vastbase-mysql-session-transaction-commented-read-uncommitted` | ALTER/*command*/SESSION SET TRANSACTION ISOLATION/*name*/LEVEL READ/*value*/UNCOMMITTED; | `READ UNCOMMITTED` 规范值及单事务特征 |
+| `VM-TX002` | `vastbase-mysql-session-characteristics-commented-repeatable-read-write` | ALTER SESSION SET SESSION/*scope*/CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL REPEATABLE/*value*/READ, READ/*mode*/WRITE; | `REPEATABLE READ`、`READ WRITE` 及 session characteristics 入口 |
+| `VM-TX003` | `vastbase-mysql-session-transaction-commented-serializable-read-only` | ALTER SESSION SET TRANSACTION ISOLATION LEVEL SERIALIZABLE/*tail*/, READ/*mode*/ONLY; | `SERIALIZABLE`、`READ ONLY` 及逗号前注释 |
+| `VM-TX004` | `vastbase-mysql-session-transaction-commented-option-order` | ALTER SESSION SET TRANSACTION read/*mode*/write, ISOLATION/*name*/LEVEL read/*value*/committed; | 输入选项顺序、小写原文保留及 `READ COMMITTED` 规范值 |
 
 ## 矩阵统计与 session 回归
 
-夹具包含 231 条用例，其中 222 条预期成功，9 条预期失败。40 条用例包含 statement 级 `expect.session`，覆盖 `VM015` 至 `VM017`、`VB-C001` 至 `VB-C022`、`VB-C026` 至 `VB-C027`、`VB-C030` 至 `VB-C031` 和 `VB-B001` 至 `VB-B011`；这 40 条用例均至少包含一个非空 session 期望。
+夹具包含 253 条 `status = "final"` 用例，其中 44 条用例的期望 View 包含非空 session 投影。
 
-用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
+View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
 | ID | 用例 | SQL | 状态 |
 | --- | --- | --- | --- |
@@ -120,6 +131,24 @@
 | `VM129-VM135` | 索引提示与查询尾部边界 | `HAVING`、`WINDOW`、集合运算和锁定子句 | 已覆盖 |
 | `VM136-VM140` | 索引提示与 JOIN / 作用域组合 | `NATURAL JOIN`、`STRAIGHT_JOIN`、`USING`、别名和多作用域索引提示 | 已覆盖 |
 | `VM141-VM145` | 索引提示的嵌套与标识符边界 | CTE、多语句、分区表、保留字别名和派生表 | 已覆盖 |
+| `VM228-VM231` | UPDATE/DELETE 尾部结构回归 | 仅 ORDER BY、仅 LIMIT、DELETE bind 隔离、别名限定的多排序键 | 已覆盖 |
+| `VM232` | `vastbase-mysql-cte-update-nested-order-limit-bind-isolation` | CTE、`USE INDEX FOR ORDER BY`、相关标量子查询排序及 assignment/WHERE/ORDER/LIMIT 混合 bind | index hint 与真实 DML 尾部边界、CTE 来源块、相关字段、前三个语义 bind 和 8 个 patch 均已精确覆盖；LIMIT bind 不进入 View |
+| `VM233` | `vastbase-mysql-update-join-compound-on-where-or-bind-order` | 复合 `ON AND`、`WHERE OR` 及 ON/SET/WHERE 混合 bind | ON/WHERE 独立布尔根、bind 1/2/3/4 顺序及字段、关系、值、assignment patch 均精确覆盖 |
+| `VM234` | `vastbase-mysql-delete-left-join-where-three-and` | `LEFT JOIN` + 三项 `WHERE AND` | ON 比较与 WHERE AND 根独立，三个 WHERE 子节点及字段、值、关系 patch 均精确覆盖 |
+| `VM235` | `vastbase-mysql-delete-right-join-compound-on-no-where` | `RIGHT JOIN` + 复合 ON，无 WHERE | 删除目标、反向 relation、ON AND 根和 bind 归属均精确覆盖，不生成虚假 WHERE |
+| `VM236` | `vastbase-mysql-update-join-where-or-and-precedence` | 未加外层括号的 `WHERE a OR b AND c` | WHERE OR/AND 优先级树与 ON 分离，assignment、字段、值、关系 patch 均保持该结构 |
+| `VM237` | `vastbase-mysql-update-join-user-wrapper-name-where` | WHERE 中调用与内部 marker 同名的普通函数 | 用户函数保持 WHERE expression predicate，仅内部 wrapper 归入 ON；字段和 assignment patch 精确覆盖 |
+| `VM238` | `vastbase-mysql-named-window-partition-order-independent-selectors` | 命名窗口同时包含 `PARTITION BY` 与 `ORDER BY` | 定义字段分别归类为 `window_partition` 和 `order_by`；同名 SELECT 字段与窗口分区字段具有独立 selector，并通过逐项 patch 验证 |
+| `VM239` | `vastbase-mysql-named-window-reused-multiple-order-fields` | 两个窗口函数复用同一命名窗口，窗口定义包含两个排序字段 | 命名窗口定义只遍历一次，两个排序字段各自进入 Query Graph 并可独立 patch |
+| `VM240` | `vastbase-mysql-named-window-inheritance-partition-order` | 基础窗口定义分区，派生窗口继承后补充排序 | 两个窗口定义按物理定义顺序遍历，分区字段与继承窗口排序字段保持独立归属和 selector |
+| `VM241` | `vastbase-mysql-named-window-frame-and-query-order` | 命名窗口分区、排序、ROWS frame 与查询级 `ORDER BY` 组合 | 窗口排序和查询排序各自定位；frame 原文、View 语义及全部 patch 结果精确验证 |
+| `VM247` | `vastbase-mysql-derived-mixed-limit-surfaces` | 派生查询使用 `LIMIT offset, count`，外层查询使用 `LIMIT count OFFSET offset` | 两层 LIMIT 的原始表面形式分别保留；内外层 relation、target 及外层 target 插入 patch 均精确反解析 |
+| `VM248` | `vastbase-mysql-union-result-limit-offset` | `UNION ALL` 结果使用参数化 `LIMIT count OFFSET offset` | 集合根及两个分支的 View 归属保持正确；relation 与两侧 target patch 后仍逐字节保留 OFFSET 形式 |
+| `VM249` | `vastbase-mysql-limit-comma-comment-trivia` | `LIMIT offset, count` 三个 token 间隙穿插普通块注释 | 原始 SQL 可解析且 generation-0 逐字节保留；target patch 的普通注释回放保持正确期望，并纳入 RG016 闭环 |
+| `VM250` | `vastbase-mysql-string-quote-escape-surfaces` | 单引号与双引号字符串混用反斜杠、重复引号转义 | View 中四个等价字符串值及 selector 逐项准确；原始反解析和 relation、target、value、insert patch 后未修改字面量均逐字节保留 |
+| `VM251` | `vastbase-mysql-string-common-backslash-escapes` | 换行、制表符和反斜杠的常用字符串转义 | View 保存解码后的字符串语义；原始转义拼写及 patch fragment 的引号、national 前缀和反斜杠逐字节保留 |
+| `VM252` | `vastbase-mysql-string-equal-value-surfaces` | 普通字符串、`n` 与 `N` 前缀字符串具有相同值 | View 中三个 value 独立定位；按 AST owner 保留各自表面拼写，替换或插入单个节点不会串用其他节点的拼写 |
+| `VM253` | `vastbase-mysql-string-nested-surface-owners` | 外层双引号字符串、内层 `n` 字符串和 WHERE 转义字符串 | 嵌套 block、relation、field、target 和 value 归属完整；跨层 patch 后所有未修改字符串仍逐字节保留 |
 | `VMU001` | `vastbase-mysql-insert-ignore` | INSERT IGNORE INTO `users` (`id`) VALUES (1) | 已覆盖 |
 | `VMU002` | `vastbase-mysql-insert-delayed` | INSERT DELAYED INTO `users` (`id`) VALUES (1) | 已覆盖 |
 | `VMU003` | `vastbase-mysql-insert-low-priority` | INSERT LOW_PRIORITY INTO `users` (`id`) VALUES (1) | 已覆盖 |

@@ -1,5 +1,31 @@
 # Changelog
 
+## 2.14.0
+
+### Source-Surface Preservation for Patch and Deparse
+
+- Patches apply local edits to source intervals that can be resolved safely. Unchanged text retains its original identifier case and delimiters, keywords, comments, whitespace, parentheses, and semicolons byte for byte. Patch fragments are still parsed in the selected dialect before entering the AST, and explicitly supplied delimiters are not duplicated.
+- Renaming a relation without an explicit alias also updates qualified columns, qualified stars, and qualified assignment targets that bind uniquely to that relation. Same-scope ambiguity, inner-scope shadowing, explicit aliases, and SQL Server pseudo-relations such as `INSERTED` and `DELETED` remain unchanged.
+- Replacing one SELECT target can splice a multi-target fragment at that position and does not inherit the replaced target's alias.
+
+### Query Graph and View
+
+- Compound UPDATE and MERGE assignments expose right-hand fields, values, and subquery entry blocks through `rhs_fields`, `rhs_values`, and `rhs_blocks`. Direct field, literal, bind, and default assignments continue to use the existing assignment payload.
+- A statement can expose multiple peer DML roots. View uses `query_graph.dml` for one root and `query_graph.dmls` for multiple roots, while nested DML remains under `children`. Data-modifying CTEs follow the same rule.
+- Added `SQLPARSER_CLAUSE_KIND_WINDOW_PARTITION` so the `PARTITION BY` list of a named window definition is independently addressable.
+
+### Dialects and Structural Boundaries
+
+- Expanded set-operation, multi-table DML, bind, and national-literal surface preservation for Oracle, Dameng, and Vastbase-Oracle. Set-tree traversal no longer depends on a fixed branch-count ceiling.
+- Corrected comment boundaries, executable comments, index hints, partitions, and DML-tail restoration during parse and after patching for MySQL and Vastbase-MySQL.
+- Corrected post-patch surface restoration for `OUTPUT`, MERGE, dynamic execution, transaction batches, and bracket identifiers in SQL Server and Vastbase-SQLServer.
+
+### Compatibility and Validation
+
+- `sqlparser_graph_dml_assignment_t` adds three public span fields, changing the public structure layout. C consumers must rebuild against the 2.14.0 header. View consumers must handle the mutually exclusive `dml` and `dmls` shapes.
+- The nine executable dialect fixtures contain 2,752 final cases and 8,890 independent patches. The runner separately checks original deparse, View JSON structure, patched deparse, a second deparse after a fresh parse, and patched/fresh View equivalence.
+- The release-candidate code completed one ASan run, one UBSan run, one Valgrind run, ten full regression loops, and the full benchmark. The benchmark executed 530,100 measured operations with zero error operations; this is a stability result, not a claim of improvement over a historical baseline.
+
 ## 2.13.0
 
 ### MERGE Branch Structure and Rewrites

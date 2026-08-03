@@ -139,7 +139,9 @@ static sqlparser_status_t sqlparser_walk_message_where_slots(
 			}
 		}
 
-		if (sqlparser_where_field_is_clause(field)) {
+		if ((message->descriptor != &pg_query__select_stmt__descriptor ||
+		     (PgQuery__SelectStmt *)message != search->dml_tail_select) &&
+		    sqlparser_where_field_is_clause(field)) {
 			sqlparser_status_t status;
 
 			status = sqlparser_where_record_clause_slot(message, field, search);
@@ -216,6 +218,15 @@ sqlparser_status_t sqlparser_count_statement_where_clauses(
 	}
 
 	memset(&search, 0, sizeof(search));
+	status = sqlparser_get_mysql_dml_tail_select(
+		handle,
+		statement_index,
+		statement,
+		&search.dml_tail_select,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
 	status = sqlparser_walk_message_where_slots((ProtobufCMessage *)statement, &search);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
@@ -249,6 +260,15 @@ sqlparser_status_t sqlparser_get_statement_where_clause_slot(
 	memset(&search, 0, sizeof(search));
 	search.want_target = 1;
 	search.target_index = where_index;
+	status = sqlparser_get_mysql_dml_tail_select(
+		handle,
+		statement_index,
+		statement,
+		&search.dml_tail_select,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
 	status = sqlparser_walk_message_where_slots((ProtobufCMessage *)statement, &search);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
@@ -578,6 +598,9 @@ sqlparser_status_t sqlparser_statement_where_sql(
 		handle,
 		statement_index,
 		core_sql,
+		SQLPARSER_FRAGMENT_CONTEXT_EXPRESSION,
+		(ProtobufCMessage *const *)slot,
+		1U,
 		"WHERE SQL",
 		out_sql,
 		out_error);
@@ -623,6 +646,8 @@ static sqlparser_status_t sqlparser_statement_parse_public_where(
 		source.origins = origins;
 		source.dialect = handle->dialect;
 		source.spelling_handle = handle;
+		source.candidate_dialect_state = dialect_state;
+		source.statement_index = statement_index;
 		status = sqlparser_parse_where_node_sql(
 			parser_sql,
 			&source,
@@ -673,13 +698,8 @@ sqlparser_status_t sqlparser_statement_set_where_sql(
 	sqlparser_free_proto_node(*slot);
 	*slot = replacement;
 	replacement = NULL;
-	status = sqlparser_handle_commit_ast(handle, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_discard_dialect_state(handle, dialect_state);
-		return status;
-	}
-	sqlparser_handle_adopt_dialect_state(handle, dialect_state);
-	return SQLPARSER_STATUS_OK;
+	return sqlparser_handle_commit_ast_with_dialect_state(
+		handle, dialect_state, out_error);
 }
 
 sqlparser_status_t sqlparser_statement_append_where_sql(
@@ -721,11 +741,6 @@ sqlparser_status_t sqlparser_statement_append_where_sql(
 		return status;
 	}
 	condition = NULL;
-	status = sqlparser_handle_commit_ast(handle, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_discard_dialect_state(handle, dialect_state);
-		return status;
-	}
-	sqlparser_handle_adopt_dialect_state(handle, dialect_state);
-	return SQLPARSER_STATUS_OK;
+	return sqlparser_handle_commit_ast_with_dialect_state(
+		handle, dialect_state, out_error);
 }

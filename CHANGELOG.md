@@ -1,5 +1,31 @@
 # 变更记录
 
+## 2.14.0
+
+### Patch 与反解析表面保留
+
+- patch 对可定位的源码区间执行局部改写；未修改部分逐字节保留原始标识符大小写与定界符、关键字、注释、空白、括号和分号。patch 片段仍按所选方言解析后进入 AST，片段中显式提供的定界符不会被重复添加。
+- 无显式 alias 的 relation 改名会同步更新作用域内唯一绑定的限定列、限定星号和限定赋值目标；同层歧义、内层遮蔽、显式 alias 以及 SQL Server `INSERTED`、`DELETED` 等伪关系保持不变。
+- 单个 SELECT target 替换支持将多 target 片段在原位置展开，并且不继承被替换 target 的 alias。
+
+### Query Graph 与 View
+
+- 复合 UPDATE/MERGE assignment 通过 `rhs_fields`、`rhs_values` 和 `rhs_blocks` 表达右侧字段、值及子查询入口；直接 field、literal、bind 和 default 继续使用既有 assignment payload。
+- 同一 statement 可表达多个并列根 DML。View 对单根输出 `query_graph.dml`，对多根输出 `query_graph.dmls`，并继续通过 `children` 表达嵌套 DML；数据修改 CTE 使用相同规则。
+- 新增 `SQLPARSER_CLAUSE_KIND_WINDOW_PARTITION`，命名窗口定义中的 `PARTITION BY` 可作为独立 clause 定位。
+
+### 方言与结构边界
+
+- 扩充 Oracle、达梦及 Vastbase-Oracle 的集合运算、多表 DML、bind 与 national literal 表面保留；集合树遍历不再依赖固定分支数量上限。
+- 修正 MySQL 及 Vastbase-MySQL 的注释边界、可执行注释、索引提示、分区和 DML 尾部在解析及 patch 后的表面恢复。
+- 修正 SQL Server 及 Vastbase-SQLServer 的 `OUTPUT`、MERGE、动态执行、事务批次和方括号标识符在 patch 后的表面恢复。
+
+### 兼容性与验证
+
+- `sqlparser_graph_dml_assignment_t` 新增三个公开 span 字段，公共结构体布局发生变化；C 调用方升级后必须使用 2.14.0 头文件重新编译。View 消费方需要同时处理互斥的 `dml` 与 `dmls` 形态。
+- 九套可执行方言夹具包含 2,752 条 final 用例和 8,890 个独立 patch。runner 对原始反解析、View JSON 结构、patch 反解析、重新解析后的二次反解析以及 patch/fresh View 一致性分别校验。
+- 发布候选代码完成一次 ASan、一次 UBSan、一次 Valgrind、10 轮全量回归和完整 benchmark；benchmark 共执行 530,100 次测量操作，错误操作数为 0。该数据用于稳定性验收，不表示相对历史版本的性能提升。
+
 ## 2.13.0
 
 ### MERGE 分支结构与改写

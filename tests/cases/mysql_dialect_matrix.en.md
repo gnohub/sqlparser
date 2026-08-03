@@ -1,20 +1,18 @@
 # MySQL Dialect Case Matrix
 
-This file records regression cases for the MySQL dialect conversion layer. `tests/cases/mysql_dialect_input.json` is the executable test source; `tests/unit/test_mysql_dialect_case_matrix.c` reads it and verifies parsing, View JSON, deparse output, and error codes.
+This file records regression cases for the MySQL dialect conversion layer. The executable fixture is `tests/cases/mysql_dialect_input.json`. For every final case, the runner requires unchanged SQL to deparse byte for byte, compares the actual View with the expected JSON structure, and executes each patch independently. Patched SQL must match `patch.deparse` byte for byte, remain identical after a fresh parse and second deparse, and produce the same View from the patched and freshly parsed handles.
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 223 cases: 214 expect success and 9 expect failure.
-Statement-level `expect.session` appears in 32 cases, covering `M015` through
-`M017` and `MY-001` through `MY-029`. All 32 contain at least one non-null
-session expectation.
+The fixture contains 253 cases with `status = "final"`. Expected View JSON contains
+statement-level `query_graph.session` output in 37 cases, covering `M015`
+through `M017`, `MY-001` through `MY-029`, and 5 `USE` boundaries interleaved
+with comments or empty statements. All 37 contain at least one non-empty
+session projection.
 
-When an `expect.session` array is present, the matrix test requires one entry
-per statement. A non-null entry is matched against the corresponding session
-projection, including its action, item scope, target kind, name, and value
-fields; `null` asserts that no session projection is emitted. For fixture
-cases that expect success, the test also deparses the unmodified handle and
-compares the result with the input SQL byte for byte.
+View validation compares JSON structures; object-key order and formatting
+whitespace do not participate. Session action, item scope, target kind, name,
+and value fields are all part of that comparison.
 
 ## Validated Supported Statements
 
@@ -162,6 +160,30 @@ compares the result with the input SQL byte for byte.
 | M129-M135 | index hints at query-tail boundaries | `HAVING`, `WINDOW`, set operations, and locking clauses | hints remain after relations and before query tails |
 | M136-M140 | index hints with JOIN and scope combinations | `NATURAL JOIN`, `STRAIGHT_JOIN`, `USING`, aliases, and multiple scoped hints | left/right relations, aliases, and multi-hint restoration order |
 | M141-M145 | nested and identifier boundaries for index hints | CTEs, multiple statements, partitioned tables, reserved-word aliases, and derived tables | hint positions at each relation depth and public SQL restoration |
+| M226-M229 | UPDATE/DELETE tail structure regression | `ORDER BY` only, `LIMIT` only, DELETE bind isolation, and alias-qualified multiple sort keys | independently attributed and patchable ORDER fields; LIMIT does not affect WHERE/assignment binds; byte-exact original and patched SQL |
+| M230 | `mysql-cte-update-nested-order-limit-bind-isolation` | CTE, `USE INDEX FOR ORDER BY`, correlated scalar-subquery ordering, and mixed assignment/WHERE/ORDER/LIMIT binds | the index-hint `FOR ORDER BY` does not become a DML tail; CTE source blocks and correlated fields are attributed precisely; the first three semantic binds belong to the assignment, outer WHERE, and nested predicate; the LIMIT bind stays outside View; all 8 patches deparse exactly |
+| M231 | `mysql-update-join-compound-on-where-or-bind-order` | compound `ON AND`, `WHERE OR`, and mixed ON/SET/WHERE binds | ON and WHERE have separate boolean roots; bind positions are ON 1, SET 2, and WHERE 3/4; field, relation, value, and assignment patches deparse exactly |
+| M232 | `mysql-delete-left-join-where-three-and` | `LEFT JOIN` plus a three-term `WHERE AND` | the ON comparison is independent of the WHERE AND root; all three WHERE children stay in the WHERE clause; field, value, and relation patches deparse exactly |
+| M233 | `mysql-delete-right-join-compound-on-no-where` | `RIGHT JOIN` with a compound ON and no WHERE | the delete target, reversed relation order, ON AND root, and bind attribution remain correct without a synthetic WHERE |
+| M234 | `mysql-update-join-where-or-and-precedence` | unparenthesized `WHERE a OR b AND c` | WHERE retains an OR root with a right-side AND subtree and remains separate from ON; assignment, field, value, and relation patches preserve precedence |
+| M235 | `mysql-update-join-user-wrapper-name-where` | an ordinary WHERE function whose name matches the internal marker | only the selected internal wrapper is attributed to ON; the user function remains a WHERE expression predicate through field and assignment patches |
+| M236 | `mysql-named-window-partition-order-independent-selectors` | a named window containing both `PARTITION BY` and `ORDER BY` | definition fields are classified as `window_partition` and `order_by`; the same-named SELECT and window-partition fields retain independent selectors verified by individual patches |
+| M237 | `mysql-named-window-reused-multiple-order-fields` | two window functions reuse one named window with two ordering fields | the physical definition is traversed once, and both ordering fields enter Query Graph with independently patchable selectors |
+| M238 | `mysql-named-window-inheritance-partition-order` | a base window defines partitioning and an inherited window adds ordering | both physical definitions are traversed in order, with separate attribution and selectors for the partition and inherited ordering fields |
+| M239 | `mysql-named-window-frame-and-query-order` | named-window partitioning, ordering, a ROWS frame, and query-level `ORDER BY` | window and query ordering remain independently addressable; frame spelling, View semantics, and every patch result are verified exactly |
+| M240 | `mysql-join-on-field-cast-expression-value` | a direct field compared with a `CAST(? AS SIGNED)` value-side expression in JOIN ON | the ON comparison `predicate.value` references the sole expression value, `field_match_kind=direct_field`, and the bind inside CAST is not promoted to a separate value |
+| M241 | `mysql-join-on-function-and-field-comparison` | a function-to-bind comparison and a field-to-field comparison combined by AND in JOIN ON | ON preserves AND-child order; `UPPER(u.role_code) = ?` emits an expression predicate, while `u.role_id = r.id` emits a two-sided field comparison; all 3 patches deparse exactly |
+| M242 | `mysql-row-in-subquery-membership` | `(tenant_id, id) IN (SELECT tenant_id, user_id ...)` | retains both row-value fields without arbitrarily attaching one to the membership predicate; the inner two targets, filter bind, and block attribution remain explicit, with 6 cross-level selector patches |
+| M243 | `mysql-left-join-on-null-test` | `LEFT JOIN ... ON p.user_id = u.id AND p.deleted_at IS NULL` | preserves ON-child order for the field-to-field comparison and `IS NULL` comparison; the null test references only `p.deleted_at` and creates no NULL value, while the WHERE bind remains independent; all 4 patches are verified exactly |
+| M244 | `mysql-relation-patch-cte-outer-qualifiers` | a CTE definition, its base relation, and an outer CTE reference | View distinguishes the CTE source block from the outer relation; the outer relation patch updates its qualified star, direct field, and WHERE field while preserving the CTE declaration and inner base relation |
+| M245 | `mysql-update-join-compound-rhs` | a compound assignment RHS in `UPDATE ... JOIN` | `rhs_fields` and `rhs_values` attribute the source field, positional bind, and literal to one assignment; the source alias remains stable, and assignment replacement and insertion are verified exactly |
+| M247 | `mysql-derived-mixed-limit-surfaces` | a derived query uses `LIMIT offset, count` while the outer query uses `LIMIT count OFFSET offset` | each query level preserves its original LIMIT surface; relation, inner and outer target, and outer target-list insertion patches all deparse exactly |
+| M248 | `mysql-union-result-limit-offset` | a `UNION ALL` result uses parameterized `LIMIT count OFFSET offset` | View preserves the set root and both branch attributions; relation and branch-target patches retain the OFFSET form byte for byte |
+| M249 | `mysql-limit-comma-comment-trivia` | ordinary block comments occupy all three token gaps in `LIMIT offset, count` | the original SQL parses and is preserved byte for byte at generation 0; ordinary-comment replay after the target patch retains the correct expectation for RG016 closure |
+| M250 | `mysql-string-quote-escape-surfaces` | single- and double-quoted strings using backslash and doubled-quote escapes | View records all four equivalent string values and selectors precisely; original deparse and relation, target, value, and insertion patches preserve every untouched literal byte for byte |
+| M251 | `mysql-string-common-backslash-escapes` | common newline, tab, and backslash string escapes | View retains decoded string semantics; original escape spellings and the quote, national prefix, and backslash spelling of patch fragments are preserved byte for byte |
+| M252 | `mysql-string-equal-value-surfaces` | plain, lowercase-`n`, and uppercase-`N` strings with the same value | View exposes three independently addressable values; AST ownership preserves each surface spelling without reusing another equal-valued literal after replacement or insertion |
+| M253 | `mysql-string-nested-surface-owners` | an outer double-quoted string, an inner lowercase-`n` string, and an escaped WHERE string | nested block, relation, field, target, and value attribution is complete; cross-level patches preserve every untouched string byte for byte |
 | MU006 | `mysql-replace-into` | `REPLACE INTO ... VALUES ...` | MySQL `REPLACE` reuses the INSERT graph shape and preserves replace semantics with `insert_mode=replace_values` |
 | MU006A | `mysql-replace-low-priority-multi-row` | `REPLACE LOW_PRIORITY INTO ... VALUES (...), (...)` | multi-row `REPLACE VALUES`, positional parameters, and `LOW_PRIORITY` modifier |
 | MU006B | `mysql-replace-delayed-select` | `REPLACE DELAYED INTO ... SELECT ...` | `REPLACE SELECT` target table, source table, positional parameters, and `insert_mode=replace_select` |
@@ -188,16 +210,16 @@ These ten cases cover SQL templates used with prepared statements or generated b
 | `MY-BM009` | `mysql-insert-bind-mixed-three-rows` | three rows mixing binds, CAST/COALESCE/CASE expressions, and time expressions | every cell selector and continuous global bind positions across rows |
 | `MY-BM010` | `mysql-insert-bind-mixed-quoted-irregular-whitespace` | schema-qualified backtick identifiers, irregular whitespace, three direct `?` values, and a time expression | quoted identifiers, byte-exact source preservation, and field-for-field equality with expected cell objects |
 
-## Explicitly Unsupported Statements
+## Coverage Boundary
 
-The executable MySQL dialect matrix has 9 expected-failure cases covering
-invalid session-state syntax. Official syntax coverage boundaries are tracked in
-`doc/mysql_official_syntax_coverage.csv`.
+This matrix lists only cases that parse successfully and have final View and
+patch expectations. Syntax boundaries outside this executable fixture are
+maintained in `doc/mysql_official_syntax_coverage.csv`.
 
 ## Rules
 
 - The default dialect is `SQLPARSER_DIALECT_POSTGRESQL`.
 - MySQL statements must be parsed through `sqlparser_parse_with_options` with `SQLPARSER_DIALECT_MYSQL`.
 - Safely mappable syntax is handled in dialect preprocess / postprocess.
-- MySQL-specific semantics that cannot be safely mapped return `SQLPARSER_STATUS_UNSUPPORTED`.
 - New MySQL support must update `tests/cases/mysql_dialect_input.json`, this matrix, and executable regression tests.
+- Syntax outside the executable fixture must not be listed here as a validated case.

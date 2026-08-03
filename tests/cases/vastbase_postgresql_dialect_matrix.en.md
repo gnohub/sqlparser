@@ -1,21 +1,23 @@
 # Vastbase PostgreSQL Compatibility Case Matrix
 
-Executable fixture: `tests/cases/vastbase_postgresql_dialect_input.json`. The unit test verifies parsing, View JSON, deparse output, and explicitly unsupported syntax return codes case by case.
+The executable fixture is `tests/cases/vastbase_postgresql_dialect_input.json`. For every final case, the runner requires unchanged SQL to deparse byte for byte, compares the actual View with the expected JSON structure, and executes each patch independently. Patched SQL must match `patch.deparse` byte for byte, remain identical after a fresh parse and second deparse, and produce the same View from the patched and freshly parsed handles.
+
+## Canonical Transaction Characteristic Values
+
+These four final cases cover common transaction isolation levels and access modes in Vastbase PostgreSQL compatibility mode. Generation-0 deparse must preserve every input byte, while View must emit trivia-free canonical keyword values in input order. Session semantic values expose no selector, so these cases intentionally have no patch entries.
+
+| ID | Case | SQL | Verification focus |
+| --- | --- | --- | --- |
+| `VPG-TX001` | `vastbase-postgresql-session-transaction-commented-read-uncommitted` | ALTER/*command*/SESSION SET TRANSACTION ISOLATION/*name*/LEVEL READ/*value*/UNCOMMITTED; | canonical `READ UNCOMMITTED` and a single characteristic |
+| `VPG-TX002` | `vastbase-postgresql-session-characteristics-commented-repeatable-read-write` | ALTER SESSION SET SESSION/*scope*/CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL REPEATABLE/*value*/READ, READ/*mode*/WRITE; | `REPEATABLE READ`, `READ WRITE`, and the session-characteristics entry |
+| `VPG-TX003` | `vastbase-postgresql-session-transaction-commented-serializable-read-only` | ALTER SESSION SET TRANSACTION ISOLATION LEVEL SERIALIZABLE/*tail*/, READ/*mode*/ONLY; | `SERIALIZABLE`, `READ ONLY`, and trivia before the comma |
+| `VPG-TX004` | `vastbase-postgresql-session-transaction-commented-option-order` | ALTER SESSION SET TRANSACTION read/*mode*/write, ISOLATION/*name*/LEVEL read/*value*/committed; | input option order, lowercase source preservation, and canonical `READ COMMITTED` |
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 196 cases: 186 expect success and 10 expect failure.
-Statement-level `expect.session` appears in 34 cases, covering `VPG049` through
-`VPG051` and `VB-C001` through `VB-C031`. Thirty-one contain at least one
-non-null session expectation; lexical-isolation cases `VB-C023`, `VB-C024`,
-and `VB-C029` require every statement to omit session output.
+The fixture contains 199 cases with `status = "final"`. The expected View contains a non-empty session projection in 35 cases.
 
-When an `expect.session` array is present, the matrix test requires one entry
-per statement. A non-null entry is matched against the corresponding session
-projection, including its action, item scope, target kind, name, and value
-fields; `null` asserts that no session projection is emitted. For fixture cases
-that expect success, the test also deparses the unmodified handle and compares
-the result with the input SQL byte for byte.
+View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
 
 | ID | Case | SQL | Status |
 | --- | --- | --- | --- |
@@ -163,7 +165,11 @@ the result with the input SQL byte for byte.
 | `VPG143` | `vastbase-postgresql-select-or-predicate-order-by-lineage` | SELECT u.id, u.email, u.bank_card FROM public.users u WHERE u.email = $1 OR u.bank_card = $2 ORDER BY u.id | covered |
 | `VPG144` | `vastbase-postgresql-national-string-literal` | SELECT 'prefix' AS prefix_value, N'Alice''s order' AS label FROM users WHERE name = n'Bob' | covered |
 | `VPG145` | `vastbase-postgresql-national-string-duplicate-literal` | SELECT 'same' AS plain_value, N'same' AS national_value FROM users | covered |
-| `VPG137` | `vastbase-postgresql-parse-error` | SELECT FROM | explicitly unsupported |
+| `VPG146` | `vastbase-postgresql-data-modifying-cte-delete-multi-reference` | a DELETE CTE whose `RETURNING` result is referenced twice by an outer JOIN | one DELETE DML root, one result block, and two CTE relations sharing its `source_block`; 2 independent patches cover result-target replacement and insertion |
+| `VPG147` | `vastbase-postgresql-data-modifying-cte-update-delete-root` | an UPDATE CTE with a top-level DELETE | the top-level DELETE is D0 and the UPDATE CTE is its D1 child; the UPDATE result block feeds the DELETE `USING` relation, and 2 independent patches verify the D1 result list exactly |
+| `VPG148` | `vastbase-postgresql-data-modifying-cte-two-deletes-side-effect` | a DELETE CTE without `RETURNING` beside a DELETE CTE with `RETURNING` | the two SELECT-root DMLs remain independent roots in declaration order; side-effect-only D0 has no result while D1 owns one result block; 2 independent patches verify the D1 result list |
+| `VPG149` | `vastbase-postgresql-data-modifying-cte-sibling-lineage` | an INSERT CTE whose `RETURNING` output feeds a sibling UPDATE CTE | D0 INSERT and D1 UPDATE remain independent roots with distinct result blocks; the UPDATE assignment points through `source_field`/`source_target` to the INSERT `payload`; 3 independent patches cover both DML ordinals and result insertion |
+| `VPG150` | `vastbase-postgresql-data-modifying-cte-merge-returning` | a MERGE CTE with UPDATE and INSERT branches plus `RETURNING` | MERGE D0 target/source relations, ON predicate, branch assignment and INSERT row, result block, `target_after` origin for `RETURNING t.*`, and outer CTE `source_block`; 2 independent patches cover result-target replacement and insertion |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 
@@ -183,3 +189,9 @@ Every case checks `row`, `column`, `kind`, and `selector` for every VALUES cell.
 | `VPG-BM008` | `$1`, a `CASE` expression containing `$2`, `now()`, `$3` | CASE-nested bind and the following global position |
 | `VPG-BM009` | three VALUES rows with changing bind/expression positions | cross-row cell coordinates and continuous global bind positions |
 | `VPG-BM010` | schema-qualified quoted identifiers, irregular whitespace, three direct binds + time expression | quoted identifiers, original whitespace, and the trailing expression |
+
+## Coverage Boundary
+
+This matrix lists only cases that parse successfully and have final View and
+patch expectations. Parse-failure paths are maintained by separate unit tests
+and are not listed in this fixture.

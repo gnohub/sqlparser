@@ -941,6 +941,8 @@ sqlparser_status_t sqlparser_handle_ensure_ast(
 	sqlparser_handle_t *handle,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_status_t status;
+
 	if (handle == NULL || handle->parse_tree.data == NULL) {
 		sqlparser_error_set_message(
 			out_error,
@@ -965,9 +967,21 @@ sqlparser_status_t sqlparser_handle_ensure_ast(
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 
-	return sqlparser_handle_rebind_identifier_mutations(
+	status = sqlparser_handle_rebind_identifier_mutations(
 		handle,
 		out_error);
+	if (status == SQLPARSER_STATUS_OK &&
+	    handle->dialect_ops != NULL &&
+	    handle->dialect_ops->bind_ast_state != NULL) {
+		status = handle->dialect_ops->bind_ast_state(
+			handle->dialect_state,
+			handle->ast,
+			out_error);
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_clear_ast(handle);
+	}
+	return status;
 }
 
 void sqlparser_handle_clear_ast(sqlparser_handle_t *handle)
@@ -982,6 +996,13 @@ void sqlparser_handle_clear_ast(sqlparser_handle_t *handle)
 	     index++) {
 		handle->identifier_mutations[index].slot = NULL;
 		handle->identifier_mutations[index].value = NULL;
+	}
+	if (handle->dialect_ops != NULL &&
+	    handle->dialect_ops->bind_ast_state != NULL) {
+		(void)handle->dialect_ops->bind_ast_state(
+			handle->dialect_state,
+			NULL,
+			NULL);
 	}
 	if (handle->ast == NULL) {
 		return;
@@ -1069,6 +1090,9 @@ static void sqlparser_handle_release_contents(sqlparser_handle_t *handle)
 
 	sqlparser_handle_clear_ast(handle);
 	sqlparser_handle_invalidate_derived(handle);
+	sqlparser_surface_source_edits_release(
+		&handle->surface_source_edits);
+	handle->surface_source_complete = 0;
 	sqlparser_protobuf_release(&handle->parse_tree);
 	if (handle->control != NULL) {
 		sqlparser_control_state_release(handle->control);
@@ -1162,6 +1186,7 @@ sqlparser_status_t sqlparser_handle_clone(
 	clone->limits = source->limits;
 	clone->generation = source->generation;
 	clone->statement_count = source->statement_count;
+	clone->surface_source_complete = source->surface_source_complete;
 
 	clone->sql = sqlparser_strdup(source->sql);
 	if (clone->sql == NULL) {
@@ -1198,6 +1223,14 @@ sqlparser_status_t sqlparser_handle_clone(
 	}
 
 	status = sqlparser_protobuf_copy(&clone->parse_tree, &source->parse_tree, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_destroy(clone);
+		return status;
+	}
+	status = sqlparser_surface_source_edits_clone(
+		&source->surface_source_edits,
+		&clone->surface_source_edits,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_handle_destroy(clone);
 		return status;
@@ -1297,6 +1330,9 @@ sqlparser_status_t sqlparser_handle_clone(
 		     group_index++) {
 			size_t part_index;
 
+			clone->identifier_spellings[group_index].alias_style =
+				source->identifier_spellings[group_index]
+					.alias_style;
 			for (part_index = 0U;
 			     part_index <
 				     source->identifier_spellings[group_index].part_count;
@@ -1367,6 +1403,7 @@ sqlparser_status_t sqlparser_handle_commit_ast(
 	size_t packed_size;
 	size_t packed_len;
 	char *packed;
+	sqlparser_status_t status;
 
 	if (handle == NULL || handle->ast == NULL) {
 		sqlparser_error_set_message(
@@ -1380,6 +1417,17 @@ sqlparser_status_t sqlparser_handle_commit_ast(
 		sqlparser_handle_discard_ast_changes(handle);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "control units do not match parser statements");
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	if (handle->dialect_ops != NULL &&
+	    handle->dialect_ops->prepare_ast_state != NULL) {
+		status = handle->dialect_ops->prepare_ast_state(
+			handle->dialect_state,
+			handle->ast,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_handle_discard_ast_changes(handle);
+			return status;
+		}
 	}
 	packed_size = pg_query__parse_result__get_packed_size(handle->ast);
 	if (packed_size == 0U) {
@@ -1415,14 +1463,19 @@ sqlparser_status_t sqlparser_handle_commit_ast(
 		sqlparser_handle_discard_ast_changes(handle);
 		return SQLPARSER_STATUS_RESOURCE_LIMIT;
 	}
-	if (sqlparser_handle_rebind_identifier_mutations(
-		    handle,
-		    out_error) != SQLPARSER_STATUS_OK) {
+	status = sqlparser_handle_rebind_identifier_mutations(
+		handle,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
 		free(packed);
 		sqlparser_handle_discard_ast_changes(handle);
-		return out_error != NULL ?
-			out_error->code :
-			SQLPARSER_STATUS_INTERNAL_ERROR;
+		return status;
+	}
+	if (handle->dialect_ops != NULL &&
+	    handle->dialect_ops->reconcile_ast_state != NULL) {
+		handle->dialect_ops->reconcile_ast_state(
+			handle->dialect_state,
+			handle->ast);
 	}
 
 	free(handle->parse_tree.data);
@@ -1430,9 +1483,962 @@ sqlparser_status_t sqlparser_handle_commit_ast(
 	handle->parse_tree.len = packed_len;
 	handle->statement_count = handle->control != NULL ? handle->control->unit_count : handle->ast->n_stmts;
 	handle->generation++;
+	sqlparser_surface_source_edits_release(
+		&handle->surface_source_edits);
+	handle->surface_source_complete = 0;
 	sqlparser_handle_sweep_identifier_spellings(handle);
 	sqlparser_handle_invalidate_derived(handle);
 	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_handle_commit_ast_with_dialect_state(
+	sqlparser_handle_t *handle,
+	void *state,
+	sqlparser_error_t *out_error)
+{
+	void *previous_state;
+	sqlparser_status_t status;
+
+	if (handle == NULL || state == NULL || state == handle->dialect_state) {
+		return sqlparser_handle_commit_ast(handle, out_error);
+	}
+
+	previous_state = handle->dialect_state;
+	handle->dialect_state = state;
+	status = sqlparser_handle_commit_ast(handle, out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		if (previous_state != NULL &&
+		    handle->dialect_ops != NULL &&
+		    handle->dialect_ops->destroy_state != NULL) {
+			handle->dialect_ops->destroy_state(previous_state);
+		}
+		return SQLPARSER_STATUS_OK;
+	}
+
+	handle->dialect_state = previous_state;
+	if (handle->dialect_ops != NULL &&
+	    handle->dialect_ops->bind_ast_state != NULL) {
+		(void)handle->dialect_ops->bind_ast_state(
+			previous_state,
+			handle->ast,
+			NULL);
+	}
+	sqlparser_handle_discard_dialect_state(handle, state);
+	return status;
+}
+
+typedef struct {
+	size_t source_start;
+	size_t source_end;
+	size_t source_gap;
+	size_t output_gap;
+	size_t output_position;
+	int output_has_previous;
+	int output_has_next;
+} sqlparser_semantic_comment_t;
+
+typedef struct {
+	const char *sql;
+	const PgQuery__ScanToken *token;
+	size_t start;
+	size_t end;
+	size_t ordinal;
+	int ascii_word;
+} sqlparser_semantic_token_t;
+
+typedef struct {
+	const sqlparser_semantic_token_t *previous;
+	const sqlparser_semantic_token_t *next;
+	size_t gap;
+} sqlparser_semantic_gap_t;
+
+static int sqlparser_sql_has_semantic_comment_marker(const char *sql)
+{
+	size_t index;
+
+	if (sql == NULL) {
+		return 0;
+	}
+	for (index = 0U; sql[index] != '\0'; index++) {
+		if (sql[index + 1U] == '\0' || sql[index + 2U] == '\0') {
+			return 0;
+		}
+		if ((sql[index] == '/' && sql[index + 1U] == '*' &&
+		     (sql[index + 2U] == '+' || sql[index + 2U] == '!')) ||
+		    (sql[index] == '-' && sql[index + 1U] == '-' &&
+		     sql[index + 2U] == '+')) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static int sqlparser_scan_token_span(
+	const PgQuery__ScanToken *token,
+	size_t sql_length,
+	size_t *out_start,
+	size_t *out_end)
+{
+	size_t start;
+	size_t end;
+
+	if (token == NULL || token->start < 0 || token->end < token->start) {
+		return 0;
+	}
+	start = (size_t)token->start;
+	end = (size_t)token->end;
+	if (end > sql_length) {
+		return 0;
+	}
+	if (out_start != NULL) {
+		*out_start = start;
+	}
+	if (out_end != NULL) {
+		*out_end = end;
+	}
+	return 1;
+}
+
+static int sqlparser_scan_token_is_comment(const PgQuery__ScanToken *token)
+{
+	return token != NULL &&
+		(token->token == PG_QUERY__TOKEN__SQL_COMMENT ||
+		 token->token == PG_QUERY__TOKEN__C_COMMENT);
+}
+
+static int sqlparser_scan_token_is_semantic_comment(
+	const char *sql,
+	size_t sql_length,
+	const PgQuery__ScanToken *token)
+{
+	size_t start;
+	size_t end;
+
+	if (sql == NULL || !sqlparser_scan_token_is_comment(token) ||
+	    !sqlparser_scan_token_span(token, sql_length, &start, &end) ||
+	    end - start < 3U) {
+		return 0;
+	}
+	if (token->token == PG_QUERY__TOKEN__C_COMMENT) {
+		return sql[start] == '/' && sql[start + 1U] == '*' &&
+			(sql[start + 2U] == '+' || sql[start + 2U] == '!');
+	}
+	return sql[start] == '-' && sql[start + 1U] == '-' &&
+		sql[start + 2U] == '+';
+}
+
+static int sqlparser_ascii_word_byte(unsigned char value, int first)
+{
+	return (value >= 'A' && value <= 'Z') ||
+		(value >= 'a' && value <= 'z') || value == '_' ||
+		(!first && ((value >= '0' && value <= '9') || value == '$'));
+}
+
+static int sqlparser_scan_token_is_ascii_word(
+	const char *sql,
+	size_t start,
+	size_t end)
+{
+	size_t index;
+
+	if (start >= end ||
+	    !sqlparser_ascii_word_byte((unsigned char)sql[start], 1)) {
+		return 0;
+	}
+	for (index = start + 1U; index < end; index++) {
+		if (!sqlparser_ascii_word_byte((unsigned char)sql[index], 0)) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static int sqlparser_semantic_token_compare_value(
+	const sqlparser_semantic_token_t *left,
+	const sqlparser_semantic_token_t *right)
+{
+	size_t left_length;
+	size_t right_length;
+	size_t index;
+
+	if (left->token->token != right->token->token) {
+		return left->token->token < right->token->token ? -1 : 1;
+	}
+	if (left->token->keyword_kind != right->token->keyword_kind) {
+		return left->token->keyword_kind < right->token->keyword_kind ?
+			-1 : 1;
+	}
+	if (left->token->keyword_kind != PG_QUERY__KEYWORD_KIND__NO_KEYWORD) {
+		return 0;
+	}
+	left_length = left->end - left->start;
+	right_length = right->end - right->start;
+	if (left_length != right_length) {
+		return left_length < right_length ? -1 : 1;
+	}
+	if (left->ascii_word != right->ascii_word) {
+		return left->ascii_word < right->ascii_word ? -1 : 1;
+	}
+	if (left->ascii_word) {
+		for (index = 0U; index < left_length; index++) {
+			unsigned char left_value;
+			unsigned char right_value;
+
+			left_value =
+				(unsigned char)left->sql[left->start + index];
+			right_value =
+				(unsigned char)right->sql[right->start + index];
+			if (left_value >= 'A' && left_value <= 'Z') {
+				left_value = (unsigned char)(left_value - 'A' + 'a');
+			}
+			if (right_value >= 'A' && right_value <= 'Z') {
+				right_value = (unsigned char)(right_value - 'A' + 'a');
+			}
+			if (left_value != right_value) {
+				return left_value < right_value ? -1 : 1;
+			}
+		}
+		return 0;
+	}
+	return memcmp(
+		left->sql + left->start,
+		right->sql + right->start,
+		left_length);
+}
+
+static int sqlparser_semantic_token_compare(
+	const void *left,
+	const void *right)
+{
+	return sqlparser_semantic_token_compare_value(
+		(const sqlparser_semantic_token_t *)left,
+		(const sqlparser_semantic_token_t *)right);
+}
+
+static int sqlparser_semantic_gap_compare_value(
+	const sqlparser_semantic_gap_t *left,
+	const sqlparser_semantic_gap_t *right)
+{
+	int comparison;
+
+	comparison = sqlparser_semantic_token_compare_value(
+		left->previous, right->previous);
+	if (comparison != 0) {
+		return comparison;
+	}
+	return sqlparser_semantic_token_compare_value(left->next, right->next);
+}
+
+static int sqlparser_semantic_gap_compare(
+	const void *left,
+	const void *right)
+{
+	return sqlparser_semantic_gap_compare_value(
+		(const sqlparser_semantic_gap_t *)left,
+		(const sqlparser_semantic_gap_t *)right);
+}
+
+static int sqlparser_collect_semantic_tokens(
+	const char *sql,
+	size_t sql_length,
+	const PgQuery__ScanResult *scan,
+	sqlparser_semantic_token_t *tokens,
+	size_t token_count)
+{
+	size_t ordinal;
+	size_t index;
+
+	ordinal = 0U;
+	for (index = 0U;
+	     scan != NULL && index < scan->n_tokens;
+	     index++) {
+		const PgQuery__ScanToken *token;
+		size_t start;
+		size_t end;
+
+		token = scan->tokens[index];
+		if (sqlparser_scan_token_is_comment(token)) {
+			continue;
+		}
+		if (ordinal >= token_count ||
+		    !sqlparser_scan_token_span(
+			    token, sql_length, &start, &end)) {
+			return 0;
+		}
+		tokens[ordinal].sql = sql;
+		tokens[ordinal].token = token;
+		tokens[ordinal].start = start;
+		tokens[ordinal].end = end;
+		tokens[ordinal].ordinal = ordinal;
+		tokens[ordinal].ascii_word =
+			sqlparser_scan_token_is_ascii_word(sql, start, end);
+		ordinal++;
+	}
+	return ordinal == token_count;
+}
+
+static int sqlparser_find_unique_semantic_token(
+	const sqlparser_semantic_token_t *tokens,
+	size_t token_count,
+	const sqlparser_semantic_token_t *key,
+	size_t *out_ordinal)
+{
+	size_t left;
+	size_t right;
+	size_t first;
+
+	left = 0U;
+	right = token_count;
+	while (left < right) {
+		size_t middle;
+
+		middle = left + (right - left) / 2U;
+		if (sqlparser_semantic_token_compare_value(
+			    &tokens[middle], key) < 0) {
+			left = middle + 1U;
+		} else {
+			right = middle;
+		}
+	}
+	first = left;
+	if (first >= token_count ||
+	    sqlparser_semantic_token_compare_value(&tokens[first], key) != 0 ||
+	    (first + 1U < token_count &&
+	     sqlparser_semantic_token_compare_value(
+		     &tokens[first + 1U], key) == 0)) {
+		return 0;
+	}
+	*out_ordinal = tokens[first].ordinal;
+	return 1;
+}
+
+static int sqlparser_find_unique_semantic_gap(
+	const sqlparser_semantic_gap_t *gaps,
+	size_t gap_count,
+	const sqlparser_semantic_gap_t *key,
+	size_t *out_gap)
+{
+	size_t left;
+	size_t right;
+	size_t first;
+
+	left = 0U;
+	right = gap_count;
+	while (left < right) {
+		size_t middle;
+
+		middle = left + (right - left) / 2U;
+		if (sqlparser_semantic_gap_compare_value(
+			    &gaps[middle], key) < 0) {
+			left = middle + 1U;
+		} else {
+			right = middle;
+		}
+	}
+	first = left;
+	if (first >= gap_count ||
+	    sqlparser_semantic_gap_compare_value(&gaps[first], key) != 0 ||
+	    (first + 1U < gap_count &&
+	     sqlparser_semantic_gap_compare_value(&gaps[first + 1U], key) == 0)) {
+		return 0;
+	}
+	*out_gap = gaps[first].gap;
+	return 1;
+}
+
+static int sqlparser_semantic_gap_position(
+	const sqlparser_semantic_token_t *tokens,
+	size_t token_count,
+	size_t sql_length,
+	size_t gap,
+	size_t *out_position,
+	int *out_has_previous,
+	int *out_has_next)
+{
+	if (gap > token_count) {
+		return 0;
+	}
+	*out_position = gap < token_count ?
+		tokens[gap].start :
+		(token_count > 0U ? tokens[token_count - 1U].end : 0U);
+	if (*out_position > sql_length) {
+		return 0;
+	}
+	*out_has_previous = gap > 0U;
+	*out_has_next = gap < token_count;
+	return 1;
+}
+
+static sqlparser_status_t sqlparser_restore_semantic_comments(
+	const sqlparser_handle_t *handle,
+	char **in_out_sql,
+	sqlparser_error_t *out_error)
+{
+	PgQueryScanResult source_scan_result;
+	PgQueryScanResult output_scan_result;
+	PgQuery__ScanResult *source_scan;
+	PgQuery__ScanResult *output_scan;
+	sqlparser_semantic_comment_t *comments;
+	sqlparser_semantic_token_t *source_tokens;
+	sqlparser_semantic_token_t *output_tokens;
+	sqlparser_semantic_token_t *output_matches;
+	sqlparser_semantic_gap_t *gap_matches;
+	const char *source_sql;
+	const char *output_sql;
+	char *restored;
+	size_t source_length;
+	size_t output_length;
+	size_t source_non_comment_count;
+	size_t output_non_comment_count;
+	size_t semantic_comment_count;
+	size_t common_prefix;
+	size_t common_suffix;
+	size_t output_middle_end;
+	size_t output_match_count;
+	size_t gap_match_count;
+	size_t source_index;
+	size_t output_index;
+	size_t source_gap;
+	size_t comment_index;
+	size_t capacity;
+	size_t restored_length;
+	size_t output_cursor;
+	sqlparser_status_t status;
+
+	if (handle == NULL || in_out_sql == NULL || *in_out_sql == NULL ||
+	    handle->parser_sql == NULL ||
+	    !sqlparser_sql_has_semantic_comment_marker(handle->parser_sql)) {
+		return SQLPARSER_STATUS_OK;
+	}
+
+	source_sql = handle->parser_sql;
+	output_sql = *in_out_sql;
+	source_length = handle->parser_sql_len;
+	output_length = strlen(output_sql);
+	memset(&source_scan_result, 0, sizeof(source_scan_result));
+	memset(&output_scan_result, 0, sizeof(output_scan_result));
+	source_scan = NULL;
+	output_scan = NULL;
+	comments = NULL;
+	source_tokens = NULL;
+	output_tokens = NULL;
+	output_matches = NULL;
+	gap_matches = NULL;
+	restored = NULL;
+	status = SQLPARSER_STATUS_INTERNAL_ERROR;
+
+	source_scan_result = pg_query_scan(source_sql);
+	if (source_scan_result.error != NULL ||
+	    source_scan_result.pbuf.data == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"failed to scan semantic comments in source SQL");
+		goto cleanup;
+	}
+	source_scan = pg_query__scan_result__unpack(
+		NULL,
+		source_scan_result.pbuf.len,
+		(const uint8_t *)source_scan_result.pbuf.data);
+	if (source_scan == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"failed to unpack source SQL tokens");
+		goto cleanup;
+	}
+
+	semantic_comment_count = 0U;
+	source_non_comment_count = 0U;
+	for (source_index = 0U;
+	     source_index < source_scan->n_tokens;
+	     source_index++) {
+		const PgQuery__ScanToken *token;
+
+		token = source_scan->tokens[source_index];
+		if (sqlparser_scan_token_is_semantic_comment(
+			    source_sql,
+			    source_length,
+			    token)) {
+			semantic_comment_count++;
+		}
+		if (!sqlparser_scan_token_is_comment(token)) {
+			source_non_comment_count++;
+		}
+	}
+	if (semantic_comment_count == 0U) {
+		status = SQLPARSER_STATUS_OK;
+		goto cleanup;
+	}
+	if (semantic_comment_count > SIZE_MAX / sizeof(*comments) ||
+	    source_non_comment_count > SIZE_MAX / sizeof(*source_tokens)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		status = SQLPARSER_STATUS_NO_MEMORY;
+		goto cleanup;
+	}
+	comments = (sqlparser_semantic_comment_t *)malloc(
+		semantic_comment_count * sizeof(*comments));
+	source_tokens = source_non_comment_count > 0U ?
+		(sqlparser_semantic_token_t *)malloc(
+			source_non_comment_count * sizeof(*source_tokens)) : NULL;
+	if (comments == NULL ||
+	    (source_non_comment_count > 0U && source_tokens == NULL)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		status = SQLPARSER_STATUS_NO_MEMORY;
+		goto cleanup;
+	}
+
+	source_gap = 0U;
+	comment_index = 0U;
+	for (source_index = 0U;
+	     source_index < source_scan->n_tokens;
+	     source_index++) {
+		const PgQuery__ScanToken *token;
+
+		token = source_scan->tokens[source_index];
+		if (sqlparser_scan_token_is_semantic_comment(
+			    source_sql, source_length, token)) {
+			if (!sqlparser_scan_token_span(
+				    token,
+				    source_length,
+				    &comments[comment_index].source_start,
+				    &comments[comment_index].source_end)) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INTERNAL_ERROR,
+					"semantic comment source span is invalid");
+				goto cleanup;
+			}
+			comments[comment_index].source_gap = source_gap;
+			comment_index++;
+		}
+		if (!sqlparser_scan_token_is_comment(token)) {
+			size_t start;
+			size_t end;
+
+			if (source_gap >= source_non_comment_count ||
+			    !sqlparser_scan_token_span(
+				    token, source_length, &start, &end)) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INTERNAL_ERROR,
+					"source SQL token span is invalid");
+				goto cleanup;
+			}
+			source_tokens[source_gap].sql = source_sql;
+			source_tokens[source_gap].token = token;
+			source_tokens[source_gap].start = start;
+			source_tokens[source_gap].end = end;
+			source_tokens[source_gap].ordinal = source_gap;
+			source_tokens[source_gap].ascii_word =
+				sqlparser_scan_token_is_ascii_word(
+					source_sql, start, end);
+			source_gap++;
+		}
+	}
+	if (source_gap != source_non_comment_count ||
+	    comment_index != semantic_comment_count) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"source SQL token span is invalid");
+		goto cleanup;
+	}
+
+	output_scan_result = pg_query_scan(output_sql);
+	if (output_scan_result.error != NULL ||
+	    output_scan_result.pbuf.data == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"failed to scan forced deparse SQL");
+		goto cleanup;
+	}
+	output_scan = pg_query__scan_result__unpack(
+		NULL,
+		output_scan_result.pbuf.len,
+		(const uint8_t *)output_scan_result.pbuf.data);
+	if (output_scan == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"failed to unpack forced deparse SQL tokens");
+		goto cleanup;
+	}
+	output_non_comment_count = 0U;
+	for (output_index = 0U;
+	     output_index < output_scan->n_tokens;
+	     output_index++) {
+		const PgQuery__ScanToken *token;
+
+		token = output_scan->tokens[output_index];
+		if (sqlparser_scan_token_is_semantic_comment(
+			    output_sql,
+			    output_length,
+			    token)) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"forced deparse produced an unexpected semantic comment");
+			goto cleanup;
+		}
+		if (!sqlparser_scan_token_is_comment(token)) {
+			output_non_comment_count++;
+		}
+	}
+	if (output_non_comment_count > SIZE_MAX / sizeof(*output_tokens)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		status = SQLPARSER_STATUS_NO_MEMORY;
+		goto cleanup;
+	}
+	output_tokens = output_non_comment_count > 0U ?
+		(sqlparser_semantic_token_t *)malloc(
+			output_non_comment_count * sizeof(*output_tokens)) : NULL;
+	if ((output_non_comment_count > 0U && output_tokens == NULL) ||
+	    !sqlparser_collect_semantic_tokens(
+		    output_sql,
+		    output_length,
+		    output_scan,
+		    output_tokens,
+		    output_non_comment_count)) {
+		if (output_non_comment_count > 0U && output_tokens == NULL) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			status = SQLPARSER_STATUS_NO_MEMORY;
+		} else {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"forced deparse token span is invalid");
+		}
+		goto cleanup;
+	}
+
+	common_prefix = 0U;
+	while (common_prefix < source_non_comment_count &&
+	       common_prefix < output_non_comment_count) {
+		if (sqlparser_semantic_token_compare_value(
+			    &source_tokens[common_prefix],
+			    &output_tokens[common_prefix]) != 0) {
+			break;
+		}
+		common_prefix++;
+	}
+
+	common_suffix = 0U;
+	while (common_suffix < source_non_comment_count - common_prefix &&
+	       common_suffix < output_non_comment_count - common_prefix) {
+		if (sqlparser_semantic_token_compare_value(
+			    &source_tokens[
+				    source_non_comment_count - common_suffix - 1U],
+			    &output_tokens[
+				    output_non_comment_count - common_suffix - 1U]) != 0) {
+			break;
+		}
+		common_suffix++;
+	}
+
+	output_middle_end = output_non_comment_count - common_suffix;
+	output_match_count = output_middle_end - common_prefix;
+	if (output_match_count > SIZE_MAX / sizeof(*output_matches)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		status = SQLPARSER_STATUS_NO_MEMORY;
+		goto cleanup;
+	}
+	output_matches = output_match_count > 0U ?
+		(sqlparser_semantic_token_t *)malloc(
+			output_match_count * sizeof(*output_matches)) : NULL;
+	if (output_match_count > 0U && output_matches == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		status = SQLPARSER_STATUS_NO_MEMORY;
+		goto cleanup;
+	}
+	if (output_match_count > 0U) {
+		memcpy(
+			output_matches,
+			output_tokens + common_prefix,
+			output_match_count * sizeof(*output_matches));
+	}
+	if (output_match_count > 1U) {
+		qsort(
+			output_matches,
+			output_match_count,
+			sizeof(*output_matches),
+			sqlparser_semantic_token_compare);
+	}
+
+	gap_match_count = 0U;
+	if (output_non_comment_count > 1U) {
+		size_t first_gap;
+		size_t last_gap;
+
+		first_gap = common_prefix > 0U ? common_prefix : 1U;
+		last_gap = output_middle_end < output_non_comment_count ?
+			output_middle_end : output_non_comment_count - 1U;
+		if (first_gap <= last_gap) {
+			gap_match_count = last_gap - first_gap + 1U;
+			if (gap_match_count > SIZE_MAX / sizeof(*gap_matches)) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_NO_MEMORY,
+					"out of memory");
+				status = SQLPARSER_STATUS_NO_MEMORY;
+				goto cleanup;
+			}
+			gap_matches = (sqlparser_semantic_gap_t *)malloc(
+				gap_match_count * sizeof(*gap_matches));
+			if (gap_matches == NULL) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_NO_MEMORY,
+					"out of memory");
+				status = SQLPARSER_STATUS_NO_MEMORY;
+				goto cleanup;
+			}
+			for (output_index = 0U;
+			     output_index < gap_match_count;
+			     output_index++) {
+				size_t gap;
+
+				gap = first_gap + output_index;
+				gap_matches[output_index].previous =
+					&output_tokens[gap - 1U];
+				gap_matches[output_index].next =
+					&output_tokens[gap];
+				gap_matches[output_index].gap = gap;
+			}
+			if (gap_match_count > 1U) {
+				qsort(
+					gap_matches,
+					gap_match_count,
+					sizeof(*gap_matches),
+					sqlparser_semantic_gap_compare);
+			}
+		}
+	}
+
+	capacity = output_length;
+	for (comment_index = 0U;
+	     comment_index < semantic_comment_count;
+	     comment_index++) {
+		sqlparser_semantic_comment_t *comment;
+		size_t source_middle_end;
+		size_t comment_length;
+
+		comment = &comments[comment_index];
+		source_middle_end =
+			source_non_comment_count - common_suffix;
+		if (comment->source_gap <= common_prefix) {
+			comment->output_gap = comment->source_gap;
+		} else if (comment->source_gap >= source_middle_end) {
+			comment->output_gap =
+				output_non_comment_count -
+				(source_non_comment_count -
+				 comment->source_gap);
+		} else {
+			const sqlparser_semantic_token_t *anchor;
+			const sqlparser_semantic_token_t *previous_anchor;
+			sqlparser_semantic_gap_t gap_key;
+			size_t matched_ordinal;
+
+			anchor = &source_tokens[comment->source_gap];
+			previous_anchor =
+				&source_tokens[comment->source_gap - 1U];
+			gap_key.previous = previous_anchor;
+			gap_key.next = anchor;
+			if (sqlparser_find_unique_semantic_gap(
+				    gap_matches,
+				    gap_match_count,
+				    &gap_key,
+				    &matched_ordinal)) {
+				comment->output_gap = matched_ordinal;
+			} else if (sqlparser_find_unique_semantic_token(
+				    output_matches,
+				    output_match_count,
+				    anchor,
+				    &matched_ordinal)) {
+				comment->output_gap = matched_ordinal;
+			} else {
+				if (sqlparser_find_unique_semantic_token(
+					    output_matches,
+					    output_match_count,
+					    previous_anchor,
+					    &matched_ordinal)) {
+					comment->output_gap = matched_ordinal + 1U;
+				} else {
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_INTERNAL_ERROR,
+						"semantic comment position is ambiguous after patch");
+					goto cleanup;
+				}
+			}
+		}
+		if (comment_index > 0U &&
+		    comment->output_gap < comments[comment_index - 1U].output_gap) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"semantic comment order changed during deparse");
+			goto cleanup;
+		}
+		if (!sqlparser_semantic_gap_position(
+			    output_tokens,
+			    output_non_comment_count,
+			    output_length,
+			    comment->output_gap,
+			    &comment->output_position,
+			    &comment->output_has_previous,
+			    &comment->output_has_next)) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"semantic comment output position is invalid");
+			goto cleanup;
+		}
+		if (comment_index > 0U &&
+		    comment->output_position <
+			    comments[comment_index - 1U].output_position) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"semantic comment position changed during deparse");
+			goto cleanup;
+		}
+		comment_length = comment->source_end - comment->source_start;
+		if (capacity > SIZE_MAX - 2U ||
+		    comment_length > SIZE_MAX - capacity - 2U) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			status = SQLPARSER_STATUS_NO_MEMORY;
+			goto cleanup;
+		}
+		capacity += comment_length + 2U;
+	}
+	if (capacity == SIZE_MAX) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		status = SQLPARSER_STATUS_NO_MEMORY;
+		goto cleanup;
+	}
+	restored = (char *)malloc(capacity + 1U);
+	if (restored == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		status = SQLPARSER_STATUS_NO_MEMORY;
+		goto cleanup;
+	}
+
+	restored_length = 0U;
+	output_cursor = 0U;
+	for (comment_index = 0U;
+	     comment_index < semantic_comment_count;
+	     comment_index++) {
+		const sqlparser_semantic_comment_t *comment;
+		size_t comment_length;
+		int line_comment;
+
+		comment = &comments[comment_index];
+		if (comment->output_position > output_cursor) {
+			memcpy(
+				restored + restored_length,
+				output_sql + output_cursor,
+				comment->output_position - output_cursor);
+			restored_length +=
+				comment->output_position - output_cursor;
+			output_cursor = comment->output_position;
+		}
+		if (!comment->output_has_next &&
+		    comment->output_has_previous && restored_length > 0U &&
+		    !isspace((unsigned char)restored[restored_length - 1U])) {
+			restored[restored_length++] = ' ';
+		}
+		comment_length = comment->source_end - comment->source_start;
+		memcpy(
+			restored + restored_length,
+			source_sql + comment->source_start,
+			comment_length);
+		restored_length += comment_length;
+		line_comment =
+			source_sql[comment->source_start] == '-';
+		if (comment->output_has_next) {
+			if (line_comment &&
+			    (restored_length == 0U ||
+			     (restored[restored_length - 1U] != '\n' &&
+			      restored[restored_length - 1U] != '\r'))) {
+				if (comment->source_end < source_length &&
+				    source_sql[comment->source_end] == '\r') {
+					restored[restored_length++] = '\r';
+					if (comment->source_end + 1U < source_length &&
+					    source_sql[comment->source_end + 1U] == '\n') {
+						restored[restored_length++] = '\n';
+					}
+				} else if (comment->source_end < source_length &&
+					   source_sql[comment->source_end] == '\n') {
+					restored[restored_length++] = '\n';
+				} else {
+					restored[restored_length++] = '\n';
+				}
+			} else if (!line_comment &&
+				   (restored_length == 0U ||
+				    !isspace((unsigned char)
+					     restored[restored_length - 1U]))) {
+				restored[restored_length++] = ' ';
+			}
+		}
+	}
+	if (output_cursor < output_length) {
+		memcpy(
+			restored + restored_length,
+			output_sql + output_cursor,
+			output_length - output_cursor);
+		restored_length += output_length - output_cursor;
+	}
+	restored[restored_length] = '\0';
+	free(*in_out_sql);
+	*in_out_sql = restored;
+	restored = NULL;
+	status = SQLPARSER_STATUS_OK;
+
+cleanup:
+	free(restored);
+	free(gap_matches);
+	free(output_matches);
+	free(output_tokens);
+	free(source_tokens);
+	free(comments);
+	if (source_scan != NULL) {
+		pg_query__scan_result__free_unpacked(source_scan, NULL);
+	}
+	if (output_scan != NULL) {
+		pg_query__scan_result__free_unpacked(output_scan, NULL);
+	}
+	pg_query_free_scan_result(source_scan_result);
+	pg_query_free_scan_result(output_scan_result);
+	return status;
 }
 
 sqlparser_status_t sqlparser_ensure_current_sql_text(
@@ -1496,6 +2502,14 @@ sqlparser_status_t sqlparser_ensure_current_sql_text(
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 
+	status = sqlparser_restore_semantic_comments(
+		handle,
+		&deparse_result.query,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		pg_query_free_deparse_result(deparse_result);
+		return status;
+	}
 	status = sqlparser_validate_handle_output_text(handle, deparse_result.query, "current SQL", out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		pg_query_free_deparse_result(deparse_result);
@@ -1503,6 +2517,14 @@ sqlparser_status_t sqlparser_ensure_current_sql_text(
 	}
 
 	if (handle->dialect_ops == NULL || handle->dialect_ops->postprocess_deparse == NULL) {
+		status = sqlparser_restore_source_envelope(
+			handle,
+			&deparse_result.query,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			pg_query_free_deparse_result(deparse_result);
+			return status;
+		}
 		mutable_handle->current_parser_sql = deparse_result.query;
 		mutable_handle->current_sql = mutable_handle->current_parser_sql;
 		deparse_result.query = NULL;
@@ -1525,6 +2547,15 @@ sqlparser_status_t sqlparser_ensure_current_sql_text(
 		}
 	}
 	if (status != SQLPARSER_STATUS_OK) {
+		pg_query_free_deparse_result(deparse_result);
+		return status;
+	}
+	status = sqlparser_restore_source_envelope(
+		handle,
+		&public_sql,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(public_sql);
 		pg_query_free_deparse_result(deparse_result);
 		return status;
 	}
@@ -1578,6 +2609,9 @@ sqlparser_status_t sqlparser_postprocess_handle_sql_fragment(
 	const sqlparser_handle_t *handle,
 	size_t statement_index,
 	const char *core_sql,
+	sqlparser_fragment_context_t fragment_context,
+	ProtobufCMessage *const *roots,
+	size_t root_count,
 	const char *field_name,
 	char **out_sql,
 	sqlparser_error_t *out_error)
@@ -1608,6 +2642,9 @@ sqlparser_status_t sqlparser_postprocess_handle_sql_fragment(
 			core_sql,
 			handle->dialect_state,
 			statement_index,
+			fragment_context,
+			roots,
+			root_count,
 			&public_sql,
 			out_error);
 	} else if (handle->dialect_ops != NULL && handle->dialect_ops->postprocess_deparse != NULL) {
@@ -1653,18 +2690,34 @@ void sqlparser_handle_discard_dialect_state(
 	}
 }
 
-void sqlparser_handle_adopt_dialect_state(
+sqlparser_status_t sqlparser_handle_adopt_dialect_state(
 	sqlparser_handle_t *handle,
-	void *state)
+	void *state,
+	sqlparser_error_t *out_error)
 {
+	sqlparser_status_t status;
+
 	if (handle == NULL || state == NULL || state == handle->dialect_state) {
-		return;
+		return SQLPARSER_STATUS_OK;
+	}
+	if (handle->dialect_ops != NULL &&
+	    handle->dialect_ops->bind_ast_state != NULL) {
+		status = handle->dialect_ops->bind_ast_state(
+			state, handle->ast, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+	if (handle->dialect_ops != NULL &&
+	    handle->dialect_ops->reconcile_ast_state != NULL) {
+		handle->dialect_ops->reconcile_ast_state(state, handle->ast);
 	}
 
 	if (handle->dialect_ops != NULL && handle->dialect_ops->destroy_state != NULL) {
 		handle->dialect_ops->destroy_state(handle->dialect_state);
 	}
 	handle->dialect_state = state;
+	return SQLPARSER_STATUS_OK;
 }
 
 static sqlparser_status_t sqlparser_preprocess_handle_sql_fragment_internal(
@@ -1752,6 +2805,7 @@ static sqlparser_status_t sqlparser_preprocess_handle_sql_fragment_internal(
 			sqlparser_mysql_preprocess_fragment_identifier_origins(
 				public_sql,
 				candidate_state,
+				statement_index,
 				out_parser_sql,
 				origins,
 				out_error);
@@ -2019,6 +3073,8 @@ const char *sqlparser_clause_kind_name(sqlparser_clause_kind_t kind)
 			return "dml_result";
 		case SQLPARSER_CLAUSE_KIND_CONDITION:
 			return "condition";
+		case SQLPARSER_CLAUSE_KIND_WINDOW_PARTITION:
+			return "window_partition";
 		case SQLPARSER_CLAUSE_KIND_UNKNOWN:
 		default:
 			return "unknown";
@@ -2766,17 +3822,39 @@ sqlparser_status_t sqlparser_deparse(
 		}
 		return SQLPARSER_STATUS_OK;
 	}
-	if (handle->control != NULL) {
+	if (handle->control != NULL || handle->current_sql != NULL) {
 		status = sqlparser_ensure_current_sql_text(handle, out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
 		}
 		*out_sql = sqlparser_strdup(handle->current_sql);
 		if (*out_sql == NULL) {
-			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
 			return SQLPARSER_STATUS_NO_MEMORY;
 		}
 		return SQLPARSER_STATUS_OK;
+	}
+	if (handle->surface_source_complete) {
+		status = sqlparser_restore_source_envelope(
+			handle,
+			out_sql,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		status = sqlparser_validate_handle_output_text(
+			handle,
+			*out_sql,
+			"deparse output",
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			free(*out_sql);
+			*out_sql = NULL;
+		}
+		return status;
 	}
 
 	sqlparser_pg_query_prepare();
@@ -2791,9 +3869,7 @@ sqlparser_status_t sqlparser_deparse(
 			sqlparser_error_from_pg(
 				out_error,
 				SQLPARSER_STATUS_INTERNAL_ERROR,
-				handle->parser_sql != NULL ?
-					handle->parser_sql :
-					handle->sql,
+				handle->parser_sql,
 				deparse_result.error);
 		} else {
 			sqlparser_error_set_message(
@@ -2805,13 +3881,33 @@ sqlparser_status_t sqlparser_deparse(
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 
-	status = sqlparser_validate_handle_output_text(handle, deparse_result.query, "deparse output", out_error);
+	status = sqlparser_restore_semantic_comments(
+		handle,
+		&deparse_result.query,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		pg_query_free_deparse_result(deparse_result);
 		return status;
 	}
-
-	if (handle->dialect_ops == NULL || handle->dialect_ops->postprocess_deparse == NULL) {
+	status = sqlparser_validate_handle_output_text(
+		handle,
+		deparse_result.query,
+		"deparse output",
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		pg_query_free_deparse_result(deparse_result);
+		return status;
+	}
+	if (handle->dialect_ops == NULL ||
+	    handle->dialect_ops->postprocess_deparse == NULL) {
+		status = sqlparser_restore_source_envelope(
+			handle,
+			&deparse_result.query,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			pg_query_free_deparse_result(deparse_result);
+			return status;
+		}
 		*out_sql = deparse_result.query;
 		deparse_result.query = NULL;
 		pg_query_free_deparse_result(deparse_result);
@@ -2819,24 +3915,30 @@ sqlparser_status_t sqlparser_deparse(
 	}
 
 	public_sql = NULL;
-	if (handle->dialect_ops != NULL && handle->dialect_ops->postprocess_deparse != NULL) {
-		status = handle->dialect_ops->postprocess_deparse(
-			deparse_result.query,
-			handle->dialect_state,
-			&public_sql,
-			out_error);
-	} else {
-		public_sql = sqlparser_strdup(deparse_result.query);
-		status = public_sql != NULL ? SQLPARSER_STATUS_OK : SQLPARSER_STATUS_NO_MEMORY;
-		if (status != SQLPARSER_STATUS_OK) {
-			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-		}
-	}
+	status = handle->dialect_ops->postprocess_deparse(
+		deparse_result.query,
+		handle->dialect_state,
+		&public_sql,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
+		free(public_sql);
 		pg_query_free_deparse_result(deparse_result);
 		return status;
 	}
-	status = sqlparser_validate_handle_output_text(handle, public_sql, "deparse output", out_error);
+	status = sqlparser_restore_source_envelope(
+		handle,
+		&public_sql,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(public_sql);
+		pg_query_free_deparse_result(deparse_result);
+		return status;
+	}
+	status = sqlparser_validate_handle_output_text(
+		handle,
+		public_sql,
+		"deparse output",
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		free(public_sql);
 		pg_query_free_deparse_result(deparse_result);

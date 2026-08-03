@@ -1,12 +1,12 @@
 # SQL 用例矩阵
 
-本文件记录 `tests/cases/sql_batch_input.json` 覆盖的回归用例。JSON 夹具是可执行测试源，本文档用于说明当前已验证的语句形态和验证重点。
+本文件记录 `tests/cases/sql_batch_input.json` 覆盖的回归用例。对每条 final 用例，runner 验证未修改 SQL 的反解析结果与输入逐字节一致、实际 View 与期望 JSON 结构相等，并独立执行每个 patch；patch 后 SQL 必须与 `patch.deparse` 逐字节一致，重新解析后再次反解析仍须一致，且 patch handle 与重新解析 handle 的 View 输出必须一致。
 
 ## 矩阵统计与 session 回归
 
-夹具包含 196 条用例，其中 193 条预期成功，3 条预期失败。32 条用例包含 statement 级 `expect.session`：5 条未设置 `id` 的 schema/session 用例和 `PG-001` 至 `PG-027`；这 32 条用例均至少包含一个非空 session 期望。
+夹具包含 213 条 `status = "final"` 用例。32 条用例的期望 View 包含 statement 级 `query_graph.session`：5 条 schema/session 用例和 `PG-001` 至 `PG-027`；这 32 条用例均至少包含一个非空 session 投影。
 
-用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
+View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session 投影的 action、item scope、target kind、name 及 value 字段均属于比较范围。
 
 ## 可执行入口
 
@@ -169,6 +169,22 @@
 | P147 | `postgresql-national-string-duplicate-literal` | `'same'` 与 `N'same'` 同时出现 | 同文本普通字符串和 national 字符串按 literal 序号分别恢复 |
 | P148 | `postgresql-merge-multiple-conditional-insert-branches` | 两个带条件的 `WHEN NOT MATCHED ... INSERT` | MERGE 分支顺序、条件原文、分支列/行坐标、字段/bind/表达式 cell 和全局 bind 序号 |
 | P149 | `postgresql-merge-by-source-and-omitted-insert-columns` | BY TARGET INSERT、带条件的 MATCHED UPDATE、BY SOURCE DELETE | 三种 MERGE action/match、绝对分支序号、省略目标列列表的 INSERT 行及各分支内容 |
+| P150 | `postgresql-direct-field-coalesce-expression-value` | 字段与 `COALESCE($1, 'x')` 比较 | 谓词通过单个 `direct_field` expression value 关联值侧表达式，内部 bind 与 literal 不提升 |
+| P151 | `postgresql-direct-field-case-expression-value` | 字段与参数化 CASE 表达式比较 | CASE 整体作为单个 `direct_field` expression value 与谓词关联，内部 bind 与 literal 不提升 |
+| P152 | `postgresql-direct-field-array-expression-value` | 字段与 `ARRAY[$1, $2]` 比较 | ARRAY 构造整体作为单个 `direct_field` expression value 与谓词关联，内部 bind 不提升 |
+| P153 | `postgresql-having-or-count-expression-predicates` | `HAVING COUNT(*) > $1 OR COUNT(id) >= 2` | HAVING 保留 OR 子节点顺序；`COUNT(*)` 关联独立 bind 且不生成字段，`COUNT(id)` 关联表达式字段与 literal；3 个 patch 精确反解析 |
+| P154 | `postgresql-not-in-subquery-membership` | `field NOT IN (SELECT ... WHERE ... = $1)` | 外层保留 `NOT` 布尔节点及 `IN` membership 子谓词，内层 block、字段、bind 和 predicate 独立归属；6 个 patch 覆盖两层字段、关系、target、插入 target 与 bind |
+| P155 | `postgresql-having-function-null-test` | `HAVING SUM(amount) IS NOT NULL AND COUNT(*) > $1` | HAVING 保留 AND 子节点顺序；复合函数 NULL 测试输出 operator-only expression predicate，不任意绑定内部字段或生成 NULL value；COUNT bind 独立归属，4 个 patch 精确验证 |
+| P156 | `postgresql-select-target-fragment-splice-first` | 三输出项 SELECT 的首项替换为两个双引号输出项 | 多输出项 replacement 在原位置展开，后续 target 顺序及 WHERE 字段、bind 归属保持不变；独立 insert patch 验证列表位置 |
+| P157 | `postgresql-relation-patch-qualified-shadowed-correlation` | 无别名 schema-qualified 外层关系与内层同名 alias | View 将相关外层三段字段归属到外层关系；关系 patch 同步更新外层限定星号、直接字段和相关字段，内层 alias 及其字段保持不变 |
+| P158 | `postgresql-relation-patch-two-part-window-qualifiers` | 同一关系字段覆盖 SELECT、窗口、GROUP BY、HAVING 和 ORDER BY | 单段关系替换为双引号两段路径时，所有已绑定限定符按原深度使用新路径尾段；字段及插入 target patch 独立验证 |
+| P159 | `postgresql-data-modifying-cte-delete-multi-reference` | DELETE CTE 的 `RETURNING` 结果被外层 JOIN 重复引用 | 单个 DELETE DML 根、唯一结果块及两处 CTE relation 共享 `source_block`；2 个独立 patch 覆盖结果项替换与插入 |
+| P160 | `postgresql-data-modifying-cte-update-delete-root` | UPDATE CTE + 顶层 DELETE | 顶层 DELETE 为 D0、UPDATE CTE 为 D1 子节点；UPDATE `RETURNING` 结果块供 DELETE `USING` relation 引用，2 个独立 patch 精确验证 D1 结果列表 |
+| P161 | `postgresql-data-modifying-cte-two-deletes-side-effect` | 无 `RETURNING` 的 DELETE CTE + 有 `RETURNING` 的同级 DELETE CTE | 两个 SELECT-root DML 按声明顺序保持独立根；无结果的 D0 仍保留副作用语义，D1 单独提供结果块；2 个独立 patch 验证 D1 结果列表 |
+| P162 | `postgresql-data-modifying-cte-sibling-lineage` | INSERT CTE 的 `RETURNING` 驱动同级 UPDATE CTE | D0 INSERT 与 D1 UPDATE 保持独立根和独立结果块，UPDATE 赋值通过 `source_field`/`source_target` 指向 INSERT 的 `payload`；3 个独立 patch 覆盖两个 DML ordinal 及结果项插入 |
+| P163 | `postgresql-data-modifying-cte-merge-returning` | 带 UPDATE、INSERT 分支及 `RETURNING` 的 MERGE CTE | MERGE D0 的 target/source relation、ON 谓词、分支赋值与 INSERT 行、结果块、`RETURNING t.*` 的 `target_after` 来源及外层 CTE `source_block`；2 个独立 patch 覆盖结果项替换与插入 |
+| P164 | `postgresql-data-modifying-cte-update-compound-rhs` | UPDATE CTE 中无别名关系参与的复合赋值右值 | assignment 通过 `rhs_fields` 和 `rhs_values` 归属来源字段、bind 与 literal；source/target relation patch 同步更新 RHS、WHERE、RETURNING 限定符，外层 target 插入保持独立 |
+| P165 | `postgresql-on-conflict-compound-rhs` | `ON CONFLICT DO UPDATE` 中的复合赋值右值 | `EXCLUDED` 字段、目标表字段、bind 与 literal 均归属同一 assignment；目标关系 alias 在 relation replacement 后保持稳定，并精确验证 RETURNING target 插入 |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 
@@ -198,10 +214,8 @@
 | VCLI003 | `vastbase-postgresql-cli-positional-binds` | `SELECT id FROM public.users WHERE id = $1` | `vastbase-postgresql` CLI 方言名称和 PostgreSQL positional bind |
 | VCLI004 | `vastbase-sqlserver-cli-top-bind` | `SELECT TOP (5) [id] FROM [dbo].[users] WHERE [id] = @id` | `vastbase-sqlserver` CLI 方言名称、方括号标识符、`TOP` 和 named bind |
 
-## 负向用例
+## 覆盖边界
 
-| 用例 ID | 用例名称 | 输入 | 验证重点 |
-| --- | --- | --- | --- |
-| P137 | `parse-error` | `SELECT FROM` | 结构化解析错误、错误码、错误消息 |
+本矩阵只列出可成功解析并具有最终 View 与 patch 期望的用例。解析失败路径由独立单元测试维护，不在该 fixture 中登记。
 
 新增回归用例必须同步更新 `tests/cases/sql_batch_input.json` 和本矩阵。

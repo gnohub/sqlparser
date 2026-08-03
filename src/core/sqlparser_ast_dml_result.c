@@ -97,10 +97,13 @@ sqlparser_status_t sqlparser_get_dml_result_message(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	*out_message = NULL;
+	status = sqlparser_handle_ensure_ast(handle, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
 	memset(&dml, 0, sizeof(dml));
 	if (!sqlparser_dialect_dml_result_dml_at(
-		    handle->dialect,
-		    handle->dialect_state,
+		    handle,
 		    statement_index,
 		    dml_index,
 		    &dml)) {
@@ -112,13 +115,23 @@ sqlparser_status_t sqlparser_get_dml_result_message(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "DML result kind is invalid");
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
+	if (dml.message != NULL) {
+		if (dml.message->descriptor != descriptor) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "DML result metadata does not match the statement AST");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		if (out_kind != NULL) {
+			*out_kind = dml.kind;
+		}
+		*out_message = dml.message;
+		return SQLPARSER_STATUS_OK;
+	}
 	kind_ordinal = 0U;
 	for (index = 0U; index < dml_index; index++) {
 		sqlparser_dialect_dml_result_dml_t previous;
 
 		if (!sqlparser_dialect_dml_result_dml_at(
-			    handle->dialect,
-			    handle->dialect_state,
+			    handle,
 			    statement_index,
 			    index,
 			    &previous)) {
@@ -184,17 +197,12 @@ sqlparser_status_t sqlparser_get_merge_stmt_by_dml_index(
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
 		}
-		if (statement == NULL ||
-		    statement->node_case != PG_QUERY__NODE__NODE_MERGE_STMT ||
-		    statement->merge_stmt == NULL) {
-			sqlparser_error_set_message(
-				out_error,
-				SQLPARSER_STATUS_UNSUPPORTED,
-				"DML selector does not target a MERGE statement");
-			return SQLPARSER_STATUS_UNSUPPORTED;
+		if (statement != NULL &&
+		    statement->node_case == PG_QUERY__NODE__NODE_MERGE_STMT &&
+		    statement->merge_stmt != NULL) {
+			*out_stmt = statement->merge_stmt;
+			return SQLPARSER_STATUS_OK;
 		}
-		*out_stmt = statement->merge_stmt;
-		return SQLPARSER_STATUS_OK;
 	}
 
 	message = NULL;
@@ -234,9 +242,12 @@ static sqlparser_status_t sqlparser_dml_result_get_list(
 	sqlparser_status_t status;
 
 	message = NULL;
+	status = sqlparser_handle_ensure_ast(handle, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
 	if (!sqlparser_dialect_dml_result_dml_at(
-		    handle->dialect,
-		    handle->dialect_state,
+		    handle,
 		    statement_index,
 		    dml_index,
 		    out_dml)) {
@@ -272,8 +283,7 @@ static sqlparser_status_t sqlparser_dml_result_get_channel(
 		return status;
 	}
 	if (!sqlparser_dialect_dml_result_channel_at(
-		    handle->dialect,
-		    handle->dialect_state,
+		    handle,
 		    selector->statement_index,
 		    selector->item_index,
 		    selector->row_index,
@@ -335,6 +345,8 @@ static sqlparser_status_t sqlparser_dml_result_parse_target(
 		source.origins = origins;
 		source.dialect = handle->dialect;
 		source.spelling_handle = handle;
+		source.candidate_dialect_state = candidate_state;
+		source.statement_index = statement_index;
 		status = sqlparser_parse_select_target_node_sql(
 			parser_sql,
 			&source,
@@ -370,11 +382,21 @@ static sqlparser_status_t sqlparser_dml_result_clone_state(
 	return handle->dialect_ops->clone_state(handle->dialect_state, out_state, out_error);
 }
 
-static void sqlparser_dml_result_commit_state(sqlparser_handle_t *handle, void *state)
+static sqlparser_status_t sqlparser_dml_result_commit_state(
+	sqlparser_handle_t *handle,
+	void *state,
+	sqlparser_error_t *out_error)
 {
-	sqlparser_handle_adopt_dialect_state(handle, state);
+	sqlparser_status_t status;
+
+	status = sqlparser_handle_adopt_dialect_state(
+		handle, state, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
 	handle->generation++;
 	sqlparser_handle_invalidate_derived(handle);
+	return SQLPARSER_STATUS_OK;
 }
 
 sqlparser_status_t sqlparser_dml_result_target_sql(
@@ -419,6 +441,9 @@ sqlparser_status_t sqlparser_dml_result_target_sql(
 			handle,
 			selector->statement_index,
 			core_sql,
+			SQLPARSER_FRAGMENT_CONTEXT_SELECT_TARGET,
+			(ProtobufCMessage *const *)&(*list.items)[absolute_index],
+			1U,
 			"DML result target SQL",
 			&fragment_sql,
 			out_error);
@@ -504,13 +529,8 @@ sqlparser_status_t sqlparser_dml_result_set_target_sql(
 	removed = (*list.items)[absolute_index];
 	(*list.items)[absolute_index] = replacement;
 	sqlparser_free_proto_node(removed);
-	status = sqlparser_handle_commit_ast(handle, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_discard_dialect_state(handle, candidate_state);
-		return status;
-	}
-	sqlparser_handle_adopt_dialect_state(handle, candidate_state);
-	return SQLPARSER_STATUS_OK;
+	return sqlparser_handle_commit_ast_with_dialect_state(
+		handle, candidate_state, out_error);
 }
 
 sqlparser_status_t sqlparser_dml_result_insert_target_sql(
@@ -617,13 +637,8 @@ sqlparser_status_t sqlparser_dml_result_insert_target_sql(
 	free(*list.items);
 	*list.items = next;
 	*list.count = old_count + 1U;
-	status = sqlparser_handle_commit_ast(handle, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_discard_dialect_state(handle, candidate_state);
-		return status;
-	}
-	sqlparser_handle_adopt_dialect_state(handle, candidate_state);
-	return SQLPARSER_STATUS_OK;
+	return sqlparser_handle_commit_ast_with_dialect_state(
+		handle, candidate_state, out_error);
 }
 
 sqlparser_status_t sqlparser_dml_result_delete_target(
@@ -695,13 +710,8 @@ sqlparser_status_t sqlparser_dml_result_delete_target(
 	*list.items = next;
 	*list.count = old_count - 1U;
 	sqlparser_free_proto_node(removed);
-	status = sqlparser_handle_commit_ast(handle, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_discard_dialect_state(handle, candidate_state);
-		return status;
-	}
-	sqlparser_handle_adopt_dialect_state(handle, candidate_state);
-	return SQLPARSER_STATUS_OK;
+	return sqlparser_handle_commit_ast_with_dialect_state(
+		handle, candidate_state, out_error);
 }
 
 static sqlparser_status_t sqlparser_dml_result_mutate_sink(
@@ -746,8 +756,12 @@ static sqlparser_status_t sqlparser_dml_result_mutate_sink(
 		sqlparser_handle_discard_dialect_state(handle, candidate_state);
 		return status;
 	}
-	sqlparser_dml_result_commit_state(handle, candidate_state);
-	return SQLPARSER_STATUS_OK;
+	status = sqlparser_dml_result_commit_state(
+		handle, candidate_state, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_discard_dialect_state(handle, candidate_state);
+	}
+	return status;
 }
 
 sqlparser_status_t sqlparser_dml_result_set_sink_sql(

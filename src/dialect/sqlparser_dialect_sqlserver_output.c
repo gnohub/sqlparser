@@ -28,13 +28,20 @@ typedef struct {
 	size_t action_capacity;
 } sqlparser_sqlserver_output_channel_t;
 
+typedef enum {
+	SQLPARSER_SQLSERVER_OUTPUT_DELETE_TARGET_FROM = 0,
+	SQLPARSER_SQLSERVER_OUTPUT_DELETE_TARGET_PATH,
+	SQLPARSER_SQLSERVER_OUTPUT_DELETE_TARGET_ALIAS
+} sqlparser_sqlserver_output_delete_target_form_t;
+
 typedef struct {
 	sqlparser_graph_dml_kind_t kind;
 	size_t statement_index;
 	char *top_sql;
 	char *source_name;
 	char *source_sql;
-	char *delete_target_sql;
+	sqlparser_sqlserver_output_delete_target_form_t delete_target_form;
+	size_t delete_alias_source_ordinal;
 	int omitted_into;
 	int delete_source_from;
 	sqlparser_sqlserver_output_channel_t *channels;
@@ -188,7 +195,6 @@ static void sqlparser_sqlserver_output_dml_clear(sqlparser_sqlserver_output_dml_
 	free(dml->top_sql);
 	free(dml->source_name);
 	free(dml->source_sql);
-	free(dml->delete_target_sql);
 	for (index = 0U; index < dml->channel_count; index++) {
 		sqlparser_sqlserver_output_channel_clear(&dml->channels[index]);
 	}
@@ -1301,7 +1307,7 @@ static int sqlparser_sqlserver_output_delete_source_alias_keyword(
 {
 	static const char *const keywords[] = {
 		"cross", "full", "inner", "join", "left", "on", "option",
-		"outer", "right", "where", "with"
+		"outer", "returning", "right", "using", "where", "with"
 	};
 	size_t index;
 
@@ -1313,19 +1319,66 @@ static int sqlparser_sqlserver_output_delete_source_alias_keyword(
 	return 0;
 }
 
-static int sqlparser_sqlserver_output_find_delete_alias_source(
+static int sqlparser_sqlserver_output_delete_relation_at(
+	const char *sql,
+	const sqlparser_sqlserver_output_tokens_t *tokens,
+	size_t index,
+	size_t end,
+	sqlparser_sqlserver_output_span_t *out_span,
+	size_t *out_name_end,
+	size_t *out_alias_index)
+{
+	size_t next;
+	size_t alias_index;
+
+	if (index >= end || end > tokens->count ||
+	    !sqlparser_sqlserver_output_token_is_identifier(&tokens->items[index])) {
+		return 0;
+	}
+	next = index + 1U;
+	while (next + 1U < end &&
+	       tokens->items[next].kind == SQLPARSER_SQLSERVER_TOKEN_SYMBOL &&
+	       tokens->items[next].symbol == '.' &&
+	       sqlparser_sqlserver_output_token_is_identifier(&tokens->items[next + 1U])) {
+		next += 2U;
+	}
+	alias_index = (size_t)-1;
+	if (next + 1U < end &&
+	    sqlparser_sqlserver_token_word_equal(sql, &tokens->items[next], "as") &&
+	    sqlparser_sqlserver_output_token_is_identifier(&tokens->items[next + 1U])) {
+		alias_index = next + 1U;
+	} else if (next < end &&
+	           sqlparser_sqlserver_output_token_is_identifier(&tokens->items[next]) &&
+	           !sqlparser_sqlserver_output_delete_source_alias_keyword(sql, &tokens->items[next])) {
+		alias_index = next;
+	}
+	out_span->start = tokens->items[index].start;
+	out_span->end = alias_index != (size_t)-1 ?
+		tokens->items[alias_index].end : tokens->items[next - 1U].end;
+	*out_name_end = tokens->items[next - 1U].end;
+	*out_alias_index = alias_index;
+	return 1;
+}
+
+static int sqlparser_sqlserver_output_find_delete_source(
 	const char *sql,
 	const sqlparser_sqlserver_output_tokens_t *tokens,
 	size_t begin,
 	size_t end,
-	const sqlparser_sqlserver_token_t *target,
-	size_t *out_start,
-	size_t *out_end)
+	const sqlparser_sqlserver_token_t *wanted_alias,
+	size_t wanted_ordinal,
+	sqlparser_sqlserver_output_span_t *out_span,
+	size_t *out_name_end,
+	size_t *out_alias_index,
+	size_t *out_ordinal)
 {
 	size_t index;
+	size_t source_ordinal;
 
+	source_ordinal = 0U;
 	for (index = begin; index < end; index++) {
-		size_t next;
+		sqlparser_sqlserver_output_span_t source_span;
+		size_t source_name_end;
 		size_t alias_index;
 		int source_start;
 
@@ -1347,32 +1400,35 @@ static int sqlparser_sqlserver_output_find_delete_alias_source(
 		if (!source_start || !sqlparser_sqlserver_output_token_is_identifier(&tokens->items[index])) {
 			continue;
 		}
-
-		next = index + 1U;
-		while (next + 1U < end &&
-		       tokens->items[next].kind == SQLPARSER_SQLSERVER_TOKEN_SYMBOL &&
-		       tokens->items[next].symbol == '.' &&
-		       sqlparser_sqlserver_output_token_is_identifier(&tokens->items[next + 1U])) {
-			next += 2U;
+		if (!sqlparser_sqlserver_output_delete_relation_at(
+			    sql,
+			    tokens,
+			    index,
+			    end,
+			    &source_span,
+			    &source_name_end,
+			    &alias_index)) {
+			continue;
 		}
-		alias_index = (size_t)-1;
-		if (next + 1U < end &&
-		    sqlparser_sqlserver_token_word_equal(sql, &tokens->items[next], "as") &&
-		    sqlparser_sqlserver_output_token_is_identifier(&tokens->items[next + 1U])) {
-			alias_index = next + 1U;
-		} else if (next < end &&
-		           sqlparser_sqlserver_output_token_is_identifier(&tokens->items[next]) &&
-		           !sqlparser_sqlserver_output_delete_source_alias_keyword(sql, &tokens->items[next])) {
-			alias_index = next;
-		}
-		if (alias_index != (size_t)-1) {
-			if (sqlparser_sqlserver_output_identifier_tokens_equal(
-				    sql, target, &tokens->items[alias_index])) {
-				*out_start = tokens->items[index].start;
-				*out_end = tokens->items[alias_index].end;
-				return 1;
+		if ((wanted_alias != NULL && alias_index != (size_t)-1 &&
+		     sqlparser_sqlserver_output_identifier_tokens_equal(
+			     sql, wanted_alias, &tokens->items[alias_index])) ||
+		    (wanted_alias == NULL && source_ordinal == wanted_ordinal)) {
+			if (out_span != NULL) {
+				*out_span = source_span;
 			}
+			if (out_name_end != NULL) {
+				*out_name_end = source_name_end;
+			}
+			if (out_alias_index != NULL) {
+				*out_alias_index = alias_index;
+			}
+			if (out_ordinal != NULL) {
+				*out_ordinal = source_ordinal;
+			}
+			return 1;
 		}
+		source_ordinal++;
 	}
 	return 0;
 }
@@ -1391,6 +1447,8 @@ static sqlparser_status_t sqlparser_sqlserver_output_prepare_delete(
 	size_t target_end;
 	size_t parser_target_start;
 	size_t parser_target_end;
+	size_t parser_alias_start;
+	size_t parser_target_length;
 	size_t replacement_len;
 	size_t edit_index;
 	char *replacement;
@@ -1433,49 +1491,107 @@ static sqlparser_status_t sqlparser_sqlserver_output_prepare_delete(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	dml->delete_target_sql = sqlparser_sqlserver_output_dup_trim(
-		sql, target_start, target_end, out_error);
-	if (dml->delete_target_sql == NULL) {
-		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
-	}
+	dml->delete_target_form = SQLPARSER_SQLSERVER_OUTPUT_DELETE_TARGET_PATH;
 	parser_target_start = target_start;
 	parser_target_end = target_end;
+	parser_alias_start = (size_t)-1;
 	if (tokens->items[next_index].end == target_end && dml->delete_source_from) {
-		(void)sqlparser_sqlserver_output_find_delete_alias_source(
-			sql,
-			tokens,
-			boundary_index + 1U,
-			tokens->count,
-			&tokens->items[next_index],
-			&parser_target_start,
-			&parser_target_end);
+		sqlparser_sqlserver_output_span_t source_span;
+		size_t source_alias_index;
+
+		if (sqlparser_sqlserver_output_find_delete_source(
+			    sql,
+			    tokens,
+			    boundary_index + 1U,
+			    tokens->count,
+			    &tokens->items[next_index],
+			    0U,
+			    &source_span,
+			    NULL,
+			    &source_alias_index,
+			    &dml->delete_alias_source_ordinal)) {
+			dml->delete_target_form = SQLPARSER_SQLSERVER_OUTPUT_DELETE_TARGET_ALIAS;
+			parser_target_start = source_span.start;
+			parser_target_end = source_span.end;
+			parser_alias_start = tokens->items[source_alias_index].start;
+		}
 	}
-	if (parser_target_end < parser_target_start ||
-	    parser_target_end - parser_target_start > SIZE_MAX - 6U) {
+	if (parser_target_end < parser_target_start || target_end < target_start ||
+	    (parser_alias_start != (size_t)-1 && parser_alias_start < parser_target_start)) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "SQL Server DELETE target metadata is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	if (parser_alias_start != (size_t)-1) {
+		size_t prefix_len;
+		size_t target_len;
+
+		prefix_len = parser_alias_start - parser_target_start;
+		target_len = target_end - target_start;
+		if (prefix_len > SIZE_MAX - target_len) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "SQL Server DELETE target is too large");
+			return SQLPARSER_STATUS_RESOURCE_LIMIT;
+		}
+		parser_target_length = prefix_len + target_len;
+	} else {
+		parser_target_length = parser_target_end - parser_target_start;
+	}
+	if (parser_target_length > SIZE_MAX - 6U) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "SQL Server DELETE target is too large");
 		return SQLPARSER_STATUS_RESOURCE_LIMIT;
 	}
-	replacement_len = 5U + parser_target_end - parser_target_start;
+	replacement_len = 5U + parser_target_length;
 	replacement = (char *)malloc(replacement_len + 1U);
 	if (replacement == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
 	memcpy(replacement, "FROM ", 5U);
-	memcpy(replacement + 5U, sql + parser_target_start, parser_target_end - parser_target_start);
+	if (parser_alias_start != (size_t)-1) {
+		size_t prefix_len;
+
+		prefix_len = parser_alias_start - parser_target_start;
+		memcpy(replacement + 5U, sql + parser_target_start, prefix_len);
+		memcpy(replacement + 5U + prefix_len, sql + target_start, target_end - target_start);
+	} else {
+		memcpy(replacement + 5U, sql + parser_target_start, parser_target_length);
+	}
 	replacement[replacement_len] = '\0';
 	edit_index = edits->count;
 	status = sqlparser_sqlserver_output_edit_add(
 		edits, target_start, target_end, NULL, replacement, out_error);
-	if (status == SQLPARSER_STATUS_OK) {
+	if (status == SQLPARSER_STATUS_OK && parser_alias_start != (size_t)-1) {
+		size_t prefix_len;
+
+		prefix_len = parser_alias_start - parser_target_start;
 		status = sqlparser_sqlserver_output_edit_add_origin(
 			edits,
 			edit_index,
 			SQLPARSER_SQLSERVER_OUTPUT_ORIGIN_INPUT,
 			5U,
-			parser_target_end - parser_target_start,
+			prefix_len,
 			parser_target_start,
-			parser_target_end - parser_target_start,
+			prefix_len,
+			out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_sqlserver_output_edit_add_origin(
+				edits,
+				edit_index,
+				SQLPARSER_SQLSERVER_OUTPUT_ORIGIN_INPUT,
+				5U + prefix_len,
+				target_end - target_start,
+				target_start,
+				target_end - target_start,
+				out_error);
+		}
+	} else if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_sqlserver_output_edit_add_origin(
+			edits,
+			edit_index,
+			SQLPARSER_SQLSERVER_OUTPUT_ORIGIN_INPUT,
+			5U,
+			parser_target_length,
+			parser_target_start,
+			parser_target_length,
 			out_error);
 	}
 	return status;
@@ -2967,6 +3083,8 @@ sqlparser_status_t sqlparser_sqlserver_output_clone(
 		}
 		dest_dml->omitted_into = source_dml->omitted_into;
 		dest_dml->delete_source_from = source_dml->delete_source_from;
+		dest_dml->delete_target_form = source_dml->delete_target_form;
+		dest_dml->delete_alias_source_ordinal = source_dml->delete_alias_source_ordinal;
 		dest_dml->parent_dml_index = source_dml->parent_dml_index;
 		dest_dml->has_parent = source_dml->has_parent;
 		if (source_dml->source_name != NULL) {
@@ -2983,14 +3101,6 @@ sqlparser_status_t sqlparser_sqlserver_output_clone(
 				sqlparser_sqlserver_output_destroy(clone);
 				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 				return SQLPARSER_STATUS_NO_MEMORY;
-			}
-		}
-		if (source_dml->delete_target_sql != NULL) {
-			dest_dml->delete_target_sql = sqlparser_strdup(source_dml->delete_target_sql);
-			if (dest_dml->delete_target_sql == NULL) {
-				status = SQLPARSER_STATUS_NO_MEMORY;
-				sqlparser_error_set_message(out_error, status, "out of memory");
-				break;
 			}
 		}
 		if (source_dml->top_sql != NULL) {
@@ -3086,7 +3196,8 @@ int sqlparser_sqlserver_output_dml_at(
 	out_dml->source_name = dml->source_name;
 	out_dml->source_sql = dml->source_sql;
 	out_dml->has_duplicate_target_relation =
-		dml->delete_target_sql != NULL && dml->delete_source_from;
+		dml->delete_target_form == SQLPARSER_SQLSERVER_OUTPUT_DELETE_TARGET_ALIAS &&
+		dml->delete_source_from;
 	return 1;
 }
 
@@ -3449,6 +3560,91 @@ static int sqlparser_sqlserver_output_text_append_cstr(
 	return sqlparser_sqlserver_output_text_append(text, value, strlen(value));
 }
 
+static sqlparser_status_t sqlparser_sqlserver_output_build_delete_source(
+	const char *sql,
+	sqlparser_sqlserver_output_span_t target,
+	size_t target_name_end,
+	const sqlparser_sqlserver_token_t *target_alias,
+	sqlparser_sqlserver_output_span_t source,
+	size_t source_name_end,
+	const sqlparser_sqlserver_token_t *source_alias,
+	char **out_source,
+	sqlparser_error_t *out_error)
+{
+	char *result;
+	size_t target_name_len;
+	size_t source_suffix_len;
+	size_t result_len;
+	int aliases_equal;
+
+	*out_source = NULL;
+	if (target.start > target_name_end || target_name_end > target.end ||
+	    source.start > source_name_end || source_name_end > source.end ||
+	    !sqlparser_sqlserver_output_token_is_identifier(target_alias) ||
+	    !sqlparser_sqlserver_output_token_is_identifier(source_alias) ||
+	    target_alias->start < target_name_end || target_alias->end > target.end ||
+	    source_alias->start < source_name_end || source_alias->end > source.end) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"SQL Server DELETE source target metadata is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	target_name_len = target_name_end - target.start;
+	aliases_equal = sqlparser_sqlserver_output_identifier_tokens_equal(
+		sql, target_alias, source_alias);
+	if (aliases_equal) {
+		source_suffix_len = source.end - source_name_end;
+	} else {
+		source_suffix_len = source_alias->start - source_name_end;
+		if (source_suffix_len > SIZE_MAX - (target_alias->end - target_alias->start)) {
+			goto too_large;
+		}
+		source_suffix_len += target_alias->end - target_alias->start;
+	}
+	if (target_name_len > SIZE_MAX - source_suffix_len) {
+		goto too_large;
+	}
+	result_len = target_name_len + source_suffix_len;
+	if (result_len == SIZE_MAX) {
+		goto too_large;
+	}
+	result = (char *)malloc(result_len + 1U);
+	if (result == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	memcpy(result, sql + target.start, target_name_len);
+	if (aliases_equal) {
+		memcpy(
+			result + target_name_len,
+			sql + source_name_end,
+			source.end - source_name_end);
+	} else {
+		size_t source_alias_prefix_len;
+
+		source_alias_prefix_len = source_alias->start - source_name_end;
+		memcpy(
+			result + target_name_len,
+			sql + source_name_end,
+			source_alias_prefix_len);
+		memcpy(
+			result + target_name_len + source_alias_prefix_len,
+			sql + target_alias->start,
+			target_alias->end - target_alias->start);
+	}
+	result[result_len] = '\0';
+	*out_source = result;
+	return SQLPARSER_STATUS_OK;
+
+too_large:
+	sqlparser_error_set_message(
+		out_error,
+		SQLPARSER_STATUS_RESOURCE_LIMIT,
+		"SQL Server DELETE source target is too large");
+	return SQLPARSER_STATUS_RESOURCE_LIMIT;
+}
+
 static int sqlparser_sqlserver_output_append_public_target(
 	sqlparser_sqlserver_output_text_t *text,
 	const char *sql,
@@ -3643,9 +3839,6 @@ static sqlparser_status_t sqlparser_sqlserver_output_build_public_clause(
 			}
 		}
 	}
-	if (sqlparser_sqlserver_output_text_append_cstr(&text, " ") != 0) {
-		goto internal_fail;
-	}
 	*out_clause = text.data;
 	return SQLPARSER_STATUS_OK;
 
@@ -3716,14 +3909,20 @@ static sqlparser_status_t sqlparser_sqlserver_output_postprocess_dml(
 	size_t insertion_start;
 	size_t returning_start;
 	size_t delete_source_index;
-	size_t delete_target_end;
+	size_t delete_target_alias_index;
+	size_t delete_target_name_end;
+	sqlparser_sqlserver_output_span_t delete_target_relation;
 	char *clause;
+	char *delete_source_text;
+	char *delete_target_text;
 	char *top_text;
 	sqlparser_status_t status;
 
 	memset(&tokens, 0, sizeof(tokens));
 	spans = NULL;
 	clause = NULL;
+	delete_source_text = NULL;
+	delete_target_text = NULL;
 	top_text = NULL;
 	status = sqlparser_sqlserver_output_tokenize(sql, statement_start, statement_end, &tokens, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
@@ -3854,29 +4053,108 @@ static sqlparser_status_t sqlparser_sqlserver_output_postprocess_dml(
 			goto done;
 		}
 	}
-	if (dml->delete_target_sql != NULL) {
+	if (dml->delete_target_form != SQLPARSER_SQLSERVER_OUTPUT_DELETE_TARGET_FROM) {
+		size_t delete_target_limit;
+
 		if (root_index + 1U >= tokens.count ||
 		    !sqlparser_sqlserver_token_word_equal(sql, &tokens.items[root_index + 1U], "from")) {
 			status = SQLPARSER_STATUS_INTERNAL_ERROR;
 			sqlparser_error_set_message(out_error, status, "SQL Server DELETE target restoration failed");
 			goto done;
 		}
-		delete_target_end = delete_source_index != (size_t)-1 ?
-			tokens.items[delete_source_index].start : insertion_pos;
-		delete_target_end = sqlparser_sqlserver_trim_right(
-			sql, tokens.items[root_index + 1U].end, delete_target_end);
-		if (delete_target_end <= tokens.items[root_index + 1U].end) {
+		delete_target_limit = delete_source_index != (size_t)-1 ?
+			delete_source_index : returning_index;
+		if (!sqlparser_sqlserver_output_delete_relation_at(
+			    sql,
+			    &tokens,
+			    root_index + 2U,
+			    delete_target_limit,
+			    &delete_target_relation,
+			    &delete_target_name_end,
+			    &delete_target_alias_index)) {
 			status = SQLPARSER_STATUS_INTERNAL_ERROR;
 			sqlparser_error_set_message(out_error, status, "SQL Server DELETE target restoration failed");
 			goto done;
 		}
+		if (dml->delete_target_form == SQLPARSER_SQLSERVER_OUTPUT_DELETE_TARGET_PATH) {
+			delete_target_text = sqlparser_strndup(
+				sql + delete_target_relation.start,
+				delete_target_relation.end - delete_target_relation.start);
+			if (delete_target_text == NULL) {
+				status = SQLPARSER_STATUS_NO_MEMORY;
+				sqlparser_error_set_message(out_error, status, "out of memory");
+				goto done;
+			}
+		} else {
+			sqlparser_sqlserver_output_span_t delete_source_relation;
+			size_t delete_source_alias_index;
+			size_t delete_source_name_end;
+
+			if (delete_target_alias_index == (size_t)-1) {
+				status = SQLPARSER_STATUS_INTERNAL_ERROR;
+				sqlparser_error_set_message(out_error, status, "SQL Server DELETE alias restoration failed");
+				goto done;
+			}
+			delete_target_text = sqlparser_strndup(
+				sql + tokens.items[delete_target_alias_index].start,
+				tokens.items[delete_target_alias_index].end -
+					tokens.items[delete_target_alias_index].start);
+			if (delete_target_text == NULL) {
+				status = SQLPARSER_STATUS_NO_MEMORY;
+				sqlparser_error_set_message(out_error, status, "out of memory");
+				goto done;
+			}
+			if (delete_source_index != (size_t)-1) {
+				if (!sqlparser_sqlserver_output_find_delete_source(
+					    sql,
+					    &tokens,
+					    delete_source_index + 1U,
+					    returning_index,
+					    NULL,
+					    dml->delete_alias_source_ordinal,
+					    &delete_source_relation,
+					    &delete_source_name_end,
+					    &delete_source_alias_index,
+					    NULL) ||
+				    delete_source_alias_index == (size_t)-1) {
+					status = SQLPARSER_STATUS_INTERNAL_ERROR;
+					sqlparser_error_set_message(out_error, status, "SQL Server DELETE source target restoration failed");
+					goto done;
+				}
+				status = sqlparser_sqlserver_output_build_delete_source(
+					sql,
+					delete_target_relation,
+					delete_target_name_end,
+					&tokens.items[delete_target_alias_index],
+					delete_source_relation,
+					delete_source_name_end,
+					&tokens.items[delete_source_alias_index],
+					&delete_source_text,
+					out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					goto done;
+				}
+				status = sqlparser_sqlserver_output_edit_add(
+					edits,
+					delete_source_relation.start,
+					delete_source_relation.end,
+					NULL,
+					delete_source_text,
+					out_error);
+				delete_source_text = NULL;
+				if (status != SQLPARSER_STATUS_OK) {
+					goto done;
+				}
+			}
+		}
 		status = sqlparser_sqlserver_output_edit_add(
 			edits,
 			tokens.items[root_index + 1U].start,
-			delete_target_end,
-			dml->delete_target_sql,
+			delete_target_relation.end,
 			NULL,
+			delete_target_text,
 			out_error);
+		delete_target_text = NULL;
 		if (status != SQLPARSER_STATUS_OK) {
 			goto done;
 		}
@@ -3913,6 +4191,29 @@ static sqlparser_status_t sqlparser_sqlserver_output_postprocess_dml(
 			out_error);
 		clause = NULL;
 	} else {
+		if (insertion_start == insertion_pos) {
+			size_t clause_len;
+			char *clause_with_gap;
+
+			clause_len = strlen(clause);
+			if (clause_len > SIZE_MAX - 2U) {
+				status = SQLPARSER_STATUS_RESOURCE_LIMIT;
+				sqlparser_error_set_message(
+					out_error,
+					status,
+					"SQL Server OUTPUT clause is too large");
+				goto done;
+			}
+			clause_with_gap = (char *)realloc(clause, clause_len + 2U);
+			if (clause_with_gap == NULL) {
+				status = SQLPARSER_STATUS_NO_MEMORY;
+				sqlparser_error_set_message(out_error, status, "out of memory");
+				goto done;
+			}
+			clause = clause_with_gap;
+			clause[clause_len] = ' ';
+			clause[clause_len + 1U] = '\0';
+		}
 		status = sqlparser_sqlserver_output_edit_add(
 			edits,
 			returning_start,
@@ -3924,7 +4225,7 @@ static sqlparser_status_t sqlparser_sqlserver_output_postprocess_dml(
 			status = sqlparser_sqlserver_output_edit_add(
 				edits,
 				insertion_start,
-				insertion_pos,
+				insertion_start,
 				NULL,
 				clause,
 				out_error);
@@ -3934,6 +4235,8 @@ static sqlparser_status_t sqlparser_sqlserver_output_postprocess_dml(
 
 done:
 	free(top_text);
+	free(delete_target_text);
+	free(delete_source_text);
 	free(clause);
 	free(spans);
 	sqlparser_sqlserver_output_tokens_clear(&tokens);

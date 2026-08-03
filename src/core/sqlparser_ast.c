@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "../dialect/sqlparser_dialect_internal.h"
 #include "sqlparser_ast_internal.h"
 
 void sqlparser_relation_view_clear(sqlparser_relation_view_t *view)
@@ -291,6 +292,49 @@ sqlparser_status_t sqlparser_get_statement_node(
 
 	*out_statement = raw_stmt->stmt;
 	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_get_mysql_dml_tail_select(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	PgQuery__Node *statement,
+	PgQuery__SelectStmt **out_select,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__Node **returning_list;
+	size_t returning_count;
+
+	if (handle == NULL || statement == NULL || out_select == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"MySQL DML tail lookup arguments must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_select = NULL;
+	if (!sqlparser_dialect_is_mysql_compatible(handle->dialect)) {
+		return SQLPARSER_STATUS_OK;
+	}
+	returning_list = NULL;
+	returning_count = 0U;
+	if (statement->node_case == PG_QUERY__NODE__NODE_UPDATE_STMT &&
+	    statement->update_stmt != NULL) {
+		returning_list = statement->update_stmt->returning_list;
+		returning_count = statement->update_stmt->n_returning_list;
+	} else if (statement->node_case == PG_QUERY__NODE__NODE_DELETE_STMT &&
+		   statement->delete_stmt != NULL) {
+		returning_list = statement->delete_stmt->returning_list;
+		returning_count = statement->delete_stmt->n_returning_list;
+	} else {
+		return SQLPARSER_STATUS_OK;
+	}
+	return sqlparser_mysql_dml_tail_select(
+		handle->dialect_state,
+		statement_index,
+		returning_list,
+		returning_count,
+		out_select,
+		out_error);
 }
 
 sqlparser_status_t sqlparser_get_insert_stmt(
@@ -1113,6 +1157,14 @@ sqlparser_name_context_t sqlparser_next_name_context(
 	sqlparser_name_context_t next_context;
 
 	memset(&next_context, 0, sizeof(next_context));
+	if (descriptor == &pg_query__a__indirection__descriptor &&
+	    sqlparser_a_indirection_is_grouping(
+		    (PgQuery__AIndirection *)message)) {
+		if (context != NULL) {
+			next_context = *context;
+		}
+		return next_context;
+	}
 	if (sqlparser_message_is_name_container(descriptor)) {
 		if (context != NULL) {
 			next_context = *context;
@@ -1194,6 +1246,8 @@ static sqlparser_status_t sqlparser_record_name_atom(
 			}
 			search->target_slot = slot;
 			search->target_owner = location_owner;
+			search->target_field_owner =
+				context != NULL ? context->field_owner : NULL;
 			search->target_index = search->seen;
 		}
 		search->seen++;
@@ -1217,6 +1271,8 @@ static sqlparser_status_t sqlparser_record_name_atom(
 	}
 	search->target_slot = slot;
 	search->target_owner = location_owner;
+	search->target_field_owner =
+		context != NULL ? context->field_owner : NULL;
 	search->seen++;
 	return SQLPARSER_STATUS_OK;
 }
@@ -1725,16 +1781,63 @@ static int sqlparser_descriptor_is_node(const ProtobufCMessageDescriptor *descri
 		strcmp(descriptor->short_name, "Node") == 0;
 }
 
+int sqlparser_node_is_mysql_dml_tail_wrapper(
+	const PgQuery__Node *node,
+	const PgQuery__SelectStmt *tail_select)
+{
+	const PgQuery__Node *subselect;
+	const PgQuery__Node *value;
+
+	if (node == NULL || tail_select == NULL) {
+		return 0;
+	}
+	if (node->node_case == PG_QUERY__NODE__NODE_SELECT_STMT) {
+		return node->select_stmt == tail_select;
+	}
+	value = node;
+	if (node->node_case == PG_QUERY__NODE__NODE_RES_TARGET &&
+	    node->res_target != NULL) {
+		value = node->res_target->val;
+	}
+	if (value == NULL ||
+	    value->node_case != PG_QUERY__NODE__NODE_SUB_LINK ||
+	    value->sub_link == NULL) {
+		return 0;
+	}
+	subselect = value->sub_link->subselect;
+	return subselect != NULL &&
+		subselect->node_case == PG_QUERY__NODE__NODE_SELECT_STMT &&
+		subselect->select_stmt == tail_select;
+}
+
 static sqlparser_status_t sqlparser_record_node_slot(
 	PgQuery__Node **slot,
+	ProtobufCMessage *parent,
 	sqlparser_node_slot_search_t *search)
 {
 	if (slot == NULL || search == NULL || *slot == NULL) {
 		return SQLPARSER_STATUS_OK;
 	}
+	if (sqlparser_node_is_grouping_wrapper(*slot) ||
+	    sqlparser_node_is_mysql_dml_tail_wrapper(
+		    *slot,
+		    search->dml_tail_select)) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (search->match_a_const != NULL) {
+		if ((*slot)->node_case == PG_QUERY__NODE__NODE_A_CONST &&
+		    (*slot)->a_const == search->match_a_const) {
+			search->target_slot = slot;
+			search->target_parent = parent;
+			search->target_index = search->seen;
+		}
+		search->seen++;
+		return SQLPARSER_STATUS_OK;
+	}
 	if (search->match_node != NULL) {
 		if (*slot == search->match_node) {
 			search->target_slot = slot;
+			search->target_parent = parent;
 			search->target_index = search->seen;
 		}
 		search->seen++;
@@ -1746,6 +1849,7 @@ static sqlparser_status_t sqlparser_record_node_slot(
 	}
 	if (search->seen == search->target_index) {
 		search->target_slot = slot;
+		search->target_parent = parent;
 	}
 	search->seen++;
 	return SQLPARSER_STATUS_OK;
@@ -1762,7 +1866,9 @@ static sqlparser_status_t sqlparser_walk_message_node_slots(
 	if (message == NULL || search == NULL) {
 		return SQLPARSER_STATUS_OK;
 	}
-	if ((search->want_target || search->match_node != NULL) && search->target_slot != NULL) {
+	if ((search->want_target || search->match_node != NULL ||
+	     search->match_a_const != NULL) &&
+	    search->target_slot != NULL) {
 		return SQLPARSER_STATUS_OK;
 	}
 
@@ -1803,11 +1909,17 @@ static sqlparser_status_t sqlparser_walk_message_node_slots(
 					continue;
 				}
 				if (sqlparser_descriptor_is_node(child->descriptor)) {
-					status = sqlparser_record_node_slot((PgQuery__Node **)&items[item_index], search);
+					status = sqlparser_record_node_slot(
+						(PgQuery__Node **)&items[item_index],
+						message,
+						search);
 					if (status != SQLPARSER_STATUS_OK) {
 						return status;
 					}
-					if ((search->want_target || search->match_node != NULL) && search->target_slot != NULL) {
+					if ((search->want_target ||
+					     search->match_node != NULL ||
+					     search->match_a_const != NULL) &&
+					    search->target_slot != NULL) {
 						return SQLPARSER_STATUS_OK;
 					}
 				}
@@ -1815,7 +1927,10 @@ static sqlparser_status_t sqlparser_walk_message_node_slots(
 				if (status != SQLPARSER_STATUS_OK) {
 					return status;
 				}
-				if ((search->want_target || search->match_node != NULL) && search->target_slot != NULL) {
+				if ((search->want_target ||
+				     search->match_node != NULL ||
+				     search->match_a_const != NULL) &&
+				    search->target_slot != NULL) {
 					return SQLPARSER_STATUS_OK;
 				}
 			}
@@ -1833,11 +1948,17 @@ static sqlparser_status_t sqlparser_walk_message_node_slots(
 				continue;
 			}
 			if (sqlparser_descriptor_is_node(child->descriptor)) {
-				status = sqlparser_record_node_slot((PgQuery__Node **)child_slot, search);
+				status = sqlparser_record_node_slot(
+					(PgQuery__Node **)child_slot,
+					message,
+					search);
 				if (status != SQLPARSER_STATUS_OK) {
 					return status;
 				}
-				if ((search->want_target || search->match_node != NULL) && search->target_slot != NULL) {
+				if ((search->want_target ||
+				     search->match_node != NULL ||
+				     search->match_a_const != NULL) &&
+				    search->target_slot != NULL) {
 					return SQLPARSER_STATUS_OK;
 				}
 			}
@@ -1845,7 +1966,9 @@ static sqlparser_status_t sqlparser_walk_message_node_slots(
 			if (status != SQLPARSER_STATUS_OK) {
 				return status;
 			}
-			if ((search->want_target || search->match_node != NULL) && search->target_slot != NULL) {
+			if ((search->want_target || search->match_node != NULL ||
+			     search->match_a_const != NULL) &&
+			    search->target_slot != NULL) {
 				return SQLPARSER_STATUS_OK;
 			}
 		}
@@ -1881,6 +2004,15 @@ sqlparser_status_t sqlparser_find_statement_node_index_by_node(
 	}
 	memset(&search, 0, sizeof(search));
 	search.match_node = node;
+	status = sqlparser_get_mysql_dml_tail_select(
+		handle,
+		statement_index,
+		statement,
+		&search.dml_tail_select,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
 	status = sqlparser_walk_message_node_slots((ProtobufCMessage *)statement, &search);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
@@ -1893,11 +2025,82 @@ sqlparser_status_t sqlparser_find_statement_node_index_by_node(
 	return SQLPARSER_STATUS_OK;
 }
 
+sqlparser_status_t sqlparser_find_statement_a_const_node(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	PgQuery__AConst *a_const,
+	PgQuery__Node **out_node,
+	size_t *out_index,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__Node *statement;
+	sqlparser_node_slot_search_t search;
+	sqlparser_status_t status;
+
+	if (out_node == NULL && out_index == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"literal node output must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (out_node != NULL) {
+		*out_node = NULL;
+	}
+	if (out_index != NULL) {
+		*out_index = 0U;
+	}
+	if (a_const == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"literal node must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	status = sqlparser_get_statement_node(
+		handle, statement_index, &statement, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	memset(&search, 0, sizeof(search));
+	search.match_a_const = a_const;
+	status = sqlparser_get_mysql_dml_tail_select(
+		handle,
+		statement_index,
+		statement,
+		&search.dml_tail_select,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_walk_message_node_slots(
+		(ProtobufCMessage *)statement, &search);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (search.target_slot == NULL || *search.target_slot == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"literal node is not part of the statement");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (out_node != NULL) {
+		*out_node = *search.target_slot;
+	}
+	if (out_index != NULL) {
+		*out_index = search.target_index;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
 sqlparser_status_t sqlparser_get_statement_node_slot_by_index(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t node_index,
 	PgQuery__Node ***out_slot,
+	ProtobufCMessage **out_parent,
 	sqlparser_error_t *out_error)
 {
 	PgQuery__Node *statement;
@@ -1909,6 +2112,9 @@ sqlparser_status_t sqlparser_get_statement_node_slot_by_index(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	*out_slot = NULL;
+	if (out_parent != NULL) {
+		*out_parent = NULL;
+	}
 	status = sqlparser_get_statement_node(handle, statement_index, &statement, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
@@ -1916,6 +2122,15 @@ sqlparser_status_t sqlparser_get_statement_node_slot_by_index(
 	memset(&search, 0, sizeof(search));
 	search.want_target = 1;
 	search.target_index = node_index;
+	status = sqlparser_get_mysql_dml_tail_select(
+		handle,
+		statement_index,
+		statement,
+		&search.dml_tail_select,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
 	status = sqlparser_walk_message_node_slots((ProtobufCMessage *)statement, &search);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
@@ -1925,6 +2140,9 @@ sqlparser_status_t sqlparser_get_statement_node_slot_by_index(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	*out_slot = search.target_slot;
+	if (out_parent != NULL) {
+		*out_parent = search.target_parent;
+	}
 	return SQLPARSER_STATUS_OK;
 }
 
@@ -2496,6 +2714,46 @@ static size_t sqlparser_generated_parser_sql_length(
 		(parser_sql != NULL ? strlen(parser_sql) : 0U);
 }
 
+static size_t sqlparser_generated_fragment_end(
+	const sqlparser_generated_source_t *source,
+	size_t parser_fragment_offset,
+	size_t parser_sql_length)
+{
+	size_t fragment_length;
+
+	if (source == NULL || source->origins == NULL) {
+		return parser_sql_length;
+	}
+	fragment_length =
+		sqlparser_identifier_origin_map_output_length(source->origins);
+	if (parser_fragment_offset > parser_sql_length ||
+	    fragment_length > parser_sql_length - parser_fragment_offset) {
+		return parser_sql_length;
+	}
+	return parser_fragment_offset + fragment_length;
+}
+
+static void sqlparser_generated_set_alias_style(
+	const sqlparser_generated_source_t *source,
+	sqlparser_alias_style_t style)
+{
+	sqlparser_handle_t *handle;
+	size_t group_index;
+
+	if (source == NULL || source->spelling_handle == NULL ||
+	    style == SQLPARSER_ALIAS_STYLE_UNKNOWN) {
+		return;
+	}
+	handle = source->spelling_handle;
+	group_index = handle->identifier_spelling_build_group;
+	if (group_index >= handle->identifier_spelling_count ||
+	    handle->identifier_spellings[group_index].part_count == 0U) {
+		return;
+	}
+	handle->identifier_spellings[group_index].alias_style =
+		(uint8_t)style;
+}
+
 static unsigned char sqlparser_generated_ascii_lower(unsigned char byte)
 {
 	return byte >= 'A' && byte <= 'Z' ?
@@ -3005,6 +3263,40 @@ static int sqlparser_generated_find_keyword(
 	return 0;
 }
 
+static size_t sqlparser_generated_dollar_quoted_end(
+	const char *sql,
+	size_t length,
+	size_t position)
+{
+	size_t delimiter_end;
+	size_t cursor;
+
+	if (position >= length || sql[position] != '$') {
+		return position;
+	}
+	delimiter_end = position + 1U;
+	while (delimiter_end < length &&
+	       (isalnum((unsigned char)sql[delimiter_end]) ||
+		sql[delimiter_end] == '_')) {
+		delimiter_end++;
+	}
+	if (delimiter_end >= length || sql[delimiter_end] != '$') {
+		return position;
+	}
+	delimiter_end++;
+	cursor = delimiter_end;
+	while (cursor + delimiter_end - position <= length) {
+		if (memcmp(
+			    sql + cursor,
+			    sql + position,
+			    delimiter_end - position) == 0) {
+			return cursor + delimiter_end - position;
+		}
+		cursor++;
+	}
+	return length;
+}
+
 static int sqlparser_generated_read_identifier(
 	const char *sql,
 	size_t length,
@@ -3040,7 +3332,6 @@ static int sqlparser_generated_read_identifier(
 	}
 	if (source != NULL &&
 	    source->origins != NULL &&
-	    source->public_sql != NULL &&
 	    start >= parser_fragment_offset) {
 		sqlparser_identifier_origin_t origin;
 		sqlparser_identifier_origin_kind_t kind;
@@ -3051,7 +3342,29 @@ static int sqlparser_generated_read_identifier(
 			start - parser_fragment_offset,
 			end - start,
 			&origin);
-		if (kind == SQLPARSER_IDENTIFIER_ORIGIN_SOURCE &&
+		if (kind == SQLPARSER_IDENTIFIER_ORIGIN_GENERATED &&
+		    sqlparser_dialect_is_sqlserver_compatible(
+			    source->dialect)) {
+			const char *spelling;
+			size_t spelling_length;
+
+			spelling = NULL;
+			spelling_length = 0U;
+			if (sqlparser_sqlserver_generated_identifier_spelling(
+				    value,
+				    &spelling,
+				    &spelling_length)) {
+				*out_style =
+					SQLPARSER_PROTO_IDENTIFIER_STYLE_DIALECT_GENERATED;
+				if (source->spelling_handle != NULL) {
+					(void)sqlparser_handle_append_identifier_spelling(
+						source->spelling_handle,
+						spelling,
+						spelling_length);
+				}
+			}
+		} else if (kind == SQLPARSER_IDENTIFIER_ORIGIN_SOURCE &&
+		    source->public_sql != NULL &&
 		    origin.source_offset <= public_sql_length &&
 		    origin.source_length <=
 			    public_sql_length -
@@ -3137,6 +3450,42 @@ static int32_t sqlparser_generated_style_location(
 	return (int32_t)(
 		SQLPARSER_PROTO_LOCATION_GENERATED_STYLE_BASE -
 		(int32_t)payload);
+}
+
+_Static_assert(
+	SQLPARSER_PROTO_LOCATION_GENERATED_STYLE_BASE -
+		((SQLPARSER_ALIAS_STYLE_EXPLICIT_AS <<
+		  SQLPARSER_PROTO_ALIAS_STYLE_SHIFT) |
+		 SQLPARSER_PROTO_IDENTIFIER_STYLE_BRACKET_QUOTED) >
+		SQLPARSER_PROTO_LOCATION_SQL_VALUE_CASE_BASE,
+	"generated alias style must not overlap SQL value locations");
+
+static int32_t sqlparser_generated_alias_style_location(
+	sqlparser_proto_identifier_style_t identifier_style,
+	const sqlparser_generated_source_t *source,
+	sqlparser_alias_style_t alias_style)
+{
+	int32_t location;
+	uint32_t payload;
+
+	sqlparser_generated_set_alias_style(source, alias_style);
+	location = sqlparser_generated_style_location(
+		&identifier_style,
+		1U,
+		source);
+	if (alias_style == SQLPARSER_ALIAS_STYLE_UNKNOWN ||
+	    sqlparser_proto_location_is_identifier_spelling(location) ||
+	    location >= SQLPARSER_PROTO_LOCATION_GENERATED_STYLE_BASE) {
+		return location;
+	}
+	payload = (uint32_t)(
+		(int64_t)SQLPARSER_PROTO_LOCATION_GENERATED_STYLE_BASE -
+		(int64_t)location);
+	payload |=
+		(uint32_t)alias_style << SQLPARSER_PROTO_ALIAS_STYLE_SHIFT;
+	return (int32_t)(
+		(int64_t)SQLPARSER_PROTO_LOCATION_GENERATED_STYLE_BASE -
+		(int64_t)payload);
 }
 
 static void sqlparser_generated_set_string_style(
@@ -3306,6 +3655,61 @@ static int32_t sqlparser_generated_type_name_location(
 	    type_name->names[0]->string->sval == NULL ||
 	    strcmp(type_name->names[0]->string->sval, "pg_catalog") != 0) {
 		return SQLPARSER_PROTO_LOCATION_GENERATED;
+	}
+	if (source != NULL &&
+	    source->origins != NULL &&
+	    source->public_sql != NULL &&
+	    parser_sql != NULL &&
+	    location >= 0) {
+		sqlparser_identifier_origin_t origin;
+		sqlparser_proto_identifier_style_t source_style;
+		size_t parser_length;
+		size_t source_end;
+		size_t source_start;
+		int32_t spelling_location;
+
+		parser_length = sqlparser_generated_parser_sql_length(
+			parser_sql,
+			source);
+		source_start = sqlparser_generated_skip_trivia(
+			parser_sql,
+			parser_length,
+			(size_t)location);
+		if (sqlparser_generated_identifier_token(
+			    parser_sql,
+			    parser_length,
+			    source_start,
+			    &source_end,
+			    &source_style) &&
+		    source_style ==
+			    SQLPARSER_PROTO_IDENTIFIER_STYLE_UNQUOTED &&
+		    source_start >= parser_fragment_offset &&
+		    sqlparser_identifier_origin_map_lookup(
+			    source->origins,
+			    source_start - parser_fragment_offset,
+			    source_end - source_start,
+			    &origin) ==
+			    SQLPARSER_IDENTIFIER_ORIGIN_SOURCE &&
+		    origin.source_offset <= source->public_sql_length &&
+		    origin.source_length <=
+			    source->public_sql_length -
+				    origin.source_offset) {
+			if (source->spelling_handle == NULL) {
+				return location;
+			}
+			spelling_location =
+				sqlparser_handle_append_identifier_spelling(
+					source->spelling_handle,
+					source->public_sql +
+						origin.source_offset,
+					origin.source_length);
+			if (sqlparser_proto_location_is_identifier_spelling(
+				    spelling_location)) {
+				type_name->names[1]->string->location =
+					spelling_location;
+				return SQLPARSER_PROTO_LOCATION_GENERATED;
+			}
+		}
 	}
 	styles[0] = SQLPARSER_PROTO_IDENTIFIER_STYLE_UNQUOTED;
 	styles[1] = SQLPARSER_PROTO_IDENTIFIER_STYLE_UNQUOTED;
@@ -3633,6 +4037,41 @@ static int32_t sqlparser_generated_collate_clause_location(
 		source);
 }
 
+static int sqlparser_generated_alias_has_explicit_as(
+	const char *parser_sql,
+	size_t parser_sql_length,
+	size_t parser_fragment_offset,
+	const sqlparser_generated_source_t *source,
+	size_t alias_start,
+	size_t alias_end)
+{
+	sqlparser_identifier_origin_t origin;
+
+	if (source != NULL && source->origins != NULL &&
+	    source->public_sql != NULL &&
+	    alias_start >= parser_fragment_offset &&
+	    alias_end >= alias_start &&
+	    sqlparser_identifier_origin_map_lookup(
+		    source->origins,
+		    alias_start - parser_fragment_offset,
+		    alias_end - alias_start,
+		    &origin) == SQLPARSER_IDENTIFIER_ORIGIN_SOURCE &&
+	    origin.source_offset <= source->public_sql_length) {
+		return sqlparser_source_alias_has_explicit_as(
+			source->dialect,
+			source->public_sql,
+			source->public_sql_length,
+			origin.source_offset);
+	}
+	return sqlparser_source_alias_has_explicit_as(
+		source != NULL ?
+			source->dialect :
+			SQLPARSER_DIALECT_POSTGRESQL,
+		parser_sql,
+		parser_sql_length,
+		alias_start);
+}
+
 static int32_t sqlparser_generated_alias_location(
 	PgQuery__Alias *alias,
 	const char *parser_sql,
@@ -3641,9 +4080,11 @@ static int32_t sqlparser_generated_alias_location(
 	int32_t location)
 {
 	sqlparser_proto_identifier_style_t alias_style;
+	size_t alias_start;
 	size_t index;
 	size_t length;
 	size_t position;
+	int explicit_as;
 
 	if (alias == NULL || alias->aliasname == NULL ||
 	    parser_sql == NULL || location < 0) {
@@ -3653,6 +4094,11 @@ static int32_t sqlparser_generated_alias_location(
 		parser_sql,
 		source);
 	position = (size_t)location;
+	alias_start = sqlparser_generated_skip_trivia(
+		parser_sql,
+		length,
+		position);
+	explicit_as = 0;
 	if (!sqlparser_generated_read_identifier(
 		    parser_sql,
 		    length,
@@ -3684,6 +4130,7 @@ static int32_t sqlparser_generated_alias_location(
 			return SQLPARSER_PROTO_LOCATION_GENERATED;
 		}
 		position = token_end;
+		explicit_as = 1;
 		if (!sqlparser_generated_read_identifier(
 			    parser_sql,
 			    length,
@@ -3694,6 +4141,14 @@ static int32_t sqlparser_generated_alias_location(
 			    &alias_style)) {
 			return SQLPARSER_PROTO_LOCATION_GENERATED;
 		}
+	} else {
+		explicit_as = sqlparser_generated_alias_has_explicit_as(
+			parser_sql,
+			length,
+			parser_fragment_offset,
+			source,
+			alias_start,
+			position);
 	}
 	if (alias->n_colnames > 0U) {
 		position = sqlparser_generated_skip_trivia(
@@ -3744,7 +4199,12 @@ static int32_t sqlparser_generated_alias_location(
 			return SQLPARSER_PROTO_LOCATION_GENERATED;
 		}
 	}
-	return sqlparser_generated_style_location(&alias_style, 1U, source);
+	return sqlparser_generated_alias_style_location(
+		alias_style,
+		source,
+		explicit_as ?
+			SQLPARSER_ALIAS_STYLE_EXPLICIT_AS :
+			SQLPARSER_ALIAS_STYLE_IMPLICIT);
 }
 
 static int32_t sqlparser_generated_window_def_location(
@@ -3829,6 +4289,61 @@ static int32_t sqlparser_generated_window_def_location(
 		source);
 }
 
+static int sqlparser_generated_res_target_boundary(
+	const char *sql,
+	size_t start,
+	size_t end,
+	sqlparser_proto_identifier_style_t style)
+{
+	size_t length;
+
+	if (sql == NULL ||
+	    style != SQLPARSER_PROTO_IDENTIFIER_STYLE_UNQUOTED ||
+	    start > end) {
+		return 0;
+	}
+	length = end - start;
+	switch (length) {
+	case 3U:
+		return sqlparser_generated_token_equal_ci(
+			sql, start, end, "for");
+	case 4U:
+		return sqlparser_generated_token_equal_ci(
+			       sql, start, end, "from") ||
+		       sqlparser_generated_token_equal_ci(
+			       sql, start, end, "into");
+	case 5U:
+		return sqlparser_generated_token_equal_ci(
+			       sql, start, end, "fetch") ||
+		       sqlparser_generated_token_equal_ci(
+			       sql, start, end, "group") ||
+		       sqlparser_generated_token_equal_ci(
+			       sql, start, end, "limit") ||
+		       sqlparser_generated_token_equal_ci(
+			       sql, start, end, "order") ||
+		       sqlparser_generated_token_equal_ci(
+			       sql, start, end, "union") ||
+		       sqlparser_generated_token_equal_ci(
+			       sql, start, end, "where");
+	case 6U:
+		return sqlparser_generated_token_equal_ci(
+			       sql, start, end, "except") ||
+		       sqlparser_generated_token_equal_ci(
+			       sql, start, end, "having") ||
+		       sqlparser_generated_token_equal_ci(
+			       sql, start, end, "offset") ||
+		       sqlparser_generated_token_equal_ci(
+			       sql, start, end, "window");
+	case 9U:
+		return sqlparser_generated_token_equal_ci(
+			       sql, start, end, "intersect") ||
+		       sqlparser_generated_token_equal_ci(
+			       sql, start, end, "returning");
+	default:
+		return 0;
+	}
+}
+
 static int32_t sqlparser_generated_res_target_location(
 	PgQuery__ResTarget *target,
 	const char *parser_sql,
@@ -3839,10 +4354,16 @@ static int32_t sqlparser_generated_res_target_location(
 	sqlparser_proto_identifier_style_t
 		styles[SQLPARSER_PROTO_IDENTIFIER_STYLE_COMPONENTS];
 	sqlparser_proto_identifier_style_t style;
+	size_t alias_position;
+	size_t bracket_depth;
 	size_t component_count;
 	size_t index;
 	size_t length;
+	size_t limit;
+	size_t paren_depth;
 	size_t position;
+	int explicit_as;
+	int previous_as;
 
 	if (target == NULL || target->name == NULL ||
 	    parser_sql == NULL || location < 0) {
@@ -3915,51 +4436,70 @@ static int32_t sqlparser_generated_res_target_location(
 				source);
 		}
 	}
+	alias_position = SIZE_MAX;
+	bracket_depth = 0U;
+	explicit_as = 0;
+	limit = sqlparser_generated_fragment_end(
+		source,
+		parser_fragment_offset,
+		length);
+	paren_depth = 0U;
 	position = (size_t)location;
-	while (position < length) {
+	previous_as = 0;
+	while (position < limit) {
 		sqlparser_proto_identifier_style_t token_style;
 		size_t start;
 		size_t token_end;
 
 		position = sqlparser_generated_skip_trivia(
 			parser_sql,
-			length,
+			limit,
 			position);
+		if (position >= limit) {
+			break;
+		}
 		start = position;
 		if (sqlparser_generated_identifier_token(
 			    parser_sql,
-			    length,
+			    limit,
 			    start,
 			    &token_end,
 			    &token_style)) {
-			if (token_style ==
-				    SQLPARSER_PROTO_IDENTIFIER_STYLE_UNQUOTED &&
-			    token_end - start == 2U &&
-			    (parser_sql[start] == 'A' ||
-			     parser_sql[start] == 'a') &&
-			    (parser_sql[start + 1U] == 'S' ||
-			     parser_sql[start + 1U] == 's')) {
-				position = token_end;
-				if (sqlparser_generated_read_identifier(
-					    parser_sql,
-					    length,
-					    &position,
-					    target->name,
-					    parser_fragment_offset,
-					    source,
-					    &style)) {
-					return sqlparser_generated_style_location(
-						&style,
-						1U,
-						source);
-				}
+			int token_is_as;
+
+			if (paren_depth == 0U &&
+			    bracket_depth == 0U &&
+			    sqlparser_generated_res_target_boundary(
+				    parser_sql,
+				    start,
+				    token_end,
+				    token_style)) {
+				break;
 			}
+			token_is_as =
+				token_style ==
+					SQLPARSER_PROTO_IDENTIFIER_STYLE_UNQUOTED &&
+				sqlparser_generated_token_equal_ci(
+					parser_sql,
+					start,
+					token_end,
+					"as");
+			if (sqlparser_generated_identifier_matches(
+				    parser_sql,
+				    start,
+				    token_end,
+				    target->name)) {
+				alias_position = start;
+				explicit_as = previous_as;
+			}
+			previous_as = token_is_as;
 			position = token_end;
 		} else if (parser_sql[position] == '\'') {
+			previous_as = 0;
 			position++;
-			while (position < length) {
+			while (position < limit) {
 				if (parser_sql[position] == '\'' &&
-				    position + 1U < length &&
+				    position + 1U < limit &&
 				    parser_sql[position + 1U] == '\'') {
 					position += 2U;
 				} else if (parser_sql[position] == '\'') {
@@ -3969,8 +4509,58 @@ static int32_t sqlparser_generated_res_target_location(
 					position++;
 				}
 			}
+		} else if (parser_sql[position] == '$') {
+			size_t dollar_end;
+
+			dollar_end = sqlparser_generated_dollar_quoted_end(
+				parser_sql,
+				limit,
+				position);
+			previous_as = 0;
+			position =
+				dollar_end > position ? dollar_end : position + 1U;
 		} else {
-			position++;
+			char token;
+
+			token = parser_sql[position++];
+			if (token == '(') {
+				paren_depth++;
+			} else if (token == ')') {
+				if (paren_depth == 0U &&
+				    bracket_depth == 0U) {
+					break;
+				}
+				if (paren_depth > 0U) {
+					paren_depth--;
+				}
+			} else if (token == '[') {
+				bracket_depth++;
+			} else if (token == ']' && bracket_depth > 0U) {
+				bracket_depth--;
+			} else if ((token == ',' || token == ';') &&
+				   paren_depth == 0U &&
+				   bracket_depth == 0U) {
+				break;
+			}
+			previous_as = 0;
+		}
+	}
+	if (alias_position != SIZE_MAX) {
+		position = alias_position;
+		if (sqlparser_generated_read_identifier(
+			    parser_sql,
+			    limit,
+			    &position,
+			    target->name,
+			    parser_fragment_offset,
+			    source,
+			    &style)) {
+			return sqlparser_generated_alias_style_location(
+				style,
+				source,
+				explicit_as ?
+					SQLPARSER_ALIAS_STYLE_EXPLICIT_AS :
+					SQLPARSER_ALIAS_STYLE_IMPLICIT);
 		}
 	}
 	return SQLPARSER_PROTO_LOCATION_GENERATED;
@@ -4233,9 +4823,12 @@ static int32_t sqlparser_generated_sql_value_function_location(
 	size_t end;
 	size_t index;
 	size_t length;
+	size_t position;
 	size_t start;
 	sqlparser_proto_identifier_style_t style;
+	uint32_t payload;
 	uint32_t uppercase_mask;
+	int public_token;
 
 	if (expression == NULL || parser_sql == NULL || location < 0) {
 		return SQLPARSER_PROTO_LOCATION_GENERATED;
@@ -4266,6 +4859,7 @@ static int32_t sqlparser_generated_sql_value_function_location(
 		return SQLPARSER_PROTO_LOCATION_GENERATED;
 	}
 	token = parser_sql + start;
+	public_token = 0;
 	if (source != NULL &&
 	    source->origins != NULL &&
 	    source->public_sql != NULL &&
@@ -4291,6 +4885,7 @@ static int32_t sqlparser_generated_sql_value_function_location(
 			token = source->public_sql + origin.source_offset;
 			start = origin.source_offset;
 			end = start + origin.source_length;
+			public_token = 1;
 		}
 	}
 	uppercase_mask = 0U;
@@ -4299,9 +4894,29 @@ static int32_t sqlparser_generated_sql_value_function_location(
 			uppercase_mask |= UINT32_C(1) << index;
 		}
 	}
+	payload =
+		uppercase_mask & SQLPARSER_PROTO_SQL_VALUE_UPPERCASE_MASK;
+	if (public_token) {
+		position = sqlparser_generated_skip_trivia(
+			source->public_sql,
+			source->public_sql_length,
+			end);
+		if (position < source->public_sql_length &&
+		    source->public_sql[position] == '(') {
+			position = sqlparser_generated_skip_trivia(
+				source->public_sql,
+				source->public_sql_length,
+				position + 1U);
+			if (position < source->public_sql_length &&
+			    source->public_sql[position] == ')') {
+				payload |=
+					SQLPARSER_PROTO_SQL_VALUE_EMPTY_CALL_FLAG;
+			}
+		}
+	}
 	return (int32_t)(
 		(int64_t)SQLPARSER_PROTO_LOCATION_SQL_VALUE_CASE_BASE -
-		(int64_t)uppercase_mask);
+		(int64_t)payload);
 }
 
 static int32_t sqlparser_generated_message_location(
@@ -4628,6 +5243,39 @@ static sqlparser_status_t sqlparser_finish_generated_source(
 	return status;
 }
 
+static sqlparser_status_t sqlparser_bind_generated_source_state(
+	const sqlparser_generated_source_t *source,
+	size_t parser_fragment_offset,
+	ProtobufCMessage *const *roots,
+	size_t root_count,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_handle_t *handle;
+	sqlparser_status_t status;
+
+	if (source == NULL || source->candidate_dialect_state == NULL ||
+	    source->spelling_handle == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	handle = source->spelling_handle;
+	if (handle->dialect_ops == NULL ||
+	    handle->dialect_ops->bind_fragment_ast_state == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_handle_ensure_ast(handle, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	return handle->dialect_ops->bind_fragment_ast_state(
+		source->candidate_dialect_state,
+		handle->ast,
+		source->statement_index,
+		parser_fragment_offset,
+		roots,
+		root_count,
+		out_error);
+}
+
 sqlparser_status_t sqlparser_mark_proto_generated_with_fragment_source(
 	ProtobufCMessage *message,
 	const char *parser_sql,
@@ -4636,11 +5284,27 @@ sqlparser_status_t sqlparser_mark_proto_generated_with_fragment_source(
 	sqlparser_error_t *out_error)
 {
 	sqlparser_generated_source_t measured_source;
+	ProtobufCMessage *roots[1];
+	sqlparser_status_t status;
 
 	source = sqlparser_measure_generated_source(
 		source,
 		parser_sql,
 		&measured_source);
+	roots[0] = message;
+	status = sqlparser_bind_generated_source_state(
+		source,
+		parser_fragment_offset,
+		roots,
+		message != NULL ? 1U : 0U,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		if (source != NULL) {
+			sqlparser_handle_sweep_identifier_spellings(
+				source->spelling_handle);
+		}
+		return status;
+	}
 	sqlparser_mark_proto_generated_internal(
 		message,
 		parser_sql,
@@ -4659,11 +5323,25 @@ sqlparser_status_t sqlparser_mark_proto_nodes_generated_with_fragment_source(
 {
 	sqlparser_generated_source_t measured_source;
 	size_t index;
+	sqlparser_status_t status;
 
 	source = sqlparser_measure_generated_source(
 		source,
 		parser_sql,
 		&measured_source);
+	status = sqlparser_bind_generated_source_state(
+		source,
+		parser_fragment_offset,
+		(ProtobufCMessage *const *)nodes,
+		count,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		if (source != NULL) {
+			sqlparser_handle_sweep_identifier_spellings(
+				source->spelling_handle);
+		}
+		return status;
+	}
 	for (index = 0U; nodes != NULL && index < count; index++) {
 		sqlparser_mark_proto_generated_internal(
 			(ProtobufCMessage *)nodes[index],

@@ -1,20 +1,88 @@
 # SQL Server Dialect Case Matrix
 
-This file records regression cases for the SQL Server dialect conversion layer. The executable fixture is `tests/cases/sqlserver_dialect_input.json`; `tests/unit/test_sqlserver_dialect_case_matrix.c` verifies parsing, View JSON, deparse output, and error codes.
+This file records regression cases for the SQL Server dialect conversion layer. The executable fixture is `tests/cases/sqlserver_dialect_input.json`. For every final case, the runner requires unchanged SQL to deparse byte for byte, compares the actual View with the expected JSON structure, and executes each patch independently. Patched SQL must match `patch.deparse` byte for byte, remain identical after a fresh parse and second deparse, and produce the same View from the patched and freshly parsed handles.
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 615 cases: 578 expect success and 37 expect failure.
-Statement-level `expect.session` appears in 91 cases, covering `S044` through
-`S046`, `SH295` through `SH333`, and 49 `MSSQL-*` session cases. All 91 contain
-at least one non-null session expectation.
+The fixture contains 619 cases with `status = "final"`. A non-empty
+`query_graph.session` projection appears in 91 expected Views, covering `S044`
+through `S046`, `SH295` through `SH333`, and 49 `MSSQL-*` session cases.
 
-When an `expect.session` array is present, the matrix test requires one entry
-per statement. A non-null entry is matched against the corresponding session
-projection, including its action, item scope, target kind, name, and value
-fields; `null` asserts that no session projection is emitted. For fixture cases
-that expect success, the test also deparses the unmodified handle and compares
-the result with the input SQL byte for byte.
+View validation compares JSON structures; object-key order and formatting
+whitespace do not participate. Session action, item scope, target kind, name,
+value kind, canonical text, and value order are all part of that comparison.
+
+## SQL/JSON Semantic Inputs
+
+These cases verify input-field traversal for dedicated SQL/JSON AST nodes.
+Field order, relation and target attribution, original name selectors, and
+nested `target_path` entries are exact View contracts. Each case also covers a
+field or relation replacement, target replacement, column insertion, and exact
+post-patch deparse.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| SH404 | `sqlserver-json-array-field-inputs` | `JSON_ARRAY([id], [name])` | emits fields in argument order with `JSON_ARRAY` arg 0 and arg 1 paths |
+| SH405 | `sqlserver-json-object-multi-pair-nested-value` | multi-pair `JSON_OBJECT` with nested `JSON_VALUE` | attributes values by flattened key/value slots and preserves both path levels |
+| SH406 | `sqlserver-json-arrayagg-expression-input` | `JSON_ARRAYAGG(COALESCE(...))` | emits aggregate-input fields in expression order with both function path levels |
+| SH407 | `sqlserver-json-value-qualified-multi-target` | qualified `JSON_VALUE` beside a direct target | preserves relation alias, target order, qualified selectors, and JSON input attribution |
+
+## SQL Server Function Argument Roles
+
+These cases require syntax-role arguments and data-field arguments to remain strictly separated. The `IDENTITY` data-type argument and date-function datepart arguments do not enter `query_graph.fields`; other expression arguments preserve their original order, relation, target, selector, and `target_path.arg_index`. Existing cases `SH047` and `SH053` cover three-argument `DATE_BUCKET` and `DATETRUNC`; this section adds optional-origin, expression-input, and function-family combinations.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| S113 | `sqlserver-identity-function-default-seed-increment` | `IDENTITY(int)` with `SELECT INTO` | excludes the data-type argument from fields |
+| S114 | `sqlserver-identity-function-explicit-seed-increment` | `IDENTITY(int, 1, 1)` with `SELECT INTO` | excludes the data type while seed and increment remain constants |
+| SH408 | `sqlserver-date-bucket-optional-origin-inputs` | four-argument `DATE_BUCKET` | keeps date at arg 2 and optional origin at arg 3 while excluding datepart |
+| SH409 | `sqlserver-dateadd-expression-inputs` | `DATEADD` with expression inputs | keeps number and date at arg 1 and arg 2 while excluding datepart |
+| SH410 | `sqlserver-datediff-family-expression-inputs` | adjacent `DATEDIFF` and `DATEDIFF_BIG` | attributes four date inputs to two targets while excluding both dateparts |
+| SH411 | `sqlserver-datename-datepart-role` | `DATENAME` | keeps date at arg 1 while excluding datepart |
+| SH412 | `sqlserver-datepart-datepart-role` | `DATEPART` | keeps date at arg 1 while excluding datepart |
+
+## WITHIN GROUP Aggregate Ordering
+
+These cases require direct aggregate arguments, `WITHIN GROUP` ordering expressions, and window-partition fields to enter the View at their distinct semantic positions. Ordering-field `target_path.arg_index` values continue from the direct function-argument count; window fields retain an independent `window_partition` path.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| SH413 | `sqlserver-string-agg-within-group-multi-sort` | `STRING_AGG` with multiple ordering fields | emits the direct input and both ordering fields in order, with ordering fields at arg 2 and arg 3 |
+| SH414 | `sqlserver-string-agg-within-group-order-expression` | arithmetic ordering expression plus a second item | preserves nested paths for expression fields and attributes the second ordering item to arg 3 |
+| SH415 | `sqlserver-approx-percentile-multi-target` | two approximate-percentile targets | attributes the shared ordering column independently to target 0, target 1, and each function's arg 1 |
+| SH416 | `sqlserver-percentile-cont-window-partition-boundary` | `WITHIN GROUP` with `OVER (PARTITION BY ...)` | emits aggregate-order and window-partition fields independently without duplication |
+
+## HAVING Value-Side Expression Regression
+
+This case verifies the View contract for a direct field compared with a value-side expression in `HAVING`. The value-side function is represented as one expression value, the predicate references that value by index, and the function's internal bind is not promoted to a separate value.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| SH417 | `sqlserver-having-direct-field-value-expression` | grouped field compared with `UPPER(@status)` | links the `HAVING` comparison to the only expression value, keeps `field_match_kind=direct_field`, and does not emit the internal bind separately |
+
+## Reverse Expression-Predicate Regression
+
+This case verifies the View contract when a scalar bind is on the left side of a comparison and a field expression is on the right. The predicate must reference the expression's actual field through `right_field`, record only the opposite-side bind, and must not promote the `AT TIME ZONE` zone text to a standalone value.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| SH418 | `sqlserver-at-time-zone-reverse-bind-expression-predicate` | `@ts = [created_at] AT TIME ZONE 'UTC'` | stable expression predicate, `right_field=created_at`, single bind value, and original bracketed identifiers |
+
+## SELECT Target-Fragment Splice Regression
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| SH419 | `sqlserver-select-target-multi-replace-trailing-aliases` | replaces the final item of a three-target SELECT with two bracketed targets carrying explicit aliases | splices at the trailing position, preserves both aliases independently without inheriting old-target state, and uses an independent insert patch to validate list order and bracket spelling |
+
+## OUTPUT Terminal-Boundary Regression
+
+These cases require OUTPUT restoration to retain a boundary only when a following clause exists. A terminal OUTPUT clause must add no trailing byte, and a terminal semicolon must directly follow the final OUTPUT target. Each case independently executes target replacement and target insertion and compares deparse output byte for byte.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| SH420 | `sqlserver-merge-output-action-terminal-semicolon` | `MERGE ... OUTPUT $action;` | no trailing space after terminal MERGE OUTPUT and unchanged semicolon position |
+| SH421 | `sqlserver-update-output-terminal` | `UPDATE ... OUTPUT INSERTED.a` | no generated right boundary without a following WHERE or FROM clause |
+| SH422 | `sqlserver-delete-output-terminal` | `DELETE ... OUTPUT DELETED.id` | no generated right boundary without a following WHERE or FROM clause |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 
@@ -161,6 +229,7 @@ absent from `query_graph.fields[].column`.
 | S110 | `FOR JSON` + `OPTION` | `SELECT ... FOR JSON PATH ... OPTION (...)` | multiple query suffixes are restored in SQL Server public order |
 | S111 | outer and inner `TOP` | `SELECT TOP (...) ... FROM (SELECT TOP (...) ...)` | multiple `TOP` scopes are converted and restored together |
 | S112 | second statement with `FOR JSON` | `SELECT ...; SELECT ... FOR JSON AUTO` | `FOR JSON` suffixes are restored by original statement ordinal, not attached to previous statements |
+| S115 | `sqlserver-update-from-compound-rhs` | a compound assignment RHS in `UPDATE ... FROM` | `rhs_fields` and `rhs_values` attribute the source field, named bind, and literal to one assignment; the source alias remains stable, while brackets and `INNER JOIN` must remain byte-exact after assignment replacement or insertion |
 
 ## INSERT And OUTPUT Cases
 
@@ -236,41 +305,11 @@ absent from `query_graph.fields[].column`.
 | SH402 | CTE MERGE branch | Keeps CTE and complete MERGE actions in one leaf statement |
 | SH403 | CREATE VIEW CTE branch | Keeps a view definition and its multiline CTE in one leaf statement |
 
-## Error And Explicitly Unsupported Cases
+## Coverage Boundary
 
-These cases verify parse errors or explicit unsupported results and do not return a usable handle.
-
-| ID | Case | Reason |
-| --- | --- | --- |
-| SU001 | `TOP ... WITH TIES` without `ORDER BY` | SQL Server requires `WITH TIES` to be used with `ORDER BY` |
-| SU002 | `TOP ... PERCENT WITH TIES` without `ORDER BY` | SQL Server requires `WITH TIES` to be used with `ORDER BY` |
-| SU005 | `CROSS APPLY` | APPLY semantics differ from ordinary JOIN |
-| SU006 | `PIVOT` | table transformation requires a dedicated AST |
-| SU009 | `DECLARE` | variable declarations belong to T-SQL batch semantics |
-| SU010 | ordinary procedure `EXEC` | non-prepared/dynamic-SQL system procedure execution is outside SQL structure rewrite scope |
-| SU011 | `CREATE PROCEDURE` | procedure definitions require a T-SQL program-unit model |
-| SU015 | table variable | table-variable scope belongs to T-SQL batch semantics |
-| SU016 | `MERGE ... BY SOURCE` | SQL Server-specific merge branch semantics |
-| SU017 | `TOP` + `OFFSET/FETCH` | SQL Server does not allow this combination in the same query scope |
-| SU018 | empty OUTPUT target | returns a parse error |
-| SU019 | trailing comma in OUTPUT targets | returns a parse error |
-| SU020 | `OUTPUT INTO` without a sink | returns a parse error |
-| SU021 | invalid dual-channel order | a sink channel cannot follow a client channel |
-| SU022 | `DELETED` in INSERT | returns unsupported |
-| SU023 | `INSERTED` in DELETE | returns unsupported |
-| SU024 | `$action` outside MERGE | returns unsupported |
-| SU025 | aggregate in OUTPUT | returns unsupported |
-| SU026 | subquery in OUTPUT | returns unsupported |
-| SU027 | INSERT EXEC + OUTPUT | returns unsupported |
-| SU028 | IF without a condition | returns a syntax error |
-| SU029 | IF without a branch statement | returns a syntax error |
-| SU030 | Orphan ELSE | returns a syntax error |
-| SU031 | Empty BEGIN/END | returns a syntax error |
-| SU032 | Unterminated BEGIN/END | returns a syntax error |
-| SU033 | Unparenthesized condition SELECT | returns a syntax error |
-| SU034 | ELSE without a branch statement | returns a syntax error |
-| SU035 | GO inside control flow | returns unsupported without silently rewriting the batch boundary |
-| SU036 | Unsupported branch leaf | returns the leaf syntax unsupported status |
+This matrix lists only cases that parse successfully and have final View and
+patch expectations. Syntax boundaries outside this executable fixture are
+maintained in `doc/sqlserver_official_syntax_coverage.csv`.
 
 ## DML Source-Field Lineage Cases
 
@@ -306,8 +345,7 @@ syntax remains marked as requiring a SQL Server-specific model in
 | SH253 | `sqlserver-regexp-like-function-predicate` | `REGEXP_LIKE(column, @pat)` | function predicates reuse `fields/values/predicates` for fields, binds, and expression predicates |
 | SH255 | `sqlserver-mixed-create-table-as-select-basic` | `CREATE TABLE ... AS SELECT ...` | basic CTAS parsing, source query, and deparse |
 | SH256 | `sqlserver-mixed-aliasing-basic` | `SELECT expression AS alias, expression alias FROM ...` | basic SELECT column aliases and table aliases |
-| SH257 | `sqlserver-mixed-subquery-basic` | `WHERE column IN (SELECT ... FROM ...)` | subquery predicate fields, binds, and source table attribution |
-| SH258 | `sqlserver-mixed-alter-table-add-column-basic` | `ALTER TABLE ... ADD column type` | basic add-column DDL |
+| SH257 | `sqlserver-mixed-subquery-basic` | `WHERE column IN (SELECT ... FROM ...)` | separately attributes the outer membership field and `IN` predicate, inner target/filter field, bind, and source table; 7 patches cover selectors at both levels |
 | SH259 | `sqlserver-mixed-alter-table-add-constraint-basic` | `ALTER TABLE ... ADD CONSTRAINT ... PRIMARY KEY` | basic add-table-constraint DDL |
 | SH260 | `sqlserver-mixed-drop-type-basic` | `DROP TYPE [schema].[type]` | basic type-drop DDL |
 | SH261 | `sqlserver-mixed-create-user-basic` | `CREATE USER [user]` | basic user creation DDL |
@@ -347,10 +385,11 @@ syntax remains marked as requiring a SQL Server-specific model in
 | SH295-SH333 | `sqlserver-set-*` | `SET ...` | basic SQL Server session/execution-environment `SET` statements, public SQL restoration, and internal sentinel hiding |
 | SH334 | `sqlserver-table-hints-join-alias` | multi-table JOIN with `WITH (NOLOCK)` / `WITH (FORCESEEK)` | restores table hints by table-source order while keeping field and JOIN attribution unchanged |
 | SH335 | `sqlserver-query-hints-multiple` | `OPTION (RECOMPILE, USE HINT(...))` | restores multi-argument query hints from the original SQL fragment while keeping bind attribution unchanged |
+| SH336 | `sqlserver-merge-cte-target-relation-binding` | `WITH cte AS (...) MERGE INTO cte ...` | identifies the MERGE target as a CTE with its source block and propagates base-relation patches to qualified columns |
 
 ## Official Hook Coverage Cases
 
-`tests/cases/sqlserver_dialect_input.json` includes 241 cases generated from
+`tests/cases/sqlserver_dialect_input.json` includes 250 cases generated from
 official `CURRENT` entries. These cases cover official items that can be
 represented by the existing AST and dialect hooks, including functions,
 types/constants, collations, official `TOP` forms, and simple `RENAME OBJECT`

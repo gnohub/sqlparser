@@ -1,66 +1,66 @@
-# v2.13.0 Release Notes
+# v2.14.0 Release Notes
 
-`v2.13.0` adds structured MERGE branch projection and selector-based rewrites.
-It also defines mixed `INSERT ... VALUES` and bind-lineage behavior across all
-nine dialect modes, together with identifier-preserving deparse behavior after
-SQL-fragment patches.
+`v2.14.0` closes the consistency loop across patching, deparse, and View:
+unchanged SQL surface text survives local rewrites, compound DML assignments
+expose right-hand lineage, and one statement can represent multiple peer DML
+roots.
 
-## Highlights
+## Patch and Deparse
 
-- Query Graph emits every MERGE `WHEN` branch in source order, including its
-  action, match kind, INSERT target columns and rows, and UPDATE assignment
-  span. A conditional branch also includes its condition selector.
-- Added a MERGE branch-condition selector, action and match enums, two
-  enum-name functions, and a MERGE branch-detail accessor. Branch conditions
-  and assignments are addressable through selectors in both top-level and
-  nested MERGE statements.
-- MERGE UPDATE assignments expose target fields, source fields, source
-  targets, and bind relationships and can be inserted, replaced, and deleted
-  through assignment selectors and patch operations.
-- Oracle, Dameng, and Vastbase-Oracle support action-level `WHERE` clauses on
-  MERGE UPDATE and INSERT actions.
-- `INSERT ... VALUES` in all nine dialect modes distinguishes direct binds,
-  literals, standalone `DEFAULT` values, and expression cells. Binds nested
-  in expressions participate in global ordering, and time expressions are
-  not emitted as field names.
-- Identifiers in parsed SQL-fragment patches retain the fragment's case and
-  delimiter form, including double quotes, MySQL backticks, and SQL Server
-  brackets; deparse neither replaces nor duplicates those delimiters.
+- Unchanged SQL spans retain original identifier case and delimiters, keywords,
+  comments, whitespace, parentheses, and semicolons byte for byte. A local
+  patch replaces only its resolved source interval.
+- Patch values are parsed as SQL fragments in the selected dialect before
+  entering the AST. Explicit double quotes, MySQL backticks, or SQL Server
+  brackets in the fragment are neither replaced nor duplicated.
+- Relation renames propagate only to qualified references that bind uniquely
+  in scope. Same-scope ambiguity, inner-scope shadowing, explicit aliases, and
+  SQL Server pseudo-relations such as `INSERTED` and `DELETED` remain unchanged.
+- Replacing one SELECT target splices a multi-target fragment at the original
+  position and does not inherit the old target alias.
 
-## Deparse Contract
+## Query Graph and View
 
-- For an unchanged generation-`0` handle, successful deparse returns the
-  original SQL byte for byte, including keywords, identifiers, whitespace,
-  line breaks, comments, semicolons, and multi-statement boundaries.
-- For generations greater than `0`, SQL is serialized from the current AST.
-  Identifier case, delimiters, and escape spelling are preserved, while the
-  deparser may normalize whitespace between nodes.
-- Patch SQL fragments are parsed in the selected dialect before entering the
-  AST; they are not inserted as unparsed strings.
+- `sqlparser_graph_dml_assignment_t` adds `rhs_fields`, `rhs_values`, and
+  `rhs_blocks` for traversing fields, values, and subquery entry blocks in a
+  compound UPDATE or MERGE assignment right-hand side.
+- A single root DML continues to use `query_graph.dml`; multiple peer roots use
+  `query_graph.dmls`. Nested DML remains under each root's `children`, and
+  data-modifying CTEs follow the same structure.
+- Added `SQLPARSER_CLAUSE_KIND_WINDOW_PARTITION`, making the `PARTITION BY`
+  list of a named window definition independently addressable.
+
+## Dialect Boundaries
+
+- Oracle, Dameng, and Vastbase-Oracle extend parsing, lineage, and surface
+  preservation for set operations, multi-table DML, binds, and national
+  literals. Set-tree traversal does not depend on a fixed branch-count ceiling.
+- MySQL and Vastbase-MySQL correct restoration of ordinary comments,
+  executable comments, index hints, table partitions, and DML tails along
+  patch paths.
+- SQL Server and Vastbase-SQLServer correct post-patch restoration for
+  `OUTPUT`, MERGE, dynamic execution, transaction batches, and bracket
+  identifiers.
 
 ## Compatibility
 
-- Public API changes are append-only; existing function signatures and public
-  structure layouts remain unchanged.
-- The shared-library ABI major remains `libsqlparser.so.0`.
-- Added `sqlparser_graph_merge_action_kind_name()`,
-  `sqlparser_graph_merge_match_kind_name()`, and
-  `sqlparser_query_graph_merge_branch_detail()`. The ABI export check covers
-  152 public symbols.
+- The public layout of `sqlparser_graph_dml_assignment_t` has grown. C
+  consumers that use this structure must rebuild against the 2.14.0 header.
+- View consumers must recognize the mutually exclusive `query_graph.dml` and
+  `query_graph.dmls` shapes and must not assume one DML root per statement.
+- Patch fragments remain dialect-parsed SQL and are not concatenated as
+  unparsed strings.
 
 ## Release Validation
 
-- The nine dialect matrices contain 2,535 expected-success cases. Every case
-  runs a generation-`0` byte-exact deparse check, an AST identifier-spelling
-  audit, and View construction.
-- The nine matrices add 90 mixed-VALUES cases covering single and multiple
-  rows, nested binds, functions and compound expressions, delimited
-  identifiers, and irregular whitespace.
-- MERGE regressions cover branch ordering, condition selectors, INSERT rows,
-  UPDATE assignments, DELETE and NOTHING actions, top-level and nested MERGE
-  statements, lineage, and action-level `WHERE` clauses.
-- Strict GCC 8.3 release and debug builds, the full test suite, install smoke,
-  the 152-symbol ABI check, ASan, UBSan, Valgrind, and benchmark smoke all
-  passed.
+- The nine executable dialect fixtures contain 2,752 cases with
+  `status = "final"` and 8,890 independent patches.
+- Every case checks byte-exact original deparse, the expected View JSON
+  structure, and all independent patches. Each patch also checks expected SQL,
+  a second deparse after a fresh parse, and patched/fresh View equivalence.
+- The release-candidate code completed one ASan run, one UBSan run, one
+  Valgrind run, ten full regression loops, and the full benchmark. The
+  benchmark executed 530,100 measured operations with zero error operations;
+  this does not claim an improvement over a historical baseline.
 
 Vendored `libpg_query` tag: `17-6.2.2`.

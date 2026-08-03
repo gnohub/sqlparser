@@ -102,7 +102,8 @@ typedef enum {
 	SQLPARSER_CLAUSE_KIND_GROUP_BY = 6,
 	SQLPARSER_CLAUSE_KIND_HAVING = 7,
 	SQLPARSER_CLAUSE_KIND_DML_RESULT = 8,
-	SQLPARSER_CLAUSE_KIND_CONDITION = 9
+	SQLPARSER_CLAUSE_KIND_CONDITION = 9,
+	SQLPARSER_CLAUSE_KIND_WINDOW_PARTITION = 10
 } sqlparser_clause_kind_t;
 
 typedef enum {
@@ -683,6 +684,9 @@ typedef struct {
 	int has_source_target;
 	size_t source_field_index;
 	int has_source_field;
+	sqlparser_index_span_t rhs_fields;
+	sqlparser_index_span_t rhs_values;
+	sqlparser_index_span_t rhs_blocks;
 	sqlparser_literal_view_t literal;
 	char bind[SQLPARSER_BIND_TEXT_CAPACITY];
 	int has_bind;

@@ -1,9 +1,11 @@
+#include <stdlib.h>
 #include <string.h>
 
 #include "sqlparser_ast_internal.h"
 
 sqlparser_value_kind_t sqlparser_node_value_kind(const PgQuery__Node *node)
 {
+	node = sqlparser_unwrap_grouping_node_const(node);
 	if (node == NULL) {
 		return SQLPARSER_VALUE_KIND_UNKNOWN;
 	}
@@ -412,6 +414,148 @@ static sqlparser_status_t sqlparser_walk_expression_literals(
 	}
 }
 
+sqlparser_status_t sqlparser_find_statement_literal_node(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t literal_index,
+	int where_only,
+	PgQuery__Node **out_node,
+	size_t *out_node_index,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_where_literal_search_t search;
+	ProtobufCMessage *message;
+	PgQuery__AConst *a_const;
+	PgQuery__Node *where_clause;
+	sqlparser_status_t status;
+
+	if (out_node == NULL && out_node_index == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"literal node output must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (out_node != NULL) {
+		*out_node = NULL;
+	}
+	if (out_node_index != NULL) {
+		*out_node_index = 0U;
+	}
+
+	a_const = NULL;
+	if (where_only) {
+		where_clause = NULL;
+		status = sqlparser_get_statement_where_clause(
+			handle,
+			statement_index,
+			&where_clause,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		if (where_clause != NULL) {
+			memset(&search, 0, sizeof(search));
+			search.want_target = 1;
+			search.target_index = literal_index;
+			status = sqlparser_walk_expression_literals(
+				where_clause, NULL, &search, out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+			a_const = search.literal_node;
+		}
+	} else {
+		message = NULL;
+		status = sqlparser_search_statement_messages(
+			handle,
+			statement_index,
+			&pg_query__a__const__descriptor,
+			sqlparser_message_accept_supported_a_const,
+			1,
+			literal_index,
+			NULL,
+			&message,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		a_const = (PgQuery__AConst *)message;
+	}
+	if (a_const == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			where_only ?
+				"where literal index is out of range" :
+				"literal_index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	return sqlparser_find_statement_a_const_node(
+		handle,
+		statement_index,
+		a_const,
+		out_node,
+		out_node_index,
+		out_error);
+}
+
+static sqlparser_status_t sqlparser_replace_statement_literal(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t literal_index,
+	int where_only,
+	const sqlparser_literal_value_t *value,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__AConst *old_a_const;
+	PgQuery__AConst *replacement;
+	PgQuery__Node *literal_node;
+	sqlparser_status_t status;
+
+	literal_node = NULL;
+	status = sqlparser_find_statement_literal_node(
+		handle,
+		statement_index,
+		literal_index,
+		where_only,
+		&literal_node,
+		NULL,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (literal_node == NULL ||
+	    literal_node->node_case != PG_QUERY__NODE__NODE_A_CONST ||
+	    literal_node->a_const == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"literal node is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+
+	replacement = (PgQuery__AConst *)calloc(1U, sizeof(*replacement));
+	if (replacement == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	pg_query__a__const__init(replacement);
+	replacement->location = literal_node->a_const->location;
+	status = sqlparser_a_const_set_literal(replacement, value, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		pg_query__a__const__free_unpacked(replacement, NULL);
+		return status;
+	}
+
+	old_a_const = literal_node->a_const;
+	literal_node->a_const = replacement;
+	pg_query__a__const__free_unpacked(old_a_const, NULL);
+	return sqlparser_handle_commit_ast(handle, out_error);
+}
 
 sqlparser_status_t sqlparser_statement_where_literal_count(
 	const sqlparser_handle_t *handle,
@@ -526,50 +670,14 @@ sqlparser_status_t sqlparser_statement_where_set_literal(
 	const sqlparser_literal_value_t *value,
 	sqlparser_error_t *out_error)
 {
-	sqlparser_where_literal_search_t search;
-	PgQuery__Node *where_clause;
-	sqlparser_status_t status;
-
 	sqlparser_error_clear(out_error);
-	status = sqlparser_get_statement_where_clause(
+	return sqlparser_replace_statement_literal(
 		handle,
 		statement_index,
-		&where_clause,
+		literal_index,
+		1,
+		value,
 		out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		return status;
-	}
-
-	if (where_clause == NULL) {
-		sqlparser_error_set_message(
-			out_error,
-			SQLPARSER_STATUS_INVALID_ARGUMENT,
-			"where literal index is out of range");
-		return SQLPARSER_STATUS_INVALID_ARGUMENT;
-	}
-
-	memset(&search, 0, sizeof(search));
-	search.want_target = 1;
-	search.target_index = literal_index;
-	status = sqlparser_walk_expression_literals(where_clause, NULL, &search, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		return status;
-	}
-
-	if (search.literal_node == NULL) {
-		sqlparser_error_set_message(
-			out_error,
-			SQLPARSER_STATUS_INVALID_ARGUMENT,
-			"where literal index is out of range");
-		return SQLPARSER_STATUS_INVALID_ARGUMENT;
-	}
-
-	status = sqlparser_a_const_set_literal(search.literal_node, value, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		return status;
-	}
-
-	return sqlparser_handle_commit_ast(handle, out_error);
 }
 
 sqlparser_status_t sqlparser_statement_literal_count(
@@ -661,36 +769,12 @@ sqlparser_status_t sqlparser_statement_set_literal(
 	const sqlparser_literal_value_t *value,
 	sqlparser_error_t *out_error)
 {
-	ProtobufCMessage *message;
-	sqlparser_status_t status;
-
 	sqlparser_error_clear(out_error);
-	message = NULL;
-	status = sqlparser_search_statement_messages(
+	return sqlparser_replace_statement_literal(
 		handle,
 		statement_index,
-		&pg_query__a__const__descriptor,
-		sqlparser_message_accept_supported_a_const,
-		1,
 		literal_index,
-		NULL,
-		&message,
+		0,
+		value,
 		out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		return status;
-	}
-	if (message == NULL) {
-		sqlparser_error_set_message(
-			out_error,
-			SQLPARSER_STATUS_INVALID_ARGUMENT,
-			"literal_index is out of range");
-		return SQLPARSER_STATUS_INVALID_ARGUMENT;
-	}
-
-	status = sqlparser_a_const_set_literal((PgQuery__AConst *)message, value, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		return status;
-	}
-
-	return sqlparser_handle_commit_ast(handle, out_error);
 }

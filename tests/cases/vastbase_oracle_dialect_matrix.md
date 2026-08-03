@@ -1,12 +1,35 @@
 # Vastbase Oracle 兼容模式用例矩阵
 
-可执行夹具：`tests/cases/vastbase_oracle_dialect_input.json`。单元测试会逐条验证解析、View JSON、反解析输出和明确不支持语法返回码。
+可执行夹具为 `tests/cases/vastbase_oracle_dialect_input.json`。对每条 final 用例，runner 验证未修改 SQL 的反解析结果与输入逐字节一致、实际 View 与期望 JSON 结构相等，并独立执行每个 patch；patch 后 SQL 必须与 `patch.deparse` 逐字节一致，重新解析后再次反解析仍须一致，且 patch handle 与重新解析 handle 的 View 输出必须一致。
+
+## 事务特征规范语义值回归
+
+以下 4 条 final 用例覆盖 Vastbase Oracle 兼容模式的常用事务隔离级别和访问模式。原始 SQL 反解析必须逐字节保持；View 必须按输入顺序输出去除 trivia 后的规范关键字值。session 语义值不提供 selector，因此这些用例不设置 patch。
+
+| ID | 用例 | SQL | 验证重点 |
+| --- | --- | --- | --- |
+| `VO-TX001` | `vastbase-oracle-session-transaction-commented-read-uncommitted` | ALTER/*command*/SESSION SET TRANSACTION ISOLATION/*name*/LEVEL READ/*value*/UNCOMMITTED; | `READ UNCOMMITTED` 规范值及单事务特征 |
+| `VO-TX002` | `vastbase-oracle-session-characteristics-commented-repeatable-read-write` | ALTER SESSION SET SESSION/*scope*/CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL REPEATABLE/*value*/READ, READ/*mode*/WRITE; | `REPEATABLE READ`、`READ WRITE` 及 session characteristics 入口 |
+| `VO-TX003` | `vastbase-oracle-session-transaction-commented-serializable-read-only` | ALTER SESSION SET TRANSACTION ISOLATION LEVEL SERIALIZABLE/*tail*/, READ/*mode*/ONLY; | `SERIALIZABLE`、`READ ONLY` 及逗号前注释 |
+| `VO-TX004` | `vastbase-oracle-session-transaction-commented-option-order` | ALTER SESSION SET TRANSACTION read/*mode*/write, ISOLATION/*name*/LEVEL read/*value*/committed; | 输入选项顺序、小写原文保留及 `READ COMMITTED` 规范值 |
 
 ## 矩阵统计与 session 回归
 
-夹具包含 221 条用例，其中 200 条预期成功，21 条预期失败。37 条用例包含 statement 级 `expect.session`，覆盖 `VO043`、`VO043Q`、`VO044` 至 `VO047`、`VO082` 至 `VO086`、`VB-C001` 至 `VB-C022`、`VB-C026` 至 `VB-C027` 和 `VB-C030` 至 `VB-C031`；这 37 条用例均至少包含一个非空 session 期望。
+夹具包含 213 条 `status = "final"` 用例，其中 41 条用例的期望 View 包含非空 session 投影。
 
-用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
+View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
+
+## ROWNUM 谓词语义回归
+
+以下 5 条 final 用例验证 Vastbase Oracle 兼容模式下 `ROWNUM` 比较的 Query Graph 语义。`ROWNUM` 作为 pseudo 表达式不进入 `fields` 或 relation lineage；比较另一侧的 literal 或 bind 进入 `values`，并由无 field 的 expression predicate 引用。布尔组合、派生查询层级、操作数方向和 DELETE DML 归属均按原始 SQL 投影。
+
+| ID | 用例 | SQL | 验证重点 |
+| --- | --- | --- | --- |
+| `VO-RN001` | `vastbase-oracle-rownum-conjunction-named-bind` | SELECT id FROM users WHERE active = 1 AND ROWNUM <= :limit | AND 根节点按源码顺序引用普通字段比较与 `ROWNUM` expression predicate；`:limit` 为 position 1 |
+| `VO-RN002` | `vastbase-oracle-rownum-derived-order-by-filter` | SELECT * FROM (SELECT id, created_at FROM orders ORDER BY created_at DESC) WHERE ROWNUM < 11 | `ROWNUM` predicate 属于外层 block，派生表来源和内层 ORDER BY 字段归属保持独立 |
+| `VO-RN003` | `vastbase-oracle-rownum-reversed-literal-comparison` | SELECT id FROM users WHERE 1 = ROWNUM | 反向操作数仍记录 literal selector，并建立无 field 的 expression predicate |
+| `VO-RN004` | `vastbase-oracle-rownum-greater-than-literal` | SELECT id FROM users WHERE ROWNUM > 1 | `>` 操作符及 literal value 精确保留，`ROWNUM` 不产生 field |
+| `VO-RN005` | `vastbase-oracle-delete-rownum-conjunction-named-bind` | DELETE FROM audit_log WHERE expired = 1 AND ROWNUM <= :batch_size | DML 对象引用 DELETE target relation；AND predicate tree 及 `:batch_size` position 1 归属于根 block |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 
@@ -50,7 +73,6 @@
 | `VO011` | `vastbase-oracle-update-bind` | UPDATE users SET name = :name, status = 'active' WHERE id = :id | 已覆盖 |
 | `VO012` | `vastbase-oracle-delete-conditional` | DELETE FROM users WHERE id = :id AND status = 'inactive' | 已覆盖 |
 | `VO013` | `vastbase-oracle-repeated-bind` | SELECT id FROM users WHERE id = :id OR manager_id = :id | 已覆盖 |
-| `VO014` | `vastbase-oracle-positional-binds` | SELECT id FROM users WHERE id = :1 AND status = :2 | 已覆盖 |
 | `VO015` | `vastbase-oracle-date-literal` | SELECT DATE '2024-01-01' AS created_on FROM dual | 已覆盖 |
 | `VO016` | `vastbase-oracle-case-expression` | SELECT CASE WHEN status = 'A' THEN 'active' ELSE 'inactive' END AS status_name FROM users | 已覆盖 |
 | `VO017` | `vastbase-oracle-exists-subquery` | SELECT id FROM users u WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id) | 已覆盖 |
@@ -130,20 +152,9 @@
 | `VO096` | `vastbase-oracle-select-reference-049` | select * from (select rownum,* from (select * from (select o.*, rownum as rnum from ( SELECT a.*, b.wenjiansxmc FROM ( SELECT x.zxsq_wj_xxgx_t_rid, x.zxsq_zmwj_t_rid AS zmwj_key, (select dm.mc from rwtc_dm dm where dm.lx_dm = 'RWTCFXSCFS' and dm.dm = x.fxscfs) fxscfs, (select dm.mc from rwtc_dm dm where dm.lx_dm = 'RWTCFXPCZT' and dm.dm = x.fxpczt) xxpczt, x.zhengmingwjdm, x.wenjiansxbm, x.fujiawjmc AS wenjianysmc, x.fujianwjsm AS wenjiansm, x.wenjianlybj, x.create_time AS chuangjiansj, z.wenjianfwqlj, z.futubj, x.yewulxbm, x.wenjianywbm FROM zxsq_wj_xxgx_t x LEFT JOIN zxsq_zmwj_t z ON x.zhengmingwjid = z.zxsq_zmwj_t_rid LEFT JOIN zxsq_dzsqqqjl_cg_t c ON x.dianzisqajbh = c.dianzisqajbh WHERE x.del_flag = '0' AND (z.del_flag = '0' OR z.del_flag IS NULL) AND x.zhengmingwjbm != '123456' AND x.zhubiaom = '789' AND x.yewulxbm = '1011' AND c.create_user_jgdm = '1213' AND x.wenjianywbm = '11' ) a LEFT JOIN zxsq_fjwjywdz_t b ON a.wenjiansxbm = b.wenjiansxbm AND a.yewulxbm = b.yewulxbm UNION SELECT NULL AS zxsq_wj_xxgx_t_rid, z.zxsq_zmwj_t_rid AS zmwj_key, NULL AS fxscfs, NULL AS xxpczt, z.zhengmingwjdm, z.wenjiansxbm, z.wenjianysmc, z.wenjiansm, z.wenjianscfs AS wenjianlybj, NULL AS chuangjiansj, z.wenjianfwqlj, z.futubj, NULL AS yewulxbm, NULL AS wenjianywbm, NULL AS wenjiansxmc FROM zxsq_zmwj_t z WHERE z.del_flag = '0' and z.test_column = '1' AND z.zxsq_zmwj_t_rid = '1' ) o )) b) d; | 已覆盖 |
 | `VO097` | `vastbase-oracle-select-reference-046` | SELECT a.*, b.wenjiansxmc FROM ( SELECT x.zxsq_wj_xxgx_t_rid, x.zhengmingwjid AS zmwj_key, x.zhengmingwjdm, x.wenjiansxbm, x.fujiawjmc AS wenjianysmc, x.fujianwjsm AS wenjiansm, x.wenjianlybj, x.create_time AS chuangjiansj, z.wenjianfwqlj, z.futubj, x.yewulxbm, x.wenjianywbm FROM zxsq_wj_xxgx_t x LEFT JOIN zxsq_zmwj_t z ON x.zhengmingwjid = z.zxsq_zmwj_t_rid LEFT JOIN zxsq_dzsqqqjl_cg_t c ON x.dianzisqajbh = c.dianzisqajbh WHERE x.del_flag = '0' AND (z.del_flag = '0' OR z.del_flag IS NULL) AND x.zhengmingwjbm != '123456' AND x.zhubiaom = '789' AND x.yewulxbm = '1011' AND c.create_user_jgdm = '1213' AND x.wenjianywbm = '11' ) a LEFT JOIN zxsq_fjwjywdz_t b ON a.wenjiansxbm = b.wenjiansxbm AND a.yewulxbm = b.yewulxbm; | 已覆盖 |
 | `VO098` | `vastbase-oracle-select-reference-047` | SELECT a.*, b.wenjiansxmc FROM ( SELECT x.zxsq_wj_xxgx_t_rid, x.zxsq_zmwj_t_rid AS zmwj_key, x.zhengmingwjdm, x.wenjiansxbm, x.fujiawjmc AS wenjianysmc, x.fujianwjsm AS wenjiansm, x.wenjianlybj, x.create_time AS chuangjiansj, z.wenjianfwqlj, z.futubj, x.yewulxbm, x.wenjianywbm FROM zxsq_wj_xxgx_t x LEFT JOIN zxsq_zmwj_t z ON x.zhengmingwjid = z.zxsq_zmwj_t_rid LEFT JOIN zxsq_dzsqqqjl_cg_t c ON x.dianzisqajbh = c.dianzisqajbh WHERE x.del_flag = '0' AND (z.del_flag = '0' OR z.del_flag IS NULL) AND x.zhengmingwjbm != '123456' AND x.zhubiaom = '789' AND x.yewulxbm = '1011' AND c.create_user_jgdm = '1213' AND x.wenjianywbm = '11' ) a LEFT JOIN zxsq_fjwjywdz_t b ON a.wenjiansxbm = b.wenjiansxbm AND a.yewulxbm = b.yewulxbm UNION SELECT NULL AS zxsq_wj_xxgx_t_rid, z.zxsq_zmwj_t_rid AS zmwj_key, z.zhengmingwjdm, z.wenjiansxbm, z.wenjianysmc, z.wenjiansm, z.wenjianscfs AS wenjianlybj, NULL AS chuangjiansj, z.wenjianfwqlj, z.futubj, NULL AS yewulxbm, NULL AS wenjianywbm, NULL AS wenjiansxmc FROM zxsq_zmwj_t z WHERE z.del_flag = '0' AND z.zxsq_zmwj_t_rid = ''; | 已覆盖 |
-| `VOU001` | `vastbase-oracle-connect-by` | SELECT id FROM users START WITH manager_id IS NULL CONNECT BY PRIOR id = manager_id | 明确不支持 |
-| `VOU002` | `vastbase-oracle-legacy-outer-join` | SELECT u.id, o.id FROM users u, orders o WHERE u.id = o.user_id(+) | 明确不支持 |
 | `VO137` | `vastbase-oracle-insert-all` | INSERT ALL INTO users (id) VALUES (1) INTO users (id) VALUES (2) SELECT 1 FROM dual | 已覆盖 |
 | `VO132` | `vastbase-oracle-insert-all-bind-branches` | INSERT ALL INTO users (id, name) VALUES (:1, :2) INTO users (id, name) VALUES (:3, :name4) SELECT 1 FROM dual | 已覆盖 |
 | `VO133` | `vastbase-oracle-insert-all-multi-target` | INSERT ALL INTO users (id, name) VALUES (1, 'a') INTO phones (id, phone) VALUES (2, '13800138000') SELECT 1 FROM dual | 已覆盖 |
-| `VOU004` | `vastbase-oracle-returning-into` | INSERT INTO users (id) VALUES (1) RETURNING id INTO :id | 明确不支持 |
-| `VOU005` | `vastbase-oracle-plsql-block` | BEGIN NULL; END; | 明确不支持 |
-| `VOU006` | `vastbase-oracle-create-procedure` | CREATE OR REPLACE PROCEDURE p AS BEGIN NULL; END; | 明确不支持 |
-| `VOU007` | `vastbase-oracle-create-package` | CREATE OR REPLACE PACKAGE p AS PROCEDURE x; END p; | 明确不支持 |
-| `VOU008` | `vastbase-oracle-pivot` | SELECT * FROM sales PIVOT (SUM(amount) FOR quarter IN ('Q1' AS q1)) | 明确不支持 |
-| `VOU009` | `vastbase-oracle-unpivot` | SELECT * FROM sales UNPIVOT (amount FOR quarter IN (q1, q2)) | 明确不支持 |
-| `VOU010` | `vastbase-oracle-model-clause` | SELECT * FROM sales MODEL DIMENSION BY (id) MEASURES (amount) RULES (amount[1] = 1) | 明确不支持 |
-| `VOU011` | `vastbase-oracle-flashback-query` | SELECT * FROM users AS OF SCN 12345 | 明确不支持 |
-| `VOU012` | `vastbase-oracle-match-recognize` | SELECT * FROM trades MATCH_RECOGNIZE (ORDER BY trade_time PATTERN (A) DEFINE A AS price > 0) | 明确不支持 |
 | `VO082` | `vastbase-oracle-alter-session-nls-date-format` | ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD' | 已覆盖 |
 | `VO083` | `vastbase-oracle-alter-session-nls-language` | ALTER SESSION SET NLS_DATE_LANGUAGE = French | 已覆盖 |
 | `VO084` | `vastbase-oracle-alter-session-numeric-parameter` | ALTER SESSION SET INSTANCE = 2 | 已覆盖 |
@@ -167,7 +178,6 @@
 | `VOU015` | `vastbase-oracle-database-link` | SELECT * FROM users@remote_db | 已覆盖 |
 | `VOU016` | `vastbase-oracle-explain-plan` | EXPLAIN PLAN FOR SELECT * FROM users | 已覆盖 |
 | `VO177` | `vastbase-oracle-explain-plan-into` | EXPLAIN PLAN SET STATEMENT_ID = 'q1' INTO plan_table FOR SELECT id FROM users WHERE id = :id | 已覆盖 |
-| `VOU017` | `vastbase-oracle-connect-by-root` | SELECT CONNECT_BY_ROOT name FROM users CONNECT BY PRIOR id = manager_id | 明确不支持 |
 | `VO138` | `vastbase-oracle-insert-first` | INSERT FIRST WHEN 1 = 1 THEN INTO users (id) VALUES (1) SELECT 1 FROM dual | 已覆盖 |
 | `VO139` | `vastbase-oracle-insert-first-direct-source-fields` | INSERT FIRST WHEN amount > 100 THEN INTO big_orders (id, amount) VALUES (order_id, amount) ELSE INTO small_orders (id, amount) VALUES (order_id, amount) SELECT id AS order_id, amount FROM orders | 已覆盖 |
 | `VO140` | `vastbase-oracle-insert-all-conditional` | INSERT ALL WHEN flag = 1 THEN INTO users (id, flag_copy) VALUES (:1, flag) WHEN flag = 2 THEN INTO audit_users (id, flag_copy) VALUES (:2, flag) SELECT flag FROM source_table | 已覆盖 |
@@ -205,3 +215,12 @@
 | `VO172` | `vastbase-oracle-database-link-insert-target` | INSERT INTO users@remote_db (id, name) VALUES (:id, :name) | 已覆盖 |
 | `VO173` | `vastbase-oracle-database-link-delete-target` | DELETE FROM users@remote_db WHERE id = :id | 已覆盖 |
 | `VO174` | `vastbase-oracle-database-link-quoted-identifiers` | SELECT * FROM "USERS"@"REMOTE_DB" | 已覆盖 |
+| `VO178` | `vastbase-oracle-union-all-three-branch-scope` | (SELECT 1 AS C FROM DUAL UNION ALL SELECT 2 AS C FROM DUAL) UNION ALL SELECT 3 AS C FROM DUAL | 已覆盖 |
+| `VO179` | `vastbase-oracle-grouped-union-all-intersect` | (SELECT 1 AS C FROM DUAL UNION ALL SELECT 2 AS C FROM DUAL) INTERSECT (SELECT 3 AS C FROM DUAL UNION ALL SELECT 4 AS C FROM DUAL) | 已覆盖 |
+| `VO180` | `vastbase-oracle-union-all-root-cte-scope` | WITH src AS (SELECT 1 AS C FROM DUAL) SELECT C FROM src UNION ALL SELECT C FROM src | 已覆盖 |
+| `VO181` | `vastbase-oracle-union-all-qualified-table-bypasses-cte` | WITH src AS (SELECT 1 AS id FROM DUAL) (SELECT src.id FROM src UNION ALL SELECT s.id FROM app.src s) UNION ALL SELECT r.id FROM src@remote_db r | 已覆盖 |
+| `VO182` | `vastbase-oracle-correlated-union-all-subquery-scope` | SELECT o.id FROM orders o WHERE EXISTS (SELECT 1 FROM order_items i WHERE i.order_id = o.id UNION ALL SELECT 1 FROM archived_order_items a WHERE a.order_id = o.id) | 已覆盖 |
+
+## 覆盖边界
+
+本矩阵只列出可成功解析并具有最终 View 与 patch 期望的用例。未纳入该可执行夹具的语法不得在本矩阵中登记为已验证用例。

@@ -1,10 +1,15 @@
 #include <ctype.h>
 #include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "sqlparser_dialect_bind_internal.h"
+#include "sqlparser_dialect_ast_surface_internal.h"
 #include "sqlparser_dialect_internal.h"
+#include "sqlparser_dialect_minus_internal.h"
+#include "sqlparser_dialect_national_literal_internal.h"
 #include "sqlparser_dialect_oracle_internal.h"
 
 typedef struct {
@@ -19,28 +24,40 @@ typedef struct {
 	char *public_link_name;
 	char *public_object_sql;
 	char *public_link_sql;
+	PgQuery__RangeVar *owner;
 } sqlparser_oracle_dblink_relation_t;
 
 typedef struct {
 	char **bind_names;
 	size_t bind_count;
 	size_t bind_capacity;
-	char **national_literals;
-	size_t *national_literal_ordinals;
-	size_t national_literal_count;
-	size_t national_literal_capacity;
-	size_t national_literal_ordinal_capacity;
-	size_t literal_count;
+	sqlparser_dialect_prepared_binds_t prepared_binds;
+	sqlparser_dialect_national_literals_t national_literals;
 	size_t bind_occurrence_count;
 	sqlparser_oracle_dblink_relation_t *dblink_relations;
 	size_t dblink_count;
 	size_t dblink_capacity;
-	int saw_minus;
+	size_t next_dblink_id;
+	sqlparser_dialect_minuses_t minuses;
 	sqlparser_dialect_multi_insert_t *multi_insert;
 } sqlparser_oracle_state_t;
 
 static int sqlparser_oracle_is_ident_start(unsigned char c);
 static int sqlparser_oracle_is_ident_char(unsigned char c);
+
+static void sqlparser_oracle_dblink_relation_clear(
+	sqlparser_oracle_dblink_relation_t *relation)
+{
+	if (relation == NULL) {
+		return;
+	}
+	free(relation->parser_object_name);
+	free(relation->public_object_name);
+	free(relation->public_link_name);
+	free(relation->public_object_sql);
+	free(relation->public_link_sql);
+	memset(relation, 0, sizeof(*relation));
+}
 
 static void sqlparser_oracle_buffer_release(sqlparser_oracle_buffer_t *buffer)
 {
@@ -300,17 +317,14 @@ static void sqlparser_oracle_state_destroy(void *state)
 		free(oracle_state->bind_names[index]);
 	}
 	free(oracle_state->bind_names);
-	for (index = 0U; index < oracle_state->national_literal_count; index++) {
-		free(oracle_state->national_literals[index]);
-	}
-	free(oracle_state->national_literals);
-	free(oracle_state->national_literal_ordinals);
+	sqlparser_dialect_prepared_binds_clear(
+		&oracle_state->prepared_binds);
+	sqlparser_dialect_national_literals_clear(
+		&oracle_state->national_literals);
+	sqlparser_dialect_minuses_clear(&oracle_state->minuses);
 	for (index = 0U; index < oracle_state->dblink_count; index++) {
-		free(oracle_state->dblink_relations[index].parser_object_name);
-		free(oracle_state->dblink_relations[index].public_object_name);
-		free(oracle_state->dblink_relations[index].public_link_name);
-		free(oracle_state->dblink_relations[index].public_object_sql);
-		free(oracle_state->dblink_relations[index].public_link_sql);
+		sqlparser_oracle_dblink_relation_clear(
+			&oracle_state->dblink_relations[index]);
 	}
 	free(oracle_state->dblink_relations);
 	sqlparser_oracle_multi_insert_destroy(oracle_state->multi_insert);
@@ -341,44 +355,6 @@ static sqlparser_status_t sqlparser_oracle_state_new(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_oracle_size_array_reserve(
-	size_t **items,
-	size_t *capacity,
-	size_t required,
-	sqlparser_error_t *out_error)
-{
-	size_t next_capacity;
-	size_t *next;
-
-	if (items == NULL || capacity == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "array arguments must not be NULL");
-		return SQLPARSER_STATUS_INVALID_ARGUMENT;
-	}
-	if (required <= *capacity) {
-		return SQLPARSER_STATUS_OK;
-	}
-	next_capacity = *capacity == 0U ? 4U : *capacity;
-	while (next_capacity < required) {
-		if (next_capacity > ((size_t)-1) / 2U) {
-			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-			return SQLPARSER_STATUS_NO_MEMORY;
-		}
-		next_capacity *= 2U;
-	}
-	if (next_capacity > ((size_t)-1) / sizeof(*next)) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-		return SQLPARSER_STATUS_NO_MEMORY;
-	}
-	next = (size_t *)realloc(*items, next_capacity * sizeof(*next));
-	if (next == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-		return SQLPARSER_STATUS_NO_MEMORY;
-	}
-	*items = next;
-	*capacity = next_capacity;
-	return SQLPARSER_STATUS_OK;
-}
-
 static sqlparser_status_t sqlparser_oracle_store_national_literal(
 	sqlparser_oracle_state_t *state,
 	const char *literal,
@@ -386,50 +362,14 @@ static sqlparser_status_t sqlparser_oracle_store_national_literal(
 	size_t ordinal,
 	sqlparser_error_t *out_error)
 {
-	char **next;
-	char *copy;
-	size_t next_capacity;
-	sqlparser_status_t status;
-
-	if (state == NULL || literal == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "national literal arguments must not be NULL");
-		return SQLPARSER_STATUS_INVALID_ARGUMENT;
-	}
-
-	status = sqlparser_oracle_size_array_reserve(
-		&state->national_literal_ordinals,
-		&state->national_literal_ordinal_capacity,
-		state->national_literal_count + 1U,
-		out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		return status;
-	}
-
-	if (state->national_literal_count == state->national_literal_capacity) {
-		next_capacity = state->national_literal_capacity == 0U ? 4U : state->national_literal_capacity * 2U;
-		if (next_capacity < state->national_literal_capacity ||
-		    next_capacity > ((size_t)-1) / sizeof(*next)) {
-			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-			return SQLPARSER_STATUS_NO_MEMORY;
-		}
-		next = (char **)realloc(state->national_literals, next_capacity * sizeof(*next));
-		if (next == NULL) {
-			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-			return SQLPARSER_STATUS_NO_MEMORY;
-		}
-		state->national_literals = next;
-		state->national_literal_capacity = next_capacity;
-	}
-
-	copy = sqlparser_strndup(literal, len);
-	if (copy == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-		return SQLPARSER_STATUS_NO_MEMORY;
-	}
-	state->national_literals[state->national_literal_count] = copy;
-	state->national_literal_ordinals[state->national_literal_count] = ordinal;
-	state->national_literal_count++;
-	return SQLPARSER_STATUS_OK;
+	return state != NULL ?
+		sqlparser_dialect_national_literals_append(
+			&state->national_literals,
+			literal,
+			len,
+			ordinal,
+			out_error) :
+		SQLPARSER_STATUS_INVALID_ARGUMENT;
 }
 
 static int sqlparser_oracle_national_literal_matches(
@@ -439,21 +379,13 @@ static int sqlparser_oracle_national_literal_matches(
 	size_t start,
 	size_t end)
 {
-	size_t index;
-	size_t len;
-
-	if (state == NULL || sql == NULL || end <= start) {
-		return 0;
-	}
-	len = end - start;
-	for (index = 0U; index < state->national_literal_count; index++) {
-		if (state->national_literal_ordinals[index] == ordinal &&
-		    strlen(state->national_literals[index]) == len &&
-		    strncmp(state->national_literals[index], sql + start, len) == 0) {
-			return 1;
-		}
-	}
-	return 0;
+	return state != NULL &&
+		sqlparser_dialect_national_literals_match(
+			&state->national_literals,
+			ordinal,
+			sql,
+			start,
+			end);
 }
 
 static size_t sqlparser_oracle_identifier_token_end(const char *sql, size_t start)
@@ -572,6 +504,7 @@ static sqlparser_status_t sqlparser_oracle_state_append_dblink_relation(
 	size_t public_link_sql_len,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_oracle_dblink_relation_t copy;
 	sqlparser_oracle_dblink_relation_t *next;
 	sqlparser_oracle_dblink_relation_t *relation;
 	size_t next_capacity;
@@ -581,9 +514,26 @@ static sqlparser_status_t sqlparser_oracle_state_append_dblink_relation(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "database link relation arguments must not be NULL");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
+	memset(&copy, 0, sizeof(copy));
+	copy.parser_object_name = sqlparser_strdup(parser_object_name);
+	copy.public_object_name = sqlparser_strdup(public_object_name);
+	copy.public_link_name = sqlparser_strdup(public_link_name);
+	copy.public_object_sql = sqlparser_strndup(
+		public_object_sql, public_object_sql_len);
+	copy.public_link_sql = sqlparser_strndup(
+		public_link_sql, public_link_sql_len);
+	if (copy.parser_object_name == NULL || copy.public_object_name == NULL ||
+	    copy.public_link_name == NULL || copy.public_object_sql == NULL ||
+	    copy.public_link_sql == NULL) {
+		sqlparser_oracle_dblink_relation_clear(&copy);
+		sqlparser_error_set_message(
+			out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
 	if (state->dblink_count == state->dblink_capacity) {
 		next_capacity = state->dblink_capacity == 0U ? 4U : state->dblink_capacity * 2U;
 		if (next_capacity < state->dblink_capacity) {
+			sqlparser_oracle_dblink_relation_clear(&copy);
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 			return SQLPARSER_STATUS_NO_MEMORY;
 		}
@@ -591,6 +541,7 @@ static sqlparser_status_t sqlparser_oracle_state_append_dblink_relation(
 			state->dblink_relations,
 			next_capacity * sizeof(*next));
 		if (next == NULL) {
+			sqlparser_oracle_dblink_relation_clear(&copy);
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 			return SQLPARSER_STATUS_NO_MEMORY;
 		}
@@ -599,26 +550,7 @@ static sqlparser_status_t sqlparser_oracle_state_append_dblink_relation(
 	}
 
 	relation = &state->dblink_relations[state->dblink_count];
-	memset(relation, 0, sizeof(*relation));
-	relation->parser_object_name = sqlparser_strdup(parser_object_name);
-	relation->public_object_name = sqlparser_strdup(public_object_name);
-	relation->public_link_name = sqlparser_strdup(public_link_name);
-	relation->public_object_sql = sqlparser_strndup(public_object_sql, public_object_sql_len);
-	relation->public_link_sql = sqlparser_strndup(public_link_sql, public_link_sql_len);
-	if (relation->parser_object_name == NULL ||
-	    relation->public_object_name == NULL ||
-	    relation->public_link_name == NULL ||
-	    relation->public_object_sql == NULL ||
-	    relation->public_link_sql == NULL) {
-		free(relation->parser_object_name);
-		free(relation->public_object_name);
-		free(relation->public_link_name);
-		free(relation->public_object_sql);
-		free(relation->public_link_sql);
-		memset(relation, 0, sizeof(*relation));
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-		return SQLPARSER_STATUS_NO_MEMORY;
-	}
+	*relation = copy;
 	state->dblink_count++;
 	return SQLPARSER_STATUS_OK;
 }
@@ -695,11 +627,19 @@ static sqlparser_status_t sqlparser_oracle_try_copy_database_link_relation(
 		return SQLPARSER_STATUS_PARSE_ERROR;
 	}
 
+	if (state->next_dblink_id == SIZE_MAX) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_RESOURCE_LIMIT,
+			"database link marker range is exhausted");
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+	state->next_dblink_id++;
 	marker_len = snprintf(
 		marker,
 		sizeof(marker),
-		"sqlparser_oracle_dblink_%lu",
-		(unsigned long)(state->dblink_count + 1U));
+		"sqlparser_oracle_dblink_%zu",
+		state->next_dblink_id);
 	if (marker_len <= 0 || (size_t)marker_len >= sizeof(marker)) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "database link marker is too long");
 		return SQLPARSER_STATUS_RESOURCE_LIMIT;
@@ -2852,14 +2792,14 @@ static sqlparser_status_t sqlparser_oracle_preprocess_text(
 					state,
 					out.data + literal_start,
 					out.len - literal_start,
-					state->literal_count,
+					state->national_literals.literal_count,
 					out_error);
 				if (status != SQLPARSER_STATUS_OK) {
 					sqlparser_oracle_buffer_release(&out);
 					return status;
 				}
 			}
-			state->literal_count++;
+			state->national_literals.literal_count++;
 			continue;
 		}
 
@@ -2876,13 +2816,13 @@ static sqlparser_status_t sqlparser_oracle_preprocess_text(
 				state,
 				out.data + literal_start,
 				out.len - literal_start,
-				state->literal_count,
+				state->national_literals.literal_count,
 				out_error);
 			if (status != SQLPARSER_STATUS_OK) {
 				sqlparser_oracle_buffer_release(&out);
 				return status;
 			}
-			state->literal_count++;
+			state->national_literals.literal_count++;
 			continue;
 		}
 
@@ -2906,7 +2846,7 @@ static sqlparser_status_t sqlparser_oracle_preprocess_text(
 			quoted_start = index;
 			copied = sqlparser_oracle_copy_quoted_or_comment(input_sql, &index, &out, out_error);
 			if (copied > 0 && input_sql[quoted_start] == '\'') {
-				state->literal_count++;
+				state->national_literals.literal_count++;
 			}
 		}
 		if (copied < 0) {
@@ -2923,9 +2863,25 @@ static sqlparser_status_t sqlparser_oracle_preprocess_text(
 		    input_sql[index + 1U] != ':' && input_sql[index + 1U] != '\0') {
 			status = sqlparser_oracle_copy_bind_placeholder(input_sql, &index, &out, state, out_error);
 		} else if (sqlparser_oracle_ascii_word_equal(input_sql, index, "minus")) {
-			state->saw_minus = 1;
-			status = sqlparser_oracle_buffer_append_cstr(&out, "EXCEPT", out_error);
-			index += 5U;
+			status = sqlparser_dialect_minuses_append(
+				&state->minuses,
+				state->minuses.except_count,
+				out_error);
+			if (status == SQLPARSER_STATUS_OK) {
+				status = sqlparser_oracle_buffer_append_cstr(
+					&out, "EXCEPT", out_error);
+			}
+			if (status == SQLPARSER_STATUS_OK) {
+				state->minuses.except_count++;
+				index += 5U;
+			}
+		} else if (sqlparser_oracle_ascii_word_equal(input_sql, index, "except")) {
+			status = sqlparser_oracle_buffer_append_mem(
+				&out, input_sql + index, 6U, out_error);
+			if (status == SQLPARSER_STATUS_OK) {
+				state->minuses.except_count++;
+				index += 6U;
+			}
 		} else {
 			status = sqlparser_oracle_buffer_append_char(&out, input_sql[index], out_error);
 			if (status == SQLPARSER_STATUS_OK) {
@@ -4292,6 +4248,7 @@ static sqlparser_status_t sqlparser_oracle_postprocess_text(
 	sqlparser_status_t status;
 	size_t index;
 	size_t literal_ordinal;
+	size_t except_ordinal;
 
 	memset(&out, 0, sizeof(out));
 	status = sqlparser_oracle_buffer_reserve_input(&out, core_sql, out_error);
@@ -4300,6 +4257,7 @@ static sqlparser_status_t sqlparser_oracle_postprocess_text(
 	}
 	index = 0U;
 	literal_ordinal = 0U;
+	except_ordinal = 0U;
 	while (core_sql[index] != '\0') {
 		int copied;
 
@@ -4347,9 +4305,14 @@ static sqlparser_status_t sqlparser_oracle_postprocess_text(
 
 		if (core_sql[index] == '$') {
 			status = sqlparser_oracle_param_to_bind(core_sql, &index, state, &out, out_error);
-		} else if (state != NULL && state->saw_minus &&
-		           sqlparser_oracle_ascii_word_equal(core_sql, index, "except")) {
-			status = sqlparser_oracle_buffer_append_cstr(&out, "MINUS", out_error);
+		} else if (sqlparser_oracle_ascii_word_equal(core_sql, index, "except")) {
+			status = sqlparser_oracle_buffer_append_cstr(
+				&out,
+				sqlparser_dialect_minuses_match(
+					state != NULL ? &state->minuses : NULL,
+					except_ordinal) ? "MINUS" : "EXCEPT",
+				out_error);
+			except_ordinal++;
 			index += 6U;
 		} else if (sqlparser_oracle_ascii_word_equal(core_sql, index, "truncate")) {
 			status = sqlparser_oracle_buffer_append_cstr(&out, "TRUNCATE TABLE ", out_error);
@@ -5824,8 +5787,10 @@ static sqlparser_status_t sqlparser_oracle_replay_preprocess_range(
 				out_error);
 			if (status == SQLPARSER_STATUS_OK) {
 				status =
-					sqlparser_identifier_origin_writer_append_unknown(
+					sqlparser_identifier_origin_writer_append_source_identifier(
 						writer,
+						input_map_offset + input_pos,
+						1U,
 						parser_end - parser_pos,
 						out_error);
 			}
@@ -5862,8 +5827,10 @@ static sqlparser_status_t sqlparser_oracle_replay_preprocess_range(
 					out_error);
 				if (status == SQLPARSER_STATUS_OK) {
 					status =
-						sqlparser_identifier_origin_writer_append_unknown(
+						sqlparser_identifier_origin_writer_append_source_identifier(
 							writer,
+							input_map_offset + input_pos,
+							input_end - input_pos,
 							parser_end - parser_pos,
 							out_error);
 				}
@@ -6299,6 +6266,64 @@ static sqlparser_status_t sqlparser_oracle_postprocess_deparse(
 	return SQLPARSER_STATUS_OK;
 }
 
+static sqlparser_status_t sqlparser_oracle_postprocess_fragment(
+	const char *core_sql,
+	const void *state,
+	size_t statement_index,
+	sqlparser_fragment_context_t fragment_context,
+	ProtobufCMessage *const *roots,
+	size_t root_count,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	char *public_sql;
+	sqlparser_status_t status;
+
+	(void)statement_index;
+	(void)fragment_context;
+	(void)roots;
+	(void)root_count;
+	if (out_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"dialect fragment output must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_sql = NULL;
+	if (core_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"core SQL fragment must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	public_sql = NULL;
+	status = sqlparser_oracle_postprocess_text(
+		core_sql,
+		(const sqlparser_oracle_state_t *)state,
+		&public_sql,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_oracle_restore_database_links(
+		&public_sql,
+		(const sqlparser_oracle_state_t *)state,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_dialect_rewrite_like_escape(&public_sql, out_error);
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		free(public_sql);
+		return status;
+	}
+
+	*out_sql = public_sql;
+	return SQLPARSER_STATUS_OK;
+}
+
 static sqlparser_status_t sqlparser_oracle_preprocess_fragment(
 	const char *input_sql,
 	void *state,
@@ -6329,6 +6354,10 @@ static sqlparser_status_t sqlparser_oracle_preprocess_fragment(
 			"Oracle dialect state is missing");
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
+	sqlparser_dialect_national_literals_begin_fragment(
+		&((sqlparser_oracle_state_t *)state)->national_literals);
+	sqlparser_dialect_minuses_begin_fragment(
+		&((sqlparser_oracle_state_t *)state)->minuses);
 
 	return sqlparser_oracle_preprocess_text(
 		input_sql,
@@ -7028,9 +7057,8 @@ static sqlparser_status_t sqlparser_oracle_clone_state(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	clone->saw_minus = source->saw_minus;
 	clone->bind_occurrence_count = source->bind_occurrence_count;
-	clone->literal_count = source->literal_count;
+	clone->next_dblink_id = source->next_dblink_id;
 
 	for (index = 0U; index < source->bind_count; index++) {
 		size_t param_index;
@@ -7048,17 +7076,21 @@ static sqlparser_status_t sqlparser_oracle_clone_state(
 		(void)param_index;
 	}
 
-	for (index = 0U; index < source->national_literal_count; index++) {
-		status = sqlparser_oracle_store_national_literal(
-			clone,
-			source->national_literals[index],
-			strlen(source->national_literals[index]),
-			source->national_literal_ordinals[index],
-			out_error);
-		if (status != SQLPARSER_STATUS_OK) {
-			sqlparser_oracle_state_destroy(clone);
-			return status;
-		}
+	status = sqlparser_dialect_national_literals_clone(
+		&source->national_literals,
+		&clone->national_literals,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_oracle_state_destroy(clone);
+		return status;
+	}
+	status = sqlparser_dialect_minuses_clone(
+		&source->minuses,
+		&clone->minuses,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_oracle_state_destroy(clone);
+		return status;
 	}
 
 	for (index = 0U; index < source->dblink_count; index++) {
@@ -7116,10 +7148,11 @@ static sqlparser_status_t sqlparser_oracle_postprocess_literal_fragment(
 	const char *core_sql,
 	const void *state,
 	size_t statement_index,
-	size_t literal_index,
+	const PgQuery__AConst *literal_owner,
 	char **out_sql,
 	sqlparser_error_t *out_error)
 {
+	const sqlparser_dialect_national_literal_t *literal;
 	const sqlparser_oracle_state_t *oracle_state;
 	size_t literal_end;
 	sqlparser_oracle_buffer_t out;
@@ -7138,10 +7171,16 @@ static sqlparser_status_t sqlparser_oracle_postprocess_literal_fragment(
 	}
 
 	oracle_state = (const sqlparser_oracle_state_t *)state;
+	literal = oracle_state != NULL ?
+		sqlparser_dialect_national_literals_find_owner(
+			&oracle_state->national_literals, literal_owner) :
+		NULL;
 	literal_end = core_sql[0] == '\'' ? sqlparser_oracle_quoted_literal_end(core_sql, 0U) : 0U;
 	if (literal_end > 0U &&
 	    core_sql[literal_end] == '\0' &&
-	    sqlparser_oracle_national_literal_matches(oracle_state, literal_index, core_sql, 0U, literal_end)) {
+	    literal != NULL &&
+	    sqlparser_oracle_national_literal_matches(
+		    oracle_state, literal->ordinal, core_sql, 0U, literal_end)) {
 		memset(&out, 0, sizeof(out));
 		status = sqlparser_oracle_buffer_append_char(&out, 'N', out_error);
 		if (status == SQLPARSER_STATUS_OK) {
@@ -7912,6 +7951,437 @@ static sqlparser_status_t sqlparser_oracle_project_session(
 		SQLPARSER_STATUS_OK;
 }
 
+typedef struct {
+	sqlparser_oracle_state_t *state;
+} sqlparser_oracle_dblink_bind_t;
+
+typedef struct {
+	sqlparser_oracle_state_t *state;
+	size_t source_count;
+} sqlparser_oracle_dblink_clone_t;
+
+static int sqlparser_oracle_dblink_name_compare(
+	const void *left,
+	const void *right)
+{
+	const sqlparser_oracle_dblink_relation_t *left_relation;
+	const sqlparser_oracle_dblink_relation_t *right_relation;
+
+	left_relation = (const sqlparser_oracle_dblink_relation_t *)left;
+	right_relation = (const sqlparser_oracle_dblink_relation_t *)right;
+	return strcmp(
+		left_relation->parser_object_name,
+		right_relation->parser_object_name);
+}
+
+static size_t sqlparser_oracle_dblink_name_lower_bound(
+	const sqlparser_oracle_state_t *state,
+	const char *parser_object_name,
+	size_t count)
+{
+	size_t left;
+	size_t right;
+
+	left = 0U;
+	right = count;
+	while (left < right) {
+		size_t middle;
+		int comparison;
+
+		middle = left + (right - left) / 2U;
+		comparison = strcmp(
+			state->dblink_relations[middle].parser_object_name,
+			parser_object_name);
+		if (comparison < 0) {
+			left = middle + 1U;
+		} else {
+			right = middle;
+		}
+	}
+	return left;
+}
+
+static void sqlparser_oracle_dblink_bind_visit(
+	PgQuery__RangeVar *relation,
+	size_t statement_index,
+	void *context)
+{
+	sqlparser_oracle_dblink_bind_t *bind;
+	size_t index;
+
+	(void)statement_index;
+	if (relation == NULL || relation->relname == NULL) {
+		return;
+	}
+	bind = (sqlparser_oracle_dblink_bind_t *)context;
+	index = sqlparser_oracle_dblink_name_lower_bound(
+		bind->state,
+		relation->relname,
+		bind->state->dblink_count);
+	while (index < bind->state->dblink_count &&
+	       strcmp(
+		       bind->state->dblink_relations[index].parser_object_name,
+		       relation->relname) == 0) {
+		if (bind->state->dblink_relations[index].owner == NULL) {
+			bind->state->dblink_relations[index].owner = relation;
+			return;
+		}
+		index++;
+	}
+}
+
+static sqlparser_status_t sqlparser_oracle_bind_dblink_state(
+	sqlparser_oracle_state_t *state,
+	const PgQuery__ParseResult *ast,
+	size_t statement_index,
+	ProtobufCMessage *const *roots,
+	size_t root_count,
+	int require_all,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dialect_ast_surface_visitor_t visitor;
+	sqlparser_oracle_dblink_bind_t bind;
+	size_t index;
+
+	if (state == NULL || state->dblink_count == 0U) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (state->dblink_count > 1U) {
+		qsort(
+			state->dblink_relations,
+			state->dblink_count,
+			sizeof(*state->dblink_relations),
+			sqlparser_oracle_dblink_name_compare);
+	}
+	for (index = 0U; index < state->dblink_count; index++) {
+		state->dblink_relations[index].owner = NULL;
+	}
+	memset(&bind, 0, sizeof(bind));
+	bind.state = state;
+	memset(&visitor, 0, sizeof(visitor));
+	visitor.context = &bind;
+	visitor.relation = sqlparser_oracle_dblink_bind_visit;
+	visitor.insert_relation = sqlparser_oracle_dblink_bind_visit;
+	if (ast != NULL) {
+		sqlparser_dialect_ast_surface_visit(ast, &visitor);
+	}
+	if (roots != NULL && root_count > 0U) {
+		sqlparser_dialect_ast_surface_visit_roots(
+			roots, root_count, statement_index, &visitor);
+	}
+	if (require_all) {
+		for (index = 0U; index < state->dblink_count; index++) {
+			if (state->dblink_relations[index].owner == NULL) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INTERNAL_ERROR,
+					"Oracle database-link AST owner is missing");
+				return SQLPARSER_STATUS_INTERNAL_ERROR;
+			}
+		}
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static void sqlparser_oracle_reconcile_dblink_state(
+	sqlparser_oracle_state_t *state,
+	const PgQuery__ParseResult *ast)
+{
+	size_t read_index;
+	size_t write_index;
+
+	if (state == NULL || ast == NULL || state->dblink_count == 0U) {
+		return;
+	}
+	(void)sqlparser_oracle_bind_dblink_state(
+		state, ast, 0U, NULL, 0U, 0, NULL);
+	write_index = 0U;
+	for (read_index = 0U; read_index < state->dblink_count; read_index++) {
+		if (state->dblink_relations[read_index].owner == NULL) {
+			sqlparser_oracle_dblink_relation_clear(
+				&state->dblink_relations[read_index]);
+			continue;
+		}
+		if (write_index != read_index) {
+			state->dblink_relations[write_index] =
+				state->dblink_relations[read_index];
+		}
+		write_index++;
+	}
+	state->dblink_count = write_index;
+}
+
+static sqlparser_status_t sqlparser_oracle_dblink_clone_visit(
+	const PgQuery__RangeVar *source,
+	PgQuery__RangeVar *clone,
+	void *context,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_oracle_dblink_clone_t *clone_context;
+	sqlparser_oracle_dblink_relation_t *record;
+	sqlparser_status_t status;
+	size_t index;
+
+	if (source == NULL || source->relname == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	clone_context = (sqlparser_oracle_dblink_clone_t *)context;
+	index = sqlparser_oracle_dblink_name_lower_bound(
+		clone_context->state,
+		source->relname,
+		clone_context->source_count);
+	record = NULL;
+	while (index < clone_context->source_count &&
+	       strcmp(
+		       clone_context->state->dblink_relations[index]
+			       .parser_object_name,
+		       source->relname) == 0) {
+		if (clone_context->state->dblink_relations[index].owner == source) {
+			record = &clone_context->state->dblink_relations[index];
+			break;
+		}
+		index++;
+	}
+	if (record == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_oracle_state_append_dblink_relation(
+		clone_context->state,
+		record->parser_object_name,
+		record->public_object_name,
+		record->public_link_name,
+		record->public_object_sql,
+		strlen(record->public_object_sql),
+		record->public_link_sql,
+		strlen(record->public_link_sql),
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		clone_context->state->dblink_relations[
+			clone_context->state->dblink_count - 1U].owner = clone;
+	}
+	return status;
+}
+
+static sqlparser_status_t sqlparser_oracle_clone_dblink_owners(
+	sqlparser_oracle_state_t *state,
+	const ProtobufCMessage *source_root,
+	const ProtobufCMessage *clone_root,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dialect_ast_surface_clone_visitor_t visitor;
+	sqlparser_oracle_dblink_clone_t clone_context;
+	sqlparser_status_t status;
+	size_t original_count;
+
+	if (state == NULL || source_root == NULL || clone_root == NULL ||
+	    state->dblink_count == 0U) {
+		return SQLPARSER_STATUS_OK;
+	}
+	original_count = state->dblink_count;
+	if (original_count > 1U) {
+		qsort(
+			state->dblink_relations,
+			original_count,
+			sizeof(*state->dblink_relations),
+			sqlparser_oracle_dblink_name_compare);
+	}
+	memset(&clone_context, 0, sizeof(clone_context));
+	clone_context.state = state;
+	clone_context.source_count = original_count;
+	memset(&visitor, 0, sizeof(visitor));
+	visitor.context = &clone_context;
+	visitor.relation = sqlparser_oracle_dblink_clone_visit;
+	status = sqlparser_dialect_ast_surface_clone(
+		source_root,
+		(ProtobufCMessage *)clone_root,
+		&visitor,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		while (state->dblink_count > original_count) {
+			state->dblink_count--;
+			sqlparser_oracle_dblink_relation_clear(
+				&state->dblink_relations[state->dblink_count]);
+		}
+		if (status == SQLPARSER_STATUS_INTERNAL_ERROR) {
+			sqlparser_error_set_message(
+				out_error,
+				status,
+				"cloned Oracle database-link AST shape is inconsistent");
+		}
+	}
+	return status;
+}
+
+static sqlparser_status_t sqlparser_oracle_bind_ast_state(
+	void *state,
+	const PgQuery__ParseResult *ast,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_oracle_state_t *oracle_state;
+	sqlparser_status_t status;
+
+	if (state == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	oracle_state = (sqlparser_oracle_state_t *)state;
+	if (ast == NULL) {
+		sqlparser_dialect_prepared_binds_clear(
+			&oracle_state->prepared_binds);
+	}
+	status = sqlparser_dialect_national_literals_bind_ast(
+		&oracle_state->national_literals,
+		ast,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_dialect_minuses_bind_ast(
+			&oracle_state->minuses, ast, out_error);
+	}
+	return status == SQLPARSER_STATUS_OK ?
+		sqlparser_oracle_bind_dblink_state(
+			oracle_state,
+			ast,
+			0U,
+			NULL,
+			0U,
+			ast != NULL,
+			out_error) :
+		status;
+}
+
+static sqlparser_status_t sqlparser_oracle_bind_fragment_ast_state(
+	void *state,
+	const PgQuery__ParseResult *base_ast,
+	size_t statement_index,
+	size_t parser_fragment_offset,
+	ProtobufCMessage *const *roots,
+	size_t root_count,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_oracle_state_t *oracle_state;
+	sqlparser_status_t status;
+
+	(void)parser_fragment_offset;
+	if (state == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	oracle_state = (sqlparser_oracle_state_t *)state;
+	status = sqlparser_dialect_national_literals_bind_fragment(
+		&oracle_state->national_literals,
+		base_ast,
+		roots,
+		root_count,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_dialect_minuses_bind_fragment(
+			&oracle_state->minuses,
+			base_ast,
+			roots,
+			root_count,
+			out_error);
+	}
+	return status == SQLPARSER_STATUS_OK ?
+		sqlparser_oracle_bind_dblink_state(
+			oracle_state,
+			base_ast,
+			statement_index,
+			roots,
+			root_count,
+			1,
+			out_error) :
+		status;
+}
+
+static void sqlparser_oracle_reconcile_ast_state(
+	void *state,
+	const PgQuery__ParseResult *ast)
+{
+	if (state != NULL) {
+		sqlparser_oracle_state_t *oracle_state;
+
+		oracle_state = (sqlparser_oracle_state_t *)state;
+		sqlparser_dialect_reconcile_binds(
+			&oracle_state->prepared_binds,
+			&oracle_state->bind_names,
+			&oracle_state->bind_count,
+			&oracle_state->bind_capacity,
+			&oracle_state->bind_occurrence_count);
+		sqlparser_dialect_national_literals_reconcile(
+			&oracle_state->national_literals,
+			ast);
+		sqlparser_dialect_minuses_reconcile(
+			&oracle_state->minuses, ast);
+		sqlparser_oracle_reconcile_dblink_state(oracle_state, ast);
+	}
+}
+
+static sqlparser_status_t sqlparser_oracle_clone_ast_state(
+	void *state,
+	size_t statement_index,
+	const ProtobufCMessage *source_root,
+	const ProtobufCMessage *clone_root,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_oracle_state_t *oracle_state;
+	sqlparser_status_t status;
+	size_t original_minus_count;
+	size_t original_national_count;
+
+	(void)statement_index;
+	if (state == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	oracle_state = (sqlparser_oracle_state_t *)state;
+	original_minus_count = oracle_state->minuses.count;
+	original_national_count = oracle_state->national_literals.count;
+	status = sqlparser_dialect_minuses_clone_owners(
+		&oracle_state->minuses,
+		source_root,
+		clone_root,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_dialect_national_literals_clone_owners(
+			&oracle_state->national_literals,
+			source_root,
+			clone_root,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_oracle_clone_dblink_owners(
+			oracle_state, source_root, clone_root, out_error);
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		oracle_state->minuses.count = original_minus_count;
+		while (oracle_state->national_literals.count >
+		       original_national_count) {
+			oracle_state->national_literals.count--;
+			free(oracle_state->national_literals.items[
+				oracle_state->national_literals.count].sql);
+			free(oracle_state->national_literals.items[
+				oracle_state->national_literals.count].surface_sql);
+		}
+	}
+	return status;
+}
+
+static sqlparser_status_t sqlparser_oracle_prepare_ast_state(
+	void *state,
+	PgQuery__ParseResult *ast,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_oracle_state_t *oracle_state;
+
+	if (state == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	oracle_state = (sqlparser_oracle_state_t *)state;
+	return sqlparser_dialect_prepare_binds(
+		oracle_state->bind_names,
+		oracle_state->bind_count,
+		ast,
+		&oracle_state->prepared_binds,
+		out_error);
+}
+
 static const sqlparser_dialect_ops_t SQLPARSER_ORACLE_OPS = {
 	SQLPARSER_DIALECT_ORACLE,
 	"oracle",
@@ -7925,10 +8395,15 @@ static const sqlparser_dialect_ops_t SQLPARSER_ORACLE_OPS = {
 	NULL,
 	sqlparser_oracle_relation_object_name,
 	sqlparser_oracle_relation_link_name,
+	sqlparser_oracle_postprocess_fragment,
 	NULL,
 	NULL,
-	NULL,
-	sqlparser_oracle_project_session
+	sqlparser_oracle_project_session,
+	sqlparser_oracle_bind_ast_state,
+	sqlparser_oracle_bind_fragment_ast_state,
+	sqlparser_oracle_reconcile_ast_state,
+	sqlparser_oracle_clone_ast_state,
+	sqlparser_oracle_prepare_ast_state
 };
 
 const sqlparser_dialect_ops_t *sqlparser_dialect_oracle_ops(void)

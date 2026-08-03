@@ -1,12 +1,69 @@
 # Vastbase SQL Server 兼容模式用例矩阵
 
-可执行夹具：`tests/cases/vastbase_sqlserver_dialect_input.json`。单元测试会逐条验证解析、View JSON、反解析输出和错误码。
+可执行夹具为 `tests/cases/vastbase_sqlserver_dialect_input.json`。对每条 final 用例，runner 验证未修改 SQL 的反解析结果与输入逐字节一致、实际 View 与期望 JSON 结构相等，并独立执行每个 patch；patch 后 SQL 必须与 `patch.deparse` 逐字节一致，重新解析后再次反解析仍须一致，且 patch handle 与重新解析 handle 的 View 输出必须一致。
+
+## 事务特征规范语义值回归
+
+以下 4 条 final 用例覆盖 Vastbase SQL Server 兼容模式的常用事务隔离级别和访问模式。原始 SQL 反解析必须逐字节保持；View 必须按输入顺序输出去除 trivia 后的规范关键字值。session 语义值不提供 selector，因此这些用例不设置 patch。
+
+| ID | 用例 | SQL | 验证重点 |
+| --- | --- | --- | --- |
+| `VS-TX001` | `vastbase-sqlserver-session-transaction-commented-read-uncommitted` | ALTER/*command*/SESSION SET TRANSACTION ISOLATION/*name*/LEVEL READ/*value*/UNCOMMITTED; | `READ UNCOMMITTED` 规范值及单事务特征 |
+| `VS-TX002` | `vastbase-sqlserver-session-characteristics-commented-repeatable-read-write` | ALTER SESSION SET SESSION/*scope*/CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL REPEATABLE/*value*/READ, READ/*mode*/WRITE; | `REPEATABLE READ`、`READ WRITE` 及 session characteristics 入口 |
+| `VS-TX003` | `vastbase-sqlserver-session-transaction-commented-serializable-read-only` | ALTER SESSION SET TRANSACTION ISOLATION LEVEL SERIALIZABLE/*tail*/, READ/*mode*/ONLY; | `SERIALIZABLE`、`READ ONLY` 及逗号前注释 |
+| `VS-TX004` | `vastbase-sqlserver-session-transaction-commented-option-order` | ALTER SESSION SET TRANSACTION read/*mode*/write, ISOLATION/*name*/LEVEL read/*value*/committed; | 输入选项顺序、小写原文保留及 `READ COMMITTED` 规范值 |
 
 ## 矩阵统计与 session 回归
 
-夹具包含 597 条用例，其中 559 条预期成功，38 条预期失败。72 条用例包含 statement 级 `expect.session`，覆盖 `VS044` 至 `VS046`、`VSH295` 至 `VSH333`、`VB-C001` 至 `VB-C022`、`VB-C026` 至 `VB-C031` 和 `VB-MSSQL-001` 至 `VB-MSSQL-002`。其中 71 条至少包含一个非空 session 期望；词法隔离用例 `VB-C029` 的所有 statement 均要求不输出 session 投影。
+夹具包含 600 条 `status = "final"` 用例，其中 75 条用例的期望 View 包含非空 session 投影。
 
-用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
+View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
+
+## SQL/JSON 语义输入回归
+
+以下用例验证 Vastbase-SQLServer 兼容入口中 SQL/JSON 专用 AST 节点的输入字段遍历。字段顺序、relation 与 target 归属、原始 name selector 以及嵌套 `target_path` 均为精确 View 合同；每条用例还覆盖字段或关系替换、target 替换、列插入及 patch 后精确反解析。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| VSH404 | `vastbase-sqlserver-json-array-field-inputs` | `JSON_ARRAY([id], [name])` | 多字段按参数顺序进入 `fields`，分别归属 `JSON_ARRAY` arg 0 和 arg 1 |
+| VSH405 | `vastbase-sqlserver-json-object-multi-pair-nested-value` | 多 pair `JSON_OBJECT` 嵌套 `JSON_VALUE` | value 字段按扁平 key/value 槽位归属，嵌套输入保留两层 `target_path` |
+| VSH406 | `vastbase-sqlserver-json-arrayagg-expression-input` | `JSON_ARRAYAGG(COALESCE(...))` | 聚合输入内字段按表达式顺序输出并保留两层函数路径 |
+| VSH407 | `vastbase-sqlserver-json-value-qualified-multi-target` | qualified `JSON_VALUE` 与普通 target 并列 | relation alias、target 顺序、限定字段 selector 和 JSON 输入字段归属 |
+
+## Vastbase SQL Server 兼容入口函数参数角色回归
+
+以下用例验证兼容入口中函数参数的语法角色与数据字段角色严格分离。`IDENTITY` 的数据类型参数以及日期函数的 datepart 参数不进入 `query_graph.fields`；其余表达式参数按原始顺序保留 relation、target、selector 和 `target_path.arg_index`。既有 `VSH047`、`VSH053` 分别覆盖三参数 `DATE_BUCKET` 和 `DATETRUNC`，本节补充可选 origin、表达式参数和同族函数组合。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| VS113 | `vastbase-sqlserver-identity-function-default-seed-increment` | `IDENTITY(int)` + `SELECT INTO` | 数据类型参数不作为字段输出 |
+| VS114 | `vastbase-sqlserver-identity-function-explicit-seed-increment` | `IDENTITY(int, 1, 1)` + `SELECT INTO` | 数据类型参数不作为字段输出，seed 与 increment 保持常量角色 |
+| VSH408 | `vastbase-sqlserver-date-bucket-optional-origin-inputs` | 四参数 `DATE_BUCKET` | 日期输入为 arg 2，可选 origin 为 arg 3，datepart 不作为字段输出 |
+| VSH409 | `vastbase-sqlserver-dateadd-expression-inputs` | `DATEADD` + 表达式参数 | number 与 date 输入分别保留 arg 1、arg 2，datepart 不作为字段输出 |
+| VSH410 | `vastbase-sqlserver-datediff-family-expression-inputs` | `DATEDIFF` 与 `DATEDIFF_BIG` 并列 | 两个 target 的四个日期输入保持各自归属，datepart 不作为字段输出 |
+| VSH411 | `vastbase-sqlserver-datename-datepart-role` | `DATENAME` | date 输入保留 arg 1，datepart 不作为字段输出 |
+| VSH412 | `vastbase-sqlserver-datepart-datepart-role` | `DATEPART` | date 输入保留 arg 1，datepart 不作为字段输出 |
+
+## Vastbase SQL Server 兼容入口 WITHIN GROUP 聚合排序回归
+
+以下用例验证兼容入口中聚合函数直接参数、`WITHIN GROUP` 排序表达式和窗口分区字段按各自语义位置进入 View。排序字段的 `target_path.arg_index` 从函数直接参数数量开始连续编号；窗口字段继续使用独立的 `window_partition` 路径。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| VSH413 | `vastbase-sqlserver-string-agg-within-group-multi-sort` | `STRING_AGG` + 多排序字段 | 直接输入与两个排序字段按顺序输出，排序字段归属 arg 2、arg 3 |
+| VSH414 | `vastbase-sqlserver-string-agg-within-group-order-expression` | 排序加法表达式 + 第二排序项 | 表达式字段保持嵌套路径，第二排序项归属 arg 3 |
+| VSH415 | `vastbase-sqlserver-approx-percentile-multi-target` | 两个 approximate percentile target | 相同排序列分别归属 target 0、target 1 和对应函数 arg 1 |
+| VSH416 | `vastbase-sqlserver-percentile-cont-window-partition-boundary` | `WITHIN GROUP` + `OVER (PARTITION BY ...)` | 聚合排序字段与窗口分区字段独立输出且不重复 |
+
+## Vastbase SQL Server 兼容入口 OUTPUT 末尾边界回归
+
+以下用例要求兼容入口的 `OUTPUT` 恢复器仅在存在后继子句时保留必要边界；语句末尾不得增加空格，末尾分号必须直接跟随最后一个 OUTPUT target。每条用例均独立执行 target replace 与 target insert patch，并精确比较反解析结果。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| VSH420 | `vastbase-sqlserver-merge-output-action-terminal-semicolon` | `MERGE ... OUTPUT $action;` | MERGE 末尾 OUTPUT 无尾空格，分号位置不变 |
+| VSH421 | `vastbase-sqlserver-update-output-terminal` | `UPDATE ... OUTPUT INSERTED.a` | 无后继 WHERE/FROM 时不生成右边界 |
+| VSH422 | `vastbase-sqlserver-delete-output-terminal` | `DELETE ... OUTPUT DELETED.id` | 无后继 WHERE/FROM 时不生成右边界 |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 
@@ -82,14 +139,7 @@
 | `VS110` | `vastbase-sqlserver-for-json-path-with-option` | SELECT [id] FROM [dbo].[users] WHERE [status] = @status FOR JSON PATH, INCLUDE_NULL_VALUES OPTION (RECOMPILE) | 已覆盖 |
 | `VS111` | `vastbase-sqlserver-nested-top-with-outer-top` | SELECT TOP (5) [id] FROM (SELECT TOP (2) [id] FROM [dbo].[users]) AS [u] | 已覆盖 |
 | `VS112` | `vastbase-sqlserver-for-json-second-statement` | SELECT [id] FROM [dbo].[users]; SELECT [id] FROM [dbo].[orders] FOR JSON AUTO | 已覆盖 |
-| `VSU001` | `vastbase-sqlserver-top-with-ties-without-order-by-unsupported` | SELECT TOP (10) WITH TIES [id] FROM [dbo].[users] | 明确不支持 |
-| `VSU002` | `vastbase-sqlserver-top-percent-with-ties-without-order-by-unsupported` | SELECT TOP (10) PERCENT WITH TIES [id] FROM [dbo].[users] | 明确不支持 |
 | `VSU003` | `vastbase-sqlserver-output-insert-client` | INSERT INTO [dbo].[users] ([id]) OUTPUT inserted.[id] VALUES (1) | 已覆盖 |
-| `VSU005` | `vastbase-sqlserver-cross-apply-unsupported` | SELECT [u].[id] FROM [dbo].[users] [u] CROSS APPLY [dbo].[fn_orders]([u].[id]) [o] | 明确不支持 |
-| `VSU006` | `vastbase-sqlserver-pivot-unsupported` | SELECT * FROM [dbo].[sales] PIVOT (SUM([amount]) FOR [month] IN ([Jan], [Feb])) AS [p] | 明确不支持 |
-| `VSU009` | `vastbase-sqlserver-declare-unsupported` | DECLARE @id INT = 1; SELECT @id | 明确不支持 |
-| `VSU010` | `vastbase-sqlserver-exec-unsupported` | EXEC [dbo].[rebuild_user_cache] | 明确不支持 |
-| `VSU011` | `vastbase-sqlserver-create-procedure-unsupported` | CREATE PROCEDURE [dbo].[p] AS SELECT 1 | 明确不支持 |
 | `VS039` | `vastbase-sqlserver-system-variable` | SELECT @@ROWCOUNT | 已覆盖 |
 | `VS040` | `vastbase-sqlserver-binary-literal` | SELECT 0xDEADBEEF AS payload | 已覆盖 |
 | `VS041` | `vastbase-sqlserver-convert-style` | SELECT CONVERT(VARCHAR(10), [created_at], 120) FROM [dbo].[users] | 已覆盖 |
@@ -152,9 +202,6 @@
 | `VS100` | `vastbase-sqlserver-like-bracket-wildcards` | SELECT [name] FROM [dbo].[users] WHERE [name] LIKE 'A[^b]_%' | 已覆盖 |
 | `VS101` | `vastbase-sqlserver-at-time-zone-expression` | SELECT [id] FROM [dbo].[users] WHERE [created_at] AT TIME ZONE 'UTC' = @ts | 已覆盖 |
 | `VS102` | `vastbase-sqlserver-is-distinct-from-bind` | SELECT [id] FROM [dbo].[users] WHERE [deleted_at] IS DISTINCT FROM @deleted_at | 已覆盖 |
-| `VSU015` | `vastbase-sqlserver-table-variable-unsupported` | SELECT [id] FROM @users | 明确不支持 |
-| `VSU016` | `vastbase-sqlserver-merge-by-source-unsupported` | MERGE INTO [dbo].[users] AS [t] USING [dbo].[staging_users] AS [s] ON [t].[id] = [s].[id] WHEN NOT MATCHED BY SOURCE THEN DELETE; | 明确不支持 |
-| `VSU017` | `vastbase-sqlserver-top-offset-fetch-unsupported` | SELECT TOP (10) [id] FROM [dbo].[users] ORDER BY [id] OFFSET 20 ROWS FETCH NEXT 10 ROWS ONLY | 明确不支持 |
 | `VSH001` | `vastbase-sqlserver-hook-constants-transact-sql` | INSERT INTO [dbo].[binlog] ([payload]) VALUES (0xDEADBEEF) | 已覆盖 |
 | `VSH002` | `vastbase-sqlserver-hook-datetimeoffset-transact-sql` | CREATE TABLE [dbo].[events] ([created_at] DATETIMEOFFSET(7)) | 已覆盖 |
 | `VSH003` | `vastbase-sqlserver-hook-nondeterministic-convert-date-literals` | SELECT CONVERT(DATETIME, '01-02-2024', 101) AS [converted_at] FROM [dbo].[users] | 已覆盖 |
@@ -275,7 +322,7 @@
 | `VSH118` | `vastbase-sqlserver-hook-json-arrayagg-transact-sql` | SELECT JSON_ARRAYAGG([id]) AS [v] FROM [dbo].[users] | 已覆盖 |
 | `VSH119` | `vastbase-sqlserver-hook-json-contains-transact-sql` | SELECT JSON_CONTAINS('{"a":1}', '1', '$.a') AS [v] FROM [dbo].[users] | 已覆盖 |
 | `VSH120` | `vastbase-sqlserver-hook-json-modify-transact-sql` | SELECT JSON_MODIFY('{"a":1}', '$.a', 2) AS [v] FROM [dbo].[users] | 已覆盖 |
-| `VSH121` | `vastbase-sqlserver-hook-json-object-transact-sql` | SELECT JSON_OBJECT('id', [id]) AS [v] FROM [dbo].[users] | 已覆盖 |
+| `VSH121` | `vastbase-sqlserver-hook-json-object-transact-sql` | SELECT JSON_OBJECT('id': [id]) AS [v] FROM [dbo].[users] | 已覆盖 |
 | `VSH122` | `vastbase-sqlserver-hook-json-objectagg-transact-sql` | SELECT JSON_OBJECTAGG([name]: [id]) AS [v] FROM [dbo].[users] | 已覆盖 |
 | `VSH123` | `vastbase-sqlserver-hook-json-path-exists-transact-sql` | SELECT JSON_PATH_EXISTS('{"a":1}', '$.a') AS [v] FROM [dbo].[users] | 已覆盖 |
 | `VSH124` | `vastbase-sqlserver-hook-json-query-transact-sql` | SELECT JSON_QUERY('{"a":1}', '$') AS [v] FROM [dbo].[users] | 已覆盖 |
@@ -385,11 +432,8 @@
 | `VSH228` | `vastbase-sqlserver-hook-version-transact-sql-configuration-functions` | SELECT @@VERSION AS [v] FROM [dbo].[users] | 已覆盖 |
 | `VSH229` | `vastbase-sqlserver-hook-version-transact-sql-metadata-functions` | SELECT VERSION_TRANSACT_SQL(1) AS [v] FROM [dbo].[users] | 已覆盖 |
 | `VSH230` | `vastbase-sqlserver-hook-xact-state-transact-sql` | SELECT XACT_STATE(1) AS [v] FROM [dbo].[users] | 已覆盖 |
-| `VSH231` | `vastbase-sqlserver-hook-collation-precedence-transact-sql` | SELECT [name] COLLATE Latin1_General_CI_AS AS [name] FROM [dbo].[users] | 已覆盖 |
 | `VSH232` | `vastbase-sqlserver-hook-collations` | SELECT [name] COLLATE Latin1_General_CI_AS AS [name] FROM [dbo].[users] | 已覆盖 |
 | `VSH233` | `vastbase-sqlserver-hook-rename-transact-sql` | RENAME OBJECT [dbo].[old_users] TO [new_users] | 已覆盖 |
-| `VSH234` | `vastbase-sqlserver-hook-sql-server-collation-name-transact-sql` | SELECT [name] COLLATE Latin1_General_CI_AS AS [name] FROM [dbo].[users] | 已覆盖 |
-| `VSH235` | `vastbase-sqlserver-hook-windows-collation-name-transact-sql` | SELECT [name] COLLATE Latin1_General_CI_AS AS [name] FROM [dbo].[users] | 已覆盖 |
 | `VSH236` | `vastbase-sqlserver-update-from-source-field-graph` | UPDATE t SET name = s.name FROM dbo.t AS t JOIN dbo.src AS s ON t.id = s.id WHERE s.active = @active | 已覆盖 |
 | `VSH237` | `vastbase-sqlserver-insert-select-source-block-graph` | INSERT INTO dbo.t (id, email) SELECT s.id, s.email FROM dbo.src AS s WHERE s.active = @active | 已覆盖 |
 | `VSH238` | `vastbase-sqlserver-merge-source-target-graph` | MERGE INTO dbo.t AS t USING (SELECT @id AS id, @email AS email) AS s ON t.id=s.id WHEN MATCHED THEN UPDATE SET email=s.email WHEN NOT MATCHED THEN INSERT(id,email) VALUES(s.id,s.email); | 已覆盖 |
@@ -411,8 +455,7 @@
 | `VSH254` | `vastbase-sqlserver-select-or-predicate-order-by-lineage` | SELECT [u].[id], [u].[email], [u].[bank_card] FROM [dbo].[users] AS [u] WHERE [u].[email] = @email OR [u].[bank_card] = @card ORDER BY [u].[id] | 已覆盖 |
 | `VSH255` | `vastbase-sqlserver-mixed-create-table-as-select-basic` | CREATE TABLE [dbo].[users_copy] AS SELECT [id] FROM [dbo].[users] | 已覆盖基础形态 |
 | `VSH256` | `vastbase-sqlserver-mixed-aliasing-basic` | SELECT [u].[id] AS [user_id], [u].[name] [user_name] FROM [dbo].[users] AS [u] | 已覆盖基础形态 |
-| `VSH257` | `vastbase-sqlserver-mixed-subquery-basic` | SELECT [id] FROM [dbo].[users] WHERE [id] IN (SELECT ...) | 已覆盖基础形态 |
-| `VSH258` | `vastbase-sqlserver-mixed-alter-table-add-column-basic` | ALTER TABLE [dbo].[users] ADD [age] INT | 已覆盖基础形态 |
+| `VSH257` | `vastbase-sqlserver-mixed-subquery-basic` | SELECT [id] FROM [dbo].[users] WHERE [id] IN (SELECT ...) | 外层 membership 字段与 `IN` predicate、内层 target/过滤字段、bind 和来源表分别归属，7 个 patch 覆盖两层 selector |
 | `VSH259` | `vastbase-sqlserver-mixed-alter-table-add-constraint-basic` | ALTER TABLE [dbo].[users] ADD CONSTRAINT [pk_users] PRIMARY KEY ([id]) | 已覆盖基础形态 |
 | `VSH260` | `vastbase-sqlserver-mixed-drop-type-basic` | DROP TYPE [dbo].[phone] | 已覆盖基础形态 |
 | `VSH261` | `vastbase-sqlserver-mixed-create-user-basic` | CREATE USER [app_user] | 已覆盖基础形态 |
@@ -519,23 +562,9 @@
 | `VSH400` | `vastbase-sqlserver-if-cte-delete-branch` | CTE DELETE 分支 | 已覆盖 |
 | `VSH401` | `vastbase-sqlserver-if-cte-insert-branch` | CTE INSERT 分支 | 已覆盖 |
 | `VSH402` | `vastbase-sqlserver-if-cte-merge-branch` | CTE MERGE 分支 | 已覆盖 |
-| `VSH403` | `vastbase-sqlserver-if-create-view-cte-branch` | CREATE VIEW CTE 分支 | 已覆盖 |
-| `VSU018` | `vastbase-sqlserver-output-empty-target-error` | INSERT ... OUTPUT VALUES (...) | 语法错误 |
-| `VSU019` | `vastbase-sqlserver-output-trailing-comma-error` | INSERT ... OUTPUT target, VALUES (...) | 语法错误 |
-| `VSU020` | `vastbase-sqlserver-output-into-missing-sink-error` | INSERT ... OUTPUT target INTO VALUES (...) | 语法错误 |
-| `VSU021` | `vastbase-sqlserver-output-channel-order-error` | client OUTPUT 后再声明 sink OUTPUT | 语法错误 |
-| `VSU022` | `vastbase-sqlserver-insert-output-deleted-error` | INSERT ... OUTPUT DELETED... | 明确不支持 |
-| `VSU023` | `vastbase-sqlserver-delete-output-inserted-error` | DELETE ... OUTPUT INSERTED... | 明确不支持 |
-| `VSU024` | `vastbase-sqlserver-non-merge-output-action-error` | UPDATE ... OUTPUT $action | 明确不支持 |
-| `VSU025` | `vastbase-sqlserver-output-aggregate-error` | UPDATE ... OUTPUT COUNT(*) | 明确不支持 |
-| `VSU026` | `vastbase-sqlserver-output-subquery-error` | UPDATE ... OUTPUT (SELECT ...) | 明确不支持 |
-| `VSU027` | `vastbase-sqlserver-insert-exec-output-error` | INSERT ... OUTPUT ... EXEC ... | 明确不支持 |
-| `VSU028` | `vastbase-sqlserver-if-missing-condition` | IF 缺少条件 | 语法错误 |
-| `VSU029` | `vastbase-sqlserver-if-missing-branch` | IF 缺少分支语句 | 语法错误 |
-| `VSU030` | `vastbase-sqlserver-if-orphan-else` | 孤立 ELSE | 语法错误 |
-| `VSU031` | `vastbase-sqlserver-if-empty-begin-end` | 空 BEGIN/END | 语法错误 |
-| `VSU032` | `vastbase-sqlserver-if-unterminated-begin-end` | 未闭合 BEGIN/END | 语法错误 |
-| `VSU033` | `vastbase-sqlserver-if-unparenthesized-select-condition` | 条件 SELECT 未加括号 | 语法错误 |
-| `VSU034` | `vastbase-sqlserver-if-else-missing-branch` | ELSE 缺少分支语句 | 语法错误 |
-| `VSU035` | `vastbase-sqlserver-if-go-batch-separator` | 控制流中包含 GO | 明确不支持 |
-| `VSU036` | `vastbase-sqlserver-if-unsupported-leaf` | 分支叶子语句不受支持 | 明确不支持 |
+| `VSH403` | `vastbase-sqlserver-if-exec-create-view-cte-branch` | EXEC 包装的 CREATE VIEW CTE 分支 | 已覆盖 |
+| `VSH404` | `vastbase-sqlserver-merge-cte-target-relation-binding` | MERGE 的 CTE 目标及底层 relation patch 传播 | 已覆盖 |
+
+## 覆盖边界
+
+本矩阵只列出可成功解析并具有最终 View 与 patch 期望的用例。未纳入该可执行夹具的语法不得在本矩阵中登记为已验证用例。

@@ -235,6 +235,7 @@ Bind-field rules:
 | `SQLPARSER_CLAUSE_KIND_HAVING` | `having` | HAVING condition |
 | `SQLPARSER_CLAUSE_KIND_DML_RESULT` | `dml_result` | DML result target list |
 | `SQLPARSER_CLAUSE_KIND_CONDITION` | `condition` | control-flow condition expression |
+| `SQLPARSER_CLAUSE_KIND_WINDOW_PARTITION` | `window_partition` | PARTITION BY list in a named window definition |
 
 `sqlparser_graph_dml_result_kind_t`:
 
@@ -402,6 +403,8 @@ sqlparser_control_item_at(&flow, root_item_index, &root, &err);
 | `sqlparser_statement_relation()` | reads one relation |
 | `sqlparser_statement_set_relation_name()` | rewrites the schema or table name of one relation |
 
+For a relation without an explicit alias, a name rewrite also updates qualified column references, qualified stars, and qualified assignment targets that scope resolution binds uniquely to that relation. Explicit aliases, same-scope ambiguity, inner-scope shadowing, and SQL Server pseudo-relations such as `INSERTED` and `DELETED` remain unchanged. Existing qualifier depth may contract with a shorter relation path but does not expand when the new path is longer. A relation-selector replace follows the same rules.
+
 ### Name
 
 | Function | Summary |
@@ -450,7 +453,7 @@ payloads, are not exposed as names.
 | `sqlparser_select_target_list_count()` | returns the number of SELECT target lists in a statement |
 | `sqlparser_select_target_count()` | returns the number of targets in one target list |
 | `sqlparser_select_target_sql()` | reads one output target as SQL |
-| `sqlparser_select_set_target_sql()` | replaces one output target SQL |
+| `sqlparser_select_set_target_sql()` | replaces one output position with complete target SQL; the previous target alias is not inherited; a multi-target fragment is spliced at that position |
 | `sqlparser_select_set_targets_sql()` | replaces the full SELECT output list |
 | `sqlparser_select_insert_target_sql()` | inserts one output target |
 | `sqlparser_select_delete_target()` | deletes one output target |
@@ -571,7 +574,7 @@ no condition selector.
 
 | Function | Summary |
 | --- | --- |
-| `sqlparser_selector_set_relation_name()` | rewrites a relation name |
+| `sqlparser_selector_set_relation_name()` | rewrites a relation name using the generic relation-binding rules |
 | `sqlparser_selector_set_name()` | rewrites a name atom |
 | `sqlparser_selector_set_literal()` | rewrites a literal |
 | `sqlparser_selector_set_where_literal()` | rewrites a WHERE literal |
@@ -587,7 +590,7 @@ no condition selector.
 | `sqlparser_selector_set_update_assignment_full_sql()` | replaces a full `SET` assignment |
 | `sqlparser_selector_set_insert_cell_literal()` | rewrites INSERT cell literal |
 | `sqlparser_selector_set_insert_cell_sql()` | rewrites INSERT cell right-hand SQL |
-| `sqlparser_selector_set_select_target_sql()` | rewrites one SELECT output target |
+| `sqlparser_selector_set_select_target_sql()` | replaces one SELECT output position with complete target SQL; the previous target alias is not inherited; a multi-target fragment is spliced at that position |
 | `sqlparser_selector_set_select_targets_sql()` | rewrites a full SELECT output list |
 | `sqlparser_selector_replace_select_target_with_columns()` | replaces one SELECT output target with structured column targets |
 
@@ -689,13 +692,13 @@ from which it was read.
 | `sqlparser_query_graph_relation_at()` | reads a relation |
 | `sqlparser_query_graph_target_at()` | reads a SELECT target |
 | `sqlparser_query_graph_field_at()` | reads a field occurrence |
-| `sqlparser_query_graph_value_at()` | reads a field-bound value |
+| `sqlparser_query_graph_value_at()` | reads a query graph value |
 | `sqlparser_query_graph_set_at()` | reads a set-operation node |
 | `sqlparser_query_graph_predicate_at()` | reads a WHERE/ON/HAVING predicate node |
 | `sqlparser_query_graph_session()` | reads the statement session-state action |
 | `sqlparser_query_graph_session_item_at()` | reads a session-state target |
 | `sqlparser_query_graph_session_value_at()` | reads a session-state value |
-| `sqlparser_query_graph_dml()` | reads the root DML write shape |
+| `sqlparser_query_graph_dml()` | reads DML index 0 for the current statement |
 | `sqlparser_query_graph_dml_count()` | reads the DML count for the current statement |
 | `sqlparser_query_graph_dml_at()` | reads a DML by zero-based index |
 | `sqlparser_query_graph_dml_parent()` | reads the parent DML index for a nested DML |
@@ -716,7 +719,7 @@ from which it was read.
 | `sqlparser_graph_relation_t` | base, derived, CTE, or dual relation visible in SQL |
 | `sqlparser_graph_target_t` | SELECT output target with output order, star source, and selector |
 | `sqlparser_graph_field_t` | field-reference occurrence visible in SQL |
-| `sqlparser_graph_value_t` | literal, bind, default, or expression associated with a field |
+| `sqlparser_graph_value_t` | literal, bind, default, expression, or field value in the query graph |
 | `sqlparser_graph_set_t` | `UNION`, `UNION ALL`, `INTERSECT`, or `EXCEPT/MINUS` branches |
 | `sqlparser_graph_predicate_t` | comparison, boolean, EXISTS, or expression predicate from WHERE, ON, or HAVING |
 | `sqlparser_graph_session_t` | statement session-state action and item count |
@@ -750,15 +753,17 @@ from which it was read.
   `left_field_index + value_index`. A `field = field` predicate is represented
   by `left_field_index + right_field_index`, with a `values[]` entry whose kind
   is `SQLPARSER_GRAPH_VALUE_FIELD` for the right-side source field.
-- If an unqualified field cannot be uniquely attributed from SQL text alone,
+- If a field reference cannot be uniquely attributed from SQL text alone,
   `has_relation` is `0` and `candidate_relations` lists relation candidates in
   the current scope.
 - `sqlparser_graph_dml_t.insert_mode` distinguishes `VALUES`, `SELECT`,
   `INSERT ALL`, `INSERT FIRST`, MySQL `INSERT ... SET`, and the MySQL `REPLACE`
   `VALUES`, `SELECT`, and `SET` forms.
 - `sqlparser_query_graph_dml_count()` and `sqlparser_query_graph_dml_at()`
-  traverse multiple DML nodes in one statement; `sqlparser_query_graph_dml()`
-  continues to read the root DML.
+  traverse every DML node in one statement. `sqlparser_query_graph_dml()` is a
+  compatibility shorthand for index 0. Multiple parentless DML nodes can
+  coexist; use `sqlparser_query_graph_dml_parent()` to distinguish roots from
+  nested nodes.
 - `sqlparser_query_graph_dml_parent()` reports nested DML parentage. A DML
   without a parent returns `out_has_parent = 0`.
 - `sqlparser_graph_dml_result_t.kind` distinguishes client and sink channels.
@@ -796,9 +801,25 @@ from which it was read.
   `SQLPARSER_GRAPH_VALUE_FIELD` and `has_source_field/source_field_index`
   points to the source field. If that source field uniquely matches a derived
   source-query output, `has_source_target/source_target_index` is set as well.
-- `values[]` contains only application-side values associated with fields or SELECT targets.
-  `LIMIT/OFFSET`, `ROWNUM`, and other pagination or pseudo-column binds are
-  intentionally excluded.
+- The `rhs_fields`, `rhs_values`, and `rhs_blocks` spans are used only when
+  `sqlparser_graph_dml_assignment_t.value_kind` is
+  `SQLPARSER_GRAPH_VALUE_EXPRESSION`. `rhs_fields` and `rhs_values` own field
+  and value occurrences from the right-hand expression in the current
+  assignment block. `rhs_blocks` owns entry blocks for subqueries reachable
+  from that expression without crossing another subquery boundary. Read every
+  span index with `sqlparser_query_graph_span_index_at()`, then pass it to
+  `sqlparser_query_graph_field_at()`, `sqlparser_query_graph_value_at()`, or
+  `sqlparser_query_graph_block_at()` as appropriate. Traverse an entry block
+  to reach the subquery's internal semantics.
+- For `SQLPARSER_GRAPH_VALUE_FIELD`, `SQLPARSER_GRAPH_VALUE_LITERAL`,
+  `SQLPARSER_GRAPH_VALUE_BIND`, and `SQLPARSER_GRAPH_VALUE_DEFAULT`, the
+  assignment retains its existing payload and all three `rhs_*` spans have a
+  `count` of `0`.
+- `values[]` contains application-side values associated with fields or SELECT
+  targets, together with literal, bind, and default occurrences owned by
+  `rhs_values` for a compound DML assignment. A value owned only through
+  `rhs_values` need not have an associated field. `LIMIT/OFFSET`, `ROWNUM`, and
+  other pagination or pseudo-column binds remain excluded.
 - `sqlparser_graph_value_t.field_match_kind` is meaningful only when
   `has_field` is true. It distinguishes direct-field predicates such as
   `secret = ?` from expression-field predicates such as `UPPER(secret) = ?`.
@@ -808,9 +829,12 @@ from which it was read.
   pattern-match semantics without comparing `operator_name` strings.
 - If the field side contains multiple attributable fields, each field gets a
   separate `expression_field` value relation.
-- If the value side is a function, cast, operator, array, row, or CASE
-  expression, the related field value uses `SQLPARSER_GRAPH_VALUE_EXPRESSION`;
-  inner binds and literals are not exposed as direct values.
+- For a predicate whose value side is a function, cast, operator, array, row,
+  or CASE expression, the related field value uses
+  `SQLPARSER_GRAPH_VALUE_EXPRESSION`; inner binds and literals from that
+  predicate expression are not exposed as direct values. This restriction does
+  not apply to a compound DML assignment right-hand expression, whose inner
+  values are owned through `rhs_values`.
 - When `LIKE`, `NOT LIKE`, `ILIKE`, or `NOT ILIKE` has an explicit `ESCAPE`,
   the pattern `sqlparser_graph_value_t.like_escape` stores the escape shape.
   Without an explicit `ESCAPE`, the kind is `SQLPARSER_GRAPH_LIKE_ESCAPE_NONE`.

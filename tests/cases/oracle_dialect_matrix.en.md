@@ -1,20 +1,17 @@
 # Oracle Dialect Case Matrix
 
-This file records regression cases for the Oracle dialect conversion layer. The executable fixture is `tests/cases/oracle_dialect_input.json`; `tests/unit/test_oracle_dialect_case_matrix.c` verifies parsing, View JSON, deparse output, and error codes.
+This file records regression cases for the Oracle dialect conversion layer. The executable fixture is `tests/cases/oracle_dialect_input.json`. For every final case, the runner requires unchanged SQL to deparse byte for byte, compares the actual View with the expected JSON structure, and executes each patch independently. Patched SQL must match `patch.deparse` byte for byte, remain identical after a fresh parse and second deparse, and produce the same View from the patched and freshly parsed handles.
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 245 cases: 223 expect success and 22 expect failure.
-Statement-level `expect.session` appears in 59 cases, covering `O043`,
+The fixture contains 237 cases with `status = "final"`.
+Statement-level `query_graph.session` appears in 59 cases, covering `O043`,
 `O043Q`, `O044` through `O047`, `O082` through `O086`, and the `ORA-*`
-session cases. All 59 contain at least one non-null session expectation.
+session cases. All 59 contain at least one non-empty session item.
 
-When an `expect.session` array is present, the matrix test requires one entry
-per statement. A non-null entry is matched against the corresponding session
-projection, including its action, item scope, target kind, name, and value
-fields; `null` asserts that no session projection is emitted. For fixture
-cases that expect success, the test also deparses the unmodified handle and
-compares the result with the input SQL byte for byte.
+View validation compares JSON structures; object-key order and formatting
+whitespace do not participate. Session action, item scope, target kind, name,
+and value fields are all part of that comparison.
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 
@@ -210,27 +207,36 @@ binds were included in the global sequence. `SYSDATE` and
 | O176 | `oracle-drop-synonym` | `DROP SYNONYM ... FORCE` | Oracle synonym drop statement |
 | OU016 | `oracle-explain-plan` | `EXPLAIN PLAN FOR SELECT ...` | Oracle explain plan statement preservation |
 | O177 | `oracle-explain-plan-into` | `EXPLAIN PLAN SET STATEMENT_ID ... INTO ... FOR SELECT ...` | Oracle explain plan form with plan table |
+| O178 | `oracle-union-all-three-branch-scope` | explicitly grouped three-branch `UNION ALL` | two-level set topology, branch order, and literal selectors remain stable |
+| O179 | `oracle-grouped-union-all-intersect` | explicitly grouped `UNION ALL` and `INTERSECT` | grouping boundaries, operator kinds, and post-patch deparse for selected branches remain stable |
+| O180 | `oracle-union-all-root-cte-scope` | root CTE visible across `UNION ALL` branches | both branches resolve to the same CTE source block |
+| O181 | `oracle-union-all-qualified-table-bypasses-cte` | schema-qualified and database-link base tables sharing a CTE name | `app.src` and `src@remote_db` remain base relations and are not misclassified as the CTE |
+| O182 | `oracle-correlated-union-all-subquery-scope` | `UNION ALL` inside a correlated subquery | each set branch keeps its local relation and resolves the outer `o` relation |
+| O183 | `oracle-upper-reverse-bind-expression-predicate` | `:v = UPPER(SECRET)` | expression predicate references `SECRET` through `right_field` and emits only the left-side bind value |
+| O184 | `oracle-in-subquery-named-bind-membership` | `ID IN (SELECT USER_ID ... STATUS = :status)` | separates the outer membership field and `IN` predicate from the inner block, target, filter field, and named bind; 6 patches cover both field levels, the relation, target replacement/insertion, and bind |
+| O185 | `oracle-direct-bind-null-test` | `:STATUS IS NOT NULL AND DELETED_AT IS NULL` | emits an expression predicate that references only the real named bind for the direct-bind null test; the field null test is a comparison with no NULL value, with AND order and all 4 patches verified exactly |
+| O186 | `oracle-nested-select-target-multi-replace-middle` | replaces the middle item of a three-target derived-table SELECT with three quoted targets | expands the replacement only at the selected inner target-list position while preserving inner/outer blocks, relations, and target order; an independent insert patch validates the inner list position |
+| O187 | `oracle-merge-update-compound-rhs` | a compound assignment RHS in a MERGE UPDATE branch | branch `rhs_fields` and `rhs_values` attribute the source field, positional bind, and literal to the assignment; the source alias remains stable, and MERGE assignment replacement and insertion are verified exactly |
 
-## Explicitly Unsupported Cases
+## ROWNUM Predicate Semantics Regression
 
-The following constructs have Oracle-specific semantics. The conversion layer returns `SQLPARSER_STATUS_UNSUPPORTED` instead of producing SQL with unreliable semantics.
+These five final cases verify that `ROWNUM` participates in predicates only as a pseudocolumn expression and never enters `query_graph.fields`. Each predicate preserves its source operator and points to the literal or bind on the other side; compound conditions also preserve their Boolean tree, block, and DML attribution exactly. These cases do not emit session projections.
 
-| ID | Case | Reason |
-| --- | --- | --- |
-| OU001 | `CONNECT BY` | non-equivalent hierarchical query semantics |
-| OU002 | `(+)` | non-equivalent legacy outer join semantics |
-| OU004 | `RETURNING ... INTO` | non-equivalent host-variable return target |
-| OU005 | PL/SQL block | outside SQL statement conversion scope |
-| OU006 | `CREATE PROCEDURE` | PL/SQL unit |
-| OU007 | `CREATE PACKAGE` | PL/SQL unit |
-| OU008 | `PIVOT` | Oracle table transformation |
-| OU009 | `UNPIVOT` | Oracle table transformation |
-| OU010 | `MODEL` | Oracle model clause |
-| OU011 | flashback query | Oracle flashback query semantics |
-| OU012 | `MATCH_RECOGNIZE` | row pattern recognition semantics |
-| OU017 | `CONNECT_BY_ROOT` | hierarchical-query expression |
+| ID | Case | SQL Shape | Coverage |
+| --- | --- | --- | --- |
+| `O-RN001` | `oracle-rownum-and-named-bind` | ordinary field condition with `ROWNUM <= :limit` | `AND` tree, fieldless ROWNUM expression predicate, and named-bind position |
+| `O-RN002` | `oracle-rownum-derived-order-by-limit` | derived-table `ORDER BY` with outer `ROWNUM < 11` | inner and outer blocks, derived relation, star source, and literal-predicate attribution |
+| `O-RN003` | `oracle-rownum-right-operand-equality` | `1 = ROWNUM` | source operator and left-literal selector when ROWNUM is the right operand |
+| `O-RN004` | `oracle-rownum-greater-than-literal` | `ROWNUM > 1` | greater-than operator and other-side literal in an expression predicate |
+| `O-RN005` | `oracle-delete-rownum-batch-limit` | `DELETE ... expired = 1 AND ROWNUM <= :batch_size` | DELETE target, `AND` tree, ordinary-field predicate, and ROWNUM bind-predicate attribution |
+
+## Coverage Boundary
+
+This matrix lists only cases that parse successfully and have final View and
+patch expectations. Syntax boundaries outside this executable fixture are
+maintained in `doc/oracle_official_syntax_coverage.csv`.
 
 ## Maintenance
 
 - New Oracle support must update `tests/cases/oracle_dialect_input.json`, this matrix, and executable regression tests.
-- Oracle-only syntax that cannot be mapped with equivalent semantics must return `SQLPARSER_STATUS_UNSUPPORTED`.
+- Syntax outside the executable fixture must not be listed here as a validated case.

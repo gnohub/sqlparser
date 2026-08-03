@@ -130,11 +130,12 @@ copied subtree.
 | `relations` | Base tables, derived tables, and CTE references visible in the SQL; present when non-empty |
 | `targets` | SELECT output items, star targets, and DML output sources; present when non-empty |
 | `fields` | Field-reference occurrences visible in the SQL text; present when non-empty |
-| `values` | Literals, binds, and DEFAULT values associated with fields; pagination and pseudo-column binds are excluded; present when non-empty |
+| `values` | Values associated with fields or SELECT targets, plus literal, bind, and DEFAULT occurrences within compound DML assignment right-hand expressions; pagination and pseudo-column binds are excluded; present when non-empty |
 | `sets` | `UNION`, `UNION ALL`, `INTERSECT`, and `EXCEPT/MINUS` operations; present when non-empty |
 | `predicates` | Predicate-tree nodes from `WHERE`, `ON`, `HAVING`, and similar clauses; present when non-empty |
 | `session` | Database, schema, role, identity, transaction-characteristic, or session-parameter action; present only for statements with session-state semantics |
-| `dml` | `INSERT`, `UPDATE`, `DELETE`, and `MERGE` write shape, including nested DML; present only for DML statements |
+| `dml` | The only root DML and its nested DML nodes; present when the statement has exactly one DML root |
+| `dmls` | Root DML array, with nested DML under each element; present when the statement has multiple DML roots |
 
 All indexes are zero-based within the current statement. `relations[].source_block`, `targets[].source_block`, `targets[].star_relations`, and `sets[].branches` together describe derived-table, star, and set-operation lineage.
 
@@ -278,7 +279,7 @@ Function calls are not emitted as a separate target kind. For `SELECT UPPER(name
 | `clause` | Clause containing the value |
 | `operator` | Associated operator; omitted when absent |
 | `operator_kind` | Structured operator classification; emitted when `operator` exists. Pattern-match values are `like`, `not_like`, `ilike`, or `not_ilike`; other operators use `unknown` |
-| `field` | Related field index; pagination or pseudo-column values without a related field are not emitted in `values[]` |
+| `field` | Related field index; omitted when no field attribution exists. Values in a compound DML assignment right-hand expression are owned through `rhs_values` and need not contain `field`; pagination and pseudo-column values remain excluded from `values[]` |
 | `source_field` | Source field index when the value is a field reference; omitted otherwise |
 | `field_match_kind` | Field-match shape; `direct_field` for a direct field and `expression_field` when the field is inside a function, cast, expression, or `CASE` |
 | `kind` | `literal`, `bind`, `default`, `expression`, or `field` |
@@ -317,7 +318,7 @@ For `LIKE ... ESCAPE ...`, the main `values[]` item still represents the right-h
 }
 ```
 
-If the value side is a function, cast, operator, array, row, or CASE expression, such as `secret = UPPER(?)`, `secret = ? || 'x'`, or `secret = CAST(? AS CHAR)`, `values[]` emits `kind=expression` attached to `secret` and does not expose inner binds or literals as direct values.
+For predicates whose value side is a function, cast, operator, array, row, or CASE expression, such as `secret = UPPER(?)`, `secret = ? || 'x'`, or `secret = CAST(? AS CHAR)`, `values[]` emits `kind=expression` attached to `secret` and does not expose inner binds or literals from that predicate expression as direct values. This rule does not apply to a compound DML assignment right-hand expression; its inner values are owned through `rhs_values`.
 
 ## predicate
 
@@ -398,8 +399,11 @@ is available.
 
 ## DML
 
-`query_graph.dml` describes write targets, target columns, row values,
-assignments, source queries, and result channels.
+Each `query_graph.dml` or `query_graph.dmls[]` element describes write targets,
+target columns, row values, assignments, source queries, and result channels.
+A single DML root uses `dml`; multiple peer roots use `dmls`. Data-modifying
+CTEs follow this rule even when they belong to a SELECT statement. Nested DML
+nodes are represented recursively through each root element's `children`.
 
 Common fields:
 
@@ -470,6 +474,16 @@ the right-hand side is a direct field reference, `kind` is `field` and
 `source_field` points to the source field. If that source field comes from a
 derived relation and uniquely matches a source-query output target,
 `source_target` is emitted as well.
+
+When an assignment has `kind = "expression"`, `rhs_fields` and `rhs_values`
+list the related `fields[]` and `values[]` indexes from the right-hand
+expression in the current assignment block. `rhs_blocks` lists entry indexes
+for subqueries reachable from that expression without crossing another
+subquery boundary. Empty lists are omitted. `rhs_blocks` does not repeat blocks
+internal to those subqueries; traverse each entry block to reach its relations,
+targets, fields, values, predicates, and set operations. A direct `field`,
+`literal`, `bind`, or `default` right-hand side continues to use the existing
+assignment payload and emits none of the three `rhs_*` lists.
 
 A top-level `UPDATE` assignment has a selector of the form
 `stmt[S].assignment[A]`. A matched UPDATE action in a root MERGE uses

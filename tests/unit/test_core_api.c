@@ -188,6 +188,200 @@ static int expect_deparse_equals_and_reparse(
 	return 0;
 }
 
+static int expect_deparse_equals_two_roundtrips(
+	const sqlparser_handle_t *handle,
+	const char *expected_sql,
+	const char *message)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *first_reparse;
+	sqlparser_handle_t *second_reparse;
+	sqlparser_error_t error;
+	char *first_sql;
+	char *second_sql;
+	int failed;
+	int rc;
+
+	first_reparse = NULL;
+	second_reparse = NULL;
+	first_sql = NULL;
+	second_sql = NULL;
+	failed = 0;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_deparse(handle, &first_sql, &error);
+	if (expect_status_ok(rc, &error, message) != 0 ||
+	    expect_true(
+		    first_sql != NULL && strcmp(first_sql, expected_sql) == 0,
+		    message) != 0) {
+		failed = 1;
+		goto done;
+	}
+	sqlparser_parse_options_default(&options);
+	options.dialect = sqlparser_handle_dialect(handle);
+	rc = sqlparser_parse_with_options(
+		first_sql, &options, &first_reparse, &error);
+	if (expect_status_ok(rc, &error, message) != 0) {
+		failed = 1;
+		goto done;
+	}
+	rc = sqlparser_deparse(first_reparse, &second_sql, &error);
+	if (expect_status_ok(rc, &error, message) != 0 ||
+	    expect_true(
+		    second_sql != NULL && strcmp(second_sql, expected_sql) == 0,
+		    message) != 0) {
+		failed = 1;
+		goto done;
+	}
+	rc = sqlparser_parse_with_options(
+		second_sql, &options, &second_reparse, &error);
+	if (expect_status_ok(rc, &error, message) != 0) {
+		failed = 1;
+	}
+
+done:
+	sqlparser_string_free(second_sql);
+	sqlparser_string_free(first_sql);
+	sqlparser_handle_destroy(second_reparse);
+	sqlparser_handle_destroy(first_reparse);
+	return failed;
+}
+
+static int expect_selector_equals(
+	const sqlparser_selector_t *selector,
+	const char *expected,
+	const char *message)
+{
+	sqlparser_error_t error;
+	char *actual;
+	int failed;
+	int rc;
+
+	actual = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_selector_format(selector, &actual, &error);
+	if (expect_status_ok(rc, &error, message) != 0) {
+		return 1;
+	}
+	failed = expect_true(
+		actual != NULL && strcmp(actual, expected) == 0,
+		message);
+	if (failed != 0) {
+		fprintf(
+			stderr,
+			"FAIL: selector expected=%s actual=%s\n",
+			expected,
+			actual != NULL ? actual : "(null)");
+	}
+	sqlparser_string_free(actual);
+	return failed;
+}
+
+static int expect_graph_span_indices(
+	const sqlparser_query_graph_view_t *graph,
+	sqlparser_index_span_t span,
+	const size_t *expected,
+	size_t expected_count,
+	const char *message)
+{
+	sqlparser_error_t error;
+	size_t index;
+
+	if (expect_true(span.count == expected_count, message) != 0) {
+		return 1;
+	}
+	memset(&error, 0, sizeof(error));
+	for (index = 0U; index < expected_count; index++) {
+		size_t actual;
+
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    graph, span, index, &actual, &error),
+			    &error,
+			    message) != 0 ||
+		    expect_true(actual == expected[index], message) != 0) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static int expect_relation_binding_counts(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t relation_index,
+	size_t expected_column_count,
+	size_t expected_assignment_count,
+	const char *message)
+{
+	ProtobufCMessage *relation_message;
+	sqlparser_relation_bindings_t bindings;
+	sqlparser_error_t error;
+	size_t left;
+	size_t right;
+	int failed;
+	int rc;
+
+	relation_message = NULL;
+	memset(&bindings, 0, sizeof(bindings));
+	failed = 0;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_search_statement_messages(
+		handle,
+		statement_index,
+		&pg_query__range_var__descriptor,
+		NULL,
+		1,
+		relation_index,
+		NULL,
+		&relation_message,
+		&error);
+	if (expect_status_ok(rc, &error, message) != 0 ||
+	    expect_true(relation_message != NULL, message) != 0) {
+		return 1;
+	}
+	rc = sqlparser_collect_relation_bindings(
+		handle,
+		statement_index,
+		(PgQuery__RangeVar *)relation_message,
+		&bindings,
+		&error);
+	if (expect_status_ok(rc, &error, message) != 0 ||
+	    expect_true(
+		    bindings.column_ref_count == expected_column_count,
+		    message) != 0 ||
+	    expect_true(
+		    bindings.assignment_target_count ==
+			    expected_assignment_count,
+		    message) != 0 ||
+	    expect_true(
+		    bindings.column_ref_count == 0U ||
+			    bindings.column_refs != NULL,
+		    "relation collector must return a ColumnRef array for nonzero count") != 0 ||
+	    expect_true(
+		    bindings.assignment_target_count == 0U ||
+			    bindings.assignment_targets != NULL,
+		    "relation collector must return an assignment array for nonzero count") != 0) {
+		failed = 1;
+	}
+	for (left = 0U;
+	     !failed && left < bindings.column_ref_count;
+	     left++) {
+		for (right = left + 1U;
+		     right < bindings.column_ref_count;
+		     right++) {
+			if (expect_true(
+				    bindings.column_refs[left] !=
+					    bindings.column_refs[right],
+				    "relation collector must return each ColumnRef once") != 0) {
+				failed = 1;
+				break;
+			}
+		}
+	}
+	sqlparser_relation_bindings_clear(&bindings);
+	return failed;
+}
+
 static int expect_query_graph_clause_fields(
 	const sqlparser_handle_t *handle,
 	size_t statement_index,
@@ -724,7 +918,13 @@ static int test_statement_kind_walk(void)
 	    expect_true(strcmp(sqlparser_bind_kind_name(SQLPARSER_BIND_KIND_NAMED), "named") == 0,
 	                "bind kind name should be named") != 0 ||
 	    expect_true(strcmp(sqlparser_clause_kind_name(SQLPARSER_CLAUSE_KIND_GROUP_BY), "group_by") == 0,
-	                "clause kind name should be group_by") != 0) {
+	                "clause kind name should be group_by") != 0 ||
+	    expect_true(
+		    strcmp(
+			    sqlparser_clause_kind_name(
+				    SQLPARSER_CLAUSE_KIND_WINDOW_PARTITION),
+			    "window_partition") == 0,
+		    "clause kind name should be window_partition") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -5207,7 +5407,7 @@ static int test_oracle_merge_action_where_after_patch(void)
 		"WHEN NOT MATCHED THEN "
 		"INSERT (id,v) VALUES(s.id,s.v) WHERE s.flag=2";
 	static const char expected[] =
-		"MERGE INTO t USING s ON t.id = s.id "
+		"MERGE INTO t USING s ON (t.id = s.id) "
 		"WHEN MATCHED AND (s.a_changed = 1 OR s.b = 1) AND s.c = 1 THEN "
 		"UPDATE SET t.v = s.v WHERE s.flag = 1 "
 		"WHEN NOT MATCHED THEN "
@@ -6759,6 +6959,7 @@ static int test_non_postgresql_multiple_merge_insert_rejection(void)
 		return 1;
 	}
 	sqlparser_handle_destroy(handle);
+
 	return 0;
 }
 
@@ -7081,6 +7282,1092 @@ static int test_generic_name_mutation_preserves_later_spelling(void)
 	sqlparser_handle_destroy(reparsed_handle);
 	sqlparser_string_free(deparsed_sql);
 	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_grouped_indirection_survives_name_patch(void)
+{
+	const char *sql;
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *reparsed_handle;
+	sqlparser_error_t error;
+	char *deparsed_sql;
+	size_t name_index;
+	int rc;
+
+	sql = "SELECT (arrayfunction(a,b))[42]";
+	handle = NULL;
+	reparsed_handle = NULL;
+	deparsed_sql = NULL;
+	name_index = 0U;
+	memset(&error, 0, sizeof(error));
+
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(rc, &error, "grouped indirection parse should succeed") != 0) {
+		return 1;
+	}
+	if (find_name_index(
+		    handle,
+		    0U,
+		    "ColumnRef",
+		    "fields",
+		    "a",
+		    &name_index) != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_set_name(
+		handle,
+		0U,
+		name_index,
+		"patched_a",
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "grouped indirection name patch should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "grouped indirection deparse should succeed") != 0 ||
+	    expect_true(
+		    deparsed_sql != NULL &&
+			    strcmp(
+				    deparsed_sql,
+				    "SELECT (arrayfunction(patched_a, b))[42]") == 0,
+		    "grouped indirection deparse should preserve required parentheses") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_parse(deparsed_sql, &reparsed_handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "grouped indirection output should reparse") != 0) {
+		sqlparser_handle_destroy(reparsed_handle);
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_handle_destroy(reparsed_handle);
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_nested_target_alias_survives_relation_patch(void)
+{
+	const char *sql;
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *reparsed_handle;
+	sqlparser_error_t error;
+	sqlparser_relation_view_t relation;
+	char *deparsed_sql;
+	char *where_sql;
+	size_t relation_count;
+	size_t relation_index;
+	size_t target_relation_index;
+	int rc;
+
+	sql = "SELECT 1 FROM t WHERE EXISTS (SELECT x AS \"A\" FROM A)";
+	handle = NULL;
+	reparsed_handle = NULL;
+	deparsed_sql = NULL;
+	where_sql = NULL;
+	relation_count = 0U;
+	target_relation_index = SIZE_MAX;
+	memset(&error, 0, sizeof(error));
+	memset(&relation, 0, sizeof(relation));
+
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "nested target alias parse should succeed") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_relation_count(
+			    handle,
+			    0U,
+			    &relation_count,
+			    &error),
+		    &error,
+		    "nested target alias relation count should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	for (relation_index = 0U;
+	     relation_index < relation_count;
+	     relation_index++) {
+		rc = sqlparser_statement_relation(
+			handle,
+			0U,
+			relation_index,
+			&relation,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "nested target alias relation should be readable") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (relation.table_name != NULL &&
+		    strcmp(relation.table_name, "t") == 0) {
+			target_relation_index = relation_index;
+			break;
+		}
+	}
+	if (expect_true(
+		    target_relation_index != SIZE_MAX,
+		    "nested target alias outer relation should be found") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_set_relation_name(
+		handle,
+		0U,
+		target_relation_index,
+		NULL,
+		"t2",
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "nested target alias relation patch should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_where_sql(
+		handle,
+		0U,
+		0U,
+		&where_sql,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "nested target alias WHERE SQL should succeed") != 0 ||
+	    expect_true(
+		    where_sql != NULL &&
+			    strcmp(
+				    where_sql,
+				    "EXISTS (SELECT x AS \"A\" FROM A)") == 0,
+		    "nested target alias WHERE SQL should preserve alias spelling") != 0) {
+		sqlparser_string_free(where_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "nested target alias deparse should succeed") != 0 ||
+	    expect_true(
+		    deparsed_sql != NULL &&
+			    strcmp(
+				    deparsed_sql,
+				    "SELECT 1 FROM t2 WHERE EXISTS (SELECT x AS \"A\" FROM A)") == 0,
+		    "nested target alias deparse should preserve untouched spelling") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_string_free(where_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_parse(deparsed_sql, &reparsed_handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "nested target alias output should reparse") != 0) {
+		sqlparser_handle_destroy(reparsed_handle);
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_string_free(where_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_handle_destroy(reparsed_handle);
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_string_free(where_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_target_patch_roundtrip_case(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	const char *selector,
+	size_t statement_index,
+	const char *replacement,
+	const char *expected_sql,
+	const char *message)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patches;
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *reparsed;
+	sqlparser_error_t error;
+	char *candidate_target;
+	char *candidate_view;
+	char *deparsed;
+	char *reparsed_sql;
+	char *reparsed_target;
+	char *reparsed_view;
+	int rc;
+	int result;
+
+	handle = NULL;
+	reparsed = NULL;
+	candidate_target = NULL;
+	candidate_view = NULL;
+	deparsed = NULL;
+	reparsed_sql = NULL;
+	reparsed_target = NULL;
+	reparsed_view = NULL;
+	result = 1;
+	memset(&error, 0, sizeof(error));
+	memset(&patch, 0, sizeof(patch));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	rc = sqlparser_parse_with_options(
+		sql,
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, message) != 0) {
+		goto done;
+	}
+
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = selector;
+	patch.sql = replacement;
+	patches.items = &patch;
+	patches.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patches, &error);
+	if (expect_status_ok(rc, &error, message) != 0) {
+		goto done;
+	}
+	rc = sqlparser_deparse(handle, &deparsed, &error);
+	if (expect_status_ok(rc, &error, message) != 0 ||
+	    expect_true(
+		    deparsed != NULL && strcmp(deparsed, expected_sql) == 0,
+		    message) != 0) {
+		if (deparsed != NULL && strcmp(deparsed, expected_sql) != 0) {
+			fprintf(
+				stderr,
+				"FAIL: %s: expected=%s actual=%s\n",
+				message,
+				expected_sql,
+				deparsed);
+		}
+		goto done;
+	}
+	rc = sqlparser_parse_with_options(
+		deparsed,
+		&options,
+		&reparsed,
+		&error);
+	if (expect_status_ok(rc, &error, message) != 0) {
+		goto done;
+	}
+	rc = sqlparser_deparse(reparsed, &reparsed_sql, &error);
+	if (expect_status_ok(rc, &error, message) != 0 ||
+	    expect_true(
+		    reparsed_sql != NULL &&
+			    strcmp(reparsed_sql, deparsed) == 0,
+		    message) != 0) {
+		goto done;
+	}
+	rc = sqlparser_select_target_sql(
+		handle, statement_index, 0U, 0U, &candidate_target, &error);
+	if (expect_status_ok(rc, &error, message) != 0) {
+		goto done;
+	}
+	rc = sqlparser_select_target_sql(
+		reparsed, statement_index, 0U, 0U, &reparsed_target, &error);
+	if (expect_status_ok(rc, &error, message) != 0 ||
+	    expect_true(
+		    candidate_target != NULL &&
+			    reparsed_target != NULL &&
+			    strcmp(candidate_target, reparsed_target) == 0,
+		    message) != 0) {
+		goto done;
+	}
+	rc = sqlparser_export_view_json(
+		handle, 0, &candidate_view, &error);
+	if (expect_status_ok(rc, &error, message) != 0) {
+		goto done;
+	}
+	rc = sqlparser_export_view_json(
+		reparsed, 0, &reparsed_view, &error);
+	if (expect_status_ok(rc, &error, message) != 0 ||
+	    expect_true(
+		    candidate_view != NULL &&
+			    reparsed_view != NULL &&
+			    strcmp(candidate_view, reparsed_view) == 0,
+		    message) != 0) {
+		goto done;
+	}
+	result = 0;
+
+done:
+	sqlparser_string_free(reparsed_view);
+	sqlparser_string_free(reparsed_target);
+	sqlparser_string_free(reparsed_sql);
+	sqlparser_string_free(deparsed);
+	sqlparser_string_free(candidate_view);
+	sqlparser_string_free(candidate_target);
+	sqlparser_handle_destroy(reparsed);
+	sqlparser_handle_destroy(handle);
+	return result;
+}
+
+static int test_semantic_comment_target_patch_case(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	const char *replacement,
+	const char *expected_sql,
+	const char *message)
+{
+	return test_target_patch_roundtrip_case(
+		dialect,
+		sql,
+		"stmt[0].select_targets[0]",
+		0U,
+		replacement,
+		expected_sql,
+		message);
+}
+
+static int test_operator_grouping_survives_forced_deparse(void)
+{
+	static const struct {
+		const char *replacement;
+		const char *expected_sql;
+		const char *message;
+	} cases[] = {
+		{
+			"a + b * c",
+			"SELECT a + b * c FROM t",
+			"higher-precedence right operand must not gain grouping"
+		},
+		{
+			"a * b + c",
+			"SELECT a * b + c FROM t",
+			"higher-precedence left operand must not gain grouping"
+		},
+		{
+			"a - b - c",
+			"SELECT a - b - c FROM t",
+			"subtraction left chain must not gain grouping"
+		},
+		{
+			"a * b / c % d",
+			"SELECT a * b / c % d FROM t",
+			"multiplicative left chain must not gain grouping"
+		},
+		{
+			"-a + +b",
+			"SELECT - a + + b FROM t",
+			"unary operands must not gain grouping"
+		},
+		{
+			"a # b # c",
+			"SELECT a # b # c FROM t",
+			"custom-operator left chain must not gain grouping"
+		},
+		{
+			"a = b AND c = d",
+			"SELECT a = b AND c = d FROM t",
+			"boolean comparison expression must not gain grouping"
+		},
+		{
+			"a + (b * c)",
+			"SELECT a + (b * c) FROM t",
+			"explicit right grouping must survive target patch"
+		},
+		{
+			"a * (b + c)",
+			"SELECT a * (b + c) FROM t",
+			"required explicit right grouping must survive target patch"
+		},
+		{
+			"a - (b - c)",
+			"SELECT a - (b - c) FROM t",
+			"right-association grouping must survive target patch"
+		},
+		{
+			"((a + b)) + c",
+			"SELECT ((a + b)) + c FROM t",
+			"nested explicit grouping must survive target patch"
+		}
+	};
+	size_t index;
+
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		if (test_semantic_comment_target_patch_case(
+			    SQLPARSER_DIALECT_POSTGRESQL,
+			    "SELECT x FROM t",
+			    cases[index].replacement,
+			    cases[index].expected_sql,
+			    cases[index].message) != 0) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static int test_semantic_comment_ambiguous_anchor_fails_closed(void)
+{
+	static const char source_sql[] =
+		"SELECT A + /*+hint*/ B + C FROM T";
+	static const char ambiguous_sql[] =
+		"X + B + A + B + Y";
+	static const char recovered_sql[] =
+		"X + B + Y";
+	static const char expected_sql[] =
+		"SELECT X + /*+hint*/ B + Y FROM T";
+	sqlparser_parse_options_t options;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patches;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	char *deparsed;
+	int rc;
+	int attempt;
+
+	handle = NULL;
+	deparsed = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&patch, 0, sizeof(patch));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	rc = sqlparser_parse_with_options(
+		source_sql, &options, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "ambiguous semantic comment source should parse") != 0) {
+		return 1;
+	}
+
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = "stmt[0].select_targets[0]";
+	patch.sql = ambiguous_sql;
+	patches.items = &patch;
+	patches.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patches, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "ambiguous semantic comment patch should commit") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	for (attempt = 0; attempt < 2; attempt++) {
+		deparsed = NULL;
+		rc = sqlparser_deparse(handle, &deparsed, &error);
+		if (expect_true(
+			    rc == SQLPARSER_STATUS_INTERNAL_ERROR &&
+				    deparsed == NULL &&
+				    strstr(error.message, "ambiguous") != NULL,
+			    "ambiguous semantic comment deparse must fail closed without output") != 0) {
+			sqlparser_string_free(deparsed);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+
+	patch.sql = recovered_sql;
+	rc = sqlparser_apply_patch(handle, &patches, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "handle should remain patchable after semantic comment deparse failure") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    expected_sql,
+		    "semantic comment deparse failure must not poison handle state") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_many_semantic_comments_after_target_patch(void)
+{
+	enum { COMMENT_COUNT = 256, BUFFER_CAPACITY = 32768 };
+	char *source_sql;
+	char *replacement_sql;
+	char *expected_sql;
+	size_t source_length;
+	size_t replacement_length;
+	size_t expected_length;
+	size_t index;
+	int written;
+	int result;
+
+	source_sql = (char *)malloc(BUFFER_CAPACITY);
+	replacement_sql = (char *)malloc(BUFFER_CAPACITY);
+	expected_sql = (char *)malloc(BUFFER_CAPACITY);
+	if (source_sql == NULL || replacement_sql == NULL ||
+	    expected_sql == NULL) {
+		free(source_sql);
+		free(replacement_sql);
+		free(expected_sql);
+		return expect_true(
+			0,
+			"semantic comment stress buffers should allocate");
+	}
+
+	source_length = (size_t)snprintf(
+		source_sql, BUFFER_CAPACITY, "SELECT s0");
+	replacement_length = (size_t)snprintf(
+		replacement_sql, BUFFER_CAPACITY, "x0");
+	expected_length = (size_t)snprintf(
+		expected_sql, BUFFER_CAPACITY, "SELECT x0");
+	for (index = 1U; index <= COMMENT_COUNT; index++) {
+		written = snprintf(
+			source_sql + source_length,
+			BUFFER_CAPACITY - source_length,
+			" + /*+h%zu*/ s%zu",
+			index - 1U,
+			index);
+		if (written < 0 ||
+		    (size_t)written >= BUFFER_CAPACITY - source_length) {
+			free(source_sql);
+			free(replacement_sql);
+			free(expected_sql);
+			return expect_true(
+				0,
+				"semantic comment stress source should fit buffer");
+		}
+		source_length += (size_t)written;
+		written = snprintf(
+			replacement_sql + replacement_length,
+			BUFFER_CAPACITY - replacement_length,
+			" + s%zu",
+			index);
+		if (written < 0 ||
+		    (size_t)written >= BUFFER_CAPACITY - replacement_length) {
+			free(source_sql);
+			free(replacement_sql);
+			free(expected_sql);
+			return expect_true(
+				0,
+				"semantic comment stress replacement should fit buffer");
+		}
+		replacement_length += (size_t)written;
+		written = snprintf(
+			expected_sql + expected_length,
+			BUFFER_CAPACITY - expected_length,
+			" + /*+h%zu*/ s%zu",
+			index - 1U,
+			index);
+		if (written < 0 ||
+		    (size_t)written >= BUFFER_CAPACITY - expected_length) {
+			free(source_sql);
+			free(replacement_sql);
+			free(expected_sql);
+			return expect_true(
+				0,
+				"semantic comment stress expected SQL should fit buffer");
+		}
+		expected_length += (size_t)written;
+	}
+	written = snprintf(
+		source_sql + source_length,
+		BUFFER_CAPACITY - source_length,
+		" + tail FROM t");
+	if (written < 0 || (size_t)written >= BUFFER_CAPACITY - source_length) {
+		free(source_sql);
+		free(replacement_sql);
+		free(expected_sql);
+		return expect_true(
+			0,
+			"semantic comment stress source suffix should fit buffer");
+	}
+	written = snprintf(
+		replacement_sql + replacement_length,
+		BUFFER_CAPACITY - replacement_length,
+		" + changed_tail");
+	if (written < 0 ||
+	    (size_t)written >= BUFFER_CAPACITY - replacement_length) {
+		free(source_sql);
+		free(replacement_sql);
+		free(expected_sql);
+		return expect_true(
+			0,
+			"semantic comment stress replacement suffix should fit buffer");
+	}
+	written = snprintf(
+		expected_sql + expected_length,
+		BUFFER_CAPACITY - expected_length,
+		" + changed_tail FROM t");
+	if (written < 0 || (size_t)written >= BUFFER_CAPACITY - expected_length) {
+		free(source_sql);
+		free(replacement_sql);
+		free(expected_sql);
+		return expect_true(
+			0,
+			"semantic comment stress expected suffix should fit buffer");
+	}
+
+	result = test_semantic_comment_target_patch_case(
+		SQLPARSER_DIALECT_ORACLE,
+		source_sql,
+		replacement_sql,
+		expected_sql,
+		"many semantic comments should survive target patch");
+	free(source_sql);
+	free(replacement_sql);
+	free(expected_sql);
+	return result;
+}
+
+static int test_semantic_comments_survive_forced_deparse(void)
+{
+	const char *string_sql;
+	const char *expected_string_sql;
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *reparsed;
+	sqlparser_error_t error;
+	char *deparsed;
+	int rc;
+
+	if (test_semantic_comment_target_patch_case(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "SELECT x FROM t",
+		    "(a + b) + c",
+		    "SELECT (a + b) + c FROM t",
+		    "explicit arithmetic grouping should survive target patch") != 0 ||
+	    test_semantic_comment_target_patch_case(
+		    SQLPARSER_DIALECT_ORACLE,
+		    "select /*+first_rows*/ OldCol from Tbl",
+		    "NewCol",
+		    "SELECT /*+first_rows*/ NewCol FROM Tbl",
+		    "Oracle block optimizer hint should survive target patch") != 0 ||
+	    test_semantic_comment_target_patch_case(
+		    SQLPARSER_DIALECT_ORACLE,
+		    "select --+ INDEX(Tbl Idx)\n OldCol from Tbl",
+		    "NewCol",
+		    "SELECT --+ INDEX(Tbl Idx)\nNewCol FROM Tbl",
+		    "Oracle line optimizer hint should survive target patch") != 0 ||
+	    test_semantic_comment_target_patch_case(
+		    SQLPARSER_DIALECT_DAMENG,
+		    "select /*+first_rows*/ OldCol from Tbl",
+		    "NewCol",
+		    "SELECT /*+first_rows*/ NewCol FROM Tbl",
+		    "Dameng optimizer hint should survive target patch") != 0 ||
+	    test_semantic_comment_target_patch_case(
+		    SQLPARSER_DIALECT_VASTBASE_ORACLE,
+		    "select /*+first_rows*/ OldCol from Tbl",
+		    "NewCol",
+		    "SELECT /*+first_rows*/ NewCol FROM Tbl",
+		    "Vastbase-Oracle optimizer hint should survive target patch") != 0 ||
+	    test_semantic_comment_target_patch_case(
+		    SQLPARSER_DIALECT_MYSQL,
+		    "select OldCol /*!40101 + 0*/ from `Tbl`",
+		    "NewCol",
+		    "SELECT NewCol /*!40101 + 0*/ FROM `Tbl`",
+		    "MySQL executable comment should survive target patch") != 0 ||
+	    test_semantic_comment_target_patch_case(
+		    SQLPARSER_DIALECT_VASTBASE_MYSQL,
+		    "select OldCol /*!40101 + 0*/ from `Tbl`",
+		    "NewCol",
+		    "SELECT NewCol /*!40101 + 0*/ FROM `Tbl`",
+		    "Vastbase-MySQL executable comment should survive target patch") != 0 ||
+	    test_semantic_comment_target_patch_case(
+		    SQLPARSER_DIALECT_ORACLE,
+		    "/*+leading*/ select OldCol from Tbl",
+		    "NewCol",
+		    "/*+leading*/ SELECT NewCol FROM Tbl",
+		    "leading semantic comment should survive target patch") != 0 ||
+	    test_semantic_comment_target_patch_case(
+		    SQLPARSER_DIALECT_ORACLE,
+		    "select OldCol from Tbl /*+trailing*/",
+		    "NewCol",
+		    "SELECT NewCol FROM Tbl /*+trailing*/",
+		    "trailing semantic comment should survive target patch") != 0 ||
+	    test_semantic_comment_target_patch_case(
+		    SQLPARSER_DIALECT_ORACLE,
+		    "select OldCol from Tbl; /*+trailing*/",
+		    "NewCol",
+		    "SELECT NewCol FROM Tbl; /*+trailing*/",
+		    "separator before trailing semantic comment should survive target patch") != 0 ||
+	    test_semantic_comment_target_patch_case(
+		    SQLPARSER_DIALECT_ORACLE,
+		    "select OldCol from Tbl /*+trailing*/;",
+		    "NewCol",
+		    "SELECT NewCol FROM Tbl /*+trailing*/;",
+		    "separator after trailing semantic comment should survive target patch") != 0 ||
+	    test_semantic_comment_target_patch_case(
+		    SQLPARSER_DIALECT_MYSQL,
+		    "select OldCol from `Tbl`; /*!40101 SET @x=1 */",
+		    "NewCol",
+		    "SELECT NewCol FROM `Tbl`; /*!40101 SET @x=1 */",
+		    "separator before trailing executable comment should survive target patch") != 0 ||
+	    test_semantic_comment_target_patch_case(
+		    SQLPARSER_DIALECT_ORACLE,
+		    "select /*+one*/ /*+two*/ OldCol from Tbl",
+		    "NewCol",
+		    "SELECT /*+one*/ /*+two*/ NewCol FROM Tbl",
+		    "semantic comments sharing one gap should preserve order") != 0 ||
+	    test_semantic_comment_target_patch_case(
+		    SQLPARSER_DIALECT_ORACLE,
+		    "select --+ INDEX(Tbl Idx)\r\n OldCol from Tbl",
+		    "NewCol",
+		    "SELECT --+ INDEX(Tbl Idx)\r\nNewCol FROM Tbl",
+		    "CRLF semantic line comment should preserve its terminator") != 0 ||
+	    test_semantic_comment_target_patch_case(
+		    SQLPARSER_DIALECT_ORACLE,
+		    "select OldCol /*+between*/ + Tail from Tbl",
+		    "NewCol + Extra + Tail",
+		    "SELECT NewCol + Extra /*+between*/ + Tail FROM Tbl",
+		    "semantic comment should follow adjacent token insertion") != 0 ||
+	    test_semantic_comment_target_patch_case(
+		    SQLPARSER_DIALECT_ORACLE,
+		    "select OldCol + Extra /*+between*/ + Tail from Tbl",
+		    "NewCol + Tail",
+		    "SELECT NewCol /*+between*/ + Tail FROM Tbl",
+		    "semantic comment should follow adjacent token deletion") != 0 ||
+	    test_semantic_comment_ambiguous_anchor_fails_closed() != 0 ||
+	    test_many_semantic_comments_after_target_patch() != 0) {
+		return 1;
+	}
+
+	string_sql =
+		"SELECT '/*+not_a_hint*/' AS A, '--+not_a_hint' AS B, "
+		"'/*!not_executable*/' AS C FROM Tbl";
+	expected_string_sql =
+		"SELECT '/*+not_a_hint*/' AS A, '--+not_a_hint' AS B, "
+		"'/*!not_executable*/' AS C FROM \"Tbl2\"";
+	handle = NULL;
+	reparsed = NULL;
+	deparsed = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	rc = sqlparser_parse_with_options(
+		string_sql,
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "semantic comment string-control parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_set_relation_name(
+		handle,
+		0U,
+		0U,
+		NULL,
+		"Tbl2",
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "semantic comment string-control relation patch should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &deparsed, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "semantic comment string-control deparse should succeed") != 0 ||
+	    expect_true(
+		    deparsed != NULL &&
+			    strcmp(deparsed, expected_string_sql) == 0,
+		    "comment markers inside strings must remain string data") != 0) {
+		if (deparsed != NULL &&
+		    strcmp(deparsed, expected_string_sql) != 0) {
+			fprintf(
+				stderr,
+				"FAIL: semantic comment string-control mismatch: expected=%s actual=%s\n",
+				expected_string_sql,
+				deparsed);
+		}
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_parse_with_options(
+		deparsed,
+		&options,
+		&reparsed,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "semantic comment string-control output should reparse") != 0) {
+		sqlparser_handle_destroy(reparsed);
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_handle_destroy(reparsed);
+	sqlparser_string_free(deparsed);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_terminal_source_envelope_after_patch(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *replacement;
+		const char *expected_sql;
+		const char *message;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"select OldCol from Tbl;",
+			"NewCol",
+			"SELECT NewCol FROM Tbl;",
+			"PostgreSQL terminal separator should survive target patch"
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"select OldCol from Tbl;",
+			"NewCol",
+			"SELECT NewCol FROM Tbl;",
+			"Dameng terminal separator should survive target patch"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"select OldCol from `Tbl`;",
+			"NewCol",
+			"SELECT NewCol FROM `Tbl`;",
+			"MySQL terminal separator should survive target patch"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"select OldCol from Tbl;",
+			"NewCol",
+			"SELECT NewCol FROM Tbl;",
+			"Oracle terminal separator should survive target patch"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"select OldCol from [Tbl];",
+			"NewCol",
+			"SELECT NewCol FROM [Tbl];",
+			"SQL Server terminal separator should survive target patch"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_MYSQL,
+			"select OldCol from `Tbl`;",
+			"NewCol",
+			"SELECT NewCol FROM `Tbl`;",
+			"Vastbase-MySQL terminal separator should survive target patch"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_ORACLE,
+			"select OldCol from Tbl;",
+			"NewCol",
+			"SELECT NewCol FROM Tbl;",
+			"Vastbase-Oracle terminal separator should survive target patch"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_POSTGRESQL,
+			"select OldCol from Tbl;",
+			"NewCol",
+			"SELECT NewCol FROM Tbl;",
+			"Vastbase-PostgreSQL terminal separator should survive target patch"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"select OldCol from [Tbl];",
+			"NewCol",
+			"SELECT NewCol FROM [Tbl];",
+			"Vastbase-SQLServer terminal separator should survive target patch"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"select $$old;value$$ from Tbl;",
+			"NewCol",
+			"SELECT NewCol FROM Tbl;",
+			"dollar-quoted semicolon should not terminate source scan"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"select OldCol from Tbl;",
+			"'new;value'",
+			"SELECT 'new;value' FROM Tbl;",
+			"quoted semicolon should not terminate output scan"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"select q'[old;value]' from Tbl;",
+			"NewCol",
+			"SELECT NewCol FROM Tbl;",
+			"q-quoted semicolon should not terminate source scan"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"select `Old;Col` from `Tbl`;",
+			"NewCol",
+			"SELECT NewCol FROM `Tbl`;",
+			"backtick semicolon should not terminate source scan"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"select [Old;Col] from [Tbl];",
+			"NewCol",
+			"SELECT NewCol FROM [Tbl];",
+			"bracket semicolon should not terminate source scan"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"select OldCol from `Tbl`;;; \r\n# tail;\n",
+			"NewCol",
+			"SELECT NewCol FROM `Tbl`;;; \r\n# tail;\n",
+			"multiple separators and trailing trivia should survive target patch"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"select OldCol from [Tbl]\r\nGO 2\r\n",
+			"NewCol",
+			"SELECT NewCol FROM [Tbl]\r\nGO 2\r\n",
+			"SQL Server GO separator should survive target patch"
+		}
+	};
+	size_t index;
+
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		if (test_semantic_comment_target_patch_case(
+			    cases[index].dialect,
+			    cases[index].sql,
+			    cases[index].replacement,
+			    cases[index].expected_sql,
+			    cases[index].message) != 0) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static int test_statement_source_gaps_after_patch(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *selector;
+		size_t statement_index;
+		const char *replacement;
+		const char *expected_sql;
+		const char *message;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"SELECT [id] FROM [dbo].[users]\nGO\nSELECT [id] FROM [dbo].[orders]",
+			"stmt[0].select_targets[0]",
+			0U,
+			"[PatchedTarget]",
+			"SELECT [PatchedTarget] FROM [dbo].[users]\nGO\nSELECT [id] FROM [dbo].[orders]",
+			"interior SQL Server GO should survive first statement patch"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"SELECT [a] FROM [t]\r\nGO 2\r\nSELECT [b] FROM [u]",
+			"stmt[1].select_targets[0]",
+			1U,
+			"[NewB]",
+			"SELECT [a] FROM [t]\r\nGO 2\r\nSELECT [NewB] FROM [u]",
+			"interior Vastbase-SQLServer GO count should survive second statement patch"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"USE db1;\nSELECT COUNT(*) FROM mytable;\nUSE db2;\nSELECT COUNT(*) FROM mytable;",
+			"stmt[1].select_targets[0]",
+			1U,
+			"`patched_target`",
+			"USE db1;\nSELECT `patched_target` FROM mytable;\nUSE db2;\nSELECT COUNT(*) FROM mytable;",
+			"MySQL session statement newlines should survive target patch"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT a FROM t;\nSELECT b FROM u;",
+			"stmt[1].select_targets[0]",
+			1U,
+			"c",
+			"SELECT a FROM t;\nSELECT c FROM u;",
+			"PostgreSQL inter-statement newline should survive second statement patch"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"SELECT a FROM t;; # gap;\n;\nSELECT b FROM u;",
+			"stmt[1].select_targets[0]",
+			1U,
+			"c",
+			"SELECT a FROM t;; # gap;\n;\nSELECT c FROM u;",
+			"empty statements and ordinary comment gap should survive target patch"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"SELECT a FROM t; /*+gap*/\nSELECT b FROM u;",
+			"stmt[1].select_targets[0]",
+			1U,
+			"c",
+			"SELECT a FROM t; /*+gap*/\nSELECT c FROM u;",
+			"semantic comment gap should preserve generated comment content"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"SELECT a; /*! SELECT b FROM t */; SELECT c;",
+			"stmt[1].select_targets[0]",
+			1U,
+			"d",
+			"SELECT a; /*! SELECT d FROM t */; SELECT c;",
+			"patched executable comment body should not be restored from source"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"USE Sales;\nSELECT DB_NAME() AS current_database;",
+			"stmt[1].select_targets[0]",
+			1U,
+			"[PatchedTarget]",
+			"USE Sales; SELECT [PatchedTarget];",
+			"SQL Server non-batch statement layout should remain postprocessed"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"SELECT 'GO' AS [x], [GO] FROM [t] -- GO\n;",
+			"stmt[0].select_targets[0]",
+			0U,
+			"[NewCol]",
+			"SELECT [NewCol] FROM [t] -- GO\n;",
+			"GO inside literals identifiers and comments should not split statements"
+		}
+	};
+	size_t index;
+
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		if (test_target_patch_roundtrip_case(
+			    cases[index].dialect,
+			    cases[index].sql,
+			    cases[index].selector,
+			    cases[index].statement_index,
+			    cases[index].replacement,
+			    cases[index].expected_sql,
+			    cases[index].message) != 0) {
+			return 1;
+		}
+	}
 	return 0;
 }
 
@@ -7600,6 +8887,971 @@ static int test_selector_parse_and_format(void)
 
 	sqlparser_string_free(selector_text);
 	return 0;
+}
+
+static int test_mysql_dml_tail_ast_surface(void)
+{
+	const char *update_sql =
+		"UPDATE jobs SET status = 'queued' WHERE id = 1 "
+		"ORDER BY priority DESC LIMIT 10";
+	const char *delete_sql = "DELETE FROM jobs WHERE status = 'done' LIMIT 10";
+	const char *leading_comment_sql =
+		"/*lead*/ UPDATE jobs SET status = ? WHERE id = ? "
+		"ORDER BY created_at DESC LIMIT ?;";
+	const char *comment_only_prefix_sql =
+		"/*only*/; UPDATE jobs SET status = ? WHERE id = ? "
+		"ORDER BY created_at DESC LIMIT ?;";
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_clause_view_t clause;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patches;
+	PgQuery__Node *statement_node;
+	PgQuery__Node *wrapper_nodes[3];
+	PgQuery__SelectStmt *tail_select;
+	char *clause_sql;
+	char *deparsed_sql;
+	size_t clause_count;
+	size_t index;
+	size_t node_index;
+	size_t where_count;
+	int rc;
+
+	handle = NULL;
+	clause_sql = NULL;
+	deparsed_sql = NULL;
+	statement_node = NULL;
+	tail_select = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&patch, 0, sizeof(patch));
+	patches.items = &patch;
+	patches.count = 1U;
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_MYSQL;
+	rc = sqlparser_parse_with_options(update_sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "MySQL UPDATE tail parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_where_count(handle, 0U, &where_count, &error);
+	if (expect_status_ok(rc, &error, "MySQL UPDATE where count should succeed") != 0 ||
+	    expect_true(where_count == 1U, "MySQL DML tail wrapper must not expose a synthetic WHERE slot") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_statement_clause_count(handle, 0U, &clause_count, &error);
+	if (expect_status_ok(rc, &error, "MySQL UPDATE clause count should succeed") != 0 ||
+	    expect_true(clause_count == 3U, "MySQL UPDATE should expose SET, WHERE, and real ORDER BY clauses only") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_get_statement_node(handle, 0U, &statement_node, &error);
+	if (expect_status_ok(rc, &error,
+		"MySQL UPDATE statement node should resolve") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_get_mysql_dml_tail_select(
+		handle, 0U, statement_node, &tail_select, &error);
+	if (expect_status_ok(rc, &error,
+		"MySQL UPDATE tail SELECT should resolve") != 0 ||
+	    expect_true(
+		statement_node->update_stmt != NULL &&
+		statement_node->update_stmt->n_returning_list == 1U &&
+		statement_node->update_stmt->returning_list != NULL &&
+		tail_select != NULL,
+		"MySQL UPDATE tail wrapper should have the expected internal shape") != 0) {
+		goto fail;
+	}
+	wrapper_nodes[0] = statement_node->update_stmt->returning_list[0];
+	wrapper_nodes[1] = wrapper_nodes[0]->res_target->val;
+	wrapper_nodes[2] = wrapper_nodes[1]->sub_link->subselect;
+	for (index = 0U; index < 3U; index++) {
+		rc = sqlparser_find_statement_node_index_by_node(
+			handle, 0U, wrapper_nodes[index], &node_index, &error);
+		if (expect_true(
+			rc == SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"MySQL DML tail structural wrapper must not consume a public value selector") != 0) {
+			goto fail;
+		}
+	}
+	rc = sqlparser_find_statement_node_index_by_node(
+		handle,
+		0U,
+		tail_select->sort_clause[0],
+		&node_index,
+		&error);
+	if (expect_status_ok(rc, &error,
+		"MySQL DML tail semantic ORDER BY descendants should remain addressable") != 0) {
+		goto fail;
+	}
+	memset(&clause, 0, sizeof(clause));
+	rc = sqlparser_statement_clause(handle, 0U, 2U, &clause, &error);
+	if (expect_status_ok(rc, &error, "MySQL UPDATE ORDER BY clause should resolve") != 0 ||
+	    expect_true(clause.kind == SQLPARSER_CLAUSE_KIND_ORDER_BY,
+		"MySQL UPDATE tail should expose ORDER BY as the public clause") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_statement_clause_sql(handle, 0U, 2U, &clause_sql, &error);
+	if (expect_status_ok(rc, &error, "MySQL UPDATE ORDER BY clause SQL should render") != 0 ||
+	    expect_true(clause_sql != NULL && strcmp(clause_sql, "priority DESC") == 0,
+		"MySQL UPDATE ORDER BY clause SQL should contain only the real tail expression") != 0) {
+		goto fail;
+	}
+	sqlparser_string_free(clause_sql);
+	clause_sql = NULL;
+	rc = sqlparser_statement_set_clause_sql(
+		handle, 0U, 2U, "`created_at` ASC", &error);
+	if (expect_status_ok(rc, &error, "MySQL UPDATE ORDER BY clause replacement should succeed") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "MySQL UPDATE replaced ORDER BY should deparse") != 0 ||
+	    expect_true(
+		deparsed_sql != NULL &&
+		strcmp(
+			deparsed_sql,
+			"UPDATE jobs SET status = 'queued' WHERE id = 1 "
+			"ORDER BY `created_at` ASC LIMIT 10") == 0,
+		"MySQL UPDATE ORDER BY replacement should preserve the surrounding SQL") != 0) {
+		goto fail;
+	}
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+	rc = sqlparser_statement_set_clause_sql(handle, 0U, 2U, "", &error);
+	if (expect_status_ok(rc, &error, "MySQL UPDATE ORDER BY removal should succeed") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "MySQL UPDATE without ORDER BY should deparse") != 0 ||
+	    expect_true(
+		deparsed_sql != NULL &&
+		strcmp(
+			deparsed_sql,
+			"UPDATE jobs SET status = 'queued' WHERE id = 1 LIMIT 10") == 0,
+		"removing MySQL UPDATE ORDER BY should retain LIMIT without wrapper text") != 0) {
+		goto fail;
+	}
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	rc = sqlparser_parse_with_options(delete_sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "MySQL LIMIT-only DELETE parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_where_count(handle, 0U, &where_count, &error);
+	if (expect_status_ok(rc, &error, "MySQL LIMIT-only DELETE where count should succeed") != 0 ||
+	    expect_true(where_count == 1U, "MySQL LIMIT-only DELETE should expose only its DML WHERE slot") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_statement_clause_count(handle, 0U, &clause_count, &error);
+	if (expect_status_ok(rc, &error, "MySQL LIMIT-only DELETE clause count should succeed") != 0 ||
+	    expect_true(clause_count == 1U, "MySQL LIMIT-only DELETE must not expose synthetic SELECT clauses") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_statement_set_where_sql(handle, 0U, 1U, "id = 1", &error);
+	if (expect_true(rc == SQLPARSER_STATUS_INVALID_ARGUMENT,
+		"synthetic MySQL DML tail WHERE slot must not be writable") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "MySQL LIMIT-only DELETE should remain deparseable") != 0 ||
+	    expect_true(deparsed_sql != NULL && strcmp(deparsed_sql, delete_sql) == 0,
+		"rejected synthetic WHERE access must leave MySQL DELETE unchanged") != 0) {
+		goto fail;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	rc = sqlparser_parse_with_options(
+		leading_comment_sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error,
+		"MySQL DML tail with a leading comment should parse") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_clause_count(handle, 0U, &clause_count, &error);
+	if (expect_status_ok(rc, &error,
+		"MySQL leading-comment UPDATE clause count should succeed") != 0 ||
+	    expect_true(clause_count == 3U,
+		"MySQL leading-comment UPDATE should expose its real ORDER BY") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error,
+		"MySQL leading-comment UPDATE should deparse") != 0 ||
+	    expect_true(deparsed_sql != NULL &&
+		strcmp(deparsed_sql, leading_comment_sql) == 0,
+		"MySQL leading-comment UPDATE should deparse exactly") != 0) {
+		goto fail;
+	}
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = "stmt[0].name[3]";
+	patch.sql = "`patched_created_at`";
+	rc = sqlparser_apply_patch(handle, &patches, &error);
+	if (expect_status_ok(rc, &error,
+		"MySQL leading-comment UPDATE field patch should succeed") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error,
+		"patched MySQL leading-comment UPDATE should deparse") != 0 ||
+	    expect_true(
+		deparsed_sql != NULL &&
+		strstr(deparsed_sql, "ORDER BY `patched_created_at` DESC LIMIT ?") != NULL &&
+		strstr(deparsed_sql, "RETURNING (SELECT") == NULL,
+		"patched MySQL leading-comment UPDATE should retain its public tail") != 0) {
+		goto fail;
+	}
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	rc = sqlparser_parse_with_options(
+		comment_only_prefix_sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error,
+		"MySQL UPDATE after a comment-only segment should parse") != 0) {
+		return 1;
+	}
+	if (expect_true(sqlparser_statement_count(handle) == 1U,
+		"a comment-only segment must not consume a statement index") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_statement_clause_count(handle, 0U, &clause_count, &error);
+	if (expect_status_ok(rc, &error,
+		"MySQL UPDATE after a comment-only segment should expose clauses") != 0 ||
+	    expect_true(clause_count == 3U,
+		"MySQL UPDATE after a comment-only segment should expose its real ORDER BY") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error,
+		"MySQL UPDATE after a comment-only segment should deparse") != 0 ||
+	    expect_true(deparsed_sql != NULL &&
+		strcmp(deparsed_sql, comment_only_prefix_sql) == 0,
+		"MySQL comment-only segment and UPDATE should deparse exactly") != 0) {
+		goto fail;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = "stmt[0].name[3]";
+	patch.sql = "`patched_created_at`";
+	rc = sqlparser_apply_patch(handle, &patches, &error);
+	if (expect_status_ok(rc, &error,
+		"MySQL UPDATE after a comment-only segment field patch should succeed") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error,
+		"patched MySQL UPDATE after a comment-only segment should deparse") != 0 ||
+	    expect_true(
+		deparsed_sql != NULL &&
+		strstr(deparsed_sql, "ORDER BY `patched_created_at` DESC LIMIT ?") != NULL &&
+		strstr(deparsed_sql, "RETURNING (SELECT") == NULL,
+		"patched MySQL comment-only segment should retain its public tail") != 0) {
+		goto fail;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+
+fail:
+	sqlparser_string_free(clause_sql);
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+static int test_mysql_dml_tail_value_selector_surface(void)
+{
+	const char *sql =
+		"UPDATE jobs SET status = 'queued' WHERE id = 1 "
+		"ORDER BY priority DESC LIMIT 10";
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *reparsed;
+	sqlparser_error_t error;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patches;
+	PgQuery__Node **node_slot;
+	char selector[64];
+	char *deparsed_sql;
+	char *view_json;
+	size_t node_count;
+	size_t node_index;
+	int rc;
+
+	handle = NULL;
+	reparsed = NULL;
+	deparsed_sql = NULL;
+	view_json = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&patch, 0, sizeof(patch));
+	patches.items = &patch;
+	patches.count = 1U;
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_MYSQL;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error,
+		"MySQL DML tail value-selector seed should parse") != 0) {
+		return 1;
+	}
+	for (node_count = 0U;; node_count++) {
+		node_slot = NULL;
+		rc = sqlparser_get_statement_node_slot_by_index(
+			handle, 0U, node_count, &node_slot, NULL, &error);
+		if (rc == SQLPARSER_STATUS_INVALID_ARGUMENT) {
+			break;
+		}
+		if (expect_status_ok(rc, &error,
+			"MySQL DML tail public node slot should resolve") != 0 ||
+		    expect_true(node_slot != NULL && *node_slot != NULL,
+			"MySQL DML tail public node slot should contain a node") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	for (node_index = 0U; node_index < node_count; node_index++) {
+		rc = snprintf(
+			selector,
+			sizeof(selector),
+			"stmt[0].value[%zu]",
+			node_index);
+		if (expect_true(rc > 0 && (size_t)rc < sizeof(selector),
+			"MySQL DML tail value selector should fit the test buffer") != 0) {
+			return 1;
+		}
+		rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+		if (expect_status_ok(rc, &error,
+			"MySQL DML tail value-selector candidate should parse") != 0) {
+			return 1;
+		}
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_REPLACE;
+		patch.selector = selector;
+		patch.sql = "0";
+		rc = sqlparser_apply_patch(handle, &patches, &error);
+		if (rc == SQLPARSER_STATUS_OK) {
+			rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
+			if (expect_status_ok(rc, &error,
+				"patched MySQL DML tail View should remain valid") != 0) {
+				goto fail;
+			}
+			sqlparser_string_free(view_json);
+			view_json = NULL;
+			rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+			if (expect_status_ok(rc, &error,
+				"patched MySQL DML tail should deparse") != 0 ||
+			    expect_true(
+				deparsed_sql != NULL &&
+				strstr(deparsed_sql, "RETURNING (SELECT") == NULL,
+				"patched MySQL DML tail must not expose its internal wrapper") != 0) {
+				goto fail;
+			}
+			rc = sqlparser_parse_with_options(
+				deparsed_sql, &options, &reparsed, &error);
+			if (expect_status_ok(rc, &error,
+				"patched MySQL DML tail output should reparse") != 0) {
+				goto fail;
+			}
+			sqlparser_handle_destroy(reparsed);
+			reparsed = NULL;
+			sqlparser_string_free(deparsed_sql);
+			deparsed_sql = NULL;
+		} else if (expect_true(
+			rc == SQLPARSER_STATUS_UNSUPPORTED,
+			"an existing non-value node selector should be rejected as unsupported") != 0) {
+			goto fail;
+		}
+		sqlparser_handle_destroy(handle);
+		handle = NULL;
+	}
+
+	rc = snprintf(
+		selector,
+		sizeof(selector),
+		"stmt[0].value[%zu]",
+		node_count);
+	if (expect_true(rc > 0 && (size_t)rc < sizeof(selector),
+		"MySQL out-of-range value selector should fit the test buffer") != 0) {
+		return 1;
+	}
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error,
+		"MySQL out-of-range value-selector candidate should parse") != 0) {
+		return 1;
+	}
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = selector;
+	patch.sql = "0";
+	rc = sqlparser_apply_patch(handle, &patches, &error);
+	if (expect_true(rc == SQLPARSER_STATUS_INVALID_ARGUMENT,
+		"MySQL out-of-range value selector should be rejected") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error,
+		"rejected MySQL value selector should leave SQL deparseable") != 0 ||
+	    expect_true(deparsed_sql != NULL && strcmp(deparsed_sql, sql) == 0,
+		"rejected MySQL value selector should leave SQL unchanged") != 0) {
+		goto fail;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+
+fail:
+	sqlparser_string_free(view_json);
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(reparsed);
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+static int test_mysql_dml_tail_cte_surface(void)
+{
+	static const struct {
+		const char *sql;
+		const char *order_column;
+		const char *patched_sql;
+	} cases[] = {
+		{
+			"WITH eligible AS (SELECT id FROM jobs WHERE ready = 1) "
+			"UPDATE jobs SET status = 'queued' "
+			"WHERE id IN (SELECT id FROM eligible) "
+			"ORDER BY priority DESC LIMIT 10;",
+			"priority",
+			"WITH eligible AS (SELECT id FROM jobs WHERE ready = 1) "
+			"UPDATE jobs SET status = 'queued' "
+			"WHERE id IN (SELECT id FROM eligible) "
+			"ORDER BY `patched_order` DESC LIMIT 10;"
+		},
+		{
+			"WITH stale AS (SELECT id FROM jobs WHERE archived = 1) "
+			"DELETE FROM jobs WHERE id IN (SELECT id FROM stale) "
+			"ORDER BY created_at ASC LIMIT 5;",
+			"created_at",
+			"WITH stale AS (SELECT id FROM jobs WHERE archived = 1) "
+			"DELETE FROM jobs WHERE id IN (SELECT id FROM stale) "
+			"ORDER BY `patched_order` ASC LIMIT 5;"
+		}
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patches;
+	char selector[64];
+	char *deparsed_sql;
+	char *view_json;
+	size_t case_index;
+	size_t name_index;
+	int rc;
+
+	handle = NULL;
+	deparsed_sql = NULL;
+	view_json = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&patch, 0, sizeof(patch));
+	patches.items = &patch;
+	patches.count = 1U;
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_MYSQL;
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		rc = sqlparser_parse_with_options(
+			cases[case_index].sql, &options, &handle, &error);
+		if (expect_status_ok(rc, &error,
+			"MySQL CTE DML tail should parse") != 0) {
+			return 1;
+		}
+		rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+		if (expect_status_ok(rc, &error,
+			"MySQL CTE DML tail should deparse") != 0 ||
+		    expect_true(
+			deparsed_sql != NULL &&
+			strcmp(deparsed_sql, cases[case_index].sql) == 0,
+			"MySQL CTE DML tail should deparse exactly") != 0) {
+			goto fail;
+		}
+		sqlparser_string_free(deparsed_sql);
+		deparsed_sql = NULL;
+		rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
+		if (expect_status_ok(rc, &error,
+			"MySQL CTE DML tail View should export") != 0 ||
+		    expect_true(
+			view_json != NULL &&
+			strstr(view_json, "\"clause\":\"order_by\"") != NULL,
+			"MySQL CTE DML tail View should expose ORDER BY") != 0) {
+			goto fail;
+		}
+		sqlparser_string_free(view_json);
+		view_json = NULL;
+		if (find_name_index(
+			    handle,
+			    0U,
+			    "ColumnRef",
+			    "fields",
+			    cases[case_index].order_column,
+			    &name_index) != 0) {
+			goto fail;
+		}
+		rc = snprintf(
+			selector,
+			sizeof(selector),
+			"stmt[0].name[%zu]",
+			name_index);
+		if (expect_true(rc > 0 && (size_t)rc < sizeof(selector),
+			"MySQL CTE DML tail selector should fit the test buffer") != 0) {
+			goto fail;
+		}
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_REPLACE;
+		patch.selector = selector;
+		patch.sql = "`patched_order`";
+		rc = sqlparser_apply_patch(handle, &patches, &error);
+		if (expect_status_ok(rc, &error,
+			"MySQL CTE DML ORDER BY patch should succeed") != 0) {
+			goto fail;
+		}
+		rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+		if (expect_status_ok(rc, &error,
+			"patched MySQL CTE DML tail should deparse") != 0 ||
+		    expect_true(
+			deparsed_sql != NULL &&
+			(strcmp(deparsed_sql, cases[case_index].patched_sql) == 0 ||
+			 (strncmp(
+				 deparsed_sql,
+				 cases[case_index].patched_sql,
+				 strlen(deparsed_sql)) == 0 &&
+			  strlen(cases[case_index].patched_sql) ==
+				  strlen(deparsed_sql) + 1U &&
+			  cases[case_index].patched_sql[strlen(deparsed_sql)] == ';')) &&
+			strstr(deparsed_sql, "RETURNING (SELECT") == NULL,
+			"patched MySQL CTE DML tail should retain all SQL except the tracked terminator") != 0) {
+			goto fail;
+		}
+		sqlparser_string_free(deparsed_sql);
+		deparsed_sql = NULL;
+		sqlparser_handle_destroy(handle);
+		handle = NULL;
+	}
+	return 0;
+
+fail:
+	sqlparser_string_free(view_json);
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+static int test_mysql_dml_tail_line_comment_boundaries(void)
+{
+	static const struct {
+		const char *sql;
+		size_t statement_count;
+	} cases[] = {
+		{
+			"UPDATE jobs SET status = 'queued' -- body\n"
+			"ORDER BY priority LIMIT 1;",
+			1U
+		},
+		{
+			"DELETE FROM jobs WHERE status = 'done' #body\r\n"
+			"ORDER BY priority LIMIT 1;",
+			1U
+		},
+		{
+			"UPDATE jobs SET status = 'queued' ORDER BY priority "
+			"LIMIT 1 -- tail\n; SELECT 2;",
+			2U
+		},
+		{
+			"DELETE FROM jobs WHERE status = 'done' ORDER BY priority "
+			"LIMIT 1 #tail\r\n; SELECT 2;",
+			2U
+		},
+		{
+			"UPDATE jobs SET status = 'queued' ORDER BY priority "
+			"LIMIT 1 -- tail",
+			1U
+		}
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *reparsed;
+	sqlparser_error_t error;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patches;
+	char selector[64];
+	char *deparsed_sql;
+	size_t case_index;
+	size_t name_index;
+	int rc;
+
+	handle = NULL;
+	reparsed = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&patch, 0, sizeof(patch));
+	patches.items = &patch;
+	patches.count = 1U;
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_MYSQL;
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		rc = sqlparser_parse_with_options(
+			cases[case_index].sql, &options, &handle, &error);
+		if (expect_status_ok(rc, &error,
+			"MySQL DML tail line-comment boundary should parse") != 0 ||
+		    expect_true(
+			sqlparser_statement_count(handle) == cases[case_index].statement_count,
+			"MySQL DML tail line comment must not consume another statement") != 0) {
+			goto fail;
+		}
+		rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+		if (expect_status_ok(rc, &error,
+			"MySQL DML tail line-comment boundary should deparse") != 0 ||
+		    expect_true(
+			deparsed_sql != NULL &&
+			strcmp(deparsed_sql, cases[case_index].sql) == 0,
+			"unmodified MySQL DML line comments must deparse exactly") != 0) {
+			goto fail;
+		}
+		sqlparser_string_free(deparsed_sql);
+		deparsed_sql = NULL;
+		if (find_name_index(
+			    handle,
+			    0U,
+			    "ColumnRef",
+			    "fields",
+			    "priority",
+			    &name_index) != 0) {
+			goto fail;
+		}
+		rc = snprintf(
+			selector,
+			sizeof(selector),
+			"stmt[0].name[%zu]",
+			name_index);
+		if (expect_true(
+			rc > 0 && (size_t)rc < sizeof(selector),
+			"MySQL DML tail line-comment selector should fit the test buffer") != 0) {
+			goto fail;
+		}
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_REPLACE;
+		patch.selector = selector;
+		patch.sql = "`patched_order`";
+		rc = sqlparser_apply_patch(handle, &patches, &error);
+		if (expect_status_ok(rc, &error,
+			"MySQL DML tail line-comment patch should succeed") != 0) {
+			goto fail;
+		}
+		rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+		if (expect_status_ok(rc, &error,
+			"patched MySQL DML tail line-comment SQL should deparse") != 0 ||
+		    expect_true(
+			deparsed_sql != NULL &&
+			strstr(deparsed_sql, "`patched_order`") != NULL &&
+			strstr(deparsed_sql, "RETURNING (SELECT") == NULL &&
+			(cases[case_index].statement_count == 1U ||
+			 strstr(deparsed_sql, "SELECT 2") != NULL),
+			"patched MySQL DML line comments must preserve public statement semantics") != 0) {
+			goto fail;
+		}
+		rc = sqlparser_parse_with_options(
+			deparsed_sql, &options, &reparsed, &error);
+		if (expect_status_ok(rc, &error,
+			"patched MySQL DML line-comment SQL should reparse") != 0 ||
+		    expect_true(
+			sqlparser_statement_count(reparsed) == cases[case_index].statement_count,
+			"reparsed MySQL DML line comment must preserve statement boundaries") != 0) {
+			goto fail;
+		}
+		sqlparser_handle_destroy(reparsed);
+		reparsed = NULL;
+		sqlparser_string_free(deparsed_sql);
+		deparsed_sql = NULL;
+		sqlparser_handle_destroy(handle);
+		handle = NULL;
+	}
+	return 0;
+
+fail:
+	sqlparser_handle_destroy(reparsed);
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+static int test_mysql_dml_tail_index_hint_order_scope(void)
+{
+	static const struct {
+		const char *sql;
+		const char *patched_sql;
+		size_t clause_count;
+		int has_order_tail;
+	} cases[] = {
+		{
+			"UPDATE jobs USE INDEX FOR ORDER BY (idx_priority) "
+			"SET status = 'queued' WHERE id = 1",
+			"UPDATE `patched_jobs` USE INDEX FOR ORDER BY (idx_priority) "
+			"SET status = 'queued' WHERE id = 1",
+			2U,
+			0
+		},
+		{
+			"UPDATE jobs IGNORE INDEX FOR ORDER BY (idx_priority) "
+			"SET status = 'queued' WHERE id = 1 ORDER BY priority LIMIT 1",
+			"UPDATE jobs IGNORE INDEX FOR ORDER BY (idx_priority) "
+			"SET status = 'queued' WHERE id = 1 "
+			"ORDER BY `patched_order` LIMIT 1",
+			3U,
+			1
+		},
+		{
+			"DELETE FROM jobs USE INDEX FOR ORDER BY (idx_priority) "
+			"WHERE status = 'done'",
+			"DELETE FROM `patched_jobs` USE INDEX FOR ORDER BY (idx_priority) "
+			"WHERE status = 'done'",
+			1U,
+			0
+		},
+		{
+			"DELETE FROM jobs FORCE INDEX FOR ORDER BY (idx_priority) "
+			"WHERE status = 'done' ORDER BY priority LIMIT 1",
+			"DELETE FROM jobs FORCE INDEX FOR ORDER BY (idx_priority) "
+			"WHERE status = 'done' ORDER BY `patched_order` LIMIT 1",
+			2U,
+			1
+		}
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patches;
+	char selector[64];
+	char *view_json;
+	size_t case_index;
+	size_t clause_count;
+	size_t name_index;
+	int rc;
+
+	handle = NULL;
+	view_json = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&patch, 0, sizeof(patch));
+	patches.items = &patch;
+	patches.count = 1U;
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_MYSQL;
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		rc = sqlparser_parse_with_options(
+			cases[case_index].sql, &options, &handle, &error);
+		if (expect_status_ok(rc, &error,
+			"MySQL DML index-hint ORDER scope should parse") != 0 ||
+		    expect_deparse_equals_and_reparse(
+			handle,
+			cases[case_index].sql,
+			"unmodified MySQL DML index-hint SQL should deparse exactly") != 0) {
+			goto fail;
+		}
+		rc = sqlparser_statement_clause_count(
+			handle, 0U, &clause_count, &error);
+		if (expect_status_ok(rc, &error,
+			"MySQL DML index-hint clause count should resolve") != 0 ||
+		    expect_true(
+			clause_count == cases[case_index].clause_count,
+			"index-hint FOR ORDER BY must not create a public ORDER clause") != 0) {
+			goto fail;
+		}
+		rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
+		if (expect_status_ok(rc, &error,
+			"MySQL DML index-hint View should export") != 0 ||
+		    expect_true(
+			view_json != NULL &&
+			(strstr(view_json, "\"clause\":\"order_by\"") != NULL) ==
+				cases[case_index].has_order_tail,
+			"View ORDER fields must come only from the real DML tail") != 0) {
+			goto fail;
+		}
+		sqlparser_string_free(view_json);
+		view_json = NULL;
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_REPLACE;
+		patch.sql = cases[case_index].has_order_tail ?
+			"`patched_order`" : "`patched_jobs`";
+		if (cases[case_index].has_order_tail) {
+			if (find_name_index(
+				    handle,
+				    0U,
+				    "ColumnRef",
+				    "fields",
+				    "priority",
+				    &name_index) != 0) {
+				goto fail;
+			}
+			rc = snprintf(
+				selector,
+				sizeof(selector),
+				"stmt[0].name[%zu]",
+				name_index);
+			if (expect_true(
+				rc > 0 && (size_t)rc < sizeof(selector),
+				"MySQL DML index-hint ORDER selector should fit") != 0) {
+				goto fail;
+			}
+			patch.selector = selector;
+		} else {
+			patch.selector = "stmt[0].relation[0]";
+		}
+		rc = sqlparser_apply_patch(handle, &patches, &error);
+		if (expect_status_ok(rc, &error,
+			"MySQL DML index-hint patch should succeed") != 0 ||
+		    expect_deparse_equals_and_reparse(
+			handle,
+			cases[case_index].patched_sql,
+			"patched MySQL DML index-hint SQL should deparse and reparse exactly") != 0) {
+			goto fail;
+		}
+		sqlparser_handle_destroy(handle);
+		handle = NULL;
+	}
+	return 0;
+
+fail:
+	sqlparser_string_free(view_json);
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+static int test_mysql_dml_tail_nested_order_selector(void)
+{
+	const char *sql =
+		"UPDATE jobs SET status = 'queued' WHERE id = 1 "
+		"ORDER BY (SELECT MAX(q.priority) FROM queue q "
+		"WHERE q.job_id = jobs.id AND q.flag = 7), created_at LIMIT 10";
+	const char *patched_sql =
+		"UPDATE jobs SET status = 'queued' WHERE id = 1 "
+		"ORDER BY (SELECT MAX(q.priority) FROM queue q "
+		"WHERE q.job_id = jobs.id AND q.flag = 8), created_at LIMIT 10";
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patches;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_value_t value;
+	sqlparser_selector_t selector;
+	char *deparsed_sql;
+	char *selector_text;
+	size_t index;
+	int found;
+	int rc;
+
+	handle = NULL;
+	deparsed_sql = NULL;
+	selector_text = NULL;
+	found = 0;
+	memset(&error, 0, sizeof(error));
+	memset(&patch, 0, sizeof(patch));
+	memset(&graph, 0, sizeof(graph));
+	memset(&selector, 0, sizeof(selector));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_MYSQL;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error,
+		"MySQL DML tail nested ORDER BY should parse") != 0) {
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error,
+		"MySQL DML tail nested ORDER BY View should build") != 0) {
+		goto fail;
+	}
+	for (index = 0U; index < graph.value_count; index++) {
+		memset(&value, 0, sizeof(value));
+		rc = sqlparser_query_graph_value_at(&graph, index, &value, &error);
+		if (expect_status_ok(rc, &error,
+			"MySQL nested ORDER BY value should resolve") != 0) {
+			goto fail;
+		}
+		if (value.kind == SQLPARSER_GRAPH_VALUE_LITERAL &&
+		    value.literal.kind == SQLPARSER_LITERAL_KIND_INTEGER &&
+		    value.literal.integer_value == 7LL &&
+		    value.has_selector != 0) {
+			selector = value.selector;
+			found = 1;
+			break;
+		}
+	}
+	if (expect_true(found,
+		"MySQL nested ORDER BY WHERE literal should expose a selector") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_selector_format(&selector, &selector_text, &error);
+	if (expect_status_ok(rc, &error,
+		"MySQL nested ORDER BY value selector should format") != 0) {
+		goto fail;
+	}
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = selector_text;
+	patch.sql = "8";
+	patches.items = &patch;
+	patches.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patches, &error);
+	if (expect_status_ok(rc, &error,
+		"MySQL nested ORDER BY View selector patch should succeed") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error,
+		"patched MySQL nested ORDER BY should deparse") != 0 ||
+	    expect_true(
+		deparsed_sql != NULL && strcmp(deparsed_sql, patched_sql) == 0,
+		"patched MySQL nested ORDER BY should deparse exactly") != 0) {
+		goto fail;
+	}
+	memset(&graph, 0, sizeof(graph));
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error,
+		"patched MySQL nested ORDER BY View should rebuild") != 0 ||
+	    expect_deparse_reparse_ok(
+		handle,
+		"patched MySQL nested ORDER BY should reparse") != 0) {
+		goto fail;
+	}
+
+	sqlparser_string_free(selector_text);
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+
+fail:
+	sqlparser_string_free(selector_text);
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 1;
 }
 
 static int test_where_clause_sql_rewrite_api(void)
@@ -8258,7 +10510,7 @@ static int test_update_from_returning_sql_mutation(void)
 	if (expect_status_ok(rc, &error, "update-from deparse should succeed") != 0 ||
 	    expect_true(strstr(deparsed_sql, "src.display_name") != NULL, "update-from deparse should contain src.display_name") != 0 ||
 	    expect_true(strstr(deparsed_sql, "RETURNING u.id, u.name") != NULL, "update-from deparse should preserve returning") != 0 ||
-	    expect_true(strstr(deparsed_sql, "FROM public.user_stage src") != NULL, "update-from deparse should preserve source relation") != 0) {
+	    expect_true(strstr(deparsed_sql, "FROM public.user_stage AS src") != NULL, "update-from deparse should preserve source relation") != 0) {
 		sqlparser_string_free(deparsed_sql);
 		sqlparser_string_free(assignment_sql);
 		sqlparser_handle_destroy(handle);
@@ -9249,6 +11501,3514 @@ static int test_sqlserver_control_depth_limit(void)
 	return 0;
 }
 
+static int test_postgresql_reused_delete_cte_graph(sqlparser_dialect_t dialect)
+{
+	static const char sql[] =
+		"WITH moved AS (DELETE FROM public.source_rows AS s WHERE s.id < 10 "
+		"RETURNING s.id, s.payload) SELECT a.id, b.payload FROM moved AS a "
+		"JOIN moved AS b ON b.id = a.id";
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_result_t result;
+	sqlparser_graph_block_t block;
+	sqlparser_graph_relation_t relation;
+	sqlparser_graph_target_t target;
+	size_t block_index;
+	size_t dml_count;
+	size_t dml_result_block_count;
+	size_t moved_reference_count;
+	size_t parent_index;
+	size_t relation_index;
+	size_t result_count;
+	size_t target_index;
+	int has_parent;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "reused data-modifying CTE should parse") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    sql,
+		    "reused data-modifying CTE should deparse exactly") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "reused data-modifying CTE graph should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_count(&graph, &dml_count, &error),
+		    &error,
+		    "reused data-modifying CTE DML count should succeed") != 0 ||
+	    expect_true(
+		    dml_count == 1U,
+		    "reused data-modifying CTE should expose exactly one DML") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_at(&graph, 0U, &dml, &error),
+		    &error,
+		    "reused data-modifying CTE DELETE should be available") != 0 ||
+	    expect_true(
+		    dml.index == 0U && dml.kind == SQLPARSER_GRAPH_DML_DELETE &&
+			    dml.has_target_relation != 0,
+		    "reused data-modifying CTE should retain DELETE ordinal and target") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_parent(
+			    &graph,
+			    0U,
+			    &parent_index,
+			    &has_parent,
+			    &error),
+		    &error,
+		    "SELECT-root data-modifying CTE parent should be readable") != 0 ||
+	    expect_true(
+		    has_parent == 0,
+		    "SELECT-root data-modifying CTE must not have a synthetic DML parent") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_result_count(
+			    &graph,
+			    0U,
+			    &result_count,
+			    &error),
+		    &error,
+		    "reused data-modifying CTE result count should succeed") != 0 ||
+	    expect_true(
+		    result_count == 1U,
+		    "DELETE RETURNING should expose one client result") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_result_at(
+			    &graph,
+			    0U,
+			    0U,
+			    &result,
+			    &error),
+		    &error,
+		    "reused data-modifying CTE result should be available") != 0 ||
+	    expect_true(
+		    result.kind == SQLPARSER_GRAPH_DML_RESULT_CLIENT,
+		    "DELETE RETURNING should be a client result") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_block_at(
+			    &graph,
+			    result.block_index,
+			    &block,
+			    &error),
+		    &error,
+		    "reused data-modifying CTE result block should be available") != 0 ||
+	    expect_true(
+		    block.kind == SQLPARSER_GRAPH_BLOCK_DML_RESULT &&
+			    block.targets.count == 2U,
+		    "DELETE RETURNING block should expose id and payload") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_relation_at(
+			    &graph,
+			    dml.target_relation_index,
+			    &relation,
+			    &error),
+		    &error,
+		    "reused data-modifying CTE target relation should be available") != 0 ||
+	    expect_true(
+		    relation.kind == SQLPARSER_GRAPH_REL_BASE &&
+			    relation.object_name != NULL &&
+			    strcmp(relation.object_name, "source_rows") == 0,
+		    "DELETE DML should target public.source_rows") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	for (target_index = 0U; target_index < 2U; target_index++) {
+		size_t graph_target_index;
+
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    block.targets,
+				    target_index,
+				    &graph_target_index,
+				    &error),
+			    &error,
+			    "reused data-modifying CTE result target index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_target_at(
+				    &graph,
+				    graph_target_index,
+				    &target,
+				    &error),
+			    &error,
+			    "reused data-modifying CTE result target should be available") != 0 ||
+		    expect_true(
+			    target.has_selector != 0 &&
+				    target.selector.kind ==
+					    SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGET &&
+				    target.selector.item_index == 0U &&
+				    target.selector.row_index == 0U &&
+				    target.selector.column_index == target_index &&
+				    target.has_target_list_selector != 0 &&
+				    target.target_list_selector.kind ==
+					    SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGETS &&
+				    target.target_list_selector.item_index == 0U &&
+				    target.target_list_selector.row_index == 0U,
+			    "reused data-modifying CTE result selector should retain D=0") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+
+	moved_reference_count = 0U;
+	for (relation_index = 0U;
+	     relation_index < graph.relation_count;
+	     relation_index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_relation_at(
+				    &graph,
+				    relation_index,
+				    &relation,
+				    &error),
+			    &error,
+			    "reused data-modifying CTE relation should be available") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (relation.kind == SQLPARSER_GRAPH_REL_CTE &&
+		    relation.object_name != NULL &&
+		    strcmp(relation.object_name, "moved") == 0) {
+			if (expect_true(
+				    relation.has_source_block != 0 &&
+					    relation.source_block_index == result.block_index &&
+					    relation.alias_name != NULL &&
+					    (strcmp(relation.alias_name, "a") == 0 ||
+					     strcmp(relation.alias_name, "b") == 0),
+				    "each moved reference should share the unique RETURNING block") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			moved_reference_count++;
+		}
+	}
+	if (expect_true(
+		    moved_reference_count == 2U,
+		    "both moved aliases should be represented exactly once") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	dml_result_block_count = 0U;
+	for (block_index = 0U; block_index < graph.block_count; block_index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_block_at(
+				    &graph,
+				    block_index,
+				    &block,
+				    &error),
+			    &error,
+			    "reused data-modifying CTE block should be available") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (block.kind == SQLPARSER_GRAPH_BLOCK_DML_RESULT) {
+			dml_result_block_count++;
+			if (expect_true(
+				    block.index == result.block_index,
+				    "the only DML result block should belong to moved") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		}
+	}
+	if (expect_true(
+		    dml_result_block_count == 1U,
+		    "two CTE references must not duplicate the RETURNING block") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_postgresql_dml_root_cte_ordinal_graph(sqlparser_dialect_t dialect)
+{
+	static const char sql[] =
+		"WITH changed AS (UPDATE public.stage_rows AS s SET payload = s.payload "
+		"WHERE s.id < 10 RETURNING s.id, s.payload) DELETE FROM "
+		"public.target_rows AS t USING changed AS c WHERE t.id = c.id";
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t root_dml;
+	sqlparser_graph_dml_t cte_dml;
+	sqlparser_graph_dml_result_t result;
+	sqlparser_graph_block_t block;
+	sqlparser_graph_relation_t relation;
+	sqlparser_graph_target_t target;
+	size_t count;
+	size_t parent_index;
+	size_t relation_index;
+	size_t target_index;
+	int found_changed;
+	int has_parent;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "DML-root data-modifying CTE should parse") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    sql,
+		    "DML-root data-modifying CTE should deparse exactly") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "DML-root data-modifying CTE graph should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_count(&graph, &count, &error),
+		    &error,
+		    "DML-root data-modifying CTE count should succeed") != 0 ||
+	    expect_true(
+		    count == 2U,
+		    "root DELETE and CTE UPDATE should both occupy DML ordinals") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_at(&graph, 0U, &root_dml, &error),
+		    &error,
+		    "root DELETE should be available at D=0") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_at(&graph, 1U, &cte_dml, &error),
+		    &error,
+		    "CTE UPDATE should be available at D=1") != 0 ||
+	    expect_true(
+		    root_dml.index == 0U &&
+			    root_dml.kind == SQLPARSER_GRAPH_DML_DELETE &&
+			    root_dml.has_target_relation != 0 &&
+			    cte_dml.index == 1U &&
+			    cte_dml.kind == SQLPARSER_GRAPH_DML_UPDATE &&
+			    cte_dml.has_target_relation != 0,
+		    "DML-root ordinals and kinds should remain root-first") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_parent(
+			    &graph,
+			    0U,
+			    &parent_index,
+			    &has_parent,
+			    &error),
+		    &error,
+		    "root DELETE parent should be readable") != 0 ||
+	    expect_true(
+		    has_parent == 0,
+		    "root DELETE should not have a DML parent") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_parent(
+			    &graph,
+			    1U,
+			    &parent_index,
+			    &has_parent,
+			    &error),
+		    &error,
+		    "CTE UPDATE parent should be readable") != 0 ||
+	    expect_true(
+		    has_parent != 0 && parent_index == 0U,
+		    "CTE UPDATE should belong to the root DELETE") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_result_count(
+			    &graph,
+			    0U,
+			    &count,
+			    &error),
+		    &error,
+		    "root DELETE result count should succeed") != 0 ||
+	    expect_true(
+		    count == 0U,
+		    "root DELETE without RETURNING should retain D=0 with no result") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_result_count(
+			    &graph,
+			    1U,
+			    &count,
+			    &error),
+		    &error,
+		    "CTE UPDATE result count should succeed") != 0 ||
+	    expect_true(
+		    count == 1U,
+		    "CTE UPDATE RETURNING should expose one result") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_result_at(
+			    &graph,
+			    1U,
+			    0U,
+			    &result,
+			    &error),
+		    &error,
+		    "CTE UPDATE result should be available") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_block_at(
+			    &graph,
+			    result.block_index,
+			    &block,
+			    &error),
+		    &error,
+		    "CTE UPDATE result block should be available") != 0 ||
+	    expect_true(
+		    result.kind == SQLPARSER_GRAPH_DML_RESULT_CLIENT &&
+			    block.kind == SQLPARSER_GRAPH_BLOCK_DML_RESULT &&
+			    block.targets.count == 2U,
+		    "CTE UPDATE should expose its two RETURNING targets") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    &graph,
+			    block.targets,
+			    0U,
+			    &target_index,
+			    &error),
+		    &error,
+		    "CTE UPDATE first result target index should resolve") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_target_at(
+			    &graph,
+			    target_index,
+			    &target,
+			    &error),
+		    &error,
+		    "CTE UPDATE first result target should be available") != 0 ||
+	    expect_true(
+		    target.has_selector != 0 &&
+			    target.selector.kind == SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGET &&
+			    target.selector.item_index == 1U &&
+			    target.selector.row_index == 0U &&
+			    target.selector.column_index == 0U,
+		    "CTE UPDATE result selector should retain D=1") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_relation_at(
+			    &graph,
+			    root_dml.target_relation_index,
+			    &relation,
+			    &error),
+		    &error,
+		    "root DELETE target relation should be available") != 0 ||
+	    expect_true(
+		    relation.object_name != NULL &&
+			    strcmp(relation.object_name, "target_rows") == 0,
+		    "root DELETE should target target_rows") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_relation_at(
+			    &graph,
+			    cte_dml.target_relation_index,
+			    &relation,
+			    &error),
+		    &error,
+		    "CTE UPDATE target relation should be available") != 0 ||
+	    expect_true(
+		    relation.object_name != NULL &&
+			    strcmp(relation.object_name, "stage_rows") == 0,
+		    "CTE UPDATE should target stage_rows") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	found_changed = 0;
+	for (relation_index = 0U;
+	     relation_index < graph.relation_count;
+	     relation_index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_relation_at(
+				    &graph,
+				    relation_index,
+				    &relation,
+				    &error),
+			    &error,
+			    "DML-root data-modifying CTE relation should be available") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (relation.kind == SQLPARSER_GRAPH_REL_CTE &&
+		    relation.object_name != NULL &&
+		    strcmp(relation.object_name, "changed") == 0) {
+			found_changed = relation.alias_name != NULL &&
+				strcmp(relation.alias_name, "c") == 0 &&
+				relation.has_source_block != 0 &&
+				relation.source_block_index == result.block_index;
+			break;
+		}
+	}
+	if (expect_true(
+		    found_changed,
+		    "root DELETE source CTE should point to the UPDATE result block") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_postgresql_lazy_cte_declaration_order_graph(sqlparser_dialect_t dialect)
+{
+	static const char sql[] =
+		"WITH purged_a AS (DELETE FROM public.queue_a AS a WHERE a.id < 10), "
+		"purged_b AS (DELETE FROM public.queue_b AS b WHERE b.id < 20 "
+		"RETURNING b.id) SELECT p.id FROM purged_b AS p";
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t first_dml;
+	sqlparser_graph_dml_t second_dml;
+	sqlparser_graph_dml_result_t result;
+	sqlparser_graph_block_t block;
+	sqlparser_graph_relation_t relation;
+	sqlparser_graph_target_t target;
+	char *view_json;
+	size_t count;
+	size_t parent_index;
+	size_t relation_index;
+	size_t target_index;
+	int found_purged_b;
+	int has_parent;
+	int rc;
+
+	handle = NULL;
+	view_json = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "lazy data-modifying CTE order case should parse") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    sql,
+		    "lazy data-modifying CTE order case should deparse exactly") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "lazy data-modifying CTE order graph should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_count(&graph, &count, &error),
+		    &error,
+		    "lazy data-modifying CTE order count should succeed") != 0 ||
+	    expect_true(
+		    count == 2U,
+		    "both declared DELETE CTEs should occupy DML ordinals") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_at(&graph, 0U, &first_dml, &error),
+		    &error,
+		    "first declared DELETE CTE should be available at D=0") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_at(&graph, 1U, &second_dml, &error),
+		    &error,
+		    "second declared DELETE CTE should be available at D=1") != 0 ||
+	    expect_true(
+		    first_dml.index == 0U &&
+			    first_dml.kind == SQLPARSER_GRAPH_DML_DELETE &&
+			    first_dml.has_target_relation != 0 &&
+			    second_dml.index == 1U &&
+			    second_dml.kind == SQLPARSER_GRAPH_DML_DELETE &&
+			    second_dml.has_target_relation != 0,
+		    "DELETE CTE kinds and declaration ordinals should remain stable") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_relation_at(
+			    &graph,
+			    first_dml.target_relation_index,
+			    &relation,
+			    &error),
+		    &error,
+		    "first declared DELETE target should be available") != 0 ||
+	    expect_true(
+		    relation.object_name != NULL &&
+			    strcmp(relation.object_name, "queue_a") == 0,
+		    "D=0 should remain purged_a even though it is unreferenced") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_relation_at(
+			    &graph,
+			    second_dml.target_relation_index,
+			    &relation,
+			    &error),
+		    &error,
+		    "second declared DELETE target should be available") != 0 ||
+	    expect_true(
+		    relation.object_name != NULL &&
+			    strcmp(relation.object_name, "queue_b") == 0,
+		    "D=1 should remain the referenced purged_b") != 0 ||
+	    expect_true(
+		    first_dml.target_relation_index > second_dml.target_relation_index,
+		    "DML declaration order must be independent of inverse lazy relation build order") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_result_count(
+			    &graph,
+			    0U,
+			    &count,
+			    &error),
+		    &error,
+		    "unreferenced DELETE result count should succeed") != 0 ||
+	    expect_true(
+		    count == 0U,
+		    "unreferenced DELETE without RETURNING should keep D=0 and result_count=0") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_result_count(
+			    &graph,
+			    1U,
+			    &count,
+			    &error),
+		    &error,
+		    "referenced DELETE result count should succeed") != 0 ||
+	    expect_true(
+		    count == 1U,
+		    "referenced DELETE RETURNING should expose one result") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_result_at(
+			    &graph,
+			    1U,
+			    0U,
+			    &result,
+			    &error),
+		    &error,
+		    "referenced DELETE result should be available") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_block_at(
+			    &graph,
+			    result.block_index,
+			    &block,
+			    &error),
+		    &error,
+		    "referenced DELETE result block should be available") != 0 ||
+	    expect_true(
+		    result.kind == SQLPARSER_GRAPH_DML_RESULT_CLIENT &&
+			    block.kind == SQLPARSER_GRAPH_BLOCK_DML_RESULT &&
+			    block.targets.count == 1U,
+		    "purged_b should expose its one RETURNING target") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    &graph,
+			    block.targets,
+			    0U,
+			    &target_index,
+			    &error),
+		    &error,
+		    "purged_b result target index should resolve") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_target_at(
+			    &graph,
+			    target_index,
+			    &target,
+			    &error),
+		    &error,
+		    "purged_b result target should be available") != 0 ||
+	    expect_true(
+		    target.has_selector != 0 &&
+			    target.selector.kind == SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGET &&
+			    target.selector.item_index == 1U &&
+			    target.selector.row_index == 0U &&
+			    target.selector.column_index == 0U,
+		    "purged_b result selector should retain declaration ordinal D=1") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	if (expect_status_ok(
+		    sqlparser_query_graph_dml_parent(
+			    &graph,
+			    0U,
+			    &parent_index,
+			    &has_parent,
+			    &error),
+		    &error,
+		    "first SELECT-root DELETE CTE parent should be readable") != 0 ||
+	    expect_true(
+		    has_parent == 0,
+		    "first SELECT-root DELETE CTE should not have a synthetic parent") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_parent(
+			    &graph,
+			    1U,
+			    &parent_index,
+			    &has_parent,
+			    &error),
+		    &error,
+		    "second SELECT-root DELETE CTE parent should be readable") != 0 ||
+	    expect_true(
+		    has_parent == 0,
+		    "sibling SELECT-root DELETE CTEs should remain independent roots") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	found_purged_b = 0;
+	for (relation_index = 0U;
+	     relation_index < graph.relation_count;
+	     relation_index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_relation_at(
+				    &graph,
+				    relation_index,
+				    &relation,
+				    &error),
+			    &error,
+			    "lazy data-modifying CTE relation should be available") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (relation.kind == SQLPARSER_GRAPH_REL_CTE &&
+		    relation.object_name != NULL &&
+		    strcmp(relation.object_name, "purged_b") == 0) {
+			found_purged_b = relation.alias_name != NULL &&
+				strcmp(relation.alias_name, "p") == 0 &&
+				relation.has_source_block != 0 &&
+				relation.source_block_index == result.block_index;
+			break;
+		}
+	}
+	if (expect_true(
+		    found_purged_b,
+		    "referenced purged_b relation should point to its RETURNING block") != 0 ||
+	    expect_status_ok(
+		    sqlparser_export_view_json(handle, 0, &view_json, &error),
+		    &error,
+		    "sibling data-modifying CTE View should export") != 0 ||
+	    expect_true(
+		    view_json != NULL && strstr(view_json, "\"dmls\"") != NULL,
+		    "independent SELECT-root DMLs should export as a DML forest") != 0) {
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(view_json);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_postgresql_returning_cte_result_growth(
+	sqlparser_dialect_t dialect)
+{
+	static const char sql[] =
+		"WITH c1 AS (INSERT INTO public.chain_1 (id) VALUES (1) RETURNING id), "
+		"c2 AS (INSERT INTO public.chain_2 (id) VALUES (2) RETURNING id, "
+		"(SELECT id FROM c1) AS previous_id), c3 AS (INSERT INTO public.chain_3 "
+		"(id) VALUES (3) RETURNING id, (SELECT previous_id FROM c2) AS "
+		"previous_id), c4 AS (INSERT INTO public.chain_4 (id) VALUES (4) "
+		"RETURNING id, (SELECT previous_id FROM c3) AS previous_id), c5 AS "
+		"(INSERT INTO public.chain_5 (id) VALUES (5) RETURNING id, "
+		"(SELECT previous_id FROM c4) AS previous_id) SELECT id, previous_id "
+		"FROM c5";
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dmls[5];
+	sqlparser_graph_dml_result_t results[5];
+	sqlparser_graph_dml_reference_t reference;
+	sqlparser_graph_block_t block;
+	sqlparser_graph_field_t scalar_field;
+	sqlparser_graph_relation_t relation;
+	sqlparser_graph_target_t scalar_target;
+	sqlparser_graph_target_t target;
+	char *view_json;
+	char expected_name[32];
+	char expected_selector[80];
+	json_error_t json_error;
+	json_t *root;
+	json_t *statements;
+	json_t *statement;
+	json_t *query_graph;
+	json_t *dmls_json;
+	size_t cte_reference_counts[5];
+	size_t dml_count;
+	size_t dml_index;
+	size_t other_index;
+	size_t parent_index;
+	size_t relation_index;
+	size_t result_count;
+	size_t target_index;
+	int has_parent;
+	int rc;
+
+	handle = NULL;
+	view_json = NULL;
+	root = NULL;
+	memset(cte_reference_counts, 0, sizeof(cte_reference_counts));
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "five-result data-CTE chain should parse") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    sql,
+		    "five-result data-CTE chain should deparse exactly") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "five-result data-CTE graph should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_count(&graph, &dml_count, &error),
+		    &error,
+		    "five-result data-CTE DML count should succeed") != 0 ||
+	    expect_true(
+		    dml_count == 5U,
+		    "five declared data CTEs should expose five stable DML ordinals") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	for (dml_index = 0U; dml_index < 5U; dml_index++) {
+		size_t expected_target_count;
+		size_t id_field_index;
+		size_t id_target_index;
+		size_t reference_index;
+
+		expected_target_count = dml_index == 0U ? 1U : 2U;
+		if (expect_status_ok(
+			    sqlparser_query_graph_dml_at(
+				    &graph,
+				    dml_index,
+				    &dmls[dml_index],
+				    &error),
+			    &error,
+			    "five-result data-CTE DML should be available") != 0 ||
+		    expect_true(
+			    dmls[dml_index].index == dml_index &&
+				    dmls[dml_index].kind == SQLPARSER_GRAPH_DML_INSERT &&
+				    dmls[dml_index].has_target_relation != 0,
+			    "five-result data-CTE DML ordinal or kind mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_parent(
+				    &graph,
+				    dml_index,
+				    &parent_index,
+				    &has_parent,
+				    &error),
+			    &error,
+			    "five-result SELECT-root DML parent should be readable") != 0 ||
+		    expect_true(
+			    has_parent == 0,
+			    "five SELECT-root data CTEs must remain independent DML roots") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_relation_at(
+				    &graph,
+				    dmls[dml_index].target_relation_index,
+				    &relation,
+				    &error),
+			    &error,
+			    "five-result DML target relation should be available") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		snprintf(
+			expected_name,
+			sizeof(expected_name),
+			"chain_%zu",
+			dml_index + 1U);
+		if (expect_true(
+			    relation.schema_name != NULL &&
+				    strcmp(relation.schema_name, "public") == 0 &&
+				    relation.object_name != NULL &&
+				    strcmp(relation.object_name, expected_name) == 0,
+			    "five-result DML target must follow CTE declaration order") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_result_count(
+				    &graph,
+				    dml_index,
+				    &result_count,
+				    &error),
+			    &error,
+			    "five-result data-CTE result count should succeed") != 0 ||
+		    expect_true(
+			    result_count == 1U,
+			    "each data CTE should expose one RETURNING result") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_result_at(
+				    &graph,
+				    dml_index,
+				    0U,
+				    &results[dml_index],
+				    &error),
+			    &error,
+			    "five-result data-CTE result should be available") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_block_at(
+				    &graph,
+				    results[dml_index].block_index,
+				    &block,
+				    &error),
+			    &error,
+			    "five-result data-CTE result block should be available") != 0 ||
+		    expect_true(
+			    results[dml_index].kind == SQLPARSER_GRAPH_DML_RESULT_CLIENT &&
+				    block.kind == SQLPARSER_GRAPH_BLOCK_DML_RESULT &&
+				    block.targets.count == expected_target_count,
+			    "five-result data-CTE result block shape mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		for (other_index = 0U; other_index < dml_index; other_index++) {
+			if (expect_true(
+				    results[other_index].block_index !=
+					    results[dml_index].block_index,
+				    "each data CTE must own a distinct result block") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		}
+
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    block.targets,
+				    0U,
+				    &target_index,
+				    &error),
+			    &error,
+			    "five-result id target index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_target_at(
+				    &graph,
+				    target_index,
+				    &target,
+				    &error),
+			    &error,
+			    "five-result id target should be available") != 0 ||
+		    expect_true(
+			    target.output_name != NULL &&
+				    strcmp(target.output_name, "id") == 0 &&
+				    target.has_field != 0 &&
+				    target.has_selector != 0 &&
+				    target.selector.kind ==
+					    SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGET &&
+				    target.selector.item_index == dml_index &&
+				    target.selector.row_index == 0U &&
+				    target.selector.column_index == 0U,
+			    "five-result id selector should match its stable DML ordinal") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		id_target_index = target_index;
+		id_field_index = target.field_index;
+		if (expect_true(
+			    results[dml_index].references.count == 1U,
+			    "each outer DML result should have only its direct id target reference") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    results[dml_index].references,
+				    0U,
+				    &reference_index,
+				    &error),
+			    &error,
+			    "five-result direct DML reference index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_reference_at(
+				    &graph,
+				    reference_index,
+				    &reference,
+				    &error),
+			    &error,
+			    "five-result direct DML reference should be available") != 0 ||
+		    expect_true(
+			    reference.target_index == id_target_index &&
+				    reference.has_field != 0 &&
+				    reference.field_index == id_field_index &&
+				    reference.kind ==
+					    SQLPARSER_GRAPH_DML_REFERENCE_TARGET_AFTER &&
+				    reference.relation_index ==
+					    dmls[dml_index].target_relation_index,
+			    "outer DML result reference should contain only its direct target id") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		if (dml_index > 0U) {
+			size_t scalar_block_index;
+			size_t scalar_relation_index;
+			size_t scalar_target_index;
+
+			if (expect_status_ok(
+				    sqlparser_query_graph_span_index_at(
+					    &graph,
+					    block.targets,
+					    1U,
+					    &target_index,
+					    &error),
+				    &error,
+				    "five-result scalar target index should resolve") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_target_at(
+					    &graph,
+					    target_index,
+					    &target,
+					    &error),
+				    &error,
+				    "five-result scalar target should be available") != 0 ||
+			    expect_true(
+				    target.kind == SQLPARSER_GRAPH_TARGET_SUBQUERY &&
+					    target.output_name != NULL &&
+					    strcmp(target.output_name, "previous_id") == 0 &&
+					    target.has_source_block != 0 &&
+					    target.has_selector != 0 &&
+					    target.selector.item_index == dml_index &&
+					    target.selector.row_index == 0U &&
+					    target.selector.column_index == 1U,
+				    "five-result scalar target should preserve its source block and ordinal") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_block_at(
+					    &graph,
+					    target.source_block_index,
+					    &block,
+					    &error),
+				    &error,
+				    "five-result scalar source block should be available") != 0 ||
+			    expect_true(
+				    block.kind == SQLPARSER_GRAPH_BLOCK_SCALAR_SUBQUERY &&
+					    block.relations.count == 1U &&
+					    block.targets.count == 1U,
+				    "RETURNING scalar subquery should retain its scalar block") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			scalar_block_index = target.source_block_index;
+			if (expect_status_ok(
+				    sqlparser_query_graph_span_index_at(
+					    &graph,
+					    block.relations,
+					    0U,
+					    &scalar_relation_index,
+					    &error),
+				    &error,
+				    "RETURNING scalar CTE relation index should resolve") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_relation_at(
+					    &graph,
+					    scalar_relation_index,
+					    &relation,
+					    &error),
+				    &error,
+				    "RETURNING scalar CTE relation should be available") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			snprintf(
+				expected_name,
+				sizeof(expected_name),
+				"c%zu",
+				dml_index);
+			if (expect_true(
+				    relation.kind == SQLPARSER_GRAPH_REL_CTE &&
+					    relation.object_name != NULL &&
+					    strcmp(relation.object_name, expected_name) == 0 &&
+					    relation.has_source_block != 0 &&
+					    relation.source_block_index ==
+						    results[dml_index - 1U].block_index,
+				    "RETURNING scalar block should reference the preceding result CTE") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_span_index_at(
+					    &graph,
+					    block.targets,
+					    0U,
+					    &scalar_target_index,
+					    &error),
+				    &error,
+				    "RETURNING scalar select target index should resolve") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_target_at(
+					    &graph,
+					    scalar_target_index,
+					    &scalar_target,
+					    &error),
+				    &error,
+				    "RETURNING scalar select target should be available") != 0 ||
+			    expect_true(
+				    scalar_target.has_field != 0,
+				    "RETURNING scalar select target should expose its field") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_field_at(
+					    &graph,
+					    scalar_target.field_index,
+					    &scalar_field,
+					    &error),
+				    &error,
+				    "RETURNING scalar select field should be available") != 0 ||
+			    expect_true(
+				    scalar_field.block_index == scalar_block_index &&
+					    scalar_field.has_relation != 0 &&
+					    scalar_field.relation_index == scalar_relation_index &&
+					    scalar_field.column_name != NULL &&
+					    strcmp(
+						    scalar_field.column_name,
+						    dml_index == 1U ? "id" : "previous_id") == 0 &&
+					    scalar_field.index != id_field_index,
+				    "RETURNING scalar field must bind its CTE, not the outer DML target") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		}
+	}
+
+	if (expect_true(
+		    dmls[0].target_relation_index > dmls[4].target_relation_index,
+		    "result growth must preserve declaration ordinals despite reverse lazy build") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	for (relation_index = 0U;
+	     relation_index < graph.relation_count;
+	     relation_index++) {
+		size_t cte_index;
+
+		if (expect_status_ok(
+			    sqlparser_query_graph_relation_at(
+				    &graph,
+				    relation_index,
+				    &relation,
+				    &error),
+			    &error,
+			    "five-result CTE reference should be available") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (relation.kind != SQLPARSER_GRAPH_REL_CTE ||
+		    relation.object_name == NULL || relation.object_name[0] != 'c' ||
+		    relation.object_name[1] < '1' || relation.object_name[1] > '5' ||
+		    relation.object_name[2] != '\0') {
+			continue;
+		}
+		cte_index = (size_t)(relation.object_name[1] - '1');
+		if (expect_true(
+			    relation.has_source_block != 0 &&
+				    relation.source_block_index == results[cte_index].block_index,
+			    "each reverse dependency should point to its provider result block") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		cte_reference_counts[cte_index]++;
+	}
+	for (dml_index = 0U; dml_index < 5U; dml_index++) {
+		if (expect_true(
+			    cte_reference_counts[dml_index] == 1U,
+			    "each result CTE should be referenced exactly once in the chain") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+
+	rc = sqlparser_export_view_json(handle, 0, &view_json, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "five-result data-CTE View should export after result-array growth") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	root = json_loads(view_json, 0, &json_error);
+	statements = root != NULL ? json_object_get(root, "statements") : NULL;
+	statement = json_is_array(statements) ? json_array_get(statements, 0U) : NULL;
+	query_graph = json_is_object(statement) ?
+		json_object_get(statement, "query_graph") : NULL;
+	dmls_json = json_is_object(query_graph) ?
+		json_object_get(query_graph, "dmls") : NULL;
+	if (expect_true(
+		    json_is_array(dmls_json) && json_array_size(dmls_json) == 5U,
+		    "five-result View should expose a five-root DML forest") != 0) {
+		if (root != NULL) {
+			json_decref(root);
+		}
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	for (dml_index = 0U; dml_index < 5U; dml_index++) {
+		json_t *dml_json;
+		json_t *channels;
+		json_t *channel;
+
+		dml_json = json_array_get(dmls_json, dml_index);
+		channels = json_is_object(dml_json) ?
+			json_object_get(dml_json, "result_channels") : NULL;
+		channel = json_is_array(channels) ? json_array_get(channels, 0U) : NULL;
+		snprintf(
+			expected_selector,
+			sizeof(expected_selector),
+			"stmt[0].dml_result_target[%zu][0][0]",
+			dml_index);
+		if (expect_true(
+			    json_is_array(channels) && json_array_size(channels) == 1U &&
+				    json_integer_is(
+					    channel,
+					    "block",
+					    (json_int_t)results[dml_index].block_index) &&
+				    strstr(view_json, expected_selector) != NULL,
+			    "View DML result channel should retain its graph block and selector") != 0) {
+			json_decref(root);
+			sqlparser_string_free(view_json);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+
+	json_decref(root);
+	sqlparser_string_free(view_json);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_postgresql_cte_merge_condition_source_span(
+	sqlparser_dialect_t dialect)
+{
+	static const struct {
+		const char *sql;
+		size_t dml_count;
+		size_t merge_dml_index;
+		const char *condition_sql;
+		const char *selector_text;
+	} cases[] = {
+		{
+			"WITH merged AS (MERGE INTO public.target_rows AS t USING "
+			"public.source_rows AS s ON t.id = s.id WHEN MATCHED AND "
+			"s.flag = 1 THEN UPDATE SET payload = s.payload RETURNING t.id) "
+			"SELECT id FROM merged",
+			1U,
+			0U,
+			"s.flag = 1",
+			"stmt[0].merge_branch_condition[0]"
+		},
+		{
+			"WITH seeded AS (INSERT INTO public.audit_seed (id) VALUES (1) "
+			"RETURNING id), merged AS (MERGE INTO public.target_rows AS t "
+			"USING public.source_rows AS s ON t.id = s.id WHEN MATCHED AND "
+			"s.flag = 2 THEN UPDATE SET payload = s.payload RETURNING t.id) "
+			"SELECT id FROM merged",
+			2U,
+			1U,
+			"s.flag = 2",
+			"stmt[0].merge_branch_condition[1][0]"
+		}
+	};
+	sqlparser_parse_options_t options;
+	size_t case_index;
+
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_graph_dml_t dml;
+		sqlparser_graph_dml_branch_t branch;
+		sqlparser_test_merge_branch_detail_t branch_detail;
+		char *condition_sql;
+		char *selector_text;
+		char *view_json;
+		size_t branch_index;
+		size_t dml_count;
+		size_t parent_index;
+		size_t result_count;
+		int has_parent;
+		int rc;
+
+		handle = NULL;
+		condition_sql = NULL;
+		selector_text = NULL;
+		view_json = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			cases[case_index].sql,
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "SELECT-root CTE MERGE condition case should parse") != 0 ||
+		    expect_true(
+			    handle->generation == 0UL,
+			    "fresh CTE MERGE handle should remain at generation zero") != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    cases[case_index].sql,
+			    "SELECT-root CTE MERGE should deparse exactly") != 0 ||
+		    expect_status_ok(
+			    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+			    &error,
+			    "SELECT-root CTE MERGE graph should build") != 0 ||
+		    expect_true(
+			    handle->generation == 0UL,
+			    "CTE MERGE graph construction must not change handle generation") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_count(
+				    &graph,
+				    &dml_count,
+				    &error),
+			    &error,
+			    "CTE MERGE DML count should succeed") != 0 ||
+		    expect_true(
+			    dml_count == cases[case_index].dml_count,
+			    "CTE MERGE DML count should include all preceding data CTEs") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_at(
+				    &graph,
+				    cases[case_index].merge_dml_index,
+				    &dml,
+				    &error),
+			    &error,
+			    "CTE MERGE DML should be available at its stable ordinal") != 0 ||
+		    expect_true(
+			    dml.index == cases[case_index].merge_dml_index &&
+				    dml.kind == SQLPARSER_GRAPH_DML_MERGE &&
+				    dml.branches.count == 1U,
+			    "CTE MERGE kind, ordinal, or branch count mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_parent(
+				    &graph,
+				    cases[case_index].merge_dml_index,
+				    &parent_index,
+				    &has_parent,
+				    &error),
+			    &error,
+			    "SELECT-root CTE MERGE parent should be readable") != 0 ||
+		    expect_true(
+			    has_parent == 0,
+			    "SELECT-root CTE MERGE must not have a synthetic parent") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_result_count(
+				    &graph,
+				    cases[case_index].merge_dml_index,
+				    &result_count,
+				    &error),
+			    &error,
+			    "CTE MERGE RETURNING result count should succeed") != 0 ||
+		    expect_true(
+			    result_count == 1U,
+			    "CTE MERGE RETURNING should expose one client result") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.branches,
+				    0U,
+				    &branch_index,
+				    &error),
+			    &error,
+			    "CTE MERGE branch index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_branch_at(
+				    &graph,
+				    branch_index,
+				    &branch,
+				    &error),
+			    &error,
+			    "CTE MERGE conditional branch should be available") != 0 ||
+		    expect_merge_branch_detail(
+			    &graph,
+			    branch_index,
+			    &branch_detail,
+			    &error,
+			    "CTE MERGE conditional branch detail should be available") != 0 ||
+		    expect_true(
+			    branch.dml_index == cases[case_index].merge_dml_index &&
+				    branch.ordinal == 0U &&
+				    branch_detail.action_kind ==
+					    SQLPARSER_GRAPH_MERGE_ACTION_UPDATE &&
+				    branch_detail.match_kind ==
+					    SQLPARSER_GRAPH_MERGE_MATCH_MATCHED &&
+				    branch.has_condition_selector != 0 &&
+				    branch.condition_selector.kind ==
+					    SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION &&
+				    branch.condition_selector.statement_index == 0U &&
+				    branch.condition_selector.row_index ==
+					    cases[case_index].merge_dml_index &&
+				    branch.condition_selector.item_index == 0U &&
+				    branch.condition_selector.column_index == 0U,
+			    "CTE MERGE condition selector coordinates mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_selector_format(
+				    &branch.condition_selector,
+				    &selector_text,
+				    &error),
+			    &error,
+			    "CTE MERGE condition selector should format") != 0 ||
+		    expect_true(
+			    selector_text != NULL &&
+				    strcmp(selector_text, cases[case_index].selector_text) == 0,
+			    "CTE MERGE condition selector text mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_selector_clause_sql(
+				    handle,
+				    &branch.condition_selector,
+				    &condition_sql,
+				    &error),
+			    &error,
+			    "generation-zero CTE MERGE condition SQL should resolve") != 0 ||
+		    expect_true(
+			    condition_sql != NULL &&
+				    strcmp(condition_sql, cases[case_index].condition_sql) == 0,
+			    "generation-zero CTE MERGE condition should preserve source text") != 0 ||
+		    expect_status_ok(
+			    sqlparser_export_view_json(handle, 0, &view_json, &error),
+			    &error,
+			    "CTE MERGE condition View should export") != 0 ||
+		    expect_true(
+			    view_json != NULL &&
+				    strstr(view_json, cases[case_index].selector_text) != NULL,
+			    "CTE MERGE View should expose the DML-aware condition selector") != 0) {
+			sqlparser_string_free(view_json);
+			sqlparser_string_free(selector_text);
+			sqlparser_string_free(condition_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		sqlparser_string_free(view_json);
+		sqlparser_string_free(selector_text);
+		sqlparser_string_free(condition_sql);
+		sqlparser_handle_destroy(handle);
+	}
+
+	return 0;
+}
+
+static int expect_postgresql_sibling_patch_graph(
+	const sqlparser_handle_t *handle,
+	size_t expected_update_target_count,
+	size_t expected_output_ordinal,
+	const char *expected_output_name,
+	const char *expected_target_schema,
+	const char *expected_target_name,
+	const char *message)
+{
+	sqlparser_error_t error;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t insert_dml;
+	sqlparser_graph_dml_t update_dml;
+	sqlparser_graph_dml_result_t insert_result;
+	sqlparser_graph_dml_result_t update_result;
+	sqlparser_graph_block_t insert_block;
+	sqlparser_graph_block_t update_block;
+	sqlparser_graph_relation_t relation;
+	sqlparser_graph_target_t target;
+	size_t count;
+	size_t parent_index;
+	size_t target_index;
+	size_t target_ordinal;
+	int has_parent;
+
+	memset(&error, 0, sizeof(error));
+	if (expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_count(&graph, &count, &error),
+		    &error,
+		    message) != 0 ||
+	    expect_true(count == 2U, message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_at(&graph, 0U, &insert_dml, &error),
+		    &error,
+		    message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_at(&graph, 1U, &update_dml, &error),
+		    &error,
+		    message) != 0 ||
+	    expect_true(
+		    insert_dml.index == 0U &&
+			    insert_dml.kind == SQLPARSER_GRAPH_DML_INSERT &&
+			    update_dml.index == 1U &&
+			    update_dml.kind == SQLPARSER_GRAPH_DML_UPDATE,
+		    message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_parent(
+			    &graph,
+			    0U,
+			    &parent_index,
+			    &has_parent,
+			    &error),
+		    &error,
+		    message) != 0 ||
+	    expect_true(has_parent == 0, message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_parent(
+			    &graph,
+			    1U,
+			    &parent_index,
+			    &has_parent,
+			    &error),
+		    &error,
+		    message) != 0 ||
+	    expect_true(has_parent == 0, message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_result_at(
+			    &graph,
+			    0U,
+			    0U,
+			    &insert_result,
+			    &error),
+		    &error,
+		    message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_result_at(
+			    &graph,
+			    1U,
+			    0U,
+			    &update_result,
+			    &error),
+		    &error,
+		    message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_block_at(
+			    &graph,
+			    insert_result.block_index,
+			    &insert_block,
+			    &error),
+		    &error,
+		    message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_block_at(
+			    &graph,
+			    update_result.block_index,
+			    &update_block,
+			    &error),
+		    &error,
+		    message) != 0 ||
+	    expect_true(
+		    insert_block.targets.count == 2U &&
+			    update_block.targets.count == expected_update_target_count,
+		    message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_relation_at(
+			    &graph,
+			    update_dml.target_relation_index,
+			    &relation,
+			    &error),
+		    &error,
+		    message) != 0 ||
+	    expect_true(
+		    relation.schema_name != NULL &&
+			    expected_target_schema != NULL &&
+			    strcmp(relation.schema_name, expected_target_schema) == 0 &&
+			    relation.object_name != NULL &&
+			    expected_target_name != NULL &&
+			    strcmp(relation.object_name, expected_target_name) == 0,
+		    message) != 0) {
+		return 1;
+	}
+	if (expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    &graph,
+			    insert_block.targets,
+			    0U,
+			    &target_index,
+			    &error),
+		    &error,
+		    message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_target_at(
+			    &graph,
+			    target_index,
+			    &target,
+			    &error),
+		    &error,
+		    message) != 0 ||
+	    expect_true(
+		    target.has_selector != 0 &&
+			    target.selector.kind ==
+				    SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGET &&
+			    target.selector.item_index == 0U &&
+			    target.selector.row_index == 0U &&
+			    target.selector.column_index == 0U,
+		    message) != 0) {
+		return 1;
+	}
+
+	for (target_ordinal = 0U;
+	     target_ordinal < expected_update_target_count;
+	     target_ordinal++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    update_block.targets,
+				    target_ordinal,
+				    &target_index,
+				    &error),
+			    &error,
+			    message) != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_target_at(
+				    &graph,
+				    target_index,
+				    &target,
+				    &error),
+			    &error,
+			    message) != 0 ||
+		    expect_true(
+			    target.has_selector != 0 &&
+				    target.selector.kind ==
+					    SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGET &&
+				    target.selector.item_index == 1U &&
+				    target.selector.row_index == 0U &&
+				    target.selector.column_index == target_ordinal &&
+				    target.has_target_list_selector != 0 &&
+				    target.target_list_selector.kind ==
+					    SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGETS &&
+				    target.target_list_selector.item_index == 1U &&
+				    target.target_list_selector.row_index == 0U,
+			    message) != 0) {
+			return 1;
+		}
+		if (expected_output_name != NULL &&
+		    target_ordinal == expected_output_ordinal &&
+		    expect_true(
+			    target.output_name != NULL &&
+				    strcmp(target.output_name, expected_output_name) == 0,
+			    message) != 0) {
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+static int test_postgresql_sibling_dml_cte_lineage_and_patch(
+	sqlparser_dialect_t dialect)
+{
+	static const char sql[] =
+		"WITH inserted AS (INSERT INTO public.inbox (id, payload) VALUES "
+		"(1, 10), (2, 20) RETURNING id, payload), updated AS (UPDATE "
+		"public.work_items SET payload = i.payload FROM inserted AS i WHERE "
+		"public.work_items.id = i.id RETURNING public.work_items.id, "
+		"public.work_items.payload) SELECT u.id, u.payload FROM updated AS u";
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t insert_dml;
+	sqlparser_graph_dml_t update_dml;
+	sqlparser_graph_dml_result_t insert_result;
+	sqlparser_graph_dml_result_t update_result;
+	sqlparser_graph_dml_assignment_t assignment;
+	sqlparser_graph_block_t insert_block;
+	sqlparser_graph_block_t update_block;
+	sqlparser_graph_field_t source_field;
+	sqlparser_graph_relation_t relation;
+	sqlparser_graph_relation_t source_relation;
+	sqlparser_graph_target_t source_target;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patch_list;
+	char *deparsed_sql;
+	size_t assignment_index;
+	size_t count;
+	size_t parent_index;
+	size_t relation_index;
+	int found_inserted;
+	int found_updated;
+	int has_parent;
+	int rc;
+
+	handle = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "sibling data-modifying CTEs should parse") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    sql,
+		    "sibling data-modifying CTEs should deparse exactly") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "sibling data-modifying CTE graph should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_count(&graph, &count, &error),
+		    &error,
+		    "sibling data-modifying CTE DML count should succeed") != 0 ||
+	    expect_true(
+		    count == 2U,
+		    "sibling INSERT and UPDATE should expose exactly two DMLs") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_at(&graph, 0U, &insert_dml, &error),
+		    &error,
+		    "sibling INSERT should be available at D=0") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_at(&graph, 1U, &update_dml, &error),
+		    &error,
+		    "sibling UPDATE should be available at D=1") != 0 ||
+	    expect_true(
+		    insert_dml.index == 0U &&
+			    insert_dml.kind == SQLPARSER_GRAPH_DML_INSERT &&
+			    insert_dml.has_target_relation != 0 &&
+			    update_dml.index == 1U &&
+			    update_dml.kind == SQLPARSER_GRAPH_DML_UPDATE &&
+			    update_dml.has_target_relation != 0 &&
+			    update_dml.assignments.count == 1U,
+		    "sibling DML kinds, ordinals, and update assignment should be stable") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_parent(
+			    &graph,
+			    0U,
+			    &parent_index,
+			    &has_parent,
+			    &error),
+		    &error,
+		    "sibling INSERT parent should be readable") != 0 ||
+	    expect_true(
+		    has_parent == 0,
+		    "SELECT-root INSERT CTE should not have a synthetic parent") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_parent(
+			    &graph,
+			    1U,
+			    &parent_index,
+			    &has_parent,
+			    &error),
+		    &error,
+		    "sibling UPDATE parent should be readable") != 0 ||
+	    expect_true(
+		    has_parent == 0,
+		    "sibling data-modifying CTEs should remain independent DML roots") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_result_count(
+			    &graph,
+			    0U,
+			    &count,
+			    &error),
+		    &error,
+		    "sibling INSERT result count should succeed") != 0 ||
+	    expect_true(
+		    count == 1U,
+		    "sibling INSERT should expose one result") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_result_count(
+			    &graph,
+			    1U,
+			    &count,
+			    &error),
+		    &error,
+		    "sibling UPDATE result count should succeed") != 0 ||
+	    expect_true(
+		    count == 1U,
+		    "sibling UPDATE should expose one result") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_result_at(
+			    &graph,
+			    0U,
+			    0U,
+			    &insert_result,
+			    &error),
+		    &error,
+		    "sibling INSERT result should be available") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_result_at(
+			    &graph,
+			    1U,
+			    0U,
+			    &update_result,
+			    &error),
+		    &error,
+		    "sibling UPDATE result should be available") != 0 ||
+	    expect_true(
+		    insert_result.kind == SQLPARSER_GRAPH_DML_RESULT_CLIENT &&
+			    update_result.kind == SQLPARSER_GRAPH_DML_RESULT_CLIENT &&
+			    insert_result.block_index != update_result.block_index,
+		    "sibling INSERT and UPDATE should have distinct client result blocks") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_block_at(
+			    &graph,
+			    insert_result.block_index,
+			    &insert_block,
+			    &error),
+		    &error,
+		    "sibling INSERT result block should be available") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_block_at(
+			    &graph,
+			    update_result.block_index,
+			    &update_block,
+			    &error),
+		    &error,
+		    "sibling UPDATE result block should be available") != 0 ||
+	    expect_true(
+		    insert_block.targets.count == 2U &&
+			    update_block.targets.count == 2U,
+		    "both sibling result blocks should expose id and payload") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_relation_at(
+			    &graph,
+			    insert_dml.target_relation_index,
+			    &relation,
+			    &error),
+		    &error,
+		    "sibling INSERT target should be available") != 0 ||
+	    expect_true(
+		    relation.object_name != NULL &&
+			    strcmp(relation.object_name, "inbox") == 0,
+		    "sibling INSERT should target inbox") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_relation_at(
+			    &graph,
+			    update_dml.target_relation_index,
+			    &relation,
+			    &error),
+		    &error,
+		    "sibling UPDATE target should be available") != 0 ||
+	    expect_true(
+		    relation.schema_name != NULL &&
+			    strcmp(relation.schema_name, "public") == 0 &&
+			    relation.object_name != NULL &&
+			    strcmp(relation.object_name, "work_items") == 0,
+		    "sibling UPDATE should target public.work_items") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    &graph,
+			    update_dml.assignments,
+			    0U,
+			    &assignment_index,
+			    &error),
+		    &error,
+		    "sibling UPDATE assignment index should resolve") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_assignment_at(
+			    &graph,
+			    assignment_index,
+			    &assignment,
+			    &error),
+		    &error,
+		    "sibling UPDATE assignment should be available") != 0 ||
+	    expect_true(
+		    assignment.dml_index == 1U &&
+			    assignment.value_kind == SQLPARSER_GRAPH_VALUE_FIELD &&
+			    assignment.has_source_target != 0 &&
+			    assignment.has_source_field != 0,
+		    "sibling UPDATE assignment should retain INSERT result lineage") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_target_at(
+			    &graph,
+			    assignment.source_target_index,
+			    &source_target,
+			    &error),
+		    &error,
+		    "sibling UPDATE source target should be available") != 0 ||
+	    expect_true(
+		    source_target.block_index == insert_result.block_index &&
+			    source_target.output_name != NULL &&
+			    strcmp(source_target.output_name, "payload") == 0,
+		    "UPDATE payload should originate from inserted.payload") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_field_at(
+			    &graph,
+			    assignment.source_field_index,
+			    &source_field,
+			    &error),
+		    &error,
+		    "sibling UPDATE source field should be available") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_relation_at(
+			    &graph,
+			    source_field.relation_index,
+			    &source_relation,
+			    &error),
+		    &error,
+		    "sibling UPDATE source relation should be available") != 0 ||
+	    expect_true(
+		    source_field.column_name != NULL &&
+			    strcmp(source_field.column_name, "payload") == 0 &&
+			    source_relation.kind == SQLPARSER_GRAPH_REL_CTE &&
+			    source_relation.object_name != NULL &&
+			    strcmp(source_relation.object_name, "inserted") == 0 &&
+			    source_relation.has_source_block != 0 &&
+			    source_relation.source_block_index == insert_result.block_index,
+		    "assignment source field should bind through inserted's result block") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	found_inserted = 0;
+	found_updated = 0;
+	for (relation_index = 0U;
+	     relation_index < graph.relation_count;
+	     relation_index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_relation_at(
+				    &graph,
+				    relation_index,
+				    &relation,
+				    &error),
+			    &error,
+			    "sibling data-modifying CTE relation should be available") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (relation.kind != SQLPARSER_GRAPH_REL_CTE ||
+		    relation.object_name == NULL) {
+			continue;
+		}
+		if (strcmp(relation.object_name, "inserted") == 0) {
+			found_inserted = relation.alias_name != NULL &&
+				strcmp(relation.alias_name, "i") == 0 &&
+				relation.has_source_block != 0 &&
+				relation.source_block_index == insert_result.block_index;
+		} else if (strcmp(relation.object_name, "updated") == 0) {
+			found_updated = relation.alias_name != NULL &&
+				strcmp(relation.alias_name, "u") == 0 &&
+				relation.has_source_block != 0 &&
+				relation.source_block_index == update_result.block_index;
+		}
+	}
+	if (expect_true(
+		    found_inserted && found_updated,
+		    "sibling CTE relations should link to their own result blocks") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = "stmt[0].dml_result_target[1][0][1]";
+	patch.sql = "public.work_items.payload AS changed_payload";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "fresh D=1 RETURNING replace patch should succeed") != 0 ||
+	    expect_postgresql_sibling_patch_graph(
+		    handle,
+		    2U,
+		    1U,
+		    "changed_payload",
+		    "public",
+		    "work_items",
+		    "fresh RETURNING replace graph should retain D=0/D=1") != 0 ||
+	    expect_deparse_reparse_ok(
+		    handle,
+		    "fresh D=1 RETURNING replace SQL should reparse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_deparse(handle, &deparsed_sql, &error),
+		    &error,
+		    "fresh D=1 RETURNING replace SQL should deparse") != 0 ||
+	    expect_true(
+		    deparsed_sql != NULL &&
+			    strstr(
+				    deparsed_sql,
+				    "RETURNING public.work_items.id, "
+				    "public.work_items.payload AS changed_payload") != NULL &&
+			    strstr(deparsed_sql, "copied_id") == NULL,
+		    "fresh replace patch should alter only the selected D=1 target") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "fresh sibling handle for RETURNING insert should parse") != 0) {
+		return 1;
+	}
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patch.selector = "stmt[0].dml_result_targets[1][0]";
+	patch.index = 2U;
+	patch.sql = "public.work_items.id AS copied_id";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "fresh D=1 RETURNING insert patch should succeed") != 0 ||
+	    expect_postgresql_sibling_patch_graph(
+		    handle,
+		    3U,
+		    2U,
+		    "copied_id",
+		    "public",
+		    "work_items",
+		    "fresh RETURNING insert graph should retain D=0/D=1") != 0 ||
+	    expect_deparse_reparse_ok(
+		    handle,
+		    "fresh D=1 RETURNING insert SQL should reparse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_deparse(handle, &deparsed_sql, &error),
+		    &error,
+		    "fresh D=1 RETURNING insert SQL should deparse") != 0 ||
+	    expect_true(
+		    deparsed_sql != NULL &&
+			    strstr(
+				    deparsed_sql,
+				    "RETURNING public.work_items.id, public.work_items.payload, "
+				    "public.work_items.id AS copied_id") != NULL &&
+			    strstr(deparsed_sql, "changed_payload") == NULL,
+		    "fresh insert patch should append only the selected D=1 target") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "fresh sibling handle for relation patch should parse") != 0) {
+		return 1;
+	}
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = "stmt[0].relation[2]";
+	patch.sql = "archive.work_items_new";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "fresh relation patch inside UPDATE CTE should succeed") != 0 ||
+	    expect_postgresql_sibling_patch_graph(
+		    handle,
+		    2U,
+		    0U,
+		    NULL,
+		    "archive",
+		    "work_items_new",
+		    "fresh relation patch graph should retain D=0/D=1") != 0 ||
+	    expect_deparse_reparse_ok(
+		    handle,
+		    "fresh sibling SQL after relation patch should reparse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_deparse(handle, &deparsed_sql, &error),
+		    &error,
+		    "fresh sibling SQL after relation patch should deparse") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	if (deparsed_sql == NULL ||
+	    strstr(deparsed_sql, "public.work_items") != NULL ||
+	    strstr(deparsed_sql, "UPDATE archive.work_items_new") == NULL ||
+	    strstr(deparsed_sql, "archive.work_items_new.id = i.id") == NULL ||
+	    strstr(
+		    deparsed_sql,
+		    "RETURNING archive.work_items_new.id, "
+		    "archive.work_items_new.payload") == NULL) {
+		fprintf(
+			stderr,
+			"FAIL: fresh relation patch should propagate original UPDATE CTE "
+			"qualifiers: %s\n",
+			deparsed_sql != NULL ? deparsed_sql : "(null)");
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_postgresql_merge_branch_array_growth(
+	sqlparser_dialect_t dialect)
+{
+	static const char sql[] =
+		"WITH prior_update AS (MERGE INTO public.prior_update_target AS pt "
+		"USING (VALUES (1, 10, 0)) AS ps(id, payload, flag) ON pt.id = ps.id "
+		"WHEN MATCHED AND ps.flag = 0 THEN UPDATE SET payload = ps.payload + 0 "
+		"WHEN MATCHED AND ps.flag = 1 THEN UPDATE SET payload = ps.payload + 1 "
+		"WHEN MATCHED AND ps.flag = 2 THEN UPDATE SET payload = ps.payload + 2 "
+		"WHEN MATCHED AND ps.flag = 3 THEN UPDATE SET payload = ps.payload + 3 "
+		"WHEN MATCHED AND ps.flag = 4 THEN UPDATE SET payload = ps.payload + 4 "
+		"WHEN MATCHED AND ps.flag = 5 THEN UPDATE SET payload = ps.payload + 5 "
+		"WHEN MATCHED AND ps.flag = 6 THEN UPDATE SET payload = ps.payload + 6 "
+		"WHEN MATCHED AND ps.flag = 7 THEN UPDATE SET payload = ps.payload + 7 "
+		"WHEN MATCHED AND ps.flag = 8 THEN UPDATE SET payload = ps.payload + 8 "
+		"WHEN MATCHED AND ps.flag = 9 THEN UPDATE SET payload = ps.payload + 9 "
+		"WHEN MATCHED AND ps.flag = 10 THEN UPDATE SET payload = ps.payload + 10 "
+		"WHEN MATCHED AND ps.flag = 11 THEN UPDATE SET payload = ps.payload + 11 "
+		"WHEN MATCHED AND ps.flag = 12 THEN UPDATE SET payload = ps.payload + 12 "
+		"WHEN MATCHED AND ps.flag = 13 THEN UPDATE SET payload = ps.payload + 13 "
+		"WHEN MATCHED AND ps.flag = 14 THEN UPDATE SET payload = ps.payload + 14 "
+		"WHEN MATCHED AND ps.flag = 15 THEN UPDATE SET payload = ps.payload + 15 "
+		"RETURNING pt.id), prior_insert AS (MERGE INTO "
+		"public.prior_insert_target AS pi USING (VALUES (1, 10, 1)) AS "
+		"pis(id, payload, flag) ON pi.id = pis.id WHEN MATCHED AND pis.flag = 1 "
+		"THEN UPDATE SET payload = pis.payload RETURNING pi.id) MERGE INTO "
+		"public.outer_target AS ot USING (VALUES (1, 10, 0)) AS "
+		"os(id, payload, flag) ON ot.id = os.id WHEN MATCHED AND os.flag = 0 "
+		"THEN UPDATE SET payload = (SELECT id FROM prior_update) WHEN MATCHED "
+		"AND os.flag = 1 THEN UPDATE SET payload = os.payload + 1 WHEN MATCHED "
+		"AND os.flag = 2 THEN UPDATE SET payload = os.payload + 2 WHEN MATCHED "
+		"AND os.flag = 3 THEN UPDATE SET payload = os.payload + 3 WHEN MATCHED "
+		"AND os.flag = 4 THEN UPDATE SET payload = os.payload + 4 WHEN MATCHED "
+		"AND os.flag = 5 THEN UPDATE SET payload = os.payload + 5 WHEN MATCHED "
+		"AND os.flag = 6 THEN UPDATE SET payload = os.payload + 6 WHEN MATCHED "
+		"AND os.flag = 7 THEN UPDATE SET payload = os.payload + 7 WHEN MATCHED "
+		"AND os.flag = 8 THEN UPDATE SET payload = os.payload + 8 WHEN MATCHED "
+		"AND os.flag = 9 THEN UPDATE SET payload = os.payload + 9 WHEN MATCHED "
+		"AND os.flag = 10 THEN UPDATE SET payload = os.payload + 10 WHEN MATCHED "
+		"AND os.flag = 11 THEN UPDATE SET payload = os.payload + 11 WHEN MATCHED "
+		"AND os.flag = 12 THEN UPDATE SET payload = os.payload + 12 WHEN MATCHED "
+		"AND os.flag = 13 THEN UPDATE SET payload = os.payload + 13 WHEN MATCHED "
+		"AND os.flag = 14 THEN UPDATE SET payload = os.payload + 14 WHEN NOT "
+		"MATCHED AND os.flag = 15 THEN INSERT (id, payload) VALUES (os.id, "
+		"(SELECT id FROM prior_insert)) RETURNING ot.id";
+	static const char *const target_names[] = {
+		"outer_target_new",
+		"prior_update_target",
+		"prior_insert_target"
+	};
+	static const char *const target_schemas[] = {
+		"archive",
+		"public",
+		"public"
+	};
+	static const size_t branch_counts[] = {16U, 16U, 1U};
+	static const char old_target[] = "public.outer_target";
+	static const char new_target[] = "archive.outer_target_new";
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dmls[3];
+	sqlparser_graph_dml_result_t results[3];
+	sqlparser_graph_dml_branch_t branch;
+	sqlparser_test_merge_branch_detail_t detail;
+	sqlparser_graph_dml_assignment_t assignment;
+	sqlparser_graph_dml_column_t column;
+	sqlparser_graph_dml_cell_t cell;
+	sqlparser_graph_field_t field;
+	sqlparser_graph_relation_t relation;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patch_list;
+	char *assignment_sql;
+	char *condition_sql;
+	char *expected_patched_sql;
+	char *view_json;
+	char expected_sql[64];
+	char expected_condition[32];
+	const char *target_pos;
+	size_t assignment_index;
+	size_t branch_index;
+	size_t cell_index;
+	size_t column_index;
+	size_t count;
+	size_t dml_index;
+	size_t item_index;
+	size_t prefix_length;
+	size_t patched_length;
+	int rc;
+
+	handle = NULL;
+	assignment_sql = NULL;
+	condition_sql = NULL;
+	expected_patched_sql = NULL;
+	view_json = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "MERGE branch growth case should parse") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    sql,
+		    "MERGE branch growth case should deparse exactly") != 0) {
+		goto fail;
+	}
+	target_pos = strstr(sql, old_target);
+	if (expect_true(
+		    target_pos != NULL &&
+			    strstr(target_pos + sizeof(old_target) - 1U, old_target) == NULL,
+		    "MERGE growth relation patch target should occur exactly once") != 0) {
+		goto fail;
+	}
+	prefix_length = (size_t)(target_pos - sql);
+	patched_length = strlen(sql) - (sizeof(old_target) - 1U) +
+		(sizeof(new_target) - 1U);
+	expected_patched_sql = (char *)malloc(patched_length + 1U);
+	if (expect_true(
+		    expected_patched_sql != NULL,
+		    "MERGE growth patched SQL allocation should succeed") != 0) {
+		goto fail;
+	}
+	memcpy(expected_patched_sql, sql, prefix_length);
+	memcpy(
+		expected_patched_sql + prefix_length,
+		new_target,
+		sizeof(new_target) - 1U);
+	memcpy(
+		expected_patched_sql + prefix_length + sizeof(new_target) - 1U,
+		target_pos + sizeof(old_target) - 1U,
+		strlen(target_pos + sizeof(old_target) - 1U) + 1U);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = "stmt[0].relation[0]";
+	patch.sql = new_target;
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "MERGE growth relation patch should collect all bindings") != 0 ||
+	    expect_true(
+		    handle->generation == 1UL,
+		    "MERGE growth relation patch should advance generation once") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    expected_patched_sql,
+		    "MERGE growth relation patch should deparse exactly") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "MERGE branch growth graph should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_count(&graph, &count, &error),
+		    &error,
+		    "MERGE branch growth DML count should succeed") != 0 ||
+	    expect_true(
+		    count == 3U && graph.dml_branch_count == 33U,
+		    "MERGE branch growth should preserve three DMLs and 33 branches") != 0) {
+		goto fail;
+	}
+
+	for (dml_index = 0U; dml_index < 3U; dml_index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_dml_at(
+				    &graph,
+				    dml_index,
+				    &dmls[dml_index],
+				    &error),
+			    &error,
+			    "MERGE branch growth DML should be available") != 0 ||
+		    expect_true(
+			    dmls[dml_index].index == dml_index &&
+				    dmls[dml_index].kind == SQLPARSER_GRAPH_DML_MERGE &&
+				    dmls[dml_index].has_target_relation != 0 &&
+				    dmls[dml_index].branches.count == branch_counts[dml_index],
+			    "MERGE branch growth DML ordinal or branch count mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_relation_at(
+				    &graph,
+				    dmls[dml_index].target_relation_index,
+				    &relation,
+				    &error),
+			    &error,
+			    "MERGE branch growth target relation should be available") != 0 ||
+		    expect_true(
+			    relation.schema_name != NULL &&
+				    strcmp(
+					    relation.schema_name,
+					    target_schemas[dml_index]) == 0 &&
+				    relation.object_name != NULL &&
+				    strcmp(relation.object_name, target_names[dml_index]) == 0,
+			    "MERGE branch growth target relation mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_result_at(
+				    &graph,
+				    dml_index,
+				    0U,
+				    &results[dml_index],
+				    &error),
+			    &error,
+			    "MERGE branch growth result should be available") != 0 ||
+		    expect_true(
+			    results[dml_index].kind ==
+				    SQLPARSER_GRAPH_DML_RESULT_CLIENT,
+			    "each MERGE branch growth DML should retain RETURNING") != 0) {
+			goto fail;
+		}
+	}
+	if (expect_true(
+		    dmls[0].assignments.count == 15U &&
+			    dmls[0].target_columns.count == 0U &&
+			    dmls[0].rows.count == 0U,
+		    "outer MERGE payload should remain branch-scoped after growth") != 0) {
+		goto fail;
+	}
+
+	for (item_index = 0U; item_index < 16U; item_index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dmls[0].branches,
+				    item_index,
+				    &branch_index,
+				    &error),
+			    &error,
+			    "outer MERGE branch index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_branch_at(
+				    &graph,
+				    branch_index,
+				    &branch,
+				    &error),
+			    &error,
+			    "outer MERGE branch should be available after growth") != 0 ||
+		    expect_merge_branch_detail(
+			    &graph,
+			    branch_index,
+			    &detail,
+			    &error,
+			    "outer MERGE branch detail should survive growth") != 0 ||
+		    expect_true(
+			    branch.dml_index == 0U && branch.ordinal == item_index &&
+				    branch.branch_kind == SQLPARSER_GRAPH_DML_BRANCH_WHEN &&
+				    branch.has_target_relation != 0 &&
+				    branch.target_relation_index ==
+					    dmls[0].target_relation_index &&
+				    branch.has_condition_selector != 0 &&
+				    branch.condition_selector.kind ==
+					    SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION &&
+				    branch.condition_selector.statement_index == 0U &&
+				    branch.condition_selector.row_index == 0U &&
+				    branch.condition_selector.item_index == item_index &&
+				    branch.condition_selector.column_index == 0U,
+			    "outer MERGE branch ordinal or selector was corrupted by growth") != 0) {
+			goto fail;
+		}
+		snprintf(
+			expected_condition,
+			sizeof(expected_condition),
+			"os.flag = %zu",
+			item_index);
+		if (expect_status_ok(
+			    sqlparser_selector_clause_sql(
+				    handle,
+				    &branch.condition_selector,
+				    &condition_sql,
+				    &error),
+			    &error,
+			    "outer MERGE branch condition SQL should resolve") != 0 ||
+		    expect_true(
+			    condition_sql != NULL &&
+				    strcmp(condition_sql, expected_condition) == 0,
+			    "outer MERGE branch condition source span was corrupted") != 0) {
+			goto fail;
+		}
+		sqlparser_string_free(condition_sql);
+		condition_sql = NULL;
+
+		if (item_index < 15U) {
+			if (expect_true(
+				    detail.action_kind ==
+					    SQLPARSER_GRAPH_MERGE_ACTION_UPDATE &&
+					    detail.match_kind ==
+						    SQLPARSER_GRAPH_MERGE_MATCH_MATCHED &&
+					    detail.assignments.count == 1U &&
+					    branch.target_columns.count == 0U &&
+					    branch.rows.count == 0U,
+				    "outer MERGE UPDATE detail was corrupted by growth") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_span_index_at(
+					    &graph,
+					    detail.assignments,
+					    0U,
+					    &assignment_index,
+					    &error),
+				    &error,
+				    "outer MERGE UPDATE assignment index should resolve") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_dml_assignment_at(
+					    &graph,
+					    assignment_index,
+					    &assignment,
+					    &error),
+				    &error,
+				    "outer MERGE UPDATE assignment should survive growth") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_field_at(
+					    &graph,
+					    assignment.target_field_index,
+					    &field,
+					    &error),
+				    &error,
+				    "outer MERGE UPDATE target field should resolve") != 0 ||
+			    expect_true(
+				    assignment.dml_index == 0U &&
+					    assignment.value_kind ==
+						    SQLPARSER_GRAPH_VALUE_EXPRESSION &&
+					    assignment.has_selector != 0 &&
+					    assignment.selector.kind ==
+						    SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT &&
+					    assignment.selector.statement_index == 0U &&
+					    assignment.selector.row_index == 0U &&
+					    assignment.selector.item_index == item_index &&
+					    assignment.selector.column_index == 0U &&
+					    field.column_name != NULL &&
+					    strcmp(field.column_name, "payload") == 0,
+				    "outer MERGE UPDATE assignment metadata was corrupted") != 0) {
+				goto fail;
+			}
+			if (item_index == 0U) {
+				snprintf(
+					expected_sql,
+					sizeof(expected_sql),
+					"(SELECT id FROM prior_update)");
+			} else {
+				snprintf(
+					expected_sql,
+					sizeof(expected_sql),
+					"os.payload + %zu",
+					item_index);
+			}
+			if (expect_status_ok(
+				    sqlparser_selector_update_assignment_sql(
+					    handle,
+					    &assignment.selector,
+					    &assignment_sql,
+					    &error),
+				    &error,
+				    "outer MERGE UPDATE assignment SQL should resolve") != 0 ||
+			    expect_true(
+				    assignment_sql != NULL &&
+					    strcmp(assignment_sql, expected_sql) == 0,
+				    "outer MERGE UPDATE assignment source span was corrupted") != 0) {
+				goto fail;
+			}
+			sqlparser_string_free(assignment_sql);
+			assignment_sql = NULL;
+			continue;
+		}
+
+		if (expect_true(
+			    detail.action_kind == SQLPARSER_GRAPH_MERGE_ACTION_INSERT &&
+				    detail.match_kind ==
+					    SQLPARSER_GRAPH_MERGE_MATCH_NOT_MATCHED_BY_TARGET &&
+				    detail.assignments.count == 0U &&
+				    branch.target_columns.count == 2U &&
+				    branch.rows.count == 2U,
+			    "outer MERGE INSERT detail was corrupted by growth") != 0) {
+			goto fail;
+		}
+		for (column_index = 0U; column_index < 2U; column_index++) {
+			if (expect_status_ok(
+				    sqlparser_query_graph_span_index_at(
+					    &graph,
+					    branch.target_columns,
+					    column_index,
+					    &count,
+					    &error),
+				    &error,
+				    "outer MERGE INSERT column index should resolve") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_dml_column_at(
+					    &graph,
+					    count,
+					    &column,
+					    &error),
+				    &error,
+				    "outer MERGE INSERT column should survive growth") != 0 ||
+			    expect_true(
+				    column.dml_index == 0U &&
+					    column.ordinal == column_index &&
+					    column.column_name != NULL &&
+					    strcmp(
+						    column.column_name,
+						    column_index == 0U ? "id" : "payload") == 0,
+				    "outer MERGE INSERT column metadata was corrupted") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_span_index_at(
+					    &graph,
+					    branch.rows,
+					    column_index,
+					    &cell_index,
+					    &error),
+				    &error,
+				    "outer MERGE INSERT cell index should resolve") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_dml_cell_at(
+					    &graph,
+					    cell_index,
+					    &cell,
+					    &error),
+				    &error,
+				    "outer MERGE INSERT cell should survive growth") != 0 ||
+			    expect_true(
+				    cell.dml_index == 0U && cell.row_index == 15U &&
+					    cell.column_ordinal == column_index,
+				    "outer MERGE INSERT cell coordinates were corrupted") != 0) {
+				goto fail;
+			}
+			if (column_index == 0U) {
+				if (expect_true(
+					    cell.kind == SQLPARSER_GRAPH_VALUE_FIELD &&
+						    cell.has_source_field != 0,
+					    "outer MERGE INSERT id cell should retain source field") != 0 ||
+				    expect_status_ok(
+					    sqlparser_query_graph_field_at(
+						    &graph,
+						    cell.source_field_index,
+						    &field,
+						    &error),
+					    &error,
+					    "outer MERGE INSERT id source field should resolve") != 0 ||
+				    expect_status_ok(
+					    sqlparser_query_graph_relation_at(
+						    &graph,
+						    field.relation_index,
+						    &relation,
+						    &error),
+					    &error,
+					    "outer MERGE INSERT id source relation should resolve") != 0 ||
+				    expect_true(
+					    field.column_name != NULL &&
+						    strcmp(field.column_name, "id") == 0 &&
+						    relation.alias_name != NULL &&
+						    strcmp(relation.alias_name, "os") == 0,
+					    "outer MERGE INSERT id lineage was corrupted") != 0) {
+					goto fail;
+				}
+			} else if (expect_true(
+					   cell.kind == SQLPARSER_GRAPH_VALUE_EXPRESSION &&
+						   cell.has_source_target == 0 &&
+						   cell.has_source_field == 0,
+					   "outer MERGE INSERT scalar cell should remain an expression") != 0) {
+				goto fail;
+			}
+		}
+	}
+
+	if (expect_status_ok(
+		    sqlparser_export_view_json(handle, 0, &view_json, &error),
+		    &error,
+		    "MERGE branch growth View should export") != 0 ||
+	    expect_true(
+		    view_json != NULL &&
+			    strstr(
+				    view_json,
+				    "\"expression_sql\":\"(SELECT id FROM prior_insert)\"") != NULL,
+		    "MERGE INSERT scalar cell should preserve its exact expression SQL") != 0) {
+		goto fail;
+	}
+
+	sqlparser_string_free(view_json);
+	free(expected_patched_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+
+fail:
+	sqlparser_string_free(view_json);
+	sqlparser_string_free(assignment_sql);
+	sqlparser_string_free(condition_sql);
+	free(expected_patched_sql);
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+static int expect_postgresql_scalar_scope_case(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	int has_dml,
+	sqlparser_graph_relation_kind_t expected_relation_kind,
+	const char *expected_relation_name,
+	sqlparser_graph_target_kind_t expected_container_kind,
+	const char *expected_output_name)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_result_t result;
+	sqlparser_graph_block_t container_block;
+	sqlparser_graph_block_t scalar_block;
+	sqlparser_graph_block_t block;
+	sqlparser_graph_field_t scalar_field;
+	sqlparser_graph_field_t field;
+	sqlparser_graph_relation_t relation;
+	sqlparser_graph_target_t container_target;
+	sqlparser_graph_target_t scalar_target;
+	size_t block_index;
+	size_t container_target_index;
+	size_t dml_count;
+	size_t field_index;
+	size_t scalar_block_count;
+	size_t scalar_field_count;
+	int rc;
+
+	handle = NULL;
+	scalar_block_count = 0U;
+	scalar_field_count = 0U;
+	memset(&scalar_block, 0, sizeof(scalar_block));
+	memset(&scalar_field, 0, sizeof(scalar_field));
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, "scalar scope regression SQL should parse") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    sql,
+		    "scalar scope regression SQL should deparse exactly") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "scalar scope regression graph should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_count(&graph, &dml_count, &error),
+		    &error,
+		    "scalar scope regression DML count should succeed") != 0 ||
+	    expect_true(
+		    dml_count == (has_dml ? 1U : 0U),
+		    "scalar scope regression DML count mismatch") != 0) {
+		goto fail;
+	}
+
+	for (block_index = 0U; block_index < graph.block_count; block_index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_block_at(
+				    &graph,
+				    block_index,
+				    &block,
+				    &error),
+			    &error,
+			    "scalar scope regression block should be available") != 0) {
+			goto fail;
+		}
+		if (block.kind == SQLPARSER_GRAPH_BLOCK_SCALAR_SUBQUERY) {
+			scalar_block = block;
+			scalar_block_count++;
+		}
+	}
+	if (expect_true(
+		    scalar_block_count == 1U,
+		    "scalar scope regression should expose exactly one scalar block") != 0) {
+		goto fail;
+	}
+
+	if (has_dml) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_dml_at(&graph, 0U, &dml, &error),
+			    &error,
+			    "scalar scope UPDATE should be available") != 0 ||
+		    expect_true(
+			    dml.kind == SQLPARSER_GRAPH_DML_UPDATE &&
+				    dml.has_target_relation != 0,
+			    "scalar scope DML should remain an UPDATE") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_result_at(
+				    &graph,
+				    0U,
+				    0U,
+				    &result,
+				    &error),
+			    &error,
+			    "scalar scope UPDATE result should be available") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_block_at(
+				    &graph,
+				    result.block_index,
+				    &container_block,
+				    &error),
+			    &error,
+			    "scalar scope UPDATE result block should be available") != 0) {
+			goto fail;
+		}
+	} else if (expect_status_ok(
+			   sqlparser_query_graph_block_at(
+				   &graph,
+				   graph.root_block_index,
+				   &container_block,
+				   &error),
+			   &error,
+			   "scalar scope SELECT root should be available") != 0) {
+		goto fail;
+	}
+	if (expect_true(
+		    container_block.targets.count == 1U,
+		    "scalar scope output block should expose exactly one target") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    &graph,
+			    container_block.targets,
+			    0U,
+			    &container_target_index,
+			    &error),
+		    &error,
+		    "scalar scope output target index should resolve") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_target_at(
+			    &graph,
+			    container_target_index,
+			    &container_target,
+			    &error),
+		    &error,
+		    "scalar scope output target should be available") != 0 ||
+	    expect_true(
+		    container_target.kind == expected_container_kind &&
+			    container_target.output_name != NULL &&
+			    strcmp(container_target.output_name, expected_output_name) == 0 &&
+			    container_target.has_selector != 0 &&
+			    container_target.selector.kind ==
+				    (has_dml ?
+					     SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGET :
+					     SQLPARSER_SELECTOR_KIND_SELECT_TARGET) &&
+			    container_target.selector.statement_index == 0U &&
+			    container_target.selector.item_index == 0U &&
+			    container_target.selector.row_index == 0U &&
+			    container_target.selector.column_index == 0U,
+		    "scalar scope output target shape mismatch") != 0 ||
+	    expect_true(
+		    (expected_container_kind == SQLPARSER_GRAPH_TARGET_SUBQUERY) ==
+			    (container_target.has_source_block != 0) &&
+			    (expected_container_kind != SQLPARSER_GRAPH_TARGET_SUBQUERY ||
+			     container_target.source_block_index == scalar_block.index),
+		    "scalar subquery output should retain only its own source block") != 0) {
+		goto fail;
+	}
+
+	for (field_index = 0U; field_index < graph.field_count; field_index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    &graph,
+				    field_index,
+				    &field,
+				    &error),
+			    &error,
+			    "scalar scope field should be available") != 0) {
+			goto fail;
+		}
+		if (field.block_index == scalar_block.index &&
+		    field.column_name != NULL && strcmp(field.column_name, "id") == 0) {
+			scalar_field = field;
+			scalar_field_count++;
+		}
+	}
+	if (expect_true(
+		    scalar_field_count == 1U && scalar_field.has_relation != 0 &&
+			    scalar_field.candidate_relations.count == 0U &&
+			    scalar_field.has_target != 0 &&
+			    scalar_field.clause == SQLPARSER_CLAUSE_KIND_SELECT_LIST &&
+			    scalar_field.target_path_count == 0U,
+		    "scalar field should resolve once without inheriting an outer target path") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_relation_at(
+			    &graph,
+			    scalar_field.relation_index,
+			    &relation,
+			    &error),
+		    &error,
+		    "scalar field relation should be available") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_target_at(
+			    &graph,
+			    scalar_field.target_index,
+			    &scalar_target,
+			    &error),
+		    &error,
+		    "scalar field target should be available") != 0 ||
+	    expect_true(
+		    relation.kind == expected_relation_kind &&
+			    relation.object_name != NULL &&
+			    strcmp(relation.object_name, expected_relation_name) == 0 &&
+			    scalar_target.block_index == scalar_block.index &&
+			    scalar_target.kind == SQLPARSER_GRAPH_TARGET_FIELD &&
+			    scalar_target.output_name != NULL &&
+			    strcmp(scalar_target.output_name, "id") == 0 &&
+			    scalar_target.has_field != 0 &&
+			    scalar_target.field_index == scalar_field.index,
+		    "scalar field relation or target ownership mismatch") != 0) {
+		goto fail;
+	}
+
+	if (expected_relation_kind == SQLPARSER_GRAPH_REL_CTE) {
+		if (expect_true(
+			    scalar_block.relations.count == 1U &&
+				    relation.block_index == scalar_block.index &&
+				    relation.has_source_block != 0,
+			    "scalar CTE field should remain local to its scalar block") != 0) {
+			goto fail;
+		}
+	} else if (expect_true(
+			   scalar_block.relations.count == 0U &&
+				   relation.block_index != scalar_block.index &&
+				   relation.schema_name != NULL &&
+				   strcmp(relation.schema_name, "public") == 0 &&
+				   relation.alias_name != NULL &&
+				   strcmp(relation.alias_name, "t") == 0,
+			   "unqualified scalar field should correlate to the unique outer target") != 0) {
+		goto fail;
+	}
+
+	sqlparser_handle_destroy(handle);
+	return 0;
+
+fail:
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+static int test_postgresql_scalar_target_path_isolation(
+	sqlparser_dialect_t dialect)
+{
+	static const struct {
+		const char *sql;
+		int has_dml;
+	} cases[] = {
+		{
+			"WITH c AS (SELECT src.id FROM public.source_rows AS src), "
+			"changed AS (UPDATE public.target_rows AS t SET payload = 1 "
+			"RETURNING COALESCE((SELECT c.id FROM c), 0) AS resolved_id) "
+			"SELECT resolved_id FROM changed",
+			1
+		},
+		{
+			"WITH c AS (SELECT src.id FROM public.source_rows AS src) "
+			"SELECT COALESCE((SELECT c.id FROM c), 0) AS resolved_id",
+			0
+		}
+	};
+	size_t case_index;
+
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		if (expect_postgresql_scalar_scope_case(
+			    dialect,
+			    cases[case_index].sql,
+			    cases[case_index].has_dml,
+			    SQLPARSER_GRAPH_REL_CTE,
+			    "c",
+			    SQLPARSER_GRAPH_TARGET_EXPRESSION,
+			    "resolved_id") != 0) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static int test_postgresql_unqualified_scalar_correlation(
+	sqlparser_dialect_t dialect)
+{
+	static const struct {
+		const char *sql;
+		int has_dml;
+	} cases[] = {
+		{
+			"WITH changed AS (UPDATE public.target_rows AS t SET payload = 1 "
+			"RETURNING (SELECT id) AS correlated_id) SELECT correlated_id "
+			"FROM changed",
+			1
+		},
+		{
+			"SELECT (SELECT id) AS correlated_id FROM "
+			"public.target_rows AS t",
+			0
+		}
+	};
+	size_t case_index;
+
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		if (expect_postgresql_scalar_scope_case(
+			    dialect,
+			    cases[case_index].sql,
+			    cases[case_index].has_dml,
+			    SQLPARSER_GRAPH_REL_BASE,
+			    "target_rows",
+			    SQLPARSER_GRAPH_TARGET_SUBQUERY,
+			    "correlated_id") != 0) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static int test_postgresql_merge_do_nothing_unqualified_star(
+	sqlparser_dialect_t dialect)
+{
+	static const char sql[] =
+		"MERGE INTO public.target_rows AS t USING public.source_rows AS s "
+		"ON t.id = s.id WHEN MATCHED THEN DO NOTHING RETURNING *";
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_result_t result;
+	sqlparser_graph_block_t result_block;
+	sqlparser_graph_target_t target;
+	sqlparser_graph_relation_t relation;
+	size_t result_count;
+	size_t target_index;
+	size_t star_relation_index;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "PostgreSQL-compatible DO NOTHING MERGE RETURNING star should parse") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    sql,
+		    "PostgreSQL-compatible DO NOTHING MERGE should deparse exactly") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "PostgreSQL-compatible DO NOTHING MERGE graph should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_at(&graph, 0U, &dml, &error),
+		    &error,
+		    "PostgreSQL-compatible DO NOTHING MERGE DML should be available") != 0 ||
+	    expect_true(
+		    dml.kind == SQLPARSER_GRAPH_DML_MERGE &&
+			    dml.has_target_relation != 0 &&
+			    dml.branches.count == 1U &&
+			    graph.relation_count == 2U,
+		    "PostgreSQL-compatible DO NOTHING MERGE shape mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_result_count(
+			    &graph, 0U, &result_count, &error),
+		    &error,
+		    "PostgreSQL-compatible DO NOTHING MERGE result count should succeed") != 0 ||
+	    expect_true(
+		    result_count == 1U,
+		    "PostgreSQL-compatible DO NOTHING MERGE should expose one result") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_result_at(
+			    &graph, 0U, 0U, &result, &error),
+		    &error,
+		    "PostgreSQL-compatible DO NOTHING MERGE result should be available") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_block_at(
+			    &graph, result.block_index, &result_block, &error),
+		    &error,
+		    "PostgreSQL-compatible DO NOTHING MERGE result block should be available") != 0 ||
+	    expect_true(
+		    result.kind == SQLPARSER_GRAPH_DML_RESULT_CLIENT &&
+			    result.references.count == 0U &&
+			    result_block.kind == SQLPARSER_GRAPH_BLOCK_DML_RESULT &&
+			    result_block.targets.count == 1U,
+		    "DO NOTHING RETURNING star must not expose row-image references") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    &graph,
+			    result_block.targets,
+			    0U,
+			    &target_index,
+			    &error),
+		    &error,
+		    "DO NOTHING RETURNING star target index should resolve") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_target_at(
+			    &graph, target_index, &target, &error),
+		    &error,
+		    "DO NOTHING RETURNING star target should be available") != 0 ||
+	    expect_true(
+		    target.kind == SQLPARSER_GRAPH_TARGET_STAR &&
+			    target.ordinal == 0U &&
+			    target.has_field == 0 &&
+			    target.star_relations.count == 1U,
+		    "DO NOTHING unqualified star should bind exactly one relation") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    &graph,
+			    target.star_relations,
+			    0U,
+			    &star_relation_index,
+			    &error),
+		    &error,
+		    "DO NOTHING star relation index should resolve") != 0 ||
+	    expect_true(
+		    star_relation_index == dml.target_relation_index,
+		    "DO NOTHING unqualified star must bind only the MERGE target") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_relation_at(
+			    &graph,
+			    star_relation_index,
+			    &relation,
+			    &error),
+		    &error,
+		    "DO NOTHING target relation should be available") != 0 ||
+	    expect_true(
+		    relation.alias_name != NULL &&
+			    strcmp(relation.alias_name, "t") == 0,
+		    "DO NOTHING star relation should retain the target alias") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_postgresql_merge_do_nothing_pseudo_name_relation_patch(
+	sqlparser_dialect_t dialect)
+{
+	static const struct {
+		const char *sql;
+		const char *replacement;
+		const char *expected_sql;
+	} cases[] = {
+		{
+			"MERGE INTO public.inserted USING public.source_rows AS s "
+			"ON inserted.id = s.id WHEN MATCHED THEN DO NOTHING "
+			"RETURNING inserted.id AS target_id, inserted.*",
+			"archive.inserted_new",
+			"MERGE INTO archive.inserted_new USING public.source_rows AS s "
+			"ON inserted_new.id = s.id WHEN MATCHED THEN DO NOTHING "
+			"RETURNING inserted_new.id AS target_id, inserted_new.*"
+		},
+		{
+			"MERGE INTO public.deleted USING public.source_rows AS s "
+			"ON deleted.id = s.id WHEN MATCHED THEN DO NOTHING "
+			"RETURNING deleted.id AS target_id, deleted.*",
+			"archive.deleted_new",
+			"MERGE INTO archive.deleted_new USING public.source_rows AS s "
+			"ON deleted_new.id = s.id WHEN MATCHED THEN DO NOTHING "
+			"RETURNING deleted_new.id AS target_id, deleted_new.*"
+		}
+	};
+	size_t case_index;
+
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		sqlparser_parse_options_t options;
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_patch_t patch;
+		sqlparser_patch_list_t patch_list;
+		int rc;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialect;
+		rc = sqlparser_parse_with_options(
+			cases[case_index].sql,
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "PostgreSQL-compatible pseudo-name MERGE target should parse") != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    cases[case_index].sql,
+			    "pseudo-name MERGE baseline should deparse exactly") != 0 ||
+		    expect_relation_binding_counts(
+			    handle,
+			    0U,
+			    0U,
+			    3U,
+			    0U,
+			    "pseudo-name MERGE target should collect ON and RETURNING bindings once") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_REPLACE;
+		patch.selector = "stmt[0].relation[0]";
+		patch.sql = cases[case_index].replacement;
+		patch_list.items = &patch;
+		patch_list.count = 1U;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "pseudo-name MERGE target relation patch should succeed") != 0 ||
+		    expect_true(
+			    handle->generation == 1UL,
+			    "pseudo-name MERGE relation patch should commit once") != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    cases[case_index].expected_sql,
+			    "pseudo-name MERGE relation patch should rewrite every qualifier") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	return 0;
+}
+
+static int test_postgresql_merge_returning_reference_kinds(
+	sqlparser_dialect_t dialect)
+{
+	static const struct {
+		const char *sql;
+		const char *target_alias;
+		const char *source_alias;
+		size_t branch_count;
+		size_t target_before_count;
+		size_t target_after_count;
+	} cases[] = {
+		{
+			"MERGE INTO public.target_rows AS t USING public.source_rows AS s "
+			"ON t.id = s.id WHEN MATCHED THEN UPDATE SET payload = s.payload "
+			"WHEN NOT MATCHED THEN INSERT (id, payload) VALUES (s.id, s.payload) "
+			"RETURNING t.id AS target_id, t.*, s.id AS source_id, s.*",
+			"t",
+			"s",
+			2U,
+			0U,
+			1U
+		},
+		{
+			"MERGE INTO public.target_rows AS t USING public.source_rows AS s "
+			"ON t.id = s.id WHEN MATCHED THEN DELETE "
+			"RETURNING t.id AS target_id, t.*, s.id AS source_id, s.*",
+			"t",
+			"s",
+			1U,
+			1U,
+			0U
+		},
+		{
+			"MERGE INTO public.target_rows AS t USING public.source_rows AS s "
+			"ON t.id = s.id WHEN MATCHED AND s.delete_flag THEN DELETE "
+			"WHEN MATCHED THEN UPDATE SET payload = s.payload "
+			"WHEN NOT MATCHED THEN INSERT (id, payload) VALUES (s.id, s.payload) "
+			"RETURNING t.id AS target_id, t.*, s.id AS source_id, s.*",
+			"t",
+			"s",
+			3U,
+			1U,
+			1U
+		},
+		{
+			"MERGE INTO public.target_rows AS t USING public.source_rows AS s "
+			"ON t.id = s.id WHEN MATCHED THEN DO NOTHING "
+			"RETURNING t.id AS target_id, t.*, s.id AS source_id, s.*",
+			"t",
+			"s",
+			1U,
+			0U,
+			0U
+		},
+		{
+			"MERGE INTO public.target_rows AS inserted "
+			"USING public.source_rows AS deleted "
+			"ON inserted.id = deleted.id "
+			"WHEN MATCHED THEN UPDATE SET payload = deleted.payload "
+			"RETURNING inserted.id AS target_id, inserted.*, "
+			"deleted.id AS source_id, deleted.*",
+			"inserted",
+			"deleted",
+			1U,
+			0U,
+			1U
+		},
+		{
+			"MERGE INTO public.target_rows AS deleted "
+			"USING public.source_rows AS inserted "
+			"ON deleted.id = inserted.id "
+			"WHEN NOT MATCHED THEN INSERT (id, payload) "
+			"VALUES (inserted.id, inserted.payload) "
+			"RETURNING deleted.id AS target_id, deleted.*, "
+			"inserted.id AS source_id, inserted.*",
+			"deleted",
+			"inserted",
+			1U,
+			0U,
+			1U
+		},
+		{
+			"MERGE INTO public.target_rows AS deleted "
+			"USING public.source_rows AS inserted "
+			"ON deleted.id = inserted.id WHEN MATCHED THEN DELETE "
+			"RETURNING deleted.id AS target_id, deleted.*, "
+			"inserted.id AS source_id, inserted.*",
+			"deleted",
+			"inserted",
+			1U,
+			1U,
+			0U
+		},
+		{
+			"MERGE INTO public.target_rows AS inserted "
+			"USING public.source_rows AS deleted "
+			"ON inserted.id = deleted.id WHEN MATCHED THEN DO NOTHING "
+			"RETURNING inserted.id AS target_id, inserted.*, "
+			"deleted.id AS source_id, deleted.*",
+			"inserted",
+			"deleted",
+			1U,
+			0U,
+			0U
+		}
+	};
+	size_t case_index;
+
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		sqlparser_parse_options_t options;
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_graph_dml_t dml;
+		sqlparser_graph_dml_result_t result;
+		sqlparser_graph_block_t result_block;
+		sqlparser_graph_relation_t relation;
+		sqlparser_graph_target_t targets[4];
+		sqlparser_graph_field_t field;
+		size_t reference_counts[4][4];
+		size_t target_indices[4];
+		size_t source_relation_index;
+		size_t result_count;
+		size_t reference_ordinal;
+		size_t target_ordinal;
+		int rc;
+
+		handle = NULL;
+		source_relation_index = 0U;
+		memset(&error, 0, sizeof(error));
+		memset(targets, 0, sizeof(targets));
+		memset(target_indices, 0, sizeof(target_indices));
+		memset(reference_counts, 0, sizeof(reference_counts));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialect;
+		rc = sqlparser_parse_with_options(
+			cases[case_index].sql,
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "PostgreSQL-compatible MERGE RETURNING reference case should parse") != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    cases[case_index].sql,
+			    "PostgreSQL-compatible MERGE RETURNING should deparse exactly") != 0 ||
+		    expect_status_ok(
+			    sqlparser_statement_query_graph(
+				    handle, 0U, &graph, &error),
+			    &error,
+			    "PostgreSQL-compatible MERGE RETURNING graph should build") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_at(
+				    &graph, 0U, &dml, &error),
+			    &error,
+			    "PostgreSQL-compatible MERGE DML should be available") != 0 ||
+		    expect_true(
+			    dml.kind == SQLPARSER_GRAPH_DML_MERGE &&
+				    dml.has_target_relation != 0 &&
+				    dml.branches.count == cases[case_index].branch_count,
+			    "PostgreSQL-compatible MERGE branch or target metadata mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_result_count(
+				    &graph, 0U, &result_count, &error),
+			    &error,
+			    "PostgreSQL-compatible MERGE RETURNING result count should succeed") != 0 ||
+		    expect_true(
+			    result_count == 1U,
+			    "PostgreSQL-compatible MERGE RETURNING should expose one result") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_result_at(
+				    &graph, 0U, 0U, &result, &error),
+			    &error,
+			    "PostgreSQL-compatible MERGE RETURNING result should be available") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_block_at(
+				    &graph,
+				    result.block_index,
+				    &result_block,
+				    &error),
+			    &error,
+			    "PostgreSQL-compatible MERGE RETURNING block should be available") != 0 ||
+		    expect_true(
+			    result.kind == SQLPARSER_GRAPH_DML_RESULT_CLIENT &&
+				    result_block.kind == SQLPARSER_GRAPH_BLOCK_DML_RESULT &&
+				    result_block.targets.count == 4U &&
+				    result.references.count ==
+					    2U * (cases[case_index].target_before_count +
+						  cases[case_index].target_after_count) +
+					    2U,
+			    "PostgreSQL-compatible MERGE RETURNING result shape mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_relation_at(
+				    &graph,
+				    dml.target_relation_index,
+				    &relation,
+				    &error),
+			    &error,
+			    "PostgreSQL-compatible MERGE target relation should be available") != 0 ||
+		    expect_true(
+			    relation.alias_name != NULL &&
+				    strcmp(
+					    relation.alias_name,
+					    cases[case_index].target_alias) == 0,
+			    "PostgreSQL-compatible MERGE target alias mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		for (target_ordinal = 0U; target_ordinal < 4U; target_ordinal++) {
+			if (expect_status_ok(
+				    sqlparser_query_graph_span_index_at(
+					    &graph,
+					    result_block.targets,
+					    target_ordinal,
+					    &target_indices[target_ordinal],
+					    &error),
+				    &error,
+				    "MERGE RETURNING target index should resolve") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_target_at(
+					    &graph,
+					    target_indices[target_ordinal],
+					    &targets[target_ordinal],
+					    &error),
+				    &error,
+				    "MERGE RETURNING target should be available") != 0 ||
+			    expect_true(
+				    targets[target_ordinal].ordinal == target_ordinal,
+				    "MERGE RETURNING target ordinal mismatch") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		}
+
+		if (expect_true(
+			    targets[0].kind == SQLPARSER_GRAPH_TARGET_FIELD &&
+				    targets[0].has_field != 0 &&
+				    targets[0].output_name != NULL &&
+				    strcmp(targets[0].output_name, "target_id") == 0 &&
+				    targets[1].kind == SQLPARSER_GRAPH_TARGET_QUALIFIED_STAR &&
+				    targets[1].star_relations.count == 1U &&
+				    targets[2].kind == SQLPARSER_GRAPH_TARGET_FIELD &&
+				    targets[2].has_field != 0 &&
+				    targets[2].output_name != NULL &&
+				    strcmp(targets[2].output_name, "source_id") == 0 &&
+				    targets[3].kind == SQLPARSER_GRAPH_TARGET_QUALIFIED_STAR &&
+				    targets[3].star_relations.count == 1U,
+			    "MERGE RETURNING scalar and qualified-star targets mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    &graph,
+				    targets[0].field_index,
+				    &field,
+				    &error),
+			    &error,
+			    "MERGE RETURNING target scalar field should be available") != 0 ||
+		    expect_true(
+			    field.has_relation != 0 &&
+				    field.relation_index == dml.target_relation_index &&
+				    field.column_name != NULL &&
+				    strcmp(field.column_name, "id") == 0,
+			    "MERGE RETURNING target scalar should bind the target relation") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    targets[1].star_relations,
+				    0U,
+				    &target_ordinal,
+				    &error),
+			    &error,
+			    "MERGE RETURNING target star relation should resolve") != 0 ||
+		    expect_true(
+			    target_ordinal == dml.target_relation_index,
+			    "MERGE RETURNING target star should bind the target relation") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    &graph,
+				    targets[2].field_index,
+				    &field,
+				    &error),
+			    &error,
+			    "MERGE RETURNING source scalar field should be available") != 0 ||
+		    expect_true(
+			    field.has_relation != 0 &&
+				    field.relation_index != dml.target_relation_index &&
+				    field.column_name != NULL &&
+				    strcmp(field.column_name, "id") == 0,
+			    "MERGE RETURNING source scalar should bind the source relation") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		source_relation_index = field.relation_index;
+		if (expect_status_ok(
+			    sqlparser_query_graph_relation_at(
+				    &graph,
+				    source_relation_index,
+				    &relation,
+				    &error),
+			    &error,
+			    "PostgreSQL-compatible MERGE source relation should be available") != 0 ||
+		    expect_true(
+			    relation.alias_name != NULL &&
+				    strcmp(
+					    relation.alias_name,
+					    cases[case_index].source_alias) == 0,
+			    "PostgreSQL-compatible MERGE source alias mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    targets[3].star_relations,
+				    0U,
+				    &target_ordinal,
+				    &error),
+			    &error,
+			    "MERGE RETURNING source star relation should resolve") != 0 ||
+		    expect_true(
+			    target_ordinal == source_relation_index,
+			    "MERGE RETURNING source star should bind the source relation") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		for (reference_ordinal = 0U;
+		     reference_ordinal < result.references.count;
+		     reference_ordinal++) {
+			sqlparser_graph_dml_reference_t reference;
+			size_t reference_index;
+			size_t reference_target_ordinal;
+
+			if (expect_status_ok(
+				    sqlparser_query_graph_span_index_at(
+					    &graph,
+					    result.references,
+					    reference_ordinal,
+					    &reference_index,
+					    &error),
+				    &error,
+				    "MERGE RETURNING reference index should resolve") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_dml_reference_at(
+					    &graph,
+					    reference_index,
+					    &reference,
+					    &error),
+				    &error,
+				    "MERGE RETURNING reference should be available") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			reference_target_ordinal = 4U;
+			for (target_ordinal = 0U;
+			     target_ordinal < 4U;
+			     target_ordinal++) {
+				if (reference.target_index == target_indices[target_ordinal]) {
+					reference_target_ordinal = target_ordinal;
+					break;
+				}
+			}
+			if (expect_true(
+				    reference_target_ordinal < 4U &&
+					    reference.kind >=
+						    SQLPARSER_GRAPH_DML_REFERENCE_TARGET_BEFORE &&
+					    reference.kind <=
+						    SQLPARSER_GRAPH_DML_REFERENCE_SOURCE,
+				    "MERGE RETURNING reference target or kind is invalid") != 0 ||
+			    expect_true(
+				    reference.relation_index ==
+					    (reference_target_ordinal < 2U ?
+						     dml.target_relation_index :
+						     source_relation_index),
+				    "MERGE RETURNING reference relation mismatch") != 0 ||
+			    expect_true(
+				    ((reference_target_ordinal & 1U) == 0U &&
+				     reference.has_field != 0 &&
+				     reference.field_index ==
+					     targets[reference_target_ordinal].field_index) ||
+					    ((reference_target_ordinal & 1U) != 0U &&
+					     reference.has_field == 0),
+				    "MERGE RETURNING scalar or star reference field mismatch") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			reference_counts[reference_target_ordinal][reference.kind]++;
+		}
+
+		for (target_ordinal = 0U; target_ordinal < 2U; target_ordinal++) {
+			if (expect_true(
+				    reference_counts[target_ordinal]
+					    [SQLPARSER_GRAPH_DML_REFERENCE_TARGET_BEFORE] ==
+					    cases[case_index].target_before_count &&
+				    reference_counts[target_ordinal]
+					    [SQLPARSER_GRAPH_DML_REFERENCE_TARGET_AFTER] ==
+					    cases[case_index].target_after_count &&
+				    reference_counts[target_ordinal]
+					    [SQLPARSER_GRAPH_DML_REFERENCE_SOURCE] == 0U,
+				    "MERGE RETURNING target reference image set mismatch") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		}
+		for (target_ordinal = 2U; target_ordinal < 4U; target_ordinal++) {
+			if (expect_true(
+				    reference_counts[target_ordinal]
+					    [SQLPARSER_GRAPH_DML_REFERENCE_TARGET_BEFORE] == 0U &&
+				    reference_counts[target_ordinal]
+					    [SQLPARSER_GRAPH_DML_REFERENCE_TARGET_AFTER] == 0U &&
+				    reference_counts[target_ordinal]
+					    [SQLPARSER_GRAPH_DML_REFERENCE_SOURCE] == 1U,
+				    "MERGE RETURNING source reference must remain source-only") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		}
+
+		sqlparser_handle_destroy(handle);
+	}
+
+	return 0;
+}
+
+static int test_postgresql_data_modifying_cte_query_graph_and_patch(void)
+{
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_POSTGRESQL,
+		SQLPARSER_DIALECT_VASTBASE_POSTGRESQL
+	};
+	size_t dialect_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		if (test_postgresql_reused_delete_cte_graph(dialects[dialect_index]) != 0 ||
+		    test_postgresql_dml_root_cte_ordinal_graph(dialects[dialect_index]) != 0 ||
+		    test_postgresql_lazy_cte_declaration_order_graph(dialects[dialect_index]) != 0 ||
+		    test_postgresql_returning_cte_result_growth(
+			    dialects[dialect_index]) != 0 ||
+		    test_postgresql_cte_merge_condition_source_span(
+			    dialects[dialect_index]) != 0 ||
+		    test_postgresql_sibling_dml_cte_lineage_and_patch(
+			    dialects[dialect_index]) != 0 ||
+		    test_postgresql_merge_branch_array_growth(
+			    dialects[dialect_index]) != 0 ||
+		    test_postgresql_scalar_target_path_isolation(
+			    dialects[dialect_index]) != 0 ||
+		    test_postgresql_unqualified_scalar_correlation(
+			    dialects[dialect_index]) != 0 ||
+		    test_postgresql_merge_do_nothing_unqualified_star(
+			    dialects[dialect_index]) != 0 ||
+		    test_postgresql_merge_do_nothing_pseudo_name_relation_patch(
+			    dialects[dialect_index]) != 0 ||
+		    test_postgresql_merge_returning_reference_kinds(
+			    dialects[dialect_index]) != 0) {
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
 static int test_sqlserver_output_query_graph_and_patch(void)
 {
 	const char *sql;
@@ -9546,6 +15306,189 @@ static int test_sqlserver_output_action_marker_and_patch(void)
 	return 0;
 }
 
+static int test_sqlserver_output_clause_boundaries(void)
+{
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_SQLSERVER,
+		SQLPARSER_DIALECT_VASTBASE_SQLSERVER
+	};
+	static const struct {
+		const char *name;
+		const char *sql;
+		const char *selector;
+		const char *replacement;
+		const char *expected;
+	} cases[] = {
+		{
+			"merge-eof",
+			"MERGE INTO dbo.t AS t USING dbo.s AS s ON t.id = s.id "
+			"WHEN MATCHED THEN UPDATE SET a = s.a "
+			"WHEN NOT MATCHED THEN INSERT (id, a) VALUES (s.id, s.a) "
+			"OUTPUT $action",
+			"stmt[0].dml_result_target[0][0][0]",
+			"[PatchedTarget]",
+			"MERGE INTO dbo.t AS t USING dbo.s AS s ON t.id = s.id "
+			"WHEN MATCHED THEN UPDATE SET a = s.a "
+			"WHEN NOT MATCHED THEN INSERT (id, a) VALUES (s.id, s.a) "
+			"OUTPUT [PatchedTarget]"
+		},
+		{
+			"merge-semicolon",
+			"MERGE INTO dbo.t AS t USING dbo.s AS s ON t.id = s.id "
+			"WHEN MATCHED THEN UPDATE SET a = s.a OUTPUT $action; SELECT 1",
+			"stmt[0].dml_result_target[0][0][0]",
+			"[PatchedTarget]",
+			"MERGE INTO dbo.t AS t USING dbo.s AS s ON t.id = s.id "
+			"WHEN MATCHED THEN UPDATE SET a = s.a OUTPUT [PatchedTarget]; SELECT 1"
+		},
+		{
+			"update-eof",
+			"UPDATE dbo.t SET a = 1 OUTPUT INSERTED.a",
+			"stmt[0].dml_result_target[0][0][0]",
+			"[PatchedTarget]",
+			"UPDATE dbo.t SET a = 1 OUTPUT [PatchedTarget]"
+		},
+		{
+			"delete-eof",
+			"DELETE FROM dbo.t OUTPUT DELETED.id",
+			"stmt[0].dml_result_target[0][0][0]",
+			"[PatchedTarget]",
+			"DELETE FROM dbo.t OUTPUT [PatchedTarget]"
+		},
+		{
+			"insert-dual-channel-values",
+			"INSERT dbo.t(a) OUTPUT INSERTED.id INTO dbo.audit(id) "
+			"OUTPUT INSERTED.id AS client_id VALUES (1)",
+			"stmt[0].dml_result_target[0][1][0]",
+			"[PatchedTarget]",
+			"INSERT dbo.t (a) OUTPUT INSERTED.id INTO dbo.audit (id) "
+			"OUTPUT [PatchedTarget] VALUES (1)"
+		},
+		{
+			"update-from",
+			"UPDATE t SET a = s.a OUTPUT INSERTED.a, s.a AS source_a "
+			"FROM dbo.t AS t JOIN dbo.s AS s ON t.id = s.id",
+			"stmt[0].dml_result_target[0][0][0]",
+			"[PatchedTarget]",
+			"UPDATE t SET a = s.a OUTPUT [PatchedTarget], s.a AS source_a "
+			"FROM dbo.t AS t JOIN dbo.s AS s ON t.id = s.id"
+		},
+		{
+			"nested-delete-where",
+			"INSERT INTO dbo.Log(id) SELECT d.id FROM "
+			"(DELETE FROM dbo.Items OUTPUT DELETED.id WHERE state = @state) AS d",
+			"stmt[0].dml_result_target[1][0][0]",
+			"[PatchedTarget]",
+			"INSERT INTO dbo.Log (id) SELECT d.id FROM "
+			"(DELETE FROM dbo.Items OUTPUT [PatchedTarget] WHERE state = @state) AS d"
+		},
+		{
+			"control-delete-merge",
+			"IF @a = 1 DELETE FROM dbo.t OUTPUT DELETED.id WHERE id = @id "
+			"ELSE MERGE INTO dbo.t AS t USING dbo.s AS s ON t.id = s.id "
+			"WHEN MATCHED THEN UPDATE SET a = s.a "
+			"WHEN NOT MATCHED THEN INSERT (id, a) VALUES (s.id, s.a) "
+			"OUTPUT $action, DELETED.id, INSERTED.id",
+			"stmt[2].dml_result_target[0][0][2]",
+			"[PatchedTarget]",
+			"IF @a = 1 DELETE FROM dbo.t OUTPUT DELETED.id WHERE id = @id "
+			"ELSE MERGE INTO dbo.t AS t USING dbo.s AS s ON t.id = s.id "
+			"WHEN MATCHED THEN UPDATE SET a = s.a "
+			"WHEN NOT MATCHED THEN INSERT (id, a) VALUES (s.id, s.a) "
+			"OUTPUT $action, DELETED.id, [PatchedTarget]"
+		}
+	};
+	size_t dialect_index;
+	size_t case_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		for (case_index = 0U;
+		     case_index < sizeof(cases) / sizeof(cases[0]);
+		     case_index++) {
+			sqlparser_parse_options_t options;
+			sqlparser_handle_t *handle;
+			sqlparser_handle_t *roundtrip;
+			sqlparser_patch_t patch;
+			sqlparser_patch_list_t patch_list;
+			sqlparser_error_t error;
+			char *deparsed_sql;
+			char *roundtrip_sql;
+			int rc;
+
+			handle = NULL;
+			roundtrip = NULL;
+			deparsed_sql = NULL;
+			roundtrip_sql = NULL;
+			memset(&error, 0, sizeof(error));
+			sqlparser_parse_options_default(&options);
+			options.dialect = dialects[dialect_index];
+			rc = sqlparser_parse_with_options(
+				cases[case_index].sql,
+				&options,
+				&handle,
+				&error);
+			if (expect_status_ok(rc, &error, "SQL Server OUTPUT boundary parse should succeed") != 0) {
+				return 1;
+			}
+
+			memset(&patch, 0, sizeof(patch));
+			patch.op = SQLPARSER_PATCH_REPLACE;
+			patch.selector = cases[case_index].selector;
+			patch.sql = cases[case_index].replacement;
+			patch_list.items = &patch;
+			patch_list.count = 1U;
+			rc = sqlparser_apply_patch(handle, &patch_list, &error);
+			if (expect_status_ok(rc, &error, "SQL Server OUTPUT boundary patch should succeed") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+			if (expect_status_ok(rc, &error, "SQL Server OUTPUT boundary deparse should succeed") != 0 ||
+			    expect_true(
+				    deparsed_sql != NULL &&
+					    strcmp(deparsed_sql, cases[case_index].expected) == 0,
+				    "SQL Server OUTPUT boundary deparse must be byte-exact") != 0) {
+				fprintf(stderr, "OUTPUT boundary case: %s\n", cases[case_index].name);
+				sqlparser_string_free(deparsed_sql);
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+
+			rc = sqlparser_parse_with_options(
+				deparsed_sql,
+				&options,
+				&roundtrip,
+				&error);
+			if (expect_status_ok(rc, &error, "SQL Server OUTPUT boundary roundtrip parse should succeed") != 0) {
+				sqlparser_string_free(deparsed_sql);
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			rc = sqlparser_deparse(roundtrip, &roundtrip_sql, &error);
+			if (expect_status_ok(rc, &error, "SQL Server OUTPUT boundary roundtrip deparse should succeed") != 0 ||
+			    expect_true(
+				    roundtrip_sql != NULL &&
+					    strcmp(roundtrip_sql, cases[case_index].expected) == 0,
+				    "SQL Server OUTPUT boundary roundtrip must be byte-exact") != 0) {
+				fprintf(stderr, "OUTPUT boundary roundtrip case: %s\n", cases[case_index].name);
+				sqlparser_string_free(roundtrip_sql);
+				sqlparser_handle_destroy(roundtrip);
+				sqlparser_string_free(deparsed_sql);
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+
+			sqlparser_string_free(roundtrip_sql);
+			sqlparser_handle_destroy(roundtrip);
+			sqlparser_string_free(deparsed_sql);
+			sqlparser_handle_destroy(handle);
+		}
+	}
+	return 0;
+}
+
 static int test_sqlserver_nested_output_query_graph_and_patch(void)
 {
 	const char *sql;
@@ -9757,7 +15700,7 @@ static int test_sqlserver_delete_output_source_graph_and_patch(void)
 		    expect_deparse_reparse_ok(handle, "patched DELETE source OUTPUT should reparse") != 0 ||
 		    expect_status_ok(sqlparser_deparse(handle, &deparsed_sql, &error), &error,
 		                     "patched DELETE source OUTPUT should deparse") != 0 ||
-		    expect_true(strstr(deparsed_sql, "DELETE t OUTPUT DELETED.id, s.name AS source_name FROM dbo.t t JOIN dbo.s s") != NULL,
+		    expect_true(strstr(deparsed_sql, "DELETE t OUTPUT DELETED.id, s.name AS source_name FROM dbo.t AS t JOIN dbo.s AS s") != NULL,
 		                "DELETE alias and source FROM form should be restored after patch") != 0 ||
 		    expect_true(strstr(deparsed_sql, " USING ") == NULL,
 		                "DELETE source deparse must not expose internal USING") != 0) {
@@ -10750,7 +16693,10 @@ static int test_query_graph_bind_fields(void)
 	{
 		sqlparser_handle_t *handle;
 		sqlparser_query_graph_view_t graph;
-		sqlparser_graph_value_t value;
+		sqlparser_graph_predicate_t inner_predicate;
+		sqlparser_graph_predicate_t outer_predicate;
+		sqlparser_graph_value_t end_row_value;
+		sqlparser_graph_value_t start_row_value;
 		int rc;
 
 		handle = NULL;
@@ -10770,11 +16716,37 @@ static int test_query_graph_bind_fields(void)
 		}
 		rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
 		if (expect_status_ok(rc, &error, "oracle rownum pagination graph should be available") != 0 ||
-		    expect_true(graph.relation_count >= 2U, "oracle rownum pagination should expose base and derived relations") != 0 ||
-		    expect_true(graph.target_count >= 15U, "oracle rownum pagination should expose output targets") != 0 ||
-		    expect_true(graph.value_count == 1U, "oracle rownum pagination should only expose field-bound values") != 0 ||
-		    expect_status_ok(sqlparser_query_graph_value_at(&graph, 0U, &value, &error), &error, "oracle rownum field value should be available") != 0 ||
-		    expect_true(value.bind_kind == SQLPARSER_BIND_KIND_NAMED && strcmp(value.bind, "startRow") == 0, "oracle startRow bind mismatch") != 0) {
+		    expect_true(graph.relation_count == 2U, "oracle rownum pagination should expose base and derived relations") != 0 ||
+		    expect_true(graph.target_count == 16U, "oracle rownum pagination should expose exact output targets") != 0 ||
+		    expect_true(graph.field_count == 15U, "oracle rownum must not enter graph fields") != 0 ||
+		    expect_true(graph.value_count == 2U, "oracle rownum pagination should expose both bounds") != 0 ||
+		    expect_true(graph.predicate_count == 2U, "oracle rownum pagination should expose both predicates") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_value_at(&graph, 0U, &end_row_value, &error), &error, "oracle endRow value should be available") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_value_at(&graph, 1U, &start_row_value, &error), &error, "oracle startRow value should be available") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_predicate_at(&graph, 0U, &inner_predicate, &error), &error, "oracle inner rownum predicate should be available") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_predicate_at(&graph, 1U, &outer_predicate, &error), &error, "oracle outer rownum alias predicate should be available") != 0 ||
+		    expect_true(end_row_value.bind_kind == SQLPARSER_BIND_KIND_NAMED && strcmp(end_row_value.bind, "endRow") == 0,
+		                "oracle endRow bind mismatch") != 0 ||
+		    expect_true(end_row_value.has_bind_position != 0 && end_row_value.bind_position == 1U &&
+		                end_row_value.block_index == 1U && end_row_value.clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+		                end_row_value.has_field == 0 && end_row_value.operator_name != NULL &&
+		                strcmp(end_row_value.operator_name, "<=") == 0,
+		                "oracle endRow pseudo predicate value attribution mismatch") != 0 ||
+		    expect_true(start_row_value.bind_kind == SQLPARSER_BIND_KIND_NAMED && strcmp(start_row_value.bind, "startRow") == 0,
+		                "oracle startRow bind mismatch") != 0 ||
+		    expect_true(start_row_value.has_bind_position != 0 && start_row_value.bind_position == 2U &&
+		                start_row_value.block_index == 0U && start_row_value.has_field != 0,
+		                "oracle startRow field predicate value attribution mismatch") != 0 ||
+		    expect_true(inner_predicate.kind == SQLPARSER_GRAPH_PREDICATE_EXPRESSION &&
+		                inner_predicate.block_index == 1U && inner_predicate.has_left_field == 0 &&
+		                inner_predicate.has_right_field == 0 && inner_predicate.has_value != 0 &&
+		                inner_predicate.value_index == 0U && inner_predicate.operator_name != NULL &&
+		                strcmp(inner_predicate.operator_name, "<=") == 0,
+		                "oracle inner ROWNUM predicate semantics mismatch") != 0 ||
+		    expect_true(outer_predicate.kind == SQLPARSER_GRAPH_PREDICATE_COMPARISON &&
+		                outer_predicate.block_index == 0U && outer_predicate.has_left_field != 0 &&
+		                outer_predicate.has_value != 0 && outer_predicate.value_index == 1U,
+		                "oracle outer rownum alias predicate semantics mismatch") != 0) {
 			sqlparser_handle_destroy(handle);
 			return 1;
 		}
@@ -10836,6 +16808,189 @@ static int test_query_graph_bind_fields(void)
 			sqlparser_handle_destroy(handle);
 			return 1;
 		}
+		sqlparser_handle_destroy(handle);
+	}
+
+	return 0;
+}
+
+static int test_query_graph_pseudo_predicate_semantics(void)
+{
+	struct pseudo_predicate_case {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *operator_name;
+		sqlparser_graph_predicate_kind_t predicate_kind;
+		sqlparser_graph_value_kind_t value_kind;
+		const char *bind_key;
+		long long integer_value;
+		int has_field;
+		size_t field_count;
+		size_t value_count;
+		size_t predicate_count;
+	};
+	static const struct pseudo_predicate_case cases[] = {
+		{SQLPARSER_DIALECT_ORACLE,
+		 "SELECT id FROM users WHERE ROWNUM <= :limit",
+		 "<=", SQLPARSER_GRAPH_PREDICATE_EXPRESSION, SQLPARSER_GRAPH_VALUE_BIND,
+		 "limit", 0LL, 0, 1U, 1U, 1U},
+		{SQLPARSER_DIALECT_DAMENG,
+		 "SELECT id FROM users WHERE ROWNUM <= :limit",
+		 "<=", SQLPARSER_GRAPH_PREDICATE_EXPRESSION, SQLPARSER_GRAPH_VALUE_BIND,
+		 "limit", 0LL, 0, 1U, 1U, 1U},
+		{SQLPARSER_DIALECT_VASTBASE_ORACLE,
+		 "SELECT id FROM users WHERE ROWNUM <= :limit",
+		 "<=", SQLPARSER_GRAPH_PREDICATE_EXPRESSION, SQLPARSER_GRAPH_VALUE_BIND,
+		 "limit", 0LL, 0, 1U, 1U, 1U},
+		{SQLPARSER_DIALECT_ORACLE,
+		 "SELECT id FROM users WHERE 10 >= ROWNUM",
+		 ">=", SQLPARSER_GRAPH_PREDICATE_EXPRESSION, SQLPARSER_GRAPH_VALUE_LITERAL,
+		 NULL, 10LL, 0, 1U, 1U, 1U},
+		{SQLPARSER_DIALECT_ORACLE,
+		 "SELECT u.id FROM users u WHERE u.ROWID = :rid",
+		 "=", SQLPARSER_GRAPH_PREDICATE_EXPRESSION, SQLPARSER_GRAPH_VALUE_BIND,
+		 "rid", 0LL, 0, 1U, 1U, 1U},
+		{SQLPARSER_DIALECT_ORACLE,
+		 "SELECT id FROM users WHERE \"ROWNUM\" <= 10",
+		 "<=", SQLPARSER_GRAPH_PREDICATE_COMPARISON, SQLPARSER_GRAPH_VALUE_LITERAL,
+		 NULL, 10LL, 1, 2U, 1U, 1U},
+		{SQLPARSER_DIALECT_ORACLE,
+		 "SELECT u.id FROM users u WHERE u.ROWNUM <= 10",
+		 "<=", SQLPARSER_GRAPH_PREDICATE_COMPARISON, SQLPARSER_GRAPH_VALUE_LITERAL,
+		 NULL, 10LL, 1, 2U, 1U, 1U},
+		{SQLPARSER_DIALECT_POSTGRESQL,
+		 "SELECT id FROM users WHERE ROWNUM <= 10",
+		 "<=", SQLPARSER_GRAPH_PREDICATE_COMPARISON, SQLPARSER_GRAPH_VALUE_LITERAL,
+		 NULL, 10LL, 1, 2U, 1U, 1U},
+		{SQLPARSER_DIALECT_ORACLE,
+		 "SELECT id FROM users WHERE ROWNUM = ROWID",
+		 NULL, SQLPARSER_GRAPH_PREDICATE_EXPRESSION, SQLPARSER_GRAPH_VALUE_LITERAL,
+		 NULL, 0LL, 0, 1U, 0U, 0U},
+		{SQLPARSER_DIALECT_ORACLE,
+		 "SELECT id FROM users WHERE ROWNUM + 1 <= 10",
+		 NULL, SQLPARSER_GRAPH_PREDICATE_EXPRESSION, SQLPARSER_GRAPH_VALUE_LITERAL,
+		 NULL, 0LL, 0, 1U, 0U, 0U},
+		{SQLPARSER_DIALECT_ORACLE,
+		 "SELECT id FROM users WHERE ROWNUM <= 10 + 1",
+		 NULL, SQLPARSER_GRAPH_PREDICATE_EXPRESSION, SQLPARSER_GRAPH_VALUE_LITERAL,
+		 NULL, 0LL, 0, 1U, 0U, 0U}
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	size_t index;
+
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		const struct pseudo_predicate_case *test_case;
+		sqlparser_handle_t *handle;
+		sqlparser_query_graph_view_t graph;
+		char *deparsed_sql;
+		int rc;
+
+		test_case = &cases[index];
+		handle = NULL;
+		deparsed_sql = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = test_case->dialect;
+		rc = sqlparser_parse_with_options(
+			test_case->sql,
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "pseudo predicate parse should succeed") != 0) {
+			return 1;
+		}
+		rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "pseudo predicate graph should be available") != 0 ||
+		    expect_true(
+			    graph.field_count == test_case->field_count,
+			    "pseudo predicate field count mismatch") != 0 ||
+		    expect_true(
+			    graph.value_count == test_case->value_count,
+			    "pseudo predicate value count mismatch") != 0 ||
+		    expect_true(
+			    graph.predicate_count == test_case->predicate_count,
+			    "pseudo predicate count mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (test_case->value_count != 0U) {
+			sqlparser_graph_predicate_t predicate;
+			sqlparser_graph_value_t value;
+
+			if (expect_status_ok(
+				    sqlparser_query_graph_value_at(
+					    &graph,
+					    0U,
+					    &value,
+					    &error),
+				    &error,
+				    "pseudo predicate value should be available") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_predicate_at(
+					    &graph,
+					    0U,
+					    &predicate,
+					    &error),
+				    &error,
+				    "pseudo predicate should be available") != 0 ||
+			    expect_true(
+				    value.kind == test_case->value_kind &&
+					    value.has_field == test_case->has_field &&
+					    value.block_index == 0U &&
+					    value.clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+					    value.operator_name != NULL &&
+					    strcmp(value.operator_name, test_case->operator_name) == 0,
+				    "pseudo predicate value semantics mismatch") != 0 ||
+			    expect_true(
+				    predicate.kind == test_case->predicate_kind &&
+					    predicate.has_left_field == test_case->has_field &&
+					    predicate.has_right_field == 0 &&
+					    predicate.has_value != 0 &&
+					    predicate.value_index == 0U &&
+					    predicate.operator_name != NULL &&
+					    strcmp(predicate.operator_name, test_case->operator_name) == 0,
+				    "pseudo predicate node semantics mismatch") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			if (test_case->bind_key != NULL) {
+				if (expect_true(
+					    value.has_bind != 0 &&
+						    strcmp(value.bind, test_case->bind_key) == 0 &&
+						    value.has_bind_position != 0 &&
+						    value.bind_position == 1U,
+					    "pseudo predicate bind semantics mismatch") != 0) {
+					sqlparser_handle_destroy(handle);
+					return 1;
+				}
+			} else if (expect_true(
+					   value.literal.kind == SQLPARSER_LITERAL_KIND_INTEGER &&
+						   value.literal.integer_value == test_case->integer_value,
+					   "pseudo predicate literal semantics mismatch") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		}
+		rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "pseudo predicate deparse should succeed") != 0 ||
+		    expect_true(
+			    deparsed_sql != NULL && strcmp(deparsed_sql, test_case->sql) == 0,
+			    "pseudo predicate generation-0 deparse mismatch") != 0) {
+			sqlparser_string_free(deparsed_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(deparsed_sql);
 		sqlparser_handle_destroy(handle);
 	}
 
@@ -11412,6 +17567,7 @@ static int expect_query_graph_select_value_binds(
 	sqlparser_error_t error;
 	sqlparser_handle_t *handle;
 	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_predicate_t predicate;
 	int rc;
 
 	handle = NULL;
@@ -11430,7 +17586,12 @@ static int expect_query_graph_select_value_binds(
 		return 1;
 	}
 	if (expected_value_count > 1U &&
-	    expect_query_graph_value_bind(&graph, 1U, column_name, bind_kind, second_key, 2U, second_sql) != 0) {
+	    (expect_query_graph_value_bind(&graph, 1U, column_name, bind_kind, second_key, 2U, second_sql) != 0 ||
+	     expect_status_ok(sqlparser_query_graph_predicate_at(&graph, 0U, &predicate, &error),
+	                      &error,
+	                      "query graph multi-value predicate should be available") != 0 ||
+	     expect_true(predicate.has_value == 0,
+	                 "query graph multi-value predicate must not reference only its first value") != 0)) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -11710,6 +17871,759 @@ static int test_query_graph_condition_value_lists(void)
 			    non_predicate_cases[index].sql) != 0) {
 			return 1;
 		}
+	}
+	return 0;
+}
+
+typedef int (*sqlparser_test_graph_validator_t)(
+	const sqlparser_query_graph_view_t *graph,
+	const void *context);
+
+static int expect_generation_zero_graph_round_trip(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	sqlparser_test_graph_validator_t validate,
+	const void *context,
+	const char *message)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *reparsed;
+	sqlparser_error_t error;
+	char *deparsed;
+	char *reparsed_sql;
+	int rc;
+
+	handle = NULL;
+	reparsed = NULL;
+	deparsed = NULL;
+	reparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(rc, &error, message) != 0 ||
+	    expect_true(handle != NULL && handle->generation == 0UL,
+			"NullTest source handle must remain at generation zero") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    message) != 0 ||
+	    expect_true(graph.generation == 0UL,
+			"NullTest source graph must remain at generation zero") != 0 ||
+	    validate(&graph, context) != 0) {
+		goto fail;
+	}
+	rc = sqlparser_deparse(handle, &deparsed, &error);
+	if (expect_status_ok(rc, &error, message) != 0 ||
+	    expect_true(deparsed != NULL && strcmp(deparsed, sql) == 0,
+			"NullTest generation-zero deparse must be byte exact") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_parse_with_options(deparsed, &options, &reparsed, &error);
+	if (expect_status_ok(rc, &error, message) != 0 ||
+	    expect_true(reparsed != NULL && reparsed->generation == 0UL,
+			"fresh NullTest handle must start at generation zero") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(reparsed, 0U, &graph, &error),
+		    &error,
+		    message) != 0 ||
+	    expect_true(graph.generation == 0UL,
+			"fresh NullTest graph must remain at generation zero") != 0 ||
+	    validate(&graph, context) != 0) {
+		goto fail;
+	}
+	rc = sqlparser_deparse(reparsed, &reparsed_sql, &error);
+	if (expect_status_ok(rc, &error, message) != 0 ||
+	    expect_true(reparsed_sql != NULL && strcmp(reparsed_sql, sql) == 0,
+			"fresh NullTest deparse must be byte exact") != 0) {
+		goto fail;
+	}
+
+	sqlparser_string_free(reparsed_sql);
+	sqlparser_handle_destroy(reparsed);
+	sqlparser_string_free(deparsed);
+	sqlparser_handle_destroy(handle);
+	return 0;
+
+fail:
+	fprintf(
+		stderr,
+		"FAIL: %s: dialect=%s sql=%s\n",
+		message,
+		sqlparser_dialect_name(dialect),
+		sql);
+	sqlparser_string_free(reparsed_sql);
+	sqlparser_handle_destroy(reparsed);
+	sqlparser_string_free(deparsed);
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+struct sqlparser_null_test_direct_case {
+	sqlparser_dialect_t dialect;
+	const char *sql;
+	sqlparser_bind_kind_t bind_kind;
+	const char *null_bind_key;
+	const char *null_bind_sql;
+	const char *status_bind_key;
+	const char *status_bind_sql;
+};
+
+static int expect_null_test_direct_graph(
+	const sqlparser_query_graph_view_t *graph,
+	const void *context)
+{
+	const struct sqlparser_null_test_direct_case *test_case;
+	sqlparser_graph_block_t block;
+	sqlparser_graph_field_t fields[4];
+	sqlparser_graph_predicate_t predicates[5];
+	sqlparser_graph_value_t values[2];
+	sqlparser_error_t error;
+	static const char *const field_names[] = {
+		"id", "deleted_at", "active_at", "status"
+	};
+	static const sqlparser_clause_kind_t field_clauses[] = {
+		SQLPARSER_CLAUSE_KIND_SELECT_LIST,
+		SQLPARSER_CLAUSE_KIND_WHERE,
+		SQLPARSER_CLAUSE_KIND_WHERE,
+		SQLPARSER_CLAUSE_KIND_WHERE
+	};
+	size_t index;
+	size_t span_index;
+
+	test_case = (const struct sqlparser_null_test_direct_case *)context;
+	memset(&error, 0, sizeof(error));
+	if (expect_true(
+		    graph->block_count == 1U && graph->relation_count == 1U &&
+			    graph->target_count == 1U && graph->field_count == 4U &&
+			    graph->value_count == 2U && graph->predicate_count == 5U,
+		    "direct NullTest graph counts mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_block_at(graph, 0U, &block, &error),
+		    &error,
+		    "direct NullTest block should be available") != 0 ||
+	    expect_true(
+		    block.kind == SQLPARSER_GRAPH_BLOCK_SELECT &&
+			    block.predicates.count == 5U,
+		    "direct NullTest block topology mismatch") != 0) {
+		return 1;
+	}
+	for (index = 0U; index < 5U; index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    graph,
+				    block.predicates,
+				    index,
+				    &span_index,
+				    &error),
+			    &error,
+			    "direct NullTest block predicate index should be available") != 0 ||
+		    expect_true(span_index == index,
+				"direct NullTest block predicate order mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_predicate_at(
+				    graph, index, &predicates[index], &error),
+			    &error,
+			    "direct NullTest predicate should be available") != 0) {
+			return 1;
+		}
+	}
+	for (index = 0U; index < 4U; index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    graph, index, &fields[index], &error),
+			    &error,
+			    "direct NullTest field should be available") != 0 ||
+		    expect_true(
+			    fields[index].block_index == 0U &&
+				    fields[index].clause == field_clauses[index] &&
+				    fields[index].has_relation != 0 &&
+				    fields[index].relation_index == 0U &&
+				    fields[index].column_name != NULL &&
+				    strcmp(fields[index].column_name, field_names[index]) == 0,
+			    "direct NullTest field order or ownership mismatch") != 0) {
+			return 1;
+		}
+	}
+	for (index = 0U; index < 2U; index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_value_at(
+				    graph, index, &values[index], &error),
+			    &error,
+			    "direct NullTest value should be available") != 0) {
+			return 1;
+		}
+	}
+	if (expect_true(
+		    predicates[0].block_index == 0U &&
+			    predicates[0].clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+			    predicates[0].kind == SQLPARSER_GRAPH_PREDICATE_BOOL &&
+			    predicates[0].bool_operator == SQLPARSER_GRAPH_PREDICATE_BOOL_AND &&
+			    predicates[0].children.count == 4U,
+		    "direct NullTest AND root mismatch") != 0) {
+		return 1;
+	}
+	for (index = 0U; index < 4U; index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    graph,
+				    predicates[0].children,
+				    index,
+				    &span_index,
+				    &error),
+			    &error,
+			    "direct NullTest child index should be available") != 0 ||
+		    expect_true(span_index == index + 1U,
+				"direct NullTest child order mismatch") != 0) {
+			return 1;
+		}
+	}
+	if (expect_true(
+		    predicates[1].kind == SQLPARSER_GRAPH_PREDICATE_COMPARISON &&
+			    predicates[1].clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+			    predicates[1].operator_name != NULL &&
+			    strcmp(predicates[1].operator_name, "IS NULL") == 0 &&
+			    predicates[1].operator_kind == SQLPARSER_GRAPH_OPERATOR_UNKNOWN &&
+			    predicates[1].has_left_field != 0 &&
+			    predicates[1].left_field_index == 1U &&
+			    predicates[1].has_right_field == 0 &&
+			    predicates[1].has_value == 0,
+		    "direct field IS NULL predicate mismatch") != 0 ||
+	    expect_true(
+		    predicates[2].kind == SQLPARSER_GRAPH_PREDICATE_COMPARISON &&
+			    predicates[2].clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+			    predicates[2].operator_name != NULL &&
+			    strcmp(predicates[2].operator_name, "IS NOT NULL") == 0 &&
+			    predicates[2].operator_kind == SQLPARSER_GRAPH_OPERATOR_UNKNOWN &&
+			    predicates[2].has_left_field != 0 &&
+			    predicates[2].left_field_index == 2U &&
+			    predicates[2].has_right_field == 0 &&
+			    predicates[2].has_value == 0,
+		    "direct field IS NOT NULL predicate mismatch") != 0 ||
+	    expect_true(
+		    predicates[3].kind == SQLPARSER_GRAPH_PREDICATE_EXPRESSION &&
+			    predicates[3].clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+			    predicates[3].operator_name != NULL &&
+			    strcmp(predicates[3].operator_name, "IS NULL") == 0 &&
+			    predicates[3].operator_kind == SQLPARSER_GRAPH_OPERATOR_UNKNOWN &&
+			    predicates[3].has_left_field == 0 &&
+			    predicates[3].has_right_field == 0 &&
+			    predicates[3].has_value != 0 &&
+			    predicates[3].value_index == 0U,
+		    "direct bind NullTest predicate mismatch") != 0 ||
+	    expect_true(
+		    predicates[4].kind == SQLPARSER_GRAPH_PREDICATE_COMPARISON &&
+			    predicates[4].clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+			    predicates[4].operator_name != NULL &&
+			    strcmp(predicates[4].operator_name, "=") == 0 &&
+			    predicates[4].operator_kind == SQLPARSER_GRAPH_OPERATOR_UNKNOWN &&
+			    predicates[4].has_left_field != 0 &&
+			    predicates[4].left_field_index == 3U &&
+			    predicates[4].has_right_field == 0 &&
+			    predicates[4].has_value != 0 &&
+			    predicates[4].value_index == 1U,
+		    "ordinary bind comparison after NullTest mismatch") != 0) {
+		return 1;
+	}
+	if (expect_true(
+		    values[0].kind == SQLPARSER_GRAPH_VALUE_BIND &&
+			    values[0].block_index == 0U &&
+			    values[0].clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+			    values[0].operator_name != NULL &&
+			    strcmp(values[0].operator_name, "IS NULL") == 0 &&
+			    values[0].operator_kind == SQLPARSER_GRAPH_OPERATOR_UNKNOWN &&
+			    values[0].has_field == 0 &&
+			    values[0].has_source_field == 0 &&
+			    values[0].has_bind != 0 &&
+			    strcmp(values[0].bind, test_case->null_bind_key) == 0 &&
+			    values[0].bind_kind == test_case->bind_kind &&
+			    values[0].has_bind_sql != 0 &&
+			    strcmp(values[0].bind_sql, test_case->null_bind_sql) == 0 &&
+			    values[0].has_bind_position != 0 &&
+			    values[0].bind_position == 1U,
+		    "direct NullTest bind must occur exactly once in SQL order") != 0 ||
+	    expect_true(
+		    values[1].kind == SQLPARSER_GRAPH_VALUE_BIND &&
+			    values[1].block_index == 0U &&
+			    values[1].clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+			    values[1].operator_name != NULL &&
+			    strcmp(values[1].operator_name, "=") == 0 &&
+			    values[1].operator_kind == SQLPARSER_GRAPH_OPERATOR_UNKNOWN &&
+			    values[1].has_field != 0 &&
+			    values[1].field_index == 3U &&
+			    values[1].field_match_kind == SQLPARSER_GRAPH_FIELD_MATCH_DIRECT_FIELD &&
+			    values[1].has_bind != 0 &&
+			    strcmp(values[1].bind, test_case->status_bind_key) == 0 &&
+			    values[1].bind_kind == test_case->bind_kind &&
+			    values[1].has_bind_sql != 0 &&
+			    strcmp(values[1].bind_sql, test_case->status_bind_sql) == 0 &&
+			    values[1].has_bind_position != 0 &&
+			    values[1].bind_position == 2U,
+		    "bind following direct NullTest must preserve SQL order") != 0) {
+		return 1;
+	}
+	return 0;
+}
+
+static int expect_null_test_not_graph(
+	const sqlparser_query_graph_view_t *graph,
+	const void *context)
+{
+	sqlparser_graph_predicate_t predicates[4];
+	sqlparser_graph_field_t field;
+	sqlparser_error_t error;
+	size_t child_index;
+	size_t index;
+
+	(void)context;
+	memset(&error, 0, sizeof(error));
+	if (expect_true(
+		    graph->field_count == 3U && graph->value_count == 0U &&
+			    graph->predicate_count == 4U,
+		    "explicit NOT NullTest graph counts mismatch") != 0) {
+		return 1;
+	}
+	for (index = 0U; index < 4U; index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_predicate_at(
+				    graph, index, &predicates[index], &error),
+			    &error,
+			    "explicit NOT predicate should be available") != 0) {
+			return 1;
+		}
+	}
+	if (expect_true(
+		    predicates[0].kind == SQLPARSER_GRAPH_PREDICATE_BOOL &&
+			    predicates[0].clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+			    predicates[0].bool_operator == SQLPARSER_GRAPH_PREDICATE_BOOL_OR &&
+			    predicates[0].children.count == 2U,
+		    "explicit NOT outer OR topology mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    graph, predicates[0].children, 0U, &child_index, &error),
+		    &error,
+		    "IS NOT NULL child should be available") != 0 ||
+	    expect_true(child_index == 1U,
+			"IS NOT NULL must remain the first OR child") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    graph, predicates[0].children, 1U, &child_index, &error),
+		    &error,
+		    "explicit NOT child should be available") != 0 ||
+	    expect_true(child_index == 2U,
+			"explicit NOT must remain the second OR child") != 0 ||
+	    expect_true(
+		    predicates[1].kind == SQLPARSER_GRAPH_PREDICATE_COMPARISON &&
+			    predicates[1].operator_name != NULL &&
+			    strcmp(predicates[1].operator_name, "IS NOT NULL") == 0 &&
+			    predicates[1].operator_kind == SQLPARSER_GRAPH_OPERATOR_UNKNOWN &&
+			    predicates[1].has_left_field != 0 &&
+			    predicates[1].left_field_index == 1U &&
+			    predicates[1].has_value == 0,
+		    "IS NOT NULL must remain one comparison predicate") != 0 ||
+	    expect_true(
+		    predicates[2].kind == SQLPARSER_GRAPH_PREDICATE_BOOL &&
+			    predicates[2].bool_operator == SQLPARSER_GRAPH_PREDICATE_BOOL_NOT &&
+			    predicates[2].children.count == 1U,
+		    "explicit NOT predicate topology mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    graph, predicates[2].children, 0U, &child_index, &error),
+		    &error,
+		    "explicit NOT NullTest child should be available") != 0 ||
+	    expect_true(child_index == 3U,
+			"explicit NOT child index mismatch") != 0 ||
+	    expect_true(
+		    predicates[3].kind == SQLPARSER_GRAPH_PREDICATE_COMPARISON &&
+			    predicates[3].operator_name != NULL &&
+			    strcmp(predicates[3].operator_name, "IS NULL") == 0 &&
+			    predicates[3].operator_kind == SQLPARSER_GRAPH_OPERATOR_UNKNOWN &&
+			    predicates[3].has_left_field != 0 &&
+			    predicates[3].left_field_index == 2U &&
+			    predicates[3].has_value == 0,
+		    "explicit NOT must retain its IS NULL child") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_field_at(graph, 1U, &field, &error),
+		    &error,
+		    "IS NOT NULL field should be available") != 0 ||
+	    expect_true(field.column_name != NULL && strcmp(field.column_name, "deleted_at") == 0,
+			"IS NOT NULL field mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_field_at(graph, 2U, &field, &error),
+		    &error,
+		    "explicit NOT field should be available") != 0 ||
+	    expect_true(field.column_name != NULL && strcmp(field.column_name, "archived_at") == 0,
+			"explicit NOT field mismatch") != 0) {
+		return 1;
+	}
+	return 0;
+}
+
+static int expect_null_test_on_graph(
+	const sqlparser_query_graph_view_t *graph,
+	const void *context)
+{
+	sqlparser_graph_predicate_t root;
+	sqlparser_graph_predicate_t equality;
+	sqlparser_graph_predicate_t null_test;
+	sqlparser_graph_value_t value;
+	sqlparser_graph_field_t fields[4];
+	sqlparser_error_t error;
+	static const char *const field_names[] = {
+		"user_id", "id", "deleted_at", "id"
+	};
+	static const sqlparser_clause_kind_t field_clauses[] = {
+		SQLPARSER_CLAUSE_KIND_ON,
+		SQLPARSER_CLAUSE_KIND_ON,
+		SQLPARSER_CLAUSE_KIND_ON,
+		SQLPARSER_CLAUSE_KIND_SELECT_LIST
+	};
+	static const size_t relation_indices[] = {1U, 0U, 1U, 0U};
+	size_t child_index;
+	size_t index;
+
+	(void)context;
+	memset(&error, 0, sizeof(error));
+	if (expect_true(
+		    graph->block_count == 1U && graph->relation_count == 2U &&
+			    graph->target_count == 1U && graph->field_count == 4U &&
+			    graph->value_count == 1U && graph->predicate_count == 3U,
+		    "ON NullTest graph counts mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_predicate_at(graph, 0U, &root, &error),
+		    &error,
+		    "ON NullTest root should be available") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_predicate_at(graph, 1U, &equality, &error),
+		    &error,
+		    "ON equality should be available") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_predicate_at(graph, 2U, &null_test, &error),
+		    &error,
+		    "ON NullTest should be available") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_value_at(graph, 0U, &value, &error),
+		    &error,
+		    "ON field value should be available") != 0) {
+		return 1;
+	}
+	for (index = 0U; index < 4U; index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    graph, index, &fields[index], &error),
+			    &error,
+			    "ON NullTest field should be available") != 0 ||
+		    expect_true(
+			    fields[index].column_name != NULL &&
+				    strcmp(fields[index].column_name, field_names[index]) == 0 &&
+				    fields[index].clause == field_clauses[index] &&
+				    fields[index].has_relation != 0 &&
+				    fields[index].relation_index == relation_indices[index],
+			    "ON NullTest field order or ownership mismatch") != 0) {
+			return 1;
+		}
+	}
+	if (expect_true(
+		    root.kind == SQLPARSER_GRAPH_PREDICATE_BOOL &&
+			    root.clause == SQLPARSER_CLAUSE_KIND_ON &&
+			    root.bool_operator == SQLPARSER_GRAPH_PREDICATE_BOOL_AND &&
+			    root.children.count == 2U,
+		    "ON NullTest AND root mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    graph, root.children, 0U, &child_index, &error),
+		    &error,
+		    "ON equality child should be available") != 0 ||
+	    expect_true(child_index == 1U, "ON equality child order mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    graph, root.children, 1U, &child_index, &error),
+		    &error,
+		    "ON NullTest child should be available") != 0 ||
+	    expect_true(child_index == 2U, "ON NullTest child order mismatch") != 0 ||
+	    expect_true(
+		    equality.kind == SQLPARSER_GRAPH_PREDICATE_COMPARISON &&
+			    equality.clause == SQLPARSER_CLAUSE_KIND_ON &&
+			    equality.operator_name != NULL &&
+			    strcmp(equality.operator_name, "=") == 0 &&
+			    equality.has_left_field != 0 && equality.left_field_index == 0U &&
+			    equality.has_right_field != 0 && equality.right_field_index == 1U &&
+			    equality.has_value != 0 && equality.value_index == 0U,
+		    "ON field equality predicate mismatch") != 0 ||
+	    expect_true(
+		    value.kind == SQLPARSER_GRAPH_VALUE_FIELD &&
+			    value.clause == SQLPARSER_CLAUSE_KIND_ON &&
+			    value.has_field != 0 && value.field_index == 0U &&
+			    value.has_source_field != 0 && value.source_field_index == 1U,
+		    "ON field equality value mismatch") != 0 ||
+	    expect_true(
+		    null_test.kind == SQLPARSER_GRAPH_PREDICATE_COMPARISON &&
+			    null_test.clause == SQLPARSER_CLAUSE_KIND_ON &&
+			    null_test.operator_name != NULL &&
+			    strcmp(null_test.operator_name, "IS NULL") == 0 &&
+			    null_test.operator_kind == SQLPARSER_GRAPH_OPERATOR_UNKNOWN &&
+			    null_test.has_left_field != 0 && null_test.left_field_index == 2U &&
+			    null_test.has_right_field == 0 && null_test.has_value == 0,
+		    "ON NullTest predicate mismatch") != 0) {
+		return 1;
+	}
+	return 0;
+}
+
+static int expect_null_test_having_graph(
+	const sqlparser_query_graph_view_t *graph,
+	const void *context)
+{
+	sqlparser_graph_predicate_t root;
+	sqlparser_graph_predicate_t composite;
+	sqlparser_graph_predicate_t aggregate;
+	sqlparser_graph_field_t field;
+	sqlparser_error_t error;
+	size_t child_index;
+
+	(void)context;
+	memset(&error, 0, sizeof(error));
+	if (expect_true(
+		    graph->block_count == 1U && graph->relation_count == 1U &&
+			    graph->target_count == 2U && graph->field_count == 3U &&
+			    graph->value_count == 0U && graph->predicate_count == 3U,
+		    "HAVING NullTest graph counts mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_predicate_at(graph, 0U, &root, &error),
+		    &error,
+		    "HAVING NullTest root should be available") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_predicate_at(graph, 1U, &composite, &error),
+		    &error,
+		    "HAVING composite NullTest should be available") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_predicate_at(graph, 2U, &aggregate, &error),
+		    &error,
+		    "HAVING aggregate NullTest should be available") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_field_at(graph, 2U, &field, &error),
+		    &error,
+		    "HAVING composite field should be available") != 0 ||
+	    expect_true(
+		    field.column_name != NULL && strcmp(field.column_name, "amount") == 0 &&
+			    field.clause == SQLPARSER_CLAUSE_KIND_HAVING,
+		    "HAVING composite field ownership mismatch") != 0) {
+		return 1;
+	}
+	if (expect_true(
+		    root.kind == SQLPARSER_GRAPH_PREDICATE_BOOL &&
+			    root.clause == SQLPARSER_CLAUSE_KIND_HAVING &&
+			    root.bool_operator == SQLPARSER_GRAPH_PREDICATE_BOOL_AND &&
+			    root.children.count == 2U,
+		    "HAVING NullTest AND root mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    graph, root.children, 0U, &child_index, &error),
+		    &error,
+		    "HAVING composite child should be available") != 0 ||
+	    expect_true(child_index == 1U,
+			"HAVING composite child order mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    graph, root.children, 1U, &child_index, &error),
+		    &error,
+		    "HAVING aggregate child should be available") != 0 ||
+	    expect_true(child_index == 2U,
+			"HAVING aggregate child order mismatch") != 0 ||
+	    expect_true(
+		    composite.kind == SQLPARSER_GRAPH_PREDICATE_EXPRESSION &&
+			    composite.clause == SQLPARSER_CLAUSE_KIND_HAVING &&
+		    composite.operator_name != NULL &&
+		    strcmp(composite.operator_name, "IS NOT NULL") == 0 &&
+		    composite.operator_kind == SQLPARSER_GRAPH_OPERATOR_UNKNOWN &&
+		    composite.has_left_field == 0 && composite.has_right_field == 0 &&
+		    composite.has_value == 0,
+		    "HAVING composite NullTest must not attach its internal bind") != 0 ||
+	    expect_true(
+		    aggregate.kind == SQLPARSER_GRAPH_PREDICATE_EXPRESSION &&
+			    aggregate.clause == SQLPARSER_CLAUSE_KIND_HAVING &&
+			    aggregate.operator_name != NULL &&
+			    strcmp(aggregate.operator_name, "IS NULL") == 0 &&
+			    aggregate.operator_kind == SQLPARSER_GRAPH_OPERATOR_UNKNOWN &&
+			    aggregate.has_left_field == 0 && aggregate.has_right_field == 0 &&
+			    aggregate.has_value == 0,
+		    "fieldless HAVING NullTest predicate mismatch") != 0) {
+		return 1;
+	}
+	return 0;
+}
+
+static int expect_null_test_select_list_graph(
+	const sqlparser_query_graph_view_t *graph,
+	const void *context)
+{
+	sqlparser_graph_target_t target;
+	sqlparser_graph_predicate_t predicate;
+	sqlparser_graph_value_t value;
+	sqlparser_graph_field_t field;
+	sqlparser_error_t error;
+	size_t index;
+
+	(void)context;
+	memset(&error, 0, sizeof(error));
+	if (expect_true(
+		    graph->block_count == 1U && graph->relation_count == 1U &&
+			    graph->target_count == 2U && graph->field_count == 3U &&
+			    graph->value_count == 1U && graph->predicate_count == 1U,
+		    "select-list NullTest graph counts mismatch") != 0) {
+		return 1;
+	}
+	for (index = 0U; index < 2U; index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_target_at(graph, index, &target, &error),
+			    &error,
+			    "select-list NullTest target should be available") != 0 ||
+		    expect_true(target.kind == SQLPARSER_GRAPH_TARGET_EXPRESSION,
+				"select-list NullTest target should remain an expression") != 0) {
+			return 1;
+		}
+	}
+	if (expect_status_ok(
+		    sqlparser_query_graph_predicate_at(graph, 0U, &predicate, &error),
+		    &error,
+		    "select-list NullTest WHERE predicate should be available") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_value_at(graph, 0U, &value, &error),
+		    &error,
+		    "select-list NullTest WHERE value should be available") != 0 ||
+	    expect_true(
+		    predicate.kind == SQLPARSER_GRAPH_PREDICATE_COMPARISON &&
+			    predicate.clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+			    predicate.operator_name != NULL &&
+			    strcmp(predicate.operator_name, "=") == 0 &&
+			    predicate.has_left_field != 0 && predicate.left_field_index == 2U &&
+			    predicate.has_value != 0 && predicate.value_index == 0U,
+		    "select-list NullTests must not add condition predicates") != 0 ||
+	    expect_true(
+		    value.kind == SQLPARSER_GRAPH_VALUE_BIND &&
+			    value.clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+			    value.has_field != 0 && value.field_index == 2U &&
+			    value.has_bind != 0 && strcmp(value.bind, "1") == 0 &&
+			    value.has_bind_position != 0 && value.bind_position == 1U,
+		    "select-list NullTest WHERE bind mismatch") != 0) {
+		return 1;
+	}
+	for (index = 0U; index < 3U; index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_field_at(graph, index, &field, &error),
+			    &error,
+			    "select-list NullTest field should be available") != 0 ||
+		    expect_true(
+			    field.clause ==
+				    (index < 2U ?
+					    SQLPARSER_CLAUSE_KIND_SELECT_LIST :
+					    SQLPARSER_CLAUSE_KIND_WHERE),
+			    "select-list NullTest field clause mismatch") != 0) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static int test_query_graph_null_test_semantics(void)
+{
+	static const struct sqlparser_null_test_direct_case direct_cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT id FROM public.users WHERE deleted_at IS NULL AND active_at IS NOT NULL AND $1 IS NULL AND status = $2",
+			SQLPARSER_BIND_KIND_POSITIONAL,
+			"1", "$1", "2", "$2"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"SELECT id FROM users WHERE deleted_at IS NULL AND active_at IS NOT NULL AND ? IS NULL AND status = ?",
+			SQLPARSER_BIND_KIND_POSITIONAL,
+			"1", "?", "2", "?"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"SELECT id FROM users WHERE deleted_at IS NULL AND active_at IS NOT NULL AND :null_bind IS NULL AND status = :status_bind",
+			SQLPARSER_BIND_KIND_NAMED,
+			"null_bind", ":null_bind", "status_bind", ":status_bind"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"SELECT id FROM users WHERE deleted_at IS NULL AND active_at IS NOT NULL AND @null_bind IS NULL AND status = @status_bind",
+			SQLPARSER_BIND_KIND_NAMED,
+			"null_bind", "@null_bind", "status_bind", "@status_bind"
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"SELECT id FROM users WHERE deleted_at IS NULL AND active_at IS NOT NULL AND :null_bind IS NULL AND status = :status_bind",
+			SQLPARSER_BIND_KIND_NAMED,
+			"null_bind", ":null_bind", "status_bind", ":status_bind"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_ORACLE,
+			"SELECT id FROM users WHERE deleted_at IS NULL AND active_at IS NOT NULL AND :null_bind IS NULL AND status = :status_bind",
+			SQLPARSER_BIND_KIND_NAMED,
+			"null_bind", ":null_bind", "status_bind", ":status_bind"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_MYSQL,
+			"SELECT id FROM users WHERE deleted_at IS NULL AND active_at IS NOT NULL AND ? IS NULL AND status = ?",
+			SQLPARSER_BIND_KIND_POSITIONAL,
+			"1", "?", "2", "?"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_POSTGRESQL,
+			"SELECT id FROM users WHERE deleted_at IS NULL AND active_at IS NOT NULL AND $1 IS NULL AND status = $2",
+			SQLPARSER_BIND_KIND_POSITIONAL,
+			"1", "$1", "2", "$2"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"SELECT id FROM users WHERE deleted_at IS NULL AND active_at IS NOT NULL AND @null_bind IS NULL AND status = @status_bind",
+			SQLPARSER_BIND_KIND_NAMED,
+			"null_bind", "@null_bind", "status_bind", "@status_bind"
+		}
+	};
+	size_t index;
+
+	for (index = 0U;
+	     index < sizeof(direct_cases) / sizeof(direct_cases[0]);
+	     index++) {
+		if (expect_generation_zero_graph_round_trip(
+			    direct_cases[index].dialect,
+			    direct_cases[index].sql,
+			    expect_null_test_direct_graph,
+			    &direct_cases[index],
+			    "nine-dialect direct NullTest round trip") != 0) {
+			return 1;
+		}
+	}
+	if (expect_generation_zero_graph_round_trip(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "SELECT id FROM users WHERE deleted_at IS NOT NULL OR NOT (archived_at IS NULL)",
+		    expect_null_test_not_graph,
+		    NULL,
+		    "explicit NOT NullTest round trip") != 0 ||
+	    expect_generation_zero_graph_round_trip(
+		    SQLPARSER_DIALECT_MYSQL,
+		    "SELECT u.id FROM users u LEFT JOIN profiles p ON p.user_id = u.id AND p.deleted_at IS NULL",
+		    expect_null_test_on_graph,
+		    NULL,
+		    "ON NullTest round trip") != 0 ||
+	    expect_generation_zero_graph_round_trip(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "SELECT dept, COUNT(*) FROM sales GROUP BY dept HAVING COALESCE(MAX(amount), $1) IS NOT NULL AND COUNT(*) IS NULL",
+		    expect_null_test_having_graph,
+		    NULL,
+		    "HAVING composite NullTest round trip") != 0 ||
+	    expect_generation_zero_graph_round_trip(
+		    SQLPARSER_DIALECT_POSTGRESQL,
+		    "SELECT deleted_at IS NULL AS missing, active_at IS NOT NULL AS active FROM users WHERE id = $1",
+		    expect_null_test_select_list_graph,
+		    NULL,
+		    "select-list NullTest round trip") != 0) {
+		return 1;
 	}
 	return 0;
 }
@@ -12394,6 +19308,2996 @@ static int test_query_graph_expression_field_value_semantics(void)
 	return 0;
 }
 
+static int expect_set_list_bind_value(
+	const sqlparser_query_graph_view_t *graph,
+	size_t value_index,
+	const char *bind_key,
+	sqlparser_bind_kind_t bind_kind,
+	const char *bind_sql,
+	size_t bind_position,
+	const char *selector_text,
+	const char *message)
+{
+	sqlparser_error_t error;
+	sqlparser_graph_value_t value;
+
+	memset(&error, 0, sizeof(error));
+	if (expect_status_ok(
+		    sqlparser_query_graph_value_at(
+			    graph, value_index, &value, &error),
+		    &error,
+		    message) != 0 ||
+	    expect_true(
+		    value.index == value_index &&
+			    value.statement_index == 0U &&
+			    value.block_index == 0U &&
+			    value.clause == SQLPARSER_CLAUSE_KIND_SET_LIST &&
+			    value.kind == SQLPARSER_GRAPH_VALUE_BIND &&
+			    value.has_field == 0 &&
+			    value.has_source_field == 0 &&
+			    value.has_bind != 0 &&
+			    strcmp(value.bind, bind_key) == 0 &&
+			    value.bind_kind == bind_kind &&
+			    value.has_bind_sql != 0 &&
+			    strcmp(value.bind_sql, bind_sql) == 0 &&
+			    value.has_bind_position != 0 &&
+			    value.bind_position == bind_position &&
+			    value.has_selector != 0 &&
+			    value.selector.kind == SQLPARSER_SELECTOR_KIND_VALUE,
+		    message) != 0 ||
+	    expect_selector_equals(&value.selector, selector_text, message) != 0) {
+		return 1;
+	}
+	return 0;
+}
+
+static int expect_set_list_integer_value(
+	const sqlparser_query_graph_view_t *graph,
+	size_t value_index,
+	long long integer_value,
+	const char *selector_text,
+	const char *message)
+{
+	sqlparser_error_t error;
+	sqlparser_graph_value_t value;
+
+	memset(&error, 0, sizeof(error));
+	if (expect_status_ok(
+		    sqlparser_query_graph_value_at(
+			    graph, value_index, &value, &error),
+		    &error,
+		    message) != 0 ||
+	    expect_true(
+		    value.index == value_index &&
+			    value.statement_index == 0U &&
+			    value.block_index == 0U &&
+			    value.clause == SQLPARSER_CLAUSE_KIND_SET_LIST &&
+			    value.kind == SQLPARSER_GRAPH_VALUE_LITERAL &&
+			    value.literal.kind == SQLPARSER_LITERAL_KIND_INTEGER &&
+			    value.literal.integer_value == integer_value &&
+			    value.has_field == 0 &&
+			    value.has_source_field == 0 &&
+			    value.has_bind == 0 &&
+			    value.bind_kind == SQLPARSER_BIND_KIND_NONE &&
+			    value.has_bind_sql == 0 &&
+			    value.has_bind_position == 0 &&
+			    value.has_selector != 0 &&
+			    value.selector.kind == SQLPARSER_SELECTOR_KIND_VALUE,
+		    message) != 0 ||
+	    expect_selector_equals(&value.selector, selector_text, message) != 0) {
+		return 1;
+	}
+	return 0;
+}
+
+static int test_query_graph_update_expression_rhs_leaves(void)
+{
+	static const size_t rhs_fields[] = {1U};
+	static const size_t rhs_values[] = {0U, 1U};
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *bind_key;
+		const char *where_bind_key;
+		sqlparser_bind_kind_t bind_kind;
+		const char *bind_sql;
+		const char *where_bind_sql;
+		const char *rhs_name_selector;
+		const char *where_name_selector;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"UPDATE public.t SET payload = t.source_payload + $1 + 7 "
+				"WHERE t.id = $2",
+			"1", "2", SQLPARSER_BIND_KIND_POSITIONAL, "$1", "$2",
+			"stmt[0].name[4]", "stmt[0].name[6]"
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"UPDATE t SET payload = t.source_payload + ? + 7 WHERE t.id = ?",
+			"1", "2", SQLPARSER_BIND_KIND_POSITIONAL, "?", "?",
+			"stmt[0].name[3]", "stmt[0].name[5]"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"UPDATE t SET payload = t.source_payload + :1 + 7 WHERE t.id = :2",
+			"1", "2", SQLPARSER_BIND_KIND_POSITIONAL, ":1", ":2",
+			"stmt[0].name[3]", "stmt[0].name[5]"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"UPDATE dbo.t SET payload = t.source_payload + @p + 7 "
+				"WHERE t.id = @id",
+			"p", "id", SQLPARSER_BIND_KIND_NAMED, "@p", "@id",
+			"stmt[0].name[4]", "stmt[0].name[6]"
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"UPDATE t SET payload = t.source_payload + :1 + 7 WHERE t.id = :2",
+			"1", "2", SQLPARSER_BIND_KIND_POSITIONAL, ":1", ":2",
+			"stmt[0].name[3]", "stmt[0].name[5]"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_POSTGRESQL,
+			"UPDATE public.t SET payload = t.source_payload + $1 + 7 "
+				"WHERE t.id = $2",
+			"1", "2", SQLPARSER_BIND_KIND_POSITIONAL, "$1", "$2",
+			"stmt[0].name[4]", "stmt[0].name[6]"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_MYSQL,
+			"UPDATE t SET payload = t.source_payload + ? + 7 WHERE t.id = ?",
+			"1", "2", SQLPARSER_BIND_KIND_POSITIONAL, "?", "?",
+			"stmt[0].name[3]", "stmt[0].name[5]"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_ORACLE,
+			"UPDATE t SET payload = t.source_payload + :1 + 7 WHERE t.id = :2",
+			"1", "2", SQLPARSER_BIND_KIND_POSITIONAL, ":1", ":2",
+			"stmt[0].name[3]", "stmt[0].name[5]"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"UPDATE dbo.t SET payload = t.source_payload + @p + 7 "
+				"WHERE t.id = @id",
+			"p", "id", SQLPARSER_BIND_KIND_NAMED, "@p", "@id",
+			"stmt[0].name[4]", "stmt[0].name[6]"
+		}
+	};
+	size_t case_index;
+
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		sqlparser_parse_options_t options;
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_graph_dml_t dml;
+		sqlparser_graph_dml_assignment_t assignment;
+		sqlparser_graph_field_t field;
+		sqlparser_graph_value_t where_value;
+		sqlparser_graph_predicate_t predicate;
+		int rc;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[case_index].dialect;
+		rc = sqlparser_parse_with_options(
+			cases[case_index].sql, &options, &handle, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "cross-dialect UPDATE expression should parse") != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    cases[case_index].sql,
+			    "cross-dialect UPDATE expression should deparse exactly") != 0 ||
+		    expect_status_ok(
+			    sqlparser_statement_query_graph(
+				    handle, 0U, &graph, &error),
+			    &error,
+			    "cross-dialect UPDATE graph should build") != 0 ||
+		    expect_true(
+			    graph.block_count == 1U &&
+				    graph.relation_count == 1U &&
+				    graph.target_count == 0U &&
+				    graph.field_count == 3U &&
+				    graph.value_count == 3U &&
+				    graph.predicate_count == 1U &&
+				    graph.has_dml != 0,
+			    "cross-dialect UPDATE graph counts mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml(&graph, &dml, &error),
+			    &error,
+			    "cross-dialect UPDATE DML should be available") != 0 ||
+		    expect_true(
+			    dml.kind == SQLPARSER_GRAPH_DML_UPDATE &&
+				    dml.has_target_relation != 0 &&
+				    dml.target_relation_index == 0U &&
+				    dml.assignments.count == 1U,
+			    "cross-dialect UPDATE DML shape mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_assignment_at(
+				    &graph, 0U, &assignment, &error),
+			    &error,
+			    "cross-dialect UPDATE assignment should be available") != 0 ||
+		    expect_true(
+			    assignment.target_field_index == 0U &&
+				    assignment.value_kind ==
+					    SQLPARSER_GRAPH_VALUE_EXPRESSION &&
+				    assignment.has_source_target == 0 &&
+				    assignment.has_source_field == 0 &&
+				    assignment.has_bind == 0 &&
+				    assignment.bind_kind == SQLPARSER_BIND_KIND_NONE &&
+				    assignment.has_bind_sql == 0 &&
+				    assignment.has_bind_position == 0 &&
+				    assignment.has_selector != 0 &&
+				    assignment.selector.kind ==
+					    SQLPARSER_SELECTOR_KIND_ASSIGNMENT,
+			    "cross-dialect UPDATE assignment metadata mismatch") != 0 ||
+		    expect_selector_equals(
+			    &assignment.selector,
+			    "stmt[0].assignment[0]",
+			    "cross-dialect UPDATE assignment selector mismatch") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_fields,
+			    rhs_fields,
+			    sizeof(rhs_fields) / sizeof(rhs_fields[0]),
+			    "UPDATE assignment RHS field span mismatch") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_values,
+			    rhs_values,
+			    sizeof(rhs_values) / sizeof(rhs_values[0]),
+			    "UPDATE assignment RHS value span mismatch") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_blocks,
+			    NULL,
+			    0U,
+			    "UPDATE assignment RHS block span should be empty") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    &graph, 0U, &field, &error),
+			    &error,
+			    "UPDATE target field should be available") != 0 ||
+		    expect_true(
+			    field.block_index == 0U &&
+				    field.clause == SQLPARSER_CLAUSE_KIND_SET_LIST &&
+				    field.has_relation != 0 &&
+				    field.relation_index == 0U &&
+				    field.column_name != NULL &&
+				    strcmp(field.column_name, "payload") == 0 &&
+				    field.has_selector == 0,
+			    "UPDATE target field ownership mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    &graph, 1U, &field, &error),
+			    &error,
+			    "UPDATE RHS field should be available") != 0 ||
+		    expect_true(
+			    field.block_index == 0U &&
+				    field.clause == SQLPARSER_CLAUSE_KIND_SET_LIST &&
+				    field.has_relation != 0 &&
+				    field.relation_index == 0U &&
+				    field.column_name != NULL &&
+				    strcmp(field.column_name, "source_payload") == 0 &&
+				    field.has_selector != 0 &&
+				    field.selector.kind == SQLPARSER_SELECTOR_KIND_NAME,
+			    "UPDATE RHS field ownership mismatch") != 0 ||
+		    expect_selector_equals(
+			    &field.selector,
+			    cases[case_index].rhs_name_selector,
+			    "UPDATE RHS field selector mismatch") != 0 ||
+		    expect_set_list_bind_value(
+			    &graph,
+			    0U,
+			    cases[case_index].bind_key,
+			    cases[case_index].bind_kind,
+			    cases[case_index].bind_sql,
+			    1U,
+			    "stmt[0].value[8]",
+			    "UPDATE RHS bind metadata mismatch") != 0 ||
+		    expect_set_list_integer_value(
+			    &graph,
+			    1U,
+			    7LL,
+			    "stmt[0].value[9]",
+			    "UPDATE RHS literal metadata mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    &graph, 2U, &field, &error),
+			    &error,
+			    "UPDATE WHERE field should be available") != 0 ||
+		    expect_true(
+			    field.clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+				    field.has_relation != 0 &&
+				    field.relation_index == 0U &&
+				    field.column_name != NULL &&
+				    strcmp(field.column_name, "id") == 0 &&
+				    field.has_selector != 0,
+			    "UPDATE WHERE field ownership mismatch") != 0 ||
+		    expect_selector_equals(
+			    &field.selector,
+			    cases[case_index].where_name_selector,
+			    "UPDATE WHERE field selector mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_value_at(
+				    &graph, 2U, &where_value, &error),
+			    &error,
+			    "UPDATE WHERE bind should be available") != 0 ||
+		    expect_true(
+			    where_value.index == 2U &&
+				    where_value.clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+				    where_value.kind == SQLPARSER_GRAPH_VALUE_BIND &&
+				    where_value.has_field != 0 &&
+				    where_value.field_index == 2U &&
+				    where_value.field_match_kind ==
+					    SQLPARSER_GRAPH_FIELD_MATCH_DIRECT_FIELD &&
+				    where_value.has_bind != 0 &&
+				    strcmp(
+					    where_value.bind,
+					    cases[case_index].where_bind_key) == 0 &&
+				    where_value.bind_kind == cases[case_index].bind_kind &&
+				    where_value.has_bind_sql != 0 &&
+				    strcmp(
+					    where_value.bind_sql,
+					    cases[case_index].where_bind_sql) == 0 &&
+				    where_value.has_bind_position != 0 &&
+				    where_value.bind_position == 2U &&
+				    where_value.has_selector != 0,
+			    "UPDATE WHERE bind index or metadata mismatch") != 0 ||
+		    expect_selector_equals(
+			    &where_value.selector,
+			    "stmt[0].value[15]",
+			    "UPDATE WHERE bind selector mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_predicate_at(
+				    &graph, 0U, &predicate, &error),
+			    &error,
+			    "UPDATE WHERE predicate should be available") != 0 ||
+		    expect_true(
+			    predicate.block_index == 0U &&
+				    predicate.clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+				    predicate.kind ==
+					    SQLPARSER_GRAPH_PREDICATE_COMPARISON &&
+				    predicate.has_left_field != 0 &&
+				    predicate.left_field_index == 2U &&
+				    predicate.has_right_field == 0 &&
+				    predicate.has_value != 0 &&
+				    predicate.value_index == 2U,
+			    "SET_LIST insertion must preserve WHERE predicate value index") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (case_index == 0U) {
+			sqlparser_patch_t patch;
+			sqlparser_patch_list_t patch_list;
+
+			memset(&patch, 0, sizeof(patch));
+			patch.op = SQLPARSER_PATCH_REPLACE;
+			patch.selector = "stmt[0].value[8]";
+			patch.sql = "$3";
+			patch_list.items = &patch;
+			patch_list.count = 1U;
+			rc = sqlparser_apply_patch(handle, &patch_list, &error);
+			if (expect_status_ok(
+				    rc,
+				    &error,
+				    "UPDATE expression bind selector patch should succeed") != 0 ||
+			    expect_deparse_equals_two_roundtrips(
+				    handle,
+				    "UPDATE public.t SET payload = "
+					    "t.source_payload + $3 + 7 WHERE t.id = $2",
+				    "UPDATE expression bind selector patch should "
+					    "deparse and reparse exactly") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			patch.selector = "stmt[0].value[9]";
+			patch.sql = "11";
+			rc = sqlparser_apply_patch(handle, &patch_list, &error);
+			if (expect_status_ok(
+				    rc,
+				    &error,
+				    "UPDATE expression literal selector patch should succeed") != 0 ||
+			    expect_deparse_equals_two_roundtrips(
+				    handle,
+				    "UPDATE public.t SET payload = "
+					    "t.source_payload + $3 + 11 WHERE t.id = $2",
+				    "UPDATE expression literal selector patch should "
+					    "deparse and reparse exactly") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	return 0;
+}
+
+static int test_query_graph_two_compound_assignment_spans(void)
+{
+	static const size_t rhs_field_indexes[][1] = {{1U}, {3U}};
+	static const size_t rhs_value_indexes[][2] = {
+		{0U, 1U}, {2U, 3U}
+	};
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *bind_keys[2];
+		sqlparser_bind_kind_t bind_kind;
+		const char *bind_sql[2];
+		const char *rhs_name_selectors[2];
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"UPDATE public.t SET a = t.x + $1 + 1, b = t.y + $2 + 2",
+			{"1", "2"}, SQLPARSER_BIND_KIND_POSITIONAL, {"$1", "$2"},
+			{"stmt[0].name[4]", "stmt[0].name[7]"}
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"UPDATE t SET a = t.x + ? + 1, b = t.y + ? + 2",
+			{"1", "2"}, SQLPARSER_BIND_KIND_POSITIONAL, {"?", "?"},
+			{"stmt[0].name[3]", "stmt[0].name[6]"}
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"UPDATE t SET a = t.x + :1 + 1, b = t.y + :2 + 2",
+			{"1", "2"}, SQLPARSER_BIND_KIND_POSITIONAL, {":1", ":2"},
+			{"stmt[0].name[3]", "stmt[0].name[6]"}
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"UPDATE dbo.t SET a = t.x + @p + 1, b = t.y + @q + 2",
+			{"p", "q"}, SQLPARSER_BIND_KIND_NAMED, {"@p", "@q"},
+			{"stmt[0].name[4]", "stmt[0].name[7]"}
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"UPDATE t SET a = t.x + :1 + 1, b = t.y + :2 + 2",
+			{"1", "2"}, SQLPARSER_BIND_KIND_POSITIONAL, {":1", ":2"},
+			{"stmt[0].name[3]", "stmt[0].name[6]"}
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_POSTGRESQL,
+			"UPDATE public.t SET a = t.x + $1 + 1, b = t.y + $2 + 2",
+			{"1", "2"}, SQLPARSER_BIND_KIND_POSITIONAL, {"$1", "$2"},
+			{"stmt[0].name[4]", "stmt[0].name[7]"}
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_MYSQL,
+			"UPDATE t SET a = t.x + ? + 1, b = t.y + ? + 2",
+			{"1", "2"}, SQLPARSER_BIND_KIND_POSITIONAL, {"?", "?"},
+			{"stmt[0].name[3]", "stmt[0].name[6]"}
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_ORACLE,
+			"UPDATE t SET a = t.x + :1 + 1, b = t.y + :2 + 2",
+			{"1", "2"}, SQLPARSER_BIND_KIND_POSITIONAL, {":1", ":2"},
+			{"stmt[0].name[3]", "stmt[0].name[6]"}
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"UPDATE dbo.t SET a = t.x + @p + 1, b = t.y + @q + 2",
+			{"p", "q"}, SQLPARSER_BIND_KIND_NAMED, {"@p", "@q"},
+			{"stmt[0].name[4]", "stmt[0].name[7]"}
+		}
+	};
+	size_t case_index;
+
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		sqlparser_parse_options_t options;
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_graph_dml_t dml;
+		size_t ordinal;
+		int rc;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[case_index].dialect;
+		rc = sqlparser_parse_with_options(
+			cases[case_index].sql, &options, &handle, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "two compound assignments should parse") != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    cases[case_index].sql,
+			    "two compound assignments should deparse exactly") != 0 ||
+		    expect_status_ok(
+			    sqlparser_statement_query_graph(
+				    handle, 0U, &graph, &error),
+			    &error,
+			    "two compound assignment graph should build") != 0 ||
+		    expect_true(
+			    graph.block_count == 1U &&
+				    graph.relation_count == 1U &&
+				    graph.field_count == 4U &&
+				    graph.value_count == 4U &&
+				    graph.predicate_count == 0U,
+			    "two compound assignment graph counts mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml(&graph, &dml, &error),
+			    &error,
+			    "two compound assignment DML should be available") != 0 ||
+		    expect_true(
+			    dml.kind == SQLPARSER_GRAPH_DML_UPDATE &&
+				    dml.assignments.count == 2U,
+			    "two compound assignment DML shape mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		for (ordinal = 0U; ordinal < 2U; ordinal++) {
+			sqlparser_graph_dml_assignment_t assignment;
+			sqlparser_graph_field_t source_field;
+			size_t assignment_index;
+			char selector_text[32];
+
+			if (expect_status_ok(
+				    sqlparser_query_graph_span_index_at(
+					    &graph,
+					    dml.assignments,
+					    ordinal,
+					    &assignment_index,
+					    &error),
+				    &error,
+				    "compound assignment index should resolve") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_dml_assignment_at(
+					    &graph,
+					    assignment_index,
+					    &assignment,
+					    &error),
+				    &error,
+				    "compound assignment should be available") != 0 ||
+			    expect_true(
+				    assignment.target_field_index == ordinal * 2U &&
+					    assignment.value_kind ==
+						    SQLPARSER_GRAPH_VALUE_EXPRESSION &&
+					    assignment.has_source_target == 0 &&
+					    assignment.has_source_field == 0 &&
+					    assignment.has_bind == 0 &&
+					    assignment.has_selector != 0,
+				    "compound assignment metadata mismatch") != 0 ||
+			    expect_graph_span_indices(
+				    &graph,
+				    assignment.rhs_fields,
+				    rhs_field_indexes[ordinal],
+				    1U,
+				    "compound assignment RHS fields are not isolated") != 0 ||
+			    expect_graph_span_indices(
+				    &graph,
+				    assignment.rhs_values,
+				    rhs_value_indexes[ordinal],
+				    2U,
+				    "compound assignment RHS values are not isolated") != 0 ||
+			    expect_graph_span_indices(
+				    &graph,
+				    assignment.rhs_blocks,
+				    NULL,
+				    0U,
+				    "compound assignment RHS blocks should be empty") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_field_at(
+					    &graph,
+					    rhs_field_indexes[ordinal][0],
+					    &source_field,
+					    &error),
+				    &error,
+				    "compound assignment source field should be available") != 0 ||
+			    expect_true(
+				    source_field.has_relation != 0 &&
+					    source_field.relation_index == 0U &&
+					    source_field.column_name != NULL &&
+					    strcmp(
+						    source_field.column_name,
+						    ordinal == 0U ? "x" : "y") == 0 &&
+					    source_field.has_selector != 0,
+				    "compound assignment source ownership mismatch") != 0 ||
+			    expect_selector_equals(
+				    &source_field.selector,
+				    cases[case_index].rhs_name_selectors[ordinal],
+				    "compound assignment field selector mismatch") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			(void)snprintf(
+				selector_text,
+				sizeof(selector_text),
+				"stmt[0].assignment[%zu]",
+				ordinal);
+			if (expect_selector_equals(
+				    &assignment.selector,
+				    selector_text,
+				    "compound assignment selector mismatch") != 0 ||
+			    expect_set_list_bind_value(
+				    &graph,
+				    ordinal * 2U,
+				    cases[case_index].bind_keys[ordinal],
+				    cases[case_index].bind_kind,
+				    cases[case_index].bind_sql[ordinal],
+				    ordinal + 1U,
+				    ordinal == 0U ?
+					    "stmt[0].value[8]" :
+					    "stmt[0].value[18]",
+				    "compound assignment bind metadata mismatch") != 0 ||
+			    expect_set_list_integer_value(
+				    &graph,
+				    ordinal * 2U + 1U,
+				    (long long)(ordinal + 1U),
+				    ordinal == 0U ?
+					    "stmt[0].value[9]" :
+					    "stmt[0].value[19]",
+				    "compound assignment literal metadata mismatch") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	return 0;
+}
+
+static int test_query_graph_merge_expression_rhs_leaves(void)
+{
+	static const size_t rhs_fields[] = {3U};
+	static const size_t rhs_values[] = {1U, 2U};
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *bind_key;
+		sqlparser_bind_kind_t bind_kind;
+		const char *bind_sql;
+		const char *rhs_name_selector;
+		const char *bind_selector;
+		const char *literal_selector;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"MERGE INTO public.target_rows AS t USING public.source_rows AS s "
+				"ON t.id = s.id WHEN MATCHED THEN UPDATE SET payload = "
+				"s.source_payload + $1 + 8",
+			"1", SQLPARSER_BIND_KIND_POSITIONAL, "$1",
+			"stmt[0].name[12]", "stmt[0].value[18]", "stmt[0].value[19]"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"MERGE INTO target_rows t USING source_rows s ON (t.id = s.id) "
+				"WHEN MATCHED THEN UPDATE SET t.payload = "
+				"s.source_payload + :1 + 8",
+			"1", SQLPARSER_BIND_KIND_POSITIONAL, ":1",
+			"stmt[0].name[11]", "stmt[0].value[19]", "stmt[0].value[20]"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"MERGE INTO dbo.target_rows AS t USING dbo.source_rows AS s "
+				"ON t.id = s.id WHEN MATCHED THEN UPDATE SET payload = "
+				"s.source_payload + @p + 8;",
+			"p", SQLPARSER_BIND_KIND_NAMED, "@p",
+			"stmt[0].name[12]", "stmt[0].value[18]", "stmt[0].value[19]"
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"MERGE INTO target_rows t USING source_rows s ON (t.id = s.id) "
+				"WHEN MATCHED THEN UPDATE SET t.payload = "
+				"s.source_payload + :1 + 8",
+			"1", SQLPARSER_BIND_KIND_POSITIONAL, ":1",
+			"stmt[0].name[11]", "stmt[0].value[19]", "stmt[0].value[20]"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_POSTGRESQL,
+			"MERGE INTO public.target_rows AS t USING public.source_rows AS s "
+				"ON t.id = s.id WHEN MATCHED THEN UPDATE SET payload = "
+				"s.source_payload + $1 + 8",
+			"1", SQLPARSER_BIND_KIND_POSITIONAL, "$1",
+			"stmt[0].name[12]", "stmt[0].value[18]", "stmt[0].value[19]"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_ORACLE,
+			"MERGE INTO target_rows t USING source_rows s ON (t.id = s.id) "
+				"WHEN MATCHED THEN UPDATE SET t.payload = "
+				"s.source_payload + :1 + 8",
+			"1", SQLPARSER_BIND_KIND_POSITIONAL, ":1",
+			"stmt[0].name[11]", "stmt[0].value[19]", "stmt[0].value[20]"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"MERGE INTO dbo.target_rows AS t USING dbo.source_rows AS s "
+				"ON t.id = s.id WHEN MATCHED THEN UPDATE SET payload = "
+				"s.source_payload + @p + 8;",
+			"p", SQLPARSER_BIND_KIND_NAMED, "@p",
+			"stmt[0].name[12]", "stmt[0].value[18]", "stmt[0].value[19]"
+		}
+	};
+	size_t case_index;
+
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		sqlparser_parse_options_t options;
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_graph_dml_t dml;
+		sqlparser_graph_dml_assignment_t assignment;
+		sqlparser_graph_field_t target_field;
+		sqlparser_graph_field_t source_field;
+		sqlparser_graph_predicate_t predicate;
+		sqlparser_graph_value_t on_value;
+		sqlparser_test_merge_branch_detail_t detail;
+		size_t assignment_index;
+		size_t branch_assignment_index;
+		int rc;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[case_index].dialect;
+		rc = sqlparser_parse_with_options(
+			cases[case_index].sql, &options, &handle, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "cross-dialect MERGE expression should parse") != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    cases[case_index].sql,
+			    "cross-dialect MERGE expression should deparse exactly") != 0 ||
+		    expect_status_ok(
+			    sqlparser_statement_query_graph(
+				    handle, 0U, &graph, &error),
+			    &error,
+			    "cross-dialect MERGE graph should build") != 0 ||
+		    expect_true(
+			    graph.block_count == 1U &&
+				    graph.relation_count == 2U &&
+				    graph.field_count == 4U &&
+				    graph.value_count == 3U &&
+				    graph.predicate_count == 1U &&
+				    graph.dml_branch_count == 1U,
+			    "cross-dialect MERGE graph counts mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml(&graph, &dml, &error),
+			    &error,
+			    "cross-dialect MERGE DML should be available") != 0 ||
+		    expect_true(
+			    dml.kind == SQLPARSER_GRAPH_DML_MERGE &&
+				    dml.has_target_relation != 0 &&
+				    dml.target_relation_index == 0U &&
+				    dml.assignments.count == 1U &&
+				    dml.branches.count == 1U,
+			    "cross-dialect MERGE DML shape mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.assignments,
+				    0U,
+				    &assignment_index,
+				    &error),
+			    &error,
+			    "MERGE assignment index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_assignment_at(
+				    &graph, assignment_index, &assignment, &error),
+			    &error,
+			    "MERGE expression assignment should be available") != 0 ||
+		    expect_true(
+			    assignment.target_field_index == 2U &&
+				    assignment.value_kind ==
+					    SQLPARSER_GRAPH_VALUE_EXPRESSION &&
+				    assignment.has_source_target == 0 &&
+				    assignment.has_source_field == 0 &&
+				    assignment.has_bind == 0 &&
+				    assignment.bind_kind == SQLPARSER_BIND_KIND_NONE &&
+				    assignment.has_bind_sql == 0 &&
+				    assignment.has_bind_position == 0 &&
+				    assignment.has_selector != 0 &&
+				    assignment.selector.kind ==
+					    SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT,
+			    "MERGE expression assignment metadata mismatch") != 0 ||
+		    expect_selector_equals(
+			    &assignment.selector,
+			    "stmt[0].merge_assignment[0][0]",
+			    "MERGE expression assignment selector mismatch") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_fields,
+			    rhs_fields,
+			    sizeof(rhs_fields) / sizeof(rhs_fields[0]),
+			    "MERGE assignment RHS field span mismatch") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_values,
+			    rhs_values,
+			    sizeof(rhs_values) / sizeof(rhs_values[0]),
+			    "MERGE assignment RHS value span mismatch") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_blocks,
+			    NULL,
+			    0U,
+			    "MERGE assignment RHS block span should be empty") != 0 ||
+		    expect_merge_branch_detail(
+			    &graph,
+			    0U,
+			    &detail,
+			    &error,
+			    "MERGE UPDATE branch detail should resolve") != 0 ||
+		    expect_true(
+			    detail.action_kind == SQLPARSER_GRAPH_MERGE_ACTION_UPDATE &&
+				    detail.match_kind == SQLPARSER_GRAPH_MERGE_MATCH_MATCHED &&
+				    detail.assignments.count == 1U,
+			    "MERGE UPDATE branch detail mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    detail.assignments,
+				    0U,
+				    &branch_assignment_index,
+				    &error),
+			    &error,
+			    "MERGE branch assignment index should resolve") != 0 ||
+		    expect_true(
+			    branch_assignment_index == assignment_index,
+			    "MERGE branch and DML must share the assignment") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    &graph, 2U, &target_field, &error),
+			    &error,
+			    "MERGE target field should be available") != 0 ||
+		    expect_true(
+			    target_field.clause == SQLPARSER_CLAUSE_KIND_SET_LIST &&
+				    target_field.has_relation != 0 &&
+				    target_field.relation_index == 0U &&
+				    target_field.column_name != NULL &&
+				    strcmp(target_field.column_name, "payload") == 0,
+			    "MERGE target field ownership mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    &graph, 3U, &source_field, &error),
+			    &error,
+			    "MERGE RHS field should be available") != 0 ||
+		    expect_true(
+			    source_field.clause == SQLPARSER_CLAUSE_KIND_SET_LIST &&
+				    source_field.has_relation != 0 &&
+				    source_field.relation_index == 1U &&
+				    source_field.column_name != NULL &&
+				    strcmp(source_field.column_name, "source_payload") == 0 &&
+				    source_field.has_selector != 0,
+			    "MERGE RHS field ownership mismatch") != 0 ||
+		    expect_selector_equals(
+			    &source_field.selector,
+			    cases[case_index].rhs_name_selector,
+			    "MERGE RHS field selector mismatch") != 0 ||
+		    expect_set_list_bind_value(
+			    &graph,
+			    1U,
+			    cases[case_index].bind_key,
+			    cases[case_index].bind_kind,
+			    cases[case_index].bind_sql,
+			    1U,
+			    cases[case_index].bind_selector,
+			    "MERGE RHS bind metadata mismatch") != 0 ||
+		    expect_set_list_integer_value(
+			    &graph,
+			    2U,
+			    8LL,
+			    cases[case_index].literal_selector,
+			    "MERGE RHS literal metadata mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_value_at(
+				    &graph, 0U, &on_value, &error),
+			    &error,
+			    "MERGE ON value should be available") != 0 ||
+		    expect_true(
+			    on_value.clause == SQLPARSER_CLAUSE_KIND_ON &&
+				    on_value.kind == SQLPARSER_GRAPH_VALUE_FIELD &&
+				    on_value.has_field != 0 &&
+				    on_value.field_index == 0U &&
+				    on_value.has_source_field != 0 &&
+				    on_value.source_field_index == 1U,
+			    "MERGE ON field value must remain at index zero") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_predicate_at(
+				    &graph, 0U, &predicate, &error),
+			    &error,
+			    "MERGE ON predicate should be available") != 0 ||
+		    expect_true(
+			    predicate.clause == SQLPARSER_CLAUSE_KIND_ON &&
+				    predicate.has_left_field != 0 &&
+				    predicate.left_field_index == 0U &&
+				    predicate.has_right_field != 0 &&
+				    predicate.right_field_index == 1U &&
+				    predicate.has_value != 0 &&
+				    predicate.value_index == 0U,
+			    "MERGE SET_LIST leaves must not shift the ON value") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	return 0;
+}
+
+static int test_query_graph_direct_assignment_shapes_unchanged(void)
+{
+	static const char sql[] =
+		"UPDATE public.t SET field_copy = t.payload, literal_copy = 7, "
+		"bind_copy = $1, default_copy = DEFAULT";
+	static const char *target_columns[] = {
+		"field_copy", "literal_copy", "bind_copy", "default_copy"
+	};
+	static const size_t target_field_indexes[] = {0U, 2U, 3U, 4U};
+	static const sqlparser_graph_value_kind_t value_kinds[] = {
+		SQLPARSER_GRAPH_VALUE_FIELD,
+		SQLPARSER_GRAPH_VALUE_LITERAL,
+		SQLPARSER_GRAPH_VALUE_BIND,
+		SQLPARSER_GRAPH_VALUE_DEFAULT
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_field_t field;
+	size_t ordinal;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "direct assignment shape SQL should parse") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    sql,
+		    "direct assignment shape SQL should deparse exactly") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "direct assignment shape graph should build") != 0 ||
+	    expect_true(
+		    graph.block_count == 1U &&
+			    graph.relation_count == 1U &&
+			    graph.field_count == 5U &&
+			    graph.value_count == 0U &&
+			    graph.predicate_count == 0U,
+		    "direct assignment shape graph counts mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml(&graph, &dml, &error),
+		    &error,
+		    "direct assignment DML should be available") != 0 ||
+	    expect_true(
+		    dml.kind == SQLPARSER_GRAPH_DML_UPDATE &&
+			    dml.assignments.count == 4U,
+		    "direct assignment DML count mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_field_at(&graph, 1U, &field, &error),
+		    &error,
+		    "direct source field should be available") != 0 ||
+	    expect_true(
+		    field.clause == SQLPARSER_CLAUSE_KIND_SET_LIST &&
+			    field.has_relation != 0 &&
+			    field.relation_index == 0U &&
+			    field.column_name != NULL &&
+			    strcmp(field.column_name, "payload") == 0 &&
+			    field.has_selector != 0,
+		    "direct source field metadata mismatch") != 0 ||
+	    expect_selector_equals(
+		    &field.selector,
+		    "stmt[0].name[4]",
+		    "direct source field selector mismatch") != 0 ||
+	    expect_relation_binding_counts(
+		    handle,
+		    0U,
+		    0U,
+		    1U,
+		    0U,
+		    "direct assignments should remain single-pass relation bindings") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	for (ordinal = 0U; ordinal < 4U; ordinal++) {
+		sqlparser_graph_dml_assignment_t assignment;
+		size_t assignment_index;
+		char selector_text[32];
+
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.assignments,
+				    ordinal,
+				    &assignment_index,
+				    &error),
+			    &error,
+			    "direct assignment index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_assignment_at(
+				    &graph, assignment_index, &assignment, &error),
+			    &error,
+			    "direct assignment should be available") != 0 ||
+		    expect_true(
+			    assignment.target_field_index ==
+				    target_field_indexes[ordinal] &&
+				    assignment.value_kind == value_kinds[ordinal] &&
+				    assignment.has_selector != 0 &&
+				    assignment.selector.kind ==
+					    SQLPARSER_SELECTOR_KIND_ASSIGNMENT,
+			    "direct assignment common metadata mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    &graph,
+				    assignment.target_field_index,
+				    &field,
+				    &error),
+			    &error,
+			    "direct assignment target field should be available") != 0 ||
+		    expect_true(
+			    field.column_name != NULL &&
+				    strcmp(
+					    field.column_name,
+					    target_columns[ordinal]) == 0 &&
+				    field.clause == SQLPARSER_CLAUSE_KIND_SET_LIST &&
+				    field.has_relation != 0 &&
+				    field.relation_index == 0U,
+			    "direct assignment target ownership mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		(void)snprintf(
+			selector_text,
+			sizeof(selector_text),
+			"stmt[0].assignment[%zu]",
+			ordinal);
+		if (expect_selector_equals(
+			    &assignment.selector,
+			    selector_text,
+			    "direct assignment selector mismatch") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_fields,
+			    NULL,
+			    0U,
+			    "direct assignment RHS field span should be empty") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_values,
+			    NULL,
+			    0U,
+			    "direct assignment RHS value span should be empty") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_blocks,
+			    NULL,
+			    0U,
+			    "direct assignment RHS block span should be empty") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (ordinal == 0U) {
+			if (expect_true(
+				    assignment.has_source_field != 0 &&
+					    assignment.source_field_index == 1U &&
+					    assignment.has_source_target == 0 &&
+					    assignment.has_bind == 0,
+				    "direct field assignment metadata mismatch") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		} else if (ordinal == 1U) {
+			if (expect_true(
+				    assignment.literal.kind ==
+					    SQLPARSER_LITERAL_KIND_INTEGER &&
+					    assignment.literal.integer_value == 7LL &&
+					    assignment.has_source_field == 0 &&
+					    assignment.has_bind == 0,
+				    "direct literal assignment metadata mismatch") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		} else if (ordinal == 2U) {
+			if (expect_true(
+				   assignment.has_bind != 0 &&
+					   strcmp(assignment.bind, "1") == 0 &&
+					   assignment.bind_kind ==
+						   SQLPARSER_BIND_KIND_POSITIONAL &&
+					   assignment.has_bind_sql != 0 &&
+					   strcmp(assignment.bind_sql, "$1") == 0 &&
+					   assignment.has_bind_position != 0 &&
+					   assignment.bind_position == 1U &&
+					   assignment.has_source_field == 0,
+				   "direct bind assignment metadata mismatch") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		} else if (expect_true(
+				   assignment.value_kind ==
+					   SQLPARSER_GRAPH_VALUE_DEFAULT &&
+					   assignment.has_source_target == 0 &&
+					   assignment.has_source_field == 0 &&
+					   assignment.has_bind == 0 &&
+					   assignment.bind_kind ==
+						   SQLPARSER_BIND_KIND_NONE,
+				   "direct DEFAULT assignment metadata mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_postgresql_on_conflict_expression_rhs_leaves(void)
+{
+	static const size_t rhs_fields[] = {1U};
+	static const size_t rhs_values[] = {0U, 1U};
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_POSTGRESQL,
+		SQLPARSER_DIALECT_VASTBASE_POSTGRESQL
+	};
+	static const char sql[] =
+		"INSERT INTO public.t (id, payload) VALUES (1, $1) "
+		"ON CONFLICT (id) DO UPDATE SET payload = "
+		"EXCLUDED.payload + $2 + 9";
+	size_t dialect_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		sqlparser_parse_options_t options;
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_graph_dml_t dml;
+		sqlparser_graph_dml_assignment_t assignment;
+		sqlparser_graph_dml_cell_t cell;
+		sqlparser_graph_field_t field;
+		size_t cell_index;
+		int rc;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index];
+		rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "PostgreSQL-compatible ON CONFLICT expression should parse") != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    sql,
+			    "PostgreSQL-compatible ON CONFLICT should deparse exactly") != 0 ||
+		    expect_status_ok(
+			    sqlparser_statement_query_graph(
+				    handle, 0U, &graph, &error),
+			    &error,
+			    "PostgreSQL-compatible ON CONFLICT graph should build") != 0 ||
+		    expect_true(
+			    graph.block_count == 1U &&
+				    graph.relation_count == 1U &&
+				    graph.field_count == 2U &&
+				    graph.value_count == 2U &&
+				    graph.predicate_count == 0U,
+			    "PostgreSQL-compatible ON CONFLICT graph counts mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml(&graph, &dml, &error),
+			    &error,
+			    "PostgreSQL-compatible ON CONFLICT DML should be available") != 0 ||
+		    expect_true(
+			    dml.kind == SQLPARSER_GRAPH_DML_INSERT &&
+				    dml.insert_mode == SQLPARSER_GRAPH_INSERT_MODE_VALUES &&
+				    dml.target_columns.count == 2U &&
+				    dml.rows.count == 2U &&
+				    dml.assignments.count == 1U,
+			    "PostgreSQL-compatible ON CONFLICT DML shape mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_assignment_at(
+				    &graph, 0U, &assignment, &error),
+			    &error,
+			    "ON CONFLICT assignment should be available") != 0 ||
+		    expect_true(
+			    assignment.target_field_index == 0U &&
+				    assignment.value_kind ==
+					    SQLPARSER_GRAPH_VALUE_EXPRESSION &&
+				    assignment.has_source_target == 0 &&
+				    assignment.has_source_field == 0 &&
+				    assignment.has_bind == 0 &&
+				    assignment.bind_kind == SQLPARSER_BIND_KIND_NONE &&
+				    assignment.has_bind_sql == 0 &&
+				    assignment.has_bind_position == 0 &&
+				    assignment.has_selector == 0,
+			    "ON CONFLICT expression assignment metadata mismatch") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_fields,
+			    rhs_fields,
+			    sizeof(rhs_fields) / sizeof(rhs_fields[0]),
+			    "ON CONFLICT assignment RHS field span mismatch") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_values,
+			    rhs_values,
+			    sizeof(rhs_values) / sizeof(rhs_values[0]),
+			    "ON CONFLICT assignment RHS value span mismatch") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_blocks,
+			    NULL,
+			    0U,
+			    "ON CONFLICT assignment RHS block span should be empty") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    &graph, 0U, &field, &error),
+			    &error,
+			    "ON CONFLICT target field should be available") != 0 ||
+		    expect_true(
+			    field.clause == SQLPARSER_CLAUSE_KIND_SET_LIST &&
+				    field.has_relation != 0 &&
+				    field.relation_index == 0U &&
+				    field.column_name != NULL &&
+				    strcmp(field.column_name, "payload") == 0 &&
+				    field.has_selector == 0,
+			    "ON CONFLICT target field ownership mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    &graph, 1U, &field, &error),
+			    &error,
+			    "ON CONFLICT EXCLUDED field should be available") != 0 ||
+		    expect_true(
+			    field.clause == SQLPARSER_CLAUSE_KIND_SET_LIST &&
+				    field.has_relation == 0 &&
+				    field.column_name != NULL &&
+				    strcmp(field.column_name, "payload") == 0 &&
+				    field.has_selector != 0,
+			    "ON CONFLICT EXCLUDED field ownership mismatch") != 0 ||
+		    expect_selector_equals(
+			    &field.selector,
+			    "stmt[0].name[7]",
+			    "ON CONFLICT EXCLUDED field selector mismatch") != 0 ||
+		    expect_set_list_bind_value(
+			    &graph,
+			    0U,
+			    "2",
+			    SQLPARSER_BIND_KIND_POSITIONAL,
+			    "$2",
+			    2U,
+			    "stmt[0].value[15]",
+			    "ON CONFLICT RHS bind metadata mismatch") != 0 ||
+		    expect_set_list_integer_value(
+			    &graph,
+			    1U,
+			    9LL,
+			    "stmt[0].value[16]",
+			    "ON CONFLICT RHS literal metadata mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.rows,
+				    0U,
+				    &cell_index,
+				    &error),
+			    &error,
+			    "ON CONFLICT first INSERT cell index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_cell_at(
+				    &graph, cell_index, &cell, &error),
+			    &error,
+			    "ON CONFLICT first INSERT cell should be available") != 0 ||
+		    expect_true(
+			    cell.kind == SQLPARSER_GRAPH_VALUE_LITERAL &&
+				    cell.literal.kind == SQLPARSER_LITERAL_KIND_INTEGER &&
+				    cell.literal.integer_value == 1LL &&
+				    cell.has_selector != 0,
+			    "ON CONFLICT first INSERT cell metadata mismatch") != 0 ||
+		    expect_selector_equals(
+			    &cell.selector,
+			    "stmt[0].insert_cell[0][0]",
+			    "ON CONFLICT first INSERT cell selector mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.rows,
+				    1U,
+				    &cell_index,
+				    &error),
+			    &error,
+			    "ON CONFLICT bind INSERT cell index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_cell_at(
+				    &graph, cell_index, &cell, &error),
+			    &error,
+			    "ON CONFLICT bind INSERT cell should be available") != 0 ||
+		    expect_true(
+			    cell.kind == SQLPARSER_GRAPH_VALUE_BIND &&
+				    cell.has_bind != 0 &&
+				    strcmp(cell.bind, "1") == 0 &&
+				    cell.bind_kind == SQLPARSER_BIND_KIND_POSITIONAL &&
+				    cell.has_bind_sql != 0 &&
+				    strcmp(cell.bind_sql, "$1") == 0 &&
+				    cell.has_bind_position != 0 &&
+				    cell.bind_position == 1U &&
+				    cell.has_selector != 0,
+			    "ON CONFLICT bind INSERT cell metadata mismatch") != 0 ||
+		    expect_selector_equals(
+			    &cell.selector,
+			    "stmt[0].insert_cell[0][1]",
+			    "ON CONFLICT bind INSERT cell selector mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	return 0;
+}
+
+static int test_postgresql_assignment_scalar_subquery_block(void)
+{
+	static const size_t rhs_blocks[] = {1U};
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_POSTGRESQL,
+		SQLPARSER_DIALECT_VASTBASE_POSTGRESQL
+	};
+	static const char sql[] =
+		"UPDATE public.t SET payload = (SELECT s.payload FROM public.s AS s "
+		"WHERE s.id = t.id)";
+	size_t dialect_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		sqlparser_parse_options_t options;
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_graph_block_t outer_block;
+		sqlparser_graph_block_t scalar_block;
+		sqlparser_graph_relation_t relation;
+		sqlparser_graph_target_t target;
+		sqlparser_graph_field_t field;
+		sqlparser_graph_value_t value;
+		sqlparser_graph_predicate_t predicate;
+		sqlparser_graph_dml_t dml;
+		sqlparser_graph_dml_assignment_t assignment;
+		int rc;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index];
+		rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "PostgreSQL-compatible assignment scalar subquery should parse") != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    sql,
+			    "assignment scalar subquery should deparse exactly") != 0 ||
+		    expect_status_ok(
+			    sqlparser_statement_query_graph(
+				    handle, 0U, &graph, &error),
+			    &error,
+			    "assignment scalar subquery graph should build") != 0 ||
+		    expect_true(
+			    graph.has_root_block != 0 &&
+				    graph.root_block_index == 0U &&
+				    graph.block_count == 2U &&
+				    graph.relation_count == 2U &&
+				    graph.target_count == 1U &&
+				    graph.field_count == 4U &&
+				    graph.value_count == 1U &&
+				    graph.predicate_count == 1U,
+			    "assignment scalar subquery graph counts mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_block_at(
+				    &graph, 0U, &outer_block, &error),
+			    &error,
+			    "assignment outer block should be available") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_block_at(
+				    &graph, 1U, &scalar_block, &error),
+			    &error,
+			    "assignment scalar block should be available") != 0 ||
+		    expect_true(
+			    outer_block.kind == SQLPARSER_GRAPH_BLOCK_SELECT &&
+				    outer_block.relations.count == 1U &&
+				    scalar_block.kind ==
+					    SQLPARSER_GRAPH_BLOCK_SCALAR_SUBQUERY &&
+				    scalar_block.relations.count == 1U &&
+				    scalar_block.targets.count == 1U &&
+				    scalar_block.predicates.count == 1U,
+			    "assignment scalar subquery must add exactly one block") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml(&graph, &dml, &error),
+			    &error,
+			    "assignment scalar subquery DML should be available") != 0 ||
+		    expect_true(
+			    dml.kind == SQLPARSER_GRAPH_DML_UPDATE &&
+				    dml.assignments.count == 1U,
+			    "assignment scalar subquery DML shape mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_assignment_at(
+				    &graph, 0U, &assignment, &error),
+			    &error,
+			    "assignment scalar subquery assignment should be available") != 0 ||
+		    expect_true(
+			    assignment.target_field_index == 0U &&
+				    assignment.value_kind ==
+					    SQLPARSER_GRAPH_VALUE_EXPRESSION &&
+				    assignment.has_source_target == 0 &&
+				    assignment.has_source_field == 0 &&
+				    assignment.has_bind == 0 &&
+				    assignment.has_selector != 0,
+			    "assignment scalar subquery assignment metadata mismatch") != 0 ||
+		    expect_selector_equals(
+			    &assignment.selector,
+			    "stmt[0].assignment[0]",
+			    "assignment scalar subquery selector mismatch") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_fields,
+			    NULL,
+			    0U,
+			    "scalar assignment RHS field span should be empty") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_values,
+			    NULL,
+			    0U,
+			    "scalar assignment RHS value span should be empty") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_blocks,
+			    rhs_blocks,
+			    sizeof(rhs_blocks) / sizeof(rhs_blocks[0]),
+			    "scalar assignment RHS block span mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (expect_status_ok(
+			    sqlparser_query_graph_relation_at(
+				    &graph, 0U, &relation, &error),
+			    &error,
+			    "assignment outer relation should be available") != 0 ||
+		    expect_true(
+			    relation.block_index == 0U &&
+				    relation.schema_name != NULL &&
+				    strcmp(relation.schema_name, "public") == 0 &&
+				    relation.object_name != NULL &&
+				    strcmp(relation.object_name, "t") == 0,
+			    "assignment outer relation ownership mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_relation_at(
+				    &graph, 1U, &relation, &error),
+			    &error,
+			    "assignment scalar relation should be available") != 0 ||
+		    expect_true(
+			    relation.block_index == 1U &&
+				    relation.schema_name != NULL &&
+				    strcmp(relation.schema_name, "public") == 0 &&
+				    relation.object_name != NULL &&
+				    strcmp(relation.object_name, "s") == 0 &&
+				    relation.alias_name != NULL &&
+				    strcmp(relation.alias_name, "s") == 0,
+			    "assignment scalar relation ownership mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_target_at(
+				    &graph, 0U, &target, &error),
+			    &error,
+			    "assignment scalar target should be available") != 0 ||
+		    expect_true(
+			    target.block_index == 1U &&
+				    target.kind == SQLPARSER_GRAPH_TARGET_FIELD &&
+				    target.has_field != 0 &&
+				    target.field_index == 1U &&
+				    target.has_selector != 0,
+			    "assignment scalar target ownership mismatch") != 0 ||
+		    expect_selector_equals(
+			    &target.selector,
+			    "stmt[0].select_target[0][0]",
+			    "assignment scalar target selector mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    &graph, 1U, &field, &error),
+			    &error,
+			    "assignment scalar output field should be available") != 0 ||
+		    expect_true(
+			    field.block_index == 1U &&
+				    field.clause == SQLPARSER_CLAUSE_KIND_SELECT_LIST &&
+				    field.has_relation != 0 &&
+				    field.relation_index == 1U &&
+				    field.has_target != 0 &&
+				    field.target_index == 0U &&
+				    field.column_name != NULL &&
+				    strcmp(field.column_name, "payload") == 0,
+			    "assignment scalar output field ownership mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_predicate_at(
+				    &graph, 0U, &predicate, &error),
+			    &error,
+			    "assignment scalar predicate should be available") != 0 ||
+		    expect_true(
+			    predicate.block_index == 1U &&
+				    predicate.clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+				    predicate.has_left_field != 0 &&
+				    predicate.left_field_index == 2U &&
+				    predicate.has_right_field != 0 &&
+				    predicate.right_field_index == 3U &&
+				    predicate.has_value != 0 &&
+				    predicate.value_index == 0U,
+			    "assignment scalar correlation predicate mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_value_at(
+				    &graph, 0U, &value, &error),
+			    &error,
+			    "assignment scalar correlation value should be available") != 0 ||
+		    expect_true(
+			    value.block_index == 1U &&
+				    value.clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+				    value.kind == SQLPARSER_GRAPH_VALUE_FIELD &&
+				    value.has_field != 0 &&
+				    value.field_index == 2U &&
+				    value.has_source_field != 0 &&
+				    value.source_field_index == 3U,
+			    "assignment scalar correlation value ownership mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	return 0;
+}
+
+static int test_postgresql_multiassign_direct_fields(void)
+{
+	static const char sql[] =
+		"UPDATE users SET (a, b) = ROW(users.x, users.y)";
+	static const size_t target_fields[] = {0U, 2U};
+	static const size_t source_fields[] = {1U, 3U};
+	static const char *source_columns[] = {"x", "y"};
+	static const char *source_selectors[] = {
+		"stmt[0].name[3]", "stmt[0].name[5]"
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	size_t ordinal;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "direct-field MultiAssign should parse") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    sql,
+		    "direct-field MultiAssign should deparse exactly") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "direct-field MultiAssign graph should build") != 0 ||
+	    expect_true(
+		    graph.block_count == 1U &&
+			    graph.relation_count == 1U &&
+			    graph.field_count == 4U &&
+			    graph.value_count == 0U &&
+			    graph.predicate_count == 0U,
+		    "direct-field MultiAssign graph counts mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml(&graph, &dml, &error),
+		    &error,
+		    "direct-field MultiAssign DML should be available") != 0 ||
+	    expect_true(
+		    dml.kind == SQLPARSER_GRAPH_DML_UPDATE &&
+			    dml.assignments.count == 2U,
+		    "direct-field MultiAssign DML shape mismatch") != 0 ||
+	    expect_relation_binding_counts(
+		    handle,
+		    0U,
+		    0U,
+		    2U,
+		    0U,
+		    "direct-field MultiAssign collector should visit each source once") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	for (ordinal = 0U; ordinal < 2U; ordinal++) {
+		sqlparser_graph_dml_assignment_t assignment;
+		sqlparser_graph_field_t source_field;
+		size_t assignment_index;
+		char selector_text[32];
+
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.assignments,
+				    ordinal,
+				    &assignment_index,
+				    &error),
+			    &error,
+			    "direct-field MultiAssign index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_assignment_at(
+				    &graph, assignment_index, &assignment, &error),
+			    &error,
+			    "direct-field MultiAssign assignment should be available") != 0 ||
+		    expect_true(
+			    assignment.target_field_index == target_fields[ordinal] &&
+				    assignment.value_kind == SQLPARSER_GRAPH_VALUE_FIELD &&
+				    assignment.has_source_field != 0 &&
+				    assignment.source_field_index == source_fields[ordinal] &&
+				    assignment.has_source_target == 0 &&
+				    assignment.has_bind == 0 &&
+				    assignment.has_selector != 0,
+			    "direct-field MultiAssign ownership mismatch") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_fields,
+			    NULL,
+			    0U,
+			    "direct MultiAssign RHS field span should be empty") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_values,
+			    NULL,
+			    0U,
+			    "direct MultiAssign RHS value span should be empty") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_blocks,
+			    NULL,
+			    0U,
+			    "direct MultiAssign RHS block span should be empty") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    &graph,
+				    source_fields[ordinal],
+				    &source_field,
+				    &error),
+			    &error,
+			    "direct MultiAssign source field should be available") != 0 ||
+		    expect_true(
+			    source_field.has_relation != 0 &&
+				    source_field.relation_index == 0U &&
+				    source_field.column_name != NULL &&
+				    strcmp(
+					    source_field.column_name,
+					    source_columns[ordinal]) == 0 &&
+				    source_field.has_selector != 0,
+			    "direct MultiAssign source field mismatch") != 0 ||
+		    expect_selector_equals(
+			    &source_field.selector,
+			    source_selectors[ordinal],
+			    "direct MultiAssign source selector mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		(void)snprintf(
+			selector_text,
+			sizeof(selector_text),
+			"stmt[0].assignment[%zu]",
+			ordinal);
+		if (expect_selector_equals(
+			    &assignment.selector,
+			    selector_text,
+			    "direct MultiAssign assignment selector mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_postgresql_multiassign_compound_members(void)
+{
+	static const char sql[] =
+		"UPDATE users SET (a, b) = "
+		"ROW(users.x + $1 + 1, users.y + $2 + 2)";
+	static const size_t target_fields[] = {0U, 2U};
+	static const size_t rhs_field_indexes[][1] = {{1U}, {3U}};
+	static const size_t rhs_value_indexes[][2] = {
+		{0U, 1U}, {2U, 3U}
+	};
+	static const char *source_columns[] = {"x", "y"};
+	static const char *source_selectors[] = {
+		"stmt[0].name[3]", "stmt[0].name[5]"
+	};
+	static const char *bind_keys[] = {"1", "2"};
+	static const char *bind_sql[] = {"$1", "$2"};
+	static const char *bind_selectors[] = {
+		"stmt[0].value[10]", "stmt[0].value[19]"
+	};
+	static const char *literal_selectors[] = {
+		"stmt[0].value[11]", "stmt[0].value[20]"
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	size_t ordinal;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "compound MultiAssign should parse") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    sql,
+		    "compound MultiAssign should deparse exactly") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "compound MultiAssign graph should build") != 0 ||
+	    expect_true(
+		    graph.block_count == 1U &&
+			    graph.relation_count == 1U &&
+			    graph.field_count == 4U &&
+			    graph.value_count == 4U &&
+			    graph.predicate_count == 0U,
+		    "compound MultiAssign graph counts mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml(&graph, &dml, &error),
+		    &error,
+		    "compound MultiAssign DML should be available") != 0 ||
+	    expect_true(
+		    dml.kind == SQLPARSER_GRAPH_DML_UPDATE &&
+			    dml.assignments.count == 2U,
+		    "compound MultiAssign DML shape mismatch") != 0 ||
+	    expect_relation_binding_counts(
+		    handle,
+		    0U,
+		    0U,
+		    2U,
+		    0U,
+		    "compound MultiAssign collector should visit each source once") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	for (ordinal = 0U; ordinal < 2U; ordinal++) {
+		sqlparser_graph_dml_assignment_t assignment;
+		sqlparser_graph_field_t source_field;
+		size_t assignment_index;
+		char assignment_selector[32];
+
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.assignments,
+				    ordinal,
+				    &assignment_index,
+				    &error),
+			    &error,
+			    "compound MultiAssign index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_assignment_at(
+				    &graph, assignment_index, &assignment, &error),
+			    &error,
+			    "compound MultiAssign assignment should be available") != 0 ||
+		    expect_true(
+			    assignment.target_field_index == target_fields[ordinal] &&
+				    assignment.value_kind ==
+					    SQLPARSER_GRAPH_VALUE_EXPRESSION &&
+				    assignment.has_source_target == 0 &&
+				    assignment.has_source_field == 0 &&
+				    assignment.has_bind == 0 &&
+				    assignment.has_selector != 0,
+			    "compound MultiAssign assignment metadata mismatch") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_fields,
+			    rhs_field_indexes[ordinal],
+			    1U,
+			    "compound MultiAssign RHS field span is not isolated") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_values,
+			    rhs_value_indexes[ordinal],
+			    2U,
+			    "compound MultiAssign RHS value span is not isolated") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_blocks,
+			    NULL,
+			    0U,
+			    "compound MultiAssign RHS block span should be empty") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    &graph,
+				    rhs_field_indexes[ordinal][0],
+				    &source_field,
+				    &error),
+			    &error,
+			    "compound MultiAssign source field should be available") != 0 ||
+		    expect_true(
+			    source_field.has_relation != 0 &&
+				    source_field.relation_index == 0U &&
+				    source_field.column_name != NULL &&
+				    strcmp(
+					    source_field.column_name,
+					    source_columns[ordinal]) == 0 &&
+				    source_field.has_selector != 0,
+			    "compound MultiAssign source ownership mismatch") != 0 ||
+		    expect_selector_equals(
+			    &source_field.selector,
+			    source_selectors[ordinal],
+			    "compound MultiAssign source selector mismatch") != 0 ||
+		    expect_set_list_bind_value(
+			    &graph,
+			    ordinal * 2U,
+			    bind_keys[ordinal],
+			    SQLPARSER_BIND_KIND_POSITIONAL,
+			    bind_sql[ordinal],
+			    ordinal + 1U,
+			    bind_selectors[ordinal],
+			    "compound MultiAssign bind metadata mismatch") != 0 ||
+		    expect_set_list_integer_value(
+			    &graph,
+			    ordinal * 2U + 1U,
+			    (long long)(ordinal + 1U),
+			    literal_selectors[ordinal],
+			    "compound MultiAssign literal metadata mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		(void)snprintf(
+			assignment_selector,
+			sizeof(assignment_selector),
+			"stmt[0].assignment[%zu]",
+			ordinal);
+		if (expect_selector_equals(
+			    &assignment.selector,
+			    assignment_selector,
+			    "compound MultiAssign assignment selector mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_postgresql_multiassign_scalar_subquery(void)
+{
+	static const char sql[] =
+		"UPDATE public.t SET (a, b) = (SELECT s.x, s.y FROM public.s AS s "
+		"WHERE s.id = t.id)";
+	static const size_t rhs_blocks[] = {1U};
+	static const size_t target_fields[] = {0U, 5U};
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_block_t scalar_block;
+	sqlparser_index_span_t shared_rhs_blocks;
+	size_t ordinal;
+	int rc;
+
+	handle = NULL;
+	memset(&shared_rhs_blocks, 0, sizeof(shared_rhs_blocks));
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "scalar MultiAssign should parse") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    sql,
+		    "scalar MultiAssign should deparse exactly") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "scalar MultiAssign graph should build") != 0 ||
+	    expect_true(
+		    graph.block_count == 2U &&
+			    graph.relation_count == 2U &&
+			    graph.target_count == 2U &&
+			    graph.field_count == 6U &&
+			    graph.value_count == 1U &&
+			    graph.predicate_count == 1U,
+		    "scalar MultiAssign graph counts mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_block_at(
+			    &graph, 1U, &scalar_block, &error),
+		    &error,
+		    "scalar MultiAssign entry block should be available") != 0 ||
+	    expect_true(
+		    scalar_block.kind == SQLPARSER_GRAPH_BLOCK_SCALAR_SUBQUERY &&
+			    scalar_block.targets.count == 2U,
+		    "scalar MultiAssign must create one shared entry block") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml(&graph, &dml, &error),
+		    &error,
+		    "scalar MultiAssign DML should be available") != 0 ||
+	    expect_true(
+		    dml.kind == SQLPARSER_GRAPH_DML_UPDATE &&
+			    dml.assignments.count == 2U,
+		    "scalar MultiAssign DML shape mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	for (ordinal = 0U; ordinal < 2U; ordinal++) {
+		sqlparser_graph_dml_assignment_t assignment;
+		size_t assignment_index;
+		char selector_text[32];
+
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.assignments,
+				    ordinal,
+				    &assignment_index,
+				    &error),
+			    &error,
+			    "scalar MultiAssign index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_assignment_at(
+				    &graph, assignment_index, &assignment, &error),
+			    &error,
+			    "scalar MultiAssign assignment should be available") != 0 ||
+		    expect_true(
+			    assignment.target_field_index == target_fields[ordinal] &&
+				    assignment.value_kind ==
+					    SQLPARSER_GRAPH_VALUE_EXPRESSION &&
+				    assignment.has_source_target != 0 &&
+				    assignment.source_target_index == ordinal &&
+				    assignment.has_source_field == 0 &&
+				    assignment.has_bind == 0 &&
+				    assignment.has_selector != 0,
+			    "scalar MultiAssign assignment ownership mismatch") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_fields,
+			    NULL,
+			    0U,
+			    "scalar MultiAssign RHS field span should be empty") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_values,
+			    NULL,
+			    0U,
+			    "scalar MultiAssign RHS value span should be empty") != 0 ||
+		    expect_graph_span_indices(
+			    &graph,
+			    assignment.rhs_blocks,
+			    rhs_blocks,
+			    sizeof(rhs_blocks) / sizeof(rhs_blocks[0]),
+			    "scalar MultiAssign assignments must share one RHS block") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (ordinal == 0U) {
+			shared_rhs_blocks = assignment.rhs_blocks;
+		} else if (expect_true(
+				   assignment.rhs_blocks.offset ==
+					   shared_rhs_blocks.offset &&
+					   assignment.rhs_blocks.count ==
+					   shared_rhs_blocks.count,
+				   "scalar MultiAssign must share the same RHS block span") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		(void)snprintf(
+			selector_text,
+			sizeof(selector_text),
+			"stmt[0].assignment[%zu]",
+			ordinal);
+		if (expect_selector_equals(
+			    &assignment.selector,
+			    selector_text,
+			    "scalar MultiAssign assignment selector mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_postgresql_assignment_target_indirection_values(void)
+{
+	static const char sql[] = "UPDATE public.t SET arr[$1][2] = 0";
+	static const char qualified_sql[] =
+		"UPDATE public.t SET arr[t.idx] = 0";
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_assignment_t assignment;
+	sqlparser_graph_field_t target_field;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "assignment-target indirection SQL should parse") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    sql,
+		    "assignment-target indirection SQL should deparse exactly") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "assignment-target indirection graph should build") != 0 ||
+	    expect_true(
+			    graph.block_count == 1U &&
+				    graph.relation_count == 1U &&
+				    graph.field_count == 1U &&
+				    graph.value_count == 0U &&
+			    graph.predicate_count == 0U,
+		    "assignment-target indirection graph counts mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml(&graph, &dml, &error),
+		    &error,
+		    "assignment-target indirection DML should be available") != 0 ||
+	    expect_true(
+		    dml.kind == SQLPARSER_GRAPH_DML_UPDATE &&
+			    dml.assignments.count == 1U,
+		    "assignment-target indirection DML shape mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_assignment_at(
+			    &graph, 0U, &assignment, &error),
+		    &error,
+		    "assignment-target indirection assignment should be available") != 0 ||
+	    expect_true(
+		    assignment.target_field_index == 0U &&
+			    assignment.value_kind == SQLPARSER_GRAPH_VALUE_LITERAL &&
+			    assignment.literal.kind == SQLPARSER_LITERAL_KIND_INTEGER &&
+			    assignment.literal.integer_value == 0LL &&
+			    assignment.has_source_target == 0 &&
+			    assignment.has_source_field == 0 &&
+			    assignment.has_bind == 0 &&
+			    assignment.has_selector != 0 &&
+			    assignment.selector.kind ==
+				    SQLPARSER_SELECTOR_KIND_ASSIGNMENT,
+		    "assignment-target indirection assignment metadata mismatch") != 0 ||
+	    expect_selector_equals(
+		    &assignment.selector,
+		    "stmt[0].assignment[0]",
+		    "assignment-target indirection selector mismatch") != 0 ||
+	    expect_graph_span_indices(
+		    &graph,
+		    assignment.rhs_fields,
+		    NULL,
+		    0U,
+		    "LHS indirection must not enter RHS field span") != 0 ||
+	    expect_graph_span_indices(
+		    &graph,
+		    assignment.rhs_values,
+		    NULL,
+		    0U,
+		    "LHS indirection must not enter RHS value span") != 0 ||
+	    expect_graph_span_indices(
+		    &graph,
+		    assignment.rhs_blocks,
+		    NULL,
+		    0U,
+		    "direct literal assignment RHS block span should be empty") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_field_at(
+			    &graph, 0U, &target_field, &error),
+		    &error,
+		    "assignment-target indirection target field should be available") != 0 ||
+	    expect_true(
+		    target_field.clause == SQLPARSER_CLAUSE_KIND_SET_LIST &&
+			    target_field.has_relation != 0 &&
+			    target_field.relation_index == 0U &&
+			    target_field.column_name != NULL &&
+			    strcmp(target_field.column_name, "arr") == 0 &&
+			    target_field.has_selector == 0,
+		    "assignment-target indirection target ownership mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse_with_options(
+		qualified_sql, &options, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "qualified assignment-target indirection should parse") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    qualified_sql,
+		    "qualified assignment-target indirection should deparse exactly") != 0 ||
+	    expect_relation_binding_counts(
+		    handle,
+		    0U,
+		    0U,
+		    1U,
+		    0U,
+		    "qualified LHS subscript should be collected exactly once") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "qualified assignment-target graph should build") != 0 ||
+	    expect_true(
+		    graph.field_count == 2U && graph.value_count == 0U,
+		    "qualified LHS should not create RHS values") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_assignment_at(
+			    &graph, 0U, &assignment, &error),
+		    &error,
+		    "qualified LHS assignment should be available") != 0 ||
+	    expect_graph_span_indices(
+		    &graph,
+		    assignment.rhs_fields,
+		    NULL,
+		    0U,
+		    "qualified LHS must not enter RHS field span") != 0 ||
+	    expect_graph_span_indices(
+		    &graph,
+		    assignment.rhs_values,
+		    NULL,
+		    0U,
+		    "qualified LHS must not enter RHS value span") != 0 ||
+	    expect_graph_span_indices(
+		    &graph,
+		    assignment.rhs_blocks,
+		    NULL,
+		    0U,
+		    "qualified LHS must not enter RHS block span") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_query_graph_direct_field_expression_predicate_values(void)
+{
+	static const char *mixed_columns[] = {"a", "b", "c"};
+	static const sqlparser_graph_value_kind_t mixed_kinds[] = {
+		SQLPARSER_GRAPH_VALUE_LITERAL,
+		SQLPARSER_GRAPH_VALUE_EXPRESSION,
+		SQLPARSER_GRAPH_VALUE_LITERAL
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	size_t index;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_MYSQL;
+	rc = sqlparser_parse_with_options(
+		"SELECT id FROM users WHERE a = 1 AND b = UPPER(?) AND c = 2",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "mixed direct/composite predicate parse should succeed") != 0 ||
+	    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+	                     &error,
+	                     "mixed direct/composite predicate graph should be available") != 0 ||
+	    expect_true(graph.value_count == 3U && graph.predicate_count == 4U,
+	                "mixed direct/composite predicate counts mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	for (index = 0U; index < 3U; index++) {
+		sqlparser_graph_field_t field;
+		sqlparser_graph_predicate_t predicate;
+		sqlparser_graph_value_t value;
+
+		if (expect_status_ok(sqlparser_query_graph_predicate_at(&graph, index + 1U, &predicate, &error),
+		                     &error,
+		                     "mixed direct/composite predicate should be available") != 0 ||
+		    expect_true(predicate.kind == SQLPARSER_GRAPH_PREDICATE_COMPARISON &&
+				    predicate.has_left_field != 0 &&
+				    predicate.has_value != 0 &&
+				    predicate.value_index == index &&
+				    predicate.operator_name != NULL &&
+				    strcmp(predicate.operator_name, "=") == 0,
+		                "mixed direct/composite predicate linkage mismatch") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_value_at(&graph, predicate.value_index, &value, &error),
+		                     &error,
+		                     "mixed direct/composite value should be available") != 0 ||
+		    expect_true(value.kind == mixed_kinds[index] &&
+				    value.has_field != 0 &&
+				    value.field_index == predicate.left_field_index &&
+				    value.field_match_kind == SQLPARSER_GRAPH_FIELD_MATCH_DIRECT_FIELD,
+		                "mixed direct/composite value semantics mismatch") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_field_at(&graph, value.field_index, &field, &error),
+		                     &error,
+		                     "mixed direct/composite field should be available") != 0 ||
+		    expect_true(field.column_name != NULL && strcmp(field.column_name, mixed_columns[index]) == 0,
+		                "mixed direct/composite field order mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(
+		"SELECT id FROM public.users WHERE secret = CASE WHEN id = 1 THEN $1 END",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "nested value-side CASE predicate parse should succeed") != 0 ||
+	    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+	                     &error,
+	                     "nested value-side CASE predicate graph should be available") != 0 ||
+	    expect_true(graph.value_count == 2U && graph.predicate_count == 1U,
+	                "nested value-side CASE predicate counts mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	{
+		sqlparser_graph_field_t inner_field;
+		sqlparser_graph_predicate_t outer_predicate;
+		sqlparser_graph_value_t inner_value;
+		sqlparser_graph_value_t outer_value;
+
+		if (expect_status_ok(sqlparser_query_graph_predicate_at(&graph, 0U, &outer_predicate, &error),
+		                     &error,
+		                     "nested value-side CASE outer predicate should be available") != 0 ||
+		    expect_true(outer_predicate.has_left_field != 0 &&
+				    outer_predicate.has_value != 0 &&
+				    outer_predicate.value_index == 0U,
+		                "nested value-side CASE outer predicate linkage mismatch") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_value_at(&graph, 0U, &outer_value, &error),
+		                     &error,
+		                     "nested value-side CASE outer value should be available") != 0 ||
+		    expect_true(outer_value.kind == SQLPARSER_GRAPH_VALUE_EXPRESSION &&
+				    outer_value.has_field != 0 &&
+				    outer_value.field_index == outer_predicate.left_field_index &&
+				    outer_value.field_match_kind == SQLPARSER_GRAPH_FIELD_MATCH_DIRECT_FIELD,
+		                "nested value-side CASE outer value semantics mismatch") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_value_at(&graph, 1U, &inner_value, &error),
+		                     &error,
+		                     "nested value-side CASE inner value should be available") != 0 ||
+		    expect_true(inner_value.kind == SQLPARSER_GRAPH_VALUE_LITERAL &&
+				    inner_value.has_field != 0 &&
+				    inner_value.field_match_kind == SQLPARSER_GRAPH_FIELD_MATCH_DIRECT_FIELD,
+		                "nested value-side CASE inner value semantics mismatch") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_field_at(&graph, inner_value.field_index, &inner_field, &error),
+		                     &error,
+		                     "nested value-side CASE inner field should be available") != 0 ||
+		    expect_true(inner_field.column_name != NULL && strcmp(inner_field.column_name, "id") == 0,
+		                "nested value-side CASE inner field attribution mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_SQLSERVER;
+	rc = sqlparser_parse_with_options(
+		"SELECT [id] FROM [dbo].[users] WHERE @ts = [created_at] AT TIME ZONE 'UTC'",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "right-side expression predicate parse should succeed") != 0 ||
+	    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+	                     &error,
+	                     "right-side expression predicate graph should be available") != 0 ||
+	    expect_true(graph.field_count == 2U && graph.value_count == 1U && graph.predicate_count == 1U,
+	                "right-side expression predicate counts mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	{
+		sqlparser_graph_predicate_t predicate;
+		sqlparser_graph_value_t value;
+
+		if (expect_status_ok(sqlparser_query_graph_predicate_at(&graph, 0U, &predicate, &error),
+		                     &error,
+		                     "right-side expression predicate should be available") != 0 ||
+		    expect_true(predicate.kind == SQLPARSER_GRAPH_PREDICATE_EXPRESSION &&
+				    predicate.has_left_field == 0 &&
+				    predicate.has_right_field != 0 &&
+				    predicate.has_value != 0 &&
+				    predicate.value_index == 0U,
+		                "right-side expression predicate linkage mismatch") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_value_at(&graph, 0U, &value, &error),
+		                     &error,
+		                     "right-side expression value should be available") != 0 ||
+		    expect_true(value.kind == SQLPARSER_GRAPH_VALUE_BIND &&
+				    value.has_field != 0 &&
+				    value.field_index == predicate.right_field_index &&
+				    value.field_match_kind == SQLPARSER_GRAPH_FIELD_MATCH_EXPRESSION_FIELD &&
+				    value.has_bind != 0 &&
+				    strcmp(value.bind, "ts") == 0 &&
+				    value.has_bind_position != 0 &&
+				    value.bind_position == 1U,
+		                "time-zone literal must not replace the outer comparison bind") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_SQLSERVER;
+	rc = sqlparser_parse_with_options(
+		"SELECT [id] FROM [dbo].[users] WHERE ([flags] & @inner_mask) = @outer_mask",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "bitwise expression predicate parse should succeed") != 0 ||
+	    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+	                     &error,
+	                     "bitwise expression predicate graph should be available") != 0 ||
+	    expect_true(graph.value_count == 1U && graph.predicate_count == 1U,
+	                "bitwise expression predicate counts mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	{
+		sqlparser_graph_predicate_t predicate;
+		sqlparser_graph_value_t value;
+
+		if (expect_status_ok(sqlparser_query_graph_predicate_at(&graph, 0U, &predicate, &error),
+		                     &error,
+		                     "bitwise expression predicate should be available") != 0 ||
+		    expect_true(predicate.kind == SQLPARSER_GRAPH_PREDICATE_EXPRESSION &&
+				    predicate.has_left_field != 0 &&
+				    predicate.has_right_field == 0 &&
+				    predicate.has_value != 0 &&
+				    predicate.value_index == 0U,
+		                "bitwise expression predicate linkage mismatch") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_value_at(&graph, 0U, &value, &error),
+		                     &error,
+		                     "bitwise outer comparison value should be available") != 0 ||
+		    expect_true(value.kind == SQLPARSER_GRAPH_VALUE_BIND &&
+				    value.has_field != 0 &&
+				    value.field_index == predicate.left_field_index &&
+				    value.has_bind != 0 &&
+				    strcmp(value.bind, "outer_mask") == 0 &&
+				    value.has_bind_position != 0 &&
+				    value.bind_position == 2U,
+		                "bitwise internal bind must not replace the outer comparison bind") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(
+		"SELECT id FROM public.users WHERE COALESCE(secret, backup_secret) = $1",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "multi-field expression predicate parse should succeed") != 0 ||
+	    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+	                     &error,
+	                     "multi-field expression predicate graph should be available") != 0 ||
+	    expect_true(graph.value_count == 2U && graph.predicate_count == 1U,
+	                "multi-field expression predicate counts mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	{
+		sqlparser_graph_predicate_t predicate;
+
+		if (expect_status_ok(sqlparser_query_graph_predicate_at(&graph, 0U, &predicate, &error),
+		                     &error,
+		                     "multi-field expression predicate should be available") != 0 ||
+		    expect_true(predicate.kind == SQLPARSER_GRAPH_PREDICATE_EXPRESSION &&
+				    predicate.has_left_field == 0 &&
+				    predicate.has_right_field == 0 &&
+				    predicate.has_value != 0 &&
+				    predicate.value_index == 0U,
+		                "multi-field expression predicate must not select an arbitrary field") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(
+		"SELECT dept, COUNT(*) FROM users GROUP BY dept "
+		"HAVING COUNT(*) > $1 OR COUNT(id) >= 2",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "aggregate boolean predicate parse should succeed") != 0 ||
+	    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+	                     &error,
+	                     "aggregate boolean predicate graph should be available") != 0 ||
+	    expect_true(graph.value_count == 2U && graph.predicate_count == 3U,
+	                "aggregate boolean predicate counts mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	{
+		sqlparser_graph_predicate_t field_child;
+		sqlparser_graph_predicate_t root_predicate;
+		sqlparser_graph_predicate_t star_child;
+		sqlparser_graph_value_t field_value;
+		sqlparser_graph_value_t star_value;
+		size_t field_child_index;
+		size_t star_child_index;
+
+		if (expect_status_ok(sqlparser_query_graph_predicate_at(&graph, 0U, &root_predicate, &error),
+		                     &error,
+		                     "aggregate boolean root should be available") != 0 ||
+		    expect_true(root_predicate.kind == SQLPARSER_GRAPH_PREDICATE_BOOL &&
+				    root_predicate.clause == SQLPARSER_CLAUSE_KIND_HAVING &&
+				    root_predicate.bool_operator == SQLPARSER_GRAPH_PREDICATE_BOOL_OR &&
+				    root_predicate.children.count == 2U,
+		                "aggregate boolean root topology mismatch") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_span_index_at(
+					    &graph, root_predicate.children, 0U, &star_child_index, &error),
+		                     &error,
+		                     "COUNT(*) child index should be available") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_span_index_at(
+					    &graph, root_predicate.children, 1U, &field_child_index, &error),
+		                     &error,
+		                     "COUNT(field) child index should be available") != 0 ||
+		    expect_true(star_child_index == 1U && field_child_index == 2U,
+		                "aggregate boolean child order mismatch") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_predicate_at(&graph, star_child_index, &star_child, &error),
+		                     &error,
+		                     "COUNT(*) predicate should be available") != 0 ||
+		    expect_true(star_child.kind == SQLPARSER_GRAPH_PREDICATE_EXPRESSION &&
+				    star_child.has_left_field == 0 &&
+				    star_child.has_right_field == 0 &&
+				    star_child.has_value != 0 &&
+				    star_child.value_index == 0U,
+		                "COUNT(*) predicate must retain a fieldless standalone value") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_value_at(&graph, 0U, &star_value, &error),
+		                     &error,
+		                     "COUNT(*) comparison value should be available") != 0 ||
+		    expect_true(star_value.kind == SQLPARSER_GRAPH_VALUE_BIND &&
+				    star_value.has_field == 0 &&
+				    star_value.has_bind != 0 &&
+				    strcmp(star_value.bind, "1") == 0,
+		                "COUNT(*) comparison value semantics mismatch") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_predicate_at(&graph, field_child_index, &field_child, &error),
+		                     &error,
+		                     "COUNT(field) predicate should be available") != 0 ||
+		    expect_true(field_child.kind == SQLPARSER_GRAPH_PREDICATE_EXPRESSION &&
+				    field_child.has_left_field != 0 &&
+				    field_child.has_right_field == 0 &&
+				    field_child.has_value != 0 &&
+				    field_child.value_index == 1U,
+		                "COUNT(field) predicate linkage mismatch") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_value_at(&graph, 1U, &field_value, &error),
+		                     &error,
+		                     "COUNT(field) comparison value should be available") != 0 ||
+		    expect_true(field_value.kind == SQLPARSER_GRAPH_VALUE_LITERAL &&
+				    field_value.has_field != 0 &&
+				    field_value.field_index == field_child.left_field_index &&
+				    field_value.literal.kind == SQLPARSER_LITERAL_KIND_INTEGER &&
+				    field_value.literal.integer_value == 2LL,
+		                "COUNT(field) comparison value semantics mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_query_graph_sublink_predicate_semantics(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+	} direct_cases[] = {
+		{SQLPARSER_DIALECT_POSTGRESQL, "SELECT id FROM users WHERE id IN (SELECT user_id FROM orders)"},
+		{SQLPARSER_DIALECT_MYSQL, "SELECT id FROM users WHERE id IN (SELECT user_id FROM orders)"},
+		{SQLPARSER_DIALECT_ORACLE, "SELECT ID FROM USERS WHERE ID IN (SELECT USER_ID FROM ORDERS)"},
+		{SQLPARSER_DIALECT_SQLSERVER, "SELECT [id] FROM [users] WHERE [id] IN (SELECT [user_id] FROM [orders])"},
+		{SQLPARSER_DIALECT_DAMENG, "SELECT ID FROM USERS WHERE ID IN (SELECT USER_ID FROM ORDERS)"},
+		{SQLPARSER_DIALECT_VASTBASE_ORACLE, "SELECT ID FROM USERS WHERE ID IN (SELECT USER_ID FROM ORDERS)"},
+		{SQLPARSER_DIALECT_VASTBASE_MYSQL, "SELECT id FROM users WHERE id IN (SELECT user_id FROM orders)"},
+		{SQLPARSER_DIALECT_VASTBASE_POSTGRESQL, "SELECT id FROM users WHERE id IN (SELECT user_id FROM orders)"},
+		{SQLPARSER_DIALECT_VASTBASE_SQLSERVER, "SELECT [id] FROM [users] WHERE [id] IN (SELECT [user_id] FROM [orders])"}
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_block_t outer_block;
+	sqlparser_graph_block_t inner_block;
+	sqlparser_graph_field_t field;
+	sqlparser_graph_predicate_t predicate;
+	sqlparser_graph_target_t target;
+	size_t child_index;
+	size_t index;
+	int rc;
+
+	for (index = 0U; index < sizeof(direct_cases) / sizeof(direct_cases[0]); index++) {
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = direct_cases[index].dialect;
+		rc = sqlparser_parse_with_options(direct_cases[index].sql, &options, &handle, &error);
+		if (expect_status_ok(rc, &error, "direct IN subquery parse should succeed") != 0 ||
+		    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		                     &error,
+		                     "direct IN subquery graph should be available") != 0 ||
+		    expect_true(graph.block_count == 2U && graph.relation_count == 2U &&
+		                    graph.target_count == 2U && graph.field_count == 3U &&
+		                    graph.value_count == 0U && graph.predicate_count == 1U,
+		                "direct IN subquery graph counts mismatch") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_block_at(&graph, 0U, &outer_block, &error),
+		                     &error,
+		                     "direct IN outer block should be available") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_block_at(&graph, 1U, &inner_block, &error),
+		                     &error,
+		                     "direct IN inner block should be available") != 0 ||
+		    expect_true(outer_block.kind == SQLPARSER_GRAPH_BLOCK_SELECT &&
+		                    outer_block.predicates.count == 1U &&
+		                    inner_block.kind == SQLPARSER_GRAPH_BLOCK_SCALAR_SUBQUERY &&
+		                    inner_block.predicates.count == 0U,
+		                "direct IN subquery block topology mismatch") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_span_index_at(
+				    &graph, outer_block.predicates, 0U, &child_index, &error),
+		                     &error,
+		                     "direct IN outer predicate index should be available") != 0 ||
+		    expect_true(child_index == 0U, "direct IN outer predicate index mismatch") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_predicate_at(&graph, 0U, &predicate, &error),
+		                     &error,
+		                     "direct IN membership predicate should be available") != 0 ||
+		    expect_true(predicate.block_index == 0U &&
+		                    predicate.clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+		                    predicate.kind == SQLPARSER_GRAPH_PREDICATE_COMPARISON &&
+		                    predicate.operator_name != NULL &&
+		                    strcmp(predicate.operator_name, "IN") == 0 &&
+		                    predicate.operator_kind == SQLPARSER_GRAPH_OPERATOR_UNKNOWN &&
+		                    predicate.has_left_field != 0 && predicate.left_field_index == 1U &&
+		                    predicate.has_right_field == 0 && predicate.has_value == 0,
+		                "direct IN membership predicate semantics mismatch") != 0 ||
+		    expect_status_ok(sqlparser_query_graph_field_at(&graph, 1U, &field, &error),
+		                     &error,
+		                     "direct IN outer WHERE field should be available") != 0 ||
+		    expect_true(field.block_index == 0U && field.clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+		                    field.has_relation != 0 && field.relation_index == 0U,
+		                "direct IN outer WHERE field ownership mismatch") != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle, direct_cases[index].sql, "direct IN subquery should deparse exactly") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(
+		"SELECT u.id FROM users u WHERE u.active = true AND u.id IN "
+		"(SELECT o.user_id FROM orders o WHERE o.status = $1)",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "AND with IN subquery parse should succeed") != 0 ||
+	    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+	                     &error,
+	                     "AND with IN subquery graph should be available") != 0 ||
+	    expect_true(graph.block_count == 2U && graph.predicate_count == 4U,
+	                "AND with IN subquery graph counts mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_predicate_at(&graph, 0U, &predicate, &error),
+	                     &error,
+	                     "AND with IN root predicate should be available") != 0 ||
+	    expect_true(predicate.kind == SQLPARSER_GRAPH_PREDICATE_BOOL &&
+	                    predicate.bool_operator == SQLPARSER_GRAPH_PREDICATE_BOOL_AND &&
+	                    predicate.children.count == 2U,
+	                "AND with IN root predicate topology mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(
+			    &graph, predicate.children, 0U, &child_index, &error),
+	                     &error,
+	                     "AND ordinary comparison child should be available") != 0 ||
+	    expect_true(child_index == 1U, "AND ordinary comparison child index mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(
+			    &graph, predicate.children, 1U, &child_index, &error),
+	                     &error,
+	                     "AND membership child should be available") != 0 ||
+	    expect_true(child_index == 2U, "AND membership child index mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_predicate_at(&graph, 2U, &predicate, &error),
+	                     &error,
+	                     "AND membership predicate should be available") != 0 ||
+	    expect_true(predicate.block_index == 0U && predicate.operator_name != NULL &&
+	                    strcmp(predicate.operator_name, "IN") == 0 &&
+	                    predicate.has_left_field != 0 && predicate.has_value == 0,
+	                "AND membership predicate semantics mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_predicate_at(&graph, 3U, &predicate, &error),
+	                     &error,
+	                     "AND inner predicate should be available") != 0 ||
+	    expect_true(predicate.block_index == 1U && predicate.operator_name != NULL &&
+	                    strcmp(predicate.operator_name, "=") == 0,
+	                "AND inner predicate must remain in the inner block") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    "SELECT u.id FROM users u WHERE u.active = true AND u.id IN "
+		    "(SELECT o.user_id FROM orders o WHERE o.status = $1)",
+		    "AND with IN subquery should deparse exactly") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(
+		"SELECT u.id FROM users u WHERE u.id NOT IN "
+		"(SELECT o.user_id FROM orders o WHERE o.status = $1)",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "NOT IN subquery parse should succeed") != 0 ||
+	    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+	                     &error,
+	                     "NOT IN subquery graph should be available") != 0 ||
+	    expect_true(graph.block_count == 2U && graph.predicate_count == 3U,
+	                "NOT IN subquery graph counts mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_predicate_at(&graph, 0U, &predicate, &error),
+	                     &error,
+	                     "NOT IN root predicate should be available") != 0 ||
+	    expect_true(predicate.kind == SQLPARSER_GRAPH_PREDICATE_BOOL &&
+	                    predicate.bool_operator == SQLPARSER_GRAPH_PREDICATE_BOOL_NOT &&
+	                    predicate.children.count == 1U,
+	                "NOT IN root predicate topology mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_span_index_at(
+			    &graph, predicate.children, 0U, &child_index, &error),
+	                     &error,
+	                     "NOT IN membership child should be available") != 0 ||
+	    expect_true(child_index == 1U, "NOT IN membership child index mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_predicate_at(&graph, 1U, &predicate, &error),
+	                     &error,
+	                     "NOT IN membership predicate should be available") != 0 ||
+	    expect_true(predicate.kind == SQLPARSER_GRAPH_PREDICATE_COMPARISON &&
+	                    predicate.operator_name != NULL && strcmp(predicate.operator_name, "IN") == 0 &&
+	                    predicate.has_left_field != 0 && predicate.has_right_field == 0 &&
+	                    predicate.has_value == 0,
+	                "NOT IN membership predicate semantics mismatch") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    "SELECT u.id FROM users u WHERE u.id NOT IN "
+		    "(SELECT o.user_id FROM orders o WHERE o.status = $1)",
+		    "NOT IN subquery should deparse exactly") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(
+		"SELECT u.id FROM users u WHERE u.id IN "
+		"(SELECT o.user_id FROM orders o WHERE o.tenant_id = u.tenant_id)",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "correlated IN subquery parse should succeed") != 0 ||
+	    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+	                     &error,
+	                     "correlated IN subquery graph should be available") != 0 ||
+	    expect_true(graph.block_count == 2U && graph.relation_count == 2U &&
+	                    graph.field_count == 5U && graph.predicate_count == 2U,
+	                "correlated IN subquery graph counts mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_field_at(&graph, 4U, &field, &error),
+	                     &error,
+	                     "correlated IN outer reference should be available") != 0 ||
+	    expect_true(field.block_index == 1U && field.has_relation != 0 && field.relation_index == 0U &&
+	                    field.column_name != NULL && strcmp(field.column_name, "tenant_id") == 0,
+	                "correlated IN outer relation resolution mismatch") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    "SELECT u.id FROM users u WHERE u.id IN "
+		    "(SELECT o.user_id FROM orders o WHERE o.tenant_id = u.tenant_id)",
+		    "correlated IN subquery should deparse exactly") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(
+		"SELECT u.id FROM users u WHERE (u.id, u.tenant_id) IN "
+		"(SELECT a.user_id, a.tenant_id FROM allowed a)",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "row-valued IN subquery parse should succeed") != 0 ||
+	    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+	                     &error,
+	                     "row-valued IN subquery graph should be available") != 0 ||
+	    expect_true(graph.block_count == 2U && graph.relation_count == 2U &&
+	                    graph.target_count == 3U && graph.field_count == 5U &&
+	                    graph.predicate_count == 1U,
+	                "row-valued IN subquery graph counts mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_predicate_at(&graph, 0U, &predicate, &error),
+	                     &error,
+	                     "row-valued IN predicate should be available") != 0 ||
+	    expect_true(predicate.kind == SQLPARSER_GRAPH_PREDICATE_COMPARISON &&
+	                    predicate.operator_name != NULL && strcmp(predicate.operator_name, "IN") == 0 &&
+	                    predicate.has_left_field == 0 && predicate.has_right_field == 0 &&
+	                    predicate.has_value == 0,
+	                "row-valued IN must not select an arbitrary field") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_field_at(&graph, 1U, &field, &error),
+	                     &error,
+	                     "row-valued IN first outer field should be available") != 0 ||
+	    expect_true(field.block_index == 0U && field.clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+	                    field.column_name != NULL && strcmp(field.column_name, "id") == 0,
+	                "row-valued IN first outer field mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_field_at(&graph, 2U, &field, &error),
+	                     &error,
+	                     "row-valued IN second outer field should be available") != 0 ||
+	    expect_true(field.block_index == 0U && field.clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+	                    field.column_name != NULL && strcmp(field.column_name, "tenant_id") == 0,
+	                "row-valued IN second outer field mismatch") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    "SELECT u.id FROM users u WHERE (u.id, u.tenant_id) IN "
+		    "(SELECT a.user_id, a.tenant_id FROM allowed a)",
+		    "row-valued IN subquery should deparse exactly") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(
+		"SELECT u.id FROM users u WHERE EXISTS "
+		"(SELECT 1 FROM orders o WHERE o.user_id = u.id)",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "EXISTS subquery parse should succeed") != 0 ||
+	    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+	                     &error,
+	                     "EXISTS subquery graph should be available") != 0 ||
+	    expect_true(graph.block_count == 2U && graph.relation_count == 2U &&
+	                    graph.predicate_count == 2U,
+	                "EXISTS subquery graph counts mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_predicate_at(&graph, 0U, &predicate, &error),
+	                     &error,
+	                     "EXISTS outer predicate should be available") != 0 ||
+	    expect_true(predicate.kind == SQLPARSER_GRAPH_PREDICATE_EXISTS &&
+	                    predicate.operator_name == NULL && predicate.has_left_field == 0 &&
+	                    predicate.has_right_field == 0 && predicate.has_value == 0,
+	                "EXISTS predicate semantics must remain unchanged") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    "SELECT u.id FROM users u WHERE EXISTS "
+		    "(SELECT 1 FROM orders o WHERE o.user_id = u.id)",
+		    "EXISTS subquery should deparse exactly") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(
+		"SELECT id FROM users WHERE score > ANY (SELECT score FROM reviews)",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "explicit ANY subquery parse should succeed") != 0 ||
+	    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+	                     &error,
+	                     "explicit ANY subquery graph should be available") != 0 ||
+	    expect_true(graph.block_count == 2U && graph.relation_count == 2U &&
+	                    graph.field_count == 3U,
+	                "explicit ANY subquery traversal mismatch") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    "SELECT id FROM users WHERE score > ANY (SELECT score FROM reviews)",
+		    "explicit ANY subquery should deparse exactly") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	for (index = 0U; index < graph.predicate_count; index++) {
+		if (expect_status_ok(sqlparser_query_graph_predicate_at(&graph, index, &predicate, &error),
+		                     &error,
+		                     "explicit ANY predicate boundary should be readable") != 0 ||
+		    expect_true(predicate.operator_name == NULL || strcmp(predicate.operator_name, "IN") != 0,
+		                "explicit ANY must not be mislabeled as IN") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(
+		"SELECT id FROM users WHERE score > ALL (SELECT score FROM reviews)",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "explicit ALL subquery parse should succeed") != 0 ||
+	    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+	                     &error,
+	                     "explicit ALL subquery graph should be available") != 0 ||
+	    expect_true(graph.block_count == 2U && graph.relation_count == 2U &&
+	                    graph.target_count == 2U && graph.field_count == 3U,
+	                "explicit ALL subquery traversal mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_block_at(&graph, 1U, &inner_block, &error),
+	                     &error,
+	                     "explicit ALL subquery block should be available") != 0 ||
+	    expect_true(inner_block.kind == SQLPARSER_GRAPH_BLOCK_SCALAR_SUBQUERY,
+	                "explicit ALL must build one scalar subquery block") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_field_at(&graph, 1U, &field, &error),
+	                     &error,
+	                     "explicit ALL outer field should be available") != 0 ||
+	    expect_true(field.block_index == 0U && field.clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+	                    field.has_relation != 0 && field.relation_index == 0U &&
+	                    field.column_name != NULL && strcmp(field.column_name, "score") == 0,
+	                "explicit ALL outer field traversal mismatch") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    "SELECT id FROM users WHERE score > ALL (SELECT score FROM reviews)",
+		    "explicit ALL subquery should deparse exactly") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	for (index = 0U; index < graph.predicate_count; index++) {
+		if (expect_status_ok(sqlparser_query_graph_predicate_at(&graph, index, &predicate, &error),
+		                     &error,
+		                     "explicit ALL predicate boundary should be readable") != 0 ||
+		    expect_true(predicate.operator_name == NULL || strcmp(predicate.operator_name, "IN") != 0,
+		                "explicit ALL must not be mislabeled as IN") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(
+		"SELECT id FROM users WHERE score = "
+		"(SELECT MAX(score) FROM reviews WHERE reviews.user_id = users.id)",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "scalar subquery comparison parse should succeed") != 0 ||
+	    expect_status_ok(sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+	                     &error,
+	                     "scalar subquery comparison graph should be available") != 0 ||
+	    expect_true(graph.block_count == 2U && graph.relation_count == 2U &&
+	                    graph.target_count == 2U && graph.field_count == 5U &&
+	                    graph.predicate_count == 2U,
+	                "scalar subquery comparison graph counts mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_block_at(&graph, 0U, &outer_block, &error),
+	                     &error,
+	                     "scalar subquery outer block should be available") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_block_at(&graph, 1U, &inner_block, &error),
+	                     &error,
+	                     "scalar subquery inner block should be available") != 0 ||
+	    expect_true(outer_block.kind == SQLPARSER_GRAPH_BLOCK_SELECT &&
+	                    outer_block.predicates.count == 1U &&
+	                    inner_block.kind == SQLPARSER_GRAPH_BLOCK_SCALAR_SUBQUERY &&
+	                    inner_block.predicates.count == 1U,
+	                "scalar subquery block topology mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_predicate_at(&graph, 0U, &predicate, &error),
+	                     &error,
+	                     "scalar subquery outer predicate should be available") != 0 ||
+	    expect_true(predicate.kind == SQLPARSER_GRAPH_PREDICATE_EXPRESSION &&
+	                    predicate.operator_name != NULL && strcmp(predicate.operator_name, "=") == 0 &&
+	                    predicate.has_left_field != 0 && predicate.left_field_index == 1U &&
+	                    predicate.has_right_field == 0 && predicate.has_value == 0,
+	                "scalar subquery outer predicate semantics mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_target_at(&graph, 1U, &target, &error),
+	                     &error,
+	                     "scalar subquery inner target should be available") != 0 ||
+	    expect_true(target.block_index == 1U &&
+	                    target.kind == SQLPARSER_GRAPH_TARGET_EXPRESSION,
+	                "scalar subquery inner target semantics mismatch") != 0 ||
+	    expect_status_ok(sqlparser_query_graph_field_at(&graph, 4U, &field, &error),
+	                     &error,
+	                     "scalar subquery correlated field should be available") != 0 ||
+	    expect_true(field.block_index == 1U && field.has_relation != 0 &&
+	                    field.relation_index == 0U && field.column_name != NULL &&
+	                    strcmp(field.column_name, "id") == 0,
+	                "scalar subquery correlated field ownership mismatch") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    "SELECT id FROM users WHERE score = "
+		    "(SELECT MAX(score) FROM reviews WHERE reviews.user_id = users.id)",
+		    "scalar subquery comparison should deparse exactly") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	for (index = 0U; index < graph.predicate_count; index++) {
+		if (expect_status_ok(sqlparser_query_graph_predicate_at(&graph, index, &predicate, &error),
+		                     &error,
+		                     "scalar subquery predicate boundary should be readable") != 0 ||
+		    expect_true(predicate.operator_name == NULL || strcmp(predicate.operator_name, "IN") != 0,
+		                "scalar subquery predicate must not be mislabeled as IN") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
 static int test_query_graph_column_semantics_json(void)
 {
 	static const struct {
@@ -12602,6 +22506,748 @@ static int test_query_graph_column_semantics_json(void)
 		json_decref(root);
 	}
 
+	return 0;
+}
+
+static int test_query_graph_sql_json_input_fields(void)
+{
+	struct sql_json_field_expectation {
+		const char *column_name;
+		sqlparser_clause_kind_t clause;
+		size_t target_index;
+		int has_target;
+		size_t selector_item_index;
+		size_t path_count;
+		const char *path_names[2];
+		size_t path_args[2];
+	};
+	struct sql_json_case {
+		const char *sql;
+		size_t target_count;
+		size_t field_count;
+		struct sql_json_field_expectation fields[2];
+	};
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_SQLSERVER,
+		SQLPARSER_DIALECT_VASTBASE_SQLSERVER
+	};
+	static const struct sql_json_case cases[] = {
+		{
+			"SELECT JSON_VALUE([extra], '$.phone') AS [phone_json] FROM [dbo].[users] WHERE [id] = @id",
+			1U,
+			2U,
+			{
+				{"extra", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 0U, 1, 1U, 1U, {"JSON_VALUE", NULL}, {0U, 0U}},
+				{"id", SQLPARSER_CLAUSE_KIND_WHERE, 0U, 0, 4U, 0U, {NULL, NULL}, {0U, 0U}}
+			}
+		},
+		{
+			"SELECT JSON_ARRAY([id], [name]) AS [v] FROM [dbo].[users]",
+			1U,
+			2U,
+			{
+				{"id", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 0U, 1, 1U, 1U, {"JSON_ARRAY", NULL}, {0U, 0U}},
+				{"name", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 0U, 1, 2U, 1U, {"JSON_ARRAY", NULL}, {1U, 0U}}
+			}
+		},
+		{
+			"SELECT JSON_OBJECT('id': [id], 'phone': JSON_VALUE([extra], '$.phone')) AS [v] FROM [dbo].[users]",
+			1U,
+			2U,
+			{
+				{"id", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 0U, 1, 1U, 1U, {"JSON_OBJECT", NULL}, {1U, 0U}},
+				{"extra", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 0U, 1, 2U, 2U, {"JSON_OBJECT", "JSON_VALUE"}, {3U, 0U}}
+			}
+		},
+		{
+			"SELECT JSON_OBJECTAGG([name]: [id]) AS [v] FROM [dbo].[users]",
+			1U,
+			2U,
+			{
+				{"name", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 0U, 1, 1U, 1U, {"JSON_OBJECTAGG", NULL}, {0U, 0U}},
+				{"id", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 0U, 1, 2U, 1U, {"JSON_OBJECTAGG", NULL}, {1U, 0U}}
+			}
+		},
+		{
+			"SELECT JSON_ARRAYAGG(COALESCE([phone], [email])) AS [v] FROM [dbo].[users]",
+			1U,
+			2U,
+			{
+				{"phone", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 0U, 1, 1U, 2U, {"JSON_ARRAYAGG", "COALESCE"}, {0U, 0U}},
+				{"email", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 0U, 1, 2U, 2U, {"JSON_ARRAYAGG", "COALESCE"}, {0U, 1U}}
+			}
+		},
+		{
+			"SELECT [u].[id], JSON_VALUE([u].[extra], '$.phone') AS [phone_json] FROM [dbo].[users] AS [u]",
+			2U,
+			2U,
+			{
+				{"id", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 0U, 1, 1U, 0U, {NULL, NULL}, {0U, 0U}},
+				{"extra", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 1U, 1, 4U, 1U, {"JSON_VALUE", NULL}, {0U, 0U}}
+			}
+		},
+		{
+			"SELECT JSON_ARRAY(1, 2) AS [a], JSON_VALUE('{\"a\":1}', '$.a') AS [b] FROM [dbo].[users]",
+			2U,
+			0U,
+			{{0}}
+		}
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	size_t dialect_index;
+	size_t case_index;
+
+	for (dialect_index = 0U; dialect_index < sizeof(dialects) / sizeof(dialects[0]); dialect_index++) {
+		for (case_index = 0U; case_index < sizeof(cases) / sizeof(cases[0]); case_index++) {
+			sqlparser_handle_t *handle;
+			sqlparser_query_graph_view_t graph;
+			size_t field_index;
+			int failed;
+
+			handle = NULL;
+			failed = 0;
+			memset(&error, 0, sizeof(error));
+			sqlparser_parse_options_default(&options);
+			options.dialect = dialects[dialect_index];
+			if (expect_status_ok(
+				    sqlparser_parse_with_options(cases[case_index].sql, &options, &handle, &error),
+				    &error,
+				    "SQL/JSON input field parse should succeed") != 0 ||
+			    expect_status_ok(
+				    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+				    &error,
+				    "SQL/JSON input field graph should be available") != 0 ||
+			    expect_true(graph.relation_count == 1U, "SQL/JSON graph relation count mismatch") != 0 ||
+			    expect_true(graph.target_count == cases[case_index].target_count, "SQL/JSON graph target count mismatch") != 0 ||
+			    expect_true(graph.field_count == cases[case_index].field_count, "SQL/JSON graph field count mismatch") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			for (field_index = 0U; field_index < cases[case_index].field_count; field_index++) {
+				const struct sql_json_field_expectation *expected;
+				sqlparser_graph_field_t field;
+				size_t path_index;
+
+				expected = &cases[case_index].fields[field_index];
+				if (expect_status_ok(
+					    sqlparser_query_graph_field_at(&graph, field_index, &field, &error),
+					    &error,
+					    "SQL/JSON graph field should be available") != 0 ||
+				    expect_true(field.column_name != NULL && strcmp(field.column_name, expected->column_name) == 0,
+					    "SQL/JSON graph field name mismatch") != 0 ||
+				    expect_true(field.clause == expected->clause, "SQL/JSON graph field clause mismatch") != 0 ||
+				    expect_true(field.has_target == expected->has_target, "SQL/JSON graph field target presence mismatch") != 0 ||
+				    expect_true(!field.has_target || field.target_index == expected->target_index,
+					    "SQL/JSON graph field target index mismatch") != 0 ||
+				    expect_true(field.has_selector && field.selector.kind == SQLPARSER_SELECTOR_KIND_NAME,
+					    "SQL/JSON graph field selector kind mismatch") != 0 ||
+				    expect_true(field.selector.item_index == expected->selector_item_index,
+					    "SQL/JSON graph field selector index mismatch") != 0 ||
+				    expect_true(field.target_path_count == expected->path_count,
+					    "SQL/JSON graph target path count mismatch") != 0) {
+					failed = 1;
+					break;
+				}
+				for (path_index = 0U; path_index < expected->path_count; path_index++) {
+					if (expect_true(strcmp(field.target_path[path_index].kind, "function") == 0,
+						    "SQL/JSON graph target path kind mismatch") != 0 ||
+					    expect_true(field.target_path[path_index].has_name &&
+						    strcmp(field.target_path[path_index].name, expected->path_names[path_index]) == 0,
+						    "SQL/JSON graph target path name mismatch") != 0 ||
+					    expect_true(field.target_path[path_index].arg_index == expected->path_args[path_index],
+						    "SQL/JSON graph target path argument mismatch") != 0) {
+						failed = 1;
+						break;
+					}
+				}
+				if (failed) {
+					break;
+				}
+			}
+			if (!failed && case_index == 0U) {
+				sqlparser_graph_predicate_t predicate;
+				sqlparser_graph_value_t value;
+
+				failed = expect_true(graph.predicate_count == 1U, "SQL/JSON WHERE predicate count mismatch") != 0 ||
+					expect_true(graph.value_count == 1U, "SQL/JSON WHERE value count mismatch") != 0 ||
+					expect_status_ok(
+						sqlparser_query_graph_predicate_at(&graph, 0U, &predicate, &error),
+						&error,
+						"SQL/JSON WHERE predicate should be available") != 0 ||
+					expect_status_ok(
+						sqlparser_query_graph_value_at(&graph, 0U, &value, &error),
+						&error,
+						"SQL/JSON WHERE value should be available") != 0 ||
+					expect_true(predicate.has_left_field && predicate.left_field_index == 1U,
+						"SQL/JSON WHERE predicate field index mismatch") != 0 ||
+					expect_true(value.has_field && value.field_index == 1U,
+						"SQL/JSON WHERE value field index mismatch") != 0;
+			}
+			if (!failed) {
+				failed = expect_deparse_equals_and_reparse(
+					handle,
+					cases[case_index].sql,
+					"SQL/JSON generation-0 deparse should be byte exact");
+			}
+			sqlparser_handle_destroy(handle);
+			if (failed) {
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+static int test_query_graph_sqlserver_function_argument_roles(void)
+{
+	struct function_field_expectation {
+		const char *column_name;
+		sqlparser_clause_kind_t clause;
+		int has_target;
+		size_t target_index;
+		size_t selector_item_index;
+		size_t path_count;
+		const char *path_names[2];
+		size_t path_args[2];
+	};
+	struct function_case {
+		unsigned int dialect_mask;
+		const char *sql;
+		size_t target_count;
+		size_t field_count;
+		size_t value_count;
+		size_t value_field_index;
+		struct function_field_expectation fields[5];
+	};
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_SQLSERVER,
+		SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+		SQLPARSER_DIALECT_POSTGRESQL
+	};
+	static const struct function_case cases[] = {
+		{
+			3U,
+			"SELECT IDENTITY(int, 1, 1) AS ID_Num INTO NewTable FROM OldTable",
+			1U,
+			0U,
+			0U,
+			0U,
+			{{0}}
+		},
+		{
+			3U,
+			"SELECT DATE_BUCKET(hour, 2, [created_at], [origin_at]) AS [bucket_start] FROM [dbo].[users]",
+			1U,
+			2U,
+			0U,
+			0U,
+			{
+				{"created_at", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 1, 0U, 3U, 1U, {"DATE_BUCKET", NULL}, {2U, 0U}},
+				{"origin_at", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 1, 0U, 4U, 1U, {"DATE_BUCKET", NULL}, {3U, 0U}}
+			}
+		},
+		{
+			3U,
+			"SELECT DATEADD(day, [step], DATETRUNC(hour, [created_at])) AS [v] FROM [dbo].[users]",
+			1U,
+			2U,
+			0U,
+			0U,
+			{
+				{"step", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 1, 0U, 3U, 1U, {"DATEADD", NULL}, {1U, 0U}},
+				{"created_at", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 1, 0U, 6U, 2U, {"DATEADD", "DATETRUNC"}, {2U, 1U}}
+			}
+		},
+		{
+			3U,
+			"SELECT DATEDIFF(day, [created_at], [updated_at]) AS [age_days], DATEDIFF_BIG(millisecond, [created_at], [updated_at]) AS [age_ms] FROM [dbo].[users]",
+			2U,
+			4U,
+			0U,
+			0U,
+			{
+				{"created_at", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 1, 0U, 3U, 1U, {"DATEDIFF", NULL}, {1U, 0U}},
+				{"updated_at", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 1, 0U, 4U, 1U, {"DATEDIFF", NULL}, {2U, 0U}},
+				{"created_at", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 1, 1U, 8U, 1U, {"DATEDIFF_BIG", NULL}, {1U, 0U}},
+				{"updated_at", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 1, 1U, 9U, 1U, {"DATEDIFF_BIG", NULL}, {2U, 0U}}
+			}
+		},
+		{
+			3U,
+			"SELECT DATENAME(month, [created_at]) AS [month_name], DATEPART(month, [created_at]) AS [month_number] FROM [dbo].[users]",
+			2U,
+			2U,
+			0U,
+			0U,
+			{
+				{"created_at", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 1, 0U, 3U, 1U, {"DATENAME", NULL}, {1U, 0U}},
+				{"created_at", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 1, 1U, 7U, 1U, {"DATEPART", NULL}, {1U, 0U}}
+			}
+		},
+		{
+			3U,
+			"SELECT [id] FROM [dbo].[users] WHERE DATEPART(day, [created_at]) = @cutoff",
+			1U,
+			2U,
+			1U,
+			1U,
+			{
+				{"id", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 1, 0U, 0U, 0U, {NULL, NULL}, {0U, 0U}},
+				{"created_at", SQLPARSER_CLAUSE_KIND_WHERE, 0, 0U, 5U, 0U, {NULL, NULL}, {0U, 0U}}
+			}
+		},
+		{
+			3U,
+			"SELECT dbo.DATEPART([unit_col], [created_at]) AS [a], dbo.[IDENTITY]([type_col], [seed_col], [inc_col]) AS [b] FROM [dbo].[users]",
+			2U,
+			5U,
+			0U,
+			0U,
+			{
+				{"unit_col", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 1, 0U, 3U, 1U, {"DATEPART", NULL}, {0U, 0U}},
+				{"created_at", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 1, 0U, 4U, 1U, {"DATEPART", NULL}, {1U, 0U}},
+				{"type_col", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 1, 1U, 8U, 1U, {"IDENTITY", NULL}, {0U, 0U}},
+				{"seed_col", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 1, 1U, 9U, 1U, {"IDENTITY", NULL}, {1U, 0U}},
+				{"inc_col", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 1, 1U, 10U, 1U, {"IDENTITY", NULL}, {2U, 0U}}
+			}
+		},
+		{
+			3U,
+			"SELECT DATEFROMPARTS([year_col], [month_col], [day_col]) AS [v] FROM [dbo].[users]",
+			1U,
+			3U,
+			0U,
+			0U,
+			{
+				{"year_col", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 1, 0U, 2U, 1U, {"DATEFROMPARTS", NULL}, {0U, 0U}},
+				{"month_col", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 1, 0U, 3U, 1U, {"DATEFROMPARTS", NULL}, {1U, 0U}},
+				{"day_col", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 1, 0U, 4U, 1U, {"DATEFROMPARTS", NULL}, {2U, 0U}}
+			}
+		},
+		{
+			4U,
+			"SELECT DATEPART(day, created_at), IDENTITY(int) FROM users",
+			2U,
+			3U,
+			0U,
+			0U,
+			{
+				{"day", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 1, 0U, 1U, 1U, {"DATEPART", NULL}, {0U, 0U}},
+				{"created_at", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 1, 0U, 2U, 1U, {"DATEPART", NULL}, {1U, 0U}},
+				{"int", SQLPARSER_CLAUSE_KIND_SELECT_LIST, 1, 1U, 4U, 1U, {"IDENTITY", NULL}, {0U, 0U}}
+			}
+		}
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	size_t dialect_index;
+	size_t case_index;
+
+	for (dialect_index = 0U; dialect_index < sizeof(dialects) / sizeof(dialects[0]); dialect_index++) {
+		for (case_index = 0U; case_index < sizeof(cases) / sizeof(cases[0]); case_index++) {
+			const struct function_case *test;
+			sqlparser_handle_t *handle;
+			sqlparser_query_graph_view_t graph;
+			size_t field_index;
+			int failed;
+
+			test = &cases[case_index];
+			if ((test->dialect_mask & (1U << dialect_index)) == 0U) {
+				continue;
+			}
+			handle = NULL;
+			failed = 0;
+			memset(&error, 0, sizeof(error));
+			sqlparser_parse_options_default(&options);
+			options.dialect = dialects[dialect_index];
+			if (expect_status_ok(
+				    sqlparser_parse_with_options(test->sql, &options, &handle, &error),
+				    &error,
+				    "function argument role SQL should parse") != 0 ||
+			    expect_status_ok(
+				    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+				    &error,
+				    "function argument role graph should be available") != 0 ||
+			    expect_true(graph.relation_count == 1U, "function argument role relation count mismatch") != 0 ||
+			    expect_true(graph.target_count == test->target_count, "function argument role target count mismatch") != 0 ||
+			    expect_true(graph.field_count == test->field_count, "function argument role field count mismatch") != 0 ||
+			    expect_true(graph.value_count == test->value_count, "function argument role value count mismatch") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			for (field_index = 0U; field_index < test->field_count; field_index++) {
+				const struct function_field_expectation *expected;
+				sqlparser_graph_field_t field;
+				size_t path_index;
+
+				expected = &test->fields[field_index];
+				if (expect_status_ok(
+					    sqlparser_query_graph_field_at(&graph, field_index, &field, &error),
+					    &error,
+					    "function argument role field should be available") != 0 ||
+				    expect_true(field.column_name != NULL && strcmp(field.column_name, expected->column_name) == 0,
+					    "function argument role field name mismatch") != 0 ||
+				    expect_true(field.clause == expected->clause, "function argument role clause mismatch") != 0 ||
+				    expect_true(field.has_relation && field.relation_index == 0U,
+					    "function argument role relation mismatch") != 0 ||
+				    expect_true(field.has_target == expected->has_target,
+					    "function argument role target presence mismatch") != 0 ||
+				    expect_true(!field.has_target || field.target_index == expected->target_index,
+					    "function argument role target index mismatch") != 0 ||
+				    expect_true(field.has_selector && field.selector.kind == SQLPARSER_SELECTOR_KIND_NAME &&
+					    field.selector.item_index == expected->selector_item_index,
+					    "function argument role selector mismatch") != 0 ||
+				    expect_true(field.target_path_count == expected->path_count,
+					    "function argument role target path count mismatch") != 0) {
+					failed = 1;
+					break;
+				}
+				for (path_index = 0U; path_index < expected->path_count; path_index++) {
+					if (expect_true(strcmp(field.target_path[path_index].kind, "function") == 0 &&
+						    field.target_path[path_index].has_name &&
+						    strcmp(field.target_path[path_index].name, expected->path_names[path_index]) == 0 &&
+						    field.target_path[path_index].arg_index == expected->path_args[path_index],
+						    "function argument role target path mismatch") != 0) {
+						failed = 1;
+						break;
+					}
+				}
+				if (failed) {
+					break;
+				}
+			}
+			if (!failed && test->value_count != 0U) {
+				sqlparser_graph_value_t value;
+
+				failed = expect_status_ok(
+					sqlparser_query_graph_value_at(&graph, 0U, &value, &error),
+					&error,
+					"function argument role value should be available") != 0 ||
+					expect_true(value.has_field && value.field_index == test->value_field_index,
+						"function argument role value field mismatch") != 0 ||
+					expect_true(value.kind == SQLPARSER_GRAPH_VALUE_BIND && value.has_bind &&
+						strcmp(value.bind, "cutoff") == 0 && value.has_bind_position &&
+						value.bind_position == 1U,
+						"function argument role bind mismatch") != 0;
+			}
+			if (!failed) {
+				failed = expect_deparse_equals_and_reparse(
+					handle,
+					test->sql,
+					"function argument role SQL should roundtrip exactly");
+			}
+			sqlparser_handle_destroy(handle);
+			if (failed) {
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+static int test_query_graph_aggregate_order_fields(void)
+{
+	struct aggregate_order_field_expectation {
+		const char *column_name;
+		size_t selector_item_index;
+		const char *path_kind;
+		const char *path_name;
+		size_t path_arg_index;
+	};
+	struct aggregate_order_case {
+		unsigned int dialect_mask;
+		const char *sql;
+		const char *schema_name;
+		const char *table_name;
+		const char *target_name;
+		size_t field_count;
+		struct aggregate_order_field_expectation fields[4];
+	};
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_SQLSERVER,
+		SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+		SQLPARSER_DIALECT_POSTGRESQL
+	};
+	static const struct aggregate_order_case cases[] = {
+		{
+			3U,
+			"SELECT APPROX_PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY [score]) AS [v] FROM [dbo].[users]",
+			"dbo",
+			"users",
+			"v",
+			1U,
+			{
+				{"score", 2U, "function", "APPROX_PERCENTILE_CONT", 1U}
+			}
+		},
+		{
+			3U,
+			"SELECT APPROX_PERCENTILE_DISC(0.5) WITHIN GROUP (ORDER BY [score]) AS [v] FROM [dbo].[users]",
+			"dbo",
+			"users",
+			"v",
+			1U,
+			{
+				{"score", 2U, "function", "APPROX_PERCENTILE_DISC", 1U}
+			}
+		},
+		{
+			4U,
+			"SELECT array_agg(value ORDER BY sort_key DESC) AS values FROM t",
+			NULL,
+			"t",
+			"values",
+			2U,
+			{
+				{"value", 2U, "function", "ARRAY_AGG", 0U},
+				{"sort_key", 3U, "function", "ARRAY_AGG", 1U}
+			}
+		},
+		{
+			4U,
+			"SELECT rank(a, b) WITHIN GROUP (ORDER BY x, y) AS r FROM t",
+			NULL,
+			"t",
+			"r",
+			4U,
+			{
+				{"a", 2U, "function", "RANK", 0U},
+				{"b", 3U, "function", "RANK", 1U},
+				{"x", 4U, "function", "RANK", 2U},
+				{"y", 5U, "function", "RANK", 3U}
+			}
+		},
+		{
+			1U,
+			"SELECT STRING_AGG([name], ',') WITHIN GROUP (ORDER BY [name] DESC) AS [v] FROM [dbo].[users]",
+			"dbo",
+			"users",
+			"v",
+			2U,
+			{
+				{"name", 2U, "function", "STRING_AGG", 0U},
+				{"name", 3U, "function", "STRING_AGG", 2U}
+			}
+		},
+		{
+			1U,
+			"SELECT SUM([amount]) OVER (ORDER BY [created_at]) AS [v] FROM [dbo].[users]",
+			"dbo",
+			"users",
+			"v",
+			2U,
+			{
+				{"amount", 2U, "function", "SUM", 0U},
+				{"created_at", 3U, "expression", "window_order", 0U}
+			}
+		}
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	size_t dialect_index;
+	size_t case_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		for (case_index = 0U;
+		     case_index < sizeof(cases) / sizeof(cases[0]);
+		     case_index++) {
+			const struct aggregate_order_case *test;
+			sqlparser_handle_t *handle;
+			sqlparser_query_graph_view_t graph;
+			sqlparser_graph_relation_t relation;
+			sqlparser_graph_target_t target;
+			size_t field_index;
+			int failed;
+
+			test = &cases[case_index];
+			if ((test->dialect_mask & (1U << dialect_index)) == 0U) {
+				continue;
+			}
+			handle = NULL;
+			failed = 0;
+			memset(&error, 0, sizeof(error));
+			memset(&relation, 0, sizeof(relation));
+			memset(&target, 0, sizeof(target));
+			sqlparser_parse_options_default(&options);
+			options.dialect = dialects[dialect_index];
+			if (expect_status_ok(
+				    sqlparser_parse_with_options(
+					    test->sql,
+					    &options,
+					    &handle,
+					    &error),
+				    &error,
+				    "aggregate order SQL should parse") != 0 ||
+			    expect_status_ok(
+				    sqlparser_statement_query_graph(
+					    handle,
+					    0U,
+					    &graph,
+					    &error),
+				    &error,
+				    "aggregate order graph should be available") != 0 ||
+			    expect_true(
+				    graph.has_root_block &&
+					    graph.root_block_index == 0U &&
+					    graph.block_count == 1U &&
+					    graph.relation_count == 1U &&
+					    graph.target_count == 1U &&
+					    graph.field_count == test->field_count &&
+					    graph.value_count == 0U &&
+					    graph.set_count == 0U &&
+					    graph.predicate_count == 0U &&
+					    !graph.has_dml,
+				    "aggregate order graph counts should match") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_relation_at(
+					    &graph,
+					    0U,
+					    &relation,
+					    &error),
+				    &error,
+				    "aggregate order relation should be available") != 0 ||
+			    expect_true(
+				    relation.index == 0U &&
+					    relation.statement_index == 0U &&
+					    relation.block_index == 0U &&
+					    relation.kind == SQLPARSER_GRAPH_REL_BASE &&
+					    ((test->schema_name == NULL &&
+					      relation.schema_name == NULL) ||
+					     (test->schema_name != NULL &&
+					      relation.schema_name != NULL &&
+					      strcmp(relation.schema_name,
+						     test->schema_name) == 0)) &&
+					    relation.object_name != NULL &&
+					    strcmp(relation.object_name,
+						   test->table_name) == 0 &&
+					    relation.database_name == NULL &&
+					    relation.alias_name == NULL &&
+					    relation.link_name == NULL &&
+					    !relation.has_source_block &&
+					    relation.has_selector &&
+					    relation.selector.kind ==
+						    SQLPARSER_SELECTOR_KIND_RELATION &&
+					    relation.selector.statement_index == 0U &&
+					    relation.selector.item_index == 0U &&
+					    relation.selector.row_index == 0U &&
+					    relation.selector.column_index == 0U,
+				    "aggregate order relation semantics should match") != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_target_at(
+					    &graph,
+					    0U,
+					    &target,
+					    &error),
+				    &error,
+				    "aggregate order target should be available") != 0 ||
+			    expect_true(
+				    target.index == 0U &&
+					    target.statement_index == 0U &&
+					    target.block_index == 0U &&
+					    target.ordinal == 0U &&
+					    target.kind ==
+						    SQLPARSER_GRAPH_TARGET_EXPRESSION &&
+					    target.output_name != NULL &&
+					    strcmp(target.output_name,
+						   test->target_name) == 0 &&
+					    !target.has_field &&
+					    !target.has_value &&
+					    !target.has_source_block &&
+					    target.star_relations.count == 0U &&
+					    target.has_selector &&
+					    target.selector.kind ==
+						    SQLPARSER_SELECTOR_KIND_SELECT_TARGET &&
+					    target.selector.statement_index == 0U &&
+					    target.selector.item_index == 0U &&
+					    target.selector.row_index == 0U &&
+					    target.selector.column_index == 0U &&
+					    target.has_target_list_selector &&
+					    target.target_list_selector.kind ==
+						    SQLPARSER_SELECTOR_KIND_SELECT_TARGETS &&
+					    target.target_list_selector.statement_index ==
+						    0U &&
+					    target.target_list_selector.item_index == 0U &&
+					    target.target_list_selector.row_index == 0U &&
+					    target.target_list_selector.column_index == 0U,
+				    "aggregate order target semantics should match") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			for (field_index = 0U;
+			     field_index < test->field_count;
+			     field_index++) {
+				const struct aggregate_order_field_expectation *expected;
+				sqlparser_graph_field_t field;
+				const sqlparser_target_path_entry_t *path;
+
+				expected = &test->fields[field_index];
+				memset(&field, 0, sizeof(field));
+				if (expect_status_ok(
+					    sqlparser_query_graph_field_at(
+						    &graph,
+						    field_index,
+						    &field,
+						    &error),
+					    &error,
+					    "aggregate order field should be available") != 0 ||
+				    expect_true(
+					    field.index == field_index &&
+						    field.statement_index == 0U &&
+						    field.block_index == 0U &&
+						    field.clause ==
+							    SQLPARSER_CLAUSE_KIND_SELECT_LIST &&
+						    field.column_name != NULL &&
+						    strcmp(field.column_name,
+							   expected->column_name) == 0 &&
+						    field.has_relation &&
+						    field.relation_index == 0U &&
+						    field.candidate_relations.count == 0U &&
+						    field.has_target &&
+						    field.target_index == 0U &&
+						    field.has_selector &&
+						    field.selector.kind ==
+							    SQLPARSER_SELECTOR_KIND_NAME &&
+						    field.selector.statement_index == 0U &&
+						    field.selector.item_index ==
+							    expected->selector_item_index &&
+						    field.selector.row_index == 0U &&
+						    field.selector.column_index == 0U &&
+						    field.target_path_count == 1U,
+					    "aggregate order field semantics should match") != 0) {
+					failed = 1;
+					break;
+				}
+				path = &field.target_path[0];
+				if (expect_true(
+					    path->kind != NULL &&
+						    strcmp(path->kind,
+							   expected->path_kind) == 0 &&
+						    path->has_name &&
+						    !path->name_truncated &&
+						    strcmp(path->name,
+							   expected->path_name) == 0 &&
+						    path->arg_index ==
+							    expected->path_arg_index,
+					    "aggregate order target path should match") != 0) {
+					failed = 1;
+					break;
+				}
+			}
+			if (!failed) {
+				failed = expect_deparse_equals_and_reparse(
+					handle,
+					test->sql,
+					"aggregate order SQL should roundtrip exactly");
+			}
+			sqlparser_handle_destroy(handle);
+			if (failed) {
+				return 1;
+			}
+		}
+	}
 	return 0;
 }
 
@@ -14235,6 +24881,155 @@ static int test_dameng_multi_insert_query_graph_and_patch(void)
 	return 0;
 }
 
+static int expect_multi_insert_source_target_fragments(
+	const sqlparser_handle_t *handle,
+	const char *case_name)
+{
+	static const char expected_first[] = "source_id AS SourceID";
+	static const char expected_second[] = ":source_value AS SourceValue";
+	sqlparser_error_t error;
+	char *target_sql;
+	size_t target_count;
+	int rc;
+
+	memset(&error, 0, sizeof(error));
+	target_count = 0U;
+	rc = sqlparser_select_target_count(handle, 0U, 0U, &target_count, &error);
+	if (expect_status_ok(rc, &error, case_name) != 0 ||
+	    expect_true(target_count == 2U, "multi-insert source target count mismatch") != 0) {
+		return 1;
+	}
+
+	target_sql = NULL;
+	rc = sqlparser_select_target_sql(handle, 0U, 0U, 0U, &target_sql, &error);
+	if (expect_status_ok(rc, &error, case_name) != 0 ||
+	    expect_true(
+		    target_sql != NULL && strcmp(target_sql, expected_first) == 0,
+		    "multi-insert first source target fragment mismatch") != 0) {
+		sqlparser_string_free(target_sql);
+		return 1;
+	}
+	sqlparser_string_free(target_sql);
+
+	target_sql = NULL;
+	rc = sqlparser_select_target_sql(handle, 0U, 0U, 1U, &target_sql, &error);
+	if (expect_status_ok(rc, &error, case_name) != 0 ||
+	    expect_true(
+		    target_sql != NULL && strcmp(target_sql, expected_second) == 0,
+		    "multi-insert second source target fragment mismatch") != 0) {
+		sqlparser_string_free(target_sql);
+		return 1;
+	}
+	sqlparser_string_free(target_sql);
+	return 0;
+}
+
+static int test_multi_insert_source_target_fragments(void)
+{
+	typedef struct multi_insert_fragment_case {
+		sqlparser_dialect_t dialect;
+		const char *name;
+		const char *sql;
+	} multi_insert_fragment_case_t;
+	static const multi_insert_fragment_case_t cases[] = {
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"Oracle INSERT ALL source target fragment",
+			"INSERT ALL INTO TargetRows (id) VALUES (:branch_value) "
+			"SELECT source_id AS SourceID, :source_value AS SourceValue FROM SourceRows"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"Oracle INSERT FIRST source target fragment",
+			"INSERT FIRST WHEN source_id > 0 THEN INTO TargetRows (id) VALUES (:branch_value) "
+			"ELSE INTO OtherRows (id) VALUES (:fallback_value) "
+			"SELECT source_id AS SourceID, :source_value AS SourceValue FROM SourceRows"
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"Dameng INSERT ALL source target fragment",
+			"INSERT ALL INTO TargetRows (id) VALUES (:branch_value) "
+			"SELECT source_id AS SourceID, :source_value AS SourceValue FROM SourceRows"
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"Dameng INSERT FIRST source target fragment",
+			"INSERT FIRST WHEN source_id > 0 THEN INTO TargetRows (id) VALUES (:branch_value) "
+			"ELSE INTO OtherRows (id) VALUES (:fallback_value) "
+			"SELECT source_id AS SourceID, :source_value AS SourceValue FROM SourceRows"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_ORACLE,
+			"Vastbase Oracle INSERT ALL source target fragment",
+			"INSERT ALL INTO TargetRows (id) VALUES (:branch_value) "
+			"SELECT source_id AS SourceID, :source_value AS SourceValue FROM SourceRows"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_ORACLE,
+			"Vastbase Oracle INSERT FIRST source target fragment",
+			"INSERT FIRST WHEN source_id > 0 THEN INTO TargetRows (id) VALUES (:branch_value) "
+			"ELSE INTO OtherRows (id) VALUES (:fallback_value) "
+			"SELECT source_id AS SourceID, :source_value AS SourceValue FROM SourceRows"
+		}
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_literal_value_t literal;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *reparsed;
+	char *deparsed_sql;
+	size_t index;
+	int rc;
+
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[index].dialect;
+		handle = NULL;
+		reparsed = NULL;
+		deparsed_sql = NULL;
+		rc = sqlparser_parse_with_options(cases[index].sql, &options, &handle, &error);
+		if (expect_status_ok(rc, &error, cases[index].name) != 0 ||
+		    expect_multi_insert_source_target_fragments(handle, cases[index].name) != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		memset(&literal, 0, sizeof(literal));
+		literal.kind = SQLPARSER_LITERAL_KIND_STRING;
+		literal.string_value = "patched";
+		rc = sqlparser_insert_set_cell_literal(handle, 0U, 0U, 0U, &literal, &error);
+		if (expect_status_ok(rc, &error, cases[index].name) != 0 ||
+		    expect_multi_insert_source_target_fragments(handle, cases[index].name) != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+		if (expect_status_ok(rc, &error, cases[index].name) != 0 ||
+		    expect_true(
+			    deparsed_sql != NULL && strstr(deparsed_sql, "'patched'") != NULL,
+			    "multi-insert patched SQL mismatch") != 0) {
+			sqlparser_string_free(deparsed_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_parse_with_options(deparsed_sql, &options, &reparsed, &error);
+		if (expect_status_ok(rc, &error, cases[index].name) != 0 ||
+		    expect_multi_insert_source_target_fragments(reparsed, cases[index].name) != 0) {
+			sqlparser_handle_destroy(reparsed);
+			sqlparser_string_free(deparsed_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		sqlparser_handle_destroy(reparsed);
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+	}
+	return 0;
+}
+
 static int test_oracle_p3_update_assignment_graph(void)
 {
 	sqlparser_parse_options_t options;
@@ -14609,8 +25404,8 @@ static int test_oracle_compatible_merge_assignment_patch_closure_case(
 {
 	static const char expected_inserted_sql[] =
 		"MERGE INTO KDES.DBP_SQLM_USERS u "
-		"USING (SELECT :1 AS ID, :2 AS PHONE FROM DUAL) s "
-		"ON u.ID = s.ID "
+		"USING (SELECT :1 ID, :2 PHONE FROM DUAL) s "
+		"ON (u.ID = s.ID) "
 		"WHEN MATCHED THEN UPDATE SET "
 		"u.\"PHONE_ORIG\" = s.PHONE, "
 		"u.PHONE = s.ID, "
@@ -15962,12 +26757,160 @@ static int test_query_graph_attribution_and_values(void)
 	return 0;
 }
 
+static int test_select_target_renderer_preserves_nested_spelling(void)
+{
+	static const char sql[] =
+		"SELECT (SELECT X FROM T AS Q) AS Z FROM R";
+	static const char expected_target[] =
+		"(SELECT X FROM T AS Q) AS Z";
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	char *target_sql;
+	char *deparsed_sql;
+	int rc;
+
+	handle = NULL;
+	target_sql = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "nested select target spelling parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_select_target_sql(
+		handle,
+		0U,
+		0U,
+		0U,
+		&target_sql,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "generation-0 nested select target SQL should succeed") != 0 ||
+	    expect_true(
+		    target_sql != NULL &&
+			    strcmp(target_sql, expected_target) == 0,
+		    "generation-0 nested select target should preserve identifier spelling and explicit AS") != 0) {
+		sqlparser_string_free(target_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(target_sql);
+	target_sql = NULL;
+
+	rc = sqlparser_statement_set_relation_name(
+		handle,
+		0U,
+		1U,
+		NULL,
+		"r2",
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "outer relation spelling patch should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_select_target_sql(
+		handle,
+		0U,
+		0U,
+		0U,
+		&target_sql,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "generation-1 nested select target SQL should succeed") != 0 ||
+	    expect_true(
+		    target_sql != NULL &&
+			    strcmp(target_sql, expected_target) == 0,
+		    "generation-1 nested select target should preserve identifier spelling and explicit AS") != 0) {
+		sqlparser_string_free(target_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(target_sql);
+	target_sql = NULL;
+
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "patched nested select should deparse") != 0 ||
+	    expect_true(
+		    deparsed_sql != NULL &&
+			    strcmp(
+				    deparsed_sql,
+				    "SELECT (SELECT X FROM T AS Q) AS Z FROM r2") == 0,
+		    "relation patch should preserve nested select spelling") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+	target_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse(
+		"SELECT (SELECT X FROM T Q) Z FROM R",
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "implicit nested select alias parse should succeed") != 0) {
+		return 1;
+	}
+	rc = sqlparser_select_target_sql(
+		handle,
+		0U,
+		0U,
+		0U,
+		&target_sql,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "implicit nested select target SQL should succeed") != 0 ||
+	    expect_true(
+		    target_sql != NULL &&
+			    strcmp(target_sql, "(SELECT X FROM T Q) Z") == 0,
+		    "implicit nested select aliases should remain implicit") != 0) {
+		sqlparser_string_free(target_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(target_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
 static int test_select_target_list_patch_api(void)
 {
+	static const char *const splice_names[] = {
+		"lower_name",
+		"original_name",
+		"upper_name"
+	};
+	static const char *const splice_selectors[] = {
+		"stmt[0].select_target[0][1]",
+		"stmt[0].select_target[0][2]",
+		"stmt[0].select_target[0][3]"
+	};
 	const char *sql;
 	sqlparser_handle_t *handle;
 	sqlparser_error_t error;
 	sqlparser_query_graph_view_t graph;
+	sqlparser_query_graph_view_t stale_graph;
 	sqlparser_graph_field_t field;
 	sqlparser_graph_target_t target;
 	sqlparser_selector_t selector;
@@ -15979,7 +26922,9 @@ static int test_select_target_list_patch_api(void)
 	char *view_json;
 	char *deparsed_sql;
 	size_t list_count;
+	size_t splice_index;
 	size_t target_count;
+	unsigned long generation;
 	int rc;
 
 	sql = "SELECT * FROM public.users";
@@ -16093,9 +27038,95 @@ static int test_select_target_list_patch_api(void)
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &stale_graph, &error);
+	if (expect_status_ok(rc, &error, "pre-splice select graph should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	generation = handle->generation;
+	rc = sqlparser_select_set_target_sql(handle, 0U, 0U, 1U, "lower(name) AS lower_name, name AS original_name", &error);
+	if (expect_status_ok(rc, &error, "select multi-target replace should succeed") != 0 ||
+	    expect_true(
+		    handle->generation == generation + 1UL,
+		    "select multi-target replace should commit exactly once") != 0 ||
+	    expect_true(
+		    sqlparser_query_graph_target_at(
+			    &stale_graph,
+			    0U,
+			    &target,
+			    &error) == SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "select multi-target replace should invalidate the previous graph") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	if (expect_deparse_reparse_ok(handle, "select multi-target replace should produce parseable SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_select_target_count(handle, 0U, 0U, &target_count, &error);
+	if (expect_status_ok(rc, &error, "multi-target replace count should succeed") != 0 ||
+	    expect_true(target_count == 4U, "multi-target replace should splice two targets") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, "post-splice select graph should succeed") != 0 ||
+	    expect_true(
+		    graph.generation == handle->generation &&
+			    graph.target_count == 4U,
+		    "post-splice select graph should match the current generation and target count") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	for (splice_index = 0U;
+	     splice_index < sizeof(splice_names) / sizeof(splice_names[0]);
+	     splice_index++) {
+		rc = sqlparser_query_graph_target_at(
+			&graph,
+			splice_index + 1U,
+			&target,
+			&error);
+		if (expect_status_ok(rc, &error, "spliced select graph target should succeed") != 0 ||
+		    expect_true(
+			    target.ordinal == splice_index + 1U &&
+				    target.output_name != NULL &&
+				    strcmp(target.output_name, splice_names[splice_index]) == 0 &&
+				    target.has_selector != 0 &&
+				    target.has_target_list_selector != 0,
+			    "spliced select graph target metadata should preserve order and alias") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_selector_format(&target.selector, &selector_text, &error);
+		if (expect_status_ok(rc, &error, "spliced select target selector should format") != 0 ||
+		    expect_true(
+			    strcmp(selector_text, splice_selectors[splice_index]) == 0,
+			    "spliced select target selector should follow its new ordinal") != 0) {
+			sqlparser_string_free(selector_text);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(selector_text);
+		selector_text = NULL;
+		rc = sqlparser_selector_format(
+			&target.target_list_selector,
+			&selector_text,
+			&error);
+		if (expect_status_ok(rc, &error, "spliced select target-list selector should format") != 0 ||
+		    expect_true(
+			    strcmp(selector_text, "stmt[0].select_targets[0]") == 0,
+			    "spliced targets should remain in the selected target list") != 0) {
+			sqlparser_string_free(selector_text);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(selector_text);
+		selector_text = NULL;
+	}
 	rc = sqlparser_select_target_sql(handle, 0U, 0U, 1U, &target_sql, &error);
 	if (expect_status_ok(rc, &error, "patched select target SQL should succeed") != 0 ||
-	    expect_true(strstr(target_sql, "name") != NULL, "patched select target should contain name") != 0) {
+	    expect_true(strcmp(target_sql, "lower(name) AS lower_name") == 0,
+	                "multi-target replace should preserve the first replacement target") != 0) {
 		sqlparser_string_free(target_sql);
 		sqlparser_handle_destroy(handle);
 		return 1;
@@ -16104,16 +27135,65 @@ static int test_select_target_list_patch_api(void)
 	target_sql = NULL;
 	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
 	if (expect_status_ok(rc, &error, "patched select deparse should succeed") != 0 ||
-	    expect_true(strstr(deparsed_sql, "users.id AS user_id") != NULL, "patched select should contain user_id target") != 0 ||
-	    expect_true(strstr(deparsed_sql, "upper(name) AS upper_name") != NULL, "patched select should contain inserted expression") != 0 ||
-	    expect_true(strstr(deparsed_sql, "created_at") == NULL, "patched select should remove created_at") != 0 ||
-	    expect_true(strstr(deparsed_sql, "SELECT *") == NULL, "patched select should remove star") != 0) {
+	    expect_true(
+		    strcmp(
+			    deparsed_sql,
+			    "SELECT users.id AS user_id, lower(name) AS lower_name, "
+			    "name AS original_name, upper(name) AS upper_name "
+			    "FROM public.users") == 0,
+		    "multi-target replace should preserve prefix, splice order, and suffix") != 0) {
 		sqlparser_string_free(deparsed_sql);
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 	sqlparser_string_free(deparsed_sql);
 	deparsed_sql = NULL;
+	generation = handle->generation;
+	rc = sqlparser_select_set_target_sql(
+		handle,
+		0U,
+		0U,
+		0U,
+		"final_id",
+		&error);
+	if (expect_status_ok(rc, &error, "whole select target replace should succeed") != 0 ||
+	    expect_true(
+		    handle->generation == generation + 1UL,
+		    "whole select target replace should commit exactly once") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "whole select target graph should succeed") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_target_at(&graph, 0U, &target, &error),
+		    &error,
+		    "whole select target graph entry should succeed") != 0 ||
+	    expect_true(
+		    target.ordinal == 0U && target.output_name != NULL &&
+			    strcmp(target.output_name, "final_id") == 0 &&
+			    target.has_field != 0,
+		    "whole select target replacement must derive output from the replacement field") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_field_at(
+			    &graph,
+			    target.field_index,
+			    &field,
+			    &error),
+		    &error,
+		    "whole select target field should succeed") != 0 ||
+	    expect_true(
+		    field.column_name != NULL &&
+			    strcmp(field.column_name, "final_id") == 0,
+		    "whole select target replacement must not retain the old alias") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    "SELECT final_id, lower(name) AS lower_name, "
+		    "name AS original_name, upper(name) AS upper_name "
+		    "FROM public.users",
+		    "whole select target replacement should use only the replacement fragment") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
 	sqlparser_handle_destroy(handle);
 
 	sql = "SELECT u.* FROM public.users u";
@@ -16141,7 +27221,7 @@ static int test_select_target_list_patch_api(void)
 	if (expect_status_ok(rc, &error, "mysql select target parse should succeed") != 0) {
 		return 1;
 	}
-	rc = sqlparser_select_set_targets_sql(handle, 0U, 0U, "`a`,`b,c`", &error);
+	rc = sqlparser_select_set_target_sql(handle, 0U, 0U, 0U, "`a`,`b,c`", &error);
 	if (expect_status_ok(rc, &error, "mysql select target replace should succeed") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
@@ -16298,6 +27378,57 @@ static int test_select_target_list_patch_api(void)
 		return 1;
 	}
 	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	rc = sqlparser_parse(
+		"SELECT head, middle, tail FROM source_table",
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "select boundary splice parse should succeed") != 0) {
+		return 1;
+	}
+	generation = handle->generation;
+	rc = sqlparser_select_set_target_sql(
+		handle,
+		0U,
+		0U,
+		0U,
+		"head_a AS head_alias_a, head_b AS head_alias_b",
+		&error);
+	if (expect_status_ok(rc, &error, "select leading multi-target replace should succeed") != 0 ||
+	    expect_status_ok(
+		    sqlparser_select_target_count(handle, 0U, 0U, &target_count, &error),
+		    &error,
+		    "select leading splice count should succeed") != 0 ||
+	    expect_true(target_count == 4U, "select leading splice should expose four targets") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_select_set_target_sql(
+		handle,
+		0U,
+		0U,
+		3U,
+		"tail_a AS tail_alias_a, tail_b AS tail_alias_b",
+		&error);
+	if (expect_status_ok(rc, &error, "select trailing multi-target replace should succeed") != 0 ||
+	    expect_status_ok(
+		    sqlparser_select_target_count(handle, 0U, 0U, &target_count, &error),
+		    &error,
+		    "select trailing splice count should succeed") != 0 ||
+	    expect_true(target_count == 5U, "select trailing splice should expose five targets") != 0 ||
+	    expect_true(
+		    handle->generation == generation + 2UL,
+		    "two select boundary splices should commit exactly twice") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    "SELECT head_a AS head_alias_a, head_b AS head_alias_b, middle, "
+		    "tail_a AS tail_alias_a, tail_b AS tail_alias_b FROM source_table",
+		    "select boundary splices should preserve exact order") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
 	sqlparser_handle_destroy(handle);
 	return 0;
 }
@@ -16459,6 +27590,1617 @@ static int test_relation_patch_identifier_path_spelling(void)
 		sqlparser_handle_destroy(handle);
 	}
 
+	return 0;
+}
+
+static int test_relation_patch_bound_qualifier_propagation(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *replacement;
+		const char *expected_sql;
+		const char *message;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT \"User\".\"Name\" FROM \"User\" WHERE \"User\".\"Name\" = 1",
+			"\"PatchedTable\"",
+			"SELECT \"PatchedTable\".\"Name\" FROM \"PatchedTable\" "
+			"WHERE \"PatchedTable\".\"Name\" = 1",
+			"quoted PostgreSQL relation patch should propagate exact qualifier spelling"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"DELETE FROM public.users USING public.user_archive AS ua "
+			"WHERE public.users.id = ua.id RETURNING public.users.id",
+			"\"PatchedTable\"",
+			"DELETE FROM \"PatchedTable\" USING public.user_archive AS ua "
+			"WHERE \"PatchedTable\".id = ua.id RETURNING \"PatchedTable\".id",
+			"relation patch should contract WHERE and RETURNING qualifier depth"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT t.c FROM t WHERE t.c = 1",
+			"\"Db\".\"Schema\".\"Table\"",
+			"SELECT \"Table\".c FROM \"Db\".\"Schema\".\"Table\" "
+			"WHERE \"Table\".c = 1",
+			"relation patch should retain the original one-part qualifier depth"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT u.*, u.id FROM public.users AS u WHERE u.id = 1",
+			"\"PatchedTable\"",
+			"SELECT u.*, u.id FROM \"PatchedTable\" AS u WHERE u.id = 1",
+			"relation patch should preserve explicit alias qualifiers"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT users.*, users.id FROM public.users",
+			"\"PatchedTable\"",
+			"SELECT \"PatchedTable\".*, \"PatchedTable\".id FROM \"PatchedTable\"",
+			"relation patch should propagate a bound qualified star"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"UPDATE users SET score = users.score + users.bonus WHERE users.id = 1",
+			"\"PatchedTable\"",
+			"UPDATE \"PatchedTable\" SET score = \"PatchedTable\".score + "
+			"\"PatchedTable\".bonus WHERE \"PatchedTable\".id = 1",
+			"relation patch should propagate UPDATE expression and WHERE qualifiers"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT DISTINCT ON (users.group_id) users.group_id, users.id "
+			"FROM users ORDER BY users.group_id, users.id",
+			"\"PatchedTable\"",
+			"SELECT DISTINCT ON (\"PatchedTable\".group_id) "
+			"\"PatchedTable\".group_id, \"PatchedTable\".id FROM \"PatchedTable\" "
+			"ORDER BY \"PatchedTable\".group_id, \"PatchedTable\".id",
+			"relation patch should propagate DISTINCT ON qualifiers"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"INSERT INTO users (id, name) VALUES (1, 'a') ON CONFLICT (id) "
+			"DO UPDATE SET name = EXCLUDED.name WHERE users.id = EXCLUDED.id",
+			"\"PatchedTable\"",
+			"INSERT INTO \"PatchedTable\" (id, name) VALUES (1, 'a') ON CONFLICT (id) "
+			"DO UPDATE SET name = EXCLUDED.name WHERE \"PatchedTable\".id = EXCLUDED.id",
+			"relation patch should update ON CONFLICT target qualifiers and preserve EXCLUDED"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT count(*) FILTER (WHERE users.active) FROM users",
+			"archive.users_new",
+			"SELECT count(*) FILTER (WHERE users_new.active) "
+			"FROM archive.users_new",
+			"relation patch should update aggregate FILTER qualifiers"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"UPDATE [dbo].[users] SET [status] = @status WHERE EXISTS "
+			"(SELECT 1 FROM [dbo].[orders] o WHERE o.[user_id] = [users].[id] "
+			"AND o.[phone] = @phone)",
+			"[PatchedTable]",
+			"UPDATE [PatchedTable] SET [status] = @status WHERE EXISTS "
+			"(SELECT 1 FROM [dbo].[orders] o WHERE o.[user_id] = "
+			"[PatchedTable].[id] AND o.[phone] = @phone)",
+			"SQL Server relation patch should update only the correlated outer qualifier"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"MERGE INTO t USING (SELECT :1 id, :2 email FROM dual) s "
+			"ON (t.id = s.id) WHEN MATCHED THEN UPDATE SET t.email = s.email",
+			"\"PatchedTable\"",
+			"MERGE INTO \"PatchedTable\" USING (SELECT :1 id, :2 email FROM dual) s "
+			"ON (\"PatchedTable\".id = s.id) WHEN MATCHED THEN UPDATE SET "
+			"\"PatchedTable\".email = s.email",
+			"Oracle MERGE relation patch should update ON and assignment target qualifiers"
+		}
+	};
+	sqlparser_parse_options_t options;
+	size_t case_index;
+
+	for (case_index = 0U; case_index < sizeof(cases) / sizeof(cases[0]); case_index++) {
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_patch_t patch;
+		sqlparser_patch_list_t patch_list;
+		int rc;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[case_index].dialect;
+		rc = sqlparser_parse_with_options(
+			cases[case_index].sql,
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, cases[case_index].message) != 0) {
+			return 1;
+		}
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_REPLACE;
+		patch.selector = "stmt[0].relation[0]";
+		patch.sql = cases[case_index].replacement;
+		patch_list.items = &patch;
+		patch_list.count = 1U;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		if (expect_status_ok(rc, &error, cases[case_index].message) != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    cases[case_index].expected_sql,
+			    cases[case_index].message) != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+
+	return 0;
+}
+
+static int test_insert_on_conflict_correlated_excluded_collision(void)
+{
+	static const char sql[] =
+		"INSERT INTO public.excluded (id, name) VALUES (1, 'a') "
+		"ON CONFLICT (id) DO UPDATE SET name = (SELECT public.excluded.name) "
+		"WHERE EXISTS (SELECT 1 WHERE public.excluded.id = EXCLUDED.id)";
+	static const char expected_sql[] =
+		"INSERT INTO \"Archive\".\"TargetRows\" (id, name) VALUES (1, 'a') "
+		"ON CONFLICT (id) DO UPDATE SET name = "
+		"(SELECT \"Archive\".\"TargetRows\".name) WHERE EXISTS "
+		"(SELECT 1 WHERE \"Archive\".\"TargetRows\".id = EXCLUDED.id)";
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patch_list;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "ON CONFLICT correlated target should parse") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    sql,
+		    "ON CONFLICT correlated target baseline should be exact") != 0 ||
+	    expect_relation_binding_counts(
+		    handle,
+		    0U,
+		    0U,
+		    2U,
+		    0U,
+		    "ON CONFLICT collector should bind only correlated target qualifiers") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = "stmt[0].relation[0]";
+	patch.sql = "\"Archive\".\"TargetRows\"";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "ON CONFLICT correlated target patch should succeed") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    expected_sql,
+		    "ON CONFLICT patch should preserve EXCLUDED and rewrite correlated qualifiers") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_relation_patch_repeated_qualifier_propagation(void)
+{
+	static const char *const replacements[] = {
+		"\"CaseOne\"",
+		"\"CaseTwo\""
+	};
+	static const char *const expected_sql[] = {
+		"SELECT \"CaseOne\".id FROM \"CaseOne\"",
+		"SELECT \"CaseTwo\".id FROM \"CaseTwo\""
+	};
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patch_list;
+	size_t index;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse("SELECT \"users\".id FROM users", &handle, &error);
+	if (expect_status_ok(rc, &error, "repeated relation patch baseline should parse") != 0) {
+		return 1;
+	}
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = "stmt[0].relation[0]";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	for (index = 0U; index < sizeof(replacements) / sizeof(replacements[0]); index++) {
+		patch.sql = replacements[index];
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		if (expect_status_ok(rc, &error, "repeated relation patch should succeed") != 0 ||
+		    expect_true(
+			    handle->generation == (unsigned long)(index + 1U),
+			    "each repeated relation patch should commit exactly once") != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    expected_sql[index],
+			    "repeated relation patch should update the current qualifier spelling") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_relation_binding_collector_single_pass(void)
+{
+	static const char sql[] =
+		"SELECT 1 FROM public.users WHERE public.users.id = 1 "
+		"AND public.users.status = 2";
+	static const char expected_sql[] =
+		"SELECT 1 FROM archive.users_new WHERE archive.users_new.id = 1 "
+		"AND archive.users_new.status = 2";
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patch_list;
+	char *view_before;
+	char *view_after;
+	int rc;
+
+	handle = NULL;
+	view_before = NULL;
+	view_after = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "relation collector single-pass baseline should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_export_view_json(handle, 0, &view_before, &error),
+		    &error,
+		    "relation collector baseline View should export") != 0 ||
+	    expect_relation_binding_counts(
+		    handle,
+		    0U,
+		    0U,
+		    2U,
+		    0U,
+		    "relation collector should visit each predicate ColumnRef once") != 0 ||
+	    expect_status_ok(
+		    sqlparser_export_view_json(handle, 0, &view_after, &error),
+		    &error,
+		    "relation collector post-collection View should export") != 0 ||
+	    expect_true(
+		    view_before != NULL && view_after != NULL &&
+			    strcmp(view_before, view_after) == 0,
+		    "relation collection must not alter the public View") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    sql,
+		    "relation collection must not alter source SQL") != 0) {
+		sqlparser_string_free(view_before);
+		sqlparser_string_free(view_after);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(view_before);
+	sqlparser_string_free(view_after);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = "stmt[0].relation[0]";
+	patch.sql = "archive.users_new";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "relation collector single-pass patch should succeed") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    expected_sql,
+		    "single-pass collected qualifiers should patch exactly") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_relation_binding_expression_containers(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *expected_sql;
+		size_t column_count;
+		size_t graph_relation_count;
+		size_t graph_field_count;
+		const char *message;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT users.arr[users.idx] FROM users",
+			"SELECT users_new.arr[users_new.idx] FROM archive.users_new",
+			2U,
+			1U,
+			2U,
+			"relation binding should traverse array base and subscript expressions"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT f(p := users.id) FROM users",
+			"SELECT f(p := users_new.id) FROM archive.users_new",
+			1U,
+			1U,
+			1U,
+			"relation binding should traverse named function arguments"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT GROUPING(users.id) FROM users GROUP BY users.id",
+			"SELECT GROUPING(users_new.id) FROM archive.users_new "
+			"GROUP BY users_new.id",
+			2U,
+			1U,
+			2U,
+			"relation binding should traverse GROUPING arguments"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT 1 FROM users GROUP BY ROLLUP (users.id)",
+			"SELECT 1 FROM archive.users_new GROUP BY ROLLUP (users_new.id)",
+			1U,
+			1U,
+			1U,
+			"relation binding should traverse grouping-set contents"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"UPDATE users SET (a, b) = ROW(users.x, users.y)",
+			"UPDATE archive.users_new SET (a, b) = "
+			"ROW(users_new.x, users_new.y)",
+			2U,
+			1U,
+			4U,
+			"relation binding should traverse a shared multi-assignment source once"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT xmlforest(users.id AS id) FROM users",
+			"SELECT xmlforest(users_new.id AS id) FROM archive.users_new",
+			1U,
+			1U,
+			1U,
+			"relation binding should traverse XML expression arguments"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT 1 FROM users, LATERAL "
+			"generate_series(users.start_id, users.end_id) AS g(n)",
+			"SELECT 1 FROM archive.users_new, LATERAL "
+			"generate_series(users_new.start_id, users_new.end_id) AS g(n)",
+			2U,
+			1U,
+			2U,
+			"relation binding should traverse lateral range-function arguments"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT users.id FROM users TABLESAMPLE SYSTEM(10)",
+			"SELECT users_new.id FROM archive.users_new "
+			"TABLESAMPLE SYSTEM(10)",
+			1U,
+			1U,
+			1U,
+			"relation binding should traverse sampled base relations"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"UPDATE users SET arr[users.idx] = users.value",
+			"UPDATE archive.users_new SET arr[users_new.idx] = users_new.value",
+			2U,
+			1U,
+			3U,
+			"relation binding should traverse assignment-target subscripts"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT count(users.*) FROM users",
+			"SELECT count(users_new.*) FROM archive.users_new",
+			1U,
+			1U,
+			0U,
+			"relation binding should traverse nested qualified stars"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"SELECT users.ROWID FROM users",
+			"SELECT users_new.ROWID FROM archive.users_new",
+			1U,
+			1U,
+			0U,
+			"relation binding should traverse a direct qualified ROWID"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"SELECT COALESCE(users.ROWID, users.id) FROM users",
+			"SELECT COALESCE(users_new.ROWID, users_new.id) "
+			"FROM archive.users_new",
+			2U,
+			1U,
+			1U,
+			"relation binding should traverse a nested qualified ROWID"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT JSON_VALUE('{}'::jsonb , '$x' PASSING users.id  AS x) "
+			"FROM users",
+			"SELECT JSON_VALUE('{}'::jsonb , '$x' PASSING users_new.id  AS x) "
+			"FROM archive.users_new",
+			1U,
+			1U,
+			1U,
+			"relation binding should traverse SQL/JSON PASSING arguments"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT JSON_VALUE('{}'::jsonb , '$.x' DEFAULT users.fallback "
+			"ON EMPTY) FROM users",
+			"SELECT JSON_VALUE('{}'::jsonb , '$.x' DEFAULT users_new.fallback "
+			"ON EMPTY) FROM archive.users_new",
+			1U,
+			1U,
+			1U,
+			"relation binding should traverse SQL/JSON behavior expressions"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT JSON_ARRAYAGG(1 ORDER BY users.id) FROM users",
+			"SELECT JSON_ARRAYAGG(1 ORDER BY users_new.id) "
+			"FROM archive.users_new",
+			1U,
+			1U,
+			1U,
+			"relation binding should traverse SQL/JSON aggregate ordering"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT JSON_OBJECTAGG('k': 1) FILTER (WHERE users.keep) "
+			"FROM users",
+			"SELECT JSON_OBJECTAGG('k': 1) FILTER (WHERE users_new.keep) "
+			"FROM archive.users_new",
+			1U,
+			1U,
+			1U,
+			"relation binding should traverse SQL/JSON aggregate filters"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT JSON_ARRAYAGG(1) OVER (PARTITION BY users.grp) FROM users",
+			"SELECT JSON_ARRAYAGG(1) OVER (PARTITION BY users_new.grp) "
+			"FROM archive.users_new",
+			1U,
+			1U,
+			1U,
+			"relation binding should traverse SQL/JSON aggregate windows"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT JSON(users.payload ) FROM users",
+			"SELECT JSON(users_new.payload ) FROM archive.users_new",
+			1U,
+			1U,
+			1U,
+			"relation binding should traverse JSON parse expressions"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT JSON_SCALAR(users.id) FROM users",
+			"SELECT JSON_SCALAR(users_new.id) FROM archive.users_new",
+			1U,
+			1U,
+			1U,
+			"relation binding should traverse JSON scalar expressions"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT JSON_SERIALIZE(users.payload RETURNING text ) FROM users",
+			"SELECT JSON_SERIALIZE(users_new.payload RETURNING text ) "
+			"FROM archive.users_new",
+			1U,
+			1U,
+			1U,
+			"relation binding should traverse JSON serialize expressions"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT users.payload IS JSON FROM users",
+			"SELECT users_new.payload IS JSON FROM archive.users_new",
+			1U,
+			1U,
+			1U,
+			"relation binding should traverse JSON predicates"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT JSON_ARRAY(SELECT items.id FROM items)",
+			"SELECT JSON_ARRAY(SELECT users_new.id FROM archive.users_new)",
+			1U,
+			1U,
+			1U,
+			"relation binding should traverse JSON array subqueries"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT 1 FROM docs, JSON_TABLE(docs.payload , '$' "
+			"COLUMNS (v int PATH '$')) AS jt",
+			"SELECT 1 FROM archive.users_new, JSON_TABLE(users_new.payload , '$' "
+			"COLUMNS (v int PATH '$')) AS jt",
+			1U,
+			1U,
+			1U,
+			"relation binding should traverse JSON_TABLE inputs"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT xmlserialize(content docs.payload AS text) FROM docs",
+			"SELECT xmlserialize(content users_new.payload AS text) "
+			"FROM archive.users_new",
+			1U,
+			1U,
+			1U,
+			"relation binding should traverse XML serialize expressions"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT 1 FROM docs, xmltable(('$') PASSING docs.payload "
+			"COLUMNS v text PATH '$') AS xt",
+			"SELECT 1 FROM archive.users_new, xmltable((('$')) PASSING "
+			"users_new.payload COLUMNS v text PATH '$') AS xt",
+			1U,
+			1U,
+			1U,
+			"relation binding should traverse XMLTABLE inputs"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT 1 FROM users, LATERAL (VALUES (users.id)) v(id)",
+			"SELECT 1 FROM archive.users_new, LATERAL "
+			"(VALUES (users_new.id)) v(id)",
+			1U,
+			2U,
+			1U,
+			"relation binding should traverse lateral VALUES expressions"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT 1 LIMIT (SELECT limits.n FROM limits)",
+			"SELECT 1 LIMIT (SELECT users_new.n FROM archive.users_new)",
+			1U,
+			1U,
+			1U,
+			"relation binding should traverse LIMIT expressions"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT 1 OFFSET (SELECT offsets.n FROM offsets)",
+			"SELECT 1 OFFSET (SELECT users_new.n FROM archive.users_new)",
+			1U,
+			1U,
+			1U,
+			"relation binding should traverse OFFSET expressions"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT 1 UNION ALL SELECT 2 LIMIT "
+			"(SELECT limits.n FROM limits)",
+			"SELECT 1 UNION ALL SELECT 2 LIMIT "
+			"(SELECT users_new.n FROM archive.users_new)",
+			1U,
+			1U,
+			1U,
+			"relation binding should traverse set-query LIMIT expressions"
+		}
+	};
+	size_t index;
+
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		sqlparser_handle_t *handle;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_parse_options_t options;
+		sqlparser_patch_t patch;
+		sqlparser_patch_list_t patch_list;
+		sqlparser_error_t error;
+		int rc;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[index].dialect;
+		rc = sqlparser_parse_with_options(
+			cases[index].sql,
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, cases[index].message) != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    cases[index].sql,
+			    cases[index].message) != 0 ||
+		    expect_status_ok(
+			    sqlparser_statement_query_graph(
+				    handle,
+				    0U,
+				    &graph,
+				    &error),
+			    &error,
+			    cases[index].message) != 0 ||
+		    expect_true(
+			    graph.relation_count == cases[index].graph_relation_count &&
+				    graph.field_count == cases[index].graph_field_count,
+			    cases[index].message) != 0 ||
+		    expect_relation_binding_counts(
+			    handle,
+			    0U,
+			    0U,
+			    cases[index].column_count,
+			    0U,
+			    cases[index].message) != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_REPLACE;
+		patch.selector = "stmt[0].relation[0]";
+		patch.sql = "archive.users_new";
+		patch_list.items = &patch;
+		patch_list.count = 1U;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		if (expect_status_ok(rc, &error, cases[index].message) != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    cases[index].expected_sql,
+			    cases[index].message) != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	return 0;
+}
+
+static int test_relation_binding_dml_ctes(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *selector;
+		const char *expected_sql;
+		size_t relation_index;
+		size_t column_count;
+		size_t relation_count;
+		size_t field_count;
+		const char *message;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"WITH src AS (SELECT items.id FROM items) "
+			"INSERT INTO dst (id) SELECT src.id FROM src",
+			"stmt[0].relation[2]",
+			"WITH src AS (SELECT users_new.id FROM archive.users_new) "
+			"INSERT INTO dst (id) SELECT src.id FROM src",
+			2U,
+			1U,
+			3U,
+			2U,
+			"relation binding should traverse a referenced INSERT CTE"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"WITH unused AS (SELECT items.id FROM items) "
+			"INSERT INTO dst (id) VALUES (1)",
+			"stmt[0].relation[1]",
+			"WITH unused AS (SELECT users_new.id FROM archive.users_new) "
+			"INSERT INTO dst (id) VALUES (1)",
+			1U,
+			1U,
+			2U,
+			1U,
+			"relation binding should traverse an unreferenced INSERT CTE"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"WITH dst AS (SELECT items.id FROM items) "
+			"UPDATE dst SET value = 1",
+			"stmt[0].relation[1]",
+			"WITH dst AS (SELECT users_new.id FROM archive.users_new) "
+			"UPDATE dst SET value = 1",
+			1U,
+			1U,
+			2U,
+			2U,
+			"PostgreSQL UPDATE target should not bind to a same-named CTE"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"WITH unused AS (SELECT items.id FROM items) "
+			"DELETE FROM dst WHERE dst.id > 0",
+			"stmt[0].relation[1]",
+			"WITH unused AS (SELECT users_new.id FROM archive.users_new) "
+			"DELETE FROM dst WHERE dst.id > 0",
+			1U,
+			1U,
+			2U,
+			2U,
+			"relation binding should traverse an unreferenced DELETE CTE"
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"WITH unused AS (SELECT items.id FROM items) MERGE INTO dst "
+			"USING src ON dst.id = src.id WHEN MATCHED THEN UPDATE SET "
+			"value = src.value",
+			"stmt[0].relation[2]",
+			"WITH unused AS (SELECT users_new.id FROM archive.users_new) "
+			"MERGE INTO dst USING src ON dst.id = src.id WHEN MATCHED THEN "
+			"UPDATE SET value = src.value",
+			2U,
+			1U,
+			3U,
+			5U,
+			"relation binding should traverse an unreferenced MERGE CTE"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"WITH cte AS (SELECT items.id, items.v FROM items) "
+			"UPDATE cte SET v = 1 WHERE id = 2",
+			"stmt[0].relation[1]",
+			"WITH cte AS (SELECT users_new.id, users_new.v "
+			"FROM archive.users_new) UPDATE cte SET v = 1 WHERE id = 2",
+			1U,
+			2U,
+			2U,
+			4U,
+			"SQL Server UPDATE target should retain its CTE source"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"WITH cte AS (SELECT items.id FROM items) "
+			"DELETE FROM cte WHERE id = 2",
+			"stmt[0].relation[1]",
+			"WITH cte AS (SELECT users_new.id FROM archive.users_new) "
+			"DELETE FROM cte WHERE id = 2",
+			1U,
+			1U,
+			2U,
+			2U,
+			"SQL Server DELETE target should retain its CTE source"
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"WITH cte AS (SELECT items.id, items.v FROM items) "
+			"MERGE INTO cte AS t USING (SELECT 1 AS id, 2 AS v) AS s "
+			"ON t.id = s.id WHEN MATCHED THEN UPDATE SET v = s.v;",
+			NULL,
+			NULL,
+			1U,
+			2U,
+			3U,
+			6U,
+			"SQL Server MERGE target should retain its CTE source"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"WITH cte AS (SELECT items.id, items.v FROM items) "
+			"MERGE INTO cte AS t USING (SELECT 1 AS id, 2 AS v) AS s "
+			"ON t.id = s.id WHEN MATCHED THEN UPDATE SET v = s.v;",
+			NULL,
+			NULL,
+			1U,
+			2U,
+			3U,
+			6U,
+			"Vastbase-SQL Server MERGE target should retain its CTE source"
+		}
+	};
+	size_t index;
+
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		sqlparser_parse_options_t options;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_patch_t patch;
+		sqlparser_patch_list_t patch_list;
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		int rc;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[index].dialect;
+		rc = sqlparser_parse_with_options(
+			cases[index].sql,
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, cases[index].message) != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    cases[index].sql,
+			    cases[index].message) != 0 ||
+		    expect_status_ok(
+			    sqlparser_statement_query_graph(
+				    handle,
+				    0U,
+				    &graph,
+				    &error),
+			    &error,
+			    cases[index].message) != 0 ||
+		    expect_true(
+			    graph.relation_count == cases[index].relation_count &&
+				    graph.field_count == cases[index].field_count,
+			    cases[index].message) != 0 ||
+		    expect_relation_binding_counts(
+			    handle,
+			    0U,
+			    cases[index].relation_index,
+			    cases[index].column_count,
+			    0U,
+			    cases[index].message) != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (cases[index].dialect == SQLPARSER_DIALECT_SQLSERVER ||
+		    cases[index].dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER) {
+			sqlparser_graph_relation_t target_relation;
+
+			if (expect_status_ok(
+				    sqlparser_query_graph_relation_at(
+					    &graph,
+					    0U,
+					    &target_relation,
+					    &error),
+				    &error,
+				    cases[index].message) != 0 ||
+			    expect_true(
+				    target_relation.kind == SQLPARSER_GRAPH_REL_CTE &&
+					    target_relation.has_source_block != 0,
+				    cases[index].message) != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		} else {
+			sqlparser_graph_relation_t target_relation;
+
+			if (expect_status_ok(
+				    sqlparser_query_graph_relation_at(
+					    &graph,
+					    0U,
+					    &target_relation,
+					    &error),
+				    &error,
+				    cases[index].message) != 0 ||
+			    expect_true(
+				    target_relation.kind == SQLPARSER_GRAPH_REL_BASE &&
+					    target_relation.has_source_block == 0,
+				    cases[index].message) != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		}
+		if (cases[index].selector == NULL) {
+			sqlparser_handle_destroy(handle);
+			continue;
+		}
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_REPLACE;
+		patch.selector = cases[index].selector;
+		patch.sql = "archive.users_new";
+		patch_list.items = &patch;
+		patch_list.count = 1U;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		if (expect_status_ok(rc, &error, cases[index].message) != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    cases[index].expected_sql,
+			    cases[index].message) != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	return 0;
+}
+
+static int test_sqlserver_delete_relation_setter_parity(void)
+{
+	static const char sql[] =
+		"DELETE [T] OUTPUT DELETED.id FROM dbo.t AS [t] "
+		"JOIN dbo.s AS s ON [t].id = s.id";
+	static const char expected_sql[] =
+		"DELETE [T] OUTPUT DELETED.id FROM archive.t2 AS [t] "
+		"JOIN dbo.s AS s ON [t].id = s.id";
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_SQLSERVER,
+		SQLPARSER_DIALECT_VASTBASE_SQLSERVER
+	};
+	sqlparser_parse_options_t options;
+	size_t dialect_index;
+	size_t mutation_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		for (mutation_index = 0U; mutation_index < 4U; mutation_index++) {
+			sqlparser_handle_t *handle;
+			sqlparser_query_graph_view_t graph;
+			sqlparser_relation_view_t relation;
+			sqlparser_selector_t selector;
+			sqlparser_patch_t patch;
+			sqlparser_patch_list_t patch_list;
+			sqlparser_error_t error;
+			size_t relation_count;
+			int rc;
+
+			handle = NULL;
+			relation_count = 0U;
+			memset(&relation, 0, sizeof(relation));
+			memset(&selector, 0, sizeof(selector));
+			memset(&patch, 0, sizeof(patch));
+			memset(&error, 0, sizeof(error));
+			sqlparser_parse_options_default(&options);
+			options.dialect = dialects[dialect_index];
+			rc = sqlparser_parse_with_options(
+				sql,
+				&options,
+				&handle,
+				&error);
+			if (expect_status_ok(
+				    rc,
+				    &error,
+				    "DELETE duplicate case baseline should parse") != 0 ||
+			    expect_status_ok(
+				    sqlparser_statement_relation_count(
+					    handle,
+					    0U,
+					    &relation_count,
+					    &error),
+				    &error,
+				    "DELETE duplicate raw relation count should succeed") != 0 ||
+			    expect_true(
+				    relation_count == 3U,
+				    "DELETE should expose primary, duplicate, and joined RangeVars") != 0 ||
+			    expect_status_ok(
+				    sqlparser_statement_query_graph(
+					    handle,
+					    0U,
+					    &graph,
+					    &error),
+				    &error,
+				    "DELETE duplicate Query Graph should build") != 0 ||
+			    expect_true(
+				    graph.relation_count == 2U,
+				    "DELETE Query Graph must suppress the duplicate target") != 0 ||
+			    expect_deparse_equals_and_reparse(
+				    handle,
+				    sql,
+				    "DELETE duplicate baseline should deparse exactly") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+
+			switch (mutation_index) {
+				case 0U:
+					rc = sqlparser_statement_set_relation_name(
+						handle,
+						0U,
+						0U,
+						"archive",
+						"t2",
+						&error);
+					break;
+				case 1U:
+					rc = sqlparser_selector_parse(
+						"stmt[0].relation[1]",
+						&selector,
+						&error);
+					if (rc == SQLPARSER_STATUS_OK) {
+						rc = sqlparser_selector_set_relation_name(
+							handle,
+							&selector,
+							"archive",
+							"t2",
+							&error);
+					}
+					break;
+				case 2U:
+				case 3U:
+					patch.op = SQLPARSER_PATCH_REPLACE;
+					patch.selector = mutation_index == 2U ?
+						"stmt[0].relation[0]" :
+						"stmt[0].relation[1]";
+					patch.sql = "archive.t2";
+					patch_list.items = &patch;
+					patch_list.count = 1U;
+					rc = sqlparser_apply_patch(
+						handle,
+						&patch_list,
+						&error);
+					break;
+				default:
+					rc = SQLPARSER_STATUS_INTERNAL_ERROR;
+					break;
+			}
+			if (expect_status_ok(
+				    rc,
+				    &error,
+				    "DELETE duplicate relation mutation should succeed") != 0 ||
+			    expect_true(
+				    handle->generation == 1UL,
+				    "DELETE duplicate mutation should commit exactly once") != 0 ||
+			    expect_status_ok(
+				    sqlparser_statement_relation(
+					    handle,
+					    0U,
+					    0U,
+					    &relation,
+					    &error),
+				    &error,
+				    "DELETE primary relation should remain readable") != 0 ||
+			    expect_true(
+				    relation.schema_name != NULL &&
+					    strcmp(relation.schema_name, "archive") == 0 &&
+					    relation.table_name != NULL &&
+					    strcmp(relation.table_name, "t2") == 0,
+				    "DELETE primary relation should be renamed") != 0 ||
+			    expect_status_ok(
+				    sqlparser_statement_relation(
+					    handle,
+					    0U,
+					    1U,
+					    &relation,
+					    &error),
+				    &error,
+				    "DELETE duplicate relation should remain readable") != 0 ||
+			    expect_true(
+				    relation.schema_name != NULL &&
+					    strcmp(relation.schema_name, "archive") == 0 &&
+					    relation.table_name != NULL &&
+					    strcmp(relation.table_name, "t2") == 0,
+				    "DELETE duplicate relation should be renamed") != 0 ||
+			    expect_status_ok(
+				    sqlparser_statement_relation(
+					    handle,
+					    0U,
+					    2U,
+					    &relation,
+					    &error),
+				    &error,
+				    "DELETE joined source should remain readable") != 0 ||
+			    expect_true(
+				    relation.schema_name != NULL &&
+					    strcmp(relation.schema_name, "dbo") == 0 &&
+					    relation.table_name != NULL &&
+					    strcmp(relation.table_name, "s") == 0,
+				    "DELETE joined source must remain unchanged") != 0 ||
+			    expect_status_ok(
+				    sqlparser_statement_query_graph(
+					    handle,
+					    0U,
+					    &graph,
+					    &error),
+				    &error,
+				    "patched DELETE Query Graph should build") != 0 ||
+			    expect_true(
+				    graph.relation_count == 2U,
+				    "patched DELETE Query Graph must suppress the duplicate target") != 0 ||
+			    expect_deparse_equals_and_reparse(
+				    handle,
+				    expected_sql,
+				    "DELETE duplicate relation mutation should deparse exactly") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			sqlparser_handle_destroy(handle);
+		}
+	}
+	return 0;
+}
+
+static int test_query_graph_same_scope_path_ambiguity(void)
+{
+	static const char sql[] =
+		"SELECT public.users.id, public.users.* FROM public.users "
+		"CROSS JOIN public.users";
+	static const char expected_sql[] =
+		"SELECT public.users.id, public.users.* FROM archive.users_a "
+		"CROSS JOIN public.users";
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_field_t field;
+	sqlparser_graph_target_t target;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patch_list;
+	sqlparser_error_t error;
+	size_t candidate_index;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "same-scope qualified ambiguity should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "same-scope qualified ambiguity graph should build") != 0 ||
+	    expect_true(
+		    graph.relation_count == 2U && graph.field_count == 1U &&
+			    graph.target_count == 2U,
+		    "same-scope qualified ambiguity graph counts should be exact") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_field_at(&graph, 0U, &field, &error),
+		    &error,
+		    "ambiguous qualified field should be readable") != 0 ||
+	    expect_true(
+		    field.column_name != NULL && strcmp(field.column_name, "id") == 0 &&
+			    field.has_relation == 0 &&
+			    field.candidate_relations.count == 2U,
+		    "qualified field must expose both same-scope candidates") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    &graph,
+			    field.candidate_relations,
+			    0U,
+			    &candidate_index,
+			    &error),
+		    &error,
+		    "first qualified field candidate should be readable") != 0 ||
+	    expect_true(
+		    candidate_index == 0U,
+		    "first qualified field candidate should be relation 0") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    &graph,
+			    field.candidate_relations,
+			    1U,
+			    &candidate_index,
+			    &error),
+		    &error,
+		    "second qualified field candidate should be readable") != 0 ||
+	    expect_true(
+		    candidate_index == 1U,
+		    "second qualified field candidate should be relation 1") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_target_at(&graph, 1U, &target, &error),
+		    &error,
+		    "ambiguous qualified star target should be readable") != 0 ||
+	    expect_true(
+		    target.kind == SQLPARSER_GRAPH_TARGET_QUALIFIED_STAR &&
+			    target.star_relations.count == 2U &&
+			    target.has_source_block == 0,
+		    "qualified star must expose both candidates without one source block") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    &graph,
+			    target.star_relations,
+			    0U,
+			    &candidate_index,
+			    &error),
+		    &error,
+		    "first qualified star candidate should be readable") != 0 ||
+	    expect_true(
+		    candidate_index == 0U,
+		    "first qualified star candidate should be relation 0") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    &graph,
+			    target.star_relations,
+			    1U,
+			    &candidate_index,
+			    &error),
+		    &error,
+		    "second qualified star candidate should be readable") != 0 ||
+	    expect_true(
+		    candidate_index == 1U,
+		    "second qualified star candidate should be relation 1") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    sql,
+		    "same-scope qualified ambiguity baseline should deparse exactly") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = "stmt[0].relation[0]";
+	patch.sql = "archive.users_a";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "same-scope qualified ambiguity patch should succeed") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    expected_sql,
+		    "ambiguous qualifiers must remain unchanged after relation patch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "patched ambiguity graph should rebuild") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_field_at(&graph, 0U, &field, &error),
+		    &error,
+		    "patched formerly ambiguous field should be readable") != 0 ||
+	    expect_true(
+		    field.has_relation != 0 && field.relation_index == 1U &&
+			    field.candidate_relations.count == 0U,
+		    "patched qualifier should uniquely bind the remaining public relation") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_target_at(&graph, 1U, &target, &error),
+		    &error,
+		    "patched qualified star should be readable") != 0 ||
+	    expect_true(
+		    target.star_relations.count == 1U,
+		    "patched qualified star should have one remaining public relation") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    &graph,
+			    target.star_relations,
+			    0U,
+			    &candidate_index,
+			    &error),
+		    &error,
+		    "patched qualified star relation should be readable") != 0 ||
+	    expect_true(
+		    candidate_index == 1U,
+		    "patched qualified star should bind relation 1") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_query_graph_qualified_shadowed_correlation(void)
+{
+	static const char sql[] =
+		"SELECT public.users.id FROM public.users WHERE EXISTS "
+		"(SELECT 1 FROM audit_log AS users WHERE users.user_id = public.users.id)";
+	sqlparser_handle_t *handle;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_relation_t relation;
+	sqlparser_graph_field_t field;
+	sqlparser_error_t error;
+	size_t outer_relation_index;
+	size_t inner_relation_index;
+	size_t outer_block_index;
+	size_t inner_block_index;
+	size_t index;
+	int saw_outer_select_id;
+	int saw_inner_user_id;
+	int saw_correlated_outer_id;
+	int rc;
+
+	handle = NULL;
+	outer_relation_index = SIZE_MAX;
+	inner_relation_index = SIZE_MAX;
+	outer_block_index = SIZE_MAX;
+	inner_block_index = SIZE_MAX;
+	saw_outer_select_id = 0;
+	saw_inner_user_id = 0;
+	saw_correlated_outer_id = 0;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(rc, &error, "qualified shadowed correlation should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "qualified shadowed correlation graph should build") != 0 ||
+	    expect_true(
+		    graph.relation_count == 2U,
+		    "qualified shadowed correlation should expose two semantic relations") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	for (index = 0U; index < graph.relation_count; index++) {
+		rc = sqlparser_query_graph_relation_at(&graph, index, &relation, &error);
+		if (expect_status_ok(rc, &error, "shadowed correlation relation should be readable") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (relation.schema_name != NULL && strcmp(relation.schema_name, "public") == 0 &&
+		    relation.object_name != NULL && strcmp(relation.object_name, "users") == 0 &&
+		    relation.alias_name == NULL) {
+			outer_relation_index = index;
+			outer_block_index = relation.block_index;
+		} else if (relation.object_name != NULL && strcmp(relation.object_name, "audit_log") == 0 &&
+			   relation.alias_name != NULL && strcmp(relation.alias_name, "users") == 0) {
+			inner_relation_index = index;
+			inner_block_index = relation.block_index;
+		}
+	}
+	if (expect_true(
+		    outer_relation_index != SIZE_MAX && inner_relation_index != SIZE_MAX &&
+			    outer_block_index != inner_block_index,
+		    "qualified shadowed correlation relation identities should be distinct") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	for (index = 0U; index < graph.field_count; index++) {
+		rc = sqlparser_query_graph_field_at(&graph, index, &field, &error);
+		if (expect_status_ok(rc, &error, "shadowed correlation field should be readable") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (field.has_relation == 0 || field.column_name == NULL) {
+			continue;
+		}
+		if (field.relation_index == outer_relation_index &&
+		    field.block_index == outer_block_index &&
+		    field.clause == SQLPARSER_CLAUSE_KIND_SELECT_LIST &&
+		    strcmp(field.column_name, "id") == 0) {
+			saw_outer_select_id = 1;
+		} else if (field.relation_index == inner_relation_index &&
+			   field.block_index == inner_block_index &&
+			   field.clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+			   strcmp(field.column_name, "user_id") == 0) {
+			saw_inner_user_id = 1;
+		} else if (field.relation_index == outer_relation_index &&
+			   field.block_index == inner_block_index &&
+			   field.clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+			   strcmp(field.column_name, "id") == 0) {
+			saw_correlated_outer_id = 1;
+		}
+	}
+	if (expect_true(
+		    saw_outer_select_id != 0 && saw_inner_user_id != 0 &&
+			    saw_correlated_outer_id != 0,
+		    "qualified outer reference should remain bound across the inner alias shadow") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    sql,
+		    "qualified shadowed correlation SQL should deparse exactly and reparse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_relation_name_setter_qualifier_parity(void)
+{
+	static const char sql[] =
+		"SELECT public.users.id FROM public.users WHERE public.users.id = 1";
+	static const char expected_sql[] =
+		"SELECT archive.users_new.id FROM archive.users_new "
+		"WHERE archive.users_new.id = 1";
+	sqlparser_handle_t *statement_handle;
+	sqlparser_handle_t *selector_handle;
+	sqlparser_selector_t selector;
+	sqlparser_error_t error;
+	unsigned long generation;
+	int rc;
+
+	statement_handle = NULL;
+	selector_handle = NULL;
+	memset(&selector, 0, sizeof(selector));
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse(sql, &statement_handle, &error);
+	if (expect_status_ok(rc, &error, "statement relation setter baseline should parse") != 0) {
+		return 1;
+	}
+	rc = sqlparser_parse(sql, &selector_handle, &error);
+	if (expect_status_ok(rc, &error, "selector relation setter baseline should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_selector_parse("stmt[0].relation[0]", &selector, &error),
+		    &error,
+		    "relation selector should parse") != 0) {
+		sqlparser_handle_destroy(statement_handle);
+		sqlparser_handle_destroy(selector_handle);
+		return 1;
+	}
+
+	rc = sqlparser_statement_set_relation_name(
+		statement_handle,
+		0U,
+		0U,
+		"archive",
+		"users_new",
+		&error);
+	if (expect_status_ok(rc, &error, "statement relation setter should propagate qualifiers") != 0 ||
+	    expect_true(
+		    statement_handle->generation == 1UL,
+		    "statement relation setter should commit exactly once") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    statement_handle,
+		    expected_sql,
+		    "statement relation setter output should be exact and reparsable") != 0) {
+		sqlparser_handle_destroy(statement_handle);
+		sqlparser_handle_destroy(selector_handle);
+		return 1;
+	}
+
+	rc = sqlparser_selector_set_relation_name(
+		selector_handle,
+		&selector,
+		"archive",
+		"users_new",
+		&error);
+	if (expect_status_ok(rc, &error, "selector relation setter should propagate qualifiers") != 0 ||
+	    expect_true(
+		    selector_handle->generation == 1UL,
+		    "selector relation setter should commit exactly once") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    selector_handle,
+		    expected_sql,
+		    "selector relation setter output should match statement setter output") != 0) {
+		sqlparser_handle_destroy(statement_handle);
+		sqlparser_handle_destroy(selector_handle);
+		return 1;
+	}
+
+	generation = statement_handle->generation;
+	rc = sqlparser_statement_set_relation_name(
+		statement_handle,
+		0U,
+		0U,
+		"archive",
+		"users_new",
+		&error);
+	if (expect_status_ok(rc, &error, "statement relation setter no-op should succeed") != 0 ||
+	    expect_true(
+		    statement_handle->generation == generation,
+		    "statement relation setter no-op should not advance generation") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    statement_handle,
+		    expected_sql,
+		    "statement relation setter no-op should preserve exact SQL") != 0) {
+		sqlparser_handle_destroy(statement_handle);
+		sqlparser_handle_destroy(selector_handle);
+		return 1;
+	}
+
+	generation = selector_handle->generation;
+	rc = sqlparser_selector_set_relation_name(
+		selector_handle,
+		&selector,
+		"archive",
+		"users_new",
+		&error);
+	if (expect_status_ok(rc, &error, "selector relation setter no-op should succeed") != 0 ||
+	    expect_true(
+		    selector_handle->generation == generation,
+		    "selector relation setter no-op should not advance generation") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    selector_handle,
+		    expected_sql,
+		    "selector relation setter no-op should preserve exact SQL") != 0) {
+		sqlparser_handle_destroy(statement_handle);
+		sqlparser_handle_destroy(selector_handle);
+		return 1;
+	}
+
+	sqlparser_handle_destroy(statement_handle);
+	sqlparser_handle_destroy(selector_handle);
+	return 0;
+}
+
+static int test_relation_name_setter_commit_failure_atomicity(void)
+{
+	static const char sql[] =
+		"SELECT users.id FROM public.users; "
+		"SELECT audit_log.id FROM audit_log";
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_limits_t saved_limits;
+	sqlparser_identifier_mutation_t *saved_mutations;
+	sqlparser_identifier_spelling_t *saved_spellings;
+	char *before_sql;
+	size_t saved_mutation_count;
+	size_t saved_mutation_capacity;
+	size_t saved_spelling_count;
+	size_t saved_spelling_capacity;
+	size_t saved_spelling_free_group;
+	size_t saved_spelling_build_group;
+	int32_t saved_spelling_last_location;
+	sqlparser_status_t saved_spelling_status;
+	unsigned long generation;
+	int rc;
+
+	handle = NULL;
+	before_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse(sql, &handle, &error);
+	if (expect_status_ok(rc, &error, "relation setter atomicity baseline should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_deparse(handle, &before_sql, &error),
+		    &error,
+		    "relation setter atomicity baseline should deparse") != 0 ||
+	    expect_true(
+		    before_sql != NULL && strcmp(before_sql, sql) == 0,
+		    "relation setter atomicity baseline SQL should be exact") != 0) {
+		sqlparser_string_free(before_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	generation = handle->generation;
+	saved_limits = handle->limits;
+	saved_mutations = handle->identifier_mutations;
+	saved_mutation_count = handle->identifier_mutation_count;
+	saved_mutation_capacity = handle->identifier_mutation_capacity;
+	saved_spellings = handle->identifier_spellings;
+	saved_spelling_count = handle->identifier_spelling_count;
+	saved_spelling_capacity = handle->identifier_spelling_capacity;
+	saved_spelling_free_group = handle->identifier_spelling_free_group;
+	saved_spelling_build_group = handle->identifier_spelling_build_group;
+	saved_spelling_last_location = handle->identifier_spelling_last_location;
+	saved_spelling_status = handle->identifier_spelling_status;
+	handle->limits.max_statement_count = 1U;
+	rc = sqlparser_statement_set_relation_name(
+		handle,
+		0U,
+		0U,
+		"archive",
+		"users_new",
+		&error);
+	handle->limits = saved_limits;
+	if (expect_true(
+		    rc == SQLPARSER_STATUS_RESOURCE_LIMIT,
+		    "relation setter commit should report the forced statement limit") != 0 ||
+	    expect_true(
+		    handle->generation == generation,
+		    "failed relation setter commit should preserve generation") != 0 ||
+	    expect_true(
+		    handle->identifier_mutations == saved_mutations &&
+			    handle->identifier_mutation_count == saved_mutation_count &&
+			    handle->identifier_mutation_capacity == saved_mutation_capacity,
+		    "failed relation setter commit should preserve identifier mutations") != 0 ||
+	    expect_true(
+		    handle->identifier_spellings == saved_spellings &&
+			    handle->identifier_spelling_count == saved_spelling_count &&
+			    handle->identifier_spelling_capacity == saved_spelling_capacity &&
+			    handle->identifier_spelling_free_group == saved_spelling_free_group &&
+			    handle->identifier_spelling_build_group == saved_spelling_build_group &&
+			    handle->identifier_spelling_last_location == saved_spelling_last_location &&
+			    handle->identifier_spelling_status == saved_spelling_status,
+		    "failed relation setter commit should preserve identifier spellings") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    before_sql,
+		    "failed relation setter commit should preserve exact reparsable SQL") != 0) {
+		sqlparser_string_free(before_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(before_sql);
+	sqlparser_handle_destroy(handle);
 	return 0;
 }
 
@@ -17913,6 +30655,514 @@ static int test_query_graph_join_using_reuses_fields(void)
 	return 0;
 }
 
+static int test_mysql_dml_join_predicate_clause_roots(void)
+{
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_MYSQL,
+		SQLPARSER_DIALECT_VASTBASE_MYSQL
+	};
+	static const struct {
+		const char *sql;
+		size_t predicate_count;
+		size_t on_count;
+		size_t where_count;
+		size_t on_bool_count;
+		size_t where_bool_count;
+		int forbid_on_fields;
+	} cases[] = {
+		{
+			"UPDATE users u JOIN orders o ON u.id = o.user_id AND o.state = ? "
+			"SET u.phone = ? WHERE o.active = ? OR o.pending = ?",
+			6U, 3U, 3U, 1U, 1U, 0
+		},
+		{
+			"DELETE u FROM users u LEFT JOIN orders o ON u.id = o.user_id "
+			"WHERE u.active = ? AND o.status = ? AND o.region = ?",
+			5U, 1U, 4U, 0U, 1U, 0
+		},
+		{
+			"UPDATE users u JOIN orders o ON u.id = o.user_id "
+			"SET u.phone = ? WHERE o.shipping_phone = ?",
+			2U, 1U, 1U, 0U, 0U, 0
+		},
+		{
+			"DELETE o FROM users u RIGHT JOIN orders o "
+			"ON u.id = o.user_id AND o.archived = ?",
+			3U, 3U, 0U, 1U, 0U, 0
+		},
+		{
+			"UPDATE users SET status = ? "
+			"WHERE sqlparser_mysql_join_on(users.id) = ?",
+			1U, 0U, 1U, 0U, 0U, 1
+		}
+	};
+	size_t dialect_index;
+	size_t case_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		for (case_index = 0U;
+		     case_index < sizeof(cases) / sizeof(cases[0]);
+		     case_index++) {
+			sqlparser_parse_options_t options;
+			sqlparser_query_graph_view_t graph;
+			sqlparser_error_t error;
+			sqlparser_handle_t *handle;
+			char *deparsed;
+			sqlparser_graph_dml_assignment_t assignment;
+			sqlparser_graph_value_t on_value;
+			sqlparser_graph_value_t where_value_a;
+			sqlparser_graph_value_t where_value_b;
+			size_t on_count;
+			size_t where_count;
+			size_t on_bool_count;
+			size_t where_bool_count;
+			size_t predicate_index;
+			int saw_where_predicate;
+			int rc;
+
+			handle = NULL;
+			deparsed = NULL;
+			on_count = 0U;
+			where_count = 0U;
+			on_bool_count = 0U;
+			where_bool_count = 0U;
+			saw_where_predicate = 0;
+			memset(&error, 0, sizeof(error));
+			memset(&assignment, 0, sizeof(assignment));
+			memset(&on_value, 0, sizeof(on_value));
+			memset(&where_value_a, 0, sizeof(where_value_a));
+			memset(&where_value_b, 0, sizeof(where_value_b));
+			sqlparser_parse_options_default(&options);
+			options.dialect = dialects[dialect_index];
+			rc = sqlparser_parse_with_options(
+				cases[case_index].sql,
+				&options,
+				&handle,
+				&error);
+			if (expect_status_ok(
+				    rc,
+				    &error,
+				    "MySQL DML JOIN predicate parse should succeed") != 0) {
+				return 1;
+			}
+			rc = sqlparser_statement_query_graph(
+				handle,
+				0U,
+				&graph,
+				&error);
+			if (expect_status_ok(
+				    rc,
+				    &error,
+				    "MySQL DML JOIN graph should be available") != 0 ||
+			    expect_true(
+				    graph.predicate_count == cases[case_index].predicate_count,
+				    "MySQL DML JOIN predicate count mismatch") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			if (case_index == 0U &&
+			    (expect_status_ok(
+				     sqlparser_query_graph_dml_assignment_at(
+					     &graph,
+					     0U,
+					     &assignment,
+					     &error),
+				     &error,
+				     "MySQL DML JOIN assignment should be available") != 0 ||
+			     expect_status_ok(
+				     sqlparser_query_graph_value_at(
+					     &graph,
+					     1U,
+					     &on_value,
+					     &error),
+				     &error,
+				     "MySQL DML JOIN ON bind should be available") != 0 ||
+			     expect_status_ok(
+				     sqlparser_query_graph_value_at(
+					     &graph,
+					     2U,
+					     &where_value_a,
+					     &error),
+				     &error,
+				     "MySQL DML JOIN first WHERE bind should be available") != 0 ||
+			     expect_status_ok(
+				     sqlparser_query_graph_value_at(
+					     &graph,
+					     3U,
+					     &where_value_b,
+					     &error),
+				     &error,
+				     "MySQL DML JOIN second WHERE bind should be available") != 0 ||
+			     expect_true(
+				     on_value.has_bind_position != 0 &&
+					     on_value.bind_position == 1U &&
+				     assignment.has_bind_position != 0 &&
+					     assignment.bind_position == 2U &&
+				     where_value_a.has_bind_position != 0 &&
+					     where_value_a.bind_position == 3U &&
+				     where_value_b.has_bind_position != 0 &&
+					     where_value_b.bind_position == 4U,
+				     "MySQL DML JOIN bind positions must follow public SQL order") != 0)) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			for (predicate_index = 0U;
+			     predicate_index < graph.predicate_count;
+			     predicate_index++) {
+				sqlparser_graph_predicate_t predicate;
+
+				rc = sqlparser_query_graph_predicate_at(
+					&graph,
+					predicate_index,
+					&predicate,
+					&error);
+				if (expect_status_ok(
+					    rc,
+					    &error,
+					    "MySQL DML JOIN predicate should be available") != 0) {
+					sqlparser_handle_destroy(handle);
+					return 1;
+				}
+				if (predicate.clause == SQLPARSER_CLAUSE_KIND_ON) {
+					if (expect_true(
+						    !saw_where_predicate,
+						    "MySQL DML JOIN ON predicates must precede WHERE predicates") != 0) {
+						sqlparser_handle_destroy(handle);
+						return 1;
+					}
+					on_count++;
+					if (predicate.kind == SQLPARSER_GRAPH_PREDICATE_BOOL) {
+						on_bool_count++;
+					}
+				} else if (predicate.clause == SQLPARSER_CLAUSE_KIND_WHERE) {
+					saw_where_predicate = 1;
+					where_count++;
+					if (predicate.kind == SQLPARSER_GRAPH_PREDICATE_BOOL) {
+						where_bool_count++;
+					}
+				}
+				if (case_index == 4U &&
+				    expect_true(
+					    predicate.clause == SQLPARSER_CLAUSE_KIND_WHERE &&
+						    predicate.kind == SQLPARSER_GRAPH_PREDICATE_EXPRESSION &&
+						    predicate.operator_name != NULL &&
+						    strcmp(predicate.operator_name, "=") == 0,
+					    "user function named like wrapper must remain a WHERE expression predicate") != 0) {
+					sqlparser_handle_destroy(handle);
+					return 1;
+				}
+				if (predicate.kind == SQLPARSER_GRAPH_PREDICATE_BOOL) {
+					size_t child_ordinal;
+					size_t expected_child_count;
+					size_t expected_index;
+					sqlparser_graph_predicate_bool_t expected_bool;
+
+					expected_child_count = 0U;
+					expected_index = SIZE_MAX;
+					expected_bool = SQLPARSER_GRAPH_PREDICATE_BOOL_NONE;
+					if (case_index == 0U &&
+					    predicate.clause == SQLPARSER_CLAUSE_KIND_ON) {
+						expected_index = 0U;
+						expected_child_count = 2U;
+						expected_bool = SQLPARSER_GRAPH_PREDICATE_BOOL_AND;
+					} else if (case_index == 0U &&
+						   predicate.clause == SQLPARSER_CLAUSE_KIND_WHERE) {
+						expected_index = 3U;
+						expected_child_count = 2U;
+						expected_bool = SQLPARSER_GRAPH_PREDICATE_BOOL_OR;
+					} else if (case_index == 1U) {
+						expected_index = 1U;
+						expected_child_count = 3U;
+						expected_bool = SQLPARSER_GRAPH_PREDICATE_BOOL_AND;
+					} else if (case_index == 3U) {
+						expected_index = 0U;
+						expected_child_count = 2U;
+						expected_bool = SQLPARSER_GRAPH_PREDICATE_BOOL_AND;
+					}
+					if (expect_true(
+						    predicate_index == expected_index &&
+						    predicate.bool_operator == expected_bool &&
+						    predicate.children.count == expected_child_count,
+						    "MySQL DML JOIN bool root topology mismatch") != 0) {
+						sqlparser_handle_destroy(handle);
+						return 1;
+					}
+
+					for (child_ordinal = 0U;
+					     child_ordinal < predicate.children.count;
+					     child_ordinal++) {
+						sqlparser_graph_predicate_t child;
+						size_t child_index;
+
+						rc = sqlparser_query_graph_span_index_at(
+							&graph,
+							predicate.children,
+							child_ordinal,
+							&child_index,
+							&error);
+						if (expect_status_ok(
+							    rc,
+							    &error,
+							    "MySQL DML JOIN child index should be available") != 0 ||
+						    expect_status_ok(
+							    sqlparser_query_graph_predicate_at(
+								    &graph,
+								    child_index,
+								    &child,
+								    &error),
+							    &error,
+							    "MySQL DML JOIN child predicate should be available") != 0 ||
+						    expect_true(
+							    child.clause == predicate.clause,
+							    "MySQL DML JOIN bool root must not cross clauses") != 0 ||
+						    expect_true(
+							    child_index == predicate_index + child_ordinal + 1U,
+							    "MySQL DML JOIN bool child index mismatch") != 0) {
+							sqlparser_handle_destroy(handle);
+							return 1;
+						}
+					}
+				}
+			}
+			if (cases[case_index].forbid_on_fields) {
+				size_t field_index;
+
+				for (field_index = 0U;
+				     field_index < graph.field_count;
+				     field_index++) {
+					sqlparser_graph_field_t field;
+
+					rc = sqlparser_query_graph_field_at(
+						&graph,
+						field_index,
+						&field,
+						&error);
+					if (expect_status_ok(
+						    rc,
+						    &error,
+						    "user function field should be available") != 0 ||
+					    expect_true(
+						    field.clause != SQLPARSER_CLAUSE_KIND_ON,
+						    "user function named like wrapper must remain in WHERE") != 0) {
+						sqlparser_handle_destroy(handle);
+						return 1;
+					}
+				}
+			}
+			if (expect_true(
+				    on_count == cases[case_index].on_count &&
+				    where_count == cases[case_index].where_count &&
+				    on_bool_count == cases[case_index].on_bool_count &&
+				    where_bool_count == cases[case_index].where_bool_count,
+				    "MySQL DML JOIN clause predicate shape mismatch") != 0 ||
+			    expect_status_ok(
+				    sqlparser_deparse(handle, &deparsed, &error),
+				    &error,
+				    "MySQL DML JOIN deparse should succeed") != 0 ||
+			    expect_true(
+				    deparsed != NULL &&
+				    strcmp(deparsed, cases[case_index].sql) == 0,
+				    "MySQL DML JOIN generation-0 deparse must be exact") != 0) {
+				sqlparser_string_free(deparsed);
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			sqlparser_string_free(deparsed);
+			deparsed = NULL;
+			if (case_index == 0U) {
+				sqlparser_patch_t patch;
+				sqlparser_patch_list_t patch_list;
+				const char *on_sql;
+				const char *set_sql;
+				const char *where_sql;
+
+				memset(&patch, 0, sizeof(patch));
+				patch.op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+				patch.selector = "stmt[0].assignment[0]";
+				patch.sql = "u.phone = 7";
+				patch_list.items = &patch;
+				patch_list.count = 1U;
+				if (expect_status_ok(
+					    sqlparser_apply_patch(
+						    handle,
+						    &patch_list,
+						    &error),
+					    &error,
+					    "MySQL compound DML JOIN patch should succeed") != 0 ||
+				    expect_status_ok(
+					    sqlparser_deparse(handle, &deparsed, &error),
+					    &error,
+					    "MySQL compound DML JOIN patch should deparse") != 0 ||
+				    expect_true(
+					    deparsed != NULL &&
+						    strstr(deparsed, "sqlparser_mysql_join_on") == NULL,
+					    "MySQL internal DML JOIN wrapper must not leak") != 0) {
+					sqlparser_string_free(deparsed);
+					sqlparser_handle_destroy(handle);
+					return 1;
+				}
+				on_sql = strstr(deparsed, " ON ");
+				set_sql = strstr(deparsed, " SET ");
+				where_sql = strstr(deparsed, " WHERE ");
+				if (expect_true(
+					    on_sql != NULL && set_sql != NULL &&
+						    where_sql != NULL &&
+						    on_sql < set_sql && set_sql < where_sql,
+					    "MySQL DML JOIN patch must preserve ON, SET, WHERE order") != 0 ||
+				    expect_deparse_reparse_ok(
+					    handle,
+					    "MySQL compound DML JOIN patch should reparse") != 0) {
+					sqlparser_string_free(deparsed);
+					sqlparser_handle_destroy(handle);
+					return 1;
+				}
+				sqlparser_string_free(deparsed);
+			}
+			sqlparser_handle_destroy(handle);
+		}
+	}
+	return 0;
+}
+
+static int test_query_graph_named_window_fields(void)
+{
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_MYSQL,
+		SQLPARSER_DIALECT_VASTBASE_MYSQL
+	};
+	static const char *columns[] = {
+		"region",
+		"region",
+		"created_at",
+		"id"
+	};
+	static const sqlparser_clause_kind_t clauses[] = {
+		SQLPARSER_CLAUSE_KIND_SELECT_LIST,
+		SQLPARSER_CLAUSE_KIND_WINDOW_PARTITION,
+		SQLPARSER_CLAUSE_KIND_ORDER_BY,
+		SQLPARSER_CLAUSE_KIND_ORDER_BY
+	};
+	const char *sql;
+	size_t dialect_index;
+
+	sql = "SELECT s.region, ROW_NUMBER() OVER w, RANK() OVER w FROM sales s "
+		"WINDOW w AS (PARTITION BY s.region ORDER BY s.created_at, s.id)";
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		sqlparser_parse_options_t options;
+		sqlparser_query_graph_view_t graph;
+		sqlparser_error_t error;
+		sqlparser_handle_t *handle;
+		char *deparsed;
+		size_t field_index;
+		int rc;
+
+		handle = NULL;
+		deparsed = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index];
+		rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "named window parse should succeed") != 0 ||
+		    expect_status_ok(
+			    sqlparser_statement_query_graph(
+				    handle,
+				    0U,
+				    &graph,
+				    &error),
+			    &error,
+			    "named window graph should be available") != 0 ||
+		    expect_true(
+			    graph.relation_count == 1U &&
+				    graph.target_count == 3U &&
+				    graph.field_count == 4U,
+			    "named window graph counts should match source occurrences") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		for (field_index = 0U;
+		     field_index < sizeof(columns) / sizeof(columns[0]);
+		     field_index++) {
+			sqlparser_graph_field_t field;
+			size_t previous_index;
+
+			memset(&field, 0, sizeof(field));
+			if (expect_status_ok(
+				    sqlparser_query_graph_field_at(
+					    &graph,
+					    field_index,
+					    &field,
+					    &error),
+				    &error,
+				    "named window field should be available") != 0 ||
+			    expect_true(
+				    field.column_name != NULL &&
+					    strcmp(field.column_name, columns[field_index]) == 0 &&
+					    field.clause == clauses[field_index] &&
+					    field.has_relation != 0 &&
+					    field.relation_index == 0U &&
+					    field.has_selector != 0 &&
+					    field.selector.kind ==
+						    SQLPARSER_SELECTOR_KIND_NAME &&
+					    field.has_target == (field_index == 0U),
+				    "named window field semantics should match its clause") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			if (field_index > 0U &&
+			    expect_true(
+				    field.has_target == 0 &&
+					    field.target_path_count == 0U,
+				    "named window definition fields must not inherit a select target path") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			for (previous_index = 0U;
+			     previous_index < field_index;
+			     previous_index++) {
+				sqlparser_graph_field_t previous;
+
+				memset(&previous, 0, sizeof(previous));
+				if (expect_status_ok(
+					    sqlparser_query_graph_field_at(
+						    &graph,
+						    previous_index,
+						    &previous,
+						    &error),
+					    &error,
+					    "previous named window field should be available") != 0 ||
+				    expect_true(
+					    previous.selector.item_index !=
+						    field.selector.item_index,
+					    "named window fields must retain distinct name selectors") != 0) {
+					sqlparser_handle_destroy(handle);
+					return 1;
+				}
+			}
+		}
+		if (expect_status_ok(
+			    sqlparser_deparse(handle, &deparsed, &error),
+			    &error,
+			    "named window deparse should succeed") != 0 ||
+		    expect_true(
+			    deparsed != NULL && strcmp(deparsed, sql) == 0,
+			    "named window generation-0 deparse must be exact") != 0) {
+			sqlparser_string_free(deparsed);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(handle);
+	}
+	return 0;
+}
+
 static int test_generated_keyword_insert_column(void)
 {
 	sqlparser_handle_t *handle;
@@ -18417,6 +31667,13 @@ static int test_session_context_patch_api(void)
 		},
 		{
 			SQLPARSER_DIALECT_ORACLE,
+			"SELECT * FROM users; ALTER SESSION SET CURRENT_SCHEMA=KDES",
+			"stmt[0].relation[0]",
+			"next_users",
+			"ALTER SESSION SET CURRENT_SCHEMA=KDES"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
 			"ALTER SESSION SET CONTAINER=PDB1",
 			"stmt[0].value[0]",
 			"PDB2",
@@ -18480,6 +31737,447 @@ static int test_session_context_patch_api(void)
 		sqlparser_handle_destroy(handle);
 	}
 
+	return 0;
+}
+
+static int expect_session_tail_reparse_state(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	const char *expected_relation,
+	const char *expected_target,
+	const char *expected_where)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_relation_view_t relation;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_session_t session;
+	char *target_sql;
+	char *where_sql;
+	size_t target_count;
+	int result;
+	int rc;
+
+	handle = NULL;
+	target_sql = NULL;
+	where_sql = NULL;
+	result = 1;
+	memset(&error, 0, sizeof(error));
+	memset(&relation, 0, sizeof(relation));
+	memset(&graph, 0, sizeof(graph));
+	memset(&session, 0, sizeof(session));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "patched multi-statement SQL should reparse") != 0) {
+		goto done;
+	}
+	rc = sqlparser_statement_relation(
+		handle,
+		0U,
+		0U,
+		&relation,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "reparsed relation should be readable") != 0 ||
+	    expect_true(
+		    relation.table_name != NULL &&
+			    strcmp(relation.table_name, expected_relation) == 0,
+		    "reparsed relation name mismatch") != 0) {
+		goto done;
+	}
+	rc = sqlparser_select_target_count(
+		handle,
+		0U,
+		0U,
+		&target_count,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "reparsed target count should be readable") != 0 ||
+	    expect_true(
+		    target_count == 1U,
+		    "reparsed target count should be one") != 0) {
+		goto done;
+	}
+	rc = sqlparser_select_target_sql(
+		handle,
+		0U,
+		0U,
+		0U,
+		&target_sql,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "reparsed target SQL should be readable") != 0 ||
+	    expect_true(
+		    target_sql != NULL &&
+			    strcmp(target_sql, expected_target) == 0,
+		    "reparsed target SQL mismatch") != 0) {
+		goto done;
+	}
+	if (expected_where != NULL) {
+		rc = sqlparser_statement_where_sql(
+			handle,
+			0U,
+			0U,
+			&where_sql,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "reparsed WHERE SQL should be readable") != 0 ||
+		    expect_true(
+			    where_sql != NULL &&
+				    strcmp(where_sql, expected_where) == 0,
+			    "reparsed WHERE SQL mismatch") != 0) {
+			goto done;
+		}
+	}
+	rc = sqlparser_statement_query_graph(
+		handle,
+		1U,
+		&graph,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "reparsed session Query Graph should be readable") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_session(
+			    &graph,
+			    &session,
+			    &error),
+		    &error,
+		    "reparsed session state should be readable") != 0 ||
+	    expect_true(
+		    session.action == SQLPARSER_GRAPH_SESSION_ACTION_SWITCH,
+		    "reparsed session action should be switch") != 0 ||
+	    expect_true(
+		    session.item_count == 1U,
+		    "reparsed session should expose one item") != 0) {
+		goto done;
+	}
+	result = 0;
+
+done:
+	sqlparser_string_free(where_sql);
+	sqlparser_string_free(target_sql);
+	sqlparser_handle_destroy(handle);
+	return result;
+}
+
+static int test_session_tail_patch_preservation(void)
+{
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_ORACLE,
+		SQLPARSER_DIALECT_DAMENG,
+		SQLPARSER_DIALECT_VASTBASE_ORACLE
+	};
+	static const struct {
+		const char *replacement_sql;
+		const char *expected_name;
+		const char *expected_sql;
+	} relation_patches[] = {
+		{
+			"next_users",
+			"next_users",
+			"SELECT * FROM next_users; ALTER SESSION SET CURRENT_SCHEMA=KDES"
+		},
+		{
+			"\"NextUsers\"",
+			"NextUsers",
+			"SELECT * FROM \"NextUsers\"; ALTER SESSION SET CURRENT_SCHEMA=KDES"
+		},
+		{
+			"users",
+			"users",
+			"SELECT * FROM users; ALTER SESSION SET CURRENT_SCHEMA=KDES"
+		}
+	};
+	static const char relation_sql[] =
+		"SELECT * FROM users; ALTER SESSION SET CURRENT_SCHEMA=KDES";
+	static const char delete_sql[] =
+		"SELECT KeepCol, DropCol FROM BaseTable; "
+		"ALTER SESSION SET CURRENT_SCHEMA=KDES";
+	static const char delete_expected[] =
+		"SELECT KeepCol FROM BaseTable; "
+		"ALTER SESSION SET CURRENT_SCHEMA = KDES";
+	static const char where_sql[] =
+		"SELECT KeepCol FROM BaseTable "
+		"WHERE KeepCol = 1 AND DropCol = 2; "
+		"ALTER SESSION SET CURRENT_SCHEMA=KDES";
+	static const char where_expected[] =
+		"SELECT KeepCol FROM BaseTable WHERE KeepCol = 3; "
+		"ALTER SESSION SET CURRENT_SCHEMA = KDES";
+	size_t dialect_index;
+	size_t patch_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		sqlparser_parse_options_t options;
+		sqlparser_error_t error;
+		sqlparser_handle_t *handle;
+		sqlparser_relation_view_t relation;
+		sqlparser_patch_t patch;
+		sqlparser_patch_list_t patch_list;
+		char *deparsed_sql;
+		char *fragment_sql;
+		size_t target_count;
+		int rc;
+
+		handle = NULL;
+		deparsed_sql = NULL;
+		fragment_sql = NULL;
+		memset(&error, 0, sizeof(error));
+		memset(&relation, 0, sizeof(relation));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index];
+		rc = sqlparser_parse_with_options(
+			relation_sql,
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "multi-statement relation SQL should parse") != 0) {
+			return 1;
+		}
+		for (patch_index = 0U;
+		     patch_index <
+			     sizeof(relation_patches) /
+				     sizeof(relation_patches[0]);
+		     patch_index++) {
+			memset(&patch, 0, sizeof(patch));
+			patch.op = SQLPARSER_PATCH_REPLACE;
+			patch.selector = "stmt[0].relation[0]";
+			patch.sql =
+				relation_patches[patch_index].replacement_sql;
+			patch_list.items = &patch;
+			patch_list.count = 1U;
+			rc = sqlparser_apply_patch(
+				handle,
+				&patch_list,
+				&error);
+			if (expect_status_ok(
+				    rc,
+				    &error,
+				    "multi-statement relation patch should succeed") !=
+				    0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			rc = sqlparser_statement_relation(
+				handle,
+				0U,
+				0U,
+				&relation,
+				&error);
+			if (expect_status_ok(
+				    rc,
+				    &error,
+				    "patched relation should be readable") != 0 ||
+			    expect_true(
+				    relation.table_name != NULL &&
+					    strcmp(
+						    relation.table_name,
+						    relation_patches[
+							    patch_index]
+							    .expected_name) ==
+						    0,
+				    "patched relation name mismatch") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			rc = sqlparser_deparse(
+				handle,
+				&deparsed_sql,
+				&error);
+			if (expect_status_ok(
+				    rc,
+				    &error,
+				    "patched relation should deparse") != 0 ||
+			    expect_true(
+				    deparsed_sql != NULL &&
+					    strcmp(
+						    deparsed_sql,
+						    relation_patches[
+							    patch_index]
+							    .expected_sql) ==
+						    0,
+				    "patched relation SQL mismatch") != 0 ||
+			    expect_session_tail_reparse_state(
+				    dialects[dialect_index],
+				    deparsed_sql,
+				    relation_patches[patch_index]
+					    .expected_name,
+				    "*",
+				    NULL) != 0) {
+				sqlparser_string_free(deparsed_sql);
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			sqlparser_string_free(deparsed_sql);
+			deparsed_sql = NULL;
+		}
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			delete_sql,
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "multi-statement target deletion SQL should parse") !=
+			    0) {
+			return 1;
+		}
+		rc = sqlparser_select_delete_target(
+			handle,
+			0U,
+			0U,
+			1U,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "multi-statement target deletion should succeed") != 0 ||
+		    expect_status_ok(
+			    sqlparser_select_target_count(
+				    handle,
+				    0U,
+				    0U,
+				    &target_count,
+				    &error),
+			    &error,
+			    "target count after deletion should be readable") != 0 ||
+		    expect_true(
+			    target_count == 1U,
+			    "target deletion should leave one target") != 0 ||
+		    expect_status_ok(
+			    sqlparser_select_target_sql(
+				    handle,
+				    0U,
+				    0U,
+				    0U,
+				    &fragment_sql,
+				    &error),
+			    &error,
+			    "target SQL after deletion should be readable") != 0 ||
+		    expect_true(
+			    fragment_sql != NULL &&
+				    strcmp(fragment_sql, "KeepCol") == 0,
+			    "target deletion readback mismatch") != 0) {
+			sqlparser_string_free(fragment_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(fragment_sql);
+		fragment_sql = NULL;
+		rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "target deletion should deparse") != 0 ||
+		    expect_true(
+			    deparsed_sql != NULL &&
+				    strcmp(deparsed_sql, delete_expected) == 0,
+			    "target deletion SQL mismatch") != 0 ||
+		    expect_session_tail_reparse_state(
+			    dialects[dialect_index],
+			    deparsed_sql,
+			    "BaseTable",
+			    "KeepCol",
+			    NULL) != 0) {
+			sqlparser_string_free(deparsed_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(deparsed_sql);
+		deparsed_sql = NULL;
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			where_sql,
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "multi-statement WHERE replacement SQL should parse") !=
+			    0) {
+			return 1;
+		}
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_REPLACE;
+		patch.selector = "stmt[0].where[0]";
+		patch.sql = "KeepCol = 3";
+		patch_list.items = &patch;
+		patch_list.count = 1U;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "multi-statement WHERE replacement should succeed") !=
+			    0 ||
+		    expect_status_ok(
+			    sqlparser_statement_where_sql(
+				    handle,
+				    0U,
+				    0U,
+				    &fragment_sql,
+				    &error),
+			    &error,
+			    "WHERE SQL after replacement should be readable") != 0 ||
+		    expect_true(
+			    fragment_sql != NULL &&
+				    strcmp(fragment_sql, "KeepCol = 3") == 0,
+			    "WHERE replacement readback mismatch") != 0) {
+			sqlparser_string_free(fragment_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(fragment_sql);
+		fragment_sql = NULL;
+		rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "WHERE replacement should deparse") != 0 ||
+		    expect_true(
+			    deparsed_sql != NULL &&
+				    strcmp(deparsed_sql, where_expected) == 0,
+			    "WHERE replacement SQL mismatch") != 0 ||
+		    expect_session_tail_reparse_state(
+			    dialects[dialect_index],
+			    deparsed_sql,
+			    "BaseTable",
+			    "KeepCol",
+			    "KeepCol = 3") != 0) {
+			sqlparser_string_free(deparsed_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+	}
 	return 0;
 }
 
@@ -19815,6 +33513,183 @@ static int test_query_graph_session_semantics(void)
 	return 0;
 }
 
+static int test_vastbase_transaction_keyword_canonicalization(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		size_t value_count;
+		const char *names[3];
+		const char *texts[3];
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_VASTBASE_MYSQL,
+			"ALTER/*command*/SESSION SET SESSION/*scope*/CHARACTERISTICS AS TRANSACTION ISOLATION/*name*/LEVEL SERIALIZABLE, READ/*access*/ONLY, DEFERRABLE;",
+			3U,
+			{"isolation_level", "access_mode", "deferrable"},
+			{"SERIALIZABLE", "READ ONLY", "DEFERRABLE"}
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_ORACLE,
+			"ALTER SESSION SET TRANSACTION ISOLATION LEVEL REPEATABLE/*isolation*/READ, READ/*access*/WRITE, NOT/*mode*/DEFERRABLE;",
+			3U,
+			{"isolation_level", "access_mode", "deferrable"},
+			{"REPEATABLE READ", "READ WRITE", "NOT DEFERRABLE"}
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_POSTGRESQL,
+			"ALTER SESSION SET TRANSACTION ISOLATION LEVEL READ/*isolation*/COMMITTED;",
+			1U,
+			{"isolation_level", NULL, NULL},
+			{"READ COMMITTED", NULL, NULL}
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"ALTER SESSION SET TRANSACTION ISOLATION LEVEL READ/*isolation*/UNCOMMITTED;",
+			1U,
+			{"isolation_level", NULL, NULL},
+			{"READ UNCOMMITTED", NULL, NULL}
+		}
+	};
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		int expected_status;
+	} invalid_cases[] = {
+		{
+			SQLPARSER_DIALECT_VASTBASE_MYSQL,
+			"ALTER SESSION SET TRANSACTION ISOLATION LEVEL READ/*invalid*/BROKEN;",
+			SQLPARSER_STATUS_PARSE_ERROR
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_ORACLE,
+			"ALTER SESSION SET TRANSACTION READ ONLY,;",
+			SQLPARSER_STATUS_UNSUPPORTED
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_POSTGRESQL,
+			"ALTER SESSION SET TRANSACTION UNKNOWN;",
+			SQLPARSER_STATUS_PARSE_ERROR
+		}
+	};
+	sqlparser_graph_session_item_t item;
+	sqlparser_graph_session_t session;
+	sqlparser_graph_session_value_t value;
+	sqlparser_handle_t *handle;
+	sqlparser_parse_options_t options;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_error_t error;
+	size_t case_index;
+	size_t value_index;
+	int rc;
+
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[case_index].dialect;
+		rc = sqlparser_parse_with_options(
+			cases[case_index].sql,
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "Vastbase transaction parse should succeed") != 0 ||
+		    expect_status_ok(
+			    sqlparser_statement_query_graph(
+				    handle, 0U, &graph, &error),
+			    &error,
+			    "Vastbase transaction graph should be available") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_session(
+				    &graph, &session, &error),
+			    &error,
+			    "Vastbase transaction session should be available") != 0 ||
+		    expect_true(
+			    session.action ==
+				    SQLPARSER_GRAPH_SESSION_ACTION_SET &&
+				    session.item_count == 1U,
+			    "Vastbase transaction session shape mismatch") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_session_item_at(
+				    &graph, 0U, &item, &error),
+			    &error,
+			    "Vastbase transaction item should be available") != 0 ||
+		    expect_true(
+			    item.scope == SQLPARSER_GRAPH_SESSION_SCOPE_SESSION &&
+				    item.target_kind ==
+					    SQLPARSER_GRAPH_SESSION_TARGET_TRANSACTION &&
+				    item.name == NULL &&
+				    item.value_count == cases[case_index].value_count,
+			    "Vastbase transaction item mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		for (value_index = 0U;
+		     value_index < cases[case_index].value_count;
+		     value_index++) {
+			if (expect_status_ok(
+				    sqlparser_query_graph_session_value_at(
+					    &graph,
+					    item.value_offset + value_index,
+					    &value,
+					    &error),
+				    &error,
+				    "Vastbase transaction value should be available") != 0 ||
+			    expect_true(
+				    value.kind ==
+					    SQLPARSER_GRAPH_SESSION_VALUE_KEYWORD &&
+					    value.name != NULL &&
+					    strcmp(
+						    value.name,
+						    cases[case_index].names[value_index]) == 0 &&
+					    value.text != NULL &&
+					    strcmp(
+						    value.text,
+						    cases[case_index].texts[value_index]) == 0,
+				    "Vastbase transaction value mismatch") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		}
+		if (expect_deparse_equals_and_reparse(
+			    handle,
+			    cases[case_index].sql,
+			    "Vastbase transaction SQL should roundtrip exactly") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+
+	for (case_index = 0U;
+	     case_index < sizeof(invalid_cases) / sizeof(invalid_cases[0]);
+	     case_index++) {
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = invalid_cases[case_index].dialect;
+		rc = sqlparser_parse_with_options(
+			invalid_cases[case_index].sql,
+			&options,
+			&handle,
+			&error);
+		if (expect_true(
+			    rc == invalid_cases[case_index].expected_status &&
+				    handle == NULL,
+			    "invalid Vastbase transaction status mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	return 0;
+}
+
 static int test_mysql_session_scalar_semantics(void)
 {
 	static const struct {
@@ -19833,6 +33708,15 @@ static int test_mysql_session_scalar_semantics(void)
 			SQLPARSER_LITERAL_KIND_STRING,
 			NULL,
 			"a\\nb",
+			0LL
+		},
+		{
+			"SET @escaped='line\\nnext\\tvalue'",
+			"escaped",
+			SQLPARSER_GRAPH_SESSION_VALUE_LITERAL,
+			SQLPARSER_LITERAL_KIND_STRING,
+			NULL,
+			"line\nnext\tvalue",
 			0LL
 		},
 		{
@@ -20204,9 +34088,228 @@ static int test_query_graph_session_control_patch_span(void)
 	return 0;
 }
 
+static int test_oracle_family_cast_bind_deparse_after_relation_patch(void)
+{
+	typedef struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *schema_name;
+		const char *table_name;
+		const char *required_deparse;
+		const char *required_view;
+		const char *message;
+	} test_case_t;
+	static const test_case_t cases[] = {
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = UPPER(:v1) AND SECRET = :v2 || 'x' AND SECRET = CAST(:v3 AS VARCHAR(32))",
+			"KDES",
+			"DBP_CRYPTO_TEST_PATCHED",
+			"CAST(:v3 AS ",
+			"\"field_match_kind\":\"direct_field\",\"kind\":\"expression\"",
+			"Oracle SELECT CAST bind relation patch"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"INSERT INTO bind_mix (customer_id, state, amount, created_at, city) VALUES (:customer_id, CASE WHEN :enabled = 1 THEN 'Y' ELSE 'N' END, CAST(:amount AS NUMBER), SYSDATE, :city)",
+			NULL,
+			"bind_mix_patched",
+			"CAST(:amount AS ",
+			"\"row\":0,\"column\":2,\"kind\":\"expression\"",
+			"Oracle INSERT mixed bind relation patch"
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE secret = UPPER(:v1) AND secret = :v2 || 'x' AND secret = CAST(:v3 AS VARCHAR(32))",
+			"KDES",
+			"DBP_CRYPTO_TEST_PATCHED",
+			"CAST(:v3 AS ",
+			"\"field_match_kind\":\"direct_field\",\"kind\":\"expression\"",
+			"Dameng SELECT CAST bind relation patch"
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"INSERT INTO bind_mix (id, state, amount, created_at, city) VALUES (?, CASE WHEN ? IS NULL THEN 'missing' ELSE 'present' END, CAST(? AS INTEGER), SYSDATE(), ?)",
+			NULL,
+			"bind_mix_patched",
+			"CAST(? AS ",
+			"\"row\":0,\"column\":2,\"kind\":\"expression\"",
+			"Dameng INSERT mixed bind relation patch"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_ORACLE,
+			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = UPPER(:v1) AND SECRET = :v2 || 'x' AND SECRET = CAST(:v3 AS VARCHAR(32))",
+			"KDES",
+			"DBP_CRYPTO_TEST_PATCHED",
+			"CAST(:v3 AS ",
+			"\"field_match_kind\":\"direct_field\",\"kind\":\"expression\"",
+			"Vastbase-Oracle SELECT CAST bind relation patch"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_ORACLE,
+			"INSERT INTO bind_mix (customer_id, state, amount, created_at, city) VALUES ($1, CASE WHEN $2 = 1 THEN 'Y' ELSE 'N' END, CAST($3 AS NUMBER), SYSDATE, $4)",
+			NULL,
+			"bind_mix_patched",
+			"CAST($3 AS ",
+			"\"row\":0,\"column\":2,\"kind\":\"expression\"",
+			"Vastbase-Oracle INSERT mixed bind relation patch"
+		}
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *reparsed;
+	sqlparser_error_t error;
+	char *current_view;
+	char *deparsed;
+	char *reparsed_view;
+	size_t index;
+	int rc;
+
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		handle = NULL;
+		reparsed = NULL;
+		current_view = NULL;
+		deparsed = NULL;
+		reparsed_view = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[index].dialect;
+		rc = sqlparser_parse_with_options(
+			cases[index].sql,
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(rc, &error, cases[index].message) != 0) {
+			goto fail;
+		}
+		rc = sqlparser_statement_set_relation_name(
+			handle,
+			0U,
+			0U,
+			cases[index].schema_name,
+			cases[index].table_name,
+			&error);
+		if (expect_status_ok(rc, &error, cases[index].message) != 0 ||
+		    expect_true(handle->generation > 0UL, cases[index].message) != 0) {
+			goto fail;
+		}
+		rc = sqlparser_export_view_json(
+			handle,
+			0,
+			&current_view,
+			&error);
+		if (expect_status_ok(rc, &error, cases[index].message) != 0) {
+			goto fail;
+		}
+		if (current_view == NULL ||
+		    strstr(current_view, cases[index].required_view) == NULL) {
+			fprintf(
+				stderr,
+				"FAIL: %s: required View fragment %s is missing from:\n%s\n",
+				cases[index].message,
+				cases[index].required_view,
+				current_view != NULL ? current_view : "(null)");
+			goto fail;
+		}
+		rc = sqlparser_deparse(handle, &deparsed, &error);
+		if (expect_status_ok(rc, &error, cases[index].message) != 0) {
+			goto fail;
+		}
+		if (deparsed == NULL ||
+		    strstr(deparsed, cases[index].required_deparse) == NULL ||
+		    strstr(deparsed, "::") != NULL) {
+			fprintf(
+				stderr,
+				"FAIL: %s:\ninput:  %s\nrequired deparse fragment: %s\nactual: %s\n",
+				cases[index].message,
+				cases[index].sql,
+				cases[index].required_deparse,
+				deparsed != NULL ? deparsed : "(null)");
+			goto fail;
+		}
+		rc = sqlparser_parse_with_options(
+			deparsed,
+			&options,
+			&reparsed,
+			&error);
+		if (expect_status_ok(rc, &error, cases[index].message) != 0) {
+			goto fail;
+		}
+		rc = sqlparser_export_view_json(
+			reparsed,
+			0,
+			&reparsed_view,
+			&error);
+		if (expect_status_ok(rc, &error, cases[index].message) != 0) {
+			goto fail;
+		}
+		if (reparsed_view == NULL ||
+		    strstr(reparsed_view, cases[index].required_view) == NULL ||
+		    strstr(current_view, "::") != NULL ||
+		    strstr(reparsed_view, "::") != NULL) {
+			fprintf(
+				stderr,
+				"FAIL: %s: View lost CAST expression semantics after deparse/reparse\n"
+				"before: %s\nafter:  %s\n",
+				cases[index].message,
+				current_view,
+				reparsed_view != NULL ? reparsed_view : "(null)");
+			goto fail;
+		}
+
+		sqlparser_string_free(reparsed_view);
+		sqlparser_string_free(deparsed);
+		sqlparser_string_free(current_view);
+		sqlparser_handle_destroy(reparsed);
+		sqlparser_handle_destroy(handle);
+	}
+	return 0;
+
+fail:
+	sqlparser_string_free(reparsed_view);
+	sqlparser_string_free(deparsed);
+	sqlparser_string_free(current_view);
+	sqlparser_handle_destroy(reparsed);
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
 int main(void)
 {
 	if (test_relation_patch_identifier_path_spelling() != 0) {
+		return 1;
+	}
+	if (test_relation_patch_bound_qualifier_propagation() != 0) {
+		return 1;
+	}
+	if (test_insert_on_conflict_correlated_excluded_collision() != 0) {
+		return 1;
+	}
+	if (test_relation_patch_repeated_qualifier_propagation() != 0) {
+		return 1;
+	}
+	if (test_relation_binding_collector_single_pass() != 0) {
+		return 1;
+	}
+	if (test_relation_binding_expression_containers() != 0) {
+		return 1;
+	}
+	if (test_relation_binding_dml_ctes() != 0) {
+		return 1;
+	}
+	if (test_sqlserver_delete_relation_setter_parity() != 0) {
+		return 1;
+	}
+	if (test_query_graph_same_scope_path_ambiguity() != 0) {
+		return 1;
+	}
+	if (test_query_graph_qualified_shadowed_correlation() != 0) {
+		return 1;
+	}
+	if (test_relation_name_setter_qualifier_parity() != 0) {
+		return 1;
+	}
+	if (test_relation_name_setter_commit_failure_atomicity() != 0) {
 		return 1;
 	}
 	if (test_insert_column_patch_identifier_spelling() != 0) {
@@ -20314,6 +34417,24 @@ int main(void)
 	if (test_generic_name_mutation_preserves_later_spelling() != 0) {
 		return 1;
 	}
+	if (test_grouped_indirection_survives_name_patch() != 0) {
+		return 1;
+	}
+	if (test_nested_target_alias_survives_relation_patch() != 0) {
+		return 1;
+	}
+	if (test_operator_grouping_survives_forced_deparse() != 0) {
+		return 1;
+	}
+	if (test_semantic_comments_survive_forced_deparse() != 0) {
+		return 1;
+	}
+	if (test_terminal_source_envelope_after_patch() != 0) {
+		return 1;
+	}
+	if (test_statement_source_gaps_after_patch() != 0) {
+		return 1;
+	}
 	if (test_literal_mutation_preserves_ddl_identifier_spelling() != 0) {
 		return 1;
 	}
@@ -20329,6 +34450,24 @@ int main(void)
 	if (test_selector_parse_and_format() != 0) {
 		return 1;
 	}
+	if (test_mysql_dml_tail_ast_surface() != 0) {
+		return 1;
+	}
+	if (test_mysql_dml_tail_value_selector_surface() != 0) {
+		return 1;
+	}
+	if (test_mysql_dml_tail_cte_surface() != 0) {
+		return 1;
+	}
+	if (test_mysql_dml_tail_nested_order_selector() != 0) {
+		return 1;
+	}
+	if (test_mysql_dml_tail_line_comment_boundaries() != 0) {
+		return 1;
+	}
+	if (test_mysql_dml_tail_index_hint_order_scope() != 0) {
+		return 1;
+	}
 	if (test_where_clause_sql_rewrite_api() != 0) {
 		return 1;
 	}
@@ -20336,6 +34475,9 @@ int main(void)
 		return 1;
 	}
 	if (test_query_graph_session_semantics() != 0) {
+		return 1;
+	}
+	if (test_vastbase_transaction_keyword_canonicalization() != 0) {
 		return 1;
 	}
 	if (test_mysql_session_scalar_semantics() != 0) {
@@ -20350,7 +34492,13 @@ int main(void)
 	if (test_query_graph_session_control_patch_span() != 0) {
 		return 1;
 	}
+	if (test_oracle_family_cast_bind_deparse_after_relation_patch() != 0) {
+		return 1;
+	}
 	if (test_query_graph_bind_fields() != 0) {
+		return 1;
+	}
+	if (test_query_graph_pseudo_predicate_semantics() != 0) {
 		return 1;
 	}
 	if (test_query_graph_like_escape_semantics() != 0) {
@@ -20362,13 +34510,61 @@ int main(void)
 	if (test_query_graph_condition_value_lists() != 0) {
 		return 1;
 	}
+	if (test_query_graph_null_test_semantics() != 0) {
+		return 1;
+	}
 	if (test_query_graph_field_match_kind_semantics() != 0) {
 		return 1;
 	}
 	if (test_query_graph_expression_field_value_semantics() != 0) {
 		return 1;
 	}
+	if (test_query_graph_update_expression_rhs_leaves() != 0) {
+		return 1;
+	}
+	if (test_query_graph_two_compound_assignment_spans() != 0) {
+		return 1;
+	}
+	if (test_query_graph_merge_expression_rhs_leaves() != 0) {
+		return 1;
+	}
+	if (test_query_graph_direct_assignment_shapes_unchanged() != 0) {
+		return 1;
+	}
+	if (test_postgresql_on_conflict_expression_rhs_leaves() != 0) {
+		return 1;
+	}
+	if (test_postgresql_assignment_scalar_subquery_block() != 0) {
+		return 1;
+	}
+	if (test_postgresql_multiassign_direct_fields() != 0) {
+		return 1;
+	}
+	if (test_postgresql_multiassign_compound_members() != 0) {
+		return 1;
+	}
+	if (test_postgresql_multiassign_scalar_subquery() != 0) {
+		return 1;
+	}
+	if (test_postgresql_assignment_target_indirection_values() != 0) {
+		return 1;
+	}
+	if (test_query_graph_direct_field_expression_predicate_values() != 0) {
+		return 1;
+	}
+	if (test_query_graph_sublink_predicate_semantics() != 0) {
+		return 1;
+	}
 	if (test_query_graph_column_semantics_json() != 0) {
+		return 1;
+	}
+	if (test_query_graph_sql_json_input_fields() != 0) {
+		return 1;
+	}
+	if (test_query_graph_sqlserver_function_argument_roles() != 0) {
+		return 1;
+	}
+	if (test_query_graph_aggregate_order_fields() != 0) {
 		return 1;
 	}
 	if (test_query_graph_public_struct_semantics() != 0) {
@@ -20378,6 +34574,12 @@ int main(void)
 		return 1;
 	}
 	if (test_query_graph_join_using_reuses_fields() != 0) {
+		return 1;
+	}
+	if (test_mysql_dml_join_predicate_clause_roots() != 0) {
+		return 1;
+	}
+	if (test_query_graph_named_window_fields() != 0) {
 		return 1;
 	}
 	if (test_query_graph_flat_and_span_growth() != 0) {
@@ -20393,6 +34595,9 @@ int main(void)
 		return 1;
 	}
 	if (test_dameng_multi_insert_query_graph_and_patch() != 0) {
+		return 1;
+	}
+	if (test_multi_insert_source_target_fragments() != 0) {
 		return 1;
 	}
 	if (test_oracle_p3_update_assignment_graph() != 0) {
@@ -20417,6 +34622,9 @@ int main(void)
 		return 1;
 	}
 	if (test_query_graph_attribution_and_values() != 0) {
+		return 1;
+	}
+	if (test_select_target_renderer_preserves_nested_spelling() != 0) {
 		return 1;
 	}
 	if (test_select_target_list_patch_api() != 0) {
@@ -20473,10 +34681,16 @@ int main(void)
 	if (test_sqlserver_control_depth_limit() != 0) {
 		return 1;
 	}
+	if (test_postgresql_data_modifying_cte_query_graph_and_patch() != 0) {
+		return 1;
+	}
 	if (test_sqlserver_output_query_graph_and_patch() != 0) {
 		return 1;
 	}
 	if (test_sqlserver_output_action_marker_and_patch() != 0) {
+		return 1;
+	}
+	if (test_sqlserver_output_clause_boundaries() != 0) {
 		return 1;
 	}
 	if (test_sqlserver_nested_output_query_graph_and_patch() != 0) {
@@ -20495,6 +34709,9 @@ int main(void)
 		return 1;
 	}
 	if (test_session_context_patch_api() != 0) {
+		return 1;
+	}
+	if (test_session_tail_patch_preservation() != 0) {
 		return 1;
 	}
 	if (test_session_context_quoted_identifier_literal_api() != 0) {

@@ -1,22 +1,73 @@
 # Vastbase SQL Server Compatibility Case Matrix
 
-Executable fixture: `tests/cases/vastbase_sqlserver_dialect_input.json`. The unit test verifies parsing, View JSON, deparse output, and error codes case by case.
+The executable fixture is `tests/cases/vastbase_sqlserver_dialect_input.json`. For every final case, the runner requires unchanged SQL to deparse byte for byte, compares the actual View with the expected JSON structure, and executes each patch independently. Patched SQL must match `patch.deparse` byte for byte, remain identical after a fresh parse and second deparse, and produce the same View from the patched and freshly parsed handles.
+
+## Canonical Transaction Characteristic Values
+
+These four final cases cover common transaction isolation levels and access modes in Vastbase SQL Server compatibility mode. Generation-0 deparse must preserve every input byte, while View must emit trivia-free canonical keyword values in input order. Session semantic values expose no selector, so these cases intentionally have no patch entries.
+
+| ID | Case | SQL | Verification focus |
+| --- | --- | --- | --- |
+| `VS-TX001` | `vastbase-sqlserver-session-transaction-commented-read-uncommitted` | ALTER/*command*/SESSION SET TRANSACTION ISOLATION/*name*/LEVEL READ/*value*/UNCOMMITTED; | canonical `READ UNCOMMITTED` and a single characteristic |
+| `VS-TX002` | `vastbase-sqlserver-session-characteristics-commented-repeatable-read-write` | ALTER SESSION SET SESSION/*scope*/CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL REPEATABLE/*value*/READ, READ/*mode*/WRITE; | `REPEATABLE READ`, `READ WRITE`, and the session-characteristics entry |
+| `VS-TX003` | `vastbase-sqlserver-session-transaction-commented-serializable-read-only` | ALTER SESSION SET TRANSACTION ISOLATION LEVEL SERIALIZABLE/*tail*/, READ/*mode*/ONLY; | `SERIALIZABLE`, `READ ONLY`, and trivia before the comma |
+| `VS-TX004` | `vastbase-sqlserver-session-transaction-commented-option-order` | ALTER SESSION SET TRANSACTION read/*mode*/write, ISOLATION/*name*/LEVEL read/*value*/committed; | input option order, lowercase source preservation, and canonical `READ COMMITTED` |
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 597 cases: 559 expect success and 38 expect failure.
-Statement-level `expect.session` appears in 72 cases, covering `VS044` through
-`VS046`, `VSH295` through `VSH333`, `VB-C001` through `VB-C022`, `VB-C026`
-through `VB-C031`, and `VB-MSSQL-001` through `VB-MSSQL-002`. Seventy-one
-contain at least one non-null session expectation; lexical-isolation case
-`VB-C029` requires every statement to omit session output.
+The fixture contains 600 cases with `status = "final"`. The expected View contains a non-empty session projection in 75 cases.
 
-When an `expect.session` array is present, the matrix test requires one entry
-per statement. A non-null entry is matched against the corresponding session
-projection, including its action, item scope, target kind, name, and value
-fields; `null` asserts that no session projection is emitted. For fixture cases
-that expect success, the test also deparses the unmodified handle and compares
-the result with the input SQL byte for byte.
+View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
+
+## SQL/JSON Semantic Inputs
+
+These cases verify input-field traversal for dedicated SQL/JSON AST nodes at
+the Vastbase-SQLServer compatibility entry. Field order, relation and target
+attribution, original name selectors, and nested `target_path` entries are
+exact View contracts. Each case also covers a field or relation replacement,
+target replacement, column insertion, and exact post-patch deparse.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| VSH404 | `vastbase-sqlserver-json-array-field-inputs` | `JSON_ARRAY([id], [name])` | emits fields in argument order with `JSON_ARRAY` arg 0 and arg 1 paths |
+| VSH405 | `vastbase-sqlserver-json-object-multi-pair-nested-value` | multi-pair `JSON_OBJECT` with nested `JSON_VALUE` | attributes values by flattened key/value slots and preserves both path levels |
+| VSH406 | `vastbase-sqlserver-json-arrayagg-expression-input` | `JSON_ARRAYAGG(COALESCE(...))` | emits aggregate-input fields in expression order with both function path levels |
+| VSH407 | `vastbase-sqlserver-json-value-qualified-multi-target` | qualified `JSON_VALUE` beside a direct target | preserves relation alias, target order, qualified selectors, and JSON input attribution |
+
+## Vastbase SQL Server Compatibility-Entry Function Argument Roles
+
+These cases require syntax-role arguments and data-field arguments to remain strictly separated at the compatibility entry. The `IDENTITY` data-type argument and date-function datepart arguments do not enter `query_graph.fields`; other expression arguments preserve their original order, relation, target, selector, and `target_path.arg_index`. Existing cases `VSH047` and `VSH053` cover three-argument `DATE_BUCKET` and `DATETRUNC`; this section adds optional-origin, expression-input, and function-family combinations.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| VS113 | `vastbase-sqlserver-identity-function-default-seed-increment` | `IDENTITY(int)` with `SELECT INTO` | excludes the data-type argument from fields |
+| VS114 | `vastbase-sqlserver-identity-function-explicit-seed-increment` | `IDENTITY(int, 1, 1)` with `SELECT INTO` | excludes the data type while seed and increment remain constants |
+| VSH408 | `vastbase-sqlserver-date-bucket-optional-origin-inputs` | four-argument `DATE_BUCKET` | keeps date at arg 2 and optional origin at arg 3 while excluding datepart |
+| VSH409 | `vastbase-sqlserver-dateadd-expression-inputs` | `DATEADD` with expression inputs | keeps number and date at arg 1 and arg 2 while excluding datepart |
+| VSH410 | `vastbase-sqlserver-datediff-family-expression-inputs` | adjacent `DATEDIFF` and `DATEDIFF_BIG` | attributes four date inputs to two targets while excluding both dateparts |
+| VSH411 | `vastbase-sqlserver-datename-datepart-role` | `DATENAME` | keeps date at arg 1 while excluding datepart |
+| VSH412 | `vastbase-sqlserver-datepart-datepart-role` | `DATEPART` | keeps date at arg 1 while excluding datepart |
+
+## Vastbase SQL Server Compatibility-Entry WITHIN GROUP Aggregate Ordering
+
+These cases require direct aggregate arguments, `WITHIN GROUP` ordering expressions, and window-partition fields to enter the View at their distinct semantic positions at the compatibility entry. Ordering-field `target_path.arg_index` values continue from the direct function-argument count; window fields retain an independent `window_partition` path.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| VSH413 | `vastbase-sqlserver-string-agg-within-group-multi-sort` | `STRING_AGG` with multiple ordering fields | emits the direct input and both ordering fields in order, with ordering fields at arg 2 and arg 3 |
+| VSH414 | `vastbase-sqlserver-string-agg-within-group-order-expression` | arithmetic ordering expression plus a second item | preserves nested paths for expression fields and attributes the second ordering item to arg 3 |
+| VSH415 | `vastbase-sqlserver-approx-percentile-multi-target` | two approximate-percentile targets | attributes the shared ordering column independently to target 0, target 1, and each function's arg 1 |
+| VSH416 | `vastbase-sqlserver-percentile-cont-window-partition-boundary` | `WITHIN GROUP` with `OVER (PARTITION BY ...)` | emits aggregate-order and window-partition fields independently without duplication |
+
+## Vastbase SQL Server Compatibility-Entry OUTPUT Terminal Boundaries
+
+These cases require OUTPUT restoration at the compatibility entry to retain a boundary only when a following clause exists. A terminal OUTPUT clause must add no trailing byte, and a terminal semicolon must directly follow the final OUTPUT target. Each case independently executes target replacement and target insertion and compares deparse output byte for byte.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| VSH420 | `vastbase-sqlserver-merge-output-action-terminal-semicolon` | `MERGE ... OUTPUT $action;` | no trailing space after terminal MERGE OUTPUT and unchanged semicolon position |
+| VSH421 | `vastbase-sqlserver-update-output-terminal` | `UPDATE ... OUTPUT INSERTED.a` | no generated right boundary without a following WHERE or FROM clause |
+| VSH422 | `vastbase-sqlserver-delete-output-terminal` | `DELETE ... OUTPUT DELETED.id` | no generated right boundary without a following WHERE or FROM clause |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 
@@ -103,14 +154,7 @@ nested binds were counted in the global sequence. `GETDATE()` and
 | `VS110` | `vastbase-sqlserver-for-json-path-with-option` | SELECT [id] FROM [dbo].[users] WHERE [status] = @status FOR JSON PATH, INCLUDE_NULL_VALUES OPTION (RECOMPILE) | covered |
 | `VS111` | `vastbase-sqlserver-nested-top-with-outer-top` | SELECT TOP (5) [id] FROM (SELECT TOP (2) [id] FROM [dbo].[users]) AS [u] | covered |
 | `VS112` | `vastbase-sqlserver-for-json-second-statement` | SELECT [id] FROM [dbo].[users]; SELECT [id] FROM [dbo].[orders] FOR JSON AUTO | covered |
-| `VSU001` | `vastbase-sqlserver-top-with-ties-without-order-by-unsupported` | SELECT TOP (10) WITH TIES [id] FROM [dbo].[users] | explicitly unsupported |
-| `VSU002` | `vastbase-sqlserver-top-percent-with-ties-without-order-by-unsupported` | SELECT TOP (10) PERCENT WITH TIES [id] FROM [dbo].[users] | explicitly unsupported |
 | `VSU003` | `vastbase-sqlserver-output-insert-client` | INSERT INTO [dbo].[users] ([id]) OUTPUT inserted.[id] VALUES (1) | covered |
-| `VSU005` | `vastbase-sqlserver-cross-apply-unsupported` | SELECT [u].[id] FROM [dbo].[users] [u] CROSS APPLY [dbo].[fn_orders]([u].[id]) [o] | explicitly unsupported |
-| `VSU006` | `vastbase-sqlserver-pivot-unsupported` | SELECT * FROM [dbo].[sales] PIVOT (SUM([amount]) FOR [month] IN ([Jan], [Feb])) AS [p] | explicitly unsupported |
-| `VSU009` | `vastbase-sqlserver-declare-unsupported` | DECLARE @id INT = 1; SELECT @id | explicitly unsupported |
-| `VSU010` | `vastbase-sqlserver-exec-unsupported` | EXEC [dbo].[rebuild_user_cache] | explicitly unsupported |
-| `VSU011` | `vastbase-sqlserver-create-procedure-unsupported` | CREATE PROCEDURE [dbo].[p] AS SELECT 1 | explicitly unsupported |
 | `VS039` | `vastbase-sqlserver-system-variable` | SELECT @@ROWCOUNT | covered |
 | `VS040` | `vastbase-sqlserver-binary-literal` | SELECT 0xDEADBEEF AS payload | covered |
 | `VS041` | `vastbase-sqlserver-convert-style` | SELECT CONVERT(VARCHAR(10), [created_at], 120) FROM [dbo].[users] | covered |
@@ -173,9 +217,6 @@ nested binds were counted in the global sequence. `GETDATE()` and
 | `VS100` | `vastbase-sqlserver-like-bracket-wildcards` | SELECT [name] FROM [dbo].[users] WHERE [name] LIKE 'A[^b]_%' | covered |
 | `VS101` | `vastbase-sqlserver-at-time-zone-expression` | SELECT [id] FROM [dbo].[users] WHERE [created_at] AT TIME ZONE 'UTC' = @ts | covered |
 | `VS102` | `vastbase-sqlserver-is-distinct-from-bind` | SELECT [id] FROM [dbo].[users] WHERE [deleted_at] IS DISTINCT FROM @deleted_at | covered |
-| `VSU015` | `vastbase-sqlserver-table-variable-unsupported` | SELECT [id] FROM @users | explicitly unsupported |
-| `VSU016` | `vastbase-sqlserver-merge-by-source-unsupported` | MERGE INTO [dbo].[users] AS [t] USING [dbo].[staging_users] AS [s] ON [t].[id] = [s].[id] WHEN NOT MATCHED BY SOURCE THEN DELETE; | explicitly unsupported |
-| `VSU017` | `vastbase-sqlserver-top-offset-fetch-unsupported` | SELECT TOP (10) [id] FROM [dbo].[users] ORDER BY [id] OFFSET 20 ROWS FETCH NEXT 10 ROWS ONLY | explicitly unsupported |
 | `VSH001` | `vastbase-sqlserver-hook-constants-transact-sql` | INSERT INTO [dbo].[binlog] ([payload]) VALUES (0xDEADBEEF) | covered |
 | `VSH002` | `vastbase-sqlserver-hook-datetimeoffset-transact-sql` | CREATE TABLE [dbo].[events] ([created_at] DATETIMEOFFSET(7)) | covered |
 | `VSH003` | `vastbase-sqlserver-hook-nondeterministic-convert-date-literals` | SELECT CONVERT(DATETIME, '01-02-2024', 101) AS [converted_at] FROM [dbo].[users] | covered |
@@ -296,7 +337,7 @@ nested binds were counted in the global sequence. `GETDATE()` and
 | `VSH118` | `vastbase-sqlserver-hook-json-arrayagg-transact-sql` | SELECT JSON_ARRAYAGG([id]) AS [v] FROM [dbo].[users] | covered |
 | `VSH119` | `vastbase-sqlserver-hook-json-contains-transact-sql` | SELECT JSON_CONTAINS('{"a":1}', '1', '$.a') AS [v] FROM [dbo].[users] | covered |
 | `VSH120` | `vastbase-sqlserver-hook-json-modify-transact-sql` | SELECT JSON_MODIFY('{"a":1}', '$.a', 2) AS [v] FROM [dbo].[users] | covered |
-| `VSH121` | `vastbase-sqlserver-hook-json-object-transact-sql` | SELECT JSON_OBJECT('id', [id]) AS [v] FROM [dbo].[users] | covered |
+| `VSH121` | `vastbase-sqlserver-hook-json-object-transact-sql` | SELECT JSON_OBJECT('id': [id]) AS [v] FROM [dbo].[users] | covered |
 | `VSH122` | `vastbase-sqlserver-hook-json-objectagg-transact-sql` | SELECT JSON_OBJECTAGG([name]: [id]) AS [v] FROM [dbo].[users] | covered |
 | `VSH123` | `vastbase-sqlserver-hook-json-path-exists-transact-sql` | SELECT JSON_PATH_EXISTS('{"a":1}', '$.a') AS [v] FROM [dbo].[users] | covered |
 | `VSH124` | `vastbase-sqlserver-hook-json-query-transact-sql` | SELECT JSON_QUERY('{"a":1}', '$') AS [v] FROM [dbo].[users] | covered |
@@ -406,11 +447,8 @@ nested binds were counted in the global sequence. `GETDATE()` and
 | `VSH228` | `vastbase-sqlserver-hook-version-transact-sql-configuration-functions` | SELECT @@VERSION AS [v] FROM [dbo].[users] | covered |
 | `VSH229` | `vastbase-sqlserver-hook-version-transact-sql-metadata-functions` | SELECT VERSION_TRANSACT_SQL(1) AS [v] FROM [dbo].[users] | covered |
 | `VSH230` | `vastbase-sqlserver-hook-xact-state-transact-sql` | SELECT XACT_STATE(1) AS [v] FROM [dbo].[users] | covered |
-| `VSH231` | `vastbase-sqlserver-hook-collation-precedence-transact-sql` | SELECT [name] COLLATE Latin1_General_CI_AS AS [name] FROM [dbo].[users] | covered |
 | `VSH232` | `vastbase-sqlserver-hook-collations` | SELECT [name] COLLATE Latin1_General_CI_AS AS [name] FROM [dbo].[users] | covered |
 | `VSH233` | `vastbase-sqlserver-hook-rename-transact-sql` | RENAME OBJECT [dbo].[old_users] TO [new_users] | covered |
-| `VSH234` | `vastbase-sqlserver-hook-sql-server-collation-name-transact-sql` | SELECT [name] COLLATE Latin1_General_CI_AS AS [name] FROM [dbo].[users] | covered |
-| `VSH235` | `vastbase-sqlserver-hook-windows-collation-name-transact-sql` | SELECT [name] COLLATE Latin1_General_CI_AS AS [name] FROM [dbo].[users] | covered |
 | `VSH236` | `vastbase-sqlserver-update-from-source-field-graph` | UPDATE t SET name = s.name FROM dbo.t AS t JOIN dbo.src AS s ON t.id = s.id WHERE s.active = @active | covered |
 | `VSH237` | `vastbase-sqlserver-insert-select-source-block-graph` | INSERT INTO dbo.t (id, email) SELECT s.id, s.email FROM dbo.src AS s WHERE s.active = @active | covered |
 | `VSH238` | `vastbase-sqlserver-merge-source-target-graph` | MERGE INTO dbo.t AS t USING (SELECT @id AS id, @email AS email) AS s ON t.id=s.id WHEN MATCHED THEN UPDATE SET email=s.email WHEN NOT MATCHED THEN INSERT(id,email) VALUES(s.id,s.email); | covered |
@@ -432,8 +470,7 @@ nested binds were counted in the global sequence. `GETDATE()` and
 | `VSH254` | `vastbase-sqlserver-select-or-predicate-order-by-lineage` | SELECT [u].[id], [u].[email], [u].[bank_card] FROM [dbo].[users] AS [u] WHERE [u].[email] = @email OR [u].[bank_card] = @card ORDER BY [u].[id] | covered |
 | `VSH255` | `vastbase-sqlserver-mixed-create-table-as-select-basic` | CREATE TABLE [dbo].[users_copy] AS SELECT [id] FROM [dbo].[users] | basic form covered |
 | `VSH256` | `vastbase-sqlserver-mixed-aliasing-basic` | SELECT [u].[id] AS [user_id], [u].[name] [user_name] FROM [dbo].[users] AS [u] | basic form covered |
-| `VSH257` | `vastbase-sqlserver-mixed-subquery-basic` | SELECT [id] FROM [dbo].[users] WHERE [id] IN (SELECT ...) | basic form covered |
-| `VSH258` | `vastbase-sqlserver-mixed-alter-table-add-column-basic` | ALTER TABLE [dbo].[users] ADD [age] INT | basic form covered |
+| `VSH257` | `vastbase-sqlserver-mixed-subquery-basic` | SELECT [id] FROM [dbo].[users] WHERE [id] IN (SELECT ...) | separately attributes the outer membership field and `IN` predicate, inner target/filter field, bind, and source table; 7 patches cover selectors at both levels |
 | `VSH259` | `vastbase-sqlserver-mixed-alter-table-add-constraint-basic` | ALTER TABLE [dbo].[users] ADD CONSTRAINT [pk_users] PRIMARY KEY ([id]) | basic form covered |
 | `VSH260` | `vastbase-sqlserver-mixed-drop-type-basic` | DROP TYPE [dbo].[phone] | basic form covered |
 | `VSH261` | `vastbase-sqlserver-mixed-create-user-basic` | CREATE USER [app_user] | basic form covered |
@@ -540,23 +577,11 @@ nested binds were counted in the global sequence. `GETDATE()` and
 | `VSH400` | `vastbase-sqlserver-if-cte-delete-branch` | CTE DELETE branch | covered |
 | `VSH401` | `vastbase-sqlserver-if-cte-insert-branch` | CTE INSERT branch | covered |
 | `VSH402` | `vastbase-sqlserver-if-cte-merge-branch` | CTE MERGE branch | covered |
-| `VSH403` | `vastbase-sqlserver-if-create-view-cte-branch` | CREATE VIEW CTE branch | covered |
-| `VSU018` | `vastbase-sqlserver-output-empty-target-error` | INSERT ... OUTPUT VALUES (...) | parse error |
-| `VSU019` | `vastbase-sqlserver-output-trailing-comma-error` | INSERT ... OUTPUT target, VALUES (...) | parse error |
-| `VSU020` | `vastbase-sqlserver-output-into-missing-sink-error` | INSERT ... OUTPUT target INTO VALUES (...) | parse error |
-| `VSU021` | `vastbase-sqlserver-output-channel-order-error` | sink OUTPUT declared after client OUTPUT | parse error |
-| `VSU022` | `vastbase-sqlserver-insert-output-deleted-error` | INSERT ... OUTPUT DELETED... | explicitly unsupported |
-| `VSU023` | `vastbase-sqlserver-delete-output-inserted-error` | DELETE ... OUTPUT INSERTED... | explicitly unsupported |
-| `VSU024` | `vastbase-sqlserver-non-merge-output-action-error` | UPDATE ... OUTPUT $action | explicitly unsupported |
-| `VSU025` | `vastbase-sqlserver-output-aggregate-error` | UPDATE ... OUTPUT COUNT(*) | explicitly unsupported |
-| `VSU026` | `vastbase-sqlserver-output-subquery-error` | UPDATE ... OUTPUT (SELECT ...) | explicitly unsupported |
-| `VSU027` | `vastbase-sqlserver-insert-exec-output-error` | INSERT ... OUTPUT ... EXEC ... | explicitly unsupported |
-| `VSU028` | `vastbase-sqlserver-if-missing-condition` | IF without a condition | parse error |
-| `VSU029` | `vastbase-sqlserver-if-missing-branch` | IF without a branch statement | parse error |
-| `VSU030` | `vastbase-sqlserver-if-orphan-else` | orphan ELSE | parse error |
-| `VSU031` | `vastbase-sqlserver-if-empty-begin-end` | empty BEGIN/END | parse error |
-| `VSU032` | `vastbase-sqlserver-if-unterminated-begin-end` | unterminated BEGIN/END | parse error |
-| `VSU033` | `vastbase-sqlserver-if-unparenthesized-select-condition` | unparenthesized condition SELECT | parse error |
-| `VSU034` | `vastbase-sqlserver-if-else-missing-branch` | ELSE without a branch statement | parse error |
-| `VSU035` | `vastbase-sqlserver-if-go-batch-separator` | GO inside control flow | explicitly unsupported |
-| `VSU036` | `vastbase-sqlserver-if-unsupported-leaf` | unsupported branch leaf | explicitly unsupported |
+| `VSH403` | `vastbase-sqlserver-if-exec-create-view-cte-branch` | EXEC-wrapped CREATE VIEW CTE branch | covered |
+| `VSH404` | `vastbase-sqlserver-merge-cte-target-relation-binding` | CTE target binding and base-relation patch propagation for MERGE | covered |
+
+## Coverage Boundary
+
+This matrix lists only cases that parse successfully and have final View and
+patch expectations. Syntax outside the executable fixture must not be listed
+here as a validated case.

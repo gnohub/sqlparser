@@ -49819,16 +49819,28 @@ yyreduce:
   case 2099:
 #line 15434 "gram.y"
     {
+					Node *arg = (yyvsp[(2) - (4)].node);
+
+					if (pg_yyget_extra(yyscanner)
+							->core_yy_extra
+							.preserve_identifier_spelling)
+					{
+						A_Indirection *grouping = makeNode(A_Indirection);
+
+						grouping->arg = arg;
+						grouping->indirection = NIL;
+						arg = (Node *) grouping;
+					}
 					if ((yyvsp[(4) - (4)].list))
 					{
 						A_Indirection *n = makeNode(A_Indirection);
 
-						n->arg = (yyvsp[(2) - (4)].node);
+						n->arg = arg;
 						n->indirection = check_indirection((yyvsp[(4) - (4)].list), yyscanner);
 						(yyval.node) = (Node *) n;
 					}
 					else
-						(yyval.node) = (yyvsp[(2) - (4)].node);
+						(yyval.node) = arg;
 				;}
     break;
 

@@ -78,7 +78,9 @@ typedef struct {
 #define SQLPARSER_PROTO_LOCATION_GENERATED_SPELLING_BASE INT32_MIN
 #define SQLPARSER_PROTO_LOCATION_GENERATED_SPELLING_LAST (-1610612737)
 #define SQLPARSER_PROTO_LOCATION_SQL_VALUE_CASE_BASE (-1073741840)
-#define SQLPARSER_PROTO_LOCATION_SQL_VALUE_CASE_LAST (-1073872911)
+#define SQLPARSER_PROTO_LOCATION_SQL_VALUE_CASE_LAST (-1074003983)
+#define SQLPARSER_PROTO_SQL_VALUE_UPPERCASE_MASK UINT32_C(0x1ffff)
+#define SQLPARSER_PROTO_SQL_VALUE_EMPTY_CALL_FLAG UINT32_C(0x20000)
 #define SQLPARSER_PROTO_IDENTIFIER_SPELLING_COMPONENT_BITS 4U
 #define SQLPARSER_PROTO_IDENTIFIER_SPELLING_COMPONENT_MASK 15U
 #define SQLPARSER_PROTO_IDENTIFIER_SPELLING_COMPONENTS 16U
@@ -86,19 +88,41 @@ typedef struct {
 #define SQLPARSER_PROTO_IDENTIFIER_STYLE_BITS 3U
 #define SQLPARSER_PROTO_IDENTIFIER_STYLE_MASK 7U
 #define SQLPARSER_PROTO_IDENTIFIER_STYLE_COMPONENTS 10U
+#define SQLPARSER_PROTO_ALIAS_STYLE_SHIFT SQLPARSER_PROTO_IDENTIFIER_STYLE_BITS
 
 typedef enum {
 	SQLPARSER_PROTO_IDENTIFIER_STYLE_NONE = 0,
 	SQLPARSER_PROTO_IDENTIFIER_STYLE_UNQUOTED = 1,
 	SQLPARSER_PROTO_IDENTIFIER_STYLE_DOUBLE_QUOTED = 2,
 	SQLPARSER_PROTO_IDENTIFIER_STYLE_BACKTICK_QUOTED = 3,
-	SQLPARSER_PROTO_IDENTIFIER_STYLE_BRACKET_QUOTED = 4
+	SQLPARSER_PROTO_IDENTIFIER_STYLE_BRACKET_QUOTED = 4,
+	SQLPARSER_PROTO_IDENTIFIER_STYLE_DIALECT_GENERATED = 5
 } sqlparser_proto_identifier_style_t;
+
+typedef enum {
+	SQLPARSER_ALIAS_STYLE_UNKNOWN = 0,
+	SQLPARSER_ALIAS_STYLE_IMPLICIT = 1,
+	SQLPARSER_ALIAS_STYLE_EXPLICIT_AS = 2
+} sqlparser_alias_style_t;
 
 typedef struct {
 	char *parts[SQLPARSER_PROTO_IDENTIFIER_SPELLING_COMPONENTS];
-	size_t part_count;
+	uint8_t part_count;
+	uint8_t alias_style;
 } sqlparser_identifier_spelling_t;
+
+typedef struct {
+	size_t source_start;
+	size_t source_end;
+	char *replacement;
+	size_t replacement_length;
+} sqlparser_surface_source_edit_t;
+
+typedef struct {
+	sqlparser_surface_source_edit_t *items;
+	size_t count;
+	size_t capacity;
+} sqlparser_surface_source_edits_t;
 
 #define SQLPARSER_PROTO_LOCATION_GENERATED_DOUBLE_QUOTED \
 	(SQLPARSER_PROTO_LOCATION_GENERATED_STYLE_BASE - \
@@ -133,6 +157,8 @@ struct sqlparser_handle {
 	int32_t identifier_spelling_last_location;
 	sqlparser_status_t identifier_spelling_status;
 	sqlparser_identifier_origin_map_t *identifier_origins;
+	sqlparser_surface_source_edits_t surface_source_edits;
+	int surface_source_complete;
 };
 
 void sqlparser_error_clear(sqlparser_error_t *out_error);
@@ -200,8 +226,49 @@ int sqlparser_handle_identifier_spelling(
 void sqlparser_handle_invalidate_derived(sqlparser_handle_t *handle);
 void sqlparser_query_graph_cache_release(sqlparser_query_graph_cache_t *cache);
 void sqlparser_handle_clear_query_graph(sqlparser_handle_t *handle);
+int sqlparser_public_char_is_ident(unsigned char ch);
+size_t sqlparser_public_skip_quoted_or_comment(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	size_t index);
+int sqlparser_public_comment_at(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	size_t pos);
+size_t sqlparser_public_skip_trivia(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	size_t pos);
+size_t sqlparser_public_skip_space(const char *sql, size_t pos);
+int sqlparser_public_sqlserver_go_at(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	size_t pos,
+	size_t *out_after);
+void sqlparser_surface_source_edits_release(
+	sqlparser_surface_source_edits_t *edits);
+sqlparser_status_t sqlparser_surface_source_edits_clone(
+	const sqlparser_surface_source_edits_t *source,
+	sqlparser_surface_source_edits_t *out_edits,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_surface_source_edits_insert(
+	sqlparser_surface_source_edits_t *edits,
+	size_t source_start,
+	size_t source_end,
+	const char *replacement,
+	size_t replacement_length,
+	int *out_supported,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_restore_source_envelope(
+	const sqlparser_handle_t *handle,
+	char **in_out_sql,
+	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_handle_commit_ast(
 	sqlparser_handle_t *handle,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_handle_commit_ast_with_dialect_state(
+	sqlparser_handle_t *handle,
+	void *state,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_handle_clone(
 	const sqlparser_handle_t *source,
@@ -227,10 +294,21 @@ sqlparser_status_t sqlparser_validate_ast_identifier_spelling(
 	sqlparser_error_t *out_error);
 const char *sqlparser_effective_sql(const sqlparser_handle_t *handle);
 const char *sqlparser_effective_parser_sql(const sqlparser_handle_t *handle);
+typedef enum {
+	SQLPARSER_FRAGMENT_CONTEXT_OPAQUE = 0,
+	SQLPARSER_FRAGMENT_CONTEXT_STATEMENT,
+	SQLPARSER_FRAGMENT_CONTEXT_EXPRESSION,
+	SQLPARSER_FRAGMENT_CONTEXT_SELECT_TARGET,
+	SQLPARSER_FRAGMENT_CONTEXT_ORDER_BY,
+	SQLPARSER_FRAGMENT_CONTEXT_UPDATE_SET
+} sqlparser_fragment_context_t;
 sqlparser_status_t sqlparser_postprocess_handle_sql_fragment(
 	const sqlparser_handle_t *handle,
 	size_t statement_index,
 	const char *core_sql,
+	sqlparser_fragment_context_t fragment_context,
+	ProtobufCMessage *const *roots,
+	size_t root_count,
 	const char *field_name,
 	char **out_sql,
 	sqlparser_error_t *out_error);
@@ -246,9 +324,10 @@ sqlparser_status_t sqlparser_preprocess_handle_sql_fragment_with_origins(
 void sqlparser_handle_discard_dialect_state(
 	const sqlparser_handle_t *handle,
 	void *state);
-void sqlparser_handle_adopt_dialect_state(
+sqlparser_status_t sqlparser_handle_adopt_dialect_state(
 	sqlparser_handle_t *handle,
-	void *state);
+	void *state,
+	sqlparser_error_t *out_error);
 const char *sqlparser_dialect_relation_object_name(
 	const sqlparser_dialect_ops_t *ops,
 	const void *state,

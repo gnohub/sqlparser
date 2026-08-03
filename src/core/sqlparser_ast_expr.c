@@ -143,8 +143,7 @@ sqlparser_status_t sqlparser_deparse_wrapper_ast(
 	parse_tree.len = packed_size;
 	parse_tree.data = (char *)buffer;
 	sqlparser_pg_query_prepare();
-	deparse_result = handle != NULL &&
-			handle->generation > 0UL ?
+	deparse_result = handle != NULL ?
 		sqlparser_deparse_protobuf_for_handle(
 			handle,
 			parse_tree,
@@ -649,6 +648,7 @@ sqlparser_status_t sqlparser_render_insert_cell_node_sql(
 }
 
 sqlparser_status_t sqlparser_render_variable_set_arg_node_sql(
+	const sqlparser_handle_t *handle,
 	const PgQuery__Node *node,
 	char **out_sql,
 	sqlparser_error_t *out_error)
@@ -688,12 +688,18 @@ sqlparser_status_t sqlparser_render_variable_set_arg_node_sql(
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_clone_proto_node(node, &replacement, out_error);
 	}
+	if (status == SQLPARSER_STATUS_OK && handle != NULL) {
+		status = sqlparser_mark_proto_generated_from_handle(
+			handle,
+			(ProtobufCMessage *)replacement,
+			out_error);
+	}
 	if (status == SQLPARSER_STATUS_OK) {
 		sqlparser_free_proto_node(*slot);
 		*slot = replacement;
 		replacement = NULL;
 		status = sqlparser_deparse_wrapper_ast(
-			NULL,
+			handle,
 			ast,
 			&deparsed_sql,
 			out_error);

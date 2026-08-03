@@ -220,6 +220,7 @@ bind 字段规则：
 | `SQLPARSER_CLAUSE_KIND_HAVING` | `having` | HAVING 条件 |
 | `SQLPARSER_CLAUSE_KIND_DML_RESULT` | `dml_result` | DML 结果输出列表 |
 | `SQLPARSER_CLAUSE_KIND_CONDITION` | `condition` | 控制流条件表达式 |
+| `SQLPARSER_CLAUSE_KIND_WINDOW_PARTITION` | `window_partition` | 命名窗口定义的 PARTITION BY 列表 |
 
 `sqlparser_graph_dml_result_kind_t`：
 
@@ -372,6 +373,8 @@ sqlparser_control_item_at(&flow, root_item_index, &root, &err);
 | `sqlparser_statement_relation()` | 读取指定 relation |
 | `sqlparser_statement_set_relation_name()` | 改写指定 relation 的 schema 或 table 名称 |
 
+当 relation 没有显式 alias 时，名称改写会同步更新作用域解析中唯一绑定到该 relation 的限定列引用、限定星号和限定赋值目标。显式 alias、同层歧义、内层遮蔽以及 SQL Server `INSERTED`、`DELETED` 等伪关系引用保持不变。原引用的限定层级可以随新 relation 路径收缩，但不会因新路径变长而扩张；relation selector 的 replace 使用相同规则。
+
 ### Name
 
 | 函数 | 摘要 |
@@ -412,7 +415,7 @@ sqlparser_control_item_at(&flow, root_item_index, &root, &err);
 | `sqlparser_select_target_list_count()` | 返回语句中的 SELECT target list 数量 |
 | `sqlparser_select_target_count()` | 返回指定 target list 的输出项数量 |
 | `sqlparser_select_target_sql()` | 读取指定输出项 SQL |
-| `sqlparser_select_set_target_sql()` | 替换指定输出项 SQL |
+| `sqlparser_select_set_target_sql()` | 使用完整 target SQL 替换指定输出位置；不继承原 target 的别名；多输出项片段在该位置展开 |
 | `sqlparser_select_set_targets_sql()` | 替换整个 SELECT 输出列表 |
 | `sqlparser_select_insert_target_sql()` | 在 SELECT 输出列表中插入输出项 |
 | `sqlparser_select_delete_target()` | 删除 SELECT 输出项 |
@@ -511,7 +514,7 @@ MERGE 分支条件使用 `stmt[S].merge_branch_condition[W]`；嵌套 MERGE 使�
 
 | 函数 | 摘要 |
 | --- | --- |
-| `sqlparser_selector_set_relation_name()` | 改写 relation 名称 |
+| `sqlparser_selector_set_relation_name()` | 按通用 relation 绑定规则改写 relation 名称 |
 | `sqlparser_selector_set_name()` | 改写名称原子 |
 | `sqlparser_selector_set_literal()` | 改写 literal |
 | `sqlparser_selector_set_where_literal()` | 改写 WHERE literal |
@@ -527,7 +530,7 @@ MERGE 分支条件使用 `stmt[S].merge_branch_condition[W]`；嵌套 MERGE 使�
 | `sqlparser_selector_set_update_assignment_full_sql()` | 整项替换 `SET` 赋值项 |
 | `sqlparser_selector_set_insert_cell_literal()` | 改写 INSERT 单元格 literal |
 | `sqlparser_selector_set_insert_cell_sql()` | 改写 INSERT 单元格右值 SQL |
-| `sqlparser_selector_set_select_target_sql()` | 改写 SELECT 单个输出项 |
+| `sqlparser_selector_set_select_target_sql()` | 使用完整 target SQL 替换 SELECT 指定输出位置；不继承原 target 的别名；多输出项片段在该位置展开 |
 | `sqlparser_selector_set_select_targets_sql()` | 改写 SELECT 整个输出列表 |
 | `sqlparser_selector_replace_select_target_with_columns()` | 用结构化列列表替换一个 SELECT 输出项 |
 
@@ -607,13 +610,13 @@ sqlparser_status_t sqlparser_statement_query_graph(
 | `sqlparser_query_graph_relation_at()` | 读取 relation |
 | `sqlparser_query_graph_target_at()` | 读取 SELECT target |
 | `sqlparser_query_graph_field_at()` | 读取字段 occurrence |
-| `sqlparser_query_graph_value_at()` | 读取字段关联值 |
+| `sqlparser_query_graph_value_at()` | 读取 query graph value |
 | `sqlparser_query_graph_set_at()` | 读取集合运算节点 |
 | `sqlparser_query_graph_predicate_at()` | 读取 WHERE/ON/HAVING 谓词节点 |
 | `sqlparser_query_graph_session()` | 读取当前语句的会话状态操作 |
 | `sqlparser_query_graph_session_item_at()` | 读取会话状态目标 |
 | `sqlparser_query_graph_session_value_at()` | 读取会话状态值 |
-| `sqlparser_query_graph_dml()` | 读取根 DML 写入结构 |
+| `sqlparser_query_graph_dml()` | 读取当前 statement 中索引 0 的 DML 写入结构 |
 | `sqlparser_query_graph_dml_count()` | 读取当前 statement 的 DML 数量 |
 | `sqlparser_query_graph_dml_at()` | 按 0 基索引读取 DML |
 | `sqlparser_query_graph_dml_parent()` | 读取嵌套 DML 的父 DML 索引 |
@@ -634,7 +637,7 @@ sqlparser_status_t sqlparser_statement_query_graph(
 | `sqlparser_graph_relation_t` | SQL 中出现的 base、derived、cte 或 dual relation |
 | `sqlparser_graph_target_t` | SELECT 输出项，包含输出顺序、`*` 来源和 selector |
 | `sqlparser_graph_field_t` | SQL 中出现的字段 occurrence |
-| `sqlparser_graph_value_t` | 与字段关联的 literal、bind、default 或 expression 值 |
+| `sqlparser_graph_value_t` | query graph 中的 literal、bind、default、expression 或 field 值 |
 | `sqlparser_graph_set_t` | `UNION`、`UNION ALL`、`INTERSECT`、`EXCEPT/MINUS` 分支关系 |
 | `sqlparser_graph_predicate_t` | WHERE、ON、HAVING 中的比较、组合、EXISTS 或表达式谓词 |
 | `sqlparser_graph_session_t` | 当前语句的会话状态操作和 item 数量 |
@@ -658,9 +661,9 @@ sqlparser_status_t sqlparser_statement_query_graph(
 - `sets[].branch_blocks` 表达集合运算左右分支。
 - `predicates[]` 表达 `WHERE`、`ON`、`HAVING` 中的谓词树；`children` span 表达 `AND`、`OR`、`NOT` 的子谓词。
 - `field = literal/bind` 谓词通过 `left_field_index + value_index` 表达；`field = field` 谓词通过 `left_field_index + right_field_index` 表达，并在 `values[]` 中以 `SQLPARSER_GRAPH_VALUE_FIELD` 记录右侧来源字段。
-- 未限定字段如果不能仅凭 SQL 唯一归属，`has_relation` 为 0，`candidate_relations` 给出当前 scope 候选 relation。
+- 字段引用如果不能仅凭 SQL 唯一归属，`has_relation` 为 0，`candidate_relations` 给出当前 scope 候选 relation。
 - `sqlparser_graph_dml_t.insert_mode` 区分 `VALUES`、`SELECT`、`INSERT ALL`、`INSERT FIRST`、MySQL `INSERT ... SET` 以及 `REPLACE` 的 `VALUES`、`SELECT`、`SET` 形态。
-- `sqlparser_query_graph_dml_count()` 和 `sqlparser_query_graph_dml_at()` 用于遍历同一 statement 内的多个 DML；`sqlparser_query_graph_dml()` 继续读取根 DML。
+- `sqlparser_query_graph_dml_count()` 和 `sqlparser_query_graph_dml_at()` 用于遍历同一 statement 内的全部 DML；`sqlparser_query_graph_dml()` 是读取索引 0 的兼容简写。多个无父 DML 可以并列存在，使用 `sqlparser_query_graph_dml_parent()` 区分根节点和嵌套节点。
 - `sqlparser_query_graph_dml_parent()` 表达嵌套 DML 的父子关系；没有父 DML 时 `out_has_parent` 为 0。
 - `sqlparser_graph_dml_result_t.kind` 区分 client 和 sink 通道；sink 通道通过 `has_sink_relation`、`sink_relation_index` 和 `sink_columns` 指向写入目标。
 - `sqlparser_graph_dml_result_t.references` 中的索引通过 `sqlparser_query_graph_span_index_at()` 读取，再传给 `sqlparser_query_graph_dml_reference_at()`。每个 reference 关联一个结果 target，并标明 `target_before`、`target_after` 或 `source` 来源。
@@ -669,11 +672,13 @@ sqlparser_status_t sqlparser_statement_query_graph(
 - 对于解析成功的 MERGE，每个 `WHEN` 子句对应一个 branch，`ordinal` 是所有 `WHEN` 子句中的绝对 0 基序号。通过 `sqlparser_query_graph_merge_branch_detail()` 读取该 branch 的 action、match 类型和 assignment span。INSERT action 的 cell `row_index` 等于该绝对 `WHEN` 序号，`column_ordinal` 是 VALUES 中的 0 基位置；省略目标列列表时 `target_columns` 可以为空而 `rows` 非空。UPDATE action 的 assignment 同时出现在父 DML assignment span 和 branch detail assignment span 中，二者引用同一 assignment 索引。DELETE 和 NOTHING action 不携带 target columns、rows 或 assignments。
 - Oracle/Dameng multi-table INSERT branch cell 如果直接引用末尾 source query 输出字段，`sqlparser_graph_dml_cell_t.kind` 为 `SQLPARSER_GRAPH_VALUE_FIELD`，并通过 `has_source_target/source_target_index` 指向对应 `targets[]` 项。
 - `UPDATE` 和 `MERGE` assignment 的右侧如果是直接字段引用，`sqlparser_graph_dml_assignment_t.value_kind` 为 `SQLPARSER_GRAPH_VALUE_FIELD`，并通过 `has_source_field/source_field_index` 指向来源字段；来源字段可唯一匹配派生 source query 输出项时，同时提供 `has_source_target/source_target_index`。
-- `values[]` 只记录与字段或 SELECT target 关联的应用侧值；`LIMIT/OFFSET`、`ROWNUM` 等分页或伪列 bind 不进入 `values[]`。
+- 仅当 `sqlparser_graph_dml_assignment_t.value_kind` 为 `SQLPARSER_GRAPH_VALUE_EXPRESSION` 时使用 `rhs_fields`、`rhs_values` 和 `rhs_blocks`。`rhs_fields` 和 `rhs_values` 分别归属右侧表达式在当前 assignment block 内的 field 和 value occurrence；`rhs_blocks` 归属从右侧表达式出发、不跨越另一层子查询边界即可到达的子查询入口 block。三个 span 的索引均通过 `sqlparser_query_graph_span_index_at()` 读取，再分别传给 `sqlparser_query_graph_field_at()`、`sqlparser_query_graph_value_at()` 或 `sqlparser_query_graph_block_at()`；子查询内部语义从入口 block 继续遍历。
+- `value_kind` 为 `SQLPARSER_GRAPH_VALUE_FIELD`、`SQLPARSER_GRAPH_VALUE_LITERAL`、`SQLPARSER_GRAPH_VALUE_BIND` 或 `SQLPARSER_GRAPH_VALUE_DEFAULT` 时，assignment 继续使用既有 payload，三个 `rhs_*` span 的 `count` 均为 `0`。
+- `values[]` 记录与字段或 SELECT target 关联的应用侧值，以及由复合 DML assignment 的 `rhs_values` 归属的右侧 literal、bind 和 default occurrence。仅通过 `rhs_values` 归属的值可以没有关联字段；`LIMIT/OFFSET`、`ROWNUM` 等分页或伪列 bind 不进入 `values[]`。
 - `sqlparser_graph_value_t.field_match_kind` 仅在 `has_field` 为真时有效，用于区分 `secret = ?` 这类直接字段匹配和 `UPPER(secret) = ?` 这类表达式字段匹配。
 - `sqlparser_graph_value_t.operator_kind` 是基于已归一操作符的结构化分类；调用方判断 pattern-match 语义时应使用 `sqlparser_graph_value_is_like_pattern()` 或枚举值，不需要比较 `operator_name` 字符串。
 - 字段侧表达式包含多个字段时，每个可定位字段各输出一条 `expression_field` value 关系。
-- 值侧是函数、CAST、运算符、数组、ROW 或 CASE 表达式时，关联字段的 value 使用 `SQLPARSER_GRAPH_VALUE_EXPRESSION`，不会把内部 bind/literal 当作 direct value 暴露。
+- 对于谓词，值侧是函数、CAST、运算符、数组、ROW 或 CASE 表达式时，关联字段的 value 使用 `SQLPARSER_GRAPH_VALUE_EXPRESSION`，不将该谓词表达式内部的 bind/literal 暴露为 direct value。复合 DML assignment 右侧表达式不适用该限制，其内部值通过 `rhs_values` 归属。
 - `LIKE`、`NOT LIKE`、`ILIKE`、`NOT ILIKE` 带显式 `ESCAPE` 时，pattern 对应的 `sqlparser_graph_value_t.like_escape` 保存 escape 结构；没有显式 `ESCAPE` 时 `kind` 为 `SQLPARSER_GRAPH_LIKE_ESCAPE_NONE`。反解析输出保持公开 SQL 形态，例如 `LIKE pattern ESCAPE escape`。
 
 ### 会话状态

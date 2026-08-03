@@ -1,20 +1,17 @@
 # SQL Case Matrix
 
-This file records the regression cases covered by `tests/cases/sql_batch_input.json`. The JSON fixture is the executable test source; this document describes the validated statement shapes and validation focus.
+This file records the regression cases covered by `tests/cases/sql_batch_input.json`. For every final case, the runner requires unchanged SQL to deparse byte for byte, compares the actual View with the expected JSON structure, and executes each patch independently. Patched SQL must match `patch.deparse` byte for byte, remain identical after a fresh parse and second deparse, and produce the same View from the patched and freshly parsed handles.
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 196 cases: 193 expect success and 3 expect failure.
-Statement-level `expect.session` appears in 32 cases: 5 schema/session cases
-without an `id` field and `PG-001` through `PG-027`. All 32 contain at least
-one non-null session expectation.
+The fixture contains 213 cases with `status = "final"`. Expected View JSON contains
+statement-level `query_graph.session` output in 32 cases: 5 schema/session
+cases and `PG-001` through `PG-027`. All 32 contain at least one non-empty
+session projection.
 
-When an `expect.session` array is present, the matrix test requires one entry
-per statement. A non-null entry is matched against the corresponding session
-projection, including its action, item scope, target kind, name, and value
-fields; `null` asserts that no session projection is emitted. For fixture
-cases that expect success, the test also deparses the unmodified handle and
-compares the result with the input SQL byte for byte.
+View validation compares JSON structures; object-key order and formatting
+whitespace do not participate. Session action, item scope, target kind, name,
+and value fields are all part of that comparison.
 
 ## Executable Entry Points
 
@@ -177,6 +174,22 @@ compares the result with the input SQL byte for byte.
 | P147 | `postgresql-national-string-duplicate-literal` | ordinary `'same'` and `N'same'` together | same-text ordinary and national strings are restored independently by literal ordinal |
 | P148 | `postgresql-merge-multiple-conditional-insert-branches` | two conditional `WHEN NOT MATCHED ... INSERT` actions | MERGE branch order, exact condition text, branch columns/row coordinates, field/bind/expression cells, and global bind positions |
 | P149 | `postgresql-merge-by-source-and-omitted-insert-columns` | BY TARGET INSERT, conditional MATCHED UPDATE, and BY SOURCE DELETE | all three MERGE action/match pairs, absolute branch ordinals, INSERT rows without a target column list, and exact branch payloads |
+| P150 | `postgresql-direct-field-coalesce-expression-value` | field compared with `COALESCE($1, 'x')` | the predicate references one `direct_field` expression value while nested binds and literals remain unpromoted |
+| P151 | `postgresql-direct-field-case-expression-value` | field compared with a parameterized CASE expression | the whole CASE is one `direct_field` expression value referenced by the predicate while nested binds and literals remain unpromoted |
+| P152 | `postgresql-direct-field-array-expression-value` | field compared with `ARRAY[$1, $2]` | the ARRAY constructor is one `direct_field` expression value referenced by the predicate while nested binds remain unpromoted |
+| P153 | `postgresql-having-or-count-expression-predicates` | `HAVING COUNT(*) > $1 OR COUNT(id) >= 2` | HAVING preserves OR-child order; `COUNT(*)` references a standalone bind without producing a field, while `COUNT(id)` references its expression field and literal; all 3 patches deparse exactly |
+| P154 | `postgresql-not-in-subquery-membership` | `field NOT IN (SELECT ... WHERE ... = $1)` | preserves the outer `NOT` node and its `IN` membership child while keeping the inner block, fields, bind, and predicate independently attributed; 6 patches cover both field levels, the relation, target replacement/insertion, and bind |
+| P155 | `postgresql-having-function-null-test` | `HAVING SUM(amount) IS NOT NULL AND COUNT(*) > $1` | preserves HAVING AND-child order; the compound-function null test emits an operator-only expression predicate without selecting an internal field or creating a NULL value, while the COUNT bind remains independent; all 4 patches are verified exactly |
+| P156 | `postgresql-select-target-fragment-splice-first` | replaces the first item of a three-target SELECT with two quoted targets | splices the multi-target replacement at the selected position while preserving following-target order and WHERE field/bind attribution; an independent insert patch validates list positioning |
+| P157 | `postgresql-relation-patch-qualified-shadowed-correlation` | an unaliased schema-qualified outer relation with a same-named inner alias | View attributes the correlated three-part field to the outer relation; the relation patch updates the outer qualified star, direct field, and correlated field while preserving the inner alias and its field |
+| P158 | `postgresql-relation-patch-two-part-window-qualifiers` | one relation referenced across SELECT, window, GROUP BY, HAVING, and ORDER BY | replacing a one-part relation with a quoted two-part path makes every bound qualifier use the new path tail at its original depth; independent field and target-insertion patches are also verified |
+| P159 | `postgresql-data-modifying-cte-delete-multi-reference` | a DELETE CTE whose `RETURNING` result is referenced twice by an outer JOIN | one DELETE DML root, one result block, and two CTE relations sharing its `source_block`; 2 independent patches cover result-target replacement and insertion |
+| P160 | `postgresql-data-modifying-cte-update-delete-root` | an UPDATE CTE with a top-level DELETE | the top-level DELETE is D0 and the UPDATE CTE is its D1 child; the UPDATE result block feeds the DELETE `USING` relation, and 2 independent patches verify the D1 result list exactly |
+| P161 | `postgresql-data-modifying-cte-two-deletes-side-effect` | a DELETE CTE without `RETURNING` beside a DELETE CTE with `RETURNING` | the two SELECT-root DMLs remain independent roots in declaration order; side-effect-only D0 has no result while D1 owns one result block; 2 independent patches verify the D1 result list |
+| P162 | `postgresql-data-modifying-cte-sibling-lineage` | an INSERT CTE whose `RETURNING` output feeds a sibling UPDATE CTE | D0 INSERT and D1 UPDATE remain independent roots with distinct result blocks; the UPDATE assignment points through `source_field`/`source_target` to the INSERT `payload`; 3 independent patches cover both DML ordinals and result insertion |
+| P163 | `postgresql-data-modifying-cte-merge-returning` | a MERGE CTE with UPDATE and INSERT branches plus `RETURNING` | MERGE D0 target/source relations, ON predicate, branch assignment and INSERT row, result block, `target_after` origin for `RETURNING t.*`, and outer CTE `source_block`; 2 independent patches cover result-target replacement and insertion |
+| P164 | `postgresql-data-modifying-cte-update-compound-rhs` | a compound assignment RHS in an UPDATE CTE with unaliased relations | `rhs_fields` and `rhs_values` attribute the source field, bind, and literal to the assignment; source and target relation patches propagate through RHS, WHERE, and RETURNING qualifiers while outer-target insertion remains independent |
+| P165 | `postgresql-on-conflict-compound-rhs` | a compound assignment RHS in `ON CONFLICT DO UPDATE` | the `EXCLUDED` field, target-table field, bind, and literal belong to one assignment; the target alias remains stable after relation replacement, and RETURNING target insertion is verified exactly |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 
@@ -206,10 +219,10 @@ Every case checks `row`, `column`, `kind`, and `selector` for every VALUES cell.
 | VCLI003 | `vastbase-postgresql-cli-positional-binds` | `SELECT id FROM public.users WHERE id = $1` | `vastbase-postgresql` CLI dialect name and PostgreSQL positional bind |
 | VCLI004 | `vastbase-sqlserver-cli-top-bind` | `SELECT TOP (5) [id] FROM [dbo].[users] WHERE [id] = @id` | `vastbase-sqlserver` CLI dialect name, bracket identifiers, `TOP`, and named bind |
 
-## Negative Case
+## Coverage Boundary
 
-| Case ID | Case Name | Input | Validation Focus |
-| --- | --- | --- | --- |
-| P137 | `parse-error` | `SELECT FROM` | structured parse error, error code, error message |
+This matrix lists only cases that parse successfully and have final View and
+patch expectations. Parse-failure paths are maintained by separate unit tests
+and are not listed in this fixture.
 
 New regression cases must update both `tests/cases/sql_batch_input.json` and this matrix.

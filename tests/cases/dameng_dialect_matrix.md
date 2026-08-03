@@ -1,12 +1,12 @@
 # 达梦方言用例矩阵
 
-本文件记录达梦方言转换层的回归用例。可执行夹具为 `tests/cases/dameng_dialect_input.json`，单元测试 `tests/unit/test_dameng_dialect_case_matrix.c` 会逐条验证解析结果、View JSON、反解析输出和错误码。
+本文件记录达梦方言转换层的回归用例。可执行夹具为 `tests/cases/dameng_dialect_input.json`。对每条 final 用例，runner 验证未修改 SQL 的反解析结果与输入逐字节一致、实际 View 与期望 JSON 结构相等，并独立执行每个 patch；patch 后 SQL 必须与 `patch.deparse` 逐字节一致，重新解析后再次反解析仍须一致，且 patch handle 与重新解析 handle 的 View 输出必须一致。
 
 ## 矩阵统计与 session 回归
 
-夹具包含 172 条用例，其中 160 条预期成功，12 条预期失败。34 条用例包含 statement 级 `expect.session`，覆盖 `D002`、`D003`、`D003Q`、`D026`、`D089` 至 `D095` 和 `DM-*` session 用例；这 34 条用例均至少包含一个非空 session 期望。
+夹具包含 165 条 `status = "final"` 用例。34 条用例包含 statement 级 `query_graph.session`，覆盖 `D002`、`D003`、`D003Q`、`D026`、`D089` 至 `D095` 和 `DM-*` session 用例；这 34 条用例均至少包含一个非空 session item。
 
-用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
+用例提供 `query_graph.session` 时，矩阵测试会随完整 View JSON 精确校验 session action、item scope、target kind、name 及 value 字段。每条用例还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
 
 ## 支持用例
 
@@ -164,20 +164,23 @@
 | `DM-BM009` | 三行 `VALUES` 中 bind 与时间函数换位 | 多行单元坐标和跨行 bind 顺序稳定 |
 | `DM-BM010` | schema-qualified 引号标识符、不规则空白、`?` 和 `SYSDATE` | 保持标识符、空白、单元映射并逐字节还原输入 SQL |
 
-## 明确不支持用例
+## ROWNUM 谓词语义回归
 
-以下语法具有达梦或兼容模式下的专属语义，当前不会尝试映射为 PostgreSQL AST。转换层返回 `SQLPARSER_STATUS_UNSUPPORTED` 或解析错误，避免生成语义不可靠的 SQL。
+本组覆盖 ROWNUM 与普通条件组成布尔树、排序后 Top-N、反向等值条件、大于边界条件以及 DELETE 批处理条件。ROWNUM 条件在 View 中表达为不关联 `fields[]` 的 expression predicate，并指向对侧 literal 或 bind value。
 
-| ID | 用例 | 原因 |
-| --- | --- | --- |
-| DU001 | `CONNECT BY` | 层级查询语义需要专用查询模型 |
-| DU002 | `PIVOT` | 表变换语义需要专用查询模型 |
-| DU003 | `RETURNING ... INTO` | 返回目标和宿主变量语义不等价 |
-| DU004 | DMSQL block | 超出 SQL 语句转换范围 |
-| DU010 | `CREATE PROCEDURE` | DMSQL 程序单元 |
-| DU012 | `ALTER SESSION SET CONTAINER` | 达梦当前不支持 container 会话语义 |
+| ID | 用例 | SQL 形态 | 覆盖内容 |
+| --- | --- | --- | --- |
+| D-RN001 | `dameng-rownum-and-named-bind` | 普通比较 `AND ROWNUM <= :limit` | AND 根节点同时保留普通 comparison 和无字段 ROWNUM expression；命名 bind 序号为 1 |
+| D-RN002 | `dameng-rownum-ordered-top-n` | 内层 `ORDER BY`、外层 `ROWNUM < 11` | 排序字段属于内层 block，ROWNUM predicate 和 literal 属于外层 block |
+| D-RN003 | `dameng-rownum-reversed-equality` | `1 = ROWNUM` | 反向操作数保持原始顺序，literal 由无字段 equality expression 引用 |
+| D-RN004 | `dameng-rownum-greater-than-boundary` | `ROWNUM > 1` | 大于边界条件在 View 中完整保留 predicate 和 literal，不进行语义折叠 |
+| D-RN005 | `dameng-delete-rownum-batch-limit` | DELETE 普通比较 `AND ROWNUM <= :batch_size` | DELETE DML 目标、AND 布尔树和 ROWNUM bind 的 block、位置及归属 |
+
+## 覆盖边界
+
+本矩阵只列出可成功解析并具有最终 View 与 patch 期望的用例。未纳入该可执行夹具的语法边界由 `doc/dameng_official_syntax_coverage.csv` 维护。
 
 ## 维护要求
 
 - 新增达梦支持项必须同步更新 `tests/cases/dameng_dialect_input.json`、本矩阵和可执行回归测试。
-- 无法保证语义等价的达梦专有语法必须返回 `SQLPARSER_STATUS_UNSUPPORTED` 或解析错误。
+- 未纳入可执行夹具的语法不得在本矩阵中登记为已验证用例。

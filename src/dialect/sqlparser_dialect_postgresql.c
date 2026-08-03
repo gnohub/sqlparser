@@ -1,7 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "sqlparser_dialect_internal.h"
+#include "sqlparser_dialect_national_literal_internal.h"
 
 typedef struct {
 	char *data;
@@ -15,12 +15,7 @@ typedef struct {
 } sqlparser_postgresql_buffer_t;
 
 typedef struct {
-	char **national_literals;
-	size_t *national_literal_ordinals;
-	size_t national_literal_count;
-	size_t national_literal_capacity;
-	size_t national_literal_ordinal_capacity;
-	size_t literal_count;
+	sqlparser_dialect_national_literals_t national_literals;
 } sqlparser_postgresql_state_t;
 
 static void sqlparser_postgresql_buffer_release(sqlparser_postgresql_buffer_t *buffer)
@@ -317,17 +312,12 @@ static char *sqlparser_postgresql_buffer_take(sqlparser_postgresql_buffer_t *buf
 static void sqlparser_postgresql_state_destroy(void *state)
 {
 	sqlparser_postgresql_state_t *pg_state;
-	size_t index;
 
 	if (state == NULL) {
 		return;
 	}
 	pg_state = (sqlparser_postgresql_state_t *)state;
-	for (index = 0U; index < pg_state->national_literal_count; index++) {
-		free(pg_state->national_literals[index]);
-	}
-	free(pg_state->national_literals);
-	free(pg_state->national_literal_ordinals);
+	sqlparser_dialect_national_literals_clear(&pg_state->national_literals);
 	free(pg_state);
 }
 
@@ -351,44 +341,6 @@ static sqlparser_status_t sqlparser_postgresql_state_new(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_postgresql_size_array_reserve(
-	size_t **items,
-	size_t *capacity,
-	size_t required,
-	sqlparser_error_t *out_error)
-{
-	size_t next_capacity;
-	size_t *next;
-
-	if (items == NULL || capacity == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "array arguments must not be NULL");
-		return SQLPARSER_STATUS_INVALID_ARGUMENT;
-	}
-	if (required <= *capacity) {
-		return SQLPARSER_STATUS_OK;
-	}
-	next_capacity = *capacity == 0U ? 4U : *capacity;
-	while (next_capacity < required) {
-		if (next_capacity > ((size_t)-1) / 2U) {
-			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-			return SQLPARSER_STATUS_NO_MEMORY;
-		}
-		next_capacity *= 2U;
-	}
-	if (next_capacity > ((size_t)-1) / sizeof(*next)) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-		return SQLPARSER_STATUS_NO_MEMORY;
-	}
-	next = (size_t *)realloc(*items, next_capacity * sizeof(*next));
-	if (next == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-		return SQLPARSER_STATUS_NO_MEMORY;
-	}
-	*items = next;
-	*capacity = next_capacity;
-	return SQLPARSER_STATUS_OK;
-}
-
 static sqlparser_status_t sqlparser_postgresql_store_national_literal(
 	sqlparser_postgresql_state_t *state,
 	const char *literal,
@@ -396,49 +348,14 @@ static sqlparser_status_t sqlparser_postgresql_store_national_literal(
 	size_t ordinal,
 	sqlparser_error_t *out_error)
 {
-	char **next;
-	char *copy;
-	size_t next_capacity;
-	sqlparser_status_t status;
-
-	if (state == NULL || literal == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "national literal arguments must not be NULL");
-		return SQLPARSER_STATUS_INVALID_ARGUMENT;
-	}
-
-	status = sqlparser_postgresql_size_array_reserve(
-		&state->national_literal_ordinals,
-		&state->national_literal_ordinal_capacity,
-		state->national_literal_count + 1U,
-		out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		return status;
-	}
-	if (state->national_literal_count == state->national_literal_capacity) {
-		next_capacity = state->national_literal_capacity == 0U ? 4U : state->national_literal_capacity * 2U;
-		if (next_capacity < state->national_literal_capacity ||
-		    next_capacity > ((size_t)-1) / sizeof(*next)) {
-			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-			return SQLPARSER_STATUS_NO_MEMORY;
-		}
-		next = (char **)realloc(state->national_literals, next_capacity * sizeof(*next));
-		if (next == NULL) {
-			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-			return SQLPARSER_STATUS_NO_MEMORY;
-		}
-		state->national_literals = next;
-		state->national_literal_capacity = next_capacity;
-	}
-
-	copy = sqlparser_strndup(literal, len);
-	if (copy == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-		return SQLPARSER_STATUS_NO_MEMORY;
-	}
-	state->national_literals[state->national_literal_count] = copy;
-	state->national_literal_ordinals[state->national_literal_count] = ordinal;
-	state->national_literal_count++;
-	return SQLPARSER_STATUS_OK;
+	return state != NULL ?
+		sqlparser_dialect_national_literals_append(
+			&state->national_literals,
+			literal,
+			len,
+			ordinal,
+			out_error) :
+		SQLPARSER_STATUS_INVALID_ARGUMENT;
 }
 
 static int sqlparser_postgresql_national_literal_matches(
@@ -448,21 +365,13 @@ static int sqlparser_postgresql_national_literal_matches(
 	size_t start,
 	size_t end)
 {
-	size_t index;
-	size_t len;
-
-	if (state == NULL || sql == NULL || end <= start) {
-		return 0;
-	}
-	len = end - start;
-	for (index = 0U; index < state->national_literal_count; index++) {
-		if (state->national_literal_ordinals[index] == ordinal &&
-		    strlen(state->national_literals[index]) == len &&
-		    strncmp(state->national_literals[index], sql + start, len) == 0) {
-			return 1;
-		}
-	}
-	return 0;
+	return state != NULL &&
+		sqlparser_dialect_national_literals_match(
+			&state->national_literals,
+			ordinal,
+			sql,
+			start,
+			end);
 }
 
 static int sqlparser_postgresql_is_ident_char(char c)
@@ -796,6 +705,7 @@ static sqlparser_status_t sqlparser_postgresql_preprocess_text(
 			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
 		}
 		if (copied > 0) {
+			state->national_literals.literal_count++;
 			continue;
 		}
 
@@ -819,16 +729,16 @@ static sqlparser_status_t sqlparser_postgresql_preprocess_text(
 					state,
 					out.data + literal_start,
 					out.len - literal_start,
-					state->literal_count,
+					state->national_literals.literal_count,
 					out_error);
 			}
 			if (status == SQLPARSER_STATUS_OK) {
-				state->literal_count++;
+				state->national_literals.literal_count++;
 			}
 		} else if (input_sql[index] == '\'') {
 			status = sqlparser_postgresql_copy_single_quoted_literal(input_sql, &index, &out, out_error);
 			if (status == SQLPARSER_STATUS_OK) {
-				state->literal_count++;
+				state->national_literals.literal_count++;
 			}
 		} else {
 			status = sqlparser_postgresql_buffer_append_input_char(
@@ -960,6 +870,8 @@ static sqlparser_status_t sqlparser_postgresql_preprocess_fragment(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "PostgreSQL dialect state is missing");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
+	sqlparser_dialect_national_literals_begin_fragment(
+		&((sqlparser_postgresql_state_t *)state)->national_literals);
 	return sqlparser_postgresql_preprocess_text(
 		input_sql,
 		(sqlparser_postgresql_state_t *)state,
@@ -1099,10 +1011,11 @@ static sqlparser_status_t sqlparser_postgresql_postprocess_literal_fragment(
 	const char *core_sql,
 	const void *state,
 	size_t statement_index,
-	size_t literal_index,
+	const PgQuery__AConst *literal_owner,
 	char **out_sql,
 	sqlparser_error_t *out_error)
 {
+	const sqlparser_dialect_national_literal_t *literal;
 	const sqlparser_postgresql_state_t *pg_state;
 	size_t literal_end;
 	sqlparser_postgresql_buffer_t out;
@@ -1121,10 +1034,16 @@ static sqlparser_status_t sqlparser_postgresql_postprocess_literal_fragment(
 	}
 
 	pg_state = (const sqlparser_postgresql_state_t *)state;
+	literal = pg_state != NULL ?
+		sqlparser_dialect_national_literals_find_owner(
+			&pg_state->national_literals, literal_owner) :
+		NULL;
 	literal_end = core_sql[0] == '\'' ? sqlparser_postgresql_quoted_literal_end(core_sql, 0U) : 0U;
 	if (literal_end > 0U &&
 	    core_sql[literal_end] == '\0' &&
-	    sqlparser_postgresql_national_literal_matches(pg_state, literal_index, core_sql, 0U, literal_end)) {
+	    literal != NULL &&
+	    sqlparser_postgresql_national_literal_matches(
+		    pg_state, literal->ordinal, core_sql, 0U, literal_end)) {
 		memset(&out, 0, sizeof(out));
 		status = sqlparser_postgresql_buffer_append_char(&out, 'N', out_error);
 		if (status == SQLPARSER_STATUS_OK) {
@@ -1157,7 +1076,6 @@ static sqlparser_status_t sqlparser_postgresql_clone_state(
 	const sqlparser_postgresql_state_t *source;
 	sqlparser_postgresql_state_t *clone;
 	sqlparser_status_t status;
-	size_t index;
 
 	if (out_state == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "out_state must not be NULL");
@@ -1173,22 +1091,79 @@ static sqlparser_status_t sqlparser_postgresql_clone_state(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	clone->literal_count = source->literal_count;
-	for (index = 0U; index < source->national_literal_count; index++) {
-		status = sqlparser_postgresql_store_national_literal(
-			clone,
-			source->national_literals[index],
-			strlen(source->national_literals[index]),
-			source->national_literal_ordinals[index],
-			out_error);
-		if (status != SQLPARSER_STATUS_OK) {
-			sqlparser_postgresql_state_destroy(clone);
-			return status;
-		}
+	status = sqlparser_dialect_national_literals_clone(
+		&source->national_literals,
+		&clone->national_literals,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_postgresql_state_destroy(clone);
+		return status;
 	}
 
 	*out_state = clone;
 	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_postgresql_bind_ast_state(
+	void *state,
+	const PgQuery__ParseResult *ast,
+	sqlparser_error_t *out_error)
+{
+	return state != NULL ?
+		sqlparser_dialect_national_literals_bind_ast(
+			&((sqlparser_postgresql_state_t *)state)->national_literals,
+			ast,
+			out_error) :
+		SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_postgresql_bind_fragment_ast_state(
+	void *state,
+	const PgQuery__ParseResult *base_ast,
+	size_t statement_index,
+	size_t parser_fragment_offset,
+	ProtobufCMessage *const *roots,
+	size_t root_count,
+	sqlparser_error_t *out_error)
+{
+	(void)statement_index;
+	(void)parser_fragment_offset;
+	return state != NULL ?
+		sqlparser_dialect_national_literals_bind_fragment(
+			&((sqlparser_postgresql_state_t *)state)->national_literals,
+			base_ast,
+			roots,
+			root_count,
+			out_error) :
+		SQLPARSER_STATUS_OK;
+}
+
+static void sqlparser_postgresql_reconcile_ast_state(
+	void *state,
+	const PgQuery__ParseResult *ast)
+{
+	if (state != NULL) {
+		sqlparser_dialect_national_literals_reconcile(
+			&((sqlparser_postgresql_state_t *)state)->national_literals,
+			ast);
+	}
+}
+
+static sqlparser_status_t sqlparser_postgresql_clone_ast_state(
+	void *state,
+	size_t statement_index,
+	const ProtobufCMessage *source_root,
+	const ProtobufCMessage *clone_root,
+	sqlparser_error_t *out_error)
+{
+	(void)statement_index;
+	return state != NULL ?
+		sqlparser_dialect_national_literals_clone_owners(
+			&((sqlparser_postgresql_state_t *)state)->national_literals,
+			source_root,
+			clone_root,
+			out_error) :
+		SQLPARSER_STATUS_OK;
 }
 
 static const sqlparser_dialect_ops_t SQLPARSER_POSTGRESQL_OPS = {
@@ -1207,6 +1182,11 @@ static const sqlparser_dialect_ops_t SQLPARSER_POSTGRESQL_OPS = {
 	NULL,
 	NULL,
 	NULL,
+	NULL,
+	sqlparser_postgresql_bind_ast_state,
+	sqlparser_postgresql_bind_fragment_ast_state,
+	sqlparser_postgresql_reconcile_ast_state,
+	sqlparser_postgresql_clone_ast_state,
 	NULL
 };
 

@@ -125,11 +125,12 @@ IF @enabled = 1 SELECT id FROM users ELSE SELECT id FROM archived_users
 | `relations` | SQL 中出现的基础表、派生表或 CTE 引用；非空时存在 |
 | `targets` | SELECT 输出项、星号输出、DML 输出来源等；非空时存在 |
 | `fields` | SQL 文本中出现的字段引用 occurrence；非空时存在 |
-| `values` | 与字段关联的字面量、bind、DEFAULT 值；分页或伪列 bind 不进入该数组；非空时存在 |
+| `values` | 与字段或 SELECT target 关联的值，以及复合 DML assignment 右侧表达式中的 literal、bind 和 DEFAULT occurrence；分页或伪列 bind 不进入该数组；非空时存在 |
 | `sets` | `UNION`、`UNION ALL`、`INTERSECT`、`EXCEPT/MINUS` 等集合运算；非空时存在 |
 | `predicates` | `WHERE`、`ON`、`HAVING` 等条件中的谓词树节点；非空时存在 |
 | `session` | 数据库、Schema、角色、身份、事务特征或会话参数操作；仅具有会话状态语义时存在 |
-| `dml` | `INSERT`、`UPDATE`、`DELETE`、`MERGE` 写入结构及其嵌套 DML；仅 DML 语句存在 |
+| `dml` | 唯一根 DML 及其嵌套 DML；当前 statement 恰有一个根 DML 时存在 |
+| `dmls` | 根 DML 数组，每个元素包含其嵌套 DML；当前 statement 有多个根 DML 时存在 |
 
 数组中的编号均为当前语句内的 0 基索引。`relations[].source_block`、`targets[].source_block`、`targets[].star_relations` 和 `sets[].branches` 可组合表达派生表、星号和集合运算的来源链路。
 
@@ -272,7 +273,7 @@ FROM (
 | `clause` | 值出现的子句 |
 | `operator` | 与值关联的操作符；没有时省略 |
 | `operator_kind` | 操作符结构化分类；有 `operator` 时输出，pattern-match 可为 `like`、`not_like`、`ilike`、`not_ilike`，其他操作符为 `unknown` |
-| `field` | 关联字段索引；无法关联字段的分页或伪列值不会进入 `values[]` |
+| `field` | 关联字段索引；没有字段归属时省略。复合 DML assignment 右侧表达式中的值通过 `rhs_values` 归属，不要求输出 `field`；分页或伪列值仍不进入 `values[]` |
 | `source_field` | 值为字段引用时的来源字段索引；不适用时省略 |
 | `field_match_kind` | 字段匹配形态；`direct_field` 表示直接字段，`expression_field` 表示字段位于函数、类型转换、表达式或 `CASE` 中 |
 | `kind` | `literal`、`bind`、`default`、`expression`、`field` |
@@ -311,7 +312,7 @@ FROM (
 }
 ```
 
-如果值侧本身是函数、类型转换、运算符、数组、ROW 或 CASE 表达式，例如 `secret = UPPER(?)`、`secret = ? || 'x'`、`secret = CAST(? AS CHAR)`，`values[]` 输出关联到 `secret` 的 `kind=expression`，不会把表达式内部的 bind 或 literal 暴露成 direct value。
+对于谓词，如果值侧本身是函数、类型转换、运算符、数组、ROW 或 CASE 表达式，例如 `secret = UPPER(?)`、`secret = ? || 'x'`、`secret = CAST(? AS CHAR)`，`values[]` 输出关联到 `secret` 的 `kind=expression`，不将该谓词表达式内部的 bind 或 literal 暴露为 direct value。该规则不适用于复合 DML assignment 右侧表达式；其内部值通过 `rhs_values` 归属。
 
 ## predicate
 
@@ -384,7 +385,7 @@ value 的 `kind` 为 `identifier`、`keyword`、`literal`、`bind` 或 `expressi
 
 ## DML
 
-`query_graph.dml` 表达写入语句的目标关系、目标列、行值、赋值项、来源查询和结果通道。
+`query_graph.dml` 和 `query_graph.dmls[]` 的元素表达写入目标、目标列、行值、赋值项、来源查询和结果通道。单个根 DML 使用 `dml`；多个并列根 DML 使用 `dmls`。数据修改 CTE 即使位于 SELECT statement 中也按该规则输出。嵌套 DML 通过各根元素的 `children` 递归表达。
 
 常见字段：
 
@@ -427,6 +428,8 @@ branch cell 的 `kind` 可为 `literal`、`bind`、`default`、`expression` 或 
 对于解析成功的 MERGE，`branches[]` 按 `WHEN` 子句在源 SQL 中的出现顺序排列。每个分支的 `ordinal` 是相对于该 MERGE 全部 `WHEN` 子句的 0 基绝对序号 `W`。每个分支包含 `merge_action_kind`（`insert`、`update`、`delete` 或 `nothing`）和 `merge_match_kind`（`matched`、`not_matched_by_target` 或 `not_matched_by_source`）。INSERT 分支通过 `target_columns` 和 `rows` 表达写入值；省略目标列列表时 `target_columns` 不存在，但 `rows` 仍存在，且每个 cell 的 `row` 等于绝对 `W`、`column` 按值顺序从 0 连续编号。UPDATE 分支通过 `assignments` 引用父 DML assignment；DELETE 和 NOTHING 分支省略 `target_columns`、`rows` 和 `assignments`。带条件的分支包含 `condition_selector`，无条件分支不包含该字段。
 
 `UPDATE` 和 `MERGE` 的 assignment 使用 `target_field` 指向被写入字段。赋值右侧为直接字段引用时，`kind` 为 `field`，`source_field` 指向来源字段；来源字段来自派生表且可唯一匹配 source query 输出项时，同时输出 `source_target`。
+
+assignment 的 `kind` 为 `expression` 时，`rhs_fields` 和 `rhs_values` 分别列出右侧表达式在当前 assignment block 内对应的 `fields[]` 和 `values[]` 索引；`rhs_blocks` 列出从右侧表达式出发、不跨越另一层子查询边界即可到达的子查询入口 `blocks[]` 索引。空列表省略。`rhs_blocks` 不重复收录这些子查询内部的 block；内部 relation、target、field、value、predicate 和 set 语义从入口 block 继续遍历。右侧为直接 `field`、`literal`、`bind` 或 `default` 时，继续使用 assignment 的既有 payload，不输出三个 `rhs_*` 列表。
 
 顶层 `UPDATE` assignment 的 `selector` 形如 `stmt[S].assignment[A]`。根 MERGE matched UPDATE action 的 assignment 使用 `stmt[S].merge_assignment[W][A]`；嵌套 MERGE 使用 `stmt[S].merge_assignment[D][W][A]`。`D` 是当前 statement 内的 DML 索引，`W` 是目标 MERGE 中所有 `WHEN` 子句的绝对 0 基序号，`A` 是目标 UPDATE 分支内赋值项的 0 基序号。MERGE 分支条件对应使用 `stmt[S].merge_branch_condition[W]` 或嵌套形式 `stmt[S].merge_branch_condition[D][W]`，并可通过 `sqlparser_selector_clause_sql()` 读取条件原文。assignment selector 可用于 assignment selector API、`SQLPARSER_PATCH_INSERT_ASSIGNMENT`、`SQLPARSER_PATCH_DELETE_ASSIGNMENT`、`SQLPARSER_PATCH_REPLACE_ASSIGNMENT` 以及 patch 的 `source_selector`。
 

@@ -1,33 +1,36 @@
-# v2.13.0 发布说明
+# v2.14.0 发布说明
 
-`v2.13.0` 新增 MERGE 分支的结构化投影和基于 selector 的改写能力，并明确九种方言模式下混合 `INSERT ... VALUES` 与 bind 来源关系的行为，以及 SQL 片段 patch 后标识符的反解析规则。
+`v2.14.0` 完成 patch、反解析和 View 的一致性闭环：未修改 SQL 表面在局部改写后继续保留，复合 DML assignment 可追踪右侧来源，并且同一 statement 可表达多个并列根 DML。
 
-## 主要变化
+## Patch 与反解析
 
-- Query Graph 按源码顺序输出 MERGE 的全部 `WHEN` 分支，包含 action、match 类型、INSERT 目标列与行以及 UPDATE assignment 范围；有条件的分支同时包含对应的 condition selector。
-- 新增 MERGE branch condition selector、action/match 枚举、两个枚举名称函数和一个 MERGE 分支详情访问函数；顶层与嵌套 MERGE 的分支条件和赋值项均可通过 selector 定位。
-- MERGE UPDATE assignment 输出目标字段、来源字段、source target 和 bind 关联，可通过 assignment selector 与 patch 操作完成插入、替换和删除。
-- Oracle、达梦和 Vastbase-Oracle 支持 MERGE UPDATE/INSERT action 级 `WHERE`。
-- 九种方言模式的 `INSERT ... VALUES` 区分直接 bind、literal、独立 `DEFAULT` 和 expression cell；表达式内部 bind 参与全局序号，时间表达式不作为字段名称输出。
-- SQL 片段 patch 中的标识符保留片段内的大小写和定界形式，包括双引号、MySQL 反引号及 SQL Server 方括号；反解析不会替换或重复添加定界符。
+- 未修改的 SQL 片段逐字节保留原始标识符大小写与定界符、关键字、注释、空白、括号和分号；局部 patch 只替换已定位的源码区间。
+- patch 值作为所选方言的 SQL 片段解析后进入 AST。片段中显式提供的双引号、MySQL 反引号或 SQL Server 方括号不会被替换或重复添加。
+- relation 改名只传播到作用域内唯一绑定的限定引用。同层歧义、内层遮蔽、显式 alias 以及 SQL Server `INSERTED`、`DELETED` 等伪关系保持不变。
+- 替换单个 SELECT target 时，多 target 片段在原位置展开，并且不继承旧 target 的 alias。
 
-## 反解析契约
+## Query Graph 与 View
 
-- generation 为 `0` 的未改写 handle 在成功反解析时与原始 SQL 逐字节一致，包括关键字、标识符、空白、换行、注释、分号和多语句边界。
-- generation 大于 `0` 时，SQL 根据当前 AST 生成；标识符的大小写、定界符和转义形式予以保留，节点之间的空白可能由反解析器规范化。
-- patch SQL 片段经过方言解析后进入 AST，不作为未经解析的字符串直接拼接。
+- `sqlparser_graph_dml_assignment_t` 新增 `rhs_fields`、`rhs_values` 和 `rhs_blocks`，用于遍历复合 UPDATE/MERGE assignment 右侧的字段、值和子查询入口。
+- 单个根 DML 继续输出为 `query_graph.dml`；多个并列根 DML 输出为 `query_graph.dmls`。嵌套 DML 继续位于各根的 `children`，数据修改 CTE 使用相同结构。
+- 新增 `SQLPARSER_CLAUSE_KIND_WINDOW_PARTITION`，命名窗口定义的 `PARTITION BY` 列表可独立定位。
+
+## 方言边界
+
+- Oracle、达梦及 Vastbase-Oracle 补充集合运算、多表 DML、bind 和 national literal 的解析、来源关系及表面保留；集合树遍历不依赖固定分支数量上限。
+- MySQL 及 Vastbase-MySQL 修正普通注释、可执行注释、索引提示、表分区和 DML 尾部在 patch 路径中的恢复。
+- SQL Server 及 Vastbase-SQLServer 修正 `OUTPUT`、MERGE、动态执行、事务批次和方括号标识符在 patch 路径中的恢复。
 
 ## 兼容性
 
-- 公共 API 采用追加式扩展，既有函数签名和公共结构体布局保持不变。
-- 动态库 ABI 主版本保持为 `libsqlparser.so.0`。
-- 新增 `sqlparser_graph_merge_action_kind_name()`、`sqlparser_graph_merge_match_kind_name()` 和 `sqlparser_query_graph_merge_branch_detail()`；ABI 导出检查包含 152 个公共符号。
+- `sqlparser_graph_dml_assignment_t` 的公开布局已扩展。使用该结构体的 C 调用方必须使用 2.14.0 头文件重新编译。
+- View 消费方必须同时识别互斥的 `query_graph.dml` 与 `query_graph.dmls`；不能再假定每个 statement 只有一个根 DML。
+- patch 片段仍经过方言解析，不作为未经解析的字符串直接拼接。
 
 ## 发布验证
 
-- 九套方言用例矩阵包含 2535 条预期成功用例；每条用例均执行 generation-`0` 逐字节反解析检查、AST 标识符拼写审计和 View 构建。
-- 九套矩阵新增共 90 条混合 VALUES 用例，覆盖单行、多行、嵌套 bind、函数与复合表达式、带定界符的标识符及非常规空白。
-- MERGE 回归覆盖分支顺序、条件 selector、INSERT 行、UPDATE assignment、DELETE/NOTHING action、顶层与嵌套 MERGE、来源关系以及 action 级 `WHERE`。
-- GCC 8.3 严格发布与调试构建、全量测试、install smoke、包含 152 个公共符号的 ABI 导出检查、ASan、UBSan、Valgrind 和 benchmark smoke 全部通过。
+- 九套可执行方言夹具包含 2,752 条 `status = "final"` 用例和 8,890 个独立 patch。
+- 每条用例校验原始 SQL 的逐字节反解析、期望 View JSON 结构和全部独立 patch；每个 patch 还校验期望 SQL、重新解析后的二次反解析以及 patch/fresh View 一致性。
+- 发布候选代码完成一次 ASan、一次 UBSan、一次 Valgrind、10 轮全量回归和完整 benchmark。benchmark 共执行 530,100 次测量操作，错误操作数为 0；该结果不表示相对历史版本的性能提升。
 
 内置 `libpg_query` 标签：`17-6.2.2`。

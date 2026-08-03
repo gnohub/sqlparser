@@ -78,7 +78,7 @@ struct sqlparser_dialect_ops {
 		const char *core_sql,
 		const void *state,
 		size_t statement_index,
-		size_t literal_index,
+		const PgQuery__AConst *literal_owner,
 		char **out_sql,
 		sqlparser_error_t *out_error);
 	const char *(*statement_keyword)(
@@ -99,6 +99,9 @@ struct sqlparser_dialect_ops {
 		const char *core_sql,
 		const void *state,
 		size_t statement_index,
+		sqlparser_fragment_context_t fragment_context,
+		ProtobufCMessage *const *roots,
+		size_t root_count,
 		char **out_sql,
 		sqlparser_error_t *out_error);
 	sqlparser_status_t (*postprocess_control_unit)(
@@ -106,6 +109,8 @@ struct sqlparser_dialect_ops {
 		const void *state,
 		size_t statement_index,
 		int is_condition,
+		ProtobufCMessage *const *roots,
+		size_t root_count,
 		char **out_sql,
 		sqlparser_error_t *out_error);
 	sqlparser_control_state_t *(*take_control_state)(void *state);
@@ -115,6 +120,31 @@ struct sqlparser_dialect_ops {
 		size_t statement_index,
 		const PgQuery__Node *statement,
 		const sqlparser_dialect_session_emitter_t *emitter,
+		sqlparser_error_t *out_error);
+	sqlparser_status_t (*bind_ast_state)(
+		void *state,
+		const PgQuery__ParseResult *ast,
+		sqlparser_error_t *out_error);
+	sqlparser_status_t (*bind_fragment_ast_state)(
+		void *state,
+		const PgQuery__ParseResult *base_ast,
+		size_t statement_index,
+		size_t parser_fragment_offset,
+		ProtobufCMessage *const *roots,
+		size_t root_count,
+		sqlparser_error_t *out_error);
+	void (*reconcile_ast_state)(
+		void *state,
+		const PgQuery__ParseResult *ast);
+	sqlparser_status_t (*clone_ast_state)(
+		void *state,
+		size_t statement_index,
+		const ProtobufCMessage *source_root,
+		const ProtobufCMessage *clone_root,
+		sqlparser_error_t *out_error);
+	sqlparser_status_t (*prepare_ast_state)(
+		void *state,
+		PgQuery__ParseResult *ast,
 		sqlparser_error_t *out_error);
 };
 
@@ -140,9 +170,38 @@ sqlparser_status_t sqlparser_mysql_preprocess_identifier_origins(
 sqlparser_status_t sqlparser_mysql_preprocess_fragment_identifier_origins(
 	const char *input_sql,
 	void *state,
+	size_t statement_index,
 	char **out_parser_sql,
 	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_mysql_dml_tail_select(
+	const void *state,
+	size_t statement_index,
+	PgQuery__Node *const *returning_list,
+	size_t returning_count,
+	PgQuery__SelectStmt **out_select,
+	sqlparser_error_t *out_error);
+int sqlparser_mysql_statement_has_dml_join(
+	const void *state,
+	size_t statement_index);
+int sqlparser_mysql_statement_update_join_reversed(
+	const void *state,
+	size_t statement_index);
+int sqlparser_mysql_reorient_replaced_update_join(
+	void *state,
+	size_t statement_index,
+	PgQuery__UpdateStmt *stmt,
+	const PgQuery__ResTarget *replacement);
+int sqlparser_mysql_on_duplicate_name_surface(
+	const void *state,
+	size_t statement_index,
+	const char *internal_qualifier,
+	const char *current_name,
+	const char *source_sql,
+	size_t source_length,
+	size_t source_start,
+	const char *replacement_sql,
+	const char **out_alias_prefix);
 int sqlparser_mysql_public_sql_is_session_statement(
 	const char *sql,
 	size_t length);
@@ -169,6 +228,10 @@ sqlparser_status_t sqlparser_sqlserver_preprocess_fragment_identifier_origins(
 	char **out_parser_sql,
 	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error);
+int sqlparser_sqlserver_generated_identifier_spelling(
+	const char *identifier,
+	const char **out_spelling,
+	size_t *out_spelling_length);
 const sqlparser_dialect_ops_t *sqlparser_dialect_dameng_ops(void);
 sqlparser_status_t sqlparser_dameng_preprocess_identifier_origins(
 	const char *input_sql,

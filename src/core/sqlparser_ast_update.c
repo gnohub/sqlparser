@@ -2,6 +2,7 @@
 #include <string.h>
 
 #include "sqlparser_ast_internal.h"
+#include "../dialect/sqlparser_dialect_internal.h"
 
 static int sqlparser_update_stmt_has_target_list(ProtobufCMessage *message)
 {
@@ -505,6 +506,7 @@ sqlparser_status_t sqlparser_assignment_by_selector(
 {
 	sqlparser_assignment_list_ref_t list;
 	PgQuery__ResTarget *target;
+	PgQuery__Node *value_node;
 	sqlparser_status_t status;
 
 	if (out_assignment == NULL) {
@@ -538,8 +540,9 @@ sqlparser_status_t sqlparser_assignment_by_selector(
 	out_assignment->column_name = sqlparser_update_assignment_effective_column_name(target);
 	out_assignment->value_kind = sqlparser_node_value_kind(target->val);
 	if (out_assignment->value_kind == SQLPARSER_VALUE_KIND_LITERAL) {
+		value_node = sqlparser_unwrap_grouping_node(target->val);
 		return sqlparser_fill_literal_view_from_a_const_with_sql(
-			target->val->a_const,
+			value_node->a_const,
 			sqlparser_effective_parser_sql(handle),
 			&out_assignment->literal,
 			out_error);
@@ -574,6 +577,7 @@ sqlparser_status_t sqlparser_assignment_set_literal_by_selector(
 	PgQuery__ResTarget *target;
 	PgQuery__Node *old_value;
 	PgQuery__Node *new_value;
+	PgQuery__Node **value_slot;
 	sqlparser_status_t status;
 
 	sqlparser_error_clear(out_error);
@@ -592,17 +596,22 @@ sqlparser_status_t sqlparser_assignment_set_literal_by_selector(
 		return status;
 	}
 
-	if (target->val != NULL &&
-	    target->val->node_case == PG_QUERY__NODE__NODE_A_CONST &&
-	    target->val->a_const != NULL) {
-		status = sqlparser_a_const_set_literal(target->val->a_const, value, out_error);
+	value_slot = &target->val;
+	while (sqlparser_node_is_grouping_wrapper(*value_slot)) {
+		value_slot = &(*value_slot)->a_indirection->arg;
+	}
+	if (*value_slot != NULL &&
+	    (*value_slot)->node_case == PG_QUERY__NODE__NODE_A_CONST &&
+	    (*value_slot)->a_const != NULL) {
+		status = sqlparser_a_const_set_literal((*value_slot)->a_const, value, out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
 		}
 		return sqlparser_handle_commit_ast(handle, out_error);
 	}
 
-	if (target->val == NULL || target->val->node_case != PG_QUERY__NODE__NODE_PARAM_REF) {
+	if (*value_slot == NULL ||
+	    (*value_slot)->node_case != PG_QUERY__NODE__NODE_PARAM_REF) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_UNSUPPORTED,
@@ -615,8 +624,8 @@ sqlparser_status_t sqlparser_assignment_set_literal_by_selector(
 		return status;
 	}
 
-	old_value = target->val;
-	target->val = new_value;
+	old_value = *value_slot;
+	*value_slot = new_value;
 	new_value = NULL;
 	sqlparser_free_proto_node(old_value);
 	return sqlparser_handle_commit_ast(handle, out_error);
@@ -698,6 +707,9 @@ sqlparser_status_t sqlparser_assignment_sql_by_selector(
 		handle,
 		selector->statement_index,
 		core_sql,
+		SQLPARSER_FRAGMENT_CONTEXT_EXPRESSION,
+		(ProtobufCMessage *const *)&target->val,
+		1U,
 		"update assignment SQL",
 		out_sql,
 		out_error);
@@ -776,6 +788,8 @@ sqlparser_status_t sqlparser_assignment_set_sql_by_selector(
 	source.origins = origins;
 	source.dialect = handle->dialect;
 	source.spelling_handle = handle;
+	source.candidate_dialect_state = dialect_state;
+	source.statement_index = selector->statement_index;
 	status = sqlparser_parse_update_assignment_node_sql(
 		parser_sql,
 		&source,
@@ -792,13 +806,11 @@ sqlparser_status_t sqlparser_assignment_set_sql_by_selector(
 	sqlparser_free_proto_node(target->val);
 	target->val = replacement;
 	replacement = NULL;
-	status = sqlparser_handle_commit_ast(handle, out_error);
+	status = sqlparser_handle_commit_ast_with_dialect_state(
+		handle, dialect_state, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_discard_dialect_state(handle, dialect_state);
 		return status;
 	}
-
-	sqlparser_handle_adopt_dialect_state(handle, dialect_state);
 	return SQLPARSER_STATUS_OK;
 }
 
@@ -880,6 +892,8 @@ sqlparser_status_t sqlparser_assignment_insert_sql_by_selector(
 	source.origins = origins;
 	source.dialect = handle->dialect;
 	source.spelling_handle = handle;
+	source.candidate_dialect_state = dialect_state;
+	source.statement_index = selector->statement_index;
 	status = sqlparser_parse_single_update_assignment_sql(
 		parser_sql,
 		&source,
@@ -917,13 +931,11 @@ sqlparser_status_t sqlparser_assignment_insert_sql_by_selector(
 	next_nodes = NULL;
 	free(old_nodes);
 
-	status = sqlparser_handle_commit_ast(handle, out_error);
+	status = sqlparser_handle_commit_ast_with_dialect_state(
+		handle, dialect_state, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_discard_dialect_state(handle, dialect_state);
 		return status;
 	}
-
-	sqlparser_handle_adopt_dialect_state(handle, dialect_state);
 	return SQLPARSER_STATUS_OK;
 }
 
@@ -957,6 +969,9 @@ sqlparser_status_t sqlparser_assignment_insert_from_assignment_value_by_selector
 	PgQuery__Node **old_nodes;
 	PgQuery__Node *cloned_value;
 	PgQuery__Node *new_node;
+	const sqlparser_identifier_origin_map_t *origins;
+	sqlparser_generated_source_t generated_source;
+	void *candidate_state;
 	size_t old_count;
 	size_t index;
 	sqlparser_status_t status;
@@ -969,6 +984,9 @@ sqlparser_status_t sqlparser_assignment_insert_from_assignment_value_by_selector
 	old_nodes = NULL;
 	cloned_value = NULL;
 	new_node = NULL;
+	origins = NULL;
+	memset(&generated_source, 0, sizeof(generated_source));
+	candidate_state = NULL;
 
 	if (handle == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "handle must not be NULL");
@@ -1021,14 +1039,79 @@ sqlparser_status_t sqlparser_assignment_insert_from_assignment_value_by_selector
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "source assignment value is missing");
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
+	if (handle->dialect_state != NULL) {
+		if (handle->dialect_ops == NULL ||
+		    handle->dialect_ops->clone_state == NULL) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"dialect state cannot be cloned");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		status = handle->dialect_ops->clone_state(
+			handle->dialect_state,
+			&candidate_state,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		if (handle->dialect_ops->bind_ast_state != NULL) {
+			status = handle->dialect_ops->bind_ast_state(
+				candidate_state, handle->ast, out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				sqlparser_handle_discard_dialect_state(
+					handle, candidate_state);
+				return status;
+			}
+		}
+	}
 
 	status = sqlparser_clone_proto_node(source_target->val, &cloned_value, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_discard_dialect_state(handle, candidate_state);
+		return status;
+	}
+	if (handle->dialect_ops != NULL &&
+	    handle->dialect_ops->clone_ast_state != NULL) {
+		status = handle->dialect_ops->clone_ast_state(
+			candidate_state,
+			insert_selector->statement_index,
+			(ProtobufCMessage *)source_target->val,
+			(ProtobufCMessage *)cloned_value,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_free_proto_node(cloned_value);
+			sqlparser_handle_discard_dialect_state(
+				handle, candidate_state);
+			return status;
+		}
+	}
+	status = sqlparser_identifier_origins_for_handle(
+		handle, &origins, out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		generated_source.public_sql = handle->sql;
+		generated_source.origins = origins;
+		generated_source.dialect = handle->dialect;
+		generated_source.spelling_handle = handle;
+		generated_source.statement_index =
+			insert_selector->statement_index;
+		status = sqlparser_mark_proto_generated_with_fragment_source(
+			(ProtobufCMessage *)cloned_value,
+			handle->parser_sql,
+			0U,
+			&generated_source,
+			out_error);
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_free_proto_node(cloned_value);
+		sqlparser_handle_discard_dialect_state(handle, candidate_state);
 		return status;
 	}
 	status = sqlparser_build_update_assignment_identifier_node(target, cloned_value, &new_node, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_free_proto_node(cloned_value);
+		sqlparser_handle_sweep_identifier_spellings(handle);
+		sqlparser_handle_discard_dialect_state(handle, candidate_state);
 		return status;
 	}
 	cloned_value = NULL;
@@ -1036,6 +1119,8 @@ sqlparser_status_t sqlparser_assignment_insert_from_assignment_value_by_selector
 	next_nodes = sqlparser_update_alloc_node_array(old_count + 1U, out_error);
 	if (next_nodes == NULL) {
 		sqlparser_free_proto_node(new_node);
+		sqlparser_handle_sweep_identifier_spellings(handle);
+		sqlparser_handle_discard_dialect_state(handle, candidate_state);
 		return out_error != NULL && out_error->code != SQLPARSER_STATUS_OK ?
 			out_error->code :
 			SQLPARSER_STATUS_NO_MEMORY;
@@ -1055,7 +1140,10 @@ sqlparser_status_t sqlparser_assignment_insert_from_assignment_value_by_selector
 	next_nodes = NULL;
 	free(old_nodes);
 
-	status = sqlparser_handle_commit_ast(handle, out_error);
+	status = candidate_state != NULL ?
+		sqlparser_handle_commit_ast_with_dialect_state(
+			handle, candidate_state, out_error) :
+		sqlparser_handle_commit_ast(handle, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
@@ -1176,6 +1264,7 @@ sqlparser_status_t sqlparser_assignment_set_full_sql_by_selector(
 {
 	sqlparser_assignment_list_ref_t list;
 	PgQuery__ResTarget *target;
+	PgQuery__UpdateStmt *update_stmt;
 	PgQuery__Node *replacement;
 	PgQuery__Node *old_node;
 	char *parser_sql;
@@ -1183,10 +1272,12 @@ sqlparser_status_t sqlparser_assignment_set_full_sql_by_selector(
 	sqlparser_identifier_origin_map_t *origins;
 	void *dialect_state;
 	sqlparser_status_t status;
+	int reorient_result;
 
 	sqlparser_error_clear(out_error);
 	memset(&list, 0, sizeof(list));
 	target = NULL;
+	update_stmt = NULL;
 	replacement = NULL;
 	old_node = NULL;
 	parser_sql = NULL;
@@ -1223,6 +1314,8 @@ sqlparser_status_t sqlparser_assignment_set_full_sql_by_selector(
 	source.origins = origins;
 	source.dialect = handle->dialect;
 	source.spelling_handle = handle;
+	source.candidate_dialect_state = dialect_state;
+	source.statement_index = selector->statement_index;
 	status = sqlparser_parse_single_update_assignment_sql(
 		parser_sql,
 		&source,
@@ -1235,6 +1328,40 @@ sqlparser_status_t sqlparser_assignment_set_full_sql_by_selector(
 		sqlparser_handle_discard_dialect_state(handle, dialect_state);
 		return status;
 	}
+	if (selector->kind == SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
+	    sqlparser_dialect_is_mysql_compatible(handle->dialect)) {
+		status = sqlparser_get_update_stmt(
+			handle,
+			selector->statement_index,
+			&update_stmt,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_free_proto_node(replacement);
+			sqlparser_handle_sweep_identifier_spellings(handle);
+			sqlparser_handle_discard_dialect_state(
+				handle,
+				dialect_state);
+			return status;
+		}
+		reorient_result =
+			sqlparser_mysql_reorient_replaced_update_join(
+			dialect_state,
+			selector->statement_index,
+			update_stmt,
+			replacement->res_target);
+		if (reorient_result < 0) {
+			sqlparser_free_proto_node(replacement);
+			sqlparser_handle_sweep_identifier_spellings(handle);
+			sqlparser_handle_discard_dialect_state(
+				handle,
+				dialect_state);
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_UNSUPPORTED,
+				"replacement assignment cannot safely determine the MySQL UPDATE JOIN target");
+			return SQLPARSER_STATUS_UNSUPPORTED;
+		}
+	}
 
 	(void)target;
 	old_node = (*list.items)[list.assignment_index];
@@ -1242,13 +1369,11 @@ sqlparser_status_t sqlparser_assignment_set_full_sql_by_selector(
 	replacement = NULL;
 	sqlparser_free_proto_node(old_node);
 
-	status = sqlparser_handle_commit_ast(handle, out_error);
+	status = sqlparser_handle_commit_ast_with_dialect_state(
+		handle, dialect_state, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_discard_dialect_state(handle, dialect_state);
 		return status;
 	}
-
-	sqlparser_handle_adopt_dialect_state(handle, dialect_state);
 	return SQLPARSER_STATUS_OK;
 }
 
@@ -1429,6 +1554,9 @@ sqlparser_status_t sqlparser_render_update_assignments_sql(
 		handle,
 		statement_index,
 		core_sql != NULL ? core_sql : "",
+		SQLPARSER_FRAGMENT_CONTEXT_UPDATE_SET,
+		(ProtobufCMessage *const *)update_stmt->target_list,
+		update_stmt->n_target_list,
 		"update SET list SQL",
 		out_sql,
 		out_error);
@@ -1493,6 +1621,8 @@ sqlparser_status_t sqlparser_update_set_assignments_sql(
 	source.origins = origins;
 	source.dialect = handle->dialect;
 	source.spelling_handle = handle;
+	source.candidate_dialect_state = dialect_state;
+	source.statement_index = statement_index;
 	status = sqlparser_parse_update_assignment_nodes_sql(
 		parser_sql,
 		&source,
@@ -1514,11 +1644,6 @@ sqlparser_status_t sqlparser_update_set_assignments_sql(
 	update_stmt->n_target_list = count;
 	nodes = NULL;
 
-	status = sqlparser_handle_commit_ast(handle, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_discard_dialect_state(handle, dialect_state);
-		return status;
-	}
-	sqlparser_handle_adopt_dialect_state(handle, dialect_state);
-	return SQLPARSER_STATUS_OK;
+	return sqlparser_handle_commit_ast_with_dialect_state(
+		handle, dialect_state, out_error);
 }

@@ -1,12 +1,80 @@
 # SQL Server 方言用例矩阵
 
-本文件记录 SQL Server 方言转换层的回归用例。可执行夹具为 `tests/cases/sqlserver_dialect_input.json`，单元测试 `tests/unit/test_sqlserver_dialect_case_matrix.c` 会逐条验证解析结果、View JSON、反解析输出和错误码。
+本文件记录 SQL Server 方言转换层的回归用例。可执行夹具为 `tests/cases/sqlserver_dialect_input.json`。对每条 final 用例，runner 验证未修改 SQL 的反解析结果与输入逐字节一致、实际 View 与期望 JSON 结构相等，并独立执行每个 patch；patch 后 SQL 必须与 `patch.deparse` 逐字节一致，重新解析后再次反解析仍须一致，且 patch handle 与重新解析 handle 的 View 输出必须一致。
 
 ## 矩阵统计与 session 回归
 
-夹具包含 615 条用例，其中 578 条预期成功，37 条预期失败。91 条用例包含 statement 级 `expect.session`，覆盖 `S044` 至 `S046`、`SH295` 至 `SH333` 和 49 条 `MSSQL-*` session 用例；这 91 条用例均至少包含一个非空 session 期望。
+夹具包含 619 条 `status = "final"` 用例。91 条用例的期望 View 包含非空 `query_graph.session` 投影，覆盖 `S044` 至 `S046`、`SH295` 至 `SH333` 和 49 条 `MSSQL-*` session 用例。
 
-用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
+View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
+
+## SQL/JSON 语义输入回归
+
+以下用例验证 SQL/JSON 专用 AST 节点的输入字段遍历。字段顺序、relation 与 target 归属、原始 name selector 以及嵌套 `target_path` 均为精确 View 合同；每条用例还覆盖字段或关系替换、target 替换、列插入及 patch 后精确反解析。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| SH404 | `sqlserver-json-array-field-inputs` | `JSON_ARRAY([id], [name])` | 多字段按参数顺序进入 `fields`，分别归属 `JSON_ARRAY` arg 0 和 arg 1 |
+| SH405 | `sqlserver-json-object-multi-pair-nested-value` | 多 pair `JSON_OBJECT` 嵌套 `JSON_VALUE` | value 字段按扁平 key/value 槽位归属，嵌套输入保留两层 `target_path` |
+| SH406 | `sqlserver-json-arrayagg-expression-input` | `JSON_ARRAYAGG(COALESCE(...))` | 聚合输入内字段按表达式顺序输出并保留 `JSON_ARRAYAGG`、`COALESCE` 两层路径 |
+| SH407 | `sqlserver-json-value-qualified-multi-target` | qualified `JSON_VALUE` 与普通 target 并列 | relation alias、target 顺序、限定字段 selector 和 JSON 输入字段归属 |
+
+## SQL Server 函数参数角色回归
+
+以下用例验证函数参数的语法角色与数据字段角色严格分离。`IDENTITY` 的数据类型参数以及日期函数的 datepart 参数不进入 `query_graph.fields`；其余表达式参数按原始顺序保留 relation、target、selector 和 `target_path.arg_index`。既有 `SH047`、`SH053` 分别覆盖三参数 `DATE_BUCKET` 和 `DATETRUNC`，本节补充可选 origin、表达式参数和同族函数组合。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| S113 | `sqlserver-identity-function-default-seed-increment` | `IDENTITY(int)` + `SELECT INTO` | 数据类型参数不作为字段输出 |
+| S114 | `sqlserver-identity-function-explicit-seed-increment` | `IDENTITY(int, 1, 1)` + `SELECT INTO` | 数据类型参数不作为字段输出，seed 与 increment 保持常量角色 |
+| SH408 | `sqlserver-date-bucket-optional-origin-inputs` | 四参数 `DATE_BUCKET` | 日期输入为 arg 2，可选 origin 为 arg 3，datepart 不作为字段输出 |
+| SH409 | `sqlserver-dateadd-expression-inputs` | `DATEADD` + 表达式参数 | number 与 date 输入分别保留 arg 1、arg 2，datepart 不作为字段输出 |
+| SH410 | `sqlserver-datediff-family-expression-inputs` | `DATEDIFF` 与 `DATEDIFF_BIG` 并列 | 两个 target 的四个日期输入保持各自归属，datepart 不作为字段输出 |
+| SH411 | `sqlserver-datename-datepart-role` | `DATENAME` | date 输入保留 arg 1，datepart 不作为字段输出 |
+| SH412 | `sqlserver-datepart-datepart-role` | `DATEPART` | date 输入保留 arg 1，datepart 不作为字段输出 |
+
+## WITHIN GROUP 聚合排序回归
+
+以下用例验证聚合函数直接参数、`WITHIN GROUP` 排序表达式和窗口分区字段按各自语义位置进入 View。排序字段的 `target_path.arg_index` 从函数直接参数数量开始连续编号；窗口字段继续使用独立的 `window_partition` 路径。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| SH413 | `sqlserver-string-agg-within-group-multi-sort` | `STRING_AGG` + 多排序字段 | 直接输入与两个排序字段按顺序输出，排序字段归属 arg 2、arg 3 |
+| SH414 | `sqlserver-string-agg-within-group-order-expression` | 排序加法表达式 + 第二排序项 | 表达式字段保持嵌套路径，第二排序项归属 arg 3 |
+| SH415 | `sqlserver-approx-percentile-multi-target` | 两个 approximate percentile target | 相同排序列分别归属 target 0、target 1 和对应函数 arg 1 |
+| SH416 | `sqlserver-percentile-cont-window-partition-boundary` | `WITHIN GROUP` + `OVER (PARTITION BY ...)` | 聚合排序字段与窗口分区字段独立输出且不重复 |
+
+## HAVING 值侧表达式回归
+
+以下用例验证 `HAVING` 中直接字段与值侧表达式比较的 View 合同。值侧函数整体输出为单个 expression value，predicate 通过 value 索引引用该值，函数内部 bind 不提升为独立 value。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| SH417 | `sqlserver-having-direct-field-value-expression` | 分组字段与 `UPPER(@status)` 比较 | `HAVING` comparison 引用唯一 expression value，`field_match_kind=direct_field`，内部 bind 不单独输出 |
+
+## 反向表达式谓词回归
+
+以下用例验证标量 bind 位于比较左侧、字段表达式位于比较右侧时的 View 合同。predicate 必须通过 `right_field` 引用表达式中的实际字段，且只记录比较对侧的 bind，不得把 `AT TIME ZONE` 的时区文本提升为独立 value。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| SH418 | `sqlserver-at-time-zone-reverse-bind-expression-predicate` | `@ts = [created_at] AT TIME ZONE 'UTC'` | expression predicate、`right_field=created_at`、唯一 bind value 及原始方括号标识符保持稳定 |
+
+## SELECT 目标片段展开回归
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| SH419 | `sqlserver-select-target-multi-replace-trailing-aliases` | 三输出项 SELECT 的尾项替换为两个带显式别名的方括号输出项 | replacement 在尾位置展开，两个别名独立保留且不继承旧 target 状态；独立 insert patch 验证列表顺序与方括号拼写 |
+
+## OUTPUT 末尾边界回归
+
+以下用例要求 `OUTPUT` 恢复器仅在存在后继子句时保留必要边界；语句末尾不得增加空格，末尾分号必须直接跟随最后一个 OUTPUT target。每条用例均独立执行 target replace 与 target insert patch，并精确比较反解析结果。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| SH420 | `sqlserver-merge-output-action-terminal-semicolon` | `MERGE ... OUTPUT $action;` | MERGE 末尾 OUTPUT 无尾空格，分号位置不变 |
+| SH421 | `sqlserver-update-output-terminal` | `UPDATE ... OUTPUT INSERTED.a` | 无后继 WHERE/FROM 时不生成右边界 |
+| SH422 | `sqlserver-delete-output-terminal` | `DELETE ... OUTPUT DELETED.id` | 无后继 WHERE/FROM 时不生成右边界 |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 
@@ -144,6 +212,7 @@ T-SQL `@name` 引用要求已有变量或参数作用域；`MSSQL-BM009` 的 `?`
 | S110 | `FOR JSON` + `OPTION` | `SELECT ... FOR JSON PATH ... OPTION (...)` | 多个查询后缀按 SQL Server 公开顺序恢复 |
 | S111 | 外层和内层 `TOP` | `SELECT TOP (...) ... FROM (SELECT TOP (...) ...)` | 多作用域 `TOP` 同时转换和恢复 |
 | S112 | 多语句第二条 `FOR JSON` | `SELECT ...; SELECT ... FOR JSON AUTO` | `FOR JSON` 后缀按原 statement 序号恢复，避免挂到前一条语句 |
+| S115 | `sqlserver-update-from-compound-rhs` | `UPDATE ... FROM` 中的复合赋值右值 | source field、命名参数和 literal 通过 `rhs_fields` 和 `rhs_values` 归属同一 assignment；source alias 保持稳定，assignment 替换或插入后的方括号与 `INNER JOIN` 必须逐字节保留 |
 
 ## INSERT 与 OUTPUT 用例
 
@@ -219,41 +288,9 @@ T-SQL `@name` 引用要求已有变量或参数作用域；`MSSQL-BM009` 的 `?`
 | SH402 | CTE MERGE 分支 | CTE 与完整 MERGE action 保持为同一叶语句 |
 | SH403 | CREATE VIEW CTE 分支 | 视图定义与换行 CTE 保持为同一叶语句 |
 
-## 错误与明确不支持用例
+## 覆盖边界
 
-以下用例逐条验证语法错误或明确不支持状态，不返回可用 handle。
-
-| ID | 用例 | 原因 |
-| --- | --- | --- |
-| SU001 | `TOP ... WITH TIES` 无 `ORDER BY` | SQL Server 要求 `WITH TIES` 与 `ORDER BY` 同时使用 |
-| SU002 | `TOP ... PERCENT WITH TIES` 无 `ORDER BY` | SQL Server 要求 `WITH TIES` 与 `ORDER BY` 同时使用 |
-| SU005 | `CROSS APPLY` | APPLY 语义不同于普通 JOIN |
-| SU006 | `PIVOT` | 表变换语义需要专用 AST |
-| SU009 | `DECLARE` | 变量声明属于 T-SQL 批处理语义 |
-| SU010 | 普通过程 `EXEC` | 非 prepared/dynamic SQL 系统过程调用超出 SQL 结构改写范围 |
-| SU011 | `CREATE PROCEDURE` | 过程定义需要 T-SQL 程序单元模型 |
-| SU015 | 表变量 | 表变量作用域属于 T-SQL 批处理语义 |
-| SU016 | `MERGE ... BY SOURCE` | SQL Server 专属 merge 分支语义 |
-| SU017 | `TOP` + `OFFSET/FETCH` | SQL Server 不允许在同一查询作用域组合使用 |
-| SU018 | OUTPUT 空 target | 返回语法错误 |
-| SU019 | OUTPUT target 尾逗号 | 返回语法错误 |
-| SU020 | `OUTPUT INTO` 缺少 sink | 返回语法错误 |
-| SU021 | 双通道顺序错误 | client channel 后不允许再声明 sink channel |
-| SU022 | INSERT 使用 `DELETED` | 返回明确不支持 |
-| SU023 | DELETE 使用 `INSERTED` | 返回明确不支持 |
-| SU024 | 非 MERGE 使用 `$action` | 返回明确不支持 |
-| SU025 | OUTPUT 聚合函数 | 返回明确不支持 |
-| SU026 | OUTPUT 子查询 | 返回明确不支持 |
-| SU027 | INSERT EXEC + OUTPUT | 返回明确不支持 |
-| SU028 | IF 缺少条件 | 返回语法错误 |
-| SU029 | IF 缺少分支语句 | 返回语法错误 |
-| SU030 | 孤立 ELSE | 返回语法错误 |
-| SU031 | 空 BEGIN/END | 返回语法错误 |
-| SU032 | 未闭合 BEGIN/END | 返回语法错误 |
-| SU033 | 条件 SELECT 未加括号 | 返回语法错误 |
-| SU034 | ELSE 缺少分支语句 | 返回语法错误 |
-| SU035 | 控制流中包含 GO | 返回明确不支持，不静默改写批边界 |
-| SU036 | 分支叶子语句不受支持 | 返回叶子语法的明确不支持状态 |
+本矩阵只列出可成功解析并具有最终 View 与 patch 期望的用例。未纳入该可执行夹具的语法边界由 `doc/sqlserver_official_syntax_coverage.csv` 维护。
 
 ## DML 来源字段链路补充用例
 
@@ -287,8 +324,7 @@ T-SQL `@name` 引用要求已有变量或参数作用域；`MSSQL-BM009` 的 `?`
 | SH253 | `sqlserver-regexp-like-function-predicate` | `REGEXP_LIKE(column, @pat)` | 函数谓词复用 `fields/values/predicates` 输出字段、bind 和 expression predicate |
 | SH255 | `sqlserver-mixed-create-table-as-select-basic` | `CREATE TABLE ... AS SELECT ...` | 基础 CTAS 解析、来源查询和反解析 |
 | SH256 | `sqlserver-mixed-aliasing-basic` | `SELECT expression AS alias, expression alias FROM ...` | SELECT 列别名和表别名基础形态 |
-| SH257 | `sqlserver-mixed-subquery-basic` | `WHERE column IN (SELECT ... FROM ...)` | 子查询条件字段、bind 和来源表归属 |
-| SH258 | `sqlserver-mixed-alter-table-add-column-basic` | `ALTER TABLE ... ADD column type` | 基础列新增 DDL |
+| SH257 | `sqlserver-mixed-subquery-basic` | `WHERE column IN (SELECT ... FROM ...)` | 外层 membership 字段与 `IN` predicate、内层 target/过滤字段、bind 和来源表分别归属，7 个 patch 覆盖两层 selector |
 | SH259 | `sqlserver-mixed-alter-table-add-constraint-basic` | `ALTER TABLE ... ADD CONSTRAINT ... PRIMARY KEY` | 基础表约束新增 DDL |
 | SH260 | `sqlserver-mixed-drop-type-basic` | `DROP TYPE [schema].[type]` | 基础 type 删除 DDL |
 | SH261 | `sqlserver-mixed-create-user-basic` | `CREATE USER [user]` | 基础 user 创建 DDL |
@@ -328,10 +364,11 @@ T-SQL `@name` 引用要求已有变量或参数作用域；`MSSQL-BM009` 的 `?`
 | SH295-SH333 | `sqlserver-set-*` | `SET ...` | SQL Server 基础会话/执行环境 `SET` 语句、公开 SQL 恢复和内部 sentinel 隐藏 |
 | SH334 | `sqlserver-table-hints-join-alias` | 多表 JOIN + `WITH (NOLOCK)` / `WITH (FORCESEEK)` | 多表表提示按表源顺序恢复，字段和 JOIN 归属保持不变 |
 | SH335 | `sqlserver-query-hints-multiple` | `OPTION (RECOMPILE, USE HINT(...))` | 多查询提示参数按原 SQL 片段恢复，bind 归属保持不变 |
+| SH336 | `sqlserver-merge-cte-target-relation-binding` | `WITH cte AS (...) MERGE INTO cte ...` | MERGE 目标识别为 CTE 并关联来源块，底层 relation patch 同步更新限定列 |
 
 ## 官方 hook 覆盖用例
 
-`tests/cases/sqlserver_dialect_input.json` 已包含 241 条按官方 `CURRENT` 条目生成的用例。该部分覆盖函数、类型/常量、排序规则、`TOP` 官方形态和简单 `RENAME OBJECT` 等可通过现有 AST 与方言 hook 承载的官方条目。表提示和查询提示以 `MIXED_MODEL` 基础形态覆盖，完整结构化 hint 语义仍以专用模型为边界。
+`tests/cases/sqlserver_dialect_input.json` 已包含 250 条按官方 `CURRENT` 条目生成的用例。该部分覆盖函数、类型/常量、排序规则、`TOP` 官方形态和简单 `RENAME OBJECT` 等可通过现有 AST 与方言 hook 承载的官方条目。表提示和查询提示以 `MIXED_MODEL` 基础形态覆盖，完整结构化 hint 语义仍以专用模型为边界。
 
 ## 维护要求
 

@@ -581,6 +581,8 @@ static sqlparser_status_t sqlparser_control_postprocess_unit(
 	size_t statement_index,
 	int is_condition,
 	const char *core_sql,
+	ProtobufCMessage *const *roots,
+	size_t root_count,
 	char **out_sql,
 	sqlparser_error_t *out_error)
 {
@@ -594,6 +596,8 @@ static sqlparser_status_t sqlparser_control_postprocess_unit(
 			handle->dialect_state,
 			statement_index,
 			is_condition,
+			roots,
+			root_count,
 			out_sql,
 			out_error);
 		if (status != SQLPARSER_STATUS_OK) {
@@ -615,10 +619,21 @@ static sqlparser_status_t sqlparser_control_postprocess_unit(
 		handle,
 		statement_index,
 		core_sql,
+		is_condition ? SQLPARSER_FRAGMENT_CONTEXT_EXPRESSION :
+			SQLPARSER_FRAGMENT_CONTEXT_STATEMENT,
+		roots,
+		root_count,
 		"control SQL fragment",
 		out_sql,
 		out_error);
 }
+
+static sqlparser_status_t sqlparser_control_render_condition_core(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	sqlparser_control_scratch_t *scratch,
+	char **out_sql,
+	sqlparser_error_t *out_error);
 
 sqlparser_status_t sqlparser_control_condition_sql(
 	const sqlparser_handle_t *handle,
@@ -626,8 +641,9 @@ sqlparser_status_t sqlparser_control_condition_sql(
 	char **out_sql,
 	sqlparser_error_t *out_error)
 {
-	PgQuery__Node *expression;
 	char *core_sql;
+	PgQuery__Node *root;
+	sqlparser_control_scratch_t scratch;
 	sqlparser_status_t status;
 
 	if (out_sql == NULL) {
@@ -635,17 +651,42 @@ sqlparser_status_t sqlparser_control_condition_sql(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	*out_sql = NULL;
-	expression = NULL;
 	core_sql = NULL;
-	status = sqlparser_control_condition_expression(
-		(sqlparser_handle_t *)handle, statement_index, &expression, out_error);
+	root = NULL;
+	memset(&scratch, 0, sizeof(scratch));
+	if (!sqlparser_control_unit_is_condition(
+		    handle, statement_index)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"statement is not a control condition");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	status = sqlparser_control_render_condition_core(
+		handle,
+		statement_index,
+		&scratch,
+		&core_sql,
+		out_error);
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_render_where_node_sql(handle, expression, &core_sql, out_error);
+		status = sqlparser_get_statement_node(
+			(sqlparser_handle_t *)handle,
+			statement_index,
+			&root,
+			out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_control_postprocess_unit(
-			handle, statement_index, 1, core_sql, out_sql, out_error);
+			handle,
+			statement_index,
+			1,
+			core_sql,
+			(ProtobufCMessage *const *)&root,
+			1U,
+			out_sql,
+			out_error);
 	}
+	free(scratch.data);
 	free(core_sql);
 	return status;
 }
@@ -689,6 +730,8 @@ sqlparser_status_t sqlparser_control_set_condition_sql(
 		source.origins = origins;
 		source.dialect = handle->dialect;
 		source.spelling_handle = handle;
+		source.candidate_dialect_state = candidate_state;
+		source.statement_index = statement_index;
 		status = sqlparser_parse_where_node_sql(
 			parser_sql,
 			&source,
@@ -724,13 +767,8 @@ sqlparser_status_t sqlparser_control_set_condition_sql(
 		replacement = NULL;
 		sqlparser_free_proto_node(expression);
 	}
-	status = sqlparser_handle_commit_ast(handle, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_discard_dialect_state(handle, candidate_state);
-		return status;
-	}
-	sqlparser_handle_adopt_dialect_state(handle, candidate_state);
-	return SQLPARSER_STATUS_OK;
+	return sqlparser_handle_commit_ast_with_dialect_state(
+		handle, candidate_state, out_error);
 }
 
 static sqlparser_status_t sqlparser_control_scratch_reserve(
@@ -858,6 +896,47 @@ static sqlparser_status_t sqlparser_control_render_statement_core(
 	return SQLPARSER_STATUS_OK;
 }
 
+static sqlparser_status_t sqlparser_control_render_condition_core(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	sqlparser_control_scratch_t *scratch,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	const char *prefix;
+	const char *source_prefix;
+	char *statement_sql;
+	sqlparser_status_t status;
+
+	*out_sql = NULL;
+	prefix = "SELECT 1 WHERE ";
+	source_prefix =
+		"SELECT 1 FROM __sqlparser_source__ WHERE ";
+	statement_sql = NULL;
+	status = sqlparser_control_render_statement_core(
+		handle,
+		statement_index,
+		scratch,
+		&statement_sql,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		if (strncmp(
+			    statement_sql,
+			    source_prefix,
+			    strlen(source_prefix)) == 0) {
+			prefix = source_prefix;
+		}
+		status = sqlparser_extract_wrapped_value_sql(
+			statement_sql,
+			prefix,
+			NULL,
+			out_sql,
+			out_error);
+	}
+	free(statement_sql);
+	return status;
+}
+
 static sqlparser_status_t sqlparser_control_buffer_reserve(
 	sqlparser_control_buffer_t *buffer,
 	size_t additional,
@@ -952,6 +1031,8 @@ sqlparser_status_t sqlparser_control_build_public_sql(
 		sqlparser_control_unit_t *unit;
 		char *core_sql;
 		char *public_sql;
+		PgQuery__Node *root;
+		const PgQuery__TransactionStmt *transaction;
 		size_t current_offset;
 		size_t current_length;
 
@@ -966,36 +1047,75 @@ sqlparser_status_t sqlparser_control_build_public_sql(
 		}
 		core_sql = NULL;
 		public_sql = NULL;
-		if (unit->kind == SQLPARSER_CONTROL_UNIT_CONDITION) {
-			PgQuery__Node *expression;
-
-			expression = NULL;
-			status = sqlparser_control_condition_expression(mutable_handle, unit_index, &expression, out_error);
-			if (status == SQLPARSER_STATUS_OK) {
-				status = sqlparser_render_where_node_sql(handle, expression, &core_sql, out_error);
-			}
-		} else {
-			status = sqlparser_control_render_statement_core(handle, unit_index, &scratch, &core_sql, out_error);
-		}
-		if (status == SQLPARSER_STATUS_OK) {
-			status = sqlparser_control_postprocess_unit(
-				handle,
-				unit_index,
-				unit->kind == SQLPARSER_CONTROL_UNIT_CONDITION,
-				core_sql,
-				&public_sql,
-				out_error);
-		}
-		free(core_sql);
+		root = NULL;
+		transaction = NULL;
 		current_offset = buffer.length;
-		current_length = public_sql != NULL ? strlen(public_sql) : 0U;
-		if (status == SQLPARSER_STATUS_OK) {
+		current_length = 0U;
+		status = sqlparser_get_statement_node(
+			mutable_handle,
+			unit_index,
+			&root,
+			out_error);
+		if (root != NULL &&
+		    root->node_case == PG_QUERY__NODE__NODE_TRANSACTION_STMT) {
+			transaction = root->transaction_stmt;
+		}
+		if (status == SQLPARSER_STATUS_OK &&
+		    unit->kind == SQLPARSER_CONTROL_UNIT_STATEMENT &&
+		    sqlparser_dialect_is_sqlserver_compatible(handle->dialect) &&
+		    transaction != NULL &&
+		    (transaction->kind ==
+			     PG_QUERY__TRANSACTION_STMT_KIND__TRANS_STMT_COMMIT ||
+		     transaction->kind ==
+			     PG_QUERY__TRANSACTION_STMT_KIND__TRANS_STMT_ROLLBACK) &&
+		    transaction->n_options == 0U &&
+		    (transaction->savepoint_name == NULL ||
+		     transaction->savepoint_name[0] == '\0') &&
+		    (transaction->gid == NULL || transaction->gid[0] == '\0') &&
+		    !transaction->chain) {
+			current_length = unit->source_length;
 			status = sqlparser_control_buffer_append(
 				&buffer,
-				public_sql,
+				handle->sql + unit->source_offset,
 				current_length,
 				out_error);
+		} else if (status == SQLPARSER_STATUS_OK) {
+			if (unit->kind == SQLPARSER_CONTROL_UNIT_CONDITION) {
+				status = sqlparser_control_render_condition_core(
+					handle,
+					unit_index,
+					&scratch,
+					&core_sql,
+					out_error);
+			} else {
+				status = sqlparser_control_render_statement_core(
+					handle,
+					unit_index,
+					&scratch,
+					&core_sql,
+					out_error);
+			}
+			if (status == SQLPARSER_STATUS_OK) {
+				status = sqlparser_control_postprocess_unit(
+					handle,
+					unit_index,
+					unit->kind == SQLPARSER_CONTROL_UNIT_CONDITION,
+					core_sql,
+					(ProtobufCMessage *const *)&root,
+					1U,
+					&public_sql,
+					out_error);
+			}
+			current_length = public_sql != NULL ? strlen(public_sql) : 0U;
+			if (status == SQLPARSER_STATUS_OK) {
+				status = sqlparser_control_buffer_append(
+					&buffer,
+					public_sql,
+					current_length,
+					out_error);
+			}
 		}
+		free(core_sql);
 		if (status == SQLPARSER_STATUS_OK) {
 			unit->current_offset = current_offset;
 			unit->current_length = current_length;

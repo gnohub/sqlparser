@@ -1,12 +1,23 @@
 # Vastbase PostgreSQL 兼容模式用例矩阵
 
-可执行夹具：`tests/cases/vastbase_postgresql_dialect_input.json`。单元测试会逐条验证解析、View JSON、反解析输出和明确不支持语法返回码。
+可执行夹具为 `tests/cases/vastbase_postgresql_dialect_input.json`。对每条 final 用例，runner 验证未修改 SQL 的反解析结果与输入逐字节一致、实际 View 与期望 JSON 结构相等，并独立执行每个 patch；patch 后 SQL 必须与 `patch.deparse` 逐字节一致，重新解析后再次反解析仍须一致，且 patch handle 与重新解析 handle 的 View 输出必须一致。
+
+## 事务特征规范语义值回归
+
+以下 4 条 final 用例覆盖 Vastbase PostgreSQL 兼容模式的常用事务隔离级别和访问模式。原始 SQL 反解析必须逐字节保持；View 必须按输入顺序输出去除 trivia 后的规范关键字值。session 语义值不提供 selector，因此这些用例不设置 patch。
+
+| ID | 用例 | SQL | 验证重点 |
+| --- | --- | --- | --- |
+| `VPG-TX001` | `vastbase-postgresql-session-transaction-commented-read-uncommitted` | ALTER/*command*/SESSION SET TRANSACTION ISOLATION/*name*/LEVEL READ/*value*/UNCOMMITTED; | `READ UNCOMMITTED` 规范值及单事务特征 |
+| `VPG-TX002` | `vastbase-postgresql-session-characteristics-commented-repeatable-read-write` | ALTER SESSION SET SESSION/*scope*/CHARACTERISTICS AS TRANSACTION ISOLATION LEVEL REPEATABLE/*value*/READ, READ/*mode*/WRITE; | `REPEATABLE READ`、`READ WRITE` 及 session characteristics 入口 |
+| `VPG-TX003` | `vastbase-postgresql-session-transaction-commented-serializable-read-only` | ALTER SESSION SET TRANSACTION ISOLATION LEVEL SERIALIZABLE/*tail*/, READ/*mode*/ONLY; | `SERIALIZABLE`、`READ ONLY` 及逗号前注释 |
+| `VPG-TX004` | `vastbase-postgresql-session-transaction-commented-option-order` | ALTER SESSION SET TRANSACTION read/*mode*/write, ISOLATION/*name*/LEVEL read/*value*/committed; | 输入选项顺序、小写原文保留及 `READ COMMITTED` 规范值 |
 
 ## 矩阵统计与 session 回归
 
-夹具包含 196 条用例，其中 186 条预期成功，10 条预期失败。34 条用例包含 statement 级 `expect.session`，覆盖 `VPG049` 至 `VPG051` 和 `VB-C001` 至 `VB-C031`。其中 31 条至少包含一个非空 session 期望；词法隔离用例 `VB-C023`、`VB-C024`、`VB-C029` 的所有 statement 均要求不输出 session 投影。
+夹具包含 199 条 `status = "final"` 用例，其中 35 条用例的期望 View 包含非空 session 投影。
 
-用例提供 `expect.session` 时，矩阵测试要求其与 statement 一一对应。非空项按 session action、item scope、target kind、name 及 value 字段校验；`null` 表示对应 statement 不应产生 session 投影。对于预期成功的用例，测试还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
+View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
 | ID | 用例 | SQL | 状态 |
 | --- | --- | --- | --- |
@@ -154,7 +165,11 @@
 | `VPG143` | `vastbase-postgresql-select-or-predicate-order-by-lineage` | SELECT u.id, u.email, u.bank_card FROM public.users u WHERE u.email = $1 OR u.bank_card = $2 ORDER BY u.id | 已覆盖 |
 | `VPG144` | `vastbase-postgresql-national-string-literal` | SELECT 'prefix' AS prefix_value, N'Alice''s order' AS label FROM users WHERE name = n'Bob' | 已覆盖 |
 | `VPG145` | `vastbase-postgresql-national-string-duplicate-literal` | SELECT 'same' AS plain_value, N'same' AS national_value FROM users | 已覆盖 |
-| `VPG137` | `vastbase-postgresql-parse-error` | SELECT FROM | 明确不支持 |
+| `VPG146` | `vastbase-postgresql-data-modifying-cte-delete-multi-reference` | DELETE CTE 的 `RETURNING` 结果被外层 JOIN 重复引用 | 单个 DELETE DML 根、唯一结果块及两处 CTE relation 共享 `source_block`；2 个独立 patch 覆盖结果项替换与插入 |
+| `VPG147` | `vastbase-postgresql-data-modifying-cte-update-delete-root` | UPDATE CTE + 顶层 DELETE | 顶层 DELETE 为 D0、UPDATE CTE 为 D1 子节点；UPDATE 结果块供 DELETE `USING` relation 引用，2 个独立 patch 精确验证 D1 结果列表 |
+| `VPG148` | `vastbase-postgresql-data-modifying-cte-two-deletes-side-effect` | 无 `RETURNING` 的 DELETE CTE + 有 `RETURNING` 的同级 DELETE CTE | 两个 SELECT-root DML 按声明顺序保持独立根；D0 无结果但保留副作用语义，D1 单独提供结果块；2 个独立 patch 验证 D1 结果列表 |
+| `VPG149` | `vastbase-postgresql-data-modifying-cte-sibling-lineage` | INSERT CTE 的 `RETURNING` 驱动同级 UPDATE CTE | D0 INSERT 与 D1 UPDATE 保持独立根和独立结果块，UPDATE 赋值通过 `source_field`/`source_target` 指向 INSERT 的 `payload`；3 个独立 patch 覆盖两个 DML ordinal 及结果项插入 |
+| `VPG150` | `vastbase-postgresql-data-modifying-cte-merge-returning` | 带 UPDATE、INSERT 分支及 `RETURNING` 的 MERGE CTE | MERGE D0 的 target/source relation、ON 谓词、分支赋值与 INSERT 行、结果块、`RETURNING t.*` 的 `target_after` 来源及外层 CTE `source_block`；2 个独立 patch 覆盖结果项替换与插入 |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 
@@ -174,3 +189,7 @@
 | `VPG-BM008` | `$1`、包含 `$2` 的 `CASE` 表达式、`now()`、`$3` | CASE 表达式内 bind 与后续全局位置 |
 | `VPG-BM009` | 三行 VALUES，bind 与表达式位置逐行变化 | 跨行 cell 坐标及连续全局 bind 位置 |
 | `VPG-BM010` | schema-qualified quoted identifiers、非常规空白、三个直接 bind + 时间表达式 | 引号标识符、原始空白及末尾表达式 |
+
+## 覆盖边界
+
+本矩阵只列出可成功解析并具有最终 View 与 patch 期望的用例。解析失败路径由独立单元测试维护，不在该 fixture 中登记。

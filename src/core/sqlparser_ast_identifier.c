@@ -30,7 +30,7 @@ static sqlparser_status_t sqlparser_validate_identifier_path(
 	return SQLPARSER_STATUS_OK;
 }
 
-static PgQuery__Node *sqlparser_alloc_string_node(
+PgQuery__Node *sqlparser_alloc_string_node(
 	const char *text,
 	sqlparser_error_t *out_error)
 {

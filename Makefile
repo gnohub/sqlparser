@@ -35,6 +35,7 @@ OBJ_FILES := $(foreach src,$(ALL_SRC),$(OBJ_PATH)/$(patsubst src/%,%,$(src:.c=.o
 DEP_FILES := $(OBJ_FILES:.o=.d)
 UNIT_TEST_BINS := $(foreach src,$(UNIT_TEST_SRC),$(BIN_PATH)/$(notdir $(src:.c=)))
 CASE_MATRIX_BINS := $(filter %_case_matrix,$(UNIT_TEST_BINS))
+CASE_RUNNER_HEADER := ./tests/unit/sqlparser_case_runner.h
 EXAMPLE_BINS := $(patsubst examples/%.c,$(BIN_PATH)/examples/%,$(EXAMPLE_SRC))
 TEST_API_SMOKE_BIN := $(BIN_PATH)/test_api_smoke
 TEST_CORE_API_BIN := $(BIN_PATH)/test_core_api
@@ -488,6 +489,8 @@ $(PKGCONFIG_FILE): config/sqlparser.pc.in VERSION | prep
 $(OBJ_PATH)/%.o: src/%.c $(BUILD_SIGNATURE_FILE)
 	@mkdir -p $(dir $@)
 	@$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -c $< -o $@
+
+$(CASE_MATRIX_BINS): $(CASE_RUNNER_HEADER)
 
 $(BIN_PATH)/%: tests/unit/%.c $(STATIC_LIB_PATH) | prep
 	@mkdir -p $(dir $@)

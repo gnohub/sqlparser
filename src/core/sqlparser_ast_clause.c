@@ -193,6 +193,7 @@ static sqlparser_status_t sqlparser_clause_walk_message(
 	uint8_t *base;
 	unsigned index;
 	int defer_set_order_by;
+	int is_dml_tail_select;
 
 	if (message == NULL || search == NULL) {
 		return SQLPARSER_STATUS_OK;
@@ -208,9 +209,11 @@ static sqlparser_status_t sqlparser_clause_walk_message(
 
 	select_stmt = NULL;
 	defer_set_order_by = 0;
+	is_dml_tail_select = 0;
 	if (message->descriptor == &pg_query__select_stmt__descriptor) {
 		select_stmt = (PgQuery__SelectStmt *)message;
 		defer_set_order_by = sqlparser_clause_select_is_set_operation(select_stmt);
+		is_dml_tail_select = select_stmt == search->dml_tail_select;
 	}
 
 	base = (uint8_t *)message;
@@ -245,7 +248,8 @@ static sqlparser_status_t sqlparser_clause_walk_message(
 				}
 			}
 		}
-		if (sqlparser_clause_field_is_where(field) &&
+		if (!is_dml_tail_select &&
+		    sqlparser_clause_field_is_where(field) &&
 		    sqlparser_clause_message_allows_empty_where(message, field)) {
 			(void)sqlparser_clause_record(search, SQLPARSER_CLAUSE_KIND_WHERE, NULL);
 			if (search->want_target && search->target_kind != SQLPARSER_CLAUSE_KIND_UNKNOWN) {
@@ -255,7 +259,9 @@ static sqlparser_status_t sqlparser_clause_walk_message(
 		if (message->descriptor == &pg_query__select_stmt__descriptor &&
 		    sqlparser_clause_field_name_is(field, "sort_clause") &&
 		    !defer_set_order_by &&
-		    sqlparser_clause_select_has_visible_order_by_slot(message, search)) {
+		    ((is_dml_tail_select && select_stmt->n_sort_clause > 0U) ||
+		     (!is_dml_tail_select &&
+		      sqlparser_clause_select_has_visible_order_by_slot(message, search)))) {
 			(void)sqlparser_clause_record(search, SQLPARSER_CLAUSE_KIND_ORDER_BY, select_stmt);
 			if (search->want_target && search->target_kind != SQLPARSER_CLAUSE_KIND_UNKNOWN) {
 				return SQLPARSER_STATUS_OK;
@@ -357,6 +363,15 @@ static sqlparser_status_t sqlparser_resolve_statement_clause(
 	memset(&search, 0, sizeof(search));
 	search.want_target = 1;
 	search.target_index = clause_index;
+	status = sqlparser_get_mysql_dml_tail_select(
+		handle,
+		statement_index,
+		statement,
+		&search.dml_tail_select,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
 	status = sqlparser_clause_walk_message((ProtobufCMessage *)statement, &search);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
@@ -627,7 +642,15 @@ static sqlparser_status_t sqlparser_statement_order_by_sql(
 		return SQLPARSER_STATUS_OK;
 	}
 	status = sqlparser_postprocess_handle_sql_fragment(
-		handle, statement_index, core_sql, "ORDER BY SQL", out_sql, out_error);
+		handle,
+		statement_index,
+		core_sql,
+		SQLPARSER_FRAGMENT_CONTEXT_ORDER_BY,
+		(ProtobufCMessage *const *)stmt->sort_clause,
+		stmt->n_sort_clause,
+		"ORDER BY SQL",
+		out_sql,
+		out_error);
 	free(core_sql);
 	return status;
 }
@@ -672,6 +695,8 @@ static sqlparser_status_t sqlparser_statement_set_order_by_sql(
 		source.origins = origins;
 		source.dialect = handle->dialect;
 		source.spelling_handle = handle;
+		source.candidate_dialect_state = dialect_state;
+		source.statement_index = statement_index;
 		status = sqlparser_parse_order_by_nodes_sql(
 			parser_sql,
 			&source,
@@ -692,13 +717,8 @@ static sqlparser_status_t sqlparser_statement_set_order_by_sql(
 	free(stmt->sort_clause);
 	stmt->sort_clause = nodes;
 	stmt->n_sort_clause = count;
-	status = sqlparser_handle_commit_ast(handle, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_discard_dialect_state(handle, dialect_state);
-		return status;
-	}
-	sqlparser_handle_adopt_dialect_state(handle, dialect_state);
-	return SQLPARSER_STATUS_OK;
+	return sqlparser_handle_commit_ast_with_dialect_state(
+		handle, dialect_state, out_error);
 }
 
 sqlparser_status_t sqlparser_statement_clause_count(
@@ -727,6 +747,15 @@ sqlparser_status_t sqlparser_statement_clause_count(
 		return status;
 	}
 	memset(&search, 0, sizeof(search));
+	status = sqlparser_get_mysql_dml_tail_select(
+		(sqlparser_handle_t *)handle,
+		statement_index,
+		statement,
+		&search.dml_tail_select,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
 	status = sqlparser_clause_walk_message((ProtobufCMessage *)statement, &search);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;

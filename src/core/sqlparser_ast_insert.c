@@ -6,6 +6,7 @@
 #include "sqlparser_ast_internal.h"
 #include "../dialect/sqlparser_dialect_internal.h"
 #include "../dialect/sqlparser_dialect_multi_insert_internal.h"
+#include "../dialect/sqlparser_dialect_sqlserver_internal.h"
 
 static sqlparser_status_t sqlparser_get_insert_cell_node(
 	sqlparser_handle_t *handle,
@@ -222,6 +223,7 @@ static sqlparser_status_t sqlparser_get_insert_cell_a_const(
 		return status;
 	}
 
+	value_node = sqlparser_unwrap_grouping_node(value_node);
 	if (value_node == NULL ||
 	    value_node->node_case != PG_QUERY__NODE__NODE_A_CONST ||
 	    value_node->a_const == NULL) {
@@ -637,6 +639,9 @@ sqlparser_status_t sqlparser_insert_cell_sql(
 		handle,
 		statement_index,
 		core_sql,
+		SQLPARSER_FRAGMENT_CONTEXT_EXPRESSION,
+		(ProtobufCMessage *const *)&value_node,
+		1U,
 		"insert cell SQL",
 		out_sql,
 		out_error);
@@ -648,7 +653,7 @@ sqlparser_status_t sqlparser_insert_cell_sql(
 	return SQLPARSER_STATUS_OK;
 }
 
-sqlparser_status_t sqlparser_insert_set_cell_sql(
+sqlparser_status_t sqlparser_insert_set_cell_sql_in_place(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t row_index,
@@ -698,6 +703,8 @@ sqlparser_status_t sqlparser_insert_set_cell_sql(
 	source.origins = origins;
 	source.dialect = handle->dialect;
 	source.spelling_handle = handle;
+	source.candidate_dialect_state = dialect_state;
+	source.statement_index = statement_index;
 	status = sqlparser_parse_insert_cell_node_sql(
 		parser_sql,
 		&source,
@@ -728,15 +735,66 @@ sqlparser_status_t sqlparser_insert_set_cell_sql(
 	sqlparser_free_proto_node(*value_slot);
 	*value_slot = replacement;
 	replacement = NULL;
-	status = sqlparser_handle_commit_ast(handle, out_error);
+	status = sqlparser_handle_commit_ast_with_dialect_state(
+		handle, dialect_state, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_free_proto_node(replacement);
-		sqlparser_handle_discard_dialect_state(handle, dialect_state);
 		return status;
 	}
-
-	sqlparser_handle_adopt_dialect_state(handle, dialect_state);
 	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_insert_set_cell_sql(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t row_index,
+	size_t column_index,
+	const char *sql_text,
+	sqlparser_error_t *out_error)
+{
+	char selector_text[
+		sizeof("stmt[].insert_cell[][]") + 9U * sizeof(size_t)];
+	sqlparser_patch_list_t patches;
+	sqlparser_patch_t patch;
+	int written;
+
+	if (handle == NULL || sql_text == NULL || handle->control != NULL ||
+	    !sqlparser_dialect_is_sqlserver_compatible(handle->dialect) ||
+	    !sqlparser_sqlserver_state_has_odbc_function(
+		    handle->dialect_state,
+		    statement_index) ||
+	    (handle->generation != 0UL && !handle->surface_source_complete)) {
+		return sqlparser_insert_set_cell_sql_in_place(
+			handle,
+			statement_index,
+			row_index,
+			column_index,
+			sql_text,
+			out_error);
+	}
+
+	sqlparser_error_clear(out_error);
+	written = snprintf(
+		selector_text,
+		sizeof(selector_text),
+		"stmt[%zu].insert_cell[%zu][%zu]",
+		statement_index,
+		row_index,
+		column_index);
+	if (written < 0 || (size_t)written >= sizeof(selector_text)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_RESOURCE_LIMIT,
+			"insert cell selector is too large");
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = selector_text;
+	patch.sql = sql_text;
+	patches.items = &patch;
+	patches.count = 1U;
+	return sqlparser_apply_patch(handle, &patches, out_error);
 }
 
 sqlparser_status_t sqlparser_insert_set_cell_bind(

@@ -177,7 +177,8 @@ static void deparseRangeVar(DeparseState *state, RangeVar *range_var, DeparseNod
 static void deparseResTarget(DeparseState *state, ResTarget *res_target, DeparseNodeContext context);
 static void deparseAlias(
 	DeparseState *state,
-	Alias *alias);
+	Alias *alias,
+	bool default_explicit_as);
 static void deparseWindowDef(DeparseState *state, WindowDef* window_def);
 static void deparseColumnRef(DeparseState *state, ColumnRef* column_ref);
 static void deparseSubLink(DeparseState *state, SubLink* sub_link);
@@ -470,9 +471,10 @@ deparseIdentifier(
 		const char *cursor;
 		char opening;
 		char closing;
+		bool resolved_generated = false;
 
 		if (state->opts.identifier_resolver != NULL)
-			(void) state->opts.identifier_resolver(
+			resolved_generated = state->opts.identifier_resolver(
 				state->opts.identifier_resolver_context,
 				identifier,
 				location,
@@ -480,6 +482,17 @@ deparseIdentifier(
 				search_forward,
 				&resolved,
 				&resolved_length);
+		if (generated_style ==
+				POSTGRES_DEPARSE_IDENTIFIER_STYLE_DIALECT_GENERATED &&
+			resolved_generated && resolved != NULL &&
+			resolved_length <= INT_MAX)
+		{
+			appendBinaryStringInfo(
+				deparseGetCurrentStringInfo(state),
+				resolved,
+				(int) resolved_length);
+			return;
+		}
 		if (generated_style ==
 			POSTGRES_DEPARSE_IDENTIFIER_STYLE_UNQUOTED)
 		{
@@ -615,6 +628,25 @@ deparseSourceToken(
 		identifier,
 		location,
 		search_forward);
+}
+
+static bool
+deparseAliasExplicitAs(
+	DeparseState *state,
+	const char *identifier,
+	int location,
+	bool default_explicit_as)
+{
+	bool explicit_as;
+
+	if (state->opts.alias_style_resolver != NULL &&
+		state->opts.alias_style_resolver(
+			state->opts.identifier_resolver_context,
+			identifier,
+			location,
+			&explicit_as))
+		return explicit_as;
+	return default_explicit_as;
 }
 
 static void
@@ -2525,7 +2557,13 @@ static void deparseTargetList(DeparseState *state, List *l)
 			deparseExpr(state, res_target->val, DEPARSE_NODE_CONTEXT_A_EXPR);
 
 		if (res_target->name != NULL) {
-			deparseAppendStringInfoString(state, " AS ");
+			deparseAppendStringInfoChar(state, ' ');
+			if (deparseAliasExplicitAs(
+					state,
+					res_target->name,
+					res_target->location,
+					true))
+				deparseAppendStringInfoString(state, "AS ");
 			deparseIdentifier(
 				state,
 				res_target->name,
@@ -2821,7 +2859,62 @@ static void deparseFuncArgExpr(DeparseState *state, Node *node)
 }
 
 // "set_clause_list" in gram.y
-static void deparseSetClauseList(DeparseState *state, List *target_list)
+static void deparseSetTargetQualifier(
+	DeparseState *state,
+	RangeVar *relation,
+	ResTarget *res_target)
+{
+	char *identifier;
+	const char *resolved;
+	int location;
+	size_t component_index;
+	size_t resolved_length;
+
+	if (relation == NULL ||
+		state->opts.assignment_qualifier_resolver == NULL)
+		return;
+
+	if (relation->alias != NULL)
+	{
+		identifier = relation->alias->aliasname;
+		location = relation->alias->location;
+		component_index = 0;
+	}
+	else
+	{
+		identifier = relation->relname;
+		location = relation->location;
+		component_index =
+			(relation->catalogname != NULL ? 1 : 0) +
+			(relation->schemaname != NULL ? 1 : 0);
+	}
+	resolved = NULL;
+	resolved_length = 0;
+	if (!state->opts.assignment_qualifier_resolver(
+			state->opts.identifier_resolver_context,
+			res_target->name,
+			res_target->location,
+			identifier,
+			location,
+			component_index,
+			&resolved,
+			&resolved_length))
+		return;
+	if (resolved != NULL && resolved_length > 0 &&
+		resolved_length <= INT_MAX)
+		appendBinaryStringInfo(
+			deparseGetCurrentStringInfo(state),
+			resolved,
+			(int) resolved_length);
+	else
+		deparseAppendStringInfoString(state, quote_identifier(identifier));
+	deparseAppendStringInfoChar(state, '.');
+}
+
+static void deparseSetClauseList(
+	DeparseState *state,
+	List *target_list,
+	RangeVar *qualifier_relation)
 {
 	ListCell *lc;
 	ListCell *lc2;
@@ -2849,7 +2942,9 @@ static void deparseSetClauseList(DeparseState *state, List *target_list)
 			deparseAppendStringInfoString(state, "(");
 			for_each_cell(lc2, target_list, lc)
 			{
-				deparseSetTarget(state, castNode(ResTarget, lfirst(lc2)));
+				ResTarget *target = castNode(ResTarget, lfirst(lc2));
+				deparseSetTargetQualifier(state, qualifier_relation, target);
+				deparseSetTarget(state, target);
 				if ((foreach_current_index(lc2) - foreach_current_index(lc)) == r->ncolumns - 1) // Last element in this multi-assign
 					break;
 				else if (lnext(target_list, lc2))
@@ -2861,6 +2956,7 @@ static void deparseSetClauseList(DeparseState *state, List *target_list)
 		}
 		else
 		{
+			deparseSetTargetQualifier(state, qualifier_relation, res_target);
 			deparseSetTarget(state, res_target);
 			deparseAppendStringInfoString(state, " = ");
 			deparseExpr(state, res_target->val, DEPARSE_NODE_CONTEXT_A_EXPR);
@@ -3499,9 +3595,10 @@ static void deparseRangeVar(DeparseState *state, RangeVar *range_var, DeparseNod
 
 	if (range_var->alias != NULL)
 	{
-		if (context == DEPARSE_NODE_CONTEXT_INSERT_RELATION)
-			deparseAppendStringInfoString(state, "AS ");
-		deparseAlias(state, range_var->alias);
+		deparseAlias(
+			state,
+			range_var->alias,
+			context == DEPARSE_NODE_CONTEXT_INSERT_RELATION);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -3557,11 +3654,18 @@ void deparseRawStmtOpts(StringInfo str, struct RawStmt *raw_stmt, PostgresDepars
 
 static void deparseAlias(
 	DeparseState *state,
-	Alias *alias)
+	Alias *alias,
+	bool default_explicit_as)
 {
 	const ListCell *lc = NULL;
 	size_t component_index = 0;
 
+	if (deparseAliasExplicitAs(
+			state,
+			alias->aliasname,
+			alias->location,
+			default_explicit_as))
+		deparseAppendStringInfoString(state, "AS ");
 	deparseIdentifier(
 		state,
 		alias->aliasname,
@@ -4216,8 +4320,12 @@ static void deparseAExpr(DeparseState *state, A_Expr* a_expr, DeparseNodeContext
 	ListCell *lc;
 	char *name;
 
-	bool need_lexpr_parens = needsParensAsBExpr(a_expr->lexpr);
-	bool need_rexpr_parens = needsParensAsBExpr(a_expr->rexpr);
+	bool preserve_grouping =
+		state->opts.identifier_resolver != NULL;
+	bool need_lexpr_parens =
+		!preserve_grouping && needsParensAsBExpr(a_expr->lexpr);
+	bool need_rexpr_parens =
+		!preserve_grouping && needsParensAsBExpr(a_expr->rexpr);
 
 	switch (a_expr->kind) {
 		case AEXPR_OP: /* normal operator */
@@ -4582,6 +4690,7 @@ static void deparseSQLValueFunction(DeparseState *state, SQLValueFunction* sql_v
 	const char *keyword;
 	const char *resolved = NULL;
 	size_t resolved_length = 0;
+	bool empty_call = false;
 
 	keyword = deparseSQLValueFunctionKeyword(sql_value_function->op);
 	if (keyword == NULL)
@@ -4591,12 +4700,18 @@ static void deparseSQLValueFunction(DeparseState *state, SQLValueFunction* sql_v
 		sql_value_function->location >=
 			POSTGRES_DEPARSE_SQL_VALUE_CASE_LAST)
 	{
+		unsigned int payload;
 		unsigned int uppercase_mask;
 		size_t index;
 
-		uppercase_mask = (unsigned int)(
+		payload = (unsigned int)(
 			(int64) POSTGRES_DEPARSE_SQL_VALUE_CASE_BASE -
 			(int64) sql_value_function->location);
+		uppercase_mask =
+			payload & POSTGRES_DEPARSE_SQL_VALUE_UPPERCASE_MASK;
+		empty_call =
+			(payload &
+			 POSTGRES_DEPARSE_SQL_VALUE_EMPTY_CALL_FLAG) != 0U;
 		for (index = 0; keyword[index] != '\0'; index++)
 		{
 			char ch = keyword[index];
@@ -4628,6 +4743,9 @@ static void deparseSQLValueFunction(DeparseState *state, SQLValueFunction* sql_v
 	{
 		deparseAppendStringInfoString(state, keyword);
 	}
+
+	if (empty_call)
+		deparseAppendStringInfoString(state, "()");
 
 	if (sql_value_function->typmod != -1)
 	{
@@ -4741,7 +4859,7 @@ static void deparseJoinExpr(DeparseState *state, JoinExpr *join_expr)
 		deparseAppendStringInfoString(state, ") ");
 
 	if (join_expr->alias != NULL)
-		deparseAlias(state, join_expr->alias);
+		deparseAlias(state, join_expr->alias, false);
 
 	removeTrailingSpace(state);
 }
@@ -4871,7 +4989,7 @@ static void deparseRangeSubselect(DeparseState *state, RangeSubselect *range_sub
 	if (range_subselect->alias != NULL)
 	{
 		deparseAppendStringInfoChar(state, ' ');
-		deparseAlias(state, range_subselect->alias);
+		deparseAlias(state, range_subselect->alias, false);
 	}
 }
 
@@ -4922,7 +5040,7 @@ static void deparseRangeFunction(DeparseState *state, RangeFunction *range_func)
 
 	if (range_func->alias != NULL)
 	{
-		deparseAlias(state, range_func->alias);
+		deparseAlias(state, range_func->alias, false);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -4980,12 +5098,22 @@ static void deparseTypeCast(DeparseState *state, TypeCast *type_cast, DeparseNod
 {
 	bool need_parens = needsParensAsBExpr(type_cast->arg);
 	bool generated_type_name;
+	bool set_interval_syntax = false;
 
 	Assert(type_cast->typeName != NULL);
 	generated_type_name =
 		deparseNameListHasGenerated(state, type_cast->typeName->names);
+	if (context == DEPARSE_NODE_CONTEXT_SET_STATEMENT &&
+		IsA(type_cast->arg, A_Const) &&
+		IsA(&castNode(A_Const, type_cast->arg)->val, String) &&
+		!generated_type_name &&
+		list_length(type_cast->typeName->names) == 2 &&
+		strcmp(strVal(linitial(type_cast->typeName->names)), "pg_catalog") == 0 &&
+		strcmp(strVal(lsecond(type_cast->typeName->names)), "interval") == 0)
+		set_interval_syntax = true;
 
-	if (context == DEPARSE_NODE_CONTEXT_FUNC_EXPR)
+	if (context == DEPARSE_NODE_CONTEXT_FUNC_EXPR ||
+		(state->opts.type_cast_as_function && !set_interval_syntax))
 	{
 		deparseAppendStringInfoString(state, "CAST(");
 		deparseExpr(state, type_cast->arg, DEPARSE_NODE_CONTEXT_A_EXPR);
@@ -5069,8 +5197,20 @@ static bool
 deparseTypeNameSourceWord(
 	DeparseState *state,
 	TypeName *type_name,
-	const char *word)
+	const char *word,
+	const char **resolved,
+	size_t *resolved_length)
 {
+	if (state->opts.identifier_resolver != NULL &&
+		state->opts.identifier_resolver(
+			state->opts.identifier_resolver_context,
+			word,
+			type_name->location,
+			POSTGRES_DEPARSE_TYPE_NAME_COMPONENT,
+			true,
+			resolved,
+			resolved_length))
+		return true;
 	return deparseIdentifierIsKeyword(
 		state,
 		word,
@@ -5082,7 +5222,9 @@ deparseTypeNameSourceWord(
 static bool
 deparseTypeNameIsSystem(
 	DeparseState *state,
-	TypeName *type_name)
+	TypeName *type_name,
+	const char **resolved,
+	size_t *resolved_length)
 {
 	const char *name;
 
@@ -5100,46 +5242,119 @@ deparseTypeNameIsSystem(
 		return false;
 
 	name = strVal(lsecond(type_name->names));
-	if (deparseTypeNameSourceWord(state, type_name, name))
+	if (deparseTypeNameSourceWord(
+			state, type_name, name, resolved, resolved_length))
 		return true;
 	if (strcmp(name, "bpchar") == 0)
-		return deparseTypeNameSourceWord(state, type_name, "char") ||
-			deparseTypeNameSourceWord(state, type_name, "character");
+		return deparseTypeNameSourceWord(
+				state, type_name, "char", resolved, resolved_length) ||
+			deparseTypeNameSourceWord(
+				state, type_name, "character", resolved, resolved_length);
 	if (strcmp(name, "varchar") == 0)
-		return deparseTypeNameSourceWord(state, type_name, "varchar") ||
-			deparseTypeNameSourceWord(state, type_name, "character");
+		return deparseTypeNameSourceWord(
+				state, type_name, "varchar", resolved, resolved_length) ||
+			deparseTypeNameSourceWord(
+				state, type_name, "character", resolved, resolved_length);
 	if (strcmp(name, "numeric") == 0)
-		return deparseTypeNameSourceWord(state, type_name, "decimal") ||
-			deparseTypeNameSourceWord(state, type_name, "dec");
+		return deparseTypeNameSourceWord(
+				state, type_name, "decimal", resolved, resolved_length) ||
+			deparseTypeNameSourceWord(
+				state, type_name, "dec", resolved, resolved_length);
 	if (strcmp(name, "bool") == 0)
-		return deparseTypeNameSourceWord(state, type_name, "boolean");
+		return deparseTypeNameSourceWord(
+			state, type_name, "boolean", resolved, resolved_length);
 	if (strcmp(name, "varbit") == 0)
-		return deparseTypeNameSourceWord(state, type_name, "bit");
+		return deparseTypeNameSourceWord(
+			state, type_name, "bit", resolved, resolved_length);
 	if (strcmp(name, "int2") == 0)
-		return deparseTypeNameSourceWord(state, type_name, "smallint");
+		return deparseTypeNameSourceWord(
+			state, type_name, "smallint", resolved, resolved_length);
 	if (strcmp(name, "int4") == 0)
-		return deparseTypeNameSourceWord(state, type_name, "int") ||
-			deparseTypeNameSourceWord(state, type_name, "integer");
+		return deparseTypeNameSourceWord(
+				state, type_name, "int", resolved, resolved_length) ||
+			deparseTypeNameSourceWord(
+				state, type_name, "integer", resolved, resolved_length);
 	if (strcmp(name, "int8") == 0)
-		return deparseTypeNameSourceWord(state, type_name, "bigint");
+		return deparseTypeNameSourceWord(
+			state, type_name, "bigint", resolved, resolved_length);
 	if (strcmp(name, "float4") == 0)
-		return deparseTypeNameSourceWord(state, type_name, "real") ||
-			deparseTypeNameSourceWord(state, type_name, "float");
+		return deparseTypeNameSourceWord(
+				state, type_name, "real", resolved, resolved_length) ||
+			deparseTypeNameSourceWord(
+				state, type_name, "float", resolved, resolved_length);
 	if (strcmp(name, "float8") == 0)
-		return deparseTypeNameSourceWord(state, type_name, "double") ||
-			deparseTypeNameSourceWord(state, type_name, "float");
+		return deparseTypeNameSourceWord(
+				state, type_name, "double", resolved, resolved_length) ||
+			deparseTypeNameSourceWord(
+				state, type_name, "float", resolved, resolved_length);
 	if (strcmp(name, "timetz") == 0)
-		return deparseTypeNameSourceWord(state, type_name, "time");
+		return deparseIdentifierIsKeyword(
+			state, "time", "time", type_name->location, true);
 	if (strcmp(name, "timestamptz") == 0)
-		return deparseTypeNameSourceWord(state, type_name, "timestamp");
+		return deparseIdentifierIsKeyword(
+			state,
+			"timestamp",
+			"timestamp",
+			type_name->location,
+			true);
 	return false;
+}
+
+static bool
+deparseTypeNameHasImplicitDefaultLength(TypeName *type_name)
+{
+	A_Const *typmod;
+	const char *name;
+
+	if (list_length(type_name->names) != 2 ||
+		!IsA(linitial(type_name->names), String) ||
+		!IsA(lsecond(type_name->names), String) ||
+		strcmp(strVal(linitial(type_name->names)), "pg_catalog") != 0 ||
+		list_length(type_name->typmods) != 1 ||
+		!IsA(linitial(type_name->typmods), A_Const))
+		return false;
+	name = strVal(lsecond(type_name->names));
+	if (strcmp(name, "bit") != 0 && strcmp(name, "bpchar") != 0)
+		return false;
+	typmod = castNode(A_Const, linitial(type_name->typmods));
+	return typmod->location == -1 &&
+		IsA(&typmod->val, Integer) &&
+		intVal(&typmod->val) == 1;
 }
 
 static void deparseTypeName(DeparseState *state, TypeName *type_name)
 {
 	ListCell *lc;
-	bool skip_typmods = false;
-	bool system_name = deparseTypeNameIsSystem(state, type_name);
+	bool skip_typmods = deparseTypeNameHasImplicitDefaultLength(type_name);
+	const char *source_spelling = NULL;
+	size_t source_spelling_length = 0;
+	bool compact_system_spelling = false;
+	bool system_name;
+
+	if (list_length(type_name->names) == 2 &&
+		IsA(linitial(type_name->names), String) &&
+		IsA(lsecond(type_name->names), String) &&
+		castNode(String, linitial(type_name->names))->location >
+			POSTGRES_DEPARSE_GENERATED_SPELLING_LAST &&
+		castNode(String, lsecond(type_name->names))->location <=
+			POSTGRES_DEPARSE_GENERATED_SPELLING_LAST &&
+		state->opts.identifier_resolver != NULL)
+		compact_system_spelling =
+			state->opts.identifier_resolver(
+				state->opts.identifier_resolver_context,
+				strVal(lsecond(type_name->names)),
+				castNode(String, lsecond(type_name->names))->location,
+				0,
+				false,
+				&source_spelling,
+				&source_spelling_length);
+	system_name =
+		compact_system_spelling ||
+		deparseTypeNameIsSystem(
+			state,
+			type_name,
+			&source_spelling,
+			&source_spelling_length);
 
 	if (type_name->setof)
 		deparseAppendStringInfoString(state, "SETOF ");
@@ -5147,7 +5362,16 @@ static void deparseTypeName(DeparseState *state, TypeName *type_name)
 	if (system_name)
 	{
 		const char *name = strVal(lsecond(type_name->names));
-		if (strcmp(name, "bpchar") == 0)
+		if (source_spelling != NULL &&
+			source_spelling_length > 0 &&
+			source_spelling_length <= INT_MAX)
+		{
+			appendBinaryStringInfo(
+				deparseGetCurrentStringInfo(state),
+				source_spelling,
+				(int) source_spelling_length);
+		}
+		else if (strcmp(name, "bpchar") == 0)
 		{
 			deparseAppendStringInfoString(state, "char");
 		}
@@ -5438,8 +5662,22 @@ static void deparseCaseWhen(DeparseState *state, CaseWhen *case_when)
 static void deparseAIndirection(DeparseState *state, A_Indirection *a_indirection)
 {
 	ListCell *lc;
-	bool need_parens =
-		IsA(a_indirection->arg, A_Indirection) ||
+	bool arg_is_grouping;
+	bool need_parens;
+
+	if (a_indirection->indirection == NIL)
+	{
+		deparseAppendStringInfoChar(state, '(');
+		deparseExpr(state, a_indirection->arg, DEPARSE_NODE_CONTEXT_A_EXPR);
+		deparseAppendStringInfoChar(state, ')');
+		return;
+	}
+
+	arg_is_grouping =
+		IsA(a_indirection->arg, A_Indirection) &&
+		castNode(A_Indirection, a_indirection->arg)->indirection == NIL;
+	need_parens =
+		(!arg_is_grouping && IsA(a_indirection->arg, A_Indirection)) ||
 		IsA(a_indirection->arg, FuncCall) ||
 		IsA(a_indirection->arg, A_Expr) ||
 		IsA(a_indirection->arg, TypeCast) ||
@@ -5725,7 +5963,7 @@ static void deparseOnConflictClause(DeparseState *state, OnConflictClause *on_co
 	if (list_length(on_conflict_clause->targetList) > 0)
 	{
 		deparseAppendPartGroup(state, "SET", DEPARSE_PART_INDENT);
-		deparseSetClauseList(state, on_conflict_clause->targetList);
+		deparseSetClauseList(state, on_conflict_clause->targetList, NULL);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -5754,7 +5992,10 @@ static void deparseUpdateStmt(DeparseState *state, UpdateStmt *update_stmt)
 	if (list_length(update_stmt->targetList) > 0)
 	{
 		deparseAppendPartGroup(state, "SET", DEPARSE_PART_INDENT);
-		deparseSetClauseList(state, update_stmt->targetList);
+		deparseSetClauseList(
+			state,
+			update_stmt->targetList,
+			update_stmt->relation);
 		deparseAppendStringInfoChar(state, ' ');
 	}
 
@@ -5927,7 +6168,7 @@ static void deparseMergeStmt(DeparseState *state, MergeStmt *merge_stmt)
 				break;
 			case CMD_UPDATE:
 				deparseAppendStringInfoString(state, "UPDATE SET ");
-				deparseSetClauseList(state, clause->targetList);
+				deparseSetClauseList(state, clause->targetList, NULL);
 				break;
 			case CMD_DELETE:
 				deparseAppendStringInfoString(state, "DELETE");
@@ -12009,8 +12250,7 @@ static void deparseRangeTableFunc(DeparseState *state, RangeTableFunc* range_tab
 
 	if (range_table_func->alias)
 	{
-		deparseAppendStringInfoString(state, "AS ");
-		deparseAlias(state, range_table_func->alias);
+		deparseAlias(state, range_table_func->alias, true);
 	}
 
 	removeTrailingSpace(state);
@@ -12574,7 +12814,7 @@ static void deparseJsonTable(DeparseState *state, JsonTable *json_table)
 	if (json_table->alias)
 	{
 		deparseAppendStringInfoChar(state, ' ');
-		deparseAlias(state, json_table->alias);
+		deparseAlias(state, json_table->alias, false);
 	}
 }
 

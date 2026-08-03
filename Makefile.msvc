@@ -78,12 +78,17 @@ CORE_OBJS = \
 	$(OBJ_DIR)\sqlparser_identifier_origin.obj \
 	$(OBJ_DIR)\sqlparser_patch.obj \
 	$(OBJ_DIR)\sqlparser_selector.obj \
+	$(OBJ_DIR)\sqlparser_surface.obj \
 	$(OBJ_DIR)\sqlparser_view.obj \
+	$(OBJ_DIR)\sqlparser_dialect_ast_surface.obj \
+	$(OBJ_DIR)\sqlparser_dialect_bind.obj \
 	$(OBJ_DIR)\sqlparser_dialect_dameng.obj \
 	$(OBJ_DIR)\sqlparser_dialect_dml_result.obj \
 	$(OBJ_DIR)\sqlparser_dialect_like_escape.obj \
+	$(OBJ_DIR)\sqlparser_dialect_minus.obj \
 	$(OBJ_DIR)\sqlparser_dialect_multi_insert.obj \
 	$(OBJ_DIR)\sqlparser_dialect_mysql.obj \
+	$(OBJ_DIR)\sqlparser_dialect_national_literal.obj \
 	$(OBJ_DIR)\sqlparser_dialect_oracle.obj \
 	$(OBJ_DIR)\sqlparser_dialect_postgresql.obj \
 	$(OBJ_DIR)\sqlparser_dialect_sqlserver.obj \
@@ -97,11 +102,17 @@ UNIT_TEST_BINS = \
 	$(BIN_DIR)\test_api_smoke.exe \
 	$(BIN_DIR)\test_api_case_matrix.exe \
 	$(BIN_DIR)\test_core_api.exe \
+	$(BIN_DIR)\test_dameng_fragment_rewrite.exe \
+	$(BIN_DIR)\test_dialect_surface_state.exe \
 	$(BIN_DIR)\test_identifier_spelling.exe \
 	$(BIN_DIR)\test_mysql_dialect_case_matrix.exe \
 	$(BIN_DIR)\test_oracle_dialect_case_matrix.exe \
+	$(BIN_DIR)\test_oracle_fragment_rewrite.exe \
+	$(BIN_DIR)\test_oracle_set_query_graph.exe \
 	$(BIN_DIR)\test_sqlserver_dialect_case_matrix.exe \
+	$(BIN_DIR)\test_sqlserver_dynamic_execute.exe \
 	$(BIN_DIR)\test_sqlserver_scan.exe \
+	$(BIN_DIR)\test_sqlserver_surface_state.exe \
 	$(BIN_DIR)\test_dameng_dialect_case_matrix.exe \
 	$(BIN_DIR)\test_vastbase_oracle_dialect_case_matrix.exe \
 	$(BIN_DIR)\test_vastbase_mysql_dialect_case_matrix.exe \
@@ -160,11 +171,17 @@ test: all $(UNIT_TEST_BINS) examples
 	$(BIN_DIR)\test_api_smoke.exe
 	$(BIN_DIR)\test_api_case_matrix.exe
 	$(BIN_DIR)\test_core_api.exe
+	$(BIN_DIR)\test_dameng_fragment_rewrite.exe
+	$(BIN_DIR)\test_dialect_surface_state.exe
 	$(BIN_DIR)\test_identifier_spelling.exe
 	$(BIN_DIR)\test_mysql_dialect_case_matrix.exe
 	$(BIN_DIR)\test_oracle_dialect_case_matrix.exe
+	$(BIN_DIR)\test_oracle_fragment_rewrite.exe
+	$(BIN_DIR)\test_oracle_set_query_graph.exe
 	$(BIN_DIR)\test_sqlserver_dialect_case_matrix.exe
+	$(BIN_DIR)\test_sqlserver_dynamic_execute.exe
 	$(BIN_DIR)\test_sqlserver_scan.exe
+	$(BIN_DIR)\test_sqlserver_surface_state.exe
 	$(BIN_DIR)\test_dameng_dialect_case_matrix.exe
 	$(BIN_DIR)\test_vastbase_oracle_dialect_case_matrix.exe
 	$(BIN_DIR)\test_vastbase_mysql_dialect_case_matrix.exe
@@ -298,8 +315,17 @@ $(OBJ_DIR)\sqlparser_patch.obj: src\core\sqlparser_patch.c
 $(OBJ_DIR)\sqlparser_selector.obj: src\core\sqlparser_selector.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_selector.c
 
+$(OBJ_DIR)\sqlparser_surface.obj: src\core\sqlparser_surface.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_surface.c
+
 $(OBJ_DIR)\sqlparser_view.obj: src\core\sqlparser_view.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_view.c
+
+$(OBJ_DIR)\sqlparser_dialect_ast_surface.obj: src\dialect\sqlparser_dialect_ast_surface.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_ast_surface.c
+
+$(OBJ_DIR)\sqlparser_dialect_bind.obj: src\dialect\sqlparser_dialect_bind.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_bind.c
 
 $(OBJ_DIR)\sqlparser_dialect_mysql.obj: src\dialect\sqlparser_dialect_mysql.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_mysql.c
@@ -313,8 +339,14 @@ $(OBJ_DIR)\sqlparser_dialect_dml_result.obj: src\dialect\sqlparser_dialect_dml_r
 $(OBJ_DIR)\sqlparser_dialect_like_escape.obj: src\dialect\sqlparser_dialect_like_escape.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_like_escape.c
 
+$(OBJ_DIR)\sqlparser_dialect_minus.obj: src\dialect\sqlparser_dialect_minus.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_minus.c
+
 $(OBJ_DIR)\sqlparser_dialect_multi_insert.obj: src\dialect\sqlparser_dialect_multi_insert.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_multi_insert.c
+
+$(OBJ_DIR)\sqlparser_dialect_national_literal.obj: src\dialect\sqlparser_dialect_national_literal.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_national_literal.c
 
 $(OBJ_DIR)\sqlparser_dialect_oracle.obj: src\dialect\sqlparser_dialect_oracle.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\dialect\sqlparser_dialect_oracle.c
@@ -352,6 +384,12 @@ $(BIN_DIR)\test_api_case_matrix.exe: tests\unit\test_api_case_matrix.c $(STATIC_
 $(BIN_DIR)\test_core_api.exe: tests\unit\test_core_api.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_core_api.c /link $(LDFLAGS) $(LDLIBS)
 
+$(BIN_DIR)\test_dameng_fragment_rewrite.exe: tests\unit\test_dameng_fragment_rewrite.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_dameng_fragment_rewrite.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_dialect_surface_state.exe: tests\unit\test_dialect_surface_state.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_dialect_surface_state.c /link $(LDFLAGS) $(LDLIBS)
+
 $(BIN_DIR)\test_identifier_spelling.exe: tests\unit\test_identifier_spelling.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_identifier_spelling.c /link $(LDFLAGS) $(LDLIBS)
 
@@ -361,11 +399,23 @@ $(BIN_DIR)\test_mysql_dialect_case_matrix.exe: tests\unit\test_mysql_dialect_cas
 $(BIN_DIR)\test_oracle_dialect_case_matrix.exe: tests\unit\test_oracle_dialect_case_matrix.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_oracle_dialect_case_matrix.c /link $(LDFLAGS) $(LDLIBS)
 
+$(BIN_DIR)\test_oracle_fragment_rewrite.exe: tests\unit\test_oracle_fragment_rewrite.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_oracle_fragment_rewrite.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_oracle_set_query_graph.exe: tests\unit\test_oracle_set_query_graph.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_oracle_set_query_graph.c /link $(LDFLAGS) $(LDLIBS)
+
 $(BIN_DIR)\test_sqlserver_dialect_case_matrix.exe: tests\unit\test_sqlserver_dialect_case_matrix.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_sqlserver_dialect_case_matrix.c /link $(LDFLAGS) $(LDLIBS)
 
+$(BIN_DIR)\test_sqlserver_dynamic_execute.exe: tests\unit\test_sqlserver_dynamic_execute.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_sqlserver_dynamic_execute.c /link $(LDFLAGS) $(LDLIBS)
+
 $(BIN_DIR)\test_sqlserver_scan.exe: tests\unit\test_sqlserver_scan.c src\dialect\sqlparser_dialect_sqlserver_scan.h $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_sqlserver_scan.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_sqlserver_surface_state.exe: tests\unit\test_sqlserver_surface_state.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_sqlserver_surface_state.c /link $(LDFLAGS) $(LDLIBS)
 
 $(BIN_DIR)\test_dameng_dialect_case_matrix.exe: tests\unit\test_dameng_dialect_case_matrix.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_dameng_dialect_case_matrix.c /link $(LDFLAGS) $(LDLIBS)

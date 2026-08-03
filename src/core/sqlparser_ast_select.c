@@ -1,8 +1,11 @@
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "sqlparser_ast_internal.h"
+#include "../dialect/sqlparser_dialect_internal.h"
+#include "../dialect/sqlparser_dialect_sqlserver_internal.h"
 
 static int sqlparser_select_stmt_has_target_list(ProtobufCMessage *message)
 {
@@ -374,6 +377,12 @@ sqlparser_status_t sqlparser_render_select_target_node_sql(
 		status = sqlparser_clone_proto_node(node, &replacement, out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_mark_proto_generated_from_handle(
+			handle,
+			(ProtobufCMessage *)replacement,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
 		sqlparser_free_proto_node(stmt->target_list[0]);
 		stmt->target_list[0] = replacement;
 		replacement = NULL;
@@ -495,6 +504,9 @@ sqlparser_status_t sqlparser_select_target_sql(
 		handle,
 		statement_index,
 		core_sql,
+		SQLPARSER_FRAGMENT_CONTEXT_SELECT_TARGET,
+		(ProtobufCMessage *const *)&stmt->target_list[target_index],
+		1U,
 		"select target SQL",
 		out_sql,
 		out_error);
@@ -671,6 +683,8 @@ static sqlparser_status_t sqlparser_select_parse_public_targets(
 		source.origins = origins;
 		source.dialect = handle->dialect;
 		source.spelling_handle = handle;
+		source.candidate_dialect_state = dialect_state;
+		source.statement_index = statement_index;
 		status = sqlparser_parse_select_target_nodes_sql_internal(
 			parser_sql,
 			&source,
@@ -705,7 +719,8 @@ static sqlparser_status_t sqlparser_select_replace_target_list(
 	void *dialect_state,
 	sqlparser_error_t *out_error)
 {
-	size_t index;
+	PgQuery__Node **removed_nodes;
+	size_t removed_count;
 	sqlparser_status_t status;
 
 	if (stmt == NULL || nodes == NULL || count == 0U) {
@@ -713,19 +728,14 @@ static sqlparser_status_t sqlparser_select_replace_target_list(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "select target list replacement is invalid");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	for (index = 0U; index < stmt->n_target_list; index++) {
-		sqlparser_free_proto_node(stmt->target_list[index]);
-	}
-	free(stmt->target_list);
+	removed_nodes = stmt->target_list;
+	removed_count = stmt->n_target_list;
 	stmt->target_list = nodes;
 	stmt->n_target_list = count;
-	status = sqlparser_handle_commit_ast(handle, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_discard_dialect_state(handle, dialect_state);
-		return status;
-	}
-	sqlparser_handle_adopt_dialect_state(handle, dialect_state);
-	return SQLPARSER_STATUS_OK;
+	status = sqlparser_handle_commit_ast_with_dialect_state(
+		handle, dialect_state, out_error);
+	sqlparser_select_free_node_array(removed_nodes, removed_count);
+	return status;
 }
 
 sqlparser_status_t sqlparser_select_set_targets_sql(
@@ -779,8 +789,12 @@ sqlparser_status_t sqlparser_select_set_target_sql(
 {
 	PgQuery__SelectStmt *stmt;
 	PgQuery__Node **nodes;
+	PgQuery__Node **next_targets;
 	PgQuery__Node *replacement;
+	PgQuery__Node *removed;
 	size_t count;
+	size_t old_count;
+	size_t next_count;
 	void *dialect_state;
 	sqlparser_status_t status;
 
@@ -791,8 +805,12 @@ sqlparser_status_t sqlparser_select_set_target_sql(
 	}
 	stmt = NULL;
 	nodes = NULL;
+	next_targets = NULL;
 	replacement = NULL;
+	removed = NULL;
 	count = 0U;
+	old_count = 0U;
+	next_count = 0U;
 	dialect_state = NULL;
 	status = sqlparser_get_select_stmt_by_target_list_index(handle, statement_index, target_list_index, &stmt, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
@@ -806,7 +824,7 @@ sqlparser_status_t sqlparser_select_set_target_sql(
 		handle,
 		statement_index,
 		sql_text,
-		1,
+		0,
 		&nodes,
 		&count,
 		&dialect_state,
@@ -814,18 +832,63 @@ sqlparser_status_t sqlparser_select_set_target_sql(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	replacement = nodes[0];
-	free(nodes);
-	nodes = NULL;
-	sqlparser_free_proto_node(stmt->target_list[target_index]);
-	stmt->target_list[target_index] = replacement;
-	status = sqlparser_handle_commit_ast(handle, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_discard_dialect_state(handle, dialect_state);
+	if (count == 1U) {
+		replacement = nodes[0];
+		free(nodes);
+		nodes = NULL;
+		removed = stmt->target_list[target_index];
+		stmt->target_list[target_index] = replacement;
+		status = sqlparser_handle_commit_ast_with_dialect_state(
+			handle, dialect_state, out_error);
+		sqlparser_free_proto_node(removed);
 		return status;
 	}
-	sqlparser_handle_adopt_dialect_state(handle, dialect_state);
-	return SQLPARSER_STATUS_OK;
+
+	old_count = stmt->n_target_list;
+	if (count > SIZE_MAX - (old_count - 1U)) {
+		sqlparser_select_free_node_array(nodes, count);
+		sqlparser_handle_sweep_identifier_spellings(handle);
+		sqlparser_handle_discard_dialect_state(handle, dialect_state);
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "select target count is too large");
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+	next_count = old_count - 1U + count;
+	removed = stmt->target_list[target_index];
+	if (old_count == 1U) {
+		free(stmt->target_list);
+		stmt->target_list = nodes;
+		nodes = NULL;
+	} else {
+		next_targets = sqlparser_select_alloc_node_array(next_count, out_error);
+		if (next_targets == NULL) {
+			sqlparser_select_free_node_array(nodes, count);
+			sqlparser_handle_sweep_identifier_spellings(handle);
+			sqlparser_handle_discard_dialect_state(handle, dialect_state);
+			return out_error != NULL && out_error->code != SQLPARSER_STATUS_OK ?
+				out_error->code :
+				SQLPARSER_STATUS_NO_MEMORY;
+		}
+		if (target_index > 0U) {
+			memcpy(next_targets, stmt->target_list, target_index * sizeof(*next_targets));
+		}
+		memcpy(next_targets + target_index, nodes, count * sizeof(*next_targets));
+		if (target_index + 1U < old_count) {
+			memcpy(
+				next_targets + target_index + count,
+				stmt->target_list + target_index + 1U,
+				(old_count - target_index - 1U) * sizeof(*next_targets));
+		}
+		free(nodes);
+		nodes = NULL;
+		free(stmt->target_list);
+		stmt->target_list = next_targets;
+		next_targets = NULL;
+	}
+	stmt->n_target_list = next_count;
+	status = sqlparser_handle_commit_ast_with_dialect_state(
+		handle, dialect_state, out_error);
+	sqlparser_free_proto_node(removed);
+	return status;
 }
 
 sqlparser_status_t sqlparser_select_replace_target_with_columns(
@@ -917,12 +980,12 @@ sqlparser_status_t sqlparser_select_replace_target_with_columns(
 	stmt->target_list = next_targets;
 	stmt->n_target_list = next_count;
 	next_targets = NULL;
+	status = sqlparser_handle_commit_ast(handle, out_error);
 	sqlparser_free_proto_node(removed_node);
-
-	return sqlparser_handle_commit_ast(handle, out_error);
+	return status;
 }
 
-sqlparser_status_t sqlparser_select_insert_target_sql(
+sqlparser_status_t sqlparser_select_insert_target_sql_in_place(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t target_list_index,
@@ -983,13 +1046,61 @@ sqlparser_status_t sqlparser_select_insert_target_sql(
 	free(stmt->target_list);
 	stmt->target_list = next_targets;
 	stmt->n_target_list++;
-	status = sqlparser_handle_commit_ast(handle, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_discard_dialect_state(handle, dialect_state);
-		return status;
+	return sqlparser_handle_commit_ast_with_dialect_state(
+		handle, dialect_state, out_error);
+}
+
+sqlparser_status_t sqlparser_select_insert_target_sql(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t target_list_index,
+	size_t target_index,
+	const char *sql_text,
+	sqlparser_error_t *out_error)
+{
+	char selector_text[
+		sizeof("stmt[].select_targets[]") + 6U * sizeof(size_t)];
+	sqlparser_patch_list_t patches;
+	sqlparser_patch_t patch;
+	int written;
+
+	if (handle == NULL || sql_text == NULL || handle->control != NULL ||
+	    !sqlparser_dialect_is_sqlserver_compatible(handle->dialect) ||
+	    !sqlparser_sqlserver_state_has_odbc_function(
+		    handle->dialect_state,
+		    statement_index) ||
+	    (handle->generation != 0UL && !handle->surface_source_complete)) {
+		return sqlparser_select_insert_target_sql_in_place(
+			handle,
+			statement_index,
+			target_list_index,
+			target_index,
+			sql_text,
+			out_error);
 	}
-	sqlparser_handle_adopt_dialect_state(handle, dialect_state);
-	return SQLPARSER_STATUS_OK;
+
+	sqlparser_error_clear(out_error);
+	written = snprintf(
+		selector_text,
+		sizeof(selector_text),
+		"stmt[%zu].select_targets[%zu]",
+		statement_index,
+		target_list_index);
+	if (written < 0 || (size_t)written >= sizeof(selector_text)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_RESOURCE_LIMIT,
+			"select target selector is too large");
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patch.selector = selector_text;
+	patch.index = target_index;
+	patch.sql = sql_text;
+	patches.items = &patch;
+	patches.count = 1U;
+	return sqlparser_apply_patch(handle, &patches, out_error);
 }
 
 sqlparser_status_t sqlparser_select_delete_target(
@@ -1002,6 +1113,7 @@ sqlparser_status_t sqlparser_select_delete_target(
 	PgQuery__SelectStmt *stmt;
 	PgQuery__Node **next_targets;
 	PgQuery__Node *removed;
+	sqlparser_status_t status;
 
 	sqlparser_error_clear(out_error);
 	if (handle == NULL) {
@@ -1031,6 +1143,7 @@ sqlparser_status_t sqlparser_select_delete_target(
 	free(stmt->target_list);
 	stmt->target_list = next_targets;
 	stmt->n_target_list--;
+	status = sqlparser_handle_commit_ast(handle, out_error);
 	sqlparser_free_proto_node(removed);
-	return sqlparser_handle_commit_ast(handle, out_error);
+	return status;
 }

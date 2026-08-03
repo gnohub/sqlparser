@@ -1,11 +1,27 @@
 #include <ctype.h>
-#include <stdlib.h>
 #include <stdint.h>
-#include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "sqlparser_ast_internal.h"
+#include "../dialect/sqlparser_dialect_dml_result_internal.h"
+#include "../dialect/sqlparser_dialect_internal.h"
 #include "../dialect/sqlparser_dialect_multi_insert_internal.h"
+#include "../dialect/sqlparser_dialect_sqlserver_internal.h"
+#include "../dialect/sqlparser_dialect_sqlserver_scan.h"
+
+static size_t sqlparser_patch_identifier_token_end(
+	const sqlparser_handle_t *handle,
+	size_t start);
+static size_t sqlparser_patch_parser_identifier_token_end(
+	const sqlparser_handle_t *handle,
+	size_t start);
+static int sqlparser_patch_source_word_at(
+	const char *sql,
+	size_t length,
+	size_t pos,
+	const char *word);
 
 static sqlparser_status_t sqlparser_patch_parse_selector(
 	const char *selector_text,
@@ -20,6 +36,4225 @@ static sqlparser_status_t sqlparser_patch_parse_selector(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	return sqlparser_selector_parse(selector_text, selector, out_error);
+}
+
+static sqlparser_status_t sqlparser_patch_source_offset(
+	const sqlparser_handle_t *handle,
+	int32_t parser_location,
+	size_t *out_offset,
+	int *out_supported,
+	sqlparser_error_t *out_error)
+{
+	const sqlparser_identifier_origin_map_t *origins;
+	sqlparser_identifier_origin_t origin;
+	size_t parser_end;
+	size_t parser_start;
+	size_t source_end;
+	sqlparser_status_t status;
+
+	*out_supported = 0;
+	if (parser_location < 0) {
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_identifier_origins_for_handle(
+		handle,
+		&origins,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (sqlparser_identifier_origin_map_lookup(
+		    origins,
+		    (size_t)parser_location,
+		    1U,
+		    &origin) == SQLPARSER_IDENTIFIER_ORIGIN_SOURCE &&
+	    origin.source_length > 0U &&
+	    origin.source_offset < handle->sql_len) {
+		*out_offset = origin.source_offset;
+		*out_supported = 1;
+		return SQLPARSER_STATUS_OK;
+	}
+	parser_start = (size_t)parser_location;
+	if (!sqlparser_dialect_is_sqlserver_compatible(handle->dialect) ||
+	    parser_start >= handle->parser_sql_len ||
+	    handle->parser_sql[parser_start] != '"') {
+		return SQLPARSER_STATUS_OK;
+	}
+	parser_end = sqlparser_patch_parser_identifier_token_end(
+		handle,
+		parser_start);
+	if (parser_end <= parser_start || parser_end > handle->parser_sql_len ||
+	    sqlparser_identifier_origin_map_lookup(
+		    origins,
+		    parser_start,
+		    parser_end - parser_start,
+		    &origin) != SQLPARSER_IDENTIFIER_ORIGIN_SOURCE ||
+	    origin.source_length == 0U ||
+	    origin.source_offset >= handle->sql_len ||
+	    origin.source_length > handle->sql_len - origin.source_offset) {
+		return SQLPARSER_STATUS_OK;
+	}
+	source_end = origin.source_offset + origin.source_length;
+	if ((handle->sql[origin.source_offset] != '[' &&
+	     handle->sql[origin.source_offset] != '"') ||
+	    sqlparser_patch_identifier_token_end(
+		    handle,
+		    origin.source_offset) != source_end) {
+		return SQLPARSER_STATUS_OK;
+	}
+	*out_offset = origin.source_offset;
+	*out_supported = 1;
+	return SQLPARSER_STATUS_OK;
+}
+
+static int sqlparser_patch_identifier_quote_at(
+	const sqlparser_handle_t *handle,
+	size_t start)
+{
+	if (start >= handle->sql_len) {
+		return 0;
+	}
+	if (handle->sql[start] == '`') {
+		return sqlparser_dialect_is_mysql_compatible(handle->dialect);
+	}
+	if (handle->sql[start] == '[') {
+		return sqlparser_dialect_is_sqlserver_compatible(handle->dialect);
+	}
+	if (handle->sql[start] != '"' ||
+	    sqlparser_dialect_is_mysql_compatible(handle->dialect)) {
+		return 0;
+	}
+	return start < 2U || handle->sql[start - 1U] != '&' ||
+	       (handle->sql[start - 2U] != 'U' &&
+		handle->sql[start - 2U] != 'u');
+}
+
+static size_t sqlparser_patch_delimited_span_end(
+	const sqlparser_handle_t *handle,
+	size_t start)
+{
+	char close_quote;
+	size_t end;
+
+	if (start >= handle->sql_len ||
+	    (handle->sql[start] != '`' && handle->sql[start] != '[')) {
+		return start;
+	}
+	close_quote = handle->sql[start] == '[' ? ']' : '`';
+	end = start + 1U;
+	while (end < handle->sql_len) {
+		if (handle->sql[end] != close_quote) {
+			end++;
+			continue;
+		}
+		if (end + 1U < handle->sql_len &&
+		    handle->sql[end + 1U] == close_quote) {
+			end += 2U;
+			continue;
+		}
+		return end + 1U;
+	}
+	return end;
+}
+
+static size_t sqlparser_patch_identifier_token_end(
+	const sqlparser_handle_t *handle,
+	size_t start)
+{
+	size_t end;
+
+	if (start >= handle->sql_len) {
+		return start;
+	}
+	if (sqlparser_patch_identifier_quote_at(handle, start)) {
+		end = sqlparser_public_skip_quoted_or_comment(
+			handle->dialect,
+			handle->sql,
+			start);
+		return end > start && end <= handle->sql_len ? end : start;
+	}
+	end = start;
+	while (end < handle->sql_len &&
+	       sqlparser_public_char_is_ident(
+		       (unsigned char)handle->sql[end])) {
+		end++;
+	}
+	return end;
+}
+
+static int sqlparser_patch_sqlserver_json_value_column(
+	ProtobufCMessage *message)
+{
+	PgQuery__JsonFuncExpr *json;
+
+	json = (PgQuery__JsonFuncExpr *)message;
+	return json != NULL &&
+		json->op == PG_QUERY__JSON_EXPR_OP__JSON_VALUE_OP &&
+		json->context_item != NULL &&
+		json->context_item->raw_expr != NULL &&
+		json->context_item->raw_expr->node_case ==
+			PG_QUERY__NODE__NODE_COLUMN_REF &&
+		json->context_item->raw_expr->column_ref != NULL;
+}
+
+static int sqlparser_patch_sqlserver_merge_surface_eligible(
+	const sqlparser_handle_t *handle,
+	const PgQuery__MergeStmt *merge)
+{
+	const PgQuery__MergeWhenClause *when_clause;
+	const PgQuery__Node *when_node;
+	size_t ast_target_count;
+	size_t cursor;
+	size_t depth;
+	size_t explicit_target_count;
+	size_t index;
+	size_t pos;
+	size_t skipped;
+	size_t update_count;
+
+	if (handle == NULL || merge == NULL || merge->with_clause != NULL ||
+	    merge->n_merge_when_clauses < 2U ||
+	    merge->merge_when_clauses == NULL) {
+		return 0;
+	}
+	ast_target_count = 0U;
+	update_count = 0U;
+	for (index = 0U; index < merge->n_merge_when_clauses; index++) {
+		when_node = merge->merge_when_clauses[index];
+		if (when_node == NULL ||
+		    when_node->node_case !=
+			    PG_QUERY__NODE__NODE_MERGE_WHEN_CLAUSE ||
+		    when_node->merge_when_clause == NULL) {
+			return 0;
+		}
+		when_clause = when_node->merge_when_clause;
+		if (when_clause->match_kind ==
+		    PG_QUERY__MERGE_MATCH_KIND__MERGE_WHEN_NOT_MATCHED_BY_TARGET) {
+			ast_target_count++;
+		}
+		if (when_clause->command_type == PG_QUERY__CMD_TYPE__CMD_UPDATE) {
+			update_count++;
+		}
+	}
+	if (ast_target_count == 0U || update_count != 1U) {
+		return 0;
+	}
+
+	depth = 0U;
+	explicit_target_count = 0U;
+	pos = 0U;
+	while (pos < handle->sql_len) {
+		if (sqlparser_public_comment_at(
+			    handle->dialect,
+			    handle->sql,
+			    pos)) {
+			return 0;
+		}
+		skipped = sqlparser_public_skip_quoted_or_comment(
+			handle->dialect,
+			handle->sql,
+			pos);
+		if (skipped != pos) {
+			if (skipped > handle->sql_len) {
+				return 0;
+			}
+			pos = skipped;
+			continue;
+		}
+		if (handle->sql[pos] == '(') {
+			depth++;
+			pos++;
+			continue;
+		}
+		if (handle->sql[pos] == ')') {
+			if (depth == 0U) {
+				return 0;
+			}
+			depth--;
+			pos++;
+			continue;
+		}
+		if (depth != 0U ||
+		    !sqlparser_patch_source_word_at(
+			    handle->sql,
+			    handle->sql_len,
+			    pos,
+			    "when")) {
+			pos++;
+			continue;
+		}
+		cursor = pos + 4U;
+		while (cursor < handle->sql_len &&
+		       isspace((unsigned char)handle->sql[cursor])) {
+			cursor++;
+		}
+		if (!sqlparser_patch_source_word_at(
+			    handle->sql,
+			    handle->sql_len,
+			    cursor,
+			    "not")) {
+			pos++;
+			continue;
+		}
+		cursor += 3U;
+		while (cursor < handle->sql_len &&
+		       isspace((unsigned char)handle->sql[cursor])) {
+			cursor++;
+		}
+		if (!sqlparser_patch_source_word_at(
+			    handle->sql,
+			    handle->sql_len,
+			    cursor,
+			    "matched")) {
+			pos++;
+			continue;
+		}
+		cursor += 7U;
+		while (cursor < handle->sql_len &&
+		       isspace((unsigned char)handle->sql[cursor])) {
+			cursor++;
+		}
+		if (!sqlparser_patch_source_word_at(
+			    handle->sql,
+			    handle->sql_len,
+			    cursor,
+			    "by")) {
+			pos++;
+			continue;
+		}
+		cursor += 2U;
+		while (cursor < handle->sql_len &&
+		       isspace((unsigned char)handle->sql[cursor])) {
+			cursor++;
+		}
+		if (!sqlparser_patch_source_word_at(
+			    handle->sql,
+			    handle->sql_len,
+			    cursor,
+			    "target")) {
+			pos++;
+			continue;
+		}
+		explicit_target_count++;
+		pos = cursor + 6U;
+	}
+	return depth == 0U && explicit_target_count == ast_target_count;
+}
+
+static int sqlparser_patch_sqlserver_update_surface_eligible(
+	const sqlparser_handle_t *handle,
+	const PgQuery__UpdateStmt *update)
+{
+	const PgQuery__JoinExpr *join;
+	const PgQuery__Node *from_node;
+	const PgQuery__Node *target;
+	size_t cursor;
+	size_t depth;
+	size_t index;
+	size_t inner_join_count;
+	size_t pos;
+	size_t skipped;
+
+	if (handle == NULL || update == NULL || update->relation == NULL ||
+	    update->with_clause != NULL || update->where_clause == NULL ||
+	    update->n_returning_list != 0U || update->n_target_list == 0U ||
+	    update->target_list == NULL || update->n_from_clause != 1U ||
+	    update->from_clause == NULL || update->from_clause[0] == NULL) {
+		return 0;
+	}
+	for (index = 0U; index < update->n_target_list; index++) {
+		target = update->target_list[index];
+		if (target == NULL ||
+		    target->node_case != PG_QUERY__NODE__NODE_RES_TARGET ||
+		    target->res_target == NULL || target->res_target->val == NULL) {
+			return 0;
+		}
+	}
+	from_node = update->from_clause[0];
+	if (from_node->node_case != PG_QUERY__NODE__NODE_JOIN_EXPR ||
+	    from_node->join_expr == NULL) {
+		return 0;
+	}
+	join = from_node->join_expr;
+	if (join->jointype != PG_QUERY__JOIN_TYPE__JOIN_INNER ||
+	    join->is_natural || join->larg == NULL || join->rarg == NULL ||
+	    join->larg->node_case != PG_QUERY__NODE__NODE_RANGE_VAR ||
+	    join->larg->range_var == NULL ||
+	    join->rarg->node_case != PG_QUERY__NODE__NODE_RANGE_VAR ||
+	    join->rarg->range_var == NULL || join->quals == NULL ||
+	    join->n_using_clause != 0U || join->join_using_alias != NULL ||
+	    join->alias != NULL) {
+		return 0;
+	}
+
+	depth = 0U;
+	inner_join_count = 0U;
+	pos = 0U;
+	while (pos < handle->sql_len) {
+		if (sqlparser_public_comment_at(
+			    handle->dialect,
+			    handle->sql,
+			    pos)) {
+			return 0;
+		}
+		skipped = sqlparser_public_skip_quoted_or_comment(
+			handle->dialect,
+			handle->sql,
+			pos);
+		if (skipped != pos) {
+			if (skipped > handle->sql_len) {
+				return 0;
+			}
+			pos = skipped;
+			continue;
+		}
+		if (handle->sql[pos] == '(') {
+			depth++;
+			pos++;
+			continue;
+		}
+		if (handle->sql[pos] == ')') {
+			if (depth == 0U) {
+				return 0;
+			}
+			depth--;
+			pos++;
+			continue;
+		}
+		if (depth != 0U ||
+		    !sqlparser_patch_source_word_at(
+			    handle->sql,
+			    handle->sql_len,
+			    pos,
+			    "inner")) {
+			pos++;
+			continue;
+		}
+		cursor = pos + 5U;
+		while (cursor < handle->sql_len &&
+		       isspace((unsigned char)handle->sql[cursor])) {
+			cursor++;
+		}
+		if (cursor == pos + 5U ||
+		    !sqlparser_patch_source_word_at(
+			    handle->sql,
+			    handle->sql_len,
+			    cursor,
+			    "join")) {
+			pos++;
+			continue;
+		}
+		inner_join_count++;
+		pos = cursor + 4U;
+	}
+	return depth == 0U && inner_join_count == 1U;
+}
+
+static int sqlparser_patch_simple_insert_values_shape(
+	const PgQuery__InsertStmt *insert)
+{
+	const PgQuery__Node *item;
+	const PgQuery__SelectStmt *values;
+	size_t index;
+
+	if (insert == NULL || insert->relation == NULL ||
+	    insert->with_clause != NULL || insert->on_conflict_clause != NULL ||
+	    insert->override !=
+		    PG_QUERY__OVERRIDING_KIND__OVERRIDING_NOT_SET ||
+	    insert->n_cols == 0U || insert->cols == NULL ||
+	    insert->select_stmt == NULL ||
+	    insert->select_stmt->node_case != PG_QUERY__NODE__NODE_SELECT_STMT ||
+	    insert->select_stmt->select_stmt == NULL) {
+		return 0;
+	}
+	values = insert->select_stmt->select_stmt;
+	if (values->n_values_lists == 0U || values->values_lists == NULL ||
+	    values->n_distinct_clause != 0U || values->into_clause != NULL ||
+	    values->n_target_list != 0U || values->n_from_clause != 0U ||
+	    values->where_clause != NULL || values->n_group_clause != 0U ||
+	    values->group_distinct || values->having_clause != NULL ||
+	    values->n_window_clause != 0U || values->n_sort_clause != 0U ||
+	    values->limit_offset != NULL || values->limit_count != NULL ||
+	    values->n_locking_clause != 0U || values->with_clause != NULL ||
+	    (values->op != PG_QUERY__SET_OPERATION__SET_OPERATION_UNDEFINED &&
+	     values->op != PG_QUERY__SET_OPERATION__SETOP_NONE) ||
+	    values->larg != NULL || values->rarg != NULL) {
+		return 0;
+	}
+	for (index = 0U; index < insert->n_cols; index++) {
+		item = insert->cols[index];
+		if (item == NULL ||
+		    item->node_case != PG_QUERY__NODE__NODE_RES_TARGET ||
+		    item->res_target == NULL || item->res_target->name == NULL ||
+		    item->res_target->name[0] == '\0') {
+			return 0;
+		}
+	}
+	for (index = 0U; index < values->n_values_lists; index++) {
+		item = values->values_lists[index];
+		if (item == NULL || item->node_case != PG_QUERY__NODE__NODE_LIST ||
+		    item->list == NULL || item->list->n_items != insert->n_cols ||
+		    (item->list->n_items > 0U && item->list->items == NULL)) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static int sqlparser_patch_sqlserver_odbc_insert_surface_eligible(
+	const sqlparser_handle_t *handle,
+	const PgQuery__InsertStmt *insert)
+{
+	return insert != NULL && insert->n_returning_list == 0U &&
+		sqlparser_patch_simple_insert_values_shape(insert) &&
+		sqlparser_dialect_dml_result_count(handle, 0U) == 0U;
+}
+
+static int sqlparser_patch_sqlserver_insert_output_comment_surface_eligible(
+	const sqlparser_handle_t *handle,
+	const PgQuery__InsertStmt *insert)
+{
+	const PgQuery__Node *item;
+	sqlparser_dialect_dml_result_channel_t channel;
+	sqlparser_dialect_dml_result_dml_t dml;
+	size_t depth;
+	size_t index;
+	size_t output_count;
+	size_t pos;
+	size_t skipped;
+	size_t values_count;
+	int output_comment_seen;
+
+	if (insert == NULL || insert->n_returning_list == 0U ||
+	    insert->returning_list == NULL ||
+	    !sqlparser_patch_simple_insert_values_shape(insert)) {
+		return 0;
+	}
+	for (index = 0U; index < insert->n_returning_list; index++) {
+		item = insert->returning_list[index];
+		if (item == NULL ||
+		    item->node_case != PG_QUERY__NODE__NODE_RES_TARGET ||
+		    item->res_target == NULL || item->res_target->val == NULL) {
+			return 0;
+		}
+	}
+	if (sqlparser_dialect_dml_result_count(handle, 0U) != 1U ||
+	    !sqlparser_dialect_dml_result_dml_at(handle, 0U, 0U, &dml) ||
+	    dml.kind != SQLPARSER_GRAPH_DML_INSERT ||
+	    dml.channel_count != 1U || dml.has_parent ||
+	    !sqlparser_dialect_dml_result_channel_at(
+		    handle,
+		    0U,
+		    0U,
+		    0U,
+		    &channel) ||
+	    channel.kind != SQLPARSER_GRAPH_DML_RESULT_CLIENT ||
+	    channel.target_offset != 0U ||
+	    channel.target_count != insert->n_returning_list ||
+	    (channel.sink_sql != NULL && channel.sink_sql[0] != '\0') ||
+	    channel.sink_column_count != 0U) {
+		return 0;
+	}
+
+	depth = 0U;
+	output_count = 0U;
+	output_comment_seen = 0;
+	values_count = 0U;
+	pos = 0U;
+	while (pos < handle->sql_len) {
+		if (sqlparser_public_comment_at(
+			    handle->dialect,
+			    handle->sql,
+			    pos)) {
+			if ((handle->sql[pos] == '/' &&
+			     handle->sql[pos + 1U] == '*' &&
+			     (handle->sql[pos + 2U] == '+' ||
+			      handle->sql[pos + 2U] == '!')) ||
+			    (handle->sql[pos] == '-' &&
+			     handle->sql[pos + 1U] == '-' &&
+			     handle->sql[pos + 2U] == '+')) {
+				return 0;
+			}
+			skipped = sqlparser_public_skip_quoted_or_comment(
+				handle->dialect,
+				handle->sql,
+				pos);
+			if (skipped <= pos || skipped > handle->sql_len) {
+				return 0;
+			}
+			if (!output_comment_seen) {
+				for (index = pos + 2U; index < skipped; index++) {
+					if (sqlparser_patch_source_word_at(
+						    handle->sql,
+						    skipped,
+						    index,
+						    "output")) {
+						output_comment_seen = 1;
+						break;
+					}
+				}
+			}
+			pos = skipped;
+			continue;
+		}
+		skipped = sqlparser_public_skip_quoted_or_comment(
+			handle->dialect,
+			handle->sql,
+			pos);
+		if (skipped != pos) {
+			if (skipped > handle->sql_len) {
+				return 0;
+			}
+			pos = skipped;
+			continue;
+		}
+		if (handle->sql[pos] == '(') {
+			depth++;
+			pos++;
+			continue;
+		}
+		if (handle->sql[pos] == ')') {
+			if (depth == 0U) {
+				return 0;
+			}
+			depth--;
+			pos++;
+			continue;
+		}
+		if (depth == 0U &&
+		    sqlparser_patch_source_word_at(
+			    handle->sql,
+			    handle->sql_len,
+			    pos,
+			    "output")) {
+			output_count++;
+			pos += 6U;
+			continue;
+		}
+		if (depth == 0U &&
+		    sqlparser_patch_source_word_at(
+			    handle->sql,
+			    handle->sql_len,
+			    pos,
+			    "values")) {
+			values_count++;
+			pos += 6U;
+			continue;
+		}
+		pos++;
+	}
+	return depth == 0U && output_comment_seen && output_count == 1U &&
+	       values_count == 1U;
+}
+
+static int sqlparser_patch_sqlserver_transaction_batch_surface_eligible(
+	const sqlparser_handle_t *handle)
+{
+	const PgQuery__RawStmt *raw_stmt;
+	const PgQuery__TransactionStmt *transaction;
+	size_t index;
+	size_t pos;
+	size_t skipped;
+
+	if (handle == NULL || handle->ast == NULL ||
+	    handle->ast->n_stmts < 3U || handle->ast->stmts == NULL) {
+		return 0;
+	}
+	for (index = 0U; index < handle->ast->n_stmts; index++) {
+		raw_stmt = handle->ast->stmts[index];
+		if (raw_stmt == NULL || raw_stmt->stmt == NULL) {
+			return 0;
+		}
+		if (index > 0U && index + 1U < handle->ast->n_stmts) {
+			if (raw_stmt->stmt->node_case !=
+			    PG_QUERY__NODE__NODE_UPDATE_STMT) {
+				return 0;
+			}
+			continue;
+		}
+		if (raw_stmt->stmt->node_case !=
+			    PG_QUERY__NODE__NODE_TRANSACTION_STMT ||
+		    raw_stmt->stmt->transaction_stmt == NULL) {
+			return 0;
+		}
+		transaction = raw_stmt->stmt->transaction_stmt;
+		if (transaction->n_options != 0U || transaction->chain ||
+		    (transaction->savepoint_name != NULL &&
+		     transaction->savepoint_name[0] != '\0') ||
+		    (transaction->gid != NULL && transaction->gid[0] != '\0') ||
+		    (index == 0U &&
+		     transaction->kind !=
+			     PG_QUERY__TRANSACTION_STMT_KIND__TRANS_STMT_BEGIN &&
+		     transaction->kind !=
+			     PG_QUERY__TRANSACTION_STMT_KIND__TRANS_STMT_START) ||
+		    (index + 1U == handle->ast->n_stmts &&
+		     transaction->kind !=
+			     PG_QUERY__TRANSACTION_STMT_KIND__TRANS_STMT_COMMIT &&
+		     transaction->kind !=
+			     PG_QUERY__TRANSACTION_STMT_KIND__TRANS_STMT_ROLLBACK)) {
+			return 0;
+		}
+	}
+
+	pos = 0U;
+	while (pos < handle->sql_len) {
+		if (sqlparser_public_comment_at(
+			    handle->dialect,
+			    handle->sql,
+			    pos)) {
+			return 0;
+		}
+		skipped = sqlparser_public_skip_quoted_or_comment(
+			handle->dialect,
+			handle->sql,
+			pos);
+		if (skipped != pos) {
+			if (skipped > handle->sql_len) {
+				return 0;
+			}
+			pos = skipped;
+		} else {
+			pos++;
+		}
+	}
+	return 1;
+}
+
+static sqlparser_status_t sqlparser_patch_sqlserver_surface_eligible(
+	sqlparser_handle_t *handle,
+	int *out_eligible,
+	int *out_insert_column_gap,
+	sqlparser_error_t *out_error)
+{
+	const PgQuery__RawStmt *raw_stmt;
+	const PgQuery__SelectStmt *stmt;
+	ProtobufCMessage *json_value;
+	size_t pos;
+	size_t skipped;
+	sqlparser_status_t status;
+	int comment_seen;
+	int nested_set_operation;
+	int odbc_function_seen;
+
+	if (out_eligible == NULL || out_insert_column_gap == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"SQL Server surface eligibility output is invalid");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_eligible = 0;
+	*out_insert_column_gap = 0;
+	if (handle == NULL || handle->sql == NULL ||
+	    !sqlparser_dialect_is_sqlserver_compatible(handle->dialect) ||
+	    handle->control != NULL || handle->ast == NULL ||
+	    handle->statement_count != handle->ast->n_stmts ||
+	    handle->ast->n_stmts == 0U ||
+	    handle->ast->stmts == NULL || handle->ast->stmts[0] == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (handle->ast->n_stmts != 1U) {
+		*out_eligible =
+			sqlparser_patch_sqlserver_transaction_batch_surface_eligible(
+				handle);
+		return SQLPARSER_STATUS_OK;
+	}
+	raw_stmt = handle->ast->stmts[0];
+	odbc_function_seen = sqlparser_sqlserver_state_has_odbc_function(
+		handle->dialect_state,
+		0U);
+	if (raw_stmt->stmt != NULL &&
+	    raw_stmt->stmt->node_case == PG_QUERY__NODE__NODE_MERGE_STMT &&
+	    raw_stmt->stmt->merge_stmt != NULL) {
+		*out_eligible =
+			sqlparser_patch_sqlserver_merge_surface_eligible(
+				handle,
+				raw_stmt->stmt->merge_stmt);
+		return SQLPARSER_STATUS_OK;
+	}
+	if (raw_stmt->stmt != NULL &&
+	    raw_stmt->stmt->node_case == PG_QUERY__NODE__NODE_INSERT_STMT &&
+	    raw_stmt->stmt->insert_stmt != NULL) {
+		if (odbc_function_seen &&
+		    raw_stmt->stmt->insert_stmt->n_returning_list == 0U) {
+			*out_eligible =
+				sqlparser_patch_sqlserver_odbc_insert_surface_eligible(
+					handle,
+					raw_stmt->stmt->insert_stmt);
+			return SQLPARSER_STATUS_OK;
+		}
+		*out_eligible =
+			sqlparser_patch_sqlserver_insert_output_comment_surface_eligible(
+				handle,
+				raw_stmt->stmt->insert_stmt);
+		*out_insert_column_gap = *out_eligible;
+		return SQLPARSER_STATUS_OK;
+	}
+	if (raw_stmt->stmt != NULL &&
+	    raw_stmt->stmt->node_case == PG_QUERY__NODE__NODE_UPDATE_STMT &&
+	    raw_stmt->stmt->update_stmt != NULL) {
+		*out_eligible =
+			sqlparser_patch_sqlserver_update_surface_eligible(
+				handle,
+				raw_stmt->stmt->update_stmt);
+		return SQLPARSER_STATUS_OK;
+	}
+	if (raw_stmt->stmt == NULL ||
+	    raw_stmt->stmt->node_case != PG_QUERY__NODE__NODE_SELECT_STMT ||
+	    raw_stmt->stmt->select_stmt == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	stmt = raw_stmt->stmt->select_stmt;
+	if (stmt->into_clause != NULL || stmt->with_clause != NULL ||
+	    stmt->n_values_lists != 0U) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (odbc_function_seen) {
+		*out_eligible =
+			(stmt->op ==
+				 PG_QUERY__SET_OPERATION__SET_OPERATION_UNDEFINED ||
+			 stmt->op == PG_QUERY__SET_OPERATION__SETOP_NONE) &&
+			stmt->larg == NULL && stmt->rarg == NULL;
+		return SQLPARSER_STATUS_OK;
+	}
+	nested_set_operation =
+		stmt->op != PG_QUERY__SET_OPERATION__SET_OPERATION_UNDEFINED &&
+		stmt->op != PG_QUERY__SET_OPERATION__SETOP_NONE &&
+		stmt->larg != NULL && stmt->rarg != NULL &&
+		((stmt->larg->op !=
+			  PG_QUERY__SET_OPERATION__SET_OPERATION_UNDEFINED &&
+		  stmt->larg->op != PG_QUERY__SET_OPERATION__SETOP_NONE) ||
+		 (stmt->rarg->op !=
+			  PG_QUERY__SET_OPERATION__SET_OPERATION_UNDEFINED &&
+		  stmt->rarg->op != PG_QUERY__SET_OPERATION__SETOP_NONE));
+	if (!nested_set_operation &&
+	    ((stmt->op != PG_QUERY__SET_OPERATION__SET_OPERATION_UNDEFINED &&
+	      stmt->op != PG_QUERY__SET_OPERATION__SETOP_NONE) ||
+	     stmt->larg != NULL || stmt->rarg != NULL)) {
+		return SQLPARSER_STATUS_OK;
+	}
+	comment_seen = 0;
+	pos = 0U;
+	while (pos < handle->sql_len) {
+		if (sqlparser_public_comment_at(handle->dialect, handle->sql, pos)) {
+			if ((handle->sql[pos] == '/' &&
+			     handle->sql[pos + 1U] == '*' &&
+			     (handle->sql[pos + 2U] == '+' ||
+			      handle->sql[pos + 2U] == '!')) ||
+			    (handle->sql[pos] == '-' &&
+			     handle->sql[pos + 1U] == '-' &&
+			     handle->sql[pos + 2U] == '+')) {
+				return SQLPARSER_STATUS_OK;
+			}
+			skipped = sqlparser_public_skip_quoted_or_comment(
+				handle->dialect,
+				handle->sql,
+				pos);
+			if (skipped <= pos || skipped > handle->sql_len) {
+				return SQLPARSER_STATUS_OK;
+			}
+			comment_seen = 1;
+			pos = skipped;
+			continue;
+		}
+		skipped = sqlparser_public_skip_quoted_or_comment(
+			handle->dialect,
+			handle->sql,
+			pos);
+		pos = skipped > pos && skipped <= handle->sql_len ?
+			skipped : pos + 1U;
+	}
+	if (nested_set_operation) {
+		*out_eligible = !comment_seen;
+		return SQLPARSER_STATUS_OK;
+	}
+	if (comment_seen) {
+		*out_eligible = 1;
+		return SQLPARSER_STATUS_OK;
+	}
+	if (stmt->where_clause != NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	json_value = NULL;
+	status = sqlparser_search_statement_messages(
+		handle,
+		0U,
+		&pg_query__json_func_expr__descriptor,
+		sqlparser_patch_sqlserver_json_value_column,
+		1,
+		0U,
+		NULL,
+		&json_value,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK && json_value != NULL) {
+		*out_eligible = 1;
+	}
+	return status;
+}
+
+static int sqlparser_patch_identifier_component_span(
+	const sqlparser_handle_t *handle,
+	size_t path_start,
+	size_t component_index,
+	size_t *out_start,
+	size_t *out_end)
+{
+	size_t component;
+	size_t end;
+	size_t pos;
+
+	pos = path_start;
+	for (component = 0U; component <= component_index; component++) {
+		end = sqlparser_patch_identifier_token_end(handle, pos);
+		if (end <= pos) {
+			return 0;
+		}
+		if (component == component_index) {
+			*out_start = pos;
+			*out_end = end;
+			return 1;
+		}
+		pos = end;
+		while (pos < handle->sql_len &&
+		       isspace((unsigned char)handle->sql[pos])) {
+			pos++;
+		}
+		if (pos >= handle->sql_len || handle->sql[pos] != '.') {
+			return 0;
+		}
+		pos++;
+		while (pos < handle->sql_len &&
+		       isspace((unsigned char)handle->sql[pos])) {
+			pos++;
+		}
+	}
+	return 0;
+}
+
+static const char *sqlparser_patch_identifier_mutation_spelling(
+	const sqlparser_handle_t *handle,
+	char **slot)
+{
+	size_t index;
+
+	for (index = 0U; index < handle->identifier_mutation_count; index++) {
+		const sqlparser_identifier_mutation_t *mutation;
+
+		mutation = &handle->identifier_mutations[index];
+		if (mutation->slot == slot && mutation->spelling != NULL) {
+			return mutation->spelling;
+		}
+	}
+	return NULL;
+}
+
+static int sqlparser_patch_existing_surface_edit_matches(
+	const sqlparser_surface_source_edits_t *edits,
+	size_t source_start,
+	size_t source_end,
+	const char *spelling)
+{
+	size_t index;
+	size_t spelling_length;
+
+	if (edits == NULL || spelling == NULL) {
+		return 0;
+	}
+	spelling_length = strlen(spelling);
+	for (index = 0U; index < edits->count; index++) {
+		const sqlparser_surface_source_edit_t *edit;
+
+		edit = &edits->items[index];
+		if (edit->source_start == source_start &&
+		    edit->source_end == source_end &&
+		    edit->replacement_length == spelling_length &&
+		    memcmp(
+			    edit->replacement,
+			    spelling,
+			    spelling_length) == 0) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static sqlparser_status_t sqlparser_patch_identifier_component_matches(
+	const sqlparser_handle_t *handle,
+	int32_t location,
+	size_t path_start,
+	size_t component_index,
+	char **slot,
+	const char *value,
+	const sqlparser_surface_source_edits_t *edits,
+	size_t *out_start,
+	size_t *out_end,
+	int *out_supported,
+	sqlparser_error_t *out_error)
+{
+	const char *mutation_spelling;
+	char *spelling;
+	sqlparser_status_t status;
+
+	*out_supported = 0;
+	if (value == NULL || value[0] == '\0' ||
+	    !sqlparser_patch_identifier_component_span(
+		    handle,
+		    path_start,
+		    component_index,
+		    out_start,
+		    out_end)) {
+		return SQLPARSER_STATUS_OK;
+	}
+	spelling = NULL;
+	status = sqlparser_resolve_identifier_component_spelling(
+		handle,
+		location,
+		component_index,
+		value,
+		&spelling,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		if (status == SQLPARSER_STATUS_NO_MEMORY) {
+			return status;
+		}
+		sqlparser_error_clear(out_error);
+	} else {
+		if (spelling != NULL &&
+		    strlen(spelling) == *out_end - *out_start &&
+		    memcmp(
+			    handle->sql + *out_start,
+			    spelling,
+			    *out_end - *out_start) == 0) {
+			*out_supported = 1;
+		}
+		free(spelling);
+	}
+	if (*out_supported) {
+		return SQLPARSER_STATUS_OK;
+	}
+	mutation_spelling = sqlparser_patch_identifier_mutation_spelling(
+		handle,
+		slot);
+	if (sqlparser_patch_existing_surface_edit_matches(
+		    edits,
+		    *out_start,
+		    *out_end,
+		    mutation_spelling)) {
+		*out_supported = 1;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static int sqlparser_patch_identifier_token_value_matches(
+	const sqlparser_handle_t *handle,
+	size_t start,
+	size_t end,
+	const char *value,
+	size_t value_length)
+{
+	char close_quote;
+	size_t value_index;
+
+	if (value == NULL || end <= start || end > handle->sql_len) {
+		return 0;
+	}
+	close_quote = '\0';
+	if (handle->sql[start] == '"' || handle->sql[start] == '`') {
+		close_quote = handle->sql[start++];
+	} else if (handle->sql[start] == '[') {
+		start++;
+		close_quote = ']';
+	}
+	if (close_quote == '\0') {
+		if (value_length != end - start) {
+			return 0;
+		}
+		for (value_index = 0U; start < end;
+		     start++, value_index++) {
+			if (tolower((unsigned char)handle->sql[start]) !=
+			    tolower((unsigned char)value[value_index])) {
+				return 0;
+			}
+		}
+		return 1;
+	}
+	if (end <= start || handle->sql[end - 1U] != close_quote) {
+		return 0;
+	}
+	end--;
+	value_index = 0U;
+	while (start < end) {
+		char character;
+
+		character = handle->sql[start++];
+		if (character == close_quote && start < end &&
+		    handle->sql[start] == close_quote) {
+			start++;
+		}
+		if (value_index >= value_length ||
+		    value[value_index] != character) {
+			return 0;
+		}
+		value_index++;
+	}
+	return value_index == value_length;
+}
+
+static sqlparser_status_t sqlparser_patch_relation_source_span_search(
+	const sqlparser_handle_t *handle,
+	const char *const *parts,
+	size_t component_count,
+	size_t anchor,
+	size_t *out_start,
+	size_t *out_end,
+	int *out_supported)
+{
+	size_t candidate;
+	size_t component_end;
+	size_t component_index;
+	size_t component_start;
+	size_t cursor;
+	size_t found_end;
+	size_t found_start;
+	size_t match_count;
+	size_t next_candidate;
+	size_t part_lengths[3];
+	size_t protected_end;
+	int anchor_found;
+	int identifier_candidate;
+	int matched;
+
+	*out_supported = 0;
+	if (parts == NULL || component_count == 0U ||
+	    component_count > sizeof(part_lengths) / sizeof(part_lengths[0])) {
+		return SQLPARSER_STATUS_OK;
+	}
+	anchor_found = 0;
+	match_count = 0U;
+	found_start = 0U;
+	found_end = 0U;
+	for (component_index = 0U;
+	     component_index < component_count;
+	     component_index++) {
+		part_lengths[component_index] = strlen(parts[component_index]);
+	}
+	for (candidate = 0U; candidate < handle->sql_len;
+	     candidate = next_candidate) {
+		protected_end = sqlparser_public_skip_quoted_or_comment(
+			handle->dialect,
+			handle->sql,
+			candidate);
+		if (protected_end == candidate) {
+			protected_end = sqlparser_patch_delimited_span_end(
+				handle,
+				candidate);
+		}
+		identifier_candidate = sqlparser_patch_identifier_quote_at(
+			handle,
+			candidate);
+		if (protected_end > candidate) {
+			next_candidate = protected_end;
+			if (!identifier_candidate) {
+				continue;
+			}
+		} else if (sqlparser_public_char_is_ident(
+				   (unsigned char)handle->sql[candidate])) {
+			next_candidate = sqlparser_patch_identifier_token_end(
+				handle,
+				candidate);
+			if (next_candidate <= candidate) {
+				next_candidate = candidate + 1U;
+			}
+		} else {
+			next_candidate = candidate + 1U;
+			continue;
+		}
+		if ((next_candidate < handle->sql_len &&
+		     handle->sql[next_candidate] == '\'') ||
+		    (next_candidate + 1U < handle->sql_len &&
+		     handle->sql[next_candidate] == '&' &&
+		     (handle->sql[next_candidate + 1U] == '\'' ||
+		      handle->sql[next_candidate + 1U] == '"'))) {
+			continue;
+		}
+		if (candidate > 0U &&
+		    (sqlparser_public_char_is_ident(
+			     (unsigned char)handle->sql[candidate - 1U]) ||
+		     handle->sql[candidate - 1U] == ':' ||
+		     handle->sql[candidate - 1U] == '@' ||
+		     handle->sql[candidate - 1U] == '$')) {
+			continue;
+		}
+		cursor = candidate;
+		while (cursor > 0U &&
+		       isspace((unsigned char)handle->sql[cursor - 1U])) {
+			cursor--;
+		}
+		if (cursor > 0U && handle->sql[cursor - 1U] == '.') {
+			continue;
+		}
+		matched = 1;
+		for (component_index = 0U;
+		     component_index < component_count;
+		     component_index++) {
+			if (!sqlparser_patch_identifier_component_span(
+				    handle,
+				    candidate,
+				    component_index,
+				    &component_start,
+				    &component_end) ||
+			    !sqlparser_patch_identifier_token_value_matches(
+				    handle,
+				    component_start,
+				    component_end,
+				    parts[component_index],
+				    part_lengths[component_index])) {
+				matched = 0;
+				break;
+			}
+		}
+		if (!matched) {
+			continue;
+		}
+		cursor = component_end;
+		while (cursor < handle->sql_len &&
+		       isspace((unsigned char)handle->sql[cursor])) {
+			cursor++;
+		}
+		if (cursor < handle->sql_len && handle->sql[cursor] == '.') {
+			continue;
+		}
+		if (anchor >= candidate && anchor < component_end) {
+			if (anchor_found) {
+				return SQLPARSER_STATUS_OK;
+			}
+			anchor_found = 1;
+			found_start = candidate;
+			found_end = component_end;
+		}
+		match_count++;
+		if (match_count == 1U) {
+			found_start = candidate;
+			found_end = component_end;
+		}
+	}
+	if (anchor_found || match_count == 1U) {
+		*out_start = found_start;
+		*out_end = found_end;
+		*out_supported = 1;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_patch_relation_source_span(
+	const sqlparser_handle_t *handle,
+	PgQuery__RangeVar *relation,
+	const sqlparser_surface_source_edits_t *edits,
+	size_t *out_start,
+	size_t *out_end,
+	int *out_supported,
+	sqlparser_error_t *out_error)
+{
+	const char *parts[3];
+	char **slots[3];
+	size_t component_end;
+	size_t component_index;
+	size_t component_start;
+	size_t component_count;
+	size_t cursor;
+	size_t source_start;
+	sqlparser_status_t status;
+	int component_supported;
+	int fast_supported;
+
+	*out_supported = 0;
+	if (relation == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	component_count = 0U;
+	if (relation->catalogname != NULL && relation->catalogname[0] != '\0') {
+		parts[component_count++] = relation->catalogname;
+		slots[component_count - 1U] = &relation->catalogname;
+	}
+	if (relation->schemaname != NULL && relation->schemaname[0] != '\0') {
+		parts[component_count++] = relation->schemaname;
+		slots[component_count - 1U] = &relation->schemaname;
+	}
+	if (relation->relname != NULL && relation->relname[0] != '\0') {
+		parts[component_count++] = relation->relname;
+		slots[component_count - 1U] = &relation->relname;
+	}
+	if (component_count == 0U) {
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_patch_source_offset(
+		handle,
+		relation->location,
+		&source_start,
+		&fast_supported,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (!fast_supported) {
+		if (sqlparser_dialect_is_sqlserver_compatible(handle->dialect)) {
+			return SQLPARSER_STATUS_OK;
+		}
+		return sqlparser_patch_relation_source_span_search(
+			handle,
+			parts,
+			component_count,
+			SIZE_MAX,
+			out_start,
+			out_end,
+			out_supported);
+	}
+	for (component_index = 0U;
+	     component_index < component_count;
+	     component_index++) {
+		status = sqlparser_patch_identifier_component_matches(
+			handle,
+			relation->location,
+			source_start,
+			component_index,
+			slots[component_index],
+			parts[component_index],
+			edits,
+			&component_start,
+			&component_end,
+			&component_supported,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK || !component_supported) {
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+			if (sqlparser_dialect_is_sqlserver_compatible(
+				    handle->dialect)) {
+				return SQLPARSER_STATUS_OK;
+			}
+			return sqlparser_patch_relation_source_span_search(
+				handle,
+				parts,
+				component_count,
+				source_start,
+				out_start,
+				out_end,
+				out_supported);
+		}
+	}
+	cursor = component_end;
+	while (cursor < handle->sql_len &&
+	       isspace((unsigned char)handle->sql[cursor])) {
+		cursor++;
+	}
+	if (cursor < handle->sql_len && handle->sql[cursor] == '.') {
+		*out_supported = 0;
+		return SQLPARSER_STATUS_OK;
+	}
+	*out_start = source_start;
+	*out_end = component_end;
+	*out_supported = 1;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_patch_plan_sqlserver_insert_column_gap(
+	sqlparser_handle_t *handle,
+	sqlparser_surface_source_edits_t *edits,
+	int *out_supported,
+	sqlparser_error_t *out_error)
+{
+	const PgQuery__InsertStmt *insert;
+	const PgQuery__RawStmt *raw_stmt;
+	size_t relation_end;
+	size_t relation_start;
+	sqlparser_status_t status;
+	int span_supported;
+
+	*out_supported = 1;
+	if (handle == NULL || edits == NULL || handle->ast == NULL ||
+	    handle->ast->n_stmts != 1U || handle->ast->stmts == NULL ||
+	    handle->ast->stmts[0] == NULL ||
+	    handle->ast->stmts[0]->stmt == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	raw_stmt = handle->ast->stmts[0];
+	if (raw_stmt->stmt->node_case != PG_QUERY__NODE__NODE_INSERT_STMT ||
+	    raw_stmt->stmt->insert_stmt == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	insert = raw_stmt->stmt->insert_stmt;
+	status = sqlparser_patch_relation_source_span(
+		handle,
+		insert->relation,
+		edits,
+		&relation_start,
+		&relation_end,
+		&span_supported,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK || !span_supported ||
+	    relation_end >= handle->sql_len || handle->sql[relation_end] != '(') {
+		*out_supported = 0;
+		return status;
+	}
+	if (sqlparser_patch_existing_surface_edit_matches(
+		    edits,
+		    relation_end,
+		    relation_end + 1U,
+		    " (")) {
+		return SQLPARSER_STATUS_OK;
+	}
+	return sqlparser_surface_source_edits_insert(
+		edits,
+		relation_end,
+		relation_end + 1U,
+		" (",
+		2U,
+		out_supported,
+		out_error);
+}
+
+static sqlparser_status_t sqlparser_patch_column_qualifier_source_span(
+	const sqlparser_handle_t *handle,
+	PgQuery__ColumnRef *column_ref,
+	const sqlparser_surface_source_edits_t *edits,
+	size_t *out_start,
+	size_t *out_end,
+	int *out_supported,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__Node *node;
+	const char *value;
+	size_t component_end;
+	size_t component_index;
+	size_t component_start;
+	size_t cursor;
+	size_t qualifier_count;
+	size_t source_start;
+	sqlparser_status_t status;
+	int component_supported;
+	int source_supported;
+
+	*out_supported = 0;
+	if (column_ref == NULL || column_ref->fields == NULL ||
+	    column_ref->n_fields < 2U) {
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_patch_source_offset(
+		handle,
+		column_ref->location,
+		&source_start,
+		&source_supported,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK || !source_supported) {
+		return status;
+	}
+	qualifier_count = column_ref->n_fields - 1U;
+	for (component_index = 0U;
+	     component_index < qualifier_count;
+	     component_index++) {
+		node = column_ref->fields[component_index];
+		value = NULL;
+		if (node == NULL ||
+		    !sqlparser_node_string_value(node, &value) ||
+		    value == NULL || value[0] == '\0') {
+			return SQLPARSER_STATUS_OK;
+		}
+		status = sqlparser_patch_identifier_component_matches(
+			handle,
+			column_ref->location,
+			source_start,
+			component_index,
+			&node->string->sval,
+			value,
+			edits,
+			&component_start,
+			&component_end,
+			&component_supported,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK || !component_supported) {
+			return status;
+		}
+	}
+	cursor = component_end;
+	while (cursor < handle->sql_len &&
+	       isspace((unsigned char)handle->sql[cursor])) {
+		cursor++;
+	}
+	if (cursor >= handle->sql_len || handle->sql[cursor] != '.') {
+		return SQLPARSER_STATUS_OK;
+	}
+	*out_start = source_start;
+	*out_end = component_end;
+	*out_supported = 1;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_patch_assignment_qualifier_source_span(
+	const sqlparser_handle_t *handle,
+	PgQuery__RangeVar *relation,
+	PgQuery__ResTarget *target,
+	const sqlparser_surface_source_edits_t *edits,
+	size_t *out_start,
+	size_t *out_end,
+	int *out_present,
+	int *out_supported,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__Node *node;
+	char **slot;
+	const char *value;
+	size_t component_end;
+	size_t component_index;
+	size_t component_start;
+	size_t cursor;
+	size_t source_start;
+	sqlparser_status_t status;
+	int component_supported;
+	int source_supported;
+
+	*out_present = 0;
+	*out_supported = 0;
+	if (relation == NULL || relation->relname == NULL ||
+	    relation->relname[0] == '\0' || target == NULL ||
+	    target->name == NULL ||
+	    target->name[0] == '\0') {
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_patch_source_offset(
+		handle,
+		target->location,
+		&source_start,
+		&source_supported,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK || !source_supported) {
+		return status;
+	}
+	if (target->n_indirection == 0U) {
+		const char *mutation_spelling;
+		size_t qualifier_end;
+		size_t qualifier_start;
+		int crossed_line;
+
+		status = sqlparser_patch_identifier_component_matches(
+			handle,
+			target->location,
+			source_start,
+			0U,
+			&target->name,
+			target->name,
+			edits,
+			&component_start,
+			&component_end,
+			&component_supported,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK || !component_supported) {
+			return status;
+		}
+		cursor = component_start;
+		crossed_line = 0;
+		while (cursor > 0U &&
+		       isspace((unsigned char)handle->sql[cursor - 1U])) {
+			if (handle->sql[cursor - 1U] == '\n' ||
+			    handle->sql[cursor - 1U] == '\r') {
+				crossed_line = 1;
+			}
+			cursor--;
+		}
+		if (cursor == 0U || handle->sql[cursor - 1U] != '.') {
+			if (crossed_line ||
+			    (cursor > 0U &&
+			     (handle->sql[cursor - 1U] == '/' ||
+			      handle->sql[cursor - 1U] == '#' ||
+			      handle->sql[cursor - 1U] == '\'' ||
+			      handle->sql[cursor - 1U] == '"' ||
+			      handle->sql[cursor - 1U] == '`' ||
+			      handle->sql[cursor - 1U] == ']'))) {
+				return SQLPARSER_STATUS_OK;
+			}
+			*out_supported = 1;
+			return SQLPARSER_STATUS_OK;
+		}
+		cursor--;
+		while (cursor > 0U &&
+		       isspace((unsigned char)handle->sql[cursor - 1U])) {
+			cursor--;
+		}
+		qualifier_end = cursor;
+		if (qualifier_end == 0U) {
+			return SQLPARSER_STATUS_OK;
+		}
+		if (handle->sql[qualifier_end - 1U] == '`') {
+			qualifier_start = qualifier_end - 1U;
+			while (qualifier_start > 0U) {
+				qualifier_start--;
+				if (handle->sql[qualifier_start] != '`') {
+					continue;
+				}
+				if (qualifier_start > 0U &&
+				    handle->sql[qualifier_start - 1U] == '`') {
+					qualifier_start--;
+					continue;
+				}
+				break;
+			}
+			if (handle->sql[qualifier_start] != '`') {
+				return SQLPARSER_STATUS_OK;
+			}
+		} else {
+			qualifier_start = qualifier_end;
+			while (qualifier_start > 0U &&
+			       sqlparser_public_char_is_ident(
+				       (unsigned char)handle->sql[
+					       qualifier_start - 1U])) {
+				qualifier_start--;
+			}
+		}
+		if (qualifier_start == qualifier_end ||
+		    !sqlparser_patch_identifier_token_value_matches(
+			    handle,
+			    qualifier_start,
+			    qualifier_end,
+			    relation->relname,
+			    strlen(relation->relname))) {
+			mutation_spelling =
+				sqlparser_patch_identifier_mutation_spelling(
+					handle,
+					&relation->relname);
+			if (!sqlparser_patch_existing_surface_edit_matches(
+				    edits,
+				    qualifier_start,
+				    qualifier_end,
+				    mutation_spelling)) {
+				return SQLPARSER_STATUS_OK;
+			}
+		}
+		*out_start = qualifier_start;
+		*out_end = qualifier_end;
+		*out_present = 1;
+		*out_supported = 1;
+		return SQLPARSER_STATUS_OK;
+	}
+	if (target->indirection == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	for (component_index = 0U;
+	     component_index < target->n_indirection;
+	     component_index++) {
+		value = target->name;
+		slot = &target->name;
+		if (component_index > 0U) {
+			node = target->indirection[component_index - 1U];
+			value = NULL;
+			if (node == NULL ||
+			    !sqlparser_node_string_value(node, &value)) {
+				return SQLPARSER_STATUS_OK;
+			}
+			slot = &node->string->sval;
+		}
+		status = sqlparser_patch_identifier_component_matches(
+			handle,
+			target->location,
+			source_start,
+			component_index,
+			slot,
+			value,
+			edits,
+			&component_start,
+			&component_end,
+			&component_supported,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK || !component_supported) {
+			return status;
+		}
+	}
+	cursor = component_end;
+	while (cursor < handle->sql_len &&
+	       isspace((unsigned char)handle->sql[cursor])) {
+		cursor++;
+	}
+	if (cursor >= handle->sql_len || handle->sql[cursor] != '.') {
+		return SQLPARSER_STATUS_OK;
+	}
+	*out_start = source_start;
+	*out_end = component_end;
+	*out_present = 1;
+	*out_supported = 1;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_patch_surface_edit_insert_deduplicated(
+	sqlparser_surface_source_edits_t *edits,
+	size_t source_start,
+	size_t source_end,
+	const char *replacement,
+	size_t replacement_length,
+	int *out_supported,
+	sqlparser_error_t *out_error)
+{
+	char *copy;
+	size_t index;
+
+	*out_supported = 0;
+	for (index = 0U; index < edits->count; index++) {
+		sqlparser_surface_source_edit_t *edit;
+
+		edit = &edits->items[index];
+		if (edit->source_start != source_start ||
+		    edit->source_end != source_end) {
+			continue;
+		}
+		if (edit->replacement_length == replacement_length &&
+		    memcmp(
+			    edit->replacement,
+			    replacement,
+			    replacement_length) == 0) {
+			*out_supported = 1;
+			return SQLPARSER_STATUS_OK;
+		}
+		copy = sqlparser_strndup(replacement, replacement_length);
+		if (copy == NULL) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		free(edit->replacement);
+		edit->replacement = copy;
+		edit->replacement_length = replacement_length;
+		*out_supported = 1;
+		return SQLPARSER_STATUS_OK;
+	}
+	return sqlparser_surface_source_edits_insert(
+		edits,
+		source_start,
+		source_end,
+		replacement,
+		replacement_length,
+		out_supported,
+		out_error);
+}
+
+static sqlparser_status_t
+sqlparser_patch_mysql_quoted_column_source_span(
+	const sqlparser_handle_t *handle,
+	const PgQuery__ColumnRef *column_ref,
+	size_t *out_start,
+	size_t *out_end,
+	int *out_supported,
+	sqlparser_error_t *out_error)
+{
+	const sqlparser_identifier_origin_map_t *origins;
+	sqlparser_identifier_origin_t origin;
+	const char *value;
+	size_t parser_end;
+	size_t parser_start;
+	size_t source_end;
+	size_t source_start;
+	sqlparser_status_t status;
+
+	*out_supported = 0;
+	if (!sqlparser_dialect_is_mysql_compatible(handle->dialect) ||
+	    column_ref == NULL || column_ref->n_fields != 1U ||
+	    column_ref->fields == NULL || column_ref->fields[0] == NULL ||
+	    !sqlparser_node_string_value(column_ref->fields[0], &value) ||
+	    value == NULL || value[0] == '\0' || column_ref->location < 0 ||
+	    (size_t)column_ref->location >= handle->parser_sql_len) {
+		return SQLPARSER_STATUS_OK;
+	}
+	parser_start = (size_t)column_ref->location;
+	if (handle->parser_sql[parser_start] != '"') {
+		return SQLPARSER_STATUS_OK;
+	}
+	parser_end = sqlparser_public_skip_quoted_or_comment(
+		handle->dialect,
+		handle->parser_sql,
+		parser_start);
+	if (parser_end <= parser_start || parser_end > handle->parser_sql_len) {
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_identifier_origins_for_handle(
+		handle,
+		&origins,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (sqlparser_identifier_origin_map_lookup(
+		    origins,
+		    parser_start,
+		    parser_end - parser_start,
+		    &origin) != SQLPARSER_IDENTIFIER_ORIGIN_SOURCE ||
+	    origin.source_offset >= handle->sql_len ||
+	    origin.source_length > handle->sql_len - origin.source_offset) {
+		return SQLPARSER_STATUS_OK;
+	}
+	source_start = origin.source_offset;
+	source_end = source_start + origin.source_length;
+	if (handle->sql[source_start] != '`' ||
+	    sqlparser_patch_identifier_token_end(handle, source_start) !=
+		    source_end ||
+	    !sqlparser_patch_identifier_token_value_matches(
+		    handle,
+		    source_start,
+		    source_end,
+		    value,
+		    strlen(value))) {
+		return SQLPARSER_STATUS_OK;
+	}
+	*out_start = source_start;
+	*out_end = source_end;
+	*out_supported = 1;
+	return SQLPARSER_STATUS_OK;
+}
+
+static size_t sqlparser_patch_parser_identifier_token_end(
+	const sqlparser_handle_t *handle,
+	size_t start)
+{
+	size_t end;
+
+	if (handle == NULL || start >= handle->parser_sql_len) {
+		return start;
+	}
+	if (handle->parser_sql[start] != '"') {
+		end = start;
+		while (end < handle->parser_sql_len &&
+		       sqlparser_public_char_is_ident(
+			       (unsigned char)handle->parser_sql[end])) {
+			end++;
+		}
+		return end;
+	}
+	end = start + 1U;
+	while (end < handle->parser_sql_len) {
+		if (handle->parser_sql[end] != '"') {
+			end++;
+			continue;
+		}
+		if (end + 1U < handle->parser_sql_len &&
+		    handle->parser_sql[end + 1U] == '"') {
+			end += 2U;
+			continue;
+		}
+		return end + 1U;
+	}
+	return start;
+}
+
+static sqlparser_status_t
+sqlparser_patch_mysql_generated_name_source_span(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	const PgQuery__ColumnRef *column_ref,
+	size_t component_index,
+	const char *current_name,
+	const char *replacement_sql,
+	size_t *out_start,
+	size_t *out_end,
+	char **out_owned_replacement,
+	int *out_supported,
+	sqlparser_error_t *out_error)
+{
+	const sqlparser_identifier_origin_map_t *origins;
+	const char *alias_prefix;
+	const char *qualifier;
+	char *spelling;
+	size_t alias_length;
+	size_t candidate_count;
+	size_t parser_end;
+	size_t parser_start;
+	size_t position;
+	size_t qualifier_length;
+	size_t replacement_length;
+	size_t source_end;
+	size_t source_start;
+	sqlparser_identifier_origin_t origin;
+	sqlparser_identifier_origin_t source_origin;
+	sqlparser_status_t status;
+
+	*out_supported = 0;
+	*out_owned_replacement = NULL;
+	if (!sqlparser_dialect_is_mysql_compatible(handle->dialect) ||
+	    column_ref == NULL || column_ref->n_fields != 2U ||
+	    component_index != 1U || column_ref->fields == NULL ||
+	    column_ref->fields[0] == NULL ||
+	    !sqlparser_node_string_value(column_ref->fields[0], &qualifier) ||
+	    qualifier == NULL ||
+	    (strcmp(qualifier, "EXCLUDED") != 0 &&
+	     strcmp(qualifier, "sqlparser_mysql_alias_column") != 0) ||
+	    current_name == NULL || current_name[0] == '\0' ||
+	    replacement_sql == NULL || replacement_sql[0] == '\0' ||
+	    column_ref->location < 0 ||
+	    (size_t)column_ref->location >= handle->parser_sql_len) {
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_identifier_origins_for_handle(
+		handle,
+		&origins,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	parser_start = (size_t)column_ref->location;
+	qualifier_length = strlen(qualifier);
+	if (qualifier_length > handle->parser_sql_len - parser_start ||
+	    memcmp(
+		    handle->parser_sql + parser_start,
+		    qualifier,
+		    qualifier_length) != 0 ||
+	    qualifier_length == handle->parser_sql_len - parser_start ||
+	    handle->parser_sql[parser_start + qualifier_length] != '.' ||
+	    sqlparser_identifier_origin_map_lookup(
+		    origins,
+		    parser_start,
+		    qualifier_length,
+		    &origin) != SQLPARSER_IDENTIFIER_ORIGIN_GENERATED) {
+		return SQLPARSER_STATUS_OK;
+	}
+	parser_start += qualifier_length + 1U;
+	parser_end = sqlparser_patch_parser_identifier_token_end(
+		handle,
+		parser_start);
+	if (parser_end <= parser_start ||
+	    sqlparser_identifier_origin_map_lookup(
+		    origins,
+		    parser_start,
+		    parser_end - parser_start,
+		    &source_origin) != SQLPARSER_IDENTIFIER_ORIGIN_SOURCE ||
+	    source_origin.source_offset >= handle->sql_len ||
+	    source_origin.source_length >
+		    handle->sql_len - source_origin.source_offset) {
+		return SQLPARSER_STATUS_OK;
+	}
+	source_start = source_origin.source_offset;
+	source_end = source_start + source_origin.source_length;
+	if (sqlparser_patch_identifier_token_end(handle, source_start) !=
+		    source_end ||
+	    !sqlparser_patch_identifier_token_value_matches(
+		    handle,
+		    source_start,
+		    source_end,
+		    current_name,
+		    strlen(current_name))) {
+		return SQLPARSER_STATUS_OK;
+	}
+	spelling = NULL;
+	status = sqlparser_resolve_identifier_component_spelling(
+		handle,
+		column_ref->location,
+		component_index,
+		current_name,
+		&spelling,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (spelling == NULL || strlen(spelling) != source_end - source_start ||
+	    memcmp(
+		    handle->sql + source_start,
+		    spelling,
+		    source_end - source_start) != 0) {
+		free(spelling);
+		return SQLPARSER_STATUS_OK;
+	}
+	free(spelling);
+	candidate_count = 0U;
+	for (position = 0U;
+	     position + qualifier_length + 1U < handle->parser_sql_len;
+	     position++) {
+		sqlparser_identifier_origin_t candidate_origin;
+		size_t candidate_end;
+		size_t candidate_suffix;
+
+		if ((position > 0U &&
+		     sqlparser_public_char_is_ident(
+			     (unsigned char)handle->parser_sql[position - 1U])) ||
+		    memcmp(
+			    handle->parser_sql + position,
+			    qualifier,
+			    qualifier_length) != 0 ||
+		    handle->parser_sql[position + qualifier_length] != '.' ||
+		    sqlparser_identifier_origin_map_lookup(
+			    origins,
+			    position,
+			    qualifier_length,
+			    &origin) != SQLPARSER_IDENTIFIER_ORIGIN_GENERATED) {
+			continue;
+		}
+		candidate_suffix = position + qualifier_length + 1U;
+		candidate_end = sqlparser_patch_parser_identifier_token_end(
+			handle,
+			candidate_suffix);
+		if (candidate_end <= candidate_suffix ||
+		    sqlparser_identifier_origin_map_lookup(
+			    origins,
+			    candidate_suffix,
+			    candidate_end - candidate_suffix,
+			    &candidate_origin) !=
+			    SQLPARSER_IDENTIFIER_ORIGIN_SOURCE ||
+		    candidate_origin.source_offset != source_start ||
+		    candidate_origin.source_length != source_end - source_start) {
+			continue;
+		}
+		candidate_count++;
+		if (position != (size_t)column_ref->location ||
+		    candidate_count > 1U) {
+			return SQLPARSER_STATUS_OK;
+		}
+	}
+	if (candidate_count != 1U ||
+	    !sqlparser_mysql_on_duplicate_name_surface(
+		    handle->dialect_state,
+		    statement_index,
+		    qualifier,
+		    current_name,
+		    handle->sql,
+		    handle->sql_len,
+		    source_start,
+		    replacement_sql,
+		    &alias_prefix)) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (alias_prefix != NULL) {
+		alias_length = strlen(alias_prefix);
+		replacement_length = strlen(replacement_sql);
+		if (replacement_length > SIZE_MAX - 2U ||
+		    alias_length > SIZE_MAX - replacement_length - 2U) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_RESOURCE_LIMIT,
+				"patch SQL is too large");
+			return SQLPARSER_STATUS_RESOURCE_LIMIT;
+		}
+		*out_owned_replacement =
+			(char *)malloc(alias_length + replacement_length + 2U);
+		if (*out_owned_replacement == NULL) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		memcpy(*out_owned_replacement, alias_prefix, alias_length);
+		(*out_owned_replacement)[alias_length] = '.';
+		memcpy(
+			*out_owned_replacement + alias_length + 1U,
+			replacement_sql,
+			replacement_length + 1U);
+	}
+	*out_start = source_start;
+	*out_end = source_end;
+	*out_supported = 1;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_patch_name_source_span(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *replacement_sql,
+	size_t *out_start,
+	size_t *out_end,
+	char **out_owned_replacement,
+	int *out_supported,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__ColumnRef *column_ref;
+	PgQuery__Node *statement;
+	char *spelling;
+	sqlparser_name_search_t search;
+	size_t component_index;
+	size_t source_start;
+	sqlparser_status_t status;
+
+	*out_supported = 0;
+	*out_owned_replacement = NULL;
+	status = sqlparser_get_statement_node(
+		handle,
+		selector->statement_index,
+		&statement,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	memset(&search, 0, sizeof(search));
+	search.want_target = 1;
+	search.target_index = selector->item_index;
+	status = sqlparser_walk_message_names(
+		(ProtobufCMessage *)statement,
+		NULL,
+		&search);
+	if (status != SQLPARSER_STATUS_OK || search.target_slot == NULL ||
+	    search.target_field_owner == NULL ||
+	    search.target_field_owner->descriptor !=
+		    &pg_query__column_ref__descriptor) {
+		return status;
+	}
+	column_ref = (PgQuery__ColumnRef *)search.target_field_owner;
+	for (component_index = 0U;
+	     component_index < column_ref->n_fields;
+	     component_index++) {
+		PgQuery__Node *field;
+
+		field = column_ref->fields[component_index];
+		if (field != NULL &&
+		    field->node_case == PG_QUERY__NODE__NODE_STRING &&
+		    field->string != NULL &&
+		    &field->string->sval == search.target_slot) {
+			break;
+		}
+	}
+	if (component_index >= column_ref->n_fields) {
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_patch_source_offset(
+		handle,
+		column_ref->location,
+		&source_start,
+		out_supported,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (!*out_supported) {
+		status = sqlparser_patch_mysql_quoted_column_source_span(
+			handle,
+			column_ref,
+			out_start,
+			out_end,
+			out_supported,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK || *out_supported) {
+			return status;
+		}
+		return sqlparser_patch_mysql_generated_name_source_span(
+			handle,
+			selector->statement_index,
+			column_ref,
+			component_index,
+			*search.target_slot,
+			replacement_sql,
+			out_start,
+			out_end,
+			out_owned_replacement,
+			out_supported,
+			out_error);
+	}
+	if (!sqlparser_patch_identifier_component_span(
+		    handle,
+		    source_start,
+		    component_index,
+		    out_start,
+		    out_end)) {
+		*out_supported = 0;
+		return SQLPARSER_STATUS_OK;
+	}
+	spelling = NULL;
+	status = sqlparser_resolve_identifier_component_spelling(
+		handle,
+		column_ref->location,
+		component_index,
+		*search.target_slot,
+		&spelling,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (spelling == NULL || strlen(spelling) != *out_end - *out_start ||
+	    memcmp(
+		    handle->sql + *out_start,
+		    spelling,
+		    *out_end - *out_start) != 0) {
+		*out_supported = 0;
+	}
+	free(spelling);
+	return SQLPARSER_STATUS_OK;
+}
+
+static int sqlparser_patch_source_string_is_adjacent(
+	const sqlparser_handle_t *handle,
+	size_t start)
+{
+	size_t end;
+
+	start = sqlparser_public_skip_trivia(
+		handle->dialect,
+		handle->sql,
+		start);
+	if (start >= handle->sql_len) {
+		return 0;
+	}
+	if (handle->sql[start] == '\'') {
+		return 1;
+	}
+	end = sqlparser_public_skip_quoted_or_comment(
+		handle->dialect,
+		handle->sql,
+		start);
+	if (end > start &&
+	    (handle->sql[start] == '$' ||
+	     handle->sql[start] == 'q' || handle->sql[start] == 'Q' ||
+	     handle->sql[start] == 'n' || handle->sql[start] == 'N')) {
+		return 1;
+	}
+	if (start + 1U < handle->sql_len &&
+	    (handle->sql[start + 1U] == '\'' ||
+	     (handle->sql[start + 1U] == '&' &&
+	      start + 2U < handle->sql_len &&
+	      handle->sql[start + 2U] == '\'')) &&
+	    (handle->sql[start] == 'b' || handle->sql[start] == 'B' ||
+	     handle->sql[start] == 'e' || handle->sql[start] == 'E' ||
+	     handle->sql[start] == 'n' || handle->sql[start] == 'N' ||
+	     handle->sql[start] == 'q' || handle->sql[start] == 'Q' ||
+	     handle->sql[start] == 'u' || handle->sql[start] == 'U' ||
+	     handle->sql[start] == 'x' || handle->sql[start] == 'X')) {
+		return 1;
+	}
+	return 0;
+}
+
+static int sqlparser_patch_standard_string_source_span(
+	const sqlparser_handle_t *handle,
+	const PgQuery__AConst *constant,
+	size_t start,
+	size_t *out_end)
+{
+	const char *value;
+	size_t source;
+	size_t value_index;
+
+	if (start >= handle->sql_len || handle->sql[start] != '\'' ||
+	    (start > 0U &&
+	     (sqlparser_public_char_is_ident(
+		     (unsigned char)handle->sql[start - 1U]) ||
+	      handle->sql[start - 1U] == '&')) ||
+	    constant->sval == NULL || constant->sval->sval == NULL) {
+		return 0;
+	}
+	value = constant->sval->sval;
+	value_index = 0U;
+	for (source = start + 1U; source < handle->sql_len; source++) {
+		if (handle->sql[source] == '\'') {
+			if (source + 1U < handle->sql_len &&
+			    handle->sql[source + 1U] == '\'') {
+				if (value[value_index] != '\'') {
+					return 0;
+				}
+				value_index++;
+				source++;
+				continue;
+			}
+			if (value[value_index] != '\0' ||
+			    (source + 1U < handle->sql_len &&
+			     sqlparser_public_char_is_ident(
+				     (unsigned char)handle->sql[source + 1U])) ||
+			    sqlparser_patch_source_string_is_adjacent(
+				    handle,
+				    source + 1U)) {
+				return 0;
+			}
+			*out_end = source + 1U;
+			return 1;
+		}
+		if (value[value_index] == '\0' ||
+		    value[value_index] != handle->sql[source]) {
+			return 0;
+		}
+		value_index++;
+	}
+	return 0;
+}
+
+static int sqlparser_patch_integer_source_span(
+	const sqlparser_handle_t *handle,
+	const PgQuery__AConst *constant,
+	size_t start,
+	size_t limit,
+	size_t *out_end)
+{
+	uint64_t value;
+	size_t end;
+
+	if (start >= limit || limit > handle->sql_len ||
+	    !isdigit((unsigned char)handle->sql[start]) ||
+	    (start > 0U &&
+	     (handle->sql[start - 1U] == '.' ||
+	      sqlparser_public_char_is_ident(
+		      (unsigned char)handle->sql[start - 1U]))) ||
+	    constant->ival == NULL || constant->ival->ival < 0) {
+		return 0;
+	}
+	value = 0U;
+	end = start;
+	while (end < limit &&
+	       isdigit((unsigned char)handle->sql[end])) {
+		uint64_t digit;
+
+		digit = (uint64_t)(handle->sql[end] - '0');
+		if (value > (UINT64_MAX - digit) / 10U) {
+			return 0;
+		}
+		value = value * 10U + digit;
+		end++;
+	}
+	if (end < handle->sql_len &&
+	    (handle->sql[end] == '.' ||
+	     sqlparser_public_char_is_ident(
+		     (unsigned char)handle->sql[end]))) {
+		return 0;
+	}
+	if (value != (uint64_t)constant->ival->ival) {
+		return 0;
+	}
+	*out_end = end;
+	return 1;
+}
+
+static int sqlparser_patch_null_token_length(
+	const char *sql,
+	size_t length,
+	size_t start,
+	size_t *out_length)
+{
+	static const char token[] = "null";
+	size_t index;
+
+	if (sql == NULL || out_length == NULL || start > length ||
+	    sizeof(token) - 1U > length - start ||
+	    (start > 0U &&
+	     (sql[start - 1U] == '.' ||
+	      sqlparser_public_char_is_ident(
+		      (unsigned char)sql[start - 1U]))) ||
+	    (start + sizeof(token) - 1U < length &&
+	     (sql[start + sizeof(token) - 1U] == '.' ||
+	      sqlparser_public_char_is_ident(
+		      (unsigned char)sql[start + sizeof(token) - 1U])))) {
+		return 0;
+	}
+	for (index = 0U; index < sizeof(token) - 1U; index++) {
+		if (tolower((unsigned char)sql[start + index]) != token[index]) {
+			return 0;
+		}
+	}
+	*out_length = sizeof(token) - 1U;
+	return 1;
+}
+
+static int sqlparser_patch_value_parser_token_length(
+	const sqlparser_handle_t *handle,
+	const PgQuery__AConst *constant,
+	size_t *out_length)
+{
+	size_t end;
+	size_t start;
+	size_t token_length;
+	int closed;
+
+	if (constant->location < 0 ||
+	    (size_t)constant->location >= handle->parser_sql_len) {
+		return 0;
+	}
+	start = (size_t)constant->location;
+	end = start;
+	switch (constant->val_case) {
+		case PG_QUERY__A__CONST__VAL_SVAL:
+			if (handle->parser_sql[start] != '\'') {
+				return 0;
+			}
+			closed = 0;
+			for (end = start + 1U;
+			     end < handle->parser_sql_len;
+			     end++) {
+				if (handle->parser_sql[end] != '\'') {
+					continue;
+				}
+				if (end + 1U < handle->parser_sql_len &&
+				    handle->parser_sql[end + 1U] == '\'') {
+					end++;
+					continue;
+				}
+				end++;
+				closed = 1;
+				break;
+			}
+			if (!closed) {
+				return 0;
+			}
+			break;
+		case PG_QUERY__A__CONST__VAL_IVAL:
+			while (end < handle->parser_sql_len &&
+			       isdigit((unsigned char)handle->parser_sql[end])) {
+				end++;
+			}
+			break;
+		case PG_QUERY__A__CONST__VAL__NOT_SET:
+			if (!constant->isnull ||
+			    !sqlparser_patch_null_token_length(
+				    handle->parser_sql,
+				    handle->parser_sql_len,
+				    start,
+				    &token_length)) {
+				return 0;
+			}
+			end = start + token_length;
+			break;
+		default:
+			return 0;
+	}
+	if (end <= start || end > handle->parser_sql_len) {
+		return 0;
+	}
+	*out_length = end - start;
+	return 1;
+}
+
+static int sqlparser_patch_param_ref_parser_token_length(
+	const sqlparser_handle_t *handle,
+	const PgQuery__ParamRef *param_ref,
+	size_t *out_length)
+{
+	uint64_t number;
+	size_t end;
+	size_t start;
+
+	if (param_ref == NULL || param_ref->location < 0 ||
+	    param_ref->number <= 0 ||
+	    (size_t)param_ref->location >= handle->parser_sql_len) {
+		return 0;
+	}
+	start = (size_t)param_ref->location;
+	if (handle->parser_sql[start] != '$' ||
+	    start + 1U >= handle->parser_sql_len ||
+	    !isdigit((unsigned char)handle->parser_sql[start + 1U])) {
+		return 0;
+	}
+	number = 0U;
+	end = start + 1U;
+	while (end < handle->parser_sql_len &&
+	       isdigit((unsigned char)handle->parser_sql[end])) {
+		uint64_t digit;
+
+		digit = (uint64_t)(handle->parser_sql[end] - '0');
+		if (number > (UINT64_MAX - digit) / 10U) {
+			return 0;
+		}
+		number = number * 10U + digit;
+		end++;
+	}
+	if (number != (uint64_t)param_ref->number ||
+	    (end < handle->parser_sql_len &&
+	     sqlparser_public_char_is_ident(
+		     (unsigned char)handle->parser_sql[end]))) {
+		return 0;
+	}
+	*out_length = end - start;
+	return 1;
+}
+
+static sqlparser_status_t sqlparser_patch_source_origin_span(
+	sqlparser_handle_t *handle,
+	int32_t parser_location,
+	size_t parser_length,
+	size_t *out_start,
+	size_t *out_end,
+	int *out_supported,
+	sqlparser_error_t *out_error)
+{
+	const sqlparser_identifier_origin_map_t *origins;
+	sqlparser_identifier_origin_t origin;
+	sqlparser_status_t status;
+
+	*out_supported = 0;
+	if (parser_location < 0 || parser_length == 0U ||
+	    (size_t)parser_location > handle->parser_sql_len ||
+	    parser_length >
+		    handle->parser_sql_len - (size_t)parser_location) {
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_identifier_origins_for_handle(
+		handle,
+		&origins,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (sqlparser_identifier_origin_map_lookup(
+		    origins,
+		    (size_t)parser_location,
+		    parser_length,
+		    &origin) != SQLPARSER_IDENTIFIER_ORIGIN_SOURCE ||
+	    origin.source_length == 0U ||
+	    origin.source_offset > handle->sql_len ||
+	    origin.source_length > handle->sql_len - origin.source_offset) {
+		return SQLPARSER_STATUS_OK;
+	}
+	*out_start = origin.source_offset;
+	*out_end = origin.source_offset + origin.source_length;
+	*out_supported = 1;
+	return SQLPARSER_STATUS_OK;
+}
+
+static int sqlparser_patch_bind_token(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	size_t start,
+	size_t end)
+{
+	size_t pos;
+
+	if (sql == NULL || start >= end) {
+		return 0;
+	}
+	if (sqlparser_dialect_is_mysql_compatible(dialect)) {
+		return end == start + 1U && sql[start] == '?';
+	}
+	if (sqlparser_dialect_is_sqlserver_compatible(dialect)) {
+		if (end == start + 1U && sql[start] == '?') {
+			return 1;
+		}
+		if (sql[start] != '@' || start + 1U >= end ||
+		    sql[start + 1U] == '@' ||
+		    (!sqlparser_sqlserver_is_ident_start(
+			    (unsigned char)sql[start + 1U]) &&
+		     !isdigit((unsigned char)sql[start + 1U]))) {
+			return 0;
+		}
+		pos = start + 2U;
+		while (pos < end &&
+		       sqlparser_sqlserver_is_ident_char(
+			       (unsigned char)sql[pos])) {
+			pos++;
+		}
+		return pos == end;
+	}
+	if (dialect == SQLPARSER_DIALECT_POSTGRESQL ||
+	    dialect == SQLPARSER_DIALECT_VASTBASE_POSTGRESQL) {
+		pos = start + 1U;
+		if (sql[start] != '$' || pos >= end ||
+		    !isdigit((unsigned char)sql[pos])) {
+			return 0;
+		}
+		while (pos < end && isdigit((unsigned char)sql[pos])) {
+			pos++;
+		}
+		return pos == end;
+	}
+	if (!sqlparser_dialect_is_oracle_or_dameng_compatible(
+		    dialect)) {
+		return 0;
+	}
+	if (end == start + 1U && sql[start] == '?') {
+		return 1;
+	}
+	if (sql[start] != ':' || start + 1U >= end) {
+		return 0;
+	}
+	pos = start + 1U;
+	if (isdigit((unsigned char)sql[pos])) {
+		while (pos < end && isdigit((unsigned char)sql[pos])) {
+			pos++;
+		}
+		return pos == end;
+	}
+	if (!isalpha((unsigned char)sql[pos]) && sql[pos] != '_') {
+		return 0;
+	}
+	for (;;) {
+		pos++;
+		while (pos < end &&
+		       (isalnum((unsigned char)sql[pos]) || sql[pos] == '_' ||
+			sql[pos] == '$' || sql[pos] == '#')) {
+			pos++;
+		}
+		if (pos == end) {
+			return 1;
+		}
+		if (sql[pos] != '.' || pos + 1U >= end ||
+		    (!isalpha((unsigned char)sql[pos + 1U]) &&
+		     sql[pos + 1U] != '_')) {
+			return 0;
+		}
+		pos++;
+	}
+}
+
+static int sqlparser_patch_bind_source_span(
+	const sqlparser_handle_t *handle,
+	size_t start,
+	size_t end)
+{
+	if (start >= end || end > handle->sql_len ||
+	    (start > 0U &&
+	     (handle->sql[start - 1U] == '.' ||
+	      (sqlparser_dialect_is_sqlserver_compatible(handle->dialect) &&
+	       handle->sql[start - 1U] == '@') ||
+	      sqlparser_public_char_is_ident(
+		      (unsigned char)handle->sql[start - 1U]))) ||
+	    (end < handle->sql_len &&
+	     (handle->sql[end] == '.' ||
+	      (sqlparser_dialect_is_sqlserver_compatible(handle->dialect) &&
+	       handle->sql[end] == '@') ||
+	      sqlparser_public_char_is_ident(
+		      (unsigned char)handle->sql[end])))) {
+		return 0;
+	}
+	return sqlparser_patch_bind_token(
+		handle->dialect,
+		handle->sql,
+		start,
+		end);
+}
+
+static int sqlparser_patch_bind_sql(
+	const sqlparser_handle_t *handle,
+	const char *sql)
+{
+	return handle != NULL && sql != NULL &&
+		sqlparser_patch_bind_token(
+			handle->dialect,
+			sql,
+			0U,
+			strlen(sql));
+}
+
+static int sqlparser_patch_unsigned_integer_sql(const char *sql)
+{
+	size_t index;
+
+	if (sql == NULL || !isdigit((unsigned char)sql[0])) {
+		return 0;
+	}
+	for (index = 1U; sql[index] != '\0'; index++) {
+		if (!isdigit((unsigned char)sql[index])) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static sqlparser_status_t sqlparser_patch_value_source_span(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	size_t *out_start,
+	size_t *out_end,
+	int *out_supported,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__AConst *constant;
+	PgQuery__Node *node;
+	PgQuery__Node **slot;
+	ProtobufCMessage *parent;
+	size_t origin_end;
+	size_t parser_length;
+	sqlparser_status_t status;
+	int origin_supported;
+
+	*out_supported = 0;
+	slot = NULL;
+	parent = NULL;
+	status = sqlparser_get_statement_node_slot_by_index(
+		handle,
+		selector->statement_index,
+		selector->item_index,
+		&slot,
+		&parent,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK || slot == NULL || *slot == NULL ||
+	    parent == NULL) {
+		return status;
+	}
+	node = *slot;
+	if (node->node_case == PG_QUERY__NODE__NODE_PARAM_REF &&
+	    node->param_ref != NULL) {
+		if (!sqlparser_patch_param_ref_parser_token_length(
+			    handle,
+			    node->param_ref,
+			    &parser_length)) {
+			return SQLPARSER_STATUS_OK;
+		}
+		status = sqlparser_patch_source_origin_span(
+			handle,
+			node->param_ref->location,
+			parser_length,
+			out_start,
+			&origin_end,
+			&origin_supported,
+			out_error);
+		if (status == SQLPARSER_STATUS_OK && origin_supported &&
+		    sqlparser_patch_bind_source_span(
+			    handle, *out_start, origin_end)) {
+			*out_end = origin_end;
+			*out_supported = 1;
+		}
+		return status;
+	}
+	if (parent->descriptor == &pg_query__type_cast__descriptor ||
+	    node->node_case != PG_QUERY__NODE__NODE_A_CONST ||
+	    node->a_const == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	constant = node->a_const;
+	if (!sqlparser_patch_value_parser_token_length(
+		    handle,
+		    constant,
+		    &parser_length)) {
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_patch_source_origin_span(
+		handle,
+		constant->location,
+		parser_length,
+		out_start,
+		&origin_end,
+		&origin_supported,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK || !origin_supported) {
+		return status;
+	}
+	switch (constant->val_case) {
+		case PG_QUERY__A__CONST__VAL_SVAL:
+			*out_supported = sqlparser_patch_standard_string_source_span(
+				handle,
+				constant,
+				*out_start,
+				out_end);
+			break;
+		case PG_QUERY__A__CONST__VAL_IVAL:
+			*out_supported = sqlparser_patch_integer_source_span(
+				handle,
+				constant,
+				*out_start,
+				origin_end,
+				out_end);
+			break;
+		case PG_QUERY__A__CONST__VAL__NOT_SET:
+			if (constant->isnull &&
+			    sqlparser_patch_null_token_length(
+				    handle->sql,
+				    handle->sql_len,
+				    *out_start,
+				    &parser_length)) {
+				*out_end = *out_start + parser_length;
+				*out_supported = 1;
+			}
+			break;
+		default:
+			break;
+	}
+	if (*out_supported && *out_end != origin_end) {
+		*out_supported = 0;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static int sqlparser_patch_source_word_at(
+	const char *sql,
+	size_t length,
+	size_t pos,
+	const char *word)
+{
+	size_t index;
+	size_t word_length;
+
+	word_length = strlen(word);
+	if (word_length > length - pos ||
+	    (pos > 0U &&
+	     sqlparser_public_char_is_ident((unsigned char)sql[pos - 1U])) ||
+	    (pos + word_length < length &&
+	     sqlparser_public_char_is_ident(
+		     (unsigned char)sql[pos + word_length]))) {
+		return 0;
+	}
+	for (index = 0U; index < word_length; index++) {
+		if (tolower((unsigned char)sql[pos + index]) !=
+		    tolower((unsigned char)word[index])) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static int sqlparser_patch_comment_starts_at(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	size_t pos);
+
+static sqlparser_status_t sqlparser_patch_target_source_span(
+	sqlparser_handle_t *handle,
+	const PgQuery__Node *target,
+	const char *boundary_word,
+	int require_boundary,
+	size_t *out_start,
+	size_t *out_end,
+	int *out_supported,
+	sqlparser_error_t *out_error)
+{
+	const PgQuery__ResTarget *res_target;
+	size_t bracket_depth;
+	size_t depth;
+	size_t end;
+	size_t origin_end;
+	size_t parser_length;
+	size_t pos;
+	size_t skipped;
+	sqlparser_status_t status;
+	int origin_supported;
+	int supported;
+	int stopped_at_boundary;
+
+	*out_supported = 0;
+	if (target == NULL ||
+	    target->node_case != PG_QUERY__NODE__NODE_RES_TARGET ||
+	    target->res_target == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	res_target = target->res_target;
+	if (res_target->val != NULL &&
+	    res_target->val->node_case == PG_QUERY__NODE__NODE_PARAM_REF &&
+	    res_target->val->param_ref != NULL &&
+	    res_target->location == res_target->val->param_ref->location) {
+		if (!sqlparser_patch_param_ref_parser_token_length(
+			    handle,
+			    res_target->val->param_ref,
+			    &parser_length)) {
+			return SQLPARSER_STATUS_OK;
+		}
+		status = sqlparser_patch_source_origin_span(
+			handle,
+			res_target->location,
+			parser_length,
+			out_start,
+			&origin_end,
+			&origin_supported,
+			out_error);
+		supported = origin_supported &&
+			sqlparser_patch_bind_source_span(
+				handle, *out_start, origin_end);
+	} else {
+		status = sqlparser_patch_source_offset(
+			handle,
+			res_target->location,
+			out_start,
+			&supported,
+			out_error);
+	}
+	if (status != SQLPARSER_STATUS_OK || !supported) {
+		return status;
+	}
+	if (*out_start > 0U &&
+	    ((handle->sql[*out_start] == '\'' &&
+	      sqlparser_public_char_is_ident(
+		      (unsigned char)handle->sql[*out_start - 1U])) ||
+	     (handle->sql[*out_start] == '"' && *out_start > 1U &&
+	      handle->sql[*out_start - 1U] == '&' &&
+	      (handle->sql[*out_start - 2U] == 'U' ||
+	       handle->sql[*out_start - 2U] == 'u')))) {
+		return SQLPARSER_STATUS_OK;
+	}
+	bracket_depth = 0U;
+	depth = 0U;
+	end = *out_start;
+	stopped_at_boundary = 0;
+	for (pos = *out_start; pos < handle->sql_len; pos++) {
+		if (sqlparser_patch_comment_starts_at(
+			    handle->dialect,
+			    handle->sql,
+			    pos)) {
+			return SQLPARSER_STATUS_OK;
+		}
+		skipped = sqlparser_public_skip_quoted_or_comment(
+			handle->dialect,
+			handle->sql,
+			pos);
+		if (skipped != pos) {
+			pos = skipped - 1U;
+			end = skipped;
+			continue;
+		}
+		if (depth == 0U && bracket_depth == 0U &&
+		    (handle->sql[pos] == ',' || handle->sql[pos] == ';' ||
+		     handle->sql[pos] == ')')) {
+			break;
+		}
+		if (boundary_word != NULL && pos > *out_start &&
+		    handle->sql[pos - 1U] != '.' &&
+		    handle->sql[pos - 1U] != '@' &&
+		    handle->sql[pos - 1U] != ':' &&
+		    handle->sql[pos - 1U] != '$' &&
+		    handle->sql[pos - 1U] != '#' &&
+		    depth == 0U &&
+		    bracket_depth == 0U &&
+		    sqlparser_patch_source_word_at(
+			    handle->sql,
+			    handle->sql_len,
+			    pos,
+			    boundary_word)) {
+			stopped_at_boundary = 1;
+			break;
+		}
+		if (handle->sql[pos] == '(') {
+			depth++;
+		} else if (handle->sql[pos] == ')') {
+			if (depth == 0U && bracket_depth == 0U) {
+				break;
+			}
+			if (depth > 0U) {
+				depth--;
+			}
+		} else if (handle->sql[pos] == '[') {
+			bracket_depth++;
+		} else if (handle->sql[pos] == ']') {
+			if (bracket_depth == 0U) {
+				return SQLPARSER_STATUS_OK;
+			}
+			bracket_depth--;
+		}
+		end = pos + 1U;
+	}
+	while (end > *out_start &&
+	       isspace((unsigned char)handle->sql[end - 1U])) {
+		end--;
+	}
+	if (end <= *out_start || depth != 0U || bracket_depth != 0U ||
+	    (require_boundary && !stopped_at_boundary)) {
+		return SQLPARSER_STATUS_OK;
+	}
+	*out_end = end;
+	*out_supported = 1;
+	return SQLPARSER_STATUS_OK;
+}
+
+static int sqlparser_patch_target_gap_is_separator(
+	const char *sql,
+	size_t start,
+	size_t end)
+{
+	int comma_seen;
+
+	comma_seen = 0;
+	while (start < end) {
+		if (isspace((unsigned char)sql[start])) {
+			start++;
+			continue;
+		}
+		if (!comma_seen && sql[start] == ',') {
+			comma_seen = 1;
+			start++;
+			continue;
+		}
+		return 0;
+	}
+	return comma_seen;
+}
+
+static sqlparser_status_t sqlparser_patch_select_target_insert_source_offset(
+	sqlparser_handle_t *handle,
+	const PgQuery__SelectStmt *stmt,
+	size_t target_index,
+	size_t *out_offset,
+	int *out_supported,
+	sqlparser_error_t *out_error);
+
+static sqlparser_status_t sqlparser_patch_select_target_span(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	size_t target_index,
+	PgQuery__SelectStmt **out_stmt,
+	size_t *out_start,
+	size_t *out_end,
+	int *out_supported,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__SelectStmt *stmt;
+	size_t terminal_offset;
+	sqlparser_status_t status;
+	int terminal_supported;
+	int terminal_without_from;
+	int target_supported;
+
+	*out_supported = 0;
+	stmt = NULL;
+	status = sqlparser_get_select_stmt_by_target_list_index(
+		handle,
+		selector->statement_index,
+		selector->item_index,
+		&stmt,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (target_index >= stmt->n_target_list || stmt->target_list == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (stmt->into_clause != NULL ||
+	    (stmt->op != PG_QUERY__SET_OPERATION__SET_OPERATION_UNDEFINED &&
+	     stmt->op != PG_QUERY__SET_OPERATION__SETOP_NONE)) {
+		return SQLPARSER_STATUS_OK;
+	}
+	terminal_without_from = target_index + 1U == stmt->n_target_list &&
+		stmt->n_from_clause == 0U;
+	if (terminal_without_from &&
+	    !sqlparser_dialect_is_sqlserver_compatible(handle->dialect)) {
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_patch_target_source_span(
+		handle,
+		stmt->target_list[target_index],
+		"from",
+		target_index + 1U == stmt->n_target_list &&
+			stmt->n_from_clause != 0U,
+		out_start,
+		out_end,
+		&target_supported,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (!target_supported) {
+		const PgQuery__Node *target_node;
+		const PgQuery__ResTarget *target;
+
+		target_node = stmt->target_list[target_index];
+		if (target_node == NULL ||
+		    target_node->node_case !=
+			    PG_QUERY__NODE__NODE_RES_TARGET) {
+			return SQLPARSER_STATUS_OK;
+		}
+		target = target_node->res_target;
+		if (target == NULL ||
+		    (target->name != NULL && target->name[0] != '\0') ||
+		    target->val == NULL ||
+		    target->val->node_case !=
+			    PG_QUERY__NODE__NODE_COLUMN_REF) {
+			return SQLPARSER_STATUS_OK;
+		}
+		status = sqlparser_patch_mysql_quoted_column_source_span(
+			handle,
+			target->val->column_ref,
+			out_start,
+			out_end,
+			&target_supported,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK || !target_supported) {
+			return status;
+		}
+	}
+	if (target_index > 0U) {
+		size_t previous_end;
+		size_t previous_start;
+		int previous_supported;
+
+		status = sqlparser_patch_target_source_span(
+			handle,
+			stmt->target_list[target_index - 1U],
+			"from",
+			0,
+			&previous_start,
+			&previous_end,
+			&previous_supported,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		if (!previous_supported || previous_end > *out_start ||
+		    !sqlparser_patch_target_gap_is_separator(
+			    handle->sql,
+			    previous_end,
+			    *out_start)) {
+			return SQLPARSER_STATUS_OK;
+		}
+	}
+	if (target_index + 1U < stmt->n_target_list) {
+		size_t next_end;
+		size_t next_start;
+		int next_supported;
+
+		status = sqlparser_patch_target_source_span(
+			handle,
+			stmt->target_list[target_index + 1U],
+			"from",
+			target_index + 2U == stmt->n_target_list,
+			&next_start,
+			&next_end,
+			&next_supported,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		if (!next_supported || *out_end > next_start ||
+		    !sqlparser_patch_target_gap_is_separator(
+			    handle->sql,
+			    *out_end,
+			    next_start)) {
+			size_t ordinal_start;
+			int ordinal_supported;
+
+			status =
+				sqlparser_patch_select_target_insert_source_offset(
+					handle,
+					stmt,
+					target_index,
+					&ordinal_start,
+					&ordinal_supported,
+					out_error);
+			if (status != SQLPARSER_STATUS_OK ||
+			    !ordinal_supported || ordinal_start != *out_start) {
+				return status;
+			}
+		}
+	}
+	if (terminal_without_from) {
+		status = sqlparser_patch_select_target_insert_source_offset(
+			handle,
+			stmt,
+			stmt->n_target_list,
+			&terminal_offset,
+			&terminal_supported,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK || !terminal_supported ||
+		    terminal_offset != *out_end) {
+			return status;
+		}
+	}
+	if (out_stmt != NULL) {
+		*out_stmt = stmt;
+	}
+	*out_supported = 1;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_patch_dml_result_insert_target_list(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	PgQuery__Node ***out_targets,
+	size_t *out_target_offset,
+	size_t *out_target_count,
+	sqlparser_error_t *out_error)
+{
+	ProtobufCMessage *message;
+	PgQuery__InsertStmt *insert;
+	sqlparser_dialect_dml_result_channel_t channel;
+	sqlparser_graph_dml_kind_t kind;
+	sqlparser_status_t status;
+
+	*out_targets = NULL;
+	*out_target_offset = 0U;
+	*out_target_count = 0U;
+	if (handle == NULL || selector == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (!sqlparser_dialect_dml_result_channel_at(
+		    handle,
+		    selector->statement_index,
+		    selector->item_index,
+		    selector->row_index,
+		    &channel) ||
+	    channel.kind != SQLPARSER_GRAPH_DML_RESULT_CLIENT) {
+		return SQLPARSER_STATUS_OK;
+	}
+	message = NULL;
+	kind = (sqlparser_graph_dml_kind_t)0;
+	status = sqlparser_get_dml_result_message(
+		handle,
+		selector->statement_index,
+		selector->item_index,
+		&kind,
+		&message,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK || message == NULL ||
+	    kind != SQLPARSER_GRAPH_DML_INSERT ||
+	    message->descriptor != &pg_query__insert_stmt__descriptor) {
+		return status;
+	}
+	insert = (PgQuery__InsertStmt *)message;
+	if (channel.target_count == 0U || insert->returning_list == NULL ||
+	    channel.target_offset > insert->n_returning_list ||
+	    channel.target_count >
+		    insert->n_returning_list - channel.target_offset) {
+		return SQLPARSER_STATUS_OK;
+	}
+	*out_targets = insert->returning_list;
+	*out_target_offset = channel.target_offset;
+	*out_target_count = channel.target_count;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_patch_dml_result_insert_target_span(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	size_t target_index,
+	size_t *out_target_count,
+	size_t *out_start,
+	size_t *out_end,
+	int *out_supported,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__Node **targets;
+	size_t absolute_index;
+	size_t target_count;
+	size_t target_offset;
+	sqlparser_status_t status;
+	int target_supported;
+
+	*out_supported = 0;
+	*out_target_count = 0U;
+	status = sqlparser_patch_dml_result_insert_target_list(
+		handle,
+		selector,
+		&targets,
+		&target_offset,
+		&target_count,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK || targets == NULL ||
+	    target_index >= target_count) {
+		return status;
+	}
+	absolute_index = target_offset + target_index;
+	status = sqlparser_patch_target_source_span(
+		handle,
+		targets[absolute_index],
+		"values",
+		target_index + 1U == target_count,
+		out_start,
+		out_end,
+		&target_supported,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK || !target_supported) {
+		return status;
+	}
+	if (target_index > 0U) {
+		size_t previous_end;
+		size_t previous_start;
+		int previous_supported;
+
+		status = sqlparser_patch_target_source_span(
+			handle,
+			targets[absolute_index - 1U],
+			"values",
+			0,
+			&previous_start,
+			&previous_end,
+			&previous_supported,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK || !previous_supported ||
+		    previous_end > *out_start ||
+		    !sqlparser_patch_target_gap_is_separator(
+			    handle->sql,
+			    previous_end,
+			    *out_start)) {
+			return status;
+		}
+	}
+	if (target_index + 1U < target_count) {
+		size_t next_end;
+		size_t next_start;
+		int next_supported;
+
+		status = sqlparser_patch_target_source_span(
+			handle,
+			targets[absolute_index + 1U],
+			"values",
+			target_index + 2U == target_count,
+			&next_start,
+			&next_end,
+			&next_supported,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK || !next_supported ||
+		    *out_end > next_start ||
+		    !sqlparser_patch_target_gap_is_separator(
+			    handle->sql,
+			    *out_end,
+			    next_start)) {
+			return status;
+		}
+	}
+	*out_target_count = target_count;
+	*out_supported = 1;
+	return SQLPARSER_STATUS_OK;
+}
+
+static int sqlparser_patch_comment_starts_at(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	size_t pos)
+{
+	return sqlparser_public_comment_at(dialect, sql, pos);
+}
+
+static int sqlparser_patch_assignment_target_path_matches(
+	const sqlparser_handle_t *handle,
+	size_t start,
+	size_t end,
+	size_t anchor)
+{
+	size_t component_end;
+	size_t component_start;
+	size_t pos;
+	int anchor_seen;
+
+	pos = start;
+	anchor_seen = 0;
+	for (;;) {
+		component_start = pos;
+		component_end = sqlparser_patch_identifier_token_end(
+			handle,
+			component_start);
+		if (component_end <= component_start || component_end > end) {
+			return 0;
+		}
+		if (anchor == component_start) {
+			anchor_seen = 1;
+		}
+		pos = component_end;
+		while (pos < end && isspace((unsigned char)handle->sql[pos])) {
+			pos++;
+		}
+		if (pos == end) {
+			return anchor_seen;
+		}
+		if (handle->sql[pos] != '.') {
+			return 0;
+		}
+		pos++;
+		while (pos < end && isspace((unsigned char)handle->sql[pos])) {
+			pos++;
+		}
+		if (pos == end) {
+			return 0;
+		}
+	}
+}
+
+static int sqlparser_patch_assignment_clause_at(
+	const char *sql,
+	size_t length,
+	size_t expression_start,
+	size_t pos)
+{
+	size_t keyword_length;
+	size_t next;
+	size_t previous;
+	char previous_char;
+
+	if (sqlparser_patch_source_word_at(sql, length, pos, "where") ||
+	    sqlparser_patch_source_word_at(sql, length, pos, "order") ||
+	    sqlparser_patch_source_word_at(sql, length, pos, "limit")) {
+		keyword_length = 5U;
+	} else if (sqlparser_patch_source_word_at(
+			   sql,
+			   length,
+			   pos,
+			   "from")) {
+		keyword_length = 4U;
+	} else if (sqlparser_patch_source_word_at(
+			   sql,
+			   length,
+			   pos,
+			   "returning")) {
+		keyword_length = 9U;
+	} else {
+		return 0;
+	}
+	next = pos + keyword_length;
+	while (next < length && isspace((unsigned char)sql[next])) {
+		next++;
+	}
+	if (next < length && sql[next] == '.') {
+		return 0;
+	}
+	previous = pos;
+	while (previous > expression_start &&
+	       isspace((unsigned char)sql[previous - 1U])) {
+		previous--;
+	}
+	if (previous <= expression_start) {
+		return 0;
+	}
+	previous_char = sql[previous - 1U];
+	return previous_char != '.' && previous_char != '+' &&
+		previous_char != '-' && previous_char != '*' &&
+		previous_char != '/' && previous_char != '%' &&
+		previous_char != '<' && previous_char != '>' &&
+		previous_char != '=' && previous_char != '!' &&
+		previous_char != '|' && previous_char != '&' &&
+		previous_char != '^' && previous_char != '~' &&
+		previous_char != ',' && previous_char != '(';
+}
+
+static int sqlparser_patch_merge_when_at(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	size_t length,
+	size_t pos)
+{
+	if (!sqlparser_patch_source_word_at(
+		    sql, length, pos, "when")) {
+		return 0;
+	}
+	pos = sqlparser_public_skip_trivia(dialect, sql, pos + 4U);
+	if (pos >= length) {
+		return 0;
+	}
+	if (sqlparser_patch_source_word_at(
+		    sql, length, pos, "matched")) {
+		pos += 7U;
+	} else if (sqlparser_patch_source_word_at(
+			   sql, length, pos, "not")) {
+		pos = sqlparser_public_skip_trivia(dialect, sql, pos + 3U);
+		if (pos >= length ||
+		    !sqlparser_patch_source_word_at(
+			    sql, length, pos, "matched")) {
+			return 0;
+		}
+		pos += 7U;
+	} else {
+		return 0;
+	}
+	pos = sqlparser_public_skip_trivia(dialect, sql, pos);
+	if (pos < length &&
+	    sqlparser_patch_source_word_at(sql, length, pos, "by")) {
+		pos = sqlparser_public_skip_trivia(dialect, sql, pos + 2U);
+		if (pos >= length ||
+		    (!sqlparser_patch_source_word_at(
+			     sql, length, pos, "target") &&
+		     !sqlparser_patch_source_word_at(
+			     sql, length, pos, "source"))) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static sqlparser_status_t sqlparser_patch_assignment_source_span(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	size_t *out_start,
+	size_t *out_end,
+	int *out_supported,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__MergeStmt *merge_stmt;
+	PgQuery__MergeWhenClause *when_clause;
+	PgQuery__Node *target_node;
+	PgQuery__Node *when_node;
+	PgQuery__Node **target_list;
+	PgQuery__ResTarget *target;
+	PgQuery__UpdateStmt *stmt;
+	size_t anchor;
+	size_t assignment_index;
+	size_t cell_index;
+	size_t depth;
+	size_t equals;
+	size_t index;
+	size_t pos;
+	size_t set_end;
+	size_t skipped;
+	size_t source_end;
+	size_t source_start;
+	size_t target_count;
+	size_t update_action_count;
+	sqlparser_status_t status;
+	int boundary_is_comma;
+	int boundary_is_merge_when;
+	int merge_assignment;
+	int merge_when_boundary_required;
+	int source_supported;
+	int update_seen;
+
+	*out_supported = 0;
+	if (handle == NULL || selector == NULL || out_start == NULL ||
+	    out_end == NULL || handle->control != NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	merge_assignment =
+		selector->kind == SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT;
+	if ((!merge_assignment &&
+	     selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT) ||
+	    (!merge_assignment &&
+	     !sqlparser_dialect_is_mysql_compatible(handle->dialect) &&
+	     !sqlparser_dialect_is_oracle_compatible(handle->dialect) &&
+	     !sqlparser_dialect_is_sqlserver_compatible(handle->dialect)) ||
+	    (merge_assignment &&
+	     !sqlparser_dialect_is_oracle_or_dameng_compatible(
+		     handle->dialect) &&
+	     !sqlparser_dialect_is_sqlserver_compatible(handle->dialect) &&
+	     handle->dialect != SQLPARSER_DIALECT_POSTGRESQL &&
+	     handle->dialect != SQLPARSER_DIALECT_VASTBASE_POSTGRESQL)) {
+		return SQLPARSER_STATUS_OK;
+	}
+	target_list = NULL;
+	target_count = 0U;
+	assignment_index = 0U;
+	merge_when_boundary_required = 0;
+	stmt = NULL;
+	merge_stmt = NULL;
+	when_clause = NULL;
+	if (!merge_assignment) {
+		status = sqlparser_get_update_stmt(
+			handle,
+			selector->statement_index,
+			&stmt,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		if (stmt == NULL) {
+			return SQLPARSER_STATUS_OK;
+		}
+		target_list = stmt->target_list;
+		target_count = stmt->n_target_list;
+		assignment_index = selector->item_index;
+	} else {
+		status = sqlparser_get_merge_stmt_by_dml_index(
+			handle,
+			selector->statement_index,
+			selector->row_index,
+			&merge_stmt,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		if (merge_stmt == NULL || merge_stmt->merge_when_clauses == NULL ||
+		    selector->item_index >= merge_stmt->n_merge_when_clauses) {
+			return SQLPARSER_STATUS_OK;
+		}
+		merge_when_boundary_required =
+			selector->item_index + 1U <
+			merge_stmt->n_merge_when_clauses;
+		update_action_count = 0U;
+		for (index = 0U;
+		     index < merge_stmt->n_merge_when_clauses;
+		     index++) {
+			when_node = merge_stmt->merge_when_clauses[index];
+			if (when_node != NULL &&
+			    when_node->node_case ==
+				    PG_QUERY__NODE__NODE_MERGE_WHEN_CLAUSE &&
+			    when_node->merge_when_clause != NULL &&
+			    when_node->merge_when_clause->command_type ==
+				    PG_QUERY__CMD_TYPE__CMD_UPDATE) {
+				update_action_count++;
+			}
+		}
+		when_node = merge_stmt->merge_when_clauses[selector->item_index];
+		if (update_action_count != 1U || when_node == NULL ||
+		    when_node->node_case !=
+			    PG_QUERY__NODE__NODE_MERGE_WHEN_CLAUSE ||
+		    (when_clause = when_node->merge_when_clause) == NULL ||
+		    when_clause->command_type != PG_QUERY__CMD_TYPE__CMD_UPDATE) {
+			return SQLPARSER_STATUS_OK;
+		}
+		target_list = when_clause->target_list;
+		target_count = when_clause->n_target_list;
+		assignment_index = selector->column_index;
+	}
+	if (target_list == NULL || assignment_index >= target_count) {
+		return SQLPARSER_STATUS_OK;
+	}
+	target_node = target_list[assignment_index];
+	if (target_node == NULL ||
+	    target_node->node_case != PG_QUERY__NODE__NODE_RES_TARGET ||
+	    target_node->res_target == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	target = target_node->res_target;
+	if (merge_assignment &&
+	    (target->val == NULL ||
+	     target->val->node_case != PG_QUERY__NODE__NODE_COLUMN_REF ||
+	     target->val->column_ref == NULL)) {
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_patch_source_offset(
+		handle,
+		target->location,
+		&anchor,
+		&source_supported,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK || !source_supported) {
+		return status;
+	}
+	if (anchor >= handle->sql_len) {
+		return SQLPARSER_STATUS_OK;
+	}
+
+	depth = 0U;
+	set_end = SIZE_MAX;
+	update_seen = 0;
+	for (pos = 0U; pos < anchor;) {
+		if (sqlparser_patch_comment_starts_at(
+			    handle->dialect,
+			    handle->sql,
+			    pos)) {
+			skipped = sqlparser_public_skip_quoted_or_comment(
+				handle->dialect,
+				handle->sql,
+				pos);
+			if (skipped <= pos || skipped > anchor) {
+				return SQLPARSER_STATUS_OK;
+			}
+			pos = skipped;
+			continue;
+		}
+		skipped = sqlparser_public_skip_quoted_or_comment(
+			handle->dialect,
+			handle->sql,
+			pos);
+		if (skipped != pos) {
+			if (skipped > anchor) {
+				return SQLPARSER_STATUS_OK;
+			}
+			pos = skipped;
+			continue;
+		}
+		if (handle->sql[pos] == '(') {
+			depth++;
+			pos++;
+			continue;
+		}
+		if (handle->sql[pos] == ')') {
+			if (depth == 0U) {
+				return SQLPARSER_STATUS_OK;
+			}
+			depth--;
+			pos++;
+			continue;
+		}
+		if (depth == 0U && handle->sql[pos] == ';') {
+			set_end = SIZE_MAX;
+			update_seen = 0;
+			pos++;
+			continue;
+		}
+		if (depth == 0U && !update_seen && set_end == SIZE_MAX &&
+		    sqlparser_patch_source_word_at(
+			    handle->sql,
+			    handle->sql_len,
+			    pos,
+			    "update")) {
+			update_seen = 1;
+			pos += 6U;
+			continue;
+		}
+		if (depth == 0U && update_seen && set_end == SIZE_MAX &&
+		    sqlparser_patch_source_word_at(
+			    handle->sql,
+			    handle->sql_len,
+			    pos,
+			    "set")) {
+			set_end = pos + 3U;
+			pos += 3U;
+			continue;
+		}
+		pos++;
+	}
+	if (set_end == SIZE_MAX || set_end > anchor) {
+		return SQLPARSER_STATUS_OK;
+	}
+
+	cell_index = 0U;
+	depth = 0U;
+	source_start = set_end;
+	while (source_start < anchor &&
+	       isspace((unsigned char)handle->sql[source_start])) {
+		source_start++;
+	}
+	for (pos = source_start; pos < anchor;) {
+		if (sqlparser_patch_comment_starts_at(
+			    handle->dialect,
+			    handle->sql,
+			    pos)) {
+			return SQLPARSER_STATUS_OK;
+		}
+		skipped = sqlparser_public_skip_quoted_or_comment(
+			handle->dialect,
+			handle->sql,
+			pos);
+		if (skipped != pos) {
+			if (skipped > anchor) {
+				return SQLPARSER_STATUS_OK;
+			}
+			pos = skipped;
+			continue;
+		}
+		if (handle->sql[pos] == '(') {
+			depth++;
+		} else if (handle->sql[pos] == ')') {
+			if (depth == 0U) {
+				return SQLPARSER_STATUS_OK;
+			}
+			depth--;
+		} else if (depth == 0U && handle->sql[pos] == ',') {
+			cell_index++;
+			source_start = pos + 1U;
+			while (source_start < anchor &&
+			       isspace((unsigned char)handle->sql[source_start])) {
+				source_start++;
+			}
+		}
+		pos++;
+	}
+	if (depth != 0U || cell_index != assignment_index ||
+	    source_start > anchor) {
+		return SQLPARSER_STATUS_OK;
+	}
+
+	depth = 0U;
+	equals = SIZE_MAX;
+	source_end = handle->sql_len;
+	boundary_is_comma = 0;
+	boundary_is_merge_when = 0;
+	for (pos = source_start; pos < handle->sql_len;) {
+		if (sqlparser_patch_comment_starts_at(
+			    handle->dialect,
+			    handle->sql,
+			    pos)) {
+			return SQLPARSER_STATUS_OK;
+		}
+		skipped = sqlparser_public_skip_quoted_or_comment(
+			handle->dialect,
+			handle->sql,
+			pos);
+		if (skipped != pos) {
+			pos = skipped;
+			continue;
+		}
+		if (handle->sql[pos] == '(') {
+			depth++;
+			pos++;
+			continue;
+		}
+		if (handle->sql[pos] == ')') {
+			if (depth == 0U) {
+				source_end = pos;
+				break;
+			}
+			depth--;
+			pos++;
+			continue;
+		}
+		if (depth == 0U && equals == SIZE_MAX &&
+		    handle->sql[pos] == '=') {
+			equals = pos;
+			pos++;
+			continue;
+		}
+		if (depth == 0U && equals != SIZE_MAX) {
+			if (handle->sql[pos] == ',') {
+				source_end = pos;
+				boundary_is_comma = 1;
+				break;
+			}
+			if (merge_assignment &&
+			    sqlparser_patch_merge_when_at(
+				    handle->dialect,
+				    handle->sql,
+				    handle->sql_len,
+				    pos)) {
+				if (!merge_when_boundary_required) {
+					return SQLPARSER_STATUS_OK;
+				}
+				source_end = pos;
+				boundary_is_merge_when = 1;
+				break;
+			}
+			if (handle->sql[pos] == ';' ||
+			    sqlparser_patch_assignment_clause_at(
+				    handle->sql,
+				    handle->sql_len,
+				    equals + 1U,
+				    pos)) {
+				source_end = pos;
+				break;
+			}
+		}
+		pos++;
+	}
+	while (source_end > source_start &&
+	       isspace((unsigned char)handle->sql[source_end - 1U])) {
+		source_end--;
+	}
+	if (depth != 0U || equals == SIZE_MAX || equals <= source_start ||
+	    equals >= source_end ||
+	    (merge_when_boundary_required && !boundary_is_merge_when) ||
+	    !sqlparser_patch_assignment_target_path_matches(
+		    handle,
+		    source_start,
+		    equals,
+		    anchor) ||
+	    (boundary_is_comma &&
+	     assignment_index + 1U >= target_count) ||
+	    (!boundary_is_comma &&
+	     assignment_index + 1U != target_count)) {
+		return SQLPARSER_STATUS_OK;
+	}
+	*out_start = source_start;
+	*out_end = source_end;
+	*out_supported = 1;
+	return SQLPARSER_STATUS_OK;
+}
+
+static int sqlparser_patch_select_trailing_clause_at(
+	const char *sql,
+	size_t length,
+	size_t pos)
+{
+	return sqlparser_patch_source_word_at(sql, length, pos, "into") ||
+		sqlparser_patch_source_word_at(sql, length, pos, "where") ||
+		sqlparser_patch_source_word_at(sql, length, pos, "group") ||
+		sqlparser_patch_source_word_at(sql, length, pos, "having") ||
+		sqlparser_patch_source_word_at(sql, length, pos, "window") ||
+		sqlparser_patch_source_word_at(sql, length, pos, "qualify") ||
+		sqlparser_patch_source_word_at(sql, length, pos, "order") ||
+		sqlparser_patch_source_word_at(sql, length, pos, "limit") ||
+		sqlparser_patch_source_word_at(sql, length, pos, "offset") ||
+		sqlparser_patch_source_word_at(sql, length, pos, "fetch") ||
+		sqlparser_patch_source_word_at(sql, length, pos, "for") ||
+		sqlparser_patch_source_word_at(sql, length, pos, "connect") ||
+		sqlparser_patch_source_word_at(sql, length, pos, "start") ||
+		sqlparser_patch_source_word_at(sql, length, pos, "model") ||
+		sqlparser_patch_source_word_at(sql, length, pos, "union") ||
+		sqlparser_patch_source_word_at(sql, length, pos, "intersect") ||
+		sqlparser_patch_source_word_at(sql, length, pos, "except") ||
+		sqlparser_patch_source_word_at(sql, length, pos, "minus");
+}
+
+static sqlparser_status_t sqlparser_patch_select_target_insert_source_offset(
+	sqlparser_handle_t *handle,
+	const PgQuery__SelectStmt *stmt,
+	size_t target_index,
+	size_t *out_offset,
+	int *out_supported,
+	sqlparser_error_t *out_error)
+{
+	const PgQuery__ResTarget *first_target;
+	const PgQuery__ResTarget *last_target;
+	size_t boundary_length;
+	size_t boundary_location;
+	size_t bracket_depth;
+	size_t comma_count;
+	size_t depth;
+	size_t insertion_comma;
+	size_t parser_select_location;
+	size_t pos;
+	size_t skipped;
+	size_t source_boundary_end;
+	size_t source_boundary_start;
+	size_t source_first_end;
+	size_t source_first_start;
+	size_t source_select_end;
+	size_t source_select_start;
+	sqlparser_status_t status;
+	int boundary_is_eof;
+	int boundary_is_from;
+	int source_supported;
+	int token_seen;
+
+	*out_supported = 0;
+	if (handle == NULL || handle->sql == NULL ||
+	    handle->parser_sql == NULL || stmt == NULL ||
+	    stmt->n_target_list == 0U || stmt->target_list == NULL ||
+	    target_index > stmt->n_target_list ||
+	    stmt->into_clause != NULL ||
+	    (stmt->op != PG_QUERY__SET_OPERATION__SET_OPERATION_UNDEFINED &&
+	     stmt->op != PG_QUERY__SET_OPERATION__SETOP_NONE) ||
+	    stmt->target_list[0] == NULL ||
+	    stmt->target_list[stmt->n_target_list - 1U] == NULL ||
+	    stmt->target_list[0]->node_case !=
+		    PG_QUERY__NODE__NODE_RES_TARGET ||
+	    stmt->target_list[stmt->n_target_list - 1U]->node_case !=
+		    PG_QUERY__NODE__NODE_RES_TARGET) {
+		return SQLPARSER_STATUS_OK;
+	}
+	first_target = stmt->target_list[0]->res_target;
+	last_target =
+		stmt->target_list[stmt->n_target_list - 1U]->res_target;
+	if (first_target == NULL || last_target == NULL ||
+	    first_target->location < 0 || last_target->location < 0 ||
+	    (size_t)first_target->location >= handle->parser_sql_len ||
+	    (size_t)last_target->location >= handle->parser_sql_len ||
+	    first_target->location > last_target->location) {
+		return SQLPARSER_STATUS_OK;
+	}
+
+	parser_select_location = SIZE_MAX;
+	for (pos = 0U; pos < (size_t)first_target->location; pos++) {
+		skipped = sqlparser_public_skip_quoted_or_comment(
+			handle->dialect,
+			handle->parser_sql,
+			pos);
+		if (skipped != pos) {
+			if (skipped > handle->parser_sql_len) {
+				return SQLPARSER_STATUS_OK;
+			}
+			pos = skipped - 1U;
+			continue;
+		}
+		if (sqlparser_patch_source_word_at(
+			    handle->parser_sql,
+			    handle->parser_sql_len,
+			    pos,
+			    "select")) {
+			parser_select_location = pos;
+		}
+	}
+	if (parser_select_location == SIZE_MAX) {
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_patch_source_origin_span(
+		handle,
+		(int32_t)parser_select_location,
+		6U,
+		&source_select_start,
+		&source_select_end,
+		&source_supported,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK || !source_supported ||
+	    source_select_end - source_select_start != 6U ||
+	    !sqlparser_patch_source_word_at(
+		    handle->sql,
+		    handle->sql_len,
+		    source_select_start,
+		    "select")) {
+		return status;
+	}
+
+	boundary_location = SIZE_MAX;
+	boundary_length = 0U;
+	boundary_is_eof = 0;
+	boundary_is_from = 0;
+	depth = 0U;
+	bracket_depth = 0U;
+	for (pos = (size_t)last_target->location;
+	     pos < handle->parser_sql_len;
+	     pos++) {
+		if (sqlparser_patch_comment_starts_at(
+			    handle->dialect,
+			    handle->parser_sql,
+			    pos)) {
+			return SQLPARSER_STATUS_OK;
+		}
+		skipped = sqlparser_public_skip_quoted_or_comment(
+			handle->dialect,
+			handle->parser_sql,
+			pos);
+		if (skipped != pos) {
+			if (skipped > handle->parser_sql_len) {
+				return SQLPARSER_STATUS_OK;
+			}
+			pos = skipped - 1U;
+			continue;
+		}
+		if (depth == 0U && bracket_depth == 0U &&
+		    sqlparser_patch_source_word_at(
+			    handle->parser_sql,
+			    handle->parser_sql_len,
+			    pos,
+			    "from")) {
+			if (stmt->n_from_clause == 0U) {
+				return SQLPARSER_STATUS_OK;
+			}
+			boundary_location = pos;
+			boundary_length = 4U;
+			boundary_is_from = 1;
+			break;
+		}
+		if (depth == 0U && bracket_depth == 0U &&
+		    sqlparser_patch_select_trailing_clause_at(
+			    handle->parser_sql,
+			    handle->parser_sql_len,
+			    pos)) {
+			return SQLPARSER_STATUS_OK;
+		}
+		if (handle->parser_sql[pos] == '(') {
+			depth++;
+		} else if (handle->parser_sql[pos] == ')') {
+			if (depth == 0U) {
+				if (bracket_depth != 0U ||
+				    stmt->n_from_clause != 0U) {
+					return SQLPARSER_STATUS_OK;
+				}
+				boundary_location = pos;
+				boundary_length = 1U;
+				break;
+			}
+			depth--;
+		} else if (handle->parser_sql[pos] == '[') {
+			bracket_depth++;
+		} else if (handle->parser_sql[pos] == ']') {
+			if (bracket_depth == 0U) {
+				return SQLPARSER_STATUS_OK;
+			}
+			bracket_depth--;
+		} else if (depth == 0U && bracket_depth == 0U &&
+			   handle->parser_sql[pos] == ',') {
+			return SQLPARSER_STATUS_OK;
+		} else if (depth == 0U && bracket_depth == 0U &&
+			   handle->parser_sql[pos] == ';') {
+			if (stmt->n_from_clause != 0U) {
+				return SQLPARSER_STATUS_OK;
+			}
+			boundary_location = pos;
+			boundary_length = 1U;
+			break;
+		}
+	}
+	if (boundary_location == SIZE_MAX) {
+		if (stmt->n_from_clause != 0U || depth != 0U ||
+		    bracket_depth != 0U) {
+			return SQLPARSER_STATUS_OK;
+		}
+		boundary_is_eof = 1;
+		source_boundary_start = handle->sql_len;
+		while (source_boundary_start > source_select_end &&
+		       isspace((unsigned char)handle->sql[
+			       source_boundary_start - 1U])) {
+			source_boundary_start--;
+		}
+		source_boundary_end = source_boundary_start;
+		if (source_select_end >= source_boundary_start) {
+			return SQLPARSER_STATUS_OK;
+		}
+	} else {
+		if (boundary_length == 0U) {
+			return SQLPARSER_STATUS_OK;
+		}
+		status = sqlparser_patch_source_origin_span(
+			handle,
+			(int32_t)boundary_location,
+			boundary_length,
+			&source_boundary_start,
+			&source_boundary_end,
+			&source_supported,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK || !source_supported ||
+		    source_boundary_end - source_boundary_start != boundary_length ||
+		    source_select_end >= source_boundary_start) {
+			return status;
+		}
+	}
+	if (boundary_is_from) {
+		if (!sqlparser_patch_source_word_at(
+			    handle->sql,
+			    handle->sql_len,
+			    source_boundary_start,
+			    "from")) {
+			return SQLPARSER_STATUS_OK;
+		}
+	} else if (!boundary_is_eof &&
+		   handle->sql[source_boundary_start] !=
+		   handle->parser_sql[boundary_location]) {
+		return SQLPARSER_STATUS_OK;
+	}
+
+	comma_count = 0U;
+	insertion_comma = SIZE_MAX;
+	depth = 0U;
+	bracket_depth = 0U;
+	token_seen = 0;
+	for (pos = source_select_end; pos < source_boundary_start; pos++) {
+		if (sqlparser_patch_comment_starts_at(
+			    handle->dialect,
+			    handle->sql,
+			    pos)) {
+			return SQLPARSER_STATUS_OK;
+		}
+		skipped = sqlparser_public_skip_quoted_or_comment(
+			handle->dialect,
+			handle->sql,
+			pos);
+		if (skipped != pos) {
+			if (skipped > source_boundary_start) {
+				return SQLPARSER_STATUS_OK;
+			}
+			token_seen = 1;
+			pos = skipped - 1U;
+			continue;
+		}
+		if (handle->sql[pos] == '(') {
+			depth++;
+			token_seen = 1;
+		} else if (handle->sql[pos] == ')') {
+			if (depth == 0U) {
+				return SQLPARSER_STATUS_OK;
+			}
+			depth--;
+			token_seen = 1;
+		} else if (handle->sql[pos] == '[') {
+			bracket_depth++;
+			token_seen = 1;
+		} else if (handle->sql[pos] == ']') {
+			if (bracket_depth == 0U) {
+				return SQLPARSER_STATUS_OK;
+			}
+			bracket_depth--;
+			token_seen = 1;
+		} else if (depth == 0U && bracket_depth == 0U &&
+			   handle->sql[pos] == ',') {
+			comma_count++;
+			if (comma_count == target_index) {
+				insertion_comma = pos;
+			}
+		} else if (depth == 0U && bracket_depth == 0U &&
+			   handle->sql[pos] == ';') {
+			return SQLPARSER_STATUS_OK;
+		} else if (!isspace((unsigned char)handle->sql[pos])) {
+			token_seen = 1;
+		}
+	}
+	if (!token_seen || depth != 0U || bracket_depth != 0U ||
+	    comma_count + 1U != stmt->n_target_list) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (target_index == 0U) {
+		status = sqlparser_patch_source_origin_span(
+			handle,
+			first_target->location,
+			1U,
+			&source_first_start,
+			&source_first_end,
+			&source_supported,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK || !source_supported ||
+		    source_first_end - source_first_start != 1U) {
+			return status;
+		}
+		pos = source_select_end;
+		while (pos < source_boundary_start &&
+		       isspace((unsigned char)handle->sql[pos])) {
+			pos++;
+		}
+		if (pos >= source_boundary_start || pos != source_first_start) {
+			return SQLPARSER_STATUS_OK;
+		}
+		*out_offset = pos;
+	} else if (target_index < stmt->n_target_list) {
+		if (insertion_comma == SIZE_MAX) {
+			return SQLPARSER_STATUS_OK;
+		}
+		pos = insertion_comma + 1U;
+		while (pos < source_boundary_start &&
+		       isspace((unsigned char)handle->sql[pos])) {
+			pos++;
+		}
+		if (pos >= source_boundary_start) {
+			return SQLPARSER_STATUS_OK;
+		}
+		*out_offset = pos;
+	} else {
+		pos = source_boundary_start;
+		while (pos > source_select_end &&
+		       isspace((unsigned char)handle->sql[pos - 1U])) {
+			pos--;
+		}
+		if (pos <= source_select_end) {
+			return SQLPARSER_STATUS_OK;
+		}
+		*out_offset = pos;
+	}
+	*out_supported = 1;
+	return SQLPARSER_STATUS_OK;
+}
+
+static void sqlparser_patch_insert_target_spacing(
+	const sqlparser_handle_t *handle,
+	const PgQuery__SelectStmt *stmt,
+	size_t target_index,
+	size_t source_start,
+	size_t *out_leading_space,
+	size_t *out_trailing_space)
+{
+	const PgQuery__ResTarget *current;
+	const PgQuery__ResTarget *previous;
+	const PgQuery__ColumnRef *current_column_ref;
+	const PgQuery__ColumnRef *previous_column_ref;
+	const char *current_column;
+	const char *previous_column;
+
+	*out_leading_space = 0U;
+	*out_trailing_space = 1U;
+	if (handle == NULL || handle->sql == NULL || stmt == NULL ||
+	    target_index == 0U ||
+	    target_index >= stmt->n_target_list || stmt->target_list == NULL ||
+	    source_start == 0U || source_start > handle->sql_len ||
+	    handle->sql[source_start - 1U] != ',' ||
+	    stmt->target_list[target_index - 1U] == NULL ||
+	    stmt->target_list[target_index] == NULL ||
+	    stmt->target_list[target_index - 1U]->node_case !=
+		    PG_QUERY__NODE__NODE_RES_TARGET ||
+	    stmt->target_list[target_index]->node_case !=
+		    PG_QUERY__NODE__NODE_RES_TARGET) {
+		return;
+	}
+	previous = stmt->target_list[target_index - 1U]->res_target;
+	current = stmt->target_list[target_index]->res_target;
+	if (previous == NULL || current == NULL || previous->val == NULL ||
+	    current->val == NULL ||
+	    previous->val->node_case != PG_QUERY__NODE__NODE_COLUMN_REF ||
+	    current->val->node_case != PG_QUERY__NODE__NODE_COLUMN_REF) {
+		return;
+	}
+	previous_column_ref = previous->val->column_ref;
+	current_column_ref = current->val->column_ref;
+	if (previous_column_ref == NULL || current_column_ref == NULL) {
+		return;
+	}
+	if ((sqlparser_dialect_is_oracle_compatible(handle->dialect) ||
+	     handle->dialect == SQLPARSER_DIALECT_DAMENG) &&
+	    source_start >= 7U &&
+	    (previous->name == NULL || previous->name[0] == '\0') &&
+	    (current->name == NULL || current->name[0] == '\0') &&
+	    previous_column_ref->n_fields == 1U &&
+	    previous_column_ref->fields != NULL &&
+	    current_column_ref->n_fields >= 2U &&
+	    current_column_ref->fields != NULL &&
+	    current_column_ref->fields[
+		    current_column_ref->n_fields - 1U] != NULL &&
+	    current_column_ref->fields[
+		    current_column_ref->n_fields - 1U]->node_case ==
+		    PG_QUERY__NODE__NODE_A_STAR &&
+	    sqlparser_node_string_value(
+		    previous_column_ref->fields[0],
+		    &previous_column) &&
+	    sqlparser_patch_source_word_at(
+		    previous_column,
+		    strlen(previous_column),
+		    0U,
+		    "rownum") &&
+	    sqlparser_patch_source_word_at(
+		    handle->sql,
+		    source_start - 1U,
+		    source_start - 7U,
+		    "rownum")) {
+		*out_leading_space = 1U;
+		return;
+	}
+	if (sqlparser_dialect_is_mysql_compatible(handle->dialect) &&
+	    source_start >= 2U && handle->sql[source_start - 2U] == '*' &&
+	    (previous->name == NULL || previous->name[0] == '\0') &&
+	    previous_column_ref->n_fields >= 2U &&
+	    previous_column_ref->fields != NULL &&
+	    previous_column_ref->fields[
+		    previous_column_ref->n_fields - 1U] != NULL &&
+	    previous_column_ref->fields[
+		    previous_column_ref->n_fields - 1U]->node_case ==
+		    PG_QUERY__NODE__NODE_A_STAR &&
+	    current_column_ref->n_fields == 1U &&
+	    current_column_ref->fields != NULL &&
+	    sqlparser_node_string_value(
+		    current_column_ref->fields[0],
+		    &current_column) &&
+	    sqlparser_patch_source_word_at(
+		    current_column,
+		    strlen(current_column),
+		    0U,
+		    "rownum") &&
+	    sqlparser_patch_source_word_at(
+		    handle->sql,
+		    handle->sql_len,
+		    source_start,
+		    "rownum")) {
+		*out_leading_space = 1U;
+		*out_trailing_space = 0U;
+	}
 }
 
 typedef struct {
@@ -149,6 +4384,8 @@ static sqlparser_status_t sqlparser_patch_parse_identifier_path(
 	source.origins = origins;
 	source.dialect = handle->dialect;
 	source.spelling_handle = handle;
+	source.candidate_dialect_state = dialect_state;
+	source.statement_index = statement_index;
 	status = sqlparser_parse_select_target_node_sql(
 		parser_sql,
 		&source,
@@ -235,28 +4472,222 @@ static sqlparser_status_t sqlparser_patch_parse_identifier_path(
 	return status;
 }
 
+static sqlparser_status_t sqlparser_patch_plan_relation_surface_edits(
+	sqlparser_handle_t *handle,
+	PgQuery__RangeVar *relation,
+	PgQuery__RangeVar *duplicate_relation,
+	const sqlparser_relation_bindings_t *bindings,
+	const sqlparser_patch_identifier_path_t *path,
+	const char *sql_text,
+	sqlparser_surface_source_edits_t *edits,
+	int *out_supported,
+	sqlparser_error_t *out_error)
+{
+	const char *spelling;
+	size_t index;
+	size_t replacement_length;
+	size_t source_end;
+	size_t source_start;
+	size_t spelling_length;
+	sqlparser_status_t status;
+	int edit_supported;
+	int gap_supported;
+	int insert_column_gap;
+	int qualifier_present;
+	int span_supported;
+	int surface_eligible;
+
+	*out_supported = 0;
+	if (handle->control != NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (sqlparser_dialect_is_sqlserver_compatible(handle->dialect)) {
+		status = sqlparser_patch_sqlserver_surface_eligible(
+			handle,
+			&surface_eligible,
+			&insert_column_gap,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK || !surface_eligible) {
+			return status;
+		}
+	}
+	if (relation == NULL || bindings == NULL || path == NULL ||
+	    path->part_count == 0U || sql_text == NULL || edits == NULL ||
+	    (bindings->column_ref_count > 0U &&
+	     bindings->column_refs == NULL) ||
+	    (bindings->assignment_target_count > 0U &&
+	     bindings->assignment_targets == NULL)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"relation surface edit inputs are invalid");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (sqlparser_dialect_is_sqlserver_compatible(handle->dialect) &&
+	    insert_column_gap) {
+		status = sqlparser_patch_plan_sqlserver_insert_column_gap(
+			handle,
+			edits,
+			&gap_supported,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK || !gap_supported) {
+			return status;
+		}
+	}
+	replacement_length = strlen(sql_text);
+	if (bindings->column_ref_count > 0U ||
+	    bindings->assignment_target_count > 0U) {
+		spelling = NULL;
+		spelling_length = 0U;
+		if (path->part_count != 1U ||
+		    !sqlparser_handle_identifier_spelling(
+			    handle,
+			    path->location,
+			    0U,
+			    &spelling,
+			    &spelling_length) ||
+		    spelling == NULL || spelling_length != replacement_length ||
+		    memcmp(spelling, sql_text, replacement_length) != 0) {
+			return SQLPARSER_STATUS_OK;
+		}
+	}
+	status = sqlparser_patch_relation_source_span(
+		handle,
+		relation,
+		edits,
+		&source_start,
+		&source_end,
+		&span_supported,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK || !span_supported) {
+		return status;
+	}
+	status = sqlparser_patch_surface_edit_insert_deduplicated(
+		edits,
+		source_start,
+		source_end,
+		sql_text,
+		replacement_length,
+		&edit_supported,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK || !edit_supported) {
+		return status;
+	}
+	if (duplicate_relation != NULL && duplicate_relation != relation) {
+		status = sqlparser_patch_relation_source_span(
+			handle,
+			duplicate_relation,
+			edits,
+			&source_start,
+			&source_end,
+			&span_supported,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK || !span_supported) {
+			return status;
+		}
+		status = sqlparser_patch_surface_edit_insert_deduplicated(
+			edits,
+			source_start,
+			source_end,
+			sql_text,
+			replacement_length,
+			&edit_supported,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK || !edit_supported) {
+			return status;
+		}
+	}
+	for (index = 0U; index < bindings->column_ref_count; index++) {
+		status = sqlparser_patch_column_qualifier_source_span(
+			handle,
+			bindings->column_refs[index],
+			edits,
+			&source_start,
+			&source_end,
+			&span_supported,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK || !span_supported) {
+			return status;
+		}
+		status = sqlparser_patch_surface_edit_insert_deduplicated(
+			edits,
+			source_start,
+			source_end,
+			sql_text,
+			replacement_length,
+			&edit_supported,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK || !edit_supported) {
+			return status;
+		}
+	}
+	for (index = 0U;
+	     index < bindings->assignment_target_count;
+	     index++) {
+		status = sqlparser_patch_assignment_qualifier_source_span(
+			handle,
+			relation,
+			bindings->assignment_targets[index],
+			edits,
+			&source_start,
+			&source_end,
+			&qualifier_present,
+			&span_supported,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK || !span_supported) {
+			return status;
+		}
+		if (!qualifier_present) {
+			continue;
+		}
+		status = sqlparser_patch_surface_edit_insert_deduplicated(
+			edits,
+			source_start,
+			source_end,
+			sql_text,
+			replacement_length,
+			&edit_supported,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK || !edit_supported) {
+			return status;
+		}
+	}
+	*out_supported = 1;
+	return SQLPARSER_STATUS_OK;
+}
+
 static sqlparser_status_t sqlparser_patch_set_relation_sql(
 	sqlparser_handle_t *handle,
 	const sqlparser_selector_t *selector,
 	const char *sql_text,
+	sqlparser_surface_source_edits_t *surface_edits,
+	int *in_out_surface_complete,
 	sqlparser_error_t *out_error)
 {
 	ProtobufCMessage *message;
 	PgQuery__RangeVar *relation;
+	PgQuery__RangeVar *selected_relation;
+	PgQuery__RangeVar *duplicate_relation;
+	sqlparser_relation_bindings_t bindings;
 	sqlparser_patch_identifier_path_t path;
+	const char *spellings[3];
 	const char *values[3];
-	const char *current[3];
-	int32_t previous_location;
+	const char *spelling;
+	void *dialect_state;
 	size_t first_part;
 	size_t index;
-	int names_changed;
 	sqlparser_status_t status;
+	int surface_supported;
 
-	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_RELATION) {
+	if (selector == NULL ||
+	    selector->kind != SQLPARSER_SELECTOR_KIND_RELATION ||
+	    sql_text == NULL || surface_edits == NULL ||
+	    in_out_surface_complete == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "selector kind must be relation");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
+	memset(&bindings, 0, sizeof(bindings));
 	status = sqlparser_patch_parse_identifier_path(
 		handle,
 		selector->statement_index,
@@ -285,42 +4716,82 @@ static sqlparser_status_t sqlparser_patch_set_relation_sql(
 		sqlparser_error_set_message(out_error, status, "relation selector is out of range");
 	}
 	if (status == SQLPARSER_STATUS_OK) {
-		relation = (PgQuery__RangeVar *)message;
-		current[0] = relation->catalogname != NULL ? relation->catalogname : "";
-		current[1] = relation->schemaname != NULL ? relation->schemaname : "";
-		current[2] = relation->relname != NULL ? relation->relname : "";
+		selected_relation = (PgQuery__RangeVar *)message;
+		status = sqlparser_find_duplicate_delete_relation(
+			handle,
+			selector->statement_index,
+			selected_relation,
+			&relation,
+			&duplicate_relation,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_collect_relation_bindings(
+			handle,
+			selector->statement_index,
+			relation,
+			&bindings,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK && *in_out_surface_complete) {
+		status = sqlparser_patch_plan_relation_surface_edits(
+			handle,
+			relation,
+			duplicate_relation,
+			&bindings,
+			&path,
+			sql_text,
+			surface_edits,
+			&surface_supported,
+			out_error);
+		if (status == SQLPARSER_STATUS_OK && !surface_supported) {
+			sqlparser_surface_source_edits_release(surface_edits);
+			*in_out_surface_complete = 0;
+		}
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		spellings[0] = NULL;
+		spellings[1] = NULL;
+		spellings[2] = NULL;
 		values[0] = "";
 		values[1] = "";
 		values[2] = "";
 		first_part = 3U - path.part_count;
 		for (index = 0U; index < path.part_count; index++) {
 			values[first_part + index] = path.parts[index];
+			spelling = NULL;
+			if (!sqlparser_handle_identifier_spelling(
+				    handle,
+				    path.location,
+				    index,
+				    &spelling,
+				    NULL) ||
+			    spelling == NULL) {
+				status = SQLPARSER_STATUS_INTERNAL_ERROR;
+				sqlparser_error_set_message(
+					out_error,
+					status,
+					"relation patch identifier spelling is missing");
+				break;
+			}
+			spellings[first_part + index] = spelling;
 		}
-		names_changed = 0;
-		for (index = 0U; index < 3U; index++) {
-			names_changed =
-				names_changed || strcmp(current[index], values[index]) != 0;
-		}
-		previous_location = relation->location;
-		relation->location = path.location;
-		status = sqlparser_replace_relation_identifier_slots(
-			handle,
-			selector->statement_index,
-			relation,
-			values,
-			out_error);
-		if (status == SQLPARSER_STATUS_OK && !names_changed) {
-			status = sqlparser_handle_commit_ast(handle, out_error);
-		}
-		if (status != SQLPARSER_STATUS_OK && handle->ast != NULL) {
-			relation->location = previous_location;
+		if (status == SQLPARSER_STATUS_OK) {
+			dialect_state = path.dialect_state;
+			path.dialect_state = NULL;
+			status = sqlparser_replace_relation_and_bound_qualifiers(
+				handle,
+				selector->statement_index,
+				relation,
+				duplicate_relation,
+				&bindings,
+				values,
+				spellings,
+				dialect_state,
+				out_error);
 		}
 	}
-
-	if (status == SQLPARSER_STATUS_OK) {
-		sqlparser_handle_adopt_dialect_state(handle, path.dialect_state);
-		path.dialect_state = NULL;
-	}
+	sqlparser_relation_bindings_clear(&bindings);
 	sqlparser_patch_identifier_path_clear(handle, &path);
 	return status;
 }
@@ -386,11 +4857,14 @@ static sqlparser_status_t sqlparser_patch_set_value_sql(
 	sqlparser_handle_t *handle,
 	const sqlparser_selector_t *selector,
 	const char *sql_text,
+	int require_literal,
 	sqlparser_error_t *out_error)
 {
 	PgQuery__Node *statement;
 	PgQuery__Node **value_slot;
 	PgQuery__Node *replacement;
+	PgQuery__Node *semantic_replacement;
+	sqlparser_literal_view_t literal_view;
 	sqlparser_status_t status;
 	char *parser_sql;
 	sqlparser_generated_source_t source;
@@ -407,6 +4881,7 @@ static sqlparser_status_t sqlparser_patch_set_value_sql(
 	origins = NULL;
 	dialect_state = NULL;
 	replacement = NULL;
+	semantic_replacement = NULL;
 	statement = NULL;
 	value_slot = NULL;
 	variable_set_arg = 0;
@@ -419,6 +4894,7 @@ static sqlparser_status_t sqlparser_patch_set_value_sql(
 		selector->statement_index,
 		selector->item_index,
 		&value_slot,
+		NULL,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
@@ -445,6 +4921,8 @@ static sqlparser_status_t sqlparser_patch_set_value_sql(
 	source.origins = origins;
 	source.dialect = handle->dialect;
 	source.spelling_handle = handle;
+	source.candidate_dialect_state = dialect_state;
+	source.statement_index = selector->statement_index;
 	if (variable_set_arg) {
 		status = sqlparser_parse_variable_set_arg_node_sql(
 			parser_sql,
@@ -465,6 +4943,33 @@ static sqlparser_status_t sqlparser_patch_set_value_sql(
 		sqlparser_handle_discard_dialect_state(handle, dialect_state);
 		return status;
 	}
+	if (require_literal) {
+		semantic_replacement = sqlparser_unwrap_grouping_node(replacement);
+		if (semantic_replacement == NULL ||
+		    semantic_replacement->node_case !=
+			    PG_QUERY__NODE__NODE_A_CONST ||
+		    semantic_replacement->a_const == NULL) {
+			sqlparser_free_proto_node(replacement);
+			sqlparser_handle_discard_dialect_state(
+				handle, dialect_state);
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_UNSUPPORTED,
+				"replacement SQL is not a literal");
+			return SQLPARSER_STATUS_UNSUPPORTED;
+		}
+		memset(&literal_view, 0, sizeof(literal_view));
+		status = sqlparser_fill_literal_view_from_a_const(
+			semantic_replacement->a_const,
+			&literal_view,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_free_proto_node(replacement);
+			sqlparser_handle_discard_dialect_state(
+				handle, dialect_state);
+			return status;
+		}
+	}
 	if (!variable_set_arg && !sqlparser_patch_node_is_value_expression(*value_slot)) {
 		sqlparser_free_proto_node(replacement);
 		sqlparser_handle_discard_dialect_state(handle, dialect_state);
@@ -475,78 +4980,50 @@ static sqlparser_status_t sqlparser_patch_set_value_sql(
 	sqlparser_free_proto_node(*value_slot);
 	*value_slot = replacement;
 	replacement = NULL;
-	status = sqlparser_handle_commit_ast(handle, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_discard_dialect_state(handle, dialect_state);
-		return status;
-	}
-	sqlparser_handle_adopt_dialect_state(handle, dialect_state);
-	return SQLPARSER_STATUS_OK;
+	return sqlparser_handle_commit_ast_with_dialect_state(
+		handle, dialect_state, out_error);
 }
 
-static sqlparser_status_t sqlparser_patch_literal_value_from_sql(
+static sqlparser_status_t sqlparser_patch_set_legacy_literal_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
 	const char *sql_text,
-	sqlparser_literal_value_t *out_value,
 	sqlparser_error_t *out_error)
 {
-	PgQuery__Node *node;
-	sqlparser_literal_view_t view;
+	sqlparser_selector_t value_selector;
+	size_t node_index;
 	sqlparser_status_t status;
 
-	if (out_value == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "out_value must not be NULL");
+	if (selector == NULL ||
+	    (selector->kind != SQLPARSER_SELECTOR_KIND_LITERAL &&
+	     selector->kind != SQLPARSER_SELECTOR_KIND_WHERE_LITERAL)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"selector kind must be literal or where_literal");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	memset(out_value, 0, sizeof(*out_value));
-	memset(&view, 0, sizeof(view));
-	node = NULL;
-	status = sqlparser_parse_insert_cell_node_sql(
-		sql_text,
+	status = sqlparser_find_statement_literal_node(
+		handle,
+		selector->statement_index,
+		selector->item_index,
+		selector->kind == SQLPARSER_SELECTOR_KIND_WHERE_LITERAL,
 		NULL,
-		&node,
+		&node_index,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	if (node == NULL || node->node_case != PG_QUERY__NODE__NODE_A_CONST || node->a_const == NULL) {
-		sqlparser_free_proto_node(node);
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "replacement SQL is not a literal");
-		return SQLPARSER_STATUS_UNSUPPORTED;
-	}
-	status = sqlparser_fill_literal_view_from_a_const(node->a_const, &view, out_error);
-	if (status == SQLPARSER_STATUS_OK) {
-		out_value->kind = view.kind;
-		out_value->string_value = view.string_value;
-		out_value->float_value = view.float_value;
-		out_value->integer_value = view.integer_value;
-		out_value->boolean_value = view.boolean_value;
-		status = SQLPARSER_STATUS_OK;
-		if (out_value->kind == SQLPARSER_LITERAL_KIND_STRING && out_value->string_value != NULL) {
-			out_value->string_value = sqlparser_strdup(out_value->string_value);
-			status = out_value->string_value != NULL ? SQLPARSER_STATUS_OK : SQLPARSER_STATUS_NO_MEMORY;
-		} else if (out_value->kind == SQLPARSER_LITERAL_KIND_FLOAT && out_value->float_value != NULL) {
-			out_value->float_value = sqlparser_strdup(out_value->float_value);
-			status = out_value->float_value != NULL ? SQLPARSER_STATUS_OK : SQLPARSER_STATUS_NO_MEMORY;
-		}
-		if (status != SQLPARSER_STATUS_OK) {
-			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-		}
-	}
-	sqlparser_free_proto_node(node);
-	return status;
-}
-
-static void sqlparser_patch_literal_value_clear(sqlparser_literal_value_t *value)
-{
-	if (value == NULL) {
-		return;
-	}
-	if (value->kind == SQLPARSER_LITERAL_KIND_STRING) {
-		free((char *)value->string_value);
-	} else if (value->kind == SQLPARSER_LITERAL_KIND_FLOAT) {
-		free((char *)value->float_value);
-	}
-	memset(value, 0, sizeof(*value));
+	memset(&value_selector, 0, sizeof(value_selector));
+	value_selector.kind = SQLPARSER_SELECTOR_KIND_VALUE;
+	value_selector.statement_index = selector->statement_index;
+	value_selector.item_index = node_index;
+	return sqlparser_patch_set_value_sql(
+		handle,
+		&value_selector,
+		sql_text,
+		1,
+		out_error);
 }
 
 static sqlparser_status_t sqlparser_patch_render_string_literal_sql(
@@ -725,30 +5202,514 @@ static sqlparser_status_t sqlparser_patch_render_structured_sql(
 	return sqlparser_render_bind_value_sql(handle, patch->bind, out_sql, out_error);
 }
 
+static sqlparser_status_t sqlparser_patch_plan_surface_edit(
+	sqlparser_handle_t *handle,
+	const sqlparser_patch_t *patch,
+	const sqlparser_selector_t *parsed_selector,
+	sqlparser_surface_source_edits_t *edits,
+	int *out_supported,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__SelectStmt *stmt;
+	char *rendered;
+	char *insertion;
+	const char *replacement;
+	size_t insertion_length;
+	size_t replacement_length;
+	size_t source_end;
+	size_t source_start;
+	size_t target_count;
+	size_t target_index;
+	sqlparser_selector_t selector;
+	sqlparser_status_t status;
+	int source_result;
+	int gap_supported;
+	int insert_column_gap;
+	int span_supported;
+	int surface_eligible;
+
+	*out_supported = 0;
+	if (handle->control != NULL || patch == NULL ||
+	    patch->selector == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (sqlparser_dialect_is_sqlserver_compatible(handle->dialect)) {
+		status = sqlparser_handle_ensure_ast(handle, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		status = sqlparser_patch_sqlserver_surface_eligible(
+			handle,
+			&surface_eligible,
+			&insert_column_gap,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK || !surface_eligible) {
+			return status;
+		}
+		if (insert_column_gap) {
+			status = sqlparser_patch_plan_sqlserver_insert_column_gap(
+				handle,
+				edits,
+				&gap_supported,
+				out_error);
+			if (status != SQLPARSER_STATUS_OK || !gap_supported) {
+				return status;
+			}
+		}
+	}
+	if (parsed_selector != NULL) {
+		selector = *parsed_selector;
+	} else {
+		status = sqlparser_patch_parse_selector(
+			patch->selector,
+			&selector,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+	rendered = NULL;
+	insertion = NULL;
+	replacement = NULL;
+	replacement_length = 0U;
+	source_start = 0U;
+	source_end = 0U;
+	span_supported = 0;
+	if (patch->op == SQLPARSER_PATCH_REPLACE &&
+		   selector.kind == SQLPARSER_SELECTOR_KIND_NAME &&
+		   patch->sql != NULL) {
+		status = sqlparser_patch_name_source_span(
+			handle,
+			&selector,
+			patch->sql,
+			&source_start,
+			&source_end,
+			&rendered,
+			&span_supported,
+			out_error);
+		replacement = rendered != NULL ? rendered : patch->sql;
+		replacement_length = strlen(replacement);
+	} else if (patch->op == SQLPARSER_PATCH_REPLACE &&
+		   selector.kind == SQLPARSER_SELECTOR_KIND_VALUE) {
+		status = sqlparser_patch_render_structured_sql(
+			handle,
+			patch,
+			patch->sql,
+			&rendered,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		status = sqlparser_patch_value_source_span(
+			handle,
+			&selector,
+			&source_start,
+			&source_end,
+			&span_supported,
+			out_error);
+		if (!sqlparser_patch_unsigned_integer_sql(rendered) &&
+		    !sqlparser_patch_bind_sql(handle, rendered)) {
+			span_supported = 0;
+		}
+		replacement = rendered;
+		replacement_length = strlen(rendered);
+	} else if (patch->op == SQLPARSER_PATCH_REPLACE &&
+		   selector.kind == SQLPARSER_SELECTOR_KIND_INSERT_CELL) {
+		status = sqlparser_patch_render_structured_sql(
+			handle,
+			patch,
+			patch->sql,
+			&rendered,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		source_result = sqlparser_view_insert_cell_source_span(
+			handle,
+			edits,
+			selector.statement_index,
+			selector.row_index,
+			selector.column_index,
+			&source_start,
+			&source_end,
+			out_error);
+		if (source_result < 0) {
+			free(rendered);
+			return out_error != NULL ? out_error->code :
+				SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		span_supported = source_result > 0 &&
+			(sqlparser_patch_unsigned_integer_sql(rendered) ||
+			 (sqlparser_dialect_is_sqlserver_compatible(
+				  handle->dialect) &&
+			  sqlparser_sqlserver_state_has_odbc_function(
+				  handle->dialect_state,
+				  selector.statement_index)));
+		replacement = rendered;
+		replacement_length = strlen(rendered);
+	} else if (patch->op == SQLPARSER_PATCH_REPLACE &&
+		   selector.kind == SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGET &&
+		   sqlparser_dialect_is_sqlserver_compatible(handle->dialect)) {
+		status = sqlparser_patch_render_structured_sql(
+			handle,
+			patch,
+			patch->sql,
+			&rendered,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		status = sqlparser_patch_dml_result_insert_target_span(
+			handle,
+			&selector,
+			selector.column_index,
+			&target_count,
+			&source_start,
+			&source_end,
+			&span_supported,
+			out_error);
+		replacement = rendered;
+		replacement_length = strlen(rendered);
+	} else if (patch->op == SQLPARSER_PATCH_REPLACE &&
+		   selector.kind == SQLPARSER_SELECTOR_KIND_SELECT_TARGET) {
+		status = sqlparser_patch_render_structured_sql(
+			handle,
+			patch,
+			patch->sql,
+			&rendered,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		status = sqlparser_patch_select_target_span(
+			handle,
+			&selector,
+			selector.column_index,
+			NULL,
+			&source_start,
+			&source_end,
+			&span_supported,
+			out_error);
+		replacement = rendered;
+		replacement_length = strlen(rendered);
+	} else if (patch->op == SQLPARSER_PATCH_INSERT_COLUMN &&
+		   selector.kind == SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGETS &&
+		   sqlparser_dialect_is_sqlserver_compatible(handle->dialect)) {
+		sqlparser_dialect_dml_result_channel_t channel;
+
+		status = sqlparser_patch_render_structured_sql(
+			handle,
+			patch,
+			patch->sql,
+			&rendered,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		if (!sqlparser_dialect_dml_result_channel_at(
+			    handle,
+			    selector.statement_index,
+			    selector.item_index,
+			    selector.row_index,
+			    &channel) ||
+		    channel.kind != SQLPARSER_GRAPH_DML_RESULT_CLIENT ||
+		    channel.target_count == 0U) {
+			free(rendered);
+			return SQLPARSER_STATUS_OK;
+		}
+		target_count = channel.target_count;
+		target_index = patch->index < target_count ?
+			patch->index : target_count;
+		status = sqlparser_patch_dml_result_insert_target_span(
+			handle,
+			&selector,
+			target_index < target_count ?
+				target_index : target_count - 1U,
+			&target_count,
+			&source_start,
+			&source_end,
+			&span_supported,
+			out_error);
+		insertion_length = strlen(rendered);
+		if (status == SQLPARSER_STATUS_OK && span_supported) {
+			if (insertion_length > SIZE_MAX - 3U) {
+				free(rendered);
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_RESOURCE_LIMIT,
+					"patch SQL is too large");
+				return SQLPARSER_STATUS_RESOURCE_LIMIT;
+			}
+			insertion = (char *)malloc(insertion_length + 3U);
+			if (insertion == NULL) {
+				free(rendered);
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_NO_MEMORY,
+					"out of memory");
+				return SQLPARSER_STATUS_NO_MEMORY;
+			}
+			if (target_index < target_count) {
+				memcpy(insertion, rendered, insertion_length);
+				memcpy(insertion + insertion_length, ", ", 3U);
+				source_end = source_start;
+			} else {
+				memcpy(insertion, ", ", 2U);
+				memcpy(
+					insertion + 2U,
+					rendered,
+					insertion_length + 1U);
+				source_start = source_end;
+			}
+		}
+		free(rendered);
+		rendered = NULL;
+		replacement = insertion;
+		replacement_length = insertion != NULL ? insertion_length + 2U : 0U;
+	} else if (patch->op == SQLPARSER_PATCH_INSERT_COLUMN &&
+		   selector.kind == SQLPARSER_SELECTOR_KIND_SELECT_TARGETS) {
+		status = sqlparser_patch_render_structured_sql(
+			handle,
+			patch,
+			patch->sql,
+			&rendered,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		stmt = NULL;
+		status = sqlparser_get_select_stmt_by_target_list_index(
+			handle,
+			selector.statement_index,
+			selector.item_index,
+			&stmt,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			free(rendered);
+			return status;
+		}
+		if (stmt->n_target_list == 0U) {
+			free(rendered);
+			return SQLPARSER_STATUS_OK;
+		}
+		target_index = patch->index < stmt->n_target_list ?
+			patch->index : stmt->n_target_list;
+		if (target_index < stmt->n_target_list) {
+			size_t leading_space;
+			size_t trailing_space;
+
+			status = sqlparser_patch_select_target_span(
+				handle,
+				&selector,
+				target_index,
+				NULL,
+				&source_start,
+				&source_end,
+				&span_supported,
+				out_error);
+			if (status == SQLPARSER_STATUS_OK && !span_supported) {
+				status =
+					sqlparser_patch_select_target_insert_source_offset(
+						handle,
+						stmt,
+						target_index,
+						&source_start,
+						&span_supported,
+						out_error);
+				source_end = source_start;
+			}
+			insertion_length = strlen(rendered);
+			if (status == SQLPARSER_STATUS_OK && span_supported) {
+				sqlparser_patch_insert_target_spacing(
+					handle,
+					stmt,
+					target_index,
+					source_start,
+					&leading_space,
+					&trailing_space);
+				if (insertion_length >
+				    SIZE_MAX - 2U - leading_space -
+					    trailing_space) {
+					free(rendered);
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_RESOURCE_LIMIT,
+						"patch SQL is too large");
+					return SQLPARSER_STATUS_RESOURCE_LIMIT;
+				}
+				source_end = source_start;
+				insertion = (char *)malloc(
+					insertion_length + 2U + leading_space +
+					trailing_space);
+				if (insertion == NULL) {
+					free(rendered);
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_NO_MEMORY,
+						"out of memory");
+					return SQLPARSER_STATUS_NO_MEMORY;
+				}
+				if (leading_space != 0U) {
+					insertion[0] = ' ';
+				}
+				memcpy(
+					insertion + leading_space,
+					rendered,
+					insertion_length);
+				insertion[leading_space + insertion_length] = ',';
+				if (trailing_space != 0U) {
+					insertion[
+						leading_space + insertion_length + 1U] =
+						' ';
+				}
+				insertion[
+					leading_space + insertion_length + 1U +
+					trailing_space] = '\0';
+			}
+		} else {
+			status = sqlparser_patch_select_target_span(
+				handle,
+				&selector,
+				stmt->n_target_list - 1U,
+				NULL,
+				&source_start,
+				&source_end,
+				&span_supported,
+				out_error);
+			if (status == SQLPARSER_STATUS_OK && !span_supported) {
+				status =
+					sqlparser_patch_select_target_insert_source_offset(
+						handle,
+						stmt,
+						stmt->n_target_list,
+						&source_end,
+						&span_supported,
+						out_error);
+			}
+			insertion_length = strlen(rendered);
+			if (status == SQLPARSER_STATUS_OK && span_supported) {
+				if (insertion_length > SIZE_MAX - 3U) {
+					free(rendered);
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_RESOURCE_LIMIT,
+						"patch SQL is too large");
+					return SQLPARSER_STATUS_RESOURCE_LIMIT;
+				}
+				source_start = source_end;
+				insertion = (char *)malloc(insertion_length + 3U);
+				if (insertion == NULL) {
+					free(rendered);
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_NO_MEMORY,
+						"out of memory");
+					return SQLPARSER_STATUS_NO_MEMORY;
+				}
+				memcpy(insertion, ", ", 2U);
+				memcpy(
+					insertion + 2U,
+					rendered,
+					insertion_length + 1U);
+			}
+		}
+		free(rendered);
+		rendered = NULL;
+		replacement = insertion;
+		replacement_length =
+			insertion != NULL ? strlen(insertion) : 0U;
+	} else if ((patch->op == SQLPARSER_PATCH_REPLACE_ASSIGNMENT ||
+		    patch->op == SQLPARSER_PATCH_INSERT_ASSIGNMENT) &&
+		   ((selector.kind == SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
+		     (sqlparser_dialect_is_mysql_compatible(handle->dialect) ||
+		      sqlparser_dialect_is_oracle_compatible(handle->dialect) ||
+		      sqlparser_dialect_is_sqlserver_compatible(
+			      handle->dialect))) ||
+		    (selector.kind ==
+			     SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT &&
+		     (sqlparser_dialect_is_oracle_or_dameng_compatible(
+			      handle->dialect) ||
+		      sqlparser_dialect_is_sqlserver_compatible(
+			      handle->dialect) ||
+		      handle->dialect == SQLPARSER_DIALECT_POSTGRESQL ||
+		      handle->dialect ==
+			      SQLPARSER_DIALECT_VASTBASE_POSTGRESQL))) &&
+		   patch->sql != NULL && patch->sql[0] != '\0') {
+		status = sqlparser_patch_assignment_source_span(
+			handle,
+			&selector,
+			&source_start,
+			&source_end,
+			&span_supported,
+			out_error);
+		if (status == SQLPARSER_STATUS_OK && span_supported &&
+		    patch->op == SQLPARSER_PATCH_INSERT_ASSIGNMENT) {
+			replacement_length = strlen(patch->sql);
+			if (replacement_length > SIZE_MAX - 3U) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_RESOURCE_LIMIT,
+					"patch SQL is too large");
+				return SQLPARSER_STATUS_RESOURCE_LIMIT;
+			}
+			insertion = (char *)malloc(replacement_length + 3U);
+			if (insertion == NULL) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_NO_MEMORY,
+					"out of memory");
+				return SQLPARSER_STATUS_NO_MEMORY;
+			}
+			memcpy(insertion, patch->sql, replacement_length);
+			memcpy(insertion + replacement_length, ", ", 3U);
+			source_end = source_start;
+			replacement = insertion;
+			replacement_length += 2U;
+		} else {
+			replacement = patch->sql;
+			replacement_length = strlen(patch->sql);
+		}
+	} else {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (status != SQLPARSER_STATUS_OK || !span_supported ||
+	    replacement == NULL) {
+		free(rendered);
+		free(insertion);
+		return status;
+	}
+	status = sqlparser_surface_source_edits_insert(
+		edits,
+		source_start,
+		source_end,
+		replacement,
+		replacement_length,
+		out_supported,
+		out_error);
+	free(rendered);
+	free(insertion);
+	return status;
+}
+
 static sqlparser_status_t sqlparser_patch_replace(
 	sqlparser_handle_t *handle,
 	const sqlparser_patch_t *patch,
+	const sqlparser_selector_t *parsed_selector,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_selector_t selector;
 	sqlparser_status_t status;
 
-	if (patch == NULL || patch->selector == NULL) {
+	if (patch == NULL || patch->selector == NULL || parsed_selector == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "replace patch requires selector");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	status = sqlparser_patch_parse_selector(patch->selector, &selector, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		return status;
-	}
+	selector = *parsed_selector;
 
 	switch (selector.kind) {
 		case SQLPARSER_SELECTOR_KIND_RELATION:
-			if (patch->sql == NULL) {
-				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "relation replacement requires sql");
-				return SQLPARSER_STATUS_INVALID_ARGUMENT;
-			}
-			return sqlparser_patch_set_relation_sql(handle, &selector, patch->sql, out_error);
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "relation replacement bypassed its atomic patch path");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
 		case SQLPARSER_SELECTOR_KIND_NAME:
 		{
 			sqlparser_patch_identifier_path_t path;
@@ -809,7 +5770,12 @@ static sqlparser_status_t sqlparser_patch_replace(
 			if (status != SQLPARSER_STATUS_OK) {
 				return status;
 			}
-			status = sqlparser_patch_set_value_sql(handle, &selector, value_sql, out_error);
+			status = sqlparser_patch_set_value_sql(
+				handle,
+				&selector,
+				value_sql,
+				0,
+				out_error);
 			free(value_sql);
 			return status;
 		}
@@ -829,7 +5795,13 @@ static sqlparser_status_t sqlparser_patch_replace(
 			if (status != SQLPARSER_STATUS_OK) {
 				return status;
 			}
-			status = sqlparser_selector_set_insert_cell_sql(handle, &selector, cell_sql, out_error);
+			status = sqlparser_insert_set_cell_sql_in_place(
+				handle,
+				selector.statement_index,
+				selector.row_index,
+				selector.column_index,
+				cell_sql,
+				out_error);
 			free(cell_sql);
 			return status;
 		}
@@ -880,24 +5852,15 @@ static sqlparser_status_t sqlparser_patch_replace(
 			return sqlparser_selector_set_clause_sql(handle, &selector, patch->sql, out_error);
 		case SQLPARSER_SELECTOR_KIND_LITERAL:
 		case SQLPARSER_SELECTOR_KIND_WHERE_LITERAL:
-		{
-			sqlparser_literal_value_t value;
 			if (patch->sql == NULL) {
 				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "literal replacement requires sql");
 				return SQLPARSER_STATUS_INVALID_ARGUMENT;
 			}
-			status = sqlparser_patch_literal_value_from_sql(patch->sql, &value, out_error);
-			if (status != SQLPARSER_STATUS_OK) {
-				return status;
-			}
-			if (selector.kind == SQLPARSER_SELECTOR_KIND_LITERAL) {
-				status = sqlparser_selector_set_literal(handle, &selector, &value, out_error);
-			} else {
-				status = sqlparser_selector_set_where_literal(handle, &selector, &value, out_error);
-			}
-			sqlparser_patch_literal_value_clear(&value);
-			return status;
-		}
+			return sqlparser_patch_set_legacy_literal_sql(
+				handle,
+				&selector,
+				patch->sql,
+				out_error);
 		default:
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "selector kind cannot be replaced");
 			return SQLPARSER_STATUS_UNSUPPORTED;
@@ -1152,6 +6115,10 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 	PgQuery__Node *column_node;
 	PgQuery__Node *default_node;
 	PgQuery__Node **next_cols;
+	PgQuery__Node **source_nodes;
+	PgQuery__Node **clone_nodes;
+	PgQuery__List source_list;
+	PgQuery__List clone_list;
 	sqlparser_patch_insert_column_row_plan_t *plans;
 	sqlparser_status_t status;
 	char *parser_default_sql;
@@ -1179,7 +6146,7 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
 		}
-		status = sqlparser_select_insert_target_sql(
+		status = sqlparser_select_insert_target_sql_in_place(
 			handle,
 			selector.statement_index,
 			selector.item_index,
@@ -1285,6 +6252,8 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 
 	default_node = NULL;
 	next_cols = NULL;
+	source_nodes = NULL;
+	clone_nodes = NULL;
 	plans = NULL;
 	parser_default_sql = NULL;
 	rendered_default_sql = NULL;
@@ -1340,6 +6309,8 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 	source.origins = origins;
 	source.dialect = handle->dialect;
 	source.spelling_handle = handle;
+	source.candidate_dialect_state = dialect_state;
+	source.statement_index = selector.statement_index;
 	status = sqlparser_parse_insert_cell_node_sql(
 		parser_default_sql,
 		&source,
@@ -1428,6 +6399,51 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 		plans[row_index].next_count = row_list->n_items + 1U;
 	}
 
+	if (row_count > 0U &&
+	    handle->dialect_ops != NULL &&
+	    handle->dialect_ops->clone_ast_state != NULL) {
+		source_nodes = sqlparser_patch_alloc_node_array(row_count, out_error);
+		clone_nodes = sqlparser_patch_alloc_node_array(row_count, out_error);
+		if (source_nodes == NULL || clone_nodes == NULL) {
+			free(source_nodes);
+			free(clone_nodes);
+			free(next_cols);
+			sqlparser_free_proto_node(column_node);
+			sqlparser_free_proto_node(default_node);
+			sqlparser_patch_insert_column_plan_clear(plans, row_count);
+			sqlparser_handle_discard_dialect_state(handle, dialect_state);
+			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+		}
+		for (row_index = 0U; row_index < row_count; row_index++) {
+			source_nodes[row_index] = default_node;
+			clone_nodes[row_index] = plans[row_index].cell_node;
+		}
+		pg_query__list__init(&source_list);
+		source_list.n_items = row_count;
+		source_list.items = source_nodes;
+		pg_query__list__init(&clone_list);
+		clone_list.n_items = row_count;
+		clone_list.items = clone_nodes;
+		status = handle->dialect_ops->clone_ast_state(
+			dialect_state,
+			selector.statement_index,
+			(ProtobufCMessage *)&source_list,
+			(ProtobufCMessage *)&clone_list,
+			out_error);
+		free(source_nodes);
+		free(clone_nodes);
+		source_nodes = NULL;
+		clone_nodes = NULL;
+		if (status != SQLPARSER_STATUS_OK) {
+			free(next_cols);
+			sqlparser_free_proto_node(column_node);
+			sqlparser_free_proto_node(default_node);
+			sqlparser_patch_insert_column_plan_clear(plans, row_count);
+			sqlparser_handle_discard_dialect_state(handle, dialect_state);
+			return status;
+		}
+	}
+
 	free(stmt->cols);
 	stmt->cols = next_cols;
 	stmt->n_cols++;
@@ -1443,13 +6459,8 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 
 	sqlparser_free_proto_node(default_node);
 	sqlparser_patch_insert_column_plan_clear(plans, row_count);
-	status = sqlparser_handle_commit_ast(handle, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_discard_dialect_state(handle, dialect_state);
-		return status;
-	}
-	sqlparser_handle_adopt_dialect_state(handle, dialect_state);
-	return SQLPARSER_STATUS_OK;
+	return sqlparser_handle_commit_ast_with_dialect_state(
+		handle, dialect_state, out_error);
 }
 
 static sqlparser_status_t sqlparser_patch_delete_column(
@@ -1648,9 +6659,74 @@ static sqlparser_status_t sqlparser_patch_delete_row(
 	return sqlparser_handle_commit_ast(handle, out_error);
 }
 
+static sqlparser_status_t sqlparser_patch_materialize_surface_edits(
+	sqlparser_handle_t *handle,
+	sqlparser_surface_source_edits_t *edits,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_handle_t *replacement;
+	sqlparser_parse_options_t options;
+	char *patched_sql;
+	sqlparser_status_t status;
+	int saved_surface_complete;
+
+	if (handle == NULL || edits == NULL || edits->count == 0U ||
+	    handle->surface_source_edits.items != NULL ||
+	    handle->surface_source_edits.count != 0U ||
+	    handle->surface_source_edits.capacity != 0U) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"surface edit materialization state is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+
+	replacement = NULL;
+	patched_sql = NULL;
+	saved_surface_complete = handle->surface_source_complete;
+	handle->surface_source_edits = *edits;
+	memset(edits, 0, sizeof(*edits));
+	handle->surface_source_complete = 1;
+	status = sqlparser_restore_source_envelope(
+		handle,
+		&patched_sql,
+		out_error);
+	*edits = handle->surface_source_edits;
+	memset(
+		&handle->surface_source_edits,
+		0,
+		sizeof(handle->surface_source_edits));
+	handle->surface_source_complete = saved_surface_complete;
+	if (status != SQLPARSER_STATUS_OK) {
+		free(patched_sql);
+		return status;
+	}
+
+	sqlparser_parse_options_default(&options);
+	options.dialect = handle->dialect;
+	options.limits = handle->limits;
+	status = sqlparser_parse_with_options(
+		patched_sql,
+		&options,
+		&replacement,
+		out_error);
+	free(patched_sql);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_destroy(replacement);
+		return status;
+	}
+	replacement->generation = handle->generation + 1UL;
+	sqlparser_surface_source_edits_release(edits);
+	sqlparser_handle_replace_contents(handle, replacement);
+	sqlparser_handle_destroy(replacement);
+	return SQLPARSER_STATUS_OK;
+}
+
 static sqlparser_status_t sqlparser_apply_patch_in_place(
 	sqlparser_handle_t *handle,
 	const sqlparser_patch_list_t *patches,
+	sqlparser_surface_source_edits_t *surface_edits,
+	int *in_out_surface_complete,
 	sqlparser_error_t *out_error)
 {
 	size_t index;
@@ -1658,11 +6734,86 @@ static sqlparser_status_t sqlparser_apply_patch_in_place(
 
 	for (index = 0U; index < patches->count; index++) {
 		const sqlparser_patch_t *patch;
+		const sqlparser_selector_t *planned_selector;
+		sqlparser_selector_t replace_selector;
+		int surface_supported;
 
 		patch = &patches->items[index];
+		planned_selector = NULL;
+		surface_supported = 0;
+		if (patch->op == SQLPARSER_PATCH_REPLACE) {
+			status = sqlparser_patch_parse_selector(
+				patch->selector,
+				&replace_selector,
+				out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+			planned_selector = &replace_selector;
+			if (replace_selector.kind ==
+			    SQLPARSER_SELECTOR_KIND_RELATION) {
+				if (patch->sql == NULL) {
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_INVALID_ARGUMENT,
+						"relation replacement requires sql");
+					return SQLPARSER_STATUS_INVALID_ARGUMENT;
+				}
+				status = sqlparser_patch_set_relation_sql(
+					handle,
+					&replace_selector,
+					patch->sql,
+					surface_edits,
+					in_out_surface_complete,
+					out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					return status;
+				}
+				continue;
+			}
+		}
+		if (*in_out_surface_complete) {
+			status = sqlparser_patch_plan_surface_edit(
+				handle,
+				patch,
+				planned_selector,
+				surface_edits,
+				&surface_supported,
+				out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+			if (!surface_supported) {
+				sqlparser_surface_source_edits_release(
+					surface_edits);
+				*in_out_surface_complete = 0;
+			}
+		}
+		if (*in_out_surface_complete && surface_supported &&
+		    patch->op == SQLPARSER_PATCH_REPLACE &&
+		    planned_selector != NULL &&
+		    planned_selector->kind ==
+			    SQLPARSER_SELECTOR_KIND_INSERT_CELL &&
+		    sqlparser_dialect_is_oracle_compatible(handle->dialect) &&
+		    sqlparser_dialect_state_has_multi_insert(
+			    handle->dialect,
+			    handle->dialect_state)) {
+			status = sqlparser_patch_materialize_surface_edits(
+				handle,
+				surface_edits,
+				out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+			continue;
+		}
 		switch (patch->op) {
 			case SQLPARSER_PATCH_REPLACE:
-				status = sqlparser_patch_replace(handle, patch, out_error);
+				status = sqlparser_patch_replace(
+					handle,
+					patch,
+					&replace_selector,
+					out_error);
 				break;
 			case SQLPARSER_PATCH_INSERT_COLUMN:
 				status = sqlparser_patch_insert_column(handle, patch, out_error);
@@ -1692,6 +6843,27 @@ static sqlparser_status_t sqlparser_apply_patch_in_place(
 		}
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
+		}
+		if (patch->op == SQLPARSER_PATCH_REPLACE_ASSIGNMENT &&
+		    sqlparser_dialect_is_mysql_compatible(handle->dialect)) {
+			sqlparser_selector_t assignment_selector;
+
+			status = sqlparser_patch_parse_selector(
+				patch->selector,
+				&assignment_selector,
+				out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+			if (assignment_selector.kind ==
+				    SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
+			    sqlparser_mysql_statement_update_join_reversed(
+				    handle->dialect_state,
+				    assignment_selector.statement_index)) {
+				sqlparser_surface_source_edits_release(
+					surface_edits);
+				*in_out_surface_complete = 0;
+			}
 		}
 	}
 	return SQLPARSER_STATUS_OK;
@@ -1751,9 +6923,11 @@ sqlparser_status_t sqlparser_apply_patch(
 	sqlparser_error_t *out_error)
 {
 	sqlparser_handle_t *candidate;
+	sqlparser_surface_source_edits_t surface_edits;
 	sqlparser_status_t status;
 	unsigned long original_generation;
 	int noop;
+	int surface_complete;
 
 	sqlparser_error_clear(out_error);
 	if (handle == NULL || patches == NULL ||
@@ -1769,6 +6943,7 @@ sqlparser_status_t sqlparser_apply_patch(
 	}
 
 	candidate = NULL;
+	memset(&surface_edits, 0, sizeof(surface_edits));
 	original_generation = handle->generation;
 	status = sqlparser_handle_clone(
 		handle,
@@ -1777,18 +6952,42 @@ sqlparser_status_t sqlparser_apply_patch(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
+	surface_complete =
+		handle->generation == 0UL || handle->surface_source_complete;
+	if (surface_complete) {
+		surface_edits = candidate->surface_source_edits;
+		memset(
+			&candidate->surface_source_edits,
+			0,
+			sizeof(candidate->surface_source_edits));
+	} else {
+		sqlparser_surface_source_edits_release(
+			&candidate->surface_source_edits);
+	}
+	candidate->surface_source_complete = 0;
 	status = sqlparser_apply_patch_in_place(
 		candidate,
 		patches,
+		&surface_edits,
+		&surface_complete,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_surface_source_edits_release(&surface_edits);
 		sqlparser_handle_destroy(candidate);
 		return status;
 	}
 	if (candidate->generation == original_generation) {
+		sqlparser_surface_source_edits_release(&surface_edits);
 		sqlparser_handle_destroy(candidate);
 		sqlparser_error_clear(out_error);
 		return SQLPARSER_STATUS_OK;
+	}
+	if (surface_complete) {
+		candidate->surface_source_edits = surface_edits;
+		memset(&surface_edits, 0, sizeof(surface_edits));
+		candidate->surface_source_complete = 1;
+	} else {
+		sqlparser_surface_source_edits_release(&surface_edits);
 	}
 	status = sqlparser_patch_candidate_is_noop(
 		handle,

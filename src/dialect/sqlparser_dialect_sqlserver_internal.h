@@ -11,5 +11,8 @@ sqlparser_sqlserver_output_state_t *sqlparser_sqlserver_state_output_mutable(
 	void *state,
 	size_t statement_index,
 	size_t *out_local_statement_index);
+int sqlparser_sqlserver_state_has_odbc_function(
+	const void *state,
+	size_t statement_index);
 
 #endif
