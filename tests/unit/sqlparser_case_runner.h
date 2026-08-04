@@ -510,15 +510,19 @@ static int sqlparser_case_prepare_patch(
 		(void)snprintf(detail, detail_size, "unsupported patch action '%s'", action);
 		return 0;
 	}
-	resolved = sqlparser_case_resolve_pointer(
-		expected_view, target, detail, detail_size);
-	if (!json_is_string(resolved) ||
-	    (selector = json_string_value(resolved)) == NULL ||
-	    selector[0] == '\0') {
-		if (resolved != NULL) {
-			(void)snprintf(detail, detail_size, "patch target does not resolve to a selector string");
+	if (target[0] == '/') {
+		resolved = sqlparser_case_resolve_pointer(
+			expected_view, target, detail, detail_size);
+		if (!json_is_string(resolved) ||
+		    (selector = json_string_value(resolved)) == NULL ||
+		    selector[0] == '\0') {
+			if (resolved != NULL) {
+				(void)snprintf(detail, detail_size, "patch target does not resolve to a selector string");
+			}
+			return 0;
 		}
-		return 0;
+	} else {
+		selector = target;
 	}
 	memset(&selector_error, 0, sizeof(selector_error));
 	memset(&parsed_selector, 0, sizeof(parsed_selector));
@@ -535,8 +539,10 @@ static int sqlparser_case_prepare_patch(
 	}
 	pair_insert =
 		op == SQLPARSER_PATCH_INSERT_COLUMN &&
-		parsed_selector.kind ==
-			SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS;
+		(parsed_selector.kind ==
+			 SQLPARSER_SELECTOR_KIND_INSERT_COLUMNS ||
+		 parsed_selector.kind ==
+			 SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS);
 	if (pair_insert) {
 		allowed_keys = pair_insert_keys;
 		allowed_count = sizeof(pair_insert_keys) / sizeof(pair_insert_keys[0]);

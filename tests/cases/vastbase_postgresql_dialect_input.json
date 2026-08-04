@@ -20212,6 +20212,14 @@
           "target": "/statements/0/query_graph/dml/rows/3/selector",
           "value": "42",
           "deparse": "INSERT INTO public.bind_mix (c1, c2, c3, c4) VALUES ($1, $2, $3, 42)"
+        },
+        {
+          "action": "insert_column",
+          "target": "stmt[0].insert_columns",
+          "index": 3,
+          "name": "audit_flag",
+          "value": "1",
+          "deparse": "INSERT INTO public.bind_mix (c1, c2, c3, audit_flag, c4) VALUES ($1, $2, $3, 1, CURRENT_TIMESTAMP)"
         }
       ]
     },

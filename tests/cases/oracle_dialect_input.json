@@ -33442,6 +33442,14 @@
           "target": "/statements/0/query_graph/dml/rows/3/selector",
           "value": "TIMESTAMP '2027-01-02 03:04:05'",
           "deparse": "INSERT INTO typed_values (id, name, created_at, updated_at) VALUES (9101, 'manual-user', DATE '2026-06-22', TIMESTAMP '2027-01-02 03:04:05');"
+        },
+        {
+          "action": "insert_column",
+          "target": "stmt[0].insert_columns",
+          "index": 2,
+          "name": "audit_flag",
+          "value": "1",
+          "deparse": "INSERT INTO typed_values (id, name, audit_flag, created_at, updated_at) VALUES (9101, 'manual-user', 1, DATE '2026-06-22', TIMESTAMP '2026-06-22 15:00:00');"
         }
       ]
     }

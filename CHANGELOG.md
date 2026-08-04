@@ -1,5 +1,19 @@
 # 变更记录
 
+## 2.14.3
+
+### INSERT COLUMN 局部源码改写
+
+- 显式目标列的普通 `INSERT ... VALUES` 执行 `insert_column` 时，按原始 SQL 区间向目标列列表和每一行 VALUES 插入列名与默认值，不再触发整句 AST 反解析。
+- 全部插入区间在写入前完成边界与冲突校验，多行 VALUES 使用相同列序号且保持原子性；共享源码扫描状态和有序 edit 尾部追加路径避免随行数增加产生重复扫描和移动。
+- 未修改的 typed literal、时间函数、标识符、大小写、空白及其他源码文本逐字节保留；`DATE '...'` 和 `TIMESTAMP '...'` 等表达式不会因新增其他列而改写为 `CAST(...)`。
+
+### 回归与兼容性
+
+- 九套可执行方言夹具各增加一个 `insert_column` patch，覆盖 typed literal、`NOW()`、`CURRENT_TIMESTAMP` 和 `GETDATE()` 的原文保留。Case runner 支持严格解析的内部 INSERT 目标列 selector，既有 JSON Pointer patch 路径保持不变。
+- 本版本没有新增公开 API、枚举或结构体字段；既有函数签名、公开结构体布局和动态库 ABI 主版本保持不变。
+- 九套夹具共包含 2,758 条 final 用例和 8,945 个独立 patch。最终代码的远端全量 `make test` 及一次定向 Valgrind 检查均通过；Valgrind 退出时无残留内存且错误数为 0。
+
 ## 2.14.2
 
 ### INSERT VALUES 表面保留与 View 一致性

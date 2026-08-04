@@ -54670,6 +54670,14 @@
           "deparse": "INSERT INTO dbo.bind_mix (customer_id, customer_name, city, created_at) VALUES (@customer_id, @customer_name, @city, 42)"
         },
         {
+          "action": "insert_column",
+          "target": "stmt[0].insert_columns",
+          "index": 3,
+          "name": "audit_flag",
+          "value": "1",
+          "deparse": "INSERT INTO dbo.bind_mix (customer_id, customer_name, city, audit_flag, created_at) VALUES (@customer_id, @customer_name, @city, 1, GETDATE())"
+        },
+        {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",

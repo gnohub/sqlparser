@@ -1,5 +1,35 @@
 # Changelog
 
+## 2.14.3
+
+### Local Source Edits for INSERT COLUMN
+
+- On an ordinary `INSERT ... VALUES` statement with an explicit target list,
+  `insert_column` adds the column name and default value to the target list and
+  every VALUES row at their original source intervals instead of serializing
+  the complete AST.
+- All insertion intervals are checked for valid boundaries and conflicts before
+  edits are added. Multi-row VALUES statements use one insertion index and
+  remain atomic. Shared source-scan state and ordered tail appends avoid repeated
+  scans and edit movement as the row count grows.
+- Unchanged typed literals, time functions, identifiers, case, whitespace, and
+  other source text remain byte-identical. Expressions such as `DATE '...'` and
+  `TIMESTAMP '...'` are not rewritten as `CAST(...)` when another column is
+  added.
+
+### Regression Coverage and Compatibility
+
+- Each of the nine executable dialect fixtures adds one `insert_column` patch
+  covering typed literals, `NOW()`, `CURRENT_TIMESTAMP`, or `GETDATE()`. The
+  case runner accepts a strictly parsed internal INSERT target-list selector;
+  existing JSON Pointer patch paths are unchanged.
+- This release adds no public APIs, enums, or structure fields. Existing
+  function signatures, public structure layouts, and the shared-library ABI
+  major are unchanged.
+- The nine fixtures contain 2,758 final cases and 8,945 independent patches.
+  A remote full `make test` and one targeted Valgrind run on the final code
+  passed; Valgrind reported no memory remaining at exit and zero errors.
+
 ## 2.14.2
 
 ### INSERT VALUES Surface Preservation and View Consistency

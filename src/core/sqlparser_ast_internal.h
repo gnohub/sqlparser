@@ -50,6 +50,13 @@ typedef struct {
 } sqlparser_name_context_t;
 
 typedef struct {
+	size_t resume;
+	size_t search_position;
+	size_t last_location;
+	int valid;
+} sqlparser_view_expression_source_cache_t;
+
+typedef struct {
 	size_t seen;
 	size_t target_index;
 	int want_target;
@@ -581,6 +588,8 @@ int sqlparser_view_insert_cell_source_sql(
 int sqlparser_view_insert_cell_source_span(
 	sqlparser_handle_t *handle,
 	const sqlparser_surface_source_edits_t *surface_edits,
+	sqlparser_view_expression_source_cache_t *cache,
+	int allow_comments,
 	size_t statement_index,
 	size_t row_index,
 	size_t column_index,

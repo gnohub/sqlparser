@@ -64,13 +64,6 @@ typedef struct {
 } sqlparser_view_control_unit_span_t;
 
 typedef struct {
-	size_t resume;
-	size_t search_position;
-	size_t last_location;
-	int valid;
-} sqlparser_view_expression_source_cache_t;
-
-typedef struct {
 	sqlparser_handle_t *handle;
 	size_t statement_index;
 } sqlparser_view_build_t;
@@ -2519,6 +2512,8 @@ static int sqlparser_view_expression_source_span(
 int sqlparser_view_insert_cell_source_span(
 	sqlparser_handle_t *handle,
 	const sqlparser_surface_source_edits_t *surface_edits,
+	sqlparser_view_expression_source_cache_t *cache,
+	int allow_comments,
 	size_t statement_index,
 	size_t row_index,
 	size_t column_index,
@@ -2624,7 +2619,7 @@ int sqlparser_view_insert_cell_source_span(
 		source_status = sqlparser_view_expression_source_span(
 			handle,
 			&origins,
-			NULL,
+			cache,
 			value_node,
 			surface_edits,
 			out_start,
@@ -2680,8 +2675,8 @@ int sqlparser_view_insert_cell_source_span(
 			pos++;
 			continue;
 		}
-		if (sqlparser_public_comment_at(
-			    handle->dialect, handle->sql, pos) ||
+		if ((!allow_comments && sqlparser_public_comment_at(
+			     handle->dialect, handle->sql, pos)) ||
 		    skipped > *out_end) {
 			*out_start = 0U;
 			*out_end = 0U;

@@ -167,10 +167,15 @@ sqlparser_status_t sqlparser_surface_source_edits_insert(
 			"source edit arguments are invalid");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	index = 0U;
-	while (index < edits->count &&
-	       edits->items[index].source_start < source_start) {
-		index++;
+	if (edits->count > 0U &&
+	    edits->items[edits->count - 1U].source_start < source_start) {
+		index = edits->count;
+	} else {
+		index = 0U;
+		while (index < edits->count &&
+		       edits->items[index].source_start < source_start) {
+			index++;
+		}
 	}
 	if ((index > 0U &&
 	     sqlparser_surface_source_edits_overlap(

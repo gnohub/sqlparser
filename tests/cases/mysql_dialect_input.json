@@ -21637,6 +21637,14 @@
           "target": "/statements/0/query_graph/dml/rows/3/selector",
           "value": "42",
           "deparse": "INSERT INTO bind_mix (id, phone, status, created_at) VALUES (?, ?, ?, 42)"
+        },
+        {
+          "action": "insert_column",
+          "target": "stmt[0].insert_columns",
+          "index": 3,
+          "name": "audit_flag",
+          "value": "1",
+          "deparse": "INSERT INTO bind_mix (id, phone, status, audit_flag, created_at) VALUES (?, ?, ?, 1, NOW())"
         }
       ],
       "status": "final"

@@ -1,36 +1,33 @@
-# v2.14.2 Release Notes
+# v2.14.3 Release Notes
 
-`v2.14.2` is a patch release for `v2.14.1`. It corrects source-surface
-regressions after local patches to `INSERT ... VALUES` typed literals and SQL
-Server `INSERT ... OUTPUT` statements.
+`v2.14.3` is a patch release for `v2.14.2`. It corrects whole-AST
+serialization of unchanged expressions after `insert_column` on an ordinary
+`INSERT ... VALUES` statement.
 
-## INSERT VALUES Surface Preservation
+## INSERT COLUMN Surface Preservation
 
-- For an ordinary `INSERT ... VALUES` cell whose source interval can be resolved
-  safely, dialect-valid string, typed-literal, function, and compound-expression
-  patches use a local replacement. After dialect parsing, only the target
-  interval is replaced and unchanged source text is preserved.
-- Oracle, Dameng, and Vastbase-Oracle `DATE '...'` and `TIMESTAMP '...'`
-  expressions retain typed-literal syntax when either the literal itself or a
-  different cell is replaced, rather than being rewritten as `CAST(...)`.
-- Expression cells in a patched handle read from current surface SQL. On the
-  local-source path, a `source_selector` in a multi-patch request materializes
-  prior local edits before reading, ensuring that cloning uses current SQL
-  text.
-- Reparsing patched SQL produces a byte-identical second deparse, and patched
-  and freshly parsed handles continue to export equivalent Views.
+- For an ordinary `INSERT ... VALUES` statement with an explicit target list,
+  `insert_column` inserts the column name and default value into the target
+  list and every VALUES row at their original source intervals. The operation
+  no longer requires serialization of the complete AST.
+- All target intervals, boundaries, and conflicts are validated before edits
+  are added. Every row uses the same insertion index, and a failure cannot
+  leave a partially modified statement.
+- Unchanged text is preserved byte for byte. Original expressions such as
+  `DATE '...'`, `TIMESTAMP '...'`, `NOW()`, `CURRENT_TIMESTAMP`, and
+  `GETDATE()` are not rewritten as `CAST(...)` or another normalized form when
+  a different column is added.
+- Multi-row planning reuses expression-source scan state, while ordered source
+  edits use a tail-append path to avoid repeated scanning or movement as the
+  VALUES row count grows.
 
-## SQL Server INSERT OUTPUT
+## Regression Fixtures
 
-- Simple SQL Server and Vastbase-SQLServer `INSERT ... OUTPUT ... VALUES`
-  statements with verifiable boundaries use local source edits for client,
-  `OUTPUT INTO`, and dual result channels.
-- OUTPUT targets, sink relations, and sink columns are resolved from actual
-  source intervals, avoiding whole-statement AST serialization for supported
-  result-channel combinations.
-- No whitespace is actively inserted between a target relation and its column
-  list. Forms such as `t(a)` and `audit(id)`, bracket identifiers, original
-  case, and irregular whitespace remain unchanged.
+- Each of the nine executable dialect fixtures adds one `insert_column`
+  regression patch covering typed literals or dialect time functions, with an
+  exact-text assertion for patched SQL.
+- The case runner accepts a strictly parsed internal selector for an INSERT
+  target list. Existing JSON Pointer patch paths are unchanged.
 
 ## Compatibility
 
@@ -41,12 +38,11 @@ Server `INSERT ... OUTPUT` statements.
 ## Release Validation
 
 - The nine executable dialect fixtures contain 2,758 cases with
-  `status = "final"` and 8,936 independent patches.
-- A strict remote build and all nine runners passed. Original deparse, View,
+  `status = "final"` and 8,945 independent patches.
+- The final code completed a remote full `make test`. Original deparse, View,
   patched deparse, a second deparse after reparsing, and patched/fresh View
-  checks all reported zero failures.
-- One targeted Valgrind run covered typed literals, current surface SQL, and
-  the multi-patch `source_selector` path. It exited with `0 bytes in 0 blocks`
-  and zero errors.
+  checks all passed.
+- One targeted Valgrind run on the final code matched all 947,143 allocations
+  with frees, exited with `0 bytes in 0 blocks`, and reported zero errors.
 
 Vendored `libpg_query` tag: `17-6.2.2`.
