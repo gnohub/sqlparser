@@ -2612,7 +2612,7 @@ sqlparser_status_t sqlparser_ensure_current_sql_text(
 	if (handle->generation == 0UL) {
 		return SQLPARSER_STATUS_OK;
 	}
-	if (handle->control != NULL && handle->surface_source_complete) {
+	if (handle->surface_source_complete) {
 		if (handle->current_sql != NULL) {
 			return SQLPARSER_STATUS_OK;
 		}
@@ -2629,7 +2629,7 @@ sqlparser_status_t sqlparser_ensure_current_sql_text(
 				"current SQL",
 				out_error);
 		}
-		if (status == SQLPARSER_STATUS_OK) {
+		if (status == SQLPARSER_STATUS_OK && handle->control != NULL) {
 			status = sqlparser_control_project_surface_units(
 				mutable_handle,
 				strlen(public_sql),

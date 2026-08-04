@@ -608,7 +608,9 @@ sqlparser_status_t sqlparser_insert_cell_sql(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	if (handle != NULL && handle->generation == 0UL) {
+	if (handle != NULL &&
+	    (handle->generation == 0UL ||
+	     handle->surface_source_complete)) {
 		int source_status;
 
 		source_status = sqlparser_view_insert_cell_source_sql(

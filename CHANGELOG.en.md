@@ -1,5 +1,24 @@
 # Changelog
 
+## 2.14.2
+
+### INSERT VALUES Surface Preservation and View Consistency
+
+- For an ordinary `INSERT ... VALUES` cell whose source interval can be resolved safely, dialect-valid string, typed-literal, function, and compound-expression patches use a local replacement. After dialect parsing, only the target interval is replaced and unchanged source text is preserved.
+- Oracle, Dameng, and Vastbase-Oracle `DATE '...'` and `TIMESTAMP '...'` typed literals no longer degrade to `CAST(...)` when either the literal itself or another cell in the statement is replaced. Views exported from patched and freshly parsed handles remain equivalent.
+- A surface-complete patched handle can read cell text from the current statement, VALUES ordinal, row, and column. On the local-source path, prior edits in a multi-patch request are materialized before a `source_selector` is resolved, so cloning reads current SQL rather than normalized AST text.
+
+### Local Rewrites for SQL Server INSERT OUTPUT
+
+- Simple SQL Server and Vastbase-SQLServer `INSERT ... OUTPUT ... VALUES` statements with verifiable boundaries support local rewrites for client, `OUTPUT INTO`, and dual result channels. Result targets, sink relations, and sink columns are resolved to source intervals.
+- Removed active insertion of whitespace between the target relation and column list. Forms such as `t(a)` and `audit(id)`, bracket identifiers, original case, and irregular whitespace remain unchanged after a patch.
+
+### Compatibility and Validation
+
+- This release adds no public APIs, enums, or structure fields. Existing function signatures and public structure layouts are unchanged, and the shared-library ABI major remains `libsqlparser.so.0`.
+- The nine executable dialect fixtures contain 2,758 final cases and 8,936 independent patches. A strict remote build and all nine runners validated original deparse, View JSON, patched deparse, a second deparse after reparsing, and patched/fresh View equivalence, with all checks passing.
+- One targeted Valgrind run covered typed literals, current surface SQL, and the multi-patch `source_selector` lifecycle. All 2,100 allocations were freed, no memory remained at exit, and the error count was zero.
+
 ## 2.14.1
 
 ### Structured MERGE INSERT Addressing and Rewrites

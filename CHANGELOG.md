@@ -1,5 +1,24 @@
 # 变更记录
 
+## 2.14.2
+
+### INSERT VALUES 表面保留与 View 一致性
+
+- 对于能够可靠定位源码区间的普通 `INSERT ... VALUES` cell，方言合法的字符串、typed literal、函数及复合表达式 patch 均可执行局部替换；patch 片段完成方言解析后，仅替换目标区间，未修改部分保持原文。
+- Oracle、达梦和 Vastbase-Oracle 的 `DATE '...'`、`TIMESTAMP '...'` typed literal 在替换自身或同一语句的其他 cell 后不再退化为 `CAST(...)`；patched handle 与重新解析 handle 的 View 继续保持一致。
+- surface 完整的 patched handle 可按当前 statement、VALUES 序号和行列坐标读取 cell 原文；保持局部源码表面的多 patch 使用 `source_selector` 时会先固化既有局部改写，确保后续克隆读取当前 SQL，而不是规范化后的 AST 文本。
+
+### SQL Server INSERT OUTPUT 局部改写
+
+- SQL Server 与 Vastbase-SQLServer 中可验证边界的简单 `INSERT ... OUTPUT ... VALUES` 支持 client、`OUTPUT INTO` 和双结果通道的局部改写；结果目标、sink relation 与 sink column 均按源码区间定位。
+- 移除目标 relation 与列列表之间的主动空格插入。`t(a)`、`audit(id)`、方括号标识符、原始大小写和非常规空白在 patch 后按输入保留。
+
+### 兼容性与验证
+
+- 本版本没有新增公开 API、枚举或结构体字段；既有函数签名和公开结构体布局保持不变，动态库 ABI 主版本仍为 `libsqlparser.so.0`。
+- 九套可执行方言夹具包含 2,758 条 final 用例和 8,936 个独立 patch。远端严格构建及九套 runner 对原始反解析、View JSON、patch 反解析、重新解析后的二次反解析和 patch/fresh View 一致性完成校验，全部通过。
+- 针对 typed literal、current surface SQL 和多 patch `source_selector` 生命周期执行一次定向 Valgrind；2,100 次分配与 2,100 次释放全部对齐，退出时无残留内存，错误数为 0。
+
 ## 2.14.1
 
 ### MERGE INSERT 结构化定位与改写

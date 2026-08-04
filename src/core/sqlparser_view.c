@@ -2458,8 +2458,17 @@ static int sqlparser_view_statement_dml_cell_source_sql(
 		return -1;
 	}
 	*out_sql = NULL;
-	if (handle == NULL || handle->generation != 0UL ||
-	    !sqlparser_view_public_statement_span(
+	if (handle == NULL ||
+	    (handle->generation != 0UL &&
+	     !handle->surface_source_complete)) {
+		return 0;
+	}
+	if (handle->generation != 0UL &&
+	    sqlparser_ensure_current_sql_text(handle, out_error) !=
+		    SQLPARSER_STATUS_OK) {
+		return -1;
+	}
+	if (!sqlparser_view_public_statement_span(
 		    handle,
 		    statement_index,
 		    &start,
@@ -3451,6 +3460,13 @@ static int sqlparser_view_node_source_location(
 		location = sqlparser_proto_location_slot(child);
 		if (location != NULL && *location >= 0) {
 			*out_location = (size_t)*location;
+			return 1;
+		}
+		if (child != NULL &&
+		    child->descriptor == &pg_query__type_cast__descriptor &&
+		    sqlparser_view_node_source_location(
+			    ((const PgQuery__TypeCast *)child)->arg,
+			    out_location)) {
 			return 1;
 		}
 	}
@@ -16847,8 +16863,10 @@ static int sqlparser_graph_dml_expression_sql(
 	if (source_status != 0) {
 		return source_status > 0 ? 0 : -1;
 	}
-	if (build->handle->generation == 0UL) {
-		if (build->dml_source_sql != NULL) {
+	if (build->handle->generation == 0UL ||
+	    build->handle->surface_source_complete) {
+		if (build->handle->generation == 0UL &&
+		    build->dml_source_sql != NULL) {
 			source_status = sqlparser_view_dml_cell_source_sql(
 				build->handle,
 				build->dml_source_sql,

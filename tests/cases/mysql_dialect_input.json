@@ -22747,6 +22747,12 @@
           "target": "/statements/0/query_graph/dml/rows/3/selector",
           "value": "42",
           "deparse": "INSERT   INTO `audit_db`.`Bind_Mix` (`id`, `phone`, `status`, `created_at`)  VALUES ( ? ,  ? , ? ,  42 )"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/rows/1/selector",
+          "value": "'patched-phone'",
+          "deparse": "INSERT   INTO `audit_db`.`Bind_Mix` (`id`, `phone`, `status`, `created_at`)  VALUES ( ? ,  'patched-phone' , ? ,  CURRENT_TIMESTAMP )"
         }
       ],
       "status": "final"

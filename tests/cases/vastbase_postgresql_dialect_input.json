@@ -21318,6 +21318,12 @@
           "target": "/statements/0/query_graph/dml/rows/3/selector",
           "value": "42",
           "deparse": "INSERT  INTO \"Audit\".\"Bind Mix\" (\"Id\",\"Payload\",\"Status\",\"Created At\")\nVALUES ( $1,$2,  $3,42 )"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/rows/1/selector",
+          "value": "'patched-payload'",
+          "deparse": "INSERT  INTO \"Audit\".\"Bind Mix\" (\"Id\",\"Payload\",\"Status\",\"Created At\")\nVALUES ( $1,'patched-payload',  $3,CURRENT_TIMESTAMP )"
         }
       ]
     },

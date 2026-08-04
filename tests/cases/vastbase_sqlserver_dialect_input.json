@@ -36767,32 +36767,32 @@
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/0/selector",
           "value": "42",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id VALUES (42)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id VALUES (42)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "[PatchedName]",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.[PatchedName] VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.[PatchedName] VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "INSERT [PatchedTable] (a) OUTPUT INSERTED.id VALUES (1)"
+          "deparse": "INSERT [PatchedTable](a) OUTPUT INSERTED.id VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "INSERT dbo.t (a) OUTPUT [PatchedTarget] VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT [PatchedTarget] VALUES (1)"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "[InsertedTarget]",
           "index": 1,
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id, [InsertedTarget] VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id, [InsertedTarget] VALUES (1)"
         }
       ]
     },
@@ -36909,32 +36909,32 @@
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/0/selector",
           "value": "42",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id VALUES (42), (2)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id VALUES (42), (2)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "[PatchedName]",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.[PatchedName] VALUES (1), (2)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.[PatchedName] VALUES (1), (2)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "INSERT [PatchedTable] (a) OUTPUT INSERTED.id VALUES (1), (2)"
+          "deparse": "INSERT [PatchedTable](a) OUTPUT INSERTED.id VALUES (1), (2)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "INSERT dbo.t (a) OUTPUT [PatchedTarget] VALUES (1), (2)"
+          "deparse": "INSERT dbo.t(a) OUTPUT [PatchedTarget] VALUES (1), (2)"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "[InsertedTarget]",
           "index": 1,
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id, [InsertedTarget] VALUES (1), (2)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id, [InsertedTarget] VALUES (1), (2)"
         }
       ]
     },
@@ -37326,32 +37326,32 @@
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/0/selector",
           "value": "42",
-          "deparse": "INSERT INTO dbo.users (id) OUTPUT INSERTED.id VALUES (42)"
+          "deparse": "INSERT INTO dbo.users(id) OUTPUT INSERTED.id VALUES (42)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "[PatchedName]",
-          "deparse": "INSERT INTO dbo.users (id) OUTPUT INSERTED.[PatchedName] VALUES (1)"
+          "deparse": "INSERT INTO dbo.users(id) OUTPUT INSERTED.[PatchedName] VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "INSERT INTO [PatchedTable] (id) OUTPUT INSERTED.id VALUES (1)"
+          "deparse": "INSERT INTO [PatchedTable](id) OUTPUT INSERTED.id VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "INSERT INTO dbo.users (id) OUTPUT [PatchedTarget] VALUES (1)"
+          "deparse": "INSERT INTO dbo.users(id) OUTPUT [PatchedTarget] VALUES (1)"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "[InsertedTarget]",
           "index": 1,
-          "deparse": "INSERT INTO dbo.users (id) OUTPUT INSERTED.id, [InsertedTarget] VALUES (1)"
+          "deparse": "INSERT INTO dbo.users(id) OUTPUT INSERTED.id, [InsertedTarget] VALUES (1)"
         }
       ]
     },
@@ -37447,26 +37447,26 @@
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/0/selector",
           "value": "42",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.* VALUES (42)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.* VALUES (42)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "INSERT [PatchedTable] (a) OUTPUT INSERTED.* VALUES (1)"
+          "deparse": "INSERT [PatchedTable](a) OUTPUT INSERTED.* VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "INSERT dbo.t (a) OUTPUT [PatchedTarget] VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT [PatchedTarget] VALUES (1)"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "[InsertedTarget]",
           "index": 1,
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.*, [InsertedTarget] VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.*, [InsertedTarget] VALUES (1)"
         }
       ]
     },
@@ -37578,32 +37578,32 @@
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/0/selector",
           "value": "42",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id + 1 AS next_id VALUES (42)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id + 1 AS next_id VALUES (42)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "[PatchedName]",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.[PatchedName] + 1 AS next_id VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.[PatchedName] + 1 AS next_id VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "INSERT [PatchedTable] (a) OUTPUT INSERTED.id + 1 AS next_id VALUES (1)"
+          "deparse": "INSERT [PatchedTable](a) OUTPUT INSERTED.id + 1 AS next_id VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "INSERT dbo.t (a) OUTPUT [PatchedTarget] VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT [PatchedTarget] VALUES (1)"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "[InsertedTarget]",
           "index": 1,
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id + 1 AS next_id, [InsertedTarget] VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id + 1 AS next_id, [InsertedTarget] VALUES (1)"
         }
       ]
     },
@@ -37755,44 +37755,44 @@
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/0/selector",
           "value": "42",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id, INSERTED.a, @tag AS tag VALUES (42)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id, INSERTED.a, @tag AS tag VALUES (42)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "[PatchedName]",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.[PatchedName], INSERTED.a, @tag AS tag VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.[PatchedName], INSERTED.a, @tag AS tag VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "INSERT [PatchedTable] (a) OUTPUT INSERTED.id, INSERTED.a, @tag AS tag VALUES (1)"
+          "deparse": "INSERT [PatchedTable](a) OUTPUT INSERTED.id, INSERTED.a, @tag AS tag VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "INSERT dbo.t (a) OUTPUT [PatchedTarget], INSERTED.a, @tag AS tag VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT [PatchedTarget], INSERTED.a, @tag AS tag VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/2/selector",
           "value": "[PatchedTarget]",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id, INSERTED.a, [PatchedTarget] VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id, INSERTED.a, [PatchedTarget] VALUES (1)"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "[InsertedTarget]",
           "index": 1,
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id, [InsertedTarget], INSERTED.a, @tag AS tag VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id, [InsertedTarget], INSERTED.a, @tag AS tag VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id, INSERTED.a, 42 AS tag VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id, INSERTED.a, 42 AS tag VALUES (1)"
         }
       ]
     },
@@ -37907,38 +37907,38 @@
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/0/selector",
           "value": "42",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id INTO dbo.audit VALUES (42)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id INTO dbo.audit VALUES (42)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "[PatchedName]",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.[PatchedName] INTO dbo.audit VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.[PatchedName] INTO dbo.audit VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "INSERT [PatchedTable] (a) OUTPUT INSERTED.id INTO dbo.audit VALUES (1)"
+          "deparse": "INSERT [PatchedTable](a) OUTPUT INSERTED.id INTO dbo.audit VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/1/selector",
           "value": "[PatchedTable]",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id INTO [PatchedTable] VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id INTO [PatchedTable] VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "INSERT dbo.t (a) OUTPUT [PatchedTarget] INTO dbo.audit VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT [PatchedTarget] INTO dbo.audit VALUES (1)"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "[InsertedTarget]",
           "index": 1,
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id, [InsertedTarget] INTO dbo.audit VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id, [InsertedTarget] INTO dbo.audit VALUES (1)"
         }
       ]
     },
@@ -38060,37 +38060,37 @@
           "action": "replace",
           "target": "/statements/0/query_graph/dml/result_channels/0/sink_columns/0/selector",
           "value": "[PatchedName]",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id INTO dbo.audit ([PatchedName]) VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id INTO dbo.audit([PatchedName]) VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/0/selector",
           "value": "42",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id INTO dbo.audit (id) VALUES (42)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id INTO dbo.audit(id) VALUES (42)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "[PatchedName]",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.[PatchedName] INTO dbo.audit (id) VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.[PatchedName] INTO dbo.audit(id) VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "INSERT [PatchedTable] (a) OUTPUT INSERTED.id INTO dbo.audit (id) VALUES (1)"
+          "deparse": "INSERT [PatchedTable](a) OUTPUT INSERTED.id INTO dbo.audit(id) VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/1/selector",
           "value": "[PatchedTable]",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id INTO [PatchedTable] (id) VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id INTO [PatchedTable](id) VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "INSERT dbo.t (a) OUTPUT [PatchedTarget] INTO dbo.audit (id) VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT [PatchedTarget] INTO dbo.audit(id) VALUES (1)"
         }
       ]
     },
@@ -38211,37 +38211,37 @@
           "action": "replace",
           "target": "/statements/0/query_graph/dml/result_channels/0/sink_columns/0/selector",
           "value": "[PatchedName]",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id INTO @audit ([PatchedName]) VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id INTO @audit([PatchedName]) VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/0/selector",
           "value": "42",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id INTO @audit (id) VALUES (42)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id INTO @audit(id) VALUES (42)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "[PatchedName]",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.[PatchedName] INTO @audit (id) VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.[PatchedName] INTO @audit(id) VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "INSERT [PatchedTable] (a) OUTPUT INSERTED.id INTO @audit (id) VALUES (1)"
+          "deparse": "INSERT [PatchedTable](a) OUTPUT INSERTED.id INTO @audit(id) VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/1/selector",
           "value": "[PatchedTable]",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id INTO [PatchedTable] (id) VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id INTO [PatchedTable](id) VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "INSERT dbo.t (a) OUTPUT [PatchedTarget] INTO @audit (id) VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT [PatchedTarget] INTO @audit(id) VALUES (1)"
         }
       ]
     },
@@ -38398,44 +38398,44 @@
           "action": "replace",
           "target": "/statements/0/query_graph/dml/result_channels/0/sink_columns/0/selector",
           "value": "[PatchedName]",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id INTO dbo.audit ([PatchedName]) OUTPUT INSERTED.id AS client_id VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id INTO dbo.audit([PatchedName]) OUTPUT INSERTED.id AS client_id VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/0/selector",
           "value": "42",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id INTO dbo.audit (id) OUTPUT INSERTED.id AS client_id VALUES (42)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id INTO dbo.audit(id) OUTPUT INSERTED.id AS client_id VALUES (42)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "[PatchedName]",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.[PatchedName] INTO dbo.audit (id) OUTPUT INSERTED.id AS client_id VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.[PatchedName] INTO dbo.audit(id) OUTPUT INSERTED.id AS client_id VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "INSERT [PatchedTable] (a) OUTPUT INSERTED.id INTO dbo.audit (id) OUTPUT INSERTED.id AS client_id VALUES (1)"
+          "deparse": "INSERT [PatchedTable](a) OUTPUT INSERTED.id INTO dbo.audit(id) OUTPUT INSERTED.id AS client_id VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/1/selector",
           "value": "[PatchedTable]",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id INTO [PatchedTable] (id) OUTPUT INSERTED.id AS client_id VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id INTO [PatchedTable](id) OUTPUT INSERTED.id AS client_id VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "INSERT dbo.t (a) OUTPUT [PatchedTarget] INTO dbo.audit (id) OUTPUT INSERTED.id AS client_id VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT [PatchedTarget] INTO dbo.audit(id) OUTPUT INSERTED.id AS client_id VALUES (1)"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/1/target_list_selector",
           "value": "[InsertedTarget]",
           "index": 1,
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id INTO dbo.audit (id) OUTPUT INSERTED.id AS client_id, [InsertedTarget] VALUES (1)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id INTO dbo.audit(id) OUTPUT INSERTED.id AS client_id, [InsertedTarget] VALUES (1)"
         }
       ]
     },
@@ -40426,32 +40426,32 @@
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/0/selector",
           "value": "42",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id VALUES (42)"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id VALUES (42)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "[PatchedName]",
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.[PatchedName] VALUES (N'OUTPUT INSERTED INTO')"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.[PatchedName] VALUES (N'OUTPUT INSERTED INTO')"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "INSERT [PatchedTable] (a) OUTPUT INSERTED.id VALUES (N'OUTPUT INSERTED INTO')"
+          "deparse": "INSERT [PatchedTable](a) OUTPUT INSERTED.id VALUES (N'OUTPUT INSERTED INTO')"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "INSERT dbo.t (a) OUTPUT [PatchedTarget] VALUES (N'OUTPUT INSERTED INTO')"
+          "deparse": "INSERT dbo.t(a) OUTPUT [PatchedTarget] VALUES (N'OUTPUT INSERTED INTO')"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "[InsertedTarget]",
           "index": 1,
-          "deparse": "INSERT dbo.t (a) OUTPUT INSERTED.id, [InsertedTarget] VALUES (N'OUTPUT INSERTED INTO')"
+          "deparse": "INSERT dbo.t(a) OUTPUT INSERTED.id, [InsertedTarget] VALUES (N'OUTPUT INSERTED INTO')"
         }
       ]
     },
@@ -40557,32 +40557,32 @@
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/0/selector",
           "value": "42",
-          "deparse": "INSERT /* OUTPUT INSERTED INTO */ dbo.t (a) OUTPUT INSERTED.id VALUES (42) -- OUTPUT DELETED"
+          "deparse": "INSERT /* OUTPUT INSERTED INTO */ dbo.t(a) OUTPUT INSERTED.id VALUES (42) -- OUTPUT DELETED"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "[PatchedName]",
-          "deparse": "INSERT /* OUTPUT INSERTED INTO */ dbo.t (a) OUTPUT INSERTED.[PatchedName] VALUES (1) -- OUTPUT DELETED"
+          "deparse": "INSERT /* OUTPUT INSERTED INTO */ dbo.t(a) OUTPUT INSERTED.[PatchedName] VALUES (1) -- OUTPUT DELETED"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "INSERT /* OUTPUT INSERTED INTO */ [PatchedTable] (a) OUTPUT INSERTED.id VALUES (1) -- OUTPUT DELETED"
+          "deparse": "INSERT /* OUTPUT INSERTED INTO */ [PatchedTable](a) OUTPUT INSERTED.id VALUES (1) -- OUTPUT DELETED"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "INSERT /* OUTPUT INSERTED INTO */ dbo.t (a) OUTPUT [PatchedTarget] VALUES (1) -- OUTPUT DELETED"
+          "deparse": "INSERT /* OUTPUT INSERTED INTO */ dbo.t(a) OUTPUT [PatchedTarget] VALUES (1) -- OUTPUT DELETED"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "[InsertedTarget]",
           "index": 1,
-          "deparse": "INSERT /* OUTPUT INSERTED INTO */ dbo.t (a) OUTPUT INSERTED.id, [InsertedTarget] VALUES (1) -- OUTPUT DELETED"
+          "deparse": "INSERT /* OUTPUT INSERTED INTO */ dbo.t(a) OUTPUT INSERTED.id, [InsertedTarget] VALUES (1) -- OUTPUT DELETED"
         }
       ]
     },
@@ -40688,32 +40688,32 @@
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/0/selector",
           "value": "42",
-          "deparse": "INSERT dbo.[OUTPUT] ([INSERTED]) OUTPUT INSERTED.[DELETED] VALUES (42)"
+          "deparse": "INSERT dbo.[OUTPUT]([INSERTED]) OUTPUT INSERTED.[DELETED] VALUES (42)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "[PatchedName]",
-          "deparse": "INSERT dbo.[OUTPUT] ([INSERTED]) OUTPUT INSERTED.[PatchedName] VALUES (1)"
+          "deparse": "INSERT dbo.[OUTPUT]([INSERTED]) OUTPUT INSERTED.[PatchedName] VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "INSERT [PatchedTable] ([INSERTED]) OUTPUT INSERTED.[DELETED] VALUES (1)"
+          "deparse": "INSERT [PatchedTable]([INSERTED]) OUTPUT INSERTED.[DELETED] VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "INSERT dbo.[OUTPUT] ([INSERTED]) OUTPUT [PatchedTarget] VALUES (1)"
+          "deparse": "INSERT dbo.[OUTPUT]([INSERTED]) OUTPUT [PatchedTarget] VALUES (1)"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "[InsertedTarget]",
           "index": 1,
-          "deparse": "INSERT dbo.[OUTPUT] ([INSERTED]) OUTPUT INSERTED.[DELETED], [InsertedTarget] VALUES (1)"
+          "deparse": "INSERT dbo.[OUTPUT]([INSERTED]) OUTPUT INSERTED.[DELETED], [InsertedTarget] VALUES (1)"
         }
       ]
     },
@@ -41294,32 +41294,32 @@
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/0/selector",
           "value": "42",
-          "deparse": "INSERT dbo.t ([select]) OUTPUT INSERTED.[select] VALUES (42)"
+          "deparse": "INSERT dbo.t([select]) OUTPUT INSERTED.[select] VALUES (42)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "[PatchedName]",
-          "deparse": "INSERT dbo.t ([select]) OUTPUT INSERTED.[PatchedName] VALUES (1)"
+          "deparse": "INSERT dbo.t([select]) OUTPUT INSERTED.[PatchedName] VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "INSERT [PatchedTable] ([select]) OUTPUT INSERTED.[select] VALUES (1)"
+          "deparse": "INSERT [PatchedTable]([select]) OUTPUT INSERTED.[select] VALUES (1)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "[PatchedTarget]",
-          "deparse": "INSERT dbo.t ([select]) OUTPUT [PatchedTarget] VALUES (1)"
+          "deparse": "INSERT dbo.t([select]) OUTPUT [PatchedTarget] VALUES (1)"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "[InsertedTarget]",
           "index": 1,
-          "deparse": "INSERT dbo.t ([select]) OUTPUT INSERTED.[select], [InsertedTarget] VALUES (1)"
+          "deparse": "INSERT dbo.t([select]) OUTPUT INSERTED.[select], [InsertedTarget] VALUES (1)"
         }
       ]
     },
@@ -54255,19 +54255,25 @@
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/0/selector",
           "value": "42",
-          "deparse": "INSERT INTO [dbo].[Bind_Mix] ([Customer_Id], [Status], [Created_At], [Updated_At]) VALUES (42, DEFAULT, GETDATE(), CURRENT_TIMESTAMP), (@customer_id_2, N'active', CURRENT_TIMESTAMP, GETDATE());"
+          "deparse": "INSERT   INTO [dbo].[Bind_Mix] (  [Customer_Id],    [Status],  [Created_At],   [Updated_At]) VALUES (   42,    DEFAULT,    GETDATE(),  CURRENT_TIMESTAMP), ( @customer_id_2,  N'active', CURRENT_TIMESTAMP, GETDATE() );"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/7/selector",
           "value": "42",
-          "deparse": "INSERT INTO [dbo].[Bind_Mix] ([Customer_Id], [Status], [Created_At], [Updated_At]) VALUES (@customer_id_1, DEFAULT, GETDATE(), CURRENT_TIMESTAMP), (@customer_id_2, N'active', CURRENT_TIMESTAMP, 42);"
+          "deparse": "INSERT   INTO [dbo].[Bind_Mix] (  [Customer_Id],    [Status],  [Created_At],   [Updated_At]) VALUES (   @customer_id_1,    DEFAULT,    GETDATE(),  CURRENT_TIMESTAMP), ( @customer_id_2,  N'active', CURRENT_TIMESTAMP, 42 );"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "INSERT INTO [PatchedTable] ([Customer_Id], [Status], [Created_At], [Updated_At]) VALUES (@customer_id_1, DEFAULT, GETDATE(), CURRENT_TIMESTAMP), (@customer_id_2, N'active', CURRENT_TIMESTAMP, GETDATE());"
+          "deparse": "INSERT   INTO [PatchedTable] (  [Customer_Id],    [Status],  [Created_At],   [Updated_At]) VALUES (   @customer_id_1,    DEFAULT,    GETDATE(),  CURRENT_TIMESTAMP), ( @customer_id_2,  N'active', CURRENT_TIMESTAMP, GETDATE() );"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/rows/0/selector",
+          "value": "N'patched'",
+          "deparse": "INSERT   INTO [dbo].[Bind_Mix] (  [Customer_Id],    [Status],  [Created_At],   [Updated_At]) VALUES (   N'patched',    DEFAULT,    GETDATE(),  CURRENT_TIMESTAMP), ( @customer_id_2,  N'active', CURRENT_TIMESTAMP, GETDATE() );"
         }
       ]
     },

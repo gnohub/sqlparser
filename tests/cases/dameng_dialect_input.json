@@ -25255,6 +25255,12 @@
           "target": "/statements/0/query_graph/dml/rows/3/selector",
           "value": "42",
           "deparse": "INSERT INTO \"KDES\".\"Bind_Mix\" (  \"Id\",    \"Name\",  \"City\",   \"Created_At\") VALUES (   ?,    ?,    ?,  42);"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/rows/1/selector",
+          "value": "'patched-name'",
+          "deparse": "INSERT INTO \"KDES\".\"Bind_Mix\" (  \"Id\",    \"Name\",  \"City\",   \"Created_At\") VALUES (   ?,    'patched-name',    ?,  SYSDATE);"
         }
       ]
     },
@@ -25954,6 +25960,121 @@
           "target": "/statements/0/query_graph/values/1/selector",
           "value": "42",
           "deparse": "DELETE FROM audit_log WHERE expired = 1 AND ROWNUM <= 42"
+        }
+      ]
+    },
+    {
+      "name": "dameng-insert-values-typed-date-timestamp",
+      "sql": "INSERT INTO typed_values (id, name, created_at, updated_at) VALUES (9101, 'manual-user', DATE '2026-06-22', TIMESTAMP '2026-06-22 15:00:00');",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "insert",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "dml": {
+                "insert_mode": "values",
+                "kind": "insert",
+                "rows": [
+                  {
+                    "bind_kind": 0,
+                    "column": 0,
+                    "kind": "literal",
+                    "literal": {
+                      "integer_value": 9101,
+                      "kind": "integer"
+                    },
+                    "row": 0,
+                    "selector": "stmt[0].insert_cell[0][0]"
+                  },
+                  {
+                    "bind_kind": 0,
+                    "column": 1,
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "manual-user"
+                    },
+                    "row": 0,
+                    "selector": "stmt[0].insert_cell[0][1]"
+                  },
+                  {
+                    "bind_kind": 0,
+                    "column": 2,
+                    "expression_sql": "DATE '2026-06-22'",
+                    "kind": "expression",
+                    "row": 0,
+                    "selector": "stmt[0].insert_cell[0][2]"
+                  },
+                  {
+                    "bind_kind": 0,
+                    "column": 3,
+                    "expression_sql": "TIMESTAMP '2026-06-22 15:00:00'",
+                    "kind": "expression",
+                    "row": 0,
+                    "selector": "stmt[0].insert_cell[0][3]"
+                  }
+                ],
+                "target_columns": [
+                  {
+                    "column": "id",
+                    "ordinal": 0
+                  },
+                  {
+                    "column": "name",
+                    "ordinal": 1
+                  },
+                  {
+                    "column": "created_at",
+                    "ordinal": 2
+                  },
+                  {
+                    "column": "updated_at",
+                    "ordinal": 3
+                  }
+                ],
+                "target_relation": 0
+              },
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "typed_values"
+                }
+              ],
+              "root": 0
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/rows/1/selector",
+          "value": "'patched-user'",
+          "deparse": "INSERT INTO typed_values (id, name, created_at, updated_at) VALUES (9101, 'patched-user', DATE '2026-06-22', TIMESTAMP '2026-06-22 15:00:00');"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/rows/2/selector",
+          "value": "DATE '2027-01-02'",
+          "deparse": "INSERT INTO typed_values (id, name, created_at, updated_at) VALUES (9101, 'manual-user', DATE '2027-01-02', TIMESTAMP '2026-06-22 15:00:00');"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/rows/3/selector",
+          "value": "TIMESTAMP '2027-01-02 03:04:05'",
+          "deparse": "INSERT INTO typed_values (id, name, created_at, updated_at) VALUES (9101, 'manual-user', DATE '2026-06-22', TIMESTAMP '2027-01-02 03:04:05');"
         }
       ]
     }
