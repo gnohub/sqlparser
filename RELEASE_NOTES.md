@@ -1,18 +1,19 @@
-# v2.14.3 发布说明
+# v2.14.4 发布说明
 
-`v2.14.3` 是 `v2.14.2` 的补丁版本，修正普通 `INSERT ... VALUES` 执行 `insert_column` 后未修改表达式被整句 AST 反解析改写的问题。
+`v2.14.4` 是 `v2.14.3` 的补丁版本，修正结构化 patch 转入 AST fallback 后 handle 仍保留旧源码表面状态，导致后续连续 patch 丢失新增节点的问题。
 
-## INSERT COLUMN 表面保留
+## 连续结构化 Patch
 
-- 对显式目标列的普通 `INSERT ... VALUES`，`insert_column` 按原始 SQL 区间分别向目标列列表和每一行 VALUES 插入列名与默认值，不再为完成该操作反解析整棵 AST。
-- 所有目标区间会在写入前完成定位、边界和冲突校验；多行 VALUES 的列和值保持同一插入位置，失败时不会产生部分改写。
-- 未修改文本逐字节保留。`DATE '...'`、`TIMESTAMP '...'`、`NOW()`、`CURRENT_TIMESTAMP` 和 `GETDATE()` 等原始表达式不会因新增其他列而改写为 `CAST(...)` 或其他规范化形式。
-- 多行规划复用表达式源码扫描状态，已排序的 source edit 使用尾部追加路径，避免随 VALUES 行数增加而重复扫描或移动既有 edit。
+- 当结构化 patch 无法使用局部源码 edit 时，fallback 路径会同步清除本次调用与 handle 级的源码表面完整标记，保证 AST 与当前源码状态一致。
+- 修复前，Oracle 兼容的 `INSERT ALL` 使用 `source_selector` 新增列和值后，内部反解析和重新解析可能恢复 patch 前的旧源码。首次调用表面返回成功，但新增 cell 实际丢失，后续替换该 cell 会报告 `cell index is out of range`。
+- 修复后，同一 handle 可以连续完成插列和新增 cell 替换，调用之间不需要执行 View、deparse 或重新 parse。最终反解析仅体现指定修改，并保留未修改分支、绑定参数及其他原始 SQL 文本。
 
-## 回归夹具
+## 回归覆盖
 
-- 九套可执行方言夹具各增加一个 `insert_column` 回归 patch，覆盖 typed literal 及各方言时间函数，并对 patch 后 SQL 执行精确文本校验。
-- Case runner 支持经过严格解析的内部 selector 直接定位 INSERT 目标列列表；既有 JSON Pointer patch 路径保持不变。
+- Oracle、达梦和 Vastbase-Oracle 使用相同的表驱动单元回归。
+- 每条回归语句包含两个 `INSERT ALL` 分支，每个分支包含 32 个目标列和值。
+- 从未修改的 handle 开始，连续执行四次 `insert_column` 和四次新增 cell `replace`，共八次独立 `apply_patch`。
+- 测试校验每次调用的状态与 generation、最终 SQL 的精确文本，以及重新解析后的反解析稳定性。
 
 ## 兼容性
 
@@ -21,8 +22,8 @@
 
 ## 发布验证
 
-- 九套可执行方言夹具包含 2,758 条 `status = "final"` 用例和 8,945 个独立 patch。
-- 最终代码在远端完成全量 `make test`；原始反解析、View、patch 反解析、重新解析后的二次反解析以及 patch/fresh View 检查全部通过。
-- 最终代码完成一次定向 Valgrind 检查；947,143 次分配与释放全部对齐，退出时为 `0 bytes in 0 blocks`，错误数为 0。
+- 九套可执行方言夹具仍包含 2,758 条 `status = "final"` 用例和 8,945 个独立 patch。
+- 最终代码在远端完成全量 `make test`，退出码为 0。
+- 定向 Valgrind 检查共执行 1,018,764 次分配和 1,018,764 次释放，退出时为 `0 bytes in 0 blocks`，错误数为 0。
 
 内置 `libpg_query` 标签：`17-6.2.2`。

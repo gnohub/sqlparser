@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.14.4
+
+### State Consistency Across Structural Patches
+
+- When a structural patch cannot remain on the local source-edit path and falls
+  back to an AST rewrite, both the per-call and handle-level source-surface
+  completeness flags are cleared. A later internal deparse and reparse can no
+  longer restore stale source from before the patch.
+- For Oracle-compatible `INSERT ALL`, a column and value added on a handle now
+  remain in its current AST and source state. A subsequent independent
+  `replace` patch can address the new cell without silently losing the first
+  insertion or reporting `cell index is out of range`.
+- Consecutive patches do not require an intervening View, deparse, or fresh
+  parse. Final deparse preserves unchanged branches, bind parameters, and other
+  original SQL text.
+
+### Regression Coverage and Compatibility
+
+- Oracle, Dameng, and Vastbase-Oracle add a unit regression with two
+  `INSERT ALL` branches and 32 columns per branch. Starting from one pristine
+  handle, the test executes four insert-and-replace pairs as eight independent
+  `apply_patch` calls, then compares the final SQL exactly and verifies stable
+  output after a fresh parse.
+- This release adds no public APIs, enums, or structure fields. Existing
+  function signatures, public structure layouts, and the shared-library ABI
+  major are unchanged.
+- The nine executable dialect fixtures still contain 2,758 final cases and
+  8,945 independent patches. A remote full `make test` on the final code
+  passed; a targeted Valgrind run exited with `0 bytes in 0 blocks` and zero
+  errors.
+
 ## 2.14.3
 
 ### Local Source Edits for INSERT COLUMN

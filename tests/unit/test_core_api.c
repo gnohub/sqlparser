@@ -24621,6 +24621,230 @@ static int test_insert_select_target_values(void)
 	return 0;
 }
 
+static int test_multi_insert_pristine_source_clone_patch_sequence(void)
+{
+	typedef struct multi_insert_dialect_case {
+		sqlparser_dialect_t dialect;
+		const char *name;
+	} multi_insert_dialect_case_t;
+	typedef struct multi_insert_patch_case {
+		const char *column_name;
+		const char *source_selector;
+		const char *bind_key;
+	} multi_insert_patch_case_t;
+	static const multi_insert_dialect_case_t dialect_cases[] = {
+		{SQLPARSER_DIALECT_ORACLE, "Oracle"},
+		{SQLPARSER_DIALECT_VASTBASE_ORACLE, "Vastbase-Oracle"},
+		{SQLPARSER_DIALECT_DAMENG, "Dameng"}
+	};
+	static const multi_insert_patch_case_t patch_cases[] = {
+		{"PHONE_ORIG_1", "stmt[0].insert_cell[0][2]", "65"},
+		{"PHONE_ORIG_2", "stmt[0].insert_cell[0][10]", "66"},
+		{"PHONE_ORIG_3", "stmt[0].insert_cell[0][18]", "67"},
+		{"PHONE_ORIG_4", "stmt[0].insert_cell[0][26]", "68"}
+	};
+	static const char input_sql[] =
+		"INSERT ALL "
+		"INTO KDES.DBP_SQLM_USERS ("
+		"C01, C02, C03, C04, C05, C06, C07, C08, "
+		"C09, C10, C11, C12, C13, C14, C15, C16, "
+		"C17, C18, C19, C20, C21, C22, C23, C24, "
+		"C25, C26, C27, C28, C29, C30, C31, C32) "
+		"VALUES ("
+		":1, :2, :3, :4, :5, :6, :7, :8, "
+		":9, :10, :11, :12, :13, :14, :15, :16, "
+		":17, :18, :19, :20, :21, :22, :23, :24, "
+		":25, :26, :27, :28, :29, :30, :31, :32) "
+		"INTO KDES.DBP_SQLM_USERS ("
+		"C01, C02, C03, C04, C05, C06, C07, C08, "
+		"C09, C10, C11, C12, C13, C14, C15, C16, "
+		"C17, C18, C19, C20, C21, C22, C23, C24, "
+		"C25, C26, C27, C28, C29, C30, C31, C32) "
+		"VALUES ("
+		":33, :34, :35, :36, :37, :38, :39, :40, "
+		":41, :42, :43, :44, :45, :46, :47, :48, "
+		":49, :50, :51, :52, :53, :54, :55, :56, "
+		":57, :58, :59, :60, :61, :62, :63, :64) "
+		"SELECT 1 FROM DUAL";
+	static const char expected_sql[] =
+		"INSERT ALL "
+		"INTO KDES.DBP_SQLM_USERS ("
+		"C01, C02, C03, C04, C05, C06, C07, C08, "
+		"C09, C10, C11, C12, C13, C14, C15, C16, "
+		"C17, C18, C19, C20, C21, C22, C23, C24, "
+		"C25, C26, C27, C28, C29, C30, C31, C32, "
+		"PHONE_ORIG_1, PHONE_ORIG_2, PHONE_ORIG_3, PHONE_ORIG_4) "
+		"VALUES ("
+		":1, :2, :3, :4, :5, :6, :7, :8, "
+		":9, :10, :11, :12, :13, :14, :15, :16, "
+		":17, :18, :19, :20, :21, :22, :23, :24, "
+		":25, :26, :27, :28, :29, :30, :31, :32, "
+		":65, :66, :67, :68) "
+		"INTO KDES.DBP_SQLM_USERS ("
+		"C01, C02, C03, C04, C05, C06, C07, C08, "
+		"C09, C10, C11, C12, C13, C14, C15, C16, "
+		"C17, C18, C19, C20, C21, C22, C23, C24, "
+		"C25, C26, C27, C28, C29, C30, C31, C32) "
+		"VALUES ("
+		":33, :34, :35, :36, :37, :38, :39, :40, "
+		":41, :42, :43, :44, :45, :46, :47, :48, "
+		":49, :50, :51, :52, :53, :54, :55, :56, "
+		":57, :58, :59, :60, :61, :62, :63, :64) "
+		"SELECT 1 FROM DUAL";
+	size_t dialect_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialect_cases) / sizeof(dialect_cases[0]);
+	     dialect_index++) {
+		sqlparser_parse_options_t options;
+		sqlparser_handle_t *handle;
+		sqlparser_handle_t *reparsed;
+		sqlparser_error_t error;
+		sqlparser_patch_t patch;
+		sqlparser_patch_list_t patch_list;
+		sqlparser_bind_value_t bind;
+		char selector[64];
+		char message[160];
+		char *sql;
+		char *reparsed_sql;
+		size_t patch_index;
+		unsigned long generation;
+		int rc;
+
+		handle = NULL;
+		reparsed = NULL;
+		sql = NULL;
+		reparsed_sql = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialect_cases[dialect_index].dialect;
+		rc = sqlparser_parse_with_options(
+			input_sql, &options, &handle, &error);
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s pristine multi-insert should parse",
+			dialect_cases[dialect_index].name);
+		if (expect_status_ok(rc, &error, message) != 0 ||
+		    expect_true(
+			    handle->generation == 0UL,
+			    "pristine multi-insert generation should be zero") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		memset(&patch_list, 0, sizeof(patch_list));
+		patch_list.items = &patch;
+		patch_list.count = 1U;
+		for (patch_index = 0U;
+		     patch_index < sizeof(patch_cases) / sizeof(patch_cases[0]);
+		     patch_index++) {
+			memset(&patch, 0, sizeof(patch));
+			patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
+			patch.selector = "stmt[0].insert_branch_columns[0]";
+			patch.index = 32U + patch_index;
+			patch.name = patch_cases[patch_index].column_name;
+			patch.source_selector =
+				patch_cases[patch_index].source_selector;
+			generation = handle->generation;
+			rc = sqlparser_apply_patch(handle, &patch_list, &error);
+			(void)snprintf(
+				message,
+				sizeof(message),
+				"%s multi-insert source clone %zu should succeed",
+				dialect_cases[dialect_index].name,
+				patch_index + 1U);
+			if (expect_status_ok(rc, &error, message) != 0 ||
+			    expect_true(
+				    handle->generation == generation + 1UL,
+				    "multi-insert source clone generation mismatch") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+
+			memset(&patch, 0, sizeof(patch));
+			memset(&bind, 0, sizeof(bind));
+			(void)snprintf(
+				selector,
+				sizeof(selector),
+				"stmt[0].insert_cell[0][%zu]",
+				32U + patch_index);
+			bind.kind = SQLPARSER_BIND_KIND_POSITIONAL;
+			bind.key = patch_cases[patch_index].bind_key;
+			patch.op = SQLPARSER_PATCH_REPLACE;
+			patch.selector = selector;
+			patch.bind = &bind;
+			generation = handle->generation;
+			rc = sqlparser_apply_patch(handle, &patch_list, &error);
+			(void)snprintf(
+				message,
+				sizeof(message),
+				"%s multi-insert cloned cell replacement %zu should succeed",
+				dialect_cases[dialect_index].name,
+				patch_index + 1U);
+			if (expect_status_ok(rc, &error, message) != 0 ||
+			    expect_true(
+				    handle->generation == generation + 1UL,
+				    "multi-insert cloned cell replacement generation mismatch") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		}
+
+		rc = sqlparser_deparse(handle, &sql, &error);
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s patched multi-insert deparse should be exact",
+			dialect_cases[dialect_index].name);
+		if (expect_status_ok(rc, &error, message) != 0 ||
+		    expect_true(
+			    sql != NULL && strcmp(sql, expected_sql) == 0,
+			    message) != 0) {
+			sqlparser_string_free(sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialect_cases[dialect_index].dialect;
+		rc = sqlparser_parse_with_options(
+			sql, &options, &reparsed, &error);
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s patched multi-insert fresh parse should succeed",
+			dialect_cases[dialect_index].name);
+		if (expect_status_ok(rc, &error, message) != 0) {
+			sqlparser_string_free(sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		rc = sqlparser_deparse(reparsed, &reparsed_sql, &error);
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s patched multi-insert fresh deparse should be stable",
+			dialect_cases[dialect_index].name);
+		if (expect_status_ok(rc, &error, message) != 0 ||
+		    expect_true(
+			    reparsed_sql != NULL &&
+			    strcmp(reparsed_sql, expected_sql) == 0,
+			    message) != 0) {
+			sqlparser_string_free(reparsed_sql);
+			sqlparser_handle_destroy(reparsed);
+			sqlparser_string_free(sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(reparsed_sql);
+		sqlparser_handle_destroy(reparsed);
+		sqlparser_string_free(sql);
+		sqlparser_handle_destroy(handle);
+	}
+	return 0;
+}
+
 static int test_oracle_multi_insert_query_graph_and_patch(void)
 {
 	sqlparser_parse_options_t options;
@@ -34871,6 +35095,9 @@ int main(void)
 		return 1;
 	}
 	if (test_insert_select_target_values() != 0) {
+		return 1;
+	}
+	if (test_multi_insert_pristine_source_clone_patch_sequence() != 0) {
 		return 1;
 	}
 	if (test_oracle_multi_insert_query_graph_and_patch() != 0) {

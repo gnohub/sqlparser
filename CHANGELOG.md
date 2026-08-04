@@ -1,5 +1,19 @@
 # 变更记录
 
+## 2.14.4
+
+### 连续结构化 Patch 状态一致性
+
+- 结构化 patch 无法继续使用局部源码 edit、转入 AST fallback 时，同时清除本次调用与 handle 级的源码表面完整标记，避免后续内部反解析和重新解析恢复 patch 前的旧源码。
+- Oracle 兼容的 `INSERT ALL` 在同一 handle 上新增列和值后，新增 cell 会保留在当前 AST 与源码状态中；后续独立 `replace` patch 能够按新索引定位，不再出现首次插入被静默丢弃或 `cell index is out of range`。
+- 连续 patch 不要求在调用之间执行 View、deparse 或重新 parse；最终反解析保持未修改分支、绑定参数及其他原始 SQL 文本不变。
+
+### 回归与兼容性
+
+- Oracle、达梦和 Vastbase-Oracle 增加双分支、每分支 32 列的 `INSERT ALL` 单元回归。在同一初始 handle 上连续执行四组插列与新增 cell 替换，共八次独立 `apply_patch`，并精确校验最终 SQL 及重新解析后的稳定性。
+- 本版本没有新增公开 API、枚举或结构体字段；既有函数签名、公开结构体布局和动态库 ABI 主版本保持不变。
+- 九套可执行方言夹具仍包含 2,758 条 final 用例和 8,945 个独立 patch。最终代码的远端全量 `make test` 通过；定向 Valgrind 检查退出时为 `0 bytes in 0 blocks`，错误数为 0。
+
 ## 2.14.3
 
 ### INSERT COLUMN 局部源码改写

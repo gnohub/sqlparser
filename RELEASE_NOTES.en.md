@@ -1,33 +1,34 @@
-# v2.14.3 Release Notes
+# v2.14.4 Release Notes
 
-`v2.14.3` is a patch release for `v2.14.2`. It corrects whole-AST
-serialization of unchanged expressions after `insert_column` on an ordinary
-`INSERT ... VALUES` statement.
+`v2.14.4` is a patch release for `v2.14.3`. It corrects stale handle-level
+source-surface state after a structural patch enters the AST fallback path,
+which could cause a later consecutive patch to lose a newly inserted node.
 
-## INSERT COLUMN Surface Preservation
+## Consecutive Structural Patches
 
-- For an ordinary `INSERT ... VALUES` statement with an explicit target list,
-  `insert_column` inserts the column name and default value into the target
-  list and every VALUES row at their original source intervals. The operation
-  no longer requires serialization of the complete AST.
-- All target intervals, boundaries, and conflicts are validated before edits
-  are added. Every row uses the same insertion index, and a failure cannot
-  leave a partially modified statement.
-- Unchanged text is preserved byte for byte. Original expressions such as
-  `DATE '...'`, `TIMESTAMP '...'`, `NOW()`, `CURRENT_TIMESTAMP`, and
-  `GETDATE()` are not rewritten as `CAST(...)` or another normalized form when
-  a different column is added.
-- Multi-row planning reuses expression-source scan state, while ordered source
-  edits use a tail-append path to avoid repeated scanning or movement as the
-  VALUES row count grows.
+- When a structural patch cannot use a local source edit, the fallback path now
+  clears both the per-call and handle-level source-surface completeness flags,
+  keeping the AST and current source state consistent.
+- Before this fix, adding a column and value to Oracle-compatible `INSERT ALL`
+  through `source_selector` could be followed by an internal deparse and reparse
+  that restored source from before the patch. The first call appeared to
+  succeed while the new cell was lost, and replacing that cell later reported
+  `cell index is out of range`.
+- The same handle can now apply consecutive insert and new-cell replacement
+  patches without an intervening View, deparse, or fresh parse. Final deparse
+  reflects only the requested changes and preserves unchanged branches, bind
+  parameters, and other original SQL text.
 
-## Regression Fixtures
+## Regression Coverage
 
-- Each of the nine executable dialect fixtures adds one `insert_column`
-  regression patch covering typed literals or dialect time functions, with an
-  exact-text assertion for patched SQL.
-- The case runner accepts a strictly parsed internal selector for an INSERT
-  target list. Existing JSON Pointer patch paths are unchanged.
+- Oracle, Dameng, and Vastbase-Oracle share one table-driven unit regression.
+- Each regression statement has two `INSERT ALL` branches with 32 target
+  columns and values per branch.
+- Starting from a pristine handle, the test executes four `insert_column`
+  operations and four replacements of the newly inserted cells as eight
+  independent `apply_patch` calls.
+- The test checks every call status and generation, exact final SQL, and stable
+  deparse after a fresh parse.
 
 ## Compatibility
 
@@ -37,12 +38,10 @@ serialization of unchanged expressions after `insert_column` on an ordinary
 
 ## Release Validation
 
-- The nine executable dialect fixtures contain 2,758 cases with
+- The nine executable dialect fixtures still contain 2,758 cases with
   `status = "final"` and 8,945 independent patches.
-- The final code completed a remote full `make test`. Original deparse, View,
-  patched deparse, a second deparse after reparsing, and patched/fresh View
-  checks all passed.
-- One targeted Valgrind run on the final code matched all 947,143 allocations
-  with frees, exited with `0 bytes in 0 blocks`, and reported zero errors.
+- The final code completed a remote full `make test` with exit code 0.
+- A targeted Valgrind run matched all 1,018,764 allocations with frees, exited
+  with `0 bytes in 0 blocks`, and reported zero errors.
 
 Vendored `libpg_query` tag: `17-6.2.2`.

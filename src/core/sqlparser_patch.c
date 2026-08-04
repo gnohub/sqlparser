@@ -9405,6 +9405,7 @@ static sqlparser_status_t sqlparser_apply_patch_in_place(
 				sqlparser_surface_source_edits_release(
 					surface_edits);
 				*in_out_surface_complete = 0;
+				handle->surface_source_complete = 0;
 			}
 		}
 		if (*in_out_surface_complete && surface_supported &&
