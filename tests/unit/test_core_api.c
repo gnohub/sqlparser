@@ -15620,7 +15620,7 @@ static int test_sqlserver_output_clause_boundaries(void)
 			"OUTPUT INSERTED.id AS client_id VALUES (1)",
 			"stmt[0].dml_result_target[0][1][0]",
 			"[PatchedTarget]",
-			"INSERT dbo.t (a) OUTPUT INSERTED.id INTO dbo.audit (id) "
+			"INSERT dbo.t(a) OUTPUT INSERTED.id INTO dbo.audit(id) "
 			"OUTPUT [PatchedTarget] VALUES (1)"
 		},
 		{
