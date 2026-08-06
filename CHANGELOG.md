@@ -1,5 +1,20 @@
 # 变更记录
 
+## 2.14.5
+
+### Query Graph 标识符定界符状态
+
+- `sqlparser_graph_relation_t` 和 `sqlparser_graph_field_t` 新增 `quoted_identifier`，分别表示 relation 的对象名和 field 的列名是否在原始 SQL 或 patch 片段中显式使用标识符定界符。
+- View JSON 的 `relations[]`、`fields[]` 以及 session identifier value 在对应 token 使用 `"..."`、MySQL 反引号或 SQL Server 方括号时输出 `quoted_identifier: true`；该字段只表示定界符是否存在，不区分定界符类型。
+- 判断以输入 SQL 或 patch 片段中的精确 token 为依据。解析器内部为兼容方言生成的引号样式不会被误报为原始定界符，普通字符串字面量也不会进入该标记。
+
+### Patch 一致性与验证
+
+- Oracle 与 Vastbase-Oracle 的 fragment preprocess 保留精确 identifier origin。包含 bind 改写的 assignment patch 在当前 handle 和重新解析后的 View 中保持一致。
+- Oracle、达梦及 Vastbase-Oracle 的 database link relation 从方言状态读取对象原始拼写；MySQL 兼容的 session identifier 同样按原始 token 判断定界符状态。
+- 九套可执行方言夹具仍包含 2,758 条 final 用例和 8,945 个独立 patch，并新增 1,800 个定界符状态断言。远端 `make test-unit` 全部通过。
+- 本版本新增两个公开结构体字段，但不新增公开函数、枚举或资源所有权；query graph 返回值继续由 handle 持有。
+
 ## 2.14.4
 
 ### 连续结构化 Patch 状态一致性

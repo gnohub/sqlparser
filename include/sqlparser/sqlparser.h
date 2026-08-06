@@ -455,6 +455,7 @@ typedef struct {
 	size_t statement_index;
 	size_t block_index;
 	sqlparser_graph_relation_kind_t kind;
+	int quoted_identifier;
 	const char *database_name;
 	const char *schema_name;
 	const char *object_name;
@@ -493,6 +494,7 @@ typedef struct {
 	sqlparser_clause_kind_t clause;
 	size_t relation_index;
 	int has_relation;
+	int quoted_identifier;
 	sqlparser_index_span_t candidate_relations;
 	const char *column_name;
 	size_t target_index;

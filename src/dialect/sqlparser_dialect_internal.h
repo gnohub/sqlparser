@@ -91,7 +91,8 @@ struct sqlparser_dialect_ops {
 		sqlparser_graph_insert_mode_t core_mode);
 	const char *(*relation_object_name)(
 		const void *state,
-		const char *parser_object_name);
+		const char *parser_object_name,
+		const char **out_spelling);
 	const char *(*relation_link_name)(
 		const void *state,
 		const char *parser_object_name);
@@ -211,6 +212,13 @@ sqlparser_status_t sqlparser_oracle_preprocess_identifier_origins(
 	const sqlparser_limits_t *limits,
 	char **out_parser_sql,
 	void **out_state,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_oracle_preprocess_fragment_identifier_origins(
+	const char *input_sql,
+	void *state,
+	size_t statement_index,
+	char **out_parser_sql,
 	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error);
 const sqlparser_dialect_ops_t *sqlparser_dialect_sqlserver_ops(void);

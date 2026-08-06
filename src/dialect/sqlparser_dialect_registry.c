@@ -77,12 +77,19 @@ int sqlparser_dialect_is_sqlserver_compatible(sqlparser_dialect_t dialect)
 const char *sqlparser_dialect_relation_object_name(
 	const sqlparser_dialect_ops_t *ops,
 	const void *state,
-	const char *parser_object_name)
+	const char *parser_object_name,
+	const char **out_spelling)
 {
+	if (out_spelling != NULL) {
+		*out_spelling = NULL;
+	}
 	if (ops == NULL || ops->relation_object_name == NULL) {
 		return NULL;
 	}
-	return ops->relation_object_name(state, parser_object_name);
+	return ops->relation_object_name(
+		state,
+		parser_object_name,
+		out_spelling);
 }
 
 const char *sqlparser_dialect_relation_link_name(

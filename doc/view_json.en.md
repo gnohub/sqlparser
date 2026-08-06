@@ -192,6 +192,7 @@ Each SQL occurrence is emitted once. Its source path can be followed through `re
 | `database` | Database name if present in SQL; omitted otherwise |
 | `schema` | Schema name if present in SQL; omitted otherwise |
 | `table` | Table name if present in SQL; omitted for derived relations without a table name |
+| `quoted_identifier` | `true` when the object-name token for `table` explicitly uses `"..."`, MySQL backticks, or SQL Server `[...]`; omitted otherwise |
 | `alias` | Alias if present in SQL; omitted otherwise |
 | `link` | Database link name for remote object references; omitted otherwise |
 | `source_block` | Source query block for derived tables or CTEs; omitted otherwise |
@@ -246,6 +247,7 @@ A CTE definition creates one source block. Multiple references share that
 | `relation` | Stable relation index; omitted when not uniquely attributable |
 | `candidate_relations` | Candidate relation indexes for unqualified fields in multi-relation scopes; omitted when empty |
 | `column` | Column name; `*` is represented by `targets[]` instead |
+| `quoted_identifier` | `true` when the `column` token explicitly uses `"..."`, MySQL backticks, or SQL Server `[...]`; omitted otherwise |
 | `target` | Related SELECT target index; omitted outside output targets |
 | `selector` | Name selector; omitted when no writable node exists |
 | `target_path` | Ordered output-expression path; omitted for direct fields and non-output fields |
@@ -390,12 +392,19 @@ Item fields:
 A value `kind` is `identifier`, `keyword`, `literal`, `bind`, or `expression`.
 Identifiers, keywords, and expressions use `text`; literals use `literal`;
 binds use `bind_key`, `bind_kind`, `bind_sql`, and a one-based `bind_position`
-assigned by SQL occurrence order across the statements in the handle. A value
-of any kind can also include an optional `name` that distinguishes a value
-with separate semantics inside the same item. For example, the collation value
-in `SET NAMES ... COLLATE ...` uses
-`"name": "collation"`. The field is omitted when no distinct semantic label
-is available.
+assigned by SQL occurrence order across the statements in the handle. An
+`identifier` emits `quoted_identifier: true` when its original token explicitly
+uses `"..."`, MySQL backticks, or SQL Server `[...]`. A value of any kind can
+also include an optional `name` that distinguishes a value with separate
+semantics inside the same item. For example, the collation value in
+`SET NAMES ... COLLATE ...` uses `"name": "collation"`. The field is omitted
+when no distinct semantic label is available.
+
+`quoted_identifier` reports only whether the exact source token used a
+supported identifier delimiter; it does not classify the delimiter kind. On a
+relation it applies only to the object name, not the database, schema, or alias;
+on a field it applies only to the column name. Ordinary single-quoted strings
+and quote styles generated internally by the parser do not emit this field.
 
 ## DML
 

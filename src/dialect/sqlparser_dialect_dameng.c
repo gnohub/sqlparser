@@ -6455,13 +6455,20 @@ static sqlparser_status_t sqlparser_dameng_clone_state(
 
 static const char *sqlparser_dameng_relation_object_name(
 	const void *state,
-	const char *parser_object_name)
+	const char *parser_object_name,
+	const char **out_spelling)
 {
 	const sqlparser_dameng_dblink_relation_t *relation;
 
+	if (out_spelling != NULL) {
+		*out_spelling = NULL;
+	}
 	relation = sqlparser_dameng_state_find_dblink_relation(
 		(const sqlparser_dameng_state_t *)state,
 		parser_object_name);
+	if (relation != NULL && out_spelling != NULL) {
+		*out_spelling = relation->public_object_sql;
+	}
 	return relation != NULL ? relation->public_object_name : NULL;
 }
 

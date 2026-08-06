@@ -1658,12 +1658,19 @@ static sqlparser_graph_insert_mode_t sqlparser_vastbase_insert_mode_delegate(
 static const char *sqlparser_vastbase_relation_object_name_delegate(
 	const sqlparser_dialect_ops_t *base_ops,
 	const void *state,
-	const char *parser_object_name)
+	const char *parser_object_name,
+	const char **out_spelling)
 {
+	if (out_spelling != NULL) {
+		*out_spelling = NULL;
+	}
 	if (base_ops == NULL || base_ops->relation_object_name == NULL) {
 		return NULL;
 	}
-	return base_ops->relation_object_name(state, parser_object_name);
+	return base_ops->relation_object_name(
+		state,
+		parser_object_name,
+		out_spelling);
 }
 
 static const char *sqlparser_vastbase_relation_link_name_delegate(
@@ -2444,12 +2451,14 @@ static sqlparser_status_t sqlparser_vastbase_project_session_delegate(
 	} \
 	static const char *sqlparser_vastbase_##TAG##_relation_object_name( \
 		const void *state, \
-		const char *parser_object_name) \
+		const char *parser_object_name, \
+		const char **out_spelling) \
 	{ \
 		return sqlparser_vastbase_relation_object_name_delegate( \
 			BASE_OPS_FN(), \
 			state, \
-			parser_object_name); \
+			parser_object_name, \
+			out_spelling); \
 	} \
 	static const char *sqlparser_vastbase_##TAG##_relation_link_name( \
 		const void *state, \

@@ -331,7 +331,8 @@ sqlparser_status_t sqlparser_handle_adopt_dialect_state(
 const char *sqlparser_dialect_relation_object_name(
 	const sqlparser_dialect_ops_t *ops,
 	const void *state,
-	const char *parser_object_name);
+	const char *parser_object_name,
+	const char **out_spelling);
 const char *sqlparser_dialect_relation_link_name(
 	const sqlparser_dialect_ops_t *ops,
 	const void *state,

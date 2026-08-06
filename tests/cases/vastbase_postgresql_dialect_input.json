@@ -2212,6 +2212,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "Name",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -2223,6 +2224,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "User"
                 }
               ],
@@ -9230,6 +9232,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "IdCard",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -9238,6 +9241,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "Phone Number",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -9246,6 +9250,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "Phone Number",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -9268,6 +9273,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "User Info"
                 }
               ],
@@ -21299,6 +21305,7 @@
                   "kind": "base",
                   "schema": "Audit",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "Bind Mix"
                 }
               ],

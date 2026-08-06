@@ -641,9 +641,9 @@ sqlparser_status_t sqlparser_statement_query_graph(
 | 结构体 | 说明 |
 | --- | --- |
 | `sqlparser_graph_block_t` | 查询块，持有 relation、target 和 predicate span |
-| `sqlparser_graph_relation_t` | SQL 中出现的 base、derived、cte 或 dual relation |
+| `sqlparser_graph_relation_t` | SQL 中出现的 base、derived、cte 或 dual relation；`quoted_identifier` 表示对象名 token 是否显式使用支持的标识符定界符 |
 | `sqlparser_graph_target_t` | SELECT 输出项，包含输出顺序、`*` 来源和 selector |
-| `sqlparser_graph_field_t` | SQL 中出现的字段 occurrence |
+| `sqlparser_graph_field_t` | SQL 中出现的字段 occurrence；`quoted_identifier` 表示列名 token 是否显式使用支持的标识符定界符 |
 | `sqlparser_graph_value_t` | query graph 中的 literal、bind、default、expression 或 field 值 |
 | `sqlparser_graph_set_t` | `UNION`、`UNION ALL`、`INTERSECT`、`EXCEPT/MINUS` 分支关系 |
 | `sqlparser_graph_predicate_t` | WHERE、ON、HAVING 中的比较、组合、EXISTS 或表达式谓词 |
@@ -660,6 +660,7 @@ sqlparser_status_t sqlparser_statement_query_graph(
 
 ### 归属规则
 
+- `sqlparser_graph_relation_t.quoted_identifier` 仅对应 `object_name`，`sqlparser_graph_field_t.quoted_identifier` 仅对应 `column_name`。精确来源 token 使用 `"..."`、MySQL 反引号或 SQL Server `[...]` 时值为 `1`，否则为 `0`；该字段不区分定界符类型，也不表示 database、schema 或 alias 的状态。
 - `sqlparser_graph_relation_t.link_name` 表达远程对象引用中的 database link；SQL 未出现时为 `NULL`。
 - `relations[].source_block_index` 表达派生表或 CTE 来源。
 - 同一个 CTE 定义只构建一个来源 block；多次引用共享该 `source_block_index`，未被引用的 CTE 定义仍保留在 graph 中。
@@ -691,6 +692,8 @@ sqlparser_status_t sqlparser_statement_query_graph(
 ### 会话状态
 
 受支持的数据库、Schema、角色、身份、事务特征和会话参数语句会投影到 `sqlparser_graph_session_t`。当前语句没有可用的 session 投影时，`sqlparser_query_graph_session()` 返回成功，`action` 为 `SQLPARSER_GRAPH_SESSION_ACTION_UNKNOWN`，`item_count` 为 `0`。
+
+当 `sqlparser_graph_session_value_t.kind` 为 `SQLPARSER_GRAPH_SESSION_VALUE_IDENTIFIER` 时，`literal.quoted_identifier` 使用相同的精确 token 规则表达定界符状态。普通单引号字符串和解析器内部为方言兼容生成的引号样式不会设置该标记。Query graph 返回的字符串和结构仍由 handle 持有，调用方不释放。
 
 ```c
 sqlparser_query_graph_view_t graph;

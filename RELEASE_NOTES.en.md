@@ -1,47 +1,61 @@
-# v2.14.4 Release Notes
+# v2.14.5 Release Notes
 
-`v2.14.4` is a patch release for `v2.14.3`. It corrects stale handle-level
-source-surface state after a structural patch enters the AST fallback path,
-which could cause a later consecutive patch to lose a newly inserted node.
+`v2.14.5` adds identifier-delimiter state to the query graph and fixes a View
+consistency issue after assignment patches pass through Oracle-compatible
+fragment preprocessing.
 
-## Consecutive Structural Patches
+## Identifier Delimiter State
 
-- When a structural patch cannot use a local source edit, the fallback path now
-  clears both the per-call and handle-level source-surface completeness flags,
-  keeping the AST and current source state consistent.
-- Before this fix, adding a column and value to Oracle-compatible `INSERT ALL`
-  through `source_selector` could be followed by an internal deparse and reparse
-  that restored source from before the patch. The first call appeared to
-  succeed while the new cell was lost, and replacing that cell later reported
-  `cell index is out of range`.
-- The same handle can now apply consecutive insert and new-cell replacement
-  patches without an intervening View, deparse, or fresh parse. Final deparse
-  reflects only the requested changes and preserves unchanged branches, bind
-  parameters, and other original SQL text.
+- `sqlparser_graph_relation_t.quoted_identifier` reports whether the relation
+  object-name token used an explicit identifier delimiter.
+- `sqlparser_graph_field_t.quoted_identifier` reports whether the field
+  column-name token used an explicit identifier delimiter.
+- View JSON conditionally emits `quoted_identifier: true` on the applicable
+  `relations[]` and `fields[]` entry. A session value whose `kind` is
+  `identifier` can emit the same key; the C API exposes it through
+  `sqlparser_graph_session_value_t.literal.quoted_identifier`.
+- The flag recognizes `"..."`, MySQL backticks, and SQL Server `[...]`. It
+  reports delimiter presence only and does not classify the delimiter kind.
+  Single-quoted strings are not identifier delimiters.
+- A relation flag applies only to its object name, not its database, schema, or
+  alias. A field flag applies only to its column name.
 
-## Regression Coverage
+## Exact Tokens and Patch Consistency
 
-- Oracle, Dameng, and Vastbase-Oracle share one table-driven unit regression.
-- Each regression statement has two `INSERT ALL` branches with 32 target
-  columns and values per branch.
-- Starting from a pristine handle, the test executes four `insert_column`
-  operations and four replacements of the newly inserted cells as eight
-  independent `apply_patch` calls.
-- The test checks every call status and generation, exact final SQL, and stable
-  deparse after a fresh parse.
+- A positive flag requires an exact token from the original SQL or patch
+  fragment. Quote styles generated internally for dialect compatibility are
+  not reported as source delimiters.
+- Oracle and Vastbase-Oracle fragment preprocessing now replays identifier
+  origins. An explicitly delimited assignment target retains its source token
+  even when a right-hand bind such as `:1` is converted to an internal form.
+- Views produced directly after `replace_assignment` and similar patches use
+  the same rule as a fresh parse of the deparsed SQL. A delimiter flag no
+  longer appears only after reparsing.
+- Oracle, Dameng, and Vastbase-Oracle database-link relations use original
+  object spelling retained by dialect state. MySQL-compatible session
+  identifiers derive delimiter state from their original token.
 
-## Compatibility
+## API and Ownership
 
-- This release adds no public APIs, enums, or structure fields.
-- Existing function signatures and public structure layouts are unchanged.
-  The shared-library ABI major remains `libsqlparser.so.0`.
+- This release adds the public
+  `sqlparser_graph_relation_t.quoted_identifier` and
+  `sqlparser_graph_field_t.quoted_identifier` fields.
+- No public functions or enums are added. Query-graph results remain borrowed
+  views owned by the handle; no new release function or caller ownership is
+  introduced.
+- The new members are integer booleans. They are `0` without an explicit
+  delimiter, and View JSON omits the corresponding key.
 
-## Release Validation
+## Validation
 
 - The nine executable dialect fixtures still contain 2,758 cases with
   `status = "final"` and 8,945 independent patches.
-- The final code completed a remote full `make test` with exit code 0.
-- A targeted Valgrind run matched all 1,018,764 allocations with frees, exited
-  with `0 bytes in 0 blocks`, and reported zero errors.
+- The fixtures add 1,800 exact assertions: 910 relations, 876 fields, and 14
+  session identifier values.
+- A remote `make test-unit` completed successfully. All nine fixtures passed
+  original deparse, View, patched deparse, and patched/fresh View comparisons.
+- Ownership and complexity review confirmed that the handle releases the
+  origin cache, Oracle fragment replay is a single linear scan, and no
+  long-lived cache or quadratic path was introduced.
 
 Vendored `libpg_query` tag: `17-6.2.2`.

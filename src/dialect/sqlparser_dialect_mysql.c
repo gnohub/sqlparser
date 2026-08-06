@@ -14790,6 +14790,51 @@ static const char *sqlparser_mysql_session_ast_argument(
 	return arg->a_const->sval->sval;
 }
 
+static int sqlparser_mysql_session_ast_identifier_is_delimited(
+	const sqlparser_handle_t *handle,
+	const PgQuery__Node *node)
+{
+	const sqlparser_identifier_origin_map_t *origins;
+	const char *source;
+	sqlparser_identifier_origin_t origin;
+	size_t parser_end;
+	size_t parser_start;
+
+	if (handle == NULL || node == NULL ||
+	    node->node_case != PG_QUERY__NODE__NODE_A_CONST ||
+	    node->a_const == NULL || node->a_const->location < 0 ||
+	    handle->parser_sql == NULL || handle->identifier_origins == NULL) {
+		return 0;
+	}
+	parser_start = (size_t)node->a_const->location;
+	if (parser_start >= handle->parser_sql_len) {
+		return 0;
+	}
+	parser_end = sqlparser_public_skip_quoted_or_comment(
+		SQLPARSER_DIALECT_POSTGRESQL,
+		handle->parser_sql,
+		parser_start);
+	if (parser_end <= parser_start || parser_end > handle->parser_sql_len) {
+		return 0;
+	}
+	origins = handle->identifier_origins;
+	if (sqlparser_identifier_origin_map_lookup(
+		    origins,
+		    parser_start,
+		    parser_end - parser_start,
+		    &origin) != SQLPARSER_IDENTIFIER_ORIGIN_SOURCE ||
+	    origin.source_offset >= handle->sql_len ||
+	    origin.source_length < 2U ||
+	    origin.source_length > handle->sql_len - origin.source_offset) {
+		return 0;
+	}
+	source = handle->sql + origin.source_offset;
+	return (source[0] == '`' &&
+		source[origin.source_length - 1U] == '`') ||
+		(source[0] == '"' &&
+		 source[origin.source_length - 1U] == '"');
+}
+
 static sqlparser_status_t sqlparser_mysql_session_emit_text(
 	const sqlparser_dialect_session_emitter_t *emitter,
 	size_t item_index,
@@ -15619,6 +15664,10 @@ static sqlparser_status_t sqlparser_mysql_project_session(
 		session_value.kind = SQLPARSER_GRAPH_SESSION_VALUE_IDENTIFIER;
 		session_value.text = value;
 		session_value.text_length = strlen(value);
+		session_value.literal.quoted_identifier =
+			sqlparser_mysql_session_ast_identifier_is_delimited(
+				handle,
+				statement->variable_set_stmt->args[0]);
 		return emitter->add_value(
 			emitter->context,
 			item_index,

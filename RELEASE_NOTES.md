@@ -1,29 +1,33 @@
-# v2.14.4 发布说明
+# v2.14.5 发布说明
 
-`v2.14.4` 是 `v2.14.3` 的补丁版本，修正结构化 patch 转入 AST fallback 后 handle 仍保留旧源码表面状态，导致后续连续 patch 丢失新增节点的问题。
+`v2.14.5` 为 query graph 增加标识符定界符状态，并修复 Oracle 兼容模式下 assignment patch 经片段预处理后与重新解析 View 不一致的问题。
 
-## 连续结构化 Patch
+## 标识符定界符状态
 
-- 当结构化 patch 无法使用局部源码 edit 时，fallback 路径会同步清除本次调用与 handle 级的源码表面完整标记，保证 AST 与当前源码状态一致。
-- 修复前，Oracle 兼容的 `INSERT ALL` 使用 `source_selector` 新增列和值后，内部反解析和重新解析可能恢复 patch 前的旧源码。首次调用表面返回成功，但新增 cell 实际丢失，后续替换该 cell 会报告 `cell index is out of range`。
-- 修复后，同一 handle 可以连续完成插列和新增 cell 替换，调用之间不需要执行 View、deparse 或重新 parse。最终反解析仅体现指定修改，并保留未修改分支、绑定参数及其他原始 SQL 文本。
+- `sqlparser_graph_relation_t.quoted_identifier` 表示 relation 的对象名 token 是否显式使用标识符定界符。
+- `sqlparser_graph_field_t.quoted_identifier` 表示 field 的列名 token 是否显式使用标识符定界符。
+- View JSON 在对应 `relations[]`、`fields[]` 项中按需输出 `quoted_identifier: true`。Session value 的 `kind` 为 `identifier` 时也可输出同名字段；C 接口通过 `sqlparser_graph_session_value_t.literal.quoted_identifier` 读取。
+- 当前标记识别 `"..."`、MySQL 反引号和 SQL Server `[...]`。它只表示定界符是否存在，不区分定界符类型；单引号字符串不属于标识符定界符。
+- Relation 标记只对应对象名，不表示 database、schema 或 alias 的定界状态；field 标记只对应列名。
 
-## 回归覆盖
+## 原始 token 与 Patch 一致性
 
-- Oracle、达梦和 Vastbase-Oracle 使用相同的表驱动单元回归。
-- 每条回归语句包含两个 `INSERT ALL` 分支，每个分支包含 32 个目标列和值。
-- 从未修改的 handle 开始，连续执行四次 `insert_column` 和四次新增 cell `replace`，共八次独立 `apply_patch`。
-- 测试校验每次调用的状态与 generation、最终 SQL 的精确文本，以及重新解析后的反解析稳定性。
+- 标记必须能够追溯到原始 SQL 或 patch 片段中的精确 token。解析器为方言兼容生成的引号样式不作为原始定界符输出。
+- Oracle 与 Vastbase-Oracle 在 fragment preprocess 中回放 identifier origin。即使 assignment 右侧的 `:1` 等 bind 被转换为内部形式，左侧显式定界列仍保留来源信息。
+- `replace_assignment` 等 patch 生成的当前 handle View 与反解析后重新 parse 的 View 使用相同判断规则，不会出现 patch 后缺少标记、重新解析后新增标记的差异。
+- Oracle、达梦及 Vastbase-Oracle 的 database link relation 使用方言状态保存的对象原始拼写；MySQL 兼容的 session identifier 使用原始 token 判断定界符状态。
 
-## 兼容性
+## 接口与所有权
 
-- 本版本没有新增公开 API、枚举或结构体字段。
-- 既有函数签名和公开结构体布局保持不变；动态库 ABI 主版本仍为 `libsqlparser.so.0`。
+- 本版本新增 `sqlparser_graph_relation_t.quoted_identifier` 和 `sqlparser_graph_field_t.quoted_identifier` 两个公开结构体字段。
+- 没有新增公开函数或枚举。Query graph 返回值继续是 handle 持有的 borrowed view，不新增释放接口或调用方资源所有权。
+- 标记字段为整数布尔值；未使用显式定界符时为 `0`，View JSON 省略对应键。
 
-## 发布验证
+## 验证
 
 - 九套可执行方言夹具仍包含 2,758 条 `status = "final"` 用例和 8,945 个独立 patch。
-- 最终代码在远端完成全量 `make test`，退出码为 0。
-- 定向 Valgrind 检查共执行 1,018,764 次分配和 1,018,764 次释放，退出时为 `0 bytes in 0 blocks`，错误数为 0。
+- 夹具新增 1,800 个精确断言：910 个 relation、876 个 field、14 个 session identifier value。
+- 远端 `make test-unit` 完成，九套 fixture 的原始反解析、View、patch 反解析及 patched/fresh View 对比全部通过。
+- 资源所有权与复杂度审核确认：origin cache 由 handle 统一释放，Oracle fragment replay 为单次线性扫描，没有新增常驻缓存或平方级路径。
 
 内置 `libpg_query` 标签：`17-6.2.2`。

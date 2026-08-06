@@ -1,5 +1,35 @@
 # Changelog
 
+## 2.14.5
+
+### Query-Graph Identifier Delimiter State
+
+- `sqlparser_graph_relation_t` and `sqlparser_graph_field_t` add
+  `quoted_identifier` to report whether the relation object name or field
+  column name used an explicit identifier delimiter in the original SQL or a
+  patch fragment.
+- View JSON emits `quoted_identifier: true` on the applicable `relations[]`,
+  `fields[]`, and session identifier value when the token uses `"..."`, MySQL
+  backticks, or SQL Server brackets. The flag reports delimiter presence only;
+  it does not classify the delimiter kind.
+- Detection requires the exact token from input SQL or a patch fragment.
+  Dialect-compatibility quotes generated internally by the parser are not
+  reported as source delimiters, and ordinary string literals are excluded.
+
+### Patch Consistency and Validation
+
+- Oracle and Vastbase-Oracle fragment preprocessing now retains exact
+  identifier origins. Assignment patches that also rewrite bind syntax produce
+  the same View on the current handle and after a fresh parse.
+- Oracle, Dameng, and Vastbase-Oracle database-link relations read original
+  object spelling from dialect state. MySQL-compatible session identifiers
+  likewise derive delimiter state from the original token.
+- The nine executable dialect fixtures still contain 2,758 final cases and
+  8,945 independent patches, with 1,800 delimiter-state assertions added. A
+  remote `make test-unit` completed successfully.
+- This release adds two public structure fields but no public functions,
+  enums, or resource ownership. Query-graph results remain owned by the handle.
+
 ## 2.14.4
 
 ### State Consistency Across Structural Patches

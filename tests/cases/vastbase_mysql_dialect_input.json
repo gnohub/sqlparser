@@ -214,6 +214,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -222,6 +223,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[6]"
@@ -245,6 +247,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -367,6 +370,7 @@
                 {
                   "block": 0,
                   "clause": "on",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[11]"
@@ -374,6 +378,7 @@
                 {
                   "block": 0,
                   "clause": "on",
+                  "quoted_identifier": true,
                   "column": "user_id",
                   "relation": 1,
                   "selector": "stmt[0].name[13]"
@@ -381,6 +386,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -389,6 +395,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[3]",
@@ -397,6 +404,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "order_no",
                   "relation": 1,
                   "selector": "stmt[0].name[5]",
@@ -405,6 +413,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 1,
                   "selector": "stmt[0].name[15]"
@@ -439,6 +448,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 },
                 {
@@ -446,6 +456,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "orders"
                 }
               ],
@@ -709,6 +720,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -767,6 +779,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -789,6 +802,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -923,6 +937,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -1054,6 +1069,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[3]",
@@ -1062,6 +1078,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 1,
                   "selector": "stmt[0].name[4]",
@@ -1070,6 +1087,7 @@
                 {
                   "block": 1,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 1,
                   "selector": "stmt[0].name[6]"
@@ -1092,12 +1110,14 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "archive_users"
                 },
                 {
                   "block": 1,
                   "kind": "base",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -1228,18 +1248,21 @@
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0
                 },
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 0
                 },
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -1262,6 +1285,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -1355,6 +1379,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[1]"
@@ -1362,6 +1387,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 0,
                   "selector": "stmt[0].name[2]"
@@ -1404,6 +1430,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -1519,6 +1546,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -1527,6 +1555,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -1538,6 +1567,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -1653,6 +1683,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -1741,6 +1772,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -1749,6 +1781,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[2]"
@@ -1771,6 +1804,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -1868,6 +1902,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "unsigned",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -1876,6 +1911,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "auto_increment",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -1884,6 +1920,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "engine",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -1895,6 +1932,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -2021,6 +2059,7 @@
                     "values": [
                       {
                         "kind": "identifier",
+                        "quoted_identifier": true,
                         "text": "analytics-prod"
                       }
                     ]
@@ -2051,6 +2090,7 @@
                     "values": [
                       {
                         "kind": "identifier",
+                        "quoted_identifier": true,
                         "text": "analytics-prod"
                       }
                     ]
@@ -2079,6 +2119,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[1].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -4959,6 +5000,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -4967,6 +5009,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]"
@@ -4989,6 +5032,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "table1"
                 }
               ],
@@ -5089,6 +5133,7 @@
                 {
                   "block": 0,
                   "clause": "on",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[8]"
@@ -5096,6 +5141,7 @@
                 {
                   "block": 0,
                   "clause": "on",
+                  "quoted_identifier": true,
                   "column": "user_id",
                   "relation": 1,
                   "selector": "stmt[0].name[10]"
@@ -5103,6 +5149,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "order_no",
                   "relation": 1,
                   "selector": "stmt[0].name[2]",
@@ -5111,6 +5158,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 1,
                   "selector": "stmt[0].name[12]"
@@ -5145,6 +5193,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 },
                 {
@@ -5152,6 +5201,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "orders"
                 }
               ],
@@ -5281,6 +5331,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "email",
                   "relation": 0,
                   "selector": "stmt[0].name[1]"
@@ -5302,6 +5353,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -5402,12 +5454,14 @@
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "note",
                   "relation": 0
                 },
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "phone",
                   "relation": 0,
                   "selector": "stmt[0].name[2]"
@@ -5429,6 +5483,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -5542,6 +5597,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[4]",
@@ -5550,6 +5606,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "phone",
                   "relation": 1,
                   "selector": "stmt[0].name[5]",
@@ -5558,6 +5615,7 @@
                 {
                   "block": 1,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 1,
                   "selector": "stmt[0].name[7]"
@@ -5565,6 +5623,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -5573,6 +5632,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "phone",
                   "relation": 0,
                   "selector": "stmt[0].name[3]",
@@ -5581,6 +5641,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "phone",
                   "relation": 0,
                   "selector": "stmt[0].name[10]"
@@ -5619,6 +5680,7 @@
                   "block": 1,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -5782,6 +5844,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[3]",
@@ -5790,6 +5853,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 1,
                   "selector": "stmt[0].name[5]",
@@ -5798,6 +5862,7 @@
                 {
                   "block": 1,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "age",
                   "relation": 1,
                   "selector": "stmt[0].name[7]"
@@ -5805,6 +5870,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "inner_name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -5813,6 +5879,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "inner_name",
                   "relation": 0,
                   "selector": "stmt[0].name[10]"
@@ -5851,6 +5918,7 @@
                   "block": 1,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -5992,6 +6060,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "extra",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -6007,6 +6076,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[4]"
@@ -6029,6 +6099,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -6151,6 +6222,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -6159,6 +6231,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "phone",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -6170,6 +6243,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -6251,6 +6325,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -6259,6 +6334,7 @@
                 {
                   "block": 0,
                   "clause": "order_by",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[2]"
@@ -6269,6 +6345,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -6357,12 +6434,14 @@
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "a",
                   "relation": 0
                 },
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "b",
                   "relation": 0,
                   "selector": "stmt[0].name[2]"
@@ -6385,6 +6464,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -6442,12 +6522,14 @@
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "c",
                   "relation": 0
                 },
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "d",
                   "relation": 0,
                   "selector": "stmt[1].name[2]"
@@ -6470,6 +6552,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[1].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -6554,6 +6637,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -6562,6 +6646,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -6570,6 +6655,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "age",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -6581,6 +6667,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -6685,6 +6772,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -6693,6 +6781,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -6701,6 +6790,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "age",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -6713,6 +6803,7 @@
                   "kind": "base",
                   "schema": "viq-test",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -6816,6 +6907,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -6824,6 +6916,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[5]",
@@ -6837,6 +6930,7 @@
                   "kind": "base",
                   "schema": "viq-test",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -6923,6 +7017,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "price",
                   "relation": 0,
                   "selector": "stmt[0].name[2]"
@@ -6930,6 +7025,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "category",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -6973,6 +7069,7 @@
                   "kind": "base",
                   "schema": "viq-test",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "products"
                 }
               ],
@@ -7345,6 +7442,7 @@
                 {
                   "block": 1,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "active",
                   "relation": 1,
                   "selector": "stmt[0].name[8]"
@@ -7390,6 +7488,7 @@
                   "kind": "base",
                   "schema": "viq-test",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -7586,6 +7685,7 @@
                   "kind": "base",
                   "schema": "viq-test",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -7799,6 +7899,7 @@
                   "kind": "base",
                   "schema": "viq-test",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -7984,6 +8085,7 @@
                 {
                   "block": 2,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 2,
                   "selector": "stmt[0].name[2]",
@@ -7992,6 +8094,7 @@
                 {
                   "block": 2,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 2,
                   "selector": "stmt[0].name[3]",
@@ -8052,6 +8155,7 @@
                   "kind": "base",
                   "schema": "viq-test",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -8402,6 +8506,7 @@
                   "kind": "base",
                   "schema": "viq-test",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "employees_uuid"
                 }
               ],
@@ -8680,6 +8785,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "department",
                   "relation": 1,
                   "selector": "stmt[0].name[4]",
@@ -8813,6 +8919,7 @@
                   "kind": "base",
                   "schema": "viq-test",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "employees_uuid"
                 }
               ],
@@ -9057,6 +9164,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "ROWNUM",
                   "relation": 1,
                   "selector": "stmt[0].name[2]",
@@ -9065,6 +9173,7 @@
                 {
                   "block": 1,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "ROWNUM",
                   "relation": 1,
                   "selector": "stmt[0].name[6]"
@@ -9112,6 +9221,7 @@
                   "kind": "base",
                   "schema": "viq-test",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "employees_uuid"
                 }
               ],
@@ -10420,12 +10530,14 @@
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "secret",
                   "relation": 0
                 },
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[2]"
@@ -10448,6 +10560,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "dbp_crypto_test"
                 }
               ],
@@ -10555,18 +10668,21 @@
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "phone",
                   "relation": 0
                 },
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "secret",
                   "relation": 0
                 },
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -10589,6 +10705,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "dbp_crypto_test"
                 }
               ],
@@ -10674,6 +10791,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -10682,6 +10800,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]"
@@ -10704,6 +10823,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -10807,6 +10927,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -10815,6 +10936,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]"
@@ -10837,6 +10959,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -10941,6 +11064,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -10949,6 +11073,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]"
@@ -10971,6 +11096,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -11073,6 +11199,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -11081,6 +11208,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]"
@@ -11103,6 +11231,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -11219,6 +11348,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -11289,6 +11419,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -11359,6 +11490,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -11429,6 +11561,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -11512,6 +11645,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -11578,6 +11712,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[2]",
@@ -11589,12 +11724,14 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 },
                 {
                   "block": 1,
                   "kind": "base",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "backup_users"
                 }
               ],
@@ -11898,6 +12035,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -12001,6 +12139,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -12081,6 +12220,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[3]",
@@ -12089,6 +12229,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "phone",
                   "relation": 1,
                   "selector": "stmt[0].name[4]",
@@ -12097,6 +12238,7 @@
                 {
                   "block": 1,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "active",
                   "relation": 1,
                   "selector": "stmt[0].name[6]"
@@ -12119,12 +12261,14 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 },
                 {
                   "block": 1,
                   "kind": "base",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "backup_users"
                 }
               ],
@@ -12262,6 +12406,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -12332,6 +12477,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -12403,12 +12549,14 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 },
                 {
                   "block": 1,
                   "kind": "base",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "backup_users"
                 }
               ],
@@ -12485,12 +12633,14 @@
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0
                 },
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[2]"
@@ -12513,6 +12663,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -12603,6 +12754,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[1]"
@@ -12625,6 +12777,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -18308,6 +18461,7 @@
                   "kind": "base",
                   "schema": "db-a",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "table-a"
                 }
               ],
@@ -20026,6 +20180,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -20034,6 +20189,7 @@
                 {
                   "block": 0,
                   "clause": "group_by",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[5]"
@@ -20045,6 +20201,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "table_a"
                 }
               ],
@@ -22997,6 +23154,7 @@
                   "kind": "base",
                   "schema": "audit_db",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "Bind_Mix"
                 }
               ],

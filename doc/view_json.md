@@ -187,6 +187,7 @@ FROM (
 | `database` | SQL 中出现的数据库名；未出现时省略 |
 | `schema` | SQL 中出现的 schema；未出现时省略 |
 | `table` | SQL 中出现的表名；派生表没有表名时省略 |
+| `quoted_identifier` | `table` 对应的对象名 token 显式使用 `"..."`、MySQL 反引号或 SQL Server `[...]` 时为 `true`；否则省略 |
 | `alias` | SQL 中出现的别名；未出现时省略 |
 | `link` | 远程对象引用中的 database link 名称；未出现时省略 |
 | `source_block` | 派生表或 CTE 指向的查询块；没有来源块时省略 |
@@ -240,6 +241,7 @@ FROM (
 | `relation` | 稳定归属到的 relation 索引；无法唯一归属时省略 |
 | `candidate_relations` | 未限定字段在多 relation 作用域下的候选 relation 索引；没有候选列表时省略 |
 | `column` | 字段名；`*` 由 `targets[]` 表达，不作为普通 field 输出 |
+| `quoted_identifier` | `column` token 显式使用 `"..."`、MySQL 反引号或 SQL Server `[...]` 时为 `true`；否则省略 |
 | `target` | 字段属于 SELECT 输出项时对应的 target 索引；否则省略 |
 | `selector` | 字段名 selector；没有可写节点时省略 |
 | `target_path` | 字段在输出表达式中的有序路径；直接字段或非输出字段时省略 |
@@ -381,7 +383,9 @@ item 字段：
 | `name` | 参数、变量或对象的显式名称或规范化语义名称；没有可用名称时省略，规范化名称不保证逐字出现在 SQL 中 |
 | `values` | 目标值数组；没有值时省略 |
 
-value 的 `kind` 为 `identifier`、`keyword`、`literal`、`bind` 或 `expression`。标识符、关键字和表达式使用 `text`；字面量使用 `literal`；bind 使用 `bind_key`、`bind_kind`、`bind_sql`，其 `bind_position` 从 `1` 开始，按同一 handle 内各 statement 中的 SQL 出现顺序编号。各类 value 均可包含可选 `name`，用于区分同一 item 内具有独立语义的值；例如 `SET NAMES ... COLLATE ...` 的 collation value 使用 `"name": "collation"`。没有可用的独立语义标签时省略该字段。
+value 的 `kind` 为 `identifier`、`keyword`、`literal`、`bind` 或 `expression`。标识符、关键字和表达式使用 `text`；字面量使用 `literal`；bind 使用 `bind_key`、`bind_kind`、`bind_sql`，其 `bind_position` 从 `1` 开始，按同一 handle 内各 statement 中的 SQL 出现顺序编号。`identifier` 的原始 token 显式使用 `"..."`、MySQL 反引号或 SQL Server `[...]` 时输出 `quoted_identifier: true`。各类 value 均可包含可选 `name`，用于区分同一 item 内具有独立语义的值；例如 `SET NAMES ... COLLATE ...` 的 collation value 使用 `"name": "collation"`。没有可用的独立语义标签时省略该字段。
+
+`quoted_identifier` 只表示精确来源 token 是否使用支持的标识符定界符，不表示定界符类型。Relation 中该字段只对应对象名，不覆盖 database、schema 或 alias；field 中只对应列名。普通单引号字符串和解析器内部生成的引号样式不会产生该字段。
 
 ## DML
 

@@ -6366,6 +6366,43 @@ static sqlparser_status_t sqlparser_oracle_preprocess_fragment(
 		out_error);
 }
 
+sqlparser_status_t sqlparser_oracle_preprocess_fragment_identifier_origins(
+	const char *input_sql,
+	void *state,
+	size_t statement_index,
+	char **out_parser_sql,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_status_t status;
+
+	if (origins == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"identifier origin map must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	status = sqlparser_oracle_preprocess_fragment(
+		input_sql,
+		state,
+		statement_index,
+		out_parser_sql,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_oracle_replay_preprocess_text(
+			input_sql,
+			*out_parser_sql,
+			origins,
+			out_error);
+	}
+	if (status != SQLPARSER_STATUS_OK && out_parser_sql != NULL) {
+		free(*out_parser_sql);
+		*out_parser_sql = NULL;
+	}
+	return status;
+}
+
 static sqlparser_status_t sqlparser_oracle_value_clone(
 	const sqlparser_dialect_multi_insert_value_t *source,
 	sqlparser_dialect_multi_insert_value_t *target,
@@ -7122,13 +7159,20 @@ static sqlparser_status_t sqlparser_oracle_clone_state(
 
 static const char *sqlparser_oracle_relation_object_name(
 	const void *state,
-	const char *parser_object_name)
+	const char *parser_object_name,
+	const char **out_spelling)
 {
 	const sqlparser_oracle_dblink_relation_t *relation;
 
+	if (out_spelling != NULL) {
+		*out_spelling = NULL;
+	}
 	relation = sqlparser_oracle_state_find_dblink_relation(
 		(const sqlparser_oracle_state_t *)state,
 		parser_object_name);
+	if (relation != NULL && out_spelling != NULL) {
+		*out_spelling = relation->public_object_sql;
+	}
 	return relation != NULL ? relation->public_object_name : NULL;
 }
 

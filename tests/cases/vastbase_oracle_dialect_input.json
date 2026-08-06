@@ -4241,6 +4241,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "Name",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -4249,6 +4250,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "Id",
                   "relation": 0,
                   "selector": "stmt[0].name[2]"
@@ -4271,6 +4273,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "Users"
                 }
               ],
@@ -4955,6 +4958,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "RETURNING",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -4963,6 +4967,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "email@domain",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -5080,6 +5085,7 @@
                     "values": [
                       {
                         "kind": "identifier",
+                        "quoted_identifier": true,
                         "text": "KdesMixed"
                       }
                     ]
@@ -6968,6 +6974,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "UID",
                   "relation": 0,
                   "selector": "stmt[0].name[10]",
@@ -7950,6 +7957,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "UID",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -9815,6 +9823,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "UID",
                   "relation": 0,
                   "selector": "stmt[0].name[10]",
@@ -28511,6 +28520,7 @@
                   "kind": "base",
                   "link": "REMOTE_DB",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "USERS"
                 }
               ],
@@ -30876,6 +30886,7 @@
                   "kind": "base",
                   "schema": "KDES",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "Bind_Mix"
                 }
               ],

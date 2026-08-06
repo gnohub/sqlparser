@@ -2990,6 +2990,16 @@ static sqlparser_status_t sqlparser_preprocess_handle_sql_fragment_internal(
 				out_parser_sql,
 				origins,
 				out_error);
+	} else if (origins != NULL &&
+		   sqlparser_dialect_is_oracle_compatible(handle->dialect)) {
+		status =
+			sqlparser_oracle_preprocess_fragment_identifier_origins(
+				public_sql,
+				candidate_state,
+				statement_index,
+				out_parser_sql,
+				origins,
+				out_error);
 	} else {
 		status = handle->dialect_ops->preprocess_fragment(
 			public_sql,
@@ -3015,6 +3025,7 @@ static sqlparser_status_t sqlparser_preprocess_handle_sql_fragment_internal(
 	if (origins != NULL &&
 	    !sqlparser_dialect_is_sqlserver_compatible(handle->dialect) &&
 	    !sqlparser_dialect_is_mysql_compatible(handle->dialect) &&
+	    !sqlparser_dialect_is_oracle_compatible(handle->dialect) &&
 	    strcmp(*out_parser_sql, public_sql) != 0) {
 		sqlparser_identifier_origin_map_destroy(origins);
 		origins = NULL;

@@ -28,6 +28,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -36,6 +37,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[3]",
@@ -44,6 +46,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[8]"
@@ -68,6 +71,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -178,6 +182,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -186,6 +191,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -194,6 +200,7 @@
                 {
                   "block": 0,
                   "clause": "order_by",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[4]"
@@ -205,6 +212,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -292,6 +300,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -300,6 +309,7 @@
                 {
                   "block": 0,
                   "clause": "order_by",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -311,6 +321,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -397,6 +408,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[4]",
@@ -405,6 +417,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 1,
                   "selector": "stmt[0].name[5]",
@@ -413,6 +426,7 @@
                 {
                   "block": 1,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 1,
                   "selector": "stmt[0].name[8]"
@@ -420,6 +434,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -428,6 +443,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -459,6 +475,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -599,6 +616,7 @@
                 {
                   "block": 0,
                   "clause": "on",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[11]"
@@ -606,6 +624,7 @@
                 {
                   "block": 0,
                   "clause": "on",
+                  "quoted_identifier": true,
                   "column": "user_id",
                   "relation": 1,
                   "selector": "stmt[0].name[13]"
@@ -613,6 +632,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -621,6 +641,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "order_no",
                   "relation": 1,
                   "selector": "stmt[0].name[3]",
@@ -629,6 +650,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 1,
                   "selector": "stmt[0].name[15]"
@@ -664,6 +686,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 },
                 {
@@ -672,6 +695,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "orders"
                 }
               ],
@@ -797,6 +821,7 @@
                 {
                   "block": 0,
                   "clause": "on",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[11]"
@@ -804,6 +829,7 @@
                 {
                   "block": 0,
                   "clause": "on",
+                  "quoted_identifier": true,
                   "column": "user_id",
                   "relation": 1,
                   "selector": "stmt[0].name[13]"
@@ -811,6 +837,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -819,6 +846,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "phone",
                   "relation": 1,
                   "selector": "stmt[0].name[3]",
@@ -845,6 +873,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 },
                 {
@@ -853,6 +882,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "phones"
                 }
               ],
@@ -989,6 +1019,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -1097,6 +1128,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -1177,6 +1209,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[4]",
@@ -1185,6 +1218,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 1,
                   "selector": "stmt[0].name[5]",
@@ -1193,6 +1227,7 @@
                 {
                   "block": 1,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 1,
                   "selector": "stmt[0].name[8]"
@@ -1216,6 +1251,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "archive_users"
                 },
                 {
@@ -1223,6 +1259,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -1352,18 +1389,21 @@
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0
                 },
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 0
                 },
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[4]"
@@ -1387,6 +1427,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -1479,6 +1520,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[2]"
@@ -1486,6 +1528,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -1529,6 +1572,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -1617,6 +1661,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "customer_name",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -1640,6 +1685,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "orders"
                 }
               ],
@@ -1751,6 +1797,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -1759,6 +1806,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -1766,6 +1814,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 0,
                   "selector": "stmt[0].name[4]"
@@ -1809,6 +1858,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -1926,6 +1976,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -1934,6 +1985,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 0,
                   "selector": "stmt[0].name[2]"
@@ -2053,6 +2105,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -2072,6 +2125,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -2166,6 +2220,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -2181,6 +2236,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[3]",
@@ -2196,6 +2252,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[4]",
@@ -2208,6 +2265,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -2294,6 +2352,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -2323,6 +2382,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -2429,6 +2489,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -2437,6 +2498,7 @@
                 {
                   "block": 2,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[3]",
@@ -2449,6 +2511,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 },
                 {
@@ -2456,6 +2519,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "archive_users"
                 }
               ],
@@ -2552,6 +2616,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -2560,6 +2625,7 @@
                 {
                   "block": 2,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[3]",
@@ -2572,6 +2638,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 },
                 {
@@ -2579,6 +2646,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "archive_users"
                 }
               ],
@@ -2675,6 +2743,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -2683,6 +2752,7 @@
                 {
                   "block": 2,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[3]",
@@ -2695,6 +2765,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 },
                 {
@@ -2702,6 +2773,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "active_users"
                 }
               ],
@@ -2802,6 +2874,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -2810,6 +2883,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[3]",
@@ -2822,6 +2896,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -2985,12 +3060,14 @@
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 0
                 },
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[1].name[3]"
@@ -3014,6 +3091,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[1].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -3136,6 +3214,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -3148,6 +3227,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -3184,6 +3264,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[1].name[0]",
@@ -3196,6 +3277,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[1].relation[0]",
+                  "quoted_identifier": true,
                   "table": "orders"
                 }
               ],
@@ -3286,6 +3368,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -3294,6 +3377,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -3316,6 +3400,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -3446,6 +3531,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -3514,6 +3600,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "Order ID",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -3522,6 +3609,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "Order ID",
                   "relation": 0,
                   "selector": "stmt[0].name[5]"
@@ -3545,6 +3633,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "Order Detail"
                 }
               ],
@@ -3710,6 +3799,7 @@
                 {
                   "block": 0,
                   "clause": "on",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[7]"
@@ -3717,6 +3807,7 @@
                 {
                   "block": 0,
                   "clause": "on",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[9]"
@@ -3724,12 +3815,14 @@
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0
                 },
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 1,
                   "selector": "stmt[0].name[12]"
@@ -3737,6 +3830,7 @@
                 {
                   "block": 0,
                   "clause": "unknown",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[16]"
@@ -3744,6 +3838,7 @@
                 {
                   "block": 0,
                   "clause": "unknown",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 1,
                   "selector": "stmt[0].name[18]"
@@ -3769,6 +3864,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 },
                 {
@@ -3777,6 +3873,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "staging_users"
                 }
               ],
@@ -3876,6 +3973,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -3884,6 +3982,7 @@
                 {
                   "block": 0,
                   "clause": "order_by",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -3895,6 +3994,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -3979,6 +4079,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[4]",
@@ -3987,6 +4088,7 @@
                 {
                   "block": 1,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 1,
                   "selector": "stmt[0].name[7]"
@@ -3994,6 +4096,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -4002,6 +4105,7 @@
                 {
                   "block": 0,
                   "clause": "order_by",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[2]"
@@ -4032,6 +4136,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -4145,6 +4250,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -4252,6 +4358,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -4340,6 +4447,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -4348,6 +4456,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -4371,6 +4480,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -4467,6 +4577,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "OUTPUT",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -4475,6 +4586,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "EXEC",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -4483,6 +4595,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "PIVOT",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -4495,6 +4608,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -4597,6 +4711,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -4609,6 +4724,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -4681,6 +4797,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -4689,6 +4806,7 @@
                 {
                   "block": 0,
                   "clause": "order_by",
+                  "quoted_identifier": true,
                   "column": "score",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -4700,6 +4818,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -4772,6 +4891,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -4780,6 +4900,7 @@
                 {
                   "block": 0,
                   "clause": "order_by",
+                  "quoted_identifier": true,
                   "column": "score",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -4791,6 +4912,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -4904,6 +5026,7 @@
                 {
                   "block": 1,
                   "clause": "dml_result",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[4]",
@@ -4916,6 +5039,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -4994,6 +5118,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -5006,6 +5131,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -5078,6 +5204,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -5090,6 +5217,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -5162,6 +5290,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -5174,6 +5303,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -5360,6 +5490,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "created_at",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -5379,6 +5510,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -5443,6 +5575,7 @@
                     "values": [
                       {
                         "kind": "identifier",
+                        "quoted_identifier": true,
                         "text": "AdventureWorks2022"
                       }
                     ]
@@ -5505,6 +5638,7 @@
                     "values": [
                       {
                         "kind": "identifier",
+                        "quoted_identifier": true,
                         "text": "AdventureWorks2022"
                       }
                     ]
@@ -5534,6 +5668,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[1].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -5682,6 +5817,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -5690,6 +5826,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -5698,6 +5835,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[4]"
@@ -5705,6 +5843,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 0,
                   "selector": "stmt[0].name[5]"
@@ -5748,6 +5887,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -5874,6 +6014,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -5882,6 +6023,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -5904,6 +6046,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -6035,6 +6178,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -6043,6 +6187,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -6050,6 +6195,7 @@
                 {
                   "block": 0,
                   "clause": "order_by",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[4]"
@@ -6073,6 +6219,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -6223,6 +6370,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -6333,6 +6481,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -6412,18 +6561,21 @@
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0
                 },
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 0
                 },
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[4]"
@@ -6447,6 +6599,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -6539,6 +6692,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[2]"
@@ -6546,6 +6700,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -6589,6 +6744,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -6722,6 +6878,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -6730,6 +6887,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -6738,6 +6896,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[4]"
@@ -6745,6 +6904,7 @@
                 {
                   "block": 0,
                   "clause": "order_by",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[5]"
@@ -6768,6 +6928,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -6880,6 +7041,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "first_name",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -6895,6 +7057,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "last_name",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -6910,6 +7073,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[4]"
@@ -6933,6 +7097,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -7031,6 +7196,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "state",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -7056,6 +7222,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -7076,6 +7243,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "fallback_name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -7095,6 +7263,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -7198,6 +7367,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "dept",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -7206,6 +7376,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -7221,6 +7392,7 @@
                 {
                   "block": 0,
                   "clause": "group_by",
+                  "quoted_identifier": true,
                   "column": "dept",
                   "relation": 0,
                   "selector": "stmt[0].name[5]"
@@ -7228,6 +7400,7 @@
                 {
                   "block": 0,
                   "clause": "having",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[7]"
@@ -7235,6 +7408,7 @@
                 {
                   "block": 0,
                   "clause": "order_by",
+                  "quoted_identifier": true,
                   "column": "dept",
                   "relation": 0,
                   "selector": "stmt[0].name[8]"
@@ -7258,6 +7432,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -7382,12 +7557,14 @@
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "ip",
                   "relation": 0
                 },
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -7411,6 +7588,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "servers"
                 }
               ],
@@ -7496,6 +7674,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -7504,6 +7683,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "age",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -7526,6 +7706,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -7637,6 +7818,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -7645,6 +7827,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -7667,6 +7850,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -7778,6 +7962,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -7786,6 +7971,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "age",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -7808,6 +7994,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -7919,6 +8106,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -7927,6 +8115,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -7950,6 +8139,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -8047,6 +8237,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -8055,6 +8246,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -8078,6 +8270,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "table1"
                 }
               ],
@@ -8180,6 +8373,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "email",
                   "relation": 0,
                   "selector": "stmt[0].name[2]"
@@ -8202,6 +8396,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -8316,12 +8511,14 @@
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 0
                 },
                 {
                   "block": 1,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "user_id",
                   "relation": 1,
                   "selector": "stmt[0].name[7]"
@@ -8329,6 +8526,7 @@
                 {
                   "block": 1,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[9]"
@@ -8336,6 +8534,7 @@
                 {
                   "block": 1,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "phone",
                   "relation": 1,
                   "selector": "stmt[0].name[11]"
@@ -8386,6 +8585,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 },
                 {
@@ -8394,6 +8594,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "orders"
                 }
               ],
@@ -8563,6 +8764,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -8634,6 +8836,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[4]",
@@ -8642,6 +8845,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "phone",
                   "relation": 1,
                   "selector": "stmt[0].name[5]",
@@ -8650,6 +8854,7 @@
                 {
                   "block": 1,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 1,
                   "selector": "stmt[0].name[8]"
@@ -8657,6 +8862,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -8665,6 +8871,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "phone",
                   "relation": 0,
                   "selector": "stmt[0].name[3]",
@@ -8673,6 +8880,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "phone",
                   "relation": 0,
                   "selector": "stmt[0].name[11]"
@@ -8712,6 +8920,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -8862,6 +9071,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "extra",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -8877,6 +9087,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[4]"
@@ -8900,6 +9111,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -8994,6 +9206,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -9002,6 +9215,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "phone",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -9014,6 +9228,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -9095,6 +9310,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -9103,6 +9319,7 @@
                 {
                   "block": 0,
                   "clause": "order_by",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -9114,6 +9331,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -9192,6 +9410,7 @@
                 {
                   "block": 0,
                   "clause": "on",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[10]"
@@ -9199,6 +9418,7 @@
                 {
                   "block": 0,
                   "clause": "on",
+                  "quoted_identifier": true,
                   "column": "user_id",
                   "relation": 1,
                   "selector": "stmt[0].name[12]"
@@ -9206,6 +9426,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "order_no",
                   "relation": 1,
                   "selector": "stmt[0].name[2]",
@@ -9214,6 +9435,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 1,
                   "selector": "stmt[0].name[14]"
@@ -9249,6 +9471,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 },
                 {
@@ -9257,6 +9480,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "orders"
                 }
               ],
@@ -9383,6 +9607,7 @@
                 {
                   "block": 0,
                   "clause": "on",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[15]"
@@ -9390,6 +9615,7 @@
                 {
                   "block": 0,
                   "clause": "on",
+                  "quoted_identifier": true,
                   "column": "user_id",
                   "relation": 1,
                   "selector": "stmt[0].name[17]"
@@ -9397,6 +9623,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[3]",
@@ -9405,6 +9632,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[7]",
@@ -9420,6 +9648,7 @@
                 {
                   "block": 0,
                   "clause": "group_by",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[19]"
@@ -9445,6 +9674,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "users"
                 },
                 {
@@ -9453,6 +9683,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[2]",
+                  "quoted_identifier": true,
                   "table": "orders"
                 }
               ],
@@ -9555,6 +9786,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -9563,6 +9795,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -9570,6 +9803,7 @@
                 {
                   "block": 0,
                   "clause": "order_by",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[4]"
@@ -9593,6 +9827,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -9709,12 +9944,14 @@
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "a",
                   "relation": 0
                 },
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "b",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -9738,6 +9975,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -9795,12 +10033,14 @@
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "c",
                   "relation": 0
                 },
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "d",
                   "relation": 0,
                   "selector": "stmt[1].name[3]"
@@ -9824,6 +10064,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[1].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -9922,6 +10163,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[3]",
@@ -9930,6 +10172,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 1,
                   "selector": "stmt[0].name[4]",
@@ -9938,6 +10181,7 @@
                 {
                   "block": 1,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "age",
                   "relation": 1,
                   "selector": "stmt[0].name[7]"
@@ -9945,6 +10189,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -9953,6 +10198,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[10]"
@@ -9992,6 +10238,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -10337,6 +10584,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -10345,6 +10593,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "secret",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -10352,6 +10601,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "secret",
                   "relation": 0,
                   "selector": "stmt[0].name[5]"
@@ -10395,6 +10645,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -10512,6 +10763,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -10520,6 +10772,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "secret",
                   "relation": 0,
                   "selector": "stmt[0].name[4]"
@@ -10527,6 +10780,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "backup_secret",
                   "relation": 0,
                   "selector": "stmt[0].name[5]"
@@ -10534,6 +10788,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -10556,6 +10811,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -10690,6 +10946,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -10698,6 +10955,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "secret",
                   "relation": 0,
                   "selector": "stmt[0].name[4]"
@@ -10705,6 +10963,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[5]"
@@ -10712,6 +10971,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "secret",
                   "relation": 0,
                   "selector": "stmt[0].name[6]"
@@ -10719,6 +10979,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[7]"
@@ -10760,6 +11021,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -10908,6 +11170,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -10916,6 +11179,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "secret",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -10923,6 +11187,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "secret",
                   "relation": 0,
                   "selector": "stmt[0].name[5]"
@@ -10930,6 +11195,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "secret",
                   "relation": 0,
                   "selector": "stmt[0].name[6]"
@@ -10984,6 +11250,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -11129,6 +11396,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -11171,12 +11439,14 @@
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "secret",
                   "relation": 0
                 },
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[1].name[3]"
@@ -11200,6 +11470,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[1].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -11326,12 +11597,14 @@
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "secret",
                   "relation": 0
                 },
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -11355,6 +11628,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "dbp_crypto_test"
                 }
               ],
@@ -11462,18 +11736,21 @@
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "phone",
                   "relation": 0
                 },
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "secret",
                   "relation": 0
                 },
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[4]"
@@ -11497,6 +11774,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "dbp_crypto_test"
                 }
               ],
@@ -11582,6 +11860,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -11590,6 +11869,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -11613,6 +11893,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -11716,6 +11997,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -11724,6 +12006,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -11747,6 +12030,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -11851,6 +12135,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -11859,6 +12144,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -11882,6 +12168,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -11986,6 +12273,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -11994,6 +12282,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -12017,6 +12306,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -12116,6 +12406,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "flags",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -12131,6 +12422,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "flags",
                   "relation": 0,
                   "selector": "stmt[0].name[3]",
@@ -12146,6 +12438,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "flags",
                   "relation": 0,
                   "selector": "stmt[0].name[5]",
@@ -12161,6 +12454,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "flags",
                   "relation": 0,
                   "selector": "stmt[0].name[8]"
@@ -12184,6 +12478,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -12305,6 +12600,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "flags",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -12324,6 +12620,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -12400,6 +12697,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -12408,6 +12706,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "score",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -12415,6 +12714,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "score",
                   "relation": 0,
                   "selector": "stmt[0].name[4]"
@@ -12458,6 +12758,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -12572,6 +12873,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "first_name",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -12587,6 +12889,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "last_name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -12606,6 +12909,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -12680,6 +12984,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -12688,6 +12993,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -12711,6 +13017,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -12809,6 +13116,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -12817,6 +13125,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "created_at",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -12840,6 +13149,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -12937,6 +13247,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -12945,6 +13256,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "deleted_at",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -12968,6 +13280,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -13071,6 +13384,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[1]",
@@ -13079,6 +13393,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -13097,6 +13412,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -13181,6 +13497,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -13189,6 +13506,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -13212,6 +13530,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -13315,6 +13634,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[1]",
@@ -13323,6 +13643,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -13341,6 +13662,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -13422,6 +13744,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -13434,6 +13757,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -13470,6 +13794,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[1].name[0]",
@@ -13482,6 +13807,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[1].relation[0]",
+                  "quoted_identifier": true,
                   "table": "orders"
                 }
               ],
@@ -14906,6 +15232,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -14973,6 +15300,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -15040,6 +15368,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -15110,6 +15439,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -15118,6 +15448,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[3]",
@@ -15126,6 +15457,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[11]"
@@ -15133,6 +15465,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[13]"
@@ -15158,6 +15491,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "a"
                 },
                 {
@@ -15166,6 +15500,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "b"
                 }
               ],
@@ -15281,6 +15616,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -15289,6 +15625,7 @@
                 {
                   "block": 1,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[9]"
@@ -15296,6 +15633,7 @@
                 {
                   "block": 1,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[11]"
@@ -15327,6 +15665,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "a"
                 },
                 {
@@ -15335,6 +15674,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "b"
                 }
               ],
@@ -15466,6 +15806,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -15474,6 +15815,7 @@
                 {
                   "block": 1,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[9]"
@@ -15481,6 +15823,7 @@
                 {
                   "block": 1,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[11]"
@@ -15512,6 +15855,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "a"
                 },
                 {
@@ -15520,6 +15864,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "b"
                 }
               ],
@@ -15652,6 +15997,7 @@
                 {
                   "block": 0,
                   "clause": "on",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[11]"
@@ -15659,6 +16005,7 @@
                 {
                   "block": 0,
                   "clause": "on",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 2,
                   "selector": "stmt[0].name[13]"
@@ -15666,12 +16013,14 @@
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "value",
                   "relation": 0
                 },
                 {
                   "block": 0,
                   "clause": "set_list",
+                  "quoted_identifier": true,
                   "column": "value",
                   "relation": 2,
                   "selector": "stmt[0].name[3]"
@@ -15695,6 +16044,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "t"
                 },
                 {
@@ -15703,6 +16053,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "target"
                 },
                 {
@@ -15711,6 +16062,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[2]",
+                  "quoted_identifier": true,
                   "table": "source"
                 }
               ],
@@ -15809,6 +16161,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[3]",
@@ -15817,6 +16170,7 @@
                 {
                   "block": 1,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[11]"
@@ -15824,6 +16178,7 @@
                 {
                   "block": 1,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 2,
                   "selector": "stmt[0].name[13]"
@@ -15831,6 +16186,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -15863,6 +16219,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "a"
                 },
                 {
@@ -15871,6 +16228,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "b"
                 }
               ],
@@ -16402,6 +16760,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "binlog"
                 }
               ],
@@ -16467,6 +16826,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -16532,6 +16892,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -16551,6 +16912,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -16624,6 +16986,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -16691,6 +17054,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -16758,6 +17122,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -16825,6 +17190,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -16890,6 +17256,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "score",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -16909,6 +17276,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -16980,6 +17348,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "score",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -16999,6 +17368,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -17072,6 +17442,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -17139,6 +17510,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -17206,6 +17578,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -17273,6 +17646,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -17340,6 +17714,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -17407,6 +17782,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -17474,6 +17850,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -17541,6 +17918,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -17608,6 +17986,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -17675,6 +18054,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -17742,6 +18122,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -17809,6 +18190,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -17876,6 +18258,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -17943,6 +18326,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -18010,6 +18394,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -18077,6 +18462,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -18144,6 +18530,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -18211,6 +18598,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -18278,6 +18666,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -18345,6 +18734,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -18412,6 +18802,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -18479,6 +18870,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -18546,6 +18938,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -18613,6 +19006,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -18680,6 +19074,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -18747,6 +19142,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -18814,6 +19210,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -18881,6 +19278,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -18948,6 +19346,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -19015,6 +19414,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -19082,6 +19482,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -19149,6 +19550,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -19216,6 +19618,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -19283,6 +19686,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -19350,6 +19754,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -19417,6 +19822,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -19482,6 +19888,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "created_at",
                   "relation": 0,
                   "selector": "stmt[0].name[3]",
@@ -19501,6 +19908,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -19574,6 +19982,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -19641,6 +20050,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -19708,6 +20118,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -19775,6 +20186,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -19842,6 +20254,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -19907,6 +20320,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "created_at",
                   "relation": 0,
                   "selector": "stmt[0].name[3]",
@@ -19926,6 +20340,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -19999,6 +20414,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -20066,6 +20482,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -20133,6 +20550,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -20200,6 +20618,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -20267,6 +20686,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -20334,6 +20754,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -20401,6 +20822,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -20468,6 +20890,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -20535,6 +20958,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -20602,6 +21026,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -20669,6 +21094,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -20734,6 +21160,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -20753,6 +21180,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -20824,6 +21252,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -20843,6 +21272,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -20916,6 +21346,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -20983,6 +21414,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -21050,6 +21482,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -21117,6 +21550,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -21184,6 +21618,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -21251,6 +21686,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -21318,6 +21754,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -21385,6 +21822,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -21452,6 +21890,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -21519,6 +21958,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -21586,6 +22026,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -21653,6 +22094,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -21720,6 +22162,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -21787,6 +22230,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -21854,6 +22298,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -21921,6 +22366,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -21988,6 +22434,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -22055,6 +22502,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -22122,6 +22570,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -22189,6 +22638,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -22256,6 +22706,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -22323,6 +22774,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -22390,6 +22842,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -22457,6 +22910,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -22524,6 +22978,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -22591,6 +23046,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -22658,6 +23114,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -22725,6 +23182,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -22792,6 +23250,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -22859,6 +23318,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -22926,6 +23386,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -22993,6 +23454,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -23060,6 +23522,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -23127,6 +23590,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -23194,6 +23658,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -23261,6 +23726,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -23328,6 +23794,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -23395,6 +23862,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -23462,6 +23930,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -23529,6 +23998,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -23596,6 +24066,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -23663,6 +24134,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -23730,6 +24202,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -23797,6 +24270,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -23864,6 +24338,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -23931,6 +24406,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -23998,6 +24474,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -24065,6 +24542,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -24130,6 +24608,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -24149,6 +24628,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -24220,6 +24700,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -24239,6 +24720,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -24312,6 +24794,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -24377,6 +24860,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -24396,6 +24880,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -24469,6 +24954,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -24536,6 +25022,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -24601,6 +25088,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -24620,6 +25108,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -24691,6 +25180,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -24706,6 +25196,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -24725,6 +25216,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -24798,6 +25290,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -24865,6 +25358,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -24932,6 +25426,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -24999,6 +25494,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -25066,6 +25562,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -25133,6 +25630,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -25200,6 +25698,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -25267,6 +25766,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -25334,6 +25834,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -25401,6 +25902,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -25468,6 +25970,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -25535,6 +26038,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -25600,6 +26104,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -25624,6 +26129,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -25720,6 +26226,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -25787,6 +26294,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -25854,6 +26362,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -25921,6 +26430,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -25988,6 +26498,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -26055,6 +26566,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -26137,6 +26649,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -26204,6 +26717,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -26271,6 +26785,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -26338,6 +26853,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -26405,6 +26921,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -26472,6 +26989,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -26539,6 +27057,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -26606,6 +27125,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -26673,6 +27193,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -26740,6 +27261,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -26807,6 +27329,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -26874,6 +27397,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -26941,6 +27465,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -27008,6 +27533,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -27075,6 +27601,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -27142,6 +27669,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -27209,6 +27737,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -27276,6 +27805,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -27341,6 +27871,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[3]",
@@ -27360,6 +27891,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -27433,6 +27965,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -27500,6 +28033,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -27565,6 +28099,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -27584,6 +28119,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -27657,6 +28193,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -27724,6 +28261,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -27789,6 +28327,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -27808,6 +28347,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -27879,6 +28419,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -27898,6 +28439,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -27969,6 +28511,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -27988,6 +28531,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -28056,6 +28600,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "match_value",
                   "selector": "stmt[0].name[1]",
                   "target": 0
@@ -28124,6 +28669,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -28143,6 +28689,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -28214,6 +28761,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -28233,6 +28781,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -28306,6 +28855,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -28373,6 +28923,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -28440,6 +28991,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -28507,6 +29059,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -28574,6 +29127,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -28641,6 +29195,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -28708,6 +29263,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -28775,6 +29331,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -28842,6 +29399,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -28909,6 +29467,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -28976,6 +29535,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -29043,6 +29603,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -29110,6 +29671,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -29177,6 +29739,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -29244,6 +29807,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -29311,6 +29875,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -29378,6 +29943,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -29445,6 +30011,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -29512,6 +30079,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -29579,6 +30147,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -29646,6 +30215,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -29713,6 +30283,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -29780,6 +30351,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -29847,6 +30419,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -29914,6 +30487,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -29981,6 +30555,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -30048,6 +30623,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -30115,6 +30691,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -30182,6 +30759,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -30249,6 +30827,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -30316,6 +30895,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -30383,6 +30963,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -30450,6 +31031,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -30517,6 +31099,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -30584,6 +31167,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -30651,6 +31235,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -30718,6 +31303,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -30785,6 +31371,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -30852,6 +31439,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -30919,6 +31507,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -30986,6 +31575,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -31053,6 +31643,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -31120,6 +31711,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -31187,6 +31779,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -31254,6 +31847,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -31321,6 +31915,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -31388,6 +31983,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -31455,6 +32051,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -31522,6 +32119,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -31589,6 +32187,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -31656,6 +32255,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -31723,6 +32323,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -31790,6 +32391,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -31857,6 +32459,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -31924,6 +32527,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -31991,6 +32595,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -32058,6 +32663,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -32125,6 +32731,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -32190,6 +32797,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -32209,6 +32817,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -33118,6 +33727,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -33130,6 +33740,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -33205,6 +33816,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -33228,6 +33840,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -33326,6 +33939,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -33349,6 +33963,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -33447,6 +34062,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -33470,6 +34086,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -33572,6 +34189,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -33580,6 +34198,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "email",
                   "relation": 0,
                   "selector": "stmt[0].name[3]",
@@ -33588,6 +34207,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "bank_card",
                   "relation": 0,
                   "selector": "stmt[0].name[5]",
@@ -33596,6 +34216,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "email",
                   "relation": 0,
                   "selector": "stmt[0].name[10]"
@@ -33603,6 +34224,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "bank_card",
                   "relation": 0,
                   "selector": "stmt[0].name[12]"
@@ -33610,6 +34232,7 @@
                 {
                   "block": 0,
                   "clause": "order_by",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[14]"
@@ -33654,6 +34277,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -33792,6 +34416,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -33804,6 +34429,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -33877,6 +34503,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -33885,6 +34512,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[5]",
@@ -33898,6 +34526,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -33994,6 +34623,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -34002,6 +34632,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -34009,6 +34640,7 @@
                 {
                   "block": 1,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "user_id",
                   "relation": 1,
                   "selector": "stmt[0].name[4]",
@@ -34017,6 +34649,7 @@
                 {
                   "block": 1,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "amount",
                   "relation": 1,
                   "selector": "stmt[0].name[7]"
@@ -34049,6 +34682,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 },
                 {
@@ -34056,6 +34690,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "orders"
                 }
               ],
@@ -36004,6 +36639,7 @@
                 {
                   "block": 0,
                   "clause": "on",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[11]"
@@ -36011,6 +36647,7 @@
                 {
                   "block": 0,
                   "clause": "on",
+                  "quoted_identifier": true,
                   "column": "user_id",
                   "relation": 1,
                   "selector": "stmt[0].name[13]"
@@ -36018,6 +36655,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -36026,6 +36664,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 1,
                   "selector": "stmt[0].name[3]",
@@ -36052,6 +36691,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 },
                 {
@@ -36060,6 +36700,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[1]",
+                  "quoted_identifier": true,
                   "table": "orders"
                 }
               ],
@@ -36163,6 +36804,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[0]",
@@ -36171,6 +36813,7 @@
                 {
                   "block": 0,
                   "clause": "where",
+                  "quoted_identifier": true,
                   "column": "status",
                   "relation": 0,
                   "selector": "stmt[0].name[3]"
@@ -36194,6 +36837,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -36338,6 +36982,7 @@
                 {
                   "block": 4,
                   "clause": "dml_result",
+                  "quoted_identifier": true,
                   "column": "Id",
                   "relation": 0,
                   "selector": "stmt[0].name[9]",
@@ -36349,6 +36994,7 @@
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "KoalSug_35079cba"
                 }
               ],
@@ -40651,6 +41297,7 @@
                 {
                   "block": 1,
                   "clause": "dml_result",
+                  "quoted_identifier": true,
                   "column": "DELETED",
                   "relation": 0,
                   "selector": "stmt[0].name[4]",
@@ -40663,6 +41310,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "OUTPUT"
                 }
               ],
@@ -41257,6 +41905,7 @@
                 {
                   "block": 1,
                   "clause": "dml_result",
+                  "quoted_identifier": true,
                   "column": "select",
                   "relation": 0,
                   "selector": "stmt[0].name[4]",
@@ -47005,6 +47654,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "IF",
                   "relation": 0,
                   "selector": "stmt[2].name[0]",
@@ -54249,6 +54899,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "Bind_Mix"
                 }
               ],
@@ -54309,6 +54960,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[4]",
@@ -54328,6 +54980,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -54393,6 +55046,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[3]",
@@ -54412,6 +55066,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -54477,6 +55132,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[3]",
@@ -54496,6 +55152,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -54563,6 +55220,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[3]",
@@ -54578,6 +55236,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[7]",
@@ -54598,6 +55257,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "offset_id",
                   "relation": 0,
                   "selector": "stmt[0].name[8]",
@@ -54618,6 +55278,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[12]",
@@ -54638,6 +55299,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "factor",
                   "relation": 0,
                   "selector": "stmt[0].name[13]",
@@ -54662,6 +55324,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -55270,6 +55933,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -55285,6 +55949,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -55304,6 +55969,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -55375,6 +56041,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -55390,6 +56057,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "extra",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -55414,6 +56082,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -55485,6 +56154,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "phone",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -55505,6 +56175,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "email",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -55529,6 +56200,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -55601,6 +56273,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[1]",
@@ -55609,6 +56282,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "extra",
                   "relation": 0,
                   "selector": "stmt[0].name[4]",
@@ -55629,6 +56303,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -55709,6 +56384,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "created_at",
                   "relation": 0,
                   "selector": "stmt[0].name[3]",
@@ -55724,6 +56400,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "origin_at",
                   "relation": 0,
                   "selector": "stmt[0].name[4]",
@@ -55743,6 +56420,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -55814,6 +56492,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "day_count",
                   "relation": 0,
                   "selector": "stmt[0].name[3]",
@@ -55829,6 +56508,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "created_at",
                   "relation": 0,
                   "selector": "stmt[0].name[4]",
@@ -55848,6 +56528,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -55920,6 +56601,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "created_at",
                   "relation": 0,
                   "selector": "stmt[0].name[3]",
@@ -55935,6 +56617,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "updated_at",
                   "relation": 0,
                   "selector": "stmt[0].name[4]",
@@ -55950,6 +56633,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "created_at",
                   "relation": 0,
                   "selector": "stmt[0].name[8]",
@@ -55965,6 +56649,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "updated_at",
                   "relation": 0,
                   "selector": "stmt[0].name[9]",
@@ -55984,6 +56669,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -56069,6 +56755,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "created_at",
                   "relation": 0,
                   "selector": "stmt[0].name[3]",
@@ -56088,6 +56775,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -56159,6 +56847,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "created_at",
                   "relation": 0,
                   "selector": "stmt[0].name[3]",
@@ -56178,6 +56867,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -56249,6 +56939,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -56264,6 +56955,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "last_name",
                   "relation": 0,
                   "selector": "stmt[0].name[3]",
@@ -56279,6 +56971,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "first_name",
                   "relation": 0,
                   "selector": "stmt[0].name[4]",
@@ -56298,6 +56991,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -56375,6 +57069,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "name",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -56390,6 +57085,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "score",
                   "relation": 0,
                   "selector": "stmt[0].name[3]",
@@ -56410,6 +57106,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "bonus",
                   "relation": 0,
                   "selector": "stmt[0].name[4]",
@@ -56430,6 +57127,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "id",
                   "relation": 0,
                   "selector": "stmt[0].name[5]",
@@ -56449,6 +57147,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -56527,6 +57226,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "score",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -56542,6 +57242,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "score",
                   "relation": 0,
                   "selector": "stmt[0].name[5]",
@@ -56561,6 +57262,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],
@@ -56640,6 +57342,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "score",
                   "relation": 0,
                   "selector": "stmt[0].name[2]",
@@ -56655,6 +57358,7 @@
                 {
                   "block": 0,
                   "clause": "select_list",
+                  "quoted_identifier": true,
                   "column": "department_id",
                   "relation": 0,
                   "selector": "stmt[0].name[3]",
@@ -56674,6 +57378,7 @@
                   "kind": "base",
                   "schema": "dbo",
                   "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
                   "table": "users"
                 }
               ],

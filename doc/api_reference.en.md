@@ -739,9 +739,9 @@ from which it was read.
 | Struct | Meaning |
 | --- | --- |
 | `sqlparser_graph_block_t` | query block with relation, target, and predicate spans |
-| `sqlparser_graph_relation_t` | base, derived, CTE, or dual relation visible in SQL |
+| `sqlparser_graph_relation_t` | base, derived, CTE, or dual relation visible in SQL; `quoted_identifier` reports an explicit supported delimiter on the object-name token |
 | `sqlparser_graph_target_t` | SELECT output target with output order, star source, and selector |
-| `sqlparser_graph_field_t` | field-reference occurrence visible in SQL |
+| `sqlparser_graph_field_t` | field-reference occurrence visible in SQL; `quoted_identifier` reports an explicit supported delimiter on the column-name token |
 | `sqlparser_graph_value_t` | literal, bind, default, expression, or field value in the query graph |
 | `sqlparser_graph_set_t` | `UNION`, `UNION ALL`, `INTERSECT`, or `EXCEPT/MINUS` branches |
 | `sqlparser_graph_predicate_t` | comparison, boolean, EXISTS, or expression predicate from WHERE, ON, or HAVING |
@@ -758,6 +758,11 @@ from which it was read.
 
 ### Attribution Rules
 
+- `sqlparser_graph_relation_t.quoted_identifier` applies only to `object_name`,
+  and `sqlparser_graph_field_t.quoted_identifier` applies only to
+  `column_name`. It is `1` when the exact source token uses `"..."`, MySQL
+  backticks, or SQL Server `[...]`, and `0` otherwise. The flag does not
+  classify the delimiter kind or describe database, schema, or alias state.
 - `sqlparser_graph_relation_t.link_name` reports the database link for remote
   object references. It is `NULL` when the SQL has no database link.
 - `relations[].source_block_index` links a derived table or CTE to its source
@@ -871,6 +876,13 @@ session-parameter statements are projected into
 `sqlparser_graph_session_t`. When the current statement has no available
 session projection, `sqlparser_query_graph_session()` returns success with
 action `SQLPARSER_GRAPH_SESSION_ACTION_UNKNOWN` and `item_count = 0`.
+
+When `sqlparser_graph_session_value_t.kind` is
+`SQLPARSER_GRAPH_SESSION_VALUE_IDENTIFIER`, `literal.quoted_identifier` uses
+the same exact-token rule to report delimiter presence. Ordinary single-quoted
+strings and quote styles generated internally for dialect compatibility do not
+set the flag. Query-graph strings and structures remain owned by the handle and
+must not be freed by the caller.
 
 ```c
 sqlparser_query_graph_view_t graph;

@@ -619,7 +619,8 @@ void sqlparser_fill_relation_view_for_handle(
 	object_name = sqlparser_dialect_relation_object_name(
 		handle->dialect_ops,
 		handle->dialect_state,
-		relation->relname);
+		relation->relname,
+		NULL);
 	if (object_name != NULL && object_name[0] != '\0') {
 		out_relation->table_name = object_name;
 	}

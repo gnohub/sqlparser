@@ -101,6 +101,7 @@ static int sqlparser_text_equal_ci(const char *left, const char *right)
 typedef struct {
 	int known;
 	int quoted;
+	int delimited;
 } sqlparser_identifier_source_t;
 
 typedef struct {
@@ -109,6 +110,30 @@ typedef struct {
 	sqlparser_identifier_source_t object;
 	sqlparser_identifier_source_t alias;
 } sqlparser_graph_relation_identifier_t;
+
+static int sqlparser_identifier_spelling_is_delimited(
+	const char *spelling,
+	size_t length)
+{
+	if (spelling == NULL || length < 2U) {
+		return 0;
+	}
+	return (spelling[0] == '"' && spelling[length - 1U] == '"') ||
+	       (spelling[0] == '`' && spelling[length - 1U] == '`') ||
+	       (spelling[0] == '[' && spelling[length - 1U] == ']');
+}
+
+static int sqlparser_identifier_spelling_is_quoted(
+	const char *spelling,
+	size_t length)
+{
+	return spelling != NULL && length > 0U &&
+		(spelling[0] == '"' || spelling[0] == '`' ||
+		 spelling[0] == '[' ||
+		 (length > 2U &&
+		  (spelling[0] == 'U' || spelling[0] == 'u') &&
+		  spelling[1] == '&' && spelling[2] == '"'));
+}
 
 static size_t sqlparser_identifier_skip_trivia(
 	const char *sql,
@@ -241,14 +266,13 @@ static int sqlparser_identifier_component_source(
 		    &spelling_length) &&
 	    spelling_length > 0U) {
 		out_source->known = 1;
-		out_source->quoted =
-			spelling[0] == '"' ||
-			spelling[0] == '`' ||
-			spelling[0] == '[' ||
-			(spelling_length > 2U &&
-			 (spelling[0] == 'U' || spelling[0] == 'u') &&
-			 spelling[1] == '&' &&
-			 spelling[2] == '"');
+		out_source->quoted = sqlparser_identifier_spelling_is_quoted(
+			spelling,
+			spelling_length);
+		out_source->delimited =
+			sqlparser_identifier_spelling_is_delimited(
+				spelling,
+				spelling_length);
 		return 1;
 	}
 	style = sqlparser_proto_identifier_style(location, component_index);
@@ -256,6 +280,7 @@ static int sqlparser_identifier_component_source(
 		out_source->known = 1;
 		out_source->quoted =
 			style != SQLPARSER_PROTO_IDENTIFIER_STYLE_UNQUOTED;
+		out_source->delimited = 0;
 		return 1;
 	}
 	if (handle == NULL || location < 0) {
@@ -287,8 +312,31 @@ static int sqlparser_identifier_component_source(
 			return 0;
 		}
 		if (index == component_index) {
+			sqlparser_identifier_origin_t origin;
+
 			out_source->known = 1;
 			out_source->quoted = quoted;
+			out_source->delimited =
+				sqlparser_identifier_spelling_is_delimited(
+					sql + position,
+					token_end - position);
+			if (handle->identifier_origins != NULL) {
+				out_source->delimited = 0;
+				if (sqlparser_identifier_origin_map_lookup(
+					    handle->identifier_origins,
+					    position,
+					    token_end - position,
+					    &origin) ==
+					    SQLPARSER_IDENTIFIER_ORIGIN_SOURCE &&
+				    origin.source_offset <= handle->sql_len &&
+				    origin.source_length <=
+					    handle->sql_len - origin.source_offset) {
+					out_source->delimited =
+						sqlparser_identifier_spelling_is_delimited(
+							handle->sql + origin.source_offset,
+							origin.source_length);
+				}
+			}
 			if (out_end != NULL) {
 				*out_end = token_end;
 			}
@@ -325,15 +373,6 @@ sqlparser_identifier_mutation_for_source_slot(
 	return NULL;
 }
 
-static int sqlparser_identifier_spelling_is_quoted(const char *spelling)
-{
-	return spelling != NULL &&
-		(spelling[0] == '"' || spelling[0] == '`' ||
-		 spelling[0] == '[' ||
-		 ((spelling[0] == 'U' || spelling[0] == 'u') &&
-		  spelling[1] == '&' && spelling[2] == '"'));
-}
-
 static int sqlparser_identifier_default_spelling_is_quoted(
 	const char *identifier)
 {
@@ -365,6 +404,7 @@ static int sqlparser_current_identifier_source(
 {
 	const sqlparser_identifier_mutation_t *mutation;
 	const char *value;
+	size_t spelling_length;
 
 	if (out_source == NULL) {
 		return 0;
@@ -374,9 +414,15 @@ static int sqlparser_current_identifier_source(
 	mutation = sqlparser_identifier_mutation_for_source_slot(handle, slot);
 	if (mutation != NULL && mutation->spelling != NULL &&
 	    mutation->spelling[0] != '\0') {
+		spelling_length = strlen(mutation->spelling);
 		out_source->known = 1;
 		out_source->quoted = sqlparser_identifier_spelling_is_quoted(
-			mutation->spelling);
+			mutation->spelling,
+			spelling_length);
+		out_source->delimited =
+			sqlparser_identifier_spelling_is_delimited(
+				mutation->spelling,
+				spelling_length);
 		return 1;
 	}
 	if (mutation != NULL && mutation->original != NULL &&
@@ -384,6 +430,7 @@ static int sqlparser_current_identifier_source(
 		out_source->known = 1;
 		out_source->quoted =
 			sqlparser_identifier_default_spelling_is_quoted(value);
+		out_source->delimited = 0;
 		return 1;
 	}
 	if (mutation != NULL && mutation->source_present &&
@@ -428,7 +475,9 @@ static void sqlparser_range_var_identifier_sources(
 	const PgQuery__RangeVar *range_var,
 	sqlparser_graph_relation_identifier_t *out_identifiers)
 {
+	const char *object_spelling;
 	size_t component_count;
+	size_t object_spelling_length;
 
 	if (out_identifiers == NULL) {
 		return;
@@ -450,6 +499,24 @@ static void sqlparser_range_var_identifier_sources(
 		range_var->location,
 		component_count - 1U,
 		&out_identifiers->object);
+	object_spelling = NULL;
+	(void)sqlparser_dialect_relation_object_name(
+		handle->dialect_ops,
+		handle->dialect_state,
+		range_var->relname,
+		&object_spelling);
+	if (object_spelling != NULL && object_spelling[0] != '\0') {
+		object_spelling_length = strlen(object_spelling);
+		out_identifiers->object.known = 1;
+		out_identifiers->object.quoted =
+			sqlparser_identifier_spelling_is_quoted(
+				object_spelling,
+				object_spelling_length);
+		out_identifiers->object.delimited =
+			sqlparser_identifier_spelling_is_delimited(
+				object_spelling,
+				object_spelling_length);
+	}
 	if (range_var->schemaname != NULL &&
 	    range_var->schemaname[0] != '\0') {
 		(void)sqlparser_current_identifier_source(
@@ -6928,8 +6995,11 @@ static int sqlparser_graph_session_add_ast_value(
 				source.known = 1;
 				source.quoted =
 					value.literal.quoted_identifier;
+				source.delimited = 0;
 			}
 			memset(&value.literal, 0, sizeof(value.literal));
+			value.literal.quoted_identifier =
+				source.known && source.delimited;
 			value.kind = sqlparser_graph_session_text_is_keyword(
 				text,
 				source) ?
@@ -8240,6 +8310,9 @@ static int sqlparser_graph_add_relation(
 	} else {
 		memset(relation_identifiers, 0, sizeof(*relation_identifiers));
 	}
+	relation->quoted_identifier =
+		relation_identifiers->object.known &&
+		relation_identifiers->object.delimited;
 	if (relation_view != NULL) {
 		relation->database_name = relation_view->database_name;
 		relation->schema_name = relation_view->schema_name;
@@ -8750,6 +8823,57 @@ sqlparser_graph_fragment_identifier_source(const char *sql)
 		}
 	}
 	return source;
+}
+
+static sqlparser_identifier_source_t
+sqlparser_graph_relation_object_source(const char *sql)
+{
+	sqlparser_identifier_source_t source;
+	size_t length;
+	size_t position;
+
+	memset(&source, 0, sizeof(source));
+	if (sql == NULL) {
+		return source;
+	}
+	length = strlen(sql);
+	position = 0U;
+	for (;;) {
+		size_t token_end;
+		int quoted;
+
+		position = sqlparser_identifier_skip_trivia(
+			sql,
+			length,
+			position);
+		if (!sqlparser_identifier_token(
+			    sql,
+			    length,
+			    position,
+			    &token_end,
+			    &quoted)) {
+			memset(&source, 0, sizeof(source));
+			return source;
+		}
+		source.known = 1;
+		source.quoted = quoted;
+		source.delimited =
+			sqlparser_identifier_spelling_is_delimited(
+				sql + position,
+				token_end - position);
+		position = sqlparser_identifier_skip_trivia(
+			sql,
+			length,
+			token_end);
+		if (position == length) {
+			return source;
+		}
+		if (sql[position] != '.') {
+			memset(&source, 0, sizeof(source));
+			return source;
+		}
+		position++;
+	}
 }
 
 static int sqlparser_graph_fragment_column_ref_is_dialect_expression(
@@ -9904,6 +10028,7 @@ static int sqlparser_graph_add_column_ref_field(
 	sqlparser_error_t *out_error)
 {
 	sqlparser_graph_field_t field;
+	sqlparser_identifier_source_t column_source;
 	const char *column_name;
 	const char *qualifier;
 	size_t name_index;
@@ -9943,6 +10068,12 @@ static int sqlparser_graph_add_column_ref_field(
 	field.block_index = block_index;
 	field.clause = clause;
 	field.column_name = column_name;
+	column_source = sqlparser_graph_column_ref_part_source(
+		build->handle,
+		column_ref,
+		0U);
+	field.quoted_identifier =
+		column_source.known && column_source.delimited;
 	field.target_index = target_index;
 	field.has_target = has_target;
 	if (has_target && build != NULL && build->target_path_count > 0U) {
@@ -15515,6 +15646,7 @@ static int sqlparser_graph_add_using_field(
 	sqlparser_error_t *out_error)
 {
 	sqlparser_graph_field_t field;
+	sqlparser_identifier_source_t column_source;
 	size_t relation_index;
 	size_t name_index;
 
@@ -15526,6 +15658,14 @@ static int sqlparser_graph_add_using_field(
 	field.block_index = block_index;
 	field.clause = SQLPARSER_CLAUSE_KIND_ON;
 	field.column_name = using_node->string->sval;
+	(void)sqlparser_current_identifier_source(
+		build->handle,
+		(const char *const *)&using_node->string->sval,
+		using_node->string->location,
+		0U,
+		&column_source);
+	field.quoted_identifier =
+		column_source.known && column_source.delimited;
 	for (relation_index = relation_begin; relation_index < relation_end; relation_index++) {
 		sqlparser_graph_relation_t *relation;
 
@@ -17023,17 +17163,58 @@ static int sqlparser_graph_add_dml_cell_from_node(
 	return 0;
 }
 
-static const char *sqlparser_graph_res_target_assignment_column(const PgQuery__ResTarget *target)
+static const char *sqlparser_graph_res_target_assignment_column(
+	const sqlparser_handle_t *handle,
+	PgQuery__ResTarget *target,
+	sqlparser_identifier_source_t *out_source)
 {
+	PgQuery__Node *last;
 	const char *name;
+	size_t component_index;
+	size_t index;
+
+	if (out_source != NULL) {
+		memset(out_source, 0, sizeof(*out_source));
+	}
 
 	if (target == NULL) {
 		return NULL;
 	}
 	if (target->n_indirection > 0U && target->indirection != NULL &&
-	    sqlparser_node_string_value(target->indirection[target->n_indirection - 1U], &name) &&
+	    sqlparser_node_string_value(
+		    target->indirection[target->n_indirection - 1U],
+		    &name) &&
 	    name != NULL && name[0] != '\0') {
+		last = target->indirection[target->n_indirection - 1U];
+		component_index = 1U;
+		for (index = 0U; index + 1U < target->n_indirection; index++) {
+			const char *part;
+
+			if (sqlparser_node_string_value(
+				    target->indirection[index],
+				    &part)) {
+				component_index++;
+			}
+		}
+		if (out_source != NULL && last != NULL &&
+		    last->node_case == PG_QUERY__NODE__NODE_STRING &&
+		    last->string != NULL) {
+			(void)sqlparser_current_identifier_source(
+				handle,
+				(const char *const *)&last->string->sval,
+				target->location,
+				component_index,
+				out_source);
+		}
 		return name;
+	}
+	if (out_source != NULL) {
+		(void)sqlparser_current_identifier_source(
+			handle,
+			(const char *const *)&target->name,
+			target->location,
+			0U,
+			out_source);
 	}
 	return target->name;
 }
@@ -17113,6 +17294,7 @@ static int sqlparser_graph_add_dml_assignment_from_res_target(
 	sqlparser_graph_dml_assignment_t *previous_assignment;
 	sqlparser_graph_dml_assignment_t *saved_rhs_capture_assignment;
 	sqlparser_graph_dml_t *dml;
+	sqlparser_identifier_source_t column_source;
 	PgQuery__MultiAssignRef *multi_assign_ref;
 	PgQuery__Node *multi_source;
 	PgQuery__Node *semantic_value_node;
@@ -17195,7 +17377,12 @@ static int sqlparser_graph_add_dml_assignment_from_res_target(
 	field.clause = SQLPARSER_CLAUSE_KIND_SET_LIST;
 	field.relation_index = relation_index;
 	field.has_relation = has_relation;
-	field.column_name = sqlparser_graph_res_target_assignment_column(node->res_target);
+	field.column_name = sqlparser_graph_res_target_assignment_column(
+		build->handle,
+		node->res_target,
+		&column_source);
+	field.quoted_identifier =
+		column_source.known && column_source.delimited;
 	if (sqlparser_graph_add_field(build, &field, &field_index, out_error) != 0 ||
 	    sqlparser_graph_walk_node_array(
 		    build,
@@ -17371,10 +17558,8 @@ static int sqlparser_graph_add_multi_insert_relation(
 	relation.link_name = NULL;
 	memset(&identifiers, 0, sizeof(identifiers));
 	if (relation.table_name != NULL) {
-		identifiers.object = sqlparser_identifier_source_for_text(
-			build->handle,
-			build->statement_index,
-			relation.table_name);
+		identifiers.object = sqlparser_graph_relation_object_source(
+			source->sql);
 	}
 	if (relation.schema_name != NULL) {
 		identifiers.schema = sqlparser_identifier_source_for_text(
@@ -17624,6 +17809,7 @@ static int sqlparser_graph_parse_identifier_parts(
 	const char *sql,
 	char **out_storage,
 	char **parts,
+	int *quoted_parts,
 	size_t part_capacity,
 	size_t *out_count,
 	sqlparser_error_t *out_error)
@@ -17660,8 +17846,12 @@ static int sqlparser_graph_parse_identifier_parts(
 		if (read_pos >= len || count >= part_capacity) {
 			goto invalid;
 		}
-		parts[count++] = storage + write_pos;
+		parts[count] = storage + write_pos;
 		quoted = sql[read_pos] == '[' || sql[read_pos] == '"';
+		if (quoted_parts != NULL) {
+			quoted_parts[count] = quoted;
+		}
+		count++;
 		close_char = sql[read_pos] == '[' ? ']' : '"';
 		closed = !quoted;
 		if (quoted) {
@@ -17729,15 +17919,18 @@ static int sqlparser_graph_add_dml_result_sink_relation(
 	sqlparser_graph_relation_t *relation;
 	char *storage;
 	char *parts[4];
+	int quoted_parts[4];
 	size_t part_count;
 	size_t relation_index;
 
 	storage = NULL;
 	memset(parts, 0, sizeof(parts));
+	memset(quoted_parts, 0, sizeof(quoted_parts));
 	if (sqlparser_graph_parse_identifier_parts(
 		    sink_sql,
 		    &storage,
 		    parts,
+		    quoted_parts,
 		    sizeof(parts) / sizeof(parts[0]),
 		    &part_count,
 		    out_error) != 0) {
@@ -17774,6 +17967,7 @@ static int sqlparser_graph_add_dml_result_sink_relation(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "DML result sink relation is missing");
 		return -1;
 	}
+	relation->quoted_identifier = quoted_parts[part_count - 1U];
 	relation->selector.kind = SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK;
 	relation->selector.statement_index = build->statement_index;
 	relation->selector.item_index = dml_index;
@@ -17805,6 +17999,7 @@ static int sqlparser_graph_add_dml_result_sink_column(
 		    column_sql,
 		    &storage,
 		    parts,
+		    NULL,
 		    sizeof(parts) / sizeof(parts[0]),
 		    &part_count,
 		    out_error) != 0) {
@@ -18988,6 +19183,7 @@ static int sqlparser_graph_link_nested_dml_source(
 		relation->database_name = NULL;
 		relation->schema_name = NULL;
 		relation->object_name = NULL;
+		relation->quoted_identifier = 0;
 		relation->source_block_index = source_block_index;
 		relation->has_source_block = 1;
 		relation->has_selector = 0;
@@ -19192,6 +19388,7 @@ static sqlparser_status_t sqlparser_query_graph_cache_build(
 	sqlparser_query_graph_cache_t **out_cache,
 	sqlparser_error_t *out_error)
 {
+	const sqlparser_identifier_origin_map_t *identifier_origins;
 	sqlparser_query_graph_cache_t *cache;
 	sqlparser_view_bind_position_cache_t bind_positions;
 	size_t statement_index;
@@ -19210,6 +19407,17 @@ static sqlparser_status_t sqlparser_query_graph_cache_build(
 	status = sqlparser_handle_ensure_ast(handle, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
+	}
+	if (handle->sql_len != handle->parser_sql_len ||
+	    (handle->sql_len > 0U &&
+	     memcmp(handle->sql, handle->parser_sql, handle->sql_len) != 0)) {
+		status = sqlparser_identifier_origins_for_handle(
+			handle,
+			&identifier_origins,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
 	}
 	cache = (sqlparser_query_graph_cache_t *)calloc(1U, sizeof(*cache));
 	if (cache == NULL) {
@@ -20337,6 +20545,8 @@ static json_t *sqlparser_graph_relation_json(
 	    sqlparser_json_set_optional_string(object, "database", relation->database_name) != 0 ||
 	    sqlparser_json_set_optional_string(object, "schema", relation->schema_name) != 0 ||
 	    sqlparser_json_set_optional_string(object, "table", relation->object_name) != 0 ||
+	    (relation->quoted_identifier &&
+	     json_object_set_new(object, "quoted_identifier", json_boolean(1)) != 0) ||
 	    sqlparser_json_set_optional_string(object, "alias", relation->alias_name) != 0 ||
 	    sqlparser_json_set_optional_string(object, "link", relation->link_name) != 0 ||
 	    sqlparser_json_set_optional_size(object, "source_block", relation->has_source_block, relation->source_block_index) != 0 ||
@@ -20433,6 +20643,8 @@ static json_t *sqlparser_graph_field_json(
 	    sqlparser_json_set_optional_size(object, "relation", field->has_relation, field->relation_index) != 0 ||
 	    sqlparser_json_set_nonempty_array(object, "candidate_relations", &candidates) != 0 ||
 	    sqlparser_json_set_optional_string(object, "column", field->column_name) != 0 ||
+	    (field->quoted_identifier &&
+	     json_object_set_new(object, "quoted_identifier", json_boolean(1)) != 0) ||
 	    sqlparser_json_set_optional_size(object, "target", field->has_target, field->target_index) != 0 ||
 	    sqlparser_json_set_optional_selector(object, "selector", field->has_selector ? &field->selector : NULL, out_error) != 0 ||
 	    sqlparser_json_set_nonempty_array(object, "target_path", &target_path) != 0) {
@@ -20628,6 +20840,16 @@ static json_t *sqlparser_graph_session_value_json(
 		    "kind",
 		    json_string(sqlparser_graph_session_value_name(value->kind))) != 0 ||
 	    sqlparser_json_set_optional_string(object, "text", value->text) != 0) {
+		json_decref(object);
+		json_decref(literal);
+		goto fail;
+	}
+	if (value->kind == SQLPARSER_GRAPH_SESSION_VALUE_IDENTIFIER &&
+	    value->literal.quoted_identifier &&
+	    json_object_set_new(
+		    object,
+		    "quoted_identifier",
+		    json_boolean(1)) != 0) {
 		json_decref(object);
 		json_decref(literal);
 		goto fail;
