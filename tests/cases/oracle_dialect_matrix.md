@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 242 条 `status = "final"` 用例。59 条用例包含 statement 级 `query_graph.session`，覆盖 `O043`、`O043Q`、`O044` 至 `O047`、`O082` 至 `O086`，以及 `ORA-*` session 用例；这 59 条用例均至少包含一个非空 session item。
+夹具包含 244 条 `status = "final"` 用例。59 条用例包含 statement 级 `query_graph.session`，覆盖 `O043`、`O043Q`、`O044` 至 `O047`、`O082` 至 `O086`，以及 `ORA-*` session 用例；这 59 条用例均至少包含一个非空 session item。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name 及 value 字段均属于比较范围。
 
@@ -208,6 +208,8 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | O189 | `oracle-insert-returning-rowid-into-bind` | `INSERT ... VALUES ... RETURNING ROWID INTO :NAV_ROWID` | 单个 `ROWID` pseudo result target 通过 `sink_value` 关联单个冒号宿主绑定变量；VALUES cell、返回 target 和输出绑定变量的 replace patch 均保持精确反解析 |
 | O190 | `oracle-update-returning-rowid-into-bind` | `UPDATE ... RETURNING ROWID INTO :NAV_ROWID` | `target_after` 中的单个 `ROWID` pseudo target 关联单个冒号宿主绑定变量；assignment、返回 target 和输出绑定变量的 replace patch 均保持精确反解析 |
 | O191 | `oracle-delete-returning-rowid-into-bind` | `DELETE ... RETURNING ROWID INTO :NAV_ROWID` | `target_before` 中的单个 `ROWID` pseudo target 关联单个冒号宿主绑定变量；条件值、返回 target 和输出绑定变量的 replace patch 均保持精确反解析 |
+| O192 | `oracle-merge-update-where-delete-where-conditional-insert` | matched UPDATE 同时含 action `WHERE` 和附属 `DELETE WHERE`，后续为带条件的 INSERT | UPDATE 分支同时输出 `condition_selector` 与 `delete_condition_selector`，DELETE 条件仍归属同一 UPDATE 分支；5 个独立 patch 覆盖 assignment 替换/插入以及三类条件值替换 |
+| O193 | `oracle-merge-delete-where-updated-target-value` | matched UPDATE 后附属 `DELETE WHERE t.STATUS = 'CLOSED'` | DELETE 条件按更新后的 target 值建模，不生成独立 DELETE action；3 个独立 patch 覆盖 assignment 替换/插入与 DELETE 条件值替换 |
 
 ## ROWNUM 谓词语义回归
 

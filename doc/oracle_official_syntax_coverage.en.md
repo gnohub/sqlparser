@@ -44,6 +44,11 @@ Of these, 37 are classified as `CURRENT`, and 10 remain incomplete.
 
 ## Conclusion
 
+The Oracle `MERGE` `CURRENT` boundary includes an action `WHERE` on a matched
+UPDATE, an attached `DELETE WHERE` on that same UPDATE branch, and a
+conditional not-matched INSERT. Two executable cases and 8 independent patches
+verify this boundary.
+
 `RETURNING ... INTO` covers one result target and one colon-prefixed host bind
 in `INSERT`, `UPDATE`, and `DELETE`; multiple targets, multiple binds, and
 `BULK COLLECT` remain outside the current boundary. The remaining Oracle gaps

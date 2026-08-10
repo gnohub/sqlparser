@@ -28611,7 +28611,7 @@ const ProtobufCMessageDescriptor pg_query__common_table_expr__descriptor =
   (ProtobufCMessageInit) pg_query__common_table_expr__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor pg_query__merge_when_clause__field_descriptors[6] =
+static const ProtobufCFieldDescriptor pg_query__merge_when_clause__field_descriptors[7] =
 {
   {
     "match_kind",
@@ -28685,10 +28685,23 @@ static const ProtobufCFieldDescriptor pg_query__merge_when_clause__field_descrip
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "delete_condition",
+    7,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(PgQuery__MergeWhenClause, delete_condition),
+    &pg_query__node__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned pg_query__merge_when_clause__field_indices_by_name[] = {
   1,   /* field[1] = command_type */
   3,   /* field[3] = condition */
+  6,   /* field[6] = delete_condition */
   0,   /* field[0] = match_kind */
   2,   /* field[2] = override */
   4,   /* field[4] = target_list */
@@ -28697,7 +28710,7 @@ static const unsigned pg_query__merge_when_clause__field_indices_by_name[] = {
 static const ProtobufCIntRange pg_query__merge_when_clause__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 6 }
+  { 0, 7 }
 };
 const ProtobufCMessageDescriptor pg_query__merge_when_clause__descriptor =
 {
@@ -28707,7 +28720,7 @@ const ProtobufCMessageDescriptor pg_query__merge_when_clause__descriptor =
   "PgQuery__MergeWhenClause",
   "pg_query",
   sizeof(PgQuery__MergeWhenClause),
-  6,
+  7,
   pg_query__merge_when_clause__field_descriptors,
   pg_query__merge_when_clause__field_indices_by_name,
   1,  pg_query__merge_when_clause__number_ranges,

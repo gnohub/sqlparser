@@ -664,6 +664,181 @@ static sqlparser_status_t sqlparser_statement_parse_public_where(
 	return SQLPARSER_STATUS_OK;
 }
 
+static PgQuery__BoolExpr *sqlparser_merge_action_where_wrapper(
+	PgQuery__Node *node)
+{
+	PgQuery__BoolExpr *expression;
+
+	node = sqlparser_unwrap_grouping_node(node);
+	if (node == NULL ||
+	    node->node_case != PG_QUERY__NODE__NODE_BOOL_EXPR ||
+	    node->bool_expr == NULL) {
+		return NULL;
+	}
+	expression = node->bool_expr;
+	if (expression->boolop != PG_QUERY__BOOL_EXPR_TYPE__AND_EXPR ||
+	    expression->location !=
+		    POSTGRES_DEPARSE_MERGE_ACTION_WHERE_LOCATION ||
+	    expression->n_args != 1U ||
+	    expression->args == NULL ||
+	    expression->args[0] == NULL) {
+		return NULL;
+	}
+	return expression;
+}
+
+sqlparser_status_t sqlparser_merge_condition_set_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *sql_text,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__MergeStmt *merge_stmt;
+	PgQuery__MergeWhenClause *when_clause;
+	PgQuery__Node *when_node;
+	PgQuery__Node *replacement;
+	PgQuery__Node *action_node;
+	PgQuery__BoolExpr *action_wrapper;
+	PgQuery__BoolExpr *combined;
+	void *dialect_state;
+	size_t index;
+	sqlparser_status_t status;
+
+	sqlparser_error_clear(out_error);
+	if (handle == NULL || selector == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"MERGE condition selector arguments must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (selector->kind !=
+		    SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION &&
+	    selector->kind !=
+		    SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"selector kind must be a MERGE condition");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	merge_stmt = NULL;
+	status = sqlparser_get_merge_stmt_by_dml_index(
+		handle,
+		selector->statement_index,
+		selector->row_index,
+		&merge_stmt,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (merge_stmt->merge_when_clauses == NULL ||
+	    selector->item_index >= merge_stmt->n_merge_when_clauses) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"merge WHEN index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	when_node = merge_stmt->merge_when_clauses[selector->item_index];
+	if (when_node == NULL ||
+	    when_node->node_case !=
+		    PG_QUERY__NODE__NODE_MERGE_WHEN_CLAUSE ||
+	    when_node->merge_when_clause == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"MERGE WHEN node is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	when_clause = when_node->merge_when_clause;
+	if (selector->kind ==
+		    SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION) {
+		if (when_clause->delete_condition == NULL) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INVALID_ARGUMENT,
+				"merge UPDATE action has no DELETE condition");
+			return SQLPARSER_STATUS_INVALID_ARGUMENT;
+		}
+	} else if (when_clause->condition == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"merge WHEN action has no condition");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+
+	replacement = NULL;
+	dialect_state = NULL;
+	status = sqlparser_statement_parse_public_where(
+		handle,
+		selector->statement_index,
+		sql_text,
+		&replacement,
+		&dialect_state,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+
+	if (selector->kind ==
+		    SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION) {
+		sqlparser_free_proto_node(when_clause->delete_condition);
+		when_clause->delete_condition = replacement;
+		replacement = NULL;
+	} else {
+		action_wrapper = sqlparser_merge_action_where_wrapper(
+			when_clause->condition);
+		if (action_wrapper != NULL) {
+			sqlparser_free_proto_node(action_wrapper->args[0]);
+			action_wrapper->args[0] = replacement;
+			replacement = NULL;
+		} else {
+			combined = NULL;
+			if (when_clause->condition->node_case ==
+			    PG_QUERY__NODE__NODE_BOOL_EXPR) {
+				combined = when_clause->condition->bool_expr;
+			}
+			action_wrapper = NULL;
+			if (combined != NULL &&
+			    combined->boolop ==
+				    PG_QUERY__BOOL_EXPR_TYPE__AND_EXPR &&
+			    combined->n_args > 1U &&
+			    combined->args != NULL) {
+				action_wrapper =
+					sqlparser_merge_action_where_wrapper(
+						combined->args[
+							combined->n_args - 1U]);
+			}
+			if (action_wrapper == NULL) {
+				sqlparser_free_proto_node(when_clause->condition);
+				when_clause->condition = replacement;
+				replacement = NULL;
+			} else {
+				action_node =
+					combined->args[combined->n_args - 1U];
+				for (index = 0U;
+				     index + 1U < combined->n_args;
+				     index++) {
+					sqlparser_free_proto_node(
+						combined->args[index]);
+				}
+				combined->args[0] = replacement;
+				combined->args[1] = action_node;
+				combined->n_args = 2U;
+				replacement = NULL;
+			}
+		}
+	}
+
+	return sqlparser_handle_commit_ast_with_dialect_state(
+		handle,
+		dialect_state,
+		out_error);
+}
+
 sqlparser_status_t sqlparser_statement_set_where_sql(
 	sqlparser_handle_t *handle,
 	size_t statement_index,

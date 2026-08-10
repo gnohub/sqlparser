@@ -1,5 +1,25 @@
 # 变更记录
 
+## 2.15.2
+
+### MERGE matched UPDATE 附属删除条件
+
+- Oracle 与 Dameng 支持 matched UPDATE action 中的 `UPDATE SET ... [WHERE ...] DELETE WHERE ...`。附属删除条件保留在同一个 UPDATE 分支中，不生成独立 DELETE branch。
+- Query Graph 的 UPDATE branch 使用 `delete_condition_selector` 定位附属删除条件；普通 action `WHERE` 继续使用 `condition_selector`，两类条件可同时存在并独立读取或替换。
+- PostgreSQL 与 SQL Server 的 `WHEN MATCHED ... THEN DELETE` 继续表示独立 MERGE branch，与 Oracle/Dameng 的附属删除语义保持区分。
+
+### Patch 与原文保留
+
+- `sqlparser_selector_clause_sql()`、`sqlparser_selector_set_clause_sql()` 和 `SQLPARSER_PATCH_REPLACE` 支持 MERGE 分支条件与附属删除条件。
+- MERGE assignment 由逗号、action `WHERE`、附属 `DELETE WHERE` 或后续 `WHEN` 明确限定时使用局部源码改写；修改 assignment 或条件后，未修改的换行、空白、大小写、标识符定界符和其他分支保持原文。
+- 内部 `MergeWhenClause` 与 protobuf 追加独立 `delete_condition` 字段，字段号为 7；语法仅接受包含 `WHERE` 与条件表达式的附属 DELETE。
+
+### API、用例与验证
+
+- `sqlparser_selector_kind_t` 追加 `SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION = 25`；`sqlparser_graph_dml_branch_t` 追加 `delete_condition_selector` 和 `has_delete_condition_selector`。本版本不新增公开函数或资源所有权规则，C 调用方应使用 2.15.2 头文件重新编译。
+- Oracle、Dameng、PostgreSQL 和 SQL Server 共新增 5 条 final case 和 17 个独立 patch。当前九套 fixture 共包含 2,772 条 final case 和 8,989 个 patch。
+- 九套 case matrix 与核心 API 测试全部通过，原始反解析、View JSON 和 patch 反解析失败数均为 0。定向 Valgrind 检查退出时为 `0 bytes in 0 blocks`，错误数为 0。
+
 ## 2.15.1
 
 ### DML 结果返回宿主绑定变量

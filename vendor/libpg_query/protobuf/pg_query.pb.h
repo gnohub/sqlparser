@@ -51316,6 +51316,7 @@ class MergeWhenClause final :
     kTargetListFieldNumber = 5,
     kValuesFieldNumber = 6,
     kConditionFieldNumber = 4,
+    kDeleteConditionFieldNumber = 7,
     kMatchKindFieldNumber = 1,
     kCommandTypeFieldNumber = 2,
     kOverrideFieldNumber = 3,
@@ -51371,6 +51372,21 @@ class MergeWhenClause final :
   ::pg_query::Node* _internal_mutable_condition();
 
   public:
+  // .pg_query.Node delete_condition = 7 [json_name = "deleteCondition"];
+  bool has_delete_condition() const;
+  void clear_delete_condition() ;
+  const ::pg_query::Node& delete_condition() const;
+  PROTOBUF_NODISCARD ::pg_query::Node* release_delete_condition();
+  ::pg_query::Node* mutable_delete_condition();
+  void set_allocated_delete_condition(::pg_query::Node* value);
+  void unsafe_arena_set_allocated_delete_condition(::pg_query::Node* value);
+  ::pg_query::Node* unsafe_arena_release_delete_condition();
+
+  private:
+  const ::pg_query::Node& _internal_delete_condition() const;
+  ::pg_query::Node* _internal_mutable_delete_condition();
+
+  public:
   // .pg_query.MergeMatchKind match_kind = 1 [json_name = "matchKind"];
   void clear_match_kind() ;
   ::pg_query::MergeMatchKind match_kind() const;
@@ -51407,7 +51423,7 @@ class MergeWhenClause final :
 
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      3, 6, 3,
+      3, 7, 4,
       0, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -51429,6 +51445,7 @@ class MergeWhenClause final :
     ::google::protobuf::RepeatedPtrField< ::pg_query::Node > target_list_;
     ::google::protobuf::RepeatedPtrField< ::pg_query::Node > values_;
     ::pg_query::Node* condition_;
+    ::pg_query::Node* delete_condition_;
     int match_kind_;
     int command_type_;
     int override_;
@@ -134592,6 +134609,102 @@ inline ::google::protobuf::RepeatedPtrField<::pg_query::Node>*
 MergeWhenClause::_internal_mutable_values() {
   PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
   return &_impl_.values_;
+}
+
+// .pg_query.Node delete_condition = 7 [json_name = "deleteCondition"];
+inline bool MergeWhenClause::has_delete_condition() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000002u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.delete_condition_ != nullptr);
+  return value;
+}
+inline void MergeWhenClause::clear_delete_condition() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.delete_condition_ != nullptr) _impl_.delete_condition_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000002u;
+}
+inline const ::pg_query::Node& MergeWhenClause::_internal_delete_condition() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::pg_query::Node* p = _impl_.delete_condition_;
+  return p != nullptr ? *p : reinterpret_cast<const ::pg_query::Node&>(::pg_query::_Node_default_instance_);
+}
+inline const ::pg_query::Node& MergeWhenClause::delete_condition() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:pg_query.MergeWhenClause.delete_condition)
+  return _internal_delete_condition();
+}
+inline void MergeWhenClause::unsafe_arena_set_allocated_delete_condition(::pg_query::Node* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.delete_condition_);
+  }
+  _impl_.delete_condition_ = reinterpret_cast<::pg_query::Node*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000002u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000002u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:pg_query.MergeWhenClause.delete_condition)
+}
+inline ::pg_query::Node* MergeWhenClause::release_delete_condition() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000002u;
+  ::pg_query::Node* released = _impl_.delete_condition_;
+  _impl_.delete_condition_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::pg_query::Node* MergeWhenClause::unsafe_arena_release_delete_condition() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:pg_query.MergeWhenClause.delete_condition)
+
+  _impl_._has_bits_[0] &= ~0x00000002u;
+  ::pg_query::Node* temp = _impl_.delete_condition_;
+  _impl_.delete_condition_ = nullptr;
+  return temp;
+}
+inline ::pg_query::Node* MergeWhenClause::_internal_mutable_delete_condition() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000002u;
+  if (_impl_.delete_condition_ == nullptr) {
+    auto* p = CreateMaybeMessage<::pg_query::Node>(GetArena());
+    _impl_.delete_condition_ = reinterpret_cast<::pg_query::Node*>(p);
+  }
+  return _impl_.delete_condition_;
+}
+inline ::pg_query::Node* MergeWhenClause::mutable_delete_condition() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::pg_query::Node* _msg = _internal_mutable_delete_condition();
+  // @@protoc_insertion_point(field_mutable:pg_query.MergeWhenClause.delete_condition)
+  return _msg;
+}
+inline void MergeWhenClause::set_allocated_delete_condition(::pg_query::Node* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::pg_query::Node*>(_impl_.delete_condition_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::pg_query::Node*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000002u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000002u;
+  }
+
+  _impl_.delete_condition_ = reinterpret_cast<::pg_query::Node*>(value);
+  // @@protoc_insertion_point(field_set_allocated:pg_query.MergeWhenClause.delete_condition)
 }
 
 // -------------------------------------------------------------------

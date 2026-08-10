@@ -57,6 +57,11 @@ The `IF...ELSE` item has 36 successful and 9 error-path cases covering
 single-statement branches, multi-statement blocks, `ELSE IF`, nesting,
 condition queries, DML, DDL, transactions, and syntax boundaries.
 
+The `MERGE` item includes an independent `WHEN MATCHED ... THEN DELETE`
+action. One executable case and 3 independent patches verify isolation
+between its branch condition, the following UPDATE assignment, and the INSERT
+cell.
+
 ## By Directory
 
 | Directory | `CURRENT` | `HOOK_ONLY` | `MIXED_MODEL` | `MODEL_REQUIRED` | `REFERENCE_ONLY` | Total |

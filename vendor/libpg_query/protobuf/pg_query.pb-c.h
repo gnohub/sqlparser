@@ -4245,10 +4245,11 @@ struct  PgQuery__MergeWhenClause
   PgQuery__Node **target_list;
   size_t n_values;
   PgQuery__Node **values;
+  PgQuery__Node *delete_condition;
 };
 #define PG_QUERY__MERGE_WHEN_CLAUSE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__merge_when_clause__descriptor) \
-    , PG_QUERY__MERGE_MATCH_KIND__MERGE_MATCH_KIND_UNDEFINED, PG_QUERY__CMD_TYPE__CMD_TYPE_UNDEFINED, PG_QUERY__OVERRIDING_KIND__OVERRIDING_KIND_UNDEFINED, NULL, 0,NULL, 0,NULL }
+    , PG_QUERY__MERGE_MATCH_KIND__MERGE_MATCH_KIND_UNDEFINED, PG_QUERY__CMD_TYPE__CMD_TYPE_UNDEFINED, PG_QUERY__OVERRIDING_KIND__OVERRIDING_KIND_UNDEFINED, NULL, 0,NULL, 0,NULL, NULL }
 
 
 struct  PgQuery__TriggerTransition

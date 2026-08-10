@@ -272,6 +272,26 @@ sqlparser_status_t sqlparser_selector_parse(
 				&out_selector->item_index,
 				out_error);
 		}
+	} else if (strncmp(text + offset, "merge_delete_condition", 22) == 0) {
+		size_t first_index;
+
+		offset += 22U;
+		out_selector->kind =
+			SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION;
+		status = sqlparser_selector_parse_index(
+			text,
+			&offset,
+			&out_selector->item_index,
+			out_error);
+		if (status == SQLPARSER_STATUS_OK && text[offset] == '[') {
+			first_index = out_selector->item_index;
+			out_selector->row_index = first_index;
+			status = sqlparser_selector_parse_index(
+				text,
+				&offset,
+				&out_selector->item_index,
+				out_error);
+		}
 	} else if (strncmp(text + offset, "insert_cell", 11) == 0) {
 		offset += 11U;
 		out_selector->kind = SQLPARSER_SELECTOR_KIND_INSERT_CELL;
@@ -537,6 +557,24 @@ sqlparser_status_t sqlparser_selector_format(
 					buffer,
 					sizeof(buffer),
 					"stmt[%lu].merge_branch_condition[%lu][%lu]",
+					(unsigned long)selector->statement_index,
+					(unsigned long)selector->row_index,
+					(unsigned long)selector->item_index);
+			}
+			break;
+		case SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION:
+			if (selector->row_index == 0U) {
+				length = snprintf(
+					buffer,
+					sizeof(buffer),
+					"stmt[%lu].merge_delete_condition[%lu]",
+					(unsigned long)selector->statement_index,
+					(unsigned long)selector->item_index);
+			} else {
+				length = snprintf(
+					buffer,
+					sizeof(buffer),
+					"stmt[%lu].merge_delete_condition[%lu][%lu]",
 					(unsigned long)selector->statement_index,
 					(unsigned long)selector->row_index,
 					(unsigned long)selector->item_index);
@@ -973,6 +1011,17 @@ sqlparser_status_t sqlparser_selector_clause_sql(
 			out_sql,
 			out_error);
 	}
+	if (selector != NULL &&
+	    selector->kind ==
+		    SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION) {
+		return sqlparser_merge_delete_condition_sql(
+			handle,
+			selector->statement_index,
+			selector->row_index,
+			selector->item_index,
+			out_sql,
+			out_error);
+	}
 	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_CLAUSE) {
 		sqlparser_error_set_message(
 			out_error,
@@ -995,6 +1044,17 @@ sqlparser_status_t sqlparser_selector_set_clause_sql(
 	const char *sql_text,
 	sqlparser_error_t *out_error)
 {
+	if (selector != NULL &&
+	    (selector->kind ==
+		     SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION ||
+	     selector->kind ==
+		     SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION)) {
+		return sqlparser_merge_condition_set_sql(
+			handle,
+			selector,
+			sql_text,
+			out_error);
+	}
 	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_CLAUSE) {
 		sqlparser_error_set_message(
 			out_error,

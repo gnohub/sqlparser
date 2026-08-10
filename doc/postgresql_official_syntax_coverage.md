@@ -40,4 +40,6 @@
 
 ## 结论
 
+PostgreSQL `MERGE` 支持独立的 `WHEN MATCHED ... THEN DELETE` action。可执行矩阵使用 1 条用例和 3 个独立 patch 验证 DELETE 分支条件、后续 UPDATE assignment 和 INSERT cell 互不干扰。
+
 PostgreSQL 是默认解析内核方言，当前没有只缺少 hook 或回归覆盖的语法组。剩余缺口为角色、用户、数据库对象管理类语句的完整对象归属和选项模型，需要扩展公共模型。

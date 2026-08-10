@@ -7392,6 +7392,23 @@ _fingerprintMergeWhenClause(FingerprintContext *ctx, const MergeWhenClause *node
     XXH3_freeState(prev);
   }
 
+  if (node->deleteCondition != NULL) {
+    XXH3_state_t* prev = XXH3_createState();
+    XXH64_hash_t hash;
+
+    XXH3_copyState(prev, ctx->xxh_state);
+    _fingerprintString(ctx, "deleteCondition");
+
+    hash = XXH3_64bits_digest(ctx->xxh_state);
+    _fingerprintNode(ctx, node->deleteCondition, node, "deleteCondition", depth + 1);
+    if (hash == XXH3_64bits_digest(ctx->xxh_state)) {
+      XXH3_copyState(ctx->xxh_state, prev);
+      if (ctx->write_tokens)
+        dlist_delete(dlist_tail_node(&ctx->tokens));
+    }
+    XXH3_freeState(prev);
+  }
+
   if (true) {
     _fingerprintString(ctx, "matchKind");
     _fingerprintString(ctx, _enumToStringMergeMatchKind(node->matchKind));

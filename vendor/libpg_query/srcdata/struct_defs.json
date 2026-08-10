@@ -2569,6 +2569,14 @@
           "name": "values",
           "c_type": "List*",
           "comment": "/* VALUES to INSERT, or NULL */"
+        },
+        {
+          "comment": "\t/* the following member is only used in UPDATE actions */\n"
+        },
+        {
+          "name": "deleteCondition",
+          "c_type": "Node*",
+          "comment": "/* attached DELETE WHERE condition */"
         }
       ],
       "comment": "/*\n * MergeWhenClause -\n *\t\traw parser representation of a WHEN clause in a MERGE statement\n *\n * This is transformed into MergeAction by parse analysis\n */\n"

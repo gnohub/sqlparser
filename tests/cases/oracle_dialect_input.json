@@ -4281,6 +4281,665 @@
       ]
     },
     {
+      "name": "oracle-merge-update-where-delete-where-conditional-insert",
+      "sql": "MERGE INTO APP.MERGE_TARGET t\nUSING (\n    SELECT\n        1001       AS ID,\n        'new-body' AS BODY,\n        1          AS ACTIVE_FLAG,\n        0          AS DELETE_FLAG\n    FROM DUAL\n) s\nON (t.ID = s.ID)\n\nWHEN MATCHED THEN\n    UPDATE SET\n        t.BODY       = s.BODY,\n        t.UPDATED_AT = SYSDATE\n    WHERE s.ACTIVE_FLAG = 1\n    DELETE WHERE s.DELETE_FLAG = 1\n\nWHEN NOT MATCHED THEN\n    INSERT (\n        ID,\n        BODY,\n        UPDATED_AT\n    )\n    VALUES (\n        s.ID,\n        s.BODY,\n        SYSDATE\n    )\n    WHERE s.ACTIVE_FLAG = 1;",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "merge",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1
+                  ],
+                  "predicates": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    2
+                  ],
+                  "targets": [
+                    0,
+                    1,
+                    2,
+                    3
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "APP",
+                  "table": "MERGE_TARGET",
+                  "alias": "t",
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "derived",
+                  "alias": "s",
+                  "source_block": 1
+                },
+                {
+                  "block": 1,
+                  "kind": "dual",
+                  "table": "DUAL",
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "name": "ID",
+                  "value": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 1,
+                  "kind": "literal",
+                  "name": "BODY",
+                  "value": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 2,
+                  "kind": "literal",
+                  "name": "ACTIVE_FLAG",
+                  "value": 2,
+                  "selector": "stmt[0].select_target[0][2]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 3,
+                  "kind": "literal",
+                  "name": "DELETE_FLAG",
+                  "value": 3,
+                  "selector": "stmt[0].select_target[0][3]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 0,
+                  "column": "ID",
+                  "selector": "stmt[0].name[10]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 1,
+                  "column": "ID",
+                  "selector": "stmt[0].name[12]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 1,
+                  "column": "ACTIVE_FLAG",
+                  "selector": "stmt[0].name[14]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "BODY"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 1,
+                  "column": "BODY",
+                  "selector": "stmt[0].name[18]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "UPDATED_AT"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 1,
+                  "column": "DELETE_FLAG",
+                  "selector": "stmt[0].name[23]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 1,
+                  "column": "ACTIVE_FLAG",
+                  "selector": "stmt[0].name[25]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "relation": 1,
+                  "column": "ID",
+                  "selector": "stmt[0].name[30]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "relation": 1,
+                  "column": "BODY",
+                  "selector": "stmt[0].name[32]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[3]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1001
+                  }
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[5]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "new-body"
+                  }
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[7]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[9]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 0
+                  }
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 0,
+                  "source_field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 2,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[26]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 6,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[41]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 7,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[49]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 0,
+                  "right_field": 1,
+                  "value": 4
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "bool",
+                  "bool_operator": "and",
+                  "children": [
+                    2
+                  ]
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 2,
+                  "value": 5
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 6,
+                  "value": 6
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "bool",
+                  "bool_operator": "and",
+                  "children": [
+                    5
+                  ]
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 7,
+                  "value": 7
+                }
+              ],
+              "dml": {
+                "kind": "merge",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 3,
+                    "kind": "field",
+                    "source_target": 1,
+                    "source_field": 4,
+                    "bind_kind": 0,
+                    "selector": "stmt[0].merge_assignment[0][0]"
+                  },
+                  {
+                    "target_field": 5,
+                    "kind": "expression",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].merge_assignment[0][1]"
+                  }
+                ],
+                "branches": [
+                  {
+                    "ordinal": 0,
+                    "branch_kind": "when",
+                    "merge_action_kind": "update",
+                    "merge_match_kind": "matched",
+                    "target_relation": 0,
+                    "assignments": [
+                      {
+                        "target_field": 3,
+                        "kind": "field",
+                        "source_target": 1,
+                        "source_field": 4,
+                        "bind_kind": 0,
+                        "selector": "stmt[0].merge_assignment[0][0]"
+                      },
+                      {
+                        "target_field": 5,
+                        "kind": "expression",
+                        "bind_kind": 0,
+                        "selector": "stmt[0].merge_assignment[0][1]"
+                      }
+                    ],
+                    "condition_selector": "stmt[0].merge_branch_condition[0]",
+                    "delete_condition_selector": "stmt[0].merge_delete_condition[0]"
+                  },
+                  {
+                    "ordinal": 1,
+                    "branch_kind": "when",
+                    "merge_action_kind": "insert",
+                    "merge_match_kind": "not_matched_by_target",
+                    "target_relation": 0,
+                    "target_list_selector": "stmt[0].insert_branch_columns[1]",
+                    "target_columns": [
+                      {
+                        "ordinal": 0,
+                        "column": "ID",
+                        "selector": "stmt[0].merge_insert_column[1][0]"
+                      },
+                      {
+                        "ordinal": 1,
+                        "column": "BODY",
+                        "selector": "stmt[0].merge_insert_column[1][1]"
+                      },
+                      {
+                        "ordinal": 2,
+                        "column": "UPDATED_AT",
+                        "selector": "stmt[0].merge_insert_column[1][2]"
+                      }
+                    ],
+                    "rows": [
+                      {
+                        "row": 1,
+                        "column": 0,
+                        "kind": "field",
+                        "source_target": 0,
+                        "source_field": 8,
+                        "bind_kind": 0,
+                        "selector": "stmt[0].merge_insert_cell[1][0]"
+                      },
+                      {
+                        "row": 1,
+                        "column": 1,
+                        "kind": "field",
+                        "source_target": 1,
+                        "source_field": 9,
+                        "bind_kind": 0,
+                        "selector": "stmt[0].merge_insert_cell[1][1]"
+                      },
+                      {
+                        "row": 1,
+                        "column": 2,
+                        "kind": "expression",
+                        "bind_kind": 0,
+                        "selector": "stmt[0].merge_insert_cell[1][2]",
+                        "expression_sql": "SYSDATE"
+                      }
+                    ],
+                    "condition_selector": "stmt[0].merge_branch_condition[1]"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/0/selector",
+          "value": "\"PatchedColumn\" = 42",
+          "deparse": "MERGE INTO APP.MERGE_TARGET t\nUSING (\n    SELECT\n        1001       AS ID,\n        'new-body' AS BODY,\n        1          AS ACTIVE_FLAG,\n        0          AS DELETE_FLAG\n    FROM DUAL\n) s\nON (t.ID = s.ID)\n\nWHEN MATCHED THEN\n    UPDATE SET\n        \"PatchedColumn\" = 42,\n        t.UPDATED_AT = SYSDATE\n    WHERE s.ACTIVE_FLAG = 1\n    DELETE WHERE s.DELETE_FLAG = 1\n\nWHEN NOT MATCHED THEN\n    INSERT (\n        ID,\n        BODY,\n        UPDATED_AT\n    )\n    VALUES (\n        s.ID,\n        s.BODY,\n        SYSDATE\n    )\n    WHERE s.ACTIVE_FLAG = 1;"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/0/selector",
+          "value": "t.\"AUDIT_FLAG\" = 1",
+          "deparse": "MERGE INTO APP.MERGE_TARGET t\nUSING (\n    SELECT\n        1001       AS ID,\n        'new-body' AS BODY,\n        1          AS ACTIVE_FLAG,\n        0          AS DELETE_FLAG\n    FROM DUAL\n) s\nON (t.ID = s.ID)\n\nWHEN MATCHED THEN\n    UPDATE SET\n        t.\"AUDIT_FLAG\" = 1, t.BODY       = s.BODY,\n        t.UPDATED_AT = SYSDATE\n    WHERE s.ACTIVE_FLAG = 1\n    DELETE WHERE s.DELETE_FLAG = 1\n\nWHEN NOT MATCHED THEN\n    INSERT (\n        ID,\n        BODY,\n        UPDATED_AT\n    )\n    VALUES (\n        s.ID,\n        s.BODY,\n        SYSDATE\n    )\n    WHERE s.ACTIVE_FLAG = 1;"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/5/selector",
+          "value": "2",
+          "deparse": "MERGE INTO APP.MERGE_TARGET t\nUSING (\n    SELECT\n        1001       AS ID,\n        'new-body' AS BODY,\n        1          AS ACTIVE_FLAG,\n        0          AS DELETE_FLAG\n    FROM DUAL\n) s\nON (t.ID = s.ID)\n\nWHEN MATCHED THEN\n    UPDATE SET\n        t.BODY       = s.BODY,\n        t.UPDATED_AT = SYSDATE\n    WHERE s.ACTIVE_FLAG = 2\n    DELETE WHERE s.DELETE_FLAG = 1\n\nWHEN NOT MATCHED THEN\n    INSERT (\n        ID,\n        BODY,\n        UPDATED_AT\n    )\n    VALUES (\n        s.ID,\n        s.BODY,\n        SYSDATE\n    )\n    WHERE s.ACTIVE_FLAG = 1;"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/6/selector",
+          "value": "0",
+          "deparse": "MERGE INTO APP.MERGE_TARGET t\nUSING (\n    SELECT\n        1001       AS ID,\n        'new-body' AS BODY,\n        1          AS ACTIVE_FLAG,\n        0          AS DELETE_FLAG\n    FROM DUAL\n) s\nON (t.ID = s.ID)\n\nWHEN MATCHED THEN\n    UPDATE SET\n        t.BODY       = s.BODY,\n        t.UPDATED_AT = SYSDATE\n    WHERE s.ACTIVE_FLAG = 1\n    DELETE WHERE s.DELETE_FLAG = 0\n\nWHEN NOT MATCHED THEN\n    INSERT (\n        ID,\n        BODY,\n        UPDATED_AT\n    )\n    VALUES (\n        s.ID,\n        s.BODY,\n        SYSDATE\n    )\n    WHERE s.ACTIVE_FLAG = 1;"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/7/selector",
+          "value": "2",
+          "deparse": "MERGE INTO APP.MERGE_TARGET t\nUSING (\n    SELECT\n        1001       AS ID,\n        'new-body' AS BODY,\n        1          AS ACTIVE_FLAG,\n        0          AS DELETE_FLAG\n    FROM DUAL\n) s\nON (t.ID = s.ID)\n\nWHEN MATCHED THEN\n    UPDATE SET\n        t.BODY       = s.BODY,\n        t.UPDATED_AT = SYSDATE\n    WHERE s.ACTIVE_FLAG = 1\n    DELETE WHERE s.DELETE_FLAG = 1\n\nWHEN NOT MATCHED THEN\n    INSERT (\n        ID,\n        BODY,\n        UPDATED_AT\n    )\n    VALUES (\n        s.ID,\n        s.BODY,\n        SYSDATE\n    )\n    WHERE s.ACTIVE_FLAG = 2;"
+        }
+      ]
+    },
+    {
+      "name": "oracle-merge-delete-where-updated-target-value",
+      "sql": "MERGE INTO APP.ACCOUNTS t USING APP.ACCOUNT_CHANGES s ON (t.ID = s.ID) WHEN MATCHED THEN UPDATE SET t.STATUS = s.STATUS DELETE WHERE t.STATUS = 'CLOSED';",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "merge",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1
+                  ],
+                  "predicates": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "APP",
+                  "table": "ACCOUNTS",
+                  "alias": "t",
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "APP",
+                  "table": "ACCOUNT_CHANGES",
+                  "alias": "s",
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 0,
+                  "column": "ID",
+                  "selector": "stmt[0].name[7]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 1,
+                  "column": "ID",
+                  "selector": "stmt[0].name[9]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "STATUS"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 1,
+                  "column": "STATUS",
+                  "selector": "stmt[0].name[13]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 0,
+                  "column": "STATUS",
+                  "selector": "stmt[0].name[15]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 0,
+                  "source_field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 4,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[20]",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "CLOSED"
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 0,
+                  "right_field": 1,
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 4,
+                  "value": 1
+                }
+              ],
+              "dml": {
+                "kind": "merge",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 2,
+                    "kind": "field",
+                    "source_field": 3,
+                    "bind_kind": 0,
+                    "selector": "stmt[0].merge_assignment[0][0]"
+                  }
+                ],
+                "branches": [
+                  {
+                    "ordinal": 0,
+                    "branch_kind": "when",
+                    "merge_action_kind": "update",
+                    "merge_match_kind": "matched",
+                    "target_relation": 0,
+                    "assignments": [
+                      {
+                        "target_field": 2,
+                        "kind": "field",
+                        "source_field": 3,
+                        "bind_kind": 0,
+                        "selector": "stmt[0].merge_assignment[0][0]"
+                      }
+                    ],
+                    "delete_condition_selector": "stmt[0].merge_delete_condition[0]"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/0/selector",
+          "value": "t.\"STATUS_NEW\" = s.STATUS",
+          "deparse": "MERGE INTO APP.ACCOUNTS t USING APP.ACCOUNT_CHANGES s ON (t.ID = s.ID) WHEN MATCHED THEN UPDATE SET t.\"STATUS_NEW\" = s.STATUS DELETE WHERE t.STATUS = 'CLOSED';"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/0/selector",
+          "value": "t.\"UPDATED_AT\" = SYSDATE",
+          "deparse": "MERGE INTO APP.ACCOUNTS t USING APP.ACCOUNT_CHANGES s ON (t.ID = s.ID) WHEN MATCHED THEN UPDATE SET t.\"UPDATED_AT\" = SYSDATE, t.STATUS = s.STATUS DELETE WHERE t.STATUS = 'CLOSED';"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/branches/0/delete_condition_selector",
+          "value": "t.STATUS = 'ARCHIVED'",
+          "deparse": "MERGE INTO APP.ACCOUNTS t USING APP.ACCOUNT_CHANGES s ON (t.ID = s.ID) WHEN MATCHED THEN UPDATE SET t.STATUS = s.STATUS DELETE WHERE t.STATUS = 'ARCHIVED';"
+        }
+      ]
+    },
+    {
       "name": "oracle-create-table",
       "sql": "CREATE TABLE users (id NUMBER(10), name VARCHAR2(64), created_at DATE)",
       "view": {

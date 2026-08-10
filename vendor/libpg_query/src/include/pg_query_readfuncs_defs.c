@@ -1735,6 +1735,7 @@ _readMergeWhenClause(OUT_TYPE(MergeWhenClause, MergeWhenClause) msg)
   READ_NODE_PTR_FIELD(condition, condition, condition);
   READ_LIST_FIELD(target_list, targetList, targetList);
   READ_LIST_FIELD(values, values, values);
+  READ_NODE_PTR_FIELD(delete_condition, deleteCondition, deleteCondition);
   return node;
 }
 

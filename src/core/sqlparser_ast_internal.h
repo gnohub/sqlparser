@@ -596,12 +596,34 @@ int sqlparser_view_insert_cell_source_span(
 	size_t *out_start,
 	size_t *out_end,
 	sqlparser_error_t *out_error);
+int sqlparser_merge_condition_source_span(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t dml_index,
+	size_t when_index,
+	sqlparser_selector_kind_t role,
+	const char **out_source_sql,
+	size_t *out_start,
+	size_t *out_end,
+	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_merge_branch_condition_sql(
 	const sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t dml_index,
 	size_t when_index,
 	char **out_sql,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_merge_delete_condition_sql(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t dml_index,
+	size_t when_index,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_merge_condition_set_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const char *sql_text,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_render_select_target_node_sql(
 	const sqlparser_handle_t *handle,

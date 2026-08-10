@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 169 条 `status = "final"` 用例。34 条用例包含 statement 级 `query_graph.session`，覆盖 `D002`、`D003`、`D003Q`、`D026`、`D089` 至 `D095` 和 `DM-*` session 用例；这 34 条用例均至少包含一个非空 session item。
+夹具包含 170 条 `status = "final"` 用例。34 条用例包含 statement 级 `query_graph.session`，覆盖 `D002`、`D003`、`D003Q`、`D026`、`D089` 至 `D095` 和 `DM-*` session 用例；这 34 条用例均至少包含一个非空 session item。
 
 用例提供 `query_graph.session` 时，矩阵测试会随完整 View JSON 精确校验 session action、item scope、target kind、name 及 value 字段。每条用例还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
 
@@ -185,6 +185,7 @@
 | D143 | `dameng-insert-values-returning-rowid-into-bind` | `INSERT ... VALUES ... RETURNING ROWID INTO :NAV_ROWID` | INSERT `target_after` 引用、ROWID pseudo target、sink bind、replace patch 和逐字节 deparse |
 | D144 | `dameng-update-return-rowid-into-bind` | `UPDATE ... RETURN ROWID INTO :NAV_ROWID` | UPDATE `target_after` 引用、达梦 `RETURN` 关键字、sink bind、replace patch 和逐字节 deparse |
 | D145 | `dameng-delete-returning-rowid-into-bind` | `DELETE ... RETURNING ROWID INTO :NAV_ROWID` | DELETE `target_before` 引用、ROWID pseudo target、sink bind、replace patch 和逐字节 deparse |
+| D146 | `dameng-merge-update-delete-where` | matched UPDATE 同时含 action `WHERE` 和附属 `DELETE WHERE` | UPDATE 分支同时输出 `condition_selector` 与 `delete_condition_selector`，DELETE 条件不生成独立 action；3 个独立 patch 覆盖 assignment、action 条件值和 DELETE 条件值替换 |
 
 ## 覆盖边界
 

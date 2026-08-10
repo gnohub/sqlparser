@@ -1510,6 +1510,7 @@ _outMergeWhenClause(OUT_TYPE(MergeWhenClause, MergeWhenClause) out, const MergeW
   WRITE_NODE_PTR_FIELD(condition, condition, condition);
   WRITE_LIST_FIELD(target_list, targetList, targetList);
   WRITE_LIST_FIELD(values, values, values);
+  WRITE_NODE_PTR_FIELD(delete_condition, deleteCondition, deleteCondition);
 }
 
 static void

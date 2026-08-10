@@ -35,7 +35,8 @@ The executable case matrix defines the SQL Server dialect support boundary:
   `ELSE IF`, and nested control flow; conditions support boolean expressions,
   binds, `EXISTS`, and parenthesized subqueries
 - `CASE`, window functions, `UNION ALL`, `EXCEPT`, and `INTERSECT`
-- mappable `MERGE`
+- mappable `MERGE`, including an independent
+  `WHEN MATCHED ... THEN DELETE` action
 - common DDL: `CREATE TABLE`, `ALTER TABLE ADD`, `CREATE VIEW`,
   `CREATE INDEX`, `DROP TABLE`, and `TRUNCATE TABLE`
 - compatible mapping for the `IDENTITY` column property
@@ -108,5 +109,4 @@ The SQL Server support boundary is defined by:
 - `tests/unit/test_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The SQL Server matrix contains 605 cases: 568 successful cases and 37
-expected-failure cases.
+The SQL Server matrix contains 621 cases, all with `status = "final"`.

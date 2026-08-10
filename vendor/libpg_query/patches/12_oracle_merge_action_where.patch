@@ -1,8 +1,6 @@
-diff --git a/src/backend/parser/gram.y b/src/backend/parser/gram.y
-index 16605518c3..701b05810a 100644
 --- a/src/backend/parser/gram.y
 +++ b/src/backend/parser/gram.y
-@@ -12460,7 +12460,10 @@ merge_when_clause:
+@@ -12508,7 +12508,10 @@
  			merge_when_tgt_matched opt_merge_when_condition THEN merge_update
  				{
  					$4->matchKind = $1;
@@ -14,7 +12,7 @@ index 16605518c3..701b05810a 100644
  
  					$$ = (Node *) $4;
  				}
-@@ -12474,7 +12477,10 @@ merge_when_clause:
+@@ -12522,7 +12525,10 @@
  			| merge_when_tgt_not_matched opt_merge_when_condition THEN merge_insert
  				{
  					$4->matchKind = $1;
@@ -26,7 +24,7 @@ index 16605518c3..701b05810a 100644
  
  					$$ = (Node *) $4;
  				}
-@@ -12516,13 +12522,19 @@ opt_merge_when_condition:
+@@ -12564,16 +12570,39 @@
  		;
  
  merge_update:
@@ -47,7 +45,27 @@ index 16605518c3..701b05810a 100644
  
  					$$ = n;
  				}
-@@ -12545,40 +12557,64 @@ merge_delete:
++			| UPDATE SET set_clause_list where_clause DELETE_P WHERE a_expr
++				{
++					MergeWhenClause *n = makeNode(MergeWhenClause);
++					n->commandType = CMD_UPDATE;
++					n->override = OVERRIDING_NOT_SET;
++					n->targetList = $3;
++					n->values = NIL;
++					n->condition = $4 != NULL ?
++						(Node *) makeBoolExpr(
++							AND_EXPR,
++							list_make1($4),
++							PG_QUERY_MERGE_ACTION_WHERE_LOCATION) :
++						NULL;
++					n->deleteCondition = $7;
++
++					$$ = n;
++				}
+ 		;
+ 
+ merge_delete:
+@@ -12590,40 +12619,64 @@
  		;
  
  merge_insert:
@@ -116,11 +134,9 @@ index 16605518c3..701b05810a 100644
  					$$ = n;
  				}
  			| INSERT DEFAULT VALUES
-diff --git a/src/include/nodes/parsenodes.h b/src/include/nodes/parsenodes.h
-index 67c90a2..79d6fa5 100644
 --- a/src/include/nodes/parsenodes.h
 +++ b/src/include/nodes/parsenodes.h
-@@ -1714,6 +1714,8 @@ typedef struct CommonTableExpr
+@@ -1714,6 +1714,8 @@
   *
   * This is transformed into MergeAction by parse analysis
   */
@@ -129,3 +145,12 @@ index 67c90a2..79d6fa5 100644
  typedef struct MergeWhenClause
  {
  	NodeTag		type;
+@@ -1724,6 +1726,8 @@
+ 	List	   *targetList;		/* INSERT/UPDATE targetlist */
+ 	/* the following members are only used in INSERT actions */
+ 	List	   *values;			/* VALUES to INSERT, or NULL */
++	/* the following member is only used in UPDATE actions */
++	Node	   *deleteCondition; /* attached DELETE WHERE condition */
+ } MergeWhenClause;
+ 
+ /*

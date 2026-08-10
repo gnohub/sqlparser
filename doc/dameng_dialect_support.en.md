@@ -32,7 +32,8 @@ current AST. The executable case matrix defines the support boundary:
 - DML host-variable returns: `RETURNING <single expression> INTO <single
   colon-prefixed host bind>` for `INSERT` and `DELETE`, and `RETURN <single
   expression> INTO <single colon-prefixed host bind>` for `UPDATE`
-- mappable `MERGE`
+- mappable `MERGE`, including a post-assignment `WHERE` and an attached
+  `DELETE WHERE` on the same matched UPDATE branch
 - `DATE` and `TIMESTAMP` literals
 - common DDL: `CREATE TABLE`, `CREATE VIEW`, `CREATE SEQUENCE`,
   `ALTER TABLE ADD`, `CREATE INDEX`, `DROP TABLE`, and `TRUNCATE TABLE`
@@ -84,4 +85,4 @@ The Dameng support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current Dameng matrix contains 169 cases, all with `status = "final"`.
+The current Dameng matrix contains 170 cases, all with `status = "final"`.

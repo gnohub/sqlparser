@@ -54,6 +54,8 @@
 
 `IF...ELSE` 条目由 36 条成功路径和 9 条错误路径覆盖，包含单语句分支、多语句块、`ELSE IF`、嵌套、条件查询、DML、DDL、事务和语法边界。
 
+`MERGE` 条目包含独立的 `WHEN MATCHED ... THEN DELETE` action。1 条可执行用例和 3 个独立 patch 验证 DELETE 分支条件、后续 UPDATE assignment 和 INSERT cell 互不干扰。
+
 ## 按目录统计
 
 | 目录 | `CURRENT` | `HOOK_ONLY` | `MIXED_MODEL` | `MODEL_REQUIRED` | `REFERENCE_ONLY` | 合计 |

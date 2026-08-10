@@ -16,7 +16,7 @@ current parser kernel. The executable case matrix defines the support boundary:
 - `INSERT VALUES`, multi-row `INSERT`, and `INSERT SELECT`
 - `ON CONFLICT DO UPDATE` and `RETURNING`
 - `UPDATE`, `UPDATE FROM`, `DELETE`, and `DELETE USING`
-- `MERGE`
+- `MERGE`, including an independent `WHEN MATCHED ... THEN DELETE` action
 - common DDL: `CREATE TABLE`, `CREATE TABLE AS`, `CREATE VIEW`, and
   `CREATE MATERIALIZED VIEW`
 - `ALTER TABLE RENAME`, `ALTER TABLE ADD COLUMN`, and
@@ -58,5 +58,4 @@ The PostgreSQL support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current PostgreSQL matrix contains 184 cases: 181 successful cases and 3
-expected-failure cases.
+The current PostgreSQL matrix contains 214 cases, all with `status = "final"`.

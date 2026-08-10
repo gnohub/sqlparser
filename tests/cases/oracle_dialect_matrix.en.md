@@ -4,7 +4,7 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 242 cases with `status = "final"`.
+The fixture contains 244 cases with `status = "final"`.
 Statement-level `query_graph.session` appears in 59 cases, covering `O043`,
 `O043Q`, `O044` through `O047`, `O082` through `O086`, and the `ORA-*`
 session cases. All 59 contain at least one non-empty session item.
@@ -221,6 +221,8 @@ binds were included in the global sequence. `SYSDATE` and
 | O189 | `oracle-insert-returning-rowid-into-bind` | `INSERT ... VALUES ... RETURNING ROWID INTO :NAV_ROWID` | one `ROWID` pseudo result target links to one colon-prefixed host bind through `sink_value`; replace patches for a VALUES cell, the result target, and the output bind all preserve exact deparse output |
 | O190 | `oracle-update-returning-rowid-into-bind` | `UPDATE ... RETURNING ROWID INTO :NAV_ROWID` | one `ROWID` pseudo target in `target_after` links to one colon-prefixed host bind; replace patches for the assignment, result target, and output bind all preserve exact deparse output |
 | O191 | `oracle-delete-returning-rowid-into-bind` | `DELETE ... RETURNING ROWID INTO :NAV_ROWID` | one `ROWID` pseudo target in `target_before` links to one colon-prefixed host bind; replace patches for the predicate value, result target, and output bind all preserve exact deparse output |
+| O192 | `oracle-merge-update-where-delete-where-conditional-insert` | a matched UPDATE has both an action `WHERE` and an attached `DELETE WHERE`, followed by a conditional INSERT | the UPDATE branch exposes both `condition_selector` and `delete_condition_selector`; the delete predicate remains part of that UPDATE branch; 5 independent patches cover assignment replacement/insertion and all three predicate values |
+| O193 | `oracle-merge-delete-where-updated-target-value` | a matched UPDATE followed by `DELETE WHERE t.STATUS = 'CLOSED'` | models the delete predicate against the updated target value without creating an independent DELETE action; 3 independent patches cover assignment replacement/insertion and delete-predicate value replacement |
 
 ## ROWNUM Predicate Semantics Regression
 

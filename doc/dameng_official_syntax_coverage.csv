@@ -17,7 +17,7 @@ dml,INSERT_VALUES,CURRENT,"已覆盖 INSERT VALUES 和多行 VALUES",https://eco
 dml,INSERT_SELECT,CURRENT,"已覆盖 INSERT SELECT",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
 dml,UPDATE,CURRENT,"已覆盖 UPDATE SET WHERE",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
 dml,DELETE,CURRENT,"已覆盖 DELETE WHERE",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
-dml,MERGE,CURRENT,"已覆盖可映射 MERGE 基础结构",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
+dml,MERGE,CURRENT,"已覆盖可映射 MERGE 结构，包括 matched UPDATE action WHERE 和同分支附属 DELETE WHERE",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
 ddl,CREATE_TABLE,CURRENT,"已覆盖 CREATE TABLE 基础形态",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
 ddl,CREATE_VIEW,CURRENT,"已覆盖 CREATE OR REPLACE VIEW",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
 ddl,CREATE_SEQUENCE,CURRENT,"已覆盖 CREATE SEQUENCE",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html

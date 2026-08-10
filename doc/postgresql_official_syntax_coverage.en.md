@@ -44,6 +44,11 @@ The current implementation covers 41 groups and leaves 1 group uncovered.
 
 ## Conclusion
 
+PostgreSQL `MERGE` supports an independent
+`WHEN MATCHED ... THEN DELETE` action. One executable case and 3 independent
+patches verify isolation between its branch condition, the following UPDATE
+assignment, and the INSERT cell.
+
 PostgreSQL is the default parser-kernel dialect. No hook-only coverage gap
 remains. The remaining gap is complete object attribution and option modeling
 for role, user, and database-management statements, which requires public model

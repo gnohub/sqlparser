@@ -1,75 +1,81 @@
-# v2.15.1 Release Notes
+# v2.15.2 Release Notes
 
-`v2.15.1` adds structured parsing, View, and patch support for single-target,
-single-host-bind `RETURN` / `RETURNING ... INTO` flows in Oracle, Dameng, and
-Vastbase-Oracle while preserving unchanged SQL source text.
+`v2.15.2` adds structured parsing, View, and patch support for an attached
+`DELETE WHERE` in Oracle and Dameng MERGE matched UPDATE actions while
+preserving the existing independent DELETE-action semantics in PostgreSQL and
+SQL Server.
 
 ## Supported Boundary
 
-- Oracle and Vastbase-Oracle support one `RETURNING` expression and one
-  colon-prefixed `INTO` host bind for `INSERT`, `UPDATE`, and `DELETE`.
-- Dameng supports `RETURNING ... INTO :bind` for `INSERT` and `DELETE`, and
-  `RETURN ... INTO :bind` for `UPDATE`.
-- The colon and bind name form one contiguous token, such as `:NAV_ROWID`.
-  A spaced form such as `: NAV_ROWID` is outside this syntax.
-- Multiple result targets, multiple output binds, and `BULK COLLECT` remain
-  unsupported.
+- Oracle and Dameng support
+  `WHEN MATCHED THEN UPDATE SET ... [WHERE ...] DELETE WHERE ...`.
+- `DELETE WHERE` is attached to the matched UPDATE action and evaluates the
+  updated target row. The Query Graph does not create an independent DELETE
+  branch for it.
+- PostgreSQL and SQL Server `WHEN MATCHED ... THEN DELETE` actions continue to
+  use independent MERGE branches.
+- This release does not add MERGE support to MySQL or declare this syntax for
+  any Vastbase compatibility mode.
+- The attached DELETE form requires both `WHERE` and a condition expression;
+  a bare `DELETE` remains unsupported.
 
-## Query Graph and View
+## Query Graph and Selectors
 
-- A DML result returned into a host bind uses a `kind = "sink"` result channel
-  without a `sink_relation`.
-- The result target's `sink_value` references the output bind in
-  `query_graph.values[]`. That value retains its bind key, kind, SQL, global
-  position, and existing value selector.
-- `ROWID` is emitted as a pseudo target without a field. `INSERT` and `UPDATE`
-  use `target_after` references; `DELETE` uses `target_before`.
-- Relation-backed sinks continue to use `sink_relation` and optional
-  `sink_columns`; their representation remains distinct from host-bind sinks.
+- A matched UPDATE branch can expose both `condition_selector` and
+  `delete_condition_selector`, addressing the action `WHERE` and attached
+  `DELETE WHERE` predicates independently.
+- A root MERGE uses `stmt[S].merge_delete_condition[W]`; a nested MERGE uses
+  `stmt[S].merge_delete_condition[D][W]`.
+- `sqlparser_selector_clause_sql()` returns the condition expression without
+  the `DELETE WHERE` keywords.
+- `sqlparser_selector_set_clause_sql()` and `SQLPARSER_PATCH_REPLACE` can
+  replace either an ordinary branch condition or an attached delete condition.
 
 ## Patch and Deparse
 
-- DML input values, result targets, and output binds reuse existing selectors
-  and `SQLPARSER_PATCH_REPLACE`; no dedicated selector or patch type is added.
-- Result targets and output binds can be replaced independently. A regenerated
-  View retains the `sink_value` association, bind positions, and lineage.
-- A patch changes only the selected source interval; all other source intervals
-  remain byte-preserved.
-- Empty statements and comment-only segments do not consume statement indexes
-  in multi-statement SQL. Dameng `RETURN` letter case is restored during
-  deparse.
+- A MERGE assignment bounded by a comma, action `WHERE`, attached
+  `DELETE WHERE`, or a following `WHEN` uses a local source edit.
+- Assignment, ordinary branch-condition, and attached-delete-condition patches
+  replace only the selected source interval. Other branches, line breaks,
+  whitespace, keyword case, and identifier delimiters remain byte-preserved.
+- Patched SQL is reparsed and checked against the expected View; the attached
+  delete predicate remains associated with its original UPDATE branch.
 
 ## API and Compatibility
 
-- `sqlparser_graph_target_t` adds `sink_value_index` and `has_sink_value` for
-  the optional output-bind association.
-- This release adds no public functions, enums, selector kinds, or
-  resource-ownership rules.
+- `sqlparser_selector_kind_t` appends
+  `SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION = 25`.
+- `sqlparser_graph_dml_branch_t` appends `delete_condition_selector` and
+  `has_delete_condition_selector`.
+- This release adds no public functions or resource-ownership rules.
 - The public structure layout is extended. C applications should be rebuilt
-  against the 2.15.1 headers.
+  against the 2.15.2 headers.
 - The shared-library ABI major remains `libsqlparser.so.0`.
 
 ## Cases and Documentation
 
-- Nine final cases and 27 independent patches were added across Oracle,
-  Dameng, and Vastbase-Oracle, covering DML input values, result targets, and
-  output-bind rewrites for `INSERT`, `UPDATE`, and `DELETE`.
-- The nine current fixtures contain 2,767 final cases and 8,972 patches.
-- Repository examples, documentation, and test data use the neutral `APP`
-  schema name. This convention does not restrict schema names in caller SQL.
-- English and Chinese View JSON, API, dialect support, official syntax
-  coverage, and case-matrix documentation are synchronized.
+- Oracle adds two final cases covering an action `WHERE`, attached
+  `DELETE WHERE`, and conditional INSERT in one MERGE, plus a matched UPDATE
+  with only an attached delete predicate.
+- Dameng adds one final case covering coexisting action and attached-delete
+  predicates.
+- PostgreSQL and SQL Server each add one final case covering independent
+  matched DELETE and UPDATE actions followed by a not-matched INSERT.
+- This release adds five final cases and 17 independent patches. The nine
+  current fixtures contain 2,772 final cases and 8,989 patches.
+- English and Chinese View JSON, API, dialect-support, official-syntax, and
+  case-matrix documentation are synchronized.
 
 ## Validation
 
-- The Oracle, Dameng, and Vastbase-Oracle matrices completed 628 cases and
-  2,219 patches with zero failures.
-- The SQL batch matrix also completed 213 cases and 720 patches. The targeted
-  strict regression therefore covered 841 cases and 2,939 patches.
-- Affected core API checks, three examples, and CLI argument-order checks
-  completed successfully.
-- Targeted Valgrind checks for the three affected dialects reported no memory
-  remaining at exit and zero errors.
+- All nine case matrices completed 2,772 cases and 8,989 patches with zero
+  failures.
+- Original deparse, View JSON, patch deparse, and runner error counts were all
+  zero.
+- Core API tests passed, covering root and nested selectors, condition reads
+  and replacements, dialect restrictions, and bare-DELETE rejection.
+- A targeted Valgrind run completed 1,040,125 allocations and 1,040,125 frees;
+  it exited with `0 bytes in 0 blocks` and zero errors.
 
 Vendored `libpg_query` tag: `17-6.2.2`.
 Vendored Jansson version: `2.15`.

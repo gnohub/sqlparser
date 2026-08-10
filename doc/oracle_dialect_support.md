@@ -18,7 +18,7 @@ Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范
 - `INSERT`、`UPDATE`、`DELETE` 的单个 `RETURNING` 表达式与单个 `INTO` 冒号宿主绑定变量
 - `DATE`、`TIMESTAMP` 字面量
 - `CASE`、`EXISTS`、`UNION ALL`、`INTERSECT`
-- 可映射的 `MERGE`
+- 可映射的 `MERGE`；matched UPDATE action 支持赋值后 `WHERE` 和归属同一 UPDATE 分支的 `DELETE WHERE`，not-matched INSERT 支持分支条件
 - 常见 DDL：`CREATE TABLE`、`CREATE SEQUENCE`、`CREATE VIEW`、`DROP TABLE`、`TRUNCATE TABLE`
 - 事务控制、`GRANT / REVOKE`、`COMMENT ON`
 - `FOR UPDATE NOWAIT`
@@ -62,4 +62,4 @@ Oracle 支持范围以以下文件为准：
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 Oracle 方言矩阵包含 242 条用例，均为 `status = "final"`。
+当前 Oracle 方言矩阵包含 244 条用例，均为 `status = "final"`。

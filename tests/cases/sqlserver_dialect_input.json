@@ -60046,6 +60046,317 @@
           "deparse": "DELETE FROM dbo.t OUTPUT DELETED.id, [InsertedTarget]"
         }
       ]
+    },
+    {
+      "name": "sqlserver-merge-matched-delete-action",
+      "sql": "MERGE INTO dbo.Article AS t USING dbo.ArticleStage AS s ON t.ID = s.ID WHEN MATCHED AND s.DeleteFlag = 1 THEN DELETE WHEN MATCHED THEN UPDATE SET Body = s.Body, UpdatedAt = SYSDATETIME() WHEN NOT MATCHED BY TARGET AND s.ActiveFlag = 1 THEN INSERT (ID, Body, UpdatedAt) VALUES (s.ID, s.Body, SYSDATETIME());",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "merge",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1
+                  ],
+                  "predicates": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "dbo",
+                  "table": "Article",
+                  "alias": "t",
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "dbo",
+                  "table": "ArticleStage",
+                  "alias": "s",
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 0,
+                  "column": "ID",
+                  "selector": "stmt[0].name[7]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 1,
+                  "column": "ID",
+                  "selector": "stmt[0].name[9]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 1,
+                  "column": "DeleteFlag",
+                  "selector": "stmt[0].name[11]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "Body"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 1,
+                  "column": "Body",
+                  "selector": "stmt[0].name[14]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "UpdatedAt"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "relation": 1,
+                  "column": "ActiveFlag",
+                  "selector": "stmt[0].name[18]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "relation": 1,
+                  "column": "ID",
+                  "selector": "stmt[0].name[23]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "relation": 1,
+                  "column": "Body",
+                  "selector": "stmt[0].name[25]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 0,
+                  "source_field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 2,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[15]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 6,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[30]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 0,
+                  "right_field": 1,
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 2,
+                  "value": 1
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 6,
+                  "value": 2
+                }
+              ],
+              "dml": {
+                "kind": "merge",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 3,
+                    "kind": "field",
+                    "source_field": 4,
+                    "bind_kind": 0,
+                    "selector": "stmt[0].merge_assignment[1][0]"
+                  },
+                  {
+                    "target_field": 5,
+                    "kind": "expression",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].merge_assignment[1][1]"
+                  }
+                ],
+                "branches": [
+                  {
+                    "ordinal": 0,
+                    "branch_kind": "when",
+                    "merge_action_kind": "delete",
+                    "merge_match_kind": "matched",
+                    "target_relation": 0,
+                    "condition_selector": "stmt[0].merge_branch_condition[0]"
+                  },
+                  {
+                    "ordinal": 1,
+                    "branch_kind": "when",
+                    "merge_action_kind": "update",
+                    "merge_match_kind": "matched",
+                    "target_relation": 0,
+                    "assignments": [
+                      {
+                        "target_field": 3,
+                        "kind": "field",
+                        "source_field": 4,
+                        "bind_kind": 0,
+                        "selector": "stmt[0].merge_assignment[1][0]"
+                      },
+                      {
+                        "target_field": 5,
+                        "kind": "expression",
+                        "bind_kind": 0,
+                        "selector": "stmt[0].merge_assignment[1][1]"
+                      }
+                    ]
+                  },
+                  {
+                    "ordinal": 2,
+                    "branch_kind": "when",
+                    "merge_action_kind": "insert",
+                    "merge_match_kind": "not_matched_by_target",
+                    "target_relation": 0,
+                    "target_list_selector": "stmt[0].insert_branch_columns[2]",
+                    "target_columns": [
+                      {
+                        "ordinal": 0,
+                        "column": "ID",
+                        "selector": "stmt[0].merge_insert_column[2][0]"
+                      },
+                      {
+                        "ordinal": 1,
+                        "column": "Body",
+                        "selector": "stmt[0].merge_insert_column[2][1]"
+                      },
+                      {
+                        "ordinal": 2,
+                        "column": "UpdatedAt",
+                        "selector": "stmt[0].merge_insert_column[2][2]"
+                      }
+                    ],
+                    "rows": [
+                      {
+                        "row": 2,
+                        "column": 0,
+                        "kind": "field",
+                        "source_field": 7,
+                        "bind_kind": 0,
+                        "selector": "stmt[0].merge_insert_cell[2][0]"
+                      },
+                      {
+                        "row": 2,
+                        "column": 1,
+                        "kind": "field",
+                        "source_field": 8,
+                        "bind_kind": 0,
+                        "selector": "stmt[0].merge_insert_cell[2][1]"
+                      },
+                      {
+                        "row": 2,
+                        "column": 2,
+                        "kind": "expression",
+                        "bind_kind": 0,
+                        "selector": "stmt[0].merge_insert_cell[2][2]",
+                        "expression_sql": "SYSDATETIME()"
+                      }
+                    ],
+                    "condition_selector": "stmt[0].merge_branch_condition[2]"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/branches/0/condition_selector",
+          "value": "s.DeleteFlag = 2",
+          "deparse": "MERGE INTO dbo.Article AS t USING dbo.ArticleStage AS s ON t.ID = s.ID WHEN MATCHED AND s.DeleteFlag = 2 THEN DELETE WHEN MATCHED THEN UPDATE SET Body = s.Body, UpdatedAt = SYSDATETIME() WHEN NOT MATCHED BY TARGET AND s.ActiveFlag = 1 THEN INSERT (ID, Body, UpdatedAt) VALUES (s.ID, s.Body, SYSDATETIME());"
+        },
+        {
+          "action": "replace_assignment",
+          "target": "/statements/0/query_graph/dml/branches/1/assignments/0/selector",
+          "value": "Body = UPPER(s.Body)",
+          "deparse": "MERGE INTO dbo.Article AS t USING dbo.ArticleStage AS s ON t.ID = s.ID WHEN MATCHED AND s.DeleteFlag = 1 THEN DELETE WHEN MATCHED THEN UPDATE SET Body = UPPER(s.Body), UpdatedAt = SYSDATETIME() WHEN NOT MATCHED BY TARGET AND s.ActiveFlag = 1 THEN INSERT (ID, Body, UpdatedAt) VALUES (s.ID, s.Body, SYSDATETIME());"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/branches/2/rows/1/selector",
+          "value": "COALESCE(s.Body, 'missing')",
+          "deparse": "MERGE INTO dbo.Article AS t USING dbo.ArticleStage AS s ON t.ID = s.ID WHEN MATCHED AND s.DeleteFlag = 1 THEN DELETE WHEN MATCHED THEN UPDATE SET Body = s.Body, UpdatedAt = SYSDATETIME() WHEN NOT MATCHED BY TARGET AND s.ActiveFlag = 1 THEN INSERT (ID, Body, UpdatedAt) VALUES (s.ID, COALESCE(s.Body, 'missing'), SYSDATETIME());"
+        }
+      ]
     }
   ]
 }

@@ -1515,6 +1515,7 @@ _equalMergeWhenClause(const MergeWhenClause *a, const MergeWhenClause *b)
 	COMPARE_NODE_FIELD(condition);
 	COMPARE_NODE_FIELD(targetList);
 	COMPARE_NODE_FIELD(values);
+	COMPARE_NODE_FIELD(deleteCondition);
 
 	return true;
 }

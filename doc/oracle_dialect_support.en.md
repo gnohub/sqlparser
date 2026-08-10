@@ -24,7 +24,9 @@ current AST. The executable case matrix defines the support boundary:
 - one `RETURNING` expression with one `INTO` colon-prefixed host bind in `INSERT`, `UPDATE`, and `DELETE`
 - `DATE` and `TIMESTAMP` literals
 - `CASE`, `EXISTS`, `UNION ALL`, and `INTERSECT`
-- mappable `MERGE`
+- mappable `MERGE`, including a post-assignment `WHERE` and an attached
+  `DELETE WHERE` on the same matched UPDATE branch, plus conditional
+  not-matched INSERT actions
 - common DDL: `CREATE TABLE`, `CREATE SEQUENCE`, `CREATE VIEW`, `DROP TABLE`,
   and `TRUNCATE TABLE`
 - transaction control, `GRANT / REVOKE`, and `COMMENT ON`
@@ -81,4 +83,4 @@ The Oracle support boundary is defined by:
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current Oracle matrix contains 242 cases, all with `status = "final"`.
+The current Oracle matrix contains 244 cases, all with `status = "final"`.

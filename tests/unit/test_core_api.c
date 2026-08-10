@@ -22,6 +22,8 @@ typedef struct {
 	int has_condition_block;
 	sqlparser_selector_t condition_selector;
 	int has_condition_selector;
+	sqlparser_selector_t delete_condition_selector;
+	int has_delete_condition_selector;
 } sqlparser_graph_dml_branch_abi_baseline_t;
 
 _Static_assert(
@@ -46,6 +48,8 @@ SQLPARSER_ASSERT_BRANCH_ABI_OFFSET(condition_block_index);
 SQLPARSER_ASSERT_BRANCH_ABI_OFFSET(has_condition_block);
 SQLPARSER_ASSERT_BRANCH_ABI_OFFSET(condition_selector);
 SQLPARSER_ASSERT_BRANCH_ABI_OFFSET(has_condition_selector);
+SQLPARSER_ASSERT_BRANCH_ABI_OFFSET(delete_condition_selector);
+SQLPARSER_ASSERT_BRANCH_ABI_OFFSET(has_delete_condition_selector);
 #undef SQLPARSER_ASSERT_BRANCH_ABI_OFFSET
 
 typedef struct {
@@ -5357,6 +5361,15 @@ static int test_merge_condition_scanner_boundaries(void)
 		"WHEN MATCHED THEN UPDATE SET v=s.v "
 		"WHEN NOT MATCHED THEN INSERT(id) VALUES(s.id) "
 		"WHERE s.flag=1";
+	static const char oracle_update_delete_sql[] =
+		"MERGE INTO t USING s ON (t.id=s.id) "
+		"WHEN MATCHED THEN UPDATE SET v=s.v "
+		"WHERE s.active=1 DELETE WHERE s.deleted=1 "
+		"WHEN NOT MATCHED THEN INSERT(id) VALUES(s.id)";
+	static const char oracle_delete_only_sql[] =
+		"MERGE INTO t USING s ON (t.id=s.id) "
+		"WHEN MATCHED THEN UPDATE SET v=s.v "
+		"DELETE WHERE s.deleted=1";
 	sqlparser_parse_options_t options;
 	sqlparser_error_t error;
 	sqlparser_handle_t *handle;
@@ -5552,6 +5565,166 @@ static int test_merge_condition_scanner_boundaries(void)
 	}
 	sqlparser_string_free(condition);
 	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	condition = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	rc = sqlparser_parse_with_options(
+		oracle_update_delete_sql,
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Oracle MERGE UPDATE/DELETE conditions should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(
+			    handle,
+			    0U,
+			    &graph,
+			    &error),
+		    &error,
+		    "Oracle MERGE UPDATE/DELETE graph should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml(&graph, &dml, &error),
+		    &error,
+		    "Oracle MERGE UPDATE/DELETE DML should resolve") != 0 ||
+	    expect_true(
+		    dml.branches.count == 2U,
+		    "Oracle MERGE UPDATE/DELETE branch count mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    &graph,
+			    dml.branches,
+			    0U,
+			    &local_index,
+			    &error),
+		    &error,
+		    "Oracle MERGE UPDATE/DELETE branch index should resolve") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_branch_at(
+			    &graph,
+			    local_index,
+			    &branch,
+			    &error),
+		    &error,
+		    "Oracle MERGE UPDATE/DELETE branch should resolve") != 0 ||
+	    expect_true(
+		    branch.ordinal == 0U &&
+			    branch.has_condition_selector != 0 &&
+			    branch.condition_selector.kind ==
+				    SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION &&
+			    branch.condition_selector.statement_index == 0U &&
+			    branch.condition_selector.row_index == 0U &&
+			    branch.condition_selector.item_index == 0U &&
+			    branch.has_delete_condition_selector != 0 &&
+			    branch.delete_condition_selector.kind ==
+				    SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION &&
+			    branch.delete_condition_selector.statement_index == 0U &&
+			    branch.delete_condition_selector.row_index == 0U &&
+			    branch.delete_condition_selector.item_index == 0U,
+		    "Oracle MERGE UPDATE/DELETE selector metadata mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_selector_clause_sql(
+			    handle,
+			    &branch.condition_selector,
+			    &condition,
+			    &error),
+		    &error,
+		    "Oracle MERGE UPDATE condition should resolve") != 0 ||
+	    expect_true(
+		    condition != NULL && strcmp(condition, "s.active=1") == 0,
+		    "Oracle MERGE UPDATE condition source mismatch") != 0) {
+		sqlparser_string_free(condition);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(condition);
+	condition = NULL;
+	if (expect_status_ok(
+		    sqlparser_selector_clause_sql(
+			    handle,
+			    &branch.delete_condition_selector,
+			    &condition,
+			    &error),
+		    &error,
+		    "Oracle MERGE DELETE condition should resolve") != 0 ||
+	    expect_true(
+		    condition != NULL && strcmp(condition, "s.deleted=1") == 0,
+		    "Oracle MERGE DELETE condition source mismatch") != 0) {
+		sqlparser_string_free(condition);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(condition);
+	condition = NULL;
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse_with_options(
+		oracle_delete_only_sql,
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Oracle MERGE DELETE-only condition should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "Oracle MERGE DELETE-only graph should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml(&graph, &dml, &error),
+		    &error,
+		    "Oracle MERGE DELETE-only DML should resolve") != 0 ||
+	    expect_true(
+		    dml.branches.count == 1U,
+		    "Oracle MERGE DELETE-only branch count mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    &graph,
+			    dml.branches,
+			    0U,
+			    &local_index,
+			    &error),
+		    &error,
+		    "Oracle MERGE DELETE-only branch index should resolve") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_branch_at(
+			    &graph,
+			    local_index,
+			    &branch,
+			    &error),
+		    &error,
+		    "Oracle MERGE DELETE-only branch should resolve") != 0 ||
+	    expect_true(
+		    branch.has_condition_selector == 0 &&
+			    branch.has_delete_condition_selector != 0 &&
+			    branch.delete_condition_selector.kind ==
+				    SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION,
+		    "Oracle MERGE DELETE-only condition must stay independent") != 0 ||
+	    expect_status_ok(
+		    sqlparser_selector_clause_sql(
+			    handle,
+			    &branch.delete_condition_selector,
+			    &condition,
+			    &error),
+		    &error,
+		    "Oracle MERGE DELETE-only condition should resolve") != 0 ||
+	    expect_true(
+		    condition != NULL && strcmp(condition, "s.deleted=1") == 0,
+		    "Oracle MERGE DELETE-only source mismatch") != 0) {
+		sqlparser_string_free(condition);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(condition);
+	sqlparser_handle_destroy(handle);
 	return 0;
 }
 
@@ -5565,18 +5738,27 @@ static int test_oracle_merge_action_where_after_patch(void)
 		SQLPARSER_DIALECT_VASTBASE_MYSQL,
 		SQLPARSER_DIALECT_VASTBASE_SQLSERVER
 	};
+	static const sqlparser_dialect_t rejected_delete_dialects[] = {
+		SQLPARSER_DIALECT_POSTGRESQL,
+		SQLPARSER_DIALECT_MYSQL,
+		SQLPARSER_DIALECT_SQLSERVER,
+		SQLPARSER_DIALECT_VASTBASE_POSTGRESQL,
+		SQLPARSER_DIALECT_VASTBASE_MYSQL,
+		SQLPARSER_DIALECT_VASTBASE_ORACLE,
+		SQLPARSER_DIALECT_VASTBASE_SQLSERVER
+	};
 	static const char sql[] =
 		"MERGE INTO t USING s ON (t.id=s.id) "
 		"WHEN MATCHED AND (s.a=1 OR s.b=1) AND s.c=1 THEN "
-		"UPDATE SET t.v=s.v WHERE s.flag=1 "
+		"UPDATE SET t.v=s.v WHERE s.flag=1 DELETE WHERE s.deleted=1 "
 		"WHEN NOT MATCHED THEN "
 		"INSERT (id,v) VALUES(s.id,s.v) WHERE s.flag=2";
 	static const char expected[] =
 		"MERGE INTO t USING s ON (t.id = s.id) "
-		"WHEN MATCHED AND (s.a_changed = 1 OR s.b = 1) AND s.c = 1 THEN "
-		"UPDATE SET t.v = s.v WHERE s.flag = 1 "
+		"WHEN MATCHED AND s.a_changed = 2 THEN "
+		"UPDATE SET t.v = s.v WHERE s.flag = 1 DELETE WHERE s.deleted = 2 "
 		"WHEN NOT MATCHED THEN "
-		"INSERT (id, v) VALUES (s.id, s.v) WHERE s.flag = 2";
+		"INSERT (id, v) VALUES (s.id, s.v) WHERE s.flag = 3";
 	sqlparser_parse_options_t options;
 	sqlparser_error_t error;
 	sqlparser_handle_t *handle;
@@ -5685,6 +5867,119 @@ static int test_oracle_merge_action_where_after_patch(void)
 	}
 	sqlparser_string_free(condition);
 	condition = NULL;
+	selector.item_index = 0U;
+	rc = sqlparser_selector_set_clause_sql(
+		handle,
+		&selector,
+		"s.a_changed=2",
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Oracle MERGE match condition replacement should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	selector.item_index = 1U;
+	rc = sqlparser_selector_set_clause_sql(
+		handle,
+		&selector,
+		"s.flag=3",
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Oracle MERGE action condition replacement should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	selector.kind =
+		SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION;
+	selector.item_index = 0U;
+	rc = sqlparser_selector_clause_sql(
+		handle,
+		&selector,
+		&condition,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Oracle MERGE DELETE condition should survive other replacements") != 0 ||
+	    expect_true(
+		    condition != NULL && strcmp(condition, "s.deleted = 1") == 0,
+		    "Oracle MERGE DELETE condition changed with another selector") != 0) {
+		sqlparser_string_free(condition);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(condition);
+	condition = NULL;
+	rc = sqlparser_selector_set_clause_sql(
+		handle,
+		&selector,
+		"s.deleted=2",
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Oracle MERGE DELETE condition replacement should succeed") != 0 ||
+	    expect_status_ok(
+		    sqlparser_selector_clause_sql(
+			    handle,
+			    &selector,
+			    &condition,
+			    &error),
+		    &error,
+		    "replaced Oracle MERGE DELETE condition should resolve") != 0 ||
+	    expect_true(
+		    condition != NULL && strcmp(condition, "s.deleted = 2") == 0,
+		    "replaced Oracle MERGE DELETE condition mismatch") != 0) {
+		sqlparser_string_free(condition);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(condition);
+	condition = NULL;
+	selector.kind =
+		SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION;
+	rc = sqlparser_selector_clause_sql(
+		handle,
+		&selector,
+		&condition,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Oracle MERGE match condition should survive DELETE replacement") != 0 ||
+	    expect_true(
+		    condition != NULL &&
+			    strcmp(condition, "s.a_changed = 2") == 0,
+		    "Oracle MERGE match condition changed with DELETE selector") != 0) {
+		sqlparser_string_free(condition);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(condition);
+	condition = NULL;
+	selector.item_index = 1U;
+	rc = sqlparser_selector_clause_sql(
+		handle,
+		&selector,
+		&condition,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Oracle MERGE action condition should survive DELETE replacement") != 0 ||
+	    expect_true(
+		    condition != NULL && strcmp(condition, "s.flag = 3") == 0,
+		    "Oracle MERGE action condition changed with DELETE selector") != 0) {
+		sqlparser_string_free(condition);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(condition);
+	condition = NULL;
 	if (expect_status_ok(
 		    sqlparser_deparse(handle, &deparsed, &error),
 		    &error,
@@ -5736,9 +6031,7 @@ static int test_oracle_merge_action_where_after_patch(void)
 		    "reparsed Oracle MERGE match condition should resolve") != 0 ||
 	    expect_true(
 		    condition != NULL &&
-			    strcmp(
-				    condition,
-				    "(s.a_changed = 1 OR s.b = 1) AND s.c = 1") == 0,
+			    strcmp(condition, "s.a_changed = 2") == 0,
 		    "reparsed Oracle MERGE match condition mismatch") != 0) {
 		sqlparser_string_free(condition);
 		sqlparser_string_free(deparsed);
@@ -5760,8 +6053,31 @@ static int test_oracle_merge_action_where_after_patch(void)
 		    "reparsed Oracle MERGE insert action condition should resolve") != 0 ||
 	    expect_true(
 		    condition != NULL &&
-			    strcmp(condition, "s.flag = 2") == 0,
+			    strcmp(condition, "s.flag = 3") == 0,
 		    "reparsed Oracle MERGE insert action condition mismatch") != 0) {
+		sqlparser_string_free(condition);
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(reparsed);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(condition);
+	condition = NULL;
+	selector.kind =
+		SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION;
+	selector.item_index = 0U;
+	rc = sqlparser_selector_clause_sql(
+		reparsed,
+		&selector,
+		&condition,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "reparsed Oracle MERGE DELETE condition should resolve") != 0 ||
+	    expect_true(
+		    condition != NULL && strcmp(condition, "s.deleted = 2") == 0,
+		    "reparsed Oracle MERGE DELETE condition mismatch") != 0) {
 		sqlparser_string_free(condition);
 		sqlparser_string_free(deparsed);
 		sqlparser_handle_destroy(reparsed);
@@ -5794,6 +6110,48 @@ static int test_oracle_merge_action_where_after_patch(void)
 		    0) {
 			continue;
 		}
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	for (dialect_index = 0U;
+	     dialect_index <
+		     sizeof(rejected_delete_dialects) /
+			     sizeof(rejected_delete_dialects[0]);
+	     dialect_index++) {
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = rejected_delete_dialects[dialect_index];
+		rc = sqlparser_parse_with_options(
+			"MERGE INTO t USING s ON t.id=s.id "
+			"WHEN MATCHED THEN UPDATE SET v=s.v "
+			"DELETE WHERE s.deleted=1",
+			&options,
+			&handle,
+			&error);
+		if (expect_true(
+			    rc != SQLPARSER_STATUS_OK && handle == NULL,
+			    "MERGE attached DELETE WHERE must be dialect-gated") ==
+		    0) {
+			continue;
+		}
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	rc = sqlparser_parse_with_options(
+		"MERGE INTO t USING s ON t.id=s.id "
+		"WHEN MATCHED THEN UPDATE SET v=s.v DELETE",
+		&options,
+		&handle,
+		&error);
+	if (expect_true(
+		    rc != SQLPARSER_STATUS_OK && handle == NULL,
+		    "Oracle MERGE attached DELETE requires WHERE and a condition") !=
+	    0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
@@ -8830,6 +9188,20 @@ static int test_selector_parse_and_format(void)
 			2U, 5U, 3U, 0U
 		}
 	};
+	static const struct {
+		const char *text;
+		size_t dml_index;
+		size_t when_index;
+	} merge_delete_condition_cases[] = {
+		{
+			"stmt[2].merge_delete_condition[3]",
+			0U, 3U
+		},
+		{
+			"stmt[2].merge_delete_condition[5][3]",
+			5U, 3U
+		}
+	};
 	sqlparser_selector_t selector;
 	sqlparser_error_t error;
 	char *selector_text;
@@ -8973,6 +9345,41 @@ static int test_selector_parse_and_format(void)
 		return 1;
 	}
 	memset(&selector, 0, sizeof(selector));
+
+	for (case_index = 0U;
+	     case_index < sizeof(merge_delete_condition_cases) /
+		     sizeof(merge_delete_condition_cases[0]);
+	     case_index++) {
+		rc = sqlparser_selector_parse(
+			merge_delete_condition_cases[case_index].text,
+			&selector,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "MERGE DELETE condition selector should parse") != 0 ||
+		    expect_true(
+			    selector.kind ==
+				    SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION &&
+				    selector.statement_index == 2U &&
+				    selector.row_index ==
+					    merge_delete_condition_cases[case_index].dml_index &&
+				    selector.item_index ==
+					    merge_delete_condition_cases[case_index].when_index,
+			    "MERGE DELETE condition selector coordinates mismatch") != 0 ||
+		    expect_true(
+			    strcmp(
+				    sqlparser_selector_kind_name(selector.kind),
+				    "merge_delete_condition") == 0,
+			    "MERGE DELETE condition selector kind name mismatch") != 0 ||
+		    expect_selector_equals(
+			    &selector,
+			    merge_delete_condition_cases[case_index].text,
+			    "MERGE DELETE condition selector should round-trip") != 0) {
+			return 1;
+		}
+		memset(&selector, 0, sizeof(selector));
+	}
 
 	for (case_index = 0U;
 	     case_index < sizeof(merge_insert_cases) /

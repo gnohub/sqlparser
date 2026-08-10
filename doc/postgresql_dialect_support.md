@@ -12,7 +12,7 @@ PostgreSQL 方言支持当前解析内核可表达的 PostgreSQL 语句形态，
 - `INSERT VALUES`、多行 `INSERT`、`INSERT SELECT`
 - `ON CONFLICT DO UPDATE`、`RETURNING`
 - `UPDATE`、`UPDATE FROM`、`DELETE`、`DELETE USING`
-- `MERGE`
+- `MERGE`，包括独立的 `WHEN MATCHED ... THEN DELETE` action
 - 常见 DDL：`CREATE TABLE`、`CREATE TABLE AS`、`CREATE VIEW`、`CREATE MATERIALIZED VIEW`
 - `ALTER TABLE RENAME`、`ALTER TABLE ADD COLUMN`、`ALTER TABLE DROP COLUMN`
 - `CREATE INDEX`、`DROP INDEX`、`DROP TABLE`、`DROP VIEW`
@@ -48,4 +48,4 @@ PostgreSQL 默认方言支持范围以以下文件为准：
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-当前 PostgreSQL 矩阵包含 184 条用例：181 条成功用例，3 条预期失败用例。
+当前 PostgreSQL 矩阵包含 214 条用例，全部为 `status = "final"`。

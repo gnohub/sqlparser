@@ -47,6 +47,10 @@ The current implementation covers 32 groups and leaves 6 groups uncovered.
 
 ## Conclusion
 
+The Dameng `MERGE` `CURRENT` boundary includes an action `WHERE` on a matched
+UPDATE and an attached `DELETE WHERE` on that same UPDATE branch. One
+executable case and 3 independent patches verify this boundary.
+
 The current Dameng dialect covers common query, DML, DDL, transaction,
 privilege, current-schema statements, representative session-parameter
 statements, basic remote object references, and the single-expression,

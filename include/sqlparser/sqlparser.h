@@ -91,7 +91,8 @@ typedef enum {
 	SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT = 21,
 	SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION = 22,
 	SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN = 23,
-	SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL = 24
+	SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL = 24,
+	SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION = 25
 } sqlparser_selector_kind_t;
 
 typedef enum {
@@ -645,6 +646,8 @@ typedef struct {
 	int has_condition_block;
 	sqlparser_selector_t condition_selector;
 	int has_condition_selector;
+	sqlparser_selector_t delete_condition_selector;
+	int has_delete_condition_selector;
 } sqlparser_graph_dml_branch_t;
 
 typedef struct {

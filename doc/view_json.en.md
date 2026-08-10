@@ -486,7 +486,12 @@ remains present. Every cell uses the absolute `W` as `row`, with contiguous
 zero-based `column` values. An UPDATE branch exposes `assignments` that
 reference the parent DML assignments. DELETE and NOTHING branches omit
 `target_columns`, `rows`, and `assignments`. A conditional branch has `condition_selector`; an unconditional
-branch omits it.
+branch omits it. An attached `DELETE WHERE` predicate on an Oracle/Dameng
+matched UPDATE uses `delete_condition_selector` on that same branch; its
+`merge_action_kind` remains `update`, and no additional DELETE branch is
+created. A PostgreSQL or SQL Server `WHEN MATCHED ... THEN DELETE` action is an
+independent branch with `merge_action_kind = delete` and has no
+`delete_condition_selector`.
 
 Each `target_columns[]` object in a MERGE INSERT action has a single-column
 `selector`, and each `rows[]` cell has a complete-expression `selector`. A root
@@ -524,8 +529,12 @@ statement, `W` is the absolute zero-based ordinal across all `WHEN` clauses in
 the selected MERGE, and `A` is the zero-based assignment ordinal in the target
 UPDATE branch. MERGE conditions similarly use
 `stmt[S].merge_branch_condition[W]` or the nested form
-`stmt[S].merge_branch_condition[D][W]`; callers can read the original
-condition text with `sqlparser_selector_clause_sql()`. Assignment selectors
+`stmt[S].merge_branch_condition[D][W]`. An Oracle/Dameng attached-delete
+predicate uses `stmt[S].merge_delete_condition[W]` or
+`stmt[S].merge_delete_condition[D][W]`, with selector kind
+`SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION = 25`. Callers can read either
+condition with `sqlparser_selector_clause_sql()` and replace it with
+`sqlparser_selector_set_clause_sql()` or `SQLPARSER_PATCH_REPLACE`. Assignment selectors
 are accepted by the assignment selector APIs and also work with
 `SQLPARSER_PATCH_INSERT_ASSIGNMENT`, `SQLPARSER_PATCH_DELETE_ASSIGNMENT`,
 `SQLPARSER_PATCH_REPLACE_ASSIGNMENT`, and a patch `source_selector`.

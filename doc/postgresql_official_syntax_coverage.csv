@@ -8,7 +8,7 @@ expressions,NATIONAL_STRING_LITERAL,CURRENT,"已覆盖当前 PostgreSQL 解析�
 dml,INSERT,CURRENT,"已覆盖单行、多行、INSERT SELECT、ON CONFLICT 和 RETURNING",https://www.postgresql.org/docs/17/sql-insert.html
 dml,UPDATE,CURRENT,"已覆盖 UPDATE、UPDATE FROM 和 RETURNING",https://www.postgresql.org/docs/17/sql-update.html
 dml,DELETE,CURRENT,"已覆盖 DELETE、DELETE USING 和 RETURNING",https://www.postgresql.org/docs/17/sql-delete.html
-dml,MERGE,CURRENT,"已覆盖 MERGE 基础结构",https://www.postgresql.org/docs/17/sql-merge.html
+dml,MERGE,CURRENT,"已覆盖 MERGE 基础结构和独立 WHEN MATCHED THEN DELETE action",https://www.postgresql.org/docs/17/sql-merge.html
 dml,CALL,CURRENT,"已覆盖 CALL 语句解析",https://www.postgresql.org/docs/17/sql-call.html
 ddl,CREATE_TABLE,CURRENT,"已覆盖基础 CREATE TABLE 和列定义",https://www.postgresql.org/docs/17/sql-createtable.html
 ddl,CREATE_TABLE_AS,CURRENT,"已覆盖 CREATE TABLE AS SELECT",https://www.postgresql.org/docs/17/sql-createtableas.html

@@ -1266,6 +1266,8 @@ raw_expression_tree_walker_impl(Node *node,
 					return true;
 				if (WALK(mergeWhenClause->values))
 					return true;
+				if (WALK(mergeWhenClause->deleteCondition))
+					return true;
 			}
 			break;
 		case T_SelectStmt:

@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 213 条 `status = "final"` 用例。32 条用例的期望 View 包含 statement 级 `query_graph.session`：5 条 schema/session 用例和 `PG-001` 至 `PG-027`；这 32 条用例均至少包含一个非空 session 投影。
+夹具包含 214 条 `status = "final"` 用例。32 条用例的期望 View 包含 statement 级 `query_graph.session`：5 条 schema/session 用例和 `PG-001` 至 `PG-027`；这 32 条用例均至少包含一个非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session 投影的 action、item scope、target kind、name 及 value 字段均属于比较范围。
 
@@ -185,6 +185,7 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | P163 | `postgresql-data-modifying-cte-merge-returning` | 带 UPDATE、INSERT 分支及 `RETURNING` 的 MERGE CTE | MERGE D0 的 target/source relation、ON 谓词、分支赋值与 INSERT 行、结果块、`RETURNING t.*` 的 `target_after` 来源及外层 CTE `source_block`；2 个独立 patch 覆盖结果项替换与插入 |
 | P164 | `postgresql-data-modifying-cte-update-compound-rhs` | UPDATE CTE 中无别名关系参与的复合赋值右值 | assignment 通过 `rhs_fields` 和 `rhs_values` 归属来源字段、bind 与 literal；source/target relation patch 同步更新 RHS、WHERE、RETURNING 限定符，外层 target 插入保持独立 |
 | P165 | `postgresql-on-conflict-compound-rhs` | `ON CONFLICT DO UPDATE` 中的复合赋值右值 | `EXCLUDED` 字段、目标表字段、bind 与 literal 均归属同一 assignment；目标关系 alias 在 relation replacement 后保持稳定，并精确验证 RETURNING target 插入 |
+| P166 | `postgresql-merge-matched-delete-action` | 带条件的 matched DELETE、matched UPDATE 和 not-matched INSERT | DELETE 作为独立 `WHEN MATCHED ... THEN DELETE` 分支，三个分支保持绝对顺序与各自 selector；3 个独立 patch 覆盖 DELETE 分支条件、UPDATE assignment 和 INSERT cell 替换 |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 

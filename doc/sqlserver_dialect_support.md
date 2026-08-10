@@ -24,7 +24,7 @@ SQL Server 方言的覆盖范围由可执行用例矩阵定义：
 - `UPDATE TOP (...) ... OUTPUT` 和 INSERT 目标表 hint 与 `OUTPUT` 的组合
 - `IF...ELSE` 单语句分支、`BEGIN...END` 多语句分支、`ELSE IF` 和嵌套控制流；条件支持布尔表达式、bind、`EXISTS` 和括号子查询
 - `CASE`、窗口函数、`UNION ALL`、`EXCEPT`、`INTERSECT`
-- 可映射的 `MERGE`
+- 可映射的 `MERGE`，包括独立的 `WHEN MATCHED ... THEN DELETE` action
 - 常见 DDL：`CREATE TABLE`、`ALTER TABLE ADD`、`CREATE VIEW`、`CREATE INDEX`、`DROP TABLE`、`TRUNCATE TABLE`
 - `IDENTITY` 列属性的兼容映射
 - 事务控制、`SAVE TRANSACTION`、`GRANT / REVOKE`
@@ -79,4 +79,4 @@ SQL Server 支持范围以以下文件为准：
 - `tests/unit/test_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 SQL Server 矩阵包含 605 条用例：568 条成功用例，37 条预期失败用例。
+当前 SQL Server 矩阵包含 621 条用例，全部为 `status = "final"`。

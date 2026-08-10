@@ -42,4 +42,6 @@
 
 ## 结论
 
+达梦 `MERGE` 的 `CURRENT` 边界包含 matched UPDATE 的 action `WHERE` 以及归属同一 UPDATE 分支的附属 `DELETE WHERE`。可执行矩阵使用 1 条用例和 3 个独立 patch 验证该边界。
+
 达梦当前已覆盖常用查询、DML、DDL、事务、权限、`SET SCHEMA`、代表性会话参数设置语句、远程对象引用基础形态，以及上述单表达式、单宿主绑定变量的 `RETURN`/`RETURNING ... INTO` 形态。其余 6 个语法组依赖达梦专属查询模型或程序单元语义，当前不纳入 PostgreSQL 兼容转换。

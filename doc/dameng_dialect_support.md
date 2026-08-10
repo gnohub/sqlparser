@@ -20,7 +20,7 @@
 - 多表插入：`INSERT ALL`、`INSERT FIRST`，包括 `WHEN ... THEN`、`ELSE` 和单个条件分支下的多个 `INTO`
 - `UPDATE`、`DELETE`
 - DML 返回宿主绑定变量：`INSERT`、`DELETE` 的 `RETURNING <单个表达式> INTO <单个冒号宿主绑定变量>`，以及 `UPDATE` 的 `RETURN <单个表达式> INTO <单个冒号宿主绑定变量>`
-- 可映射的 `MERGE`
+- 可映射的 `MERGE`；matched UPDATE action 支持赋值后 `WHERE` 和归属同一 UPDATE 分支的 `DELETE WHERE`
 - `DATE`、`TIMESTAMP` 字面量
 - 常见 DDL：`CREATE TABLE`、`CREATE VIEW`、`CREATE SEQUENCE`、`ALTER TABLE ADD`、`CREATE INDEX`、`DROP TABLE`、`TRUNCATE TABLE`
 - 事务控制、`GRANT / REVOKE`
@@ -60,4 +60,4 @@
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-当前达梦方言矩阵包含 169 条用例，全部为 `status = "final"`。
+当前达梦方言矩阵包含 170 条用例，全部为 `status = "final"`。

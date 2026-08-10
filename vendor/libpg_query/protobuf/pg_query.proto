@@ -1525,6 +1525,7 @@ message MergeWhenClause
   Node condition = 4 [json_name="condition"];
   repeated Node target_list = 5 [json_name="targetList"];
   repeated Node values = 6 [json_name="values"];
+  Node delete_condition = 7 [json_name="deleteCondition"];
 }
 
 message TriggerTransition

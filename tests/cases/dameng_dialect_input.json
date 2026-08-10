@@ -26525,6 +26525,285 @@
           "deparse": "DELETE FROM \"APP\".\"DBP_MANUAL_CLOB_FPE_STRESS\" WHERE \"ID\"=:1 RETURNING ROWID INTO :PATCHED_ROWID"
         }
       ]
+    },
+    {
+      "name": "dameng-merge-update-delete-where",
+      "sql": "MERGE INTO T1 USING T2 ON (T1.C1=T2.C3) WHEN MATCHED THEN UPDATE SET T1.C2=T2.C4 WHERE T1.C1 >= 2 DELETE WHERE T1.C1=4 WHEN NOT MATCHED THEN INSERT (C1,C2) VALUES(T2.C3, T2.C4);",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "merge",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0,
+                    1,
+                    2,
+                    3
+                  ],
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "dml": {
+                "assignments": [
+                  {
+                    "bind_kind": 0,
+                    "kind": "field",
+                    "selector": "stmt[0].merge_assignment[0][0]",
+                    "source_field": 4,
+                    "target_field": 3
+                  }
+                ],
+                "branches": [
+                  {
+                    "assignments": [
+                      {
+                        "bind_kind": 0,
+                        "kind": "field",
+                        "selector": "stmt[0].merge_assignment[0][0]",
+                        "source_field": 4,
+                        "target_field": 3
+                      }
+                    ],
+                    "branch_kind": "when",
+                    "condition_selector": "stmt[0].merge_branch_condition[0]",
+                    "delete_condition_selector": "stmt[0].merge_delete_condition[0]",
+                    "merge_action_kind": "update",
+                    "merge_match_kind": "matched",
+                    "ordinal": 0,
+                    "target_relation": 0
+                  },
+                  {
+                    "branch_kind": "when",
+                    "merge_action_kind": "insert",
+                    "merge_match_kind": "not_matched_by_target",
+                    "ordinal": 1,
+                    "rows": [
+                      {
+                        "bind_kind": 0,
+                        "column": 0,
+                        "kind": "field",
+                        "row": 1,
+                        "source_field": 6,
+                        "selector": "stmt[0].merge_insert_cell[1][0]"
+                      },
+                      {
+                        "bind_kind": 0,
+                        "column": 1,
+                        "kind": "field",
+                        "row": 1,
+                        "source_field": 7,
+                        "selector": "stmt[0].merge_insert_cell[1][1]"
+                      }
+                    ],
+                    "target_list_selector": "stmt[0].insert_branch_columns[1]",
+                    "target_columns": [
+                      {
+                        "column": "C1",
+                        "ordinal": 0,
+                        "selector": "stmt[0].merge_insert_column[1][0]"
+                      },
+                      {
+                        "column": "C2",
+                        "ordinal": 1,
+                        "selector": "stmt[0].merge_insert_column[1][1]"
+                      }
+                    ],
+                    "target_relation": 0
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "merge",
+                "target_relation": 0
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "C1",
+                  "relation": 0,
+                  "selector": "stmt[0].name[3]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "C3",
+                  "relation": 1,
+                  "selector": "stmt[0].name[5]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "C1",
+                  "relation": 0,
+                  "selector": "stmt[0].name[7]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "C2",
+                  "relation": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "C4",
+                  "relation": 1,
+                  "selector": "stmt[0].name[11]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "C1",
+                  "relation": 0,
+                  "selector": "stmt[0].name[13]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "column": "C3",
+                  "relation": 1,
+                  "selector": "stmt[0].name[17]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "column": "C4",
+                  "relation": 1,
+                  "selector": "stmt[0].name[19]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "on",
+                  "kind": "comparison",
+                  "left_field": 0,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 1,
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "and",
+                  "children": [
+                    2
+                  ],
+                  "clause": "where",
+                  "kind": "bool"
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 2,
+                  "operator": ">=",
+                  "operator_kind": "unknown",
+                  "value": 1
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 5,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 2
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "T1"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[1]",
+                  "table": "T2"
+                }
+              ],
+              "root": 0,
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "on",
+                  "field": 0,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 1
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 2,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 2,
+                    "kind": "integer"
+                  },
+                  "operator": ">=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[16]"
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 5,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 4,
+                    "kind": "integer"
+                  },
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[27]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/0/selector",
+          "value": "T1.C2='patched'",
+          "deparse": "MERGE INTO T1 USING T2 ON (T1.C1=T2.C3) WHEN MATCHED THEN UPDATE SET T1.C2='patched' WHERE T1.C1 >= 2 DELETE WHERE T1.C1=4 WHEN NOT MATCHED THEN INSERT (C1,C2) VALUES(T2.C3, T2.C4);"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/1/selector",
+          "value": "3",
+          "deparse": "MERGE INTO T1 USING T2 ON (T1.C1=T2.C3) WHEN MATCHED THEN UPDATE SET T1.C2=T2.C4 WHERE T1.C1 >= 3 DELETE WHERE T1.C1=4 WHEN NOT MATCHED THEN INSERT (C1,C2) VALUES(T2.C3, T2.C4);"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/branches/0/delete_condition_selector",
+          "value": "T1.C1=5",
+          "deparse": "MERGE INTO T1 USING T2 ON (T1.C1=T2.C3) WHEN MATCHED THEN UPDATE SET T1.C2=T2.C4 WHERE T1.C1 >= 2 DELETE WHERE T1.C1=5 WHEN NOT MATCHED THEN INSERT (C1,C2) VALUES(T2.C3, T2.C4);"
+        }
+      ]
     }
   ]
 }

@@ -1,5 +1,49 @@
 # Changelog
 
+## 2.15.2
+
+### Attached Delete Predicates in MERGE Matched Updates
+
+- Oracle and Dameng support `UPDATE SET ... [WHERE ...] DELETE WHERE ...`
+  inside a matched UPDATE action. The attached delete predicate remains on the
+  same UPDATE branch and does not create an independent DELETE branch.
+- The Query Graph UPDATE branch exposes `delete_condition_selector` for the
+  attached delete predicate. The ordinary action `WHERE` continues to use
+  `condition_selector`; both predicates can coexist and be read or replaced
+  independently.
+- PostgreSQL and SQL Server `WHEN MATCHED ... THEN DELETE` actions remain
+  independent MERGE branches and stay distinct from the Oracle/Dameng
+  attached-delete semantics.
+
+### Patch and Source Preservation
+
+- `sqlparser_selector_clause_sql()`, `sqlparser_selector_set_clause_sql()`,
+  and `SQLPARSER_PATCH_REPLACE` support MERGE branch conditions and attached
+  delete conditions.
+- A MERGE assignment bounded by a comma, action `WHERE`, attached
+  `DELETE WHERE`, or a following `WHEN` uses a local source edit. Replacing an
+  assignment or condition preserves unchanged line breaks, whitespace, case,
+  identifier delimiters, and other branches.
+- The internal `MergeWhenClause` and protobuf schema append a dedicated
+  `delete_condition` field with field number 7. The grammar accepts the
+  attached DELETE form only when `WHERE` and a condition expression are
+  present.
+
+### API, Cases, and Validation
+
+- `sqlparser_selector_kind_t` appends
+  `SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION = 25`.
+  `sqlparser_graph_dml_branch_t` appends `delete_condition_selector` and
+  `has_delete_condition_selector`. This release adds no public functions or
+  resource-ownership rules. C applications should be rebuilt against the
+  2.15.2 headers.
+- Five final cases and 17 independent patches were added across Oracle,
+  Dameng, PostgreSQL, and SQL Server. The nine current fixtures contain 2,772
+  final cases and 8,989 patches.
+- All nine case matrices and the core API tests passed with zero original
+  deparse, View JSON, or patch-deparse failures. A targeted Valgrind run exited
+  with `0 bytes in 0 blocks` and zero errors.
+
 ## 2.15.1
 
 ### DML Results Returned into Host Binds

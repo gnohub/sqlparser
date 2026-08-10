@@ -514,6 +514,8 @@ stmt[0].merge_assignment[1][0]
 stmt[0].merge_assignment[2][1][0]
 stmt[0].merge_branch_condition[1]
 stmt[0].merge_branch_condition[2][1]
+stmt[0].merge_delete_condition[1]
+stmt[0].merge_delete_condition[2][1]
 stmt[0].merge_insert_column[1][2]
 stmt[0].merge_insert_column[2][1][2]
 stmt[0].merge_insert_cell[1][2]
@@ -548,6 +550,20 @@ MERGE uses `stmt[S].merge_branch_condition[D][W]`. Its kind is
 `SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION`, and `D` and `W` have the
 same meanings as in a MERGE assignment selector. An unconditional branch has
 no condition selector.
+
+An attached `DELETE WHERE` predicate on an Oracle/Dameng matched UPDATE branch
+uses `stmt[S].merge_delete_condition[W]`; a nested MERGE uses
+`stmt[S].merge_delete_condition[D][W]`. Its kind is
+`SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION = 25`, with the same `D` and
+`W` meanings as a MERGE assignment selector. This selector addresses an
+attached delete predicate on the same UPDATE action, not an independent DELETE
+branch. PostgreSQL and SQL Server `WHEN MATCHED ... THEN DELETE` actions remain
+independent MERGE branches with `merge_action_kind = delete`.
+
+`sqlparser_selector_clause_sql()` returns the predicate expression without
+the `DELETE WHERE` keywords. `sqlparser_selector_set_clause_sql()` and
+`SQLPARSER_PATCH_REPLACE` likewise accept a predicate expression without a
+`WHERE` keyword.
 
 A target column in a MERGE INSERT action uses
 `stmt[S].merge_insert_column[W][C]`, and a complete VALUES cell uses
@@ -586,7 +602,7 @@ has no target-column or target-list selector.
 | `sqlparser_selector_where_literal()` | reads a WHERE literal |
 | `sqlparser_selector_where_sql()` | reads WHERE condition SQL |
 | `sqlparser_selector_clause()` | reads a generic clause view |
-| `sqlparser_selector_clause_sql()` | reads generic clause SQL, Oracle/Dameng `INSERT ALL/FIRST` branch-condition SQL, and MERGE branch-condition SQL |
+| `sqlparser_selector_clause_sql()` | reads generic clause SQL, Oracle/Dameng `INSERT ALL/FIRST` branch-condition SQL, MERGE branch-condition SQL, and MERGE attached-delete predicate SQL |
 | `sqlparser_selector_update_assignment()` | reads an assignment |
 | `sqlparser_selector_update_assignment_sql()` | reads assignment right-hand SQL |
 | `sqlparser_selector_insert_cell_literal()` | reads INSERT cell literal |
@@ -603,7 +619,7 @@ has no target-column or target-list selector.
 | `sqlparser_selector_set_where_literal()` | rewrites a WHERE literal |
 | `sqlparser_selector_set_where_sql()` | sets or replaces WHERE condition SQL |
 | `sqlparser_selector_append_where_sql()` | appends a WHERE condition |
-| `sqlparser_selector_set_clause_sql()` | sets or replaces a generic clause |
+| `sqlparser_selector_set_clause_sql()` | sets or replaces a generic clause, MERGE branch condition, or MERGE attached-delete condition |
 | `sqlparser_selector_append_clause_condition()` | appends a condition to a `where` clause |
 | `sqlparser_selector_set_update_assignment_literal()` | rewrites assignment right-hand literal or bind to a literal |
 | `sqlparser_selector_set_update_assignment_sql()` | rewrites assignment right-hand SQL |
@@ -751,7 +767,7 @@ from which it was read.
 | `sqlparser_graph_dml_t` | INSERT, UPDATE, DELETE, or MERGE write shape |
 | `sqlparser_graph_dml_result_t` | DML result channel, output block, optional relation and columns for a relation-backed sink, and a field-reference span |
 | `sqlparser_graph_dml_reference_t` | one result-target reference to a target-row or source-relation field |
-| `sqlparser_graph_dml_branch_t` | common DML-branch shape with target relation, target columns, rows, condition, and branch ordinal |
+| `sqlparser_graph_dml_branch_t` | common DML-branch shape with target relation, target columns, rows, branch condition, optional MERGE attached-delete condition, and branch ordinal |
 | `sqlparser_graph_dml_column_t` | explicit INSERT target column |
 | `sqlparser_graph_dml_cell_t` | INSERT VALUES cell; Oracle/Dameng multi-table INSERT cells can link to trailing source-query output through `source_target_index` |
 | `sqlparser_graph_dml_assignment_t` | UPDATE/MERGE assignment |
@@ -814,7 +830,10 @@ from which it was read.
 - `sqlparser_graph_dml_t.branches` is used by Oracle/Dameng multi-table INSERT
   and MERGE. Each branch owns its target relation, target columns, rows, branch
   kind, and optional condition selector. The condition selector can be passed
-  to `sqlparser_selector_clause_sql()` to read the original predicate SQL.
+  to `sqlparser_selector_clause_sql()` to read the original predicate SQL. An
+  Oracle/Dameng matched UPDATE branch can additionally set
+  `has_delete_condition_selector = 1` and expose `delete_condition_selector`
+  for an attached `DELETE WHERE` predicate on that same UPDATE action.
 - For a successfully parsed MERGE, each `WHEN` clause has one branch whose `ordinal` is the absolute
   zero-based ordinal across all `WHEN` clauses. Read its action, match kind,
   and assignment span with `sqlparser_query_graph_merge_branch_detail()`. An
@@ -972,7 +991,7 @@ Patch operations:
 
 | Operation | Meaning |
 | --- | --- |
-| `SQLPARSER_PATCH_REPLACE` | replaces a relation, name, value, assignment, literal, where literal, clause, insert cell, MERGE INSERT target column or complete cell, select target, or select target list |
+| `SQLPARSER_PATCH_REPLACE` | replaces a relation, name, value, assignment, literal, where literal, clause, MERGE branch condition, MERGE attached-delete condition, insert cell, MERGE INSERT target column or complete cell, select target, or select target list |
 | `SQLPARSER_PATCH_INSERT_COLUMN` | adds an `INSERT ... VALUES` column, adds an `INSERT ... SELECT` target column, adds an Oracle/Dameng `INSERT ALL/FIRST` branch target column, atomically adds a MERGE INSERT target/value pair, or inserts a SELECT output target |
 | `SQLPARSER_PATCH_DELETE_COLUMN` | deletes an `INSERT ... VALUES` column, deletes an `INSERT ... SELECT` target column, atomically deletes a MERGE INSERT target/value pair, or deletes a SELECT output target |
 | `SQLPARSER_PATCH_DELETE_ROW` | deletes an `INSERT ... VALUES` row |

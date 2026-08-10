@@ -3641,6 +3641,34 @@ static int sqlparser_patch_merge_when_at(
 	return 1;
 }
 
+static int sqlparser_patch_merge_attached_delete_at(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	size_t length,
+	size_t pos)
+{
+	size_t where_pos;
+
+	if (!(dialect == SQLPARSER_DIALECT_ORACLE ||
+	      dialect == SQLPARSER_DIALECT_DAMENG) ||
+	    !sqlparser_patch_source_word_at(sql, length, pos, "delete")) {
+		return 0;
+	}
+	where_pos = sqlparser_public_skip_trivia(
+		dialect,
+		sql,
+		pos + strlen("delete"));
+	if (where_pos >= length ||
+	    !sqlparser_patch_source_word_at(
+		    sql,
+		    length,
+		    where_pos,
+		    "where")) {
+		return 0;
+	}
+	return 1;
+}
+
 static sqlparser_status_t sqlparser_patch_assignment_source_span(
 	sqlparser_handle_t *handle,
 	const sqlparser_selector_t *selector,
@@ -3677,6 +3705,7 @@ static sqlparser_status_t sqlparser_patch_assignment_source_span(
 	size_t update_action_count;
 	sqlparser_status_t status;
 	int boundary_is_comma;
+	int boundary_is_merge_action_clause;
 	int boundary_is_merge_when;
 	int merge_assignment;
 	int merge_when_boundary_required;
@@ -3989,6 +4018,7 @@ static sqlparser_status_t sqlparser_patch_assignment_source_span(
 	equals = SIZE_MAX;
 	source_end = scan_end;
 	boundary_is_comma = 0;
+	boundary_is_merge_action_clause = 0;
 	boundary_is_merge_when = 0;
 	for (pos = source_start; pos < scan_end;) {
 		if (sqlparser_patch_comment_starts_at(
@@ -4039,6 +4069,16 @@ static sqlparser_status_t sqlparser_patch_assignment_source_span(
 				break;
 			}
 			if (merge_assignment &&
+			    sqlparser_patch_merge_attached_delete_at(
+				    handle->dialect,
+				    handle->sql,
+				    scan_end,
+				    pos)) {
+				source_end = pos;
+				boundary_is_merge_action_clause = 1;
+				break;
+			}
+			if (merge_assignment &&
 			    sqlparser_patch_merge_when_at(
 				    handle->dialect,
 				    handle->sql,
@@ -4051,14 +4091,28 @@ static sqlparser_status_t sqlparser_patch_assignment_source_span(
 				boundary_is_merge_when = 1;
 				break;
 			}
-			if (handle->sql[pos] == ';' ||
-			    sqlparser_patch_assignment_clause_at(
+			if (handle->sql[pos] == ';') {
+				source_end = pos;
+				break;
+			}
+			if (sqlparser_patch_assignment_clause_at(
 				    handle->dialect,
 				    handle->sql,
 				    scan_end,
 				    equals + 1U,
 				    pos)) {
 				source_end = pos;
+				boundary_is_merge_action_clause =
+					merge_assignment &&
+					(handle->dialect ==
+						 SQLPARSER_DIALECT_ORACLE ||
+					 handle->dialect ==
+						 SQLPARSER_DIALECT_DAMENG) &&
+					sqlparser_patch_source_word_at(
+						handle->sql,
+						scan_end,
+						pos,
+						"where");
 				break;
 			}
 		}
@@ -4070,7 +4124,8 @@ static sqlparser_status_t sqlparser_patch_assignment_source_span(
 	}
 	if (depth != 0U || equals == SIZE_MAX || equals <= source_start ||
 	    equals >= source_end ||
-	    (merge_when_boundary_required && !boundary_is_merge_when) ||
+	    (merge_when_boundary_required && !boundary_is_merge_when &&
+	     !boundary_is_merge_action_clause && !boundary_is_comma) ||
 	    !sqlparser_patch_assignment_target_path_matches(
 		    handle,
 		    source_start,
@@ -7288,6 +7343,7 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit(
 	char *rendered;
 	char *insertion;
 	const char *replacement;
+	const char *source_sql;
 	size_t insertion_length;
 	size_t replacement_length;
 	size_t source_end;
@@ -7409,6 +7465,33 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit(
 		if (status == SQLPARSER_STATUS_OK && span_supported) {
 			source_start = value_start;
 		}
+		replacement = patch->sql;
+		replacement_length = strlen(patch->sql);
+	} else if (patch->op == SQLPARSER_PATCH_REPLACE &&
+		   (selector.kind ==
+			    SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION ||
+		    selector.kind ==
+			    SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION) &&
+		   patch->sql != NULL) {
+		source_sql = NULL;
+		source_result = sqlparser_merge_condition_source_span(
+			handle,
+			selector.statement_index,
+			selector.row_index,
+			selector.item_index,
+			selector.kind,
+			&source_sql,
+			&source_start,
+			&source_end,
+			out_error);
+		if (source_result < 0) {
+			return out_error != NULL ? out_error->code :
+				SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		span_supported =
+			source_result > 0 && source_sql == handle->sql &&
+			source_start < source_end && source_end <= handle->sql_len;
+		status = SQLPARSER_STATUS_OK;
 		replacement = patch->sql;
 		replacement_length = strlen(patch->sql);
 	} else if (patch->op == SQLPARSER_PATCH_REPLACE &&
@@ -8192,6 +8275,20 @@ static sqlparser_status_t sqlparser_patch_replace(
 				return SQLPARSER_STATUS_INVALID_ARGUMENT;
 			}
 			return sqlparser_dml_result_set_sink_column_sql(handle, &selector, patch->sql, out_error);
+		case SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION:
+		case SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION:
+			if (patch->sql == NULL) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INVALID_ARGUMENT,
+					"MERGE condition replacement requires sql");
+				return SQLPARSER_STATUS_INVALID_ARGUMENT;
+			}
+			return sqlparser_selector_set_clause_sql(
+				handle,
+				&selector,
+				patch->sql,
+				out_error);
 		case SQLPARSER_SELECTOR_KIND_WHERE:
 			if (patch->sql == NULL) {
 				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "where replacement requires sql");

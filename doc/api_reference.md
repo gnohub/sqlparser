@@ -473,6 +473,8 @@ stmt[0].merge_assignment[1][0]
 stmt[0].merge_assignment[2][1][0]
 stmt[0].merge_branch_condition[1]
 stmt[0].merge_branch_condition[2][1]
+stmt[0].merge_delete_condition[1]
+stmt[0].merge_delete_condition[2][1]
 stmt[0].merge_insert_column[1][2]
 stmt[0].merge_insert_column[2][1][2]
 stmt[0].merge_insert_cell[1][2]
@@ -494,6 +496,10 @@ stmt[0].dml_result_sink_column[0][0][1]
 
 MERGE 分支条件使用 `stmt[S].merge_branch_condition[W]`；嵌套 MERGE 使用 `stmt[S].merge_branch_condition[D][W]`。其 `kind` 为 `SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION`，坐标含义与 MERGE assignment selector 中的 `D`、`W` 相同。无条件分支没有 condition selector。
 
+Oracle/Dameng matched UPDATE 分支附属的 `DELETE WHERE` 条件使用 `stmt[S].merge_delete_condition[W]`；嵌套 MERGE 使用 `stmt[S].merge_delete_condition[D][W]`。其 `kind` 为 `SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION = 25`，`D`、`W` 与 MERGE assignment selector 含义相同。该 selector 只定位同一 UPDATE action 的附属删除条件，不表示独立 DELETE 分支。PostgreSQL 和 SQL Server 的 `WHEN MATCHED ... THEN DELETE` 仍使用独立 MERGE branch 与 `merge_action_kind = delete`。
+
+`sqlparser_selector_clause_sql()` 返回条件表达式，不包含 `DELETE WHERE` 关键字。`sqlparser_selector_set_clause_sql()` 和 `SQLPARSER_PATCH_REPLACE` 接收的也是不带 `WHERE` 的条件表达式。
+
 MERGE INSERT 的单个目标列使用 `stmt[S].merge_insert_column[W][C]`，完整 VALUES cell 使用 `stmt[S].merge_insert_cell[W][C]`；对应 kind 分别为 `SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN` 和 `SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL`。嵌套 MERGE 分别使用 `stmt[S].merge_insert_column[D][W][C]` 和 `stmt[S].merge_insert_cell[D][W][C]`。显式目标列列表复用 `SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS`，文本形式为 `stmt[S].insert_branch_columns[W]`；嵌套 MERGE 使用 `stmt[S].insert_branch_columns[D][W]`。`D`、`W` 的含义与 MERGE assignment selector 相同，`C` 是 INSERT 分支内的 0 基列序号。解析后的根 MERGE selector 使用 `row_index = 0`，嵌套 MERGE 的 `row_index` 保存 `D`，`item_index` 保存 `W`，单项 selector 的 `column_index` 保存 `C`。省略目标列列表的 INSERT 分支仍输出 cell selector，但不输出目标列或目标列列表 selector。
 
 `sqlparser_selector_update_assignment()`、`sqlparser_selector_update_assignment_sql()`、`sqlparser_selector_set_update_assignment_*()`、`sqlparser_selector_insert_update_assignment_*()` 和 `sqlparser_selector_delete_update_assignment()` 均接受 `assignment` 与 `merge_assignment` selector。
@@ -510,7 +516,7 @@ MERGE INSERT 的单个目标列使用 `stmt[S].merge_insert_column[W][C]`，完�
 | `sqlparser_selector_where_literal()` | 通过 selector 读取 WHERE literal |
 | `sqlparser_selector_where_sql()` | 通过 selector 读取 WHERE 条件 SQL |
 | `sqlparser_selector_clause()` | 通过 selector 读取通用子句视图 |
-| `sqlparser_selector_clause_sql()` | 通过 selector 读取通用子句 SQL、Oracle/Dameng `INSERT ALL/FIRST` 分支条件 SQL 和 MERGE 分支条件 SQL |
+| `sqlparser_selector_clause_sql()` | 通过 selector 读取通用子句 SQL、Oracle/Dameng `INSERT ALL/FIRST` 分支条件 SQL、MERGE 分支条件 SQL 和 MERGE 附属 DELETE 条件 SQL |
 | `sqlparser_selector_update_assignment()` | 通过 selector 读取 assignment |
 | `sqlparser_selector_update_assignment_sql()` | 通过 selector 读取 assignment 右值 SQL |
 | `sqlparser_selector_insert_cell_literal()` | 通过 selector 读取 INSERT cell literal |
@@ -527,7 +533,7 @@ MERGE INSERT 的单个目标列使用 `stmt[S].merge_insert_column[W][C]`，完�
 | `sqlparser_selector_set_where_literal()` | 改写 WHERE literal |
 | `sqlparser_selector_set_where_sql()` | 设置或替换 WHERE 条件 |
 | `sqlparser_selector_append_where_sql()` | 向 WHERE 追加条件 |
-| `sqlparser_selector_set_clause_sql()` | 设置或替换通用子句 |
+| `sqlparser_selector_set_clause_sql()` | 设置或替换通用子句、MERGE 分支条件或 MERGE 附属 DELETE 条件 |
 | `sqlparser_selector_append_clause_condition()` | 向 `where` 类型子句追加条件 |
 | `sqlparser_selector_set_update_assignment_literal()` | 将 assignment 右值 literal 或 bind 改写为 literal |
 | `sqlparser_selector_set_update_assignment_sql()` | 改写 assignment 右值 SQL |
@@ -653,7 +659,7 @@ sqlparser_status_t sqlparser_statement_query_graph(
 | `sqlparser_graph_dml_t` | INSERT、UPDATE、DELETE、MERGE 写入结构 |
 | `sqlparser_graph_dml_result_t` | DML 结果通道、输出 block、relation-backed sink 的可选 relation 和 columns，以及字段来源 span |
 | `sqlparser_graph_dml_reference_t` | 一个结果 target 对目标行或来源 relation 的字段引用 |
-| `sqlparser_graph_dml_branch_t` | DML 分支的公共结构，包括目标 relation、目标列、行、条件和分支序号 |
+| `sqlparser_graph_dml_branch_t` | DML 分支的公共结构，包括目标 relation、目标列、行、分支条件、可选 MERGE 附属 DELETE 条件和分支序号 |
 | `sqlparser_graph_dml_column_t` | INSERT 显式目标列 |
 | `sqlparser_graph_dml_cell_t` | INSERT VALUES 单元格；Oracle/Dameng multi-table INSERT 中可通过 `source_target_index` 关联末尾 source query 输出项 |
 | `sqlparser_graph_dml_assignment_t` | UPDATE/MERGE 赋值项 |
@@ -677,7 +683,7 @@ sqlparser_status_t sqlparser_statement_query_graph(
 - host-bind sink 不设置 relation 关联。对应的 `sqlparser_graph_target_t` 设置 `has_sink_value = 1`，此时 `sink_value_index` 可传给 `sqlparser_query_graph_value_at()` 读取输出 bind；该 `sqlparser_graph_value_t` 的既有 `selector` 可作为 `SQLPARSER_PATCH_REPLACE` 的目标，不引入新的 selector 类型。
 - `sqlparser_graph_dml_result_t.references` 中的索引通过 `sqlparser_query_graph_span_index_at()` 读取，再传给 `sqlparser_query_graph_dml_reference_at()`。每个 reference 关联一个结果 target，并标明 `target_before`、`target_after` 或 `source` 来源。
 - DML 结果 target 使用 `stmt[S].dml_result_target[D][C][T]` selector；通道 target 列表、sink relation、sink columns 列表和单列分别使用 `dml_result_targets`、`dml_result_sink`、`dml_result_sink_columns` 和 `dml_result_sink_column` selector。
-- `sqlparser_graph_dml_t.branches` 用于 Oracle/Dameng multi-table INSERT 和 MERGE。每个 branch 持有独立 target relation、target columns、rows、branch kind 和可选 condition selector；condition selector 可通过 `sqlparser_selector_clause_sql()` 读取原始条件 SQL。
+- `sqlparser_graph_dml_t.branches` 用于 Oracle/Dameng multi-table INSERT 和 MERGE。每个 branch 持有独立 target relation、target columns、rows、branch kind 和可选 condition selector；condition selector 可通过 `sqlparser_selector_clause_sql()` 读取原始条件 SQL。Oracle/Dameng matched UPDATE 分支可另外设置 `has_delete_condition_selector = 1` 和 `delete_condition_selector`，用于定位同一 UPDATE action 的附属 `DELETE WHERE` 条件。
 - 对于解析成功的 MERGE，每个 `WHEN` 子句对应一个 branch，`ordinal` 是所有 `WHEN` 子句中的绝对 0 基序号。通过 `sqlparser_query_graph_merge_branch_detail()` 读取该 branch 的 action、match 类型和 assignment span。INSERT action 的 cell `row_index` 等于该绝对 `WHEN` 序号，`column_ordinal` 是 VALUES 中的 0 基位置；省略目标列列表时 `target_columns` 可以为空而 `rows` 非空。UPDATE action 的 assignment 同时出现在父 DML assignment span 和 branch detail assignment span 中，二者引用同一 assignment 索引。DELETE 和 NOTHING action 不携带 target columns、rows 或 assignments。
 - Oracle/Dameng multi-table INSERT branch cell 如果直接引用末尾 source query 输出字段，`sqlparser_graph_dml_cell_t.kind` 为 `SQLPARSER_GRAPH_VALUE_FIELD`，并通过 `has_source_target/source_target_index` 指向对应 `targets[]` 项。
 - `UPDATE` 和 `MERGE` assignment 的右侧如果是直接字段引用，`sqlparser_graph_dml_assignment_t.value_kind` 为 `SQLPARSER_GRAPH_VALUE_FIELD`，并通过 `has_source_field/source_field_index` 指向来源字段；来源字段可唯一匹配派生 source query 输出项时，同时提供 `has_source_target/source_target_index`。
@@ -766,7 +772,7 @@ sqlparser_apply_patch(handle, &patches, &err);
 
 | 操作 | 说明 |
 | --- | --- |
-| `SQLPARSER_PATCH_REPLACE` | 替换 relation、name、value、assignment、literal、where_literal、clause、insert_cell、MERGE INSERT 目标列或完整 cell、select_target 或 select_targets |
+| `SQLPARSER_PATCH_REPLACE` | 替换 relation、name、value、assignment、literal、where_literal、clause、MERGE 分支条件、MERGE 附属 DELETE 条件、insert_cell、MERGE INSERT 目标列或完整 cell、select_target 或 select_targets |
 | `SQLPARSER_PATCH_INSERT_COLUMN` | 给 `INSERT ... VALUES` 增加列、给 `INSERT ... SELECT` 增加目标列、给 Oracle/Dameng `INSERT ALL/FIRST` branch 增加目标列、给 MERGE INSERT 成对增加目标列和值，或向 `select_targets` 插入 SELECT 输出项 |
 | `SQLPARSER_PATCH_DELETE_COLUMN` | 删除 `INSERT ... VALUES` 列、删除 `INSERT ... SELECT` 目标列、成对删除 MERGE INSERT 目标列和值，或删除 SELECT 输出项 |
 | `SQLPARSER_PATCH_DELETE_ROW` | 删除 `INSERT ... VALUES` 行 |

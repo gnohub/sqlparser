@@ -39,4 +39,6 @@
 
 ## 结论
 
+Oracle `MERGE` 的 `CURRENT` 边界包含 matched UPDATE 的 action `WHERE`、同一 UPDATE 分支上的附属 `DELETE WHERE`，以及带条件的 not-matched INSERT。可执行矩阵使用 2 条用例和 8 个独立 patch 验证该边界。
+
 `RETURNING ... INTO` 已覆盖 `INSERT`、`UPDATE`、`DELETE` 的单个返回 target 与单个冒号宿主绑定变量；多 target、多宿主绑定变量和 `BULK COLLECT` 不在当前范围内。Oracle 当前剩余未完整覆盖项主要属于无法安全映射到共享 AST 的专属语义。`SYNONYM` 和 `EXPLAIN PLAN FOR` 已覆盖基础语句解析、keyword 和反解析；完整对象属性或执行计划语义需要 Oracle 专用模型。

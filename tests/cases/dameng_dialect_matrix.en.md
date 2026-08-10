@@ -4,7 +4,7 @@ This file records regression cases for the Dameng dialect conversion layer. The 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 169 cases with `status = "final"`.
+The fixture contains 170 cases with `status = "final"`.
 Statement-level `query_graph.session` appears in 34 cases, covering `D002`,
 `D003`, `D003Q`, `D026`, `D089` through `D095`, and the `DM-*` session cases.
 All 34 contain at least one non-empty session item.
@@ -191,6 +191,7 @@ Current coverage includes `RETURNING <single expression> INTO <single colon-pref
 | D143 | `dameng-insert-values-returning-rowid-into-bind` | `INSERT ... VALUES ... RETURNING ROWID INTO :NAV_ROWID` | INSERT `target_after` reference, ROWID pseudo target, sink bind, replace patches, and byte-for-byte deparse |
 | D144 | `dameng-update-return-rowid-into-bind` | `UPDATE ... RETURN ROWID INTO :NAV_ROWID` | UPDATE `target_after` reference, Dameng `RETURN` keyword, sink bind, replace patches, and byte-for-byte deparse |
 | D145 | `dameng-delete-returning-rowid-into-bind` | `DELETE ... RETURNING ROWID INTO :NAV_ROWID` | DELETE `target_before` reference, ROWID pseudo target, sink bind, replace patches, and byte-for-byte deparse |
+| D146 | `dameng-merge-update-delete-where` | a matched UPDATE has both an action `WHERE` and an attached `DELETE WHERE` | the UPDATE branch exposes both `condition_selector` and `delete_condition_selector`, with no independent DELETE action; 3 independent patches cover assignment, action-predicate value, and delete-predicate value replacement |
 
 ## Coverage Boundary
 

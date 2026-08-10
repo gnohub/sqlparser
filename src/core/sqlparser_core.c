@@ -3198,6 +3198,8 @@ const char *sqlparser_selector_kind_name(sqlparser_selector_kind_t kind)
 			return "merge_assignment";
 		case SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION:
 			return "merge_branch_condition";
+		case SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION:
+			return "merge_delete_condition";
 		case SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN:
 			return "merge_insert_column";
 		case SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL:
@@ -3638,12 +3640,14 @@ static sqlparser_status_t sqlparser_validate_merge_stmt(
 			    PG_QUERY__NODE__NODE_MERGE_WHEN_CLAUSE &&
 		    when_node->merge_when_clause != NULL) {
 			PgQuery__Node *condition;
+			PgQuery__MergeWhenClause *when_clause;
 
-			if (when_node->merge_when_clause->command_type ==
+			when_clause = when_node->merge_when_clause;
+			if (when_clause->command_type ==
 			    PG_QUERY__CMD_TYPE__CMD_INSERT) {
 				insert_count++;
 			}
-			condition = when_node->merge_when_clause->condition;
+			condition = when_clause->condition;
 			if (dialect != SQLPARSER_DIALECT_ORACLE &&
 			    dialect != SQLPARSER_DIALECT_DAMENG &&
 			    dialect != SQLPARSER_DIALECT_VASTBASE_ORACLE &&
@@ -3653,6 +3657,26 @@ static sqlparser_status_t sqlparser_validate_merge_stmt(
 					out_error,
 					SQLPARSER_STATUS_UNSUPPORTED,
 					"MERGE action WHERE is not supported for this dialect");
+				return SQLPARSER_STATUS_UNSUPPORTED;
+			}
+			if (when_clause->delete_condition != NULL &&
+			    (dialect != SQLPARSER_DIALECT_ORACLE &&
+			     dialect != SQLPARSER_DIALECT_DAMENG)) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_UNSUPPORTED,
+					"MERGE UPDATE DELETE WHERE is not supported for this dialect");
+				return SQLPARSER_STATUS_UNSUPPORTED;
+			}
+			if (when_clause->delete_condition != NULL &&
+			    (when_clause->command_type !=
+				     PG_QUERY__CMD_TYPE__CMD_UPDATE ||
+			     when_clause->match_kind !=
+				     PG_QUERY__MERGE_MATCH_KIND__MERGE_WHEN_MATCHED)) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_UNSUPPORTED,
+					"MERGE DELETE WHERE requires a matched UPDATE action");
 				return SQLPARSER_STATUS_UNSUPPORTED;
 			}
 		}

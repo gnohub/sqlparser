@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 620 条 `status = "final"` 用例。91 条用例的期望 View 包含非空 `query_graph.session` 投影，覆盖 `S044` 至 `S046`、`SH295` 至 `SH333` 和 49 条 `MSSQL-*` session 用例。
+夹具包含 621 条 `status = "final"` 用例。91 条用例的期望 View 包含非空 `query_graph.session` 投影，覆盖 `S044` 至 `S046`、`SH295` 至 `SH333` 和 49 条 `MSSQL-*` session 用例。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -83,6 +83,7 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | 用例 ID | 用例名称 | 语句形态 | 验证重点 |
 | --- | --- | --- | --- |
 | SH423 | `sqlserver-nested-merge-insert-selector-uniqueness` | 外层 `INSERT ... SELECT` 组合两个带 `OUTPUT` 的嵌套 MERGE | 两个非零 DML 的目标列列表、目标列和 cell selector 唯一，独立替换及成对插入互不影响 |
+| SH424 | `sqlserver-merge-matched-delete-action` | 带条件的 matched DELETE、matched UPDATE 和 not-matched-by-target INSERT | DELETE 作为独立 `WHEN MATCHED ... THEN DELETE` 分支，三个分支保持绝对顺序与各自 selector；3 个独立 patch 覆盖 DELETE 分支条件、UPDATE assignment 和 INSERT cell 替换 |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 

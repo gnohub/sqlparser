@@ -1750,6 +1750,7 @@ _copyMergeWhenClause(const MergeWhenClause *from)
 	COPY_NODE_FIELD(condition);
 	COPY_NODE_FIELD(targetList);
 	COPY_NODE_FIELD(values);
+	COPY_NODE_FIELD(deleteCondition);
 
 	return newnode;
 }

@@ -2836,34 +2836,36 @@ static int sqlparser_view_merge_when_header(
 	return 1;
 }
 
-static int sqlparser_view_merge_action_where_condition(
+static int sqlparser_view_merge_action_condition_span(
 	const sqlparser_handle_t *handle,
 	const char *sql,
 	size_t after_header,
 	size_t end,
 	size_t base_paren_depth,
-	char **out_sql,
-	sqlparser_error_t *out_error)
+	sqlparser_selector_kind_t role,
+	size_t *out_start,
+	size_t *out_end)
 {
 	size_t case_depth;
 	size_t condition_start;
 	size_t paren_depth;
 	size_t pos;
 	size_t skipped;
+	int then_seen;
 	int where_seen;
 
-	if (!sqlparser_view_public_word_at(
-		    sql,
-		    after_header,
-		    end,
-		    "then")) {
+	if (handle == NULL || sql == NULL || out_start == NULL ||
+	    out_end == NULL ||
+	    (role != SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION &&
+	     role != SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION)) {
 		return 0;
 	}
 	case_depth = 0U;
 	condition_start = 0U;
 	paren_depth = base_paren_depth;
+	then_seen = 0;
 	where_seen = 0;
-	for (pos = after_header + strlen("then"); pos < end; pos++) {
+	for (pos = after_header; pos < end; pos++) {
 		size_t ignored_header;
 
 		skipped = sqlparser_public_skip_quoted_or_comment(
@@ -2904,6 +2906,17 @@ static int sqlparser_view_merge_action_where_condition(
 		if (paren_depth != base_paren_depth || case_depth != 0U) {
 			continue;
 		}
+		if (!then_seen) {
+			if (sqlparser_view_public_word_at(
+				    sql,
+				    pos,
+				    end,
+				    "then")) {
+				then_seen = 1;
+				pos += strlen("then") - 1U;
+			}
+			continue;
+		}
 		if (sqlparser_view_public_word_at(
 			    sql,
 			    pos,
@@ -2918,7 +2931,37 @@ static int sqlparser_view_merge_action_where_condition(
 			end = pos;
 			break;
 		}
-		if (!where_seen &&
+		if (role ==
+			    SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION &&
+		    !where_seen &&
+		    sqlparser_view_public_word_at(
+			    sql,
+			    pos,
+			    end,
+			    "delete")) {
+			size_t after_delete;
+
+			after_delete = sqlparser_view_merge_skip_trivia(
+				handle,
+				sql,
+				pos + strlen("delete"),
+				end);
+			if (sqlparser_view_public_word_at(
+				    sql,
+				    after_delete,
+				    end,
+				    "where")) {
+				condition_start = sqlparser_public_skip_space(
+					sql,
+					after_delete + strlen("where"));
+				where_seen = 1;
+				pos = after_delete + strlen("where") - 1U;
+			}
+			continue;
+		}
+		if (role ==
+			    SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION &&
+		    !where_seen &&
 		    sqlparser_view_public_word_at(
 			    sql,
 			    pos,
@@ -2930,6 +2973,30 @@ static int sqlparser_view_merge_action_where_condition(
 			where_seen = 1;
 			pos += strlen("where") - 1U;
 			continue;
+		}
+		if (role ==
+			    SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION &&
+		    where_seen &&
+		    sqlparser_view_public_word_at(
+			    sql,
+			    pos,
+			    end,
+			    "delete")) {
+			size_t after_delete;
+
+			after_delete = sqlparser_view_merge_skip_trivia(
+				handle,
+				sql,
+				pos + strlen("delete"),
+				end);
+			if (sqlparser_view_public_word_at(
+				    sql,
+				    after_delete,
+				    end,
+				    "where")) {
+				end = pos;
+				break;
+			}
 		}
 		if (where_seen &&
 		    sqlparser_view_public_word_at(
@@ -2958,19 +3025,11 @@ static int sqlparser_view_merge_action_where_condition(
 	       isspace((unsigned char)sql[end - 1U])) {
 		end--;
 	}
-	if (!where_seen || condition_start >= end) {
+	if (!then_seen || !where_seen || condition_start >= end) {
 		return 0;
 	}
-	*out_sql = sqlparser_strndup(
-		sql + condition_start,
-		end - condition_start);
-	if (*out_sql == NULL) {
-		sqlparser_error_set_message(
-			out_error,
-			SQLPARSER_STATUS_NO_MEMORY,
-			"out of memory");
-		return -1;
-	}
+	*out_start = condition_start;
+	*out_end = end;
 	return 1;
 }
 
@@ -3058,18 +3117,106 @@ static int sqlparser_view_cte_query_source_span(
 	return 0;
 }
 
-static int sqlparser_view_merge_condition_source_sql(
+static sqlparser_status_t sqlparser_merge_condition_node(
 	const sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t dml_index,
 	size_t when_index,
-	char **out_sql,
+	sqlparser_selector_kind_t role,
+	PgQuery__Node **out_condition,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__MergeStmt *merge_stmt;
+	PgQuery__MergeWhenClause *when_clause;
+	PgQuery__Node *when_node;
+	PgQuery__Node *condition;
+	sqlparser_status_t status;
+
+	if (out_condition != NULL) {
+		*out_condition = NULL;
+	}
+	if (handle == NULL ||
+	    (role != SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION &&
+	     role != SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"MERGE condition selector is invalid");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	merge_stmt = NULL;
+	status = sqlparser_get_merge_stmt_by_dml_index(
+		(sqlparser_handle_t *)handle,
+		statement_index,
+		dml_index,
+		&merge_stmt,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (when_index >= merge_stmt->n_merge_when_clauses ||
+	    merge_stmt->merge_when_clauses == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"merge WHEN index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	when_node = merge_stmt->merge_when_clauses[when_index];
+	if (when_node == NULL ||
+	    when_node->node_case != PG_QUERY__NODE__NODE_MERGE_WHEN_CLAUSE ||
+	    when_node->merge_when_clause == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"MERGE WHEN node is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	when_clause = when_node->merge_when_clause;
+	if (role == SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION &&
+	    when_clause->command_type != PG_QUERY__CMD_TYPE__CMD_UPDATE) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"merge DELETE condition does not target an UPDATE action");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	condition =
+		role == SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION ?
+			when_clause->delete_condition :
+			when_clause->condition;
+	if (condition == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			role ==
+					SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION ?
+				"merge UPDATE action has no DELETE condition" :
+				"merge WHEN action has no condition");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (out_condition != NULL) {
+		*out_condition = condition;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+int sqlparser_merge_condition_source_span(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t dml_index,
+	size_t when_index,
+	sqlparser_selector_kind_t role,
+	const char **out_source_sql,
+	size_t *out_start,
+	size_t *out_end,
 	sqlparser_error_t *out_error)
 {
 	const char *sql;
 	PgQuery__Node *statement;
 	sqlparser_dialect_dml_result_dml_t dml;
 	sqlparser_status_t ast_status;
+	int span_status;
 	size_t base_paren_depth;
 	size_t case_depth;
 	size_t current_when;
@@ -3080,7 +3227,28 @@ static int sqlparser_view_merge_condition_source_sql(
 	size_t start;
 	int merge_seen;
 
-	*out_sql = NULL;
+	sqlparser_error_clear(out_error);
+	if (out_source_sql == NULL || out_start == NULL || out_end == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"MERGE condition source span outputs must not be NULL");
+		return -1;
+	}
+	*out_source_sql = NULL;
+	*out_start = 0U;
+	*out_end = 0U;
+	ast_status = sqlparser_merge_condition_node(
+		handle,
+		statement_index,
+		dml_index,
+		when_index,
+		role,
+		NULL,
+		out_error);
+	if (ast_status != SQLPARSER_STATUS_OK) {
+		return -1;
+	}
 	statement = NULL;
 	if (dml_index == 0U) {
 		ast_status = sqlparser_get_statement_node(
@@ -3115,8 +3283,6 @@ static int sqlparser_view_merge_condition_source_sql(
 		return 0;
 	}
 	if (dml.message != NULL && dml.cte != NULL) {
-		int span_status;
-
 		span_status = sqlparser_view_cte_query_source_span(
 			    handle,
 			    statement_index,
@@ -3213,19 +3379,27 @@ scan:
 			pos += strlen("when") - 1U;
 			continue;
 		}
-		if (!sqlparser_view_public_word_at(
+		if (role ==
+			    SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION ||
+		    !sqlparser_view_public_word_at(
 			    sql,
 			    after_header,
 			    end,
 			    "and")) {
-			return sqlparser_view_merge_action_where_condition(
+			span_status =
+				sqlparser_view_merge_action_condition_span(
 				handle,
 				sql,
 				after_header,
 				end,
 				base_paren_depth,
-				out_sql,
-				out_error);
+				role,
+				out_start,
+				out_end);
+			if (span_status > 0) {
+				*out_source_sql = sql;
+			}
+			return span_status;
 		}
 		start = sqlparser_public_skip_space(
 			sql,
@@ -3286,16 +3460,9 @@ scan:
 				if (start >= condition_end) {
 					return 0;
 				}
-				*out_sql = sqlparser_strndup(
-					sql + start,
-					condition_end - start);
-				if (*out_sql == NULL) {
-					sqlparser_error_set_message(
-						out_error,
-						SQLPARSER_STATUS_NO_MEMORY,
-						"out of memory");
-					return -1;
-				}
+				*out_source_sql = sql;
+				*out_start = start;
+				*out_end = condition_end;
 				return 1;
 			}
 		}
@@ -3400,18 +3567,21 @@ static sqlparser_status_t sqlparser_view_render_merge_condition_sql(
 	return status;
 }
 
-sqlparser_status_t sqlparser_merge_branch_condition_sql(
+static sqlparser_status_t sqlparser_merge_condition_sql(
 	const sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t dml_index,
 	size_t when_index,
+	sqlparser_selector_kind_t role,
 	char **out_sql,
 	sqlparser_error_t *out_error)
 {
-	PgQuery__MergeStmt *merge_stmt;
-	PgQuery__Node *when_node;
-	int status;
+	const char *source_sql;
+	PgQuery__Node *condition;
 	sqlparser_status_t ast_status;
+	size_t end;
+	size_t start;
+	int status;
 
 	sqlparser_error_clear(out_error);
 	if (handle == NULL || out_sql == NULL) {
@@ -3422,69 +3592,101 @@ sqlparser_status_t sqlparser_merge_branch_condition_sql(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	*out_sql = NULL;
-	merge_stmt = NULL;
-	ast_status = sqlparser_get_merge_stmt_by_dml_index(
-		(sqlparser_handle_t *)handle,
-		statement_index,
-		dml_index,
-		&merge_stmt,
-		out_error);
-	if (ast_status != SQLPARSER_STATUS_OK) {
-		return ast_status;
-	}
-	if (when_index >= merge_stmt->n_merge_when_clauses ||
-	    merge_stmt->merge_when_clauses == NULL) {
-		sqlparser_error_set_message(
-			out_error,
-			SQLPARSER_STATUS_INVALID_ARGUMENT,
-			"merge WHEN index is out of range");
-		return SQLPARSER_STATUS_INVALID_ARGUMENT;
-	}
-	when_node = merge_stmt->merge_when_clauses[when_index];
-	if (when_node == NULL ||
-	    when_node->node_case != PG_QUERY__NODE__NODE_MERGE_WHEN_CLAUSE ||
-	    when_node->merge_when_clause == NULL) {
-		sqlparser_error_set_message(
-			out_error,
-			SQLPARSER_STATUS_INTERNAL_ERROR,
-			"MERGE WHEN node is invalid");
-		return SQLPARSER_STATUS_INTERNAL_ERROR;
-	}
-	if (when_node->merge_when_clause->condition == NULL) {
-		sqlparser_error_set_message(
-			out_error,
-			SQLPARSER_STATUS_INVALID_ARGUMENT,
-			"merge WHEN action has no condition");
-		return SQLPARSER_STATUS_INVALID_ARGUMENT;
-	}
-	if (handle->generation != 0UL) {
-		return sqlparser_view_render_merge_condition_sql(
+	if (handle->generation == 0UL) {
+		source_sql = NULL;
+		start = 0U;
+		end = 0U;
+		status = sqlparser_merge_condition_source_span(
 			handle,
 			statement_index,
-			when_node->merge_when_clause->condition,
-			out_sql,
+			dml_index,
+			when_index,
+			role,
+			&source_sql,
+			&start,
+			&end,
 			out_error);
+		if (status > 0 && source_sql != NULL && start < end) {
+			*out_sql = sqlparser_strndup(
+				source_sql + start,
+				end - start);
+			if (*out_sql == NULL) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_NO_MEMORY,
+					"out of memory");
+				return SQLPARSER_STATUS_NO_MEMORY;
+			}
+			return SQLPARSER_STATUS_OK;
+		}
+		if (status < 0) {
+			return out_error != NULL ?
+				out_error->code :
+				SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			role ==
+					SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION ?
+				"MERGE DELETE condition is missing or cannot be located" :
+				"MERGE WHEN condition is missing or cannot be located");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	status = sqlparser_view_merge_condition_source_sql(
+	condition = NULL;
+	ast_status = sqlparser_merge_condition_node(
 		handle,
 		statement_index,
 		dml_index,
 		when_index,
+		role,
+		&condition,
+		out_error);
+	if (ast_status != SQLPARSER_STATUS_OK) {
+		return ast_status;
+	}
+	return sqlparser_view_render_merge_condition_sql(
+		handle,
+		statement_index,
+		condition,
 		out_sql,
 		out_error);
-	if (status > 0) {
-		return SQLPARSER_STATUS_OK;
-	}
-	if (status < 0) {
-		return out_error != NULL ?
-			out_error->code :
-			SQLPARSER_STATUS_INTERNAL_ERROR;
-	}
-	sqlparser_error_set_message(
-		out_error,
-		SQLPARSER_STATUS_INVALID_ARGUMENT,
-		"MERGE WHEN condition is missing or cannot be located");
-	return SQLPARSER_STATUS_INVALID_ARGUMENT;
+}
+
+sqlparser_status_t sqlparser_merge_branch_condition_sql(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t dml_index,
+	size_t when_index,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_merge_condition_sql(
+		handle,
+		statement_index,
+		dml_index,
+		when_index,
+		SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION,
+		out_sql,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_merge_delete_condition_sql(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t dml_index,
+	size_t when_index,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_merge_condition_sql(
+		handle,
+		statement_index,
+		dml_index,
+		when_index,
+		SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION,
+		out_sql,
+		out_error);
 }
 
 static int sqlparser_view_node_source_location(
@@ -19056,6 +19258,18 @@ static int sqlparser_graph_build_merge_dml(
 			branch.condition_selector.item_index = index;
 			branch.has_condition_selector = 1;
 		}
+		if (when_clause->command_type ==
+			    PG_QUERY__CMD_TYPE__CMD_UPDATE &&
+		    when_clause->delete_condition != NULL) {
+			branch.delete_condition_selector.kind =
+				SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION;
+			branch.delete_condition_selector.statement_index =
+				build->statement_index;
+			branch.delete_condition_selector.row_index =
+				dml_index;
+			branch.delete_condition_selector.item_index = index;
+			branch.has_delete_condition_selector = 1;
+		}
 		if (sqlparser_graph_add_dml_branch(
 			    build,
 			    &branch,
@@ -19201,6 +19415,16 @@ static int sqlparser_graph_build_merge_dml(
 				}
 			}
 			values_ordinal++;
+		}
+		if (when_clause->delete_condition != NULL &&
+		    sqlparser_graph_walk_predicate_expr(
+			    build,
+			    block_index,
+			    SQLPARSER_CLAUSE_KIND_WHERE,
+			    when_clause->delete_condition,
+			    out_error) != 0) {
+			sqlparser_graph_pop_scope(build);
+			return -1;
 		}
 	}
 	if (sqlparser_graph_ensure_ctes(
@@ -21619,7 +21843,14 @@ static json_t *sqlparser_graph_dml_branch_json(
 	    sqlparser_json_set_nonempty_array(object, "rows", &rows) != 0 ||
 	    sqlparser_json_set_nonempty_array(object, "assignments", &assignments) != 0 ||
 	    sqlparser_json_set_optional_size(object, "condition_block", branch->has_condition_block, branch->condition_block_index) != 0 ||
-	    sqlparser_json_set_optional_selector(object, "condition_selector", branch->has_condition_selector ? &branch->condition_selector : NULL, out_error) != 0) {
+	    sqlparser_json_set_optional_selector(object, "condition_selector", branch->has_condition_selector ? &branch->condition_selector : NULL, out_error) != 0 ||
+	    sqlparser_json_set_optional_selector(
+		    object,
+		    "delete_condition_selector",
+		    branch->has_delete_condition_selector ?
+			    &branch->delete_condition_selector :
+			    NULL,
+		    out_error) != 0) {
 		goto fail;
 	}
 	return object;

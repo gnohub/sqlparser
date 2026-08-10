@@ -6188,6 +6188,15 @@ static void deparseMergeStmt(DeparseState *state, MergeStmt *merge_stmt)
 				actionCondition,
 				DEPARSE_NODE_CONTEXT_A_EXPR);
 		}
+		if (clause->commandType == CMD_UPDATE &&
+			clause->deleteCondition != NULL)
+		{
+			deparseAppendStringInfoString(state, " DELETE WHERE ");
+			deparseExpr(
+				state,
+				clause->deleteCondition,
+				DEPARSE_NODE_CONTEXT_A_EXPR);
+		}
 
 		if (lfirst(lc) != llast(merge_stmt->mergeWhenClauses))
 			deparseAppendStringInfoChar(state, ' ');

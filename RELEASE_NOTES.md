@@ -1,48 +1,50 @@
-# v2.15.1 发布说明
+# v2.15.2 发布说明
 
-`v2.15.1` 为 Oracle、Dameng 和 Vastbase-Oracle 增加单返回 target、单宿主绑定变量的 `RETURN`/`RETURNING ... INTO` 结构化解析、View 与 patch 能力，并保持未修改 SQL 文本的原始形式。
+`v2.15.2` 为 Oracle 与 Dameng 增加 MERGE matched UPDATE 附属 `DELETE WHERE` 的结构化解析、View 与 patch 能力，并保持 PostgreSQL、SQL Server 独立 DELETE action 的既有语义。
 
 ## 支持范围
 
-- Oracle 与 Vastbase-Oracle 支持 `INSERT`、`UPDATE`、`DELETE` 的单个 `RETURNING` 表达式与单个 `INTO` 冒号宿主绑定变量。
-- Dameng 支持 `INSERT`、`DELETE` 的 `RETURNING ... INTO :bind`，以及 `UPDATE` 的 `RETURN ... INTO :bind`。
-- 冒号与绑定变量名构成连续 token，例如 `:NAV_ROWID`。带空格的 `: NAV_ROWID` 不属于该语法。
-- 多个返回 target、多个输出绑定变量和 `BULK COLLECT` 不在当前支持范围内。
+- Oracle 与 Dameng 支持 `WHEN MATCHED THEN UPDATE SET ... [WHERE ...] DELETE WHERE ...`。
+- `DELETE WHERE` 是 matched UPDATE action 的附属操作，条件针对已更新的目标行求值；Query Graph 不为其生成独立 DELETE branch。
+- PostgreSQL 与 SQL Server 的 `WHEN MATCHED ... THEN DELETE` 继续使用独立 MERGE branch。
+- MySQL 不增加 MERGE 能力；Vastbase 各兼容模式不声明本语法支持。
+- 附属 DELETE 必须包含 `WHERE` 和条件表达式，裸 `DELETE` 不在支持范围内。
 
-## Query Graph 与 View
+## Query Graph 与 Selector
 
-- DML 返回宿主绑定变量使用 `kind = "sink"` 的 result channel，不生成 `sink_relation`。
-- 返回 target 的 `sink_value` 指向 `query_graph.values[]` 中的输出绑定变量；该 value 保留绑定变量的 key、kind、SQL、全局位置和既有 value selector。
-- `ROWID` 作为 pseudo target 输出，不生成 field。`INSERT`、`UPDATE` 的返回引用使用 `target_after`，`DELETE` 使用 `target_before`。
-- relation-backed sink 继续使用 `sink_relation` 和可选 `sink_columns`，与 host-bind sink 的表示互不混用。
+- matched UPDATE branch 可同时提供 `condition_selector` 与 `delete_condition_selector`，分别定位 action `WHERE` 和附属 `DELETE WHERE` 条件。
+- 根 MERGE 使用 `stmt[S].merge_delete_condition[W]`；嵌套 MERGE 使用 `stmt[S].merge_delete_condition[D][W]`。
+- `sqlparser_selector_clause_sql()` 返回不含 `DELETE WHERE` 关键字的条件表达式。
+- `sqlparser_selector_set_clause_sql()` 与 `SQLPARSER_PATCH_REPLACE` 可独立替换普通分支条件或附属删除条件。
 
 ## Patch 与反解析
 
-- DML 输入值、返回 target 和输出绑定变量均复用既有 selector 与 `SQLPARSER_PATCH_REPLACE`，不增加专用 selector 或 patch 类型。
-- 返回 target 和输出绑定变量可独立替换；重新生成 View 后，`sink_value` 关联、绑定变量序号和来源关系保持一致。
-- patch 仅修改目标源码区间，未修改源码区间保持原文。
-- 多语句中的空语句与纯注释片段不占用 statement 索引；Dameng `RETURN` 的原始字母大小写在反解析时恢复。
+- MERGE assignment 由逗号、action `WHERE`、附属 `DELETE WHERE` 或后续 `WHEN` 明确限定时执行局部源码改写。
+- assignment、普通分支条件和附属删除条件的 patch 仅替换目标源码区间；其他分支、换行、空白、关键字大小写及标识符定界符保持原文。
+- patch 后的 SQL 会重新解析并与预期 View 对账，附属删除条件仍归属原 UPDATE branch。
 
 ## API 与兼容性
 
-- `sqlparser_graph_target_t` 追加 `sink_value_index` 和 `has_sink_value`，用于读取可选输出绑定变量关联。
-- 本版本不新增公开函数、枚举、selector 类型或资源所有权规则。
-- 公开结构体布局发生追加式变化。C 调用方应使用 2.15.1 头文件重新编译。
+- `sqlparser_selector_kind_t` 追加 `SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION = 25`。
+- `sqlparser_graph_dml_branch_t` 追加 `delete_condition_selector` 和 `has_delete_condition_selector`。
+- 本版本不新增公开函数或资源所有权规则。
+- 公开结构体布局发生追加式变化。C 调用方应使用 2.15.2 头文件重新编译。
 - 动态库 ABI 主版本保持 `libsqlparser.so.0`。
 
 ## 用例与文档
 
-- Oracle、Dameng 和 Vastbase-Oracle 共新增 9 条 final case 和 27 个独立 patch，覆盖 `INSERT`、`UPDATE`、`DELETE` 的 DML 输入值、返回 target 与输出绑定变量改写。
-- 当前九套 fixture 共包含 2,767 条 final case 和 8,972 个 patch。
-- 仓库示例、文档和测试数据统一使用中性 schema 名 `APP`；该命名不限制调用方 SQL 中的 schema 名称。
+- Oracle 新增 2 条 final case，覆盖同时存在 action `WHERE`、附属 `DELETE WHERE` 与条件 INSERT，以及仅含附属删除条件的 matched UPDATE。
+- Dameng 新增 1 条 final case，覆盖 action `WHERE` 与附属 `DELETE WHERE` 共存。
+- PostgreSQL、SQL Server 各新增 1 条 final case，覆盖独立 matched DELETE、matched UPDATE 与 not-matched INSERT 的分支顺序和 patch。
+- 本版本共新增 5 条 final case 和 17 个独立 patch。当前九套 fixture 共包含 2,772 条 final case 和 8,989 个 patch。
 - View JSON、API、方言支持范围、官方语法覆盖和 case matrix 的中英文文档已同步。
 
 ## 验证
 
-- Oracle、Dameng 和 Vastbase-Oracle 三套相关矩阵完成 628 条 case 和 2,219 个 patch，失败数为 0。
-- SQL batch 矩阵的 213 条 case 和 720 个 patch 同步通过；本次定向严格回归合计覆盖 841 条 case 和 2,939 个 patch。
-- 受影响的核心 API、三个示例和 CLI 参数顺序检查通过。
-- 三个相关方言完成定点 Valgrind 检查，退出时无残留内存，错误数为 0。
+- 九套 case matrix 共完成 2,772 条 case 和 8,989 个 patch，失败数为 0。
+- 原始反解析、View JSON、patch 反解析和 runner 内部错误数均为 0。
+- 核心 API 测试通过，覆盖根级与嵌套 selector、条件读取与替换、方言限制及裸 DELETE 拒绝。
+- 定向 Valgrind 检查执行 1,040,125 次分配和 1,040,125 次释放；退出时为 `0 bytes in 0 blocks`，错误数为 0。
 
 内置 `libpg_query` 标签：`17-6.2.2`。
 内置 Jansson 版本：`2.15`。
