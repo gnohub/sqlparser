@@ -15,9 +15,19 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 213 条 `status = "final"` 用例，其中 41 条用例的期望 View 包含非空 session 投影。
+夹具包含 217 条用例，全部为 `status = "final"`；其中 41 条用例的期望 View 包含非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
+
+## RETURNING INTO 宿主绑定变量结果通道回归
+
+以下 3 条 final 用例覆盖 Vastbase-Oracle 兼容模式中 `INSERT ... VALUES`、`UPDATE` 和 `DELETE` 的单个返回 target `RETURNING ... INTO :bind`。该能力边界限定为一个结果 target 和一个冒号宿主绑定变量；View 将结果表达为不含 `sink_relation` 的 `kind = "sink"` 通道，target 的 `sink_value` 指向 `query_graph.values[]` 中的输出绑定变量。
+
+| ID | 用例 | DML | 验证重点 |
+| --- | --- | --- | --- |
+| `VO183` | `vastbase-oracle-insert-returning-rowid-into-bind` | INSERT | `ROWID` 为 `pseudo` target，来源为 `target_after`；分别替换 VALUES cell、结果 target 和输出 bind 后精确反解析 |
+| `VO184` | `vastbase-oracle-update-returning-rowid-into-bind` | UPDATE | `ROWID` 为 `pseudo` target，来源为 `target_after`；分别替换 assignment、结果 target 和输出 bind 后精确反解析 |
+| `VO185` | `vastbase-oracle-delete-returning-rowid-into-bind` | DELETE | `ROWID` 为 `pseudo` target，来源为 `target_before`；分别替换 WHERE bind、结果 target 和输出 bind 后精确反解析 |
 
 ## ROWNUM 谓词语义回归
 
@@ -102,12 +112,12 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | `VO041` | `vastbase-oracle-unsupported-keywords-in-string` | SELECT 'RETURNING @ (+)' AS label FROM dual | 已覆盖 |
 | `VO042` | `vastbase-oracle-unsupported-keywords-in-comment` | SELECT id FROM users /* CONNECT BY PRIOR id = manager_id */ WHERE id = :id | 已覆盖 |
 | `VO042Q` | `vastbase-oracle-unsupported-keywords-in-quoted-identifiers` | SELECT "RETURNING", "email@domain" FROM users | 已覆盖 |
-| `VO043` | `vastbase-oracle-alter-session-current-schema` | ALTER SESSION SET CURRENT_SCHEMA=KDES | 已覆盖 |
-| `VO043Q` | `vastbase-oracle-alter-session-current-schema-quoted-identifier` | ALTER SESSION SET CURRENT_SCHEMA="KdesMixed" | 已覆盖 |
+| `VO043` | `vastbase-oracle-alter-session-current-schema` | ALTER SESSION SET CURRENT_SCHEMA=APP | 已覆盖 |
+| `VO043Q` | `vastbase-oracle-alter-session-current-schema-quoted-identifier` | ALTER SESSION SET CURRENT_SCHEMA="AppMixed" | 已覆盖 |
 | `VO044` | `vastbase-oracle-alter-session-container` | ALTER SESSION SET CONTAINER=PDB1 | 已覆盖 |
 | `VO045` | `vastbase-oracle-alter-session-container-root` | ALTER SESSION SET CONTAINER=CDB$ROOT | 已覆盖 |
 | `VO046` | `vastbase-oracle-alter-session-container-service` | ALTER SESSION SET CONTAINER=PDB1 SERVICE=APP_SVC | 已覆盖 |
-| `VO047` | `vastbase-oracle-alter-session-current-schema-in-multi-statement` | SELECT * FROM users; ALTER SESSION SET CURRENT_SCHEMA=KDES | 已覆盖 |
+| `VO047` | `vastbase-oracle-alter-session-current-schema-in-multi-statement` | SELECT * FROM users; ALTER SESSION SET CURRENT_SCHEMA=APP | 已覆盖 |
 | `VO048` | `vastbase-oracle-insert-question-params` | INSERT INTO users (username, email, age) VALUES (?, ?, ?) | 已覆盖 |
 | `VO049` | `vastbase-oracle-update-question-params` | UPDATE users SET email = ? WHERE username = ? | 已覆盖 |
 | `VO050` | `vastbase-oracle-execute-immediate` | EXECUTE IMMEDIATE 'SELECT * FROM users WHERE id = :id' USING :id | 已覆盖 |
@@ -161,19 +171,19 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | `VO085` | `vastbase-oracle-alter-session-boolean-parameter` | ALTER SESSION SET ERROR_ON_OVERLAP_TIME = TRUE | 已覆盖 |
 | `VO086` | `vastbase-oracle-alter-session-nls-numeric-characters` | ALTER SESSION SET NLS_NUMERIC_CHARACTERS = '.,' | 已覆盖 |
 | `VO087` | `vastbase-oracle-multi-statement-global-bind-position` | UPDATE users SET a = :same WHERE b = :b; UPDATE users SET c = :same WHERE d = :d | 已覆盖 |
-| `VO088` | `vastbase-oracle-select-derived-query-graph` | SELECT s.name AS outer_name FROM (SELECT id, name FROM KDES.USERS WHERE age <= :age) s WHERE s.name LIKE :name | 已覆盖 |
+| `VO088` | `vastbase-oracle-select-derived-query-graph` | SELECT s.name AS outer_name FROM (SELECT id, name FROM APP.USERS WHERE age <= :age) s WHERE s.name LIKE :name | 已覆盖 |
 | `VO099` | `vastbase-oracle-select-nested-star-query-graph` | SELECT * FROM (SELECT ROWNUM, * FROM (SELECT * FROM (SELECT o.*, ROWNUM AS rnum FROM (SELECT x.id FROM users x UNION SELECT y.id FROM archived_users y) o)) b) d | 已覆盖 |
-| `VO100` | `vastbase-oracle-field-match-kind-direct-and-expression` | SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = :plain_secret AND UPPER(SECRET) = :upper_secret | 已覆盖 |
-| `VO101` | `vastbase-oracle-expression-field-case-expression-value` | SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE CASE WHEN ID = 1 THEN SECRET ELSE BACKUP_SECRET END = :v | 已覆盖 |
-| `VO102` | `vastbase-oracle-expression-field-multi-field-expression-value` | SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE NVL(SECRET, ID) = :v1 AND SECRET \|\| ID = :v2 | 已覆盖 |
-| `VO103` | `vastbase-oracle-expression-field-value-side-expression` | SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = UPPER(:v1) AND SECRET = :v2 \|\| 'x' AND SECRET = CAST(:v3 AS VARCHAR(32)) | 已覆盖 |
-| `VO104` | `vastbase-oracle-expression-field-dml-expression-values` | INSERT INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (1, UPPER(:v1)); UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :v2 \|\| 'x' WHERE ID = 1 | 已覆盖 |
-| `VO105` | `vastbase-oracle-update-positional-bind-rhs-crypto-source` | UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :1 WHERE ID = :2 | 已覆盖 |
-| `VO106` | `vastbase-oracle-update-named-bind-rhs-crypto-source` | UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :secret_value WHERE ID = :id | 已覆盖 |
-| `VO107` | `vastbase-oracle-update-question-bind-rhs-crypto-source` | UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = ? WHERE ID = ? | 已覆盖 |
-| `VO108` | `vastbase-oracle-update-multiple-bind-rhs-crypto-source` | UPDATE KDES.DBP_CRYPTO_TEST SET PHONE = :1, SECRET = :2 WHERE ID = :3 | 已覆盖 |
+| `VO100` | `vastbase-oracle-field-match-kind-direct-and-expression` | SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE SECRET = :plain_secret AND UPPER(SECRET) = :upper_secret | 已覆盖 |
+| `VO101` | `vastbase-oracle-expression-field-case-expression-value` | SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE CASE WHEN ID = 1 THEN SECRET ELSE BACKUP_SECRET END = :v | 已覆盖 |
+| `VO102` | `vastbase-oracle-expression-field-multi-field-expression-value` | SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE NVL(SECRET, ID) = :v1 AND SECRET \|\| ID = :v2 | 已覆盖 |
+| `VO103` | `vastbase-oracle-expression-field-value-side-expression` | SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE SECRET = UPPER(:v1) AND SECRET = :v2 \|\| 'x' AND SECRET = CAST(:v3 AS VARCHAR(32)) | 已覆盖 |
+| `VO104` | `vastbase-oracle-expression-field-dml-expression-values` | INSERT INTO APP.DBP_CRYPTO_TEST (ID, SECRET) VALUES (1, UPPER(:v1)); UPDATE APP.DBP_CRYPTO_TEST SET SECRET = :v2 \|\| 'x' WHERE ID = 1 | 已覆盖 |
+| `VO105` | `vastbase-oracle-update-positional-bind-rhs-crypto-source` | UPDATE APP.DBP_CRYPTO_TEST SET SECRET = :1 WHERE ID = :2 | 已覆盖 |
+| `VO106` | `vastbase-oracle-update-named-bind-rhs-crypto-source` | UPDATE APP.DBP_CRYPTO_TEST SET SECRET = :secret_value WHERE ID = :id | 已覆盖 |
+| `VO107` | `vastbase-oracle-update-question-bind-rhs-crypto-source` | UPDATE APP.DBP_CRYPTO_TEST SET SECRET = ? WHERE ID = ? | 已覆盖 |
+| `VO108` | `vastbase-oracle-update-multiple-bind-rhs-crypto-source` | UPDATE APP.DBP_CRYPTO_TEST SET PHONE = :1, SECRET = :2 WHERE ID = :3 | 已覆盖 |
 | `VOU014` | `vastbase-oracle-create-synonym` | CREATE SYNONYM u FOR users | 已覆盖 |
-| `VO175` | `vastbase-oracle-create-public-synonym` | CREATE OR REPLACE PUBLIC SYNONYM app_users FOR kdes.users | 已覆盖 |
+| `VO175` | `vastbase-oracle-create-public-synonym` | CREATE OR REPLACE PUBLIC SYNONYM app_users FOR app.users | 已覆盖 |
 | `VO176` | `vastbase-oracle-drop-synonym` | DROP SYNONYM app_users FORCE | 已覆盖 |
 | `VOU015` | `vastbase-oracle-database-link` | SELECT * FROM users@remote_db | 已覆盖 |
 | `VOU016` | `vastbase-oracle-explain-plan` | EXPLAIN PLAN FOR SELECT * FROM users | 已覆盖 |
@@ -188,17 +198,17 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | `VO145` | `vastbase-oracle-insert-select-union-distinct-literals` | INSERT INTO users (id, name) SELECT 1, 'a' FROM dual UNION SELECT 2, 'b' FROM dual | 已覆盖 |
 | `VO146` | `vastbase-oracle-insert-select-intersect-binds` | INSERT INTO users (id, name) SELECT :1, :2 FROM dual INTERSECT SELECT :3, :4 FROM dual | 已覆盖 |
 | `VO147` | `vastbase-oracle-insert-select-minus-named-binds` | INSERT INTO users (id, name) SELECT :id1, :name1 FROM dual MINUS SELECT :id2, :name2 FROM dual | 已覆盖 |
-| `VO148` | `vastbase-oracle-insert-all-schema-qualified-targets` | INSERT ALL INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (950001, 'a') INTO KDES.DBP_PHONE_TEST (ID, PHONE) VALUES (:2, :phone) SELECT 1 FROM DUAL | 已覆盖 |
-| `VO149` | `vastbase-oracle-like-escape-literal` | SELECT ID FROM KDES.USERS WHERE NAME LIKE 'A!_%' ESCAPE '!' | 已覆盖 |
-| `VO150` | `vastbase-oracle-not-like-escape-named-bind` | SELECT ID FROM KDES.USERS WHERE NAME NOT LIKE :pattern ESCAPE :escape_char | 已覆盖 |
-| `VO151` | `vastbase-oracle-like-escape-question-bind` | SELECT ID FROM KDES.USERS WHERE NAME LIKE ? ESCAPE ? | 已覆盖 |
-| `VO152` | `vastbase-oracle-like-escape-expression` | SELECT ID FROM KDES.USERS WHERE NAME LIKE :pattern ESCAPE UPPER('!') | 已覆盖 |
-| `VO153` | `vastbase-oracle-derived-like-escape-literal` | SELECT D.ID FROM (SELECT ID, NAME FROM KDES.USERS) D WHERE D.NAME LIKE :pattern ESCAPE '!' | 已覆盖 |
-| `VO154` | `vastbase-oracle-like-without-explicit-escape` | SELECT ID FROM KDES.USERS WHERE NAME LIKE :pattern | 已覆盖 |
+| `VO148` | `vastbase-oracle-insert-all-schema-qualified-targets` | INSERT ALL INTO APP.DBP_CRYPTO_TEST (ID, SECRET) VALUES (950001, 'a') INTO APP.DBP_PHONE_TEST (ID, PHONE) VALUES (:2, :phone) SELECT 1 FROM DUAL | 已覆盖 |
+| `VO149` | `vastbase-oracle-like-escape-literal` | SELECT ID FROM APP.USERS WHERE NAME LIKE 'A!_%' ESCAPE '!' | 已覆盖 |
+| `VO150` | `vastbase-oracle-not-like-escape-named-bind` | SELECT ID FROM APP.USERS WHERE NAME NOT LIKE :pattern ESCAPE :escape_char | 已覆盖 |
+| `VO151` | `vastbase-oracle-like-escape-question-bind` | SELECT ID FROM APP.USERS WHERE NAME LIKE ? ESCAPE ? | 已覆盖 |
+| `VO152` | `vastbase-oracle-like-escape-expression` | SELECT ID FROM APP.USERS WHERE NAME LIKE :pattern ESCAPE UPPER('!') | 已覆盖 |
+| `VO153` | `vastbase-oracle-derived-like-escape-literal` | SELECT D.ID FROM (SELECT ID, NAME FROM APP.USERS) D WHERE D.NAME LIKE :pattern ESCAPE '!' | 已覆盖 |
+| `VO154` | `vastbase-oracle-like-without-explicit-escape` | SELECT ID FROM APP.USERS WHERE NAME LIKE :pattern | 已覆盖 |
 | `VO155` | `vastbase-oracle-p3-update-alias-qualified-assignment` | UPDATE encrypt_test_data x SET x.email = :1 WHERE x.id = :2 | 已覆盖 |
 | `VO156` | `vastbase-oracle-p3-update-multiple-alias-qualified-assignments` | UPDATE encrypt_test_data x SET x.email = :1, x.secret_sn = :2 WHERE x.phone = :3 | 已覆盖 |
 | `VO157` | `vastbase-oracle-p3-update-from-source-field` | UPDATE t SET name = s.name FROM src s WHERE t.id = s.id | 已覆盖 |
-| `VO158` | `vastbase-oracle-p3-update-schema-qualified-alias-target` | UPDATE KDES.ENCRYPT_TEST_DATA x SET x.email = :1 WHERE x.id = :2 | 已覆盖 |
+| `VO158` | `vastbase-oracle-p3-update-schema-qualified-alias-target` | UPDATE APP.ENCRYPT_TEST_DATA x SET x.email = :1 WHERE x.id = :2 | 已覆盖 |
 | `VO159` | `vastbase-oracle-p3-update-scalar-subquery-predicate` | UPDATE encrypt_test_data x SET x.email = :1 WHERE x.id = (SELECT y.id FROM encrypt_test_data y WHERE y.phone = :2) | 已覆盖 |
 | `VO160` | `vastbase-oracle-p3-delete-exists-correlated-predicate` | DELETE FROM encrypt_test_data x WHERE EXISTS (...) | 已覆盖 |
 | `VO161` | `vastbase-oracle-p3-select-or-predicate-and-order-by` | SELECT x.id,x.email,x.bank_card FROM encrypt_test_data x WHERE ... OR ... ORDER BY x.id | 已覆盖 |
@@ -210,7 +220,7 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | `VO167` | `vastbase-oracle-p3-select-star-rowid-lineage` | SELECT x.*, x.ROWID FROM encrypt_test_data x ORDER BY x.id | 已覆盖 |
 | `VO168` | `vastbase-oracle-p3-update-full-alias-qualified-crypto-shape` | UPDATE encrypt_test_data x SET x.email=:1, x.secret_sn=:2, x.special_str=:3, x.remark=:4 WHERE ... | 已覆盖 |
 | `VO169` | `vastbase-oracle-regexp-like-function-predicate` | SELECT * FROM users WHERE REGEXP_LIKE(name, :pat) | 已覆盖 |
-| `VO170` | `vastbase-oracle-database-link-schema-alias-bind` | SELECT u.id FROM kdes.users@remote_db u WHERE u.id = :id | 已覆盖 |
+| `VO170` | `vastbase-oracle-database-link-schema-alias-bind` | SELECT u.id FROM app.users@remote_db u WHERE u.id = :id | 已覆盖 |
 | `VO171` | `vastbase-oracle-database-link-update-target` | UPDATE users@remote_db SET name = :name WHERE id = :id | 已覆盖 |
 | `VO172` | `vastbase-oracle-database-link-insert-target` | INSERT INTO users@remote_db (id, name) VALUES (:id, :name) | 已覆盖 |
 | `VO173` | `vastbase-oracle-database-link-delete-target` | DELETE FROM users@remote_db WHERE id = :id | 已覆盖 |
@@ -220,6 +230,9 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | `VO180` | `vastbase-oracle-union-all-root-cte-scope` | WITH src AS (SELECT 1 AS C FROM DUAL) SELECT C FROM src UNION ALL SELECT C FROM src | 已覆盖 |
 | `VO181` | `vastbase-oracle-union-all-qualified-table-bypasses-cte` | WITH src AS (SELECT 1 AS id FROM DUAL) (SELECT src.id FROM src UNION ALL SELECT s.id FROM app.src s) UNION ALL SELECT r.id FROM src@remote_db r | 已覆盖 |
 | `VO182` | `vastbase-oracle-correlated-union-all-subquery-scope` | SELECT o.id FROM orders o WHERE EXISTS (SELECT 1 FROM order_items i WHERE i.order_id = o.id UNION ALL SELECT 1 FROM archived_order_items a WHERE a.order_id = o.id) | 已覆盖 |
+| `VO183` | `vastbase-oracle-insert-returning-rowid-into-bind` | INSERT INTO "APP"."DBP_MANUAL_CLOB_FPE_STRESS" ("ID", "PROTECTED_CLOB_3") VALUES (:1, :2) RETURNING ROWID INTO :NAV_ROWID | 已覆盖 |
+| `VO184` | `vastbase-oracle-update-returning-rowid-into-bind` | UPDATE "APP"."DBP_MANUAL_CLOB_FPE_STRESS" SET "PROTECTED_CLOB_3" = :1 WHERE "ID" = :2 RETURNING ROWID INTO :NAV_ROWID | 已覆盖 |
+| `VO185` | `vastbase-oracle-delete-returning-rowid-into-bind` | DELETE FROM "APP"."DBP_MANUAL_CLOB_FPE_STRESS" WHERE "ID" = :1 RETURNING ROWID INTO :NAV_ROWID | 已覆盖 |
 
 ## 覆盖边界
 

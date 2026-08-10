@@ -217,6 +217,7 @@ FROM (
 | `name` | 输出名或别名；没有时省略 |
 | `field` | 直接字段输出对应的 `fields[]` 索引；不适用时省略 |
 | `value` | literal 或 bind 输出项对应的 `values[]` 索引；不适用时省略 |
+| `sink_value` | host-bind sink 中接收该 DML 结果 target 的 `values[]` 输出 bind 索引；不适用时省略 |
 | `star_relations` | `*` 或 `alias.*` 覆盖的 relation 索引；非星号输出时省略 |
 | `source_block` | 派生输出进入的来源查询块；没有时省略 |
 | `selector` | 单个输出项 selector；没有可写节点时省略 |
@@ -409,11 +410,13 @@ value 的 `kind` 为 `identifier`、`keyword`、`literal`、`bind` 或 `expressi
 
 | 字段 | 说明 |
 | --- | --- |
-| `kind` | `client` 表示返回结果，`sink` 表示写入指定 relation |
+| `kind` | `client` 表示返回结果，`sink` 表示由 relation 或 host bind 接收结果 |
 | `block` | 该通道输出 target 所在的 `dml_result` block 索引 |
-| `sink_relation` | sink relation 索引；仅 `sink` 通道存在 |
-| `sink_columns` | sink 目标列对象；没有显式列列表时省略 |
+| `sink_relation` | sink relation 索引；仅 relation-backed sink 存在 |
+| `sink_columns` | relation-backed sink 的目标列对象；没有显式列列表时省略 |
 | `references` | 输出 target 对目标行或来源 relation 的字段引用；非空时存在 |
+
+relation-backed sink 通过 `sink_relation` 和可选 `sink_columns` 表达写入目标。host-bind sink 不输出这两个字段；其结果 target 通过 `sink_value` 指向 `query_graph.values[]` 中的输出 bind。该 value 使用既有 value `selector`，可作为 `SQLPARSER_PATCH_REPLACE` 的目标，不引入新的 selector 类型。Oracle 与 Vastbase-Oracle 兼容模式的单 target `RETURNING ... INTO :bind`，以及 Dameng 的单 target `RETURN`/`RETURNING ... INTO :bind` 使用该表示。
 
 每个 `references[]` 元素包含结果 `target` 索引、可选 `field` 索引、`relation` 索引和 `kind`。`kind` 取值为 `target_before`、`target_after` 或 `source`。SQL Server `DELETED.id`、`INSERTED.id` 和来源表字段分别使用这三种类型。
 

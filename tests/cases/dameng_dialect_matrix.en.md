@@ -4,7 +4,7 @@ This file records regression cases for the Dameng dialect conversion layer. The 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 165 cases with `status = "final"`.
+The fixture contains 169 cases with `status = "final"`.
 Statement-level `query_graph.session` appears in 34 cases, covering `D002`,
 `D003`, `D003Q`, `D026`, `D089` through `D095`, and the `DM-*` session cases.
 All 34 contain at least one non-empty session item.
@@ -181,6 +181,16 @@ This group covers ROWNUM combined with an ordinary predicate, ordered Top-N, rev
 | D-RN003 | `dameng-rownum-reversed-equality` | `1 = ROWNUM` | reversed operand order remains unchanged and the fieldless equality expression references the literal |
 | D-RN004 | `dameng-rownum-greater-than-boundary` | `ROWNUM > 1` | the greater-than boundary retains its predicate and literal in View JSON without semantic folding |
 | D-RN005 | `dameng-delete-rownum-batch-limit` | DELETE ordinary comparison `AND ROWNUM <= :batch_size` | DELETE DML target, AND tree, and the ROWNUM bind keep the correct block, position, and attribution |
+
+## RETURN/RETURNING INTO Regression
+
+Current coverage includes `RETURNING <single expression> INTO <single colon-prefixed host bind>` for `INSERT` and `DELETE`, and `RETURN <single expression> INTO <single colon-prefixed host bind>` for `UPDATE`. View represents the return channel as a sink channel in `dml.result_channels`; the return target's `sink_value` refers to the host bind in `query_graph.values[]`. This boundary excludes multiple return targets, multiple `INTO` binds, and `BULK COLLECT`.
+
+| ID | Case | SQL shape | Coverage |
+| --- | --- | --- | --- |
+| D143 | `dameng-insert-values-returning-rowid-into-bind` | `INSERT ... VALUES ... RETURNING ROWID INTO :NAV_ROWID` | INSERT `target_after` reference, ROWID pseudo target, sink bind, replace patches, and byte-for-byte deparse |
+| D144 | `dameng-update-return-rowid-into-bind` | `UPDATE ... RETURN ROWID INTO :NAV_ROWID` | UPDATE `target_after` reference, Dameng `RETURN` keyword, sink bind, replace patches, and byte-for-byte deparse |
+| D145 | `dameng-delete-returning-rowid-into-bind` | `DELETE ... RETURNING ROWID INTO :NAV_ROWID` | DELETE `target_before` reference, ROWID pseudo target, sink bind, replace patches, and byte-for-byte deparse |
 
 ## Coverage Boundary
 

@@ -27,9 +27,66 @@ typedef struct {
 	sqlparser_graph_dml_result_kind_t kind;
 	size_t target_offset;
 	size_t target_count;
+	size_t sink_value_offset;
+	size_t sink_value_count;
 	const char *sink_sql;
 	size_t sink_column_count;
 } sqlparser_dialect_dml_result_channel_t;
+
+typedef struct {
+	size_t statement_index;
+	uint16_t keyword_uppercase_mask;
+	uint8_t into_uppercase_mask;
+	uint8_t uses_return_keyword;
+} sqlparser_dialect_returning_into_item_t;
+
+typedef struct sqlparser_dialect_returning_into_state {
+	sqlparser_dialect_returning_into_item_t *items;
+	size_t count;
+	size_t capacity;
+} sqlparser_dialect_returning_into_state_t;
+
+typedef struct {
+	size_t statement_index;
+	size_t keyword_end;
+	size_t into_start;
+	int uses_return_keyword;
+} sqlparser_dialect_returning_into_clause_t;
+
+void sqlparser_dialect_returning_into_state_clear(
+	sqlparser_dialect_returning_into_state_t *state);
+
+sqlparser_status_t sqlparser_dialect_returning_into_state_clone(
+	const sqlparser_dialect_returning_into_state_t *source,
+	sqlparser_dialect_returning_into_state_t *target,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_dialect_returning_into_state_append(
+	sqlparser_dialect_returning_into_state_t *state,
+	size_t statement_index,
+	const char *keyword,
+	size_t keyword_length,
+	const char *into_keyword,
+	sqlparser_error_t *out_error);
+
+int sqlparser_dialect_returning_into_clause_at(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	size_t keyword_start,
+	int allow_return_keyword,
+	sqlparser_dialect_returning_into_clause_t *out_clause);
+
+sqlparser_status_t sqlparser_dialect_returning_into_validate(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	int allow_return_keyword,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_dialect_returning_into_postprocess(
+	sqlparser_dialect_t dialect,
+	char **io_sql,
+	const sqlparser_dialect_returning_into_state_t *state,
+	sqlparser_error_t *out_error);
 
 typedef int (*sqlparser_dialect_dml_result_visit_fn)(
 	size_t dml_index,

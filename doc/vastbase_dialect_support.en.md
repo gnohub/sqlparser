@@ -23,7 +23,7 @@ options.dialect = SQLPARSER_DIALECT_VASTBASE_ORACLE;
 
 ```bash
 ./bin/sqlparser_cli --dialect vastbase-oracle --mode view \
-  "ALTER SESSION SET CURRENT_SCHEMA=KDES"
+  "ALTER SESSION SET CURRENT_SCHEMA=APP"
 ```
 
 ```bash
@@ -37,13 +37,17 @@ The four Vastbase modes are verified by executable regression matrices:
 
 | Mode | Fixture | Unit Test | Successful Cases | Expected-Failure Cases | Total Cases |
 | --- | --- | --- | ---: | ---: | ---: |
-| `vastbase-oracle` | `tests/cases/vastbase_oracle_dialect_input.json` | `tests/unit/test_vastbase_oracle_dialect_case_matrix.c` | 188 | 21 | 209 |
-| `vastbase-mysql` | `tests/cases/vastbase_mysql_dialect_input.json` | `tests/unit/test_vastbase_mysql_dialect_case_matrix.c` | 210 | 9 | 219 |
-| `vastbase-postgresql` | `tests/cases/vastbase_postgresql_dialect_input.json` | `tests/unit/test_vastbase_postgresql_dialect_case_matrix.c` | 174 | 10 | 184 |
-| `vastbase-sqlserver` | `tests/cases/vastbase_sqlserver_dialect_input.json` | `tests/unit/test_vastbase_sqlserver_dialect_case_matrix.c` | 547 | 38 | 585 |
+| `vastbase-oracle` | `tests/cases/vastbase_oracle_dialect_input.json` | `tests/unit/test_vastbase_oracle_dialect_case_matrix.c` | 217 | 0 | 217 |
+| `vastbase-mysql` | `tests/cases/vastbase_mysql_dialect_input.json` | `tests/unit/test_vastbase_mysql_dialect_case_matrix.c` | 254 | 0 | 254 |
+| `vastbase-postgresql` | `tests/cases/vastbase_postgresql_dialect_input.json` | `tests/unit/test_vastbase_postgresql_dialect_case_matrix.c` | 199 | 0 | 199 |
+| `vastbase-sqlserver` | `tests/cases/vastbase_sqlserver_dialect_input.json` | `tests/unit/test_vastbase_sqlserver_dialect_case_matrix.c` | 600 | 0 | 600 |
 
 The `vastbase-sqlserver` mode includes SQL Server DML `OUTPUT` result channels
 and `IF...ELSE` control flow.
+
+The `vastbase-oracle` mode supports single-target `RETURNING ... INTO :bind`
+on `INSERT ... VALUES`, `UPDATE`, and `DELETE`. This boundary includes one
+result target and one colon-prefixed host bind.
 
 ## Official References
 

@@ -223,6 +223,7 @@ A CTE definition creates one source block. Multiple references share that
 | `name` | Output name or alias; omitted when absent |
 | `field` | Related `fields[]` index for direct field output; omitted otherwise |
 | `value` | Related `values[]` index for literal or bind output targets; omitted otherwise |
+| `sink_value` | `values[]` output-bind index that receives this DML result target in a host-bind sink; omitted otherwise |
 | `star_relations` | Relation indexes covered by `*` or `alias.*`; omitted for non-star targets |
 | `source_block` | Source query block for derived output; omitted otherwise |
 | `selector` | Single target selector; omitted when no writable node exists |
@@ -432,11 +433,20 @@ Result-channel fields:
 
 | Field | Description |
 | --- | --- |
-| `kind` | `client` for returned rows or `sink` for rows written to a relation |
+| `kind` | `client` for returned rows or `sink` for results received by a relation or host bind |
 | `block` | `dml_result` block containing the channel output targets |
-| `sink_relation` | Sink relation index; present only for a `sink` channel |
-| `sink_columns` | Sink-column objects; omitted without an explicit column list |
+| `sink_relation` | Sink relation index; present only for a relation-backed sink |
+| `sink_columns` | Target-column objects for a relation-backed sink; omitted without an explicit column list |
 | `references` | Result-target references to target-row or source-relation fields; present when non-empty |
+
+A relation-backed sink identifies its destination through `sink_relation` and
+optional `sink_columns`. A host-bind sink omits both fields. Each result target
+uses `sink_value` to reference its output bind in `query_graph.values[]`. That
+value retains the existing value `selector`, which can be targeted by
+`SQLPARSER_PATCH_REPLACE`; no new selector kind is introduced. This
+representation is used by single-target `RETURNING ... INTO :bind` in Oracle
+and Vastbase-Oracle compatibility mode, and by single-target `RETURN` /
+`RETURNING ... INTO :bind` in Dameng.
 
 Each `references[]` item contains a result `target` index, an optional `field`
 index, a `relation` index, and a `kind`. The kind is `target_before`,

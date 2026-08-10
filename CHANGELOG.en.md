@@ -1,5 +1,44 @@
 # Changelog
 
+## 2.15.1
+
+### DML Results Returned into Host Binds
+
+- Oracle and Vastbase-Oracle support one `RETURNING` expression and one
+  colon-prefixed `INTO` host bind for `INSERT`, `UPDATE`, and `DELETE`.
+- Dameng supports `RETURNING ... INTO :bind` for `INSERT` and `DELETE`, and
+  `RETURN ... INTO :bind` for `UPDATE`.
+- Query Graph represents the return flow as a sink result channel. The result
+  target's `sink_value` references the output bind in `query_graph.values[]`.
+  `INSERT` and `UPDATE` use `target_after` lineage; `DELETE` uses
+  `target_before` lineage.
+
+### Patch and Source Preservation
+
+- DML input values, result targets, and output binds reuse existing selectors
+  and `SQLPARSER_PATCH_REPLACE`; no dedicated patch type is introduced.
+- After a result-target or output-bind patch, unchanged identifier delimiters,
+  letter case, whitespace, keywords, and bind spelling remain byte-preserved.
+- The supported boundary is one result target and one colon-prefixed host
+  bind. Multiple result targets, multiple output binds, and `BULK COLLECT`
+  remain unsupported.
+
+### API, Cases, and Validation
+
+- `sqlparser_graph_target_t` adds `sink_value_index` and `has_sink_value`.
+  This release adds no public functions, enums, or resource-ownership rules.
+  Because the public structure layout changes, C applications should be
+  rebuilt against the 2.15.1 headers.
+- Nine final cases and 27 independent patches were added across Oracle,
+  Dameng, and Vastbase-Oracle. The nine current fixtures contain 2,767 final
+  cases and 8,972 patches.
+- Repository examples, documentation, and test data use the neutral `APP`
+  schema name. This convention does not restrict schema names in caller SQL.
+- Targeted strict regression covered 841 cases and 2,939 patches with zero
+  failures. Affected core API checks, three examples, and CLI argument-order
+  checks passed. Targeted Valgrind checks for the three affected dialects
+  reported no memory remaining at exit and zero errors.
+
 ## 2.15.0
 
 ### Linux AArch64 Builds

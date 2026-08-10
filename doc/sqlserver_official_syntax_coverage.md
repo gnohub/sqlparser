@@ -6,8 +6,6 @@
 
 - [Microsoft Learn: Transact-SQL Reference](https://learn.microsoft.com/en-us/sql/t-sql/language-reference)
 - [MicrosoftDocs/sql-docs: `docs/t-sql`](https://github.com/MicrosoftDocs/sql-docs/tree/live/docs/t-sql)
-- 统计日期：2026-07-15
-
 统计范围固定为官方文档仓库中的以下目录：
 
 | 目录 | 条目数 |

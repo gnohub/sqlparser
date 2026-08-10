@@ -1761,7 +1761,7 @@ static int test_update_assignment_bind_rhs_literal_rewrite(void)
 		},
 		{
 			SQLPARSER_DIALECT_ORACLE,
-			"UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :1 WHERE ID = :2",
+			"UPDATE APP.DBP_CRYPTO_TEST SET SECRET = :1 WHERE ID = :2",
 			"SECRET_ORIG",
 			"oracle-pos-encrypted",
 			"\"SECRET_ORIG\" = :1",
@@ -1772,7 +1772,7 @@ static int test_update_assignment_bind_rhs_literal_rewrite(void)
 		},
 		{
 			SQLPARSER_DIALECT_ORACLE,
-			"UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = ? WHERE ID = ?",
+			"UPDATE APP.DBP_CRYPTO_TEST SET SECRET = ? WHERE ID = ?",
 			"SECRET_ORIG",
 			"oracle-question-encrypted",
 			"\"SECRET_ORIG\" = ?",
@@ -1783,7 +1783,7 @@ static int test_update_assignment_bind_rhs_literal_rewrite(void)
 		},
 		{
 			SQLPARSER_DIALECT_ORACLE,
-			"UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :secret, NOTE = :note WHERE ID = :id",
+			"UPDATE APP.DBP_CRYPTO_TEST SET SECRET = :secret, NOTE = :note WHERE ID = :id",
 			"SECRET_ORIG",
 			"oracle-named-encrypted",
 			"\"SECRET_ORIG\" = :secret",
@@ -1794,7 +1794,7 @@ static int test_update_assignment_bind_rhs_literal_rewrite(void)
 		},
 		{
 			SQLPARSER_DIALECT_ORACLE,
-			"UPDATE KDES.DBP_CRYPTO_TEST SET STATUS = 'ACTIVE', SECRET = :1 WHERE ID = :2",
+			"UPDATE APP.DBP_CRYPTO_TEST SET STATUS = 'ACTIVE', SECRET = :1 WHERE ID = :2",
 			"SECRET_ORIG",
 			"oracle-mixed-encrypted",
 			"\"SECRET_ORIG\" = :1",
@@ -1805,7 +1805,7 @@ static int test_update_assignment_bind_rhs_literal_rewrite(void)
 		},
 		{
 			SQLPARSER_DIALECT_ORACLE,
-			"UPDATE \"KDES\".\"DBP_CRYPTO_TEST\" SET \"SECRET\" = :1 WHERE \"ID\" = :2",
+			"UPDATE \"APP\".\"DBP_CRYPTO_TEST\" SET \"SECRET\" = :1 WHERE \"ID\" = :2",
 			"SECRET_ORIG",
 			"oracle-quoted-encrypted",
 			"\"SECRET_ORIG\" = :1",
@@ -1827,7 +1827,7 @@ static int test_update_assignment_bind_rhs_literal_rewrite(void)
 		},
 		{
 			SQLPARSER_DIALECT_DAMENG,
-			"UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :1 WHERE ID = :2",
+			"UPDATE APP.DBP_CRYPTO_TEST SET SECRET = :1 WHERE ID = :2",
 			"SECRET_ORIG",
 			"dameng-encrypted",
 			"\"SECRET_ORIG\" = :1",
@@ -1948,7 +1948,7 @@ static int test_update_assignment_multiple_bind_rhs_literal_rewrite(void)
 	options.dialect = SQLPARSER_DIALECT_ORACLE;
 
 	rc = sqlparser_parse_with_options(
-		"UPDATE KDES.DBP_CRYPTO_TEST SET PHONE = :1, SECRET = :2 WHERE ID = :3",
+		"UPDATE APP.DBP_CRYPTO_TEST SET PHONE = :1, SECRET = :2 WHERE ID = :3",
 		&options,
 		&handle,
 		&error);
@@ -7150,7 +7150,7 @@ static int test_insert_cell_bind_mutation(void)
 	options.dialect = SQLPARSER_DIALECT_ORACLE;
 
 	rc = sqlparser_parse_with_options(
-		"INSERT INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (:1, :2)",
+		"INSERT INTO APP.DBP_CRYPTO_TEST (ID, SECRET) VALUES (:1, :2)",
 		&options,
 		&handle,
 		&error);
@@ -18958,11 +18958,11 @@ static int test_query_graph_field_match_kind_semantics(void)
 		},
 		{
 			SQLPARSER_DIALECT_ORACLE,
-			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = :secret",
-			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE UPPER(SECRET) = :secret",
-			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE CAST(SECRET AS VARCHAR(32)) = :secret",
-			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET || 'x' = :secret",
-			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE CASE WHEN 1 = 1 THEN SECRET END = :secret",
+			"SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE SECRET = :secret",
+			"SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE UPPER(SECRET) = :secret",
+			"SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE CAST(SECRET AS VARCHAR(32)) = :secret",
+			"SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE SECRET || 'x' = :secret",
+			"SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE CASE WHEN 1 = 1 THEN SECRET END = :secret",
 			"SECRET"
 		},
 		{
@@ -18976,11 +18976,11 @@ static int test_query_graph_field_match_kind_semantics(void)
 		},
 		{
 			SQLPARSER_DIALECT_DAMENG,
-			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE secret = :secret",
-			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE UPPER(secret) = :secret",
-			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE CAST(secret AS VARCHAR(32)) = :secret",
-			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE secret || 'x' = :secret",
-			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE CASE WHEN 1 = 1 THEN secret END = :secret",
+			"SELECT id FROM APP.DBP_CRYPTO_TEST WHERE secret = :secret",
+			"SELECT id FROM APP.DBP_CRYPTO_TEST WHERE UPPER(secret) = :secret",
+			"SELECT id FROM APP.DBP_CRYPTO_TEST WHERE CAST(secret AS VARCHAR(32)) = :secret",
+			"SELECT id FROM APP.DBP_CRYPTO_TEST WHERE secret || 'x' = :secret",
+			"SELECT id FROM APP.DBP_CRYPTO_TEST WHERE CASE WHEN 1 = 1 THEN secret END = :secret",
 			"secret"
 		}
 	};
@@ -19026,7 +19026,7 @@ static int test_query_graph_field_match_kind_semantics(void)
 	sqlparser_parse_options_default(&options);
 	options.dialect = SQLPARSER_DIALECT_ORACLE;
 	rc = sqlparser_parse_with_options(
-		"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = :plain_secret AND UPPER(SECRET) = :upper_secret",
+		"SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE SECRET = :plain_secret AND UPPER(SECRET) = :upper_secret",
 		&options,
 		&handle,
 		&error);
@@ -19425,17 +19425,17 @@ static int test_query_graph_expression_field_value_semantics(void)
 		},
 		{
 			SQLPARSER_DIALECT_ORACLE,
-			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE CASE WHEN ID = 1 THEN SECRET ELSE BACKUP_SECRET END = :v",
-			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE NVL(SECRET, ID) = :v",
-			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET || ID = :v",
-			"SELECT ID FROM (SELECT ID, SECRET FROM KDES.DBP_CRYPTO_TEST) s WHERE UPPER(s.SECRET) = :v",
-			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = UPPER(:v)",
-			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = :v || 'x'",
-			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = CAST(:v AS VARCHAR(32))",
-			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = CASE WHEN ID = 1 THEN :v END",
-			"INSERT INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (1, UPPER(:v))",
-			"INSERT INTO KDES.DBP_CRYPTO_TEST VALUES (1, UPPER(:v))",
-			"UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = UPPER(:v) WHERE ID = 1",
+			"SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE CASE WHEN ID = 1 THEN SECRET ELSE BACKUP_SECRET END = :v",
+			"SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE NVL(SECRET, ID) = :v",
+			"SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE SECRET || ID = :v",
+			"SELECT ID FROM (SELECT ID, SECRET FROM APP.DBP_CRYPTO_TEST) s WHERE UPPER(s.SECRET) = :v",
+			"SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE SECRET = UPPER(:v)",
+			"SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE SECRET = :v || 'x'",
+			"SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE SECRET = CAST(:v AS VARCHAR(32))",
+			"SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE SECRET = CASE WHEN ID = 1 THEN :v END",
+			"INSERT INTO APP.DBP_CRYPTO_TEST (ID, SECRET) VALUES (1, UPPER(:v))",
+			"INSERT INTO APP.DBP_CRYPTO_TEST VALUES (1, UPPER(:v))",
+			"UPDATE APP.DBP_CRYPTO_TEST SET SECRET = UPPER(:v) WHERE ID = 1",
 			"SECRET",
 			"ID"
 		},
@@ -19457,17 +19457,17 @@ static int test_query_graph_expression_field_value_semantics(void)
 		},
 		{
 			SQLPARSER_DIALECT_DAMENG,
-			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE CASE WHEN id = 1 THEN secret ELSE backup_secret END = :v",
-			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE NVL(secret, id) = :v",
-			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE secret || id = :v",
-			"SELECT id FROM (SELECT id, secret FROM KDES.DBP_CRYPTO_TEST) s WHERE UPPER(s.secret) = :v",
-			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE secret = UPPER(:v)",
-			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE secret = :v || 'x'",
-			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE secret = CAST(:v AS VARCHAR(32))",
-			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE secret = CASE WHEN id = 1 THEN :v END",
-			"INSERT INTO KDES.DBP_CRYPTO_TEST (id, secret) VALUES (1, UPPER(:v))",
-			"INSERT INTO KDES.DBP_CRYPTO_TEST VALUES (1, UPPER(:v))",
-			"UPDATE KDES.DBP_CRYPTO_TEST SET secret = UPPER(:v) WHERE id = 1",
+			"SELECT id FROM APP.DBP_CRYPTO_TEST WHERE CASE WHEN id = 1 THEN secret ELSE backup_secret END = :v",
+			"SELECT id FROM APP.DBP_CRYPTO_TEST WHERE NVL(secret, id) = :v",
+			"SELECT id FROM APP.DBP_CRYPTO_TEST WHERE secret || id = :v",
+			"SELECT id FROM (SELECT id, secret FROM APP.DBP_CRYPTO_TEST) s WHERE UPPER(s.secret) = :v",
+			"SELECT id FROM APP.DBP_CRYPTO_TEST WHERE secret = UPPER(:v)",
+			"SELECT id FROM APP.DBP_CRYPTO_TEST WHERE secret = :v || 'x'",
+			"SELECT id FROM APP.DBP_CRYPTO_TEST WHERE secret = CAST(:v AS VARCHAR(32))",
+			"SELECT id FROM APP.DBP_CRYPTO_TEST WHERE secret = CASE WHEN id = 1 THEN :v END",
+			"INSERT INTO APP.DBP_CRYPTO_TEST (id, secret) VALUES (1, UPPER(:v))",
+			"INSERT INTO APP.DBP_CRYPTO_TEST VALUES (1, UPPER(:v))",
+			"UPDATE APP.DBP_CRYPTO_TEST SET secret = UPPER(:v) WHERE id = 1",
 			"secret",
 			"id"
 		}
@@ -22566,9 +22566,9 @@ static int test_query_graph_column_semantics_json(void)
 	} dialect_cases[] = {
 		{SQLPARSER_DIALECT_POSTGRESQL, "SELECT name, UPPER(name), first_name || last_name FROM users WHERE id = 1 ORDER BY created_at", "users"},
 		{SQLPARSER_DIALECT_MYSQL, "SELECT name, UPPER(name), CONCAT(first_name, last_name) FROM users WHERE id = ? ORDER BY created_at", "users"},
-		{SQLPARSER_DIALECT_ORACLE, "SELECT name, UPPER(name), first_name || last_name FROM KDES.USERS WHERE id = :id ORDER BY created_at", "USERS"},
+		{SQLPARSER_DIALECT_ORACLE, "SELECT name, UPPER(name), first_name || last_name FROM APP.USERS WHERE id = :id ORDER BY created_at", "USERS"},
 		{SQLPARSER_DIALECT_SQLSERVER, "SELECT [name], UPPER([name]), [first_name] + [last_name] FROM [dbo].[users] WHERE [id] = @id ORDER BY [created_at]", "users"},
-		{SQLPARSER_DIALECT_DAMENG, "SELECT name, UPPER(name), first_name || last_name FROM KDES.USERS WHERE id = :id ORDER BY created_at", "USERS"}
+		{SQLPARSER_DIALECT_DAMENG, "SELECT name, UPPER(name), first_name || last_name FROM APP.USERS WHERE id = :id ORDER BY created_at", "USERS"}
 	};
 	json_t *root;
 	json_t *statement;
@@ -24366,7 +24366,7 @@ static int test_insert_select_target_values(void)
 
 	handle = NULL;
 	rc = sqlparser_parse_with_options(
-		"INSERT INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) "
+		"INSERT INTO APP.DBP_CRYPTO_TEST (ID, SECRET) "
 		"SELECT 960001, 'a' FROM DUAL UNION ALL SELECT 960002, 'b' FROM DUAL",
 		&options,
 		&handle,
@@ -24391,7 +24391,7 @@ static int test_insert_select_target_values(void)
 
 	handle = NULL;
 	rc = sqlparser_parse_with_options(
-		"INSERT INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) "
+		"INSERT INTO APP.DBP_CRYPTO_TEST (ID, SECRET) "
 		"SELECT 960001, 'a' FROM DUAL UNION SELECT 960002, 'b' FROM DUAL",
 		&options,
 		&handle,
@@ -24415,7 +24415,7 @@ static int test_insert_select_target_values(void)
 
 	handle = NULL;
 	rc = sqlparser_parse_with_options(
-		"INSERT INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) "
+		"INSERT INTO APP.DBP_CRYPTO_TEST (ID, SECRET) "
 		"SELECT :1, :2 FROM DUAL INTERSECT SELECT :3, :4 FROM DUAL",
 		&options,
 		&handle,
@@ -24439,7 +24439,7 @@ static int test_insert_select_target_values(void)
 
 	handle = NULL;
 	rc = sqlparser_parse_with_options(
-		"INSERT INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) "
+		"INSERT INTO APP.DBP_CRYPTO_TEST (ID, SECRET) "
 		"SELECT :id1, :secret1 FROM DUAL MINUS SELECT :id2, :secret2 FROM DUAL",
 		&options,
 		&handle,
@@ -24516,7 +24516,7 @@ static int test_insert_select_target_values(void)
 
 	handle = NULL;
 	rc = sqlparser_parse_with_options(
-		"INSERT INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) "
+		"INSERT INTO APP.DBP_CRYPTO_TEST (ID, SECRET) "
 		"SELECT :1, :2 FROM DUAL UNION ALL SELECT :id2, :secret2 FROM DUAL",
 		&options,
 		&handle,
@@ -24645,7 +24645,7 @@ static int test_multi_insert_pristine_source_clone_patch_sequence(void)
 	};
 	static const char input_sql[] =
 		"INSERT ALL "
-		"INTO KDES.DBP_SQLM_USERS ("
+		"INTO APP.DBP_SQLM_USERS ("
 		"C01, C02, C03, C04, C05, C06, C07, C08, "
 		"C09, C10, C11, C12, C13, C14, C15, C16, "
 		"C17, C18, C19, C20, C21, C22, C23, C24, "
@@ -24655,7 +24655,7 @@ static int test_multi_insert_pristine_source_clone_patch_sequence(void)
 		":9, :10, :11, :12, :13, :14, :15, :16, "
 		":17, :18, :19, :20, :21, :22, :23, :24, "
 		":25, :26, :27, :28, :29, :30, :31, :32) "
-		"INTO KDES.DBP_SQLM_USERS ("
+		"INTO APP.DBP_SQLM_USERS ("
 		"C01, C02, C03, C04, C05, C06, C07, C08, "
 		"C09, C10, C11, C12, C13, C14, C15, C16, "
 		"C17, C18, C19, C20, C21, C22, C23, C24, "
@@ -24668,7 +24668,7 @@ static int test_multi_insert_pristine_source_clone_patch_sequence(void)
 		"SELECT 1 FROM DUAL";
 	static const char expected_sql[] =
 		"INSERT ALL "
-		"INTO KDES.DBP_SQLM_USERS ("
+		"INTO APP.DBP_SQLM_USERS ("
 		"C01, C02, C03, C04, C05, C06, C07, C08, "
 		"C09, C10, C11, C12, C13, C14, C15, C16, "
 		"C17, C18, C19, C20, C21, C22, C23, C24, "
@@ -24680,7 +24680,7 @@ static int test_multi_insert_pristine_source_clone_patch_sequence(void)
 		":17, :18, :19, :20, :21, :22, :23, :24, "
 		":25, :26, :27, :28, :29, :30, :31, :32, "
 		":65, :66, :67, :68) "
-		"INTO KDES.DBP_SQLM_USERS ("
+		"INTO APP.DBP_SQLM_USERS ("
 		"C01, C02, C03, C04, C05, C06, C07, C08, "
 		"C09, C10, C11, C12, C13, C14, C15, C16, "
 		"C17, C18, C19, C20, C21, C22, C23, C24, "
@@ -24872,8 +24872,8 @@ static int test_oracle_multi_insert_query_graph_and_patch(void)
 	handle = NULL;
 	rc = sqlparser_parse_with_options(
 		"INSERT ALL "
-		"INTO KDES.t1 (id, secret) VALUES (1, 'a') "
-		"INTO KDES.t2 (id, phone) VALUES (2, :phone2) "
+		"INTO APP.t1 (id, secret) VALUES (1, 'a') "
+		"INTO APP.t2 (id, phone) VALUES (2, :phone2) "
 		"SELECT 1 FROM dual",
 		&options,
 		&handle,
@@ -24897,7 +24897,7 @@ static int test_oracle_multi_insert_query_graph_and_patch(void)
 	    expect_true(branch.target_columns.count == 2U, "Oracle INSERT ALL second branch column count mismatch") != 0 ||
 	    expect_true(branch.rows.count == 2U, "Oracle INSERT ALL second branch cell count mismatch") != 0 ||
 	    expect_status_ok(sqlparser_query_graph_relation_at(&graph, branch.target_relation_index, &relation, &error), &error, "Oracle INSERT ALL second relation should be available") != 0 ||
-	    expect_true(relation.schema_name != NULL && strcmp(relation.schema_name, "KDES") == 0, "Oracle INSERT ALL second relation schema mismatch") != 0 ||
+	    expect_true(relation.schema_name != NULL && strcmp(relation.schema_name, "APP") == 0, "Oracle INSERT ALL second relation schema mismatch") != 0 ||
 	    expect_true(relation.object_name != NULL && strcmp(relation.object_name, "t2") == 0, "Oracle INSERT ALL second relation mismatch") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
@@ -25217,8 +25217,8 @@ static int test_dameng_multi_insert_query_graph_and_patch(void)
 	handle = NULL;
 	rc = sqlparser_parse_with_options(
 		"INSERT ALL "
-		"INTO KDES.t1 (id, secret) VALUES (1, 'a') "
-		"INTO KDES.t2 (id, phone) VALUES (2, :phone2) "
+		"INTO APP.t1 (id, secret) VALUES (1, 'a') "
+		"INTO APP.t2 (id, phone) VALUES (2, :phone2) "
 		"SELECT 1 FROM dual",
 		&options,
 		&handle,
@@ -25241,7 +25241,7 @@ static int test_dameng_multi_insert_query_graph_and_patch(void)
 	    expect_true(branch.target_columns.count == 2U, "Dameng INSERT ALL second branch column count mismatch") != 0 ||
 	    expect_true(branch.rows.count == 2U, "Dameng INSERT ALL second branch cell count mismatch") != 0 ||
 	    expect_status_ok(sqlparser_query_graph_relation_at(&graph, branch.target_relation_index, &relation, &error), &error, "Dameng INSERT ALL second relation should be available") != 0 ||
-	    expect_true(relation.schema_name != NULL && strcmp(relation.schema_name, "KDES") == 0, "Dameng INSERT ALL second relation schema mismatch") != 0 ||
+	    expect_true(relation.schema_name != NULL && strcmp(relation.schema_name, "APP") == 0, "Dameng INSERT ALL second relation schema mismatch") != 0 ||
 	    expect_true(relation.object_name != NULL && strcmp(relation.object_name, "t2") == 0, "Dameng INSERT ALL second relation mismatch") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
@@ -25909,7 +25909,7 @@ static int test_oracle_compatible_merge_assignment_patch_closure_case(
 	sqlparser_dialect_t dialect)
 {
 	static const char expected_inserted_sql[] =
-		"MERGE INTO KDES.DBP_SQLM_USERS u "
+		"MERGE INTO APP.DBP_SQLM_USERS u "
 		"USING (SELECT :1 ID, :2 PHONE FROM DUAL) s "
 		"ON (u.ID = s.ID) "
 		"WHEN MATCHED THEN UPDATE SET "
@@ -25933,7 +25933,7 @@ static int test_oracle_compatible_merge_assignment_patch_closure_case(
 	int rc;
 
 	sql =
-		"MERGE INTO KDES.DBP_SQLM_USERS u "
+		"MERGE INTO APP.DBP_SQLM_USERS u "
 		"USING (SELECT :1 ID, :2 PHONE FROM DUAL) s "
 		"ON (u.ID = s.ID) "
 		"WHEN MATCHED THEN UPDATE SET u.PHONE = s.PHONE";
@@ -26884,7 +26884,7 @@ static int test_oracle_merge_assignment_patch_failures(void)
 	int rc;
 
 	sql =
-		"MERGE INTO KDES.DBP_SQLM_USERS u "
+		"MERGE INTO APP.DBP_SQLM_USERS u "
 		"USING (SELECT :1 ID, :2 PHONE FROM DUAL) s "
 		"ON (u.ID = s.ID) "
 		"WHEN MATCHED THEN UPDATE SET u.PHONE = s.PHONE "
@@ -32166,17 +32166,17 @@ static int test_session_context_patch_api(void)
 		},
 		{
 			SQLPARSER_DIALECT_ORACLE,
-			"ALTER SESSION SET CURRENT_SCHEMA=KDES",
+			"ALTER SESSION SET CURRENT_SCHEMA=APP",
 			"stmt[0].value[0]",
 			"APP",
 			"ALTER SESSION SET CURRENT_SCHEMA = APP"
 		},
 		{
 			SQLPARSER_DIALECT_ORACLE,
-			"SELECT * FROM users; ALTER SESSION SET CURRENT_SCHEMA=KDES",
+			"SELECT * FROM users; ALTER SESSION SET CURRENT_SCHEMA=APP",
 			"stmt[0].relation[0]",
 			"next_users",
-			"ALTER SESSION SET CURRENT_SCHEMA=KDES"
+			"ALTER SESSION SET CURRENT_SCHEMA=APP"
 		},
 		{
 			SQLPARSER_DIALECT_ORACLE,
@@ -32187,14 +32187,14 @@ static int test_session_context_patch_api(void)
 		},
 		{
 			SQLPARSER_DIALECT_DAMENG,
-			"SET SCHEMA KDES",
+			"SET SCHEMA APP",
 			"stmt[0].value[0]",
 			"APP",
 			"ALTER SESSION SET CURRENT_SCHEMA = APP"
 		},
 		{
 			SQLPARSER_DIALECT_DAMENG,
-			"ALTER SESSION SET CURRENT_SCHEMA=KDES",
+			"ALTER SESSION SET CURRENT_SCHEMA=APP",
 			"stmt[0].value[0]",
 			"APP",
 			"ALTER SESSION SET CURRENT_SCHEMA = APP"
@@ -32396,34 +32396,34 @@ static int test_session_tail_patch_preservation(void)
 		{
 			"next_users",
 			"next_users",
-			"SELECT * FROM next_users; ALTER SESSION SET CURRENT_SCHEMA=KDES"
+			"SELECT * FROM next_users; ALTER SESSION SET CURRENT_SCHEMA=APP"
 		},
 		{
 			"\"NextUsers\"",
 			"NextUsers",
-			"SELECT * FROM \"NextUsers\"; ALTER SESSION SET CURRENT_SCHEMA=KDES"
+			"SELECT * FROM \"NextUsers\"; ALTER SESSION SET CURRENT_SCHEMA=APP"
 		},
 		{
 			"users",
 			"users",
-			"SELECT * FROM users; ALTER SESSION SET CURRENT_SCHEMA=KDES"
+			"SELECT * FROM users; ALTER SESSION SET CURRENT_SCHEMA=APP"
 		}
 	};
 	static const char relation_sql[] =
-		"SELECT * FROM users; ALTER SESSION SET CURRENT_SCHEMA=KDES";
+		"SELECT * FROM users; ALTER SESSION SET CURRENT_SCHEMA=APP";
 	static const char delete_sql[] =
 		"SELECT KeepCol, DropCol FROM BaseTable; "
-		"ALTER SESSION SET CURRENT_SCHEMA=KDES";
+		"ALTER SESSION SET CURRENT_SCHEMA=APP";
 	static const char delete_expected[] =
 		"SELECT KeepCol FROM BaseTable; "
-		"ALTER SESSION SET CURRENT_SCHEMA = KDES";
+		"ALTER SESSION SET CURRENT_SCHEMA = APP";
 	static const char where_sql[] =
 		"SELECT KeepCol FROM BaseTable "
 		"WHERE KeepCol = 1 AND DropCol = 2; "
-		"ALTER SESSION SET CURRENT_SCHEMA=KDES";
+		"ALTER SESSION SET CURRENT_SCHEMA=APP";
 	static const char where_expected[] =
 		"SELECT KeepCol FROM BaseTable WHERE KeepCol = 3; "
-		"ALTER SESSION SET CURRENT_SCHEMA = KDES";
+		"ALTER SESSION SET CURRENT_SCHEMA = APP";
 	size_t dialect_index;
 	size_t patch_index;
 
@@ -32697,14 +32697,14 @@ static int test_session_context_quoted_identifier_literal_api(void)
 	} cases[] = {
 		{
 			SQLPARSER_DIALECT_ORACLE,
-			"ALTER SESSION SET CURRENT_SCHEMA=KDES",
-			"KDES",
+			"ALTER SESSION SET CURRENT_SCHEMA=APP",
+			"APP",
 			0
 		},
 		{
 			SQLPARSER_DIALECT_ORACLE,
-			"ALTER SESSION SET CURRENT_SCHEMA=\"KdesMixed\"",
-			"KdesMixed",
+			"ALTER SESSION SET CURRENT_SCHEMA=\"AppMixed\"",
+			"AppMixed",
 			1
 		},
 		{
@@ -32715,14 +32715,14 @@ static int test_session_context_quoted_identifier_literal_api(void)
 		},
 		{
 			SQLPARSER_DIALECT_DAMENG,
-			"ALTER SESSION SET CURRENT_SCHEMA=KDES",
-			"KDES",
+			"ALTER SESSION SET CURRENT_SCHEMA=APP",
+			"APP",
 			0
 		},
 		{
 			SQLPARSER_DIALECT_DAMENG,
-			"ALTER SESSION SET CURRENT_SCHEMA=\"KdesMixed\"",
-			"KdesMixed",
+			"ALTER SESSION SET CURRENT_SCHEMA=\"AppMixed\"",
+			"AppMixed",
 			1
 		}
 	};
@@ -33206,24 +33206,24 @@ static int test_deparse_identifier_spelling(void)
 		},
 		{
 			SQLPARSER_DIALECT_POSTGRESQL,
-			"INSERT INTO KDES.Users (UserID, UserName) VALUES (1, 'Alice')",
-			{"KDES.Users", "(UserID, UserName)", NULL}
+			"INSERT INTO APP.Users (UserID, UserName) VALUES (1, 'Alice')",
+			{"APP.Users", "(UserID, UserName)", NULL}
 		},
 		{
 			SQLPARSER_DIALECT_POSTGRESQL,
-			"UPDATE KDES.Users U SET UserName = 'Alice' WHERE U.UserID = 1",
-			{"KDES.Users U", "UserName = 'Alice'", "U.UserID"}
+			"UPDATE APP.Users U SET UserName = 'Alice' WHERE U.UserID = 1",
+			{"APP.Users U", "UserName = 'Alice'", "U.UserID"}
 		},
 		{
 			SQLPARSER_DIALECT_POSTGRESQL,
-			"DELETE FROM KDES.Users U WHERE U.UserID = 1",
-			{"KDES.Users U", "U.UserID", NULL}
+			"DELETE FROM APP.Users U WHERE U.UserID = 1",
+			{"APP.Users U", "U.UserID", NULL}
 		},
 		{
 			SQLPARSER_DIALECT_POSTGRESQL,
-			"CREATE TABLE KDES.Users (UserID BIGINT, UserName TEXT, "
+			"CREATE TABLE APP.Users (UserID BIGINT, UserName TEXT, "
 			"CONSTRAINT PK_Users PRIMARY KEY (UserID)); "
-			"CREATE INDEX IDX_Users_UserName ON KDES.Users (UserName)",
+			"CREATE INDEX IDX_Users_UserName ON APP.Users (UserName)",
 			{"CONSTRAINT PK_Users PRIMARY KEY (UserID)", "INDEX IDX_Users_UserName", "(UserName)"}
 		},
 		{
@@ -33254,10 +33254,10 @@ static int test_deparse_identifier_spelling(void)
 		},
 		{
 			SQLPARSER_DIALECT_ORACLE,
-			"MERGE INTO KDES.DBP_SQLM_USERS U "
+			"MERGE INTO APP.DBP_SQLM_USERS U "
 			"USING (SELECT ? ID, ? PHONE FROM DUAL) S "
 			"ON (U.ID = S.ID) WHEN MATCHED THEN UPDATE SET U.PHONE = S.PHONE",
-			{"KDES.DBP_SQLM_USERS U", "? ID, ? PHONE", "U.PHONE = S.PHONE"}
+			{"APP.DBP_SQLM_USERS U", "? ID, ? PHONE", "U.PHONE = S.PHONE"}
 		},
 		{
 			SQLPARSER_DIALECT_ORACLE,
@@ -33276,8 +33276,8 @@ static int test_deparse_identifier_spelling(void)
 		},
 		{
 			SQLPARSER_DIALECT_DAMENG,
-			"SELECT U.ID AS UserID FROM KDES.Users U WHERE U.UserName = :UserName",
-			{"U.ID AS UserID", "KDES.Users U", "U.UserName = :UserName"}
+			"SELECT U.ID AS UserID FROM APP.Users U WHERE U.UserName = :UserName",
+			{"U.ID AS UserID", "APP.Users U", "U.UserName = :UserName"}
 		},
 		{
 			SQLPARSER_DIALECT_DAMENG,
@@ -33296,8 +33296,8 @@ static int test_deparse_identifier_spelling(void)
 		},
 		{
 			SQLPARSER_DIALECT_VASTBASE_ORACLE,
-			"SELECT U.ID AS UserID FROM KDES.Users U WHERE U.UserName = :UserName",
-			{"U.ID AS UserID", "KDES.Users U", "U.UserName = :UserName"}
+			"SELECT U.ID AS UserID FROM APP.Users U WHERE U.UserName = :UserName",
+			{"U.ID AS UserID", "APP.Users U", "U.UserName = :UserName"}
 		},
 		{
 			SQLPARSER_DIALECT_VASTBASE_ORACLE,
@@ -33372,7 +33372,7 @@ static int test_deparse_identifier_spelling(void)
 	sqlparser_parse_options_default(&options);
 	options.dialect = SQLPARSER_DIALECT_ORACLE;
 	rc = sqlparser_parse_with_options(
-		"UPDATE KDES.DBP_SQLM_USERS U SET U.PHONE = :Phone WHERE U.ID = :ID",
+		"UPDATE APP.DBP_SQLM_USERS U SET U.PHONE = :Phone WHERE U.ID = :ID",
 		&options,
 		&handle,
 		&error);
@@ -33392,7 +33392,7 @@ static int test_deparse_identifier_spelling(void)
 	}
 	rc = sqlparser_deparse(handle, &deparsed, &error);
 	if (expect_status_ok(rc, &error, "identifier spelling patch deparse should succeed") != 0 ||
-	    expect_true(strstr(deparsed, "KDES.DBP_SQLM_USERS U") != NULL,
+	    expect_true(strstr(deparsed, "APP.DBP_SQLM_USERS U") != NULL,
 	                "patched deparse should preserve relation spelling") != 0 ||
 	    expect_true(strstr(deparsed, "U.PHONE") != NULL,
 	                "patched deparse should preserve assignment column spelling") != 0 ||
@@ -33411,7 +33411,7 @@ static int test_deparse_identifier_spelling(void)
 	sqlparser_parse_options_default(&options);
 	options.dialect = SQLPARSER_DIALECT_ORACLE;
 	rc = sqlparser_parse_with_options(
-		"SELECT U.ID FROM KDES.USERS U WHERE U.STATUS = :STATUS",
+		"SELECT U.ID FROM APP.USERS U WHERE U.STATUS = :STATUS",
 		&options,
 		&handle,
 		&error);
@@ -33434,7 +33434,7 @@ static int test_deparse_identifier_spelling(void)
 	if (expect_status_ok(rc, &error, "identifier spelling collision deparse should succeed") != 0 ||
 	    expect_true(strstr(deparsed, "U.ID, u.status AS status") != NULL,
 	                "generated target should keep patch spelling") != 0 ||
-	    expect_true(strstr(deparsed, "KDES.USERS U") != NULL,
+	    expect_true(strstr(deparsed, "APP.USERS U") != NULL,
 	                "collision deparse should preserve relation spelling") != 0 ||
 	    expect_true(strstr(deparsed, "U.STATUS = :STATUS") != NULL,
 	                "collision deparse should preserve existing predicate spelling") != 0) {
@@ -33751,14 +33751,14 @@ static int test_query_graph_session_semantics(void)
 		},
 		{
 			SQLPARSER_DIALECT_ORACLE,
-			"ALTER SESSION SET CURRENT_SCHEMA=KDES",
+			"ALTER SESSION SET CURRENT_SCHEMA=APP",
 			0U,
 			SQLPARSER_GRAPH_SESSION_ACTION_SWITCH,
 			SQLPARSER_GRAPH_SESSION_SCOPE_SESSION,
 			SQLPARSER_GRAPH_SESSION_TARGET_SCHEMA,
 			NULL,
 			SQLPARSER_GRAPH_SESSION_VALUE_IDENTIFIER,
-			"KDES",
+			"APP",
 			NULL,
 			NULL,
 			0U
@@ -34608,8 +34608,8 @@ static int test_oracle_family_cast_bind_deparse_after_relation_patch(void)
 	static const test_case_t cases[] = {
 		{
 			SQLPARSER_DIALECT_ORACLE,
-			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = UPPER(:v1) AND SECRET = :v2 || 'x' AND SECRET = CAST(:v3 AS VARCHAR(32))",
-			"KDES",
+			"SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE SECRET = UPPER(:v1) AND SECRET = :v2 || 'x' AND SECRET = CAST(:v3 AS VARCHAR(32))",
+			"APP",
 			"DBP_CRYPTO_TEST_PATCHED",
 			"CAST(:v3 AS ",
 			"\"field_match_kind\":\"direct_field\",\"kind\":\"expression\"",
@@ -34626,8 +34626,8 @@ static int test_oracle_family_cast_bind_deparse_after_relation_patch(void)
 		},
 		{
 			SQLPARSER_DIALECT_DAMENG,
-			"SELECT id FROM KDES.DBP_CRYPTO_TEST WHERE secret = UPPER(:v1) AND secret = :v2 || 'x' AND secret = CAST(:v3 AS VARCHAR(32))",
-			"KDES",
+			"SELECT id FROM APP.DBP_CRYPTO_TEST WHERE secret = UPPER(:v1) AND secret = :v2 || 'x' AND secret = CAST(:v3 AS VARCHAR(32))",
+			"APP",
 			"DBP_CRYPTO_TEST_PATCHED",
 			"CAST(:v3 AS ",
 			"\"field_match_kind\":\"direct_field\",\"kind\":\"expression\"",
@@ -34644,8 +34644,8 @@ static int test_oracle_family_cast_bind_deparse_after_relation_patch(void)
 		},
 		{
 			SQLPARSER_DIALECT_VASTBASE_ORACLE,
-			"SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = UPPER(:v1) AND SECRET = :v2 || 'x' AND SECRET = CAST(:v3 AS VARCHAR(32))",
-			"KDES",
+			"SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE SECRET = UPPER(:v1) AND SECRET = :v2 || 'x' AND SECRET = CAST(:v3 AS VARCHAR(32))",
+			"APP",
 			"DBP_CRYPTO_TEST_PATCHED",
 			"CAST(:v3 AS ",
 			"\"field_match_kind\":\"direct_field\",\"kind\":\"expression\"",

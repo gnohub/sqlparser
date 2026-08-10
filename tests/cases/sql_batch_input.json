@@ -4561,7 +4561,7 @@
     },
     {
       "name": "dameng-cli-dialect-set-schema-top",
-      "sql": "SET SCHEMA KDES; SELECT TOP 2 id, name FROM users WHERE id = :id ORDER BY id",
+      "sql": "SET SCHEMA APP; SELECT TOP 2 id, name FROM users WHERE id = :id ORDER BY id",
       "dialect": "dameng",
       "view": {
         "statements": [
@@ -4578,7 +4578,7 @@
                     "values": [
                       {
                         "kind": "identifier",
-                        "text": "KDES"
+                        "text": "APP"
                       }
                     ]
                   }
@@ -4704,38 +4704,38 @@
           "action": "replace",
           "target": "/statements/1/query_graph/fields/0/selector",
           "value": "\"PatchedName\"",
-          "deparse": "SET SCHEMA KDES; SELECT TOP 2 \"PatchedName\", name FROM users WHERE id = :id ORDER BY id"
+          "deparse": "SET SCHEMA APP; SELECT TOP 2 \"PatchedName\", name FROM users WHERE id = :id ORDER BY id"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/fields/3/selector",
           "value": "\"PatchedName\"",
-          "deparse": "SET SCHEMA KDES; SELECT TOP 2 id, name FROM users WHERE id = :id ORDER BY \"PatchedName\""
+          "deparse": "SET SCHEMA APP; SELECT TOP 2 id, name FROM users WHERE id = :id ORDER BY \"PatchedName\""
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/relations/0/selector",
           "value": "\"PatchedTable\"",
-          "deparse": "SET SCHEMA KDES; SELECT TOP 2 id, name FROM \"PatchedTable\" WHERE id = :id ORDER BY id"
+          "deparse": "SET SCHEMA APP; SELECT TOP 2 id, name FROM \"PatchedTable\" WHERE id = :id ORDER BY id"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/targets/0/selector",
           "value": "\"PatchedTarget\"",
-          "deparse": "SET SCHEMA KDES; SELECT TOP 2 \"PatchedTarget\", name FROM users WHERE id = :id ORDER BY id"
+          "deparse": "SET SCHEMA APP; SELECT TOP 2 \"PatchedTarget\", name FROM users WHERE id = :id ORDER BY id"
         },
         {
           "action": "insert_column",
           "target": "/statements/1/query_graph/targets/0/target_list_selector",
           "value": "\"InsertedTarget\"",
           "index": 1,
-          "deparse": "SET SCHEMA KDES; SELECT TOP 2 id, \"InsertedTarget\", name FROM users WHERE id = :id ORDER BY id"
+          "deparse": "SET SCHEMA APP; SELECT TOP 2 id, \"InsertedTarget\", name FROM users WHERE id = :id ORDER BY id"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "SET SCHEMA KDES; SELECT TOP 2 id, name FROM users WHERE id = 42 ORDER BY id"
+          "deparse": "SET SCHEMA APP; SELECT TOP 2 id, name FROM users WHERE id = 42 ORDER BY id"
         }
       ]
     },
@@ -21131,7 +21131,7 @@
     },
     {
       "name": "vastbase-oracle-cli-current-schema",
-      "sql": "ALTER SESSION SET CURRENT_SCHEMA=KDES",
+      "sql": "ALTER SESSION SET CURRENT_SCHEMA=APP",
       "dialect": "vastbase-oracle",
       "view": {
         "statements": [
@@ -21148,7 +21148,7 @@
                     "values": [
                       {
                         "kind": "identifier",
-                        "text": "KDES"
+                        "text": "APP"
                       }
                     ]
                   }

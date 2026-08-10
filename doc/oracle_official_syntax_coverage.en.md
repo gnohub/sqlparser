@@ -9,8 +9,6 @@ Language Reference. The complete checklist is
 - [Oracle Database 23ai SQL Language Reference: Types of SQL Statements](https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Types-of-SQL-Statements.html)
 - [Oracle Database 23ai SQL Language Reference: SELECT](https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html)
 - [Oracle Database 23ai SQL Language Reference: ALTER SESSION](https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/ALTER-SESSION.html)
-- Counting date: 2026-05-25
-
 The scope is the set of official syntax groups touched by the current Oracle
 dialect layer: queries, DML, common DDL, transaction statements, expressions,
 privilege statements, and Oracle-specific semantics.
@@ -29,24 +27,27 @@ privilege statements, and Oracle-specific semantics.
 
 | Status | Syntax Groups | Share of 47 Groups |
 | --- | ---: | ---: |
-| `CURRENT` | 36 | 76.60% |
+| `CURRENT` | 37 | 78.72% |
 | `HOOK_ONLY` | 0 | 0.00% |
 | `MIXED_MODEL` | 2 | 4.26% |
-| `MODEL_REQUIRED` | 9 | 19.15% |
+| `MODEL_REQUIRED` | 8 | 17.02% |
 | `REFERENCE_ONLY` | 0 | 0.00% |
 
 After excluding `REFERENCE_ONLY`, there are 47 implementable syntax groups.
-The current implementation fully covers 36 groups and has 11 incomplete groups.
+Of these, 37 are classified as `CURRENT`, and 10 remain incomplete.
 
-| Incomplete Class | Syntax Groups | Share of 11 Incomplete Groups |
+| Incomplete Class | Syntax Groups | Share of 10 Incomplete Groups |
 | --- | ---: | ---: |
 | `HOOK_ONLY` | 0 | 0.00% |
-| `MIXED_MODEL` | 2 | 18.18% |
-| `MODEL_REQUIRED` | 9 | 81.82% |
+| `MIXED_MODEL` | 2 | 20.00% |
+| `MODEL_REQUIRED` | 8 | 80.00% |
 
 ## Conclusion
 
-The remaining Oracle gaps are mainly Oracle-specific semantics that cannot be
-safely mapped to the shared AST. `SYNONYM` and `EXPLAIN PLAN FOR` now cover
-basic statement parsing, keywords, and deparse output; full object attributes
-or execution-plan semantics require an Oracle-specific model.
+`RETURNING ... INTO` covers one result target and one colon-prefixed host bind
+in `INSERT`, `UPDATE`, and `DELETE`; multiple targets, multiple binds, and
+`BULK COLLECT` remain outside the current boundary. The remaining Oracle gaps
+are mainly Oracle-specific semantics that cannot be safely mapped to the shared
+AST. `SYNONYM` and `EXPLAIN PLAN FOR` now cover basic statement parsing,
+keywords, and deparse output; full object attributes or execution-plan
+semantics require an Oracle-specific model.

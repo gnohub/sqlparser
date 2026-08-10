@@ -157,7 +157,9 @@ static sqlparser_status_t sqlparser_patch_source_offset(
 		return SQLPARSER_STATUS_OK;
 	}
 	parser_start = (size_t)parser_location;
-	if (!sqlparser_dialect_is_sqlserver_compatible(handle->dialect) ||
+	if ((!sqlparser_dialect_is_sqlserver_compatible(handle->dialect) &&
+	     !sqlparser_dialect_is_oracle_or_dameng_compatible(
+		     handle->dialect)) ||
 	    parser_start >= handle->parser_sql_len ||
 	    handle->parser_sql[parser_start] != '"') {
 		return SQLPARSER_STATUS_OK;
@@ -3302,6 +3304,7 @@ static sqlparser_status_t sqlparser_patch_dml_result_target_list(
 	sqlparser_error_t *out_error)
 {
 	ProtobufCMessage *message;
+	PgQuery__DeleteStmt *delete_stmt;
 	PgQuery__InsertStmt *insert;
 	PgQuery__UpdateStmt *update;
 	sqlparser_dialect_dml_result_channel_t channel;
@@ -3350,11 +3353,20 @@ static sqlparser_status_t sqlparser_patch_dml_result_target_list(
 		update = (PgQuery__UpdateStmt *)message;
 		*out_targets = update->returning_list;
 		*out_target_count = update->n_returning_list;
-		if (update->n_from_clause != 0U) {
+		if (channel.kind == SQLPARSER_GRAPH_DML_RESULT_SINK) {
+			*out_boundary_word = "into";
+		} else if (update->n_from_clause != 0U) {
 			*out_boundary_word = "from";
 		} else if (update->where_clause != NULL) {
 			*out_boundary_word = "where";
 		}
+	} else if (kind == SQLPARSER_GRAPH_DML_DELETE &&
+		   message->descriptor == &pg_query__delete_stmt__descriptor &&
+		   channel.kind == SQLPARSER_GRAPH_DML_RESULT_SINK) {
+		delete_stmt = (PgQuery__DeleteStmt *)message;
+		*out_targets = delete_stmt->returning_list;
+		*out_target_count = delete_stmt->n_returning_list;
+		*out_boundary_word = "into";
 	} else {
 		return SQLPARSER_STATUS_OK;
 	}
@@ -3522,6 +3534,7 @@ static int sqlparser_patch_assignment_target_path_matches(
 }
 
 static int sqlparser_patch_assignment_clause_at(
+	sqlparser_dialect_t dialect,
 	const char *sql,
 	size_t length,
 	size_t expression_start,
@@ -3548,6 +3561,13 @@ static int sqlparser_patch_assignment_clause_at(
 			   pos,
 			   "returning")) {
 		keyword_length = 9U;
+	} else if (dialect == SQLPARSER_DIALECT_DAMENG &&
+		   sqlparser_patch_source_word_at(
+			   sql,
+			   length,
+			   pos,
+			   "return")) {
+		keyword_length = 6U;
 	} else {
 		return 0;
 	}
@@ -3626,6 +3646,7 @@ static sqlparser_status_t sqlparser_patch_assignment_source_span(
 	const sqlparser_selector_t *selector,
 	size_t *out_start,
 	size_t *out_end,
+	size_t *out_value_start,
 	int *out_supported,
 	sqlparser_error_t *out_error)
 {
@@ -3674,7 +3695,8 @@ static sqlparser_status_t sqlparser_patch_assignment_source_span(
 	     selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT) ||
 	    (!merge_assignment &&
 	     !sqlparser_dialect_is_mysql_compatible(handle->dialect) &&
-	     !sqlparser_dialect_is_oracle_compatible(handle->dialect) &&
+	     !sqlparser_dialect_is_oracle_or_dameng_compatible(
+		     handle->dialect) &&
 	     !sqlparser_dialect_is_sqlserver_compatible(handle->dialect)) ||
 	    (merge_assignment &&
 	     !sqlparser_dialect_is_oracle_or_dameng_compatible(
@@ -4031,6 +4053,7 @@ static sqlparser_status_t sqlparser_patch_assignment_source_span(
 			}
 			if (handle->sql[pos] == ';' ||
 			    sqlparser_patch_assignment_clause_at(
+				    handle->dialect,
 				    handle->sql,
 				    scan_end,
 				    equals + 1U,
@@ -4061,6 +4084,15 @@ static sqlparser_status_t sqlparser_patch_assignment_source_span(
 	}
 	*out_start = source_start;
 	*out_end = source_end;
+	if (out_value_start != NULL) {
+		*out_value_start = sqlparser_public_skip_trivia(
+			handle->dialect,
+			handle->sql,
+			equals + 1U);
+		if (*out_value_start >= source_end) {
+			return SQLPARSER_STATUS_OK;
+		}
+	}
 	*out_supported = 1;
 	return SQLPARSER_STATUS_OK;
 }
@@ -7262,6 +7294,7 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit(
 	size_t source_start;
 	size_t target_count;
 	size_t target_index;
+	size_t value_start;
 	sqlparser_selector_t selector;
 	sqlparser_status_t status;
 	int source_result;
@@ -7361,6 +7394,24 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit(
 		replacement = rendered != NULL ? rendered : patch->sql;
 		replacement_length = strlen(replacement);
 	} else if (patch->op == SQLPARSER_PATCH_REPLACE &&
+		   selector.kind == SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
+		   sqlparser_dialect_is_oracle_or_dameng_compatible(
+			   handle->dialect) &&
+		   patch->sql != NULL) {
+		status = sqlparser_patch_assignment_source_span(
+			handle,
+			&selector,
+			&source_start,
+			&source_end,
+			&value_start,
+			&span_supported,
+			out_error);
+		if (status == SQLPARSER_STATUS_OK && span_supported) {
+			source_start = value_start;
+		}
+		replacement = patch->sql;
+		replacement_length = strlen(patch->sql);
+	} else if (patch->op == SQLPARSER_PATCH_REPLACE &&
 		   selector.kind == SQLPARSER_SELECTOR_KIND_VALUE) {
 		status = sqlparser_patch_render_structured_sql(
 			handle,
@@ -7431,7 +7482,9 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit(
 		replacement_length = strlen(patch->sql);
 	} else if (patch->op == SQLPARSER_PATCH_REPLACE &&
 		   selector.kind == SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGET &&
-		   sqlparser_dialect_is_sqlserver_compatible(handle->dialect)) {
+		   (sqlparser_dialect_is_sqlserver_compatible(handle->dialect) ||
+		    sqlparser_dialect_is_oracle_compatible(handle->dialect) ||
+		    handle->dialect == SQLPARSER_DIALECT_DAMENG)) {
 		status = sqlparser_patch_render_structured_sql(
 			handle,
 			patch,
@@ -7707,7 +7760,8 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit(
 		    patch->op == SQLPARSER_PATCH_INSERT_ASSIGNMENT) &&
 		   ((selector.kind == SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
 		     (sqlparser_dialect_is_mysql_compatible(handle->dialect) ||
-		      sqlparser_dialect_is_oracle_compatible(handle->dialect) ||
+		      sqlparser_dialect_is_oracle_or_dameng_compatible(
+			      handle->dialect) ||
 		      sqlparser_dialect_is_sqlserver_compatible(
 			      handle->dialect))) ||
 		    (selector.kind ==
@@ -7725,6 +7779,7 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit(
 			&selector,
 			&source_start,
 			&source_end,
+			NULL,
 			&span_supported,
 			out_error);
 		if (status == SQLPARSER_STATUS_OK && span_supported &&

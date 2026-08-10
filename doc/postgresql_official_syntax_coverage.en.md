@@ -10,8 +10,6 @@ PostgreSQL SQL Commands documentation. The complete checklist is
 - [PostgreSQL 17: The SQL Language](https://www.postgresql.org/docs/17/sql.html)
 - [PostgreSQL: Supported Features](https://www.postgresql.org/docs/current/features-sql-standard.html)
 - [PostgreSQL pgsql-docs: document `N'...'` national character string literal syntax](https://www.postgresql.org/message-id/om3g7p7u3ztlrdp4tfswgulavljgn2fe6u2agk34mrr65dffuu%40cpzlzuv6flko)
-- Counting date: 2026-06-11
-
 The scope is the set of official SQL command groups that are directly relevant
 to the public API, View JSON, deparse, and executable regression tests.
 

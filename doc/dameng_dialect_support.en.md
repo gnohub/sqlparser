@@ -29,6 +29,9 @@ current AST. The executable case matrix defines the support boundary:
 - multi-table insert: `INSERT ALL` and `INSERT FIRST`, including
   `WHEN ... THEN`, `ELSE`, and multiple `INTO` branches under one condition
 - `UPDATE` and `DELETE`
+- DML host-variable returns: `RETURNING <single expression> INTO <single
+  colon-prefixed host bind>` for `INSERT` and `DELETE`, and `RETURN <single
+  expression> INTO <single colon-prefixed host bind>` for `UPDATE`
 - mappable `MERGE`
 - `DATE` and `TIMESTAMP` literals
 - common DDL: `CREATE TABLE`, `CREATE VIEW`, `CREATE SEQUENCE`,
@@ -49,7 +52,8 @@ handle:
 
 - `CONNECT BY`
 - `PIVOT` and `UNPIVOT`
-- `RETURNING ... INTO`
+- `RETURN` / `RETURNING ... INTO` forms with multiple return targets, multiple
+  `INTO` binds, or `BULK COLLECT`
 - DMSQL blocks, procedures, and packages
 - other `ALTER SESSION` parameters outside the supported list
 - `ALTER SESSION SET CONTAINER = ...`
@@ -63,6 +67,8 @@ handle:
 - `MINUS` remains visible as the Dameng semantic keyword in View JSON and
   deparse output.
 - `SET SCHEMA` uses the `CURRENT_SCHEMA` field name in View JSON.
+- DML return channels use a sink channel in `dml.result_channels`; the return
+  target's `sink_value` refers to the host bind in `query_graph.values[]`.
 - Attributable expression fragments in View JSON use the public Dameng
   form.
 - Failed expression-fragment rewrites are not committed to the handle; the
@@ -78,5 +84,4 @@ The Dameng support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current Dameng matrix contains 162 cases: 150 successful cases and 12
-expected-failure cases.
+The current Dameng matrix contains 169 cases, all with `status = "final"`.

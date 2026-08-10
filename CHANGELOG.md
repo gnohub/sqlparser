@@ -1,5 +1,26 @@
 # 变更记录
 
+## 2.15.1
+
+### DML 结果返回宿主绑定变量
+
+- Oracle 与 Vastbase-Oracle 支持 `INSERT`、`UPDATE`、`DELETE` 的单个 `RETURNING` 表达式与单个 `INTO` 冒号宿主绑定变量。
+- Dameng 支持 `INSERT`、`DELETE` 的 `RETURNING ... INTO :bind`，以及 `UPDATE` 的 `RETURN ... INTO :bind`。
+- Query Graph 使用 sink result channel 表达返回通道；结果 target 的 `sink_value` 指向 `query_graph.values[]` 中的输出绑定变量。`INSERT`、`UPDATE` 使用 `target_after` 来源，`DELETE` 使用 `target_before` 来源。
+
+### Patch 与原文保留
+
+- DML 输入值、返回 target 和输出绑定变量均复用既有 selector 与 `SQLPARSER_PATCH_REPLACE`，不增加专用 patch 类型。
+- 返回 target 或输出绑定变量完成 patch 后，未修改的标识符定界符、大小写、空白、关键字和绑定变量拼写保持原文。
+- 当前支持边界为单个返回 target 与单个冒号宿主绑定变量；多个返回 target、多个输出绑定变量和 `BULK COLLECT` 不在支持范围内。
+
+### API、用例与验证
+
+- `sqlparser_graph_target_t` 追加 `sink_value_index` 和 `has_sink_value`。本版本不新增公开函数、枚举或资源所有权规则；由于公开结构体布局发生变化，C 调用方应使用 2.15.1 头文件重新编译。
+- Oracle、Dameng 和 Vastbase-Oracle 共新增 9 条 final case 和 27 个独立 patch。当前九套 fixture 共包含 2,767 条 final case 和 8,972 个 patch。
+- 仓库示例、文档和测试数据统一使用中性 schema 名 `APP`；该命名不限制调用方 SQL 中的 schema 名称。
+- 定向严格回归覆盖 841 条 case 和 2,939 个 patch，失败数为 0；受影响的核心 API、三个示例和 CLI 参数顺序检查通过。三个相关方言的定点 Valgrind 检查退出时无残留内存，错误数为 0。
+
 ## 2.15.0
 
 ### Linux AArch64 构建

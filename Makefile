@@ -274,7 +274,7 @@ test-cli-batch: $(SQLPARSER_CLI_BIN) $(SQLPARSER_CLI_BATCH_FIXTURE) $(SQLPARSER_
 test-cli-arg-order: $(SQLPARSER_CLI_BIN)
 	@mkdir -p $(BUILD_PATH)/tests
 	@$(SQLPARSER_CLI_BIN) --mode view "INSERT INTO users (username, email, age) VALUES (?, ?, ?);" --dialect oracle > $(BUILD_PATH)/tests/cli_arg_order_view.json
-	@$(SQLPARSER_CLI_BIN) --mode view "ALTER SESSION SET CURRENT_SCHEMA=KDES" --dialect vastbase-oracle > $(BUILD_PATH)/tests/cli_arg_order_vastbase_view.json
+	@$(SQLPARSER_CLI_BIN) --mode view "ALTER SESSION SET CURRENT_SCHEMA=APP" --dialect vastbase-oracle > $(BUILD_PATH)/tests/cli_arg_order_vastbase_view.json
 	@$(BENCH_PYTHON) -m json.tool < $(BUILD_PATH)/tests/cli_arg_order_view.json >/dev/null
 	@$(BENCH_PYTHON) -m json.tool < $(BUILD_PATH)/tests/cli_arg_order_vastbase_view.json >/dev/null
 	@if grep -q '^==' $(BUILD_PATH)/tests/cli_arg_order_view.json; then \

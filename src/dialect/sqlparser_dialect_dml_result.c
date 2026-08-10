@@ -1,7 +1,885 @@
+#include <ctype.h>
+#include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "sqlparser_dialect_dml_result_internal.h"
+#include "sqlparser_dialect_dameng_internal.h"
+#include "sqlparser_dialect_oracle_internal.h"
 #include "sqlparser_dialect_sqlserver_internal.h"
+
+static int sqlparser_returning_into_is_ident_char(unsigned char value)
+{
+	return isalnum(value) || value == '_' || value == '$' ||
+		value == '#' || value >= 0x80U;
+}
+
+static size_t sqlparser_returning_into_word_end(
+	const char *sql,
+	size_t start)
+{
+	size_t end;
+
+	end = start;
+	while (sqlparser_returning_into_is_ident_char(
+		       (unsigned char)sql[end])) {
+		end++;
+	}
+	return end;
+}
+
+static int sqlparser_returning_into_word_equal(
+	const char *sql,
+	size_t start,
+	size_t end,
+	const char *word)
+{
+	size_t index;
+	size_t length;
+
+	length = word != NULL ? strlen(word) : 0U;
+	if (sql == NULL || word == NULL || end - start != length ||
+	    (start > 0U && sqlparser_returning_into_is_ident_char(
+				  (unsigned char)sql[start - 1U])) ||
+	    sqlparser_returning_into_is_ident_char((unsigned char)sql[end])) {
+		return 0;
+	}
+	for (index = 0U; index < length; index++) {
+		if (tolower((unsigned char)sql[start + index]) !=
+		    tolower((unsigned char)word[index])) {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static int sqlparser_returning_into_word_at(
+	const char *sql,
+	size_t start,
+	const char *word)
+{
+	size_t index;
+	size_t length;
+
+	if (sql == NULL || word == NULL ||
+	    (start > 0U && sqlparser_returning_into_is_ident_char(
+			  (unsigned char)sql[start - 1U]))) {
+		return 0;
+	}
+	length = strlen(word);
+	for (index = 0U; index < length; index++) {
+		if (sql[start + index] == '\0' ||
+		    tolower((unsigned char)sql[start + index]) !=
+			    tolower((unsigned char)word[index])) {
+			return 0;
+		}
+	}
+	return !sqlparser_returning_into_is_ident_char(
+		(unsigned char)sql[start + length]);
+}
+
+static size_t sqlparser_returning_into_skip_trivia(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	size_t start)
+{
+	size_t next;
+
+	while (sql[start] != '\0') {
+		while (isspace((unsigned char)sql[start])) {
+			start++;
+		}
+		if (!((sql[start] == '-' && sql[start + 1U] == '-') ||
+		      (sql[start] == '/' && sql[start + 1U] == '*'))) {
+			break;
+		}
+		next = sqlparser_public_skip_quoted_or_comment(
+			dialect, sql, start);
+		if (next <= start) {
+			break;
+		}
+		start = next;
+	}
+	return start;
+}
+
+static int sqlparser_returning_into_statement_context(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	size_t keyword_start,
+	size_t *out_statement_index)
+{
+	size_t depth;
+	size_t position;
+	size_t statement_index;
+	int statement_is_dml;
+	int statement_word_seen;
+
+	depth = 0U;
+	position = 0U;
+	statement_index = 0U;
+	statement_is_dml = 0;
+	statement_word_seen = 0;
+	while (position < keyword_start) {
+		size_t next;
+		size_t word_end;
+
+		next = sqlparser_public_skip_quoted_or_comment(
+			dialect, sql, position);
+		if (next > position) {
+			position = next;
+			continue;
+		}
+		if (sql[position] == '(') {
+			depth++;
+			position++;
+			continue;
+		}
+		if (sql[position] == ')') {
+			if (depth == 0U) {
+				return 0;
+			}
+			depth--;
+			position++;
+			continue;
+		}
+		if (depth == 0U && sql[position] == ';') {
+			if (statement_word_seen) {
+				statement_index++;
+			}
+			statement_is_dml = 0;
+			statement_word_seen = 0;
+			position++;
+			continue;
+		}
+		if (!sqlparser_returning_into_is_ident_char(
+			    (unsigned char)sql[position]) ||
+		    isdigit((unsigned char)sql[position])) {
+			position++;
+			continue;
+		}
+		word_end = sqlparser_returning_into_word_end(sql, position);
+		if (depth == 0U && !statement_word_seen) {
+			statement_word_seen = 1;
+			statement_is_dml =
+				sqlparser_returning_into_word_equal(
+					sql, position, word_end, "insert") ||
+				sqlparser_returning_into_word_equal(
+					sql, position, word_end, "update") ||
+				sqlparser_returning_into_word_equal(
+					sql, position, word_end, "delete");
+		}
+		position = word_end;
+	}
+	if (depth != 0U || !statement_is_dml) {
+		return 0;
+	}
+	if (out_statement_index != NULL) {
+		*out_statement_index = statement_index;
+	}
+	return 1;
+}
+
+static size_t sqlparser_returning_into_bind_end(
+	const char *sql,
+	size_t start)
+{
+	size_t end;
+
+	if (sql[start] != ':' || sql[start + 1U] == '\0' ||
+	    sql[start + 1U] == ':' || sql[start + 1U] == '=') {
+		return start;
+	}
+	end = start + 1U;
+	if (isdigit((unsigned char)sql[end])) {
+		while (isdigit((unsigned char)sql[end])) {
+			end++;
+		}
+		return end;
+	}
+	if (!isalpha((unsigned char)sql[end]) && sql[end] != '_' &&
+	    (unsigned char)sql[end] < 0x80U) {
+		return start;
+	}
+	end++;
+	while (sqlparser_returning_into_is_ident_char(
+		       (unsigned char)sql[end])) {
+		end++;
+	}
+	return end;
+}
+
+int sqlparser_dialect_returning_into_clause_at(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	size_t keyword_start,
+	int allow_return_keyword,
+	sqlparser_dialect_returning_into_clause_t *out_clause)
+{
+	sqlparser_dialect_returning_into_clause_t clause;
+	size_t depth;
+	size_t keyword_length;
+	size_t position;
+	size_t sink_end;
+	size_t sink_start;
+	int saw_target;
+
+	memset(&clause, 0, sizeof(clause));
+	if (sql == NULL || out_clause == NULL) {
+		return 0;
+	}
+	if (sqlparser_returning_into_word_at(
+		    sql, keyword_start, "returning")) {
+		keyword_length = strlen("returning");
+	} else if (allow_return_keyword &&
+		   sqlparser_returning_into_word_at(
+			   sql, keyword_start, "return")) {
+		keyword_length = strlen("return");
+		clause.uses_return_keyword = 1;
+	} else {
+		return 0;
+	}
+	if (!sqlparser_returning_into_statement_context(
+		    dialect,
+		    sql,
+		    keyword_start,
+		    &clause.statement_index)) {
+		return 0;
+	}
+	clause.keyword_end = keyword_start + keyword_length;
+	depth = 0U;
+	position = clause.keyword_end;
+	saw_target = 0;
+	while (sql[position] != '\0') {
+		size_t next;
+		size_t word_end;
+
+		next = sqlparser_public_skip_quoted_or_comment(
+			dialect, sql, position);
+		if (next > position) {
+			if (!((sql[position] == '-' && sql[position + 1U] == '-') ||
+			      (sql[position] == '/' && sql[position + 1U] == '*'))) {
+				saw_target = 1;
+			}
+			position = next;
+			continue;
+		}
+		if (sql[position] == '(') {
+			depth++;
+			saw_target = 1;
+			position++;
+			continue;
+		}
+		if (sql[position] == ')') {
+			if (depth == 0U) {
+				return 0;
+			}
+			depth--;
+			saw_target = 1;
+			position++;
+			continue;
+		}
+		if (depth == 0U &&
+		    (sql[position] == ';' || sql[position] == ',')) {
+			return 0;
+		}
+		if (depth == 0U &&
+		    sqlparser_returning_into_is_ident_char(
+			    (unsigned char)sql[position]) &&
+		    !isdigit((unsigned char)sql[position])) {
+			word_end = sqlparser_returning_into_word_end(
+				sql, position);
+			if (sqlparser_returning_into_word_equal(
+				    sql, position, word_end, "into")) {
+				clause.into_start = position;
+				break;
+			}
+			position = word_end;
+			saw_target = 1;
+			continue;
+		}
+		if (!isspace((unsigned char)sql[position])) {
+			saw_target = 1;
+		}
+		position++;
+	}
+	if (!saw_target || sql[clause.into_start] == '\0') {
+		return 0;
+	}
+	sink_start = sqlparser_returning_into_skip_trivia(
+		dialect,
+		sql,
+		clause.into_start + strlen("into"));
+	sink_end = sqlparser_returning_into_bind_end(sql, sink_start);
+	if (sink_end == sink_start) {
+		return 0;
+	}
+	position = sqlparser_returning_into_skip_trivia(
+		dialect, sql, sink_end);
+	if (sql[position] != '\0' && sql[position] != ';') {
+		return 0;
+	}
+	*out_clause = clause;
+	return 1;
+}
+
+sqlparser_status_t sqlparser_dialect_returning_into_validate(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	int allow_return_keyword,
+	sqlparser_error_t *out_error)
+{
+	size_t position;
+
+	if (sql == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	position = 0U;
+	while (sql[position] != '\0') {
+		size_t next;
+		size_t word_end;
+
+		next = sqlparser_public_skip_quoted_or_comment(
+			dialect, sql, position);
+		if (next > position) {
+			position = next;
+			continue;
+		}
+		if (!sqlparser_returning_into_is_ident_char(
+			    (unsigned char)sql[position]) ||
+		    isdigit((unsigned char)sql[position])) {
+			position++;
+			continue;
+		}
+		word_end = sqlparser_returning_into_word_end(sql, position);
+		if (sqlparser_returning_into_word_equal(
+			    sql, position, word_end, "returning") ||
+		    (allow_return_keyword &&
+		     sqlparser_returning_into_word_equal(
+			     sql, position, word_end, "return"))) {
+			sqlparser_dialect_returning_into_clause_t clause;
+
+			if (!sqlparser_dialect_returning_into_clause_at(
+				    dialect,
+				    sql,
+				    position,
+				    allow_return_keyword,
+				    &clause)) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_UNSUPPORTED,
+					"unsupported RETURN/RETURNING ... INTO syntax");
+				return SQLPARSER_STATUS_UNSUPPORTED;
+			}
+		}
+		position = word_end;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+void sqlparser_dialect_returning_into_state_clear(
+	sqlparser_dialect_returning_into_state_t *state)
+{
+	if (state == NULL) {
+		return;
+	}
+	free(state->items);
+	memset(state, 0, sizeof(*state));
+}
+
+sqlparser_status_t sqlparser_dialect_returning_into_state_clone(
+	const sqlparser_dialect_returning_into_state_t *source,
+	sqlparser_dialect_returning_into_state_t *target,
+	sqlparser_error_t *out_error)
+{
+	if (target == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"RETURNING INTO state clone output must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	memset(target, 0, sizeof(*target));
+	if (source == NULL || source->count == 0U) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (source->count > SIZE_MAX / sizeof(*target->items)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	target->items = (sqlparser_dialect_returning_into_item_t *)malloc(
+		source->count * sizeof(*target->items));
+	if (target->items == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	memcpy(
+		target->items,
+		source->items,
+		source->count * sizeof(*target->items));
+	target->count = source->count;
+	target->capacity = source->count;
+	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_dialect_returning_into_state_append(
+	sqlparser_dialect_returning_into_state_t *state,
+	size_t statement_index,
+	const char *keyword,
+	size_t keyword_length,
+	const char *into_keyword,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dialect_returning_into_item_t *items;
+	size_t capacity;
+	size_t index;
+	uint16_t keyword_uppercase_mask;
+	uint8_t into_uppercase_mask;
+
+	if (state == NULL || keyword == NULL || into_keyword == NULL ||
+	    (keyword_length != strlen("return") &&
+	     keyword_length != strlen("returning"))) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"RETURNING INTO state input is invalid");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	keyword_uppercase_mask = 0U;
+	for (index = 0U; index < keyword_length; index++) {
+		if (isupper((unsigned char)keyword[index])) {
+			keyword_uppercase_mask |= (uint16_t)(1U << index);
+		}
+	}
+	into_uppercase_mask = 0U;
+	for (index = 0U; index < strlen("into"); index++) {
+		if (isupper((unsigned char)into_keyword[index])) {
+			into_uppercase_mask |= (uint8_t)(1U << index);
+		}
+	}
+	for (index = 0U; index < state->count; index++) {
+		if (state->items[index].statement_index == statement_index) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_UNSUPPORTED,
+				"multiple RETURNING INTO clauses in one statement are unsupported");
+			return SQLPARSER_STATUS_UNSUPPORTED;
+		}
+	}
+	if (state->count == state->capacity) {
+		capacity = state->capacity == 0U ? 2U : state->capacity * 2U;
+		if (capacity < state->capacity ||
+		    capacity > SIZE_MAX / sizeof(*items)) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		items = (sqlparser_dialect_returning_into_item_t *)realloc(
+			state->items, capacity * sizeof(*items));
+		if (items == NULL) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		state->items = items;
+		state->capacity = capacity;
+	}
+	state->items[state->count].statement_index = statement_index;
+	state->items[state->count].keyword_uppercase_mask =
+		keyword_uppercase_mask;
+	state->items[state->count].into_uppercase_mask = into_uppercase_mask;
+	state->items[state->count].uses_return_keyword =
+		keyword_length == strlen("return");
+	state->count++;
+	return SQLPARSER_STATUS_OK;
+}
+
+static int sqlparser_returning_into_statement_span(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	size_t target_statement_index,
+	size_t *out_start,
+	size_t *out_end)
+{
+	size_t depth;
+	size_t position;
+	size_t start;
+	size_t statement_index;
+	int statement_has_code;
+
+	depth = 0U;
+	position = 0U;
+	start = 0U;
+	statement_index = 0U;
+	statement_has_code = 0;
+	while (sql[position] != '\0') {
+		size_t next;
+
+		next = sqlparser_public_skip_quoted_or_comment(
+			dialect, sql, position);
+		if (next > position) {
+			if (!((sql[position] == '-' && sql[position + 1U] == '-') ||
+			      (sql[position] == '/' && sql[position + 1U] == '*'))) {
+				statement_has_code = 1;
+			}
+			position = next;
+			continue;
+		}
+		if (sql[position] == '(') {
+			depth++;
+			statement_has_code = 1;
+		} else if (sql[position] == ')') {
+			if (depth > 0U) {
+				depth--;
+			}
+		} else if (depth == 0U && sql[position] == ';') {
+			if (statement_has_code) {
+				if (statement_index == target_statement_index) {
+					*out_start = start;
+					*out_end = position;
+					return 1;
+				}
+				statement_index++;
+			}
+			start = position + 1U;
+			statement_has_code = 0;
+		} else if (!isspace((unsigned char)sql[position])) {
+			statement_has_code = 1;
+		}
+		position++;
+	}
+	if (!statement_has_code || statement_index != target_statement_index) {
+		return 0;
+	}
+	*out_start = start;
+	*out_end = position;
+	return 1;
+}
+
+static int sqlparser_returning_into_deparse_parts(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	size_t statement_start,
+	size_t statement_end,
+	size_t *out_keyword_start,
+	size_t *out_keyword_end,
+	size_t *out_target_end,
+	size_t *out_sink_start,
+	size_t *out_sink_end)
+{
+	size_t comma;
+	size_t depth;
+	size_t keyword_end;
+	size_t keyword_start;
+	size_t position;
+
+	keyword_start = SIZE_MAX;
+	keyword_end = SIZE_MAX;
+	depth = 0U;
+	position = statement_start;
+	while (position < statement_end) {
+		size_t next;
+		size_t word_end;
+
+		next = sqlparser_public_skip_quoted_or_comment(
+			dialect, sql, position);
+		if (next > position) {
+			position = next;
+			continue;
+		}
+		if (sql[position] == '(') {
+			depth++;
+			position++;
+			continue;
+		}
+		if (sql[position] == ')') {
+			if (depth > 0U) {
+				depth--;
+			}
+			position++;
+			continue;
+		}
+		if (depth == 0U &&
+		    sqlparser_returning_into_is_ident_char(
+			    (unsigned char)sql[position]) &&
+		    !isdigit((unsigned char)sql[position])) {
+			word_end = sqlparser_returning_into_word_end(
+				sql, position);
+			if (sqlparser_returning_into_word_equal(
+				    sql, position, word_end, "returning")) {
+				keyword_start = position;
+				keyword_end = word_end;
+				break;
+			}
+			position = word_end;
+			continue;
+		}
+		position++;
+	}
+	if (keyword_start == SIZE_MAX) {
+		return 0;
+	}
+	comma = SIZE_MAX;
+	depth = 0U;
+	position = keyword_end;
+	while (position < statement_end) {
+		size_t next;
+
+		next = sqlparser_public_skip_quoted_or_comment(
+			dialect, sql, position);
+		if (next > position) {
+			position = next;
+			continue;
+		}
+		if (sql[position] == '(') {
+			depth++;
+		} else if (sql[position] == ')') {
+			if (depth == 0U) {
+				return 0;
+			}
+			depth--;
+		} else if (depth == 0U && sql[position] == ',') {
+			comma = position;
+			break;
+		}
+		position++;
+	}
+	if (comma == SIZE_MAX) {
+		return 0;
+	}
+	*out_target_end = comma;
+	while (*out_target_end > keyword_end &&
+	       isspace((unsigned char)sql[*out_target_end - 1U])) {
+		(*out_target_end)--;
+	}
+	*out_sink_start = comma + 1U;
+	while (*out_sink_start < statement_end &&
+	       isspace((unsigned char)sql[*out_sink_start])) {
+		(*out_sink_start)++;
+	}
+	*out_sink_end = statement_end;
+	while (*out_sink_end > *out_sink_start &&
+	       isspace((unsigned char)sql[*out_sink_end - 1U])) {
+		(*out_sink_end)--;
+	}
+	if (*out_target_end <= keyword_end ||
+	    *out_sink_start >= *out_sink_end) {
+		return 0;
+	}
+	depth = 0U;
+	position = *out_sink_start;
+	while (position < *out_sink_end) {
+		size_t next;
+
+		next = sqlparser_public_skip_quoted_or_comment(
+			dialect, sql, position);
+		if (next > position) {
+			position = next;
+			continue;
+		}
+		if (sql[position] == '(') {
+			depth++;
+		} else if (sql[position] == ')' && depth > 0U) {
+			depth--;
+		} else if (depth == 0U && sql[position] == ',') {
+			return 0;
+		}
+		position++;
+	}
+	*out_keyword_start = keyword_start;
+	*out_keyword_end = keyword_end;
+	return 1;
+}
+
+static sqlparser_status_t sqlparser_returning_into_postprocess_item(
+	sqlparser_dialect_t dialect,
+	char **io_sql,
+	const sqlparser_dialect_returning_into_item_t *item,
+	sqlparser_error_t *out_error)
+{
+	const char *keyword_base;
+	char into_keyword[sizeof("into")];
+	char keyword[sizeof("returning")];
+	char *output;
+	size_t index;
+	size_t keyword_end;
+	size_t keyword_length;
+	size_t keyword_start;
+	size_t output_length;
+	size_t sink_end;
+	size_t sink_start;
+	size_t statement_end;
+	size_t statement_start;
+	size_t suffix_length;
+	size_t target_end;
+	size_t target_length;
+	size_t write;
+
+	if (!sqlparser_returning_into_statement_span(
+		    dialect,
+		    *io_sql,
+		    item->statement_index,
+		    &statement_start,
+		    &statement_end) ||
+	    !sqlparser_returning_into_deparse_parts(
+		    dialect,
+		    *io_sql,
+		    statement_start,
+		    statement_end,
+		    &keyword_start,
+		    &keyword_end,
+		    &target_end,
+		    &sink_start,
+		    &sink_end)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"RETURNING INTO deparse shape is inconsistent");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	keyword_base = item->uses_return_keyword ? "return" : "returning";
+	keyword_length = strlen(keyword_base);
+	for (index = 0U; index < keyword_length; index++) {
+		keyword[index] =
+			(item->keyword_uppercase_mask & (uint16_t)(1U << index)) != 0U ?
+				(char)toupper((unsigned char)keyword_base[index]) :
+				keyword_base[index];
+	}
+	for (index = 0U; index < strlen("into"); index++) {
+		into_keyword[index] =
+			(item->into_uppercase_mask & (uint8_t)(1U << index)) != 0U ?
+				(char)toupper((unsigned char)"into"[index]) :
+				"into"[index];
+	}
+	target_length = target_end - keyword_end;
+	suffix_length = strlen(*io_sql) - sink_end;
+	if (keyword_start > SIZE_MAX - keyword_length ||
+	    keyword_start + keyword_length > SIZE_MAX - target_length ||
+	    keyword_start + keyword_length + target_length > SIZE_MAX - 6U ||
+	    keyword_start + keyword_length + target_length + 6U >
+		    SIZE_MAX - (sink_end - sink_start) ||
+	    keyword_start + keyword_length + target_length + 6U +
+		    (sink_end - sink_start) > SIZE_MAX - suffix_length - 1U) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	output_length = keyword_start + keyword_length + target_length +
+		6U + (sink_end - sink_start) + suffix_length;
+	output = (char *)malloc(output_length + 1U);
+	if (output == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	write = 0U;
+	memcpy(output + write, *io_sql, keyword_start);
+	write += keyword_start;
+	memcpy(output + write, keyword, keyword_length);
+	write += keyword_length;
+	memcpy(output + write, *io_sql + keyword_end, target_length);
+	write += target_length;
+	output[write++] = ' ';
+	memcpy(output + write, into_keyword, strlen("into"));
+	write += strlen("into");
+	output[write++] = ' ';
+	memcpy(output + write, *io_sql + sink_start, sink_end - sink_start);
+	write += sink_end - sink_start;
+	memcpy(output + write, *io_sql + sink_end, suffix_length);
+	write += suffix_length;
+	output[write] = '\0';
+	free(*io_sql);
+	*io_sql = output;
+	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_dialect_returning_into_postprocess(
+	sqlparser_dialect_t dialect,
+	char **io_sql,
+	const sqlparser_dialect_returning_into_state_t *state,
+	sqlparser_error_t *out_error)
+{
+	size_t index;
+	sqlparser_status_t status;
+
+	if (io_sql == NULL || *io_sql == NULL || state == NULL ||
+	    state->count == 0U) {
+		return SQLPARSER_STATUS_OK;
+	}
+	index = state->count;
+	while (index > 0U) {
+		index--;
+		status = sqlparser_returning_into_postprocess_item(
+			dialect, io_sql, &state->items[index], out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static const sqlparser_dialect_returning_into_state_t *
+sqlparser_dialect_returning_into_state(
+	sqlparser_dialect_t dialect,
+	const void *state)
+{
+	const sqlparser_dialect_returning_into_state_t *returning_into;
+
+	returning_into = NULL;
+	if (sqlparser_dialect_is_oracle_compatible(dialect)) {
+		returning_into = sqlparser_oracle_state_returning_into(state);
+	} else if (dialect == SQLPARSER_DIALECT_DAMENG) {
+		returning_into = sqlparser_dameng_state_returning_into(state);
+	}
+	return returning_into != NULL && returning_into->count > 0U ?
+		returning_into : NULL;
+}
+
+static const sqlparser_dialect_returning_into_item_t *
+sqlparser_dialect_returning_into_item(
+	sqlparser_dialect_t dialect,
+	const void *state,
+	size_t statement_index)
+{
+	const sqlparser_dialect_returning_into_state_t *returning_into;
+	size_t index;
+
+	returning_into = sqlparser_dialect_returning_into_state(
+		dialect, state);
+	if (returning_into == NULL) {
+		return NULL;
+	}
+	for (index = 0U; index < returning_into->count; index++) {
+		if (returning_into->items[index].statement_index ==
+		    statement_index) {
+			return &returning_into->items[index];
+		}
+	}
+	return NULL;
+}
+
+static int sqlparser_dialect_has_returning_into(
+	sqlparser_dialect_t dialect,
+	const void *state,
+	size_t statement_index)
+{
+	return sqlparser_dialect_returning_into_item(
+		       dialect, state, statement_index) != NULL;
+}
 
 static const sqlparser_sqlserver_output_state_t *sqlparser_dialect_sqlserver_output_state(
 	sqlparser_dialect_t dialect,
@@ -159,7 +1037,11 @@ static PgQuery__Node *sqlparser_dialect_postgresql_statement(
 	size_t statement_index)
 {
 	if (handle == NULL ||
-	    !sqlparser_dialect_uses_postgresql_placeholders(handle->dialect) ||
+	    (!sqlparser_dialect_uses_postgresql_placeholders(handle->dialect) &&
+	     !sqlparser_dialect_has_returning_into(
+		     handle->dialect,
+		     handle->dialect_state,
+		     statement_index)) ||
 	    handle->ast == NULL || handle->ast->stmts == NULL ||
 	    statement_index >= handle->ast->n_stmts ||
 	    handle->ast->stmts[statement_index] == NULL) {
@@ -323,6 +1205,12 @@ size_t sqlparser_dialect_dml_result_count(
 	if (handle == NULL) {
 		return 0U;
 	}
+	if (sqlparser_dialect_has_returning_into(
+		    handle->dialect,
+		    handle->dialect_state,
+		    statement_index)) {
+		return 1U;
+	}
 	if (sqlparser_dialect_uses_postgresql_placeholders(handle->dialect)) {
 		count = 0U;
 		(void)sqlparser_dialect_postgresql_dml_result_visit(
@@ -393,6 +1281,19 @@ int sqlparser_dialect_dml_result_dml_at(
 		return 0;
 	}
 	memset(out_dml, 0, sizeof(*out_dml));
+	if (handle != NULL && dml_index == 0U &&
+	    sqlparser_dialect_has_returning_into(
+		    handle->dialect,
+		    handle->dialect_state,
+		    statement_index)) {
+		if (!sqlparser_dialect_postgresql_dml_at(
+			    handle, statement_index, dml_index, out_dml)) {
+			return 0;
+		}
+		out_dml->target_count = 1U;
+		out_dml->channel_count = 1U;
+		return 1;
+	}
 	if (handle != NULL &&
 	    sqlparser_dialect_uses_postgresql_placeholders(handle->dialect)) {
 		return sqlparser_dialect_postgresql_dml_at(
@@ -436,6 +1337,17 @@ int sqlparser_dialect_dml_result_channel_at(
 		return 0;
 	}
 	memset(out_channel, 0, sizeof(*out_channel));
+	if (handle != NULL && dml_index == 0U && channel_index == 0U &&
+	    sqlparser_dialect_has_returning_into(
+		    handle->dialect,
+		    handle->dialect_state,
+		    statement_index)) {
+		out_channel->kind = SQLPARSER_GRAPH_DML_RESULT_SINK;
+		out_channel->target_count = 1U;
+		out_channel->sink_value_offset = 1U;
+		out_channel->sink_value_count = 1U;
+		return 1;
+	}
 	if (handle != NULL &&
 	    sqlparser_dialect_uses_postgresql_placeholders(handle->dialect)) {
 		sqlparser_dialect_dml_result_dml_t dml;
@@ -529,7 +1441,8 @@ sqlparser_status_t sqlparser_dialect_dml_result_preprocess_target_sql(
 	sqlparser_error_t *out_error)
 {
 	(void)state;
-	if (sqlparser_dialect_uses_postgresql_placeholders(dialect)) {
+	if (sqlparser_dialect_uses_postgresql_placeholders(dialect) ||
+	    sqlparser_dialect_returning_into_state(dialect, state) != NULL) {
 		if (public_sql == NULL || out_sql == NULL || out_action_marker == NULL) {
 			sqlparser_error_set_message(
 				out_error,
@@ -569,7 +1482,8 @@ sqlparser_status_t sqlparser_dialect_dml_result_postprocess_target_sql(
 {
 	const char *action_marker;
 
-	if (sqlparser_dialect_uses_postgresql_placeholders(dialect)) {
+	if (sqlparser_dialect_uses_postgresql_placeholders(dialect) ||
+	    sqlparser_dialect_returning_into_state(dialect, state) != NULL) {
 		if (parser_sql == NULL || out_sql == NULL) {
 			sqlparser_error_set_message(
 				out_error,
@@ -637,6 +1551,13 @@ sqlparser_status_t sqlparser_dialect_dml_result_adjust_target_count(
 	if (sqlparser_dialect_uses_postgresql_placeholders(dialect)) {
 		return SQLPARSER_STATUS_OK;
 	}
+	if (sqlparser_dialect_returning_into_state(dialect, state) != NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"RETURNING INTO target insertion and deletion are unsupported");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
 	status = sqlparser_dialect_dml_result_mutable_index(
 		dialect, state, statement_index, dml_index, &output, &global_index, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
@@ -660,7 +1581,8 @@ sqlparser_status_t sqlparser_dialect_dml_result_set_action_marker(
 	size_t global_index;
 	sqlparser_status_t status;
 
-	if (sqlparser_dialect_uses_postgresql_placeholders(dialect)) {
+	if (sqlparser_dialect_uses_postgresql_placeholders(dialect) ||
+	    sqlparser_dialect_returning_into_state(dialect, state) != NULL) {
 		return SQLPARSER_STATUS_OK;
 	}
 	status = sqlparser_dialect_dml_result_mutable_index(

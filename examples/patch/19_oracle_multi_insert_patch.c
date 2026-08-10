@@ -18,8 +18,8 @@ int main(void)
 
 	sql =
 		"INSERT ALL "
-		"INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (1, :secret1) "
-		"INTO KDES.DBP_PHONE_TEST (ID, PHONE) VALUES (2, :phone1) "
+		"INTO APP.DBP_CRYPTO_TEST (ID, SECRET) VALUES (1, :secret1) "
+		"INTO APP.DBP_PHONE_TEST (ID, PHONE) VALUES (2, :phone1) "
 		"SELECT 1 FROM DUAL";
 
 	sqlparser_parse_options_default(&options);

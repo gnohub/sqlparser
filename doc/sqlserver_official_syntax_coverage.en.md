@@ -6,8 +6,6 @@ This file records SQL Server dialect coverage against the Microsoft Transact-SQL
 
 - [Microsoft Learn: Transact-SQL Reference](https://learn.microsoft.com/en-us/sql/t-sql/language-reference)
 - [MicrosoftDocs/sql-docs: `docs/t-sql`](https://github.com/MicrosoftDocs/sql-docs/tree/live/docs/t-sql)
-- Audit date: 2026-07-15
-
 The audit uses these official documentation directories:
 
 | Directory | Items |

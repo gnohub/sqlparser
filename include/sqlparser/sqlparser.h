@@ -485,6 +485,8 @@ typedef struct {
 	int has_selector;
 	sqlparser_selector_t target_list_selector;
 	int has_target_list_selector;
+	size_t sink_value_index;
+	int has_sink_value;
 } sqlparser_graph_target_t;
 
 typedef struct {

@@ -4,7 +4,7 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 238 cases with `status = "final"`.
+The fixture contains 242 cases with `status = "final"`.
 Statement-level `query_graph.session` appears in 59 cases, covering `O043`,
 `O043Q`, `O044` through `O047`, `O082` through `O086`, and the `ORA-*`
 session cases. All 59 contain at least one non-empty session item.
@@ -218,6 +218,9 @@ binds were included in the global sequence. `SYSDATE` and
 | O186 | `oracle-nested-select-target-multi-replace-middle` | replaces the middle item of a three-target derived-table SELECT with three quoted targets | expands the replacement only at the selected inner target-list position while preserving inner/outer blocks, relations, and target order; an independent insert patch validates the inner list position |
 | O187 | `oracle-merge-update-compound-rhs` | a compound assignment RHS in a MERGE UPDATE branch | branch `rhs_fields` and `rhs_values` attribute the source field, positional bind, and literal to the assignment; the source alias remains stable, and MERGE assignment replacement and insertion are verified exactly |
 | O188 | `oracle-merge-insert-structured-pair-rewrite` | structured MERGE INSERT target-column and VALUES-cell rewriting with three-column lineage, independent target-column and complete-cell selectors, atomic column/value insertion and deletion, quoted identifiers, and preservation of untouched SQL bytes |
+| O189 | `oracle-insert-returning-rowid-into-bind` | `INSERT ... VALUES ... RETURNING ROWID INTO :NAV_ROWID` | one `ROWID` pseudo result target links to one colon-prefixed host bind through `sink_value`; replace patches for a VALUES cell, the result target, and the output bind all preserve exact deparse output |
+| O190 | `oracle-update-returning-rowid-into-bind` | `UPDATE ... RETURNING ROWID INTO :NAV_ROWID` | one `ROWID` pseudo target in `target_after` links to one colon-prefixed host bind; replace patches for the assignment, result target, and output bind all preserve exact deparse output |
+| O191 | `oracle-delete-returning-rowid-into-bind` | `DELETE ... RETURNING ROWID INTO :NAV_ROWID` | one `ROWID` pseudo target in `target_before` links to one colon-prefixed host bind; replace patches for the predicate value, result target, and output bind all preserve exact deparse output |
 
 ## ROWNUM Predicate Semantics Regression
 
@@ -236,6 +239,10 @@ These five final cases verify that `ROWNUM` participates in predicates only as a
 This matrix lists only cases that parse successfully and have final View and
 patch expectations. Syntax boundaries outside this executable fixture are
 maintained in `doc/oracle_official_syntax_coverage.csv`.
+
+`RETURNING ... INTO` coverage is limited to one result target and one
+colon-prefixed host bind in `INSERT`, `UPDATE`, and `DELETE`. Multiple targets,
+multiple binds, and `BULK COLLECT` are outside this boundary.
 
 ## Maintenance
 

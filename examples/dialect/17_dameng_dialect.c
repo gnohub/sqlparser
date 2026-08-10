@@ -14,7 +14,7 @@ int main(void)
 	int status;
 
 	sql =
-		"SET SCHEMA KDES; "
+		"SET SCHEMA APP; "
 		"SELECT TOP 2 u.id, u.name "
 		"FROM users u WHERE u.id = :id "
 		"ORDER BY u.id";

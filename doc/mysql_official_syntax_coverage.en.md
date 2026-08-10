@@ -8,8 +8,6 @@ Manual. The complete checklist is
 
 - [MySQL 8.4 Reference Manual: SQL Statements](https://dev.mysql.com/doc/refman/8.4/en/sql-statements.html)
 - [MySQL 8.4 Reference Manual: Language Structure](https://dev.mysql.com/doc/refman/8.4/en/language-structure.html)
-- Counting date: 2026-06-11
-
 The scope is the set of official syntax groups touched by the current MySQL
 dialect layer: queries, DML, common DDL, transaction statements, expressions,
 type attributes, and MySQL-specific semantics.

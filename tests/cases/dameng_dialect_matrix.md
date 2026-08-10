@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 165 条 `status = "final"` 用例。34 条用例包含 statement 级 `query_graph.session`，覆盖 `D002`、`D003`、`D003Q`、`D026`、`D089` 至 `D095` 和 `DM-*` session 用例；这 34 条用例均至少包含一个非空 session item。
+夹具包含 169 条 `status = "final"` 用例。34 条用例包含 statement 级 `query_graph.session`，覆盖 `D002`、`D003`、`D003Q`、`D026`、`D089` 至 `D095` 和 `DM-*` session 用例；这 34 条用例均至少包含一个非空 session item。
 
 用例提供 `query_graph.session` 时，矩阵测试会随完整 View JSON 精确校验 session action、item scope、target kind、name 及 value 字段。每条用例还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
 
@@ -175,6 +175,16 @@
 | D-RN003 | `dameng-rownum-reversed-equality` | `1 = ROWNUM` | 反向操作数保持原始顺序，literal 由无字段 equality expression 引用 |
 | D-RN004 | `dameng-rownum-greater-than-boundary` | `ROWNUM > 1` | 大于边界条件在 View 中完整保留 predicate 和 literal，不进行语义折叠 |
 | D-RN005 | `dameng-delete-rownum-batch-limit` | DELETE 普通比较 `AND ROWNUM <= :batch_size` | DELETE DML 目标、AND 布尔树和 ROWNUM bind 的 block、位置及归属 |
+
+## RETURN/RETURNING INTO 回归
+
+当前覆盖 `INSERT`、`DELETE` 的 `RETURNING <单个表达式> INTO <单个冒号宿主绑定变量>`，以及 `UPDATE` 的 `RETURN <单个表达式> INTO <单个冒号宿主绑定变量>`。View 通过 `dml.result_channels` 的 sink channel 表达返回通道，返回 target 的 `sink_value` 指向 `query_graph.values[]` 中的宿主绑定变量。该边界不包含多个返回 target、多个 `INTO` 宿主绑定变量或 `BULK COLLECT`。
+
+| ID | 用例 | SQL 形态 | 覆盖内容 |
+| --- | --- | --- | --- |
+| D143 | `dameng-insert-values-returning-rowid-into-bind` | `INSERT ... VALUES ... RETURNING ROWID INTO :NAV_ROWID` | INSERT `target_after` 引用、ROWID pseudo target、sink bind、replace patch 和逐字节 deparse |
+| D144 | `dameng-update-return-rowid-into-bind` | `UPDATE ... RETURN ROWID INTO :NAV_ROWID` | UPDATE `target_after` 引用、达梦 `RETURN` 关键字、sink bind、replace patch 和逐字节 deparse |
+| D145 | `dameng-delete-returning-rowid-into-bind` | `DELETE ... RETURNING ROWID INTO :NAV_ROWID` | DELETE `target_before` 引用、ROWID pseudo target、sink bind、replace patch 和逐字节 deparse |
 
 ## 覆盖边界
 

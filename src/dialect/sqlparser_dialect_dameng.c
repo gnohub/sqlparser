@@ -46,6 +46,7 @@ typedef struct {
 	size_t dblink_count;
 	size_t dblink_capacity;
 	size_t next_dblink_id;
+	sqlparser_dialect_returning_into_state_t returning_into;
 } sqlparser_dameng_state_t;
 
 typedef struct {
@@ -608,6 +609,8 @@ static void sqlparser_dameng_state_destroy(void *state)
 	sqlparser_dialect_minuses_clear(&dameng_state->minuses);
 	free(dameng_state->dblink_relations);
 	sqlparser_dameng_multi_insert_destroy(dameng_state->multi_insert);
+	sqlparser_dialect_returning_into_state_clear(
+		&dameng_state->returning_into);
 	free(dameng_state);
 }
 
@@ -2567,11 +2570,13 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 {
 	sqlparser_dameng_buffer_t out;
 	sqlparser_dameng_pending_tops_t pending_tops;
+	sqlparser_dialect_returning_into_clause_t returning_into;
 	size_t index;
 	size_t paren_depth;
 	size_t significant_scan_pos;
 	size_t previous_significant_pos;
 	sqlparser_status_t status;
+	int has_returning_into;
 
 	if (out_sql == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "dialect output must not be NULL");
@@ -2599,10 +2604,12 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 		return status;
 	}
 	memset(&pending_tops, 0, sizeof(pending_tops));
+	memset(&returning_into, 0, sizeof(returning_into));
 	index = 0U;
 	paren_depth = 0U;
 	significant_scan_pos = 0U;
 	previous_significant_pos = SIZE_MAX;
+	has_returning_into = 0;
 	while (input_sql[index] != '\0') {
 		int copied;
 		size_t q_prefix_len;
@@ -2697,6 +2704,59 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 			return out_error != NULL ? out_error->code : SQLPARSER_STATUS_PARSE_ERROR;
 		}
 		if (copied > 0) {
+			continue;
+		}
+		if (has_returning_into && index == returning_into.into_start) {
+			status = sqlparser_dameng_buffer_append_cstr(
+				&out,
+				returning_into.uses_return_keyword ? "," : ",   ",
+				out_error);
+			if (status == SQLPARSER_STATUS_OK) {
+				index += strlen("into");
+				has_returning_into = 0;
+			}
+			if (status != SQLPARSER_STATUS_OK) {
+				sqlparser_dameng_pending_tops_release(&pending_tops);
+				sqlparser_dameng_buffer_release(&out);
+				return status;
+			}
+			continue;
+		}
+		if ((sqlparser_dameng_ascii_word_equal(
+			     input_sql, index, "returning") ||
+		     sqlparser_dameng_ascii_word_equal(
+			     input_sql, index, "return")) &&
+		    sqlparser_dialect_returning_into_clause_at(
+			    SQLPARSER_DIALECT_DAMENG,
+			    input_sql,
+			    index,
+			    1,
+			    &returning_into)) {
+			status = sqlparser_dialect_returning_into_state_append(
+				&state->returning_into,
+				returning_into.statement_index,
+				input_sql + index,
+				returning_into.keyword_end - index,
+				input_sql + returning_into.into_start,
+				out_error);
+			if (status == SQLPARSER_STATUS_OK) {
+				status = returning_into.uses_return_keyword ?
+					sqlparser_dameng_buffer_append_cstr(
+						&out, "RETURNING", out_error) :
+					sqlparser_dameng_buffer_append_input_mem(
+						&out,
+						input_sql,
+						index,
+						returning_into.keyword_end - index,
+						out_error);
+			}
+			if (status != SQLPARSER_STATUS_OK) {
+				sqlparser_dameng_pending_tops_release(&pending_tops);
+				sqlparser_dameng_buffer_release(&out);
+				return status;
+			}
+			index = returning_into.keyword_end;
+			has_returning_into = 1;
 			continue;
 		}
 
@@ -5565,6 +5625,15 @@ const sqlparser_dialect_multi_insert_t *sqlparser_dameng_state_multi_insert(cons
 	return dameng_state != NULL ? dameng_state->multi_insert : NULL;
 }
 
+const sqlparser_dialect_returning_into_state_t *
+sqlparser_dameng_state_returning_into(const void *state)
+{
+	const sqlparser_dameng_state_t *dameng_state;
+
+	dameng_state = (const sqlparser_dameng_state_t *)state;
+	return dameng_state != NULL ? &dameng_state->returning_into : NULL;
+}
+
 static sqlparser_status_t sqlparser_dameng_postprocess_deparse(
 	const char *core_sql,
 	const void *state,
@@ -5615,6 +5684,15 @@ static sqlparser_status_t sqlparser_dameng_postprocess_deparse(
 		return status;
 	}
 	status = sqlparser_dameng_rewrite_session_switches(&public_sql, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(public_sql);
+		return status;
+	}
+	status = sqlparser_dialect_returning_into_postprocess(
+		SQLPARSER_DIALECT_DAMENG,
+		&public_sql,
+		sqlparser_dameng_state_returning_into(state),
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		free(public_sql);
 		return status;
@@ -6445,6 +6523,14 @@ static sqlparser_status_t sqlparser_dameng_clone_state(
 		}
 	}
 	status = sqlparser_dameng_multi_insert_clone(source->multi_insert, &clone->multi_insert, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_dameng_state_destroy(clone);
+		return status;
+	}
+	status = sqlparser_dialect_returning_into_state_clone(
+		&source->returning_into,
+		&clone->returning_into,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_dameng_state_destroy(clone);
 		return status;

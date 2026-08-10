@@ -40,6 +40,7 @@ typedef struct {
 	size_t next_dblink_id;
 	sqlparser_dialect_minuses_t minuses;
 	sqlparser_dialect_multi_insert_t *multi_insert;
+	sqlparser_dialect_returning_into_state_t returning_into;
 } sqlparser_oracle_state_t;
 
 static int sqlparser_oracle_is_ident_start(unsigned char c);
@@ -328,6 +329,8 @@ static void sqlparser_oracle_state_destroy(void *state)
 	}
 	free(oracle_state->dblink_relations);
 	sqlparser_oracle_multi_insert_destroy(oracle_state->multi_insert);
+	sqlparser_dialect_returning_into_state_clear(
+		&oracle_state->returning_into);
 	free(oracle_state);
 }
 
@@ -708,6 +711,15 @@ const sqlparser_dialect_multi_insert_t *sqlparser_oracle_state_multi_insert(cons
 
 	oracle_state = (const sqlparser_oracle_state_t *)state;
 	return oracle_state != NULL ? oracle_state->multi_insert : NULL;
+}
+
+const sqlparser_dialect_returning_into_state_t *
+sqlparser_oracle_state_returning_into(const void *state)
+{
+	const sqlparser_oracle_state_t *oracle_state;
+
+	oracle_state = (const sqlparser_oracle_state_t *)state;
+	return oracle_state != NULL ? &oracle_state->returning_into : NULL;
 }
 
 static int sqlparser_oracle_is_ident_start(unsigned char c)
@@ -1187,7 +1199,6 @@ static sqlparser_status_t sqlparser_oracle_reject_unsupported(
 		"connect_by_root",
 		"connect_by_iscycle",
 		"connect_by_isleaf",
-		"returning",
 		"log errors",
 		"pivot",
 		"unpivot",
@@ -2764,15 +2775,19 @@ static sqlparser_status_t sqlparser_oracle_preprocess_text(
 	sqlparser_error_t *out_error)
 {
 	sqlparser_oracle_buffer_t out;
+	sqlparser_dialect_returning_into_clause_t returning_into;
 	sqlparser_status_t status;
 	size_t index;
+	int has_returning_into;
 
 	memset(&out, 0, sizeof(out));
+	memset(&returning_into, 0, sizeof(returning_into));
 	status = sqlparser_oracle_buffer_reserve_input(&out, input_sql, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
 	index = 0U;
+	has_returning_into = 0;
 	while (input_sql[index] != '\0') {
 		int copied;
 		size_t q_prefix_len;
@@ -2857,7 +2872,40 @@ static sqlparser_status_t sqlparser_oracle_preprocess_text(
 			continue;
 		}
 
-		if (input_sql[index] == '?') {
+		if (has_returning_into && index == returning_into.into_start) {
+			status = sqlparser_oracle_buffer_append_mem(
+				&out, ",   ", strlen("into"), out_error);
+			if (status == SQLPARSER_STATUS_OK) {
+				index += strlen("into");
+				has_returning_into = 0;
+			}
+		} else if (sqlparser_oracle_ascii_word_equal(
+			   input_sql, index, "returning") &&
+			   sqlparser_dialect_returning_into_clause_at(
+				   SQLPARSER_DIALECT_ORACLE,
+				   input_sql,
+				   index,
+				   0,
+				   &returning_into)) {
+			status = sqlparser_dialect_returning_into_state_append(
+				&state->returning_into,
+				returning_into.statement_index,
+				input_sql + index,
+				returning_into.keyword_end - index,
+				input_sql + returning_into.into_start,
+				out_error);
+			if (status == SQLPARSER_STATUS_OK) {
+				status = sqlparser_oracle_buffer_append_mem(
+					&out,
+					input_sql + index,
+					returning_into.keyword_end - index,
+					out_error);
+			}
+			if (status == SQLPARSER_STATUS_OK) {
+				index = returning_into.keyword_end;
+				has_returning_into = 1;
+			}
+		} else if (input_sql[index] == '?') {
 			status = sqlparser_oracle_copy_question_placeholder(&index, &out, state, out_error);
 		} else if (input_sql[index] == ':' && input_sql[index + 1U] != '=' &&
 		    input_sql[index + 1U] != ':' && input_sql[index + 1U] != '\0') {
@@ -5845,6 +5893,36 @@ static sqlparser_status_t sqlparser_oracle_replay_preprocess_range(
 		if (sqlparser_oracle_ascii_word_equal(
 			    input_sql,
 			    input_pos,
+			    "into") &&
+		    parser_pos <= parser_length &&
+		    parser_length - parser_pos >= strlen("into") &&
+		    parser_sql[parser_pos] == ',' &&
+		    parser_sql[parser_pos + 1U] == ' ' &&
+		    parser_sql[parser_pos + 2U] == ' ' &&
+		    parser_sql[parser_pos + 3U] == ' ') {
+			status = sqlparser_oracle_origin_flush_input(
+				writer,
+				input_map_offset,
+				&pending_start,
+				&pending_length,
+				out_error);
+			if (status == SQLPARSER_STATUS_OK) {
+				status =
+					sqlparser_identifier_origin_writer_append_unknown(
+						writer,
+						strlen("into"),
+						out_error);
+			}
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+			input_pos += strlen("into");
+			parser_pos += strlen("into");
+			continue;
+		}
+		if (sqlparser_oracle_ascii_word_equal(
+			    input_sql,
+			    input_pos,
 			    "minus") &&
 		    parser_pos <= parser_length &&
 		    parser_length - parser_pos >= strlen("EXCEPT") &&
@@ -6090,6 +6168,16 @@ static sqlparser_status_t sqlparser_oracle_preprocess(
 		return status;
 	}
 	preprocess_input = rewritten_sql != NULL ? rewritten_sql : input_sql;
+	status = sqlparser_dialect_returning_into_validate(
+		SQLPARSER_DIALECT_ORACLE,
+		preprocess_input,
+		0,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(rewritten_sql);
+		sqlparser_oracle_state_destroy(state);
+		return status;
+	}
 
 	if (sqlparser_oracle_is_multi_insert_start(preprocess_input, NULL)) {
 		status = sqlparser_oracle_parse_multi_insert(preprocess_input, state, out_parser_sql, out_error);
@@ -6253,6 +6341,15 @@ static sqlparser_status_t sqlparser_oracle_postprocess_deparse(
 		return status;
 	}
 	status = sqlparser_oracle_restore_database_links(&public_sql, (const sqlparser_oracle_state_t *)state, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(public_sql);
+		return status;
+	}
+	status = sqlparser_dialect_returning_into_postprocess(
+		SQLPARSER_DIALECT_ORACLE,
+		&public_sql,
+		sqlparser_oracle_state_returning_into(state),
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		free(public_sql);
 		return status;
@@ -7148,6 +7245,14 @@ static sqlparser_status_t sqlparser_oracle_clone_state(
 	}
 
 	status = sqlparser_oracle_multi_insert_clone(source->multi_insert, &clone->multi_insert, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_oracle_state_destroy(clone);
+		return status;
+	}
+	status = sqlparser_dialect_returning_into_state_clone(
+		&source->returning_into,
+		&clone->returning_into,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_oracle_state_destroy(clone);
 		return status;

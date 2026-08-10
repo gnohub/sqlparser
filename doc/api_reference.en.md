@@ -242,7 +242,7 @@ Bind-field rules:
 | Enum | Meaning |
 | --- | --- |
 | `SQLPARSER_GRAPH_DML_RESULT_CLIENT` | result channel returned to the client |
-| `SQLPARSER_GRAPH_DML_RESULT_SINK` | result channel written to a sink relation |
+| `SQLPARSER_GRAPH_DML_RESULT_SINK` | result channel received by a sink relation or host bind |
 
 `sqlparser_graph_dml_reference_kind_t`:
 
@@ -431,7 +431,7 @@ payloads, are not exposed as names.
 | `sqlparser_statement_literal()` | reads one literal |
 | `sqlparser_statement_set_literal()` | rewrites one literal |
 
-`sqlparser_literal_view_t.quoted_identifier` is `1` when a string literal came from a quoted-identifier token, such as the schema value in `ALTER SESSION SET CURRENT_SCHEMA="KdesMixed"`. Ordinary string literals and unquoted identifiers report `0`.
+`sqlparser_literal_view_t.quoted_identifier` is `1` when a string literal came from a quoted-identifier token, such as the schema value in `ALTER SESSION SET CURRENT_SCHEMA="AppMixed"`. Ordinary string literals and unquoted identifiers report `0`.
 
 ### INSERT
 
@@ -740,7 +740,7 @@ from which it was read.
 | --- | --- |
 | `sqlparser_graph_block_t` | query block with relation, target, and predicate spans |
 | `sqlparser_graph_relation_t` | base, derived, CTE, or dual relation visible in SQL; `quoted_identifier` reports an explicit supported delimiter on the object-name token |
-| `sqlparser_graph_target_t` | SELECT output target with output order, star source, and selector |
+| `sqlparser_graph_target_t` | query or DML-result output target with output order, star source, selector, and an optional sink-value association |
 | `sqlparser_graph_field_t` | field-reference occurrence visible in SQL; `quoted_identifier` reports an explicit supported delimiter on the column-name token |
 | `sqlparser_graph_value_t` | literal, bind, default, expression, or field value in the query graph |
 | `sqlparser_graph_set_t` | `UNION`, `UNION ALL`, `INTERSECT`, or `EXCEPT/MINUS` branches |
@@ -749,7 +749,7 @@ from which it was read.
 | `sqlparser_graph_session_item_t` | session-state scope, target, and value span |
 | `sqlparser_graph_session_value_t` | session-state identifier, keyword, literal, bind, or expression value |
 | `sqlparser_graph_dml_t` | INSERT, UPDATE, DELETE, or MERGE write shape |
-| `sqlparser_graph_dml_result_t` | DML result channel, output block, optional sink relation, sink columns, and field-reference span |
+| `sqlparser_graph_dml_result_t` | DML result channel, output block, optional relation and columns for a relation-backed sink, and a field-reference span |
 | `sqlparser_graph_dml_reference_t` | one result-target reference to a target-row or source-relation field |
 | `sqlparser_graph_dml_branch_t` | common DML-branch shape with target relation, target columns, rows, condition, and branch ordinal |
 | `sqlparser_graph_dml_column_t` | explicit INSERT target column |
@@ -795,8 +795,14 @@ from which it was read.
 - `sqlparser_query_graph_dml_parent()` reports nested DML parentage. A DML
   without a parent returns `out_has_parent = 0`.
 - `sqlparser_graph_dml_result_t.kind` distinguishes client and sink channels.
-  A sink channel uses `has_sink_relation`, `sink_relation_index`, and
+  A sink can be received by a relation or a host bind. Only a relation-backed
+  sink sets `has_sink_relation = 1` and uses `sink_relation_index` and optional
   `sink_columns` to identify its destination.
+- A host-bind sink has no relation association. Its corresponding
+  `sqlparser_graph_target_t` sets `has_sink_value = 1`, making
+  `sink_value_index` valid for `sqlparser_query_graph_value_at()`. The existing
+  `selector` on that `sqlparser_graph_value_t` can be used with
+  `SQLPARSER_PATCH_REPLACE`; no new selector kind is introduced.
 - Read indexes from `sqlparser_graph_dml_result_t.references` with
   `sqlparser_query_graph_span_index_at()`, then pass each index to
   `sqlparser_query_graph_dml_reference_at()`. Each reference links one result

@@ -19,6 +19,7 @@
 - `INSERT VALUES`、多行 `INSERT`、`INSERT SELECT`
 - 多表插入：`INSERT ALL`、`INSERT FIRST`，包括 `WHEN ... THEN`、`ELSE` 和单个条件分支下的多个 `INTO`
 - `UPDATE`、`DELETE`
+- DML 返回宿主绑定变量：`INSERT`、`DELETE` 的 `RETURNING <单个表达式> INTO <单个冒号宿主绑定变量>`，以及 `UPDATE` 的 `RETURN <单个表达式> INTO <单个冒号宿主绑定变量>`
 - 可映射的 `MERGE`
 - `DATE`、`TIMESTAMP` 字面量
 - 常见 DDL：`CREATE TABLE`、`CREATE VIEW`、`CREATE SEQUENCE`、`ALTER TABLE ADD`、`CREATE INDEX`、`DROP TABLE`、`TRUNCATE TABLE`
@@ -34,7 +35,7 @@
 
 - `CONNECT BY`
 - `PIVOT`、`UNPIVOT`
-- `RETURNING ... INTO`
+- `RETURN`/`RETURNING ... INTO` 的多个返回 target、多个 `INTO` 宿主绑定变量或 `BULK COLLECT` 形态
 - DMSQL block、procedure、package
 - 未列入支持范围的其他 `ALTER SESSION` 参数
 - `ALTER SESSION SET CONTAINER = ...`
@@ -45,6 +46,7 @@
 - bind 保持 `:name`、`:1` 或 `?` 形态，不输出内部 `$1`、`$2`。
 - `MINUS` 在 View JSON 和 deparse 输出中保持达梦语义名称。
 - `SET SCHEMA` 在 View JSON 中输出字段名 `CURRENT_SCHEMA`。
+- DML 返回通道在 `dml.result_channels` 中使用 sink channel；返回 target 的 `sink_value` 指向 `query_graph.values[]` 中的宿主绑定变量。
 - View JSON 中可归属的表达式片段使用达梦公共形态。
 - 失败的表达式片段改写不会提交到 handle；原有 AST、bind 映射和 deparse 输出保持可用。
 
@@ -58,4 +60,4 @@
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-当前达梦方言矩阵包含 162 条用例：150 条成功用例，12 条预期失败用例。
+当前达梦方言矩阵包含 169 条用例，全部为 `status = "final"`。

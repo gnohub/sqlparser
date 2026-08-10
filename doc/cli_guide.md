@@ -94,7 +94,7 @@ cat ./input.sql | ./bin/sqlparser_cli --mode deparse
 
 ```bash
 ./bin/sqlparser_cli --dialect dameng --mode view \
-  "SET SCHEMA KDES; SELECT TOP 2 id, name FROM users WHERE id = :id"
+  "SET SCHEMA APP; SELECT TOP 2 id, name FROM users WHERE id = :id"
 ```
 
 批量 JSON 可以在顶层设置默认方言，也可以在单条 SQL 上覆盖：

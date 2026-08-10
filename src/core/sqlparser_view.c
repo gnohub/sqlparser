@@ -15324,6 +15324,7 @@ static int sqlparser_graph_build_target(
 	size_t ordinal,
 	sqlparser_clause_kind_t clause,
 	PgQuery__ResTarget *res_target,
+	size_t *out_target_index,
 	sqlparser_error_t *out_error)
 {
 	sqlparser_identifier_source_t output_identifier;
@@ -15477,6 +15478,9 @@ static int sqlparser_graph_build_target(
 					}
 				}
 			}
+			if (out_target_index != NULL) {
+				*out_target_index = star_target_index;
+			}
 			return 0;
 		}
 		if (sqlparser_graph_column_ref_is_dialect_expression(
@@ -15487,7 +15491,7 @@ static int sqlparser_graph_build_target(
 				build,
 				&target,
 				&output_identifier,
-				NULL,
+				out_target_index,
 				out_error);
 		}
 		if (sqlparser_graph_column_ref_is_pseudo(
@@ -15513,12 +15517,32 @@ static int sqlparser_graph_build_target(
 					sqlparser_text_equal_ci(name, build->dml_result_action_marker) ?
 					"$action" : name;
 			}
-			return sqlparser_graph_add_target(
-				build,
-				&target,
-				&output_identifier,
-				NULL,
-				out_error);
+			target_index = 0U;
+			if (sqlparser_graph_add_target(
+				    build,
+				    &target,
+				    &output_identifier,
+				    &target_index,
+				    out_error) != 0) {
+				return -1;
+			}
+			if (build->building_dml_result &&
+			    build->dml_result_has_target_relation &&
+			    sqlparser_graph_dml_result_add_resolved_references(
+				    build,
+				    target_index,
+				    0U,
+				    0,
+				    build->dml_result_target_relation_index,
+				    build->dml_result_target_reference_kinds,
+				    0,
+				    out_error) != 0) {
+				return -1;
+			}
+			if (out_target_index != NULL) {
+				*out_target_index = target_index;
+			}
+			return 0;
 		}
 		target_index = 0U;
 		target.kind = SQLPARSER_GRAPH_TARGET_FIELD;
@@ -15551,6 +15575,9 @@ static int sqlparser_graph_build_target(
 			target.has_field = 1;
 			*sqlparser_graph_target_by_local(build, target_index) = target;
 		}
+		if (out_target_index != NULL) {
+			*out_target_index = target_index;
+		}
 		return 0;
 	}
 	if (expr != NULL && expr->node_case == PG_QUERY__NODE__NODE_A_CONST) {
@@ -15570,7 +15597,7 @@ static int sqlparser_graph_build_target(
 			build,
 			&target,
 			&output_identifier,
-			NULL,
+			out_target_index,
 			out_error);
 	}
 	if (expr != NULL && expr->node_case == PG_QUERY__NODE__NODE_PARAM_REF) {
@@ -15594,7 +15621,7 @@ static int sqlparser_graph_build_target(
 				build,
 				&target,
 				&output_identifier,
-				NULL,
+				out_target_index,
 				out_error);
 		}
 		target.has_value = 1;
@@ -15602,7 +15629,7 @@ static int sqlparser_graph_build_target(
 			build,
 			&target,
 			&output_identifier,
-			NULL,
+			out_target_index,
 			out_error);
 	}
 	if (expr != NULL && expr->node_case == PG_QUERY__NODE__NODE_SUB_LINK && expr->sub_link != NULL) {
@@ -15615,7 +15642,7 @@ static int sqlparser_graph_build_target(
 			build,
 			&target,
 			&output_identifier,
-			NULL,
+			out_target_index,
 			out_error);
 	}
 	target.kind = SQLPARSER_GRAPH_TARGET_EXPRESSION;
@@ -15627,14 +15654,20 @@ static int sqlparser_graph_build_target(
 		    out_error) != 0) {
 		return -1;
 	}
-	return sqlparser_graph_walk_expr(
+	if (sqlparser_graph_walk_expr(
 		build,
 		block_index,
 		clause,
 		expr,
 		target_index,
 		1,
-		out_error);
+		out_error) != 0) {
+		return -1;
+	}
+	if (out_target_index != NULL) {
+		*out_target_index = target_index;
+	}
+	return 0;
 }
 
 static int sqlparser_graph_add_using_field(
@@ -16115,6 +16148,7 @@ static int sqlparser_graph_build_select_impl(
 			    index,
 			    SQLPARSER_CLAUSE_KIND_SELECT_LIST,
 			    target_node->res_target,
+			    NULL,
 			    out_error) != 0) {
 			sqlparser_graph_pop_scope(build);
 			return -1;
@@ -18089,6 +18123,13 @@ static int sqlparser_graph_build_dml_results(
 			return -1;
 		}
 		expected_count += channel.target_count;
+		if ((channel.sink_value_count > 0U &&
+		     channel.sink_value_offset != expected_count) ||
+		    channel.sink_value_count > SIZE_MAX - expected_count) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "DML result sink value metadata is invalid");
+			return -1;
+		}
+		expected_count += channel.sink_value_count;
 	}
 	if (expected_count != returning_count ||
 	    (returning_count > 0U && returning_list == NULL)) {
@@ -18102,6 +18143,7 @@ static int sqlparser_graph_build_dml_results(
 		sqlparser_graph_dml_result_build_state_t saved_state;
 		size_t result_index;
 		size_t result_block_index;
+		size_t sink_target_index;
 		size_t target_ordinal;
 
 		memset(&channel, 0, sizeof(channel));
@@ -18130,6 +18172,7 @@ static int sqlparser_graph_build_dml_results(
 		}
 		result = &build->cache->dml_results->results[result_index];
 		if (channel.kind == SQLPARSER_GRAPH_DML_RESULT_SINK &&
+		    channel.sink_sql != NULL &&
 		    sqlparser_graph_add_dml_result_sink_relation(
 			    build,
 			    dml_block_index,
@@ -18149,6 +18192,18 @@ static int sqlparser_graph_build_dml_results(
 			dml_info.target_reference_kinds;
 		build->dml_result_index = result_index;
 		build->has_dml_result = 1;
+		if (channel.sink_value_count != 0U &&
+		    (channel.target_count != 1U ||
+		     channel.sink_value_count != 1U)) {
+			sqlparser_graph_dml_result_build_state_restore(
+				build, &saved_state);
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"DML result sink value metadata is invalid");
+			return -1;
+		}
+		sink_target_index = 0U;
 		for (target_ordinal = 0U; target_ordinal < channel.target_count; target_ordinal++) {
 			PgQuery__Node *target_node;
 
@@ -18173,11 +18228,55 @@ static int sqlparser_graph_build_dml_results(
 				    target_ordinal,
 				    SQLPARSER_CLAUSE_KIND_DML_RESULT,
 				    target_node->res_target,
+				    channel.sink_value_count != 0U ?
+					    &sink_target_index : NULL,
 				    out_error) != 0) {
 				sqlparser_graph_dml_result_build_state_restore(
 					build, &saved_state);
 				return -1;
 			}
+		}
+		if (channel.sink_value_count != 0U) {
+			PgQuery__Node *sink_node;
+			PgQuery__ResTarget *sink_target;
+			sqlparser_graph_target_t *target;
+			size_t value_index;
+			int added;
+
+			sink_node = returning_list[channel.sink_value_offset];
+			sink_target = sink_node != NULL &&
+				sink_node->node_case == PG_QUERY__NODE__NODE_RES_TARGET ?
+				sink_node->res_target : NULL;
+			target = sqlparser_graph_target_by_local(
+				build, sink_target_index);
+			value_index = 0U;
+			added = 0;
+			if (sink_target == NULL || sink_target->val == NULL ||
+			    sink_target->val->node_case !=
+				    PG_QUERY__NODE__NODE_PARAM_REF ||
+			    target == NULL ||
+			    sqlparser_graph_add_target_value_from_node(
+				    build,
+				    result_block_index,
+				    SQLPARSER_CLAUSE_KIND_DML_RESULT,
+				    sink_target->val,
+				    &value_index,
+				    &added,
+				    out_error) != 0 ||
+			    !added) {
+				sqlparser_graph_dml_result_build_state_restore(
+					build, &saved_state);
+				if (out_error != NULL &&
+				    out_error->code == SQLPARSER_STATUS_OK) {
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_INTERNAL_ERROR,
+						"DML result sink value is invalid");
+				}
+				return -1;
+			}
+			target->sink_value_index = value_index;
+			target->has_sink_value = 1;
 		}
 		sqlparser_graph_dml_result_build_state_restore(build, &saved_state);
 		if (result_index >= build->cache->dml_results->result_count) {
@@ -20580,6 +20679,7 @@ static json_t *sqlparser_graph_target_json(
 	    sqlparser_json_set_nonempty_array(object, "star_relations", &star_relations) != 0 ||
 	    sqlparser_json_set_optional_size(object, "source_block", target->has_source_block, target->source_block_index) != 0 ||
 	    sqlparser_json_set_optional_selector(object, "selector", target->has_selector ? &target->selector : NULL, out_error) != 0 ||
+	    sqlparser_json_set_optional_size(object, "sink_value", target->has_sink_value, target->sink_value_index) != 0 ||
 	    sqlparser_json_set_optional_selector(object, "target_list_selector", target->has_target_list_selector ? &target->target_list_selector : NULL, out_error) != 0) {
 		json_decref(object);
 		json_decref(star_relations);

@@ -213,7 +213,7 @@ test: all $(UNIT_TEST_BINS) examples
 	$(BIN_DIR)\examples\convenience\18_structured_fragment_rewrite.exe
 	$(BIN_DIR)\examples\patch\19_oracle_multi_insert_patch.exe
 	$(BIN_DIR)\sqlparser_cli.exe --mode view "INSERT INTO users (username, email, age) VALUES (?, ?, ?);" --dialect oracle >NUL
-	$(BIN_DIR)\sqlparser_cli.exe --mode view "ALTER SESSION SET CURRENT_SCHEMA=KDES" --dialect vastbase-oracle >NUL
+	$(BIN_DIR)\sqlparser_cli.exe --mode view "ALTER SESSION SET CURRENT_SCHEMA=APP" --dialect vastbase-oracle >NUL
 
 clean:
 	@if exist $(BUILD_DIR) rmdir /S /Q $(BUILD_DIR)

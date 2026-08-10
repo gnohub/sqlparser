@@ -5038,7 +5038,7 @@
     },
     {
       "name": "vastbase-oracle-alter-session-current-schema",
-      "sql": "ALTER SESSION SET CURRENT_SCHEMA=KDES",
+      "sql": "ALTER SESSION SET CURRENT_SCHEMA=APP",
       "view": {
         "statements": [
           {
@@ -5054,7 +5054,7 @@
                     "values": [
                       {
                         "kind": "identifier",
-                        "text": "KDES"
+                        "text": "APP"
                       }
                     ]
                   }
@@ -5069,7 +5069,7 @@
     },
     {
       "name": "vastbase-oracle-alter-session-current-schema-quoted-identifier",
-      "sql": "ALTER SESSION SET CURRENT_SCHEMA=\"KdesMixed\"",
+      "sql": "ALTER SESSION SET CURRENT_SCHEMA=\"AppMixed\"",
       "view": {
         "statements": [
           {
@@ -5086,7 +5086,7 @@
                       {
                         "kind": "identifier",
                         "quoted_identifier": true,
-                        "text": "KdesMixed"
+                        "text": "AppMixed"
                       }
                     ]
                   }
@@ -5199,7 +5199,7 @@
     },
     {
       "name": "vastbase-oracle-alter-session-current-schema-in-multi-statement",
-      "sql": "SELECT * FROM users; ALTER SESSION SET CURRENT_SCHEMA=KDES",
+      "sql": "SELECT * FROM users; ALTER SESSION SET CURRENT_SCHEMA=APP",
       "view": {
         "statements": [
           {
@@ -5253,7 +5253,7 @@
                     "values": [
                       {
                         "kind": "identifier",
-                        "text": "KDES"
+                        "text": "APP"
                       }
                     ]
                   }
@@ -5269,13 +5269,13 @@
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "\"PatchedTable\"",
-          "deparse": "SELECT * FROM \"PatchedTable\"; ALTER SESSION SET CURRENT_SCHEMA=KDES"
+          "deparse": "SELECT * FROM \"PatchedTable\"; ALTER SESSION SET CURRENT_SCHEMA=APP"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "\"PatchedTarget\"",
-          "deparse": "SELECT \"PatchedTarget\" FROM users; ALTER SESSION SET CURRENT_SCHEMA=KDES"
+          "deparse": "SELECT \"PatchedTarget\" FROM users; ALTER SESSION SET CURRENT_SCHEMA=APP"
         }
       ]
     },
@@ -20522,7 +20522,7 @@
     },
     {
       "name": "vastbase-oracle-select-derived-query-graph",
-      "sql": "SELECT s.name AS outer_name FROM (SELECT id, name FROM KDES.USERS WHERE age <= :age) s WHERE s.name LIKE :name",
+      "sql": "SELECT s.name AS outer_name FROM (SELECT id, name FROM APP.USERS WHERE age <= :age) s WHERE s.name LIKE :name",
       "view": {
         "statements": [
           {
@@ -20628,7 +20628,7 @@
                 {
                   "block": 1,
                   "kind": "base",
-                  "schema": "KDES",
+                  "schema": "APP",
                   "selector": "stmt[0].relation[0]",
                   "table": "USERS"
                 }
@@ -20709,38 +20709,38 @@
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "\"PatchedName\"",
-          "deparse": "SELECT s.name AS outer_name FROM (SELECT \"PatchedName\", name FROM KDES.USERS WHERE age <= :age) s WHERE s.name LIKE :name"
+          "deparse": "SELECT s.name AS outer_name FROM (SELECT \"PatchedName\", name FROM APP.USERS WHERE age <= :age) s WHERE s.name LIKE :name"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/4/selector",
           "value": "\"PatchedName\"",
-          "deparse": "SELECT s.name AS outer_name FROM (SELECT id, name FROM KDES.USERS WHERE age <= :age) s WHERE s.\"PatchedName\" LIKE :name"
+          "deparse": "SELECT s.name AS outer_name FROM (SELECT id, name FROM APP.USERS WHERE age <= :age) s WHERE s.\"PatchedName\" LIKE :name"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "\"PatchedTarget\"",
-          "deparse": "SELECT s.name AS outer_name FROM (SELECT \"PatchedTarget\", name FROM KDES.USERS WHERE age <= :age) s WHERE s.name LIKE :name"
+          "deparse": "SELECT s.name AS outer_name FROM (SELECT \"PatchedTarget\", name FROM APP.USERS WHERE age <= :age) s WHERE s.name LIKE :name"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/2/selector",
           "value": "\"PatchedTarget\"",
-          "deparse": "SELECT \"PatchedTarget\" FROM (SELECT id, name FROM KDES.USERS WHERE age <= :age) s WHERE s.name LIKE :name"
+          "deparse": "SELECT \"PatchedTarget\" FROM (SELECT id, name FROM APP.USERS WHERE age <= :age) s WHERE s.name LIKE :name"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "\"InsertedTarget\"",
           "index": 1,
-          "deparse": "SELECT s.name AS outer_name FROM (SELECT id, \"InsertedTarget\", name FROM KDES.USERS WHERE age <= :age) s WHERE s.name LIKE :name"
+          "deparse": "SELECT s.name AS outer_name FROM (SELECT id, \"InsertedTarget\", name FROM APP.USERS WHERE age <= :age) s WHERE s.name LIKE :name"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "SELECT s.name AS outer_name FROM (SELECT id, name FROM KDES.USERS WHERE age <= 42) s WHERE s.name LIKE :name"
+          "deparse": "SELECT s.name AS outer_name FROM (SELECT id, name FROM APP.USERS WHERE age <= 42) s WHERE s.name LIKE :name"
         }
       ]
     },
@@ -21003,7 +21003,7 @@
     },
     {
       "name": "vastbase-oracle-field-match-kind-direct-and-expression",
-      "sql": "SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = :plain_secret AND UPPER(SECRET) = :upper_secret",
+      "sql": "SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE SECRET = :plain_secret AND UPPER(SECRET) = :upper_secret",
       "view": {
         "statements": [
           {
@@ -21086,7 +21086,7 @@
                 {
                   "block": 0,
                   "kind": "base",
-                  "schema": "KDES",
+                  "schema": "APP",
                   "selector": "stmt[0].relation[0]",
                   "table": "DBP_CRYPTO_TEST"
                 }
@@ -21149,38 +21149,38 @@
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "\"PatchedName\"",
-          "deparse": "SELECT \"PatchedName\" FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = :plain_secret AND UPPER(SECRET) = :upper_secret"
+          "deparse": "SELECT \"PatchedName\" FROM APP.DBP_CRYPTO_TEST WHERE SECRET = :plain_secret AND UPPER(SECRET) = :upper_secret"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/2/selector",
           "value": "\"PatchedName\"",
-          "deparse": "SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = :plain_secret AND UPPER(\"PatchedName\") = :upper_secret"
+          "deparse": "SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE SECRET = :plain_secret AND UPPER(\"PatchedName\") = :upper_secret"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "\"PatchedTarget\"",
-          "deparse": "SELECT \"PatchedTarget\" FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = :plain_secret AND UPPER(SECRET) = :upper_secret"
+          "deparse": "SELECT \"PatchedTarget\" FROM APP.DBP_CRYPTO_TEST WHERE SECRET = :plain_secret AND UPPER(SECRET) = :upper_secret"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "\"InsertedTarget\"",
           "index": 1,
-          "deparse": "SELECT ID, \"InsertedTarget\" FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = :plain_secret AND UPPER(SECRET) = :upper_secret"
+          "deparse": "SELECT ID, \"InsertedTarget\" FROM APP.DBP_CRYPTO_TEST WHERE SECRET = :plain_secret AND UPPER(SECRET) = :upper_secret"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = 42 AND UPPER(SECRET) = :upper_secret"
+          "deparse": "SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE SECRET = 42 AND UPPER(SECRET) = :upper_secret"
         }
       ]
     },
     {
       "name": "vastbase-oracle-expression-field-case-expression-value",
-      "sql": "SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE CASE WHEN ID = 1 THEN SECRET ELSE BACKUP_SECRET END = :v",
+      "sql": "SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE CASE WHEN ID = 1 THEN SECRET ELSE BACKUP_SECRET END = :v",
       "view": {
         "statements": [
           {
@@ -21236,7 +21236,7 @@
                 {
                   "block": 0,
                   "kind": "base",
-                  "schema": "KDES",
+                  "schema": "APP",
                   "selector": "stmt[0].relation[0]",
                   "table": "DBP_CRYPTO_TEST"
                 }
@@ -21325,38 +21325,38 @@
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "\"PatchedName\"",
-          "deparse": "SELECT \"PatchedName\" FROM KDES.DBP_CRYPTO_TEST WHERE CASE WHEN ID = 1 THEN SECRET ELSE BACKUP_SECRET END = :v"
+          "deparse": "SELECT \"PatchedName\" FROM APP.DBP_CRYPTO_TEST WHERE CASE WHEN ID = 1 THEN SECRET ELSE BACKUP_SECRET END = :v"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/3/selector",
           "value": "\"PatchedName\"",
-          "deparse": "SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE CASE WHEN \"PatchedName\" = 1 THEN SECRET ELSE BACKUP_SECRET END = :v"
+          "deparse": "SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE CASE WHEN \"PatchedName\" = 1 THEN SECRET ELSE BACKUP_SECRET END = :v"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "\"PatchedTarget\"",
-          "deparse": "SELECT \"PatchedTarget\" FROM KDES.DBP_CRYPTO_TEST WHERE CASE WHEN ID = 1 THEN SECRET ELSE BACKUP_SECRET END = :v"
+          "deparse": "SELECT \"PatchedTarget\" FROM APP.DBP_CRYPTO_TEST WHERE CASE WHEN ID = 1 THEN SECRET ELSE BACKUP_SECRET END = :v"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "\"InsertedTarget\"",
           "index": 1,
-          "deparse": "SELECT ID, \"InsertedTarget\" FROM KDES.DBP_CRYPTO_TEST WHERE CASE WHEN ID = 1 THEN SECRET ELSE BACKUP_SECRET END = :v"
+          "deparse": "SELECT ID, \"InsertedTarget\" FROM APP.DBP_CRYPTO_TEST WHERE CASE WHEN ID = 1 THEN SECRET ELSE BACKUP_SECRET END = :v"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE CASE WHEN ID = 1 THEN SECRET ELSE BACKUP_SECRET END = 42"
+          "deparse": "SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE CASE WHEN ID = 1 THEN SECRET ELSE BACKUP_SECRET END = 42"
         }
       ]
     },
     {
       "name": "vastbase-oracle-expression-field-multi-field-expression-value",
-      "sql": "SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE NVL(SECRET, ID) = :v1 AND SECRET || ID = :v2",
+      "sql": "SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE NVL(SECRET, ID) = :v1 AND SECRET || ID = :v2",
       "view": {
         "statements": [
           {
@@ -21451,7 +21451,7 @@
                 {
                   "block": 0,
                   "kind": "base",
-                  "schema": "KDES",
+                  "schema": "APP",
                   "selector": "stmt[0].relation[0]",
                   "table": "DBP_CRYPTO_TEST"
                 }
@@ -21542,38 +21542,38 @@
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "\"PatchedName\"",
-          "deparse": "SELECT \"PatchedName\" FROM KDES.DBP_CRYPTO_TEST WHERE NVL(SECRET, ID) = :v1 AND SECRET || ID = :v2"
+          "deparse": "SELECT \"PatchedName\" FROM APP.DBP_CRYPTO_TEST WHERE NVL(SECRET, ID) = :v1 AND SECRET || ID = :v2"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/4/selector",
           "value": "\"PatchedName\"",
-          "deparse": "SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE NVL(SECRET, ID) = :v1 AND SECRET || \"PatchedName\" = :v2"
+          "deparse": "SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE NVL(SECRET, ID) = :v1 AND SECRET || \"PatchedName\" = :v2"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "\"PatchedTarget\"",
-          "deparse": "SELECT \"PatchedTarget\" FROM KDES.DBP_CRYPTO_TEST WHERE NVL(SECRET, ID) = :v1 AND SECRET || ID = :v2"
+          "deparse": "SELECT \"PatchedTarget\" FROM APP.DBP_CRYPTO_TEST WHERE NVL(SECRET, ID) = :v1 AND SECRET || ID = :v2"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "\"InsertedTarget\"",
           "index": 1,
-          "deparse": "SELECT ID, \"InsertedTarget\" FROM KDES.DBP_CRYPTO_TEST WHERE NVL(SECRET, ID) = :v1 AND SECRET || ID = :v2"
+          "deparse": "SELECT ID, \"InsertedTarget\" FROM APP.DBP_CRYPTO_TEST WHERE NVL(SECRET, ID) = :v1 AND SECRET || ID = :v2"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE NVL(SECRET, ID) = 42 AND SECRET || ID = :v2"
+          "deparse": "SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE NVL(SECRET, ID) = 42 AND SECRET || ID = :v2"
         }
       ]
     },
     {
       "name": "vastbase-oracle-expression-field-value-side-expression",
-      "sql": "SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = UPPER(:v1) AND SECRET = :v2 || 'x' AND SECRET = CAST(:v3 AS VARCHAR(32))",
+      "sql": "SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE SECRET = UPPER(:v1) AND SECRET = :v2 || 'x' AND SECRET = CAST(:v3 AS VARCHAR(32))",
       "view": {
         "statements": [
           {
@@ -21675,7 +21675,7 @@
                 {
                   "block": 0,
                   "kind": "base",
-                  "schema": "KDES",
+                  "schema": "APP",
                   "selector": "stmt[0].relation[0]",
                   "table": "DBP_CRYPTO_TEST"
                 }
@@ -21740,32 +21740,32 @@
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "\"PatchedName\"",
-          "deparse": "SELECT \"PatchedName\" FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = UPPER(:v1) AND SECRET = :v2 || 'x' AND SECRET = CAST(:v3 AS VARCHAR(32))"
+          "deparse": "SELECT \"PatchedName\" FROM APP.DBP_CRYPTO_TEST WHERE SECRET = UPPER(:v1) AND SECRET = :v2 || 'x' AND SECRET = CAST(:v3 AS VARCHAR(32))"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/3/selector",
           "value": "\"PatchedName\"",
-          "deparse": "SELECT ID FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = UPPER(:v1) AND SECRET = :v2 || 'x' AND \"PatchedName\" = CAST(:v3 AS VARCHAR(32))"
+          "deparse": "SELECT ID FROM APP.DBP_CRYPTO_TEST WHERE SECRET = UPPER(:v1) AND SECRET = :v2 || 'x' AND \"PatchedName\" = CAST(:v3 AS VARCHAR(32))"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "\"PatchedTarget\"",
-          "deparse": "SELECT \"PatchedTarget\" FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = UPPER(:v1) AND SECRET = :v2 || 'x' AND SECRET = CAST(:v3 AS VARCHAR(32))"
+          "deparse": "SELECT \"PatchedTarget\" FROM APP.DBP_CRYPTO_TEST WHERE SECRET = UPPER(:v1) AND SECRET = :v2 || 'x' AND SECRET = CAST(:v3 AS VARCHAR(32))"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "\"InsertedTarget\"",
           "index": 1,
-          "deparse": "SELECT ID, \"InsertedTarget\" FROM KDES.DBP_CRYPTO_TEST WHERE SECRET = UPPER(:v1) AND SECRET = :v2 || 'x' AND SECRET = CAST(:v3 AS VARCHAR(32))"
+          "deparse": "SELECT ID, \"InsertedTarget\" FROM APP.DBP_CRYPTO_TEST WHERE SECRET = UPPER(:v1) AND SECRET = :v2 || 'x' AND SECRET = CAST(:v3 AS VARCHAR(32))"
         }
       ]
     },
     {
       "name": "vastbase-oracle-expression-field-dml-expression-values",
-      "sql": "INSERT INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (1, UPPER(:v1)); UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :v2 || 'x' WHERE ID = 1",
+      "sql": "INSERT INTO APP.DBP_CRYPTO_TEST (ID, SECRET) VALUES (1, UPPER(:v1)); UPDATE APP.DBP_CRYPTO_TEST SET SECRET = :v2 || 'x' WHERE ID = 1",
       "view": {
         "statements": [
           {
@@ -21820,7 +21820,7 @@
                 {
                   "block": 0,
                   "kind": "base",
-                  "schema": "KDES",
+                  "schema": "APP",
                   "selector": "stmt[0].relation[0]",
                   "table": "DBP_CRYPTO_TEST"
                 }
@@ -21891,7 +21891,7 @@
                 {
                   "block": 0,
                   "kind": "base",
-                  "schema": "KDES",
+                  "schema": "APP",
                   "selector": "stmt[1].relation[0]",
                   "table": "DBP_CRYPTO_TEST"
                 }
@@ -21945,43 +21945,43 @@
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "\"PatchedTable\"",
-          "deparse": "INSERT INTO \"PatchedTable\" (ID, SECRET) VALUES (1, UPPER(:v1)); UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :v2 || 'x' WHERE ID = 1"
+          "deparse": "INSERT INTO \"PatchedTable\" (ID, SECRET) VALUES (1, UPPER(:v1)); UPDATE APP.DBP_CRYPTO_TEST SET SECRET = :v2 || 'x' WHERE ID = 1"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/0/selector",
           "value": "42",
-          "deparse": "INSERT INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (42, UPPER(:v1)); UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :v2 || 'x' WHERE ID = 1"
+          "deparse": "INSERT INTO APP.DBP_CRYPTO_TEST (ID, SECRET) VALUES (42, UPPER(:v1)); UPDATE APP.DBP_CRYPTO_TEST SET SECRET = :v2 || 'x' WHERE ID = 1"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/fields/1/selector",
           "value": "\"PatchedName\"",
-          "deparse": "INSERT INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (1, UPPER(:v1)); UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :v2 || 'x' WHERE \"PatchedName\" = 1"
+          "deparse": "INSERT INTO APP.DBP_CRYPTO_TEST (ID, SECRET) VALUES (1, UPPER(:v1)); UPDATE APP.DBP_CRYPTO_TEST SET SECRET = :v2 || 'x' WHERE \"PatchedName\" = 1"
         },
         {
           "action": "replace",
           "target": "/statements/1/query_graph/values/2/selector",
           "value": "42",
-          "deparse": "INSERT INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (1, UPPER(:v1)); UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :v2 || 'x' WHERE ID = 42"
+          "deparse": "INSERT INTO APP.DBP_CRYPTO_TEST (ID, SECRET) VALUES (1, UPPER(:v1)); UPDATE APP.DBP_CRYPTO_TEST SET SECRET = :v2 || 'x' WHERE ID = 42"
         },
         {
           "action": "replace_assignment",
           "target": "/statements/1/query_graph/dml/assignments/0/selector",
           "value": "\"PatchedColumn\" = 42",
-          "deparse": "INSERT INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (1, UPPER(:v1)); UPDATE KDES.DBP_CRYPTO_TEST SET \"PatchedColumn\" = 42 WHERE ID = 1"
+          "deparse": "INSERT INTO APP.DBP_CRYPTO_TEST (ID, SECRET) VALUES (1, UPPER(:v1)); UPDATE APP.DBP_CRYPTO_TEST SET \"PatchedColumn\" = 42 WHERE ID = 1"
         },
         {
           "action": "insert_assignment",
           "target": "/statements/1/query_graph/dml/assignments/0/selector",
           "value": "\"InsertedColumn\" = 43",
-          "deparse": "INSERT INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (1, UPPER(:v1)); UPDATE KDES.DBP_CRYPTO_TEST SET \"InsertedColumn\" = 43, SECRET = :v2 || 'x' WHERE ID = 1"
+          "deparse": "INSERT INTO APP.DBP_CRYPTO_TEST (ID, SECRET) VALUES (1, UPPER(:v1)); UPDATE APP.DBP_CRYPTO_TEST SET \"InsertedColumn\" = 43, SECRET = :v2 || 'x' WHERE ID = 1"
         }
       ]
     },
     {
       "name": "vastbase-oracle-update-positional-bind-rhs-crypto-source",
-      "sql": "UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :1 WHERE ID = :2",
+      "sql": "UPDATE APP.DBP_CRYPTO_TEST SET SECRET = :1 WHERE ID = :2",
       "view": {
         "statements": [
           {
@@ -22046,7 +22046,7 @@
                 {
                   "block": 0,
                   "kind": "base",
-                  "schema": "KDES",
+                  "schema": "APP",
                   "selector": "stmt[0].relation[0]",
                   "table": "DBP_CRYPTO_TEST"
                 }
@@ -22084,31 +22084,31 @@
           "action": "replace",
           "target": "/statements/0/query_graph/fields/1/selector",
           "value": "\"PatchedName\"",
-          "deparse": "UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :1 WHERE \"PatchedName\" = :2"
+          "deparse": "UPDATE APP.DBP_CRYPTO_TEST SET SECRET = :1 WHERE \"PatchedName\" = :2"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :1 WHERE ID = 42"
+          "deparse": "UPDATE APP.DBP_CRYPTO_TEST SET SECRET = :1 WHERE ID = 42"
         },
         {
           "action": "replace_assignment",
           "target": "/statements/0/query_graph/dml/assignments/0/selector",
           "value": "\"PatchedColumn\" = 42",
-          "deparse": "UPDATE KDES.DBP_CRYPTO_TEST SET \"PatchedColumn\" = 42 WHERE ID = :2"
+          "deparse": "UPDATE APP.DBP_CRYPTO_TEST SET \"PatchedColumn\" = 42 WHERE ID = :2"
         },
         {
           "action": "insert_assignment",
           "target": "/statements/0/query_graph/dml/assignments/0/selector",
           "value": "\"InsertedColumn\" = 43",
-          "deparse": "UPDATE KDES.DBP_CRYPTO_TEST SET \"InsertedColumn\" = 43, SECRET = :1 WHERE ID = :2"
+          "deparse": "UPDATE APP.DBP_CRYPTO_TEST SET \"InsertedColumn\" = 43, SECRET = :1 WHERE ID = :2"
         }
       ]
     },
     {
       "name": "vastbase-oracle-update-named-bind-rhs-crypto-source",
-      "sql": "UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :secret_value WHERE ID = :id",
+      "sql": "UPDATE APP.DBP_CRYPTO_TEST SET SECRET = :secret_value WHERE ID = :id",
       "view": {
         "statements": [
           {
@@ -22173,7 +22173,7 @@
                 {
                   "block": 0,
                   "kind": "base",
-                  "schema": "KDES",
+                  "schema": "APP",
                   "selector": "stmt[0].relation[0]",
                   "table": "DBP_CRYPTO_TEST"
                 }
@@ -22211,31 +22211,31 @@
           "action": "replace",
           "target": "/statements/0/query_graph/fields/1/selector",
           "value": "\"PatchedName\"",
-          "deparse": "UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :secret_value WHERE \"PatchedName\" = :id"
+          "deparse": "UPDATE APP.DBP_CRYPTO_TEST SET SECRET = :secret_value WHERE \"PatchedName\" = :id"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = :secret_value WHERE ID = 42"
+          "deparse": "UPDATE APP.DBP_CRYPTO_TEST SET SECRET = :secret_value WHERE ID = 42"
         },
         {
           "action": "replace_assignment",
           "target": "/statements/0/query_graph/dml/assignments/0/selector",
           "value": "\"PatchedColumn\" = 42",
-          "deparse": "UPDATE KDES.DBP_CRYPTO_TEST SET \"PatchedColumn\" = 42 WHERE ID = :id"
+          "deparse": "UPDATE APP.DBP_CRYPTO_TEST SET \"PatchedColumn\" = 42 WHERE ID = :id"
         },
         {
           "action": "insert_assignment",
           "target": "/statements/0/query_graph/dml/assignments/0/selector",
           "value": "\"InsertedColumn\" = 43",
-          "deparse": "UPDATE KDES.DBP_CRYPTO_TEST SET \"InsertedColumn\" = 43, SECRET = :secret_value WHERE ID = :id"
+          "deparse": "UPDATE APP.DBP_CRYPTO_TEST SET \"InsertedColumn\" = 43, SECRET = :secret_value WHERE ID = :id"
         }
       ]
     },
     {
       "name": "vastbase-oracle-update-question-bind-rhs-crypto-source",
-      "sql": "UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = ? WHERE ID = ?",
+      "sql": "UPDATE APP.DBP_CRYPTO_TEST SET SECRET = ? WHERE ID = ?",
       "view": {
         "statements": [
           {
@@ -22300,7 +22300,7 @@
                 {
                   "block": 0,
                   "kind": "base",
-                  "schema": "KDES",
+                  "schema": "APP",
                   "selector": "stmt[0].relation[0]",
                   "table": "DBP_CRYPTO_TEST"
                 }
@@ -22338,31 +22338,31 @@
           "action": "replace",
           "target": "/statements/0/query_graph/fields/1/selector",
           "value": "\"PatchedName\"",
-          "deparse": "UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = ? WHERE \"PatchedName\" = ?"
+          "deparse": "UPDATE APP.DBP_CRYPTO_TEST SET SECRET = ? WHERE \"PatchedName\" = ?"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "UPDATE KDES.DBP_CRYPTO_TEST SET SECRET = ? WHERE ID = 42"
+          "deparse": "UPDATE APP.DBP_CRYPTO_TEST SET SECRET = ? WHERE ID = 42"
         },
         {
           "action": "replace_assignment",
           "target": "/statements/0/query_graph/dml/assignments/0/selector",
           "value": "\"PatchedColumn\" = 42",
-          "deparse": "UPDATE KDES.DBP_CRYPTO_TEST SET \"PatchedColumn\" = 42 WHERE ID = ?"
+          "deparse": "UPDATE APP.DBP_CRYPTO_TEST SET \"PatchedColumn\" = 42 WHERE ID = ?"
         },
         {
           "action": "insert_assignment",
           "target": "/statements/0/query_graph/dml/assignments/0/selector",
           "value": "\"InsertedColumn\" = 43",
-          "deparse": "UPDATE KDES.DBP_CRYPTO_TEST SET \"InsertedColumn\" = 43, SECRET = ? WHERE ID = ?"
+          "deparse": "UPDATE APP.DBP_CRYPTO_TEST SET \"InsertedColumn\" = 43, SECRET = ? WHERE ID = ?"
         }
       ]
     },
     {
       "name": "vastbase-oracle-update-multiple-bind-rhs-crypto-source",
-      "sql": "UPDATE KDES.DBP_CRYPTO_TEST SET PHONE = :1, SECRET = :2 WHERE ID = :3",
+      "sql": "UPDATE APP.DBP_CRYPTO_TEST SET PHONE = :1, SECRET = :2 WHERE ID = :3",
       "view": {
         "statements": [
           {
@@ -22442,7 +22442,7 @@
                 {
                   "block": 0,
                   "kind": "base",
-                  "schema": "KDES",
+                  "schema": "APP",
                   "selector": "stmt[0].relation[0]",
                   "table": "DBP_CRYPTO_TEST"
                 }
@@ -22480,25 +22480,25 @@
           "action": "replace",
           "target": "/statements/0/query_graph/fields/2/selector",
           "value": "\"PatchedName\"",
-          "deparse": "UPDATE KDES.DBP_CRYPTO_TEST SET PHONE = :1, SECRET = :2 WHERE \"PatchedName\" = :3"
+          "deparse": "UPDATE APP.DBP_CRYPTO_TEST SET PHONE = :1, SECRET = :2 WHERE \"PatchedName\" = :3"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "UPDATE KDES.DBP_CRYPTO_TEST SET PHONE = :1, SECRET = :2 WHERE ID = 42"
+          "deparse": "UPDATE APP.DBP_CRYPTO_TEST SET PHONE = :1, SECRET = :2 WHERE ID = 42"
         },
         {
           "action": "replace_assignment",
           "target": "/statements/0/query_graph/dml/assignments/0/selector",
           "value": "\"PatchedColumn\" = 42",
-          "deparse": "UPDATE KDES.DBP_CRYPTO_TEST SET \"PatchedColumn\" = 42, SECRET = :2 WHERE ID = :3"
+          "deparse": "UPDATE APP.DBP_CRYPTO_TEST SET \"PatchedColumn\" = 42, SECRET = :2 WHERE ID = :3"
         },
         {
           "action": "insert_assignment",
           "target": "/statements/0/query_graph/dml/assignments/0/selector",
           "value": "\"InsertedColumn\" = 43",
-          "deparse": "UPDATE KDES.DBP_CRYPTO_TEST SET \"InsertedColumn\" = 43, PHONE = :1, SECRET = :2 WHERE ID = :3"
+          "deparse": "UPDATE APP.DBP_CRYPTO_TEST SET \"InsertedColumn\" = 43, PHONE = :1, SECRET = :2 WHERE ID = :3"
         }
       ]
     },
@@ -22519,7 +22519,7 @@
     },
     {
       "name": "vastbase-oracle-create-public-synonym",
-      "sql": "CREATE OR REPLACE PUBLIC SYNONYM app_users FOR kdes.users",
+      "sql": "CREATE OR REPLACE PUBLIC SYNONYM app_users FOR app.users",
       "view": {
         "statements": [
           {
@@ -24429,7 +24429,7 @@
     },
     {
       "name": "vastbase-oracle-insert-all-schema-qualified-targets",
-      "sql": "INSERT ALL INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (950001, 'a') INTO KDES.DBP_PHONE_TEST (ID, PHONE) VALUES (:2, :phone) SELECT 1 FROM DUAL",
+      "sql": "INSERT ALL INTO APP.DBP_CRYPTO_TEST (ID, SECRET) VALUES (950001, 'a') INTO APP.DBP_PHONE_TEST (ID, PHONE) VALUES (:2, :phone) SELECT 1 FROM DUAL",
       "view": {
         "statements": [
           {
@@ -24547,13 +24547,13 @@
                 {
                   "block": 0,
                   "kind": "base",
-                  "schema": "KDES",
+                  "schema": "APP",
                   "table": "DBP_CRYPTO_TEST"
                 },
                 {
                   "block": 0,
                   "kind": "base",
-                  "schema": "KDES",
+                  "schema": "APP",
                   "table": "DBP_PHONE_TEST"
                 }
               ],
@@ -24591,44 +24591,44 @@
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "\"PatchedTable\"",
-          "deparse": "INSERT ALL INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (950001, 'a') INTO KDES.DBP_PHONE_TEST (ID, PHONE) VALUES (:2, :phone) SELECT 1 FROM \"PatchedTable\""
+          "deparse": "INSERT ALL INTO APP.DBP_CRYPTO_TEST (ID, SECRET) VALUES (950001, 'a') INTO APP.DBP_PHONE_TEST (ID, PHONE) VALUES (:2, :phone) SELECT 1 FROM \"PatchedTable\""
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "\"PatchedTarget\"",
-          "deparse": "INSERT ALL INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (950001, 'a') INTO KDES.DBP_PHONE_TEST (ID, PHONE) VALUES (:2, :phone) SELECT \"PatchedTarget\" FROM DUAL"
+          "deparse": "INSERT ALL INTO APP.DBP_CRYPTO_TEST (ID, SECRET) VALUES (950001, 'a') INTO APP.DBP_PHONE_TEST (ID, PHONE) VALUES (:2, :phone) SELECT \"PatchedTarget\" FROM DUAL"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "\"InsertedTarget\"",
           "index": 1,
-          "deparse": "INSERT ALL INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (950001, 'a') INTO KDES.DBP_PHONE_TEST (ID, PHONE) VALUES (:2, :phone) SELECT 1, \"InsertedTarget\" FROM DUAL"
+          "deparse": "INSERT ALL INTO APP.DBP_CRYPTO_TEST (ID, SECRET) VALUES (950001, 'a') INTO APP.DBP_PHONE_TEST (ID, PHONE) VALUES (:2, :phone) SELECT 1, \"InsertedTarget\" FROM DUAL"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "INSERT ALL INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (950001, 'a') INTO KDES.DBP_PHONE_TEST (ID, PHONE) VALUES (:2, :phone) SELECT 42 FROM DUAL"
+          "deparse": "INSERT ALL INTO APP.DBP_CRYPTO_TEST (ID, SECRET) VALUES (950001, 'a') INTO APP.DBP_PHONE_TEST (ID, PHONE) VALUES (:2, :phone) SELECT 42 FROM DUAL"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/dml/branches/0/rows/0/selector",
           "value": "42",
-          "deparse": "INSERT ALL INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (42, 'a') INTO KDES.DBP_PHONE_TEST (ID, PHONE) VALUES (:2, :phone) SELECT 1 FROM DUAL"
+          "deparse": "INSERT ALL INTO APP.DBP_CRYPTO_TEST (ID, SECRET) VALUES (42, 'a') INTO APP.DBP_PHONE_TEST (ID, PHONE) VALUES (:2, :phone) SELECT 1 FROM DUAL"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/dml/branches/1/rows/1/selector",
           "value": "42",
-          "deparse": "INSERT ALL INTO KDES.DBP_CRYPTO_TEST (ID, SECRET) VALUES (950001, 'a') INTO KDES.DBP_PHONE_TEST (ID, PHONE) VALUES (:2, 42) SELECT 1 FROM DUAL"
+          "deparse": "INSERT ALL INTO APP.DBP_CRYPTO_TEST (ID, SECRET) VALUES (950001, 'a') INTO APP.DBP_PHONE_TEST (ID, PHONE) VALUES (:2, 42) SELECT 1 FROM DUAL"
         }
       ]
     },
     {
       "name": "vastbase-oracle-like-escape-literal",
-      "sql": "SELECT ID FROM KDES.USERS WHERE NAME LIKE 'A!_%' ESCAPE '!'",
+      "sql": "SELECT ID FROM APP.USERS WHERE NAME LIKE 'A!_%' ESCAPE '!'",
       "view": {
         "statements": [
           {
@@ -24682,7 +24682,7 @@
                 {
                   "block": 0,
                   "kind": "base",
-                  "schema": "KDES",
+                  "schema": "APP",
                   "selector": "stmt[0].relation[0]",
                   "table": "USERS"
                 }
@@ -24737,32 +24737,32 @@
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "\"PatchedName\"",
-          "deparse": "SELECT \"PatchedName\" FROM KDES.USERS WHERE NAME LIKE 'A!_%' ESCAPE '!'"
+          "deparse": "SELECT \"PatchedName\" FROM APP.USERS WHERE NAME LIKE 'A!_%' ESCAPE '!'"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "\"PatchedTarget\"",
-          "deparse": "SELECT \"PatchedTarget\" FROM KDES.USERS WHERE NAME LIKE 'A!_%' ESCAPE '!'"
+          "deparse": "SELECT \"PatchedTarget\" FROM APP.USERS WHERE NAME LIKE 'A!_%' ESCAPE '!'"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "\"InsertedTarget\"",
           "index": 1,
-          "deparse": "SELECT ID, \"InsertedTarget\" FROM KDES.USERS WHERE NAME LIKE 'A!_%' ESCAPE '!'"
+          "deparse": "SELECT ID, \"InsertedTarget\" FROM APP.USERS WHERE NAME LIKE 'A!_%' ESCAPE '!'"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "SELECT ID FROM KDES.USERS WHERE NAME LIKE 42 ESCAPE '!'"
+          "deparse": "SELECT ID FROM APP.USERS WHERE NAME LIKE 42 ESCAPE '!'"
         }
       ]
     },
     {
       "name": "vastbase-oracle-not-like-escape-named-bind",
-      "sql": "SELECT ID FROM KDES.USERS WHERE NAME NOT LIKE :pattern ESCAPE :escape_char",
+      "sql": "SELECT ID FROM APP.USERS WHERE NAME NOT LIKE :pattern ESCAPE :escape_char",
       "view": {
         "statements": [
           {
@@ -24816,7 +24816,7 @@
                 {
                   "block": 0,
                   "kind": "base",
-                  "schema": "KDES",
+                  "schema": "APP",
                   "selector": "stmt[0].relation[0]",
                   "table": "USERS"
                 }
@@ -24872,32 +24872,32 @@
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "\"PatchedName\"",
-          "deparse": "SELECT \"PatchedName\" FROM KDES.USERS WHERE NAME NOT LIKE :pattern ESCAPE :escape_char"
+          "deparse": "SELECT \"PatchedName\" FROM APP.USERS WHERE NAME NOT LIKE :pattern ESCAPE :escape_char"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "\"PatchedTarget\"",
-          "deparse": "SELECT \"PatchedTarget\" FROM KDES.USERS WHERE NAME NOT LIKE :pattern ESCAPE :escape_char"
+          "deparse": "SELECT \"PatchedTarget\" FROM APP.USERS WHERE NAME NOT LIKE :pattern ESCAPE :escape_char"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "\"InsertedTarget\"",
           "index": 1,
-          "deparse": "SELECT ID, \"InsertedTarget\" FROM KDES.USERS WHERE NAME NOT LIKE :pattern ESCAPE :escape_char"
+          "deparse": "SELECT ID, \"InsertedTarget\" FROM APP.USERS WHERE NAME NOT LIKE :pattern ESCAPE :escape_char"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "SELECT ID FROM KDES.USERS WHERE NAME NOT LIKE 42 ESCAPE :escape_char"
+          "deparse": "SELECT ID FROM APP.USERS WHERE NAME NOT LIKE 42 ESCAPE :escape_char"
         }
       ]
     },
     {
       "name": "vastbase-oracle-like-escape-question-bind",
-      "sql": "SELECT ID FROM KDES.USERS WHERE NAME LIKE ? ESCAPE ?",
+      "sql": "SELECT ID FROM APP.USERS WHERE NAME LIKE ? ESCAPE ?",
       "view": {
         "statements": [
           {
@@ -24951,7 +24951,7 @@
                 {
                   "block": 0,
                   "kind": "base",
-                  "schema": "KDES",
+                  "schema": "APP",
                   "selector": "stmt[0].relation[0]",
                   "table": "USERS"
                 }
@@ -25007,32 +25007,32 @@
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "\"PatchedName\"",
-          "deparse": "SELECT \"PatchedName\" FROM KDES.USERS WHERE NAME LIKE ? ESCAPE ?"
+          "deparse": "SELECT \"PatchedName\" FROM APP.USERS WHERE NAME LIKE ? ESCAPE ?"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "\"PatchedTarget\"",
-          "deparse": "SELECT \"PatchedTarget\" FROM KDES.USERS WHERE NAME LIKE ? ESCAPE ?"
+          "deparse": "SELECT \"PatchedTarget\" FROM APP.USERS WHERE NAME LIKE ? ESCAPE ?"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "\"InsertedTarget\"",
           "index": 1,
-          "deparse": "SELECT ID, \"InsertedTarget\" FROM KDES.USERS WHERE NAME LIKE ? ESCAPE ?"
+          "deparse": "SELECT ID, \"InsertedTarget\" FROM APP.USERS WHERE NAME LIKE ? ESCAPE ?"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "SELECT ID FROM KDES.USERS WHERE NAME LIKE 42 ESCAPE ?"
+          "deparse": "SELECT ID FROM APP.USERS WHERE NAME LIKE 42 ESCAPE ?"
         }
       ]
     },
     {
       "name": "vastbase-oracle-like-escape-expression",
-      "sql": "SELECT ID FROM KDES.USERS WHERE NAME LIKE :pattern ESCAPE UPPER('!')",
+      "sql": "SELECT ID FROM APP.USERS WHERE NAME LIKE :pattern ESCAPE UPPER('!')",
       "view": {
         "statements": [
           {
@@ -25086,7 +25086,7 @@
                 {
                   "block": 0,
                   "kind": "base",
-                  "schema": "KDES",
+                  "schema": "APP",
                   "selector": "stmt[0].relation[0]",
                   "table": "USERS"
                 }
@@ -25138,32 +25138,32 @@
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "\"PatchedName\"",
-          "deparse": "SELECT \"PatchedName\" FROM KDES.USERS WHERE NAME LIKE :pattern ESCAPE UPPER('!')"
+          "deparse": "SELECT \"PatchedName\" FROM APP.USERS WHERE NAME LIKE :pattern ESCAPE UPPER('!')"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "\"PatchedTarget\"",
-          "deparse": "SELECT \"PatchedTarget\" FROM KDES.USERS WHERE NAME LIKE :pattern ESCAPE UPPER('!')"
+          "deparse": "SELECT \"PatchedTarget\" FROM APP.USERS WHERE NAME LIKE :pattern ESCAPE UPPER('!')"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "\"InsertedTarget\"",
           "index": 1,
-          "deparse": "SELECT ID, \"InsertedTarget\" FROM KDES.USERS WHERE NAME LIKE :pattern ESCAPE UPPER('!')"
+          "deparse": "SELECT ID, \"InsertedTarget\" FROM APP.USERS WHERE NAME LIKE :pattern ESCAPE UPPER('!')"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "SELECT ID FROM KDES.USERS WHERE NAME LIKE 42 ESCAPE UPPER('!')"
+          "deparse": "SELECT ID FROM APP.USERS WHERE NAME LIKE 42 ESCAPE UPPER('!')"
         }
       ]
     },
     {
       "name": "vastbase-oracle-derived-like-escape-literal",
-      "sql": "SELECT D.ID FROM (SELECT ID, NAME FROM KDES.USERS) D WHERE D.NAME LIKE :pattern ESCAPE '!'",
+      "sql": "SELECT D.ID FROM (SELECT ID, NAME FROM APP.USERS) D WHERE D.NAME LIKE :pattern ESCAPE '!'",
       "view": {
         "statements": [
           {
@@ -25249,7 +25249,7 @@
                 {
                   "block": 1,
                   "kind": "base",
-                  "schema": "KDES",
+                  "schema": "APP",
                   "selector": "stmt[0].relation[0]",
                   "table": "USERS"
                 }
@@ -25321,44 +25321,44 @@
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "\"PatchedName\"",
-          "deparse": "SELECT D.ID FROM (SELECT \"PatchedName\", NAME FROM KDES.USERS) D WHERE D.NAME LIKE :pattern ESCAPE '!'"
+          "deparse": "SELECT D.ID FROM (SELECT \"PatchedName\", NAME FROM APP.USERS) D WHERE D.NAME LIKE :pattern ESCAPE '!'"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/3/selector",
           "value": "\"PatchedName\"",
-          "deparse": "SELECT D.ID FROM (SELECT ID, NAME FROM KDES.USERS) D WHERE D.\"PatchedName\" LIKE :pattern ESCAPE '!'"
+          "deparse": "SELECT D.ID FROM (SELECT ID, NAME FROM APP.USERS) D WHERE D.\"PatchedName\" LIKE :pattern ESCAPE '!'"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "\"PatchedTarget\"",
-          "deparse": "SELECT D.ID FROM (SELECT \"PatchedTarget\", NAME FROM KDES.USERS) D WHERE D.NAME LIKE :pattern ESCAPE '!'"
+          "deparse": "SELECT D.ID FROM (SELECT \"PatchedTarget\", NAME FROM APP.USERS) D WHERE D.NAME LIKE :pattern ESCAPE '!'"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/2/selector",
           "value": "\"PatchedTarget\"",
-          "deparse": "SELECT \"PatchedTarget\" FROM (SELECT ID, NAME FROM KDES.USERS) D WHERE D.NAME LIKE :pattern ESCAPE '!'"
+          "deparse": "SELECT \"PatchedTarget\" FROM (SELECT ID, NAME FROM APP.USERS) D WHERE D.NAME LIKE :pattern ESCAPE '!'"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "\"InsertedTarget\"",
           "index": 1,
-          "deparse": "SELECT D.ID FROM (SELECT ID, \"InsertedTarget\", NAME FROM KDES.USERS) D WHERE D.NAME LIKE :pattern ESCAPE '!'"
+          "deparse": "SELECT D.ID FROM (SELECT ID, \"InsertedTarget\", NAME FROM APP.USERS) D WHERE D.NAME LIKE :pattern ESCAPE '!'"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "SELECT D.ID FROM (SELECT ID, NAME FROM KDES.USERS) D WHERE D.NAME LIKE 42 ESCAPE '!'"
+          "deparse": "SELECT D.ID FROM (SELECT ID, NAME FROM APP.USERS) D WHERE D.NAME LIKE 42 ESCAPE '!'"
         }
       ]
     },
     {
       "name": "vastbase-oracle-like-without-explicit-escape",
-      "sql": "SELECT ID FROM KDES.USERS WHERE NAME LIKE :pattern",
+      "sql": "SELECT ID FROM APP.USERS WHERE NAME LIKE :pattern",
       "view": {
         "statements": [
           {
@@ -25412,7 +25412,7 @@
                 {
                   "block": 0,
                   "kind": "base",
-                  "schema": "KDES",
+                  "schema": "APP",
                   "selector": "stmt[0].relation[0]",
                   "table": "USERS"
                 }
@@ -25461,26 +25461,26 @@
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "\"PatchedName\"",
-          "deparse": "SELECT \"PatchedName\" FROM KDES.USERS WHERE NAME LIKE :pattern"
+          "deparse": "SELECT \"PatchedName\" FROM APP.USERS WHERE NAME LIKE :pattern"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "\"PatchedTarget\"",
-          "deparse": "SELECT \"PatchedTarget\" FROM KDES.USERS WHERE NAME LIKE :pattern"
+          "deparse": "SELECT \"PatchedTarget\" FROM APP.USERS WHERE NAME LIKE :pattern"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "\"InsertedTarget\"",
           "index": 1,
-          "deparse": "SELECT ID, \"InsertedTarget\" FROM KDES.USERS WHERE NAME LIKE :pattern"
+          "deparse": "SELECT ID, \"InsertedTarget\" FROM APP.USERS WHERE NAME LIKE :pattern"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "SELECT ID FROM KDES.USERS WHERE NAME LIKE 42"
+          "deparse": "SELECT ID FROM APP.USERS WHERE NAME LIKE 42"
         }
       ]
     },
@@ -25899,7 +25899,7 @@
     },
     {
       "name": "vastbase-oracle-p3-update-schema-qualified-alias-target",
-      "sql": "UPDATE KDES.ENCRYPT_TEST_DATA x SET x.email = :1 WHERE x.id = :2",
+      "sql": "UPDATE APP.ENCRYPT_TEST_DATA x SET x.email = :1 WHERE x.id = :2",
       "view": {
         "statements": [
           {
@@ -25965,7 +25965,7 @@
                   "alias": "x",
                   "block": 0,
                   "kind": "base",
-                  "schema": "KDES",
+                  "schema": "APP",
                   "selector": "stmt[0].relation[0]",
                   "table": "ENCRYPT_TEST_DATA"
                 }
@@ -26003,25 +26003,25 @@
           "action": "replace",
           "target": "/statements/0/query_graph/fields/1/selector",
           "value": "\"PatchedName\"",
-          "deparse": "UPDATE KDES.ENCRYPT_TEST_DATA x SET x.email = :1 WHERE x.\"PatchedName\" = :2"
+          "deparse": "UPDATE APP.ENCRYPT_TEST_DATA x SET x.email = :1 WHERE x.\"PatchedName\" = :2"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "UPDATE KDES.ENCRYPT_TEST_DATA x SET x.email = :1 WHERE x.id = 42"
+          "deparse": "UPDATE APP.ENCRYPT_TEST_DATA x SET x.email = :1 WHERE x.id = 42"
         },
         {
           "action": "replace_assignment",
           "target": "/statements/0/query_graph/dml/assignments/0/selector",
           "value": "\"PatchedColumn\" = 42",
-          "deparse": "UPDATE KDES.ENCRYPT_TEST_DATA x SET \"PatchedColumn\" = 42 WHERE x.id = :2"
+          "deparse": "UPDATE APP.ENCRYPT_TEST_DATA x SET \"PatchedColumn\" = 42 WHERE x.id = :2"
         },
         {
           "action": "insert_assignment",
           "target": "/statements/0/query_graph/dml/assignments/0/selector",
           "value": "\"InsertedColumn\" = 43",
-          "deparse": "UPDATE KDES.ENCRYPT_TEST_DATA x SET \"InsertedColumn\" = 43, x.email = :1 WHERE x.id = :2"
+          "deparse": "UPDATE APP.ENCRYPT_TEST_DATA x SET \"InsertedColumn\" = 43, x.email = :1 WHERE x.id = :2"
         }
       ]
     },
@@ -28054,7 +28054,7 @@
     },
     {
       "name": "vastbase-oracle-database-link-schema-alias-bind",
-      "sql": "SELECT u.id FROM kdes.users@remote_db u WHERE u.id = :id",
+      "sql": "SELECT u.id FROM app.users@remote_db u WHERE u.id = :id",
       "view": {
         "statements": [
           {
@@ -28110,7 +28110,7 @@
                   "block": 0,
                   "kind": "base",
                   "link": "remote_db",
-                  "schema": "kdes",
+                  "schema": "app",
                   "selector": "stmt[0].relation[0]",
                   "table": "users"
                 }
@@ -28159,26 +28159,26 @@
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "\"PatchedName\"",
-          "deparse": "SELECT u.\"PatchedName\" FROM kdes.users@remote_db u WHERE u.id = :id"
+          "deparse": "SELECT u.\"PatchedName\" FROM app.users@remote_db u WHERE u.id = :id"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "\"PatchedTarget\"",
-          "deparse": "SELECT \"PatchedTarget\" FROM kdes.users@remote_db u WHERE u.id = :id"
+          "deparse": "SELECT \"PatchedTarget\" FROM app.users@remote_db u WHERE u.id = :id"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "\"InsertedTarget\"",
           "index": 1,
-          "deparse": "SELECT u.id, \"InsertedTarget\" FROM kdes.users@remote_db u WHERE u.id = :id"
+          "deparse": "SELECT u.id, \"InsertedTarget\" FROM app.users@remote_db u WHERE u.id = :id"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "SELECT u.id FROM kdes.users@remote_db u WHERE u.id = 42"
+          "deparse": "SELECT u.id FROM app.users@remote_db u WHERE u.id = 42"
         }
       ]
     },
@@ -28559,7 +28559,7 @@
     },
     {
       "name": "vastbase-oracle-deparse-preserves-identifier-spelling",
-      "sql": "SELECT U.ID AS UserID FROM KDES.Users U WHERE U.UserName = :UserName",
+      "sql": "SELECT U.ID AS UserID FROM APP.Users U WHERE U.UserName = :UserName",
       "view": {
         "statements": [
           {
@@ -28614,7 +28614,7 @@
                   "alias": "U",
                   "block": 0,
                   "kind": "base",
-                  "schema": "KDES",
+                  "schema": "APP",
                   "selector": "stmt[0].relation[0]",
                   "table": "Users"
                 }
@@ -28663,26 +28663,26 @@
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "\"PatchedName\"",
-          "deparse": "SELECT U.\"PatchedName\" AS UserID FROM KDES.Users U WHERE U.UserName = :UserName"
+          "deparse": "SELECT U.\"PatchedName\" AS UserID FROM APP.Users U WHERE U.UserName = :UserName"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
           "value": "\"PatchedTarget\"",
-          "deparse": "SELECT \"PatchedTarget\" FROM KDES.Users U WHERE U.UserName = :UserName"
+          "deparse": "SELECT \"PatchedTarget\" FROM APP.Users U WHERE U.UserName = :UserName"
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "\"InsertedTarget\"",
           "index": 1,
-          "deparse": "SELECT U.ID AS UserID, \"InsertedTarget\" FROM KDES.Users U WHERE U.UserName = :UserName"
+          "deparse": "SELECT U.ID AS UserID, \"InsertedTarget\" FROM APP.Users U WHERE U.UserName = :UserName"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "SELECT U.ID AS UserID FROM KDES.Users U WHERE U.UserName = 42"
+          "deparse": "SELECT U.ID AS UserID FROM APP.Users U WHERE U.UserName = 42"
         }
       ]
     },
@@ -29749,7 +29749,7 @@
     },
     {
       "name": "vastbase-oracle-bind-mixed-jdbc-time-tail",
-      "sql": "INSERT INTO KDES.KDES_ORACLE_P0_DATA (  CUSTOMER_ID,    CUSTOMER_NAME,  CITY,   CREATED_AT) VALUES (   $1,    $2,    $3,  SYSDATE);",
+      "sql": "INSERT INTO APP.APP_ORACLE_P0_DATA (  CUSTOMER_ID,    CUSTOMER_NAME,  CITY,   CREATED_AT) VALUES (   $1,    $2,    $3,  SYSDATE);",
       "view": {
         "statements": [
           {
@@ -29831,9 +29831,9 @@
                 {
                   "block": 0,
                   "kind": "base",
-                  "schema": "KDES",
+                  "schema": "APP",
                   "selector": "stmt[0].relation[0]",
-                  "table": "KDES_ORACLE_P0_DATA"
+                  "table": "APP_ORACLE_P0_DATA"
                 }
               ],
               "root": 0
@@ -29853,13 +29853,13 @@
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/0/selector",
           "value": "42",
-          "deparse": "INSERT INTO KDES.KDES_ORACLE_P0_DATA (  CUSTOMER_ID,    CUSTOMER_NAME,  CITY,   CREATED_AT) VALUES (   42,    $2,    $3,  SYSDATE);"
+          "deparse": "INSERT INTO APP.APP_ORACLE_P0_DATA (  CUSTOMER_ID,    CUSTOMER_NAME,  CITY,   CREATED_AT) VALUES (   42,    $2,    $3,  SYSDATE);"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/3/selector",
           "value": "42",
-          "deparse": "INSERT INTO KDES.KDES_ORACLE_P0_DATA (  CUSTOMER_ID,    CUSTOMER_NAME,  CITY,   CREATED_AT) VALUES (   $1,    $2,    $3,  42);"
+          "deparse": "INSERT INTO APP.APP_ORACLE_P0_DATA (  CUSTOMER_ID,    CUSTOMER_NAME,  CITY,   CREATED_AT) VALUES (   $1,    $2,    $3,  42);"
         }
       ]
     },
@@ -30802,7 +30802,7 @@
     },
     {
       "name": "vastbase-oracle-bind-mixed-quoted-irregular-whitespace",
-      "sql": "INSERT   INTO \"KDES\".\"Bind_Mix\" (  \"Customer_Id\",    \"Customer_Name\",  \"City\",   \"Created_At\") VALUES (   $1,    $2,    $3,  CURRENT_TIMESTAMP);",
+      "sql": "INSERT   INTO \"APP\".\"Bind_Mix\" (  \"Customer_Id\",    \"Customer_Name\",  \"City\",   \"Created_At\") VALUES (   $1,    $2,    $3,  CURRENT_TIMESTAMP);",
       "view": {
         "statements": [
           {
@@ -30884,7 +30884,7 @@
                 {
                   "block": 0,
                   "kind": "base",
-                  "schema": "KDES",
+                  "schema": "APP",
                   "selector": "stmt[0].relation[0]",
                   "quoted_identifier": true,
                   "table": "Bind_Mix"
@@ -30907,19 +30907,19 @@
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/0/selector",
           "value": "42",
-          "deparse": "INSERT   INTO \"KDES\".\"Bind_Mix\" (  \"Customer_Id\",    \"Customer_Name\",  \"City\",   \"Created_At\") VALUES (   42,    $2,    $3,  CURRENT_TIMESTAMP);"
+          "deparse": "INSERT   INTO \"APP\".\"Bind_Mix\" (  \"Customer_Id\",    \"Customer_Name\",  \"City\",   \"Created_At\") VALUES (   42,    $2,    $3,  CURRENT_TIMESTAMP);"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/3/selector",
           "value": "42",
-          "deparse": "INSERT   INTO \"KDES\".\"Bind_Mix\" (  \"Customer_Id\",    \"Customer_Name\",  \"City\",   \"Created_At\") VALUES (   $1,    $2,    $3,  42);"
+          "deparse": "INSERT   INTO \"APP\".\"Bind_Mix\" (  \"Customer_Id\",    \"Customer_Name\",  \"City\",   \"Created_At\") VALUES (   $1,    $2,    $3,  42);"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/1/selector",
           "value": "'patched-user'",
-          "deparse": "INSERT   INTO \"KDES\".\"Bind_Mix\" (  \"Customer_Id\",    \"Customer_Name\",  \"City\",   \"Created_At\") VALUES (   $1,    'patched-user',    $3,  CURRENT_TIMESTAMP);"
+          "deparse": "INSERT   INTO \"APP\".\"Bind_Mix\" (  \"Customer_Id\",    \"Customer_Name\",  \"City\",   \"Created_At\") VALUES (   $1,    'patched-user',    $3,  CURRENT_TIMESTAMP);"
         }
       ]
     },
@@ -32140,6 +32140,440 @@
           "name": "audit_flag",
           "value": "1",
           "deparse": "INSERT INTO typed_values (id, name, audit_flag, created_at, updated_at) VALUES (9101, 'manual-user', 1, DATE '2026-06-22', TIMESTAMP '2026-06-22 15:00:00');"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-insert-returning-rowid-into-bind",
+      "sql": "INSERT INTO \"APP\".\"DBP_MANUAL_CLOB_FPE_STRESS\" (\"ID\", \"PROTECTED_CLOB_3\") VALUES (:1, :2) RETURNING ROWID INTO :NAV_ROWID",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "insert",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "dml_result",
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "dml": {
+                "insert_mode": "values",
+                "kind": "insert",
+                "result_channels": [
+                  {
+                    "block": 1,
+                    "kind": "sink",
+                    "references": [
+                      {
+                        "kind": "target_after",
+                        "relation": 0,
+                        "target": 0
+                      }
+                    ]
+                  }
+                ],
+                "rows": [
+                  {
+                    "bind_key": "1",
+                    "bind_kind": 1,
+                    "bind_position": 1,
+                    "bind_sql": ":1",
+                    "column": 0,
+                    "kind": "bind",
+                    "row": 0,
+                    "selector": "stmt[0].insert_cell[0][0]"
+                  },
+                  {
+                    "bind_key": "2",
+                    "bind_kind": 1,
+                    "bind_position": 2,
+                    "bind_sql": ":2",
+                    "column": 1,
+                    "kind": "bind",
+                    "row": 0,
+                    "selector": "stmt[0].insert_cell[0][1]"
+                  }
+                ],
+                "target_columns": [
+                  {
+                    "column": "ID",
+                    "ordinal": 0
+                  },
+                  {
+                    "column": "PROTECTED_CLOB_3",
+                    "ordinal": 1
+                  }
+                ],
+                "target_relation": 0
+              },
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "DBP_MANUAL_CLOB_FPE_STRESS"
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 1,
+                  "kind": "pseudo",
+                  "name": "ROWID",
+                  "ordinal": 0,
+                  "selector": "stmt[0].dml_result_target[0][0][0]",
+                  "sink_value": 0,
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                }
+              ],
+              "values": [
+                {
+                  "bind_key": "NAV_ROWID",
+                  "bind_kind": 2,
+                  "bind_position": 3,
+                  "bind_sql": ":NAV_ROWID",
+                  "block": 1,
+                  "clause": "dml_result",
+                  "kind": "bind",
+                  "selector": "stmt[0].value[10]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/rows/0/selector",
+          "value": "42",
+          "deparse": "INSERT INTO \"APP\".\"DBP_MANUAL_CLOB_FPE_STRESS\" (\"ID\", \"PROTECTED_CLOB_3\") VALUES (42, :2) RETURNING ROWID INTO :NAV_ROWID"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/0/selector",
+          "value": "\"PatchedRowid\"",
+          "deparse": "INSERT INTO \"APP\".\"DBP_MANUAL_CLOB_FPE_STRESS\" (\"ID\", \"PROTECTED_CLOB_3\") VALUES (:1, :2) RETURNING \"PatchedRowid\" INTO :NAV_ROWID"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/0/selector",
+          "value": ":PATCHED_ROWID",
+          "deparse": "INSERT INTO \"APP\".\"DBP_MANUAL_CLOB_FPE_STRESS\" (\"ID\", \"PROTECTED_CLOB_3\") VALUES (:1, :2) RETURNING ROWID INTO :PATCHED_ROWID"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-update-returning-rowid-into-bind",
+      "sql": "UPDATE \"APP\".\"DBP_MANUAL_CLOB_FPE_STRESS\" SET \"PROTECTED_CLOB_3\" = :1 WHERE \"ID\" = :2 RETURNING ROWID INTO :NAV_ROWID",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0
+                  ],
+                  "relations": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "dml_result",
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "dml": {
+                "assignments": [
+                  {
+                    "bind_key": "1",
+                    "bind_kind": 1,
+                    "bind_position": 1,
+                    "bind_sql": ":1",
+                    "kind": "bind",
+                    "selector": "stmt[0].assignment[0]",
+                    "target_field": 0
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "update",
+                "result_channels": [
+                  {
+                    "block": 1,
+                    "kind": "sink",
+                    "references": [
+                      {
+                        "kind": "target_after",
+                        "relation": 0,
+                        "target": 0
+                      }
+                    ]
+                  }
+                ],
+                "target_relation": 0
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "quoted_identifier": true,
+                  "column": "PROTECTED_CLOB_3",
+                  "relation": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "quoted_identifier": true,
+                  "column": "ID",
+                  "relation": 0,
+                  "selector": "stmt[0].name[3]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 1,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 0
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
+                  "table": "DBP_MANUAL_CLOB_FPE_STRESS"
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 1,
+                  "kind": "pseudo",
+                  "name": "ROWID",
+                  "ordinal": 0,
+                  "selector": "stmt[0].dml_result_target[0][0][0]",
+                  "sink_value": 1,
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                }
+              ],
+              "values": [
+                {
+                  "bind_key": "2",
+                  "bind_kind": 1,
+                  "bind_position": 2,
+                  "bind_sql": ":2",
+                  "block": 0,
+                  "clause": "where",
+                  "field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "bind",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[6]"
+                },
+                {
+                  "bind_key": "NAV_ROWID",
+                  "bind_kind": 2,
+                  "bind_position": 3,
+                  "bind_sql": ":NAV_ROWID",
+                  "block": 1,
+                  "clause": "dml_result",
+                  "kind": "bind",
+                  "selector": "stmt[0].value[11]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/assignments/0/selector",
+          "value": "'patched-clob'",
+          "deparse": "UPDATE \"APP\".\"DBP_MANUAL_CLOB_FPE_STRESS\" SET \"PROTECTED_CLOB_3\" = 'patched-clob' WHERE \"ID\" = :2 RETURNING ROWID INTO :NAV_ROWID"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/0/selector",
+          "value": "\"PatchedRowid\"",
+          "deparse": "UPDATE \"APP\".\"DBP_MANUAL_CLOB_FPE_STRESS\" SET \"PROTECTED_CLOB_3\" = :1 WHERE \"ID\" = :2 RETURNING \"PatchedRowid\" INTO :NAV_ROWID"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/1/selector",
+          "value": ":PATCHED_ROWID",
+          "deparse": "UPDATE \"APP\".\"DBP_MANUAL_CLOB_FPE_STRESS\" SET \"PROTECTED_CLOB_3\" = :1 WHERE \"ID\" = :2 RETURNING ROWID INTO :PATCHED_ROWID"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-oracle-delete-returning-rowid-into-bind",
+      "sql": "DELETE FROM \"APP\".\"DBP_MANUAL_CLOB_FPE_STRESS\" WHERE \"ID\" = :1 RETURNING ROWID INTO :NAV_ROWID",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "delete",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0
+                  ],
+                  "relations": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "dml_result",
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "dml": {
+                "delete_targets": [
+                  0
+                ],
+                "insert_mode": "unknown",
+                "kind": "delete",
+                "result_channels": [
+                  {
+                    "block": 1,
+                    "kind": "sink",
+                    "references": [
+                      {
+                        "kind": "target_before",
+                        "relation": 0,
+                        "target": 0
+                      }
+                    ]
+                  }
+                ],
+                "target_relation": 0
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "quoted_identifier": true,
+                  "column": "ID",
+                  "relation": 0,
+                  "selector": "stmt[0].name[2]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 0,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 0
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[0]",
+                  "quoted_identifier": true,
+                  "table": "DBP_MANUAL_CLOB_FPE_STRESS"
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 1,
+                  "kind": "pseudo",
+                  "name": "ROWID",
+                  "ordinal": 0,
+                  "selector": "stmt[0].dml_result_target[0][0][0]",
+                  "sink_value": 1,
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                }
+              ],
+              "values": [
+                {
+                  "bind_key": "1",
+                  "bind_kind": 1,
+                  "bind_position": 1,
+                  "bind_sql": ":1",
+                  "block": 0,
+                  "clause": "where",
+                  "field": 0,
+                  "field_match_kind": "direct_field",
+                  "kind": "bind",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[4]"
+                },
+                {
+                  "bind_key": "NAV_ROWID",
+                  "bind_kind": 2,
+                  "bind_position": 2,
+                  "bind_sql": ":NAV_ROWID",
+                  "block": 1,
+                  "clause": "dml_result",
+                  "kind": "bind",
+                  "selector": "stmt[0].value[9]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/0/selector",
+          "value": "42",
+          "deparse": "DELETE FROM \"APP\".\"DBP_MANUAL_CLOB_FPE_STRESS\" WHERE \"ID\" = 42 RETURNING ROWID INTO :NAV_ROWID"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/0/selector",
+          "value": "\"PatchedRowid\"",
+          "deparse": "DELETE FROM \"APP\".\"DBP_MANUAL_CLOB_FPE_STRESS\" WHERE \"ID\" = :1 RETURNING \"PatchedRowid\" INTO :NAV_ROWID"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/1/selector",
+          "value": ":PATCHED_ROWID",
+          "deparse": "DELETE FROM \"APP\".\"DBP_MANUAL_CLOB_FPE_STRESS\" WHERE \"ID\" = :1 RETURNING ROWID INTO :PATCHED_ROWID"
         }
       ]
     }

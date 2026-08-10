@@ -209,7 +209,7 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 
 | 用例 ID | 用例名称 | 输入 | 验证重点 |
 | --- | --- | --- | --- |
-| VCLI001 | `vastbase-oracle-cli-current-schema` | `ALTER SESSION SET CURRENT_SCHEMA=KDES` | `vastbase-oracle` CLI 方言名称、`ALTER SESSION` 结构化输出和反解析 |
+| VCLI001 | `vastbase-oracle-cli-current-schema` | `ALTER SESSION SET CURRENT_SCHEMA=APP` | `vastbase-oracle` CLI 方言名称、`ALTER SESSION` 结构化输出和反解析 |
 | VCLI002 | `vastbase-mysql-cli-limit-binds` | ``SELECT `id` FROM `users` ORDER BY `id` LIMIT ?, ?`` | `vastbase-mysql` CLI 方言名称、反引号标识符和 comma LIMIT bind |
 | VCLI003 | `vastbase-postgresql-cli-positional-binds` | `SELECT id FROM public.users WHERE id = $1` | `vastbase-postgresql` CLI 方言名称和 PostgreSQL positional bind |
 | VCLI004 | `vastbase-sqlserver-cli-top-bind` | `SELECT TOP (5) [id] FROM [dbo].[users] WHERE [id] = @id` | `vastbase-sqlserver` CLI 方言名称、方括号标识符、`TOP` 和 named bind |

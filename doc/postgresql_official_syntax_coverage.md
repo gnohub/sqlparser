@@ -8,8 +8,6 @@
 - [PostgreSQL 17: The SQL Language](https://www.postgresql.org/docs/17/sql.html)
 - [PostgreSQL: Supported Features](https://www.postgresql.org/docs/current/features-sql-standard.html)
 - [PostgreSQL pgsql-docs: document `N'...'` national character string literal syntax](https://www.postgresql.org/message-id/om3g7p7u3ztlrdp4tfswgulavljgn2fe6u2agk34mrr65dffuu%40cpzlzuv6flko)
-- 统计日期：2026-06-11
-
 统计范围固定为官方 SQL Commands 中与公共 API、View JSON、deparse 和可执行回归测试直接相关的语法组。
 
 ## 分类口径

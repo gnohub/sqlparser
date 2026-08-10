@@ -1,10 +1,13 @@
 #ifndef SQLPARSER_DIALECT_DAMENG_INTERNAL_H
 #define SQLPARSER_DIALECT_DAMENG_INTERNAL_H
 
+#include "sqlparser_dialect_dml_result_internal.h"
 #include "sqlparser_dialect_multi_insert_types.h"
 
 int sqlparser_dameng_state_has_multi_insert(const void *state);
 const sqlparser_dialect_multi_insert_t *sqlparser_dameng_state_multi_insert(const void *state);
+const sqlparser_dialect_returning_into_state_t *
+sqlparser_dameng_state_returning_into(const void *state);
 sqlparser_status_t sqlparser_dameng_multi_insert_set_cell_sql(
 	sqlparser_handle_t *handle,
 	size_t statement_index,

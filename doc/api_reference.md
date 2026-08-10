@@ -227,7 +227,7 @@ bind 字段规则：
 | 枚举 | 说明 |
 | --- | --- |
 | `SQLPARSER_GRAPH_DML_RESULT_CLIENT` | 返回给调用端的结果通道 |
-| `SQLPARSER_GRAPH_DML_RESULT_SINK` | 写入目标 relation 的结果通道 |
+| `SQLPARSER_GRAPH_DML_RESULT_SINK` | 由目标 relation 或 host bind 接收的结果通道 |
 
 `sqlparser_graph_dml_reference_kind_t`：
 
@@ -393,7 +393,7 @@ sqlparser_control_item_at(&flow, root_item_index, &root, &err);
 | `sqlparser_statement_literal()` | 读取指定 literal |
 | `sqlparser_statement_set_literal()` | 改写指定 literal |
 
-`sqlparser_literal_view_t.quoted_identifier` 为 `1` 时，表示字符串 literal 来源于带引号标识符 token，例如 `ALTER SESSION SET CURRENT_SCHEMA="KdesMixed"` 中的 schema 值。普通字符串字面量和未加引号标识符该字段为 `0`。
+`sqlparser_literal_view_t.quoted_identifier` 为 `1` 时，表示字符串 literal 来源于带引号标识符 token，例如 `ALTER SESSION SET CURRENT_SCHEMA="AppMixed"` 中的 schema 值。普通字符串字面量和未加引号标识符该字段为 `0`。
 
 ### INSERT
 
@@ -642,7 +642,7 @@ sqlparser_status_t sqlparser_statement_query_graph(
 | --- | --- |
 | `sqlparser_graph_block_t` | 查询块，持有 relation、target 和 predicate span |
 | `sqlparser_graph_relation_t` | SQL 中出现的 base、derived、cte 或 dual relation；`quoted_identifier` 表示对象名 token 是否显式使用支持的标识符定界符 |
-| `sqlparser_graph_target_t` | SELECT 输出项，包含输出顺序、`*` 来源和 selector |
+| `sqlparser_graph_target_t` | 查询或 DML 结果输出项，包含输出顺序、`*` 来源、selector 和可选 sink value 关联 |
 | `sqlparser_graph_field_t` | SQL 中出现的字段 occurrence；`quoted_identifier` 表示列名 token 是否显式使用支持的标识符定界符 |
 | `sqlparser_graph_value_t` | query graph 中的 literal、bind、default、expression 或 field 值 |
 | `sqlparser_graph_set_t` | `UNION`、`UNION ALL`、`INTERSECT`、`EXCEPT/MINUS` 分支关系 |
@@ -651,7 +651,7 @@ sqlparser_status_t sqlparser_statement_query_graph(
 | `sqlparser_graph_session_item_t` | 会话状态作用域、目标和 value span |
 | `sqlparser_graph_session_value_t` | 会话状态的标识符、关键字、字面量、bind 或表达式值 |
 | `sqlparser_graph_dml_t` | INSERT、UPDATE、DELETE、MERGE 写入结构 |
-| `sqlparser_graph_dml_result_t` | DML 结果通道、输出 block、可选 sink relation、sink columns 和字段来源 span |
+| `sqlparser_graph_dml_result_t` | DML 结果通道、输出 block、relation-backed sink 的可选 relation 和 columns，以及字段来源 span |
 | `sqlparser_graph_dml_reference_t` | 一个结果 target 对目标行或来源 relation 的字段引用 |
 | `sqlparser_graph_dml_branch_t` | DML 分支的公共结构，包括目标 relation、目标列、行、条件和分支序号 |
 | `sqlparser_graph_dml_column_t` | INSERT 显式目标列 |
@@ -673,7 +673,8 @@ sqlparser_status_t sqlparser_statement_query_graph(
 - `sqlparser_graph_dml_t.insert_mode` 区分 `VALUES`、`SELECT`、`INSERT ALL`、`INSERT FIRST`、MySQL `INSERT ... SET` 以及 `REPLACE` 的 `VALUES`、`SELECT`、`SET` 形态。
 - `sqlparser_query_graph_dml_count()` 和 `sqlparser_query_graph_dml_at()` 用于遍历同一 statement 内的全部 DML；`sqlparser_query_graph_dml()` 是读取索引 0 的兼容简写。多个无父 DML 可以并列存在，使用 `sqlparser_query_graph_dml_parent()` 区分根节点和嵌套节点。
 - `sqlparser_query_graph_dml_parent()` 表达嵌套 DML 的父子关系；没有父 DML 时 `out_has_parent` 为 0。
-- `sqlparser_graph_dml_result_t.kind` 区分 client 和 sink 通道；sink 通道通过 `has_sink_relation`、`sink_relation_index` 和 `sink_columns` 指向写入目标。
+- `sqlparser_graph_dml_result_t.kind` 区分 client 和 sink 通道；sink 可以由 relation 或 host bind 接收。仅 relation-backed sink 设置 `has_sink_relation = 1`，并通过 `sink_relation_index` 和可选 `sink_columns` 指向写入目标。
+- host-bind sink 不设置 relation 关联。对应的 `sqlparser_graph_target_t` 设置 `has_sink_value = 1`，此时 `sink_value_index` 可传给 `sqlparser_query_graph_value_at()` 读取输出 bind；该 `sqlparser_graph_value_t` 的既有 `selector` 可作为 `SQLPARSER_PATCH_REPLACE` 的目标，不引入新的 selector 类型。
 - `sqlparser_graph_dml_result_t.references` 中的索引通过 `sqlparser_query_graph_span_index_at()` 读取，再传给 `sqlparser_query_graph_dml_reference_at()`。每个 reference 关联一个结果 target，并标明 `target_before`、`target_after` 或 `source` 来源。
 - DML 结果 target 使用 `stmt[S].dml_result_target[D][C][T]` selector；通道 target 列表、sink relation、sink columns 列表和单列分别使用 `dml_result_targets`、`dml_result_sink`、`dml_result_sink_columns` 和 `dml_result_sink_column` selector。
 - `sqlparser_graph_dml_t.branches` 用于 Oracle/Dameng multi-table INSERT 和 MERGE。每个 branch 持有独立 target relation、target columns、rows、branch kind 和可选 condition selector；condition selector 可通过 `sqlparser_selector_clause_sql()` 读取原始条件 SQL。

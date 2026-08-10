@@ -6,15 +6,15 @@
 
 | 方言 | 统计来源 | 成功用例 | 预期失败用例 | 用例总数 | 夹具成功率 |
 | --- | --- | ---: | ---: | ---: | ---: |
-| PostgreSQL | `tests/cases/sql_batch_input.json` | 181 | 3 | 184 | 98.37% |
-| MySQL | `tests/cases/mysql_dialect_input.json` | 204 | 9 | 213 | 95.77% |
-| Oracle | `tests/cases/oracle_dialect_input.json` | 213 | 22 | 235 | 90.64% |
-| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 568 | 37 | 605 | 93.88% |
-| 达梦 | `tests/cases/dameng_dialect_input.json` | 150 | 12 | 162 | 92.59% |
-| Vastbase PostgreSQL 兼容模式 | `tests/cases/vastbase_postgresql_dialect_input.json` | 174 | 10 | 184 | 94.57% |
-| Vastbase MySQL 兼容模式 | `tests/cases/vastbase_mysql_dialect_input.json` | 210 | 9 | 219 | 95.89% |
-| Vastbase Oracle 兼容模式 | `tests/cases/vastbase_oracle_dialect_input.json` | 188 | 21 | 209 | 89.95% |
-| Vastbase SQL Server 兼容模式 | `tests/cases/vastbase_sqlserver_dialect_input.json` | 547 | 38 | 585 | 93.50% |
+| PostgreSQL | `tests/cases/sql_batch_input.json` | 213 | 0 | 213 | 100.00% |
+| MySQL | `tests/cases/mysql_dialect_input.json` | 253 | 0 | 253 | 100.00% |
+| Oracle | `tests/cases/oracle_dialect_input.json` | 242 | 0 | 242 | 100.00% |
+| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 620 | 0 | 620 | 100.00% |
+| 达梦 | `tests/cases/dameng_dialect_input.json` | 169 | 0 | 169 | 100.00% |
+| Vastbase PostgreSQL 兼容模式 | `tests/cases/vastbase_postgresql_dialect_input.json` | 199 | 0 | 199 | 100.00% |
+| Vastbase MySQL 兼容模式 | `tests/cases/vastbase_mysql_dialect_input.json` | 254 | 0 | 254 | 100.00% |
+| Vastbase Oracle 兼容模式 | `tests/cases/vastbase_oracle_dialect_input.json` | 217 | 0 | 217 | 100.00% |
+| Vastbase SQL Server 兼容模式 | `tests/cases/vastbase_sqlserver_dialect_input.json` | 600 | 0 | 600 | 100.00% |
 
 ## 口径
 

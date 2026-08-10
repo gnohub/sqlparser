@@ -8,15 +8,15 @@ coverage is tracked in each dialect's `*_official_syntax_coverage.en.md` file.
 
 | Dialect | Source | Successful Cases | Expected-Failure Cases | Total Cases | Fixture Success Rate |
 | --- | --- | ---: | ---: | ---: | ---: |
-| PostgreSQL | `tests/cases/sql_batch_input.json` | 181 | 3 | 184 | 98.37% |
-| MySQL | `tests/cases/mysql_dialect_input.json` | 204 | 9 | 213 | 95.77% |
-| Oracle | `tests/cases/oracle_dialect_input.json` | 213 | 22 | 235 | 90.64% |
-| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 568 | 37 | 605 | 93.88% |
-| Dameng | `tests/cases/dameng_dialect_input.json` | 150 | 12 | 162 | 92.59% |
-| Vastbase PostgreSQL mode | `tests/cases/vastbase_postgresql_dialect_input.json` | 174 | 10 | 184 | 94.57% |
-| Vastbase MySQL mode | `tests/cases/vastbase_mysql_dialect_input.json` | 210 | 9 | 219 | 95.89% |
-| Vastbase Oracle mode | `tests/cases/vastbase_oracle_dialect_input.json` | 188 | 21 | 209 | 89.95% |
-| Vastbase SQL Server mode | `tests/cases/vastbase_sqlserver_dialect_input.json` | 547 | 38 | 585 | 93.50% |
+| PostgreSQL | `tests/cases/sql_batch_input.json` | 213 | 0 | 213 | 100.00% |
+| MySQL | `tests/cases/mysql_dialect_input.json` | 253 | 0 | 253 | 100.00% |
+| Oracle | `tests/cases/oracle_dialect_input.json` | 242 | 0 | 242 | 100.00% |
+| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 620 | 0 | 620 | 100.00% |
+| Dameng | `tests/cases/dameng_dialect_input.json` | 169 | 0 | 169 | 100.00% |
+| Vastbase PostgreSQL mode | `tests/cases/vastbase_postgresql_dialect_input.json` | 199 | 0 | 199 | 100.00% |
+| Vastbase MySQL mode | `tests/cases/vastbase_mysql_dialect_input.json` | 254 | 0 | 254 | 100.00% |
+| Vastbase Oracle mode | `tests/cases/vastbase_oracle_dialect_input.json` | 217 | 0 | 217 | 100.00% |
+| Vastbase SQL Server mode | `tests/cases/vastbase_sqlserver_dialect_input.json` | 600 | 0 | 600 | 100.00% |
 
 ## Counting Rules
 

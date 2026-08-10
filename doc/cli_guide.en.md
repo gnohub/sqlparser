@@ -97,7 +97,7 @@ The default dialect is `postgresql`. Use `--dialect` for other dialects:
 
 ```bash
 ./bin/sqlparser_cli --dialect dameng --mode view \
-  "SET SCHEMA KDES; SELECT TOP 2 id, name FROM users WHERE id = :id"
+  "SET SCHEMA APP; SELECT TOP 2 id, name FROM users WHERE id = :id"
 ```
 
 Batch JSON can set a default dialect at the root or override it per item:
