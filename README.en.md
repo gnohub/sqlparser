@@ -42,8 +42,6 @@ Linux:
 
 - GCC 8.3 or later with `gnu11` support
 - GNU Make
-- `pkg-config`
-- `jansson`
 
 Windows:
 
@@ -51,7 +49,7 @@ Windows:
 - MSVC 19.39 or later
 - NMake
 
-The Windows build uses the vendored Jansson source included in this repository.
+Linux and Windows builds use the vendored Jansson source included in this repository.
 
 ## Linux Build
 
@@ -73,6 +71,20 @@ Common targets:
 - `make bench-smoke`
 - `make dist`
 - `make install PREFIX=/usr/local`
+
+## Linux AArch64 Cross Build
+
+The cross-build script uses `/opt/toolchains/aarch64-linux-gnu` by default:
+
+```bash
+./scripts/build_linux_aarch64.sh
+```
+
+Outputs are written to `build/linux-aarch64`, `bin/linux-aarch64`, and
+`lib/linux-aarch64`. The script only builds and inspects AArch64 artifacts; it
+does not execute target binaries on the build host. Set
+`SQLPARSER_AARCH64_TOOLCHAIN` to use another toolchain directory and `JOBS` to
+control parallelism.
 
 ## Windows Build
 
@@ -146,7 +158,7 @@ options.dialect = SQLPARSER_DIALECT_VASTBASE_SQLSERVER;
 Compile the example with:
 
 ```bash
-gcc -std=gnu11 demo.c -I./include -L./lib -lsqlparser -ljansson -o demo
+gcc -std=gnu11 demo.c -I./include -L./lib -lsqlparser -lpthread -lm -o demo
 ```
 
 After installation, `pkg-config` can be used as well:

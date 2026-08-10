@@ -1,5 +1,42 @@
 # Changelog
 
+## 2.15.0
+
+### Linux AArch64 Builds
+
+- Make configuration accepts `CROSS_COMPILE` and derives `CC`, `AR`, `RANLIB`,
+  `NM`, and `READELF` from the prefix. Native Linux builds continue to use the
+  standard toolchain when the prefix is empty.
+- `scripts/build_linux_aarch64.sh` performs incremental cross builds in the
+  isolated `build/linux-aarch64`, `bin/linux-aarch64`, and
+  `lib/linux-aarch64` output directories.
+- Cross-build validation checks the AArch64 ELF identity of the shared library
+  and CLI, every static-archive member, dynamic vendor dependencies, and public
+  ABI exports.
+
+### Self-Contained Third-Party Dependencies
+
+- Linux and MSVC Windows builds now use the vendored Jansson 2.15 source.
+  Linux no longer requires a system Jansson installation or its `pkg-config`
+  metadata.
+- Jansson and `libpg_query` objects are incorporated directly into
+  `libsqlparser.a` and `libsqlparser.so`. The pkg-config file no longer declares
+  an external Jansson dependency.
+- `libpg_query` objects, archives, and dependency files are written under the
+  top-level build directory. Compiler, archiver, debug mode, flags, source-set,
+  and header changes participate in incremental rebuild decisions.
+
+### Validation and Compatibility
+
+- Linux AArch64 cross and native builds completed successfully. Native
+  `make test` covered 2,758 cases and 8,945 patches across nine case matrices
+  with zero failures.
+- Both build paths produce a `sqlparser_cli` executable that runs on Linux
+  AArch64 and emits byte-identical View JSON for the same input.
+- The shared library continues to export 152 public symbols with SONAME
+  `libsqlparser.so.0`. This release adds no public C APIs or resource-ownership
+  rules.
+
 ## 2.14.5
 
 ### Query-Graph Identifier Delimiter State
@@ -26,7 +63,7 @@
   likewise derive delimiter state from the original token.
 - The nine executable dialect fixtures still contain 2,758 final cases and
   8,945 independent patches, with 1,800 delimiter-state assertions added. A
-  remote `make test-unit` completed successfully.
+  `make test-unit` completed successfully.
 - This release adds two public structure fields but no public functions,
   enums, or resource ownership. Query-graph results remain owned by the handle.
 
@@ -57,7 +94,7 @@
   function signatures, public structure layouts, and the shared-library ABI
   major are unchanged.
 - The nine executable dialect fixtures still contain 2,758 final cases and
-  8,945 independent patches. A remote full `make test` on the final code
+  8,945 independent patches. A full `make test` on the final code
   passed; a targeted Valgrind run exited with `0 bytes in 0 blocks` and zero
   errors.
 
@@ -88,7 +125,7 @@
   function signatures, public structure layouts, and the shared-library ABI
   major are unchanged.
 - The nine fixtures contain 2,758 final cases and 8,945 independent patches.
-  A remote full `make test` and one targeted Valgrind run on the final code
+  A full `make test` and one targeted Valgrind run on the final code
   passed; Valgrind reported no memory remaining at exit and zero errors.
 
 ## 2.14.2
@@ -107,7 +144,7 @@
 ### Compatibility and Validation
 
 - This release adds no public APIs, enums, or structure fields. Existing function signatures and public structure layouts are unchanged, and the shared-library ABI major remains `libsqlparser.so.0`.
-- The nine executable dialect fixtures contain 2,758 final cases and 8,936 independent patches. A strict remote build and all nine runners validated original deparse, View JSON, patched deparse, a second deparse after reparsing, and patched/fresh View equivalence, with all checks passing.
+- The nine executable dialect fixtures contain 2,758 final cases and 8,936 independent patches. A strict build and all nine runners validated original deparse, View JSON, patched deparse, a second deparse after reparsing, and patched/fresh View equivalence, with all checks passing.
 - One targeted Valgrind run covered typed literals, current surface SQL, and the multi-patch `source_selector` lifecycle. All 2,100 allocations were freed, no memory remained at exit, and the error count was zero.
 
 ## 2.14.1
@@ -127,7 +164,7 @@
 ### Compatibility and Validation
 
 - `sqlparser_selector_kind_t` appends `SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN` and `SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL`. Existing enum values, public function signatures, and public structure layouts remain unchanged.
-- The nine executable dialect fixtures contain 2,755 final cases and 8,918 independent patches. A remote full `make test` run validated original deparse, View JSON, patched deparse, a second deparse after reparsing, and patched/fresh View equivalence, with all checks passing.
+- The nine executable dialect fixtures contain 2,755 final cases and 8,918 independent patches. A full `make test` run validated original deparse, View JSON, patched deparse, a second deparse after reparsing, and patched/fresh View equivalence, with all checks passing.
 
 ## 2.14.0
 

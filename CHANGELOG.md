@@ -1,5 +1,25 @@
 # 变更记录
 
+## 2.15.0
+
+### Linux AArch64 构建
+
+- Make 配置新增 `CROSS_COMPILE`，统一选择 `CC`、`AR`、`RANLIB`、`NM` 和 `READELF`，未设置时继续使用 Linux 原生工具链。
+- 新增 `scripts/build_linux_aarch64.sh`，使用独立的 `build/linux-aarch64`、`bin/linux-aarch64` 和 `lib/linux-aarch64` 输出目录完成增量交叉构建及产物检查。
+- 交叉构建会检查共享库与 CLI 的 AArch64 ELF 标识、静态归档的全部成员架构、vendor 动态依赖和公开 ABI 导出。
+
+### 自包含第三方依赖
+
+- Linux 与 MSVC Windows 构建统一使用仓库内的 Jansson 2.15 源码，Linux 不再依赖系统 Jansson 或其 `pkg-config` 元数据。
+- Jansson 与 `libpg_query` 对象直接进入 `libsqlparser.a` 和 `libsqlparser.so`；pkg-config 文件不再声明外部 Jansson 依赖。
+- `libpg_query` 对象、归档及依赖文件移入顶层构建目录。编译器、归档器、调试模式、编译参数、源码集合及头文件变化均参与增量重建判断。
+
+### 验证与兼容性
+
+- Linux AArch64 交叉构建与原生构建均通过；原生 `make test` 的九套 case matrix 共 2,758 条用例和 8,945 个 patch，失败数均为 0。
+- 两种构建方式生成的 `sqlparser_cli` 均可在 Linux AArch64 运行，对相同输入产生逐字节一致的 View JSON。
+- 动态库继续导出 152 个公开符号，SONAME 保持 `libsqlparser.so.0`；本版本不新增公开 C API 或资源所有权规则。
+
 ## 2.14.5
 
 ### Query Graph 标识符定界符状态
@@ -12,7 +32,7 @@
 
 - Oracle 与 Vastbase-Oracle 的 fragment preprocess 保留精确 identifier origin。包含 bind 改写的 assignment patch 在当前 handle 和重新解析后的 View 中保持一致。
 - Oracle、达梦及 Vastbase-Oracle 的 database link relation 从方言状态读取对象原始拼写；MySQL 兼容的 session identifier 同样按原始 token 判断定界符状态。
-- 九套可执行方言夹具仍包含 2,758 条 final 用例和 8,945 个独立 patch，并新增 1,800 个定界符状态断言。远端 `make test-unit` 全部通过。
+- 九套可执行方言夹具仍包含 2,758 条 final 用例和 8,945 个独立 patch，并新增 1,800 个定界符状态断言。`make test-unit` 全部通过。
 - 本版本新增两个公开结构体字段，但不新增公开函数、枚举或资源所有权；query graph 返回值继续由 handle 持有。
 
 ## 2.14.4
@@ -27,7 +47,7 @@
 
 - Oracle、达梦和 Vastbase-Oracle 增加双分支、每分支 32 列的 `INSERT ALL` 单元回归。在同一初始 handle 上连续执行四组插列与新增 cell 替换，共八次独立 `apply_patch`，并精确校验最终 SQL 及重新解析后的稳定性。
 - 本版本没有新增公开 API、枚举或结构体字段；既有函数签名、公开结构体布局和动态库 ABI 主版本保持不变。
-- 九套可执行方言夹具仍包含 2,758 条 final 用例和 8,945 个独立 patch。最终代码的远端全量 `make test` 通过；定向 Valgrind 检查退出时为 `0 bytes in 0 blocks`，错误数为 0。
+- 九套可执行方言夹具仍包含 2,758 条 final 用例和 8,945 个独立 patch。最终代码的全量 `make test` 通过；定向 Valgrind 检查退出时为 `0 bytes in 0 blocks`，错误数为 0。
 
 ## 2.14.3
 
@@ -41,7 +61,7 @@
 
 - 九套可执行方言夹具各增加一个 `insert_column` patch，覆盖 typed literal、`NOW()`、`CURRENT_TIMESTAMP` 和 `GETDATE()` 的原文保留。Case runner 支持严格解析的内部 INSERT 目标列 selector，既有 JSON Pointer patch 路径保持不变。
 - 本版本没有新增公开 API、枚举或结构体字段；既有函数签名、公开结构体布局和动态库 ABI 主版本保持不变。
-- 九套夹具共包含 2,758 条 final 用例和 8,945 个独立 patch。最终代码的远端全量 `make test` 及一次定向 Valgrind 检查均通过；Valgrind 退出时无残留内存且错误数为 0。
+- 九套夹具共包含 2,758 条 final 用例和 8,945 个独立 patch。最终代码的全量 `make test` 及一次定向 Valgrind 检查均通过；Valgrind 退出时无残留内存且错误数为 0。
 
 ## 2.14.2
 
@@ -59,7 +79,7 @@
 ### 兼容性与验证
 
 - 本版本没有新增公开 API、枚举或结构体字段；既有函数签名和公开结构体布局保持不变，动态库 ABI 主版本仍为 `libsqlparser.so.0`。
-- 九套可执行方言夹具包含 2,758 条 final 用例和 8,936 个独立 patch。远端严格构建及九套 runner 对原始反解析、View JSON、patch 反解析、重新解析后的二次反解析和 patch/fresh View 一致性完成校验，全部通过。
+- 九套可执行方言夹具包含 2,758 条 final 用例和 8,936 个独立 patch。严格构建及九套 runner 对原始反解析、View JSON、patch 反解析、重新解析后的二次反解析和 patch/fresh View 一致性完成校验，全部通过。
 - 针对 typed literal、current surface SQL 和多 patch `source_selector` 生命周期执行一次定向 Valgrind；2,100 次分配与 2,100 次释放全部对齐，退出时无残留内存，错误数为 0。
 
 ## 2.14.1
@@ -79,7 +99,7 @@
 ### 兼容性与验证
 
 - `sqlparser_selector_kind_t` 追加 `SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN` 和 `SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL`；既有枚举值、公开函数签名和公开结构体布局保持不变。
-- 九套可执行方言夹具包含 2,755 条 final 用例和 8,918 个独立 patch。远端全量 `make test` 对原始反解析、View JSON、patch 反解析、重新解析后的二次反解析及 patch/fresh View 一致性完成校验，全部通过。
+- 九套可执行方言夹具包含 2,755 条 final 用例和 8,918 个独立 patch。全量 `make test` 对原始反解析、View JSON、patch 反解析、重新解析后的二次反解析及 patch/fresh View 一致性完成校验，全部通过。
 
 ## 2.14.0
 

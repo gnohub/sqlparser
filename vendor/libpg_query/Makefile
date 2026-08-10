@@ -2,7 +2,8 @@ root_dir := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 word-dot = $(word $2,$(subst ., ,$1))
 
 TARGET = pg_query
-ARLIB = lib$(TARGET).a
+BUILD_DIR ?= .
+ARLIB = $(BUILD_DIR)/lib$(TARGET).a
 PGDIR = $(root_dir)/tmp/postgres
 PGDIRBZ2 = $(root_dir)/tmp/postgres.tar.bz2
 PGDIRZIP = $(root_dir)/tmp/postgres.zip
@@ -32,7 +33,7 @@ else
 endif
 
 SRC_FILES := $(wildcard src/*.c src/postgres/*.c) vendor/protobuf-c/protobuf-c.c vendor/xxhash/xxhash.c protobuf/pg_query.pb-c.c
-OBJ_FILES := $(SRC_FILES:.c=.o)
+OBJ_FILES := $(addprefix $(BUILD_DIR)/,$(SRC_FILES:.c=.o))
 
 override CFLAGS += -g -I. -I./vendor -I./src/include -I./src/postgres/include -Wall -Wno-unused-function -Wno-unused-value -Wno-unused-variable -fno-strict-aliasing -fwrapv -fPIC
 
@@ -66,10 +67,15 @@ endif
 
 CLEANLIBS = $(ARLIB)
 CLEANOBJS = $(OBJ_FILES)
+CLEANDEPS = $(OBJ_FILES:.o=.d)
 CLEANFILES = $(PGDIRBZ2) $(PGDIRZIP)
 
-AR ?= ar
-AR := $(AR) rs
+ifeq ($(origin AR), default)
+	AR := ar
+endif
+ifeq ($(origin ARFLAGS), default)
+	ARFLAGS := rs
+endif
 INSTALL = install
 LN_S = ln -s
 RM = rm -f
@@ -96,10 +102,10 @@ ifeq ($(USE_PROTOBUF_CPP),1)
 
 	# Don't use regular Protobuf-C or JSON implementation (instead implement the same methods using the C++ library)
 	SRC_FILES := $(filter-out src/pg_query_outfuncs_json.c src/pg_query_outfuncs_protobuf.c, $(SRC_FILES))
-	OBJ_FILES := $(SRC_FILES:.c=.o) $(CXX_SRC_FILES:.cc=.o)
+	OBJ_FILES := $(addprefix $(BUILD_DIR)/,$(SRC_FILES:.c=.o) $(CXX_SRC_FILES:.cc=.o))
 else
 	# Make sure we always clean C++ object files
-	CLEANOBJS += $(CXX_SRC_FILES:.cc=.o)
+	CLEANOBJS += $(addprefix $(BUILD_DIR)/,$(CXX_SRC_FILES:.cc=.o))
 endif
 
 all: examples test build
@@ -109,7 +115,7 @@ build: $(ARLIB)
 build_shared: $(SOLIB)
 
 clean:
-	-@ $(RM) $(CLEANLIBS) $(CLEANOBJS) $(CLEANFILES) $(EXAMPLES) $(TESTS)
+	-@ $(RM) $(CLEANLIBS) $(CLEANOBJS) $(CLEANDEPS) $(CLEANFILES) $(EXAMPLES) $(TESTS)
 	-@ $(RM) -rf {test,examples}/*.dSYM
 	-@ $(RM) -r $(PGDIR) $(PGDIRBZ2) $(PGDIRZIP)
 
@@ -180,16 +186,19 @@ extract_source: $(PGDIR)
 	cp $(PGDIR)/src/pl/plpgsql/src/sql/*.sql ./test/sql/plpgsql_regress/
 	cp $(PGDIR)/COPYRIGHT ./src/postgres/
 
-.c.o:
+$(BUILD_DIR)/%.o: %.c Makefile
+	@mkdir -p $(dir $@)
 	@$(ECHO) compiling $(<)
-	@$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ -c $<
+	@$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -o $@ -c $<
 
-.cc.o:
+$(BUILD_DIR)/%.o: %.cc Makefile
+	@mkdir -p $(dir $@)
 	@$(ECHO) compiling $(<)
-	@$(CXX) $(CXXFLAGS) -o $@ -c $<
+	@$(CXX) $(CXXFLAGS) -MMD -MP -o $@ -c $<
 
 $(ARLIB): $(OBJ_FILES) Makefile
-	@$(AR) $@ $(OBJ_FILES)
+	@mkdir -p $(dir $@)
+	@$(AR) $(ARFLAGS) $@ $(OBJ_FILES)
 
 $(SOLIB): $(OBJ_FILES) Makefile
 	@$(CC) $(CFLAGS) -shared -Wl,$(SOFLAG),$(SONAME) $(LDFLAGS) -o $@ $(OBJ_FILES) $(LIBS)
@@ -210,6 +219,8 @@ ifneq ($(shell protoc --version 2>/dev/null | cut -f2 -d" "), $(PROTOC_VERSION))
 	$(error "ERROR - Wrong protobuf compiler version, need $(PROTOC_VERSION)")
 endif
 	protoc --cpp_out=. protobuf/pg_query.proto
+
+-include $(OBJ_FILES:.o=.d)
 
 EXAMPLES = examples/simple examples/scan examples/normalize examples/simple_error examples/normalize_error examples/simple_plpgsql
 examples: $(EXAMPLES)

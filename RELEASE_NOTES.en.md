@@ -1,61 +1,76 @@
-# v2.14.5 Release Notes
+# v2.15.0 Release Notes
 
-`v2.14.5` adds identifier-delimiter state to the query graph and fixes a View
-consistency issue after assignment patches pass through Oracle-compatible
-fragment preprocessing.
+`v2.15.0` adds Linux AArch64 cross-build support and makes the Linux Jansson
+dependency source-based and repository-contained. Static libraries, shared
+libraries, and the CLI now use one consistent third-party build model.
 
-## Identifier Delimiter State
+## Linux AArch64 Cross Builds
 
-- `sqlparser_graph_relation_t.quoted_identifier` reports whether the relation
-  object-name token used an explicit identifier delimiter.
-- `sqlparser_graph_field_t.quoted_identifier` reports whether the field
-  column-name token used an explicit identifier delimiter.
-- View JSON conditionally emits `quoted_identifier: true` on the applicable
-  `relations[]` and `fields[]` entry. A session value whose `kind` is
-  `identifier` can emit the same key; the C API exposes it through
-  `sqlparser_graph_session_value_t.literal.quoted_identifier`.
-- The flag recognizes `"..."`, MySQL backticks, and SQL Server `[...]`. It
-  reports delimiter presence only and does not classify the delimiter kind.
-  Single-quoted strings are not identifier delimiters.
-- A relation flag applies only to its object name, not its database, schema, or
-  alias. A field flag applies only to its column name.
+- `CROSS_COMPILE` acts as the common tool prefix for `gcc`, `ar`, `ranlib`,
+  `nm`, and `readelf`. An empty prefix preserves the native Linux toolchain and
+  default output directories.
+- `scripts/build_linux_aarch64.sh` reads
+  `/opt/toolchains/aarch64-linux-gnu` by default. An alternative toolchain
+  directory can be supplied through `SQLPARSER_AARCH64_TOOLCHAIN`.
+- AArch64 artifacts are written to `build/linux-aarch64`,
+  `bin/linux-aarch64`, and `lib/linux-aarch64`, preventing object, archive, or
+  executable reuse across target architectures.
+- After building and checking ABI exports, the script validates the ELF
+  architecture of the shared library and CLI, the format and architecture of
+  every static-archive member, and the absence of dynamic Jansson or
+  `libpg_query` dependencies.
 
-## Exact Tokens and Patch Consistency
+## Self-Contained Jansson
 
-- A positive flag requires an exact token from the original SQL or patch
-  fragment. Quote styles generated internally for dialect compatibility are
-  not reported as source delimiters.
-- Oracle and Vastbase-Oracle fragment preprocessing now replays identifier
-  origins. An explicitly delimited assignment target retains its source token
-  even when a right-hand bind such as `:1` is converted to an internal form.
-- Views produced directly after `replace_assignment` and similar patches use
-  the same rule as a fresh parse of the deparsed SQL. A delimiter flag no
-  longer appears only after reparsing.
-- Oracle, Dameng, and Vastbase-Oracle database-link relations use original
-  object spelling retained by dialect state. MySQL-compatible session
-  identifiers derive delimiter state from their original token.
+- Linux and MSVC Windows builds compile the vendored Jansson 2.15 source.
+  Linux no longer requires a system Jansson package or a successful
+  `pkg-config` query.
+- The 13 Jansson source files are compiled as position-independent objects and
+  incorporated into the static and shared libraries with the project and
+  `libpg_query` objects.
+- `sqlparser.pc` no longer declares `Requires.private: jansson`.
+  Distributing `libsqlparser.so.0` does not require `libjansson.so`.
+- The shared-library version script continues to restrict public exports.
+  Jansson, `libpg_query`, and other internal symbols do not enter the public
+  dynamic ABI.
 
-## API and Ownership
+## Vendor Build Isolation and Incremental Dependencies
 
-- This release adds the public
-  `sqlparser_graph_relation_t.quoted_identifier` and
-  `sqlparser_graph_field_t.quoted_identifier` fields.
-- No public functions or enums are added. Query-graph results remain borrowed
-  views owned by the handle; no new release function or caller ownership is
-  introduced.
-- The new members are integer booleans. They are `0` without an explicit
-  delimiter, and View JSON omits the corresponding key.
+- `libpg_query` objects, dependency files, and its archive are written under
+  the top-level `BUILD_PATH`, preventing reuse of source-tree objects across
+  compilers or target architectures.
+- The sub-build emits `-MMD -MP` dependency files, and objects also depend on
+  its Makefile. The top-level target tracks the actual sources, headers, and
+  protobuf definition.
+- Build signatures cover the compiler, archiver, debug mode, compiler flags,
+  and vendor source set. Signature changes remove only the corresponding vendor
+  output and leave other architecture-specific build directories intact.
+- The ABI checker accepts an explicit `NM` tool so cross builds inspect dynamic
+  symbols with the target toolchain.
+
+## Compatibility
+
+- Public C APIs, enums, structure layouts, and resource-ownership rules are
+  unchanged.
+- The shared-library SONAME remains `libsqlparser.so.0`, with 152 public
+  exported symbols.
+- Native Linux commands are unchanged. With an empty `CROSS_COMPILE`, `make`
+  and `make test` use the native toolchain.
+- Runtime dependencies of the shared library and CLI are limited to `libc`,
+  `libm`, and `libpthread`; no dynamic Jansson or `libpg_query` library is
+  required.
 
 ## Validation
 
-- The nine executable dialect fixtures still contain 2,758 cases with
-  `status = "final"` and 8,945 independent patches.
-- The fixtures add 1,800 exact assertions: 910 relations, 876 fields, and 14
-  session identifier values.
-- A remote `make test-unit` completed successfully. All nine fixtures passed
-  original deparse, View, patched deparse, and patched/fresh View comparisons.
-- Ownership and complexity review confirmed that the handle releases the
-  origin cache, Oracle fragment replay is a single linear scan, and no
-  long-lived cache or quadratic path was introduced.
+- The Linux AArch64 cross build produced shared, static, and CLI artifacts that
+  passed architecture and dependency checks. All 123 static-archive members
+  were identified as AArch64.
+- Native Linux AArch64 `make test` completed across nine case matrices with
+  2,758 cases, 8,945 patches, and zero failures.
+- Cross-built and native CLIs processed the same input successfully and emitted
+  valid, byte-identical View JSON.
+- The highest GLIBC symbol requirement in the cross-built shared library and
+  CLI is `GLIBC_2.17`.
 
 Vendored `libpg_query` tag: `17-6.2.2`.
+Vendored Jansson version: `2.15`.

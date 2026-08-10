@@ -4,19 +4,36 @@ set -euo pipefail
 
 header="./include/sqlparser/sqlparser.h"
 library="./lib/libsqlparser.so"
+nm_tool="nm"
 
 usage() {
-	echo "usage: check_abi_exports.sh [--header HEADER] [--library SHARED_LIBRARY]" >&2
+	echo "usage: check_abi_exports.sh [--header HEADER] [--library SHARED_LIBRARY] [--nm NM]" >&2
 }
 
 while [[ $# -gt 0 ]]; do
 	case "$1" in
 		--header)
+			if [[ $# -lt 2 ]]; then
+				usage
+				exit 2
+			fi
 			header="$2"
 			shift 2
 			;;
 		--library)
+			if [[ $# -lt 2 ]]; then
+				usage
+				exit 2
+			fi
 			library="$2"
+			shift 2
+			;;
+		--nm)
+			if [[ $# -lt 2 ]]; then
+				usage
+				exit 2
+			fi
+			nm_tool="$2"
 			shift 2
 			;;
 		-h|--help)
@@ -40,8 +57,8 @@ if [[ ! -f "${library}" ]]; then
 	exit 1
 fi
 
-if ! command -v nm >/dev/null 2>&1; then
-	echo "ABI export check failed: nm is required" >&2
+if ! command -v "${nm_tool}" >/dev/null 2>&1; then
+	echo "ABI export check failed: nm is required: ${nm_tool}" >&2
 	exit 1
 fi
 
@@ -61,7 +78,7 @@ grep -Eho '\bsqlparser_[A-Za-z0-9_]+[[:space:]]*\(' "${header}" \
 	| sed -E 's/[[:space:]]*\($//' \
 	| sort -u > "${expected}"
 
-nm -D --defined-only "${library}" \
+"${nm_tool}" -D --defined-only "${library}" \
 	| awk '
 		{
 			name = $NF

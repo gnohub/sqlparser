@@ -42,8 +42,6 @@ Linux:
 
 - GCC 8.3 或更新版本，并支持 `gnu11`
 - GNU Make
-- `pkg-config`
-- `jansson`
 
 Windows:
 
@@ -51,7 +49,7 @@ Windows:
 - MSVC 19.39 或更新版本
 - NMake
 
-Windows 构建使用仓库内的 vendored Jansson，不需要额外安装 JSON 库。
+Linux 和 Windows 构建均使用仓库内的 vendored Jansson，不需要额外安装 JSON 库。
 
 ## Linux 构建
 
@@ -73,6 +71,18 @@ make all
 - `make bench-smoke`
 - `make dist`
 - `make install PREFIX=/usr/local`
+
+## Linux AArch64 交叉构建
+
+交叉构建脚本默认使用 `/opt/toolchains/aarch64-linux-gnu`：
+
+```bash
+./scripts/build_linux_aarch64.sh
+```
+
+产物分别位于 `build/linux-aarch64`、`bin/linux-aarch64` 和
+`lib/linux-aarch64`。脚本只构建并检查 AArch64 产物，不在构建机上执行目标程序。
+可以通过 `SQLPARSER_AARCH64_TOOLCHAIN` 指定其他工具链目录，通过 `JOBS` 设置并行数。
 
 ## Windows 构建
 
@@ -146,7 +156,7 @@ options.dialect = SQLPARSER_DIALECT_VASTBASE_SQLSERVER;
 示例编译方式：
 
 ```bash
-gcc -std=gnu11 demo.c -I./include -L./lib -lsqlparser -ljansson -o demo
+gcc -std=gnu11 demo.c -I./include -L./lib -lsqlparser -lpthread -lm -o demo
 ```
 
 如果已经安装到系统目录，也可以通过 `pkg-config` 获取编译参数：

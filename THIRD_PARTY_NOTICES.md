@@ -18,8 +18,8 @@ The original license text is available at:
 - Purpose: JSON encoding and decoding
 - License: MIT
 
-The vendored source is used by the MSVC Windows build. Linux builds continue to
-use the system-provided Jansson package through `pkg-config`.
+The vendored source is used by both Linux and MSVC Windows builds. No
+system-provided Jansson package is required.
 
 The original license text is available at:
 

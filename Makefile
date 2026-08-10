@@ -4,8 +4,6 @@ include $(CONFIG)
 .DEFAULT_GOAL := all
 
 VERSION_STRING := $(strip $(shell tr -d '\r\n' < ./VERSION 2>/dev/null))
-JANSSON_CFLAGS := $(shell $(PKG_CONFIG) --cflags jansson 2>/dev/null)
-JANSSON_LDLIBS := $(shell $(PKG_CONFIG) --libs jansson 2>/dev/null)
 
 ifeq ($(VERSION_STRING),)
 $(error VERSION file is missing or empty)
@@ -25,14 +23,34 @@ $(error No C sources found under src)
 endif
 
 VENDOR_PG_QUERY_DIR := ./vendor/libpg_query
-VENDOR_PG_QUERY_LIB := $(VENDOR_PG_QUERY_DIR)/libpg_query.a
-VENDOR_PG_QUERY_MERGE_DIR := $(BUILD_PATH)/vendor/libpg_query
+VENDOR_PG_QUERY_BUILD_DIR := $(BUILD_PATH)/vendor/libpg_query/build
+VENDOR_PG_QUERY_LIB := $(VENDOR_PG_QUERY_BUILD_DIR)/libpg_query.a
+VENDOR_PG_QUERY_MERGE_DIR := $(BUILD_PATH)/vendor/libpg_query/merge
 VENDOR_PG_QUERY_STAMP := $(VENDOR_PG_QUERY_MERGE_DIR)/.merged.stamp
+VENDOR_PG_QUERY_SRC_FILES := $(sort \
+	$(wildcard $(VENDOR_PG_QUERY_DIR)/src/*.c) \
+	$(wildcard $(VENDOR_PG_QUERY_DIR)/src/postgres/*.c) \
+	$(VENDOR_PG_QUERY_DIR)/vendor/protobuf-c/protobuf-c.c \
+	$(VENDOR_PG_QUERY_DIR)/vendor/xxhash/xxhash.c \
+	$(VENDOR_PG_QUERY_DIR)/protobuf/pg_query.pb-c.c)
+VENDOR_PG_QUERY_HEADER_FILES := $(sort \
+	$(call rwildcard,$(VENDOR_PG_QUERY_DIR),*.h))
+VENDOR_PG_QUERY_INPUTS := \
+	$(VENDOR_PG_QUERY_DIR)/Makefile \
+	$(VENDOR_PG_QUERY_SRC_FILES) \
+	$(VENDOR_PG_QUERY_HEADER_FILES) \
+	$(VENDOR_PG_QUERY_DIR)/protobuf/pg_query.proto
 BUILD_SIGNATURE_FILE := $(BUILD_PATH)/.build_signature
 VENDOR_BUILD_SIGNATURE_FILE := $(BUILD_PATH)/vendor/.vendor_build_signature
+JANSSON_DIR := ./vendor/jansson
+JANSSON_SRC_DIR := $(JANSSON_DIR)/src
+JANSSON_OBJ_PATH := $(BUILD_PATH)/vendor/jansson
+JANSSON_SRC := $(sort $(wildcard $(JANSSON_SRC_DIR)/*.c))
+JANSSON_OBJ_FILES := $(patsubst \
+	$(JANSSON_SRC_DIR)/%.c,$(JANSSON_OBJ_PATH)/%.o,$(JANSSON_SRC))
 
 OBJ_FILES := $(foreach src,$(ALL_SRC),$(OBJ_PATH)/$(patsubst src/%,%,$(src:.c=.o)))
-DEP_FILES := $(OBJ_FILES:.o=.d)
+DEP_FILES := $(OBJ_FILES:.o=.d) $(JANSSON_OBJ_FILES:.o=.d)
 UNIT_TEST_BINS := $(foreach src,$(UNIT_TEST_SRC),$(BIN_PATH)/$(notdir $(src:.c=)))
 CASE_MATRIX_BINS := $(filter %_case_matrix,$(UNIT_TEST_BINS))
 CASE_RUNNER_HEADER := ./tests/unit/sqlparser_case_runner.h
@@ -115,23 +133,23 @@ BASE_CPPFLAGS := \
 	-I./src/internal \
 	-I./vendor/libpg_query \
 	-I./vendor/libpg_query/vendor \
+	-I$(JANSSON_SRC_DIR) \
 	-DSQLPARSER_VERSION_TEXT=\"$(VERSION_STRING)\" \
 	-DSQLPARSER_LIBPG_QUERY_TAG_TEXT=\"$(VENDOR_PG_QUERY_TAG)\" \
-	$(JANSSON_CFLAGS) \
 	$(PTHREAD_CFLAGS)
 
 BASE_CFLAGS := -std=gnu11 -fPIC
 BASE_LDFLAGS :=
-BASE_LDLIBS := $(JANSSON_LDLIBS) $(PTHREAD_LDLIBS) -lm
+BASE_LDLIBS := $(PTHREAD_LDLIBS) -lm
 
-VENDOR_PG_QUERY_BUILD_CFLAGS := -std=gnu11 -fPIC
+VENDOR_BUILD_CFLAGS := -std=gnu11 -fPIC
 
 ifeq ($(DEBUG),1)
 	BASE_CFLAGS += -g -O0
-	VENDOR_PG_QUERY_BUILD_CFLAGS += -g -O0
+	VENDOR_BUILD_CFLAGS += -g -O0
 else
 	BASE_CFLAGS += -O2
-	VENDOR_PG_QUERY_BUILD_CFLAGS += -O2
+	VENDOR_BUILD_CFLAGS += -O2
 endif
 
 ifeq ($(SHOW_WARNING),1)
@@ -143,9 +161,9 @@ endif
 SHOW_VENDOR_WARNING ?= $(SHOW_WARNING)
 
 ifeq ($(SHOW_VENDOR_WARNING),1)
-	VENDOR_PG_QUERY_BUILD_CFLAGS += -Wall -Wextra -Wpedantic
+	VENDOR_BUILD_CFLAGS += -Wall -Wextra -Wpedantic
 else
-	VENDOR_PG_QUERY_BUILD_CFLAGS += -w
+	VENDOR_BUILD_CFLAGS += -w
 endif
 
 ifeq ($(STRICT),1)
@@ -155,7 +173,7 @@ endif
 ifneq ($(strip $(SANITIZE)),)
 	BASE_CFLAGS += -fno-omit-frame-pointer -fsanitize=$(SANITIZE)
 	BASE_LDFLAGS += -fno-omit-frame-pointer -fsanitize=$(SANITIZE)
-	VENDOR_PG_QUERY_BUILD_CFLAGS += -fno-omit-frame-pointer -fsanitize=$(SANITIZE)
+	VENDOR_BUILD_CFLAGS += -fno-omit-frame-pointer -fsanitize=$(SANITIZE)
 endif
 
 CPPFLAGS := $(BASE_CPPFLAGS) $(EXTRA_CPPFLAGS)
@@ -175,9 +193,15 @@ all: prep static shared cli
 	@echo "Build finished: $(STATIC_LIB_PATH) $(SHARED_LIB_PATH) $(SQLPARSER_CLI_BIN)"
 
 prep:
-	@mkdir -p $(OBJ_PATH) $(BIN_PATH) $(LIB_PATH) $(PKGCONFIG_BUILD_DIR) $(VENDOR_PG_QUERY_MERGE_DIR)
+	@mkdir -p \
+		$(OBJ_PATH) \
+		$(BIN_PATH) \
+		$(LIB_PATH) \
+		$(PKGCONFIG_BUILD_DIR) \
+		$(VENDOR_PG_QUERY_MERGE_DIR) \
+		$(JANSSON_OBJ_PATH)
 
-vendor: $(VENDOR_PG_QUERY_LIB)
+vendor: $(VENDOR_PG_QUERY_LIB) $(JANSSON_OBJ_FILES)
 
 static: $(STATIC_LIB_PATH)
 
@@ -277,7 +301,7 @@ install-smoke: all $(PKGCONFIG_FILE) $(INSTALL_SMOKE_SRC) | prep
 		$(INSTALL_SMOKE_SRC) \
 		-L$(abspath $(TEST_STAGE_DIR))/lib \
 		-Wl,-rpath,$(abspath $(TEST_STAGE_DIR))/lib \
-		-l$(LIB_NAME) $(JANSSON_LDLIBS) $(PTHREAD_LDLIBS) -lm \
+		-l$(LIB_NAME) $(PTHREAD_LDLIBS) -lm \
 		-o $(INSTALL_SMOKE_BIN)
 	@$(INSTALL_SMOKE_BIN)
 
@@ -311,7 +335,7 @@ dist:
 	@echo "Source package: $(DIST_TARBALL)"
 
 abi-check: shared
-	@$(ABI_EXPORT_CHECKER) --header $(ABI_HEADER) --library $(ABI_LIBRARY)
+	@$(ABI_EXPORT_CHECKER) --header $(ABI_HEADER) --library $(ABI_LIBRARY) --nm "$(NM)"
 
 test-loop: cli $(UNIT_TEST_BINS) $(EXAMPLE_BINS) test-cli-batch
 	@./scripts/run_test_loop.sh \
@@ -396,9 +420,12 @@ print-config:
 	@echo "PROJECT_NAME=$(PROJECT_NAME)"
 	@echo "LIB_NAME=$(LIB_NAME)"
 	@echo "VERSION=$(VERSION_STRING)"
+	@echo "CROSS_COMPILE=$(CROSS_COMPILE)"
 	@echo "CC=$(CC)"
 	@echo "AR=$(AR)"
 	@echo "RANLIB=$(RANLIB)"
+	@echo "NM=$(NM)"
+	@echo "READELF=$(READELF)"
 	@echo "BUILD_PATH=$(BUILD_PATH)"
 	@echo "BIN_PATH=$(BIN_PATH)"
 	@echo "LIB_PATH=$(LIB_PATH)"
@@ -415,15 +442,12 @@ print-config:
 	@echo "PKGCONFIG_BUILD_DIR=$(PKGCONFIG_BUILD_DIR)"
 	@echo "PKGCONFIGDIR=$(PKGCONFIGDIR)"
 	@echo "VENDOR_PG_QUERY_TAG=$(VENDOR_PG_QUERY_TAG)"
-	@echo "JANSSON_CFLAGS=$(JANSSON_CFLAGS)"
-	@echo "JANSSON_LDLIBS=$(JANSSON_LDLIBS)"
 
 clean:
 	@rm -rf $(BUILD_PATH) $(BIN_PATH) $(LIB_PATH)
 
 vendor-clean:
-	@$(MAKE) -C $(VENDOR_PG_QUERY_DIR) clean >/dev/null 2>&1 || true
-	@rm -rf $(VENDOR_PG_QUERY_MERGE_DIR)
+	@rm -rf $(BUILD_PATH)/vendor/libpg_query $(JANSSON_OBJ_PATH)
 
 FORCE:
 
@@ -431,6 +455,8 @@ $(BUILD_SIGNATURE_FILE): FORCE Makefile $(CONFIG) $(SQLPARSER_SITE_CONFIG) VERSI
 	@tmp_file="$@.tmp"; \
 	printf '%s\n' \
 		"CC=$(CC)" \
+		"AR=$(AR)" \
+		"RANLIB=$(RANLIB)" \
 		"CPPFLAGS=$(CPPFLAGS)" \
 		"CFLAGS=$(CFLAGS)" \
 		"LDFLAGS=$(LDFLAGS)" \
@@ -445,18 +471,25 @@ $(VENDOR_BUILD_SIGNATURE_FILE): FORCE Makefile $(CONFIG) $(SQLPARSER_SITE_CONFIG
 	@tmp_file="$@.tmp"; \
 	printf '%s\n' \
 		"CC=$(CC)" \
-		"VENDOR_CFLAGS=$(VENDOR_PG_QUERY_BUILD_CFLAGS)" > "$$tmp_file"; \
+		"AR=$(AR)" \
+		"DEBUG=$(DEBUG)" \
+		"VENDOR_SOURCES=$(VENDOR_PG_QUERY_SRC_FILES)" \
+		"VENDOR_CFLAGS=$(VENDOR_BUILD_CFLAGS)" > "$$tmp_file"; \
 	if [ ! -f "$@" ] || ! cmp -s "$$tmp_file" "$@"; then \
-		$(MAKE) -C $(VENDOR_PG_QUERY_DIR) clean >/dev/null 2>&1 || true; \
+		rm -rf $(VENDOR_PG_QUERY_BUILD_DIR) $(VENDOR_PG_QUERY_MERGE_DIR); \
 		mv "$$tmp_file" "$@"; \
 	else \
 		rm -f "$$tmp_file"; \
 	fi
 
-$(VENDOR_PG_QUERY_LIB): $(VENDOR_BUILD_SIGNATURE_FILE)
+$(VENDOR_PG_QUERY_LIB): $(VENDOR_BUILD_SIGNATURE_FILE) $(VENDOR_PG_QUERY_INPUTS)
 	@$(MAKE) -C $(VENDOR_PG_QUERY_DIR) build \
+		BUILD_DIR="$(abspath $(VENDOR_PG_QUERY_BUILD_DIR))" \
 		CC="$(CC)" \
-		CFLAGS="$(VENDOR_PG_QUERY_BUILD_CFLAGS)"
+		AR="$(AR)" \
+		ARFLAGS="rs" \
+		DEBUG="$(DEBUG)" \
+		CFLAGS="$(VENDOR_BUILD_CFLAGS)"
 
 $(VENDOR_PG_QUERY_STAMP): $(VENDOR_PG_QUERY_LIB) | prep
 	@rm -rf $(VENDOR_PG_QUERY_MERGE_DIR)
@@ -464,16 +497,16 @@ $(VENDOR_PG_QUERY_STAMP): $(VENDOR_PG_QUERY_LIB) | prep
 	@cd $(VENDOR_PG_QUERY_MERGE_DIR) && $(AR) x $(abspath $(VENDOR_PG_QUERY_LIB))
 	@touch $@
 
-$(STATIC_LIB_PATH): $(OBJ_FILES) $(VENDOR_PG_QUERY_STAMP) | prep
+$(STATIC_LIB_PATH): $(OBJ_FILES) $(JANSSON_OBJ_FILES) $(VENDOR_PG_QUERY_STAMP) | prep
 	@rm -f $@
-	@$(AR) rcs $@ $(OBJ_FILES) $(VENDOR_PG_QUERY_MERGE_DIR)/*.o
+	@$(AR) rcs $@ $(OBJ_FILES) $(JANSSON_OBJ_FILES) $(VENDOR_PG_QUERY_MERGE_DIR)/*.o
 	@$(RANLIB) $@
 
-$(SHARED_LIB_REAL_PATH): $(OBJ_FILES) $(VENDOR_PG_QUERY_LIB) | prep
+$(SHARED_LIB_REAL_PATH): $(OBJ_FILES) $(JANSSON_OBJ_FILES) $(VENDOR_PG_QUERY_LIB) | prep
 	@$(CC) -shared \
 		-Wl,-soname,$(SHARED_LIB_SONAME) \
 		-Wl,--version-script=./config/sqlparser.map \
-		-o $@ $(OBJ_FILES) $(VENDOR_PG_QUERY_LIB) $(LDFLAGS) $(LDLIBS)
+		-o $@ $(OBJ_FILES) $(JANSSON_OBJ_FILES) $(VENDOR_PG_QUERY_LIB) $(LDFLAGS) $(LDLIBS)
 
 $(SHARED_LIB_PATH): $(SHARED_LIB_REAL_PATH) | prep
 	@ln -sf $(notdir $(SHARED_LIB_REAL_PATH)) $@
@@ -489,6 +522,10 @@ $(PKGCONFIG_FILE): config/sqlparser.pc.in VERSION | prep
 $(OBJ_PATH)/%.o: src/%.c $(BUILD_SIGNATURE_FILE)
 	@mkdir -p $(dir $@)
 	@$(CC) $(CPPFLAGS) $(CFLAGS) -MMD -MP -c $< -o $@
+
+$(JANSSON_OBJ_PATH)/%.o: $(JANSSON_SRC_DIR)/%.c $(BUILD_SIGNATURE_FILE) $(VENDOR_BUILD_SIGNATURE_FILE)
+	@mkdir -p $(dir $@)
+	@$(CC) $(CPPFLAGS) -DHAVE_CONFIG_H $(VENDOR_BUILD_CFLAGS) -MMD -MP -c $< -o $@
 
 $(CASE_MATRIX_BINS): $(CASE_RUNNER_HEADER)
 
