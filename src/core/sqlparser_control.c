@@ -662,17 +662,17 @@ sqlparser_status_t sqlparser_control_condition_sql(
 			"statement is not a control condition");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	status = sqlparser_control_render_condition_core(
-		handle,
+	status = sqlparser_get_statement_node(
+		(sqlparser_handle_t *)handle,
 		statement_index,
-		&scratch,
-		&core_sql,
+		&root,
 		out_error);
 	if (status == SQLPARSER_STATUS_OK) {
-		status = sqlparser_get_statement_node(
-			(sqlparser_handle_t *)handle,
+		status = sqlparser_control_render_condition_core(
+			handle,
 			statement_index,
-			&root,
+			&scratch,
+			&core_sql,
 			out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK) {

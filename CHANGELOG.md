@@ -1,5 +1,31 @@
 # 变更记录
 
+## 2.16.0
+
+### Deparser 内存
+
+- 在未启用 pretty-print 和 commas-start-of-line 的 non-pretty fallback 反解析路径中，不再为逗号创建 `DeparseStatePart`，而是直接写入与原合并结果相同的 `", "`；两条格式化分支保持不变。
+- 16 个投影的 fallback deparse 累计请求量从 30,970 B 降至 6,394 B，峰值从 24,640 B 降至 5,310 B；256 个投影分别从 610,810 B 降至 152,058 B、516,160 B 降至 117,208 B。两组输出均与修改前逐字节一致。
+
+### Patch AST 生命周期
+
+- 成功且非 no-op 的 patch 在事务候选 handle 移交前释放已解包 AST；packed tree、surface SQL、generation、持久化 identifier/dialect 语义和派生缓存重绑定规则保持不变。失败及语义 no-op 继续保持原 handle 不变。
+- control condition 渲染在读取 AST 前先获取当前 statement node；fallback deparse 需要方言后处理且当前无 AST 时，仅为该次操作重建并绑定 AST，返回前释放。
+- 单项 replace 返回时保留量从 1,700 B 降至 364 B；同一 handle 连续四次 apply 的最终保留量从 1,505 B 降至 169 B，且没有逐次增长。
+
+### Query Graph 紧凑缓存
+
+- Query Graph 在缓存内使用私有紧凑 target/value 记录，公共 accessor 按需还原完整结构。Linux LP64 下 target 记录从 224 B 降至 104 B，value 记录从公共布局的 800 B 降至 88 B。
+- 删除 target/value 缓存无调用方的空记录构造路径；意外的空 target/value source 或空 target identifier 现在明确返回 `SQLPARSER_STATUS_INTERNAL_ERROR`。这些检查仅处理内部一致性错误，公开 API 布局和成功路径行为不变。
+- bind 文本由缓存内的连续文本池统一持有；`LIKE ... ESCAPE` 只为实际存在 escape 的 value 保留 56 B 稀疏记录。target、value、block 和普通索引池从 4 个元素起步；Graph 构建完成后，target、value、value text、LIKE ESCAPE 和 index pool 各最多执行一次按实际使用量收缩的 best-effort 尝试。
+- 完整 Query Graph cache 的 allocator payload 实测为：100 个投影 20.66 KiB，129 个 26.30 KiB，200 个 40.19 KiB，256 个 51.12 KiB。
+
+### API、兼容性与验证
+
+- 公开 C API、公开枚举、公开结构体布局、View JSON schema 和资源所有权规则均不变。动态库仍导出 152 个公共符号，SONAME 保持 `libsqlparser.so.0`。
+- 严格构建和全量 `make test` 通过；九组 case matrix 共 2,781/2,781 条 case、9,034/9,034 个 patch，unit、example 和 CLI 全部通过。24 条 AST/Graph→Patch→Graph 重建→fallback deparse 联合链路在配置的超时时间内完成；Memcheck 为 23,129 次分配/23,129 次释放、`0 bytes in 0 blocks`、0 errors，Helgrind 为 0 errors。
+- 完整 `make verify-valgrind` 通过，unit、方言矩阵、example、CLI batch 和 install smoke 均为 `0 bytes in 0 blocks`、0 errors。ABI 保持 152 个公共符号，install smoke 确认版本文本与 API 均为 `2.16.0`。
+
 ## 2.15.4
 
 ### 统一改写事务

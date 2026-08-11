@@ -5843,6 +5843,94 @@ typedef struct {
 } sqlparser_graph_session_value_cache_t;
 
 typedef struct {
+	size_t bind_offset;
+	size_t bind_sql_offset;
+	size_t bind_position;
+	sqlparser_bind_kind_t bind_kind;
+} sqlparser_graph_bind_cache_t;
+
+typedef union {
+	sqlparser_literal_view_t literal;
+	sqlparser_graph_bind_cache_t bind;
+} sqlparser_graph_value_payload_t;
+
+enum {
+	SQLPARSER_GRAPH_VALUE_HAS_FIELD = 1U << 0,
+	SQLPARSER_GRAPH_VALUE_HAS_SOURCE_FIELD = 1U << 1,
+	SQLPARSER_GRAPH_VALUE_HAS_SELECTOR = 1U << 2,
+	SQLPARSER_GRAPH_VALUE_HAS_BIND = 1U << 3,
+	SQLPARSER_GRAPH_VALUE_HAS_BIND_SQL = 1U << 4,
+	SQLPARSER_GRAPH_VALUE_HAS_BIND_POSITION = 1U << 5
+};
+
+typedef struct {
+	size_t value_offset;
+	sqlparser_graph_value_payload_t payload;
+	uint8_t kind;
+	uint8_t flags;
+} sqlparser_graph_like_escape_cache_t;
+
+_Static_assert(
+	sizeof(sqlparser_graph_like_escape_cache_t) <= 56U,
+	"query graph LIKE escape cache must remain compact");
+
+typedef struct {
+	size_t block_index;
+	const char *operator_name;
+	size_t field_index;
+	size_t source_field_index;
+	size_t selector_item_index;
+	sqlparser_graph_value_payload_t payload;
+	uint8_t clause;
+	uint8_t operator_kind;
+	uint8_t field_match_kind;
+	uint8_t kind;
+	uint8_t flags;
+} sqlparser_graph_value_cache_t;
+
+_Static_assert(
+	sizeof(sqlparser_graph_value_cache_t) <= 88U,
+	"query graph value cache must remain compact");
+
+_Static_assert(
+	SQLPARSER_CLAUSE_KIND_CONNECT_BY <= UINT8_MAX &&
+	SQLPARSER_GRAPH_OPERATOR_NOT_ILIKE <= UINT8_MAX &&
+	SQLPARSER_GRAPH_FIELD_MATCH_EXPRESSION_FIELD <= UINT8_MAX &&
+	SQLPARSER_GRAPH_VALUE_FIELD <= UINT8_MAX &&
+	SQLPARSER_GRAPH_LIKE_ESCAPE_EXPRESSION <= UINT8_MAX,
+	"query graph compact enums must fit in one byte");
+
+enum {
+	SQLPARSER_GRAPH_TARGET_HAS_FIELD = 1U << 0,
+	SQLPARSER_GRAPH_TARGET_HAS_VALUE = 1U << 1,
+	SQLPARSER_GRAPH_TARGET_HAS_SOURCE_BLOCK = 1U << 2,
+	SQLPARSER_GRAPH_TARGET_HAS_SELECTOR = 1U << 3,
+	SQLPARSER_GRAPH_TARGET_HAS_TARGET_LIST_SELECTOR = 1U << 4,
+	SQLPARSER_GRAPH_TARGET_HAS_SINK_VALUE = 1U << 5
+};
+
+typedef struct {
+	size_t block_index;
+	size_t ordinal;
+	const char *output_name;
+	size_t field_index;
+	size_t value_index;
+	sqlparser_index_span_t star_relations;
+	size_t source_block_index;
+	size_t selector_item_index;
+	size_t selector_row_index;
+	size_t sink_value_index;
+	sqlparser_graph_target_kind_t kind;
+	sqlparser_selector_kind_t selector_kind;
+	sqlparser_selector_kind_t target_list_selector_kind;
+	uint32_t flags;
+} sqlparser_graph_target_cache_t;
+
+_Static_assert(
+	sizeof(sqlparser_graph_target_cache_t) <= 104U,
+	"query graph target cache must remain compact");
+
+typedef struct {
 	size_t root_block_index;
 	int has_root_block;
 	size_t block_offset;
@@ -5896,13 +5984,19 @@ struct sqlparser_query_graph_cache {
 	sqlparser_graph_relation_t *relations;
 	size_t target_count;
 	size_t target_capacity;
-	sqlparser_graph_target_t *targets;
+	sqlparser_graph_target_cache_t *targets;
 	size_t field_count;
 	size_t field_capacity;
 	sqlparser_graph_field_t *fields;
 	size_t value_count;
 	size_t value_capacity;
-	sqlparser_graph_value_t *values;
+	sqlparser_graph_value_cache_t *values;
+	size_t value_text_length;
+	size_t value_text_capacity;
+	char *value_text;
+	size_t like_escape_count;
+	size_t like_escape_capacity;
+	sqlparser_graph_like_escape_cache_t *like_escapes;
 	size_t set_count;
 	size_t set_capacity;
 	sqlparser_graph_set_t *sets;
@@ -5945,6 +6039,10 @@ struct sqlparser_query_graph_cache {
 	size_t index_pool_capacity;
 	size_t *index_pool;
 };
+
+_Static_assert(
+	sizeof(struct sqlparser_query_graph_cache) <= 520U,
+	"query graph cache must remain compact");
 
 typedef struct sqlparser_graph_scope {
 	struct sqlparser_graph_scope *parent;
@@ -6158,7 +6256,7 @@ static int sqlparser_graph_selector_cache_append(
 		return 0;
 	}
 	if (*count >= *capacity) {
-		new_capacity = *capacity != 0U ? *capacity : 64U;
+		new_capacity = *capacity != 0U ? *capacity : 8U;
 		while (new_capacity <= *count) {
 			if (new_capacity > ((size_t)-1) / 2U) {
 				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "query graph selector cache is too large");
@@ -6625,6 +6723,468 @@ static int sqlparser_query_graph_reserve_sparse_array(
 		item_size,
 		4U,
 		out_error);
+}
+
+static void sqlparser_query_graph_shrink_array(
+	void **items,
+	size_t *capacity,
+	size_t count,
+	size_t item_size)
+{
+	void *new_items;
+
+	if (items == NULL || capacity == NULL || item_size == 0U ||
+	    *capacity <= count) {
+		return;
+	}
+	if (count == 0U) {
+		free(*items);
+		*items = NULL;
+		*capacity = 0U;
+		return;
+	}
+	if (count > SIZE_MAX / item_size) {
+		return;
+	}
+	new_items = realloc(*items, count * item_size);
+	if (new_items != NULL) {
+		*items = new_items;
+		*capacity = count;
+	}
+}
+
+static int sqlparser_graph_value_store_text(
+	sqlparser_query_graph_cache_t *cache,
+	const char *text,
+	size_t *out_offset,
+	sqlparser_error_t *out_error)
+{
+	size_t length;
+	size_t required;
+
+	if (cache == NULL || text == NULL || out_offset == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "invalid query graph value text");
+		return -1;
+	}
+	length = strlen(text);
+	if (length == SIZE_MAX ||
+	    cache->value_text_length > SIZE_MAX - length - 1U) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "query graph value text is too large");
+		return -1;
+	}
+	required = cache->value_text_length + length + 1U;
+	if (sqlparser_query_graph_reserve_array_with_initial(
+		    (void **)&cache->value_text,
+		    &cache->value_text_capacity,
+		    required,
+		    sizeof(*cache->value_text),
+		    128U,
+		    out_error) != 0) {
+		return -1;
+	}
+	*out_offset = cache->value_text_length;
+	memcpy(cache->value_text + cache->value_text_length, text, length + 1U);
+	cache->value_text_length = required;
+	return 0;
+}
+
+static int sqlparser_graph_value_cache_init(
+	sqlparser_query_graph_cache_t *cache,
+	sqlparser_graph_value_cache_t *value,
+	const sqlparser_graph_value_t *source,
+	sqlparser_error_t *out_error)
+{
+	size_t text_length;
+
+	if (cache == NULL || value == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "invalid query graph value cache");
+		return -1;
+	}
+	memset(value, 0, sizeof(*value));
+	value->block_index = source->block_index;
+	value->operator_name = source->operator_name;
+	value->field_index = source->field_index;
+	value->source_field_index = source->source_field_index;
+	value->selector_item_index = source->selector.item_index;
+	value->clause = (uint8_t)source->clause;
+	value->operator_kind = (uint8_t)source->operator_kind;
+	value->field_match_kind = (uint8_t)source->field_match_kind;
+	value->kind = (uint8_t)source->kind;
+	if (source->has_field) {
+		value->flags |= SQLPARSER_GRAPH_VALUE_HAS_FIELD;
+	}
+	if (source->has_source_field) {
+		value->flags |= SQLPARSER_GRAPH_VALUE_HAS_SOURCE_FIELD;
+	}
+	if (source->has_selector) {
+		value->flags |= SQLPARSER_GRAPH_VALUE_HAS_SELECTOR;
+	}
+	if (source->kind == SQLPARSER_GRAPH_VALUE_LITERAL) {
+		value->payload.literal = source->literal;
+	}
+	if (source->kind != SQLPARSER_GRAPH_VALUE_BIND) {
+		return 0;
+	}
+	value->payload.bind.bind_kind = source->bind_kind;
+	value->payload.bind.bind_position = source->bind_position;
+	if (source->has_bind) {
+		value->flags |= SQLPARSER_GRAPH_VALUE_HAS_BIND;
+	}
+	if (source->has_bind_sql) {
+		value->flags |= SQLPARSER_GRAPH_VALUE_HAS_BIND_SQL;
+	}
+	if (source->has_bind_position) {
+		value->flags |= SQLPARSER_GRAPH_VALUE_HAS_BIND_POSITION;
+	}
+	text_length = cache->value_text_length;
+	if ((source->has_bind &&
+	     sqlparser_graph_value_store_text(
+		     cache,
+		     source->bind,
+		     &value->payload.bind.bind_offset,
+		     out_error) != 0) ||
+	    (source->has_bind_sql &&
+	     sqlparser_graph_value_store_text(
+		     cache,
+		     source->bind_sql,
+		     &value->payload.bind.bind_sql_offset,
+		     out_error) != 0)) {
+		cache->value_text_length = text_length;
+		return -1;
+	}
+	return 0;
+}
+
+static int sqlparser_graph_like_escape_cache_init(
+	sqlparser_query_graph_cache_t *cache,
+	sqlparser_graph_like_escape_cache_t *escape,
+	size_t value_offset,
+	const sqlparser_graph_like_escape_t *source,
+	sqlparser_error_t *out_error)
+{
+	size_t text_length;
+
+	if (cache == NULL || escape == NULL || source == NULL ||
+	    source->kind == SQLPARSER_GRAPH_LIKE_ESCAPE_NONE) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "invalid query graph LIKE escape cache");
+		return -1;
+	}
+	memset(escape, 0, sizeof(*escape));
+	escape->value_offset = value_offset;
+	escape->kind = (uint8_t)source->kind;
+	if (source->kind == SQLPARSER_GRAPH_LIKE_ESCAPE_LITERAL) {
+		escape->payload.literal = source->literal;
+		return 0;
+	}
+	if (source->kind != SQLPARSER_GRAPH_LIKE_ESCAPE_BIND) {
+		return 0;
+	}
+	escape->payload.bind.bind_kind = source->bind_kind;
+	escape->payload.bind.bind_position = source->bind_position;
+	if (source->has_bind) {
+		escape->flags |= SQLPARSER_GRAPH_VALUE_HAS_BIND;
+	}
+	if (source->has_bind_sql) {
+		escape->flags |= SQLPARSER_GRAPH_VALUE_HAS_BIND_SQL;
+	}
+	if (source->has_bind_position) {
+		escape->flags |= SQLPARSER_GRAPH_VALUE_HAS_BIND_POSITION;
+	}
+	text_length = cache->value_text_length;
+	if ((source->has_bind &&
+	     sqlparser_graph_value_store_text(
+		     cache,
+		     source->bind,
+		     &escape->payload.bind.bind_offset,
+		     out_error) != 0) ||
+	    (source->has_bind_sql &&
+	     sqlparser_graph_value_store_text(
+		     cache,
+		     source->bind_sql,
+		     &escape->payload.bind.bind_sql_offset,
+		     out_error) != 0)) {
+		cache->value_text_length = text_length;
+		return -1;
+	}
+	return 0;
+}
+
+static const char *sqlparser_graph_value_text_at(
+	const sqlparser_query_graph_cache_t *cache,
+	size_t offset,
+	sqlparser_error_t *out_error)
+{
+	if (cache == NULL || cache->value_text == NULL ||
+	    offset >= cache->value_text_length ||
+	    memchr(cache->value_text + offset, '\0', cache->value_text_length - offset) == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "query graph value text is invalid");
+		return NULL;
+	}
+	return cache->value_text + offset;
+}
+
+static int sqlparser_graph_value_cache_copy_public(
+	const sqlparser_query_graph_cache_t *cache,
+	const sqlparser_graph_value_cache_t *source,
+	size_t global_index,
+	size_t statement_index,
+	size_t value_index,
+	sqlparser_graph_value_t *value,
+	sqlparser_error_t *out_error)
+{
+	const sqlparser_graph_like_escape_cache_t *escape;
+	const char *text;
+	size_t begin;
+	size_t end;
+	size_t middle;
+
+	if (cache == NULL || source == NULL || value == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "invalid query graph value cache");
+		return -1;
+	}
+	if (global_index >= cache->value_count ||
+	    cache->like_escape_count > cache->value_count ||
+	    (cache->like_escape_count != 0U &&
+	     cache->like_escapes == NULL)) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "query graph LIKE escape cache is invalid");
+		return -1;
+	}
+	memset(value, 0, sizeof(*value));
+	value->index = value_index;
+	value->statement_index = statement_index;
+	value->block_index = source->block_index;
+	value->clause = (sqlparser_clause_kind_t)source->clause;
+	value->operator_name = source->operator_name;
+	value->operator_kind = (sqlparser_graph_operator_kind_t)source->operator_kind;
+	value->field_index = source->field_index;
+	value->has_field = (source->flags & SQLPARSER_GRAPH_VALUE_HAS_FIELD) != 0U;
+	value->source_field_index = source->source_field_index;
+	value->has_source_field =
+		(source->flags & SQLPARSER_GRAPH_VALUE_HAS_SOURCE_FIELD) != 0U;
+	value->field_match_kind =
+		(sqlparser_graph_field_match_kind_t)source->field_match_kind;
+	value->kind = (sqlparser_graph_value_kind_t)source->kind;
+	if (value->kind == SQLPARSER_GRAPH_VALUE_LITERAL) {
+		value->literal = source->payload.literal;
+	}
+	if (value->kind == SQLPARSER_GRAPH_VALUE_BIND) {
+		value->has_bind =
+			(source->flags & SQLPARSER_GRAPH_VALUE_HAS_BIND) != 0U;
+		value->bind_kind = source->payload.bind.bind_kind;
+		value->has_bind_sql =
+			(source->flags & SQLPARSER_GRAPH_VALUE_HAS_BIND_SQL) != 0U;
+		value->bind_position = source->payload.bind.bind_position;
+		value->has_bind_position =
+			(source->flags & SQLPARSER_GRAPH_VALUE_HAS_BIND_POSITION) != 0U;
+	}
+	value->has_selector =
+		(source->flags & SQLPARSER_GRAPH_VALUE_HAS_SELECTOR) != 0U;
+	if (value->has_selector) {
+		value->selector.kind = SQLPARSER_SELECTOR_KIND_VALUE;
+		value->selector.statement_index = statement_index;
+		value->selector.item_index = source->selector_item_index;
+	}
+	if (value->has_bind) {
+		text = sqlparser_graph_value_text_at(
+			cache,
+			source->payload.bind.bind_offset,
+			out_error);
+		if (text == NULL) {
+			return -1;
+		}
+		sqlparser_view_copy_public_text(value->bind, sizeof(value->bind), text, NULL);
+	}
+	if (value->has_bind_sql) {
+		text = sqlparser_graph_value_text_at(
+			cache,
+			source->payload.bind.bind_sql_offset,
+			out_error);
+		if (text == NULL) {
+			return -1;
+		}
+		sqlparser_view_copy_public_text(value->bind_sql, sizeof(value->bind_sql), text, NULL);
+	}
+	escape = NULL;
+	begin = 0U;
+	end = cache->like_escape_count;
+	while (begin < end) {
+		middle = begin + (end - begin) / 2U;
+		if (cache->like_escapes[middle].value_offset < global_index) {
+			begin = middle + 1U;
+		} else {
+			end = middle;
+		}
+	}
+	if (begin < cache->like_escape_count &&
+	    cache->like_escapes[begin].value_offset == global_index) {
+		escape = &cache->like_escapes[begin];
+	}
+	if (escape == NULL) {
+		return 0;
+	}
+	value->like_escape.kind =
+		(sqlparser_graph_like_escape_kind_t)escape->kind;
+	if (value->like_escape.kind == SQLPARSER_GRAPH_LIKE_ESCAPE_LITERAL) {
+		value->like_escape.literal = escape->payload.literal;
+		return 0;
+	}
+	if (value->like_escape.kind != SQLPARSER_GRAPH_LIKE_ESCAPE_BIND) {
+		return 0;
+	}
+	value->like_escape.has_bind =
+		(escape->flags & SQLPARSER_GRAPH_VALUE_HAS_BIND) != 0U;
+	value->like_escape.bind_kind = escape->payload.bind.bind_kind;
+	value->like_escape.has_bind_sql =
+		(escape->flags & SQLPARSER_GRAPH_VALUE_HAS_BIND_SQL) != 0U;
+	value->like_escape.bind_position = escape->payload.bind.bind_position;
+	value->like_escape.has_bind_position =
+		(escape->flags & SQLPARSER_GRAPH_VALUE_HAS_BIND_POSITION) != 0U;
+	if (value->like_escape.has_bind) {
+		text = sqlparser_graph_value_text_at(
+			cache,
+			escape->payload.bind.bind_offset,
+			out_error);
+		if (text == NULL) {
+			return -1;
+		}
+		sqlparser_view_copy_public_text(
+			value->like_escape.bind,
+			sizeof(value->like_escape.bind),
+			text,
+			NULL);
+	}
+	if (value->like_escape.has_bind_sql) {
+		text = sqlparser_graph_value_text_at(
+			cache,
+			escape->payload.bind.bind_sql_offset,
+			out_error);
+		if (text == NULL) {
+			return -1;
+		}
+		sqlparser_view_copy_public_text(
+			value->like_escape.bind_sql,
+			sizeof(value->like_escape.bind_sql),
+			text,
+			NULL);
+	}
+	return 0;
+}
+
+static int sqlparser_graph_target_cache_init(
+	sqlparser_graph_target_cache_t *target,
+	const sqlparser_graph_target_t *source,
+	size_t statement_index,
+	sqlparser_error_t *out_error)
+{
+	if (target == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "invalid query graph target cache");
+		return -1;
+	}
+	memset(target, 0, sizeof(*target));
+	target->block_index = source->block_index;
+	target->ordinal = source->ordinal;
+	target->kind = source->kind;
+	target->output_name = source->output_name;
+	target->field_index = source->field_index;
+	target->value_index = source->value_index;
+	target->star_relations = source->star_relations;
+	target->source_block_index = source->source_block_index;
+	target->sink_value_index = source->sink_value_index;
+	if (source->has_field) {
+		target->flags |= SQLPARSER_GRAPH_TARGET_HAS_FIELD;
+	}
+	if (source->has_value) {
+		target->flags |= SQLPARSER_GRAPH_TARGET_HAS_VALUE;
+	}
+	if (source->has_source_block) {
+		target->flags |= SQLPARSER_GRAPH_TARGET_HAS_SOURCE_BLOCK;
+	}
+	if (source->has_sink_value) {
+		target->flags |= SQLPARSER_GRAPH_TARGET_HAS_SINK_VALUE;
+	}
+	if (source->has_selector) {
+		if (source->selector.statement_index != statement_index ||
+		    source->selector.column_index != source->ordinal) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "query graph target selector is invalid");
+			return -1;
+		}
+		target->selector_kind = source->selector.kind;
+		target->selector_item_index = source->selector.item_index;
+		target->selector_row_index = source->selector.row_index;
+		target->flags |= SQLPARSER_GRAPH_TARGET_HAS_SELECTOR;
+	}
+	if (source->has_target_list_selector) {
+		if (source->target_list_selector.statement_index != statement_index ||
+		    source->target_list_selector.column_index != 0U ||
+		    (source->has_selector &&
+		     (source->target_list_selector.item_index !=
+			     source->selector.item_index ||
+		      source->target_list_selector.row_index !=
+			     source->selector.row_index))) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "query graph target-list selector is invalid");
+			return -1;
+		}
+		target->target_list_selector_kind =
+			source->target_list_selector.kind;
+		if (!source->has_selector) {
+			target->selector_item_index =
+				source->target_list_selector.item_index;
+			target->selector_row_index =
+				source->target_list_selector.row_index;
+		}
+		target->flags |=
+			SQLPARSER_GRAPH_TARGET_HAS_TARGET_LIST_SELECTOR;
+	}
+	return 0;
+}
+
+static void sqlparser_graph_target_cache_copy_public(
+	const sqlparser_graph_target_cache_t *source,
+	size_t statement_index,
+	size_t target_index,
+	sqlparser_graph_target_t *target)
+{
+	memset(target, 0, sizeof(*target));
+	target->index = target_index;
+	target->statement_index = statement_index;
+	target->block_index = source->block_index;
+	target->ordinal = source->ordinal;
+	target->kind = source->kind;
+	target->output_name = source->output_name;
+	target->field_index = source->field_index;
+	target->has_field =
+		(source->flags & SQLPARSER_GRAPH_TARGET_HAS_FIELD) != 0U;
+	target->value_index = source->value_index;
+	target->has_value =
+		(source->flags & SQLPARSER_GRAPH_TARGET_HAS_VALUE) != 0U;
+	target->star_relations = source->star_relations;
+	target->source_block_index = source->source_block_index;
+	target->has_source_block =
+		(source->flags & SQLPARSER_GRAPH_TARGET_HAS_SOURCE_BLOCK) != 0U;
+	target->sink_value_index = source->sink_value_index;
+	target->has_sink_value =
+		(source->flags & SQLPARSER_GRAPH_TARGET_HAS_SINK_VALUE) != 0U;
+	target->has_selector =
+		(source->flags & SQLPARSER_GRAPH_TARGET_HAS_SELECTOR) != 0U;
+	if (target->has_selector) {
+		target->selector.kind = source->selector_kind;
+		target->selector.statement_index = statement_index;
+		target->selector.item_index = source->selector_item_index;
+		target->selector.row_index = source->selector_row_index;
+		target->selector.column_index = source->ordinal;
+	}
+	target->has_target_list_selector =
+		(source->flags &
+		 SQLPARSER_GRAPH_TARGET_HAS_TARGET_LIST_SELECTOR) != 0U;
+	if (target->has_target_list_selector) {
+		target->target_list_selector.kind =
+			source->target_list_selector_kind;
+		target->target_list_selector.statement_index = statement_index;
+		target->target_list_selector.item_index =
+			source->selector_item_index;
+		target->target_list_selector.row_index =
+			source->selector_row_index;
+	}
 }
 
 static int sqlparser_graph_session_store_text(
@@ -8032,6 +8592,8 @@ void sqlparser_query_graph_cache_release(sqlparser_query_graph_cache_t *cache)
 	free(cache->targets);
 	free(cache->fields);
 	free(cache->values);
+	free(cache->value_text);
+	free(cache->like_escapes);
 	free(cache->sets);
 	free(cache->predicates);
 	free(cache->dml);
@@ -8078,11 +8640,12 @@ static int sqlparser_graph_append_index(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "query graph is too large");
 		return -1;
 	}
-	if (sqlparser_query_graph_reserve_array(
+	if (sqlparser_query_graph_reserve_array_with_initial(
 		    (void **)&cache->index_pool,
 		    &cache->index_pool_capacity,
 		    cache->index_pool_count + 1U,
 		    sizeof(*cache->index_pool),
+		    4U,
 		    out_error) != 0) {
 		return -1;
 	}
@@ -8173,11 +8736,12 @@ static int sqlparser_graph_span_append_segment(
 	values_offset =
 		header_offset + SQLPARSER_GRAPH_INDEX_SEGMENT_HEADER_COUNT;
 	required = values_offset + new_capacity;
-	if (sqlparser_query_graph_reserve_array(
+	if (sqlparser_query_graph_reserve_array_with_initial(
 		    (void **)&cache->index_pool,
 		    &cache->index_pool_capacity,
 		    required,
 		    sizeof(*cache->index_pool),
+		    4U,
 		    out_error) != 0) {
 		return -1;
 	}
@@ -8373,11 +8937,12 @@ static int sqlparser_graph_add_block(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "query graph builder is missing");
 		return -1;
 	}
-	if (sqlparser_query_graph_reserve_array(
+	if (sqlparser_query_graph_reserve_array_with_initial(
 		    (void **)&build->cache->blocks,
 		    &build->cache->block_capacity,
 		    build->cache->block_count + 1U,
 		    sizeof(*build->cache->blocks),
+		    4U,
 		    out_error) != 0) {
 		return -1;
 	}
@@ -8432,7 +8997,7 @@ sqlparser_graph_relation_identifier_by_local(
 	return &build->relation_identifiers[relation_index];
 }
 
-static sqlparser_graph_target_t *sqlparser_graph_target_by_local(
+static sqlparser_graph_target_cache_t *sqlparser_graph_target_by_local(
 	sqlparser_graph_build_t *build,
 	size_t target_index)
 {
@@ -8538,12 +9103,16 @@ static int sqlparser_graph_add_target(
 	sqlparser_error_t *out_error)
 {
 	sqlparser_identifier_source_t *target_identifier;
-	sqlparser_graph_target_t *target;
+	sqlparser_graph_target_cache_t target;
 	size_t global_index;
 	size_t local_index;
 
 	if (out_index != NULL) {
 		*out_index = 0U;
+	}
+	if (source == NULL || identifier == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "query graph target source or identifier is missing");
+		return -1;
 	}
 	if (sqlparser_query_graph_reserve_sparse_array(
 		    (void **)&build->target_identifiers,
@@ -8551,30 +9120,29 @@ static int sqlparser_graph_add_target(
 		    build->target_identifier_count + 1U,
 		    sizeof(*build->target_identifiers),
 		    out_error) != 0 ||
-	    sqlparser_query_graph_reserve_array(
+	    sqlparser_query_graph_reserve_array_with_initial(
 		    (void **)&build->cache->targets,
 		    &build->cache->target_capacity,
 		    build->cache->target_count + 1U,
 		    sizeof(*build->cache->targets),
+		    4U,
 		    out_error) != 0) {
 		return -1;
 	}
-	global_index = build->cache->target_count++;
-	local_index = sqlparser_graph_local_target_count(build) - 1U;
-	target = &build->cache->targets[global_index];
-	memset(target, 0, sizeof(*target));
-	if (source != NULL) {
-		*target = *source;
+	global_index = build->cache->target_count;
+	local_index = sqlparser_graph_local_target_count(build);
+	if (sqlparser_graph_target_cache_init(
+		    &target,
+		    source,
+		    build->statement_index,
+		    out_error) != 0) {
+		return -1;
 	}
-	target->index = local_index;
-	target->statement_index = build->statement_index;
+	build->cache->targets[global_index] = target;
+	build->cache->target_count++;
 	target_identifier =
 		&build->target_identifiers[build->target_identifier_count++];
-	if (identifier != NULL) {
-		*target_identifier = *identifier;
-	} else {
-		memset(target_identifier, 0, sizeof(*target_identifier));
-	}
+	*target_identifier = *identifier;
 	if (out_index != NULL) {
 		*out_index = local_index;
 	}
@@ -8636,53 +9204,103 @@ static int sqlparser_graph_add_value(
 	size_t *out_index,
 	sqlparser_error_t *out_error)
 {
-	sqlparser_graph_value_t *value;
+	sqlparser_graph_like_escape_cache_t escape;
+	sqlparser_graph_value_cache_t value;
 	size_t global_index;
 	size_t local_index;
+	size_t text_length;
 
 	if (out_index != NULL) {
 		*out_index = 0U;
 	}
-	if (source != NULL && source->has_selector) {
+	if (build == NULL || build->cache == NULL || build->statement == NULL ||
+	    source == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "query graph builder or value source is missing");
+		return -1;
+	}
+	if (source->has_selector) {
 		size_t index;
 
-		for (index = 0U; index < build->cache->value_count; index++) {
-			sqlparser_graph_value_t *existing;
+		if (source->selector.kind != SQLPARSER_SELECTOR_KIND_VALUE ||
+		    source->selector.statement_index != build->statement_index ||
+		    source->selector.row_index != 0U ||
+		    source->selector.column_index != 0U) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "query graph value selector is invalid");
+			return -1;
+		}
+		for (index = build->statement->value_offset;
+		     index < build->cache->value_count;
+		     index++) {
+			sqlparser_graph_value_cache_t *existing;
 
 			existing = &build->cache->values[index];
-			if (existing->statement_index == build->statement_index &&
-			    existing->has_selector &&
-			    sqlparser_graph_selector_equal(&existing->selector, &source->selector) &&
-			    existing->kind == source->kind &&
-			    existing->has_field == source->has_field &&
+			if ((existing->flags &
+			     SQLPARSER_GRAPH_VALUE_HAS_SELECTOR) != 0U &&
+			    existing->selector_item_index ==
+				    source->selector.item_index &&
+			    existing->kind == (uint8_t)source->kind &&
+			    ((existing->flags &
+			      SQLPARSER_GRAPH_VALUE_HAS_FIELD) != 0U) ==
+				    (source->has_field != 0) &&
 			    (!source->has_field || existing->field_index == source->field_index) &&
-			    existing->has_source_field == source->has_source_field &&
+			    ((existing->flags &
+			      SQLPARSER_GRAPH_VALUE_HAS_SOURCE_FIELD) != 0U) ==
+				    (source->has_source_field != 0) &&
 			    (!source->has_source_field || existing->source_field_index == source->source_field_index) &&
-			    existing->field_match_kind == source->field_match_kind) {
+			    existing->field_match_kind ==
+				    (uint8_t)source->field_match_kind) {
 				if (out_index != NULL) {
-					*out_index = existing->index;
+					*out_index =
+						index - build->statement->value_offset;
 				}
 				return 0;
 			}
 		}
 	}
-	if (sqlparser_query_graph_reserve_array(
+	if (sqlparser_query_graph_reserve_array_with_initial(
 		    (void **)&build->cache->values,
 		    &build->cache->value_capacity,
 		    build->cache->value_count + 1U,
 		    sizeof(*build->cache->values),
+		    4U,
 		    out_error) != 0) {
 		return -1;
 	}
-	global_index = build->cache->value_count++;
-	local_index = sqlparser_graph_local_value_count(build) - 1U;
-	value = &build->cache->values[global_index];
-	memset(value, 0, sizeof(*value));
-	if (source != NULL) {
-		*value = *source;
+	if (source->like_escape.kind != SQLPARSER_GRAPH_LIKE_ESCAPE_NONE &&
+	    sqlparser_query_graph_reserve_sparse_array(
+		    (void **)&build->cache->like_escapes,
+		    &build->cache->like_escape_capacity,
+		    build->cache->like_escape_count + 1U,
+		    sizeof(*build->cache->like_escapes),
+		    out_error) != 0) {
+		return -1;
 	}
-	value->index = local_index;
-	value->statement_index = build->statement_index;
+	global_index = build->cache->value_count;
+	local_index = sqlparser_graph_local_value_count(build);
+	text_length = build->cache->value_text_length;
+	if (sqlparser_graph_value_cache_init(
+		    build->cache,
+		    &value,
+		    source,
+		    out_error) != 0) {
+		return -1;
+	}
+	if (source->like_escape.kind != SQLPARSER_GRAPH_LIKE_ESCAPE_NONE &&
+	    sqlparser_graph_like_escape_cache_init(
+		    build->cache,
+		    &escape,
+		    global_index,
+		    &source->like_escape,
+		    out_error) != 0) {
+		build->cache->value_text_length = text_length;
+		return -1;
+	}
+	build->cache->values[global_index] = value;
+	if (source->like_escape.kind != SQLPARSER_GRAPH_LIKE_ESCAPE_NONE) {
+		build->cache->like_escapes[build->cache->like_escape_count++] =
+			escape;
+	}
+	build->cache->value_count++;
 	if (out_index != NULL) {
 		*out_index = local_index;
 	}
@@ -14878,7 +15496,7 @@ static int sqlparser_graph_walk_expr(
 					return -1;
 				}
 				if (rc == 0 && has_target) {
-					sqlparser_graph_target_t *target;
+					sqlparser_graph_target_cache_t *target;
 
 					target = sqlparser_graph_target_by_local(
 						build,
@@ -14886,7 +15504,8 @@ static int sqlparser_graph_walk_expr(
 					if (target != NULL) {
 						target->source_block_index =
 							source_block_index;
-						target->has_source_block = 1;
+						target->flags |=
+							SQLPARSER_GRAPH_TARGET_HAS_SOURCE_BLOCK;
 					}
 				}
 				return rc;
@@ -15954,6 +16573,8 @@ static int sqlparser_graph_build_target(
 			}
 			if (!build->collect_relation_bindings &&
 			    hierarchy_pseudo) {
+				sqlparser_graph_target_cache_t *cached_target;
+
 				field_index = 0U;
 				if (sqlparser_graph_add_column_ref_field(
 					    build,
@@ -15966,17 +16587,13 @@ static int sqlparser_graph_build_target(
 					    out_error) != 0) {
 					return -1;
 				}
-				if (sqlparser_graph_target_by_local(
-					    build,
-					    target_index) != NULL) {
-					target = *sqlparser_graph_target_by_local(
-						build,
-						target_index);
-					target.field_index = field_index;
-					target.has_field = 1;
-					*sqlparser_graph_target_by_local(
-						build,
-						target_index) = target;
+				cached_target = sqlparser_graph_target_by_local(
+					build,
+					target_index);
+				if (cached_target != NULL) {
+					cached_target->field_index = field_index;
+					cached_target->flags |=
+						SQLPARSER_GRAPH_TARGET_HAS_FIELD;
 				}
 			}
 			if (build->building_dml_result &&
@@ -16022,11 +16639,17 @@ static int sqlparser_graph_build_target(
 			    out_error) != 0) {
 			return -1;
 		}
-		if (sqlparser_graph_target_by_local(build, target_index) != NULL) {
-			target = *sqlparser_graph_target_by_local(build, target_index);
-			target.field_index = field_index;
-			target.has_field = 1;
-			*sqlparser_graph_target_by_local(build, target_index) = target;
+		{
+			sqlparser_graph_target_cache_t *cached_target;
+
+			cached_target = sqlparser_graph_target_by_local(
+				build,
+				target_index);
+			if (cached_target != NULL) {
+				cached_target->field_index = field_index;
+				cached_target->flags |=
+					SQLPARSER_GRAPH_TARGET_HAS_FIELD;
+			}
 		}
 		if (out_target_index != NULL) {
 			*out_target_index = target_index;
@@ -16857,7 +17480,7 @@ static int sqlparser_graph_finalize_statement_spans(sqlparser_graph_build_t *bui
 		}
 		memset(&block->targets, 0, sizeof(block->targets));
 		for (index = 0U; index < build->statement->target_count; index++) {
-			sqlparser_graph_target_t *target;
+			sqlparser_graph_target_cache_t *target;
 
 			target = sqlparser_graph_target_by_local(build, index);
 			if (target != NULL &&
@@ -17258,7 +17881,7 @@ static int sqlparser_graph_resolve_source_target_from_field(
 	match_count = 0U;
 	for (index = 0U; index < sqlparser_graph_local_target_count(build); index++) {
 		sqlparser_identifier_source_t *target_identifier;
-		sqlparser_graph_target_t *target;
+		sqlparser_graph_target_cache_t *target;
 
 		target = sqlparser_graph_target_by_local(build, index);
 		target_identifier =
@@ -17305,7 +17928,7 @@ static int sqlparser_graph_resolve_source_target_from_block(
 	for (index = 0U;
 	     index < sqlparser_graph_local_target_count(build);
 	     index++) {
-		sqlparser_graph_target_t *target;
+		sqlparser_graph_target_cache_t *target;
 
 		target = sqlparser_graph_target_by_local(build, index);
 		if (target == NULL || target->block_index != block_index ||
@@ -18191,7 +18814,7 @@ static int sqlparser_graph_multi_insert_cell_resolve_source_target(
 	match_count = 0U;
 	for (index = 0U; index < sqlparser_graph_local_target_count(build); index++) {
 		sqlparser_identifier_source_t *target_identifier;
-		sqlparser_graph_target_t *target;
+		sqlparser_graph_target_cache_t *target;
 		int matched;
 
 		target = sqlparser_graph_target_by_local(build, index);
@@ -18294,12 +18917,14 @@ static int sqlparser_graph_add_multi_insert_dml_cell(
 			           semantic_node->column_ref,
 			           source->public_sql,
 			           &cell.source_target_index)) {
-			sqlparser_graph_target_t *target;
+			sqlparser_graph_target_cache_t *target;
 
 			cell.kind = SQLPARSER_GRAPH_VALUE_FIELD;
 			cell.has_source_target = 1;
 			target = sqlparser_graph_target_by_local(build, cell.source_target_index);
-			if (target != NULL && target->has_field) {
+			if (target != NULL &&
+			    (target->flags &
+			     SQLPARSER_GRAPH_TARGET_HAS_FIELD) != 0U) {
 				cell.source_field_index = target->field_index;
 				cell.has_source_field = 1;
 			}
@@ -18746,7 +19371,7 @@ static int sqlparser_graph_build_dml_results(
 		if (channel.sink_value_count != 0U) {
 			PgQuery__Node *sink_node;
 			PgQuery__ResTarget *sink_target;
-			sqlparser_graph_target_t *target;
+			sqlparser_graph_target_cache_t *target;
 			size_t value_index;
 			int added;
 
@@ -18783,7 +19408,7 @@ static int sqlparser_graph_build_dml_results(
 				return -1;
 			}
 			target->sink_value_index = value_index;
-			target->has_sink_value = 1;
+			target->flags |= SQLPARSER_GRAPH_TARGET_HAS_SINK_VALUE;
 		}
 		sqlparser_graph_dml_result_build_state_restore(build, &saved_state);
 		if (result_index >= build->cache->dml_results->result_count) {
@@ -20121,6 +20746,31 @@ static sqlparser_status_t sqlparser_query_graph_cache_build(
 		sqlparser_graph_build_clear(&build);
 	}
 	sqlparser_view_bind_position_cache_release(&bind_positions);
+	sqlparser_query_graph_shrink_array(
+		(void **)&cache->targets,
+		&cache->target_capacity,
+		cache->target_count,
+		sizeof(*cache->targets));
+	sqlparser_query_graph_shrink_array(
+		(void **)&cache->values,
+		&cache->value_capacity,
+		cache->value_count,
+		sizeof(*cache->values));
+	sqlparser_query_graph_shrink_array(
+		(void **)&cache->value_text,
+		&cache->value_text_capacity,
+		cache->value_text_length,
+		sizeof(*cache->value_text));
+	sqlparser_query_graph_shrink_array(
+		(void **)&cache->like_escapes,
+		&cache->like_escape_capacity,
+		cache->like_escape_count,
+		sizeof(*cache->like_escapes));
+	sqlparser_query_graph_shrink_array(
+		(void **)&cache->index_pool,
+		&cache->index_pool_capacity,
+		cache->index_pool_count,
+		sizeof(*cache->index_pool));
 	*out_cache = cache;
 	return SQLPARSER_STATUS_OK;
 }
@@ -20485,7 +21135,11 @@ sqlparser_status_t sqlparser_query_graph_target_at(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "target_index is out of range");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	*out_target = cache->targets[statement->target_offset + target_index];
+	sqlparser_graph_target_cache_copy_public(
+		&cache->targets[statement->target_offset + target_index],
+		graph->statement_index,
+		target_index,
+		out_target);
 	return SQLPARSER_STATUS_OK;
 }
 
@@ -20521,6 +21175,7 @@ sqlparser_status_t sqlparser_query_graph_value_at(
 {
 	sqlparser_query_graph_cache_t *cache;
 	sqlparser_statement_graph_t *statement;
+	sqlparser_graph_value_t value;
 
 	sqlparser_error_clear(out_error);
 	if (out_value == NULL) {
@@ -20533,7 +21188,17 @@ sqlparser_status_t sqlparser_query_graph_value_at(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "value_index is out of range");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	*out_value = cache->values[statement->value_offset + value_index];
+	if (sqlparser_graph_value_cache_copy_public(
+		    cache,
+		    &cache->values[statement->value_offset + value_index],
+		    statement->value_offset + value_index,
+		    graph->statement_index,
+		    value_index,
+		    &value,
+		    out_error) != 0) {
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	*out_value = value;
 	return SQLPARSER_STATUS_OK;
 }
 

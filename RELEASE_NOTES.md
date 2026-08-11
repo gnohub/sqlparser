@@ -1,52 +1,68 @@
-# v2.15.4 发布说明
+# v2.16.0 发布说明
 
-`v2.15.4` 将既有公开改写接口统一到一个 patch 事务执行链，并在必须完整 AST 反解析时保留各方言的分页语法家族。
+`v2.16.0` 收紧 fallback Deparser、Patch 成功路径和 Query Graph 缓存的内存生命周期，降低多投影 SQL 的瞬时分配量与返回时保留量，不改变解析、反解析、Patch 和公共 Query Graph 语义。
 
-## 统一改写事务
+## Fallback Deparser
 
-- 20 个 statement/index 改写函数和 20 个 selector 改写函数继续保留，函数签名与调用方式不变。
-- 所有便捷改写入口现在组装等价 patch，并通过 `sqlparser_apply_patch()` 的事务候选执行。patch 分派只调用内部 in-place primitive，不再回调公开改写函数，因此不会形成递归或第二套提交路径。
-- 每次调用最多提交一次。失败和结果无实际变化的调用不修改原 handle、generation 或派生缓存；发生实际修改时 generation 递增一次。批量 patch 中任一项失败时整批回滚。
-- 已无调用的直接结构化改写 helper 与 multi-table INSERT cell 二次 candidate clone 已删除。
+- 在未启用 pretty-print 和 commas-start-of-line 的 non-pretty fallback 反解析路径中，不再为逗号创建 `DeparseStatePart`，而是直接写入与原合并结果相同的 `", "`；两条格式化分支保持不变。
 
-## 分页语法家族
+Linux x86_64 上的 allocator payload 实测如下：
 
-- 内置 parser 的私有 `SelectStmt` / protobuf 状态区分 `LIMIT`、`OFFSET ... ROWS`、`FETCH FIRST` 和 `FETCH NEXT`。该状态仅用于 AST 生命周期与反解析，不新增公共 View、Query Graph 或 C API 字段。
-- 可执行局部源码 edit 时，未修改区域仍按输入逐字节保留。必须完整 AST 反解析时，不保证原始空白、大小写或 `ROW` / `ROWS` 拼写，但会保持所选方言有效的分页家族。
-- 本项目九个方言入口的分页行为为：
-  - PostgreSQL / Vastbase-PostgreSQL：保留输入的 `LIMIT` 或标准 `OFFSET ... FETCH` 家族。
-  - MySQL / Vastbase-MySQL：保持 `LIMIT` 家族，包括逗号式 offset/count 的既有方言状态。
-  - Oracle / Vastbase-Oracle：`OFFSET ... ROWS` 以及 `[OFFSET ... ROWS] FETCH FIRST|NEXT ... ROWS ONLY` 完整反解析后仍为 Oracle 分页，不再输出 `LIMIT`。
-  - SQL Server / Vastbase-SQLServer：保持 `OFFSET ... ROWS` / `OFFSET ... FETCH`；`TOP` 继续由独立方言状态恢复。
-  - Dameng：继续区分 `TOP`、`LIMIT` 与标准 `OFFSET ... FETCH`；完整 AST fallback 可以把 `LIMIT offset,count` 规范为语义等价的 `LIMIT count OFFSET offset`。
-- 上述 Vastbase 条目描述的是本项目兼容入口的可执行回归契约，不推导 Vastbase 服务端的官方语法承诺。
-- 本版本不增加 `FETCH ... PERCENT` 语义。既有 SQL Server 与 Dameng `TOP ... PERCENT [WITH TIES]` 能力不受影响。
+| 投影数 | 修改前累计请求量 | 修改后累计请求量 | 修改前峰值存活量 | 修改后峰值存活量 | 修改后返回时保留量 |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 16 | 30,970 B | 6,394 B | 24,640 B | 5,310 B | 128 B |
+| 256 | 610,810 B | 152,058 B | 516,160 B | 117,208 B | 2,112 B |
 
-## Oracle 投影改写场景
+16 和 256 个投影的 non-pretty 输出与修改前逐字节一致，且均可重新解析。
 
-以下 Oracle 语句替换投影列后，分页尾部不会变为 `LIMIT 1000 OFFSET 0`：
+## Patch AST 生命周期
 
-```sql
-SELECT "APP"."T".*,
-       ROWID "NAVICAT_ROWID"
-FROM "APP"."T"
-OFFSET 0 ROWS FETCH NEXT 1000 ROWS ONLY
-```
+- Patch 仍在 candidate handle 上执行，保留批量操作的失败原子性。全部 patch item 成功且确认非 no-op 后，在 candidate 移交给原 handle 之前释放已解包 AST。
+- packed tree、surface SQL、generation、持久化 identifier/dialect 语义和重绑定规则保持不变。释放 AST 时同时解绑 AST 关联的内部状态；后续调用 AST 或 Query Graph accessor 时，依旧从当前 packed tree 惰性重建并重绑。
+- control condition 渲染在读取 AST 前先获取当前 statement node，确保 patch 后惰性 AST 已重建。fallback deparse 只在方言后处理需要 AST 且当前 AST 不存在时重建并绑定；为此重建的 AST 在所有成功和失败出口都会释放，保持 patch 返回时较低的保留量。
+- 失败和语义 no-op 路径不清理原 handle 已发布的 AST/Graph view，SQL、generation、packed tree 与方言状态均保持不变。
 
-- 能可靠定位投影源码区间时，仅替换该区间，分页尾部逐字节保留。
-- 即使后续改写使局部源码状态不再完整、必须从 AST 生成整句，输出仍使用 Oracle `OFFSET ... FETCH ... ONLY` 家族。
+Linux x86_64 上的 allocator payload 实测如下：
+
+| 场景 | 修改前 peak | 修改后 peak | 修改前 retained | 修改后 retained |
+| --- | ---: | ---: | ---: | ---: |
+| 单项 replace | 3,284 B | 3,284 B | 1,700 B | 364 B |
+| 同一 handle 连续 4 次 apply | 4,807 B | 3,471 B | 1,505 B | 169 B |
+
+连续四次 apply 后的保留量没有逐次增长。直接 `sqlparser_apply_patch()` 与统一进入该事务链的便捷改写接口共享该生命周期。
+
+## Query Graph 紧凑缓存
+
+- 公开 `sqlparser_graph_target_t` 和 `sqlparser_graph_value_t` 保持不变。缓存内部使用私有紧凑记录，公共 accessor 在读取时还原 index、statement、selector 和完整 value 内容。
+- Linux LP64 下 target 记录由 224 B 降至 104 B，value 记录由公共布局的 800 B 降至 88 B。literal 与 bind 共用联合载荷，可推导的 index、statement 和 selector 字段不再重复存储。
+- 删除 target/value 缓存无调用方的空记录构造路径。意外的空 target/value source 或空 target identifier 现在明确返回 `SQLPARSER_STATUS_INTERNAL_ERROR`。这些检查仅处理内部一致性错误，公开 API 布局和成功路径行为不变。
+- bind 及 escape bind 文本由 Graph cache 唯一拥有的连续 NUL 结尾文本池保存，内部记录只保存相对 offset。`LIKE ... ESCAPE` 改为按 value index 排序的 56 B 稀疏侧数组，没有 escape 的 value 不承担固定记录。
+- target、value、block 和普通 index pool 初始容量从 16 收紧为 4，selector 构建缓存从 8 起步。全部 statement 构建完成后，target、value、value text、LIKE ESCAPE 和 index pool 各执行最多一次 best-effort 收缩；收缩分配失败不影响已成功的 Graph。
+
+`SELECT 1,2,3,4` 的 Query Graph cache 请求 payload 由 18,400 B 降至 1,872 B。相同测量口径下，选定投影规模的完整 Query Graph cache 最终实测如下：
+
+| 投影数 | v2.16.0 请求量 |
+| ---: | ---: |
+| 100 | 20.66 KiB |
+| 129 | 26.30 KiB |
+| 200 | 40.19 KiB |
+| 256 | 51.12 KiB |
 
 ## API 与兼容性
 
-- `sqlparser_apply_patch()` 是推荐的统一改写入口。既有 statement、selector 与结构化便捷改写函数继续可用并保留各自的公开参数校验；转换为 patch 后，共享原子失败回滚、generation 更新和派生缓存失效规则。
-- 本版本不新增或删除公开函数、公开枚举、公开结构体字段或资源所有权规则；动态库 ABI 主版本保持 `libsqlparser.so.0`。
+- 本版本不新增或删除公开函数、公开枚举、公开结构体字段或资源所有权规则。View JSON schema、selector 输出和 Patch 调用方式不变。
+- 动态库仍导出 152 个公共符号，SONAME 保持 `libsqlparser.so.0`。C 调用方无需因本次缓存内部调整修改源码。
 
 ## 验证
 
-- 九套 fixture 未新增 case，仍包含 2,781 条 final case 和 9,034 个 patch；全量 `make test` 通过。
-- 定向完整 AST fallback 回归覆盖 PostgreSQL / Vastbase-PostgreSQL `LIMIT`、MySQL / Vastbase-MySQL 嵌套及逗号式 `LIMIT`、Oracle / Vastbase-Oracle `FETCH`、SQL Server / Vastbase-SQLServer `OFFSET ... FETCH`，以及 Dameng `TOP` / `LIMIT` 与混合 `FETCH` / `TOP` owner。
-- 核心 API、identifier spelling、robustness 与分页方言状态的定向 Valgrind 检查均为 `0 bytes in 0 blocks`，错误数为 0。
-- 本次 protobuf 生成验证使用 protoc 25.1 和 protoc-gen-c 1.5.1；生成脚本显式保留既有 `SelectStmt` 字段号，并输出分页字段、枚举与 `String.location`。
+- 严格构建通过。全量 `make test` 的九组 case matrix 共完成 2,781/2,781 条 case 和 9,034/9,034 个 patch，unit、example 和 CLI 目标全部通过。
+- Deparser 定向回归覆盖 16/256 个投影的 non-pretty 输出、pretty-print 和 commas-start-of-line；修改前后输出逐字节一致且可重新解析。
+- Patch 定向回归覆盖连续成功、故障注入下的回滚、语义 no-op、便捷入口、AST/Graph 重新获取和分页 fallback；SQL、packed tree、generation 与派生缓存相关断言全部通过。
+- Query Graph 定向回归覆盖公开 target/value accessor、全部可达 value 类型、`LIKE ... ESCAPE`、多 statement/嵌套 block、长 bind 文本、分配失败重试与收缩失败。受影响 View JSON 与修改前逐字节一致。
+- 联合生命周期验证在配置的超时时间内完成 24 条完整链路：串行 8 条，以及 4 个独立 handle 线程各 4 条。每条链路均执行 AST/Graph 获取、成功 Patch、旧 Graph generation 失效、AST/Graph 重建、fallback deparse 和重新解析后的公开 Graph 语义核对。Memcheck 为 23,129 次分配/23,129 次释放、`0 bytes in 0 blocks`、`ERROR SUMMARY: 0`；Helgrind 为 0 errors，无超时或死锁。
+- 核心 API Memcheck 为 1,098,789 次分配/1,098,789 次释放、`0 bytes in 0 blocks`、0 errors；SQL Server surface 生命周期 Memcheck 为 130,586 次分配/130,586 次释放、`0 bytes in 0 blocks`、0 errors。
+- 完整 `make verify-valgrind` 通过，全部 unit、方言矩阵、example、CLI batch 和 install smoke 均为 `0 bytes in 0 blocks`、`ERROR SUMMARY: 0`。ABI 检查保持 152 个公共符号，install smoke 确认版本文本和 `sqlparser_version_string()` 均为 `2.16.0`。
 
 内置 `libpg_query` 标签：`17-6.2.2`。
+
 内置 Jansson 版本：`2.15`。

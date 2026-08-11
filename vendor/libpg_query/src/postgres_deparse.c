@@ -685,6 +685,13 @@ deparseAppendPart(DeparseState *state, bool deduplicate)
 static void
 deparseAppendCommaAndPart(DeparseState *state)
 {
+	if (!state->opts.pretty_print &&
+	    !state->opts.commas_start_of_line)
+	{
+		deparseAppendStringInfoString(state, ", ");
+		return;
+	}
+
 	if (state->opts.commas_start_of_line)
 	{
 		deparseAppendPart(state, true);

@@ -10367,6 +10367,7 @@ sqlparser_status_t sqlparser_apply_patch(
 
 	candidate->generation = original_generation + 1UL;
 	sqlparser_handle_invalidate_derived(candidate);
+	sqlparser_handle_clear_ast(candidate);
 	sqlparser_handle_replace_contents(handle, candidate);
 	sqlparser_handle_destroy(candidate);
 	sqlparser_error_clear(out_error);

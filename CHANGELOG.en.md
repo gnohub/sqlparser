@@ -1,5 +1,73 @@
 # Changelog
 
+## 2.16.0
+
+### Deparser Memory
+
+- When neither pretty-print nor commas-at-line-start is enabled, the fallback
+  deparser no longer creates a `DeparseStatePart` at each comma. It writes the
+  same `", "` produced by the previous merge; both formatting paths remain
+  unchanged.
+- For 16 projections, fallback-deparse requested bytes fell from 30,970 B to
+  6,394 B and peak live bytes fell from 24,640 B to 5,310 B. For 256
+  projections, the corresponding figures fell from 610,810 B to 152,058 B and
+  from 516,160 B to 117,208 B. Both outputs remained byte-identical to their
+  pre-change baselines.
+
+### Patch AST Lifecycle
+
+- A successful, non-no-op patch now releases the transaction candidate's
+  unpacked AST before transferring the candidate into the original handle.
+  Packed-tree, surface-SQL, generation, persisted identifier/dialect semantics,
+  and derived-cache rebinding rules are unchanged. Failures and semantic
+  no-ops continue to leave the original handle unchanged.
+- Control-condition rendering now obtains the current statement node before
+  reading AST state. When fallback deparse needs dialect postprocessing and no
+  AST is present, it rebuilds and binds the AST for that operation and releases
+  it before returning.
+- Retained bytes after a single replacement fell from 1,700 B to 364 B. After
+  four consecutive apply operations on one handle, final retained bytes fell
+  from 1,505 B to 169 B with no per-operation growth.
+
+### Compact Query Graph Cache
+
+- The Query Graph cache now uses private compact target and value records;
+  public accessors reconstruct the complete public structures on demand. On
+  Linux LP64, target records fell from 224 B to 104 B and value records fell
+  from the 800 B public layout to 88 B.
+- Unused empty-record construction paths for target and value cache entries
+  were removed. An unexpected null target/value source or null target
+  identifier now returns `SQLPARSER_STATUS_INTERNAL_ERROR`. These checks cover
+  internal consistency failures only; public API layouts and successful-path
+  behavior are unchanged.
+- Bind text is owned by one contiguous cache text pool. `LIKE ... ESCAPE` uses
+  a 56 B sparse record only for values that actually have an escape. Target,
+  value, block, and ordinary index arrays start at four elements. After graph
+  construction, the implementation makes at most one best-effort attempt to
+  shrink each target, value, value-text, LIKE-escape, and index-pool buffer to
+  its used size.
+- Allocator-payload measurements for the complete Query Graph cache were
+  20.66 KiB for 100 projections, 26.30 KiB for 129, 40.19 KiB for 200, and
+  51.12 KiB for 256.
+
+### API, Compatibility, and Validation
+
+- The public C API, public enum values, public structure layouts, View JSON
+  schema, and resource-ownership rules are unchanged. The shared library still
+  exports 152 public symbols and retains the `libsqlparser.so.0` SONAME.
+- The strict build and full `make test` suite passed. All 2,781/2,781 cases and
+  9,034/9,034 patches in the nine case matrices passed, together with every
+  unit, example, and CLI target. Twenty-four complete
+  AST/Graph-to-Patch-to-Graph-rebuild-to-fallback-deparse chains finished
+  within the configured timeout. The Memcheck run reported 23,129 allocations,
+  23,129 frees, `0 bytes in 0 blocks`, and zero errors; Helgrind reported zero
+  errors.
+- The complete `make verify-valgrind` matrix passed. Unit tests, dialect
+  matrices, examples, CLI batches, and install smoke all reported
+  `0 bytes in 0 blocks` and zero errors. ABI validation retained 152 public
+  symbols, and install smoke confirmed `2.16.0` through both version text and
+  the public API.
+
 ## 2.15.4
 
 ### Unified Mutation Transactions

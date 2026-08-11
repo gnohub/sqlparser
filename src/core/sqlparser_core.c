@@ -22,7 +22,7 @@
 #include "sqlparser_internal.h"
 
 #ifndef SQLPARSER_VERSION_TEXT
-#define SQLPARSER_VERSION_TEXT "2.14.1"
+#define SQLPARSER_VERSION_TEXT "2.16.0"
 #endif
 
 #ifndef SQLPARSER_LIBPG_QUERY_TAG_TEXT
@@ -4308,8 +4308,10 @@ sqlparser_status_t sqlparser_deparse(
 	sqlparser_error_t *out_error)
 {
 	PgQueryDeparseResult deparse_result;
+	sqlparser_handle_t *mutable_handle;
 	char *public_sql;
 	sqlparser_status_t status;
+	int clear_ast_after_deparse;
 
 	if (out_sql == NULL) {
 		sqlparser_error_set_message(
@@ -4383,6 +4385,9 @@ sqlparser_status_t sqlparser_deparse(
 		return status;
 	}
 
+	mutable_handle = (sqlparser_handle_t *)handle;
+	clear_ast_after_deparse = 0;
+	public_sql = NULL;
 	sqlparser_pg_query_prepare();
 	deparse_result = sqlparser_deparse_protobuf_for_handle(
 		handle,
@@ -4403,8 +4408,8 @@ sqlparser_status_t sqlparser_deparse(
 				SQLPARSER_STATUS_INTERNAL_ERROR,
 				"failed to deparse SQL");
 		}
-		pg_query_free_deparse_result(deparse_result);
-		return SQLPARSER_STATUS_INTERNAL_ERROR;
+		status = SQLPARSER_STATUS_INTERNAL_ERROR;
+		goto cleanup;
 	}
 
 	status = sqlparser_restore_semantic_comments(
@@ -4412,8 +4417,7 @@ sqlparser_status_t sqlparser_deparse(
 		&deparse_result.query,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
-		pg_query_free_deparse_result(deparse_result);
-		return status;
+		goto cleanup;
 	}
 	status = sqlparser_validate_handle_output_text(
 		handle,
@@ -4421,8 +4425,7 @@ sqlparser_status_t sqlparser_deparse(
 		"deparse output",
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
-		pg_query_free_deparse_result(deparse_result);
-		return status;
+		goto cleanup;
 	}
 	if (handle->dialect_ops == NULL ||
 	    handle->dialect_ops->postprocess_deparse == NULL) {
@@ -4430,50 +4433,52 @@ sqlparser_status_t sqlparser_deparse(
 			handle,
 			&deparse_result.query,
 			out_error);
-		if (status != SQLPARSER_STATUS_OK) {
-			pg_query_free_deparse_result(deparse_result);
-			return status;
+		if (status == SQLPARSER_STATUS_OK) {
+			*out_sql = deparse_result.query;
+			deparse_result.query = NULL;
 		}
-		*out_sql = deparse_result.query;
-		deparse_result.query = NULL;
-		pg_query_free_deparse_result(deparse_result);
-		return SQLPARSER_STATUS_OK;
+		goto cleanup;
 	}
 
-	public_sql = NULL;
+	if (handle->ast == NULL &&
+	    handle->dialect_ops->bind_ast_state != NULL) {
+		status = sqlparser_handle_ensure_ast(mutable_handle, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			goto cleanup;
+		}
+		clear_ast_after_deparse = 1;
+	}
 	status = handle->dialect_ops->postprocess_deparse(
 		deparse_result.query,
 		handle->dialect_state,
 		&public_sql,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
-		free(public_sql);
-		pg_query_free_deparse_result(deparse_result);
-		return status;
+		goto cleanup;
 	}
 	status = sqlparser_restore_source_envelope(
 		handle,
 		&public_sql,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
-		free(public_sql);
-		pg_query_free_deparse_result(deparse_result);
-		return status;
+		goto cleanup;
 	}
 	status = sqlparser_validate_handle_output_text(
 		handle,
 		public_sql,
 		"deparse output",
 		out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		free(public_sql);
-		pg_query_free_deparse_result(deparse_result);
-		return status;
+	if (status == SQLPARSER_STATUS_OK) {
+		*out_sql = public_sql;
+		public_sql = NULL;
 	}
-
-	*out_sql = public_sql;
+cleanup:
+	free(public_sql);
 	pg_query_free_deparse_result(deparse_result);
-	return SQLPARSER_STATUS_OK;
+	if (clear_ast_after_deparse) {
+		sqlparser_handle_clear_ast(mutable_handle);
+	}
+	return status;
 }
 
 void sqlparser_string_free(char *text)
