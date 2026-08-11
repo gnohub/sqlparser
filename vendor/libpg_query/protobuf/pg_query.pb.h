@@ -3983,195 +3983,200 @@ enum Token : int {
   PASSING = 587,
   PASSWORD = 588,
   PATH = 589,
-  PLACING = 590,
-  PLAN = 591,
-  PLANS = 592,
-  POLICY = 593,
-  POSITION = 594,
-  PRECEDING = 595,
-  PRECISION = 596,
-  PRESERVE = 597,
-  PREPARE = 598,
-  PREPARED = 599,
-  PRIMARY = 600,
-  PRIOR = 601,
-  PRIVILEGES = 602,
-  PROCEDURAL = 603,
-  PROCEDURE = 604,
-  PROCEDURES = 605,
-  PROGRAM = 606,
-  PUBLICATION = 607,
-  QUOTE = 608,
-  QUOTES = 609,
-  RANGE = 610,
-  READ = 611,
-  REAL = 612,
-  REASSIGN = 613,
-  RECHECK = 614,
-  RECURSIVE = 615,
-  REF_P = 616,
-  REFERENCES = 617,
-  REFERENCING = 618,
-  REFRESH = 619,
-  REINDEX = 620,
-  RELATIVE_P = 621,
-  RELEASE = 622,
-  RENAME = 623,
-  REPEATABLE = 624,
-  REPLACE = 625,
-  REPLICA = 626,
-  RESET = 627,
-  RESTART = 628,
-  RESTRICT = 629,
-  RETURN = 630,
-  RETURNING = 631,
-  RETURNS = 632,
-  REVOKE = 633,
-  RIGHT = 634,
-  ROLE = 635,
-  ROLLBACK = 636,
-  ROLLUP = 637,
-  ROUTINE = 638,
-  ROUTINES = 639,
-  ROW = 640,
-  ROWS = 641,
-  RULE = 642,
-  SAVEPOINT = 643,
-  SCALAR = 644,
-  SCHEMA = 645,
-  SCHEMAS = 646,
-  SCROLL = 647,
-  SEARCH = 648,
-  SECOND_P = 649,
-  SECURITY = 650,
-  SELECT = 651,
-  SEQUENCE = 652,
-  SEQUENCES = 653,
-  SERIALIZABLE = 654,
-  SERVER = 655,
-  SESSION = 656,
-  SESSION_USER = 657,
-  SET = 658,
-  SETS = 659,
-  SETOF = 660,
-  SHARE = 661,
-  SHOW = 662,
-  SIMILAR = 663,
-  SIMPLE = 664,
-  SKIP = 665,
-  SMALLINT = 666,
-  SNAPSHOT = 667,
-  SOME = 668,
-  SOURCE = 669,
-  SQL_P = 670,
-  STABLE = 671,
-  STANDALONE_P = 672,
-  START = 673,
-  STATEMENT = 674,
-  STATISTICS = 675,
-  STDIN = 676,
-  STDOUT = 677,
-  STORAGE = 678,
-  STORED = 679,
-  STRICT_P = 680,
-  STRING_P = 681,
-  STRIP_P = 682,
-  SUBSCRIPTION = 683,
-  SUBSTRING = 684,
-  SUPPORT = 685,
-  SYMMETRIC = 686,
-  SYSID = 687,
-  SYSTEM_P = 688,
-  SYSTEM_USER = 689,
-  TABLE = 690,
-  TABLES = 691,
-  TABLESAMPLE = 692,
-  TABLESPACE = 693,
-  TARGET = 694,
-  TEMP = 695,
-  TEMPLATE = 696,
-  TEMPORARY = 697,
-  TEXT_P = 698,
-  THEN = 699,
-  TIES = 700,
-  TIME = 701,
-  TIMESTAMP = 702,
-  TO = 703,
-  TRAILING = 704,
-  TRANSACTION = 705,
-  TRANSFORM = 706,
-  TREAT = 707,
-  TRIGGER = 708,
-  TRIM = 709,
-  TRUE_P = 710,
-  TRUNCATE = 711,
-  TRUSTED = 712,
-  TYPE_P = 713,
-  TYPES_P = 714,
-  UESCAPE = 715,
-  UNBOUNDED = 716,
-  UNCONDITIONAL = 717,
-  UNCOMMITTED = 718,
-  UNENCRYPTED = 719,
-  UNION = 720,
-  UNIQUE = 721,
-  UNKNOWN = 722,
-  UNLISTEN = 723,
-  UNLOGGED = 724,
-  UNTIL = 725,
-  UPDATE = 726,
-  USER = 727,
-  USING = 728,
-  VACUUM = 729,
-  VALID = 730,
-  VALIDATE = 731,
-  VALIDATOR = 732,
-  VALUE_P = 733,
-  VALUES = 734,
-  VARCHAR = 735,
-  VARIADIC = 736,
-  VARYING = 737,
-  VERBOSE = 738,
-  VERSION_P = 739,
-  VIEW = 740,
-  VIEWS = 741,
-  VOLATILE = 742,
-  WHEN = 743,
-  WHERE = 744,
-  WHITESPACE_P = 745,
-  WINDOW = 746,
-  WITH = 747,
-  WITHIN = 748,
-  WITHOUT = 749,
-  WORK = 750,
-  WRAPPER = 751,
-  WRITE = 752,
-  XML_P = 753,
-  XMLATTRIBUTES = 754,
-  XMLCONCAT = 755,
-  XMLELEMENT = 756,
-  XMLEXISTS = 757,
-  XMLFOREST = 758,
-  XMLNAMESPACES = 759,
-  XMLPARSE = 760,
-  XMLPI = 761,
-  XMLROOT = 762,
-  XMLSERIALIZE = 763,
-  XMLTABLE = 764,
-  YEAR_P = 765,
-  YES_P = 766,
-  ZONE = 767,
-  FORMAT_LA = 768,
-  NOT_LA = 769,
-  NULLS_LA = 770,
-  WITH_LA = 771,
-  WITHOUT_LA = 772,
-  MODE_TYPE_NAME = 773,
-  MODE_PLPGSQL_EXPR = 774,
-  MODE_PLPGSQL_ASSIGN1 = 775,
-  MODE_PLPGSQL_ASSIGN2 = 776,
-  MODE_PLPGSQL_ASSIGN3 = 777,
-  UMINUS = 778,
+  PG_QUERY_INTERNAL_CONNECT_BY = 590,
+  PG_QUERY_INTERNAL_CONNECT_BY_ROOT = 591,
+  PG_QUERY_INTERNAL_NOCYCLE = 592,
+  PG_QUERY_INTERNAL_PRIOR = 593,
+  PG_QUERY_INTERNAL_START_WITH = 594,
+  PLACING = 595,
+  PLAN = 596,
+  PLANS = 597,
+  POLICY = 598,
+  POSITION = 599,
+  PRECEDING = 600,
+  PRECISION = 601,
+  PRESERVE = 602,
+  PREPARE = 603,
+  PREPARED = 604,
+  PRIMARY = 605,
+  PRIOR = 606,
+  PRIVILEGES = 607,
+  PROCEDURAL = 608,
+  PROCEDURE = 609,
+  PROCEDURES = 610,
+  PROGRAM = 611,
+  PUBLICATION = 612,
+  QUOTE = 613,
+  QUOTES = 614,
+  RANGE = 615,
+  READ = 616,
+  REAL = 617,
+  REASSIGN = 618,
+  RECHECK = 619,
+  RECURSIVE = 620,
+  REF_P = 621,
+  REFERENCES = 622,
+  REFERENCING = 623,
+  REFRESH = 624,
+  REINDEX = 625,
+  RELATIVE_P = 626,
+  RELEASE = 627,
+  RENAME = 628,
+  REPEATABLE = 629,
+  REPLACE = 630,
+  REPLICA = 631,
+  RESET = 632,
+  RESTART = 633,
+  RESTRICT = 634,
+  RETURN = 635,
+  RETURNING = 636,
+  RETURNS = 637,
+  REVOKE = 638,
+  RIGHT = 639,
+  ROLE = 640,
+  ROLLBACK = 641,
+  ROLLUP = 642,
+  ROUTINE = 643,
+  ROUTINES = 644,
+  ROW = 645,
+  ROWS = 646,
+  RULE = 647,
+  SAVEPOINT = 648,
+  SCALAR = 649,
+  SCHEMA = 650,
+  SCHEMAS = 651,
+  SCROLL = 652,
+  SEARCH = 653,
+  SECOND_P = 654,
+  SECURITY = 655,
+  SELECT = 656,
+  SEQUENCE = 657,
+  SEQUENCES = 658,
+  SERIALIZABLE = 659,
+  SERVER = 660,
+  SESSION = 661,
+  SESSION_USER = 662,
+  SET = 663,
+  SETS = 664,
+  SETOF = 665,
+  SHARE = 666,
+  SHOW = 667,
+  SIMILAR = 668,
+  SIMPLE = 669,
+  SKIP = 670,
+  SMALLINT = 671,
+  SNAPSHOT = 672,
+  SOME = 673,
+  SOURCE = 674,
+  SQL_P = 675,
+  STABLE = 676,
+  STANDALONE_P = 677,
+  START = 678,
+  STATEMENT = 679,
+  STATISTICS = 680,
+  STDIN = 681,
+  STDOUT = 682,
+  STORAGE = 683,
+  STORED = 684,
+  STRICT_P = 685,
+  STRING_P = 686,
+  STRIP_P = 687,
+  SUBSCRIPTION = 688,
+  SUBSTRING = 689,
+  SUPPORT = 690,
+  SYMMETRIC = 691,
+  SYSID = 692,
+  SYSTEM_P = 693,
+  SYSTEM_USER = 694,
+  TABLE = 695,
+  TABLES = 696,
+  TABLESAMPLE = 697,
+  TABLESPACE = 698,
+  TARGET = 699,
+  TEMP = 700,
+  TEMPLATE = 701,
+  TEMPORARY = 702,
+  TEXT_P = 703,
+  THEN = 704,
+  TIES = 705,
+  TIME = 706,
+  TIMESTAMP = 707,
+  TO = 708,
+  TRAILING = 709,
+  TRANSACTION = 710,
+  TRANSFORM = 711,
+  TREAT = 712,
+  TRIGGER = 713,
+  TRIM = 714,
+  TRUE_P = 715,
+  TRUNCATE = 716,
+  TRUSTED = 717,
+  TYPE_P = 718,
+  TYPES_P = 719,
+  UESCAPE = 720,
+  UNBOUNDED = 721,
+  UNCONDITIONAL = 722,
+  UNCOMMITTED = 723,
+  UNENCRYPTED = 724,
+  UNION = 725,
+  UNIQUE = 726,
+  UNKNOWN = 727,
+  UNLISTEN = 728,
+  UNLOGGED = 729,
+  UNTIL = 730,
+  UPDATE = 731,
+  USER = 732,
+  USING = 733,
+  VACUUM = 734,
+  VALID = 735,
+  VALIDATE = 736,
+  VALIDATOR = 737,
+  VALUE_P = 738,
+  VALUES = 739,
+  VARCHAR = 740,
+  VARIADIC = 741,
+  VARYING = 742,
+  VERBOSE = 743,
+  VERSION_P = 744,
+  VIEW = 745,
+  VIEWS = 746,
+  VOLATILE = 747,
+  WHEN = 748,
+  WHERE = 749,
+  WHITESPACE_P = 750,
+  WINDOW = 751,
+  WITH = 752,
+  WITHIN = 753,
+  WITHOUT = 754,
+  WORK = 755,
+  WRAPPER = 756,
+  WRITE = 757,
+  XML_P = 758,
+  XMLATTRIBUTES = 759,
+  XMLCONCAT = 760,
+  XMLELEMENT = 761,
+  XMLEXISTS = 762,
+  XMLFOREST = 763,
+  XMLNAMESPACES = 764,
+  XMLPARSE = 765,
+  XMLPI = 766,
+  XMLROOT = 767,
+  XMLSERIALIZE = 768,
+  XMLTABLE = 769,
+  YEAR_P = 770,
+  YES_P = 771,
+  ZONE = 772,
+  FORMAT_LA = 773,
+  NOT_LA = 774,
+  NULLS_LA = 775,
+  WITH_LA = 776,
+  WITHOUT_LA = 777,
+  MODE_TYPE_NAME = 778,
+  MODE_PLPGSQL_EXPR = 779,
+  MODE_PLPGSQL_ASSIGN1 = 780,
+  MODE_PLPGSQL_ASSIGN2 = 781,
+  MODE_PLPGSQL_ASSIGN3 = 782,
+  UMINUS = 783,
   Token_INT_MIN_SENTINEL_DO_NOT_USE_ =
       std::numeric_limits<::int32_t>::min(),
   Token_INT_MAX_SENTINEL_DO_NOT_USE_ =
@@ -4181,8 +4186,8 @@ enum Token : int {
 bool Token_IsValid(int value);
 extern const uint32_t Token_internal_data_[];
 constexpr Token Token_MIN = static_cast<Token>(0);
-constexpr Token Token_MAX = static_cast<Token>(778);
-constexpr int Token_ARRAYSIZE = 778 + 1;
+constexpr Token Token_MAX = static_cast<Token>(783);
+constexpr int Token_ARRAYSIZE = 783 + 1;
 const ::google::protobuf::EnumDescriptor*
 Token_descriptor();
 template <typename T>
@@ -4195,7 +4200,7 @@ const std::string& Token_Name(T value) {
 template <>
 inline const std::string& Token_Name(Token value) {
   return ::google::protobuf::internal::NameOfDenseEnum<Token_descriptor,
-                                                 0, 778>(
+                                                 0, 783>(
       static_cast<int>(value));
 }
 inline bool Token_Parse(absl::string_view name, Token* value) {
@@ -69555,10 +69560,14 @@ class SelectStmt final :
     kWithClauseFieldNumber = 16,
     kLargFieldNumber = 19,
     kRargFieldNumber = 20,
-    kGroupDistinctFieldNumber = 7,
-    kAllFieldNumber = 18,
+    kStartWithClauseFieldNumber = 21,
+    kConnectByClauseFieldNumber = 22,
     kLimitOptionFieldNumber = 14,
     kOpFieldNumber = 17,
+    kConnectByNoCycleFieldNumber = 23,
+    kConnectByFirstFieldNumber = 24,
+    kGroupDistinctFieldNumber = 7,
+    kAllFieldNumber = 18,
   };
   // repeated .pg_query.Node distinct_clause = 1 [json_name = "distinctClause"];
   int distinct_clause_size() const;
@@ -69824,24 +69833,34 @@ class SelectStmt final :
   ::pg_query::SelectStmt* _internal_mutable_rarg();
 
   public:
-  // bool group_distinct = 7 [json_name = "groupDistinct"];
-  void clear_group_distinct() ;
-  bool group_distinct() const;
-  void set_group_distinct(bool value);
+  // .pg_query.Node start_with_clause = 21 [json_name = "startWithClause"];
+  bool has_start_with_clause() const;
+  void clear_start_with_clause() ;
+  const ::pg_query::Node& start_with_clause() const;
+  PROTOBUF_NODISCARD ::pg_query::Node* release_start_with_clause();
+  ::pg_query::Node* mutable_start_with_clause();
+  void set_allocated_start_with_clause(::pg_query::Node* value);
+  void unsafe_arena_set_allocated_start_with_clause(::pg_query::Node* value);
+  ::pg_query::Node* unsafe_arena_release_start_with_clause();
 
   private:
-  bool _internal_group_distinct() const;
-  void _internal_set_group_distinct(bool value);
+  const ::pg_query::Node& _internal_start_with_clause() const;
+  ::pg_query::Node* _internal_mutable_start_with_clause();
 
   public:
-  // bool all = 18 [json_name = "all"];
-  void clear_all() ;
-  bool all() const;
-  void set_all(bool value);
+  // .pg_query.Node connect_by_clause = 22 [json_name = "connectByClause"];
+  bool has_connect_by_clause() const;
+  void clear_connect_by_clause() ;
+  const ::pg_query::Node& connect_by_clause() const;
+  PROTOBUF_NODISCARD ::pg_query::Node* release_connect_by_clause();
+  ::pg_query::Node* mutable_connect_by_clause();
+  void set_allocated_connect_by_clause(::pg_query::Node* value);
+  void unsafe_arena_set_allocated_connect_by_clause(::pg_query::Node* value);
+  ::pg_query::Node* unsafe_arena_release_connect_by_clause();
 
   private:
-  bool _internal_all() const;
-  void _internal_set_all(bool value);
+  const ::pg_query::Node& _internal_connect_by_clause() const;
+  ::pg_query::Node* _internal_mutable_connect_by_clause();
 
   public:
   // .pg_query.LimitOption limit_option = 14 [json_name = "limitOption"];
@@ -69864,13 +69883,53 @@ class SelectStmt final :
   void _internal_set_op(::pg_query::SetOperation value);
 
   public:
+  // bool connect_by_no_cycle = 23 [json_name = "connectByNoCycle"];
+  void clear_connect_by_no_cycle() ;
+  bool connect_by_no_cycle() const;
+  void set_connect_by_no_cycle(bool value);
+
+  private:
+  bool _internal_connect_by_no_cycle() const;
+  void _internal_set_connect_by_no_cycle(bool value);
+
+  public:
+  // bool connect_by_first = 24 [json_name = "connectByFirst"];
+  void clear_connect_by_first() ;
+  bool connect_by_first() const;
+  void set_connect_by_first(bool value);
+
+  private:
+  bool _internal_connect_by_first() const;
+  void _internal_set_connect_by_first(bool value);
+
+  public:
+  // bool group_distinct = 7 [json_name = "groupDistinct"];
+  void clear_group_distinct() ;
+  bool group_distinct() const;
+  void set_group_distinct(bool value);
+
+  private:
+  bool _internal_group_distinct() const;
+  void _internal_set_group_distinct(bool value);
+
+  public:
+  // bool all = 18 [json_name = "all"];
+  void clear_all() ;
+  bool all() const;
+  void set_all(bool value);
+
+  private:
+  bool _internal_all() const;
+  void _internal_set_all(bool value);
+
+  public:
   // @@protoc_insertion_point(class_scope:pg_query.SelectStmt)
  private:
   class _Internal;
 
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      5, 20, 16,
+      5, 24, 18,
       0, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -69905,10 +69964,14 @@ class SelectStmt final :
     ::pg_query::WithClause* with_clause_;
     ::pg_query::SelectStmt* larg_;
     ::pg_query::SelectStmt* rarg_;
-    bool group_distinct_;
-    bool all_;
+    ::pg_query::Node* start_with_clause_;
+    ::pg_query::Node* connect_by_clause_;
     int limit_option_;
     int op_;
+    bool connect_by_no_cycle_;
+    bool connect_by_first_;
+    bool group_distinct_;
+    bool all_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -142009,6 +142072,244 @@ inline void SelectStmt::set_allocated_where_clause(::pg_query::Node* value) {
 
   _impl_.where_clause_ = reinterpret_cast<::pg_query::Node*>(value);
   // @@protoc_insertion_point(field_set_allocated:pg_query.SelectStmt.where_clause)
+}
+
+// .pg_query.Node start_with_clause = 21 [json_name = "startWithClause"];
+inline bool SelectStmt::has_start_with_clause() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000100u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.start_with_clause_ != nullptr);
+  return value;
+}
+inline void SelectStmt::clear_start_with_clause() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.start_with_clause_ != nullptr) _impl_.start_with_clause_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000100u;
+}
+inline const ::pg_query::Node& SelectStmt::_internal_start_with_clause() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::pg_query::Node* p = _impl_.start_with_clause_;
+  return p != nullptr ? *p : reinterpret_cast<const ::pg_query::Node&>(::pg_query::_Node_default_instance_);
+}
+inline const ::pg_query::Node& SelectStmt::start_with_clause() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:pg_query.SelectStmt.start_with_clause)
+  return _internal_start_with_clause();
+}
+inline void SelectStmt::unsafe_arena_set_allocated_start_with_clause(::pg_query::Node* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.start_with_clause_);
+  }
+  _impl_.start_with_clause_ = reinterpret_cast<::pg_query::Node*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000100u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000100u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:pg_query.SelectStmt.start_with_clause)
+}
+inline ::pg_query::Node* SelectStmt::release_start_with_clause() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000100u;
+  ::pg_query::Node* released = _impl_.start_with_clause_;
+  _impl_.start_with_clause_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::pg_query::Node* SelectStmt::unsafe_arena_release_start_with_clause() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:pg_query.SelectStmt.start_with_clause)
+
+  _impl_._has_bits_[0] &= ~0x00000100u;
+  ::pg_query::Node* temp = _impl_.start_with_clause_;
+  _impl_.start_with_clause_ = nullptr;
+  return temp;
+}
+inline ::pg_query::Node* SelectStmt::_internal_mutable_start_with_clause() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000100u;
+  if (_impl_.start_with_clause_ == nullptr) {
+    auto* p = CreateMaybeMessage<::pg_query::Node>(GetArena());
+    _impl_.start_with_clause_ = reinterpret_cast<::pg_query::Node*>(p);
+  }
+  return _impl_.start_with_clause_;
+}
+inline ::pg_query::Node* SelectStmt::mutable_start_with_clause() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::pg_query::Node* _msg = _internal_mutable_start_with_clause();
+  // @@protoc_insertion_point(field_mutable:pg_query.SelectStmt.start_with_clause)
+  return _msg;
+}
+inline void SelectStmt::set_allocated_start_with_clause(::pg_query::Node* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::pg_query::Node*>(_impl_.start_with_clause_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::pg_query::Node*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000100u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000100u;
+  }
+
+  _impl_.start_with_clause_ = reinterpret_cast<::pg_query::Node*>(value);
+  // @@protoc_insertion_point(field_set_allocated:pg_query.SelectStmt.start_with_clause)
+}
+
+// .pg_query.Node connect_by_clause = 22 [json_name = "connectByClause"];
+inline bool SelectStmt::has_connect_by_clause() const {
+  bool value = (_impl_._has_bits_[0] & 0x00000200u) != 0;
+  PROTOBUF_ASSUME(!value || _impl_.connect_by_clause_ != nullptr);
+  return value;
+}
+inline void SelectStmt::clear_connect_by_clause() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (_impl_.connect_by_clause_ != nullptr) _impl_.connect_by_clause_->Clear();
+  _impl_._has_bits_[0] &= ~0x00000200u;
+}
+inline const ::pg_query::Node& SelectStmt::_internal_connect_by_clause() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  const ::pg_query::Node* p = _impl_.connect_by_clause_;
+  return p != nullptr ? *p : reinterpret_cast<const ::pg_query::Node&>(::pg_query::_Node_default_instance_);
+}
+inline const ::pg_query::Node& SelectStmt::connect_by_clause() const ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  // @@protoc_insertion_point(field_get:pg_query.SelectStmt.connect_by_clause)
+  return _internal_connect_by_clause();
+}
+inline void SelectStmt::unsafe_arena_set_allocated_connect_by_clause(::pg_query::Node* value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (GetArena() == nullptr) {
+    delete reinterpret_cast<::google::protobuf::MessageLite*>(_impl_.connect_by_clause_);
+  }
+  _impl_.connect_by_clause_ = reinterpret_cast<::pg_query::Node*>(value);
+  if (value != nullptr) {
+    _impl_._has_bits_[0] |= 0x00000200u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000200u;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:pg_query.SelectStmt.connect_by_clause)
+}
+inline ::pg_query::Node* SelectStmt::release_connect_by_clause() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+
+  _impl_._has_bits_[0] &= ~0x00000200u;
+  ::pg_query::Node* released = _impl_.connect_by_clause_;
+  _impl_.connect_by_clause_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old = reinterpret_cast<::google::protobuf::MessageLite*>(released);
+  released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  if (GetArena() == nullptr) {
+    delete old;
+  }
+#else   // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArena() != nullptr) {
+    released = ::google::protobuf::internal::DuplicateIfNonNull(released);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return released;
+}
+inline ::pg_query::Node* SelectStmt::unsafe_arena_release_connect_by_clause() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  // @@protoc_insertion_point(field_release:pg_query.SelectStmt.connect_by_clause)
+
+  _impl_._has_bits_[0] &= ~0x00000200u;
+  ::pg_query::Node* temp = _impl_.connect_by_clause_;
+  _impl_.connect_by_clause_ = nullptr;
+  return temp;
+}
+inline ::pg_query::Node* SelectStmt::_internal_mutable_connect_by_clause() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_._has_bits_[0] |= 0x00000200u;
+  if (_impl_.connect_by_clause_ == nullptr) {
+    auto* p = CreateMaybeMessage<::pg_query::Node>(GetArena());
+    _impl_.connect_by_clause_ = reinterpret_cast<::pg_query::Node*>(p);
+  }
+  return _impl_.connect_by_clause_;
+}
+inline ::pg_query::Node* SelectStmt::mutable_connect_by_clause() ABSL_ATTRIBUTE_LIFETIME_BOUND {
+  ::pg_query::Node* _msg = _internal_mutable_connect_by_clause();
+  // @@protoc_insertion_point(field_mutable:pg_query.SelectStmt.connect_by_clause)
+  return _msg;
+}
+inline void SelectStmt::set_allocated_connect_by_clause(::pg_query::Node* value) {
+  ::google::protobuf::Arena* message_arena = GetArena();
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  if (message_arena == nullptr) {
+    delete reinterpret_cast<::pg_query::Node*>(_impl_.connect_by_clause_);
+  }
+
+  if (value != nullptr) {
+    ::google::protobuf::Arena* submessage_arena = reinterpret_cast<::pg_query::Node*>(value)->GetArena();
+    if (message_arena != submessage_arena) {
+      value = ::google::protobuf::internal::GetOwnedMessage(message_arena, value, submessage_arena);
+    }
+    _impl_._has_bits_[0] |= 0x00000200u;
+  } else {
+    _impl_._has_bits_[0] &= ~0x00000200u;
+  }
+
+  _impl_.connect_by_clause_ = reinterpret_cast<::pg_query::Node*>(value);
+  // @@protoc_insertion_point(field_set_allocated:pg_query.SelectStmt.connect_by_clause)
+}
+
+// bool connect_by_no_cycle = 23 [json_name = "connectByNoCycle"];
+inline void SelectStmt::clear_connect_by_no_cycle() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.connect_by_no_cycle_ = false;
+}
+inline bool SelectStmt::connect_by_no_cycle() const {
+  // @@protoc_insertion_point(field_get:pg_query.SelectStmt.connect_by_no_cycle)
+  return _internal_connect_by_no_cycle();
+}
+inline void SelectStmt::set_connect_by_no_cycle(bool value) {
+  _internal_set_connect_by_no_cycle(value);
+  // @@protoc_insertion_point(field_set:pg_query.SelectStmt.connect_by_no_cycle)
+}
+inline bool SelectStmt::_internal_connect_by_no_cycle() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.connect_by_no_cycle_;
+}
+inline void SelectStmt::_internal_set_connect_by_no_cycle(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.connect_by_no_cycle_ = value;
+}
+
+// bool connect_by_first = 24 [json_name = "connectByFirst"];
+inline void SelectStmt::clear_connect_by_first() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.connect_by_first_ = false;
+}
+inline bool SelectStmt::connect_by_first() const {
+  // @@protoc_insertion_point(field_get:pg_query.SelectStmt.connect_by_first)
+  return _internal_connect_by_first();
+}
+inline void SelectStmt::set_connect_by_first(bool value) {
+  _internal_set_connect_by_first(value);
+  // @@protoc_insertion_point(field_set:pg_query.SelectStmt.connect_by_first)
+}
+inline bool SelectStmt::_internal_connect_by_first() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return _impl_.connect_by_first_;
+}
+inline void SelectStmt::_internal_set_connect_by_first(bool value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.connect_by_first_ = value;
 }
 
 // repeated .pg_query.Node group_clause = 6 [json_name = "groupClause"];

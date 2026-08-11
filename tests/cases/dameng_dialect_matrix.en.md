@@ -4,7 +4,7 @@ This file records regression cases for the Dameng dialect conversion layer. The 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 170 cases with `status = "final"`.
+The fixture contains 174 cases with `status = "final"`.
 Statement-level `query_graph.session` appears in 34 cases, covering `D002`,
 `D003`, `D003Q`, `D026`, `D089` through `D095`, and the `DM-*` session cases.
 All 34 contain at least one non-empty session item.
@@ -192,6 +192,21 @@ Current coverage includes `RETURNING <single expression> INTO <single colon-pref
 | D144 | `dameng-update-return-rowid-into-bind` | `UPDATE ... RETURN ROWID INTO :NAV_ROWID` | UPDATE `target_after` reference, Dameng `RETURN` keyword, sink bind, replace patches, and byte-for-byte deparse |
 | D145 | `dameng-delete-returning-rowid-into-bind` | `DELETE ... RETURNING ROWID INTO :NAV_ROWID` | DELETE `target_before` reference, ROWID pseudo target, sink bind, replace patches, and byte-for-byte deparse |
 | D146 | `dameng-merge-update-delete-where` | a matched UPDATE has both an action `WHERE` and an attached `DELETE WHERE` | the UPDATE branch exposes both `condition_selector` and `delete_condition_selector`, with no independent DELETE action; 3 independent patches cover assignment, action-predicate value, and delete-predicate value replacement |
+
+## Hierarchical Query Regression
+
+These four final cases define the Dameng hierarchical-query boundary. They
+cover both `START WITH ... CONNECT BY` and `CONNECT BY ... START WITH` source
+orders, two parent-child field orientations for `PRIOR`, `LEVEL`, `NOCYCLE`, and
+`CONNECT_BY_ROOT`. Each case contains five independent patches, for 20 patches
+in total: 16 `replace` and 4 `insert_column` actions.
+
+| ID | Case | SQL Shape | Coverage |
+| --- | --- | --- | --- |
+| D147 | `dameng-hierarchical-start-connect-prior-level` | `START WITH` followed by `CONNECT BY PRIOR` and `LEVEL` | `start_with` / `connect_by` clauses, a relationless `LEVEL` pseudo target, and the left-side `PRIOR` field occurrence |
+| D148 | `dameng-hierarchical-connect-start-source-order` | `CONNECT BY` followed by `START WITH` | byte-preserved reversed source order while View remains in START WITH then CONNECT BY semantic order |
+| D149 | `dameng-hierarchical-prior-reverse-direction` | `PRIOR manager_id = employee_id` | `PRIOR` remains on the left comparison operand while the field direction is reversed from the basic case |
+| D150 | `dameng-hierarchical-connect-by-root-nocycle` | `CONNECT_BY_ROOT`, `LEVEL`, and `CONNECT BY NOCYCLE` | operator `target_path` on the expression target, a relationless pseudo target, and `nocycle` on the CONNECT BY root predicate |
 
 ## Coverage Boundary
 

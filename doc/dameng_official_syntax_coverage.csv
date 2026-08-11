@@ -29,7 +29,7 @@ privileges,GRANT_REVOKE,CURRENT,"已覆盖 GRANT 和 REVOKE",https://eco.dameng.
 session,SET_SCHEMA,CURRENT,"已覆盖 SET SCHEMA 语句",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
 session,ALTER_SESSION_PARAMETERS,CURRENT,"已覆盖 NLS 日期/时间格式、NLS_SORT 和 CASE_SENSITIVE 会话参数",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html
 query,TOP_PERCENT_WITH_TIES,CURRENT,"已覆盖 TOP n、TOP n,m、TOP n PERCENT、TOP n WITH TIES 和 TOP n PERCENT WITH TIES，并在 deparse 输出中保留达梦公开形态",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
-query,CONNECT_BY,MODEL_REQUIRED,"层级查询语义需要专用查询模型",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
+query,CONNECT_BY,CURRENT,"已覆盖 START WITH 与 CONNECT BY 两种源文本顺序、PRIOR 的两种父子字段方向、LEVEL、CONNECT_BY_ROOT 和 NOCYCLE",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
 query,PIVOT_UNPIVOT,MODEL_REQUIRED,"表变换语义需要专用查询模型",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
 query,FLASHBACK_QUERY,MODEL_REQUIRED,"闪回查询涉及达梦专属时间点/版本语义",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
 query,SAMPLE_PARTITION_APPLY,MODEL_REQUIRED,"SAMPLE、PARTITION 和 APPLY 完整语义需要专用表引用模型",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html

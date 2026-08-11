@@ -76,6 +76,14 @@ static void sqlparser_dialect_ast_surface_visit_select(
 			(ProtobufCMessage *)select->where_clause,
 			statement_index,
 			visitor);
+		sqlparser_dialect_ast_surface_visit_message(
+			(ProtobufCMessage *)select->start_with_clause,
+			statement_index,
+			visitor);
+		sqlparser_dialect_ast_surface_visit_message(
+			(ProtobufCMessage *)select->connect_by_clause,
+			statement_index,
+			visitor);
 		sqlparser_dialect_ast_surface_visit_node_array(
 			select->group_clause,
 			select->n_group_clause,

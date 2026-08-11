@@ -15,7 +15,7 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 600 cases with `status = "final"`. The expected View contains a non-empty session projection in 75 cases.
+The fixture contains 601 cases with `status = "final"`. The expected View contains a non-empty session projection in 75 cases.
 
 View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
 
@@ -68,6 +68,20 @@ These cases require OUTPUT restoration at the compatibility entry to retain a bo
 | VSH420 | `vastbase-sqlserver-merge-output-action-terminal-semicolon` | `MERGE ... OUTPUT $action;` | no trailing space after terminal MERGE OUTPUT and unchanged semicolon position |
 | VSH421 | `vastbase-sqlserver-update-output-terminal` | `UPDATE ... OUTPUT INSERTED.a` | no generated right boundary without a following WHERE or FROM clause |
 | VSH422 | `vastbase-sqlserver-delete-output-terminal` | `DELETE ... OUTPUT DELETED.id` | no generated right boundary without a following WHERE or FROM clause |
+
+## Vastbase SQL Server Compatibility-Entry Basic CONNECT BY Regression
+
+This compatibility entry covers only a basic `CONNECT BY` condition. It does
+not include `START WITH`, `PRIOR`, `NOCYCLE`, or `CONNECT_BY_ROOT`. The final
+case below contains five independent patches: four `replace` actions and one
+`insert_column` action.
+Within this query block, `CONNECT_BY_ROOT expr` without an explicit `AS` is
+rejected as an out-of-bound hierarchy operator. An explicit `AS` alias or a
+delimited identifier preserves an ordinary field with the same name.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| VSH423 | `vastbase-sqlserver-connect-by-official` | `WHERE`, basic `CONNECT BY`, and `ORDER BY` | independent CONNECT BY field/value attribution, WHERE and ORDER BY semantics, relation/field/value/target replacement, and SELECT-column insertion |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 

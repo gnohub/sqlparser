@@ -236,6 +236,14 @@ sqlparser_status_t sqlparser_sqlserver_preprocess_fragment_identifier_origins(
 	char **out_parser_sql,
 	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error);
+sqlparser_status_t
+sqlparser_vastbase_sqlserver_preprocess_fragment_identifier_origins(
+	const char *input_sql,
+	void *state,
+	size_t statement_index,
+	char **out_parser_sql,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error);
 int sqlparser_sqlserver_generated_identifier_spelling(
 	const char *identifier,
 	const char **out_spelling,

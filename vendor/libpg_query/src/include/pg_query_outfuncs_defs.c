@@ -1737,6 +1737,10 @@ _outSelectStmt(OUT_TYPE(SelectStmt, SelectStmt) out, const SelectStmt *node)
   WRITE_LIST_FIELD(target_list, targetList, targetList);
   WRITE_LIST_FIELD(from_clause, fromClause, fromClause);
   WRITE_NODE_PTR_FIELD(where_clause, whereClause, whereClause);
+  WRITE_NODE_PTR_FIELD(start_with_clause, startWithClause, startWithClause);
+  WRITE_NODE_PTR_FIELD(connect_by_clause, connectByClause, connectByClause);
+  WRITE_BOOL_FIELD(connect_by_no_cycle, connectByNoCycle, connectByNoCycle);
+  WRITE_BOOL_FIELD(connect_by_first, connectByFirst, connectByFirst);
   WRITE_LIST_FIELD(group_clause, groupClause, groupClause);
   WRITE_BOOL_FIELD(group_distinct, groupDistinct, groupDistinct);
   WRITE_NODE_PTR_FIELD(having_clause, havingClause, havingClause);

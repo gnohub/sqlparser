@@ -705,6 +705,49 @@ static int sqlparser_dameng_ascii_word_equal(const char *text, size_t pos, const
 	return sqlparser_dameng_is_word_boundary(text, pos, len);
 }
 
+static size_t sqlparser_dameng_skip_trivia(const char *text, size_t pos);
+
+static const char *sqlparser_dameng_hierarchy_internal_keyword(
+	const char *input,
+	size_t pos,
+	size_t *out_source_length)
+{
+	size_t next;
+
+	if (sqlparser_dameng_ascii_word_equal(input, pos, "connect_by_root")) {
+		*out_source_length = strlen("connect_by_root");
+		return SQLPARSER_INTERNAL_HIERARCHY_CONNECT_BY_ROOT;
+	}
+	if (sqlparser_dameng_ascii_word_equal(input, pos, "connect")) {
+		next = sqlparser_dameng_skip_trivia(
+			input,
+			pos + strlen("connect"));
+		if (sqlparser_dameng_ascii_word_equal(input, next, "by")) {
+			*out_source_length = strlen("connect");
+			return SQLPARSER_INTERNAL_HIERARCHY_CONNECT_BY;
+		}
+	}
+	if (sqlparser_dameng_ascii_word_equal(input, pos, "start")) {
+		next = sqlparser_dameng_skip_trivia(
+			input,
+			pos + strlen("start"));
+		if (sqlparser_dameng_ascii_word_equal(input, next, "with")) {
+			*out_source_length = strlen("start");
+			return SQLPARSER_INTERNAL_HIERARCHY_START_WITH;
+		}
+	}
+	if (sqlparser_dameng_ascii_word_equal(input, pos, "nocycle")) {
+		*out_source_length = strlen("nocycle");
+		return SQLPARSER_INTERNAL_HIERARCHY_NOCYCLE;
+	}
+	if (sqlparser_dameng_ascii_word_equal(input, pos, "prior")) {
+		*out_source_length = strlen("prior");
+		return SQLPARSER_INTERNAL_HIERARCHY_PRIOR;
+	}
+	*out_source_length = 0U;
+	return NULL;
+}
+
 static int sqlparser_dameng_ascii_span_equal(const char *text, size_t start, size_t end, const char *word)
 {
 	size_t index;
@@ -2544,8 +2587,7 @@ static sqlparser_status_t sqlparser_dameng_reject_unsupported_at(
 			return SQLPARSER_STATUS_UNSUPPORTED;
 		}
 	}
-	if (sqlparser_dameng_ascii_word_equal(input, index, "connect") ||
-	    sqlparser_dameng_ascii_word_equal(input, index, "pivot") ||
+	if (sqlparser_dameng_ascii_word_equal(input, index, "pivot") ||
 	    sqlparser_dameng_ascii_word_equal(input, index, "procedure") ||
 	    sqlparser_dameng_ascii_word_equal(input, index, "returning")) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "unsupported Dameng syntax");
@@ -2666,6 +2708,36 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 			}
 			state->national_literals.literal_count++;
 			continue;
+		}
+
+		if (sqlparser_dameng_is_ident_start((unsigned char)input_sql[index])) {
+			const char *internal_keyword;
+			size_t source_length;
+
+			internal_keyword =
+				sqlparser_dameng_hierarchy_internal_keyword(
+					input_sql,
+					index,
+					&source_length);
+			if (internal_keyword != NULL) {
+				status =
+					sqlparser_dameng_buffer_append_source_identifier(
+						&out,
+						input_sql,
+						index,
+						source_length,
+						internal_keyword,
+						strlen(internal_keyword),
+						out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					sqlparser_dameng_pending_tops_release(
+						&pending_tops);
+					sqlparser_dameng_buffer_release(&out);
+					return status;
+				}
+				index += source_length;
+				continue;
+			}
 		}
 
 		if (input_sql[index] == '"' ||

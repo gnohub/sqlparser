@@ -20,27 +20,27 @@ privilege statements, and Oracle-specific semantics.
 | `CURRENT` | The Oracle dialect has representative executable coverage, or the current AST can safely represent the syntax. |
 | `HOOK_ONLY` | Not covered yet, but implementable through dialect hooks, preprocessing, postprocessing, or type/function mapping. |
 | `MIXED_MODEL` | The basic form can use the current AST and hooks, but full official syntax needs an Oracle-specific model. |
-| `MODEL_REQUIRED` | Requires an Oracle-specific model, usually for hierarchical queries, PL/SQL, table transformations, or flashback. |
+| `MODEL_REQUIRED` | Requires an Oracle-specific model, usually for PL/SQL, table transformations, or flashback. |
 | `REFERENCE_ONLY` | An official index, category, or explanatory page that is not counted as an implementation unit. |
 
 ## Results
 
 | Status | Syntax Groups | Share of 47 Groups |
 | --- | ---: | ---: |
-| `CURRENT` | 37 | 78.72% |
+| `CURRENT` | 38 | 80.85% |
 | `HOOK_ONLY` | 0 | 0.00% |
 | `MIXED_MODEL` | 2 | 4.26% |
-| `MODEL_REQUIRED` | 8 | 17.02% |
+| `MODEL_REQUIRED` | 7 | 14.89% |
 | `REFERENCE_ONLY` | 0 | 0.00% |
 
 After excluding `REFERENCE_ONLY`, there are 47 implementable syntax groups.
-Of these, 37 are classified as `CURRENT`, and 10 remain incomplete.
+Of these, 38 are classified as `CURRENT`, and 9 remain incomplete.
 
-| Incomplete Class | Syntax Groups | Share of 10 Incomplete Groups |
+| Incomplete Class | Syntax Groups | Share of 9 Incomplete Groups |
 | --- | ---: | ---: |
 | `HOOK_ONLY` | 0 | 0.00% |
-| `MIXED_MODEL` | 2 | 20.00% |
-| `MODEL_REQUIRED` | 8 | 80.00% |
+| `MIXED_MODEL` | 2 | 22.22% |
+| `MODEL_REQUIRED` | 7 | 77.78% |
 
 ## Conclusion
 
@@ -48,6 +48,14 @@ The Oracle `MERGE` `CURRENT` boundary includes an action `WHERE` on a matched
 UPDATE, an attached `DELETE WHERE` on that same UPDATE branch, and a
 conditional not-matched INSERT. Two executable cases and 8 independent patches
 verify this boundary.
+
+The Oracle hierarchical-query `CURRENT` boundary includes `START WITH`,
+`CONNECT BY`, unary `PRIOR`, `LEVEL`, `CONNECT_BY_ROOT`,
+`CONNECT_BY_ISLEAF`, `CONNECT_BY_ISCYCLE`, `NOCYCLE`, and compound hierarchy
+conditions. Source text must place `START WITH` before `CONNECT BY`. The
+executable matrix contains 4 `final` cases and 20 independent patches; the
+reverse clause order with `CONNECT BY` before `START WITH` is outside the
+current boundary.
 
 `RETURNING ... INTO` covers one result target and one colon-prefixed host bind
 in `INSERT`, `UPDATE`, and `DELETE`; multiple targets, multiple binds, and

@@ -2069,6 +2069,10 @@ _copySelectStmt(const SelectStmt *from)
 	COPY_NODE_FIELD(targetList);
 	COPY_NODE_FIELD(fromClause);
 	COPY_NODE_FIELD(whereClause);
+	COPY_NODE_FIELD(startWithClause);
+	COPY_NODE_FIELD(connectByClause);
+	COPY_SCALAR_FIELD(connectByNoCycle);
+	COPY_SCALAR_FIELD(connectByFirst);
 	COPY_NODE_FIELD(groupClause);
 	COPY_SCALAR_FIELD(groupDistinct);
 	COPY_NODE_FIELD(havingClause);

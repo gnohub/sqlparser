@@ -40,10 +40,18 @@ The four Vastbase modes are verified by executable regression matrices:
 | `vastbase-oracle` | `tests/cases/vastbase_oracle_dialect_input.json` | `tests/unit/test_vastbase_oracle_dialect_case_matrix.c` | 217 | 0 | 217 |
 | `vastbase-mysql` | `tests/cases/vastbase_mysql_dialect_input.json` | `tests/unit/test_vastbase_mysql_dialect_case_matrix.c` | 254 | 0 | 254 |
 | `vastbase-postgresql` | `tests/cases/vastbase_postgresql_dialect_input.json` | `tests/unit/test_vastbase_postgresql_dialect_case_matrix.c` | 199 | 0 | 199 |
-| `vastbase-sqlserver` | `tests/cases/vastbase_sqlserver_dialect_input.json` | `tests/unit/test_vastbase_sqlserver_dialect_case_matrix.c` | 600 | 0 | 600 |
+| `vastbase-sqlserver` | `tests/cases/vastbase_sqlserver_dialect_input.json` | `tests/unit/test_vastbase_sqlserver_dialect_case_matrix.c` | 601 | 0 | 601 |
 
 The `vastbase-sqlserver` mode includes SQL Server DML `OUTPUT` result channels
 and `IF...ELSE` control flow.
+
+The `vastbase-sqlserver` mode supports a basic `CONNECT BY` condition.
+`START WITH`, `PRIOR`, `NOCYCLE`, and `CONNECT_BY_ROOT` are outside this
+compatibility entry's support boundary.
+Within a basic `CONNECT BY` query block, `CONNECT_BY_ROOT expr` without an
+explicit `AS` is rejected as an out-of-bound hierarchy operator. An ordinary
+field with the same name remains available through an explicit `AS` alias or a
+delimited identifier.
 
 The `vastbase-oracle` mode supports single-target `RETURNING ... INTO :bind`
 on `INSERT ... VALUES`, `UPDATE`, and `DELETE`. This boundary includes one

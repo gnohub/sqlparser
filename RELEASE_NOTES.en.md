@@ -1,81 +1,91 @@
-# v2.15.2 Release Notes
+# v2.15.3 Release Notes
 
-`v2.15.2` adds structured parsing, View, and patch support for an attached
-`DELETE WHERE` in Oracle and Dameng MERGE matched UPDATE actions while
-preserving the existing independent DELETE-action semantics in PostgreSQL and
-SQL Server.
+`v2.15.3` adds structured parsing, Query Graph, and patch support for Oracle
+and Dameng hierarchical queries, together with the verified basic
+`CONNECT BY` form in Vastbase-SQLServer.
 
 ## Supported Boundary
 
-- Oracle and Dameng support
-  `WHEN MATCHED THEN UPDATE SET ... [WHERE ...] DELETE WHERE ...`.
-- `DELETE WHERE` is attached to the matched UPDATE action and evaluates the
-  updated target row. The Query Graph does not create an independent DELETE
-  branch for it.
-- PostgreSQL and SQL Server `WHEN MATCHED ... THEN DELETE` actions continue to
-  use independent MERGE branches.
-- This release does not add MERGE support to MySQL or declare this syntax for
-  any Vastbase compatibility mode.
-- The attached DELETE form requires both `WHERE` and a condition expression;
-  a bare `DELETE` remains unsupported.
+- Oracle supports `START WITH ... CONNECT BY [NOCYCLE] ...`, together with
+  `PRIOR`, `LEVEL`, `CONNECT_BY_ROOT`, `CONNECT_BY_ISLEAF`, and
+  `CONNECT_BY_ISCYCLE`. Oracle mode does not accept the reversed
+  `CONNECT BY ... START WITH ...` clause order.
+- Dameng supports `START WITH`, `CONNECT BY [NOCYCLE]`, `PRIOR`, `LEVEL`, and
+  `CONNECT_BY_ROOT`, and preserves both `START WITH ... CONNECT BY ...` and
+  `CONNECT BY ... START WITH ...` source orders.
+- Vastbase-SQLServer supports only a basic `CONNECT BY` condition.
+  `START WITH`, `PRIOR`, `NOCYCLE`, and `CONNECT_BY_ROOT` are outside this
+  release's supported boundary for that mode.
+- Hierarchical context is local to the current SELECT query block. A nested
+  SELECT does not inherit pseudo-column or `PRIOR` state from its parent, and
+  the delimited identifier `"LEVEL"` retains ordinary field semantics.
 
-## Query Graph and Selectors
+## Query Graph
 
-- A matched UPDATE branch can expose both `condition_selector` and
-  `delete_condition_selector`, addressing the action `WHERE` and attached
-  `DELETE WHERE` predicates independently.
-- A root MERGE uses `stmt[S].merge_delete_condition[W]`; a nested MERGE uses
-  `stmt[S].merge_delete_condition[D][W]`.
-- `sqlparser_selector_clause_sql()` returns the condition expression without
-  the `DELETE WHERE` keywords.
-- `sqlparser_selector_set_clause_sql()` and `SQLPARSER_PATCH_REPLACE` can
-  replace either an ordinary branch condition or an attached delete condition.
+- `sqlparser_clause_kind_t` appends
+  `SQLPARSER_CLAUSE_KIND_START_WITH = 11` and
+  `SQLPARSER_CLAUSE_KIND_CONNECT_BY = 12`.
+- `START WITH` and `CONNECT BY` do not create a dedicated hierarchy object.
+  Their fields, values, and predicates remain in `fields[]`, `values[]`, and
+  `predicates[]` with a `start_with` or `connect_by` clause.
+- Hierarchical pseudo-columns use `pseudo: true` in `fields[]`; field
+  occurrences inside the `PRIOR` operand use `prior: true`; and
+  `CONNECT BY NOCYCLE` marks only the clause's root predicate with
+  `nocycle: true`.
+- A `CONNECT_BY_ROOT` target remains an expression. Its underlying field uses
+  the existing `target_path` to record the operator path. No target kind,
+  selector, or dedicated patch type is added.
+- Condition-related occurrences are built in the semantic order `WHERE`,
+  `START WITH`, `CONNECT BY`, `GROUP BY` / `HAVING`, window clauses, and
+  `ORDER BY`. Selectors remain generic AST-descriptor locations and should be
+  treated as opaque paths.
 
 ## Patch and Deparse
 
-- A MERGE assignment bounded by a comma, action `WHERE`, attached
-  `DELETE WHERE`, or a following `WHEN` uses a local source edit.
-- Assignment, ordinary branch-condition, and attached-delete-condition patches
-  replace only the selected source interval. Other branches, line breaks,
-  whitespace, keyword case, and identifier delimiters remain byte-preserved.
-- Patched SQL is reparsed and checked against the expected View; the attached
-  delete predicate remains associated with its original UPDATE branch.
+- Relation, field, value, and SELECT-target changes reuse existing selectors
+  and patch types.
+- Replacements with an exact source interval use local source edits and change
+  only the selected interval. Unchanged hierarchical-clause order, line
+  breaks, whitespace, keyword case, and identifier delimiters remain
+  byte-preserved.
+- Oracle, Dameng, and Vastbase-SQLServer preprocessing preserves source
+  mappings for internal hierarchy keywords. Bind-state rebuilding after a
+  patch traverses both `START WITH` and `CONNECT BY` expressions.
 
 ## API and Compatibility
 
-- `sqlparser_selector_kind_t` appends
-  `SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION = 25`.
-- `sqlparser_graph_dml_branch_t` appends `delete_condition_selector` and
-  `has_delete_condition_selector`.
+- `sqlparser_graph_field_t` appends `pseudo` and `prior`, while
+  `sqlparser_graph_predicate_t` appends `nocycle`.
 - This release adds no public functions or resource-ownership rules.
-- The public structure layout is extended. C applications should be rebuilt
-  against the 2.15.2 headers.
+- The public enum gains values and public structures gain fields. C
+  applications should be rebuilt against the 2.15.3 headers.
 - The shared-library ABI major remains `libsqlparser.so.0`.
 
 ## Cases and Documentation
 
-- Oracle adds two final cases covering an action `WHERE`, attached
-  `DELETE WHERE`, and conditional INSERT in one MERGE, plus a matched UPDATE
-  with only an attached delete predicate.
-- Dameng adds one final case covering coexisting action and attached-delete
-  predicates.
-- PostgreSQL and SQL Server each add one final case covering independent
-  matched DELETE and UPDATE actions followed by a not-matched INSERT.
-- This release adds five final cases and 17 independent patches. The nine
-  current fixtures contain 2,772 final cases and 8,989 patches.
-- English and Chinese View JSON, API, dialect-support, official-syntax, and
-  case-matrix documentation are synchronized.
+- Oracle adds four final cases and 20 patches covering basic hierarchy,
+  compound conditions, `CONNECT_BY_ROOT`, `NOCYCLE`, and the
+  `CONNECT_BY_ISLEAF` / `CONNECT_BY_ISCYCLE` pseudo-columns.
+- Dameng adds four final cases and 20 patches covering both clause orders,
+  both parent-child field orientations, `CONNECT_BY_ROOT`, and `NOCYCLE`.
+- Vastbase-SQLServer adds one final case and five patches covering basic
+  `CONNECT BY` while keeping ordinary `WHERE` / `ORDER BY` and hierarchy
+  conditions distinct.
+- This release adds nine final cases and 45 independent patches. The nine
+  current fixtures contain 2,781 final cases and 9,034 patches.
 
 ## Validation
 
-- All nine case matrices completed 2,772 cases and 8,989 patches with zero
-  failures.
+- Oracle regression completed 248 cases and 849 patches, Dameng completed
+  174 cases and 633 patches, and Vastbase-SQLServer completed 601 cases and
+  1,847 patches, all with zero failures.
 - Original deparse, View JSON, patch deparse, and runner error counts were all
   zero.
-- Core API tests passed, covering root and nested selectors, condition reads
-  and replacements, dialect restrictions, and bare-DELETE rejection.
-- A targeted Valgrind run completed 1,040,125 allocations and 1,040,125 frees;
-  it exited with `0 bytes in 0 blocks` and zero errors.
+- Core API tests passed, covering query-block context isolation, dialect
+  boundaries, exact source deparse, post-patch reparse, and failed-patch
+  rollback.
+- Targeted Valgrind checks for the relevant dialect targets exited with
+  `0 bytes in 0 blocks` and zero errors.
 
 Vendored `libpg_query` tag: `17-6.2.2`.
 Vendored Jansson version: `2.15`.

@@ -127,7 +127,7 @@ IF @enabled = 1 SELECT id FROM users ELSE SELECT id FROM archived_users
 | `fields` | SQL 文本中出现的字段引用 occurrence；非空时存在 |
 | `values` | 与字段或 SELECT target 关联的值，以及复合 DML assignment 右侧表达式中的 literal、bind 和 DEFAULT occurrence；分页或伪列 bind 不进入该数组；非空时存在 |
 | `sets` | `UNION`、`UNION ALL`、`INTERSECT`、`EXCEPT/MINUS` 等集合运算；非空时存在 |
-| `predicates` | `WHERE`、`ON`、`HAVING` 等条件中的谓词树节点；非空时存在 |
+| `predicates` | `WHERE`、`ON`、`HAVING`、`START WITH`、`CONNECT BY` 等条件中的谓词树节点；非空时存在 |
 | `session` | 数据库、Schema、角色、身份、事务特征或会话参数操作；仅具有会话状态语义时存在 |
 | `dml` | 唯一根 DML 及其嵌套 DML；当前 statement 恰有一个根 DML 时存在 |
 | `dmls` | 根 DML 数组，每个元素包含其嵌套 DML；当前 statement 有多个根 DML 时存在 |
@@ -215,7 +215,7 @@ FROM (
 | `ordinal` | 输出项在当前 SELECT 列表中的序号 |
 | `kind` | `field`、`star`、`qualified_star`、`literal`、`bind`、`subquery`、`pseudo`、`expression` |
 | `name` | 输出名或别名；没有时省略 |
-| `field` | 直接字段输出对应的 `fields[]` 索引；不适用时省略 |
+| `field` | 直接字段输出或层次伪列输出对应的 `fields[]` 索引；不适用时省略 |
 | `value` | literal 或 bind 输出项对应的 `values[]` 索引；不适用时省略 |
 | `sink_value` | host-bind sink 中接收该 DML 结果 target 的 `values[]` 输出 bind 索引；不适用时省略 |
 | `star_relations` | `*` 或 `alias.*` 覆盖的 relation 索引；非星号输出时省略 |
@@ -238,11 +238,13 @@ FROM (
 | 字段 | 说明 |
 | --- | --- |
 | `block` | 字段所在查询块 |
-| `clause` | 字段出现的子句，例如 `select_list`、`where`、`on`、`order_by` |
+| `clause` | 字段出现的子句，例如 `select_list`、`where`、`start_with`、`connect_by`、`on`、`order_by` |
 | `relation` | 稳定归属到的 relation 索引；无法唯一归属时省略 |
 | `candidate_relations` | 未限定字段在多 relation 作用域下的候选 relation 索引；没有候选列表时省略 |
 | `column` | 字段名；`*` 由 `targets[]` 表达，不作为普通 field 输出 |
 | `quoted_identifier` | `column` token 显式使用 `"..."`、MySQL 反引号或 SQL Server `[...]` 时为 `true`；否则省略 |
+| `pseudo` | 当前层次查询块中的未定界伪列 occurrence 为 `true`；否则省略 |
+| `prior` | 字段 occurrence 位于 `CONNECT BY` 的 `PRIOR` 操作数内时为 `true`；否则省略 |
 | `target` | 字段属于 SELECT 输出项时对应的 target 索引；否则省略 |
 | `selector` | 字段名 selector；没有可写节点时省略 |
 | `target_path` | 字段在输出表达式中的有序路径；直接字段或非输出字段时省略 |
@@ -335,9 +337,10 @@ FROM (
 | 字段 | 说明 |
 | --- | --- |
 | `block` | 谓词所在查询块 |
-| `clause` | 谓词所在子句，例如 `where`、`on`、`having` |
+| `clause` | 谓词所在子句，例如 `where`、`on`、`having`、`start_with`、`connect_by` |
 | `kind` | `comparison`、`bool`、`exists`、`expression`、`unknown` |
 | `bool_operator` | `bool` 谓词的组合类型：`and`、`or`、`not`；其他类型为 `none` |
+| `nocycle` | `CONNECT BY NOCYCLE` 的根谓词为 `true`；否则省略 |
 | `operator` | 比较操作符；非比较谓词时省略 |
 | `operator_kind` | 操作符结构化分类；非比较谓词时省略 |
 | `left_field` | 比较左侧字段索引；没有稳定字段侧时省略 |
@@ -346,6 +349,15 @@ FROM (
 | `children` | `AND`、`OR`、`NOT` 的子谓词索引数组；非组合谓词时省略 |
 
 `field = literal/bind` 使用 `left_field + value` 表达；`field = field` 使用 `left_field + right_field`，并在 `values[]` 中以 `kind = "field"` 记录来源字段。无法安全拆分字段和值两侧的条件会保留为 `kind = "expression"`，避免把复杂表达式误判为直接字段传递。
+
+### 层次查询表示
+
+- `START WITH` 与 `CONNECT BY` 不生成独立对象，其字段、值和谓词分别进入既有 `fields[]`、`values[]`、`predicates[]`，并使用 `clause = "start_with"` 或 `clause = "connect_by"`。
+- 当前查询块包含 `CONNECT BY` 时，未使用标识符定界符的 `LEVEL`、`CONNECT_BY_ISLEAF`、`CONNECT_BY_ISCYCLE` 作为 relationless field 输出 `pseudo: true`。这些伪列位于 SELECT 列表时，`targets[].kind` 为 `pseudo`，`targets[].field` 回指唯一的 field occurrence。带定界符的 `"LEVEL"` 和不含 `CONNECT BY` 的查询块保持普通字段语义；嵌套 SELECT 不继承外层层次上下文。
+- `PRIOR` 透明作用于其完整操作数，操作数内每个字段 occurrence 输出 `prior: true`；该标记不传播到嵌套 SELECT。
+- `CONNECT_BY_ROOT` 不增加 target kind。SELECT target 保持 `kind = "expression"`，其底层字段在 `target_path` 中输出 `{ "kind": "operator", "name": "CONNECT_BY_ROOT", "arg_index": 0 }`。
+- `NOCYCLE` 只在 `CONNECT BY` 根 predicate 上输出 `nocycle: true`。
+- 同一 SELECT 的条件相关 occurrence 按 `where`、`start_with`、`connect_by`、`group_by` / `having`、窗口、`order_by` 的语义遍历顺序进入 View 数组。selector 仍由通用 AST descriptor 遍历生成，必须作为不透明定位路径使用，不能按源文本子句顺序推导序号。
 
 ## session
 

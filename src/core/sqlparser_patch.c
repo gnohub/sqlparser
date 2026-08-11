@@ -1036,6 +1036,11 @@ static sqlparser_status_t sqlparser_patch_sqlserver_surface_eligible(
 		*out_eligible = 1;
 		return SQLPARSER_STATUS_OK;
 	}
+	if (handle->dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER &&
+	    stmt->connect_by_clause != NULL) {
+		*out_eligible = 1;
+		return SQLPARSER_STATUS_OK;
+	}
 	if (stmt->where_clause != NULL) {
 		return SQLPARSER_STATUS_OK;
 	}

@@ -221,6 +221,10 @@ bind 字段规则：
 | `SQLPARSER_CLAUSE_KIND_DML_RESULT` | `dml_result` | DML 结果输出列表 |
 | `SQLPARSER_CLAUSE_KIND_CONDITION` | `condition` | 控制流条件表达式 |
 | `SQLPARSER_CLAUSE_KIND_WINDOW_PARTITION` | `window_partition` | 命名窗口定义的 PARTITION BY 列表 |
+| `SQLPARSER_CLAUSE_KIND_START_WITH` | `start_with` | 层次查询起始条件 |
+| `SQLPARSER_CLAUSE_KIND_CONNECT_BY` | `connect_by` | 层次查询递归连接条件 |
+
+两个层次查询枚举值追加在既有编号之后：`SQLPARSER_CLAUSE_KIND_START_WITH = 11`，`SQLPARSER_CLAUSE_KIND_CONNECT_BY = 12`。
 
 `sqlparser_graph_dml_result_kind_t`：
 
@@ -625,7 +629,7 @@ sqlparser_status_t sqlparser_statement_query_graph(
 | `sqlparser_query_graph_field_at()` | 读取字段 occurrence |
 | `sqlparser_query_graph_value_at()` | 读取 query graph value |
 | `sqlparser_query_graph_set_at()` | 读取集合运算节点 |
-| `sqlparser_query_graph_predicate_at()` | 读取 WHERE/ON/HAVING 谓词节点 |
+| `sqlparser_query_graph_predicate_at()` | 读取 WHERE、ON、HAVING、START WITH 或 CONNECT BY 谓词节点 |
 | `sqlparser_query_graph_session()` | 读取当前语句的会话状态操作 |
 | `sqlparser_query_graph_session_item_at()` | 读取会话状态目标 |
 | `sqlparser_query_graph_session_value_at()` | 读取会话状态值 |
@@ -649,10 +653,10 @@ sqlparser_status_t sqlparser_statement_query_graph(
 | `sqlparser_graph_block_t` | 查询块，持有 relation、target 和 predicate span |
 | `sqlparser_graph_relation_t` | SQL 中出现的 base、derived、cte 或 dual relation；`quoted_identifier` 表示对象名 token 是否显式使用支持的标识符定界符 |
 | `sqlparser_graph_target_t` | 查询或 DML 结果输出项，包含输出顺序、`*` 来源、selector 和可选 sink value 关联 |
-| `sqlparser_graph_field_t` | SQL 中出现的字段 occurrence；`quoted_identifier` 表示列名 token 是否显式使用支持的标识符定界符 |
+| `sqlparser_graph_field_t` | SQL 中出现的字段 occurrence；`quoted_identifier` 表示列名 token 是否显式使用支持的标识符定界符，`pseudo` / `prior` 表示层次查询 occurrence 语义 |
 | `sqlparser_graph_value_t` | query graph 中的 literal、bind、default、expression 或 field 值 |
 | `sqlparser_graph_set_t` | `UNION`、`UNION ALL`、`INTERSECT`、`EXCEPT/MINUS` 分支关系 |
-| `sqlparser_graph_predicate_t` | WHERE、ON、HAVING 中的比较、组合、EXISTS 或表达式谓词 |
+| `sqlparser_graph_predicate_t` | WHERE、ON、HAVING、START WITH、CONNECT BY 中的比较、组合、EXISTS 或表达式谓词；`nocycle` 标记 CONNECT BY 根谓词 |
 | `sqlparser_graph_session_t` | 当前语句的会话状态操作和 item 数量 |
 | `sqlparser_graph_session_item_t` | 会话状态作用域、目标和 value span |
 | `sqlparser_graph_session_value_t` | 会话状态的标识符、关键字、字面量、bind 或表达式值 |
@@ -673,7 +677,11 @@ sqlparser_status_t sqlparser_statement_query_graph(
 - `targets[].star_relations` 表达 `*` 或 `alias.*` 覆盖的 relation。
 - `targets[].source_block_index` 表达星号或子查询 target 的来源 block。
 - `sets[].branch_blocks` 表达集合运算左右分支。
-- `predicates[]` 表达 `WHERE`、`ON`、`HAVING` 中的谓词树；`children` span 表达 `AND`、`OR`、`NOT` 的子谓词。
+- `predicates[]` 表达 `WHERE`、`ON`、`HAVING`、`START WITH`、`CONNECT BY` 中的谓词树；`children` span 表达 `AND`、`OR`、`NOT` 的子谓词。
+- 层次查询字段和值复用 `fields[]`、`values[]` 和 `predicates[]`。`START WITH` 与 `CONNECT BY` occurrence 分别使用 `SQLPARSER_CLAUSE_KIND_START_WITH` 和 `SQLPARSER_CLAUSE_KIND_CONNECT_BY`；同一 SELECT 中的条件相关 occurrence 按 `WHERE`、`START WITH`、`CONNECT BY`、`GROUP BY` / `HAVING`、窗口与 `ORDER BY` 的语义遍历顺序构建。selector 仍来自通用 AST descriptor 遍历，应作为不透明定位路径使用，不能按源文本子句顺序推导序号。
+- 当前查询块存在 `CONNECT BY` 时，未加标识符定界符的 `LEVEL`、`CONNECT_BY_ISLEAF` 和 `CONNECT_BY_ISCYCLE` 使用 `sqlparser_graph_field_t.pseudo = 1`，不关联 relation；对应 SELECT pseudo target 通过 `field_index` 回指该字段。带定界符的 `"LEVEL"` 和不含 `CONNECT BY` 的查询块保持普通字段语义，嵌套 SELECT 不继承外层层次上下文。
+- `PRIOR` 透明标记其操作数内的字段 occurrence，设置 `sqlparser_graph_field_t.prior = 1`，且仅适用于当前 `CONNECT BY` 条件。`CONNECT_BY_ROOT` 的 SELECT target 仍为 `SQLPARSER_GRAPH_TARGET_EXPRESSION`；其底层字段通过单个 `target_path` entry 表达，`kind = "operator"`、`name = "CONNECT_BY_ROOT"`、`arg_index = 0`。
+- `CONNECT BY NOCYCLE` 在 CONNECT BY 根 predicate 上设置 `sqlparser_graph_predicate_t.nocycle = 1`。该能力不增加 hierarchy 专用对象、selector、patch 类型或公开函数；字段、值、relation 与 SELECT target 改写继续使用既有 selector 和 patch 类型。
 - `field = literal/bind` 谓词通过 `left_field_index + value_index` 表达；`field = field` 谓词通过 `left_field_index + right_field_index` 表达，并在 `values[]` 中以 `SQLPARSER_GRAPH_VALUE_FIELD` 记录右侧来源字段。
 - 字段引用如果不能仅凭 SQL 唯一归属，`has_relation` 为 0，`candidate_relations` 给出当前 scope 候选 relation。
 - `sqlparser_graph_dml_t.insert_mode` 区分 `VALUES`、`SELECT`、`INSERT ALL`、`INSERT FIRST`、MySQL `INSERT ... SET` 以及 `REPLACE` 的 `VALUES`、`SELECT`、`SET` 形态。

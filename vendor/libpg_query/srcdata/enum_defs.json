@@ -6184,760 +6184,780 @@
           "value": 589
         },
         {
-          "name": "PLACING",
+          "name": "PG_QUERY_INTERNAL_CONNECT_BY",
           "value": 590
         },
         {
-          "name": "PLAN",
+          "name": "PG_QUERY_INTERNAL_CONNECT_BY_ROOT",
           "value": 591
         },
         {
-          "name": "PLANS",
+          "name": "PG_QUERY_INTERNAL_NOCYCLE",
           "value": 592
         },
         {
-          "name": "POLICY",
+          "name": "PG_QUERY_INTERNAL_PRIOR",
           "value": 593
         },
         {
-          "name": "POSITION",
+          "name": "PG_QUERY_INTERNAL_START_WITH",
           "value": 594
         },
         {
-          "name": "PRECEDING",
+          "name": "PLACING",
           "value": 595
         },
         {
-          "name": "PRECISION",
+          "name": "PLAN",
           "value": 596
         },
         {
-          "name": "PRESERVE",
+          "name": "PLANS",
           "value": 597
         },
         {
-          "name": "PREPARE",
+          "name": "POLICY",
           "value": 598
         },
         {
-          "name": "PREPARED",
+          "name": "POSITION",
           "value": 599
         },
         {
-          "name": "PRIMARY",
+          "name": "PRECEDING",
           "value": 600
         },
         {
-          "name": "PRIOR",
+          "name": "PRECISION",
           "value": 601
         },
         {
-          "name": "PRIVILEGES",
+          "name": "PRESERVE",
           "value": 602
         },
         {
-          "name": "PROCEDURAL",
+          "name": "PREPARE",
           "value": 603
         },
         {
-          "name": "PROCEDURE",
+          "name": "PREPARED",
           "value": 604
         },
         {
-          "name": "PROCEDURES",
+          "name": "PRIMARY",
           "value": 605
         },
         {
-          "name": "PROGRAM",
+          "name": "PRIOR",
           "value": 606
         },
         {
-          "name": "PUBLICATION",
+          "name": "PRIVILEGES",
           "value": 607
         },
         {
-          "name": "QUOTE",
+          "name": "PROCEDURAL",
           "value": 608
         },
         {
-          "name": "QUOTES",
+          "name": "PROCEDURE",
           "value": 609
         },
         {
-          "name": "RANGE",
+          "name": "PROCEDURES",
           "value": 610
         },
         {
-          "name": "READ",
+          "name": "PROGRAM",
           "value": 611
         },
         {
-          "name": "REAL",
+          "name": "PUBLICATION",
           "value": 612
         },
         {
-          "name": "REASSIGN",
+          "name": "QUOTE",
           "value": 613
         },
         {
-          "name": "RECHECK",
+          "name": "QUOTES",
           "value": 614
         },
         {
-          "name": "RECURSIVE",
+          "name": "RANGE",
           "value": 615
         },
         {
-          "name": "REF_P",
+          "name": "READ",
           "value": 616
         },
         {
-          "name": "REFERENCES",
+          "name": "REAL",
           "value": 617
         },
         {
-          "name": "REFERENCING",
+          "name": "REASSIGN",
           "value": 618
         },
         {
-          "name": "REFRESH",
+          "name": "RECHECK",
           "value": 619
         },
         {
-          "name": "REINDEX",
+          "name": "RECURSIVE",
           "value": 620
         },
         {
-          "name": "RELATIVE_P",
+          "name": "REF_P",
           "value": 621
         },
         {
-          "name": "RELEASE",
+          "name": "REFERENCES",
           "value": 622
         },
         {
-          "name": "RENAME",
+          "name": "REFERENCING",
           "value": 623
         },
         {
-          "name": "REPEATABLE",
+          "name": "REFRESH",
           "value": 624
         },
         {
-          "name": "REPLACE",
+          "name": "REINDEX",
           "value": 625
         },
         {
-          "name": "REPLICA",
+          "name": "RELATIVE_P",
           "value": 626
         },
         {
-          "name": "RESET",
+          "name": "RELEASE",
           "value": 627
         },
         {
-          "name": "RESTART",
+          "name": "RENAME",
           "value": 628
         },
         {
-          "name": "RESTRICT",
+          "name": "REPEATABLE",
           "value": 629
         },
         {
-          "name": "RETURN",
+          "name": "REPLACE",
           "value": 630
         },
         {
-          "name": "RETURNING",
+          "name": "REPLICA",
           "value": 631
         },
         {
-          "name": "RETURNS",
+          "name": "RESET",
           "value": 632
         },
         {
-          "name": "REVOKE",
+          "name": "RESTART",
           "value": 633
         },
         {
-          "name": "RIGHT",
+          "name": "RESTRICT",
           "value": 634
         },
         {
-          "name": "ROLE",
+          "name": "RETURN",
           "value": 635
         },
         {
-          "name": "ROLLBACK",
+          "name": "RETURNING",
           "value": 636
         },
         {
-          "name": "ROLLUP",
+          "name": "RETURNS",
           "value": 637
         },
         {
-          "name": "ROUTINE",
+          "name": "REVOKE",
           "value": 638
         },
         {
-          "name": "ROUTINES",
+          "name": "RIGHT",
           "value": 639
         },
         {
-          "name": "ROW",
+          "name": "ROLE",
           "value": 640
         },
         {
-          "name": "ROWS",
+          "name": "ROLLBACK",
           "value": 641
         },
         {
-          "name": "RULE",
+          "name": "ROLLUP",
           "value": 642
         },
         {
-          "name": "SAVEPOINT",
+          "name": "ROUTINE",
           "value": 643
         },
         {
-          "name": "SCALAR",
+          "name": "ROUTINES",
           "value": 644
         },
         {
-          "name": "SCHEMA",
+          "name": "ROW",
           "value": 645
         },
         {
-          "name": "SCHEMAS",
+          "name": "ROWS",
           "value": 646
         },
         {
-          "name": "SCROLL",
+          "name": "RULE",
           "value": 647
         },
         {
-          "name": "SEARCH",
+          "name": "SAVEPOINT",
           "value": 648
         },
         {
-          "name": "SECOND_P",
+          "name": "SCALAR",
           "value": 649
         },
         {
-          "name": "SECURITY",
+          "name": "SCHEMA",
           "value": 650
         },
         {
-          "name": "SELECT",
+          "name": "SCHEMAS",
           "value": 651
         },
         {
-          "name": "SEQUENCE",
+          "name": "SCROLL",
           "value": 652
         },
         {
-          "name": "SEQUENCES",
+          "name": "SEARCH",
           "value": 653
         },
         {
-          "name": "SERIALIZABLE",
+          "name": "SECOND_P",
           "value": 654
         },
         {
-          "name": "SERVER",
+          "name": "SECURITY",
           "value": 655
         },
         {
-          "name": "SESSION",
+          "name": "SELECT",
           "value": 656
         },
         {
-          "name": "SESSION_USER",
+          "name": "SEQUENCE",
           "value": 657
         },
         {
-          "name": "SET",
+          "name": "SEQUENCES",
           "value": 658
         },
         {
-          "name": "SETS",
+          "name": "SERIALIZABLE",
           "value": 659
         },
         {
-          "name": "SETOF",
+          "name": "SERVER",
           "value": 660
         },
         {
-          "name": "SHARE",
+          "name": "SESSION",
           "value": 661
         },
         {
-          "name": "SHOW",
+          "name": "SESSION_USER",
           "value": 662
         },
         {
-          "name": "SIMILAR",
+          "name": "SET",
           "value": 663
         },
         {
-          "name": "SIMPLE",
+          "name": "SETS",
           "value": 664
         },
         {
-          "name": "SKIP",
+          "name": "SETOF",
           "value": 665
         },
         {
-          "name": "SMALLINT",
+          "name": "SHARE",
           "value": 666
         },
         {
-          "name": "SNAPSHOT",
+          "name": "SHOW",
           "value": 667
         },
         {
-          "name": "SOME",
+          "name": "SIMILAR",
           "value": 668
         },
         {
-          "name": "SOURCE",
+          "name": "SIMPLE",
           "value": 669
         },
         {
-          "name": "SQL_P",
+          "name": "SKIP",
           "value": 670
         },
         {
-          "name": "STABLE",
+          "name": "SMALLINT",
           "value": 671
         },
         {
-          "name": "STANDALONE_P",
+          "name": "SNAPSHOT",
           "value": 672
         },
         {
-          "name": "START",
+          "name": "SOME",
           "value": 673
         },
         {
-          "name": "STATEMENT",
+          "name": "SOURCE",
           "value": 674
         },
         {
-          "name": "STATISTICS",
+          "name": "SQL_P",
           "value": 675
         },
         {
-          "name": "STDIN",
+          "name": "STABLE",
           "value": 676
         },
         {
-          "name": "STDOUT",
+          "name": "STANDALONE_P",
           "value": 677
         },
         {
-          "name": "STORAGE",
+          "name": "START",
           "value": 678
         },
         {
-          "name": "STORED",
+          "name": "STATEMENT",
           "value": 679
         },
         {
-          "name": "STRICT_P",
+          "name": "STATISTICS",
           "value": 680
         },
         {
-          "name": "STRING_P",
+          "name": "STDIN",
           "value": 681
         },
         {
-          "name": "STRIP_P",
+          "name": "STDOUT",
           "value": 682
         },
         {
-          "name": "SUBSCRIPTION",
+          "name": "STORAGE",
           "value": 683
         },
         {
-          "name": "SUBSTRING",
+          "name": "STORED",
           "value": 684
         },
         {
-          "name": "SUPPORT",
+          "name": "STRICT_P",
           "value": 685
         },
         {
-          "name": "SYMMETRIC",
+          "name": "STRING_P",
           "value": 686
         },
         {
-          "name": "SYSID",
+          "name": "STRIP_P",
           "value": 687
         },
         {
-          "name": "SYSTEM_P",
+          "name": "SUBSCRIPTION",
           "value": 688
         },
         {
-          "name": "SYSTEM_USER",
+          "name": "SUBSTRING",
           "value": 689
         },
         {
-          "name": "TABLE",
+          "name": "SUPPORT",
           "value": 690
         },
         {
-          "name": "TABLES",
+          "name": "SYMMETRIC",
           "value": 691
         },
         {
-          "name": "TABLESAMPLE",
+          "name": "SYSID",
           "value": 692
         },
         {
-          "name": "TABLESPACE",
+          "name": "SYSTEM_P",
           "value": 693
         },
         {
-          "name": "TARGET",
+          "name": "SYSTEM_USER",
           "value": 694
         },
         {
-          "name": "TEMP",
+          "name": "TABLE",
           "value": 695
         },
         {
-          "name": "TEMPLATE",
+          "name": "TABLES",
           "value": 696
         },
         {
-          "name": "TEMPORARY",
+          "name": "TABLESAMPLE",
           "value": 697
         },
         {
-          "name": "TEXT_P",
+          "name": "TABLESPACE",
           "value": 698
         },
         {
-          "name": "THEN",
+          "name": "TARGET",
           "value": 699
         },
         {
-          "name": "TIES",
+          "name": "TEMP",
           "value": 700
         },
         {
-          "name": "TIME",
+          "name": "TEMPLATE",
           "value": 701
         },
         {
-          "name": "TIMESTAMP",
+          "name": "TEMPORARY",
           "value": 702
         },
         {
-          "name": "TO",
+          "name": "TEXT_P",
           "value": 703
         },
         {
-          "name": "TRAILING",
+          "name": "THEN",
           "value": 704
         },
         {
-          "name": "TRANSACTION",
+          "name": "TIES",
           "value": 705
         },
         {
-          "name": "TRANSFORM",
+          "name": "TIME",
           "value": 706
         },
         {
-          "name": "TREAT",
+          "name": "TIMESTAMP",
           "value": 707
         },
         {
-          "name": "TRIGGER",
+          "name": "TO",
           "value": 708
         },
         {
-          "name": "TRIM",
+          "name": "TRAILING",
           "value": 709
         },
         {
-          "name": "TRUE_P",
+          "name": "TRANSACTION",
           "value": 710
         },
         {
-          "name": "TRUNCATE",
+          "name": "TRANSFORM",
           "value": 711
         },
         {
-          "name": "TRUSTED",
+          "name": "TREAT",
           "value": 712
         },
         {
-          "name": "TYPE_P",
+          "name": "TRIGGER",
           "value": 713
         },
         {
-          "name": "TYPES_P",
+          "name": "TRIM",
           "value": 714
         },
         {
-          "name": "UESCAPE",
+          "name": "TRUE_P",
           "value": 715
         },
         {
-          "name": "UNBOUNDED",
+          "name": "TRUNCATE",
           "value": 716
         },
         {
-          "name": "UNCONDITIONAL",
+          "name": "TRUSTED",
           "value": 717
         },
         {
-          "name": "UNCOMMITTED",
+          "name": "TYPE_P",
           "value": 718
         },
         {
-          "name": "UNENCRYPTED",
+          "name": "TYPES_P",
           "value": 719
         },
         {
-          "name": "UNION",
+          "name": "UESCAPE",
           "value": 720
         },
         {
-          "name": "UNIQUE",
+          "name": "UNBOUNDED",
           "value": 721
         },
         {
-          "name": "UNKNOWN",
+          "name": "UNCONDITIONAL",
           "value": 722
         },
         {
-          "name": "UNLISTEN",
+          "name": "UNCOMMITTED",
           "value": 723
         },
         {
-          "name": "UNLOGGED",
+          "name": "UNENCRYPTED",
           "value": 724
         },
         {
-          "name": "UNTIL",
+          "name": "UNION",
           "value": 725
         },
         {
-          "name": "UPDATE",
+          "name": "UNIQUE",
           "value": 726
         },
         {
-          "name": "USER",
+          "name": "UNKNOWN",
           "value": 727
         },
         {
-          "name": "USING",
+          "name": "UNLISTEN",
           "value": 728
         },
         {
-          "name": "VACUUM",
+          "name": "UNLOGGED",
           "value": 729
         },
         {
-          "name": "VALID",
+          "name": "UNTIL",
           "value": 730
         },
         {
-          "name": "VALIDATE",
+          "name": "UPDATE",
           "value": 731
         },
         {
-          "name": "VALIDATOR",
+          "name": "USER",
           "value": 732
         },
         {
-          "name": "VALUE_P",
+          "name": "USING",
           "value": 733
         },
         {
-          "name": "VALUES",
+          "name": "VACUUM",
           "value": 734
         },
         {
-          "name": "VARCHAR",
+          "name": "VALID",
           "value": 735
         },
         {
-          "name": "VARIADIC",
+          "name": "VALIDATE",
           "value": 736
         },
         {
-          "name": "VARYING",
+          "name": "VALIDATOR",
           "value": 737
         },
         {
-          "name": "VERBOSE",
+          "name": "VALUE_P",
           "value": 738
         },
         {
-          "name": "VERSION_P",
+          "name": "VALUES",
           "value": 739
         },
         {
-          "name": "VIEW",
+          "name": "VARCHAR",
           "value": 740
         },
         {
-          "name": "VIEWS",
+          "name": "VARIADIC",
           "value": 741
         },
         {
-          "name": "VOLATILE",
+          "name": "VARYING",
           "value": 742
         },
         {
-          "name": "WHEN",
+          "name": "VERBOSE",
           "value": 743
         },
         {
-          "name": "WHERE",
+          "name": "VERSION_P",
           "value": 744
         },
         {
-          "name": "WHITESPACE_P",
+          "name": "VIEW",
           "value": 745
         },
         {
-          "name": "WINDOW",
+          "name": "VIEWS",
           "value": 746
         },
         {
-          "name": "WITH",
+          "name": "VOLATILE",
           "value": 747
         },
         {
-          "name": "WITHIN",
+          "name": "WHEN",
           "value": 748
         },
         {
-          "name": "WITHOUT",
+          "name": "WHERE",
           "value": 749
         },
         {
-          "name": "WORK",
+          "name": "WHITESPACE_P",
           "value": 750
         },
         {
-          "name": "WRAPPER",
+          "name": "WINDOW",
           "value": 751
         },
         {
-          "name": "WRITE",
+          "name": "WITH",
           "value": 752
         },
         {
-          "name": "XML_P",
+          "name": "WITHIN",
           "value": 753
         },
         {
-          "name": "XMLATTRIBUTES",
+          "name": "WITHOUT",
           "value": 754
         },
         {
-          "name": "XMLCONCAT",
+          "name": "WORK",
           "value": 755
         },
         {
-          "name": "XMLELEMENT",
+          "name": "WRAPPER",
           "value": 756
         },
         {
-          "name": "XMLEXISTS",
+          "name": "WRITE",
           "value": 757
         },
         {
-          "name": "XMLFOREST",
+          "name": "XML_P",
           "value": 758
         },
         {
-          "name": "XMLNAMESPACES",
+          "name": "XMLATTRIBUTES",
           "value": 759
         },
         {
-          "name": "XMLPARSE",
+          "name": "XMLCONCAT",
           "value": 760
         },
         {
-          "name": "XMLPI",
+          "name": "XMLELEMENT",
           "value": 761
         },
         {
-          "name": "XMLROOT",
+          "name": "XMLEXISTS",
           "value": 762
         },
         {
-          "name": "XMLSERIALIZE",
+          "name": "XMLFOREST",
           "value": 763
         },
         {
-          "name": "XMLTABLE",
+          "name": "XMLNAMESPACES",
           "value": 764
         },
         {
-          "name": "YEAR_P",
+          "name": "XMLPARSE",
           "value": 765
         },
         {
-          "name": "YES_P",
+          "name": "XMLPI",
           "value": 766
         },
         {
-          "name": "ZONE",
+          "name": "XMLROOT",
           "value": 767
         },
         {
-          "name": "FORMAT_LA",
+          "name": "XMLSERIALIZE",
           "value": 768
         },
         {
-          "name": "NOT_LA",
+          "name": "XMLTABLE",
           "value": 769
         },
         {
-          "name": "NULLS_LA",
+          "name": "YEAR_P",
           "value": 770
         },
         {
-          "name": "WITH_LA",
+          "name": "YES_P",
           "value": 771
         },
         {
-          "name": "WITHOUT_LA",
+          "name": "ZONE",
           "value": 772
         },
         {
-          "name": "MODE_TYPE_NAME",
+          "name": "FORMAT_LA",
           "value": 773
         },
         {
-          "name": "MODE_PLPGSQL_EXPR",
+          "name": "NOT_LA",
           "value": 774
         },
         {
-          "name": "MODE_PLPGSQL_ASSIGN1",
+          "name": "NULLS_LA",
           "value": 775
         },
         {
-          "name": "MODE_PLPGSQL_ASSIGN2",
+          "name": "WITH_LA",
           "value": 776
         },
         {
-          "name": "MODE_PLPGSQL_ASSIGN3",
+          "name": "WITHOUT_LA",
           "value": 777
         },
         {
-          "name": "UMINUS",
+          "name": "MODE_TYPE_NAME",
           "value": 778
+        },
+        {
+          "name": "MODE_PLPGSQL_EXPR",
+          "value": 779
+        },
+        {
+          "name": "MODE_PLPGSQL_ASSIGN1",
+          "value": 780
+        },
+        {
+          "name": "MODE_PLPGSQL_ASSIGN2",
+          "value": 781
+        },
+        {
+          "name": "MODE_PLPGSQL_ASSIGN3",
+          "value": 782
+        },
+        {
+          "name": "UMINUS",
+          "value": 783
         }
       ],
       "comment": "   /* Put the tokens into the symbol table, so that GDB and other debuggers\n      know about them.  */\n"

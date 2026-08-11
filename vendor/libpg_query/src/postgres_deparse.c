@@ -1534,9 +1534,14 @@ static void deparseAnyOperator(DeparseState *state, List *op)
 // "qual_Op" and "qual_all_Op" in gram.y
 static void deparseQualOp(DeparseState *state, List *op)
 {
-	if (list_length(op) == 1 && isOp(strVal(linitial(op))))
+	const char *name = list_length(op) == 1 ? strVal(linitial(op)) : NULL;
+
+	if (name != NULL &&
+		(isOp(name) ||
+		 strcmp(name, "PRIOR") == 0 ||
+		 strcmp(name, "CONNECT_BY_ROOT") == 0))
 	{
-		deparseAppendStringInfoString(state, strVal(linitial(op)));
+		deparseAppendStringInfoString(state, name);
 	}
 	else
 	{
@@ -3399,6 +3404,24 @@ static void deparseSelectStmt(DeparseState *state, SelectStmt *stmt, DeparseNode
 
 			deparseFromClause(state, stmt->fromClause);
 			deparseWhereClause(state, stmt->whereClause);
+
+			for (int hierarchy_index = 0; hierarchy_index < 2; hierarchy_index++)
+			{
+				bool is_connect_by = stmt->connectByFirst ?
+					hierarchy_index == 0 : hierarchy_index == 1;
+				Node *condition = is_connect_by ?
+					stmt->connectByClause : stmt->startWithClause;
+
+				if (condition == NULL)
+					continue;
+				deparseAppendPartGroup(state,
+					is_connect_by ? "CONNECT BY" : "START WITH",
+					DEPARSE_PART_INDENT);
+				if (is_connect_by && stmt->connectByNoCycle)
+					deparseAppendStringInfoString(state, "NOCYCLE ");
+				deparseExpr(state, condition, DEPARSE_NODE_CONTEXT_A_EXPR);
+				deparseAppendStringInfoChar(state, ' ');
+			}
 
 			if (list_length(stmt->groupClause) > 0)
 			{

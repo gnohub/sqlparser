@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 170 条 `status = "final"` 用例。34 条用例包含 statement 级 `query_graph.session`，覆盖 `D002`、`D003`、`D003Q`、`D026`、`D089` 至 `D095` 和 `DM-*` session 用例；这 34 条用例均至少包含一个非空 session item。
+夹具包含 174 条 `status = "final"` 用例。34 条用例包含 statement 级 `query_graph.session`，覆盖 `D002`、`D003`、`D003Q`、`D026`、`D089` 至 `D095` 和 `DM-*` session 用例；这 34 条用例均至少包含一个非空 session item。
 
 用例提供 `query_graph.session` 时，矩阵测试会随完整 View JSON 精确校验 session action、item scope、target kind、name 及 value 字段。每条用例还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
 
@@ -186,6 +186,17 @@
 | D144 | `dameng-update-return-rowid-into-bind` | `UPDATE ... RETURN ROWID INTO :NAV_ROWID` | UPDATE `target_after` 引用、达梦 `RETURN` 关键字、sink bind、replace patch 和逐字节 deparse |
 | D145 | `dameng-delete-returning-rowid-into-bind` | `DELETE ... RETURNING ROWID INTO :NAV_ROWID` | DELETE `target_before` 引用、ROWID pseudo target、sink bind、replace patch 和逐字节 deparse |
 | D146 | `dameng-merge-update-delete-where` | matched UPDATE 同时含 action `WHERE` 和附属 `DELETE WHERE` | UPDATE 分支同时输出 `condition_selector` 与 `delete_condition_selector`，DELETE 条件不生成独立 action；3 个独立 patch 覆盖 assignment、action 条件值和 DELETE 条件值替换 |
+
+## 层次查询回归
+
+以下 4 条 final 用例定义达梦层次查询边界，包括 `START WITH ... CONNECT BY` 与 `CONNECT BY ... START WITH` 两种源文本顺序、`PRIOR` 的两种父子字段方向、`LEVEL`、`NOCYCLE` 和 `CONNECT_BY_ROOT`。每条用例包含 5 个独立 patch，合计 20 个，其中 16 个 `replace`、4 个 `insert_column`。
+
+| ID | 用例 | SQL 形态 | 覆盖内容 |
+| --- | --- | --- | --- |
+| D147 | `dameng-hierarchical-start-connect-prior-level` | `START WITH` 后接 `CONNECT BY PRIOR` + `LEVEL` | `start_with` / `connect_by` clause、relationless `LEVEL` pseudo target 和左侧 `PRIOR` 字段 occurrence |
+| D148 | `dameng-hierarchical-connect-start-source-order` | `CONNECT BY` 后接 `START WITH` | 反向源文本子句顺序逐字保留，View 仍按 START WITH、CONNECT BY 语义顺序构建 |
+| D149 | `dameng-hierarchical-prior-reverse-direction` | `PRIOR manager_id = employee_id` | `PRIOR` 位于比较左侧但作用字段方向与基础用例相反，field-to-field 归属保持明确 |
+| D150 | `dameng-hierarchical-connect-by-root-nocycle` | `CONNECT_BY_ROOT` + `LEVEL` + `CONNECT BY NOCYCLE` | expression target 的 operator `target_path`、relationless pseudo target 和 CONNECT BY 根 predicate 的 `nocycle` 标记 |
 
 ## 覆盖边界
 

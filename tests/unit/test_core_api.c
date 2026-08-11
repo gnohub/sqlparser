@@ -35187,6 +35187,652 @@ fail:
 	return 1;
 }
 
+static int test_oracle_hierarchical_query_graph_and_patch(void)
+{
+	static const char sql[] =
+		"SELECT CONNECT_BY_ROOT employee_id AS root_id, employee_id, manager_id, "
+		"LEVEL AS hierarchy_level, \"LEVEL\" AS quoted_level FROM employees "
+		"START WITH manager_id IS NULL "
+		"CONNECT BY NOCYCLE PRIOR employee_id = manager_id";
+	static const char expected_sql[] =
+		"SELECT CONNECT_BY_ROOT employee_id AS root_id, employee_id, department_id, "
+		"manager_id, LEVEL AS hierarchy_level, \"LEVEL\" AS quoted_level FROM employees "
+		"START WITH manager_id IS NULL "
+		"CONNECT BY NOCYCLE PRIOR \"PARENT_EMPLOYEE_ID\" = manager_id";
+	static const char plain_level_sql[] = "SELECT LEVEL FROM employees";
+	static const char nested_context_sql[] =
+		"SELECT LEVEL AS outer_level, (SELECT LEVEL FROM departments) AS inner_level, "
+		"(SELECT employee_id FROM departments) AS inner_employee "
+		"FROM employees CONNECT BY PRIOR employee_id = manager_id";
+	sqlparser_parse_options_t options;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_field_t field;
+	sqlparser_graph_predicate_t predicate;
+	sqlparser_graph_target_t target;
+	sqlparser_handle_t *handle;
+	sqlparser_patch_t patches[2];
+	sqlparser_patch_list_t patch_list;
+	sqlparser_selector_t prior_selector;
+	sqlparser_selector_t target_list_selector;
+	sqlparser_error_t error;
+	char *prior_selector_text;
+	char *target_list_selector_text;
+	size_t index;
+	int result;
+	int saw_connect_by_root;
+	int saw_level;
+	int saw_quoted_level;
+	int saw_nocycle;
+	int saw_prior;
+	int saw_start_with;
+	int saw_connect_by;
+	int saw_nested_employee;
+	int saw_nested_level;
+	int saw_outer_level;
+	int saw_outer_prior;
+	int saw_prior_leak;
+
+	handle = NULL;
+	prior_selector_text = NULL;
+	target_list_selector_text = NULL;
+	result = 1;
+	saw_connect_by_root = 0;
+	saw_level = 0;
+	saw_quoted_level = 0;
+	saw_nocycle = 0;
+	saw_prior = 0;
+	saw_start_with = 0;
+	saw_connect_by = 0;
+	saw_nested_employee = 0;
+	saw_nested_level = 0;
+	saw_outer_level = 0;
+	saw_outer_prior = 0;
+	saw_prior_leak = 0;
+	memset(&prior_selector, 0, sizeof(prior_selector));
+	memset(&target_list_selector, 0, sizeof(target_list_selector));
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	if (expect_status_ok(
+		    sqlparser_parse_with_options(
+			    sql,
+			    &options,
+			    &handle,
+			    &error),
+		    &error,
+		    "Oracle hierarchical query should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(
+			    handle,
+			    0U,
+			    &graph,
+			    &error),
+		    &error,
+		    "Oracle hierarchical query graph should build") != 0 ||
+	    expect_true(
+		    graph.relation_count == 1U &&
+			    graph.target_count == 5U &&
+			    graph.field_count == 8U &&
+			    graph.value_count == 1U &&
+			    graph.predicate_count == 2U,
+		    "Oracle hierarchical query graph counts mismatch") != 0) {
+		goto done;
+	}
+	for (index = 0U; index < graph.field_count; index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    &graph,
+				    index,
+				    &field,
+				    &error),
+			    &error,
+			    "Oracle hierarchical field should be readable") != 0) {
+			goto done;
+		}
+		if (field.clause == SQLPARSER_CLAUSE_KIND_START_WITH) {
+			saw_start_with = 1;
+		}
+		if (field.clause == SQLPARSER_CLAUSE_KIND_CONNECT_BY) {
+			saw_connect_by = 1;
+		}
+		if (field.pseudo && field.column_name != NULL &&
+		    strcmp(field.column_name, "LEVEL") == 0) {
+			if (expect_true(
+				    field.has_relation == 0 &&
+					    field.candidate_relations.count == 0U &&
+					    field.has_target != 0,
+				    "hierarchical LEVEL must be a target-linked relationless pseudo field") != 0) {
+				goto done;
+			}
+			saw_level = 1;
+		}
+		if (field.quoted_identifier && field.column_name != NULL &&
+		    strcmp(field.column_name, "LEVEL") == 0) {
+			if (expect_true(
+				    field.pseudo == 0 && field.has_relation != 0 &&
+					    field.has_target != 0,
+				    "quoted LEVEL must remain an ordinary field in a hierarchical query") != 0) {
+				goto done;
+			}
+			saw_quoted_level = 1;
+		}
+		if (field.prior) {
+			if (expect_true(
+				    field.clause == SQLPARSER_CLAUSE_KIND_CONNECT_BY &&
+					    field.column_name != NULL &&
+					    strcmp(field.column_name, "employee_id") == 0 &&
+					    field.has_selector != 0,
+				    "PRIOR must annotate only its CONNECT BY field occurrence") != 0) {
+				goto done;
+			}
+			prior_selector = field.selector;
+			saw_prior = 1;
+		}
+		if (field.target_path_count == 1U &&
+		    field.target_path[0].kind != NULL &&
+		    strcmp(field.target_path[0].kind, "operator") == 0 &&
+		    field.target_path[0].has_name &&
+		    strcmp(field.target_path[0].name, "CONNECT_BY_ROOT") == 0 &&
+		    field.target_path[0].arg_index == 0U) {
+			saw_connect_by_root = 1;
+		}
+	}
+	for (index = 0U; index < graph.predicate_count; index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_predicate_at(
+				    &graph,
+				    index,
+				    &predicate,
+				    &error),
+			    &error,
+			    "Oracle hierarchical predicate should be readable") != 0) {
+			goto done;
+		}
+		if (predicate.nocycle) {
+			if (expect_true(
+				    predicate.clause == SQLPARSER_CLAUSE_KIND_CONNECT_BY,
+				    "NOCYCLE must annotate the CONNECT BY root predicate") != 0) {
+				goto done;
+			}
+			saw_nocycle = 1;
+		}
+	}
+	if (expect_status_ok(
+		    sqlparser_query_graph_target_at(
+			    &graph,
+			    0U,
+			    &target,
+			    &error),
+		    &error,
+		    "CONNECT_BY_ROOT target should be readable") != 0 ||
+	    expect_true(
+		    target.kind == SQLPARSER_GRAPH_TARGET_EXPRESSION &&
+			    target.has_field == 0 &&
+			    target.has_target_list_selector != 0,
+		    "CONNECT_BY_ROOT must remain an expression target") != 0) {
+		goto done;
+	}
+	target_list_selector = target.target_list_selector;
+	if (expect_status_ok(
+		    sqlparser_query_graph_target_at(
+			    &graph,
+			    3U,
+			    &target,
+			    &error),
+		    &error,
+		    "LEVEL target should be readable") != 0 ||
+	    expect_true(
+		    target.kind == SQLPARSER_GRAPH_TARGET_PSEUDO &&
+			    target.has_field != 0,
+		    "hierarchical LEVEL target must point back to its pseudo field") != 0 ||
+	    expect_true(
+		    saw_connect_by_root && saw_level && saw_quoted_level && saw_nocycle &&
+			    saw_prior && saw_start_with && saw_connect_by,
+		    "Oracle hierarchical semantics should all be present") != 0 ||
+	    expect_status_ok(
+		    sqlparser_selector_format(
+			    &prior_selector,
+			    &prior_selector_text,
+			    &error),
+		    &error,
+		    "PRIOR field selector should format") != 0 ||
+	    expect_status_ok(
+		    sqlparser_selector_format(
+			    &target_list_selector,
+			    &target_list_selector_text,
+			    &error),
+		    &error,
+		    "hierarchical target-list selector should format") != 0) {
+		goto done;
+	}
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_REPLACE;
+	patches[0].selector = prior_selector_text;
+	patches[0].sql = "\"PARENT_EMPLOYEE_ID\"";
+	patches[1].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[1].selector = target_list_selector_text;
+	patches[1].index = 2U;
+	patches[1].sql = "department_id";
+	patch_list.items = patches;
+	patch_list.count = sizeof(patches) / sizeof(patches[0]);
+	if (expect_status_ok(
+		    sqlparser_apply_patch(
+			    handle,
+			    &patch_list,
+			    &error),
+		    &error,
+		    "hierarchical surface patches should succeed") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    expected_sql,
+		    "hierarchical surface patches should preserve clause syntax") != 0) {
+		goto done;
+	}
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+	if (expect_status_ok(
+		    sqlparser_parse_with_options(
+			    plain_level_sql,
+			    &options,
+			    &handle,
+			    &error),
+		    &error,
+		    "plain Oracle LEVEL column should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(
+			    handle,
+			    0U,
+			    &graph,
+			    &error),
+		    &error,
+		    "plain Oracle LEVEL graph should build") != 0 ||
+	    expect_true(
+		    graph.field_count == 1U && graph.target_count == 1U,
+		    "plain Oracle LEVEL graph counts should remain unchanged") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_field_at(
+			    &graph,
+			    0U,
+			    &field,
+			    &error),
+		    &error,
+		    "plain Oracle LEVEL field should be readable") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_target_at(
+			    &graph,
+			    0U,
+			    &target,
+			    &error),
+		    &error,
+		    "plain Oracle LEVEL target should be readable") != 0 ||
+	    expect_true(
+		    field.pseudo == 0 && field.has_relation != 0 &&
+			    target.kind == SQLPARSER_GRAPH_TARGET_FIELD &&
+			    target.has_field != 0,
+		    "LEVEL outside CONNECT BY must retain ordinary column semantics") != 0) {
+		goto done;
+	}
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+	if (expect_status_ok(
+		    sqlparser_parse_with_options(
+			    nested_context_sql,
+			    &options,
+			    &handle,
+			    &error),
+		    &error,
+		    "nested hierarchical context query should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(
+			    handle,
+			    0U,
+			    &graph,
+			    &error),
+		    &error,
+		    "nested hierarchical context graph should build") != 0) {
+		goto done;
+	}
+	for (index = 0U; index < graph.field_count; index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    &graph,
+				    index,
+				    &field,
+				    &error),
+			    &error,
+			    "nested hierarchical field should be readable") != 0) {
+			goto done;
+		}
+		if (field.prior) {
+			if (field.block_index == graph.root_block_index) {
+				saw_outer_prior = 1;
+			} else {
+				saw_prior_leak = 1;
+			}
+		}
+		if (field.column_name != NULL &&
+		    strcmp(field.column_name, "LEVEL") == 0) {
+			if (field.block_index == graph.root_block_index &&
+			    field.pseudo) {
+				saw_outer_level = 1;
+			} else if (field.block_index != graph.root_block_index &&
+				   !field.pseudo && field.has_relation) {
+				saw_nested_level = 1;
+			}
+		}
+		if (field.column_name != NULL &&
+		    strcmp(field.column_name, "employee_id") == 0 &&
+		    field.block_index != graph.root_block_index &&
+		    !field.prior && field.has_relation) {
+			saw_nested_employee = 1;
+		}
+	}
+	if (expect_true(
+		    saw_outer_level && saw_nested_level && saw_nested_employee &&
+			    saw_outer_prior &&
+			    !saw_prior_leak,
+		    "nested SELECT must not inherit outer hierarchy pseudo or PRIOR context") != 0) {
+		goto done;
+	}
+	result = 0;
+
+done:
+	sqlparser_string_free(target_list_selector_text);
+	sqlparser_string_free(prior_selector_text);
+	sqlparser_handle_destroy(handle);
+	return result;
+}
+
+static int test_hierarchical_query_dialect_gate(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		int accepted;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"SELECT id FROM t CONNECT BY PRIOR id = parent_id START WITH parent_id IS NULL",
+			0
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"SELECT id FROM t CONNECT BY PRIOR id = parent_id START WITH parent_id IS NULL",
+			1
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"SELECT id FROM t CONNECT BY parent_id = id",
+			1
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"SELECT id FROM t START WITH parent_id IS NULL CONNECT BY parent_id = id",
+			0
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"SELECT id FROM t CONNECT BY PRIOR id = parent_id",
+			0
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"SELECT id FROM t CONNECT BY NOCYCLE parent_id = id",
+			0
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"SELECT connect_by_root AS root_col FROM t CONNECT BY parent_id = id",
+			1
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"SELECT CONNECT_BY_ROOT AS CONNECT_BY_ROOT FROM t "
+			"CONNECT BY parent_id = id",
+			1
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"SELECT connect_by_root FROM t CONNECT BY parent_id = id",
+			1
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"SELECT CONNECT_BY_ROOT id FROM t CONNECT BY parent_id = id",
+			0
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"SELECT \"CONNECT_BY_ROOT\" id FROM t CONNECT BY parent_id = id",
+			1
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"SELECT prior, connect_by_root, nocycle FROM words",
+			1
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"SELECT prior, (SELECT id FROM tree CONNECT BY parent_id = id) "
+			"AS nested_id FROM words",
+			1
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"SELECT prior, connect_by_root, nocycle FROM words; "
+			"SELECT id FROM t CONNECT BY parent_id = id",
+			1
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"SELECT prior, connect_by_root, nocycle FROM words\nGO\n"
+			"SELECT id FROM t CONNECT BY parent_id = id",
+			1
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"SELECT * FROM start WITH (NOLOCK)",
+			1
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT id FROM t CONNECT BY parent_id = id",
+			0
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"SELECT id FROM t CONNECT BY parent_id = id",
+			0
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			"SELECT id FROM t CONNECT BY parent_id = id",
+			0
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT prior, start, connect, connect_by_root, nocycle FROM words",
+			1
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT * FROM connect by",
+			1
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"SELECT connect by FROM words",
+			1
+		},
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			"CREATE SEQUENCE hierarchy_sequence START WITH 1",
+			1
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"CREATE SEQUENCE hierarchy_sequence START WITH 1",
+			1
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"SELECT id FROM t START /*root*/ WITH parent_id IS NULL "
+			"CONNECT /*tree*/ BY PRIOR id = parent_id",
+			1
+		}
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	size_t index;
+	sqlparser_status_t status;
+
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[index].dialect;
+		status = sqlparser_parse_with_options(
+			cases[index].sql,
+			&options,
+			&handle,
+			&error);
+		if ((cases[index].accepted &&
+		     expect_status_ok(
+			     status,
+			     &error,
+			     "supported hierarchical dialect gate should accept SQL") != 0) ||
+		    (!cases[index].accepted &&
+		     expect_true(
+			     status != SQLPARSER_STATUS_OK &&
+				     handle == NULL,
+			     "unsupported hierarchical dialect gate should reject SQL") != 0)) {
+			fprintf(
+				stderr,
+				"FAIL: hierarchy gate case=%lu dialect=%d status=%d sql=%s\n",
+				(unsigned long)index,
+				(int)cases[index].dialect,
+				(int)status,
+				cases[index].sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (cases[index].accepted && handle == NULL) {
+			fprintf(
+				stderr,
+				"FAIL: accepted hierarchy gate case returned no handle: %lu\n",
+				(unsigned long)index);
+			return 1;
+		}
+		if (cases[index].accepted &&
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    cases[index].sql,
+			    "accepted hierarchy gate SQL should deparse exactly") != 0) {
+			fprintf(
+				stderr,
+				"FAIL: hierarchy gate deparse case=%lu dialect=%d sql=%s\n",
+				(unsigned long)index,
+				(int)cases[index].dialect,
+				cases[index].sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	return 0;
+}
+
+static int test_vastbase_hierarchical_target_patch_gate(void)
+{
+	static const char sql[] =
+		"SELECT ordinary_name AS id FROM t CONNECT BY parent_id = id";
+	static const char quoted_sql[] =
+		"SELECT \"CONNECT_BY_ROOT\" AS id FROM t CONNECT BY parent_id = id";
+	static const char explicit_sql[] =
+		"SELECT connect_by_root AS connect_by_root FROM t "
+		"CONNECT BY parent_id = id";
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_patch_list_t patch_list;
+	sqlparser_patch_t patch;
+	sqlparser_error_t error;
+	sqlparser_status_t status;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_VASTBASE_SQLSERVER;
+	if (expect_status_ok(
+		    sqlparser_parse_with_options(
+			    sql,
+			    &options,
+			    &handle,
+			    &error),
+		    &error,
+		    "Vastbase hierarchy target patch source should parse") != 0) {
+		return 1;
+	}
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = "stmt[0].select_target[0][0]";
+	patch.sql = "\"CONNECT_BY_ROOT\" AS id";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	status = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(
+		    status,
+		    &error,
+		    "quoted CONNECT_BY_ROOT target patch should remain an identifier") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    quoted_sql,
+		    "quoted CONNECT_BY_ROOT target patch should deparse exactly") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	patch.sql = "connect_by_root AS connect_by_root";
+	status = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(
+		    status,
+		    &error,
+		    "explicit CONNECT_BY_ROOT alias patch should remain an identifier") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    explicit_sql,
+		    "explicit CONNECT_BY_ROOT alias patch should deparse exactly") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	if (expect_status_ok(
+		    sqlparser_parse_with_options(
+			    sql,
+			    &options,
+			    &handle,
+			    &error),
+		    &error,
+		    "Vastbase hierarchy target rejection source should parse") != 0) {
+		return 1;
+	}
+	patch.sql = "CONNECT_BY_ROOT id";
+	status = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_true(
+		    status == SQLPARSER_STATUS_UNSUPPORTED,
+		    "implicit CONNECT_BY_ROOT target patch should be rejected") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    sql,
+		    "rejected CONNECT_BY_ROOT target patch must remain atomic") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
 int main(void)
 {
 	if (test_relation_patch_identifier_path_spelling() != 0) {
@@ -35412,6 +36058,15 @@ int main(void)
 		return 1;
 	}
 	if (test_query_graph_pseudo_predicate_semantics() != 0) {
+		return 1;
+	}
+	if (test_oracle_hierarchical_query_graph_and_patch() != 0) {
+		return 1;
+	}
+	if (test_hierarchical_query_dialect_gate() != 0) {
+		return 1;
+	}
+	if (test_vastbase_hierarchical_target_patch_gate() != 0) {
 		return 1;
 	}
 	if (test_query_graph_like_escape_semantics() != 0) {

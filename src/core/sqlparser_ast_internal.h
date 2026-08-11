@@ -421,6 +421,12 @@ int sqlparser_source_alias_has_explicit_as(
 	const char *sql,
 	size_t length,
 	size_t alias_offset);
+sqlparser_status_t sqlparser_res_target_alias_style(
+	const sqlparser_handle_t *handle,
+	const PgQuery__ResTarget *target,
+	int *out_known,
+	int *out_explicit_as,
+	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_clone_proto_node(
 	const PgQuery__Node *source,
 	PgQuery__Node **out_node,

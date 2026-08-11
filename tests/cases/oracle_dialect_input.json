@@ -34557,6 +34557,880 @@
           "deparse": "INSERT INTO typed_values (id, name, audit_flag, created_at, updated_at) VALUES (9101, 'manual-user', 1, DATE '2026-06-22', TIMESTAMP '2026-06-22 15:00:00');"
         }
       ]
+    },
+    {
+      "name": "oracle-hierarchical-basic-level-bind",
+      "sql": "SELECT employee_id, manager_id, LEVEL AS hierarchy_level FROM employees START WITH employee_id = :root_id CONNECT BY PRIOR employee_id = manager_id",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0,
+                    1
+                  ],
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "employee_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[0]",
+                  "target": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "manager_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[1]",
+                  "target": 1
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "LEVEL",
+                  "pseudo": true,
+                  "selector": "stmt[0].name[3]",
+                  "target": 2
+                },
+                {
+                  "block": 0,
+                  "clause": "start_with",
+                  "column": "employee_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[5]"
+                },
+                {
+                  "block": 0,
+                  "clause": "connect_by",
+                  "column": "employee_id",
+                  "prior": true,
+                  "relation": 0,
+                  "selector": "stmt[0].name[6]"
+                },
+                {
+                  "block": 0,
+                  "clause": "connect_by",
+                  "column": "manager_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[7]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "start_with",
+                  "kind": "comparison",
+                  "left_field": 3,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "connect_by",
+                  "kind": "comparison",
+                  "left_field": 4,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 5,
+                  "value": 1
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "employees"
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 0,
+                  "field": 0,
+                  "kind": "field",
+                  "name": "employee_id",
+                  "ordinal": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "field": 1,
+                  "kind": "field",
+                  "name": "manager_id",
+                  "ordinal": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "field": 2,
+                  "kind": "pseudo",
+                  "name": "hierarchy_level",
+                  "ordinal": 2,
+                  "selector": "stmt[0].select_target[0][2]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "values": [
+                {
+                  "bind_key": "root_id",
+                  "bind_kind": 2,
+                  "bind_position": 1,
+                  "bind_sql": ":root_id",
+                  "block": 0,
+                  "clause": "start_with",
+                  "field": 3,
+                  "field_match_kind": "direct_field",
+                  "kind": "bind",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[14]"
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "connect_by",
+                  "field": 4,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 5
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"ORG_EMPLOYEES\"",
+          "deparse": "SELECT employee_id, manager_id, LEVEL AS hierarchy_level FROM \"ORG_EMPLOYEES\" START WITH employee_id = :root_id CONNECT BY PRIOR employee_id = manager_id"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/4/selector",
+          "value": "\"PARENT_EMPLOYEE_ID\"",
+          "deparse": "SELECT employee_id, manager_id, LEVEL AS hierarchy_level FROM employees START WITH employee_id = :root_id CONNECT BY PRIOR \"PARENT_EMPLOYEE_ID\" = manager_id"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/0/selector",
+          "value": ":patched_root_id",
+          "deparse": "SELECT employee_id, manager_id, LEVEL AS hierarchy_level FROM employees START WITH employee_id = :patched_root_id CONNECT BY PRIOR employee_id = manager_id"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/2/selector",
+          "value": "\"patched_level\"",
+          "deparse": "SELECT employee_id, manager_id, \"patched_level\" FROM employees START WITH employee_id = :root_id CONNECT BY PRIOR employee_id = manager_id"
+        },
+        {
+          "action": "insert_column",
+          "target": "/statements/0/query_graph/targets/0/target_list_selector",
+          "value": "\"department_id\"",
+          "index": 2,
+          "deparse": "SELECT employee_id, manager_id, \"department_id\", LEVEL AS hierarchy_level FROM employees START WITH employee_id = :root_id CONNECT BY PRIOR employee_id = manager_id"
+        }
+      ]
+    },
+    {
+      "name": "oracle-hierarchical-compound-connect-where-depth",
+      "sql": "SELECT employee_id, manager_id, LEVEL AS hierarchy_level FROM employees WHERE status = :status START WITH manager_id IS NULL CONNECT BY manager_id = PRIOR employee_id AND LEVEL <= :max_depth",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4
+                  ],
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "employee_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[0]",
+                  "target": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "manager_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[1]",
+                  "target": 1
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "LEVEL",
+                  "pseudo": true,
+                  "selector": "stmt[0].name[3]",
+                  "target": 2
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "status",
+                  "relation": 0,
+                  "selector": "stmt[0].name[5]"
+                },
+                {
+                  "block": 0,
+                  "clause": "start_with",
+                  "column": "manager_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[6]"
+                },
+                {
+                  "block": 0,
+                  "clause": "connect_by",
+                  "column": "manager_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[7]"
+                },
+                {
+                  "block": 0,
+                  "clause": "connect_by",
+                  "column": "employee_id",
+                  "prior": true,
+                  "relation": 0,
+                  "selector": "stmt[0].name[8]"
+                },
+                {
+                  "block": 0,
+                  "clause": "connect_by",
+                  "column": "LEVEL",
+                  "pseudo": true,
+                  "selector": "stmt[0].name[9]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 3,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "start_with",
+                  "kind": "comparison",
+                  "left_field": 4,
+                  "operator": "IS NULL",
+                  "operator_kind": "unknown"
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "and",
+                  "children": [
+                    3,
+                    4
+                  ],
+                  "clause": "connect_by",
+                  "kind": "bool"
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "connect_by",
+                  "kind": "comparison",
+                  "left_field": 5,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 6,
+                  "value": 1
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "connect_by",
+                  "kind": "comparison",
+                  "left_field": 7,
+                  "operator": "<=",
+                  "operator_kind": "unknown",
+                  "value": 2
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "employees"
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 0,
+                  "field": 0,
+                  "kind": "field",
+                  "name": "employee_id",
+                  "ordinal": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "field": 1,
+                  "kind": "field",
+                  "name": "manager_id",
+                  "ordinal": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "field": 2,
+                  "kind": "pseudo",
+                  "name": "hierarchy_level",
+                  "ordinal": 2,
+                  "selector": "stmt[0].select_target[0][2]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "values": [
+                {
+                  "bind_key": "status",
+                  "bind_kind": 2,
+                  "bind_position": 1,
+                  "bind_sql": ":status",
+                  "block": 0,
+                  "clause": "where",
+                  "field": 3,
+                  "field_match_kind": "direct_field",
+                  "kind": "bind",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[14]"
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "connect_by",
+                  "field": 5,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 6
+                },
+                {
+                  "bind_key": "max_depth",
+                  "bind_kind": 2,
+                  "bind_position": 2,
+                  "bind_sql": ":max_depth",
+                  "block": 0,
+                  "clause": "connect_by",
+                  "field": 7,
+                  "field_match_kind": "direct_field",
+                  "kind": "bind",
+                  "operator": "<=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[31]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/3/selector",
+          "value": "\"employment_status\"",
+          "deparse": "SELECT employee_id, manager_id, LEVEL AS hierarchy_level FROM employees WHERE \"employment_status\" = :status START WITH manager_id IS NULL CONNECT BY manager_id = PRIOR employee_id AND LEVEL <= :max_depth"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/0/selector",
+          "value": ":patched_status",
+          "deparse": "SELECT employee_id, manager_id, LEVEL AS hierarchy_level FROM employees WHERE status = :patched_status START WITH manager_id IS NULL CONNECT BY manager_id = PRIOR employee_id AND LEVEL <= :max_depth"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/4/selector",
+          "value": "\"ROOT_MANAGER_ID\"",
+          "deparse": "SELECT employee_id, manager_id, LEVEL AS hierarchy_level FROM employees WHERE status = :status START WITH \"ROOT_MANAGER_ID\" IS NULL CONNECT BY manager_id = PRIOR employee_id AND LEVEL <= :max_depth"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/2/selector",
+          "value": "4",
+          "deparse": "SELECT employee_id, manager_id, LEVEL AS hierarchy_level FROM employees WHERE status = :status START WITH manager_id IS NULL CONNECT BY manager_id = PRIOR employee_id AND LEVEL <= 4"
+        },
+        {
+          "action": "insert_column",
+          "target": "/statements/0/query_graph/targets/0/target_list_selector",
+          "value": "\"department_id\"",
+          "index": 2,
+          "deparse": "SELECT employee_id, manager_id, \"department_id\", LEVEL AS hierarchy_level FROM employees WHERE status = :status START WITH manager_id IS NULL CONNECT BY manager_id = PRIOR employee_id AND LEVEL <= :max_depth"
+        }
+      ]
+    },
+    {
+      "name": "oracle-hierarchical-connect-by-root",
+      "sql": "SELECT CONNECT_BY_ROOT employee_id AS root_id, employee_id, manager_id, LEVEL AS hierarchy_level FROM employees START WITH manager_id IS NULL CONNECT BY PRIOR employee_id = manager_id",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0,
+                    1
+                  ],
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0,
+                    1,
+                    2,
+                    3
+                  ]
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "employee_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[1]",
+                  "target": 0,
+                  "target_path": [
+                    {
+                      "arg_index": 0,
+                      "kind": "operator",
+                      "name": "CONNECT_BY_ROOT"
+                    }
+                  ]
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "employee_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[2]",
+                  "target": 1
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "manager_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[3]",
+                  "target": 2
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "LEVEL",
+                  "pseudo": true,
+                  "selector": "stmt[0].name[5]",
+                  "target": 3
+                },
+                {
+                  "block": 0,
+                  "clause": "start_with",
+                  "column": "manager_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[7]"
+                },
+                {
+                  "block": 0,
+                  "clause": "connect_by",
+                  "column": "employee_id",
+                  "prior": true,
+                  "relation": 0,
+                  "selector": "stmt[0].name[8]"
+                },
+                {
+                  "block": 0,
+                  "clause": "connect_by",
+                  "column": "manager_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[9]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "start_with",
+                  "kind": "comparison",
+                  "left_field": 4,
+                  "operator": "IS NULL",
+                  "operator_kind": "unknown"
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "connect_by",
+                  "kind": "comparison",
+                  "left_field": 5,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 6,
+                  "value": 0
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "employees"
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 0,
+                  "kind": "expression",
+                  "name": "root_id",
+                  "ordinal": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "field": 1,
+                  "kind": "field",
+                  "name": "employee_id",
+                  "ordinal": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "field": 2,
+                  "kind": "field",
+                  "name": "manager_id",
+                  "ordinal": 2,
+                  "selector": "stmt[0].select_target[0][2]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "field": 3,
+                  "kind": "pseudo",
+                  "name": "hierarchy_level",
+                  "ordinal": 3,
+                  "selector": "stmt[0].select_target[0][3]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "connect_by",
+                  "field": 5,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 6
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"ORG_EMPLOYEES\"",
+          "deparse": "SELECT CONNECT_BY_ROOT employee_id AS root_id, employee_id, manager_id, LEVEL AS hierarchy_level FROM \"ORG_EMPLOYEES\" START WITH manager_id IS NULL CONNECT BY PRIOR employee_id = manager_id"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/0/selector",
+          "value": "\"ROOT_EMPLOYEE_ID\"",
+          "deparse": "SELECT CONNECT_BY_ROOT \"ROOT_EMPLOYEE_ID\" AS root_id, employee_id, manager_id, LEVEL AS hierarchy_level FROM employees START WITH manager_id IS NULL CONNECT BY PRIOR employee_id = manager_id"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/5/selector",
+          "value": "\"PARENT_EMPLOYEE_ID\"",
+          "deparse": "SELECT CONNECT_BY_ROOT employee_id AS root_id, employee_id, manager_id, LEVEL AS hierarchy_level FROM employees START WITH manager_id IS NULL CONNECT BY PRIOR \"PARENT_EMPLOYEE_ID\" = manager_id"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/0/selector",
+          "value": "\"root_label\"",
+          "deparse": "SELECT \"root_label\", employee_id, manager_id, LEVEL AS hierarchy_level FROM employees START WITH manager_id IS NULL CONNECT BY PRIOR employee_id = manager_id"
+        },
+        {
+          "action": "insert_column",
+          "target": "/statements/0/query_graph/targets/0/target_list_selector",
+          "value": "\"department_id\"",
+          "index": 2,
+          "deparse": "SELECT CONNECT_BY_ROOT employee_id AS root_id, employee_id, \"department_id\", manager_id, LEVEL AS hierarchy_level FROM employees START WITH manager_id IS NULL CONNECT BY PRIOR employee_id = manager_id"
+        }
+      ]
+    },
+    {
+      "name": "oracle-hierarchical-nocycle-pseudocolumns",
+      "sql": "SELECT employee_id, CONNECT_BY_ISLEAF AS is_leaf, CONNECT_BY_ISCYCLE AS is_cycle FROM employees START WITH employee_id = :root_id CONNECT BY NOCYCLE PRIOR employee_id = manager_id",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0,
+                    1
+                  ],
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "employee_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[0]",
+                  "target": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "CONNECT_BY_ISLEAF",
+                  "pseudo": true,
+                  "selector": "stmt[0].name[2]",
+                  "target": 1
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "CONNECT_BY_ISCYCLE",
+                  "pseudo": true,
+                  "selector": "stmt[0].name[4]",
+                  "target": 2
+                },
+                {
+                  "block": 0,
+                  "clause": "start_with",
+                  "column": "employee_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[6]"
+                },
+                {
+                  "block": 0,
+                  "clause": "connect_by",
+                  "column": "employee_id",
+                  "prior": true,
+                  "relation": 0,
+                  "selector": "stmt[0].name[7]"
+                },
+                {
+                  "block": 0,
+                  "clause": "connect_by",
+                  "column": "manager_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[8]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "start_with",
+                  "kind": "comparison",
+                  "left_field": 3,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "connect_by",
+                  "kind": "comparison",
+                  "left_field": 4,
+                  "nocycle": true,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 5,
+                  "value": 1
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "employees"
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 0,
+                  "field": 0,
+                  "kind": "field",
+                  "name": "employee_id",
+                  "ordinal": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "field": 1,
+                  "kind": "pseudo",
+                  "name": "is_leaf",
+                  "ordinal": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "field": 2,
+                  "kind": "pseudo",
+                  "name": "is_cycle",
+                  "ordinal": 2,
+                  "selector": "stmt[0].select_target[0][2]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "values": [
+                {
+                  "bind_key": "root_id",
+                  "bind_kind": 2,
+                  "bind_position": 1,
+                  "bind_sql": ":root_id",
+                  "block": 0,
+                  "clause": "start_with",
+                  "field": 3,
+                  "field_match_kind": "direct_field",
+                  "kind": "bind",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[14]"
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "connect_by",
+                  "field": 4,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 5
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"ORG_EMPLOYEES\"",
+          "deparse": "SELECT employee_id, CONNECT_BY_ISLEAF AS is_leaf, CONNECT_BY_ISCYCLE AS is_cycle FROM \"ORG_EMPLOYEES\" START WITH employee_id = :root_id CONNECT BY NOCYCLE PRIOR employee_id = manager_id"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/0/selector",
+          "value": ":patched_root_id",
+          "deparse": "SELECT employee_id, CONNECT_BY_ISLEAF AS is_leaf, CONNECT_BY_ISCYCLE AS is_cycle FROM employees START WITH employee_id = :patched_root_id CONNECT BY NOCYCLE PRIOR employee_id = manager_id"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/4/selector",
+          "value": "\"PARENT_EMPLOYEE_ID\"",
+          "deparse": "SELECT employee_id, CONNECT_BY_ISLEAF AS is_leaf, CONNECT_BY_ISCYCLE AS is_cycle FROM employees START WITH employee_id = :root_id CONNECT BY NOCYCLE PRIOR \"PARENT_EMPLOYEE_ID\" = manager_id"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/1/selector",
+          "value": "\"leaf_flag\"",
+          "deparse": "SELECT employee_id, \"leaf_flag\", CONNECT_BY_ISCYCLE AS is_cycle FROM employees START WITH employee_id = :root_id CONNECT BY NOCYCLE PRIOR employee_id = manager_id"
+        },
+        {
+          "action": "insert_column",
+          "target": "/statements/0/query_graph/targets/0/target_list_selector",
+          "value": "\"department_id\"",
+          "index": 1,
+          "deparse": "SELECT employee_id, \"department_id\", CONNECT_BY_ISLEAF AS is_leaf, CONNECT_BY_ISCYCLE AS is_cycle FROM employees START WITH employee_id = :root_id CONNECT BY NOCYCLE PRIOR employee_id = manager_id"
+        }
+      ]
     }
   ]
 }

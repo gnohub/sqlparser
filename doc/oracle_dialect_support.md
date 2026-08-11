@@ -7,6 +7,7 @@
 Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范围由可执行用例矩阵定义：
 
 - `SELECT`、别名、子查询、连接、`WHERE`、`GROUP BY`、`HAVING`
+- Oracle 层次查询：`START WITH ... CONNECT BY [NOCYCLE]`、`PRIOR`、`LEVEL`、`CONNECT_BY_ISLEAF`、`CONNECT_BY_ISCYCLE`，以及 SELECT 输出中的 `CONNECT_BY_ROOT`；子句顺序限定为 `START WITH` 在 `CONNECT BY` 之前，不接受 `CONNECT BY ... START WITH`
 - Oracle bind 占位符，例如 `:id`、`:name`，以及 JDBC 风格 `?` 位置参数
 - `q'[...]'` 字符串、`N'...'` national 字符串和 `nq'[...]'` national q-quoted 字符串
 - `MINUS` 集合运算
@@ -36,7 +37,6 @@ Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范
 
 以下 Oracle 专属语义当前不做隐式降级。遇到这些语法时返回 `SQLPARSER_STATUS_UNSUPPORTED`，不会返回可用 handle：
 
-- `CONNECT BY`、`CONNECT_BY_ROOT`
 - 旧式外连接 `(+)`
 - `RETURNING ... INTO` 的多返回 target、多宿主绑定变量，以及 `BULK COLLECT` 形态
 - PL/SQL block、procedure、package
@@ -50,6 +50,7 @@ Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范
 - `sqlparser_deparse()` 输出 Oracle 公共形态，不暴露内部转换细节。
 - Oracle bind 保持 `:name`、`:1` 或 `?` 形态，不输出内部 `$1`、`$2`。
 - `MINUS` 在 View JSON 和 deparse 输出中保持 Oracle 语义名称。
+- 层次查询字段、值和谓词进入既有 Query Graph 数组，分别使用 `start_with`、`connect_by` clause、`pseudo` / `prior` 字段标记、CONNECT BY 根谓词的 `nocycle` 标记和 `CONNECT_BY_ROOT` operator `target_path`；不增加独立 hierarchy 对象。
 - View JSON 中可归属的表达式片段使用公共 Oracle 形态。
 - 失败的表达式片段改写不会提交到 handle；原有 AST、bind 映射和 deparse 输出保持可用。
 
@@ -62,4 +63,4 @@ Oracle 支持范围以以下文件为准：
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 Oracle 方言矩阵包含 244 条用例，均为 `status = "final"`。
+当前 Oracle 方言矩阵包含 248 条用例，均为 `status = "final"`。其中 4 条层次查询用例包含 20 个独立 patch。

@@ -1788,6 +1788,10 @@ _equalSelectStmt(const SelectStmt *a, const SelectStmt *b)
 	COMPARE_NODE_FIELD(targetList);
 	COMPARE_NODE_FIELD(fromClause);
 	COMPARE_NODE_FIELD(whereClause);
+	COMPARE_NODE_FIELD(startWithClause);
+	COMPARE_NODE_FIELD(connectByClause);
+	COMPARE_SCALAR_FIELD(connectByNoCycle);
+	COMPARE_SCALAR_FIELD(connectByFirst);
 	COMPARE_NODE_FIELD(groupClause);
 	COMPARE_SCALAR_FIELD(groupDistinct);
 	COMPARE_NODE_FIELD(havingClause);

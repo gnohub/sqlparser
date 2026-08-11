@@ -11,6 +11,10 @@ The Dameng dialect supports common SQL forms that can be safely mapped to the
 current AST. The executable case matrix defines the support boundary:
 
 - `SELECT`, aliases, subqueries, joins, `WHERE`, `GROUP BY`, and `HAVING`
+- Dameng hierarchical queries through `START WITH ... CONNECT BY [NOCYCLE]`,
+  `PRIOR`, `LEVEL`, and `CONNECT_BY_ROOT` in the SELECT list, preserving both
+  `START WITH ... CONNECT BY` and `CONNECT BY ... START WITH` source clause
+  orders
 - Dameng-compatible bind placeholders such as `:id` and `:name`, plus
   JDBC-style `?` positional parameters
 - `q'[...]'` strings, `N'...'` national strings, and `nq'[...]'` national q-quoted strings
@@ -51,7 +55,6 @@ The following constructs are not silently downgraded. They return
 `SQLPARSER_STATUS_UNSUPPORTED` or a parse error and do not return a usable
 handle:
 
-- `CONNECT BY`
 - `PIVOT` and `UNPIVOT`
 - `RETURN` / `RETURNING ... INTO` forms with multiple return targets, multiple
   `INTO` binds, or `BULK COLLECT`
@@ -67,6 +70,10 @@ handle:
   not emitted.
 - `MINUS` remains visible as the Dameng semantic keyword in View JSON and
   deparse output.
+- Hierarchical fields, values, and predicates use the existing Query Graph
+  arrays with `start_with` / `connect_by` clauses, field `pseudo` / `prior`
+  flags, `nocycle` on the CONNECT BY root predicate, and an operator
+  `target_path` for `CONNECT_BY_ROOT`; no separate hierarchy object is added.
 - `SET SCHEMA` uses the `CURRENT_SCHEMA` field name in View JSON.
 - DML return channels use a sink channel in `dml.result_channels`; the return
   target's `sink_value` refers to the host bind in `query_graph.values[]`.
@@ -85,4 +92,5 @@ The Dameng support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current Dameng matrix contains 170 cases, all with `status = "final"`.
+The current Dameng matrix contains 174 cases, all with `status = "final"`.
+Four hierarchical-query cases contain 20 independent patches.

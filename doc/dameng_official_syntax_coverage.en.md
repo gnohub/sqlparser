@@ -21,7 +21,7 @@ privilege statements, and Dameng-specific semantics.
 | `CURRENT` | The Dameng dialect has representative executable coverage, or the current AST can safely represent the syntax. |
 | `HOOK_ONLY` | Not covered yet, but implementable through dialect hooks, preprocessing, postprocessing, or type/function mapping. |
 | `MIXED_MODEL` | The basic form can use the current AST and hooks, but full official syntax needs a Dameng-specific model. |
-| `MODEL_REQUIRED` | Requires a Dameng-specific model, usually for hierarchical queries, table transformations, DMSQL program units, or flashback. |
+| `MODEL_REQUIRED` | Requires a Dameng-specific model, usually for table transformations, DMSQL program units, or flashback. |
 | `REFERENCE_ONLY` | An official index, category, or explanatory page that is not counted as an implementation unit. |
 
 The `CURRENT` boundary for `RETURNING_INTO` is `RETURNING <single expression> INTO <single colon-prefixed host bind>` for `INSERT` and `DELETE`, and `RETURN <single expression> INTO <single colon-prefixed host bind>` for `UPDATE`. This boundary excludes multiple return targets, multiple `INTO` binds, and `BULK COLLECT`.
@@ -30,20 +30,20 @@ The `CURRENT` boundary for `RETURNING_INTO` is `RETURNING <single expression> IN
 
 | Status | Syntax Groups | Share of 38 Groups |
 | --- | ---: | ---: |
-| `CURRENT` | 32 | 84.21% |
+| `CURRENT` | 33 | 86.84% |
 | `HOOK_ONLY` | 0 | 0.00% |
 | `MIXED_MODEL` | 0 | 0.00% |
-| `MODEL_REQUIRED` | 6 | 15.79% |
+| `MODEL_REQUIRED` | 5 | 13.16% |
 | `REFERENCE_ONLY` | 0 | 0.00% |
 
 After excluding `REFERENCE_ONLY`, there are 38 implementable syntax groups.
-The current implementation covers 32 groups and leaves 6 groups uncovered.
+The current implementation covers 33 groups and leaves 5 groups uncovered.
 
-| Uncovered Class | Syntax Groups | Share of 6 Uncovered Groups |
+| Uncovered Class | Syntax Groups | Share of 5 Uncovered Groups |
 | --- | ---: | ---: |
 | `HOOK_ONLY` | 0 | 0.00% |
 | `MIXED_MODEL` | 0 | 0.00% |
-| `MODEL_REQUIRED` | 6 | 100.00% |
+| `MODEL_REQUIRED` | 5 | 100.00% |
 
 ## Conclusion
 
@@ -51,9 +51,14 @@ The Dameng `MERGE` `CURRENT` boundary includes an action `WHERE` on a matched
 UPDATE and an attached `DELETE WHERE` on that same UPDATE branch. One
 executable case and 3 independent patches verify this boundary.
 
+The Dameng hierarchical-query `CURRENT` boundary accepts both source clause
+orders for `START WITH` and `CONNECT BY`, two parent-child field orientations
+for unary `PRIOR`, `LEVEL`, `CONNECT_BY_ROOT`, and `NOCYCLE`. The executable matrix
+contains 4 `final` cases and 20 independent patches.
+
 The current Dameng dialect covers common query, DML, DDL, transaction,
 privilege, current-schema statements, representative session-parameter
 statements, basic remote object references, and the single-expression,
 single-host-bind `RETURN` / `RETURNING ... INTO` forms defined above. The
-remaining six syntax groups depend on Dameng-specific query-model or
+remaining five syntax groups depend on Dameng-specific query-model or
 program-unit semantics and are not handled by PostgreSQL-compatible conversion.

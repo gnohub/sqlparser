@@ -3373,6 +3373,26 @@
           "comment": "/* WHERE qualification */"
         },
         {
+          "name": "startWithClause",
+          "c_type": "Node*",
+          "comment": "/* START WITH qualification */"
+        },
+        {
+          "name": "connectByClause",
+          "c_type": "Node*",
+          "comment": "/* CONNECT BY qualification */"
+        },
+        {
+          "name": "connectByNoCycle",
+          "c_type": "bool",
+          "comment": "/* CONNECT BY NOCYCLE specified? */"
+        },
+        {
+          "name": "connectByFirst",
+          "c_type": "bool",
+          "comment": "/* CONNECT BY precedes START WITH? */"
+        },
+        {
           "name": "groupClause",
           "c_type": "List*",
           "comment": "/* GROUP BY clauses */"

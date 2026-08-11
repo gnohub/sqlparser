@@ -1284,6 +1284,10 @@ raw_expression_tree_walker_impl(Node *node,
 					return true;
 				if (WALK(stmt->whereClause))
 					return true;
+				if (WALK(stmt->startWithClause))
+					return true;
+				if (WALK(stmt->connectByClause))
+					return true;
 				if (WALK(stmt->groupClause))
 					return true;
 				if (WALK(stmt->havingClause))

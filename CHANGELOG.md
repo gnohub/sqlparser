@@ -1,5 +1,25 @@
 # 变更记录
 
+## 2.15.3
+
+### Oracle 与 Dameng 层次查询
+
+- Oracle 支持 `START WITH ... CONNECT BY [NOCYCLE] ...`，并在层次查询中识别 `PRIOR`、`LEVEL`、`CONNECT_BY_ROOT`、`CONNECT_BY_ISLEAF` 和 `CONNECT_BY_ISCYCLE`。
+- Dameng 支持 `START WITH`、`CONNECT BY [NOCYCLE]`、`PRIOR`、`LEVEL` 和 `CONNECT_BY_ROOT`，同时保留 `START WITH ... CONNECT BY ...` 与 `CONNECT BY ... START WITH ...` 两种句法顺序。
+- Vastbase-SQLServer 仅支持已验证的基础 `CONNECT BY` 形态；本版本不将 `START WITH`、`PRIOR`、`NOCYCLE` 或 `CONNECT_BY_ROOT` 扩展到该模式。
+
+### Query Graph 与 Patch
+
+- `sqlparser_clause_kind_t` 追加 `SQLPARSER_CLAUSE_KIND_START_WITH = 11` 和 `SQLPARSER_CLAUSE_KIND_CONNECT_BY = 12`；层次条件继续使用既有 `fields[]`、`values[]` 与 `predicates[]`，不增加专用 hierarchy 对象。
+- `sqlparser_graph_field_t` 追加 `pseudo` 和 `prior`，`sqlparser_graph_predicate_t` 追加 `nocycle`。`CONNECT_BY_ROOT` 通过既有 `target_path` 表达，不增加新 target kind、selector 或 patch 类型。
+- relation、field、value 和 SELECT target 改写复用既有 selector 与 patch 机制；可准确定位源码区间的替换使用局部源码 edit。Patch 后未修改的层次子句顺序、空白、大小写和标识符定界符保持原文。
+
+### 用例、接口与验证
+
+- Oracle、Dameng 和 Vastbase-SQLServer 共新增 9 条 final case 和 45 个独立 patch。当前九套 fixture 共包含 2,781 条 final case 和 9,034 个 patch。
+- Oracle 248 条 case / 849 个 patch、Dameng 174 条 case / 633 个 patch、Vastbase-SQLServer 601 条 case / 1,847 个 patch 的方言回归及核心 API 测试通过，原始反解析、View JSON 和 patch 反解析失败数均为 0。相关方言目标的定向 Valgrind 检查退出时为 `0 bytes in 0 blocks`，错误数为 0。
+- 本版本不增加公开函数或资源所有权规则。公开枚举追加取值，公开结构体追加字段，C 调用方应使用 2.15.3 头文件重新编译。
+
 ## 2.15.2
 
 ### MERGE matched UPDATE 附属删除条件

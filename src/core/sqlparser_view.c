@@ -5987,6 +5987,8 @@ typedef struct {
 	sqlparser_graph_scope_t *scope;
 	sqlparser_target_path_entry_t target_path[SQLPARSER_TARGET_PATH_CAPACITY];
 	size_t target_path_count;
+	int hierarchy_query_active;
+	unsigned int hierarchy_prior_depth;
 	int selector_cache_built;
 	int selector_cache_failed;
 	sqlparser_graph_pointer_index_t *node_indices;
@@ -8916,6 +8918,38 @@ static sqlparser_identifier_source_t sqlparser_graph_column_ref_part_source(
 	return source;
 }
 
+static int sqlparser_graph_column_ref_is_hierarchy_pseudo(
+	const sqlparser_graph_build_t *build,
+	PgQuery__ColumnRef *column_ref)
+{
+	sqlparser_identifier_source_t source;
+	const char *name;
+	const char *qualifier;
+
+	if (build == NULL || build->handle == NULL ||
+	    !build->hierarchy_query_active ||
+	    !sqlparser_dialect_is_oracle_or_dameng_compatible(
+		    build->handle->dialect)) {
+		return 0;
+	}
+	name = sqlparser_graph_column_ref_part(column_ref, 0U);
+	qualifier = sqlparser_graph_column_ref_part(column_ref, 1U);
+	if (name == NULL) {
+		return 0;
+	}
+	source = sqlparser_graph_column_ref_part_source(
+		build->handle,
+		column_ref,
+		0U);
+	if (source.known && source.quoted) {
+		return 0;
+	}
+	return (qualifier == NULL || qualifier[0] == '\0') &&
+		(sqlparser_text_equal_ci(name, "level") ||
+		 sqlparser_text_equal_ci(name, "connect_by_isleaf") ||
+		 sqlparser_text_equal_ci(name, "connect_by_iscycle"));
+}
+
 static int sqlparser_graph_column_ref_is_pseudo(
 	const sqlparser_graph_build_t *build,
 	PgQuery__ColumnRef *column_ref)
@@ -8944,8 +8978,9 @@ static int sqlparser_graph_column_ref_is_pseudo(
 	if (sqlparser_text_equal_ci(name, "rowid")) {
 		return 1;
 	}
-	return (qualifier == NULL || qualifier[0] == '\0') &&
-		sqlparser_text_equal_ci(name, "rownum");
+	return ((qualifier == NULL || qualifier[0] == '\0') &&
+		sqlparser_text_equal_ci(name, "rownum")) ||
+		sqlparser_graph_column_ref_is_hierarchy_pseudo(build, column_ref);
 }
 
 static int sqlparser_graph_column_ref_is_dialect_expression_name(
@@ -9101,8 +9136,9 @@ static int sqlparser_graph_column_ref_is_recordable_field(
 	const char *name;
 
 	if (column_ref == NULL ||
-	    sqlparser_graph_column_ref_is_pseudo(build, column_ref) ||
-	    sqlparser_graph_column_ref_is_dialect_expression(build, column_ref)) {
+	    sqlparser_graph_column_ref_is_dialect_expression(build, column_ref) ||
+	    (sqlparser_graph_column_ref_is_pseudo(build, column_ref) &&
+	     !sqlparser_graph_column_ref_is_hierarchy_pseudo(build, column_ref))) {
 		return 0;
 	}
 	name = sqlparser_graph_column_ref_part(column_ref, 0U);
@@ -10278,6 +10314,10 @@ static int sqlparser_graph_add_column_ref_field(
 		column_source.known && column_source.delimited;
 	field.target_index = target_index;
 	field.has_target = has_target;
+	field.pseudo = sqlparser_graph_column_ref_is_hierarchy_pseudo(
+		build,
+		column_ref);
+	field.prior = build != NULL && build->hierarchy_prior_depth > 0U;
 	if (has_target && build != NULL && build->target_path_count > 0U) {
 		field.target_path_count = build->target_path_count;
 		if (field.target_path_count > SQLPARSER_TARGET_PATH_CAPACITY) {
@@ -10285,7 +10325,7 @@ static int sqlparser_graph_add_column_ref_field(
 		}
 		memcpy(field.target_path, build->target_path, field.target_path_count * sizeof(field.target_path[0]));
 	}
-	if (build != NULL && build->building_dml_result &&
+	if (!field.pseudo && build != NULL && build->building_dml_result &&
 	    build->handle != NULL &&
 	    sqlparser_dialect_is_sqlserver_compatible(
 		    build->handle->dialect) &&
@@ -10300,7 +10340,7 @@ static int sqlparser_graph_add_column_ref_field(
 				SQLPARSER_DIALECT_DML_TARGET_REFERENCE_AFTER :
 				SQLPARSER_DIALECT_DML_TARGET_REFERENCE_BEFORE;
 		}
-	} else {
+	} else if (!field.pseudo) {
 		size_t resolution_block;
 		int resolved_in_result_scope;
 
@@ -10448,6 +10488,39 @@ static int sqlparser_graph_add_column_ref_field(
 		return -1;
 	}
 	return 0;
+}
+
+static int sqlparser_graph_add_column_ref_field_with_prior(
+	sqlparser_graph_build_t *build,
+	size_t block_index,
+	sqlparser_clause_kind_t clause,
+	PgQuery__ColumnRef *column_ref,
+	size_t target_index,
+	int has_target,
+	int prior,
+	size_t *out_field_index,
+	sqlparser_error_t *out_error)
+{
+	unsigned int saved_depth;
+	int status;
+
+	saved_depth = build != NULL ? build->hierarchy_prior_depth : 0U;
+	if (build != NULL && prior) {
+		build->hierarchy_prior_depth++;
+	}
+	status = sqlparser_graph_add_column_ref_field(
+		build,
+		block_index,
+		clause,
+		column_ref,
+		target_index,
+		has_target,
+		out_field_index,
+		out_error);
+	if (build != NULL) {
+		build->hierarchy_prior_depth = saved_depth;
+	}
+	return status;
 }
 
 static const char *sqlparser_graph_like_escape_kind_name(sqlparser_graph_like_escape_kind_t kind)
@@ -10996,12 +11069,43 @@ static int sqlparser_graph_a_expr_is_select_predicate(const PgQuery__AExpr *a_ex
 			 strcmp(operator_name, "!>") == 0);
 }
 
+static int sqlparser_graph_prefix_a_expr_operand(
+	PgQuery__Node *node,
+	const char *operator_name,
+	PgQuery__Node **out_operand)
+{
+	PgQuery__AExpr *a_expr;
+
+	if (out_operand != NULL) {
+		*out_operand = NULL;
+	}
+	node = sqlparser_unwrap_grouping_node(node);
+	a_expr = node != NULL &&
+		node->node_case == PG_QUERY__NODE__NODE_A_EXPR ?
+		node->a_expr : NULL;
+	if (a_expr == NULL ||
+	    a_expr->kind != PG_QUERY__A__EXPR__KIND__AEXPR_OP ||
+	    !sqlparser_text_equal_ci(
+		    sqlparser_a_expr_operator_name(a_expr),
+		    operator_name) ||
+	    ((a_expr->lexpr == NULL) == (a_expr->rexpr == NULL))) {
+		return 0;
+	}
+	if (out_operand != NULL) {
+		*out_operand = a_expr->lexpr != NULL ?
+			a_expr->lexpr : a_expr->rexpr;
+	}
+	return 1;
+}
+
 static int sqlparser_graph_clause_records_field_values(
 	sqlparser_clause_kind_t clause,
 	const PgQuery__AExpr *a_expr)
 {
 	if (clause != SQLPARSER_CLAUSE_KIND_SELECT_LIST &&
 	    clause != SQLPARSER_CLAUSE_KIND_WHERE &&
+	    clause != SQLPARSER_CLAUSE_KIND_START_WITH &&
+	    clause != SQLPARSER_CLAUSE_KIND_CONNECT_BY &&
 	    clause != SQLPARSER_CLAUSE_KIND_ON &&
 	    clause != SQLPARSER_CLAUSE_KIND_HAVING &&
 	    clause != SQLPARSER_CLAUSE_KIND_CONDITION) {
@@ -11652,8 +11756,36 @@ static int sqlparser_graph_record_column_ref_matches(
 				match,
 				out_error);
 		case PG_QUERY__NODE__NODE_A_EXPR:
+		{
+			PgQuery__Node *prefix_operand;
+			unsigned int saved_prior_depth;
+			int status;
+
 			if (node->a_expr == NULL) {
 				return 0;
+			}
+			prefix_operand = NULL;
+			if (sqlparser_graph_prefix_a_expr_operand(
+				    node,
+				    "PRIOR",
+				    &prefix_operand)) {
+				saved_prior_depth = build->hierarchy_prior_depth;
+				build->hierarchy_prior_depth++;
+				status = sqlparser_graph_record_column_ref_matches(
+					build,
+					block_index,
+					clause,
+					operator_name,
+					prefix_operand,
+					value_node,
+					target_index,
+					has_target,
+					field_match_kind,
+					like_escape,
+					match,
+					out_error);
+				build->hierarchy_prior_depth = saved_prior_depth;
+				return status;
 			}
 			left_status = sqlparser_graph_record_column_ref_matches(
 				build,
@@ -11685,6 +11817,7 @@ static int sqlparser_graph_record_column_ref_matches(
 				match,
 				out_error);
 			return right_status < 0 ? -1 : (left_status > 0 || right_status > 0 ? 1 : 0);
+		}
 		case PG_QUERY__NODE__NODE_BOOL_EXPR:
 			return node->bool_expr != NULL ?
 				sqlparser_graph_record_column_ref_matches_in_array(
@@ -12147,6 +12280,7 @@ static int sqlparser_graph_add_predicate_field_value(
 	sqlparser_clause_kind_t clause,
 	const char *operator_name,
 	PgQuery__ColumnRef *field_ref,
+	int field_prior,
 	PgQuery__Node *value_node,
 	const sqlparser_graph_like_escape_t *like_escape,
 	sqlparser_graph_predicate_t *predicate,
@@ -12160,13 +12294,14 @@ static int sqlparser_graph_add_predicate_field_value(
 		return 0;
 	}
 	field_index = 0U;
-	if (sqlparser_graph_add_column_ref_field(
+	if (sqlparser_graph_add_column_ref_field_with_prior(
 		    build,
 		    block_index,
 		    clause,
 		    field_ref,
 		    0U,
 		    0,
+		    field_prior,
 		    &field_index,
 		    out_error) != 0) {
 		return -1;
@@ -12205,7 +12340,9 @@ static int sqlparser_graph_add_predicate_field_to_field_value(
 	sqlparser_clause_kind_t clause,
 	const char *operator_name,
 	PgQuery__ColumnRef *left_ref,
+	int left_prior,
 	PgQuery__ColumnRef *right_ref,
+	int right_prior,
 	sqlparser_graph_predicate_t *predicate,
 	sqlparser_error_t *out_error)
 {
@@ -12220,22 +12357,24 @@ static int sqlparser_graph_add_predicate_field_to_field_value(
 	}
 	left_field_index = 0U;
 	right_field_index = 0U;
-	if (sqlparser_graph_add_column_ref_field(
+	if (sqlparser_graph_add_column_ref_field_with_prior(
 		    build,
 		    block_index,
 		    clause,
 		    left_ref,
 		    0U,
 		    0,
+		    left_prior,
 		    &left_field_index,
 		    out_error) != 0 ||
-	    sqlparser_graph_add_column_ref_field(
+	    sqlparser_graph_add_column_ref_field_with_prior(
 		    build,
 		    block_index,
 		    clause,
 		    right_ref,
 		    0U,
 		    0,
+		    right_prior,
 		    &right_field_index,
 		    out_error) != 0) {
 		return -1;
@@ -12380,6 +12519,8 @@ static int sqlparser_graph_build_bool_predicate(
 static int sqlparser_graph_clause_records_function_predicate(sqlparser_clause_kind_t clause)
 {
 	return clause == SQLPARSER_CLAUSE_KIND_WHERE ||
+			clause == SQLPARSER_CLAUSE_KIND_START_WITH ||
+			clause == SQLPARSER_CLAUSE_KIND_CONNECT_BY ||
 			clause == SQLPARSER_CLAUSE_KIND_ON ||
 			clause == SQLPARSER_CLAUSE_KIND_HAVING;
 }
@@ -12484,6 +12625,7 @@ static int sqlparser_graph_build_a_expr_predicate(
 	PgQuery__Node *escape_node;
 	PgQuery__Node *expression_node;
 	PgQuery__Node *expression_value_node;
+	PgQuery__Node *prefix_operand;
 	PgQuery__Node *value_node;
 	PgQuery__ColumnRef *field_ref;
 	const sqlparser_graph_like_escape_t *like_escape_ptr;
@@ -12492,6 +12634,9 @@ static int sqlparser_graph_build_a_expr_predicate(
 	int has_direct_field_value;
 	int has_expression_direct_value;
 	int expression_is_left;
+	int field_prior;
+	int left_prior;
+	int right_prior;
 
 	if (out_predicate_index != NULL) {
 		*out_predicate_index = 0U;
@@ -12502,6 +12647,22 @@ static int sqlparser_graph_build_a_expr_predicate(
 	operator_name = sqlparser_a_expr_operator_name(a_expr);
 	left = sqlparser_unwrap_grouping_node(a_expr->lexpr);
 	right = sqlparser_unwrap_grouping_node(a_expr->rexpr);
+	prefix_operand = NULL;
+	left_prior = sqlparser_graph_prefix_a_expr_operand(
+		left,
+		"PRIOR",
+		&prefix_operand);
+	if (left_prior) {
+		left = sqlparser_unwrap_grouping_node(prefix_operand);
+	}
+	prefix_operand = NULL;
+	right_prior = sqlparser_graph_prefix_a_expr_operand(
+		right,
+		"PRIOR",
+		&prefix_operand);
+	if (right_prior) {
+		right = sqlparser_unwrap_grouping_node(prefix_operand);
+	}
 	pattern_node = right;
 	escape_node = NULL;
 	like_escape_ptr = NULL;
@@ -12520,6 +12681,13 @@ static int sqlparser_graph_build_a_expr_predicate(
 		pattern_node,
 		&field_ref,
 		&value_node);
+	field_prior = has_direct_field_value && field_ref != NULL &&
+		((left != NULL &&
+		  left->node_case == PG_QUERY__NODE__NODE_COLUMN_REF &&
+		  field_ref == left->column_ref && left_prior) ||
+		 (right != NULL &&
+		  right->node_case == PG_QUERY__NODE__NODE_COLUMN_REF &&
+		  field_ref == right->column_ref && right_prior));
 	expression_node = NULL;
 	expression_value_node = NULL;
 	expression_is_left = 0;
@@ -12548,7 +12716,9 @@ static int sqlparser_graph_build_a_expr_predicate(
 			    clause,
 			    operator_name,
 			    left->column_ref,
+			    left_prior,
 			    pattern_node->column_ref,
+			    right_prior,
 			    &predicate,
 			    out_error) != 0) {
 			return -1;
@@ -12560,6 +12730,7 @@ static int sqlparser_graph_build_a_expr_predicate(
 			    clause,
 			    operator_name,
 			    field_ref,
+			    field_prior,
 			    value_node,
 			    like_escape_ptr,
 			    &predicate,
@@ -12573,13 +12744,14 @@ static int sqlparser_graph_build_a_expr_predicate(
 		    sqlparser_graph_column_ref_is_recordable_field(
 			    build,
 			    left->column_ref)) {
-			if (sqlparser_graph_add_column_ref_field(
+			if (sqlparser_graph_add_column_ref_field_with_prior(
 				    build,
 				    block_index,
 				    clause,
 				    left->column_ref,
 				    0U,
 				    0,
+				    left_prior,
 				    &predicate.left_field_index,
 				    out_error) != 0) {
 				return -1;
@@ -12591,13 +12763,14 @@ static int sqlparser_graph_build_a_expr_predicate(
 		    sqlparser_graph_column_ref_is_recordable_field(
 			    build,
 			    pattern_node->column_ref)) {
-			if (sqlparser_graph_add_column_ref_field(
+			if (sqlparser_graph_add_column_ref_field_with_prior(
 				    build,
 				    block_index,
 				    clause,
 				    pattern_node->column_ref,
 				    0U,
 				    0,
+				    right_prior,
 				    &predicate.right_field_index,
 				    out_error) != 0) {
 				return -1;
@@ -12615,7 +12788,10 @@ static int sqlparser_graph_build_a_expr_predicate(
 				block_index,
 				clause,
 				operator_name,
-				expression_node,
+				expression_is_left && left_prior ?
+					a_expr->lexpr :
+					(!expression_is_left && right_prior ?
+					 a_expr->rexpr : expression_node),
 				expression_value_node,
 				0U,
 				0,
@@ -12822,6 +12998,7 @@ static int sqlparser_graph_build_func_call_predicate(
 		    clause,
 		    operator_name,
 		    field_ref,
+		    0,
 		    value_node,
 		    NULL,
 		    &predicate,
@@ -12889,6 +13066,7 @@ static int sqlparser_graph_build_null_test_predicate(
 			    clause,
 			    operator_name,
 			    arg->column_ref,
+			    0,
 			    NULL,
 			    NULL,
 			    &predicate,
@@ -12997,6 +13175,7 @@ static int sqlparser_graph_build_predicate_tree(
 					    clause,
 					    predicate.operator_name,
 					    testexpr->column_ref,
+					    0,
 					    NULL,
 					    NULL,
 					    &predicate,
@@ -14792,12 +14971,50 @@ static int sqlparser_graph_walk_expr(
 		case PG_QUERY__NODE__NODE_A_EXPR:
 		{
 			const char *operator_name;
+			PgQuery__Node *prefix_operand;
 			int left_value_status;
 			int right_value_status;
+			int status;
+			unsigned int saved_prior_depth;
 			size_t saved_count;
 
 			if (node->a_expr == NULL) {
 				return 0;
+			}
+			prefix_operand = NULL;
+			if (sqlparser_graph_prefix_a_expr_operand(
+				    node,
+				    "PRIOR",
+				    &prefix_operand)) {
+				saved_prior_depth = build->hierarchy_prior_depth;
+				build->hierarchy_prior_depth++;
+				status = sqlparser_graph_walk_expr(
+					build,
+					block_index,
+					clause,
+					prefix_operand,
+					target_index,
+					has_target,
+					out_error);
+				build->hierarchy_prior_depth = saved_prior_depth;
+				return status;
+			}
+			prefix_operand = NULL;
+			if (sqlparser_graph_prefix_a_expr_operand(
+				    node,
+				    "CONNECT_BY_ROOT",
+				    &prefix_operand)) {
+				return sqlparser_graph_walk_expr_with_target_path(
+					build,
+					block_index,
+					clause,
+					prefix_operand,
+					target_index,
+					has_target,
+					"operator",
+					"CONNECT_BY_ROOT",
+					0U,
+					out_error);
 			}
 			if (build->collect_relation_bindings) {
 				if (sqlparser_graph_walk_expr(
@@ -15701,7 +15918,14 @@ static int sqlparser_graph_build_target(
 			    expr->column_ref) ||
 		    (build->building_dml_result && build->dml_result_action_marker != NULL &&
 		     sqlparser_text_equal_ci(name, build->dml_result_action_marker))) {
+			int hierarchy_pseudo;
+
+			hierarchy_pseudo =
+				sqlparser_graph_column_ref_is_hierarchy_pseudo(
+					build,
+					expr->column_ref);
 			if (build->collect_relation_bindings &&
+			    !hierarchy_pseudo &&
 			    sqlparser_graph_add_column_ref_field(
 				    build,
 				    block_index,
@@ -15727,6 +15951,33 @@ static int sqlparser_graph_build_target(
 				    &target_index,
 				    out_error) != 0) {
 				return -1;
+			}
+			if (!build->collect_relation_bindings &&
+			    hierarchy_pseudo) {
+				field_index = 0U;
+				if (sqlparser_graph_add_column_ref_field(
+					    build,
+					    block_index,
+					    clause,
+					    expr->column_ref,
+					    target_index,
+					    1,
+					    &field_index,
+					    out_error) != 0) {
+					return -1;
+				}
+				if (sqlparser_graph_target_by_local(
+					    build,
+					    target_index) != NULL) {
+					target = *sqlparser_graph_target_by_local(
+						build,
+						target_index);
+					target.field_index = field_index;
+					target.has_field = 1;
+					*sqlparser_graph_target_by_local(
+						build,
+						target_index) = target;
+				}
 			}
 			if (build->building_dml_result &&
 			    build->dml_result_has_target_relation &&
@@ -16219,6 +16470,7 @@ static int sqlparser_graph_build_select_impl(
 {
 	sqlparser_graph_scope_t scope;
 	size_t block_index;
+	size_t connect_predicate_index;
 	size_t index;
 	size_t target_list_index;
 
@@ -16356,9 +16608,51 @@ static int sqlparser_graph_build_select_impl(
 			return -1;
 		}
 	}
-	if (sqlparser_graph_walk_predicate_expr(build, block_index, SQLPARSER_CLAUSE_KIND_WHERE, stmt->where_clause, out_error) != 0 ||
-	    sqlparser_graph_walk_node_array(build, block_index, SQLPARSER_CLAUSE_KIND_GROUP_BY, stmt->group_clause, stmt->n_group_clause, out_error) != 0 ||
-	    sqlparser_graph_walk_predicate_expr(build, block_index, SQLPARSER_CLAUSE_KIND_HAVING, stmt->having_clause, out_error) != 0) {
+	if (sqlparser_graph_walk_predicate_expr(
+		    build,
+		    block_index,
+		    SQLPARSER_CLAUSE_KIND_WHERE,
+		    stmt->where_clause,
+		    out_error) != 0 ||
+	    sqlparser_graph_walk_predicate_expr(
+		    build,
+		    block_index,
+		    SQLPARSER_CLAUSE_KIND_START_WITH,
+		    stmt->start_with_clause,
+		    out_error) != 0) {
+		sqlparser_graph_pop_scope(build);
+		return -1;
+	}
+	connect_predicate_index = sqlparser_graph_local_predicate_count(build);
+	if (sqlparser_graph_walk_predicate_expr(
+		    build,
+		    block_index,
+		    SQLPARSER_CLAUSE_KIND_CONNECT_BY,
+		    stmt->connect_by_clause,
+		    out_error) != 0) {
+		sqlparser_graph_pop_scope(build);
+		return -1;
+	}
+	if (!build->collect_relation_bindings &&
+	    stmt->connect_by_no_cycle &&
+	    connect_predicate_index < sqlparser_graph_local_predicate_count(build)) {
+		build->cache->predicates[
+			build->statement->predicate_offset +
+			connect_predicate_index].nocycle = 1;
+	}
+	if (sqlparser_graph_walk_node_array(
+		    build,
+		    block_index,
+		    SQLPARSER_CLAUSE_KIND_GROUP_BY,
+		    stmt->group_clause,
+		    stmt->n_group_clause,
+		    out_error) != 0 ||
+	    sqlparser_graph_walk_predicate_expr(
+		    build,
+		    block_index,
+		    SQLPARSER_CLAUSE_KIND_HAVING,
+		    stmt->having_clause,
+		    out_error) != 0) {
 		sqlparser_graph_pop_scope(build);
 		return -1;
 	}
@@ -16450,10 +16744,16 @@ static int sqlparser_graph_build_select(
 	sqlparser_target_path_entry_t saved_target_path[
 		SQLPARSER_TARGET_PATH_CAPACITY];
 	size_t saved_target_path_count;
+	unsigned int saved_hierarchy_prior_depth;
+	int saved_hierarchy_query_active;
 	int suspended;
 	int status;
 
 	saved_target_path_count = build != NULL ? build->target_path_count : 0U;
+	saved_hierarchy_query_active = build != NULL ?
+		build->hierarchy_query_active : 0;
+	saved_hierarchy_prior_depth = build != NULL ?
+		build->hierarchy_prior_depth : 0U;
 	if (saved_target_path_count > SQLPARSER_TARGET_PATH_CAPACITY) {
 		saved_target_path_count = SQLPARSER_TARGET_PATH_CAPACITY;
 	}
@@ -16469,6 +16769,9 @@ static int sqlparser_graph_build_select(
 	}
 	if (build != NULL) {
 		build->target_path_count = 0U;
+		build->hierarchy_query_active =
+			stmt != NULL && stmt->connect_by_clause != NULL;
+		build->hierarchy_prior_depth = 0U;
 	}
 	status = sqlparser_graph_build_select_impl(
 		build, stmt, kind, out_block_index, out_error);
@@ -16480,6 +16783,8 @@ static int sqlparser_graph_build_select(
 	}
 	if (build != NULL) {
 		build->target_path_count = saved_target_path_count;
+		build->hierarchy_query_active = saved_hierarchy_query_active;
+		build->hierarchy_prior_depth = saved_hierarchy_prior_depth;
 	}
 	if (suspended) {
 		sqlparser_graph_dml_result_build_state_restore(build, &saved);
@@ -20969,6 +21274,10 @@ static json_t *sqlparser_graph_field_json(
 	    sqlparser_json_set_optional_string(object, "column", field->column_name) != 0 ||
 	    (field->quoted_identifier &&
 	     json_object_set_new(object, "quoted_identifier", json_boolean(1)) != 0) ||
+	    (field->pseudo &&
+	     json_object_set_new(object, "pseudo", json_boolean(1)) != 0) ||
+	    (field->prior &&
+	     json_object_set_new(object, "prior", json_boolean(1)) != 0) ||
 	    sqlparser_json_set_optional_size(object, "target", field->has_target, field->target_index) != 0 ||
 	    sqlparser_json_set_optional_selector(object, "selector", field->has_selector ? &field->selector : NULL, out_error) != 0 ||
 	    sqlparser_json_set_nonempty_array(object, "target_path", &target_path) != 0) {
@@ -21509,6 +21818,8 @@ static json_t *sqlparser_graph_predicate_json(
 	    json_object_set_new(object, "clause", json_string(sqlparser_clause_kind_name(predicate->clause))) != 0 ||
 	    json_object_set_new(object, "kind", json_string(sqlparser_graph_predicate_kind_name(predicate->kind))) != 0 ||
 	    json_object_set_new(object, "bool_operator", json_string(sqlparser_graph_predicate_bool_name(predicate->bool_operator))) != 0 ||
+	    (predicate->nocycle &&
+	     json_object_set_new(object, "nocycle", json_boolean(1)) != 0) ||
 	    sqlparser_json_set_optional_string(object, "operator", predicate->operator_name) != 0 ||
 	    sqlparser_json_set_optional_string(object, "operator_kind", operator_kind_name) != 0 ||
 	    sqlparser_json_set_optional_size(object, "left_field", predicate->has_left_field, predicate->left_field_index) != 0 ||

@@ -1460,195 +1460,200 @@ typedef enum _PgQuery__Token {
   PG_QUERY__TOKEN__PASSING = 587,
   PG_QUERY__TOKEN__PASSWORD = 588,
   PG_QUERY__TOKEN__PATH = 589,
-  PG_QUERY__TOKEN__PLACING = 590,
-  PG_QUERY__TOKEN__PLAN = 591,
-  PG_QUERY__TOKEN__PLANS = 592,
-  PG_QUERY__TOKEN__POLICY = 593,
-  PG_QUERY__TOKEN__POSITION = 594,
-  PG_QUERY__TOKEN__PRECEDING = 595,
-  PG_QUERY__TOKEN__PRECISION = 596,
-  PG_QUERY__TOKEN__PRESERVE = 597,
-  PG_QUERY__TOKEN__PREPARE = 598,
-  PG_QUERY__TOKEN__PREPARED = 599,
-  PG_QUERY__TOKEN__PRIMARY = 600,
-  PG_QUERY__TOKEN__PRIOR = 601,
-  PG_QUERY__TOKEN__PRIVILEGES = 602,
-  PG_QUERY__TOKEN__PROCEDURAL = 603,
-  PG_QUERY__TOKEN__PROCEDURE = 604,
-  PG_QUERY__TOKEN__PROCEDURES = 605,
-  PG_QUERY__TOKEN__PROGRAM = 606,
-  PG_QUERY__TOKEN__PUBLICATION = 607,
-  PG_QUERY__TOKEN__QUOTE = 608,
-  PG_QUERY__TOKEN__QUOTES = 609,
-  PG_QUERY__TOKEN__RANGE = 610,
-  PG_QUERY__TOKEN__READ = 611,
-  PG_QUERY__TOKEN__REAL = 612,
-  PG_QUERY__TOKEN__REASSIGN = 613,
-  PG_QUERY__TOKEN__RECHECK = 614,
-  PG_QUERY__TOKEN__RECURSIVE = 615,
-  PG_QUERY__TOKEN__REF_P = 616,
-  PG_QUERY__TOKEN__REFERENCES = 617,
-  PG_QUERY__TOKEN__REFERENCING = 618,
-  PG_QUERY__TOKEN__REFRESH = 619,
-  PG_QUERY__TOKEN__REINDEX = 620,
-  PG_QUERY__TOKEN__RELATIVE_P = 621,
-  PG_QUERY__TOKEN__RELEASE = 622,
-  PG_QUERY__TOKEN__RENAME = 623,
-  PG_QUERY__TOKEN__REPEATABLE = 624,
-  PG_QUERY__TOKEN__REPLACE = 625,
-  PG_QUERY__TOKEN__REPLICA = 626,
-  PG_QUERY__TOKEN__RESET = 627,
-  PG_QUERY__TOKEN__RESTART = 628,
-  PG_QUERY__TOKEN__RESTRICT = 629,
-  PG_QUERY__TOKEN__RETURN = 630,
-  PG_QUERY__TOKEN__RETURNING = 631,
-  PG_QUERY__TOKEN__RETURNS = 632,
-  PG_QUERY__TOKEN__REVOKE = 633,
-  PG_QUERY__TOKEN__RIGHT = 634,
-  PG_QUERY__TOKEN__ROLE = 635,
-  PG_QUERY__TOKEN__ROLLBACK = 636,
-  PG_QUERY__TOKEN__ROLLUP = 637,
-  PG_QUERY__TOKEN__ROUTINE = 638,
-  PG_QUERY__TOKEN__ROUTINES = 639,
-  PG_QUERY__TOKEN__ROW = 640,
-  PG_QUERY__TOKEN__ROWS = 641,
-  PG_QUERY__TOKEN__RULE = 642,
-  PG_QUERY__TOKEN__SAVEPOINT = 643,
-  PG_QUERY__TOKEN__SCALAR = 644,
-  PG_QUERY__TOKEN__SCHEMA = 645,
-  PG_QUERY__TOKEN__SCHEMAS = 646,
-  PG_QUERY__TOKEN__SCROLL = 647,
-  PG_QUERY__TOKEN__SEARCH = 648,
-  PG_QUERY__TOKEN__SECOND_P = 649,
-  PG_QUERY__TOKEN__SECURITY = 650,
-  PG_QUERY__TOKEN__SELECT = 651,
-  PG_QUERY__TOKEN__SEQUENCE = 652,
-  PG_QUERY__TOKEN__SEQUENCES = 653,
-  PG_QUERY__TOKEN__SERIALIZABLE = 654,
-  PG_QUERY__TOKEN__SERVER = 655,
-  PG_QUERY__TOKEN__SESSION = 656,
-  PG_QUERY__TOKEN__SESSION_USER = 657,
-  PG_QUERY__TOKEN__SET = 658,
-  PG_QUERY__TOKEN__SETS = 659,
-  PG_QUERY__TOKEN__SETOF = 660,
-  PG_QUERY__TOKEN__SHARE = 661,
-  PG_QUERY__TOKEN__SHOW = 662,
-  PG_QUERY__TOKEN__SIMILAR = 663,
-  PG_QUERY__TOKEN__SIMPLE = 664,
-  PG_QUERY__TOKEN__SKIP = 665,
-  PG_QUERY__TOKEN__SMALLINT = 666,
-  PG_QUERY__TOKEN__SNAPSHOT = 667,
-  PG_QUERY__TOKEN__SOME = 668,
-  PG_QUERY__TOKEN__SOURCE = 669,
-  PG_QUERY__TOKEN__SQL_P = 670,
-  PG_QUERY__TOKEN__STABLE = 671,
-  PG_QUERY__TOKEN__STANDALONE_P = 672,
-  PG_QUERY__TOKEN__START = 673,
-  PG_QUERY__TOKEN__STATEMENT = 674,
-  PG_QUERY__TOKEN__STATISTICS = 675,
-  PG_QUERY__TOKEN__STDIN = 676,
-  PG_QUERY__TOKEN__STDOUT = 677,
-  PG_QUERY__TOKEN__STORAGE = 678,
-  PG_QUERY__TOKEN__STORED = 679,
-  PG_QUERY__TOKEN__STRICT_P = 680,
-  PG_QUERY__TOKEN__STRING_P = 681,
-  PG_QUERY__TOKEN__STRIP_P = 682,
-  PG_QUERY__TOKEN__SUBSCRIPTION = 683,
-  PG_QUERY__TOKEN__SUBSTRING = 684,
-  PG_QUERY__TOKEN__SUPPORT = 685,
-  PG_QUERY__TOKEN__SYMMETRIC = 686,
-  PG_QUERY__TOKEN__SYSID = 687,
-  PG_QUERY__TOKEN__SYSTEM_P = 688,
-  PG_QUERY__TOKEN__SYSTEM_USER = 689,
-  PG_QUERY__TOKEN__TABLE = 690,
-  PG_QUERY__TOKEN__TABLES = 691,
-  PG_QUERY__TOKEN__TABLESAMPLE = 692,
-  PG_QUERY__TOKEN__TABLESPACE = 693,
-  PG_QUERY__TOKEN__TARGET = 694,
-  PG_QUERY__TOKEN__TEMP = 695,
-  PG_QUERY__TOKEN__TEMPLATE = 696,
-  PG_QUERY__TOKEN__TEMPORARY = 697,
-  PG_QUERY__TOKEN__TEXT_P = 698,
-  PG_QUERY__TOKEN__THEN = 699,
-  PG_QUERY__TOKEN__TIES = 700,
-  PG_QUERY__TOKEN__TIME = 701,
-  PG_QUERY__TOKEN__TIMESTAMP = 702,
-  PG_QUERY__TOKEN__TO = 703,
-  PG_QUERY__TOKEN__TRAILING = 704,
-  PG_QUERY__TOKEN__TRANSACTION = 705,
-  PG_QUERY__TOKEN__TRANSFORM = 706,
-  PG_QUERY__TOKEN__TREAT = 707,
-  PG_QUERY__TOKEN__TRIGGER = 708,
-  PG_QUERY__TOKEN__TRIM = 709,
-  PG_QUERY__TOKEN__TRUE_P = 710,
-  PG_QUERY__TOKEN__TRUNCATE = 711,
-  PG_QUERY__TOKEN__TRUSTED = 712,
-  PG_QUERY__TOKEN__TYPE_P = 713,
-  PG_QUERY__TOKEN__TYPES_P = 714,
-  PG_QUERY__TOKEN__UESCAPE = 715,
-  PG_QUERY__TOKEN__UNBOUNDED = 716,
-  PG_QUERY__TOKEN__UNCONDITIONAL = 717,
-  PG_QUERY__TOKEN__UNCOMMITTED = 718,
-  PG_QUERY__TOKEN__UNENCRYPTED = 719,
-  PG_QUERY__TOKEN__UNION = 720,
-  PG_QUERY__TOKEN__UNIQUE = 721,
-  PG_QUERY__TOKEN__UNKNOWN = 722,
-  PG_QUERY__TOKEN__UNLISTEN = 723,
-  PG_QUERY__TOKEN__UNLOGGED = 724,
-  PG_QUERY__TOKEN__UNTIL = 725,
-  PG_QUERY__TOKEN__UPDATE = 726,
-  PG_QUERY__TOKEN__USER = 727,
-  PG_QUERY__TOKEN__USING = 728,
-  PG_QUERY__TOKEN__VACUUM = 729,
-  PG_QUERY__TOKEN__VALID = 730,
-  PG_QUERY__TOKEN__VALIDATE = 731,
-  PG_QUERY__TOKEN__VALIDATOR = 732,
-  PG_QUERY__TOKEN__VALUE_P = 733,
-  PG_QUERY__TOKEN__VALUES = 734,
-  PG_QUERY__TOKEN__VARCHAR = 735,
-  PG_QUERY__TOKEN__VARIADIC = 736,
-  PG_QUERY__TOKEN__VARYING = 737,
-  PG_QUERY__TOKEN__VERBOSE = 738,
-  PG_QUERY__TOKEN__VERSION_P = 739,
-  PG_QUERY__TOKEN__VIEW = 740,
-  PG_QUERY__TOKEN__VIEWS = 741,
-  PG_QUERY__TOKEN__VOLATILE = 742,
-  PG_QUERY__TOKEN__WHEN = 743,
-  PG_QUERY__TOKEN__WHERE = 744,
-  PG_QUERY__TOKEN__WHITESPACE_P = 745,
-  PG_QUERY__TOKEN__WINDOW = 746,
-  PG_QUERY__TOKEN__WITH = 747,
-  PG_QUERY__TOKEN__WITHIN = 748,
-  PG_QUERY__TOKEN__WITHOUT = 749,
-  PG_QUERY__TOKEN__WORK = 750,
-  PG_QUERY__TOKEN__WRAPPER = 751,
-  PG_QUERY__TOKEN__WRITE = 752,
-  PG_QUERY__TOKEN__XML_P = 753,
-  PG_QUERY__TOKEN__XMLATTRIBUTES = 754,
-  PG_QUERY__TOKEN__XMLCONCAT = 755,
-  PG_QUERY__TOKEN__XMLELEMENT = 756,
-  PG_QUERY__TOKEN__XMLEXISTS = 757,
-  PG_QUERY__TOKEN__XMLFOREST = 758,
-  PG_QUERY__TOKEN__XMLNAMESPACES = 759,
-  PG_QUERY__TOKEN__XMLPARSE = 760,
-  PG_QUERY__TOKEN__XMLPI = 761,
-  PG_QUERY__TOKEN__XMLROOT = 762,
-  PG_QUERY__TOKEN__XMLSERIALIZE = 763,
-  PG_QUERY__TOKEN__XMLTABLE = 764,
-  PG_QUERY__TOKEN__YEAR_P = 765,
-  PG_QUERY__TOKEN__YES_P = 766,
-  PG_QUERY__TOKEN__ZONE = 767,
-  PG_QUERY__TOKEN__FORMAT_LA = 768,
-  PG_QUERY__TOKEN__NOT_LA = 769,
-  PG_QUERY__TOKEN__NULLS_LA = 770,
-  PG_QUERY__TOKEN__WITH_LA = 771,
-  PG_QUERY__TOKEN__WITHOUT_LA = 772,
-  PG_QUERY__TOKEN__MODE_TYPE_NAME = 773,
-  PG_QUERY__TOKEN__MODE_PLPGSQL_EXPR = 774,
-  PG_QUERY__TOKEN__MODE_PLPGSQL_ASSIGN1 = 775,
-  PG_QUERY__TOKEN__MODE_PLPGSQL_ASSIGN2 = 776,
-  PG_QUERY__TOKEN__MODE_PLPGSQL_ASSIGN3 = 777,
-  PG_QUERY__TOKEN__UMINUS = 778
+  PG_QUERY__TOKEN__PG_QUERY_INTERNAL_CONNECT_BY = 590,
+  PG_QUERY__TOKEN__PG_QUERY_INTERNAL_CONNECT_BY_ROOT = 591,
+  PG_QUERY__TOKEN__PG_QUERY_INTERNAL_NOCYCLE = 592,
+  PG_QUERY__TOKEN__PG_QUERY_INTERNAL_PRIOR = 593,
+  PG_QUERY__TOKEN__PG_QUERY_INTERNAL_START_WITH = 594,
+  PG_QUERY__TOKEN__PLACING = 595,
+  PG_QUERY__TOKEN__PLAN = 596,
+  PG_QUERY__TOKEN__PLANS = 597,
+  PG_QUERY__TOKEN__POLICY = 598,
+  PG_QUERY__TOKEN__POSITION = 599,
+  PG_QUERY__TOKEN__PRECEDING = 600,
+  PG_QUERY__TOKEN__PRECISION = 601,
+  PG_QUERY__TOKEN__PRESERVE = 602,
+  PG_QUERY__TOKEN__PREPARE = 603,
+  PG_QUERY__TOKEN__PREPARED = 604,
+  PG_QUERY__TOKEN__PRIMARY = 605,
+  PG_QUERY__TOKEN__PRIOR = 606,
+  PG_QUERY__TOKEN__PRIVILEGES = 607,
+  PG_QUERY__TOKEN__PROCEDURAL = 608,
+  PG_QUERY__TOKEN__PROCEDURE = 609,
+  PG_QUERY__TOKEN__PROCEDURES = 610,
+  PG_QUERY__TOKEN__PROGRAM = 611,
+  PG_QUERY__TOKEN__PUBLICATION = 612,
+  PG_QUERY__TOKEN__QUOTE = 613,
+  PG_QUERY__TOKEN__QUOTES = 614,
+  PG_QUERY__TOKEN__RANGE = 615,
+  PG_QUERY__TOKEN__READ = 616,
+  PG_QUERY__TOKEN__REAL = 617,
+  PG_QUERY__TOKEN__REASSIGN = 618,
+  PG_QUERY__TOKEN__RECHECK = 619,
+  PG_QUERY__TOKEN__RECURSIVE = 620,
+  PG_QUERY__TOKEN__REF_P = 621,
+  PG_QUERY__TOKEN__REFERENCES = 622,
+  PG_QUERY__TOKEN__REFERENCING = 623,
+  PG_QUERY__TOKEN__REFRESH = 624,
+  PG_QUERY__TOKEN__REINDEX = 625,
+  PG_QUERY__TOKEN__RELATIVE_P = 626,
+  PG_QUERY__TOKEN__RELEASE = 627,
+  PG_QUERY__TOKEN__RENAME = 628,
+  PG_QUERY__TOKEN__REPEATABLE = 629,
+  PG_QUERY__TOKEN__REPLACE = 630,
+  PG_QUERY__TOKEN__REPLICA = 631,
+  PG_QUERY__TOKEN__RESET = 632,
+  PG_QUERY__TOKEN__RESTART = 633,
+  PG_QUERY__TOKEN__RESTRICT = 634,
+  PG_QUERY__TOKEN__RETURN = 635,
+  PG_QUERY__TOKEN__RETURNING = 636,
+  PG_QUERY__TOKEN__RETURNS = 637,
+  PG_QUERY__TOKEN__REVOKE = 638,
+  PG_QUERY__TOKEN__RIGHT = 639,
+  PG_QUERY__TOKEN__ROLE = 640,
+  PG_QUERY__TOKEN__ROLLBACK = 641,
+  PG_QUERY__TOKEN__ROLLUP = 642,
+  PG_QUERY__TOKEN__ROUTINE = 643,
+  PG_QUERY__TOKEN__ROUTINES = 644,
+  PG_QUERY__TOKEN__ROW = 645,
+  PG_QUERY__TOKEN__ROWS = 646,
+  PG_QUERY__TOKEN__RULE = 647,
+  PG_QUERY__TOKEN__SAVEPOINT = 648,
+  PG_QUERY__TOKEN__SCALAR = 649,
+  PG_QUERY__TOKEN__SCHEMA = 650,
+  PG_QUERY__TOKEN__SCHEMAS = 651,
+  PG_QUERY__TOKEN__SCROLL = 652,
+  PG_QUERY__TOKEN__SEARCH = 653,
+  PG_QUERY__TOKEN__SECOND_P = 654,
+  PG_QUERY__TOKEN__SECURITY = 655,
+  PG_QUERY__TOKEN__SELECT = 656,
+  PG_QUERY__TOKEN__SEQUENCE = 657,
+  PG_QUERY__TOKEN__SEQUENCES = 658,
+  PG_QUERY__TOKEN__SERIALIZABLE = 659,
+  PG_QUERY__TOKEN__SERVER = 660,
+  PG_QUERY__TOKEN__SESSION = 661,
+  PG_QUERY__TOKEN__SESSION_USER = 662,
+  PG_QUERY__TOKEN__SET = 663,
+  PG_QUERY__TOKEN__SETS = 664,
+  PG_QUERY__TOKEN__SETOF = 665,
+  PG_QUERY__TOKEN__SHARE = 666,
+  PG_QUERY__TOKEN__SHOW = 667,
+  PG_QUERY__TOKEN__SIMILAR = 668,
+  PG_QUERY__TOKEN__SIMPLE = 669,
+  PG_QUERY__TOKEN__SKIP = 670,
+  PG_QUERY__TOKEN__SMALLINT = 671,
+  PG_QUERY__TOKEN__SNAPSHOT = 672,
+  PG_QUERY__TOKEN__SOME = 673,
+  PG_QUERY__TOKEN__SOURCE = 674,
+  PG_QUERY__TOKEN__SQL_P = 675,
+  PG_QUERY__TOKEN__STABLE = 676,
+  PG_QUERY__TOKEN__STANDALONE_P = 677,
+  PG_QUERY__TOKEN__START = 678,
+  PG_QUERY__TOKEN__STATEMENT = 679,
+  PG_QUERY__TOKEN__STATISTICS = 680,
+  PG_QUERY__TOKEN__STDIN = 681,
+  PG_QUERY__TOKEN__STDOUT = 682,
+  PG_QUERY__TOKEN__STORAGE = 683,
+  PG_QUERY__TOKEN__STORED = 684,
+  PG_QUERY__TOKEN__STRICT_P = 685,
+  PG_QUERY__TOKEN__STRING_P = 686,
+  PG_QUERY__TOKEN__STRIP_P = 687,
+  PG_QUERY__TOKEN__SUBSCRIPTION = 688,
+  PG_QUERY__TOKEN__SUBSTRING = 689,
+  PG_QUERY__TOKEN__SUPPORT = 690,
+  PG_QUERY__TOKEN__SYMMETRIC = 691,
+  PG_QUERY__TOKEN__SYSID = 692,
+  PG_QUERY__TOKEN__SYSTEM_P = 693,
+  PG_QUERY__TOKEN__SYSTEM_USER = 694,
+  PG_QUERY__TOKEN__TABLE = 695,
+  PG_QUERY__TOKEN__TABLES = 696,
+  PG_QUERY__TOKEN__TABLESAMPLE = 697,
+  PG_QUERY__TOKEN__TABLESPACE = 698,
+  PG_QUERY__TOKEN__TARGET = 699,
+  PG_QUERY__TOKEN__TEMP = 700,
+  PG_QUERY__TOKEN__TEMPLATE = 701,
+  PG_QUERY__TOKEN__TEMPORARY = 702,
+  PG_QUERY__TOKEN__TEXT_P = 703,
+  PG_QUERY__TOKEN__THEN = 704,
+  PG_QUERY__TOKEN__TIES = 705,
+  PG_QUERY__TOKEN__TIME = 706,
+  PG_QUERY__TOKEN__TIMESTAMP = 707,
+  PG_QUERY__TOKEN__TO = 708,
+  PG_QUERY__TOKEN__TRAILING = 709,
+  PG_QUERY__TOKEN__TRANSACTION = 710,
+  PG_QUERY__TOKEN__TRANSFORM = 711,
+  PG_QUERY__TOKEN__TREAT = 712,
+  PG_QUERY__TOKEN__TRIGGER = 713,
+  PG_QUERY__TOKEN__TRIM = 714,
+  PG_QUERY__TOKEN__TRUE_P = 715,
+  PG_QUERY__TOKEN__TRUNCATE = 716,
+  PG_QUERY__TOKEN__TRUSTED = 717,
+  PG_QUERY__TOKEN__TYPE_P = 718,
+  PG_QUERY__TOKEN__TYPES_P = 719,
+  PG_QUERY__TOKEN__UESCAPE = 720,
+  PG_QUERY__TOKEN__UNBOUNDED = 721,
+  PG_QUERY__TOKEN__UNCONDITIONAL = 722,
+  PG_QUERY__TOKEN__UNCOMMITTED = 723,
+  PG_QUERY__TOKEN__UNENCRYPTED = 724,
+  PG_QUERY__TOKEN__UNION = 725,
+  PG_QUERY__TOKEN__UNIQUE = 726,
+  PG_QUERY__TOKEN__UNKNOWN = 727,
+  PG_QUERY__TOKEN__UNLISTEN = 728,
+  PG_QUERY__TOKEN__UNLOGGED = 729,
+  PG_QUERY__TOKEN__UNTIL = 730,
+  PG_QUERY__TOKEN__UPDATE = 731,
+  PG_QUERY__TOKEN__USER = 732,
+  PG_QUERY__TOKEN__USING = 733,
+  PG_QUERY__TOKEN__VACUUM = 734,
+  PG_QUERY__TOKEN__VALID = 735,
+  PG_QUERY__TOKEN__VALIDATE = 736,
+  PG_QUERY__TOKEN__VALIDATOR = 737,
+  PG_QUERY__TOKEN__VALUE_P = 738,
+  PG_QUERY__TOKEN__VALUES = 739,
+  PG_QUERY__TOKEN__VARCHAR = 740,
+  PG_QUERY__TOKEN__VARIADIC = 741,
+  PG_QUERY__TOKEN__VARYING = 742,
+  PG_QUERY__TOKEN__VERBOSE = 743,
+  PG_QUERY__TOKEN__VERSION_P = 744,
+  PG_QUERY__TOKEN__VIEW = 745,
+  PG_QUERY__TOKEN__VIEWS = 746,
+  PG_QUERY__TOKEN__VOLATILE = 747,
+  PG_QUERY__TOKEN__WHEN = 748,
+  PG_QUERY__TOKEN__WHERE = 749,
+  PG_QUERY__TOKEN__WHITESPACE_P = 750,
+  PG_QUERY__TOKEN__WINDOW = 751,
+  PG_QUERY__TOKEN__WITH = 752,
+  PG_QUERY__TOKEN__WITHIN = 753,
+  PG_QUERY__TOKEN__WITHOUT = 754,
+  PG_QUERY__TOKEN__WORK = 755,
+  PG_QUERY__TOKEN__WRAPPER = 756,
+  PG_QUERY__TOKEN__WRITE = 757,
+  PG_QUERY__TOKEN__XML_P = 758,
+  PG_QUERY__TOKEN__XMLATTRIBUTES = 759,
+  PG_QUERY__TOKEN__XMLCONCAT = 760,
+  PG_QUERY__TOKEN__XMLELEMENT = 761,
+  PG_QUERY__TOKEN__XMLEXISTS = 762,
+  PG_QUERY__TOKEN__XMLFOREST = 763,
+  PG_QUERY__TOKEN__XMLNAMESPACES = 764,
+  PG_QUERY__TOKEN__XMLPARSE = 765,
+  PG_QUERY__TOKEN__XMLPI = 766,
+  PG_QUERY__TOKEN__XMLROOT = 767,
+  PG_QUERY__TOKEN__XMLSERIALIZE = 768,
+  PG_QUERY__TOKEN__XMLTABLE = 769,
+  PG_QUERY__TOKEN__YEAR_P = 770,
+  PG_QUERY__TOKEN__YES_P = 771,
+  PG_QUERY__TOKEN__ZONE = 772,
+  PG_QUERY__TOKEN__FORMAT_LA = 773,
+  PG_QUERY__TOKEN__NOT_LA = 774,
+  PG_QUERY__TOKEN__NULLS_LA = 775,
+  PG_QUERY__TOKEN__WITH_LA = 776,
+  PG_QUERY__TOKEN__WITHOUT_LA = 777,
+  PG_QUERY__TOKEN__MODE_TYPE_NAME = 778,
+  PG_QUERY__TOKEN__MODE_PLPGSQL_EXPR = 779,
+  PG_QUERY__TOKEN__MODE_PLPGSQL_ASSIGN1 = 780,
+  PG_QUERY__TOKEN__MODE_PLPGSQL_ASSIGN2 = 781,
+  PG_QUERY__TOKEN__MODE_PLPGSQL_ASSIGN3 = 782,
+  PG_QUERY__TOKEN__UMINUS = 783
     PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(PG_QUERY__TOKEN)
 } PgQuery__Token;
 
@@ -1663,7 +1668,7 @@ struct  PgQuery__ParseResult
 };
 #define PG_QUERY__PARSE_RESULT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__parse_result__descriptor) \
-    , 0, 0,NULL }
+, 0, 0,NULL }
 
 
 struct  PgQuery__ScanResult
@@ -1675,7 +1680,7 @@ struct  PgQuery__ScanResult
 };
 #define PG_QUERY__SCAN_RESULT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__scan_result__descriptor) \
-    , 0, 0,NULL }
+, 0, 0,NULL }
 
 
 typedef enum {
@@ -2228,33 +2233,33 @@ struct  PgQuery__Node
 };
 #define PG_QUERY__NODE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__node__descriptor) \
-    , PG_QUERY__NODE__NODE__NOT_SET, {0} }
+, PG_QUERY__NODE__NODE__NOT_SET, {0} }
 
 
 struct  PgQuery__Integer
 {
   ProtobufCMessage base;
   /*
-   * machine integer 
+   * machine integer
    */
   int32_t ival;
 };
 #define PG_QUERY__INTEGER__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__integer__descriptor) \
-    , 0 }
+, 0 }
 
 
 struct  PgQuery__Float
 {
   ProtobufCMessage base;
   /*
-   * string 
+   * string
    */
   char *fval;
 };
 #define PG_QUERY__FLOAT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__float__descriptor) \
-    , (char *)protobuf_c_empty_string }
+, (char *)protobuf_c_empty_string }
 
 
 struct  PgQuery__Boolean
@@ -2264,34 +2269,34 @@ struct  PgQuery__Boolean
 };
 #define PG_QUERY__BOOLEAN__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__boolean__descriptor) \
-    , 0 }
+, 0 }
 
 
 struct  PgQuery__String
 {
   ProtobufCMessage base;
   /*
-   * string 
+   * string
    */
   char *sval;
   int32_t location;
 };
 #define PG_QUERY__STRING__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__string__descriptor) \
-    , (char *)protobuf_c_empty_string, 0 }
+, (char *)protobuf_c_empty_string, 0 }
 
 
 struct  PgQuery__BitString
 {
   ProtobufCMessage base;
   /*
-   * string 
+   * string
    */
   char *bsval;
 };
 #define PG_QUERY__BIT_STRING__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__bit_string__descriptor) \
-    , (char *)protobuf_c_empty_string }
+, (char *)protobuf_c_empty_string }
 
 
 struct  PgQuery__List
@@ -2302,7 +2307,7 @@ struct  PgQuery__List
 };
 #define PG_QUERY__LIST__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__list__descriptor) \
-    , 0,NULL }
+, 0,NULL }
 
 
 struct  PgQuery__OidList
@@ -2313,7 +2318,7 @@ struct  PgQuery__OidList
 };
 #define PG_QUERY__OID_LIST__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__oid_list__descriptor) \
-    , 0,NULL }
+, 0,NULL }
 
 
 struct  PgQuery__IntList
@@ -2324,7 +2329,7 @@ struct  PgQuery__IntList
 };
 #define PG_QUERY__INT_LIST__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__int_list__descriptor) \
-    , 0,NULL }
+, 0,NULL }
 
 
 typedef enum {
@@ -2353,7 +2358,7 @@ struct  PgQuery__AConst
 };
 #define PG_QUERY__A__CONST__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__a__const__descriptor) \
-    , 0, 0, PG_QUERY__A__CONST__VAL__NOT_SET, {0} }
+, 0, 0, PG_QUERY__A__CONST__VAL__NOT_SET, {0} }
 
 
 struct  PgQuery__Alias
@@ -2366,7 +2371,7 @@ struct  PgQuery__Alias
 };
 #define PG_QUERY__ALIAS__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alias__descriptor) \
-    , (char *)protobuf_c_empty_string, 0,NULL, 0 }
+, (char *)protobuf_c_empty_string, 0,NULL, 0 }
 
 
 struct  PgQuery__RangeVar
@@ -2382,7 +2387,7 @@ struct  PgQuery__RangeVar
 };
 #define PG_QUERY__RANGE_VAR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__range_var__descriptor) \
-    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0, (char *)protobuf_c_empty_string, NULL, 0 }
+, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0, (char *)protobuf_c_empty_string, NULL, 0 }
 
 
 struct  PgQuery__TableFunc
@@ -2419,7 +2424,7 @@ struct  PgQuery__TableFunc
 };
 #define PG_QUERY__TABLE_FUNC__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__table_func__descriptor) \
-    , PG_QUERY__TABLE_FUNC_TYPE__TABLE_FUNC_TYPE_UNDEFINED, 0,NULL, 0,NULL, NULL, NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL, NULL, 0, 0 }
+, PG_QUERY__TABLE_FUNC_TYPE__TABLE_FUNC_TYPE_UNDEFINED, 0,NULL, 0,NULL, NULL, NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL, NULL, 0, 0 }
 
 
 struct  PgQuery__IntoClause
@@ -2438,7 +2443,7 @@ struct  PgQuery__IntoClause
 };
 #define PG_QUERY__INTO_CLAUSE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__into_clause__descriptor) \
-    , NULL, 0,NULL, (char *)protobuf_c_empty_string, 0,NULL, PG_QUERY__ON_COMMIT_ACTION__ON_COMMIT_ACTION_UNDEFINED, (char *)protobuf_c_empty_string, NULL, 0 }
+, NULL, 0,NULL, (char *)protobuf_c_empty_string, 0,NULL, PG_QUERY__ON_COMMIT_ACTION__ON_COMMIT_ACTION_UNDEFINED, (char *)protobuf_c_empty_string, NULL, 0 }
 
 
 struct  PgQuery__Var
@@ -2457,7 +2462,7 @@ struct  PgQuery__Var
 };
 #define PG_QUERY__VAR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__var__descriptor) \
-    , NULL, 0, 0, 0, 0, 0, 0,NULL, 0, 0 }
+, NULL, 0, 0, 0, 0, 0, 0,NULL, 0, 0 }
 
 
 struct  PgQuery__Param
@@ -2473,7 +2478,7 @@ struct  PgQuery__Param
 };
 #define PG_QUERY__PARAM__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__param__descriptor) \
-    , NULL, PG_QUERY__PARAM_KIND__PARAM_KIND_UNDEFINED, 0, 0, 0, 0, 0 }
+, NULL, PG_QUERY__PARAM_KIND__PARAM_KIND_UNDEFINED, 0, 0, 0, 0, 0 }
 
 
 struct  PgQuery__Aggref
@@ -2506,7 +2511,7 @@ struct  PgQuery__Aggref
 };
 #define PG_QUERY__AGGREF__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__aggref__descriptor) \
-    , NULL, 0, 0, 0, 0, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL, NULL, 0, 0, (char *)protobuf_c_empty_string, 0, PG_QUERY__AGG_SPLIT__AGG_SPLIT_UNDEFINED, 0, 0, 0 }
+, NULL, 0, 0, 0, 0, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL, NULL, 0, 0, (char *)protobuf_c_empty_string, 0, PG_QUERY__AGG_SPLIT__AGG_SPLIT_UNDEFINED, 0, 0, 0 }
 
 
 struct  PgQuery__GroupingFunc
@@ -2522,7 +2527,7 @@ struct  PgQuery__GroupingFunc
 };
 #define PG_QUERY__GROUPING_FUNC__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__grouping_func__descriptor) \
-    , NULL, 0,NULL, 0,NULL, 0, 0 }
+, NULL, 0,NULL, 0,NULL, 0, 0 }
 
 
 struct  PgQuery__WindowFunc
@@ -2545,7 +2550,7 @@ struct  PgQuery__WindowFunc
 };
 #define PG_QUERY__WINDOW_FUNC__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__window_func__descriptor) \
-    , NULL, 0, 0, 0, 0, 0,NULL, NULL, 0,NULL, 0, 0, 0, 0 }
+, NULL, 0, 0, 0, 0, 0,NULL, NULL, 0,NULL, 0, 0, 0, 0 }
 
 
 struct  PgQuery__WindowFuncRunCondition
@@ -2559,7 +2564,7 @@ struct  PgQuery__WindowFuncRunCondition
 };
 #define PG_QUERY__WINDOW_FUNC_RUN_CONDITION__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__window_func_run_condition__descriptor) \
-    , NULL, 0, 0, 0, NULL }
+, NULL, 0, 0, 0, NULL }
 
 
 struct  PgQuery__MergeSupportFunc
@@ -2572,7 +2577,7 @@ struct  PgQuery__MergeSupportFunc
 };
 #define PG_QUERY__MERGE_SUPPORT_FUNC__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__merge_support_func__descriptor) \
-    , NULL, 0, 0, 0 }
+, NULL, 0, 0, 0 }
 
 
 struct  PgQuery__SubscriptingRef
@@ -2593,7 +2598,7 @@ struct  PgQuery__SubscriptingRef
 };
 #define PG_QUERY__SUBSCRIPTING_REF__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__subscripting_ref__descriptor) \
-    , NULL, 0, 0, 0, 0, 0, 0,NULL, 0,NULL, NULL, NULL }
+, NULL, 0, 0, 0, 0, 0, 0,NULL, 0,NULL, NULL, NULL }
 
 
 struct  PgQuery__FuncExpr
@@ -2613,7 +2618,7 @@ struct  PgQuery__FuncExpr
 };
 #define PG_QUERY__FUNC_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__func_expr__descriptor) \
-    , NULL, 0, 0, 0, 0, PG_QUERY__COERCION_FORM__COERCION_FORM_UNDEFINED, 0, 0, 0,NULL, 0 }
+, NULL, 0, 0, 0, 0, PG_QUERY__COERCION_FORM__COERCION_FORM_UNDEFINED, 0, 0, 0,NULL, 0 }
 
 
 struct  PgQuery__NamedArgExpr
@@ -2627,7 +2632,7 @@ struct  PgQuery__NamedArgExpr
 };
 #define PG_QUERY__NAMED_ARG_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__named_arg_expr__descriptor) \
-    , NULL, NULL, (char *)protobuf_c_empty_string, 0, 0 }
+, NULL, NULL, (char *)protobuf_c_empty_string, 0, 0 }
 
 
 struct  PgQuery__OpExpr
@@ -2645,7 +2650,7 @@ struct  PgQuery__OpExpr
 };
 #define PG_QUERY__OP_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__op_expr__descriptor) \
-    , NULL, 0, 0, 0, 0, 0, 0,NULL, 0 }
+, NULL, 0, 0, 0, 0, 0, 0,NULL, 0 }
 
 
 struct  PgQuery__DistinctExpr
@@ -2663,7 +2668,7 @@ struct  PgQuery__DistinctExpr
 };
 #define PG_QUERY__DISTINCT_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__distinct_expr__descriptor) \
-    , NULL, 0, 0, 0, 0, 0, 0,NULL, 0 }
+, NULL, 0, 0, 0, 0, 0, 0,NULL, 0 }
 
 
 struct  PgQuery__NullIfExpr
@@ -2681,7 +2686,7 @@ struct  PgQuery__NullIfExpr
 };
 #define PG_QUERY__NULL_IF_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__null_if_expr__descriptor) \
-    , NULL, 0, 0, 0, 0, 0, 0,NULL, 0 }
+, NULL, 0, 0, 0, 0, 0, 0,NULL, 0 }
 
 
 struct  PgQuery__ScalarArrayOpExpr
@@ -2697,7 +2702,7 @@ struct  PgQuery__ScalarArrayOpExpr
 };
 #define PG_QUERY__SCALAR_ARRAY_OP_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__scalar_array_op_expr__descriptor) \
-    , NULL, 0, 0, 0, 0,NULL, 0 }
+, NULL, 0, 0, 0, 0,NULL, 0 }
 
 
 struct  PgQuery__BoolExpr
@@ -2711,7 +2716,7 @@ struct  PgQuery__BoolExpr
 };
 #define PG_QUERY__BOOL_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__bool_expr__descriptor) \
-    , NULL, PG_QUERY__BOOL_EXPR_TYPE__BOOL_EXPR_TYPE_UNDEFINED, 0,NULL, 0 }
+, NULL, PG_QUERY__BOOL_EXPR_TYPE__BOOL_EXPR_TYPE_UNDEFINED, 0,NULL, 0 }
 
 
 struct  PgQuery__SubLink
@@ -2728,7 +2733,7 @@ struct  PgQuery__SubLink
 };
 #define PG_QUERY__SUB_LINK__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__sub_link__descriptor) \
-    , NULL, PG_QUERY__SUB_LINK_TYPE__SUB_LINK_TYPE_UNDEFINED, 0, NULL, 0,NULL, NULL, 0 }
+, NULL, PG_QUERY__SUB_LINK_TYPE__SUB_LINK_TYPE_UNDEFINED, 0, NULL, 0,NULL, NULL, 0 }
 
 
 struct  PgQuery__SubPlan
@@ -2758,7 +2763,7 @@ struct  PgQuery__SubPlan
 };
 #define PG_QUERY__SUB_PLAN__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__sub_plan__descriptor) \
-    , NULL, PG_QUERY__SUB_LINK_TYPE__SUB_LINK_TYPE_UNDEFINED, NULL, 0,NULL, 0, (char *)protobuf_c_empty_string, 0, 0, 0, 0, 0, 0, 0,NULL, 0,NULL, 0,NULL, 0, 0 }
+, NULL, PG_QUERY__SUB_LINK_TYPE__SUB_LINK_TYPE_UNDEFINED, NULL, 0,NULL, 0, (char *)protobuf_c_empty_string, 0, 0, 0, 0, 0, 0, 0,NULL, 0,NULL, 0,NULL, 0, 0 }
 
 
 struct  PgQuery__AlternativeSubPlan
@@ -2770,7 +2775,7 @@ struct  PgQuery__AlternativeSubPlan
 };
 #define PG_QUERY__ALTERNATIVE_SUB_PLAN__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alternative_sub_plan__descriptor) \
-    , NULL, 0,NULL }
+, NULL, 0,NULL }
 
 
 struct  PgQuery__FieldSelect
@@ -2785,7 +2790,7 @@ struct  PgQuery__FieldSelect
 };
 #define PG_QUERY__FIELD_SELECT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__field_select__descriptor) \
-    , NULL, NULL, 0, 0, 0, 0 }
+, NULL, NULL, 0, 0, 0, 0 }
 
 
 struct  PgQuery__FieldStore
@@ -2801,7 +2806,7 @@ struct  PgQuery__FieldStore
 };
 #define PG_QUERY__FIELD_STORE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__field_store__descriptor) \
-    , NULL, NULL, 0,NULL, 0,NULL, 0 }
+, NULL, NULL, 0,NULL, 0,NULL, 0 }
 
 
 struct  PgQuery__RelabelType
@@ -2817,7 +2822,7 @@ struct  PgQuery__RelabelType
 };
 #define PG_QUERY__RELABEL_TYPE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__relabel_type__descriptor) \
-    , NULL, NULL, 0, 0, 0, PG_QUERY__COERCION_FORM__COERCION_FORM_UNDEFINED, 0 }
+, NULL, NULL, 0, 0, 0, PG_QUERY__COERCION_FORM__COERCION_FORM_UNDEFINED, 0 }
 
 
 struct  PgQuery__CoerceViaIO
@@ -2832,7 +2837,7 @@ struct  PgQuery__CoerceViaIO
 };
 #define PG_QUERY__COERCE_VIA_IO__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__coerce_via_io__descriptor) \
-    , NULL, NULL, 0, 0, PG_QUERY__COERCION_FORM__COERCION_FORM_UNDEFINED, 0 }
+, NULL, NULL, 0, 0, PG_QUERY__COERCION_FORM__COERCION_FORM_UNDEFINED, 0 }
 
 
 struct  PgQuery__ArrayCoerceExpr
@@ -2849,7 +2854,7 @@ struct  PgQuery__ArrayCoerceExpr
 };
 #define PG_QUERY__ARRAY_COERCE_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__array_coerce_expr__descriptor) \
-    , NULL, NULL, NULL, 0, 0, 0, PG_QUERY__COERCION_FORM__COERCION_FORM_UNDEFINED, 0 }
+, NULL, NULL, NULL, 0, 0, 0, PG_QUERY__COERCION_FORM__COERCION_FORM_UNDEFINED, 0 }
 
 
 struct  PgQuery__ConvertRowtypeExpr
@@ -2863,7 +2868,7 @@ struct  PgQuery__ConvertRowtypeExpr
 };
 #define PG_QUERY__CONVERT_ROWTYPE_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__convert_rowtype_expr__descriptor) \
-    , NULL, NULL, 0, PG_QUERY__COERCION_FORM__COERCION_FORM_UNDEFINED, 0 }
+, NULL, NULL, 0, PG_QUERY__COERCION_FORM__COERCION_FORM_UNDEFINED, 0 }
 
 
 struct  PgQuery__CollateExpr
@@ -2876,7 +2881,7 @@ struct  PgQuery__CollateExpr
 };
 #define PG_QUERY__COLLATE_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__collate_expr__descriptor) \
-    , NULL, NULL, 0, 0 }
+, NULL, NULL, 0, 0 }
 
 
 struct  PgQuery__CaseExpr
@@ -2893,7 +2898,7 @@ struct  PgQuery__CaseExpr
 };
 #define PG_QUERY__CASE_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__case_expr__descriptor) \
-    , NULL, 0, 0, NULL, 0,NULL, NULL, 0 }
+, NULL, 0, 0, NULL, 0,NULL, NULL, 0 }
 
 
 struct  PgQuery__CaseWhen
@@ -2906,7 +2911,7 @@ struct  PgQuery__CaseWhen
 };
 #define PG_QUERY__CASE_WHEN__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__case_when__descriptor) \
-    , NULL, NULL, NULL, 0 }
+, NULL, NULL, NULL, 0 }
 
 
 struct  PgQuery__CaseTestExpr
@@ -2919,7 +2924,7 @@ struct  PgQuery__CaseTestExpr
 };
 #define PG_QUERY__CASE_TEST_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__case_test_expr__descriptor) \
-    , NULL, 0, 0, 0 }
+, NULL, 0, 0, 0 }
 
 
 struct  PgQuery__ArrayExpr
@@ -2936,7 +2941,7 @@ struct  PgQuery__ArrayExpr
 };
 #define PG_QUERY__ARRAY_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__array_expr__descriptor) \
-    , NULL, 0, 0, 0, 0,NULL, 0, 0 }
+, NULL, 0, 0, 0, 0,NULL, 0, 0 }
 
 
 struct  PgQuery__RowExpr
@@ -2953,7 +2958,7 @@ struct  PgQuery__RowExpr
 };
 #define PG_QUERY__ROW_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__row_expr__descriptor) \
-    , NULL, 0,NULL, 0, PG_QUERY__COERCION_FORM__COERCION_FORM_UNDEFINED, 0,NULL, 0 }
+, NULL, 0,NULL, 0, PG_QUERY__COERCION_FORM__COERCION_FORM_UNDEFINED, 0,NULL, 0 }
 
 
 struct  PgQuery__RowCompareExpr
@@ -2974,7 +2979,7 @@ struct  PgQuery__RowCompareExpr
 };
 #define PG_QUERY__ROW_COMPARE_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__row_compare_expr__descriptor) \
-    , NULL, PG_QUERY__ROW_COMPARE_TYPE__ROW_COMPARE_TYPE_UNDEFINED, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL }
+, NULL, PG_QUERY__ROW_COMPARE_TYPE__ROW_COMPARE_TYPE_UNDEFINED, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL }
 
 
 struct  PgQuery__CoalesceExpr
@@ -2989,7 +2994,7 @@ struct  PgQuery__CoalesceExpr
 };
 #define PG_QUERY__COALESCE_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__coalesce_expr__descriptor) \
-    , NULL, 0, 0, 0,NULL, 0 }
+, NULL, 0, 0, 0,NULL, 0 }
 
 
 struct  PgQuery__MinMaxExpr
@@ -3006,7 +3011,7 @@ struct  PgQuery__MinMaxExpr
 };
 #define PG_QUERY__MIN_MAX_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__min_max_expr__descriptor) \
-    , NULL, 0, 0, 0, PG_QUERY__MIN_MAX_OP__MIN_MAX_OP_UNDEFINED, 0,NULL, 0 }
+, NULL, 0, 0, 0, PG_QUERY__MIN_MAX_OP__MIN_MAX_OP_UNDEFINED, 0,NULL, 0 }
 
 
 struct  PgQuery__SQLValueFunction
@@ -3020,7 +3025,7 @@ struct  PgQuery__SQLValueFunction
 };
 #define PG_QUERY__SQLVALUE_FUNCTION__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__sqlvalue_function__descriptor) \
-    , NULL, PG_QUERY__SQLVALUE_FUNCTION_OP__SQLVALUE_FUNCTION_OP_UNDEFINED, 0, 0, 0 }
+, NULL, PG_QUERY__SQLVALUE_FUNCTION_OP__SQLVALUE_FUNCTION_OP_UNDEFINED, 0, 0, 0 }
 
 
 struct  PgQuery__XmlExpr
@@ -3043,7 +3048,7 @@ struct  PgQuery__XmlExpr
 };
 #define PG_QUERY__XML_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__xml_expr__descriptor) \
-    , NULL, PG_QUERY__XML_EXPR_OP__XML_EXPR_OP_UNDEFINED, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0,NULL, PG_QUERY__XML_OPTION_TYPE__XML_OPTION_TYPE_UNDEFINED, 0, 0, 0, 0 }
+, NULL, PG_QUERY__XML_EXPR_OP__XML_EXPR_OP_UNDEFINED, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0,NULL, PG_QUERY__XML_OPTION_TYPE__XML_OPTION_TYPE_UNDEFINED, 0, 0, 0, 0 }
 
 
 struct  PgQuery__JsonFormat
@@ -3055,7 +3060,7 @@ struct  PgQuery__JsonFormat
 };
 #define PG_QUERY__JSON_FORMAT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_format__descriptor) \
-    , PG_QUERY__JSON_FORMAT_TYPE__JSON_FORMAT_TYPE_UNDEFINED, PG_QUERY__JSON_ENCODING__JSON_ENCODING_UNDEFINED, 0 }
+, PG_QUERY__JSON_FORMAT_TYPE__JSON_FORMAT_TYPE_UNDEFINED, PG_QUERY__JSON_ENCODING__JSON_ENCODING_UNDEFINED, 0 }
 
 
 struct  PgQuery__JsonReturning
@@ -3067,7 +3072,7 @@ struct  PgQuery__JsonReturning
 };
 #define PG_QUERY__JSON_RETURNING__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_returning__descriptor) \
-    , NULL, 0, 0 }
+, NULL, 0, 0 }
 
 
 struct  PgQuery__JsonValueExpr
@@ -3079,7 +3084,7 @@ struct  PgQuery__JsonValueExpr
 };
 #define PG_QUERY__JSON_VALUE_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_value_expr__descriptor) \
-    , NULL, NULL, NULL }
+, NULL, NULL, NULL }
 
 
 struct  PgQuery__JsonConstructorExpr
@@ -3098,7 +3103,7 @@ struct  PgQuery__JsonConstructorExpr
 };
 #define PG_QUERY__JSON_CONSTRUCTOR_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_constructor_expr__descriptor) \
-    , NULL, PG_QUERY__JSON_CONSTRUCTOR_TYPE__JSON_CONSTRUCTOR_TYPE_UNDEFINED, 0,NULL, NULL, NULL, NULL, 0, 0, 0 }
+, NULL, PG_QUERY__JSON_CONSTRUCTOR_TYPE__JSON_CONSTRUCTOR_TYPE_UNDEFINED, 0,NULL, NULL, NULL, NULL, 0, 0, 0 }
 
 
 struct  PgQuery__JsonIsPredicate
@@ -3112,7 +3117,7 @@ struct  PgQuery__JsonIsPredicate
 };
 #define PG_QUERY__JSON_IS_PREDICATE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_is_predicate__descriptor) \
-    , NULL, NULL, PG_QUERY__JSON_VALUE_TYPE__JSON_VALUE_TYPE_UNDEFINED, 0, 0 }
+, NULL, NULL, PG_QUERY__JSON_VALUE_TYPE__JSON_VALUE_TYPE_UNDEFINED, 0, 0 }
 
 
 struct  PgQuery__JsonBehavior
@@ -3125,7 +3130,7 @@ struct  PgQuery__JsonBehavior
 };
 #define PG_QUERY__JSON_BEHAVIOR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_behavior__descriptor) \
-    , PG_QUERY__JSON_BEHAVIOR_TYPE__JSON_BEHAVIOR_TYPE_UNDEFINED, NULL, 0, 0 }
+, PG_QUERY__JSON_BEHAVIOR_TYPE__JSON_BEHAVIOR_TYPE_UNDEFINED, NULL, 0, 0 }
 
 
 struct  PgQuery__JsonExpr
@@ -3153,7 +3158,7 @@ struct  PgQuery__JsonExpr
 };
 #define PG_QUERY__JSON_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_expr__descriptor) \
-    , NULL, PG_QUERY__JSON_EXPR_OP__JSON_EXPR_OP_UNDEFINED, (char *)protobuf_c_empty_string, NULL, NULL, NULL, NULL, 0,NULL, 0,NULL, NULL, NULL, 0, 0, PG_QUERY__JSON_WRAPPER__JSON_WRAPPER_UNDEFINED, 0, 0, 0 }
+, NULL, PG_QUERY__JSON_EXPR_OP__JSON_EXPR_OP_UNDEFINED, (char *)protobuf_c_empty_string, NULL, NULL, NULL, NULL, 0,NULL, 0,NULL, NULL, NULL, 0, 0, PG_QUERY__JSON_WRAPPER__JSON_WRAPPER_UNDEFINED, 0, 0, 0 }
 
 
 struct  PgQuery__JsonTablePath
@@ -3163,7 +3168,7 @@ struct  PgQuery__JsonTablePath
 };
 #define PG_QUERY__JSON_TABLE_PATH__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_table_path__descriptor) \
-    , (char *)protobuf_c_empty_string }
+, (char *)protobuf_c_empty_string }
 
 
 struct  PgQuery__JsonTablePathScan
@@ -3178,7 +3183,7 @@ struct  PgQuery__JsonTablePathScan
 };
 #define PG_QUERY__JSON_TABLE_PATH_SCAN__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_table_path_scan__descriptor) \
-    , NULL, NULL, 0, NULL, 0, 0 }
+, NULL, NULL, 0, NULL, 0, 0 }
 
 
 struct  PgQuery__JsonTableSiblingJoin
@@ -3190,7 +3195,7 @@ struct  PgQuery__JsonTableSiblingJoin
 };
 #define PG_QUERY__JSON_TABLE_SIBLING_JOIN__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_table_sibling_join__descriptor) \
-    , NULL, NULL, NULL }
+, NULL, NULL, NULL }
 
 
 struct  PgQuery__NullTest
@@ -3204,7 +3209,7 @@ struct  PgQuery__NullTest
 };
 #define PG_QUERY__NULL_TEST__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__null_test__descriptor) \
-    , NULL, NULL, PG_QUERY__NULL_TEST_TYPE__NULL_TEST_TYPE_UNDEFINED, 0, 0 }
+, NULL, NULL, PG_QUERY__NULL_TEST_TYPE__NULL_TEST_TYPE_UNDEFINED, 0, 0 }
 
 
 struct  PgQuery__BooleanTest
@@ -3217,7 +3222,7 @@ struct  PgQuery__BooleanTest
 };
 #define PG_QUERY__BOOLEAN_TEST__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__boolean_test__descriptor) \
-    , NULL, NULL, PG_QUERY__BOOL_TEST_TYPE__BOOL_TEST_TYPE_UNDEFINED, 0 }
+, NULL, NULL, PG_QUERY__BOOL_TEST_TYPE__BOOL_TEST_TYPE_UNDEFINED, 0 }
 
 
 struct  PgQuery__MergeAction
@@ -3234,7 +3239,7 @@ struct  PgQuery__MergeAction
 };
 #define PG_QUERY__MERGE_ACTION__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__merge_action__descriptor) \
-    , PG_QUERY__MERGE_MATCH_KIND__MERGE_MATCH_KIND_UNDEFINED, PG_QUERY__CMD_TYPE__CMD_TYPE_UNDEFINED, PG_QUERY__OVERRIDING_KIND__OVERRIDING_KIND_UNDEFINED, NULL, 0,NULL, 0,NULL }
+, PG_QUERY__MERGE_MATCH_KIND__MERGE_MATCH_KIND_UNDEFINED, PG_QUERY__CMD_TYPE__CMD_TYPE_UNDEFINED, PG_QUERY__OVERRIDING_KIND__OVERRIDING_KIND_UNDEFINED, NULL, 0,NULL, 0,NULL }
 
 
 struct  PgQuery__CoerceToDomain
@@ -3250,7 +3255,7 @@ struct  PgQuery__CoerceToDomain
 };
 #define PG_QUERY__COERCE_TO_DOMAIN__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__coerce_to_domain__descriptor) \
-    , NULL, NULL, 0, 0, 0, PG_QUERY__COERCION_FORM__COERCION_FORM_UNDEFINED, 0 }
+, NULL, NULL, 0, 0, 0, PG_QUERY__COERCION_FORM__COERCION_FORM_UNDEFINED, 0 }
 
 
 struct  PgQuery__CoerceToDomainValue
@@ -3264,7 +3269,7 @@ struct  PgQuery__CoerceToDomainValue
 };
 #define PG_QUERY__COERCE_TO_DOMAIN_VALUE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__coerce_to_domain_value__descriptor) \
-    , NULL, 0, 0, 0, 0 }
+, NULL, 0, 0, 0, 0 }
 
 
 struct  PgQuery__SetToDefault
@@ -3278,7 +3283,7 @@ struct  PgQuery__SetToDefault
 };
 #define PG_QUERY__SET_TO_DEFAULT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__set_to_default__descriptor) \
-    , NULL, 0, 0, 0, 0 }
+, NULL, 0, 0, 0, 0 }
 
 
 struct  PgQuery__CurrentOfExpr
@@ -3291,7 +3296,7 @@ struct  PgQuery__CurrentOfExpr
 };
 #define PG_QUERY__CURRENT_OF_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__current_of_expr__descriptor) \
-    , NULL, 0, (char *)protobuf_c_empty_string, 0 }
+, NULL, 0, (char *)protobuf_c_empty_string, 0 }
 
 
 struct  PgQuery__NextValueExpr
@@ -3303,7 +3308,7 @@ struct  PgQuery__NextValueExpr
 };
 #define PG_QUERY__NEXT_VALUE_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__next_value_expr__descriptor) \
-    , NULL, 0, 0 }
+, NULL, 0, 0 }
 
 
 struct  PgQuery__InferenceElem
@@ -3316,7 +3321,7 @@ struct  PgQuery__InferenceElem
 };
 #define PG_QUERY__INFERENCE_ELEM__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__inference_elem__descriptor) \
-    , NULL, NULL, 0, 0 }
+, NULL, NULL, 0, 0 }
 
 
 struct  PgQuery__TargetEntry
@@ -3333,7 +3338,7 @@ struct  PgQuery__TargetEntry
 };
 #define PG_QUERY__TARGET_ENTRY__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__target_entry__descriptor) \
-    , NULL, NULL, 0, (char *)protobuf_c_empty_string, 0, 0, 0, 0 }
+, NULL, NULL, 0, (char *)protobuf_c_empty_string, 0, 0, 0, 0 }
 
 
 struct  PgQuery__RangeTblRef
@@ -3343,7 +3348,7 @@ struct  PgQuery__RangeTblRef
 };
 #define PG_QUERY__RANGE_TBL_REF__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__range_tbl_ref__descriptor) \
-    , 0 }
+, 0 }
 
 
 struct  PgQuery__JoinExpr
@@ -3362,7 +3367,7 @@ struct  PgQuery__JoinExpr
 };
 #define PG_QUERY__JOIN_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__join_expr__descriptor) \
-    , PG_QUERY__JOIN_TYPE__JOIN_TYPE_UNDEFINED, 0, NULL, NULL, 0,NULL, NULL, NULL, NULL, 0 }
+, PG_QUERY__JOIN_TYPE__JOIN_TYPE_UNDEFINED, 0, NULL, NULL, 0,NULL, NULL, NULL, NULL, 0 }
 
 
 struct  PgQuery__FromExpr
@@ -3374,7 +3379,7 @@ struct  PgQuery__FromExpr
 };
 #define PG_QUERY__FROM_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__from_expr__descriptor) \
-    , 0,NULL, NULL }
+, 0,NULL, NULL }
 
 
 struct  PgQuery__OnConflictExpr
@@ -3394,7 +3399,7 @@ struct  PgQuery__OnConflictExpr
 };
 #define PG_QUERY__ON_CONFLICT_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__on_conflict_expr__descriptor) \
-    , PG_QUERY__ON_CONFLICT_ACTION__ON_CONFLICT_ACTION_UNDEFINED, 0,NULL, NULL, 0, 0,NULL, NULL, 0, 0,NULL }
+, PG_QUERY__ON_CONFLICT_ACTION__ON_CONFLICT_ACTION_UNDEFINED, 0,NULL, NULL, 0, 0,NULL, NULL, 0, 0,NULL }
 
 
 struct  PgQuery__Query
@@ -3459,7 +3464,7 @@ struct  PgQuery__Query
 };
 #define PG_QUERY__QUERY__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__query__descriptor) \
-    , PG_QUERY__CMD_TYPE__CMD_TYPE_UNDEFINED, PG_QUERY__QUERY_SOURCE__QUERY_SOURCE_UNDEFINED, 0, NULL, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,NULL, 0,NULL, 0,NULL, NULL, 0,NULL, 0, NULL, 0,NULL, PG_QUERY__OVERRIDING_KIND__OVERRIDING_KIND_UNDEFINED, NULL, 0,NULL, 0,NULL, 0, 0,NULL, NULL, 0,NULL, 0,NULL, 0,NULL, NULL, NULL, PG_QUERY__LIMIT_OPTION__LIMIT_OPTION_UNDEFINED, 0,NULL, NULL, 0,NULL, 0,NULL, 0, 0 }
+, PG_QUERY__CMD_TYPE__CMD_TYPE_UNDEFINED, PG_QUERY__QUERY_SOURCE__QUERY_SOURCE_UNDEFINED, 0, NULL, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,NULL, 0,NULL, 0,NULL, NULL, 0,NULL, 0, NULL, 0,NULL, PG_QUERY__OVERRIDING_KIND__OVERRIDING_KIND_UNDEFINED, NULL, 0,NULL, 0,NULL, 0, 0,NULL, NULL, 0,NULL, 0,NULL, 0,NULL, NULL, NULL, PG_QUERY__LIMIT_OPTION__LIMIT_OPTION_UNDEFINED, 0,NULL, NULL, 0,NULL, 0,NULL, 0, 0 }
 
 
 struct  PgQuery__TypeName
@@ -3479,7 +3484,7 @@ struct  PgQuery__TypeName
 };
 #define PG_QUERY__TYPE_NAME__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__type_name__descriptor) \
-    , 0,NULL, 0, 0, 0, 0,NULL, 0, 0,NULL, 0 }
+, 0,NULL, 0, 0, 0, 0,NULL, 0, 0,NULL, 0 }
 
 
 struct  PgQuery__ColumnRef
@@ -3491,7 +3496,7 @@ struct  PgQuery__ColumnRef
 };
 #define PG_QUERY__COLUMN_REF__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__column_ref__descriptor) \
-    , 0,NULL, 0 }
+, 0,NULL, 0 }
 
 
 struct  PgQuery__ParamRef
@@ -3502,7 +3507,7 @@ struct  PgQuery__ParamRef
 };
 #define PG_QUERY__PARAM_REF__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__param_ref__descriptor) \
-    , 0, 0 }
+, 0, 0 }
 
 
 struct  PgQuery__AExpr
@@ -3517,7 +3522,7 @@ struct  PgQuery__AExpr
 };
 #define PG_QUERY__A__EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__a__expr__descriptor) \
-    , PG_QUERY__A__EXPR__KIND__A_EXPR_KIND_UNDEFINED, 0,NULL, NULL, NULL, 0 }
+, PG_QUERY__A__EXPR__KIND__A_EXPR_KIND_UNDEFINED, 0,NULL, NULL, NULL, 0 }
 
 
 struct  PgQuery__TypeCast
@@ -3529,7 +3534,7 @@ struct  PgQuery__TypeCast
 };
 #define PG_QUERY__TYPE_CAST__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__type_cast__descriptor) \
-    , NULL, NULL, 0 }
+, NULL, NULL, 0 }
 
 
 struct  PgQuery__CollateClause
@@ -3542,7 +3547,7 @@ struct  PgQuery__CollateClause
 };
 #define PG_QUERY__COLLATE_CLAUSE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__collate_clause__descriptor) \
-    , NULL, 0,NULL, 0 }
+, NULL, 0,NULL, 0 }
 
 
 struct  PgQuery__RoleSpec
@@ -3554,7 +3559,7 @@ struct  PgQuery__RoleSpec
 };
 #define PG_QUERY__ROLE_SPEC__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__role_spec__descriptor) \
-    , PG_QUERY__ROLE_SPEC_TYPE__ROLE_SPEC_TYPE_UNDEFINED, (char *)protobuf_c_empty_string, 0 }
+, PG_QUERY__ROLE_SPEC_TYPE__ROLE_SPEC_TYPE_UNDEFINED, (char *)protobuf_c_empty_string, 0 }
 
 
 struct  PgQuery__FuncCall
@@ -3577,7 +3582,7 @@ struct  PgQuery__FuncCall
 };
 #define PG_QUERY__FUNC_CALL__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__func_call__descriptor) \
-    , 0,NULL, 0,NULL, 0,NULL, NULL, NULL, 0, 0, 0, 0, PG_QUERY__COERCION_FORM__COERCION_FORM_UNDEFINED, 0 }
+, 0,NULL, 0,NULL, 0,NULL, NULL, NULL, 0, 0, 0, 0, PG_QUERY__COERCION_FORM__COERCION_FORM_UNDEFINED, 0 }
 
 
 struct  PgQuery__AStar
@@ -3586,7 +3591,7 @@ struct  PgQuery__AStar
 };
 #define PG_QUERY__A__STAR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__a__star__descriptor) \
-     }
+ }
 
 
 struct  PgQuery__AIndices
@@ -3598,7 +3603,7 @@ struct  PgQuery__AIndices
 };
 #define PG_QUERY__A__INDICES__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__a__indices__descriptor) \
-    , 0, NULL, NULL }
+, 0, NULL, NULL }
 
 
 struct  PgQuery__AIndirection
@@ -3610,7 +3615,7 @@ struct  PgQuery__AIndirection
 };
 #define PG_QUERY__A__INDIRECTION__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__a__indirection__descriptor) \
-    , NULL, 0,NULL }
+, NULL, 0,NULL }
 
 
 struct  PgQuery__AArrayExpr
@@ -3622,7 +3627,7 @@ struct  PgQuery__AArrayExpr
 };
 #define PG_QUERY__A__ARRAY_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__a__array_expr__descriptor) \
-    , 0,NULL, 0 }
+, 0,NULL, 0 }
 
 
 struct  PgQuery__ResTarget
@@ -3636,7 +3641,7 @@ struct  PgQuery__ResTarget
 };
 #define PG_QUERY__RES_TARGET__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__res_target__descriptor) \
-    , (char *)protobuf_c_empty_string, 0,NULL, NULL, 0 }
+, (char *)protobuf_c_empty_string, 0,NULL, NULL, 0 }
 
 
 struct  PgQuery__MultiAssignRef
@@ -3648,7 +3653,7 @@ struct  PgQuery__MultiAssignRef
 };
 #define PG_QUERY__MULTI_ASSIGN_REF__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__multi_assign_ref__descriptor) \
-    , NULL, 0, 0 }
+, NULL, 0, 0 }
 
 
 struct  PgQuery__SortBy
@@ -3663,7 +3668,7 @@ struct  PgQuery__SortBy
 };
 #define PG_QUERY__SORT_BY__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__sort_by__descriptor) \
-    , NULL, PG_QUERY__SORT_BY_DIR__SORT_BY_DIR_UNDEFINED, PG_QUERY__SORT_BY_NULLS__SORT_BY_NULLS_UNDEFINED, 0,NULL, 0 }
+, NULL, PG_QUERY__SORT_BY_DIR__SORT_BY_DIR_UNDEFINED, PG_QUERY__SORT_BY_NULLS__SORT_BY_NULLS_UNDEFINED, 0,NULL, 0 }
 
 
 struct  PgQuery__WindowDef
@@ -3682,7 +3687,7 @@ struct  PgQuery__WindowDef
 };
 #define PG_QUERY__WINDOW_DEF__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__window_def__descriptor) \
-    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0, NULL, NULL, 0 }
+, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0, NULL, NULL, 0 }
 
 
 struct  PgQuery__RangeSubselect
@@ -3694,7 +3699,7 @@ struct  PgQuery__RangeSubselect
 };
 #define PG_QUERY__RANGE_SUBSELECT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__range_subselect__descriptor) \
-    , 0, NULL, NULL }
+, 0, NULL, NULL }
 
 
 struct  PgQuery__RangeFunction
@@ -3711,7 +3716,7 @@ struct  PgQuery__RangeFunction
 };
 #define PG_QUERY__RANGE_FUNCTION__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__range_function__descriptor) \
-    , 0, 0, 0, 0,NULL, NULL, 0,NULL }
+, 0, 0, 0, 0,NULL, NULL, 0,NULL }
 
 
 struct  PgQuery__RangeTableFunc
@@ -3729,7 +3734,7 @@ struct  PgQuery__RangeTableFunc
 };
 #define PG_QUERY__RANGE_TABLE_FUNC__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__range_table_func__descriptor) \
-    , 0, NULL, NULL, 0,NULL, 0,NULL, NULL, 0 }
+, 0, NULL, NULL, 0,NULL, 0,NULL, NULL, 0 }
 
 
 struct  PgQuery__RangeTableFuncCol
@@ -3745,7 +3750,7 @@ struct  PgQuery__RangeTableFuncCol
 };
 #define PG_QUERY__RANGE_TABLE_FUNC_COL__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__range_table_func_col__descriptor) \
-    , (char *)protobuf_c_empty_string, NULL, 0, 0, NULL, NULL, 0 }
+, (char *)protobuf_c_empty_string, NULL, 0, 0, NULL, NULL, 0 }
 
 
 struct  PgQuery__RangeTableSample
@@ -3761,7 +3766,7 @@ struct  PgQuery__RangeTableSample
 };
 #define PG_QUERY__RANGE_TABLE_SAMPLE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__range_table_sample__descriptor) \
-    , NULL, 0,NULL, 0,NULL, NULL, 0 }
+, NULL, 0,NULL, 0,NULL, NULL, 0 }
 
 
 struct  PgQuery__ColumnDef
@@ -3791,7 +3796,7 @@ struct  PgQuery__ColumnDef
 };
 #define PG_QUERY__COLUMN_DEF__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__column_def__descriptor) \
-    , (char *)protobuf_c_empty_string, NULL, (char *)protobuf_c_empty_string, 0, 0, 0, 0, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, NULL, NULL, (char *)protobuf_c_empty_string, NULL, (char *)protobuf_c_empty_string, NULL, 0, 0,NULL, 0,NULL, 0 }
+, (char *)protobuf_c_empty_string, NULL, (char *)protobuf_c_empty_string, 0, 0, 0, 0, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, NULL, NULL, (char *)protobuf_c_empty_string, NULL, (char *)protobuf_c_empty_string, NULL, 0, 0,NULL, 0,NULL, 0 }
 
 
 struct  PgQuery__TableLikeClause
@@ -3803,7 +3808,7 @@ struct  PgQuery__TableLikeClause
 };
 #define PG_QUERY__TABLE_LIKE_CLAUSE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__table_like_clause__descriptor) \
-    , NULL, 0, 0 }
+, NULL, 0, 0 }
 
 
 struct  PgQuery__IndexElem
@@ -3823,7 +3828,7 @@ struct  PgQuery__IndexElem
 };
 #define PG_QUERY__INDEX_ELEM__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__index_elem__descriptor) \
-    , (char *)protobuf_c_empty_string, NULL, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0,NULL, PG_QUERY__SORT_BY_DIR__SORT_BY_DIR_UNDEFINED, PG_QUERY__SORT_BY_NULLS__SORT_BY_NULLS_UNDEFINED }
+, (char *)protobuf_c_empty_string, NULL, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0,NULL, PG_QUERY__SORT_BY_DIR__SORT_BY_DIR_UNDEFINED, PG_QUERY__SORT_BY_NULLS__SORT_BY_NULLS_UNDEFINED }
 
 
 struct  PgQuery__DefElem
@@ -3837,7 +3842,7 @@ struct  PgQuery__DefElem
 };
 #define PG_QUERY__DEF_ELEM__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__def_elem__descriptor) \
-    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, NULL, PG_QUERY__DEF_ELEM_ACTION__DEF_ELEM_ACTION_UNDEFINED, 0 }
+, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, NULL, PG_QUERY__DEF_ELEM_ACTION__DEF_ELEM_ACTION_UNDEFINED, 0 }
 
 
 struct  PgQuery__LockingClause
@@ -3850,7 +3855,7 @@ struct  PgQuery__LockingClause
 };
 #define PG_QUERY__LOCKING_CLAUSE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__locking_clause__descriptor) \
-    , 0,NULL, PG_QUERY__LOCK_CLAUSE_STRENGTH__LOCK_CLAUSE_STRENGTH_UNDEFINED, PG_QUERY__LOCK_WAIT_POLICY__LOCK_WAIT_POLICY_UNDEFINED }
+, 0,NULL, PG_QUERY__LOCK_CLAUSE_STRENGTH__LOCK_CLAUSE_STRENGTH_UNDEFINED, PG_QUERY__LOCK_WAIT_POLICY__LOCK_WAIT_POLICY_UNDEFINED }
 
 
 struct  PgQuery__XmlSerialize
@@ -3864,7 +3869,7 @@ struct  PgQuery__XmlSerialize
 };
 #define PG_QUERY__XML_SERIALIZE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__xml_serialize__descriptor) \
-    , PG_QUERY__XML_OPTION_TYPE__XML_OPTION_TYPE_UNDEFINED, NULL, NULL, 0, 0 }
+, PG_QUERY__XML_OPTION_TYPE__XML_OPTION_TYPE_UNDEFINED, NULL, NULL, 0, 0 }
 
 
 struct  PgQuery__PartitionElem
@@ -3880,7 +3885,7 @@ struct  PgQuery__PartitionElem
 };
 #define PG_QUERY__PARTITION_ELEM__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__partition_elem__descriptor) \
-    , (char *)protobuf_c_empty_string, NULL, 0,NULL, 0,NULL, 0 }
+, (char *)protobuf_c_empty_string, NULL, 0,NULL, 0,NULL, 0 }
 
 
 struct  PgQuery__PartitionSpec
@@ -3893,7 +3898,7 @@ struct  PgQuery__PartitionSpec
 };
 #define PG_QUERY__PARTITION_SPEC__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__partition_spec__descriptor) \
-    , PG_QUERY__PARTITION_STRATEGY__PARTITION_STRATEGY_UNDEFINED, 0,NULL, 0 }
+, PG_QUERY__PARTITION_STRATEGY__PARTITION_STRATEGY_UNDEFINED, 0,NULL, 0 }
 
 
 struct  PgQuery__PartitionBoundSpec
@@ -3913,7 +3918,7 @@ struct  PgQuery__PartitionBoundSpec
 };
 #define PG_QUERY__PARTITION_BOUND_SPEC__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__partition_bound_spec__descriptor) \
-    , (char *)protobuf_c_empty_string, 0, 0, 0, 0,NULL, 0,NULL, 0,NULL, 0 }
+, (char *)protobuf_c_empty_string, 0, 0, 0, 0,NULL, 0,NULL, 0,NULL, 0 }
 
 
 struct  PgQuery__PartitionRangeDatum
@@ -3925,7 +3930,7 @@ struct  PgQuery__PartitionRangeDatum
 };
 #define PG_QUERY__PARTITION_RANGE_DATUM__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__partition_range_datum__descriptor) \
-    , PG_QUERY__PARTITION_RANGE_DATUM_KIND__PARTITION_RANGE_DATUM_KIND_UNDEFINED, NULL, 0 }
+, PG_QUERY__PARTITION_RANGE_DATUM_KIND__PARTITION_RANGE_DATUM_KIND_UNDEFINED, NULL, 0 }
 
 
 struct  PgQuery__SinglePartitionSpec
@@ -3934,7 +3939,7 @@ struct  PgQuery__SinglePartitionSpec
 };
 #define PG_QUERY__SINGLE_PARTITION_SPEC__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__single_partition_spec__descriptor) \
-     }
+ }
 
 
 struct  PgQuery__PartitionCmd
@@ -3946,7 +3951,7 @@ struct  PgQuery__PartitionCmd
 };
 #define PG_QUERY__PARTITION_CMD__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__partition_cmd__descriptor) \
-    , NULL, NULL, 0 }
+, NULL, NULL, 0 }
 
 
 struct  PgQuery__RangeTblEntry
@@ -3996,7 +4001,7 @@ struct  PgQuery__RangeTblEntry
 };
 #define PG_QUERY__RANGE_TBL_ENTRY__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__range_tbl_entry__descriptor) \
-    , NULL, NULL, PG_QUERY__RTEKIND__RTEKIND_UNDEFINED, 0, 0, (char *)protobuf_c_empty_string, 0, 0, NULL, NULL, 0, PG_QUERY__JOIN_TYPE__JOIN_TYPE_UNDEFINED, 0, 0,NULL, 0,NULL, 0,NULL, NULL, 0,NULL, 0, NULL, 0,NULL, (char *)protobuf_c_empty_string, 0, 0, 0,NULL, 0,NULL, 0,NULL, (char *)protobuf_c_empty_string, 0, 0, 0, 0,NULL }
+, NULL, NULL, PG_QUERY__RTEKIND__RTEKIND_UNDEFINED, 0, 0, (char *)protobuf_c_empty_string, 0, 0, NULL, NULL, 0, PG_QUERY__JOIN_TYPE__JOIN_TYPE_UNDEFINED, 0, 0,NULL, 0,NULL, 0,NULL, NULL, 0,NULL, 0, NULL, 0,NULL, (char *)protobuf_c_empty_string, 0, 0, 0,NULL, 0,NULL, 0,NULL, (char *)protobuf_c_empty_string, 0, 0, 0, 0,NULL }
 
 
 struct  PgQuery__RTEPermissionInfo
@@ -4015,7 +4020,7 @@ struct  PgQuery__RTEPermissionInfo
 };
 #define PG_QUERY__RTEPERMISSION_INFO__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__rtepermission_info__descriptor) \
-    , 0, 0, 0, 0, 0,NULL, 0,NULL, 0,NULL }
+, 0, 0, 0, 0, 0,NULL, 0,NULL, 0,NULL }
 
 
 struct  PgQuery__RangeTblFunction
@@ -4036,7 +4041,7 @@ struct  PgQuery__RangeTblFunction
 };
 #define PG_QUERY__RANGE_TBL_FUNCTION__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__range_tbl_function__descriptor) \
-    , NULL, 0, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL }
+, NULL, 0, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL }
 
 
 struct  PgQuery__TableSampleClause
@@ -4049,7 +4054,7 @@ struct  PgQuery__TableSampleClause
 };
 #define PG_QUERY__TABLE_SAMPLE_CLAUSE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__table_sample_clause__descriptor) \
-    , 0, 0,NULL, NULL }
+, 0, 0,NULL, NULL }
 
 
 struct  PgQuery__WithCheckOption
@@ -4063,7 +4068,7 @@ struct  PgQuery__WithCheckOption
 };
 #define PG_QUERY__WITH_CHECK_OPTION__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__with_check_option__descriptor) \
-    , PG_QUERY__WCOKIND__WCOKIND_UNDEFINED, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, NULL, 0 }
+, PG_QUERY__WCOKIND__WCOKIND_UNDEFINED, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, NULL, 0 }
 
 
 struct  PgQuery__SortGroupClause
@@ -4077,7 +4082,7 @@ struct  PgQuery__SortGroupClause
 };
 #define PG_QUERY__SORT_GROUP_CLAUSE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__sort_group_clause__descriptor) \
-    , 0, 0, 0, 0, 0 }
+, 0, 0, 0, 0, 0 }
 
 
 struct  PgQuery__GroupingSet
@@ -4090,7 +4095,7 @@ struct  PgQuery__GroupingSet
 };
 #define PG_QUERY__GROUPING_SET__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__grouping_set__descriptor) \
-    , PG_QUERY__GROUPING_SET_KIND__GROUPING_SET_KIND_UNDEFINED, 0,NULL, 0 }
+, PG_QUERY__GROUPING_SET_KIND__GROUPING_SET_KIND_UNDEFINED, 0,NULL, 0 }
 
 
 struct  PgQuery__WindowClause
@@ -4115,7 +4120,7 @@ struct  PgQuery__WindowClause
 };
 #define PG_QUERY__WINDOW_CLAUSE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__window_clause__descriptor) \
-    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0, NULL, NULL, 0, 0, 0, 0, 0, 0, 0 }
+, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0, NULL, NULL, 0, 0, 0, 0, 0, 0, 0 }
 
 
 struct  PgQuery__RowMarkClause
@@ -4128,7 +4133,7 @@ struct  PgQuery__RowMarkClause
 };
 #define PG_QUERY__ROW_MARK_CLAUSE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__row_mark_clause__descriptor) \
-    , 0, PG_QUERY__LOCK_CLAUSE_STRENGTH__LOCK_CLAUSE_STRENGTH_UNDEFINED, PG_QUERY__LOCK_WAIT_POLICY__LOCK_WAIT_POLICY_UNDEFINED, 0 }
+, 0, PG_QUERY__LOCK_CLAUSE_STRENGTH__LOCK_CLAUSE_STRENGTH_UNDEFINED, PG_QUERY__LOCK_WAIT_POLICY__LOCK_WAIT_POLICY_UNDEFINED, 0 }
 
 
 struct  PgQuery__WithClause
@@ -4141,7 +4146,7 @@ struct  PgQuery__WithClause
 };
 #define PG_QUERY__WITH_CLAUSE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__with_clause__descriptor) \
-    , 0,NULL, 0, 0 }
+, 0,NULL, 0, 0 }
 
 
 struct  PgQuery__InferClause
@@ -4155,7 +4160,7 @@ struct  PgQuery__InferClause
 };
 #define PG_QUERY__INFER_CLAUSE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__infer_clause__descriptor) \
-    , 0,NULL, NULL, (char *)protobuf_c_empty_string, 0 }
+, 0,NULL, NULL, (char *)protobuf_c_empty_string, 0 }
 
 
 struct  PgQuery__OnConflictClause
@@ -4170,7 +4175,7 @@ struct  PgQuery__OnConflictClause
 };
 #define PG_QUERY__ON_CONFLICT_CLAUSE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__on_conflict_clause__descriptor) \
-    , PG_QUERY__ON_CONFLICT_ACTION__ON_CONFLICT_ACTION_UNDEFINED, NULL, 0,NULL, NULL, 0 }
+, PG_QUERY__ON_CONFLICT_ACTION__ON_CONFLICT_ACTION_UNDEFINED, NULL, 0,NULL, NULL, 0 }
 
 
 struct  PgQuery__CTESearchClause
@@ -4184,7 +4189,7 @@ struct  PgQuery__CTESearchClause
 };
 #define PG_QUERY__CTESEARCH_CLAUSE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__ctesearch_clause__descriptor) \
-    , 0,NULL, 0, (char *)protobuf_c_empty_string, 0 }
+, 0,NULL, 0, (char *)protobuf_c_empty_string, 0 }
 
 
 struct  PgQuery__CTECycleClause
@@ -4204,7 +4209,7 @@ struct  PgQuery__CTECycleClause
 };
 #define PG_QUERY__CTECYCLE_CLAUSE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__ctecycle_clause__descriptor) \
-    , 0,NULL, (char *)protobuf_c_empty_string, NULL, NULL, (char *)protobuf_c_empty_string, 0, 0, 0, 0, 0 }
+, 0,NULL, (char *)protobuf_c_empty_string, NULL, NULL, (char *)protobuf_c_empty_string, 0, 0, 0, 0, 0 }
 
 
 struct  PgQuery__CommonTableExpr
@@ -4231,7 +4236,7 @@ struct  PgQuery__CommonTableExpr
 };
 #define PG_QUERY__COMMON_TABLE_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__common_table_expr__descriptor) \
-    , (char *)protobuf_c_empty_string, 0,NULL, PG_QUERY__CTEMATERIALIZE__CTEMATERIALIZE_UNDEFINED, NULL, NULL, NULL, 0, 0, 0, 0,NULL, 0,NULL, 0,NULL, 0,NULL }
+, (char *)protobuf_c_empty_string, 0,NULL, PG_QUERY__CTEMATERIALIZE__CTEMATERIALIZE_UNDEFINED, NULL, NULL, NULL, 0, 0, 0, 0,NULL, 0,NULL, 0,NULL, 0,NULL }
 
 
 struct  PgQuery__MergeWhenClause
@@ -4249,7 +4254,7 @@ struct  PgQuery__MergeWhenClause
 };
 #define PG_QUERY__MERGE_WHEN_CLAUSE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__merge_when_clause__descriptor) \
-    , PG_QUERY__MERGE_MATCH_KIND__MERGE_MATCH_KIND_UNDEFINED, PG_QUERY__CMD_TYPE__CMD_TYPE_UNDEFINED, PG_QUERY__OVERRIDING_KIND__OVERRIDING_KIND_UNDEFINED, NULL, 0,NULL, 0,NULL, NULL }
+, PG_QUERY__MERGE_MATCH_KIND__MERGE_MATCH_KIND_UNDEFINED, PG_QUERY__CMD_TYPE__CMD_TYPE_UNDEFINED, PG_QUERY__OVERRIDING_KIND__OVERRIDING_KIND_UNDEFINED, NULL, 0,NULL, 0,NULL, NULL }
 
 
 struct  PgQuery__TriggerTransition
@@ -4261,7 +4266,7 @@ struct  PgQuery__TriggerTransition
 };
 #define PG_QUERY__TRIGGER_TRANSITION__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__trigger_transition__descriptor) \
-    , (char *)protobuf_c_empty_string, 0, 0 }
+, (char *)protobuf_c_empty_string, 0, 0 }
 
 
 struct  PgQuery__JsonOutput
@@ -4272,7 +4277,7 @@ struct  PgQuery__JsonOutput
 };
 #define PG_QUERY__JSON_OUTPUT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_output__descriptor) \
-    , NULL, NULL }
+, NULL, NULL }
 
 
 struct  PgQuery__JsonArgument
@@ -4283,7 +4288,7 @@ struct  PgQuery__JsonArgument
 };
 #define PG_QUERY__JSON_ARGUMENT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_argument__descriptor) \
-    , NULL, (char *)protobuf_c_empty_string }
+, NULL, (char *)protobuf_c_empty_string }
 
 
 struct  PgQuery__JsonFuncExpr
@@ -4304,7 +4309,7 @@ struct  PgQuery__JsonFuncExpr
 };
 #define PG_QUERY__JSON_FUNC_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_func_expr__descriptor) \
-    , PG_QUERY__JSON_EXPR_OP__JSON_EXPR_OP_UNDEFINED, (char *)protobuf_c_empty_string, NULL, NULL, 0,NULL, NULL, NULL, NULL, PG_QUERY__JSON_WRAPPER__JSON_WRAPPER_UNDEFINED, PG_QUERY__JSON_QUOTES__JSON_QUOTES_UNDEFINED, 0 }
+, PG_QUERY__JSON_EXPR_OP__JSON_EXPR_OP_UNDEFINED, (char *)protobuf_c_empty_string, NULL, NULL, 0,NULL, NULL, NULL, NULL, PG_QUERY__JSON_WRAPPER__JSON_WRAPPER_UNDEFINED, PG_QUERY__JSON_QUOTES__JSON_QUOTES_UNDEFINED, 0 }
 
 
 struct  PgQuery__JsonTablePathSpec
@@ -4317,7 +4322,7 @@ struct  PgQuery__JsonTablePathSpec
 };
 #define PG_QUERY__JSON_TABLE_PATH_SPEC__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_table_path_spec__descriptor) \
-    , NULL, (char *)protobuf_c_empty_string, 0, 0 }
+, NULL, (char *)protobuf_c_empty_string, 0, 0 }
 
 
 struct  PgQuery__JsonTable
@@ -4336,7 +4341,7 @@ struct  PgQuery__JsonTable
 };
 #define PG_QUERY__JSON_TABLE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_table__descriptor) \
-    , NULL, NULL, 0,NULL, 0,NULL, NULL, NULL, 0, 0 }
+, NULL, NULL, 0,NULL, 0,NULL, NULL, NULL, 0, 0 }
 
 
 struct  PgQuery__JsonTableColumn
@@ -4357,7 +4362,7 @@ struct  PgQuery__JsonTableColumn
 };
 #define PG_QUERY__JSON_TABLE_COLUMN__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_table_column__descriptor) \
-    , PG_QUERY__JSON_TABLE_COLUMN_TYPE__JSON_TABLE_COLUMN_TYPE_UNDEFINED, (char *)protobuf_c_empty_string, NULL, NULL, NULL, PG_QUERY__JSON_WRAPPER__JSON_WRAPPER_UNDEFINED, PG_QUERY__JSON_QUOTES__JSON_QUOTES_UNDEFINED, 0,NULL, NULL, NULL, 0 }
+, PG_QUERY__JSON_TABLE_COLUMN_TYPE__JSON_TABLE_COLUMN_TYPE_UNDEFINED, (char *)protobuf_c_empty_string, NULL, NULL, NULL, PG_QUERY__JSON_WRAPPER__JSON_WRAPPER_UNDEFINED, PG_QUERY__JSON_QUOTES__JSON_QUOTES_UNDEFINED, 0,NULL, NULL, NULL, 0 }
 
 
 struct  PgQuery__JsonKeyValue
@@ -4368,7 +4373,7 @@ struct  PgQuery__JsonKeyValue
 };
 #define PG_QUERY__JSON_KEY_VALUE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_key_value__descriptor) \
-    , NULL, NULL }
+, NULL, NULL }
 
 
 struct  PgQuery__JsonParseExpr
@@ -4381,7 +4386,7 @@ struct  PgQuery__JsonParseExpr
 };
 #define PG_QUERY__JSON_PARSE_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_parse_expr__descriptor) \
-    , NULL, NULL, 0, 0 }
+, NULL, NULL, 0, 0 }
 
 
 struct  PgQuery__JsonScalarExpr
@@ -4393,7 +4398,7 @@ struct  PgQuery__JsonScalarExpr
 };
 #define PG_QUERY__JSON_SCALAR_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_scalar_expr__descriptor) \
-    , NULL, NULL, 0 }
+, NULL, NULL, 0 }
 
 
 struct  PgQuery__JsonSerializeExpr
@@ -4405,7 +4410,7 @@ struct  PgQuery__JsonSerializeExpr
 };
 #define PG_QUERY__JSON_SERIALIZE_EXPR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_serialize_expr__descriptor) \
-    , NULL, NULL, 0 }
+, NULL, NULL, 0 }
 
 
 struct  PgQuery__JsonObjectConstructor
@@ -4420,7 +4425,7 @@ struct  PgQuery__JsonObjectConstructor
 };
 #define PG_QUERY__JSON_OBJECT_CONSTRUCTOR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_object_constructor__descriptor) \
-    , 0,NULL, NULL, 0, 0, 0 }
+, 0,NULL, NULL, 0, 0, 0 }
 
 
 struct  PgQuery__JsonArrayConstructor
@@ -4434,7 +4439,7 @@ struct  PgQuery__JsonArrayConstructor
 };
 #define PG_QUERY__JSON_ARRAY_CONSTRUCTOR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_array_constructor__descriptor) \
-    , 0,NULL, NULL, 0, 0 }
+, 0,NULL, NULL, 0, 0 }
 
 
 struct  PgQuery__JsonArrayQueryConstructor
@@ -4448,7 +4453,7 @@ struct  PgQuery__JsonArrayQueryConstructor
 };
 #define PG_QUERY__JSON_ARRAY_QUERY_CONSTRUCTOR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_array_query_constructor__descriptor) \
-    , NULL, NULL, NULL, 0, 0 }
+, NULL, NULL, NULL, 0, 0 }
 
 
 struct  PgQuery__JsonAggConstructor
@@ -4463,7 +4468,7 @@ struct  PgQuery__JsonAggConstructor
 };
 #define PG_QUERY__JSON_AGG_CONSTRUCTOR__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_agg_constructor__descriptor) \
-    , NULL, NULL, 0,NULL, NULL, 0 }
+, NULL, NULL, 0,NULL, NULL, 0 }
 
 
 struct  PgQuery__JsonObjectAgg
@@ -4476,7 +4481,7 @@ struct  PgQuery__JsonObjectAgg
 };
 #define PG_QUERY__JSON_OBJECT_AGG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_object_agg__descriptor) \
-    , NULL, NULL, 0, 0 }
+, NULL, NULL, 0, 0 }
 
 
 struct  PgQuery__JsonArrayAgg
@@ -4488,7 +4493,7 @@ struct  PgQuery__JsonArrayAgg
 };
 #define PG_QUERY__JSON_ARRAY_AGG__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__json_array_agg__descriptor) \
-    , NULL, NULL, 0 }
+, NULL, NULL, 0 }
 
 
 struct  PgQuery__RawStmt
@@ -4500,7 +4505,7 @@ struct  PgQuery__RawStmt
 };
 #define PG_QUERY__RAW_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__raw_stmt__descriptor) \
-    , NULL, 0, 0 }
+, NULL, 0, 0 }
 
 
 struct  PgQuery__InsertStmt
@@ -4518,7 +4523,7 @@ struct  PgQuery__InsertStmt
 };
 #define PG_QUERY__INSERT_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__insert_stmt__descriptor) \
-    , NULL, 0,NULL, NULL, NULL, 0,NULL, NULL, PG_QUERY__OVERRIDING_KIND__OVERRIDING_KIND_UNDEFINED }
+, NULL, 0,NULL, NULL, NULL, 0,NULL, NULL, PG_QUERY__OVERRIDING_KIND__OVERRIDING_KIND_UNDEFINED }
 
 
 struct  PgQuery__DeleteStmt
@@ -4534,7 +4539,7 @@ struct  PgQuery__DeleteStmt
 };
 #define PG_QUERY__DELETE_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__delete_stmt__descriptor) \
-    , NULL, 0,NULL, NULL, 0,NULL, NULL }
+, NULL, 0,NULL, NULL, 0,NULL, NULL }
 
 
 struct  PgQuery__UpdateStmt
@@ -4552,7 +4557,7 @@ struct  PgQuery__UpdateStmt
 };
 #define PG_QUERY__UPDATE_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__update_stmt__descriptor) \
-    , NULL, 0,NULL, NULL, 0,NULL, 0,NULL, NULL }
+, NULL, 0,NULL, NULL, 0,NULL, 0,NULL, NULL }
 
 
 struct  PgQuery__MergeStmt
@@ -4569,7 +4574,7 @@ struct  PgQuery__MergeStmt
 };
 #define PG_QUERY__MERGE_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__merge_stmt__descriptor) \
-    , NULL, NULL, NULL, 0,NULL, 0,NULL, NULL }
+, NULL, NULL, NULL, 0,NULL, 0,NULL, NULL }
 
 
 struct  PgQuery__SelectStmt
@@ -4583,6 +4588,10 @@ struct  PgQuery__SelectStmt
   size_t n_from_clause;
   PgQuery__Node **from_clause;
   PgQuery__Node *where_clause;
+  PgQuery__Node *start_with_clause;
+  PgQuery__Node *connect_by_clause;
+  protobuf_c_boolean connect_by_no_cycle;
+  protobuf_c_boolean connect_by_first;
   size_t n_group_clause;
   PgQuery__Node **group_clause;
   protobuf_c_boolean group_distinct;
@@ -4606,7 +4615,7 @@ struct  PgQuery__SelectStmt
 };
 #define PG_QUERY__SELECT_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__select_stmt__descriptor) \
-    , 0,NULL, NULL, 0,NULL, 0,NULL, NULL, 0,NULL, 0, NULL, 0,NULL, 0,NULL, 0,NULL, NULL, NULL, PG_QUERY__LIMIT_OPTION__LIMIT_OPTION_UNDEFINED, 0,NULL, NULL, PG_QUERY__SET_OPERATION__SET_OPERATION_UNDEFINED, 0, NULL, NULL }
+, 0,NULL, NULL, 0,NULL, 0,NULL, NULL, NULL, NULL, 0, 0, 0,NULL, 0, NULL, 0,NULL, 0,NULL, 0,NULL, NULL, NULL, PG_QUERY__LIMIT_OPTION__LIMIT_OPTION_UNDEFINED, 0,NULL, NULL, PG_QUERY__SET_OPERATION__SET_OPERATION_UNDEFINED, 0, NULL, NULL }
 
 
 struct  PgQuery__SetOperationStmt
@@ -4627,7 +4636,7 @@ struct  PgQuery__SetOperationStmt
 };
 #define PG_QUERY__SET_OPERATION_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__set_operation_stmt__descriptor) \
-    , PG_QUERY__SET_OPERATION__SET_OPERATION_UNDEFINED, 0, NULL, NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL }
+, PG_QUERY__SET_OPERATION__SET_OPERATION_UNDEFINED, 0, NULL, NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL }
 
 
 struct  PgQuery__ReturnStmt
@@ -4637,7 +4646,7 @@ struct  PgQuery__ReturnStmt
 };
 #define PG_QUERY__RETURN_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__return_stmt__descriptor) \
-    , NULL }
+, NULL }
 
 
 struct  PgQuery__PLAssignStmt
@@ -4652,7 +4661,7 @@ struct  PgQuery__PLAssignStmt
 };
 #define PG_QUERY__PLASSIGN_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__plassign_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, 0,NULL, 0, NULL, 0 }
+, (char *)protobuf_c_empty_string, 0,NULL, 0, NULL, 0 }
 
 
 struct  PgQuery__CreateSchemaStmt
@@ -4666,7 +4675,7 @@ struct  PgQuery__CreateSchemaStmt
 };
 #define PG_QUERY__CREATE_SCHEMA_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_schema_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, NULL, 0,NULL, 0 }
+, (char *)protobuf_c_empty_string, NULL, 0,NULL, 0 }
 
 
 struct  PgQuery__AlterTableStmt
@@ -4680,7 +4689,7 @@ struct  PgQuery__AlterTableStmt
 };
 #define PG_QUERY__ALTER_TABLE_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_table_stmt__descriptor) \
-    , NULL, 0,NULL, PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, 0 }
+, NULL, 0,NULL, PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, 0 }
 
 
 struct  PgQuery__ReplicaIdentityStmt
@@ -4691,7 +4700,7 @@ struct  PgQuery__ReplicaIdentityStmt
 };
 #define PG_QUERY__REPLICA_IDENTITY_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__replica_identity_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string }
+, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string }
 
 
 struct  PgQuery__AlterTableCmd
@@ -4708,7 +4717,7 @@ struct  PgQuery__AlterTableCmd
 };
 #define PG_QUERY__ALTER_TABLE_CMD__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_table_cmd__descriptor) \
-    , PG_QUERY__ALTER_TABLE_TYPE__ALTER_TABLE_TYPE_UNDEFINED, (char *)protobuf_c_empty_string, 0, NULL, NULL, PG_QUERY__DROP_BEHAVIOR__DROP_BEHAVIOR_UNDEFINED, 0, 0 }
+, PG_QUERY__ALTER_TABLE_TYPE__ALTER_TABLE_TYPE_UNDEFINED, (char *)protobuf_c_empty_string, 0, NULL, NULL, PG_QUERY__DROP_BEHAVIOR__DROP_BEHAVIOR_UNDEFINED, 0, 0 }
 
 
 struct  PgQuery__AlterCollationStmt
@@ -4719,7 +4728,7 @@ struct  PgQuery__AlterCollationStmt
 };
 #define PG_QUERY__ALTER_COLLATION_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_collation_stmt__descriptor) \
-    , 0,NULL }
+, 0,NULL }
 
 
 struct  PgQuery__AlterDomainStmt
@@ -4735,7 +4744,7 @@ struct  PgQuery__AlterDomainStmt
 };
 #define PG_QUERY__ALTER_DOMAIN_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_domain_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, 0,NULL, (char *)protobuf_c_empty_string, NULL, PG_QUERY__DROP_BEHAVIOR__DROP_BEHAVIOR_UNDEFINED, 0 }
+, (char *)protobuf_c_empty_string, 0,NULL, (char *)protobuf_c_empty_string, NULL, PG_QUERY__DROP_BEHAVIOR__DROP_BEHAVIOR_UNDEFINED, 0 }
 
 
 struct  PgQuery__GrantStmt
@@ -4756,7 +4765,7 @@ struct  PgQuery__GrantStmt
 };
 #define PG_QUERY__GRANT_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__grant_stmt__descriptor) \
-    , 0, PG_QUERY__GRANT_TARGET_TYPE__GRANT_TARGET_TYPE_UNDEFINED, PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, 0,NULL, 0,NULL, 0,NULL, 0, NULL, PG_QUERY__DROP_BEHAVIOR__DROP_BEHAVIOR_UNDEFINED }
+, 0, PG_QUERY__GRANT_TARGET_TYPE__GRANT_TARGET_TYPE_UNDEFINED, PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, 0,NULL, 0,NULL, 0,NULL, 0, NULL, PG_QUERY__DROP_BEHAVIOR__DROP_BEHAVIOR_UNDEFINED }
 
 
 struct  PgQuery__ObjectWithArgs
@@ -4772,7 +4781,7 @@ struct  PgQuery__ObjectWithArgs
 };
 #define PG_QUERY__OBJECT_WITH_ARGS__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__object_with_args__descriptor) \
-    , 0,NULL, 0,NULL, 0,NULL, 0 }
+, 0,NULL, 0,NULL, 0,NULL, 0 }
 
 
 struct  PgQuery__AccessPriv
@@ -4784,7 +4793,7 @@ struct  PgQuery__AccessPriv
 };
 #define PG_QUERY__ACCESS_PRIV__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__access_priv__descriptor) \
-    , (char *)protobuf_c_empty_string, 0,NULL }
+, (char *)protobuf_c_empty_string, 0,NULL }
 
 
 struct  PgQuery__GrantRoleStmt
@@ -4802,7 +4811,7 @@ struct  PgQuery__GrantRoleStmt
 };
 #define PG_QUERY__GRANT_ROLE_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__grant_role_stmt__descriptor) \
-    , 0,NULL, 0,NULL, 0, 0,NULL, NULL, PG_QUERY__DROP_BEHAVIOR__DROP_BEHAVIOR_UNDEFINED }
+, 0,NULL, 0,NULL, 0, 0,NULL, NULL, PG_QUERY__DROP_BEHAVIOR__DROP_BEHAVIOR_UNDEFINED }
 
 
 struct  PgQuery__AlterDefaultPrivilegesStmt
@@ -4814,7 +4823,7 @@ struct  PgQuery__AlterDefaultPrivilegesStmt
 };
 #define PG_QUERY__ALTER_DEFAULT_PRIVILEGES_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_default_privileges_stmt__descriptor) \
-    , 0,NULL, NULL }
+, 0,NULL, NULL }
 
 
 struct  PgQuery__CopyStmt
@@ -4833,7 +4842,7 @@ struct  PgQuery__CopyStmt
 };
 #define PG_QUERY__COPY_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__copy_stmt__descriptor) \
-    , NULL, NULL, 0,NULL, 0, 0, (char *)protobuf_c_empty_string, 0,NULL, NULL }
+, NULL, NULL, 0,NULL, 0, 0, (char *)protobuf_c_empty_string, 0,NULL, NULL }
 
 
 struct  PgQuery__VariableSetStmt
@@ -4847,7 +4856,7 @@ struct  PgQuery__VariableSetStmt
 };
 #define PG_QUERY__VARIABLE_SET_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__variable_set_stmt__descriptor) \
-    , PG_QUERY__VARIABLE_SET_KIND__VARIABLE_SET_KIND_UNDEFINED, (char *)protobuf_c_empty_string, 0,NULL, 0 }
+, PG_QUERY__VARIABLE_SET_KIND__VARIABLE_SET_KIND_UNDEFINED, (char *)protobuf_c_empty_string, 0,NULL, 0 }
 
 
 struct  PgQuery__VariableShowStmt
@@ -4857,7 +4866,7 @@ struct  PgQuery__VariableShowStmt
 };
 #define PG_QUERY__VARIABLE_SHOW_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__variable_show_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string }
+, (char *)protobuf_c_empty_string }
 
 
 struct  PgQuery__CreateStmt
@@ -4882,7 +4891,7 @@ struct  PgQuery__CreateStmt
 };
 #define PG_QUERY__CREATE_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_stmt__descriptor) \
-    , NULL, 0,NULL, 0,NULL, NULL, NULL, NULL, 0,NULL, 0,NULL, PG_QUERY__ON_COMMIT_ACTION__ON_COMMIT_ACTION_UNDEFINED, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0 }
+, NULL, 0,NULL, 0,NULL, NULL, NULL, NULL, 0,NULL, 0,NULL, PG_QUERY__ON_COMMIT_ACTION__ON_COMMIT_ACTION_UNDEFINED, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0 }
 
 
 struct  PgQuery__Constraint
@@ -4930,7 +4939,7 @@ struct  PgQuery__Constraint
 };
 #define PG_QUERY__CONSTRAINT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__constraint__descriptor) \
-    , PG_QUERY__CONSTR_TYPE__CONSTR_TYPE_UNDEFINED, (char *)protobuf_c_empty_string, 0, 0, 0, 0, 0, NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0, 0, 0,NULL, 0,NULL, 0,NULL, 0,NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0, (char *)protobuf_c_empty_string, NULL, NULL, 0,NULL, 0,NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0, 0 }
+, PG_QUERY__CONSTR_TYPE__CONSTR_TYPE_UNDEFINED, (char *)protobuf_c_empty_string, 0, 0, 0, 0, 0, NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0, 0, 0,NULL, 0,NULL, 0,NULL, 0,NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0, (char *)protobuf_c_empty_string, NULL, NULL, 0,NULL, 0,NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0, 0 }
 
 
 struct  PgQuery__CreateTableSpaceStmt
@@ -4944,7 +4953,7 @@ struct  PgQuery__CreateTableSpaceStmt
 };
 #define PG_QUERY__CREATE_TABLE_SPACE_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_table_space_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, NULL, (char *)protobuf_c_empty_string, 0,NULL }
+, (char *)protobuf_c_empty_string, NULL, (char *)protobuf_c_empty_string, 0,NULL }
 
 
 struct  PgQuery__DropTableSpaceStmt
@@ -4955,7 +4964,7 @@ struct  PgQuery__DropTableSpaceStmt
 };
 #define PG_QUERY__DROP_TABLE_SPACE_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__drop_table_space_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, 0 }
+, (char *)protobuf_c_empty_string, 0 }
 
 
 struct  PgQuery__AlterTableSpaceOptionsStmt
@@ -4968,7 +4977,7 @@ struct  PgQuery__AlterTableSpaceOptionsStmt
 };
 #define PG_QUERY__ALTER_TABLE_SPACE_OPTIONS_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_table_space_options_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, 0,NULL, 0 }
+, (char *)protobuf_c_empty_string, 0,NULL, 0 }
 
 
 struct  PgQuery__AlterTableMoveAllStmt
@@ -4983,7 +4992,7 @@ struct  PgQuery__AlterTableMoveAllStmt
 };
 #define PG_QUERY__ALTER_TABLE_MOVE_ALL_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_table_move_all_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, 0,NULL, (char *)protobuf_c_empty_string, 0 }
+, (char *)protobuf_c_empty_string, PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, 0,NULL, (char *)protobuf_c_empty_string, 0 }
 
 
 struct  PgQuery__CreateExtensionStmt
@@ -4996,7 +5005,7 @@ struct  PgQuery__CreateExtensionStmt
 };
 #define PG_QUERY__CREATE_EXTENSION_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_extension_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, 0, 0,NULL }
+, (char *)protobuf_c_empty_string, 0, 0,NULL }
 
 
 struct  PgQuery__AlterExtensionStmt
@@ -5008,7 +5017,7 @@ struct  PgQuery__AlterExtensionStmt
 };
 #define PG_QUERY__ALTER_EXTENSION_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_extension_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, 0,NULL }
+, (char *)protobuf_c_empty_string, 0,NULL }
 
 
 struct  PgQuery__AlterExtensionContentsStmt
@@ -5021,7 +5030,7 @@ struct  PgQuery__AlterExtensionContentsStmt
 };
 #define PG_QUERY__ALTER_EXTENSION_CONTENTS_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_extension_contents_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, 0, PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, NULL }
+, (char *)protobuf_c_empty_string, 0, PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, NULL }
 
 
 struct  PgQuery__CreateFdwStmt
@@ -5035,7 +5044,7 @@ struct  PgQuery__CreateFdwStmt
 };
 #define PG_QUERY__CREATE_FDW_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_fdw_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, 0,NULL, 0,NULL }
+, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL }
 
 
 struct  PgQuery__AlterFdwStmt
@@ -5049,7 +5058,7 @@ struct  PgQuery__AlterFdwStmt
 };
 #define PG_QUERY__ALTER_FDW_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_fdw_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, 0,NULL, 0,NULL }
+, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL }
 
 
 struct  PgQuery__CreateForeignServerStmt
@@ -5065,7 +5074,7 @@ struct  PgQuery__CreateForeignServerStmt
 };
 #define PG_QUERY__CREATE_FOREIGN_SERVER_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_foreign_server_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0, 0,NULL }
+, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0, 0,NULL }
 
 
 struct  PgQuery__AlterForeignServerStmt
@@ -5079,7 +5088,7 @@ struct  PgQuery__AlterForeignServerStmt
 };
 #define PG_QUERY__ALTER_FOREIGN_SERVER_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_foreign_server_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0 }
+, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0 }
 
 
 struct  PgQuery__CreateForeignTableStmt
@@ -5092,7 +5101,7 @@ struct  PgQuery__CreateForeignTableStmt
 };
 #define PG_QUERY__CREATE_FOREIGN_TABLE_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_foreign_table_stmt__descriptor) \
-    , NULL, (char *)protobuf_c_empty_string, 0,NULL }
+, NULL, (char *)protobuf_c_empty_string, 0,NULL }
 
 
 struct  PgQuery__CreateUserMappingStmt
@@ -5106,7 +5115,7 @@ struct  PgQuery__CreateUserMappingStmt
 };
 #define PG_QUERY__CREATE_USER_MAPPING_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_user_mapping_stmt__descriptor) \
-    , NULL, (char *)protobuf_c_empty_string, 0, 0,NULL }
+, NULL, (char *)protobuf_c_empty_string, 0, 0,NULL }
 
 
 struct  PgQuery__AlterUserMappingStmt
@@ -5119,7 +5128,7 @@ struct  PgQuery__AlterUserMappingStmt
 };
 #define PG_QUERY__ALTER_USER_MAPPING_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_user_mapping_stmt__descriptor) \
-    , NULL, (char *)protobuf_c_empty_string, 0,NULL }
+, NULL, (char *)protobuf_c_empty_string, 0,NULL }
 
 
 struct  PgQuery__DropUserMappingStmt
@@ -5131,7 +5140,7 @@ struct  PgQuery__DropUserMappingStmt
 };
 #define PG_QUERY__DROP_USER_MAPPING_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__drop_user_mapping_stmt__descriptor) \
-    , NULL, (char *)protobuf_c_empty_string, 0 }
+, NULL, (char *)protobuf_c_empty_string, 0 }
 
 
 struct  PgQuery__ImportForeignSchemaStmt
@@ -5148,7 +5157,7 @@ struct  PgQuery__ImportForeignSchemaStmt
 };
 #define PG_QUERY__IMPORT_FOREIGN_SCHEMA_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__import_foreign_schema_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, PG_QUERY__IMPORT_FOREIGN_SCHEMA_TYPE__IMPORT_FOREIGN_SCHEMA_TYPE_UNDEFINED, 0,NULL, 0,NULL }
+, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, PG_QUERY__IMPORT_FOREIGN_SCHEMA_TYPE__IMPORT_FOREIGN_SCHEMA_TYPE_UNDEFINED, 0,NULL, 0,NULL }
 
 
 struct  PgQuery__CreatePolicyStmt
@@ -5165,7 +5174,7 @@ struct  PgQuery__CreatePolicyStmt
 };
 #define PG_QUERY__CREATE_POLICY_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_policy_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, NULL, (char *)protobuf_c_empty_string, 0, 0,NULL, NULL, NULL }
+, (char *)protobuf_c_empty_string, NULL, (char *)protobuf_c_empty_string, 0, 0,NULL, NULL, NULL }
 
 
 struct  PgQuery__AlterPolicyStmt
@@ -5180,7 +5189,7 @@ struct  PgQuery__AlterPolicyStmt
 };
 #define PG_QUERY__ALTER_POLICY_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_policy_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, NULL, 0,NULL, NULL, NULL }
+, (char *)protobuf_c_empty_string, NULL, 0,NULL, NULL, NULL }
 
 
 struct  PgQuery__CreateAmStmt
@@ -5193,7 +5202,7 @@ struct  PgQuery__CreateAmStmt
 };
 #define PG_QUERY__CREATE_AM_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_am_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, 0,NULL, (char *)protobuf_c_empty_string }
+, (char *)protobuf_c_empty_string, 0,NULL, (char *)protobuf_c_empty_string }
 
 
 struct  PgQuery__CreateTrigStmt
@@ -5221,7 +5230,7 @@ struct  PgQuery__CreateTrigStmt
 };
 #define PG_QUERY__CREATE_TRIG_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_trig_stmt__descriptor) \
-    , 0, 0, (char *)protobuf_c_empty_string, NULL, 0,NULL, 0,NULL, 0, 0, 0, 0,NULL, NULL, 0,NULL, 0, 0, NULL }
+, 0, 0, (char *)protobuf_c_empty_string, NULL, 0,NULL, 0,NULL, 0, 0, 0, 0,NULL, NULL, 0,NULL, 0, 0, NULL }
 
 
 struct  PgQuery__CreateEventTrigStmt
@@ -5236,7 +5245,7 @@ struct  PgQuery__CreateEventTrigStmt
 };
 #define PG_QUERY__CREATE_EVENT_TRIG_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_event_trig_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL }
+, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL }
 
 
 struct  PgQuery__AlterEventTrigStmt
@@ -5247,7 +5256,7 @@ struct  PgQuery__AlterEventTrigStmt
 };
 #define PG_QUERY__ALTER_EVENT_TRIG_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_event_trig_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string }
+, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string }
 
 
 struct  PgQuery__CreatePLangStmt
@@ -5265,7 +5274,7 @@ struct  PgQuery__CreatePLangStmt
 };
 #define PG_QUERY__CREATE_PLANG_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_plang_stmt__descriptor) \
-    , 0, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0,NULL, 0 }
+, 0, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0,NULL, 0 }
 
 
 struct  PgQuery__CreateRoleStmt
@@ -5278,7 +5287,7 @@ struct  PgQuery__CreateRoleStmt
 };
 #define PG_QUERY__CREATE_ROLE_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_role_stmt__descriptor) \
-    , PG_QUERY__ROLE_STMT_TYPE__ROLE_STMT_TYPE_UNDEFINED, (char *)protobuf_c_empty_string, 0,NULL }
+, PG_QUERY__ROLE_STMT_TYPE__ROLE_STMT_TYPE_UNDEFINED, (char *)protobuf_c_empty_string, 0,NULL }
 
 
 struct  PgQuery__AlterRoleStmt
@@ -5291,7 +5300,7 @@ struct  PgQuery__AlterRoleStmt
 };
 #define PG_QUERY__ALTER_ROLE_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_role_stmt__descriptor) \
-    , NULL, 0,NULL, 0 }
+, NULL, 0,NULL, 0 }
 
 
 struct  PgQuery__AlterRoleSetStmt
@@ -5303,7 +5312,7 @@ struct  PgQuery__AlterRoleSetStmt
 };
 #define PG_QUERY__ALTER_ROLE_SET_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_role_set_stmt__descriptor) \
-    , NULL, (char *)protobuf_c_empty_string, NULL }
+, NULL, (char *)protobuf_c_empty_string, NULL }
 
 
 struct  PgQuery__DropRoleStmt
@@ -5315,7 +5324,7 @@ struct  PgQuery__DropRoleStmt
 };
 #define PG_QUERY__DROP_ROLE_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__drop_role_stmt__descriptor) \
-    , 0,NULL, 0 }
+, 0,NULL, 0 }
 
 
 struct  PgQuery__CreateSeqStmt
@@ -5330,7 +5339,7 @@ struct  PgQuery__CreateSeqStmt
 };
 #define PG_QUERY__CREATE_SEQ_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_seq_stmt__descriptor) \
-    , NULL, 0,NULL, 0, 0, 0 }
+, NULL, 0,NULL, 0, 0, 0 }
 
 
 struct  PgQuery__AlterSeqStmt
@@ -5344,7 +5353,7 @@ struct  PgQuery__AlterSeqStmt
 };
 #define PG_QUERY__ALTER_SEQ_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_seq_stmt__descriptor) \
-    , NULL, 0,NULL, 0, 0 }
+, NULL, 0,NULL, 0, 0 }
 
 
 struct  PgQuery__DefineStmt
@@ -5363,7 +5372,7 @@ struct  PgQuery__DefineStmt
 };
 #define PG_QUERY__DEFINE_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__define_stmt__descriptor) \
-    , PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, 0, 0,NULL, 0,NULL, 0,NULL, 0, 0 }
+, PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, 0, 0,NULL, 0,NULL, 0,NULL, 0, 0 }
 
 
 struct  PgQuery__CreateDomainStmt
@@ -5378,7 +5387,7 @@ struct  PgQuery__CreateDomainStmt
 };
 #define PG_QUERY__CREATE_DOMAIN_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_domain_stmt__descriptor) \
-    , 0,NULL, NULL, NULL, 0,NULL }
+, 0,NULL, NULL, NULL, 0,NULL }
 
 
 struct  PgQuery__CreateOpClassStmt
@@ -5396,7 +5405,7 @@ struct  PgQuery__CreateOpClassStmt
 };
 #define PG_QUERY__CREATE_OP_CLASS_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_op_class_stmt__descriptor) \
-    , 0,NULL, 0,NULL, (char *)protobuf_c_empty_string, NULL, 0,NULL, 0 }
+, 0,NULL, 0,NULL, (char *)protobuf_c_empty_string, NULL, 0,NULL, 0 }
 
 
 struct  PgQuery__CreateOpClassItem
@@ -5413,7 +5422,7 @@ struct  PgQuery__CreateOpClassItem
 };
 #define PG_QUERY__CREATE_OP_CLASS_ITEM__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_op_class_item__descriptor) \
-    , 0, NULL, 0, 0,NULL, 0,NULL, NULL }
+, 0, NULL, 0, 0,NULL, 0,NULL, NULL }
 
 
 struct  PgQuery__CreateOpFamilyStmt
@@ -5425,7 +5434,7 @@ struct  PgQuery__CreateOpFamilyStmt
 };
 #define PG_QUERY__CREATE_OP_FAMILY_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_op_family_stmt__descriptor) \
-    , 0,NULL, (char *)protobuf_c_empty_string }
+, 0,NULL, (char *)protobuf_c_empty_string }
 
 
 struct  PgQuery__AlterOpFamilyStmt
@@ -5440,7 +5449,7 @@ struct  PgQuery__AlterOpFamilyStmt
 };
 #define PG_QUERY__ALTER_OP_FAMILY_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_op_family_stmt__descriptor) \
-    , 0,NULL, (char *)protobuf_c_empty_string, 0, 0,NULL }
+, 0,NULL, (char *)protobuf_c_empty_string, 0, 0,NULL }
 
 
 struct  PgQuery__DropStmt
@@ -5455,7 +5464,7 @@ struct  PgQuery__DropStmt
 };
 #define PG_QUERY__DROP_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__drop_stmt__descriptor) \
-    , 0,NULL, PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, PG_QUERY__DROP_BEHAVIOR__DROP_BEHAVIOR_UNDEFINED, 0, 0 }
+, 0,NULL, PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, PG_QUERY__DROP_BEHAVIOR__DROP_BEHAVIOR_UNDEFINED, 0, 0 }
 
 
 struct  PgQuery__TruncateStmt
@@ -5468,7 +5477,7 @@ struct  PgQuery__TruncateStmt
 };
 #define PG_QUERY__TRUNCATE_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__truncate_stmt__descriptor) \
-    , 0,NULL, 0, PG_QUERY__DROP_BEHAVIOR__DROP_BEHAVIOR_UNDEFINED }
+, 0,NULL, 0, PG_QUERY__DROP_BEHAVIOR__DROP_BEHAVIOR_UNDEFINED }
 
 
 struct  PgQuery__CommentStmt
@@ -5480,7 +5489,7 @@ struct  PgQuery__CommentStmt
 };
 #define PG_QUERY__COMMENT_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__comment_stmt__descriptor) \
-    , PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, NULL, (char *)protobuf_c_empty_string }
+, PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, NULL, (char *)protobuf_c_empty_string }
 
 
 struct  PgQuery__SecLabelStmt
@@ -5493,7 +5502,7 @@ struct  PgQuery__SecLabelStmt
 };
 #define PG_QUERY__SEC_LABEL_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__sec_label_stmt__descriptor) \
-    , PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string }
+, PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string }
 
 
 struct  PgQuery__DeclareCursorStmt
@@ -5505,7 +5514,7 @@ struct  PgQuery__DeclareCursorStmt
 };
 #define PG_QUERY__DECLARE_CURSOR_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__declare_cursor_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, 0, NULL }
+, (char *)protobuf_c_empty_string, 0, NULL }
 
 
 struct  PgQuery__ClosePortalStmt
@@ -5515,7 +5524,7 @@ struct  PgQuery__ClosePortalStmt
 };
 #define PG_QUERY__CLOSE_PORTAL_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__close_portal_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string }
+, (char *)protobuf_c_empty_string }
 
 
 struct  PgQuery__FetchStmt
@@ -5528,7 +5537,7 @@ struct  PgQuery__FetchStmt
 };
 #define PG_QUERY__FETCH_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__fetch_stmt__descriptor) \
-    , PG_QUERY__FETCH_DIRECTION__FETCH_DIRECTION_UNDEFINED, 0, (char *)protobuf_c_empty_string, 0 }
+, PG_QUERY__FETCH_DIRECTION__FETCH_DIRECTION_UNDEFINED, 0, (char *)protobuf_c_empty_string, 0 }
 
 
 struct  PgQuery__IndexStmt
@@ -5565,7 +5574,7 @@ struct  PgQuery__IndexStmt
 };
 #define PG_QUERY__INDEX_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__index_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0,NULL, NULL, 0,NULL, (char *)protobuf_c_empty_string, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
+, (char *)protobuf_c_empty_string, NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0,NULL, NULL, 0,NULL, (char *)protobuf_c_empty_string, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }
 
 
 struct  PgQuery__CreateStatsStmt
@@ -5585,7 +5594,7 @@ struct  PgQuery__CreateStatsStmt
 };
 #define PG_QUERY__CREATE_STATS_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_stats_stmt__descriptor) \
-    , 0,NULL, 0,NULL, 0,NULL, 0,NULL, (char *)protobuf_c_empty_string, 0, 0 }
+, 0,NULL, 0,NULL, 0,NULL, 0,NULL, (char *)protobuf_c_empty_string, 0, 0 }
 
 
 struct  PgQuery__StatsElem
@@ -5596,7 +5605,7 @@ struct  PgQuery__StatsElem
 };
 #define PG_QUERY__STATS_ELEM__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__stats_elem__descriptor) \
-    , (char *)protobuf_c_empty_string, NULL }
+, (char *)protobuf_c_empty_string, NULL }
 
 
 struct  PgQuery__AlterStatsStmt
@@ -5609,7 +5618,7 @@ struct  PgQuery__AlterStatsStmt
 };
 #define PG_QUERY__ALTER_STATS_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_stats_stmt__descriptor) \
-    , 0,NULL, NULL, 0 }
+, 0,NULL, NULL, 0 }
 
 
 struct  PgQuery__CreateFunctionStmt
@@ -5628,7 +5637,7 @@ struct  PgQuery__CreateFunctionStmt
 };
 #define PG_QUERY__CREATE_FUNCTION_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_function_stmt__descriptor) \
-    , 0, 0, 0,NULL, 0,NULL, NULL, 0,NULL, NULL }
+, 0, 0, 0,NULL, 0,NULL, NULL, 0,NULL, NULL }
 
 
 struct  PgQuery__FunctionParameter
@@ -5641,7 +5650,7 @@ struct  PgQuery__FunctionParameter
 };
 #define PG_QUERY__FUNCTION_PARAMETER__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__function_parameter__descriptor) \
-    , (char *)protobuf_c_empty_string, NULL, PG_QUERY__FUNCTION_PARAMETER_MODE__FUNCTION_PARAMETER_MODE_UNDEFINED, NULL }
+, (char *)protobuf_c_empty_string, NULL, PG_QUERY__FUNCTION_PARAMETER_MODE__FUNCTION_PARAMETER_MODE_UNDEFINED, NULL }
 
 
 struct  PgQuery__AlterFunctionStmt
@@ -5654,7 +5663,7 @@ struct  PgQuery__AlterFunctionStmt
 };
 #define PG_QUERY__ALTER_FUNCTION_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_function_stmt__descriptor) \
-    , PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, NULL, 0,NULL }
+, PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, NULL, 0,NULL }
 
 
 struct  PgQuery__DoStmt
@@ -5665,7 +5674,7 @@ struct  PgQuery__DoStmt
 };
 #define PG_QUERY__DO_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__do_stmt__descriptor) \
-    , 0,NULL }
+, 0,NULL }
 
 
 struct  PgQuery__InlineCodeBlock
@@ -5678,7 +5687,7 @@ struct  PgQuery__InlineCodeBlock
 };
 #define PG_QUERY__INLINE_CODE_BLOCK__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__inline_code_block__descriptor) \
-    , (char *)protobuf_c_empty_string, 0, 0, 0 }
+, (char *)protobuf_c_empty_string, 0, 0, 0 }
 
 
 struct  PgQuery__CallStmt
@@ -5691,7 +5700,7 @@ struct  PgQuery__CallStmt
 };
 #define PG_QUERY__CALL_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__call_stmt__descriptor) \
-    , NULL, NULL, 0,NULL }
+, NULL, NULL, 0,NULL }
 
 
 struct  PgQuery__CallContext
@@ -5701,7 +5710,7 @@ struct  PgQuery__CallContext
 };
 #define PG_QUERY__CALL_CONTEXT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__call_context__descriptor) \
-    , 0 }
+, 0 }
 
 
 struct  PgQuery__RenameStmt
@@ -5718,7 +5727,7 @@ struct  PgQuery__RenameStmt
 };
 #define PG_QUERY__RENAME_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__rename_stmt__descriptor) \
-    , PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, NULL, NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, PG_QUERY__DROP_BEHAVIOR__DROP_BEHAVIOR_UNDEFINED, 0 }
+, PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, NULL, NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, PG_QUERY__DROP_BEHAVIOR__DROP_BEHAVIOR_UNDEFINED, 0 }
 
 
 struct  PgQuery__AlterObjectDependsStmt
@@ -5732,7 +5741,7 @@ struct  PgQuery__AlterObjectDependsStmt
 };
 #define PG_QUERY__ALTER_OBJECT_DEPENDS_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_object_depends_stmt__descriptor) \
-    , PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, NULL, NULL, NULL, 0 }
+, PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, NULL, NULL, NULL, 0 }
 
 
 struct  PgQuery__AlterObjectSchemaStmt
@@ -5746,7 +5755,7 @@ struct  PgQuery__AlterObjectSchemaStmt
 };
 #define PG_QUERY__ALTER_OBJECT_SCHEMA_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_object_schema_stmt__descriptor) \
-    , PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, NULL, NULL, (char *)protobuf_c_empty_string, 0 }
+, PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, NULL, NULL, (char *)protobuf_c_empty_string, 0 }
 
 
 struct  PgQuery__AlterOwnerStmt
@@ -5759,7 +5768,7 @@ struct  PgQuery__AlterOwnerStmt
 };
 #define PG_QUERY__ALTER_OWNER_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_owner_stmt__descriptor) \
-    , PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, NULL, NULL, NULL }
+, PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, NULL, NULL, NULL }
 
 
 struct  PgQuery__AlterOperatorStmt
@@ -5771,7 +5780,7 @@ struct  PgQuery__AlterOperatorStmt
 };
 #define PG_QUERY__ALTER_OPERATOR_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_operator_stmt__descriptor) \
-    , NULL, 0,NULL }
+, NULL, 0,NULL }
 
 
 struct  PgQuery__AlterTypeStmt
@@ -5784,7 +5793,7 @@ struct  PgQuery__AlterTypeStmt
 };
 #define PG_QUERY__ALTER_TYPE_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_type_stmt__descriptor) \
-    , 0,NULL, 0,NULL }
+, 0,NULL, 0,NULL }
 
 
 struct  PgQuery__RuleStmt
@@ -5801,7 +5810,7 @@ struct  PgQuery__RuleStmt
 };
 #define PG_QUERY__RULE_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__rule_stmt__descriptor) \
-    , NULL, (char *)protobuf_c_empty_string, NULL, PG_QUERY__CMD_TYPE__CMD_TYPE_UNDEFINED, 0, 0,NULL, 0 }
+, NULL, (char *)protobuf_c_empty_string, NULL, PG_QUERY__CMD_TYPE__CMD_TYPE_UNDEFINED, 0, 0,NULL, 0 }
 
 
 struct  PgQuery__NotifyStmt
@@ -5812,7 +5821,7 @@ struct  PgQuery__NotifyStmt
 };
 #define PG_QUERY__NOTIFY_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__notify_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string }
+, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string }
 
 
 struct  PgQuery__ListenStmt
@@ -5822,7 +5831,7 @@ struct  PgQuery__ListenStmt
 };
 #define PG_QUERY__LISTEN_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__listen_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string }
+, (char *)protobuf_c_empty_string }
 
 
 struct  PgQuery__UnlistenStmt
@@ -5832,7 +5841,7 @@ struct  PgQuery__UnlistenStmt
 };
 #define PG_QUERY__UNLISTEN_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__unlisten_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string }
+, (char *)protobuf_c_empty_string }
 
 
 struct  PgQuery__TransactionStmt
@@ -5848,7 +5857,7 @@ struct  PgQuery__TransactionStmt
 };
 #define PG_QUERY__TRANSACTION_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__transaction_stmt__descriptor) \
-    , PG_QUERY__TRANSACTION_STMT_KIND__TRANSACTION_STMT_KIND_UNDEFINED, 0,NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0, 0 }
+, PG_QUERY__TRANSACTION_STMT_KIND__TRANSACTION_STMT_KIND_UNDEFINED, 0,NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0, 0 }
 
 
 struct  PgQuery__CompositeTypeStmt
@@ -5860,7 +5869,7 @@ struct  PgQuery__CompositeTypeStmt
 };
 #define PG_QUERY__COMPOSITE_TYPE_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__composite_type_stmt__descriptor) \
-    , NULL, 0,NULL }
+, NULL, 0,NULL }
 
 
 struct  PgQuery__CreateEnumStmt
@@ -5873,7 +5882,7 @@ struct  PgQuery__CreateEnumStmt
 };
 #define PG_QUERY__CREATE_ENUM_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_enum_stmt__descriptor) \
-    , 0,NULL, 0,NULL }
+, 0,NULL, 0,NULL }
 
 
 struct  PgQuery__CreateRangeStmt
@@ -5886,7 +5895,7 @@ struct  PgQuery__CreateRangeStmt
 };
 #define PG_QUERY__CREATE_RANGE_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_range_stmt__descriptor) \
-    , 0,NULL, 0,NULL }
+, 0,NULL, 0,NULL }
 
 
 struct  PgQuery__AlterEnumStmt
@@ -5902,7 +5911,7 @@ struct  PgQuery__AlterEnumStmt
 };
 #define PG_QUERY__ALTER_ENUM_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_enum_stmt__descriptor) \
-    , 0,NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0, 0 }
+, 0,NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0, 0 }
 
 
 struct  PgQuery__ViewStmt
@@ -5919,7 +5928,7 @@ struct  PgQuery__ViewStmt
 };
 #define PG_QUERY__VIEW_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__view_stmt__descriptor) \
-    , NULL, 0,NULL, NULL, 0, 0,NULL, PG_QUERY__VIEW_CHECK_OPTION__VIEW_CHECK_OPTION_UNDEFINED }
+, NULL, 0,NULL, NULL, 0, 0,NULL, PG_QUERY__VIEW_CHECK_OPTION__VIEW_CHECK_OPTION_UNDEFINED }
 
 
 struct  PgQuery__LoadStmt
@@ -5929,7 +5938,7 @@ struct  PgQuery__LoadStmt
 };
 #define PG_QUERY__LOAD_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__load_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string }
+, (char *)protobuf_c_empty_string }
 
 
 struct  PgQuery__CreatedbStmt
@@ -5941,7 +5950,7 @@ struct  PgQuery__CreatedbStmt
 };
 #define PG_QUERY__CREATEDB_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__createdb_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, 0,NULL }
+, (char *)protobuf_c_empty_string, 0,NULL }
 
 
 struct  PgQuery__AlterDatabaseStmt
@@ -5953,7 +5962,7 @@ struct  PgQuery__AlterDatabaseStmt
 };
 #define PG_QUERY__ALTER_DATABASE_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_database_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, 0,NULL }
+, (char *)protobuf_c_empty_string, 0,NULL }
 
 
 struct  PgQuery__AlterDatabaseRefreshCollStmt
@@ -5963,7 +5972,7 @@ struct  PgQuery__AlterDatabaseRefreshCollStmt
 };
 #define PG_QUERY__ALTER_DATABASE_REFRESH_COLL_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_database_refresh_coll_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string }
+, (char *)protobuf_c_empty_string }
 
 
 struct  PgQuery__AlterDatabaseSetStmt
@@ -5974,7 +5983,7 @@ struct  PgQuery__AlterDatabaseSetStmt
 };
 #define PG_QUERY__ALTER_DATABASE_SET_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_database_set_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, NULL }
+, (char *)protobuf_c_empty_string, NULL }
 
 
 struct  PgQuery__DropdbStmt
@@ -5987,7 +5996,7 @@ struct  PgQuery__DropdbStmt
 };
 #define PG_QUERY__DROPDB_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__dropdb_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, 0, 0,NULL }
+, (char *)protobuf_c_empty_string, 0, 0,NULL }
 
 
 struct  PgQuery__AlterSystemStmt
@@ -5997,7 +6006,7 @@ struct  PgQuery__AlterSystemStmt
 };
 #define PG_QUERY__ALTER_SYSTEM_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_system_stmt__descriptor) \
-    , NULL }
+, NULL }
 
 
 struct  PgQuery__ClusterStmt
@@ -6010,7 +6019,7 @@ struct  PgQuery__ClusterStmt
 };
 #define PG_QUERY__CLUSTER_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__cluster_stmt__descriptor) \
-    , NULL, (char *)protobuf_c_empty_string, 0,NULL }
+, NULL, (char *)protobuf_c_empty_string, 0,NULL }
 
 
 struct  PgQuery__VacuumStmt
@@ -6024,7 +6033,7 @@ struct  PgQuery__VacuumStmt
 };
 #define PG_QUERY__VACUUM_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__vacuum_stmt__descriptor) \
-    , 0,NULL, 0,NULL, 0 }
+, 0,NULL, 0,NULL, 0 }
 
 
 struct  PgQuery__VacuumRelation
@@ -6037,7 +6046,7 @@ struct  PgQuery__VacuumRelation
 };
 #define PG_QUERY__VACUUM_RELATION__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__vacuum_relation__descriptor) \
-    , NULL, 0, 0,NULL }
+, NULL, 0, 0,NULL }
 
 
 struct  PgQuery__ExplainStmt
@@ -6049,7 +6058,7 @@ struct  PgQuery__ExplainStmt
 };
 #define PG_QUERY__EXPLAIN_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__explain_stmt__descriptor) \
-    , NULL, 0,NULL }
+, NULL, 0,NULL }
 
 
 struct  PgQuery__CreateTableAsStmt
@@ -6063,7 +6072,7 @@ struct  PgQuery__CreateTableAsStmt
 };
 #define PG_QUERY__CREATE_TABLE_AS_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_table_as_stmt__descriptor) \
-    , NULL, NULL, PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, 0, 0 }
+, NULL, NULL, PG_QUERY__OBJECT_TYPE__OBJECT_TYPE_UNDEFINED, 0, 0 }
 
 
 struct  PgQuery__RefreshMatViewStmt
@@ -6075,7 +6084,7 @@ struct  PgQuery__RefreshMatViewStmt
 };
 #define PG_QUERY__REFRESH_MAT_VIEW_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__refresh_mat_view_stmt__descriptor) \
-    , 0, 0, NULL }
+, 0, 0, NULL }
 
 
 struct  PgQuery__CheckPointStmt
@@ -6084,7 +6093,7 @@ struct  PgQuery__CheckPointStmt
 };
 #define PG_QUERY__CHECK_POINT_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__check_point_stmt__descriptor) \
-     }
+ }
 
 
 struct  PgQuery__DiscardStmt
@@ -6094,7 +6103,7 @@ struct  PgQuery__DiscardStmt
 };
 #define PG_QUERY__DISCARD_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__discard_stmt__descriptor) \
-    , PG_QUERY__DISCARD_MODE__DISCARD_MODE_UNDEFINED }
+, PG_QUERY__DISCARD_MODE__DISCARD_MODE_UNDEFINED }
 
 
 struct  PgQuery__LockStmt
@@ -6107,7 +6116,7 @@ struct  PgQuery__LockStmt
 };
 #define PG_QUERY__LOCK_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__lock_stmt__descriptor) \
-    , 0,NULL, 0, 0 }
+, 0,NULL, 0, 0 }
 
 
 struct  PgQuery__ConstraintsSetStmt
@@ -6119,7 +6128,7 @@ struct  PgQuery__ConstraintsSetStmt
 };
 #define PG_QUERY__CONSTRAINTS_SET_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__constraints_set_stmt__descriptor) \
-    , 0,NULL, 0 }
+, 0,NULL, 0 }
 
 
 struct  PgQuery__ReindexStmt
@@ -6133,7 +6142,7 @@ struct  PgQuery__ReindexStmt
 };
 #define PG_QUERY__REINDEX_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__reindex_stmt__descriptor) \
-    , PG_QUERY__REINDEX_OBJECT_TYPE__REINDEX_OBJECT_TYPE_UNDEFINED, NULL, (char *)protobuf_c_empty_string, 0,NULL }
+, PG_QUERY__REINDEX_OBJECT_TYPE__REINDEX_OBJECT_TYPE_UNDEFINED, NULL, (char *)protobuf_c_empty_string, 0,NULL }
 
 
 struct  PgQuery__CreateConversionStmt
@@ -6149,7 +6158,7 @@ struct  PgQuery__CreateConversionStmt
 };
 #define PG_QUERY__CREATE_CONVERSION_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_conversion_stmt__descriptor) \
-    , 0,NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0 }
+, 0,NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0 }
 
 
 struct  PgQuery__CreateCastStmt
@@ -6163,7 +6172,7 @@ struct  PgQuery__CreateCastStmt
 };
 #define PG_QUERY__CREATE_CAST_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_cast_stmt__descriptor) \
-    , NULL, NULL, NULL, PG_QUERY__COERCION_CONTEXT__COERCION_CONTEXT_UNDEFINED, 0 }
+, NULL, NULL, NULL, PG_QUERY__COERCION_CONTEXT__COERCION_CONTEXT_UNDEFINED, 0 }
 
 
 struct  PgQuery__CreateTransformStmt
@@ -6177,7 +6186,7 @@ struct  PgQuery__CreateTransformStmt
 };
 #define PG_QUERY__CREATE_TRANSFORM_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_transform_stmt__descriptor) \
-    , 0, NULL, (char *)protobuf_c_empty_string, NULL, NULL }
+, 0, NULL, (char *)protobuf_c_empty_string, NULL, NULL }
 
 
 struct  PgQuery__PrepareStmt
@@ -6190,7 +6199,7 @@ struct  PgQuery__PrepareStmt
 };
 #define PG_QUERY__PREPARE_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__prepare_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, 0,NULL, NULL }
+, (char *)protobuf_c_empty_string, 0,NULL, NULL }
 
 
 struct  PgQuery__ExecuteStmt
@@ -6202,7 +6211,7 @@ struct  PgQuery__ExecuteStmt
 };
 #define PG_QUERY__EXECUTE_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__execute_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, 0,NULL }
+, (char *)protobuf_c_empty_string, 0,NULL }
 
 
 struct  PgQuery__DeallocateStmt
@@ -6214,7 +6223,7 @@ struct  PgQuery__DeallocateStmt
 };
 #define PG_QUERY__DEALLOCATE_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__deallocate_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, 0, 0 }
+, (char *)protobuf_c_empty_string, 0, 0 }
 
 
 struct  PgQuery__DropOwnedStmt
@@ -6226,7 +6235,7 @@ struct  PgQuery__DropOwnedStmt
 };
 #define PG_QUERY__DROP_OWNED_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__drop_owned_stmt__descriptor) \
-    , 0,NULL, PG_QUERY__DROP_BEHAVIOR__DROP_BEHAVIOR_UNDEFINED }
+, 0,NULL, PG_QUERY__DROP_BEHAVIOR__DROP_BEHAVIOR_UNDEFINED }
 
 
 struct  PgQuery__ReassignOwnedStmt
@@ -6238,7 +6247,7 @@ struct  PgQuery__ReassignOwnedStmt
 };
 #define PG_QUERY__REASSIGN_OWNED_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__reassign_owned_stmt__descriptor) \
-    , 0,NULL, NULL }
+, 0,NULL, NULL }
 
 
 struct  PgQuery__AlterTSDictionaryStmt
@@ -6251,7 +6260,7 @@ struct  PgQuery__AlterTSDictionaryStmt
 };
 #define PG_QUERY__ALTER_TSDICTIONARY_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_tsdictionary_stmt__descriptor) \
-    , 0,NULL, 0,NULL }
+, 0,NULL, 0,NULL }
 
 
 struct  PgQuery__AlterTSConfigurationStmt
@@ -6270,7 +6279,7 @@ struct  PgQuery__AlterTSConfigurationStmt
 };
 #define PG_QUERY__ALTER_TSCONFIGURATION_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_tsconfiguration_stmt__descriptor) \
-    , PG_QUERY__ALTER_TSCONFIG_TYPE__ALTER_TSCONFIG_TYPE_UNDEFINED, 0,NULL, 0,NULL, 0,NULL, 0, 0, 0 }
+, PG_QUERY__ALTER_TSCONFIG_TYPE__ALTER_TSCONFIG_TYPE_UNDEFINED, 0,NULL, 0,NULL, 0,NULL, 0, 0, 0 }
 
 
 struct  PgQuery__PublicationTable
@@ -6283,7 +6292,7 @@ struct  PgQuery__PublicationTable
 };
 #define PG_QUERY__PUBLICATION_TABLE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__publication_table__descriptor) \
-    , NULL, NULL, 0,NULL }
+, NULL, NULL, 0,NULL }
 
 
 struct  PgQuery__PublicationObjSpec
@@ -6296,7 +6305,7 @@ struct  PgQuery__PublicationObjSpec
 };
 #define PG_QUERY__PUBLICATION_OBJ_SPEC__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__publication_obj_spec__descriptor) \
-    , PG_QUERY__PUBLICATION_OBJ_SPEC_TYPE__PUBLICATION_OBJ_SPEC_TYPE_UNDEFINED, (char *)protobuf_c_empty_string, NULL, 0 }
+, PG_QUERY__PUBLICATION_OBJ_SPEC_TYPE__PUBLICATION_OBJ_SPEC_TYPE_UNDEFINED, (char *)protobuf_c_empty_string, NULL, 0 }
 
 
 struct  PgQuery__CreatePublicationStmt
@@ -6311,7 +6320,7 @@ struct  PgQuery__CreatePublicationStmt
 };
 #define PG_QUERY__CREATE_PUBLICATION_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_publication_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0 }
+, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0 }
 
 
 struct  PgQuery__AlterPublicationStmt
@@ -6327,7 +6336,7 @@ struct  PgQuery__AlterPublicationStmt
 };
 #define PG_QUERY__ALTER_PUBLICATION_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_publication_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0, PG_QUERY__ALTER_PUBLICATION_ACTION__ALTER_PUBLICATION_ACTION_UNDEFINED }
+, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0, PG_QUERY__ALTER_PUBLICATION_ACTION__ALTER_PUBLICATION_ACTION_UNDEFINED }
 
 
 struct  PgQuery__CreateSubscriptionStmt
@@ -6342,7 +6351,7 @@ struct  PgQuery__CreateSubscriptionStmt
 };
 #define PG_QUERY__CREATE_SUBSCRIPTION_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__create_subscription_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL }
+, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL }
 
 
 struct  PgQuery__AlterSubscriptionStmt
@@ -6358,7 +6367,7 @@ struct  PgQuery__AlterSubscriptionStmt
 };
 #define PG_QUERY__ALTER_SUBSCRIPTION_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__alter_subscription_stmt__descriptor) \
-    , PG_QUERY__ALTER_SUBSCRIPTION_TYPE__ALTER_SUBSCRIPTION_TYPE_UNDEFINED, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL }
+, PG_QUERY__ALTER_SUBSCRIPTION_TYPE__ALTER_SUBSCRIPTION_TYPE_UNDEFINED, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL }
 
 
 struct  PgQuery__DropSubscriptionStmt
@@ -6370,7 +6379,7 @@ struct  PgQuery__DropSubscriptionStmt
 };
 #define PG_QUERY__DROP_SUBSCRIPTION_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__drop_subscription_stmt__descriptor) \
-    , (char *)protobuf_c_empty_string, 0, PG_QUERY__DROP_BEHAVIOR__DROP_BEHAVIOR_UNDEFINED }
+, (char *)protobuf_c_empty_string, 0, PG_QUERY__DROP_BEHAVIOR__DROP_BEHAVIOR_UNDEFINED }
 
 
 struct  PgQuery__ScanToken
@@ -6383,7 +6392,7 @@ struct  PgQuery__ScanToken
 };
 #define PG_QUERY__SCAN_TOKEN__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__scan_token__descriptor) \
-    , 0, 0, PG_QUERY__TOKEN__NUL, PG_QUERY__KEYWORD_KIND__NO_KEYWORD }
+, 0, 0, PG_QUERY__TOKEN__NUL, PG_QUERY__KEYWORD_KIND__NO_KEYWORD }
 
 
 struct  PgQuery__SummaryResult__Table
@@ -6396,7 +6405,7 @@ struct  PgQuery__SummaryResult__Table
 };
 #define PG_QUERY__SUMMARY_RESULT__TABLE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__summary_result__table__descriptor) \
-    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, PG_QUERY__SUMMARY_RESULT__CONTEXT__None }
+, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, PG_QUERY__SUMMARY_RESULT__CONTEXT__None }
 
 
 struct  PgQuery__SummaryResult__AliasesEntry
@@ -6407,7 +6416,7 @@ struct  PgQuery__SummaryResult__AliasesEntry
 };
 #define PG_QUERY__SUMMARY_RESULT__ALIASES_ENTRY__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__summary_result__aliases_entry__descriptor) \
-    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string }
+, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string }
 
 
 struct  PgQuery__SummaryResult__Function
@@ -6423,7 +6432,7 @@ struct  PgQuery__SummaryResult__Function
 };
 #define PG_QUERY__SUMMARY_RESULT__FUNCTION__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__summary_result__function__descriptor) \
-    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, PG_QUERY__SUMMARY_RESULT__CONTEXT__None }
+, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, PG_QUERY__SUMMARY_RESULT__CONTEXT__None }
 
 
 struct  PgQuery__SummaryResult__FilterColumn
@@ -6441,7 +6450,7 @@ struct  PgQuery__SummaryResult__FilterColumn
 };
 #define PG_QUERY__SUMMARY_RESULT__FILTER_COLUMN__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__summary_result__filter_column__descriptor) \
-    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string }
+, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string }
 
 
 /*
@@ -6469,13 +6478,13 @@ struct  PgQuery__SummaryResult
   size_t n_statement_types;
   char **statement_types;
   /*
-   * optional, empty if truncation limit is -1 
+   * optional, empty if truncation limit is -1
    */
   char *truncated_query;
 };
 #define PG_QUERY__SUMMARY_RESULT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__summary_result__descriptor) \
-    , 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL, (char *)protobuf_c_empty_string }
+, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL, (char *)protobuf_c_empty_string }
 
 
 /* PgQuery__ParseResult methods */

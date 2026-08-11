@@ -236,6 +236,12 @@ Bind-field rules:
 | `SQLPARSER_CLAUSE_KIND_DML_RESULT` | `dml_result` | DML result target list |
 | `SQLPARSER_CLAUSE_KIND_CONDITION` | `condition` | control-flow condition expression |
 | `SQLPARSER_CLAUSE_KIND_WINDOW_PARTITION` | `window_partition` | PARTITION BY list in a named window definition |
+| `SQLPARSER_CLAUSE_KIND_START_WITH` | `start_with` | hierarchical-query start condition |
+| `SQLPARSER_CLAUSE_KIND_CONNECT_BY` | `connect_by` | hierarchical-query recursive condition |
+
+The hierarchical-query values append to the existing numbering:
+`SQLPARSER_CLAUSE_KIND_START_WITH = 11` and
+`SQLPARSER_CLAUSE_KIND_CONNECT_BY = 12`.
 
 `sqlparser_graph_dml_result_kind_t`:
 
@@ -733,7 +739,7 @@ from which it was read.
 | `sqlparser_query_graph_field_at()` | reads a field occurrence |
 | `sqlparser_query_graph_value_at()` | reads a query graph value |
 | `sqlparser_query_graph_set_at()` | reads a set-operation node |
-| `sqlparser_query_graph_predicate_at()` | reads a WHERE/ON/HAVING predicate node |
+| `sqlparser_query_graph_predicate_at()` | reads a WHERE, ON, HAVING, START WITH, or CONNECT BY predicate node |
 | `sqlparser_query_graph_session()` | reads the statement session-state action |
 | `sqlparser_query_graph_session_item_at()` | reads a session-state target |
 | `sqlparser_query_graph_session_value_at()` | reads a session-state value |
@@ -757,10 +763,10 @@ from which it was read.
 | `sqlparser_graph_block_t` | query block with relation, target, and predicate spans |
 | `sqlparser_graph_relation_t` | base, derived, CTE, or dual relation visible in SQL; `quoted_identifier` reports an explicit supported delimiter on the object-name token |
 | `sqlparser_graph_target_t` | query or DML-result output target with output order, star source, selector, and an optional sink-value association |
-| `sqlparser_graph_field_t` | field-reference occurrence visible in SQL; `quoted_identifier` reports an explicit supported delimiter on the column-name token |
+| `sqlparser_graph_field_t` | field-reference occurrence visible in SQL; `quoted_identifier` reports an explicit supported delimiter on the column-name token, while `pseudo` / `prior` report hierarchical occurrence semantics |
 | `sqlparser_graph_value_t` | literal, bind, default, expression, or field value in the query graph |
 | `sqlparser_graph_set_t` | `UNION`, `UNION ALL`, `INTERSECT`, or `EXCEPT/MINUS` branches |
-| `sqlparser_graph_predicate_t` | comparison, boolean, EXISTS, or expression predicate from WHERE, ON, or HAVING |
+| `sqlparser_graph_predicate_t` | comparison, boolean, EXISTS, or expression predicate from WHERE, ON, HAVING, START WITH, or CONNECT BY; `nocycle` marks the CONNECT BY root predicate |
 | `sqlparser_graph_session_t` | statement session-state action and item count |
 | `sqlparser_graph_session_item_t` | session-state scope, target, and value span |
 | `sqlparser_graph_session_value_t` | session-state identifier, keyword, literal, bind, or expression value |
@@ -791,8 +797,34 @@ from which it was read.
 - `targets[].source_block_index` links star or subquery targets to their source
   block.
 - `sets[].branch_blocks` reports set-operation branches.
-- `predicates[]` represents the predicate tree for `WHERE`, `ON`, and `HAVING`;
+- `predicates[]` represents the predicate tree for `WHERE`, `ON`, `HAVING`,
+  `START WITH`, and `CONNECT BY`;
   the `children` span reports child predicates for `AND`, `OR`, and `NOT`.
+- Hierarchical queries reuse `fields[]`, `values[]`, and `predicates[]`.
+  Occurrences in `START WITH` and `CONNECT BY` use
+  `SQLPARSER_CLAUSE_KIND_START_WITH` and `SQLPARSER_CLAUSE_KIND_CONNECT_BY`.
+  Condition-related occurrences in one SELECT are built in the semantic order
+  `WHERE`, `START WITH`, `CONNECT BY`, `GROUP BY` / `HAVING`, window clauses,
+  then `ORDER BY`. Selectors still come from generic AST descriptor traversal;
+  callers must treat them as opaque locator paths and must not derive their
+  indexes from source clause order.
+- In a query block that contains `CONNECT BY`, unquoted `LEVEL`,
+  `CONNECT_BY_ISLEAF`, and `CONNECT_BY_ISCYCLE` occurrences set
+  `sqlparser_graph_field_t.pseudo = 1` and have no relation. A corresponding
+  SELECT pseudo target points back through `field_index`. Delimited `"LEVEL"`
+  and blocks without `CONNECT BY` retain ordinary field semantics, and nested
+  SELECT blocks do not inherit the outer hierarchy context.
+- `PRIOR` transparently marks every field occurrence in its operand through
+  `sqlparser_graph_field_t.prior = 1` and is valid only in the current
+  `CONNECT BY` condition. A `CONNECT_BY_ROOT` SELECT target remains
+  `SQLPARSER_GRAPH_TARGET_EXPRESSION`; its underlying field has one
+  `target_path` entry with `kind = "operator"`, `name = "CONNECT_BY_ROOT"`,
+  and `arg_index = 0`.
+- `CONNECT BY NOCYCLE` sets `sqlparser_graph_predicate_t.nocycle = 1` on the
+  CONNECT BY root predicate. This capability adds no hierarchy-specific
+  object, selector, patch kind, or public function. Field, value, relation,
+  and SELECT-target rewrites continue to use existing selectors and patch
+  kinds.
 - A `field = literal/bind` predicate is represented by
   `left_field_index + value_index`. A `field = field` predicate is represented
   by `left_field_index + right_field_index`, with a `values[]` entry whose kind

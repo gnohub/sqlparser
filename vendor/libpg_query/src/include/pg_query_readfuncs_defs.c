@@ -2008,6 +2008,10 @@ _readSelectStmt(OUT_TYPE(SelectStmt, SelectStmt) msg)
   READ_LIST_FIELD(target_list, targetList, targetList);
   READ_LIST_FIELD(from_clause, fromClause, fromClause);
   READ_NODE_PTR_FIELD(where_clause, whereClause, whereClause);
+  READ_NODE_PTR_FIELD(start_with_clause, startWithClause, startWithClause);
+  READ_NODE_PTR_FIELD(connect_by_clause, connectByClause, connectByClause);
+  READ_BOOL_FIELD(connect_by_no_cycle, connectByNoCycle, connectByNoCycle);
+  READ_BOOL_FIELD(connect_by_first, connectByFirst, connectByFirst);
   READ_LIST_FIELD(group_clause, groupClause, groupClause);
   READ_BOOL_FIELD(group_distinct, groupDistinct, groupDistinct);
   READ_NODE_PTR_FIELD(having_clause, havingClause, havingClause);

@@ -15,7 +15,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 600 条 `status = "final"` 用例，其中 75 条用例的期望 View 包含非空 session 投影。
+夹具包含 601 条 `status = "final"` 用例，其中 75 条用例的期望 View 包含非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -64,6 +64,15 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | VSH420 | `vastbase-sqlserver-merge-output-action-terminal-semicolon` | `MERGE ... OUTPUT $action;` | MERGE 末尾 OUTPUT 无尾空格，分号位置不变 |
 | VSH421 | `vastbase-sqlserver-update-output-terminal` | `UPDATE ... OUTPUT INSERTED.a` | 无后继 WHERE/FROM 时不生成右边界 |
 | VSH422 | `vastbase-sqlserver-delete-output-terminal` | `DELETE ... OUTPUT DELETED.id` | 无后继 WHERE/FROM 时不生成右边界 |
+
+## Vastbase SQL Server 兼容入口基础 CONNECT BY 回归
+
+该兼容入口只覆盖基础 `CONNECT BY` 条件，不包含 `START WITH`、`PRIOR`、`NOCYCLE` 或 `CONNECT_BY_ROOT`。以下 final 用例包含 5 个独立 patch，其中 4 个 `replace`、1 个 `insert_column`。
+在该查询块内，无显式 `AS` 的 `CONNECT_BY_ROOT expr` 形态按边界外层次操作符拒绝；显式 `AS` 别名或定界标识符保留同名普通字段语义。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| VSH423 | `vastbase-sqlserver-connect-by-official` | `WHERE` + 基础 `CONNECT BY` + `ORDER BY` | `connect_by` 字段和值归属、WHERE 与 ORDER BY 独立语义、relation/field/value/target 替换及 SELECT 列插入 |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 

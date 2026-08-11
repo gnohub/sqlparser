@@ -4,7 +4,7 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 244 cases with `status = "final"`.
+The fixture contains 248 cases with `status = "final"`.
 Statement-level `query_graph.session` appears in 59 cases, covering `O043`,
 `O043Q`, `O044` through `O047`, `O082` through `O086`, and the `ORA-*`
 session cases. All 59 contain at least one non-empty session item.
@@ -88,7 +88,7 @@ binds were included in the global sequence. `SYSDATE` and
 | O039 | `DELETE` + `DATE` literal | conditional delete and date literal |
 | O040 | materialized view | compatible materialized-view syntax |
 | O041 | unsupported keywords in string | `RETURNING`, `@`, and `(+)` inside strings do not trigger unsupported |
-| O042 | unsupported keywords in comment | `CONNECT BY` inside comments does not trigger unsupported |
+| O042 | hierarchical-query keywords in a comment | `CONNECT BY` text inside comments does not participate in SQL syntax recognition |
 | O042Q | unsupported keywords in protected identifiers | `RETURNING` and `@` inside quoted identifiers do not trigger unsupported |
 | O043 | `ALTER SESSION SET CURRENT_SCHEMA` | current-schema session context switching |
 | O043Q | `ALTER SESSION SET CURRENT_SCHEMA="..."` | quoted schema identifier with public literal-view quoted-identifier semantics |
@@ -235,6 +235,22 @@ These five final cases verify that `ROWNUM` participates in predicates only as a
 | `O-RN003` | `oracle-rownum-right-operand-equality` | `1 = ROWNUM` | source operator and left-literal selector when ROWNUM is the right operand |
 | `O-RN004` | `oracle-rownum-greater-than-literal` | `ROWNUM > 1` | greater-than operator and other-side literal in an expression predicate |
 | `O-RN005` | `oracle-delete-rownum-batch-limit` | `DELETE ... expired = 1 AND ROWNUM <= :batch_size` | DELETE target, `AND` tree, ordinary-field predicate, and ROWNUM bind-predicate attribution |
+
+## Hierarchical Query Regression
+
+These four final cases define the Oracle hierarchical-query boundary.
+`START WITH` must precede `CONNECT BY`. Fields, values, and predicates use the
+existing Query Graph arrays, while hierarchical pseudo-columns, `PRIOR`,
+`NOCYCLE`, and `CONNECT_BY_ROOT` use public View fields. Each case contains
+five independent patches, for 20 patches in total: 16 `replace` and 4
+`insert_column` actions.
+
+| ID | Case | SQL Shape | Coverage |
+| --- | --- | --- | --- |
+| O194 | `oracle-hierarchical-basic-level-bind` | named bind in `START WITH`, `CONNECT BY PRIOR`, and `LEVEL` | `start_with` / `connect_by` clauses, relationless `LEVEL` pseudo target, the `PRIOR` field occurrence, and bind attribution |
+| O195 | `oracle-hierarchical-compound-connect-where-depth` | `WHERE`, `START WITH`, and compound `CONNECT BY` | semantic traversal of WHERE, START WITH, and CONNECT BY, plus field comparison, the `LEVEL` depth condition, and named binds |
+| O196 | `oracle-hierarchical-connect-by-root` | `CONNECT_BY_ROOT employee_id` with `LEVEL` | expression target preservation and underlying-field attribution through an `operator/CONNECT_BY_ROOT/arg_index=0` target path |
+| O197 | `oracle-hierarchical-nocycle-pseudocolumns` | `CONNECT BY NOCYCLE` with `CONNECT_BY_ISLEAF` and `CONNECT_BY_ISCYCLE` | `nocycle` on the CONNECT BY root predicate, two relationless pseudo targets, and their field links |
 
 ## Coverage Boundary
 

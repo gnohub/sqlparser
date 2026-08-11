@@ -132,7 +132,7 @@ copied subtree.
 | `fields` | Field-reference occurrences visible in the SQL text; present when non-empty |
 | `values` | Values associated with fields or SELECT targets, plus literal, bind, and DEFAULT occurrences within compound DML assignment right-hand expressions; pagination and pseudo-column binds are excluded; present when non-empty |
 | `sets` | `UNION`, `UNION ALL`, `INTERSECT`, and `EXCEPT/MINUS` operations; present when non-empty |
-| `predicates` | Predicate-tree nodes from `WHERE`, `ON`, `HAVING`, and similar clauses; present when non-empty |
+| `predicates` | Predicate-tree nodes from `WHERE`, `ON`, `HAVING`, `START WITH`, `CONNECT BY`, and similar clauses; present when non-empty |
 | `session` | Database, schema, role, identity, transaction-characteristic, or session-parameter action; present only for statements with session-state semantics |
 | `dml` | The only root DML and its nested DML nodes; present when the statement has exactly one DML root |
 | `dmls` | Root DML array, with nested DML under each element; present when the statement has multiple DML roots |
@@ -221,7 +221,7 @@ A CTE definition creates one source block. Multiple references share that
 | `ordinal` | Target ordinal in the SELECT list |
 | `kind` | `field`, `star`, `qualified_star`, `literal`, `bind`, `subquery`, `pseudo`, or `expression` |
 | `name` | Output name or alias; omitted when absent |
-| `field` | Related `fields[]` index for direct field output; omitted otherwise |
+| `field` | Related `fields[]` index for direct field or hierarchical pseudo-column output; omitted otherwise |
 | `value` | Related `values[]` index for literal or bind output targets; omitted otherwise |
 | `sink_value` | `values[]` output-bind index that receives this DML result target in a host-bind sink; omitted otherwise |
 | `star_relations` | Relation indexes covered by `*` or `alias.*`; omitted for non-star targets |
@@ -244,11 +244,13 @@ A CTE definition creates one source block. Multiple references share that
 | Field | Description |
 | --- | --- |
 | `block` | Query block containing the field occurrence |
-| `clause` | Clause name, such as `select_list`, `where`, `on`, or `order_by` |
+| `clause` | Clause name, such as `select_list`, `where`, `start_with`, `connect_by`, `on`, or `order_by` |
 | `relation` | Stable relation index; omitted when not uniquely attributable |
 | `candidate_relations` | Candidate relation indexes for unqualified fields in multi-relation scopes; omitted when empty |
 | `column` | Column name; `*` is represented by `targets[]` instead |
 | `quoted_identifier` | `true` when the `column` token explicitly uses `"..."`, MySQL backticks, or SQL Server `[...]`; omitted otherwise |
+| `pseudo` | `true` for an unquoted pseudo-column occurrence in the current hierarchical query block; omitted otherwise |
+| `prior` | `true` when the field occurrence is inside the `PRIOR` operand of `CONNECT BY`; omitted otherwise |
 | `target` | Related SELECT target index; omitted outside output targets |
 | `selector` | Name selector; omitted when no writable node exists |
 | `target_path` | Ordered output-expression path; omitted for direct fields and non-output fields |
@@ -341,9 +343,10 @@ For predicates whose value side is a function, cast, operator, array, row, or CA
 | Field | Description |
 | --- | --- |
 | `block` | Query block containing the predicate |
-| `clause` | Clause containing the predicate, such as `where`, `on`, or `having` |
+| `clause` | Clause containing the predicate, such as `where`, `on`, `having`, `start_with`, or `connect_by` |
 | `kind` | `comparison`, `bool`, `exists`, `expression`, or `unknown` |
 | `bool_operator` | Boolean operator for `bool` predicates: `and`, `or`, or `not`; other predicate kinds use `none` |
+| `nocycle` | `true` on the root predicate of `CONNECT BY NOCYCLE`; omitted otherwise |
 | `operator` | Comparison operator; omitted for non-comparison predicates |
 | `operator_kind` | Structured operator classification; omitted for non-comparison predicates |
 | `left_field` | Left-side field index; omitted when no stable field side exists |
@@ -352,6 +355,32 @@ For predicates whose value side is a function, cast, operator, array, row, or CA
 | `children` | Child predicate indexes for `AND`, `OR`, and `NOT`; omitted for non-boolean predicates |
 
 `field = literal/bind` is represented by `left_field + value`. `field = field` is represented by `left_field + right_field`, with a `values[]` entry whose `kind` is `field`. Conditions that cannot be split safely into field and value sides are emitted as `kind = "expression"` instead of being reported as direct field movement.
+
+### Hierarchical Query Representation
+
+- `START WITH` and `CONNECT BY` do not create a separate object. Their fields,
+  values, and predicates use the existing `fields[]`, `values[]`, and
+  `predicates[]` arrays with `clause = "start_with"` or
+  `clause = "connect_by"`.
+- When the current query block contains `CONNECT BY`, unquoted `LEVEL`,
+  `CONNECT_BY_ISLEAF`, and `CONNECT_BY_ISCYCLE` are relationless fields with
+  `pseudo: true`. In the SELECT list, their target has `kind = "pseudo"` and
+  `targets[].field` points back to the unique field occurrence. Delimited
+  `"LEVEL"` and blocks without `CONNECT BY` retain ordinary field semantics;
+  nested SELECT blocks do not inherit the outer hierarchy context.
+- `PRIOR` applies transparently to its complete operand. Every field occurrence
+  in that operand emits `prior: true`, and the flag does not propagate into a
+  nested SELECT.
+- `CONNECT_BY_ROOT` adds no target kind. Its SELECT target remains
+  `kind = "expression"`, and the underlying field emits
+  `{ "kind": "operator", "name": "CONNECT_BY_ROOT", "arg_index": 0 }` in
+  `target_path`.
+- `NOCYCLE` emits `nocycle: true` only on the CONNECT BY root predicate.
+- Condition-related occurrences in one SELECT enter the View arrays in the
+  semantic traversal order `where`, `start_with`, `connect_by`, `group_by` /
+  `having`, window clauses, then `order_by`. Selectors still come from generic
+  AST descriptor traversal and must be treated as opaque locator paths; their
+  indexes cannot be derived from source clause order.
 
 ## session
 

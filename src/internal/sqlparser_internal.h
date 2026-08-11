@@ -28,6 +28,11 @@ typedef struct {
 
 #define SQLPARSER_INTERNAL_CURRENT_DATABASE "sqlparser_current_database"
 #define SQLPARSER_INTERNAL_CURRENT_SCHEMA "sqlparser_current_schema"
+#define SQLPARSER_INTERNAL_HIERARCHY_PRIOR "pg_query_internal_prior"
+#define SQLPARSER_INTERNAL_HIERARCHY_CONNECT_BY_ROOT "pg_query_internal_connect_by_root"
+#define SQLPARSER_INTERNAL_HIERARCHY_NOCYCLE "pg_query_internal_nocycle"
+#define SQLPARSER_INTERNAL_HIERARCHY_CONNECT_BY "pg_query_internal_connect_by"
+#define SQLPARSER_INTERNAL_HIERARCHY_START_WITH "pg_query_internal_start_with"
 #define SQLPARSER_INTERNAL_MYSQL_PREPARE "sqlparser_mysql_prepare"
 #define SQLPARSER_INTERNAL_MYSQL_EXECUTE "sqlparser_mysql_execute"
 #define SQLPARSER_INTERNAL_MYSQL_DEALLOCATE_PREPARE "sqlparser_mysql_deallocate_prepare"

@@ -1,0 +1,201 @@
+--- a/src/backend/parser/gram.y
++++ b/src/backend/parser/gram.y
+@@ -280,6 +280,13 @@
+ 	MergeWhenClause *mergewhen;
+ 	struct KeyActions *keyactions;
+ 	struct KeyAction *keyaction;
++	struct
++	{
++		Node   *startWithClause;
++		Node   *connectByClause;
++		bool	connectByNoCycle;
++		bool	connectByFirst;
++	} hierarchy;
+ }
+ 
+ %type <node>	stmt toplevel_stmt schema_stmt routine_body_stmt
+@@ -532,6 +539,8 @@
+ 				a_expr b_expr c_expr AexprConst indirection_el opt_slice_bound
+ 				columnref in_expr having_clause func_table xmltable array_expr
+ 				OptWhereClause operator_def_arg
++%type <hierarchy> hierarchy_clause
++%type <boolean> opt_nocycle
+ %type <list>	rowsfrom_item rowsfrom_list opt_col_def_list
+ %type <boolean> opt_ordinality
+ %type <list>	ExclusionConstraintList ExclusionConstraintElem
+@@ -764,6 +773,8 @@
+ 	OVER OVERLAPS OVERLAY OVERRIDING OWNED OWNER
+ 
+ 	PARALLEL PARAMETER PARSER PARTIAL PARTITION PASSING PASSWORD PATH
++	PG_QUERY_INTERNAL_CONNECT_BY PG_QUERY_INTERNAL_CONNECT_BY_ROOT
++	PG_QUERY_INTERNAL_NOCYCLE PG_QUERY_INTERNAL_PRIOR PG_QUERY_INTERNAL_START_WITH
+ 	PLACING PLAN PLANS POLICY
+ 	POSITION PRECEDING PRECISION PRESERVE PREPARE PREPARED PRIMARY
+ 	PRIOR PRIVILEGES PROCEDURAL PROCEDURE PROCEDURES PROGRAM PUBLICATION
+@@ -4936,6 +4947,10 @@ SeqOptElem: AS SimpleTypename
+ 				{
+ 					$$ = makeDefElem("sequence_name", (Node *) $3, @1);
+ 				}
++			| PG_QUERY_INTERNAL_START_WITH WITH NumericOnly
++				{
++					$$ = makeDefElem("start", (Node *) $3, @1);
++				}
+ 			| START opt_with NumericOnly
+ 				{
+ 					$$ = makeDefElem("start", (Node *) $3, @1);
+@@ -12890,7 +12905,7 @@
+  */
+ simple_select:
+ 			SELECT opt_all_clause opt_target_list
+-			into_clause from_clause where_clause
++			into_clause from_clause where_clause hierarchy_clause
+ 			group_clause having_clause window_clause
+ 				{
+ 					SelectStmt *n = makeNode(SelectStmt);
+@@ -12899,14 +12910,18 @@
+ 					n->intoClause = $4;
+ 					n->fromClause = $5;
+ 					n->whereClause = $6;
+-					n->groupClause = ($7)->list;
+-					n->groupDistinct = ($7)->distinct;
+-					n->havingClause = $8;
+-					n->windowClause = $9;
++					n->startWithClause = $7.startWithClause;
++					n->connectByClause = $7.connectByClause;
++					n->connectByNoCycle = $7.connectByNoCycle;
++					n->connectByFirst = $7.connectByFirst;
++					n->groupClause = ($8)->list;
++					n->groupDistinct = ($8)->distinct;
++					n->havingClause = $9;
++					n->windowClause = $10;
+ 					$$ = (Node *) n;
+ 				}
+ 			| SELECT distinct_clause target_list
+-			into_clause from_clause where_clause
++			into_clause from_clause where_clause hierarchy_clause
+ 			group_clause having_clause window_clause
+ 				{
+ 					SelectStmt *n = makeNode(SelectStmt);
+@@ -12916,10 +12931,14 @@
+ 					n->intoClause = $4;
+ 					n->fromClause = $5;
+ 					n->whereClause = $6;
+-					n->groupClause = ($7)->list;
+-					n->groupDistinct = ($7)->distinct;
+-					n->havingClause = $8;
+-					n->windowClause = $9;
++					n->startWithClause = $7.startWithClause;
++					n->connectByClause = $7.connectByClause;
++					n->connectByNoCycle = $7.connectByNoCycle;
++					n->connectByFirst = $7.connectByFirst;
++					n->groupClause = ($8)->list;
++					n->groupDistinct = ($8)->distinct;
++					n->havingClause = $9;
++					n->windowClause = $10;
+ 					$$ = (Node *) n;
+ 				}
+ 			| values_clause							{ $$ = $1; }
+@@ -14010,6 +14029,42 @@
+ where_clause:
+ 			WHERE a_expr							{ $$ = $2; }
+ 			| /*EMPTY*/								{ $$ = NULL; }
++		;
++
++hierarchy_clause:
++			/*EMPTY*/
++				{
++					$$.startWithClause = NULL;
++					$$.connectByClause = NULL;
++					$$.connectByNoCycle = false;
++					$$.connectByFirst = false;
++				}
++			| PG_QUERY_INTERNAL_START_WITH WITH a_expr PG_QUERY_INTERNAL_CONNECT_BY BY opt_nocycle a_expr
++				{
++					$$.startWithClause = $3;
++					$$.connectByClause = $7;
++					$$.connectByNoCycle = $6;
++					$$.connectByFirst = false;
++				}
++			| PG_QUERY_INTERNAL_CONNECT_BY BY opt_nocycle a_expr
++				{
++					$$.startWithClause = NULL;
++					$$.connectByClause = $4;
++					$$.connectByNoCycle = $3;
++					$$.connectByFirst = false;
++				}
++			| PG_QUERY_INTERNAL_CONNECT_BY BY opt_nocycle a_expr PG_QUERY_INTERNAL_START_WITH WITH a_expr
++				{
++					$$.startWithClause = $7;
++					$$.connectByClause = $4;
++					$$.connectByNoCycle = $3;
++					$$.connectByFirst = true;
++				}
++		;
++
++opt_nocycle:
++			PG_QUERY_INTERNAL_NOCYCLE			{ $$ = true; }
++			| /*EMPTY*/								{ $$ = false; }
+ 		;
+ 
+ /* variant for UPDATE and DELETE */
+@@ -14780,4 +14835,8 @@
+ a_expr:		c_expr									{ $$ = $1; }
++			| PG_QUERY_INTERNAL_PRIOR a_expr		%prec UMINUS
++					{ $$ = (Node *) makeSimpleA_Expr(AEXPR_OP, "PRIOR", NULL, $2, @1); }
++			| PG_QUERY_INTERNAL_CONNECT_BY_ROOT a_expr %prec UMINUS
++					{ $$ = (Node *) makeSimpleA_Expr(AEXPR_OP, "CONNECT_BY_ROOT", NULL, $2, @1); }
+ 			| a_expr TYPECAST Typename
+ 					{ $$ = makeTypeCast($1, $3, @2); }
+ 			| a_expr COLLATE any_name
+@@ -18190,6 +18250,11 @@
+ 			| ONLY
+ 			| OR
+ 			| ORDER
++			| PG_QUERY_INTERNAL_CONNECT_BY
++			| PG_QUERY_INTERNAL_CONNECT_BY_ROOT
++			| PG_QUERY_INTERNAL_NOCYCLE
++			| PG_QUERY_INTERNAL_PRIOR
++			| PG_QUERY_INTERNAL_START_WITH
+ 			| PLACING
+ 			| PRIMARY
+ 			| REFERENCES
+--- a/src/backend/nodes/nodeFuncs.c
++++ b/src/backend/nodes/nodeFuncs.c
+@@ -1278,6 +1278,10 @@
+ 					return true;
+ 				if (WALK(stmt->whereClause))
+ 					return true;
++				if (WALK(stmt->startWithClause))
++					return true;
++				if (WALK(stmt->connectByClause))
++					return true;
+ 				if (WALK(stmt->groupClause))
+ 					return true;
+ 				if (WALK(stmt->havingClause))
+--- a/src/include/nodes/parsenodes.h
++++ b/src/include/nodes/parsenodes.h
+@@ -2130,6 +2130,10 @@
+ 	List	   *targetList;		/* the target list (of ResTarget) */
+ 	List	   *fromClause;		/* the FROM clause */
+ 	Node	   *whereClause;	/* WHERE qualification */
++	Node	   *startWithClause; /* START WITH qualification */
++	Node	   *connectByClause; /* CONNECT BY qualification */
++	bool		connectByNoCycle; /* CONNECT BY NOCYCLE specified? */
++	bool		connectByFirst; /* CONNECT BY precedes START WITH? */
+ 	List	   *groupClause;	/* GROUP BY clauses */
+ 	bool		groupDistinct;	/* Is this GROUP BY DISTINCT? */
+ 	Node	   *havingClause;	/* HAVING conditional-expression */
+--- a/src/include/parser/kwlist.h
++++ b/src/include/parser/kwlist.h
+@@ -338,6 +338,11 @@
+ PG_KEYWORD("passing", PASSING, UNRESERVED_KEYWORD, BARE_LABEL)
+ PG_KEYWORD("password", PASSWORD, UNRESERVED_KEYWORD, BARE_LABEL)
+ PG_KEYWORD("path", PATH, UNRESERVED_KEYWORD, BARE_LABEL)
++PG_KEYWORD("pg_query_internal_connect_by", PG_QUERY_INTERNAL_CONNECT_BY, RESERVED_KEYWORD, AS_LABEL)
++PG_KEYWORD("pg_query_internal_connect_by_root", PG_QUERY_INTERNAL_CONNECT_BY_ROOT, RESERVED_KEYWORD, AS_LABEL)
++PG_KEYWORD("pg_query_internal_nocycle", PG_QUERY_INTERNAL_NOCYCLE, RESERVED_KEYWORD, AS_LABEL)
++PG_KEYWORD("pg_query_internal_prior", PG_QUERY_INTERNAL_PRIOR, RESERVED_KEYWORD, AS_LABEL)
++PG_KEYWORD("pg_query_internal_start_with", PG_QUERY_INTERNAL_START_WITH, RESERVED_KEYWORD, AS_LABEL)
+ PG_KEYWORD("placing", PLACING, RESERVED_KEYWORD, BARE_LABEL)
+ PG_KEYWORD("plan", PLAN, UNRESERVED_KEYWORD, BARE_LABEL)
+ PG_KEYWORD("plans", PLANS, UNRESERVED_KEYWORD, BARE_LABEL)

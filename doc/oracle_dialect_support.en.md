@@ -11,6 +11,10 @@ The Oracle dialect supports common SQL forms that can be safely mapped to the
 current AST. The executable case matrix defines the support boundary:
 
 - `SELECT`, aliases, subqueries, joins, `WHERE`, `GROUP BY`, and `HAVING`
+- Oracle hierarchical queries through `START WITH ... CONNECT BY [NOCYCLE]`,
+  `PRIOR`, `LEVEL`, `CONNECT_BY_ISLEAF`, `CONNECT_BY_ISCYCLE`, and
+  `CONNECT_BY_ROOT` in the SELECT list. `START WITH` must precede
+  `CONNECT BY`; the reversed `CONNECT BY ... START WITH` order is not accepted
 - Oracle bind placeholders such as `:id` and `:name`, plus JDBC-style `?`
   positional parameters
 - `q'[...]'` strings, `N'...'` national strings, and `nq'[...]'` national q-quoted strings
@@ -52,7 +56,6 @@ current AST. The executable case matrix defines the support boundary:
 The following Oracle-specific constructs are not silently downgraded. They
 return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
 
-- `CONNECT BY` and `CONNECT_BY_ROOT`
 - legacy outer join `(+)`
 - `RETURNING ... INTO` with multiple result targets, multiple host binds, or `BULK COLLECT`
 - PL/SQL blocks, procedures, and packages
@@ -69,6 +72,10 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
   names are not emitted.
 - `MINUS` remains visible as the Oracle semantic keyword in View JSON and
   deparse output.
+- Hierarchical fields, values, and predicates use the existing Query Graph
+  arrays with `start_with` / `connect_by` clauses, field `pseudo` / `prior`
+  flags, `nocycle` on the CONNECT BY root predicate, and an operator
+  `target_path` for `CONNECT_BY_ROOT`; no separate hierarchy object is added.
 - Attributable expression fragments in View JSON use the public Oracle
   form.
 - Failed expression-fragment rewrites are not committed to the handle; the
@@ -83,4 +90,5 @@ The Oracle support boundary is defined by:
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current Oracle matrix contains 244 cases, all with `status = "final"`.
+The current Oracle matrix contains 248 cases, all with `status = "final"`.
+Four hierarchical-query cases contain 20 independent patches.

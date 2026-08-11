@@ -8871,6 +8871,33 @@ _fingerprintSelectStmt(FingerprintContext *ctx, const SelectStmt *node, const vo
     _fingerprintString(ctx, "true");
   }
 
+  if (node->connectByClause != NULL) {
+    XXH3_state_t* prev = XXH3_createState();
+    XXH64_hash_t hash;
+
+    XXH3_copyState(prev, ctx->xxh_state);
+    _fingerprintString(ctx, "connectByClause");
+
+    hash = XXH3_64bits_digest(ctx->xxh_state);
+    _fingerprintNode(ctx, node->connectByClause, node, "connectByClause", depth + 1);
+    if (hash == XXH3_64bits_digest(ctx->xxh_state)) {
+      XXH3_copyState(ctx->xxh_state, prev);
+      if (ctx->write_tokens)
+        dlist_delete(dlist_tail_node(&ctx->tokens));
+    }
+    XXH3_freeState(prev);
+  }
+
+  if (node->connectByFirst) {
+    _fingerprintString(ctx, "connectByFirst");
+    _fingerprintString(ctx, "true");
+  }
+
+  if (node->connectByNoCycle) {
+    _fingerprintString(ctx, "connectByNoCycle");
+    _fingerprintString(ctx, "true");
+  }
+
   if (node->distinctClause != NULL && node->distinctClause->length > 0) {
     XXH3_state_t* prev = XXH3_createState();
     XXH64_hash_t hash;
@@ -9068,6 +9095,23 @@ _fingerprintSelectStmt(FingerprintContext *ctx, const SelectStmt *node, const vo
     }
     XXH3_freeState(prev);
   }
+  if (node->startWithClause != NULL) {
+    XXH3_state_t* prev = XXH3_createState();
+    XXH64_hash_t hash;
+
+    XXH3_copyState(prev, ctx->xxh_state);
+    _fingerprintString(ctx, "startWithClause");
+
+    hash = XXH3_64bits_digest(ctx->xxh_state);
+    _fingerprintNode(ctx, node->startWithClause, node, "startWithClause", depth + 1);
+    if (hash == XXH3_64bits_digest(ctx->xxh_state)) {
+      XXH3_copyState(ctx->xxh_state, prev);
+      if (ctx->write_tokens)
+        dlist_delete(dlist_tail_node(&ctx->tokens));
+    }
+    XXH3_freeState(prev);
+  }
+
   if (node->targetList != NULL && node->targetList->length > 0) {
     XXH3_state_t* prev = XXH3_createState();
     XXH64_hash_t hash;

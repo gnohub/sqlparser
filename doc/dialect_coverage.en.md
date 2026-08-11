@@ -10,15 +10,15 @@ coverage is tracked in each dialect's `*_official_syntax_coverage.en.md` file.
 | --- | --- | ---: | ---: | ---: | ---: |
 | PostgreSQL | `tests/cases/sql_batch_input.json` | 214 | 0 | 214 | 100.00% |
 | MySQL | `tests/cases/mysql_dialect_input.json` | 253 | 0 | 253 | 100.00% |
-| Oracle | `tests/cases/oracle_dialect_input.json` | 244 | 0 | 244 | 100.00% |
+| Oracle | `tests/cases/oracle_dialect_input.json` | 248 | 0 | 248 | 100.00% |
 | SQL Server | `tests/cases/sqlserver_dialect_input.json` | 621 | 0 | 621 | 100.00% |
-| Dameng | `tests/cases/dameng_dialect_input.json` | 170 | 0 | 170 | 100.00% |
+| Dameng | `tests/cases/dameng_dialect_input.json` | 174 | 0 | 174 | 100.00% |
 | Vastbase PostgreSQL mode | `tests/cases/vastbase_postgresql_dialect_input.json` | 199 | 0 | 199 | 100.00% |
 | Vastbase MySQL mode | `tests/cases/vastbase_mysql_dialect_input.json` | 254 | 0 | 254 | 100.00% |
 | Vastbase Oracle mode | `tests/cases/vastbase_oracle_dialect_input.json` | 217 | 0 | 217 | 100.00% |
-| Vastbase SQL Server mode | `tests/cases/vastbase_sqlserver_dialect_input.json` | 600 | 0 | 600 | 100.00% |
+| Vastbase SQL Server mode | `tests/cases/vastbase_sqlserver_dialect_input.json` | 601 | 0 | 601 | 100.00% |
 
-The nine fixtures contain 2772 final cases and 8989 independent patches in
+The nine fixtures contain 2781 final cases and 9034 independent patches in
 total.
 
 ## Counting Rules

@@ -26804,6 +26804,825 @@
           "deparse": "MERGE INTO T1 USING T2 ON (T1.C1=T2.C3) WHEN MATCHED THEN UPDATE SET T1.C2=T2.C4 WHERE T1.C1 >= 2 DELETE WHERE T1.C1=5 WHEN NOT MATCHED THEN INSERT (C1,C2) VALUES(T2.C3, T2.C4);"
         }
       ]
+    },
+    {
+      "name": "dameng-hierarchical-start-connect-prior-level",
+      "sql": "SELECT employee_id, manager_id, LEVEL FROM dmhr.emp START WITH employee_id = 100 CONNECT BY PRIOR employee_id = manager_id",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0,
+                    1
+                  ],
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "employee_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[0]",
+                  "target": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "manager_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[1]",
+                  "target": 1
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "LEVEL",
+                  "pseudo": true,
+                  "selector": "stmt[0].name[2]",
+                  "target": 2
+                },
+                {
+                  "block": 0,
+                  "clause": "start_with",
+                  "column": "employee_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[5]"
+                },
+                {
+                  "block": 0,
+                  "clause": "connect_by",
+                  "column": "employee_id",
+                  "prior": true,
+                  "relation": 0,
+                  "selector": "stmt[0].name[6]"
+                },
+                {
+                  "block": 0,
+                  "clause": "connect_by",
+                  "column": "manager_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[7]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "start_with",
+                  "kind": "comparison",
+                  "left_field": 3,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "connect_by",
+                  "kind": "comparison",
+                  "left_field": 4,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 5,
+                  "value": 1
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "dmhr",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "emp"
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 0,
+                  "field": 0,
+                  "kind": "field",
+                  "name": "employee_id",
+                  "ordinal": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "field": 1,
+                  "kind": "field",
+                  "name": "manager_id",
+                  "ordinal": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "field": 2,
+                  "kind": "pseudo",
+                  "name": "LEVEL",
+                  "ordinal": 2,
+                  "selector": "stmt[0].select_target[0][2]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "start_with",
+                  "field": 3,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 100,
+                    "kind": "integer"
+                  },
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[14]"
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "connect_by",
+                  "field": 4,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 5
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PatchedTable\"",
+          "deparse": "SELECT employee_id, manager_id, LEVEL FROM \"PatchedTable\" START WITH employee_id = 100 CONNECT BY PRIOR employee_id = manager_id"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/4/selector",
+          "value": "\"PatchedParent\"",
+          "deparse": "SELECT employee_id, manager_id, LEVEL FROM dmhr.emp START WITH employee_id = 100 CONNECT BY PRIOR \"PatchedParent\" = manager_id"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/0/selector",
+          "value": "\"PatchedTarget\"",
+          "deparse": "SELECT \"PatchedTarget\", manager_id, LEVEL FROM dmhr.emp START WITH employee_id = 100 CONNECT BY PRIOR employee_id = manager_id"
+        },
+        {
+          "action": "insert_column",
+          "target": "/statements/0/query_graph/targets/0/target_list_selector",
+          "value": "\"InsertedTarget\"",
+          "index": 1,
+          "deparse": "SELECT employee_id, \"InsertedTarget\", manager_id, LEVEL FROM dmhr.emp START WITH employee_id = 100 CONNECT BY PRIOR employee_id = manager_id"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/0/selector",
+          "value": "101",
+          "deparse": "SELECT employee_id, manager_id, LEVEL FROM dmhr.emp START WITH employee_id = 101 CONNECT BY PRIOR employee_id = manager_id"
+        }
+      ]
+    },
+    {
+      "name": "dameng-hierarchical-connect-start-source-order",
+      "sql": "SELECT high_dep, dep_name, LEVEL FROM other.department CONNECT BY PRIOR dep_name = high_dep START WITH dep_name = 'HEADQUARTERS'",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0,
+                    1
+                  ],
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "high_dep",
+                  "relation": 0,
+                  "selector": "stmt[0].name[0]",
+                  "target": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "dep_name",
+                  "relation": 0,
+                  "selector": "stmt[0].name[1]",
+                  "target": 1
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "LEVEL",
+                  "pseudo": true,
+                  "selector": "stmt[0].name[2]",
+                  "target": 2
+                },
+                {
+                  "block": 0,
+                  "clause": "start_with",
+                  "column": "dep_name",
+                  "relation": 0,
+                  "selector": "stmt[0].name[5]"
+                },
+                {
+                  "block": 0,
+                  "clause": "connect_by",
+                  "column": "dep_name",
+                  "prior": true,
+                  "relation": 0,
+                  "selector": "stmt[0].name[6]"
+                },
+                {
+                  "block": 0,
+                  "clause": "connect_by",
+                  "column": "high_dep",
+                  "relation": 0,
+                  "selector": "stmt[0].name[7]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "start_with",
+                  "kind": "comparison",
+                  "left_field": 3,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "connect_by",
+                  "kind": "comparison",
+                  "left_field": 4,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 5,
+                  "value": 1
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "other",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "department"
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 0,
+                  "field": 0,
+                  "kind": "field",
+                  "name": "high_dep",
+                  "ordinal": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "field": 1,
+                  "kind": "field",
+                  "name": "dep_name",
+                  "ordinal": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "field": 2,
+                  "kind": "pseudo",
+                  "name": "LEVEL",
+                  "ordinal": 2,
+                  "selector": "stmt[0].select_target[0][2]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "start_with",
+                  "field": 3,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "literal": {
+                    "kind": "string",
+                    "string_value": "HEADQUARTERS"
+                  },
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[14]"
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "connect_by",
+                  "field": 4,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 5
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PatchedTable\"",
+          "deparse": "SELECT high_dep, dep_name, LEVEL FROM \"PatchedTable\" CONNECT BY PRIOR dep_name = high_dep START WITH dep_name = 'HEADQUARTERS'"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/3/selector",
+          "value": "\"PatchedRootName\"",
+          "deparse": "SELECT high_dep, dep_name, LEVEL FROM other.department CONNECT BY PRIOR dep_name = high_dep START WITH \"PatchedRootName\" = 'HEADQUARTERS'"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/4/selector",
+          "value": "\"PatchedParentName\"",
+          "deparse": "SELECT high_dep, dep_name, LEVEL FROM other.department CONNECT BY PRIOR \"PatchedParentName\" = high_dep START WITH dep_name = 'HEADQUARTERS'"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/0/selector",
+          "value": "\"PatchedTarget\"",
+          "deparse": "SELECT \"PatchedTarget\", dep_name, LEVEL FROM other.department CONNECT BY PRIOR dep_name = high_dep START WITH dep_name = 'HEADQUARTERS'"
+        },
+        {
+          "action": "insert_column",
+          "target": "/statements/0/query_graph/targets/0/target_list_selector",
+          "value": "\"InsertedTarget\"",
+          "index": 1,
+          "deparse": "SELECT high_dep, \"InsertedTarget\", dep_name, LEVEL FROM other.department CONNECT BY PRIOR dep_name = high_dep START WITH dep_name = 'HEADQUARTERS'"
+        }
+      ]
+    },
+    {
+      "name": "dameng-hierarchical-prior-reverse-direction",
+      "sql": "SELECT employee_id, manager_id, LEVEL FROM dmhr.emp START WITH employee_id = 113 CONNECT BY PRIOR manager_id = employee_id",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0,
+                    1
+                  ],
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "employee_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[0]",
+                  "target": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "manager_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[1]",
+                  "target": 1
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "LEVEL",
+                  "pseudo": true,
+                  "selector": "stmt[0].name[2]",
+                  "target": 2
+                },
+                {
+                  "block": 0,
+                  "clause": "start_with",
+                  "column": "employee_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[5]"
+                },
+                {
+                  "block": 0,
+                  "clause": "connect_by",
+                  "column": "manager_id",
+                  "prior": true,
+                  "relation": 0,
+                  "selector": "stmt[0].name[6]"
+                },
+                {
+                  "block": 0,
+                  "clause": "connect_by",
+                  "column": "employee_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[7]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "start_with",
+                  "kind": "comparison",
+                  "left_field": 3,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "connect_by",
+                  "kind": "comparison",
+                  "left_field": 4,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 5,
+                  "value": 1
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "dmhr",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "emp"
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 0,
+                  "field": 0,
+                  "kind": "field",
+                  "name": "employee_id",
+                  "ordinal": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "field": 1,
+                  "kind": "field",
+                  "name": "manager_id",
+                  "ordinal": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "field": 2,
+                  "kind": "pseudo",
+                  "name": "LEVEL",
+                  "ordinal": 2,
+                  "selector": "stmt[0].select_target[0][2]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "start_with",
+                  "field": 3,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 113,
+                    "kind": "integer"
+                  },
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[14]"
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "connect_by",
+                  "field": 4,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 5
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PatchedTable\"",
+          "deparse": "SELECT employee_id, manager_id, LEVEL FROM \"PatchedTable\" START WITH employee_id = 113 CONNECT BY PRIOR manager_id = employee_id"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/4/selector",
+          "value": "\"PatchedManager\"",
+          "deparse": "SELECT employee_id, manager_id, LEVEL FROM dmhr.emp START WITH employee_id = 113 CONNECT BY PRIOR \"PatchedManager\" = employee_id"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/0/selector",
+          "value": "\"PatchedTarget\"",
+          "deparse": "SELECT \"PatchedTarget\", manager_id, LEVEL FROM dmhr.emp START WITH employee_id = 113 CONNECT BY PRIOR manager_id = employee_id"
+        },
+        {
+          "action": "insert_column",
+          "target": "/statements/0/query_graph/targets/0/target_list_selector",
+          "value": "\"InsertedTarget\"",
+          "index": 1,
+          "deparse": "SELECT employee_id, \"InsertedTarget\", manager_id, LEVEL FROM dmhr.emp START WITH employee_id = 113 CONNECT BY PRIOR manager_id = employee_id"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/values/0/selector",
+          "value": "114",
+          "deparse": "SELECT employee_id, manager_id, LEVEL FROM dmhr.emp START WITH employee_id = 114 CONNECT BY PRIOR manager_id = employee_id"
+        }
+      ]
+    },
+    {
+      "name": "dameng-hierarchical-connect-by-root-nocycle",
+      "sql": "SELECT CONNECT_BY_ROOT employee_name root_employee, employee_id, LEVEL FROM dmhr.emp START WITH employee_id = 100 CONNECT BY NOCYCLE PRIOR employee_id = manager_id",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0,
+                    1
+                  ],
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "employee_name",
+                  "relation": 0,
+                  "selector": "stmt[0].name[1]",
+                  "target": 0,
+                  "target_path": [
+                    {
+                      "arg_index": 0,
+                      "kind": "operator",
+                      "name": "CONNECT_BY_ROOT"
+                    }
+                  ]
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "employee_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[2]",
+                  "target": 1
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "column": "LEVEL",
+                  "pseudo": true,
+                  "selector": "stmt[0].name[3]",
+                  "target": 2
+                },
+                {
+                  "block": 0,
+                  "clause": "start_with",
+                  "column": "employee_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[6]"
+                },
+                {
+                  "block": 0,
+                  "clause": "connect_by",
+                  "column": "employee_id",
+                  "prior": true,
+                  "relation": 0,
+                  "selector": "stmt[0].name[7]"
+                },
+                {
+                  "block": 0,
+                  "clause": "connect_by",
+                  "column": "manager_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[8]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "start_with",
+                  "kind": "comparison",
+                  "left_field": 3,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "connect_by",
+                  "kind": "comparison",
+                  "left_field": 4,
+                  "nocycle": true,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 5,
+                  "value": 1
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "dmhr",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "emp"
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 0,
+                  "kind": "expression",
+                  "name": "root_employee",
+                  "ordinal": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "field": 1,
+                  "kind": "field",
+                  "name": "employee_id",
+                  "ordinal": 1,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "field": 2,
+                  "kind": "pseudo",
+                  "name": "LEVEL",
+                  "ordinal": 2,
+                  "selector": "stmt[0].select_target[0][2]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "start_with",
+                  "field": 3,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 100,
+                    "kind": "integer"
+                  },
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[16]"
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "connect_by",
+                  "field": 4,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 5
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "\"PatchedTable\"",
+          "deparse": "SELECT CONNECT_BY_ROOT employee_name root_employee, employee_id, LEVEL FROM \"PatchedTable\" START WITH employee_id = 100 CONNECT BY NOCYCLE PRIOR employee_id = manager_id"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/0/selector",
+          "value": "\"PatchedRootName\"",
+          "deparse": "SELECT CONNECT_BY_ROOT \"PatchedRootName\" root_employee, employee_id, LEVEL FROM dmhr.emp START WITH employee_id = 100 CONNECT BY NOCYCLE PRIOR employee_id = manager_id"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/4/selector",
+          "value": "\"PatchedParent\"",
+          "deparse": "SELECT CONNECT_BY_ROOT employee_name root_employee, employee_id, LEVEL FROM dmhr.emp START WITH employee_id = 100 CONNECT BY NOCYCLE PRIOR \"PatchedParent\" = manager_id"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/0/selector",
+          "value": "\"PatchedRootTarget\"",
+          "deparse": "SELECT \"PatchedRootTarget\", employee_id, LEVEL FROM dmhr.emp START WITH employee_id = 100 CONNECT BY NOCYCLE PRIOR employee_id = manager_id"
+        },
+        {
+          "action": "insert_column",
+          "target": "/statements/0/query_graph/targets/0/target_list_selector",
+          "value": "\"InsertedTarget\"",
+          "index": 1,
+          "deparse": "SELECT CONNECT_BY_ROOT employee_name root_employee, \"InsertedTarget\", employee_id, LEVEL FROM dmhr.emp START WITH employee_id = 100 CONNECT BY NOCYCLE PRIOR employee_id = manager_id"
+        }
+      ]
     }
   ]
 }

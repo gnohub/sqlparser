@@ -764,6 +764,73 @@ static int sqlparser_oracle_ascii_word_equal(const char *text, size_t pos, const
 	return sqlparser_oracle_is_word_boundary(text, pos, len);
 }
 
+static size_t sqlparser_oracle_skip_quoted_or_comment_span(
+	const char *sql,
+	size_t index);
+
+static size_t sqlparser_oracle_skip_hierarchy_trivia(
+	const char *input,
+	size_t pos)
+{
+	size_t next;
+
+	for (;;) {
+		while (isspace((unsigned char)input[pos])) {
+			pos++;
+		}
+		if (!((input[pos] == '-' && input[pos + 1U] == '-') ||
+		      (input[pos] == '/' && input[pos + 1U] == '*'))) {
+			return pos;
+		}
+		next = sqlparser_oracle_skip_quoted_or_comment_span(input, pos);
+		if (next <= pos) {
+			return pos;
+		}
+		pos = next;
+	}
+}
+
+static const char *sqlparser_oracle_hierarchy_internal_keyword(
+	const char *input,
+	size_t pos,
+	size_t *out_source_length)
+{
+	size_t next;
+
+	if (sqlparser_oracle_ascii_word_equal(input, pos, "connect_by_root")) {
+		*out_source_length = strlen("connect_by_root");
+		return SQLPARSER_INTERNAL_HIERARCHY_CONNECT_BY_ROOT;
+	}
+	if (sqlparser_oracle_ascii_word_equal(input, pos, "connect")) {
+		next = sqlparser_oracle_skip_hierarchy_trivia(
+			input,
+			pos + strlen("connect"));
+		if (sqlparser_oracle_ascii_word_equal(input, next, "by")) {
+			*out_source_length = strlen("connect");
+			return SQLPARSER_INTERNAL_HIERARCHY_CONNECT_BY;
+		}
+	}
+	if (sqlparser_oracle_ascii_word_equal(input, pos, "start")) {
+		next = sqlparser_oracle_skip_hierarchy_trivia(
+			input,
+			pos + strlen("start"));
+		if (sqlparser_oracle_ascii_word_equal(input, next, "with")) {
+			*out_source_length = strlen("start");
+			return SQLPARSER_INTERNAL_HIERARCHY_START_WITH;
+		}
+	}
+	if (sqlparser_oracle_ascii_word_equal(input, pos, "nocycle")) {
+		*out_source_length = strlen("nocycle");
+		return SQLPARSER_INTERNAL_HIERARCHY_NOCYCLE;
+	}
+	if (sqlparser_oracle_ascii_word_equal(input, pos, "prior")) {
+		*out_source_length = strlen("prior");
+		return SQLPARSER_INTERNAL_HIERARCHY_PRIOR;
+	}
+	*out_source_length = 0U;
+	return NULL;
+}
+
 static size_t sqlparser_oracle_trim_left(const char *text, size_t start, size_t end)
 {
 	while (start < end && isspace((unsigned char)text[start])) {
@@ -1195,10 +1262,6 @@ static sqlparser_status_t sqlparser_oracle_reject_unsupported(
 	sqlparser_error_t *out_error)
 {
 	static const char *const unsupported_phrases[] = {
-		"connect by",
-		"connect_by_root",
-		"connect_by_iscycle",
-		"connect_by_isleaf",
 		"log errors",
 		"pivot",
 		"unpivot",
@@ -1287,10 +1350,6 @@ static size_t sqlparser_oracle_session_value_token_end(
 	size_t start,
 	size_t end,
 	sqlparser_error_t *out_error);
-
-static size_t sqlparser_oracle_skip_quoted_or_comment_span(
-	const char *sql,
-	size_t index);
 
 static size_t sqlparser_oracle_identifier_token_end_bounded(
 	const char *sql,
@@ -2839,6 +2898,29 @@ static sqlparser_status_t sqlparser_oracle_preprocess_text(
 			}
 			state->national_literals.literal_count++;
 			continue;
+		}
+
+		if (sqlparser_oracle_is_ident_start((unsigned char)input_sql[index])) {
+			const char *internal_keyword;
+			size_t source_length;
+
+			internal_keyword =
+				sqlparser_oracle_hierarchy_internal_keyword(
+					input_sql,
+					index,
+					&source_length);
+			if (internal_keyword != NULL) {
+				status = sqlparser_oracle_buffer_append_cstr(
+					&out,
+					internal_keyword,
+					out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					sqlparser_oracle_buffer_release(&out);
+					return status;
+				}
+				index += source_length;
+				continue;
+			}
 		}
 
 		if (sqlparser_oracle_is_ident_start((unsigned char)input_sql[index]) || input_sql[index] == '"') {
@@ -5716,6 +5798,53 @@ static sqlparser_status_t sqlparser_oracle_replay_preprocess_range(
 			input_pos = input_end;
 			parser_pos = parser_end;
 			continue;
+		}
+
+		if (sqlparser_oracle_is_ident_start(
+			    (unsigned char)input_sql[input_pos])) {
+			const char *internal_keyword;
+			size_t source_length;
+			size_t internal_length;
+
+			internal_keyword =
+				sqlparser_oracle_hierarchy_internal_keyword(
+					input_sql,
+					input_pos,
+					&source_length);
+			if (internal_keyword != NULL) {
+				internal_length = strlen(internal_keyword);
+				if (parser_pos > parser_length ||
+				    internal_length > parser_length - parser_pos ||
+				    memcmp(
+					    parser_sql + parser_pos,
+					    internal_keyword,
+					    internal_length) != 0) {
+					return sqlparser_oracle_origin_error(
+						out_error,
+						"Oracle identifier origin replay could not match a hierarchy keyword");
+				}
+				status = sqlparser_oracle_origin_flush_input(
+					writer,
+					input_map_offset,
+					&pending_start,
+					&pending_length,
+					out_error);
+				if (status == SQLPARSER_STATUS_OK) {
+					status =
+						sqlparser_identifier_origin_writer_append_source_identifier(
+							writer,
+							input_map_offset + input_pos,
+							source_length,
+							internal_length,
+							out_error);
+				}
+				if (status != SQLPARSER_STATUS_OK) {
+					return status;
+				}
+				input_pos += source_length;
+				parser_pos += internal_length;
+				continue;
+			}
 		}
 
 		if (sqlparser_oracle_is_ident_start(

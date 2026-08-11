@@ -58121,6 +58121,171 @@
           "deparse": "DELETE FROM dbo.t OUTPUT DELETED.id, [InsertedTarget]"
         }
       ]
+    },
+    {
+      "name": "vastbase-sqlserver-connect-by-official",
+      "sql": "select * from tab_1155391 where id = 1 connect by pid = id order by a1;",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0,
+                    1
+                  ],
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[1]"
+                },
+                {
+              "block": 0,
+              "clause": "connect_by",
+              "column": "pid",
+              "relation": 0,
+              "selector": "stmt[0].name[3]"
+                },
+                {
+              "block": 0,
+              "clause": "connect_by",
+              "column": "id",
+              "relation": 0,
+              "selector": "stmt[0].name[4]"
+                },
+                {
+              "block": 0,
+              "clause": "order_by",
+              "column": "a1",
+              "relation": 0,
+              "selector": "stmt[0].name[2]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 0,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "connect_by",
+                  "kind": "comparison",
+                  "left_field": 1,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 2,
+                  "value": 1
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "tab_1155391"
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 0,
+                  "kind": "star",
+                  "ordinal": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "star_relations": [
+                    0
+                  ],
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 0,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 1,
+                    "kind": "integer"
+                  },
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[8]"
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "connect_by",
+                  "field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 2
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/0/selector",
+          "value": "patched_id",
+          "deparse": "select * from tab_1155391 where patched_id = 1 connect by pid = id order by a1;"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/1/selector",
+          "value": "patched_pid",
+          "deparse": "select * from tab_1155391 where id = 1 connect by patched_pid = id order by a1;"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/fields/3/selector",
+          "value": "patched_a1",
+          "deparse": "select * from tab_1155391 where id = 1 connect by pid = id order by patched_a1;"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/0/selector",
+          "value": "patched_table",
+          "deparse": "select * from patched_table where id = 1 connect by pid = id order by a1;"
+        },
+        {
+          "action": "insert_column",
+          "target": "/statements/0/query_graph/targets/0/target_list_selector",
+          "value": "inserted_target",
+          "index": 1,
+          "deparse": "select *, inserted_target from tab_1155391 where id = 1 connect by pid = id order by a1;"
+        }
+      ]
     }
   ]
 }

@@ -7,6 +7,7 @@
 达梦方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范围由可执行用例矩阵定义：
 
 - `SELECT`、别名、子查询、连接、`WHERE`、`GROUP BY`、`HAVING`
+- 达梦层次查询：`START WITH ... CONNECT BY [NOCYCLE]`、`PRIOR`、`LEVEL` 和 SELECT 输出中的 `CONNECT_BY_ROOT`；保留 `START WITH ... CONNECT BY` 与 `CONNECT BY ... START WITH` 两种源文本子句顺序
 - 达梦兼容 bind 占位符，例如 `:id`、`:name`，以及 JDBC 风格 `?` 位置参数
 - `q'[...]'` 字符串、`N'...'` national 字符串和 `nq'[...]'` national q-quoted 字符串
 - `SET SCHEMA <模式名>` 和 `ALTER SESSION SET CURRENT_SCHEMA = ...`
@@ -33,7 +34,6 @@
 
 以下语法当前不做隐式降级。遇到这些语法时返回 `SQLPARSER_STATUS_UNSUPPORTED` 或解析错误，不会返回可用 handle：
 
-- `CONNECT BY`
 - `PIVOT`、`UNPIVOT`
 - `RETURN`/`RETURNING ... INTO` 的多个返回 target、多个 `INTO` 宿主绑定变量或 `BULK COLLECT` 形态
 - DMSQL block、procedure、package
@@ -45,6 +45,7 @@
 - `sqlparser_deparse()` 输出达梦公共形态，不暴露内部转换细节。
 - bind 保持 `:name`、`:1` 或 `?` 形态，不输出内部 `$1`、`$2`。
 - `MINUS` 在 View JSON 和 deparse 输出中保持达梦语义名称。
+- 层次查询字段、值和谓词进入既有 Query Graph 数组，分别使用 `start_with`、`connect_by` clause、`pseudo` / `prior` 字段标记、CONNECT BY 根谓词的 `nocycle` 标记和 `CONNECT_BY_ROOT` operator `target_path`；不增加独立 hierarchy 对象。
 - `SET SCHEMA` 在 View JSON 中输出字段名 `CURRENT_SCHEMA`。
 - DML 返回通道在 `dml.result_channels` 中使用 sink channel；返回 target 的 `sink_value` 指向 `query_graph.values[]` 中的宿主绑定变量。
 - View JSON 中可归属的表达式片段使用达梦公共形态。
@@ -60,4 +61,4 @@
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-当前达梦方言矩阵包含 170 条用例，全部为 `status = "final"`。
+当前达梦方言矩阵包含 174 条用例，全部为 `status = "final"`。其中 4 条层次查询用例包含 20 个独立 patch。

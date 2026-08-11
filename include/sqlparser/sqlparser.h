@@ -106,7 +106,9 @@ typedef enum {
 	SQLPARSER_CLAUSE_KIND_HAVING = 7,
 	SQLPARSER_CLAUSE_KIND_DML_RESULT = 8,
 	SQLPARSER_CLAUSE_KIND_CONDITION = 9,
-	SQLPARSER_CLAUSE_KIND_WINDOW_PARTITION = 10
+	SQLPARSER_CLAUSE_KIND_WINDOW_PARTITION = 10,
+	SQLPARSER_CLAUSE_KIND_START_WITH = 11,
+	SQLPARSER_CLAUSE_KIND_CONNECT_BY = 12
 } sqlparser_clause_kind_t;
 
 typedef enum {
@@ -506,6 +508,8 @@ typedef struct {
 	size_t target_path_count;
 	sqlparser_selector_t selector;
 	int has_selector;
+	int pseudo;
+	int prior;
 } sqlparser_graph_field_t;
 
 typedef struct {
@@ -570,6 +574,7 @@ typedef struct {
 	size_t value_index;
 	int has_value;
 	sqlparser_index_span_t children;
+	int nocycle;
 } sqlparser_graph_predicate_t;
 
 typedef struct {

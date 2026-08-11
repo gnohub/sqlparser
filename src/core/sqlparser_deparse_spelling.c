@@ -3106,6 +3106,99 @@ sqlparser_status_t sqlparser_identifier_origins_for_handle(
 	return SQLPARSER_STATUS_OK;
 }
 
+sqlparser_status_t sqlparser_res_target_alias_style(
+	const sqlparser_handle_t *handle,
+	const PgQuery__ResTarget *target,
+	int *out_known,
+	int *out_explicit_as,
+	sqlparser_error_t *out_error)
+{
+	const sqlparser_identifier_origin_map_t *origins;
+	const PgQuery__ColumnRef *column_ref;
+	const char *resolved;
+	const char *value_name;
+	sqlparser_identifier_resolver_t resolver;
+	sqlparser_identifier_resolver_t source_resolver;
+	size_t resolved_length;
+	bool explicit_as;
+	sqlparser_status_t status;
+
+	if (handle == NULL || target == NULL || target->name == NULL ||
+	    target->name[0] == '\0' || out_known == NULL ||
+	    out_explicit_as == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"result target alias input is invalid");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_known = 0;
+	*out_explicit_as = 0;
+	explicit_as = false;
+	sqlparser_identifier_resolver_init(handle, &resolver);
+	if (target->location < 0) {
+		*out_known = sqlparser_resolve_alias_style(
+			&resolver,
+			target->name,
+			target->location,
+			&explicit_as);
+		*out_explicit_as = explicit_as ? 1 : 0;
+		return SQLPARSER_STATUS_OK;
+	}
+	origins = NULL;
+	status = sqlparser_identifier_origins_for_handle(
+		handle,
+		&origins,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	sqlparser_identifier_resolver_init(handle, &source_resolver);
+	sqlparser_identifier_resolver_init(handle, &resolver);
+	resolver.sql = handle->parser_sql;
+	resolver.length = handle->parser_sql_len;
+	resolver.locations_match = 1;
+	resolver.mysql_lex = 0;
+	resolver.oracle_q_quotes = 0;
+	resolver.colon_binds = 0;
+	resolver.at_binds = 0;
+	resolver.top_keyword = 0;
+	resolver.origins = origins;
+	resolver.origin_source = &source_resolver;
+	column_ref = target->val != NULL &&
+			target->val->node_case == PG_QUERY__NODE__NODE_COLUMN_REF ?
+		target->val->column_ref :
+		NULL;
+	resolved = NULL;
+	resolved_length = 0U;
+	value_name = NULL;
+	if (column_ref != NULL && column_ref->n_fields == 1U &&
+	    column_ref->fields != NULL && column_ref->location >= 0 &&
+	    sqlparser_node_string_value(column_ref->fields[0], &value_name) &&
+	    value_name != NULL) {
+		if (!sqlparser_resolve_qualified_identifier(
+			    &resolver,
+			    value_name,
+			    (size_t)column_ref->location,
+			    0U,
+			    &resolved,
+			    &resolved_length)) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"result target expression source is unavailable");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+	}
+	*out_known = sqlparser_resolve_alias_style(
+		&resolver,
+		target->name,
+		target->location,
+		&explicit_as);
+	*out_explicit_as = explicit_as ? 1 : 0;
+	return SQLPARSER_STATUS_OK;
+}
+
 static sqlparser_status_t sqlparser_render_identifier_style_spelling(
 	const char *identifier,
 	sqlparser_proto_identifier_style_t style,

@@ -1,50 +1,48 @@
-# v2.15.2 发布说明
+# v2.15.3 发布说明
 
-`v2.15.2` 为 Oracle 与 Dameng 增加 MERGE matched UPDATE 附属 `DELETE WHERE` 的结构化解析、View 与 patch 能力，并保持 PostgreSQL、SQL Server 独立 DELETE action 的既有语义。
+`v2.15.3` 增加 Oracle 与 Dameng 层次查询的结构化解析、Query Graph 与 patch 能力，并支持 Vastbase-SQLServer 已验证的基础 `CONNECT BY` 形态。
 
 ## 支持范围
 
-- Oracle 与 Dameng 支持 `WHEN MATCHED THEN UPDATE SET ... [WHERE ...] DELETE WHERE ...`。
-- `DELETE WHERE` 是 matched UPDATE action 的附属操作，条件针对已更新的目标行求值；Query Graph 不为其生成独立 DELETE branch。
-- PostgreSQL 与 SQL Server 的 `WHEN MATCHED ... THEN DELETE` 继续使用独立 MERGE branch。
-- MySQL 不增加 MERGE 能力；Vastbase 各兼容模式不声明本语法支持。
-- 附属 DELETE 必须包含 `WHERE` 和条件表达式，裸 `DELETE` 不在支持范围内。
+- Oracle 支持 `START WITH ... CONNECT BY [NOCYCLE] ...`，以及 `PRIOR`、`LEVEL`、`CONNECT_BY_ROOT`、`CONNECT_BY_ISLEAF` 和 `CONNECT_BY_ISCYCLE`。Oracle 模式不接受 `CONNECT BY ... START WITH ...` 的反向子句顺序。
+- Dameng 支持 `START WITH`、`CONNECT BY [NOCYCLE]`、`PRIOR`、`LEVEL` 和 `CONNECT_BY_ROOT`，并保留 `START WITH ... CONNECT BY ...` 与 `CONNECT BY ... START WITH ...` 两种源文本顺序。
+- Vastbase-SQLServer 仅支持基础 `CONNECT BY` 条件。`START WITH`、`PRIOR`、`NOCYCLE` 和 `CONNECT_BY_ROOT` 不在该模式的本次支持范围内。
+- 层次上下文限定在当前 SELECT query block；嵌套 SELECT 不继承外层的伪列或 `PRIOR` 状态。带标识符定界符的 `"LEVEL"` 保持普通字段语义。
 
-## Query Graph 与 Selector
+## Query Graph
 
-- matched UPDATE branch 可同时提供 `condition_selector` 与 `delete_condition_selector`，分别定位 action `WHERE` 和附属 `DELETE WHERE` 条件。
-- 根 MERGE 使用 `stmt[S].merge_delete_condition[W]`；嵌套 MERGE 使用 `stmt[S].merge_delete_condition[D][W]`。
-- `sqlparser_selector_clause_sql()` 返回不含 `DELETE WHERE` 关键字的条件表达式。
-- `sqlparser_selector_set_clause_sql()` 与 `SQLPARSER_PATCH_REPLACE` 可独立替换普通分支条件或附属删除条件。
+- `sqlparser_clause_kind_t` 追加 `SQLPARSER_CLAUSE_KIND_START_WITH = 11` 和 `SQLPARSER_CLAUSE_KIND_CONNECT_BY = 12`。
+- `START WITH` 与 `CONNECT BY` 不生成专用 hierarchy 对象；条件中的字段、值和谓词继续进入 `fields[]`、`values[]` 和 `predicates[]`，并使用 `start_with` 或 `connect_by` clause。
+- 层次伪列在 `fields[]` 中使用 `pseudo: true`；`PRIOR` 操作数内的字段 occurrence 使用 `prior: true`；`CONNECT BY NOCYCLE` 仅在该子句的根 predicate 上使用 `nocycle: true`。
+- `CONNECT_BY_ROOT` target 保持 expression 类型，并通过底层 field 的既有 `target_path` 记录 operator 路径。本版本不增加 target kind、selector 或专用 patch 类型。
+- View 中条件相关 occurrence 按 `WHERE`、`START WITH`、`CONNECT BY`、`GROUP BY` / `HAVING`、窗口与 `ORDER BY` 的语义顺序构建。Selector 仍为通用 AST descriptor 定位结果，调用方应将其作为不透明路径使用。
 
 ## Patch 与反解析
 
-- MERGE assignment 由逗号、action `WHERE`、附属 `DELETE WHERE` 或后续 `WHEN` 明确限定时执行局部源码改写。
-- assignment、普通分支条件和附属删除条件的 patch 仅替换目标源码区间；其他分支、换行、空白、关键字大小写及标识符定界符保持原文。
-- patch 后的 SQL 会重新解析并与预期 View 对账，附属删除条件仍归属原 UPDATE branch。
+- relation、field、value 和 SELECT target 改写复用现有 selector 与 patch 类型。
+- 可准确定位源码区间的替换使用局部源码 edit，仅替换目标区间。未修改的层次子句顺序、换行、空白、关键字大小写和标识符定界符保持原文。
+- Oracle、Dameng 与 Vastbase-SQLServer 的方言预处理保留内部层次关键字的源文本映射；含层次子句的 patch 重新构建 bind 状态时会遍历 `START WITH` 和 `CONNECT BY` 表达式。
 
 ## API 与兼容性
 
-- `sqlparser_selector_kind_t` 追加 `SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION = 25`。
-- `sqlparser_graph_dml_branch_t` 追加 `delete_condition_selector` 和 `has_delete_condition_selector`。
-- 本版本不新增公开函数或资源所有权规则。
-- 公开结构体布局发生追加式变化。C 调用方应使用 2.15.2 头文件重新编译。
+- `sqlparser_graph_field_t` 追加 `pseudo` 和 `prior`；`sqlparser_graph_predicate_t` 追加 `nocycle`。
+- 本版本不增加公开函数或资源所有权规则。
+- 公开枚举追加取值，公开结构体追加字段。C 调用方应使用 2.15.3 头文件重新编译。
 - 动态库 ABI 主版本保持 `libsqlparser.so.0`。
 
 ## 用例与文档
 
-- Oracle 新增 2 条 final case，覆盖同时存在 action `WHERE`、附属 `DELETE WHERE` 与条件 INSERT，以及仅含附属删除条件的 matched UPDATE。
-- Dameng 新增 1 条 final case，覆盖 action `WHERE` 与附属 `DELETE WHERE` 共存。
-- PostgreSQL、SQL Server 各新增 1 条 final case，覆盖独立 matched DELETE、matched UPDATE 与 not-matched INSERT 的分支顺序和 patch。
-- 本版本共新增 5 条 final case 和 17 个独立 patch。当前九套 fixture 共包含 2,772 条 final case 和 8,989 个 patch。
-- View JSON、API、方言支持范围、官方语法覆盖和 case matrix 的中英文文档已同步。
+- Oracle 新增 4 条 final case 和 20 个 patch，覆盖基础层次查询、复合条件、`CONNECT_BY_ROOT`、`NOCYCLE` 以及 `CONNECT_BY_ISLEAF` / `CONNECT_BY_ISCYCLE` 伪列。
+- Dameng 新增 4 条 final case 和 20 个 patch，覆盖两种子句顺序、两种父子字段方向、`CONNECT_BY_ROOT` 与 `NOCYCLE`。
+- Vastbase-SQLServer 新增 1 条 final case 和 5 个 patch，覆盖基础 `CONNECT BY` 以及普通 `WHERE` / `ORDER BY` 与层次条件的独立表达。
+- 本版本共新增 9 条 final case 和 45 个独立 patch。当前九套 fixture 共包含 2,781 条 final case 和 9,034 个 patch。
 
 ## 验证
 
-- 九套 case matrix 共完成 2,772 条 case 和 8,989 个 patch，失败数为 0。
+- Oracle 方言回归完成 248 条 case 和 849 个 patch，Dameng 完成 174 条 case 和 633 个 patch，Vastbase-SQLServer 完成 601 条 case 和 1,847 个 patch，失败数均为 0。
 - 原始反解析、View JSON、patch 反解析和 runner 内部错误数均为 0。
-- 核心 API 测试通过，覆盖根级与嵌套 selector、条件读取与替换、方言限制及裸 DELETE 拒绝。
-- 定向 Valgrind 检查执行 1,040,125 次分配和 1,040,125 次释放；退出时为 `0 bytes in 0 blocks`，错误数为 0。
+- 核心 API 测试通过，覆盖层次上下文隔离、方言边界、原文反解析、patch 后重新解析和失败回滚。
+- 相关方言目标的定向 Valgrind 检查退出时为 `0 bytes in 0 blocks`，错误数为 0。
 
 内置 `libpg_query` 标签：`17-6.2.2`。
 内置 Jansson 版本：`2.15`。

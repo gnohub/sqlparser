@@ -47,6 +47,10 @@
 
 extern __thread sig_atomic_t pg_query_initialized;
 
+static sqlparser_status_t sqlparser_validate_dialect_statements(
+	sqlparser_handle_t *handle,
+	sqlparser_error_t *out_error);
+
 static void sqlparser_pg_query_shutdown(void)
 {
 	/*
@@ -1413,6 +1417,11 @@ sqlparser_status_t sqlparser_handle_commit_ast(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	sqlparser_handle_clear_query_graph(handle);
+	status = sqlparser_validate_dialect_statements(handle, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_discard_ast_changes(handle);
+		return status;
+	}
 	if (handle->control != NULL && handle->ast->n_stmts != handle->control->unit_count) {
 		sqlparser_handle_discard_ast_changes(handle);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "control units do not match parser statements");
@@ -2971,7 +2980,17 @@ static sqlparser_status_t sqlparser_preprocess_handle_sql_fragment_internal(
 	}
 
 	if (origins != NULL &&
-	    sqlparser_dialect_is_sqlserver_compatible(handle->dialect)) {
+	    handle->dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER) {
+		status =
+			sqlparser_vastbase_sqlserver_preprocess_fragment_identifier_origins(
+				public_sql,
+				candidate_state,
+				statement_index,
+				out_parser_sql,
+				origins,
+				out_error);
+	} else if (origins != NULL &&
+		   sqlparser_dialect_is_sqlserver_compatible(handle->dialect)) {
 		status =
 			sqlparser_sqlserver_preprocess_fragment_identifier_origins(
 				public_sql,
@@ -3273,6 +3292,10 @@ const char *sqlparser_clause_kind_name(sqlparser_clause_kind_t kind)
 			return "condition";
 		case SQLPARSER_CLAUSE_KIND_WINDOW_PARTITION:
 			return "window_partition";
+		case SQLPARSER_CLAUSE_KIND_START_WITH:
+			return "start_with";
+		case SQLPARSER_CLAUSE_KIND_CONNECT_BY:
+			return "connect_by";
 		case SQLPARSER_CLAUSE_KIND_UNKNOWN:
 		default:
 			return "unknown";
@@ -3692,9 +3715,248 @@ static sqlparser_status_t sqlparser_validate_merge_stmt(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_validate_merge_message(
-	const ProtobufCMessage *message,
+typedef enum {
+	SQLPARSER_HIERARCHY_EXPRESSION_NONE = 0,
+	SQLPARSER_HIERARCHY_EXPRESSION_TARGET,
+	SQLPARSER_HIERARCHY_EXPRESSION_CONNECT_BY
+} sqlparser_hierarchy_expression_context_t;
+
+static int sqlparser_dialect_supports_connect_by(
+	sqlparser_dialect_t dialect)
+{
+	return dialect == SQLPARSER_DIALECT_ORACLE ||
+		dialect == SQLPARSER_DIALECT_DAMENG ||
+		dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER;
+}
+
+static int sqlparser_dialect_supports_hierarchy_operators(
+	sqlparser_dialect_t dialect)
+{
+	return dialect == SQLPARSER_DIALECT_ORACLE ||
+		dialect == SQLPARSER_DIALECT_DAMENG;
+}
+
+static sqlparser_status_t sqlparser_vastbase_connect_by_root_target(
+	const sqlparser_handle_t *handle,
+	const PgQuery__ResTarget *target,
+	int *out_unsupported,
+	sqlparser_error_t *out_error)
+{
+	static const char keyword[] = "connect_by_root";
+	const PgQuery__ColumnRef *column_ref;
+	const char *name;
+	char *spelling;
+	size_t index;
+	size_t spelling_length;
+	int alias_known;
+	int explicit_as;
+	int quoted;
+	sqlparser_status_t status;
+
+	*out_unsupported = 0;
+	if (target == NULL || target->name == NULL || target->name[0] == '\0' ||
+	    target->val == NULL ||
+	    target->val->node_case != PG_QUERY__NODE__NODE_COLUMN_REF) {
+		return SQLPARSER_STATUS_OK;
+	}
+	column_ref = target->val->column_ref;
+	if (column_ref == NULL || column_ref->n_fields != 1U ||
+	    column_ref->fields == NULL ||
+	    !sqlparser_node_string_value(column_ref->fields[0], &name) ||
+	    name == NULL || strlen(name) != sizeof(keyword) - 1U) {
+		return SQLPARSER_STATUS_OK;
+	}
+	for (index = 0U; index < sizeof(keyword) - 1U; index++) {
+		if (tolower((unsigned char)name[index]) != keyword[index]) {
+			return SQLPARSER_STATUS_OK;
+		}
+	}
+	spelling = NULL;
+	status = sqlparser_resolve_identifier_component_spelling(
+		handle,
+		column_ref->location,
+		0U,
+		name,
+		&spelling,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	spelling_length = strlen(spelling);
+	quoted = spelling[0] == '"' || spelling[0] == '`' ||
+		spelling[0] == '[' ||
+		(spelling_length > 2U &&
+		 (spelling[0] == 'U' || spelling[0] == 'u') &&
+		 spelling[1] == '&' && spelling[2] == '"');
+	free(spelling);
+	if (quoted) {
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_res_target_alias_style(
+		handle,
+		target,
+		&alias_known,
+		&explicit_as,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (!alias_known) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"CONNECT_BY_ROOT target alias style is unavailable");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	*out_unsupported = !explicit_as;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_validate_hierarchy_select(
+	const PgQuery__SelectStmt *select_stmt,
+	const sqlparser_handle_t *handle,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__Node *target_node;
+	size_t target_index;
+	int unsupported;
+	sqlparser_dialect_t dialect;
+	sqlparser_status_t status;
+	int has_connect_by;
+	int has_hierarchy;
+
+	if (select_stmt == NULL || handle == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	dialect = handle->dialect;
+	has_connect_by = select_stmt->connect_by_clause != NULL;
+	has_hierarchy = has_connect_by ||
+		select_stmt->start_with_clause != NULL ||
+		select_stmt->connect_by_no_cycle ||
+		select_stmt->connect_by_first;
+	if (has_hierarchy && !sqlparser_dialect_supports_connect_by(dialect)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"hierarchical query is not supported for this dialect");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	if ((select_stmt->start_with_clause != NULL ||
+	     select_stmt->connect_by_no_cycle) &&
+	    !has_connect_by) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"hierarchical query modifier requires CONNECT BY");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	if (select_stmt->connect_by_first &&
+	    (dialect != SQLPARSER_DIALECT_DAMENG ||
+	     select_stmt->start_with_clause == NULL ||
+	     !has_connect_by)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"CONNECT BY before START WITH is only supported for Dameng");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	if (dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER &&
+	    (select_stmt->start_with_clause != NULL ||
+	     select_stmt->connect_by_no_cycle)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"Vastbase SQL Server mode supports CONNECT BY only");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	if (dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER &&
+	    has_connect_by) {
+		for (target_index = 0U;
+		     select_stmt->target_list != NULL &&
+		     target_index < select_stmt->n_target_list;
+		     target_index++) {
+			target_node = select_stmt->target_list[target_index];
+			if (target_node == NULL ||
+			    target_node->node_case !=
+				    PG_QUERY__NODE__NODE_RES_TARGET) {
+				continue;
+			}
+			status = sqlparser_vastbase_connect_by_root_target(
+				handle,
+				target_node->res_target,
+				&unsupported,
+				out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+			if (unsupported) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_UNSUPPORTED,
+					"CONNECT_BY_ROOT is not supported for this dialect");
+				return SQLPARSER_STATUS_UNSUPPORTED;
+			}
+		}
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_validate_hierarchy_operator(
+	const PgQuery__AExpr *a_expr,
 	sqlparser_dialect_t dialect,
+	int hierarchical_select,
+	sqlparser_hierarchy_expression_context_t expression_context,
+	sqlparser_error_t *out_error)
+{
+	const char *operator_name;
+	int is_connect_by_root;
+	int is_prior;
+
+	operator_name = sqlparser_a_expr_operator_name(a_expr);
+	is_prior = operator_name != NULL &&
+		strcmp(operator_name, "PRIOR") == 0;
+	is_connect_by_root = operator_name != NULL &&
+		strcmp(operator_name, "CONNECT_BY_ROOT") == 0;
+	if (!is_prior && !is_connect_by_root) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (a_expr->kind != PG_QUERY__A__EXPR__KIND__AEXPR_OP ||
+	    a_expr->n_name != 1U || a_expr->name == NULL ||
+	    a_expr->lexpr != NULL || a_expr->rexpr == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"hierarchical operator has an invalid AST shape");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	if (!sqlparser_dialect_supports_hierarchy_operators(dialect)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"hierarchical operator is not supported for this dialect");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	if (!hierarchical_select ||
+	    (is_prior &&
+	     expression_context != SQLPARSER_HIERARCHY_EXPRESSION_CONNECT_BY) ||
+	    (is_connect_by_root &&
+	     expression_context != SQLPARSER_HIERARCHY_EXPRESSION_TARGET)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			is_prior ?
+				"PRIOR is only valid in the current CONNECT BY clause" :
+				"CONNECT_BY_ROOT is only valid in the current hierarchical SELECT list");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_validate_dialect_message(
+	const ProtobufCMessage *message,
+	const sqlparser_handle_t *handle,
+	int hierarchical_select,
+	sqlparser_hierarchy_expression_context_t expression_context,
 	sqlparser_error_t *out_error)
 {
 	const ProtobufCMessageDescriptor *descriptor;
@@ -3708,7 +3970,31 @@ static sqlparser_status_t sqlparser_validate_merge_message(
 	if (message->descriptor == &pg_query__merge_stmt__descriptor) {
 		status = sqlparser_validate_merge_stmt(
 			(const PgQuery__MergeStmt *)message,
-			dialect,
+			handle->dialect,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+	if (message->descriptor == &pg_query__select_stmt__descriptor) {
+		const PgQuery__SelectStmt *select_stmt;
+
+		select_stmt = (const PgQuery__SelectStmt *)message;
+		status = sqlparser_validate_hierarchy_select(
+			select_stmt,
+			handle,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		hierarchical_select = select_stmt->connect_by_clause != NULL;
+		expression_context = SQLPARSER_HIERARCHY_EXPRESSION_NONE;
+	} else if (message->descriptor == &pg_query__a__expr__descriptor) {
+		status = sqlparser_validate_hierarchy_operator(
+			(const PgQuery__AExpr *)message,
+			handle->dialect,
+			hierarchical_select,
+			expression_context,
 			out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
@@ -3720,6 +4006,7 @@ static sqlparser_status_t sqlparser_validate_merge_message(
 	     field_index < descriptor->n_fields;
 	     field_index++) {
 		const ProtobufCFieldDescriptor *field;
+		sqlparser_hierarchy_expression_context_t child_context;
 
 		field = &descriptor->fields[field_index];
 		if (field->type != PROTOBUF_C_TYPE_MESSAGE ||
@@ -3727,6 +4014,19 @@ static sqlparser_status_t sqlparser_validate_merge_message(
 		     *(const int *)(base + field->quantifier_offset) !=
 			     (int)field->id)) {
 			continue;
+		}
+		child_context = expression_context;
+		if (descriptor == &pg_query__select_stmt__descriptor) {
+			if (strcmp(field->name, "target_list") == 0) {
+				child_context =
+					SQLPARSER_HIERARCHY_EXPRESSION_TARGET;
+			} else if (strcmp(field->name, "connect_by_clause") == 0) {
+				child_context =
+					SQLPARSER_HIERARCHY_EXPRESSION_CONNECT_BY;
+			} else {
+				child_context =
+					SQLPARSER_HIERARCHY_EXPRESSION_NONE;
+			}
 		}
 		if (field->label == PROTOBUF_C_LABEL_REPEATED) {
 			size_t item_count;
@@ -3741,19 +4041,23 @@ static sqlparser_status_t sqlparser_validate_merge_message(
 			for (item_index = 0U;
 			     items != NULL && item_index < item_count;
 			     item_index++) {
-				status = sqlparser_validate_merge_message(
+				status = sqlparser_validate_dialect_message(
 					items[item_index],
-					dialect,
+					handle,
+					hierarchical_select,
+					child_context,
 					out_error);
 				if (status != SQLPARSER_STATUS_OK) {
 					return status;
 				}
 			}
 		} else {
-			status = sqlparser_validate_merge_message(
+			status = sqlparser_validate_dialect_message(
 				*(ProtobufCMessage *const *)
 					(base + field->offset),
-				dialect,
+				handle,
+				hierarchical_select,
+				child_context,
 				out_error);
 			if (status != SQLPARSER_STATUS_OK) {
 				return status;
@@ -3763,7 +4067,7 @@ static sqlparser_status_t sqlparser_validate_merge_message(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_validate_merge_statements(
+static sqlparser_status_t sqlparser_validate_dialect_statements(
 	sqlparser_handle_t *handle,
 	sqlparser_error_t *out_error)
 {
@@ -3771,9 +4075,11 @@ static sqlparser_status_t sqlparser_validate_merge_statements(
 	    handle->ast == NULL) {
 		return SQLPARSER_STATUS_OK;
 	}
-	return sqlparser_validate_merge_message(
+	return sqlparser_validate_dialect_message(
 		(const ProtobufCMessage *)handle->ast,
-		handle->dialect,
+		handle,
+		0,
+		SQLPARSER_HIERARCHY_EXPRESSION_NONE,
 		out_error);
 }
 
@@ -3924,7 +4230,7 @@ sqlparser_status_t sqlparser_parse_with_options(
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 	handle->statement_count = handle->ast->n_stmts;
-	status = sqlparser_validate_merge_statements(
+	status = sqlparser_validate_dialect_statements(
 		handle,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {

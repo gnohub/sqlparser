@@ -13,6 +13,7 @@
 #define SQLPARSER_VASTBASE_SCAN_ORACLE_Q_QUOTES 0x10U
 #define SQLPARSER_VASTBASE_SCAN_SQLSERVER_GO 0x20U
 #define SQLPARSER_VASTBASE_SCAN_POSTGRESQL_E_STRINGS 0x40U
+#define SQLPARSER_VASTBASE_SCAN_HIERARCHY_PHRASES 0x80U
 
 static int sqlparser_vastbase_is_ident_char(unsigned char c)
 {
@@ -798,6 +799,206 @@ static sqlparser_status_t sqlparser_vastbase_size_add(
 	return SQLPARSER_STATUS_OK;
 }
 
+static const char *sqlparser_vastbase_hierarchy_phrase_at(
+	const char *sql,
+	size_t pos,
+	size_t length,
+	unsigned int scan_flags,
+	size_t *out_source_length)
+{
+	size_t next;
+
+	if (sqlparser_vastbase_word_at(sql, pos, length, "connect")) {
+		next = sqlparser_vastbase_skip_trivia(
+			sql,
+			pos + strlen("connect"),
+			length,
+			scan_flags);
+		if (sqlparser_vastbase_word_at(sql, next, length, "by")) {
+			*out_source_length = strlen("connect");
+			return SQLPARSER_INTERNAL_HIERARCHY_CONNECT_BY;
+		}
+	}
+	*out_source_length = 0U;
+	return NULL;
+}
+
+static sqlparser_status_t sqlparser_vastbase_rewrite_hierarchy_pass(
+	const char *sql,
+	char *out,
+	size_t *out_len,
+	int *out_rewritten,
+	unsigned int scan_flags,
+	sqlparser_identifier_origin_writer_t *origin_writer,
+	sqlparser_error_t *out_error)
+{
+	const char *replacement;
+	size_t copy_start;
+	size_t length;
+	size_t pos;
+	size_t replacement_length;
+	size_t skipped;
+	size_t source_length;
+	size_t write_pos;
+	sqlparser_status_t status;
+
+	length = strlen(sql);
+	copy_start = 0U;
+	pos = 0U;
+	*out_len = 0U;
+	*out_rewritten = 0;
+	while (pos < length) {
+		skipped = sqlparser_vastbase_non_code_end(
+			sql, pos, length, scan_flags);
+		if (skipped > pos) {
+			pos = skipped;
+			continue;
+		}
+		replacement = sqlparser_vastbase_hierarchy_phrase_at(
+			sql,
+			pos,
+			length,
+			scan_flags,
+			&source_length);
+		if (replacement == NULL) {
+			pos++;
+			continue;
+		}
+
+		replacement_length = strlen(replacement);
+		write_pos = *out_len;
+		status = sqlparser_vastbase_size_add(
+			out_len, pos - copy_start, out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_vastbase_size_add(
+				out_len, replacement_length, out_error);
+		}
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		if (origin_writer != NULL) {
+			status = sqlparser_identifier_origin_writer_append_input(
+				origin_writer,
+				copy_start,
+				pos - copy_start,
+				out_error);
+			if (status == SQLPARSER_STATUS_OK) {
+				status =
+					sqlparser_identifier_origin_writer_append_source_identifier(
+						origin_writer,
+						pos,
+						source_length,
+						replacement_length,
+						out_error);
+			}
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+		}
+		if (out != NULL) {
+			memcpy(out + write_pos, sql + copy_start, pos - copy_start);
+			write_pos += pos - copy_start;
+			memcpy(out + write_pos, replacement, replacement_length);
+		}
+		pos += source_length;
+		copy_start = pos;
+		*out_rewritten = 1;
+	}
+
+	status = sqlparser_vastbase_size_add(
+		out_len, length - copy_start, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (origin_writer != NULL) {
+		status = sqlparser_identifier_origin_writer_append_input(
+			origin_writer,
+			copy_start,
+			length - copy_start,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+	if (out != NULL) {
+		memcpy(
+			out + *out_len - (length - copy_start),
+			sql + copy_start,
+			length - copy_start);
+		out[*out_len] = '\0';
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_vastbase_rewrite_hierarchy_phrases(
+	const char *sql,
+	char **out_sql,
+	unsigned int scan_flags,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error)
+{
+	char *rewritten_sql;
+	sqlparser_identifier_origin_writer_t origin_writer;
+	size_t out_len;
+	int rewritten;
+	sqlparser_status_t status;
+
+	*out_sql = NULL;
+	status = sqlparser_vastbase_rewrite_hierarchy_pass(
+		sql,
+		NULL,
+		&out_len,
+		&rewritten,
+		scan_flags,
+		NULL,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK || !rewritten) {
+		return status;
+	}
+	if (out_len == (size_t)-1) {
+		sqlparser_error_set_message(
+			out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	rewritten_sql = (char *)malloc(out_len + 1U);
+	if (rewritten_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	memset(&origin_writer, 0, sizeof(origin_writer));
+	if (origins != NULL) {
+		status = sqlparser_identifier_origin_writer_begin(
+			&origin_writer,
+			origins,
+			strlen(sql),
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			free(rewritten_sql);
+			return status;
+		}
+	}
+	status = sqlparser_vastbase_rewrite_hierarchy_pass(
+		sql,
+		rewritten_sql,
+		&out_len,
+		&rewritten,
+		scan_flags,
+		origins != NULL ? &origin_writer : NULL,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK && origins != NULL) {
+		status = sqlparser_identifier_origin_writer_commit(
+			&origin_writer, out_len, out_error);
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_identifier_origin_writer_release(&origin_writer);
+		free(rewritten_sql);
+		return status;
+	}
+	*out_sql = rewritten_sql;
+	return SQLPARSER_STATUS_OK;
+}
+
 static sqlparser_status_t sqlparser_vastbase_rewrite_session_pass(
 	const char *sql,
 	char *out,
@@ -1231,6 +1432,7 @@ static sqlparser_status_t sqlparser_vastbase_preprocess_delegate(
 	sqlparser_error_t *out_error)
 {
 	const char *parser_input;
+	char *hierarchy_sql;
 	char *rewritten_sql;
 	sqlparser_status_t status;
 
@@ -1248,6 +1450,7 @@ static sqlparser_status_t sqlparser_vastbase_preprocess_delegate(
 		return SQLPARSER_STATUS_UNSUPPORTED;
 	}
 	rewritten_sql = NULL;
+	hierarchy_sql = NULL;
 	status = sqlparser_vastbase_rewrite_session_statements(
 		input_sql,
 		&rewritten_sql,
@@ -1258,8 +1461,26 @@ static sqlparser_status_t sqlparser_vastbase_preprocess_delegate(
 		return status;
 	}
 	parser_input = rewritten_sql != NULL ? rewritten_sql : input_sql;
+	if ((scan_flags & SQLPARSER_VASTBASE_SCAN_HIERARCHY_PHRASES) != 0U) {
+		status = sqlparser_vastbase_rewrite_hierarchy_phrases(
+			parser_input,
+			&hierarchy_sql,
+			scan_flags,
+			NULL,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			free(rewritten_sql);
+			return status;
+		}
+		if (hierarchy_sql != NULL) {
+			parser_input = hierarchy_sql;
+			free(rewritten_sql);
+			rewritten_sql = NULL;
+		}
+	}
 	status = base_ops->preprocess(
 		parser_input, limits, out_parser_sql, out_state, out_error);
+	free(hierarchy_sql);
 	free(rewritten_sql);
 	return status;
 }
@@ -1283,6 +1504,7 @@ static sqlparser_status_t sqlparser_vastbase_preprocess_origins_delegate(
 	sqlparser_error_t *out_error)
 {
 	const char *parser_input;
+	char *hierarchy_sql;
 	char *rewritten_sql;
 	sqlparser_status_t status;
 
@@ -1308,6 +1530,7 @@ static sqlparser_status_t sqlparser_vastbase_preprocess_origins_delegate(
 		return SQLPARSER_STATUS_UNSUPPORTED;
 	}
 	rewritten_sql = NULL;
+	hierarchy_sql = NULL;
 	status = sqlparser_vastbase_rewrite_session_statements(
 		input_sql,
 		&rewritten_sql,
@@ -1318,6 +1541,23 @@ static sqlparser_status_t sqlparser_vastbase_preprocess_origins_delegate(
 		return status;
 	}
 	parser_input = rewritten_sql != NULL ? rewritten_sql : input_sql;
+	if ((scan_flags & SQLPARSER_VASTBASE_SCAN_HIERARCHY_PHRASES) != 0U) {
+		status = sqlparser_vastbase_rewrite_hierarchy_phrases(
+			parser_input,
+			&hierarchy_sql,
+			scan_flags,
+			origins,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			free(rewritten_sql);
+			return status;
+		}
+		if (hierarchy_sql != NULL) {
+			parser_input = hierarchy_sql;
+			free(rewritten_sql);
+			rewritten_sql = NULL;
+		}
+	}
 	status = base_preprocess(
 		parser_input,
 		limits,
@@ -1325,6 +1565,7 @@ static sqlparser_status_t sqlparser_vastbase_preprocess_origins_delegate(
 		out_state,
 		origins,
 		out_error);
+	free(hierarchy_sql);
 	free(rewritten_sql);
 	return status;
 }
@@ -1400,7 +1641,8 @@ sqlparser_status_t sqlparser_vastbase_sqlserver_preprocess_identifier_origins(
 	return sqlparser_vastbase_preprocess_origins_delegate(
 		sqlparser_sqlserver_preprocess_identifier_origins,
 		SQLPARSER_VASTBASE_SCAN_NESTED_COMMENTS |
-			SQLPARSER_VASTBASE_SCAN_SQLSERVER_GO,
+			SQLPARSER_VASTBASE_SCAN_SQLSERVER_GO |
+			SQLPARSER_VASTBASE_SCAN_HIERARCHY_PHRASES,
 		input_sql,
 		limits,
 		out_parser_sql,
@@ -1409,20 +1651,80 @@ sqlparser_status_t sqlparser_vastbase_sqlserver_preprocess_identifier_origins(
 		out_error);
 }
 
+sqlparser_status_t
+sqlparser_vastbase_sqlserver_preprocess_fragment_identifier_origins(
+	const char *input_sql,
+	void *state,
+	size_t statement_index,
+	char **out_parser_sql,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error)
+{
+	const char *parser_input;
+	char *hierarchy_sql;
+	sqlparser_status_t status;
+
+	hierarchy_sql = NULL;
+	status = sqlparser_vastbase_rewrite_hierarchy_phrases(
+		input_sql,
+		&hierarchy_sql,
+		SQLPARSER_VASTBASE_SCAN_NESTED_COMMENTS |
+			SQLPARSER_VASTBASE_SCAN_SQLSERVER_GO |
+			SQLPARSER_VASTBASE_SCAN_HIERARCHY_PHRASES,
+		origins,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	parser_input = hierarchy_sql != NULL ? hierarchy_sql : input_sql;
+	status = sqlparser_sqlserver_preprocess_fragment_identifier_origins(
+		parser_input,
+		state,
+		statement_index,
+		out_parser_sql,
+		origins,
+		out_error);
+	free(hierarchy_sql);
+	return status;
+}
+
 static sqlparser_status_t sqlparser_vastbase_preprocess_fragment_delegate(
 	const sqlparser_dialect_ops_t *base_ops,
+	unsigned int scan_flags,
 	const char *input_sql,
 	void *state,
 	size_t statement_index,
 	char **out_parser_sql,
 	sqlparser_error_t *out_error)
 {
+	const char *parser_input;
+	char *hierarchy_sql;
+	sqlparser_status_t status;
+
 	if (base_ops == NULL || base_ops->preprocess_fragment == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "Vastbase SQL fragment is not supported");
 		return SQLPARSER_STATUS_UNSUPPORTED;
 	}
-	return base_ops->preprocess_fragment(
-		input_sql, state, statement_index, out_parser_sql, out_error);
+	hierarchy_sql = NULL;
+	parser_input = input_sql;
+	if ((scan_flags & SQLPARSER_VASTBASE_SCAN_HIERARCHY_PHRASES) != 0U) {
+		status = sqlparser_vastbase_rewrite_hierarchy_phrases(
+			input_sql,
+			&hierarchy_sql,
+			scan_flags,
+			NULL,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		if (hierarchy_sql != NULL) {
+			parser_input = hierarchy_sql;
+		}
+	}
+	status = base_ops->preprocess_fragment(
+		parser_input, state, statement_index, out_parser_sql, out_error);
+	free(hierarchy_sql);
+	return status;
 }
 
 static sqlparser_status_t sqlparser_vastbase_postprocess_deparse_delegate(
@@ -2499,6 +2801,7 @@ static sqlparser_status_t sqlparser_vastbase_project_session_delegate(
 	{ \
 		return sqlparser_vastbase_preprocess_fragment_delegate( \
 			BASE_OPS_FN(), \
+			SCAN_FLAGS, \
 			input_sql, \
 			state, \
 			statement_index, \
@@ -2593,7 +2896,8 @@ SQLPARSER_DEFINE_VASTBASE_STATEFUL(
 	sqlserver,
 	sqlparser_dialect_sqlserver_ops,
 	SQLPARSER_VASTBASE_SCAN_NESTED_COMMENTS |
-		SQLPARSER_VASTBASE_SCAN_SQLSERVER_GO)
+		SQLPARSER_VASTBASE_SCAN_SQLSERVER_GO |
+		SQLPARSER_VASTBASE_SCAN_HIERARCHY_PHRASES)
 
 static sqlparser_status_t sqlparser_vastbase_oracle_postprocess_literal_fragment(
 	const char *core_sql,

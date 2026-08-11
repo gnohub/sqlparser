@@ -1,5 +1,49 @@
 # Changelog
 
+## 2.15.3
+
+### Oracle and Dameng Hierarchical Queries
+
+- Oracle supports `START WITH ... CONNECT BY [NOCYCLE] ...` and recognizes
+  `PRIOR`, `LEVEL`, `CONNECT_BY_ROOT`, `CONNECT_BY_ISLEAF`, and
+  `CONNECT_BY_ISCYCLE` within hierarchical queries.
+- Dameng supports `START WITH`, `CONNECT BY [NOCYCLE]`, `PRIOR`, `LEVEL`, and
+  `CONNECT_BY_ROOT`, and preserves both `START WITH ... CONNECT BY ...` and
+  `CONNECT BY ... START WITH ...` source orders.
+- Vastbase-SQLServer supports only the verified basic `CONNECT BY` form. This
+  release does not extend `START WITH`, `PRIOR`, `NOCYCLE`, or
+  `CONNECT_BY_ROOT` to that mode.
+
+### Query Graph and Patch
+
+- `sqlparser_clause_kind_t` appends
+  `SQLPARSER_CLAUSE_KIND_START_WITH = 11` and
+  `SQLPARSER_CLAUSE_KIND_CONNECT_BY = 12`. Hierarchical conditions reuse
+  `fields[]`, `values[]`, and `predicates[]` instead of adding a dedicated
+  hierarchy object.
+- `sqlparser_graph_field_t` appends `pseudo` and `prior`, while
+  `sqlparser_graph_predicate_t` appends `nocycle`. `CONNECT_BY_ROOT` is
+  represented through the existing `target_path`; no target kind, selector,
+  or patch type is added.
+- Relation, field, value, and SELECT-target changes reuse existing selectors
+  and patch mechanisms. Replacements with an exact source interval use local
+  source edits. After a patch, unchanged hierarchical-clause order,
+  whitespace, case, and identifier delimiters remain byte-preserved.
+
+### Cases, API, and Validation
+
+- Nine final cases and 45 independent patches were added across Oracle,
+  Dameng, and Vastbase-SQLServer. The nine current fixtures contain 2,781
+  final cases and 9,034 patches.
+- Dialect regressions passed for Oracle (248 cases / 849 patches), Dameng
+  (174 / 633), and Vastbase-SQLServer (601 / 1,847), together with the core API
+  tests. Original deparse, View JSON, and patch-deparse failure counts were all
+  zero. Targeted Valgrind checks for the relevant dialect targets exited with
+  `0 bytes in 0 blocks` and zero errors.
+- This release adds no public functions or resource-ownership rules. The
+  public enum gains values and public structures gain fields, so C
+  applications should be rebuilt against the 2.15.3 headers.
+
 ## 2.15.2
 
 ### Attached Delete Predicates in MERGE Matched Updates

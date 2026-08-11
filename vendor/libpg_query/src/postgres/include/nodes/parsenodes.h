@@ -2130,6 +2130,10 @@ typedef struct SelectStmt
 	List	   *targetList;		/* the target list (of ResTarget) */
 	List	   *fromClause;		/* the FROM clause */
 	Node	   *whereClause;	/* WHERE qualification */
+	Node	   *startWithClause; /* START WITH qualification */
+	Node	   *connectByClause; /* CONNECT BY qualification */
+	bool		connectByNoCycle; /* CONNECT BY NOCYCLE specified? */
+	bool		connectByFirst; /* CONNECT BY precedes START WITH? */
 	List	   *groupClause;	/* GROUP BY clauses */
 	bool		groupDistinct;	/* Is this GROUP BY DISTINCT? */
 	Node	   *havingClause;	/* HAVING conditional-expression */

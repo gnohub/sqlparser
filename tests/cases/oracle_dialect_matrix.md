@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 244 条 `status = "final"` 用例。59 条用例包含 statement 级 `query_graph.session`，覆盖 `O043`、`O043Q`、`O044` 至 `O047`、`O082` 至 `O086`，以及 `ORA-*` session 用例；这 59 条用例均至少包含一个非空 session item。
+夹具包含 248 条 `status = "final"` 用例。59 条用例包含 statement 级 `query_graph.session`，覆盖 `O043`、`O043Q`、`O044` 至 `O047`、`O082` 至 `O086`，以及 `ORA-*` session 用例；这 59 条用例均至少包含一个非空 session item。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name 及 value 字段均属于比较范围。
 
@@ -75,7 +75,7 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | O039 | `DELETE` + `DATE` literal | 条件删除和日期字面量 |
 | O040 | materialized view | 物化视图兼容语法 |
 | O041 | unsupported 关键字字符串 | 字符串中的 `RETURNING`、`@`、`(+)` 不触发 unsupported |
-| O042 | unsupported 关键字注释 | 注释中的 `CONNECT BY` 不触发 unsupported |
+| O042 | 层次查询关键字注释 | 注释中的 `CONNECT BY` 文本不参与 SQL 语法识别 |
 | O042Q | unsupported 关键字受保护标识符 | 引号标识符中的 `RETURNING` 和 `@` 不触发 unsupported |
 | O043 | `ALTER SESSION SET CURRENT_SCHEMA` | 当前 schema 会话上下文切换 |
 | O043Q | `ALTER SESSION SET CURRENT_SCHEMA="..."` | 带引号 schema 标识符，公共 literal view 暴露 quoted identifier 语义 |
@@ -222,6 +222,17 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | `O-RN003` | `oracle-rownum-right-operand-equality` | `1 = ROWNUM` | ROWNUM 位于比较右侧时保留原始运算符和左侧 literal selector |
 | `O-RN004` | `oracle-rownum-greater-than-literal` | `ROWNUM > 1` | 大于运算符和对侧 literal 的 expression predicate |
 | `O-RN005` | `oracle-delete-rownum-batch-limit` | `DELETE ... expired = 1 AND ROWNUM <= :batch_size` | DELETE 目标、`AND` 布尔树、普通字段谓词及 ROWNUM bind predicate 归属 |
+
+## 层次查询回归
+
+以下 4 条 final 用例定义 Oracle 层次查询边界。`START WITH` 必须位于 `CONNECT BY` 之前；字段、值和谓词进入既有 Query Graph 数组，层次伪列、`PRIOR`、`NOCYCLE` 与 `CONNECT_BY_ROOT` 使用公共 View 字段表达。每条用例包含 5 个独立 patch，合计 20 个，其中 16 个 `replace`、4 个 `insert_column`。
+
+| ID | 用例 | SQL 形态 | 覆盖点 |
+| --- | --- | --- | --- |
+| O194 | `oracle-hierarchical-basic-level-bind` | `START WITH` 命名 bind + `CONNECT BY PRIOR` + `LEVEL` | `start_with` / `connect_by` clause、relationless `LEVEL` pseudo target、`PRIOR` 字段 occurrence 和 bind 归属 |
+| O195 | `oracle-hierarchical-compound-connect-where-depth` | `WHERE` + `START WITH` + 复合 `CONNECT BY` | WHERE、START WITH、CONNECT BY 的语义遍历顺序，字段比较、`LEVEL` 深度条件和命名 bind |
+| O196 | `oracle-hierarchical-connect-by-root` | `CONNECT_BY_ROOT employee_id` + `LEVEL` | expression target 保持不变，底层字段通过 `operator/CONNECT_BY_ROOT/arg_index=0` 的 `target_path` 归属 |
+| O197 | `oracle-hierarchical-nocycle-pseudocolumns` | `CONNECT BY NOCYCLE` + `CONNECT_BY_ISLEAF` + `CONNECT_BY_ISCYCLE` | CONNECT BY 根 predicate 的 `nocycle` 标记、两个 relationless pseudo target 及 field 回指 |
 
 ## 覆盖边界
 
