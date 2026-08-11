@@ -8609,71 +8609,6 @@ static sqlparser_status_t sqlparser_sqlserver_apply_bare_bit_public(
 	return SQLPARSER_STATUS_OK;
 }
 
-static char *sqlparser_sqlserver_replace_slice(
-	const char *input,
-	size_t start,
-	size_t end,
-	const char *replacement)
-{
-	sqlparser_sqlserver_buffer_t out;
-	sqlparser_error_t ignored_error;
-
-	memset(&out, 0, sizeof(out));
-	memset(&ignored_error, 0, sizeof(ignored_error));
-	if (sqlparser_sqlserver_buffer_append_mem(&out, input, start, &ignored_error) != SQLPARSER_STATUS_OK ||
-	    sqlparser_sqlserver_buffer_append_cstr(&out, replacement, &ignored_error) != SQLPARSER_STATUS_OK ||
-	    sqlparser_sqlserver_buffer_append_cstr(&out, input + end, &ignored_error) != SQLPARSER_STATUS_OK ||
-	    sqlparser_sqlserver_buffer_finish(&out, &ignored_error) != SQLPARSER_STATUS_OK) {
-		sqlparser_sqlserver_buffer_release(&out);
-		return NULL;
-	}
-	return sqlparser_sqlserver_buffer_take(&out);
-}
-
-static int sqlparser_sqlserver_find_last_limit_offset(
-	const char *sql,
-	size_t *out_limit_pos,
-	size_t *out_offset_pos)
-{
-	size_t pos;
-	size_t limit_pos;
-	size_t offset_pos;
-
-	limit_pos = (size_t)-1;
-	offset_pos = (size_t)-1;
-	for (pos = 0U; sql[pos] != '\0'; pos++) {
-		if (sqlparser_sqlserver_ascii_word_equal(sql, pos, "limit")) {
-			limit_pos = pos;
-		} else if (sqlparser_sqlserver_ascii_word_equal(sql, pos, "offset")) {
-			offset_pos = pos;
-		}
-	}
-
-	if (limit_pos == (size_t)-1 && offset_pos == (size_t)-1) {
-		return 0;
-	}
-
-	if (out_limit_pos != NULL) {
-		*out_limit_pos = limit_pos;
-	}
-	if (out_offset_pos != NULL) {
-		*out_offset_pos = offset_pos;
-	}
-	return 1;
-}
-
-static size_t sqlparser_sqlserver_token_end(const char *sql, size_t pos)
-{
-	while (sql[pos] != '\0' &&
-	       !isspace((unsigned char)sql[pos]) &&
-	       sql[pos] != ';' &&
-	       sql[pos] != ')' &&
-	       sql[pos] != ',') {
-		pos++;
-	}
-	return pos;
-}
-
 typedef struct {
 	const sqlparser_sqlserver_top_restore_t *restore;
 	size_t insert_pos;
@@ -9189,73 +9124,6 @@ static sqlparser_status_t sqlparser_sqlserver_apply_top_public(
 			out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
-	return SQLPARSER_STATUS_OK;
-}
-
-static sqlparser_status_t sqlparser_sqlserver_apply_offset_public(
-	char **io_sql,
-	sqlparser_error_t *out_error)
-{
-	char *sql;
-	char *next;
-	char limit_text[128];
-	char offset_text[128];
-	char replacement[320];
-	size_t limit_pos;
-	size_t offset_pos;
-	size_t limit_start;
-	size_t limit_end;
-	size_t offset_start;
-	size_t offset_end;
-	size_t len;
-
-	if (io_sql == NULL || *io_sql == NULL) {
-		return SQLPARSER_STATUS_OK;
-	}
-
-	sql = *io_sql;
-	if (!sqlparser_sqlserver_find_last_limit_offset(sql, &limit_pos, &offset_pos) ||
-	    limit_pos == (size_t)-1 ||
-	    offset_pos == (size_t)-1 ||
-	    offset_pos < limit_pos) {
-		return SQLPARSER_STATUS_OK;
-	}
-
-	limit_start = sqlparser_sqlserver_skip_space(sql, limit_pos + strlen("limit"));
-	limit_end = sqlparser_sqlserver_token_end(sql, limit_start);
-	offset_start = sqlparser_sqlserver_skip_space(sql, offset_pos + strlen("offset"));
-	offset_end = sqlparser_sqlserver_token_end(sql, offset_start);
-	len = limit_end - limit_start;
-	if (len == 0U || len >= sizeof(limit_text)) {
-		return SQLPARSER_STATUS_OK;
-	}
-	memcpy(limit_text, sql + limit_start, len);
-	limit_text[len] = '\0';
-
-	len = offset_end - offset_start;
-	if (len == 0U || len >= sizeof(offset_text)) {
-		return SQLPARSER_STATUS_OK;
-	}
-	memcpy(offset_text, sql + offset_start, len);
-	offset_text[len] = '\0';
-
-	(void)snprintf(
-		replacement,
-		sizeof(replacement),
-		" OFFSET %s ROWS FETCH NEXT %s ROWS ONLY",
-		offset_text,
-		limit_text);
-	while (limit_pos > 0U && isspace((unsigned char)sql[limit_pos - 1U])) {
-		limit_pos--;
-	}
-	next = sqlparser_sqlserver_replace_slice(sql, limit_pos, offset_end, replacement);
-	if (next == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
-		return SQLPARSER_STATUS_NO_MEMORY;
-	}
-
-	free(sql);
-	*io_sql = next;
 	return SQLPARSER_STATUS_OK;
 }
 
@@ -10782,10 +10650,6 @@ static sqlparser_status_t sqlparser_sqlserver_postprocess_text(
 	}
 	if (status == SQLPARSER_STATUS_OK && restore_top) {
 		status = sqlparser_sqlserver_apply_top_public(&public_sql, state, out_error);
-	}
-	if (status == SQLPARSER_STATUS_OK && restore_top &&
-	    (state == NULL || state->top_count == 0U)) {
-		status = sqlparser_sqlserver_apply_offset_public(&public_sql, out_error);
 	}
 	if (status == SQLPARSER_STATUS_OK && restore_statement_hints) {
 		status = sqlparser_sqlserver_apply_table_hints_public(&public_sql, state, out_error);

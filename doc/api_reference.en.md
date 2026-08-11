@@ -641,10 +641,18 @@ has no target-column or target-list selector.
 
 ### Structured SQL Fragment Rewrite
 
-Structured rewrite APIs take selectors and `sqlparser_identifier_path_view_t`
-values and build or clone AST nodes directly. Callers provide identifier parts
-and source selectors; they do not build SQL fragments or pass quote characters.
-The dialect is taken from `sqlparser_handle_t`.
+`sqlparser_apply_patch()` is the recommended mutation gateway. Existing
+statement, selector, and structured convenience mutation functions remain
+available and retain their public argument validation. After conversion to a
+patch, they share atomic rollback, handle-generation updates, and derived-cache
+invalidation rules.
+
+Structured rewrite APIs use selectors to locate their targets, render
+`sqlparser_identifier_path_view_t` values and other structured inputs for the
+handle dialect, then apply them through the same patch transaction. When an
+existing assignment value is reused, the corresponding node is cloned on the
+transaction candidate. Callers provide identifier parts and source selectors;
+they do not build SQL fragments or pass quote characters.
 
 `sqlparser_selector_insert_update_assignment_from_assignment_value()` inserts a
 new `SET` assignment into a top-level `UPDATE` or MERGE matched UPDATE action.
@@ -1032,8 +1040,11 @@ Patch operations:
 | `SQLPARSER_PATCH_DELETE_ASSIGNMENT` | deletes a `SET` assignment from a top-level `UPDATE` or MERGE matched UPDATE action |
 | `SQLPARSER_PATCH_REPLACE_ASSIGNMENT` | replaces a full `SET` assignment in a top-level `UPDATE` or MERGE matched UPDATE action |
 
-After a patch succeeds, the handle generation increases and any previous query
-graph view becomes invalid.
+`sqlparser_apply_patch()` commits and increments the generation once only when
+the candidate produces an actual change from the current handle; previous
+query graph views then become invalid. An empty patch list or effective no-op
+does not increment the generation, and failure of any patch leaves the whole
+list uncommitted.
 
 All three assignment patch operations accept either
 `stmt[S].assignment[A]` or `stmt[S].merge_assignment[W][A]` as their target
@@ -1069,9 +1080,11 @@ and `bind` are rendered by the library according to the handle dialect.
 When `sqlparser_deparse()` succeeds and the handle generation is `0`, it
 returns the input SQL byte for byte, including identifier quoting, case,
 keywords, whitespace, line breaks, comments, semicolons, and multi-statement
-boundaries. When the generation is greater than `0`, the function generates
-SQL from the current handle state; the byte-for-byte guarantee does not apply
-to any part of that output.
+boundaries. When the generation is greater than `0`, SQL is generated from the
+current handle state and no blanket byte-for-byte guarantee applies. If a
+full-AST deparse is required, original whitespace, case, and `ROW` / `ROWS`
+spelling may be canonicalized, but modeled pagination families remain valid
+for the selected dialect.
 
 ## Common Usage Patterns
 

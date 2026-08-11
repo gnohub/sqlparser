@@ -2,7 +2,7 @@ category,item,status,reason,official_url
 query,SELECT,CURRENT,"已覆盖 SELECT、别名、子查询、JOIN、WHERE、GROUP BY 和 HAVING",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
 query,MINUS,CURRENT,"已覆盖 Oracle MINUS 与核心集合运算双向转换",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/The-UNION-ALL-INTERSECT-MINUS-Operators.html
 query,UNION_INTERSECT,CURRENT,"已覆盖 UNION ALL 和 INTERSECT",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/The-UNION-ALL-INTERSECT-MINUS-Operators.html
-query,OFFSET_FETCH,CURRENT,"已覆盖 OFFSET FETCH 分页",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
+query,OFFSET_FETCH,CURRENT,"已覆盖 OFFSET ... ROWS 与 FETCH FIRST/NEXT ... ROWS ONLY 的行数形态；不包含 FETCH ... PERCENT",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
 query,ROWNUM,CURRENT,"已覆盖 ROWNUM 条件过滤",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/ROWNUM-Pseudocolumn.html
 query,FOR_UPDATE_NOWAIT,CURRENT,"已覆盖 FOR UPDATE NOWAIT",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html
 expressions,BIND_VARIABLES,CURRENT,"已覆盖 :name、:1 和 JDBC 风格 ? 位置参数",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Comments.html

@@ -4687,6 +4687,12 @@ typedef struct {
 	void *dialect_state;
 } sqlparser_patch_identifier_path_t;
 
+typedef struct {
+	PgQuery__Node *node;
+	const char **parts;
+	sqlparser_identifier_path_view_t view;
+} sqlparser_patch_assignment_target_t;
+
 static void sqlparser_patch_identifier_path_clear(
 	const sqlparser_handle_t *handle,
 	sqlparser_patch_identifier_path_t *path)
@@ -4701,6 +4707,22 @@ static void sqlparser_patch_identifier_path_clear(
 	}
 	sqlparser_handle_discard_dialect_state(handle, path->dialect_state);
 	memset(path, 0, sizeof(*path));
+}
+
+static void sqlparser_patch_assignment_target_clear(
+	sqlparser_handle_t *handle,
+	sqlparser_patch_assignment_target_t *target,
+	int sweep_identifier_spellings)
+{
+	if (target == NULL) {
+		return;
+	}
+	free(target->parts);
+	sqlparser_free_proto_node(target->node);
+	memset(target, 0, sizeof(*target));
+	if (sweep_identifier_spellings) {
+		sqlparser_handle_sweep_identifier_spellings(handle);
+	}
 }
 
 static int sqlparser_patch_identifier_path_is_exact(
@@ -4893,6 +4915,166 @@ static sqlparser_status_t sqlparser_patch_parse_identifier_path(
 		sqlparser_patch_identifier_path_clear(handle, out_path);
 	}
 	return status;
+}
+
+static sqlparser_status_t sqlparser_patch_parse_assignment_target(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	const char *sql_text,
+	sqlparser_patch_assignment_target_t *out_target,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__ColumnRef *column_ref;
+	PgQuery__Node *node;
+	sqlparser_generated_source_t source;
+	sqlparser_identifier_origin_map_t *origins;
+	char *canonical_sql;
+	char *parser_sql;
+	void *dialect_state;
+	size_t index;
+	sqlparser_status_t status;
+
+	if (handle == NULL || sql_text == NULL || sql_text[0] == '\0' ||
+	    out_target == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"assignment target SQL must not be NULL or empty");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	memset(out_target, 0, sizeof(*out_target));
+	parser_sql = NULL;
+	dialect_state = NULL;
+	origins = NULL;
+	node = NULL;
+	status = sqlparser_preprocess_handle_sql_fragment_with_origins(
+		handle,
+		statement_index,
+		sql_text,
+		"assignment target SQL",
+		&parser_sql,
+		&dialect_state,
+		&origins,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	memset(&source, 0, sizeof(source));
+	source.public_sql = sql_text;
+	source.origins = origins;
+	source.dialect = handle->dialect;
+	source.spelling_handle = handle;
+	source.candidate_dialect_state = dialect_state;
+	source.statement_index = statement_index;
+	status = sqlparser_parse_select_target_node_sql(
+		parser_sql,
+		&source,
+		&node,
+		out_error);
+	sqlparser_identifier_origin_map_destroy(origins);
+	free(parser_sql);
+	sqlparser_handle_discard_dialect_state(handle, dialect_state);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+
+	column_ref =
+		node->node_case == PG_QUERY__NODE__NODE_RES_TARGET &&
+			node->res_target != NULL &&
+			(node->res_target->name == NULL ||
+			 node->res_target->name[0] == '\0') &&
+			node->res_target->val != NULL &&
+			node->res_target->val->node_case ==
+				PG_QUERY__NODE__NODE_COLUMN_REF ?
+			node->res_target->val->column_ref :
+			NULL;
+	if (column_ref == NULL || column_ref->n_fields == 0U ||
+	    column_ref->fields == NULL ||
+	    column_ref->n_fields > SIZE_MAX / sizeof(*out_target->parts)) {
+		sqlparser_free_proto_node(node);
+		sqlparser_handle_sweep_identifier_spellings(handle);
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"assignment target must contain one identifier path");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	out_target->parts = (const char **)calloc(
+		column_ref->n_fields,
+		sizeof(*out_target->parts));
+	if (out_target->parts == NULL) {
+		sqlparser_free_proto_node(node);
+		sqlparser_handle_sweep_identifier_spellings(handle);
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	out_target->node = node;
+	for (index = 0U; index < column_ref->n_fields; index++) {
+		PgQuery__Node *field;
+
+		field = column_ref->fields[index];
+		if (field == NULL ||
+		    field->node_case != PG_QUERY__NODE__NODE_STRING ||
+		    field->string == NULL || field->string->sval == NULL ||
+		    field->string->sval[0] == '\0') {
+			sqlparser_patch_assignment_target_clear(
+				handle,
+				out_target,
+				1);
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_UNSUPPORTED,
+				"assignment target contains an invalid identifier component");
+			return SQLPARSER_STATUS_UNSUPPORTED;
+		}
+		out_target->parts[index] = field->string->sval;
+	}
+	out_target->view.parts = out_target->parts;
+	out_target->view.part_count = column_ref->n_fields;
+	if (sqlparser_proto_location_is_identifier_spelling(
+		    column_ref->location)) {
+		if (!sqlparser_patch_identifier_path_is_exact(
+			    handle,
+			    sql_text,
+			    column_ref->location,
+			    column_ref->n_fields)) {
+			sqlparser_patch_assignment_target_clear(
+				handle,
+				out_target,
+				1);
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_UNSUPPORTED,
+				"assignment target must contain only identifiers and dot separators");
+			return SQLPARSER_STATUS_UNSUPPORTED;
+		}
+		return SQLPARSER_STATUS_OK;
+	}
+
+	canonical_sql = NULL;
+	status = sqlparser_render_identifier_path_sql(
+		handle,
+		&out_target->view,
+		&canonical_sql,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_patch_assignment_target_clear(handle, out_target, 1);
+		return status;
+	}
+	if (strcmp(canonical_sql, sql_text) != 0) {
+		free(canonical_sql);
+		sqlparser_patch_assignment_target_clear(handle, out_target, 1);
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"assignment target must contain only identifiers and dot separators");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	free(canonical_sql);
+	return SQLPARSER_STATUS_OK;
 }
 
 static sqlparser_status_t sqlparser_patch_plan_relation_surface_edits(
@@ -5545,7 +5727,7 @@ static sqlparser_status_t sqlparser_patch_render_literal_sql(
 			*out_sql = sqlparser_strdup(buffer);
 			break;
 		case SQLPARSER_LITERAL_KIND_FLOAT:
-			if (value->float_value == NULL || value->float_value[0] == '\0') {
+			if (value->float_value == NULL) {
 				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "float literal requires float_value");
 				return SQLPARSER_STATUS_INVALID_ARGUMENT;
 			}
@@ -5604,6 +5786,85 @@ static sqlparser_status_t sqlparser_patch_render_source_selector_sql(
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "source_selector kind cannot be cloned");
 			return SQLPARSER_STATUS_UNSUPPORTED;
 	}
+}
+
+static sqlparser_status_t sqlparser_patch_render_cloned_assignment_sql(
+	const sqlparser_handle_t *handle,
+	const sqlparser_patch_t *patch,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_selector_t source_selector;
+	char *source_sql;
+	char *assignment_sql;
+	size_t name_length;
+	size_t source_length;
+	sqlparser_status_t status;
+
+	if (handle == NULL || patch == NULL || patch->name == NULL ||
+	    patch->name[0] == '\0' || patch->source_selector == NULL ||
+	    patch->source_selector[0] == '\0' || out_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"cloned assignment requires name and source_selector");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_sql = NULL;
+	memset(&source_selector, 0, sizeof(source_selector));
+	status = sqlparser_patch_parse_selector(
+		patch->source_selector,
+		&source_selector,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (source_selector.kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
+	    source_selector.kind != SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"source_selector must be an assignment selector");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	source_sql = NULL;
+	status = sqlparser_assignment_sql_by_selector(
+		handle,
+		&source_selector,
+		&source_sql,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	name_length = strlen(patch->name);
+	source_length = strlen(source_sql);
+	if (name_length > SIZE_MAX - 4U ||
+	    source_length > SIZE_MAX - name_length - 4U) {
+		free(source_sql);
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_RESOURCE_LIMIT,
+			"assignment SQL is too large");
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+	assignment_sql = (char *)malloc(name_length + source_length + 4U);
+	if (assignment_sql == NULL) {
+		free(source_sql);
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	memcpy(assignment_sql, patch->name, name_length);
+	memcpy(assignment_sql + name_length, " = ", 3U);
+	memcpy(
+		assignment_sql + name_length + 3U,
+		source_sql,
+		source_length + 1U);
+	free(source_sql);
+	*out_sql = assignment_sql;
+	return SQLPARSER_STATUS_OK;
 }
 
 static sqlparser_status_t sqlparser_patch_render_structured_sql(
@@ -7350,6 +7611,7 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit(
 	const char *replacement;
 	const char *source_sql;
 	size_t insertion_length;
+	size_t node_index;
 	size_t replacement_length;
 	size_t source_end;
 	size_t source_start;
@@ -7499,6 +7761,71 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit(
 		status = SQLPARSER_STATUS_OK;
 		replacement = patch->sql;
 		replacement_length = strlen(patch->sql);
+	} else if (patch->op == SQLPARSER_PATCH_REPLACE &&
+		   patch->literal != NULL &&
+		   (selector.kind == SQLPARSER_SELECTOR_KIND_LITERAL ||
+		    selector.kind == SQLPARSER_SELECTOR_KIND_WHERE_LITERAL ||
+		    selector.kind == SQLPARSER_SELECTOR_KIND_ASSIGNMENT ||
+		    selector.kind == SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT)) {
+		sqlparser_selector_t value_selector;
+
+		if (patch->sql != NULL || patch->default_sql != NULL ||
+		    patch->source_selector != NULL || patch->bind != NULL) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INVALID_ARGUMENT,
+				"literal replacement cannot combine literal with another value source");
+			return SQLPARSER_STATUS_INVALID_ARGUMENT;
+		}
+		if (sqlparser_dialect_is_mysql_compatible(handle->dialect) &&
+		    patch->literal->kind == SQLPARSER_LITERAL_KIND_STRING &&
+		    patch->literal->string_value != NULL &&
+		    strchr(patch->literal->string_value, '\\') != NULL) {
+			return SQLPARSER_STATUS_OK;
+		}
+		status = sqlparser_patch_render_literal_sql(
+			patch->literal,
+			&rendered,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		if (selector.kind == SQLPARSER_SELECTOR_KIND_ASSIGNMENT ||
+		    selector.kind == SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT) {
+			status =
+				sqlparser_assignment_value_node_index_by_selector(
+					handle,
+					&selector,
+					&node_index,
+					out_error);
+		} else {
+			status = sqlparser_find_statement_literal_node(
+				handle,
+				selector.statement_index,
+				selector.item_index,
+				selector.kind ==
+					SQLPARSER_SELECTOR_KIND_WHERE_LITERAL,
+				NULL,
+				&node_index,
+				out_error);
+		}
+		if (status != SQLPARSER_STATUS_OK) {
+			free(rendered);
+			return status;
+		}
+		memset(&value_selector, 0, sizeof(value_selector));
+		value_selector.kind = SQLPARSER_SELECTOR_KIND_VALUE;
+		value_selector.statement_index = selector.statement_index;
+		value_selector.item_index = node_index;
+		status = sqlparser_patch_value_source_span(
+			handle,
+			&value_selector,
+			&source_start,
+			&source_end,
+			&span_supported,
+			out_error);
+		replacement = rendered;
+		replacement_length = strlen(rendered);
 	} else if (patch->op == SQLPARSER_PATCH_REPLACE &&
 		   selector.kind == SQLPARSER_SELECTOR_KIND_VALUE) {
 		status = sqlparser_patch_render_structured_sql(
@@ -7861,7 +8188,26 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit(
 		      handle->dialect == SQLPARSER_DIALECT_POSTGRESQL ||
 		      handle->dialect ==
 			      SQLPARSER_DIALECT_VASTBASE_POSTGRESQL))) &&
-		   patch->sql != NULL && patch->sql[0] != '\0') {
+		   ((patch->sql != NULL && patch->sql[0] != '\0') ||
+		    (patch->op == SQLPARSER_PATCH_INSERT_ASSIGNMENT &&
+		     patch->source_selector != NULL &&
+		     patch->source_selector[0] != '\0' &&
+		     patch->name != NULL && patch->name[0] != '\0'))) {
+		const char *assignment_sql;
+
+		assignment_sql = patch->sql;
+		if (patch->op == SQLPARSER_PATCH_INSERT_ASSIGNMENT &&
+		    patch->source_selector != NULL) {
+			status = sqlparser_patch_render_cloned_assignment_sql(
+				handle,
+				patch,
+				&rendered,
+				out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+			assignment_sql = rendered;
+		}
 		status = sqlparser_patch_assignment_source_span(
 			handle,
 			&selector,
@@ -7872,8 +8218,9 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit(
 			out_error);
 		if (status == SQLPARSER_STATUS_OK && span_supported &&
 		    patch->op == SQLPARSER_PATCH_INSERT_ASSIGNMENT) {
-			replacement_length = strlen(patch->sql);
+			replacement_length = strlen(assignment_sql);
 			if (replacement_length > SIZE_MAX - 3U) {
+				free(rendered);
 				sqlparser_error_set_message(
 					out_error,
 					SQLPARSER_STATUS_RESOURCE_LIMIT,
@@ -7882,20 +8229,21 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit(
 			}
 			insertion = (char *)malloc(replacement_length + 3U);
 			if (insertion == NULL) {
+				free(rendered);
 				sqlparser_error_set_message(
 					out_error,
 					SQLPARSER_STATUS_NO_MEMORY,
 					"out of memory");
 				return SQLPARSER_STATUS_NO_MEMORY;
 			}
-			memcpy(insertion, patch->sql, replacement_length);
+			memcpy(insertion, assignment_sql, replacement_length);
 			memcpy(insertion + replacement_length, ", ", 3U);
 			source_end = source_start;
 			replacement = insertion;
 			replacement_length += 2U;
 		} else {
-			replacement = patch->sql;
-			replacement_length = strlen(patch->sql);
+			replacement = assignment_sql;
+			replacement_length = strlen(assignment_sql);
 		}
 	} else {
 		return SQLPARSER_STATUS_OK;
@@ -8131,7 +8479,31 @@ static sqlparser_status_t sqlparser_patch_replace(
 			size_t spelling_length;
 
 			if (patch->sql == NULL) {
-				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "name replacement requires sql");
+				if (patch->default_sql == NULL ||
+				    patch->name != NULL ||
+				    patch->source_selector != NULL ||
+				    patch->literal != NULL || patch->bind != NULL) {
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_INVALID_ARGUMENT,
+						"name replacement requires sql or a semantic name value");
+					return SQLPARSER_STATUS_INVALID_ARGUMENT;
+				}
+				return sqlparser_statement_set_name_spelling(
+					handle,
+					selector.statement_index,
+					selector.item_index,
+					patch->default_sql,
+					NULL,
+					out_error);
+			}
+			if (patch->default_sql != NULL || patch->name != NULL ||
+			    patch->source_selector != NULL || patch->literal != NULL ||
+			    patch->bind != NULL) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INVALID_ARGUMENT,
+					"name replacement SQL cannot be combined with another value source");
 				return SQLPARSER_STATUS_INVALID_ARGUMENT;
 			}
 			status = sqlparser_patch_parse_identifier_path(
@@ -8195,15 +8567,69 @@ static sqlparser_status_t sqlparser_patch_replace(
 		}
 		case SQLPARSER_SELECTOR_KIND_ASSIGNMENT:
 		case SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT:
+			if (patch->literal != NULL) {
+				if (patch->sql != NULL || patch->default_sql != NULL ||
+				    patch->source_selector != NULL || patch->bind != NULL) {
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_INVALID_ARGUMENT,
+						"assignment literal replacement cannot combine literal with another value source");
+					return SQLPARSER_STATUS_INVALID_ARGUMENT;
+				}
+				return sqlparser_assignment_set_literal_by_selector(
+					handle,
+					&selector,
+					patch->literal,
+					out_error);
+			}
 			if (patch->sql == NULL) {
 				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "assignment replacement requires sql");
 				return SQLPARSER_STATUS_INVALID_ARGUMENT;
 			}
-			return sqlparser_selector_set_update_assignment_sql(handle, &selector, patch->sql, out_error);
+			return sqlparser_assignment_set_sql_by_selector(handle, &selector, patch->sql, out_error);
 		case SQLPARSER_SELECTOR_KIND_INSERT_CELL:
 		{
 			char *cell_sql;
 
+			if (patch->literal != NULL &&
+			    !sqlparser_dialect_state_has_multi_insert(
+				    handle->dialect,
+				    handle->dialect_state)) {
+				sqlparser_literal_view_t current_literal;
+
+				if (patch->sql != NULL || patch->default_sql != NULL ||
+				    patch->source_selector != NULL || patch->bind != NULL) {
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_INVALID_ARGUMENT,
+						"insert cell literal replacement cannot combine another value source");
+					return SQLPARSER_STATUS_INVALID_ARGUMENT;
+				}
+				memset(
+					&current_literal,
+					0,
+					sizeof(current_literal));
+				status = sqlparser_insert_cell_literal(
+					handle,
+					selector.statement_index,
+					selector.row_index,
+					selector.column_index,
+					&current_literal,
+					out_error);
+				if (status == SQLPARSER_STATUS_OK) {
+					return sqlparser_insert_set_cell_literal_in_place(
+						handle,
+						selector.statement_index,
+						selector.row_index,
+						selector.column_index,
+						patch->literal,
+						out_error);
+				}
+				if (status != SQLPARSER_STATUS_UNSUPPORTED) {
+					return status;
+				}
+				sqlparser_error_clear(out_error);
+			}
 			cell_sql = NULL;
 			status = sqlparser_patch_render_structured_sql(handle, patch, patch->sql, &cell_sql, out_error);
 			if (status != SQLPARSER_STATUS_OK) {
@@ -8259,9 +8685,20 @@ static sqlparser_status_t sqlparser_patch_replace(
 				return status;
 			}
 			if (selector.kind == SQLPARSER_SELECTOR_KIND_SELECT_TARGETS) {
-				status = sqlparser_selector_set_select_targets_sql(handle, &selector, target_sql, out_error);
+				status = sqlparser_select_set_targets_sql_in_place(
+					handle,
+					selector.statement_index,
+					selector.item_index,
+					target_sql,
+					out_error);
 			} else if (selector.kind == SQLPARSER_SELECTOR_KIND_SELECT_TARGET) {
-				status = sqlparser_selector_set_select_target_sql(handle, &selector, target_sql, out_error);
+				status = sqlparser_select_set_target_sql_in_place(
+					handle,
+					selector.statement_index,
+					selector.item_index,
+					selector.column_index,
+					target_sql,
+					out_error);
 			} else {
 				status = sqlparser_dml_result_set_target_sql(handle, &selector, target_sql, out_error);
 			}
@@ -8289,7 +8726,7 @@ static sqlparser_status_t sqlparser_patch_replace(
 					"MERGE condition replacement requires sql");
 				return SQLPARSER_STATUS_INVALID_ARGUMENT;
 			}
-			return sqlparser_selector_set_clause_sql(
+			return sqlparser_merge_condition_set_sql(
 				handle,
 				&selector,
 				patch->sql,
@@ -8299,15 +8736,43 @@ static sqlparser_status_t sqlparser_patch_replace(
 				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "where replacement requires sql");
 				return SQLPARSER_STATUS_INVALID_ARGUMENT;
 			}
-			return sqlparser_selector_set_where_sql(handle, &selector, patch->sql, out_error);
+			return sqlparser_statement_set_where_sql_in_place(
+				handle,
+				selector.statement_index,
+				selector.item_index,
+				patch->sql,
+				out_error);
 		case SQLPARSER_SELECTOR_KIND_CLAUSE:
 			if (patch->sql == NULL) {
 				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "clause replacement requires sql");
 				return SQLPARSER_STATUS_INVALID_ARGUMENT;
 			}
-			return sqlparser_selector_set_clause_sql(handle, &selector, patch->sql, out_error);
+			return sqlparser_statement_set_clause_sql_in_place(
+				handle,
+				selector.statement_index,
+				selector.item_index,
+				patch->sql,
+				out_error);
 		case SQLPARSER_SELECTOR_KIND_LITERAL:
 		case SQLPARSER_SELECTOR_KIND_WHERE_LITERAL:
+			if (patch->literal != NULL) {
+				if (patch->sql != NULL || patch->default_sql != NULL ||
+				    patch->source_selector != NULL || patch->bind != NULL) {
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_INVALID_ARGUMENT,
+						"literal replacement cannot combine literal with another value source");
+					return SQLPARSER_STATUS_INVALID_ARGUMENT;
+				}
+				return sqlparser_statement_set_literal_in_place(
+					handle,
+					selector.statement_index,
+					selector.item_index,
+					selector.kind ==
+						SQLPARSER_SELECTOR_KIND_WHERE_LITERAL,
+					patch->literal,
+					out_error);
+			}
 			if (patch->sql == NULL) {
 				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "literal replacement requires sql");
 				return SQLPARSER_STATUS_INVALID_ARGUMENT;
@@ -8349,9 +8814,21 @@ static sqlparser_status_t sqlparser_patch_append_condition(
 		patch->bool_operator :
 		SQLPARSER_BOOL_OPERATOR_AND;
 	if (selector.kind == SQLPARSER_SELECTOR_KIND_CLAUSE) {
-		return sqlparser_selector_append_clause_condition(handle, &selector, bool_operator, patch->sql, out_error);
+		return sqlparser_statement_append_clause_condition_in_place(
+			handle,
+			selector.statement_index,
+			selector.item_index,
+			bool_operator,
+			patch->sql,
+			out_error);
 	}
-	return sqlparser_selector_append_where_sql(handle, &selector, bool_operator, patch->sql, out_error);
+	return sqlparser_statement_append_where_sql_in_place(
+		handle,
+		selector.statement_index,
+		selector.item_index,
+		bool_operator,
+		patch->sql,
+		out_error);
 }
 
 static sqlparser_status_t sqlparser_patch_insert_assignment(
@@ -8359,11 +8836,16 @@ static sqlparser_status_t sqlparser_patch_insert_assignment(
 	const sqlparser_patch_t *patch,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_patch_assignment_target_t target;
 	sqlparser_selector_t selector;
+	sqlparser_selector_t source_selector;
 	sqlparser_status_t status;
 
-	if (patch == NULL || patch->selector == NULL || patch->sql == NULL) {
-		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "insert_assignment requires selector and sql");
+	if (patch == NULL || patch->selector == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"insert_assignment requires selector");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	status = sqlparser_patch_parse_selector(patch->selector, &selector, out_error);
@@ -8375,8 +8857,66 @@ static sqlparser_status_t sqlparser_patch_insert_assignment(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "insert_assignment selector must be assignment");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
+	if (patch->source_selector != NULL) {
+		if (patch->source_selector[0] == '\0' || patch->name == NULL ||
+		    patch->name[0] == '\0' || patch->sql != NULL ||
+		    patch->default_sql != NULL || patch->literal != NULL ||
+		    patch->bind != NULL) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INVALID_ARGUMENT,
+				"cloned assignment requires only name and source_selector");
+			return SQLPARSER_STATUS_INVALID_ARGUMENT;
+		}
+		memset(&source_selector, 0, sizeof(source_selector));
+		status = sqlparser_patch_parse_selector(
+			patch->source_selector,
+			&source_selector,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		if (source_selector.kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
+		    source_selector.kind !=
+			    SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INVALID_ARGUMENT,
+				"source_selector must be an assignment selector");
+			return SQLPARSER_STATUS_INVALID_ARGUMENT;
+		}
+		memset(&target, 0, sizeof(target));
+		status = sqlparser_patch_parse_assignment_target(
+			handle,
+			selector.statement_index,
+			patch->name,
+			&target,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		status =
+			sqlparser_assignment_insert_from_assignment_value_by_selector(
+				handle,
+				&selector,
+				&target.view,
+				&source_selector,
+				out_error);
+		sqlparser_patch_assignment_target_clear(
+			handle,
+			&target,
+			status != SQLPARSER_STATUS_OK);
+		return status;
+	}
+	if (patch->sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"insert_assignment requires sql or source_selector");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
 
-	return sqlparser_selector_insert_update_assignment_sql(handle, &selector, patch->sql, out_error);
+	return sqlparser_assignment_insert_sql_by_selector(handle, &selector, patch->sql, out_error);
 }
 
 static sqlparser_status_t sqlparser_patch_delete_assignment(
@@ -8401,7 +8941,7 @@ static sqlparser_status_t sqlparser_patch_delete_assignment(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_selector_delete_update_assignment(handle, &selector, out_error);
+	return sqlparser_assignment_delete_by_selector(handle, &selector, out_error);
 }
 
 static sqlparser_status_t sqlparser_patch_replace_assignment(
@@ -8426,7 +8966,7 @@ static sqlparser_status_t sqlparser_patch_replace_assignment(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_selector_set_update_assignment_full_sql(handle, &selector, patch->sql, out_error);
+	return sqlparser_assignment_set_full_sql_by_selector(handle, &selector, patch->sql, out_error);
 }
 
 static PgQuery__Node *sqlparser_patch_new_insert_column_node(
@@ -9185,7 +9725,7 @@ static sqlparser_status_t sqlparser_patch_delete_column(
 		return status;
 	}
 	if (selector.kind == SQLPARSER_SELECTOR_KIND_SELECT_TARGETS) {
-		return sqlparser_select_delete_target(
+		return sqlparser_select_delete_target_in_place(
 			handle,
 			selector.statement_index,
 			selector.item_index,
@@ -9463,12 +10003,49 @@ static sqlparser_status_t sqlparser_apply_patch_in_place(
 			}
 			planned_selector = &replace_selector;
 			if (replace_selector.kind ==
+				    SQLPARSER_SELECTOR_KIND_INSERT_CELL &&
+			    patch->sql != NULL && patch->sql[0] == '\0') {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INVALID_ARGUMENT,
+					"insert cell SQL must not be empty");
+				return SQLPARSER_STATUS_INVALID_ARGUMENT;
+			}
+			if (replace_selector.kind ==
 			    SQLPARSER_SELECTOR_KIND_RELATION) {
+				if (patch->sql == NULL && patch->name != NULL) {
+					if (patch->source_selector != NULL ||
+					    patch->literal != NULL || patch->bind != NULL ||
+					    patch->bool_operator != 0) {
+						sqlparser_error_set_message(
+							out_error,
+							SQLPARSER_STATUS_INVALID_ARGUMENT,
+							"semantic relation replacement cannot combine another value source");
+						return SQLPARSER_STATUS_INVALID_ARGUMENT;
+					}
+					sqlparser_surface_source_edits_release(
+						surface_edits);
+					*in_out_surface_complete = 0;
+					handle->surface_source_complete = 0;
+					status =
+						sqlparser_statement_set_relation_name_in_place(
+							handle,
+							replace_selector.statement_index,
+							replace_selector.item_index,
+							patch->default_sql,
+							patch->name,
+							patch->index,
+							out_error);
+					if (status != SQLPARSER_STATUS_OK) {
+						return status;
+					}
+					continue;
+				}
 				if (patch->sql == NULL) {
 					sqlparser_error_set_message(
 						out_error,
 						SQLPARSER_STATUS_INVALID_ARGUMENT,
-						"relation replacement requires sql");
+						"relation replacement requires sql or a semantic relation name");
 					return SQLPARSER_STATUS_INVALID_ARGUMENT;
 				}
 				status = sqlparser_patch_set_relation_sql(

@@ -6017,7 +6017,7 @@ static int sqlparser_dameng_bind_key_is_identifier(const char *key)
 	return 1;
 }
 
-static sqlparser_status_t sqlparser_dameng_render_bind_value(
+sqlparser_status_t sqlparser_dameng_render_bind_value(
 	const sqlparser_bind_value_t *bind,
 	char **out_sql,
 	sqlparser_error_t *out_error)
@@ -6068,7 +6068,7 @@ static sqlparser_status_t sqlparser_dameng_render_bind_value(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_dameng_render_literal_value(
+sqlparser_status_t sqlparser_dameng_render_literal_value(
 	const sqlparser_literal_value_t *value,
 	char **out_sql,
 	sqlparser_error_t *out_error)
@@ -6134,7 +6134,7 @@ static sqlparser_status_t sqlparser_dameng_render_literal_value(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_dameng_multi_insert_replace_cell_public_sql(
+sqlparser_status_t sqlparser_dameng_multi_insert_set_cell_sql_in_place(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t branch_index,
@@ -6142,7 +6142,6 @@ static sqlparser_status_t sqlparser_dameng_multi_insert_replace_cell_public_sql(
 	const char *sql_text,
 	sqlparser_error_t *out_error)
 {
-	sqlparser_handle_t *candidate;
 	sqlparser_handle_t *replacement;
 	sqlparser_dameng_state_t *state;
 	sqlparser_dialect_multi_insert_t *multi;
@@ -6159,37 +6158,28 @@ static sqlparser_status_t sqlparser_dameng_multi_insert_replace_cell_public_sql(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "selector is not a Dameng multi-table INSERT cell");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	candidate = NULL;
 	replacement = NULL;
 	public_sql = NULL;
-	status = sqlparser_handle_clone(handle, &candidate, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		return status;
-	}
-	state = (sqlparser_dameng_state_t *)candidate->dialect_state;
+	state = (sqlparser_dameng_state_t *)handle->dialect_state;
 	multi = state != NULL ? state->multi_insert : NULL;
 	if (multi == NULL || branch_index >= multi->branch_count) {
-		sqlparser_handle_destroy(candidate);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "branch index is out of range");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	branch = &multi->branches[branch_index];
 	if (column_index >= branch->cell_count) {
-		sqlparser_handle_destroy(candidate);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "cell index is out of range");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	free(branch->cells[column_index].public_sql);
 	branch->cells[column_index].public_sql = sqlparser_strdup(sql_text);
 	if (branch->cells[column_index].public_sql == NULL) {
-		sqlparser_handle_destroy(candidate);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
-	candidate->generation++;
-	status = sqlparser_deparse(candidate, &public_sql, out_error);
+	handle->generation++;
+	status = sqlparser_deparse(handle, &public_sql, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_destroy(candidate);
 		return status;
 	}
 	sqlparser_parse_options_default(&options);
@@ -6197,32 +6187,13 @@ static sqlparser_status_t sqlparser_dameng_multi_insert_replace_cell_public_sql(
 	options.limits = handle->limits;
 	status = sqlparser_parse_with_options(public_sql, &options, &replacement, out_error);
 	free(public_sql);
-	sqlparser_handle_destroy(candidate);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	replacement->generation = handle->generation + 1UL;
+	replacement->generation = handle->generation;
 	sqlparser_handle_replace_contents(handle, replacement);
 	sqlparser_handle_destroy(replacement);
 	return SQLPARSER_STATUS_OK;
-}
-
-sqlparser_status_t sqlparser_dameng_multi_insert_set_cell_sql(
-	sqlparser_handle_t *handle,
-	size_t statement_index,
-	size_t branch_index,
-	size_t column_index,
-	const char *sql_text,
-	sqlparser_error_t *out_error)
-{
-	sqlparser_error_clear(out_error);
-	return sqlparser_dameng_multi_insert_replace_cell_public_sql(
-		handle,
-		statement_index,
-		branch_index,
-		column_index,
-		sql_text,
-		out_error);
 }
 
 sqlparser_status_t sqlparser_dameng_multi_insert_cell_sql(
@@ -6304,62 +6275,6 @@ sqlparser_status_t sqlparser_dameng_multi_insert_condition_sql(
 		return SQLPARSER_STATUS_NO_MEMORY;
 	}
 	return SQLPARSER_STATUS_OK;
-}
-
-sqlparser_status_t sqlparser_dameng_multi_insert_set_cell_literal(
-	sqlparser_handle_t *handle,
-	size_t statement_index,
-	size_t branch_index,
-	size_t column_index,
-	const sqlparser_literal_value_t *value,
-	sqlparser_error_t *out_error)
-{
-	char *literal_sql;
-	sqlparser_status_t status;
-
-	literal_sql = NULL;
-	sqlparser_error_clear(out_error);
-	status = sqlparser_dameng_render_literal_value(value, &literal_sql, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		return status;
-	}
-	status = sqlparser_dameng_multi_insert_replace_cell_public_sql(
-		handle,
-		statement_index,
-		branch_index,
-		column_index,
-		literal_sql,
-		out_error);
-	free(literal_sql);
-	return status;
-}
-
-sqlparser_status_t sqlparser_dameng_multi_insert_set_cell_bind(
-	sqlparser_handle_t *handle,
-	size_t statement_index,
-	size_t branch_index,
-	size_t column_index,
-	const sqlparser_bind_value_t *bind,
-	sqlparser_error_t *out_error)
-{
-	char *bind_sql;
-	sqlparser_status_t status;
-
-	bind_sql = NULL;
-	sqlparser_error_clear(out_error);
-	status = sqlparser_dameng_render_bind_value(bind, &bind_sql, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		return status;
-	}
-	status = sqlparser_dameng_multi_insert_replace_cell_public_sql(
-		handle,
-		statement_index,
-		branch_index,
-		column_index,
-		bind_sql,
-		out_error);
-	free(bind_sql);
-	return status;
 }
 
 sqlparser_status_t sqlparser_dameng_multi_insert_insert_column_sql(

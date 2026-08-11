@@ -1380,8 +1380,10 @@ sqlparser_status_t sqlparser_replace_relation_and_bound_qualifiers(
 	sqlparser_column_qualifier_plan_t *column_plans;
 	sqlparser_assignment_qualifier_plan_t *assignment_plans;
 	char *owned_relation_spellings[3];
+	char *owned_values[3];
 	const char *relation_parts[3];
 	const char *relation_spellings[3];
+	const char *stable_values[3];
 	size_t relation_part_count;
 	size_t column_plan_count;
 	size_t assignment_plan_count;
@@ -1389,16 +1391,19 @@ sqlparser_status_t sqlparser_replace_relation_and_bound_qualifiers(
 	size_t index;
 	sqlparser_status_t status;
 	int commit_attempted;
+	int needs_stable_values;
 
 	column_plans = NULL;
 	assignment_plans = NULL;
 	memset(owned_relation_spellings, 0, sizeof(owned_relation_spellings));
+	memset(owned_values, 0, sizeof(owned_values));
 	column_plan_count = 0U;
 	assignment_plan_count = 0U;
 	qualified_assignment_count = 0U;
 	relation_part_count = 0U;
 	commit_attempted = 0;
-	if (bindings == NULL ||
+	needs_stable_values = 0;
+	if (values == NULL || bindings == NULL ||
 	    (bindings->column_ref_count > 0U &&
 	     bindings->column_refs == NULL) ||
 	    (bindings->assignment_target_count > 0U &&
@@ -1407,7 +1412,7 @@ sqlparser_status_t sqlparser_replace_relation_and_bound_qualifiers(
 		sqlparser_error_set_message(
 			out_error,
 			status,
-			"relation bindings are invalid");
+			"relation replacement inputs are invalid");
 		goto cleanup;
 	}
 	for (index = 0U;
@@ -1425,6 +1430,25 @@ sqlparser_status_t sqlparser_replace_relation_and_bound_qualifiers(
 			qualified_assignment_count++;
 		}
 	}
+	needs_stable_values =
+		duplicate_relation != NULL || bindings->column_ref_count > 0U ||
+		qualified_assignment_count > 0U;
+	for (index = 0U; index < 3U; index++) {
+		stable_values[index] = values[index];
+		if (!needs_stable_values || values[index] == NULL) {
+			continue;
+		}
+		owned_values[index] = sqlparser_strdup(values[index]);
+		if (owned_values[index] == NULL) {
+			status = SQLPARSER_STATUS_NO_MEMORY;
+			sqlparser_error_set_message(
+				out_error,
+				status,
+				"out of memory");
+			goto cleanup;
+		}
+		stable_values[index] = owned_values[index];
+	}
 	status = sqlparser_replace_relation_identifier_slots(
 		handle,
 		statement_index,
@@ -1440,7 +1464,7 @@ sqlparser_status_t sqlparser_replace_relation_and_bound_qualifiers(
 			handle,
 			statement_index,
 			duplicate_relation,
-			values,
+			stable_values,
 			spellings,
 			out_error);
 		if (status != SQLPARSER_STATUS_OK) {
@@ -1450,21 +1474,23 @@ sqlparser_status_t sqlparser_replace_relation_and_bound_qualifiers(
 	if (bindings->column_ref_count > 0U ||
 	    qualified_assignment_count > 0U) {
 		for (index = 0U; index < 3U; index++) {
-			if (values[index] == NULL || values[index][0] == '\0') {
+			if (stable_values[index] == NULL ||
+			    stable_values[index][0] == '\0') {
 				continue;
 			}
 			status = sqlparser_relation_output_spelling(
 				handle,
 				relation,
 				index,
-				values[index],
+				stable_values[index],
 				spellings != NULL ? spellings[index] : NULL,
 				&owned_relation_spellings[index],
 				out_error);
 			if (status != SQLPARSER_STATUS_OK) {
 				goto cleanup;
 			}
-			relation_parts[relation_part_count] = values[index];
+			relation_parts[relation_part_count] =
+				stable_values[index];
 			relation_spellings[relation_part_count] =
 				owned_relation_spellings[index];
 			relation_part_count++;
@@ -1581,6 +1607,7 @@ cleanup:
 	free(column_plans);
 	free(assignment_plans);
 	sqlparser_free_relation_identifier_buffers(owned_relation_spellings);
+	sqlparser_free_relation_identifier_buffers(owned_values);
 	return status;
 }
 
@@ -1800,26 +1827,24 @@ sqlparser_status_t sqlparser_statement_relation(
 	return SQLPARSER_STATUS_OK;
 }
 
-sqlparser_status_t sqlparser_statement_set_relation_name(
+sqlparser_status_t sqlparser_statement_set_relation_name_in_place(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t relation_index,
 	const char *schema_name,
 	const char *table_name,
+	size_t source_encoding,
 	sqlparser_error_t *out_error)
 {
-	sqlparser_handle_t *candidate;
 	PgQuery__RangeVar *relation;
 	PgQuery__RangeVar *selected_relation;
 	PgQuery__RangeVar *duplicate_relation;
 	ProtobufCMessage *message;
 	sqlparser_relation_bindings_t bindings;
-	const char *candidate_values[3];
-	const char *next_schema_name;
+	const char *current_values[3];
 	const char *values[3];
-	size_t schema_source_index;
-	size_t source_index;
-	size_t table_source_index;
+	size_t schema_source;
+	size_t table_source;
 	sqlparser_status_t status;
 
 	if (table_name == NULL || table_name[0] == '\0') {
@@ -1829,6 +1854,15 @@ sqlparser_status_t sqlparser_statement_set_relation_name(
 			"table_name must not be NULL or empty");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
+	if ((source_encoding & ~(size_t)0x0fU) != 0U) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"relation source encoding is invalid");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	schema_source = source_encoding & 0x03U;
+	table_source = (source_encoding >> 2U) & 0x03U;
 
 	sqlparser_error_clear(out_error);
 	message = NULL;
@@ -1853,97 +1887,53 @@ sqlparser_status_t sqlparser_statement_set_relation_name(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	relation = (PgQuery__RangeVar *)message;
-	next_schema_name = schema_name != NULL ? schema_name : "";
-	values[0] =
-		relation->catalogname != NULL ? relation->catalogname : "";
-	values[1] =
-		relation->schemaname != NULL ? relation->schemaname : "";
-	values[2] = relation->relname != NULL ? relation->relname : "";
-	schema_source_index = SIZE_MAX;
-	table_source_index = SIZE_MAX;
-	for (source_index = 0U; source_index < 3U; source_index++) {
-		if (schema_name == values[source_index]) {
-			schema_source_index = source_index;
-		}
-		if (table_name == values[source_index]) {
-			table_source_index = source_index;
-		}
-	}
+	selected_relation = (PgQuery__RangeVar *)message;
 	if (strcmp(
-		    relation->schemaname != NULL ? relation->schemaname : "",
-		    next_schema_name) == 0 &&
+		    selected_relation->schemaname != NULL ?
+			    selected_relation->schemaname : "",
+		    schema_name != NULL ? schema_name : "") == 0 &&
 	    strcmp(
-		    relation->relname != NULL ? relation->relname : "",
+		    selected_relation->relname != NULL ?
+			    selected_relation->relname : "",
 		    table_name) == 0) {
 		return SQLPARSER_STATUS_OK;
 	}
-	candidate = NULL;
-	status = sqlparser_handle_clone(handle, &candidate, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		return status;
-	}
-	message = NULL;
-	status = sqlparser_search_statement_messages(
-		candidate,
-		statement_index,
-		&pg_query__range_var__descriptor,
-		NULL,
-		1,
-		relation_index,
-		NULL,
-		&message,
-		out_error);
-	if (status != SQLPARSER_STATUS_OK || message == NULL) {
-		if (status == SQLPARSER_STATUS_OK) {
-			status = SQLPARSER_STATUS_INTERNAL_ERROR;
-			sqlparser_error_set_message(
-				out_error,
-				status,
-				"cloned relation is missing");
-		}
-		sqlparser_handle_destroy(candidate);
-		return status;
-	}
-	selected_relation = (PgQuery__RangeVar *)message;
 	status = sqlparser_find_duplicate_delete_relation(
-		candidate,
+		handle,
 		statement_index,
 		selected_relation,
 		&relation,
 		&duplicate_relation,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_destroy(candidate);
 		return status;
 	}
 	memset(&bindings, 0, sizeof(bindings));
 	status = sqlparser_collect_relation_bindings(
-		candidate,
+		handle,
 		statement_index,
 		relation,
 		&bindings,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_relation_bindings_clear(&bindings);
-		sqlparser_handle_destroy(candidate);
 		return status;
 	}
-	candidate_values[0] =
+	current_values[0] =
 		relation->catalogname != NULL ? relation->catalogname : "";
-	candidate_values[1] =
+	current_values[1] =
 		relation->schemaname != NULL ? relation->schemaname : "";
-	candidate_values[2] =
+	current_values[2] =
 		relation->relname != NULL ? relation->relname : "";
-	values[0] = candidate_values[0];
-	values[1] = schema_source_index < 3U ?
-		candidate_values[schema_source_index] :
-		next_schema_name;
-	values[2] = table_source_index < 3U ?
-		candidate_values[table_source_index] :
+	values[0] = current_values[0];
+	values[1] = schema_source > 0U ?
+		current_values[schema_source - 1U] :
+		(schema_name != NULL ? schema_name : "");
+	values[2] = table_source > 0U ?
+		current_values[table_source - 1U] :
 		table_name;
 	status = sqlparser_replace_relation_and_bound_qualifiers(
-		candidate,
+		handle,
 		statement_index,
 		relation,
 		duplicate_relation,
@@ -1953,12 +1943,105 @@ sqlparser_status_t sqlparser_statement_set_relation_name(
 		NULL,
 		out_error);
 	sqlparser_relation_bindings_clear(&bindings);
+	return status;
+}
+
+sqlparser_status_t sqlparser_statement_set_relation_name(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t relation_index,
+	const char *schema_name,
+	const char *table_name,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_patch_t patch;
+	sqlparser_selector_t selector;
+	sqlparser_status_t status;
+
+	memset(&patch, 0, sizeof(patch));
+	status = sqlparser_statement_relation_patch_source_encoding(
+		handle,
+		statement_index,
+		relation_index,
+		schema_name,
+		table_name,
+		&patch.index,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_destroy(candidate);
 		return status;
 	}
-	sqlparser_handle_replace_contents(handle, candidate);
-	sqlparser_handle_destroy(candidate);
+	memset(&selector, 0, sizeof(selector));
+	selector.kind = SQLPARSER_SELECTOR_KIND_RELATION;
+	selector.statement_index = statement_index;
+	selector.item_index = relation_index;
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.name = table_name;
+	patch.default_sql = schema_name;
+	return sqlparser_selector_apply_single_patch(
+		handle,
+		&selector,
+		&patch,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_statement_relation_patch_source_encoding(
+	const sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t relation_index,
+	const char *schema_name,
+	const char *table_name,
+	size_t *out_source_encoding,
+	sqlparser_error_t *out_error)
+{
+	const char *relation_parts[3];
+	sqlparser_relation_view_t relation;
+	size_t schema_source;
+	size_t source_index;
+	size_t table_source;
+	sqlparser_status_t status;
+
+	if (table_name == NULL || table_name[0] == '\0') {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"table_name must not be NULL or empty");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (out_source_encoding == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"source encoding output must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_source_encoding = 0U;
+	memset(&relation, 0, sizeof(relation));
+	status = sqlparser_statement_relation(
+		handle,
+		statement_index,
+		relation_index,
+		&relation,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	relation_parts[0] =
+		relation.database_name != NULL ? relation.database_name : "";
+	relation_parts[1] =
+		relation.schema_name != NULL ? relation.schema_name : "";
+	relation_parts[2] =
+		relation.table_name != NULL ? relation.table_name : "";
+	schema_source = 0U;
+	table_source = 0U;
+	for (source_index = 0U; source_index < 3U; source_index++) {
+		if (schema_name == relation_parts[source_index]) {
+			schema_source = source_index + 1U;
+		}
+		if (table_name == relation_parts[source_index]) {
+			table_source = source_index + 1U;
+		}
+	}
+	*out_source_encoding = schema_source | (table_source << 2U);
 	return SQLPARSER_STATUS_OK;
 }
 
@@ -2287,11 +2370,19 @@ sqlparser_status_t sqlparser_statement_set_name(
 	const char *value,
 	sqlparser_error_t *out_error)
 {
-	return sqlparser_statement_set_name_spelling(
+	sqlparser_patch_t patch;
+	sqlparser_selector_t selector;
+
+	memset(&selector, 0, sizeof(selector));
+	selector.kind = SQLPARSER_SELECTOR_KIND_NAME;
+	selector.statement_index = statement_index;
+	selector.item_index = name_index;
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.default_sql = value;
+	return sqlparser_selector_apply_single_patch(
 		handle,
-		statement_index,
-		name_index,
-		value,
-		NULL,
+		&selector,
+		&patch,
 		out_error);
 }

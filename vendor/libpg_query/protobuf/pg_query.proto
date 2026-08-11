@@ -1748,6 +1748,7 @@ message SelectStmt
   bool all = 18 [json_name="all"];
   SelectStmt larg = 19 [json_name="larg"];
   SelectStmt rarg = 20 [json_name="rarg"];
+  LimitClauseStyle limit_clause_style = 25 [json_name="limitClauseStyle"];
 }
 
 message SetOperationStmt
@@ -3523,6 +3524,15 @@ enum LimitOption
   LIMIT_OPTION_DEFAULT = 1;
   LIMIT_OPTION_COUNT = 2;
   LIMIT_OPTION_WITH_TIES = 3;
+}
+
+enum LimitClauseStyle
+{
+  LIMIT_CLAUSE_STYLE_DEFAULT = 0;
+  LIMIT_CLAUSE_STYLE_OFFSET_ROWS = 1;
+  LIMIT_CLAUSE_STYLE_LIMIT = 2;
+  LIMIT_CLAUSE_STYLE_FETCH_FIRST = 3;
+  LIMIT_CLAUSE_STYLE_FETCH_NEXT = 4;
 }
 
 enum LockClauseStrength

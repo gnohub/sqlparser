@@ -3497,31 +3497,56 @@ static void deparseSelectStmt(DeparseState *state, SelectStmt *stmt, DeparseNode
 
 	deparseOptSortClause(state, stmt->sortClause, DEPARSE_NODE_CONTEXT_SELECT_SORT_CLAUSE);
 
-	if (stmt->limitCount != NULL)
+	if (stmt->limitClauseStyle == LIMIT_CLAUSE_STYLE_FETCH_FIRST ||
+		stmt->limitClauseStyle == LIMIT_CLAUSE_STYLE_FETCH_NEXT ||
+		stmt->limitOption == LIMIT_OPTION_WITH_TIES)
 	{
-		if (stmt->limitOption == LIMIT_OPTION_COUNT)
-			deparseAppendPartGroup(state, "LIMIT", DEPARSE_PART_INDENT);
-		else if (stmt->limitOption == LIMIT_OPTION_WITH_TIES)
-			deparseAppendStringInfoString(state, "FETCH FIRST ");
+		if (stmt->limitOffset != NULL)
+		{
+			deparseAppendPartGroup(state, "OFFSET", DEPARSE_PART_INDENT);
+			deparseExpr(state, stmt->limitOffset, DEPARSE_NODE_CONTEXT_A_EXPR);
+			deparseAppendStringInfoString(state, " ROWS ");
+		}
 
-		if (IsA(stmt->limitCount, A_Const) && castNode(A_Const, stmt->limitCount)->isnull)
-			deparseAppendStringInfoString(state, "ALL");
-		else if (stmt->limitOption == LIMIT_OPTION_WITH_TIES)
+		if (stmt->limitCount != NULL)
+		{
+			deparseAppendPartGroup(
+				state,
+				stmt->limitClauseStyle == LIMIT_CLAUSE_STYLE_FETCH_NEXT ?
+					"FETCH NEXT" : "FETCH FIRST",
+				DEPARSE_PART_INDENT);
 			deparseCExpr(state, stmt->limitCount);
-		else
-			deparseExpr(state, stmt->limitCount, DEPARSE_NODE_CONTEXT_NONE /* c_expr */);
-
-		deparseAppendStringInfoChar(state, ' ');
-
-		if (stmt->limitOption == LIMIT_OPTION_WITH_TIES)
-			deparseAppendStringInfoString(state, "ROWS WITH TIES ");
+			deparseAppendStringInfoString(
+				state,
+				stmt->limitOption == LIMIT_OPTION_WITH_TIES ?
+					" ROWS WITH TIES " : " ROWS ONLY ");
+		}
 	}
-
-	if (stmt->limitOffset != NULL)
+	else if (stmt->limitClauseStyle == LIMIT_CLAUSE_STYLE_OFFSET_ROWS &&
+			 stmt->limitCount == NULL && stmt->limitOffset != NULL)
 	{
 		deparseAppendPartGroup(state, "OFFSET", DEPARSE_PART_INDENT);
 		deparseExpr(state, stmt->limitOffset, DEPARSE_NODE_CONTEXT_A_EXPR);
-		deparseAppendStringInfoChar(state, ' ');
+		deparseAppendStringInfoString(state, " ROWS ");
+	}
+	else
+	{
+		if (stmt->limitCount != NULL)
+		{
+			deparseAppendPartGroup(state, "LIMIT", DEPARSE_PART_INDENT);
+			if (IsA(stmt->limitCount, A_Const) && castNode(A_Const, stmt->limitCount)->isnull)
+				deparseAppendStringInfoString(state, "ALL");
+			else
+				deparseExpr(state, stmt->limitCount, DEPARSE_NODE_CONTEXT_NONE /* c_expr */);
+			deparseAppendStringInfoChar(state, ' ');
+		}
+
+		if (stmt->limitOffset != NULL)
+		{
+			deparseAppendPartGroup(state, "OFFSET", DEPARSE_PART_INDENT);
+			deparseExpr(state, stmt->limitOffset, DEPARSE_NODE_CONTEXT_A_EXPR);
+			deparseAppendStringInfoChar(state, ' ');
+		}
 	}
 
 	if (list_length(stmt->lockingClause) > 0)

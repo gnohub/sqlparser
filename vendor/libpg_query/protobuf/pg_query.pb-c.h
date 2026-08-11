@@ -1006,6 +1006,14 @@ typedef enum _PgQuery__LimitOption {
   PG_QUERY__LIMIT_OPTION__LIMIT_OPTION_WITH_TIES = 3
     PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(PG_QUERY__LIMIT_OPTION)
 } PgQuery__LimitOption;
+typedef enum _PgQuery__LimitClauseStyle {
+  PG_QUERY__LIMIT_CLAUSE_STYLE__LIMIT_CLAUSE_STYLE_DEFAULT = 0,
+  PG_QUERY__LIMIT_CLAUSE_STYLE__LIMIT_CLAUSE_STYLE_OFFSET_ROWS = 1,
+  PG_QUERY__LIMIT_CLAUSE_STYLE__LIMIT_CLAUSE_STYLE_LIMIT = 2,
+  PG_QUERY__LIMIT_CLAUSE_STYLE__LIMIT_CLAUSE_STYLE_FETCH_FIRST = 3,
+  PG_QUERY__LIMIT_CLAUSE_STYLE__LIMIT_CLAUSE_STYLE_FETCH_NEXT = 4
+    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(PG_QUERY__LIMIT_CLAUSE_STYLE)
+} PgQuery__LimitClauseStyle;
 typedef enum _PgQuery__LockClauseStrength {
   PG_QUERY__LOCK_CLAUSE_STRENGTH__LOCK_CLAUSE_STRENGTH_UNDEFINED = 0,
   PG_QUERY__LOCK_CLAUSE_STRENGTH__LCS_NONE = 1,
@@ -4612,10 +4620,11 @@ struct  PgQuery__SelectStmt
   protobuf_c_boolean all;
   PgQuery__SelectStmt *larg;
   PgQuery__SelectStmt *rarg;
+  PgQuery__LimitClauseStyle limit_clause_style;
 };
 #define PG_QUERY__SELECT_STMT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&pg_query__select_stmt__descriptor) \
-, 0,NULL, NULL, 0,NULL, 0,NULL, NULL, NULL, NULL, 0, 0, 0,NULL, 0, NULL, 0,NULL, 0,NULL, 0,NULL, NULL, NULL, PG_QUERY__LIMIT_OPTION__LIMIT_OPTION_UNDEFINED, 0,NULL, NULL, PG_QUERY__SET_OPERATION__SET_OPERATION_UNDEFINED, 0, NULL, NULL }
+, 0,NULL, NULL, 0,NULL, 0,NULL, NULL, NULL, NULL, 0, 0, 0,NULL, 0, NULL, 0,NULL, 0,NULL, 0,NULL, NULL, NULL, PG_QUERY__LIMIT_OPTION__LIMIT_OPTION_UNDEFINED, 0,NULL, NULL, PG_QUERY__SET_OPERATION__SET_OPERATION_UNDEFINED, 0, NULL, NULL, PG_QUERY__LIMIT_CLAUSE_STYLE__LIMIT_CLAUSE_STYLE_DEFAULT }
 
 
 struct  PgQuery__SetOperationStmt
@@ -12591,6 +12600,7 @@ extern const ProtobufCEnumDescriptor    pg_query__set_op_cmd__descriptor;
 extern const ProtobufCEnumDescriptor    pg_query__set_op_strategy__descriptor;
 extern const ProtobufCEnumDescriptor    pg_query__on_conflict_action__descriptor;
 extern const ProtobufCEnumDescriptor    pg_query__limit_option__descriptor;
+extern const ProtobufCEnumDescriptor    pg_query__limit_clause_style__descriptor;
 extern const ProtobufCEnumDescriptor    pg_query__lock_clause_strength__descriptor;
 extern const ProtobufCEnumDescriptor    pg_query__lock_wait_policy__descriptor;
 extern const ProtobufCEnumDescriptor    pg_query__lock_tuple_mode__descriptor;

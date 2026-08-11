@@ -19,7 +19,8 @@ current AST. The executable case matrix defines the support boundary:
   positional parameters
 - `q'[...]'` strings, `N'...'` national strings, and `nq'[...]'` national q-quoted strings
 - `MINUS` set operator
-- `OFFSET ... FETCH`
+- row-count `OFFSET ... ROWS` and `FETCH FIRST|NEXT ... ROWS ONLY`;
+  `FETCH ... PERCENT` is outside this boundary
 - `ROWNUM` filters
 - `INSERT VALUES`, multi-row `INSERT`, and `INSERT SELECT`, including `UNION`,
   `UNION ALL`, `INTERSECT`, and `MINUS` source queries
@@ -68,6 +69,9 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
 
 - `sqlparser_deparse()` emits the public Oracle form and does not expose
   internal conversion details.
+- A full-AST deparse keeps Oracle `OFFSET ... FETCH` pagination and does not
+  downgrade it to `LIMIT`; local source edits still preserve unchanged
+  pagination text when available.
 - Oracle binds remain in `:name`, `:1`, or `?` form; internal `$1` / `$2`
   names are not emitted.
 - `MINUS` remains visible as the Oracle semantic keyword in View JSON and

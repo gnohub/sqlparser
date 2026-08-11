@@ -1465,6 +1465,7 @@ static int test_update_assignment_list_apply_patch(void)
 	sqlparser_assignment_view_t assignment;
 	char *deparsed_sql;
 	size_t assignment_count;
+	unsigned long generation;
 	int rc;
 
 	handle = NULL;
@@ -1484,52 +1485,560 @@ static int test_update_assignment_list_apply_patch(void)
 		return 1;
 	}
 
-	patches[0].op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+	patches[0].op = SQLPARSER_PATCH_INSERT_ASSIGNMENT;
 	patches[0].selector = "stmt[0].assignment[1]";
-	patches[0].sql = "HOST = :host";
-	patches[1].op = SQLPARSER_PATCH_INSERT_ASSIGNMENT;
-	patches[1].selector = "stmt[0].assignment[2]";
-	patches[1].sql = "PORT = :port";
-	patches[2].op = SQLPARSER_PATCH_DELETE_ASSIGNMENT;
-	patches[2].selector = "stmt[0].assignment[0]";
+	patches[0].name = "\"port\"";
+	patches[0].source_selector = "stmt[0].assignment[0]";
 	patch_list.items = patches;
-	patch_list.count = 3U;
+	patch_list.count = 1U;
 
+	generation = handle->generation;
 	rc = sqlparser_apply_patch(handle, &patch_list, &error);
-	if (expect_status_ok(rc, &error, "update assignment-list patch should succeed") != 0 ||
-	    expect_deparse_reparse_ok(handle, "update assignment-list patch should reparse") != 0) {
+	if (expect_status_ok(rc, &error, "structured assignment patch should succeed") != 0 ||
+	    expect_true(
+		    handle->generation == generation + 1UL,
+		    "structured assignment patch should commit once") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    "UPDATE SERVERS SET IP = :ip, \"port\" = :ip, STATUS = :status WHERE ID = :id",
+		    "structured assignment patch should preserve exact SQL") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 	rc = sqlparser_update_assignment_count(handle, 0U, &assignment_count, &error);
-	if (expect_status_ok(rc, &error, "patched update assignment count should succeed") != 0 ||
-	    expect_true(assignment_count == 2U, "patched update should contain two assignments") != 0) {
+	if (expect_status_ok(rc, &error, "structured assignment count should succeed") != 0 ||
+	    expect_true(assignment_count == 3U, "structured assignment should add one item") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
+	rc = sqlparser_update_assignment(handle, 0U, 1U, &assignment, &error);
+	if (expect_status_ok(rc, &error, "structured assignment should be readable") != 0 ||
+	    expect_true(assignment.column_name != NULL, "structured assignment column should be present") != 0 ||
+	    expect_true(strcmp(assignment.column_name, "port") == 0,
+	                "structured assignment column should match") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_INSERT_ASSIGNMENT;
+	patches[0].selector = "stmt[0].assignment[3]";
+	patches[0].name = "\"COPY\"";
+	patches[0].source_selector = "stmt[0].assignment[0]";
+	patches[0].sql = "COPY = 1";
+	patch_list.count = 1U;
+	generation = handle->generation;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_true(
+		    rc == SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "conflicting cloned assignment sources should be rejected") != 0 ||
+	    expect_true(
+		    handle->generation == generation,
+		    "failed cloned assignment patch should preserve generation") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    "UPDATE SERVERS SET IP = :ip, \"port\" = :ip, STATUS = :status WHERE ID = :id",
+		    "failed cloned assignment patch should preserve SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+	patches[0].selector = "stmt[0].assignment[2]";
+	patches[0].sql = "HOST = :host";
+	patches[1].op = SQLPARSER_PATCH_DELETE_ASSIGNMENT;
+	patches[1].selector = "stmt[0].assignment[0]";
+	patch_list.count = 2U;
+	generation = handle->generation;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "assignment-list cleanup patch should succeed") != 0 ||
+	    expect_true(
+		    handle->generation == generation + 1UL,
+		    "assignment-list cleanup patch should commit once") != 0 ||
+	    expect_deparse_reparse_ok(handle, "assignment-list cleanup patch should reparse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_update_assignment_count(handle, 0U, &assignment_count, &error);
+	if (expect_status_ok(rc, &error, "cleaned assignment count should succeed") != 0 ||
+	    expect_true(assignment_count == 2U, "cleaned update should contain two assignments") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&assignment, 0, sizeof(assignment));
 	rc = sqlparser_update_assignment(handle, 0U, 0U, &assignment, &error);
-	if (expect_status_ok(rc, &error, "patched first update assignment should be readable") != 0 ||
-	    expect_true(assignment.column_name != NULL, "patched first assignment column should be present") != 0 ||
-	    expect_true(strcmp(assignment.column_name, "HOST") == 0 || strcmp(assignment.column_name, "host") == 0,
-	                "patched first assignment column should match") != 0) {
+	if (expect_status_ok(rc, &error, "cloned assignment should remain readable") != 0 ||
+	    expect_true(
+		    assignment.column_name != NULL &&
+		    strcmp(assignment.column_name, "port") == 0,
+		    "cloned assignment should survive source deletion") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
-	if (expect_status_ok(rc, &error, "patched oracle update deparse should succeed") != 0 ||
-	    expect_true(strstr(deparsed_sql, "HOST = :host") != NULL || strstr(deparsed_sql, "host = :host") != NULL,
-	                "patched update should contain HOST bind") != 0 ||
-	    expect_true(strstr(deparsed_sql, "PORT = :port") != NULL || strstr(deparsed_sql, "port = :port") != NULL,
-	                "patched update should contain PORT bind") != 0 ||
-	    expect_true(strstr(deparsed_sql, "IP = :ip") == NULL && strstr(deparsed_sql, "ip = :ip") == NULL,
-	                "patched update should remove IP assignment") != 0 ||
-	    expect_true(strstr(deparsed_sql, "$") == NULL, "patched update should not expose parser binds") != 0) {
+	if (expect_status_ok(rc, &error, "cleaned oracle update deparse should succeed") != 0 ||
+	    expect_true(strstr(deparsed_sql, ":ip") != NULL, "cloned bind should remain present") != 0 ||
+	    expect_true(strstr(deparsed_sql, "$") == NULL, "cleaned update should not expose parser binds") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_typed_literal_replace_apply_patch(void)
+{
+	static const char expected_sql[] =
+		"UPDATE public.users SET name = 'O''Reilly', score = /*keep*/ (11) WHERE id = 2";
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_literal_value_t literals[4];
+	sqlparser_patch_t patches[3];
+	sqlparser_patch_list_t patch_list;
+	sqlparser_parse_options_t options;
+	unsigned long generation;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(literals, 0, sizeof(literals));
+	memset(patches, 0, sizeof(patches));
+	rc = sqlparser_parse(
+		"UPDATE public.users SET name = 'old', score = /*keep*/ (10) WHERE id = 1",
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "typed literal patch parse should succeed") != 0) {
+		return 1;
+	}
+
+	literals[0].kind = SQLPARSER_LITERAL_KIND_STRING;
+	literals[0].string_value = "O'Reilly";
+	literals[1].kind = SQLPARSER_LITERAL_KIND_INTEGER;
+	literals[1].integer_value = 11LL;
+	literals[2].kind = SQLPARSER_LITERAL_KIND_INTEGER;
+	literals[2].integer_value = 2LL;
+	patches[0].op = SQLPARSER_PATCH_REPLACE;
+	patches[0].selector = "stmt[0].literal[0]";
+	patches[0].literal = &literals[0];
+	patches[1].op = SQLPARSER_PATCH_REPLACE;
+	patches[1].selector = "stmt[0].assignment[1]";
+	patches[1].literal = &literals[1];
+	patches[2].op = SQLPARSER_PATCH_REPLACE;
+	patches[2].selector = "stmt[0].where_literal[0]";
+	patches[2].literal = &literals[2];
+	patch_list.items = patches;
+	patch_list.count = 3U;
+	generation = handle->generation;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "typed literal patch should succeed") != 0 ||
+	    expect_true(
+		    handle->generation == generation + 1UL,
+		    "typed literal patch list should commit once") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    expected_sql,
+		    "typed literal patch should preserve exact SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	memset(patches, 0, sizeof(patches));
+	literals[3].kind = SQLPARSER_LITERAL_KIND_INTEGER;
+	literals[3].integer_value = 99LL;
+	patches[0].op = SQLPARSER_PATCH_REPLACE;
+	patches[0].selector = "stmt[0].assignment[0]";
+	patches[0].literal = &literals[3];
+	patches[1].op = SQLPARSER_PATCH_REPLACE;
+	patches[1].selector = "stmt[0].where_literal[0]";
+	patches[1].literal = &literals[3];
+	patches[1].sql = "99";
+	patch_list.count = 2U;
+	generation = handle->generation;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_true(
+		    rc == SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "conflicting typed literal sources should be rejected") != 0 ||
+	    expect_true(
+		    handle->generation == generation,
+		    "failed typed literal patch list should preserve generation") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    expected_sql,
+		    "failed typed literal patch list should preserve SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(patches, 0, sizeof(patches));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	rc = sqlparser_parse_with_options(
+		"MERGE INTO APP.T t USING APP.S s ON (t.ID = s.ID) "
+		"WHEN MATCHED THEN UPDATE SET t.STATUS = :status",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "typed MERGE literal patch parse should succeed") != 0) {
+		return 1;
+	}
+	literals[0].kind = SQLPARSER_LITERAL_KIND_STRING;
+	literals[0].string_value = "active";
+	patches[0].op = SQLPARSER_PATCH_REPLACE;
+	patches[0].selector = "stmt[0].merge_assignment[0][0]";
+	patches[0].literal = &literals[0];
+	patch_list.items = patches;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(rc, &error, "typed MERGE literal patch should succeed") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    "MERGE INTO APP.T t USING APP.S s ON (t.ID = s.ID) "
+		    "WHEN MATCHED THEN UPDATE SET t.STATUS = 'active'",
+		    "typed MERGE literal patch should preserve exact SQL") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_mysql_backslash_literal_wrapper_roundtrip(void)
+{
+	static const char replacement_text[] = "C:\\new\\tab\\tail";
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *reparsed;
+	sqlparser_error_t error;
+	sqlparser_selector_t selector;
+	sqlparser_literal_value_t replacement;
+	sqlparser_literal_view_t literal;
+	char *deparsed_sql;
+	unsigned long generation;
+	int rc;
+
+	handle = NULL;
+	reparsed = NULL;
+	deparsed_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&selector, 0, sizeof(selector));
+	memset(&replacement, 0, sizeof(replacement));
+	memset(&literal, 0, sizeof(literal));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_MYSQL;
+	rc = sqlparser_parse_with_options(
+		"UPDATE users SET note = 'old' WHERE id = 1",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "MySQL backslash literal source should parse") != 0) {
+		return 1;
+	}
+
+	selector.kind = SQLPARSER_SELECTOR_KIND_LITERAL;
+	selector.statement_index = 0U;
+	selector.item_index = 0U;
+	replacement.kind = SQLPARSER_LITERAL_KIND_STRING;
+	replacement.string_value = replacement_text;
+	generation = handle->generation;
+	rc = sqlparser_selector_set_literal(
+		handle, &selector, &replacement, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "MySQL backslash literal wrapper should succeed") != 0 ||
+	    expect_true(
+		    handle->generation == generation + 1UL,
+		    "MySQL backslash literal wrapper should commit once") != 0 ||
+	    expect_status_ok(
+		    sqlparser_selector_literal(handle, &selector, &literal, &error),
+		    &error,
+		    "MySQL backslash literal should remain readable") != 0 ||
+	    expect_true(
+		    literal.string_value != NULL &&
+			    strcmp(literal.string_value, replacement_text) == 0,
+		    "MySQL backslash literal should retain its semantic value") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "MySQL backslash literal should deparse") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_parse_with_options(
+		deparsed_sql, &options, &reparsed, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "MySQL backslash literal deparse should reparse") != 0) {
+		sqlparser_handle_destroy(reparsed);
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&literal, 0, sizeof(literal));
+	rc = sqlparser_selector_literal(
+		reparsed, &selector, &literal, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "reparsed MySQL backslash literal should be readable") != 0 ||
+	    expect_true(
+		    literal.string_value != NULL &&
+			    strcmp(literal.string_value, replacement_text) == 0,
+		    "MySQL backslash literal should survive deparse/reparse") != 0) {
+		sqlparser_handle_destroy(reparsed);
 		sqlparser_string_free(deparsed_sql);
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
 
+	sqlparser_handle_destroy(reparsed);
 	sqlparser_string_free(deparsed_sql);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_selector_mutation_gateway_smoke(void)
+{
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_selector_t selector;
+	sqlparser_literal_value_t replacement;
+	sqlparser_literal_view_t literal;
+	sqlparser_where_literal_view_t where_literal;
+	char *deparsed_sql;
+	char *target_sql;
+	size_t count;
+	unsigned long generation;
+	int rc;
+
+	handle = NULL;
+	deparsed_sql = NULL;
+	target_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&selector, 0, sizeof(selector));
+	memset(&replacement, 0, sizeof(replacement));
+	memset(&where_literal, 0, sizeof(where_literal));
+	rc = sqlparser_parse(
+		"UPDATE users SET a = 1, b = 2 WHERE id = 3",
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "selector UPDATE smoke should parse") != 0) {
+		return 1;
+	}
+	generation = handle->generation;
+	selector.kind = SQLPARSER_SELECTOR_KIND_WHERE_LITERAL;
+	selector.statement_index = 0U;
+	selector.item_index = 0U;
+	replacement.kind = SQLPARSER_LITERAL_KIND_INTEGER;
+	replacement.integer_value = 4LL;
+	rc = sqlparser_selector_set_where_literal(
+		handle, &selector, &replacement, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "selector WHERE literal wrapper should succeed") != 0 ||
+	    expect_status_ok(
+		    sqlparser_selector_where_literal(
+			handle, &selector, &where_literal, &error),
+		    &error,
+		    "selector WHERE literal should remain readable") != 0 ||
+	    expect_true(
+		    where_literal.literal.kind == SQLPARSER_LITERAL_KIND_INTEGER &&
+			    where_literal.literal.integer_value == 4LL,
+		    "selector WHERE literal wrapper should replace the value") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	selector.kind = SQLPARSER_SELECTOR_KIND_WHERE;
+	selector.item_index = 0U;
+	rc = sqlparser_selector_set_where_sql(
+		handle, &selector, "id = 5", &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "selector WHERE SQL wrapper should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_selector_append_where_sql(
+		handle,
+		&selector,
+		SQLPARSER_BOOL_OPERATOR_OR,
+		"active = TRUE",
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "selector WHERE append wrapper should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
+	selector.item_index = 0U;
+	rc = sqlparser_selector_set_update_assignment_full_sql(
+		handle, &selector, "a = 6", &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "selector full assignment wrapper should succeed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	selector.item_index = 1U;
+	rc = sqlparser_selector_delete_update_assignment(
+		handle, &selector, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "selector assignment delete wrapper should succeed") != 0 ||
+	    expect_true(
+		    handle->generation == generation + 5UL,
+		    "selector UPDATE wrappers should each commit once") != 0 ||
+	    expect_status_ok(
+		    sqlparser_update_assignment_count(handle, 0U, &count, &error),
+		    &error,
+		    "selector UPDATE assignment count should succeed") != 0 ||
+	    expect_true(count == 1U, "selector assignment delete should remove one item") != 0 ||
+	    expect_deparse_reparse_ok(
+		    handle,
+		    "selector UPDATE wrapper result should reparse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
+	if (expect_status_ok(rc, &error, "selector UPDATE smoke should deparse") != 0 ||
+	    expect_true(
+		    deparsed_sql != NULL && strstr(deparsed_sql, "a = 6") != NULL &&
+			    strstr(deparsed_sql, "id = 5") != NULL &&
+			    strstr(deparsed_sql, "active = true") != NULL &&
+			    strstr(deparsed_sql, "b = 2") == NULL,
+		    "selector UPDATE wrappers should preserve all mutations") != 0) {
+		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(deparsed_sql);
+	deparsed_sql = NULL;
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	memset(&error, 0, sizeof(error));
+	memset(&selector, 0, sizeof(selector));
+	memset(&replacement, 0, sizeof(replacement));
+	memset(&literal, 0, sizeof(literal));
+	rc = sqlparser_parse(
+		"INSERT INTO users (id, name) VALUES (1, 'old')",
+		&handle,
+		&error);
+	if (expect_status_ok(rc, &error, "selector INSERT smoke should parse") != 0) {
+		return 1;
+	}
+	generation = handle->generation;
+	selector.kind = SQLPARSER_SELECTOR_KIND_INSERT_CELL;
+	selector.statement_index = 0U;
+	selector.row_index = 0U;
+	selector.column_index = 1U;
+	replacement.kind = SQLPARSER_LITERAL_KIND_STRING;
+	replacement.string_value = "new";
+	rc = sqlparser_selector_set_insert_cell_literal(
+		handle, &selector, &replacement, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "selector INSERT literal wrapper should succeed") != 0 ||
+	    expect_true(
+		    handle->generation == generation + 1UL,
+		    "selector INSERT literal wrapper should commit once") != 0 ||
+	    expect_status_ok(
+		    sqlparser_selector_insert_cell_literal(
+			handle, &selector, &literal, &error),
+		    &error,
+		    "selector INSERT literal should remain readable") != 0 ||
+	    expect_true(
+		    literal.string_value != NULL &&
+			    strcmp(literal.string_value, "new") == 0,
+		    "selector INSERT literal wrapper should replace the value") != 0 ||
+	    expect_deparse_reparse_ok(
+		    handle,
+		    "selector INSERT literal wrapper result should reparse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+
+	memset(&error, 0, sizeof(error));
+	memset(&selector, 0, sizeof(selector));
+	rc = sqlparser_parse("SELECT a, b, c FROM users", &handle, &error);
+	if (expect_status_ok(rc, &error, "selector SELECT smoke should parse") != 0) {
+		return 1;
+	}
+	generation = handle->generation;
+	selector.kind = SQLPARSER_SELECTOR_KIND_SELECT_TARGET;
+	selector.statement_index = 0U;
+	selector.item_index = 0U;
+	selector.column_index = 0U;
+	rc = sqlparser_selector_set_select_target_sql(
+		handle, &selector, "x AS first", &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "selector SELECT target wrapper should succeed") != 0 ||
+	    expect_status_ok(
+		    sqlparser_selector_select_target_sql(
+			handle, &selector, &target_sql, &error),
+		    &error,
+		    "selector SELECT target should remain readable") != 0 ||
+	    expect_true(
+		    target_sql != NULL && strcmp(target_sql, "x AS first") == 0,
+		    "selector SELECT target wrapper should replace one target") != 0) {
+		sqlparser_string_free(target_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(target_sql);
+	target_sql = NULL;
+	selector.kind = SQLPARSER_SELECTOR_KIND_SELECT_TARGETS;
+	selector.item_index = 0U;
+	selector.column_index = 0U;
+	rc = sqlparser_selector_set_select_targets_sql(
+		handle, &selector, "y AS second, z AS third", &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "selector SELECT targets wrapper should succeed") != 0 ||
+	    expect_true(
+		    handle->generation == generation + 2UL,
+		    "selector SELECT wrappers should each commit once") != 0 ||
+	    expect_status_ok(
+		    sqlparser_select_target_count(handle, 0U, 0U, &count, &error),
+		    &error,
+		    "selector SELECT target count should succeed") != 0 ||
+	    expect_true(count == 2U, "selector SELECT targets wrapper should replace the list") != 0 ||
+	    expect_deparse_reparse_ok(
+		    handle,
+		    "selector SELECT wrapper result should reparse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
 	sqlparser_handle_destroy(handle);
 	return 0;
 }
@@ -1722,6 +2231,60 @@ static int test_structured_update_assignment_from_assignment_value(void)
 			return 1;
 		}
 		sqlparser_string_free(deparsed_sql);
+		sqlparser_handle_destroy(handle);
+	}
+
+	{
+		static const char *const long_target_parts[] = {
+			"p0", "p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8",
+			"p9", "p10", "p11", "p12", "p13", "p14", "p15", "p16"
+		};
+		static const char long_target_expected_sql[] =
+			"UPDATE users SET "
+			"p0.p1.p2.p3.p4.p5.p6.p7.p8.p9.p10.p11.p12.p13.p14.p15.p16 = "
+			"'13800000000', phone = '13800000000' WHERE id = 1";
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		memset(&insert_selector, 0, sizeof(insert_selector));
+		memset(&source_selector, 0, sizeof(source_selector));
+		memset(&target, 0, sizeof(target));
+		sqlparser_parse_options_default(&options);
+		rc = sqlparser_parse_with_options(
+			"UPDATE users SET phone = '13800000000' WHERE id = 1",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "long structured assignment parse should succeed") != 0) {
+			return 1;
+		}
+		insert_selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
+		insert_selector.statement_index = 0U;
+		insert_selector.item_index = 0U;
+		source_selector = insert_selector;
+		target.parts = long_target_parts;
+		target.part_count =
+			sizeof(long_target_parts) / sizeof(long_target_parts[0]);
+		rc = sqlparser_selector_insert_update_assignment_from_assignment_value(
+			handle,
+			&insert_selector,
+			&target,
+			&source_selector,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "long structured assignment target should succeed") != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    long_target_expected_sql,
+			    "long structured assignment target should remain complete") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
 		sqlparser_handle_destroy(handle);
 	}
 
@@ -9095,6 +9658,7 @@ static int test_generic_name_api_on_ddl(void)
 	sqlparser_handle_t *handle;
 	sqlparser_error_t error;
 	sqlparser_name_view_t name;
+	sqlparser_selector_t selector;
 	char *deparsed_sql;
 	size_t name_count;
 	size_t view_name_index;
@@ -9106,6 +9670,7 @@ static int test_generic_name_api_on_ddl(void)
 	view_name_index = 0U;
 	memset(&error, 0, sizeof(error));
 	memset(&name, 0, sizeof(name));
+	memset(&selector, 0, sizeof(selector));
 
 	rc = sqlparser_parse(sql, &handle, &error);
 	if (expect_status_ok(rc, &error, "ddl name parse should succeed") != 0) {
@@ -9133,7 +9698,11 @@ static int test_generic_name_api_on_ddl(void)
 		return 1;
 	}
 
-	rc = sqlparser_statement_set_name(handle, 0U, view_name_index, "v_orders_archive", &error);
+	selector.kind = SQLPARSER_SELECTOR_KIND_NAME;
+	selector.statement_index = 0U;
+	selector.item_index = view_name_index;
+	rc = sqlparser_selector_set_name(
+		handle, &selector, "v_orders_archive", &error);
 	if (expect_status_ok(rc, &error, "ddl name mutation should succeed") != 0) {
 		sqlparser_handle_destroy(handle);
 		return 1;
@@ -10692,9 +11261,10 @@ static int test_where_clause_sql_rewrite_api(void)
 		sqlparser_handle_destroy(handle);
 		return 1;
 	}
-	rc = sqlparser_selector_append_clause_condition(
+	rc = sqlparser_statement_append_clause_condition(
 		handle,
-		&selector,
+		0U,
+		1U,
 		SQLPARSER_BOOL_OPERATOR_AND,
 		"id = 10",
 		&error);
@@ -27957,7 +28527,13 @@ static int test_select_target_list_patch_api(void)
 		return 1;
 	}
 	generation = handle->generation;
-	rc = sqlparser_select_set_target_sql(handle, 0U, 0U, 1U, "lower(name) AS lower_name, name AS original_name", &error);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = "stmt[0].select_target[0][1]";
+	patch.sql = "lower(name) AS lower_name, name AS original_name";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
 	if (expect_status_ok(rc, &error, "select multi-target replace should succeed") != 0 ||
 	    expect_true(
 		    handle->generation == generation + 1UL,
@@ -28191,7 +28767,7 @@ static int test_select_target_list_patch_api(void)
 	}
 	rc = sqlparser_deparse(handle, &deparsed_sql, &error);
 	if (expect_status_ok(rc, &error, "mysql select target deparse should succeed") != 0 ||
-	    expect_true(strcmp(deparsed_sql, "SELECT `a`, `b,c` FROM abc") == 0,
+	    expect_true(strcmp(deparsed_sql, "SELECT `a`,`b,c` FROM abc") == 0,
 	                "mysql deparse should retain patched backtick targets") != 0 ||
 	    expect_true(strstr(deparsed_sql, "$1") == NULL, "mysql deparse should not expose internal state") != 0) {
 		sqlparser_string_free(deparsed_sql);
@@ -35911,6 +36487,15 @@ int main(void)
 		return 1;
 	}
 	if (test_update_assignment_list_apply_patch() != 0) {
+		return 1;
+	}
+	if (test_typed_literal_replace_apply_patch() != 0) {
+		return 1;
+	}
+	if (test_mysql_backslash_literal_wrapper_roundtrip() != 0) {
+		return 1;
+	}
+	if (test_selector_mutation_gateway_smoke() != 0) {
 		return 1;
 	}
 	if (test_structured_update_assignment_from_assignment_value() != 0) {

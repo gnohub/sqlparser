@@ -6,7 +6,6 @@
 #include "sqlparser_ast_internal.h"
 #include "../dialect/sqlparser_dialect_internal.h"
 #include "../dialect/sqlparser_dialect_multi_insert_internal.h"
-#include "../dialect/sqlparser_dialect_sqlserver_internal.h"
 
 static sqlparser_status_t sqlparser_get_insert_cell_node(
 	sqlparser_handle_t *handle,
@@ -522,7 +521,7 @@ sqlparser_status_t sqlparser_insert_cell_literal(
 		out_error);
 }
 
-sqlparser_status_t sqlparser_insert_set_cell_literal(
+sqlparser_status_t sqlparser_insert_set_cell_literal_in_place(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t row_index,
@@ -533,17 +532,6 @@ sqlparser_status_t sqlparser_insert_set_cell_literal(
 	PgQuery__AConst *literal;
 	sqlparser_status_t status;
 
-	sqlparser_error_clear(out_error);
-	if (handle != NULL &&
-	    sqlparser_dialect_state_has_multi_insert(handle->dialect, handle->dialect_state)) {
-		return sqlparser_dialect_multi_insert_set_cell_literal(
-			handle,
-			statement_index,
-			row_index,
-			column_index,
-			value,
-			out_error);
-	}
 	status = sqlparser_get_insert_cell_a_const(
 		handle,
 		statement_index,
@@ -554,13 +542,72 @@ sqlparser_status_t sqlparser_insert_set_cell_literal(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-
 	status = sqlparser_a_const_set_literal(literal, value, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-
 	return sqlparser_handle_commit_ast(handle, out_error);
+}
+
+sqlparser_status_t sqlparser_insert_set_cell_literal(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t row_index,
+	size_t column_index,
+	const sqlparser_literal_value_t *value,
+	sqlparser_error_t *out_error)
+{
+	char *rendered_sql;
+	sqlparser_patch_t patch;
+	sqlparser_literal_view_t current_literal;
+	sqlparser_selector_t selector;
+	sqlparser_status_t status;
+	int multi_insert;
+
+	multi_insert =
+		handle != NULL &&
+		sqlparser_dialect_state_has_multi_insert(
+			handle->dialect,
+			handle->dialect_state);
+	rendered_sql = NULL;
+	if (multi_insert) {
+		status = sqlparser_dialect_multi_insert_render_literal_value(
+			handle,
+			value,
+			&rendered_sql,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	} else {
+		memset(&current_literal, 0, sizeof(current_literal));
+		status = sqlparser_insert_cell_literal(
+			handle,
+			statement_index,
+			row_index,
+			column_index,
+			&current_literal,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+	memset(&selector, 0, sizeof(selector));
+	selector.kind = SQLPARSER_SELECTOR_KIND_INSERT_CELL;
+	selector.statement_index = statement_index;
+	selector.row_index = row_index;
+	selector.column_index = column_index;
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.sql = rendered_sql;
+	patch.literal = multi_insert ? NULL : value;
+	status = sqlparser_selector_apply_single_patch(
+		handle,
+		&selector,
+		&patch,
+		out_error);
+	free(rendered_sql);
+	return status;
 }
 
 sqlparser_status_t sqlparser_insert_cell_sql(
@@ -679,7 +726,7 @@ sqlparser_status_t sqlparser_insert_set_cell_sql_in_place(
 	replacement = NULL;
 	if (handle != NULL &&
 	    sqlparser_dialect_state_has_multi_insert(handle->dialect, handle->dialect_state)) {
-		return sqlparser_dialect_multi_insert_set_cell_sql(
+		return sqlparser_dialect_multi_insert_set_cell_sql_in_place(
 			handle,
 			statement_index,
 			row_index,
@@ -754,49 +801,22 @@ sqlparser_status_t sqlparser_insert_set_cell_sql(
 	const char *sql_text,
 	sqlparser_error_t *out_error)
 {
-	char selector_text[
-		sizeof("stmt[].insert_cell[][]") + 9U * sizeof(size_t)];
-	sqlparser_patch_list_t patches;
 	sqlparser_patch_t patch;
-	int written;
+	sqlparser_selector_t selector;
 
-	if (handle == NULL || sql_text == NULL || handle->control != NULL ||
-	    !sqlparser_dialect_is_sqlserver_compatible(handle->dialect) ||
-	    !sqlparser_sqlserver_state_has_odbc_function(
-		    handle->dialect_state,
-		    statement_index) ||
-	    (handle->generation != 0UL && !handle->surface_source_complete)) {
-		return sqlparser_insert_set_cell_sql_in_place(
-			handle,
-			statement_index,
-			row_index,
-			column_index,
-			sql_text,
-			out_error);
-	}
-
-	sqlparser_error_clear(out_error);
-	written = snprintf(
-		selector_text,
-		sizeof(selector_text),
-		"stmt[%zu].insert_cell[%zu][%zu]",
-		statement_index,
-		row_index,
-		column_index);
-	if (written < 0 || (size_t)written >= sizeof(selector_text)) {
-		sqlparser_error_set_message(
-			out_error,
-			SQLPARSER_STATUS_RESOURCE_LIMIT,
-			"insert cell selector is too large");
-		return SQLPARSER_STATUS_RESOURCE_LIMIT;
-	}
+	memset(&selector, 0, sizeof(selector));
+	selector.kind = SQLPARSER_SELECTOR_KIND_INSERT_CELL;
+	selector.statement_index = statement_index;
+	selector.row_index = row_index;
+	selector.column_index = column_index;
 	memset(&patch, 0, sizeof(patch));
 	patch.op = SQLPARSER_PATCH_REPLACE;
-	patch.selector = selector_text;
 	patch.sql = sql_text;
-	patches.items = &patch;
-	patches.count = 1U;
-	return sqlparser_apply_patch(handle, &patches, out_error);
+	return sqlparser_selector_apply_single_patch(
+		handle,
+		&selector,
+		&patch,
+		out_error);
 }
 
 sqlparser_status_t sqlparser_insert_set_cell_bind(
@@ -807,32 +827,42 @@ sqlparser_status_t sqlparser_insert_set_cell_bind(
 	const sqlparser_bind_value_t *bind,
 	sqlparser_error_t *out_error)
 {
-	char *bind_sql;
+	char *rendered_sql;
+	sqlparser_patch_t patch;
+	sqlparser_selector_t selector;
 	sqlparser_status_t status;
+	int multi_insert;
 
-	bind_sql = NULL;
-	sqlparser_error_clear(out_error);
-	if (handle != NULL &&
-	    sqlparser_dialect_state_has_multi_insert(handle->dialect, handle->dialect_state)) {
-		return sqlparser_dialect_multi_insert_set_cell_bind(
+	multi_insert =
+		handle != NULL &&
+		sqlparser_dialect_state_has_multi_insert(
+			handle->dialect,
+			handle->dialect_state);
+	rendered_sql = NULL;
+	if (multi_insert) {
+		status = sqlparser_dialect_multi_insert_render_bind_value(
 			handle,
-			statement_index,
-			row_index,
-			column_index,
 			bind,
+			&rendered_sql,
 			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
 	}
-	status = sqlparser_render_bind_value_sql(handle, bind, &bind_sql, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		return status;
-	}
-	status = sqlparser_insert_set_cell_sql(
+	memset(&selector, 0, sizeof(selector));
+	selector.kind = SQLPARSER_SELECTOR_KIND_INSERT_CELL;
+	selector.statement_index = statement_index;
+	selector.row_index = row_index;
+	selector.column_index = column_index;
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.sql = rendered_sql;
+	patch.bind = multi_insert ? NULL : bind;
+	status = sqlparser_selector_apply_single_patch(
 		handle,
-		statement_index,
-		row_index,
-		column_index,
-		bind_sql,
+		&selector,
+		&patch,
 		out_error);
-	free(bind_sql);
+	free(rendered_sql);
 	return status;
 }

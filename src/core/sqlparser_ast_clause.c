@@ -857,7 +857,7 @@ sqlparser_status_t sqlparser_statement_clause_sql(
 	}
 }
 
-sqlparser_status_t sqlparser_statement_set_clause_sql(
+sqlparser_status_t sqlparser_statement_set_clause_sql_in_place(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t clause_index,
@@ -891,9 +891,9 @@ sqlparser_status_t sqlparser_statement_set_clause_sql(
 
 	switch (kind) {
 		case SQLPARSER_CLAUSE_KIND_SELECT_LIST:
-			return sqlparser_select_set_targets_sql(handle, statement_index, internal_index, sql_text, out_error);
+			return sqlparser_select_set_targets_sql_in_place(handle, statement_index, internal_index, sql_text, out_error);
 		case SQLPARSER_CLAUSE_KIND_WHERE:
-			return sqlparser_statement_set_where_sql(handle, statement_index, internal_index, sql_text, out_error);
+			return sqlparser_statement_set_where_sql_in_place(handle, statement_index, internal_index, sql_text, out_error);
 		case SQLPARSER_CLAUSE_KIND_ORDER_BY:
 			return sqlparser_statement_set_order_by_sql(
 				handle, statement_index, select_stmt, sql_text, out_error);
@@ -907,7 +907,31 @@ sqlparser_status_t sqlparser_statement_set_clause_sql(
 	}
 }
 
-sqlparser_status_t sqlparser_statement_append_clause_condition(
+sqlparser_status_t sqlparser_statement_set_clause_sql(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t clause_index,
+	const char *sql_text,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_patch_t patch;
+	sqlparser_selector_t selector;
+
+	memset(&selector, 0, sizeof(selector));
+	selector.kind = SQLPARSER_SELECTOR_KIND_CLAUSE;
+	selector.statement_index = statement_index;
+	selector.item_index = clause_index;
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.sql = sql_text;
+	return sqlparser_selector_apply_single_patch(
+		handle,
+		&selector,
+		&patch,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_statement_append_clause_condition_in_place(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t clause_index,
@@ -941,11 +965,45 @@ sqlparser_status_t sqlparser_statement_append_clause_condition(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "append_condition selector must target a where clause");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	return sqlparser_statement_append_where_sql(
+	return sqlparser_statement_append_where_sql_in_place(
 		handle,
 		statement_index,
 		internal_index,
 		bool_operator,
 		sql_text,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_statement_append_clause_condition(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t clause_index,
+	sqlparser_bool_operator_t bool_operator,
+	const char *sql_text,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_patch_t patch;
+	sqlparser_selector_t selector;
+
+	if (bool_operator != SQLPARSER_BOOL_OPERATOR_AND &&
+	    bool_operator != SQLPARSER_BOOL_OPERATOR_OR) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"bool_operator must be AND or OR");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	memset(&selector, 0, sizeof(selector));
+	selector.kind = SQLPARSER_SELECTOR_KIND_CLAUSE;
+	selector.statement_index = statement_index;
+	selector.item_index = clause_index;
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_APPEND_CONDITION;
+	patch.sql = sql_text;
+	patch.bool_operator = bool_operator;
+	return sqlparser_selector_apply_single_patch(
+		handle,
+		&selector,
+		&patch,
 		out_error);
 }

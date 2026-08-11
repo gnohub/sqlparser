@@ -1,91 +1,98 @@
-# v2.15.3 Release Notes
+# v2.15.4 Release Notes
 
-`v2.15.3` adds structured parsing, Query Graph, and patch support for Oracle
-and Dameng hierarchical queries, together with the verified basic
-`CONNECT BY` form in Vastbase-SQLServer.
+`v2.15.4` routes the existing public mutators through one patch transaction
+path and preserves each dialect's pagination family when a full-AST deparse is
+required.
 
-## Supported Boundary
+## Unified Mutation Transactions
 
-- Oracle supports `START WITH ... CONNECT BY [NOCYCLE] ...`, together with
-  `PRIOR`, `LEVEL`, `CONNECT_BY_ROOT`, `CONNECT_BY_ISLEAF`, and
-  `CONNECT_BY_ISCYCLE`. Oracle mode does not accept the reversed
-  `CONNECT BY ... START WITH ...` clause order.
-- Dameng supports `START WITH`, `CONNECT BY [NOCYCLE]`, `PRIOR`, `LEVEL`, and
-  `CONNECT_BY_ROOT`, and preserves both `START WITH ... CONNECT BY ...` and
-  `CONNECT BY ... START WITH ...` source orders.
-- Vastbase-SQLServer supports only a basic `CONNECT BY` condition.
-  `START WITH`, `PRIOR`, `NOCYCLE`, and `CONNECT_BY_ROOT` are outside this
-  release's supported boundary for that mode.
-- Hierarchical context is local to the current SELECT query block. A nested
-  SELECT does not inherit pseudo-column or `PRIOR` state from its parent, and
-  the delimited identifier `"LEVEL"` retains ordinary field semantics.
+- The 20 statement/index mutators and 20 selector mutators remain available
+  with unchanged signatures and calling conventions.
+- Every convenience mutator now builds an equivalent patch and executes it on
+  the transaction candidate used by `sqlparser_apply_patch()`. Patch dispatch
+  calls only internal in-place primitives, so it does not recurse through
+  public mutators or maintain a second commit path.
+- Each call commits at most once. A failure or effective no-op leaves the
+  original handle, generation, and derived caches unchanged; an actual change
+  increments the generation once. If any item in a patch list fails, the whole
+  list rolls back.
+- Unused direct structured-mutation helpers and the second candidate clone for
+  multi-table INSERT cells were removed.
 
-## Query Graph
+## Pagination Families
 
-- `sqlparser_clause_kind_t` appends
-  `SQLPARSER_CLAUSE_KIND_START_WITH = 11` and
-  `SQLPARSER_CLAUSE_KIND_CONNECT_BY = 12`.
-- `START WITH` and `CONNECT BY` do not create a dedicated hierarchy object.
-  Their fields, values, and predicates remain in `fields[]`, `values[]`, and
-  `predicates[]` with a `start_with` or `connect_by` clause.
-- Hierarchical pseudo-columns use `pseudo: true` in `fields[]`; field
-  occurrences inside the `PRIOR` operand use `prior: true`; and
-  `CONNECT BY NOCYCLE` marks only the clause's root predicate with
-  `nocycle: true`.
-- A `CONNECT_BY_ROOT` target remains an expression. Its underlying field uses
-  the existing `target_path` to record the operator path. No target kind,
-  selector, or dedicated patch type is added.
-- Condition-related occurrences are built in the semantic order `WHERE`,
-  `START WITH`, `CONNECT BY`, `GROUP BY` / `HAVING`, window clauses, and
-  `ORDER BY`. Selectors remain generic AST-descriptor locations and should be
-  treated as opaque paths.
+- Private `SelectStmt` / protobuf state in the vendored parser distinguishes
+  `LIMIT`, `OFFSET ... ROWS`, `FETCH FIRST`, and `FETCH NEXT`. This state is
+  used only for the AST lifecycle and deparse; it adds no public View, Query
+  Graph, or C API field.
+- When a local source edit is available, unchanged regions remain
+  byte-preserved. A full-AST deparse does not guarantee original whitespace,
+  case, or `ROW` / `ROWS` spelling, but it keeps a valid pagination family for
+  the selected dialect.
+- Pagination behavior for the project's nine dialect entry points is:
+  - PostgreSQL / Vastbase-PostgreSQL retain the input `LIMIT` or standard
+    `OFFSET ... FETCH` family.
+  - MySQL / Vastbase-MySQL retain the `LIMIT` family, including existing
+    dialect state for the comma offset/count form.
+  - Oracle / Vastbase-Oracle keep `OFFSET ... ROWS` and
+    `[OFFSET ... ROWS] FETCH FIRST|NEXT ... ROWS ONLY` after a full deparse and
+    no longer emit `LIMIT`.
+  - SQL Server / Vastbase-SQLServer keep `OFFSET ... ROWS` /
+    `OFFSET ... FETCH`; `TOP` continues to use independent dialect state.
+  - Dameng continues to distinguish `TOP`, `LIMIT`, and standard
+    `OFFSET ... FETCH`. A full-AST fallback may canonicalize
+    `LIMIT offset,count` to the semantically equivalent
+    `LIMIT count OFFSET offset`.
+- The Vastbase entries above describe the executable contract of this
+  project's compatibility entry points; they do not infer an official
+  Vastbase server grammar guarantee.
+- This release does not add `FETCH ... PERCENT` semantics. Existing SQL Server
+  and Dameng `TOP ... PERCENT [WITH TIES]` support is unchanged.
 
-## Patch and Deparse
+## Oracle Projection Rewrite Scenario
 
-- Relation, field, value, and SELECT-target changes reuse existing selectors
-  and patch types.
-- Replacements with an exact source interval use local source edits and change
-  only the selected interval. Unchanged hierarchical-clause order, line
-  breaks, whitespace, keyword case, and identifier delimiters remain
-  byte-preserved.
-- Oracle, Dameng, and Vastbase-SQLServer preprocessing preserves source
-  mappings for internal hierarchy keywords. Bind-state rebuilding after a
-  patch traverses both `START WITH` and `CONNECT BY` expressions.
+Replacing a projection in the following Oracle statement no longer allows the
+pagination tail to become `LIMIT 1000 OFFSET 0`:
+
+```sql
+SELECT "APP"."T".*,
+       ROWID "NAVICAT_ROWID"
+FROM "APP"."T"
+OFFSET 0 ROWS FETCH NEXT 1000 ROWS ONLY
+```
+
+- When the projection source interval is reliable, only that interval is
+  replaced and the pagination tail remains byte-preserved.
+- Even if a later mutation makes the local source state incomplete and forces
+  whole-statement AST generation, the output remains in the Oracle
+  `OFFSET ... FETCH ... ONLY` family.
 
 ## API and Compatibility
 
-- `sqlparser_graph_field_t` appends `pseudo` and `prior`, while
-  `sqlparser_graph_predicate_t` appends `nocycle`.
-- This release adds no public functions or resource-ownership rules.
-- The public enum gains values and public structures gain fields. C
-  applications should be rebuilt against the 2.15.3 headers.
-- The shared-library ABI major remains `libsqlparser.so.0`.
-
-## Cases and Documentation
-
-- Oracle adds four final cases and 20 patches covering basic hierarchy,
-  compound conditions, `CONNECT_BY_ROOT`, `NOCYCLE`, and the
-  `CONNECT_BY_ISLEAF` / `CONNECT_BY_ISCYCLE` pseudo-columns.
-- Dameng adds four final cases and 20 patches covering both clause orders,
-  both parent-child field orientations, `CONNECT_BY_ROOT`, and `NOCYCLE`.
-- Vastbase-SQLServer adds one final case and five patches covering basic
-  `CONNECT BY` while keeping ordinary `WHERE` / `ORDER BY` and hierarchy
-  conditions distinct.
-- This release adds nine final cases and 45 independent patches. The nine
-  current fixtures contain 2,781 final cases and 9,034 patches.
+- `sqlparser_apply_patch()` is the recommended mutation gateway. Existing
+  statement, selector, and structured convenience mutation functions remain
+  available and retain their public argument validation. After conversion to a
+  patch, they share atomic rollback, generation updates, and derived-cache
+  invalidation rules.
+- This release adds or removes no public functions, public enum values, public
+  structure fields, or resource-ownership rules. The shared-library ABI major
+  remains `libsqlparser.so.0`.
 
 ## Validation
 
-- Oracle regression completed 248 cases and 849 patches, Dameng completed
-  174 cases and 633 patches, and Vastbase-SQLServer completed 601 cases and
-  1,847 patches, all with zero failures.
-- Original deparse, View JSON, patch deparse, and runner error counts were all
-  zero.
-- Core API tests passed, covering query-block context isolation, dialect
-  boundaries, exact source deparse, post-patch reparse, and failed-patch
-  rollback.
-- Targeted Valgrind checks for the relevant dialect targets exited with
-  `0 bytes in 0 blocks` and zero errors.
+- No fixture cases were added. The nine fixtures still contain 2,781 final
+  cases and 9,034 patches, and the full `make test` suite passed.
+- Targeted full-AST fallback regressions cover PostgreSQL /
+  Vastbase-PostgreSQL `LIMIT`, nested and comma-form MySQL / Vastbase-MySQL
+  `LIMIT`, Oracle / Vastbase-Oracle `FETCH`, SQL Server /
+  Vastbase-SQLServer `OFFSET ... FETCH`, and Dameng `TOP` / `LIMIT` with mixed
+  `FETCH` / `TOP` ownership.
+- Targeted Valgrind checks for the core API, identifier spelling, robustness,
+  and pagination dialect state each reported `0 bytes in 0 blocks` and zero
+  errors.
+- This protobuf generation verification used protoc 25.1 and protoc-gen-c
+  1.5.1. The generator explicitly preserves existing `SelectStmt` field
+  numbers and emits the pagination field, enum, and `String.location`.
 
 Vendored `libpg_query` tag: `17-6.2.2`.
 Vendored Jansson version: `2.15`.

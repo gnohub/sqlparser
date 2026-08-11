@@ -43,6 +43,7 @@
 ## 对外输出规则
 
 - `sqlparser_deparse()` 输出达梦公共形态，不暴露内部转换细节。
+- generation 为 `0` 或局部源码 edit 可用时可保留 `LIMIT offset,count`；完整 AST fallback 可以规范为语义等价的 `LIMIT count OFFSET offset`。
 - bind 保持 `:name`、`:1` 或 `?` 形态，不输出内部 `$1`、`$2`。
 - `MINUS` 在 View JSON 和 deparse 输出中保持达梦语义名称。
 - 层次查询字段、值和谓词进入既有 Query Graph 数组，分别使用 `start_with`、`connect_by` clause、`pseudo` / `prior` 字段标记、CONNECT BY 根谓词的 `nocycle` 标记和 `CONNECT_BY_ROOT` operator `target_path`；不增加独立 hierarchy 对象。

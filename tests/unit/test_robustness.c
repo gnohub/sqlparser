@@ -739,6 +739,22 @@ static int test_statement_api_validation(void)
 	    verify_patch_failure_preserves_handle(insert_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
 		goto fail;
 	}
+	memset(&value, 0, sizeof(value));
+	value.kind = SQLPARSER_LITERAL_KIND_STRING;
+	status = sqlparser_insert_set_cell_literal(
+		insert_handle, 0U, 0U, 0U, &value, &error);
+	if (expect_status(status, SQLPARSER_STATUS_INVALID_ARGUMENT, &error, "normal INSERT string literal requires string_value") != 0 ||
+	    verify_patch_failure_preserves_handle(insert_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+		goto fail;
+	}
+	value.kind = SQLPARSER_LITERAL_KIND_INTEGER;
+	value.integer_value = 2147483648LL;
+	status = sqlparser_insert_set_cell_literal(
+		insert_handle, 0U, 0U, 0U, &value, &error);
+	if (expect_status(status, SQLPARSER_STATUS_UNSUPPORTED, &error, "normal INSERT integer literal remains int32-bounded") != 0 ||
+	    verify_patch_failure_preserves_handle(insert_handle, SQLPARSER_DIALECT_POSTGRESQL) != 0) {
+		goto fail;
+	}
 	status = sqlparser_insert_cell_sql(insert_handle, 0U, 0U, 99U, &sql_text, &error);
 	if (expect_not_ok(status, "out-of-range insert cell SQL should be rejected") != 0 ||
 	    expect_true(sql_text == NULL, "failed insert cell SQL should not return text") != 0) {

@@ -1,5 +1,25 @@
 # 变更记录
 
+## 2.15.4
+
+### 统一改写事务
+
+- 既有 40 个 statement/index 与 selector 便捷改写函数全部保留，并统一通过 `sqlparser_apply_patch()` 的事务候选执行；patch 分派直接调用内部 in-place primitive，不再回调公开改写函数。
+- 每次便捷改写最多提交一次。失败和结果无实际变化的调用不修改原 handle 或 generation；发生实际修改时 generation 仅递增一次，派生缓存按同一规则失效。
+- 删除已无调用的直接结构化改写与 multi-table INSERT cell 二次 clone 路径；改写失败继续由候选 handle 统一回滚。
+
+### 分页语法家族
+
+- 内部 `SelectStmt` 与 protobuf 追加私有分页样式，区分 `LIMIT`、`OFFSET ... ROWS`、`FETCH FIRST` 和 `FETCH NEXT`。完整 AST 反解析不再把 Oracle / Vastbase-Oracle 的 `OFFSET ... ROWS` 或 `[OFFSET ... ROWS] FETCH FIRST|NEXT ... ROWS ONLY` 降级为 `LIMIT`。
+- PostgreSQL / Vastbase-PostgreSQL 保持 `LIMIT` 或标准 `OFFSET ... FETCH` 家族；MySQL / Vastbase-MySQL 保持 `LIMIT` 家族；SQL Server / Vastbase-SQLServer 保持 `OFFSET ... FETCH`，并继续由独立状态恢复 `TOP`；Dameng 继续区分 `TOP`、`LIMIT` 与标准 `OFFSET ... FETCH`。
+- 局部源码 edit 可用时，未修改区域继续逐字节保留。完整 AST fallback 可以把 `ROW` 规范为 `ROWS`，并可以把 Dameng `LIMIT offset,count` 规范为语义等价的 `LIMIT count OFFSET offset`。本版本不新增 `FETCH ... PERCENT` 语义；既有 SQL Server 与 Dameng `TOP ... PERCENT [WITH TIES]` 不受影响。
+
+### API、兼容性与验证
+
+- 本版本不新增或删除公开函数、公开枚举、公开结构体字段或资源所有权规则；`LimitClauseStyle` 仅属于内置 parser AST/protobuf，不进入公共 View 或 Query Graph。
+- 九套 fixture 未新增 case，仍包含 2,781 条 final case 和 9,034 个 patch。全量 `make test` 通过；核心 API、identifier spelling、robustness 与分页方言状态的定向 Valgrind 检查退出时均为 `0 bytes in 0 blocks`，错误数为 0。
+- 内置 `libpg_query` 标签保持 `17-6.2.2`；protobuf 生成脚本显式保留既有字段号，并输出分页字段、枚举与既有 `String.location`。
+
 ## 2.15.3
 
 ### Oracle 与 Dameng 层次查询

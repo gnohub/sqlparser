@@ -1756,6 +1756,9 @@ _outSelectStmt(OUT_TYPE(SelectStmt, SelectStmt) out, const SelectStmt *node)
   WRITE_BOOL_FIELD(all, all, all);
   WRITE_SPECIFIC_NODE_PTR_FIELD(SelectStmt, select_stmt, larg, larg, larg);
   WRITE_SPECIFIC_NODE_PTR_FIELD(SelectStmt, select_stmt, rarg, rarg, rarg);
+  if (node->limitClauseStyle != LIMIT_CLAUSE_STYLE_DEFAULT) {
+    WRITE_ENUM_FIELD(LimitClauseStyle, limit_clause_style, limitClauseStyle, limitClauseStyle);
+  }
 }
 
 static void

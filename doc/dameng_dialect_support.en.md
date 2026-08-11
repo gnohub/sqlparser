@@ -66,6 +66,9 @@ handle:
 
 - `sqlparser_deparse()` emits the public Dameng form and does not expose
   internal conversion details.
+- Generation-`0` output or a local source edit can preserve
+  `LIMIT offset,count`; a full-AST fallback may canonicalize it to the
+  semantically equivalent `LIMIT count OFFSET offset`.
 - Binds remain in `:name`, `:1`, or `?` form; internal `$1` / `$2` names are
   not emitted.
 - `MINUS` remains visible as the Dameng semantic keyword in View JSON and

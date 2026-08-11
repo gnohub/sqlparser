@@ -7,7 +7,17 @@ int sqlparser_dialect_state_has_multi_insert(sqlparser_dialect_t dialect, const 
 const sqlparser_dialect_multi_insert_t *sqlparser_dialect_state_multi_insert(
 	sqlparser_dialect_t dialect,
 	const void *state);
-sqlparser_status_t sqlparser_dialect_multi_insert_set_cell_sql(
+sqlparser_status_t sqlparser_dialect_multi_insert_render_literal_value(
+	const sqlparser_handle_t *handle,
+	const sqlparser_literal_value_t *value,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_dialect_multi_insert_render_bind_value(
+	const sqlparser_handle_t *handle,
+	const sqlparser_bind_value_t *bind,
+	char **out_sql,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_dialect_multi_insert_set_cell_sql_in_place(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t branch_index,
@@ -26,20 +36,6 @@ sqlparser_status_t sqlparser_dialect_multi_insert_condition_sql(
 	size_t statement_index,
 	size_t branch_index,
 	char **out_sql,
-	sqlparser_error_t *out_error);
-sqlparser_status_t sqlparser_dialect_multi_insert_set_cell_literal(
-	sqlparser_handle_t *handle,
-	size_t statement_index,
-	size_t branch_index,
-	size_t column_index,
-	const sqlparser_literal_value_t *value,
-	sqlparser_error_t *out_error);
-sqlparser_status_t sqlparser_dialect_multi_insert_set_cell_bind(
-	sqlparser_handle_t *handle,
-	size_t statement_index,
-	size_t branch_index,
-	size_t column_index,
-	const sqlparser_bind_value_t *bind,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_dialect_multi_insert_insert_column_sql(
 	sqlparser_handle_t *handle,

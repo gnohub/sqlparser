@@ -1266,6 +1266,7 @@ typedef struct SelectLimit
 	Node	   *limitOffset;
 	Node	   *limitCount;
 	LimitOption limitOption;
+	LimitClauseStyle limitClauseStyle;
 } SelectLimit;
 
 /* Private struct for the result of group_clause production */
@@ -47209,7 +47210,8 @@ yyreduce:
 #line 13242 "gram.y"
     {
 					(yyval.selectlimit) = (yyvsp[(1) - (2)].selectlimit);
-					((yyval.selectlimit))->limitOffset = (yyvsp[(2) - (2)].node);
+					((yyval.selectlimit))->limitOffset = (yyvsp[(2) - (2)].selectlimit)->limitOffset;
+					pfree((yyvsp[(2) - (2)].selectlimit));
 				;}
     break;
 
@@ -47217,7 +47219,8 @@ yyreduce:
 #line 13247 "gram.y"
     {
 					(yyval.selectlimit) = (yyvsp[(2) - (2)].selectlimit);
-					((yyval.selectlimit))->limitOffset = (yyvsp[(1) - (2)].node);
+					((yyval.selectlimit))->limitOffset = (yyvsp[(1) - (2)].selectlimit)->limitOffset;
+					pfree((yyvsp[(1) - (2)].selectlimit));
 				;}
     break;
 
@@ -47231,12 +47234,7 @@ yyreduce:
   case 1763:
 #line 13256 "gram.y"
     {
-					SelectLimit *n = (SelectLimit *) palloc(sizeof(SelectLimit));
-
-					n->limitOffset = (yyvsp[(1) - (1)].node);
-					n->limitCount = NULL;
-					n->limitOption = LIMIT_OPTION_COUNT;
-					(yyval.selectlimit) = n;
+					(yyval.selectlimit) = (yyvsp[(1) - (1)].selectlimit);
 				;}
     break;
 
@@ -47258,6 +47256,7 @@ yyreduce:
 					n->limitOffset = NULL;
 					n->limitCount = (yyvsp[(2) - (2)].node);
 					n->limitOption = LIMIT_OPTION_COUNT;
+					n->limitClauseStyle = LIMIT_CLAUSE_STYLE_LIMIT;
 					(yyval.selectlimit) = n;
 				;}
     break;
@@ -47282,6 +47281,7 @@ yyreduce:
 					n->limitOffset = NULL;
 					n->limitCount = (yyvsp[(3) - (5)].node);
 					n->limitOption = LIMIT_OPTION_COUNT;
+					n->limitClauseStyle = (LimitClauseStyle) (yyvsp[(2) - (5)].ival);
 					(yyval.selectlimit) = n;
 				;}
     break;
@@ -47294,6 +47294,7 @@ yyreduce:
 					n->limitOffset = NULL;
 					n->limitCount = (yyvsp[(3) - (6)].node);
 					n->limitOption = LIMIT_OPTION_WITH_TIES;
+					n->limitClauseStyle = (LimitClauseStyle) (yyvsp[(2) - (6)].ival);
 					(yyval.selectlimit) = n;
 				;}
     break;
@@ -47306,6 +47307,7 @@ yyreduce:
 					n->limitOffset = NULL;
 					n->limitCount = makeIntConst(1, -1);
 					n->limitOption = LIMIT_OPTION_COUNT;
+					n->limitClauseStyle = (LimitClauseStyle) (yyvsp[(2) - (4)].ival);
 					(yyval.selectlimit) = n;
 				;}
     break;
@@ -47318,18 +47320,35 @@ yyreduce:
 					n->limitOffset = NULL;
 					n->limitCount = makeIntConst(1, -1);
 					n->limitOption = LIMIT_OPTION_WITH_TIES;
+					n->limitClauseStyle = (LimitClauseStyle) (yyvsp[(2) - (5)].ival);
 					(yyval.selectlimit) = n;
 				;}
     break;
 
   case 1772:
 #line 13337 "gram.y"
-    { (yyval.node) = (yyvsp[(2) - (2)].node); ;}
+    {
+					SelectLimit *n = (SelectLimit *) palloc(sizeof(SelectLimit));
+
+					n->limitOffset = (yyvsp[(2) - (2)].node);
+					n->limitCount = NULL;
+					n->limitOption = LIMIT_OPTION_COUNT;
+					n->limitClauseStyle = LIMIT_CLAUSE_STYLE_DEFAULT;
+					(yyval.selectlimit) = n;
+				;}
     break;
 
   case 1773:
 #line 13340 "gram.y"
-    { (yyval.node) = (yyvsp[(2) - (3)].node); ;}
+    {
+					SelectLimit *n = (SelectLimit *) palloc(sizeof(SelectLimit));
+
+					n->limitOffset = (yyvsp[(2) - (3)].node);
+					n->limitCount = NULL;
+					n->limitOption = LIMIT_OPTION_COUNT;
+					n->limitClauseStyle = LIMIT_CLAUSE_STYLE_OFFSET_ROWS;
+					(yyval.selectlimit) = n;
+				;}
     break;
 
   case 1774:
@@ -47387,12 +47406,12 @@ yyreduce:
 
   case 1784:
 #line 13390 "gram.y"
-    { (yyval.ival) = 0; ;}
+    { (yyval.ival) = LIMIT_CLAUSE_STYLE_FETCH_FIRST; ;}
     break;
 
   case 1785:
 #line 13391 "gram.y"
-    { (yyval.ival) = 0; ;}
+    { (yyval.ival) = LIMIT_CLAUSE_STYLE_FETCH_NEXT; ;}
     break;
 
   case 1786:
@@ -52960,6 +52979,7 @@ yyreduce:
 									(errcode(ERRCODE_SYNTAX_ERROR),
 									 errmsg("WITH TIES cannot be specified without ORDER BY clause")));
 						n->limitOption = (yyvsp[(9) - (10)].selectlimit)->limitOption;
+						n->limitClauseStyle = (yyvsp[(9) - (10)].selectlimit)->limitClauseStyle;
 					}
 					n->lockingClause = (yyvsp[(10) - (10)].list);
 					(yyval.node) = (Node *) n;
@@ -53725,6 +53745,7 @@ insertSelectOptions(SelectStmt *stmt,
 			}
 		}
 		stmt->limitOption = limitClause->limitOption;
+		stmt->limitClauseStyle = limitClause->limitClauseStyle;
 	}
 	if (withClause)
 	{

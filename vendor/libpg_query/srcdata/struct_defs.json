@@ -3486,6 +3486,11 @@
           "comment": "/* right child */"
         },
         {
+          "name": "limitClauseStyle",
+          "c_type": "LimitClauseStyle",
+          "comment": "/* original row-limit clause syntax */"
+        },
+        {
           "comment": "\t/* Eventually add fields for CORRESPONDING spec here */\n"
         }
       ],

@@ -4553,6 +4553,39 @@
         }
       ],
       "comment": "/*\n * LimitOption -\n *\tLIMIT option of query\n *\n * This is needed in both parsenodes.h and plannodes.h, so put it here...\n */\n"
+    },
+    "LimitClauseStyle": {
+      "values": [
+        {
+          "comment": ""
+        },
+        {
+          "name": "LIMIT_CLAUSE_STYLE_DEFAULT",
+          "value": 0,
+          "comment": "/* Default or bare OFFSET syntax */"
+        },
+        {
+          "name": "LIMIT_CLAUSE_STYLE_OFFSET_ROWS",
+          "value": 1,
+          "comment": "/* OFFSET ... ROW[S] */"
+        },
+        {
+          "name": "LIMIT_CLAUSE_STYLE_LIMIT",
+          "value": 2,
+          "comment": "/* LIMIT */"
+        },
+        {
+          "name": "LIMIT_CLAUSE_STYLE_FETCH_FIRST",
+          "value": 3,
+          "comment": "/* FETCH FIRST */"
+        },
+        {
+          "name": "LIMIT_CLAUSE_STYLE_FETCH_NEXT",
+          "value": 4,
+          "comment": "/* FETCH NEXT */"
+        }
+      ],
+      "comment": ""
     }
   },
   "nodes/params": {

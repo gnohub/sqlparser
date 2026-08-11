@@ -109,7 +109,10 @@ static void sqlparser_dialect_ast_surface_visit_select(
 		select->n_sort_clause,
 		statement_index,
 		visitor);
-	if (select->limit_count != NULL && visitor->select_limit != NULL) {
+	if (select->limit_count != NULL &&
+	    select->limit_clause_style ==
+		    PG_QUERY__LIMIT_CLAUSE_STYLE__LIMIT_CLAUSE_STYLE_LIMIT &&
+	    visitor->select_limit != NULL) {
 		visitor->select_limit(select, statement_index, visitor->context);
 	}
 	sqlparser_dialect_ast_surface_visit_message(
@@ -597,6 +600,8 @@ sqlparser_status_t sqlparser_dialect_ast_surface_clone(
 		}
 		if (status == SQLPARSER_STATUS_OK &&
 		    source_select->limit_count != NULL &&
+		    source_select->limit_clause_style ==
+			    PG_QUERY__LIMIT_CLAUSE_STYLE__LIMIT_CLAUSE_STYLE_LIMIT &&
 		    visitor->select_limit != NULL) {
 			status = visitor->select_limit(
 				source_select,

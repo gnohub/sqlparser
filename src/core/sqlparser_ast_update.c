@@ -631,6 +631,59 @@ sqlparser_status_t sqlparser_assignment_set_literal_by_selector(
 	return sqlparser_handle_commit_ast(handle, out_error);
 }
 
+sqlparser_status_t sqlparser_assignment_value_node_index_by_selector(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	size_t *out_node_index,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_assignment_list_ref_t list;
+	PgQuery__ResTarget *target;
+	PgQuery__Node *value_node;
+	sqlparser_status_t status;
+
+	if (out_node_index == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"out_node_index must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_node_index = 0U;
+	status = sqlparser_get_assignment_list_ref(
+		handle,
+		selector,
+		&list,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_get_assignment_res_target(
+		&list,
+		list.assignment_index,
+		&target,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	value_node = sqlparser_unwrap_grouping_node(target->val);
+	if (value_node == NULL ||
+	    (value_node->node_case != PG_QUERY__NODE__NODE_A_CONST &&
+	     value_node->node_case != PG_QUERY__NODE__NODE_PARAM_REF)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"update assignment value is not a literal or bind");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	return sqlparser_find_statement_node_index_by_node(
+		handle,
+		selector->statement_index,
+		value_node,
+		out_node_index,
+		out_error);
+}
+
 sqlparser_status_t sqlparser_update_set_assignment_literal(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
@@ -638,13 +691,21 @@ sqlparser_status_t sqlparser_update_set_assignment_literal(
 	const sqlparser_literal_value_t *value,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_patch_t patch;
 	sqlparser_selector_t selector;
 
 	memset(&selector, 0, sizeof(selector));
 	selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
 	selector.statement_index = statement_index;
 	selector.item_index = assignment_index;
-	return sqlparser_assignment_set_literal_by_selector(handle, &selector, value, out_error);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.literal = value;
+	return sqlparser_selector_apply_single_patch(
+		handle,
+		&selector,
+		&patch,
+		out_error);
 }
 
 sqlparser_status_t sqlparser_assignment_sql_by_selector(
@@ -821,13 +882,21 @@ sqlparser_status_t sqlparser_update_set_assignment_sql(
 	const char *sql_text,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_patch_t patch;
 	sqlparser_selector_t selector;
 
 	memset(&selector, 0, sizeof(selector));
 	selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
 	selector.statement_index = statement_index;
 	selector.item_index = assignment_index;
-	return sqlparser_assignment_set_sql_by_selector(handle, &selector, sql_text, out_error);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.sql = sql_text;
+	return sqlparser_selector_apply_single_patch(
+		handle,
+		&selector,
+		&patch,
+		out_error);
 }
 
 sqlparser_status_t sqlparser_assignment_insert_sql_by_selector(
@@ -946,13 +1015,21 @@ sqlparser_status_t sqlparser_update_insert_assignment_sql(
 	const char *assignment_sql,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_patch_t patch;
 	sqlparser_selector_t selector;
 
 	memset(&selector, 0, sizeof(selector));
 	selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
 	selector.statement_index = statement_index;
 	selector.item_index = assignment_index;
-	return sqlparser_assignment_insert_sql_by_selector(handle, &selector, assignment_sql, out_error);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_INSERT_ASSIGNMENT;
+	patch.sql = assignment_sql;
+	return sqlparser_selector_apply_single_patch(
+		handle,
+		&selector,
+		&patch,
+		out_error);
 }
 
 sqlparser_status_t sqlparser_assignment_insert_from_assignment_value_by_selector(
@@ -1150,33 +1227,6 @@ sqlparser_status_t sqlparser_assignment_insert_from_assignment_value_by_selector
 	return SQLPARSER_STATUS_OK;
 }
 
-sqlparser_status_t sqlparser_update_insert_assignment_from_assignment_value(
-	sqlparser_handle_t *handle,
-	size_t statement_index,
-	size_t insert_assignment_index,
-	const sqlparser_identifier_path_view_t *target,
-	size_t source_assignment_index,
-	sqlparser_error_t *out_error)
-{
-	sqlparser_selector_t insert_selector;
-	sqlparser_selector_t source_selector;
-
-	memset(&insert_selector, 0, sizeof(insert_selector));
-	insert_selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
-	insert_selector.statement_index = statement_index;
-	insert_selector.item_index = insert_assignment_index;
-	memset(&source_selector, 0, sizeof(source_selector));
-	source_selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
-	source_selector.statement_index = statement_index;
-	source_selector.item_index = source_assignment_index;
-	return sqlparser_assignment_insert_from_assignment_value_by_selector(
-		handle,
-		&insert_selector,
-		target,
-		&source_selector,
-		out_error);
-}
-
 sqlparser_status_t sqlparser_assignment_delete_by_selector(
 	sqlparser_handle_t *handle,
 	const sqlparser_selector_t *selector,
@@ -1247,13 +1297,20 @@ sqlparser_status_t sqlparser_update_delete_assignment(
 	size_t assignment_index,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_patch_t patch;
 	sqlparser_selector_t selector;
 
 	memset(&selector, 0, sizeof(selector));
 	selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
 	selector.statement_index = statement_index;
 	selector.item_index = assignment_index;
-	return sqlparser_assignment_delete_by_selector(handle, &selector, out_error);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_DELETE_ASSIGNMENT;
+	return sqlparser_selector_apply_single_patch(
+		handle,
+		&selector,
+		&patch,
+		out_error);
 }
 
 sqlparser_status_t sqlparser_assignment_set_full_sql_by_selector(
@@ -1384,13 +1441,21 @@ sqlparser_status_t sqlparser_update_set_assignment_full_sql(
 	const char *assignment_sql,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_patch_t patch;
 	sqlparser_selector_t selector;
 
 	memset(&selector, 0, sizeof(selector));
 	selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
 	selector.statement_index = statement_index;
 	selector.item_index = assignment_index;
-	return sqlparser_assignment_set_full_sql_by_selector(handle, &selector, assignment_sql, out_error);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+	patch.sql = assignment_sql;
+	return sqlparser_selector_apply_single_patch(
+		handle,
+		&selector,
+		&patch,
+		out_error);
 }
 
 static sqlparser_status_t sqlparser_render_update_assignment_nodes_sql(

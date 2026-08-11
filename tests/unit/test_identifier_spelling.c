@@ -106,6 +106,28 @@ static int statement_find_name_index(
 	return 0;
 }
 
+static int deparse_matches_exact(
+	sqlparser_handle_t *handle,
+	const char *expected,
+	sqlparser_error_t *error)
+{
+	char *sql;
+	int matches;
+
+	sql = NULL;
+	matches =
+		sqlparser_deparse(handle, &sql, error) == SQLPARSER_STATUS_OK &&
+		sql != NULL && strcmp(sql, expected) == 0;
+	if (!matches) {
+		fprintf(
+			stderr,
+			"FAIL: exact SQL mismatch: %s\n",
+			sql != NULL ? sql : error->message);
+	}
+	sqlparser_string_free(sql);
+	return matches;
+}
+
 static int standard_parse_has_spelling(
 	const char *sql,
 	const char *expected,
@@ -1229,6 +1251,7 @@ static int removed_select_target_paths_preserve_mutation_provenance(void)
 	sqlparser_handle_t *handle;
 	sqlparser_error_t error;
 	sqlparser_limits_t limits;
+	sqlparser_selector_t target_selector;
 	char *deparsed;
 	size_t case_index;
 	size_t spelling_count;
@@ -1237,6 +1260,11 @@ static int removed_select_target_paths_preserve_mutation_provenance(void)
 	sqlparser_status_t status;
 	unsigned long generation;
 
+	memset(&target_selector, 0, sizeof(target_selector));
+	target_selector.kind = SQLPARSER_SELECTOR_KIND_SELECT_TARGET;
+	target_selector.statement_index = 0U;
+	target_selector.item_index = 0U;
+	target_selector.column_index = 0U;
 	for (case_index = 0U;
 	     case_index < sizeof(cases) / sizeof(cases[0]);
 	     case_index++) {
@@ -1286,11 +1314,9 @@ static int removed_select_target_paths_preserve_mutation_provenance(void)
 					&error);
 			} else if (cases[case_index].action ==
 				   REMOVE_SELECT_TARGET_WITH_COLUMNS) {
-				status = sqlparser_select_replace_target_with_columns(
+				status = sqlparser_selector_replace_select_target_with_columns(
 					handle,
-					0U,
-					0U,
-					0U,
+					&target_selector,
 					&structured_column,
 					1U,
 					&error);
@@ -1615,6 +1641,287 @@ static int relation_group_preserves_source_spelling(void)
 				deparsed != NULL ?
 					deparsed :
 					error.message);
+			sqlparser_string_free(deparsed);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_string_free(deparsed);
+		sqlparser_handle_destroy(handle);
+	}
+	return 1;
+}
+
+static int selector_mutation_adapters_preserve_source_provenance(void)
+{
+	static const char relation_sql[] =
+		"SELECT * FROM \"OldSchema\".\"OldTable\"";
+	static const char swapped_relation_sql[] =
+		"SELECT * FROM \"OldTable\".\"OldSchema\"";
+	static const char qualified_relation_sql[] =
+		"SELECT \"OldSchema\".\"OldTable\".id "
+		"FROM \"OldSchema\".\"OldTable\"";
+	static const char swapped_qualified_relation_sql[] =
+		"SELECT \"OldTable\".\"OldSchema\".id "
+		"FROM \"OldTable\".\"OldSchema\"";
+	static const char name_sql[] =
+		"SELECT Foo AS \"OldAlias\" FROM \"MixedTable\"";
+	static const char renamed_name_sql[] =
+		"SELECT Foo AS \"SELECT\" FROM \"MixedTable\"";
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_relation_view_t relation;
+	sqlparser_selector_t selector;
+	size_t name_index;
+	size_t spelling_count;
+	unsigned long generation;
+	sqlparser_status_t status;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&relation, 0, sizeof(relation));
+	memset(&selector, 0, sizeof(selector));
+	selector.kind = SQLPARSER_SELECTOR_KIND_RELATION;
+	selector.statement_index = 0U;
+	selector.item_index = 0U;
+	if (sqlparser_parse(relation_sql, &handle, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    sqlparser_statement_relation(
+		    handle,
+		    0U,
+		    0U,
+		    &relation,
+		    &error) != SQLPARSER_STATUS_OK) {
+		fprintf(
+			stderr,
+			"FAIL: selector relation provenance setup failed: %s\n",
+			error.message);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	generation = handle->generation;
+	spelling_count = handle->identifier_spelling_count;
+	status = sqlparser_selector_set_relation_name(
+		handle,
+		&selector,
+		relation.schema_name,
+		relation.table_name,
+		&error);
+	if (status != SQLPARSER_STATUS_OK ||
+	    handle->generation != generation ||
+	    handle->identifier_mutation_count != 0U ||
+	    handle->identifier_spelling_count != spelling_count ||
+	    !deparse_matches_exact(handle, relation_sql, &error)) {
+		fprintf(
+			stderr,
+			"FAIL: selector relation no-op changed provenance\n");
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	status = sqlparser_selector_set_relation_name(
+		handle,
+		&selector,
+		relation.table_name,
+		relation.schema_name,
+		&error);
+	if (status != SQLPARSER_STATUS_OK ||
+	    handle->identifier_mutation_count != 3U ||
+	    !deparse_matches_exact(
+		    handle,
+		    swapped_relation_sql,
+		    &error)) {
+		fprintf(
+			stderr,
+			"FAIL: selector relation borrowed spelling was lost\n");
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	status = sqlparser_selector_set_relation_name(
+		handle,
+		&selector,
+		"OldSchema",
+		"OldTable",
+		&error);
+	if (status != SQLPARSER_STATUS_OK ||
+	    handle->identifier_mutation_count != 0U ||
+	    !deparse_matches_exact(handle, relation_sql, &error)) {
+		fprintf(
+			stderr,
+			"FAIL: selector relation restore retained %lu provenance entries\n",
+			(unsigned long)handle->identifier_mutation_count);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	memset(&relation, 0, sizeof(relation));
+	if (sqlparser_parse(qualified_relation_sql, &handle, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    sqlparser_statement_relation(
+		    handle,
+		    0U,
+		    0U,
+		    &relation,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    sqlparser_selector_set_relation_name(
+		    handle,
+		    &selector,
+		    relation.table_name,
+		    relation.schema_name,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    !deparse_matches_exact(
+		    handle,
+		    swapped_qualified_relation_sql,
+		    &error)) {
+		fprintf(
+			stderr,
+			"FAIL: selector relation qualifier propagation failed: %s\n",
+			error.message);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	name_index = (size_t)-1;
+	memset(&error, 0, sizeof(error));
+	memset(&selector, 0, sizeof(selector));
+	if (sqlparser_parse(name_sql, &handle, &error) !=
+		    SQLPARSER_STATUS_OK ||
+	    !statement_find_name_index(
+		    handle,
+		    0U,
+		    "ResTarget",
+		    "name",
+		    "OldAlias",
+		    &name_index)) {
+		fprintf(
+			stderr,
+			"FAIL: selector name provenance setup failed: %s\n",
+			error.message);
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	selector.kind = SQLPARSER_SELECTOR_KIND_NAME;
+	selector.statement_index = 0U;
+	selector.item_index = name_index;
+	generation = handle->generation;
+	spelling_count = handle->identifier_spelling_count;
+	status = sqlparser_selector_set_name(
+		handle,
+		&selector,
+		"OldAlias",
+		&error);
+	if (status != SQLPARSER_STATUS_OK ||
+	    handle->generation != generation ||
+	    handle->identifier_mutation_count != 0U ||
+	    handle->identifier_spelling_count != spelling_count ||
+	    !deparse_matches_exact(handle, name_sql, &error)) {
+		fprintf(
+			stderr,
+			"FAIL: selector name no-op changed provenance\n");
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	status = sqlparser_selector_set_name(
+		handle,
+		&selector,
+		"SELECT",
+		&error);
+	if (status != SQLPARSER_STATUS_OK ||
+	    handle->identifier_mutation_count != 1U ||
+	    !deparse_matches_exact(handle, renamed_name_sql, &error)) {
+		fprintf(
+			stderr,
+			"FAIL: selector name keyword mutation lost provenance\n");
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	status = sqlparser_selector_set_name(
+		handle,
+		&selector,
+		"OldAlias",
+		&error);
+	if (status != SQLPARSER_STATUS_OK ||
+	    handle->identifier_mutation_count != 0U ||
+	    !deparse_matches_exact(handle, name_sql, &error)) {
+		fprintf(
+			stderr,
+			"FAIL: selector name restore retained provenance\n");
+		sqlparser_handle_destroy(handle);
+		return 0;
+	}
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+static int structured_target_identifier_rendering_is_exact(void)
+{
+	static const char *plain_name[] = {"plain_name"};
+	static const char *keyword_name[] = {"select"};
+	static const char *sysdate_name[] = {"sysdate"};
+	static const sqlparser_identifier_path_view_t columns[] = {
+		{plain_name, 1U},
+		{keyword_name, 1U},
+		{sysdate_name, 1U}
+	};
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *expected_sql;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			"SELECT plain_name, `select`, `sysdate` FROM t"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"SELECT plain_name, \"select\", \"sysdate\" FROM t"
+		}
+	};
+	sqlparser_handle_t *handle;
+	sqlparser_parse_options_t options;
+	sqlparser_error_t error;
+	sqlparser_selector_t selector;
+	char *deparsed;
+	size_t case_index;
+
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		handle = NULL;
+		deparsed = NULL;
+		memset(&error, 0, sizeof(error));
+		memset(&selector, 0, sizeof(selector));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[case_index].dialect;
+		selector.kind = SQLPARSER_SELECTOR_KIND_SELECT_TARGET;
+		selector.statement_index = 0U;
+		selector.item_index = 0U;
+		selector.column_index = 0U;
+		if (sqlparser_parse_with_options(
+			    "SELECT * FROM t",
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_selector_replace_select_target_with_columns(
+			    handle,
+			    &selector,
+			    columns,
+			    sizeof(columns) / sizeof(columns[0]),
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_validate_ast_identifier_spelling(
+			    handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_deparse(handle, &deparsed, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    deparsed == NULL ||
+		    strcmp(deparsed, cases[case_index].expected_sql) != 0) {
+			fprintf(
+				stderr,
+				"FAIL: structured target identifier case %lu was not exact: %s\n",
+				(unsigned long)case_index,
+				deparsed != NULL ? deparsed : error.message);
 			sqlparser_string_free(deparsed);
 			sqlparser_handle_destroy(handle);
 			return 0;
@@ -2216,8 +2523,7 @@ static int patched_identifier_owner_spelling_preserved(void)
 			"(VALUES (1, 2) UNION ALL "
 			"SELECT \"FromId\", ToId FROM SearchGraph) "
 			"SEARCH DEPTH FIRST BY \"FromId\", ToId SET SearchSeq "
-			"CYCLE \"FromId\", ToId SET IsCycle "
-			"TO true DEFAULT false USING PathCols "
+			"CYCLE \"FromId\", ToId SET IsCycle USING PathCols "
 			"SELECT * FROM SearchGraph) FROM base_table"
 		},
 		{
@@ -2227,7 +2533,7 @@ static int patched_identifier_owner_spelling_preserved(void)
 			"RecAlias(\"MixedCol\" int, PlainCol text))",
 			"SELECT (SELECT * FROM json_to_record("
 			"'{\"MixedCol\":1,\"PlainCol\":\"x\"}') "
-			"RecAlias (\"MixedCol\" int, PlainCol text)) "
+			"RecAlias(\"MixedCol\" int, PlainCol text)) "
 			"FROM base_table"
 		},
 		{
@@ -4753,6 +5059,8 @@ int main(void)
 	    !failed_commit_preserves_mutation_provenance() ||
 	    !removed_select_target_paths_preserve_mutation_provenance() ||
 	    !relation_group_preserves_source_spelling() ||
+	    !selector_mutation_adapters_preserve_source_provenance() ||
+	    !structured_target_identifier_rendering_is_exact() ||
 	    !patched_select_identifier_spelling_preserved() ||
 	    !patched_nested_identifier_spelling_preserved() ||
 	    !patched_alias_locations_preserve_spelling() ||

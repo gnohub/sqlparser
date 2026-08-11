@@ -967,6 +967,19 @@ _enumToStringLimitOption(LimitOption value) {
 }
 
 static const char*
+_enumToStringLimitClauseStyle(LimitClauseStyle value) {
+  switch(value) {
+    case LIMIT_CLAUSE_STYLE_DEFAULT: return "LIMIT_CLAUSE_STYLE_DEFAULT";
+    case LIMIT_CLAUSE_STYLE_OFFSET_ROWS: return "LIMIT_CLAUSE_STYLE_OFFSET_ROWS";
+    case LIMIT_CLAUSE_STYLE_LIMIT: return "LIMIT_CLAUSE_STYLE_LIMIT";
+    case LIMIT_CLAUSE_STYLE_FETCH_FIRST: return "LIMIT_CLAUSE_STYLE_FETCH_FIRST";
+    case LIMIT_CLAUSE_STYLE_FETCH_NEXT: return "LIMIT_CLAUSE_STYLE_FETCH_NEXT";
+  }
+  Assert(false);
+  return NULL;
+}
+
+static const char*
 _enumToStringLockClauseStrength(LockClauseStrength value) {
   switch(value) {
     case LCS_NONE: return "LCS_NONE";
@@ -1961,6 +1974,19 @@ _enumToIntLimitOption(LimitOption value) {
     case LIMIT_OPTION_DEFAULT: return 1;
     case LIMIT_OPTION_COUNT: return 2;
     case LIMIT_OPTION_WITH_TIES: return 3;
+  }
+  Assert(false);
+  return -1;
+}
+
+static int
+_enumToIntLimitClauseStyle(LimitClauseStyle value) {
+  switch(value) {
+    case LIMIT_CLAUSE_STYLE_DEFAULT: return 0;
+    case LIMIT_CLAUSE_STYLE_OFFSET_ROWS: return 1;
+    case LIMIT_CLAUSE_STYLE_LIMIT: return 2;
+    case LIMIT_CLAUSE_STYLE_FETCH_FIRST: return 3;
+    case LIMIT_CLAUSE_STYLE_FETCH_NEXT: return 4;
   }
   Assert(false);
   return -1;
@@ -2964,6 +2990,19 @@ _intToEnumLimitOption(int value) {
   }
   Assert(false);
   return LIMIT_OPTION_DEFAULT;
+}
+
+static LimitClauseStyle
+_intToEnumLimitClauseStyle(int value) {
+  switch(value) {
+    case 0: return LIMIT_CLAUSE_STYLE_DEFAULT;
+    case 1: return LIMIT_CLAUSE_STYLE_OFFSET_ROWS;
+    case 2: return LIMIT_CLAUSE_STYLE_LIMIT;
+    case 3: return LIMIT_CLAUSE_STYLE_FETCH_FIRST;
+    case 4: return LIMIT_CLAUSE_STYLE_FETCH_NEXT;
+  }
+  Assert(false);
+  return LIMIT_CLAUSE_STYLE_DEFAULT;
 }
 
 static LockClauseStrength

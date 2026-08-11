@@ -26,6 +26,20 @@ typedef struct {
 	const char *old_after_relation_expected_sql;
 } sqlparser_fragment_relation_case_t;
 
+typedef struct {
+	const char *name;
+	sqlparser_dialect_t dialects[2];
+	size_t dialect_count;
+	const char *input_sql;
+	const char *target_selector;
+	const char *target_sql;
+	const char *local_sql;
+	size_t relation_index;
+	const char *new_schema;
+	const char *new_table;
+	const char *fallback_sql;
+} sqlparser_pagination_fallback_case_t;
+
 static int sqlparser_surface_verify_closure(
 	const sqlparser_handle_t *patched,
 	const char *sql,
@@ -891,6 +905,562 @@ static int sqlparser_surface_test_fragment_relation_patch_orders(void)
 	return failed;
 }
 
+static int sqlparser_surface_expect_exact_state(
+	const sqlparser_handle_t *handle,
+	const char *expected_sql,
+	const char *name,
+	const char *step)
+{
+	sqlparser_error_t error;
+	char scenario_name[160];
+	char *sql;
+	sqlparser_status_t status;
+	int failed;
+
+	sql = NULL;
+	failed = 0;
+	memset(&error, 0, sizeof(error));
+	(void)snprintf(
+		scenario_name,
+		sizeof(scenario_name),
+		"%s %s",
+		name,
+		step);
+	status = sqlparser_deparse(handle, &sql, &error);
+	if (status != SQLPARSER_STATUS_OK || sql == NULL ||
+	    strcmp(sql, expected_sql) != 0) {
+		fprintf(
+			stderr,
+			"FAIL: %s\nexpected: %s\nactual:   %s (%s)\n",
+			scenario_name,
+			expected_sql,
+			sql != NULL ? sql : "<null>",
+			error.message);
+		failed = 1;
+	} else {
+		failed = sqlparser_surface_verify_closure(
+			handle, sql, scenario_name);
+	}
+	if (sql != NULL) {
+		sqlparser_string_free(sql);
+	}
+	return failed;
+}
+
+static int sqlparser_surface_test_multi_insert_public_wrappers(
+	sqlparser_dialect_t dialect,
+	const char *name)
+{
+	static const char input_sql[] =
+		"INSERT ALL "
+		"INTO t1 (c1, c2, c3) VALUES (source_id, 2, 3) "
+		"INTO t2 (c1, c2, c3) VALUES (4, 5, 6) "
+		"SELECT 1 FROM dual";
+	static const char *const expected_sql[] = {
+		"INSERT ALL INTO t1 (c1, c2, c3) VALUES (2147483648, 2, 3) "
+		"INTO t2 (c1, c2, c3) VALUES (4, 5, 6) SELECT 1 FROM dual",
+		"INSERT ALL INTO t1 (c1, c2, c3) VALUES (2147483648, LOWER('indexed'), 3) "
+		"INTO t2 (c1, c2, c3) VALUES (4, 5, 6) SELECT 1 FROM dual",
+		"INSERT ALL INTO t1 (c1, c2, c3) VALUES (2147483648, LOWER('indexed'), :indexed_name) "
+		"INTO t2 (c1, c2, c3) VALUES (4, 5, 6) SELECT 1 FROM dual",
+		"INSERT ALL INTO t1 (c1, c2, c3) VALUES (2147483648, LOWER('indexed'), :indexed_name) "
+		"INTO t2 (c1, c2, c3) VALUES ('', 5, 6) SELECT 1 FROM dual",
+		"INSERT ALL INTO t1 (c1, c2, c3) VALUES (2147483648, LOWER('indexed'), :indexed_name) "
+		"INTO t2 (c1, c2, c3) VALUES ('', UPPER('selector'), 6) SELECT 1 FROM dual",
+		"INSERT ALL INTO t1 (c1, c2, c3) VALUES (2147483648, LOWER('indexed'), :indexed_name) "
+		"INTO t2 (c1, c2, c3) VALUES ('', UPPER('selector'), :7) SELECT 1 FROM dual"
+	};
+	sqlparser_bind_value_t bind;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_literal_value_t literal;
+	sqlparser_parse_options_t options;
+	sqlparser_selector_t selector;
+	char long_bind_key[SQLPARSER_BIND_TEXT_CAPACITY];
+	sqlparser_status_t status;
+	int failed;
+
+	handle = NULL;
+	failed = 0;
+	memset(&error, 0, sizeof(error));
+	memset(&selector, 0, sizeof(selector));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	status = sqlparser_parse_with_options(
+		input_sql, &options, &handle, &error);
+	if (status != SQLPARSER_STATUS_OK) {
+		fprintf(stderr, "FAIL: %s multi-insert parse: %s\n", name, error.message);
+		return 1;
+	}
+
+	memset(&literal, 0, sizeof(literal));
+	literal.kind = SQLPARSER_LITERAL_KIND_INTEGER;
+	literal.integer_value = 2147483648LL;
+	status = sqlparser_insert_set_cell_literal(
+		handle, 0U, 0U, 0U, &literal, &error);
+	if (status != SQLPARSER_STATUS_OK) {
+		fprintf(stderr, "FAIL: %s indexed multi-insert literal: %s\n", name, error.message);
+		failed = 1;
+		goto cleanup;
+	}
+	if (sqlparser_surface_expect_exact_state(
+		    handle, expected_sql[0], name, "indexed literal") != 0) {
+		failed = 1;
+		goto cleanup;
+	}
+
+	status = sqlparser_insert_set_cell_sql(
+		handle, 0U, 0U, 1U, "LOWER('indexed')", &error);
+	if (status != SQLPARSER_STATUS_OK) {
+		fprintf(stderr, "FAIL: %s indexed multi-insert SQL: %s\n", name, error.message);
+		failed = 1;
+		goto cleanup;
+	}
+	if (sqlparser_surface_expect_exact_state(
+		    handle, expected_sql[1], name, "indexed SQL") != 0) {
+		failed = 1;
+		goto cleanup;
+	}
+
+	memset(&bind, 0, sizeof(bind));
+	bind.kind = SQLPARSER_BIND_KIND_NAMED;
+	bind.key = "indexed_name";
+	status = sqlparser_insert_set_cell_bind(
+		handle, 0U, 0U, 2U, &bind, &error);
+	if (status != SQLPARSER_STATUS_OK) {
+		fprintf(stderr, "FAIL: %s indexed multi-insert bind: %s\n", name, error.message);
+		failed = 1;
+		goto cleanup;
+	}
+	if (sqlparser_surface_expect_exact_state(
+		    handle, expected_sql[2], name, "indexed bind") != 0) {
+		failed = 1;
+		goto cleanup;
+	}
+
+	selector.kind = SQLPARSER_SELECTOR_KIND_INSERT_CELL;
+	selector.statement_index = 0U;
+	selector.row_index = 1U;
+	selector.column_index = 0U;
+	memset(&literal, 0, sizeof(literal));
+	literal.kind = SQLPARSER_LITERAL_KIND_STRING;
+	status = sqlparser_selector_set_insert_cell_literal(
+		handle, &selector, &literal, &error);
+	if (status != SQLPARSER_STATUS_OK) {
+		fprintf(stderr, "FAIL: %s selector multi-insert literal: %s\n", name, error.message);
+		failed = 1;
+		goto cleanup;
+	}
+	if (sqlparser_surface_expect_exact_state(
+		    handle, expected_sql[3], name, "selector literal") != 0) {
+		failed = 1;
+		goto cleanup;
+	}
+
+	selector.column_index = 1U;
+	status = sqlparser_selector_set_insert_cell_sql(
+		handle, &selector, "UPPER('selector')", &error);
+	if (status != SQLPARSER_STATUS_OK) {
+		fprintf(stderr, "FAIL: %s selector multi-insert SQL: %s\n", name, error.message);
+		failed = 1;
+		goto cleanup;
+	}
+	if (sqlparser_surface_expect_exact_state(
+		    handle, expected_sql[4], name, "selector SQL") != 0) {
+		failed = 1;
+		goto cleanup;
+	}
+
+	selector.column_index = 2U;
+	bind.kind = SQLPARSER_BIND_KIND_POSITIONAL;
+	bind.key = "7";
+	status = sqlparser_selector_set_insert_cell_bind(
+		handle, &selector, &bind, &error);
+	if (status != SQLPARSER_STATUS_OK) {
+		fprintf(stderr, "FAIL: %s selector multi-insert bind: %s\n", name, error.message);
+		failed = 1;
+		goto cleanup;
+	}
+	if (sqlparser_surface_expect_exact_state(
+		    handle, expected_sql[5], name, "selector bind") != 0) {
+		failed = 1;
+		goto cleanup;
+	}
+
+	memset(long_bind_key, 'a', sizeof(long_bind_key) - 1U);
+	long_bind_key[sizeof(long_bind_key) - 1U] = '\0';
+	bind.kind = SQLPARSER_BIND_KIND_NAMED;
+	bind.key = long_bind_key;
+	status = sqlparser_insert_set_cell_bind(
+		handle, 0U, 0U, 2U, &bind, &error);
+	if (status != SQLPARSER_STATUS_RESOURCE_LIMIT) {
+		fprintf(stderr, "FAIL: %s multi-insert long bind boundary: %s\n", name, error.message);
+		failed = 1;
+		goto cleanup;
+	}
+	if (sqlparser_surface_expect_exact_state(
+		    handle, expected_sql[5], name, "long bind rollback") != 0) {
+		failed = 1;
+		goto cleanup;
+	}
+	status = sqlparser_insert_set_cell_sql(
+		handle, 0U, 0U, 1U, "", &error);
+	if (status != SQLPARSER_STATUS_INVALID_ARGUMENT) {
+		fprintf(stderr, "FAIL: %s empty multi-insert SQL boundary: %s\n", name, error.message);
+		failed = 1;
+		goto cleanup;
+	}
+	if (sqlparser_surface_expect_exact_state(
+		    handle, expected_sql[5], name, "empty SQL rollback") != 0) {
+		failed = 1;
+		goto cleanup;
+	}
+
+	selector.column_index = 1U;
+	status = sqlparser_selector_set_insert_cell_sql(
+		handle, &selector, NULL, &error);
+	if (status != SQLPARSER_STATUS_INVALID_ARGUMENT) {
+		fprintf(stderr, "FAIL: %s failed multi-insert SQL was not atomic\n", name);
+		failed = 1;
+		goto cleanup;
+	}
+	if (sqlparser_surface_expect_exact_state(
+		    handle, expected_sql[5], name, "invalid SQL rollback") != 0) {
+		failed = 1;
+	}
+
+cleanup:
+	sqlparser_handle_destroy(handle);
+	return failed;
+}
+
+static int sqlparser_surface_test_oracle_pagination_target_wrapper(void)
+{
+	static const char input_sql[] =
+		"SELECT \"APP\".\"T\".*, ROWID \"NAVICAT_ROWID\" FROM \"APP\".\"T\" "
+		"OFFSET 0 ROWS FETCH NEXT 1000 ROWS ONLY";
+	static const char expected_sql[] =
+		"SELECT \"ABC\", ROWID \"NAVICAT_ROWID\" FROM \"APP\".\"T\" "
+		"OFFSET 0 ROWS FETCH NEXT 1000 ROWS ONLY";
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	sqlparser_parse_options_t options;
+	sqlparser_selector_t selector;
+	char *sql;
+	sqlparser_status_t status;
+	int failed;
+
+	handle = NULL;
+	sql = NULL;
+	failed = 0;
+	memset(&error, 0, sizeof(error));
+	memset(&selector, 0, sizeof(selector));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	status = sqlparser_parse_with_options(
+		input_sql, &options, &handle, &error);
+	if (status == SQLPARSER_STATUS_OK) {
+		selector.kind = SQLPARSER_SELECTOR_KIND_SELECT_TARGET;
+		selector.statement_index = 0U;
+		selector.item_index = 0U;
+		selector.column_index = 0U;
+		status = sqlparser_selector_set_select_target_sql(
+			handle, &selector, "\"ABC\"", &error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_deparse(handle, &sql, &error);
+	}
+	if (status != SQLPARSER_STATUS_OK || sql == NULL ||
+	    strcmp(sql, expected_sql) != 0) {
+		fprintf(
+			stderr,
+			"FAIL: Oracle projection pagination local edit\n"
+			"expected: %s\nactual:   %s (%s)\n",
+			expected_sql,
+			sql != NULL ? sql : "<null>",
+			error.message);
+		failed = 1;
+	}
+	sqlparser_string_free(sql);
+	sqlparser_handle_destroy(handle);
+	return failed;
+}
+
+static int sqlparser_surface_run_pagination_fallback(
+	const sqlparser_pagination_fallback_case_t *test_case,
+	sqlparser_dialect_t dialect)
+{
+	sqlparser_error_t error;
+	sqlparser_handle_t *fresh;
+	sqlparser_handle_t *handle;
+	sqlparser_parse_options_t options;
+	char *fresh_sql;
+	char *sql;
+	sqlparser_status_t status;
+	int failed;
+
+	handle = NULL;
+	fresh = NULL;
+	sql = NULL;
+	fresh_sql = NULL;
+	failed = 0;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = dialect;
+	if (sqlparser_surface_apply(
+		    dialect,
+		    test_case->input_sql,
+		    test_case->target_selector,
+		    test_case->target_sql,
+		    &handle,
+		    &sql) != 0) {
+		fprintf(stderr, "FAIL: %s %s local target edit\n",
+			sqlparser_dialect_name(dialect), test_case->name);
+		failed = 1;
+		goto cleanup;
+	}
+	if (strcmp(sql, test_case->local_sql) != 0) {
+		fprintf(
+			stderr,
+			"FAIL: %s %s local target edit\n"
+			"expected: %s\nactual:   %s (%s)\n",
+			sqlparser_dialect_name(dialect),
+			test_case->name,
+			test_case->local_sql,
+			sql,
+			error.message);
+		failed = 1;
+		goto cleanup;
+	}
+	sqlparser_string_free(sql);
+	sql = NULL;
+
+	status = sqlparser_statement_set_relation_name(
+		handle,
+		0U,
+		test_case->relation_index,
+		test_case->new_schema,
+		test_case->new_table,
+		&error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_deparse(handle, &sql, &error);
+	}
+	if (status != SQLPARSER_STATUS_OK || sql == NULL ||
+	    strcmp(sql, test_case->fallback_sql) != 0) {
+		fprintf(
+			stderr,
+			"FAIL: %s %s AST fallback\n"
+			"expected: %s\nactual:   %s (%s)\n",
+			sqlparser_dialect_name(dialect),
+			test_case->name,
+			test_case->fallback_sql,
+			sql != NULL ? sql : "<null>",
+			error.message);
+		failed = 1;
+		goto cleanup;
+	}
+
+	memset(&error, 0, sizeof(error));
+	status = sqlparser_parse_with_options(
+		sql, &options, &fresh, &error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_deparse(fresh, &fresh_sql, &error);
+	}
+	if (status != SQLPARSER_STATUS_OK || fresh_sql == NULL ||
+	    strcmp(sql, fresh_sql) != 0) {
+		fprintf(
+			stderr,
+			"FAIL: %s %s fresh pagination closure: %s (%s)\n",
+			sqlparser_dialect_name(dialect),
+			test_case->name,
+			fresh_sql != NULL ? fresh_sql : "<null>",
+			error.message);
+		failed = 1;
+	}
+
+cleanup:
+	sqlparser_string_free(fresh_sql);
+	sqlparser_string_free(sql);
+	sqlparser_handle_destroy(fresh);
+	sqlparser_handle_destroy(handle);
+	return failed;
+}
+
+static int sqlparser_surface_test_pagination_fallbacks(void)
+{
+	static const char postgresql_input[] =
+		"SELECT id FROM public.table_a UNION ALL SELECT id FROM public.table_b "
+		"ORDER BY id LIMIT $1 OFFSET $2";
+	static const char postgresql_local[] =
+		"SELECT id FROM public.table_a UNION ALL SELECT patched_id FROM public.table_b "
+		"ORDER BY id LIMIT $1 OFFSET $2";
+	static const char postgresql_fallback[] =
+		"SELECT id FROM public.table_a UNION ALL SELECT patched_id FROM public.table_b_new "
+		"ORDER BY id LIMIT $1 OFFSET $2";
+	static const char mysql_input[] =
+		"SELECT d.id FROM (SELECT id FROM inner_table ORDER BY id LIMIT ?, ?) AS d "
+		"ORDER BY d.id LIMIT ? OFFSET ?";
+	static const char mysql_local[] =
+		"SELECT d.id AS patched_id FROM (SELECT id FROM inner_table ORDER BY id LIMIT ?, ?) AS d "
+		"ORDER BY d.id LIMIT ? OFFSET ?";
+	static const char mysql_fallback[] =
+		"SELECT d.id AS patched_id FROM (SELECT id FROM inner_table_new ORDER BY id LIMIT ?, ?) AS d "
+		"ORDER BY d.id LIMIT ? OFFSET ?";
+	static const char oracle_input[] =
+		"SELECT d.id FROM (SELECT id FROM inner_table ORDER BY id "
+		"FETCH FIRST :inner_limit ROWS ONLY) d UNION ALL SELECT id FROM archive_table "
+		"ORDER BY id OFFSET :outer_offset ROWS FETCH NEXT :outer_limit ROWS ONLY";
+	static const char oracle_local[] =
+		"SELECT d.id AS patched_id FROM (SELECT id FROM inner_table ORDER BY id "
+		"FETCH FIRST :inner_limit ROWS ONLY) d UNION ALL SELECT id FROM archive_table "
+		"ORDER BY id OFFSET :outer_offset ROWS FETCH NEXT :outer_limit ROWS ONLY";
+	static const char oracle_fallback[] =
+		"SELECT d.id AS patched_id FROM (SELECT id FROM inner_table_new ORDER BY id "
+		"FETCH FIRST :inner_limit ROWS ONLY) d UNION ALL SELECT id FROM archive_table "
+		"ORDER BY id OFFSET :outer_offset ROWS FETCH NEXT :outer_limit ROWS ONLY";
+	static const char sqlserver_input[] =
+		"SELECT d.id, 'LIMIT' AS note FROM (SELECT id FROM dbo.inner_table ORDER BY id "
+		"OFFSET @inner_offset ROWS) AS d "
+		"ORDER BY d.id OFFSET @outer_offset ROWS FETCH NEXT @outer_limit ROWS ONLY";
+	static const char sqlserver_local[] =
+		"SELECT d.id AS patched_id, 'LIMIT' AS note FROM (SELECT id FROM dbo.inner_table ORDER BY id "
+		"OFFSET @inner_offset ROWS) AS d "
+		"ORDER BY d.id OFFSET @outer_offset ROWS FETCH NEXT @outer_limit ROWS ONLY";
+	static const char sqlserver_fallback[] =
+		"SELECT d.id AS patched_id, 'LIMIT' AS note FROM (SELECT id FROM dbo.inner_table_new ORDER BY id "
+		"OFFSET @inner_offset ROWS) AS d "
+		"ORDER BY d.id OFFSET @outer_offset ROWS FETCH NEXT @outer_limit ROWS ONLY";
+	static const char dameng_input[] =
+		"SELECT d.id FROM (SELECT TOP 2 id FROM inner_table ORDER BY id) d "
+		"ORDER BY d.id LIMIT 2, 3";
+	static const char dameng_local[] =
+		"SELECT d.id AS patched_id FROM (SELECT TOP 2 id FROM inner_table ORDER BY id) d "
+		"ORDER BY d.id LIMIT 2, 3";
+	static const char dameng_fallback[] =
+		"SELECT d.id AS patched_id FROM (SELECT TOP 2 id FROM inner_table_new ORDER BY id) d "
+		"ORDER BY d.id LIMIT 3 OFFSET 2";
+	static const char dameng_mixed_input[] =
+		"SELECT (SELECT id FROM fetch_table ORDER BY id FETCH FIRST 1 ROWS ONLY) AS fetched_id, "
+		"(SELECT TOP 2 id FROM top_table ORDER BY id) AS top_id FROM dual";
+	static const char dameng_mixed_local[] =
+		"SELECT 0 AS fetched_id, (SELECT TOP 2 id FROM top_table ORDER BY id) AS top_id FROM dual";
+	static const char dameng_mixed_fallback[] =
+		"SELECT 0 AS fetched_id, (SELECT TOP 2 id FROM top_table_new ORDER BY id) AS top_id FROM dual";
+	static const sqlparser_pagination_fallback_case_t cases[] = {
+		{
+			"set LIMIT fallback",
+			{
+				SQLPARSER_DIALECT_POSTGRESQL,
+				SQLPARSER_DIALECT_VASTBASE_POSTGRESQL
+			},
+			2U,
+			postgresql_input,
+			"stmt[0].select_target[1][0]",
+			"patched_id",
+			postgresql_local,
+			1U,
+			"public",
+			"table_b_new",
+			postgresql_fallback
+		},
+		{
+			"nested LIMIT fallback",
+			{
+				SQLPARSER_DIALECT_MYSQL,
+				SQLPARSER_DIALECT_VASTBASE_MYSQL
+			},
+			2U,
+			mysql_input,
+			"stmt[0].select_target[0][0]",
+			"d.id AS patched_id",
+			mysql_local,
+			0U,
+			NULL,
+			"inner_table_new",
+			mysql_fallback
+		},
+		{
+			"nested set FETCH fallback",
+			{
+				SQLPARSER_DIALECT_ORACLE,
+				SQLPARSER_DIALECT_VASTBASE_ORACLE
+			},
+			2U,
+			oracle_input,
+			"stmt[0].select_target[0][0]",
+			"d.id AS patched_id",
+			oracle_local,
+			0U,
+			NULL,
+			"inner_table_new",
+			oracle_fallback
+		},
+		{
+			"nested OFFSET FETCH fallback",
+			{
+				SQLPARSER_DIALECT_SQLSERVER,
+				SQLPARSER_DIALECT_VASTBASE_SQLSERVER
+			},
+			2U,
+			sqlserver_input,
+			"stmt[0].select_target[0][0]",
+			"d.id AS patched_id",
+			sqlserver_local,
+			0U,
+			"dbo",
+			"inner_table_new",
+			sqlserver_fallback
+		},
+		{
+			"nested TOP comma LIMIT fallback",
+			{
+				SQLPARSER_DIALECT_DAMENG,
+				SQLPARSER_DIALECT_DAMENG
+			},
+			1U,
+			dameng_input,
+			"stmt[0].select_target[0][0]",
+			"d.id AS patched_id",
+			dameng_local,
+			0U,
+			NULL,
+			"inner_table_new",
+			dameng_fallback
+		},
+		{
+			"FETCH before TOP owner fallback",
+			{
+				SQLPARSER_DIALECT_DAMENG,
+				SQLPARSER_DIALECT_DAMENG
+			},
+			1U,
+			dameng_mixed_input,
+			"stmt[0].select_target[0][0]",
+			"0 AS fetched_id",
+			dameng_mixed_local,
+			0U,
+			NULL,
+			"top_table_new",
+			dameng_mixed_fallback
+		}
+	};
+	size_t dialect_index;
+	size_t index;
+	int failed;
+
+	failed = 0;
+	for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); index++) {
+		for (dialect_index = 0U;
+		     dialect_index < cases[index].dialect_count;
+		     dialect_index++) {
+			failed |= sqlparser_surface_run_pagination_fallback(
+				&cases[index],
+				cases[index].dialects[dialect_index]);
+		}
+	}
+	return failed;
+}
+
 int main(void)
 {
 	static const sqlparser_surface_case_t cases[] = {
@@ -1389,6 +1959,12 @@ int main(void)
 		SQLPARSER_DIALECT_ORACLE, "Oracle");
 	failed |= sqlparser_surface_test_dblink_prune(
 		SQLPARSER_DIALECT_DAMENG, "Dameng");
+	failed |= sqlparser_surface_test_multi_insert_public_wrappers(
+		SQLPARSER_DIALECT_ORACLE, "Oracle");
+	failed |= sqlparser_surface_test_multi_insert_public_wrappers(
+		SQLPARSER_DIALECT_DAMENG, "Dameng");
+	failed |= sqlparser_surface_test_oracle_pagination_target_wrapper();
+	failed |= sqlparser_surface_test_pagination_fallbacks();
 	failed |= sqlparser_surface_test_fragment_relation_patch_orders();
 	return failed != 0;
 }

@@ -30655,7 +30655,7 @@ const ProtobufCMessageDescriptor pg_query__merge_stmt__descriptor =
   (ProtobufCMessageInit) pg_query__merge_stmt__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[24] =
+static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[25] =
 {
   {
     "distinct_clause",
@@ -30945,6 +30945,18 @@ static const ProtobufCFieldDescriptor pg_query__select_stmt__field_descriptors[2
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "limit_clause_style",
+    25,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_ENUM,
+    0,   /* quantifier_offset */
+    offsetof(PgQuery__SelectStmt, limit_clause_style),
+    &pg_query__limit_clause_style__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned pg_query__select_stmt__field_indices_by_name[] = {
   17,   /* field[17] = all */
@@ -30958,6 +30970,7 @@ static const unsigned pg_query__select_stmt__field_indices_by_name[] = {
   7,   /* field[7] = having_clause */
   1,   /* field[1] = into_clause */
   18,   /* field[18] = larg */
+  24,   /* field[24] = limit_clause_style */
   12,   /* field[12] = limit_count */
   11,   /* field[11] = limit_offset */
   13,   /* field[13] = limit_option */
@@ -30975,7 +30988,7 @@ static const unsigned pg_query__select_stmt__field_indices_by_name[] = {
 static const ProtobufCIntRange pg_query__select_stmt__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 24 }
+  { 0, 25 }
 };
 const ProtobufCMessageDescriptor pg_query__select_stmt__descriptor =
 {
@@ -30985,7 +30998,7 @@ const ProtobufCMessageDescriptor pg_query__select_stmt__descriptor =
   "PgQuery__SelectStmt",
   "pg_query",
   sizeof(PgQuery__SelectStmt),
-  24,
+  25,
   pg_query__select_stmt__field_descriptors,
   pg_query__select_stmt__field_indices_by_name,
   1,  pg_query__select_stmt__number_ranges,
@@ -43842,6 +43855,40 @@ const ProtobufCEnumDescriptor pg_query__limit_option__descriptor =
   pg_query__limit_option__enum_values_by_name,
   1,
   pg_query__limit_option__value_ranges,
+  NULL,NULL,NULL,NULL   /* reserved[1234] */
+};
+static const ProtobufCEnumValue pg_query__limit_clause_style__enum_values_by_number[5] =
+{
+  { "LIMIT_CLAUSE_STYLE_DEFAULT", "PG_QUERY__LIMIT_CLAUSE_STYLE__LIMIT_CLAUSE_STYLE_DEFAULT", 0 },
+  { "LIMIT_CLAUSE_STYLE_OFFSET_ROWS", "PG_QUERY__LIMIT_CLAUSE_STYLE__LIMIT_CLAUSE_STYLE_OFFSET_ROWS", 1 },
+  { "LIMIT_CLAUSE_STYLE_LIMIT", "PG_QUERY__LIMIT_CLAUSE_STYLE__LIMIT_CLAUSE_STYLE_LIMIT", 2 },
+  { "LIMIT_CLAUSE_STYLE_FETCH_FIRST", "PG_QUERY__LIMIT_CLAUSE_STYLE__LIMIT_CLAUSE_STYLE_FETCH_FIRST", 3 },
+  { "LIMIT_CLAUSE_STYLE_FETCH_NEXT", "PG_QUERY__LIMIT_CLAUSE_STYLE__LIMIT_CLAUSE_STYLE_FETCH_NEXT", 4 },
+};
+static const ProtobufCIntRange pg_query__limit_clause_style__value_ranges[] = {
+{0, 0},{0, 5}
+};
+static const ProtobufCEnumValueIndex pg_query__limit_clause_style__enum_values_by_name[5] =
+{
+  { "LIMIT_CLAUSE_STYLE_DEFAULT", 0 },
+  { "LIMIT_CLAUSE_STYLE_FETCH_FIRST", 3 },
+  { "LIMIT_CLAUSE_STYLE_FETCH_NEXT", 4 },
+  { "LIMIT_CLAUSE_STYLE_LIMIT", 2 },
+  { "LIMIT_CLAUSE_STYLE_OFFSET_ROWS", 1 },
+};
+const ProtobufCEnumDescriptor pg_query__limit_clause_style__descriptor =
+{
+  PROTOBUF_C__ENUM_DESCRIPTOR_MAGIC,
+  "pg_query.LimitClauseStyle",
+  "LimitClauseStyle",
+  "PgQuery__LimitClauseStyle",
+  "pg_query",
+  5,
+  pg_query__limit_clause_style__enum_values_by_number,
+  5,
+  pg_query__limit_clause_style__enum_values_by_name,
+  1,
+  pg_query__limit_clause_style__value_ranges,
   NULL,NULL,NULL,NULL   /* reserved[1234] */
 };
 static const ProtobufCEnumValue pg_query__lock_clause_strength__enum_values_by_number[6] =

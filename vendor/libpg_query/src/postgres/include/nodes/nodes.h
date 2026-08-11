@@ -432,4 +432,13 @@ typedef enum LimitOption
 	LIMIT_OPTION_WITH_TIES,		/* FETCH FIRST... WITH TIES */
 } LimitOption;
 
+typedef enum LimitClauseStyle
+{
+	LIMIT_CLAUSE_STYLE_DEFAULT,	/* Default or bare OFFSET syntax */
+	LIMIT_CLAUSE_STYLE_OFFSET_ROWS,	/* OFFSET ... ROW[S] */
+	LIMIT_CLAUSE_STYLE_LIMIT,	/* LIMIT */
+	LIMIT_CLAUSE_STYLE_FETCH_FIRST,	/* FETCH FIRST */
+	LIMIT_CLAUSE_STYLE_FETCH_NEXT,	/* FETCH NEXT */
+} LimitClauseStyle;
+
 #endif							/* NODES_H */

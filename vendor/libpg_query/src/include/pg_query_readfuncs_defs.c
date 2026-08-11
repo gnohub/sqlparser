@@ -2027,6 +2027,7 @@ _readSelectStmt(OUT_TYPE(SelectStmt, SelectStmt) msg)
   READ_BOOL_FIELD(all, all, all);
   READ_SPECIFIC_NODE_PTR_FIELD(SelectStmt, select_stmt, larg, larg, larg);
   READ_SPECIFIC_NODE_PTR_FIELD(SelectStmt, select_stmt, rarg, rarg, rarg);
+  READ_ENUM_FIELD(LimitClauseStyle, limit_clause_style, limitClauseStyle, limitClauseStyle);
   return node;
 }
 

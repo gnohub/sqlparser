@@ -500,7 +500,7 @@ sqlparser_status_t sqlparser_find_statement_literal_node(
 		out_error);
 }
 
-static sqlparser_status_t sqlparser_replace_statement_literal(
+sqlparser_status_t sqlparser_statement_set_literal_in_place(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
 	size_t literal_index,
@@ -670,13 +670,20 @@ sqlparser_status_t sqlparser_statement_where_set_literal(
 	const sqlparser_literal_value_t *value,
 	sqlparser_error_t *out_error)
 {
-	sqlparser_error_clear(out_error);
-	return sqlparser_replace_statement_literal(
+	sqlparser_patch_t patch;
+	sqlparser_selector_t selector;
+
+	memset(&selector, 0, sizeof(selector));
+	selector.kind = SQLPARSER_SELECTOR_KIND_WHERE_LITERAL;
+	selector.statement_index = statement_index;
+	selector.item_index = literal_index;
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.literal = value;
+	return sqlparser_selector_apply_single_patch(
 		handle,
-		statement_index,
-		literal_index,
-		1,
-		value,
+		&selector,
+		&patch,
 		out_error);
 }
 
@@ -769,12 +776,19 @@ sqlparser_status_t sqlparser_statement_set_literal(
 	const sqlparser_literal_value_t *value,
 	sqlparser_error_t *out_error)
 {
-	sqlparser_error_clear(out_error);
-	return sqlparser_replace_statement_literal(
+	sqlparser_patch_t patch;
+	sqlparser_selector_t selector;
+
+	memset(&selector, 0, sizeof(selector));
+	selector.kind = SQLPARSER_SELECTOR_KIND_LITERAL;
+	selector.statement_index = statement_index;
+	selector.item_index = literal_index;
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.literal = value;
+	return sqlparser_selector_apply_single_patch(
 		handle,
-		statement_index,
-		literal_index,
-		0,
-		value,
+		&selector,
+		&patch,
 		out_error);
 }

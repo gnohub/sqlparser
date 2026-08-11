@@ -3485,6 +3485,42 @@ inline bool LimitOption_Parse(absl::string_view name, LimitOption* value) {
   return ::google::protobuf::internal::ParseNamedEnum<LimitOption>(
       LimitOption_descriptor(), name, value);
 }
+enum LimitClauseStyle : int {
+  LIMIT_CLAUSE_STYLE_DEFAULT = 0,
+  LIMIT_CLAUSE_STYLE_OFFSET_ROWS = 1,
+  LIMIT_CLAUSE_STYLE_LIMIT = 2,
+  LIMIT_CLAUSE_STYLE_FETCH_FIRST = 3,
+  LIMIT_CLAUSE_STYLE_FETCH_NEXT = 4,
+  LimitClauseStyle_INT_MIN_SENTINEL_DO_NOT_USE_ =
+      std::numeric_limits<::int32_t>::min(),
+  LimitClauseStyle_INT_MAX_SENTINEL_DO_NOT_USE_ =
+      std::numeric_limits<::int32_t>::max(),
+};
+
+bool LimitClauseStyle_IsValid(int value);
+extern const uint32_t LimitClauseStyle_internal_data_[];
+constexpr LimitClauseStyle LimitClauseStyle_MIN = static_cast<LimitClauseStyle>(0);
+constexpr LimitClauseStyle LimitClauseStyle_MAX = static_cast<LimitClauseStyle>(4);
+constexpr int LimitClauseStyle_ARRAYSIZE = 4 + 1;
+const ::google::protobuf::EnumDescriptor*
+LimitClauseStyle_descriptor();
+template <typename T>
+const std::string& LimitClauseStyle_Name(T value) {
+  static_assert(std::is_same<T, LimitClauseStyle>::value ||
+                    std::is_integral<T>::value,
+                "Incorrect type passed to LimitClauseStyle_Name().");
+  return LimitClauseStyle_Name(static_cast<LimitClauseStyle>(value));
+}
+template <>
+inline const std::string& LimitClauseStyle_Name(LimitClauseStyle value) {
+  return ::google::protobuf::internal::NameOfDenseEnum<LimitClauseStyle_descriptor,
+                                                 0, 4>(
+      static_cast<int>(value));
+}
+inline bool LimitClauseStyle_Parse(absl::string_view name, LimitClauseStyle* value) {
+  return ::google::protobuf::internal::ParseNamedEnum<LimitClauseStyle>(
+      LimitClauseStyle_descriptor(), name, value);
+}
 enum LockClauseStrength : int {
   LOCK_CLAUSE_STRENGTH_UNDEFINED = 0,
   LCS_NONE = 1,
@@ -69568,6 +69604,7 @@ class SelectStmt final :
     kConnectByFirstFieldNumber = 24,
     kGroupDistinctFieldNumber = 7,
     kAllFieldNumber = 18,
+    kLimitClauseStyleFieldNumber = 25,
   };
   // repeated .pg_query.Node distinct_clause = 1 [json_name = "distinctClause"];
   int distinct_clause_size() const;
@@ -69923,13 +69960,23 @@ class SelectStmt final :
   void _internal_set_all(bool value);
 
   public:
+  // .pg_query.LimitClauseStyle limit_clause_style = 25 [json_name = "limitClauseStyle"];
+  void clear_limit_clause_style() ;
+  ::pg_query::LimitClauseStyle limit_clause_style() const;
+  void set_limit_clause_style(::pg_query::LimitClauseStyle value);
+
+  private:
+  ::pg_query::LimitClauseStyle _internal_limit_clause_style() const;
+  void _internal_set_limit_clause_style(::pg_query::LimitClauseStyle value);
+
+  public:
   // @@protoc_insertion_point(class_scope:pg_query.SelectStmt)
  private:
   class _Internal;
 
   friend class ::google::protobuf::internal::TcParser;
   static const ::google::protobuf::internal::TcParseTable<
-      5, 24, 18,
+      5, 25, 18,
       0, 2>
       _table_;
   friend class ::google::protobuf::MessageLite;
@@ -69972,6 +70019,7 @@ class SelectStmt final :
     bool connect_by_first_;
     bool group_distinct_;
     bool all_;
+    int limit_clause_style_;
     PROTOBUF_TSAN_DECLARE_MEMBER
   };
   union { Impl_ _impl_; };
@@ -143225,6 +143273,29 @@ inline void SelectStmt::set_allocated_rarg(::pg_query::SelectStmt* value) {
   // @@protoc_insertion_point(field_set_allocated:pg_query.SelectStmt.rarg)
 }
 
+// .pg_query.LimitClauseStyle limit_clause_style = 25 [json_name = "limitClauseStyle"];
+inline void SelectStmt::clear_limit_clause_style() {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  _impl_.limit_clause_style_ = 0;
+}
+inline ::pg_query::LimitClauseStyle SelectStmt::limit_clause_style() const {
+  // @@protoc_insertion_point(field_get:pg_query.SelectStmt.limit_clause_style)
+  return _internal_limit_clause_style();
+}
+inline void SelectStmt::set_limit_clause_style(::pg_query::LimitClauseStyle value) {
+  _internal_set_limit_clause_style(value);
+  // @@protoc_insertion_point(field_set:pg_query.SelectStmt.limit_clause_style)
+}
+inline ::pg_query::LimitClauseStyle SelectStmt::_internal_limit_clause_style() const {
+  PROTOBUF_TSAN_READ(&_impl_._tsan_detect_race);
+  return static_cast<::pg_query::LimitClauseStyle>(_impl_.limit_clause_style_);
+}
+inline void SelectStmt::_internal_set_limit_clause_style(::pg_query::LimitClauseStyle value) {
+  PROTOBUF_TSAN_WRITE(&_impl_._tsan_detect_race);
+  ;
+  _impl_.limit_clause_style_ = value;
+}
+
 // -------------------------------------------------------------------
 
 // SetOperationStmt
@@ -171144,6 +171215,12 @@ struct is_proto_enum<::pg_query::LimitOption> : std::true_type {};
 template <>
 inline const EnumDescriptor* GetEnumDescriptor<::pg_query::LimitOption>() {
   return ::pg_query::LimitOption_descriptor();
+}
+template <>
+struct is_proto_enum<::pg_query::LimitClauseStyle> : std::true_type {};
+template <>
+inline const EnumDescriptor* GetEnumDescriptor<::pg_query::LimitClauseStyle>() {
+  return ::pg_query::LimitClauseStyle_descriptor();
 }
 template <>
 struct is_proto_enum<::pg_query::LockClauseStrength> : std::true_type {};

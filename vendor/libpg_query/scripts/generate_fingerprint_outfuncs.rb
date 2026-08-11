@@ -246,6 +246,7 @@ class Generator
   ]
   FINGERPRINT_OVERRIDE_FIELDS = {
     [nil, 'location'] => :skip,
+    ['SelectStmt', 'limitClauseStyle'] => :skip,
     ['ResTarget', 'name'] => FINGERPRINT_RES_TARGET_NAME,
     ['RangeVar', 'relname'] => FINGERPRINT_RANGE_VAR_RELNAME,
     ['A_Expr', 'kind'] => FINGERPRINT_A_EXPR_KIND,

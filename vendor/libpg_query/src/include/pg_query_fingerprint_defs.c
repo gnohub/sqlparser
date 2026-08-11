@@ -9002,6 +9002,8 @@ _fingerprintSelectStmt(FingerprintContext *ctx, const SelectStmt *node, const vo
     XXH3_freeState(prev);
   }
 
+  // Intentionally ignoring node->limitClauseStyle for fingerprinting
+
   if (node->limitCount != NULL) {
     XXH3_state_t* prev = XXH3_createState();
     XXH64_hash_t hash;

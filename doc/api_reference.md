@@ -553,7 +553,9 @@ MERGE INSERT 的单个目标列使用 `stmt[S].merge_insert_column[W][C]`，完�
 
 ### 结构化 SQL 片段改写
 
-结构化改写接口接收 selector 和 `sqlparser_identifier_path_view_t`，直接构造或克隆 AST 节点。调用方只提供标识符分段和源 selector，不需要拼接 SQL 片段，也不需要传入 quote 字符。方言由 `sqlparser_handle_t` 决定。
+`sqlparser_apply_patch()` 是推荐的统一改写入口。既有 statement、selector 和结构化便捷改写函数继续保留并执行各自的公开参数校验；转换为 patch 后，共享原子失败回滚、handle generation 更新和派生缓存失效规则。
+
+结构化改写接口使用 selector 定位目标，将 `sqlparser_identifier_path_view_t` 等结构化输入按 handle 方言渲染，并通过同一 patch 事务应用；需要复用已有 assignment 值时，在事务候选上克隆对应节点。调用方只提供标识符分段和源 selector，不需要拼接 SQL 片段，也不需要传入 quote 字符。
 
 `sqlparser_selector_insert_update_assignment_from_assignment_value()` 用于向顶层 `UPDATE` 或 MERGE matched UPDATE action 插入新的 `SET` 赋值项。函数会克隆 `source_assignment_selector` 指向的 assignment 右值，并以 `target` 作为新 assignment 左侧；插入位置 selector 和来源 selector 均可使用 `assignment` 或 `merge_assignment`。两个 selector 必须指向同一 statement，否则函数返回 `SQLPARSER_STATUS_UNSUPPORTED`：
 
@@ -789,7 +791,7 @@ sqlparser_apply_patch(handle, &patches, &err);
 | `SQLPARSER_PATCH_DELETE_ASSIGNMENT` | 从顶层 `UPDATE` 或 MERGE matched UPDATE action 删除 `SET` 赋值项 |
 | `SQLPARSER_PATCH_REPLACE_ASSIGNMENT` | 整项替换顶层 `UPDATE` 或 MERGE matched UPDATE action 的 `SET` 赋值项 |
 
-patch 成功后 handle generation 递增，旧 query graph view 失效。
+只有候选结果相对当前 handle 发生实际变化时，`sqlparser_apply_patch()` 才提交并将 generation 递增一次，旧 query graph view 随之失效。空 patch 列表或结果无实际变化的调用不递增；任一 patch 失败时整批不提交。
 
 三个 assignment patch 操作的目标 selector 均可使用 `stmt[S].assignment[A]` 或 `stmt[S].merge_assignment[W][A]`。
 
@@ -804,7 +806,7 @@ MERGE INSERT 单项替换以 `merge_insert_column` 或 `merge_insert_cell` selec
 | `sqlparser_deparse()` | 反解析当前 AST，生成 SQL 字符串 |
 | `sqlparser_string_free()` | 释放库返回的字符串 |
 
-`sqlparser_deparse()` 调用成功且 handle generation 为 `0` 时，返回值与输入 SQL 按字节一致，包括标识符引用形式、大小写、关键字、空白、换行、注释、分号和多语句边界。generation 大于 `0` 时，接口根据当前 handle 状态生成 SQL，整个输出不适用逐字节一致性保证。
+`sqlparser_deparse()` 调用成功且 handle generation 为 `0` 时，返回值与输入 SQL 按字节一致，包括标识符引用形式、大小写、关键字、空白、换行、注释、分号和多语句边界。generation 大于 `0` 时，接口根据当前 handle 状态生成 SQL，整体不适用逐字节一致性保证。必须完整反解析 AST 时，空白、大小写及 `ROW` / `ROWS` 等拼写可能规范化；已建模的分页语法家族仍按所选方言输出。
 
 ## 常见使用模式
 

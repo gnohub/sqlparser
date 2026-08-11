@@ -1,10 +1,134 @@
 #include <ctype.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "sqlparser_ast_internal.h"
 #include "../dialect/sqlparser_dialect_multi_insert_internal.h"
+
+sqlparser_status_t sqlparser_selector_apply_single_patch(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	const sqlparser_patch_t *patch,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_patch_list_t patches;
+	sqlparser_patch_t item;
+	char *selector_text;
+	sqlparser_status_t status;
+
+	if (patch == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"patch must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	selector_text = NULL;
+	status = sqlparser_selector_format(selector, &selector_text, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	item = *patch;
+	item.selector = selector_text;
+	patches.items = &item;
+	patches.count = 1U;
+	status = sqlparser_apply_patch(handle, &patches, out_error);
+	free(selector_text);
+	return status;
+}
+
+static sqlparser_status_t sqlparser_selector_render_identifier_path_list_sql(
+	const sqlparser_handle_t *handle,
+	const sqlparser_identifier_path_view_t *paths,
+	size_t count,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	char **items;
+	char *sql;
+	size_t index;
+	size_t offset;
+	size_t output_size;
+	sqlparser_status_t status;
+
+	*out_sql = NULL;
+	if (count > SIZE_MAX / sizeof(*items)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_RESOURCE_LIMIT,
+			"identifier path list is too large");
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+	items = (char **)calloc(count, sizeof(*items));
+	if (items == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+
+	output_size = 1U;
+	status = SQLPARSER_STATUS_OK;
+	for (index = 0U; index < count; index++) {
+		size_t item_length;
+		size_t separator_length;
+
+		status = sqlparser_render_identifier_path_sql(
+			handle, &paths[index], &items[index], out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			break;
+		}
+		item_length = strlen(items[index]);
+		separator_length = index > 0U ? 2U : 0U;
+		if (separator_length > SIZE_MAX - output_size ||
+		    item_length >
+			    SIZE_MAX - output_size - separator_length) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_RESOURCE_LIMIT,
+				"identifier path SQL is too large");
+			status = SQLPARSER_STATUS_RESOURCE_LIMIT;
+			break;
+		}
+		output_size += separator_length + item_length;
+	}
+
+	sql = NULL;
+	if (status == SQLPARSER_STATUS_OK) {
+		sql = (char *)malloc(output_size);
+		if (sql == NULL) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			status = SQLPARSER_STATUS_NO_MEMORY;
+		}
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		offset = 0U;
+		for (index = 0U; index < count; index++) {
+			size_t item_length;
+
+			if (index > 0U) {
+				memcpy(sql + offset, ", ", 2U);
+				offset += 2U;
+			}
+			item_length = strlen(items[index]);
+			memcpy(sql + offset, items[index], item_length);
+			offset += item_length;
+		}
+		sql[offset] = '\0';
+		*out_sql = sql;
+	}
+	for (index = 0U; index < count; index++) {
+		free(items[index]);
+	}
+	free(items);
+	return status;
+}
 
 static void sqlparser_selector_clear(sqlparser_selector_t *selector)
 {
@@ -439,84 +563,84 @@ sqlparser_status_t sqlparser_selector_format(
 			length = snprintf(
 				buffer,
 				sizeof(buffer),
-				"stmt[%lu].relation[%lu]",
-				(unsigned long)selector->statement_index,
-				(unsigned long)selector->item_index);
+				"stmt[%zu].relation[%zu]",
+				selector->statement_index,
+				selector->item_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_NAME:
 			length = snprintf(
 				buffer,
 				sizeof(buffer),
-				"stmt[%lu].name[%lu]",
-				(unsigned long)selector->statement_index,
-				(unsigned long)selector->item_index);
+				"stmt[%zu].name[%zu]",
+				selector->statement_index,
+				selector->item_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_LITERAL:
 			length = snprintf(
 				buffer,
 				sizeof(buffer),
-				"stmt[%lu].literal[%lu]",
-				(unsigned long)selector->statement_index,
-				(unsigned long)selector->item_index);
+				"stmt[%zu].literal[%zu]",
+				selector->statement_index,
+				selector->item_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_VALUE:
 			length = snprintf(
 				buffer,
 				sizeof(buffer),
-				"stmt[%lu].value[%lu]",
-				(unsigned long)selector->statement_index,
-				(unsigned long)selector->item_index);
+				"stmt[%zu].value[%zu]",
+				selector->statement_index,
+				selector->item_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_WHERE_LITERAL:
 			length = snprintf(
 				buffer,
 				sizeof(buffer),
-				"stmt[%lu].where_literal[%lu]",
-				(unsigned long)selector->statement_index,
-				(unsigned long)selector->item_index);
+				"stmt[%zu].where_literal[%zu]",
+				selector->statement_index,
+				selector->item_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_WHERE:
 			length = snprintf(
 				buffer,
 				sizeof(buffer),
-				"stmt[%lu].where[%lu]",
-				(unsigned long)selector->statement_index,
-				(unsigned long)selector->item_index);
+				"stmt[%zu].where[%zu]",
+				selector->statement_index,
+				selector->item_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_CLAUSE:
 			length = snprintf(
 				buffer,
 				sizeof(buffer),
-				"stmt[%lu].clause[%lu]",
-				(unsigned long)selector->statement_index,
-				(unsigned long)selector->item_index);
+				"stmt[%zu].clause[%zu]",
+				selector->statement_index,
+				selector->item_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_ASSIGNMENT:
 			length = snprintf(
 				buffer,
 				sizeof(buffer),
-				"stmt[%lu].assignment[%lu]",
-				(unsigned long)selector->statement_index,
-				(unsigned long)selector->item_index);
+				"stmt[%zu].assignment[%zu]",
+				selector->statement_index,
+				selector->item_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT:
 			if (selector->row_index == 0U) {
 				length = snprintf(
 					buffer,
 					sizeof(buffer),
-					"stmt[%lu].merge_assignment[%lu][%lu]",
-					(unsigned long)selector->statement_index,
-					(unsigned long)selector->item_index,
-					(unsigned long)selector->column_index);
+					"stmt[%zu].merge_assignment[%zu][%zu]",
+					selector->statement_index,
+					selector->item_index,
+					selector->column_index);
 			} else {
 				length = snprintf(
 					buffer,
 					sizeof(buffer),
-					"stmt[%lu].merge_assignment[%lu][%lu][%lu]",
-					(unsigned long)selector->statement_index,
-					(unsigned long)selector->row_index,
-					(unsigned long)selector->item_index,
-					(unsigned long)selector->column_index);
+					"stmt[%zu].merge_assignment[%zu][%zu][%zu]",
+					selector->statement_index,
+					selector->row_index,
+					selector->item_index,
+					selector->column_index);
 			}
 			break;
 		case SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN:
@@ -526,22 +650,22 @@ sqlparser_status_t sqlparser_selector_format(
 					buffer,
 					sizeof(buffer),
 					selector->kind == SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN ?
-						"stmt[%lu].merge_insert_column[%lu][%lu]" :
-						"stmt[%lu].merge_insert_cell[%lu][%lu]",
-					(unsigned long)selector->statement_index,
-					(unsigned long)selector->item_index,
-					(unsigned long)selector->column_index);
+						"stmt[%zu].merge_insert_column[%zu][%zu]" :
+						"stmt[%zu].merge_insert_cell[%zu][%zu]",
+					selector->statement_index,
+					selector->item_index,
+					selector->column_index);
 			} else {
 				length = snprintf(
 					buffer,
 					sizeof(buffer),
 					selector->kind == SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN ?
-						"stmt[%lu].merge_insert_column[%lu][%lu][%lu]" :
-						"stmt[%lu].merge_insert_cell[%lu][%lu][%lu]",
-					(unsigned long)selector->statement_index,
-					(unsigned long)selector->row_index,
-					(unsigned long)selector->item_index,
-					(unsigned long)selector->column_index);
+						"stmt[%zu].merge_insert_column[%zu][%zu][%zu]" :
+						"stmt[%zu].merge_insert_cell[%zu][%zu][%zu]",
+					selector->statement_index,
+					selector->row_index,
+					selector->item_index,
+					selector->column_index);
 			}
 			break;
 		case SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION:
@@ -549,17 +673,17 @@ sqlparser_status_t sqlparser_selector_format(
 				length = snprintf(
 					buffer,
 					sizeof(buffer),
-					"stmt[%lu].merge_branch_condition[%lu]",
-					(unsigned long)selector->statement_index,
-					(unsigned long)selector->item_index);
+					"stmt[%zu].merge_branch_condition[%zu]",
+					selector->statement_index,
+					selector->item_index);
 			} else {
 				length = snprintf(
 					buffer,
 					sizeof(buffer),
-					"stmt[%lu].merge_branch_condition[%lu][%lu]",
-					(unsigned long)selector->statement_index,
-					(unsigned long)selector->row_index,
-					(unsigned long)selector->item_index);
+					"stmt[%zu].merge_branch_condition[%zu][%zu]",
+					selector->statement_index,
+					selector->row_index,
+					selector->item_index);
 			}
 			break;
 		case SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION:
@@ -567,132 +691,132 @@ sqlparser_status_t sqlparser_selector_format(
 				length = snprintf(
 					buffer,
 					sizeof(buffer),
-					"stmt[%lu].merge_delete_condition[%lu]",
-					(unsigned long)selector->statement_index,
-					(unsigned long)selector->item_index);
+					"stmt[%zu].merge_delete_condition[%zu]",
+					selector->statement_index,
+					selector->item_index);
 			} else {
 				length = snprintf(
 					buffer,
 					sizeof(buffer),
-					"stmt[%lu].merge_delete_condition[%lu][%lu]",
-					(unsigned long)selector->statement_index,
-					(unsigned long)selector->row_index,
-					(unsigned long)selector->item_index);
+					"stmt[%zu].merge_delete_condition[%zu][%zu]",
+					selector->statement_index,
+					selector->row_index,
+					selector->item_index);
 			}
 			break;
 		case SQLPARSER_SELECTOR_KIND_INSERT_CELL:
 			length = snprintf(
 				buffer,
 				sizeof(buffer),
-				"stmt[%lu].insert_cell[%lu][%lu]",
-				(unsigned long)selector->statement_index,
-				(unsigned long)selector->row_index,
-				(unsigned long)selector->column_index);
+				"stmt[%zu].insert_cell[%zu][%zu]",
+				selector->statement_index,
+				selector->row_index,
+				selector->column_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_INSERT_COLUMNS:
 			length = snprintf(
 				buffer,
 				sizeof(buffer),
-				"stmt[%lu].insert_columns",
-				(unsigned long)selector->statement_index);
+				"stmt[%zu].insert_columns",
+				selector->statement_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS:
 			if (selector->row_index == 0U) {
 				length = snprintf(
 					buffer,
 					sizeof(buffer),
-					"stmt[%lu].insert_branch_columns[%lu]",
-					(unsigned long)selector->statement_index,
-					(unsigned long)selector->item_index);
+					"stmt[%zu].insert_branch_columns[%zu]",
+					selector->statement_index,
+					selector->item_index);
 			} else {
 				length = snprintf(
 					buffer,
 					sizeof(buffer),
-					"stmt[%lu].insert_branch_columns[%lu][%lu]",
-					(unsigned long)selector->statement_index,
-					(unsigned long)selector->row_index,
-					(unsigned long)selector->item_index);
+					"stmt[%zu].insert_branch_columns[%zu][%zu]",
+					selector->statement_index,
+					selector->row_index,
+					selector->item_index);
 			}
 			break;
 		case SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_CONDITION:
 			length = snprintf(
 				buffer,
 				sizeof(buffer),
-				"stmt[%lu].insert_branch_condition[%lu]",
-				(unsigned long)selector->statement_index,
-				(unsigned long)selector->item_index);
+				"stmt[%zu].insert_branch_condition[%zu]",
+				selector->statement_index,
+				selector->item_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_INSERT_ROW:
 			length = snprintf(
 				buffer,
 				sizeof(buffer),
-				"stmt[%lu].insert_row[%lu]",
-				(unsigned long)selector->statement_index,
-				(unsigned long)selector->row_index);
+				"stmt[%zu].insert_row[%zu]",
+				selector->statement_index,
+				selector->row_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_SELECT_TARGETS:
 			length = snprintf(
 				buffer,
 				sizeof(buffer),
-				"stmt[%lu].select_targets[%lu]",
-				(unsigned long)selector->statement_index,
-				(unsigned long)selector->item_index);
+				"stmt[%zu].select_targets[%zu]",
+				selector->statement_index,
+				selector->item_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_SELECT_TARGET:
 			length = snprintf(
 				buffer,
 				sizeof(buffer),
-				"stmt[%lu].select_target[%lu][%lu]",
-				(unsigned long)selector->statement_index,
-				(unsigned long)selector->item_index,
-				(unsigned long)selector->column_index);
+				"stmt[%zu].select_target[%zu][%zu]",
+				selector->statement_index,
+				selector->item_index,
+				selector->column_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGETS:
 			length = snprintf(
 				buffer,
 				sizeof(buffer),
-				"stmt[%lu].dml_result_targets[%lu][%lu]",
-				(unsigned long)selector->statement_index,
-				(unsigned long)selector->item_index,
-				(unsigned long)selector->row_index);
+				"stmt[%zu].dml_result_targets[%zu][%zu]",
+				selector->statement_index,
+				selector->item_index,
+				selector->row_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGET:
 			length = snprintf(
 				buffer,
 				sizeof(buffer),
-				"stmt[%lu].dml_result_target[%lu][%lu][%lu]",
-				(unsigned long)selector->statement_index,
-				(unsigned long)selector->item_index,
-				(unsigned long)selector->row_index,
-				(unsigned long)selector->column_index);
+				"stmt[%zu].dml_result_target[%zu][%zu][%zu]",
+				selector->statement_index,
+				selector->item_index,
+				selector->row_index,
+				selector->column_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK:
 			length = snprintf(
 				buffer,
 				sizeof(buffer),
-				"stmt[%lu].dml_result_sink[%lu][%lu]",
-				(unsigned long)selector->statement_index,
-				(unsigned long)selector->item_index,
-				(unsigned long)selector->row_index);
+				"stmt[%zu].dml_result_sink[%zu][%zu]",
+				selector->statement_index,
+				selector->item_index,
+				selector->row_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK_COLUMNS:
 			length = snprintf(
 				buffer,
 				sizeof(buffer),
-				"stmt[%lu].dml_result_sink_columns[%lu][%lu]",
-				(unsigned long)selector->statement_index,
-				(unsigned long)selector->item_index,
-				(unsigned long)selector->row_index);
+				"stmt[%zu].dml_result_sink_columns[%zu][%zu]",
+				selector->statement_index,
+				selector->item_index,
+				selector->row_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_DML_RESULT_SINK_COLUMN:
 			length = snprintf(
 				buffer,
 				sizeof(buffer),
-				"stmt[%lu].dml_result_sink_column[%lu][%lu][%lu]",
-				(unsigned long)selector->statement_index,
-				(unsigned long)selector->item_index,
-				(unsigned long)selector->row_index,
-				(unsigned long)selector->column_index);
+				"stmt[%zu].dml_result_sink_column[%zu][%zu][%zu]",
+				selector->statement_index,
+				selector->item_index,
+				selector->row_index,
+				selector->column_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_UNKNOWN:
 		default:
@@ -749,6 +873,10 @@ sqlparser_status_t sqlparser_selector_set_relation_name(
 	const char *table_name,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_patch_t patch;
+	size_t source_encoding;
+	sqlparser_status_t status;
+
 	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_RELATION) {
 		sqlparser_error_set_message(
 			out_error,
@@ -757,13 +885,24 @@ sqlparser_status_t sqlparser_selector_set_relation_name(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_statement_set_relation_name(
+	status = sqlparser_statement_relation_patch_source_encoding(
 		handle,
 		selector->statement_index,
 		selector->item_index,
 		schema_name,
 		table_name,
+		&source_encoding,
 		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.name = table_name;
+	patch.default_sql = schema_name;
+	patch.index = source_encoding;
+	return sqlparser_selector_apply_single_patch(
+		handle, selector, &patch, out_error);
 }
 
 sqlparser_status_t sqlparser_selector_name(
@@ -794,6 +933,8 @@ sqlparser_status_t sqlparser_selector_set_name(
 	const char *value,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_patch_t patch;
+
 	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_NAME) {
 		sqlparser_error_set_message(
 			out_error,
@@ -802,12 +943,11 @@ sqlparser_status_t sqlparser_selector_set_name(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_statement_set_name(
-		handle,
-		selector->statement_index,
-		selector->item_index,
-		value,
-		out_error);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.default_sql = value;
+	return sqlparser_selector_apply_single_patch(
+		handle, selector, &patch, out_error);
 }
 
 sqlparser_status_t sqlparser_selector_literal(
@@ -838,6 +978,8 @@ sqlparser_status_t sqlparser_selector_set_literal(
 	const sqlparser_literal_value_t *value,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_patch_t patch;
+
 	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_LITERAL) {
 		sqlparser_error_set_message(
 			out_error,
@@ -846,12 +988,11 @@ sqlparser_status_t sqlparser_selector_set_literal(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_statement_set_literal(
-		handle,
-		selector->statement_index,
-		selector->item_index,
-		value,
-		out_error);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.literal = value;
+	return sqlparser_selector_apply_single_patch(
+		handle, selector, &patch, out_error);
 }
 
 sqlparser_status_t sqlparser_selector_where_literal(
@@ -882,6 +1023,8 @@ sqlparser_status_t sqlparser_selector_set_where_literal(
 	const sqlparser_literal_value_t *value,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_patch_t patch;
+
 	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_WHERE_LITERAL) {
 		sqlparser_error_set_message(
 			out_error,
@@ -890,12 +1033,11 @@ sqlparser_status_t sqlparser_selector_set_where_literal(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_statement_where_set_literal(
-		handle,
-		selector->statement_index,
-		selector->item_index,
-		value,
-		out_error);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.literal = value;
+	return sqlparser_selector_apply_single_patch(
+		handle, selector, &patch, out_error);
 }
 
 sqlparser_status_t sqlparser_selector_where_sql(
@@ -926,6 +1068,8 @@ sqlparser_status_t sqlparser_selector_set_where_sql(
 	const char *sql_text,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_patch_t patch;
+
 	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_WHERE) {
 		sqlparser_error_set_message(
 			out_error,
@@ -934,12 +1078,11 @@ sqlparser_status_t sqlparser_selector_set_where_sql(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_statement_set_where_sql(
-		handle,
-		selector->statement_index,
-		selector->item_index,
-		sql_text,
-		out_error);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.sql = sql_text;
+	return sqlparser_selector_apply_single_patch(
+		handle, selector, &patch, out_error);
 }
 
 sqlparser_status_t sqlparser_selector_append_where_sql(
@@ -949,6 +1092,8 @@ sqlparser_status_t sqlparser_selector_append_where_sql(
 	const char *sql_text,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_patch_t patch;
+
 	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_WHERE) {
 		sqlparser_error_set_message(
 			out_error,
@@ -956,14 +1101,21 @@ sqlparser_status_t sqlparser_selector_append_where_sql(
 			"selector kind must be where");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
+	if (bool_operator != SQLPARSER_BOOL_OPERATOR_AND &&
+	    bool_operator != SQLPARSER_BOOL_OPERATOR_OR) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"bool_operator must be AND or OR");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
 
-	return sqlparser_statement_append_where_sql(
-		handle,
-		selector->statement_index,
-		selector->item_index,
-		bool_operator,
-		sql_text,
-		out_error);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_APPEND_CONDITION;
+	patch.sql = sql_text;
+	patch.bool_operator = bool_operator;
+	return sqlparser_selector_apply_single_patch(
+		handle, selector, &patch, out_error);
 }
 
 sqlparser_status_t sqlparser_selector_clause(
@@ -1044,18 +1196,14 @@ sqlparser_status_t sqlparser_selector_set_clause_sql(
 	const char *sql_text,
 	sqlparser_error_t *out_error)
 {
-	if (selector != NULL &&
-	    (selector->kind ==
-		     SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION ||
-	     selector->kind ==
+	sqlparser_patch_t patch;
+
+	if (selector == NULL ||
+	    (selector->kind != SQLPARSER_SELECTOR_KIND_CLAUSE &&
+	     selector->kind !=
+		     SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION &&
+	     selector->kind !=
 		     SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION)) {
-		return sqlparser_merge_condition_set_sql(
-			handle,
-			selector,
-			sql_text,
-			out_error);
-	}
-	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_CLAUSE) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
@@ -1063,12 +1211,11 @@ sqlparser_status_t sqlparser_selector_set_clause_sql(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_statement_set_clause_sql(
-		handle,
-		selector->statement_index,
-		selector->item_index,
-		sql_text,
-		out_error);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.sql = sql_text;
+	return sqlparser_selector_apply_single_patch(
+		handle, selector, &patch, out_error);
 }
 
 sqlparser_status_t sqlparser_selector_append_clause_condition(
@@ -1078,6 +1225,8 @@ sqlparser_status_t sqlparser_selector_append_clause_condition(
 	const char *sql_text,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_patch_t patch;
+
 	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_CLAUSE) {
 		sqlparser_error_set_message(
 			out_error,
@@ -1085,14 +1234,21 @@ sqlparser_status_t sqlparser_selector_append_clause_condition(
 			"selector kind must be clause");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
+	if (bool_operator != SQLPARSER_BOOL_OPERATOR_AND &&
+	    bool_operator != SQLPARSER_BOOL_OPERATOR_OR) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"bool_operator must be AND or OR");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
 
-	return sqlparser_statement_append_clause_condition(
-		handle,
-		selector->statement_index,
-		selector->item_index,
-		bool_operator,
-		sql_text,
-		out_error);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_APPEND_CONDITION;
+	patch.sql = sql_text;
+	patch.bool_operator = bool_operator;
+	return sqlparser_selector_apply_single_patch(
+		handle, selector, &patch, out_error);
 }
 
 sqlparser_status_t sqlparser_selector_update_assignment(
@@ -1120,6 +1276,8 @@ sqlparser_status_t sqlparser_selector_set_update_assignment_literal(
 	const sqlparser_literal_value_t *value,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_patch_t patch;
+
 	if (selector == NULL ||
 	    (selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
 	     selector->kind != SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT)) {
@@ -1130,8 +1288,11 @@ sqlparser_status_t sqlparser_selector_set_update_assignment_literal(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_assignment_set_literal_by_selector(
-		handle, selector, value, out_error);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.literal = value;
+	return sqlparser_selector_apply_single_patch(
+		handle, selector, &patch, out_error);
 }
 
 sqlparser_status_t sqlparser_selector_update_assignment_sql(
@@ -1160,6 +1321,8 @@ sqlparser_status_t sqlparser_selector_set_update_assignment_sql(
 	const char *sql_text,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_patch_t patch;
+
 	if (selector == NULL ||
 	    (selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
 	     selector->kind != SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT)) {
@@ -1170,8 +1333,11 @@ sqlparser_status_t sqlparser_selector_set_update_assignment_sql(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_assignment_set_sql_by_selector(
-		handle, selector, sql_text, out_error);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.sql = sql_text;
+	return sqlparser_selector_apply_single_patch(
+		handle, selector, &patch, out_error);
 }
 
 sqlparser_status_t sqlparser_selector_insert_update_assignment_sql(
@@ -1180,6 +1346,8 @@ sqlparser_status_t sqlparser_selector_insert_update_assignment_sql(
 	const char *assignment_sql,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_patch_t patch;
+
 	if (selector == NULL ||
 	    (selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
 	     selector->kind != SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT)) {
@@ -1190,8 +1358,11 @@ sqlparser_status_t sqlparser_selector_insert_update_assignment_sql(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_assignment_insert_sql_by_selector(
-		handle, selector, assignment_sql, out_error);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_INSERT_ASSIGNMENT;
+	patch.sql = assignment_sql;
+	return sqlparser_selector_apply_single_patch(
+		handle, selector, &patch, out_error);
 }
 
 sqlparser_status_t sqlparser_selector_insert_update_assignment_from_assignment_value(
@@ -1201,7 +1372,9 @@ sqlparser_status_t sqlparser_selector_insert_update_assignment_from_assignment_v
 	const sqlparser_selector_t *source_assignment_selector,
 	sqlparser_error_t *out_error)
 {
-	sqlparser_handle_t *candidate;
+	char *source_selector_text;
+	char *target_sql;
+	sqlparser_patch_t patch;
 	sqlparser_status_t status;
 
 	if (handle == NULL) {
@@ -1232,25 +1405,31 @@ sqlparser_status_t sqlparser_selector_insert_update_assignment_from_assignment_v
 		return status;
 	}
 
-	candidate = NULL;
-	status = sqlparser_handle_clone(handle, &candidate, out_error);
+	target_sql = NULL;
+	status = sqlparser_render_identifier_path_sql(
+		handle, target, &target_sql, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	status = sqlparser_assignment_insert_from_assignment_value_by_selector(
-		candidate,
-		insert_selector,
-		target,
+	source_selector_text = NULL;
+	status = sqlparser_selector_format(
 		source_assignment_selector,
+		&source_selector_text,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_destroy(candidate);
+		free(target_sql);
 		return status;
 	}
 
-	sqlparser_handle_replace_contents(handle, candidate);
-	sqlparser_handle_destroy(candidate);
-	return SQLPARSER_STATUS_OK;
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_INSERT_ASSIGNMENT;
+	patch.name = target_sql;
+	patch.source_selector = source_selector_text;
+	status = sqlparser_selector_apply_single_patch(
+		handle, insert_selector, &patch, out_error);
+	free(source_selector_text);
+	free(target_sql);
+	return status;
 }
 
 sqlparser_status_t sqlparser_selector_delete_update_assignment(
@@ -1258,6 +1437,8 @@ sqlparser_status_t sqlparser_selector_delete_update_assignment(
 	const sqlparser_selector_t *selector,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_patch_t patch;
+
 	if (selector == NULL ||
 	    (selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
 	     selector->kind != SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT)) {
@@ -1268,7 +1449,10 @@ sqlparser_status_t sqlparser_selector_delete_update_assignment(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_assignment_delete_by_selector(handle, selector, out_error);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_DELETE_ASSIGNMENT;
+	return sqlparser_selector_apply_single_patch(
+		handle, selector, &patch, out_error);
 }
 
 sqlparser_status_t sqlparser_selector_set_update_assignment_full_sql(
@@ -1277,6 +1461,8 @@ sqlparser_status_t sqlparser_selector_set_update_assignment_full_sql(
 	const char *assignment_sql,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_patch_t patch;
+
 	if (selector == NULL ||
 	    (selector->kind != SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
 	     selector->kind != SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT)) {
@@ -1287,8 +1473,11 @@ sqlparser_status_t sqlparser_selector_set_update_assignment_full_sql(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_assignment_set_full_sql_by_selector(
-		handle, selector, assignment_sql, out_error);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+	patch.sql = assignment_sql;
+	return sqlparser_selector_apply_single_patch(
+		handle, selector, &patch, out_error);
 }
 
 sqlparser_status_t sqlparser_selector_insert_cell_literal(
@@ -1320,6 +1509,12 @@ sqlparser_status_t sqlparser_selector_set_insert_cell_literal(
 	const sqlparser_literal_value_t *value,
 	sqlparser_error_t *out_error)
 {
+	char *rendered_sql;
+	sqlparser_literal_view_t current_literal;
+	sqlparser_patch_t patch;
+	sqlparser_status_t status;
+	int multi_insert;
+
 	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_INSERT_CELL) {
 		sqlparser_error_set_message(
 			out_error,
@@ -1328,13 +1523,35 @@ sqlparser_status_t sqlparser_selector_set_insert_cell_literal(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_insert_set_cell_literal(
-		handle,
-		selector->statement_index,
-		selector->row_index,
-		selector->column_index,
-		value,
-		out_error);
+	multi_insert =
+		handle != NULL &&
+		sqlparser_dialect_state_has_multi_insert(
+			handle->dialect,
+			handle->dialect_state);
+	rendered_sql = NULL;
+	if (multi_insert) {
+		status = sqlparser_dialect_multi_insert_render_literal_value(
+			handle, value, &rendered_sql, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	} else {
+		memset(&current_literal, 0, sizeof(current_literal));
+		status = sqlparser_selector_insert_cell_literal(
+			handle, selector, &current_literal, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.sql = rendered_sql;
+	patch.literal = multi_insert ? NULL : value;
+	status = sqlparser_selector_apply_single_patch(
+		handle, selector, &patch, out_error);
+	free(rendered_sql);
+	return status;
 }
 
 sqlparser_status_t sqlparser_selector_insert_cell_sql(
@@ -1366,6 +1583,8 @@ sqlparser_status_t sqlparser_selector_set_insert_cell_sql(
 	const char *sql_text,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_patch_t patch;
+
 	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_INSERT_CELL) {
 		sqlparser_error_set_message(
 			out_error,
@@ -1374,13 +1593,11 @@ sqlparser_status_t sqlparser_selector_set_insert_cell_sql(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_insert_set_cell_sql(
-		handle,
-		selector->statement_index,
-		selector->row_index,
-		selector->column_index,
-		sql_text,
-		out_error);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.sql = sql_text;
+	return sqlparser_selector_apply_single_patch(
+		handle, selector, &patch, out_error);
 }
 
 sqlparser_status_t sqlparser_selector_set_insert_cell_bind(
@@ -1389,6 +1606,11 @@ sqlparser_status_t sqlparser_selector_set_insert_cell_bind(
 	const sqlparser_bind_value_t *bind,
 	sqlparser_error_t *out_error)
 {
+	char *rendered_sql;
+	sqlparser_patch_t patch;
+	sqlparser_status_t status;
+	int multi_insert;
+
 	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_INSERT_CELL) {
 		sqlparser_error_set_message(
 			out_error,
@@ -1397,13 +1619,28 @@ sqlparser_status_t sqlparser_selector_set_insert_cell_bind(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_insert_set_cell_bind(
-		handle,
-		selector->statement_index,
-		selector->row_index,
-		selector->column_index,
-		bind,
-		out_error);
+	multi_insert =
+		handle != NULL &&
+		sqlparser_dialect_state_has_multi_insert(
+			handle->dialect,
+			handle->dialect_state);
+	rendered_sql = NULL;
+	if (multi_insert) {
+		status = sqlparser_dialect_multi_insert_render_bind_value(
+			handle, bind, &rendered_sql, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.sql = rendered_sql;
+	patch.bind = multi_insert ? NULL : bind;
+	status = sqlparser_selector_apply_single_patch(
+		handle, selector, &patch, out_error);
+	free(rendered_sql);
+	return status;
 }
 
 sqlparser_status_t sqlparser_selector_select_target_sql(
@@ -1435,6 +1672,8 @@ sqlparser_status_t sqlparser_selector_set_select_target_sql(
 	const char *sql_text,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_patch_t patch;
+
 	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_SELECT_TARGET) {
 		sqlparser_error_set_message(
 			out_error,
@@ -1443,13 +1682,11 @@ sqlparser_status_t sqlparser_selector_set_select_target_sql(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_select_set_target_sql(
-		handle,
-		selector->statement_index,
-		selector->item_index,
-		selector->column_index,
-		sql_text,
-		out_error);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.sql = sql_text;
+	return sqlparser_selector_apply_single_patch(
+		handle, selector, &patch, out_error);
 }
 
 sqlparser_status_t sqlparser_selector_set_select_targets_sql(
@@ -1458,6 +1695,8 @@ sqlparser_status_t sqlparser_selector_set_select_targets_sql(
 	const char *sql_text,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_patch_t patch;
+
 	if (selector == NULL || selector->kind != SQLPARSER_SELECTOR_KIND_SELECT_TARGETS) {
 		sqlparser_error_set_message(
 			out_error,
@@ -1466,12 +1705,11 @@ sqlparser_status_t sqlparser_selector_set_select_targets_sql(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
-	return sqlparser_select_set_targets_sql(
-		handle,
-		selector->statement_index,
-		selector->item_index,
-		sql_text,
-		out_error);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.sql = sql_text;
+	return sqlparser_selector_apply_single_patch(
+		handle, selector, &patch, out_error);
 }
 
 sqlparser_status_t sqlparser_selector_replace_select_target_with_columns(
@@ -1481,7 +1719,8 @@ sqlparser_status_t sqlparser_selector_replace_select_target_with_columns(
 	size_t column_count,
 	sqlparser_error_t *out_error)
 {
-	sqlparser_handle_t *candidate;
+	char *target_sql;
+	sqlparser_patch_t patch;
 	sqlparser_status_t status;
 
 	if (handle == NULL) {
@@ -1500,25 +1739,22 @@ sqlparser_status_t sqlparser_selector_replace_select_target_with_columns(
 		return status;
 	}
 
-	candidate = NULL;
-	status = sqlparser_handle_clone(handle, &candidate, out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		return status;
-	}
-	status = sqlparser_select_replace_target_with_columns(
-		candidate,
-		target_selector->statement_index,
-		target_selector->item_index,
-		target_selector->column_index,
+	target_sql = NULL;
+	status = sqlparser_selector_render_identifier_path_list_sql(
+		handle,
 		columns,
 		column_count,
+		&target_sql,
 		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_handle_destroy(candidate);
 		return status;
 	}
 
-	sqlparser_handle_replace_contents(handle, candidate);
-	sqlparser_handle_destroy(candidate);
-	return SQLPARSER_STATUS_OK;
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.sql = target_sql;
+	status = sqlparser_selector_apply_single_patch(
+		handle, target_selector, &patch, out_error);
+	free(target_sql);
+	return status;
 }

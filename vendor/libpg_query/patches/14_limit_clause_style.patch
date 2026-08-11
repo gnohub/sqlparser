@@ -1,0 +1,179 @@
+--- a/src/backend/parser/gram.y
++++ b/src/backend/parser/gram.y
+@@ -129,6 +129,7 @@
+ 	Node	   *limitOffset;
+ 	Node	   *limitCount;
+ 	LimitOption limitOption;
++	LimitClauseStyle limitClauseStyle;
+ } SelectLimit;
+ 
+ /* Private struct for the result of group_clause production */
+@@ -428,7 +429,7 @@
+ %type <ival>	import_qualification_type
+ %type <importqual> import_qualification
+ %type <node>	vacuum_relation
+-%type <selectlimit> opt_select_limit select_limit limit_clause
++%type <selectlimit> opt_select_limit select_limit limit_clause offset_clause
+ 
+ %type <list>	parse_toplevel stmtmulti routine_body_stmt_list
+ 				OptTableElementList TableElementList OptInherit definition
+@@ -513,7 +514,7 @@
+ 				drop_type_name
+ 
+ %type <node>	fetch_args select_limit_value
+-				offset_clause select_offset_value
++				select_offset_value
+ 				select_fetch_first_value I_or_F_const
+ %type <ival>	row_or_rows first_or_next
+ 
+@@ -13241,12 +13242,14 @@
+ 			limit_clause offset_clause
+ 				{
+ 					$$ = $1;
+-					($$)->limitOffset = $2;
++					($$)->limitOffset = $2->limitOffset;
++					pfree($2);
+ 				}
+ 			| offset_clause limit_clause
+ 				{
+ 					$$ = $2;
+-					($$)->limitOffset = $1;
++					($$)->limitOffset = $1->limitOffset;
++					pfree($1);
+ 				}
+ 			| limit_clause
+ 				{
+@@ -13254,12 +13257,7 @@
+ 				}
+ 			| offset_clause
+ 				{
+-					SelectLimit *n = (SelectLimit *) palloc(sizeof(SelectLimit));
+-
+-					n->limitOffset = $1;
+-					n->limitCount = NULL;
+-					n->limitOption = LIMIT_OPTION_COUNT;
+-					$$ = n;
++					$$ = $1;
+ 				}
+ 		;
+ 
+@@ -13276,6 +13274,7 @@
+ 					n->limitOffset = NULL;
+ 					n->limitCount = $2;
+ 					n->limitOption = LIMIT_OPTION_COUNT;
++					n->limitClauseStyle = LIMIT_CLAUSE_STYLE_LIMIT;
+ 					$$ = n;
+ 				}
+ 			| LIMIT select_limit_value ',' select_offset_value
+@@ -13301,6 +13300,7 @@
+ 					n->limitOffset = NULL;
+ 					n->limitCount = $3;
+ 					n->limitOption = LIMIT_OPTION_COUNT;
++					n->limitClauseStyle = (LimitClauseStyle) $2;
+ 					$$ = n;
+ 				}
+ 			| FETCH first_or_next select_fetch_first_value row_or_rows WITH TIES
+@@ -13310,6 +13310,7 @@
+ 					n->limitOffset = NULL;
+ 					n->limitCount = $3;
+ 					n->limitOption = LIMIT_OPTION_WITH_TIES;
++					n->limitClauseStyle = (LimitClauseStyle) $2;
+ 					$$ = n;
+ 				}
+ 			| FETCH first_or_next row_or_rows ONLY
+@@ -13319,6 +13320,7 @@
+ 					n->limitOffset = NULL;
+ 					n->limitCount = makeIntConst(1, -1);
+ 					n->limitOption = LIMIT_OPTION_COUNT;
++					n->limitClauseStyle = (LimitClauseStyle) $2;
+ 					$$ = n;
+ 				}
+ 			| FETCH first_or_next row_or_rows WITH TIES
+@@ -13328,16 +13330,33 @@
+ 					n->limitOffset = NULL;
+ 					n->limitCount = makeIntConst(1, -1);
+ 					n->limitOption = LIMIT_OPTION_WITH_TIES;
++					n->limitClauseStyle = (LimitClauseStyle) $2;
+ 					$$ = n;
+ 				}
+ 		;
+ 
+ offset_clause:
+ 			OFFSET select_offset_value
+-				{ $$ = $2; }
++				{
++					SelectLimit *n = (SelectLimit *) palloc(sizeof(SelectLimit));
++
++					n->limitOffset = $2;
++					n->limitCount = NULL;
++					n->limitOption = LIMIT_OPTION_COUNT;
++					n->limitClauseStyle = LIMIT_CLAUSE_STYLE_DEFAULT;
++					$$ = n;
++				}
+ 			/* SQL:2008 syntax */
+ 			| OFFSET select_fetch_first_value row_or_rows
+-				{ $$ = $2; }
++				{
++					SelectLimit *n = (SelectLimit *) palloc(sizeof(SelectLimit));
++
++					n->limitOffset = $2;
++					n->limitCount = NULL;
++					n->limitOption = LIMIT_OPTION_COUNT;
++					n->limitClauseStyle = LIMIT_CLAUSE_STYLE_OFFSET_ROWS;
++					$$ = n;
++				}
+ 		;
+ 
+ select_limit_value:
+@@ -13387,8 +13406,8 @@
+ 			| ROWS									{ $$ = 0; }
+ 		;
+ 
+-first_or_next: FIRST_P								{ $$ = 0; }
+-			| NEXT									{ $$ = 0; }
++first_or_next: FIRST_P								{ $$ = LIMIT_CLAUSE_STYLE_FETCH_FIRST; }
++			| NEXT									{ $$ = LIMIT_CLAUSE_STYLE_FETCH_NEXT; }
+ 		;
+ 
+ 
+@@ -17651,6 +17670,7 @@
+ 									(errcode(ERRCODE_SYNTAX_ERROR),
+ 									 errmsg("WITH TIES cannot be specified without ORDER BY clause")));
+ 						n->limitOption = $9->limitOption;
++						n->limitClauseStyle = $9->limitClauseStyle;
+ 					}
+ 					n->lockingClause = $10;
+ 					$$ = (Node *) n;
+@@ -19174,6 +19194,7 @@
+ 			}
+ 		}
+ 		stmt->limitOption = limitClause->limitOption;
++		stmt->limitClauseStyle = limitClause->limitClauseStyle;
+ 	}
+ 	if (withClause)
+ 	{
+--- a/src/include/nodes/nodes.h
++++ b/src/include/nodes/nodes.h
+@@ -432,4 +432,13 @@
+ 	LIMIT_OPTION_WITH_TIES,		/* FETCH FIRST... WITH TIES */
+ } LimitOption;
+ 
++typedef enum LimitClauseStyle
++{
++	LIMIT_CLAUSE_STYLE_DEFAULT,	/* Default or bare OFFSET syntax */
++	LIMIT_CLAUSE_STYLE_OFFSET_ROWS,	/* OFFSET ... ROW[S] */
++	LIMIT_CLAUSE_STYLE_LIMIT,	/* LIMIT */
++	LIMIT_CLAUSE_STYLE_FETCH_FIRST,	/* FETCH FIRST */
++	LIMIT_CLAUSE_STYLE_FETCH_NEXT,	/* FETCH NEXT */
++} LimitClauseStyle;
++
+ #endif							/* NODES_H */
+--- a/src/include/nodes/parsenodes.h
++++ b/src/include/nodes/parsenodes.h
+@@ -2167,6 +2167,7 @@
+ 	bool		all;			/* ALL specified? */
+ 	struct SelectStmt *larg;	/* left child */
+ 	struct SelectStmt *rarg;	/* right child */
++	LimitClauseStyle limitClauseStyle; /* original row-limit clause syntax */
+ 	/* Eventually add fields for CORRESPONDING spec here */
+ } SelectStmt;

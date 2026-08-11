@@ -2167,6 +2167,7 @@ typedef struct SelectStmt
 	bool		all;			/* ALL specified? */
 	struct SelectStmt *larg;	/* left child */
 	struct SelectStmt *rarg;	/* right child */
+	LimitClauseStyle limitClauseStyle; /* original row-limit clause syntax */
 	/* Eventually add fields for CORRESPONDING spec here */
 } SelectStmt;
 

@@ -11,7 +11,7 @@ Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范
 - Oracle bind 占位符，例如 `:id`、`:name`，以及 JDBC 风格 `?` 位置参数
 - `q'[...]'` 字符串、`N'...'` national 字符串和 `nq'[...]'` national q-quoted 字符串
 - `MINUS` 集合运算
-- `OFFSET ... FETCH`
+- `OFFSET ... ROWS` 以及行数型 `FETCH FIRST|NEXT ... ROWS ONLY`；本边界不包含 `FETCH ... PERCENT`
 - `ROWNUM` 过滤
 - `INSERT VALUES`、多行 `INSERT`、`INSERT SELECT`，包括 `UNION`、`UNION ALL`、`INTERSECT`、`MINUS` 来源查询
 - Oracle 多表插入：`INSERT ALL`、`INSERT FIRST`，包括 `WHEN ... THEN` 条件分支
@@ -48,6 +48,7 @@ Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范
 ## 对外输出规则
 
 - `sqlparser_deparse()` 输出 Oracle 公共形态，不暴露内部转换细节。
+- 完整 AST 反解析继续输出 Oracle `OFFSET ... FETCH` 分页，不会降级为 `LIMIT`；局部源码 edit 可用时仍保留未修改分页文本。
 - Oracle bind 保持 `:name`、`:1` 或 `?` 形态，不输出内部 `$1`、`$2`。
 - `MINUS` 在 View JSON 和 deparse 输出中保持 Oracle 语义名称。
 - 层次查询字段、值和谓词进入既有 Query Graph 数组，分别使用 `start_with`、`connect_by` clause、`pseudo` / `prior` 字段标记、CONNECT BY 根谓词的 `nocycle` 标记和 `CONNECT_BY_ROOT` operator `target_path`；不增加独立 hierarchy 对象。

@@ -1,5 +1,52 @@
 # Changelog
 
+## 2.15.4
+
+### Unified Mutation Transactions
+
+- All 40 existing statement/index and selector convenience mutators remain
+  available and now execute through the transaction candidate used by
+  `sqlparser_apply_patch()`. Patch dispatch calls internal in-place primitives
+  instead of calling back into public mutators.
+- Each convenience mutation commits at most once. A failure or effective no-op
+  leaves the original handle and generation unchanged; an actual change
+  increments the generation once and invalidates derived caches under the same
+  rule.
+- Unused direct structured-mutation paths and the second candidate clone for
+  multi-table INSERT cells were removed. Failed mutations continue to roll
+  back with the transaction candidate.
+
+### Pagination Families
+
+- The private `SelectStmt` and protobuf model now distinguish `LIMIT`,
+  `OFFSET ... ROWS`, `FETCH FIRST`, and `FETCH NEXT`. A full-AST deparse no
+  longer downgrades Oracle or Vastbase-Oracle `OFFSET ... ROWS` or
+  `[OFFSET ... ROWS] FETCH FIRST|NEXT ... ROWS ONLY` to `LIMIT`.
+- PostgreSQL / Vastbase-PostgreSQL retain either the `LIMIT` or standard
+  `OFFSET ... FETCH` family; MySQL / Vastbase-MySQL retain the `LIMIT` family;
+  SQL Server / Vastbase-SQLServer retain `OFFSET ... FETCH` while `TOP`
+  remains independently restored; and Dameng continues to distinguish `TOP`,
+  `LIMIT`, and standard `OFFSET ... FETCH`.
+- Local source edits continue to byte-preserve unchanged regions. A full-AST
+  fallback may canonicalize `ROW` to `ROWS` and Dameng `LIMIT offset,count` to
+  the semantically equivalent `LIMIT count OFFSET offset`. This release does
+  not add `FETCH ... PERCENT` semantics; existing SQL Server and Dameng
+  `TOP ... PERCENT [WITH TIES]` support is unchanged.
+
+### API, Compatibility, and Validation
+
+- This release adds or removes no public functions, public enum values, public
+  structure fields, or resource-ownership rules. `LimitClauseStyle` belongs
+  only to the vendored parser AST/protobuf and is not part of the public View
+  or Query Graph.
+- No fixture cases were added; the nine fixtures still contain 2,781 final
+  cases and 9,034 patches. The full `make test` suite passed. Targeted Valgrind
+  checks for the core API, identifier spelling, robustness, and pagination
+  dialect state each exited with `0 bytes in 0 blocks` and zero errors.
+- The vendored `libpg_query` tag remains `17-6.2.2`. Its protobuf generation
+  script explicitly preserves existing field numbers and emits the pagination
+  field, enum, and existing `String.location`.
+
 ## 2.15.3
 
 ### Oracle and Dameng Hierarchical Queries
