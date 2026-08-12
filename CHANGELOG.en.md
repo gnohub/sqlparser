@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.16.1
+
+### Compact Query Graph DML Cell Cache
+
+- Internal DML-cell records fell from 456 B to 80 B, with no public API or View
+  JSON changes.
+- Retained Query Graph memory for 20,000 literal cells fell from 14.659 MiB to
+  1.685 MiB, an 88.504% reduction.
+- Relevant regressions, five targeted Valgrind Memcheck runs, and the ABI check
+  passed.
+
 ## 2.16.0
 
 ### Deparser Memory

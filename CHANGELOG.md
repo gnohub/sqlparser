@@ -1,5 +1,13 @@
 # 变更记录
 
+## 2.16.1
+
+### Query Graph DML cell 紧凑缓存
+
+- DML cell 内部记录由 456 B 降至 80 B，公开 API 和 View JSON 不变。
+- 20,000 个 literal cell 的 Query Graph 保留量由 14.659 MiB 降至 1.685 MiB，下降 88.504%。
+- 相关回归、五项定向 Valgrind Memcheck 和 ABI 检查通过。
+
 ## 2.16.0
 
 ### Deparser 内存

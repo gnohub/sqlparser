@@ -5854,6 +5854,43 @@ typedef union {
 	sqlparser_graph_bind_cache_t bind;
 } sqlparser_graph_value_payload_t;
 
+typedef struct {
+	size_t source_target_index;
+	size_t source_field_index;
+} sqlparser_graph_dml_cell_field_cache_t;
+
+typedef union {
+	sqlparser_literal_view_t literal;
+	sqlparser_graph_bind_cache_t bind;
+	sqlparser_graph_dml_cell_field_cache_t field;
+	size_t expression_sql_offset;
+} sqlparser_graph_dml_cell_payload_t;
+
+enum {
+	SQLPARSER_GRAPH_DML_CELL_HAS_SOURCE_TARGET = 1U << 0,
+	SQLPARSER_GRAPH_DML_CELL_HAS_SOURCE_FIELD = 1U << 1,
+	SQLPARSER_GRAPH_DML_CELL_HAS_SELECTOR = 1U << 2,
+	SQLPARSER_GRAPH_DML_CELL_HAS_BIND = 1U << 3,
+	SQLPARSER_GRAPH_DML_CELL_HAS_BIND_SQL = 1U << 4,
+	SQLPARSER_GRAPH_DML_CELL_HAS_BIND_POSITION = 1U << 5,
+	SQLPARSER_GRAPH_DML_CELL_HAS_EXPRESSION_SQL = 1U << 6
+};
+
+typedef struct {
+	sqlparser_graph_dml_cell_payload_t payload;
+	size_t dml_index;
+	size_t row_index;
+	size_t column_ordinal;
+	size_t selector_item_index;
+	uint8_t kind;
+	uint8_t selector_kind;
+	uint8_t flags;
+} sqlparser_graph_dml_cell_cache_t;
+
+_Static_assert(
+	sizeof(sqlparser_graph_dml_cell_cache_t) <= 80U,
+	"query graph DML cell cache must remain compact");
+
 enum {
 	SQLPARSER_GRAPH_VALUE_HAS_FIELD = 1U << 0,
 	SQLPARSER_GRAPH_VALUE_HAS_SOURCE_FIELD = 1U << 1,
@@ -5897,7 +5934,8 @@ _Static_assert(
 	SQLPARSER_GRAPH_OPERATOR_NOT_ILIKE <= UINT8_MAX &&
 	SQLPARSER_GRAPH_FIELD_MATCH_EXPRESSION_FIELD <= UINT8_MAX &&
 	SQLPARSER_GRAPH_VALUE_FIELD <= UINT8_MAX &&
-	SQLPARSER_GRAPH_LIKE_ESCAPE_EXPRESSION <= UINT8_MAX,
+	SQLPARSER_GRAPH_LIKE_ESCAPE_EXPRESSION <= UINT8_MAX &&
+	SQLPARSER_SELECTOR_KIND_MERGE_DELETE_CONDITION <= UINT8_MAX,
 	"query graph compact enums must fit in one byte");
 
 enum {
@@ -6016,9 +6054,7 @@ struct sqlparser_query_graph_cache {
 	sqlparser_graph_dml_column_t *dml_columns;
 	size_t dml_cell_count;
 	size_t dml_cell_capacity;
-	sqlparser_graph_dml_cell_t *dml_cells;
-	size_t dml_cell_expression_sql_capacity;
-	char **dml_cell_expression_sql;
+	sqlparser_graph_dml_cell_cache_t *dml_cells;
 	size_t dml_assignment_count;
 	size_t dml_assignment_capacity;
 	sqlparser_graph_dml_assignment_t *dml_assignments;
@@ -7068,6 +7104,259 @@ static int sqlparser_graph_value_cache_copy_public(
 			NULL);
 	}
 	return 0;
+}
+
+static int sqlparser_graph_dml_cell_cache_init(
+	sqlparser_query_graph_cache_t *cache,
+	sqlparser_graph_dml_cell_cache_t *cell,
+	const sqlparser_graph_dml_cell_t *source,
+	const char *expression_sql,
+	size_t statement_index,
+	sqlparser_error_t *out_error)
+{
+	size_t text_length;
+
+	if (cache == NULL || cell == NULL || source == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "invalid query graph DML cell cache");
+		return -1;
+	}
+	memset(cell, 0, sizeof(*cell));
+	cell->dml_index = source->dml_index;
+	cell->row_index = source->row_index;
+	cell->column_ordinal = source->column_ordinal;
+	cell->kind = (uint8_t)source->kind;
+	if (source->has_selector) {
+		if (source->selector.statement_index != statement_index) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "query graph DML cell selector statement is invalid");
+			return -1;
+		}
+		switch (source->selector.kind) {
+		case SQLPARSER_SELECTOR_KIND_VALUE:
+			if (source->selector.row_index != 0U ||
+			    source->selector.column_index != 0U ||
+			    (source->kind != SQLPARSER_GRAPH_VALUE_LITERAL &&
+			     source->kind != SQLPARSER_GRAPH_VALUE_BIND &&
+			     source->kind != SQLPARSER_GRAPH_VALUE_DEFAULT)) {
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "query graph DML value selector is invalid");
+				return -1;
+			}
+			cell->selector_item_index = source->selector.item_index;
+			break;
+		case SQLPARSER_SELECTOR_KIND_INSERT_CELL:
+			if (source->selector.item_index != 0U ||
+			    source->selector.row_index != source->row_index ||
+			    source->selector.column_index != source->column_ordinal) {
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "query graph INSERT cell selector is invalid");
+				return -1;
+			}
+			break;
+		case SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL:
+			if (source->selector.row_index != source->dml_index ||
+			    source->selector.item_index != source->row_index ||
+			    source->selector.column_index != source->column_ordinal) {
+				sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "query graph MERGE INSERT cell selector is invalid");
+				return -1;
+			}
+			break;
+		default:
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "query graph DML cell selector kind is invalid");
+			return -1;
+		}
+		cell->selector_kind = (uint8_t)source->selector.kind;
+		cell->flags |= SQLPARSER_GRAPH_DML_CELL_HAS_SELECTOR;
+	}
+	text_length = cache->value_text_length;
+	switch (source->kind) {
+	case SQLPARSER_GRAPH_VALUE_LITERAL:
+		if (expression_sql != NULL || source->has_bind || source->has_bind_sql ||
+		    source->has_bind_position || source->has_source_target ||
+		    source->has_source_field) {
+			break;
+		}
+		cell->payload.literal = source->literal;
+		return 0;
+	case SQLPARSER_GRAPH_VALUE_BIND:
+		if (expression_sql != NULL || source->has_source_target ||
+		    source->has_source_field) {
+			break;
+		}
+		cell->payload.bind.bind_kind = source->bind_kind;
+		cell->payload.bind.bind_position = source->bind_position;
+		if (source->has_bind) {
+			cell->flags |= SQLPARSER_GRAPH_DML_CELL_HAS_BIND;
+		}
+		if (source->has_bind_sql) {
+			cell->flags |= SQLPARSER_GRAPH_DML_CELL_HAS_BIND_SQL;
+		}
+		if (source->has_bind_position) {
+			cell->flags |= SQLPARSER_GRAPH_DML_CELL_HAS_BIND_POSITION;
+		}
+		if ((source->has_bind &&
+		     sqlparser_graph_value_store_text(
+			     cache,
+			     source->bind,
+			     &cell->payload.bind.bind_offset,
+			     out_error) != 0) ||
+		    (source->has_bind_sql &&
+		     sqlparser_graph_value_store_text(
+			     cache,
+			     source->bind_sql,
+			     &cell->payload.bind.bind_sql_offset,
+			     out_error) != 0)) {
+			cache->value_text_length = text_length;
+			return -1;
+		}
+		return 0;
+	case SQLPARSER_GRAPH_VALUE_DEFAULT:
+		if (expression_sql == NULL && !source->has_bind &&
+		    !source->has_bind_sql && !source->has_bind_position &&
+		    !source->has_source_target && !source->has_source_field) {
+			return 0;
+		}
+		break;
+	case SQLPARSER_GRAPH_VALUE_EXPRESSION:
+		if (expression_sql == NULL || expression_sql[0] == '\0' ||
+		    source->has_bind || source->has_bind_sql ||
+		    source->has_bind_position || source->has_source_target ||
+		    source->has_source_field) {
+			break;
+		}
+		if (sqlparser_graph_value_store_text(
+			    cache,
+			    expression_sql,
+			    &cell->payload.expression_sql_offset,
+			    out_error) != 0) {
+			cache->value_text_length = text_length;
+			return -1;
+		}
+		cell->flags |= SQLPARSER_GRAPH_DML_CELL_HAS_EXPRESSION_SQL;
+		return 0;
+	case SQLPARSER_GRAPH_VALUE_FIELD:
+		if (expression_sql != NULL || source->has_bind || source->has_bind_sql ||
+		    source->has_bind_position ||
+		    (!source->has_source_target && !source->has_source_field)) {
+			break;
+		}
+		cell->payload.field.source_target_index = source->source_target_index;
+		cell->payload.field.source_field_index = source->source_field_index;
+		if (source->has_source_target) {
+			cell->flags |= SQLPARSER_GRAPH_DML_CELL_HAS_SOURCE_TARGET;
+		}
+		if (source->has_source_field) {
+			cell->flags |= SQLPARSER_GRAPH_DML_CELL_HAS_SOURCE_FIELD;
+		}
+		return 0;
+	default:
+		break;
+	}
+	sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "query graph DML cell payload is invalid");
+	return -1;
+}
+
+static int sqlparser_graph_dml_cell_cache_copy_public(
+	const sqlparser_query_graph_cache_t *cache,
+	const sqlparser_graph_dml_cell_cache_t *source,
+	size_t statement_index,
+	size_t cell_index,
+	sqlparser_graph_dml_cell_t *cell,
+	sqlparser_error_t *out_error)
+{
+	const char *text;
+
+	if (cache == NULL || source == NULL || cell == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "invalid query graph DML cell cache");
+		return -1;
+	}
+	memset(cell, 0, sizeof(*cell));
+	cell->index = cell_index;
+	cell->statement_index = statement_index;
+	cell->dml_index = source->dml_index;
+	cell->row_index = source->row_index;
+	cell->column_ordinal = source->column_ordinal;
+	cell->kind = (sqlparser_graph_value_kind_t)source->kind;
+	cell->has_selector =
+		(source->flags & SQLPARSER_GRAPH_DML_CELL_HAS_SELECTOR) != 0U;
+	if (cell->has_selector) {
+		cell->selector.kind =
+			(sqlparser_selector_kind_t)source->selector_kind;
+		cell->selector.statement_index = statement_index;
+		switch (cell->selector.kind) {
+		case SQLPARSER_SELECTOR_KIND_VALUE:
+			cell->selector.item_index = source->selector_item_index;
+			break;
+		case SQLPARSER_SELECTOR_KIND_INSERT_CELL:
+			cell->selector.row_index = source->row_index;
+			cell->selector.column_index = source->column_ordinal;
+			break;
+		case SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL:
+			cell->selector.row_index = source->dml_index;
+			cell->selector.item_index = source->row_index;
+			cell->selector.column_index = source->column_ordinal;
+			break;
+		default:
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "query graph DML cell selector cache is invalid");
+			return -1;
+		}
+	}
+	switch (cell->kind) {
+	case SQLPARSER_GRAPH_VALUE_LITERAL:
+		cell->literal = source->payload.literal;
+		return 0;
+	case SQLPARSER_GRAPH_VALUE_BIND:
+		cell->has_bind =
+			(source->flags & SQLPARSER_GRAPH_DML_CELL_HAS_BIND) != 0U;
+		cell->bind_kind = source->payload.bind.bind_kind;
+		cell->has_bind_sql =
+			(source->flags & SQLPARSER_GRAPH_DML_CELL_HAS_BIND_SQL) != 0U;
+		cell->bind_position = source->payload.bind.bind_position;
+		cell->has_bind_position =
+			(source->flags & SQLPARSER_GRAPH_DML_CELL_HAS_BIND_POSITION) != 0U;
+		if (cell->has_bind) {
+			text = sqlparser_graph_value_text_at(
+				cache,
+				source->payload.bind.bind_offset,
+				out_error);
+			if (text == NULL) {
+				return -1;
+			}
+			sqlparser_view_copy_public_text(
+				cell->bind,
+				sizeof(cell->bind),
+				text,
+				NULL);
+		}
+		if (cell->has_bind_sql) {
+			text = sqlparser_graph_value_text_at(
+				cache,
+				source->payload.bind.bind_sql_offset,
+				out_error);
+			if (text == NULL) {
+				return -1;
+			}
+			sqlparser_view_copy_public_text(
+				cell->bind_sql,
+				sizeof(cell->bind_sql),
+				text,
+				NULL);
+		}
+		return 0;
+	case SQLPARSER_GRAPH_VALUE_DEFAULT:
+	case SQLPARSER_GRAPH_VALUE_EXPRESSION:
+		return 0;
+	case SQLPARSER_GRAPH_VALUE_FIELD:
+		cell->source_target_index =
+			source->payload.field.source_target_index;
+		cell->has_source_target =
+			(source->flags & SQLPARSER_GRAPH_DML_CELL_HAS_SOURCE_TARGET) != 0U;
+		cell->source_field_index =
+			source->payload.field.source_field_index;
+		cell->has_source_field =
+			(source->flags & SQLPARSER_GRAPH_DML_CELL_HAS_SOURCE_FIELD) != 0U;
+		return 0;
+	default:
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "query graph DML cell kind is invalid");
+		return -1;
+	}
 }
 
 static int sqlparser_graph_target_cache_init(
@@ -8580,7 +8869,6 @@ static int sqlparser_graph_dml_result_own_text(
 
 void sqlparser_query_graph_cache_release(sqlparser_query_graph_cache_t *cache)
 {
-	size_t cell_index;
 	size_t text_index;
 
 	if (cache == NULL) {
@@ -8600,10 +8888,6 @@ void sqlparser_query_graph_cache_release(sqlparser_query_graph_cache_t *cache)
 	free(cache->dml_branches);
 	free(cache->merge_branch_details);
 	free(cache->dml_columns);
-	for (cell_index = 0U; cell_index < cache->dml_cell_count; cell_index++) {
-		free(cache->dml_cell_expression_sql[cell_index]);
-	}
-	free(cache->dml_cell_expression_sql);
 	free(cache->dml_cells);
 	free(cache->dml_assignments);
 	free(cache->session_items);
@@ -17659,40 +17943,44 @@ static int sqlparser_graph_add_dml_branch(
 static int sqlparser_graph_add_dml_cell(
 	sqlparser_graph_build_t *build,
 	const sqlparser_graph_dml_cell_t *source,
+	const char *expression_sql,
 	size_t *out_index,
 	sqlparser_error_t *out_error)
 {
-	sqlparser_graph_dml_cell_t *cell;
+	sqlparser_graph_dml_cell_cache_t cell;
 	size_t global_index;
 	size_t local_index;
 
 	if (out_index != NULL) {
 		*out_index = 0U;
 	}
-	if (sqlparser_query_graph_reserve_array(
+	if (build == NULL || build->cache == NULL || build->statement == NULL ||
+	    source == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "query graph builder or DML cell source is missing");
+		return -1;
+	}
+	if (sqlparser_query_graph_reserve_array_with_initial(
 		    (void **)&build->cache->dml_cells,
 		    &build->cache->dml_cell_capacity,
 		    build->cache->dml_cell_count + 1U,
 		    sizeof(*build->cache->dml_cells),
-		    out_error) != 0 ||
-	    sqlparser_query_graph_reserve_array(
-		    (void **)&build->cache->dml_cell_expression_sql,
-		    &build->cache->dml_cell_expression_sql_capacity,
-		    build->cache->dml_cell_count + 1U,
-		    sizeof(*build->cache->dml_cell_expression_sql),
+		    4U,
 		    out_error) != 0) {
 		return -1;
 	}
-	global_index = build->cache->dml_cell_count++;
-	local_index = build->cache->dml_cell_count - build->statement->dml_cell_offset - 1U;
-	cell = &build->cache->dml_cells[global_index];
-	build->cache->dml_cell_expression_sql[global_index] = NULL;
-	memset(cell, 0, sizeof(*cell));
-	if (source != NULL) {
-		*cell = *source;
+	if (sqlparser_graph_dml_cell_cache_init(
+		    build->cache,
+		    &cell,
+		    source,
+		    expression_sql,
+		    build->statement_index,
+		    out_error) != 0) {
+		return -1;
 	}
-	cell->index = local_index;
-	cell->statement_index = build->statement_index;
+	global_index = build->cache->dml_cell_count;
+	local_index = global_index - build->statement->dml_cell_offset;
+	build->cache->dml_cells[global_index] = cell;
+	build->cache->dml_cell_count++;
 	if (out_index != NULL) {
 		*out_index = local_index;
 	}
@@ -18313,14 +18601,13 @@ static int sqlparser_graph_add_dml_cell_from_node(
 	if (sqlparser_graph_add_dml_cell(
 		    build,
 		    &cell,
+		    expression_sql,
 		    &cell_index,
 		    out_error) != 0) {
 		free(expression_sql);
 		return -1;
 	}
-	build->cache->dml_cell_expression_sql[
-		build->statement->dml_cell_offset + cell_index] =
-		expression_sql;
+	free(expression_sql);
 	if (out_cell_index != NULL) {
 		*out_cell_index = cell_index;
 	}
@@ -18860,7 +19147,7 @@ static int sqlparser_graph_add_multi_insert_dml_cell(
 	sqlparser_error_t *out_error)
 {
 	sqlparser_graph_dml_cell_t cell;
-	char *expression_sql;
+	const char *expression_sql;
 	PgQuery__Node *node;
 	PgQuery__Node *semantic_node;
 	size_t cell_index;
@@ -18948,22 +19235,16 @@ static int sqlparser_graph_add_multi_insert_dml_cell(
 				"multi-insert expression cell SQL is missing");
 			return -1;
 		}
-		expression_sql = sqlparser_strdup(source->public_sql);
-		if (expression_sql == NULL) {
-			sqlparser_error_set_message(
-				out_error,
-				SQLPARSER_STATUS_NO_MEMORY,
-				"out of memory");
-			return -1;
-		}
+		expression_sql = source->public_sql;
 	}
-	if (sqlparser_graph_add_dml_cell(build, &cell, &cell_index, out_error) != 0) {
-		free(expression_sql);
+	if (sqlparser_graph_add_dml_cell(
+		    build,
+		    &cell,
+		    expression_sql,
+		    &cell_index,
+		    out_error) != 0) {
 		return -1;
 	}
-	build->cache->dml_cell_expression_sql[
-		build->statement->dml_cell_offset + cell_index] =
-		expression_sql;
 	if (branch != NULL &&
 	    sqlparser_graph_span_append_index(build, &branch->rows, cell_index, out_error) != 0) {
 		return -1;
@@ -20767,6 +21048,11 @@ static sqlparser_status_t sqlparser_query_graph_cache_build(
 		cache->like_escape_count,
 		sizeof(*cache->like_escapes));
 	sqlparser_query_graph_shrink_array(
+		(void **)&cache->dml_cells,
+		&cache->dml_cell_capacity,
+		cache->dml_cell_count,
+		sizeof(*cache->dml_cells));
+	sqlparser_query_graph_shrink_array(
 		(void **)&cache->index_pool,
 		&cache->index_pool_capacity,
 		cache->index_pool_count,
@@ -21724,7 +22010,9 @@ sqlparser_status_t sqlparser_query_graph_dml_cell_at(
 	sqlparser_error_t *out_error)
 {
 	sqlparser_query_graph_cache_t *cache;
+	sqlparser_graph_dml_cell_t cell;
 	sqlparser_statement_graph_t *statement;
+	size_t global_index;
 
 	sqlparser_error_clear(out_error);
 	if (out_cell == NULL) {
@@ -21737,7 +22025,25 @@ sqlparser_status_t sqlparser_query_graph_dml_cell_at(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "dml cell index is out of range");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	*out_cell = cache->dml_cells[statement->dml_cell_offset + cell_index];
+	if (statement->dml_cell_offset > SIZE_MAX - cell_index) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "dml cell offset is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	global_index = statement->dml_cell_offset + cell_index;
+	if (global_index >= cache->dml_cell_count ||
+	    sqlparser_graph_dml_cell_cache_copy_public(
+		    cache,
+		    &cache->dml_cells[global_index],
+		    graph->statement_index,
+		    cell_index,
+		    &cell,
+		    out_error) != 0) {
+		if (out_error != NULL && out_error->code == SQLPARSER_STATUS_OK) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "dml cell cache is invalid");
+		}
+		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	*out_cell = cell;
 	return SQLPARSER_STATUS_OK;
 }
 
@@ -22523,9 +22829,11 @@ static json_t *sqlparser_graph_dml_column_json(
 
 static const char *sqlparser_graph_dml_cell_expression_sql(
 	const sqlparser_query_graph_view_t *graph,
-	const sqlparser_graph_dml_cell_t *cell)
+	const sqlparser_graph_dml_cell_t *cell,
+	sqlparser_error_t *out_error)
 {
 	sqlparser_query_graph_cache_t *cache;
+	const sqlparser_graph_dml_cell_cache_t *cached_cell;
 	sqlparser_statement_graph_t *statement;
 	size_t global_index;
 
@@ -22537,9 +22845,19 @@ static const char *sqlparser_graph_dml_cell_expression_sql(
 		return NULL;
 	}
 	global_index = statement->dml_cell_offset + cell->index;
-	return global_index < cache->dml_cell_count ?
-		cache->dml_cell_expression_sql[global_index] :
-		NULL;
+	if (global_index >= cache->dml_cell_count) {
+		return NULL;
+	}
+	cached_cell = &cache->dml_cells[global_index];
+	if (cached_cell->kind != SQLPARSER_GRAPH_VALUE_EXPRESSION ||
+	    (cached_cell->flags &
+	     SQLPARSER_GRAPH_DML_CELL_HAS_EXPRESSION_SQL) == 0U) {
+		return NULL;
+	}
+	return sqlparser_graph_value_text_at(
+		cache,
+		cached_cell->payload.expression_sql_offset,
+		out_error);
 }
 
 static json_t *sqlparser_graph_dml_cell_json(
@@ -22554,12 +22872,18 @@ static json_t *sqlparser_graph_dml_cell_json(
 	expression_sql = NULL;
 	if (cell->kind == SQLPARSER_GRAPH_VALUE_EXPRESSION) {
 		expression_sql =
-			sqlparser_graph_dml_cell_expression_sql(graph, cell);
+			sqlparser_graph_dml_cell_expression_sql(
+				graph,
+				cell,
+				out_error);
 		if (expression_sql == NULL || expression_sql[0] == '\0') {
-			sqlparser_error_set_message(
-				out_error,
-				SQLPARSER_STATUS_INTERNAL_ERROR,
-				"expression cell SQL is missing");
+			if (out_error == NULL ||
+			    out_error->code == SQLPARSER_STATUS_OK) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INTERNAL_ERROR,
+					"expression cell SQL is missing");
+			}
 			return NULL;
 		}
 	}
