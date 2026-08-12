@@ -29,6 +29,9 @@ The executable case matrix defines the SQL Server dialect support boundary:
   `DELETED`, source fields, `$action`, expressions, aliases, and binds
 - `OUTPUT ... INTO relation [(column, ...)]`, `OUTPUT ... INTO @table_variable`,
   and ordered sink/client dual channels
+- atomic insertion of one OUTPUT-target/sink-column pair at the same ordinal
+  when an explicit sink-column list is initially equal in length to the OUTPUT
+  target list
 - nested DML where an outer `INSERT` consumes an inner DML `OUTPUT`
 - `UPDATE TOP (...) ... OUTPUT` and INSERT target hints combined with `OUTPUT`
 - `IF...ELSE` single-statement branches, `BEGIN...END` multi-statement branches,
@@ -53,6 +56,19 @@ The executable case matrix defines the SQL Server dialect support boundary:
   `SET NOCOUNT ON`, `SET DATEFORMAT dmy`, and `SET IDENTITY_INSERT dbo.Tool ON`
 - parameterized dynamic SQL through `sp_prepare`, `sp_execute`, `sp_prepexec`,
   `sp_unprepare`, and `sp_executesql`
+
+## Paired OUTPUT Mutation Boundary
+
+Paired `insert_column` applies only to a sink `OUTPUT ... INTO` channel with an
+explicit non-empty sink-column list when the OUTPUT-target and sink-column
+counts are strictly equal before the rewrite. The operation atomically inserts
+one OUTPUT target and one sink column at the same ordinal.
+
+SQL Server OUTPUT forms whose counts are legally unequal still parse and
+deparse, but do not support this paired insertion. Client `OUTPUT` and
+`OUTPUT ... INTO` without an explicit sink-column list are also outside the
+paired-mutation boundary. This limits the patch operation, not parsing support
+for those SQL forms.
 
 ## Explicitly Unsupported Scope
 
@@ -109,4 +125,7 @@ The SQL Server support boundary is defined by:
 - `tests/unit/test_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The SQL Server matrix contains 621 cases, all with `status = "final"`.
+The SQL Server matrix contains 624 cases, all with `status = "final"`, and 1867
+independent patches. Three cases respectively verify INSERT, UPDATE, and DELETE
+with 8↔8 OUTPUT-target/sink-column pairs and atomic head, middle, and tail
+insertions that produce 9↔9 pairs.

@@ -33,7 +33,7 @@ query,CONNECT_BY,CURRENT,"已覆盖 START WITH 与 CONNECT BY 两种源文本顺
 query,PIVOT_UNPIVOT,MODEL_REQUIRED,"表变换语义需要专用查询模型",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
 query,FLASHBACK_QUERY,MODEL_REQUIRED,"闪回查询涉及达梦专属时间点/版本语义",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
 query,SAMPLE_PARTITION_APPLY,MODEL_REQUIRED,"SAMPLE、PARTITION 和 APPLY 完整语义需要专用表引用模型",https://eco.dameng.com/document/dm/zh-cn/pm/check-phrases.html
-dml,RETURNING_INTO,CURRENT,"已覆盖 INSERT/DELETE RETURNING 与 UPDATE RETURN 的单个表达式 INTO 单个冒号宿主 bind；不包括多个返回表达式、多个宿主 bind 或 BULK COLLECT",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
+dml,RETURNING_INTO,CURRENT,"已覆盖 INSERT/DELETE RETURNING 与 UPDATE RETURN 的 N>=1 target 和严格等长冒号宿主 bind，按序号一一配对；不包括 BULK COLLECT、非冒号 bind 接收项或不等长列表",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
 program,DMSQL_BLOCK,MODEL_REQUIRED,"DMSQL block 超出当前 SQL 语句模型",https://eco.dameng.com/document/dm/zh-cn/pm/dm8_sql-sql-statement
 program,CREATE_PROCEDURE_PACKAGE,MODEL_REQUIRED,"procedure 和 package 属于 DMSQL 程序单元",https://eco.dameng.com/document/dm/zh-cn/pm/dm8_sql-sql-statement
 remote,DATABASE_LINK,CURRENT,"已覆盖 table@database_link 远程对象引用、schema 前缀、别名、DML target 和 quoted identifier 基础形态",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html

@@ -24,7 +24,13 @@ privilege statements, and Dameng-specific semantics.
 | `MODEL_REQUIRED` | Requires a Dameng-specific model, usually for table transformations, DMSQL program units, or flashback. |
 | `REFERENCE_ONLY` | An official index, category, or explanatory page that is not counted as an implementation unit. |
 
-The `CURRENT` boundary for `RETURNING_INTO` is `RETURNING <single expression> INTO <single colon-prefixed host bind>` for `INSERT` and `DELETE`, and `RETURN <single expression> INTO <single colon-prefixed host bind>` for `UPDATE`. This boundary excludes multiple return targets, multiple `INTO` binds, and `BULK COLLECT`.
+The `CURRENT` boundary for `RETURNING_INTO` is
+`RETURNING <target, ...> INTO <:bind, ...>` for `INSERT` and `DELETE`, and
+`RETURN <target, ...> INTO <:bind, ...>` for `UPDATE`. Each list contains
+`N >= 1` items; the lists have strictly equal lengths and pair by ordinal, and
+every receiver is a colon-prefixed host bind. This boundary excludes
+`BULK COLLECT`, receivers that are not colon-prefixed host binds, and unequal
+list lengths.
 
 ## Results
 
@@ -58,7 +64,9 @@ contains 4 `final` cases and 20 independent patches.
 
 The current Dameng dialect covers common query, DML, DDL, transaction,
 privilege, current-schema statements, representative session-parameter
-statements, basic remote object references, and the single-expression,
-single-host-bind `RETURN` / `RETURNING ... INTO` forms defined above. The
+statements, basic remote object references, and the `N >= 1`, strictly
+equal-length, ordinally paired `RETURN` / `RETURNING ... INTO` forms defined
+above. Three executable cases cover 8↔8 pairs for INSERT, UPDATE, and DELETE,
+plus atomic head, middle, and tail insertions that produce 9↔9 pairs. The
 remaining five syntax groups depend on Dameng-specific query-model or
 program-unit semantics and are not handled by PostgreSQL-compatible conversion.

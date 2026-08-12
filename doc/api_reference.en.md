@@ -1032,7 +1032,7 @@ Patch operations:
 | Operation | Meaning |
 | --- | --- |
 | `SQLPARSER_PATCH_REPLACE` | replaces a relation, name, value, assignment, literal, where literal, clause, MERGE branch condition, MERGE attached-delete condition, insert cell, MERGE INSERT target column or complete cell, select target, or select target list |
-| `SQLPARSER_PATCH_INSERT_COLUMN` | adds an `INSERT ... VALUES` column, adds an `INSERT ... SELECT` target column, adds an Oracle/Dameng `INSERT ALL/FIRST` branch target column, atomically adds a MERGE INSERT target/value pair, or inserts a SELECT output target |
+| `SQLPARSER_PATCH_INSERT_COLUMN` | adds an `INSERT ... VALUES` column, adds an `INSERT ... SELECT` target column, adds an Oracle/Dameng `INSERT ALL/FIRST` branch target column, atomically adds a MERGE INSERT target/value pair, inserts a SELECT output target, or inserts a target/receiver pair into a paired DML result list |
 | `SQLPARSER_PATCH_DELETE_COLUMN` | deletes an `INSERT ... VALUES` column, deletes an `INSERT ... SELECT` target column, atomically deletes a MERGE INSERT target/value pair, or deletes a SELECT output target |
 | `SQLPARSER_PATCH_DELETE_ROW` | deletes an `INSERT ... VALUES` row |
 | `SQLPARSER_PATCH_APPEND_CONDITION` | appends a condition to a `where` clause with `AND` or `OR` |
@@ -1062,6 +1062,16 @@ and `index` with `SQLPARSER_PATCH_DELETE_COLUMN` to delete a pair. Both
 operations update the target-column and VALUES lists atomically. They fail for
 mismatched list lengths, invalid indexes, or an INSERT action without an
 explicit target-column list.
+
+For a DML result channel with an explicit paired receiver list, target the
+`dml_result_targets` list selector with `SQLPARSER_PATCH_INSERT_COLUMN`.
+`index` is the common insertion position in both lists, `default_sql` supplies
+the new target SQL, and `name` supplies its receiver. The receiver is a colon
+bind for Oracle, Dameng, and Vastbase-Oracle compatibility mode, and an
+explicit sink column for SQL Server and Vastbase SQL Server compatibility
+mode. `sqlparser_apply_patch()` inserts both sides atomically in one
+transaction. Unequal list lengths, an invalid index or receiver, or an invalid
+payload-field combination fails without changing the handle.
 
 The value-source fields in `sqlparser_patch_t` are mutually exclusive for one
 rewrite position: provide only one of `sql`, `default_sql`, `source_selector`,

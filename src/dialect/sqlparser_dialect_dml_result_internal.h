@@ -35,6 +35,7 @@ typedef struct {
 
 typedef struct {
 	size_t statement_index;
+	size_t pair_count;
 	uint16_t keyword_uppercase_mask;
 	uint8_t into_uppercase_mask;
 	uint8_t uses_return_keyword;
@@ -50,6 +51,7 @@ typedef struct {
 	size_t statement_index;
 	size_t keyword_end;
 	size_t into_start;
+	size_t pair_count;
 	int uses_return_keyword;
 } sqlparser_dialect_returning_into_clause_t;
 
@@ -67,6 +69,7 @@ sqlparser_status_t sqlparser_dialect_returning_into_state_append(
 	const char *keyword,
 	size_t keyword_length,
 	const char *into_keyword,
+	size_t pair_count,
 	sqlparser_error_t *out_error);
 
 int sqlparser_dialect_returning_into_clause_at(
@@ -81,6 +84,10 @@ sqlparser_status_t sqlparser_dialect_returning_into_validate(
 	const char *sql,
 	int allow_return_keyword,
 	sqlparser_error_t *out_error);
+
+int sqlparser_dialect_returning_into_receiver_is_bind(
+	sqlparser_dialect_t dialect,
+	const char *sql);
 
 sqlparser_status_t sqlparser_dialect_returning_into_postprocess(
 	sqlparser_dialect_t dialect,
@@ -163,6 +170,13 @@ sqlparser_status_t sqlparser_dialect_dml_result_adjust_target_count(
 	ptrdiff_t delta,
 	sqlparser_error_t *out_error);
 
+sqlparser_status_t sqlparser_dialect_dml_result_adjust_paired_count(
+	sqlparser_dialect_t dialect,
+	void *state,
+	size_t statement_index,
+	ptrdiff_t delta,
+	sqlparser_error_t *out_error);
+
 sqlparser_status_t sqlparser_dialect_dml_result_set_action_marker(
 	sqlparser_dialect_t dialect,
 	void *state,
@@ -199,6 +213,16 @@ sqlparser_status_t sqlparser_dialect_dml_result_insert_sink_column(
 	size_t dml_index,
 	size_t channel_index,
 	size_t column_index,
+	const char *column_sql,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_dialect_dml_result_insert_target_sink_column(
+	sqlparser_dialect_t dialect,
+	void *state,
+	size_t statement_index,
+	size_t dml_index,
+	size_t channel_index,
+	size_t target_index,
 	const char *column_sql,
 	sqlparser_error_t *out_error);
 

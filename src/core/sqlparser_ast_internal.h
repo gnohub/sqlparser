@@ -565,6 +565,15 @@ sqlparser_status_t sqlparser_parse_select_target_node_sql(
 	const sqlparser_generated_source_t *source,
 	PgQuery__Node **out_node,
 	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_select_parse_public_targets(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	const char *sql_text,
+	int require_single,
+	PgQuery__Node ***out_nodes,
+	size_t *out_count,
+	void **out_dialect_state,
+	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_select_set_targets_sql_in_place(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
@@ -747,6 +756,13 @@ sqlparser_status_t sqlparser_dml_result_insert_target_sql(
 	const sqlparser_selector_t *selector,
 	size_t target_index,
 	const char *sql_text,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_dml_result_insert_target_receiver_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	size_t target_index,
+	const char *target_sql,
+	const char *receiver_sql,
 	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_dml_result_delete_target(
 	sqlparser_handle_t *handle,

@@ -15,19 +15,33 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 217 cases, all with `status = "final"`. The expected View contains a non-empty session projection in 41 cases.
+The fixture contains 220 cases and 791 independent patches, all with
+`status = "final"`. The expected View contains a non-empty session projection
+in 41 cases.
 
 View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
 
 ## RETURNING INTO Host-Bind Result Regression
 
-These three final cases cover single-target `RETURNING ... INTO :bind` on `INSERT ... VALUES`, `UPDATE`, and `DELETE` in Vastbase-Oracle compatibility mode. The supported boundary is one result target and one colon bind. View represents the result as a `kind = "sink"` channel without `sink_relation`; the target's `sink_value` points to the output bind in `query_graph.values[]`.
+These six final cases define the project contract for the `vastbase-oracle`
+compatibility entry; they are not a claim about official Vastbase server
+syntax. `RETURNING ... INTO` on `INSERT ... VALUES`, `UPDATE`, and `DELETE`
+supports `N >= 1` result targets with exactly N colon-prefixed host binds,
+paired by ordinal. View represents the result as one `kind = "sink"` channel
+without `sink_relation`, and every target's `sink_value` points to the output
+bind at the corresponding ordinal in `query_graph.values[]`. VO186 through
+VO188 each verify eight pairs plus one paired `insert_column`: the same patch
+inserts the target and receiver at the same ordinal, expanding the result to
+nine pairs without permitting a one-sided insertion.
 
 | ID | Case | DML | Verification focus |
 | --- | --- | --- | --- |
 | `VO183` | `vastbase-oracle-insert-returning-rowid-into-bind` | INSERT | `ROWID` is a `pseudo` target sourced from `target_after`; independent VALUES-cell, result-target, and output-bind replacements deparse exactly |
 | `VO184` | `vastbase-oracle-update-returning-rowid-into-bind` | UPDATE | `ROWID` is a `pseudo` target sourced from `target_after`; independent assignment, result-target, and output-bind replacements deparse exactly |
 | `VO185` | `vastbase-oracle-delete-returning-rowid-into-bind` | DELETE | `ROWID` is a `pseudo` target sourced from `target_before`; independent WHERE-bind, result-target, and output-bind replacements deparse exactly |
+| `VO186` | `vastbase-oracle-insert-returning-eight-target-bind-pairs` | INSERT | eight pairs; paired insertion of `tenant_id` / `:out_tenant_id` at index 0 verifies nine aligned pairs at the head |
+| `VO187` | `vastbase-oracle-update-returning-eight-target-bind-pairs` | UPDATE | eight pairs; paired insertion of `postal_code` / `:out_postal_code` at index 4 verifies nine aligned pairs in the middle |
+| `VO188` | `vastbase-oracle-delete-returning-eight-target-bind-pairs` | DELETE | eight pairs; paired insertion of `tenant_id` / `:out_tenant_id` at index 8 verifies nine aligned pairs at the tail |
 
 ## ROWNUM Predicate Semantics Regression
 
@@ -242,9 +256,17 @@ appear in `query_graph.fields[].column`.
 | `VO183` | `vastbase-oracle-insert-returning-rowid-into-bind` | INSERT INTO "APP"."DBP_MANUAL_CLOB_FPE_STRESS" ("ID", "PROTECTED_CLOB_3") VALUES (:1, :2) RETURNING ROWID INTO :NAV_ROWID | covered |
 | `VO184` | `vastbase-oracle-update-returning-rowid-into-bind` | UPDATE "APP"."DBP_MANUAL_CLOB_FPE_STRESS" SET "PROTECTED_CLOB_3" = :1 WHERE "ID" = :2 RETURNING ROWID INTO :NAV_ROWID | covered |
 | `VO185` | `vastbase-oracle-delete-returning-rowid-into-bind` | DELETE FROM "APP"."DBP_MANUAL_CLOB_FPE_STRESS" WHERE "ID" = :1 RETURNING ROWID INTO :NAV_ROWID | covered |
+| `VO186` | `vastbase-oracle-insert-returning-eight-target-bind-pairs` | INSERT ... RETURNING 8 targets INTO 8 colon binds | covered |
+| `VO187` | `vastbase-oracle-update-returning-eight-target-bind-pairs` | UPDATE ... RETURNING 8 targets INTO 8 colon binds | covered |
+| `VO188` | `vastbase-oracle-delete-returning-eight-target-bind-pairs` | DELETE ... RETURNING 8 targets INTO 8 colon binds | covered |
 
 ## Coverage Boundary
 
 This matrix lists only cases that parse successfully and have final View and
 patch expectations. Syntax outside the executable fixture must not be listed
 here as a validated case.
+
+`RETURNING ... INTO` rejects `BULK COLLECT`, receivers other than
+colon-prefixed binds, and unequal target/receiver counts. This boundary is only
+the project compatibility-entry contract and executable evidence; it does not
+claim the same official Vastbase server syntax support.

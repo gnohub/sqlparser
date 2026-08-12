@@ -26,7 +26,8 @@ current AST. The executable case matrix defines the support boundary:
   `UNION ALL`, `INTERSECT`, and `MINUS` source queries
 - Oracle multi-table insert: `INSERT ALL` and `INSERT FIRST`, including `WHEN ... THEN` conditional branches
 - `UPDATE` and `DELETE`
-- one `RETURNING` expression with one `INTO` colon-prefixed host bind in `INSERT`, `UPDATE`, and `DELETE`
+- `RETURNING ... INTO` on `INSERT`, `UPDATE`, and `DELETE`, with `N >= 1`
+  result targets paired by ordinal with exactly N colon-prefixed host binds
 - `DATE` and `TIMESTAMP` literals
 - `CASE`, `EXISTS`, `UNION ALL`, and `INTERSECT`
 - mappable `MERGE`, including a post-assignment `WHERE` and an attached
@@ -58,7 +59,8 @@ The following Oracle-specific constructs are not silently downgraded. They
 return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
 
 - legacy outer join `(+)`
-- `RETURNING ... INTO` with multiple result targets, multiple host binds, or `BULK COLLECT`
+- `RETURNING ... INTO` with `BULK COLLECT`, a receiver other than a
+  colon-prefixed bind, or unequal target/receiver counts
 - PL/SQL blocks, procedures, and packages
 - `PIVOT` and `UNPIVOT`
 - `MODEL` clause
@@ -80,6 +82,10 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
   arrays with `start_with` / `connect_by` clauses, field `pseudo` / `prior`
   flags, `nocycle` on the CONNECT BY root predicate, and an operator
   `target_path` for `CONNECT_BY_ROOT`; no separate hierarchy object is added.
+- View represents `RETURNING ... INTO` with one `kind = "sink"` channel, and
+  every target's `sink_value` points to the output bind at the corresponding
+  ordinal. `insert_column` atomically inserts the target/receiver pair in the
+  same patch; one-sided insertion is not supported.
 - Attributable expression fragments in View JSON use the public Oracle
   form.
 - Failed expression-fragment rewrites are not committed to the handle; the
@@ -94,5 +100,7 @@ The Oracle support boundary is defined by:
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current Oracle matrix contains 248 cases, all with `status = "final"`.
-Four hierarchical-query cases contain 20 independent patches.
+The current Oracle matrix contains 251 cases and 852 independent patches, all
+with `status = "final"`. Four hierarchical-query cases contain 20 independent
+patches. O198 through O200 verify eight `RETURNING ... INTO` pairs on `INSERT`,
+`UPDATE`, and `DELETE`, plus paired insertion at the head, middle, and tail.

@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 248 条 `status = "final"` 用例。59 条用例包含 statement 级 `query_graph.session`，覆盖 `O043`、`O043Q`、`O044` 至 `O047`、`O082` 至 `O086`，以及 `ORA-*` session 用例；这 59 条用例均至少包含一个非空 session item。
+夹具包含 251 条 `status = "final"` 用例和 852 个独立 patch。59 条用例包含 statement 级 `query_graph.session`，覆盖 `O043`、`O043Q`、`O044` 至 `O047`、`O082` 至 `O086`，以及 `ORA-*` session 用例；这 59 条用例均至少包含一个非空 session item。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name 及 value 字段均属于比较范围。
 
@@ -234,11 +234,21 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | O196 | `oracle-hierarchical-connect-by-root` | `CONNECT_BY_ROOT employee_id` + `LEVEL` | expression target 保持不变，底层字段通过 `operator/CONNECT_BY_ROOT/arg_index=0` 的 `target_path` 归属 |
 | O197 | `oracle-hierarchical-nocycle-pseudocolumns` | `CONNECT BY NOCYCLE` + `CONNECT_BY_ISLEAF` + `CONNECT_BY_ISCYCLE` | CONNECT BY 根 predicate 的 `nocycle` 标记、两个 relationless pseudo target 及 field 回指 |
 
+## RETURNING INTO 多结果对回归
+
+Oracle `INSERT`、`UPDATE`、`DELETE` 的 `RETURNING ... INTO` 支持 `N >= 1` 个返回 target 与严格等长的 N 个冒号宿主 bind，并按 ordinal 一一配对。O189 至 O191 验证单对基线；以下 3 条 final 用例各验证 8 对结果及一次成对 `insert_column`：同一个 patch 在相同 ordinal 同时插入 target 和 receiver，使结果扩展为 9 对，不允许拆成单侧插入。View 使用一个 `kind = "sink"` 通道，每个 target 的 `sink_value` 指向对应 ordinal 的输出 bind。
+
+| ID | 用例 | DML | 验证重点 |
+| --- | --- | --- | --- |
+| O198 | `oracle-insert-returning-eight-target-bind-pairs` | INSERT | 8 对结果；在 index 0 成对插入 `tenant_id` / `:out_tenant_id`，验证头部 9 对及 ordinal 对齐 |
+| O199 | `oracle-update-returning-eight-target-bind-pairs` | UPDATE | 8 对结果；在 index 4 成对插入 `postal_code` / `:out_postal_code`，验证中部 9 对及 ordinal 对齐 |
+| O200 | `oracle-delete-returning-eight-target-bind-pairs` | DELETE | 8 对结果；在 index 8 成对插入 `tenant_id` / `:out_tenant_id`，验证尾部 9 对及 ordinal 对齐 |
+
 ## 覆盖边界
 
 本矩阵只列出可成功解析并具有最终 View 与 patch 期望的用例。未纳入该可执行夹具的语法边界由 `doc/oracle_official_syntax_coverage.csv` 维护。
 
-`RETURNING ... INTO` 覆盖范围限定为 `INSERT`、`UPDATE`、`DELETE` 的单个返回 target 与单个冒号宿主绑定变量，不包含多 target、多宿主绑定变量或 `BULK COLLECT`。
+`RETURNING ... INTO` 不接受 `BULK COLLECT`、非冒号 bind receiver 或 target/receiver 数量不等的输入；成对 `insert_column` 必须在同一个 patch 中同时插入两侧。
 
 ## 维护要求
 

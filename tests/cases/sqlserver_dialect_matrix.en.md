@@ -4,7 +4,8 @@ This file records regression cases for the SQL Server dialect conversion layer. 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 621 cases with `status = "final"`. A non-empty
+The fixture contains 624 cases with `status = "final"` and 1867 independent
+patches. A non-empty
 `query_graph.session` projection appears in 91 expected Views, covering `S044`
 through `S046`, `SH295` through `SH333`, and 49 `MSSQL-*` session cases.
 
@@ -92,6 +93,22 @@ This case verifies that multiple nested MERGE statements in one statement use in
 | --- | --- | --- | --- |
 | SH423 | `sqlserver-nested-merge-insert-selector-uniqueness` | an outer `INSERT ... SELECT` combines two nested MERGE statements with `OUTPUT` | unique target-list, target-column, and cell selectors for both nonzero DML indexes; independent replacement and atomic insertion do not cross MERGE boundaries |
 | SH424 | `sqlserver-merge-matched-delete-action` | conditional matched DELETE and matched UPDATE actions followed by a not-matched-by-target INSERT | DELETE remains an independent `WHEN MATCHED ... THEN DELETE` branch; all three branches retain their absolute order and selectors; 3 independent patches cover the DELETE branch condition, UPDATE assignment, and INSERT cell |
+
+## Paired OUTPUT Target/Sink-Column Insertion Regression
+
+Paired `insert_column` applies only to a sink `OUTPUT ... INTO` channel with an
+explicit non-empty sink-column list when the OUTPUT-target and sink-column
+counts are strictly equal before the rewrite. The operation atomically inserts
+one OUTPUT target and one sink column at the same ordinal. SQL Server OUTPUT
+forms whose counts are legally unequal still parse and deparse, but do not
+support this paired insertion. Client `OUTPUT` and `OUTPUT ... INTO` without an
+explicit sink-column list are also outside this paired-mutation boundary.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| SH425 | `sqlserver-insert-output-into-eight-target-sink-column-pairs` | INSERT with 8 OUTPUT targets ↔ 8 explicit sink columns | atomic insertion at the head produces 9↔9 while View and deparse preserve ordinal pairing |
+| SH426 | `sqlserver-update-output-into-eight-target-sink-column-pairs` | UPDATE with 8 OUTPUT targets ↔ 8 explicit sink columns | atomic insertion in the middle produces 9↔9 while View and deparse preserve ordinal pairing |
+| SH427 | `sqlserver-delete-output-into-eight-target-sink-column-pairs` | DELETE with 8 OUTPUT targets ↔ 8 explicit sink columns | atomic insertion at the tail produces 9↔9 while View and deparse preserve ordinal pairing |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 

@@ -542,7 +542,10 @@ static int sqlparser_case_prepare_patch(
 		(parsed_selector.kind ==
 			 SQLPARSER_SELECTOR_KIND_INSERT_COLUMNS ||
 		 parsed_selector.kind ==
-			 SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS);
+			 SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS ||
+		 (parsed_selector.kind ==
+			  SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGETS &&
+		  json_object_get(patch_json, "name") != NULL));
 	if (pair_insert) {
 		allowed_keys = pair_insert_keys;
 		allowed_count = sizeof(pair_insert_keys) / sizeof(pair_insert_keys[0]);

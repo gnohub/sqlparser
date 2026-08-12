@@ -20,6 +20,7 @@ SQL Server 方言的覆盖范围由可执行用例矩阵定义：
 - `UPDATE`、`DELETE`
 - `INSERT`、`UPDATE`、`DELETE`、`MERGE` 的 `OUTPUT`；支持 `INSERTED`、`DELETED`、来源字段、`$action`、表达式、别名和 bind
 - `OUTPUT ... INTO relation [(column, ...)]`、`OUTPUT ... INTO @table_variable` 及 sink/client 双通道
+- 显式 sink column list 与 OUTPUT target 初始等长时，支持按同一序号原子插入一组 OUTPUT target/sink column
 - 外层 `INSERT` 消费内层 DML `OUTPUT` 的嵌套 DML 形态
 - `UPDATE TOP (...) ... OUTPUT` 和 INSERT 目标表 hint 与 `OUTPUT` 的组合
 - `IF...ELSE` 单语句分支、`BEGIN...END` 多语句分支、`ELSE IF` 和嵌套控制流；条件支持布尔表达式、bind、`EXISTS` 和括号子查询
@@ -37,6 +38,12 @@ SQL Server 方言的覆盖范围由可执行用例矩阵定义：
 - `USE database_name`
 - 基础 `SET` 会话/执行环境语句，例如 `SET NOCOUNT ON`、`SET DATEFORMAT dmy`、`SET IDENTITY_INSERT dbo.Tool ON`
 - `sp_prepare`、`sp_execute`、`sp_prepexec`、`sp_unprepare`、`sp_executesql` 参数化动态 SQL
+
+## OUTPUT 成对改写边界
+
+成对 `insert_column` 只适用于 sink `OUTPUT ... INTO` 通道具有显式、非空 sink column list，且改写前 OUTPUT target 数与 sink column 数严格相等的场景。该操作按同一序号原子插入一个 OUTPUT target 和一个 sink column。
+
+SQL Server 原本合法的不等长 `OUTPUT` 仍可解析和反解析，但不支持这个成对插入操作。client `OUTPUT` 和未显式列出 sink column 的 `OUTPUT ... INTO` 也不纳入成对改写边界。这是 patch 能力边界，不改变这些 SQL 形态本身的解析支持边界。
 
 ## 明确不支持范围
 
@@ -79,4 +86,4 @@ SQL Server 支持范围以以下文件为准：
 - `tests/unit/test_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 SQL Server 矩阵包含 621 条用例，全部为 `status = "final"`。
+当前 SQL Server 矩阵包含 624 条用例，全部为 `status = "final"`，共包含 1867 个独立 patch。其中 3 条用例分别验证 INSERT、UPDATE、DELETE 的 8↔8 OUTPUT target/sink column 配对，以及头、中、尾原子插入后的 9↔9 配对。

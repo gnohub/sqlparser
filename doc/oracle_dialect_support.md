@@ -16,7 +16,7 @@ Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范
 - `INSERT VALUES`、多行 `INSERT`、`INSERT SELECT`，包括 `UNION`、`UNION ALL`、`INTERSECT`、`MINUS` 来源查询
 - Oracle 多表插入：`INSERT ALL`、`INSERT FIRST`，包括 `WHEN ... THEN` 条件分支
 - `UPDATE`、`DELETE`
-- `INSERT`、`UPDATE`、`DELETE` 的单个 `RETURNING` 表达式与单个 `INTO` 冒号宿主绑定变量
+- `INSERT`、`UPDATE`、`DELETE` 的 `RETURNING ... INTO`：支持 `N >= 1` 个返回 target 与严格等长的 N 个冒号宿主绑定变量，并按 ordinal 配对
 - `DATE`、`TIMESTAMP` 字面量
 - `CASE`、`EXISTS`、`UNION ALL`、`INTERSECT`
 - 可映射的 `MERGE`；matched UPDATE action 支持赋值后 `WHERE` 和归属同一 UPDATE 分支的 `DELETE WHERE`，not-matched INSERT 支持分支条件
@@ -38,7 +38,7 @@ Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范
 以下 Oracle 专属语义当前不做隐式降级。遇到这些语法时返回 `SQLPARSER_STATUS_UNSUPPORTED`，不会返回可用 handle：
 
 - 旧式外连接 `(+)`
-- `RETURNING ... INTO` 的多返回 target、多宿主绑定变量，以及 `BULK COLLECT` 形态
+- `RETURNING ... INTO` 的 `BULK COLLECT`、非冒号 bind receiver，以及 target/receiver 数量不等的形态
 - PL/SQL block、procedure、package
 - `PIVOT`、`UNPIVOT`
 - `MODEL` clause
@@ -52,6 +52,7 @@ Oracle 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范
 - Oracle bind 保持 `:name`、`:1` 或 `?` 形态，不输出内部 `$1`、`$2`。
 - `MINUS` 在 View JSON 和 deparse 输出中保持 Oracle 语义名称。
 - 层次查询字段、值和谓词进入既有 Query Graph 数组，分别使用 `start_with`、`connect_by` clause、`pseudo` / `prior` 字段标记、CONNECT BY 根谓词的 `nocycle` 标记和 `CONNECT_BY_ROOT` operator `target_path`；不增加独立 hierarchy 对象。
+- `RETURNING ... INTO` 在 View 中使用一个 `kind = "sink"` 通道，每个 target 的 `sink_value` 指向对应 ordinal 的输出 bind；`insert_column` 使用同一个 patch 原子地插入 target/receiver 对，不支持拆分为单侧插入。
 - View JSON 中可归属的表达式片段使用公共 Oracle 形态。
 - 失败的表达式片段改写不会提交到 handle；原有 AST、bind 映射和 deparse 输出保持可用。
 
@@ -64,4 +65,4 @@ Oracle 支持范围以以下文件为准：
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 Oracle 方言矩阵包含 248 条用例，均为 `status = "final"`。其中 4 条层次查询用例包含 20 个独立 patch。
+当前 Oracle 方言矩阵包含 251 条用例和 852 个独立 patch，均为 `status = "final"`。其中 4 条层次查询用例包含 20 个独立 patch；O198 至 O200 分别验证 `INSERT`、`UPDATE`、`DELETE` 的 8 对 `RETURNING ... INTO` 结果及头部、中部、尾部成对插入。

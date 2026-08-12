@@ -640,7 +640,7 @@ sqlparser_status_t sqlparser_render_select_targets_sql(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_select_parse_public_targets(
+sqlparser_status_t sqlparser_select_parse_public_targets(
 	sqlparser_handle_t *handle,
 	size_t statement_index,
 	const char *sql_text,

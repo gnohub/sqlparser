@@ -15,7 +15,8 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 601 cases with `status = "final"`. The expected View contains a non-empty session projection in 75 cases.
+The fixture contains 604 cases with `status = "final"` and 1850 independent
+patches. The expected View contains a non-empty session projection in 75 cases.
 
 View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
 
@@ -82,6 +83,22 @@ delimited identifier preserves an ordinary field with the same name.
 | Case ID | Case Name | Statement Shape | Validation Focus |
 | --- | --- | --- | --- |
 | VSH423 | `vastbase-sqlserver-connect-by-official` | `WHERE`, basic `CONNECT BY`, and `ORDER BY` | independent CONNECT BY field/value attribution, WHERE and ORDER BY semantics, relation/field/value/target replacement, and SELECT-column insertion |
+
+## Vastbase SQL Server Compatibility-Entry Paired OUTPUT Target/Sink-Column Insertion
+
+Paired `insert_column` applies only to a sink `OUTPUT ... INTO` channel with an
+explicit non-empty sink-column list when the OUTPUT-target and sink-column
+counts are strictly equal before the rewrite. The operation atomically inserts
+one OUTPUT target and one sink column at the same ordinal. Legally unequal
+OUTPUT lists still parse and deparse, but do not support this paired insertion.
+Client `OUTPUT` and `OUTPUT ... INTO` without an explicit sink-column list are
+also outside this paired-mutation boundary.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| VSH424 | `vastbase-sqlserver-insert-output-into-eight-target-sink-column-pairs` | INSERT with 8 OUTPUT targets ↔ 8 explicit sink columns | atomic insertion at the head produces 9↔9 while View and deparse preserve ordinal pairing |
+| VSH425 | `vastbase-sqlserver-update-output-into-eight-target-sink-column-pairs` | UPDATE with 8 OUTPUT targets ↔ 8 explicit sink columns | atomic insertion in the middle produces 9↔9 while View and deparse preserve ordinal pairing |
+| VSH426 | `vastbase-sqlserver-delete-output-into-eight-target-sink-column-pairs` | DELETE with 8 OUTPUT targets ↔ 8 explicit sink columns | atomic insertion at the tail produces 9↔9 while View and deparse preserve ordinal pairing |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 

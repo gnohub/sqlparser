@@ -33,9 +33,10 @@ current AST. The executable case matrix defines the support boundary:
 - multi-table insert: `INSERT ALL` and `INSERT FIRST`, including
   `WHEN ... THEN`, `ELSE`, and multiple `INTO` branches under one condition
 - `UPDATE` and `DELETE`
-- DML host-variable returns: `RETURNING <single expression> INTO <single
-  colon-prefixed host bind>` for `INSERT` and `DELETE`, and `RETURN <single
-  expression> INTO <single colon-prefixed host bind>` for `UPDATE`
+- DML host-variable returns: `RETURNING <target, ...> INTO <:bind, ...>` for
+  `INSERT` and `DELETE`, and `RETURN <target, ...> INTO <:bind, ...>` for
+  `UPDATE`; both lists contain `N >= 1` items, have strictly equal lengths,
+  and pair by ordinal
 - mappable `MERGE`, including a post-assignment `WHERE` and an attached
   `DELETE WHERE` on the same matched UPDATE branch
 - `DATE` and `TIMESTAMP` literals
@@ -56,8 +57,8 @@ The following constructs are not silently downgraded. They return
 handle:
 
 - `PIVOT` and `UNPIVOT`
-- `RETURN` / `RETURNING ... INTO` forms with multiple return targets, multiple
-  `INTO` binds, or `BULK COLLECT`
+- `RETURN` / `RETURNING ... INTO` forms with `BULK COLLECT`, receivers that are
+  not colon-prefixed host binds, or unequal target/bind list lengths
 - DMSQL blocks, procedures, and packages
 - other `ALTER SESSION` parameters outside the supported list
 - `ALTER SESSION SET CONTAINER = ...`
@@ -78,8 +79,9 @@ handle:
   flags, `nocycle` on the CONNECT BY root predicate, and an operator
   `target_path` for `CONNECT_BY_ROOT`; no separate hierarchy object is added.
 - `SET SCHEMA` uses the `CURRENT_SCHEMA` field name in View JSON.
-- DML return channels use a sink channel in `dml.result_channels`; the return
-  target's `sink_value` refers to the host bind in `query_graph.values[]`.
+- DML return channels use a sink channel in `dml.result_channels`; every
+  return target's `sink_value` refers to the same-ordinal host bind in
+  `query_graph.values[]`.
 - Attributable expression fragments in View JSON use the public Dameng
   form.
 - Failed expression-fragment rewrites are not committed to the handle; the
@@ -95,5 +97,7 @@ The Dameng support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current Dameng matrix contains 174 cases, all with `status = "final"`.
-Four hierarchical-query cases contain 20 independent patches.
+The current Dameng matrix contains 177 cases, all with `status = "final"`, and
+636 independent patches. Three multi-return cases respectively verify INSERT
+`RETURNING`, UPDATE `RETURN`, and DELETE `RETURNING` with 8↔8 pairs and atomic
+head, middle, and tail insertions that produce 9↔9 pairs.

@@ -4,7 +4,8 @@ This file records regression cases for the Dameng dialect conversion layer. The 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 174 cases with `status = "final"`.
+The fixture contains 177 cases with `status = "final"` and 636 independent
+patches.
 Statement-level `query_graph.session` appears in 34 cases, covering `D002`,
 `D003`, `D003Q`, `D026`, `D089` through `D095`, and the `DM-*` session cases.
 All 34 contain at least one non-empty session item.
@@ -184,7 +185,15 @@ This group covers ROWNUM combined with an ordinary predicate, ordered Top-N, rev
 
 ## RETURN/RETURNING INTO Regression
 
-Current coverage includes `RETURNING <single expression> INTO <single colon-prefixed host bind>` for `INSERT` and `DELETE`, and `RETURN <single expression> INTO <single colon-prefixed host bind>` for `UPDATE`. View represents the return channel as a sink channel in `dml.result_channels`; the return target's `sink_value` refers to the host bind in `query_graph.values[]`. This boundary excludes multiple return targets, multiple `INTO` binds, and `BULK COLLECT`.
+Current coverage includes `RETURNING <target, ...> INTO <:bind, ...>` for
+`INSERT` and `DELETE`, and `RETURN <target, ...> INTO <:bind, ...>` for
+`UPDATE`. Each list must contain `N >= 1` items; the lists must have strictly
+equal lengths and pair by ordinal, and every `INTO` item must be a
+colon-prefixed host bind. View represents the return channel as a sink channel
+in `dml.result_channels`; every return target's `sink_value` refers to the
+same-ordinal host bind in `query_graph.values[]`. This boundary excludes
+`BULK COLLECT`, receivers that are not colon-prefixed host binds, and unequal
+list lengths.
 
 | ID | Case | SQL shape | Coverage |
 | --- | --- | --- | --- |
@@ -192,6 +201,9 @@ Current coverage includes `RETURNING <single expression> INTO <single colon-pref
 | D144 | `dameng-update-return-rowid-into-bind` | `UPDATE ... RETURN ROWID INTO :NAV_ROWID` | UPDATE `target_after` reference, Dameng `RETURN` keyword, sink bind, replace patches, and byte-for-byte deparse |
 | D145 | `dameng-delete-returning-rowid-into-bind` | `DELETE ... RETURNING ROWID INTO :NAV_ROWID` | DELETE `target_before` reference, ROWID pseudo target, sink bind, replace patches, and byte-for-byte deparse |
 | D146 | `dameng-merge-update-delete-where` | a matched UPDATE has both an action `WHERE` and an attached `DELETE WHERE` | the UPDATE branch exposes both `condition_selector` and `delete_condition_selector`, with no independent DELETE action; 3 independent patches cover assignment, action-predicate value, and delete-predicate value replacement |
+| D151 | `dameng-insert-returning-eight-target-bind-pairs` | INSERT `RETURNING` with 8 targets ↔ 8 binds | strict ordinal pairing; one atomic pair insertion at the head produces 9↔9 |
+| D152 | `dameng-update-return-eight-target-bind-pairs` | UPDATE `RETURN` with 8 targets ↔ 8 binds | strict ordinal pairing; one atomic pair insertion in the middle produces 9↔9 |
+| D153 | `dameng-delete-returning-eight-target-bind-pairs` | DELETE `RETURNING` with 8 targets ↔ 8 binds | strict ordinal pairing; one atomic pair insertion at the tail produces 9↔9 |
 
 ## Hierarchical Query Regression
 

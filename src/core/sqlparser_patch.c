@@ -7640,6 +7640,11 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit(
 			return status;
 		}
 	}
+	if (patch->op == SQLPARSER_PATCH_INSERT_COLUMN &&
+	    selector.kind == SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGETS &&
+	    (patch->name != NULL || patch->default_sql != NULL)) {
+		return SQLPARSER_STATUS_OK;
+	}
 	merge_insert_surface =
 		((patch->op == SQLPARSER_PATCH_REPLACE &&
 		  (selector.kind ==
@@ -9380,6 +9385,25 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 	if (selector.kind == SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGETS) {
 		char *target_sql;
 
+		if (patch->name != NULL || patch->default_sql != NULL) {
+			if (patch->name == NULL || patch->name[0] == '\0' ||
+			    patch->default_sql == NULL || patch->default_sql[0] == '\0' ||
+			    patch->sql != NULL || patch->source_selector != NULL ||
+			    patch->literal != NULL || patch->bind != NULL) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INVALID_ARGUMENT,
+					"paired DML result insertion requires one target SQL and one receiver SQL");
+				return SQLPARSER_STATUS_INVALID_ARGUMENT;
+			}
+			return sqlparser_dml_result_insert_target_receiver_sql(
+				handle,
+				&selector,
+				patch->index,
+				patch->default_sql,
+				patch->name,
+				out_error);
+		}
 		target_sql = NULL;
 		status = sqlparser_patch_render_structured_sql(handle, patch, patch->sql, &target_sql, out_error);
 		if (status != SQLPARSER_STATUS_OK) {

@@ -290,6 +290,8 @@ static sqlparser_status_t sqlparser_sqlserver_output_validate_identifier(
 {
 	sqlparser_sqlserver_scanner_t scanner;
 	sqlparser_sqlserver_token_t token;
+	size_t covered_end;
+	size_t index;
 	size_t part_count;
 	int expect_identifier;
 	sqlparser_status_t status;
@@ -306,14 +308,25 @@ static sqlparser_status_t sqlparser_sqlserver_output_validate_identifier(
 	}
 	part_count = 0U;
 	expect_identifier = 1;
+	covered_end = start;
 	for (;;) {
 		status = sqlparser_sqlserver_scanner_next(&scanner, &token, out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
 		}
+		for (index = covered_end; index < token.start; index++) {
+			if (!isspace((unsigned char)sql[index])) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_PARSE_ERROR,
+					message);
+				return SQLPARSER_STATUS_PARSE_ERROR;
+			}
+		}
 		if (token.kind == SQLPARSER_SQLSERVER_TOKEN_EOF) {
 			break;
 		}
+		covered_end = token.end;
 		if (expect_identifier) {
 			if ((token.kind != SQLPARSER_SQLSERVER_TOKEN_WORD &&
 			     token.kind != SQLPARSER_SQLSERVER_TOKEN_QUOTED_IDENTIFIER) ||
@@ -3503,6 +3516,83 @@ sqlparser_status_t sqlparser_sqlserver_output_insert_sink_column(
 	channel->sink_columns[column_index] = copy;
 	channel->sink_column_count++;
 	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_sqlserver_output_insert_target_sink_column(
+	sqlparser_sqlserver_output_state_t *state,
+	size_t dml_index,
+	size_t channel_index,
+	size_t target_index,
+	const char *column_sql,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_sqlserver_output_channel_t *channel;
+	const sqlparser_sqlserver_output_channel_t *last;
+	sqlparser_status_t status;
+
+	channel = sqlparser_sqlserver_output_mutable_sink_channel(
+		state, dml_index, channel_index, out_error);
+	if (channel == NULL) {
+		return out_error != NULL ? out_error->code : SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (channel->sink_column_count == 0U) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"paired OUTPUT insertion requires an explicit sink column list");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	if (channel->target_count != channel->sink_column_count) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"paired OUTPUT insertion requires matching target and sink column counts");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	if (target_index > channel->target_count) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"DML result target insertion index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	last = &state->dmls[dml_index].channels[
+		state->dmls[dml_index].channel_count - 1U];
+	if (channel->target_count == SIZE_MAX ||
+	    last->target_count > SIZE_MAX - last->target_offset ||
+	    last->target_offset + last->target_count == SIZE_MAX) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_RESOURCE_LIMIT,
+			"DML result target count is too large");
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+	status = sqlparser_sqlserver_output_insert_sink_column(
+		state,
+		dml_index,
+		channel_index,
+		target_index,
+		column_sql,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_sqlserver_output_adjust_target_count(
+		state,
+		dml_index,
+		channel_index,
+		target_index,
+		1,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		(void)sqlparser_sqlserver_output_delete_sink_column(
+			state,
+			dml_index,
+			channel_index,
+			target_index,
+			NULL);
+	}
+	return status;
 }
 
 sqlparser_status_t sqlparser_sqlserver_output_delete_sink_column(

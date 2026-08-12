@@ -4,7 +4,8 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 248 cases with `status = "final"`.
+The fixture contains 251 cases with `status = "final"` and 852 independent
+patches.
 Statement-level `query_graph.session` appears in 59 cases, covering `O043`,
 `O043Q`, `O044` through `O047`, `O082` through `O086`, and the `ORA-*`
 session cases. All 59 contain at least one non-empty session item.
@@ -252,15 +253,32 @@ five independent patches, for 20 patches in total: 16 `replace` and 4
 | O196 | `oracle-hierarchical-connect-by-root` | `CONNECT_BY_ROOT employee_id` with `LEVEL` | expression target preservation and underlying-field attribution through an `operator/CONNECT_BY_ROOT/arg_index=0` target path |
 | O197 | `oracle-hierarchical-nocycle-pseudocolumns` | `CONNECT BY NOCYCLE` with `CONNECT_BY_ISLEAF` and `CONNECT_BY_ISCYCLE` | `nocycle` on the CONNECT BY root predicate, two relationless pseudo targets, and their field links |
 
+## Multiple RETURNING INTO Result Pairs
+
+Oracle `RETURNING ... INTO` on `INSERT`, `UPDATE`, and `DELETE` supports
+`N >= 1` result targets with exactly N colon-prefixed host binds, paired by
+ordinal. O189 through O191 verify the one-pair baseline. Each of the following
+three final cases verifies eight pairs plus one paired `insert_column`: the same
+patch inserts the target and receiver at the same ordinal, expanding the result
+to nine pairs without permitting a one-sided insertion. View uses one
+`kind = "sink"` channel, and every target's `sink_value` points to the output
+bind at the corresponding ordinal.
+
+| ID | Case | DML | Verification Focus |
+| --- | --- | --- | --- |
+| O198 | `oracle-insert-returning-eight-target-bind-pairs` | INSERT | eight pairs; paired insertion of `tenant_id` / `:out_tenant_id` at index 0 verifies nine aligned pairs at the head |
+| O199 | `oracle-update-returning-eight-target-bind-pairs` | UPDATE | eight pairs; paired insertion of `postal_code` / `:out_postal_code` at index 4 verifies nine aligned pairs in the middle |
+| O200 | `oracle-delete-returning-eight-target-bind-pairs` | DELETE | eight pairs; paired insertion of `tenant_id` / `:out_tenant_id` at index 8 verifies nine aligned pairs at the tail |
+
 ## Coverage Boundary
 
 This matrix lists only cases that parse successfully and have final View and
 patch expectations. Syntax boundaries outside this executable fixture are
 maintained in `doc/oracle_official_syntax_coverage.csv`.
 
-`RETURNING ... INTO` coverage is limited to one result target and one
-colon-prefixed host bind in `INSERT`, `UPDATE`, and `DELETE`. Multiple targets,
-multiple binds, and `BULK COLLECT` are outside this boundary.
+`RETURNING ... INTO` rejects `BULK COLLECT`, receivers other than
+colon-prefixed binds, and unequal target/receiver counts. A paired
+`insert_column` must insert both sides in the same patch.
 
 ## Maintenance
 

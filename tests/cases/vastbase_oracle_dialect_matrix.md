@@ -15,19 +15,22 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 217 条用例，全部为 `status = "final"`；其中 41 条用例的期望 View 包含非空 session 投影。
+夹具包含 220 条用例和 791 个独立 patch，全部为 `status = "final"`；其中 41 条用例的期望 View 包含非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
 ## RETURNING INTO 宿主绑定变量结果通道回归
 
-以下 3 条 final 用例覆盖 Vastbase-Oracle 兼容模式中 `INSERT ... VALUES`、`UPDATE` 和 `DELETE` 的单个返回 target `RETURNING ... INTO :bind`。该能力边界限定为一个结果 target 和一个冒号宿主绑定变量；View 将结果表达为不含 `sink_relation` 的 `kind = "sink"` 通道，target 的 `sink_value` 指向 `query_graph.values[]` 中的输出绑定变量。
+以下 6 条 final 用例定义项目 `vastbase-oracle` 兼容入口的 `RETURNING ... INTO` 合同，不作为 Vastbase 服务端官方语法声明。`INSERT ... VALUES`、`UPDATE` 和 `DELETE` 支持 `N >= 1` 个返回 target 与严格等长的 N 个冒号宿主 bind，并按 ordinal 一一配对。View 将结果表达为不含 `sink_relation` 的单个 `kind = "sink"` 通道，每个 target 的 `sink_value` 指向 `query_graph.values[]` 中对应 ordinal 的输出 bind。VO186 至 VO188 各验证 8 对结果及一次成对 `insert_column`；同一个 patch 在相同 ordinal 同时插入 target 和 receiver，使结果扩展为 9 对，不允许拆成单侧插入。
 
 | ID | 用例 | DML | 验证重点 |
 | --- | --- | --- | --- |
 | `VO183` | `vastbase-oracle-insert-returning-rowid-into-bind` | INSERT | `ROWID` 为 `pseudo` target，来源为 `target_after`；分别替换 VALUES cell、结果 target 和输出 bind 后精确反解析 |
 | `VO184` | `vastbase-oracle-update-returning-rowid-into-bind` | UPDATE | `ROWID` 为 `pseudo` target，来源为 `target_after`；分别替换 assignment、结果 target 和输出 bind 后精确反解析 |
 | `VO185` | `vastbase-oracle-delete-returning-rowid-into-bind` | DELETE | `ROWID` 为 `pseudo` target，来源为 `target_before`；分别替换 WHERE bind、结果 target 和输出 bind 后精确反解析 |
+| `VO186` | `vastbase-oracle-insert-returning-eight-target-bind-pairs` | INSERT | 8 对结果；在 index 0 成对插入 `tenant_id` / `:out_tenant_id`，验证头部 9 对及 ordinal 对齐 |
+| `VO187` | `vastbase-oracle-update-returning-eight-target-bind-pairs` | UPDATE | 8 对结果；在 index 4 成对插入 `postal_code` / `:out_postal_code`，验证中部 9 对及 ordinal 对齐 |
+| `VO188` | `vastbase-oracle-delete-returning-eight-target-bind-pairs` | DELETE | 8 对结果；在 index 8 成对插入 `tenant_id` / `:out_tenant_id`，验证尾部 9 对及 ordinal 对齐 |
 
 ## ROWNUM 谓词语义回归
 
@@ -233,7 +236,12 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | `VO183` | `vastbase-oracle-insert-returning-rowid-into-bind` | INSERT INTO "APP"."DBP_MANUAL_CLOB_FPE_STRESS" ("ID", "PROTECTED_CLOB_3") VALUES (:1, :2) RETURNING ROWID INTO :NAV_ROWID | 已覆盖 |
 | `VO184` | `vastbase-oracle-update-returning-rowid-into-bind` | UPDATE "APP"."DBP_MANUAL_CLOB_FPE_STRESS" SET "PROTECTED_CLOB_3" = :1 WHERE "ID" = :2 RETURNING ROWID INTO :NAV_ROWID | 已覆盖 |
 | `VO185` | `vastbase-oracle-delete-returning-rowid-into-bind` | DELETE FROM "APP"."DBP_MANUAL_CLOB_FPE_STRESS" WHERE "ID" = :1 RETURNING ROWID INTO :NAV_ROWID | 已覆盖 |
+| `VO186` | `vastbase-oracle-insert-returning-eight-target-bind-pairs` | INSERT ... RETURNING 8 targets INTO 8 colon binds | 已覆盖 |
+| `VO187` | `vastbase-oracle-update-returning-eight-target-bind-pairs` | UPDATE ... RETURNING 8 targets INTO 8 colon binds | 已覆盖 |
+| `VO188` | `vastbase-oracle-delete-returning-eight-target-bind-pairs` | DELETE ... RETURNING 8 targets INTO 8 colon binds | 已覆盖 |
 
 ## 覆盖边界
 
 本矩阵只列出可成功解析并具有最终 View 与 patch 期望的用例。未纳入该可执行夹具的语法不得在本矩阵中登记为已验证用例。
+
+`RETURNING ... INTO` 不接受 `BULK COLLECT`、非冒号 bind receiver 或 target/receiver 数量不等的输入。该边界仅是项目兼容入口合同及可执行证据，不声称 Vastbase 服务端官方支持同一语法范围。

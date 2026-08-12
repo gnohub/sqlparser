@@ -50,8 +50,12 @@ All items that can be represented by the existing AST plus dialect hooks are now
 
 Within `MIXED_MODEL`, 95 basic cases now have executable regression coverage, including database, schema, role, application role, user, synonym, type, index, sequence, view, statistics, `SELECT INTO`, basic full-text predicates, CTAS, aliases, subqueries, basic `ALTER DATABASE`, basic `ALTER TABLE`, `DROP TYPE`, public `DROP USER` restoration, `CREATE USER` SQL Server-specific options, common `ALTER USER` options, `CREATE ROLE AUTHORIZATION`, `ALTER ROLE` membership/rename, `ALTER SCHEMA TRANSFER`, basic `ALTER AUTHORIZATION`, `DROP SCHEMA IF EXISTS`, basic table and query hints, basic session and execution-environment `SET` statements, and `BEGIN...END` inside `IF...ELSE` branches. Full official syntax for those entries remains counted as `MIXED_MODEL`.
 
-The `OUTPUT` item has 29 successful and 10 error-path cases covering `INSERT`,
-`UPDATE`, `DELETE`, `MERGE`, ordered sink/client channels, and nested DML.
+The `OUTPUT` item has 32 successful and 10 error-path cases covering `INSERT`,
+`UPDATE`, `DELETE`, `MERGE`, ordered sink/client channels, and nested DML. A
+paired `insert_column` can atomically insert both sides at the same ordinal when
+the sink column list is explicit and nonempty and the target/column counts are
+equal before the mutation. Otherwise-valid unequal `OUTPUT ... INTO` lists
+remain parseable and deparseable, but do not support this paired mutation.
 
 The `IF...ELSE` item has 36 successful and 9 error-path cases covering
 single-statement branches, multi-statement blocks, `ELSE IF`, nesting,

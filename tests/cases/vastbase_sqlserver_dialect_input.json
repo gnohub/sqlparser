@@ -58286,6 +58286,1100 @@
           "deparse": "select *, inserted_target from tab_1155391 where id = 1 connect by pid = id order by a1;"
         }
       ]
+    },
+    {
+      "name": "vastbase-sqlserver-insert-output-into-eight-target-sink-column-pairs",
+      "sql": "INSERT INTO dbo.customer_profiles (customer_id, customer_name, city, status) OUTPUT INSERTED.customer_id, INSERTED.customer_name, INSERTED.city, INSERTED.city_digest, INSERTED.status, INSERTED.created_at, INSERTED.updated_at, INSERTED.version_no INTO dbo.profile_audit (customer_id, customer_name, city, city_digest, status, created_at, updated_at, version_no) VALUES (@customer_id, @customer_name, @city, @status)",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "insert",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1
+                  ]
+                },
+                {
+                  "kind": "dml_result",
+                  "targets": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7
+                  ]
+                }
+              ],
+              "dml": {
+                "insert_mode": "values",
+                "kind": "insert",
+                "result_channels": [
+                  {
+                    "block": 1,
+                    "kind": "sink",
+                    "references": [
+                      {
+                        "field": 0,
+                        "kind": "target_after",
+                        "relation": 0,
+                        "target": 0
+                      },
+                      {
+                        "field": 1,
+                        "kind": "target_after",
+                        "relation": 0,
+                        "target": 1
+                      },
+                      {
+                        "field": 2,
+                        "kind": "target_after",
+                        "relation": 0,
+                        "target": 2
+                      },
+                      {
+                        "field": 3,
+                        "kind": "target_after",
+                        "relation": 0,
+                        "target": 3
+                      },
+                      {
+                        "field": 4,
+                        "kind": "target_after",
+                        "relation": 0,
+                        "target": 4
+                      },
+                      {
+                        "field": 5,
+                        "kind": "target_after",
+                        "relation": 0,
+                        "target": 5
+                      },
+                      {
+                        "field": 6,
+                        "kind": "target_after",
+                        "relation": 0,
+                        "target": 6
+                      },
+                      {
+                        "field": 7,
+                        "kind": "target_after",
+                        "relation": 0,
+                        "target": 7
+                      }
+                    ],
+                    "sink_columns": [
+                      {
+                        "column": "customer_id",
+                        "ordinal": 0,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][0]"
+                      },
+                      {
+                        "column": "customer_name",
+                        "ordinal": 1,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][1]"
+                      },
+                      {
+                        "column": "city",
+                        "ordinal": 2,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][2]"
+                      },
+                      {
+                        "column": "city_digest",
+                        "ordinal": 3,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][3]"
+                      },
+                      {
+                        "column": "status",
+                        "ordinal": 4,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][4]"
+                      },
+                      {
+                        "column": "created_at",
+                        "ordinal": 5,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][5]"
+                      },
+                      {
+                        "column": "updated_at",
+                        "ordinal": 6,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][6]"
+                      },
+                      {
+                        "column": "version_no",
+                        "ordinal": 7,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][7]"
+                      }
+                    ],
+                    "sink_relation": 1
+                  }
+                ],
+                "rows": [
+                  {
+                    "bind_key": "customer_id",
+                    "bind_kind": 2,
+                    "bind_position": 1,
+                    "bind_sql": "@customer_id",
+                    "column": 0,
+                    "kind": "bind",
+                    "row": 0,
+                    "selector": "stmt[0].insert_cell[0][0]"
+                  },
+                  {
+                    "bind_key": "customer_name",
+                    "bind_kind": 2,
+                    "bind_position": 2,
+                    "bind_sql": "@customer_name",
+                    "column": 1,
+                    "kind": "bind",
+                    "row": 0,
+                    "selector": "stmt[0].insert_cell[0][1]"
+                  },
+                  {
+                    "bind_key": "city",
+                    "bind_kind": 2,
+                    "bind_position": 3,
+                    "bind_sql": "@city",
+                    "column": 2,
+                    "kind": "bind",
+                    "row": 0,
+                    "selector": "stmt[0].insert_cell[0][2]"
+                  },
+                  {
+                    "bind_key": "status",
+                    "bind_kind": 2,
+                    "bind_position": 4,
+                    "bind_sql": "@status",
+                    "column": 3,
+                    "kind": "bind",
+                    "row": 0,
+                    "selector": "stmt[0].insert_cell[0][3]"
+                  }
+                ],
+                "target_columns": [
+                  {
+                    "column": "customer_id",
+                    "ordinal": 0
+                  },
+                  {
+                    "column": "customer_name",
+                    "ordinal": 1
+                  },
+                  {
+                    "column": "city",
+                    "ordinal": 2
+                  },
+                  {
+                    "column": "status",
+                    "ordinal": 3
+                  }
+                ],
+                "target_relation": 0
+              },
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "customer_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[7]",
+                  "target": 0
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "customer_name",
+                  "relation": 0,
+                  "selector": "stmt[0].name[9]",
+                  "target": 1
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "city",
+                  "relation": 0,
+                  "selector": "stmt[0].name[11]",
+                  "target": 2
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "city_digest",
+                  "relation": 0,
+                  "selector": "stmt[0].name[13]",
+                  "target": 3
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "status",
+                  "relation": 0,
+                  "selector": "stmt[0].name[15]",
+                  "target": 4
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "created_at",
+                  "relation": 0,
+                  "selector": "stmt[0].name[17]",
+                  "target": 5
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "updated_at",
+                  "relation": 0,
+                  "selector": "stmt[0].name[19]",
+                  "target": 6
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "version_no",
+                  "relation": 0,
+                  "selector": "stmt[0].name[21]",
+                  "target": 7
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "dbo",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "customer_profiles"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "dbo",
+                  "selector": "stmt[0].dml_result_sink[0][0]",
+                  "table": "profile_audit"
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 1,
+                  "field": 0,
+                  "kind": "field",
+                  "name": "customer_id",
+                  "ordinal": 0,
+                  "selector": "stmt[0].dml_result_target[0][0][0]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "field": 1,
+                  "kind": "field",
+                  "name": "customer_name",
+                  "ordinal": 1,
+                  "selector": "stmt[0].dml_result_target[0][0][1]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "field": 2,
+                  "kind": "field",
+                  "name": "city",
+                  "ordinal": 2,
+                  "selector": "stmt[0].dml_result_target[0][0][2]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "field": 3,
+                  "kind": "field",
+                  "name": "city_digest",
+                  "ordinal": 3,
+                  "selector": "stmt[0].dml_result_target[0][0][3]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "field": 4,
+                  "kind": "field",
+                  "name": "status",
+                  "ordinal": 4,
+                  "selector": "stmt[0].dml_result_target[0][0][4]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "field": 5,
+                  "kind": "field",
+                  "name": "created_at",
+                  "ordinal": 5,
+                  "selector": "stmt[0].dml_result_target[0][0][5]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "field": 6,
+                  "kind": "field",
+                  "name": "updated_at",
+                  "ordinal": 6,
+                  "selector": "stmt[0].dml_result_target[0][0][6]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "field": 7,
+                  "kind": "field",
+                  "name": "version_no",
+                  "ordinal": 7,
+                  "selector": "stmt[0].dml_result_target[0][0][7]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "insert_column",
+          "target": "stmt[0].dml_result_targets[0][0]",
+          "value": "INSERTED.account_no",
+          "name": "[account_no]",
+          "index": 0,
+          "deparse": "INSERT INTO dbo.customer_profiles (customer_id, customer_name, city, status) OUTPUT INSERTED.account_no, INSERTED.customer_id, INSERTED.customer_name, INSERTED.city, INSERTED.city_digest, INSERTED.status, INSERTED.created_at, INSERTED.updated_at, INSERTED.version_no INTO dbo.profile_audit ([account_no], customer_id, customer_name, city, city_digest, status, created_at, updated_at, version_no) VALUES (@customer_id, @customer_name, @city, @status)"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-update-output-into-eight-target-sink-column-pairs",
+      "sql": "UPDATE dbo.customer_profiles SET city = @new_city, status = @new_status OUTPUT DELETED.city, INSERTED.city, INSERTED.city_digest, INSERTED.status, INSERTED.updated_at, INSERTED.version_no, INSERTED.postal_code, INSERTED.country_code INTO @profile_audit (old_city, new_city, city_digest, status, updated_at, version_no, postal_code, country_code) WHERE customer_id = @customer_id",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0
+                  ],
+                  "relations": [
+                    0,
+                    1
+                  ]
+                },
+                {
+                  "kind": "dml_result",
+                  "targets": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7
+                  ]
+                }
+              ],
+              "dml": {
+                "assignments": [
+                  {
+                    "bind_key": "new_city",
+                    "bind_kind": 2,
+                    "bind_position": 1,
+                    "bind_sql": "@new_city",
+                    "kind": "bind",
+                    "selector": "stmt[0].assignment[0]",
+                    "target_field": 0
+                  },
+                  {
+                    "bind_key": "new_status",
+                    "bind_kind": 2,
+                    "bind_position": 2,
+                    "bind_sql": "@new_status",
+                    "kind": "bind",
+                    "selector": "stmt[0].assignment[1]",
+                    "target_field": 1
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "update",
+                "result_channels": [
+                  {
+                    "block": 1,
+                    "kind": "sink",
+                    "references": [
+                      {
+                        "field": 3,
+                        "kind": "target_before",
+                        "relation": 0,
+                        "target": 0
+                      },
+                      {
+                        "field": 4,
+                        "kind": "target_after",
+                        "relation": 0,
+                        "target": 1
+                      },
+                      {
+                        "field": 5,
+                        "kind": "target_after",
+                        "relation": 0,
+                        "target": 2
+                      },
+                      {
+                        "field": 6,
+                        "kind": "target_after",
+                        "relation": 0,
+                        "target": 3
+                      },
+                      {
+                        "field": 7,
+                        "kind": "target_after",
+                        "relation": 0,
+                        "target": 4
+                      },
+                      {
+                        "field": 8,
+                        "kind": "target_after",
+                        "relation": 0,
+                        "target": 5
+                      },
+                      {
+                        "field": 9,
+                        "kind": "target_after",
+                        "relation": 0,
+                        "target": 6
+                      },
+                      {
+                        "field": 10,
+                        "kind": "target_after",
+                        "relation": 0,
+                        "target": 7
+                      }
+                    ],
+                    "sink_columns": [
+                      {
+                        "column": "old_city",
+                        "ordinal": 0,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][0]"
+                      },
+                      {
+                        "column": "new_city",
+                        "ordinal": 1,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][1]"
+                      },
+                      {
+                        "column": "city_digest",
+                        "ordinal": 2,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][2]"
+                      },
+                      {
+                        "column": "status",
+                        "ordinal": 3,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][3]"
+                      },
+                      {
+                        "column": "updated_at",
+                        "ordinal": 4,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][4]"
+                      },
+                      {
+                        "column": "version_no",
+                        "ordinal": 5,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][5]"
+                      },
+                      {
+                        "column": "postal_code",
+                        "ordinal": 6,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][6]"
+                      },
+                      {
+                        "column": "country_code",
+                        "ordinal": 7,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][7]"
+                      }
+                    ],
+                    "sink_relation": 1
+                  }
+                ],
+                "target_relation": 0
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "city",
+                  "relation": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "status",
+                  "relation": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "customer_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[4]"
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "city",
+                  "relation": 0,
+                  "selector": "stmt[0].name[6]",
+                  "target": 0
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "city",
+                  "relation": 0,
+                  "selector": "stmt[0].name[8]",
+                  "target": 1
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "city_digest",
+                  "relation": 0,
+                  "selector": "stmt[0].name[10]",
+                  "target": 2
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "status",
+                  "relation": 0,
+                  "selector": "stmt[0].name[12]",
+                  "target": 3
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "updated_at",
+                  "relation": 0,
+                  "selector": "stmt[0].name[14]",
+                  "target": 4
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "version_no",
+                  "relation": 0,
+                  "selector": "stmt[0].name[16]",
+                  "target": 5
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "postal_code",
+                  "relation": 0,
+                  "selector": "stmt[0].name[18]",
+                  "target": 6
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "country_code",
+                  "relation": 0,
+                  "selector": "stmt[0].name[20]",
+                  "target": 7
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 2,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 0
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "dbo",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "customer_profiles"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].dml_result_sink[0][0]",
+                  "table": "@profile_audit"
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 1,
+                  "field": 3,
+                  "kind": "field",
+                  "name": "city",
+                  "ordinal": 0,
+                  "selector": "stmt[0].dml_result_target[0][0][0]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "field": 4,
+                  "kind": "field",
+                  "name": "city",
+                  "ordinal": 1,
+                  "selector": "stmt[0].dml_result_target[0][0][1]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "field": 5,
+                  "kind": "field",
+                  "name": "city_digest",
+                  "ordinal": 2,
+                  "selector": "stmt[0].dml_result_target[0][0][2]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "field": 6,
+                  "kind": "field",
+                  "name": "status",
+                  "ordinal": 3,
+                  "selector": "stmt[0].dml_result_target[0][0][3]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "field": 7,
+                  "kind": "field",
+                  "name": "updated_at",
+                  "ordinal": 4,
+                  "selector": "stmt[0].dml_result_target[0][0][4]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "field": 8,
+                  "kind": "field",
+                  "name": "version_no",
+                  "ordinal": 5,
+                  "selector": "stmt[0].dml_result_target[0][0][5]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "field": 9,
+                  "kind": "field",
+                  "name": "postal_code",
+                  "ordinal": 6,
+                  "selector": "stmt[0].dml_result_target[0][0][6]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "field": 10,
+                  "kind": "field",
+                  "name": "country_code",
+                  "ordinal": 7,
+                  "selector": "stmt[0].dml_result_target[0][0][7]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                }
+              ],
+              "values": [
+                {
+                  "bind_key": "customer_id",
+                  "bind_kind": 2,
+                  "bind_position": 4,
+                  "bind_sql": "@customer_id",
+                  "block": 0,
+                  "clause": "where",
+                  "field": 2,
+                  "field_match_kind": "direct_field",
+                  "kind": "bind",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[8]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "insert_column",
+          "target": "stmt[0].dml_result_targets[0][0]",
+          "value": "INSERTED.customer_name",
+          "name": "[customer_name]",
+          "index": 4,
+          "deparse": "UPDATE dbo.customer_profiles SET city = @new_city, status = @new_status OUTPUT DELETED.city, INSERTED.city, INSERTED.city_digest, INSERTED.status, INSERTED.customer_name, INSERTED.updated_at, INSERTED.version_no, INSERTED.postal_code, INSERTED.country_code INTO @profile_audit (old_city, new_city, city_digest, status, [customer_name], updated_at, version_no, postal_code, country_code) WHERE customer_id = @customer_id"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-sqlserver-delete-output-into-eight-target-sink-column-pairs",
+      "sql": "DELETE FROM dbo.customer_profiles OUTPUT DELETED.customer_id, DELETED.customer_name, DELETED.city, DELETED.city_digest, DELETED.status, DELETED.updated_at, DELETED.version_no, DELETED.country_code INTO dbo.deleted_profiles (customer_id, customer_name, city, city_digest, status, updated_at, version_no, country_code) WHERE customer_id = @customer_id",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "delete",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0
+                  ],
+                  "relations": [
+                    0,
+                    1
+                  ]
+                },
+                {
+                  "kind": "dml_result",
+                  "targets": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7
+                  ]
+                }
+              ],
+              "dml": {
+                "delete_targets": [
+                  0
+                ],
+                "insert_mode": "unknown",
+                "kind": "delete",
+                "result_channels": [
+                  {
+                    "block": 1,
+                    "kind": "sink",
+                    "references": [
+                      {
+                        "field": 1,
+                        "kind": "target_before",
+                        "relation": 0,
+                        "target": 0
+                      },
+                      {
+                        "field": 2,
+                        "kind": "target_before",
+                        "relation": 0,
+                        "target": 1
+                      },
+                      {
+                        "field": 3,
+                        "kind": "target_before",
+                        "relation": 0,
+                        "target": 2
+                      },
+                      {
+                        "field": 4,
+                        "kind": "target_before",
+                        "relation": 0,
+                        "target": 3
+                      },
+                      {
+                        "field": 5,
+                        "kind": "target_before",
+                        "relation": 0,
+                        "target": 4
+                      },
+                      {
+                        "field": 6,
+                        "kind": "target_before",
+                        "relation": 0,
+                        "target": 5
+                      },
+                      {
+                        "field": 7,
+                        "kind": "target_before",
+                        "relation": 0,
+                        "target": 6
+                      },
+                      {
+                        "field": 8,
+                        "kind": "target_before",
+                        "relation": 0,
+                        "target": 7
+                      }
+                    ],
+                    "sink_columns": [
+                      {
+                        "column": "customer_id",
+                        "ordinal": 0,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][0]"
+                      },
+                      {
+                        "column": "customer_name",
+                        "ordinal": 1,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][1]"
+                      },
+                      {
+                        "column": "city",
+                        "ordinal": 2,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][2]"
+                      },
+                      {
+                        "column": "city_digest",
+                        "ordinal": 3,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][3]"
+                      },
+                      {
+                        "column": "status",
+                        "ordinal": 4,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][4]"
+                      },
+                      {
+                        "column": "updated_at",
+                        "ordinal": 5,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][5]"
+                      },
+                      {
+                        "column": "version_no",
+                        "ordinal": 6,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][6]"
+                      },
+                      {
+                        "column": "country_code",
+                        "ordinal": 7,
+                        "selector": "stmt[0].dml_result_sink_column[0][0][7]"
+                      }
+                    ],
+                    "sink_relation": 1
+                  }
+                ],
+                "target_relation": 0
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "customer_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[2]"
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "customer_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[4]",
+                  "target": 0
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "customer_name",
+                  "relation": 0,
+                  "selector": "stmt[0].name[6]",
+                  "target": 1
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "city",
+                  "relation": 0,
+                  "selector": "stmt[0].name[8]",
+                  "target": 2
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "city_digest",
+                  "relation": 0,
+                  "selector": "stmt[0].name[10]",
+                  "target": 3
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "status",
+                  "relation": 0,
+                  "selector": "stmt[0].name[12]",
+                  "target": 4
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "updated_at",
+                  "relation": 0,
+                  "selector": "stmt[0].name[14]",
+                  "target": 5
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "version_no",
+                  "relation": 0,
+                  "selector": "stmt[0].name[16]",
+                  "target": 6
+                },
+                {
+                  "block": 1,
+                  "clause": "dml_result",
+                  "column": "country_code",
+                  "relation": 0,
+                  "selector": "stmt[0].name[18]",
+                  "target": 7
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 0,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 0
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "dbo",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "customer_profiles"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "dbo",
+                  "selector": "stmt[0].dml_result_sink[0][0]",
+                  "table": "deleted_profiles"
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 1,
+                  "field": 1,
+                  "kind": "field",
+                  "name": "customer_id",
+                  "ordinal": 0,
+                  "selector": "stmt[0].dml_result_target[0][0][0]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "field": 2,
+                  "kind": "field",
+                  "name": "customer_name",
+                  "ordinal": 1,
+                  "selector": "stmt[0].dml_result_target[0][0][1]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "field": 3,
+                  "kind": "field",
+                  "name": "city",
+                  "ordinal": 2,
+                  "selector": "stmt[0].dml_result_target[0][0][2]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "field": 4,
+                  "kind": "field",
+                  "name": "city_digest",
+                  "ordinal": 3,
+                  "selector": "stmt[0].dml_result_target[0][0][3]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "field": 5,
+                  "kind": "field",
+                  "name": "status",
+                  "ordinal": 4,
+                  "selector": "stmt[0].dml_result_target[0][0][4]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "field": 6,
+                  "kind": "field",
+                  "name": "updated_at",
+                  "ordinal": 5,
+                  "selector": "stmt[0].dml_result_target[0][0][5]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "field": 7,
+                  "kind": "field",
+                  "name": "version_no",
+                  "ordinal": 6,
+                  "selector": "stmt[0].dml_result_target[0][0][6]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 1,
+                  "field": 8,
+                  "kind": "field",
+                  "name": "country_code",
+                  "ordinal": 7,
+                  "selector": "stmt[0].dml_result_target[0][0][7]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                }
+              ],
+              "values": [
+                {
+                  "bind_key": "customer_id",
+                  "bind_kind": 2,
+                  "bind_position": 1,
+                  "bind_sql": "@customer_id",
+                  "block": 0,
+                  "clause": "where",
+                  "field": 0,
+                  "field_match_kind": "direct_field",
+                  "kind": "bind",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[4]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "insert_column",
+          "target": "stmt[0].dml_result_targets[0][0]",
+          "value": "DELETED.account_no",
+          "name": "[account_no]",
+          "index": 8,
+          "deparse": "DELETE FROM dbo.customer_profiles OUTPUT DELETED.customer_id, DELETED.customer_name, DELETED.city, DELETED.city_digest, DELETED.status, DELETED.updated_at, DELETED.version_no, DELETED.country_code, DELETED.account_no INTO dbo.deleted_profiles (customer_id, customer_name, city, city_digest, status, updated_at, version_no, country_code, [account_no]) WHERE customer_id = @customer_id"
+        }
+      ]
     }
   ]
 }

@@ -428,7 +428,7 @@ value 的 `kind` 为 `identifier`、`keyword`、`literal`、`bind` 或 `expressi
 | `sink_columns` | relation-backed sink 的目标列对象；没有显式列列表时省略 |
 | `references` | 输出 target 对目标行或来源 relation 的字段引用；非空时存在 |
 
-relation-backed sink 通过 `sink_relation` 和可选 `sink_columns` 表达写入目标。host-bind sink 不输出这两个字段；其结果 target 通过 `sink_value` 指向 `query_graph.values[]` 中的输出 bind。该 value 使用既有 value `selector`，可作为 `SQLPARSER_PATCH_REPLACE` 的目标，不引入新的 selector 类型。Oracle 与 Vastbase-Oracle 兼容模式的单 target `RETURNING ... INTO :bind`，以及 Dameng 的单 target `RETURN`/`RETURNING ... INTO :bind` 使用该表示。
+relation-backed sink 通过 `sink_relation` 和可选 `sink_columns` 表达写入目标。host-bind sink 不输出这两个字段；其结果 target 通过 `sink_value` 指向 `query_graph.values[]` 中的输出 bind。该 value 使用既有 value `selector`，可作为 `SQLPARSER_PATCH_REPLACE` 的目标，不引入新的 selector 类型。Oracle 与 Vastbase-Oracle 兼容模式的 `RETURNING ... INTO`，以及 Dameng 的 `RETURN`/`RETURNING ... INTO` 使用该表示；N 个结果 target 与 N 个 host bind 按序对应，第 i 个 target 的 `sink_value` 指向第 i 个输出 bind。
 
 每个 `references[]` 元素包含结果 `target` 索引、可选 `field` 索引、`relation` 索引和 `kind`。`kind` 取值为 `target_before`、`target_after` 或 `source`。SQL Server `DELETED.id`、`INSERTED.id` 和来源表字段分别使用这三种类型。
 

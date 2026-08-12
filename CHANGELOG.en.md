@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.16.2
+
+### Multiple DML Result Receivers
+
+- `INSERT`, `UPDATE`, and `DELETE` in Oracle and the Vastbase-Oracle compatibility entry now support `N >= 1` `RETURNING` targets paired ordinally with exactly N colon-prefixed host binds. Dameng provides the same equal-length pairing with `RETURNING` for `INSERT` and `DELETE` and `RETURN` for `UPDATE`.
+- Query Graph continues to use the existing sink result channel. Each result target's `sink_value` points to the output bind at the same ordinal. The internal AST sidecar stores one pair count instead of maintaining two redundant equal counts.
+- `BULK COLLECT`, non-colon-bind receivers, empty lists, and unequal target/receiver counts in the Oracle-family or Dameng input return `SQLPARSER_STATUS_UNSUPPORTED`.
+
+### Atomic Paired Patches
+
+- Existing `SQLPARSER_PATCH_INSERT_COLUMN` now accepts a `dml_result_targets` list selector for paired DML results: `index` is the common insertion position, `default_sql` supplies the target SQL, and `name` supplies the receiver. Both sides are inserted atomically in one transaction candidate; a parse, index, receiver, or commit failure leaves the original handle unchanged.
+- SQL Server and the Vastbase-SQLServer compatibility entry support same-ordinal insertion into `OUTPUT ... INTO sink(columns...)` when the explicit sink column list is nonempty and its count equals the OUTPUT target count before the mutation. Otherwise-valid unequal `OUTPUT` lists remain parseable and deparseable but do not support this paired patch. Client `OUTPUT` and channels without an explicit sink column list retain their existing boundary.
+- PostgreSQL and Vastbase-PostgreSQL `RETURNING` are client result lists without a matching SQL receiver list and continue to use the existing target-only mutation. MySQL and Vastbase-MySQL do not gain DML `RETURNING INTO` syntax.
+
+### API, Cases, and Validation
+
+- This release adds no public functions, public enum values, public structure fields, View JSON fields, or resource-ownership rules. Existing selectors, patch operations, and result-channel representations are unchanged.
+- Fifteen final cases and 15 independent paired patches were added across Oracle, Dameng, SQL Server, Vastbase-Oracle, and Vastbase-SQLServer. Each applicable entry has `INSERT`, `UPDATE`, and `DELETE` cases with eight original pairs and one head, middle, or tail insertion producing exactly nine pairs. The nine fixtures now contain 2,796 final cases and 9,049 patches.
+- The remote strict core API test and all five affected dialect matrices passed. The five matrices covered 1,876/1,876 cases and 5,996/5,996 patches, with zero original-deparse, View JSON, or patch-deparse failures. Six targeted Valgrind checks covering the core API and the five matrices each reported `0 bytes in 0 blocks` and zero errors.
+
 ## 2.16.1
 
 ### Compact Query Graph DML Cell Cache

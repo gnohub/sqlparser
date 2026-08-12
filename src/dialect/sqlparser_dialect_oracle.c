@@ -2975,6 +2975,7 @@ static sqlparser_status_t sqlparser_oracle_preprocess_text(
 				input_sql + index,
 				returning_into.keyword_end - index,
 				input_sql + returning_into.into_start,
+				returning_into.pair_count,
 				out_error);
 			if (status == SQLPARSER_STATUS_OK) {
 				status = sqlparser_oracle_buffer_append_mem(

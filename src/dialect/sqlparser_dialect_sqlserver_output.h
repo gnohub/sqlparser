@@ -116,6 +116,14 @@ sqlparser_status_t sqlparser_sqlserver_output_insert_sink_column(
 	const char *column_sql,
 	sqlparser_error_t *out_error);
 
+sqlparser_status_t sqlparser_sqlserver_output_insert_target_sink_column(
+	sqlparser_sqlserver_output_state_t *state,
+	size_t dml_index,
+	size_t channel_index,
+	size_t target_index,
+	const char *column_sql,
+	sqlparser_error_t *out_error);
+
 sqlparser_status_t sqlparser_sqlserver_output_delete_sink_column(
 	sqlparser_sqlserver_output_state_t *state,
 	size_t dml_index,

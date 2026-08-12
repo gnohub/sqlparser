@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 174 条 `status = "final"` 用例。34 条用例包含 statement 级 `query_graph.session`，覆盖 `D002`、`D003`、`D003Q`、`D026`、`D089` 至 `D095` 和 `DM-*` session 用例；这 34 条用例均至少包含一个非空 session item。
+夹具包含 177 条 `status = "final"` 用例和 636 个独立 patch。34 条用例包含 statement 级 `query_graph.session`，覆盖 `D002`、`D003`、`D003Q`、`D026`、`D089` 至 `D095` 和 `DM-*` session 用例；这 34 条用例均至少包含一个非空 session item。
 
 用例提供 `query_graph.session` 时，矩阵测试会随完整 View JSON 精确校验 session action、item scope、target kind、name 及 value 字段。每条用例还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
 
@@ -178,7 +178,7 @@
 
 ## RETURN/RETURNING INTO 回归
 
-当前覆盖 `INSERT`、`DELETE` 的 `RETURNING <单个表达式> INTO <单个冒号宿主绑定变量>`，以及 `UPDATE` 的 `RETURN <单个表达式> INTO <单个冒号宿主绑定变量>`。View 通过 `dml.result_channels` 的 sink channel 表达返回通道，返回 target 的 `sink_value` 指向 `query_graph.values[]` 中的宿主绑定变量。该边界不包含多个返回 target、多个 `INTO` 宿主绑定变量或 `BULK COLLECT`。
+当前覆盖 `INSERT`、`DELETE` 的 `RETURNING <target, ...> INTO <:bind, ...>`，以及 `UPDATE` 的 `RETURN <target, ...> INTO <:bind, ...>`。每个列表均须包含 `N >= 1` 项，两个列表严格等长并按序号一一配对；`INTO` 项必须是冒号宿主 bind。View 通过 `dml.result_channels` 的 sink channel 表达返回通道，每个返回 target 的 `sink_value` 指向 `query_graph.values[]` 中同序号的宿主 bind。该边界不包含 `BULK COLLECT`、非冒号 bind 接收项或不等长列表。
 
 | ID | 用例 | SQL 形态 | 覆盖内容 |
 | --- | --- | --- | --- |
@@ -186,6 +186,9 @@
 | D144 | `dameng-update-return-rowid-into-bind` | `UPDATE ... RETURN ROWID INTO :NAV_ROWID` | UPDATE `target_after` 引用、达梦 `RETURN` 关键字、sink bind、replace patch 和逐字节 deparse |
 | D145 | `dameng-delete-returning-rowid-into-bind` | `DELETE ... RETURNING ROWID INTO :NAV_ROWID` | DELETE `target_before` 引用、ROWID pseudo target、sink bind、replace patch 和逐字节 deparse |
 | D146 | `dameng-merge-update-delete-where` | matched UPDATE 同时含 action `WHERE` 和附属 `DELETE WHERE` | UPDATE 分支同时输出 `condition_selector` 与 `delete_condition_selector`，DELETE 条件不生成独立 action；3 个独立 patch 覆盖 assignment、action 条件值和 DELETE 条件值替换 |
+| D151 | `dameng-insert-returning-eight-target-bind-pairs` | INSERT `RETURNING` 8 target ↔ 8 bind | 严格等长按序配对；头部原子插入 1 组 target/bind 后为 9↔9 |
+| D152 | `dameng-update-return-eight-target-bind-pairs` | UPDATE `RETURN` 8 target ↔ 8 bind | 严格等长按序配对；中部原子插入 1 组 target/bind 后为 9↔9 |
+| D153 | `dameng-delete-returning-eight-target-bind-pairs` | DELETE `RETURNING` 8 target ↔ 8 bind | 严格等长按序配对；尾部原子插入 1 组 target/bind 后为 9↔9 |
 
 ## 层次查询回归
 

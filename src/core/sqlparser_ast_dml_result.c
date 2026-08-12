@@ -368,6 +368,116 @@ static sqlparser_status_t sqlparser_dml_result_parse_target(
 	return SQLPARSER_STATUS_OK;
 }
 
+static sqlparser_status_t sqlparser_dml_result_parse_target_receiver(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	const char *target_sql,
+	const char *receiver_sql,
+	PgQuery__Node **out_target,
+	PgQuery__Node **out_receiver,
+	void **out_state,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__Node **nodes;
+	PgQuery__ResTarget *receiver;
+	char *public_sql;
+	void *candidate_state;
+	size_t count;
+	size_t index;
+	size_t receiver_length;
+	size_t target_length;
+	sqlparser_status_t status;
+
+	*out_target = NULL;
+	*out_receiver = NULL;
+	*out_state = NULL;
+	if (!sqlparser_dialect_returning_into_receiver_is_bind(
+		    handle->dialect, receiver_sql)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"DML result receiver must contain exactly one colon bind");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	nodes = NULL;
+	public_sql = NULL;
+	candidate_state = NULL;
+	count = 0U;
+	target_length = strlen(target_sql);
+	receiver_length = strlen(receiver_sql);
+	if (target_length > SIZE_MAX - receiver_length ||
+	    target_length + receiver_length > SIZE_MAX - 3U) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_RESOURCE_LIMIT,
+			"paired DML result SQL is too large");
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+	public_sql = (char *)malloc(target_length + receiver_length + 3U);
+	if (public_sql == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	memcpy(public_sql, target_sql, target_length);
+	memcpy(public_sql + target_length, ", ", 2U);
+	memcpy(
+		public_sql + target_length + 2U,
+		receiver_sql,
+		receiver_length + 1U);
+	status = sqlparser_select_parse_public_targets(
+		handle,
+		statement_index,
+		public_sql,
+		0,
+		&nodes,
+		&count,
+		&candidate_state,
+		out_error);
+	receiver = status == SQLPARSER_STATUS_OK && count == 2U &&
+		nodes[1] != NULL &&
+		nodes[1]->node_case == PG_QUERY__NODE__NODE_RES_TARGET ?
+			nodes[1]->res_target : NULL;
+	if (status == SQLPARSER_STATUS_OK &&
+	    (count != 2U || nodes[0] == NULL || receiver == NULL ||
+	     (receiver->name != NULL && receiver->name[0] != '\0') ||
+	     receiver->n_indirection != 0U || receiver->val == NULL ||
+	     receiver->val->node_case != PG_QUERY__NODE__NODE_PARAM_REF ||
+	     receiver->val->param_ref == NULL)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"DML result receiver must contain exactly one bind");
+		status = SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (status == SQLPARSER_STATUS_OK &&
+	    sqlparser_dialect_returning_into_receiver_is_bind(
+		    handle->dialect, target_sql)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"DML result target must not be a bind receiver");
+		status = SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		*out_target = nodes[0];
+		*out_receiver = nodes[1];
+		*out_state = candidate_state;
+		candidate_state = NULL;
+		nodes[0] = NULL;
+		nodes[1] = NULL;
+	}
+	for (index = 0U; index < count; index++) {
+		sqlparser_free_proto_node(nodes[index]);
+	}
+	free(nodes);
+	free(public_sql);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_handle_sweep_identifier_spellings(handle);
+		sqlparser_handle_discard_dialect_state(handle, candidate_state);
+	}
+	return status;
+}
+
 static sqlparser_status_t sqlparser_dml_result_clone_state(
 	const sqlparser_handle_t *handle,
 	void **out_state,
@@ -639,6 +749,231 @@ sqlparser_status_t sqlparser_dml_result_insert_target_sql(
 	*list.count = old_count + 1U;
 	return sqlparser_handle_commit_ast_with_dialect_state(
 		handle, candidate_state, out_error);
+}
+
+sqlparser_status_t sqlparser_dml_result_insert_target_receiver_sql(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *selector,
+	size_t target_index,
+	const char *target_sql,
+	const char *receiver_sql,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dialect_dml_result_dml_t dml;
+	sqlparser_dialect_dml_result_channel_t channel;
+	sqlparser_dml_result_list_t list;
+	PgQuery__Node *receiver;
+	PgQuery__Node *target;
+	PgQuery__Node **next;
+	PgQuery__Node **old_items;
+	void *candidate_state;
+	char *action_marker;
+	size_t absolute_index;
+	size_t old_count;
+	size_t sink_index;
+	sqlparser_status_t status;
+
+	if (handle == NULL || selector == NULL || target_sql == NULL ||
+	    target_sql[0] == '\0' || receiver_sql == NULL ||
+	    receiver_sql[0] == '\0' ||
+	    selector->kind != SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGETS) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"paired DML result insertion is invalid");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	status = sqlparser_dml_result_get_channel(
+		handle, selector, &dml, &channel, &list, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (target_index > channel.target_count) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"DML result target insertion index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	old_count = *list.count;
+	if (channel.sink_value_count > 0U) {
+		if (channel.kind != SQLPARSER_GRAPH_DML_RESULT_SINK ||
+		    channel.target_count != channel.sink_value_count ||
+		    channel.target_offset > channel.sink_value_offset ||
+		    channel.target_count !=
+			    channel.sink_value_offset - channel.target_offset ||
+		    channel.sink_value_offset > old_count ||
+		    channel.sink_value_count >
+			    old_count - channel.sink_value_offset) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"paired DML result metadata is inconsistent");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		if (old_count > SIZE_MAX - 2U ||
+		    old_count + 2U > SIZE_MAX / sizeof(*next)) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_RESOURCE_LIMIT,
+				"DML result target count is too large");
+			return SQLPARSER_STATUS_RESOURCE_LIMIT;
+		}
+		target = NULL;
+		receiver = NULL;
+		candidate_state = NULL;
+		status = sqlparser_dml_result_parse_target_receiver(
+			handle,
+			selector->statement_index,
+			target_sql,
+			receiver_sql,
+			&target,
+			&receiver,
+			&candidate_state,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		next = (PgQuery__Node **)malloc((old_count + 2U) * sizeof(*next));
+		if (next == NULL) {
+			sqlparser_free_proto_node(target);
+			sqlparser_free_proto_node(receiver);
+			sqlparser_handle_sweep_identifier_spellings(handle);
+			sqlparser_handle_discard_dialect_state(handle, candidate_state);
+			sqlparser_error_set_message(
+				out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		status = sqlparser_dialect_dml_result_adjust_paired_count(
+			handle->dialect,
+			candidate_state,
+			selector->statement_index,
+			1,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			free(next);
+			sqlparser_free_proto_node(target);
+			sqlparser_free_proto_node(receiver);
+			sqlparser_handle_sweep_identifier_spellings(handle);
+			sqlparser_handle_discard_dialect_state(handle, candidate_state);
+			return status;
+		}
+		absolute_index = channel.target_offset + target_index;
+		sink_index = channel.sink_value_offset + target_index;
+		if (absolute_index > 0U) {
+			memcpy(next, *list.items, absolute_index * sizeof(*next));
+		}
+		next[absolute_index] = target;
+		if (absolute_index < sink_index) {
+			memcpy(
+				next + absolute_index + 1U,
+				*list.items + absolute_index,
+				(sink_index - absolute_index) * sizeof(*next));
+		}
+		next[sink_index + 1U] = receiver;
+		if (sink_index < old_count) {
+			memcpy(
+				next + sink_index + 2U,
+				*list.items + sink_index,
+				(old_count - sink_index) * sizeof(*next));
+		}
+		old_items = *list.items;
+		*list.items = next;
+		*list.count = old_count + 2U;
+		status = sqlparser_handle_commit_ast_with_dialect_state(
+			handle, candidate_state, out_error);
+		free(old_items);
+		return status;
+	}
+
+	if (channel.kind != SQLPARSER_GRAPH_DML_RESULT_SINK ||
+	    channel.sink_column_count == 0U ||
+	    channel.sink_column_count != channel.target_count) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"paired DML result insertion requires matching explicit receiver columns");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	if (old_count == SIZE_MAX ||
+	    old_count + 1U > SIZE_MAX / sizeof(*next)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_RESOURCE_LIMIT,
+			"DML result target count is too large");
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+	target = NULL;
+	candidate_state = NULL;
+	action_marker = NULL;
+	status = sqlparser_dml_result_parse_target(
+		handle,
+		selector->statement_index,
+		dml.kind,
+		target_sql,
+		&target,
+		&candidate_state,
+		&action_marker,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	next = (PgQuery__Node **)malloc((old_count + 1U) * sizeof(*next));
+	if (next == NULL) {
+		sqlparser_free_proto_node(target);
+		free(action_marker);
+		sqlparser_handle_sweep_identifier_spellings(handle);
+		sqlparser_handle_discard_dialect_state(handle, candidate_state);
+		sqlparser_error_set_message(
+			out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	status = sqlparser_dialect_dml_result_insert_target_sink_column(
+		handle->dialect,
+		candidate_state,
+		selector->statement_index,
+		selector->item_index,
+		selector->row_index,
+		target_index,
+		receiver_sql,
+		out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_dialect_dml_result_set_action_marker(
+			handle->dialect,
+			candidate_state,
+			selector->statement_index,
+			selector->item_index,
+			selector->row_index,
+			target_index,
+			action_marker,
+			out_error);
+	}
+	free(action_marker);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(next);
+		sqlparser_free_proto_node(target);
+		sqlparser_handle_sweep_identifier_spellings(handle);
+		sqlparser_handle_discard_dialect_state(handle, candidate_state);
+		return status;
+	}
+	absolute_index = channel.target_offset + target_index;
+	if (absolute_index > 0U) {
+		memcpy(next, *list.items, absolute_index * sizeof(*next));
+	}
+	next[absolute_index] = target;
+	if (absolute_index < old_count) {
+		memcpy(
+			next + absolute_index + 1U,
+			*list.items + absolute_index,
+			(old_count - absolute_index) * sizeof(*next));
+	}
+	old_items = *list.items;
+	*list.items = next;
+	*list.count = old_count + 1U;
+	status = sqlparser_handle_commit_ast_with_dialect_state(
+		handle, candidate_state, out_error);
+	free(old_items);
+	return status;
 }
 
 sqlparser_status_t sqlparser_dml_result_delete_target(

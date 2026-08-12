@@ -2810,6 +2810,7 @@ static sqlparser_status_t sqlparser_dameng_preprocess_text_internal(
 				input_sql + index,
 				returning_into.keyword_end - index,
 				input_sql + returning_into.into_start,
+				returning_into.pair_count,
 				out_error);
 			if (status == SQLPARSER_STATUS_OK) {
 				status = returning_into.uses_return_keyword ?
@@ -3207,6 +3208,15 @@ static sqlparser_status_t sqlparser_dameng_preprocess_internal(
 	state = NULL;
 	status = sqlparser_dameng_state_new(&state, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_dialect_returning_into_validate(
+		SQLPARSER_DIALECT_DAMENG,
+		input_sql,
+		1,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_dameng_state_destroy(state);
 		return status;
 	}
 	if (sqlparser_dameng_is_multi_insert_start(input_sql, NULL)) {

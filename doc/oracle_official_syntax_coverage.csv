@@ -36,7 +36,7 @@ expressions,NATIONAL_Q_QUOTED_STRING,CURRENT,"已覆盖 nq q-quoted 字符串，
 query,CONNECT_BY,CURRENT,"已覆盖 START WITH、CONNECT BY、PRIOR、LEVEL、CONNECT_BY_ROOT、CONNECT_BY_ISLEAF、CONNECT_BY_ISCYCLE、NOCYCLE 和复合层次条件；CONNECT BY 位于 START WITH 之前的反向子句顺序不在当前范围",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Hierarchical-Queries.html
 query,LEGACY_OUTER_JOIN,MODEL_REQUIRED,"(+) 旧式外连接语义不做静默降级",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/Joins.html
 dml,INSERT_ALL_FIRST,CURRENT,"已覆盖 INSERT ALL 和 INSERT FIRST 的分支、条件、目标表、目标列和值 cell 结构",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/INSERT.html
-dml,RETURNING_INTO,CURRENT,"已覆盖 INSERT、UPDATE、DELETE 的单个 RETURNING 表达式与单个 INTO 冒号宿主 bind；不包含多 target、多 bind 和 BULK COLLECT",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/RETURNING-INTO-Clause.html
+dml,RETURNING_INTO,CURRENT,"已覆盖 INSERT、UPDATE、DELETE 的 N>=1 个 RETURNING target 与严格等长的 N 个 INTO 冒号宿主 bind，按 ordinal 配对；同一 insert_column patch 成对插入两侧；不包含 BULK COLLECT、非冒号 bind receiver 或不等长列表",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/RETURNING-INTO-Clause.html
 program,PLSQL_BLOCK,MODEL_REQUIRED,"PL/SQL block 超出当前 SQL 语句模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/lnpls/plsql-language-fundamentals.html
 program,CREATE_PROCEDURE_PACKAGE,MODEL_REQUIRED,"procedure 和 package 属于 PL/SQL 程序单元",https://docs.oracle.com/en/database/oracle/oracle-database/23/lnpls/overview.html
 query,PIVOT_UNPIVOT,MODEL_REQUIRED,"表变换语义需要 Oracle 专用查询模型",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/SELECT.html

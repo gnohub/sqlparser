@@ -16245,6 +16245,530 @@ static int test_postgresql_data_modifying_cte_query_graph_and_patch(void)
 	return 0;
 }
 
+static int test_paired_dml_result_contract(void)
+{
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+	} mismatch_cases[] = {
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"UPDATE app.t SET city = :city RETURNING id, city INTO :out_id"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_ORACLE,
+			"UPDATE app.t SET city = :city RETURNING id, city INTO :out_id"
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"UPDATE app.t SET city = :city RETURN id, city INTO :out_id"
+		}
+	};
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+	} keyword_bind_cases[] = {
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			"UPDATE app.t SET city = :city RETURNING id INTO :returning"
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			"UPDATE app.t SET city = :city RETURN id INTO :return"
+		}
+	};
+	static const char *const oracle_bind_keys[] = {
+		"out_id", "out_status", "out_city"
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_result_t result;
+	sqlparser_graph_dml_result_t second_result;
+	sqlparser_graph_block_t block;
+	sqlparser_graph_block_t second_block;
+	sqlparser_graph_target_t target;
+	sqlparser_graph_value_t value;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patch_list;
+	sqlparser_selector_t selector;
+	char *before_sql;
+	char *after_sql;
+	char *fragment;
+	size_t case_index;
+	size_t result_count;
+	size_t target_index;
+	unsigned long generation;
+	int rc;
+
+	for (case_index = 0U;
+	     case_index < sizeof(mismatch_cases) / sizeof(mismatch_cases[0]);
+	     case_index++) {
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = mismatch_cases[case_index].dialect;
+		rc = sqlparser_parse_with_options(
+			mismatch_cases[case_index].sql,
+			&options,
+			&handle,
+			&error);
+		if (expect_true(
+			    rc == SQLPARSER_STATUS_UNSUPPORTED && handle == NULL,
+			    "mismatched DML result targets and receivers must be rejected") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+	for (case_index = 0U;
+	     case_index < sizeof(keyword_bind_cases) / sizeof(keyword_bind_cases[0]);
+	     case_index++) {
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = keyword_bind_cases[case_index].dialect;
+		rc = sqlparser_parse_with_options(
+			keyword_bind_cases[case_index].sql,
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "RETURN/RETURNING keyword bind should parse") != 0 ||
+		    expect_true(
+			    handle != NULL,
+			    "RETURN/RETURNING keyword bind should return a handle") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	rc = sqlparser_parse_with_options(
+		"UPDATE app.t SET city = :city WHERE id = :id "
+		"RETURNING id, city INTO :out_id, :out_city",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Oracle paired RETURNING INTO baseline should parse") != 0) {
+		return 1;
+	}
+	generation = handle->generation;
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patch.selector = "stmt[0].dml_result_targets[0][0]";
+	patch.index = 1U;
+	patch.name = ":out_status";
+	patch.default_sql = "status";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Oracle RETURNING target and bind insertion should succeed") != 0 ||
+	    expect_true(
+		    handle->generation == generation + 1UL,
+		    "paired Oracle insertion should commit exactly once") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    "UPDATE app.t SET city = :city WHERE id = :id "
+		    "RETURNING id, status, city INTO :out_id, :out_status, :out_city",
+		    "paired Oracle insertion should preserve public syntax") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "paired Oracle insertion graph should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_result_count(
+			    &graph, 0U, &result_count, &error),
+		    &error,
+		    "paired Oracle result count should be available") != 0 ||
+	    expect_true(
+		    result_count == 1U && graph.value_count == 4U,
+		    "paired Oracle result should expose one channel and four graph values") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_result_at(
+			    &graph, 0U, 0U, &result, &error),
+		    &error,
+		    "paired Oracle result should be available") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_block_at(
+			    &graph, result.block_index, &block, &error),
+		    &error,
+		    "paired Oracle result block should be available") != 0 ||
+	    expect_true(
+		    result.kind == SQLPARSER_GRAPH_DML_RESULT_SINK &&
+			    result.has_sink_relation == 0 && block.targets.count == 3U,
+		    "paired Oracle result should expose three sink-bound targets") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	for (case_index = 0U; case_index < 3U; case_index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    block.targets,
+				    case_index,
+				    &target_index,
+				    &error),
+			    &error,
+			    "paired Oracle target index should resolve") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_target_at(
+				    &graph, target_index, &target, &error),
+			    &error,
+			    "paired Oracle target should be available") != 0 ||
+		    expect_true(
+			    target.has_sink_value != 0,
+			    "each Oracle target should reference one output bind") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_value_at(
+				    &graph, target.sink_value_index, &value, &error),
+			    &error,
+			    "paired Oracle output bind should be available") != 0 ||
+		    expect_true(
+			    value.has_bind != 0 &&
+				    strcmp(value.bind, oracle_bind_keys[case_index]) == 0,
+			    "Oracle target and output bind ordinals should stay paired") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	before_sql = NULL;
+	after_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_SQLSERVER;
+	rc = sqlparser_parse_with_options(
+		"UPDATE dbo.t SET city = @city OUTPUT INSERTED.id, INSERTED.city "
+		"INTO dbo.audit ([ID], [City]) WHERE id = @id",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "SQL Server paired OUTPUT baseline should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_deparse(handle, &before_sql, &error),
+		    &error,
+		    "SQL Server paired OUTPUT baseline should deparse") != 0) {
+		sqlparser_string_free(before_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	generation = handle->generation;
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patch.selector = "stmt[0].dml_result_targets[0][0]";
+	patch.index = 1U;
+	patch.name = "[Bad], [Injected]";
+	patch.default_sql = "INSERTED.postal_code";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_true(
+		    rc != SQLPARSER_STATUS_OK &&
+			    handle->generation == generation,
+		    "invalid paired sink insertion should fail atomically") != 0 ||
+	    expect_status_ok(
+		    sqlparser_deparse(handle, &after_sql, &error),
+		    &error,
+		    "SQL Server OUTPUT should deparse after rejected paired insertion") != 0 ||
+	    expect_true(
+		    strcmp(before_sql, after_sql) == 0,
+		    "rejected paired sink insertion must preserve SQL") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "SQL Server OUTPUT graph should survive rejected paired insertion") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_result_at(
+			    &graph, 0U, 0U, &result, &error),
+		    &error,
+		    "SQL Server OUTPUT result should survive rejected paired insertion") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_block_at(
+			    &graph, result.block_index, &block, &error),
+		    &error,
+		    "SQL Server OUTPUT block should survive rejected paired insertion") != 0 ||
+	    expect_true(
+		    block.targets.count == 2U && result.sink_columns.count == 2U,
+		    "rejected paired sink insertion must preserve both list counts") != 0) {
+		sqlparser_string_free(before_sql);
+		sqlparser_string_free(after_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(after_sql);
+	after_sql = NULL;
+	patch.name = "column --comment";
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_true(
+		    rc == SQLPARSER_STATUS_PARSE_ERROR &&
+			    handle->generation == generation,
+		    "comment-bearing paired sink insertion should fail atomically") != 0 ||
+	    expect_status_ok(
+		    sqlparser_deparse(handle, &after_sql, &error),
+		    &error,
+		    "SQL Server OUTPUT should deparse after rejected sink comment") != 0 ||
+	    expect_true(
+		    strcmp(before_sql, after_sql) == 0,
+		    "rejected sink comment must preserve SQL") != 0) {
+		sqlparser_string_free(before_sql);
+		sqlparser_string_free(after_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(after_sql);
+	after_sql = NULL;
+	patch.name = "[Postal Code]";
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "quoted SQL Server sink column insertion should succeed") != 0 ||
+	    expect_true(
+		    handle->generation == generation + 1UL,
+		    "paired SQL Server insertion should commit exactly once") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    "UPDATE dbo.t SET city = @city OUTPUT INSERTED.id, "
+		    "INSERTED.postal_code, INSERTED.city INTO dbo.audit "
+		    "([ID], [Postal Code], [City]) WHERE id = @id",
+		    "paired SQL Server insertion should preserve the quoted sink column") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "paired SQL Server OUTPUT graph should build") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_result_at(
+			    &graph, 0U, 0U, &result, &error),
+		    &error,
+		    "paired SQL Server OUTPUT result should be available") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_block_at(
+			    &graph, result.block_index, &block, &error),
+		    &error,
+		    "paired SQL Server OUTPUT block should be available") != 0 ||
+	    expect_true(
+		    block.targets.count == 3U && result.sink_columns.count == 3U,
+		    "paired SQL Server insertion should grow both lists once") != 0) {
+		sqlparser_string_free(before_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	sqlparser_string_free(before_sql);
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	before_sql = NULL;
+	after_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse_with_options(
+		"INSERT dbo.t(a) OUTPUT INSERTED.* INTO dbo.audit(c1, c2) VALUES (1)",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "SQL Server unequal explicit OUTPUT lists should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_deparse(handle, &before_sql, &error),
+		    &error,
+		    "SQL Server unequal explicit OUTPUT lists should deparse") != 0) {
+		sqlparser_string_free(before_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	generation = handle->generation;
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patch.selector = "stmt[0].dml_result_targets[0][0]";
+	patch.index = 1U;
+	patch.name = "c3";
+	patch.default_sql = "INSERTED.id";
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_true(
+		    rc == SQLPARSER_STATUS_UNSUPPORTED &&
+			    handle->generation == generation,
+		    "paired insertion should reject unequal explicit OUTPUT lists") != 0 ||
+	    expect_status_ok(
+		    sqlparser_deparse(handle, &after_sql, &error),
+		    &error,
+		    "unequal OUTPUT lists should deparse after rejected paired insertion") != 0 ||
+	    expect_true(
+		    strcmp(before_sql, after_sql) == 0,
+		    "rejected unequal OUTPUT insertion must preserve SQL") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "unequal OUTPUT graph should survive rejected paired insertion") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_result_at(
+			    &graph, 0U, 0U, &result, &error),
+		    &error,
+		    "unequal OUTPUT result should survive rejected paired insertion") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_block_at(
+			    &graph, result.block_index, &block, &error),
+		    &error,
+		    "unequal OUTPUT block should survive rejected paired insertion") != 0 ||
+	    expect_true(
+		    block.targets.count == 1U && result.sink_columns.count == 2U,
+		    "rejected unequal OUTPUT insertion must preserve both list counts") != 0) {
+		sqlparser_string_free(before_sql);
+		sqlparser_string_free(after_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(before_sql);
+	sqlparser_string_free(after_sql);
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	fragment = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse_with_options(
+		"INSERT dbo.t(a) OUTPUT INSERTED.id INTO dbo.audit(id) "
+		"OUTPUT INSERTED.id AS client_id VALUES (1)",
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "SQL Server paired dual OUTPUT baseline should parse") != 0) {
+		return 1;
+	}
+	memset(&selector, 0, sizeof(selector));
+	rc = sqlparser_selector_parse(
+		"stmt[0].dml_result_target[0][1][0]",
+		&selector,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "dual OUTPUT client selector should parse before paired insertion") != 0 ||
+	    expect_status_ok(
+		    sqlparser_dml_result_target_sql(handle, &selector, &fragment, &error),
+		    &error,
+		    "dual OUTPUT client target should resolve before paired insertion") != 0 ||
+	    expect_true(
+		    fragment != NULL && strcmp(fragment, "INSERTED.id AS client_id") == 0,
+		    "dual OUTPUT client target should match before paired insertion") != 0) {
+		sqlparser_string_free(fragment);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(fragment);
+	fragment = NULL;
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patch.selector = "stmt[0].dml_result_targets[0][0]";
+	patch.index = 1U;
+	patch.name = "audit_name";
+	patch.default_sql = "INSERTED.name AS audit_name";
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "paired insertion into the sink OUTPUT channel should succeed") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(handle, 0U, &graph, &error),
+		    &error,
+		    "dual OUTPUT graph should build after paired insertion") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_result_at(
+			    &graph, 0U, 0U, &result, &error),
+		    &error,
+		    "dual OUTPUT sink result should resolve after paired insertion") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_result_at(
+			    &graph, 0U, 1U, &second_result, &error),
+		    &error,
+		    "dual OUTPUT client result should resolve after paired insertion") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_block_at(
+			    &graph, result.block_index, &block, &error),
+		    &error,
+		    "dual OUTPUT sink block should resolve after paired insertion") != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_block_at(
+			    &graph, second_result.block_index, &second_block, &error),
+		    &error,
+		    "dual OUTPUT client block should resolve after paired insertion") != 0 ||
+	    expect_true(
+		    block.targets.count == 2U && result.sink_columns.count == 2U &&
+			    second_block.targets.count == 1U &&
+			    second_result.kind == SQLPARSER_GRAPH_DML_RESULT_CLIENT,
+		    "paired sink insertion must preserve the client OUTPUT channel") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&selector, 0, sizeof(selector));
+	rc = sqlparser_selector_parse(
+		"stmt[0].dml_result_target[0][0][1]",
+		&selector,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "dual OUTPUT inserted sink selector should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_dml_result_target_sql(handle, &selector, &fragment, &error),
+		    &error,
+		    "dual OUTPUT inserted sink target should resolve") != 0 ||
+	    expect_true(
+		    fragment != NULL &&
+			    strcmp(fragment, "INSERTED.name AS audit_name") == 0,
+		    "paired insertion should keep the sink channel target offset") != 0) {
+		sqlparser_string_free(fragment);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(fragment);
+	fragment = NULL;
+	memset(&selector, 0, sizeof(selector));
+	rc = sqlparser_selector_parse(
+		"stmt[0].dml_result_target[0][1][0]",
+		&selector,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "dual OUTPUT client selector should parse after paired insertion") != 0 ||
+	    expect_status_ok(
+		    sqlparser_dml_result_target_sql(handle, &selector, &fragment, &error),
+		    &error,
+		    "dual OUTPUT client target should resolve after paired insertion") != 0 ||
+	    expect_true(
+		    fragment != NULL && strcmp(fragment, "INSERTED.id AS client_id") == 0,
+		    "paired sink insertion must not change the client OUTPUT target") != 0) {
+		sqlparser_string_free(fragment);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(fragment);
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
 static int test_sqlserver_output_query_graph_and_patch(void)
 {
 	const char *sql;
@@ -36838,6 +37362,9 @@ int main(void)
 		return 1;
 	}
 	if (test_postgresql_data_modifying_cte_query_graph_and_patch() != 0) {
+		return 1;
+	}
+	if (test_paired_dml_result_contract() != 0) {
 		return 1;
 	}
 	if (test_sqlserver_output_query_graph_and_patch() != 0) {

@@ -473,9 +473,10 @@ optional `sink_columns`. A host-bind sink omits both fields. Each result target
 uses `sink_value` to reference its output bind in `query_graph.values[]`. That
 value retains the existing value `selector`, which can be targeted by
 `SQLPARSER_PATCH_REPLACE`; no new selector kind is introduced. This
-representation is used by single-target `RETURNING ... INTO :bind` in Oracle
-and Vastbase-Oracle compatibility mode, and by single-target `RETURN` /
-`RETURNING ... INTO :bind` in Dameng.
+representation is used by `RETURNING ... INTO` in Oracle and Vastbase-Oracle
+compatibility mode, and by `RETURN` / `RETURNING ... INTO` in Dameng. N result
+targets correspond ordinally to N host binds: the i-th target's `sink_value`
+references the i-th output bind.
 
 Each `references[]` item contains a result `target` index, an optional `field`
 index, a `relation` index, and a `kind`. The kind is `target_before`,

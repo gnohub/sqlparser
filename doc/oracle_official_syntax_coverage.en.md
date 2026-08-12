@@ -57,10 +57,15 @@ executable matrix contains 4 `final` cases and 20 independent patches; the
 reverse clause order with `CONNECT BY` before `START WITH` is outside the
 current boundary.
 
-`RETURNING ... INTO` covers one result target and one colon-prefixed host bind
-in `INSERT`, `UPDATE`, and `DELETE`; multiple targets, multiple binds, and
-`BULK COLLECT` remain outside the current boundary. The remaining Oracle gaps
-are mainly Oracle-specific semantics that cannot be safely mapped to the shared
-AST. `SYNONYM` and `EXPLAIN PLAN FOR` now cover basic statement parsing,
-keywords, and deparse output; full object attributes or execution-plan
-semantics require an Oracle-specific model.
+`RETURNING ... INTO` on `INSERT`, `UPDATE`, and `DELETE` supports `N >= 1`
+result targets with exactly N colon-prefixed host binds, paired by ordinal. It
+rejects `BULK COLLECT`, receivers other than colon-prefixed binds, and unequal
+list lengths. A paired `insert_column` inserts both the target and receiver in
+the same patch rather than exposing one-sided operations. O198 through O200
+each verify eight pairs and nine pairs after insertion at the head, middle, or
+tail. The complete Oracle executable fixture contains 251 `final` cases and
+852 independent patches. The remaining Oracle gaps are mainly Oracle-specific
+semantics that
+cannot be safely mapped to the shared AST. `SYNONYM` and `EXPLAIN PLAN FOR` now
+cover basic statement parsing, keywords, and deparse output; full object
+attributes or execution-plan semantics require an Oracle-specific model.

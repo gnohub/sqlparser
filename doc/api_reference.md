@@ -783,7 +783,7 @@ sqlparser_apply_patch(handle, &patches, &err);
 | 操作 | 说明 |
 | --- | --- |
 | `SQLPARSER_PATCH_REPLACE` | 替换 relation、name、value、assignment、literal、where_literal、clause、MERGE 分支条件、MERGE 附属 DELETE 条件、insert_cell、MERGE INSERT 目标列或完整 cell、select_target 或 select_targets |
-| `SQLPARSER_PATCH_INSERT_COLUMN` | 给 `INSERT ... VALUES` 增加列、给 `INSERT ... SELECT` 增加目标列、给 Oracle/Dameng `INSERT ALL/FIRST` branch 增加目标列、给 MERGE INSERT 成对增加目标列和值，或向 `select_targets` 插入 SELECT 输出项 |
+| `SQLPARSER_PATCH_INSERT_COLUMN` | 给 `INSERT ... VALUES` 增加列、给 `INSERT ... SELECT` 增加目标列、给 Oracle/Dameng `INSERT ALL/FIRST` branch 增加目标列、给 MERGE INSERT 成对增加目标列和值、向 `select_targets` 插入 SELECT 输出项，或向成对 DML 结果列表插入 target 和 receiver |
 | `SQLPARSER_PATCH_DELETE_COLUMN` | 删除 `INSERT ... VALUES` 列、删除 `INSERT ... SELECT` 目标列、成对删除 MERGE INSERT 目标列和值，或删除 SELECT 输出项 |
 | `SQLPARSER_PATCH_DELETE_ROW` | 删除 `INSERT ... VALUES` 行 |
 | `SQLPARSER_PATCH_APPEND_CONDITION` | 按 `AND` 或 `OR` 向 `where` 子句追加条件 |
@@ -796,6 +796,8 @@ sqlparser_apply_patch(handle, &patches, &err);
 三个 assignment patch 操作的目标 selector 均可使用 `stmt[S].assignment[A]` 或 `stmt[S].merge_assignment[W][A]`。
 
 MERGE INSERT 单项替换以 `merge_insert_column` 或 `merge_insert_cell` selector 作为 `SQLPARSER_PATCH_REPLACE` 的目标。目标列替换通过 `sql` 提供标识符；完整 cell 通过 `sql`、`source_selector`、`literal` 或 `bind` 之一提供新值。列值对插入以 `insert_branch_columns` selector 作为 `SQLPARSER_PATCH_INSERT_COLUMN` 的目标，通过 `index` 指定位置、`name` 提供目标列，并通过 `default_sql`、`source_selector`、`literal` 或 `bind` 之一提供对应值。列值对删除使用相同 selector 和 `SQLPARSER_PATCH_DELETE_COLUMN`，通过 `index` 指定位置。插入和删除均原子修改目标列与 VALUES 列表；两侧数量不一致、索引无效或省略显式目标列列表时操作失败。
+
+对具有显式成对接收端的 DML 结果通道，以 `dml_result_targets` 列表 selector 作为 `SQLPARSER_PATCH_INSERT_COLUMN` 的目标。`index` 指定 target 与 receiver 的同位插入位置，`default_sql` 提供新 target SQL，`name` 提供对应 receiver。Oracle、Dameng 和 Vastbase-Oracle 兼容模式的 receiver 是冒号 bind；SQL Server 和 Vastbase SQL Server 兼容模式的 receiver 是显式 sink column。`sqlparser_apply_patch()` 在同一事务中原子插入两侧；两侧数量不等、索引或 receiver 非法、或载荷字段组合无效时操作失败，handle 保持不变。
 
 `sqlparser_patch_t` 的值来源字段互斥：`sql`、`default_sql`、`source_selector`、`literal`、`bind` 中同一位置只能提供一种。`source_selector` 支持克隆已有 `insert_cell`、`merge_insert_cell`、`select_target` 或 assignment 的 SQL 片段；克隆 assignment 时同样接受 `assignment` 和 `merge_assignment` 两种 selector。`literal` 和 `bind` 由库按当前方言渲染，调用方不需要拼接占位符文本。
 

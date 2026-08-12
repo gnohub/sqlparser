@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 621 条 `status = "final"` 用例。91 条用例的期望 View 包含非空 `query_graph.session` 投影，覆盖 `S044` 至 `S046`、`SH295` 至 `SH333` 和 49 条 `MSSQL-*` session 用例。
+夹具包含 624 条 `status = "final"` 用例和 1867 个独立 patch。91 条用例的期望 View 包含非空 `query_graph.session` 投影，覆盖 `S044` 至 `S046`、`SH295` 至 `SH333` 和 49 条 `MSSQL-*` session 用例。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -84,6 +84,16 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | --- | --- | --- | --- |
 | SH423 | `sqlserver-nested-merge-insert-selector-uniqueness` | 外层 `INSERT ... SELECT` 组合两个带 `OUTPUT` 的嵌套 MERGE | 两个非零 DML 的目标列列表、目标列和 cell selector 唯一，独立替换及成对插入互不影响 |
 | SH424 | `sqlserver-merge-matched-delete-action` | 带条件的 matched DELETE、matched UPDATE 和 not-matched-by-target INSERT | DELETE 作为独立 `WHEN MATCHED ... THEN DELETE` 分支，三个分支保持绝对顺序与各自 selector；3 个独立 patch 覆盖 DELETE 分支条件、UPDATE assignment 和 INSERT cell 替换 |
+
+## OUTPUT target/sink column 成对插入回归
+
+成对 `insert_column` 只适用于 sink `OUTPUT ... INTO` 通道包含显式、非空 sink column list，且改写前 OUTPUT target 数与 sink column 数严格相等的场景。操作按同一序号原子插入一个 OUTPUT target 和一个 sink column。SQL Server 原本合法的不等长 `OUTPUT` 仍可解析和反解析，但不支持这个成对插入操作；client `OUTPUT` 和未显式列出 sink column 的 `OUTPUT ... INTO` 也不纳入该成对改写边界。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| SH425 | `sqlserver-insert-output-into-eight-target-sink-column-pairs` | INSERT 8 OUTPUT target ↔ 8 显式 sink column | 头部原子插入 1 组后为 9↔9，View 与反解析保持按序配对 |
+| SH426 | `sqlserver-update-output-into-eight-target-sink-column-pairs` | UPDATE 8 OUTPUT target ↔ 8 显式 sink column | 中部原子插入 1 组后为 9↔9，View 与反解析保持按序配对 |
+| SH427 | `sqlserver-delete-output-into-eight-target-sink-column-pairs` | DELETE 8 OUTPUT target ↔ 8 显式 sink column | 尾部原子插入 1 组后为 9↔9，View 与反解析保持按序配对 |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 

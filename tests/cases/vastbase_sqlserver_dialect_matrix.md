@@ -15,7 +15,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 601 条 `status = "final"` 用例，其中 75 条用例的期望 View 包含非空 session 投影。
+夹具包含 604 条 `status = "final"` 用例和 1850 个独立 patch，其中 75 条用例的期望 View 包含非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -73,6 +73,16 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | 用例 ID | 用例名称 | 语句形态 | 验证重点 |
 | --- | --- | --- | --- |
 | VSH423 | `vastbase-sqlserver-connect-by-official` | `WHERE` + 基础 `CONNECT BY` + `ORDER BY` | `connect_by` 字段和值归属、WHERE 与 ORDER BY 独立语义、relation/field/value/target 替换及 SELECT 列插入 |
+
+## Vastbase SQL Server 兼容入口 OUTPUT target/sink column 成对插入回归
+
+成对 `insert_column` 只适用于 sink `OUTPUT ... INTO` 通道包含显式、非空 sink column list，且改写前 OUTPUT target 数与 sink column 数严格相等的场景。操作按同一序号原子插入一个 OUTPUT target 和一个 sink column。原本合法的不等长 `OUTPUT` 仍可解析和反解析，但不支持这个成对插入操作；client `OUTPUT` 和未显式列出 sink column 的 `OUTPUT ... INTO` 也不纳入该成对改写边界。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| VSH424 | `vastbase-sqlserver-insert-output-into-eight-target-sink-column-pairs` | INSERT 8 OUTPUT target ↔ 8 显式 sink column | 头部原子插入 1 组后为 9↔9，View 与反解析保持按序配对 |
+| VSH425 | `vastbase-sqlserver-update-output-into-eight-target-sink-column-pairs` | UPDATE 8 OUTPUT target ↔ 8 显式 sink column | 中部原子插入 1 组后为 9↔9，View 与反解析保持按序配对 |
+| VSH426 | `vastbase-sqlserver-delete-output-into-eight-target-sink-column-pairs` | DELETE 8 OUTPUT target ↔ 8 显式 sink column | 尾部原子插入 1 组后为 9↔9，View 与反解析保持按序配对 |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 

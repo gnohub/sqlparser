@@ -1,5 +1,25 @@
 # 变更记录
 
+## 2.16.2
+
+### 多项 DML 结果接收端
+
+- Oracle 与 Vastbase-Oracle 兼容入口的 `INSERT`、`UPDATE`、`DELETE` 支持 `N >= 1` 个 `RETURNING` target 与严格等长的 N 个冒号宿主 bind，并按 ordinal 一一对应。Dameng 的 `INSERT`、`DELETE` 使用 `RETURNING`，`UPDATE` 使用 `RETURN`，并提供相同的等长配对能力。
+- Query Graph 继续使用既有 sink result channel；每个结果 target 的 `sink_value` 分别指向同序号输出 bind。AST 内部只保存一份配对数量，不重复维护两套恒等计数。
+- `BULK COLLECT`、非冒号 bind receiver、空列表或 target/receiver 数量不等的 Oracle-family/Dameng 输入明确返回 `SQLPARSER_STATUS_UNSUPPORTED`。
+
+### 原子成对 Patch
+
+- 既有 `SQLPARSER_PATCH_INSERT_COLUMN` 支持以 `dml_result_targets` 列表 selector 定位成对 DML 结果列表：`index` 是两侧共同插入位置，`default_sql` 提供 target SQL，`name` 提供 receiver。target 与 receiver 在同一事务候选中原子插入，任何解析、索引、receiver 或提交失败都不修改原 handle。
+- SQL Server 与 Vastbase-SQLServer 兼容入口支持对显式非空、且改写前 OUTPUT target 与 sink column 数量相等的 `OUTPUT ... INTO sink(columns...)` 执行同序号成对插入。原本合法的不等长 `OUTPUT` 仍可解析和反解析，但不支持该成对 patch；client `OUTPUT` 和无显式 sink column list 的通道也保持原边界。
+- PostgreSQL 与 Vastbase-PostgreSQL 的 `RETURNING` 是 client result list，没有对应的 SQL receiver list，继续使用既有 target-only 改写；MySQL 与 Vastbase-MySQL 不增加 DML `RETURNING INTO` 语法。
+
+### API、用例与验证
+
+- 本版本没有新增公开函数、公开枚举、公开结构体字段、View JSON 字段或资源所有权规则；既有 selector、patch operation 与 result-channel 表达保持不变。
+- Oracle、Dameng、SQL Server、Vastbase-Oracle 和 Vastbase-SQLServer 共新增 15 条 final case 和 15 个独立 paired patch。每个适用入口均以 `INSERT`、`UPDATE`、`DELETE` 三条 8 对用例覆盖头、中、尾插入，patch 后严格变为 9 对。九套 fixture 当前合计 2,796 条 final case 和 9,049 个 patch。
+- 远端严格核心 API 测试和五套受影响方言矩阵通过；五套矩阵合计 1,876/1,876 条 case、5,996/5,996 个 patch，原始反解析、View JSON 和 patch 反解析失败数均为 0。核心 API 与五套矩阵的六项定向 Valgrind 检查均为 `0 bytes in 0 blocks`、0 errors。
+
 ## 2.16.1
 
 ### Query Graph DML cell 紧凑缓存

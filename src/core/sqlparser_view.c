@@ -19606,8 +19606,7 @@ static int sqlparser_graph_build_dml_results(
 		build->dml_result_index = result_index;
 		build->has_dml_result = 1;
 		if (channel.sink_value_count != 0U &&
-		    (channel.target_count != 1U ||
-		     channel.sink_value_count != 1U)) {
+		    channel.target_count != channel.sink_value_count) {
 			sqlparser_graph_dml_result_build_state_restore(
 				build, &saved_state);
 			sqlparser_error_set_message(
@@ -19648,48 +19647,51 @@ static int sqlparser_graph_build_dml_results(
 					build, &saved_state);
 				return -1;
 			}
-		}
-		if (channel.sink_value_count != 0U) {
-			PgQuery__Node *sink_node;
-			PgQuery__ResTarget *sink_target;
-			sqlparser_graph_target_cache_t *target;
-			size_t value_index;
-			int added;
+			if (channel.sink_value_count != 0U) {
+				PgQuery__Node *sink_node;
+				PgQuery__ResTarget *sink_target;
+				sqlparser_graph_target_cache_t *target;
+				size_t value_index;
+				int added;
 
-			sink_node = returning_list[channel.sink_value_offset];
-			sink_target = sink_node != NULL &&
-				sink_node->node_case == PG_QUERY__NODE__NODE_RES_TARGET ?
-				sink_node->res_target : NULL;
-			target = sqlparser_graph_target_by_local(
-				build, sink_target_index);
-			value_index = 0U;
-			added = 0;
-			if (sink_target == NULL || sink_target->val == NULL ||
-			    sink_target->val->node_case !=
-				    PG_QUERY__NODE__NODE_PARAM_REF ||
-			    target == NULL ||
-			    sqlparser_graph_add_target_value_from_node(
-				    build,
-				    result_block_index,
-				    SQLPARSER_CLAUSE_KIND_DML_RESULT,
-				    sink_target->val,
-				    &value_index,
-				    &added,
-				    out_error) != 0 ||
-			    !added) {
-				sqlparser_graph_dml_result_build_state_restore(
-					build, &saved_state);
-				if (out_error != NULL &&
-				    out_error->code == SQLPARSER_STATUS_OK) {
-					sqlparser_error_set_message(
-						out_error,
-						SQLPARSER_STATUS_INTERNAL_ERROR,
-						"DML result sink value is invalid");
+				sink_node = returning_list[
+					channel.sink_value_offset + target_ordinal];
+				sink_target = sink_node != NULL &&
+					sink_node->node_case ==
+						PG_QUERY__NODE__NODE_RES_TARGET ?
+						sink_node->res_target : NULL;
+				target = sqlparser_graph_target_by_local(
+					build, sink_target_index);
+				value_index = 0U;
+				added = 0;
+				if (sink_target == NULL || sink_target->val == NULL ||
+				    sink_target->val->node_case !=
+					    PG_QUERY__NODE__NODE_PARAM_REF ||
+				    target == NULL ||
+				    sqlparser_graph_add_target_value_from_node(
+					    build,
+					    result_block_index,
+					    SQLPARSER_CLAUSE_KIND_DML_RESULT,
+					    sink_target->val,
+					    &value_index,
+					    &added,
+					    out_error) != 0 ||
+				    !added) {
+					sqlparser_graph_dml_result_build_state_restore(
+						build, &saved_state);
+					if (out_error != NULL &&
+					    out_error->code == SQLPARSER_STATUS_OK) {
+						sqlparser_error_set_message(
+							out_error,
+							SQLPARSER_STATUS_INTERNAL_ERROR,
+							"DML result sink value is invalid");
+					}
+					return -1;
 				}
-				return -1;
+				target->sink_value_index = value_index;
+				target->flags |=
+					SQLPARSER_GRAPH_TARGET_HAS_SINK_VALUE;
 			}
-			target->sink_value_index = value_index;
-			target->flags |= SQLPARSER_GRAPH_TARGET_HAS_SINK_VALUE;
 		}
 		sqlparser_graph_dml_result_build_state_restore(build, &saved_state);
 		if (result_index >= build->cache->dml_results->result_count) {

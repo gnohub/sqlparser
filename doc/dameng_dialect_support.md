@@ -20,7 +20,7 @@
 - `INSERT VALUES`、多行 `INSERT`、`INSERT SELECT`
 - 多表插入：`INSERT ALL`、`INSERT FIRST`，包括 `WHEN ... THEN`、`ELSE` 和单个条件分支下的多个 `INTO`
 - `UPDATE`、`DELETE`
-- DML 返回宿主绑定变量：`INSERT`、`DELETE` 的 `RETURNING <单个表达式> INTO <单个冒号宿主绑定变量>`，以及 `UPDATE` 的 `RETURN <单个表达式> INTO <单个冒号宿主绑定变量>`
+- DML 返回宿主绑定变量：`INSERT`、`DELETE` 的 `RETURNING <target, ...> INTO <:bind, ...>`，以及 `UPDATE` 的 `RETURN <target, ...> INTO <:bind, ...>`；每个列表均为 `N >= 1` 项，严格等长并按序号一一配对
 - 可映射的 `MERGE`；matched UPDATE action 支持赋值后 `WHERE` 和归属同一 UPDATE 分支的 `DELETE WHERE`
 - `DATE`、`TIMESTAMP` 字面量
 - 常见 DDL：`CREATE TABLE`、`CREATE VIEW`、`CREATE SEQUENCE`、`ALTER TABLE ADD`、`CREATE INDEX`、`DROP TABLE`、`TRUNCATE TABLE`
@@ -35,7 +35,7 @@
 以下语法当前不做隐式降级。遇到这些语法时返回 `SQLPARSER_STATUS_UNSUPPORTED` 或解析错误，不会返回可用 handle：
 
 - `PIVOT`、`UNPIVOT`
-- `RETURN`/`RETURNING ... INTO` 的多个返回 target、多个 `INTO` 宿主绑定变量或 `BULK COLLECT` 形态
+- `RETURN`/`RETURNING ... INTO` 的 `BULK COLLECT`、非冒号 bind 接收项或 target/bind 不等长形态
 - DMSQL block、procedure、package
 - 未列入支持范围的其他 `ALTER SESSION` 参数
 - `ALTER SESSION SET CONTAINER = ...`
@@ -48,7 +48,7 @@
 - `MINUS` 在 View JSON 和 deparse 输出中保持达梦语义名称。
 - 层次查询字段、值和谓词进入既有 Query Graph 数组，分别使用 `start_with`、`connect_by` clause、`pseudo` / `prior` 字段标记、CONNECT BY 根谓词的 `nocycle` 标记和 `CONNECT_BY_ROOT` operator `target_path`；不增加独立 hierarchy 对象。
 - `SET SCHEMA` 在 View JSON 中输出字段名 `CURRENT_SCHEMA`。
-- DML 返回通道在 `dml.result_channels` 中使用 sink channel；返回 target 的 `sink_value` 指向 `query_graph.values[]` 中的宿主绑定变量。
+- DML 返回通道在 `dml.result_channels` 中使用 sink channel；每个返回 target 的 `sink_value` 指向 `query_graph.values[]` 中同序号的宿主 bind。
 - View JSON 中可归属的表达式片段使用达梦公共形态。
 - 失败的表达式片段改写不会提交到 handle；原有 AST、bind 映射和 deparse 输出保持可用。
 
@@ -62,4 +62,4 @@
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-当前达梦方言矩阵包含 174 条用例，全部为 `status = "final"`。其中 4 条层次查询用例包含 20 个独立 patch。
+当前达梦方言矩阵包含 177 条用例，全部为 `status = "final"`，共包含 636 个独立 patch。其中 3 条多返回项用例分别验证 INSERT `RETURNING`、UPDATE `RETURN` 和 DELETE `RETURNING` 的 8↔8 配对，以及头、中、尾原子插入后的 9↔9 配对。
