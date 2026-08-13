@@ -18,6 +18,7 @@
 #include "protobuf/pg_query.pb-c.h"
 #include "../dialect/sqlparser_dialect_internal.h"
 #include "sqlparser_ast_internal.h"
+#include "sqlparser_bind_occurrence_internal.h"
 #include "sqlparser_control_internal.h"
 #include "sqlparser_internal.h"
 
@@ -1062,6 +1063,9 @@ static void sqlparser_handle_clear_current_sql(sqlparser_handle_t *handle)
 	handle->current_parser_sql = NULL;
 }
 
+static void sqlparser_handle_clear_bind_occurrences(
+	sqlparser_handle_t *handle);
+
 void sqlparser_handle_invalidate_derived(sqlparser_handle_t *handle)
 {
 	if (handle == NULL) {
@@ -1070,6 +1074,7 @@ void sqlparser_handle_invalidate_derived(sqlparser_handle_t *handle)
 
 	sqlparser_handle_clear_current_sql(handle);
 	sqlparser_handle_clear_query_graph(handle);
+	sqlparser_handle_clear_bind_occurrences(handle);
 }
 
 void sqlparser_handle_clear_query_graph(sqlparser_handle_t *handle)
@@ -1080,6 +1085,252 @@ void sqlparser_handle_clear_query_graph(sqlparser_handle_t *handle)
 	sqlparser_query_graph_cache_release(handle->query_graph);
 	handle->query_graph = NULL;
 	handle->query_graph_generation = 0UL;
+}
+
+static void sqlparser_handle_clear_bind_occurrences(
+	sqlparser_handle_t *handle)
+{
+	if (handle == NULL) {
+		return;
+	}
+	free(handle->bind_occurrences);
+	handle->bind_occurrences = NULL;
+	handle->bind_occurrences_generation = 0UL;
+}
+
+sqlparser_status_t sqlparser_handle_ensure_bind_occurrences(
+	const sqlparser_handle_t *handle,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_bind_occurrence_cache_t *cache;
+	sqlparser_bind_scanner_t scanner;
+	sqlparser_bind_role_cursor_t role_cursor;
+	sqlparser_bind_token_t token;
+	sqlparser_handle_t *mutable_handle;
+	const char *sql;
+	size_t allocation_size;
+	size_t count;
+	size_t index;
+	size_t items_size;
+	size_t sql_length;
+	size_t text_cursor;
+	size_t text_size;
+	char *text;
+	sqlparser_status_t status;
+
+	if (handle == NULL || handle->sql == NULL ||
+	    handle->parse_tree.data == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"handle must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (handle->bind_occurrences != NULL &&
+	    handle->bind_occurrences_generation == handle->generation) {
+		return SQLPARSER_STATUS_OK;
+	}
+	status = sqlparser_ensure_current_sql_text(handle, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	sql = sqlparser_effective_sql(handle);
+	if (sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"current SQL is missing");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	sql_length = strlen(sql);
+	count = 0U;
+	text_size = 0U;
+	sqlparser_bind_scanner_init(&scanner, handle->dialect, sql);
+	sqlparser_bind_role_cursor_init(&role_cursor, handle, sql);
+	while (sqlparser_bind_scanner_next(&scanner, &token)) {
+		size_t token_length;
+
+		if (!sqlparser_bind_role_cursor_accept(&role_cursor, &token)) {
+			continue;
+		}
+		if (token.start >= token.end || token.end > sql_length) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"bind scanner returned an invalid token span");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		token_length = token.end - token.start;
+		if (count == SIZE_MAX || token_length == SIZE_MAX ||
+		    text_size > SIZE_MAX - token_length - 1U) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_RESOURCE_LIMIT,
+				"bind occurrence cache is too large");
+			return SQLPARSER_STATUS_RESOURCE_LIMIT;
+		}
+		count++;
+		text_size += token_length + 1U;
+	}
+	if (count > (SIZE_MAX - sizeof(*cache)) / sizeof(*cache->items)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_RESOURCE_LIMIT,
+			"bind occurrence cache is too large");
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+	items_size = count * sizeof(*cache->items);
+	if (text_size > SIZE_MAX - sizeof(*cache) - items_size) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_RESOURCE_LIMIT,
+			"bind occurrence cache is too large");
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+	allocation_size = sizeof(*cache) + items_size + text_size;
+	cache = (sqlparser_bind_occurrence_cache_t *)malloc(allocation_size);
+	if (cache == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	cache->count = count;
+	text = (char *)cache + sizeof(*cache) + items_size;
+	index = 0U;
+	text_cursor = 0U;
+	sqlparser_bind_scanner_init(&scanner, handle->dialect, sql);
+	sqlparser_bind_role_cursor_init(&role_cursor, handle, sql);
+	while (sqlparser_bind_scanner_next(&scanner, &token)) {
+		size_t token_length;
+
+		if (!sqlparser_bind_role_cursor_accept(&role_cursor, &token)) {
+			continue;
+		}
+		if (index >= count || token.start >= token.end ||
+		    token.end > sql_length) {
+			free(cache);
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"bind scanner result changed while building cache");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		token_length = token.end - token.start;
+		cache->items[index].source_start = token.start;
+		cache->items[index].text_offset = text_cursor;
+		cache->items[index].kind = token.kind;
+		memcpy(text + text_cursor, sql + token.start, token_length);
+		text[text_cursor + token_length] = '\0';
+		text_cursor += token_length + 1U;
+		index++;
+	}
+	if (index != count || text_cursor != text_size) {
+		free(cache);
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"bind scanner result changed while building cache");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	mutable_handle = (sqlparser_handle_t *)handle;
+	sqlparser_handle_clear_bind_occurrences(mutable_handle);
+	mutable_handle->bind_occurrences = cache;
+	mutable_handle->bind_occurrences_generation = handle->generation;
+	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_handle_bind_occurrences(
+	const sqlparser_handle_t *handle,
+	sqlparser_bind_occurrence_view_t *out_occurrences,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_status_t status;
+
+	sqlparser_error_clear(out_error);
+	if (out_occurrences == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"out_occurrences must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	memset(out_occurrences, 0, sizeof(*out_occurrences));
+	if (handle == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"handle must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	status = sqlparser_handle_ensure_bind_occurrences(handle, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (handle->bind_occurrences == NULL ||
+	    handle->bind_occurrences_generation != handle->generation) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"bind occurrence cache is missing");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	out_occurrences->handle = handle;
+	out_occurrences->generation = handle->generation;
+	out_occurrences->count = handle->bind_occurrences->count;
+	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_bind_occurrence_at(
+	const sqlparser_bind_occurrence_view_t *occurrences,
+	size_t occurrence_index,
+	sqlparser_bind_occurrence_t *out_occurrence,
+	sqlparser_error_t *out_error)
+{
+	const sqlparser_bind_occurrence_cache_t *cache;
+	const sqlparser_bind_occurrence_cache_item_t *cache_item;
+	const char *text;
+	size_t items_size;
+
+	sqlparser_error_clear(out_error);
+	if (out_occurrence == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"out_occurrence must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	memset(out_occurrence, 0, sizeof(*out_occurrence));
+	if (occurrences == NULL || occurrences->handle == NULL ||
+	    occurrences->generation != occurrences->handle->generation) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"bind occurrence view is invalid or stale");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	cache = occurrences->handle->bind_occurrences;
+	if (cache == NULL ||
+	    occurrences->handle->bind_occurrences_generation !=
+		    occurrences->generation ||
+	    occurrences->count != cache->count ||
+	    occurrence_index >= occurrences->count) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"bind occurrence index is out of range");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	cache_item = &cache->items[occurrence_index];
+	items_size = cache->count * sizeof(*cache->items);
+	text = (const char *)cache + sizeof(*cache) + items_size +
+		cache_item->text_offset;
+	out_occurrence->position = occurrence_index + 1U;
+	out_occurrence->kind = cache_item->kind;
+	out_occurrence->sql = text;
+	out_occurrence->key = text[0] == '?' ? NULL : text + 1U;
+	return SQLPARSER_STATUS_OK;
 }
 
 static void sqlparser_handle_release_contents(sqlparser_handle_t *handle)
@@ -1152,6 +1403,7 @@ static void sqlparser_handle_release_contents(sqlparser_handle_t *handle)
 	handle->statement_count = 0U;
 	handle->generation = 0UL;
 	handle->query_graph_generation = 0UL;
+	handle->bind_occurrences_generation = 0UL;
 	handle->dialect = SQLPARSER_DIALECT_POSTGRESQL;
 	handle->dialect_ops = NULL;
 }
@@ -1398,6 +1650,7 @@ void sqlparser_handle_replace_contents(
 	sqlparser_handle_release_contents(target);
 	*target = *source;
 	memset(source, 0, sizeof(*source));
+	sqlparser_handle_clear_bind_occurrences(target);
 }
 
 sqlparser_status_t sqlparser_handle_commit_ast(

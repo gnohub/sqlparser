@@ -19,6 +19,15 @@
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
+## 完整绑定占位符 occurrence 回归
+
+以下 2 条 final 用例定义项目 `vastbase-oracle` 兼容入口的 handle 级 occurrence 合同，不作为 Vastbase 服务端官方能力声明。runner 对输入及每个 patch 后的公开 SQL 逐项断言 `position`、`kind`、`key` 和 `sql`；重复项不合并，多语句编号不重置，字符串、注释和定界标识符中的伪占位符不计入。
+
+| 用例 | 根 occurrence | Patch | 基础入口关系 | 验证重点 |
+| --- | ---: | ---: | --- | --- |
+| `vastbase-oracle-multi-statement-global-bind-position` | 7 | 5 | 除用例名外，逐字段镜像 `oracle-multi-statement-global-bind-position` | UPDATE、MERGE、重复命名 bind；改写后覆盖函数、CAST、CASE、子查询、FETCH、数字位置 `:1`、匿名 `?`、点号 key 和保护区排除 |
+| `vastbase-oracle-update-returning-eight-target-bind-pairs` | 11 | 1 | 除用例名外，逐字段镜像 `oracle-update-returning-eight-target-bind-pairs` | UPDATE 与 `RETURNING ... INTO` 的源码顺序；成对插入后 12 个 occurrence 连续重编号 |
+
 ## RETURNING INTO 宿主绑定变量结果通道回归
 
 以下 6 条 final 用例定义项目 `vastbase-oracle` 兼容入口的 `RETURNING ... INTO` 合同，不作为 Vastbase 服务端官方语法声明。`INSERT ... VALUES`、`UPDATE` 和 `DELETE` 支持 `N >= 1` 个返回 target 与严格等长的 N 个冒号宿主 bind，并按 ordinal 一一配对。View 将结果表达为不含 `sink_relation` 的单个 `kind = "sink"` 通道，每个 target 的 `sink_value` 指向 `query_graph.values[]` 中对应 ordinal 的输出 bind。VO186 至 VO188 各验证 8 对结果及一次成对 `insert_column`；同一个 patch 在相同 ordinal 同时插入 target 和 receiver，使结果扩展为 9 对，不允许拆成单侧插入。

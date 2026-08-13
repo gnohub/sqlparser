@@ -15,9 +15,18 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 199 条 `status = "final"` 用例，其中 35 条用例的期望 View 包含非空 session 投影。
+夹具包含 199 条 `status = "final"` 用例和 652 个独立 patch，其中 35 条用例的期望 View 包含非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
+
+## 完整绑定占位符 occurrence 回归
+
+以下 2 条 final 用例定义项目 `vastbase-postgresql` 兼容入口的 handle 级 occurrence 合同，不作为 Vastbase 服务端官方能力声明。runner 对输入及每个 patch 后的公开 SQL 逐项断言 `position`、`kind`、`key` 和 `sql`；重复 `$n` 不合并，多语句编号不重置，字符串、注释、定界标识符和 JSONB `?` / `?|` / `?&` 操作符不计入。
+
+| 用例 | 根 occurrence | Patch | 基础入口关系 | 验证重点 |
+| --- | ---: | ---: | --- | --- |
+| `vastbase-postgresql-insert-returning` | 0 | 5 | SQL、patch 和 occurrence 断言镜像基础 `insert-returning`；仅用例名和方言入口选择不同 | 无 bind 的原 SQL 返回空列表；RETURNING target 改写为 `$1 AS echoed` 后返回单个 occurrence |
+| `vastbase-postgresql-postgresql-multi-statement-global-bind-position` | 8 | 5 | SQL、patch 和 occurrence 断言镜像基础 `postgresql-multi-statement-global-bind-position`；仅用例名和方言入口选择不同 | UPDATE、MERGE、带参数 CALL、重复 key、注释保护；复杂改写覆盖子查询、LIMIT/OFFSET、CASE、cast 和 JSONB 问号操作符 |
 
 | ID | 用例 | SQL | 状态 |
 | --- | --- | --- | --- |

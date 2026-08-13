@@ -15,9 +15,18 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 199 cases with `status = "final"`. The expected View contains a non-empty session projection in 35 cases.
+The fixture contains 199 cases with `status = "final"` and 652 independent patches. The expected View contains a non-empty session projection in 35 cases.
 
 View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
+
+## Complete Bind-Placeholder Occurrence Regression
+
+These two final cases define the handle-level occurrence contract for the project's `vastbase-postgresql` compatibility entry; they do not claim official Vastbase server capabilities. For the input and every patched public SQL text, the runner checks `position`, `kind`, `key`, and `sql` item by item. Repeated `$n` tokens remain separate, numbering continues across statements, and strings, comments, delimited identifiers, and JSONB `?` / `?|` / `?&` operators are excluded.
+
+| Case | Root Occurrences | Patches | Base-Entry Relationship | Validation Focus |
+| --- | ---: | ---: | --- | --- |
+| `vastbase-postgresql-insert-returning` | 0 | 5 | SQL, patches, and occurrence assertions mirror base `insert-returning`; only the case name and dialect-entry selection differ | the bind-free input returns an empty list; rewriting a RETURNING target to `$1 AS echoed` yields one occurrence |
+| `vastbase-postgresql-postgresql-multi-statement-global-bind-position` | 8 | 5 | SQL, patches, and occurrence assertions mirror base `postgresql-multi-statement-global-bind-position`; only the case name and dialect-entry selection differ | UPDATE, MERGE, parameterized CALL, repeated keys, and comment protection; a complex rewrite covers subquery, LIMIT/OFFSET, CASE, cast, and JSONB question-mark operators |
 
 | ID | Case | SQL | Status |
 | --- | --- | --- | --- |

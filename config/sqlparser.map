@@ -118,6 +118,8 @@ SQLPARSER_0 {
 		sqlparser_selector_set_select_target_sql;
 		sqlparser_selector_set_select_targets_sql;
 		sqlparser_selector_replace_select_target_with_columns;
+		sqlparser_handle_bind_occurrences;
+		sqlparser_bind_occurrence_at;
 		sqlparser_statement_query_graph;
 		sqlparser_handle_control_flow;
 		sqlparser_control_span_index_at;

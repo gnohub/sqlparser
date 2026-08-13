@@ -145,11 +145,11 @@ int main(void)
 | `SQLPARSER_BIND_KIND_POSITIONAL` | `1` | 位置 bind，例如 `?`、`:1`、`$1` |
 | `SQLPARSER_BIND_KIND_NAMED` | `2` | 命名 bind，例如 `:name`、`@name` |
 
-bind 字段规则：
+query graph 中既有的 bind 字段规则：
 
 - `bind_key` 按 `bind_kind` 解释；命名 bind 为名称，匿名 `?` 为全局序号字符串，显式编号 bind 保留 SQL 中的编号字符串。
-- `bind_position` 是整条输入 SQL 中的 bind 出现序号，从 1 开始；多语句输入不按 statement 重置。
-- `bind_sql` 保留 SQL 中的原始占位符文本。
+- `bind_position` 是同一 handle 当前公开 SQL 中的 bind 出现序号，从 1 开始；多语句输入不按 statement 重置。
+- `bind_sql` 保留当前公开 SQL 中的完整占位符文本。
 
 `sqlparser_graph_value_kind_t`：
 
@@ -280,7 +280,7 @@ bind 字段规则：
 - `sqlparser_parse()` 返回的 handle 由 `sqlparser_handle_destroy()` 释放。
 - `sqlparser_deparse()`、`sqlparser_export_view_json()` 和渲染类函数返回的字符串由 `sqlparser_string_free()` 释放。
 - C 结构视图中的字符串均为 borrowed pointer，归属 handle，不允许调用方释放。
-- 成功 patch 或任何 AST 修改后，旧的 borrowed pointer、selector 读取结果和 query graph view 均失效。
+- 成功且实际改变 handle 的 patch 或 AST 修改后，旧的 borrowed pointer、selector 读取结果、bind occurrence view 和 query graph view 均失效。
 - 同一个 handle 不支持并发读写，也不保证多线程只读并发安全；推荐一个线程独占一个 handle。
 
 ## 版本与名称辅助函数
@@ -324,6 +324,45 @@ bind 字段规则：
 | `sqlparser_original_sql()` | 返回原始输入 SQL |
 | `sqlparser_handle_dialect()` | 返回 handle 使用的方言 |
 | `sqlparser_statement_count()` | 返回语句数量 |
+
+## 完整 bind occurrence 读取
+
+`sqlparser_handle_bind_occurrences()` 返回当前 handle 中所有真实占位符的只读 view；`sqlparser_bind_occurrence_at()` 使用 0 基索引读取一项。列表按整段当前公开 SQL 中的实际出现顺序排列，重复占位符不合并，多语句输入中的 `position` 不按 statement 重置。初始 handle 以输入 SQL 为准；成功改写后以当前 `sqlparser_deparse()` 对应的 SQL 为准重新构建。
+
+| 类型 | 字段 | 说明 |
+| --- | --- | --- |
+| `sqlparser_bind_occurrence_view_t` | `handle` | 结果所属 handle |
+|  | `generation` | 构建该 view 时的 handle generation |
+|  | `count` | occurrence 数量；没有占位符时为 `0` |
+| `sqlparser_bind_occurrence_t` | `position` | 整段 SQL 中从 `1` 开始的全局出现序号 |
+|  | `kind` | `SQLPARSER_BIND_KIND_NAMED` 或 `SQLPARSER_BIND_KIND_POSITIONAL` |
+|  | `key` | 不含前缀的命名或数字 key；匿名 `?` 为 `NULL` |
+|  | `sql` | 当前公开 SQL 中完整且不截断的占位符 token |
+
+| 函数 | 摘要 |
+| --- | --- |
+| `sqlparser_handle_bind_occurrences()` | 取得 handle 级 occurrence view |
+| `sqlparser_bind_occurrence_at()` | 按 0 基索引读取 occurrence |
+
+任何成功且实际改变 handle 的改写都会推进 generation，使旧 view 及其 item 中的 `key`、`sql` 指针失效；失败或 effective no-op 改写不使其失效。`key` 和 `sql` 是 handle 持有的 borrowed NUL 字符串，调用方不得释放；销毁 handle 后也不得继续访问。空列表是 `count = 0` 的成功结果，对其读取任何索引均为越界。NULL handle/view/输出指针、过期 view 或越界索引返回 `SQLPARSER_STATUS_INVALID_ARGUMENT`；构建失败返回对应错误且不提供部分结果。
+
+该列表独立于 query graph，覆盖成功解析 SQL 中函数、CAST、CASE、运算表达式、分页、子查询、DML、MERGE 和结果通道等位置的真实占位符。字符串、注释和定界标识符中的相似文本不计入。View JSON 不包含这份完整 occurrence 列表，不能从其中的语义 bind 子集反推完整结果。
+
+九个方言入口的公开 token 边界如下；表中规则描述本项目解析入口，不表示兼容数据库服务端的能力声明。
+
+| 方言入口 | 计入的 token | 主要排除边界 |
+| --- | --- | --- |
+| PostgreSQL | `$[1-9][0-9]*` | `?`、`$0`、标识符相邻形式、dollar quote、字符串、注释和定界标识符 |
+| MySQL | 代码区中的 `?` | `$n`、`@` 变量及保护区；仅项目已展开的整 statement executable comment 正文按代码处理 |
+| Oracle | `?`、`:[0-9]+`、`:<name>(.<name>)*` | `:=`、`::`、`$n`、保护区及非 bind 冒号文本 |
+| SQL Server | `?`、`@<name>` | `@@`、保护区、`OUTPUT INTO` sink、`EXEC` 参数 label 和赋值目标等非值角色 |
+| Dameng | `?`、`:[0-9]+`、`:<name>(.<name>)*` | 与 Oracle 相同 |
+| Vastbase-Oracle | Oracle 形式及正数 `$n` | 其余与 Oracle 相同；`$n` 仅表示本项目入口合同 |
+| Vastbase-MySQL | 与 MySQL 相同 | 与 MySQL 相同 |
+| Vastbase-PostgreSQL | 与 PostgreSQL 相同 | 与 PostgreSQL 相同 |
+| Vastbase-SQLServer | 与 SQL Server 相同 | 与 SQL Server 相同 |
+
+Oracle、Dameng 兼容入口的每段 `name` 为 `[A-Za-z_][A-Za-z0-9_$#]*`。SQL Server 兼容入口中，`@` 后首字符可为字母、数字、`_` 或 `#`，后续字符可为字母、数字、`_`、`$`、`#` 或 `@`。名称和数字 key 保留 SQL 中的原始大小写与字节；相同 kind/key 只表达相同语义 key，不合并 occurrence。每个匿名 `?` 也单独保留，通过各自的 `position` 区分。
 
 ## 语句级访问
 

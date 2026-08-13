@@ -72,6 +72,8 @@ CORE_OBJS = \
 	$(OBJ_DIR)\sqlparser_ast_statement.obj \
 	$(OBJ_DIR)\sqlparser_ast_update.obj \
 	$(OBJ_DIR)\sqlparser_ast_where.obj \
+	$(OBJ_DIR)\sqlparser_bind_occurrence.obj \
+	$(OBJ_DIR)\sqlparser_bind_role.obj \
 	$(OBJ_DIR)\sqlparser_control.obj \
 	$(OBJ_DIR)\sqlparser_core.obj \
 	$(OBJ_DIR)\sqlparser_deparse_spelling.obj \
@@ -101,6 +103,7 @@ CORE_OBJS = \
 UNIT_TEST_BINS = \
 	$(BIN_DIR)\test_api_smoke.exe \
 	$(BIN_DIR)\test_api_case_matrix.exe \
+	$(BIN_DIR)\test_bind_occurrence_internal.exe \
 	$(BIN_DIR)\test_core_api.exe \
 	$(BIN_DIR)\test_dameng_fragment_rewrite.exe \
 	$(BIN_DIR)\test_dialect_surface_state.exe \
@@ -170,6 +173,7 @@ examples: $(EXAMPLE_BINS)
 test: all $(UNIT_TEST_BINS) examples
 	$(BIN_DIR)\test_api_smoke.exe
 	$(BIN_DIR)\test_api_case_matrix.exe
+	$(BIN_DIR)\test_bind_occurrence_internal.exe
 	$(BIN_DIR)\test_core_api.exe
 	$(BIN_DIR)\test_dameng_fragment_rewrite.exe
 	$(BIN_DIR)\test_dialect_surface_state.exe
@@ -297,6 +301,12 @@ $(OBJ_DIR)\sqlparser_ast_update.obj: src\core\sqlparser_ast_update.c
 $(OBJ_DIR)\sqlparser_ast_where.obj: src\core\sqlparser_ast_where.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_ast_where.c
 
+$(OBJ_DIR)\sqlparser_bind_occurrence.obj: src\core\sqlparser_bind_occurrence.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_bind_occurrence.c
+
+$(OBJ_DIR)\sqlparser_bind_role.obj: src\core\sqlparser_bind_role.c
+	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_bind_role.c
+
 $(OBJ_DIR)\sqlparser_control.obj: src\core\sqlparser_control.c
 	$(CC) $(CFLAGS) /Fo$@ /c src\core\sqlparser_control.c
 
@@ -380,6 +390,9 @@ $(BIN_DIR)\test_api_smoke.exe: tests\unit\test_api_smoke.c $(STATIC_LIB)
 
 $(BIN_DIR)\test_api_case_matrix.exe: tests\unit\test_api_case_matrix.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_api_case_matrix.c /link $(LDFLAGS) $(LDLIBS)
+
+$(BIN_DIR)\test_bind_occurrence_internal.exe: tests\unit\test_bind_occurrence_internal.c $(STATIC_LIB)
+	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_bind_occurrence_internal.c /link $(LDFLAGS) $(LDLIBS)
 
 $(BIN_DIR)\test_core_api.exe: tests\unit\test_core_api.c $(STATIC_LIB)
 	$(CC) $(CFLAGS) /Fe$@ tests\unit\test_core_api.c /link $(LDFLAGS) $(LDLIBS)

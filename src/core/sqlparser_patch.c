@@ -2607,90 +2607,6 @@ static sqlparser_status_t sqlparser_patch_source_origin_span(
 	return SQLPARSER_STATUS_OK;
 }
 
-static int sqlparser_patch_bind_token(
-	sqlparser_dialect_t dialect,
-	const char *sql,
-	size_t start,
-	size_t end)
-{
-	size_t pos;
-
-	if (sql == NULL || start >= end) {
-		return 0;
-	}
-	if (sqlparser_dialect_is_mysql_compatible(dialect)) {
-		return end == start + 1U && sql[start] == '?';
-	}
-	if (sqlparser_dialect_is_sqlserver_compatible(dialect)) {
-		if (end == start + 1U && sql[start] == '?') {
-			return 1;
-		}
-		if (sql[start] != '@' || start + 1U >= end ||
-		    sql[start + 1U] == '@' ||
-		    (!sqlparser_sqlserver_is_ident_start(
-			    (unsigned char)sql[start + 1U]) &&
-		     !isdigit((unsigned char)sql[start + 1U]))) {
-			return 0;
-		}
-		pos = start + 2U;
-		while (pos < end &&
-		       sqlparser_sqlserver_is_ident_char(
-			       (unsigned char)sql[pos])) {
-			pos++;
-		}
-		return pos == end;
-	}
-	if (dialect == SQLPARSER_DIALECT_POSTGRESQL ||
-	    dialect == SQLPARSER_DIALECT_VASTBASE_POSTGRESQL) {
-		pos = start + 1U;
-		if (sql[start] != '$' || pos >= end ||
-		    !isdigit((unsigned char)sql[pos])) {
-			return 0;
-		}
-		while (pos < end && isdigit((unsigned char)sql[pos])) {
-			pos++;
-		}
-		return pos == end;
-	}
-	if (!sqlparser_dialect_is_oracle_or_dameng_compatible(
-		    dialect)) {
-		return 0;
-	}
-	if (end == start + 1U && sql[start] == '?') {
-		return 1;
-	}
-	if (sql[start] != ':' || start + 1U >= end) {
-		return 0;
-	}
-	pos = start + 1U;
-	if (isdigit((unsigned char)sql[pos])) {
-		while (pos < end && isdigit((unsigned char)sql[pos])) {
-			pos++;
-		}
-		return pos == end;
-	}
-	if (!isalpha((unsigned char)sql[pos]) && sql[pos] != '_') {
-		return 0;
-	}
-	for (;;) {
-		pos++;
-		while (pos < end &&
-		       (isalnum((unsigned char)sql[pos]) || sql[pos] == '_' ||
-			sql[pos] == '$' || sql[pos] == '#')) {
-			pos++;
-		}
-		if (pos == end) {
-			return 1;
-		}
-		if (sql[pos] != '.' || pos + 1U >= end ||
-		    (!isalpha((unsigned char)sql[pos + 1U]) &&
-		     sql[pos + 1U] != '_')) {
-			return 0;
-		}
-		pos++;
-	}
-}
-
 static int sqlparser_patch_bind_source_span(
 	const sqlparser_handle_t *handle,
 	size_t start,
@@ -2711,23 +2627,32 @@ static int sqlparser_patch_bind_source_span(
 		      (unsigned char)handle->sql[end])))) {
 		return 0;
 	}
-	return sqlparser_patch_bind_token(
+	return sqlparser_bind_token_exact(
 		handle->dialect,
 		handle->sql,
+		handle->sql_len,
 		start,
-		end);
+		end,
+		NULL);
 }
 
 static int sqlparser_patch_bind_sql(
 	const sqlparser_handle_t *handle,
 	const char *sql)
 {
-	return handle != NULL && sql != NULL &&
-		sqlparser_patch_bind_token(
-			handle->dialect,
-			sql,
-			0U,
-			strlen(sql));
+	size_t length;
+
+	if (handle == NULL || sql == NULL) {
+		return 0;
+	}
+	length = strlen(sql);
+	return sqlparser_bind_token_exact(
+		handle->dialect,
+		sql,
+		length,
+		0U,
+		length,
+		NULL);
 }
 
 static int sqlparser_patch_unsigned_integer_sql(const char *sql)

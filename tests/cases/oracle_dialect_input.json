@@ -21676,7 +21676,51 @@
     },
     {
       "name": "oracle-multi-statement-global-bind-position",
-      "sql": "UPDATE users SET a = :same WHERE b = :b; UPDATE users SET c = :same WHERE d = :d",
+      "sql": "/* :comment ? */ UPDATE users SET a = :same WHERE b = :b; UPDATE users SET c = :same WHERE d = :d; MERGE INTO t USING (SELECT :same id, :merge_value email FROM dual) s ON (t.id=s.id) WHEN MATCHED THEN UPDATE SET t.email=:merge_value",
+      "bind_occurrences": [
+        {
+          "position": 1,
+          "kind": "named",
+          "key": "same",
+          "sql": ":same"
+        },
+        {
+          "position": 2,
+          "kind": "named",
+          "key": "b",
+          "sql": ":b"
+        },
+        {
+          "position": 3,
+          "kind": "named",
+          "key": "same",
+          "sql": ":same"
+        },
+        {
+          "position": 4,
+          "kind": "named",
+          "key": "d",
+          "sql": ":d"
+        },
+        {
+          "position": 5,
+          "kind": "named",
+          "key": "same",
+          "sql": ":same"
+        },
+        {
+          "position": 6,
+          "kind": "named",
+          "key": "merge_value",
+          "sql": ":merge_value"
+        },
+        {
+          "position": 7,
+          "kind": "named",
+          "key": "merge_value",
+          "sql": ":merge_value"
+        }
+      ],
       "view": {
         "statements": [
           {
@@ -21848,6 +21892,179 @@
                 }
               ]
             }
+          },
+          {
+            "index": 2,
+            "keyword": "merge",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    2
+                  ],
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[2].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "derived",
+                  "alias": "s",
+                  "source_block": 1
+                },
+                {
+                  "block": 1,
+                  "kind": "dual",
+                  "table": "dual",
+                  "selector": "stmt[2].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "bind",
+                  "name": "id",
+                  "value": 0,
+                  "selector": "stmt[2].select_target[0][0]",
+                  "target_list_selector": "stmt[2].select_targets[0]"
+                },
+                {
+                  "block": 1,
+                  "ordinal": 1,
+                  "kind": "bind",
+                  "name": "email",
+                  "value": 1,
+                  "selector": "stmt[2].select_target[0][1]",
+                  "target_list_selector": "stmt[2].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 0,
+                  "column": "id",
+                  "selector": "stmt[2].name[6]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 1,
+                  "column": "id",
+                  "selector": "stmt[2].name[8]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "email"
+                }
+              ],
+              "values": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "kind": "bind",
+                  "bind_key": "same",
+                  "bind_kind": 2,
+                  "bind_sql": ":same",
+                  "bind_position": 5,
+                  "selector": "stmt[2].value[3]"
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "kind": "bind",
+                  "bind_key": "merge_value",
+                  "bind_kind": 2,
+                  "bind_sql": ":merge_value",
+                  "bind_position": 6,
+                  "selector": "stmt[2].value[5]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 0,
+                  "source_field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 0,
+                  "right_field": 1,
+                  "value": 2
+                }
+              ],
+              "dml": {
+                "kind": "merge",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "assignments": [
+                  {
+                    "target_field": 2,
+                    "kind": "bind",
+                    "bind_key": "merge_value",
+                    "bind_kind": 2,
+                    "bind_sql": ":merge_value",
+                    "bind_position": 7,
+                    "selector": "stmt[2].merge_assignment[0][0]"
+                  }
+                ],
+                "branches": [
+                  {
+                    "ordinal": 0,
+                    "branch_kind": "when",
+                    "merge_action_kind": "update",
+                    "merge_match_kind": "matched",
+                    "target_relation": 0,
+                    "assignments": [
+                      {
+                        "target_field": 2,
+                        "kind": "bind",
+                        "bind_key": "merge_value",
+                        "bind_kind": 2,
+                        "bind_sql": ":merge_value",
+                        "bind_position": 7,
+                        "selector": "stmt[2].merge_assignment[0][0]"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
           }
         ]
       },
@@ -21857,31 +22074,269 @@
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "\"PatchedTable\"",
-          "deparse": "UPDATE \"PatchedTable\" SET a = :same WHERE b = :b; UPDATE users SET c = :same WHERE d = :d"
+          "deparse": "/* :comment ? */ UPDATE \"PatchedTable\" SET a = :same WHERE b = :b; UPDATE users SET c = :same WHERE d = :d; MERGE INTO t USING (SELECT :same id, :merge_value email FROM dual) s ON (t.id=s.id) WHEN MATCHED THEN UPDATE SET t.email=:merge_value",
+          "bind_occurrences": [
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "same",
+              "sql": ":same"
+            },
+            {
+              "position": 2,
+              "kind": "named",
+              "key": "b",
+              "sql": ":b"
+            },
+            {
+              "position": 3,
+              "kind": "named",
+              "key": "same",
+              "sql": ":same"
+            },
+            {
+              "position": 4,
+              "kind": "named",
+              "key": "d",
+              "sql": ":d"
+            },
+            {
+              "position": 5,
+              "kind": "named",
+              "key": "same",
+              "sql": ":same"
+            },
+            {
+              "position": 6,
+              "kind": "named",
+              "key": "merge_value",
+              "sql": ":merge_value"
+            },
+            {
+              "position": 7,
+              "kind": "named",
+              "key": "merge_value",
+              "sql": ":merge_value"
+            }
+          ]
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/1/selector",
           "value": "\"PatchedName\"",
-          "deparse": "UPDATE users SET a = :same WHERE \"PatchedName\" = :b; UPDATE users SET c = :same WHERE d = :d"
+          "deparse": "/* :comment ? */ UPDATE users SET a = :same WHERE \"PatchedName\" = :b; UPDATE users SET c = :same WHERE d = :d; MERGE INTO t USING (SELECT :same id, :merge_value email FROM dual) s ON (t.id=s.id) WHEN MATCHED THEN UPDATE SET t.email=:merge_value",
+          "bind_occurrences": [
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "same",
+              "sql": ":same"
+            },
+            {
+              "position": 2,
+              "kind": "named",
+              "key": "b",
+              "sql": ":b"
+            },
+            {
+              "position": 3,
+              "kind": "named",
+              "key": "same",
+              "sql": ":same"
+            },
+            {
+              "position": 4,
+              "kind": "named",
+              "key": "d",
+              "sql": ":d"
+            },
+            {
+              "position": 5,
+              "kind": "named",
+              "key": "same",
+              "sql": ":same"
+            },
+            {
+              "position": 6,
+              "kind": "named",
+              "key": "merge_value",
+              "sql": ":merge_value"
+            },
+            {
+              "position": 7,
+              "kind": "named",
+              "key": "merge_value",
+              "sql": ":merge_value"
+            }
+          ]
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "UPDATE users SET a = :same WHERE b = 42; UPDATE users SET c = :same WHERE d = :d"
+          "deparse": "/* :comment ? */ UPDATE users SET a = :same WHERE b = 42; UPDATE users SET c = :same WHERE d = :d; MERGE INTO t USING (SELECT :same id, :merge_value email FROM dual) s ON (t.id=s.id) WHEN MATCHED THEN UPDATE SET t.email=:merge_value",
+          "bind_occurrences": [
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "same",
+              "sql": ":same"
+            },
+            {
+              "position": 2,
+              "kind": "named",
+              "key": "same",
+              "sql": ":same"
+            },
+            {
+              "position": 3,
+              "kind": "named",
+              "key": "d",
+              "sql": ":d"
+            },
+            {
+              "position": 4,
+              "kind": "named",
+              "key": "same",
+              "sql": ":same"
+            },
+            {
+              "position": 5,
+              "kind": "named",
+              "key": "merge_value",
+              "sql": ":merge_value"
+            },
+            {
+              "position": 6,
+              "kind": "named",
+              "key": "merge_value",
+              "sql": ":merge_value"
+            }
+          ]
         },
         {
           "action": "replace_assignment",
           "target": "/statements/0/query_graph/dml/assignments/0/selector",
           "value": "\"PatchedColumn\" = 42",
-          "deparse": "UPDATE users SET \"PatchedColumn\" = 42 WHERE b = :b; UPDATE users SET c = :same WHERE d = :d"
+          "deparse": "/* :comment ? */ UPDATE users SET \"PatchedColumn\" = 42 WHERE b = :b; UPDATE users SET c = :same WHERE d = :d; MERGE INTO t USING (SELECT :same id, :merge_value email FROM dual) s ON (t.id=s.id) WHEN MATCHED THEN UPDATE SET t.email=:merge_value",
+          "bind_occurrences": [
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "b",
+              "sql": ":b"
+            },
+            {
+              "position": 2,
+              "kind": "named",
+              "key": "same",
+              "sql": ":same"
+            },
+            {
+              "position": 3,
+              "kind": "named",
+              "key": "d",
+              "sql": ":d"
+            },
+            {
+              "position": 4,
+              "kind": "named",
+              "key": "same",
+              "sql": ":same"
+            },
+            {
+              "position": 5,
+              "kind": "named",
+              "key": "merge_value",
+              "sql": ":merge_value"
+            },
+            {
+              "position": 6,
+              "kind": "named",
+              "key": "merge_value",
+              "sql": ":merge_value"
+            }
+          ]
         },
         {
           "action": "insert_assignment",
           "target": "/statements/0/query_graph/dml/assignments/0/selector",
-          "value": "\"InsertedColumn\" = 43",
-          "deparse": "UPDATE users SET \"InsertedColumn\" = 43, a = :same WHERE b = :b; UPDATE users SET c = :same WHERE d = :d"
+          "value": "\"InsertedColumn\" = COALESCE((SELECT CAST(:pkg.arg AS VARCHAR(32)) FROM audit_log WHERE id = :1 AND note = q'[? :qfake]' /* :comment ? */ FETCH FIRST ? ROWS ONLY), CASE WHEN ':fake ?' = ':fake ?' THEN :same + :same ELSE \":quoted\" END)",
+          "deparse": "/* :comment ? */ UPDATE users SET \"InsertedColumn\" = COALESCE((SELECT CAST(:pkg.arg AS VARCHAR(32)) FROM audit_log WHERE id = :1 AND note = q'[? :qfake]' /* :comment ? */ FETCH FIRST ? ROWS ONLY), CASE WHEN ':fake ?' = ':fake ?' THEN :same + :same ELSE \":quoted\" END), a = :same WHERE b = :b; UPDATE users SET c = :same WHERE d = :d; MERGE INTO t USING (SELECT :same id, :merge_value email FROM dual) s ON (t.id=s.id) WHEN MATCHED THEN UPDATE SET t.email=:merge_value",
+          "bind_occurrences": [
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "pkg.arg",
+              "sql": ":pkg.arg"
+            },
+            {
+              "position": 2,
+              "kind": "positional",
+              "key": "1",
+              "sql": ":1"
+            },
+            {
+              "position": 3,
+              "kind": "positional",
+              "key": null,
+              "sql": "?"
+            },
+            {
+              "position": 4,
+              "kind": "named",
+              "key": "same",
+              "sql": ":same"
+            },
+            {
+              "position": 5,
+              "kind": "named",
+              "key": "same",
+              "sql": ":same"
+            },
+            {
+              "position": 6,
+              "kind": "named",
+              "key": "same",
+              "sql": ":same"
+            },
+            {
+              "position": 7,
+              "kind": "named",
+              "key": "b",
+              "sql": ":b"
+            },
+            {
+              "position": 8,
+              "kind": "named",
+              "key": "same",
+              "sql": ":same"
+            },
+            {
+              "position": 9,
+              "kind": "named",
+              "key": "d",
+              "sql": ":d"
+            },
+            {
+              "position": 10,
+              "kind": "named",
+              "key": "same",
+              "sql": ":same"
+            },
+            {
+              "position": 11,
+              "kind": "named",
+              "key": "merge_value",
+              "sql": ":merge_value"
+            },
+            {
+              "position": 12,
+              "kind": "named",
+              "key": "merge_value",
+              "sql": ":merge_value"
+            }
+          ]
         }
       ]
     },
@@ -35842,6 +36297,74 @@
     {
       "name": "oracle-update-returning-eight-target-bind-pairs",
       "sql": "UPDATE app.customer_profiles SET city = :city, status = :status WHERE customer_id = :customer_id RETURNING customer_id, customer_name, city, city_digest, status, created_at, updated_at, version_no INTO :out_customer_id, :out_customer_name, :out_city, :out_city_digest, :out_status, :out_created_at, :out_updated_at, :out_version_no",
+      "bind_occurrences": [
+        {
+          "position": 1,
+          "kind": "named",
+          "key": "city",
+          "sql": ":city"
+        },
+        {
+          "position": 2,
+          "kind": "named",
+          "key": "status",
+          "sql": ":status"
+        },
+        {
+          "position": 3,
+          "kind": "named",
+          "key": "customer_id",
+          "sql": ":customer_id"
+        },
+        {
+          "position": 4,
+          "kind": "named",
+          "key": "out_customer_id",
+          "sql": ":out_customer_id"
+        },
+        {
+          "position": 5,
+          "kind": "named",
+          "key": "out_customer_name",
+          "sql": ":out_customer_name"
+        },
+        {
+          "position": 6,
+          "kind": "named",
+          "key": "out_city",
+          "sql": ":out_city"
+        },
+        {
+          "position": 7,
+          "kind": "named",
+          "key": "out_city_digest",
+          "sql": ":out_city_digest"
+        },
+        {
+          "position": 8,
+          "kind": "named",
+          "key": "out_status",
+          "sql": ":out_status"
+        },
+        {
+          "position": 9,
+          "kind": "named",
+          "key": "out_created_at",
+          "sql": ":out_created_at"
+        },
+        {
+          "position": 10,
+          "kind": "named",
+          "key": "out_updated_at",
+          "sql": ":out_updated_at"
+        },
+        {
+          "position": 11,
+          "kind": "named",
+          "key": "out_version_no",
+          "sql": ":out_version_no"
+        }
+      ],
       "view": {
         "statements": [
           {
@@ -36250,7 +36773,81 @@
           "value": "postal_code",
           "name": ":out_postal_code",
           "index": 4,
-          "deparse": "UPDATE app.customer_profiles SET city = :city, status = :status WHERE customer_id = :customer_id RETURNING customer_id, customer_name, city, city_digest, postal_code, status, created_at, updated_at, version_no INTO :out_customer_id, :out_customer_name, :out_city, :out_city_digest, :out_postal_code, :out_status, :out_created_at, :out_updated_at, :out_version_no"
+          "deparse": "UPDATE app.customer_profiles SET city = :city, status = :status WHERE customer_id = :customer_id RETURNING customer_id, customer_name, city, city_digest, postal_code, status, created_at, updated_at, version_no INTO :out_customer_id, :out_customer_name, :out_city, :out_city_digest, :out_postal_code, :out_status, :out_created_at, :out_updated_at, :out_version_no",
+          "bind_occurrences": [
+            {
+              "position": 1,
+              "kind": "named",
+              "key": "city",
+              "sql": ":city"
+            },
+            {
+              "position": 2,
+              "kind": "named",
+              "key": "status",
+              "sql": ":status"
+            },
+            {
+              "position": 3,
+              "kind": "named",
+              "key": "customer_id",
+              "sql": ":customer_id"
+            },
+            {
+              "position": 4,
+              "kind": "named",
+              "key": "out_customer_id",
+              "sql": ":out_customer_id"
+            },
+            {
+              "position": 5,
+              "kind": "named",
+              "key": "out_customer_name",
+              "sql": ":out_customer_name"
+            },
+            {
+              "position": 6,
+              "kind": "named",
+              "key": "out_city",
+              "sql": ":out_city"
+            },
+            {
+              "position": 7,
+              "kind": "named",
+              "key": "out_city_digest",
+              "sql": ":out_city_digest"
+            },
+            {
+              "position": 8,
+              "kind": "named",
+              "key": "out_postal_code",
+              "sql": ":out_postal_code"
+            },
+            {
+              "position": 9,
+              "kind": "named",
+              "key": "out_status",
+              "sql": ":out_status"
+            },
+            {
+              "position": 10,
+              "kind": "named",
+              "key": "out_created_at",
+              "sql": ":out_created_at"
+            },
+            {
+              "position": 11,
+              "kind": "named",
+              "key": "out_updated_at",
+              "sql": ":out_updated_at"
+            },
+            {
+              "position": 12,
+              "kind": "named",
+              "key": "out_version_no",
+              "sql": ":out_version_no"
+            }
+          ]
         }
       ]
     },

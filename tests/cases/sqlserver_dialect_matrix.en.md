@@ -1,11 +1,12 @@
 # SQL Server Dialect Case Matrix
 
-This file records regression cases for the SQL Server dialect conversion layer. The executable fixture is `tests/cases/sqlserver_dialect_input.json`. For every final case, the runner requires unchanged SQL to deparse byte for byte, compares the actual View with the expected JSON structure, and executes each patch independently. Patched SQL must match `patch.deparse` byte for byte, remain identical after a fresh parse and second deparse, and produce the same View from the patched and freshly parsed handles.
+This file records regression cases for the SQL Server dialect conversion layer. The executable fixture is `tests/cases/sqlserver_dialect_input.json`. For every final case, the runner requires unchanged SQL to deparse byte for byte, compares the actual View with the expected JSON structure, and executes each patch independently. Patched SQL must match `patch.deparse` byte for byte, remain identical after a fresh parse and second deparse, and produce the same View from the patched and freshly parsed handles. When a case provides `bind_occurrences`, the runner also compares `position`, `kind`, `key`, and original `sql` item by item for the source SQL and every patched SQL; repeated keys remain separate and `position` is continuous across the full SQL text.
 
 ## Matrix Counts and Session Regression
 
 The fixture contains 624 cases with `status = "final"` and 1867 independent
-patches. A non-empty
+patches. Two cases and their 6 patches contain complete bind-occurrence
+assertions. A non-empty
 `query_graph.session` projection appears in 91 expected Views, covering `S044`
 through `S046`, `SH295` through `SH333`, and 49 `MSSQL-*` session cases.
 
@@ -107,7 +108,7 @@ explicit sink-column list are also outside this paired-mutation boundary.
 | Case ID | Case Name | Statement Shape | Validation Focus |
 | --- | --- | --- | --- |
 | SH425 | `sqlserver-insert-output-into-eight-target-sink-column-pairs` | INSERT with 8 OUTPUT targets ↔ 8 explicit sink columns | atomic insertion at the head produces 9↔9 while View and deparse preserve ordinal pairing |
-| SH426 | `sqlserver-update-output-into-eight-target-sink-column-pairs` | UPDATE with 8 OUTPUT targets ↔ 8 explicit sink columns | atomic insertion in the middle produces 9↔9 while View and deparse preserve ordinal pairing |
+| SH426 | `sqlserver-update-output-into-eight-target-sink-column-pairs` | UPDATE with 8 OUTPUT targets ↔ 8 explicit sink columns | the root enumerates only the three SET/WHERE binds and does not misclassify `INTO @profile_audit`; paired middle insertion of an OUTPUT expression with duplicate `@audit_tag` and anonymous `?` produces six occurrences while preserving 9↔9 order |
 | SH427 | `sqlserver-delete-output-into-eight-target-sink-column-pairs` | DELETE with 8 OUTPUT targets ↔ 8 explicit sink columns | atomic insertion at the tail produces 9↔9 while View and deparse preserve ordinal pairing |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
@@ -224,7 +225,7 @@ absent from `query_graph.fields[].column`.
 | S079 | `LEFT JOIN` + `alias.*` | qualified star, JOIN/ON fields, and WHERE parameter |
 | S080 | `CREATE VIEW` + aggregate JOIN | view creation, JOIN predicates, and GROUP BY aggregation |
 | S081 | `TOP (?)` + WHERE `?` | positional parameter in `TOP` participates in the global bind sequence |
-| S082 | multi-statement `?` parameters | positional `bind_position` increases globally across the full input SQL |
+| S082 | multiple `UPDATE` statements and `MERGE` separated by `GO` | complete source-order enumeration covers named and anonymous binds, retains duplicate `@merge_value`, and excludes comment pseudo-binds; a complex patch covers a subquery, CAST, CASE, `OFFSET/FETCH`, `@@ROWCOUNT`, identifier/string protected regions, and exact renumbering after deletion/insertion |
 | S083 | `sqlserver-select-derived-query-graph` | `query_graph` lineage mapping from derived-table fields to inner base-table fields and `output_name` |
 | S084 | `MERGE` + `?` parameters | MERGE target/source relations, UPDATE assignment, INSERT values, and bind mapping |
 | S085 | `sqlserver-field-match-kind-direct-and-expression` | direct-field predicate plus function-wrapped field predicate | `query_graph.values[].field_match_kind` distinguishes `direct_field` from `expression_field` |

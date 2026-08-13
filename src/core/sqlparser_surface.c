@@ -253,7 +253,7 @@ int sqlparser_public_char_is_ident(unsigned char ch)
 
 static int sqlparser_public_dollar_tag_char_is_ident(unsigned char ch)
 {
-	return isalnum(ch) || ch == '_';
+	return isalnum(ch) || ch == '_' || ch >= 0x80U;
 }
 
 static size_t sqlparser_public_skip_dollar_quote(
@@ -264,7 +264,11 @@ static size_t sqlparser_public_skip_dollar_quote(
 	size_t delimiter_length;
 	size_t tag_end;
 
-	if (sql == NULL || sql[index] != '$') {
+	if (sql == NULL || sql[index] != '$' ||
+	    (index > 0U &&
+	     (isalnum((unsigned char)sql[index - 1U]) ||
+	      sql[index - 1U] == '_' || sql[index - 1U] == '$' ||
+	      (unsigned char)sql[index - 1U] >= 0x80U))) {
 		return index;
 	}
 	tag_end = index + 1U;
@@ -340,7 +344,6 @@ static int sqlparser_public_nested_comments(sqlparser_dialect_t dialect)
 {
 	return dialect == SQLPARSER_DIALECT_POSTGRESQL ||
 		dialect == SQLPARSER_DIALECT_SQLSERVER ||
-		dialect == SQLPARSER_DIALECT_VASTBASE_ORACLE ||
 		dialect == SQLPARSER_DIALECT_VASTBASE_POSTGRESQL ||
 		dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER;
 }

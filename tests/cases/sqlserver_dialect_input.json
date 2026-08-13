@@ -10644,7 +10644,16 @@
     },
     {
       "name": "sqlserver-multi-statement-global-bind-position",
-      "sql": "UPDATE [dbo].[users] SET [a] = ? WHERE [b] = ?; UPDATE [dbo].[users] SET [c] = ? WHERE [d] = ?",
+      "sql": "/* @ignored ? */ UPDATE [dbo].[users] SET [a] = ? WHERE [b] = ?\nGO\nUPDATE [dbo].[users] SET [c] = ? WHERE [d] = ?\nGO\nMERGE INTO target t USING source s ON t.id=s.id WHEN MATCHED THEN UPDATE SET phone = @merge_value WHEN NOT MATCHED THEN INSERT (id, phone) VALUES (@merge_value, ?)",
+      "bind_occurrences": [
+        {"position": 1, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 2, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 3, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 4, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 5, "kind": "named", "key": "merge_value", "sql": "@merge_value"},
+        {"position": 6, "kind": "named", "key": "merge_value", "sql": "@merge_value"},
+        {"position": 7, "kind": "positional", "key": null, "sql": "?"}
+      ],
       "view": {
         "statements": [
           {
@@ -10824,6 +10833,167 @@
                 }
               ]
             }
+          },
+          {
+            "index": 2,
+            "keyword": "merge",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0
+                  ],
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "dml": {
+                "assignments": [
+                  {
+                    "bind_key": "merge_value",
+                    "bind_kind": 2,
+                    "bind_position": 5,
+                    "bind_sql": "@merge_value",
+                    "kind": "bind",
+                    "selector": "stmt[2].merge_assignment[0][0]",
+                    "target_field": 2
+                  }
+                ],
+                "branches": [
+                  {
+                    "assignments": [
+                      {
+                        "bind_key": "merge_value",
+                        "bind_kind": 2,
+                        "bind_position": 5,
+                        "bind_sql": "@merge_value",
+                        "kind": "bind",
+                        "selector": "stmt[2].merge_assignment[0][0]",
+                        "target_field": 2
+                      }
+                    ],
+                    "branch_kind": "when",
+                    "merge_action_kind": "update",
+                    "merge_match_kind": "matched",
+                    "ordinal": 0,
+                    "target_relation": 0
+                  },
+                  {
+                    "branch_kind": "when",
+                    "merge_action_kind": "insert",
+                    "merge_match_kind": "not_matched_by_target",
+                    "ordinal": 1,
+                    "rows": [
+                      {
+                        "bind_key": "merge_value",
+                        "bind_kind": 2,
+                        "bind_position": 6,
+                        "bind_sql": "@merge_value",
+                        "column": 0,
+                        "kind": "bind",
+                        "row": 1,
+                        "selector": "stmt[2].merge_insert_cell[1][0]"
+                      },
+                      {
+                        "bind_key": "7",
+                        "bind_kind": 1,
+                        "bind_position": 7,
+                        "bind_sql": "?",
+                        "column": 1,
+                        "kind": "bind",
+                        "row": 1,
+                        "selector": "stmt[2].merge_insert_cell[1][1]"
+                      }
+                    ],
+                    "target_list_selector": "stmt[2].insert_branch_columns[1]",
+                    "target_columns": [
+                      {
+                        "column": "id",
+                        "ordinal": 0,
+                        "selector": "stmt[2].merge_insert_column[1][0]"
+                      },
+                      {
+                        "column": "phone",
+                        "ordinal": 1,
+                        "selector": "stmt[2].merge_insert_column[1][1]"
+                      }
+                    ],
+                    "target_relation": 0
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "merge",
+                "target_relation": 0
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "id",
+                  "relation": 0,
+                  "selector": "stmt[2].name[5]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "id",
+                  "relation": 1,
+                  "selector": "stmt[2].name[7]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "phone",
+                  "relation": 0
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "on",
+                  "kind": "comparison",
+                  "left_field": 0,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 1,
+                  "value": 0
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "t",
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[2].relation[0]",
+                  "table": "target"
+                },
+                {
+                  "alias": "s",
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[2].relation[1]",
+                  "table": "source"
+                }
+              ],
+              "root": 0,
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "on",
+                  "field": 0,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 1
+                }
+              ]
+            }
           }
         ]
       },
@@ -10833,31 +11003,80 @@
           "action": "replace_assignment",
           "target": "/statements/0/query_graph/dml/assignments/0/selector",
           "value": "[PatchedColumn] = 42",
-          "deparse": "UPDATE [dbo].[users] SET [PatchedColumn] = 42 WHERE [b] = ?; UPDATE [dbo].[users] SET [c] = ? WHERE [d] = ?"
+          "bind_occurrences": [
+            {"position": 1, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 2, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 3, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 4, "kind": "named", "key": "merge_value", "sql": "@merge_value"},
+            {"position": 5, "kind": "named", "key": "merge_value", "sql": "@merge_value"},
+            {"position": 6, "kind": "positional", "key": null, "sql": "?"}
+          ],
+          "deparse": "/* @ignored ? */ UPDATE [dbo].[users] SET [PatchedColumn] = 42 WHERE [b] = ?\nGO\nUPDATE [dbo].[users] SET [c] = ? WHERE [d] = ?\nGO\nMERGE INTO target t USING source s ON t.id = s.id WHEN MATCHED THEN UPDATE SET phone = @merge_value WHEN NOT MATCHED THEN INSERT (id, phone) VALUES (@merge_value, ?)"
         },
         {
           "action": "insert_assignment",
           "target": "/statements/0/query_graph/dml/assignments/0/selector",
-          "value": "[InsertedColumn] = 43",
-          "deparse": "UPDATE [dbo].[users] SET [InsertedColumn] = 43, [a] = ? WHERE [b] = ?; UPDATE [dbo].[users] SET [c] = ? WHERE [d] = ?"
+          "value": "[InsertedColumn] = COALESCE(CAST((SELECT @shared FROM [audit_log] WHERE [id] = @shared ORDER BY [id] OFFSET ? ROWS FETCH NEXT @page_size ROWS ONLY) AS NVARCHAR(128)), CASE WHEN [?] IS NULL THEN @shared ELSE CONCAT('@ignored ?', ?, @@ROWCOUNT) END) /* @comment ? */",
+          "bind_occurrences": [
+            {"position": 1, "kind": "named", "key": "shared", "sql": "@shared"},
+            {"position": 2, "kind": "named", "key": "shared", "sql": "@shared"},
+            {"position": 3, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 4, "kind": "named", "key": "page_size", "sql": "@page_size"},
+            {"position": 5, "kind": "named", "key": "shared", "sql": "@shared"},
+            {"position": 6, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 7, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 8, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 9, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 10, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 11, "kind": "named", "key": "merge_value", "sql": "@merge_value"},
+            {"position": 12, "kind": "named", "key": "merge_value", "sql": "@merge_value"},
+            {"position": 13, "kind": "positional", "key": null, "sql": "?"}
+          ],
+          "deparse": "/* @ignored ? */ UPDATE [dbo].[users] SET [InsertedColumn] = COALESCE(CAST((SELECT @shared FROM [audit_log] WHERE [id] = @shared ORDER BY [id] OFFSET ? ROWS FETCH NEXT @page_size ROWS ONLY) AS NVARCHAR(128)), CASE WHEN [?] IS NULL THEN @shared ELSE CONCAT('@ignored ?', ?, @@ROWCOUNT) END), [a] = ? WHERE [b] = ?\nGO\nUPDATE [dbo].[users] SET [c] = ? WHERE [d] = ?\nGO\nMERGE INTO target t USING source s ON t.id = s.id WHEN MATCHED THEN UPDATE SET phone = @merge_value WHEN NOT MATCHED THEN INSERT (id, phone) VALUES (@merge_value, ?)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/fields/1/selector",
           "value": "[PatchedName]",
-          "deparse": "UPDATE [dbo].[users] SET [a] = ? WHERE [PatchedName] = ?; UPDATE [dbo].[users] SET [c] = ? WHERE [d] = ?"
+          "bind_occurrences": [
+            {"position": 1, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 2, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 3, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 4, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 5, "kind": "named", "key": "merge_value", "sql": "@merge_value"},
+            {"position": 6, "kind": "named", "key": "merge_value", "sql": "@merge_value"},
+            {"position": 7, "kind": "positional", "key": null, "sql": "?"}
+          ],
+          "deparse": "/* @ignored ? */ UPDATE [dbo].[users] SET [a] = ? WHERE [PatchedName] = ?\nGO\nUPDATE [dbo].[users] SET [c] = ? WHERE [d] = ?\nGO\nMERGE INTO target t USING source s ON t.id = s.id WHEN MATCHED THEN UPDATE SET phone = @merge_value WHEN NOT MATCHED THEN INSERT (id, phone) VALUES (@merge_value, ?)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "[PatchedTable]",
-          "deparse": "UPDATE [PatchedTable] SET [a] = ? WHERE [b] = ?; UPDATE [dbo].[users] SET [c] = ? WHERE [d] = ?"
+          "bind_occurrences": [
+            {"position": 1, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 2, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 3, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 4, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 5, "kind": "named", "key": "merge_value", "sql": "@merge_value"},
+            {"position": 6, "kind": "named", "key": "merge_value", "sql": "@merge_value"},
+            {"position": 7, "kind": "positional", "key": null, "sql": "?"}
+          ],
+          "deparse": "/* @ignored ? */ UPDATE [PatchedTable] SET [a] = ? WHERE [b] = ?\nGO\nUPDATE [dbo].[users] SET [c] = ? WHERE [d] = ?\nGO\nMERGE INTO target t USING source s ON t.id = s.id WHEN MATCHED THEN UPDATE SET phone = @merge_value WHEN NOT MATCHED THEN INSERT (id, phone) VALUES (@merge_value, ?)"
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "UPDATE [dbo].[users] SET [a] = ? WHERE [b] = 42; UPDATE [dbo].[users] SET [c] = ? WHERE [d] = ?"
+          "bind_occurrences": [
+            {"position": 1, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 2, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 3, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 4, "kind": "named", "key": "merge_value", "sql": "@merge_value"},
+            {"position": 5, "kind": "named", "key": "merge_value", "sql": "@merge_value"},
+            {"position": 6, "kind": "positional", "key": null, "sql": "?"}
+          ],
+          "deparse": "/* @ignored ? */ UPDATE [dbo].[users] SET [a] = ? WHERE [b] = 42\nGO\nUPDATE [dbo].[users] SET [c] = ? WHERE [d] = ?\nGO\nMERGE INTO target t USING source s ON t.id = s.id WHEN MATCHED THEN UPDATE SET phone = @merge_value WHEN NOT MATCHED THEN INSERT (id, phone) VALUES (@merge_value, ?)"
         }
       ]
     },
@@ -60729,6 +60948,11 @@
     {
       "name": "sqlserver-update-output-into-eight-target-sink-column-pairs",
       "sql": "UPDATE dbo.customer_profiles SET city = @new_city, status = @new_status OUTPUT DELETED.city, INSERTED.city, INSERTED.city_digest, INSERTED.status, INSERTED.updated_at, INSERTED.version_no, INSERTED.postal_code, INSERTED.country_code INTO @profile_audit (old_city, new_city, city_digest, status, updated_at, version_no, postal_code, country_code) WHERE customer_id = @customer_id",
+      "bind_occurrences": [
+        {"position": 1, "kind": "named", "key": "new_city", "sql": "@new_city"},
+        {"position": 2, "kind": "named", "key": "new_status", "sql": "@new_status"},
+        {"position": 3, "kind": "named", "key": "customer_id", "sql": "@customer_id"}
+      ],
       "view": {
         "statements": [
           {
@@ -61075,7 +61299,7 @@
                 {
                   "bind_key": "customer_id",
                   "bind_kind": 2,
-                  "bind_position": 4,
+                  "bind_position": 3,
                   "bind_sql": "@customer_id",
                   "block": 0,
                   "clause": "where",
@@ -61096,10 +61320,18 @@
         {
           "action": "insert_column",
           "target": "stmt[0].dml_result_targets[0][0]",
-          "value": "INSERTED.customer_name",
+          "value": "COALESCE(INSERTED.customer_name, @audit_tag, @audit_tag, ?)",
           "name": "[customer_name]",
           "index": 4,
-          "deparse": "UPDATE dbo.customer_profiles SET city = @new_city, status = @new_status OUTPUT DELETED.city, INSERTED.city, INSERTED.city_digest, INSERTED.status, INSERTED.customer_name, INSERTED.updated_at, INSERTED.version_no, INSERTED.postal_code, INSERTED.country_code INTO @profile_audit (old_city, new_city, city_digest, status, [customer_name], updated_at, version_no, postal_code, country_code) WHERE customer_id = @customer_id"
+          "bind_occurrences": [
+            {"position": 1, "kind": "named", "key": "new_city", "sql": "@new_city"},
+            {"position": 2, "kind": "named", "key": "new_status", "sql": "@new_status"},
+            {"position": 3, "kind": "named", "key": "audit_tag", "sql": "@audit_tag"},
+            {"position": 4, "kind": "named", "key": "audit_tag", "sql": "@audit_tag"},
+            {"position": 5, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 6, "kind": "named", "key": "customer_id", "sql": "@customer_id"}
+          ],
+          "deparse": "UPDATE dbo.customer_profiles SET city = @new_city, status = @new_status OUTPUT DELETED.city, INSERTED.city, INSERTED.city_digest, INSERTED.status, COALESCE(INSERTED.customer_name, @audit_tag, @audit_tag, ?), INSERTED.updated_at, INSERTED.version_no, INSERTED.postal_code, INSERTED.country_code INTO @profile_audit (old_city, new_city, city_digest, status, [customer_name], updated_at, version_no, postal_code, country_code) WHERE customer_id = @customer_id"
         }
       ]
     },

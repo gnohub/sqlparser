@@ -1,10 +1,10 @@
 # SQL 用例矩阵
 
-本文件记录 `tests/cases/sql_batch_input.json` 覆盖的回归用例。对每条 final 用例，runner 验证未修改 SQL 的反解析结果与输入逐字节一致、实际 View 与期望 JSON 结构相等，并独立执行每个 patch；patch 后 SQL 必须与 `patch.deparse` 逐字节一致，重新解析后再次反解析仍须一致，且 patch handle 与重新解析 handle 的 View 输出必须一致。
+本文件记录 `tests/cases/sql_batch_input.json` 覆盖的回归用例。对每条 final 用例，runner 验证未修改 SQL 的反解析结果与输入逐字节一致、实际 View 与期望 JSON 结构相等，并独立执行每个 patch；patch 后 SQL 必须与 `patch.deparse` 逐字节一致，重新解析后再次反解析仍须一致，且 patch handle 与重新解析 handle 的 View 输出必须一致。用例提供 `bind_occurrences` 时，runner 还会对原 SQL 及每个 patch 后 SQL 的 `position`、`kind`、`key` 和原始 `sql` 逐项精确校验，重复 key 不合并，`position` 按整段 SQL 连续编号。
 
 ## 矩阵统计与 session 回归
 
-夹具包含 214 条 `status = "final"` 用例。32 条用例的期望 View 包含 statement 级 `query_graph.session`：5 条 schema/session 用例和 `PG-001` 至 `PG-027`；这 32 条用例均至少包含一个非空 session 投影。
+夹具包含 214 条 `status = "final"` 用例和 723 个独立 patch；其中 2 条用例及其 10 个 patch 含完整 bind occurrence 断言。32 条用例的期望 View 包含 statement 级 `query_graph.session`：5 条 schema/session 用例和 `PG-001` 至 `PG-027`；这 32 条用例均至少包含一个非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session 投影的 action、item scope、target kind、name 及 value 字段均属于比较范围。
 
@@ -52,7 +52,7 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | P032 | `select-case-window` | `SELECT CASE ... OVER (...) FROM ...` | `CASE`、窗口函数、排序/分区列提取 |
 | P033 | `select-union-order-limit` | `SELECT ... UNION ALL SELECT ... ORDER BY ... LIMIT ...` | `UNION ALL`、排序、limit deparse |
 | P034 | `insert-on-conflict-update` | `INSERT ... ON CONFLICT ... DO UPDATE ... RETURNING ...` | 冲突处理、返回列、插入列提取 |
-| P035 | `insert-returning` | `INSERT ... RETURNING ...` | returning 列、插入列提取 |
+| P035 | `insert-returning` | `INSERT ... RETURNING ...` | returning 列、插入列提取；替换 returning target 为 `$1 AS echoed` 后精确验证 occurrence 从 0 变为 1 |
 | P036 | `update-from-returning` | `UPDATE ... SET ... FROM ... WHERE ... RETURNING ...` | `UPDATE ... FROM`、返回列、条件列 |
 | P037 | `delete-using-returning` | `DELETE ... USING ... WHERE ... RETURNING ...` | `DELETE ... USING`、返回列、多表提取 |
 | P038 | `merge-basic` | `MERGE INTO ... USING ... WHEN ...` | merge 节点识别、关键字覆盖 |
@@ -113,7 +113,7 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | P090 | `postgresql-select-order-by-ordinal` | `ORDER BY 1` | 数字排序项和投影顺序相关语法 |
 | P091 | `postgresql-select-quoted-mixed-identifiers` | 双引号混合大小写 / 空格标识符 | 特殊标识符、查询列和 WHERE bind |
 | P092 | `postgresql-dollar-quoted-string-global-bind-position` | dollar-quoted 字符串 + `$n` 参数 | dollar-quoted 字符串内部占位符样式文本不参与 bind 全局计数 |
-| P093 | `postgresql-multi-statement-global-bind-position` | 多语句 `$n` 参数 | 多语句输入中位置参数 `bind_position` 按整条 SQL 全局递增 |
+| P093 | `postgresql-multi-statement-global-bind-position` | 多 `UPDATE` + `MERGE` + `CALL` 中的 `$n` | 按全文顺序保留重复 `$4`/`$7`，排除注释中的 `$90`；复杂 patch 覆盖子查询、CAST、CASE、`LIMIT/OFFSET`、JSONB 操作符和保护区，并精确校验删除/插入后重编号 |
 | P094 | `postgresql-select-nested-derived-query-graph` | 嵌套派生表 + 输出别名 | 派生表字段向内层真实表字段的 `query_graph` 来源链路 映射和 `output_name` |
 | P095 | `postgresql-select-reference-001` | SELECT 参考用例 001 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |
 | P096 | `postgresql-select-reference-004` | SELECT 参考用例 004 | 文档示例的标准 SELECT/子查询/JOIN/集合查询解析和 View JSON 结构 |

@@ -21,6 +21,15 @@ in 41 cases.
 
 View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
 
+## Complete Bind-Placeholder Occurrence Regression
+
+These two final cases define the handle-level occurrence contract for the project's `vastbase-oracle` compatibility entry; they do not claim official Vastbase server capabilities. For the input and every patched public SQL text, the runner checks `position`, `kind`, `key`, and `sql` item by item. Duplicates remain separate, numbering continues across statements, and placeholder-like text in strings, comments, and delimited identifiers is excluded.
+
+| Case | Root Occurrences | Patches | Base-Entry Relationship | Validation Focus |
+| --- | ---: | ---: | --- | --- |
+| `vastbase-oracle-multi-statement-global-bind-position` | 7 | 5 | field-for-field mirror of `oracle-multi-statement-global-bind-position` except for the case name | UPDATE, MERGE, and repeated named binds; rewritten SQL adds function, CAST, CASE, subquery, FETCH, numeric `:1`, anonymous `?`, dotted key, and protected-region coverage |
+| `vastbase-oracle-update-returning-eight-target-bind-pairs` | 11 | 1 | field-for-field mirror of `oracle-update-returning-eight-target-bind-pairs` except for the case name | source order across UPDATE and `RETURNING ... INTO`; paired insertion produces 12 continuously renumbered occurrences |
+
 ## RETURNING INTO Host-Bind Result Regression
 
 These six final cases define the project contract for the `vastbase-oracle`

@@ -1,11 +1,12 @@
 # Oracle Dialect Case Matrix
 
-This file records regression cases for the Oracle dialect conversion layer. The executable fixture is `tests/cases/oracle_dialect_input.json`. For every final case, the runner requires unchanged SQL to deparse byte for byte, compares the actual View with the expected JSON structure, and executes each patch independently. Patched SQL must match `patch.deparse` byte for byte, remain identical after a fresh parse and second deparse, and produce the same View from the patched and freshly parsed handles.
+This file records regression cases for the Oracle dialect conversion layer. The executable fixture is `tests/cases/oracle_dialect_input.json`. For every final case, the runner requires unchanged SQL to deparse byte for byte, compares the actual View with the expected JSON structure, and executes each patch independently. Patched SQL must match `patch.deparse` byte for byte, remain identical after a fresh parse and second deparse, and produce the same View from the patched and freshly parsed handles. When a case provides `bind_occurrences`, the runner also compares `position`, `kind`, `key`, and original `sql` item by item for the source SQL and every patched SQL; repeated keys remain separate and `position` is continuous across the full SQL text.
 
 ## Matrix Counts and Session Regression
 
 The fixture contains 251 cases with `status = "final"` and 852 independent
-patches.
+patches. Two cases and their 6 patches contain complete bind-occurrence
+assertions.
 Statement-level `query_graph.session` appears in 59 cases, covering `O043`,
 `O043Q`, `O044` through `O047`, `O082` through `O086`, and the `ORA-*`
 session cases. All 59 contain at least one non-empty session item.
@@ -136,7 +137,7 @@ binds were included in the global sequence. `SYSDATE` and
 | O084 | `ALTER SESSION SET INSTANCE` | numeric ordinary session parameter |
 | O085 | `ALTER SESSION SET ERROR_ON_OVERLAP_TIME` | boolean/enumerated ordinary session parameter |
 | O086 | `ALTER SESSION SET NLS_NUMERIC_CHARACTERS` | punctuation-bearing string session parameter |
-| O087 | multi-statement named binds | named-bind `bind_position` increases globally across the full input SQL |
+| O087 | named binds across multiple `UPDATE` statements and `MERGE` | source-order occurrences retain duplicate `:same`/`:merge_value` keys and exclude comment text `:comment`/`?`; a complex patch covers a subquery, CAST, CASE, `FETCH FIRST`, named/numeric/anonymous binds, protected regions, and exact renumbering after deletion/insertion |
 | O088 | `oracle-select-derived-query-graph` | derived table with output alias and named binds | `query_graph` representation for derived-table fields, output alias, and predicate binds |
 | O089 | `oracle-select-reference-024` | SELECT reference case 024 | Oracle/ROWNUM/complex derived SELECT example parsing and View JSON shape |
 | O090 | `oracle-select-reference-026` | SELECT reference case 026 | Oracle/ROWNUM/complex derived SELECT example parsing and View JSON shape |
@@ -267,7 +268,7 @@ bind at the corresponding ordinal.
 | ID | Case | DML | Verification Focus |
 | --- | --- | --- | --- |
 | O198 | `oracle-insert-returning-eight-target-bind-pairs` | INSERT | eight pairs; paired insertion of `tenant_id` / `:out_tenant_id` at index 0 verifies nine aligned pairs at the head |
-| O199 | `oracle-update-returning-eight-target-bind-pairs` | UPDATE | eight pairs; paired insertion of `postal_code` / `:out_postal_code` at index 4 verifies nine aligned pairs in the middle |
+| O199 | `oracle-update-returning-eight-target-bind-pairs` | UPDATE | complete source-order enumeration covers SET, WHERE, and all eight `INTO` binds for 11 root occurrences; paired insertion of `postal_code` / `:out_postal_code` at index 4 produces 12 occurrences while keeping all nine ordinals aligned |
 | O200 | `oracle-delete-returning-eight-target-bind-pairs` | DELETE | eight pairs; paired insertion of `tenant_id` / `:out_tenant_id` at index 8 verifies nine aligned pairs at the tail |
 
 ## Coverage Boundary

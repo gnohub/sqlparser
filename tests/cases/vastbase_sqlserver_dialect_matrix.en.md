@@ -20,6 +20,15 @@ patches. The expected View contains a non-empty session projection in 75 cases.
 
 View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
 
+## Complete Bind-Placeholder Occurrence Regression
+
+These two final cases define the handle-level occurrence contract for the project's `vastbase-sqlserver` compatibility entry; they do not claim official Vastbase server capabilities. For the input and every patched public SQL text, the runner checks `position`, `kind`, `key`, and `sql` item by item. Repeated binds remain separate, numbering continues across `GO`, and strings, comments, bracketed identifiers, `@@` system variables, and OUTPUT sink relations are excluded.
+
+| Case | Root Occurrences | Patches | Base-Entry Relationship | Validation Focus |
+| --- | ---: | ---: | --- | --- |
+| `vastbase-sqlserver-multi-statement-global-bind-position` | 7 | 5 | field-for-field mirror of `sqlserver-multi-statement-global-bind-position` except for the case name | UPDATE and MERGE across `GO`, named/anonymous binds, and repeated keys; a complex rewrite covers subquery, OFFSET/FETCH, CAST, CASE, and protected-region exclusion |
+| `vastbase-sqlserver-update-output-into-eight-target-sink-column-pairs` | 3 | 1 | field-for-field mirror of `sqlserver-update-output-into-eight-target-sink-column-pairs` except for the case name | excludes the `@profile_audit` sink relation; after paired OUTPUT-target insertion, repeated `@audit_tag` and anonymous `?` occurrences follow source order |
+
 ## SQL/JSON Semantic Inputs
 
 These cases verify input-field traversal for dedicated SQL/JSON AST nodes at

@@ -4243,63 +4243,6 @@ fail:
 	return out_error != NULL ? out_error->code : SQLPARSER_STATUS_NO_MEMORY;
 }
 
-static int sqlparser_dameng_public_bind_token(
-	const char *sql,
-	sqlparser_bind_kind_t *out_kind,
-	const char **out_key_start,
-	size_t *out_key_len,
-	const char **out_sql_start,
-	size_t *out_sql_len)
-{
-	size_t len;
-
-	if (sql == NULL || out_kind == NULL || out_key_start == NULL || out_key_len == NULL ||
-	    out_sql_start == NULL || out_sql_len == NULL) {
-		return 0;
-	}
-	len = strlen(sql);
-	if (len == 1U && sql[0] == '?') {
-		*out_kind = SQLPARSER_BIND_KIND_POSITIONAL;
-		*out_key_start = NULL;
-		*out_key_len = 0U;
-		*out_sql_start = sql;
-		*out_sql_len = 1U;
-		return 1;
-	}
-	if (len > 1U && sql[0] == ':' && sql[1] != '=' && sql[1] != ':') {
-		size_t pos;
-
-		pos = 1U;
-		if (isdigit((unsigned char)sql[pos])) {
-			while (isdigit((unsigned char)sql[pos])) {
-				pos++;
-			}
-			if (pos == len) {
-				*out_kind = SQLPARSER_BIND_KIND_POSITIONAL;
-				*out_key_start = sql + 1U;
-				*out_key_len = len - 1U;
-				*out_sql_start = sql;
-				*out_sql_len = len;
-				return 1;
-			}
-		} else if (sqlparser_dameng_is_ident_start((unsigned char)sql[pos])) {
-			pos++;
-			while (sqlparser_dameng_is_ident_char((unsigned char)sql[pos])) {
-				pos++;
-			}
-			if (pos == len) {
-				*out_kind = SQLPARSER_BIND_KIND_NAMED;
-				*out_key_start = sql + 1U;
-				*out_key_len = len - 1U;
-				*out_sql_start = sql;
-				*out_sql_len = len;
-				return 1;
-			}
-		}
-	}
-	return 0;
-}
-
 static int sqlparser_dameng_text_is_integer_literal(const char *text)
 {
 	size_t pos;
@@ -4458,8 +4401,8 @@ static sqlparser_status_t sqlparser_dameng_parse_value_item(
 	sqlparser_dialect_multi_insert_value_t *out_value,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_bind_token_t bind_token;
 	const char *key_start;
-	const char *sql_start;
 	size_t key_len;
 	size_t sql_len;
 	sqlparser_bind_kind_t bind_kind;
@@ -4481,14 +4424,20 @@ static sqlparser_status_t sqlparser_dameng_parse_value_item(
 		sqlparser_dameng_value_clear(out_value);
 		return status;
 	}
-	if (sqlparser_dameng_public_bind_token(
+	sql_len = strlen(out_value->public_sql);
+	if (sqlparser_bind_token_exact(
+		    SQLPARSER_DIALECT_DAMENG,
 		    out_value->public_sql,
-		    &bind_kind,
-		    &key_start,
-		    &key_len,
-		    &sql_start,
-		    &sql_len) &&
+		    sql_len,
+		    0U,
+		    sql_len,
+		    &bind_token) &&
 	    state->bind_occurrence_count == occurrence_before + 1U) {
+		bind_kind = bind_token.kind;
+		key_start = bind_token.key_length > 0U ?
+			out_value->public_sql + bind_token.key_start :
+			NULL;
+		key_len = bind_token.key_length;
 		out_value->has_bind = 1;
 		out_value->bind_kind = bind_kind;
 		if (bind_kind == SQLPARSER_BIND_KIND_POSITIONAL && key_start == NULL) {
@@ -4507,7 +4456,7 @@ static sqlparser_status_t sqlparser_dameng_parse_value_item(
 			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "bind SQL is too long");
 			return SQLPARSER_STATUS_RESOURCE_LIMIT;
 		}
-		memcpy(out_value->bind_sql, sql_start, sql_len);
+		memcpy(out_value->bind_sql, out_value->public_sql, sql_len);
 		out_value->bind_sql[sql_len] = '\0';
 		out_value->bind_position = occurrence_before + 1U;
 		out_value->has_bind_position = 1;

@@ -15,9 +15,18 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 254 条 `status = "final"` 用例，其中 44 条用例的期望 View 包含非空 session 投影。
+夹具包含 254 条 `status = "final"` 用例和 819 个独立 patch，其中 44 条用例的期望 View 包含非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
+
+## 完整绑定占位符 occurrence 回归
+
+以下 2 条 final 用例定义项目 `vastbase-mysql` 兼容入口的 handle 级 occurrence 合同，不作为 Vastbase 服务端官方能力声明。runner 对输入及每个 patch 后的公开 SQL 逐项断言 `position`、`kind`、`key` 和 `sql`；匿名 `?` 每次出现均单独返回，多语句编号不重置，字符串、普通注释、非语句级 executable comment 和反引号标识符中的伪问号不计入。
+
+| 用例 | 根 occurrence | Patch | 基础入口关系 | 验证重点 |
+| --- | ---: | ---: | --- | --- |
+| `vastbase-mysql-multi-statement-global-bind-position` | 4 | 5 | 除用例名外，逐字段镜像 `mysql-multi-statement-global-bind-position` | 多语句、语句级 executable comment、普通/内联注释及复杂表达式改写后的连续匿名位置 |
+| `vastbase-mysql-insert-bind-mixed-three-rows` | 9 | 3 | 对应基础 MySQL 用例；本入口使用 `CONVERT(?, BIGINT)`，基础入口使用 `CAST(? AS SIGNED)`，occurrence 合同相同 | 三行 VALUES 中函数、转换和 CASE 内的 9 个匿名 occurrence；删除头部或尾部 bind 后重编号 |
 
 | ID | 用例 | SQL | 状态 |
 | --- | --- | --- | --- |

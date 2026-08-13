@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.16.3
+
+### Complete Bind Occurrence Access
+
+- Added handle-level `sqlparser_handle_bind_occurrences()` and `sqlparser_bind_occurrence_at()` APIs that return every real placeholder in actual order across the current SQL. Repeated items remain separate, and positions continue across statements.
+- Each occurrence exposes its `position`, `kind`, `key`, and complete `sql`, following the placeholder boundaries of all nine dialect entries. An effective rewrite invalidates the old view; a failed or effective no-op mutation preserves it.
+- Existing Query Graph bind fields and call paths remain unchanged for semantic associations. The complete list is exposed independently and is not added to View JSON.
+
+### Validation
+
+- The strict incremental build, two targeted tests, and all nine dialect matrices passed, covering 2,796 final cases and 9,049 patches. The ABI/export check passed with 154 public symbols, and both targeted Valgrind checks reported `0 bytes in 0 blocks` and zero errors.
+
 ## 2.16.2
 
 ### Multiple DML Result Receivers

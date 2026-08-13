@@ -157,14 +157,14 @@ non-empty, and callers do not pass quote characters.
 | `SQLPARSER_BIND_KIND_POSITIONAL` | `1` | positional bind, such as `?`, `:1`, or `$1` |
 | `SQLPARSER_BIND_KIND_NAMED` | `2` | named bind, such as `:name` or `@name` |
 
-Bind-field rules:
+Existing query graph bind-field rules:
 
 - `bind_key` is interpreted by `bind_kind`; named binds use the name,
   anonymous `?` uses the global sequence string, and explicitly numbered binds
   keep the number written in SQL.
-- `bind_position` is the one-based bind occurrence across the full input SQL;
-  it does not restart per statement.
-- `bind_sql` preserves the original placeholder text as written in SQL.
+- `bind_position` is the one-based bind occurrence across the handle's current
+  public SQL; it does not restart per statement.
+- `bind_sql` preserves the complete placeholder text in the current public SQL.
 
 `sqlparser_graph_value_kind_t`:
 
@@ -301,8 +301,9 @@ Defined dialects:
   and rendering APIs are released by `sqlparser_string_free()`.
 - Strings inside C view structs are borrowed from the handle and must not be
   freed by the caller.
-- After a successful patch or any AST mutation, previous borrowed pointers,
-  selector read results, and query graph views are invalid.
+- After a successful patch or AST mutation that actually changes the handle,
+  previous borrowed pointers, selector read results, bind occurrence views,
+  and query graph views are invalid.
 - A single handle does not support concurrent read/write access and is not
   guaranteed to be safe for concurrent read-only access. Use one owning thread
   per handle.
@@ -348,6 +349,72 @@ Defined dialects:
 | `sqlparser_original_sql()` | returns the original input SQL |
 | `sqlparser_handle_dialect()` | returns the handle dialect |
 | `sqlparser_statement_count()` | returns the number of statements |
+
+## Complete Bind Occurrence Access
+
+`sqlparser_handle_bind_occurrences()` returns a read-only view of every real
+placeholder in the current handle. `sqlparser_bind_occurrence_at()` reads one
+item by zero-based index. The list follows actual occurrence order in the full
+current public SQL, preserves repeated placeholders, and does not restart
+`position` for each statement. An initial handle uses the input SQL; after a
+successful rewrite, the list is rebuilt from the current SQL corresponding to
+`sqlparser_deparse()`.
+
+| Type | Field | Meaning |
+| --- | --- | --- |
+| `sqlparser_bind_occurrence_view_t` | `handle` | owning handle |
+|  | `generation` | handle generation from which the view was built |
+|  | `count` | occurrence count; `0` when no placeholder exists |
+| `sqlparser_bind_occurrence_t` | `position` | one-based occurrence position across the full SQL |
+|  | `kind` | `SQLPARSER_BIND_KIND_NAMED` or `SQLPARSER_BIND_KIND_POSITIONAL` |
+|  | `key` | named or numeric key without its prefix; `NULL` for anonymous `?` |
+|  | `sql` | complete, untruncated placeholder token in the current public SQL |
+
+| Function | Summary |
+| --- | --- |
+| `sqlparser_handle_bind_occurrences()` | gets the handle-level occurrence view |
+| `sqlparser_bind_occurrence_at()` | reads an occurrence by zero-based index |
+
+Any successful rewrite that changes the handle advances its generation and
+invalidates the previous view and its item `key` and `sql` pointers. A failed
+or effective no-op rewrite does not invalidate them. `key` and `sql` are
+borrowed NUL-terminated strings owned by the handle; callers must not free them
+or access them after destroying the handle. An empty list is a successful
+result with `count = 0`, and every item index is out of range. NULL handle,
+view, or output pointers, stale views, and out-of-range indexes return
+`SQLPARSER_STATUS_INVALID_ARGUMENT`; a build failure returns its corresponding
+status without exposing a partial result.
+
+The list is independent of query graph and covers real placeholders in every
+location of successfully parsed SQL, including functions, casts, `CASE`,
+operators, pagination, subqueries, DML, `MERGE`, and result channels. Similar
+text inside strings, comments, or delimited identifiers is excluded. View JSON
+does not contain this complete occurrence list, and its semantic bind subset
+cannot be used to reconstruct one.
+
+The public token boundaries for the nine dialect entry points are below. These
+rules describe this project's parser entry points, not the capabilities of a
+compatible database server.
+
+| Dialect Entry | Included Tokens | Main Exclusion Boundaries |
+| --- | --- | --- |
+| PostgreSQL | `$[1-9][0-9]*` | `?`, `$0`, identifier-adjacent forms, dollar quotes, strings, comments, and delimited identifiers |
+| MySQL | `?` in executable code | `$n`, `@` variables, and protected regions; only the body of a whole-statement executable comment expanded by this project is code |
+| Oracle | `?`, `:[0-9]+`, `:<name>(.<name>)*` | `:=`, `::`, `$n`, protected regions, and non-bind colon text |
+| SQL Server | `?`, `@<name>` | `@@`, protected regions, `OUTPUT INTO` sinks, `EXEC` argument labels, assignment targets, and other non-value roles |
+| Dameng | `?`, `:[0-9]+`, `:<name>(.<name>)*` | same as Oracle |
+| Vastbase-Oracle | Oracle forms plus positive `$n` | otherwise the same as Oracle; `$n` states only this project's entry-point contract |
+| Vastbase-MySQL | same as MySQL | same as MySQL |
+| Vastbase-PostgreSQL | same as PostgreSQL | same as PostgreSQL |
+| Vastbase-SQLServer | same as SQL Server | same as SQL Server |
+
+Each Oracle- or Dameng-compatible `name` segment is
+`[A-Za-z_][A-Za-z0-9_$#]*`. For SQL Server-compatible entries, the first
+character after `@` may be a letter, digit, `_`, or `#`; subsequent characters
+may be letters, digits, `_`, `$`, `#`, or `@`. Named and numeric keys preserve
+the original SQL bytes and case. Equal kind/key pairs express the same
+semantic key without merging their occurrences. Each anonymous `?` is also
+preserved separately and distinguished by its own `position`.
 
 ## Statement-Level Access
 

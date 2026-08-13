@@ -6210,7 +6210,13 @@
     },
     {
       "name": "mysql-multi-statement-global-bind-position",
-      "sql": "UPDATE `users` SET `a` = ? WHERE `b` = ?; UPDATE `users` SET `c` = ? WHERE `d` = ?",
+      "sql": "/*!50000 UPDATE `users` SET `a` = ? WHERE `b` = ? */; /* ? */ UPDATE `users` SET `c` = ? WHERE `d` = ? /*! + ? */",
+      "bind_occurrences": [
+        {"position": 1, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 2, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 3, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 4, "kind": "positional", "key": null, "sql": "?"}
+      ],
       "view": {
         "statements": [
           {
@@ -6396,31 +6402,65 @@
           "action": "replace",
           "target": "/statements/0/query_graph/fields/1/selector",
           "value": "`patched_name`",
-          "deparse": "UPDATE `users` SET `a` = ? WHERE `patched_name` = ?; UPDATE `users` SET `c` = ? WHERE `d` = ?"
-        },
-        {
-          "action": "replace",
-          "target": "/statements/0/query_graph/relations/0/selector",
-          "value": "`patched_table`",
-          "deparse": "UPDATE `patched_table` SET `a` = ? WHERE `b` = ?; UPDATE `users` SET `c` = ? WHERE `d` = ?"
+          "deparse": "/*!50000 UPDATE `users` SET `a` = ? WHERE `patched_name` = ? */; /* ? */ UPDATE `users` SET `c` = ? WHERE `d` = ? /*! + ? */",
+          "bind_occurrences": [
+            {"position": 1, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 2, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 3, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 4, "kind": "positional", "key": null, "sql": "?"}
+          ]
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "UPDATE `users` SET `a` = ? WHERE `b` = 42; UPDATE `users` SET `c` = ? WHERE `d` = ?"
+          "deparse": "/*!50000 UPDATE `users` SET `a` = ? WHERE `b` = 42 */; /* ? */ UPDATE `users` SET `c` = ? WHERE `d` = ? /*! + ? */",
+          "bind_occurrences": [
+            {"position": 1, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 2, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 3, "kind": "positional", "key": null, "sql": "?"}
+          ]
         },
         {
           "action": "replace_assignment",
           "target": "/statements/0/query_graph/dml/assignments/0/selector",
           "value": "`patched_col` = 42",
-          "deparse": "UPDATE `users` SET `patched_col` = 42 WHERE `b` = ?; UPDATE `users` SET `c` = ? WHERE `d` = ?"
+          "deparse": "/*!50000 UPDATE `users` SET `patched_col` = 42 WHERE `b` = ? */; /* ? */ UPDATE `users` SET `c` = ? WHERE `d` = ? /*! + ? */",
+          "bind_occurrences": [
+            {"position": 1, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 2, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 3, "kind": "positional", "key": null, "sql": "?"}
+          ]
         },
         {
           "action": "insert_assignment",
           "target": "/statements/0/query_graph/dml/assignments/0/selector",
-          "value": "`inserted_col` = 43",
-          "deparse": "UPDATE `users` SET `inserted_col` = 43, `a` = ? WHERE `b` = ?; UPDATE `users` SET `c` = ? WHERE `d` = ?"
+          "value": "`inserted_col` = COALESCE(CAST((SELECT ? FROM audit_log WHERE id = ? LIMIT ? OFFSET ?) AS CHAR), CASE WHEN `?` IS NULL THEN ? ELSE CONCAT('?', ?) END)",
+          "deparse": "/*!50000 UPDATE `users` SET `inserted_col` = COALESCE(CAST((SELECT ? FROM audit_log WHERE id = ? LIMIT ? OFFSET ?) AS CHAR(1)), CASE WHEN `?` IS NULL THEN ? ELSE CONCAT('?', ?) END), `a` = ? WHERE `b` = ? */; /* ? */ UPDATE `users` SET `c` = ? WHERE `d` = ? /*! + ? */",
+          "bind_occurrences": [
+            {"position": 1, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 2, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 3, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 4, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 5, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 6, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 7, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 8, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 9, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 10, "kind": "positional", "key": null, "sql": "?"}
+          ]
+        },
+        {
+          "action": "replace_assignment",
+          "target": "/statements/1/query_graph/dml/assignments/0/selector",
+          "value": "`inline_col` = ? /* ? */ /*! + ? */",
+          "deparse": "/*!50000 UPDATE `users` SET `a` = ? WHERE `b` = ? */; /* ? */ UPDATE `users` SET `inline_col` = ? WHERE `d` = ? /*! + ? */",
+          "bind_occurrences": [
+            {"position": 1, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 2, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 3, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 4, "kind": "positional", "key": null, "sql": "?"}
+          ]
         }
       ],
       "status": "final"
@@ -22619,6 +22659,17 @@
     {
       "name": "mysql-insert-bind-mixed-three-rows",
       "sql": "INSERT INTO bind_mix (id, payload, created_at, status) VALUES (?, CAST(? AS SIGNED), NOW(), ?), (COALESCE(?, 'fallback'), ?, CURRENT_TIMESTAMP, ?), (?, NOW(), CASE WHEN ? = 1 THEN 'yes' ELSE 'no' END, ?)",
+      "bind_occurrences": [
+        {"position": 1, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 2, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 3, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 4, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 5, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 6, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 7, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 8, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 9, "kind": "positional", "key": null, "sql": "?"}
+      ],
       "view": {
         "statements": [
           {
@@ -22784,19 +22835,50 @@
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "`patched_table`",
-          "deparse": "INSERT INTO `patched_table` (id, payload, created_at, status) VALUES (?, CAST(? AS SIGNED), NOW(), ?), (COALESCE(?, 'fallback'), ?, CURRENT_TIMESTAMP, ?), (?, NOW(), CASE WHEN ? = 1 THEN 'yes' ELSE 'no' END, ?)"
+          "deparse": "INSERT INTO `patched_table` (id, payload, created_at, status) VALUES (?, CAST(? AS SIGNED), NOW(), ?), (COALESCE(?, 'fallback'), ?, CURRENT_TIMESTAMP, ?), (?, NOW(), CASE WHEN ? = 1 THEN 'yes' ELSE 'no' END, ?)",
+          "bind_occurrences": [
+            {"position": 1, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 2, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 3, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 4, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 5, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 6, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 7, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 8, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 9, "kind": "positional", "key": null, "sql": "?"}
+          ]
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/0/selector",
           "value": "42",
-          "deparse": "INSERT INTO bind_mix (id, payload, created_at, status) VALUES (42, CAST(? AS SIGNED), NOW(), ?), (COALESCE(?, 'fallback'), ?, CURRENT_TIMESTAMP, ?), (?, NOW(), CASE WHEN ? = 1 THEN 'yes' ELSE 'no' END, ?)"
+          "deparse": "INSERT INTO bind_mix (id, payload, created_at, status) VALUES (42, CAST(? AS SIGNED), NOW(), ?), (COALESCE(?, 'fallback'), ?, CURRENT_TIMESTAMP, ?), (?, NOW(), CASE WHEN ? = 1 THEN 'yes' ELSE 'no' END, ?)",
+          "bind_occurrences": [
+            {"position": 1, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 2, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 3, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 4, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 5, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 6, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 7, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 8, "kind": "positional", "key": null, "sql": "?"}
+          ]
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/11/selector",
           "value": "42",
-          "deparse": "INSERT INTO bind_mix (id, payload, created_at, status) VALUES (?, CAST(? AS SIGNED), NOW(), ?), (COALESCE(?, 'fallback'), ?, CURRENT_TIMESTAMP, ?), (?, NOW(), CASE WHEN ? = 1 THEN 'yes' ELSE 'no' END, 42)"
+          "deparse": "INSERT INTO bind_mix (id, payload, created_at, status) VALUES (?, CAST(? AS SIGNED), NOW(), ?), (COALESCE(?, 'fallback'), ?, CURRENT_TIMESTAMP, ?), (?, NOW(), CASE WHEN ? = 1 THEN 'yes' ELSE 'no' END, 42)",
+          "bind_occurrences": [
+            {"position": 1, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 2, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 3, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 4, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 5, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 6, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 7, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 8, "kind": "positional", "key": null, "sql": "?"}
+          ]
         }
       ],
       "status": "final"

@@ -1,10 +1,12 @@
 # MySQL Dialect Case Matrix
 
-This file records regression cases for the MySQL dialect conversion layer. The executable fixture is `tests/cases/mysql_dialect_input.json`. For every final case, the runner requires unchanged SQL to deparse byte for byte, compares the actual View with the expected JSON structure, and executes each patch independently. Patched SQL must match `patch.deparse` byte for byte, remain identical after a fresh parse and second deparse, and produce the same View from the patched and freshly parsed handles.
+This file records regression cases for the MySQL dialect conversion layer. The executable fixture is `tests/cases/mysql_dialect_input.json`. For every final case, the runner requires unchanged SQL to deparse byte for byte, compares the actual View with the expected JSON structure, and executes each patch independently. Patched SQL must match `patch.deparse` byte for byte, remain identical after a fresh parse and second deparse, and produce the same View from the patched and freshly parsed handles. When a case provides `bind_occurrences`, the runner also compares `position`, `kind`, `key`, and original `sql` item by item for the source SQL and every patched SQL; repeated keys remain separate and `position` is continuous across the full SQL text.
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 253 cases with `status = "final"`. Expected View JSON contains
+The fixture contains 253 cases with `status = "final"` and 859 independent
+patches. Two cases and their 8 patches contain complete bind-occurrence
+assertions. Expected View JSON contains
 statement-level `query_graph.session` output in 37 cases, covering `M015`
 through `M017`, `MY-001` through `MY-029`, and 5 `USE` boundaries interleaved
 with comments or empty statements. All 37 contain at least one non-empty
@@ -74,7 +76,7 @@ and value fields are all part of that comparison.
 | M050 | `mysql-drop-view-if-exists` | `DROP VIEW IF EXISTS ...` | view drop and object-name extraction |
 | M051 | `mysql-select-order-by-ordinal` | `ORDER BY 1` | ordinal sort item and projection-order related syntax |
 | M052 | `mysql-limit-comma-question-params` | `LIMIT ?, ?` | positional parameters in MySQL comma-limit syntax, with public SQL preserved in comma-limit form |
-| M053 | `mysql-multi-statement-global-bind-position` | multi-statement `UPDATE ... ?` | positional `bind_position` increases globally across the full input SQL |
+| M053 | `mysql-multi-statement-global-bind-position` | versioned executable `UPDATE` plus an ordinary `UPDATE` | `?` inside the whole-statement executable comment counts, while pseudo-`?` text in ordinary and inline versioned comments does not; a complex patch covers a subquery, CAST, CASE, `LIMIT/OFFSET`, protected regions, and continuous renumbering after deletion/insertion |
 | M054 | `mysql-select-derived-query-graph` | derived table with output alias and `?` parameters | `query_graph` lineage mapping from derived-table fields to inner base-table fields and `output_name` |
 | M055 | `mysql-select-reference-002` | SELECT reference case 002 | MySQL-valid SELECT example parsing and View JSON shape |
 | M056 | `mysql-select-reference-003` | SELECT reference case 003 | MySQL-valid SELECT example parsing and View JSON shape |
@@ -207,7 +209,7 @@ These ten cases cover SQL templates used with prepared statements or generated b
 | `MY-BM006` | `mysql-insert-bind-mixed-literal` | `?`, string literal, a `CASE` expression containing `?`, `?` | string literal, CASE expression, and following bind position |
 | `MY-BM007` | `mysql-insert-bind-mixed-coalesce-time` | `?`, `COALESCE(?, 'fallback')`, `CURRENT_TIMESTAMP`, `?` | COALESCE bind, independent time expression, and direct bind |
 | `MY-BM008` | `mysql-insert-bind-mixed-case-time` | `?`, a `CASE` expression containing `?`, `NOW()`, `?` | bind within a CASE expression, independent time expression, and direct bind |
-| `MY-BM009` | `mysql-insert-bind-mixed-three-rows` | three rows mixing binds, CAST/COALESCE/CASE expressions, and time expressions | every cell selector and continuous global bind positions across rows |
+| `MY-BM009` | `mysql-insert-bind-mixed-three-rows` | three rows mixing binds, CAST/COALESCE/CASE expressions, and time expressions | all nine anonymous occurrences remain separate; every cell selector, continuous cross-row positions, and the eight-item renumbering after deleting the head or tail bind are exact |
 | `MY-BM010` | `mysql-insert-bind-mixed-quoted-irregular-whitespace` | schema-qualified backtick identifiers, irregular whitespace, three direct `?` values, and a time expression | quoted identifiers, byte-exact source preservation, and field-for-field equality with expected cell objects |
 
 ## Coverage Boundary

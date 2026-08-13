@@ -1,10 +1,10 @@
 # Oracle 方言用例矩阵
 
-本文件记录 Oracle 方言转换层的回归用例。可执行夹具为 `tests/cases/oracle_dialect_input.json`。对每条 final 用例，runner 验证未修改 SQL 的反解析结果与输入逐字节一致、实际 View 与期望 JSON 结构相等，并独立执行每个 patch；patch 后 SQL 必须与 `patch.deparse` 逐字节一致，重新解析后再次反解析仍须一致，且 patch handle 与重新解析 handle 的 View 输出必须一致。
+本文件记录 Oracle 方言转换层的回归用例。可执行夹具为 `tests/cases/oracle_dialect_input.json`。对每条 final 用例，runner 验证未修改 SQL 的反解析结果与输入逐字节一致、实际 View 与期望 JSON 结构相等，并独立执行每个 patch；patch 后 SQL 必须与 `patch.deparse` 逐字节一致，重新解析后再次反解析仍须一致，且 patch handle 与重新解析 handle 的 View 输出必须一致。用例提供 `bind_occurrences` 时，runner 还会对原 SQL 及每个 patch 后 SQL 的 `position`、`kind`、`key` 和原始 `sql` 逐项精确校验，重复 key 不合并，`position` 按整段 SQL 连续编号。
 
 ## 矩阵统计与 session 回归
 
-夹具包含 251 条 `status = "final"` 用例和 852 个独立 patch。59 条用例包含 statement 级 `query_graph.session`，覆盖 `O043`、`O043Q`、`O044` 至 `O047`、`O082` 至 `O086`，以及 `ORA-*` session 用例；这 59 条用例均至少包含一个非空 session item。
+夹具包含 251 条 `status = "final"` 用例和 852 个独立 patch；其中 2 条用例及其 6 个 patch 含完整 bind occurrence 断言。59 条用例包含 statement 级 `query_graph.session`，覆盖 `O043`、`O043Q`、`O044` 至 `O047`、`O082` 至 `O086`，以及 `ORA-*` session 用例；这 59 条用例均至少包含一个非空 session item。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name 及 value 字段均属于比较范围。
 
@@ -122,7 +122,7 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | O084 | `ALTER SESSION SET INSTANCE` | 数字型普通 session 参数 |
 | O085 | `ALTER SESSION SET ERROR_ON_OVERLAP_TIME` | 布尔/枚举型普通 session 参数 |
 | O086 | `ALTER SESSION SET NLS_NUMERIC_CHARACTERS` | 带标点字符串的普通 session 参数 |
-| O087 | 多语句命名 bind | 多语句输入中命名 bind 的 `bind_position` 按整条 SQL 全局递增 |
+| O087 | 多 `UPDATE` + `MERGE` 中的命名 bind | 按全文顺序保留重复 `:same`/`:merge_value`，排除注释中的 `:comment`/`?`；复杂 patch 覆盖子查询、CAST、CASE、`FETCH FIRST`、命名/数字/匿名 bind 和保护区，并精确校验删除/插入后重编号 |
 | O088 | `oracle-select-derived-query-graph` | 派生表 + 输出别名 + 命名 bind | 派生表字段、输出别名和条件 bind 的 `query_graph` 表达 |
 | O089 | `oracle-select-reference-024` | SELECT 参考用例 024 | Oracle/ROWNUM/复杂派生表 SELECT 示例解析和 View JSON 结构 |
 | O090 | `oracle-select-reference-026` | SELECT 参考用例 026 | Oracle/ROWNUM/复杂派生表 SELECT 示例解析和 View JSON 结构 |
@@ -241,7 +241,7 @@ Oracle `INSERT`、`UPDATE`、`DELETE` 的 `RETURNING ... INTO` 支持 `N >= 1` �
 | ID | 用例 | DML | 验证重点 |
 | --- | --- | --- | --- |
 | O198 | `oracle-insert-returning-eight-target-bind-pairs` | INSERT | 8 对结果；在 index 0 成对插入 `tenant_id` / `:out_tenant_id`，验证头部 9 对及 ordinal 对齐 |
-| O199 | `oracle-update-returning-eight-target-bind-pairs` | UPDATE | 8 对结果；在 index 4 成对插入 `postal_code` / `:out_postal_code`，验证中部 9 对及 ordinal 对齐 |
+| O199 | `oracle-update-returning-eight-target-bind-pairs` | UPDATE | 完整顺序枚举 SET、WHERE 及 8 个 `INTO` bind，根 SQL 共 11 个 occurrence；index 4 成对插入 `postal_code` / `:out_postal_code` 后为 12 个，并保持 9 对 ordinal 对齐 |
 | O200 | `oracle-delete-returning-eight-target-bind-pairs` | DELETE | 8 对结果；在 index 8 成对插入 `tenant_id` / `:out_tenant_id`，验证尾部 9 对及 ordinal 对齐 |
 
 ## 覆盖边界

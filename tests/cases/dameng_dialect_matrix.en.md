@@ -1,11 +1,12 @@
 # Dameng Dialect Case Matrix
 
-This file records regression cases for the Dameng dialect conversion layer. The executable fixture is `tests/cases/dameng_dialect_input.json`. For every final case, the runner requires unchanged SQL to deparse byte for byte, compares the actual View with the expected JSON structure, and executes each patch independently. Patched SQL must match `patch.deparse` byte for byte, remain identical after a fresh parse and second deparse, and produce the same View from the patched and freshly parsed handles.
+This file records regression cases for the Dameng dialect conversion layer. The executable fixture is `tests/cases/dameng_dialect_input.json`. For every final case, the runner requires unchanged SQL to deparse byte for byte, compares the actual View with the expected JSON structure, and executes each patch independently. Patched SQL must match `patch.deparse` byte for byte, remain identical after a fresh parse and second deparse, and produce the same View from the patched and freshly parsed handles. When a case provides `bind_occurrences`, the runner also compares `position`, `kind`, `key`, and original `sql` item by item for the source SQL and every patched SQL; repeated keys remain separate and `position` is continuous across the full SQL text.
 
 ## Matrix Counts and Session Regression
 
 The fixture contains 177 cases with `status = "final"` and 636 independent
-patches.
+patches. Two cases and their 6 patches contain complete bind-occurrence
+assertions.
 Statement-level `query_graph.session` appears in 34 cases, covering `D002`,
 `D003`, `D003Q`, `D026`, `D089` through `D095`, and the `DM-*` session cases.
 All 34 contain at least one non-empty session item.
@@ -90,7 +91,7 @@ result with the input SQL byte for byte.
 | D061 | `LEFT JOIN` + `alias.*` | qualified star, JOIN/ON fields, and WHERE bind |
 | D062 | `LIMIT/OFFSET` + `?` parameters | positional parameters in pagination clauses |
 | D063 | `SELECT :bind FROM dual` | DUAL query and named bind in the SELECT list |
-| D064 | multi-statement `?` parameters | positional `bind_position` increases globally across the full input SQL |
+| D064 | anonymous and named binds across multiple `UPDATE` statements and `MERGE` | source-order occurrences retain duplicate `:merge_value` keys and exclude comment text `:comment`/`?`; a complex patch covers a subquery, CAST, CASE, `LIMIT/OFFSET`, named/numeric/anonymous binds, protected regions, and exact renumbering after deletion/insertion |
 | D065 | `dameng-select-derived-query-graph` | derived table with output alias and named binds | `query_graph` lineage mapping from derived-table fields to inner base-table fields and `output_name` |
 | D066 | `dameng-select-reference-024` | SELECT reference case 024 | Dameng/ROWNUM/complex derived SELECT example parsing and View JSON shape |
 | D067 | `dameng-select-reference-026` | SELECT reference case 026 | Dameng/ROWNUM/complex derived SELECT example parsing and View JSON shape |
@@ -202,7 +203,7 @@ list lengths.
 | D145 | `dameng-delete-returning-rowid-into-bind` | `DELETE ... RETURNING ROWID INTO :NAV_ROWID` | DELETE `target_before` reference, ROWID pseudo target, sink bind, replace patches, and byte-for-byte deparse |
 | D146 | `dameng-merge-update-delete-where` | a matched UPDATE has both an action `WHERE` and an attached `DELETE WHERE` | the UPDATE branch exposes both `condition_selector` and `delete_condition_selector`, with no independent DELETE action; 3 independent patches cover assignment, action-predicate value, and delete-predicate value replacement |
 | D151 | `dameng-insert-returning-eight-target-bind-pairs` | INSERT `RETURNING` with 8 targets ↔ 8 binds | strict ordinal pairing; one atomic pair insertion at the head produces 9↔9 |
-| D152 | `dameng-update-return-eight-target-bind-pairs` | UPDATE `RETURN` with 8 targets ↔ 8 binds | strict ordinal pairing; one atomic pair insertion in the middle produces 9↔9 |
+| D152 | `dameng-update-return-eight-target-bind-pairs` | UPDATE `RETURN` with 8 targets ↔ 8 binds | complete source-order enumeration covers SET, WHERE, and all eight `INTO` binds for 11 root occurrences; paired middle insertion of `last_login_at` / `:out_last_login_at` produces 12 occurrences while preserving 9↔9 order |
 | D153 | `dameng-delete-returning-eight-target-bind-pairs` | DELETE `RETURNING` with 8 targets ↔ 8 binds | strict ordinal pairing; one atomic pair insertion at the tail produces 9↔9 |
 
 ## Hierarchical Query Regression

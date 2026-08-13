@@ -356,6 +356,19 @@ typedef struct {
 } sqlparser_bind_value_t;
 
 typedef struct {
+	size_t position;
+	sqlparser_bind_kind_t kind;
+	const char *key;
+	const char *sql;
+} sqlparser_bind_occurrence_t;
+
+typedef struct {
+	const sqlparser_handle_t *handle;
+	unsigned long generation;
+	size_t count;
+} sqlparser_bind_occurrence_view_t;
+
+typedef struct {
 	const char *column_name;
 	sqlparser_value_kind_t value_kind;
 	sqlparser_literal_view_t literal;
@@ -1355,6 +1368,17 @@ sqlparser_status_t sqlparser_selector_replace_select_target_with_columns(
 	const sqlparser_selector_t *target_selector,
 	const sqlparser_identifier_path_view_t *columns,
 	size_t column_count,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_handle_bind_occurrences(
+	const sqlparser_handle_t *handle,
+	sqlparser_bind_occurrence_view_t *out_occurrences,
+	sqlparser_error_t *out_error);
+
+sqlparser_status_t sqlparser_bind_occurrence_at(
+	const sqlparser_bind_occurrence_view_t *occurrences,
+	size_t occurrence_index,
+	sqlparser_bind_occurrence_t *out_occurrence,
 	sqlparser_error_t *out_error);
 
 sqlparser_status_t sqlparser_statement_query_graph(

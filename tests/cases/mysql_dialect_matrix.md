@@ -1,10 +1,10 @@
 # MySQL 方言用例矩阵
 
-本文件记录 MySQL 方言转换层的回归用例。可执行夹具为 `tests/cases/mysql_dialect_input.json`。对每条 final 用例，runner 验证未修改 SQL 的反解析结果与输入逐字节一致、实际 View 与期望 JSON 结构相等，并独立执行每个 patch；patch 后 SQL 必须与 `patch.deparse` 逐字节一致，重新解析后再次反解析仍须一致，且 patch handle 与重新解析 handle 的 View 输出必须一致。
+本文件记录 MySQL 方言转换层的回归用例。可执行夹具为 `tests/cases/mysql_dialect_input.json`。对每条 final 用例，runner 验证未修改 SQL 的反解析结果与输入逐字节一致、实际 View 与期望 JSON 结构相等，并独立执行每个 patch；patch 后 SQL 必须与 `patch.deparse` 逐字节一致，重新解析后再次反解析仍须一致，且 patch handle 与重新解析 handle 的 View 输出必须一致。用例提供 `bind_occurrences` 时，runner 还会对原 SQL 及每个 patch 后 SQL 的 `position`、`kind`、`key` 和原始 `sql` 逐项精确校验，重复 key 不合并，`position` 按整段 SQL 连续编号。
 
 ## 矩阵统计与 session 回归
 
-夹具包含 253 条 `status = "final"` 用例。37 条用例的期望 View 包含 statement 级 `query_graph.session`，覆盖 `M015` 至 `M017`、`MY-001` 至 `MY-029` 以及 5 条注释或空语句穿插的 `USE` 边界；这 37 条用例均至少包含一个非空 session 投影。
+夹具包含 253 条 `status = "final"` 用例和 859 个独立 patch；其中 2 条用例及其 8 个 patch 含完整 bind occurrence 断言。37 条用例的期望 View 包含 statement 级 `query_graph.session`，覆盖 `M015` 至 `M017`、`MY-001` 至 `MY-029` 以及 5 条注释或空语句穿插的 `USE` 边界；这 37 条用例均至少包含一个非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session 投影的 action、item scope、target kind、name 及 value 字段均属于比较范围。
 
@@ -68,7 +68,7 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | M050 | `mysql-drop-view-if-exists` | `DROP VIEW IF EXISTS ...` | 视图删除和对象名提取 |
 | M051 | `mysql-select-order-by-ordinal` | `ORDER BY 1` | 数字排序项和投影顺序相关语法 |
 | M052 | `mysql-limit-comma-question-params` | `LIMIT ?, ?` | MySQL 逗号分页中的位置参数，公开 SQL 保持逗号分页形态 |
-| M053 | `mysql-multi-statement-global-bind-position` | 多语句 `UPDATE ... ?` | 多语句输入中位置参数 `bind_position` 按整条 SQL 全局递增 |
+| M053 | `mysql-multi-statement-global-bind-position` | versioned executable `UPDATE` + 普通 `UPDATE` | 全语句 executable comment 中的 `?` 计入，普通和行内 versioned comment 中的伪 `?` 排除；复杂 patch 覆盖子查询、CAST、CASE、`LIMIT/OFFSET`、保护区及删除/插入后连续重编号 |
 | M054 | `mysql-select-derived-query-graph` | 派生表 + 输出别名 + `?` 参数 | 派生表字段向内层真实表字段的 `query_graph` 来源链路 映射和 `output_name` |
 | M055 | `mysql-select-reference-002` | SELECT 参考用例 002 | MySQL 合法 SELECT 示例解析和 View JSON 结构 |
 | M056 | `mysql-select-reference-003` | SELECT 参考用例 003 | MySQL 合法 SELECT 示例解析和 View JSON 结构 |
@@ -201,7 +201,7 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | `MY-BM006` | `mysql-insert-bind-mixed-literal` | `?`、字符串 literal、包含 `?` 的 `CASE` 表达式、`?` | 字符串 literal、CASE 表达式和后续 bind 位置 |
 | `MY-BM007` | `mysql-insert-bind-mixed-coalesce-time` | `?`、`COALESCE(?, 'fallback')`、`CURRENT_TIMESTAMP`、`?` | COALESCE 内部 bind、独立时间表达式和直接 bind |
 | `MY-BM008` | `mysql-insert-bind-mixed-case-time` | `?`、包含 `?` 的 `CASE` 表达式、`NOW()`、`?` | CASE 表达式内 bind、独立时间表达式和直接 bind |
-| `MY-BM009` | `mysql-insert-bind-mixed-three-rows` | 三行中交错 bind、CAST/COALESCE/CASE 表达式和时间表达式 | 逐 cell selector 及跨行连续的全局 bind 序号 |
+| `MY-BM009` | `mysql-insert-bind-mixed-three-rows` | 三行中交错 bind、CAST/COALESCE/CASE 表达式和时间表达式 | 9 个匿名 occurrence 逐次保留；逐 cell selector、跨行连续序号及头/尾 bind 删除后的 8 项重编号 |
 | `MY-BM010` | `mysql-insert-bind-mixed-quoted-irregular-whitespace` | schema-qualified 反引号标识符、不规则空白、三个直接 `?` + 时间表达式 | quoted identifier、逐字节保留输入 SQL，并与期望 cell 对象逐字段一致 |
 
 ## 覆盖边界

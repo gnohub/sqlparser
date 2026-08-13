@@ -19,6 +19,15 @@
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
+## 完整绑定占位符 occurrence 回归
+
+以下 2 条 final 用例定义项目 `vastbase-sqlserver` 兼容入口的 handle 级 occurrence 合同，不作为 Vastbase 服务端官方能力声明。runner 对输入及每个 patch 后的公开 SQL 逐项断言 `position`、`kind`、`key` 和 `sql`；重复 bind 不合并，跨 `GO` 编号不重置，字符串、注释、方括号标识符、`@@` 系统变量和 OUTPUT sink relation 不计入。
+
+| 用例 | 根 occurrence | Patch | 基础入口关系 | 验证重点 |
+| --- | ---: | ---: | --- | --- |
+| `vastbase-sqlserver-multi-statement-global-bind-position` | 7 | 5 | 除用例名外，逐字段镜像 `sqlserver-multi-statement-global-bind-position` | 跨 `GO` 的 UPDATE 与 MERGE，命名/匿名 bind 和重复 key；复杂改写覆盖子查询、OFFSET/FETCH、CAST、CASE 及保护区排除 |
+| `vastbase-sqlserver-update-output-into-eight-target-sink-column-pairs` | 3 | 1 | 除用例名外，逐字段镜像 `sqlserver-update-output-into-eight-target-sink-column-pairs` | `@profile_audit` sink relation 不计入；OUTPUT target 成对插入后表达式中的重复 `@audit_tag` 与匿名 `?` 按源码顺序进入列表 |
+
 ## SQL/JSON 语义输入回归
 
 以下用例验证 Vastbase-SQLServer 兼容入口中 SQL/JSON 专用 AST 节点的输入字段遍历。字段顺序、relation 与 target 归属、原始 name selector 以及嵌套 `target_path` 均为精确 View 合同；每条用例还覆盖字段或关系替换、target 替换、列插入及 patch 后精确反解析。

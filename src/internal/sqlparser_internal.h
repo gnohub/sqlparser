@@ -11,6 +11,7 @@
 
 typedef struct sqlparser_dialect_ops sqlparser_dialect_ops_t;
 typedef struct sqlparser_query_graph_cache sqlparser_query_graph_cache_t;
+typedef struct sqlparser_bind_occurrence_cache sqlparser_bind_occurrence_cache_t;
 typedef struct sqlparser_control_state sqlparser_control_state_t;
 
 typedef struct {
@@ -129,6 +130,37 @@ typedef struct {
 	size_t capacity;
 } sqlparser_surface_source_edits_t;
 
+typedef struct {
+	size_t source_start;
+	size_t text_offset;
+	sqlparser_bind_kind_t kind;
+} sqlparser_bind_occurrence_cache_item_t;
+
+typedef struct {
+	size_t start;
+	size_t end;
+	size_t key_start;
+	size_t key_length;
+	sqlparser_bind_kind_t kind;
+} sqlparser_bind_token_t;
+
+typedef struct {
+	sqlparser_dialect_t dialect;
+	const char *sql;
+	size_t length;
+	size_t index;
+	size_t code_start;
+	size_t code_end;
+	size_t marker_start;
+	size_t marker_end;
+	int allow_markers;
+} sqlparser_bind_scanner_t;
+
+struct sqlparser_bind_occurrence_cache {
+	size_t count;
+	sqlparser_bind_occurrence_cache_item_t items[];
+};
+
 #define SQLPARSER_PROTO_LOCATION_GENERATED_DOUBLE_QUOTED \
 	(SQLPARSER_PROTO_LOCATION_GENERATED_STYLE_BASE - \
 	 SQLPARSER_PROTO_IDENTIFIER_STYLE_DOUBLE_QUOTED)
@@ -150,6 +182,8 @@ struct sqlparser_handle {
 	void *dialect_state;
 	sqlparser_query_graph_cache_t *query_graph;
 	unsigned long query_graph_generation;
+	sqlparser_bind_occurrence_cache_t *bind_occurrences;
+	unsigned long bind_occurrences_generation;
 	sqlparser_control_state_t *control;
 	sqlparser_identifier_mutation_t *identifier_mutations;
 	size_t identifier_mutation_count;
@@ -231,6 +265,29 @@ int sqlparser_handle_identifier_spelling(
 void sqlparser_handle_invalidate_derived(sqlparser_handle_t *handle);
 void sqlparser_query_graph_cache_release(sqlparser_query_graph_cache_t *cache);
 void sqlparser_handle_clear_query_graph(sqlparser_handle_t *handle);
+sqlparser_status_t sqlparser_handle_ensure_bind_occurrences(
+	const sqlparser_handle_t *handle,
+	sqlparser_error_t *out_error);
+void sqlparser_bind_scanner_init(
+	sqlparser_bind_scanner_t *scanner,
+	sqlparser_dialect_t dialect,
+	const char *sql);
+void sqlparser_bind_scanner_init_markers(
+	sqlparser_bind_scanner_t *scanner,
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	size_t marker_start,
+	size_t marker_count);
+int sqlparser_bind_scanner_next(
+	sqlparser_bind_scanner_t *scanner,
+	sqlparser_bind_token_t *out_token);
+int sqlparser_bind_token_exact(
+	sqlparser_dialect_t dialect,
+	const char *sql,
+	size_t length,
+	size_t start,
+	size_t end,
+	sqlparser_bind_token_t *out_token);
 int sqlparser_public_char_is_ident(unsigned char ch);
 size_t sqlparser_public_skip_quoted_or_comment(
 	sqlparser_dialect_t dialect,

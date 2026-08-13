@@ -1,10 +1,12 @@
 # SQL Case Matrix
 
-This file records the regression cases covered by `tests/cases/sql_batch_input.json`. For every final case, the runner requires unchanged SQL to deparse byte for byte, compares the actual View with the expected JSON structure, and executes each patch independently. Patched SQL must match `patch.deparse` byte for byte, remain identical after a fresh parse and second deparse, and produce the same View from the patched and freshly parsed handles.
+This file records the regression cases covered by `tests/cases/sql_batch_input.json`. For every final case, the runner requires unchanged SQL to deparse byte for byte, compares the actual View with the expected JSON structure, and executes each patch independently. Patched SQL must match `patch.deparse` byte for byte, remain identical after a fresh parse and second deparse, and produce the same View from the patched and freshly parsed handles. When a case provides `bind_occurrences`, the runner also compares `position`, `kind`, `key`, and original `sql` item by item for the source SQL and every patched SQL; repeated keys remain separate and `position` is continuous across the full SQL text.
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 214 cases with `status = "final"`. Expected View JSON contains
+The fixture contains 214 cases with `status = "final"` and 723 independent
+patches. Two cases and their 10 patches contain complete bind-occurrence
+assertions. Expected View JSON contains
 statement-level `query_graph.session` output in 32 cases: 5 schema/session
 cases and `PG-001` through `PG-027`. All 32 contain at least one non-empty
 session projection.
@@ -57,7 +59,7 @@ and value fields are all part of that comparison.
 | P032 | `select-case-window` | `SELECT CASE ... OVER (...) FROM ...` | `CASE`, window functions, sort/partition column extraction |
 | P033 | `select-union-order-limit` | `SELECT ... UNION ALL SELECT ... ORDER BY ... LIMIT ...` | `UNION ALL`, ordering, and limit deparse |
 | P034 | `insert-on-conflict-update` | `INSERT ... ON CONFLICT ... DO UPDATE ... RETURNING ...` | conflict handling, returning columns, insert columns |
-| P035 | `insert-returning` | `INSERT ... RETURNING ...` | returning columns and insert columns |
+| P035 | `insert-returning` | `INSERT ... RETURNING ...` | returning columns and insert columns; replacing a returning target with `$1 AS echoed` changes the exact occurrence count from zero to one |
 | P036 | `update-from-returning` | `UPDATE ... SET ... FROM ... WHERE ... RETURNING ...` | `UPDATE ... FROM`, returning columns, where columns |
 | P037 | `delete-using-returning` | `DELETE ... USING ... WHERE ... RETURNING ...` | `DELETE ... USING`, returning columns, multi-table extraction |
 | P038 | `merge-basic` | `MERGE INTO ... USING ... WHEN ...` | merge node recognition and keyword coverage |
@@ -118,7 +120,7 @@ and value fields are all part of that comparison.
 | P090 | `postgresql-select-order-by-ordinal` | `ORDER BY 1` | ordinal sort item and projection-order related syntax |
 | P091 | `postgresql-select-quoted-mixed-identifiers` | quoted mixed-case / spaced identifiers | special identifiers, selected columns, and WHERE bind |
 | P092 | `postgresql-dollar-quoted-string-global-bind-position` | dollar-quoted string plus `$n` parameters | placeholder-like text inside dollar-quoted strings is excluded from global bind counting |
-| P093 | `postgresql-multi-statement-global-bind-position` | multi-statement `$n` parameters | positional `bind_position` increases globally across the full input SQL |
+| P093 | `postgresql-multi-statement-global-bind-position` | `$n` across multiple `UPDATE` statements, `MERGE`, and `CALL` | source-order occurrences retain duplicate `$4`/`$7` keys and exclude comment text `$90`; a complex patch covers a subquery, CAST, CASE, `LIMIT/OFFSET`, JSONB operators, protected regions, and exact renumbering after deletion/insertion |
 | P094 | `postgresql-select-nested-derived-query-graph` | nested derived tables with output alias | `query_graph` lineage mapping from derived-table fields to inner base-table fields and `output_name` |
 | P095 | `postgresql-select-reference-001` | SELECT reference case 001 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |
 | P096 | `postgresql-select-reference-004` | SELECT reference case 004 | Standard SELECT/subquery/JOIN/set-query parsing and View JSON shape from the reference document |

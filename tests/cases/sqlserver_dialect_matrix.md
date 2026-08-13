@@ -1,10 +1,10 @@
 # SQL Server 方言用例矩阵
 
-本文件记录 SQL Server 方言转换层的回归用例。可执行夹具为 `tests/cases/sqlserver_dialect_input.json`。对每条 final 用例，runner 验证未修改 SQL 的反解析结果与输入逐字节一致、实际 View 与期望 JSON 结构相等，并独立执行每个 patch；patch 后 SQL 必须与 `patch.deparse` 逐字节一致，重新解析后再次反解析仍须一致，且 patch handle 与重新解析 handle 的 View 输出必须一致。
+本文件记录 SQL Server 方言转换层的回归用例。可执行夹具为 `tests/cases/sqlserver_dialect_input.json`。对每条 final 用例，runner 验证未修改 SQL 的反解析结果与输入逐字节一致、实际 View 与期望 JSON 结构相等，并独立执行每个 patch；patch 后 SQL 必须与 `patch.deparse` 逐字节一致，重新解析后再次反解析仍须一致，且 patch handle 与重新解析 handle 的 View 输出必须一致。用例提供 `bind_occurrences` 时，runner 还会对原 SQL 及每个 patch 后 SQL 的 `position`、`kind`、`key` 和原始 `sql` 逐项精确校验，重复 key 不合并，`position` 按整段 SQL 连续编号。
 
 ## 矩阵统计与 session 回归
 
-夹具包含 624 条 `status = "final"` 用例和 1867 个独立 patch。91 条用例的期望 View 包含非空 `query_graph.session` 投影，覆盖 `S044` 至 `S046`、`SH295` 至 `SH333` 和 49 条 `MSSQL-*` session 用例。
+夹具包含 624 条 `status = "final"` 用例和 1867 个独立 patch；其中 2 条用例及其 6 个 patch 含完整 bind occurrence 断言。91 条用例的期望 View 包含非空 `query_graph.session` 投影，覆盖 `S044` 至 `S046`、`SH295` 至 `SH333` 和 49 条 `MSSQL-*` session 用例。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -92,7 +92,7 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | 用例 ID | 用例名称 | 语句形态 | 验证重点 |
 | --- | --- | --- | --- |
 | SH425 | `sqlserver-insert-output-into-eight-target-sink-column-pairs` | INSERT 8 OUTPUT target ↔ 8 显式 sink column | 头部原子插入 1 组后为 9↔9，View 与反解析保持按序配对 |
-| SH426 | `sqlserver-update-output-into-eight-target-sink-column-pairs` | UPDATE 8 OUTPUT target ↔ 8 显式 sink column | 中部原子插入 1 组后为 9↔9，View 与反解析保持按序配对 |
+| SH426 | `sqlserver-update-output-into-eight-target-sink-column-pairs` | UPDATE 8 OUTPUT target ↔ 8 显式 sink column | 根 SQL 仅枚举 SET/WHERE 的 3 个 bind，不将 `INTO @profile_audit` 误认为 bind；中部成对插入含重复 `@audit_tag` 和匿名 `?` 的 OUTPUT 表达式后为 6 个 occurrence，9↔9 顺序保持 |
 | SH427 | `sqlserver-delete-output-into-eight-target-sink-column-pairs` | DELETE 8 OUTPUT target ↔ 8 显式 sink column | 尾部原子插入 1 组后为 9↔9，View 与反解析保持按序配对 |
 
 ## INSERT VALUES 回归：bind 与表达式混合
@@ -200,7 +200,7 @@ T-SQL `@name` 引用要求已有变量或参数作用域；`MSSQL-BM009` 的 `?`
 | S079 | `LEFT JOIN` + `alias.*` | 限定星号、JOIN/ON 字段和 WHERE 参数 |
 | S080 | `CREATE VIEW` + JOIN 聚合 | 视图创建、JOIN 条件和 GROUP BY 聚合 |
 | S081 | `TOP (?)` + WHERE `?` | `TOP` 中的位置参数计入全局 bind 序号 |
-| S082 | 多语句 `?` 参数 | 多语句输入中位置参数 `bind_position` 按整条 SQL 全局递增 |
+| S082 | `GO` 分隔的多 `UPDATE` + `MERGE` | 全文按序枚举命名/匿名 bind，保留重复 `@merge_value` 并排除注释伪 bind；复杂 patch 覆盖子查询、CAST、CASE、`OFFSET/FETCH`、`@@ROWCOUNT` 及标识符/字符串保护区，并精确校验删除/插入后重编号 |
 | S083 | `sqlserver-select-derived-query-graph` | 派生表字段向内层真实表字段的 `query_graph` 来源链路映射和 `output_name` |
 | S084 | `MERGE` + `?` 参数 | MERGE 的 target/source relation、UPDATE assignment、INSERT values 和 bind 映射 |
 | S085 | `sqlserver-field-match-kind-direct-and-expression` | 直接字段条件 + 函数包裹字段条件 | `query_graph.values[].field_match_kind` 区分 `direct_field` 和 `expression_field` |

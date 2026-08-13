@@ -18193,6 +18193,462 @@ static int expect_view_column_shape(
 	return failed ? 1 : 0;
 }
 
+static int expect_bind_occurrence_item(
+	const sqlparser_bind_occurrence_view_t *occurrences,
+	size_t occurrence_index,
+	size_t position,
+	sqlparser_bind_kind_t kind,
+	const char *key,
+	const char *sql,
+	const char *message)
+{
+	sqlparser_bind_occurrence_t occurrence;
+	sqlparser_error_t error;
+	sqlparser_status_t status;
+	int key_matches;
+
+	memset(&occurrence, 0, sizeof(occurrence));
+	memset(&error, 0, sizeof(error));
+	status = sqlparser_bind_occurrence_at(
+		occurrences,
+		occurrence_index,
+		&occurrence,
+		&error);
+	if (expect_status_ok(status, &error, message) != 0) {
+		return 1;
+	}
+	key_matches =
+		(key == NULL && occurrence.key == NULL) ||
+		(key != NULL && occurrence.key != NULL &&
+		 strcmp(occurrence.key, key) == 0);
+	return expect_true(
+		occurrence.position == position &&
+		occurrence.kind == kind &&
+		key_matches &&
+		occurrence.sql != NULL && strcmp(occurrence.sql, sql) == 0,
+		message);
+}
+
+static int test_bind_occurrence_public_lifecycle(void)
+{
+	static const char source_sql[] =
+		"SELECT :b1, :b1 FROM dual WHERE id = ?";
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_handle_t *clone;
+	sqlparser_bind_occurrence_view_t occurrences;
+	sqlparser_bind_occurrence_view_t repeated_occurrences;
+	sqlparser_bind_occurrence_view_t clone_occurrences;
+	sqlparser_bind_occurrence_view_t rebuilt_occurrences;
+	sqlparser_bind_occurrence_t occurrence;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_value_t value;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patches;
+	sqlparser_error_t error;
+	unsigned long generation;
+	size_t index;
+	int found_question_bind;
+	int rc;
+
+	handle = NULL;
+	clone = NULL;
+	memset(&occurrences, 0, sizeof(occurrences));
+	memset(&repeated_occurrences, 0, sizeof(repeated_occurrences));
+	memset(&clone_occurrences, 0, sizeof(clone_occurrences));
+	memset(&rebuilt_occurrences, 0, sizeof(rebuilt_occurrences));
+	memset(&occurrence, 0, sizeof(occurrence));
+	memset(&graph, 0, sizeof(graph));
+	memset(&value, 0, sizeof(value));
+	memset(&patch, 0, sizeof(patch));
+	memset(&patches, 0, sizeof(patches));
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	if (expect_true(
+		    sqlparser_handle_bind_occurrences(NULL, &occurrences, &error) ==
+			    SQLPARSER_STATUS_INVALID_ARGUMENT &&
+			    occurrences.handle == NULL && occurrences.count == 0U,
+		    "NULL bind occurrence handle should be rejected") != 0 ||
+	    expect_true(
+		    sqlparser_handle_bind_occurrences(NULL, NULL, &error) ==
+			    SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "NULL bind occurrence output should be rejected") != 0 ||
+	    expect_true(
+		    sqlparser_bind_occurrence_at(NULL, 0U, &occurrence, &error) ==
+			    SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "NULL bind occurrence view should be rejected") != 0 ||
+	    expect_true(
+		    sqlparser_bind_occurrence_at(
+			    &occurrences,
+			    0U,
+			    NULL,
+			    &error) == SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "NULL bind occurrence item output should be rejected") != 0) {
+		return 1;
+	}
+	rc = sqlparser_parse_with_options(
+		source_sql,
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "bind occurrence lifecycle source should parse") != 0) {
+		return 1;
+	}
+
+	rc = sqlparser_handle_bind_occurrences(
+		handle,
+		&occurrences,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "initial bind occurrence view should build") != 0 ||
+	    expect_true(
+		    occurrences.handle == handle &&
+			    occurrences.generation == handle->generation &&
+			    occurrences.count == 3U,
+		    "initial bind occurrence view metadata mismatch") != 0 ||
+	    expect_bind_occurrence_item(
+		    &occurrences,
+		    0U,
+		    1U,
+		    SQLPARSER_BIND_KIND_NAMED,
+		    "b1",
+		    ":b1",
+		    "first repeated named bind occurrence mismatch") != 0 ||
+	    expect_bind_occurrence_item(
+		    &occurrences,
+		    1U,
+		    2U,
+		    SQLPARSER_BIND_KIND_NAMED,
+		    "b1",
+		    ":b1",
+		    "second repeated named bind occurrence mismatch") != 0 ||
+	    expect_bind_occurrence_item(
+		    &occurrences,
+		    2U,
+		    3U,
+		    SQLPARSER_BIND_KIND_POSITIONAL,
+		    NULL,
+		    "?",
+		    "anonymous bind occurrence mismatch") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_bind_occurrence_at(
+		&occurrences,
+		occurrences.count,
+		&occurrence,
+		&error);
+	if (expect_true(
+		    rc == SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "out-of-range bind occurrence should be rejected") != 0) {
+		goto fail;
+	}
+
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "initial bind occurrence query graph should build") != 0) {
+		goto fail;
+	}
+	found_question_bind = 0;
+	for (index = 0U; index < graph.value_count; index++) {
+		memset(&value, 0, sizeof(value));
+		rc = sqlparser_query_graph_value_at(
+			&graph,
+			index,
+			&value,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "initial bind occurrence graph value should resolve") != 0) {
+			goto fail;
+		}
+		if (value.has_bind_sql && strcmp(value.bind_sql, "?") == 0) {
+			found_question_bind =
+				value.has_bind_position && value.bind_position == 3U;
+		}
+	}
+	if (expect_true(
+		    found_question_bind,
+		    "initial query graph bind position should match occurrence position") != 0) {
+		goto fail;
+	}
+
+	rc = sqlparser_handle_clone(handle, &clone, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "bind occurrence source handle should clone") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_handle_bind_occurrences(
+		clone,
+		&clone_occurrences,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "clone bind occurrence view should build independently") != 0 ||
+	    expect_true(
+		    clone_occurrences.handle == clone &&
+			    clone_occurrences.generation == clone->generation &&
+			    clone_occurrences.count == 3U,
+		    "clone bind occurrence view metadata mismatch") != 0 ||
+	    expect_bind_occurrence_item(
+		    &clone_occurrences,
+		    2U,
+		    3U,
+		    SQLPARSER_BIND_KIND_POSITIONAL,
+		    NULL,
+		    "?",
+		    "clone anonymous bind occurrence mismatch") != 0) {
+		goto fail;
+	}
+
+	generation = handle->generation;
+	rc = sqlparser_statement_set_relation_name(
+		handle,
+		0U,
+		0U,
+		NULL,
+		"dual",
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "effective no-op bind patch should succeed") != 0 ||
+	    expect_true(
+		    handle->generation == generation,
+		    "effective no-op bind patch should preserve generation") != 0 ||
+	    expect_bind_occurrence_item(
+		    &occurrences,
+		    1U,
+		    2U,
+		    SQLPARSER_BIND_KIND_NAMED,
+		    "b1",
+		    ":b1",
+		    "effective no-op bind patch should preserve the old view") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_handle_bind_occurrences(
+		handle,
+		&repeated_occurrences,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "bind occurrence view should remain readable after no-op") != 0 ||
+	    expect_true(
+		    repeated_occurrences.generation == occurrences.generation &&
+			    repeated_occurrences.count == occurrences.count,
+		    "effective no-op bind patch should preserve occurrence metadata") != 0) {
+		goto fail;
+	}
+
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = "stmt[0].select_target[0][0]";
+	patch.sql = "(";
+	patches.items = &patch;
+	patches.count = 1U;
+	generation = handle->generation;
+	rc = sqlparser_apply_patch(handle, &patches, &error);
+	if (expect_true(
+		    rc != SQLPARSER_STATUS_OK && handle->generation == generation,
+		    "failed bind patch should preserve generation") != 0 ||
+	    expect_bind_occurrence_item(
+		    &occurrences,
+		    0U,
+		    1U,
+		    SQLPARSER_BIND_KIND_NAMED,
+		    "b1",
+		    ":b1",
+		    "failed bind patch should preserve the old view") != 0) {
+		goto fail;
+	}
+
+	patch.selector = "stmt[0].select_target[0][1]";
+	patch.sql = ":b2 + :b3";
+	generation = handle->generation;
+	rc = sqlparser_apply_patch(handle, &patches, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "changed bind patch should succeed") != 0 ||
+	    expect_true(
+		    handle->generation == generation + 1UL,
+		    "changed bind patch should advance generation once") != 0) {
+		goto fail;
+	}
+	rc = sqlparser_bind_occurrence_at(
+		&occurrences,
+		0U,
+		&occurrence,
+		&error);
+	if (expect_true(
+		    rc == SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "successful bind patch should stale the previous view") != 0 ||
+	    expect_bind_occurrence_item(
+		    &clone_occurrences,
+		    1U,
+		    2U,
+		    SQLPARSER_BIND_KIND_NAMED,
+		    "b1",
+		    ":b1",
+		    "source mutation should not stale the clone view") != 0) {
+		goto fail;
+	}
+
+	rc = sqlparser_handle_bind_occurrences(
+		handle,
+		&rebuilt_occurrences,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "changed bind occurrence view should rebuild") != 0 ||
+	    expect_true(
+		    rebuilt_occurrences.handle == handle &&
+			    rebuilt_occurrences.generation == handle->generation &&
+			    rebuilt_occurrences.count == 4U,
+		    "rebuilt bind occurrence view metadata mismatch") != 0 ||
+	    expect_bind_occurrence_item(
+		    &rebuilt_occurrences,
+		    0U,
+		    1U,
+		    SQLPARSER_BIND_KIND_NAMED,
+		    "b1",
+		    ":b1",
+		    "rebuilt first bind occurrence mismatch") != 0 ||
+	    expect_bind_occurrence_item(
+		    &rebuilt_occurrences,
+		    1U,
+		    2U,
+		    SQLPARSER_BIND_KIND_NAMED,
+		    "b2",
+		    ":b2",
+		    "rebuilt second bind occurrence mismatch") != 0 ||
+	    expect_bind_occurrence_item(
+		    &rebuilt_occurrences,
+		    2U,
+		    3U,
+		    SQLPARSER_BIND_KIND_NAMED,
+		    "b3",
+		    ":b3",
+		    "rebuilt third bind occurrence mismatch") != 0 ||
+	    expect_bind_occurrence_item(
+		    &rebuilt_occurrences,
+		    3U,
+		    4U,
+		    SQLPARSER_BIND_KIND_POSITIONAL,
+		    NULL,
+		    "?",
+		    "rebuilt anonymous bind occurrence mismatch") != 0) {
+		goto fail;
+	}
+
+	memset(&graph, 0, sizeof(graph));
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "rebuilt bind occurrence query graph should build") != 0) {
+		goto fail;
+	}
+	found_question_bind = 0;
+	for (index = 0U; index < graph.value_count; index++) {
+		memset(&value, 0, sizeof(value));
+		rc = sqlparser_query_graph_value_at(
+			&graph,
+			index,
+			&value,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "rebuilt bind occurrence graph value should resolve") != 0) {
+			goto fail;
+		}
+		if (value.has_bind_sql && strcmp(value.bind_sql, "?") == 0) {
+			found_question_bind =
+				value.has_bind_position && value.bind_position == 4U;
+		}
+	}
+	if (expect_true(
+		    found_question_bind,
+		    "rebuilt query graph bind position should match occurrence position") != 0) {
+		goto fail;
+	}
+
+	sqlparser_handle_destroy(handle);
+	handle = NULL;
+	if (expect_bind_occurrence_item(
+		    &clone_occurrences,
+		    0U,
+		    1U,
+		    SQLPARSER_BIND_KIND_NAMED,
+		    "b1",
+		    ":b1",
+		    "destroying the source handle should not affect the clone view") != 0) {
+		goto fail;
+	}
+	sqlparser_handle_destroy(clone);
+	clone = NULL;
+	return 0;
+
+fail:
+	sqlparser_handle_destroy(clone);
+	sqlparser_handle_destroy(handle);
+	return 1;
+}
+
+static int test_bind_occurrence_empty_view(void)
+{
+	sqlparser_bind_occurrence_t occurrence;
+	sqlparser_bind_occurrence_view_t occurrences;
+	sqlparser_error_t error;
+	sqlparser_handle_t *handle;
+	int rc;
+
+	handle = NULL;
+	memset(&occurrence, 0, sizeof(occurrence));
+	memset(&occurrences, 0, sizeof(occurrences));
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse("SELECT 1", &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "empty bind occurrence source should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_handle_bind_occurrences(
+			    handle,
+			    &occurrences,
+			    &error),
+		    &error,
+		    "empty bind occurrence view should build") != 0 ||
+	    expect_true(
+		    occurrences.handle == handle && occurrences.count == 0U,
+		    "empty bind occurrence view metadata mismatch") != 0 ||
+	    expect_true(
+		    sqlparser_bind_occurrence_at(
+			    &occurrences,
+			    0U,
+			    &occurrence,
+			    &error) == SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "empty bind occurrence view should reject every index") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
 static int test_query_graph_bind_fields(void)
 {
 	struct bind_case {
@@ -37161,6 +37617,12 @@ int main(void)
 		return 1;
 	}
 	if (test_oracle_family_cast_bind_deparse_after_relation_patch() != 0) {
+		return 1;
+	}
+	if (test_bind_occurrence_public_lifecycle() != 0) {
+		return 1;
+	}
+	if (test_bind_occurrence_empty_view() != 0) {
 		return 1;
 	}
 	if (test_query_graph_bind_fields() != 0) {

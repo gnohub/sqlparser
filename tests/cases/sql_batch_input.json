@@ -3066,6 +3066,8 @@
     {
       "name": "insert-returning",
       "sql": "INSERT INTO public.audit_log (id, action) VALUES (1, 'login') RETURNING id, action",
+      "dialect": "postgresql",
+      "bind_occurrences": [],
       "view": {
         "statements": [
           {
@@ -3204,32 +3206,39 @@
           "action": "replace",
           "target": "/statements/0/query_graph/fields/0/selector",
           "value": "\"PatchedName\"",
-          "deparse": "INSERT INTO public.audit_log (id, action) VALUES (1, 'login') RETURNING \"PatchedName\", action"
+          "deparse": "INSERT INTO public.audit_log (id, action) VALUES (1, 'login') RETURNING \"PatchedName\", action",
+          "bind_occurrences": []
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "\"PatchedTable\"",
-          "deparse": "INSERT INTO \"PatchedTable\" (id, action) VALUES (1, 'login') RETURNING id, action"
+          "deparse": "INSERT INTO \"PatchedTable\" (id, action) VALUES (1, 'login') RETURNING id, action",
+          "bind_occurrences": []
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/targets/0/selector",
-          "value": "\"PatchedTarget\"",
-          "deparse": "INSERT INTO public.audit_log (id, action) VALUES (1, 'login') RETURNING \"PatchedTarget\", action"
+          "value": "$1 AS echoed",
+          "deparse": "INSERT INTO public.audit_log (id, action) VALUES (1, 'login') RETURNING $1 AS echoed, action",
+          "bind_occurrences": [
+            {"position": 1, "kind": "positional", "key": "1", "sql": "$1"}
+          ]
         },
         {
           "action": "insert_column",
           "target": "/statements/0/query_graph/targets/0/target_list_selector",
           "value": "\"InsertedTarget\"",
           "index": 1,
-          "deparse": "INSERT INTO public.audit_log (id, action) VALUES (1, 'login') RETURNING id, \"InsertedTarget\", action"
+          "deparse": "INSERT INTO public.audit_log (id, action) VALUES (1, 'login') RETURNING id, \"InsertedTarget\", action",
+          "bind_occurrences": []
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/dml/rows/0/selector",
           "value": "42",
-          "deparse": "INSERT INTO public.audit_log (id, action) VALUES (42, 'login') RETURNING id, action"
+          "deparse": "INSERT INTO public.audit_log (id, action) VALUES (42, 'login') RETURNING id, action",
+          "bind_occurrences": []
         }
       ]
     },
@@ -9973,7 +9982,18 @@
     },
     {
       "name": "postgresql-multi-statement-global-bind-position",
-      "sql": "UPDATE users SET a = $1 WHERE b = $2; UPDATE users SET c = $3 WHERE d = $4",
+"sql": "UPDATE users SET a = $1 WHERE b = $2; /* $90 */ UPDATE users SET c = $3 WHERE d = $4; MERGE INTO public.t USING (SELECT $4 AS id, $5 AS email) s ON t.id=s.id WHEN MATCHED THEN UPDATE SET email=s.email WHEN NOT MATCHED THEN INSERT (id,email) VALUES(s.id,s.email); CALL public.refresh_users($7, $7)",
+      "dialect": "postgresql",
+      "bind_occurrences": [
+        {"position": 1, "kind": "positional", "key": "1", "sql": "$1"},
+        {"position": 2, "kind": "positional", "key": "2", "sql": "$2"},
+        {"position": 3, "kind": "positional", "key": "3", "sql": "$3"},
+        {"position": 4, "kind": "positional", "key": "4", "sql": "$4"},
+        {"position": 5, "kind": "positional", "key": "4", "sql": "$4"},
+        {"position": 6, "kind": "positional", "key": "5", "sql": "$5"},
+        {"position": 7, "kind": "positional", "key": "7", "sql": "$7"},
+        {"position": 8, "kind": "positional", "key": "7", "sql": "$7"}
+      ],
       "view": {
         "statements": [
           {
@@ -10145,40 +10165,323 @@
                 }
               ]
             }
+          },
+          {
+            "index": 2,
+            "keyword": "merge",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0
+                  ],
+                  "relations": [
+                    0,
+                    1
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "targets": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "dml": {
+                "assignments": [
+                  {
+                    "bind_kind": 0,
+                    "kind": "field",
+                    "selector": "stmt[2].merge_assignment[0][0]",
+                    "source_field": 3,
+                    "source_target": 1,
+                    "target_field": 2
+                  }
+                ],
+                "branches": [
+                  {
+                    "assignments": [
+                      {
+                        "bind_kind": 0,
+                        "kind": "field",
+                        "selector": "stmt[2].merge_assignment[0][0]",
+                        "source_field": 3,
+                        "source_target": 1,
+                        "target_field": 2
+                      }
+                    ],
+                    "branch_kind": "when",
+                    "merge_action_kind": "update",
+                    "merge_match_kind": "matched",
+                    "ordinal": 0,
+                    "target_relation": 0
+                  },
+                  {
+                    "branch_kind": "when",
+                    "merge_action_kind": "insert",
+                    "merge_match_kind": "not_matched_by_target",
+                    "ordinal": 1,
+                    "rows": [
+                      {
+                        "bind_kind": 0,
+                        "column": 0,
+                        "kind": "field",
+                        "row": 1,
+                        "selector": "stmt[2].merge_insert_cell[1][0]",
+                        "source_field": 4,
+                        "source_target": 0
+                      },
+                      {
+                        "bind_kind": 0,
+                        "column": 1,
+                        "kind": "field",
+                        "row": 1,
+                        "selector": "stmt[2].merge_insert_cell[1][1]",
+                        "source_field": 5,
+                        "source_target": 1
+                      }
+                    ],
+                    "target_columns": [
+                      {
+                        "column": "id",
+                        "ordinal": 0,
+                        "selector": "stmt[2].merge_insert_column[1][0]"
+                      },
+                      {
+                        "column": "email",
+                        "ordinal": 1,
+                        "selector": "stmt[2].merge_insert_column[1][1]"
+                      }
+                    ],
+                    "target_list_selector": "stmt[2].insert_branch_columns[1]",
+                    "target_relation": 0
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "merge",
+                "target_relation": 0
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "id",
+                  "relation": 0,
+                  "selector": "stmt[2].name[6]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "id",
+                  "relation": 1,
+                  "selector": "stmt[2].name[8]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "email",
+                  "relation": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "email",
+                  "relation": 1,
+                  "selector": "stmt[2].name[11]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "column": "id",
+                  "relation": 1,
+                  "selector": "stmt[2].name[15]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "column": "email",
+                  "relation": 1,
+                  "selector": "stmt[2].name[17]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "on",
+                  "kind": "comparison",
+                  "left_field": 0,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 1,
+                  "value": 2
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "public",
+                  "selector": "stmt[2].relation[0]",
+                  "table": "t"
+                },
+                {
+                  "alias": "s",
+                  "block": 0,
+                  "kind": "derived",
+                  "source_block": 1
+                }
+              ],
+              "root": 0,
+              "targets": [
+                {
+                  "block": 1,
+                  "kind": "bind",
+                  "name": "id",
+                  "ordinal": 0,
+                  "selector": "stmt[2].select_target[0][0]",
+                  "target_list_selector": "stmt[2].select_targets[0]",
+                  "value": 0
+                },
+                {
+                  "block": 1,
+                  "kind": "bind",
+                  "name": "email",
+                  "ordinal": 1,
+                  "selector": "stmt[2].select_target[0][1]",
+                  "target_list_selector": "stmt[2].select_targets[0]",
+                  "value": 1
+                }
+              ],
+              "values": [
+                {
+                  "bind_key": "4",
+                  "bind_kind": 1,
+                  "bind_position": 5,
+                  "bind_sql": "$4",
+                  "block": 1,
+                  "clause": "select_list",
+                  "kind": "bind",
+                  "selector": "stmt[2].value[3]"
+                },
+                {
+                  "bind_key": "5",
+                  "bind_kind": 1,
+                  "bind_position": 6,
+                  "bind_sql": "$5",
+                  "block": 1,
+                  "clause": "select_list",
+                  "kind": "bind",
+                  "selector": "stmt[2].value[5]"
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "on",
+                  "field": 0,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 1
+                }
+              ]
+            }
+          },
+          {
+            "index": 3,
+            "keyword": "call",
+            "query_graph": {}
           }
         ]
-      },
-      "status": "final",
-      "patch": [
-        {
-          "action": "replace",
-          "target": "/statements/0/query_graph/fields/1/selector",
-          "value": "\"PatchedName\"",
-          "deparse": "UPDATE users SET a = $1 WHERE \"PatchedName\" = $2; UPDATE users SET c = $3 WHERE d = $4"
+     },
+     "status": "final",
+     "patch": [
+       {
+         "action": "replace",
+         "target": "/statements/0/query_graph/fields/1/selector",
+         "value": "\"PatchedName\"",
+          "deparse": "UPDATE users SET a = $1 WHERE \"PatchedName\" = $2; /* $90 */ UPDATE users SET c = $3 WHERE d = $4; MERGE INTO public.t USING (SELECT $4 AS id, $5 AS email) s ON t.id=s.id WHEN MATCHED THEN UPDATE SET email=s.email WHEN NOT MATCHED THEN INSERT (id,email) VALUES(s.id,s.email); CALL public.refresh_users($7, $7)",
+          "bind_occurrences": [
+            {"position": 1, "kind": "positional", "key": "1", "sql": "$1"},
+            {"position": 2, "kind": "positional", "key": "2", "sql": "$2"},
+            {"position": 3, "kind": "positional", "key": "3", "sql": "$3"},
+            {"position": 4, "kind": "positional", "key": "4", "sql": "$4"},
+            {"position": 5, "kind": "positional", "key": "4", "sql": "$4"},
+            {"position": 6, "kind": "positional", "key": "5", "sql": "$5"},
+            {"position": 7, "kind": "positional", "key": "7", "sql": "$7"},
+            {"position": 8, "kind": "positional", "key": "7", "sql": "$7"}
+          ]
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/relations/0/selector",
           "value": "\"PatchedTable\"",
-          "deparse": "UPDATE \"PatchedTable\" SET a = $1 WHERE b = $2; UPDATE users SET c = $3 WHERE d = $4"
+          "deparse": "UPDATE \"PatchedTable\" SET a = $1 WHERE b = $2; /* $90 */ UPDATE users SET c = $3 WHERE d = $4; MERGE INTO public.t USING (SELECT $4 AS id, $5 AS email) s ON t.id=s.id WHEN MATCHED THEN UPDATE SET email=s.email WHEN NOT MATCHED THEN INSERT (id,email) VALUES(s.id,s.email); CALL public.refresh_users($7, $7)",
+          "bind_occurrences": [
+            {"position": 1, "kind": "positional", "key": "1", "sql": "$1"},
+            {"position": 2, "kind": "positional", "key": "2", "sql": "$2"},
+            {"position": 3, "kind": "positional", "key": "3", "sql": "$3"},
+            {"position": 4, "kind": "positional", "key": "4", "sql": "$4"},
+            {"position": 5, "kind": "positional", "key": "4", "sql": "$4"},
+            {"position": 6, "kind": "positional", "key": "5", "sql": "$5"},
+            {"position": 7, "kind": "positional", "key": "7", "sql": "$7"},
+            {"position": 8, "kind": "positional", "key": "7", "sql": "$7"}
+          ]
         },
         {
           "action": "replace",
           "target": "/statements/0/query_graph/values/0/selector",
           "value": "42",
-          "deparse": "UPDATE users SET a = $1 WHERE b = 42; UPDATE users SET c = $3 WHERE d = $4"
+          "deparse": "UPDATE users SET a = $1 WHERE b = 42; /* $90 */ UPDATE users SET c = $3 WHERE d = $4; MERGE INTO public.t USING (SELECT $4 AS id, $5 AS email) s ON t.id=s.id WHEN MATCHED THEN UPDATE SET email=s.email WHEN NOT MATCHED THEN INSERT (id,email) VALUES(s.id,s.email); CALL public.refresh_users($7, $7)",
+          "bind_occurrences": [
+            {"position": 1, "kind": "positional", "key": "1", "sql": "$1"},
+            {"position": 2, "kind": "positional", "key": "3", "sql": "$3"},
+            {"position": 3, "kind": "positional", "key": "4", "sql": "$4"},
+            {"position": 4, "kind": "positional", "key": "4", "sql": "$4"},
+            {"position": 5, "kind": "positional", "key": "5", "sql": "$5"},
+            {"position": 6, "kind": "positional", "key": "7", "sql": "$7"},
+            {"position": 7, "kind": "positional", "key": "7", "sql": "$7"}
+          ]
         },
         {
           "action": "replace_assignment",
           "target": "/statements/0/query_graph/dml/assignments/0/selector",
           "value": "\"PatchedColumn\" = 42",
-          "deparse": "UPDATE users SET \"PatchedColumn\" = 42 WHERE b = $2; UPDATE users SET c = $3 WHERE d = $4"
+          "deparse": "UPDATE users SET \"PatchedColumn\" = 42 WHERE b = $2; /* $90 */ UPDATE users SET c = $3 WHERE d = $4; MERGE INTO public.t USING (SELECT $4 AS id, $5 AS email) s ON t.id = s.id WHEN MATCHED THEN UPDATE SET email = s.email WHEN NOT MATCHED THEN INSERT (id, email) VALUES (s.id, s.email); CALL public.refresh_users($7, $7)",
+          "bind_occurrences": [
+            {"position": 1, "kind": "positional", "key": "2", "sql": "$2"},
+            {"position": 2, "kind": "positional", "key": "3", "sql": "$3"},
+            {"position": 3, "kind": "positional", "key": "4", "sql": "$4"},
+            {"position": 4, "kind": "positional", "key": "4", "sql": "$4"},
+            {"position": 5, "kind": "positional", "key": "5", "sql": "$5"},
+            {"position": 6, "kind": "positional", "key": "7", "sql": "$7"},
+            {"position": 7, "kind": "positional", "key": "7", "sql": "$7"}
+          ]
         },
         {
           "action": "insert_assignment",
           "target": "/statements/0/query_graph/dml/assignments/0/selector",
-          "value": "\"InsertedColumn\" = 43",
-          "deparse": "UPDATE users SET \"InsertedColumn\" = 43, a = $1 WHERE b = $2; UPDATE users SET c = $3 WHERE d = $4"
+          "value": "\"InsertedColumn\" = COALESCE(CAST((SELECT $4 FROM audit_log WHERE id = $4 LIMIT $5 OFFSET $6) AS text), CASE WHEN '{}'::jsonb ? '$7' OR '{}'::jsonb ?| ARRAY['$8'] OR '{}'::jsonb ?& ARRAY[$tag$?$9$tag$] THEN $1 ELSE \"$10\"::text || $1 END) /* $11 */",
+          "deparse": "UPDATE users SET \"InsertedColumn\" = COALESCE((SELECT $4 FROM audit_log WHERE id = $4 LIMIT $5 OFFSET $6)::text, CASE WHEN '{}'::jsonb ? '$7' OR '{}'::jsonb ?| ARRAY['$8'] OR '{}'::jsonb ?& ARRAY['?$9'] THEN $1 ELSE \"$10\"::text || $1 END), a = $1 WHERE b = $2; /* $90 */ UPDATE users SET c = $3 WHERE d = $4; MERGE INTO public.t USING (SELECT $4 AS id, $5 AS email) s ON t.id = s.id WHEN MATCHED THEN UPDATE SET email = s.email WHEN NOT MATCHED THEN INSERT (id, email) VALUES (s.id, s.email); CALL public.refresh_users($7, $7)",
+          "bind_occurrences": [
+            {"position": 1, "kind": "positional", "key": "4", "sql": "$4"},
+            {"position": 2, "kind": "positional", "key": "4", "sql": "$4"},
+            {"position": 3, "kind": "positional", "key": "5", "sql": "$5"},
+            {"position": 4, "kind": "positional", "key": "6", "sql": "$6"},
+            {"position": 5, "kind": "positional", "key": "1", "sql": "$1"},
+            {"position": 6, "kind": "positional", "key": "1", "sql": "$1"},
+            {"position": 7, "kind": "positional", "key": "1", "sql": "$1"},
+            {"position": 8, "kind": "positional", "key": "2", "sql": "$2"},
+            {"position": 9, "kind": "positional", "key": "3", "sql": "$3"},
+            {"position": 10, "kind": "positional", "key": "4", "sql": "$4"},
+            {"position": 11, "kind": "positional", "key": "4", "sql": "$4"},
+            {"position": 12, "kind": "positional", "key": "5", "sql": "$5"},
+            {"position": 13, "kind": "positional", "key": "7", "sql": "$7"},
+            {"position": 14, "kind": "positional", "key": "7", "sql": "$7"}
+          ]
         }
       ]
     },

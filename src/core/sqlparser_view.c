@@ -11,6 +11,7 @@
 #include "../dialect/sqlparser_dialect_internal.h"
 #include "../dialect/sqlparser_dialect_multi_insert_internal.h"
 #include "sqlparser_ast_internal.h"
+#include "sqlparser_bind_occurrence_internal.h"
 #include "sqlparser_control_internal.h"
 
 typedef struct {
@@ -1759,44 +1760,6 @@ static size_t sqlparser_view_find_value_index(
 		return (size_t)-1;
 	}
 	return index;
-}
-
-static int sqlparser_view_text_is_digits(const char *text)
-{
-	size_t index;
-
-	if (text == NULL || text[0] == '\0') {
-		return 0;
-	}
-	for (index = 0U; text[index] != '\0'; index++) {
-		if (!isdigit((unsigned char)text[index])) {
-			return 0;
-		}
-	}
-	return 1;
-}
-
-static sqlparser_bind_kind_t sqlparser_view_bind_kind_from_public_sql(
-	const char *public_sql,
-	const char *normalized_name)
-{
-	if (public_sql == NULL || public_sql[0] == '\0') {
-		return SQLPARSER_BIND_KIND_NONE;
-	}
-	if (strcmp(public_sql, "?") == 0) {
-		return SQLPARSER_BIND_KIND_POSITIONAL;
-	}
-	if (public_sql[0] == '@' && public_sql[1] == '@') {
-		return SQLPARSER_BIND_KIND_NONE;
-	}
-	if ((public_sql[0] == ':' || public_sql[0] == '$') &&
-	    sqlparser_view_text_is_digits(normalized_name)) {
-		return SQLPARSER_BIND_KIND_POSITIONAL;
-	}
-	if (public_sql[0] == ':' || public_sql[0] == '@' || public_sql[0] == '$') {
-		return SQLPARSER_BIND_KIND_NAMED;
-	}
-	return SQLPARSER_BIND_KIND_NONE;
 }
 
 static int sqlparser_view_dialect_uses_at_binds(sqlparser_dialect_t dialect)
@@ -4326,40 +4289,6 @@ static int sqlparser_view_variable_set_is_internal_rewrite(
 	return source_name_parsed;
 }
 
-static int sqlparser_view_bind_public_is_token_start(
-	sqlparser_dialect_t dialect,
-	const char *sql,
-	size_t index)
-{
-	unsigned char next;
-
-	if (sql == NULL || sql[index] == '\0') {
-		return 0;
-	}
-	next = (unsigned char)sql[index + 1U];
-	if (sql[index] == '?') {
-		return dialect != SQLPARSER_DIALECT_POSTGRESQL &&
-			dialect != SQLPARSER_DIALECT_VASTBASE_POSTGRESQL &&
-			next != '|' &&
-			next != '&';
-	}
-	if (sql[index] == '$' && isdigit(next)) {
-		return index == 0U ||
-		       !sqlparser_public_char_is_ident(
-			       (unsigned char)sql[index - 1U]);
-	}
-	if (sql[index] == ':' &&
-	    (isalnum(next) || next == '_')) {
-		return index == 0U || sql[index - 1U] != ':';
-	}
-	if (sqlparser_view_dialect_uses_at_binds(dialect) &&
-	    sql[index] == '@' &&
-	    (isalnum(next) || next == '_')) {
-		return index == 0U || sql[index - 1U] != '@';
-	}
-	return 0;
-}
-
 static int sqlparser_view_parser_sql_has_bind(const char *sql)
 {
 	size_t index;
@@ -4375,36 +4304,16 @@ static int sqlparser_view_parser_sql_has_bind(const char *sql)
 			index = skipped;
 			continue;
 		}
-		if (sqlparser_view_bind_public_is_token_start(
-			    SQLPARSER_DIALECT_POSTGRESQL,
-			    sql,
-			    index)) {
+		if (sql[index] == '$' &&
+		    isdigit((unsigned char)sql[index + 1U]) &&
+		    (index == 0U ||
+		     !sqlparser_public_char_is_ident(
+			     (unsigned char)sql[index - 1U]))) {
 			return 1;
 		}
 		index++;
 	}
 	return 0;
-}
-
-static int sqlparser_view_public_sql_is_single_bind(
-	sqlparser_dialect_t dialect,
-	const char *sql)
-{
-	size_t index;
-
-	if (sql == NULL ||
-	    !sqlparser_view_bind_public_is_token_start(dialect, sql, 0U)) {
-		return 0;
-	}
-	if (sql[0] == '?') {
-		return sql[1] == '\0';
-	}
-	index = 1U;
-	while (sqlparser_public_char_is_ident(
-		       (unsigned char)sql[index])) {
-		index++;
-	}
-	return index > 1U && sql[index] == '\0';
 }
 
 static void sqlparser_view_bind_position_cache_release(
@@ -4485,6 +4394,7 @@ static sqlparser_status_t sqlparser_view_bind_position_append(
 	sqlparser_view_bind_position_entry_t *entries;
 	sqlparser_view_bind_position_entry_t *entry;
 	size_t capacity;
+	size_t public_length;
 	sqlparser_status_t status;
 
 	if (cache->count == cache->capacity) {
@@ -4528,9 +4438,14 @@ static sqlparser_status_t sqlparser_view_bind_position_append(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	if (!sqlparser_view_public_sql_is_single_bind(
+	public_length = strlen(entry->public_sql);
+	if (!sqlparser_bind_token_exact(
 		    handle->dialect,
-		    entry->public_sql)) {
+		    entry->public_sql,
+		    public_length,
+		    0U,
+		    public_length,
+		    NULL)) {
 		free(entry->public_sql);
 		entry->public_sql = NULL;
 	}
@@ -5065,23 +4980,6 @@ static int sqlparser_view_bind_missing_entry_compare(
 	return 0;
 }
 
-static size_t sqlparser_view_bind_public_token_end(
-	const char *sql,
-	size_t position)
-{
-	size_t end;
-
-	if (sql[position] == '?') {
-		return position + 1U;
-	}
-	end = position + 1U;
-	while (sqlparser_public_char_is_ident(
-		       (unsigned char)sql[end])) {
-		end++;
-	}
-	return end;
-}
-
 static int sqlparser_view_bind_public_token_compare(
 	const char *public_sql,
 	const char *sql,
@@ -5117,45 +5015,50 @@ static sqlparser_status_t sqlparser_view_bind_position_assign(
 	const char *sql,
 	sqlparser_error_t *out_error)
 {
+	sqlparser_bind_role_cursor_t role_cursor;
+	sqlparser_bind_scanner_t scanner;
+	sqlparser_bind_token_t token;
 	sqlparser_view_bind_missing_group_t *groups;
 	sqlparser_view_bind_missing_entry_t *missing;
 	size_t entry_index;
 	size_t group_count;
-	size_t index;
 	size_t missing_count;
 	size_t missing_index;
 	size_t missing_resolved;
 	size_t position;
 
 	position = 0U;
-	for (index = 0U; sql[index] != '\0';) {
+	sqlparser_bind_scanner_init_markers(
+		&scanner,
+		handle->dialect,
+		sql,
+		(size_t)cache->marker_start,
+		cache->count);
+	sqlparser_bind_role_cursor_init(&role_cursor, handle, sql);
+	while (sqlparser_bind_scanner_next(&scanner, &token)) {
 		size_t marker_index;
-		size_t skipped;
 
-		skipped = sqlparser_public_skip_quoted_or_comment(
-			handle->dialect,
-			sql,
-			index);
-		if (skipped != index) {
-			index = skipped;
-			continue;
-		}
-		if (!sqlparser_view_bind_public_is_token_start(
-			    handle->dialect,
-			    sql,
-			    index)) {
-			index++;
-			continue;
-		}
-		position++;
 		marker_index = sqlparser_view_bind_position_marker_at(
 			cache,
 			sql,
-			index);
+			token.start);
+		if (!sqlparser_bind_role_cursor_accept(&role_cursor, &token)) {
+			if (marker_index != (size_t)-1 &&
+			    cache->entries[marker_index].public_sql != NULL &&
+			    strcmp(
+				    cache->entries[marker_index].public_sql,
+				    "?") == 0) {
+				position++;
+				cache->entries[marker_index].position = position;
+			} else if (marker_index != (size_t)-1) {
+				cache->entries[marker_index].position = SIZE_MAX;
+			}
+			continue;
+		}
+		position++;
 		if (marker_index != (size_t)-1) {
 			cache->entries[marker_index].position = position;
 		}
-		index++;
 	}
 
 	missing_count = 0U;
@@ -5251,36 +5154,32 @@ static sqlparser_status_t sqlparser_view_bind_position_assign(
 
 	missing_resolved = 0U;
 	position = 0U;
-	for (index = 0U; sql[index] != '\0';) {
+	sqlparser_bind_scanner_init_markers(
+		&scanner,
+		handle->dialect,
+		sql,
+		(size_t)cache->marker_start,
+		cache->count);
+	sqlparser_bind_role_cursor_init(&role_cursor, handle, sql);
+	while (sqlparser_bind_scanner_next(&scanner, &token)) {
 		size_t marker_index;
-		size_t skipped;
-		size_t token_end;
+		int accepted;
 
-		skipped = sqlparser_public_skip_quoted_or_comment(
-			handle->dialect,
-			sql,
-			index);
-		if (skipped != index) {
-			index = skipped;
-			continue;
-		}
-		if (!sqlparser_view_bind_public_is_token_start(
-			    handle->dialect,
-			    sql,
-			    index)) {
-			index++;
-			continue;
-		}
-		position++;
-		token_end = sqlparser_view_bind_public_token_end(
-			sql,
-			index);
 		marker_index = sqlparser_view_bind_position_marker_at(
 			cache,
 			sql,
-			index);
+			token.start);
+		accepted = sqlparser_bind_role_cursor_accept(&role_cursor, &token);
+		if (!accepted &&
+		    !(marker_index != (size_t)-1 &&
+		      cache->entries[marker_index].public_sql != NULL &&
+		      strcmp(
+			      cache->entries[marker_index].public_sql,
+			      "?") == 0)) {
+			continue;
+		}
+		position++;
 		if (marker_index != (size_t)-1) {
-			index = token_end;
 			continue;
 		}
 		if (group_count > 0U) {
@@ -5298,8 +5197,8 @@ static sqlparser_status_t sqlparser_view_bind_position_assign(
 					sqlparser_view_bind_public_token_compare(
 						groups[middle].public_sql,
 						sql,
-						index,
-						token_end);
+						token.start,
+						token.end);
 				if (comparison < 0) {
 					low = middle + 1U;
 				} else {
@@ -5310,8 +5209,8 @@ static sqlparser_status_t sqlparser_view_bind_position_assign(
 			    sqlparser_view_bind_public_token_compare(
 				    groups[low].public_sql,
 				    sql,
-				    index,
-				    token_end) == 0 &&
+				    token.start,
+				    token.end) == 0 &&
 			    groups[low].used < groups[low].count) {
 				sqlparser_view_bind_position_entry_t *entry;
 
@@ -5325,7 +5224,6 @@ static sqlparser_status_t sqlparser_view_bind_position_assign(
 				missing_resolved++;
 			}
 		}
-		index = token_end;
 	}
 	free(groups);
 	free(missing);
@@ -5528,6 +5426,9 @@ static int sqlparser_view_bind_info_set_position(
 		}
 		entry_index =
 			cache->pointer_entries[middle].entry_index;
+		if (cache->entries[entry_index].position == SIZE_MAX) {
+			return 0;
+		}
 		if (cache->entries[entry_index].position != 0U) {
 			out_info->position =
 				cache->entries[entry_index].position;
@@ -5552,8 +5453,8 @@ static int sqlparser_view_bind_info_from_value(
 {
 	char buffer[32];
 	char *position_name;
-	const char *start;
-	size_t index;
+	sqlparser_bind_token_t token;
+	size_t public_length;
 	int status;
 
 	if (out_info == NULL) {
@@ -5570,12 +5471,22 @@ static int sqlparser_view_bind_info_from_value(
 	    value_node->param_ref == NULL) {
 		return 0;
 	}
+	public_length = strlen(public_sql);
+	if (!sqlparser_bind_token_exact(
+		    handle->dialect,
+		    public_sql,
+		    public_length,
+		    0U,
+		    public_length,
+		    &token)) {
+		return 0;
+	}
 
-	if (strcmp(public_sql, "?") == 0) {
+	if (token.key_length == 0U) {
 		if (value_node->param_ref->number <= 0) {
 			return 0;
 		}
-		out_info->kind = SQLPARSER_BIND_KIND_POSITIONAL;
+		out_info->kind = token.kind;
 		status = sqlparser_view_bind_info_set_position(
 			handle,
 			position_cache,
@@ -5583,6 +5494,7 @@ static int sqlparser_view_bind_info_from_value(
 			out_info,
 			out_error);
 		if (status <= 0) {
+			sqlparser_view_bind_info_release(out_info);
 			return status;
 		}
 		(void)snprintf(
@@ -5603,31 +5515,14 @@ static int sqlparser_view_bind_info_from_value(
 		return status;
 	}
 
-	if (public_sql[0] != ':' && public_sql[0] != '@' && public_sql[0] != '$') {
-		return 0;
-	}
-	start = public_sql + 1U;
-	while (*start == public_sql[0]) {
-		start++;
-	}
-	if (*start == '\0') {
-		return 0;
-	}
-	for (index = 0U; start[index] != '\0'; index++) {
-		if (isspace((unsigned char)start[index])) {
-			return 0;
-		}
-	}
-	out_info->name = sqlparser_strdup(start);
+	out_info->name = sqlparser_strndup(
+		public_sql + token.key_start,
+		token.key_length);
 	if (out_info->name == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
 		return -1;
 	}
-	out_info->kind = sqlparser_view_bind_kind_from_public_sql(public_sql, out_info->name);
-	if (out_info->kind == SQLPARSER_BIND_KIND_NONE) {
-		sqlparser_view_bind_info_release(out_info);
-		return 0;
-	}
+	out_info->kind = token.kind;
 	status = sqlparser_view_bind_info_set_position(
 		handle,
 		position_cache,
@@ -6065,9 +5960,6 @@ struct sqlparser_query_graph_cache {
 	size_t session_value_count;
 	size_t session_value_capacity;
 	sqlparser_graph_session_value_cache_t *session_values;
-	size_t session_bind_offset_count;
-	size_t *session_bind_offsets;
-	int session_bind_offsets_built;
 	size_t session_text_length;
 	size_t session_text_capacity;
 	char *session_text;
@@ -7579,55 +7471,6 @@ static int sqlparser_graph_session_add_item(
 	return 0;
 }
 
-static int sqlparser_graph_session_ensure_bind_offsets(
-	sqlparser_graph_build_t *build,
-	const char *sql,
-	sqlparser_error_t *out_error)
-{
-	size_t *bind_offsets;
-	size_t bind_count;
-	size_t bind_capacity;
-	size_t index;
-	size_t skipped;
-
-	if (build->cache->session_bind_offsets_built) {
-		return 0;
-	}
-	bind_offsets = NULL;
-	bind_count = 0U;
-	bind_capacity = 0U;
-	for (index = 0U; sql[index] != '\0';) {
-		skipped = sqlparser_public_skip_quoted_or_comment(
-			build->handle->dialect,
-			sql,
-			index);
-		if (skipped != index) {
-			index = skipped;
-			continue;
-		}
-		if (sqlparser_view_bind_public_is_token_start(
-			    build->handle->dialect,
-			    sql,
-			    index)) {
-			if (sqlparser_query_graph_reserve_array(
-				    (void **)&bind_offsets,
-				    &bind_capacity,
-				    bind_count + 1U,
-				    sizeof(*bind_offsets),
-				    out_error) != 0) {
-				free(bind_offsets);
-				return -1;
-			}
-			bind_offsets[bind_count++] = index;
-		}
-		index++;
-	}
-	build->cache->session_bind_offsets = bind_offsets;
-	build->cache->session_bind_offset_count = bind_count;
-	build->cache->session_bind_offsets_built = 1;
-	return 0;
-}
-
 static int sqlparser_graph_session_resolve_bind_position(
 	sqlparser_graph_build_t *build,
 	const sqlparser_dialect_session_value_t *input,
@@ -7690,26 +7533,28 @@ static int sqlparser_graph_session_resolve_bind_position(
 		return -1;
 	}
 
-	if (sqlparser_graph_session_ensure_bind_offsets(
-		    build,
-		    sql,
-		    out_error) != 0) {
+	if (sqlparser_handle_ensure_bind_occurrences(
+		    build->handle,
+		    out_error) != SQLPARSER_STATUS_OK ||
+	    build->handle->bind_occurrences == NULL) {
 		return -1;
 	}
 
 	target_offset = build->session_bind_source_start + input->source_offset;
 	left = 0U;
-	right = build->cache->session_bind_offset_count;
+	right = build->handle->bind_occurrences->count;
 	while (left < right) {
 		middle = left + (right - left) / 2U;
-		if (build->cache->session_bind_offsets[middle] < target_offset) {
+		if (build->handle->bind_occurrences->items[middle].source_start <
+		    target_offset) {
 			left = middle + 1U;
 		} else {
 			right = middle;
 		}
 	}
-	if (left < build->cache->session_bind_offset_count &&
-	    build->cache->session_bind_offsets[left] == target_offset) {
+	if (left < build->handle->bind_occurrences->count &&
+	    build->handle->bind_occurrences->items[left].source_start ==
+		    target_offset) {
 		*out_position = left + 1U;
 		return 0;
 	}
@@ -8892,7 +8737,6 @@ void sqlparser_query_graph_cache_release(sqlparser_query_graph_cache_t *cache)
 	free(cache->dml_assignments);
 	free(cache->session_items);
 	free(cache->session_values);
-	free(cache->session_bind_offsets);
 	free(cache->session_text);
 	if (cache->dml_results != NULL) {
 		for (text_index = 0U; text_index < cache->dml_results->owned_text_count; text_index++) {

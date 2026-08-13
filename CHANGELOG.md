@@ -1,5 +1,17 @@
 # 变更记录
 
+## 2.16.3
+
+### 完整 bind occurrence 读取
+
+- 新增 handle 级 `sqlparser_handle_bind_occurrences()` 与 `sqlparser_bind_occurrence_at()`，按当前整段 SQL 的实际顺序返回全部真实占位符；重复项不合并，多语句 position 连续编号。
+- occurrence 提供 `position`、`kind`、`key` 和完整 `sql`，并遵循九个方言入口各自的占位符边界。实际改写后旧 view 失效，失败或无实际变化的改写保持原 view 有效。
+- 既有 Query Graph bind 字段与调用方式保持不变，继续表达语义关联；完整列表独立提供，不写入 View JSON。
+
+### 验证
+
+- 严格增量构建、两个定向测试和九套方言矩阵通过，共 2,796 条 final case、9,049 个 patch。ABI/export 验证通过，共 154 个公开符号；两个定向 Valgrind 检查均为 `0 bytes in 0 blocks`、0 errors。
+
 ## 2.16.2
 
 ### 多项 DML 结果接收端

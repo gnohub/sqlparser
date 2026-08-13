@@ -15,9 +15,18 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 254 cases with `status = "final"`. The expected View contains a non-empty session projection in 44 cases.
+The fixture contains 254 cases with `status = "final"` and 819 independent patches. The expected View contains a non-empty session projection in 44 cases.
 
 View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
+
+## Complete Bind-Placeholder Occurrence Regression
+
+These two final cases define the handle-level occurrence contract for the project's `vastbase-mysql` compatibility entry; they do not claim official Vastbase server capabilities. For the input and every patched public SQL text, the runner checks `position`, `kind`, `key`, and `sql` item by item. Every anonymous `?` remains a separate occurrence, numbering continues across statements, and question-mark-like text in strings, ordinary comments, non-statement executable comments, and backtick identifiers is excluded.
+
+| Case | Root Occurrences | Patches | Base-Entry Relationship | Validation Focus |
+| --- | ---: | ---: | --- | --- |
+| `vastbase-mysql-multi-statement-global-bind-position` | 4 | 5 | field-for-field mirror of `mysql-multi-statement-global-bind-position` except for the case name | multi-statement SQL, a statement-level executable comment, ordinary/inline comments, and continuous anonymous positions after a complex-expression rewrite |
+| `vastbase-mysql-insert-bind-mixed-three-rows` | 9 | 3 | corresponds to the base MySQL case; this entry uses `CONVERT(?, BIGINT)` while the base entry uses `CAST(? AS SIGNED)`, with the same occurrence contract | nine anonymous occurrences across functions, conversion, and CASE in three VALUES rows; renumbering after removing the first or last bind |
 
 | ID | Case | SQL | Status |
 | --- | --- | --- | --- |

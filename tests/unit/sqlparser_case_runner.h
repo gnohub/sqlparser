@@ -149,6 +149,180 @@ static const char *sqlparser_case_required_string(
 	return text != NULL && text[0] != '\0' ? text : NULL;
 }
 
+static int sqlparser_case_validate_bind_occurrences(
+	json_t *expected,
+	char *detail,
+	size_t detail_size)
+{
+	static const char *const occurrence_keys[] = {
+		"position", "kind", "key", "sql"
+	};
+	const char *kind;
+	json_int_t position;
+	json_t *item;
+	json_t *key;
+	json_t *position_json;
+	size_t index;
+
+	if (expected == NULL) {
+		return 1;
+	}
+	if (!json_is_array(expected)) {
+		(void)snprintf(detail, detail_size, "bind_occurrences must be an array");
+		return 0;
+	}
+	json_array_foreach(expected, index, item) {
+		if (!json_is_object(item)) {
+			(void)snprintf(
+				detail,
+				detail_size,
+				"bind_occurrences[%lu] must be an object",
+				(unsigned long)index);
+			return 0;
+		}
+		if (!sqlparser_case_object_has_only(
+			    item,
+			    occurrence_keys,
+			    sizeof(occurrence_keys) / sizeof(occurrence_keys[0]),
+			    detail,
+			    detail_size)) {
+			return 0;
+		}
+		position_json = json_object_get(item, "position");
+		if (!json_is_integer(position_json) ||
+		    (position = json_integer_value(position_json)) <= 0 ||
+		    (uintmax_t)position > (uintmax_t)SIZE_MAX) {
+			(void)snprintf(
+				detail,
+				detail_size,
+				"bind_occurrences[%lu].position must be a 1-based integer",
+				(unsigned long)index);
+			return 0;
+		}
+		kind = json_string_value(json_object_get(item, "kind"));
+		if (kind == NULL ||
+		    (strcmp(kind, "named") != 0 &&
+		     strcmp(kind, "positional") != 0)) {
+			(void)snprintf(
+				detail,
+				detail_size,
+				"bind_occurrences[%lu].kind must be 'named' or 'positional'",
+				(unsigned long)index);
+			return 0;
+		}
+		key = json_object_get(item, "key");
+		if (!json_is_string(key) && !json_is_null(key)) {
+			(void)snprintf(
+				detail,
+				detail_size,
+				"bind_occurrences[%lu].key must be a string or null",
+				(unsigned long)index);
+			return 0;
+		}
+		if (!json_is_string(json_object_get(item, "sql"))) {
+			(void)snprintf(
+				detail,
+				detail_size,
+				"bind_occurrences[%lu].sql must be a string",
+				(unsigned long)index);
+			return 0;
+		}
+	}
+	return 1;
+}
+
+static int sqlparser_case_check_bind_occurrences(
+	const sqlparser_handle_t *handle,
+	json_t *expected,
+	char *detail,
+	size_t detail_size)
+{
+	sqlparser_bind_occurrence_t actual;
+	sqlparser_bind_occurrence_view_t occurrences;
+	sqlparser_bind_kind_t expected_kind;
+	sqlparser_error_t error;
+	const char *expected_key;
+	const char *expected_kind_name;
+	const char *expected_sql;
+	json_t *expected_item;
+	json_t *expected_key_json;
+	size_t expected_count;
+	size_t index;
+	size_t position;
+	int status;
+
+	if (expected == NULL) {
+		return 1;
+	}
+
+	memset(&occurrences, 0, sizeof(occurrences));
+	memset(&error, 0, sizeof(error));
+	status = sqlparser_handle_bind_occurrences(
+		handle, &occurrences, &error);
+	if (status != SQLPARSER_STATUS_OK) {
+		(void)snprintf(
+			detail,
+			detail_size,
+			"bind occurrence enumeration failed code=%d message=%.160s",
+			status,
+			error.message);
+		return 0;
+	}
+	expected_count = json_array_size(expected);
+	if (occurrences.count != expected_count) {
+		(void)snprintf(
+			detail,
+			detail_size,
+			"bind occurrence count mismatch expected=%lu actual=%lu",
+			(unsigned long)expected_count,
+			(unsigned long)occurrences.count);
+		return 0;
+	}
+
+	json_array_foreach(expected, index, expected_item) {
+		memset(&actual, 0, sizeof(actual));
+		memset(&error, 0, sizeof(error));
+		status = sqlparser_bind_occurrence_at(
+			&occurrences, index, &actual, &error);
+		if (status != SQLPARSER_STATUS_OK) {
+			(void)snprintf(
+				detail,
+				detail_size,
+				"bind_occurrences[%lu] access failed code=%d message=%.140s",
+				(unsigned long)index,
+				status,
+				error.message);
+			return 0;
+		}
+		position = (size_t)json_integer_value(
+			json_object_get(expected_item, "position"));
+		expected_kind_name = json_string_value(
+			json_object_get(expected_item, "kind"));
+		expected_kind = strcmp(expected_kind_name, "named") == 0 ?
+			SQLPARSER_BIND_KIND_NAMED :
+			SQLPARSER_BIND_KIND_POSITIONAL;
+		expected_key_json = json_object_get(expected_item, "key");
+		expected_key = json_is_null(expected_key_json) ? NULL :
+			json_string_value(expected_key_json);
+		expected_sql = json_string_value(
+			json_object_get(expected_item, "sql"));
+		if (actual.position != position ||
+		    actual.kind != expected_kind ||
+		    ((actual.key == NULL) != (expected_key == NULL)) ||
+		    (actual.key != NULL &&
+		     strcmp(actual.key, expected_key) != 0) ||
+		    actual.sql == NULL || strcmp(actual.sql, expected_sql) != 0) {
+			(void)snprintf(
+				detail,
+				detail_size,
+				"bind_occurrences[%lu] mismatch",
+				(unsigned long)index);
+			return 0;
+		}
+	}
+	return 1;
+}
+
 static int sqlparser_case_parse_dialect(
 	const char *name,
 	sqlparser_dialect_t *out_dialect)
@@ -397,11 +571,13 @@ static int sqlparser_case_validate_case(
 	size_t detail_size)
 {
 	static const char *const fixed_keys[] = {
-		"name", "sql", "view", "patch", "status"
+		"name", "sql", "view", "patch", "status", "bind_occurrences"
 	};
 	static const char *const mixed_keys[] = {
-		"name", "sql", "view", "patch", "status", "dialect"
+		"name", "sql", "view", "patch", "status", "dialect",
+		"bind_occurrences"
 	};
+	json_t *bind_occurrences;
 	json_t *patches;
 	json_t *status;
 	json_t *view;
@@ -448,6 +624,11 @@ static int sqlparser_case_validate_case(
 		(void)snprintf(detail, detail_size, "patch must be an array when present");
 		return 0;
 	}
+	bind_occurrences = json_object_get(item, "bind_occurrences");
+	if (!sqlparser_case_validate_bind_occurrences(
+		    bind_occurrences, detail, detail_size)) {
+		return 0;
+	}
 	return 1;
 }
 
@@ -462,16 +643,18 @@ static int sqlparser_case_prepare_patch(
 	size_t detail_size)
 {
 	static const char *const normal_keys[] = {
-		"action", "target", "value", "deparse"
+		"action", "target", "value", "deparse", "bind_occurrences"
 	};
 	static const char *const insert_keys[] = {
-		"action", "target", "value", "index", "deparse"
+		"action", "target", "value", "index", "deparse",
+		"bind_occurrences"
 	};
 	static const char *const pair_insert_keys[] = {
-		"action", "target", "value", "index", "name", "deparse"
+		"action", "target", "value", "index", "name", "deparse",
+		"bind_occurrences"
 	};
 	static const char *const delete_keys[] = {
-		"action", "target", "index", "deparse"
+		"action", "target", "index", "deparse", "bind_occurrences"
 	};
 	const char *action;
 	const char *expected_sql;
@@ -600,6 +783,12 @@ static int sqlparser_case_prepare_patch(
 		}
 		out_patch->index = (size_t)index;
 	}
+	if (!sqlparser_case_validate_bind_occurrences(
+		    json_object_get(patch_json, "bind_occurrences"),
+		    detail,
+		    detail_size)) {
+		return 0;
+	}
 
 	return 1;
 }
@@ -685,6 +874,13 @@ static int sqlparser_case_run_patch(
 			"patch apply failed code=%d message=%.180s",
 			status,
 			error.message);
+		goto fail;
+	}
+	if (!sqlparser_case_check_bind_occurrences(
+		    handle,
+		    json_object_get(patch_json, "bind_occurrences"),
+		    detail,
+		    sizeof(detail))) {
 		goto fail;
 	}
 
@@ -820,6 +1016,7 @@ static int sqlparser_case_run_one(
 	char detail[256];
 	json_error_t json_error;
 	json_t *actual_view;
+	json_t *expected_bind_occurrences;
 	json_t *dialect_json;
 	json_t *expected_view;
 	json_t *patch_json;
@@ -877,6 +1074,7 @@ static int sqlparser_case_run_one(
 
 	sql = json_string_value(json_object_get(item, "sql"));
 	expected_view = json_object_get(item, "view");
+	expected_bind_occurrences = json_object_get(item, "bind_occurrences");
 	patches = json_object_get(item, "patch");
 	stats->patches += patches != NULL ? json_array_size(patches) : 0U;
 
@@ -909,6 +1107,21 @@ static int sqlparser_case_run_one(
 			patches != NULL ? json_array_size(patches) : 0U;
 		case_failed = 1;
 		goto done;
+	}
+	if (!sqlparser_case_check_bind_occurrences(
+		    handle,
+		    expected_bind_occurrences,
+		    detail,
+		    sizeof(detail))) {
+		sqlparser_case_report_failure(
+			stats,
+			&context,
+			SQLPARSER_CASE_STAGE_ORIGINAL_DEPARSE,
+			SIZE_MAX,
+			NULL,
+			NULL,
+			detail);
+		case_failed = 1;
 	}
 
 	memset(&error, 0, sizeof(error));

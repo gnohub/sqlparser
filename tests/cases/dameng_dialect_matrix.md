@@ -1,10 +1,10 @@
 # 达梦方言用例矩阵
 
-本文件记录达梦方言转换层的回归用例。可执行夹具为 `tests/cases/dameng_dialect_input.json`。对每条 final 用例，runner 验证未修改 SQL 的反解析结果与输入逐字节一致、实际 View 与期望 JSON 结构相等，并独立执行每个 patch；patch 后 SQL 必须与 `patch.deparse` 逐字节一致，重新解析后再次反解析仍须一致，且 patch handle 与重新解析 handle 的 View 输出必须一致。
+本文件记录达梦方言转换层的回归用例。可执行夹具为 `tests/cases/dameng_dialect_input.json`。对每条 final 用例，runner 验证未修改 SQL 的反解析结果与输入逐字节一致、实际 View 与期望 JSON 结构相等，并独立执行每个 patch；patch 后 SQL 必须与 `patch.deparse` 逐字节一致，重新解析后再次反解析仍须一致，且 patch handle 与重新解析 handle 的 View 输出必须一致。用例提供 `bind_occurrences` 时，runner 还会对原 SQL 及每个 patch 后 SQL 的 `position`、`kind`、`key` 和原始 `sql` 逐项精确校验，重复 key 不合并，`position` 按整段 SQL 连续编号。
 
 ## 矩阵统计与 session 回归
 
-夹具包含 177 条 `status = "final"` 用例和 636 个独立 patch。34 条用例包含 statement 级 `query_graph.session`，覆盖 `D002`、`D003`、`D003Q`、`D026`、`D089` 至 `D095` 和 `DM-*` session 用例；这 34 条用例均至少包含一个非空 session item。
+夹具包含 177 条 `status = "final"` 用例和 636 个独立 patch；其中 2 条用例及其 6 个 patch 含完整 bind occurrence 断言。34 条用例包含 statement 级 `query_graph.session`，覆盖 `D002`、`D003`、`D003Q`、`D026`、`D089` 至 `D095` 和 `DM-*` session 用例；这 34 条用例均至少包含一个非空 session item。
 
 用例提供 `query_graph.session` 时，矩阵测试会随完整 View JSON 精确校验 session action、item scope、target kind、name 及 value 字段。每条用例还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
 
@@ -83,7 +83,7 @@
 | D061 | `LEFT JOIN` + `alias.*` | 限定星号、JOIN/ON 字段和 WHERE bind |
 | D062 | `LIMIT/OFFSET` + `?` 参数 | 分页子句中的位置参数 |
 | D063 | `SELECT :bind FROM dual` | DUAL 查询和 SELECT 列表中的命名 bind |
-| D064 | 多语句 `?` 参数 | 多语句输入中位置参数 `bind_position` 按整条 SQL 全局递增 |
+| D064 | 多 `UPDATE` + `MERGE` 中的匿名/命名 bind | 按全文顺序保留重复 `:merge_value`，排除注释中的 `:comment`/`?`；复杂 patch 覆盖子查询、CAST、CASE、`LIMIT/OFFSET`、命名/数字/匿名 bind 和保护区，并精确校验删除/插入后重编号 |
 | D065 | `dameng-select-derived-query-graph` | 派生表 + 输出别名 + 命名 bind | 派生表字段向内层真实表字段的 `query_graph` 来源链路 映射和 `output_name` |
 | D066 | `dameng-select-reference-024` | SELECT 参考用例 024 | 达梦/ROWNUM/复杂派生表 SELECT 示例解析和 View JSON 结构 |
 | D067 | `dameng-select-reference-026` | SELECT 参考用例 026 | 达梦/ROWNUM/复杂派生表 SELECT 示例解析和 View JSON 结构 |
@@ -187,7 +187,7 @@
 | D145 | `dameng-delete-returning-rowid-into-bind` | `DELETE ... RETURNING ROWID INTO :NAV_ROWID` | DELETE `target_before` 引用、ROWID pseudo target、sink bind、replace patch 和逐字节 deparse |
 | D146 | `dameng-merge-update-delete-where` | matched UPDATE 同时含 action `WHERE` 和附属 `DELETE WHERE` | UPDATE 分支同时输出 `condition_selector` 与 `delete_condition_selector`，DELETE 条件不生成独立 action；3 个独立 patch 覆盖 assignment、action 条件值和 DELETE 条件值替换 |
 | D151 | `dameng-insert-returning-eight-target-bind-pairs` | INSERT `RETURNING` 8 target ↔ 8 bind | 严格等长按序配对；头部原子插入 1 组 target/bind 后为 9↔9 |
-| D152 | `dameng-update-return-eight-target-bind-pairs` | UPDATE `RETURN` 8 target ↔ 8 bind | 严格等长按序配对；中部原子插入 1 组 target/bind 后为 9↔9 |
+| D152 | `dameng-update-return-eight-target-bind-pairs` | UPDATE `RETURN` 8 target ↔ 8 bind | 完整顺序枚举 SET、WHERE 及 8 个 `INTO` bind，根 SQL 共 11 个 occurrence；中部成对插入 `last_login_at` / `:out_last_login_at` 后为 12 个，并保持 9↔9 顺序对齐 |
 | D153 | `dameng-delete-returning-eight-target-bind-pairs` | DELETE `RETURNING` 8 target ↔ 8 bind | 严格等长按序配对；尾部原子插入 1 组 target/bind 后为 9↔9 |
 
 ## 层次查询回归
