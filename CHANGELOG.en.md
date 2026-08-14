@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.16.4
+
+### Assignment-List Selection and Rewrite
+
+- Root `INSERT` conflict-update lists use `stmt[S].assignment[A]`, while nested `UPDATE` assignment lists use `stmt[S].assignment[D][A]`. Assignment insertion, full replacement, and deletion support both targets.
+- MySQL and Vastbase-MySQL cover `ON DUPLICATE KEY UPDATE`; PostgreSQL and Vastbase-PostgreSQL cover `ON CONFLICT DO UPDATE` and nested `UPDATE` statements in data-modifying CTEs; SQL Server and Vastbase-SQLServer cover nested `UPDATE` statements with `OUTPUT`.
+- The View JSON schema, public C declarations, and resource-ownership rules are unchanged. Assignment-selector output is expanded, and some MySQL conflict-update items now use assignment selectors instead of their previous value selectors. Paired column/value mutation for `INSERT ... SET` is an existing capability; this release adds regression coverage only.
+
+### Cases and Validation
+
+- The full remote `make test` suite passed. The six affected dialect matrices cover 2,158 final cases and 6,798 patches. Targeted Valgrind checks for the PostgreSQL, MySQL, and SQL Server base-dialect matrices each reported `0 bytes in 0 blocks` and zero errors.
+- Ten final cases and 28 patches were added. The nine fixtures now contain 2,806 final cases and 9,077 patches.
+
 ## 2.16.3
 
 ### Complete Bind Occurrence Access

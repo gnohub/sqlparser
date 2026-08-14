@@ -4,7 +4,7 @@ This file records regression cases for the SQL Server dialect conversion layer. 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 624 cases with `status = "final"` and 1867 independent
+The fixture contains 625 cases with `status = "final"` and 1870 independent
 patches. Two cases and their 6 patches contain complete bind-occurrence
 assertions. A non-empty
 `query_graph.session` projection appears in 91 expected Views, covering `S044`
@@ -110,6 +110,12 @@ explicit sink-column list are also outside this paired-mutation boundary.
 | SH425 | `sqlserver-insert-output-into-eight-target-sink-column-pairs` | INSERT with 8 OUTPUT targets ↔ 8 explicit sink columns | atomic insertion at the head produces 9↔9 while View and deparse preserve ordinal pairing |
 | SH426 | `sqlserver-update-output-into-eight-target-sink-column-pairs` | UPDATE with 8 OUTPUT targets ↔ 8 explicit sink columns | the root enumerates only the three SET/WHERE binds and does not misclassify `INTO @profile_audit`; paired middle insertion of an OUTPUT expression with duplicate `@audit_tag` and anonymous `?` produces six occurrences while preserving 9↔9 order |
 | SH427 | `sqlserver-delete-output-into-eight-target-sink-column-pairs` | DELETE with 8 OUTPUT targets ↔ 8 explicit sink columns | atomic insertion at the tail produces 9↔9 while View and deparse preserve ordinal pairing |
+
+## Nested UPDATE Assignment-List Regression
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| SH428 | `sqlserver-nested-update-output-assignment-contract` | an `UPDATE` with `OUTPUT` nested in `INSERT ... SELECT` | `assignment[D][A]` addresses the two D1 assignments; insertion, full replacement, and deletion preserve nesting and `OUTPUT` |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 

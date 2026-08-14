@@ -15,7 +15,7 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 254 cases with `status = "final"` and 819 independent patches. The expected View contains a non-empty session projection in 44 cases.
+The fixture contains 256 cases with `status = "final"` and 824 independent patches. The expected View contains a non-empty session projection in 44 cases.
 
 View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
 
@@ -129,6 +129,7 @@ These two final cases define the handle-level occurrence contract for the projec
 | `VM102` | `vastbase-mysql-create-table-partition-options` | CREATE TABLE `users` (`id` INT, `created_at` DATE) ENGINE=InnoDB PARTITION BY HASH(`id`) PARTITIONS 4 | covered |
 | `VM103` | `vastbase-mysql-create-temporary-table-options` | CREATE TEMPORARY TABLE IF NOT EXISTS `tmp_users` (`id` INT VISIBLE, `token` VARCHAR(64) COMMENT 'session token') ENGINE=MEMORY DEFAULT CHARACTER SET=utf8mb4 | covered |
 | `VM104-VM106` | INSERT extensions | ON DUPLICATE KEY UPDATE, row aliases, and INSERT SET | covered |
+| `VM106A` | `vastbase-mysql-insert-set-paired-column-patch` | paired columns and values in `INSERT ... SET` | `insert_columns` atomically inserts and deletes a same-position column/value pair |
 | `VM107-VM109` | DELETE/UPDATE extensions | aliased delete targets, ORDER BY, and LIMIT | covered |
 | `VM110-VM115` | locking reads, STRAIGHT_JOIN, and index hints | parsing, common relation/field graph, and public SQL restoration | covered |
 | `VM116-VM118` | index-hint positions and list boundaries | comma table lists, multiple indexes, and empty USE INDEX | covered |
@@ -167,6 +168,7 @@ These two final cases define the handle-level occurrence contract for the projec
 | `VMU004B` | `vastbase-mysql-insert-high-priority-ignore-select` | INSERT HIGH_PRIORITY IGNORE INTO `users` (`id`) SELECT `id` FROM `backup_users` | covered |
 | `VMU004C` | `vastbase-mysql-insert-ignore-on-duplicate-key` | INSERT IGNORE INTO users(id, phone) VALUES (?, ?) ON DUPLICATE KEY UPDATE phone = ? | covered |
 | `VMU005` | `vastbase-mysql-on-duplicate-key` | INSERT INTO users(id, phone) VALUES (?, ?) ON DUPLICATE KEY UPDATE phone = ? | covered |
+| `VMU005A` | `vastbase-mysql-on-duplicate-key-assignment-patch` | two-assignment `ON DUPLICATE KEY UPDATE` | ordered root `assignment[A]` selectors; insertion, full replacement, and deletion retain compatibility syntax |
 | `VMU006` | `vastbase-mysql-replace-into` | REPLACE INTO `users` (`id`) VALUES (1) | covered |
 | `VMU006A` | `vastbase-mysql-replace-low-priority-multi-row` | REPLACE LOW_PRIORITY INTO `users` (`id`, `phone`) VALUES (?, ?), (?, ?) | covered |
 | `VMU006B` | `vastbase-mysql-replace-delayed-select` | REPLACE DELAYED INTO `users` (`id`, `phone`) SELECT `id`, `phone` FROM `backup_users` WHERE `active` = ? | covered |

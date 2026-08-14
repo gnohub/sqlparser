@@ -15,7 +15,7 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 604 cases with `status = "final"` and 1850 independent
+The fixture contains 605 cases with `status = "final"` and 1853 independent
 patches. The expected View contains a non-empty session projection in 75 cases.
 
 View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
@@ -108,6 +108,12 @@ also outside this paired-mutation boundary.
 | VSH424 | `vastbase-sqlserver-insert-output-into-eight-target-sink-column-pairs` | INSERT with 8 OUTPUT targets ↔ 8 explicit sink columns | atomic insertion at the head produces 9↔9 while View and deparse preserve ordinal pairing |
 | VSH425 | `vastbase-sqlserver-update-output-into-eight-target-sink-column-pairs` | UPDATE with 8 OUTPUT targets ↔ 8 explicit sink columns | atomic insertion in the middle produces 9↔9 while View and deparse preserve ordinal pairing |
 | VSH426 | `vastbase-sqlserver-delete-output-into-eight-target-sink-column-pairs` | DELETE with 8 OUTPUT targets ↔ 8 explicit sink columns | atomic insertion at the tail produces 9↔9 while View and deparse preserve ordinal pairing |
+
+## Nested UPDATE Assignment-List Regression
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| VSH427 | `vastbase-sqlserver-nested-update-output-assignment-contract` | an `UPDATE` with `OUTPUT` nested in `INSERT ... SELECT` | `assignment[D][A]` addresses the two D1 assignments; insertion, full replacement, and deletion preserve nesting and `OUTPUT` |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 

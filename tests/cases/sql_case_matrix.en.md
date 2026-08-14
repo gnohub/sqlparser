@@ -4,7 +4,7 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 214 cases with `status = "final"` and 723 independent
+The fixture contains 216 cases with `status = "final"` and 729 independent
 patches. Two cases and their 10 patches contain complete bind-occurrence
 assertions. Expected View JSON contains
 statement-level `query_graph.session` output in 32 cases: 5 schema/session
@@ -193,6 +193,8 @@ and value fields are all part of that comparison.
 | P164 | `postgresql-data-modifying-cte-update-compound-rhs` | a compound assignment RHS in an UPDATE CTE with unaliased relations | `rhs_fields` and `rhs_values` attribute the source field, bind, and literal to the assignment; source and target relation patches propagate through RHS, WHERE, and RETURNING qualifiers while outer-target insertion remains independent |
 | P165 | `postgresql-on-conflict-compound-rhs` | a compound assignment RHS in `ON CONFLICT DO UPDATE` | the `EXCLUDED` field, target-table field, bind, and literal belong to one assignment; the target alias remains stable after relation replacement, and RETURNING target insertion is verified exactly |
 | P166 | `postgresql-merge-matched-delete-action` | conditional matched DELETE and matched UPDATE actions followed by a not-matched INSERT | DELETE remains an independent `WHEN MATCHED ... THEN DELETE` branch; all three branches retain their absolute order and selectors; 3 independent patches cover the DELETE branch condition, UPDATE assignment, and INSERT cell |
+| P167 | `postgresql-on-conflict-assignment-list-contract` | root `INSERT ... ON CONFLICT DO UPDATE SET` with two assignments | ordered `assignment[A]` selectors address conflict-update items; insertion, full replacement, and deletion deparse exactly |
+| P168 | `postgresql-data-modifying-cte-update-assignment-list-contract` | nested two-assignment `UPDATE` in a data-modifying CTE | `assignment[D][A]` uses the zero-based DML ordinal; all three assignment patches preserve `RETURNING` and the outer query |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 

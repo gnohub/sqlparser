@@ -15,7 +15,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 199 条 `status = "final"` 用例和 652 个独立 patch，其中 35 条用例的期望 View 包含非空 session 投影。
+夹具包含 201 条 `status = "final"` 用例和 658 个独立 patch，其中 35 条用例的期望 View 包含非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -179,6 +179,8 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | `VPG148` | `vastbase-postgresql-data-modifying-cte-two-deletes-side-effect` | 无 `RETURNING` 的 DELETE CTE + 有 `RETURNING` 的同级 DELETE CTE | 两个 SELECT-root DML 按声明顺序保持独立根；D0 无结果但保留副作用语义，D1 单独提供结果块；2 个独立 patch 验证 D1 结果列表 |
 | `VPG149` | `vastbase-postgresql-data-modifying-cte-sibling-lineage` | INSERT CTE 的 `RETURNING` 驱动同级 UPDATE CTE | D0 INSERT 与 D1 UPDATE 保持独立根和独立结果块，UPDATE 赋值通过 `source_field`/`source_target` 指向 INSERT 的 `payload`；3 个独立 patch 覆盖两个 DML ordinal 及结果项插入 |
 | `VPG150` | `vastbase-postgresql-data-modifying-cte-merge-returning` | 带 UPDATE、INSERT 分支及 `RETURNING` 的 MERGE CTE | MERGE D0 的 target/source relation、ON 谓词、分支赋值与 INSERT 行、结果块、`RETURNING t.*` 的 `target_after` 来源及外层 CTE `source_block`；2 个独立 patch 覆盖结果项替换与插入 |
+| `VPG151` | `vastbase-postgresql-on-conflict-assignment-list-contract` | 根 `INSERT ... ON CONFLICT DO UPDATE SET` 双赋值 | `assignment[A]` 按序定位冲突更新项；插入、整项替换和删除 3 个 patch 精确反解析 |
+| `VPG152` | `vastbase-postgresql-data-modifying-cte-update-assignment-list-contract` | data-modifying CTE 中的嵌套 `UPDATE` 双赋值 | `assignment[D][A]` 以 0 基 DML 序号定位嵌套赋值；3 个 assignment patch 保持 `RETURNING` 和外层查询 |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 

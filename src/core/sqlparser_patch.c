@@ -3612,6 +3612,7 @@ static sqlparser_status_t sqlparser_patch_assignment_source_span(
 	PgQuery__MergeWhenClause *when_clause;
 	PgQuery__Node *target_node;
 	PgQuery__Node *returning_node;
+	PgQuery__Node *statement_node;
 	PgQuery__Node *when_node;
 	PgQuery__Node **target_list;
 	PgQuery__ResTarget *target;
@@ -3673,6 +3674,24 @@ static sqlparser_status_t sqlparser_patch_assignment_source_span(
 	merge_stmt = NULL;
 	when_clause = NULL;
 	if (!merge_assignment) {
+		if (selector->row_index != 0U) {
+			return SQLPARSER_STATUS_OK;
+		}
+		statement_node = NULL;
+		status = sqlparser_get_statement_node(
+			handle,
+			selector->statement_index,
+			&statement_node,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		if (statement_node == NULL ||
+		    statement_node->node_case !=
+			    PG_QUERY__NODE__NODE_UPDATE_STMT ||
+		    statement_node->update_stmt == NULL) {
+			return SQLPARSER_STATUS_OK;
+		}
 		status = sqlparser_get_update_stmt(
 			handle,
 			selector->statement_index,
@@ -7754,6 +7773,51 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit(
 			&source_end,
 			&span_supported,
 			out_error);
+		replacement = rendered;
+		replacement_length = strlen(rendered);
+	} else if (patch->op == SQLPARSER_PATCH_REPLACE &&
+		   (selector.kind == SQLPARSER_SELECTOR_KIND_ASSIGNMENT ||
+		    selector.kind ==
+			    SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT) &&
+		   patch->sql != NULL) {
+		sqlparser_selector_t value_selector;
+
+		status = sqlparser_assignment_value_node_index_by_selector(
+			handle,
+			&selector,
+			&node_index,
+			out_error);
+		if (status == SQLPARSER_STATUS_UNSUPPORTED) {
+			sqlparser_error_clear(out_error);
+			return SQLPARSER_STATUS_OK;
+		}
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		status = sqlparser_patch_render_structured_sql(
+			handle,
+			patch,
+			patch->sql,
+			&rendered,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		memset(&value_selector, 0, sizeof(value_selector));
+		value_selector.kind = SQLPARSER_SELECTOR_KIND_VALUE;
+		value_selector.statement_index = selector.statement_index;
+		value_selector.item_index = node_index;
+		status = sqlparser_patch_value_source_span(
+			handle,
+			&value_selector,
+			&source_start,
+			&source_end,
+			&span_supported,
+			out_error);
+		if (!sqlparser_patch_unsigned_integer_sql(rendered) &&
+		    !sqlparser_patch_bind_sql(handle, rendered)) {
+			span_supported = 0;
+		}
 		replacement = rendered;
 		replacement_length = strlen(rendered);
 	} else if (patch->op == SQLPARSER_PATCH_REPLACE &&

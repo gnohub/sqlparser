@@ -125,7 +125,7 @@ The SQL Server support boundary is defined by:
 - `tests/unit/test_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The SQL Server matrix contains 624 cases, all with `status = "final"`, and 1867
+The SQL Server matrix contains 625 cases, all with `status = "final"`, and 1870
 independent patches. Three cases respectively verify INSERT, UPDATE, and DELETE
 with 8↔8 OUTPUT-target/sink-column pairs and atomic head, middle, and tail
 insertions that produce 9↔9 pairs.

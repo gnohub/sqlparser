@@ -15,7 +15,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 604 条 `status = "final"` 用例和 1850 个独立 patch，其中 75 条用例的期望 View 包含非空 session 投影。
+夹具包含 605 条 `status = "final"` 用例和 1853 个独立 patch，其中 75 条用例的期望 View 包含非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -92,6 +92,12 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | VSH424 | `vastbase-sqlserver-insert-output-into-eight-target-sink-column-pairs` | INSERT 8 OUTPUT target ↔ 8 显式 sink column | 头部原子插入 1 组后为 9↔9，View 与反解析保持按序配对 |
 | VSH425 | `vastbase-sqlserver-update-output-into-eight-target-sink-column-pairs` | UPDATE 8 OUTPUT target ↔ 8 显式 sink column | 中部原子插入 1 组后为 9↔9，View 与反解析保持按序配对 |
 | VSH426 | `vastbase-sqlserver-delete-output-into-eight-target-sink-column-pairs` | DELETE 8 OUTPUT target ↔ 8 显式 sink column | 尾部原子插入 1 组后为 9↔9，View 与反解析保持按序配对 |
+
+## 嵌套 UPDATE 赋值列表回归
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| VSH427 | `vastbase-sqlserver-nested-update-output-assignment-contract` | `INSERT ... SELECT` 内嵌带 `OUTPUT` 的 `UPDATE` | `assignment[D][A]` 定位 D1 双赋值；插入、整项替换和删除 3 个 patch 保持嵌套与 `OUTPUT` |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 

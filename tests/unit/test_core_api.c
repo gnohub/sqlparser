@@ -9801,6 +9801,50 @@ static int test_selector_parse_and_format(void)
 	memset(&selector, 0, sizeof(selector));
 
 	rc = sqlparser_selector_parse(
+		"stmt[2].assignment[0][4]",
+		&selector,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "nested assignment selector should parse") != 0 ||
+	    expect_true(
+		    selector.kind == SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
+			    selector.statement_index == 2U &&
+			    selector.row_index == 1U &&
+			    selector.item_index == 4U,
+		    "nested assignment selector coordinates mismatch") != 0 ||
+	    expect_status_ok(
+		    sqlparser_selector_format(
+			    &selector,
+			    &selector_text,
+			    &error),
+		    &error,
+		    "nested assignment selector should format") != 0 ||
+	    expect_true(
+		    strcmp(
+			    selector_text,
+			    "stmt[2].assignment[0][4]") == 0,
+		    "nested assignment selector should round-trip") != 0) {
+		sqlparser_string_free(selector_text);
+		return 1;
+	}
+	sqlparser_string_free(selector_text);
+	selector_text = NULL;
+	memset(&selector, 0, sizeof(selector));
+
+	rc = sqlparser_selector_parse(
+		"stmt[2].assignment[0][4][1]",
+		&selector,
+		&error);
+	if (expect_true(
+		    rc == SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "assignment selector with an extra coordinate must fail") != 0) {
+		return 1;
+	}
+	memset(&selector, 0, sizeof(selector));
+
+	rc = sqlparser_selector_parse(
 		"stmt[2].merge_assignment[3][4]",
 		&selector,
 		&error);
@@ -22743,8 +22787,14 @@ static int test_postgresql_on_conflict_expression_rhs_leaves(void)
 				    assignment.bind_kind == SQLPARSER_BIND_KIND_NONE &&
 				    assignment.has_bind_sql == 0 &&
 				    assignment.has_bind_position == 0 &&
-				    assignment.has_selector == 0,
+				    assignment.has_selector != 0 &&
+				    assignment.selector.kind ==
+					    SQLPARSER_SELECTOR_KIND_ASSIGNMENT,
 			    "ON CONFLICT expression assignment metadata mismatch") != 0 ||
+		    expect_selector_equals(
+			    &assignment.selector,
+			    "stmt[0].assignment[0]",
+			    "ON CONFLICT expression assignment selector mismatch") != 0 ||
 		    expect_graph_span_indices(
 			    &graph,
 			    assignment.rhs_fields,

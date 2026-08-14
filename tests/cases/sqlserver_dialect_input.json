@@ -1,6 +1,193 @@
 {
   "items": [
     {
+      "name": "sqlserver-nested-update-output-assignment-contract",
+      "sql": "INSERT INTO audit(a) SELECT a FROM (UPDATE t SET a = @a, b = @b OUTPUT INSERTED.a) AS u",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "insert",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ],
+                  "targets": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    2
+                  ]
+                },
+                {
+                  "kind": "dml_result",
+                  "targets": [
+                    1
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "audit",
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 1,
+                  "kind": "derived",
+                  "alias": "u",
+                  "source_block": 3
+                },
+                {
+                  "block": 2,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[2]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "a",
+                  "field": 0,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 3,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "a",
+                  "field": 3,
+                  "selector": "stmt[0].dml_result_target[1][0][0]",
+                  "target_list_selector": "stmt[0].dml_result_targets[1][0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "a",
+                  "target": 0,
+                  "selector": "stmt[0].name[2]"
+                },
+                {
+                  "block": 2,
+                  "clause": "set_list",
+                  "relation": 2,
+                  "column": "a"
+                },
+                {
+                  "block": 2,
+                  "clause": "set_list",
+                  "relation": 2,
+                  "column": "b"
+                },
+                {
+                  "block": 3,
+                  "clause": "dml_result",
+                  "relation": 2,
+                  "column": "a",
+                  "target": 1,
+                  "selector": "stmt[0].name[10]"
+                }
+              ],
+              "dml": {
+                "kind": "insert",
+                "insert_mode": "select",
+                "target_relation": 0,
+                "target_columns": [
+                  {
+                    "ordinal": 0,
+                    "column": "a"
+                  }
+                ],
+                "children": [
+                  {
+                    "kind": "update",
+                    "insert_mode": "unknown",
+                    "target_relation": 2,
+                    "assignments": [
+                      {
+                        "target_field": 1,
+                        "kind": "bind",
+                        "bind_key": "a",
+                        "bind_kind": 2,
+                        "bind_sql": "@a",
+                        "bind_position": 1,
+                        "selector": "stmt[0].assignment[1][0]"
+                      },
+                      {
+                        "target_field": 2,
+                        "kind": "bind",
+                        "bind_key": "b",
+                        "bind_kind": 2,
+                        "bind_sql": "@b",
+                        "bind_position": 2,
+                        "selector": "stmt[0].assignment[1][1]"
+                      }
+                    ],
+                    "result_channels": [
+                      {
+                        "kind": "client",
+                        "block": 3,
+                        "references": [
+                          {
+                            "target": 1,
+                            "field": 3,
+                            "kind": "target_after",
+                            "relation": 2
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "source_block": 1
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "insert_assignment",
+          "target": "/statements/0/query_graph/dml/children/0/assignments/0/selector",
+          "value": "c = @c",
+          "deparse": "INSERT INTO audit (a) SELECT a FROM (UPDATE t SET c = @c, a = @a, b = @b OUTPUT INSERTED.a) AS u"
+        },
+        {
+          "action": "replace_assignment",
+          "target": "/statements/0/query_graph/dml/children/0/assignments/0/selector",
+          "value": "a = @new_a",
+          "deparse": "INSERT INTO audit (a) SELECT a FROM (UPDATE t SET a = @new_a, b = @b OUTPUT INSERTED.a) AS u"
+        },
+        {
+          "action": "delete_assignment",
+          "target": "/statements/0/query_graph/dml/children/0/assignments/1/selector",
+          "deparse": "INSERT INTO audit (a) SELECT a FROM (UPDATE t SET a = @a OUTPUT INSERTED.a) AS u"
+        }
+      ]
+    },
+    {
       "name": "sqlserver-nested-merge-insert-selector-uniqueness",
       "sql": "INSERT INTO dbo.MergeAudit(id1, id2) SELECT a.id, b.id FROM (MERGE dbo.T1 AS t1 USING (SELECT @id1 AS id, @v1 AS v, @f1 AS flag) AS s1 ON t1.id=s1.id WHEN MATCHED THEN UPDATE SET v=s1.v WHEN NOT MATCHED AND s1.flag=1 THEN INSERT(id,v) VALUES(s1.id,s1.v) OUTPUT INSERTED.id) AS a CROSS JOIN (MERGE dbo.T2 AS t2 USING (SELECT @id2 AS id, @v2 AS v, @f2 AS flag) AS s2 ON t2.id=s2.id WHEN MATCHED THEN UPDATE SET v=s2.v WHEN NOT MATCHED AND s2.flag=2 THEN INSERT(id,v) VALUES(s2.id,s2.v) OUTPUT INSERTED.id) AS b",
       "view": {

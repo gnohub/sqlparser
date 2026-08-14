@@ -56,7 +56,112 @@ typedef struct {
 	PgQuery__Node ***items;
 	size_t *count;
 	size_t assignment_index;
+	PgQuery__UpdateStmt *update_stmt;
 } sqlparser_assignment_list_ref_t;
+
+static sqlparser_status_t sqlparser_get_insert_assignment_list_ref(
+	PgQuery__InsertStmt *insert_stmt,
+	sqlparser_assignment_list_ref_t *out_ref,
+	sqlparser_error_t *out_error)
+{
+	if (insert_stmt == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "INSERT statement is missing");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	if (insert_stmt->on_conflict_clause == NULL ||
+	    insert_stmt->on_conflict_clause->action !=
+		    PG_QUERY__ON_CONFLICT_ACTION__ONCONFLICT_UPDATE) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "INSERT statement does not have a conflict UPDATE assignment list");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	out_ref->items = &insert_stmt->on_conflict_clause->target_list;
+	out_ref->count = &insert_stmt->on_conflict_clause->n_target_list;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_get_root_assignment_list_ref(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	sqlparser_assignment_list_ref_t *out_ref,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__Node *statement;
+	sqlparser_status_t status;
+
+	statement = NULL;
+	status = sqlparser_get_statement_node(
+		handle, statement_index, &statement, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (statement == NULL) {
+		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "statement node is missing");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	if (statement->node_case == PG_QUERY__NODE__NODE_UPDATE_STMT) {
+		if (statement->update_stmt == NULL) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "UPDATE statement is missing");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		out_ref->items = &statement->update_stmt->target_list;
+		out_ref->count = &statement->update_stmt->n_target_list;
+		out_ref->update_stmt = statement->update_stmt;
+		return SQLPARSER_STATUS_OK;
+	}
+	if (statement->node_case == PG_QUERY__NODE__NODE_INSERT_STMT) {
+		return sqlparser_get_insert_assignment_list_ref(
+			statement->insert_stmt, out_ref, out_error);
+	}
+	sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "statement does not have an UPDATE assignment list");
+	return SQLPARSER_STATUS_UNSUPPORTED;
+}
+
+static sqlparser_status_t sqlparser_get_dml_assignment_list_ref(
+	sqlparser_handle_t *handle,
+	size_t statement_index,
+	size_t dml_index,
+	sqlparser_assignment_list_ref_t *out_ref,
+	sqlparser_error_t *out_error)
+{
+	ProtobufCMessage *message;
+	sqlparser_graph_dml_kind_t kind;
+	sqlparser_status_t status;
+
+	message = NULL;
+	kind = (sqlparser_graph_dml_kind_t)0;
+	status = sqlparser_get_dml_result_message(
+		handle,
+		statement_index,
+		dml_index,
+		&kind,
+		&message,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (kind == SQLPARSER_GRAPH_DML_UPDATE) {
+		if (message == NULL ||
+		    message->descriptor != &pg_query__update_stmt__descriptor) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "UPDATE DML metadata does not match the statement AST");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		out_ref->update_stmt = (PgQuery__UpdateStmt *)message;
+		out_ref->items = &out_ref->update_stmt->target_list;
+		out_ref->count = &out_ref->update_stmt->n_target_list;
+		return SQLPARSER_STATUS_OK;
+	}
+	if (kind == SQLPARSER_GRAPH_DML_INSERT) {
+		if (message == NULL ||
+		    message->descriptor != &pg_query__insert_stmt__descriptor) {
+			sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INTERNAL_ERROR, "INSERT DML metadata does not match the statement AST");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		return sqlparser_get_insert_assignment_list_ref(
+			(PgQuery__InsertStmt *)message, out_ref, out_error);
+	}
+	sqlparser_error_set_message(out_error, SQLPARSER_STATUS_UNSUPPORTED, "DML assignment selector does not target an UPDATE or INSERT conflict action");
+	return SQLPARSER_STATUS_UNSUPPORTED;
+}
 
 static sqlparser_status_t sqlparser_get_assignment_list_ref(
 	sqlparser_handle_t *handle,
@@ -64,7 +169,6 @@ static sqlparser_status_t sqlparser_get_assignment_list_ref(
 	sqlparser_assignment_list_ref_t *out_ref,
 	sqlparser_error_t *out_error)
 {
-	PgQuery__UpdateStmt *update_stmt;
 	PgQuery__MergeStmt *merge_stmt;
 	PgQuery__Node *when_node;
 	PgQuery__MergeWhenClause *when_clause;
@@ -83,14 +187,22 @@ static sqlparser_status_t sqlparser_get_assignment_list_ref(
 	}
 
 	if (selector->kind == SQLPARSER_SELECTOR_KIND_ASSIGNMENT) {
-		update_stmt = NULL;
-		status = sqlparser_get_update_stmt(handle, selector->statement_index, &update_stmt, out_error);
+		out_ref->assignment_index = selector->item_index;
+		status = selector->row_index == 0U ?
+			sqlparser_get_root_assignment_list_ref(
+				handle,
+				selector->statement_index,
+				out_ref,
+				out_error) :
+			sqlparser_get_dml_assignment_list_ref(
+				handle,
+				selector->statement_index,
+				selector->row_index - 1U,
+				out_ref,
+				out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
 		}
-		out_ref->items = &update_stmt->target_list;
-		out_ref->count = &update_stmt->n_target_list;
-		out_ref->assignment_index = selector->item_index;
 		return SQLPARSER_STATUS_OK;
 	}
 
@@ -1321,7 +1433,6 @@ sqlparser_status_t sqlparser_assignment_set_full_sql_by_selector(
 {
 	sqlparser_assignment_list_ref_t list;
 	PgQuery__ResTarget *target;
-	PgQuery__UpdateStmt *update_stmt;
 	PgQuery__Node *replacement;
 	PgQuery__Node *old_node;
 	char *parser_sql;
@@ -1334,7 +1445,6 @@ sqlparser_status_t sqlparser_assignment_set_full_sql_by_selector(
 	sqlparser_error_clear(out_error);
 	memset(&list, 0, sizeof(list));
 	target = NULL;
-	update_stmt = NULL;
 	replacement = NULL;
 	old_node = NULL;
 	parser_sql = NULL;
@@ -1385,27 +1495,14 @@ sqlparser_status_t sqlparser_assignment_set_full_sql_by_selector(
 		sqlparser_handle_discard_dialect_state(handle, dialect_state);
 		return status;
 	}
-	if (selector->kind == SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
+	if (list.update_stmt != NULL &&
 	    sqlparser_dialect_is_mysql_compatible(handle->dialect)) {
-		status = sqlparser_get_update_stmt(
-			handle,
-			selector->statement_index,
-			&update_stmt,
-			out_error);
-		if (status != SQLPARSER_STATUS_OK) {
-			sqlparser_free_proto_node(replacement);
-			sqlparser_handle_sweep_identifier_spellings(handle);
-			sqlparser_handle_discard_dialect_state(
-				handle,
-				dialect_state);
-			return status;
-		}
 		reorient_result =
 			sqlparser_mysql_reorient_replaced_update_join(
-			dialect_state,
-			selector->statement_index,
-			update_stmt,
-			replacement->res_target);
+				dialect_state,
+				selector->statement_index,
+				list.update_stmt,
+				replacement->res_target);
 		if (reorient_result < 0) {
 			sqlparser_free_proto_node(replacement);
 			sqlparser_handle_sweep_identifier_spellings(handle);

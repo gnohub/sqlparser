@@ -327,9 +327,27 @@ sqlparser_status_t sqlparser_selector_parse(
 		out_selector->kind = SQLPARSER_SELECTOR_KIND_CLAUSE;
 		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
 	} else if (strncmp(text + offset, "assignment", 10) == 0) {
+		size_t first_index;
+
 		offset += 10U;
 		out_selector->kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
 		status = sqlparser_selector_parse_index(text, &offset, &out_selector->item_index, out_error);
+		if (status == SQLPARSER_STATUS_OK && text[offset] == '[') {
+			first_index = out_selector->item_index;
+			if (first_index == SIZE_MAX) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INVALID_ARGUMENT,
+					"assignment DML index is out of range");
+				return SQLPARSER_STATUS_INVALID_ARGUMENT;
+			}
+			out_selector->row_index = first_index + 1U;
+			status = sqlparser_selector_parse_index(
+				text,
+				&offset,
+				&out_selector->item_index,
+				out_error);
+		}
 	} else if (strncmp(text + offset, "merge_assignment", 16) == 0) {
 		size_t first_index;
 
@@ -616,12 +634,22 @@ sqlparser_status_t sqlparser_selector_format(
 				selector->item_index);
 			break;
 		case SQLPARSER_SELECTOR_KIND_ASSIGNMENT:
-			length = snprintf(
-				buffer,
-				sizeof(buffer),
-				"stmt[%zu].assignment[%zu]",
-				selector->statement_index,
-				selector->item_index);
+			if (selector->row_index == 0U) {
+				length = snprintf(
+					buffer,
+					sizeof(buffer),
+					"stmt[%zu].assignment[%zu]",
+					selector->statement_index,
+					selector->item_index);
+			} else {
+				length = snprintf(
+					buffer,
+					sizeof(buffer),
+					"stmt[%zu].assignment[%zu][%zu]",
+					selector->statement_index,
+					selector->row_index - 1U,
+					selector->item_index);
+			}
 			break;
 		case SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT:
 			if (selector->row_index == 0U) {

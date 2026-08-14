@@ -19887,6 +19887,18 @@ static int sqlparser_graph_build_insert_dml(
 			for (index = 0U;
 			     index < stmt->on_conflict_clause->n_target_list;
 			     index++) {
+				sqlparser_selector_t selector;
+
+				memset(&selector, 0, sizeof(selector));
+				selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
+				selector.statement_index = build->statement_index;
+				selector.item_index = index;
+				if (build->statement_node == NULL ||
+				    build->statement_node->node_case !=
+					    PG_QUERY__NODE__NODE_INSERT_STMT ||
+				    build->statement_node->insert_stmt != stmt) {
+					selector.row_index = dml_index + 1U;
+				}
 				if (sqlparser_graph_add_dml_assignment_from_res_target(
 					    build,
 					    dml_index,
@@ -19900,7 +19912,7 @@ static int sqlparser_graph_build_insert_dml(
 						    stmt->on_conflict_clause->target_list,
 						    stmt->on_conflict_clause->n_target_list,
 						    index),
-					    NULL,
+					    &selector,
 					    NULL,
 					    out_error) != 0) {
 					conflict_status = -1;
@@ -19997,16 +20009,17 @@ static int sqlparser_graph_build_update_dml(
 	}
 	for (index = 0U; index < stmt->n_target_list; index++) {
 		sqlparser_selector_t selector;
-		int has_selector;
 
 		memset(&selector, 0, sizeof(selector));
 		selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
 		selector.statement_index = build->statement_index;
 		selector.item_index = index;
-		has_selector = build->statement_node != NULL &&
-			build->statement_node->node_case ==
-				PG_QUERY__NODE__NODE_UPDATE_STMT &&
-			build->statement_node->update_stmt == stmt;
+		if (build->statement_node == NULL ||
+		    build->statement_node->node_case !=
+			    PG_QUERY__NODE__NODE_UPDATE_STMT ||
+		    build->statement_node->update_stmt != stmt) {
+			selector.row_index = dml_index + 1U;
+		}
 		if (sqlparser_graph_add_dml_assignment_from_res_target(
 			    build,
 			    dml_index,
@@ -20018,7 +20031,7 @@ static int sqlparser_graph_build_update_dml(
 				    stmt->target_list,
 				    stmt->n_target_list,
 				    index),
-			    has_selector ? &selector : NULL,
+			    &selector,
 			    NULL,
 			    out_error) != 0) {
 			sqlparser_graph_pop_scope(build);

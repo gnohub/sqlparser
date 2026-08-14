@@ -15,7 +15,7 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 199 cases with `status = "final"` and 652 independent patches. The expected View contains a non-empty session projection in 35 cases.
+The fixture contains 201 cases with `status = "final"` and 658 independent patches. The expected View contains a non-empty session projection in 35 cases.
 
 View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
 
@@ -179,6 +179,8 @@ These two final cases define the handle-level occurrence contract for the projec
 | `VPG148` | `vastbase-postgresql-data-modifying-cte-two-deletes-side-effect` | a DELETE CTE without `RETURNING` beside a DELETE CTE with `RETURNING` | the two SELECT-root DMLs remain independent roots in declaration order; side-effect-only D0 has no result while D1 owns one result block; 2 independent patches verify the D1 result list |
 | `VPG149` | `vastbase-postgresql-data-modifying-cte-sibling-lineage` | an INSERT CTE whose `RETURNING` output feeds a sibling UPDATE CTE | D0 INSERT and D1 UPDATE remain independent roots with distinct result blocks; the UPDATE assignment points through `source_field`/`source_target` to the INSERT `payload`; 3 independent patches cover both DML ordinals and result insertion |
 | `VPG150` | `vastbase-postgresql-data-modifying-cte-merge-returning` | a MERGE CTE with UPDATE and INSERT branches plus `RETURNING` | MERGE D0 target/source relations, ON predicate, branch assignment and INSERT row, result block, `target_after` origin for `RETURNING t.*`, and outer CTE `source_block`; 2 independent patches cover result-target replacement and insertion |
+| `VPG151` | `vastbase-postgresql-on-conflict-assignment-list-contract` | root `INSERT ... ON CONFLICT DO UPDATE SET` with two assignments | ordered `assignment[A]` selectors address conflict-update items; insertion, full replacement, and deletion deparse exactly |
+| `VPG152` | `vastbase-postgresql-data-modifying-cte-update-assignment-list-contract` | nested two-assignment `UPDATE` in a data-modifying CTE | `assignment[D][A]` uses the zero-based DML ordinal; all three assignment patches preserve `RETURNING` and the outer query |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 

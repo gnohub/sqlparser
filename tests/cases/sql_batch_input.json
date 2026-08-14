@@ -2925,6 +2925,7 @@
                   {
                     "bind_kind": 0,
                     "kind": "field",
+                    "selector": "stmt[0].assignment[0]",
                     "source_field": 1,
                     "target_field": 0
                   }
@@ -26299,6 +26300,7 @@
                       {
                         "bind_kind": 0,
                         "kind": "field",
+                        "selector": "stmt[0].assignment[1][0]",
                         "source_field": 1,
                         "target_field": 0
                       }
@@ -26874,6 +26876,7 @@
                     {
                       "bind_kind": 0,
                       "kind": "field",
+                      "selector": "stmt[0].assignment[1][0]",
                       "source_field": 3,
                       "source_target": 1,
                       "target_field": 2
@@ -27489,6 +27492,7 @@
                       0,
                       1
                     ],
+                    "selector": "stmt[0].assignment[0][0]",
                     "target_field": 0
                   }
                 ],
@@ -27768,6 +27772,7 @@
                       0,
                       1
                     ],
+                    "selector": "stmt[0].assignment[0]",
                     "target_field": 0
                   }
                 ],
@@ -28464,6 +28469,281 @@
           "target": "/statements/0/query_graph/dml/branches/2/rows/1/selector",
           "value": "COALESCE(s.body, 'missing')",
           "deparse": "MERGE INTO public.article AS t USING public.article_stage AS s ON t.id = s.id WHEN MATCHED AND s.delete_flag = 1 THEN DELETE WHEN MATCHED AND s.active_flag = 1 THEN UPDATE SET body = s.body, updated_at = CURRENT_TIMESTAMP WHEN NOT MATCHED AND s.active_flag = 1 THEN INSERT (id, body, updated_at) VALUES (s.id, COALESCE(s.body, 'missing'), CURRENT_TIMESTAMP);"
+        }
+      ]
+    },
+    {
+      "name": "postgresql-on-conflict-assignment-list-contract",
+      "sql": "INSERT INTO t(id) VALUES (1) ON CONFLICT (id) DO UPDATE SET a = 1, b = 2",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "insert",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "a"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "relation": 0,
+                  "column": "b"
+                }
+              ],
+              "dml": {
+                "kind": "insert",
+                "insert_mode": "values",
+                "target_relation": 0,
+                "target_columns": [
+                  {
+                    "ordinal": 0,
+                    "column": "id"
+                  }
+                ],
+                "rows": [
+                  {
+                    "row": 0,
+                    "column": 0,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].insert_cell[0][0]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 1
+                    }
+                  }
+                ],
+                "assignments": [
+                  {
+                    "target_field": 0,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].assignment[0]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 1
+                    }
+                  },
+                  {
+                    "target_field": 1,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].assignment[1]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 2
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "insert_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/1/selector",
+          "value": "c = 3",
+          "deparse": "INSERT INTO t (id) VALUES (1) ON CONFLICT (id) DO UPDATE SET a = 1, c = 3, b = 2"
+        },
+        {
+          "action": "replace_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/0/selector",
+          "value": "a = 9",
+          "deparse": "INSERT INTO t (id) VALUES (1) ON CONFLICT (id) DO UPDATE SET a = 9, b = 2"
+        },
+        {
+          "action": "delete_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/1/selector",
+          "deparse": "INSERT INTO t (id) VALUES (1) ON CONFLICT (id) DO UPDATE SET a = 1"
+        }
+      ]
+    },
+    {
+      "name": "postgresql-data-modifying-cte-update-assignment-list-contract",
+      "sql": "WITH c AS (UPDATE t SET a = 1, b = 2 RETURNING a) SELECT a FROM c",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ],
+                  "targets": [
+                    1
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    1
+                  ]
+                },
+                {
+                  "kind": "dml_result",
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "cte",
+                  "table": "c",
+                  "source_block": 2,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "table": "t",
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 2,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "a",
+                  "field": 2,
+                  "selector": "stmt[0].dml_result_target[0][0][0]",
+                  "target_list_selector": "stmt[0].dml_result_targets[0][0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "a",
+                  "field": 3,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 1,
+                  "clause": "set_list",
+                  "relation": 1,
+                  "column": "a"
+                },
+                {
+                  "block": 1,
+                  "clause": "set_list",
+                  "relation": 1,
+                  "column": "b"
+                },
+                {
+                  "block": 2,
+                  "clause": "dml_result",
+                  "relation": 1,
+                  "column": "a",
+                  "target": 0,
+                  "selector": "stmt[0].name[6]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "a",
+                  "target": 1,
+                  "selector": "stmt[0].name[0]"
+                }
+              ],
+              "dml": {
+                "kind": "update",
+                "insert_mode": "unknown",
+                "target_relation": 1,
+                "assignments": [
+                  {
+                    "target_field": 0,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].assignment[0][0]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 1
+                    }
+                  },
+                  {
+                    "target_field": 1,
+                    "kind": "literal",
+                    "bind_kind": 0,
+                    "selector": "stmt[0].assignment[0][1]",
+                    "literal": {
+                      "kind": "integer",
+                      "integer_value": 2
+                    }
+                  }
+                ],
+                "result_channels": [
+                  {
+                    "kind": "client",
+                    "block": 2,
+                    "references": [
+                      {
+                        "target": 0,
+                        "field": 2,
+                        "kind": "target_after",
+                        "relation": 1
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "insert_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/1/selector",
+          "value": "c = 3",
+          "deparse": "WITH c AS (UPDATE t SET a = 1, c = 3, b = 2 RETURNING a) SELECT a FROM c"
+        },
+        {
+          "action": "replace_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/0/selector",
+          "value": "a = 9",
+          "deparse": "WITH c AS (UPDATE t SET a = 9, b = 2 RETURNING a) SELECT a FROM c"
+        },
+        {
+          "action": "delete_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/1/selector",
+          "deparse": "WITH c AS (UPDATE t SET a = 1 RETURNING a) SELECT a FROM c"
         }
       ]
     }

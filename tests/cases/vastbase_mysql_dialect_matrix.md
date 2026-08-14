@@ -15,7 +15,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 254 条 `status = "final"` 用例和 819 个独立 patch，其中 44 条用例的期望 View 包含非空 session 投影。
+夹具包含 256 条 `status = "final"` 用例和 824 个独立 patch，其中 44 条用例的期望 View 包含非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -129,6 +129,7 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | `VM102` | `vastbase-mysql-create-table-partition-options` | CREATE TABLE `users` (`id` INT, `created_at` DATE) ENGINE=InnoDB PARTITION BY HASH(`id`) PARTITIONS 4 | 已覆盖 |
 | `VM103` | `vastbase-mysql-create-temporary-table-options` | CREATE TEMPORARY TABLE IF NOT EXISTS `tmp_users` (`id` INT VISIBLE, `token` VARCHAR(64) COMMENT 'session token') ENGINE=MEMORY DEFAULT CHARACTER SET=utf8mb4 | 已覆盖 |
 | `VM104-VM106` | INSERT 扩展 | ON DUPLICATE KEY UPDATE、row alias、INSERT SET | 已覆盖 |
+| `VM106A` | `vastbase-mysql-insert-set-paired-column-patch` | `INSERT ... SET` 成对字段和值 | `insert_columns` 原子插入和删除同位字段值对 |
 | `VM107-VM109` | DELETE/UPDATE 扩展 | 别名删除目标、ORDER BY、LIMIT | 已覆盖 |
 | `VM110-VM115` | locking read、STRAIGHT_JOIN、index hint | 解析、通用 relation/field 图和公开 SQL 恢复 | 已覆盖 |
 | `VM116-VM118` | index hint 位置和列表边界 | 逗号表列表、多索引、空 USE INDEX | 已覆盖 |
@@ -167,6 +168,7 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | `VMU004B` | `vastbase-mysql-insert-high-priority-ignore-select` | INSERT HIGH_PRIORITY IGNORE INTO `users` (`id`) SELECT `id` FROM `backup_users` | 已覆盖 |
 | `VMU004C` | `vastbase-mysql-insert-ignore-on-duplicate-key` | INSERT IGNORE INTO users(id, phone) VALUES (?, ?) ON DUPLICATE KEY UPDATE phone = ? | 已覆盖 |
 | `VMU005` | `vastbase-mysql-on-duplicate-key` | INSERT INTO users(id, phone) VALUES (?, ?) ON DUPLICATE KEY UPDATE phone = ? | 已覆盖 |
+| `VMU005A` | `vastbase-mysql-on-duplicate-key-assignment-patch` | 双赋值 `ON DUPLICATE KEY UPDATE` | 根 `assignment[A]` 按序定位；插入、整项替换和删除 3 个 patch 保持兼容语法 |
 | `VMU006` | `vastbase-mysql-replace-into` | REPLACE INTO `users` (`id`) VALUES (1) | 已覆盖 |
 | `VMU006A` | `vastbase-mysql-replace-low-priority-multi-row` | REPLACE LOW_PRIORITY INTO `users` (`id`, `phone`) VALUES (?, ?), (?, ?) | 已覆盖 |
 | `VMU006B` | `vastbase-mysql-replace-delayed-select` | REPLACE DELAYED INTO `users` (`id`, `phone`) SELECT `id`, `phone` FROM `backup_users` WHERE `active` = ? | 已覆盖 |

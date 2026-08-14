@@ -527,6 +527,10 @@ static int sqlparser_case_patch_op(
 		*out_op = SQLPARSER_PATCH_INSERT_ASSIGNMENT;
 		return 1;
 	}
+	if (strcmp(action, "delete_assignment") == 0) {
+		*out_op = SQLPARSER_PATCH_DELETE_ASSIGNMENT;
+		return 1;
+	}
 	return 0;
 }
 
@@ -656,6 +660,9 @@ static int sqlparser_case_prepare_patch(
 	static const char *const delete_keys[] = {
 		"action", "target", "index", "deparse", "bind_occurrences"
 	};
+	static const char *const delete_assignment_keys[] = {
+		"action", "target", "deparse", "bind_occurrences"
+	};
 	const char *action;
 	const char *expected_sql;
 	const char *name;
@@ -738,6 +745,10 @@ static int sqlparser_case_prepare_patch(
 	} else if (op == SQLPARSER_PATCH_DELETE_COLUMN) {
 		allowed_keys = delete_keys;
 		allowed_count = sizeof(delete_keys) / sizeof(delete_keys[0]);
+	} else if (op == SQLPARSER_PATCH_DELETE_ASSIGNMENT) {
+		allowed_keys = delete_assignment_keys;
+		allowed_count = sizeof(delete_assignment_keys) /
+			sizeof(delete_assignment_keys[0]);
 	} else {
 		allowed_keys = normal_keys;
 		allowed_count = sizeof(normal_keys) / sizeof(normal_keys[0]);
@@ -752,6 +763,7 @@ static int sqlparser_case_prepare_patch(
 	}
 	value = NULL;
 	if (op != SQLPARSER_PATCH_DELETE_COLUMN &&
+	    op != SQLPARSER_PATCH_DELETE_ASSIGNMENT &&
 	    (value = sqlparser_case_required_string(patch_json, "value")) == NULL) {
 		(void)snprintf(detail, detail_size, "patch value must be a non-empty string");
 		return 0;
@@ -769,7 +781,8 @@ static int sqlparser_case_prepare_patch(
 	if (pair_insert) {
 		out_patch->name = name;
 		out_patch->default_sql = value;
-	} else if (op != SQLPARSER_PATCH_DELETE_COLUMN) {
+	} else if (op != SQLPARSER_PATCH_DELETE_COLUMN &&
+		   op != SQLPARSER_PATCH_DELETE_ASSIGNMENT) {
 		out_patch->sql = value;
 	}
 	if (op == SQLPARSER_PATCH_INSERT_COLUMN ||

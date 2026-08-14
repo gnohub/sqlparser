@@ -583,6 +583,7 @@ stmt[0].literal[1]
 stmt[0].where_literal[0]
 stmt[0].clause[0]
 stmt[0].assignment[0]
+stmt[0].assignment[1][0]
 stmt[0].merge_assignment[1][0]
 stmt[0].merge_assignment[2][1][0]
 stmt[0].merge_branch_condition[1]
@@ -606,12 +607,20 @@ stmt[0].dml_result_sink_columns[0][0]
 stmt[0].dml_result_sink_column[0][0][1]
 ```
 
-`stmt[S].assignment[A]` addresses assignment `A` in the top-level `UPDATE` of
-statement `S`. A matched UPDATE action in the root MERGE uses
+`stmt[S].assignment[A]` addresses assignment `A` in a root `UPDATE` or the
+conflict-update list of a root `INSERT`, including PostgreSQL
+`ON CONFLICT DO UPDATE` and MySQL `ON DUPLICATE KEY UPDATE`. A nested `UPDATE`
+uses `stmt[S].assignment[D][A]`, where
+`D` is the zero-based DML ordinal within the statement and `A` is the
+zero-based assignment ordinal within that list. For a parsed
+`SQLPARSER_SELECTOR_KIND_ASSIGNMENT`, the root form has `row_index = 0`; the
+nested form stores `D + 1` in `row_index`, and `item_index` stores `A`. The
+one-based encoding distinguishes nested DML ordinal zero from the root form.
+A matched UPDATE action in the root MERGE uses
 `stmt[S].merge_assignment[W][A]`; a nested MERGE uses
-`stmt[S].merge_assignment[D][W][A]`. `D` is the DML index within the current
-statement, `W` is the absolute zero-based ordinal across all `WHEN` clauses in
-the target MERGE, not an ordinal renumbered over UPDATE actions, and `A` is the
+`stmt[S].merge_assignment[D][W][A]`. `W` is the absolute zero-based ordinal
+across all `WHEN` clauses in the target MERGE, not an ordinal renumbered over
+UPDATE actions, and `A` is the
 zero-based assignment ordinal within that UPDATE branch. `W` must identify a
 `WHEN MATCHED ... THEN UPDATE` clause. The selector kind is
 `SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT`. A root MERGE has `row_index = 0`;
@@ -722,7 +731,8 @@ transaction candidate. Callers provide identifier parts and source selectors;
 they do not build SQL fragments or pass quote characters.
 
 `sqlparser_selector_insert_update_assignment_from_assignment_value()` inserts a
-new `SET` assignment into a top-level `UPDATE` or MERGE matched UPDATE action.
+new assignment into a root or nested `UPDATE`, a root `INSERT` conflict-update
+list, or a MERGE matched UPDATE action.
 It clones the right-hand value of the assignment pointed to by
 `source_assignment_selector` and uses `target` as the new assignment left
 side. Both the insertion selector and the source selector can use either
@@ -1103,9 +1113,9 @@ Patch operations:
 | `SQLPARSER_PATCH_DELETE_COLUMN` | deletes an `INSERT ... VALUES` column, deletes an `INSERT ... SELECT` target column, atomically deletes a MERGE INSERT target/value pair, or deletes a SELECT output target |
 | `SQLPARSER_PATCH_DELETE_ROW` | deletes an `INSERT ... VALUES` row |
 | `SQLPARSER_PATCH_APPEND_CONDITION` | appends a condition to a `where` clause with `AND` or `OR` |
-| `SQLPARSER_PATCH_INSERT_ASSIGNMENT` | inserts a `SET` assignment into a top-level `UPDATE` or MERGE matched UPDATE action |
-| `SQLPARSER_PATCH_DELETE_ASSIGNMENT` | deletes a `SET` assignment from a top-level `UPDATE` or MERGE matched UPDATE action |
-| `SQLPARSER_PATCH_REPLACE_ASSIGNMENT` | replaces a full `SET` assignment in a top-level `UPDATE` or MERGE matched UPDATE action |
+| `SQLPARSER_PATCH_INSERT_ASSIGNMENT` | inserts an assignment into a root or nested `UPDATE`, a root `INSERT` conflict-update list, or a MERGE matched UPDATE action |
+| `SQLPARSER_PATCH_DELETE_ASSIGNMENT` | deletes an assignment from a root or nested `UPDATE`, a root `INSERT` conflict-update list, or a MERGE matched UPDATE action |
+| `SQLPARSER_PATCH_REPLACE_ASSIGNMENT` | replaces a full assignment in a root or nested `UPDATE`, a root `INSERT` conflict-update list, or a MERGE matched UPDATE action |
 
 `sqlparser_apply_patch()` commits and increments the generation once only when
 the candidate produces an actual change from the current handle; previous
@@ -1113,9 +1123,9 @@ query graph views then become invalid. An empty patch list or effective no-op
 does not increment the generation, and failure of any patch leaves the whole
 list uncommitted.
 
-All three assignment patch operations accept either
-`stmt[S].assignment[A]` or `stmt[S].merge_assignment[W][A]` as their target
-selector.
+All three assignment patch operations accept `stmt[S].assignment[A]`,
+`stmt[S].assignment[D][A]`, `stmt[S].merge_assignment[W][A]`, or
+`stmt[S].merge_assignment[D][W][A]` as their target selector.
 
 Use a `merge_insert_column` or `merge_insert_cell` selector with
 `SQLPARSER_PATCH_REPLACE` for an individual MERGE INSERT rewrite. A target

@@ -1,5 +1,18 @@
 # 变更记录
 
+## 2.16.4
+
+### Assignment 列表定位与改写
+
+- 根 `INSERT` 冲突更新列表使用 `stmt[S].assignment[A]`，嵌套 `UPDATE` 赋值列表使用 `stmt[S].assignment[D][A]`；assignment 插入、整项替换和删除均支持这两类目标。
+- MySQL 与 Vastbase-MySQL 覆盖 `ON DUPLICATE KEY UPDATE`，PostgreSQL 与 Vastbase-PostgreSQL 覆盖 `ON CONFLICT DO UPDATE` 和 data-modifying CTE 中的嵌套 `UPDATE`，SQL Server 与 Vastbase-SQLServer 覆盖带 `OUTPUT` 的嵌套 `UPDATE`。
+- View JSON schema、公开 C 声明和资源所有权规则未变；assignment selector 输出范围扩展，部分 MySQL 冲突更新项由旧 value selector 改为 assignment selector。`INSERT ... SET` 的字段/值成对改写属于既有能力，本版本仅补充回归覆盖。
+
+### 用例与验证
+
+- 远端完整 `make test` 通过；其中六套受影响方言矩阵共 2,158 条 final case、6,798 个 patch。PostgreSQL、MySQL、SQL Server 三套基础方言矩阵的定向 Valgrind 检查均为 `0 bytes in 0 blocks`、0 errors。
+- 新增 10 条 final case 和 28 个 patch；九套 fixture 当前合计 2,806 条 final case 和 9,077 个 patch。
+
 ## 2.16.3
 
 ### 完整 bind occurrence 读取

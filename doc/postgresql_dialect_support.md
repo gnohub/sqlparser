@@ -48,4 +48,4 @@ PostgreSQL 默认方言支持范围以以下文件为准：
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-当前 PostgreSQL 矩阵包含 214 条用例，全部为 `status = "final"`。
+当前 PostgreSQL 矩阵包含 216 条用例，全部为 `status = "final"`。

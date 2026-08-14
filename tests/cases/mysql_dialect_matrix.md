@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 253 条 `status = "final"` 用例和 859 个独立 patch；其中 2 条用例及其 8 个 patch 含完整 bind occurrence 断言。37 条用例的期望 View 包含 statement 级 `query_graph.session`，覆盖 `M015` 至 `M017`、`MY-001` 至 `MY-029` 以及 5 条注释或空语句穿插的 `USE` 边界；这 37 条用例均至少包含一个非空 session 投影。
+夹具包含 255 条 `status = "final"` 用例和 864 个独立 patch；其中 2 条用例及其 8 个 patch 含完整 bind occurrence 断言。37 条用例的期望 View 包含 statement 级 `query_graph.session`，覆盖 `M015` 至 `M017`、`MY-001` 至 `MY-029` 以及 5 条注释或空语句穿插的 `USE` 边界；这 37 条用例均至少包含一个非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session 投影的 action、item scope、target kind、name 及 value 字段均属于比较范围。
 
@@ -92,6 +92,7 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | MU004B | `mysql-insert-high-priority-ignore-select` | `INSERT HIGH_PRIORITY IGNORE ... SELECT ...` | 组合修饰符和 INSERT SELECT 来源图 |
 | MU004C | `mysql-insert-ignore-on-duplicate-key` | `INSERT IGNORE ... ON DUPLICATE KEY UPDATE ...` | `IGNORE` 与 upsert 赋值、bind 序号组合 |
 | MU005 | `mysql-on-duplicate-key` | `INSERT ... ON DUPLICATE KEY UPDATE ...` | MySQL upsert 映射到 DML 插入值和更新赋值 |
+| MU005A | `mysql-on-duplicate-key-assignment-patch` | 双赋值 `ON DUPLICATE KEY UPDATE` | 根 `assignment[A]` 按序定位；插入、整项替换和删除 3 个 patch 保持 MySQL 语法 |
 | MU007 | `mysql-update-ignore` | `UPDATE IGNORE ...` | 保留 `IGNORE` 修饰符，赋值和条件复用普通 UPDATE 结构 |
 | MU008 | `mysql-delete-ignore` | `DELETE IGNORE ...` | 保留 `IGNORE` 修饰符，条件复用普通 DELETE 结构 |
 | MU008A | `mysql-update-low-priority-ignore-join` | `UPDATE LOW_PRIORITY IGNORE ... JOIN ...` | 组合修饰符与多表 UPDATE JOIN 共用现有目标表、来源表和条件归属 |
@@ -138,6 +139,7 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | M102 | `mysql-create-table-partition-options` | `CREATE TABLE` + `PARTITION BY` | 无查询表达式建表中的分区尾部公开 SQL 恢复 |
 | M103 | `mysql-create-temporary-table-options` | `CREATE TEMPORARY TABLE IF NOT EXISTS` + 列属性 + 表选项 | 临时表、列可见性、列注释、`ENGINE` 和 `DEFAULT CHARACTER SET` 组合恢复 |
 | M104-M106 | MySQL INSERT 扩展 | `ON DUPLICATE KEY UPDATE`、row alias、`INSERT ... SET` | 冲突更新来源、row alias 和 SET 写入结构 |
+| M106A | `mysql-insert-set-paired-column-patch` | `INSERT ... SET` 成对字段和值 | 通过 `insert_columns` 原子插入和删除同位字段值对 |
 | M107-M109 | MySQL DELETE/UPDATE 扩展 | 别名删除目标、`ORDER BY`、`LIMIT` | 删除目标归属和 DML 尾部恢复 |
 | M110 | `mysql-select-lock-in-share-mode` | `LOCK IN SHARE MODE` | locking read 解析和公开 SQL 恢复 |
 | M111 | `mysql-select-straight-join` | `STRAIGHT_JOIN` | relation、ON 字段和公开 SQL 恢复 |

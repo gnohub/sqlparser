@@ -11652,7 +11652,7 @@
                     "bind_position": 3,
                     "bind_sql": "?",
                     "kind": "bind",
-                    "selector": "stmt[0].value[7]",
+                    "selector": "stmt[0].assignment[0]",
                     "target_field": 0
                   }
                 ],
@@ -11760,7 +11760,7 @@
                     "bind_position": 3,
                     "bind_sql": "?",
                     "kind": "bind",
-                    "selector": "stmt[0].value[7]",
+                    "selector": "stmt[0].assignment[0]",
                     "target_field": 0
                   }
                 ],
@@ -11839,6 +11839,132 @@
           "target": "/statements/0/query_graph/dml/rows/0/selector",
           "value": "42",
           "deparse": "INSERT INTO users(id, phone) VALUES (42, ?) ON DUPLICATE KEY UPDATE phone = ?"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "mysql-on-duplicate-key-assignment-patch",
+      "sql": "INSERT INTO t(id, a) VALUES (1, 'x') ON DUPLICATE KEY UPDATE a = 'y', c = 'old'",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "insert",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "dml": {
+                "assignments": [
+                  {
+                    "bind_kind": 0,
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "y"
+                    },
+                    "selector": "stmt[0].assignment[0]",
+                    "target_field": 0
+                  },
+                  {
+                    "bind_kind": 0,
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "old"
+                    },
+                    "selector": "stmt[0].assignment[1]",
+                    "target_field": 1
+                  }
+                ],
+                "insert_mode": "values",
+                "kind": "insert",
+                "rows": [
+                  {
+                    "bind_kind": 0,
+                    "column": 0,
+                    "kind": "literal",
+                    "literal": {
+                      "integer_value": 1,
+                      "kind": "integer"
+                    },
+                    "row": 0,
+                    "selector": "stmt[0].insert_cell[0][0]"
+                  },
+                  {
+                    "bind_kind": 0,
+                    "column": 1,
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "x"
+                    },
+                    "row": 0,
+                    "selector": "stmt[0].insert_cell[0][1]"
+                  }
+                ],
+                "target_columns": [
+                  {
+                    "column": "id",
+                    "ordinal": 0
+                  },
+                  {
+                    "column": "a",
+                    "ordinal": 1
+                  }
+                ],
+                "target_relation": 0
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "a",
+                  "relation": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "c",
+                  "relation": 0
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "t"
+                }
+              ],
+              "root": 0
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "replace_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/0/selector",
+          "value": "a = 'new'",
+          "deparse": "INSERT INTO t (id, a) VALUES (1, 'x') ON DUPLICATE KEY UPDATE a = 'new', c = 'old'"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/1/selector",
+          "value": "b = 'z'",
+          "deparse": "INSERT INTO t (id, a) VALUES (1, 'x') ON DUPLICATE KEY UPDATE a = 'y', b = 'z', c = 'old'"
+        },
+        {
+          "action": "delete_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/1/selector",
+          "deparse": "INSERT INTO t (id, a) VALUES (1, 'x') ON DUPLICATE KEY UPDATE a = 'y'"
         }
       ],
       "status": "final"
@@ -15555,6 +15681,7 @@
                   {
                     "bind_kind": 0,
                     "kind": "field",
+                    "selector": "stmt[0].assignment[0]",
                     "source_field": 1,
                     "target_field": 0
                   }
@@ -15668,6 +15795,7 @@
                   {
                     "bind_kind": 0,
                     "kind": "field",
+                    "selector": "stmt[0].assignment[0]",
                     "source_field": 1,
                     "target_field": 0
                   }
@@ -15840,6 +15968,93 @@
           "target": "/statements/0/query_graph/dml/rows/0/selector",
           "value": "42",
           "deparse": "INSERT INTO mysql_plugin_policy_smoke SET id = 42, secret_name = 'x'"
+        }
+      ],
+      "status": "final"
+    },
+    {
+      "name": "mysql-insert-set-paired-column-patch",
+      "sql": "INSERT INTO mysql_plugin_policy_smoke SET id = 1, secret_name = 'x'",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "insert",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0
+                  ]
+                }
+              ],
+              "dml": {
+                "insert_mode": "set",
+                "kind": "insert",
+                "rows": [
+                  {
+                    "bind_kind": 0,
+                    "column": 0,
+                    "kind": "literal",
+                    "literal": {
+                      "integer_value": 1,
+                      "kind": "integer"
+                    },
+                    "row": 0,
+                    "selector": "stmt[0].insert_cell[0][0]"
+                  },
+                  {
+                    "bind_kind": 0,
+                    "column": 1,
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "x"
+                    },
+                    "row": 0,
+                    "selector": "stmt[0].insert_cell[0][1]"
+                  }
+                ],
+                "target_columns": [
+                  {
+                    "column": "id",
+                    "ordinal": 0
+                  },
+                  {
+                    "column": "secret_name",
+                    "ordinal": 1
+                  }
+                ],
+                "target_relation": 0
+              },
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "mysql_plugin_policy_smoke"
+                }
+              ],
+              "root": 0
+            }
+          }
+        ]
+      },
+      "patch": [
+        {
+          "action": "insert_column",
+          "target": "stmt[0].insert_columns",
+          "index": 1,
+          "name": "audit_flag",
+          "value": "1",
+          "deparse": "INSERT INTO mysql_plugin_policy_smoke SET id = 1, audit_flag = 1, secret_name = 'x'"
+        },
+        {
+          "action": "delete_column",
+          "target": "stmt[0].insert_columns",
+          "index": 1,
+          "deparse": "INSERT INTO mysql_plugin_policy_smoke SET id = 1"
         }
       ],
       "status": "final"
@@ -18045,6 +18260,7 @@
                   {
                     "bind_kind": 0,
                     "kind": "field",
+                    "selector": "stmt[0].assignment[0]",
                     "source_field": 1,
                     "target_field": 0
                   }

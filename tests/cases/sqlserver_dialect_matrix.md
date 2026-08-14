@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 624 条 `status = "final"` 用例和 1867 个独立 patch；其中 2 条用例及其 6 个 patch 含完整 bind occurrence 断言。91 条用例的期望 View 包含非空 `query_graph.session` 投影，覆盖 `S044` 至 `S046`、`SH295` 至 `SH333` 和 49 条 `MSSQL-*` session 用例。
+夹具包含 625 条 `status = "final"` 用例和 1870 个独立 patch；其中 2 条用例及其 6 个 patch 含完整 bind occurrence 断言。91 条用例的期望 View 包含非空 `query_graph.session` 投影，覆盖 `S044` 至 `S046`、`SH295` 至 `SH333` 和 49 条 `MSSQL-*` session 用例。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -94,6 +94,12 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | SH425 | `sqlserver-insert-output-into-eight-target-sink-column-pairs` | INSERT 8 OUTPUT target ↔ 8 显式 sink column | 头部原子插入 1 组后为 9↔9，View 与反解析保持按序配对 |
 | SH426 | `sqlserver-update-output-into-eight-target-sink-column-pairs` | UPDATE 8 OUTPUT target ↔ 8 显式 sink column | 根 SQL 仅枚举 SET/WHERE 的 3 个 bind，不将 `INTO @profile_audit` 误认为 bind；中部成对插入含重复 `@audit_tag` 和匿名 `?` 的 OUTPUT 表达式后为 6 个 occurrence，9↔9 顺序保持 |
 | SH427 | `sqlserver-delete-output-into-eight-target-sink-column-pairs` | DELETE 8 OUTPUT target ↔ 8 显式 sink column | 尾部原子插入 1 组后为 9↔9，View 与反解析保持按序配对 |
+
+## 嵌套 UPDATE 赋值列表回归
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| SH428 | `sqlserver-nested-update-output-assignment-contract` | `INSERT ... SELECT` 内嵌带 `OUTPUT` 的 `UPDATE` | `assignment[D][A]` 定位 D1 双赋值；插入、整项替换和删除 3 个 patch 保持嵌套与 `OUTPUT` |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 

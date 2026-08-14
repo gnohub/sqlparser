@@ -4,7 +4,7 @@ This file records regression cases for the MySQL dialect conversion layer. The e
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 253 cases with `status = "final"` and 859 independent
+The fixture contains 255 cases with `status = "final"` and 864 independent
 patches. Two cases and their 8 patches contain complete bind-occurrence
 assertions. Expected View JSON contains
 statement-level `query_graph.session` output in 37 cases, covering `M015`
@@ -100,6 +100,7 @@ and value fields are all part of that comparison.
 | MU004B | `mysql-insert-high-priority-ignore-select` | `INSERT HIGH_PRIORITY IGNORE ... SELECT ...` | combined modifiers and INSERT SELECT source graph |
 | MU004C | `mysql-insert-ignore-on-duplicate-key` | `INSERT IGNORE ... ON DUPLICATE KEY UPDATE ...` | `IGNORE` combined with upsert assignments and bind positions |
 | MU005 | `mysql-on-duplicate-key` | `INSERT ... ON DUPLICATE KEY UPDATE ...` | MySQL upsert mapped to DML inserted values and update assignments |
+| MU005A | `mysql-on-duplicate-key-assignment-patch` | two-assignment `ON DUPLICATE KEY UPDATE` | ordered root `assignment[A]` selectors; insertion, full replacement, and deletion retain MySQL syntax |
 | MU007 | `mysql-update-ignore` | `UPDATE IGNORE ...` | preserves the `IGNORE` modifier while assignments and predicates reuse ordinary UPDATE structures |
 | MU008 | `mysql-delete-ignore` | `DELETE IGNORE ...` | preserves the `IGNORE` modifier while predicates reuse ordinary DELETE structures |
 | MU008A | `mysql-update-low-priority-ignore-join` | `UPDATE LOW_PRIORITY IGNORE ... JOIN ...` | combined modifiers with multi-table UPDATE JOIN using existing target, source, and predicate attribution |
@@ -146,6 +147,7 @@ and value fields are all part of that comparison.
 | M102 | `mysql-create-table-partition-options` | `CREATE TABLE` with `PARTITION BY` | restores partition tails for create-table statements without query expressions |
 | M103 | `mysql-create-temporary-table-options` | `CREATE TEMPORARY TABLE IF NOT EXISTS` with column attributes and table options | combined restoration for temporary tables, column visibility, column comments, `ENGINE`, and `DEFAULT CHARACTER SET` |
 | M104-M106 | MySQL INSERT extensions | `ON DUPLICATE KEY UPDATE`, row aliases, and `INSERT ... SET` | conflict-update sources, row aliases, and SET write shape |
+| M106A | `mysql-insert-set-paired-column-patch` | paired columns and values in `INSERT ... SET` | `insert_columns` atomically inserts and deletes a same-position column/value pair |
 | M107-M109 | MySQL DELETE/UPDATE extensions | aliased delete targets, `ORDER BY`, and `LIMIT` | delete-target attribution and DML-tail restoration |
 | M110 | `mysql-select-lock-in-share-mode` | `LOCK IN SHARE MODE` | locking-read parsing and public SQL restoration |
 | M111 | `mysql-select-straight-join` | `STRAIGHT_JOIN` | relations, ON fields, and public SQL restoration |

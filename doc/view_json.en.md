@@ -535,7 +535,8 @@ selectors support replacement; the target-list selector supports atomic
 insertion or deletion of a target column and its VALUES item at the same
 position.
 
-`UPDATE` and `MERGE` assignments use `target_field` for the written field. When
+`UPDATE`, `INSERT` conflict-update, and `MERGE` assignments use `target_field`
+for the written field. When
 the right-hand side is a direct field reference, `kind` is `field` and
 `source_field` points to the source field. If that source field comes from a
 derived relation and uniquely matches a source-query output target,
@@ -551,13 +552,14 @@ targets, fields, values, predicates, and set operations. A direct `field`,
 `literal`, `bind`, or `default` right-hand side continues to use the existing
 assignment payload and emits none of the three `rhs_*` lists.
 
-A top-level `UPDATE` assignment has a selector of the form
-`stmt[S].assignment[A]`. A matched UPDATE action in a root MERGE uses
+A root `UPDATE` or root `INSERT` conflict-update assignment has a selector of
+the form `stmt[S].assignment[A]`. A nested `UPDATE` uses
+`stmt[S].assignment[D][A]`, where `D` is the
+zero-based DML ordinal within the statement and `A` is the zero-based ordinal
+within the target assignment list. A matched UPDATE action in a root MERGE uses
 `stmt[S].merge_assignment[W][A]`; a nested MERGE uses
-`stmt[S].merge_assignment[D][W][A]`. `D` is the DML index within the current
-statement, `W` is the absolute zero-based ordinal across all `WHEN` clauses in
-the selected MERGE, and `A` is the zero-based assignment ordinal in the target
-UPDATE branch. MERGE conditions similarly use
+`stmt[S].merge_assignment[D][W][A]`. `W` is the absolute zero-based ordinal
+across all `WHEN` clauses in the selected MERGE. MERGE conditions similarly use
 `stmt[S].merge_branch_condition[W]` or the nested form
 `stmt[S].merge_branch_condition[D][W]`. An Oracle/Dameng attached-delete
 predicate uses `stmt[S].merge_delete_condition[W]` or

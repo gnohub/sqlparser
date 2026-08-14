@@ -38,9 +38,9 @@ The four Vastbase modes are verified by executable regression matrices:
 | Mode | Fixture | Unit Test | Successful Cases | Expected-Failure Cases | Total Cases |
 | --- | --- | --- | ---: | ---: | ---: |
 | `vastbase-oracle` | `tests/cases/vastbase_oracle_dialect_input.json` | `tests/unit/test_vastbase_oracle_dialect_case_matrix.c` | 220 | 0 | 220 |
-| `vastbase-mysql` | `tests/cases/vastbase_mysql_dialect_input.json` | `tests/unit/test_vastbase_mysql_dialect_case_matrix.c` | 254 | 0 | 254 |
-| `vastbase-postgresql` | `tests/cases/vastbase_postgresql_dialect_input.json` | `tests/unit/test_vastbase_postgresql_dialect_case_matrix.c` | 199 | 0 | 199 |
-| `vastbase-sqlserver` | `tests/cases/vastbase_sqlserver_dialect_input.json` | `tests/unit/test_vastbase_sqlserver_dialect_case_matrix.c` | 604 | 0 | 604 |
+| `vastbase-mysql` | `tests/cases/vastbase_mysql_dialect_input.json` | `tests/unit/test_vastbase_mysql_dialect_case_matrix.c` | 256 | 0 | 256 |
+| `vastbase-postgresql` | `tests/cases/vastbase_postgresql_dialect_input.json` | `tests/unit/test_vastbase_postgresql_dialect_case_matrix.c` | 201 | 0 | 201 |
+| `vastbase-sqlserver` | `tests/cases/vastbase_sqlserver_dialect_input.json` | `tests/unit/test_vastbase_sqlserver_dialect_case_matrix.c` | 605 | 0 | 605 |
 
 The `vastbase-sqlserver` mode includes SQL Server DML `OUTPUT` result channels
 and `IF...ELSE` control flow.
@@ -53,7 +53,7 @@ explicit `AS` is rejected as an out-of-bound hierarchy operator. An ordinary
 field with the same name remains available through an explicit `AS` alias or a
 delimited identifier.
 
-The `vastbase-sqlserver` fixture contains 604 `final` cases and 1850
+The `vastbase-sqlserver` fixture contains 605 `final` cases and 1853
 independent patches. As a project compatibility-entry contract, paired
 `insert_column` applies only to a sink `OUTPUT ... INTO` channel with an
 explicit non-empty sink-column list when the OUTPUT-target and sink-column

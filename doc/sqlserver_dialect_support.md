@@ -86,4 +86,4 @@ SQL Server 支持范围以以下文件为准：
 - `tests/unit/test_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 SQL Server 矩阵包含 624 条用例，全部为 `status = "final"`，共包含 1867 个独立 patch。其中 3 条用例分别验证 INSERT、UPDATE、DELETE 的 8↔8 OUTPUT target/sink column 配对，以及头、中、尾原子插入后的 9↔9 配对。
+当前 SQL Server 矩阵包含 625 条用例，全部为 `status = "final"`，共包含 1870 个独立 patch。其中 3 条用例分别验证 INSERT、UPDATE、DELETE 的 8↔8 OUTPUT target/sink column 配对，以及头、中、尾原子插入后的 9↔9 配对。

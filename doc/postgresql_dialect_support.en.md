@@ -58,4 +58,4 @@ The PostgreSQL support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current PostgreSQL matrix contains 214 cases, all with `status = "final"`.
+The current PostgreSQL matrix contains 216 cases, all with `status = "final"`.

@@ -512,6 +512,7 @@ stmt[0].literal[1]
 stmt[0].where_literal[0]
 stmt[0].clause[0]
 stmt[0].assignment[0]
+stmt[0].assignment[1][0]
 stmt[0].merge_assignment[1][0]
 stmt[0].merge_assignment[2][1][0]
 stmt[0].merge_branch_condition[1]
@@ -535,7 +536,7 @@ stmt[0].dml_result_sink_columns[0][0]
 stmt[0].dml_result_sink_column[0][0][1]
 ```
 
-`stmt[S].assignment[A]` 定位 statement `S` 的顶层 `UPDATE` 中第 `A` 个赋值项。根 MERGE 的 matched UPDATE action 使用 `stmt[S].merge_assignment[W][A]`；嵌套 MERGE 使用 `stmt[S].merge_assignment[D][W][A]`。`D` 是当前 statement 内的 DML 索引，`W` 是目标 MERGE 中所有 `WHEN` 子句的绝对 0 基序号，不是仅对 UPDATE action 重新编号；`A` 是该 UPDATE 分支内赋值项的 0 基序号。`W` 必须指向 `WHEN MATCHED ... THEN UPDATE`。解析后 selector 的 `kind` 为 `SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT`；根 MERGE 的 `row_index` 为 `0`，嵌套 MERGE 的 `row_index` 保存 `D`，`item_index` 保存 `W`，`column_index` 保存 `A`。
+`stmt[S].assignment[A]` 定位 statement `S` 的根 `UPDATE` 或根 `INSERT` 冲突更新列表中的第 `A` 个赋值项；冲突更新包括 PostgreSQL `ON CONFLICT DO UPDATE` 和 MySQL `ON DUPLICATE KEY UPDATE`。嵌套 `UPDATE` 使用 `stmt[S].assignment[D][A]`，其中 `D` 是当前 statement 内 0 基 DML 序号，`A` 是目标列表内 0 基赋值序号。解析后的 `SQLPARSER_SELECTOR_KIND_ASSIGNMENT` 中，根形式的 `row_index` 为 `0`，嵌套形式保存 `D + 1`，`item_index` 保存 `A`；加一编码用于区分根形式与嵌套 DML `D = 0`。根 MERGE 的 matched UPDATE action 使用 `stmt[S].merge_assignment[W][A]`；嵌套 MERGE 使用 `stmt[S].merge_assignment[D][W][A]`。`W` 是目标 MERGE 中所有 `WHEN` 子句的绝对 0 基序号，不是仅对 UPDATE action 重新编号；`W` 必须指向 `WHEN MATCHED ... THEN UPDATE`。解析后 MERGE selector 的 `kind` 为 `SQLPARSER_SELECTOR_KIND_MERGE_ASSIGNMENT`；根 MERGE 的 `row_index` 为 `0`，嵌套 MERGE 的 `row_index` 保存 `D`，`item_index` 保存 `W`，`column_index` 保存 `A`。
 
 MERGE 分支条件使用 `stmt[S].merge_branch_condition[W]`；嵌套 MERGE 使用 `stmt[S].merge_branch_condition[D][W]`。其 `kind` 为 `SQLPARSER_SELECTOR_KIND_MERGE_BRANCH_CONDITION`，坐标含义与 MERGE assignment selector 中的 `D`、`W` 相同。无条件分支没有 condition selector。
 
@@ -596,7 +597,7 @@ MERGE INSERT 的单个目标列使用 `stmt[S].merge_insert_column[W][C]`，完�
 
 结构化改写接口使用 selector 定位目标，将 `sqlparser_identifier_path_view_t` 等结构化输入按 handle 方言渲染，并通过同一 patch 事务应用；需要复用已有 assignment 值时，在事务候选上克隆对应节点。调用方只提供标识符分段和源 selector，不需要拼接 SQL 片段，也不需要传入 quote 字符。
 
-`sqlparser_selector_insert_update_assignment_from_assignment_value()` 用于向顶层 `UPDATE` 或 MERGE matched UPDATE action 插入新的 `SET` 赋值项。函数会克隆 `source_assignment_selector` 指向的 assignment 右值，并以 `target` 作为新 assignment 左侧；插入位置 selector 和来源 selector 均可使用 `assignment` 或 `merge_assignment`。两个 selector 必须指向同一 statement，否则函数返回 `SQLPARSER_STATUS_UNSUPPORTED`：
+`sqlparser_selector_insert_update_assignment_from_assignment_value()` 用于向根或嵌套 `UPDATE`、根 `INSERT` 冲突更新列表或 MERGE matched UPDATE action 插入新赋值项。函数会克隆 `source_assignment_selector` 指向的 assignment 右值，并以 `target` 作为新 assignment 左侧；插入位置 selector 和来源 selector 均可使用 `assignment` 或 `merge_assignment`。两个 selector 必须指向同一 statement，否则函数返回 `SQLPARSER_STATUS_UNSUPPORTED`：
 
 ```c
 const char *backup_parts[] = {"phone_backup"};
@@ -826,13 +827,13 @@ sqlparser_apply_patch(handle, &patches, &err);
 | `SQLPARSER_PATCH_DELETE_COLUMN` | 删除 `INSERT ... VALUES` 列、删除 `INSERT ... SELECT` 目标列、成对删除 MERGE INSERT 目标列和值，或删除 SELECT 输出项 |
 | `SQLPARSER_PATCH_DELETE_ROW` | 删除 `INSERT ... VALUES` 行 |
 | `SQLPARSER_PATCH_APPEND_CONDITION` | 按 `AND` 或 `OR` 向 `where` 子句追加条件 |
-| `SQLPARSER_PATCH_INSERT_ASSIGNMENT` | 向顶层 `UPDATE` 或 MERGE matched UPDATE action 插入 `SET` 赋值项 |
-| `SQLPARSER_PATCH_DELETE_ASSIGNMENT` | 从顶层 `UPDATE` 或 MERGE matched UPDATE action 删除 `SET` 赋值项 |
-| `SQLPARSER_PATCH_REPLACE_ASSIGNMENT` | 整项替换顶层 `UPDATE` 或 MERGE matched UPDATE action 的 `SET` 赋值项 |
+| `SQLPARSER_PATCH_INSERT_ASSIGNMENT` | 向根或嵌套 `UPDATE`、根 `INSERT` 冲突更新列表或 MERGE matched UPDATE action 插入赋值项 |
+| `SQLPARSER_PATCH_DELETE_ASSIGNMENT` | 从根或嵌套 `UPDATE`、根 `INSERT` 冲突更新列表或 MERGE matched UPDATE action 删除赋值项 |
+| `SQLPARSER_PATCH_REPLACE_ASSIGNMENT` | 整项替换根或嵌套 `UPDATE`、根 `INSERT` 冲突更新列表或 MERGE matched UPDATE action 的赋值项 |
 
 只有候选结果相对当前 handle 发生实际变化时，`sqlparser_apply_patch()` 才提交并将 generation 递增一次，旧 query graph view 随之失效。空 patch 列表或结果无实际变化的调用不递增；任一 patch 失败时整批不提交。
 
-三个 assignment patch 操作的目标 selector 均可使用 `stmt[S].assignment[A]` 或 `stmt[S].merge_assignment[W][A]`。
+三个 assignment patch 操作的目标 selector 均可使用 `stmt[S].assignment[A]`、`stmt[S].assignment[D][A]`、`stmt[S].merge_assignment[W][A]` 或 `stmt[S].merge_assignment[D][W][A]`。
 
 MERGE INSERT 单项替换以 `merge_insert_column` 或 `merge_insert_cell` selector 作为 `SQLPARSER_PATCH_REPLACE` 的目标。目标列替换通过 `sql` 提供标识符；完整 cell 通过 `sql`、`source_selector`、`literal` 或 `bind` 之一提供新值。列值对插入以 `insert_branch_columns` selector 作为 `SQLPARSER_PATCH_INSERT_COLUMN` 的目标，通过 `index` 指定位置、`name` 提供目标列，并通过 `default_sql`、`source_selector`、`literal` 或 `bind` 之一提供对应值。列值对删除使用相同 selector 和 `SQLPARSER_PATCH_DELETE_COLUMN`，通过 `index` 指定位置。插入和删除均原子修改目标列与 VALUES 列表；两侧数量不一致、索引无效或省略显式目标列列表时操作失败。
 
