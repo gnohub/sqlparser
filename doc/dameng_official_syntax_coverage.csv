@@ -15,7 +15,7 @@ expressions,COMMON_FUNCTIONS,CURRENT,"已覆盖 NVL 等常见函数和代表性�
 embedded-sql,EXEC_SQL_PREPARE_EXECUTE_DEALLOCATE,CURRENT,"已覆盖 EXEC SQL PREPARE、EXECUTE 和 DEALLOCATE PREPARE",https://eco.dameng.com/document/dm/zh-cn/pm/dm8_sql-sql-statement
 dml,INSERT_VALUES,CURRENT,"已覆盖 INSERT VALUES 和多行 VALUES",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
 dml,INSERT_SELECT,CURRENT,"已覆盖 INSERT SELECT",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
-dml,UPDATE,CURRENT,"已覆盖 UPDATE SET WHERE",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
+dml,UPDATE,CURRENT,"已覆盖 UPDATE SET WHERE，以及 JOIN 链、逗号 relation 列表和混合形态的多表单目标 UPDATE；全部 SET assignment 必须指向同一个 table object",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
 dml,DELETE,CURRENT,"已覆盖 DELETE WHERE",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
 dml,MERGE,CURRENT,"已覆盖可映射 MERGE 结构，包括 matched UPDATE action WHERE 和同分支附属 DELETE WHERE",https://eco.dameng.com/document/dm/zh-cn/pm/insertion-deletion-modification
 ddl,CREATE_TABLE,CURRENT,"已覆盖 CREATE TABLE 基础形态",https://eco.dameng.com/document/dm/zh-cn/pm/definition-statement.html

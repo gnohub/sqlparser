@@ -458,6 +458,13 @@ Common fields:
 | `result_channels` | DML result channels; omitted when the DML has no result output |
 | `children` | Nested DML nodes owned by this DML; omitted when empty |
 
+A MySQL or Vastbase-MySQL multi-target UPDATE omits `dml.target_relation`;
+each assignment's `target_field` identifies a target field in `fields[]` with
+its own relation. The corresponding `sqlparser_statement_target_relation()`
+call returns `SQLPARSER_STATUS_UNSUPPORTED`. A Dameng multi-table UPDATE
+requires every SET assignment to reference the same table object and therefore
+always emits one `dml.target_relation`.
+
 Result-channel fields:
 
 | Field | Description |

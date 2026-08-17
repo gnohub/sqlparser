@@ -18,24 +18,26 @@
 | `MODEL_REQUIRED` | 需要 MySQL 专用模型，通常涉及 MySQL 专属 DML 语义、DDL 选项、类型属性或程序单元。 |
 | `REFERENCE_ONLY` | 官方索引页、分类页或说明页，不作为独立实现单元统计支持率。 |
 
+`UPDATE_JOIN` 的 `CURRENT` 边界包括 JOIN 链和逗号 relation 列表中的多目标 assignment；每个 assignment 目标字段分别关联其写入 relation。多表形态不接受 `ORDER BY` 或 `LIMIT`。
+
 ## 统计结果
 
 | 状态 | 语法组数 | 占全部 48 组 |
 | --- | ---: | ---: |
-| `CURRENT` | 40 | 83.33% |
+| `CURRENT` | 41 | 85.42% |
 | `HOOK_ONLY` | 0 | 0.00% |
-| `MIXED_MODEL` | 3 | 6.25% |
+| `MIXED_MODEL` | 2 | 4.17% |
 | `MODEL_REQUIRED` | 5 | 10.42% |
 | `REFERENCE_ONLY` | 0 | 0.00% |
 
-剔除 `REFERENCE_ONLY` 后，官方可实现语法组为 48 组。其中当前已覆盖 40 组，未覆盖 8 组。
+剔除 `REFERENCE_ONLY` 后，官方可实现语法组为 48 组。其中当前已覆盖 41 组，未覆盖 7 组。
 
-| 未覆盖分类 | 语法组数 | 占未覆盖 8 组 |
+| 未覆盖分类 | 语法组数 | 占未覆盖 7 组 |
 | --- | ---: | ---: |
 | `HOOK_ONLY` | 0 | 0.00% |
-| `MIXED_MODEL` | 3 | 37.50% |
-| `MODEL_REQUIRED` | 5 | 62.50% |
+| `MIXED_MODEL` | 2 | 28.57% |
+| `MODEL_REQUIRED` | 5 | 71.43% |
 
 ## 结论
 
-MySQL 剩余未覆盖项主要集中在完整外连接 DML 语义、程序对象和管理类语句。已闭环 INSERT、UPDATE、DELETE 修饰符、REPLACE 基础公开形态，以及 `CREATE TABLE` 列属性、表选项和无查询表达式的分区尾部；部分已覆盖但完整官方语义需要专用模型的为 3 组，占 37.50%；需要 MySQL 专用模型的为 5 组，占 62.50%。
+MySQL 剩余未覆盖项主要集中在多表 DELETE 完整语义、REPLACE 分区变体、程序对象和管理类语句。已闭环多目标多表 UPDATE、INSERT/UPDATE/DELETE 修饰符、REPLACE 基础公开形态，以及 `CREATE TABLE` 列属性、表选项和无查询表达式的分区尾部；部分已覆盖但完整官方语义需要专用模型的为 2 组，占 28.57%；需要 MySQL 专用模型的为 5 组，占 71.43%。

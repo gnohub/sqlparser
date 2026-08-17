@@ -1,9 +1,9 @@
-# v2.16.4 Release Notes
+# v2.16.5 Release Notes
 
-Root `INSERT` conflict-update lists use `stmt[S].assignment[A]`, while nested `UPDATE` assignment lists use `stmt[S].assignment[D][A]`. Existing assignment insertion, full-replacement, and deletion patches now apply to MySQL and Vastbase-MySQL `ON DUPLICATE KEY UPDATE`, PostgreSQL and Vastbase-PostgreSQL `ON CONFLICT DO UPDATE` and nested `UPDATE` statements in data-modifying CTEs, and SQL Server and Vastbase-SQLServer nested `UPDATE` statements with `OUTPUT`.
+MySQL and the Vastbase-MySQL compatibility entry support multiple write targets across JOIN chains and comma-separated table lists. Each assignment expresses write ownership through its existing `target_field` and the field's `relation`; mixed-target updates do not expose a single `dml.target_relation`.
 
-The View JSON schema, public C declarations, and resource-ownership rules are unchanged; assignment-selector output is expanded. Some MySQL conflict-update items now use assignment selectors instead of their previous value selectors. Paired column/value mutation for `INSERT ... SET` is an existing capability covered by additional regression cases in this release.
+Dameng supports multi-table UPDATE statements with JOIN or comma-separated table lists, but every assignment must target the same table object. Cross-target, unknown, or ambiguous qualifiers return `SQLPARSER_STATUS_UNSUPPORTED`. Existing assignment and relation patches and transaction rollback rules remain unchanged.
 
-The full remote `make test` suite passed. The six affected dialect matrices cover 2,158 final cases and 6,798 patches. Targeted Valgrind checks for the PostgreSQL, MySQL, and SQL Server base-dialect matrices each reported `0 bytes in 0 blocks` and zero errors. With 10 final cases and 28 patches added, the nine fixtures now contain 2,806 final cases and 9,077 patches.
+This release adds no public C declarations, View JSON fields, or resource-ownership rules. With 16 final cases and 41 patches added, the nine fixtures now contain 2,822 final cases and 9,118 patches. The full remote `make test` suite passed; targeted Valgrind checks covering the core API and the three affected dialect matrices each reported `0 bytes in 0 blocks` and zero errors.
 
 Vendored `libpg_query` tag: `17-6.2.2`; vendored Jansson version: `2.15`.

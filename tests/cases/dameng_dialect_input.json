@@ -29490,6 +29490,1390 @@
           "deparse": "DELETE FROM app.customer_accounts WHERE customer_id = :customer_id RETURNING customer_id, customer_name, city, status, credit_limit, created_at, updated_at, remarks, archived_at INTO :out_customer_id, :out_customer_name, :out_city, :out_status, :out_credit_limit, :out_created_at, :out_updated_at, :out_remarks, :out_archived_at"
         }
       ]
+    },
+    {
+      "name": "dameng-multitable-update-two-table-join-first-target-contract",
+      "sql": "UPDATE app.accounts a JOIN app.adjustments b ON a.id = b.account_id SET a.balance = b.delta, a.updated_at = :updated_at WHERE b.active = 1",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0,
+                    1
+                  ],
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "dml": {
+                "assignments": [
+                  {
+                    "bind_kind": 0,
+                    "kind": "field",
+                    "selector": "stmt[0].assignment[0]",
+                    "source_field": 1,
+                    "target_field": 0
+                  },
+                  {
+                    "bind_key": "updated_at",
+                    "bind_kind": 2,
+                    "bind_position": 1,
+                    "bind_sql": ":updated_at",
+                    "kind": "bind",
+                    "selector": "stmt[0].assignment[1]",
+                    "target_field": 2
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "update",
+                "target_relation": 0
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "balance",
+                  "relation": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "delta",
+                  "relation": 1,
+                  "selector": "stmt[0].name[5]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "updated_at",
+                  "relation": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "active",
+                  "relation": 1,
+                  "selector": "stmt[0].name[13]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[9]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "account_id",
+                  "relation": 1,
+                  "selector": "stmt[0].name[11]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 3,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "on",
+                  "kind": "comparison",
+                  "left_field": 4,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 5,
+                  "value": 1
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "a",
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "app",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "accounts"
+                },
+                {
+                  "alias": "b",
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "app",
+                  "selector": "stmt[0].relation[1]",
+                  "table": "adjustments"
+                }
+              ],
+              "root": 0,
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 3,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 1,
+                    "kind": "integer"
+                  },
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[22]"
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "on",
+                  "field": 4,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 5
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "bind_occurrences": [
+        {"position": 1, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+      ],
+      "patch": [
+        {
+          "action": "replace_assignment",
+          "target": "stmt[0].assignment[0]",
+          "value": "a.balance = b.delta + :offset",
+          "deparse": "UPDATE app.accounts a JOIN app.adjustments b ON a.id = b.account_id SET a.balance = b.delta + :offset, a.updated_at = :updated_at WHERE b.active = 1",
+          "bind_occurrences": [
+            {"position": 1, "kind": "named", "key": "offset", "sql": ":offset"},
+            {"position": 2, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+          ]
+        },
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "value": "a.status = :status",
+          "deparse": "UPDATE app.accounts a JOIN app.adjustments b ON a.id = b.account_id SET a.balance = b.delta, a.status = :status, a.updated_at = :updated_at WHERE b.active = 1",
+          "bind_occurrences": [
+            {"position": 1, "kind": "named", "key": "status", "sql": ":status"},
+            {"position": 2, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+          ]
+        },
+        {
+          "action": "delete_assignment",
+          "target": "stmt[0].assignment[0]",
+          "deparse": "UPDATE app.accounts a JOIN app.adjustments b ON a.id = b.account_id SET a.updated_at = :updated_at WHERE b.active = 1",
+          "bind_occurrences": [
+            {"position": 1, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+          ]
+        },
+        {
+          "action": "replace",
+          "target": "stmt[0].relation[0]",
+          "value": "app.accounts_v2",
+          "deparse": "UPDATE app.accounts_v2 a JOIN app.adjustments b ON a.id = b.account_id SET a.balance = b.delta, a.updated_at = :updated_at WHERE b.active = 1",
+          "bind_occurrences": [
+            {"position": 1, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "dameng-multitable-update-three-table-middle-target-contract",
+      "sql": "UPDATE app.accounts a, app.adjustments b, app.audit_log c SET b.applied = :applied, b.updated_at = :updated_at WHERE a.id = b.account_id AND c.account_id = a.id",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0,
+                    1,
+                    2
+                  ],
+                  "relations": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ],
+              "dml": {
+                "assignments": [
+                  {
+                    "bind_key": "applied",
+                    "bind_kind": 2,
+                    "bind_position": 1,
+                    "bind_sql": ":applied",
+                    "kind": "bind",
+                    "selector": "stmt[0].assignment[0]",
+                    "target_field": 0
+                  },
+                  {
+                    "bind_key": "updated_at",
+                    "bind_kind": 2,
+                    "bind_position": 2,
+                    "bind_sql": ":updated_at",
+                    "kind": "bind",
+                    "selector": "stmt[0].assignment[1]",
+                    "target_field": 1
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "update",
+                "target_relation": 1
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "applied",
+                  "relation": 1
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "updated_at",
+                  "relation": 1
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[6]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "account_id",
+                  "relation": 1,
+                  "selector": "stmt[0].name[8]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "account_id",
+                  "relation": 2,
+                  "selector": "stmt[0].name[10]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[12]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "and",
+                  "children": [
+                    1,
+                    2
+                  ],
+                  "clause": "where",
+                  "kind": "bool"
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 2,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 3,
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 4,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 5,
+                  "value": 1
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "a",
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "app",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "accounts"
+                },
+                {
+                  "alias": "b",
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "app",
+                  "selector": "stmt[0].relation[1]",
+                  "table": "adjustments"
+                },
+                {
+                  "alias": "c",
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "app",
+                  "selector": "stmt[0].relation[2]",
+                  "table": "audit_log"
+                }
+              ],
+              "root": 0,
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 2,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 3
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 4,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 5
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "bind_occurrences": [
+        {"position": 1, "kind": "named", "key": "applied", "sql": ":applied"},
+        {"position": 2, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+      ],
+      "patch": [
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "value": "b.note = :note",
+          "deparse": "UPDATE app.accounts a, app.adjustments b, app.audit_log c SET b.applied = :applied, b.note = :note, b.updated_at = :updated_at WHERE a.id = b.account_id AND c.account_id = a.id",
+          "bind_occurrences": [
+            {"position": 1, "kind": "named", "key": "applied", "sql": ":applied"},
+            {"position": 2, "kind": "named", "key": "note", "sql": ":note"},
+            {"position": 3, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+          ]
+        },
+        {
+          "action": "replace_assignment",
+          "target": "stmt[0].assignment[0]",
+          "value": "b.applied = CASE WHEN c.success = 1 THEN :yes ELSE :no END",
+          "deparse": "UPDATE app.accounts a, app.adjustments b, app.audit_log c SET b.applied = CASE WHEN c.success = 1 THEN :yes ELSE :no END, b.updated_at = :updated_at WHERE a.id = b.account_id AND c.account_id = a.id",
+          "bind_occurrences": [
+            {"position": 1, "kind": "named", "key": "yes", "sql": ":yes"},
+            {"position": 2, "kind": "named", "key": "no", "sql": ":no"},
+            {"position": 3, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+          ]
+        },
+        {
+          "action": "delete_assignment",
+          "target": "stmt[0].assignment[1]",
+          "deparse": "UPDATE app.accounts a, app.adjustments b, app.audit_log c SET b.applied = :applied WHERE a.id = b.account_id AND c.account_id = a.id",
+          "bind_occurrences": [
+            {"position": 1, "kind": "named", "key": "applied", "sql": ":applied"}
+          ]
+        },
+        {
+          "action": "replace",
+          "target": "stmt[0].relation[1]",
+          "value": "app.adjustments_v2",
+          "deparse": "UPDATE app.accounts a, app.adjustments_v2 b, app.audit_log c SET b.applied = :applied, b.updated_at = :updated_at WHERE a.id = b.account_id AND c.account_id = a.id",
+          "bind_occurrences": [
+            {"position": 1, "kind": "named", "key": "applied", "sql": ":applied"},
+            {"position": 2, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "dameng-multitable-update-four-table-last-target-contract",
+      "sql": "UPDATE \"APP\".\"ACCOUNTS\" a, \"APP\".\"ADJUSTMENTS\" b, \"APP\".\"AUDIT_LOG\" c, \"APP\".\"REGIONS\" r SET r.name = :region_name, r.updated_at = CURRENT_TIMESTAMP() WHERE a.id = b.account_id AND c.account_id = a.id AND r.id = a.region_id",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0,
+                    1,
+                    2,
+                    3
+                  ],
+                  "relations": [
+                    0,
+                    1,
+                    2,
+                    3
+                  ]
+                }
+              ],
+              "dml": {
+                "assignments": [
+                  {
+                    "bind_key": "region_name",
+                    "bind_kind": 2,
+                    "bind_position": 1,
+                    "bind_sql": ":region_name",
+                    "kind": "bind",
+                    "selector": "stmt[0].assignment[0]",
+                    "target_field": 0
+                  },
+                  {
+                    "bind_kind": 0,
+                    "kind": "expression",
+                    "selector": "stmt[0].assignment[1]",
+                    "target_field": 1
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "update",
+                "target_relation": 3
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "name",
+                  "relation": 3
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "updated_at",
+                  "relation": 3
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[6]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "account_id",
+                  "relation": 1,
+                  "selector": "stmt[0].name[8]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "account_id",
+                  "relation": 2,
+                  "selector": "stmt[0].name[10]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[12]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "id",
+                  "relation": 3,
+                  "selector": "stmt[0].name[14]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "region_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[16]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "and",
+                  "children": [
+                    1,
+                    2,
+                    3
+                  ],
+                  "clause": "where",
+                  "kind": "bool"
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 2,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 3,
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 4,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 5,
+                  "value": 1
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 6,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 7,
+                  "value": 2
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "a",
+                  "block": 0,
+                  "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "ACCOUNTS"
+                },
+                {
+                  "alias": "b",
+                  "block": 0,
+                  "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[1]",
+                  "table": "ADJUSTMENTS"
+                },
+                {
+                  "alias": "c",
+                  "block": 0,
+                  "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[2]",
+                  "table": "AUDIT_LOG"
+                },
+                {
+                  "alias": "r",
+                  "block": 0,
+                  "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "APP",
+                  "selector": "stmt[0].relation[3]",
+                  "table": "REGIONS"
+                }
+              ],
+              "root": 0,
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 2,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 3
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 4,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 5
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 6,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 7
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "bind_occurrences": [
+        {"position": 1, "kind": "named", "key": "region_name", "sql": ":region_name"}
+      ],
+      "patch": [
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[0]",
+          "value": "r.code = :region_code",
+          "deparse": "UPDATE \"APP\".\"ACCOUNTS\" a, \"APP\".\"ADJUSTMENTS\" b, \"APP\".\"AUDIT_LOG\" c, \"APP\".\"REGIONS\" r SET r.code = :region_code, r.name = :region_name, r.updated_at = CURRENT_TIMESTAMP() WHERE a.id = b.account_id AND c.account_id = a.id AND r.id = a.region_id",
+          "bind_occurrences": [
+            {"position": 1, "kind": "named", "key": "region_code", "sql": ":region_code"},
+            {"position": 2, "kind": "named", "key": "region_name", "sql": ":region_name"}
+          ]
+        },
+        {
+          "action": "replace_assignment",
+          "target": "stmt[0].assignment[1]",
+          "value": "r.updated_at = :updated_at",
+          "deparse": "UPDATE \"APP\".\"ACCOUNTS\" a, \"APP\".\"ADJUSTMENTS\" b, \"APP\".\"AUDIT_LOG\" c, \"APP\".\"REGIONS\" r SET r.name = :region_name, r.updated_at = :updated_at WHERE a.id = b.account_id AND c.account_id = a.id AND r.id = a.region_id",
+          "bind_occurrences": [
+            {"position": 1, "kind": "named", "key": "region_name", "sql": ":region_name"},
+            {"position": 2, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+          ]
+        },
+        {
+          "action": "delete_assignment",
+          "target": "stmt[0].assignment[0]",
+          "deparse": "UPDATE \"APP\".\"ACCOUNTS\" a, \"APP\".\"ADJUSTMENTS\" b, \"APP\".\"AUDIT_LOG\" c, \"APP\".\"REGIONS\" r SET r.updated_at = CURRENT_TIMESTAMP() WHERE a.id = b.account_id AND c.account_id = a.id AND r.id = a.region_id",
+          "bind_occurrences": []
+        },
+        {
+          "action": "replace",
+          "target": "stmt[0].relation[3]",
+          "value": "\"APP\".\"REGIONS_V2\"",
+          "deparse": "UPDATE \"APP\".\"ACCOUNTS\" a, \"APP\".\"ADJUSTMENTS\" b, \"APP\".\"AUDIT_LOG\" c, \"APP\".\"REGIONS_V2\" r SET r.name = :region_name, r.updated_at = CURRENT_TIMESTAMP() WHERE a.id = b.account_id AND c.account_id = a.id AND r.id = a.region_id",
+          "bind_occurrences": [
+            {"position": 1, "kind": "named", "key": "region_name", "sql": ":region_name"}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "dameng-multitable-update-same-table-distinct-alias-contract",
+      "sql": "UPDATE app.accounts current_row, app.accounts prior_row, app.audit_log log_row SET current_row.status = :status, current_row.updated_at = :updated_at WHERE current_row.id = prior_row.id AND log_row.account_id = current_row.id",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0,
+                    1,
+                    2
+                  ],
+                  "relations": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ],
+              "dml": {
+                "assignments": [
+                  {
+                    "bind_key": "status",
+                    "bind_kind": 2,
+                    "bind_position": 1,
+                    "bind_sql": ":status",
+                    "kind": "bind",
+                    "selector": "stmt[0].assignment[0]",
+                    "target_field": 0
+                  },
+                  {
+                    "bind_key": "updated_at",
+                    "bind_kind": 2,
+                    "bind_position": 2,
+                    "bind_sql": ":updated_at",
+                    "kind": "bind",
+                    "selector": "stmt[0].assignment[1]",
+                    "target_field": 1
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "update",
+                "target_relation": 0
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "status",
+                  "relation": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "updated_at",
+                  "relation": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[6]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "id",
+                  "relation": 1,
+                  "selector": "stmt[0].name[8]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "account_id",
+                  "relation": 2,
+                  "selector": "stmt[0].name[10]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[12]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "and",
+                  "children": [
+                    1,
+                    2
+                  ],
+                  "clause": "where",
+                  "kind": "bool"
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 2,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 3,
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 4,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 5,
+                  "value": 1
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "current_row",
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "app",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "accounts"
+                },
+                {
+                  "alias": "prior_row",
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "app",
+                  "selector": "stmt[0].relation[1]",
+                  "table": "accounts"
+                },
+                {
+                  "alias": "log_row",
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "app",
+                  "selector": "stmt[0].relation[2]",
+                  "table": "audit_log"
+                }
+              ],
+              "root": 0,
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 2,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 3
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 4,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 5
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "bind_occurrences": [
+        {"position": 1, "kind": "named", "key": "status", "sql": ":status"},
+        {"position": 2, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+      ],
+      "patch": [
+        {
+          "action": "insert_assignment",
+          "target": "stmt[0].assignment[1]",
+          "value": "current_row.note = :note",
+          "deparse": "UPDATE app.accounts current_row, app.accounts prior_row, app.audit_log log_row SET current_row.status = :status, current_row.note = :note, current_row.updated_at = :updated_at WHERE current_row.id = prior_row.id AND log_row.account_id = current_row.id",
+          "bind_occurrences": [
+            {"position": 1, "kind": "named", "key": "status", "sql": ":status"},
+            {"position": 2, "kind": "named", "key": "note", "sql": ":note"},
+            {"position": 3, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+          ]
+        },
+        {
+          "action": "replace_assignment",
+          "target": "stmt[0].assignment[0]",
+          "value": "current_row.status = CASE WHEN prior_row.status = :old_status THEN :new_status ELSE current_row.status END",
+          "deparse": "UPDATE app.accounts current_row, app.accounts prior_row, app.audit_log log_row SET current_row.status = CASE WHEN prior_row.status = :old_status THEN :new_status ELSE current_row.status END, current_row.updated_at = :updated_at WHERE current_row.id = prior_row.id AND log_row.account_id = current_row.id",
+          "bind_occurrences": [
+            {"position": 1, "kind": "named", "key": "old_status", "sql": ":old_status"},
+            {"position": 2, "kind": "named", "key": "new_status", "sql": ":new_status"},
+            {"position": 3, "kind": "named", "key": "updated_at", "sql": ":updated_at"}
+          ]
+        },
+        {
+          "action": "delete_assignment",
+          "target": "stmt[0].assignment[1]",
+          "deparse": "UPDATE app.accounts current_row, app.accounts prior_row, app.audit_log log_row SET current_row.status = :status WHERE current_row.id = prior_row.id AND log_row.account_id = current_row.id",
+          "bind_occurrences": [
+            {"position": 1, "kind": "named", "key": "status", "sql": ":status"}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "dameng-multitable-update-four-table-join-chain-contract",
+      "sql": "UPDATE app.accounts a LEFT JOIN app.orders b ON a.id = b.account_id INNER JOIN app.payments c ON b.id = c.order_id RIGHT JOIN app.audit_log d ON c.id = d.payment_id SET c.status = :status WHERE a.active = 1 AND d.ready = 1",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5
+                  ],
+                  "relations": [
+                    0,
+                    1,
+                    2,
+                    3
+                  ]
+                }
+              ],
+              "dml": {
+                "assignments": [
+                  {
+                    "bind_key": "status",
+                    "bind_kind": 2,
+                    "bind_position": 1,
+                    "bind_sql": ":status",
+                    "kind": "bind",
+                    "selector": "stmt[0].assignment[0]",
+                    "target_field": 0
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "update",
+                "target_relation": 2
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "status",
+                  "relation": 2
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "active",
+                  "relation": 0,
+                  "selector": "stmt[0].name[20]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "ready",
+                  "relation": 3,
+                  "selector": "stmt[0].name[22]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[6]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "account_id",
+                  "relation": 1,
+                  "selector": "stmt[0].name[8]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "id",
+                  "relation": 1,
+                  "selector": "stmt[0].name[11]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "order_id",
+                  "relation": 2,
+                  "selector": "stmt[0].name[13]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "id",
+                  "relation": 2,
+                  "selector": "stmt[0].name[16]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "payment_id",
+                  "relation": 3,
+                  "selector": "stmt[0].name[18]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "and",
+                  "children": [
+                    1,
+                    2
+                  ],
+                  "clause": "where",
+                  "kind": "bool"
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 1,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 2,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 1
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "on",
+                  "kind": "comparison",
+                  "left_field": 3,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 4,
+                  "value": 2
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "on",
+                  "kind": "comparison",
+                  "left_field": 5,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 6,
+                  "value": 3
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "on",
+                  "kind": "comparison",
+                  "left_field": 7,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 8,
+                  "value": 4
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "a",
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "app",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "accounts"
+                },
+                {
+                  "alias": "b",
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "app",
+                  "selector": "stmt[0].relation[1]",
+                  "table": "orders"
+                },
+                {
+                  "alias": "c",
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "app",
+                  "selector": "stmt[0].relation[2]",
+                  "table": "payments"
+                },
+                {
+                  "alias": "d",
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "app",
+                  "selector": "stmt[0].relation[3]",
+                  "table": "audit_log"
+                }
+              ],
+              "root": 0,
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 1,
+                    "kind": "integer"
+                  },
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[39]"
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 2,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 1,
+                    "kind": "integer"
+                  },
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[45]"
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "on",
+                  "field": 3,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 4
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "on",
+                  "field": 5,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 6
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "on",
+                  "field": 7,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 8
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "bind_occurrences": [
+        {"position": 1, "kind": "named", "key": "status", "sql": ":status"}
+      ],
+      "patch": [
+        {
+          "action": "replace_assignment",
+          "target": "stmt[0].assignment[0]",
+          "value": "c.status = COALESCE(:status, c.status)",
+          "deparse": "UPDATE app.accounts a LEFT JOIN app.orders b ON a.id = b.account_id INNER JOIN app.payments c ON b.id = c.order_id RIGHT JOIN app.audit_log d ON c.id = d.payment_id SET c.status = COALESCE(:status, c.status) WHERE a.active = 1 AND d.ready = 1",
+          "bind_occurrences": [
+            {"position": 1, "kind": "named", "key": "status", "sql": ":status"}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "dameng-multitable-update-join-comma-mixed-contract",
+      "sql": "UPDATE app.accounts a JOIN app.orders b ON a.id = b.account_id, app.audit_log c SET b.status = :status WHERE c.account_id = a.id",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0,
+                    1
+                  ],
+                  "relations": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ],
+              "dml": {
+                "assignments": [
+                  {
+                    "bind_key": "status",
+                    "bind_kind": 2,
+                    "bind_position": 1,
+                    "bind_sql": ":status",
+                    "kind": "bind",
+                    "selector": "stmt[0].assignment[0]",
+                    "target_field": 0
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "update",
+                "target_relation": 1
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "status",
+                  "relation": 1
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "account_id",
+                  "relation": 2,
+                  "selector": "stmt[0].name[10]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[12]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[6]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "account_id",
+                  "relation": 1,
+                  "selector": "stmt[0].name[8]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 1,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 2,
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "on",
+                  "kind": "comparison",
+                  "left_field": 3,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 4,
+                  "value": 1
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "a",
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "app",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "accounts"
+                },
+                {
+                  "alias": "b",
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "app",
+                  "selector": "stmt[0].relation[1]",
+                  "table": "orders"
+                },
+                {
+                  "alias": "c",
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "app",
+                  "selector": "stmt[0].relation[2]",
+                  "table": "audit_log"
+                }
+              ],
+              "root": 0,
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 2
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "on",
+                  "field": 3,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 4
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "bind_occurrences": [
+        {"position": 1, "kind": "named", "key": "status", "sql": ":status"}
+      ],
+      "patch": [
+        {
+          "action": "replace_assignment",
+          "target": "stmt[0].assignment[0]",
+          "value": "b.status = COALESCE(:status, b.status)",
+          "deparse": "UPDATE app.accounts a JOIN app.orders b ON a.id = b.account_id, app.audit_log c SET b.status = COALESCE(:status, b.status) WHERE c.account_id = a.id",
+          "bind_occurrences": [
+            {"position": 1, "kind": "named", "key": "status", "sql": ":status"}
+          ]
+        }
+      ]
     }
   ]
 }

@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "sqlparser_ast_internal.h"
+#include "../dialect/sqlparser_dialect_internal.h"
 
 static int sqlparser_where_field_is_clause(const ProtobufCFieldDescriptor *field)
 {
@@ -564,8 +565,11 @@ sqlparser_status_t sqlparser_statement_where_sql(
 	char **out_sql,
 	sqlparser_error_t *out_error)
 {
+	PgQuery__Node **public_slot;
+	PgQuery__Node **render_slot;
 	PgQuery__Node **slot;
 	char *core_sql;
+	int is_join_carrier;
 	sqlparser_status_t status;
 
 	sqlparser_error_clear(out_error);
@@ -585,12 +589,31 @@ sqlparser_status_t sqlparser_statement_where_sql(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	if (slot == NULL || *slot == NULL) {
+	render_slot = slot;
+	if (handle->dialect == SQLPARSER_DIALECT_DAMENG) {
+		public_slot = NULL;
+		is_join_carrier = 0;
+		status = sqlparser_dameng_multi_update_public_where_slot(
+			handle->dialect_state,
+			statement_index,
+			slot,
+			&is_join_carrier,
+			&public_slot,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		if (is_join_carrier) {
+			render_slot = public_slot;
+		}
+	}
+	if (render_slot == NULL || *render_slot == NULL) {
 		return SQLPARSER_STATUS_OK;
 	}
 
 	core_sql = NULL;
-	status = sqlparser_render_where_node_sql(handle, *slot, &core_sql, out_error);
+	status = sqlparser_render_where_node_sql(
+		handle, *render_slot, &core_sql, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
@@ -599,7 +622,7 @@ sqlparser_status_t sqlparser_statement_where_sql(
 		statement_index,
 		core_sql,
 		SQLPARSER_FRAGMENT_CONTEXT_EXPRESSION,
-		(ProtobufCMessage *const *)slot,
+		(ProtobufCMessage *const *)render_slot,
 		1U,
 		"WHERE SQL",
 		out_sql,
@@ -846,9 +869,11 @@ sqlparser_status_t sqlparser_statement_set_where_sql_in_place(
 	const char *sql_text,
 	sqlparser_error_t *out_error)
 {
+	PgQuery__Node **public_slot;
 	PgQuery__Node **slot;
 	PgQuery__Node *replacement;
 	void *dialect_state;
+	int is_join_carrier;
 	sqlparser_status_t status;
 
 	sqlparser_error_clear(out_error);
@@ -870,9 +895,42 @@ sqlparser_status_t sqlparser_statement_set_where_sql_in_place(
 		return status;
 	}
 
-	sqlparser_free_proto_node(*slot);
-	*slot = replacement;
-	replacement = NULL;
+	public_slot = NULL;
+	is_join_carrier = 0;
+	if (handle->dialect == SQLPARSER_DIALECT_DAMENG) {
+		status = sqlparser_dameng_multi_update_public_where_slot(
+			handle->dialect_state,
+			statement_index,
+			slot,
+			&is_join_carrier,
+			&public_slot,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK && is_join_carrier &&
+	    public_slot == NULL) {
+		status = sqlparser_dameng_multi_update_insert_public_where(
+			handle->dialect_state,
+			statement_index,
+			slot,
+			replacement,
+			out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			replacement = NULL;
+		}
+	} else if (status == SQLPARSER_STATUS_OK) {
+		PgQuery__Node **target_slot;
+
+		target_slot = is_join_carrier ? public_slot : slot;
+		sqlparser_free_proto_node(*target_slot);
+		*target_slot = replacement;
+		replacement = NULL;
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_free_proto_node(replacement);
+		sqlparser_handle_sweep_identifier_spellings(handle);
+		sqlparser_handle_discard_dialect_state(handle, dialect_state);
+		return status;
+	}
 	return sqlparser_handle_commit_ast_with_dialect_state(
 		handle, dialect_state, out_error);
 }
@@ -909,14 +967,23 @@ sqlparser_status_t sqlparser_statement_append_where_sql_in_place(
 	const char *sql_text,
 	sqlparser_error_t *out_error)
 {
+	PgQuery__Node **public_slot;
 	PgQuery__Node **slot;
 	PgQuery__Node *condition;
 	void *dialect_state;
+	int is_join_carrier;
 	sqlparser_status_t status;
 
 	sqlparser_error_clear(out_error);
 	if (handle == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "handle must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	if (!sqlparser_where_bool_operator_is_valid(bool_operator)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"bool_operator must be AND or OR");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 
@@ -932,7 +999,32 @@ sqlparser_status_t sqlparser_statement_append_where_sql_in_place(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	status = sqlparser_where_append_node(slot, bool_operator, condition, out_error);
+	public_slot = NULL;
+	is_join_carrier = 0;
+	if (handle->dialect == SQLPARSER_DIALECT_DAMENG) {
+		status = sqlparser_dameng_multi_update_public_where_slot(
+			handle->dialect_state,
+			statement_index,
+			slot,
+			&is_join_carrier,
+			&public_slot,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK && is_join_carrier &&
+	    public_slot == NULL) {
+		status = sqlparser_dameng_multi_update_insert_public_where(
+			handle->dialect_state,
+			statement_index,
+			slot,
+			condition,
+			out_error);
+	} else if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_where_append_node(
+			is_join_carrier ? public_slot : slot,
+			bool_operator,
+			condition,
+			out_error);
+	}
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_free_proto_node(condition);
 		sqlparser_handle_sweep_identifier_spellings(handle);

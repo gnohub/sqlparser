@@ -424,6 +424,12 @@ preserved separately and distinguished by its own `position`.
 | `sqlparser_statement_node_name()` | returns the underlying node name |
 | `sqlparser_statement_target_relation()` | returns the primary target relation |
 
+MySQL and Vastbase-MySQL multi-target UPDATE statements have no single primary
+target, so `sqlparser_statement_target_relation()` returns
+`SQLPARSER_STATUS_UNSUPPORTED`. A Dameng multi-table UPDATE requires every SET
+assignment to reference the same table object, and this function returns that
+unique target.
+
 Control conditions and branch SQL are addressable statement units. A condition
 unit has kind `SQLPARSER_STATEMENT_KIND_CONDITION` and node name
 `ConditionExpr`; branch SQL keeps its own statement kind. Existing `stmt[n]...`
@@ -920,6 +926,11 @@ from which it was read.
 - `sqlparser_graph_dml_t.insert_mode` distinguishes `VALUES`, `SELECT`,
   `INSERT ALL`, `INSERT FIRST`, MySQL `INSERT ... SET`, and the MySQL `REPLACE`
   `VALUES`, `SELECT`, and `SET` forms.
+- A MySQL or Vastbase-MySQL multi-target UPDATE sets
+  `sqlparser_graph_dml_t.has_target_relation = 0`; each assignment's
+  `target_field_index` identifies a target field with its own relation. A
+  Dameng multi-table UPDATE always has one write target and sets
+  `has_target_relation = 1`.
 - `sqlparser_query_graph_dml_count()` and `sqlparser_query_graph_dml_at()`
   traverse every DML node in one statement. `sqlparser_query_graph_dml()` is a
   compatibility shorthand for index 0. Multiple parentless DML nodes can

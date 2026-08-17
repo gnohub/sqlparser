@@ -947,7 +947,7 @@ sqlparser_status_t sqlparser_assignment_set_sql_by_selector(
 		handle,
 		selector->statement_index,
 		sql_text,
-		"update assignment SQL",
+		"update assignment value SQL",
 		&parser_sql,
 		&dialect_state,
 		&origins,

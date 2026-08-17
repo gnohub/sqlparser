@@ -5,6 +5,7 @@
 
 #include "sqlparser_ast_internal.h"
 #include "../dialect/sqlparser_dialect_dml_result_internal.h"
+#include "../dialect/sqlparser_dialect_internal.h"
 
 static int sqlparser_optional_relation_name_equal(
 	const char *left,
@@ -1388,9 +1389,11 @@ sqlparser_status_t sqlparser_replace_relation_and_bound_qualifiers(
 	size_t column_plan_count;
 	size_t assignment_plan_count;
 	size_t qualified_assignment_count;
+	size_t dameng_target_relation_ordinal;
 	size_t index;
 	sqlparser_status_t status;
 	int commit_attempted;
+	int dameng_multi_update;
 	int needs_stable_values;
 
 	column_plans = NULL;
@@ -1402,6 +1405,8 @@ sqlparser_status_t sqlparser_replace_relation_and_bound_qualifiers(
 	qualified_assignment_count = 0U;
 	relation_part_count = 0U;
 	commit_attempted = 0;
+	dameng_target_relation_ordinal = 0U;
+	dameng_multi_update = 0;
 	needs_stable_values = 0;
 	if (values == NULL || bindings == NULL ||
 	    (bindings->column_ref_count > 0U &&
@@ -1414,6 +1419,22 @@ sqlparser_status_t sqlparser_replace_relation_and_bound_qualifiers(
 			status,
 			"relation replacement inputs are invalid");
 		goto cleanup;
+	}
+	dameng_multi_update =
+		handle->dialect == SQLPARSER_DIALECT_DAMENG &&
+		sqlparser_dameng_statement_multi_update_target_index(
+			dialect_state != NULL ? dialect_state :
+				handle->dialect_state,
+			statement_index,
+			&dameng_target_relation_ordinal);
+	if (dameng_multi_update && dialect_state != NULL &&
+	    handle->dialect_ops != NULL &&
+	    handle->dialect_ops->bind_ast_state != NULL) {
+		status = handle->dialect_ops->bind_ast_state(
+			dialect_state, handle->ast, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			goto cleanup;
+		}
 	}
 	for (index = 0U;
 	     index < bindings->assignment_target_count;
@@ -1432,7 +1453,7 @@ sqlparser_status_t sqlparser_replace_relation_and_bound_qualifiers(
 	}
 	needs_stable_values =
 		duplicate_relation != NULL || bindings->column_ref_count > 0U ||
-		qualified_assignment_count > 0U;
+		qualified_assignment_count > 0U || dameng_multi_update;
 	for (index = 0U; index < 3U; index++) {
 		stable_values[index] = values[index];
 		if (!needs_stable_values || values[index] == NULL) {
@@ -1472,7 +1493,8 @@ sqlparser_status_t sqlparser_replace_relation_and_bound_qualifiers(
 		}
 	}
 	if (bindings->column_ref_count > 0U ||
-	    qualified_assignment_count > 0U) {
+	    qualified_assignment_count > 0U ||
+	    dameng_multi_update) {
 		for (index = 0U; index < 3U; index++) {
 			if (stable_values[index] == NULL ||
 			    stable_values[index][0] == '\0') {
@@ -1501,6 +1523,19 @@ sqlparser_status_t sqlparser_replace_relation_and_bound_qualifiers(
 				out_error,
 				status,
 				"relation identifier path is empty");
+			goto cleanup;
+		}
+	}
+	if (dameng_multi_update) {
+		status = sqlparser_dameng_multi_update_relation_replaced(
+			dialect_state != NULL ? dialect_state :
+				handle->dialect_state,
+			statement_index,
+			relation,
+			stable_values,
+			(const char *const *)owned_relation_spellings,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
 			goto cleanup;
 		}
 	}
@@ -1714,10 +1749,89 @@ sqlparser_status_t sqlparser_statement_target_relation(
 			}
 			break;
 		case PG_QUERY__NODE__NODE_UPDATE_STMT:
-			if (statement->update_stmt != NULL) {
-				relation = statement->update_stmt->relation;
+			{
+				sqlparser_graph_dml_t dml;
+				sqlparser_graph_relation_t graph_relation;
+				sqlparser_query_graph_view_t graph;
+				size_t target_relation_ordinal;
+				int multi_relation_update;
+
+				target_relation_ordinal = 0U;
+				multi_relation_update =
+					handle != NULL &&
+					sqlparser_dialect_is_mysql_compatible(
+						handle->dialect) &&
+					sqlparser_mysql_statement_update_join_multi_target(
+						handle->dialect_state,
+						statement_index);
+				if (handle != NULL &&
+				    handle->dialect == SQLPARSER_DIALECT_DAMENG &&
+				    sqlparser_dameng_statement_multi_update_target_index(
+					    handle->dialect_state,
+					    statement_index,
+					    &target_relation_ordinal)) {
+					multi_relation_update = 1;
+				}
+				if (!multi_relation_update) {
+					if (statement->update_stmt != NULL) {
+						relation =
+							statement->update_stmt->relation;
+					}
+					break;
+				}
+
+				memset(&graph, 0, sizeof(graph));
+				status = sqlparser_statement_query_graph(
+					handle,
+					statement_index,
+					&graph,
+					out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					return status;
+				}
+				memset(&dml, 0, sizeof(dml));
+				status = sqlparser_query_graph_dml(
+					&graph,
+					&dml,
+					out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					return status;
+				}
+				if (dml.kind != SQLPARSER_GRAPH_DML_UPDATE) {
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_INTERNAL_ERROR,
+						"UPDATE target relation metadata is invalid");
+					return SQLPARSER_STATUS_INTERNAL_ERROR;
+				}
+				if (!dml.has_target_relation) {
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_UNSUPPORTED,
+						"statement does not expose a single target relation");
+					return SQLPARSER_STATUS_UNSUPPORTED;
+				}
+				memset(&graph_relation, 0, sizeof(graph_relation));
+				status = sqlparser_query_graph_relation_at(
+					&graph,
+					dml.target_relation_index,
+					&graph_relation,
+					out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					return status;
+				}
+				out_relation->database_name =
+					graph_relation.database_name;
+				out_relation->schema_name =
+					graph_relation.schema_name;
+				out_relation->table_name =
+					graph_relation.object_name;
+				out_relation->alias_name =
+					graph_relation.alias_name;
+				out_relation->link_name =
+					graph_relation.link_name;
+				return SQLPARSER_STATUS_OK;
 			}
-			break;
 		case PG_QUERY__NODE__NODE_DELETE_STMT:
 			if (statement->delete_stmt != NULL) {
 				relation = statement->delete_stmt->relation;
@@ -2191,6 +2305,17 @@ sqlparser_status_t sqlparser_statement_set_name_spelling(
 	value_changed = strcmp(*search.target_slot, value) != 0;
 	if (!value_changed && spelling == NULL) {
 		return SQLPARSER_STATUS_OK;
+	}
+	if (handle->dialect == SQLPARSER_DIALECT_DAMENG &&
+	    sqlparser_dameng_multi_update_target_name_slot(
+		    handle->dialect_state,
+		    statement_index,
+		    search.target_slot)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"Dameng multi-table UPDATE target relation must be changed through the relation selector");
+		return SQLPARSER_STATUS_UNSUPPORTED;
 	}
 
 	next_spelling =

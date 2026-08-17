@@ -27,6 +27,33 @@ typedef struct {
 	PgQuery__RangeVar *owner;
 } sqlparser_dameng_dblink_relation_t;
 
+typedef enum {
+	SQLPARSER_DAMENG_MULTI_UPDATE_LINK_COMMA = 0,
+	SQLPARSER_DAMENG_MULTI_UPDATE_LINK_JOIN_ON
+} sqlparser_dameng_multi_update_link_kind_t;
+
+typedef struct {
+	sqlparser_dameng_multi_update_link_kind_t kind;
+	char *keyword_sql;
+	PgQuery__FuncCall *condition_owner;
+} sqlparser_dameng_multi_update_link_t;
+
+typedef struct {
+	char *qualifier_sql;
+	PgQuery__RangeVar *owner;
+} sqlparser_dameng_multi_update_relation_t;
+
+typedef struct {
+	size_t statement_index;
+	size_t relation_count;
+	size_t target_relation_index;
+	int target_qualifier_uses_alias;
+	int target_qualifier_uses_full_name;
+	char *target_qualifier_sql;
+	sqlparser_dameng_multi_update_relation_t *relations;
+	sqlparser_dameng_multi_update_link_t *links;
+} sqlparser_dameng_multi_update_t;
+
 typedef struct {
 	char **bind_names;
 	size_t bind_count;
@@ -46,6 +73,9 @@ typedef struct {
 	size_t dblink_count;
 	size_t dblink_capacity;
 	size_t next_dblink_id;
+	sqlparser_dameng_multi_update_t *multi_updates;
+	size_t multi_update_count;
+	size_t multi_update_capacity;
 	sqlparser_dialect_returning_into_state_t returning_into;
 } sqlparser_dameng_state_t;
 
@@ -91,6 +121,19 @@ static sqlparser_status_t sqlparser_dameng_parse_multi_insert(
 	char **out_parser_sql,
 	sqlparser_identifier_origin_map_t *origins,
 	sqlparser_error_t *out_error);
+static size_t sqlparser_dameng_statement_end(const char *sql, size_t start);
+static size_t sqlparser_dameng_trim_left(const char *text, size_t start, size_t end);
+static int sqlparser_dameng_find_top_level_word(
+	const char *sql,
+	size_t start,
+	size_t end,
+	const char *word,
+	size_t *out_pos);
+static int sqlparser_dameng_update_text_path_equal(
+	const char *left,
+	size_t left_length,
+	const char *right,
+	size_t right_length);
 
 static void sqlparser_dameng_dblink_relation_clear(
 	sqlparser_dameng_dblink_relation_t *relation)
@@ -570,6 +613,30 @@ static void sqlparser_dameng_multi_insert_destroy(sqlparser_dialect_multi_insert
 	free(multi);
 }
 
+static void sqlparser_dameng_multi_update_clear(
+	sqlparser_dameng_multi_update_t *multi)
+{
+	size_t index;
+
+	if (multi == NULL) {
+		return;
+	}
+	free(multi->target_qualifier_sql);
+	if (multi->relations != NULL) {
+		for (index = 0U; index < multi->relation_count; index++) {
+			free(multi->relations[index].qualifier_sql);
+		}
+	}
+	free(multi->relations);
+	if (multi->links != NULL) {
+		for (index = 0U; index + 1U < multi->relation_count; index++) {
+			free(multi->links[index].keyword_sql);
+		}
+	}
+	free(multi->links);
+	memset(multi, 0, sizeof(*multi));
+}
+
 static sqlparser_status_t sqlparser_dameng_buffer_reserve_input(
 	sqlparser_dameng_buffer_t *buffer,
 	const char *input,
@@ -600,6 +667,10 @@ static void sqlparser_dameng_state_destroy(void *state)
 		sqlparser_dameng_dblink_relation_clear(
 			&dameng_state->dblink_relations[index]);
 	}
+	for (index = 0U; index < dameng_state->multi_update_count; index++) {
+		sqlparser_dameng_multi_update_clear(
+			&dameng_state->multi_updates[index]);
+	}
 	free(dameng_state->bind_names);
 	sqlparser_dialect_prepared_binds_clear(
 		&dameng_state->prepared_binds);
@@ -608,6 +679,7 @@ static void sqlparser_dameng_state_destroy(void *state)
 		&dameng_state->national_literals);
 	sqlparser_dialect_minuses_clear(&dameng_state->minuses);
 	free(dameng_state->dblink_relations);
+	free(dameng_state->multi_updates);
 	sqlparser_dameng_multi_insert_destroy(dameng_state->multi_insert);
 	sqlparser_dialect_returning_into_state_clear(
 		&dameng_state->returning_into);
@@ -1061,6 +1133,1450 @@ static int sqlparser_dameng_copy_quoted_or_comment(
 	}
 	sqlparser_error_set_message(out_error, SQLPARSER_STATUS_PARSE_ERROR, "unterminated Dameng quoted literal");
 	return -1;
+}
+
+typedef struct {
+	size_t start;
+	size_t end;
+	size_t object_start;
+	size_t object_end;
+	size_t name_start;
+	size_t name_end;
+	size_t alias_start;
+	size_t alias_end;
+} sqlparser_dameng_update_relation_span_t;
+
+typedef struct {
+	sqlparser_dameng_multi_update_link_kind_t kind;
+	size_t keyword_start;
+	size_t keyword_end;
+	size_t condition_start;
+	size_t condition_end;
+} sqlparser_dameng_update_link_span_t;
+
+typedef struct {
+	sqlparser_dameng_update_relation_span_t *relations;
+	sqlparser_dameng_update_link_span_t *links;
+	size_t relation_count;
+	size_t relation_capacity;
+} sqlparser_dameng_update_list_t;
+
+enum {
+	SQLPARSER_DAMENG_UPDATE_STOP_END = 0,
+	SQLPARSER_DAMENG_UPDATE_STOP_COMMA,
+	SQLPARSER_DAMENG_UPDATE_STOP_JOIN,
+	SQLPARSER_DAMENG_UPDATE_STOP_ON
+};
+
+static void sqlparser_dameng_update_list_release(
+	sqlparser_dameng_update_list_t *list)
+{
+	if (list == NULL) {
+		return;
+	}
+	free(list->relations);
+	free(list->links);
+	memset(list, 0, sizeof(*list));
+}
+
+static size_t sqlparser_dameng_update_identifier_end(
+	const char *sql,
+	size_t pos,
+	size_t end)
+{
+	if (pos >= end) {
+		return pos;
+	}
+	if (sql[pos] == '"') {
+		pos++;
+		while (pos < end) {
+			if (sql[pos] == '"') {
+				if (pos + 1U < end && sql[pos + 1U] == '"') {
+					pos += 2U;
+					continue;
+				}
+				return pos + 1U;
+			}
+			pos++;
+		}
+		return end;
+	}
+	if (!sqlparser_dameng_is_ident_start((unsigned char)sql[pos])) {
+		return pos;
+	}
+	pos++;
+	while (pos < end &&
+	       sqlparser_dameng_is_ident_char((unsigned char)sql[pos])) {
+		pos++;
+	}
+	return pos;
+}
+
+static int sqlparser_dameng_update_relation_parse(
+	const char *sql,
+	size_t start,
+	size_t end,
+	sqlparser_dameng_update_relation_span_t *out_relation)
+{
+	size_t ident_end;
+	size_t last_line_comment;
+	size_t last_start;
+	size_t last_end;
+	size_t next;
+	size_t pos;
+	size_t raw_end;
+	size_t scan;
+	size_t surface_end;
+	size_t surface_start;
+	size_t trivia_end;
+
+	if (sql == NULL || out_relation == NULL) {
+		return 0;
+	}
+	surface_start = sqlparser_dameng_trim_left(sql, start, end);
+	raw_end = end;
+	end = sqlparser_dameng_trim_right(sql, surface_start, end);
+	surface_end = end;
+	last_line_comment = SIZE_MAX;
+	scan = surface_start;
+	while (scan < raw_end) {
+		if (sql[scan] == '-' && sql[scan + 1U] == '-') {
+			last_line_comment = scan;
+		}
+		next = sqlparser_dameng_skip_quoted_or_comment_span(sql, scan);
+		scan = next > scan ? next : scan + 1U;
+	}
+	if (last_line_comment != SIZE_MAX &&
+	    sqlparser_dameng_skip_trivia(sql, last_line_comment) == raw_end) {
+		surface_end = raw_end;
+	}
+	start = sqlparser_dameng_skip_trivia(sql, surface_start);
+	if (start >= end) {
+		return 0;
+	}
+	memset(out_relation, 0, sizeof(*out_relation));
+	out_relation->start = surface_start;
+	out_relation->end = surface_end;
+	out_relation->object_start = start;
+	pos = start;
+	ident_end = sqlparser_dameng_update_identifier_end(sql, pos, end);
+	if (ident_end == pos) {
+		return 0;
+	}
+	last_start = pos;
+	last_end = ident_end;
+	pos = ident_end;
+	for (;;) {
+		pos = sqlparser_dameng_skip_trivia(sql, pos);
+		if (pos >= end || sql[pos] != '.') {
+			break;
+		}
+		pos = sqlparser_dameng_skip_trivia(sql, pos + 1U);
+		ident_end = sqlparser_dameng_update_identifier_end(sql, pos, end);
+		if (ident_end == pos) {
+			return 0;
+		}
+		last_start = pos;
+		last_end = ident_end;
+		pos = ident_end;
+	}
+	out_relation->object_end = last_end;
+	out_relation->name_start = last_start;
+	out_relation->name_end = last_end;
+	pos = sqlparser_dameng_skip_trivia(sql, pos);
+	if (pos >= end) {
+		return 1;
+	}
+	if (sqlparser_dameng_ascii_word_equal(sql, pos, "as")) {
+		pos = sqlparser_dameng_skip_trivia(sql, pos + strlen("as"));
+	}
+	out_relation->alias_start = pos;
+	out_relation->alias_end =
+		sqlparser_dameng_update_identifier_end(sql, pos, end);
+	trivia_end = sqlparser_dameng_skip_trivia(
+		sql, out_relation->alias_end);
+	if (out_relation->alias_end == pos ||
+	    trivia_end != raw_end) {
+		return 0;
+	}
+	return 1;
+}
+
+static int sqlparser_dameng_update_path_equal(
+	const char *sql,
+	size_t left_start,
+	size_t left_end,
+	size_t right_start,
+	size_t right_end)
+{
+	return sqlparser_dameng_update_text_path_equal(
+		sql + left_start,
+		left_end - left_start,
+		sql + right_start,
+		right_end - right_start);
+}
+
+static int sqlparser_dameng_update_relation_matches(
+	const char *sql,
+	const sqlparser_dameng_update_relation_span_t *relation,
+	size_t qualifier_start,
+	size_t qualifier_end)
+{
+	if (relation->alias_start < relation->alias_end) {
+		return sqlparser_dameng_update_path_equal(
+			sql,
+			qualifier_start,
+			qualifier_end,
+			relation->alias_start,
+			relation->alias_end);
+	}
+	return sqlparser_dameng_update_path_equal(
+			sql,
+			qualifier_start,
+			qualifier_end,
+			relation->object_start,
+			relation->object_end) ||
+		sqlparser_dameng_update_path_equal(
+			sql,
+			qualifier_start,
+			qualifier_end,
+			relation->name_start,
+			relation->name_end);
+}
+
+static int sqlparser_dameng_update_join_keyword_at(
+	const char *sql,
+	size_t pos,
+	size_t end,
+	size_t *out_end)
+{
+	size_t next;
+
+	if (pos >= end) {
+		return 0;
+	}
+	if (sqlparser_dameng_ascii_word_equal(sql, pos, "join")) {
+		if (out_end != NULL) {
+			*out_end = pos + strlen("join");
+		}
+		return 1;
+	}
+	if (!sqlparser_dameng_ascii_word_equal(sql, pos, "inner") &&
+	    !sqlparser_dameng_ascii_word_equal(sql, pos, "left") &&
+	    !sqlparser_dameng_ascii_word_equal(sql, pos, "right")) {
+		return 0;
+	}
+	next = pos;
+	while (next < end &&
+	       sqlparser_dameng_is_ident_char((unsigned char)sql[next])) {
+		next++;
+	}
+	next = sqlparser_dameng_skip_trivia(sql, next);
+	if (sqlparser_dameng_ascii_word_equal(sql, next, "outer")) {
+		next = sqlparser_dameng_skip_trivia(
+			sql, next + strlen("outer"));
+	}
+	if (!sqlparser_dameng_ascii_word_equal(sql, next, "join")) {
+		return 0;
+	}
+	if (out_end != NULL) {
+		*out_end = next + strlen("join");
+	}
+	return 1;
+}
+
+static int sqlparser_dameng_update_scan_stop(
+	const char *sql,
+	size_t start,
+	size_t end,
+	int stop_at_condition,
+	size_t *out_start,
+	size_t *out_end)
+{
+	size_t depth;
+	size_t pos;
+
+	depth = 0U;
+	pos = start;
+	while (pos < end) {
+		size_t join_end;
+		size_t skipped;
+
+		skipped = sqlparser_dameng_skip_quoted_or_comment_span(sql, pos);
+		if (skipped > pos) {
+			pos = skipped;
+			continue;
+		}
+		if (sql[pos] == '(') {
+			depth++;
+			pos++;
+			continue;
+		}
+		if (sql[pos] == ')') {
+			if (depth > 0U) {
+				depth--;
+			}
+			pos++;
+			continue;
+		}
+		if (depth != 0U) {
+			pos++;
+			continue;
+		}
+		if (sql[pos] == ',') {
+			if (out_start != NULL) {
+				*out_start = pos;
+			}
+			if (out_end != NULL) {
+				*out_end = pos + 1U;
+			}
+			return SQLPARSER_DAMENG_UPDATE_STOP_COMMA;
+		}
+		join_end = pos;
+		if (sqlparser_dameng_update_join_keyword_at(
+			    sql, pos, end, &join_end)) {
+			if (out_start != NULL) {
+				*out_start = pos;
+			}
+			if (out_end != NULL) {
+				*out_end = join_end;
+			}
+			return SQLPARSER_DAMENG_UPDATE_STOP_JOIN;
+		}
+		if (stop_at_condition &&
+		    sqlparser_dameng_ascii_word_equal(sql, pos, "on")) {
+			if (out_start != NULL) {
+				*out_start = pos;
+			}
+			if (out_end != NULL) {
+				*out_end = pos + strlen("on");
+			}
+			return SQLPARSER_DAMENG_UPDATE_STOP_ON;
+		}
+		pos++;
+	}
+	if (out_start != NULL) {
+		*out_start = end;
+	}
+	if (out_end != NULL) {
+		*out_end = end;
+	}
+	return SQLPARSER_DAMENG_UPDATE_STOP_END;
+}
+
+static int sqlparser_dameng_update_matching_paren(
+	const char *sql,
+	size_t open_pos,
+	size_t end,
+	size_t *out_close)
+{
+	size_t depth;
+	size_t pos;
+
+	if (open_pos >= end || sql[open_pos] != '(') {
+		return 0;
+	}
+	depth = 1U;
+	pos = open_pos + 1U;
+	while (pos < end) {
+		size_t skipped;
+
+		skipped = sqlparser_dameng_skip_quoted_or_comment_span(sql, pos);
+		if (skipped > pos) {
+			pos = skipped;
+			continue;
+		}
+		if (sql[pos] == '(') {
+			depth++;
+		} else if (sql[pos] == ')') {
+			depth--;
+			if (depth == 0U) {
+				*out_close = pos;
+				return 1;
+			}
+		}
+		pos++;
+	}
+	return 0;
+}
+
+static sqlparser_status_t sqlparser_dameng_update_list_append_relation(
+	const char *sql,
+	size_t start,
+	size_t end,
+	const sqlparser_dameng_update_link_span_t *link,
+	sqlparser_dameng_update_list_t *list,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dameng_update_link_span_t *next_links;
+	sqlparser_dameng_update_relation_span_t *next_relations;
+	size_t capacity;
+
+	if (list->relation_count == list->relation_capacity) {
+		capacity = list->relation_capacity == 0U ?
+			4U : list->relation_capacity * 2U;
+		if (capacity < list->relation_capacity ||
+		    capacity > SIZE_MAX / sizeof(*next_relations) ||
+		    capacity - 1U > SIZE_MAX / sizeof(*next_links)) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		next_relations =
+			(sqlparser_dameng_update_relation_span_t *)realloc(
+				list->relations,
+				capacity * sizeof(*next_relations));
+		if (next_relations == NULL) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		list->relations = next_relations;
+		next_links =
+			(sqlparser_dameng_update_link_span_t *)realloc(
+				list->links,
+				(capacity - 1U) * sizeof(*next_links));
+		if (next_links == NULL) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		list->links = next_links;
+		list->relation_capacity = capacity;
+	}
+	if (!sqlparser_dameng_update_relation_parse(
+		    sql,
+		    start,
+		    end,
+		    &list->relations[list->relation_count])) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"unsupported Dameng syntax: complex multi-table UPDATE relation");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	if (list->relation_count > 0U && link != NULL) {
+		list->links[list->relation_count - 1U] = *link;
+	}
+	list->relation_count++;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_dameng_update_list_parse(
+	const char *sql,
+	size_t start,
+	size_t end,
+	sqlparser_dameng_update_list_t *out_list,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dameng_update_link_span_t link;
+	size_t stop_end;
+	size_t stop_start;
+	size_t relation_start;
+	int stop;
+	sqlparser_status_t status;
+
+	memset(out_list, 0, sizeof(*out_list));
+	relation_start = sqlparser_dameng_trim_left(sql, start, end);
+	stop = sqlparser_dameng_update_scan_stop(
+		sql, relation_start, end, 0, &stop_start, &stop_end);
+	status = sqlparser_dameng_update_list_append_relation(
+		sql,
+		relation_start,
+		stop_start,
+		NULL,
+		out_list,
+		out_error);
+	while (status == SQLPARSER_STATUS_OK &&
+	       stop != SQLPARSER_DAMENG_UPDATE_STOP_END) {
+		memset(&link, 0, sizeof(link));
+		if (stop == SQLPARSER_DAMENG_UPDATE_STOP_COMMA) {
+			link.kind = SQLPARSER_DAMENG_MULTI_UPDATE_LINK_COMMA;
+			relation_start = sqlparser_dameng_trim_left(
+				sql, stop_end, end);
+			stop = sqlparser_dameng_update_scan_stop(
+				sql,
+				relation_start,
+				end,
+				0,
+				&stop_start,
+				&stop_end);
+			status = sqlparser_dameng_update_list_append_relation(
+				sql,
+				relation_start,
+				stop_start,
+				&link,
+				out_list,
+				out_error);
+			continue;
+		}
+		if (stop != SQLPARSER_DAMENG_UPDATE_STOP_JOIN) {
+			status = SQLPARSER_STATUS_UNSUPPORTED;
+			sqlparser_error_set_message(
+				out_error,
+				status,
+				"unsupported Dameng multi-table UPDATE relation list");
+			break;
+		}
+		link.keyword_start = stop_start;
+		link.keyword_end = stop_end;
+		relation_start = sqlparser_dameng_trim_left(sql, stop_end, end);
+		stop = sqlparser_dameng_update_scan_stop(
+			sql,
+			relation_start,
+			end,
+			1,
+			&stop_start,
+			&stop_end);
+		if (stop != SQLPARSER_DAMENG_UPDATE_STOP_ON) {
+			status = SQLPARSER_STATUS_UNSUPPORTED;
+			sqlparser_error_set_message(
+				out_error,
+				status,
+				"unsupported Dameng syntax: multi-table UPDATE JOIN without ON");
+			break;
+		}
+		link.kind = SQLPARSER_DAMENG_MULTI_UPDATE_LINK_JOIN_ON;
+		status = sqlparser_dameng_update_list_append_relation(
+			sql,
+			relation_start,
+			stop_start,
+			&link,
+			out_list,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			continue;
+		}
+		{
+			size_t condition_start;
+
+			condition_start = sqlparser_dameng_trim_left(
+				sql, stop_end, end);
+			stop = sqlparser_dameng_update_scan_stop(
+				sql,
+				condition_start,
+				end,
+				0,
+				&stop_start,
+				&stop_end);
+			out_list->links[out_list->relation_count - 2U]
+				.condition_start = condition_start;
+			out_list->links[out_list->relation_count - 2U]
+				.condition_end = sqlparser_dameng_trim_right(
+					sql, condition_start, stop_start);
+			if (condition_start >=
+			    out_list->links[out_list->relation_count - 2U]
+				    .condition_end) {
+				status = SQLPARSER_STATUS_UNSUPPORTED;
+				sqlparser_error_set_message(
+					out_error,
+					status,
+					"unsupported Dameng multi-table UPDATE empty ON clause");
+			}
+		}
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_dameng_update_list_release(out_list);
+	}
+	return status;
+}
+
+static size_t sqlparser_dameng_update_find_top_level_char(
+	const char *sql,
+	size_t start,
+	size_t end,
+	char needle)
+{
+	size_t depth;
+	size_t pos;
+
+	depth = 0U;
+	pos = start;
+	while (pos < end) {
+		size_t skipped;
+
+		skipped = sqlparser_dameng_skip_quoted_or_comment_span(sql, pos);
+		if (skipped > pos) {
+			pos = skipped;
+			continue;
+		}
+		if (sql[pos] == '(') {
+			depth++;
+		} else if (sql[pos] == ')') {
+			if (depth > 0U) {
+				depth--;
+			}
+		} else if (depth == 0U && sql[pos] == needle) {
+			return pos;
+		}
+		pos++;
+	}
+	return SIZE_MAX;
+}
+
+static size_t sqlparser_dameng_update_find_last_top_level_dot(
+	const char *sql,
+	size_t start,
+	size_t end)
+{
+	size_t dot;
+	size_t pos;
+
+	dot = SIZE_MAX;
+	pos = start;
+	while (pos < end) {
+		size_t skipped;
+
+		skipped = sqlparser_dameng_skip_quoted_or_comment_span(sql, pos);
+		if (skipped > pos) {
+			pos = skipped;
+			continue;
+		}
+		if (sql[pos] == '.') {
+			dot = pos;
+		}
+		pos++;
+	}
+	return dot;
+}
+
+static sqlparser_status_t sqlparser_dameng_update_assignment_target(
+	const char *sql,
+	size_t assignment_start,
+	size_t assignment_end,
+	const sqlparser_dameng_update_list_t *list,
+	size_t *out_relation_index,
+	int *out_qualified,
+	size_t *out_qualifier_start,
+	size_t *out_qualifier_end,
+	size_t *out_column_start,
+	size_t *out_column_end,
+	size_t *out_value_start,
+	size_t *out_value_end,
+	sqlparser_error_t *out_error)
+{
+	size_t dot;
+	size_t equals;
+	size_t left_end;
+	size_t left_start;
+	size_t match_count;
+	size_t match_index;
+	size_t relation_index;
+
+	assignment_start = sqlparser_dameng_trim_left(
+		sql, assignment_start, assignment_end);
+	assignment_end = sqlparser_dameng_trim_right(
+		sql, assignment_start, assignment_end);
+	equals = sqlparser_dameng_update_find_top_level_char(
+		sql, assignment_start, assignment_end, '=');
+	if (equals == SIZE_MAX) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"unsupported Dameng multi-table UPDATE assignment");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	left_start = sqlparser_dameng_trim_left(sql, assignment_start, equals);
+	left_end = sqlparser_dameng_trim_right(sql, left_start, equals);
+	if (left_start >= left_end || sql[left_start] == '(') {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"unsupported Dameng syntax: multi-table UPDATE multi-column SET");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	dot = sqlparser_dameng_update_find_last_top_level_dot(
+		sql, left_start, left_end);
+	*out_qualified = dot != SIZE_MAX;
+	*out_qualifier_start = left_start;
+	*out_qualifier_end = dot == SIZE_MAX ? left_start :
+		sqlparser_dameng_trim_right(sql, left_start, dot);
+	*out_column_start = dot == SIZE_MAX ? left_start :
+		sqlparser_dameng_trim_left(sql, dot + 1U, left_end);
+	*out_column_end = left_end;
+	*out_value_start = sqlparser_dameng_trim_left(
+		sql, equals + 1U, assignment_end);
+	*out_value_end = assignment_end;
+	if (*out_column_start >= *out_column_end ||
+	    *out_value_start >= *out_value_end) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"unsupported Dameng multi-table UPDATE assignment");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	if (!*out_qualified) {
+		*out_relation_index = 0U;
+		return SQLPARSER_STATUS_OK;
+	}
+	match_count = 0U;
+	match_index = 0U;
+	for (relation_index = 0U;
+	     relation_index < list->relation_count;
+	     relation_index++) {
+		if (sqlparser_dameng_update_relation_matches(
+			    sql,
+			    &list->relations[relation_index],
+			    *out_qualifier_start,
+			    *out_qualifier_end)) {
+			match_index = relation_index;
+			match_count++;
+		}
+	}
+	if (match_count != 1U) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"unsupported Dameng syntax: multi-table UPDATE assignment target");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	*out_relation_index = match_index;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_dameng_update_validate_assignments(
+	const char *sql,
+	size_t start,
+	size_t end,
+	const sqlparser_dameng_update_list_t *list,
+	size_t *out_target_relation_index,
+	size_t *out_qualifier_start,
+	size_t *out_qualifier_end,
+	sqlparser_error_t *out_error)
+{
+	size_t assignment_end;
+	size_t assignment_start;
+	size_t column_end;
+	size_t column_start;
+	size_t qualifier_end;
+	size_t qualifier_start;
+	size_t relation_index;
+	size_t value_end;
+	size_t value_start;
+	int any_qualified;
+	int qualified;
+	int selected;
+	sqlparser_status_t status;
+
+	assignment_start = sqlparser_dameng_trim_left(sql, start, end);
+	selected = 0;
+	any_qualified = 0;
+	*out_target_relation_index = 0U;
+	*out_qualifier_start = 0U;
+	*out_qualifier_end = 0U;
+	while (assignment_start < end) {
+		assignment_end = sqlparser_dameng_update_find_top_level_char(
+			sql, assignment_start, end, ',');
+		if (assignment_end == SIZE_MAX) {
+			assignment_end = end;
+		}
+		status = sqlparser_dameng_update_assignment_target(
+			sql,
+			assignment_start,
+			assignment_end,
+			list,
+			&relation_index,
+			&qualified,
+			&qualifier_start,
+			&qualifier_end,
+			&column_start,
+			&column_end,
+			&value_start,
+			&value_end,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		if (qualified) {
+			if (selected &&
+			    *out_target_relation_index != relation_index) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_UNSUPPORTED,
+					"unsupported Dameng syntax: multi-table UPDATE multiple assignment targets");
+				return SQLPARSER_STATUS_UNSUPPORTED;
+			}
+			if (!selected) {
+				*out_target_relation_index = relation_index;
+				*out_qualifier_start = qualifier_start;
+				*out_qualifier_end = qualifier_end;
+				selected = 1;
+			}
+			any_qualified = 1;
+		}
+		assignment_start = assignment_end == end ?
+			end : assignment_end + 1U;
+	}
+	if (assignment_start == start) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"unsupported Dameng multi-table UPDATE empty SET list");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	if (!any_qualified) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"unsupported Dameng syntax: multi-table UPDATE target is ambiguous");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_dameng_update_append_assignments(
+	const char *sql,
+	size_t start,
+	size_t end,
+	const sqlparser_dameng_update_list_t *list,
+	sqlparser_dameng_buffer_t *out,
+	sqlparser_error_t *out_error)
+{
+	size_t assignment_end;
+	size_t assignment_start;
+	size_t column_end;
+	size_t column_start;
+	size_t qualifier_end;
+	size_t qualifier_start;
+	size_t relation_index;
+	size_t value_end;
+	size_t value_start;
+	int first;
+	int qualified;
+	sqlparser_status_t status;
+
+	assignment_start = sqlparser_dameng_trim_left(sql, start, end);
+	first = 1;
+	while (assignment_start < end) {
+		assignment_end = sqlparser_dameng_update_find_top_level_char(
+			sql, assignment_start, end, ',');
+		if (assignment_end == SIZE_MAX) {
+			assignment_end = end;
+		}
+		status = sqlparser_dameng_update_assignment_target(
+			sql,
+			assignment_start,
+			assignment_end,
+			list,
+			&relation_index,
+			&qualified,
+			&qualifier_start,
+			&qualifier_end,
+			&column_start,
+			&column_end,
+			&value_start,
+			&value_end,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		if (!first) {
+			status = sqlparser_dameng_buffer_append_cstr(
+				out, ", ", out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+		}
+		first = 0;
+		status = sqlparser_dameng_buffer_append_input_mem(
+			out,
+			sql,
+			column_start,
+			column_end - column_start,
+			out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_dameng_buffer_append_cstr(
+				out, " = ", out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_dameng_buffer_append_input_mem(
+				out,
+				sql,
+				value_start,
+				value_end - value_start,
+				out_error);
+		}
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		assignment_start = assignment_end == end ?
+			end : assignment_end + 1U;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static char *sqlparser_dameng_update_relation_owner_sql(
+	const char *sql,
+	const sqlparser_dameng_update_relation_span_t *relation)
+{
+	char *owner;
+	size_t ident_end;
+	size_t offset;
+	size_t pos;
+
+	if (relation->alias_start < relation->alias_end) {
+		return sqlparser_strndup(
+			sql + relation->alias_start,
+			relation->alias_end - relation->alias_start);
+	}
+	owner = (char *)malloc(
+		relation->object_end - relation->object_start + 1U);
+	if (owner == NULL) {
+		return NULL;
+	}
+	offset = 0U;
+	pos = relation->object_start;
+	while (pos < relation->object_end) {
+		pos = sqlparser_dameng_skip_trivia(sql, pos);
+		ident_end = sqlparser_dameng_update_identifier_end(
+			sql, pos, relation->object_end);
+		if (ident_end == pos) {
+			free(owner);
+			return NULL;
+		}
+		if (offset > 0U) {
+			owner[offset++] = '.';
+		}
+		memcpy(owner + offset, sql + pos, ident_end - pos);
+		offset += ident_end - pos;
+		pos = sqlparser_dameng_skip_trivia(sql, ident_end);
+		if (pos >= relation->object_end) {
+			break;
+		}
+		if (sql[pos] != '.') {
+			free(owner);
+			return NULL;
+		}
+		pos++;
+	}
+	owner[offset] = '\0';
+	return owner;
+}
+
+static sqlparser_status_t sqlparser_dameng_state_add_multi_update(
+	sqlparser_dameng_state_t *state,
+	size_t statement_index,
+	const char *sql,
+	const sqlparser_dameng_update_list_t *list,
+	size_t target_relation_index,
+	size_t qualifier_start,
+	size_t qualifier_end,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dameng_multi_update_t *multi;
+	sqlparser_dameng_multi_update_t *next;
+	size_t capacity;
+	size_t index;
+
+	if (state->multi_update_count == state->multi_update_capacity) {
+		capacity = state->multi_update_capacity == 0U ?
+			4U : state->multi_update_capacity * 2U;
+		if (capacity < state->multi_update_capacity ||
+		    capacity > SIZE_MAX / sizeof(*next)) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		next = (sqlparser_dameng_multi_update_t *)realloc(
+			state->multi_updates, capacity * sizeof(*next));
+		if (next == NULL) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		state->multi_updates = next;
+		state->multi_update_capacity = capacity;
+	}
+	multi = &state->multi_updates[state->multi_update_count];
+	memset(multi, 0, sizeof(*multi));
+	multi->statement_index = statement_index;
+	multi->relation_count = list->relation_count;
+	multi->target_relation_index = target_relation_index;
+	if (list->relation_count > SIZE_MAX / sizeof(*multi->relations)) {
+		sqlparser_dameng_multi_update_clear(multi);
+		sqlparser_error_set_message(
+			out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	multi->relations =
+		(sqlparser_dameng_multi_update_relation_t *)calloc(
+			list->relation_count, sizeof(*multi->relations));
+	if (multi->relations == NULL) {
+		sqlparser_dameng_multi_update_clear(multi);
+		sqlparser_error_set_message(
+			out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	for (index = 0U; index < list->relation_count; index++) {
+		const sqlparser_dameng_update_relation_span_t *relation;
+
+		relation = &list->relations[index];
+		if (index == target_relation_index) {
+			multi->relations[index].qualifier_sql = sqlparser_strndup(
+				sql + qualifier_start,
+				qualifier_end - qualifier_start);
+		} else {
+			multi->relations[index].qualifier_sql =
+				sqlparser_dameng_update_relation_owner_sql(
+					sql, relation);
+		}
+		if (multi->relations[index].qualifier_sql == NULL) {
+			sqlparser_dameng_multi_update_clear(multi);
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+	}
+	{
+		const sqlparser_dameng_update_relation_span_t *target_relation;
+
+		target_relation = &list->relations[target_relation_index];
+		multi->target_qualifier_uses_alias =
+			target_relation->alias_start < target_relation->alias_end;
+		multi->target_qualifier_uses_full_name =
+			!multi->target_qualifier_uses_alias &&
+			sqlparser_dameng_update_find_last_top_level_dot(
+				sql, qualifier_start, qualifier_end) != SIZE_MAX;
+		multi->target_qualifier_sql = sqlparser_strndup(
+			sql + qualifier_start, qualifier_end - qualifier_start);
+		if (multi->target_qualifier_sql == NULL) {
+			sqlparser_dameng_multi_update_clear(multi);
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+	}
+	if (list->relation_count > 1U) {
+		multi->links = (sqlparser_dameng_multi_update_link_t *)calloc(
+			list->relation_count - 1U, sizeof(*multi->links));
+		if (multi->links == NULL) {
+			sqlparser_dameng_multi_update_clear(multi);
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+	}
+	for (index = 0U; index + 1U < list->relation_count; index++) {
+		multi->links[index].kind = list->links[index].kind;
+		if (list->links[index].kind !=
+		    SQLPARSER_DAMENG_MULTI_UPDATE_LINK_COMMA) {
+			multi->links[index].keyword_sql = sqlparser_strndup(
+				sql + list->links[index].keyword_start,
+				list->links[index].keyword_end -
+					list->links[index].keyword_start);
+			if (multi->links[index].keyword_sql == NULL) {
+				sqlparser_dameng_multi_update_clear(multi);
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_NO_MEMORY,
+					"out of memory");
+				return SQLPARSER_STATUS_NO_MEMORY;
+			}
+		}
+	}
+	state->multi_update_count++;
+	return SQLPARSER_STATUS_OK;
+}
+
+static size_t sqlparser_dameng_update_first_clause(
+	const char *sql,
+	size_t start,
+	size_t end,
+	const char *first,
+	const char *second)
+{
+	size_t first_pos;
+	size_t second_pos;
+
+	first_pos = SIZE_MAX;
+	second_pos = SIZE_MAX;
+	(void)sqlparser_dameng_find_top_level_word(
+		sql, start, end, first, &first_pos);
+	if (second != NULL) {
+		(void)sqlparser_dameng_find_top_level_word(
+			sql, start, end, second, &second_pos);
+	}
+	return first_pos < second_pos ? first_pos : second_pos;
+}
+
+static sqlparser_status_t sqlparser_dameng_rewrite_multi_update_statement(
+	const char *sql,
+	size_t update_pos,
+	size_t statement_end,
+	size_t statement_index,
+	sqlparser_dameng_state_t *state,
+	sqlparser_dameng_buffer_t *out,
+	int *out_rewritten,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dameng_update_list_t list;
+	size_t assignment_end;
+	size_t assignment_start;
+	size_t from_pos;
+	size_t qualifier_end;
+	size_t qualifier_start;
+	size_t relation_index;
+	size_t returning_pos;
+	size_t set_pos;
+	size_t stop_end;
+	size_t stop_start;
+	size_t tail_pos;
+	size_t target_relation_index;
+	size_t where_end;
+	size_t where_pos;
+	size_t where_start;
+	int first_condition;
+	sqlparser_status_t status;
+
+	*out_rewritten = 0;
+	set_pos = SIZE_MAX;
+	if (!sqlparser_dameng_find_top_level_word(
+		    sql,
+		    update_pos + strlen("update"),
+		    statement_end,
+		    "set",
+		    &set_pos)) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (sqlparser_dameng_update_scan_stop(
+		    sql,
+		    update_pos + strlen("update"),
+		    set_pos,
+		    0,
+		    &stop_start,
+		    &stop_end) == SQLPARSER_DAMENG_UPDATE_STOP_END) {
+		return SQLPARSER_STATUS_OK;
+	}
+	memset(&list, 0, sizeof(list));
+	status = sqlparser_dameng_update_list_parse(
+		sql,
+		update_pos + strlen("update"),
+		set_pos,
+		&list,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (list.relation_count < 2U) {
+		sqlparser_dameng_update_list_release(&list);
+		return SQLPARSER_STATUS_OK;
+	}
+	where_pos = SIZE_MAX;
+	from_pos = SIZE_MAX;
+	returning_pos = SIZE_MAX;
+	(void)sqlparser_dameng_find_top_level_word(
+		sql,
+		set_pos + strlen("set"),
+		statement_end,
+		"where",
+		&where_pos);
+	(void)sqlparser_dameng_find_top_level_word(
+		sql,
+		set_pos + strlen("set"),
+		statement_end,
+		"from",
+		&from_pos);
+	returning_pos = sqlparser_dameng_update_first_clause(
+		sql,
+		set_pos + strlen("set"),
+		statement_end,
+		"returning",
+		"return");
+	if (from_pos != SIZE_MAX) {
+		sqlparser_dameng_update_list_release(&list);
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"unsupported Dameng syntax: multi-table UPDATE with FROM");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	tail_pos = returning_pos;
+	assignment_end = statement_end;
+	if (where_pos < assignment_end) {
+		assignment_end = where_pos;
+	}
+	if (tail_pos < assignment_end) {
+		assignment_end = tail_pos;
+	}
+	assignment_start = sqlparser_dameng_trim_left(
+		sql, set_pos + strlen("set"), assignment_end);
+	assignment_end = sqlparser_dameng_trim_right(
+		sql, assignment_start, assignment_end);
+	status = sqlparser_dameng_update_validate_assignments(
+		sql,
+		assignment_start,
+		assignment_end,
+		&list,
+		&target_relation_index,
+		&qualifier_start,
+		&qualifier_end,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_dameng_update_list_release(&list);
+		return status;
+	}
+	status = sqlparser_dameng_state_add_multi_update(
+		state,
+		statement_index,
+		sql,
+		&list,
+		target_relation_index,
+		qualifier_start,
+		qualifier_end,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_dameng_update_list_release(&list);
+		return status;
+	}
+	status = sqlparser_dameng_buffer_append_cstr(out, "UPDATE ", out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_dameng_buffer_append_input_mem(
+			out,
+			sql,
+			list.relations[0].start,
+			list.relations[0].end - list.relations[0].start,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_dameng_buffer_append_cstr(out, " SET ", out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_dameng_update_append_assignments(
+			sql,
+			assignment_start,
+			assignment_end,
+			&list,
+			out,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_dameng_buffer_append_cstr(out, " FROM ", out_error);
+	}
+	for (relation_index = 1U;
+	     status == SQLPARSER_STATUS_OK &&
+	     relation_index < list.relation_count;
+	     relation_index++) {
+		if (relation_index > 1U) {
+			status = sqlparser_dameng_buffer_append_cstr(
+				out, ", ", out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_dameng_buffer_append_input_mem(
+				out,
+				sql,
+				list.relations[relation_index].start,
+				list.relations[relation_index].end -
+					list.relations[relation_index].start,
+				out_error);
+		}
+	}
+	first_condition = 1;
+	for (relation_index = 1U;
+	     status == SQLPARSER_STATUS_OK &&
+	     relation_index < list.relation_count;
+	     relation_index++) {
+		const sqlparser_dameng_update_link_span_t *link;
+
+		link = &list.links[relation_index - 1U];
+		if (link->kind != SQLPARSER_DAMENG_MULTI_UPDATE_LINK_JOIN_ON) {
+			continue;
+		}
+		status = sqlparser_dameng_buffer_append_cstr(
+			out, first_condition ? " WHERE " : " AND ", out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_dameng_buffer_append_generated_identifier(
+				out,
+				SQLPARSER_INTERNAL_DAMENG_UPDATE_JOIN_ON,
+				out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_dameng_buffer_append_char(out, '(', out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_dameng_buffer_append_input_mem(
+				out,
+				sql,
+				link->condition_start,
+				link->condition_end - link->condition_start,
+				out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_dameng_buffer_append_char(out, ')', out_error);
+		}
+		first_condition = 0;
+	}
+	if (where_pos != SIZE_MAX) {
+		where_start = sqlparser_dameng_trim_left(
+			sql, where_pos + strlen("where"),
+			tail_pos < statement_end ? tail_pos : statement_end);
+		where_end = sqlparser_dameng_trim_right(
+			sql,
+			where_start,
+			tail_pos < statement_end ? tail_pos : statement_end);
+		if (where_start < where_end && status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_dameng_buffer_append_cstr(
+				out, first_condition ? " WHERE " : " AND (", out_error);
+		}
+		if (where_start < where_end && status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_dameng_buffer_append_input_mem(
+				out,
+				sql,
+				where_start,
+				where_end - where_start,
+				out_error);
+		}
+		if (where_start < where_end && !first_condition &&
+		    status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_dameng_buffer_append_char(out, ')', out_error);
+		}
+	}
+	if (status == SQLPARSER_STATUS_OK && tail_pos < statement_end) {
+		status = sqlparser_dameng_buffer_append_char(out, ' ', out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_dameng_buffer_append_input_mem(
+				out,
+				sql,
+				tail_pos,
+				statement_end - tail_pos,
+				out_error);
+		}
+	}
+	sqlparser_dameng_update_list_release(&list);
+	if (status == SQLPARSER_STATUS_OK) {
+		*out_rewritten = 1;
+	}
+	return status;
+}
+
+static sqlparser_status_t sqlparser_dameng_rewrite_multi_updates(
+	const char *input_sql,
+	sqlparser_dameng_state_t *state,
+	char **out_sql,
+	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dameng_buffer_t out;
+	size_t code_start;
+	size_t len;
+	size_t segment_start;
+	size_t statement_end;
+	size_t statement_index;
+	size_t update_pos;
+	int rewritten;
+	sqlparser_status_t status;
+
+	*out_sql = NULL;
+	len = strlen(input_sql);
+	memset(&out, 0, sizeof(out));
+	status = sqlparser_dameng_buffer_begin_origin(
+		&out, input_sql, origins, len, 0U, out_error);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_dameng_buffer_reserve_input(
+			&out, input_sql, out_error);
+	}
+	segment_start = 0U;
+	statement_index = 0U;
+	while (status == SQLPARSER_STATUS_OK && segment_start < len) {
+		statement_end = sqlparser_dameng_statement_end(
+			input_sql, segment_start);
+		code_start = sqlparser_dameng_skip_trivia(
+			input_sql, segment_start);
+		if (code_start > statement_end) {
+			code_start = statement_end;
+		}
+		update_pos = SIZE_MAX;
+		if (code_start < statement_end &&
+		    sqlparser_dameng_ascii_word_equal(
+			    input_sql, code_start, "update")) {
+			update_pos = code_start;
+		} else if (code_start < statement_end &&
+			   sqlparser_dameng_ascii_word_equal(
+				   input_sql, code_start, "with")) {
+			(void)sqlparser_dameng_find_top_level_word(
+				input_sql,
+				code_start + strlen("with"),
+				statement_end,
+				"update",
+				&update_pos);
+		}
+		if (update_pos == SIZE_MAX) {
+			status = sqlparser_dameng_buffer_append_input_mem(
+				&out,
+				input_sql,
+				segment_start,
+				statement_end - segment_start,
+				out_error);
+		} else {
+			status = sqlparser_dameng_buffer_append_input_mem(
+				&out,
+				input_sql,
+				segment_start,
+				update_pos - segment_start,
+				out_error);
+			if (status == SQLPARSER_STATUS_OK) {
+				status = sqlparser_dameng_rewrite_multi_update_statement(
+					input_sql,
+					update_pos,
+					statement_end,
+					statement_index,
+					state,
+					&out,
+					&rewritten,
+					out_error);
+			}
+			if (status == SQLPARSER_STATUS_OK && !rewritten) {
+				status = sqlparser_dameng_buffer_append_input_mem(
+					&out,
+					input_sql,
+					update_pos,
+					statement_end - update_pos,
+					out_error);
+			}
+		}
+		if (status == SQLPARSER_STATUS_OK && statement_end < len) {
+			status = sqlparser_dameng_buffer_append_input_char(
+				&out, input_sql, statement_end, out_error);
+		}
+		if (code_start < statement_end) {
+			statement_index++;
+		}
+		segment_start = statement_end < len ? statement_end + 1U : len;
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_dameng_buffer_finish(&out, out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_dameng_buffer_commit_origin(&out, out_error);
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_dameng_buffer_release(&out);
+		return status;
+	}
+	*out_sql = sqlparser_dameng_buffer_take(&out);
+	if (*out_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	return SQLPARSER_STATUS_OK;
 }
 
 static sqlparser_status_t sqlparser_dameng_copy_n_string_literal(
@@ -3191,6 +4707,7 @@ static sqlparser_status_t sqlparser_dameng_preprocess_internal(
 	sqlparser_error_t *out_error)
 {
 	sqlparser_dameng_state_t *state;
+	char *rewritten_sql;
 	sqlparser_status_t status;
 
 	(void)limits;
@@ -3233,14 +4750,26 @@ static sqlparser_status_t sqlparser_dameng_preprocess_internal(
 		*out_state = state;
 		return SQLPARSER_STATUS_OK;
 	}
-	status = sqlparser_dameng_preprocess_text_internal(
+	rewritten_sql = NULL;
+	status = sqlparser_dameng_rewrite_multi_updates(
 		input_sql,
+		state,
+		&rewritten_sql,
+		origins,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_dameng_state_destroy(state);
+		return status;
+	}
+	status = sqlparser_dameng_preprocess_text_internal(
+		rewritten_sql,
 		state,
 		out_parser_sql,
 		origins,
-		strlen(input_sql),
+		strlen(rewritten_sql),
 		0U,
 		out_error);
+	free(rewritten_sql);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_dameng_state_destroy(state);
 		return status;
@@ -3295,6 +4824,361 @@ sqlparser_status_t sqlparser_dameng_preprocess_identifier_origins(
 		out_error);
 }
 
+static sqlparser_dameng_multi_update_t *
+sqlparser_dameng_state_multi_update(
+	sqlparser_dameng_state_t *state,
+	size_t statement_index)
+{
+	size_t index;
+
+	if (state == NULL) {
+		return NULL;
+	}
+	for (index = 0U; index < state->multi_update_count; index++) {
+		if (state->multi_updates[index].statement_index ==
+		    statement_index) {
+			return &state->multi_updates[index];
+		}
+	}
+	return NULL;
+}
+
+static int sqlparser_dameng_update_semantic_char(
+	const char *text,
+	size_t length,
+	size_t *io_pos,
+	int *io_quoted)
+{
+	while (*io_pos < length) {
+		unsigned char value;
+
+		value = (unsigned char)text[*io_pos];
+		if (value == '"') {
+			if (*io_quoted && *io_pos + 1U < length &&
+			    text[*io_pos + 1U] == '"') {
+				*io_pos += 2U;
+				return '"';
+			}
+			*io_quoted = !*io_quoted;
+			(*io_pos)++;
+			continue;
+		}
+		if (!*io_quoted && isspace(value)) {
+			(*io_pos)++;
+			continue;
+		}
+		(*io_pos)++;
+		if (!*io_quoted && value >= 'a' && value <= 'z') {
+			value = (unsigned char)(value - ('a' - 'A'));
+		}
+		return value;
+	}
+	return -1;
+}
+
+static int sqlparser_dameng_update_component_span(
+	const char *text,
+	size_t length,
+	size_t *io_pos,
+	size_t *out_start,
+	size_t *out_end)
+{
+	size_t pos;
+	int quoted;
+
+	pos = sqlparser_dameng_trim_left(text, *io_pos, length);
+	if (pos >= length) {
+		return 0;
+	}
+	*out_start = pos;
+	quoted = 0;
+	while (pos < length) {
+		if (text[pos] == '"') {
+			if (quoted && pos + 1U < length && text[pos + 1U] == '"') {
+				pos += 2U;
+				continue;
+			}
+			quoted = !quoted;
+			pos++;
+			continue;
+		}
+		if (!quoted && text[pos] == '.') {
+			break;
+		}
+		pos++;
+	}
+	if (quoted) {
+		return 0;
+	}
+	*out_end = sqlparser_dameng_trim_right(text, *out_start, pos);
+	if (*out_start >= *out_end) {
+		return 0;
+	}
+	if (pos < length &&
+	    sqlparser_dameng_trim_left(text, pos + 1U, length) >= length) {
+		return 0;
+	}
+	*io_pos = pos < length ? pos + 1U : pos;
+	return 1;
+}
+
+static int sqlparser_dameng_update_text_path_equal(
+	const char *left,
+	size_t left_length,
+	const char *right,
+	size_t right_length)
+{
+	size_t left_component_end;
+	size_t left_component_pos;
+	size_t left_component_start;
+	size_t left_pos;
+	size_t right_component_end;
+	size_t right_component_pos;
+	size_t right_component_start;
+	size_t right_pos;
+	int left_char;
+	int left_quoted;
+	int right_char;
+	int right_quoted;
+
+	left_pos = 0U;
+	right_pos = 0U;
+	for (;;) {
+		left_pos = sqlparser_dameng_trim_left(left, left_pos, left_length);
+		right_pos = sqlparser_dameng_trim_left(right, right_pos, right_length);
+		if (left_pos >= left_length || right_pos >= right_length) {
+			return left_pos >= left_length && right_pos >= right_length;
+		}
+		if (!sqlparser_dameng_update_component_span(
+			    left,
+			    left_length,
+			    &left_pos,
+			    &left_component_start,
+			    &left_component_end) ||
+		    !sqlparser_dameng_update_component_span(
+			    right,
+			    right_length,
+			    &right_pos,
+			    &right_component_start,
+			    &right_component_end)) {
+			return 0;
+		}
+		left_component_pos = 0U;
+		right_component_pos = 0U;
+		left_quoted = 0;
+		right_quoted = 0;
+		for (;;) {
+			left_char = sqlparser_dameng_update_semantic_char(
+				left + left_component_start,
+				left_component_end - left_component_start,
+				&left_component_pos,
+				&left_quoted);
+			right_char = sqlparser_dameng_update_semantic_char(
+				right + right_component_start,
+				right_component_end - right_component_start,
+				&right_component_pos,
+				&right_quoted);
+			if (left_char != right_char) {
+				return 0;
+			}
+			if (left_char < 0) {
+				if (left_quoted || right_quoted) {
+					return 0;
+				}
+				break;
+			}
+		}
+	}
+}
+
+static int sqlparser_dameng_update_fragment_qualifier_matches(
+	const char *input_sql,
+	size_t qualifier_start,
+	size_t qualifier_end,
+	const sqlparser_dameng_multi_update_t *multi)
+{
+	return multi->target_qualifier_sql != NULL &&
+		sqlparser_dameng_update_text_path_equal(
+		    input_sql + qualifier_start,
+		    qualifier_end - qualifier_start,
+		    multi->target_qualifier_sql,
+		    strlen(multi->target_qualifier_sql));
+}
+
+static sqlparser_status_t sqlparser_dameng_rewrite_assignment_fragment(
+	const char *input_sql,
+	const sqlparser_dameng_multi_update_t *multi,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	size_t assignment_end;
+	size_t assignment_start;
+	size_t column_end;
+	size_t column_start;
+	size_t dot;
+	size_t end;
+	size_t equals;
+	size_t left_end;
+	size_t left_start;
+	size_t value_start;
+	char *rewritten_sql;
+	int found;
+	sqlparser_status_t status;
+
+	*out_sql = NULL;
+	end = strlen(input_sql);
+	assignment_start = sqlparser_dameng_trim_left(input_sql, 0U, end);
+	rewritten_sql = sqlparser_strdup(input_sql);
+	if (rewritten_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	status = SQLPARSER_STATUS_OK;
+	found = 0;
+	while (status == SQLPARSER_STATUS_OK && assignment_start < end) {
+		assignment_end = sqlparser_dameng_update_find_top_level_char(
+			input_sql, assignment_start, end, ',');
+		if (assignment_end == SIZE_MAX) {
+			assignment_end = end;
+		}
+		equals = sqlparser_dameng_update_find_top_level_char(
+			input_sql, assignment_start, assignment_end, '=');
+		if (equals == SIZE_MAX) {
+			status = SQLPARSER_STATUS_UNSUPPORTED;
+			sqlparser_error_set_message(
+				out_error,
+				status,
+				"unsupported Dameng multi-table UPDATE assignment patch");
+			break;
+		}
+		left_start = sqlparser_dameng_trim_left(
+			input_sql, assignment_start, equals);
+		left_end = sqlparser_dameng_trim_right(
+			input_sql, left_start, equals);
+		if (left_start >= left_end || input_sql[left_start] == '(') {
+			status = SQLPARSER_STATUS_UNSUPPORTED;
+			sqlparser_error_set_message(
+				out_error,
+				status,
+				"unsupported Dameng syntax: multi-table UPDATE multi-column SET");
+			break;
+		}
+		dot = sqlparser_dameng_update_find_last_top_level_dot(
+			input_sql, left_start, left_end);
+		column_start = dot == SIZE_MAX ? left_start :
+			sqlparser_dameng_trim_left(input_sql, dot + 1U, left_end);
+		column_end = left_end;
+		value_start = sqlparser_dameng_trim_left(
+			input_sql, equals + 1U, assignment_end);
+		if (column_start >= column_end || value_start >= assignment_end) {
+			status = SQLPARSER_STATUS_UNSUPPORTED;
+			sqlparser_error_set_message(
+				out_error,
+				status,
+				"unsupported Dameng multi-table UPDATE assignment patch");
+			break;
+		}
+		if (dot != SIZE_MAX) {
+			size_t qualifier_end;
+
+			qualifier_end = sqlparser_dameng_trim_right(
+				input_sql, left_start, dot);
+			if (!sqlparser_dameng_update_fragment_qualifier_matches(
+				    input_sql,
+				    left_start,
+				    qualifier_end,
+				    multi)) {
+				status = SQLPARSER_STATUS_UNSUPPORTED;
+				sqlparser_error_set_message(
+					out_error,
+					status,
+					"unsupported Dameng syntax: multi-table UPDATE multiple assignment targets");
+				break;
+			}
+			memset(
+				rewritten_sql + left_start,
+				' ',
+				column_start - left_start);
+		}
+		found = 1;
+		assignment_start = assignment_end == end ?
+			end : sqlparser_dameng_trim_left(
+				input_sql, assignment_end + 1U, end);
+	}
+	if (status == SQLPARSER_STATUS_OK && !found) {
+		status = SQLPARSER_STATUS_UNSUPPORTED;
+		sqlparser_error_set_message(
+			out_error,
+			status,
+			"unsupported Dameng multi-table UPDATE empty assignment patch");
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		free(rewritten_sql);
+		return status;
+	}
+	*out_sql = rewritten_sql;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_dameng_rewrite_assignment_target_fragment(
+	const char *input_sql,
+	const sqlparser_dameng_multi_update_t *multi,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	size_t column_start;
+	size_t dot;
+	size_t end;
+	size_t qualifier_end;
+	size_t start;
+	char *rewritten_sql;
+
+	*out_sql = NULL;
+	end = strlen(input_sql);
+	start = sqlparser_dameng_trim_left(input_sql, 0U, end);
+	end = sqlparser_dameng_trim_right(input_sql, start, end);
+	if (start >= end) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"unsupported Dameng multi-table UPDATE assignment target");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	dot = sqlparser_dameng_update_find_last_top_level_dot(
+		input_sql, start, end);
+	column_start = start;
+	if (dot != SIZE_MAX) {
+		qualifier_end = sqlparser_dameng_trim_right(
+			input_sql, start, dot);
+		column_start = sqlparser_dameng_trim_left(
+			input_sql, dot + 1U, end);
+		if (qualifier_end <= start || column_start >= end ||
+		    !sqlparser_dameng_update_fragment_qualifier_matches(
+			    input_sql, start, qualifier_end, multi)) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_UNSUPPORTED,
+				"unsupported Dameng syntax: multi-table UPDATE multiple assignment targets");
+			return SQLPARSER_STATUS_UNSUPPORTED;
+		}
+	}
+	rewritten_sql = sqlparser_strdup(input_sql);
+	if (rewritten_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	if (dot != SIZE_MAX) {
+		memset(
+			rewritten_sql + start,
+			' ',
+			column_start - start);
+	}
+	*out_sql = rewritten_sql;
+	return SQLPARSER_STATUS_OK;
+}
+
 static sqlparser_status_t sqlparser_dameng_preprocess_fragment(
 	const char *input_sql,
 	void *state,
@@ -3323,6 +5207,57 @@ static sqlparser_status_t sqlparser_dameng_preprocess_fragment(
 
 	return sqlparser_dameng_preprocess_text(
 		input_sql, dameng_state, out_parser_sql, out_error);
+}
+
+sqlparser_status_t sqlparser_dameng_preprocess_multi_update_assignment_fragment(
+	const char *input_sql,
+	void *state,
+	size_t statement_index,
+	int target_only,
+	char **out_parser_sql,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dameng_multi_update_t *multi;
+	sqlparser_dameng_state_t *dameng_state;
+	char *rewritten_sql;
+	sqlparser_status_t status;
+
+	if (input_sql == NULL || out_parser_sql == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"Dameng assignment fragment arguments must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_parser_sql = NULL;
+	dameng_state = (sqlparser_dameng_state_t *)state;
+	multi = sqlparser_dameng_state_multi_update(
+		dameng_state, statement_index);
+	if (multi == NULL) {
+		return sqlparser_dameng_preprocess_fragment(
+			input_sql,
+			state,
+			statement_index,
+			out_parser_sql,
+			out_error);
+	}
+	rewritten_sql = NULL;
+	status = target_only ?
+		sqlparser_dameng_rewrite_assignment_target_fragment(
+			input_sql, multi, &rewritten_sql, out_error) :
+		sqlparser_dameng_rewrite_assignment_fragment(
+			input_sql, multi, &rewritten_sql, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	status = sqlparser_dameng_preprocess_fragment(
+		rewritten_sql,
+		state,
+		statement_index,
+		out_parser_sql,
+		out_error);
+	free(rewritten_sql);
+	return status;
 }
 
 static sqlparser_status_t sqlparser_dameng_param_to_bind(
@@ -4027,6 +5962,694 @@ static int sqlparser_dameng_find_top_level_word(
 		pos++;
 	}
 	return 0;
+}
+
+typedef struct {
+	size_t start;
+	size_t end;
+} sqlparser_dameng_update_sql_span_t;
+
+static const sqlparser_dameng_multi_update_t *
+sqlparser_dameng_state_multi_update_const(
+	const sqlparser_dameng_state_t *state,
+	size_t statement_index)
+{
+	return sqlparser_dameng_state_multi_update(
+		(sqlparser_dameng_state_t *)state,
+		statement_index);
+}
+
+static sqlparser_status_t sqlparser_dameng_update_split_relations(
+	const char *sql,
+	size_t target_start,
+	size_t target_end,
+	size_t source_start,
+	size_t source_end,
+	size_t expected_count,
+	sqlparser_dameng_update_sql_span_t **out_relations,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dameng_update_sql_span_t *relations;
+	size_t index;
+	size_t next;
+	size_t start;
+
+	*out_relations = NULL;
+	if (expected_count < 2U ||
+	    expected_count > SIZE_MAX / sizeof(*relations)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"Dameng multi-table UPDATE relation count is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	relations = (sqlparser_dameng_update_sql_span_t *)calloc(
+		expected_count, sizeof(*relations));
+	if (relations == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	relations[0].start = sqlparser_dameng_trim_left(
+		sql, target_start, target_end);
+	relations[0].end = sqlparser_dameng_trim_right(
+		sql, relations[0].start, target_end);
+	start = sqlparser_dameng_trim_left(sql, source_start, source_end);
+	for (index = 1U; index < expected_count; index++) {
+		next = sqlparser_dameng_update_find_top_level_char(
+			sql, start, source_end, ',');
+		if (next == SIZE_MAX) {
+			next = source_end;
+		}
+		relations[index].start = start;
+		relations[index].end = sqlparser_dameng_trim_right(
+			sql, start, next);
+		if (relations[index].start >= relations[index].end ||
+		    (index + 1U < expected_count && next == source_end)) {
+			free(relations);
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"Dameng multi-table UPDATE relation list is inconsistent");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		start = next == source_end ? source_end :
+			sqlparser_dameng_trim_left(sql, next + 1U, source_end);
+	}
+	if (start != source_end) {
+		free(relations);
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"Dameng multi-table UPDATE relation count changed");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	*out_relations = relations;
+	return SQLPARSER_STATUS_OK;
+}
+
+static size_t sqlparser_dameng_multi_update_condition_count(
+	const sqlparser_dameng_multi_update_t *multi)
+{
+	size_t count;
+	size_t index;
+
+	count = 0U;
+	for (index = 0U; index + 1U < multi->relation_count; index++) {
+		if (multi->links[index].kind ==
+		    SQLPARSER_DAMENG_MULTI_UPDATE_LINK_JOIN_ON) {
+			count++;
+		}
+	}
+	return count;
+}
+
+static PgQuery__FuncCall *sqlparser_dameng_multi_update_condition_func(
+	PgQuery__Node *node)
+{
+	PgQuery__FuncCall *func_call;
+	PgQuery__Node *name_node;
+
+	if (node == NULL ||
+	    node->node_case != PG_QUERY__NODE__NODE_FUNC_CALL ||
+	    node->func_call == NULL) {
+		return NULL;
+	}
+	func_call = node->func_call;
+	name_node = func_call->n_funcname == 1U &&
+		func_call->funcname != NULL ? func_call->funcname[0] : NULL;
+	return name_node != NULL &&
+		name_node->node_case == PG_QUERY__NODE__NODE_STRING &&
+		name_node->string != NULL &&
+		name_node->string->sval != NULL &&
+		strcmp(
+			name_node->string->sval,
+			SQLPARSER_INTERNAL_DAMENG_UPDATE_JOIN_ON) == 0 &&
+		func_call->n_args == 1U && func_call->args != NULL ?
+		func_call : NULL;
+}
+
+static int sqlparser_dameng_multi_update_bind_relations(
+	sqlparser_dameng_multi_update_t *multi,
+	PgQuery__UpdateStmt *update)
+{
+	size_t index;
+
+	if (multi == NULL || multi->relations == NULL) {
+		return 0;
+	}
+	for (index = 0U; index < multi->relation_count; index++) {
+		multi->relations[index].owner = NULL;
+	}
+	if (update == NULL || update->relation == NULL ||
+	    update->n_from_clause + 1U != multi->relation_count ||
+	    (update->n_from_clause > 0U && update->from_clause == NULL)) {
+		return 0;
+	}
+	multi->relations[0].owner = update->relation;
+	for (index = 1U; index < multi->relation_count; index++) {
+		PgQuery__Node *node;
+
+		node = update->from_clause[index - 1U];
+		if (node == NULL ||
+		    node->node_case != PG_QUERY__NODE__NODE_RANGE_VAR ||
+		    node->range_var == NULL) {
+			for (index = 0U; index < multi->relation_count; index++) {
+				multi->relations[index].owner = NULL;
+			}
+			return 0;
+		}
+		multi->relations[index].owner = node->range_var;
+	}
+	return 1;
+}
+
+static void sqlparser_dameng_multi_update_bind_conditions(
+	sqlparser_dameng_multi_update_t *multi,
+	PgQuery__UpdateStmt *update)
+{
+	PgQuery__Node **conditions;
+	PgQuery__Node *where_clause;
+	size_t condition_count;
+	size_t condition_index;
+	size_t index;
+
+	if (multi == NULL) {
+		return;
+	}
+	for (index = 0U; index + 1U < multi->relation_count; index++) {
+		multi->links[index].condition_owner = NULL;
+	}
+	condition_count = sqlparser_dameng_multi_update_condition_count(multi);
+	where_clause = update != NULL ? update->where_clause : NULL;
+	if (condition_count == 0U || where_clause == NULL) {
+		return;
+	}
+	if (condition_count == 1U &&
+	    sqlparser_dameng_multi_update_condition_func(where_clause) != NULL) {
+		conditions = &where_clause;
+	} else if (where_clause->node_case ==
+			   PG_QUERY__NODE__NODE_BOOL_EXPR &&
+		   where_clause->bool_expr != NULL &&
+		   where_clause->bool_expr->boolop ==
+			   PG_QUERY__BOOL_EXPR_TYPE__AND_EXPR &&
+		   where_clause->bool_expr->args != NULL &&
+		   where_clause->bool_expr->n_args >= condition_count) {
+		conditions = where_clause->bool_expr->args;
+	} else {
+		return;
+	}
+	condition_index = 0U;
+	for (index = 0U; index + 1U < multi->relation_count; index++) {
+		PgQuery__FuncCall *condition_owner;
+
+		if (multi->links[index].kind !=
+		    SQLPARSER_DAMENG_MULTI_UPDATE_LINK_JOIN_ON) {
+			continue;
+		}
+		condition_owner = sqlparser_dameng_multi_update_condition_func(
+			conditions[condition_index]);
+		if (condition_owner == NULL) {
+			for (condition_index = 0U;
+			     condition_index + 1U < multi->relation_count;
+			     condition_index++) {
+				multi->links[condition_index].condition_owner = NULL;
+			}
+			return;
+		}
+		multi->links[index].condition_owner = condition_owner;
+		condition_index++;
+	}
+}
+
+static sqlparser_status_t sqlparser_dameng_update_extract_conditions(
+	const char *sql,
+	size_t where_start,
+	size_t where_end,
+	size_t expected_count,
+	sqlparser_dameng_update_sql_span_t **out_conditions,
+	size_t *out_public_where_start,
+	size_t *out_public_where_end,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dameng_update_sql_span_t *conditions;
+	size_t close;
+	size_t index;
+	size_t open;
+	size_t pos;
+
+	*out_conditions = NULL;
+	*out_public_where_start = sqlparser_dameng_trim_left(
+		sql, where_start, where_end);
+	*out_public_where_end = sqlparser_dameng_trim_right(
+		sql, *out_public_where_start, where_end);
+	if (expected_count == 0U) {
+		return SQLPARSER_STATUS_OK;
+	}
+	conditions = (sqlparser_dameng_update_sql_span_t *)calloc(
+		expected_count, sizeof(*conditions));
+	if (conditions == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	pos = sqlparser_dameng_trim_left(sql, where_start, where_end);
+	for (index = 0U; index < expected_count; index++) {
+		if (!sqlparser_dameng_ascii_word_equal(
+			    sql, pos, SQLPARSER_INTERNAL_DAMENG_UPDATE_JOIN_ON)) {
+			free(conditions);
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"Dameng multi-table UPDATE join marker is missing");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		open = sqlparser_dameng_trim_left(
+			sql,
+			pos + strlen(SQLPARSER_INTERNAL_DAMENG_UPDATE_JOIN_ON),
+			where_end);
+		if (!sqlparser_dameng_update_matching_paren(
+			    sql, open, where_end, &close)) {
+			free(conditions);
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"Dameng multi-table UPDATE join marker is invalid");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		conditions[index].start = sqlparser_dameng_trim_left(
+			sql, open + 1U, close);
+		conditions[index].end = sqlparser_dameng_trim_right(
+			sql, conditions[index].start, close);
+		pos = sqlparser_dameng_trim_left(sql, close + 1U, where_end);
+		if (index + 1U < expected_count || pos < where_end) {
+			if (!sqlparser_dameng_ascii_word_equal(sql, pos, "and")) {
+				free(conditions);
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INTERNAL_ERROR,
+					"Dameng multi-table UPDATE join marker separator is invalid");
+				return SQLPARSER_STATUS_INTERNAL_ERROR;
+			}
+			pos = sqlparser_dameng_trim_left(
+				sql, pos + strlen("and"), where_end);
+		}
+	}
+	*out_public_where_start = pos;
+	*out_public_where_end = sqlparser_dameng_trim_right(
+		sql, pos, where_end);
+	if (pos < *out_public_where_end && sql[pos] == '(') {
+		if (sqlparser_dameng_update_matching_paren(
+			    sql, pos, *out_public_where_end, &close) &&
+		    close + 1U == *out_public_where_end) {
+			*out_public_where_start = sqlparser_dameng_trim_left(
+				sql, pos + 1U, close);
+			*out_public_where_end = sqlparser_dameng_trim_right(
+				sql, *out_public_where_start, close);
+		}
+	}
+	*out_conditions = conditions;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_dameng_update_append_public_assignments(
+	const char *sql,
+	size_t start,
+	size_t end,
+	const char *qualifier_sql,
+	size_t qualifier_length,
+	sqlparser_dameng_buffer_t *out,
+	sqlparser_error_t *out_error)
+{
+	size_t assignment_end;
+	size_t assignment_start;
+	size_t equals;
+	int first;
+	sqlparser_status_t status;
+
+	assignment_start = sqlparser_dameng_trim_left(sql, start, end);
+	first = 1;
+	status = SQLPARSER_STATUS_OK;
+	while (assignment_start < end && status == SQLPARSER_STATUS_OK) {
+		assignment_end = sqlparser_dameng_update_find_top_level_char(
+			sql, assignment_start, end, ',');
+		if (assignment_end == SIZE_MAX) {
+			assignment_end = end;
+		}
+		equals = sqlparser_dameng_update_find_top_level_char(
+			sql, assignment_start, assignment_end, '=');
+		if (equals == SIZE_MAX) {
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		if (!first) {
+			status = sqlparser_dameng_buffer_append_cstr(
+				out, ", ", out_error);
+		}
+		first = 0;
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_dameng_buffer_append_mem(
+				out,
+				qualifier_sql,
+				qualifier_length,
+				out_error);
+			if (status == SQLPARSER_STATUS_OK) {
+				status = sqlparser_dameng_buffer_append_char(
+					out, '.', out_error);
+			}
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_dameng_buffer_append_mem(
+				out,
+				sql + assignment_start,
+				assignment_end - assignment_start,
+				out_error);
+		}
+		assignment_start = assignment_end == end ?
+			end : sqlparser_dameng_trim_left(
+				sql, assignment_end + 1U, end);
+	}
+	return status;
+}
+
+static sqlparser_status_t sqlparser_dameng_restore_multi_update_statement(
+	const char *sql,
+	size_t update_pos,
+	size_t statement_end,
+	const sqlparser_dameng_multi_update_t *multi,
+	sqlparser_dameng_buffer_t *out,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dameng_update_sql_span_t *conditions;
+	sqlparser_dameng_update_sql_span_t *relations;
+	size_t assignment_start;
+	size_t condition_count;
+	size_t condition_index;
+	size_t from_pos;
+	size_t index;
+	size_t public_where_end;
+	size_t public_where_start;
+	const char *qualifier_sql;
+	size_t qualifier_length;
+	size_t returning_pos;
+	size_t set_pos;
+	size_t tail_pos;
+	size_t where_end;
+	size_t where_pos;
+	sqlparser_status_t status;
+
+	conditions = NULL;
+	relations = NULL;
+	set_pos = SIZE_MAX;
+	from_pos = SIZE_MAX;
+	where_pos = SIZE_MAX;
+	if (!sqlparser_dameng_find_top_level_word(
+		    sql,
+		    update_pos + strlen("update"),
+		    statement_end,
+		    "set",
+		    &set_pos) ||
+	    !sqlparser_dameng_find_top_level_word(
+		    sql,
+		    set_pos + strlen("set"),
+		    statement_end,
+		    "from",
+		    &from_pos)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"Dameng multi-table UPDATE parser shape is inconsistent");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	(void)sqlparser_dameng_find_top_level_word(
+		sql,
+		from_pos + strlen("from"),
+		statement_end,
+		"where",
+		&where_pos);
+	returning_pos = sqlparser_dameng_update_first_clause(
+		sql,
+		from_pos + strlen("from"),
+		statement_end,
+		"returning",
+		"return");
+	tail_pos = returning_pos;
+	where_end = tail_pos < statement_end ? tail_pos : statement_end;
+	status = sqlparser_dameng_update_split_relations(
+		sql,
+		update_pos + strlen("update"),
+		set_pos,
+		from_pos + strlen("from"),
+		where_pos < where_end ? where_pos : where_end,
+		multi->relation_count,
+		&relations,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	qualifier_sql = multi->target_qualifier_sql;
+	qualifier_length = qualifier_sql != NULL ? strlen(qualifier_sql) : 0U;
+	if (!multi->target_qualifier_uses_alias) {
+		sqlparser_dameng_update_relation_span_t target_relation;
+		const sqlparser_dameng_update_sql_span_t *target_span;
+
+		target_span = &relations[multi->target_relation_index];
+		if (!sqlparser_dameng_update_relation_parse(
+			    sql,
+			    target_span->start,
+			    target_span->end,
+			    &target_relation)) {
+			free(relations);
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"Dameng multi-table UPDATE target relation is invalid");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		if (multi->target_qualifier_uses_full_name) {
+			qualifier_sql = sql + target_relation.object_start;
+			qualifier_length = target_relation.object_end -
+				target_relation.object_start;
+		} else {
+			qualifier_sql = sql + target_relation.name_start;
+			qualifier_length = target_relation.name_end -
+				target_relation.name_start;
+		}
+	}
+	condition_count = sqlparser_dameng_multi_update_condition_count(multi);
+	public_where_start = where_end;
+	public_where_end = where_end;
+	if (condition_count > 0U && where_pos == SIZE_MAX) {
+		free(relations);
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"Dameng multi-table UPDATE join predicate is missing");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	if (where_pos != SIZE_MAX) {
+		status = sqlparser_dameng_update_extract_conditions(
+			sql,
+			where_pos + strlen("where"),
+			where_end,
+			condition_count,
+			&conditions,
+			&public_where_start,
+			&public_where_end,
+			out_error);
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		free(relations);
+		return status;
+	}
+	status = sqlparser_dameng_buffer_append_cstr(out, "UPDATE ", out_error);
+	condition_index = 0U;
+	for (index = 0U;
+	     status == SQLPARSER_STATUS_OK && index < multi->relation_count;
+	     index++) {
+		if (index > 0U) {
+			const sqlparser_dameng_multi_update_link_t *link;
+
+			link = &multi->links[index - 1U];
+			if (link->kind == SQLPARSER_DAMENG_MULTI_UPDATE_LINK_COMMA) {
+				status = sqlparser_dameng_buffer_append_cstr(
+					out, ", ", out_error);
+			} else {
+				status = sqlparser_dameng_buffer_append_char(
+					out, ' ', out_error);
+				if (status == SQLPARSER_STATUS_OK) {
+					status = sqlparser_dameng_buffer_append_cstr(
+						out, link->keyword_sql, out_error);
+				}
+				if (status == SQLPARSER_STATUS_OK) {
+					status = sqlparser_dameng_buffer_append_char(
+						out, ' ', out_error);
+				}
+			}
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_dameng_buffer_append_mem(
+				out,
+				sql + relations[index].start,
+				relations[index].end - relations[index].start,
+				out_error);
+		}
+		if (index > 0U &&
+		    multi->links[index - 1U].kind ==
+			    SQLPARSER_DAMENG_MULTI_UPDATE_LINK_JOIN_ON &&
+		    status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_dameng_buffer_append_cstr(
+				out, " ON ", out_error);
+			if (status == SQLPARSER_STATUS_OK) {
+				status = sqlparser_dameng_buffer_append_mem(
+					out,
+					sql + conditions[condition_index].start,
+					conditions[condition_index].end -
+						conditions[condition_index].start,
+					out_error);
+			}
+			condition_index++;
+		}
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_dameng_buffer_append_cstr(out, " SET ", out_error);
+	}
+	assignment_start = sqlparser_dameng_trim_left(
+		sql, set_pos + strlen("set"), from_pos);
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_dameng_update_append_public_assignments(
+			sql,
+			assignment_start,
+			sqlparser_dameng_trim_right(sql, assignment_start, from_pos),
+			qualifier_sql,
+			qualifier_length,
+			out,
+			out_error);
+	}
+	if (status == SQLPARSER_STATUS_OK &&
+	    public_where_start < public_where_end) {
+		status = sqlparser_dameng_buffer_append_cstr(
+			out, " WHERE ", out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_dameng_buffer_append_mem(
+				out,
+				sql + public_where_start,
+				public_where_end - public_where_start,
+				out_error);
+		}
+	}
+	if (status == SQLPARSER_STATUS_OK && tail_pos < statement_end) {
+		status = sqlparser_dameng_buffer_append_char(out, ' ', out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_dameng_buffer_append_mem(
+				out,
+				sql + tail_pos,
+				statement_end - tail_pos,
+				out_error);
+		}
+	}
+	free(conditions);
+	free(relations);
+	return status;
+}
+
+static sqlparser_status_t sqlparser_dameng_restore_multi_updates(
+	char **io_sql,
+	const sqlparser_dameng_state_t *state,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dameng_buffer_t out;
+	const sqlparser_dameng_multi_update_t *multi;
+	const char *sql;
+	size_t code_start;
+	size_t len;
+	size_t segment_start;
+	size_t statement_end;
+	size_t statement_index;
+	size_t update_pos;
+	sqlparser_status_t status;
+
+	if (io_sql == NULL || *io_sql == NULL || state == NULL ||
+	    state->multi_update_count == 0U) {
+		return SQLPARSER_STATUS_OK;
+	}
+	sql = *io_sql;
+	len = strlen(sql);
+	segment_start = 0U;
+	statement_index = 0U;
+	memset(&out, 0, sizeof(out));
+	status = sqlparser_dameng_buffer_reserve_input(&out, sql, out_error);
+	while (status == SQLPARSER_STATUS_OK && segment_start < len) {
+		statement_end = sqlparser_dameng_statement_end(sql, segment_start);
+		code_start = sqlparser_dameng_skip_trivia(sql, segment_start);
+		if (code_start > statement_end) {
+			code_start = statement_end;
+		}
+		multi = sqlparser_dameng_state_multi_update_const(
+			state, statement_index);
+		if (multi == NULL) {
+			status = sqlparser_dameng_buffer_append_mem(
+				&out,
+				sql + segment_start,
+				statement_end - segment_start,
+				out_error);
+		} else {
+			update_pos = code_start;
+			if (!sqlparser_dameng_ascii_word_equal(
+				    sql, update_pos, "update")) {
+				update_pos = SIZE_MAX;
+				(void)sqlparser_dameng_find_top_level_word(
+					sql,
+					code_start,
+					statement_end,
+					"update",
+					&update_pos);
+			}
+			if (update_pos == SIZE_MAX) {
+				status = SQLPARSER_STATUS_INTERNAL_ERROR;
+				sqlparser_error_set_message(
+					out_error,
+					status,
+					"Dameng multi-table UPDATE statement is missing");
+			} else {
+				status = sqlparser_dameng_buffer_append_mem(
+					&out,
+					sql + segment_start,
+					update_pos - segment_start,
+					out_error);
+				if (status == SQLPARSER_STATUS_OK) {
+					status = sqlparser_dameng_restore_multi_update_statement(
+						sql,
+						update_pos,
+						statement_end,
+						multi,
+						&out,
+						out_error);
+				}
+			}
+		}
+		if (status == SQLPARSER_STATUS_OK && statement_end < len) {
+			status = sqlparser_dameng_buffer_append_char(
+				&out, sql[statement_end], out_error);
+		}
+		if (code_start < statement_end) {
+			statement_index++;
+		}
+		segment_start = statement_end < len ? statement_end + 1U : len;
+	}
+	if (status == SQLPARSER_STATUS_OK) {
+		status = sqlparser_dameng_buffer_finish(&out, out_error);
+	}
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_dameng_buffer_release(&out);
+		return status;
+	}
+	free(*io_sql);
+	*io_sql = sqlparser_dameng_buffer_take(&out);
+	return SQLPARSER_STATUS_OK;
 }
 
 static sqlparser_status_t sqlparser_dameng_identifier_from_sql(
@@ -5656,6 +8279,588 @@ const sqlparser_dialect_multi_insert_t *sqlparser_dameng_state_multi_insert(cons
 	return dameng_state != NULL ? dameng_state->multi_insert : NULL;
 }
 
+int sqlparser_dameng_statement_multi_update_target_index(
+	const void *state,
+	size_t statement_index,
+	size_t *out_index)
+{
+	const sqlparser_dameng_state_t *dameng_state;
+	size_t index;
+
+	dameng_state = (const sqlparser_dameng_state_t *)state;
+	if (dameng_state == NULL || out_index == NULL) {
+		return 0;
+	}
+	for (index = 0U; index < dameng_state->multi_update_count; index++) {
+		if (dameng_state->multi_updates[index].statement_index ==
+		    statement_index) {
+			*out_index = dameng_state->multi_updates[index]
+				.target_relation_index;
+			return 1;
+		}
+	}
+	return 0;
+}
+
+int sqlparser_dameng_statement_multi_update_join_condition_owner(
+	const void *state,
+	size_t statement_index,
+	const PgQuery__FuncCall *owner)
+{
+	const sqlparser_dameng_state_t *dameng_state;
+	size_t index;
+	size_t link_index;
+
+	dameng_state = (const sqlparser_dameng_state_t *)state;
+	if (dameng_state == NULL || owner == NULL) {
+		return 0;
+	}
+	for (index = 0U; index < dameng_state->multi_update_count; index++) {
+		const sqlparser_dameng_multi_update_t *multi;
+
+		multi = &dameng_state->multi_updates[index];
+		if (multi->statement_index != statement_index) {
+			continue;
+		}
+		for (link_index = 0U;
+		     link_index + 1U < multi->relation_count;
+		     link_index++) {
+			if (multi->links[link_index].condition_owner == owner) {
+				return 1;
+			}
+		}
+		return 0;
+	}
+	return 0;
+}
+
+int sqlparser_dameng_multi_update_target_name_slot(
+	const void *state,
+	size_t statement_index,
+	char **slot)
+{
+	const sqlparser_dameng_multi_update_t *multi;
+	size_t index;
+
+	multi = sqlparser_dameng_state_multi_update_const(
+		(const sqlparser_dameng_state_t *)state, statement_index);
+	if (multi == NULL || multi->relations == NULL || slot == NULL) {
+		return 0;
+	}
+	for (index = 0U; index < multi->relation_count; index++) {
+		PgQuery__RangeVar *owner;
+
+		owner = multi->relations[index].owner;
+		if (owner != NULL &&
+		    (slot == &owner->catalogname ||
+		     slot == &owner->schemaname ||
+		     slot == &owner->relname ||
+		     (owner->alias != NULL &&
+		      slot == &owner->alias->aliasname))) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static sqlparser_status_t sqlparser_dameng_multi_update_relation_sql(
+	const char *const *values,
+	const char *const *spellings,
+	char **out_sql,
+	sqlparser_error_t *out_error)
+{
+	char *sql;
+	size_t index;
+	size_t length;
+	size_t offset;
+
+	*out_sql = NULL;
+	length = 0U;
+	for (index = 0U; index < 3U; index++) {
+		size_t spelling_length;
+
+		if (values[index] == NULL || values[index][0] == '\0') {
+			continue;
+		}
+		if (spellings[index] == NULL || spellings[index][0] == '\0') {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"Dameng multi-table UPDATE relation spelling is invalid");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		spelling_length = strlen(spellings[index]);
+		if (length > SIZE_MAX - (length > 0U ? 1U : 0U) ||
+		    spelling_length >
+			    SIZE_MAX - length - (length > 0U ? 1U : 0U)) {
+			sqlparser_error_set_message(
+				out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		length += (length > 0U ? 1U : 0U) + spelling_length;
+	}
+	if (length == 0U || length == SIZE_MAX) {
+		sqlparser_error_set_message(
+			out_error,
+			length == 0U ? SQLPARSER_STATUS_INTERNAL_ERROR :
+				SQLPARSER_STATUS_NO_MEMORY,
+			length == 0U ?
+				"Dameng multi-table UPDATE relation is empty" :
+				"out of memory");
+		return length == 0U ? SQLPARSER_STATUS_INTERNAL_ERROR :
+			SQLPARSER_STATUS_NO_MEMORY;
+	}
+	sql = (char *)malloc(length + 1U);
+	if (sql == NULL) {
+		sqlparser_error_set_message(
+			out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	offset = 0U;
+	for (index = 0U; index < 3U; index++) {
+		size_t spelling_length;
+
+		if (values[index] == NULL || values[index][0] == '\0') {
+			continue;
+		}
+		if (offset > 0U) {
+			sql[offset++] = '.';
+		}
+		spelling_length = strlen(spellings[index]);
+		memcpy(sql + offset, spellings[index], spelling_length);
+		offset += spelling_length;
+	}
+	sql[offset] = '\0';
+	*out_sql = sql;
+	return SQLPARSER_STATUS_OK;
+}
+
+static int sqlparser_dameng_multi_update_owner_matches(
+	const char *qualifier,
+	const char *owner,
+	int full_qualifier)
+{
+	size_t dot;
+	size_t owner_length;
+
+	owner_length = strlen(owner);
+	if (sqlparser_dameng_update_text_path_equal(
+		    qualifier, strlen(qualifier), owner, owner_length)) {
+		return 1;
+	}
+	if (full_qualifier) {
+		return 0;
+	}
+	dot = sqlparser_dameng_update_find_last_top_level_dot(
+		owner, 0U, owner_length);
+	return dot != SIZE_MAX &&
+		sqlparser_dameng_update_text_path_equal(
+			qualifier,
+			strlen(qualifier),
+			owner + dot + 1U,
+			owner_length - dot - 1U);
+}
+
+sqlparser_status_t sqlparser_dameng_multi_update_relation_replaced(
+	void *state,
+	size_t statement_index,
+	const PgQuery__RangeVar *relation,
+	const char *const *values,
+	const char *const *spellings,
+	sqlparser_error_t *out_error)
+{
+	sqlparser_dameng_multi_update_t *multi;
+	char *next_owner;
+	char *next_qualifier;
+	const char *candidate_qualifier;
+	const char *owner_sql;
+	int full_qualifier;
+	int relation_has_alias;
+	int target_matches;
+	size_t index;
+	size_t match_count;
+	size_t relation_index;
+	sqlparser_status_t status;
+
+	multi = sqlparser_dameng_state_multi_update(
+		(sqlparser_dameng_state_t *)state, statement_index);
+	if (multi == NULL || relation == NULL || multi->relations == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	relation_index = multi->relation_count;
+	for (index = 0U; index < multi->relation_count; index++) {
+		if (multi->relations[index].owner == relation) {
+			relation_index = index;
+			break;
+		}
+	}
+	if (relation_index == multi->relation_count) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (values == NULL || spellings == NULL || values[2] == NULL ||
+	    values[2][0] == '\0' || spellings[2] == NULL ||
+	    spellings[2][0] == '\0') {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"Dameng multi-table UPDATE target spelling is missing");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	relation_has_alias = relation->alias != NULL &&
+		relation->alias->aliasname != NULL &&
+		relation->alias->aliasname[0] != '\0';
+	next_owner = NULL;
+	next_qualifier = NULL;
+	if (!relation_has_alias) {
+		status = sqlparser_dameng_multi_update_relation_sql(
+			values, spellings, &next_owner, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+	candidate_qualifier = multi->target_qualifier_sql;
+	if (relation_index == multi->target_relation_index &&
+	    !multi->target_qualifier_uses_alias) {
+		candidate_qualifier = multi->target_qualifier_uses_full_name ?
+			next_owner : spellings[2];
+		next_qualifier = sqlparser_strdup(candidate_qualifier);
+		if (next_qualifier == NULL) {
+			free(next_owner);
+			sqlparser_error_set_message(
+				out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		candidate_qualifier = next_qualifier;
+	}
+	full_qualifier = sqlparser_dameng_update_find_last_top_level_dot(
+		candidate_qualifier, 0U, strlen(candidate_qualifier)) != SIZE_MAX;
+	match_count = 0U;
+	target_matches = 0;
+	for (index = 0U; index < multi->relation_count; index++) {
+		owner_sql = index == relation_index && next_owner != NULL ?
+			next_owner : multi->relations[index].qualifier_sql;
+		if (owner_sql != NULL &&
+			    sqlparser_dameng_multi_update_owner_matches(
+				    candidate_qualifier, owner_sql, full_qualifier)) {
+			match_count++;
+			if (index == multi->target_relation_index) {
+				target_matches = 1;
+			}
+		}
+	}
+	if (match_count != 1U || !target_matches) {
+		free(next_owner);
+		free(next_qualifier);
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_UNSUPPORTED,
+			"unsupported Dameng syntax: ambiguous multi-table UPDATE target relation");
+		return SQLPARSER_STATUS_UNSUPPORTED;
+	}
+	if (next_owner != NULL) {
+		free(multi->relations[relation_index].qualifier_sql);
+		multi->relations[relation_index].qualifier_sql = next_owner;
+	}
+	if (next_qualifier != NULL) {
+		free(multi->target_qualifier_sql);
+		multi->target_qualifier_sql = next_qualifier;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_dameng_multi_update_group_public_where(
+	PgQuery__BoolExpr *where_expr,
+	size_t condition_count,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__Node **outer_args;
+	PgQuery__Node **public_args;
+	PgQuery__BoolExpr *public_expr;
+	PgQuery__Node *public_node;
+	size_t public_count;
+
+	if (where_expr == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (condition_count == SIZE_MAX) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_RESOURCE_LIMIT,
+			"Dameng multi-table UPDATE WHERE is too large");
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+	if (where_expr->n_args <= condition_count + 1U) {
+		return SQLPARSER_STATUS_OK;
+	}
+	public_count = where_expr->n_args - condition_count;
+	if (condition_count + 1U > SIZE_MAX / sizeof(*outer_args) ||
+	    public_count > SIZE_MAX / sizeof(*public_args)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_RESOURCE_LIMIT,
+			"Dameng multi-table UPDATE WHERE is too large");
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+	public_node = (PgQuery__Node *)calloc(1U, sizeof(*public_node));
+	public_expr = (PgQuery__BoolExpr *)calloc(1U, sizeof(*public_expr));
+	outer_args = (PgQuery__Node **)calloc(
+		condition_count + 1U, sizeof(*outer_args));
+	public_args = (PgQuery__Node **)calloc(
+		public_count, sizeof(*public_args));
+	if (public_node == NULL || public_expr == NULL || outer_args == NULL ||
+	    public_args == NULL) {
+		free(public_node);
+		free(public_expr);
+		free(outer_args);
+		free(public_args);
+		sqlparser_error_set_message(
+			out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	memcpy(
+		outer_args,
+		where_expr->args,
+		condition_count * sizeof(*outer_args));
+	memcpy(
+		public_args,
+		where_expr->args + condition_count,
+		public_count * sizeof(*public_args));
+	pg_query__node__init(public_node);
+	pg_query__bool_expr__init(public_expr);
+	public_node->node_case = PG_QUERY__NODE__NODE_BOOL_EXPR;
+	public_node->bool_expr = public_expr;
+	public_expr->boolop = PG_QUERY__BOOL_EXPR_TYPE__AND_EXPR;
+	public_expr->location = SQLPARSER_PROTO_LOCATION_GENERATED;
+	public_expr->n_args = public_count;
+	public_expr->args = public_args;
+	outer_args[condition_count] = public_node;
+	free(where_expr->args);
+	where_expr->args = outer_args;
+	where_expr->n_args = condition_count + 1U;
+	return SQLPARSER_STATUS_OK;
+}
+
+static sqlparser_status_t sqlparser_dameng_multi_update_public_where_slot_internal(
+	const void *state,
+	size_t statement_index,
+	PgQuery__Node **where_slot,
+	int normalize,
+	int *out_is_join_carrier,
+	PgQuery__Node ***out_public_slot,
+	sqlparser_error_t *out_error)
+{
+	const sqlparser_dameng_multi_update_t *multi;
+	PgQuery__BoolExpr *where_expr;
+	PgQuery__Node *where_node;
+	size_t condition_count;
+	size_t condition_index;
+	size_t link_index;
+
+	if (out_is_join_carrier == NULL || out_public_slot == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"Dameng multi-table UPDATE WHERE outputs must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_is_join_carrier = 0;
+	*out_public_slot = NULL;
+	multi = sqlparser_dameng_state_multi_update_const(
+		(const sqlparser_dameng_state_t *)state, statement_index);
+	condition_count = multi != NULL ?
+		sqlparser_dameng_multi_update_condition_count(multi) : 0U;
+	if (condition_count == 0U) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (condition_count == SIZE_MAX) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_RESOURCE_LIMIT,
+			"Dameng multi-table UPDATE WHERE is too large");
+		return SQLPARSER_STATUS_RESOURCE_LIMIT;
+	}
+	where_node = where_slot != NULL ? *where_slot : NULL;
+	if (where_node == NULL) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (condition_count == 1U &&
+	    sqlparser_dameng_statement_multi_update_join_condition_owner(
+		    state,
+		    statement_index,
+			    where_node->node_case == PG_QUERY__NODE__NODE_FUNC_CALL ?
+				    where_node->func_call : NULL)) {
+		*out_is_join_carrier = 1;
+		return SQLPARSER_STATUS_OK;
+	}
+	where_expr = where_node->node_case == PG_QUERY__NODE__NODE_BOOL_EXPR ?
+		where_node->bool_expr : NULL;
+	if (where_expr == NULL ||
+	    where_expr->boolop != PG_QUERY__BOOL_EXPR_TYPE__AND_EXPR ||
+	    where_expr->args == NULL ||
+	    where_expr->n_args < condition_count) {
+		return SQLPARSER_STATUS_OK;
+	}
+	condition_index = 0U;
+	for (link_index = 0U;
+	     link_index + 1U < multi->relation_count;
+	     link_index++) {
+		PgQuery__Node *condition_node;
+
+		if (multi->links[link_index].kind !=
+		    SQLPARSER_DAMENG_MULTI_UPDATE_LINK_JOIN_ON) {
+			continue;
+		}
+		condition_node = where_expr->args[condition_index];
+		if (condition_node == NULL ||
+		    condition_node->node_case != PG_QUERY__NODE__NODE_FUNC_CALL ||
+		    condition_node->func_call !=
+			    multi->links[link_index].condition_owner) {
+			return SQLPARSER_STATUS_OK;
+		}
+		condition_index++;
+	}
+	*out_is_join_carrier = 1;
+	if (where_expr->n_args > condition_count + 1U) {
+		sqlparser_status_t status;
+
+		if (!normalize) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INTERNAL_ERROR,
+				"Dameng multi-table UPDATE public WHERE is not normalized");
+			return SQLPARSER_STATUS_INTERNAL_ERROR;
+		}
+		status = sqlparser_dameng_multi_update_group_public_where(
+			where_expr, condition_count, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
+	if (where_expr->n_args == condition_count + 1U) {
+		*out_public_slot = &where_expr->args[condition_count];
+		while (*out_public_slot != NULL && **out_public_slot != NULL &&
+		       (**out_public_slot)->node_case ==
+			       PG_QUERY__NODE__NODE_A_INDIRECTION &&
+		       (**out_public_slot)->a_indirection != NULL &&
+		       (**out_public_slot)->a_indirection->n_indirection == 0U &&
+		       (**out_public_slot)->a_indirection->arg != NULL) {
+			*out_public_slot =
+				&(**out_public_slot)->a_indirection->arg;
+		}
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
+sqlparser_status_t sqlparser_dameng_multi_update_public_where_slot(
+	const void *state,
+	size_t statement_index,
+	PgQuery__Node **where_slot,
+	int *out_is_join_carrier,
+	PgQuery__Node ***out_public_slot,
+	sqlparser_error_t *out_error)
+{
+	return sqlparser_dameng_multi_update_public_where_slot_internal(
+		state,
+		statement_index,
+		where_slot,
+		0,
+		out_is_join_carrier,
+		out_public_slot,
+		out_error);
+}
+
+sqlparser_status_t sqlparser_dameng_multi_update_insert_public_where(
+	const void *state,
+	size_t statement_index,
+	PgQuery__Node **where_slot,
+	PgQuery__Node *public_where,
+	sqlparser_error_t *out_error)
+{
+	PgQuery__BoolExpr *where_expr;
+	PgQuery__Node **public_slot;
+	PgQuery__Node **next_args;
+	PgQuery__Node *combined;
+	size_t next_count;
+	int is_join_carrier;
+	sqlparser_status_t status;
+
+	if (where_slot == NULL || public_where == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"Dameng multi-table UPDATE public WHERE must not be NULL");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	public_slot = NULL;
+	status = sqlparser_dameng_multi_update_public_where_slot(
+		state,
+		statement_index,
+		where_slot,
+		&is_join_carrier,
+		&public_slot,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
+	}
+	if (!is_join_carrier || public_slot != NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"Dameng multi-table UPDATE public WHERE slot is inconsistent");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	where_expr = (*where_slot)->node_case ==
+			     PG_QUERY__NODE__NODE_BOOL_EXPR ?
+		(*where_slot)->bool_expr : NULL;
+	if (where_expr != NULL) {
+		if (where_expr->n_args == SIZE_MAX ||
+		    where_expr->n_args + 1U > SIZE_MAX / sizeof(*next_args)) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_RESOURCE_LIMIT,
+				"Dameng multi-table UPDATE WHERE is too large");
+			return SQLPARSER_STATUS_RESOURCE_LIMIT;
+		}
+		next_count = where_expr->n_args + 1U;
+		next_args = (PgQuery__Node **)realloc(
+			where_expr->args, next_count * sizeof(*next_args));
+		if (next_args == NULL) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_NO_MEMORY,
+				"out of memory");
+			return SQLPARSER_STATUS_NO_MEMORY;
+		}
+		where_expr->args = next_args;
+		where_expr->args[where_expr->n_args] = public_where;
+		where_expr->n_args = next_count;
+		return SQLPARSER_STATUS_OK;
+	}
+	combined = (PgQuery__Node *)calloc(1U, sizeof(*combined));
+	where_expr = (PgQuery__BoolExpr *)calloc(1U, sizeof(*where_expr));
+	next_args = (PgQuery__Node **)calloc(2U, sizeof(*next_args));
+	if (combined == NULL || where_expr == NULL || next_args == NULL) {
+		free(combined);
+		free(where_expr);
+		free(next_args);
+		sqlparser_error_set_message(
+			out_error, SQLPARSER_STATUS_NO_MEMORY, "out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	pg_query__node__init(combined);
+	pg_query__bool_expr__init(where_expr);
+	combined->node_case = PG_QUERY__NODE__NODE_BOOL_EXPR;
+	combined->bool_expr = where_expr;
+	where_expr->boolop = PG_QUERY__BOOL_EXPR_TYPE__AND_EXPR;
+	where_expr->location = SQLPARSER_PROTO_LOCATION_GENERATED;
+	where_expr->n_args = 2U;
+	where_expr->args = next_args;
+	next_args[0] = *where_slot;
+	next_args[1] = public_where;
+	*where_slot = combined;
+	return SQLPARSER_STATUS_OK;
+}
+
 const sqlparser_dialect_returning_into_state_t *
 sqlparser_dameng_state_returning_into(const void *state)
 {
@@ -5690,6 +8895,14 @@ static sqlparser_status_t sqlparser_dameng_postprocess_deparse(
 		return status;
 	}
 	status = sqlparser_dameng_restore_database_links(&public_sql, (const sqlparser_dameng_state_t *)state, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		free(public_sql);
+		return status;
+	}
+	status = sqlparser_dameng_restore_multi_updates(
+		&public_sql,
+		(const sqlparser_dameng_state_t *)state,
+		out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		free(public_sql);
 		return status;
@@ -5747,11 +8960,11 @@ static sqlparser_status_t sqlparser_dameng_postprocess_fragment(
 	char **out_sql,
 	sqlparser_error_t *out_error)
 {
+	const sqlparser_dameng_multi_update_t *multi;
+	sqlparser_dameng_buffer_t assignment_out;
 	char *public_sql;
 	sqlparser_status_t status;
 
-	(void)statement_index;
-	(void)fragment_context;
 	(void)roots;
 	(void)root_count;
 	if (out_sql == NULL) {
@@ -5785,6 +8998,36 @@ static sqlparser_status_t sqlparser_dameng_postprocess_fragment(
 		out_error);
 	if (status == SQLPARSER_STATUS_OK) {
 		status = sqlparser_dialect_rewrite_like_escape(&public_sql, out_error);
+	}
+	multi = sqlparser_dameng_state_multi_update_const(
+		(const sqlparser_dameng_state_t *)state,
+		statement_index);
+	if (status == SQLPARSER_STATUS_OK && multi != NULL &&
+	    fragment_context == SQLPARSER_FRAGMENT_CONTEXT_UPDATE_SET) {
+		memset(&assignment_out, 0, sizeof(assignment_out));
+		status = sqlparser_dameng_buffer_reserve_input(
+			&assignment_out, public_sql, out_error);
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_dameng_update_append_public_assignments(
+				public_sql,
+				0U,
+				strlen(public_sql),
+				multi->target_qualifier_sql,
+				multi->target_qualifier_sql != NULL ?
+					strlen(multi->target_qualifier_sql) : 0U,
+				&assignment_out,
+				out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			status = sqlparser_dameng_buffer_finish(
+				&assignment_out, out_error);
+		}
+		if (status == SQLPARSER_STATUS_OK) {
+			free(public_sql);
+			public_sql = sqlparser_dameng_buffer_take(&assignment_out);
+		} else {
+			sqlparser_dameng_buffer_release(&assignment_out);
+		}
 	}
 	if (status != SQLPARSER_STATUS_OK) {
 		free(public_sql);
@@ -6381,6 +9624,133 @@ sqlparser_status_t sqlparser_dameng_multi_insert_insert_column_sql(
 	return SQLPARSER_STATUS_OK;
 }
 
+static sqlparser_status_t sqlparser_dameng_multi_updates_clone(
+	const sqlparser_dameng_state_t *source,
+	sqlparser_dameng_state_t *clone,
+	sqlparser_error_t *out_error)
+{
+	size_t index;
+	size_t link_index;
+	size_t relation_index;
+
+	if (source->multi_update_count == 0U) {
+		return SQLPARSER_STATUS_OK;
+	}
+	if (source->multi_update_count >
+	    SIZE_MAX / sizeof(*clone->multi_updates)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	clone->multi_updates = (sqlparser_dameng_multi_update_t *)calloc(
+		source->multi_update_count, sizeof(*clone->multi_updates));
+	if (clone->multi_updates == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_NO_MEMORY,
+			"out of memory");
+		return SQLPARSER_STATUS_NO_MEMORY;
+	}
+	clone->multi_update_capacity = source->multi_update_count;
+	for (index = 0U; index < source->multi_update_count; index++) {
+		const sqlparser_dameng_multi_update_t *src;
+		sqlparser_dameng_multi_update_t *dst;
+
+		src = &source->multi_updates[index];
+		dst = &clone->multi_updates[index];
+		dst->statement_index = src->statement_index;
+		dst->relation_count = src->relation_count;
+		dst->target_relation_index = src->target_relation_index;
+		dst->target_qualifier_uses_alias =
+			src->target_qualifier_uses_alias;
+		dst->target_qualifier_uses_full_name =
+			src->target_qualifier_uses_full_name;
+		if (src->target_qualifier_sql != NULL) {
+			dst->target_qualifier_sql = sqlparser_strdup(
+				src->target_qualifier_sql);
+			if (dst->target_qualifier_sql == NULL) {
+				clone->multi_update_count = index + 1U;
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_NO_MEMORY,
+					"out of memory");
+				return SQLPARSER_STATUS_NO_MEMORY;
+			}
+		}
+		if (src->relation_count > 0U) {
+			dst->relations =
+				(sqlparser_dameng_multi_update_relation_t *)calloc(
+					src->relation_count,
+					sizeof(*dst->relations));
+			if (dst->relations == NULL) {
+				clone->multi_update_count = index + 1U;
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_NO_MEMORY,
+					"out of memory");
+				return SQLPARSER_STATUS_NO_MEMORY;
+			}
+		}
+		for (relation_index = 0U;
+		     relation_index < src->relation_count;
+		     relation_index++) {
+			dst->relations[relation_index].owner =
+				src->relations[relation_index].owner;
+			if (src->relations[relation_index].qualifier_sql != NULL) {
+				dst->relations[relation_index].qualifier_sql =
+					sqlparser_strdup(
+						src->relations[relation_index]
+							.qualifier_sql);
+				if (dst->relations[relation_index].qualifier_sql ==
+				    NULL) {
+					clone->multi_update_count = index + 1U;
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_NO_MEMORY,
+						"out of memory");
+					return SQLPARSER_STATUS_NO_MEMORY;
+				}
+			}
+		}
+		if (src->relation_count > 1U) {
+			dst->links =
+				(sqlparser_dameng_multi_update_link_t *)calloc(
+					src->relation_count - 1U,
+					sizeof(*dst->links));
+			if (dst->links == NULL) {
+				clone->multi_update_count = index + 1U;
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_NO_MEMORY,
+					"out of memory");
+				return SQLPARSER_STATUS_NO_MEMORY;
+			}
+		}
+		for (link_index = 0U;
+		     link_index + 1U < src->relation_count;
+		     link_index++) {
+			dst->links[link_index].kind = src->links[link_index].kind;
+			if (src->links[link_index].keyword_sql != NULL) {
+				dst->links[link_index].keyword_sql =
+					sqlparser_strdup(
+						src->links[link_index].keyword_sql);
+				if (dst->links[link_index].keyword_sql == NULL) {
+					clone->multi_update_count = index + 1U;
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_NO_MEMORY,
+						"out of memory");
+					return SQLPARSER_STATUS_NO_MEMORY;
+				}
+			}
+		}
+		clone->multi_update_count = index + 1U;
+	}
+	return SQLPARSER_STATUS_OK;
+}
+
 static sqlparser_status_t sqlparser_dameng_clone_state(
 	const void *state,
 	void **out_state,
@@ -6467,6 +9837,12 @@ static sqlparser_status_t sqlparser_dameng_clone_state(
 			sqlparser_dameng_state_destroy(clone);
 			return status;
 		}
+	}
+	status = sqlparser_dameng_multi_updates_clone(
+		source, clone, out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_dameng_state_destroy(clone);
+		return status;
 	}
 	status = sqlparser_dameng_multi_insert_clone(source->multi_insert, &clone->multi_insert, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
@@ -7409,6 +10785,48 @@ static sqlparser_status_t sqlparser_dameng_bind_ast_state(
 		return SQLPARSER_STATUS_OK;
 	}
 	dameng_state = (sqlparser_dameng_state_t *)state;
+	for (index = 0U; index < dameng_state->multi_update_count; index++) {
+		sqlparser_dameng_multi_update_t *multi;
+		PgQuery__RawStmt *raw_stmt;
+		PgQuery__UpdateStmt *update;
+
+		multi = &dameng_state->multi_updates[index];
+		raw_stmt = ast != NULL && ast->stmts != NULL &&
+			multi->statement_index < ast->n_stmts ?
+			ast->stmts[multi->statement_index] : NULL;
+		update = raw_stmt != NULL && raw_stmt->stmt != NULL &&
+			raw_stmt->stmt->node_case ==
+				PG_QUERY__NODE__NODE_UPDATE_STMT ?
+				raw_stmt->stmt->update_stmt : NULL;
+		sqlparser_dameng_multi_update_bind_conditions(multi, update);
+		(void)sqlparser_dameng_multi_update_bind_relations(multi, update);
+		if (update != NULL &&
+		    sqlparser_dameng_multi_update_condition_count(multi) > 0U) {
+			PgQuery__Node **public_slot;
+			int is_join_carrier;
+
+			public_slot = NULL;
+			status =
+				sqlparser_dameng_multi_update_public_where_slot_internal(
+					dameng_state,
+					multi->statement_index,
+					&update->where_clause,
+					1,
+					&is_join_carrier,
+					&public_slot,
+					out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+			if (!is_join_carrier) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INTERNAL_ERROR,
+					"Dameng multi-table UPDATE JOIN owner is inconsistent");
+				return SQLPARSER_STATUS_INTERNAL_ERROR;
+			}
+		}
+	}
 	if (ast == NULL) {
 		sqlparser_dialect_prepared_binds_clear(
 			&dameng_state->prepared_binds);
@@ -7532,6 +10950,8 @@ static void sqlparser_dameng_reconcile_ast_state(
 	const PgQuery__ParseResult *ast)
 {
 	sqlparser_dameng_state_t *dameng_state;
+	size_t read_index;
+	size_t write_index;
 
 	if (state == NULL) {
 		return;
@@ -7549,6 +10969,39 @@ static void sqlparser_dameng_reconcile_ast_state(
 	sqlparser_dialect_minuses_reconcile(&dameng_state->minuses, ast);
 	sqlparser_dameng_top_reconcile(dameng_state, ast);
 	sqlparser_dameng_reconcile_dblink_state(dameng_state, ast);
+	write_index = 0U;
+	for (read_index = 0U;
+	     read_index < dameng_state->multi_update_count;
+	     read_index++) {
+		sqlparser_dameng_multi_update_t *multi;
+		PgQuery__RawStmt *raw_stmt;
+		PgQuery__UpdateStmt *update;
+
+		multi = &dameng_state->multi_updates[read_index];
+		raw_stmt = ast != NULL && ast->stmts != NULL &&
+			multi->statement_index < ast->n_stmts ?
+			ast->stmts[multi->statement_index] : NULL;
+		update = raw_stmt != NULL && raw_stmt->stmt != NULL &&
+			raw_stmt->stmt->node_case ==
+				PG_QUERY__NODE__NODE_UPDATE_STMT ?
+			raw_stmt->stmt->update_stmt : NULL;
+		if (update == NULL || update->relation == NULL ||
+		    update->n_from_clause + 1U != multi->relation_count) {
+			sqlparser_dameng_multi_update_clear(multi);
+			continue;
+		}
+		if (!sqlparser_dameng_multi_update_bind_relations(multi, update)) {
+			sqlparser_dameng_multi_update_clear(multi);
+			continue;
+		}
+		sqlparser_dameng_multi_update_bind_conditions(multi, update);
+		if (write_index != read_index) {
+			dameng_state->multi_updates[write_index] = *multi;
+			memset(multi, 0, sizeof(*multi));
+		}
+		write_index++;
+	}
+	dameng_state->multi_update_count = write_index;
 }
 
 static sqlparser_status_t sqlparser_dameng_clone_ast_state(
@@ -7641,17 +11094,230 @@ static sqlparser_status_t sqlparser_dameng_prepare_ast_state(
 	sqlparser_error_t *out_error)
 {
 	sqlparser_dameng_state_t *dameng_state;
+	size_t multi_index;
+	sqlparser_status_t status;
 
 	if (state == NULL) {
 		return SQLPARSER_STATUS_OK;
 	}
 	dameng_state = (sqlparser_dameng_state_t *)state;
-	return sqlparser_dialect_prepare_binds(
+	for (multi_index = 0U;
+	     multi_index < dameng_state->multi_update_count;
+	     multi_index++) {
+		sqlparser_dameng_multi_update_t *multi;
+		PgQuery__RangeVar *owner;
+		PgQuery__RawStmt *raw_stmt;
+		PgQuery__UpdateStmt *update;
+		size_t assignment_index;
+
+		multi = &dameng_state->multi_updates[multi_index];
+		raw_stmt = ast != NULL && ast->stmts != NULL &&
+			multi->statement_index < ast->n_stmts ?
+			ast->stmts[multi->statement_index] : NULL;
+		update = raw_stmt != NULL && raw_stmt->stmt != NULL &&
+			raw_stmt->stmt->node_case ==
+				PG_QUERY__NODE__NODE_UPDATE_STMT ?
+			raw_stmt->stmt->update_stmt : NULL;
+		if (update == NULL || update->relation == NULL ||
+		    update->n_from_clause + 1U != multi->relation_count ||
+		    multi->target_relation_index >= multi->relation_count) {
+			continue;
+		}
+		owner = multi->target_relation_index == 0U ?
+			update->relation : NULL;
+		if (owner == NULL && update->from_clause != NULL &&
+		    update->from_clause[
+			    multi->target_relation_index - 1U] != NULL &&
+		    update->from_clause[
+				    multi->target_relation_index - 1U]
+				    ->node_case == PG_QUERY__NODE__NODE_RANGE_VAR) {
+			owner = update->from_clause[
+				multi->target_relation_index - 1U]
+				->range_var;
+		}
+		if (owner == NULL) {
+			continue;
+		}
+		sqlparser_dameng_multi_update_bind_conditions(multi, update);
+		{
+			int is_join_carrier;
+			PgQuery__Node **public_slot;
+
+			public_slot = NULL;
+			status =
+				sqlparser_dameng_multi_update_public_where_slot_internal(
+					dameng_state,
+					multi->statement_index,
+					&update->where_clause,
+					1,
+					&is_join_carrier,
+					&public_slot,
+					out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
+			if (sqlparser_dameng_multi_update_condition_count(multi) > 0U &&
+			    !is_join_carrier) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INTERNAL_ERROR,
+					"Dameng multi-table UPDATE JOIN owner is inconsistent");
+				return SQLPARSER_STATUS_INTERNAL_ERROR;
+			}
+		}
+		for (assignment_index = 0U;
+		     assignment_index < update->n_target_list;
+		     assignment_index++) {
+			PgQuery__Node **next_indirection;
+			PgQuery__Node *assignment_node;
+			PgQuery__ResTarget *target;
+			const char *column_name;
+			const char *part;
+			const char *owner_parts[3];
+			char *next_name;
+			size_t owner_part_count;
+			size_t part_index;
+			size_t string_count;
+			size_t trailing_count;
+			int matches;
+
+			assignment_node = update->target_list != NULL ?
+				update->target_list[assignment_index] : NULL;
+			target = assignment_node != NULL &&
+				assignment_node->node_case ==
+					PG_QUERY__NODE__NODE_RES_TARGET ?
+				assignment_node->res_target : NULL;
+			if (target == NULL || target->name == NULL ||
+			    target->name[0] == '\0' ||
+			    (target->n_indirection > 0U &&
+			     target->indirection == NULL)) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_UNSUPPORTED,
+					"unsupported Dameng multi-table UPDATE assignment target");
+				return SQLPARSER_STATUS_UNSUPPORTED;
+			}
+			string_count = 0U;
+			while (string_count < target->n_indirection &&
+			       target->indirection[string_count] != NULL &&
+			       target->indirection[string_count]->node_case ==
+				       PG_QUERY__NODE__NODE_STRING &&
+			       target->indirection[string_count]->string != NULL &&
+			       target->indirection[string_count]->string->sval != NULL &&
+			       target->indirection[string_count]->string->sval[0] != '\0') {
+				string_count++;
+			}
+			if (string_count == 0U) {
+				continue;
+			}
+
+			matches = 0;
+			if (owner->alias != NULL &&
+			    owner->alias->aliasname != NULL &&
+			    owner->alias->aliasname[0] != '\0') {
+				matches = string_count == 1U &&
+					sqlparser_dameng_update_text_path_equal(
+						target->name,
+						strlen(target->name),
+						owner->alias->aliasname,
+						strlen(owner->alias->aliasname));
+			} else if (owner->relname != NULL &&
+				   owner->relname[0] != '\0') {
+				owner_part_count = 0U;
+				if (owner->catalogname != NULL &&
+				    owner->catalogname[0] != '\0') {
+					owner_parts[owner_part_count++] =
+						owner->catalogname;
+				}
+				if (owner->schemaname != NULL &&
+				    owner->schemaname[0] != '\0') {
+					owner_parts[owner_part_count++] =
+						owner->schemaname;
+				}
+				owner_parts[owner_part_count++] = owner->relname;
+				if (string_count == 1U) {
+					matches =
+						sqlparser_dameng_update_text_path_equal(
+							target->name,
+							strlen(target->name),
+							owner->relname,
+							strlen(owner->relname));
+				} else if (string_count == owner_part_count) {
+					matches = 1;
+					for (part_index = 0U;
+					     part_index < string_count;
+					     part_index++) {
+						part = part_index == 0U ?
+							target->name :
+							target->indirection[
+								part_index - 1U]
+								->string->sval;
+						if (!sqlparser_dameng_update_text_path_equal(
+							    part,
+							    strlen(part),
+							    owner_parts[part_index],
+							    strlen(owner_parts[part_index]))) {
+							matches = 0;
+							break;
+						}
+					}
+				}
+			}
+			if (!matches) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_UNSUPPORTED,
+					"unsupported Dameng syntax: multi-table UPDATE multiple assignment targets");
+				return SQLPARSER_STATUS_UNSUPPORTED;
+			}
+
+			column_name = target->indirection[string_count - 1U]
+				->string->sval;
+			next_name = sqlparser_strdup(column_name);
+			trailing_count = target->n_indirection - string_count;
+			next_indirection = trailing_count > 0U ?
+				(PgQuery__Node **)calloc(
+					trailing_count,
+					sizeof(*next_indirection)) : NULL;
+			if (next_name == NULL ||
+			    (trailing_count > 0U && next_indirection == NULL)) {
+				free(next_name);
+				free(next_indirection);
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_NO_MEMORY,
+					"out of memory");
+				return SQLPARSER_STATUS_NO_MEMORY;
+			}
+			for (part_index = 0U;
+			     part_index < trailing_count;
+			     part_index++) {
+				next_indirection[part_index] =
+					target->indirection[string_count + part_index];
+			}
+			if (target->name != (char *)protobuf_c_empty_string) {
+				free(target->name);
+			}
+			for (part_index = 0U;
+			     part_index < string_count;
+			     part_index++) {
+				protobuf_c_message_free_unpacked(
+					(ProtobufCMessage *)target->indirection[part_index],
+					NULL);
+			}
+			free(target->indirection);
+			target->name = next_name;
+			target->indirection = next_indirection;
+			target->n_indirection = trailing_count;
+		}
+	}
+	status = sqlparser_dialect_prepare_binds(
 		dameng_state->bind_names,
 		dameng_state->bind_count,
 		ast,
 		&dameng_state->prepared_binds,
 		out_error);
+	return status;
 }
 
 static const sqlparser_dialect_ops_t SQLPARSER_DAMENG_OPS = {

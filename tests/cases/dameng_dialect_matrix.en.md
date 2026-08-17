@@ -4,8 +4,8 @@ This file records regression cases for the Dameng dialect conversion layer. The 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 177 cases with `status = "final"` and 636 independent
-patches. Two cases and their 6 patches contain complete bind-occurrence
+The fixture contains 183 cases with `status = "final"` and 653 independent
+patches. Eight cases and their 23 patches contain complete bind-occurrence
 assertions.
 Statement-level `query_graph.session` appears in 34 cases, covering `D002`,
 `D003`, `D003Q`, `D026`, `D089` through `D095`, and the `DM-*` session cases.
@@ -220,6 +220,19 @@ in total: 16 `replace` and 4 `insert_column` actions.
 | D148 | `dameng-hierarchical-connect-start-source-order` | `CONNECT BY` followed by `START WITH` | byte-preserved reversed source order while View remains in START WITH then CONNECT BY semantic order |
 | D149 | `dameng-hierarchical-prior-reverse-direction` | `PRIOR manager_id = employee_id` | `PRIOR` remains on the left comparison operand while the field direction is reversed from the basic case |
 | D150 | `dameng-hierarchical-connect-by-root-nocycle` | `CONNECT_BY_ROOT`, `LEVEL`, and `CONNECT BY NOCYCLE` | operator `target_path` on the expression target, a relationless pseudo target, and `nocycle` on the CONNECT BY root predicate |
+
+## Multi-Table Single-Target UPDATE Regression
+
+Dameng multi-table `UPDATE` accepts JOIN chains, comma-separated relation lists, and mixed forms, but every SET assignment must resolve to the same table object. That unique object is the statement and DML target relation.
+
+| ID | Case | SQL Shape | Coverage |
+| --- | --- | --- | --- |
+| D154 | `dameng-multitable-update-two-table-join-first-target-contract` | two-table JOIN with the first relation as target | unique target, ON/WHERE attribution, and assignment and relation patches |
+| D155 | `dameng-multitable-update-three-table-middle-target-contract` | three comma-separated relations with the middle relation as target | non-leading target resolution, bind order, and assignment patches |
+| D156 | `dameng-multitable-update-four-table-last-target-contract` | four comma-separated relations with the last relation as target | quoted objects, final-relation target, and patches |
+| D157 | `dameng-multitable-update-same-table-distinct-alias-contract` | the same table object under distinct aliases | unique write-object resolution by alias and compound-right-side patches |
+| D158 | `dameng-multitable-update-four-table-join-chain-contract` | LEFT/INNER/RIGHT JOIN chain | JOIN conditions, one middle target, and assignment patches |
+| D159 | `dameng-multitable-update-join-comma-mixed-contract` | mixed JOIN and comma-separated relations | mixed relation list, unique target, and deparse |
 
 ## Coverage Boundary
 

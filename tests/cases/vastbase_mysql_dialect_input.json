@@ -27159,5 +27159,1542 @@
     {"name":"vastbase-mysql-string-common-backslash-escapes","sql":"SELECT 'line\\nnext' AS newline_value, 'tab\\tvalue' AS tab_value, 'path\\\\file' AS slash_value FROM users","view":{"statements":[{"index":0,"keyword":"select","query_graph":{"blocks":[{"kind":"select","relations":[0],"targets":[0,1,2]}],"relations":[{"block":0,"kind":"base","selector":"stmt[0].relation[0]","table":"users"}],"root":0,"targets":[{"block":0,"kind":"literal","name":"newline_value","ordinal":0,"selector":"stmt[0].select_target[0][0]","target_list_selector":"stmt[0].select_targets[0]","value":0},{"block":0,"kind":"literal","name":"tab_value","ordinal":1,"selector":"stmt[0].select_target[0][1]","target_list_selector":"stmt[0].select_targets[0]","value":1},{"block":0,"kind":"literal","name":"slash_value","ordinal":2,"selector":"stmt[0].select_target[0][2]","target_list_selector":"stmt[0].select_targets[0]","value":2}],"values":[{"bind_kind":0,"block":0,"clause":"select_list","kind":"literal","literal":{"kind":"string","string_value":"line\nnext"},"selector":"stmt[0].value[1]"},{"bind_kind":0,"block":0,"clause":"select_list","kind":"literal","literal":{"kind":"string","string_value":"tab\tvalue"},"selector":"stmt[0].value[3]"},{"bind_kind":0,"block":0,"clause":"select_list","kind":"literal","literal":{"kind":"string","string_value":"path\\file"},"selector":"stmt[0].value[5]"}]}}]},"status":"final","patch":[{"action":"replace","target":"/statements/0/query_graph/relations/0/selector","value":"`patched_users`","deparse":"SELECT 'line\\nnext' AS newline_value, 'tab\\tvalue' AS tab_value, 'path\\\\file' AS slash_value FROM `patched_users`"},{"action":"replace","target":"/statements/0/query_graph/targets/0/selector","value":"\"fragment\" AS fragment_value","deparse":"SELECT \"fragment\" AS fragment_value, 'tab\\tvalue' AS tab_value, 'path\\\\file' AS slash_value FROM users"},{"action":"replace","target":"/statements/0/query_graph/values/0/selector","value":"n'patched\\nvalue'","deparse":"SELECT n'patched\\nvalue' AS newline_value, 'tab\\tvalue' AS tab_value, 'path\\\\file' AS slash_value FROM users"},{"action":"replace","target":"/statements/0/query_graph/values/2/selector","value":"42","deparse":"SELECT 'line\\nnext' AS newline_value, 'tab\\tvalue' AS tab_value, 42 AS slash_value FROM users"},{"action":"insert_column","target":"/statements/0/query_graph/targets/0/target_list_selector","value":"N'inserted\\tvalue' AS inserted_value","index":1,"deparse":"SELECT 'line\\nnext' AS newline_value, N'inserted\\tvalue' AS inserted_value, 'tab\\tvalue' AS tab_value, 'path\\\\file' AS slash_value FROM users"}]},
     {"name":"vastbase-mysql-string-equal-value-surfaces","sql":"SELECT 'same' AS plain_value, n'same' AS lower_national, N'same' AS upper_national FROM users","view":{"statements":[{"index":0,"keyword":"select","query_graph":{"blocks":[{"kind":"select","relations":[0],"targets":[0,1,2]}],"relations":[{"block":0,"kind":"base","selector":"stmt[0].relation[0]","table":"users"}],"root":0,"targets":[{"block":0,"kind":"literal","name":"plain_value","ordinal":0,"selector":"stmt[0].select_target[0][0]","target_list_selector":"stmt[0].select_targets[0]","value":0},{"block":0,"kind":"literal","name":"lower_national","ordinal":1,"selector":"stmt[0].select_target[0][1]","target_list_selector":"stmt[0].select_targets[0]","value":1},{"block":0,"kind":"literal","name":"upper_national","ordinal":2,"selector":"stmt[0].select_target[0][2]","target_list_selector":"stmt[0].select_targets[0]","value":2}],"values":[{"bind_kind":0,"block":0,"clause":"select_list","kind":"literal","literal":{"kind":"string","string_value":"same"},"selector":"stmt[0].value[1]"},{"bind_kind":0,"block":0,"clause":"select_list","kind":"literal","literal":{"kind":"string","string_value":"same"},"selector":"stmt[0].value[3]"},{"bind_kind":0,"block":0,"clause":"select_list","kind":"literal","literal":{"kind":"string","string_value":"same"},"selector":"stmt[0].value[5]"}]}}]},"status":"final","patch":[{"action":"replace","target":"/statements/0/query_graph/relations/0/selector","value":"`patched_users`","deparse":"SELECT 'same' AS plain_value, n'same' AS lower_national, N'same' AS upper_national FROM `patched_users`"},{"action":"replace","target":"/statements/0/query_graph/targets/0/selector","value":"\"fragment\" AS fragment_value","deparse":"SELECT \"fragment\" AS fragment_value, n'same' AS lower_national, N'same' AS upper_national FROM users"},{"action":"replace","target":"/statements/0/query_graph/values/0/selector","value":"\"patched\"","deparse":"SELECT \"patched\" AS plain_value, n'same' AS lower_national, N'same' AS upper_national FROM users"},{"action":"replace","target":"/statements/0/query_graph/values/1/selector","value":"42","deparse":"SELECT 'same' AS plain_value, 42 AS lower_national, N'same' AS upper_national FROM users"},{"action":"insert_column","target":"/statements/0/query_graph/targets/0/target_list_selector","value":"n'same' AS inserted_national","index":1,"deparse":"SELECT 'same' AS plain_value, n'same' AS inserted_national, n'same' AS lower_national, N'same' AS upper_national FROM users"}]},
     {"name":"vastbase-mysql-string-nested-surface-owners","sql":"SELECT \"outer\" AS outer_value, (SELECT n'inner' FROM audit_log WHERE message = 'A\\'s') AS nested_value FROM users","view":{"statements":[{"index":0,"keyword":"select","query_graph":{"blocks":[{"kind":"select","relations":[0],"targets":[0,2]},{"kind":"scalar_subquery","predicates":[0],"relations":[1],"targets":[1]}],"fields":[{"block":1,"clause":"where","column":"message","relation":1,"selector":"stmt[0].name[3]"}],"predicates":[{"block":1,"bool_operator":"none","clause":"where","kind":"comparison","left_field":0,"operator":"=","operator_kind":"unknown","value":2}],"relations":[{"block":0,"kind":"base","selector":"stmt[0].relation[1]","table":"users"},{"block":1,"kind":"base","selector":"stmt[0].relation[0]","table":"audit_log"}],"root":0,"targets":[{"block":0,"kind":"literal","name":"outer_value","ordinal":0,"selector":"stmt[0].select_target[0][0]","target_list_selector":"stmt[0].select_targets[0]","value":0},{"block":1,"kind":"literal","ordinal":0,"selector":"stmt[0].select_target[1][0]","target_list_selector":"stmt[0].select_targets[1]","value":1},{"block":0,"kind":"subquery","name":"nested_value","ordinal":1,"selector":"stmt[0].select_target[0][1]","source_block":1,"target_list_selector":"stmt[0].select_targets[0]"}],"values":[{"bind_kind":0,"block":0,"clause":"select_list","kind":"literal","literal":{"kind":"string","string_value":"outer"},"selector":"stmt[0].value[1]"},{"bind_kind":0,"block":1,"clause":"select_list","kind":"literal","literal":{"kind":"string","string_value":"inner"},"selector":"stmt[0].value[6]"},{"bind_kind":0,"block":1,"clause":"where","field":0,"field_match_kind":"direct_field","kind":"literal","literal":{"kind":"string","string_value":"A's"},"operator":"=","operator_kind":"unknown","selector":"stmt[0].value[12]"}]}}]},"status":"final","patch":[{"action":"replace","target":"/statements/0/query_graph/relations/0/selector","value":"`patched_users`","deparse":"SELECT \"outer\" AS outer_value, (SELECT n'inner' FROM audit_log WHERE message = 'A\\'s') AS nested_value FROM `patched_users`"},{"action":"replace","target":"/statements/0/query_graph/relations/1/selector","value":"`patched_audit_log`","deparse":"SELECT \"outer\" AS outer_value, (SELECT n'inner' FROM `patched_audit_log` WHERE message = 'A\\'s') AS nested_value FROM users"},{"action":"replace","target":"/statements/0/query_graph/fields/0/selector","value":"`patched_message`","deparse":"SELECT \"outer\" AS outer_value, (SELECT n'inner' FROM audit_log WHERE `patched_message` = 'A\\'s') AS nested_value FROM users"},{"action":"replace","target":"/statements/0/query_graph/targets/0/selector","value":"\"fragment\" AS fragment_value","deparse":"SELECT \"fragment\" AS fragment_value, (SELECT n'inner' FROM audit_log WHERE message = 'A\\'s') AS nested_value FROM users"},{"action":"insert_column","target":"/statements/0/query_graph/targets/0/target_list_selector","value":"N'inserted' AS inserted_value","index":1,"deparse":"SELECT \"outer\" AS outer_value, N'inserted' AS inserted_value, (SELECT n'inner' FROM audit_log WHERE message = 'A\\'s') AS nested_value FROM users"}]}
+    ,
+    {
+      "name": "vastbase-mysql-update-multiple-target-inner-join",
+      "sql": "UPDATE accounts a INNER JOIN ledgers l ON a.id = l.account_id SET a.balance = l.balance, l.balance = a.balance, a.status = ?, l.state = ? WHERE l.active = ?",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0,
+                    1
+                  ],
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "dml": {
+                "assignments": [
+                  {
+                    "bind_kind": 0,
+                    "kind": "field",
+                    "selector": "stmt[0].assignment[0]",
+                    "source_field": 1,
+                    "target_field": 0
+                  },
+                  {
+                    "bind_kind": 0,
+                    "kind": "field",
+                    "selector": "stmt[0].assignment[1]",
+                    "source_field": 3,
+                    "target_field": 2
+                  },
+                  {
+                    "bind_key": "1",
+                    "bind_kind": 1,
+                    "bind_position": 1,
+                    "bind_sql": "?",
+                    "kind": "bind",
+                    "selector": "stmt[0].assignment[2]",
+                    "target_field": 4
+                  },
+                  {
+                    "bind_key": "2",
+                    "bind_kind": 1,
+                    "bind_position": 2,
+                    "bind_sql": "?",
+                    "kind": "bind",
+                    "selector": "stmt[0].assignment[3]",
+                    "target_field": 5
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "update"
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "balance",
+                  "relation": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "balance",
+                  "relation": 1,
+                  "selector": "stmt[0].name[5]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "balance",
+                  "relation": 1
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "balance",
+                  "relation": 0,
+                  "selector": "stmt[0].name[9]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "status",
+                  "relation": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "state",
+                  "relation": 1
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[16]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "account_id",
+                  "relation": 1,
+                  "selector": "stmt[0].name[18]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "active",
+                  "relation": 1,
+                  "selector": "stmt[0].name[20]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "on",
+                  "kind": "comparison",
+                  "left_field": 6,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 7,
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 8,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 1
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "a",
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "accounts"
+                },
+                {
+                  "alias": "l",
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[1]",
+                  "table": "ledgers"
+                }
+              ],
+              "root": 0,
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "on",
+                  "field": 6,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 7
+                },
+                {
+                  "bind_key": "3",
+                  "bind_kind": 1,
+                  "bind_position": 3,
+                  "bind_sql": "?",
+                  "block": 0,
+                  "clause": "where",
+                  "field": 8,
+                  "field_match_kind": "direct_field",
+                  "kind": "bind",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[32]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/0/selector",
+          "value": "a.balance = l.balance + 1",
+          "deparse": "UPDATE accounts a INNER JOIN ledgers l ON a.id = l.account_id SET a.balance = l.balance + 1, l.balance = a.balance, a.status = ?, l.state = ? WHERE l.active = ?"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/1/selector",
+          "value": "l.delta = ?",
+          "deparse": "UPDATE accounts a INNER JOIN ledgers l ON a.id = l.account_id SET a.balance = l.balance, l.delta = ?, l.balance = a.balance, a.status = ?, l.state = ? WHERE l.active = ?"
+        },
+        {
+          "action": "delete_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/2/selector",
+          "deparse": "UPDATE accounts a INNER JOIN ledgers l ON a.id = l.account_id SET a.balance = l.balance, l.balance = a.balance, l.state = ? WHERE l.active = ?"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-mysql-update-multiple-target-three-table-bind-order",
+      "sql": "UPDATE accounts a JOIN orders o ON a.id = o.account_id AND o.tenant_id = ? LEFT JOIN audit_log l ON o.id = l.order_id AND l.kind = ? SET a.balance = ?, o.status = ?, l.reviewed = ?, a.score = ?, o.priority = ?, l.note = ?, a.updated_at = COALESCE(?, a.updated_at), o.retries = ? WHERE a.region = ? AND o.state = ?",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6,
+                    7,
+                    8
+                  ],
+                  "relations": [
+                    0,
+                    1,
+                    2
+                  ]
+                }
+              ],
+              "dml": {
+                "assignments": [
+                  {
+                    "bind_key": "3",
+                    "bind_kind": 1,
+                    "bind_position": 3,
+                    "bind_sql": "?",
+                    "kind": "bind",
+                    "selector": "stmt[0].assignment[0]",
+                    "target_field": 3
+                  },
+                  {
+                    "bind_key": "4",
+                    "bind_kind": 1,
+                    "bind_position": 4,
+                    "bind_sql": "?",
+                    "kind": "bind",
+                    "selector": "stmt[0].assignment[1]",
+                    "target_field": 4
+                  },
+                  {
+                    "bind_key": "5",
+                    "bind_kind": 1,
+                    "bind_position": 5,
+                    "bind_sql": "?",
+                    "kind": "bind",
+                    "selector": "stmt[0].assignment[2]",
+                    "target_field": 5
+                  },
+                  {
+                    "bind_key": "6",
+                    "bind_kind": 1,
+                    "bind_position": 6,
+                    "bind_sql": "?",
+                    "kind": "bind",
+                    "selector": "stmt[0].assignment[3]",
+                    "target_field": 6
+                  },
+                  {
+                    "bind_key": "7",
+                    "bind_kind": 1,
+                    "bind_position": 7,
+                    "bind_sql": "?",
+                    "kind": "bind",
+                    "selector": "stmt[0].assignment[4]",
+                    "target_field": 7
+                  },
+                  {
+                    "bind_key": "8",
+                    "bind_kind": 1,
+                    "bind_position": 8,
+                    "bind_sql": "?",
+                    "kind": "bind",
+                    "selector": "stmt[0].assignment[5]",
+                    "target_field": 8
+                  },
+                  {
+                    "bind_kind": 0,
+                    "kind": "expression",
+                    "rhs_fields": [
+                      10
+                    ],
+                    "rhs_values": [
+                      2
+                    ],
+                    "selector": "stmt[0].assignment[6]",
+                    "target_field": 9
+                  },
+                  {
+                    "bind_key": "10",
+                    "bind_kind": 1,
+                    "bind_position": 10,
+                    "bind_sql": "?",
+                    "kind": "bind",
+                    "selector": "stmt[0].assignment[7]",
+                    "target_field": 11
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "update"
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "id",
+                  "relation": 1,
+                  "selector": "stmt[0].name[36]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "order_id",
+                  "relation": 2,
+                  "selector": "stmt[0].name[38]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "kind",
+                  "relation": 2,
+                  "selector": "stmt[0].name[40]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "balance",
+                  "relation": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "status",
+                  "relation": 1
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "reviewed",
+                  "relation": 2
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "score",
+                  "relation": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "priority",
+                  "relation": 1
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "note",
+                  "relation": 2
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "updated_at",
+                  "relation": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "updated_at",
+                  "relation": 0,
+                  "selector": "stmt[0].name[17]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "retries",
+                  "relation": 1
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[22]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "account_id",
+                  "relation": 1,
+                  "selector": "stmt[0].name[24]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "tenant_id",
+                  "relation": 1,
+                  "selector": "stmt[0].name[26]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "region",
+                  "relation": 0,
+                  "selector": "stmt[0].name[28]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "state",
+                  "relation": 1,
+                  "selector": "stmt[0].name[30]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "and",
+                  "children": [
+                    1,
+                    2
+                  ],
+                  "clause": "on",
+                  "kind": "bool"
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "on",
+                  "kind": "comparison",
+                  "left_field": 0,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 1,
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "on",
+                  "kind": "comparison",
+                  "left_field": 2,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 1
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "and",
+                  "children": [
+                    4,
+                    5
+                  ],
+                  "clause": "on",
+                  "kind": "bool"
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "on",
+                  "kind": "comparison",
+                  "left_field": 12,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 13,
+                  "value": 3
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "on",
+                  "kind": "comparison",
+                  "left_field": 14,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 4
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "and",
+                  "children": [
+                    7,
+                    8
+                  ],
+                  "clause": "where",
+                  "kind": "bool"
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 15,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 5
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 16,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 6
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "a",
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "accounts"
+                },
+                {
+                  "alias": "o",
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[1]",
+                  "table": "orders"
+                },
+                {
+                  "alias": "l",
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[2]",
+                  "table": "audit_log"
+                }
+              ],
+              "root": 0,
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "on",
+                  "field": 0,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 1
+                },
+                {
+                  "bind_key": "2",
+                  "bind_kind": 1,
+                  "bind_position": 2,
+                  "bind_sql": "?",
+                  "block": 0,
+                  "clause": "on",
+                  "field": 2,
+                  "field_match_kind": "direct_field",
+                  "kind": "bind",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[76]"
+                },
+                {
+                  "bind_key": "9",
+                  "bind_kind": 1,
+                  "bind_position": 9,
+                  "bind_sql": "?",
+                  "block": 0,
+                  "clause": "set_list",
+                  "kind": "bind",
+                  "selector": "stmt[0].value[21]"
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "on",
+                  "field": 12,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 13
+                },
+                {
+                  "bind_key": "1",
+                  "bind_kind": 1,
+                  "bind_position": 1,
+                  "bind_sql": "?",
+                  "block": 0,
+                  "clause": "on",
+                  "field": 14,
+                  "field_match_kind": "direct_field",
+                  "kind": "bind",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[45]"
+                },
+                {
+                  "bind_key": "11",
+                  "bind_kind": 1,
+                  "bind_position": 11,
+                  "bind_sql": "?",
+                  "block": 0,
+                  "clause": "where",
+                  "field": 15,
+                  "field_match_kind": "direct_field",
+                  "kind": "bind",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[52]"
+                },
+                {
+                  "bind_key": "12",
+                  "bind_kind": 1,
+                  "bind_position": 12,
+                  "bind_sql": "?",
+                  "block": 0,
+                  "clause": "where",
+                  "field": 16,
+                  "field_match_kind": "direct_field",
+                  "kind": "bind",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[58]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "bind_occurrences": [
+        {"position": 1, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 2, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 3, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 4, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 5, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 6, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 7, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 8, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 9, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 10, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 11, "kind": "positional", "key": null, "sql": "?"},
+        {"position": 12, "kind": "positional", "key": null, "sql": "?"}
+      ],
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/1/selector",
+          "value": "o.status = COALESCE(?, ?)",
+          "deparse": "UPDATE accounts a JOIN orders o ON a.id = o.account_id AND o.tenant_id = ? LEFT JOIN audit_log l ON o.id = l.order_id AND l.kind = ? SET a.balance = ?, o.status = COALESCE(?, ?), l.reviewed = ?, a.score = ?, o.priority = ?, l.note = ?, a.updated_at = COALESCE(?, a.updated_at), o.retries = ? WHERE a.region = ? AND o.state = ?",
+          "bind_occurrences": [
+            {"position": 1, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 2, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 3, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 4, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 5, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 6, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 7, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 8, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 9, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 10, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 11, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 12, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 13, "kind": "positional", "key": null, "sql": "?"}
+          ]
+        },
+        {
+          "action": "insert_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/2/selector",
+          "value": "l.source = CONCAT(?, ?)",
+          "deparse": "UPDATE accounts a JOIN orders o ON a.id = o.account_id AND o.tenant_id = ? LEFT JOIN audit_log l ON o.id = l.order_id AND l.kind = ? SET a.balance = ?, o.status = ?, l.source = CONCAT(?, ?), l.reviewed = ?, a.score = ?, o.priority = ?, l.note = ?, a.updated_at = COALESCE(?, a.updated_at), o.retries = ? WHERE a.region = ? AND o.state = ?",
+          "bind_occurrences": [
+            {"position": 1, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 2, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 3, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 4, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 5, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 6, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 7, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 8, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 9, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 10, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 11, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 12, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 13, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 14, "kind": "positional", "key": null, "sql": "?"}
+          ]
+        },
+        {
+          "action": "delete_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/0/selector",
+          "deparse": "UPDATE accounts a JOIN orders o ON a.id = o.account_id AND o.tenant_id = ? LEFT JOIN audit_log l ON o.id = l.order_id AND l.kind = ? SET o.status = ?, l.reviewed = ?, a.score = ?, o.priority = ?, l.note = ?, a.updated_at = COALESCE(?, a.updated_at), o.retries = ? WHERE a.region = ? AND o.state = ?",
+          "bind_occurrences": [
+            {"position": 1, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 2, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 3, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 4, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 5, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 6, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 7, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 8, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 9, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 10, "kind": "positional", "key": null, "sql": "?"},
+            {"position": 11, "kind": "positional", "key": null, "sql": "?"}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "vastbase-mysql-update-multiple-target-four-relation-comma-list",
+      "sql": "UPDATE products p, inventory i, warehouse w, region r SET p.price = i.cost + ?, i.quantity = w.available, w.capacity = w.capacity - ? WHERE p.inventory_id = i.id AND i.warehouse_id = w.id AND w.region_id = r.id AND r.code = ?",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4
+                  ],
+                  "relations": [
+                    0,
+                    1,
+                    2,
+                    3
+                  ]
+                }
+              ],
+              "dml": {
+                "assignments": [
+                  {
+                    "bind_kind": 0,
+                    "kind": "expression",
+                    "rhs_fields": [
+                      1
+                    ],
+                    "rhs_values": [
+                      0
+                    ],
+                    "selector": "stmt[0].assignment[0]",
+                    "target_field": 0
+                  },
+                  {
+                    "bind_kind": 0,
+                    "kind": "field",
+                    "selector": "stmt[0].assignment[1]",
+                    "source_field": 3,
+                    "target_field": 2
+                  },
+                  {
+                    "bind_kind": 0,
+                    "kind": "expression",
+                    "rhs_fields": [
+                      5
+                    ],
+                    "rhs_values": [
+                      1
+                    ],
+                    "selector": "stmt[0].assignment[2]",
+                    "target_field": 4
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "update"
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "price",
+                  "relation": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "cost",
+                  "relation": 1,
+                  "selector": "stmt[0].name[5]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "quantity",
+                  "relation": 1
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "available",
+                  "relation": 2,
+                  "selector": "stmt[0].name[9]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "capacity",
+                  "relation": 2
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "capacity",
+                  "relation": 2,
+                  "selector": "stmt[0].name[13]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "inventory_id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[15]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "id",
+                  "relation": 1,
+                  "selector": "stmt[0].name[17]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "warehouse_id",
+                  "relation": 1,
+                  "selector": "stmt[0].name[19]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "id",
+                  "relation": 2,
+                  "selector": "stmt[0].name[21]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "region_id",
+                  "relation": 2,
+                  "selector": "stmt[0].name[23]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "id",
+                  "relation": 3,
+                  "selector": "stmt[0].name[25]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "code",
+                  "relation": 3,
+                  "selector": "stmt[0].name[27]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "and",
+                  "children": [
+                    1,
+                    2,
+                    3,
+                    4
+                  ],
+                  "clause": "where",
+                  "kind": "bool"
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 6,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 7,
+                  "value": 2
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 8,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 9,
+                  "value": 3
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 10,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 11,
+                  "value": 4
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 12,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 5
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "p",
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "products"
+                },
+                {
+                  "alias": "i",
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[1]",
+                  "table": "inventory"
+                },
+                {
+                  "alias": "w",
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[2]",
+                  "table": "warehouse"
+                },
+                {
+                  "alias": "r",
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[3]",
+                  "table": "region"
+                }
+              ],
+              "root": 0,
+              "values": [
+                {
+                  "bind_key": "1",
+                  "bind_kind": 1,
+                  "bind_position": 1,
+                  "bind_sql": "?",
+                  "block": 0,
+                  "clause": "set_list",
+                  "kind": "bind",
+                  "selector": "stmt[0].value[7]"
+                },
+                {
+                  "bind_key": "2",
+                  "bind_kind": 1,
+                  "bind_position": 2,
+                  "bind_sql": "?",
+                  "block": 0,
+                  "clause": "set_list",
+                  "kind": "bind",
+                  "selector": "stmt[0].value[20]"
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 6,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 7
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 8,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 9
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 10,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 11
+                },
+                {
+                  "bind_key": "3",
+                  "bind_kind": 1,
+                  "bind_position": 3,
+                  "bind_sql": "?",
+                  "block": 0,
+                  "clause": "where",
+                  "field": 12,
+                  "field_match_kind": "direct_field",
+                  "kind": "bind",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[51]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/0/selector",
+          "value": "p.price = i.cost * ?",
+          "deparse": "UPDATE products p, inventory i, warehouse w, region r SET p.price = i.cost * ?, i.quantity = w.available, w.capacity = w.capacity - ? WHERE p.inventory_id = i.id AND i.warehouse_id = w.id AND w.region_id = r.id AND r.code = ?"
+        },
+        {
+          "action": "insert_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/2/selector",
+          "value": "r.touched = ?",
+          "deparse": "UPDATE products p, inventory i, warehouse w, region r SET p.price = i.cost + ?, i.quantity = w.available, r.touched = ?, w.capacity = w.capacity - ? WHERE p.inventory_id = i.id AND i.warehouse_id = w.id AND w.region_id = r.id AND r.code = ?"
+        },
+        {
+          "action": "delete_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/1/selector",
+          "deparse": "UPDATE products p, inventory i, warehouse w, region r SET p.price = i.cost + ?, w.capacity = w.capacity - ? WHERE p.inventory_id = i.id AND i.warehouse_id = w.id AND w.region_id = r.id AND r.code = ?"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-mysql-update-multiple-target-four-table-mixed-join",
+      "sql": "UPDATE customer c JOIN orders o ON c.id = o.customer_id LEFT JOIN shipment s ON o.id = s.order_id JOIN audit_log l ON l.order_id = o.id SET c.flag = 1, o.state = 'ready', s.status = 'queued', l.note = 'updated' WHERE c.active = 1",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0,
+                    1,
+                    2,
+                    3
+                  ],
+                  "relations": [
+                    0,
+                    1,
+                    2,
+                    3
+                  ]
+                }
+              ],
+              "dml": {
+                "assignments": [
+                  {
+                    "bind_kind": 0,
+                    "kind": "literal",
+                    "literal": {
+                      "integer_value": 1,
+                      "kind": "integer"
+                    },
+                    "selector": "stmt[0].assignment[0]",
+                    "target_field": 4
+                  },
+                  {
+                    "bind_kind": 0,
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "ready"
+                    },
+                    "selector": "stmt[0].assignment[1]",
+                    "target_field": 5
+                  },
+                  {
+                    "bind_kind": 0,
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "queued"
+                    },
+                    "selector": "stmt[0].assignment[2]",
+                    "target_field": 6
+                  },
+                  {
+                    "bind_kind": 0,
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "updated"
+                    },
+                    "selector": "stmt[0].assignment[3]",
+                    "target_field": 7
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "update"
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "id",
+                  "relation": 1,
+                  "selector": "stmt[0].name[22]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "order_id",
+                  "relation": 2,
+                  "selector": "stmt[0].name[24]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "order_id",
+                  "relation": 3,
+                  "selector": "stmt[0].name[28]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "id",
+                  "relation": 1,
+                  "selector": "stmt[0].name[30]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "flag",
+                  "relation": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "state",
+                  "relation": 1
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "status",
+                  "relation": 2
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "note",
+                  "relation": 3
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "id",
+                  "relation": 0,
+                  "selector": "stmt[0].name[12]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "customer_id",
+                  "relation": 1,
+                  "selector": "stmt[0].name[14]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "active",
+                  "relation": 0,
+                  "selector": "stmt[0].name[16]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "on",
+                  "kind": "comparison",
+                  "left_field": 0,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 1,
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "on",
+                  "kind": "comparison",
+                  "left_field": 2,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 3,
+                  "value": 1
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "on",
+                  "kind": "comparison",
+                  "left_field": 8,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 9,
+                  "value": 2
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 10,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 3
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "c",
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "customer"
+                },
+                {
+                  "alias": "o",
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[1]",
+                  "table": "orders"
+                },
+                {
+                  "alias": "s",
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[2]",
+                  "table": "shipment"
+                },
+                {
+                  "alias": "l",
+                  "block": 0,
+                  "kind": "base",
+                  "selector": "stmt[0].relation[3]",
+                  "table": "audit_log"
+                }
+              ],
+              "root": 0,
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "on",
+                  "field": 0,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 1
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "on",
+                  "field": 2,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 3
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "on",
+                  "field": 8,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 9
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 10,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 1,
+                    "kind": "integer"
+                  },
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[28]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/3/selector",
+          "value": "l.note = 'closed'",
+          "deparse": "UPDATE customer c JOIN orders o ON c.id = o.customer_id LEFT JOIN shipment s ON o.id = s.order_id JOIN audit_log l ON l.order_id = o.id SET c.flag = 1, o.state = 'ready', s.status = 'queued', l.note = 'closed' WHERE c.active = 1"
+        }
+      ]
+    },
+    {
+      "name": "vastbase-mysql-update-multiple-target-quoted-identifiers",
+      "sql": "UPDATE `sales-db`.`account` AS `a-x` JOIN `ops-db`.`ledger` AS `l-y` ON `a-x`.`id` = `l-y`.`account-id` SET `a-x`.`balance` = `l-y`.`amount`, `l-y`.`state` = 'done' WHERE `l-y`.`active` = 1",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "update",
+            "query_graph": {
+              "blocks": [
+                {
+                  "kind": "select",
+                  "predicates": [
+                    0,
+                    1
+                  ],
+                  "relations": [
+                    0,
+                    1
+                  ]
+                }
+              ],
+              "dml": {
+                "assignments": [
+                  {
+                    "bind_kind": 0,
+                    "kind": "field",
+                    "selector": "stmt[0].assignment[0]",
+                    "source_field": 1,
+                    "target_field": 0
+                  },
+                  {
+                    "bind_kind": 0,
+                    "kind": "literal",
+                    "literal": {
+                      "kind": "string",
+                      "string_value": "done"
+                    },
+                    "selector": "stmt[0].assignment[1]",
+                    "target_field": 2
+                  }
+                ],
+                "insert_mode": "unknown",
+                "kind": "update"
+              },
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "balance",
+                  "quoted_identifier": true,
+                  "relation": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "amount",
+                  "quoted_identifier": true,
+                  "relation": 1,
+                  "selector": "stmt[0].name[6]"
+                },
+                {
+                  "block": 0,
+                  "clause": "set_list",
+                  "column": "state",
+                  "quoted_identifier": true,
+                  "relation": 1
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "id",
+                  "quoted_identifier": true,
+                  "relation": 0,
+                  "selector": "stmt[0].name[11]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "column": "account-id",
+                  "quoted_identifier": true,
+                  "relation": 1,
+                  "selector": "stmt[0].name[13]"
+                },
+                {
+                  "block": 0,
+                  "clause": "where",
+                  "column": "active",
+                  "quoted_identifier": true,
+                  "relation": 1,
+                  "selector": "stmt[0].name[15]"
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "on",
+                  "kind": "comparison",
+                  "left_field": 3,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "right_field": 4,
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "bool_operator": "none",
+                  "clause": "where",
+                  "kind": "comparison",
+                  "left_field": 5,
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "value": 1
+                }
+              ],
+              "relations": [
+                {
+                  "alias": "a-x",
+                  "block": 0,
+                  "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "sales-db",
+                  "selector": "stmt[0].relation[0]",
+                  "table": "account"
+                },
+                {
+                  "alias": "l-y",
+                  "block": 0,
+                  "kind": "base",
+                  "quoted_identifier": true,
+                  "schema": "ops-db",
+                  "selector": "stmt[0].relation[1]",
+                  "table": "ledger"
+                }
+              ],
+              "root": 0,
+              "values": [
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "on",
+                  "field": 3,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "source_field": 4
+                },
+                {
+                  "bind_kind": 0,
+                  "block": 0,
+                  "clause": "where",
+                  "field": 5,
+                  "field_match_kind": "direct_field",
+                  "kind": "literal",
+                  "literal": {
+                    "integer_value": 1,
+                    "kind": "integer"
+                  },
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "selector": "stmt[0].value[24]"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/relations/1/selector",
+          "value": "`ops-db`.`ledger-v2`",
+          "deparse": "UPDATE `sales-db`.`account` AS `a-x` JOIN `ops-db`.`ledger-v2` AS `l-y` ON `a-x`.`id` = `l-y`.`account-id` SET `a-x`.`balance` = `l-y`.`amount`, `l-y`.`state` = 'done' WHERE `l-y`.`active` = 1"
+        },
+        {
+          "action": "replace_assignment",
+          "target": "/statements/0/query_graph/dml/assignments/1/selector",
+          "value": "`l-y`.`state` = 'closed'",
+          "deparse": "UPDATE `sales-db`.`account` AS `a-x` JOIN `ops-db`.`ledger` AS `l-y` ON `a-x`.`id` = `l-y`.`account-id` SET `a-x`.`balance` = `l-y`.`amount`, `l-y`.`state` = 'closed' WHERE `l-y`.`active` = 1"
+        }
+      ]
+    }
   ]
 }

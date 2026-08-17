@@ -1,5 +1,19 @@
 # 变更记录
 
+## 2.16.5
+
+### 多表 UPDATE
+
+- MySQL 与 Vastbase-MySQL 兼容入口支持 JOIN 链和逗号表列表中的多个写入目标；每个 assignment 按其限定符关联到对应 relation，混合目标不输出单一 `dml.target_relation`。
+- Dameng 支持 JOIN 和逗号表列表形式的多表 UPDATE，并严格要求全部 assignment 指向同一个 table object；跨目标、未知或歧义限定符返回 `SQLPARSER_STATUS_UNSUPPORTED`。
+- assignment 与 relation 改写继续使用既有 selector 和事务候选；失败保持原 handle、SQL、View 与 generation 不变。
+- 本版本未新增公开 C 声明、View JSON 字段或资源所有权规则；Query Graph 继续通过既有 assignment `target_field` 与 field `relation` 表达写入归属。
+
+### 用例与验证
+
+- 新增 16 条 final case 和 41 个 patch；九套 fixture 当前合计 2,822 条 final case 和 9,118 个 patch。
+- 远端完整 `make test` 通过。核心 API、MySQL、Vastbase-MySQL 和 Dameng 四项定向 Valgrind 检查均为 `0 bytes in 0 blocks`、0 errors。
+
 ## 2.16.4
 
 ### Assignment 列表定位与改写

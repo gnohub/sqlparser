@@ -33545,6 +33545,2190 @@ static int test_mysql_dml_join_predicate_clause_roots(void)
 	return 0;
 }
 
+static int expect_update_assignment_relations(
+	const sqlparser_handle_t *handle,
+	const char *const *expected_aliases,
+	const char *const *expected_columns,
+	size_t expected_count,
+	const char *expected_target_alias,
+	const char *message)
+{
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_relation_t relation;
+	sqlparser_graph_dml_assignment_t assignment;
+	sqlparser_graph_field_t field;
+	sqlparser_error_t error;
+	size_t assignment_index;
+	size_t ordinal;
+	int rc;
+
+	memset(&error, 0, sizeof(error));
+	memset(&graph, 0, sizeof(graph));
+	memset(&dml, 0, sizeof(dml));
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml(&graph, &dml, &error),
+		    &error,
+		    message) != 0 ||
+	    expect_true(
+		    dml.kind == SQLPARSER_GRAPH_DML_UPDATE &&
+			    dml.assignments.count == expected_count,
+		    message) != 0) {
+		return 1;
+	}
+	if (expected_target_alias == NULL) {
+		if (expect_true(
+			    dml.has_target_relation == 0,
+			    "mixed-target UPDATE must not expose one DML target relation") != 0) {
+			return 1;
+		}
+	} else {
+		if (expect_true(
+			    dml.has_target_relation != 0,
+			    "single-target multi-table UPDATE must expose its DML target relation") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_relation_at(
+				    &graph,
+				    dml.target_relation_index,
+				    &relation,
+				    &error),
+			    &error,
+			    message) != 0 ||
+		    expect_true(
+			    relation.alias_name != NULL &&
+				    strcmp(
+					    relation.alias_name,
+					    expected_target_alias) == 0,
+			    "multi-table UPDATE DML target relation mismatch") != 0) {
+			return 1;
+		}
+	}
+	for (ordinal = 0U; ordinal < expected_count; ordinal++) {
+		memset(&assignment, 0, sizeof(assignment));
+		memset(&field, 0, sizeof(field));
+		memset(&relation, 0, sizeof(relation));
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    dml.assignments,
+				    ordinal,
+				    &assignment_index,
+				    &error),
+			    &error,
+			    message) != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_assignment_at(
+				    &graph,
+				    assignment_index,
+				    &assignment,
+				    &error),
+			    &error,
+			    message) != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_field_at(
+				    &graph,
+				    assignment.target_field_index,
+				    &field,
+				    &error),
+			    &error,
+			    message) != 0 ||
+		    expect_true(
+			    field.has_relation != 0,
+			    "multi-table UPDATE assignment target must resolve a relation") != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_relation_at(
+				    &graph,
+				    field.relation_index,
+				    &relation,
+				    &error),
+			    &error,
+			    message) != 0) {
+			return 1;
+		}
+		if (relation.alias_name == NULL ||
+		    strcmp(relation.alias_name, expected_aliases[ordinal]) != 0 ||
+		    field.column_name == NULL ||
+		    strcmp(field.column_name, expected_columns[ordinal]) != 0) {
+			fprintf(
+				stderr,
+				"FAIL: %s: assignment=%lu expected=%s.%s actual=%s.%s\n",
+				message,
+				(unsigned long)ordinal,
+				expected_aliases[ordinal],
+				expected_columns[ordinal],
+				relation.alias_name != NULL ?
+					relation.alias_name : "(null)",
+				field.column_name != NULL ?
+					field.column_name : "(null)");
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static int expect_patch_failure_is_atomic(
+	sqlparser_handle_t *handle,
+	const sqlparser_patch_t *patches,
+	size_t patch_count,
+	sqlparser_status_t expected_status,
+	const char *message)
+{
+	sqlparser_patch_list_t patch_list;
+	sqlparser_error_t error;
+	char *before_sql;
+	char *after_sql;
+	char *before_view;
+	char *after_view;
+	unsigned long generation;
+	int failed;
+	int rc;
+
+	before_sql = NULL;
+	after_sql = NULL;
+	before_view = NULL;
+	after_view = NULL;
+	failed = 0;
+	memset(&error, 0, sizeof(error));
+	if (expect_status_ok(
+		    sqlparser_deparse(handle, &before_sql, &error),
+		    &error,
+		    message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_export_view_json(handle, 0, &before_view, &error),
+		    &error,
+		    message) != 0) {
+		sqlparser_string_free(before_sql);
+		sqlparser_string_free(before_view);
+		return 1;
+	}
+	generation = handle->generation;
+	patch_list.items = patches;
+	patch_list.count = patch_count;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_true(rc == (int)expected_status, message) != 0) {
+		failed = 1;
+	}
+	memset(&error, 0, sizeof(error));
+	if (expect_status_ok(
+		    sqlparser_deparse(handle, &after_sql, &error),
+		    &error,
+		    message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_export_view_json(handle, 0, &after_view, &error),
+		    &error,
+		    message) != 0 ||
+	    expect_true(
+		    handle->generation == generation,
+		    "failed patch batch must preserve generation") != 0 ||
+	    expect_true(
+		    before_sql != NULL && after_sql != NULL &&
+			    strcmp(before_sql, after_sql) == 0,
+		    "failed patch batch must preserve SQL") != 0 ||
+	    expect_true(
+		    before_view != NULL && after_view != NULL &&
+			    strcmp(before_view, after_view) == 0,
+		    "failed patch batch must preserve View") != 0) {
+		failed = 1;
+	}
+	sqlparser_string_free(after_view);
+	sqlparser_string_free(before_view);
+	sqlparser_string_free(after_sql);
+	sqlparser_string_free(before_sql);
+	return failed;
+}
+
+static int expect_update_roundtrip_relations(
+	const sqlparser_handle_t *handle,
+	const char *const *expected_aliases,
+	const char *const *expected_columns,
+	size_t expected_count,
+	const char *expected_target_alias,
+	const char *message)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *reparsed;
+	sqlparser_error_t error;
+	char *sql;
+	int failed;
+	int rc;
+
+	reparsed = NULL;
+	sql = NULL;
+	failed = 0;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_deparse(handle, &sql, &error);
+	if (expect_status_ok(rc, &error, message) != 0) {
+		return 1;
+	}
+	sqlparser_parse_options_default(&options);
+	options.dialect = sqlparser_handle_dialect(handle);
+	rc = sqlparser_parse_with_options(sql, &options, &reparsed, &error);
+	if (expect_status_ok(rc, &error, message) != 0 ||
+	    expect_update_assignment_relations(
+		    reparsed,
+		    expected_aliases,
+		    expected_columns,
+		    expected_count,
+		    expected_target_alias,
+		    message) != 0) {
+		failed = 1;
+	}
+	sqlparser_handle_destroy(reparsed);
+	sqlparser_string_free(sql);
+	return failed;
+}
+
+static int expect_assignment_clone_failure_is_atomic(
+	sqlparser_handle_t *handle,
+	const sqlparser_selector_t *insert_selector,
+	const sqlparser_identifier_path_view_t *target,
+	const sqlparser_selector_t *source_selector,
+	sqlparser_status_t expected_status,
+	const char *message)
+{
+	sqlparser_error_t error;
+	char *before_sql;
+	char *after_sql;
+	char *before_view;
+	char *after_view;
+	unsigned long generation;
+	int failed;
+	int rc;
+
+	before_sql = NULL;
+	after_sql = NULL;
+	before_view = NULL;
+	after_view = NULL;
+	failed = 0;
+	memset(&error, 0, sizeof(error));
+	if (expect_status_ok(
+		    sqlparser_deparse(handle, &before_sql, &error),
+		    &error,
+		    message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_export_view_json(handle, 0, &before_view, &error),
+		    &error,
+		    message) != 0) {
+		sqlparser_string_free(before_sql);
+		sqlparser_string_free(before_view);
+		return 1;
+	}
+	generation = handle->generation;
+	rc = sqlparser_selector_insert_update_assignment_from_assignment_value(
+		handle,
+		insert_selector,
+		target,
+		source_selector,
+		&error);
+	if (expect_true(rc == (int)expected_status, message) != 0) {
+		failed = 1;
+	}
+	memset(&error, 0, sizeof(error));
+	if (expect_status_ok(
+		    sqlparser_deparse(handle, &after_sql, &error),
+		    &error,
+		    message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_export_view_json(handle, 0, &after_view, &error),
+		    &error,
+		    message) != 0 ||
+	    expect_true(
+		    handle->generation == generation,
+		    "failed assignment clone must preserve generation") != 0 ||
+	    expect_true(
+		    before_sql != NULL && after_sql != NULL &&
+			    strcmp(before_sql, after_sql) == 0,
+		    "failed assignment clone must preserve SQL") != 0 ||
+	    expect_true(
+		    before_view != NULL && after_view != NULL &&
+			    strcmp(before_view, after_view) == 0,
+		    "failed assignment clone must preserve View") != 0) {
+		failed = 1;
+	}
+	sqlparser_string_free(after_view);
+	sqlparser_string_free(before_view);
+	sqlparser_string_free(after_sql);
+	sqlparser_string_free(before_sql);
+	return failed;
+}
+
+static int test_mysql_multitable_update_target_and_patch_contract(void)
+{
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_MYSQL,
+		SQLPARSER_DIALECT_VASTBASE_MYSQL
+	};
+	static const char sql[] =
+		"UPDATE accounts a JOIN orders o ON a.id = o.account_id AND o.tenant_id = ? "
+		"LEFT JOIN audit_log l ON o.id = l.order_id AND l.kind = ? "
+		"SET a.balance = ?, o.status = ?, l.reviewed = ?, a.score = ?, "
+		"o.priority = ?, l.note = ?, a.updated_at = COALESCE(?, a.updated_at), "
+		"o.retries = ? WHERE a.region = ? AND o.state = ?";
+	static const char patched_sql[] =
+		"UPDATE accounts a JOIN orders o ON a.id = o.account_id AND o.tenant_id = ? "
+		"LEFT JOIN audit_log l ON o.id = l.order_id AND l.kind = ? "
+		"SET a.balance = ?, o.status = COALESCE(?, ?), l.source = CONCAT(?, ?), "
+		"l.reviewed = ?, a.score = ?, o.priority = ?, l.note = ?, "
+		"a.updated_at = COALESCE(?, a.updated_at), o.retries = ? "
+		"WHERE a.region = ? AND o.state = ?";
+	static const char *const aliases[] = {
+		"a", "o", "l", "a", "o", "l", "a", "o"
+	};
+	static const char *const columns[] = {
+		"balance", "status", "reviewed", "score", "priority", "note",
+		"updated_at", "retries"
+	};
+	static const char *const patched_aliases[] = {
+		"a", "o", "l", "l", "a", "o", "l", "a", "o"
+	};
+	static const char *const patched_columns[] = {
+		"balance", "status", "source", "reviewed", "score", "priority",
+		"note", "updated_at", "retries"
+	};
+	static const char *const rejected_sql[] = {
+		"UPDATE a JOIN b ON a.id = b.id SET a.x = 1, b.y = 2 ORDER BY a.id",
+		"UPDATE a JOIN b ON a.id = b.id SET a.x = 1, b.y = 2 LIMIT 1"
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_relation_view_t target_relation;
+	sqlparser_patch_t patches[2];
+	sqlparser_patch_list_t patch_list;
+	unsigned long generation;
+	size_t dialect_index;
+	size_t reject_index;
+	int rc;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index];
+		rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "MySQL-compatible multi-target UPDATE should parse") != 0 ||
+		    expect_update_assignment_relations(
+			    handle,
+			    aliases,
+			    columns,
+			    sizeof(aliases) / sizeof(aliases[0]),
+			    NULL,
+			    "MySQL-compatible multi-target assignment relation mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		memset(&target_relation, 0, sizeof(target_relation));
+		rc = sqlparser_statement_target_relation(
+			handle, 0U, &target_relation, &error);
+		if (expect_true(
+			    rc == SQLPARSER_STATUS_UNSUPPORTED,
+			    "mixed-target UPDATE must reject the single target relation API") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		memset(patches, 0, sizeof(patches));
+		patches[0].op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+		patches[0].selector = "stmt[0].assignment[1]";
+		patches[0].sql = "o.status = COALESCE(?, ?)";
+		patches[1].op = SQLPARSER_PATCH_INSERT_ASSIGNMENT;
+		patches[1].selector = "stmt[0].assignment[2]";
+		patches[1].sql = "l.source = CONCAT(?, ?)";
+		patch_list.items = patches;
+		patch_list.count = sizeof(patches) / sizeof(patches[0]);
+		generation = handle->generation;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "MySQL-compatible mixed-target patch batch should succeed") != 0 ||
+		    expect_true(
+			    handle->generation == generation + 1UL,
+			    "successful mixed-target patch batch must commit once") != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    patched_sql,
+			    "mixed-target patch batch should deparse exactly") != 0 ||
+		    expect_update_assignment_relations(
+			    handle,
+			    patched_aliases,
+			    patched_columns,
+			    sizeof(patched_aliases) /
+				    sizeof(patched_aliases[0]),
+			    NULL,
+			    "patched mixed-target assignment relation mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		memset(patches, 0, sizeof(patches));
+		patches[0].op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+		patches[0].selector = "stmt[0].assignment[0]";
+		patches[0].sql = "a.balance = a.balance + ?";
+		patches[1].op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+		patches[1].selector = "stmt[0].assignment[99]";
+		patches[1].sql = "o.status = ?";
+		if (expect_patch_failure_is_atomic(
+			    handle,
+			    patches,
+			    sizeof(patches) / sizeof(patches[0]),
+			    SQLPARSER_STATUS_INVALID_ARGUMENT,
+			    "mixed-target valid-plus-invalid patch batch must fail atomically") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+
+		for (reject_index = 0U;
+		     reject_index < sizeof(rejected_sql) / sizeof(rejected_sql[0]);
+		     reject_index++) {
+			handle = NULL;
+			memset(&error, 0, sizeof(error));
+			rc = sqlparser_parse_with_options(
+				rejected_sql[reject_index],
+				&options,
+				&handle,
+				&error);
+			if (expect_true(
+				    rc == SQLPARSER_STATUS_UNSUPPORTED &&
+					    handle == NULL,
+				    "MySQL multiple-table UPDATE ORDER BY/LIMIT must fail closed") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+static int test_mysql_multitable_update_state_transitions(void)
+{
+	static const sqlparser_dialect_t dialects[] = {
+		SQLPARSER_DIALECT_MYSQL,
+		SQLPARSER_DIALECT_VASTBASE_MYSQL
+	};
+	static const char single_sql[] =
+		"UPDATE accounts a JOIN orders b ON a.id = b.account_id "
+		"SET a.status = ? WHERE b.active = ?";
+	static const char reversed_sql[] =
+		"UPDATE accounts a JOIN orders b ON a.id = b.account_id "
+		"SET b.status = ?, b.priority = ? WHERE a.active = ?";
+	static const char duplicate_patch_sql[] =
+		"UPDATE accounts a JOIN orders b ON a.id = b.account_id "
+		"JOIN audit_log c ON c.account_id = a.id "
+		"SET a.status = ?, b.priority = ?";
+	static const char comment_sql[] =
+		"UPDATE accounts a /* left relation */ JOIN "
+		"orders b /* right relation */ ON a.id = b.account_id "
+		"SET a.status = ?, b.priority = ?";
+	static const char block_comment_sql[] =
+		"UPDATE `sales db`.`accounts` AS `a x` INNER /* inner */ JOIN "
+		"orders b ON `a x`.id = b.account_id "
+		"LEFT /* left */ OUTER JOIN audit_log c "
+		"ON c.account_id = `a x`.id SET /* set */ "
+		"`a x`.status = ?, b.priority = ?, /* next */ c.note = ?";
+	static const char line_comment_sql[] =
+		"UPDATE accounts a RIGHT -- right\n"
+		"JOIN orders b ON a.id = b.account_id SET -- set\n"
+		"a.status = ?, -- next\n"
+		"b.priority = ?";
+	static const char hash_comment_sql[] =
+		"UPDATE accounts a INNER # inner\n"
+		"JOIN orders b ON a.id = b.account_id SET a.status = ?, # next\n"
+		"b.priority = ?";
+	static const char comma_comment_sql[] =
+		"UPDATE accounts a /* first */, -- second\n"
+		"orders b, # third\n"
+		"audit_log c SET /* set */ a.status = ?, b.priority = ?, # next\n"
+		"c.note = ?";
+	static const char *const rejected_sql[] = {
+		"UPDATE accounts a JOIN orders b ON a.id = b.account_id "
+		"SET z.status = ?",
+		"UPDATE accounts dup JOIN orders dup ON dup.id = dup.account_id "
+		"SET dup.status = ?"
+	};
+	static const char *const single_aliases[] = {"a"};
+	static const char *const single_columns[] = {"status"};
+	static const char *const mixed_aliases[] = {"a", "b"};
+	static const char *const mixed_columns[] = {"status", "shadow_status"};
+	static const char *const reversed_aliases[] = {"b", "b"};
+	static const char *const reversed_columns[] = {"status", "priority"};
+	static const char *const reversed_mixed_aliases[] = {"b", "a"};
+	static const char *const reversed_mixed_columns[] = {"status", "balance"};
+	static const char *const comment_aliases[] = {"a", "b"};
+	static const char *const comment_columns[] = {"status", "priority"};
+	static const char *const block_comment_aliases[] = {"a x", "b", "c"};
+	static const char *const block_comment_columns[] = {"status", "priority", "note"};
+	static const char *const three_comment_aliases[] = {"a", "b", "c"};
+	static const char *const three_comment_columns[] = {"status", "priority", "note"};
+	static const char *const two_comment_aliases[] = {"a", "b"};
+	static const char *const two_comment_columns[] = {"status", "priority"};
+	static const struct {
+		const char *sql;
+		const char *const *aliases;
+		const char *const *columns;
+		size_t count;
+	} comment_cases[] = {
+		{block_comment_sql, block_comment_aliases, block_comment_columns, 3U},
+		{line_comment_sql, two_comment_aliases, two_comment_columns, 2U},
+		{hash_comment_sql, two_comment_aliases, two_comment_columns, 2U},
+		{comma_comment_sql, three_comment_aliases, three_comment_columns, 3U}
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_relation_view_t target_relation;
+	sqlparser_selector_t insert_selector;
+	sqlparser_selector_t source_selector;
+	sqlparser_identifier_path_view_t target;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patch_list;
+	const char *target_parts[2];
+	char name_selector[64];
+	unsigned long generation;
+	size_t dialect_index;
+	size_t comment_index;
+	size_t name_index;
+	size_t reject_index;
+	int rc;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index];
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			comment_sql, &options, &handle, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "MySQL multi-target UPDATE relation comments should parse") != 0 ||
+		    expect_update_assignment_relations(
+			    handle,
+			    comment_aliases,
+			    comment_columns,
+			    2U,
+			    NULL,
+			    "MySQL comment-trivia assignment relation mismatch") != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    comment_sql,
+			    "MySQL comment-trivia UPDATE should deparse exactly") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+
+		for (comment_index = 0U;
+		     comment_index < sizeof(comment_cases) / sizeof(comment_cases[0]);
+		     comment_index++) {
+			handle = NULL;
+			memset(&error, 0, sizeof(error));
+			rc = sqlparser_parse_with_options(
+				comment_cases[comment_index].sql,
+				&options,
+				&handle,
+				&error);
+			if (expect_status_ok(
+				    rc,
+				    &error,
+				    "MySQL multi-target UPDATE comment trivia should parse") != 0 ||
+			    expect_update_assignment_relations(
+				    handle,
+				    comment_cases[comment_index].aliases,
+				    comment_cases[comment_index].columns,
+				    comment_cases[comment_index].count,
+				    NULL,
+				    "MySQL comment-trivia assignment relation mismatch") != 0 ||
+			    expect_deparse_equals_and_reparse(
+				    handle,
+				    comment_cases[comment_index].sql,
+				    "MySQL comment-trivia UPDATE should deparse exactly") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			sqlparser_handle_destroy(handle);
+		}
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			single_sql, &options, &handle, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "single-target MySQL UPDATE JOIN should parse") != 0 ||
+		    expect_update_assignment_relations(
+			    handle,
+			    single_aliases,
+			    single_columns,
+			    1U,
+			    "a",
+			    "single-target MySQL UPDATE relation mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		memset(&target_relation, 0, sizeof(target_relation));
+		rc = sqlparser_statement_target_relation(
+			handle, 0U, &target_relation, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "single-target MySQL UPDATE target should resolve") != 0 ||
+		    expect_true(
+			    target_relation.alias_name != NULL &&
+				    strcmp(target_relation.alias_name, "a") == 0,
+			    "single-target MySQL UPDATE target alias mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		memset(&insert_selector, 0, sizeof(insert_selector));
+		memset(&source_selector, 0, sizeof(source_selector));
+		memset(&target, 0, sizeof(target));
+		insert_selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
+		insert_selector.statement_index = 0U;
+		insert_selector.item_index = 1U;
+		source_selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
+		source_selector.statement_index = 0U;
+		source_selector.item_index = 0U;
+		target_parts[0] = "b";
+		target_parts[1] = "shadow_status";
+		target.parts = target_parts;
+		target.part_count = 2U;
+		generation = handle->generation;
+		rc = sqlparser_selector_insert_update_assignment_from_assignment_value(
+			handle,
+			&insert_selector,
+			&target,
+			&source_selector,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "MySQL cross-target identifier-path clone should succeed") != 0 ||
+		    expect_true(
+			    handle->generation == generation + 1UL,
+			    "MySQL cross-target clone should commit once") != 0 ||
+		    expect_update_assignment_relations(
+			    handle,
+			    mixed_aliases,
+			    mixed_columns,
+			    2U,
+			    NULL,
+			    "MySQL cross-target clone should become mixed") != 0 ||
+		    expect_update_roundtrip_relations(
+			    handle,
+			    mixed_aliases,
+			    mixed_columns,
+			    2U,
+			    NULL,
+			    "MySQL cross-target clone should round-trip as mixed") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		memset(&target_relation, 0, sizeof(target_relation));
+		rc = sqlparser_statement_target_relation(
+			handle, 0U, &target_relation, &error);
+		if (expect_true(
+			    rc == SQLPARSER_STATUS_UNSUPPORTED,
+			    "identifier-path mixed UPDATE must reject one target") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		generation = handle->generation;
+		rc = sqlparser_selector_delete_update_assignment(
+			handle, &insert_selector, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "deleting the cross-target assignment should succeed") != 0 ||
+		    expect_true(
+			    handle->generation == generation + 1UL,
+			    "cross-target assignment delete should commit once") != 0 ||
+		    expect_update_assignment_relations(
+			    handle,
+			    single_aliases,
+			    single_columns,
+			    1U,
+			    "a",
+			    "mixed UPDATE should return to target a after delete") != 0 ||
+		    expect_update_roundtrip_relations(
+			    handle,
+			    single_aliases,
+			    single_columns,
+			    1U,
+			    "a",
+			    "restored single-target UPDATE should round-trip") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		memset(&target_relation, 0, sizeof(target_relation));
+		rc = sqlparser_statement_target_relation(
+			handle, 0U, &target_relation, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "restored single target should resolve") != 0 ||
+		    expect_true(
+			    target_relation.alias_name != NULL &&
+				    strcmp(target_relation.alias_name, "a") == 0,
+			    "restored single target alias mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+		patch.selector = "stmt[0].assignment[0]";
+		patch.sql = "z.status = ?";
+		if (expect_patch_failure_is_atomic(
+			    handle,
+			    &patch,
+			    1U,
+			    SQLPARSER_STATUS_UNSUPPORTED,
+			    "unknown MySQL assignment qualifier patch must roll back") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			reversed_sql, &options, &handle, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "reversed MySQL UPDATE JOIN should parse") != 0 ||
+		    expect_update_assignment_relations(
+			    handle,
+			    reversed_aliases,
+			    reversed_columns,
+			    2U,
+			    "b",
+			    "reversed MySQL UPDATE target mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+		patch.selector = "stmt[0].assignment[1]";
+		patch.sql = "a.balance = ?";
+		patch_list.items = &patch;
+		patch_list.count = 1U;
+		generation = handle->generation;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "reversed MySQL UPDATE replacement should succeed") != 0 ||
+		    expect_true(
+			    handle->generation == generation + 1UL,
+			    "reversed MySQL UPDATE replacement should commit once") != 0 ||
+		    expect_update_assignment_relations(
+			    handle,
+			    reversed_mixed_aliases,
+			    reversed_mixed_columns,
+			    2U,
+			    NULL,
+			    "reversed MySQL UPDATE should become mixed") != 0 ||
+		    expect_update_roundtrip_relations(
+			    handle,
+			    reversed_mixed_aliases,
+			    reversed_mixed_columns,
+			    2U,
+			    NULL,
+			    "reversed mixed MySQL UPDATE should round-trip") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		memset(&target_relation, 0, sizeof(target_relation));
+		rc = sqlparser_statement_target_relation(
+			handle, 0U, &target_relation, &error);
+		if (expect_true(
+			    rc == SQLPARSER_STATUS_UNSUPPORTED,
+			    "reversed mixed UPDATE must reject one target") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			duplicate_patch_sql, &options, &handle, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "MySQL duplicate-alias patch baseline should parse") != 0 ||
+		    find_name_index(
+			    handle,
+			    0U,
+			    NULL,
+			    "aliasname",
+			    "b",
+			    &name_index) != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		(void)snprintf(
+			name_selector,
+			sizeof(name_selector),
+			"stmt[0].name[%lu]",
+			(unsigned long)name_index);
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_REPLACE;
+		patch.selector = name_selector;
+		patch.default_sql = "a";
+		if (expect_patch_failure_is_atomic(
+			    handle,
+			    &patch,
+			    1U,
+			    SQLPARSER_STATUS_UNSUPPORTED,
+			    "duplicate MySQL relation alias patch must roll back") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+
+		for (reject_index = 0U;
+		     reject_index < sizeof(rejected_sql) / sizeof(rejected_sql[0]);
+		     reject_index++) {
+			handle = NULL;
+			memset(&error, 0, sizeof(error));
+			rc = sqlparser_parse_with_options(
+				rejected_sql[reject_index],
+				&options,
+				&handle,
+				&error);
+			if (expect_true(
+				    rc == SQLPARSER_STATUS_UNSUPPORTED &&
+					    handle == NULL,
+				    "unknown or ambiguous MySQL qualifier must fail closed") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+		}
+	}
+	return 0;
+}
+
+static int test_dameng_multitable_update_target_and_patch_contract(void)
+{
+	static const char *const single_table_sql[] = {
+		"UPDATE t /* relation comment */ SET x = 1",
+		"UPDATE /*+ INDEX(t idx_t) */ t SET x = 1"
+	};
+	static const char *const multi_table_trivia_sql[] = {
+		"UPDATE /* lead */ app.accounts a /* left */, "
+		"/* right lead */ app.adjustments b /* target */ "
+		"SET b.applied = :applied WHERE a.id = b.account_id",
+		"UPDATE app.accounts a /* left */ LEFT /* join */ JOIN "
+		"/* right lead */ app.adjustments b "
+		"ON a.id = b.account_id SET b.applied = :applied",
+		"UPDATE /* lead */ app.accounts /* left */, "
+		"app.adjustments /* target */ "
+		"SET app.adjustments.applied = :applied "
+		"WHERE app.accounts.id = app.adjustments.account_id",
+		"UPDATE app.accounts a -- left relation\n"
+		", app.adjustments b SET b.applied = :applied "
+		"WHERE a.id = b.account_id",
+		"UPDATE app.accounts a, app.adjustments b -- target relation\n"
+		"SET b.applied = :applied WHERE a.id = b.account_id"
+	};
+	static const char sql[] =
+		"UPDATE app.accounts a, app.adjustments b, app.audit_log c "
+		"SET b.applied = :applied, b.updated_at = :updated_at "
+		"WHERE a.id = b.account_id AND c.account_id = a.id";
+	static const char collision_sql[] =
+		"UPDATE app.accounts, app.adjustments "
+		"SET app.accounts.balance = :balance "
+		"WHERE app.accounts.id = app.adjustments.account_id";
+	static const char multi_statement_sql[] =
+		"UPDATE app.accounts SET balance = :balance; "
+		"UPDATE app.accounts a, app.adjustments b "
+		"SET b.applied = :applied WHERE a.id = b.account_id";
+	static const char multi_statement_patched_sql[] =
+		"UPDATE app.accounts SET balance = :balance; "
+		"UPDATE app.accounts a, app.adjustments b "
+		"SET b.applied = :next_applied WHERE a.id = b.account_id";
+	static const char patched_sql[] =
+		"UPDATE app.accounts a, app.adjustments b, app.audit_log c "
+		"SET b.applied = :applied, b.note = :note, "
+		"b.updated_at = :updated_at "
+		"WHERE a.id = b.account_id AND c.account_id = a.id";
+	static const char *const aliases[] = {"b", "b"};
+	static const char *const columns[] = {"applied", "updated_at"};
+	static const char *const patched_aliases[] = {"b", "b", "b"};
+	static const char *const patched_columns[] = {
+		"applied", "note", "updated_at"
+	};
+	static const char *const rejected_sql[] = {
+		"UPDATE app.accounts a, app.adjustments b "
+		"SET a.balance = :balance, b.applied = :applied "
+		"WHERE a.id = b.account_id",
+		"UPDATE app.accounts current_row, app.accounts prior_row "
+		"SET current_row.status = :current_status, "
+		"prior_row.status = :prior_status "
+		"WHERE current_row.id = prior_row.id",
+		"UPDATE app.accounts a, app.adjustments b "
+		"SET (a.balance, a.status) = (:balance, :status) "
+		"WHERE a.id = b.account_id",
+		"UPDATE app.accounts a, app.adjustments b "
+		"SET a.balance = :balance FROM app.audit_log c "
+		"WHERE a.id = b.account_id AND c.account_id = a.id"
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_relation_view_t target_relation;
+	sqlparser_selector_t insert_selector;
+	sqlparser_selector_t source_selector;
+	sqlparser_identifier_path_view_t target;
+	sqlparser_patch_t patch;
+	sqlparser_patch_t invalid_patches[2];
+	sqlparser_patch_list_t patch_list;
+	const char *target_parts[2];
+	char name_selector[64];
+	unsigned long generation;
+	size_t name_index;
+	size_t reject_index;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_DAMENG;
+	for (reject_index = 0U;
+	     reject_index < sizeof(single_table_sql) / sizeof(single_table_sql[0]);
+	     reject_index++) {
+		rc = sqlparser_parse_with_options(
+			single_table_sql[reject_index],
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "Dameng single-table UPDATE trivia must keep the legacy path") != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    single_table_sql[reject_index],
+			    "Dameng single-table UPDATE trivia should deparse exactly") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+	}
+	for (reject_index = 0U;
+	     reject_index <
+		     sizeof(multi_table_trivia_sql) /
+			     sizeof(multi_table_trivia_sql[0]);
+	     reject_index++) {
+		rc = sqlparser_parse_with_options(
+			multi_table_trivia_sql[reject_index],
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "Dameng multi-table UPDATE relation trivia should parse") != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    multi_table_trivia_sql[reject_index],
+			    "Dameng multi-table UPDATE relation trivia should deparse exactly") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+	}
+	rc = sqlparser_parse_with_options(sql, &options, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Dameng multi-table single-target UPDATE should parse") != 0 ||
+	    expect_update_assignment_relations(
+		    handle,
+		    aliases,
+		    columns,
+		    sizeof(aliases) / sizeof(aliases[0]),
+		    "b",
+		    "Dameng multi-table assignment relation mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&target_relation, 0, sizeof(target_relation));
+	rc = sqlparser_statement_target_relation(
+		handle, 0U, &target_relation, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Dameng multi-table target relation should resolve") != 0 ||
+	    expect_true(
+		    target_relation.table_name != NULL &&
+			    strcmp(target_relation.table_name, "adjustments") == 0 &&
+		    target_relation.alias_name != NULL &&
+			    strcmp(target_relation.alias_name, "b") == 0,
+		    "Dameng statement target relation must be the middle target") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_INSERT_ASSIGNMENT;
+	patch.selector = "stmt[0].assignment[1]";
+	patch.sql = "b.note = :note";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	generation = handle->generation;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Dameng same-target assignment patch should succeed") != 0 ||
+	    expect_true(
+		    handle->generation == generation + 1UL,
+		    "Dameng same-target patch should commit once") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    patched_sql,
+		    "Dameng same-target patch should deparse exactly") != 0 ||
+	    expect_update_assignment_relations(
+		    handle,
+		    patched_aliases,
+		    patched_columns,
+		    sizeof(patched_aliases) / sizeof(patched_aliases[0]),
+		    "b",
+		    "patched Dameng assignment relation mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	memset(invalid_patches, 0, sizeof(invalid_patches));
+	invalid_patches[0].op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+	invalid_patches[0].selector = "stmt[0].assignment[0]";
+	invalid_patches[0].sql = "b.applied = :next_applied";
+	invalid_patches[1].op = SQLPARSER_PATCH_INSERT_ASSIGNMENT;
+	invalid_patches[1].selector = "stmt[0].assignment[1]";
+	invalid_patches[1].sql = "c.note = :bad_note";
+	if (expect_patch_failure_is_atomic(
+		    handle,
+		    invalid_patches,
+		    sizeof(invalid_patches) / sizeof(invalid_patches[0]),
+		    SQLPARSER_STATUS_UNSUPPORTED,
+		    "Dameng other-relation insert batch must fail atomically") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	memset(invalid_patches, 0, sizeof(invalid_patches));
+	invalid_patches[0].op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+	invalid_patches[0].selector = "stmt[0].assignment[0]";
+	invalid_patches[0].sql = "b.applied = :next_applied";
+	invalid_patches[1].op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+	invalid_patches[1].selector = "stmt[0].assignment[1]";
+	invalid_patches[1].sql = "a.note = :bad_note";
+	if (expect_patch_failure_is_atomic(
+		    handle,
+		    invalid_patches,
+		    sizeof(invalid_patches) / sizeof(invalid_patches[0]),
+		    SQLPARSER_STATUS_UNSUPPORTED,
+		    "Dameng other-relation replacement batch must fail atomically") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_INSERT_ASSIGNMENT;
+	patch.selector = "stmt[0].assignment[1]";
+	patch.name = "c.cloned_note";
+	patch.source_selector = "stmt[0].assignment[0]";
+	if (expect_patch_failure_is_atomic(
+		    handle,
+		    &patch,
+		    1U,
+		    SQLPARSER_STATUS_UNSUPPORTED,
+		    "Dameng structured other-relation assignment must fail atomically") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+
+	memset(&insert_selector, 0, sizeof(insert_selector));
+	memset(&source_selector, 0, sizeof(source_selector));
+	memset(&target, 0, sizeof(target));
+	insert_selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
+	insert_selector.statement_index = 0U;
+	insert_selector.item_index = 1U;
+	source_selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
+	source_selector.statement_index = 0U;
+	source_selector.item_index = 0U;
+	target_parts[0] = "c";
+	target_parts[1] = "cloned_applied";
+	target.parts = target_parts;
+	target.part_count = 2U;
+	if (expect_assignment_clone_failure_is_atomic(
+		    handle,
+		    &insert_selector,
+		    &target,
+		    &source_selector,
+		    SQLPARSER_STATUS_UNSUPPORTED,
+		    "Dameng cross-target identifier-path clone must roll back") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	if (find_name_index(
+		    handle,
+		    0U,
+		    NULL,
+		    "aliasname",
+		    "b",
+		    &name_index) != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	(void)snprintf(
+		name_selector,
+		sizeof(name_selector),
+		"stmt[0].name[%lu]",
+		(unsigned long)name_index);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = name_selector;
+	patch.default_sql = "target_b";
+	if (expect_patch_failure_is_atomic(
+		    handle,
+		    &patch,
+		    1U,
+		    SQLPARSER_STATUS_UNSUPPORTED,
+		    "Dameng target alias NAME patch must fail atomically") != 0 ||
+	    find_name_index(
+		    handle,
+		    0U,
+		    "RangeVar",
+		    "relname",
+		    "adjustments",
+		    &name_index) != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	(void)snprintf(
+		name_selector,
+		sizeof(name_selector),
+		"stmt[0].name[%lu]",
+		(unsigned long)name_index);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = name_selector;
+	patch.default_sql = "adjustments_v2";
+	if (expect_patch_failure_is_atomic(
+		    handle,
+		    &patch,
+		    1U,
+		    SQLPARSER_STATUS_UNSUPPORTED,
+		    "Dameng target relation NAME patch must fail atomically") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	if (find_name_index(
+		    handle,
+		    0U,
+		    NULL,
+		    "aliasname",
+		    "a",
+		    &name_index) != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	(void)snprintf(
+		name_selector,
+		sizeof(name_selector),
+		"stmt[0].name[%lu]",
+		(unsigned long)name_index);
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = name_selector;
+	patch.default_sql = "b";
+	if (expect_patch_failure_is_atomic(
+		    handle,
+		    &patch,
+		    1U,
+		    SQLPARSER_STATUS_UNSUPPORTED,
+		    "Dameng non-target alias collision must fail atomically") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse_with_options(
+		collision_sql, &options, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Dameng relation-owner collision baseline should parse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE;
+	patch.selector = "stmt[0].relation[0]";
+	patch.sql = "app.adjustments";
+	if (expect_patch_failure_is_atomic(
+		    handle,
+		    &patch,
+		    1U,
+		    SQLPARSER_STATUS_UNSUPPORTED,
+		    "Dameng target-to-source relation collision must fail atomically") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	patch.selector = "stmt[0].relation[1]";
+	patch.sql = "app.accounts";
+	if (expect_patch_failure_is_atomic(
+		    handle,
+		    &patch,
+		    1U,
+		    SQLPARSER_STATUS_UNSUPPORTED,
+		    "Dameng source-to-target relation collision must fail atomically") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse_with_options(
+		multi_statement_sql, &options, &handle, &error);
+	memset(&target_relation, 0, sizeof(target_relation));
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Dameng multi-statement UPDATE baseline should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_target_relation(
+			    handle, 1U, &target_relation, &error),
+		    &error,
+		    "Dameng second-statement target relation should resolve") != 0 ||
+	    expect_true(
+		    target_relation.table_name != NULL &&
+			    strcmp(target_relation.table_name, "adjustments") == 0,
+		    "Dameng multi-update sidecar must retain the statement ordinal") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+	patch.selector = "stmt[1].assignment[0]";
+	patch.sql = "b.applied = :next_applied";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Dameng second-statement assignment patch should succeed") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    multi_statement_patched_sql,
+		    "Dameng second-statement patch should keep sidecar ordinals") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	for (reject_index = 0U;
+	     reject_index < sizeof(rejected_sql) / sizeof(rejected_sql[0]);
+	     reject_index++) {
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			rejected_sql[reject_index],
+			&options,
+			&handle,
+			&error);
+		if (expect_true(
+			    rc == SQLPARSER_STATUS_UNSUPPORTED && handle == NULL,
+			    "unsupported Dameng multi-table UPDATE must fail closed") != 0) {
+			fprintf(
+				stderr,
+				"FAIL: Dameng multi-table rejection case=%lu status=%d sql=%s\n",
+				(unsigned long)reject_index,
+				(int)rc,
+				rejected_sql[reject_index]);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static int expect_dameng_update_join_marker_view(
+	const sqlparser_handle_t *handle,
+	const char *message)
+{
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_predicate_t predicate;
+	sqlparser_graph_field_t field;
+	sqlparser_error_t error;
+	size_t field_index;
+	size_t on_field_count;
+	size_t on_predicate_count;
+	size_t predicate_index;
+	size_t where_field_count;
+	size_t where_predicate_count;
+	int saw_account_id_on;
+	int saw_active_on;
+	int saw_flag_where;
+	int saw_id_on;
+	int saw_public_function_predicate;
+	int saw_ready_where;
+	int rc;
+
+	memset(&error, 0, sizeof(error));
+	memset(&graph, 0, sizeof(graph));
+	on_field_count = 0U;
+	where_field_count = 0U;
+	on_predicate_count = 0U;
+	where_predicate_count = 0U;
+	saw_id_on = 0;
+	saw_account_id_on = 0;
+	saw_active_on = 0;
+	saw_flag_where = 0;
+	saw_ready_where = 0;
+	saw_public_function_predicate = 0;
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, message) != 0) {
+		return 1;
+	}
+	for (field_index = 0U; field_index < graph.field_count; field_index++) {
+		memset(&field, 0, sizeof(field));
+		rc = sqlparser_query_graph_field_at(
+			&graph, field_index, &field, &error);
+		if (expect_status_ok(rc, &error, message) != 0) {
+			return 1;
+		}
+		if (field.clause == SQLPARSER_CLAUSE_KIND_ON) {
+			on_field_count++;
+			if (field.column_name != NULL &&
+			    strcmp(field.column_name, "id") == 0) {
+				saw_id_on = 1;
+			} else if (field.column_name != NULL &&
+				   strcmp(field.column_name, "account_id") == 0) {
+				saw_account_id_on = 1;
+			} else if (field.column_name != NULL &&
+				   strcmp(field.column_name, "active") == 0) {
+				saw_active_on = 1;
+			}
+		} else if (field.clause == SQLPARSER_CLAUSE_KIND_WHERE) {
+			where_field_count++;
+			if (field.column_name != NULL &&
+			    strcmp(field.column_name, "flag") == 0) {
+				saw_flag_where = 1;
+			} else if (field.column_name != NULL &&
+				   strcmp(field.column_name, "ready") == 0) {
+				saw_ready_where = 1;
+			}
+		}
+	}
+	for (predicate_index = 0U;
+	     predicate_index < graph.predicate_count;
+	     predicate_index++) {
+		memset(&predicate, 0, sizeof(predicate));
+		rc = sqlparser_query_graph_predicate_at(
+			&graph, predicate_index, &predicate, &error);
+		if (expect_status_ok(rc, &error, message) != 0) {
+			return 1;
+		}
+		if (predicate.clause == SQLPARSER_CLAUSE_KIND_ON) {
+			on_predicate_count++;
+		} else if (predicate.clause == SQLPARSER_CLAUSE_KIND_WHERE) {
+			where_predicate_count++;
+			if (predicate.kind ==
+				    SQLPARSER_GRAPH_PREDICATE_EXPRESSION &&
+			    predicate.operator_name != NULL &&
+			    strcmp(predicate.operator_name, "=") == 0) {
+				saw_public_function_predicate = 1;
+			}
+		}
+	}
+	return expect_true(
+		on_field_count == 3U && where_field_count == 2U &&
+			on_predicate_count == 3U && where_predicate_count == 3U &&
+			saw_id_on && saw_account_id_on && saw_active_on &&
+			saw_flag_where && saw_ready_where &&
+			saw_public_function_predicate,
+		message);
+}
+
+static int test_dameng_multitable_update_marker_and_qualifier_contract(void)
+{
+	static const char marker_sql[] =
+		"UPDATE app.accounts a JOIN app.adjustments b "
+		"ON a.id = b.account_id AND b.active = 1 "
+		"SET a.balance = b.delta "
+		"WHERE sqlparser_dameng_join_condition(a.flag) = 1 "
+		"AND b.ready = 1";
+	static const char marker_patched_sql[] =
+		"UPDATE app.accounts a JOIN app.adjustments b "
+		"ON a.id = b.account_id AND b.active = 1 "
+		"SET a.balance = b.delta + 1 "
+		"WHERE sqlparser_dameng_join_condition(a.flag) = 1 "
+		"AND b.ready = 1";
+	static const char quoted_sql[] =
+		"UPDATE app.accounts \"A\", app.adjustments b "
+		"SET \"A\".balance = :balance "
+		"WHERE \"A\".id = b.account_id";
+	static const char quoted_patched_sql[] =
+		"UPDATE app.accounts \"A\", app.adjustments b "
+		"SET \"A\".balance = :next_balance "
+		"WHERE \"A\".id = b.account_id";
+	static const char quoted_cloned_sql[] =
+		"UPDATE app.accounts \"A\", app.adjustments b "
+		"SET \"A\".balance = :balance, "
+		"\"A\".note = :balance "
+		"WHERE \"A\".id = b.account_id";
+	static const char dotted_alias_sql[] =
+		"UPDATE app.accounts \"A.B\", app.adjustments b "
+		"SET \"A.B\".balance = :balance "
+		"WHERE \"A.B\".id = b.account_id";
+	static const char dotted_alias_patched_sql[] =
+		"UPDATE app.accounts \"A.B\", app.adjustments b "
+		"SET \"A.B\".balance = :next_balance "
+		"WHERE \"A.B\".id = b.account_id";
+	static const char *const quoted_aliases[] = {"A"};
+	static const char *const quoted_columns[] = {"balance"};
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patch_list;
+	sqlparser_selector_t insert_selector;
+	sqlparser_selector_t source_selector;
+	sqlparser_identifier_path_view_t target_path;
+	const char *target_parts[2];
+	char *where_sql;
+	unsigned long generation;
+	int rc;
+
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_DAMENG;
+	handle = NULL;
+	where_sql = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse_with_options(
+		marker_sql, &options, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Dameng public join-marker-name function should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_where_sql(
+			    handle, 0U, 0U, &where_sql, &error),
+		    &error,
+		    "Dameng public WHERE fragment should be readable") != 0 ||
+	    expect_true(
+		    where_sql != NULL &&
+			    strcmp(
+				    where_sql,
+				    "sqlparser_dameng_join_condition(a.flag) = 1 "
+				    "AND b.ready = 1") == 0,
+		    "Dameng WHERE fragment must hide only the owned JOIN marker") != 0 ||
+	    expect_dameng_update_join_marker_view(
+		    handle,
+		    "Dameng public function and internal JOIN marker must stay separate") != 0) {
+		sqlparser_string_free(where_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(where_sql);
+	where_sql = NULL;
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+	patch.selector = "stmt[0].assignment[0]";
+	patch.sql = "a.balance = b.delta + 1";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	generation = handle->generation;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Dameng marker-collision assignment patch should succeed") != 0 ||
+	    expect_true(
+		    handle->generation == generation + 1UL,
+		    "Dameng marker-collision patch should commit once") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    marker_patched_sql,
+		    "Dameng marker-collision SQL should preserve public syntax") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_where_sql(
+			    handle, 0U, 0U, &where_sql, &error),
+		    &error,
+		    "patched Dameng public WHERE fragment should be readable") != 0 ||
+	    expect_true(
+		    where_sql != NULL &&
+			    strcmp(
+				    where_sql,
+				    "sqlparser_dameng_join_condition(a.flag) = 1 "
+				    "AND b.ready = 1") == 0,
+		    "patched Dameng WHERE fragment must hide only the owned marker") != 0 ||
+	    expect_dameng_update_join_marker_view(
+		    handle,
+		    "Dameng marker ownership must survive patch-state cloning") != 0) {
+		sqlparser_string_free(where_sql);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(where_sql);
+	where_sql = NULL;
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse_with_options(
+		quoted_sql, &options, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Dameng quoted target qualifier baseline should parse") != 0 ||
+	    expect_update_assignment_relations(
+		    handle,
+		    quoted_aliases,
+		    quoted_columns,
+		    1U,
+		    "A",
+		    "Dameng quoted target relation mismatch") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+	patch.selector = "stmt[0].assignment[0]";
+	patch.sql = "a.balance = :next_balance";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	generation = handle->generation;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "unquoted Dameng qualifier should match quoted uppercase alias") != 0 ||
+	    expect_true(
+		    handle->generation == generation + 1UL,
+		    "Dameng semantic qualifier patch should commit once") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    quoted_patched_sql,
+		    "Dameng semantic qualifier patch should retain public spelling") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+	patch.selector = "stmt[0].assignment[0]";
+	patch.sql = "\"a\".balance = :bad_balance";
+	if (expect_patch_failure_is_atomic(
+		    handle,
+		    &patch,
+		    1U,
+		    SQLPARSER_STATUS_UNSUPPORTED,
+		    "quoted lowercase Dameng qualifier must not match quoted uppercase alias") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse_with_options(
+		quoted_sql, &options, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Dameng direct target-path baseline should parse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&insert_selector, 0, sizeof(insert_selector));
+	memset(&source_selector, 0, sizeof(source_selector));
+	memset(&target_path, 0, sizeof(target_path));
+	insert_selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
+	insert_selector.statement_index = 0U;
+	insert_selector.item_index = 1U;
+	source_selector.kind = SQLPARSER_SELECTOR_KIND_ASSIGNMENT;
+	source_selector.statement_index = 0U;
+	source_selector.item_index = 0U;
+	target_parts[0] = "a";
+	target_parts[1] = "note";
+	target_path.parts = target_parts;
+	target_path.part_count = 2U;
+	rc = sqlparser_assignment_insert_from_assignment_value_by_selector(
+		handle,
+		&insert_selector,
+		&target_path,
+		&source_selector,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "unquoted direct target path should match quoted uppercase Dameng alias") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    quoted_cloned_sql,
+		    "Dameng direct target path should retain the public qualifier") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse_with_options(
+		dotted_alias_sql, &options, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Dameng quoted dotted target alias should parse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+	patch.selector = "stmt[0].assignment[0]";
+	patch.sql = "\"A.B\".balance = :next_balance";
+	patch_list.items = &patch;
+	patch_list.count = 1U;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Dameng quoted dotted qualifier should match one alias component") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    dotted_alias_patched_sql,
+		    "Dameng quoted dotted qualifier patch should deparse exactly") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&patch, 0, sizeof(patch));
+	patch.op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+	patch.selector = "stmt[0].assignment[0]";
+	patch.sql = "A.B.balance = :bad_balance";
+	if (expect_patch_failure_is_atomic(
+		    handle,
+		    &patch,
+		    1U,
+		    SQLPARSER_STATUS_UNSUPPORTED,
+		    "Dameng unquoted two-part qualifier must not match a quoted dotted alias") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int expect_statement_where_equals(
+	const sqlparser_handle_t *handle,
+	const char *expected_sql,
+	const char *message)
+{
+	sqlparser_error_t error;
+	char *where_sql;
+	int failed;
+	int rc;
+
+	where_sql = NULL;
+	failed = 0;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_statement_where_sql(
+		handle, 0U, 0U, &where_sql, &error);
+	if (expect_status_ok(rc, &error, message) != 0 ||
+	    expect_true(
+		    (expected_sql == NULL && where_sql == NULL) ||
+			    (expected_sql != NULL && where_sql != NULL &&
+			     strcmp(where_sql, expected_sql) == 0),
+		    message) != 0) {
+		failed = 1;
+	}
+	sqlparser_string_free(where_sql);
+	return failed;
+}
+
+static int test_dameng_multitable_update_where_fragment_contract(void)
+{
+	static const char with_where_sql[] =
+		"UPDATE app.accounts a JOIN app.adjustments b "
+		"ON a.id = b.account_id SET a.balance = 1 WHERE a.ready = 1";
+	static const char with_where_set_sql[] =
+		"UPDATE app.accounts a JOIN app.adjustments b "
+		"ON a.id = b.account_id SET a.balance = 1 WHERE a.flag = 2";
+	static const char with_where_and_sql[] =
+		"UPDATE app.accounts a JOIN app.adjustments b "
+		"ON a.id = b.account_id SET a.balance = 1 "
+		"WHERE a.flag = 2 AND b.ready = 3";
+	static const char with_where_or_sql[] =
+		"UPDATE app.accounts a JOIN app.adjustments b "
+		"ON a.id = b.account_id SET a.balance = 1 "
+		"WHERE (a.flag = 2 AND b.ready = 3) OR a.override_flag = 1";
+	static const char without_where_sql[] =
+		"UPDATE app.accounts a JOIN app.adjustments b "
+		"ON a.id = b.account_id SET a.balance = 1";
+	static const char without_where_append_sql[] =
+		"UPDATE app.accounts a JOIN app.adjustments b "
+		"ON a.id = b.account_id SET a.balance = 1 WHERE a.ready = 1";
+	static const char without_where_set_sql[] =
+		"UPDATE app.accounts a JOIN app.adjustments b "
+		"ON a.id = b.account_id SET a.balance = 1 WHERE b.ready = 2";
+	static const char without_where_or_sql[] =
+		"UPDATE app.accounts a JOIN app.adjustments b "
+		"ON a.id = b.account_id SET a.balance = 1 "
+		"WHERE b.ready = 2 OR a.override_flag = 1";
+	static const char nested_where_sql[] =
+		"UPDATE app.accounts a JOIN app.adjustments b "
+		"ON a.id = b.account_id SET a.balance = 1 "
+		"WHERE EXISTS (SELECT 1 FROM app.flags f "
+		"WHERE f.account_id = a.id) AND a.ready = 1";
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	char *where_sql;
+	int saw_nested_where;
+	size_t where_index;
+	size_t where_count;
+	int rc;
+
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_DAMENG;
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse_with_options(
+		with_where_sql, &options, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Dameng JOIN with public WHERE should parse") != 0 ||
+	    expect_statement_where_equals(
+		    handle,
+		    "a.ready = 1",
+		    "Dameng WHERE getter must hide the internal JOIN marker") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_set_where_sql(
+		handle, 0U, 0U, "a.flag = 2", &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Dameng public WHERE replacement should succeed") != 0 ||
+	    expect_statement_where_equals(
+		    handle,
+		    "a.flag = 2",
+		    "Dameng WHERE replacement getter mismatch") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    with_where_set_sql,
+		    "Dameng WHERE replacement must preserve JOIN ON") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_append_where_sql(
+		handle,
+		0U,
+		0U,
+		SQLPARSER_BOOL_OPERATOR_AND,
+		"b.ready = 3",
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Dameng public WHERE AND append should succeed") != 0 ||
+	    expect_statement_where_equals(
+		    handle,
+		    "a.flag = 2 AND b.ready = 3",
+		    "Dameng public WHERE AND append getter mismatch") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    with_where_and_sql,
+		    "Dameng WHERE AND append must preserve JOIN ON") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_append_where_sql(
+		handle,
+		0U,
+		0U,
+		SQLPARSER_BOOL_OPERATOR_OR,
+		"a.override_flag = 1",
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Dameng public WHERE OR append should succeed") != 0 ||
+	    expect_statement_where_equals(
+		    handle,
+		    "(a.flag = 2 AND b.ready = 3) OR a.override_flag = 1",
+		    "Dameng public WHERE OR append getter mismatch") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    with_where_or_sql,
+		    "Dameng WHERE OR append must preserve JOIN ON") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse_with_options(
+		without_where_sql, &options, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Dameng JOIN without public WHERE should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_where_count(
+			    handle, 0U, &where_count, &error),
+		    &error,
+		    "Dameng JOIN WHERE slot count should be readable") != 0 ||
+	    expect_true(
+		    where_count == 1U,
+		    "Dameng JOIN without public WHERE must retain one writable slot") != 0 ||
+	    expect_statement_where_equals(
+		    handle,
+		    NULL,
+		    "Dameng hidden JOIN marker must read as an empty WHERE slot") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_append_where_sql(
+		handle,
+		0U,
+		0U,
+		SQLPARSER_BOOL_OPERATOR_AND,
+		"a.ready = 1",
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Dameng empty public WHERE append should succeed") != 0 ||
+	    expect_statement_where_equals(
+		    handle,
+		    "a.ready = 1",
+		    "Dameng empty public WHERE append getter mismatch") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    without_where_append_sql,
+		    "Dameng empty WHERE append must preserve JOIN ON") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_set_where_sql(
+		handle, 0U, 0U, "b.ready = 2", &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Dameng generated public WHERE replacement should succeed") != 0 ||
+	    expect_statement_where_equals(
+		    handle,
+		    "b.ready = 2",
+		    "Dameng generated public WHERE replacement getter mismatch") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    without_where_set_sql,
+		    "Dameng generated WHERE replacement must preserve JOIN ON") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	rc = sqlparser_statement_append_where_sql(
+		handle,
+		0U,
+		0U,
+		SQLPARSER_BOOL_OPERATOR_OR,
+		"a.override_flag = 1",
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Dameng generated public WHERE OR append should succeed") != 0 ||
+	    expect_statement_where_equals(
+		    handle,
+		    "b.ready = 2 OR a.override_flag = 1",
+		    "Dameng generated public WHERE OR append getter mismatch") != 0 ||
+	    expect_deparse_equals_and_reparse(
+		    handle,
+		    without_where_or_sql,
+		    "Dameng generated WHERE OR append must preserve JOIN ON") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse_with_options(
+		nested_where_sql, &options, &handle, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Dameng JOIN with nested WHERE should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_where_count(
+			    handle, 0U, &where_count, &error),
+		    &error,
+		    "Dameng nested WHERE count should be readable") != 0 ||
+	    expect_true(
+		    where_count >= 2U,
+		    "Dameng nested WHERE must expose the root and nested slots") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	saw_nested_where = 0;
+	for (where_index = 0U; where_index < where_count; where_index++) {
+		where_sql = NULL;
+		rc = sqlparser_statement_where_sql(
+			handle, 0U, where_index, &where_sql, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "Dameng nested WHERE getter must keep the generic path") != 0) {
+			sqlparser_string_free(where_sql);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		if (where_sql != NULL &&
+		    strstr(where_sql, "f.account_id = a.id") != NULL) {
+			saw_nested_where = 1;
+		}
+		sqlparser_string_free(where_sql);
+	}
+	if (expect_true(
+		    saw_nested_where,
+		    "Dameng nested WHERE getter must not classify a subquery as the JOIN carrier") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int expect_query_graph_clause_counts(
+	const sqlparser_handle_t *handle,
+	size_t expected_on_fields,
+	size_t expected_where_fields,
+	size_t expected_on_predicates,
+	size_t expected_where_predicates,
+	const char *message)
+{
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_predicate_t predicate;
+	sqlparser_graph_field_t field;
+	sqlparser_error_t error;
+	size_t field_index;
+	size_t on_fields;
+	size_t on_predicates;
+	size_t predicate_index;
+	size_t where_fields;
+	size_t where_predicates;
+	int rc;
+
+	memset(&error, 0, sizeof(error));
+	memset(&graph, 0, sizeof(graph));
+	on_fields = 0U;
+	where_fields = 0U;
+	on_predicates = 0U;
+	where_predicates = 0U;
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, message) != 0) {
+		return 1;
+	}
+	for (field_index = 0U; field_index < graph.field_count; field_index++) {
+		memset(&field, 0, sizeof(field));
+		rc = sqlparser_query_graph_field_at(
+			&graph, field_index, &field, &error);
+		if (expect_status_ok(rc, &error, message) != 0) {
+			return 1;
+		}
+		if (field.clause == SQLPARSER_CLAUSE_KIND_ON) {
+			on_fields++;
+		} else if (field.clause == SQLPARSER_CLAUSE_KIND_WHERE) {
+			where_fields++;
+		}
+	}
+	for (predicate_index = 0U;
+	     predicate_index < graph.predicate_count;
+	     predicate_index++) {
+		memset(&predicate, 0, sizeof(predicate));
+		rc = sqlparser_query_graph_predicate_at(
+			&graph, predicate_index, &predicate, &error);
+		if (expect_status_ok(rc, &error, message) != 0) {
+			return 1;
+		}
+		if (predicate.clause == SQLPARSER_CLAUSE_KIND_ON) {
+			on_predicates++;
+		} else if (predicate.clause == SQLPARSER_CLAUSE_KIND_WHERE) {
+			where_predicates++;
+		}
+	}
+	return expect_true(
+		on_fields == expected_on_fields &&
+			where_fields == expected_where_fields &&
+			on_predicates == expected_on_predicates &&
+			where_predicates == expected_where_predicates,
+		message);
+}
+
+static int test_dameng_multitable_update_link_matrix(void)
+{
+	static const struct {
+		const char *sql;
+		const char *patch_sql;
+		const char *expected_sql;
+		const char *target_alias;
+		size_t on_fields;
+		size_t where_fields;
+		size_t on_predicates;
+		size_t where_predicates;
+	} cases[] = {
+		{
+			"UPDATE app.accounts a LEFT JOIN app.orders b "
+			"ON a.id = b.account_id INNER JOIN app.payments c "
+			"ON b.id = c.order_id RIGHT JOIN app.audit_log d "
+			"ON c.id = d.payment_id SET c.status = :status "
+			"WHERE a.active = 1 AND d.ready = 1",
+			"c.status = COALESCE(:status, c.status)",
+			"UPDATE app.accounts a LEFT JOIN app.orders b "
+			"ON a.id = b.account_id INNER JOIN app.payments c "
+			"ON b.id = c.order_id RIGHT JOIN app.audit_log d "
+			"ON c.id = d.payment_id "
+			"SET c.status = COALESCE(:status, c.status) "
+			"WHERE a.active = 1 AND d.ready = 1",
+			"c",
+			6U,
+			2U,
+			3U,
+			3U
+		},
+		{
+			"UPDATE app.accounts a JOIN app.orders b "
+			"ON a.id = b.account_id, app.audit_log c "
+			"SET b.status = :status WHERE c.account_id = a.id",
+			"b.status = COALESCE(:status, b.status)",
+			"UPDATE app.accounts a JOIN app.orders b "
+			"ON a.id = b.account_id, app.audit_log c "
+			"SET b.status = COALESCE(:status, b.status) "
+			"WHERE c.account_id = a.id",
+			"b",
+			2U,
+			2U,
+			1U,
+			1U
+		}
+	};
+	static const char *const columns[] = {"status"};
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_patch_t patch;
+	sqlparser_patch_list_t patch_list;
+	const char *aliases[1];
+	unsigned long generation;
+	size_t case_index;
+	int rc;
+
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_DAMENG;
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			cases[case_index].sql,
+			&options,
+			&handle,
+			&error);
+		aliases[0] = cases[case_index].target_alias;
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "Dameng multi-link UPDATE should parse") != 0 ||
+		    expect_update_assignment_relations(
+			    handle,
+			    aliases,
+			    columns,
+			    1U,
+			    cases[case_index].target_alias,
+			    "Dameng multi-link target relation mismatch") != 0 ||
+		    expect_query_graph_clause_counts(
+			    handle,
+			    cases[case_index].on_fields,
+			    cases[case_index].where_fields,
+			    cases[case_index].on_predicates,
+			    cases[case_index].where_predicates,
+			    "Dameng multi-link initial ON/WHERE attribution mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_REPLACE_ASSIGNMENT;
+		patch.selector = "stmt[0].assignment[0]";
+		patch.sql = cases[case_index].patch_sql;
+		patch_list.items = &patch;
+		patch_list.count = 1U;
+		generation = handle->generation;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "Dameng multi-link assignment patch should succeed") != 0 ||
+		    expect_true(
+			    handle->generation == generation + 1UL,
+			    "Dameng multi-link patch should commit once") != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle,
+			    cases[case_index].expected_sql,
+			    "Dameng multi-link patch should deparse exactly") != 0 ||
+		    expect_update_assignment_relations(
+			    handle,
+			    aliases,
+			    columns,
+			    1U,
+			    cases[case_index].target_alias,
+			    "patched Dameng multi-link target relation mismatch") != 0 ||
+		    expect_query_graph_clause_counts(
+			    handle,
+			    cases[case_index].on_fields,
+			    cases[case_index].where_fields,
+			    cases[case_index].on_predicates,
+			    cases[case_index].where_predicates,
+			    "patched Dameng multi-link ON/WHERE attribution mismatch") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+	return 0;
+}
+
 static int test_query_graph_named_window_fields(void)
 {
 	static const sqlparser_dialect_t dialects[] = {
@@ -37766,6 +39950,24 @@ int main(void)
 		return 1;
 	}
 	if (test_mysql_dml_join_predicate_clause_roots() != 0) {
+		return 1;
+	}
+	if (test_mysql_multitable_update_target_and_patch_contract() != 0) {
+		return 1;
+	}
+	if (test_mysql_multitable_update_state_transitions() != 0) {
+		return 1;
+	}
+	if (test_dameng_multitable_update_target_and_patch_contract() != 0) {
+		return 1;
+	}
+	if (test_dameng_multitable_update_marker_and_qualifier_contract() != 0) {
+		return 1;
+	}
+	if (test_dameng_multitable_update_where_fragment_contract() != 0) {
+		return 1;
+	}
+	if (test_dameng_multitable_update_link_matrix() != 0) {
 		return 1;
 	}
 	if (test_query_graph_named_window_fields() != 0) {

@@ -418,6 +418,8 @@ value 的 `kind` 为 `identifier`、`keyword`、`literal`、`bind` 或 `expressi
 | `result_channels` | DML 结果通道数组；没有结果输出时省略 |
 | `children` | 以当前 DML 为父节点的嵌套 DML 数组；没有嵌套 DML 时省略 |
 
+MySQL 与 Vastbase-MySQL 的多目标 UPDATE 省略 `dml.target_relation`；每个 assignment 的 `target_field` 指向 `fields[]` 中具有独立 relation 的目标字段。对应的 `sqlparser_statement_target_relation()` 返回 `SQLPARSER_STATUS_UNSUPPORTED`。Dameng 多表 UPDATE 要求全部 SET assignment 指向同一个 table object，因此始终输出唯一的 `dml.target_relation`。
+
 结果通道字段：
 
 | 字段 | 说明 |

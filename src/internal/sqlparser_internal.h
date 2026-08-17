@@ -40,6 +40,7 @@ typedef struct {
 #define SQLPARSER_INTERNAL_MYSQL_DROP_PREPARE "sqlparser_mysql_drop_prepare"
 #define SQLPARSER_INTERNAL_MYSQL_SESSION_STATEMENT "sqlparser_mysql_session_statement"
 #define SQLPARSER_INTERNAL_MYSQL_JOIN_ON "sqlparser_mysql_join_on"
+#define SQLPARSER_INTERNAL_DAMENG_UPDATE_JOIN_ON "sqlparser_dameng_join_condition"
 #define SQLPARSER_INTERNAL_MYSQL_LEFT_JOIN_ON "sqlparser_mysql_left_join_on"
 #define SQLPARSER_INTERNAL_MYSQL_RIGHT_JOIN_ON "sqlparser_mysql_right_join_on"
 #define SQLPARSER_INTERNAL_MYSQL_CROSS_JOIN_ON "sqlparser_mysql_cross_join_on"

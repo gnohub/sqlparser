@@ -37,11 +37,13 @@ Vastbase 四个模式分别通过以下可执行矩阵验证：
 | 模式 | 回归夹具 | 单元测试 | 成功用例 | 预期失败用例 | 用例总数 |
 | --- | --- | --- | ---: | ---: | ---: |
 | `vastbase-oracle` | `tests/cases/vastbase_oracle_dialect_input.json` | `tests/unit/test_vastbase_oracle_dialect_case_matrix.c` | 220 | 0 | 220 |
-| `vastbase-mysql` | `tests/cases/vastbase_mysql_dialect_input.json` | `tests/unit/test_vastbase_mysql_dialect_case_matrix.c` | 256 | 0 | 256 |
+| `vastbase-mysql` | `tests/cases/vastbase_mysql_dialect_input.json` | `tests/unit/test_vastbase_mysql_dialect_case_matrix.c` | 261 | 0 | 261 |
 | `vastbase-postgresql` | `tests/cases/vastbase_postgresql_dialect_input.json` | `tests/unit/test_vastbase_postgresql_dialect_case_matrix.c` | 201 | 0 | 201 |
 | `vastbase-sqlserver` | `tests/cases/vastbase_sqlserver_dialect_input.json` | `tests/unit/test_vastbase_sqlserver_dialect_case_matrix.c` | 605 | 0 | 605 |
 
 `vastbase-sqlserver` 兼容模式包含 SQL Server DML `OUTPUT` 结果通道和 `IF...ELSE` 控制流能力。
+
+`vastbase-mysql` 夹具包含 261 条 `final` 用例和 836 个独立 patch。项目兼容入口合同支持 MySQL 多目标多表 `UPDATE` 的 JOIN 链与逗号 relation 列表，每个 assignment 目标字段分别关联其写入 relation；多表形态不接受 `ORDER BY` 或 `LIMIT`。该合同及可执行证据不声称 Vastbase 服务端官网定义了相同语法范围。
 
 `vastbase-sqlserver` 兼容模式支持基础 `CONNECT BY` 条件。`START WITH`、`PRIOR`、`NOCYCLE` 和 `CONNECT_BY_ROOT` 不在该兼容入口的支持范围内。
 在包含基础 `CONNECT BY` 的查询块中，无显式 `AS` 的 `CONNECT_BY_ROOT expr` 形态按边界外层次操作符拒绝；同名普通字段可使用显式 `AS` 别名或定界标识符。

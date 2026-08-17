@@ -372,6 +372,8 @@ Oracle、Dameng 兼容入口的每段 `name` 为 `[A-Za-z_][A-Za-z0-9_$#]*`。SQ
 | `sqlparser_statement_node_name()` | 返回底层节点名称 |
 | `sqlparser_statement_target_relation()` | 返回语句主目标对象 |
 
+MySQL 与 Vastbase-MySQL 的多目标 UPDATE 没有单一主目标，`sqlparser_statement_target_relation()` 返回 `SQLPARSER_STATUS_UNSUPPORTED`。Dameng 多表 UPDATE 要求全部 SET assignment 指向同一个 table object，该函数返回此唯一目标。
+
 控制流中的条件表达式和分支 SQL 都是可寻址 statement unit。条件 unit 的类型为 `SQLPARSER_STATEMENT_KIND_CONDITION`，节点名称为 `ConditionExpr`；分支 SQL 保持自身语句类型。现有 `stmt[n]...` selector 可直接读取和修改这些 unit。
 
 ## 控制流只读遍历
@@ -727,6 +729,7 @@ sqlparser_status_t sqlparser_statement_query_graph(
 - `field = literal/bind` 谓词通过 `left_field_index + value_index` 表达；`field = field` 谓词通过 `left_field_index + right_field_index` 表达，并在 `values[]` 中以 `SQLPARSER_GRAPH_VALUE_FIELD` 记录右侧来源字段。
 - 字段引用如果不能仅凭 SQL 唯一归属，`has_relation` 为 0，`candidate_relations` 给出当前 scope 候选 relation。
 - `sqlparser_graph_dml_t.insert_mode` 区分 `VALUES`、`SELECT`、`INSERT ALL`、`INSERT FIRST`、MySQL `INSERT ... SET` 以及 `REPLACE` 的 `VALUES`、`SELECT`、`SET` 形态。
+- MySQL 与 Vastbase-MySQL 的多目标 UPDATE 设置 `sqlparser_graph_dml_t.has_target_relation = 0`；每个 assignment 的 `target_field_index` 指向具有独立 relation 归属的目标字段。Dameng 多表 UPDATE 始终只有一个写入目标并设置 `has_target_relation = 1`。
 - `sqlparser_query_graph_dml_count()` 和 `sqlparser_query_graph_dml_at()` 用于遍历同一 statement 内的全部 DML；`sqlparser_query_graph_dml()` 是读取索引 0 的兼容简写。多个无父 DML 可以并列存在，使用 `sqlparser_query_graph_dml_parent()` 区分根节点和嵌套节点。
 - `sqlparser_query_graph_dml_parent()` 表达嵌套 DML 的父子关系；没有父 DML 时 `out_has_parent` 为 0。
 - `sqlparser_graph_dml_result_t.kind` 区分 client 和 sink 通道；sink 可以由 relation 或 host bind 接收。仅 relation-backed sink 设置 `has_sink_relation = 1`，并通过 `sink_relation_index` 和可选 `sink_columns` 指向写入目标。

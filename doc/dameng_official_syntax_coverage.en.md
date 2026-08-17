@@ -32,6 +32,10 @@ every receiver is a colon-prefixed host bind. This boundary excludes
 `BULK COLLECT`, receivers that are not colon-prefixed host binds, and unequal
 list lengths.
 
+The `CURRENT` boundary for `UPDATE` includes multi-table single-target forms
+using JOIN chains, comma-separated relation lists, or both. Every SET
+assignment must target the same table object.
+
 ## Results
 
 | Status | Syntax Groups | Share of 38 Groups |
@@ -61,6 +65,11 @@ The Dameng hierarchical-query `CURRENT` boundary accepts both source clause
 orders for `START WITH` and `CONNECT BY`, two parent-child field orientations
 for unary `PRIOR`, `LEVEL`, `CONNECT_BY_ROOT`, and `NOCYCLE`. The executable matrix
 contains 4 `final` cases and 20 independent patches.
+
+The Dameng multi-table `UPDATE` `CURRENT` boundary always has one write target.
+Six `final` cases and 17 independent patches cover first, middle, and last
+relation targets, distinct aliases of the same table, JOIN chains, and mixed
+JOIN/comma forms.
 
 The current Dameng dialect covers common query, DML, DDL, transaction,
 privilege, current-schema statements, representative session-parameter

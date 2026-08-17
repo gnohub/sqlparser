@@ -4,8 +4,8 @@ This file records regression cases for the MySQL dialect conversion layer. The e
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 255 cases with `status = "final"` and 864 independent
-patches. Two cases and their 8 patches contain complete bind-occurrence
+The fixture contains 260 cases with `status = "final"` and 876 independent
+patches. Three cases and their 11 patches contain complete bind-occurrence
 assertions. Expected View JSON contains
 statement-level `query_graph.session` output in 37 cases, covering `M015`
 through `M017`, `MY-001` through `MY-029`, and 5 `USE` boundaries interleaved
@@ -194,6 +194,18 @@ and value fields are all part of that comparison.
 | MU006C | `mysql-replace-set` | `REPLACE INTO ... SET ...` | emits `insert_mode=replace_set`; deparsing the unmodified handle reproduces the original `SET` form byte for byte |
 | MU006D | `mysql-replace-without-into` | `REPLACE table ... VALUES ...` | deparsing the unmodified handle reproduces the original form without `INTO` byte for byte |
 | MU006E | `mysql-replace-table-source` | `REPLACE INTO ... TABLE source` | preserves the source table; deparsing the unmodified handle reproduces the original `TABLE` form byte for byte |
+
+## Multi-Target Multi-Table UPDATE Regression
+
+MySQL multi-table `UPDATE` accepts multiple write targets across JOIN chains and comma-separated relation lists. Each assignment target field identifies its own relation. `ORDER BY` and `LIMIT` are rejected for this multi-table form.
+
+| Case ID | Case | SQL Shape | Validation Focus |
+| --- | --- | --- | --- |
+| M254 | `mysql-update-multiple-target-inner-join` | two-table `INNER JOIN` with interleaved assignments to both targets | assignment relation attribution and insert, replace, and delete patches |
+| M255 | `mysql-update-multiple-target-three-table-bind-order` | three joined tables, three assignment targets, and 12 `?` occurrences | ON/SET/WHERE occurrence order and renumbering after patches |
+| M256 | `mysql-update-multiple-target-four-relation-comma-list` | four comma-separated relations with three assignment targets | comma-list relations, target-field attribution, and assignment patches |
+| M257 | `mysql-update-multiple-target-four-table-mixed-join` | four-table INNER/LEFT JOIN chain with four assignment targets | JOIN-chain restoration, per-assignment relations, and tail replacement |
+| M258 | `mysql-update-multiple-target-quoted-identifiers` | schema-qualified backtick objects with two assignment targets | quoted relation/field attribution and relation and assignment patches |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 

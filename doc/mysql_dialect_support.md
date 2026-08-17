@@ -24,7 +24,7 @@ MySQL 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范�
 - `INSERT ... ON DUPLICATE KEY UPDATE`
 - `UPDATE`、`DELETE`
 - 单表 `UPDATE`、`DELETE` 的 `ORDER BY ... LIMIT`，以及别名删除目标
-- 带 `ON` 条件的多表 `UPDATE ... JOIN ... SET ...` 基础形态
+- 多表 `UPDATE` 的 JOIN 链、逗号 relation 列表及跨多个 relation 的 assignment；每个 assignment 目标字段独立关联其写入 relation
 - 带 `ON` 条件的多表 `DELETE u FROM ... JOIN ...` 基础形态
 - `STRAIGHT_JOIN`、`JOIN ... USING`、`NATURAL JOIN`
 - `USE/FORCE/IGNORE INDEX|KEY` 及 `FOR JOIN|ORDER BY|GROUP BY` scope
@@ -42,11 +42,14 @@ MySQL 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范�
 
 当前可执行 MySQL 方言夹具只登记成功用例；失败路径由独立单元测试维护。官方语法覆盖边界见 `mysql_official_syntax_coverage.csv`。
 
+多表 `UPDATE` 不接受 `ORDER BY` 或 `LIMIT`。
+
 ## 对外输出规则
 
 - `sqlparser_deparse()` 输出 MySQL 公共形态，不暴露内部转换细节。
 - 反引号标识符和 MySQL 字符串兼容规则由方言层处理。
 - View JSON 使用统一的 `query_graph` 结构；其中的标识符和值按 MySQL 公开形态输出。
+- 多目标 `UPDATE` 不输出单一 `dml.target_relation`；各 assignment 通过 `target_field` 对应字段的 relation 表达写入目标。
 - 无法安全表达的 MySQL 专属语义不会降级为 PostgreSQL 语义。
 
 ## 回归用例
@@ -58,4 +61,4 @@ MySQL 支持范围以以下文件为准：
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 MySQL 方言矩阵包含 255 条 `status = "final"` 用例和 864 个独立 patch。
+当前 MySQL 方言矩阵包含 260 条 `status = "final"` 用例和 876 个独立 patch。

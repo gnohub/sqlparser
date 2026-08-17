@@ -3175,6 +3175,8 @@ static sqlparser_status_t sqlparser_preprocess_handle_sql_fragment_internal(
 {
 	void *candidate_state;
 	sqlparser_identifier_origin_map_t *origins;
+	size_t dameng_target_relation_index;
+	int dameng_multi_update_fragment;
 	sqlparser_status_t status;
 
 	if (out_parser_sql == NULL || out_dialect_state == NULL) {
@@ -3232,7 +3234,27 @@ static sqlparser_status_t sqlparser_preprocess_handle_sql_fragment_internal(
 		}
 	}
 
-	if (origins != NULL &&
+	dameng_target_relation_index = 0U;
+	dameng_multi_update_fragment = 0;
+	if (handle->dialect == SQLPARSER_DIALECT_DAMENG &&
+	    field_name != NULL &&
+	    (strcmp(field_name, "update assignment SQL") == 0 ||
+	     strcmp(field_name, "update SET list SQL") == 0 ||
+	     strcmp(field_name, "assignment target SQL") == 0) &&
+	    sqlparser_dameng_statement_multi_update_target_index(
+		    candidate_state,
+		    statement_index,
+		    &dameng_target_relation_index)) {
+		status =
+			sqlparser_dameng_preprocess_multi_update_assignment_fragment(
+				public_sql,
+				candidate_state,
+				statement_index,
+				strcmp(field_name, "assignment target SQL") == 0,
+				out_parser_sql,
+				out_error);
+		dameng_multi_update_fragment = 1;
+	} else if (origins != NULL &&
 	    handle->dialect == SQLPARSER_DIALECT_VASTBASE_SQLSERVER) {
 		status =
 			sqlparser_vastbase_sqlserver_preprocess_fragment_identifier_origins(
@@ -3295,9 +3317,10 @@ static sqlparser_status_t sqlparser_preprocess_handle_sql_fragment_internal(
 		return SQLPARSER_STATUS_INTERNAL_ERROR;
 	}
 	if (origins != NULL &&
-	    !sqlparser_dialect_is_sqlserver_compatible(handle->dialect) &&
-	    !sqlparser_dialect_is_mysql_compatible(handle->dialect) &&
-	    !sqlparser_dialect_is_oracle_compatible(handle->dialect) &&
+	    (dameng_multi_update_fragment ||
+	     (!sqlparser_dialect_is_sqlserver_compatible(handle->dialect) &&
+	      !sqlparser_dialect_is_mysql_compatible(handle->dialect) &&
+	      !sqlparser_dialect_is_oracle_compatible(handle->dialect))) &&
 	    strcmp(*out_parser_sql, public_sql) != 0) {
 		sqlparser_identifier_origin_map_destroy(origins);
 		origins = NULL;

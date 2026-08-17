@@ -188,6 +188,12 @@ int sqlparser_mysql_statement_has_dml_join(
 int sqlparser_mysql_statement_update_join_reversed(
 	const void *state,
 	size_t statement_index);
+int sqlparser_mysql_statement_update_join_multi_target(
+	const void *state,
+	size_t statement_index);
+int sqlparser_mysql_statement_update_join_assignment_fallback(
+	const void *state,
+	size_t statement_index);
 int sqlparser_mysql_reorient_replaced_update_join(
 	void *state,
 	size_t statement_index,
@@ -249,12 +255,51 @@ int sqlparser_sqlserver_generated_identifier_spelling(
 	const char **out_spelling,
 	size_t *out_spelling_length);
 const sqlparser_dialect_ops_t *sqlparser_dialect_dameng_ops(void);
+int sqlparser_dameng_statement_multi_update_target_index(
+	const void *state,
+	size_t statement_index,
+	size_t *out_index);
+int sqlparser_dameng_statement_multi_update_join_condition_owner(
+	const void *state,
+	size_t statement_index,
+	const PgQuery__FuncCall *owner);
+int sqlparser_dameng_multi_update_target_name_slot(
+	const void *state,
+	size_t statement_index,
+	char **slot);
+sqlparser_status_t sqlparser_dameng_multi_update_relation_replaced(
+	void *state,
+	size_t statement_index,
+	const PgQuery__RangeVar *relation,
+	const char *const *values,
+	const char *const *spellings,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_dameng_multi_update_public_where_slot(
+	const void *state,
+	size_t statement_index,
+	PgQuery__Node **where_slot,
+	int *out_is_join_carrier,
+	PgQuery__Node ***out_public_slot,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_dameng_multi_update_insert_public_where(
+	const void *state,
+	size_t statement_index,
+	PgQuery__Node **where_slot,
+	PgQuery__Node *public_where,
+	sqlparser_error_t *out_error);
 sqlparser_status_t sqlparser_dameng_preprocess_identifier_origins(
 	const char *input_sql,
 	const sqlparser_limits_t *limits,
 	char **out_parser_sql,
 	void **out_state,
 	sqlparser_identifier_origin_map_t *origins,
+	sqlparser_error_t *out_error);
+sqlparser_status_t sqlparser_dameng_preprocess_multi_update_assignment_fragment(
+	const char *input_sql,
+	void *state,
+	size_t statement_index,
+	int target_only,
+	char **out_parser_sql,
 	sqlparser_error_t *out_error);
 const sqlparser_dialect_ops_t *sqlparser_dialect_vastbase_oracle_ops(void);
 sqlparser_status_t sqlparser_vastbase_oracle_preprocess_identifier_origins(

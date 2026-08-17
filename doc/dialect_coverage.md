@@ -7,16 +7,16 @@
 | 方言 | 统计来源 | 成功用例 | 预期失败用例 | 用例总数 | 夹具成功率 |
 | --- | --- | ---: | ---: | ---: | ---: |
 | PostgreSQL | `tests/cases/sql_batch_input.json` | 216 | 0 | 216 | 100.00% |
-| MySQL | `tests/cases/mysql_dialect_input.json` | 255 | 0 | 255 | 100.00% |
+| MySQL | `tests/cases/mysql_dialect_input.json` | 260 | 0 | 260 | 100.00% |
 | Oracle | `tests/cases/oracle_dialect_input.json` | 251 | 0 | 251 | 100.00% |
 | SQL Server | `tests/cases/sqlserver_dialect_input.json` | 625 | 0 | 625 | 100.00% |
-| 达梦 | `tests/cases/dameng_dialect_input.json` | 177 | 0 | 177 | 100.00% |
+| 达梦 | `tests/cases/dameng_dialect_input.json` | 183 | 0 | 183 | 100.00% |
 | Vastbase PostgreSQL 兼容模式 | `tests/cases/vastbase_postgresql_dialect_input.json` | 201 | 0 | 201 | 100.00% |
-| Vastbase MySQL 兼容模式 | `tests/cases/vastbase_mysql_dialect_input.json` | 256 | 0 | 256 | 100.00% |
+| Vastbase MySQL 兼容模式 | `tests/cases/vastbase_mysql_dialect_input.json` | 261 | 0 | 261 | 100.00% |
 | Vastbase Oracle 兼容模式 | `tests/cases/vastbase_oracle_dialect_input.json` | 220 | 0 | 220 | 100.00% |
 | Vastbase SQL Server 兼容模式 | `tests/cases/vastbase_sqlserver_dialect_input.json` | 605 | 0 | 605 | 100.00% |
 
-九个夹具合计 2806 条 final 用例和 9077 个独立 patch。
+九个夹具合计 2822 条 final 用例和 9118 个独立 patch。
 
 ## 口径
 

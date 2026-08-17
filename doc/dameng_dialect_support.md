@@ -20,6 +20,7 @@
 - `INSERT VALUES`、多行 `INSERT`、`INSERT SELECT`
 - 多表插入：`INSERT ALL`、`INSERT FIRST`，包括 `WHEN ... THEN`、`ELSE` 和单个条件分支下的多个 `INTO`
 - `UPDATE`、`DELETE`
+- 多表单目标 `UPDATE`，支持 JOIN 链、逗号 relation 列表及混合形态；全部 SET assignment 必须指向同一个 table object
 - DML 返回宿主绑定变量：`INSERT`、`DELETE` 的 `RETURNING <target, ...> INTO <:bind, ...>`，以及 `UPDATE` 的 `RETURN <target, ...> INTO <:bind, ...>`；每个列表均为 `N >= 1` 项，严格等长并按序号一一配对
 - 可映射的 `MERGE`；matched UPDATE action 支持赋值后 `WHERE` 和归属同一 UPDATE 分支的 `DELETE WHERE`
 - `DATE`、`TIMESTAMP` 字面量
@@ -36,6 +37,7 @@
 
 - `PIVOT`、`UNPIVOT`
 - `RETURN`/`RETURNING ... INTO` 的 `BULK COLLECT`、非冒号 bind 接收项或 target/bind 不等长形态
+- SET assignment 指向多个 table object 的多表 `UPDATE`
 - DMSQL block、procedure、package
 - 未列入支持范围的其他 `ALTER SESSION` 参数
 - `ALTER SESSION SET CONTAINER = ...`
@@ -49,6 +51,7 @@
 - 层次查询字段、值和谓词进入既有 Query Graph 数组，分别使用 `start_with`、`connect_by` clause、`pseudo` / `prior` 字段标记、CONNECT BY 根谓词的 `nocycle` 标记和 `CONNECT_BY_ROOT` operator `target_path`；不增加独立 hierarchy 对象。
 - `SET SCHEMA` 在 View JSON 中输出字段名 `CURRENT_SCHEMA`。
 - DML 返回通道在 `dml.result_channels` 中使用 sink channel；每个返回 target 的 `sink_value` 指向 `query_graph.values[]` 中同序号的宿主 bind。
+- 多表 `UPDATE` 始终具有唯一 `dml.target_relation`；每个 assignment 的 `target_field` 关联该 relation。
 - View JSON 中可归属的表达式片段使用达梦公共形态。
 - 失败的表达式片段改写不会提交到 handle；原有 AST、bind 映射和 deparse 输出保持可用。
 
@@ -62,4 +65,4 @@
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-当前达梦方言矩阵包含 177 条用例，全部为 `status = "final"`，共包含 636 个独立 patch。其中 3 条多返回项用例分别验证 INSERT `RETURNING`、UPDATE `RETURN` 和 DELETE `RETURNING` 的 8↔8 配对，以及头、中、尾原子插入后的 9↔9 配对。
+当前达梦方言矩阵包含 183 条用例，全部为 `status = "final"`，共包含 653 个独立 patch。其中 6 条用例覆盖多表单目标 `UPDATE`，3 条多返回项用例分别验证 INSERT `RETURNING`、UPDATE `RETURN` 和 DELETE `RETURNING` 的 8↔8 配对，以及头、中、尾原子插入后的 9↔9 配对。

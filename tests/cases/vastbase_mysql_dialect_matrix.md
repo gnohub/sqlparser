@@ -15,18 +15,19 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 256 条 `status = "final"` 用例和 824 个独立 patch，其中 44 条用例的期望 View 包含非空 session 投影。
+夹具包含 261 条 `status = "final"` 用例和 836 个独立 patch；其中 3 条用例及其 11 个 patch 含完整 bind occurrence 断言，44 条用例的期望 View 包含非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
 ## 完整绑定占位符 occurrence 回归
 
-以下 2 条 final 用例定义项目 `vastbase-mysql` 兼容入口的 handle 级 occurrence 合同，不作为 Vastbase 服务端官方能力声明。runner 对输入及每个 patch 后的公开 SQL 逐项断言 `position`、`kind`、`key` 和 `sql`；匿名 `?` 每次出现均单独返回，多语句编号不重置，字符串、普通注释、非语句级 executable comment 和反引号标识符中的伪问号不计入。
+以下 3 条 final 用例定义项目 `vastbase-mysql` 兼容入口的 handle 级 occurrence 合同，不作为 Vastbase 服务端官方能力声明。runner 对输入及每个 patch 后的公开 SQL 逐项断言 `position`、`kind`、`key` 和 `sql`；匿名 `?` 每次出现均单独返回，多语句编号不重置，字符串、普通注释、非语句级 executable comment 和反引号标识符中的伪问号不计入。
 
 | 用例 | 根 occurrence | Patch | 基础入口关系 | 验证重点 |
 | --- | ---: | ---: | --- | --- |
 | `vastbase-mysql-multi-statement-global-bind-position` | 4 | 5 | 除用例名外，逐字段镜像 `mysql-multi-statement-global-bind-position` | 多语句、语句级 executable comment、普通/内联注释及复杂表达式改写后的连续匿名位置 |
 | `vastbase-mysql-insert-bind-mixed-three-rows` | 9 | 3 | 对应基础 MySQL 用例；本入口使用 `CONVERT(?, BIGINT)`，基础入口使用 `CAST(? AS SIGNED)`，occurrence 合同相同 | 三行 VALUES 中函数、转换和 CASE 内的 9 个匿名 occurrence；删除头部或尾部 bind 后重编号 |
+| `vastbase-mysql-update-multiple-target-three-table-bind-order` | 12 | 3 | 镜像基础 MySQL 多目标 UPDATE 用例 | 三表 JOIN 的 ON/SET/WHERE occurrence 顺序及 assignment patch 后重编号 |
 
 | ID | 用例 | SQL | 状态 |
 | --- | --- | --- | --- |
@@ -160,6 +161,11 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | `VM252` | `vastbase-mysql-string-equal-value-surfaces` | 普通字符串、`n` 与 `N` 前缀字符串具有相同值 | View 中三个 value 独立定位；按 AST owner 保留各自表面拼写，替换或插入单个节点不会串用其他节点的拼写 |
 | `VM253` | `vastbase-mysql-string-nested-surface-owners` | 外层双引号字符串、内层 `n` 字符串和 WHERE 转义字符串 | 嵌套 block、relation、field、target 和 value 归属完整；跨层 patch 后所有未修改字符串仍逐字节保留 |
 | `VM254` | `vastbase-mysql-merge-insert-structured-pair-rewrite` | MERGE INSERT 目标列与 VALUES cell 结构化改写 | 明确目标列、来源字段与表达式 cell 的独立定位，验证反引号目标列、完整 cell、列值对成对插入和删除 |
+| `VM255` | `vastbase-mysql-update-multiple-target-inner-join` | 两表 `INNER JOIN`、交错双目标 assignment | assignment relation 归属及插入、替换、删除 patch |
+| `VM256` | `vastbase-mysql-update-multiple-target-three-table-bind-order` | 三表 JOIN、三目标 assignment、12 个 `?` | ON/SET/WHERE occurrence 顺序及 patch 后重编号 |
+| `VM257` | `vastbase-mysql-update-multiple-target-four-relation-comma-list` | 四 relation 逗号列表、三目标 assignment | 逗号 relation、目标字段归属及 assignment patch |
+| `VM258` | `vastbase-mysql-update-multiple-target-four-table-mixed-join` | 四表 INNER/LEFT 混合 JOIN、四目标 assignment | JOIN 链、逐 assignment relation 和末项替换 |
+| `VM259` | `vastbase-mysql-update-multiple-target-quoted-identifiers` | schema-qualified 反引号对象与双目标 assignment | quoted relation/field 归属及 relation、assignment patch |
 | `VMU001` | `vastbase-mysql-insert-ignore` | INSERT IGNORE INTO `users` (`id`) VALUES (1) | 已覆盖 |
 | `VMU002` | `vastbase-mysql-insert-delayed` | INSERT DELAYED INTO `users` (`id`) VALUES (1) | 已覆盖 |
 | `VMU003` | `vastbase-mysql-insert-low-priority` | INSERT LOW_PRIORITY INTO `users` (`id`) VALUES (1) | 已覆盖 |
@@ -194,6 +200,8 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | `VMU019` | `vastbase-mysql-delete-left-join` | DELETE u FROM users u LEFT JOIN orders o ON u.id=o.user_id WHERE u.phone = ? | 已覆盖 |
 | `VMU020` | `vastbase-mysql-update-join-source-assignment` | UPDATE users u JOIN orders o ON u.id=o.user_id SET o.shipping_phone = ? WHERE u.id = ? | 已覆盖 |
 | `VMU021` | `vastbase-mysql-delete-join-source-target` | DELETE o FROM users u JOIN orders o ON u.id=o.user_id WHERE o.phone = ? | 已覆盖 |
+
+`VM255` 至 `VM259` 定义项目 `vastbase-mysql` 入口的多目标多表 UPDATE 合同；多表形态不接受 `ORDER BY` 或 `LIMIT`。该矩阵不声称 Vastbase 服务端官网定义了相同语法范围。
 
 ## INSERT VALUES 回归：bind 与表达式混合
 

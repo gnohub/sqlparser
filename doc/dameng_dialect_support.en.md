@@ -33,6 +33,8 @@ current AST. The executable case matrix defines the support boundary:
 - multi-table insert: `INSERT ALL` and `INSERT FIRST`, including
   `WHEN ... THEN`, `ELSE`, and multiple `INTO` branches under one condition
 - `UPDATE` and `DELETE`
+- multi-table single-target `UPDATE` with JOIN chains, comma-separated relation
+  lists, and mixed forms; every SET assignment must target the same table object
 - DML host-variable returns: `RETURNING <target, ...> INTO <:bind, ...>` for
   `INSERT` and `DELETE`, and `RETURN <target, ...> INTO <:bind, ...>` for
   `UPDATE`; both lists contain `N >= 1` items, have strictly equal lengths,
@@ -59,6 +61,8 @@ handle:
 - `PIVOT` and `UNPIVOT`
 - `RETURN` / `RETURNING ... INTO` forms with `BULK COLLECT`, receivers that are
   not colon-prefixed host binds, or unequal target/bind list lengths
+- multi-table `UPDATE` statements whose SET assignments target multiple table
+  objects
 - DMSQL blocks, procedures, and packages
 - other `ALTER SESSION` parameters outside the supported list
 - `ALTER SESSION SET CONTAINER = ...`
@@ -82,6 +86,8 @@ handle:
 - DML return channels use a sink channel in `dml.result_channels`; every
   return target's `sink_value` refers to the same-ordinal host bind in
   `query_graph.values[]`.
+- A multi-table `UPDATE` always has one `dml.target_relation`; every
+  assignment's `target_field` resolves to that relation.
 - Attributable expression fragments in View JSON use the public Dameng
   form.
 - Failed expression-fragment rewrites are not committed to the handle; the
@@ -97,7 +103,8 @@ The Dameng support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current Dameng matrix contains 177 cases, all with `status = "final"`, and
-636 independent patches. Three multi-return cases respectively verify INSERT
+The current Dameng matrix contains 183 cases, all with `status = "final"`, and
+653 independent patches. Six cases cover multi-table single-target `UPDATE`.
+Three multi-return cases respectively verify INSERT
 `RETURNING`, UPDATE `RETURN`, and DELETE `RETURNING` with 8↔8 pairs and atomic
 head, middle, and tail insertions that produce 9↔9 pairs.

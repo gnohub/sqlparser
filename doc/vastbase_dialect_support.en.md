@@ -38,12 +38,20 @@ The four Vastbase modes are verified by executable regression matrices:
 | Mode | Fixture | Unit Test | Successful Cases | Expected-Failure Cases | Total Cases |
 | --- | --- | --- | ---: | ---: | ---: |
 | `vastbase-oracle` | `tests/cases/vastbase_oracle_dialect_input.json` | `tests/unit/test_vastbase_oracle_dialect_case_matrix.c` | 220 | 0 | 220 |
-| `vastbase-mysql` | `tests/cases/vastbase_mysql_dialect_input.json` | `tests/unit/test_vastbase_mysql_dialect_case_matrix.c` | 256 | 0 | 256 |
+| `vastbase-mysql` | `tests/cases/vastbase_mysql_dialect_input.json` | `tests/unit/test_vastbase_mysql_dialect_case_matrix.c` | 261 | 0 | 261 |
 | `vastbase-postgresql` | `tests/cases/vastbase_postgresql_dialect_input.json` | `tests/unit/test_vastbase_postgresql_dialect_case_matrix.c` | 201 | 0 | 201 |
 | `vastbase-sqlserver` | `tests/cases/vastbase_sqlserver_dialect_input.json` | `tests/unit/test_vastbase_sqlserver_dialect_case_matrix.c` | 605 | 0 | 605 |
 
 The `vastbase-sqlserver` mode includes SQL Server DML `OUTPUT` result channels
 and `IF...ELSE` control flow.
+
+The `vastbase-mysql` fixture contains 261 `final` cases and 836 independent
+patches. Its project compatibility-entry contract supports MySQL multi-target
+multi-table `UPDATE` across JOIN chains and comma-separated relation lists,
+with each assignment target field identifying its write relation. `ORDER BY`
+and `LIMIT` are rejected for this multi-table form. This contract and its
+executable evidence do not claim the same official Vastbase server syntax
+support.
 
 The `vastbase-sqlserver` mode supports a basic `CONNECT BY` condition.
 `START WITH`, `PRIOR`, `NOCYCLE`, and `CONNECT_BY_ROOT` are outside this

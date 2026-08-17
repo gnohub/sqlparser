@@ -28,7 +28,7 @@ current AST. The executable case matrix defines the support boundary:
 - `INSERT ... ON DUPLICATE KEY UPDATE`
 - `UPDATE` and `DELETE`
 - single-table `UPDATE` and `DELETE` with `ORDER BY ... LIMIT`, and aliased delete targets
-- basic multi-table `UPDATE ... JOIN ... SET ...` forms with `ON` conditions
+- multi-table `UPDATE` with JOIN chains, comma-separated relations, and assignments that write multiple relations; each assignment target field identifies its write relation
 - basic multi-table `DELETE u FROM ... JOIN ...` forms with `ON` conditions
 - `STRAIGHT_JOIN`, `JOIN ... USING`, and `NATURAL JOIN`
 - `USE/FORCE/IGNORE INDEX|KEY` with `FOR JOIN|ORDER BY|GROUP BY` scopes
@@ -48,6 +48,8 @@ The executable MySQL dialect fixture lists successful cases only; failure paths
 are maintained by separate unit tests. Official syntax coverage boundaries are
 tracked in `mysql_official_syntax_coverage.csv`.
 
+Multi-table `UPDATE` does not accept `ORDER BY` or `LIMIT`.
+
 ## Public Output Rules
 
 - `sqlparser_deparse()` emits the public MySQL form and does not expose internal
@@ -56,6 +58,8 @@ tracked in `mysql_official_syntax_coverage.csv`.
   handled by the dialect layer.
 - View JSON uses the common `query_graph` structure; identifiers and values in
   that structure use the public MySQL form.
+- A multi-target `UPDATE` omits a single `dml.target_relation`; each assignment
+  identifies its write relation through the field referenced by `target_field`.
 - MySQL-specific semantics that cannot be represented safely are not downgraded
   to PostgreSQL semantics.
 
@@ -68,5 +72,5 @@ The MySQL support boundary is defined by:
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current MySQL matrix contains 255 cases with `status = "final"` and 864
+The current MySQL matrix contains 260 cases with `status = "final"` and 876
 independent patches.

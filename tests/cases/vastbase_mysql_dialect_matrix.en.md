@@ -15,18 +15,19 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 256 cases with `status = "final"` and 824 independent patches. The expected View contains a non-empty session projection in 44 cases.
+The fixture contains 261 cases with `status = "final"` and 836 independent patches. Three cases and their 11 patches contain complete bind-occurrence assertions. The expected View contains a non-empty session projection in 44 cases.
 
 View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
 
 ## Complete Bind-Placeholder Occurrence Regression
 
-These two final cases define the handle-level occurrence contract for the project's `vastbase-mysql` compatibility entry; they do not claim official Vastbase server capabilities. For the input and every patched public SQL text, the runner checks `position`, `kind`, `key`, and `sql` item by item. Every anonymous `?` remains a separate occurrence, numbering continues across statements, and question-mark-like text in strings, ordinary comments, non-statement executable comments, and backtick identifiers is excluded.
+These three final cases define the handle-level occurrence contract for the project's `vastbase-mysql` compatibility entry; they do not claim official Vastbase server capabilities. For the input and every patched public SQL text, the runner checks `position`, `kind`, `key`, and `sql` item by item. Every anonymous `?` remains a separate occurrence, numbering continues across statements, and question-mark-like text in strings, ordinary comments, non-statement executable comments, and backtick identifiers is excluded.
 
 | Case | Root Occurrences | Patches | Base-Entry Relationship | Validation Focus |
 | --- | ---: | ---: | --- | --- |
 | `vastbase-mysql-multi-statement-global-bind-position` | 4 | 5 | field-for-field mirror of `mysql-multi-statement-global-bind-position` except for the case name | multi-statement SQL, a statement-level executable comment, ordinary/inline comments, and continuous anonymous positions after a complex-expression rewrite |
 | `vastbase-mysql-insert-bind-mixed-three-rows` | 9 | 3 | corresponds to the base MySQL case; this entry uses `CONVERT(?, BIGINT)` while the base entry uses `CAST(? AS SIGNED)`, with the same occurrence contract | nine anonymous occurrences across functions, conversion, and CASE in three VALUES rows; renumbering after removing the first or last bind |
+| `vastbase-mysql-update-multiple-target-three-table-bind-order` | 12 | 3 | mirrors the base MySQL multi-target UPDATE case | ON/SET/WHERE occurrence order across three joined tables and renumbering after assignment patches |
 
 | ID | Case | SQL | Status |
 | --- | --- | --- | --- |
@@ -160,6 +161,11 @@ These two final cases define the handle-level occurrence contract for the projec
 | `VM252` | `vastbase-mysql-string-equal-value-surfaces` | plain, lowercase-`n`, and uppercase-`N` strings with the same value | View exposes three independently addressable values; AST ownership preserves each surface spelling without reusing another equal-valued literal after replacement or insertion |
 | `VM253` | `vastbase-mysql-string-nested-surface-owners` | an outer double-quoted string, an inner lowercase-`n` string, and an escaped WHERE string | nested block, relation, field, target, and value attribution is complete; cross-level patches preserve every untouched string byte for byte |
 | `VM254` | `vastbase-mysql-merge-insert-structured-pair-rewrite` | structured MERGE INSERT target-column and VALUES-cell rewriting | verifies independent target-column, source-field, and expression-cell selectors, plus backtick preservation and atomic column/value insertion and deletion |
+| `VM255` | `vastbase-mysql-update-multiple-target-inner-join` | two-table `INNER JOIN` with interleaved assignments to both targets | assignment relation attribution and insert, replace, and delete patches |
+| `VM256` | `vastbase-mysql-update-multiple-target-three-table-bind-order` | three joined tables, three assignment targets, and 12 `?` occurrences | ON/SET/WHERE occurrence order and renumbering after patches |
+| `VM257` | `vastbase-mysql-update-multiple-target-four-relation-comma-list` | four comma-separated relations with three assignment targets | comma-list relations, target-field attribution, and assignment patches |
+| `VM258` | `vastbase-mysql-update-multiple-target-four-table-mixed-join` | four-table INNER/LEFT JOIN chain with four assignment targets | JOIN-chain restoration, per-assignment relations, and tail replacement |
+| `VM259` | `vastbase-mysql-update-multiple-target-quoted-identifiers` | schema-qualified backtick objects with two assignment targets | quoted relation/field attribution and relation and assignment patches |
 | `VMU001` | `vastbase-mysql-insert-ignore` | INSERT IGNORE INTO `users` (`id`) VALUES (1) | covered |
 | `VMU002` | `vastbase-mysql-insert-delayed` | INSERT DELAYED INTO `users` (`id`) VALUES (1) | covered |
 | `VMU003` | `vastbase-mysql-insert-low-priority` | INSERT LOW_PRIORITY INTO `users` (`id`) VALUES (1) | covered |
@@ -194,6 +200,8 @@ These two final cases define the handle-level occurrence contract for the projec
 | `VMU019` | `vastbase-mysql-delete-left-join` | DELETE u FROM users u LEFT JOIN orders o ON u.id=o.user_id WHERE u.phone = ? | covered |
 | `VMU020` | `vastbase-mysql-update-join-source-assignment` | UPDATE users u JOIN orders o ON u.id=o.user_id SET o.shipping_phone = ? WHERE u.id = ? | covered |
 | `VMU021` | `vastbase-mysql-delete-join-source-target` | DELETE o FROM users u JOIN orders o ON u.id=o.user_id WHERE o.phone = ? | covered |
+
+`VM255` through `VM259` define the multi-target multi-table UPDATE contract for the project's `vastbase-mysql` entry. `ORDER BY` and `LIMIT` are rejected for this multi-table form. This matrix does not claim that the Vastbase server documentation defines the same syntax scope.
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 

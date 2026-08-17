@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 177 条 `status = "final"` 用例和 636 个独立 patch；其中 2 条用例及其 6 个 patch 含完整 bind occurrence 断言。34 条用例包含 statement 级 `query_graph.session`，覆盖 `D002`、`D003`、`D003Q`、`D026`、`D089` 至 `D095` 和 `DM-*` session 用例；这 34 条用例均至少包含一个非空 session item。
+夹具包含 183 条 `status = "final"` 用例和 653 个独立 patch；其中 8 条用例及其 23 个 patch 含完整 bind occurrence 断言。34 条用例包含 statement 级 `query_graph.session`，覆盖 `D002`、`D003`、`D003Q`、`D026`、`D089` 至 `D095` 和 `DM-*` session 用例；这 34 条用例均至少包含一个非空 session item。
 
 用例提供 `query_graph.session` 时，矩阵测试会随完整 View JSON 精确校验 session action、item scope、target kind、name 及 value 字段。每条用例还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
 
@@ -200,6 +200,19 @@
 | D148 | `dameng-hierarchical-connect-start-source-order` | `CONNECT BY` 后接 `START WITH` | 反向源文本子句顺序逐字保留，View 仍按 START WITH、CONNECT BY 语义顺序构建 |
 | D149 | `dameng-hierarchical-prior-reverse-direction` | `PRIOR manager_id = employee_id` | `PRIOR` 位于比较左侧但作用字段方向与基础用例相反，field-to-field 归属保持明确 |
 | D150 | `dameng-hierarchical-connect-by-root-nocycle` | `CONNECT_BY_ROOT` + `LEVEL` + `CONNECT BY NOCYCLE` | expression target 的 operator `target_path`、relationless pseudo target 和 CONNECT BY 根 predicate 的 `nocycle` 标记 |
+
+## 多表单目标 UPDATE 回归
+
+达梦多表 `UPDATE` 支持 JOIN 链、逗号 relation 列表及两者混合，但全部 SET assignment 必须解析到同一个 table object；该唯一对象作为 statement 和 DML target relation。
+
+| ID | 用例 | SQL 形态 | 覆盖内容 |
+| --- | --- | --- | --- |
+| D154 | `dameng-multitable-update-two-table-join-first-target-contract` | 两表 JOIN，首 relation 为目标 | 唯一 target、ON/WHERE 归属及 assignment、relation patch |
+| D155 | `dameng-multitable-update-three-table-middle-target-contract` | 三 relation 逗号列表，中间 relation 为目标 | 非首目标解析、bind 顺序及 assignment patch |
+| D156 | `dameng-multitable-update-four-table-last-target-contract` | 四 relation 逗号列表，末 relation 为目标 | quoted object、末 relation target 及 patch |
+| D157 | `dameng-multitable-update-same-table-distinct-alias-contract` | 同一表对象使用不同 alias | 按 alias 区分唯一写入对象及复合右值 patch |
+| D158 | `dameng-multitable-update-four-table-join-chain-contract` | LEFT/INNER/RIGHT JOIN 链 | JOIN condition、唯一中间 target 和 assignment patch |
+| D159 | `dameng-multitable-update-join-comma-mixed-contract` | JOIN 与逗号 relation 混合 | 混合 relation list、唯一 target 和反解析 |
 
 ## 覆盖边界
 

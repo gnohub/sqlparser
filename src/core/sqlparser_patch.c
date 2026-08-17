@@ -4978,6 +4978,17 @@ static sqlparser_status_t sqlparser_patch_parse_assignment_target(
 	}
 	out_target->view.parts = out_target->parts;
 	out_target->view.part_count = column_ref->n_fields;
+	if (handle->dialect == SQLPARSER_DIALECT_DAMENG) {
+		size_t target_relation_index;
+
+		target_relation_index = 0U;
+		if (sqlparser_dameng_statement_multi_update_target_index(
+			    handle->dialect_state,
+			    statement_index,
+			    &target_relation_index)) {
+			return SQLPARSER_STATUS_OK;
+		}
+	}
 	if (sqlparser_proto_location_is_identifier_spelling(
 		    column_ref->location)) {
 		if (!sqlparser_patch_identifier_path_is_exact(
@@ -7582,6 +7593,20 @@ static sqlparser_status_t sqlparser_patch_plan_surface_edit(
 			out_error);
 		if (status != SQLPARSER_STATUS_OK) {
 			return status;
+		}
+	}
+	if (handle->dialect == SQLPARSER_DIALECT_DAMENG &&
+	    selector.kind == SQLPARSER_SELECTOR_KIND_ASSIGNMENT &&
+	    (patch->op == SQLPARSER_PATCH_REPLACE_ASSIGNMENT ||
+	     patch->op == SQLPARSER_PATCH_INSERT_ASSIGNMENT)) {
+		size_t target_relation_index;
+
+		target_relation_index = 0U;
+		if (sqlparser_dameng_statement_multi_update_target_index(
+			    handle->dialect_state,
+			    selector.statement_index,
+			    &target_relation_index)) {
+			return SQLPARSER_STATUS_OK;
 		}
 	}
 	if (patch->op == SQLPARSER_PATCH_INSERT_COLUMN &&

@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.16.5
+
+### Multi-Table UPDATE
+
+- MySQL and the Vastbase-MySQL compatibility entry support multiple write targets across JOIN chains and comma-separated table lists. Each assignment is associated with the relation identified by its qualifier, and mixed-target updates do not expose a single `dml.target_relation`.
+- Dameng supports multi-table UPDATE statements with JOIN or comma-separated table lists while requiring every assignment to target the same table object. Cross-target, unknown, or ambiguous qualifiers return `SQLPARSER_STATUS_UNSUPPORTED`.
+- Assignment and relation mutations continue to use the existing selectors and transaction candidate. A failure preserves the original handle, SQL, View, and generation.
+- This release adds no public C declarations, View JSON fields, or resource-ownership rules. Query Graph continues to express write ownership through each assignment's existing `target_field` and the field's `relation`.
+
+### Cases and Validation
+
+- Sixteen final cases and 41 patches were added. The nine fixtures now contain 2,822 final cases and 9,118 patches.
+- The full remote `make test` suite passed. Four targeted Valgrind checks covering the core API, MySQL, Vastbase-MySQL, and Dameng each reported `0 bytes in 0 blocks` and zero errors.
+
 ## 2.16.4
 
 ### Assignment-List Selection and Rewrite

@@ -22,6 +22,8 @@
 
 `RETURNING_INTO` 的 `CURRENT` 边界为 `INSERT`、`DELETE` 的 `RETURNING <target, ...> INTO <:bind, ...>`，以及 `UPDATE` 的 `RETURN <target, ...> INTO <:bind, ...>`。每个列表均为 `N >= 1` 项，两个列表严格等长并按序号一一配对；接收项必须是冒号宿主 bind。该边界不包含 `BULK COLLECT`、非冒号 bind 接收项或不等长列表。
 
+`UPDATE` 的 `CURRENT` 边界包括 JOIN 链、逗号 relation 列表及混合形态的多表单目标更新；全部 SET assignment 必须指向同一个 table object。
+
 ## 统计结果
 
 | 状态 | 语法组数 | 占全部 38 组 |
@@ -45,5 +47,7 @@
 达梦 `MERGE` 的 `CURRENT` 边界包含 matched UPDATE 的 action `WHERE` 以及归属同一 UPDATE 分支的附属 `DELETE WHERE`。可执行矩阵使用 1 条用例和 3 个独立 patch 验证该边界。
 
 达梦层次查询的 `CURRENT` 边界包括 `START WITH` 与 `CONNECT BY` 两种源文本顺序、一元 `PRIOR` 的两种父子字段方向、`LEVEL`、`CONNECT_BY_ROOT` 和 `NOCYCLE`。可执行矩阵包含 4 条 `final` 用例和 20 个独立 patch。
+
+达梦多表 `UPDATE` 的 `CURRENT` 边界始终只有一个写入目标。可执行矩阵包含 6 条 `final` 用例和 17 个独立 patch，覆盖首、中、末 relation 目标、同表不同 alias、JOIN 链及 JOIN/逗号混合形态。
 
 达梦当前已覆盖常用查询、DML、DDL、事务、权限、`SET SCHEMA`、代表性会话参数设置语句、远程对象引用基础形态，以及上述 `N >= 1` 严格等长、按序配对的 `RETURN`/`RETURNING ... INTO` 形态。可执行矩阵使用 3 条用例覆盖 INSERT、UPDATE、DELETE 的 8↔8 配对及头、中、尾原子插入后的 9↔9 配对。其余 5 个语法组依赖达梦专属查询模型或程序单元语义，当前不纳入 PostgreSQL 兼容转换。
