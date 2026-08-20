@@ -49,6 +49,7 @@ MySQL 方言支持可安全映射到当前 AST 的常用 SQL 形态，覆盖范�
 - `sqlparser_deparse()` 输出 MySQL 公共形态，不暴露内部转换细节。
 - 反引号标识符和 MySQL 字符串兼容规则由方言层处理。
 - View JSON 使用统一的 `query_graph` 结构；其中的标识符和值按 MySQL 公开形态输出。
+- Query Graph 以 `alias_quoted_identifier` 标记反引号 relation alias，以 `output_quoted_identifier` 标记反引号显式 output alias 或无显式别名时继承的反引号字段名；View JSON 仅输出值为 `true` 的键。
 - 多目标 `UPDATE` 不输出单一 `dml.target_relation`；各 assignment 通过 `target_field` 对应字段的 relation 表达写入目标。
 - 无法安全表达的 MySQL 专属语义不会降级为 PostgreSQL 语义。
 
@@ -61,4 +62,4 @@ MySQL 支持范围以以下文件为准：
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-当前 MySQL 方言矩阵包含 260 条 `status = "final"` 用例和 876 个独立 patch。
+当前 MySQL 方言矩阵包含 261 条 `status = "final"` 用例和 878 个独立 patch。

@@ -111,6 +111,10 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
   preserved.
 - Attributable expression fragments in View JSON use the public SQL Server
   form.
+- Query Graph uses `alias_quoted_identifier` for bracket-delimited relation
+  aliases and `output_quoted_identifier` for explicit bracket-delimited output
+  aliases or inherited bracket-delimited field names when no explicit alias
+  exists. View JSON emits either key only when its value is `true`.
 - Control conditions and branch SQL are emitted as ordered statement units;
   View JSON `control_flow` mirrors the public read-only control structures.
 - Failed expression-fragment rewrites are not committed to the handle; the
@@ -125,7 +129,7 @@ The SQL Server support boundary is defined by:
 - `tests/unit/test_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The SQL Server matrix contains 625 cases, all with `status = "final"`, and 1870
+The SQL Server matrix contains 626 cases, all with `status = "final"`, and 1872
 independent patches. Three cases respectively verify INSERT, UPDATE, and DELETE
 with 8↔8 OUTPUT-target/sink-column pairs and atomic head, middle, and tail
 insertions that produce 9↔9 pairs.

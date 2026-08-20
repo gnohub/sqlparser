@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 251 条 `status = "final"` 用例和 852 个独立 patch；其中 2 条用例及其 6 个 patch 含完整 bind occurrence 断言。59 条用例包含 statement 级 `query_graph.session`，覆盖 `O043`、`O043Q`、`O044` 至 `O047`、`O082` 至 `O086`，以及 `ORA-*` session 用例；这 59 条用例均至少包含一个非空 session item。
+夹具包含 252 条 `status = "final"` 用例和 854 个独立 patch；其中 2 条用例及其 6 个 patch 含完整 bind occurrence 断言。59 条用例包含 statement 级 `query_graph.session`，覆盖 `O043`、`O043Q`、`O044` 至 `O047`、`O082` 至 `O086`，以及 `ORA-*` session 用例；这 59 条用例均至少包含一个非空 session item。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name 及 value 字段均属于比较范围。
 
@@ -243,6 +243,14 @@ Oracle `INSERT`、`UPDATE`、`DELETE` 的 `RETURNING ... INTO` 支持 `N >= 1` �
 | O198 | `oracle-insert-returning-eight-target-bind-pairs` | INSERT | 8 对结果；在 index 0 成对插入 `tenant_id` / `:out_tenant_id`，验证头部 9 对及 ordinal 对齐 |
 | O199 | `oracle-update-returning-eight-target-bind-pairs` | UPDATE | 完整顺序枚举 SET、WHERE 及 8 个 `INTO` bind，根 SQL 共 11 个 occurrence；index 4 成对插入 `postal_code` / `:out_postal_code` 后为 12 个，并保持 9 对 ordinal 对齐 |
 | O200 | `oracle-delete-returning-eight-target-bind-pairs` | DELETE | 8 对结果；在 index 8 成对插入 `tenant_id` / `:out_tenant_id`，验证尾部 9 对及 ordinal 对齐 |
+
+## Query Graph 引号别名合同
+
+`relations[].alias_quoted_identifier` 仅在 relation alias 使用双引号定界时为 `true`。`targets[].output_quoted_identifier` 在 output name 来自双引号显式别名，或无显式别名时继承双引号字段名时为 `true`；View JSON 不输出值为 `false` 的键。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| O201 | `oracle-quoted-relation-alias-and-target-output-contract` | 双引号 relation/派生表 alias 与 output name | 两个引号标志、字段名继承及 2 个 output alias patch |
 
 ## 覆盖边界
 

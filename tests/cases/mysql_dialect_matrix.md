@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 260 条 `status = "final"` 用例和 876 个独立 patch；其中 3 条用例及其 11 个 patch 含完整 bind occurrence 断言。37 条用例的期望 View 包含 statement 级 `query_graph.session`，覆盖 `M015` 至 `M017`、`MY-001` 至 `MY-029` 以及 5 条注释或空语句穿插的 `USE` 边界；这 37 条用例均至少包含一个非空 session 投影。
+夹具包含 261 条 `status = "final"` 用例和 878 个独立 patch；其中 3 条用例及其 11 个 patch 含完整 bind occurrence 断言。37 条用例的期望 View 包含 statement 级 `query_graph.session`，覆盖 `M015` 至 `M017`、`MY-001` 至 `MY-029` 以及 5 条注释或空语句穿插的 `USE` 边界；这 37 条用例均至少包含一个非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session 投影的 action、item scope、target kind、name 及 value 字段均属于比较范围。
 
@@ -198,6 +198,14 @@ MySQL 多表 `UPDATE` 支持 JOIN 链和逗号 relation 列表中的多个写入
 | M256 | `mysql-update-multiple-target-four-relation-comma-list` | 四 relation 逗号列表、三目标 assignment | 逗号 relation、目标字段归属及 assignment patch |
 | M257 | `mysql-update-multiple-target-four-table-mixed-join` | 四表 INNER/LEFT 混合 JOIN、四目标 assignment | JOIN 链、逐 assignment relation 和末项替换 |
 | M258 | `mysql-update-multiple-target-quoted-identifiers` | schema-qualified 反引号对象与双目标 assignment | quoted relation/field 归属及 relation、assignment patch |
+
+## Query Graph 引号别名合同
+
+`relations[].alias_quoted_identifier` 仅在 relation alias 使用反引号定界时为 `true`。`targets[].output_quoted_identifier` 在 output name 来自反引号显式别名，或无显式别名时继承反引号字段名时为 `true`；View JSON 不输出值为 `false` 的键。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| M259 | `mysql-quoted-alias-output-flags` | 反引号 relation/派生表 alias 与 output name | 两个引号标志、字段名继承及 2 个 output alias patch |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 

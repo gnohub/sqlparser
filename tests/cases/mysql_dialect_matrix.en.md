@@ -4,7 +4,7 @@ This file records regression cases for the MySQL dialect conversion layer. The e
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 260 cases with `status = "final"` and 876 independent
+The fixture contains 261 cases with `status = "final"` and 878 independent
 patches. Three cases and their 11 patches contain complete bind-occurrence
 assertions. Expected View JSON contains
 statement-level `query_graph.session` output in 37 cases, covering `M015`
@@ -206,6 +206,14 @@ MySQL multi-table `UPDATE` accepts multiple write targets across JOIN chains and
 | M256 | `mysql-update-multiple-target-four-relation-comma-list` | four comma-separated relations with three assignment targets | comma-list relations, target-field attribution, and assignment patches |
 | M257 | `mysql-update-multiple-target-four-table-mixed-join` | four-table INNER/LEFT JOIN chain with four assignment targets | JOIN-chain restoration, per-assignment relations, and tail replacement |
 | M258 | `mysql-update-multiple-target-quoted-identifiers` | schema-qualified backtick objects with two assignment targets | quoted relation/field attribution and relation and assignment patches |
+
+## Query Graph Quoted-Alias Contract
+
+`relations[].alias_quoted_identifier` is `true` only when the relation alias is backtick delimited. `targets[].output_quoted_identifier` is `true` when the output name comes from an explicit backtick-delimited alias, or inherits a backtick-delimited field name without an explicit alias; View JSON omits either key when its value is `false`.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| M259 | `mysql-quoted-alias-output-flags` | backtick-delimited relation/derived aliases and output names | both quoted flags, field-name inheritance, and two output-alias patches |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 

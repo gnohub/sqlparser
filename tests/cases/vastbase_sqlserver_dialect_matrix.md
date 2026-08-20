@@ -15,9 +15,13 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 605 条 `status = "final"` 用例和 1853 个独立 patch，其中 75 条用例的期望 View 包含非空 session 投影。
+夹具包含 606 条 `status = "final"` 用例和 1855 个独立 patch，其中 75 条用例的期望 View 包含非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
+
+## 定界别名状态回归
+
+`vastbase-sqlserver-graph-quoted-relation-alias-and-target-output` 及其 2 个 output alias patch 验证 Query Graph 字段合同：relation alias 的精确来源 token 使用方括号时输出 `alias_quoted_identifier: true`；target 的 `output_name` 来源于带方括号的显式 alias，或无显式 alias 时来源于带方括号的直接字段 token，则输出 `output_quoted_identifier: true`。未定界来源不输出对应字段。该合同属于项目兼容入口，不代表 Vastbase 服务端官方语法范围。
 
 ## 完整绑定占位符 occurrence 回归
 

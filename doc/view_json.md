@@ -189,6 +189,7 @@ FROM (
 | `table` | SQL 中出现的表名；派生表没有表名时省略 |
 | `quoted_identifier` | `table` 对应的对象名 token 显式使用 `"..."`、MySQL 反引号或 SQL Server `[...]` 时为 `true`；否则省略 |
 | `alias` | SQL 中出现的别名；未出现时省略 |
+| `alias_quoted_identifier` | `alias` 对应的精确 token 显式使用 `"..."`、MySQL 反引号或 SQL Server `[...]` 时为 `true`；否则省略 |
 | `link` | 远程对象引用中的 database link 名称；未出现时省略 |
 | `source_block` | 派生表或 CTE 指向的查询块；没有来源块时省略 |
 | `selector` | 可用于 patch 的关系 selector；没有可写节点时省略 |
@@ -215,6 +216,7 @@ FROM (
 | `ordinal` | 输出项在当前 SELECT 列表中的序号 |
 | `kind` | `field`、`star`、`qualified_star`、`literal`、`bind`、`subquery`、`pseudo`、`expression` |
 | `name` | 输出名或别名；没有时省略 |
+| `output_quoted_identifier` | 有显式输出 alias 时表示 alias token 的定界符状态；没有显式 alias 且 `name` 由直接字段继承时表示字段 token 的状态。仅为 `true` 时输出 |
 | `field` | 直接字段输出或层次伪列输出对应的 `fields[]` 索引；不适用时省略 |
 | `value` | literal 或 bind 输出项对应的 `values[]` 索引；不适用时省略 |
 | `sink_value` | host-bind sink 中接收该 DML 结果 target 的 `values[]` 输出 bind 索引；不适用时省略 |
@@ -398,7 +400,9 @@ item 字段：
 
 value 的 `kind` 为 `identifier`、`keyword`、`literal`、`bind` 或 `expression`。标识符、关键字和表达式使用 `text`；字面量使用 `literal`；bind 使用 `bind_key`、`bind_kind`、`bind_sql`，其 `bind_position` 从 `1` 开始，按同一 handle 内各 statement 中的 SQL 出现顺序编号。`identifier` 的原始 token 显式使用 `"..."`、MySQL 反引号或 SQL Server `[...]` 时输出 `quoted_identifier: true`。各类 value 均可包含可选 `name`，用于区分同一 item 内具有独立语义的值；例如 `SET NAMES ... COLLATE ...` 的 collation value 使用 `"name": "collation"`。没有可用的独立语义标签时省略该字段。
 
-`quoted_identifier` 只表示精确来源 token 是否使用支持的标识符定界符，不表示定界符类型。Relation 中该字段只对应对象名，不覆盖 database、schema 或 alias；field 中只对应列名。普通单引号字符串和解析器内部生成的引号样式不会产生该字段。
+`quoted_identifier` 只表示精确来源 token 是否使用支持的标识符定界符，不表示定界符类型。Relation 中该字段只对应对象名，不覆盖 database、schema 或 alias；`alias_quoted_identifier` 单独对应 relation alias。Field 中 `quoted_identifier` 只对应列名。
+
+`output_quoted_identifier` 优先描述显式输出 alias；没有显式 alias 时，仅当 `name` 由直接字段继承才描述字段 token。上述标志只识别 `"..."`、MySQL 反引号和 SQL Server `[...]`，仅为 `true` 时输出；PostgreSQL `U&"..."`、普通单引号字符串和解析器内部生成的引号样式不会产生这些字段。
 
 ## DML
 

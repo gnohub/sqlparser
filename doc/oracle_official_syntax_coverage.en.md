@@ -63,8 +63,8 @@ rejects `BULK COLLECT`, receivers other than colon-prefixed binds, and unequal
 list lengths. A paired `insert_column` inserts both the target and receiver in
 the same patch rather than exposing one-sided operations. O198 through O200
 each verify eight pairs and nine pairs after insertion at the head, middle, or
-tail. The complete Oracle executable fixture contains 251 `final` cases and
-852 independent patches. The remaining Oracle gaps are mainly Oracle-specific
+tail. The complete Oracle executable fixture contains 252 `final` cases and
+854 independent patches. The remaining Oracle gaps are mainly Oracle-specific
 semantics that
 cannot be safely mapped to the shared AST. `SYNONYM` and `EXPLAIN PLAN FOR` now
 cover basic statement parsing, keywords, and deparse output; full object

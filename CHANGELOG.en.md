@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.16.6
+
+### Query Graph Identifier Delimiter Metadata
+
+- `sqlparser_graph_relation_t` adds `alias_quoted_identifier`, and `sqlparser_graph_target_t` adds `output_quoted_identifier`. They report whether a relation alias or target output name uses an identifier delimiter; View JSON emits the corresponding field only when its value is `true`.
+- An explicit output alias determines `output_quoted_identifier`. Without an explicit alias, an output name taken directly from a field inherits that field's delimiter state. Double quotes, backticks, and brackets are recognized; a `U&` prefix is not counted separately.
+- No public export symbols, dynamic allocations, or resource-ownership rules were added. On the supported x86_64 and AArch64 layouts, existing member offsets and `sizeof` remain unchanged for the affected structures.
+
+### Cases and Validation
+
+- Nine final cases and 18 patches were added. The nine fixtures now contain 2,831 final cases and 9,136 patches.
+- The full remote `make test` suite passed. The ABI/export check remains at 154 public symbols, and the targeted identifier Valgrind check reported `0 bytes in 0 blocks` and zero errors.
+
 ## 2.16.5
 
 ### Multi-Table UPDATE

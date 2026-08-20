@@ -4,7 +4,7 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 216 cases with `status = "final"` and 729 independent
+The fixture contains 217 cases with `status = "final"` and 731 independent
 patches. Two cases and their 10 patches contain complete bind-occurrence
 assertions. Expected View JSON contains
 statement-level `query_graph.session` output in 32 cases: 5 schema/session
@@ -195,6 +195,14 @@ and value fields are all part of that comparison.
 | P166 | `postgresql-merge-matched-delete-action` | conditional matched DELETE and matched UPDATE actions followed by a not-matched INSERT | DELETE remains an independent `WHEN MATCHED ... THEN DELETE` branch; all three branches retain their absolute order and selectors; 3 independent patches cover the DELETE branch condition, UPDATE assignment, and INSERT cell |
 | P167 | `postgresql-on-conflict-assignment-list-contract` | root `INSERT ... ON CONFLICT DO UPDATE SET` with two assignments | ordered `assignment[A]` selectors address conflict-update items; insertion, full replacement, and deletion deparse exactly |
 | P168 | `postgresql-data-modifying-cte-update-assignment-list-contract` | nested two-assignment `UPDATE` in a data-modifying CTE | `assignment[D][A]` uses the zero-based DML ordinal; all three assignment patches preserve `RETURNING` and the outer query |
+
+## Query Graph Quoted-Alias Contract
+
+`relations[].alias_quoted_identifier` is `true` only when the relation alias is double-quote delimited. `targets[].output_quoted_identifier` is `true` when the output name comes from an explicit double-quoted alias, or inherits a double-quoted field name without an explicit alias; View JSON omits either key when its value is `false`.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| P169 | `postgresql-quoted-relation-alias-and-target-output-contract` | double-quoted relation/derived aliases and output names | both quoted flags, field-name inheritance, and two output-alias patches |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 

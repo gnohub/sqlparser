@@ -852,8 +852,8 @@ from which it was read.
 | Struct | Meaning |
 | --- | --- |
 | `sqlparser_graph_block_t` | query block with relation, target, and predicate spans |
-| `sqlparser_graph_relation_t` | base, derived, CTE, or dual relation visible in SQL; `quoted_identifier` reports an explicit supported delimiter on the object-name token |
-| `sqlparser_graph_target_t` | query or DML-result output target with output order, star source, selector, and an optional sink-value association |
+| `sqlparser_graph_relation_t` | base, derived, CTE, or dual relation visible in SQL; `quoted_identifier` and `alias_quoted_identifier` report delimiter state for the object name and relation alias |
+| `sqlparser_graph_target_t` | query or DML-result output target; `output_quoted_identifier` reports delimiter state for the token represented by `output_name` |
 | `sqlparser_graph_field_t` | field-reference occurrence visible in SQL; `quoted_identifier` reports an explicit supported delimiter on the column-name token, while `pseudo` / `prior` report hierarchical occurrence semantics |
 | `sqlparser_graph_value_t` | literal, bind, default, expression, or field value in the query graph |
 | `sqlparser_graph_set_t` | `UNION`, `UNION ALL`, `INTERSECT`, or `EXCEPT/MINUS` branches |
@@ -875,7 +875,23 @@ from which it was read.
   and `sqlparser_graph_field_t.quoted_identifier` applies only to
   `column_name`. It is `1` when the exact source token uses `"..."`, MySQL
   backticks, or SQL Server `[...]`, and `0` otherwise. The flag does not
-  classify the delimiter kind or describe database, schema, or alias state.
+  classify the delimiter kind or describe database or schema state.
+- `sqlparser_graph_relation_t.alias_quoted_identifier` applies only to
+  `alias_name`. It is `1` when a relation alias exists and its exact source
+  token uses one of the three supported delimiter forms, and `0` when the
+  alias is absent or unquoted.
+- `sqlparser_graph_target_t.output_quoted_identifier` applies to `output_name`.
+  An explicit output alias is authoritative and the flag describes its token.
+  Without an explicit alias, a name inherited from a direct field describes
+  that field token. The flag is `0` in other cases.
+- These flags do not treat PostgreSQL `U&"..."` as a supported delimiter and
+  are not set by quote styles generated internally by the parser. The two new
+  scalar flags add no string or persistent allocation and do not change query
+  graph ownership or lifetime rules.
+- On x86_64 and AArch64 64-bit layouts, the two new `int` fields occupy the
+  existing tail padding in the 2.16.5 structs; both `sizeof` values and all old
+  field offsets remain unchanged. This statement does not apply to 32-bit
+  layouts and is not a claim of unchanged ABI on every platform.
 - `sqlparser_graph_relation_t.link_name` reports the database link for remote
   object references. It is `NULL` when the SQL has no database link.
 - `relations[].source_block_index` links a derived table or CTE to its source

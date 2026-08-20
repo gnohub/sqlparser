@@ -15,9 +15,13 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 261 cases with `status = "final"` and 836 independent patches. Three cases and their 11 patches contain complete bind-occurrence assertions. The expected View contains a non-empty session projection in 44 cases.
+The fixture contains 262 cases with `status = "final"` and 838 independent patches. Three cases and their 11 patches contain complete bind-occurrence assertions. The expected View contains a non-empty session projection in 44 cases.
 
 View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
+
+## Delimited Alias-State Regression
+
+`vastbase-mysql-quoted-alias-output-flags` and its two output-alias patches verify the Query Graph field contract: `alias_quoted_identifier: true` is emitted when the exact relation-alias token uses backticks; `output_quoted_identifier: true` is emitted when `output_name` comes from a backtick-delimited explicit alias, or from a backtick-delimited direct-field token when no explicit alias exists. The corresponding field is omitted for an undelimited source. This is a project compatibility-entry contract, not a claim about official Vastbase server syntax.
 
 ## Complete Bind-Placeholder Occurrence Regression
 

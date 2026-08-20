@@ -4,7 +4,7 @@ This file records regression cases for the SQL Server dialect conversion layer. 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 625 cases with `status = "final"` and 1870 independent
+The fixture contains 626 cases with `status = "final"` and 1872 independent
 patches. Two cases and their 6 patches contain complete bind-occurrence
 assertions. A non-empty
 `query_graph.session` projection appears in 91 expected Views, covering `S044`
@@ -116,6 +116,14 @@ explicit sink-column list are also outside this paired-mutation boundary.
 | Case ID | Case Name | Statement Shape | Validation Focus |
 | --- | --- | --- | --- |
 | SH428 | `sqlserver-nested-update-output-assignment-contract` | an `UPDATE` with `OUTPUT` nested in `INSERT ... SELECT` | `assignment[D][A]` addresses the two D1 assignments; insertion, full replacement, and deletion preserve nesting and `OUTPUT` |
+
+## Query Graph Quoted-Alias Contract
+
+`relations[].alias_quoted_identifier` is `true` only when the relation alias is bracket delimited. `targets[].output_quoted_identifier` is `true` when the output name comes from an explicit bracket-delimited alias, or inherits a bracket-delimited field name without an explicit alias; View JSON omits either key when its value is `false`.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| SH429 | `sqlserver-graph-quoted-relation-alias-and-target-output` | bracket-delimited relation/derived aliases and output names | both quoted flags, field-name inheritance, and two output-alias patches |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 

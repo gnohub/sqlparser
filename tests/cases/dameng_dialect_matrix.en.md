@@ -4,7 +4,7 @@ This file records regression cases for the Dameng dialect conversion layer. The 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 183 cases with `status = "final"` and 653 independent
+The fixture contains 184 cases with `status = "final"` and 655 independent
 patches. Eight cases and their 23 patches contain complete bind-occurrence
 assertions.
 Statement-level `query_graph.session` appears in 34 cases, covering `D002`,
@@ -233,6 +233,14 @@ Dameng multi-table `UPDATE` accepts JOIN chains, comma-separated relation lists,
 | D157 | `dameng-multitable-update-same-table-distinct-alias-contract` | the same table object under distinct aliases | unique write-object resolution by alias and compound-right-side patches |
 | D158 | `dameng-multitable-update-four-table-join-chain-contract` | LEFT/INNER/RIGHT JOIN chain | JOIN conditions, one middle target, and assignment patches |
 | D159 | `dameng-multitable-update-join-comma-mixed-contract` | mixed JOIN and comma-separated relations | mixed relation list, unique target, and deparse |
+
+## Query Graph Quoted-Alias Contract
+
+`relations[].alias_quoted_identifier` is `true` only when the relation alias is double-quote delimited. `targets[].output_quoted_identifier` is `true` when the output name comes from an explicit double-quoted alias, or inherits a double-quoted field name without an explicit alias; View JSON omits either key when its value is `false`.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| D160 | `dameng-quoted-relation-alias-and-target-output-contract` | double-quoted relation/derived aliases and output names | both quoted flags, field-name inheritance, and two output-alias patches |
 
 ## Coverage Boundary
 

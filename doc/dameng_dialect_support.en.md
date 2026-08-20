@@ -88,6 +88,10 @@ handle:
   `query_graph.values[]`.
 - A multi-table `UPDATE` always has one `dml.target_relation`; every
   assignment's `target_field` resolves to that relation.
+- Query Graph uses `alias_quoted_identifier` for double-quoted relation aliases
+  and `output_quoted_identifier` for explicit double-quoted output aliases or
+  inherited double-quoted field names when no explicit alias exists. View JSON
+  emits either key only when its value is `true`.
 - Attributable expression fragments in View JSON use the public Dameng
   form.
 - Failed expression-fragment rewrites are not committed to the handle; the
@@ -103,8 +107,8 @@ The Dameng support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current Dameng matrix contains 183 cases, all with `status = "final"`, and
-653 independent patches. Six cases cover multi-table single-target `UPDATE`.
+The current Dameng matrix contains 184 cases, all with `status = "final"`, and
+655 independent patches. Six cases cover multi-table single-target `UPDATE`.
 Three multi-return cases respectively verify INSERT
 `RETURNING`, UPDATE `RETURN`, and DELETE `RETURNING` with 8↔8 pairs and atomic
 head, middle, and tail insertions that produce 9↔9 pairs.

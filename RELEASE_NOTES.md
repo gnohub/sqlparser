@@ -1,9 +1,7 @@
-# v2.16.5 发布说明
+# v2.16.6 发布说明
 
-MySQL 与 Vastbase-MySQL 兼容入口支持 JOIN 链和逗号表列表中的多个写入目标。每个 assignment 通过既有 `target_field` 与 field `relation` 表达写入归属；混合目标不输出单一 `dml.target_relation`。
+Query Graph 新增 relation `alias_quoted_identifier` 和 target `output_quoted_identifier`，分别标识 alias 与 output name 是否使用标识符定界符；View JSON 仅在值为 `true` 时输出对应字段。显式 output alias 优先；没有显式 alias 且 output name 直接来自字段时继承字段定界状态。支持双引号、反引号和方括号形式，`U&` 前缀不单独计入。
 
-Dameng 支持 JOIN 和逗号表列表形式的多表 UPDATE，但全部 assignment 必须指向同一个 table object。跨目标、未知或歧义限定符明确返回 `SQLPARSER_STATUS_UNSUPPORTED`。既有 assignment、relation patch 和事务回滚规则保持不变。
-
-本版本未新增公开 C 声明、View JSON 字段或资源所有权规则。新增 16 条 final case 和 41 个 patch 后，九套 fixture 合计 2,822 条 final case 和 9,118 个 patch。远端完整 `make test` 通过；核心 API 与三套受影响方言矩阵的定向 Valgrind 检查均为 `0 bytes in 0 blocks`、0 errors。
+本版本未新增公开导出符号、动态分配或资源所有权规则。受支持的 x86_64 与 AArch64 布局检查中，相关结构体既有成员 offset 与 `sizeof` 保持不变。新增 9 条 final case 和 18 个 patch 后，九套 fixture 合计 2,831 条 final case 和 9,136 个 patch。远端完整 `make test` 通过；ABI/export 检查保持 154 个公开符号，identifier 定向 Valgrind 检查为 `0 bytes in 0 blocks`、0 errors。
 
 内置 `libpg_query` 标签：`17-6.2.2`；内置 Jansson 版本：`2.15`。

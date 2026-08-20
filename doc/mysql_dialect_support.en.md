@@ -58,6 +58,10 @@ Multi-table `UPDATE` does not accept `ORDER BY` or `LIMIT`.
   handled by the dialect layer.
 - View JSON uses the common `query_graph` structure; identifiers and values in
   that structure use the public MySQL form.
+- Query Graph uses `alias_quoted_identifier` for backtick-delimited relation
+  aliases and `output_quoted_identifier` for explicit backtick-delimited output
+  aliases or inherited backtick-delimited field names when no explicit alias
+  exists. View JSON emits either key only when its value is `true`.
 - A multi-target `UPDATE` omits a single `dml.target_relation`; each assignment
   identifies its write relation through the field referenced by `target_field`.
 - MySQL-specific semantics that cannot be represented safely are not downgraded
@@ -72,5 +76,5 @@ The MySQL support boundary is defined by:
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current MySQL matrix contains 260 cases with `status = "final"` and 876
+The current MySQL matrix contains 261 cases with `status = "final"` and 878
 independent patches.

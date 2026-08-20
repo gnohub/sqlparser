@@ -37,16 +37,17 @@ The four Vastbase modes are verified by executable regression matrices:
 
 | Mode | Fixture | Unit Test | Successful Cases | Expected-Failure Cases | Total Cases |
 | --- | --- | --- | ---: | ---: | ---: |
-| `vastbase-oracle` | `tests/cases/vastbase_oracle_dialect_input.json` | `tests/unit/test_vastbase_oracle_dialect_case_matrix.c` | 220 | 0 | 220 |
-| `vastbase-mysql` | `tests/cases/vastbase_mysql_dialect_input.json` | `tests/unit/test_vastbase_mysql_dialect_case_matrix.c` | 261 | 0 | 261 |
-| `vastbase-postgresql` | `tests/cases/vastbase_postgresql_dialect_input.json` | `tests/unit/test_vastbase_postgresql_dialect_case_matrix.c` | 201 | 0 | 201 |
-| `vastbase-sqlserver` | `tests/cases/vastbase_sqlserver_dialect_input.json` | `tests/unit/test_vastbase_sqlserver_dialect_case_matrix.c` | 605 | 0 | 605 |
+| `vastbase-oracle` | `tests/cases/vastbase_oracle_dialect_input.json` | `tests/unit/test_vastbase_oracle_dialect_case_matrix.c` | 221 | 0 | 221 |
+| `vastbase-mysql` | `tests/cases/vastbase_mysql_dialect_input.json` | `tests/unit/test_vastbase_mysql_dialect_case_matrix.c` | 262 | 0 | 262 |
+| `vastbase-postgresql` | `tests/cases/vastbase_postgresql_dialect_input.json` | `tests/unit/test_vastbase_postgresql_dialect_case_matrix.c` | 202 | 0 | 202 |
+| `vastbase-sqlserver` | `tests/cases/vastbase_sqlserver_dialect_input.json` | `tests/unit/test_vastbase_sqlserver_dialect_case_matrix.c` | 606 | 0 | 606 |
+
+All four fixtures contain only `final` cases. Their independent patch counts are 793 for `vastbase-oracle`, 838 for `vastbase-mysql`, 660 for `vastbase-postgresql`, and 1855 for `vastbase-sqlserver`. Each entry verifies the Query Graph delimited-alias state: `alias_quoted_identifier` applies only to the exact relation-alias source token; `output_quoted_identifier` applies only to the explicit alias that supplies `output_name`, or to the direct-field token when no explicit alias exists. Each entry recognizes only its existing delimiter: double quotes for Oracle/PostgreSQL, backticks for MySQL, and brackets for SQL Server. A match sets the C flag to `1`; otherwise it remains `0`, and View JSON emits the corresponding key only when true. `U&"..."` is outside this change. This contract and its executable evidence do not claim the same official Vastbase server syntax support.
 
 The `vastbase-sqlserver` mode includes SQL Server DML `OUTPUT` result channels
 and `IF...ELSE` control flow.
 
-The `vastbase-mysql` fixture contains 261 `final` cases and 836 independent
-patches. Its project compatibility-entry contract supports MySQL multi-target
+The `vastbase-mysql` project compatibility-entry contract supports MySQL multi-target
 multi-table `UPDATE` across JOIN chains and comma-separated relation lists,
 with each assignment target field identifying its write relation. `ORDER BY`
 and `LIMIT` are rejected for this multi-table form. This contract and its
@@ -61,8 +62,7 @@ explicit `AS` is rejected as an out-of-bound hierarchy operator. An ordinary
 field with the same name remains available through an explicit `AS` alias or a
 delimited identifier.
 
-The `vastbase-sqlserver` fixture contains 605 `final` cases and 1853
-independent patches. As a project compatibility-entry contract, paired
+As a `vastbase-sqlserver` project compatibility-entry contract, paired
 `insert_column` applies only to a sink `OUTPUT ... INTO` channel with an
 explicit non-empty sink-column list when the OUTPUT-target and sink-column
 counts are strictly equal before the rewrite; it atomically inserts both sides
@@ -73,8 +73,7 @@ cases cover 8↔8 pairs for INSERT, UPDATE, and DELETE, plus atomic head, middle
 and tail insertions that produce 9↔9 pairs. This contract and its executable
 evidence do not claim the same official Vastbase server syntax support.
 
-The `vastbase-oracle` fixture contains 220 `final` cases and 791 independent
-patches. As a project compatibility-entry contract, `RETURNING ... INTO` on
+As a `vastbase-oracle` project compatibility-entry contract, `RETURNING ... INTO` on
 `INSERT ... VALUES`, `UPDATE`, and `DELETE` supports `N >= 1` result targets
 with exactly N colon-prefixed host binds, paired by ordinal. It rejects
 `BULK COLLECT`, receivers other than colon-prefixed binds, and unequal list

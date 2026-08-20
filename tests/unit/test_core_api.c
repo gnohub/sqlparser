@@ -11,6 +11,139 @@
 typedef struct {
 	size_t index;
 	size_t statement_index;
+	size_t block_index;
+	sqlparser_graph_relation_kind_t kind;
+	int quoted_identifier;
+	const char *database_name;
+	const char *schema_name;
+	const char *object_name;
+	const char *alias_name;
+	const char *link_name;
+	size_t source_block_index;
+	int has_source_block;
+	sqlparser_selector_t selector;
+	int has_selector;
+} sqlparser_graph_relation_2_16_5_abi_baseline_t;
+
+typedef struct {
+	size_t index;
+	size_t statement_index;
+	size_t block_index;
+	size_t ordinal;
+	sqlparser_graph_target_kind_t kind;
+	const char *output_name;
+	size_t field_index;
+	int has_field;
+	size_t value_index;
+	int has_value;
+	sqlparser_index_span_t star_relations;
+	size_t source_block_index;
+	int has_source_block;
+	sqlparser_selector_t selector;
+	int has_selector;
+	sqlparser_selector_t target_list_selector;
+	int has_target_list_selector;
+	size_t sink_value_index;
+	int has_sink_value;
+} sqlparser_graph_target_2_16_5_abi_baseline_t;
+
+#define SQLPARSER_ASSERT_64BIT_ABI(condition, message) \
+	_Static_assert(sizeof(void *) != 8U || (condition), message)
+
+SQLPARSER_ASSERT_64BIT_ABI(
+	sizeof(sqlparser_graph_relation_t) ==
+		sizeof(sqlparser_graph_relation_2_16_5_abi_baseline_t),
+	"sqlparser_graph_relation_t ABI size changed since 2.16.5");
+#define SQLPARSER_ASSERT_RELATION_2_16_5_ABI_OFFSET(field) \
+	SQLPARSER_ASSERT_64BIT_ABI( \
+		offsetof(sqlparser_graph_relation_t, field) == \
+			offsetof( \
+				sqlparser_graph_relation_2_16_5_abi_baseline_t, \
+				field), \
+		"sqlparser_graph_relation_t ABI offset changed since 2.16.5: " \
+		#field)
+SQLPARSER_ASSERT_RELATION_2_16_5_ABI_OFFSET(index);
+SQLPARSER_ASSERT_RELATION_2_16_5_ABI_OFFSET(statement_index);
+SQLPARSER_ASSERT_RELATION_2_16_5_ABI_OFFSET(block_index);
+SQLPARSER_ASSERT_RELATION_2_16_5_ABI_OFFSET(kind);
+SQLPARSER_ASSERT_RELATION_2_16_5_ABI_OFFSET(quoted_identifier);
+SQLPARSER_ASSERT_RELATION_2_16_5_ABI_OFFSET(database_name);
+SQLPARSER_ASSERT_RELATION_2_16_5_ABI_OFFSET(schema_name);
+SQLPARSER_ASSERT_RELATION_2_16_5_ABI_OFFSET(object_name);
+SQLPARSER_ASSERT_RELATION_2_16_5_ABI_OFFSET(alias_name);
+SQLPARSER_ASSERT_RELATION_2_16_5_ABI_OFFSET(link_name);
+SQLPARSER_ASSERT_RELATION_2_16_5_ABI_OFFSET(source_block_index);
+SQLPARSER_ASSERT_RELATION_2_16_5_ABI_OFFSET(has_source_block);
+SQLPARSER_ASSERT_RELATION_2_16_5_ABI_OFFSET(selector);
+SQLPARSER_ASSERT_RELATION_2_16_5_ABI_OFFSET(has_selector);
+#undef SQLPARSER_ASSERT_RELATION_2_16_5_ABI_OFFSET
+SQLPARSER_ASSERT_64BIT_ABI(
+	offsetof(sqlparser_graph_relation_t, alias_quoted_identifier) ==
+		offsetof(
+			sqlparser_graph_relation_2_16_5_abi_baseline_t,
+			has_selector) +
+			sizeof(
+				((sqlparser_graph_relation_2_16_5_abi_baseline_t *)0)
+					->has_selector),
+	"sqlparser_graph_relation_t new field does not start in 2.16.5 tail padding");
+SQLPARSER_ASSERT_64BIT_ABI(
+	offsetof(sqlparser_graph_relation_t, alias_quoted_identifier) +
+		sizeof(((sqlparser_graph_relation_t *)0)->alias_quoted_identifier) ==
+		sizeof(sqlparser_graph_relation_2_16_5_abi_baseline_t),
+	"sqlparser_graph_relation_t new field exceeds 2.16.5 tail padding");
+
+SQLPARSER_ASSERT_64BIT_ABI(
+	sizeof(sqlparser_graph_target_t) ==
+		sizeof(sqlparser_graph_target_2_16_5_abi_baseline_t),
+	"sqlparser_graph_target_t ABI size changed since 2.16.5");
+#define SQLPARSER_ASSERT_TARGET_2_16_5_ABI_OFFSET(field) \
+	SQLPARSER_ASSERT_64BIT_ABI( \
+		offsetof(sqlparser_graph_target_t, field) == \
+			offsetof( \
+				sqlparser_graph_target_2_16_5_abi_baseline_t, \
+				field), \
+		"sqlparser_graph_target_t ABI offset changed since 2.16.5: " \
+		#field)
+SQLPARSER_ASSERT_TARGET_2_16_5_ABI_OFFSET(index);
+SQLPARSER_ASSERT_TARGET_2_16_5_ABI_OFFSET(statement_index);
+SQLPARSER_ASSERT_TARGET_2_16_5_ABI_OFFSET(block_index);
+SQLPARSER_ASSERT_TARGET_2_16_5_ABI_OFFSET(ordinal);
+SQLPARSER_ASSERT_TARGET_2_16_5_ABI_OFFSET(kind);
+SQLPARSER_ASSERT_TARGET_2_16_5_ABI_OFFSET(output_name);
+SQLPARSER_ASSERT_TARGET_2_16_5_ABI_OFFSET(field_index);
+SQLPARSER_ASSERT_TARGET_2_16_5_ABI_OFFSET(has_field);
+SQLPARSER_ASSERT_TARGET_2_16_5_ABI_OFFSET(value_index);
+SQLPARSER_ASSERT_TARGET_2_16_5_ABI_OFFSET(has_value);
+SQLPARSER_ASSERT_TARGET_2_16_5_ABI_OFFSET(star_relations);
+SQLPARSER_ASSERT_TARGET_2_16_5_ABI_OFFSET(source_block_index);
+SQLPARSER_ASSERT_TARGET_2_16_5_ABI_OFFSET(has_source_block);
+SQLPARSER_ASSERT_TARGET_2_16_5_ABI_OFFSET(selector);
+SQLPARSER_ASSERT_TARGET_2_16_5_ABI_OFFSET(has_selector);
+SQLPARSER_ASSERT_TARGET_2_16_5_ABI_OFFSET(target_list_selector);
+SQLPARSER_ASSERT_TARGET_2_16_5_ABI_OFFSET(has_target_list_selector);
+SQLPARSER_ASSERT_TARGET_2_16_5_ABI_OFFSET(sink_value_index);
+SQLPARSER_ASSERT_TARGET_2_16_5_ABI_OFFSET(has_sink_value);
+#undef SQLPARSER_ASSERT_TARGET_2_16_5_ABI_OFFSET
+SQLPARSER_ASSERT_64BIT_ABI(
+	offsetof(sqlparser_graph_target_t, output_quoted_identifier) ==
+		offsetof(
+			sqlparser_graph_target_2_16_5_abi_baseline_t,
+			has_sink_value) +
+			sizeof(
+				((sqlparser_graph_target_2_16_5_abi_baseline_t *)0)
+					->has_sink_value),
+	"sqlparser_graph_target_t new field does not start in 2.16.5 tail padding");
+SQLPARSER_ASSERT_64BIT_ABI(
+	offsetof(sqlparser_graph_target_t, output_quoted_identifier) +
+		sizeof(((sqlparser_graph_target_t *)0)->output_quoted_identifier) ==
+		sizeof(sqlparser_graph_target_2_16_5_abi_baseline_t),
+	"sqlparser_graph_target_t new field exceeds 2.16.5 tail padding");
+
+#undef SQLPARSER_ASSERT_64BIT_ABI
+
+typedef struct {
+	size_t index;
+	size_t statement_index;
 	size_t dml_index;
 	size_t ordinal;
 	sqlparser_graph_dml_branch_kind_t branch_kind;
@@ -32898,7 +33031,7 @@ static int test_special_fragment_mutation_identifier_spelling(void)
 	                     "fragment spelling OUTPUT first graph target should succeed") != 0 ||
 	    expect_true(
 		    target.output_name != NULL && strcmp(target.output_name, "DoubleAlias") == 0 &&
-			    target.has_field,
+			    target.output_quoted_identifier && target.has_field,
 		    "fragment spelling OUTPUT first graph target mismatch") != 0 ||
 	    expect_status_ok(sqlparser_query_graph_field_at(&graph, target.field_index, &field, &error), &error,
 	                     "fragment spelling OUTPUT first graph field should succeed") != 0 ||
@@ -32909,7 +33042,7 @@ static int test_special_fragment_mutation_identifier_spelling(void)
 	                     "fragment spelling OUTPUT second graph target should succeed") != 0 ||
 	    expect_true(
 		    target.output_name != NULL && strcmp(target.output_name, "MixedAlias") == 0 &&
-			    target.has_field,
+			    !target.output_quoted_identifier && target.has_field,
 		    "fragment spelling OUTPUT second graph target mismatch") != 0 ||
 	    expect_status_ok(sqlparser_query_graph_field_at(&graph, target.field_index, &field, &error), &error,
 	                     "fragment spelling OUTPUT second graph field should succeed") != 0 ||

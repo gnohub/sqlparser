@@ -695,8 +695,8 @@ sqlparser_status_t sqlparser_statement_query_graph(
 | 结构体 | 说明 |
 | --- | --- |
 | `sqlparser_graph_block_t` | 查询块，持有 relation、target 和 predicate span |
-| `sqlparser_graph_relation_t` | SQL 中出现的 base、derived、cte 或 dual relation；`quoted_identifier` 表示对象名 token 是否显式使用支持的标识符定界符 |
-| `sqlparser_graph_target_t` | 查询或 DML 结果输出项，包含输出顺序、`*` 来源、selector 和可选 sink value 关联 |
+| `sqlparser_graph_relation_t` | SQL 中出现的 base、derived、cte 或 dual relation；`quoted_identifier` 和 `alias_quoted_identifier` 分别表示对象名和 relation alias 的定界符状态 |
+| `sqlparser_graph_target_t` | 查询或 DML 结果输出项；`output_quoted_identifier` 表示 `output_name` 对应 token 的定界符状态 |
 | `sqlparser_graph_field_t` | SQL 中出现的字段 occurrence；`quoted_identifier` 表示列名 token 是否显式使用支持的标识符定界符，`pseudo` / `prior` 表示层次查询 occurrence 语义 |
 | `sqlparser_graph_value_t` | query graph 中的 literal、bind、default、expression 或 field 值 |
 | `sqlparser_graph_set_t` | `UNION`、`UNION ALL`、`INTERSECT`、`EXCEPT/MINUS` 分支关系 |
@@ -714,7 +714,11 @@ sqlparser_status_t sqlparser_statement_query_graph(
 
 ### 归属规则
 
-- `sqlparser_graph_relation_t.quoted_identifier` 仅对应 `object_name`，`sqlparser_graph_field_t.quoted_identifier` 仅对应 `column_name`。精确来源 token 使用 `"..."`、MySQL 反引号或 SQL Server `[...]` 时值为 `1`，否则为 `0`；该字段不区分定界符类型，也不表示 database、schema 或 alias 的状态。
+- `sqlparser_graph_relation_t.quoted_identifier` 仅对应 `object_name`，`sqlparser_graph_field_t.quoted_identifier` 仅对应 `column_name`。精确来源 token 使用 `"..."`、MySQL 反引号或 SQL Server `[...]` 时值为 `1`，否则为 `0`；该字段不区分定界符类型，也不表示 database 或 schema 的状态。
+- `sqlparser_graph_relation_t.alias_quoted_identifier` 仅对应 `alias_name`。存在 relation alias 且其精确来源 token 使用上述三类定界符时值为 `1`，没有 alias 或 alias 未定界时为 `0`。
+- `sqlparser_graph_target_t.output_quoted_identifier` 对应 `output_name`。存在显式输出 alias 时只依据 alias token；没有显式 alias 且 `output_name` 由直接字段继承时依据该字段 token。显式 alias 的状态优先于底层字段，其他情况为 `0`。
+- 上述标志不将 PostgreSQL `U&"..."` 计为受支持的定界符，也不会因解析器内部生成的引号样式而置为 `1`。两个新增标志不引入字符串或持久内存分配，query graph 的所有权和生命周期规则不变。
+- 在 x86_64 和 AArch64 的 64 位布局中，两个新增 `int` 字段占用 2.16.5 结构尾部的既有 padding；两个结构的 `sizeof` 和全部旧字段 offset 保持不变。该结论不适用于 32 位布局，不能视为全平台 ABI 不变声明。
 - `sqlparser_graph_relation_t.link_name` 表达远程对象引用中的 database link；SQL 未出现时为 `NULL`。
 - `relations[].source_block_index` 表达派生表或 CTE 来源。
 - 同一个 CTE 定义只构建一个来源 block；多次引用共享该 `source_block_index`，未被引用的 CTE 定义仍保留在 graph 中。

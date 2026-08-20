@@ -992,6 +992,7 @@
               "relations": [
                 {
                   "alias": "u",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
@@ -1007,6 +1008,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -1016,6 +1018,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "name",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -1148,6 +1151,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -1157,6 +1161,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "name",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -1257,6 +1262,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -1411,6 +1417,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[1][0]",
                   "target_list_selector": "stmt[0].select_targets[1]"
@@ -1420,6 +1427,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "name",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[1][1]",
                   "target_list_selector": "stmt[0].select_targets[1]"
@@ -1429,6 +1437,7 @@
                   "field": 3,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -1438,6 +1447,7 @@
                   "field": 4,
                   "kind": "field",
                   "name": "name",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -1607,6 +1617,7 @@
               "relations": [
                 {
                   "alias": "u",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
@@ -1616,6 +1627,7 @@
                 },
                 {
                   "alias": "o",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
@@ -1631,6 +1643,7 @@
                   "field": 2,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -1640,6 +1653,7 @@
                   "field": 3,
                   "kind": "field",
                   "name": "order_no",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -1794,6 +1808,7 @@
               "relations": [
                 {
                   "alias": "u",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
@@ -1803,6 +1818,7 @@
                 },
                 {
                   "alias": "p",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
@@ -1818,6 +1834,7 @@
                   "field": 2,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -1827,6 +1844,7 @@
                   "field": 3,
                   "kind": "field",
                   "name": "phone",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -2195,6 +2213,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -2204,6 +2223,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "name",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -2794,6 +2814,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -2943,6 +2964,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -3060,6 +3082,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "name",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -3068,6 +3091,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "now_value",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -3076,6 +3100,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "row_id",
+                  "output_quoted_identifier": true,
                   "ordinal": 2,
                   "selector": "stmt[0].select_target[0][2]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -3209,6 +3234,7 @@
                   "field": 2,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -3465,6 +3491,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -3474,6 +3501,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[1][0]",
                   "target_list_selector": "stmt[0].select_targets[1]"
@@ -3592,6 +3620,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -3601,6 +3630,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[1][0]",
                   "target_list_selector": "stmt[0].select_targets[1]"
@@ -3719,6 +3749,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -3728,6 +3759,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[1][0]",
                   "target_list_selector": "stmt[0].select_targets[1]"
@@ -3832,6 +3864,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -3841,6 +3874,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "name",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -4163,6 +4197,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -4213,6 +4248,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[1].select_target[0][0]",
                   "target_list_selector": "stmt[1].select_targets[0]"
@@ -4336,6 +4372,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -4569,6 +4606,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "Order ID",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -4785,6 +4823,7 @@
               "relations": [
                 {
                   "alias": "t",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
@@ -4794,6 +4833,7 @@
                 },
                 {
                   "alias": "s",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
@@ -4930,6 +4970,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -5072,6 +5113,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[1][0]",
                   "target_list_selector": "stmt[0].select_targets[1]"
@@ -5081,6 +5123,7 @@
                   "field": 2,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -5416,6 +5459,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -5544,6 +5588,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "OUTPUT",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -5553,6 +5598,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "EXEC",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -5562,6 +5608,7 @@
                   "field": 2,
                   "kind": "field",
                   "name": "PIVOT",
+                  "output_quoted_identifier": true,
                   "ordinal": 2,
                   "selector": "stmt[0].select_target[0][2]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -5660,6 +5707,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -5754,6 +5802,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -5848,6 +5897,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -5975,6 +6025,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].dml_result_target[0][0][0]",
                   "target_list_selector": "stmt[0].dml_result_targets[0][0]"
@@ -6067,6 +6118,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -6153,6 +6205,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -6239,6 +6292,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -6823,6 +6877,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -6832,6 +6887,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "name",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -6982,6 +7038,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -7155,6 +7212,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -7864,6 +7922,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -7873,6 +7932,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "name",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -8368,6 +8428,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "dept",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -8642,6 +8703,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -8786,6 +8848,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -8930,6 +8993,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -9075,6 +9139,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -9206,6 +9271,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "name",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -9856,6 +9922,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[1][0]",
                   "target_list_selector": "stmt[0].select_targets[1]"
@@ -9865,6 +9932,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "phone",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[1][1]",
                   "target_list_selector": "stmt[0].select_targets[1]"
@@ -9874,6 +9942,7 @@
                   "field": 3,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -9883,6 +9952,7 @@
                   "field": 4,
                   "kind": "field",
                   "name": "phone",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -10046,6 +10116,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "phone_json",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -10164,6 +10235,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -10173,6 +10245,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "phone",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -10267,6 +10340,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -10426,6 +10500,7 @@
                   "field": 2,
                   "kind": "field",
                   "name": "order_no",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -10619,6 +10694,7 @@
                   "field": 2,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -10627,6 +10703,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "order_count",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -10763,6 +10840,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -11393,6 +11471,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[1][0]",
                   "target_list_selector": "stmt[0].select_targets[1]"
@@ -11402,6 +11481,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "name",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[1][1]",
                   "target_list_selector": "stmt[0].select_targets[1]"
@@ -11411,6 +11491,7 @@
                   "field": 3,
                   "kind": "field",
                   "name": "outer_name",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -11800,6 +11881,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -11966,6 +12048,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -12176,6 +12259,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -12405,6 +12489,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -13048,6 +13133,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -13185,6 +13271,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -13323,6 +13410,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -13461,6 +13549,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -13632,6 +13721,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "and_value",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -13640,6 +13730,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "or_value",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -13648,6 +13739,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "xor_value",
+                  "output_quoted_identifier": true,
                   "ordinal": 2,
                   "selector": "stmt[0].select_target[0][2]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -13774,6 +13866,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "not_value",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -13913,6 +14006,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -14063,6 +14157,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "full_name",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -14172,6 +14267,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "name",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -14304,6 +14400,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -14435,6 +14532,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -14547,6 +14645,7 @@
               "relations": [
                 {
                   "alias": "u",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "derived",
                   "source_block": 1
@@ -14567,6 +14666,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[1][0]",
                   "target_list_selector": "stmt[0].select_targets[1]"
@@ -14576,6 +14676,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -14685,6 +14786,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -14797,6 +14899,7 @@
               "relations": [
                 {
                   "alias": "u",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "derived",
                   "source_block": 1
@@ -14817,6 +14920,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[1][0]",
                   "target_list_selector": "stmt[0].select_targets[1]"
@@ -14826,6 +14930,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -14912,6 +15017,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -14962,6 +15068,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[1].select_target[0][0]",
                   "target_list_selector": "stmt[1].select_targets[0]"
@@ -16386,6 +16493,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -16454,6 +16562,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -16522,6 +16631,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -16631,6 +16741,7 @@
               "relations": [
                 {
                   "alias": "a",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
@@ -16640,6 +16751,7 @@
                 },
                 {
                   "alias": "b",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
@@ -16655,6 +16767,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -16664,6 +16777,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -16805,6 +16919,7 @@
               "relations": [
                 {
                   "alias": "a",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
@@ -16814,6 +16929,7 @@
                 },
                 {
                   "alias": "b",
+                  "alias_quoted_identifier": true,
                   "block": 1,
                   "kind": "base",
                   "schema": "dbo",
@@ -16829,6 +16945,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -16995,6 +17112,7 @@
               "relations": [
                 {
                   "alias": "a",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
@@ -17004,6 +17122,7 @@
                 },
                 {
                   "alias": "b",
+                  "alias_quoted_identifier": true,
                   "block": 1,
                   "kind": "base",
                   "schema": "dbo",
@@ -17019,6 +17138,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -17193,6 +17313,7 @@
                 },
                 {
                   "alias": "t",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
@@ -17202,6 +17323,7 @@
                 },
                 {
                   "alias": "s",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
@@ -17353,12 +17475,14 @@
               "relations": [
                 {
                   "alias": "d",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "derived",
                   "source_block": 1
                 },
                 {
                   "alias": "a",
+                  "alias_quoted_identifier": true,
                   "block": 1,
                   "kind": "base",
                   "schema": "dbo",
@@ -17368,6 +17492,7 @@
                 },
                 {
                   "alias": "b",
+                  "alias_quoted_identifier": true,
                   "block": 1,
                   "kind": "base",
                   "schema": "dbo",
@@ -17383,6 +17508,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[1][0]",
                   "target_list_selector": "stmt[0].select_targets[1]"
@@ -17392,6 +17518,7 @@
                   "field": 3,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -17980,6 +18107,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "converted_at",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -18066,6 +18194,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -18140,6 +18269,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -18208,6 +18338,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -18276,6 +18407,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -18344,6 +18476,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -18596,6 +18729,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -18664,6 +18798,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -18732,6 +18867,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -18800,6 +18936,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -18868,6 +19005,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -18936,6 +19074,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -19004,6 +19143,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -19072,6 +19212,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -19140,6 +19281,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -19208,6 +19350,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -19276,6 +19419,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -19344,6 +19488,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -19412,6 +19557,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -19480,6 +19626,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -19548,6 +19695,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -19616,6 +19764,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -19684,6 +19833,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -19752,6 +19902,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -19820,6 +19971,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -19888,6 +20040,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -19956,6 +20109,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -20024,6 +20178,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -20092,6 +20247,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -20160,6 +20316,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -20228,6 +20385,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -20296,6 +20454,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -20364,6 +20523,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -20432,6 +20592,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -20500,6 +20661,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -20568,6 +20730,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -20636,6 +20799,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -20704,6 +20868,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -20772,6 +20937,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -20840,6 +21006,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -20908,6 +21075,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -20976,6 +21144,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -21062,6 +21231,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -21136,6 +21306,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -21204,6 +21375,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -21272,6 +21444,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -21340,6 +21513,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -21408,6 +21582,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -21494,6 +21669,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -21568,6 +21744,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -21636,6 +21813,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -21704,6 +21882,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -21772,6 +21951,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -21840,6 +22020,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -21908,6 +22089,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -21976,6 +22158,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -22044,6 +22227,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -22112,6 +22296,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -22180,6 +22365,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -22248,6 +22434,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -22334,6 +22521,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -22426,6 +22614,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -22500,6 +22689,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -22568,6 +22758,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -22636,6 +22827,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -22704,6 +22896,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -22772,6 +22965,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -22840,6 +23034,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -22908,6 +23103,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -22976,6 +23172,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -23044,6 +23241,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -23112,6 +23310,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -23180,6 +23379,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -23248,6 +23448,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -23316,6 +23517,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -23384,6 +23586,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -23452,6 +23655,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -23520,6 +23724,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -23588,6 +23793,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -23656,6 +23862,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -23724,6 +23931,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -23792,6 +24000,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -23860,6 +24069,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -23928,6 +24138,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -23996,6 +24207,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -24064,6 +24276,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -24132,6 +24345,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -24200,6 +24414,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -24268,6 +24483,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -24336,6 +24552,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -24404,6 +24621,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -24472,6 +24690,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -24540,6 +24759,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -24608,6 +24828,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -24676,6 +24897,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -24744,6 +24966,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -24812,6 +25035,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -24880,6 +25104,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -24948,6 +25173,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -25016,6 +25242,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -25084,6 +25311,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -25152,6 +25380,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -25220,6 +25449,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -25288,6 +25518,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -25356,6 +25587,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -25424,6 +25656,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -25492,6 +25725,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -25560,6 +25794,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -25628,6 +25863,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -25696,6 +25932,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -25782,6 +26019,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -25874,6 +26112,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -25948,6 +26187,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -26034,6 +26274,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -26108,6 +26349,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -26176,6 +26418,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -26262,6 +26505,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -26370,6 +26614,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -26444,6 +26689,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -26512,6 +26758,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -26580,6 +26827,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -26648,6 +26896,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -26716,6 +26965,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -26784,6 +27034,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -26852,6 +27103,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -26920,6 +27172,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -26988,6 +27241,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -27056,6 +27310,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -27124,6 +27379,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -27192,6 +27448,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -27283,6 +27540,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -27380,6 +27638,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -27448,6 +27707,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -27516,6 +27776,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -27584,6 +27845,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -27652,6 +27914,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -27720,6 +27983,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -27803,6 +28067,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -27871,6 +28136,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -27939,6 +28205,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -28007,6 +28274,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -28075,6 +28343,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -28143,6 +28412,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -28211,6 +28481,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -28279,6 +28550,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -28347,6 +28619,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -28415,6 +28688,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -28483,6 +28757,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -28551,6 +28826,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -28619,6 +28895,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -28687,6 +28964,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -28755,6 +29033,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -28823,6 +29102,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -28891,6 +29171,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -28959,6 +29240,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -29045,6 +29327,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -29119,6 +29402,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -29187,6 +29471,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -29273,6 +29558,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -29347,6 +29633,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -29415,6 +29702,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -29501,6 +29789,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -29593,6 +29882,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -29685,6 +29975,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -29757,6 +30048,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -29843,6 +30135,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -29935,6 +30228,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -30009,6 +30303,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -30077,6 +30372,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -30145,6 +30441,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -30213,6 +30510,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -30281,6 +30579,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -30349,6 +30648,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -30417,6 +30717,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -30485,6 +30786,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -30553,6 +30855,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -30621,6 +30924,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -30689,6 +30993,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -30757,6 +31062,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -30825,6 +31131,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -30893,6 +31200,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -30961,6 +31269,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -31029,6 +31338,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -31097,6 +31407,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -31165,6 +31476,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -31233,6 +31545,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -31301,6 +31614,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -31369,6 +31683,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -31437,6 +31752,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -31505,6 +31821,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -31573,6 +31890,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -31641,6 +31959,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -31709,6 +32028,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -31777,6 +32097,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -31845,6 +32166,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -31913,6 +32235,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -31981,6 +32304,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -32049,6 +32373,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -32117,6 +32442,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -32185,6 +32511,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -32253,6 +32580,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -32321,6 +32649,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -32389,6 +32718,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -32457,6 +32787,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -32525,6 +32856,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -32593,6 +32925,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -32661,6 +32994,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -32729,6 +33063,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -32797,6 +33132,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -32865,6 +33201,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -32933,6 +33270,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -33001,6 +33339,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -33069,6 +33408,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -33137,6 +33477,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -33205,6 +33546,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -33273,6 +33615,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -33341,6 +33684,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -33409,6 +33753,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -33477,6 +33822,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -33545,6 +33891,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -33613,6 +33960,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -33681,6 +34029,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -33749,6 +34098,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -33817,6 +34167,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -33885,6 +34236,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -33971,6 +34323,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "name",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -34895,6 +35248,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -35417,6 +35771,7 @@
               "relations": [
                 {
                   "alias": "u",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
@@ -35432,6 +35787,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -35441,6 +35797,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "email",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -35450,6 +35807,7 @@
                   "field": 2,
                   "kind": "field",
                   "name": "bank_card",
+                  "output_quoted_identifier": true,
                   "ordinal": 2,
                   "selector": "stmt[0].select_target[0][2]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -35584,6 +35942,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -35666,6 +36025,7 @@
               "relations": [
                 {
                   "alias": "u",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
@@ -35681,6 +36041,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "user_id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -35690,6 +36051,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "user_name",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -35845,6 +36207,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -35854,6 +36217,7 @@
                   "field": 2,
                   "kind": "field",
                   "name": "user_id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[1][0]",
                   "target_list_selector": "stmt[0].select_targets[1]"
@@ -37831,6 +38195,7 @@
               "relations": [
                 {
                   "alias": "u",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
@@ -37840,6 +38205,7 @@
                 },
                 {
                   "alias": "o",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
@@ -37855,6 +38221,7 @@
                   "field": 2,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -37864,6 +38231,7 @@
                   "field": 3,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -37992,6 +38360,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -38158,6 +38527,7 @@
                   "block": 2,
                   "kind": "literal",
                   "name": "Name",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]",
@@ -38167,6 +38537,7 @@
                   "block": 2,
                   "kind": "literal",
                   "name": "Secret",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]",
@@ -38176,6 +38547,7 @@
                   "block": 3,
                   "kind": "literal",
                   "name": "Name",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[1][0]",
                   "target_list_selector": "stmt[0].select_targets[1]",
@@ -38185,6 +38557,7 @@
                   "block": 3,
                   "kind": "literal",
                   "name": "Secret",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[1][1]",
                   "target_list_selector": "stmt[0].select_targets[1]",
@@ -38195,6 +38568,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "Id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].dml_result_target[0][0][0]",
                   "target_list_selector": "stmt[0].dml_result_targets[0][0]"
@@ -42465,6 +42839,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "DELETED",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].dml_result_target[0][0][0]",
                   "target_list_selector": "stmt[0].dml_result_targets[0][0]"
@@ -43072,6 +43447,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "select",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].dml_result_target[0][0][0]",
                   "target_list_selector": "stmt[0].dml_result_targets[0][0]"
@@ -43196,6 +43572,7 @@
               "relations": [
                 {
                   "alias": "t]x",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
@@ -48821,6 +49198,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "IF",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[2].select_target[0][0]",
                   "target_list_selector": "stmt[2].select_targets[0]"
@@ -56883,6 +57261,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -56969,6 +57348,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -57055,6 +57435,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -57227,6 +57608,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "p1",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -57235,6 +57617,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "p2",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -57243,6 +57626,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "p3",
+                  "output_quoted_identifier": true,
                   "ordinal": 2,
                   "selector": "stmt[0].select_target[0][2]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -57733,6 +58117,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -57846,6 +58231,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -57964,6 +58350,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -58053,6 +58440,7 @@
               "relations": [
                 {
                   "alias": "u",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "schema": "dbo",
@@ -58068,6 +58456,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -58076,6 +58465,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "phone_json",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -58184,6 +58574,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "bucket_start",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -58292,6 +58683,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "v",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -58433,6 +58825,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "age_days",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -58441,6 +58834,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "age_ms",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -58539,6 +58933,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "month_name",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -58631,6 +59026,7 @@
                   "block": 0,
                   "kind": "expression",
                   "name": "month_number",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -59260,6 +59656,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "status",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -59345,6 +59742,7 @@
                   "ordinal": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "field": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -59457,6 +59855,7 @@
                   "ordinal": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "field": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -59466,6 +59865,7 @@
                   "ordinal": 1,
                   "kind": "field",
                   "name": "name",
+                  "output_quoted_identifier": true,
                   "field": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -59475,6 +59875,7 @@
                   "ordinal": 2,
                   "kind": "field",
                   "name": "created_at",
+                  "output_quoted_identifier": true,
                   "field": 2,
                   "selector": "stmt[0].select_target[0][2]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -61868,6 +62269,251 @@
           "name": "[account_no]",
           "index": 8,
           "deparse": "DELETE FROM dbo.customer_profiles OUTPUT DELETED.customer_id, DELETED.customer_name, DELETED.city, DELETED.city_digest, DELETED.status, DELETED.updated_at, DELETED.version_no, DELETED.country_code, DELETED.account_no INTO dbo.deleted_profiles (customer_id, customer_name, city, city_digest, status, updated_at, version_no, country_code, [account_no]) WHERE customer_id = @customer_id"
+        }
+      ]
+    },
+    {
+      "name": "sqlserver-graph-quoted-relation-alias-and-target-output",
+      "sql": "SELECT p.[quoted_col] AS plain_output, q.plain_col AS [quoted_output], [inherited_col] FROM plain_table AS [p] JOIN [quoted_table] AS q ON q.id = p.id JOIN (SELECT source_id FROM source_table) AS [d] ON [d].source_id = p.id",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1,
+                    2
+                  ],
+                  "targets": [
+                    1,
+                    2,
+                    3
+                  ],
+                  "predicates": [
+                    0,
+                    1
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    3
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "plain_table",
+                  "alias": "p",
+                  "alias_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "quoted_table",
+                  "quoted_identifier": true,
+                  "alias": "q",
+                  "selector": "stmt[0].relation[1]"
+                },
+                {
+                  "block": 0,
+                  "kind": "derived",
+                  "alias": "d",
+                  "alias_quoted_identifier": true,
+                  "source_block": 1
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "table": "source_table",
+                  "selector": "stmt[0].relation[2]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "source_id",
+                  "field": 2,
+                  "selector": "stmt[0].select_target[1][0]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "plain_output",
+                  "field": 5,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "quoted_output",
+                  "output_quoted_identifier": true,
+                  "field": 6,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 2,
+                  "kind": "field",
+                  "name": "inherited_col",
+                  "output_quoted_identifier": true,
+                  "field": 7,
+                  "selector": "stmt[0].select_target[0][2]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 1,
+                  "column": "id",
+                  "selector": "stmt[0].name[12]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 0,
+                  "column": "id",
+                  "selector": "stmt[0].name[14]"
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 3,
+                  "column": "source_id",
+                  "target": 0,
+                  "selector": "stmt[0].name[15]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 2,
+                  "column": "source_id",
+                  "selector": "stmt[0].name[19]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 0,
+                  "column": "id",
+                  "selector": "stmt[0].name[21]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "quoted_col",
+                  "quoted_identifier": true,
+                  "target": 1,
+                  "selector": "stmt[0].name[2]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "plain_col",
+                  "target": 2,
+                  "selector": "stmt[0].name[5]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "candidate_relations": [
+                    0,
+                    1,
+                    2
+                  ],
+                  "column": "inherited_col",
+                  "quoted_identifier": true,
+                  "target": 3,
+                  "selector": "stmt[0].name[6]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 0,
+                  "source_field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 3,
+                  "source_field": 4,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 0,
+                  "right_field": 1,
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 3,
+                  "right_field": 4,
+                  "value": 1
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/1/selector",
+          "value": "p.[quoted_col] AS [plain_output]",
+          "deparse": "SELECT p.[quoted_col] AS [plain_output], q.plain_col AS [quoted_output], [inherited_col] FROM plain_table AS [p] JOIN [quoted_table] AS q ON q.id = p.id JOIN (SELECT source_id FROM source_table) AS [d] ON [d].source_id = p.id"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/2/selector",
+          "value": "q.plain_col AS quoted_output",
+          "deparse": "SELECT p.[quoted_col] AS plain_output, q.plain_col AS quoted_output, [inherited_col] FROM plain_table AS [p] JOIN [quoted_table] AS q ON q.id = p.id JOIN (SELECT source_id FROM source_table) AS [d] ON [d].source_id = p.id"
         }
       ]
     }

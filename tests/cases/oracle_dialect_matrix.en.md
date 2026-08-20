@@ -4,7 +4,7 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 251 cases with `status = "final"` and 852 independent
+The fixture contains 252 cases with `status = "final"` and 854 independent
 patches. Two cases and their 6 patches contain complete bind-occurrence
 assertions.
 Statement-level `query_graph.session` appears in 59 cases, covering `O043`,
@@ -270,6 +270,14 @@ bind at the corresponding ordinal.
 | O198 | `oracle-insert-returning-eight-target-bind-pairs` | INSERT | eight pairs; paired insertion of `tenant_id` / `:out_tenant_id` at index 0 verifies nine aligned pairs at the head |
 | O199 | `oracle-update-returning-eight-target-bind-pairs` | UPDATE | complete source-order enumeration covers SET, WHERE, and all eight `INTO` binds for 11 root occurrences; paired insertion of `postal_code` / `:out_postal_code` at index 4 produces 12 occurrences while keeping all nine ordinals aligned |
 | O200 | `oracle-delete-returning-eight-target-bind-pairs` | DELETE | eight pairs; paired insertion of `tenant_id` / `:out_tenant_id` at index 8 verifies nine aligned pairs at the tail |
+
+## Query Graph Quoted-Alias Contract
+
+`relations[].alias_quoted_identifier` is `true` only when the relation alias is double-quote delimited. `targets[].output_quoted_identifier` is `true` when the output name comes from an explicit double-quoted alias, or inherits a double-quoted field name without an explicit alias; View JSON omits either key when its value is `false`.
+
+| Case ID | Case Name | Statement Shape | Validation Focus |
+| --- | --- | --- | --- |
+| O201 | `oracle-quoted-relation-alias-and-target-output-contract` | double-quoted relation/derived aliases and output names | both quoted flags, field-name inheritance, and two output-alias patches |
 
 ## Coverage Boundary
 

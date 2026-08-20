@@ -47,6 +47,10 @@ exposed by the public query graph.
 
 - `sqlparser_deparse()` emits PostgreSQL-compatible SQL.
 - View JSON emits structured results through the common `query_graph`.
+- Query Graph uses `alias_quoted_identifier` for double-quoted relation aliases
+  and `output_quoted_identifier` for explicit double-quoted output aliases or
+  inherited double-quoted field names when no explicit alias exists. View JSON
+  emits either key only when its value is `true`.
 
 ## Regression Cases
 
@@ -58,4 +62,5 @@ The PostgreSQL support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current PostgreSQL matrix contains 216 cases, all with `status = "final"`.
+The current PostgreSQL matrix contains 217 cases and 731 independent patches,
+all with `status = "final"`.

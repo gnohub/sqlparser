@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 183 条 `status = "final"` 用例和 653 个独立 patch；其中 8 条用例及其 23 个 patch 含完整 bind occurrence 断言。34 条用例包含 statement 级 `query_graph.session`，覆盖 `D002`、`D003`、`D003Q`、`D026`、`D089` 至 `D095` 和 `DM-*` session 用例；这 34 条用例均至少包含一个非空 session item。
+夹具包含 184 条 `status = "final"` 用例和 655 个独立 patch；其中 8 条用例及其 23 个 patch 含完整 bind occurrence 断言。34 条用例包含 statement 级 `query_graph.session`，覆盖 `D002`、`D003`、`D003Q`、`D026`、`D089` 至 `D095` 和 `DM-*` session 用例；这 34 条用例均至少包含一个非空 session item。
 
 用例提供 `query_graph.session` 时，矩阵测试会随完整 View JSON 精确校验 session action、item scope、target kind、name 及 value 字段。每条用例还会反解析未修改的 handle，并将结果与输入 SQL 逐字节比较。
 
@@ -213,6 +213,14 @@
 | D157 | `dameng-multitable-update-same-table-distinct-alias-contract` | 同一表对象使用不同 alias | 按 alias 区分唯一写入对象及复合右值 patch |
 | D158 | `dameng-multitable-update-four-table-join-chain-contract` | LEFT/INNER/RIGHT JOIN 链 | JOIN condition、唯一中间 target 和 assignment patch |
 | D159 | `dameng-multitable-update-join-comma-mixed-contract` | JOIN 与逗号 relation 混合 | 混合 relation list、唯一 target 和反解析 |
+
+## Query Graph 引号别名合同
+
+`relations[].alias_quoted_identifier` 仅在 relation alias 使用双引号定界时为 `true`。`targets[].output_quoted_identifier` 在 output name 来自双引号显式别名，或无显式别名时继承双引号字段名时为 `true`；View JSON 不输出值为 `false` 的键。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| D160 | `dameng-quoted-relation-alias-and-target-output-contract` | 双引号 relation/派生表 alias 与 output name | 两个引号标志、字段名继承及 2 个 output alias patch |
 
 ## 覆盖边界
 

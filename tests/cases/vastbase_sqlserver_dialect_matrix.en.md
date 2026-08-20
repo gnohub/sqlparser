@@ -15,10 +15,14 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 605 cases with `status = "final"` and 1853 independent
+The fixture contains 606 cases with `status = "final"` and 1855 independent
 patches. The expected View contains a non-empty session projection in 75 cases.
 
 View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
+
+## Delimited Alias-State Regression
+
+`vastbase-sqlserver-graph-quoted-relation-alias-and-target-output` and its two output-alias patches verify the Query Graph field contract: `alias_quoted_identifier: true` is emitted when the exact relation-alias token uses brackets; `output_quoted_identifier: true` is emitted when `output_name` comes from a bracket-delimited explicit alias, or from a bracket-delimited direct-field token when no explicit alias exists. The corresponding field is omitted for an undelimited source. This is a project compatibility-entry contract, not a claim about official Vastbase server syntax.
 
 ## Complete Bind-Placeholder Occurrence Regression
 

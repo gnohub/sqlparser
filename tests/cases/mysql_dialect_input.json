@@ -58,6 +58,7 @@
               "relations": [
                 {
                   "alias": "u",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
@@ -72,6 +73,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -80,6 +82,7 @@
                   "block": 0,
                   "kind": "literal",
                   "name": "label",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]",
@@ -259,6 +262,7 @@
               "relations": [
                 {
                   "alias": "u",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
@@ -267,6 +271,7 @@
                 },
                 {
                   "alias": "o",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[1]",
@@ -281,6 +286,7 @@
                   "field": 2,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -290,6 +296,7 @@
                   "field": 3,
                   "kind": "field",
                   "name": "name",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -299,6 +306,7 @@
                   "field": 4,
                   "kind": "field",
                   "name": "order_no",
+                  "output_quoted_identifier": true,
                   "ordinal": 2,
                   "selector": "stmt[0].select_target[0][2]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -942,6 +950,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -951,6 +960,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "name",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -1392,6 +1402,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -1401,6 +1412,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "name",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -1629,6 +1641,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -1757,6 +1770,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "unsigned",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -1766,6 +1780,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "auto_increment",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -1775,6 +1790,7 @@
                   "field": 2,
                   "kind": "field",
                   "name": "engine",
+                  "output_quoted_identifier": true,
                   "ordinal": 2,
                   "selector": "stmt[0].select_target[0][2]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -4857,6 +4873,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "name",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -5036,6 +5053,7 @@
                   "field": 2,
                   "kind": "field",
                   "name": "order_no",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -5505,6 +5523,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[1][0]",
                   "target_list_selector": "stmt[0].select_targets[1]"
@@ -5514,6 +5533,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "phone",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[1][1]",
                   "target_list_selector": "stmt[0].select_targets[1]"
@@ -5523,6 +5543,7 @@
                   "field": 3,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -5532,6 +5553,7 @@
                   "field": 4,
                   "kind": "field",
                   "name": "phone",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -5743,6 +5765,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[1][0]",
                   "target_list_selector": "stmt[0].select_targets[1]"
@@ -5752,6 +5775,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "inner_name",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[1][1]",
                   "target_list_selector": "stmt[0].select_targets[1]"
@@ -5761,6 +5785,7 @@
                   "field": 3,
                   "kind": "field",
                   "name": "outer_name",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -6068,6 +6093,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -6077,6 +6103,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "phone",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -6170,6 +6197,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -6532,6 +6560,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -6541,6 +6570,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "name",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -6550,6 +6580,7 @@
                   "field": 2,
                   "kind": "field",
                   "name": "age",
+                  "output_quoted_identifier": true,
                   "ordinal": 2,
                   "selector": "stmt[0].select_target[0][2]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -6668,6 +6699,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -6677,6 +6709,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "name",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -6686,6 +6719,7 @@
                   "field": 2,
                   "kind": "field",
                   "name": "age",
+                  "output_quoted_identifier": true,
                   "ordinal": 2,
                   "selector": "stmt[0].select_target[0][2]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -8020,6 +8054,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[2][0]",
                   "target_list_selector": "stmt[0].select_targets[2]"
@@ -8029,6 +8064,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "name",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[2][1]",
                   "target_list_selector": "stmt[0].select_targets[2]"
@@ -8803,6 +8839,7 @@
                   "field": 2,
                   "kind": "field",
                   "name": "aa",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[1][0]",
                   "target_list_selector": "stmt[0].select_targets[1]"
@@ -10688,6 +10725,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -10824,6 +10862,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -10961,6 +11000,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -11096,6 +11136,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -11596,6 +11637,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -12259,6 +12301,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -12268,6 +12311,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "phone",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -20268,6 +20312,7 @@
               "relations": [
                 {
                   "alias": "group",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "selector": "stmt[0].relation[0]",
@@ -20282,6 +20327,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "id",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -30501,6 +30547,7 @@
               "relations": [
                 {
                   "alias": "a-x",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "quoted_identifier": true,
@@ -30510,6 +30557,7 @@
                 },
                 {
                   "alias": "l-y",
+                  "alias_quoted_identifier": true,
                   "block": 0,
                   "kind": "base",
                   "quoted_identifier": true,
@@ -30564,6 +30612,241 @@
           "target": "/statements/0/query_graph/dml/assignments/1/selector",
           "value": "`l-y`.`state` = 'closed'",
           "deparse": "UPDATE `sales-db`.`account` AS `a-x` JOIN `ops-db`.`ledger` AS `l-y` ON `a-x`.`id` = `l-y`.`account-id` SET `a-x`.`balance` = `l-y`.`amount`, `l-y`.`state` = 'closed' WHERE `l-y`.`active` = 1"
+        }
+      ]
+    },
+    {
+      "name": "mysql-quoted-alias-output-flags",
+      "sql": "SELECT `qa`.`quoted_col` AS plain_out, p.plain_col AS `quoted_out`, p.`inherited_col` FROM plain_table AS `qa` JOIN `quoted-table` AS p ON `qa`.id = p.id JOIN (SELECT 1 AS x) AS `derived-alias` ON p.id = `derived-alias`.x",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1,
+                    2
+                  ],
+                  "targets": [
+                    1,
+                    2,
+                    3
+                  ],
+                  "predicates": [
+                    0,
+                    1
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "plain_table",
+                  "alias": "qa",
+                  "alias_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "quoted-table",
+                  "quoted_identifier": true,
+                  "alias": "p",
+                  "selector": "stmt[0].relation[1]"
+                },
+                {
+                  "block": 0,
+                  "kind": "derived",
+                  "alias": "derived-alias",
+                  "alias_quoted_identifier": true,
+                  "source_block": 1
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "literal",
+                  "name": "x",
+                  "value": 1,
+                  "selector": "stmt[0].select_target[1][0]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "plain_out",
+                  "field": 4,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "quoted_out",
+                  "output_quoted_identifier": true,
+                  "field": 5,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 2,
+                  "kind": "field",
+                  "name": "inherited_col",
+                  "output_quoted_identifier": true,
+                  "field": 6,
+                  "selector": "stmt[0].select_target[0][2]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 0,
+                  "column": "id",
+                  "selector": "stmt[0].name[13]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 1,
+                  "column": "id",
+                  "selector": "stmt[0].name[15]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 1,
+                  "column": "id",
+                  "selector": "stmt[0].name[19]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 2,
+                  "column": "x",
+                  "selector": "stmt[0].name[21]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "quoted_col",
+                  "quoted_identifier": true,
+                  "target": 1,
+                  "selector": "stmt[0].name[2]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "plain_col",
+                  "target": 2,
+                  "selector": "stmt[0].name[5]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "inherited_col",
+                  "quoted_identifier": true,
+                  "target": 3,
+                  "selector": "stmt[0].name[7]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 0,
+                  "source_field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "kind": "literal",
+                  "bind_kind": 0,
+                  "selector": "stmt[0].value[27]",
+                  "literal": {
+                    "kind": "integer",
+                    "integer_value": 1
+                  }
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 2,
+                  "source_field": 3,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 0,
+                  "right_field": 1,
+                  "value": 0
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 2,
+                  "right_field": 3,
+                  "value": 2
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/1/selector",
+          "value": "`qa`.`quoted_col` AS `plain_out`",
+          "deparse": "SELECT `qa`.`quoted_col` AS `plain_out`, p.plain_col AS `quoted_out`, p.`inherited_col` FROM plain_table AS `qa` JOIN `quoted-table` AS p ON `qa`.id = p.id JOIN (SELECT 1 AS x) AS `derived-alias` ON p.id = `derived-alias`.x"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/2/selector",
+          "value": "p.plain_col AS quoted_out",
+          "deparse": "SELECT `qa`.`quoted_col` AS plain_out, p.plain_col AS quoted_out, p.`inherited_col` FROM plain_table AS `qa` JOIN `quoted-table` AS p ON `qa`.id = p.id JOIN (SELECT 1 AS x) AS `derived-alias` ON p.id = `derived-alias`.x"
         }
       ]
     }

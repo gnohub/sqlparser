@@ -1,5 +1,18 @@
 # 变更记录
 
+## 2.16.6
+
+### Query Graph 标识符定界信息
+
+- `sqlparser_graph_relation_t` 新增 `alias_quoted_identifier`，`sqlparser_graph_target_t` 新增 `output_quoted_identifier`，分别标识 relation alias 与 target output name 是否使用定界符；View JSON 仅在值为 `true` 时输出同名字段。
+- 显式 output alias 优先决定 `output_quoted_identifier`；没有显式 alias 且 output name 直接来自字段时，继承该字段的定界状态。支持双引号、反引号和方括号定界形式，`U&` 前缀不单独计入。
+- 未新增公开导出符号、动态分配或资源所有权规则。受支持的 x86_64 与 AArch64 布局检查中，相关结构体既有成员 offset 与 `sizeof` 保持不变。
+
+### 用例与验证
+
+- 新增 9 条 final case 和 18 个 patch；九套 fixture 当前合计 2,831 条 final case 和 9,136 个 patch。
+- 远端完整 `make test` 通过；ABI/export 检查保持 154 个公开符号，identifier 定向 Valgrind 检查为 `0 bytes in 0 blocks`、0 errors。
+
 ## 2.16.5
 
 ### 多表 UPDATE

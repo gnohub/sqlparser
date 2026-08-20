@@ -5847,7 +5847,8 @@ enum {
 	SQLPARSER_GRAPH_TARGET_HAS_SOURCE_BLOCK = 1U << 2,
 	SQLPARSER_GRAPH_TARGET_HAS_SELECTOR = 1U << 3,
 	SQLPARSER_GRAPH_TARGET_HAS_TARGET_LIST_SELECTOR = 1U << 4,
-	SQLPARSER_GRAPH_TARGET_HAS_SINK_VALUE = 1U << 5
+	SQLPARSER_GRAPH_TARGET_HAS_SINK_VALUE = 1U << 5,
+	SQLPARSER_GRAPH_TARGET_OUTPUT_QUOTED_IDENTIFIER = 1U << 6
 };
 
 typedef struct {
@@ -7353,6 +7354,9 @@ static void sqlparser_graph_target_cache_copy_public(
 	target->sink_value_index = source->sink_value_index;
 	target->has_sink_value =
 		(source->flags & SQLPARSER_GRAPH_TARGET_HAS_SINK_VALUE) != 0U;
+	target->output_quoted_identifier =
+		(source->flags &
+		 SQLPARSER_GRAPH_TARGET_OUTPUT_QUOTED_IDENTIFIER) != 0U;
 	target->has_selector =
 		(source->flags & SQLPARSER_GRAPH_TARGET_HAS_SELECTOR) != 0U;
 	if (target->has_selector) {
@@ -9218,6 +9222,9 @@ static int sqlparser_graph_add_relation(
 	relation->quoted_identifier =
 		relation_identifiers->object.known &&
 		relation_identifiers->object.delimited;
+	relation->alias_quoted_identifier =
+		relation_identifiers->alias.known &&
+		relation_identifiers->alias.delimited;
 	if (relation_view != NULL) {
 		relation->database_name = relation_view->database_name;
 		relation->schema_name = relation_view->schema_name;
@@ -9273,6 +9280,9 @@ static int sqlparser_graph_add_target(
 		    build->statement_index,
 		    out_error) != 0) {
 		return -1;
+	}
+	if (identifier->known && identifier->delimited) {
+		target.flags |= SQLPARSER_GRAPH_TARGET_OUTPUT_QUOTED_IDENTIFIER;
 	}
 	build->cache->targets[global_index] = target;
 	build->cache->target_count++;
@@ -16577,6 +16587,17 @@ sqlparser_graph_res_target_identifier_source(
 	    target->name[0] == '\0') {
 		return source;
 	}
+	if (sqlparser_identifier_mutation_for_source_slot(
+		    build->handle,
+		    (const char *const *)&target->name) != NULL) {
+		(void)sqlparser_current_identifier_source(
+			build->handle,
+			(const char *const *)&target->name,
+			target->location,
+			0U,
+			&source);
+		return source;
+	}
 	if (target->location < 0) {
 		(void)sqlparser_identifier_component_source(
 			build->handle,
@@ -16598,6 +16619,7 @@ sqlparser_graph_res_target_identifier_source(
 	while (position < length) {
 		size_t skipped;
 		size_t token_end;
+		sqlparser_identifier_source_t token_source;
 		int quoted;
 
 		position = sqlparser_identifier_skip_trivia(
@@ -16658,11 +16680,24 @@ sqlparser_graph_res_target_identifier_source(
 			position++;
 			continue;
 		}
+		memset(&token_source, 0, sizeof(token_source));
+		if (depth == 0U && bracket_depth == 0U &&
+		    !sqlparser_identifier_component_source(
+			    build->handle,
+			    (int)position,
+			    0U,
+			    &token_source,
+			    NULL)) {
+			token_source.known = 1;
+			token_source.quoted = quoted;
+			token_source.delimited =
+				sqlparser_identifier_spelling_is_delimited(
+					sql + position,
+					token_end - position);
+		}
 		if (depth == 0U && bracket_depth == 0U &&
 		    expect_alias) {
-			source.known = 1;
-			source.quoted = quoted;
-			return source;
+			return token_source;
 		}
 		if (depth == 0U && bracket_depth == 0U &&
 		    !quoted &&
@@ -16683,8 +16718,7 @@ sqlparser_graph_res_target_identifier_source(
 			break;
 		}
 		if (depth == 0U && bracket_depth == 0U) {
-			last_identifier.known = 1;
-			last_identifier.quoted = quoted;
+			last_identifier = token_source;
 		}
 		if (sqlparser_identifier_token_value_equal(
 			    sql,
@@ -16692,8 +16726,12 @@ sqlparser_graph_res_target_identifier_source(
 			    token_end,
 			    quoted,
 			    target->name)) {
-			source.known = 1;
-			source.quoted = quoted;
+			if (depth == 0U && bracket_depth == 0U) {
+				source = token_source;
+			} else {
+				source.known = 1;
+				source.quoted = quoted;
+			}
 		}
 		position = token_end;
 	}
@@ -17306,12 +17344,13 @@ static int sqlparser_graph_build_from_item(
 				0,
 				sizeof(derived_identifiers));
 			if (relation_view.alias_name != NULL) {
-				(void)sqlparser_identifier_component_source(
+				(void)sqlparser_current_identifier_source(
 					build->handle,
+					(const char *const *)
+						&node->range_subselect->alias->aliasname,
 					node->range_subselect->alias->location,
 					0U,
-					&derived_identifiers.alias,
-					NULL);
+					&derived_identifiers.alias);
 			}
 			if (sqlparser_graph_add_relation(
 				    build,
@@ -22343,6 +22382,8 @@ static json_t *sqlparser_graph_relation_json(
 	    (relation->quoted_identifier &&
 	     json_object_set_new(object, "quoted_identifier", json_boolean(1)) != 0) ||
 	    sqlparser_json_set_optional_string(object, "alias", relation->alias_name) != 0 ||
+	    (relation->alias_quoted_identifier &&
+	     json_object_set_new(object, "alias_quoted_identifier", json_boolean(1)) != 0) ||
 	    sqlparser_json_set_optional_string(object, "link", relation->link_name) != 0 ||
 	    sqlparser_json_set_optional_size(object, "source_block", relation->has_source_block, relation->source_block_index) != 0 ||
 	    sqlparser_json_set_optional_selector(object, "selector", relation->has_selector ? &relation->selector : NULL, out_error) != 0) {
@@ -22370,6 +22411,8 @@ static json_t *sqlparser_graph_target_json(
 	    json_object_set_new(object, "ordinal", json_integer((json_int_t)target->ordinal)) != 0 ||
 	    json_object_set_new(object, "kind", json_string(sqlparser_graph_target_kind_name(target->kind))) != 0 ||
 	    sqlparser_json_set_optional_string(object, "name", target->output_name) != 0 ||
+	    (target->output_quoted_identifier &&
+	     json_object_set_new(object, "output_quoted_identifier", json_boolean(1)) != 0) ||
 	    sqlparser_json_set_optional_size(object, "field", target->has_field, target->field_index) != 0 ||
 	    sqlparser_json_set_optional_size(object, "value", target->has_value, target->value_index) != 0 ||
 	    sqlparser_json_set_nonempty_array(object, "star_relations", &star_relations) != 0 ||

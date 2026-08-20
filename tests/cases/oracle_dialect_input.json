@@ -5649,6 +5649,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "Name",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -6354,6 +6355,7 @@
                   "field": 0,
                   "kind": "field",
                   "name": "RETURNING",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[0][0]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -6363,6 +6365,7 @@
                   "field": 1,
                   "kind": "field",
                   "name": "email@domain",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[0][1]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -8527,6 +8530,7 @@
                   "field": 10,
                   "kind": "field",
                   "name": "UID",
+                  "output_quoted_identifier": true,
                   "ordinal": 10,
                   "selector": "stmt[0].select_target[0][10]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -9414,6 +9418,7 @@
                   "field": 2,
                   "kind": "field",
                   "name": "UID",
+                  "output_quoted_identifier": true,
                   "ordinal": 2,
                   "selector": "stmt[0].select_target[0][2]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -11376,6 +11381,7 @@
                   "field": 10,
                   "kind": "field",
                   "name": "UID",
+                  "output_quoted_identifier": true,
                   "ordinal": 10,
                   "selector": "stmt[0].select_target[0][10]",
                   "target_list_selector": "stmt[0].select_targets[0]"
@@ -15334,6 +15340,7 @@
                   "field": 6,
                   "kind": "field",
                   "name": "XXPC_BH",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[2][0]",
                   "target_list_selector": "stmt[0].select_targets[2]"
@@ -15342,6 +15349,7 @@
                   "block": 2,
                   "kind": "expression",
                   "name": "XXPC_MC",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[2][1]",
                   "target_list_selector": "stmt[0].select_targets[2]"
@@ -15351,6 +15359,7 @@
                   "field": 10,
                   "kind": "field",
                   "name": "XXPCZT_DM",
+                  "output_quoted_identifier": true,
                   "ordinal": 2,
                   "selector": "stmt[0].select_target[2][2]",
                   "target_list_selector": "stmt[0].select_targets[2]"
@@ -15368,6 +15377,7 @@
                   "block": 2,
                   "kind": "subquery",
                   "name": "FXSCFS",
+                  "output_quoted_identifier": true,
                   "ordinal": 3,
                   "selector": "stmt[0].select_target[2][3]",
                   "source_block": 3,
@@ -15386,6 +15396,7 @@
                   "block": 2,
                   "kind": "subquery",
                   "name": "XXPCZT_MC",
+                  "output_quoted_identifier": true,
                   "ordinal": 4,
                   "selector": "stmt[0].select_target[2][4]",
                   "source_block": 4,
@@ -15395,6 +15406,7 @@
                   "block": 2,
                   "kind": "expression",
                   "name": "LRSJ",
+                  "output_quoted_identifier": true,
                   "ordinal": 5,
                   "selector": "stmt[0].select_target[2][5]",
                   "target_list_selector": "stmt[0].select_targets[2]"
@@ -15412,6 +15424,7 @@
                   "block": 2,
                   "kind": "subquery",
                   "name": "LYCS",
+                  "output_quoted_identifier": true,
                   "ordinal": 6,
                   "selector": "stmt[0].select_target[2][6]",
                   "source_block": 5,
@@ -15430,6 +15443,7 @@
                   "block": 2,
                   "kind": "subquery",
                   "name": "SWJG",
+                  "output_quoted_identifier": true,
                   "ordinal": 7,
                   "selector": "stmt[0].select_target[2][7]",
                   "source_block": 6,
@@ -15439,6 +15453,7 @@
                   "block": 2,
                   "kind": "expression",
                   "name": "FXXXS",
+                  "output_quoted_identifier": true,
                   "ordinal": 8,
                   "selector": "stmt[0].select_target[2][8]",
                   "target_list_selector": "stmt[0].select_targets[2]"
@@ -15447,6 +15462,7 @@
                   "block": 2,
                   "kind": "expression",
                   "name": "FXTGSL",
+                  "output_quoted_identifier": true,
                   "ordinal": 9,
                   "selector": "stmt[0].select_target[2][9]",
                   "target_list_selector": "stmt[0].select_targets[2]"
@@ -15455,6 +15471,7 @@
                   "block": 2,
                   "kind": "expression",
                   "name": "FXBTGSL",
+                  "output_quoted_identifier": true,
                   "ordinal": 10,
                   "selector": "stmt[0].select_target[2][10]",
                   "target_list_selector": "stmt[0].select_targets[2]"
@@ -16794,6 +16811,7 @@
                   "field": 6,
                   "kind": "field",
                   "name": "XXPC_BH",
+                  "output_quoted_identifier": true,
                   "ordinal": 0,
                   "selector": "stmt[0].select_target[5][0]",
                   "target_list_selector": "stmt[0].select_targets[5]"
@@ -16802,6 +16820,7 @@
                   "block": 5,
                   "kind": "expression",
                   "name": "XXPC_MC",
+                  "output_quoted_identifier": true,
                   "ordinal": 1,
                   "selector": "stmt[0].select_target[5][1]",
                   "target_list_selector": "stmt[0].select_targets[5]"
@@ -16811,6 +16830,7 @@
                   "field": 10,
                   "kind": "field",
                   "name": "XXPCZT_DM",
+                  "output_quoted_identifier": true,
                   "ordinal": 2,
                   "selector": "stmt[0].select_target[5][2]",
                   "target_list_selector": "stmt[0].select_targets[5]"
@@ -16828,6 +16848,7 @@
                   "block": 5,
                   "kind": "subquery",
                   "name": "FXSCFS",
+                  "output_quoted_identifier": true,
                   "ordinal": 3,
                   "selector": "stmt[0].select_target[5][3]",
                   "source_block": 6,
@@ -16846,6 +16867,7 @@
                   "block": 5,
                   "kind": "subquery",
                   "name": "XXPCZT_MC",
+                  "output_quoted_identifier": true,
                   "ordinal": 4,
                   "selector": "stmt[0].select_target[5][4]",
                   "source_block": 7,
@@ -16855,6 +16877,7 @@
                   "block": 5,
                   "kind": "expression",
                   "name": "LRSJ",
+                  "output_quoted_identifier": true,
                   "ordinal": 5,
                   "selector": "stmt[0].select_target[5][5]",
                   "target_list_selector": "stmt[0].select_targets[5]"
@@ -16872,6 +16895,7 @@
                   "block": 5,
                   "kind": "subquery",
                   "name": "LYCS",
+                  "output_quoted_identifier": true,
                   "ordinal": 6,
                   "selector": "stmt[0].select_target[5][6]",
                   "source_block": 8,
@@ -16890,6 +16914,7 @@
                   "block": 5,
                   "kind": "subquery",
                   "name": "SWJG",
+                  "output_quoted_identifier": true,
                   "ordinal": 7,
                   "selector": "stmt[0].select_target[5][7]",
                   "source_block": 9,
@@ -16899,6 +16924,7 @@
                   "block": 5,
                   "kind": "expression",
                   "name": "FXXXS",
+                  "output_quoted_identifier": true,
                   "ordinal": 8,
                   "selector": "stmt[0].select_target[5][8]",
                   "target_list_selector": "stmt[0].select_targets[5]"
@@ -16907,6 +16933,7 @@
                   "block": 5,
                   "kind": "expression",
                   "name": "FXTGSL",
+                  "output_quoted_identifier": true,
                   "ordinal": 9,
                   "selector": "stmt[0].select_target[5][9]",
                   "target_list_selector": "stmt[0].select_targets[5]"
@@ -16915,6 +16942,7 @@
                   "block": 5,
                   "kind": "expression",
                   "name": "FXBTGSL",
+                  "output_quoted_identifier": true,
                   "ordinal": 10,
                   "selector": "stmt[0].select_target[5][10]",
                   "target_list_selector": "stmt[0].select_targets[5]"
@@ -37234,6 +37262,215 @@
           "name": ":out_tenant_id",
           "index": 8,
           "deparse": "DELETE FROM app.customer_profiles WHERE customer_id = :customer_id RETURNING customer_id, customer_name, city, city_digest, status, created_at, updated_at, version_no, tenant_id INTO :out_customer_id, :out_customer_name, :out_city, :out_city_digest, :out_status, :out_created_at, :out_updated_at, :out_version_no, :out_tenant_id"
+        }
+      ]
+    },
+    {
+      "name": "oracle-quoted-relation-alias-and-target-output-contract",
+      "sql": "SELECT \"QuotedAlias\".\"QuotedField\" AS plain_output, plain_alias.plain_field AS \"QuotedOutput\", \"DerivedAlias\".\"InheritedQuoted\" FROM app.base_table \"QuotedAlias\" JOIN app.\"QuotedTable\" plain_alias ON \"QuotedAlias\".id = plain_alias.id JOIN (SELECT \"InheritedQuoted\" FROM app.inner_table) \"DerivedAlias\" ON 1 = 1",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "select",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1,
+                    2
+                  ],
+                  "targets": [
+                    1,
+                    2,
+                    3
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                },
+                {
+                  "kind": "select",
+                  "relations": [
+                    3
+                  ],
+                  "targets": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "app",
+                  "table": "base_table",
+                  "alias": "QuotedAlias",
+                  "alias_quoted_identifier": true,
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "schema": "app",
+                  "table": "QuotedTable",
+                  "quoted_identifier": true,
+                  "alias": "plain_alias",
+                  "selector": "stmt[0].relation[1]"
+                },
+                {
+                  "block": 0,
+                  "kind": "derived",
+                  "alias": "DerivedAlias",
+                  "alias_quoted_identifier": true,
+                  "source_block": 1
+                },
+                {
+                  "block": 1,
+                  "kind": "base",
+                  "schema": "app",
+                  "table": "inner_table",
+                  "selector": "stmt[0].relation[2]"
+                }
+              ],
+              "targets": [
+                {
+                  "block": 1,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "InheritedQuoted",
+                  "output_quoted_identifier": true,
+                  "field": 2,
+                  "selector": "stmt[0].select_target[1][0]",
+                  "target_list_selector": "stmt[0].select_targets[1]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 0,
+                  "kind": "field",
+                  "name": "plain_output",
+                  "field": 3,
+                  "selector": "stmt[0].select_target[0][0]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 1,
+                  "kind": "field",
+                  "name": "QuotedOutput",
+                  "output_quoted_identifier": true,
+                  "field": 4,
+                  "selector": "stmt[0].select_target[0][1]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                },
+                {
+                  "block": 0,
+                  "ordinal": 2,
+                  "kind": "field",
+                  "name": "InheritedQuoted",
+                  "output_quoted_identifier": true,
+                  "field": 5,
+                  "selector": "stmt[0].select_target[0][2]",
+                  "target_list_selector": "stmt[0].select_targets[0]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 0,
+                  "column": "id",
+                  "selector": "stmt[0].name[15]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 1,
+                  "column": "id",
+                  "selector": "stmt[0].name[17]"
+                },
+                {
+                  "block": 1,
+                  "clause": "select_list",
+                  "relation": 3,
+                  "column": "InheritedQuoted",
+                  "quoted_identifier": true,
+                  "target": 0,
+                  "selector": "stmt[0].name[18]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 0,
+                  "column": "QuotedField",
+                  "quoted_identifier": true,
+                  "target": 1,
+                  "selector": "stmt[0].name[2]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 1,
+                  "column": "plain_field",
+                  "target": 2,
+                  "selector": "stmt[0].name[5]"
+                },
+                {
+                  "block": 0,
+                  "clause": "select_list",
+                  "relation": 2,
+                  "column": "InheritedQuoted",
+                  "quoted_identifier": true,
+                  "target": 3,
+                  "selector": "stmt[0].name[7]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 0,
+                  "source_field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 0,
+                  "right_field": 1,
+                  "value": 0
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/1/selector",
+          "value": "\"QuotedAlias\".\"QuotedField\" AS \"PatchedOutput\"",
+          "deparse": "SELECT \"QuotedAlias\".\"QuotedField\" AS \"PatchedOutput\", plain_alias.plain_field AS \"QuotedOutput\", \"DerivedAlias\".\"InheritedQuoted\" FROM app.base_table \"QuotedAlias\" JOIN app.\"QuotedTable\" plain_alias ON \"QuotedAlias\".id = plain_alias.id JOIN (SELECT \"InheritedQuoted\" FROM app.inner_table) \"DerivedAlias\" ON 1 = 1"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/targets/2/selector",
+          "value": "plain_alias.plain_field AS patched_output",
+          "deparse": "SELECT \"QuotedAlias\".\"QuotedField\" AS plain_output, plain_alias.plain_field AS patched_output, \"DerivedAlias\".\"InheritedQuoted\" FROM app.base_table \"QuotedAlias\" JOIN app.\"QuotedTable\" plain_alias ON \"QuotedAlias\".id = plain_alias.id JOIN (SELECT \"InheritedQuoted\" FROM app.inner_table) \"DerivedAlias\" ON 1 = 1"
         }
       ]
     }

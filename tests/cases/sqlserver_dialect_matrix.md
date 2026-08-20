@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 625 条 `status = "final"` 用例和 1870 个独立 patch；其中 2 条用例及其 6 个 patch 含完整 bind occurrence 断言。91 条用例的期望 View 包含非空 `query_graph.session` 投影，覆盖 `S044` 至 `S046`、`SH295` 至 `SH333` 和 49 条 `MSSQL-*` session 用例。
+夹具包含 626 条 `status = "final"` 用例和 1872 个独立 patch；其中 2 条用例及其 6 个 patch 含完整 bind occurrence 断言。91 条用例的期望 View 包含非空 `query_graph.session` 投影，覆盖 `S044` 至 `S046`、`SH295` 至 `SH333` 和 49 条 `MSSQL-*` session 用例。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
 
@@ -100,6 +100,14 @@ View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参
 | 用例 ID | 用例名称 | 语句形态 | 验证重点 |
 | --- | --- | --- | --- |
 | SH428 | `sqlserver-nested-update-output-assignment-contract` | `INSERT ... SELECT` 内嵌带 `OUTPUT` 的 `UPDATE` | `assignment[D][A]` 定位 D1 双赋值；插入、整项替换和删除 3 个 patch 保持嵌套与 `OUTPUT` |
+
+## Query Graph 引号别名合同
+
+`relations[].alias_quoted_identifier` 仅在 relation alias 使用方括号定界时为 `true`。`targets[].output_quoted_identifier` 在 output name 来自方括号显式别名，或无显式别名时继承方括号字段名时为 `true`；View JSON 不输出值为 `false` 的键。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| SH429 | `sqlserver-graph-quoted-relation-alias-and-target-output` | 方括号 relation/派生表 alias 与 output name | 两个引号标志、字段名继承及 2 个 output alias patch |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 

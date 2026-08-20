@@ -37,6 +37,7 @@ PostgreSQL 默认方言当前没有单独维护负向功能清单。解析失败
 
 - `sqlparser_deparse()` 输出 PostgreSQL 兼容 SQL。
 - View JSON 通过统一的 `query_graph` 输出结构化结果。
+- Query Graph 以 `alias_quoted_identifier` 标记双引号 relation alias，以 `output_quoted_identifier` 标记双引号显式 output alias 或无显式别名时继承的双引号字段名；View JSON 仅输出值为 `true` 的键。
 
 ## 回归用例
 
@@ -48,4 +49,4 @@ PostgreSQL 默认方言支持范围以以下文件为准：
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-当前 PostgreSQL 矩阵包含 216 条用例，全部为 `status = "final"`。
+当前 PostgreSQL 矩阵包含 217 条用例和 731 个独立 patch，全部为 `status = "final"`。

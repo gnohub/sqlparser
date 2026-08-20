@@ -86,6 +86,10 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
   every target's `sink_value` points to the output bind at the corresponding
   ordinal. `insert_column` atomically inserts the target/receiver pair in the
   same patch; one-sided insertion is not supported.
+- Query Graph uses `alias_quoted_identifier` for double-quoted relation aliases
+  and `output_quoted_identifier` for explicit double-quoted output aliases or
+  inherited double-quoted field names when no explicit alias exists. View JSON
+  emits either key only when its value is `true`.
 - Attributable expression fragments in View JSON use the public Oracle
   form.
 - Failed expression-fragment rewrites are not committed to the handle; the
@@ -100,7 +104,7 @@ The Oracle support boundary is defined by:
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current Oracle matrix contains 251 cases and 852 independent patches, all
+The current Oracle matrix contains 252 cases and 854 independent patches, all
 with `status = "final"`. Four hierarchical-query cases contain 20 independent
 patches. O198 through O200 verify eight `RETURNING ... INTO` pairs on `INSERT`,
 `UPDATE`, and `DELETE`, plus paired insertion at the head, middle, and tail.

@@ -481,6 +481,7 @@ typedef struct {
 	int has_source_block;
 	sqlparser_selector_t selector;
 	int has_selector;
+	int alias_quoted_identifier;
 } sqlparser_graph_relation_t;
 
 typedef struct {
@@ -503,6 +504,7 @@ typedef struct {
 	int has_target_list_selector;
 	size_t sink_value_index;
 	int has_sink_value;
+	int output_quoted_identifier;
 } sqlparser_graph_target_t;
 
 typedef struct {

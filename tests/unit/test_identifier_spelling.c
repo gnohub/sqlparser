@@ -493,6 +493,435 @@ static int query_graph_identifier_semantics(void)
 	return 1;
 }
 
+static int query_graph_alias_output_quote_flags_match(
+	sqlparser_handle_t *handle,
+	int state,
+	size_t case_index,
+	const char *phase)
+{
+	const char *plain_output;
+	const char *quoted_output;
+	sqlparser_graph_relation_t relation;
+	sqlparser_graph_target_t target;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_error_t error;
+	size_t index;
+	int found_derived_alias;
+	int found_plain_alias;
+	int found_plain_output;
+	int found_quoted_alias;
+	int found_quoted_output;
+	int found_inherited_output;
+	int aliases_mutated;
+	int output_state;
+
+	aliases_mutated = state >= 3;
+	output_state = state % 3;
+	if (output_state == 0) {
+		plain_output = "plain_output";
+		quoted_output = "QuotedOutput";
+	} else if (output_state == 1) {
+		plain_output = "patched_output";
+		quoted_output = "PatchedOutput";
+	} else {
+		plain_output = "name_plain_output";
+		quoted_output = "NameQuotedOutput";
+	}
+	found_derived_alias = 0;
+	found_plain_alias = 0;
+	found_plain_output = 0;
+	found_quoted_alias = 0;
+	found_quoted_output = 0;
+	found_inherited_output = 0;
+	memset(&error, 0, sizeof(error));
+	memset(&graph, 0, sizeof(graph));
+	if (sqlparser_statement_query_graph(
+		    handle,
+		    0U,
+		    &graph,
+		    &error) != SQLPARSER_STATUS_OK ||
+	    !graph.has_root_block) {
+		fprintf(
+			stderr,
+			"FAIL: alias/output quote case %lu %s graph failed: %s\n",
+			(unsigned long)case_index,
+			phase,
+			error.message);
+		return 0;
+	}
+
+	for (index = 0U; index < graph.relation_count; index++) {
+		memset(&relation, 0, sizeof(relation));
+		if (sqlparser_query_graph_relation_at(
+			    &graph,
+			    index,
+			    &relation,
+			    &error) != SQLPARSER_STATUS_OK) {
+			fprintf(
+				stderr,
+				"FAIL: alias/output quote case %lu %s relation failed: %s\n",
+				(unsigned long)case_index,
+				phase,
+				error.message);
+			return 0;
+		}
+		if (relation.block_index != graph.root_block_index ||
+		    relation.alias_name == NULL) {
+			continue;
+		}
+		if (strcmp(relation.alias_name, "QuotedAlias") == 0 &&
+		    relation.kind == SQLPARSER_GRAPH_REL_BASE &&
+		    !relation.quoted_identifier &&
+		    relation.alias_quoted_identifier == !aliases_mutated) {
+			found_quoted_alias = 1;
+		} else if (strcmp(relation.alias_name, "plain_alias") == 0 &&
+			   relation.kind == SQLPARSER_GRAPH_REL_BASE &&
+			   relation.quoted_identifier &&
+			   relation.alias_quoted_identifier == aliases_mutated) {
+			found_plain_alias = 1;
+		} else if (strcmp(relation.alias_name, "DerivedAlias") == 0 &&
+			   relation.kind == SQLPARSER_GRAPH_REL_DERIVED &&
+			   relation.alias_quoted_identifier == !aliases_mutated) {
+			found_derived_alias = 1;
+		}
+	}
+
+	for (index = 0U; index < graph.target_count; index++) {
+		memset(&target, 0, sizeof(target));
+		if (sqlparser_query_graph_target_at(
+			    &graph,
+			    index,
+			    &target,
+			    &error) != SQLPARSER_STATUS_OK) {
+			fprintf(
+				stderr,
+				"FAIL: alias/output quote case %lu %s target failed: %s\n",
+				(unsigned long)case_index,
+				phase,
+				error.message);
+			return 0;
+		}
+		if (target.block_index != graph.root_block_index ||
+		    target.output_name == NULL ||
+		    target.kind != SQLPARSER_GRAPH_TARGET_FIELD) {
+			continue;
+		}
+		if (strcmp(target.output_name, plain_output) == 0 &&
+		    !target.output_quoted_identifier) {
+			found_plain_output = 1;
+		} else if (strcmp(target.output_name, quoted_output) == 0 &&
+			   target.output_quoted_identifier) {
+			found_quoted_output = 1;
+		} else if (strcmp(target.output_name, "InheritedQuoted") == 0 &&
+			   target.output_quoted_identifier) {
+			found_inherited_output = 1;
+		}
+	}
+
+	if (!found_quoted_alias ||
+	    !found_plain_alias ||
+	    !found_derived_alias ||
+	    !found_plain_output ||
+	    !found_quoted_output ||
+	    !found_inherited_output) {
+		fprintf(
+			stderr,
+			"FAIL: alias/output quote case %lu %s flags mismatch\n",
+			(unsigned long)case_index,
+			phase);
+		return 0;
+	}
+	return 1;
+}
+
+static int query_graph_alias_output_quote_flags(void)
+{
+	static const char standard_sql[] =
+		"SELECT \"QuotedAlias\".\"QuotedField\" AS plain_output, "
+		"plain_alias.plain_field AS \"QuotedOutput\", "
+		"\"DerivedAlias\".\"InheritedQuoted\" "
+		"FROM base_table AS \"QuotedAlias\" "
+		"JOIN \"QuotedTable\" AS plain_alias "
+		"ON \"QuotedAlias\".id = plain_alias.id "
+		"JOIN (SELECT \"InheritedQuoted\" FROM inner_table) "
+		"AS \"DerivedAlias\" ON TRUE";
+	static const char oracle_sql[] =
+		"SELECT \"QuotedAlias\".\"QuotedField\" AS plain_output, "
+		"plain_alias.plain_field AS \"QuotedOutput\", "
+		"\"DerivedAlias\".\"InheritedQuoted\" "
+		"FROM base_table \"QuotedAlias\" "
+		"JOIN \"QuotedTable\" plain_alias "
+		"ON \"QuotedAlias\".id = plain_alias.id "
+		"JOIN (SELECT \"InheritedQuoted\" FROM inner_table) "
+		"\"DerivedAlias\" ON 1 = 1";
+	static const char mysql_sql[] =
+		"SELECT `QuotedAlias`.`QuotedField` AS plain_output, "
+		"plain_alias.plain_field AS `QuotedOutput`, "
+		"`DerivedAlias`.`InheritedQuoted` "
+		"FROM base_table AS `QuotedAlias` "
+		"JOIN `QuotedTable` AS plain_alias "
+		"ON `QuotedAlias`.id = plain_alias.id "
+		"JOIN (SELECT `InheritedQuoted` FROM inner_table) "
+		"AS `DerivedAlias` ON 1 = 1";
+	static const char sqlserver_sql[] =
+		"SELECT [QuotedAlias].[QuotedField] AS plain_output, "
+		"plain_alias.plain_field AS [QuotedOutput], "
+		"[DerivedAlias].[InheritedQuoted] "
+		"FROM base_table AS [QuotedAlias] "
+		"JOIN [QuotedTable] AS plain_alias "
+		"ON [QuotedAlias].id = plain_alias.id "
+		"JOIN (SELECT [InheritedQuoted] FROM inner_table) "
+		"AS [DerivedAlias] ON 1 = 1";
+	static const struct {
+		sqlparser_dialect_t dialect;
+		const char *sql;
+		const char *quoted_patch;
+		const char *plain_patch;
+		const char *quoted_name_spelling;
+		const char *plain_name_spelling;
+		const char *quoted_plain_alias_spelling;
+	} cases[] = {
+		{
+			SQLPARSER_DIALECT_POSTGRESQL,
+			standard_sql,
+			"\"QuotedAlias\".\"QuotedField\" AS \"PatchedOutput\"",
+			"plain_alias.plain_field AS patched_output",
+			"\"NameQuotedOutput\"",
+			"name_plain_output",
+			"\"plain_alias\""
+		},
+		{
+			SQLPARSER_DIALECT_MYSQL,
+			mysql_sql,
+			"`QuotedAlias`.`QuotedField` AS `PatchedOutput`",
+			"plain_alias.plain_field AS patched_output",
+			"`NameQuotedOutput`",
+			"name_plain_output",
+			"`plain_alias`"
+		},
+		{
+			SQLPARSER_DIALECT_ORACLE,
+			oracle_sql,
+			"\"QuotedAlias\".\"QuotedField\" AS \"PatchedOutput\"",
+			"plain_alias.plain_field AS patched_output",
+			"\"NameQuotedOutput\"",
+			"name_plain_output",
+			"\"plain_alias\""
+		},
+		{
+			SQLPARSER_DIALECT_SQLSERVER,
+			sqlserver_sql,
+			"[QuotedAlias].[QuotedField] AS [PatchedOutput]",
+			"plain_alias.plain_field AS patched_output",
+			"[NameQuotedOutput]",
+			"name_plain_output",
+			"[plain_alias]"
+		},
+		{
+			SQLPARSER_DIALECT_DAMENG,
+			oracle_sql,
+			"\"QuotedAlias\".\"QuotedField\" AS \"PatchedOutput\"",
+			"plain_alias.plain_field AS patched_output",
+			"\"NameQuotedOutput\"",
+			"name_plain_output",
+			"\"plain_alias\""
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_ORACLE,
+			oracle_sql,
+			"\"QuotedAlias\".\"QuotedField\" AS \"PatchedOutput\"",
+			"plain_alias.plain_field AS patched_output",
+			"\"NameQuotedOutput\"",
+			"name_plain_output",
+			"\"plain_alias\""
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_MYSQL,
+			mysql_sql,
+			"`QuotedAlias`.`QuotedField` AS `PatchedOutput`",
+			"plain_alias.plain_field AS patched_output",
+			"`NameQuotedOutput`",
+			"name_plain_output",
+			"`plain_alias`"
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_POSTGRESQL,
+			standard_sql,
+			"\"QuotedAlias\".\"QuotedField\" AS \"PatchedOutput\"",
+			"plain_alias.plain_field AS patched_output",
+			"\"NameQuotedOutput\"",
+			"name_plain_output",
+			"\"plain_alias\""
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			sqlserver_sql,
+			"[QuotedAlias].[QuotedField] AS [PatchedOutput]",
+			"plain_alias.plain_field AS patched_output",
+			"[NameQuotedOutput]",
+			"name_plain_output",
+			"[plain_alias]"
+		}
+	};
+	sqlparser_error_t error;
+	sqlparser_handle_t *clone;
+	sqlparser_handle_t *handle;
+	sqlparser_parse_options_t options;
+	size_t case_index;
+	size_t derived_alias_index;
+	size_t plain_name_index;
+	size_t plain_alias_index;
+	size_t quoted_alias_index;
+	size_t quoted_name_index;
+
+	for (case_index = 0U;
+	     case_index < sizeof(cases) / sizeof(cases[0]);
+	     case_index++) {
+		handle = NULL;
+		clone = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = cases[case_index].dialect;
+		if (sqlparser_parse_with_options(
+			    cases[case_index].sql,
+			    &options,
+			    &handle,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !query_graph_alias_output_quote_flags_match(
+			    handle,
+			    0,
+			    case_index,
+			    "initial") ||
+		    sqlparser_handle_clone(handle, &clone, &error) !=
+			    SQLPARSER_STATUS_OK ||
+		    !statement_find_name_index(
+			    clone,
+			    0U,
+			    "Alias",
+			    "aliasname",
+			    "QuotedAlias",
+			    &quoted_alias_index) ||
+		    !statement_find_name_index(
+			    clone,
+			    0U,
+			    "Alias",
+			    "aliasname",
+			    "plain_alias",
+			    &plain_alias_index) ||
+		    !statement_find_name_index(
+			    clone,
+			    0U,
+			    "Alias",
+			    "aliasname",
+			    "DerivedAlias",
+			    &derived_alias_index) ||
+		    sqlparser_statement_set_name_spelling(
+			    clone,
+			    0U,
+			    quoted_alias_index,
+			    "QuotedAlias",
+			    "QuotedAlias",
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_set_name_spelling(
+			    clone,
+			    0U,
+			    plain_alias_index,
+			    "plain_alias",
+			    cases[case_index].quoted_plain_alias_spelling,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_set_name_spelling(
+			    clone,
+			    0U,
+			    derived_alias_index,
+			    "DerivedAlias",
+			    "DerivedAlias",
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !query_graph_alias_output_quote_flags_match(
+			    clone,
+			    3,
+			    case_index,
+			    "relation-alias-patched clone") ||
+		    !statement_find_name_index(
+			    clone,
+			    0U,
+			    "ResTarget",
+			    "name",
+			    "plain_output",
+			    &plain_name_index) ||
+		    !statement_find_name_index(
+			    clone,
+			    0U,
+			    "ResTarget",
+			    "name",
+			    "QuotedOutput",
+			    &quoted_name_index) ||
+		    sqlparser_statement_set_name_spelling(
+			    clone,
+			    0U,
+			    plain_name_index,
+			    "NameQuotedOutput",
+			    cases[case_index].quoted_name_spelling,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_statement_set_name_spelling(
+			    clone,
+			    0U,
+			    quoted_name_index,
+			    "name_plain_output",
+			    cases[case_index].plain_name_spelling,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !query_graph_alias_output_quote_flags_match(
+			    clone,
+			    5,
+			    case_index,
+			    "name-patched clone") ||
+		    sqlparser_select_set_target_sql(
+			    clone,
+			    0U,
+			    0U,
+			    0U,
+			    cases[case_index].quoted_patch,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    sqlparser_select_set_target_sql(
+			    clone,
+			    0U,
+			    0U,
+			    1U,
+			    cases[case_index].plain_patch,
+			    &error) != SQLPARSER_STATUS_OK ||
+		    !query_graph_alias_output_quote_flags_match(
+			    clone,
+			    4,
+			    case_index,
+			    "patched clone") ||
+		    !query_graph_alias_output_quote_flags_match(
+			    handle,
+			    0,
+			    case_index,
+			    "original after clone patch")) {
+			fprintf(
+				stderr,
+				"FAIL: alias/output quote case %lu failed: %s\n",
+				(unsigned long)case_index,
+				error.message);
+			sqlparser_handle_destroy(clone);
+			sqlparser_handle_destroy(handle);
+			return 0;
+		}
+		sqlparser_handle_destroy(handle);
+		handle = NULL;
+		if (!query_graph_alias_output_quote_flags_match(
+			    clone,
+			    4,
+			    case_index,
+			    "clone after original destroy")) {
+			sqlparser_handle_destroy(clone);
+			return 0;
+		}
+		sqlparser_handle_destroy(clone);
+	}
+	return 1;
+}
+
 static int session_identifier_semantics(void)
 {
 	static const struct {
@@ -5050,6 +5479,7 @@ int main(void)
 	}
 	sqlparser_handle_destroy(handle);
 	if (!query_graph_identifier_semantics() ||
+	    !query_graph_alias_output_quote_flags() ||
 	    !session_identifier_semantics() ||
 	    !identifier_role_classifier_is_fail_closed() ||
 	    !defelem_context_classifier_is_fail_closed() ||

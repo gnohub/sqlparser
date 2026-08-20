@@ -194,6 +194,7 @@ Each SQL occurrence is emitted once. Its source path can be followed through `re
 | `table` | Table name if present in SQL; omitted for derived relations without a table name |
 | `quoted_identifier` | `true` when the object-name token for `table` explicitly uses `"..."`, MySQL backticks, or SQL Server `[...]`; omitted otherwise |
 | `alias` | Alias if present in SQL; omitted otherwise |
+| `alias_quoted_identifier` | `true` when the exact token for `alias` explicitly uses `"..."`, MySQL backticks, or SQL Server `[...]`; omitted otherwise |
 | `link` | Database link name for remote object references; omitted otherwise |
 | `source_block` | Source query block for derived tables or CTEs; omitted otherwise |
 | `selector` | Relation selector for patching; omitted when no writable node exists |
@@ -221,6 +222,7 @@ A CTE definition creates one source block. Multiple references share that
 | `ordinal` | Target ordinal in the SELECT list |
 | `kind` | `field`, `star`, `qualified_star`, `literal`, `bind`, `subquery`, `pseudo`, or `expression` |
 | `name` | Output name or alias; omitted when absent |
+| `output_quoted_identifier` | With an explicit output alias, reports its delimiter state; without one, reports the field token only when `name` is inherited from a direct field. Emitted only when `true` |
 | `field` | Related `fields[]` index for direct field or hierarchical pseudo-column output; omitted otherwise |
 | `value` | Related `values[]` index for literal or bind output targets; omitted otherwise |
 | `sink_value` | `values[]` output-bind index that receives this DML result target in a host-bind sink; omitted otherwise |
@@ -433,8 +435,15 @@ when no distinct semantic label is available.
 `quoted_identifier` reports only whether the exact source token used a
 supported identifier delimiter; it does not classify the delimiter kind. On a
 relation it applies only to the object name, not the database, schema, or alias;
-on a field it applies only to the column name. Ordinary single-quoted strings
-and quote styles generated internally by the parser do not emit this field.
+`alias_quoted_identifier` separately applies to the relation alias. On a field,
+`quoted_identifier` applies only to the column name.
+
+`output_quoted_identifier` describes an explicit output alias when present.
+Without an explicit alias, it describes the field token only when `name` is
+inherited from a direct field. These flags recognize only `"..."`, MySQL
+backticks, and SQL Server `[...]`, and are emitted only when `true`.
+PostgreSQL `U&"..."`, ordinary single-quoted strings, and quote styles generated
+internally by the parser do not emit these fields.
 
 ## DML
 
