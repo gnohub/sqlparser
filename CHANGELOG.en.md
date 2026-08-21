@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.16.7
+
+### Independent INSERT Column-Name Patches
+
+- For a regular single-table `INSERT ... VALUES`, existing `SQLPARSER_PATCH_INSERT_COLUMN` now adds only a column name when given only `name/index`, without modifying VALUES. Supplying one value source retains the existing paired column/value insertion. One patch list may combine multiple name-only patches, paired insertion, and `REPLACE insert_cell`; every row must match the final column count before commit, or the whole batch rolls back.
+- Oracle, Dameng, and the Vastbase-Oracle compatibility entry provide the same branch-scoped capability for the currently modeled explicit single-VALUES branches of `INSERT ALL/FIRST`. Other branches and the source SELECT remain unchanged, and touched branches are validated before commit. MERGE INSERT still requires paired insertion; `DEFAULT VALUES`, MySQL `INSERT ... SET`, branches without `VALUES`, and multiple tuples per branch remain outside this scope.
+- The implementation reuses the existing patch operation, selectors, and transaction candidate. It adds no public API, enum value, View JSON schema field, or persistent state.
+
+### Validation
+
+- Direct core-API regressions were added; the nine fixture totals remain 2,831 final cases and 9,136 patches. After the functional changes, the full remote `make test` suite passed; the targeted core-API test passed, and Valgrind reported `0 bytes in 0 blocks` and zero errors.
+
 ## 2.16.6
 
 ### Query Graph Identifier Delimiter Metadata

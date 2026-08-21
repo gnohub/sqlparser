@@ -1136,7 +1136,7 @@ Patch operations:
 | Operation | Meaning |
 | --- | --- |
 | `SQLPARSER_PATCH_REPLACE` | replaces a relation, name, value, assignment, literal, where literal, clause, MERGE branch condition, MERGE attached-delete condition, insert cell, MERGE INSERT target column or complete cell, select target, or select target list |
-| `SQLPARSER_PATCH_INSERT_COLUMN` | adds an `INSERT ... VALUES` column, adds an `INSERT ... SELECT` target column, adds an Oracle/Dameng `INSERT ALL/FIRST` branch target column, atomically adds a MERGE INSERT target/value pair, inserts a SELECT output target, or inserts a target/receiver pair into a paired DML result list |
+| `SQLPARSER_PATCH_INSERT_COLUMN` | adds only a column name or a paired column/value to a regular `INSERT ... VALUES`, adds an `INSERT ... SELECT` target column, adds only a column name or a paired column/value to an explicit VALUES branch of Oracle/Dameng `INSERT ALL/FIRST`, atomically adds a MERGE INSERT target/value pair, inserts a SELECT output target, or inserts a target/receiver pair into a paired DML result list |
 | `SQLPARSER_PATCH_DELETE_COLUMN` | deletes an `INSERT ... VALUES` column, deletes an `INSERT ... SELECT` target column, atomically deletes a MERGE INSERT target/value pair, or deletes a SELECT output target |
 | `SQLPARSER_PATCH_DELETE_ROW` | deletes an `INSERT ... VALUES` row |
 | `SQLPARSER_PATCH_APPEND_CONDITION` | appends a condition to a `where` clause with `AND` or `OR` |
@@ -1149,6 +1149,37 @@ the candidate produces an actual change from the current handle; previous
 query graph views then become invalid. An empty patch list or effective no-op
 does not increment the generation, and failure of any patch leaves the whole
 list uncommitted.
+
+A regular single-table `INSERT ... VALUES` uses the
+`stmt[S].insert_columns` selector. When
+`SQLPARSER_PATCH_INSERT_COLUMN` provides only a non-empty `name` and
+`index`, with no `sql`, `default_sql`, `source_selector`, `literal`,
+or `bind`, it inserts only the target-column name and does not modify any
+VALUES row. When exactly one value source is supplied through `default_sql`,
+`source_selector`, `literal`, or `bind`, the existing paired behavior
+inserts a cell at the same position in every VALUES row. One patch list may
+combine multiple name-only column patches, paired insertion, and
+`REPLACE insert_cell`.
+Column and cell counts may differ temporarily within the batch, but every
+VALUES row must contain exactly as many cells as the final explicit column
+list before commit. Otherwise the whole batch returns
+`SQLPARSER_STATUS_INVALID_ARGUMENT` and leaves the original handle
+unchanged. The name-only VALUES mode does not apply to `DEFAULT VALUES` or
+MySQL `INSERT ... SET`; the existing target-column insertion semantics for
+`INSERT ... SELECT` remain unchanged.
+
+An explicit VALUES branch in the currently modeled Oracle, Dameng, and
+Vastbase-Oracle `INSERT ALL/FIRST` forms uses
+`stmt[S].insert_branch_columns[B]`, where `B` is the branch ordinal. The
+same name-only payload adds a column name only to that branch and does not
+modify its cells, any other branch, or the source SELECT. Supplying one value
+source keeps the existing paired insertion behavior. One patch list may
+modify multiple branches and combine these operations with
+`REPLACE insert_cell`. Before commit, every branch touched by a name-only
+patch must have the same number of columns and cells; otherwise the whole
+batch rolls back. The current boundary excludes a branch without `VALUES`
+and multiple tuples within one branch. MERGE INSERT continues to require
+paired column/value insertion even though it uses a related selector.
 
 All three assignment patch operations accept `stmt[S].assignment[A]`,
 `stmt[S].assignment[D][A]`, `stmt[S].merge_assignment[W][A]`, or

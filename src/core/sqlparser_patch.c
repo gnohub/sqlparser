@@ -5870,6 +5870,17 @@ static sqlparser_status_t sqlparser_patch_render_structured_sql(
 	return sqlparser_render_bind_value_sql(handle, patch->bind, out_sql, out_error);
 }
 
+static int sqlparser_patch_is_name_only_insert_column(
+	const sqlparser_patch_t *patch)
+{
+	return patch != NULL &&
+		patch->op == SQLPARSER_PATCH_INSERT_COLUMN &&
+		patch->name != NULL && patch->name[0] != '\0' &&
+		patch->sql == NULL && patch->default_sql == NULL &&
+		patch->source_selector == NULL && patch->literal == NULL &&
+		patch->bind == NULL && patch->bool_operator == 0;
+}
+
 typedef struct {
 	size_t start;
 	size_t end;
@@ -7115,6 +7126,7 @@ static sqlparser_status_t sqlparser_patch_plan_insert_columns_surface_edit(
 	}
 	*out_supported = 0;
 	if (selector->kind != SQLPARSER_SELECTOR_KIND_INSERT_COLUMNS ||
+	    sqlparser_patch_is_name_only_insert_column(patch) ||
 	    sqlparser_dialect_state_has_multi_insert(
 		    handle->dialect, handle->dialect_state)) {
 		return SQLPARSER_STATUS_OK;
@@ -9350,6 +9362,8 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 	sqlparser_error_t *out_error)
 {
 	sqlparser_selector_t selector;
+	sqlparser_graph_insert_mode_t insert_mode;
+	sqlparser_insert_source_kind_t insert_source;
 	PgQuery__InsertStmt *stmt;
 	PgQuery__SelectStmt *values_stmt;
 	PgQuery__Node *column_node;
@@ -9369,6 +9383,7 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 	size_t row_index;
 	size_t insert_index;
 	size_t row_count;
+	int name_only_values;
 
 	if (patch == NULL || patch->selector == NULL) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "insert_column requires selector");
@@ -9439,6 +9454,7 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 	if (selector.kind == SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS) {
 		char *branch_cell_sql;
 		sqlparser_patch_identifier_path_t column_path;
+		int name_only_branch;
 
 		if (!sqlparser_dialect_state_has_multi_insert(
 			    handle->dialect,
@@ -9474,9 +9490,18 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 		}
 		sqlparser_patch_identifier_path_clear(handle, &column_path);
 		branch_cell_sql = NULL;
-		status = sqlparser_patch_render_structured_sql(handle, patch, patch->default_sql, &branch_cell_sql, out_error);
-		if (status != SQLPARSER_STATUS_OK) {
-			return status;
+		name_only_branch =
+			sqlparser_patch_is_name_only_insert_column(patch);
+		if (!name_only_branch) {
+			status = sqlparser_patch_render_structured_sql(
+				handle,
+				patch,
+				patch->default_sql,
+				&branch_cell_sql,
+				out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				return status;
+			}
 		}
 		status = sqlparser_dialect_multi_insert_insert_column_sql(
 			handle,
@@ -9525,6 +9550,37 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 		sqlparser_free_proto_node(column_node);
 		return status;
 	}
+	insert_source = sqlparser_insert_source_from_stmt(stmt);
+	name_only_values = 0;
+	if (sqlparser_patch_is_name_only_insert_column(patch)) {
+		if (insert_source == SQLPARSER_INSERT_SOURCE_VALUES) {
+			insert_mode = SQLPARSER_GRAPH_INSERT_MODE_VALUES;
+			if (handle->dialect_ops != NULL &&
+			    handle->dialect_ops->insert_mode != NULL) {
+				insert_mode = handle->dialect_ops->insert_mode(
+					handle->dialect_state,
+					selector.statement_index,
+					insert_mode);
+			}
+			if (stmt->relation != NULL &&
+			    insert_mode == SQLPARSER_GRAPH_INSERT_MODE_VALUES &&
+			    !sqlparser_dialect_state_has_multi_insert(
+				    handle->dialect, handle->dialect_state)) {
+				name_only_values = 1;
+			}
+		}
+		if ((insert_source == SQLPARSER_INSERT_SOURCE_VALUES &&
+		     !name_only_values) ||
+		    (insert_source != SQLPARSER_INSERT_SOURCE_VALUES &&
+		     insert_source != SQLPARSER_INSERT_SOURCE_QUERY)) {
+			sqlparser_free_proto_node(column_node);
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_UNSUPPORTED,
+				"name-only insert_column is unsupported for this INSERT form");
+			return SQLPARSER_STATUS_UNSUPPORTED;
+		}
+	}
 
 	default_node = NULL;
 	next_cols = NULL;
@@ -9541,7 +9597,26 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "insert column count is too large");
 		return SQLPARSER_STATUS_RESOURCE_LIMIT;
 	}
-	if (sqlparser_insert_source_from_stmt(stmt) == SQLPARSER_INSERT_SOURCE_QUERY) {
+	if (name_only_values) {
+		next_cols = sqlparser_patch_alloc_node_array(
+			stmt->n_cols + 1U, out_error);
+		if (next_cols == NULL) {
+			sqlparser_free_proto_node(column_node);
+			return out_error != NULL ?
+				out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+		}
+		sqlparser_patch_copy_with_insert(
+			next_cols,
+			stmt->cols,
+			stmt->n_cols,
+			insert_index,
+			column_node);
+		free(stmt->cols);
+		stmt->cols = next_cols;
+		stmt->n_cols++;
+		return sqlparser_handle_commit_ast(handle, out_error);
+	}
+	if (insert_source == SQLPARSER_INSERT_SOURCE_QUERY) {
 		next_cols = sqlparser_patch_alloc_node_array(stmt->n_cols + 1U, out_error);
 		if (next_cols == NULL) {
 			sqlparser_free_proto_node(column_node);
@@ -10263,6 +10338,125 @@ static sqlparser_status_t sqlparser_apply_patch_in_place(
 	return SQLPARSER_STATUS_OK;
 }
 
+static sqlparser_status_t sqlparser_patch_validate_name_only_insert_columns(
+	sqlparser_handle_t *handle,
+	const sqlparser_patch_list_t *patches,
+	sqlparser_error_t *out_error)
+{
+	unsigned char *validated;
+	const sqlparser_dialect_multi_insert_t *multi_insert;
+	size_t patch_index;
+	sqlparser_status_t status;
+
+	validated = NULL;
+	multi_insert = NULL;
+	status = SQLPARSER_STATUS_OK;
+	for (patch_index = 0U; patch_index < patches->count; patch_index++) {
+		const sqlparser_patch_t *patch;
+		PgQuery__InsertStmt *stmt;
+		sqlparser_selector_t selector;
+
+		patch = &patches->items[patch_index];
+		if (!sqlparser_patch_is_name_only_insert_column(patch)) {
+			continue;
+		}
+		status = sqlparser_patch_parse_selector(
+			patch->selector, &selector, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			goto done;
+		}
+		if (selector.kind ==
+		    SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS) {
+			const sqlparser_dialect_multi_insert_branch_t *branch;
+
+			multi_insert = sqlparser_dialect_state_multi_insert(
+				handle->dialect, handle->dialect_state);
+			if (multi_insert == NULL) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INVALID_ARGUMENT,
+					"selector is not a multi-insert branch");
+				status = SQLPARSER_STATUS_INVALID_ARGUMENT;
+				goto done;
+			}
+			if (selector.statement_index != 0U ||
+			    selector.row_index != 0U) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INVALID_ARGUMENT,
+					"multi-insert branch selector is invalid");
+				status = SQLPARSER_STATUS_INVALID_ARGUMENT;
+				goto done;
+			}
+			if (selector.item_index >= multi_insert->branch_count) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INVALID_ARGUMENT,
+					"multi-insert branch index is out of range");
+				status = SQLPARSER_STATUS_INVALID_ARGUMENT;
+				goto done;
+			}
+			branch = &multi_insert->branches[selector.item_index];
+			if (branch->column_count != branch->cell_count) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_INVALID_ARGUMENT,
+					"multi-insert branch column count must match cell count");
+				status = SQLPARSER_STATUS_INVALID_ARGUMENT;
+				goto done;
+			}
+			continue;
+		}
+		if (selector.kind != SQLPARSER_SELECTOR_KIND_INSERT_COLUMNS) {
+			continue;
+		}
+		if (selector.statement_index >= handle->statement_count) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INVALID_ARGUMENT,
+				"insert column statement index is out of range");
+			status = SQLPARSER_STATUS_INVALID_ARGUMENT;
+			goto done;
+		}
+		status = sqlparser_get_insert_stmt(
+			handle, selector.statement_index, &stmt, out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			goto done;
+		}
+		if (sqlparser_insert_source_from_stmt(stmt) !=
+		    SQLPARSER_INSERT_SOURCE_VALUES) {
+			continue;
+		}
+		if (validated == NULL) {
+			validated = (unsigned char *)calloc(
+				handle->statement_count, sizeof(*validated));
+			if (validated == NULL) {
+				sqlparser_error_set_message(
+					out_error,
+					SQLPARSER_STATUS_NO_MEMORY,
+					"out of memory");
+				status = SQLPARSER_STATUS_NO_MEMORY;
+				goto done;
+			}
+		}
+		if (validated[selector.statement_index]) {
+			continue;
+		}
+		if (!sqlparser_patch_insert_values_shape(stmt)) {
+			sqlparser_error_set_message(
+				out_error,
+				SQLPARSER_STATUS_INVALID_ARGUMENT,
+				"insert column count must match every VALUES row");
+			status = SQLPARSER_STATUS_INVALID_ARGUMENT;
+			goto done;
+		}
+		validated[selector.statement_index] = 1U;
+	}
+done:
+	free(validated);
+	return status;
+}
+
 static sqlparser_status_t sqlparser_patch_candidate_is_noop(
 	const sqlparser_handle_t *handle,
 	sqlparser_handle_t *candidate,
@@ -10370,6 +10564,13 @@ sqlparser_status_t sqlparser_apply_patch(
 		&surface_edits,
 		&surface_complete,
 		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		sqlparser_surface_source_edits_release(&surface_edits);
+		sqlparser_handle_destroy(candidate);
+		return status;
+	}
+	status = sqlparser_patch_validate_name_only_insert_columns(
+		candidate, patches, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_surface_source_edits_release(&surface_edits);
 		sqlparser_handle_destroy(candidate);

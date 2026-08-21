@@ -6915,7 +6915,7 @@ sqlparser_status_t sqlparser_oracle_multi_insert_set_cell_sql_in_place(
 		return status;
 	}
 	sqlparser_parse_options_default(&options);
-	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	options.dialect = handle->dialect;
 	options.limits = handle->limits;
 	status = sqlparser_parse_with_options(public_sql, &options, &replacement, out_error);
 	free(public_sql);
@@ -7033,10 +7033,12 @@ sqlparser_status_t sqlparser_oracle_multi_insert_insert_column_sql(
 	size_t cell_insert_index;
 	size_t index;
 	sqlparser_status_t status;
+	int has_cell;
 
 	sqlparser_error_clear(out_error);
+	has_cell = cell_sql != NULL;
 	if (handle == NULL || column_sql == NULL || column_sql[0] == '\0' ||
-	    cell_sql == NULL || cell_sql[0] == '\0') {
+	    (has_cell && cell_sql[0] == '\0')) {
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_INVALID_ARGUMENT, "multi insert column insertion arguments are invalid");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
@@ -7065,7 +7067,8 @@ sqlparser_status_t sqlparser_oracle_multi_insert_insert_column_sql(
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
 	branch = &multi->branches[branch_index];
-	if (branch->column_count == SIZE_MAX || branch->cell_count == SIZE_MAX) {
+	if (branch->column_count == SIZE_MAX ||
+	    (has_cell && branch->cell_count == SIZE_MAX)) {
 		sqlparser_handle_destroy(candidate);
 		sqlparser_error_set_message(out_error, SQLPARSER_STATUS_RESOURCE_LIMIT, "multi insert branch is too large");
 		return SQLPARSER_STATUS_RESOURCE_LIMIT;
@@ -7080,7 +7083,7 @@ sqlparser_status_t sqlparser_oracle_multi_insert_insert_column_sql(
 			&new_column.name,
 			out_error);
 	}
-	if (status == SQLPARSER_STATUS_OK) {
+	if (status == SQLPARSER_STATUS_OK && has_cell) {
 		status = sqlparser_oracle_parse_value_item(
 			cell_sql,
 			0U,
@@ -7097,8 +7100,11 @@ sqlparser_status_t sqlparser_oracle_multi_insert_insert_column_sql(
 	}
 
 	next_columns = (sqlparser_dialect_multi_insert_column_t *)calloc(branch->column_count + 1U, sizeof(*next_columns));
-	next_cells = (sqlparser_dialect_multi_insert_value_t *)calloc(branch->cell_count + 1U, sizeof(*next_cells));
-	if (next_columns == NULL || next_cells == NULL) {
+	if (has_cell) {
+		next_cells = (sqlparser_dialect_multi_insert_value_t *)calloc(
+			branch->cell_count + 1U, sizeof(*next_cells));
+	}
+	if (next_columns == NULL || (has_cell && next_cells == NULL)) {
 		free(next_columns);
 		free(next_cells);
 		sqlparser_oracle_column_clear(&new_column);
@@ -7109,7 +7115,6 @@ sqlparser_status_t sqlparser_oracle_multi_insert_insert_column_sql(
 	}
 
 	column_insert_index = column_index > branch->column_count ? branch->column_count : column_index;
-	cell_insert_index = column_index > branch->cell_count ? branch->cell_count : column_index;
 	for (index = 0U; index < column_insert_index; index++) {
 		next_columns[index] = branch->columns[index];
 	}
@@ -7118,28 +7123,34 @@ sqlparser_status_t sqlparser_oracle_multi_insert_insert_column_sql(
 	for (index = column_insert_index; index < branch->column_count; index++) {
 		next_columns[index + 1U] = branch->columns[index];
 	}
-	for (index = 0U; index < cell_insert_index; index++) {
-		next_cells[index] = branch->cells[index];
-	}
-	next_cells[cell_insert_index] = new_cell;
-	memset(&new_cell, 0, sizeof(new_cell));
-	for (index = cell_insert_index; index < branch->cell_count; index++) {
-		next_cells[index + 1U] = branch->cells[index];
+	if (has_cell) {
+		cell_insert_index = column_index > branch->cell_count ?
+			branch->cell_count : column_index;
+		for (index = 0U; index < cell_insert_index; index++) {
+			next_cells[index] = branch->cells[index];
+		}
+		next_cells[cell_insert_index] = new_cell;
+		memset(&new_cell, 0, sizeof(new_cell));
+		for (index = cell_insert_index; index < branch->cell_count; index++) {
+			next_cells[index + 1U] = branch->cells[index];
+		}
 	}
 	free(branch->columns);
-	free(branch->cells);
 	branch->columns = next_columns;
 	branch->column_count++;
-	branch->cells = next_cells;
-	branch->cell_count++;
 	next_columns = NULL;
-	next_cells = NULL;
+	if (has_cell) {
+		free(branch->cells);
+		branch->cells = next_cells;
+		branch->cell_count++;
+		next_cells = NULL;
+	}
 
 	candidate->generation++;
 	status = sqlparser_deparse(candidate, &public_sql, out_error);
 	if (status == SQLPARSER_STATUS_OK) {
 		sqlparser_parse_options_default(&options);
-		options.dialect = SQLPARSER_DIALECT_ORACLE;
+		options.dialect = handle->dialect;
 		options.limits = handle->limits;
 		status = sqlparser_parse_with_options(public_sql, &options, &replacement, out_error);
 	}

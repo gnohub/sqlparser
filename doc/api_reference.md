@@ -830,7 +830,7 @@ sqlparser_apply_patch(handle, &patches, &err);
 | 操作 | 说明 |
 | --- | --- |
 | `SQLPARSER_PATCH_REPLACE` | 替换 relation、name、value、assignment、literal、where_literal、clause、MERGE 分支条件、MERGE 附属 DELETE 条件、insert_cell、MERGE INSERT 目标列或完整 cell、select_target 或 select_targets |
-| `SQLPARSER_PATCH_INSERT_COLUMN` | 给 `INSERT ... VALUES` 增加列、给 `INSERT ... SELECT` 增加目标列、给 Oracle/Dameng `INSERT ALL/FIRST` branch 增加目标列、给 MERGE INSERT 成对增加目标列和值、向 `select_targets` 插入 SELECT 输出项，或向成对 DML 结果列表插入 target 和 receiver |
+| `SQLPARSER_PATCH_INSERT_COLUMN` | 给普通 `INSERT ... VALUES` 单独增加列名或成对增加列和值、给 `INSERT ... SELECT` 增加目标列、给 Oracle/Dameng `INSERT ALL/FIRST` 的显式 VALUES branch 单独增加列名或成对增加列和值、给 MERGE INSERT 成对增加目标列和值、向 `select_targets` 插入 SELECT 输出项，或向成对 DML 结果列表插入 target 和 receiver |
 | `SQLPARSER_PATCH_DELETE_COLUMN` | 删除 `INSERT ... VALUES` 列、删除 `INSERT ... SELECT` 目标列、成对删除 MERGE INSERT 目标列和值，或删除 SELECT 输出项 |
 | `SQLPARSER_PATCH_DELETE_ROW` | 删除 `INSERT ... VALUES` 行 |
 | `SQLPARSER_PATCH_APPEND_CONDITION` | 按 `AND` 或 `OR` 向 `where` 子句追加条件 |
@@ -839,6 +839,10 @@ sqlparser_apply_patch(handle, &patches, &err);
 | `SQLPARSER_PATCH_REPLACE_ASSIGNMENT` | 整项替换根或嵌套 `UPDATE`、根 `INSERT` 冲突更新列表或 MERGE matched UPDATE action 的赋值项 |
 
 只有候选结果相对当前 handle 发生实际变化时，`sqlparser_apply_patch()` 才提交并将 generation 递增一次，旧 query graph view 随之失效。空 patch 列表或结果无实际变化的调用不递增；任一 patch 失败时整批不提交。
+
+普通单表 `INSERT ... VALUES` 使用 `stmt[S].insert_columns` selector。若 `SQLPARSER_PATCH_INSERT_COLUMN` 仅提供非空 `name`、`index`，且不提供 `sql`、`default_sql`、`source_selector`、`literal` 或 `bind`，操作只插入目标列名，不修改任何 VALUES row。若同时从 `default_sql`、`source_selector`、`literal` 或 `bind` 中恰好提供一个值来源，则保持既有成对行为，在每个 VALUES row 的同一位置插入 cell。调用方可在同一个 patch list 中组合多个 name-only 列 patch、成对插入和 `REPLACE insert_cell`；批次中间允许暂时不等长，但提交前每个 VALUES row 的 cell 数必须等于显式列数，否则整批返回 `SQLPARSER_STATUS_INVALID_ARGUMENT` 并保持原 handle 不变。name-only VALUES 模式不适用于 `DEFAULT VALUES` 或 MySQL `INSERT ... SET`；`INSERT ... SELECT` 既有的目标列插入语义不变。
+
+Oracle、Dameng 与 Vastbase-Oracle 兼容入口当前已建模的 `INSERT ALL/FIRST` 显式 VALUES branch 使用 `stmt[S].insert_branch_columns[B]` selector，其中 `B` 是 branch 序号。相同的 name-only payload 只增加该 branch 的列名，不修改 cells、其他 branch 或 source SELECT；提供一个值来源时保持现有成对插入。同一个 patch list 可分别修改多个 branch，并与 `REPLACE insert_cell` 组合；提交前每个被 name-only patch 触及的 branch 都必须满足列数与 cell 数相等，否则整批原子回滚。当前边界不包括省略 branch `VALUES` 或 branch 多 tuple；MERGE INSERT 即使使用同类 selector，也仍只接受列值成对插入。
 
 三个 assignment patch 操作的目标 selector 均可使用 `stmt[S].assignment[A]`、`stmt[S].assignment[D][A]`、`stmt[S].merge_assignment[W][A]` 或 `stmt[S].merge_assignment[D][W][A]`。
 

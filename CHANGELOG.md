@@ -1,5 +1,17 @@
 # 变更记录
 
+## 2.16.7
+
+### INSERT 列名独立 Patch
+
+- 普通单表 `INSERT ... VALUES` 的既有 `SQLPARSER_PATCH_INSERT_COLUMN` 在仅提供 `name/index` 时只增加列名，不修改 VALUES；提供一个值来源时保持原有列值成对插入。同一 patch list 可组合多个 name-only patch、成对插入与 `REPLACE insert_cell`，提交前逐 row 校验列值等长，失败整批回滚。
+- Oracle、Dameng 与 Vastbase-Oracle 兼容入口对当前已建模的 `INSERT ALL/FIRST` 显式单 VALUES branch 提供相同的 branch 级能力；其他 branch 与 source SELECT 不变，提交前校验被触及 branch。MERGE INSERT 仍要求列值成对插入；`DEFAULT VALUES`、MySQL `INSERT ... SET`、省略 branch `VALUES` 和 branch 多 tuple 不在本次范围。
+- 复用既有 patch operation、selector 与事务候选；未新增公开 API、枚举、View JSON schema 或持久状态。
+
+### 验证
+
+- 新增直接核心 API 回归；九套 fixture 统计保持 2,831 条 final case 和 9,136 个 patch。功能代码完成后，远端完整 `make test` 通过；定向核心 API 测试通过，Valgrind 为 `0 bytes in 0 blocks`、0 errors。
+
 ## 2.16.6
 
 ### Query Graph 标识符定界信息

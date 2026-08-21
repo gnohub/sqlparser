@@ -39756,6 +39756,947 @@ static int test_vastbase_hierarchical_target_patch_gate(void)
 	return 0;
 }
 
+static int expect_insert_values_patch_result(
+	sqlparser_handle_t *handle,
+	const char *expected_sql,
+	const char *const *expected_columns,
+	size_t expected_column_count,
+	const char *const *expected_cells,
+	size_t expected_row_count,
+	const char *message)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *expected_handle;
+	sqlparser_error_t error;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	char *actual_sql;
+	char *actual_view;
+	char *expected_view;
+	size_t column_count;
+	size_t row_count;
+	size_t row_index;
+	size_t column_index;
+	int failed;
+	int rc;
+
+	expected_handle = NULL;
+	actual_sql = NULL;
+	actual_view = NULL;
+	expected_view = NULL;
+	failed = 0;
+	memset(&error, 0, sizeof(error));
+
+	rc = sqlparser_deparse(handle, &actual_sql, &error);
+	if (expect_status_ok(rc, &error, message) != 0 ||
+	    expect_true(
+		    actual_sql != NULL && strcmp(actual_sql, expected_sql) == 0,
+		    message) != 0) {
+		failed = 1;
+		goto cleanup;
+	}
+	rc = sqlparser_insert_column_count(handle, 0U, &column_count, &error);
+	if (expect_status_ok(rc, &error, message) != 0 ||
+	    expect_true(column_count == expected_column_count, message) != 0) {
+		failed = 1;
+		goto cleanup;
+	}
+	for (column_index = 0U;
+	     column_index < expected_column_count;
+	     column_index++) {
+		const char *column_name;
+
+		column_name = NULL;
+		rc = sqlparser_insert_column_name(
+			handle, 0U, column_index, &column_name, &error);
+		if (expect_status_ok(rc, &error, message) != 0 ||
+		    expect_true(
+			    column_name != NULL &&
+				    strcmp(column_name, expected_columns[column_index]) == 0,
+			    message) != 0) {
+			failed = 1;
+			goto cleanup;
+		}
+	}
+	rc = sqlparser_insert_row_count(handle, 0U, &row_count, &error);
+	if (expect_status_ok(rc, &error, message) != 0 ||
+	    expect_true(row_count == expected_row_count, message) != 0) {
+		failed = 1;
+		goto cleanup;
+	}
+	for (row_index = 0U; row_index < expected_row_count; row_index++) {
+		for (column_index = 0U;
+		     column_index < expected_column_count;
+		     column_index++) {
+			char *cell_sql;
+			size_t cell_index;
+
+			cell_sql = NULL;
+			cell_index = row_index * expected_column_count + column_index;
+			rc = sqlparser_insert_cell_sql(
+				handle,
+				0U,
+				row_index,
+				column_index,
+				&cell_sql,
+				&error);
+			if (expect_status_ok(rc, &error, message) != 0 ||
+			    expect_true(
+				    cell_sql != NULL &&
+					    strcmp(cell_sql, expected_cells[cell_index]) == 0,
+				    message) != 0) {
+				sqlparser_string_free(cell_sql);
+				failed = 1;
+				goto cleanup;
+			}
+			sqlparser_string_free(cell_sql);
+		}
+	}
+	rc = sqlparser_statement_query_graph(handle, 0U, &graph, &error);
+	if (expect_status_ok(rc, &error, message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml(&graph, &dml, &error),
+		    &error,
+		    message) != 0 ||
+	    expect_true(
+		    dml.target_columns.count == expected_column_count &&
+			    dml.rows.count == expected_column_count * expected_row_count,
+		    message) != 0) {
+		failed = 1;
+		goto cleanup;
+	}
+
+	sqlparser_parse_options_default(&options);
+	options.dialect = sqlparser_handle_dialect(handle);
+	rc = sqlparser_parse_with_options(
+		expected_sql, &options, &expected_handle, &error);
+	if (expect_status_ok(rc, &error, message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_export_view_json(handle, 0, &actual_view, &error),
+		    &error,
+		    message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_export_view_json(
+			    expected_handle, 0, &expected_view, &error),
+		    &error,
+		    message) != 0 ||
+	    expect_true(
+		    actual_view != NULL && expected_view != NULL &&
+			    strcmp(actual_view, expected_view) == 0,
+		    message) != 0) {
+		failed = 1;
+	}
+
+cleanup:
+	sqlparser_string_free(expected_view);
+	sqlparser_string_free(actual_view);
+	sqlparser_string_free(actual_sql);
+	sqlparser_handle_destroy(expected_handle);
+	return failed;
+}
+
+static int test_insert_column_name_only_patch_batches(void)
+{
+	typedef struct insert_name_only_dialect_case {
+		sqlparser_dialect_t dialect;
+		const char *name;
+	} insert_name_only_dialect_case_t;
+	static const insert_name_only_dialect_case_t dialects[] = {
+		{SQLPARSER_DIALECT_POSTGRESQL, "PostgreSQL"},
+		{SQLPARSER_DIALECT_MYSQL, "MySQL"},
+		{SQLPARSER_DIALECT_ORACLE, "Oracle"},
+		{SQLPARSER_DIALECT_SQLSERVER, "SQL Server"},
+		{SQLPARSER_DIALECT_DAMENG, "Dameng"},
+		{SQLPARSER_DIALECT_VASTBASE_ORACLE, "Vastbase-Oracle"},
+		{SQLPARSER_DIALECT_VASTBASE_MYSQL, "Vastbase-MySQL"},
+		{SQLPARSER_DIALECT_VASTBASE_POSTGRESQL, "Vastbase-PostgreSQL"},
+		{SQLPARSER_DIALECT_VASTBASE_SQLSERVER, "Vastbase-SQL Server"}
+	};
+	static const char *const columns[] = {"ID", "SECRET", "NOTE", "EXTRA"};
+	static const char *const single_cells[] = {
+		"2", "'changed'", "'updated memo'", "'new'"
+	};
+	static const char *const multi_cells[] = {
+		"1", "'first'", "'memo-1'", "'left'",
+		"2", "'second'", "'memo-2'", "'right'"
+	};
+	static const char *const paired_columns[] = {"ID", "EXTRA"};
+	static const char *const paired_cells[] = {"1", "'paired'"};
+	sqlparser_parse_options_t options;
+	size_t dialect_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_patch_t patches[7];
+		sqlparser_patch_list_t patch_list;
+		char message[160];
+		unsigned long generation;
+		size_t patch_index;
+		int rc;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index].dialect;
+		rc = sqlparser_parse_with_options(
+			"INSERT INTO T VALUES (1, 'abc', 'memo')",
+			&options,
+			&handle,
+			&error);
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s name-only single-row INSERT should parse",
+			dialects[dialect_index].name);
+		if (expect_status_ok(rc, &error, message) != 0) {
+			return 1;
+		}
+		memset(patches, 0, sizeof(patches));
+		for (patch_index = 0U; patch_index < 3U; patch_index++) {
+			patches[patch_index].op = SQLPARSER_PATCH_INSERT_COLUMN;
+			patches[patch_index].selector = "stmt[0].insert_columns";
+			patches[patch_index].index = patch_index;
+			patches[patch_index].name = columns[patch_index];
+		}
+		patches[3].op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patches[3].selector = "stmt[0].insert_columns";
+		patches[3].index = 3U;
+		patches[3].name = "EXTRA";
+		patches[3].default_sql = "'new'";
+		patches[4].op = SQLPARSER_PATCH_REPLACE;
+		patches[4].selector = "stmt[0].insert_cell[0][0]";
+		patches[4].sql = "2";
+		patches[5].op = SQLPARSER_PATCH_REPLACE;
+		patches[5].selector = "stmt[0].insert_cell[0][1]";
+		patches[5].sql = "'changed'";
+		patches[6].op = SQLPARSER_PATCH_REPLACE;
+		patches[6].selector = "stmt[0].insert_cell[0][2]";
+		patches[6].sql = "'updated memo'";
+		patch_list.items = patches;
+		patch_list.count = sizeof(patches) / sizeof(patches[0]);
+		generation = handle->generation;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s name-only single-row patch batch should be exact",
+			dialects[dialect_index].name);
+		if (expect_status_ok(rc, &error, message) != 0 ||
+		    expect_true(handle->generation == generation + 1UL, message) != 0 ||
+		    expect_insert_values_patch_result(
+			    handle,
+			    "INSERT INTO T (ID, SECRET, NOTE, EXTRA) "
+			    "VALUES (2, 'changed', 'updated memo', 'new')",
+			    columns,
+			    sizeof(columns) / sizeof(columns[0]),
+			    single_cells,
+			    1U,
+			    message) != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			"INSERT INTO T VALUES "
+			"(1, 'first', 'memo-1'), (2, 'second', 'memo-2')",
+			&options,
+			&handle,
+			&error);
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s name-only multi-row INSERT should parse",
+			dialects[dialect_index].name);
+		if (expect_status_ok(rc, &error, message) != 0) {
+			return 1;
+		}
+		memset(patches, 0, sizeof(patches));
+		for (patch_index = 0U; patch_index < 3U; patch_index++) {
+			patches[patch_index].op = SQLPARSER_PATCH_INSERT_COLUMN;
+			patches[patch_index].selector = "stmt[0].insert_columns";
+			patches[patch_index].index = patch_index;
+			patches[patch_index].name = columns[patch_index];
+		}
+		patches[3].op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patches[3].selector = "stmt[0].insert_columns";
+		patches[3].index = 3U;
+		patches[3].name = "EXTRA";
+		patches[3].default_sql = "'pending'";
+		patches[4].op = SQLPARSER_PATCH_REPLACE;
+		patches[4].selector = "stmt[0].insert_cell[0][3]";
+		patches[4].sql = "'left'";
+		patches[5].op = SQLPARSER_PATCH_REPLACE;
+		patches[5].selector = "stmt[0].insert_cell[1][3]";
+		patches[5].sql = "'right'";
+		patch_list.items = patches;
+		patch_list.count = 6U;
+		generation = handle->generation;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s name-only multi-row patch batch should be exact",
+			dialects[dialect_index].name);
+		if (expect_status_ok(rc, &error, message) != 0 ||
+		    expect_true(handle->generation == generation + 1UL, message) != 0 ||
+		    expect_insert_values_patch_result(
+			    handle,
+			    "INSERT INTO T (ID, SECRET, NOTE, EXTRA) VALUES "
+			    "(1, 'first', 'memo-1', 'left'), "
+			    "(2, 'second', 'memo-2', 'right')",
+			    columns,
+			    sizeof(columns) / sizeof(columns[0]),
+			    multi_cells,
+			    2U,
+			    message) != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			"INSERT INTO T VALUES (1, 'abc', 'memo')",
+			&options,
+			&handle,
+			&error);
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s incomplete name-only INSERT should parse",
+			dialects[dialect_index].name);
+		if (expect_status_ok(rc, &error, message) != 0) {
+			return 1;
+		}
+		memset(patches, 0, sizeof(patches));
+		for (patch_index = 0U; patch_index < 2U; patch_index++) {
+			patches[patch_index].op = SQLPARSER_PATCH_INSERT_COLUMN;
+			patches[patch_index].selector = "stmt[0].insert_columns";
+			patches[patch_index].index = patch_index;
+			patches[patch_index].name = columns[patch_index];
+		}
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s incomplete name-only patch batch must fail atomically",
+			dialects[dialect_index].name);
+		if (expect_patch_failure_is_atomic(
+			    handle,
+			    patches,
+			    2U,
+			    SQLPARSER_STATUS_INVALID_ARGUMENT,
+			    message) != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			"INSERT INTO T (ID) VALUES (1)",
+			&options,
+			&handle,
+			&error);
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s paired INSERT_COLUMN regression should parse",
+			dialects[dialect_index].name);
+		if (expect_status_ok(rc, &error, message) != 0) {
+			return 1;
+		}
+		memset(patches, 0, sizeof(patches));
+		patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patches[0].selector = "stmt[0].insert_columns";
+		patches[0].index = 1U;
+		patches[0].name = "EXTRA";
+		patches[0].default_sql = "'paired'";
+		patch_list.items = patches;
+		patch_list.count = 1U;
+		generation = handle->generation;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s paired INSERT_COLUMN regression should remain exact",
+			dialects[dialect_index].name);
+		if (expect_status_ok(rc, &error, message) != 0 ||
+		    expect_true(handle->generation == generation + 1UL, message) != 0 ||
+		    expect_insert_values_patch_result(
+			    handle,
+			    "INSERT INTO T (ID, EXTRA) VALUES (1, 'paired')",
+			    paired_columns,
+			    sizeof(paired_columns) / sizeof(paired_columns[0]),
+			    paired_cells,
+			    1U,
+			    message) != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+
+	{
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_patch_t patch;
+		int rc;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+		rc = sqlparser_parse_with_options(
+			"INSERT INTO T VALUES (1), (2, 3)",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "later-row width mismatch source should parse") != 0) {
+			return 1;
+		}
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patch.selector = "stmt[0].insert_columns";
+		patch.index = 0U;
+		patch.name = "ID";
+		if (expect_patch_failure_is_atomic(
+			    handle,
+			    &patch,
+			    1U,
+			    SQLPARSER_STATUS_INVALID_ARGUMENT,
+			    "name-only INSERT_COLUMN must validate every VALUES row") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+
+	{
+		static const char *const expected_columns[] = {"ID"};
+		static const char *const expected_cells[] = {"1"};
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_patch_t patch;
+		sqlparser_patch_list_t patch_list;
+		unsigned long generation;
+		int rc;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+		rc = sqlparser_parse_with_options(
+			"INSERT INTO T VALUES (1); INSERT INTO U VALUES (2, 3)",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "multi-statement name-only VALUES source should parse") != 0) {
+			return 1;
+		}
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patch.selector = "stmt[0].insert_columns";
+		patch.index = 0U;
+		patch.name = "ID";
+		patch_list.items = &patch;
+		patch_list.count = 1U;
+		generation = handle->generation;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "multi-statement name-only VALUES patch should succeed") != 0 ||
+		    expect_true(
+			    handle->generation == generation + 1UL,
+			    "multi-statement name-only VALUES patch should commit once") != 0 ||
+		    expect_insert_values_patch_result(
+			    handle,
+			    "INSERT INTO T (ID) VALUES (1); "
+			    "INSERT INTO U VALUES (2, 3)",
+			    expected_columns,
+			    1U,
+			    expected_cells,
+			    1U,
+			    "only the name-only patched VALUES statement should be validated") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+
+	{
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_patch_t patch;
+		int rc;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = SQLPARSER_DIALECT_SQLSERVER;
+		rc = sqlparser_parse_with_options(
+			"INSERT INTO dbo.t DEFAULT VALUES",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "DEFAULT VALUES name-only rejection source should parse") != 0) {
+			return 1;
+		}
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patch.selector = "stmt[0].insert_columns";
+		patch.index = 0U;
+		patch.name = "ID";
+		if (expect_patch_failure_is_atomic(
+			    handle,
+			    &patch,
+			    1U,
+			    SQLPARSER_STATUS_UNSUPPORTED,
+			    "name-only INSERT_COLUMN must reject DEFAULT VALUES") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+
+	{
+		static const sqlparser_dialect_t dialects[] = {
+			SQLPARSER_DIALECT_MYSQL,
+			SQLPARSER_DIALECT_VASTBASE_MYSQL
+		};
+		size_t index;
+
+		for (index = 0U;
+		     index < sizeof(dialects) / sizeof(dialects[0]);
+		     index++) {
+			sqlparser_handle_t *handle;
+			sqlparser_error_t error;
+			sqlparser_patch_t patch;
+			int rc;
+
+			handle = NULL;
+			memset(&error, 0, sizeof(error));
+			sqlparser_parse_options_default(&options);
+			options.dialect = dialects[index];
+			rc = sqlparser_parse_with_options(
+				"INSERT INTO T SET ID = 1",
+				&options,
+				&handle,
+				&error);
+			if (expect_status_ok(
+				    rc,
+				    &error,
+				    "INSERT SET name-only rejection source should parse") != 0) {
+				return 1;
+			}
+			memset(&patch, 0, sizeof(patch));
+			patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
+			patch.selector = "stmt[0].insert_columns";
+			patch.index = 1U;
+			patch.name = "EXTRA";
+			if (expect_patch_failure_is_atomic(
+				    handle,
+				    &patch,
+				    1U,
+				    SQLPARSER_STATUS_UNSUPPORTED,
+				    "name-only INSERT_COLUMN must reject INSERT SET") != 0) {
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			sqlparser_handle_destroy(handle);
+		}
+	}
+
+	return 0;
+}
+
+static int test_multi_insert_branch_name_only_patch_batches(void)
+{
+	typedef struct multi_insert_name_only_dialect_case {
+		sqlparser_dialect_t dialect;
+		const char *name;
+	} multi_insert_name_only_dialect_case_t;
+	static const multi_insert_name_only_dialect_case_t dialects[] = {
+		{SQLPARSER_DIALECT_ORACLE, "Oracle"},
+		{SQLPARSER_DIALECT_DAMENG, "Dameng"},
+		{SQLPARSER_DIALECT_VASTBASE_ORACLE, "Vastbase-Oracle"}
+	};
+	static const char independent_input[] =
+		"INSERT ALL INTO t1 VALUES (1, 'a') "
+		"INTO t2 VALUES (2, 'b', 'x') SELECT source_id FROM src";
+	static const char independent_expected[] =
+		"INSERT ALL INTO t1 (ID, NOTE) VALUES (1, 'a') "
+		"INTO t2 (CODE, LABEL, EXTRA) VALUES (2, 'b', 'x') "
+		"SELECT source_id FROM src";
+	static const char first_input[] =
+		"INSERT FIRST WHEN flag = 1 THEN INTO t1 VALUES (1, 'a') "
+		"ELSE INTO t2 (KEEP) VALUES ('b') "
+		"SELECT flag, source_id FROM src";
+	static const char first_expected[] =
+		"INSERT FIRST WHEN flag = 1 THEN "
+		"INTO t1 (ID, SECRET, EXTRA) VALUES (1, 'changed', 'pending') "
+		"ELSE INTO t2 (KEEP) VALUES ('b') "
+		"SELECT flag, source_id FROM src";
+	static const char failure_input[] =
+		"INSERT ALL INTO t1 VALUES (1) "
+		"INTO t2 VALUES (2, 'b') SELECT source_id FROM src";
+	size_t dialect_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
+		sqlparser_parse_options_t options;
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_patch_t patches[5];
+		sqlparser_patch_list_t patch_list;
+		char message[192];
+		unsigned long generation;
+		int rc;
+
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index].dialect;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			independent_input, &options, &handle, &error);
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s independent multi-insert branch source should parse",
+			dialects[dialect_index].name);
+		if (expect_status_ok(rc, &error, message) != 0) {
+			return 1;
+		}
+		memset(patches, 0, sizeof(patches));
+		patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patches[0].selector = "stmt[0].insert_branch_columns[0]";
+		patches[0].index = 0U;
+		patches[0].name = "ID";
+		patches[1].op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patches[1].selector = "stmt[0].insert_branch_columns[0]";
+		patches[1].index = 1U;
+		patches[1].name = "NOTE";
+		patches[2].op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patches[2].selector = "stmt[0].insert_branch_columns[1]";
+		patches[2].index = 0U;
+		patches[2].name = "CODE";
+		patches[3].op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patches[3].selector = "stmt[0].insert_branch_columns[1]";
+		patches[3].index = 1U;
+		patches[3].name = "LABEL";
+		patches[4].op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patches[4].selector = "stmt[0].insert_branch_columns[1]";
+		patches[4].index = 2U;
+		patches[4].name = "EXTRA";
+		patch_list.items = patches;
+		patch_list.count = sizeof(patches) / sizeof(patches[0]);
+		generation = handle->generation;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s independent multi-insert branch patches should be exact",
+			dialects[dialect_index].name);
+		if (expect_status_ok(rc, &error, message) != 0 ||
+		    expect_true(
+			    handle->generation == generation + 1UL,
+			    message) != 0 ||
+		    expect_true(
+			    sqlparser_handle_dialect(handle) ==
+				    dialects[dialect_index].dialect,
+			    message) != 0 ||
+		    expect_deparse_equals_and_reparse(
+			    handle, independent_expected, message) != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+
+		{
+			sqlparser_handle_t *fresh_handle;
+			sqlparser_query_graph_view_t graph;
+			sqlparser_graph_dml_t dml;
+			sqlparser_graph_dml_branch_t branch;
+			sqlparser_graph_dml_column_t column;
+			char *cell_sql;
+			char *current_view;
+			char *fresh_view;
+			size_t graph_index;
+
+			handle = NULL;
+			fresh_handle = NULL;
+			cell_sql = NULL;
+			current_view = NULL;
+			fresh_view = NULL;
+			memset(&error, 0, sizeof(error));
+			rc = sqlparser_parse_with_options(
+				first_input, &options, &handle, &error);
+			(void)snprintf(
+				message,
+				sizeof(message),
+				"%s INSERT FIRST name-only combination should parse",
+				dialects[dialect_index].name);
+			if (expect_status_ok(rc, &error, message) != 0) {
+				return 1;
+			}
+			memset(patches, 0, sizeof(patches));
+			patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+			patches[0].selector =
+				"stmt[0].insert_branch_columns[0]";
+			patches[0].index = 0U;
+			patches[0].name = "ID";
+			patches[1].op = SQLPARSER_PATCH_INSERT_COLUMN;
+			patches[1].selector =
+				"stmt[0].insert_branch_columns[0]";
+			patches[1].index = 1U;
+			patches[1].name = "SECRET";
+			patches[2].op = SQLPARSER_PATCH_INSERT_COLUMN;
+			patches[2].selector =
+				"stmt[0].insert_branch_columns[0]";
+			patches[2].index = 2U;
+			patches[2].name = "EXTRA";
+			patches[2].default_sql = "'pending'";
+			patches[3].op = SQLPARSER_PATCH_REPLACE;
+			patches[3].selector = "stmt[0].insert_cell[0][1]";
+			patches[3].sql = "'changed'";
+			patch_list.items = patches;
+			patch_list.count = 4U;
+			generation = handle->generation;
+			rc = sqlparser_apply_patch(handle, &patch_list, &error);
+			(void)snprintf(
+				message,
+				sizeof(message),
+				"%s INSERT FIRST mixed branch patch batch should be exact",
+				dialects[dialect_index].name);
+			if (expect_status_ok(rc, &error, message) != 0 ||
+			    expect_true(
+				    handle->generation == generation + 1UL,
+				    message) != 0 ||
+			    expect_true(
+				    sqlparser_handle_dialect(handle) ==
+					    dialects[dialect_index].dialect,
+				    message) != 0 ||
+			    expect_deparse_equals_and_reparse(
+				    handle, first_expected, message) != 0 ||
+			    expect_status_ok(
+				    sqlparser_statement_query_graph(
+					    handle, 0U, &graph, &error),
+				    &error,
+				    message) != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_dml(
+					    &graph, &dml, &error),
+				    &error,
+				    message) != 0 ||
+			    expect_true(
+				    dml.insert_mode ==
+					    SQLPARSER_GRAPH_INSERT_MODE_FIRST &&
+					    dml.branches.count == 2U,
+				    message) != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_span_index_at(
+					    &graph,
+					    dml.branches,
+					    0U,
+					    &graph_index,
+					    &error),
+				    &error,
+				    message) != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_dml_branch_at(
+					    &graph,
+					    graph_index,
+					    &branch,
+					    &error),
+				    &error,
+				    message) != 0 ||
+			    expect_true(
+				    branch.branch_kind ==
+					    SQLPARSER_GRAPH_DML_BRANCH_WHEN &&
+					    branch.target_columns.count == 3U &&
+					    branch.rows.count == 3U,
+				    message) != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_span_index_at(
+					    &graph,
+					    branch.target_columns,
+					    2U,
+					    &graph_index,
+					    &error),
+				    &error,
+				    message) != 0 ||
+			    expect_status_ok(
+				    sqlparser_query_graph_dml_column_at(
+					    &graph,
+					    graph_index,
+					    &column,
+					    &error),
+				    &error,
+				    message) != 0 ||
+			    expect_true(
+				    column.column_name != NULL &&
+					    strcmp(column.column_name, "EXTRA") == 0,
+				    message) != 0 ||
+			    expect_status_ok(
+				    sqlparser_insert_cell_sql(
+					    handle,
+					    0U,
+					    0U,
+					    1U,
+					    &cell_sql,
+					    &error),
+				    &error,
+				    message) != 0 ||
+			    expect_true(
+				    cell_sql != NULL &&
+					    strcmp(cell_sql, "'changed'") == 0,
+				    message) != 0) {
+				sqlparser_string_free(cell_sql);
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			sqlparser_string_free(cell_sql);
+			cell_sql = NULL;
+
+			rc = sqlparser_parse_with_options(
+				first_expected,
+				&options,
+				&fresh_handle,
+				&error);
+			if (expect_status_ok(rc, &error, message) != 0 ||
+			    expect_status_ok(
+				    sqlparser_export_view_json(
+					    handle,
+					    0,
+					    &current_view,
+					    &error),
+				    &error,
+				    message) != 0 ||
+			    expect_status_ok(
+				    sqlparser_export_view_json(
+					    fresh_handle,
+					    0,
+					    &fresh_view,
+					    &error),
+				    &error,
+				    message) != 0 ||
+			    expect_true(
+				    current_view != NULL &&
+					    fresh_view != NULL &&
+					    strcmp(current_view, fresh_view) == 0,
+				    message) != 0) {
+				sqlparser_string_free(fresh_view);
+				sqlparser_string_free(current_view);
+				sqlparser_handle_destroy(fresh_handle);
+				sqlparser_handle_destroy(handle);
+				return 1;
+			}
+			sqlparser_string_free(fresh_view);
+			sqlparser_string_free(current_view);
+			sqlparser_handle_destroy(fresh_handle);
+			sqlparser_handle_destroy(handle);
+		}
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			failure_input, &options, &handle, &error);
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s later-branch width failure source should parse",
+			dialects[dialect_index].name);
+		if (expect_status_ok(rc, &error, message) != 0) {
+			return 1;
+		}
+		memset(patches, 0, sizeof(patches));
+		patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patches[0].selector = "stmt[0].insert_branch_columns[0]";
+		patches[0].index = 0U;
+		patches[0].name = "ID";
+		patches[1].op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patches[1].selector = "stmt[0].insert_branch_columns[1]";
+		patches[1].index = 0U;
+		patches[1].name = "ID";
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s must validate every touched multi-insert branch atomically",
+			dialects[dialect_index].name);
+		if (expect_patch_failure_is_atomic(
+			    handle,
+			    patches,
+			    2U,
+			    SQLPARSER_STATUS_INVALID_ARGUMENT,
+			    message) != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+
+	{
+		sqlparser_parse_options_t options;
+		sqlparser_handle_t *handle;
+		sqlparser_error_t error;
+		sqlparser_patch_t patch;
+		int rc;
+
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		sqlparser_parse_options_default(&options);
+		options.dialect = SQLPARSER_DIALECT_ORACLE;
+		rc = sqlparser_parse_with_options(
+			"MERGE INTO t USING s ON (t.id = s.id) "
+			"WHEN NOT MATCHED THEN INSERT (id) VALUES (s.id)",
+			&options,
+			&handle,
+			&error);
+		if (expect_status_ok(
+			    rc,
+			    &error,
+			    "MERGE name-only branch rejection source should parse") != 0) {
+			return 1;
+		}
+		memset(&patch, 0, sizeof(patch));
+		patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patch.selector = "stmt[0].insert_branch_columns[0]";
+		patch.index = 1U;
+		patch.name = "EXTRA";
+		if (expect_patch_failure_is_atomic(
+			    handle,
+			    &patch,
+			    1U,
+			    SQLPARSER_STATUS_INVALID_ARGUMENT,
+			    "MERGE INSERT must keep paired branch insertion semantics") != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+	}
+
+	return 0;
+}
+
 int main(void)
 {
 	if (test_relation_patch_identifier_path_spelling() != 0) {
@@ -39795,6 +40736,12 @@ int main(void)
 		return 1;
 	}
 	if (test_insert_column_patch_identifier_spelling() != 0) {
+		return 1;
+	}
+	if (test_insert_column_name_only_patch_batches() != 0) {
+		return 1;
+	}
+	if (test_multi_insert_branch_name_only_patch_batches() != 0) {
 		return 1;
 	}
 	if (test_deparse_identifier_spelling() != 0) {
