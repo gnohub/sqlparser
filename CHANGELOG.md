@@ -1,5 +1,18 @@
 # 变更记录
 
+## 2.16.8
+
+### MERGE INSERT 列值独立 Patch
+
+- 既有 `SQLPARSER_PATCH_INSERT_COLUMN` 对 MERGE INSERT 支持三种载荷：name-only 单独增加目标列、value-only 单独增加 VALUES cell、name + value 在同一位置成对增加；既有目标列和 VALUES cell 继续分别支持 `SQLPARSER_PATCH_REPLACE`。
+- 省略目标列清单但具有 VALUES 的 INSERT 分支现在输出既有 `target_list_selector`；name-only 可物化目标列清单，value-only 保持清单省略。同一 patch batch 中允许列和值暂时不等长；本批次触及且最终具有显式目标列清单的分支在提交前校验等宽，失败时整批原子回滚。
+- `SQLPARSER_PATCH_DELETE_COLUMN` 保持列值成对删除，`MERGE INSERT DEFAULT VALUES` 不适用三态插入。合同覆盖九个项目方言入口中成功解析的 MERGE，不表示对应数据库服务端均原生提供该语法。实现未新增公开 API、枚举、结构体字段或 View JSON 字段，仅扩展既有 selector 的输出范围。
+
+### 用例与验证
+
+- 新增 9 条 final case 和 27 个 patch；九套 fixture 当前合计 2,840 条 final case 和 9,163 个 patch。
+- 远端完整 `make test`、定向核心 API、九套方言矩阵及 Valgrind 均通过。
+
 ## 2.16.7
 
 ### INSERT 列名独立 Patch

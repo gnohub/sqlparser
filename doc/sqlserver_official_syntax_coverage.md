@@ -54,7 +54,7 @@
 
 `IF...ELSE` 条目由 36 条成功路径和 9 条错误路径覆盖，包含单语句分支、多语句块、`ELSE IF`、嵌套、条件查询、DML、DDL、事务和语法边界。
 
-`MERGE` 条目包含独立的 `WHEN MATCHED ... THEN DELETE` action。1 条可执行用例和 3 个独立 patch 验证 DELETE 分支条件、后续 UPDATE assignment 和 INSERT cell 互不干扰。
+`MERGE` 条目包含独立的 `WHEN MATCHED ... THEN DELETE` action；`insert_column` 支持 column-only、value-only、paired 三态，省略目标列列表的 not-matched INSERT 仍输出目标列表 selector，并可分别物化列列表、在保持省略时追加 VALUES cell 或替换现有 cell。显式列表继续支持 paired 添加。2 条可执行用例和 6 个独立 patch 验证这些边界，其中省略列表用例的 3 个 patch 独立执行；最终列值等宽校验与失败整批回滚由核心 API 单元测试验证。
 
 ## 按目录统计
 

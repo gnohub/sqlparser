@@ -8,17 +8,17 @@ coverage is tracked in each dialect's `*_official_syntax_coverage.en.md` file.
 
 | Dialect | Source | Successful Cases | Expected-Failure Cases | Total Cases | Fixture Success Rate |
 | --- | --- | ---: | ---: | ---: | ---: |
-| PostgreSQL | `tests/cases/sql_batch_input.json` | 217 | 0 | 217 | 100.00% |
-| MySQL | `tests/cases/mysql_dialect_input.json` | 261 | 0 | 261 | 100.00% |
-| Oracle | `tests/cases/oracle_dialect_input.json` | 252 | 0 | 252 | 100.00% |
-| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 626 | 0 | 626 | 100.00% |
-| Dameng | `tests/cases/dameng_dialect_input.json` | 184 | 0 | 184 | 100.00% |
-| Vastbase PostgreSQL mode | `tests/cases/vastbase_postgresql_dialect_input.json` | 202 | 0 | 202 | 100.00% |
-| Vastbase MySQL mode | `tests/cases/vastbase_mysql_dialect_input.json` | 262 | 0 | 262 | 100.00% |
-| Vastbase Oracle mode | `tests/cases/vastbase_oracle_dialect_input.json` | 221 | 0 | 221 | 100.00% |
-| Vastbase SQL Server mode | `tests/cases/vastbase_sqlserver_dialect_input.json` | 606 | 0 | 606 | 100.00% |
+| PostgreSQL | `tests/cases/sql_batch_input.json` | 218 | 0 | 218 | 100.00% |
+| MySQL | `tests/cases/mysql_dialect_input.json` | 262 | 0 | 262 | 100.00% |
+| Oracle | `tests/cases/oracle_dialect_input.json` | 253 | 0 | 253 | 100.00% |
+| SQL Server | `tests/cases/sqlserver_dialect_input.json` | 627 | 0 | 627 | 100.00% |
+| Dameng | `tests/cases/dameng_dialect_input.json` | 185 | 0 | 185 | 100.00% |
+| Vastbase PostgreSQL mode | `tests/cases/vastbase_postgresql_dialect_input.json` | 203 | 0 | 203 | 100.00% |
+| Vastbase MySQL mode | `tests/cases/vastbase_mysql_dialect_input.json` | 263 | 0 | 263 | 100.00% |
+| Vastbase Oracle mode | `tests/cases/vastbase_oracle_dialect_input.json` | 222 | 0 | 222 | 100.00% |
+| Vastbase SQL Server mode | `tests/cases/vastbase_sqlserver_dialect_input.json` | 607 | 0 | 607 | 100.00% |
 
-The nine fixtures contain 2831 final cases and 9136 independent patches in
+The nine fixtures contain 2840 final cases and 9163 independent patches in
 total.
 
 ## Counting Rules

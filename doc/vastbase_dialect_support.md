@@ -36,12 +36,14 @@ Vastbase 四个模式分别通过以下可执行矩阵验证：
 
 | 模式 | 回归夹具 | 单元测试 | 成功用例 | 预期失败用例 | 用例总数 |
 | --- | --- | --- | ---: | ---: | ---: |
-| `vastbase-oracle` | `tests/cases/vastbase_oracle_dialect_input.json` | `tests/unit/test_vastbase_oracle_dialect_case_matrix.c` | 221 | 0 | 221 |
-| `vastbase-mysql` | `tests/cases/vastbase_mysql_dialect_input.json` | `tests/unit/test_vastbase_mysql_dialect_case_matrix.c` | 262 | 0 | 262 |
-| `vastbase-postgresql` | `tests/cases/vastbase_postgresql_dialect_input.json` | `tests/unit/test_vastbase_postgresql_dialect_case_matrix.c` | 202 | 0 | 202 |
-| `vastbase-sqlserver` | `tests/cases/vastbase_sqlserver_dialect_input.json` | `tests/unit/test_vastbase_sqlserver_dialect_case_matrix.c` | 606 | 0 | 606 |
+| `vastbase-oracle` | `tests/cases/vastbase_oracle_dialect_input.json` | `tests/unit/test_vastbase_oracle_dialect_case_matrix.c` | 222 | 0 | 222 |
+| `vastbase-mysql` | `tests/cases/vastbase_mysql_dialect_input.json` | `tests/unit/test_vastbase_mysql_dialect_case_matrix.c` | 263 | 0 | 263 |
+| `vastbase-postgresql` | `tests/cases/vastbase_postgresql_dialect_input.json` | `tests/unit/test_vastbase_postgresql_dialect_case_matrix.c` | 203 | 0 | 203 |
+| `vastbase-sqlserver` | `tests/cases/vastbase_sqlserver_dialect_input.json` | `tests/unit/test_vastbase_sqlserver_dialect_case_matrix.c` | 607 | 0 | 607 |
 
-四套夹具均只包含 `final` 用例，独立 patch 数依次为 `vastbase-oracle` 793、`vastbase-mysql` 838、`vastbase-postgresql` 660、`vastbase-sqlserver` 1855。各入口均验证 Query Graph 的定界别名状态：`alias_quoted_identifier` 只对应 relation alias 的精确来源 token；`output_quoted_identifier` 只对应提供 `output_name` 的显式 alias，或无显式 alias 时的直接字段 token。各入口仅识别既有定界符：Oracle/PostgreSQL 为双引号、MySQL 为反引号、SQL Server 为方括号；匹配时 C 标志为 `1`，否则为 `0`，View JSON 仅在值为真时输出同名字段。`U&"..."` 不纳入此次范围。该合同及可执行证据不声称 Vastbase 服务端官网定义了相同语法范围。
+四套夹具均只包含 `final` 用例，独立 patch 数依次为 `vastbase-oracle` 796、`vastbase-mysql` 841、`vastbase-postgresql` 663、`vastbase-sqlserver` 1858。各入口均验证 Query Graph 的定界别名状态：`alias_quoted_identifier` 只对应 relation alias 的精确来源 token；`output_quoted_identifier` 只对应提供 `output_name` 的显式 alias，或无显式 alias 时的直接字段 token。各入口仅识别既有定界符：Oracle/PostgreSQL 为双引号、MySQL 为反引号、SQL Server 为方括号；匹配时 C 标志为 `1`，否则为 `0`，View JSON 仅在值为真时输出同名字段。`U&"..."` 不纳入此次范围。该合同及可执行证据不声称 Vastbase 服务端官网定义了相同语法范围。
+
+四个 Vastbase 项目兼容入口的 `MERGE ... WHEN NOT MATCHED THEN INSERT ... VALUES` 改写复用 `insert_column`：仅提供 `name` 时只增加目标列，仅提供一个 value source 时只增加 VALUES cell，同时提供时成对增加。省略目标列清单但存在 VALUES 时仍输出 `target_list_selector`，既可按需物化清单，也可在保持清单省略的情况下仅增加 cell；已有目标列和 cell 可分别替换。同一 patch batch 内允许两侧暂时不等长；批末存在显式目标列清单时必须与 VALUES 等长，否则整批原子回滚。成对删除语义不变，`MERGE INSERT DEFAULT VALUES` 不在该改写范围内。该合同及可执行证据不声称 Vastbase 服务端官网定义了相同语法范围。
 
 `vastbase-sqlserver` 兼容模式包含 SQL Server DML `OUTPUT` 结果通道和 `IF...ELSE` 控制流能力。
 

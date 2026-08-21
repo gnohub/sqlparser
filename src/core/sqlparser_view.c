@@ -23342,7 +23342,7 @@ static json_t *sqlparser_graph_dml_branch_json(
 	target_list_selector_ptr = NULL;
 	if (detail != NULL &&
 	    detail->action_kind == SQLPARSER_GRAPH_MERGE_ACTION_INSERT &&
-	    branch->target_columns.count > 0U) {
+	    (branch->target_columns.count > 0U || branch->rows.count > 0U)) {
 		target_list_selector.kind =
 			SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS;
 		target_list_selector.statement_index = branch->statement_index;

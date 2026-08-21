@@ -37,12 +37,25 @@ The four Vastbase modes are verified by executable regression matrices:
 
 | Mode | Fixture | Unit Test | Successful Cases | Expected-Failure Cases | Total Cases |
 | --- | --- | --- | ---: | ---: | ---: |
-| `vastbase-oracle` | `tests/cases/vastbase_oracle_dialect_input.json` | `tests/unit/test_vastbase_oracle_dialect_case_matrix.c` | 221 | 0 | 221 |
-| `vastbase-mysql` | `tests/cases/vastbase_mysql_dialect_input.json` | `tests/unit/test_vastbase_mysql_dialect_case_matrix.c` | 262 | 0 | 262 |
-| `vastbase-postgresql` | `tests/cases/vastbase_postgresql_dialect_input.json` | `tests/unit/test_vastbase_postgresql_dialect_case_matrix.c` | 202 | 0 | 202 |
-| `vastbase-sqlserver` | `tests/cases/vastbase_sqlserver_dialect_input.json` | `tests/unit/test_vastbase_sqlserver_dialect_case_matrix.c` | 606 | 0 | 606 |
+| `vastbase-oracle` | `tests/cases/vastbase_oracle_dialect_input.json` | `tests/unit/test_vastbase_oracle_dialect_case_matrix.c` | 222 | 0 | 222 |
+| `vastbase-mysql` | `tests/cases/vastbase_mysql_dialect_input.json` | `tests/unit/test_vastbase_mysql_dialect_case_matrix.c` | 263 | 0 | 263 |
+| `vastbase-postgresql` | `tests/cases/vastbase_postgresql_dialect_input.json` | `tests/unit/test_vastbase_postgresql_dialect_case_matrix.c` | 203 | 0 | 203 |
+| `vastbase-sqlserver` | `tests/cases/vastbase_sqlserver_dialect_input.json` | `tests/unit/test_vastbase_sqlserver_dialect_case_matrix.c` | 607 | 0 | 607 |
 
-All four fixtures contain only `final` cases. Their independent patch counts are 793 for `vastbase-oracle`, 838 for `vastbase-mysql`, 660 for `vastbase-postgresql`, and 1855 for `vastbase-sqlserver`. Each entry verifies the Query Graph delimited-alias state: `alias_quoted_identifier` applies only to the exact relation-alias source token; `output_quoted_identifier` applies only to the explicit alias that supplies `output_name`, or to the direct-field token when no explicit alias exists. Each entry recognizes only its existing delimiter: double quotes for Oracle/PostgreSQL, backticks for MySQL, and brackets for SQL Server. A match sets the C flag to `1`; otherwise it remains `0`, and View JSON emits the corresponding key only when true. `U&"..."` is outside this change. This contract and its executable evidence do not claim the same official Vastbase server syntax support.
+All four fixtures contain only `final` cases. Their independent patch counts are 796 for `vastbase-oracle`, 841 for `vastbase-mysql`, 663 for `vastbase-postgresql`, and 1858 for `vastbase-sqlserver`. Each entry verifies the Query Graph delimited-alias state: `alias_quoted_identifier` applies only to the exact relation-alias source token; `output_quoted_identifier` applies only to the explicit alias that supplies `output_name`, or to the direct-field token when no explicit alias exists. Each entry recognizes only its existing delimiter: double quotes for Oracle/PostgreSQL, backticks for MySQL, and brackets for SQL Server. A match sets the C flag to `1`; otherwise it remains `0`, and View JSON emits the corresponding key only when true. `U&"..."` is outside this change. This contract and its executable evidence do not claim the same official Vastbase server syntax support.
+
+The four Vastbase project compatibility entries reuse `insert_column` for
+`MERGE ... WHEN NOT MATCHED THEN INSERT ... VALUES` rewrites: `name` alone
+inserts only a target column, one value source alone inserts only a VALUES
+cell, and both together retain paired insertion. An omitted target list with
+VALUES still exposes `target_list_selector`, so it can be materialized or a
+cell can be inserted while the list remains omitted; existing target columns
+and cells remain independently replaceable. The two sides may be temporarily
+unequal within one patch batch. If an explicit target list exists after the
+batch, its width must match the VALUES width or the entire batch rolls back
+atomically. Paired deletion is unchanged, and `MERGE INSERT DEFAULT VALUES` is
+outside this mutation boundary. This contract and its executable evidence do
+not claim the same official Vastbase server syntax support.
 
 The `vastbase-sqlserver` mode includes SQL Server DML `OUTPUT` result channels
 and `IF...ELSE` control flow.

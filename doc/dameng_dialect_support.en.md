@@ -40,7 +40,9 @@ current AST. The executable case matrix defines the support boundary:
   `UPDATE`; both lists contain `N >= 1` items, have strictly equal lengths,
   and pair by ordinal
 - mappable `MERGE`, including a post-assignment `WHERE` and an attached
-  `DELETE WHERE` on the same matched UPDATE branch
+  `DELETE WHERE` on the same matched UPDATE branch; `insert_column` on a
+  not-matched INSERT supports column-only, value-only, and paired modes, and
+  existing VALUES cells can be replaced independently
 - `DATE` and `TIMESTAMP` literals
 - common DDL: `CREATE TABLE`, `CREATE VIEW`, `CREATE SEQUENCE`,
   `ALTER TABLE ADD`, `CREATE INDEX`, `DROP TABLE`, and `TRUNCATE TABLE`
@@ -88,6 +90,12 @@ handle:
   `query_graph.values[]`.
 - A multi-table `UPDATE` always has one `dml.target_relation`; every
   assignment's `target_field` resolves to that relation.
+- An omitted MERGE INSERT target-column list still emits
+  `target_list_selector`. A column-only patch can materialize that list, a
+  value-only patch can append a VALUES cell while keeping the list omitted, and
+  an explicit list continues to support paired insertion on both sides. If an
+  explicit list exists when the patch batch finishes, the core patch API
+  validates equal column/value widths and rolls back the batch on failure.
 - Query Graph uses `alias_quoted_identifier` for double-quoted relation aliases
   and `output_quoted_identifier` for explicit double-quoted output aliases or
   inherited double-quoted field names when no explicit alias exists. View JSON
@@ -107,8 +115,8 @@ The Dameng support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current Dameng matrix contains 184 cases, all with `status = "final"`, and
-655 independent patches. Six cases cover multi-table single-target `UPDATE`.
+The current Dameng matrix contains 185 cases, all with `status = "final"`, and
+658 independent patches. Six cases cover multi-table single-target `UPDATE`.
 Three multi-return cases respectively verify INSERT
 `RETURNING`, UPDATE `RETURN`, and DELETE `RETURNING` with 8↔8 pairs and atomic
 head, middle, and tail insertions that produce 9↔9 pairs.

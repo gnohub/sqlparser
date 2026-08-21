@@ -15,9 +15,17 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 606 条 `status = "final"` 用例和 1855 个独立 patch，其中 75 条用例的期望 View 包含非空 session 投影。
+夹具包含 607 条 `status = "final"` 用例和 1858 个独立 patch，其中 75 条用例的期望 View 包含非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session action、item scope、target kind、name、value 类型、规范文本及顺序均属于比较范围。
+
+## MERGE INSERT 独立列值改写回归
+
+以下 final 用例定义项目 `vastbase-sqlserver` 兼容入口合同，不声称 Vastbase 服务端官网定义了相同语法范围。
+
+| ID | 用例 | 状态 | 独立 patch | 验证重点 |
+| --- | --- | --- | ---: | --- |
+| `VSH607` | `vastbase-sqlserver-merge-omitted-insert-column-value-independent` | final | 3 | 省略目标列清单时输出 `target_list_selector`；分别验证仅增加目标列并物化清单、仅增加 VALUES cell 且保持清单省略，以及替换已有 cell |
 
 ## 定界别名状态回归
 

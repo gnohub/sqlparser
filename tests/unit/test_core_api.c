@@ -40654,46 +40654,1138 @@ static int test_multi_insert_branch_name_only_patch_batches(void)
 		sqlparser_handle_destroy(handle);
 	}
 
-	{
+	return 0;
+}
+
+static int expect_merge_insert_patch_result(
+	sqlparser_handle_t *handle,
+	const char *expected_sql,
+	size_t statement_index,
+	size_t dml_index,
+	size_t when_index,
+	const char *const *expected_columns,
+	size_t expected_column_count,
+	size_t expected_cell_count,
+	const char *message)
+{
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *fresh_handle;
+	sqlparser_error_t error;
+	sqlparser_query_graph_view_t graph;
+	sqlparser_graph_dml_t dml;
+	sqlparser_graph_dml_branch_t branch;
+	sqlparser_test_merge_branch_detail_t branch_detail;
+	sqlparser_graph_dml_column_t column;
+	sqlparser_graph_dml_cell_t cell;
+	char *current_view;
+	char *fresh_view;
+	char expected_selector[96];
+	char expected_target_list_selector[96];
+	size_t branch_index;
+	size_t graph_index;
+	size_t item_index;
+	size_t dml_count;
+	int result;
+	int rc;
+
+	fresh_handle = NULL;
+	current_view = NULL;
+	fresh_view = NULL;
+	result = 1;
+	memset(&error, 0, sizeof(error));
+	if (expect_deparse_equals_and_reparse(
+		    handle, expected_sql, message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_statement_query_graph(
+			    handle,
+			    statement_index,
+			    &graph,
+			    &error),
+		    &error,
+		    message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_count(
+			    &graph,
+			    &dml_count,
+			    &error),
+		    &error,
+		    message) != 0 ||
+	    expect_true(dml_count > dml_index, message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_at(
+			    &graph,
+			    dml_index,
+			    &dml,
+			    &error),
+		    &error,
+		    message) != 0 ||
+	    expect_true(
+		    dml.kind == SQLPARSER_GRAPH_DML_MERGE &&
+			    dml.index == dml_index &&
+			    dml.branches.count > when_index,
+		    message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_span_index_at(
+			    &graph,
+			    dml.branches,
+			    when_index,
+			    &branch_index,
+			    &error),
+		    &error,
+		    message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_query_graph_dml_branch_at(
+			    &graph,
+			    branch_index,
+			    &branch,
+			    &error),
+		    &error,
+		    message) != 0 ||
+	    expect_merge_branch_detail(
+		    &graph,
+		    branch_index,
+		    &branch_detail,
+		    &error,
+		    message) != 0 ||
+	    expect_true(
+		    branch.statement_index == statement_index &&
+			    branch.dml_index == dml_index &&
+			    branch.ordinal == when_index &&
+			    branch_detail.action_kind ==
+				    SQLPARSER_GRAPH_MERGE_ACTION_INSERT &&
+			    branch_detail.match_kind ==
+				    SQLPARSER_GRAPH_MERGE_MATCH_NOT_MATCHED_BY_TARGET &&
+			    branch.target_columns.count == expected_column_count &&
+			    branch.rows.count == expected_cell_count,
+		    message) != 0) {
+		goto done;
+	}
+
+	for (item_index = 0U;
+	     item_index < expected_column_count;
+	     item_index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    branch.target_columns,
+				    item_index,
+				    &graph_index,
+				    &error),
+			    &error,
+			    message) != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_column_at(
+				    &graph,
+				    graph_index,
+				    &column,
+				    &error),
+			    &error,
+			    message) != 0 ||
+		    expect_true(
+			    column.statement_index == statement_index &&
+				    column.dml_index == dml_index &&
+				    column.ordinal == item_index &&
+				    column.column_name != NULL &&
+				    strcmp(
+					    column.column_name,
+					    expected_columns[item_index]) == 0 &&
+				    column.has_selector != 0 &&
+				    column.selector.kind ==
+					    SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN &&
+				    column.selector.statement_index ==
+					    statement_index &&
+				    column.selector.row_index == dml_index &&
+				    column.selector.item_index == when_index &&
+				    column.selector.column_index == item_index,
+			    message) != 0) {
+			goto done;
+		}
+		if (dml_index == 0U) {
+			(void)snprintf(
+				expected_selector,
+				sizeof(expected_selector),
+				"stmt[%zu].merge_insert_column[%zu][%zu]",
+				statement_index,
+				when_index,
+				item_index);
+		} else {
+			(void)snprintf(
+				expected_selector,
+				sizeof(expected_selector),
+				"stmt[%zu].merge_insert_column[%zu][%zu][%zu]",
+				statement_index,
+				dml_index,
+				when_index,
+				item_index);
+		}
+		if (expect_selector_equals(
+			    &column.selector,
+			    expected_selector,
+			    message) != 0) {
+			goto done;
+		}
+	}
+
+	for (item_index = 0U;
+	     item_index < expected_cell_count;
+	     item_index++) {
+		if (expect_status_ok(
+			    sqlparser_query_graph_span_index_at(
+				    &graph,
+				    branch.rows,
+				    item_index,
+				    &graph_index,
+				    &error),
+			    &error,
+			    message) != 0 ||
+		    expect_status_ok(
+			    sqlparser_query_graph_dml_cell_at(
+				    &graph,
+				    graph_index,
+				    &cell,
+				    &error),
+			    &error,
+			    message) != 0 ||
+		    expect_true(
+			    cell.statement_index == statement_index &&
+				    cell.dml_index == dml_index &&
+				    cell.row_index == when_index &&
+				    cell.column_ordinal == item_index &&
+				    cell.has_selector != 0 &&
+				    cell.selector.kind ==
+					    SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL &&
+				    cell.selector.statement_index == statement_index &&
+				    cell.selector.row_index == dml_index &&
+				    cell.selector.item_index == when_index &&
+				    cell.selector.column_index == item_index,
+			    message) != 0) {
+			goto done;
+		}
+		if (dml_index == 0U) {
+			(void)snprintf(
+				expected_selector,
+				sizeof(expected_selector),
+				"stmt[%zu].merge_insert_cell[%zu][%zu]",
+				statement_index,
+				when_index,
+				item_index);
+		} else {
+			(void)snprintf(
+				expected_selector,
+				sizeof(expected_selector),
+				"stmt[%zu].merge_insert_cell[%zu][%zu][%zu]",
+				statement_index,
+				dml_index,
+				when_index,
+				item_index);
+		}
+		if (expect_selector_equals(
+			    &cell.selector,
+			    expected_selector,
+			    message) != 0) {
+			goto done;
+		}
+	}
+
+	if (dml_index == 0U) {
+		(void)snprintf(
+			expected_target_list_selector,
+			sizeof(expected_target_list_selector),
+			"stmt[%zu].insert_branch_columns[%zu]",
+			statement_index,
+			when_index);
+	} else {
+		(void)snprintf(
+			expected_target_list_selector,
+			sizeof(expected_target_list_selector),
+			"stmt[%zu].insert_branch_columns[%zu][%zu]",
+			statement_index,
+			dml_index,
+			when_index);
+	}
+	sqlparser_parse_options_default(&options);
+	options.dialect = sqlparser_handle_dialect(handle);
+	rc = sqlparser_parse_with_options(
+		expected_sql,
+		&options,
+		&fresh_handle,
+		&error);
+	if (expect_status_ok(rc, &error, message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_export_view_json(
+			    handle,
+			    0,
+			    &current_view,
+			    &error),
+		    &error,
+		    message) != 0 ||
+	    expect_status_ok(
+		    sqlparser_export_view_json(
+			    fresh_handle,
+			    0,
+			    &fresh_view,
+			    &error),
+		    &error,
+		    message) != 0 ||
+	    expect_true(
+		    current_view != NULL &&
+			    strstr(
+				    current_view,
+				    expected_target_list_selector) != NULL,
+		    "MERGE INSERT View must expose its target-list selector") != 0 ||
+	    expect_true(
+		    current_view != NULL && fresh_view != NULL &&
+			    strcmp(current_view, fresh_view) == 0,
+		    "patched MERGE INSERT View must match a fresh parse") != 0) {
+		goto done;
+	}
+	result = 0;
+
+done:
+	sqlparser_string_free(fresh_view);
+	sqlparser_string_free(current_view);
+	sqlparser_handle_destroy(fresh_handle);
+	return result;
+}
+
+static int test_merge_insert_independent_patch_batches(void)
+{
+	typedef struct merge_insert_patch_dialect_case {
+		sqlparser_dialect_t dialect;
+		const char *name;
+		const char *terminator;
+	} merge_insert_patch_dialect_case_t;
+	static const merge_insert_patch_dialect_case_t dialects[] = {
+		{SQLPARSER_DIALECT_POSTGRESQL, "PostgreSQL", ""},
+		{SQLPARSER_DIALECT_MYSQL, "MySQL", ""},
+		{SQLPARSER_DIALECT_ORACLE, "Oracle", ""},
+		{SQLPARSER_DIALECT_SQLSERVER, "SQL Server", ";"},
+		{SQLPARSER_DIALECT_DAMENG, "Dameng", ""},
+		{SQLPARSER_DIALECT_VASTBASE_ORACLE, "Vastbase-Oracle", ""},
+		{SQLPARSER_DIALECT_VASTBASE_MYSQL, "Vastbase-MySQL", ""},
+		{
+			SQLPARSER_DIALECT_VASTBASE_POSTGRESQL,
+			"Vastbase-PostgreSQL",
+			""
+		},
+		{
+			SQLPARSER_DIALECT_VASTBASE_SQLSERVER,
+			"Vastbase-SQL Server",
+			";"
+		}
+	};
+	static const char prefix[] =
+		"MERGE INTO T t USING S s ON (t.ID = s.ID) "
+		"WHEN NOT MATCHED THEN ";
+	static const char *const mixed_columns[] = {
+		"ID", "TOKEN", "NOTE", "EXTRA"
+	};
+	static const char *const materialized_columns[] = {
+		"ID", "SECRET", "NOTE"
+	};
+	static const char *const paired_columns[] = {
+		"ID", "SECRET"
+	};
+	static const char *const single_column[] = {
+		"ID"
+	};
+	size_t dialect_index;
+
+	for (dialect_index = 0U;
+	     dialect_index < sizeof(dialects) / sizeof(dialects[0]);
+	     dialect_index++) {
 		sqlparser_parse_options_t options;
 		sqlparser_handle_t *handle;
 		sqlparser_error_t error;
-		sqlparser_patch_t patch;
+		sqlparser_query_graph_view_t stale_graph;
+		sqlparser_patch_t patches[5];
+		sqlparser_patch_list_t patch_list;
+		char input_sql[512];
+		char expected_sql[512];
+		char message[192];
+		char *view_json;
+		size_t stale_count;
+		unsigned long generation;
 		int rc;
 
+		sqlparser_parse_options_default(&options);
+		options.dialect = dialects[dialect_index].dialect;
+
+		(void)snprintf(
+			input_sql,
+			sizeof(input_sql),
+			"%sINSERT (ID, NOTE) VALUES (s.ID, s.NOTE)%s",
+			prefix,
+			dialects[dialect_index].terminator);
+		(void)snprintf(
+			expected_sql,
+			sizeof(expected_sql),
+			"%sINSERT (ID, TOKEN, NOTE, EXTRA) "
+			"VALUES (s.ID, s.TOKEN, s.NOTE, s.EXTRA)%s",
+			prefix,
+			dialects[dialect_index].terminator);
 		handle = NULL;
 		memset(&error, 0, sizeof(error));
-		sqlparser_parse_options_default(&options);
-		options.dialect = SQLPARSER_DIALECT_ORACLE;
 		rc = sqlparser_parse_with_options(
-			"MERGE INTO t USING s ON (t.id = s.id) "
-			"WHEN NOT MATCHED THEN INSERT (id) VALUES (s.id)",
+			input_sql,
 			&options,
 			&handle,
 			&error);
-		if (expect_status_ok(
-			    rc,
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s independent MERGE INSERT source should parse",
+			dialects[dialect_index].name);
+		if (expect_status_ok(rc, &error, message) != 0 ||
+		    expect_status_ok(
+			    sqlparser_statement_query_graph(
+				    handle,
+				    0U,
+				    &stale_graph,
+				    &error),
 			    &error,
-			    "MERGE name-only branch rejection source should parse") != 0) {
+			    message) != 0) {
+			sqlparser_handle_destroy(handle);
 			return 1;
 		}
-		memset(&patch, 0, sizeof(patch));
-		patch.op = SQLPARSER_PATCH_INSERT_COLUMN;
-		patch.selector = "stmt[0].insert_branch_columns[0]";
-		patch.index = 1U;
-		patch.name = "EXTRA";
-		if (expect_patch_failure_is_atomic(
+		memset(patches, 0, sizeof(patches));
+		patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patches[0].selector = "stmt[0].insert_branch_columns[0]";
+		patches[0].index = 1U;
+		patches[0].name = "SECRET";
+		patches[1].op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patches[1].selector = "stmt[0].insert_branch_columns[0]";
+		patches[1].index = 1U;
+		patches[1].default_sql = "s.SECRET";
+		patches[2].op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patches[2].selector = "stmt[0].insert_branch_columns[0]";
+		patches[2].index = 3U;
+		patches[2].name = "EXTRA";
+		patches[2].default_sql = "s.EXTRA";
+		patches[3].op = SQLPARSER_PATCH_REPLACE;
+		patches[3].selector = "stmt[0].merge_insert_column[0][1]";
+		patches[3].sql = "TOKEN";
+		patches[4].op = SQLPARSER_PATCH_REPLACE;
+		patches[4].selector = "stmt[0].merge_insert_cell[0][1]";
+		patches[4].sql = "s.TOKEN";
+		patch_list.items = patches;
+		patch_list.count = sizeof(patches) / sizeof(patches[0]);
+		generation = handle->generation;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s independent MERGE INSERT batch should be exact",
+			dialects[dialect_index].name);
+		if (expect_status_ok(rc, &error, message) != 0 ||
+		    expect_true(
+			    handle->generation == generation + 1UL,
+			    message) != 0 ||
+		    expect_true(
+			    sqlparser_query_graph_dml_count(
+				    &stale_graph,
+				    &stale_count,
+				    &error) ==
+				    SQLPARSER_STATUS_INVALID_ARGUMENT,
+			    "MERGE INSERT patch must invalidate the prior graph") != 0 ||
+		    expect_merge_insert_patch_result(
 			    handle,
-			    &patch,
+			    expected_sql,
+			    0U,
+			    0U,
+			    0U,
+			    mixed_columns,
+			    sizeof(mixed_columns) / sizeof(mixed_columns[0]),
+			    4U,
+			    message) != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+
+		(void)snprintf(
+			input_sql,
+			sizeof(input_sql),
+			"%sINSERT VALUES (s.ID, s.SECRET, s.NOTE)%s",
+			prefix,
+			dialects[dialect_index].terminator);
+		(void)snprintf(
+			expected_sql,
+			sizeof(expected_sql),
+			"%sINSERT (ID, SECRET, NOTE) "
+			"VALUES (s.ID, s.SECRET, s.NOTE)%s",
+			prefix,
+			dialects[dialect_index].terminator);
+		handle = NULL;
+		view_json = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			input_sql,
+			&options,
+			&handle,
+			&error);
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s omitted MERGE INSERT column list should parse",
+			dialects[dialect_index].name);
+		if (expect_status_ok(rc, &error, message) != 0 ||
+		    expect_status_ok(
+			    sqlparser_export_view_json(
+				    handle,
+				    0,
+				    &view_json,
+				    &error),
+			    &error,
+			    message) != 0 ||
+		    expect_true(
+			    view_json != NULL &&
+				    strstr(
+					    view_json,
+					    "stmt[0].insert_branch_columns[0]") != NULL,
+			    "omitted MERGE INSERT list must expose its selector") != 0) {
+			sqlparser_string_free(view_json);
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_string_free(view_json);
+		memset(patches, 0, sizeof(patches));
+		patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patches[0].selector = "stmt[0].insert_branch_columns[0]";
+		patches[0].index = 0U;
+		patches[0].name = "ID";
+		patches[1].op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patches[1].selector = "stmt[0].insert_branch_columns[0]";
+		patches[1].index = 1U;
+		patches[1].name = "SECRET";
+		patches[2].op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patches[2].selector = "stmt[0].insert_branch_columns[0]";
+		patches[2].index = 2U;
+		patches[2].name = "NOTE";
+		patch_list.items = patches;
+		patch_list.count = 3U;
+		generation = handle->generation;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s omitted MERGE INSERT list should materialize",
+			dialects[dialect_index].name);
+		if (expect_status_ok(rc, &error, message) != 0 ||
+		    expect_true(
+			    handle->generation == generation + 1UL,
+			    message) != 0 ||
+		    expect_merge_insert_patch_result(
+			    handle,
+			    expected_sql,
+			    0U,
+			    0U,
+			    0U,
+			    materialized_columns,
+			    sizeof(materialized_columns) /
+				    sizeof(materialized_columns[0]),
+			    3U,
+			    message) != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+
+		(void)snprintf(
+			input_sql,
+			sizeof(input_sql),
+			"%sINSERT VALUES (s.ID, s.SECRET)%s",
+			prefix,
+			dialects[dialect_index].terminator);
+		(void)snprintf(
+			expected_sql,
+			sizeof(expected_sql),
+			"%sINSERT VALUES (s.ID, s.SECRET, s.NOTE)%s",
+			prefix,
+			dialects[dialect_index].terminator);
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			input_sql,
+			&options,
+			&handle,
+			&error);
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s value-only omitted MERGE INSERT should parse",
+			dialects[dialect_index].name);
+		if (expect_status_ok(rc, &error, message) != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		memset(patches, 0, sizeof(patches));
+		patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patches[0].selector = "stmt[0].insert_branch_columns[0]";
+		patches[0].index = 2U;
+		patches[0].default_sql = "s.NOTE";
+		patch_list.items = patches;
+		patch_list.count = 1U;
+		generation = handle->generation;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s value-only MERGE INSERT must keep its list omitted",
+			dialects[dialect_index].name);
+		if (expect_status_ok(rc, &error, message) != 0 ||
+		    expect_true(
+			    handle->generation == generation + 1UL,
+			    message) != 0 ||
+		    expect_merge_insert_patch_result(
+			    handle,
+			    expected_sql,
+			    0U,
+			    0U,
+			    0U,
+			    NULL,
+			    0U,
+			    3U,
+			    message) != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		sqlparser_handle_destroy(handle);
+
+		(void)snprintf(
+			input_sql,
+			sizeof(input_sql),
+			"%sINSERT (ID) VALUES (s.ID)%s",
+			prefix,
+			dialects[dialect_index].terminator);
+		(void)snprintf(
+			expected_sql,
+			sizeof(expected_sql),
+			"%sINSERT (ID, SECRET) VALUES (s.ID, s.SECRET)%s",
+			prefix,
+			dialects[dialect_index].terminator);
+		handle = NULL;
+		memset(&error, 0, sizeof(error));
+		rc = sqlparser_parse_with_options(
+			input_sql,
+			&options,
+			&handle,
+			&error);
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s paired MERGE INSERT regression should parse",
+			dialects[dialect_index].name);
+		if (expect_status_ok(rc, &error, message) != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		memset(patches, 0, sizeof(patches));
+		patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+		patches[0].selector = "stmt[0].insert_branch_columns[0]";
+		patches[0].index = 1U;
+		patches[0].name = "SECRET";
+		patches[0].default_sql = "s.SECRET";
+		patch_list.items = patches;
+		patch_list.count = 1U;
+		generation = handle->generation;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s paired MERGE INSERT must remain supported",
+			dialects[dialect_index].name);
+		if (expect_status_ok(rc, &error, message) != 0 ||
+		    expect_true(
+			    handle->generation == generation + 1UL,
+			    message) != 0 ||
+		    expect_merge_insert_patch_result(
+			    handle,
+			    expected_sql,
+			    0U,
+			    0U,
+			    0U,
+			    paired_columns,
+			    sizeof(paired_columns) / sizeof(paired_columns[0]),
+			    2U,
+			    message) != 0) {
+			sqlparser_handle_destroy(handle);
+			return 1;
+		}
+		memset(patches, 0, sizeof(patches));
+		patches[0].op = SQLPARSER_PATCH_DELETE_COLUMN;
+		patches[0].selector = "stmt[0].insert_branch_columns[0]";
+		patches[0].index = 1U;
+		patch_list.items = patches;
+		patch_list.count = 1U;
+		generation = handle->generation;
+		rc = sqlparser_apply_patch(handle, &patch_list, &error);
+		(void)snprintf(
+			message,
+			sizeof(message),
+			"%s MERGE INSERT delete must remain paired",
+			dialects[dialect_index].name);
+		if (expect_status_ok(rc, &error, message) != 0 ||
+		    expect_true(
+			    handle->generation == generation + 1UL,
+			    message) != 0 ||
+		    expect_merge_insert_patch_result(
+			    handle,
+			    input_sql,
+			    0U,
+			    0U,
+			    0U,
+			    single_column,
+			    sizeof(single_column) / sizeof(single_column[0]),
 			    1U,
-			    SQLPARSER_STATUS_INVALID_ARGUMENT,
-			    "MERGE INSERT must keep paired branch insertion semantics") != 0) {
+			    message) != 0) {
 			sqlparser_handle_destroy(handle);
 			return 1;
 		}
 		sqlparser_handle_destroy(handle);
 	}
 
+	return 0;
+}
+
+static int test_merge_insert_independent_patch_atomicity(void)
+{
+	static const char explicit_sql[] =
+		"MERGE INTO T t USING S s ON (t.ID = s.ID) "
+		"WHEN NOT MATCHED THEN INSERT (ID) VALUES (s.ID)";
+	static const char omitted_sql[] =
+		"MERGE INTO T t USING S s ON (t.ID = s.ID) "
+		"WHEN NOT MATCHED THEN INSERT VALUES (s.ID, s.SECRET, s.NOTE)";
+	static const char default_values_sql[] =
+		"MERGE INTO T t USING S s ON t.ID = s.ID "
+		"WHEN NOT MATCHED THEN INSERT DEFAULT VALUES";
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_bind_value_t bind;
+	sqlparser_patch_t patches[2];
+	char *view_json;
+	int rc;
+
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse_with_options(
+		explicit_sql,
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "column-only MERGE INSERT width failure should parse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[0].selector = "stmt[0].insert_branch_columns[0]";
+	patches[0].index = 1U;
+	patches[0].name = "SECRET";
+	if (expect_patch_failure_is_atomic(
+		    handle,
+		    patches,
+		    1U,
+		    SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "explicit MERGE INSERT column-only final mismatch must roll back") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[0].selector = "stmt[0].insert_branch_columns[0]";
+	patches[0].index = 1U;
+	if (expect_patch_failure_is_atomic(
+		    handle,
+		    patches,
+		    1U,
+		    SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "MERGE INSERT_COLUMN without a name or value must roll back") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[0].selector = "stmt[0].insert_branch_columns[0]";
+	patches[0].index = 1U;
+	patches[0].name = "";
+	patches[0].default_sql = "";
+	if (expect_patch_failure_is_atomic(
+		    handle,
+		    patches,
+		    1U,
+		    SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "MERGE INSERT_COLUMN with empty name and value must roll back") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[0].selector = "stmt[0].insert_branch_columns[0]";
+	patches[0].index = 1U;
+	patches[0].name = "SECRET";
+	patches[0].sql = "s.NOTE";
+	patches[0].default_sql = "s.SECRET";
+	if (expect_patch_failure_is_atomic(
+		    handle,
+		    patches,
+		    1U,
+		    SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "MERGE INSERT_COLUMN must reject the generic sql payload") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[0].selector = "stmt[0].insert_branch_columns[0]";
+	patches[0].index = 1U;
+	patches[0].name = "SECRET";
+	patches[0].default_sql = "s.SECRET";
+	patches[0].source_selector = "stmt[0].merge_insert_cell[0][0]";
+	if (expect_patch_failure_is_atomic(
+		    handle,
+		    patches,
+		    1U,
+		    SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "MERGE INSERT_COLUMN must reject multiple value sources") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(&bind, 0, sizeof(bind));
+	bind.kind = SQLPARSER_BIND_KIND_NAMED;
+	bind.key = "secret";
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[0].selector = "stmt[0].insert_branch_columns[0]";
+	patches[0].index = 1U;
+	patches[0].name = "SECRET";
+	patches[0].default_sql = "s.SECRET";
+	patches[0].bind = &bind;
+	if (expect_patch_failure_is_atomic(
+		    handle,
+		    patches,
+		    1U,
+		    SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "MERGE INSERT_COLUMN must reject default SQL plus bind") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse_with_options(
+		explicit_sql,
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "value-only MERGE INSERT width failure should parse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[0].selector = "stmt[0].insert_branch_columns[0]";
+	patches[0].index = 1U;
+	patches[0].default_sql = "s.SECRET";
+	if (expect_patch_failure_is_atomic(
+		    handle,
+		    patches,
+		    1U,
+		    SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "explicit MERGE INSERT value-only final mismatch must roll back") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	rc = sqlparser_parse_with_options(
+		omitted_sql,
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "partial MERGE INSERT list materialization should parse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[0].selector = "stmt[0].insert_branch_columns[0]";
+	patches[0].index = 0U;
+	patches[0].name = "ID";
+	patches[1].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[1].selector = "stmt[0].insert_branch_columns[0]";
+	patches[1].index = 1U;
+	patches[1].name = "SECRET";
+	if (expect_patch_failure_is_atomic(
+		    handle,
+		    patches,
+		    2U,
+		    SQLPARSER_STATUS_INVALID_ARGUMENT,
+		    "materialized MERGE INSERT list must match its VALUES width") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	view_json = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(
+		default_values_sql,
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "PostgreSQL MERGE INSERT DEFAULT VALUES should parse") != 0 ||
+	    expect_status_ok(
+		    sqlparser_export_view_json(handle, 0, &view_json, &error),
+		    &error,
+		    "PostgreSQL MERGE INSERT DEFAULT VALUES View should export") != 0 ||
+	    expect_true(
+		    view_json != NULL &&
+			    strstr(view_json, "insert_branch_columns") == NULL,
+		    "MERGE INSERT DEFAULT VALUES must not expose a target-list selector") != 0) {
+		sqlparser_string_free(view_json);
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_string_free(view_json);
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[0].selector = "stmt[0].insert_branch_columns[0]";
+	patches[0].index = 0U;
+	patches[0].name = "ID";
+	if (expect_patch_failure_is_atomic(
+		    handle,
+		    patches,
+		    1U,
+		    SQLPARSER_STATUS_UNSUPPORTED,
+		    "name-only MERGE INSERT must reject DEFAULT VALUES atomically") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+	return 0;
+}
+
+static int test_merge_insert_independent_patch_coordinates(void)
+{
+	static const char postgresql_sql[] =
+		"MERGE INTO public.T AS t USING public.S AS s ON t.ID = s.ID "
+		"WHEN NOT MATCHED AND s.kind = 1 THEN "
+		"INSERT (ID) VALUES (s.ID) "
+		"WHEN NOT MATCHED AND s.kind = 2 THEN "
+		"INSERT VALUES (s.ID, s.NOTE)";
+	static const char postgresql_expected[] =
+		"MERGE INTO public.T AS t USING public.S AS s ON t.ID = s.ID "
+		"WHEN NOT MATCHED AND s.kind = 1 THEN "
+		"INSERT (ID) VALUES (s.ID) "
+		"WHEN NOT MATCHED AND s.kind = 2 THEN "
+		"INSERT (ID, NOTE) VALUES (s.ID, s.NOTE)";
+	static const char sqlserver_sql[] =
+		"INSERT INTO dbo.MergeAudit(id) SELECT d.id FROM "
+		"(MERGE dbo.T AS t USING dbo.S AS s ON t.id = s.id "
+		"WHEN MATCHED THEN UPDATE SET v = s.v "
+		"WHEN NOT MATCHED THEN INSERT VALUES (s.id, s.v) "
+		"OUTPUT INSERTED.id) AS d";
+	static const char sqlserver_expected[] =
+		"INSERT INTO dbo.MergeAudit(id) SELECT d.id FROM "
+		"(MERGE dbo.T AS t USING dbo.S AS s ON t.id = s.id "
+		"WHEN MATCHED THEN UPDATE SET v = s.v "
+		"WHEN NOT MATCHED THEN INSERT (id, v) VALUES (s.id, s.v) "
+		"OUTPUT INSERTED.id) AS d";
+	static const char oracle_hint_sql[] =
+		"MERGE INTO T t USING S s ON (t.ID = s.ID) "
+		"WHEN NOT MATCHED THEN INSERT /*+ keep */ VALUES (s.ID)";
+	static const char oracle_hint_expected[] =
+		"MERGE INTO T t USING S s ON (t.ID = s.ID) "
+		"WHEN NOT MATCHED THEN INSERT /*+ keep */ (ID) VALUES (s.ID)";
+	static const char *const postgresql_columns[] = {
+		"ID", "NOTE"
+	};
+	static const char *const sqlserver_columns[] = {
+		"id", "v"
+	};
+	static const char *const oracle_hint_columns[] = {
+		"ID"
+	};
+	sqlparser_parse_options_t options;
+	sqlparser_handle_t *handle;
+	sqlparser_error_t error;
+	sqlparser_patch_t patches[2];
+	sqlparser_patch_list_t patch_list;
+	unsigned long generation;
+	int rc;
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_POSTGRESQL;
+	rc = sqlparser_parse_with_options(
+		postgresql_sql,
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "PostgreSQL multi-WHEN free MERGE INSERT should parse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[0].selector = "stmt[0].insert_branch_columns[1]";
+	patches[0].index = 0U;
+	patches[0].name = "ID";
+	patches[1].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[1].selector = "stmt[0].insert_branch_columns[1]";
+	patches[1].index = 1U;
+	patches[1].name = "NOTE";
+	patch_list.items = patches;
+	patch_list.count = 2U;
+	generation = handle->generation;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "PostgreSQL second MERGE INSERT branch should materialize") != 0 ||
+	    expect_true(
+		    handle->generation == generation + 1UL,
+		    "PostgreSQL multi-WHEN batch should commit once") != 0 ||
+	    expect_merge_insert_patch_result(
+		    handle,
+		    postgresql_expected,
+		    0U,
+		    0U,
+		    1U,
+		    postgresql_columns,
+		    sizeof(postgresql_columns) / sizeof(postgresql_columns[0]),
+		    2U,
+		    "PostgreSQL second MERGE INSERT branch should remain directed") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_SQLSERVER;
+	rc = sqlparser_parse_with_options(
+		sqlserver_sql,
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "nested SQL Server free MERGE INSERT should parse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[0].selector = "stmt[0].insert_branch_columns[1][1]";
+	patches[0].index = 0U;
+	patches[0].name = "id";
+	patches[1].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[1].selector = "stmt[0].insert_branch_columns[1][1]";
+	patches[1].index = 1U;
+	patches[1].name = "v";
+	patch_list.items = patches;
+	patch_list.count = 2U;
+	generation = handle->generation;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "nested SQL Server MERGE INSERT should materialize") != 0 ||
+	    expect_true(
+		    handle->generation == generation + 1UL,
+		    "nested SQL Server MERGE batch should commit once") != 0 ||
+	    expect_merge_insert_patch_result(
+		    handle,
+		    sqlserver_expected,
+		    0U,
+		    1U,
+		    1U,
+		    sqlserver_columns,
+		    sizeof(sqlserver_columns) / sizeof(sqlserver_columns[0]),
+		    2U,
+		    "nested SQL Server MERGE selector coordinates should remain exact") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
+
+	handle = NULL;
+	memset(&error, 0, sizeof(error));
+	sqlparser_parse_options_default(&options);
+	options.dialect = SQLPARSER_DIALECT_ORACLE;
+	rc = sqlparser_parse_with_options(
+		oracle_hint_sql,
+		&options,
+		&handle,
+		&error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Oracle hinted MERGE INSERT should parse") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	memset(patches, 0, sizeof(patches));
+	patches[0].op = SQLPARSER_PATCH_INSERT_COLUMN;
+	patches[0].selector = "stmt[0].insert_branch_columns[0]";
+	patches[0].index = 0U;
+	patches[0].name = "ID";
+	patch_list.items = patches;
+	patch_list.count = 1U;
+	generation = handle->generation;
+	rc = sqlparser_apply_patch(handle, &patch_list, &error);
+	if (expect_status_ok(
+		    rc,
+		    &error,
+		    "Oracle hinted MERGE INSERT should materialize") != 0 ||
+	    expect_true(
+		    handle->generation == generation + 1UL,
+		    "Oracle hinted MERGE INSERT batch should commit once") != 0 ||
+	    expect_merge_insert_patch_result(
+		    handle,
+		    oracle_hint_expected,
+		    0U,
+		    0U,
+		    0U,
+		    oracle_hint_columns,
+		    sizeof(oracle_hint_columns) /
+			    sizeof(oracle_hint_columns[0]),
+		    1U,
+		    "Oracle MERGE INSERT materialization must preserve its hint") != 0) {
+		sqlparser_handle_destroy(handle);
+		return 1;
+	}
+	sqlparser_handle_destroy(handle);
 	return 0;
 }
 
@@ -40742,6 +41834,15 @@ int main(void)
 		return 1;
 	}
 	if (test_multi_insert_branch_name_only_patch_batches() != 0) {
+		return 1;
+	}
+	if (test_merge_insert_independent_patch_batches() != 0) {
+		return 1;
+	}
+	if (test_merge_insert_independent_patch_atomicity() != 0) {
+		return 1;
+	}
+	if (test_merge_insert_independent_patch_coordinates() != 0) {
 		return 1;
 	}
 	if (test_deparse_identifier_spelling() != 0) {

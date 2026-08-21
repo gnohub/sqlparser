@@ -22,7 +22,7 @@
 - `UPDATE`、`DELETE`
 - 多表单目标 `UPDATE`，支持 JOIN 链、逗号 relation 列表及混合形态；全部 SET assignment 必须指向同一个 table object
 - DML 返回宿主绑定变量：`INSERT`、`DELETE` 的 `RETURNING <target, ...> INTO <:bind, ...>`，以及 `UPDATE` 的 `RETURN <target, ...> INTO <:bind, ...>`；每个列表均为 `N >= 1` 项，严格等长并按序号一一配对
-- 可映射的 `MERGE`；matched UPDATE action 支持赋值后 `WHERE` 和归属同一 UPDATE 分支的 `DELETE WHERE`
+- 可映射的 `MERGE`；matched UPDATE action 支持赋值后 `WHERE` 和归属同一 UPDATE 分支的 `DELETE WHERE`，not-matched INSERT 的 `insert_column` 支持 column-only、value-only 和 paired 三态，现有 VALUES cell 可独立替换
 - `DATE`、`TIMESTAMP` 字面量
 - 常见 DDL：`CREATE TABLE`、`CREATE VIEW`、`CREATE SEQUENCE`、`ALTER TABLE ADD`、`CREATE INDEX`、`DROP TABLE`、`TRUNCATE TABLE`
 - 事务控制、`GRANT / REVOKE`
@@ -52,6 +52,7 @@
 - `SET SCHEMA` 在 View JSON 中输出字段名 `CURRENT_SCHEMA`。
 - DML 返回通道在 `dml.result_channels` 中使用 sink channel；每个返回 target 的 `sink_value` 指向 `query_graph.values[]` 中同序号的宿主 bind。
 - 多表 `UPDATE` 始终具有唯一 `dml.target_relation`；每个 assignment 的 `target_field` 关联该 relation。
+- 省略 MERGE INSERT 目标列列表时仍输出 `target_list_selector`；column-only patch 可物化列列表，value-only patch 可在保持列表省略时追加 VALUES cell，显式列表继续支持 paired patch 同时追加两侧。patch batch 结束时若存在显式列表，则校验列值等长；失败时由核心 patch API 整批回滚。
 - Query Graph 以 `alias_quoted_identifier` 标记双引号 relation alias，以 `output_quoted_identifier` 标记双引号显式 output alias 或无显式别名时继承的双引号字段名；View JSON 仅输出值为 `true` 的键。
 - View JSON 中可归属的表达式片段使用达梦公共形态。
 - 失败的表达式片段改写不会提交到 handle；原有 AST、bind 映射和 deparse 输出保持可用。
@@ -66,4 +67,4 @@
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-当前达梦方言矩阵包含 184 条用例，全部为 `status = "final"`，共包含 655 个独立 patch。其中 6 条用例覆盖多表单目标 `UPDATE`，3 条多返回项用例分别验证 INSERT `RETURNING`、UPDATE `RETURN` 和 DELETE `RETURNING` 的 8↔8 配对，以及头、中、尾原子插入后的 9↔9 配对。
+当前达梦方言矩阵包含 185 条用例，全部为 `status = "final"`，共包含 658 个独立 patch。其中 6 条用例覆盖多表单目标 `UPDATE`，3 条多返回项用例分别验证 INSERT `RETURNING`、UPDATE `RETURN` 和 DELETE `RETURNING` 的 8↔8 配对，以及头、中、尾原子插入后的 9↔9 配对。

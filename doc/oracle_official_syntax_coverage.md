@@ -39,8 +39,8 @@
 
 ## 结论
 
-Oracle `MERGE` 的 `CURRENT` 边界包含 matched UPDATE 的 action `WHERE`、同一 UPDATE 分支上的附属 `DELETE WHERE`，以及带条件的 not-matched INSERT。可执行矩阵使用 2 条用例和 8 个独立 patch 验证该边界。
+Oracle `MERGE` 的 `CURRENT` 边界包含 matched UPDATE 的 action `WHERE`、同一 UPDATE 分支上的附属 `DELETE WHERE`，以及带条件的 not-matched INSERT。`insert_column` 支持 column-only、value-only、paired 三态；省略目标列列表的 INSERT 仍输出目标列表 selector，并可分别物化列列表、在保持省略时追加 VALUES cell 或替换现有 cell，显式列表继续支持 paired 添加。可执行矩阵使用 3 条用例和 11 个独立 patch 验证这些边界，其中省略列表用例的 3 个 patch 独立执行；最终列值等宽校验与失败整批回滚由核心 API 单元测试验证。
 
 Oracle 层次查询的 `CURRENT` 边界包括 `START WITH`、`CONNECT BY`、一元 `PRIOR`、`LEVEL`、`CONNECT_BY_ROOT`、`CONNECT_BY_ISLEAF`、`CONNECT_BY_ISCYCLE`、`NOCYCLE` 和复合层次条件；源文本必须使用 `START WITH` 在 `CONNECT BY` 之前的顺序。可执行矩阵包含 4 条 `final` 用例和 20 个独立 patch；`CONNECT BY` 在 `START WITH` 之前的反向子句顺序不在当前范围。
 
-`RETURNING ... INTO` 已覆盖 `INSERT`、`UPDATE`、`DELETE` 的 `N >= 1` 个返回 target 与严格等长的 N 个冒号宿主 bind，并按 ordinal 配对；不接受 `BULK COLLECT`、非冒号 bind receiver 或数量不等的两侧列表。成对 `insert_column` 使用同一个 patch 同时插入 target 和 receiver，不拆分单侧操作。O198 至 O200 分别验证 8 对结果及头部、中部、尾部插入后的 9 对结果；整个 Oracle 可执行夹具包含 252 条 `final` 用例和 854 个独立 patch。Oracle 当前剩余未完整覆盖项主要属于无法安全映射到共享 AST 的专属语义。`SYNONYM` 和 `EXPLAIN PLAN FOR` 已覆盖基础语句解析、keyword 和反解析；完整对象属性或执行计划语义需要 Oracle 专用模型。
+`RETURNING ... INTO` 已覆盖 `INSERT`、`UPDATE`、`DELETE` 的 `N >= 1` 个返回 target 与严格等长的 N 个冒号宿主 bind，并按 ordinal 配对；不接受 `BULK COLLECT`、非冒号 bind receiver 或数量不等的两侧列表。成对 `insert_column` 使用同一个 patch 同时插入 target 和 receiver，不拆分单侧操作。O198 至 O200 分别验证 8 对结果及头部、中部、尾部插入后的 9 对结果；整个 Oracle 可执行夹具包含 253 条 `final` 用例和 857 个独立 patch。Oracle 当前剩余未完整覆盖项主要属于无法安全映射到共享 AST 的专属语义。`SYNONYM` 和 `EXPLAIN PLAN FOR` 已覆盖基础语句解析、keyword 和反解析；完整对象属性或执行计划语义需要 Oracle 专用模型。

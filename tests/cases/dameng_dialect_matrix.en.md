@@ -4,7 +4,7 @@ This file records regression cases for the Dameng dialect conversion layer. The 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 184 cases with `status = "final"` and 655 independent
+The fixture contains 185 cases with `status = "final"` and 658 independent
 patches. Eight cases and their 23 patches contain complete bind-occurrence
 assertions.
 Statement-level `query_graph.session` appears in 34 cases, covering `D002`,
@@ -241,6 +241,12 @@ Dameng multi-table `UPDATE` accepts JOIN chains, comma-separated relation lists,
 | Case ID | Case Name | Statement Shape | Validation Focus |
 | --- | --- | --- | --- |
 | D160 | `dameng-quoted-relation-alias-and-target-output-contract` | double-quoted relation/derived aliases and output names | both quoted flags, field-name inheritance, and two output-alias patches |
+
+## Independent MERGE INSERT Column and Value Mutation
+
+| Case ID | Case Name | Form | Verification Focus |
+| --- | --- | --- | --- |
+| D161 | `dameng-merge-omitted-insert-column-value-independent` | `WHEN NOT MATCHED THEN INSERT VALUES (...)` with no target-column list | an omitted list still emits `target_list_selector`; three independent patches verify column-only list materialization, value-only cell insertion, and replacement of an existing `merge_insert_cell`; together with the existing paired mode, this covers the three-state `insert_column` contract |
 
 ## Coverage Boundary
 

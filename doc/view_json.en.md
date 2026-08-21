@@ -527,9 +527,11 @@ zero-based absolute ordinal `W` across all `WHEN` clauses in that MERGE. A branc
 `merge_action_kind` (`insert`, `update`, `delete`, or `nothing`) and
 `merge_match_kind` (`matched`, `not_matched_by_target`, or
 `not_matched_by_source`). An INSERT branch exposes `target_columns` and `rows`.
-When the target column list is omitted, `target_columns` is absent but `rows`
-remains present. Every cell uses the absolute `W` as `row`, with contiguous
-zero-based `column` values. An UPDATE branch exposes `assignments` that
+When an action has VALUES and its target column list is omitted,
+`target_columns` is absent but `rows` remains present. Every cell uses the
+absolute `W` as `row`, with contiguous zero-based `column` values. An
+omitted-list DEFAULT VALUES action omits both `target_columns` and `rows`. An
+UPDATE branch exposes `assignments` that
 reference the parent DML assignments. DELETE and NOTHING branches omit
 `target_columns`, `rows`, and `assignments`. A conditional branch has `condition_selector`; an unconditional
 branch omits it. An attached `DELETE WHERE` predicate on an Oracle/Dameng
@@ -543,13 +545,32 @@ Each `target_columns[]` object in a MERGE INSERT action has a single-column
 `selector`, and each `rows[]` cell has a complete-expression `selector`. A root
 MERGE uses `stmt[S].merge_insert_column[W][C]` and
 `stmt[S].merge_insert_cell[W][C]`. A nested MERGE adds its statement-local DML
-index `D` before `W`. An explicit target-column list also exposes
+index `D` before `W`. A branch with VALUES also exposes
 `target_list_selector` as `stmt[S].insert_branch_columns[W]`, or
-`stmt[S].insert_branch_columns[D][W]` for a nested MERGE. The field is omitted
-when the target-column list is omitted. Single-column and complete-cell
-selectors support replacement; the target-list selector supports atomic
-insertion or deletion of a target column and its VALUES item at the same
-position.
+`stmt[S].insert_branch_columns[D][W]` for a nested MERGE. The selector remains
+present when the target-column list is omitted so that the list can be
+materialized or a cell can be inserted independently. An omitted-list `INSERT
+DEFAULT VALUES` branch has zero columns and zero rows and does not expose this
+selector. An explicit-list DEFAULT VALUES branch may still expose its existing
+individual-column and target-list selectors.
+
+Single-column and complete-cell selectors independently support
+`SQLPARSER_PATCH_REPLACE`. The target-list selector accepts three
+`SQLPARSER_PATCH_INSERT_COLUMN` payload shapes: name-only inserts a target
+column at `index`, value-only inserts a VALUES cell at `index`, and name plus
+value inserts both at the same position. Intermediate counts may differ within
+a batch. Before commit, every touched branch that ends with an explicit target
+column list must have equal column and value counts; otherwise the whole batch
+rolls back atomically. Value-only insertion is valid when the list remains
+omitted. `SQLPARSER_PATCH_DELETE_COLUMN` remains paired and requires matching
+explicit lists before deletion; an omitted list does not support that deletion.
+DEFAULT VALUES has no VALUES list, so neither the three insertion shapes nor
+paired deletion are supported; selectors from an explicit list do not make
+either operation available.
+
+This is the View and patch contract for successfully parsed MERGE statements
+through all nine project dialect entry points; it does not claim that every
+corresponding database server provides the syntax natively.
 
 `UPDATE`, `INSERT` conflict-update, and `MERGE` assignments use `target_field`
 for the written field. When

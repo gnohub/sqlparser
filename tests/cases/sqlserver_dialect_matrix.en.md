@@ -4,7 +4,7 @@ This file records regression cases for the SQL Server dialect conversion layer. 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 626 cases with `status = "final"` and 1872 independent
+The fixture contains 627 cases with `status = "final"` and 1875 independent
 patches. Two cases and their 6 patches contain complete bind-occurrence
 assertions. A non-empty
 `query_graph.session` projection appears in 91 expected Views, covering `S044`
@@ -124,6 +124,12 @@ explicit sink-column list are also outside this paired-mutation boundary.
 | Case ID | Case Name | Statement Shape | Validation Focus |
 | --- | --- | --- | --- |
 | SH429 | `sqlserver-graph-quoted-relation-alias-and-target-output` | bracket-delimited relation/derived aliases and output names | both quoted flags, field-name inheritance, and two output-alias patches |
+
+## Independent MERGE INSERT Column and Value Mutation
+
+| Case ID | Case Name | Form | Verification Focus |
+| --- | --- | --- | --- |
+| SH430 | `sqlserver-merge-omitted-insert-column-value-independent` | `WHEN NOT MATCHED THEN INSERT VALUES (...)` with no target-column list | an omitted list still emits `target_list_selector`; three independent patches verify column-only list materialization, value-only cell insertion, and replacement of an existing `merge_insert_cell`; together with the existing paired mode, this covers the three-state `insert_column` contract |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 

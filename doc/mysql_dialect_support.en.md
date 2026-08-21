@@ -26,6 +26,11 @@ current AST. The executable case matrix defines the support boundary:
 - basic `REPLACE VALUES`, `REPLACE SET`, `REPLACE SELECT`, and `REPLACE TABLE` forms
 - preserved `UPDATE LOW_PRIORITY/IGNORE` and `DELETE LOW_PRIORITY/QUICK/IGNORE` modifiers
 - `INSERT ... ON DUPLICATE KEY UPDATE`
+- mappable `MERGE` through the project's MySQL compatibility entry;
+  `insert_column` on a not-matched INSERT supports column-only, value-only, and
+  paired modes, and existing VALUES cells can be replaced independently. This
+  is a parser compatibility contract, not a claim that the MySQL server
+  officially supports `MERGE`
 - `UPDATE` and `DELETE`
 - single-table `UPDATE` and `DELETE` with `ORDER BY ... LIMIT`, and aliased delete targets
 - multi-table `UPDATE` with JOIN chains, comma-separated relations, and assignments that write multiple relations; each assignment target field identifies its write relation
@@ -58,6 +63,12 @@ Multi-table `UPDATE` does not accept `ORDER BY` or `LIMIT`.
   handled by the dialect layer.
 - View JSON uses the common `query_graph` structure; identifiers and values in
   that structure use the public MySQL form.
+- An omitted MERGE INSERT target-column list still emits
+  `target_list_selector`. A column-only patch can materialize that list, a
+  value-only patch can append a VALUES cell while keeping the list omitted, and
+  an explicit list continues to support paired insertion on both sides. If an
+  explicit list exists when the patch batch finishes, the core patch API
+  validates equal column/value widths and rolls back the batch on failure.
 - Query Graph uses `alias_quoted_identifier` for backtick-delimited relation
   aliases and `output_quoted_identifier` for explicit backtick-delimited output
   aliases or inherited backtick-delimited field names when no explicit alias
@@ -76,5 +87,5 @@ The MySQL support boundary is defined by:
 - `tests/unit/test_mysql_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current MySQL matrix contains 261 cases with `status = "final"` and 878
+The current MySQL matrix contains 262 cases with `status = "final"` and 881
 independent patches.

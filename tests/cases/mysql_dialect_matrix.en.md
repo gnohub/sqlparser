@@ -4,7 +4,7 @@ This file records regression cases for the MySQL dialect conversion layer. The e
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 261 cases with `status = "final"` and 878 independent
+The fixture contains 262 cases with `status = "final"` and 881 independent
 patches. Three cases and their 11 patches contain complete bind-occurrence
 assertions. Expected View JSON contains
 statement-level `query_graph.session` output in 37 cases, covering `M015`
@@ -214,6 +214,15 @@ MySQL multi-table `UPDATE` accepts multiple write targets across JOIN chains and
 | Case ID | Case Name | Statement Shape | Validation Focus |
 | --- | --- | --- | --- |
 | M259 | `mysql-quoted-alias-output-flags` | backtick-delimited relation/derived aliases and output names | both quoted flags, field-name inheritance, and two output-alias patches |
+
+## Independent MERGE INSERT Column and Value Mutation
+
+This is a patch contract of the project's current MySQL compatibility entry; it
+does not claim official MySQL server support for `MERGE` syntax.
+
+| Case ID | Case Name | Form | Verification Focus |
+| --- | --- | --- | --- |
+| M260 | `mysql-merge-omitted-insert-column-value-independent` | `WHEN NOT MATCHED THEN INSERT VALUES (...)` with no target-column list | an omitted list still emits `target_list_selector`; three independent patches verify column-only list materialization, value-only cell insertion, and replacement of an existing `merge_insert_cell`; together with the existing paired mode, this covers the three-state `insert_column` contract |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 

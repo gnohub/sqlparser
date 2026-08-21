@@ -4,7 +4,7 @@ This file records regression cases for the Oracle dialect conversion layer. The 
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 252 cases with `status = "final"` and 854 independent
+The fixture contains 253 cases with `status = "final"` and 857 independent
 patches. Two cases and their 6 patches contain complete bind-occurrence
 assertions.
 Statement-level `query_graph.session` appears in 59 cases, covering `O043`,
@@ -278,6 +278,12 @@ bind at the corresponding ordinal.
 | Case ID | Case Name | Statement Shape | Validation Focus |
 | --- | --- | --- | --- |
 | O201 | `oracle-quoted-relation-alias-and-target-output-contract` | double-quoted relation/derived aliases and output names | both quoted flags, field-name inheritance, and two output-alias patches |
+
+## Independent MERGE INSERT Column and Value Mutation
+
+| Case ID | Case Name | Form | Verification Focus |
+| --- | --- | --- | --- |
+| O202 | `oracle-merge-omitted-insert-column-value-independent` | `WHEN NOT MATCHED THEN INSERT VALUES (...)` with no target-column list | an omitted list still emits `target_list_selector`; three independent patches verify column-only list materialization, value-only cell insertion, and replacement of an existing `merge_insert_cell`; together with the existing paired mode, this covers the three-state `insert_column` contract |
 
 ## Coverage Boundary
 

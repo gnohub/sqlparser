@@ -45,9 +45,14 @@ The current implementation covers 41 groups and leaves 1 group uncovered.
 ## Conclusion
 
 PostgreSQL `MERGE` supports an independent
-`WHEN MATCHED ... THEN DELETE` action. One executable case and 3 independent
-patches verify isolation between its branch condition, the following UPDATE
-assignment, and the INSERT cell.
+`WHEN MATCHED ... THEN DELETE` action. `insert_column` supports column-only,
+value-only, and paired modes. A not-matched INSERT with an omitted target-column
+list still emits its list selector and can materialize the list, append a VALUES
+cell while keeping the list omitted, or replace an existing cell; explicit
+lists retain paired insertion. Two executable cases and 6 independent patches
+verify these boundaries; the three patches in the omitted-list case run
+independently. Core API unit tests verify final equal-width validation and
+whole-batch rollback.
 
 PostgreSQL is the default parser-kernel dialect. No hook-only coverage gap
 remains. The remaining gap is complete object attribution and option modeling

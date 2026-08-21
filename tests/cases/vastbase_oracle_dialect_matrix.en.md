@@ -15,11 +15,19 @@ These four final cases cover common transaction isolation levels and access mode
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 221 cases and 793 independent patches, all with
+The fixture contains 222 cases and 796 independent patches, all with
 `status = "final"`. The expected View contains a non-empty session projection
 in 41 cases.
 
 View validation compares JSON structures; object-key order and formatting whitespace do not participate. Session action, item scope, target kind, name, value kind, canonical text, and value order are all part of that comparison.
+
+## Independent MERGE INSERT Column/Value Rewrites
+
+The following final case defines a project `vastbase-oracle` compatibility-entry contract; it does not claim that the Vastbase server documentation defines the same syntax scope.
+
+| ID | Case | Status | Independent Patches | Validation Focus |
+| --- | --- | --- | ---: | --- |
+| `VO222` | `vastbase-oracle-merge-omitted-insert-column-value-independent` | final | 3 | exposes `target_list_selector` when the target list is omitted; separately verifies target-only insertion with list materialization, VALUES-cell-only insertion that keeps the list omitted, and replacement of an existing cell |
 
 ## Delimited Alias-State Regression
 

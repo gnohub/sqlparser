@@ -4,7 +4,7 @@ This file records the regression cases covered by `tests/cases/sql_batch_input.j
 
 ## Matrix Counts and Session Regression
 
-The fixture contains 217 cases with `status = "final"` and 731 independent
+The fixture contains 218 cases with `status = "final"` and 734 independent
 patches. Two cases and their 10 patches contain complete bind-occurrence
 assertions. Expected View JSON contains
 statement-level `query_graph.session` output in 32 cases: 5 schema/session
@@ -203,6 +203,12 @@ and value fields are all part of that comparison.
 | Case ID | Case Name | Statement Shape | Validation Focus |
 | --- | --- | --- | --- |
 | P169 | `postgresql-quoted-relation-alias-and-target-output-contract` | double-quoted relation/derived aliases and output names | both quoted flags, field-name inheritance, and two output-alias patches |
+
+## Independent MERGE INSERT Column and Value Mutation
+
+| Case ID | Case Name | Form | Verification Focus |
+| --- | --- | --- | --- |
+| P170 | `postgresql-merge-omitted-insert-column-value-independent` | `WHEN NOT MATCHED THEN INSERT VALUES (...)` with no target-column list | an omitted list still emits `target_list_selector`; three independent patches verify column-only list materialization, value-only cell insertion, and replacement of an existing `merge_insert_cell`; together with the existing paired mode, this covers the three-state `insert_column` contract |
 
 ## INSERT VALUES Regression: Mixed Binds and Expressions
 

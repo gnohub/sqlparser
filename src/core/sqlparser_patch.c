@@ -5881,6 +5881,52 @@ static int sqlparser_patch_is_name_only_insert_column(
 		patch->bind == NULL && patch->bool_operator == 0;
 }
 
+static sqlparser_status_t sqlparser_patch_merge_insert_payload(
+	const sqlparser_patch_t *patch,
+	int *out_insert_target,
+	int *out_insert_value,
+	sqlparser_error_t *out_error)
+{
+	int value_source_count;
+
+	if (patch == NULL || out_insert_target == NULL ||
+	    out_insert_value == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"MERGE INSERT payload arguments are invalid");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_insert_target = 0;
+	*out_insert_value = 0;
+	value_source_count = 0;
+	if (patch->default_sql != NULL) {
+		value_source_count++;
+	}
+	if (patch->source_selector != NULL) {
+		value_source_count++;
+	}
+	if (patch->literal != NULL) {
+		value_source_count++;
+	}
+	if (patch->bind != NULL) {
+		value_source_count++;
+	}
+	if (patch->sql != NULL || patch->bool_operator != 0 ||
+	    (patch->name != NULL && patch->name[0] == '\0') ||
+	    value_source_count > 1 ||
+	    (patch->name == NULL && value_source_count == 0)) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INVALID_ARGUMENT,
+			"MERGE INSERT insertion requires a column name, one value source, or both");
+		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	}
+	*out_insert_target = patch->name != NULL;
+	*out_insert_value = value_source_count == 1;
+	return SQLPARSER_STATUS_OK;
+}
+
 typedef struct {
 	size_t start;
 	size_t end;
@@ -5890,6 +5936,7 @@ typedef struct {
 	PgQuery__MergeWhenClause *clause;
 	sqlparser_patch_source_span_t *target_spans;
 	sqlparser_patch_source_span_t *value_spans;
+	size_t target_list_offset;
 	size_t target_count;
 	size_t value_count;
 } sqlparser_patch_merge_insert_surface_t;
@@ -6477,8 +6524,7 @@ static sqlparser_status_t sqlparser_patch_merge_insert_surface(
 		return status;
 	}
 	has_target_list = clause->n_target_list > 0U;
-	if ((need_targets &&
-	     (!has_target_list || clause->target_list == NULL)) ||
+	if ((has_target_list && clause->target_list == NULL) ||
 	    (need_values &&
 	     (clause->n_values == 0U || clause->values == NULL))) {
 		return SQLPARSER_STATUS_OK;
@@ -6649,6 +6695,7 @@ static sqlparser_status_t sqlparser_patch_merge_insert_surface(
 		handle->dialect,
 		handle->sql,
 		insert_pos + strlen("insert"));
+	out_surface->target_list_offset = pos;
 	target_open = SIZE_MAX;
 	target_close = SIZE_MAX;
 	if (has_target_list) {
@@ -6665,7 +6712,7 @@ static sqlparser_status_t sqlparser_patch_merge_insert_surface(
 	out_surface->clause = clause;
 	out_surface->target_count = clause->n_target_list;
 	out_surface->value_count = clause->n_values;
-	if (need_targets) {
+	if (need_targets && clause->n_target_list > 0U) {
 		if (clause->n_target_list >
 		    SIZE_MAX / sizeof(*out_surface->target_spans)) {
 			sqlparser_error_set_message(
@@ -7301,8 +7348,11 @@ static sqlparser_status_t sqlparser_patch_plan_merge_insert_surface_edit(
 	size_t second_start;
 	size_t source_end;
 	size_t source_start;
+	size_t target_sql_length;
 	sqlparser_status_t status;
 	int edit_supported;
+	int insert_target;
+	int insert_value;
 	int need_targets;
 	int need_values;
 	int surface_supported;
@@ -7314,15 +7364,27 @@ static sqlparser_status_t sqlparser_patch_plan_merge_insert_surface_edit(
 	value_insertion = NULL;
 	first_replacement = NULL;
 	second_replacement = NULL;
+	insert_target = 0;
+	insert_value = 0;
+	if (patch->op == SQLPARSER_PATCH_INSERT_COLUMN &&
+	    selector->kind ==
+		    SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS) {
+		status = sqlparser_patch_merge_insert_payload(
+			patch,
+			&insert_target,
+			&insert_value,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+	}
 	need_targets =
 		selector->kind ==
 			SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN ||
-		selector->kind ==
-			SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS;
+		patch->op == SQLPARSER_PATCH_DELETE_COLUMN || insert_target;
 	need_values =
 		selector->kind == SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL ||
-		selector->kind ==
-			SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS;
+		patch->op == SQLPARSER_PATCH_DELETE_COLUMN || insert_value;
 	status = sqlparser_patch_merge_insert_surface(
 		handle,
 		selector,
@@ -7405,50 +7467,98 @@ static sqlparser_status_t sqlparser_patch_plan_merge_insert_surface_edit(
 	} else if (patch->op == SQLPARSER_PATCH_INSERT_COLUMN &&
 		   selector->kind ==
 			   SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS) {
-		if (patch->name == NULL || patch->name[0] == '\0' ||
-		    surface.target_count == 0U ||
-		    surface.target_count != surface.value_count ||
-		    patch->index > surface.target_count) {
+		if ((insert_target && patch->index > surface.target_count) ||
+		    (insert_value && patch->index > surface.value_count)) {
 			goto done;
 		}
-		status = sqlparser_patch_render_structured_sql(
-			handle,
-			patch,
-			patch->default_sql,
-			&rendered_value,
-			out_error);
-		if (status != SQLPARSER_STATUS_OK) {
-			goto done;
+		if (insert_target) {
+			if (surface.target_count > 0U) {
+				status = sqlparser_patch_list_insertion(
+					handle,
+					surface.target_spans,
+					surface.target_count,
+					patch->index,
+					patch->name,
+					&first_start,
+					&target_insertion,
+					out_error);
+				if (status != SQLPARSER_STATUS_OK ||
+				    target_insertion == NULL) {
+					goto done;
+				}
+			} else {
+				target_sql_length = strlen(patch->name);
+				if (target_sql_length > SIZE_MAX - 4U) {
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_RESOURCE_LIMIT,
+						"MERGE INSERT column SQL is too large");
+					status = SQLPARSER_STATUS_RESOURCE_LIMIT;
+					goto done;
+				}
+				target_insertion =
+					(char *)malloc(target_sql_length + 4U);
+				if (target_insertion == NULL) {
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_NO_MEMORY,
+						"out of memory");
+					status = SQLPARSER_STATUS_NO_MEMORY;
+					goto done;
+				}
+				target_insertion[0] = '(';
+				memcpy(
+					target_insertion + 1U,
+					patch->name,
+					target_sql_length);
+				target_insertion[target_sql_length + 1U] = ')';
+				target_insertion[target_sql_length + 2U] = ' ';
+				target_insertion[target_sql_length + 3U] = '\0';
+				first_start = surface.target_list_offset;
+			}
+			first_end = first_start;
 		}
-		status = sqlparser_patch_list_insertion(
-			handle,
-			surface.target_spans,
-			surface.target_count,
-			patch->index,
-			patch->name,
-			&first_start,
-			&target_insertion,
-			out_error);
-		if (status != SQLPARSER_STATUS_OK || target_insertion == NULL) {
-			goto done;
+		if (insert_value) {
+			status = sqlparser_patch_render_structured_sql(
+				handle,
+				patch,
+				patch->default_sql,
+				&rendered_value,
+				out_error);
+			if (status != SQLPARSER_STATUS_OK) {
+				goto done;
+			}
+			status = sqlparser_patch_list_insertion(
+				handle,
+				surface.value_spans,
+				surface.value_count,
+				patch->index,
+				rendered_value,
+				&second_start,
+				&value_insertion,
+				out_error);
+			if (status != SQLPARSER_STATUS_OK ||
+			    value_insertion == NULL) {
+				goto done;
+			}
+			second_end = second_start;
 		}
-		status = sqlparser_patch_list_insertion(
-			handle,
-			surface.value_spans,
-			surface.value_count,
-			patch->index,
-			rendered_value,
-			&second_start,
-			&value_insertion,
-			out_error);
-		if (status != SQLPARSER_STATUS_OK || value_insertion == NULL) {
-			goto done;
+		if (insert_target && insert_value) {
+			first_replacement = target_insertion;
+			second_replacement = value_insertion;
+			goto add_pair;
 		}
-		first_end = first_start;
-		second_end = second_start;
-		first_replacement = target_insertion;
-		second_replacement = value_insertion;
-		goto add_pair;
+		if (insert_target) {
+			source_start = first_start;
+			source_end = first_end;
+			replacement = target_insertion;
+			replacement_length = strlen(target_insertion);
+		} else {
+			source_start = second_start;
+			source_end = second_end;
+			replacement = value_insertion;
+			replacement_length = strlen(value_insertion);
+		}
 	} else if (patch->op == SQLPARSER_PATCH_DELETE_COLUMN &&
 		   selector->kind ==
 			   SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS) {
@@ -9131,7 +9241,7 @@ static void sqlparser_patch_delete_row_plan_clear(
 	free(plans);
 }
 
-static sqlparser_status_t sqlparser_patch_insert_merge_insert_pair(
+static sqlparser_status_t sqlparser_patch_insert_merge_insert(
 	sqlparser_handle_t *handle,
 	const sqlparser_patch_t *patch,
 	const sqlparser_selector_t *selector,
@@ -9145,15 +9255,21 @@ static sqlparser_status_t sqlparser_patch_insert_merge_insert_pair(
 	sqlparser_patch_identifier_path_t column_path;
 	char *value_sql;
 	void *dialect_state;
-	size_t count;
+	size_t target_count;
+	size_t value_count;
 	sqlparser_status_t status;
+	int insert_target;
+	int insert_value;
 
-	if (patch->name == NULL || patch->name[0] == '\0') {
-		sqlparser_error_set_message(
-			out_error,
-			SQLPARSER_STATUS_INVALID_ARGUMENT,
-			"MERGE INSERT pair insertion requires a column name");
-		return SQLPARSER_STATUS_INVALID_ARGUMENT;
+	insert_target = 0;
+	insert_value = 0;
+	status = sqlparser_patch_merge_insert_payload(
+		patch,
+		&insert_target,
+		&insert_value,
+		out_error);
+	if (status != SQLPARSER_STATUS_OK) {
+		return status;
 	}
 	clause = NULL;
 	status = sqlparser_patch_merge_insert_clause(
@@ -9165,110 +9281,141 @@ static sqlparser_status_t sqlparser_patch_insert_merge_insert_pair(
 	if (status != SQLPARSER_STATUS_OK) {
 		return status;
 	}
-	count = clause->n_target_list;
-	if (count == 0U || clause->target_list == NULL ||
-	    clause->n_values != count || clause->values == NULL) {
+	target_count = clause->n_target_list;
+	value_count = clause->n_values;
+	if (value_count == 0U) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_UNSUPPORTED,
-			"MERGE INSERT pair insertion requires matching explicit column and value lists");
+			"MERGE INSERT insertion requires a VALUES list");
 		return SQLPARSER_STATUS_UNSUPPORTED;
 	}
-	if (patch->index > count) {
+	if ((target_count > 0U && clause->target_list == NULL) ||
+	    clause->values == NULL) {
+		sqlparser_error_set_message(
+			out_error,
+			SQLPARSER_STATUS_INTERNAL_ERROR,
+			"MERGE INSERT column or value list is invalid");
+		return SQLPARSER_STATUS_INTERNAL_ERROR;
+	}
+	if ((insert_target && patch->index > target_count) ||
+	    (insert_value && patch->index > value_count)) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_INVALID_ARGUMENT,
-			"MERGE INSERT pair insertion index is out of range");
+			"MERGE INSERT insertion index is out of range");
 		return SQLPARSER_STATUS_INVALID_ARGUMENT;
 	}
-	if (count == SIZE_MAX) {
+	if ((insert_target && target_count == SIZE_MAX) ||
+	    (insert_value && value_count == SIZE_MAX)) {
 		sqlparser_error_set_message(
 			out_error,
 			SQLPARSER_STATUS_RESOURCE_LIMIT,
-			"MERGE INSERT column count is too large");
+			"MERGE INSERT column or value count is too large");
 		return SQLPARSER_STATUS_RESOURCE_LIMIT;
 	}
-	status = sqlparser_patch_parse_identifier_path(
-		handle,
-		selector->statement_index,
-		patch->name,
-		1U,
-		"MERGE INSERT column name",
-		&column_path,
-		out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		return status;
-	}
-	column_node = sqlparser_patch_new_insert_column_node(
-		column_path.parts[0],
-		column_path.location,
-		out_error);
-	sqlparser_patch_identifier_path_clear(handle, &column_path);
-	if (column_node == NULL) {
-		return out_error != NULL ?
-			out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+	column_node = NULL;
+	if (insert_target) {
+		status = sqlparser_patch_parse_identifier_path(
+			handle,
+			selector->statement_index,
+			patch->name,
+			1U,
+			"MERGE INSERT column name",
+			&column_path,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			return status;
+		}
+		column_node = sqlparser_patch_new_insert_column_node(
+			column_path.parts[0],
+			column_path.location,
+			out_error);
+		sqlparser_patch_identifier_path_clear(handle, &column_path);
+		if (column_node == NULL) {
+			return out_error != NULL ?
+				out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+		}
 	}
 	value_sql = NULL;
-	status = sqlparser_patch_render_structured_sql(
-		handle,
-		patch,
-		patch->default_sql,
-		&value_sql,
-		out_error);
-	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_free_proto_node(column_node);
-		return status;
-	}
 	value_node = NULL;
 	dialect_state = NULL;
-	status = sqlparser_patch_parse_insert_cell_fragment(
-		handle,
-		selector->statement_index,
-		value_sql,
-		"MERGE INSERT value SQL",
-		&value_node,
-		&dialect_state,
-		out_error);
-	free(value_sql);
-	if (status != SQLPARSER_STATUS_OK) {
-		sqlparser_free_proto_node(column_node);
-		return status;
+	if (insert_value) {
+		status = sqlparser_patch_render_structured_sql(
+			handle,
+			patch,
+			patch->default_sql,
+			&value_sql,
+			out_error);
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_free_proto_node(column_node);
+			return status;
+		}
+		status = sqlparser_patch_parse_insert_cell_fragment(
+			handle,
+			selector->statement_index,
+			value_sql,
+			"MERGE INSERT value SQL",
+			&value_node,
+			&dialect_state,
+			out_error);
+		free(value_sql);
+		if (status != SQLPARSER_STATUS_OK) {
+			sqlparser_free_proto_node(column_node);
+			return status;
+		}
 	}
-	next_targets = sqlparser_patch_alloc_node_array(count + 1U, out_error);
-	if (next_targets == NULL) {
-		sqlparser_free_proto_node(value_node);
-		sqlparser_free_proto_node(column_node);
-		sqlparser_handle_discard_dialect_state(handle, dialect_state);
-		return out_error != NULL ?
-			out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+	next_targets = NULL;
+	if (insert_target) {
+		next_targets = sqlparser_patch_alloc_node_array(
+			target_count + 1U,
+			out_error);
+		if (next_targets == NULL) {
+			sqlparser_free_proto_node(value_node);
+			sqlparser_free_proto_node(column_node);
+			sqlparser_handle_discard_dialect_state(
+				handle, dialect_state);
+			return out_error != NULL ?
+				out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+		}
 	}
-	next_values = sqlparser_patch_alloc_node_array(count + 1U, out_error);
-	if (next_values == NULL) {
-		free(next_targets);
-		sqlparser_free_proto_node(value_node);
-		sqlparser_free_proto_node(column_node);
-		sqlparser_handle_discard_dialect_state(handle, dialect_state);
-		return out_error != NULL ?
-			out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+	next_values = NULL;
+	if (insert_value) {
+		next_values = sqlparser_patch_alloc_node_array(
+			value_count + 1U,
+			out_error);
+		if (next_values == NULL) {
+			free(next_targets);
+			sqlparser_free_proto_node(value_node);
+			sqlparser_free_proto_node(column_node);
+			sqlparser_handle_discard_dialect_state(
+				handle, dialect_state);
+			return out_error != NULL ?
+				out_error->code : SQLPARSER_STATUS_NO_MEMORY;
+		}
 	}
-	sqlparser_patch_copy_with_insert(
-		next_targets,
-		clause->target_list,
-		count,
-		patch->index,
-		column_node);
-	sqlparser_patch_copy_with_insert(
-		next_values,
-		clause->values,
-		count,
-		patch->index,
-		value_node);
-	free(clause->target_list);
-	free(clause->values);
-	clause->target_list = next_targets;
-	clause->values = next_values;
-	clause->n_target_list = count + 1U;
-	clause->n_values = count + 1U;
+	if (insert_target) {
+		sqlparser_patch_copy_with_insert(
+			next_targets,
+			clause->target_list,
+			target_count,
+			patch->index,
+			column_node);
+		free(clause->target_list);
+		clause->target_list = next_targets;
+		clause->n_target_list = target_count + 1U;
+	}
+	if (insert_value) {
+		sqlparser_patch_copy_with_insert(
+			next_values,
+			clause->values,
+			value_count,
+			patch->index,
+			value_node);
+		free(clause->values);
+		clause->values = next_values;
+		clause->n_values = value_count + 1U;
+	}
 	return sqlparser_handle_commit_ast_with_dialect_state(
 		handle,
 		dialect_state,
@@ -9459,7 +9606,7 @@ static sqlparser_status_t sqlparser_patch_insert_column(
 		if (!sqlparser_dialect_state_has_multi_insert(
 			    handle->dialect,
 			    handle->dialect_state)) {
-			return sqlparser_patch_insert_merge_insert_pair(
+			return sqlparser_patch_insert_merge_insert(
 				handle,
 				patch,
 				&selector,
@@ -10338,7 +10485,7 @@ static sqlparser_status_t sqlparser_apply_patch_in_place(
 	return SQLPARSER_STATUS_OK;
 }
 
-static sqlparser_status_t sqlparser_patch_validate_name_only_insert_columns(
+static sqlparser_status_t sqlparser_patch_validate_insert_column_shapes(
 	sqlparser_handle_t *handle,
 	const sqlparser_patch_list_t *patches,
 	sqlparser_error_t *out_error)
@@ -10355,11 +10502,13 @@ static sqlparser_status_t sqlparser_patch_validate_name_only_insert_columns(
 		const sqlparser_patch_t *patch;
 		PgQuery__InsertStmt *stmt;
 		sqlparser_selector_t selector;
+		int name_only;
 
 		patch = &patches->items[patch_index];
-		if (!sqlparser_patch_is_name_only_insert_column(patch)) {
+		if (patch->op != SQLPARSER_PATCH_INSERT_COLUMN) {
 			continue;
 		}
+		name_only = sqlparser_patch_is_name_only_insert_column(patch);
 		status = sqlparser_patch_parse_selector(
 			patch->selector, &selector, out_error);
 		if (status != SQLPARSER_STATUS_OK) {
@@ -10368,16 +10517,46 @@ static sqlparser_status_t sqlparser_patch_validate_name_only_insert_columns(
 		if (selector.kind ==
 		    SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS) {
 			const sqlparser_dialect_multi_insert_branch_t *branch;
+			PgQuery__MergeWhenClause *clause;
 
+			if (!sqlparser_dialect_state_has_multi_insert(
+				    handle->dialect,
+				    handle->dialect_state)) {
+				clause = NULL;
+				status = sqlparser_patch_merge_insert_clause(
+					handle,
+					&selector,
+					NULL,
+					&clause,
+					out_error);
+				if (status != SQLPARSER_STATUS_OK) {
+					goto done;
+				}
+				if (clause->n_target_list > 0U &&
+				    (clause->target_list == NULL ||
+				     clause->n_values != clause->n_target_list ||
+				     clause->values == NULL)) {
+					sqlparser_error_set_message(
+						out_error,
+						SQLPARSER_STATUS_INVALID_ARGUMENT,
+						"MERGE INSERT column count must match value count");
+					status = SQLPARSER_STATUS_INVALID_ARGUMENT;
+					goto done;
+				}
+				continue;
+			}
 			multi_insert = sqlparser_dialect_state_multi_insert(
 				handle->dialect, handle->dialect_state);
 			if (multi_insert == NULL) {
 				sqlparser_error_set_message(
 					out_error,
-					SQLPARSER_STATUS_INVALID_ARGUMENT,
-					"selector is not a multi-insert branch");
-				status = SQLPARSER_STATUS_INVALID_ARGUMENT;
+					SQLPARSER_STATUS_INTERNAL_ERROR,
+					"multi-insert branch state is invalid");
+				status = SQLPARSER_STATUS_INTERNAL_ERROR;
 				goto done;
+			}
+			if (!name_only) {
+				continue;
 			}
 			if (selector.statement_index != 0U ||
 			    selector.row_index != 0U) {
@@ -10405,6 +10584,9 @@ static sqlparser_status_t sqlparser_patch_validate_name_only_insert_columns(
 				status = SQLPARSER_STATUS_INVALID_ARGUMENT;
 				goto done;
 			}
+			continue;
+		}
+		if (!name_only) {
 			continue;
 		}
 		if (selector.kind != SQLPARSER_SELECTOR_KIND_INSERT_COLUMNS) {
@@ -10569,7 +10751,7 @@ sqlparser_status_t sqlparser_apply_patch(
 		sqlparser_handle_destroy(candidate);
 		return status;
 	}
-	status = sqlparser_patch_validate_name_only_insert_columns(
+	status = sqlparser_patch_validate_insert_column_shapes(
 		candidate, patches, out_error);
 	if (status != SQLPARSER_STATUS_OK) {
 		sqlparser_surface_source_edits_release(&surface_edits);

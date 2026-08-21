@@ -46,8 +46,13 @@ Of these, 38 are classified as `CURRENT`, and 9 remain incomplete.
 
 The Oracle `MERGE` `CURRENT` boundary includes an action `WHERE` on a matched
 UPDATE, an attached `DELETE WHERE` on that same UPDATE branch, and a
-conditional not-matched INSERT. Two executable cases and 8 independent patches
-verify this boundary.
+conditional not-matched INSERT. `insert_column` supports column-only,
+value-only, and paired modes. An omitted INSERT target-column list still emits
+its list selector and can materialize the list, append a VALUES cell while
+keeping the list omitted, or replace an existing cell; explicit lists retain
+paired insertion. Three executable cases and 11 independent patches verify
+these boundaries; the three patches in the omitted-list case run independently.
+Core API unit tests verify final equal-width validation and whole-batch rollback.
 
 The Oracle hierarchical-query `CURRENT` boundary includes `START WITH`,
 `CONNECT BY`, unary `PRIOR`, `LEVEL`, `CONNECT_BY_ROOT`,
@@ -63,8 +68,8 @@ rejects `BULK COLLECT`, receivers other than colon-prefixed binds, and unequal
 list lengths. A paired `insert_column` inserts both the target and receiver in
 the same patch rather than exposing one-sided operations. O198 through O200
 each verify eight pairs and nine pairs after insertion at the head, middle, or
-tail. The complete Oracle executable fixture contains 252 `final` cases and
-854 independent patches. The remaining Oracle gaps are mainly Oracle-specific
+tail. The complete Oracle executable fixture contains 253 `final` cases and
+857 independent patches. The remaining Oracle gaps are mainly Oracle-specific
 semantics that
 cannot be safely mapped to the shared AST. `SYNONYM` and `EXPLAIN PLAN FOR` now
 cover basic statement parsing, keywords, and deparse output; full object

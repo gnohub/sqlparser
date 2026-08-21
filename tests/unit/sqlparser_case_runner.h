@@ -671,6 +671,7 @@ static int sqlparser_case_prepare_patch(
 	const char *selector;
 	const char *const *allowed_keys;
 	size_t allowed_count;
+	int branch_insert;
 	int pair_insert;
 	json_int_t index;
 	json_t *index_json;
@@ -727,16 +728,18 @@ static int sqlparser_case_prepare_patch(
 			selector_error.message);
 		return 0;
 	}
+	branch_insert =
+		op == SQLPARSER_PATCH_INSERT_COLUMN &&
+		parsed_selector.kind ==
+			SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS;
 	pair_insert =
 		op == SQLPARSER_PATCH_INSERT_COLUMN &&
 		(parsed_selector.kind ==
 			 SQLPARSER_SELECTOR_KIND_INSERT_COLUMNS ||
-		 parsed_selector.kind ==
-			 SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS ||
 		 (parsed_selector.kind ==
 			  SQLPARSER_SELECTOR_KIND_DML_RESULT_TARGETS &&
 		  json_object_get(patch_json, "name") != NULL));
-	if (pair_insert) {
+	if (branch_insert || pair_insert) {
 		allowed_keys = pair_insert_keys;
 		allowed_count = sizeof(pair_insert_keys) / sizeof(pair_insert_keys[0]);
 	} else if (op == SQLPARSER_PATCH_INSERT_COLUMN) {
@@ -761,14 +764,44 @@ static int sqlparser_case_prepare_patch(
 		    detail_size)) {
 		return 0;
 	}
+	name = NULL;
 	value = NULL;
-	if (op != SQLPARSER_PATCH_DELETE_COLUMN &&
-	    op != SQLPARSER_PATCH_DELETE_ASSIGNMENT &&
-	    (value = sqlparser_case_required_string(patch_json, "value")) == NULL) {
-		(void)snprintf(detail, detail_size, "patch value must be a non-empty string");
+	if (branch_insert) {
+		if (json_object_get(patch_json, "name") != NULL &&
+		    (name = sqlparser_case_required_string(
+			     patch_json, "name")) == NULL) {
+			(void)snprintf(
+				detail,
+				detail_size,
+				"insert branch column name must be a non-empty string");
+			return 0;
+		}
+		if (json_object_get(patch_json, "value") != NULL &&
+		    (value = sqlparser_case_required_string(
+			     patch_json, "value")) == NULL) {
+			(void)snprintf(
+				detail,
+				detail_size,
+				"insert branch column value must be a non-empty string");
+			return 0;
+		}
+		if (name == NULL && value == NULL) {
+			(void)snprintf(
+				detail,
+				detail_size,
+				"insert branch column requires name or value");
+			return 0;
+		}
+	} else if (op != SQLPARSER_PATCH_DELETE_COLUMN &&
+		   op != SQLPARSER_PATCH_DELETE_ASSIGNMENT &&
+		   (value = sqlparser_case_required_string(
+			    patch_json, "value")) == NULL) {
+		(void)snprintf(
+			detail,
+			detail_size,
+			"patch value must be a non-empty string");
 		return 0;
 	}
-	name = NULL;
 	if (pair_insert &&
 	    (name = sqlparser_case_required_string(patch_json, "name")) == NULL) {
 		(void)snprintf(detail, detail_size, "insert_column name must be a non-empty string");
@@ -778,7 +811,7 @@ static int sqlparser_case_prepare_patch(
 	memset(out_patch, 0, sizeof(*out_patch));
 	out_patch->op = op;
 	out_patch->selector = selector;
-	if (pair_insert) {
+	if (branch_insert || pair_insert) {
 		out_patch->name = name;
 		out_patch->default_sql = value;
 	} else if (op != SQLPARSER_PATCH_DELETE_COLUMN &&

@@ -17,7 +17,7 @@ dml,INSERT_VALUES,CURRENT,"已覆盖 INSERT VALUES 和多行 VALUES",https://doc
 dml,INSERT_SELECT,CURRENT,"已覆盖 INSERT SELECT",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/INSERT.html
 dml,UPDATE,CURRENT,"已覆盖 UPDATE SET WHERE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/UPDATE.html
 dml,DELETE,CURRENT,"已覆盖 DELETE WHERE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/DELETE.html
-dml,MERGE,CURRENT,"已覆盖可映射 MERGE 结构，包括 matched UPDATE action WHERE、同分支附属 DELETE WHERE 和带条件的 not-matched INSERT",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/MERGE.html
+dml,MERGE,CURRENT,"已覆盖可映射 MERGE 结构，包括 matched UPDATE action WHERE、同分支附属 DELETE WHERE、带条件的 not-matched INSERT、column-only/value-only/paired 三态添加，以及省略目标列列表时的 selector、列表物化、保持省略的 VALUES cell 添加和现有 cell 替换",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/MERGE.html
 ddl,CREATE_TABLE,CURRENT,"已覆盖常见类型名的 CREATE TABLE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-TABLE.html
 ddl,CREATE_SEQUENCE,CURRENT,"已覆盖 CREATE SEQUENCE",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-SEQUENCE.html
 ddl,CREATE_VIEW,CURRENT,"已覆盖 CREATE OR REPLACE VIEW",https://docs.oracle.com/en/database/oracle/oracle-database/23/sqlrf/CREATE-VIEW.html

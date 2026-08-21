@@ -58,8 +58,14 @@ The current implementation covers 33 groups and leaves 5 groups uncovered.
 ## Conclusion
 
 The Dameng `MERGE` `CURRENT` boundary includes an action `WHERE` on a matched
-UPDATE and an attached `DELETE WHERE` on that same UPDATE branch. One
-executable case and 3 independent patches verify this boundary.
+UPDATE and an attached `DELETE WHERE` on that same UPDATE branch.
+`insert_column` supports column-only, value-only, and paired modes. A
+not-matched INSERT with an omitted target-column list still emits its list
+selector and can materialize the list, append a VALUES cell while keeping the
+list omitted, or replace an existing cell; explicit lists retain paired
+insertion. Two executable cases and 6 independent patches verify these
+boundaries; the three patches in the omitted-list case run independently. Core
+API unit tests verify final equal-width validation and whole-batch rollback.
 
 The Dameng hierarchical-query `CURRENT` boundary accepts both source clause
 orders for `START WITH` and `CONNECT BY`, two parent-child field orientations

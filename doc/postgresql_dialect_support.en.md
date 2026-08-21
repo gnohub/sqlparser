@@ -16,7 +16,9 @@ current parser kernel. The executable case matrix defines the support boundary:
 - `INSERT VALUES`, multi-row `INSERT`, and `INSERT SELECT`
 - `ON CONFLICT DO UPDATE` and `RETURNING`
 - `UPDATE`, `UPDATE FROM`, `DELETE`, and `DELETE USING`
-- `MERGE`, including an independent `WHEN MATCHED ... THEN DELETE` action
+- `MERGE`, including an independent `WHEN MATCHED ... THEN DELETE` action;
+  `insert_column` on a not-matched INSERT supports column-only, value-only, and
+  paired modes, and existing VALUES cells can be replaced independently
 - common DDL: `CREATE TABLE`, `CREATE TABLE AS`, `CREATE VIEW`, and
   `CREATE MATERIALIZED VIEW`
 - `ALTER TABLE RENAME`, `ALTER TABLE ADD COLUMN`, and
@@ -47,6 +49,12 @@ exposed by the public query graph.
 
 - `sqlparser_deparse()` emits PostgreSQL-compatible SQL.
 - View JSON emits structured results through the common `query_graph`.
+- An omitted MERGE INSERT target-column list still emits
+  `target_list_selector`. A column-only patch can materialize that list, a
+  value-only patch can append a VALUES cell while keeping the list omitted, and
+  an explicit list continues to support paired insertion on both sides. If an
+  explicit list exists when the patch batch finishes, the core patch API
+  validates equal column/value widths and rolls back the batch on failure.
 - Query Graph uses `alias_quoted_identifier` for double-quoted relation aliases
   and `output_quoted_identifier` for explicit double-quoted output aliases or
   inherited double-quoted field names when no explicit alias exists. View JSON
@@ -62,5 +70,5 @@ The PostgreSQL support boundary is defined by:
 - `tests/unit/test_core_api.c`
 - `tests/unit/test_stability.c`
 
-The current PostgreSQL matrix contains 217 cases and 731 independent patches,
+The current PostgreSQL matrix contains 218 cases and 734 independent patches,
 all with `status = "final"`.

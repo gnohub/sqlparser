@@ -30849,6 +30849,146 @@
           "deparse": "SELECT `qa`.`quoted_col` AS plain_out, p.plain_col AS quoted_out, p.`inherited_col` FROM plain_table AS `qa` JOIN `quoted-table` AS p ON `qa`.id = p.id JOIN (SELECT 1 AS x) AS `derived-alias` ON p.id = `derived-alias`.x"
         }
       ]
+    },
+    {
+      "name": "mysql-merge-omitted-insert-column-value-independent",
+      "sql": "MERGE INTO T t USING S s ON (t.ID = s.ID) WHEN NOT MATCHED THEN INSERT VALUES (s.ID)",
+      "view": {
+        "statements": [
+          {
+            "index": 0,
+            "keyword": "merge",
+            "query_graph": {
+              "root": 0,
+              "blocks": [
+                {
+                  "kind": "select",
+                  "relations": [
+                    0,
+                    1
+                  ],
+                  "predicates": [
+                    0
+                  ]
+                }
+              ],
+              "relations": [
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "T",
+                  "alias": "t",
+                  "selector": "stmt[0].relation[0]"
+                },
+                {
+                  "block": 0,
+                  "kind": "base",
+                  "table": "S",
+                  "alias": "s",
+                  "selector": "stmt[0].relation[1]"
+                }
+              ],
+              "fields": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 0,
+                  "column": "ID",
+                  "selector": "stmt[0].name[5]"
+                },
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "relation": 1,
+                  "column": "ID",
+                  "selector": "stmt[0].name[7]"
+                },
+                {
+                  "block": 0,
+                  "clause": "unknown",
+                  "relation": 1,
+                  "column": "ID",
+                  "selector": "stmt[0].name[9]"
+                }
+              ],
+              "values": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "field": 0,
+                  "source_field": 1,
+                  "field_match_kind": "direct_field",
+                  "kind": "field",
+                  "bind_kind": 0
+                }
+              ],
+              "predicates": [
+                {
+                  "block": 0,
+                  "clause": "on",
+                  "kind": "comparison",
+                  "bool_operator": "none",
+                  "operator": "=",
+                  "operator_kind": "unknown",
+                  "left_field": 0,
+                  "right_field": 1,
+                  "value": 0
+                }
+              ],
+              "dml": {
+                "kind": "merge",
+                "insert_mode": "unknown",
+                "target_relation": 0,
+                "branches": [
+                  {
+                    "ordinal": 0,
+                    "branch_kind": "when",
+                    "merge_action_kind": "insert",
+                    "merge_match_kind": "not_matched_by_target",
+                    "target_relation": 0,
+                    "rows": [
+                      {
+                        "row": 0,
+                        "column": 0,
+                        "kind": "field",
+                        "source_field": 2,
+                        "bind_kind": 0,
+                        "selector": "stmt[0].merge_insert_cell[0][0]"
+                      }
+                    ],
+                    "target_list_selector": "stmt[0].insert_branch_columns[0]"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      },
+      "status": "final",
+      "patch": [
+        {
+          "action": "insert_column",
+          "target": "/statements/0/query_graph/dml/branches/0/target_list_selector",
+          "index": 0,
+          "name": "ID",
+          "deparse": "MERGE INTO T t USING S s ON (t.ID = s.ID) WHEN NOT MATCHED THEN INSERT (ID) VALUES (s.ID)"
+        },
+        {
+          "action": "insert_column",
+          "target": "/statements/0/query_graph/dml/branches/0/target_list_selector",
+          "index": 1,
+          "value": "s.SECRET",
+          "deparse": "MERGE INTO T t USING S s ON (t.ID = s.ID) WHEN NOT MATCHED THEN INSERT VALUES (s.ID, s.SECRET)"
+        },
+        {
+          "action": "replace",
+          "target": "/statements/0/query_graph/dml/branches/0/rows/0/selector",
+          "value": "COALESCE(s.ID, 0)",
+          "deparse": "MERGE INTO T t USING S s ON (t.ID = s.ID) WHEN NOT MATCHED THEN INSERT VALUES (COALESCE(s.ID, 0))"
+        }
+      ]
     }
   ]
 }

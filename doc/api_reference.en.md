@@ -660,16 +660,22 @@ A target column in a MERGE INSERT action uses
 `SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL`, respectively. The nested-MERGE
 forms are
 `stmt[S].merge_insert_column[D][W][C]` and
-`stmt[S].merge_insert_cell[D][W][C]`. An explicit target-column list uses
-`SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS` and the text form
+`stmt[S].merge_insert_cell[D][W][C]`. An INSERT action with VALUES uses
+`SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS` for its target-list selector,
+with the text form
 `stmt[S].insert_branch_columns[W]`, or
 `stmt[S].insert_branch_columns[D][W]` for a nested MERGE. `D` and `W` have the
 same meanings as in MERGE assignment selectors, and `C` is the zero-based
 column ordinal in the INSERT action. A parsed root-MERGE selector has
 `row_index = 0`; for a nested MERGE, `row_index` stores `D`. `item_index`
-stores `W`, and `column_index` stores `C` for an individual item. An INSERT
-action without an explicit target-column list still exposes cell selectors but
-has no target-column or target-list selector.
+stores `W`, and `column_index` stores `C` for an individual item. When the
+target-column list is omitted, no individual-column selector is exposed, but
+an action with VALUES still exposes its cell selectors and target-list
+selector. The latter can materialize the target-column list or add a VALUES
+cell independently. An `INSERT DEFAULT VALUES` action with an omitted target
+list has zero columns and zero rows and exposes none of these selectors; an
+explicit-list DEFAULT VALUES action may still expose its existing individual
+column and target-list selectors.
 
 `sqlparser_selector_update_assignment()`,
 `sqlparser_selector_update_assignment_sql()`, the
@@ -1136,7 +1142,7 @@ Patch operations:
 | Operation | Meaning |
 | --- | --- |
 | `SQLPARSER_PATCH_REPLACE` | replaces a relation, name, value, assignment, literal, where literal, clause, MERGE branch condition, MERGE attached-delete condition, insert cell, MERGE INSERT target column or complete cell, select target, or select target list |
-| `SQLPARSER_PATCH_INSERT_COLUMN` | adds only a column name or a paired column/value to a regular `INSERT ... VALUES`, adds an `INSERT ... SELECT` target column, adds only a column name or a paired column/value to an explicit VALUES branch of Oracle/Dameng `INSERT ALL/FIRST`, atomically adds a MERGE INSERT target/value pair, inserts a SELECT output target, or inserts a target/receiver pair into a paired DML result list |
+| `SQLPARSER_PATCH_INSERT_COLUMN` | adds only a column name or a paired column/value to a regular `INSERT ... VALUES`, adds an `INSERT ... SELECT` target column, adds only a column name or a paired column/value to an explicit VALUES branch of Oracle/Dameng `INSERT ALL/FIRST`, adds a target column only, a value only, or both to a MERGE INSERT, inserts a SELECT output target, or inserts a target/receiver pair into a paired DML result list |
 | `SQLPARSER_PATCH_DELETE_COLUMN` | deletes an `INSERT ... VALUES` column, deletes an `INSERT ... SELECT` target column, atomically deletes a MERGE INSERT target/value pair, or deletes a SELECT output target |
 | `SQLPARSER_PATCH_DELETE_ROW` | deletes an `INSERT ... VALUES` row |
 | `SQLPARSER_PATCH_APPEND_CONDITION` | appends a condition to a `where` clause with `AND` or `OR` |
@@ -1178,25 +1184,45 @@ modify multiple branches and combine these operations with
 `REPLACE insert_cell`. Before commit, every branch touched by a name-only
 patch must have the same number of columns and cells; otherwise the whole
 batch rolls back. The current boundary excludes a branch without `VALUES`
-and multiple tuples within one branch. MERGE INSERT continues to require
-paired column/value insertion even though it uses a related selector.
+and multiple tuples within one branch. MERGE INSERT follows the separate rules
+below.
 
 All three assignment patch operations accept `stmt[S].assignment[A]`,
 `stmt[S].assignment[D][A]`, `stmt[S].merge_assignment[W][A]`, or
 `stmt[S].merge_assignment[D][W][A]` as their target selector.
 
-Use a `merge_insert_column` or `merge_insert_cell` selector with
-`SQLPARSER_PATCH_REPLACE` for an individual MERGE INSERT rewrite. A target
-column replacement takes its identifier from `sql`; a complete cell takes its
-new value from exactly one of `sql`, `source_selector`, `literal`, or `bind`.
-To insert a target/value pair, use an `insert_branch_columns` selector with
-`SQLPARSER_PATCH_INSERT_COLUMN`, set the position in `index`, set the target
-column in `name`, and provide the corresponding value through exactly one of
-`default_sql`, `source_selector`, `literal`, or `bind`. Use the same selector
-and `index` with `SQLPARSER_PATCH_DELETE_COLUMN` to delete a pair. Both
-operations update the target-column and VALUES lists atomically. They fail for
-mismatched list lengths, invalid indexes, or an INSERT action without an
-explicit target-column list.
+Target `insert_branch_columns` with `SQLPARSER_PATCH_INSERT_COLUMN` for a MERGE
+INSERT. Three payload shapes are accepted. A non-empty `name` alone inserts a
+target column at `index`. With no `name`, exactly one value source from
+`default_sql`, `source_selector`, `literal`, or `bind` inserts a VALUES cell at
+`index`. Supplying both inserts a column and cell at the same `index`. An action
+with VALUES exposes the selector even when its target-column list is omitted:
+a name-only patch materializes the list, while a value-only patch keeps it
+omitted.
+
+One patch batch may combine all three insertion shapes with individual
+replacement, and its intermediate column and value counts may differ. Before
+commit, every touched branch that ends with an explicit target-column list
+must have equal column and value counts. A mismatch returns
+`SQLPARSER_STATUS_INVALID_ARGUMENT` and rolls back the whole batch atomically.
+A branch whose list remains omitted permits value-only insertion and is not
+subject to explicit-list width validation. For individual replacement, target
+`merge_insert_column` or `merge_insert_cell` with `SQLPARSER_PATCH_REPLACE`.
+A column replacement takes its identifier from `sql`; a complete cell takes
+its new value from exactly one of `sql`, `source_selector`, `literal`, or
+`bind`.
+
+`SQLPARSER_PATCH_DELETE_COLUMN` remains paired. Use the same
+`insert_branch_columns` selector and `index`; deletion requires matching
+explicit target-column and VALUES lists before the operation. An omitted list,
+an invalid index, or deletion of the last pair fails. `MERGE INSERT DEFAULT
+VALUES` has no VALUES list, so both the three insertion shapes and paired
+deletion return `SQLPARSER_STATUS_UNSUPPORTED`. An omitted-list DEFAULT VALUES
+action has zero columns and zero rows and exposes no target-list selector. An
+explicit-list form may expose its existing selector, but that selector does not
+make either operation available. This contract covers successfully parsed
+MERGE statements through all nine project dialect entry points; it does not
+claim that every corresponding database server provides the syntax natively.
 
 For a DML result channel with an explicit paired receiver list, target the
 `dml_result_targets` list selector with `SQLPARSER_PATCH_INSERT_COLUMN`.

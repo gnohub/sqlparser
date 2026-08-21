@@ -32,7 +32,9 @@ current AST. The executable case matrix defines the support boundary:
 - `CASE`, `EXISTS`, `UNION ALL`, and `INTERSECT`
 - mappable `MERGE`, including a post-assignment `WHERE` and an attached
   `DELETE WHERE` on the same matched UPDATE branch, plus conditional
-  not-matched INSERT actions
+  not-matched INSERT actions whose `insert_column` patches support column-only,
+  value-only, and paired modes; existing VALUES cells can be replaced
+  independently
 - common DDL: `CREATE TABLE`, `CREATE SEQUENCE`, `CREATE VIEW`, `DROP TABLE`,
   and `TRUNCATE TABLE`
 - transaction control, `GRANT / REVOKE`, and `COMMENT ON`
@@ -86,6 +88,12 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
   every target's `sink_value` points to the output bind at the corresponding
   ordinal. `insert_column` atomically inserts the target/receiver pair in the
   same patch; one-sided insertion is not supported.
+- An omitted MERGE INSERT target-column list still emits
+  `target_list_selector`. A column-only patch can materialize that list, a
+  value-only patch can append a VALUES cell while keeping the list omitted, and
+  an explicit list continues to support paired insertion on both sides. If an
+  explicit list exists when the patch batch finishes, the core patch API
+  validates equal column/value widths and rolls back the batch on failure.
 - Query Graph uses `alias_quoted_identifier` for double-quoted relation aliases
   and `output_quoted_identifier` for explicit double-quoted output aliases or
   inherited double-quoted field names when no explicit alias exists. View JSON
@@ -104,7 +112,7 @@ The Oracle support boundary is defined by:
 - `tests/unit/test_oracle_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The current Oracle matrix contains 252 cases and 854 independent patches, all
+The current Oracle matrix contains 253 cases and 857 independent patches, all
 with `status = "final"`. Four hierarchical-query cases contain 20 independent
 patches. O198 through O200 verify eight `RETURNING ... INTO` pairs on `INSERT`,
 `UPDATE`, and `DELETE`, plus paired insertion at the head, middle, and tail.

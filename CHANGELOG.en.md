@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.16.8
+
+### Independent MERGE INSERT Target/Value Patches
+
+- Existing `SQLPARSER_PATCH_INSERT_COLUMN` supports three MERGE INSERT payload shapes: name-only inserts a target column, value-only inserts a VALUES cell, and name plus value inserts both at the same position. Existing target columns and VALUES cells continue to support independent `SQLPARSER_PATCH_REPLACE` operations.
+- An INSERT action with VALUES now exposes the existing `target_list_selector` even when its target-column list is omitted. A name-only patch materializes the list, while a value-only patch keeps it omitted. Column and value counts may differ temporarily within one patch batch; every touched branch that ends with an explicit target-column list is validated for equal widths before commit, and a mismatch rolls back the whole batch atomically.
+- `SQLPARSER_PATCH_DELETE_COLUMN` remains paired, and the three insertion shapes do not apply to `MERGE INSERT DEFAULT VALUES`. This contract covers successfully parsed MERGE statements through all nine project dialect entry points; it does not claim native support from every corresponding database server. No public API, enum value, structure field, or View JSON field was added; only the output range of an existing selector was expanded.
+
+### Cases and Validation
+
+- Nine final cases and 27 patches were added. The nine fixtures now contain 2,840 final cases and 9,163 patches.
+- The full remote `make test` suite, targeted core-API test, all nine dialect matrices, and Valgrind passed.
+
 ## 2.16.7
 
 ### Independent INSERT Column-Name Patches

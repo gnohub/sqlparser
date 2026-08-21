@@ -4,7 +4,7 @@
 
 ## 矩阵统计与 session 回归
 
-夹具包含 261 条 `status = "final"` 用例和 878 个独立 patch；其中 3 条用例及其 11 个 patch 含完整 bind occurrence 断言。37 条用例的期望 View 包含 statement 级 `query_graph.session`，覆盖 `M015` 至 `M017`、`MY-001` 至 `MY-029` 以及 5 条注释或空语句穿插的 `USE` 边界；这 37 条用例均至少包含一个非空 session 投影。
+夹具包含 262 条 `status = "final"` 用例和 881 个独立 patch；其中 3 条用例及其 11 个 patch 含完整 bind occurrence 断言。37 条用例的期望 View 包含 statement 级 `query_graph.session`，覆盖 `M015` 至 `M017`、`MY-001` 至 `MY-029` 以及 5 条注释或空语句穿插的 `USE` 边界；这 37 条用例均至少包含一个非空 session 投影。
 
 View 校验采用 JSON 结构相等比较，对象键顺序和格式空白不参与比较；session 投影的 action、item scope、target kind、name 及 value 字段均属于比较范围。
 
@@ -206,6 +206,14 @@ MySQL 多表 `UPDATE` 支持 JOIN 链和逗号 relation 列表中的多个写入
 | 用例 ID | 用例名称 | 语句形态 | 验证重点 |
 | --- | --- | --- | --- |
 | M259 | `mysql-quoted-alias-output-flags` | 反引号 relation/派生表 alias 与 output name | 两个引号标志、字段名继承及 2 个 output alias patch |
+
+## MERGE INSERT 独立列值改写
+
+该项属于项目当前 MySQL 兼容入口的 patch 合同，不表示 MySQL 服务端官方支持 `MERGE` 语法。
+
+| 用例 ID | 用例名称 | 语句形态 | 验证重点 |
+| --- | --- | --- | --- |
+| M260 | `mysql-merge-omitted-insert-column-value-independent` | 省略目标列列表的 `WHEN NOT MATCHED THEN INSERT VALUES (...)` | 省略状态仍输出 `target_list_selector`；3 个独立 patch 分别验证 column-only 物化列列表、value-only 追加 cell 和现有 `merge_insert_cell` 替换；与既有 paired 模式共同覆盖 `insert_column` 三态合同 |
 
 ## INSERT VALUES 回归：bind 与表达式混合
 

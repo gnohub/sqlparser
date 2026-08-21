@@ -546,7 +546,7 @@ Oracle/Dameng matched UPDATE 分支附属的 `DELETE WHERE` 条件使用 `stmt[S
 
 `sqlparser_selector_clause_sql()` 返回条件表达式，不包含 `DELETE WHERE` 关键字。`sqlparser_selector_set_clause_sql()` 和 `SQLPARSER_PATCH_REPLACE` 接收的也是不带 `WHERE` 的条件表达式。
 
-MERGE INSERT 的单个目标列使用 `stmt[S].merge_insert_column[W][C]`，完整 VALUES cell 使用 `stmt[S].merge_insert_cell[W][C]`；对应 kind 分别为 `SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN` 和 `SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL`。嵌套 MERGE 分别使用 `stmt[S].merge_insert_column[D][W][C]` 和 `stmt[S].merge_insert_cell[D][W][C]`。显式目标列列表复用 `SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS`，文本形式为 `stmt[S].insert_branch_columns[W]`；嵌套 MERGE 使用 `stmt[S].insert_branch_columns[D][W]`。`D`、`W` 的含义与 MERGE assignment selector 相同，`C` 是 INSERT 分支内的 0 基列序号。解析后的根 MERGE selector 使用 `row_index = 0`，嵌套 MERGE 的 `row_index` 保存 `D`，`item_index` 保存 `W`，单项 selector 的 `column_index` 保存 `C`。省略目标列列表的 INSERT 分支仍输出 cell selector，但不输出目标列或目标列列表 selector。
+MERGE INSERT 的单个目标列使用 `stmt[S].merge_insert_column[W][C]`，完整 VALUES cell 使用 `stmt[S].merge_insert_cell[W][C]`；对应 kind 分别为 `SQLPARSER_SELECTOR_KIND_MERGE_INSERT_COLUMN` 和 `SQLPARSER_SELECTOR_KIND_MERGE_INSERT_CELL`。嵌套 MERGE 分别使用 `stmt[S].merge_insert_column[D][W][C]` 和 `stmt[S].merge_insert_cell[D][W][C]`。具有 VALUES 的 INSERT 分支复用 `SQLPARSER_SELECTOR_KIND_INSERT_BRANCH_COLUMNS` 作为目标列表 selector，文本形式为 `stmt[S].insert_branch_columns[W]`；嵌套 MERGE 使用 `stmt[S].insert_branch_columns[D][W]`。`D`、`W` 的含义与 MERGE assignment selector 相同，`C` 是 INSERT 分支内的 0 基列序号。解析后的根 MERGE selector 使用 `row_index = 0`，嵌套 MERGE 的 `row_index` 保存 `D`，`item_index` 保存 `W`，单项 selector 的 `column_index` 保存 `C`。省略目标列列表时不输出单列 selector，但具有 VALUES 时仍输出 cell selector 和目标列表 selector；后者用于物化目标列列表或单独增加 VALUES cell。省略目标列列表的 `INSERT DEFAULT VALUES` 分支为 0 列、0 行，不输出这些 selector；显式目标列列表的 DEFAULT VALUES 分支仍可能输出既有单列和目标列表 selector。
 
 `sqlparser_selector_update_assignment()`、`sqlparser_selector_update_assignment_sql()`、`sqlparser_selector_set_update_assignment_*()`、`sqlparser_selector_insert_update_assignment_*()` 和 `sqlparser_selector_delete_update_assignment()` 均接受 `assignment` 与 `merge_assignment` selector。
 
@@ -830,7 +830,7 @@ sqlparser_apply_patch(handle, &patches, &err);
 | 操作 | 说明 |
 | --- | --- |
 | `SQLPARSER_PATCH_REPLACE` | 替换 relation、name、value、assignment、literal、where_literal、clause、MERGE 分支条件、MERGE 附属 DELETE 条件、insert_cell、MERGE INSERT 目标列或完整 cell、select_target 或 select_targets |
-| `SQLPARSER_PATCH_INSERT_COLUMN` | 给普通 `INSERT ... VALUES` 单独增加列名或成对增加列和值、给 `INSERT ... SELECT` 增加目标列、给 Oracle/Dameng `INSERT ALL/FIRST` 的显式 VALUES branch 单独增加列名或成对增加列和值、给 MERGE INSERT 成对增加目标列和值、向 `select_targets` 插入 SELECT 输出项，或向成对 DML 结果列表插入 target 和 receiver |
+| `SQLPARSER_PATCH_INSERT_COLUMN` | 给普通 `INSERT ... VALUES` 单独增加列名或成对增加列和值、给 `INSERT ... SELECT` 增加目标列、给 Oracle/Dameng `INSERT ALL/FIRST` 的显式 VALUES branch 单独增加列名或成对增加列和值、给 MERGE INSERT 单独增加目标列、单独增加 value 或成对增加两者、向 `select_targets` 插入 SELECT 输出项，或向成对 DML 结果列表插入 target 和 receiver |
 | `SQLPARSER_PATCH_DELETE_COLUMN` | 删除 `INSERT ... VALUES` 列、删除 `INSERT ... SELECT` 目标列、成对删除 MERGE INSERT 目标列和值，或删除 SELECT 输出项 |
 | `SQLPARSER_PATCH_DELETE_ROW` | 删除 `INSERT ... VALUES` 行 |
 | `SQLPARSER_PATCH_APPEND_CONDITION` | 按 `AND` 或 `OR` 向 `where` 子句追加条件 |
@@ -842,11 +842,15 @@ sqlparser_apply_patch(handle, &patches, &err);
 
 普通单表 `INSERT ... VALUES` 使用 `stmt[S].insert_columns` selector。若 `SQLPARSER_PATCH_INSERT_COLUMN` 仅提供非空 `name`、`index`，且不提供 `sql`、`default_sql`、`source_selector`、`literal` 或 `bind`，操作只插入目标列名，不修改任何 VALUES row。若同时从 `default_sql`、`source_selector`、`literal` 或 `bind` 中恰好提供一个值来源，则保持既有成对行为，在每个 VALUES row 的同一位置插入 cell。调用方可在同一个 patch list 中组合多个 name-only 列 patch、成对插入和 `REPLACE insert_cell`；批次中间允许暂时不等长，但提交前每个 VALUES row 的 cell 数必须等于显式列数，否则整批返回 `SQLPARSER_STATUS_INVALID_ARGUMENT` 并保持原 handle 不变。name-only VALUES 模式不适用于 `DEFAULT VALUES` 或 MySQL `INSERT ... SET`；`INSERT ... SELECT` 既有的目标列插入语义不变。
 
-Oracle、Dameng 与 Vastbase-Oracle 兼容入口当前已建模的 `INSERT ALL/FIRST` 显式 VALUES branch 使用 `stmt[S].insert_branch_columns[B]` selector，其中 `B` 是 branch 序号。相同的 name-only payload 只增加该 branch 的列名，不修改 cells、其他 branch 或 source SELECT；提供一个值来源时保持现有成对插入。同一个 patch list 可分别修改多个 branch，并与 `REPLACE insert_cell` 组合；提交前每个被 name-only patch 触及的 branch 都必须满足列数与 cell 数相等，否则整批原子回滚。当前边界不包括省略 branch `VALUES` 或 branch 多 tuple；MERGE INSERT 即使使用同类 selector，也仍只接受列值成对插入。
+Oracle、Dameng 与 Vastbase-Oracle 兼容入口当前已建模的 `INSERT ALL/FIRST` 显式 VALUES branch 使用 `stmt[S].insert_branch_columns[B]` selector，其中 `B` 是 branch 序号。相同的 name-only payload 只增加该 branch 的列名，不修改 cells、其他 branch 或 source SELECT；提供一个值来源时保持现有成对插入。同一个 patch list 可分别修改多个 branch，并与 `REPLACE insert_cell` 组合；提交前每个被 name-only patch 触及的 branch 都必须满足列数与 cell 数相等，否则整批原子回滚。当前边界不包括省略 branch `VALUES` 或 branch 多 tuple；MERGE INSERT 使用下述独立规则。
 
 三个 assignment patch 操作的目标 selector 均可使用 `stmt[S].assignment[A]`、`stmt[S].assignment[D][A]`、`stmt[S].merge_assignment[W][A]` 或 `stmt[S].merge_assignment[D][W][A]`。
 
-MERGE INSERT 单项替换以 `merge_insert_column` 或 `merge_insert_cell` selector 作为 `SQLPARSER_PATCH_REPLACE` 的目标。目标列替换通过 `sql` 提供标识符；完整 cell 通过 `sql`、`source_selector`、`literal` 或 `bind` 之一提供新值。列值对插入以 `insert_branch_columns` selector 作为 `SQLPARSER_PATCH_INSERT_COLUMN` 的目标，通过 `index` 指定位置、`name` 提供目标列，并通过 `default_sql`、`source_selector`、`literal` 或 `bind` 之一提供对应值。列值对删除使用相同 selector 和 `SQLPARSER_PATCH_DELETE_COLUMN`，通过 `index` 指定位置。插入和删除均原子修改目标列与 VALUES 列表；两侧数量不一致、索引无效或省略显式目标列列表时操作失败。
+MERGE INSERT 以 `insert_branch_columns` selector 作为 `SQLPARSER_PATCH_INSERT_COLUMN` 的目标，并接受三种载荷：只提供非空 `name` 时在目标列列表的 `index` 处增加列；不提供 `name`、但从 `default_sql`、`source_selector`、`literal` 或 `bind` 中恰好提供一个值来源时，在 VALUES 的 `index` 处增加 cell；同时提供两者时，在两侧的同一 `index` 成对增加。省略目标列列表但具有 VALUES 时仍可使用该 selector：name-only 操作会物化列列表，value-only 操作保持列表省略。
+
+同一个 patch batch 可组合三种插入与单项替换，处理中允许列和值暂时不等长。批末对本批次触及且最终具有显式目标列列表的每个分支校验列数和值数相等；不相等时返回 `SQLPARSER_STATUS_INVALID_ARGUMENT` 并整批原子回滚。最终仍省略目标列列表的分支允许 value-only 插入，不执行显式列等宽校验。单项替换以 `merge_insert_column` 或 `merge_insert_cell` selector 作为 `SQLPARSER_PATCH_REPLACE` 的目标：前者通过 `sql` 提供标识符，后者通过 `sql`、`source_selector`、`literal` 或 `bind` 之一提供新值。
+
+`SQLPARSER_PATCH_DELETE_COLUMN` 仍按列值对删除：使用同一 `insert_branch_columns` selector 和 `index`，并要求删除前存在等长的显式目标列与 VALUES 列表；省略列表、索引无效或删除最后一对时操作失败。`MERGE INSERT DEFAULT VALUES` 没有 VALUES 列表，因此三态插入和成对删除均返回 `SQLPARSER_STATUS_UNSUPPORTED`。省略目标列列表的 DEFAULT VALUES 分支为 0 列、0 行，不输出目标列表 selector；显式目标列列表时可能输出既有 selector，但该 selector 不会使上述操作可用。上述合同适用于本项目九个方言入口中成功解析的 MERGE，不表示对应数据库服务端均原生提供该语法。
 
 对具有显式成对接收端的 DML 结果通道，以 `dml_result_targets` 列表 selector 作为 `SQLPARSER_PATCH_INSERT_COLUMN` 的目标。`index` 指定 target 与 receiver 的同位插入位置，`default_sql` 提供新 target SQL，`name` 提供对应 receiver。Oracle、Dameng 和 Vastbase-Oracle 兼容模式的 receiver 是冒号 bind；SQL Server 和 Vastbase SQL Server 兼容模式的 receiver 是显式 sink column。`sqlparser_apply_patch()` 在同一事务中原子插入两侧；两侧数量不等、索引或 receiver 非法、或载荷字段组合无效时操作失败，handle 保持不变。
 

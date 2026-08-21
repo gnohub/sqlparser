@@ -39,7 +39,9 @@ The executable case matrix defines the SQL Server dialect support boundary:
   binds, `EXISTS`, and parenthesized subqueries
 - `CASE`, window functions, `UNION ALL`, `EXCEPT`, and `INTERSECT`
 - mappable `MERGE`, including an independent
-  `WHEN MATCHED ... THEN DELETE` action
+  `WHEN MATCHED ... THEN DELETE` action; `insert_column` on a not-matched INSERT
+  supports column-only, value-only, and paired modes, and existing VALUES cells
+  can be replaced independently
 - common DDL: `CREATE TABLE`, `ALTER TABLE ADD`, `CREATE VIEW`,
   `CREATE INDEX`, `DROP TABLE`, and `TRUNCATE TABLE`
 - compatible mapping for the `IDENTITY` column property
@@ -111,6 +113,12 @@ return `SQLPARSER_STATUS_UNSUPPORTED` and do not return a usable handle:
   preserved.
 - Attributable expression fragments in View JSON use the public SQL Server
   form.
+- An omitted MERGE INSERT target-column list still emits
+  `target_list_selector`. A column-only patch can materialize that list, a
+  value-only patch can append a VALUES cell while keeping the list omitted, and
+  an explicit list continues to support paired insertion on both sides. If an
+  explicit list exists when the patch batch finishes, the core patch API
+  validates equal column/value widths and rolls back the batch on failure.
 - Query Graph uses `alias_quoted_identifier` for bracket-delimited relation
   aliases and `output_quoted_identifier` for explicit bracket-delimited output
   aliases or inherited bracket-delimited field names when no explicit alias
@@ -129,7 +137,7 @@ The SQL Server support boundary is defined by:
 - `tests/unit/test_sqlserver_dialect_case_matrix.c`
 - `tests/unit/test_stability.c`
 
-The SQL Server matrix contains 626 cases, all with `status = "final"`, and 1872
+The SQL Server matrix contains 627 cases, all with `status = "final"`, and 1875
 independent patches. Three cases respectively verify INSERT, UPDATE, and DELETE
 with 8↔8 OUTPUT-target/sink-column pairs and atomic head, middle, and tail
 insertions that produce 9↔9 pairs.
